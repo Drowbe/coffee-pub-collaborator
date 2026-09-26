@@ -336,3 +336,86 @@ Templates are bundled files only (`templates/<id>.json`, read by `server/templat
 2. **An owner on a hosted server exporting their environment's template as a file.** Recommended: yes, read-only (export only), so they can take it to a single install; import stays the host's.
 3. **A bundled template's `version`.** Recommended: raised by hand only when its applied-once part changes; a change to words or icons alone needs no new version, since those are live.
 
+
+## Addendum 3: editing a bundled template
+
+**Status:** approved by Thomas 2026-09-26; not built. Reverses addendum 2's "Bundled templates can't be edited" on the host console. Duplicate is GitHub issue #91. Hosted servers only: a single install still has no template editor.
+
+### Decided (2026-09-26)
+
+1. **The host edits a bundled template in place.** The edits are a layer over the shipped file, kept in `host.json` beside host templates. The id stays, so environments made from it get the fix. Each edit raises the version, as a host template's edit does: words, home icon and module names and icons follow at once; the rest is offered on the Template tab.
+2. **Edited** badge and **Reset to shipped**, which removes the layer and raises the version.
+3. **A newer image ships a changed bundled template while the host has edits:** the edits are kept and the console shows "<name> was updated in this image: review", with take the new version (drops your edits), keep yours (clears the notice), or compare.
+4. **Every edit goes through the same checks** (`templates.problemsOf`). An edited bundled template exports as the merged template plus `edited: true`.
+5. **Duplicate (#91)** makes a separate host template at version 1.
+6. **Delete stays refused for a bundled template; hiding it is allowed.**
+
+### The stored shape
+
+`host.json` gains `bundledEdits: [{ id, template, version, base, hidden, updatedAt }]`, one record per bundled id the host has touched:
+
+- `template`: the whole edited template (the fields of `templates.FIELDS` except `version`), or `null` when not edited (after a reset, or a record that only hides).
+- `version`: the version environments see. First edit: the shipped version + 1. Every later edit, a reset and a take-new: `version` + 1. It never goes down.
+- `base: { version, fingerprint }`: the shipped file the edits were made against. `fingerprint` is `templates.appliedOnceFingerprint(shipped)`, the same value `tools/template-versions.json` records.
+- `hidden`: a boolean.
+
+**The merge rule is whole, not field by field:** while `template` is set it is the template, and the shipped file is not read. Why: the editor already sends and checks a whole template; "keep yours" then means exactly what the host sees, with no shipped change leaking into some fields and not others; and compare is two whole templates side by side.
+
+**The template in use** (`templateCatalog`): for a bundled id with a record, `{ ...(record.template ?? shipped), id, version: record.version, source: 'bundled', edited: record.template !== null, hidden: record.hidden }`; without one, the shipped file as today with `edited: false`. A record whose id is no longer shipped is ignored, with a log line. A host template with a bundled id still wins, as today.
+
+**At start**, for each record whose `base` differs from the shipped file's version or fingerprint: with `template: null`, set `version` + 1 and `base` to the shipped file (nothing to lose, so no notice); with a template, leave it: the notice is open while `base` differs.
+
+### Routes (host admin, hosted server)
+
+- `GET /api/host/templates`: each item adds `edited` (boolean) and `update`: `null`, or `{ shippedVersion }` while a notice is open.
+- `GET /api/host/templates/:id`: for an edited bundled template adds `shipped`: the shipped template in full, for compare.
+- `PATCH /api/host/templates/:id` on a bundled id: now allowed, the same body and checks as a host template (400 `{ error, problems }`). Creates or updates the record and raises `version`; `{ hidden }` alone changes no version. Answers `{ template }`. The 403 "Bundled templates can't be edited; export one to start your own." is removed.
+- `DELETE /api/host/templates/:id/edits`: reset to shipped. Sets `template: null`, `version` + 1, `base` to the shipped file; answers `{ template }`. 404 "There is no template called <id>."; 400 "Only a bundled template can be reset." for a host template; 409 "<name> has no edits to reset." when not edited.
+- `POST /api/host/templates/:id/update { keep: 'shipped' | 'mine' }`: answers the notice. `shipped` is a reset (above); `mine` sets `base` to the shipped file, version unchanged. Answers `{ template }`. 409 "There is no update to review for <name>." when no notice is open; 400 "keep must be shipped or mine."
+- `POST /api/host/templates/:id/duplicate { id, name }` (#91): a new host template from the template in use (edited or not), `version: 1`, `hidden: false`. 201 `{ template }`; 409 "There is already a template called <id>."; 400 `{ error, problems }` from `problemsOf`; 404 as above. Works for host templates too.
+- `DELETE /api/host/templates/:id` on a bundled id: still 403, now "Bundled templates can't be deleted. Hide it instead."
+- `GET /api/host/templates/:id/export`: the template in use; an edited one's file adds `"edited": true`. Every import ignores `edited` without listing it in `dropped`.
+- Every change above runs `refreshTemplateLive(id)` when the template in use changed.
+
+### The console (Templates tab)
+
+- A bundled row: "Bundled, version N", an **Edited** badge when edited, and **Edit**, **Hidden**, **Export**, **Duplicate**, and **Reset to shipped** (shown only when edited; confirm "Reset <name> to the shipped version? Your edits are removed."). No Delete.
+- A host row adds **Duplicate**.
+- The editor for a bundled template is the host template editor, titled "Edit <name>", with the hint "Your edits are kept over the shipped template."
+- **Duplicate** asks for the new id and name, then opens the new template in the editor.
+- **The notice**, above the list, one per open update: "<name> was updated in this image: review". **Review** opens a compare panel: each field that differs, shipped beside yours, then **Take the new version** (confirm "This drops your edits to <name>.") and **Keep mine**.
+
+### Check cases (`tools/check-templates.mjs`)
+
+1. First edit of a bundled template: version = shipped + 1, `edited: true`, the id unchanged; an environment made from it reads the new words at once and is offered a changed applied-once part.
+2. An edit that fails `problemsOf` is refused with the same problems as for a host template, and nothing is stored.
+3. Reset: `edited: false`, the shipped fields back, version + 1 (never back to the shipped number).
+4. A changed shipped file (a new `base` fingerprint or version) with edits: `update` is set, the edits are kept; `keep: 'mine'` clears it with no version change; `keep: 'shipped'` drops the edits and raises the version.
+5. The same with no edits: no notice, version + 1 at start.
+6. Hide a bundled template: gone from `templateChoices`, still read by environments made from it, no version change.
+7. DELETE of a bundled id: 403; reset of a host template: 400; reset of an unedited one: 409.
+8. Duplicate: a host template at version 1 with the fields of the template in use; a taken id 409.
+9. Export of an edited template carries `edited: true` and the merged fields; importing it (under a new id) succeeds and lists no `dropped`.
+10. The single install: none of these routes exist.
+
+### Acceptance
+
+- On a hosted server the host edits Travel on the console; environments made from Travel show the new words without a reload of the server, and the Template tab offers any new module. The row shows **Edited**.
+- **Reset to shipped** brings back the shipped template and the version still rises.
+- With edits kept and a newer image whose Travel changed, the notice shows; each of its three choices works as above.
+- Duplicate, hide and export behave as above; Delete is never offered for a bundled template.
+- `npm run check` passes.
+
+### Files to touch
+
+`server/host-registry.js` (`bundledEdits`: get, put, remove), `server/index.js` (`templateCatalog`, `templateSummary`, the routes, the start-up pass), `server/template-file.js` (`edited` out, ignored in), `public/host-templates.js` and `public/host.html` (rows, badge, notice, compare, duplicate), `tools/check-templates.mjs`.
+
+### Left to build, in order
+
+1. **The server** (server-development): the stored shape, the catalog, the routes, the start-up pass, the checks. Done when `npm run check` passes. Verify: checked by the tool; live on `BASE_DOMAIN=localhost` with `DATA_DIR` under `/tmp`.
+2. **The console** (experience-design): the rows, editor, notice, compare and duplicate. Verify: live in a browser. Nothing here needs a call.
+3. **The documentation** (content-manager): the host's guide to templates and architecture-environments.
+
+### Open questions
+
+1. **A shipped change to live parts only** (words, home icon, module names or icons). Decided (PM, 2026-09-26): record a fingerprint of the whole shipped template in `base` as well, and raise the "updated in this image" notice when either fingerprint differs, so an edited template never silently keeps old words.

@@ -1740,6 +1740,31 @@
     if (e.target.id === 'f-roundtrip') roundTripSwitched(e.target);
   });
   let deleteArmedInEditor = false;
+  let deleteAsking = false;
+  // A plan object others point at says so before the usual question (plan-linked-objects, step 4).
+  async function confirmPlanDelete(ed, b) {
+    if (deleteAsking) return;
+    if (!deleteArmedInEditor) {
+      deleteAsking = true;
+      let n = 0;
+      if (host.objects && host.objects.linksTo) {
+        try {
+          const summaries = await host.objects.linksTo(planRef(ed.id));
+          n = Array.isArray(summaries) ? summaries.length : 0;
+        } catch { /* the usual question still stands */ }
+      }
+      deleteAsking = false;
+      if (!b.isConnected) return;
+      deleteArmedInEditor = true;
+      b.textContent = n ? `Used by ${n}. Really delete?` : 'Really delete?';
+      setTimeout(() => { deleteArmedInEditor = false; if (b.isConnected) b.textContent = 'Delete'; }, 4000);
+      return;
+    }
+    deleteArmedInEditor = false;
+    const id = ed.id;
+    closeEditor();
+    attempt(() => plan.removeItem(id));
+  }
   $('editor').addEventListener('click', (e) => {
     if (e.target === $('editor')) return closeEditor();
     const b = e.target.closest('button');
@@ -1763,16 +1788,8 @@
       const ed = state.editing;
       if (!ed || !ed.id) return;
       if (askDeleteLegs(ed.openedId || ed.id, b, closeEditor)) return;
-      if (!deleteArmedInEditor) {
-        deleteArmedInEditor = true;
-        b.textContent = 'Really delete?';
-        setTimeout(() => { deleteArmedInEditor = false; if (b.isConnected) b.textContent = 'Delete'; }, 4000);
-        return;
-      }
-      deleteArmedInEditor = false;
-      const id = ed.id;
-      closeEditor();
-      attempt(() => plan.removeItem(id));
+      confirmPlanDelete(ed, b);
+      return;
     }
   });
 

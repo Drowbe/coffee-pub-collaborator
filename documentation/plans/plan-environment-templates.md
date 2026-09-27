@@ -339,7 +339,7 @@ Templates are bundled files only (`templates/<id>.json`, read by `server/templat
 
 ## Addendum 3: editing a bundled template
 
-**Status:** approved by Thomas 2026-09-26; not built. Reverses addendum 2's "Bundled templates can't be edited" on the host console. Duplicate is GitHub issue #91. Hosted servers only: a single install still has no template editor.
+**Status:** approved by Thomas 2026-09-26; **built** (2026-09-26), both steps, in pull request #97 (GitHub #91). As built: `base` also keeps `whole`, a fingerprint of the whole shipped template apart from its version (`templates.wholeFingerprint()`), per the decided open question below, so the stored-shape bullet's `{ version, fingerprint }` is `{ version, fingerprint, whole }`; the notice has a **Review** button that opens the compare panel; Duplicate asks for the id and name in two prompts. Documented in [architecture-environments](../architecture/architecture-environments.md), "Templates", and [userguide-templates](../userguides/userguide-templates.md). Checked by `tools/check-templates.mjs` and `tools/check-template-switch.mjs`, and the full `npm run check` passed on the Mac; the console was read as code only, not walked live. Reverses addendum 2's "Bundled templates can't be edited" on the host console. Duplicate is GitHub issue #91. Hosted servers only: a single install still has no template editor.
 
 ### Decided (2026-09-26)
 

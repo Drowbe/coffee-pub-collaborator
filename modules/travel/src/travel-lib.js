@@ -437,20 +437,37 @@
     return Boolean(main) && item.phase === main.id;
   }
 
-  // Move the trip's first or last day out so every given day sits on it. Only grows; never shrinks. Null when
-  // there is no trip yet, when the trip already covers them, or when the object is in a phase that is not the main one.
+  // True when `end` is one of the first MAX_DAYS days from `start`, counting the start. The plan never
+  // shows more than that (tripDays), so a trip must not grow past it either (GitHub #76).
+  function withinDays(start, end) {
+    if (!isYmd(start) || !isYmd(end) || end < start) return false;
+    const first = parseYmd(start);
+    for (let i = 0; i < MAX_DAYS; i += 1) {
+      const k = ymd(new Date(first.getFullYear(), first.getMonth(), first.getDate() + i));
+      if (k >= end) return true;
+    }
+    return false;
+  }
+
+  // Move the trip's first or last day out so every given day sits on it. Only grows; never shrinks, and never
+  // past MAX_DAYS. A day that would make it longer is listed in `outside` and left off. Null when there is no
+  // trip yet, when the trip already covers every day, or when the object is in a phase that is not the main one.
   function coverTrip(trip, dates, item, phases) {
     if (item && !phaseExtendsTrip(item, phases)) return null;
     if (!trip || !isYmd(trip.start)) return null;
     let start = trip.start;
     let end = isYmd(trip.end) ? trip.end : trip.start;
-    let changed = false;
+    const outside = [];
     for (const d of dates || []) {
       if (!isYmd(d)) continue;
-      if (d < start) { start = d; changed = true; }
-      if (d > end) { end = d; changed = true; }
+      const nextStart = d < start ? d : start;
+      const nextEnd = d > end ? d : end;
+      if (!withinDays(nextStart, nextEnd)) outside.push(d);
+      else { start = nextStart; end = nextEnd; }
     }
-    return changed ? { start, end } : null;
+    const changed = start !== trip.start || end !== (isYmd(trip.end) ? trip.end : trip.start);
+    if (!changed && !outside.length) return null;
+    return { ...(changed ? { start, end } : {}), ...(outside.length ? { outside } : {}) };
   }
 
   // When an object's summary says it is: its `when` may be a day ("2026-10-03"), a moment (ISO text) or milliseconds (a poll's

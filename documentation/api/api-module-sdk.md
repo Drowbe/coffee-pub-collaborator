@@ -66,7 +66,11 @@ const t = await host.ready();
 // t.permissions  { view: true, edit: false }   the module's own permissions, by short key
 // t.theme     the current theme tokens; host.on('theme', (theme) => { ... }) fires whenever the theme or the light or dark mode changes
 host.can('edit');   // true or false, from the permissions above; always true for an owner
+host.space();       // { id, name, createdAt } for the space this page is open in; null on an environment page or a keyed page
+host.phases();      // the environment's template's phases, [{ id, label, main? }] in order; [] when it has none
 ```
+
+`host.space()` and `host.phases()` answer from what `ready()` loaded, so they need no await. Any module may read them. The phases are the template's live list: a host's edit of the template shows on the next load (the next `ready()`), not in a page already open. At most one phase has `main: true`; its dates are the ones a module should treat as the plan's own. The Planner uses both for its name and its phase line.
 
 Every call returns a promise. Do not call anything before `ready()` resolves.
 

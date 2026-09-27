@@ -12,7 +12,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-plan.js');
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'planName', 'createdDay'];
+const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'phaseLine', 'planName', 'createdDay'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 
 let n = 0;
@@ -908,6 +908,16 @@ test('the current phase is the latest one that has started', () => {
   assert.equal(lib.phaseOf({ phase: 'gone' }, TRAVEL_PHASES, trip, '2026-10-03', null), 'trip');
   assert.equal(lib.phaseOf({}, TRAVEL_PHASES, trip, '2026-10-03', null), 'trip');
   assert.equal(lib.currentPhase([], trip, '2026-10-03', null), null);
+});
+
+test('the phase line names the current phase, and counts toward or through the main one', () => {
+  const trip = { start: '2026-10-01', end: '2026-10-09', phases: {} };
+  assert.equal(lib.phaseLine([], trip, '2026-09-15', null), '');
+  assert.equal(lib.phaseLine(TRAVEL_PHASES, trip, '2026-09-15', null), 'Planning · 16 days to go');
+  assert.equal(lib.phaseLine(TRAVEL_PHASES, trip, '2026-09-30', null), 'Planning · 1 day to go');
+  assert.equal(lib.phaseLine(TRAVEL_PHASES, trip, '2026-10-03', null), 'Trip · day 3 of 9');
+  assert.equal(lib.phaseLine(TRAVEL_PHASES, trip, '2026-10-15', null), 'Post-trip');
+  assert.equal(lib.phaseLine(TRAVEL_PHASES, { phases: {} }, '2026-09-15', null), 'Planning');
 });
 
 test('days run from the earliest date to the latest, and there are none without one', () => {

@@ -384,6 +384,28 @@
     return cur ? cur.id : null;
   }
 
+  // Whole days from one calendar day to another. A daylight-saving shift is still one day.
+  const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / DAY_MS);
+
+  // The line under the plan's name. The current phase's label, then the days until the main phase when that start
+  // is still ahead, or which day of it this is while it is on. The label alone otherwise. Nothing when there are no phases.
+  function phaseLine(phases, trip, today, created) {
+    if (!Array.isArray(phases) || !phases.length || !isYmd(today)) return '';
+    const cur = currentPhase(phases, trip, today, created);
+    if (!cur) return '';
+    const mainAt = phases.findIndex((p) => p && p.main);
+    const start = mainAt >= 0 ? effectiveStart(phases, trip, mainAt, created) : null;
+    const end = mainAt >= 0 ? phaseSpan(phases[mainAt], trip).end : null;
+    if (cur.main && start && end && today >= start && today <= end) {
+      return `${cur.label} · day ${daysBetween(start, today) + 1} of ${daysBetween(start, end) + 1}`;
+    }
+    if (start && today < start) {
+      const n = daysBetween(today, start);
+      return `${cur.label} · ${n} ${n === 1 ? 'day' : 'days'} to go`;
+    }
+    return cur.label;
+  }
+
   // The days an object occupies on the plan: its own day, a stay's check-out, and the day a journey arrives.
   function coverDaysOf(item) {
     if (!item) return [];

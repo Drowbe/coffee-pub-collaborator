@@ -23,6 +23,14 @@ body { display: flex; flex-direction: column; overflow: hidden; }
    The four views live in the toolbar (host.ui.viewSwitch), always drawn there. */
 .hosted-header .tools { display: none; }
 .trip-title { margin: 0; font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
+.phase-line { margin: 2px 0 0; color: var(--text); font-weight: 600; }
+.phase-head { margin: 16px 0 2px; }
+.phase-head h2 { margin: 0; font-size: 13px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text-dim); }
+.undated { margin: 0 0 8px; }
+.undated > h2 { margin: 0 0 8px; font-size: 16px; }
+.undated-group h3 { margin: 10px 0 4px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
+.phase-dates { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; margin: 0 0 8px; }
+.phase-dates > span { flex: 1 0 8em; font-weight: 600; }
 .trip-meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; color: var(--text-dim); }
 .trip-when { color: inherit; }
 .trip-sep { color: var(--text-dim); }

@@ -64,14 +64,17 @@
     $('msg').hidden = list.length > 0;
     $('msg').textContent = 'No trips planned.';
     $('list').hidden = list.length === 0;
+    const phases = typeof host.phases === 'function' ? host.phases() : [];
     $('list').innerHTML = list.map(([spaceId, t]) => {
       const r = spaces.get(spaceId);
       const on = daysUntil(t, today) <= 0;
       const todays = on ? sortDay([...(planned.get(spaceId) || new Map()).values()].filter((i) => i.date === today)).slice(0, MAX_TODAY) : [];
       const range = t.end && t.end !== t.start ? `${parseYmd(t.start).toLocaleDateString([], { month: 'short', day: 'numeric' })} - ${parseYmd(t.end).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : parseYmd(t.start).toLocaleDateString([], { month: 'short', day: 'numeric' });
+      const name = planName(t, r || null) || t.destination || 'Trip';
+      const when = phaseLine(phases, t, today, createdDay(r || null)) || whenText(t, today);
       return `<div class="trip">
-        <button type="button" class="item" data-trip="${esc(spaceId)}" title="${esc(t.title || t.destination || 'Trip')}${r ? ' - ' + esc(r.name) : ''}">
-          <span class="ri"${r ? ` title="${esc(r.name)}"` : ''}>${r && r.svg ? r.svg : ''}</span><span class="stack"><span class="what">${esc(t.title || t.destination || 'Trip')}</span><span class="sub">${esc(range)}</span></span><span class="when${on ? ' on' : ''}">${esc(whenText(t, today))}</span><span class="go">${goIcon}</span></button>
+        <button type="button" class="item" data-trip="${esc(spaceId)}" title="${esc(name)}${r ? ' - ' + esc(r.name) : ''}">
+          <span class="ri"${r ? ` title="${esc(r.name)}"` : ''}>${r && r.svg ? r.svg : ''}</span><span class="stack"><span class="what">${esc(name)}</span><span class="sub">${esc(range)}</span></span><span class="when${on ? ' on' : ''}">${esc(when)}</span><span class="go">${goIcon}</span></button>
         ${todays.map((i) => `<button type="button" class="item today" data-plan="${esc(spaceId)}|${esc(i.id)}"><span class="when">${esc(i.time ? host.util.time(i.time) : 'today')}</span><span class="what">${esc(i.title)}</span></button>`).join('')}
       </div>`;
     }).join('');

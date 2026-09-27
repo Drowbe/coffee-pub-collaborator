@@ -68,6 +68,16 @@ test('coverTrip grows the first and last day to include given dates, and never s
   assert.deepEqual(lib.coverDaysOf(flight), ['2026-10-05', '2026-10-06']);
 });
 
+test('coverTrip will not grow a trip past 60 days, and names the days it leaves off', () => {
+  const trip = { start: '2026-01-01', end: '2026-01-10' };
+  assert.deepEqual(lib.coverTrip(trip, ['2026-03-01']), { start: '2026-01-01', end: '2026-03-01' });
+  assert.deepEqual(lib.coverTrip(trip, ['2026-03-02']), { outside: ['2026-03-02'] });
+  assert.deepEqual(lib.coverTrip({ start: '2026-01-01', end: '2026-03-01' }, ['2025-12-31']), { outside: ['2025-12-31'] });
+  assert.equal(lib.coverTrip({ start: '2026-01-01', end: '2026-03-01' }, ['2026-02-01']), null);
+  const both = lib.coverTrip(trip, ['2026-01-20', '2026-06-01']);
+  assert.deepEqual(both, { start: '2026-01-01', end: '2026-01-20', outside: ['2026-06-01'] });
+});
+
 test('dayLabel says which day of how many', () => {
   const days = lib.tripDays({ start: '2026-09-29', end: '2026-10-05' });
   assert.equal(lib.dayLabel('2026-10-01', days).position, 'Day 3 of 7');

@@ -126,17 +126,18 @@ async function duplicateTemplate(t) {
   } catch (err) { say($('templates-status'), err.message, true); }
 }
 
-const COMPARE_FIELDS = [
+// Labels read at compare time, so they follow the words once the page has them.
+const COMPARE_FIELDS = () => [
   ['name', 'Name'],
   ['description', 'Description'],
   ['words', 'Words'],
   ['icons', 'Home icon'],
-  ['moduleNames', 'Module names'],
-  ['moduleIcons', 'Module icons'],
-  ['modules', 'Modules'],
+  ['moduleNames', `${word('module', { cap: true })} names`],
+  ['moduleIcons', `${word('module', { cap: true })} icons`],
+  ['modules', word('module', { many: true, cap: true })],
   ['settings', 'Settings'],
   ['lobby', 'Lobby'],
-  ['spaceDefaults', 'New space'],
+  ['spaceDefaults', `New ${word('space')}`],
   ['reactions', 'Reactions'],
   ['theme', 'Theme'],
   ['iconSet', 'Icons'],
@@ -146,7 +147,7 @@ function openCompare(template) {
   comparing = template.id;
   const shipped = template.shipped || {};
   $('template-compare-title').textContent = `${template.name} was updated in this image: review`;
-  const rows = COMPARE_FIELDS.filter(([key]) => shown(template[key]) !== shown(shipped[key]));
+  const rows = COMPARE_FIELDS().filter(([key]) => shown(template[key]) !== shown(shipped[key]));
   $('template-compare-fields').innerHTML = rows.length
     ? rows.map(([key, label]) => `<div class="template-compare-row"><strong>${escapeHtml(label)}</strong><pre>${escapeHtml(shown(shipped[key]))}</pre><pre>${escapeHtml(shown(template[key]))}</pre></div>`).join('')
     : '<p class="hint">Nothing in the template differs. The shipped file\'s version changed.</p>';

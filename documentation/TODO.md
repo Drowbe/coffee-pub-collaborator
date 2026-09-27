@@ -14,6 +14,7 @@ side of things.
 - #3 Entering a space: Enter as the main action, the call its own control ([plan-entering](plans/plan-entering.md)).
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
 - #95 Planner phases: a plan in every space from the start, phases from the template, and what opens on entering ([plan-planner-phases](plans/plan-planner-phases.md)).
+- #96 A dated object on a plan kept in step with the calendar, both ways ([plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)), after the rest of [plan-linked-objects](plans/plan-linked-objects.md): dead links cleaned up, renames and date moves carried across. Overlaps #13.
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.

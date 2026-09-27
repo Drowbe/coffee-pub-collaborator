@@ -1,51 +1,79 @@
-# Linked Items Plan
+# Linked Objects Plan
 
-**Audience:** the author deciding how links between modules are kept true, and whoever builds it afterwards.
+**Audience:** Thomas, who decides how links between modules stay true, and whoever builds it: server-development (the link table, the store hooks, the checks) and experience-design (the Planner, the SDK).
 
-**Status:** proposed; partly built. Built (Planner 0.6.4, cc35dfb): a resolve answer carries a state (`gone`, `hidden`), and the Planner shows a deleted or hidden linked object as such, lets it be removed and never opens its editor; it draws a linked object from its current summary when it can. Not built: cleaning up dead links, and carrying a changed date across (an event moved, the plan stays on the old day).
+**Status:** approved by Thomas, September 26, 2026, with every recommendation below accepted (the open questions and the suggested rules). Built (Planner 0.6.4, cc35dfb): a resolve answer carries `state` (`gone`, `hidden`), and the Planner draws a deleted or hidden linked object as such, offers Remove and never opens its editor. Not built: dead links cleaned up everywhere, a link showing the object as it is now, a link following its object's date. The two-way pairs of GitHub #96 build on this plan: [plan-plan-calendar-sync](plan-plan-calendar-sync.md).
 
-## The bug that started it
+## Why
 
-Add a poll to a plan; the plan shows it. Delete the poll. The plan still shows the poll, and choosing it opens an "edit" dialog for a poll that no longer exists. The same is true of anything one module points at from another: a task, an event, a place, a stay.
+Add a poll to a plan, delete the poll, and the plan still shows it. The same holds for anything one module points at in another. A pointer (`{ module, kind, id, scope, space? }`) is stored by the holder; `server/module-links.js` keeps what points at what (`set`, `to`, `from`); `resolveRef` and `POST /api/objects/resolve` (`server/index.js`) answer a summary or `{ state }`. Nothing tells a holder that its object changed or went, and nothing cleans up when no page is open.
 
-## What exists
+## Rules (Thomas's)
 
-- A pointer (`{ module, kind, id, scope, room }`) names an item in another module. A module asks `host.refs.resolve` for its card, and the server answers per viewer: a card, or an error such as "that item is no longer there" (404).
-- The server keeps a table of what points at what (`setLinks`), so an item can ask what links to it (`linksTo`, backlinks).
-- Modules can hear what happens in others (`events.subscribe`), for example a poll finishing.
-- Planner items keep a stored copy of what they show (a title) as well as the pointer.
+- **Delete deletes everywhere.** Every link to a deleted object goes, or is left as a "No longer available" placeholder whose one action is Remove.
+- **Update updates everywhere.** A holder shows what the object says now; a stored copy is only the fallback.
+- **Dates move.** A link placed by its object's date moves when that date changes, unless a person pinned it to a day.
+- **Access is per viewer**, at the time of reading: `hidden`, never `gone`, for an object the viewer may not see.
 
-## What is missing
+## The contract
 
-1. **Nothing tells a holder that the item went.** A deleted item resolves to an error, but the Planner shows its stored title anyway, as if all were well, and its click handler opens the item's editor.
-2. **Nothing cleans up.** The dead link stays for ever, on every page that held it.
-3. **Nothing carries a change across.** Rename an item and a stored copy is stale. Move an event's date and the plan does not move with it.
-4. **Access changes are invisible.** A room leaving, a permission removed or an item made private should change what each viewer sees, without the holder guessing.
+### Store hook (server)
 
-## Rules (the author's, made specific)
+- The `PUT` and `DELETE /api/modules/:id/data/:key` routes read the old value before writing and, after a successful write, call `objectSync.afterWrite({ module, scopeKey, key, before, after, by, tz })` (new `server/object-sync.js`). Writes made by the server itself (hooks, migrations, this file) never call it, so nothing it writes is propagated again.
+- `tz`: the host side of `storage.set` and `storage.remove` (`public/module-host.js`) sends the browser's IANA zone (`Intl.DateTimeFormat().resolvedOptions().timeZone`) as `tz` in the `PUT` body and as `?tz=` on `DELETE`. The server accepts it only if `Intl.DateTimeFormat(undefined, { timeZone })` accepts it, else uses `process.env.TZ` or `UTC`. It is used only to turn an instant into a day and a time.
+- `afterWrite` maps `key` to a produced kind by its `refs.produces[].key` pattern; a key that matches no kind does nothing.
 
-- **Delete deletes everywhere.** When an item is deleted, every link to it goes: removed from the plans, tasks and pages that held it, or, where something has to be left for a person to see, a clear "no longer available" placeholder with one action: **Remove**. It never opens the editor of an item that is not there.
-- **Update updates everywhere.** A holder shows what the item says now (title, place, done, dates), read from its card, never from a copy it stored. A stored copy is only the fallback while the card cannot be read.
-- **Dates move.** A linked item that has a date (an event, a poll's result) and is placed by that date moves when the date changes. A person can pin an item to a day instead, and then it does not move.
-- **Visibility and access change everywhere.** What a viewer may see is decided per viewer at the time of reading. Losing access shows "not available to you" (not "deleted": the viewer must not learn more than they may). Regaining it shows the item again.
+### Change events (server and SDK)
 
-## Design
+- For a written or deleted object that anything points at (`moduleLinks.to(ref)` is not empty), the server emits `refchange` `{ ref, change: 'updated' | 'deleted' }`. `updated` is sent only when its summary (`objectSummary`) differs before and after.
+- It goes out on the host's module stream (the handler beside `onLinks`, `server/index.js`) as `event: refchange`, only to frames of the modules that hold a link to it, and only where `place()` allows the viewer.
+- SDK: `host.objects.onChange(fn)`, `fn({ ref, change })`, returns an off function (`public/sdk/host.js`). The plan's older text said `host.refs.onChange`; the SDK's namespace is `host.objects`.
 
-1. **The server knows the graph, so the server tells holders.** Every write or delete of an item that has a pointer key in the link table raises a generic change: `deleted`, `updated` (its card changed) or `access` (who may see it changed). Modules do not have to remember to announce anything; the store is where it is seen. Holders hear it as `host.refs.onChange(fn)`, with `{ ref, change }`, whenever their page is open.
-2. **Holders declare what they hold, so the server can clean up when no page is open.** A module names in `module.json` which of its stored items hold a pointer and in which field, and what should happen: `refs.holds: [{ key: "item:", field: "ref", onDelete: "remove" | "mark", sync: { title: "title", date: "when" } }]`. `remove` deletes the holding item; `mark` sets it aside as "gone" (for a place a person still wants to see was there). `sync` names the fields kept in step with the card. The server applies these itself, so the result is right even if nobody has the plan open.
-3. **A resolve answer has a state.** `card`, or `{ state: "gone" | "hidden" }`, never a bare error the holder has to interpret. `gone`: the item no longer exists. `hidden`: it exists but this viewer may not see it.
-4. **Holders draw the states.** A "gone" holder is a muted placeholder (a broken-link icon, the last known title struck through, "No longer available", a **Remove** action); a "hidden" one says "Not available to you". Neither opens an editor. The design side draws these once (for the card family in Planner, the small pill in Places, the row in a task), and every module that links follows the same look.
-5. **Personal items** follow the same rules with one more: a pointer to something in Mine resolves only for its owner and is `hidden` for everyone else, so it is never stored on a shared item without making a room copy first (built for a plan).
+### Held pointers (`module.json`)
 
-## Order of work
+- A kind may declare what its objects hold, in `refs.produces[]`:
+  `"holds": { "field": "ref", "onDelete": "remove" | "mark", "markField"?: "gone", "follow"?: { "title"?: "<field>", "day"?: "<field>", "pin"?: "<field>" } }`.
+  `server/modules.js` refuses anything else (field names match `^[A-Za-z][A-Za-z0-9_]{0,31}$`, `markField` only with `mark`, at most one `holds` per kind).
+- **On delete** of an object X, for each link `from -> X` whose `from` kind has `holds` and whose stored `value[field]` points at X: `remove` deletes the holding object and its links; `mark` writes `value[markField] = true` and keeps it. Both are server writes (`by` the deleter's key).
+- **On update** of X: `follow.title` writes X's summary title into the holder. `follow.day` writes the day of X's summary `when` (in the writer's `tz`) into the holder when all three hold: the holder's `day` is set, its `pin` field is not true, and its `day` equals the day of X's old `when`. A holder with no day stays unplaced.
+- A holder is written only when a followed value differs (no empty writes). The holder's version goes up as usual, so an editor open on it gets the normal 409.
 
-1. **Now, to stop the visible bug:** the `state` in resolve answers, and holders using it: Planner shows the gone placeholder, never opens the editor of a missing item, and offers Remove. (Server Development, with the placeholder design from the interface side.)
-2. The server raising `deleted` and `updated` from the store and delivering them (`refs.onChange`), and holders refreshing live.
-3. `refs.holds` and the server-side cleanup and sync, starting with delete and title.
-4. Date sync for placed items, and the pin-to-a-day choice.
-5. Access changes as a change event, so viewers update without a reload.
+### The Planner (`travel`)
+
+- `module.json`, kind `plan`: `"holds": { "field": "ref", "onDelete": "remove", "follow": { "title": "title", "day": "date", "pin": "pinned" } }` (the `onDelete` value waits on open question 1).
+- `plan:<id>` gains `pinned` (boolean, `cleanItem` in `travel-lib.js`). The link editor gains `f-pinned`, "Keep on this day". Dragging a link to a day other than its object's day sets `pinned: true`; dragging it back to that day clears it.
+- `travel.js` calls `host.objects.onChange` and re-resolves the changed pointer (`resolveSummaries`) instead of waiting for a reload. The built gone and hidden placeholders stay as they are.
+
+### Deleting something others link to (owner modules)
+
+- When a kind has `backlinks: true`, the owner's delete confirmation reads `host.objects.linksTo(ref)` and, when there are any, says "Used by N." before the usual question (waits on open question 1).
+
+### Not in this build
+
+Access changes as an event (the old step 5): viewers still see a change of access on their next resolve.
+
+## Left to build, in order
+
+1. **Store hook and change events** (server-development): `server/object-sync.js`, the two data routes, `tz` in `public/module-host.js`, `refchange` on the stream, `host.objects.onChange`.
+2. **Held pointers** (server-development): `holds` in `server/modules.js`, delete and follow in `object-sync.js`.
+3. **The Planner** (experience-design): `holds` in `modules/travel/module.json`, `pinned`, `f-pinned`, the drag rule, `onChange`, `CONTRACT.md`. `travel` takes the next minor version (0.9.0 if #95's 0.8.0 is out first), in `module.json` and `tools/module-versions.json`.
+4. **"Used by N."** (experience-design), once open question 1 is answered: the delete confirmation in each bundled module with `backlinks` (Calendar, Planner), each with a patch version bump.
+
+## Verify
+
+A new check, `tools/check-links.mjs`, added to `npm run check`, runs a throwaway server (`DATA_DIR` under `/tmp`) with two small test modules declared inside the check (a holder and an owner), so no bundled module is named.
+
+- **Step 1:** a write to a linked object sends one `refchange` `updated` to the holder's stream, and none to a module that holds no link; a write that leaves the summary the same sends none; a delete sends `deleted`; an unknown `tz` falls back without error.
+- **Step 2:** delete with `remove` removes the holder and its links; with `mark` sets `markField` and keeps it; a holder whose stored field points elsewhere is untouched; a rename rewrites the followed title; a date change moves a placed holder, and does not move a pinned one, an unplaced one or one on another day; a timed `when` near midnight lands on the writer's day for two different `tz`; a second identical write makes no holder write; manifests with a bad `holds` are refused.
+- **Step 3:** `check-travel` cases for `pinned` in `cleanItem`; the drag rule and live refresh are checked live in the dev browser with the Planner and Calendar open side by side. No real LiveKit call is needed.
+
+## Acceptance
+
+- Delete a poll that is on a plan: with nobody on the plan, the entry is gone when the plan next opens; with the plan open, it goes within a second.
+- Rename a linked event: the plan shows the new title live, and after a reload with the Calendar disabled.
+- Move a linked event from the 3rd to the 5th: its plan entry moves to the 5th. A pinned entry stays.
+- Nobody sees an editor for an object that is gone.
 
 ## Open questions
 
-1. Delete: remove or mark, by default? Proposed: remove for plan entries and task links (they only ever pointed), mark for a saved place inside a plan that a person may want to see was once there.
-2. Does deleting an item that others link to warn first ("Used by 2 plans")? Proposed: yes, using the backlinks that already exist, in the owner module's delete confirmation.
+1. **Delete: remove or mark, and a warning.** Recommended: `remove` for the Planner's links (they only ever pointed), with "Used by N." in the owner module's delete confirmation so nobody is surprised. Blocks step 3's `onDelete` value and step 4.

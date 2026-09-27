@@ -250,6 +250,8 @@ Neither state opens the editor, and a click on the card does nothing; the only a
 
 A link stores `pinned` (a boolean; `cleanItem` keeps it). The editor shows `input#f-pinned` ("Keep on this day") only while a link is open. Dragging a link onto a day other than the day of the object it points at sets `pinned`; dragging it back onto that day clears it. The page calls `host.objects.onChange` and re-resolves the pointer, so a change shows without a reload. The kind declares `holds` (`field` `ref`, `onDelete` `remove`, `follow` of `title`, `date` and `pinned`), so the server removes the link when that object is deleted, copies its title, and moves the link with its day unless it is pinned.
 
+Kind `plan` also declares `dated` (`title`, `date`, `time`, `checkOut`) and `mirror: out`. An object with a date and no pointer gets a twin kept by the server. A link holds a pointer, so it does not. The page shows nothing new for that.
+
 ## The editor (for the card family)
 
 The same dialog (`#editor > form#form.editor-card`), rebuilt around **what kind of thing it is**. `tpl-editor2` in `travel.html` is the new form; the script fills `#editor` from it when it opens (the old form goes when the switch is done). `design/editor.html` is the reference (a harness for each type, dark and light, phone to wide).

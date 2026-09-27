@@ -135,6 +135,18 @@ try {
     assert.equal((await as('GET', `/api/modules/todo/data?scope=space&space=${side}`)).status, 200, 'another space is as before');
   });
 
+  await test('the module context names the space it is in, and has no phases until a template does', async () => {
+    const envScope = await as('GET', '/api/modules/calendar/context?scope=environment');
+    assert.equal(envScope.status, 200, envScope.text);
+    assert.equal(envScope.json.space, null);
+    assert.deepEqual(envScope.json.phases, []);
+    const sideSpace = (await as('GET', '/api/spaces')).json.spaces.find((s) => s.id === side);
+    const inSpace = await as('GET', `/api/modules/calendar/context?scope=space&space=${side}`);
+    assert.equal(inSpace.status, 200, inSpace.text);
+    assert.deepEqual(inSpace.json.space, { id: side, name: 'Side', createdAt: sideSpace.createdAt });
+    assert.deepEqual(inSpace.json.phases, []);
+  });
+
   const words = async () => (await call(server, '', 'GET', '/api/branding')).json;
   await test('an owner switches to travel: the words at once, the owner\'s own word and home icon kept, and the offer', async () => {
     const icon = (await as('GET', '/api/settings')).json.settings.icons.at(-1).id;
@@ -155,6 +167,16 @@ try {
     assert.deepEqual([again.status, again.json.template.offerOpen], [200, true], 'the same template: nothing changes');
     const view = (await as('GET', '/api/environment/template')).json;
     assert.deepEqual([view.template.id, view.template.source, view.offer.modules.length, view.choices.map((c) => c.id)], ['travel', 'bundled', 4, ['travel']]);
+  });
+
+  await test('switching to a template puts its phases on the module context at once', async () => {
+    const inSpace = await as('GET', `/api/modules/calendar/context?scope=space&space=${side}`);
+    assert.equal(inSpace.status, 200, inSpace.text);
+    assert.equal(inSpace.json.space.name, 'Side');
+    assert.deepEqual(inSpace.json.phases.map((p) => [p.id, Boolean(p.main)]), [['planning', false], ['booking', false], ['buffer', false], ['pre-trip', false], ['trip', true], ['post-trip', false]]);
+    const envScope = await as('GET', '/api/modules/calendar/context?scope=environment');
+    assert.equal(envScope.json.space, null);
+    assert.equal(envScope.json.phases.find((p) => p.main).id, 'trip');
   });
 
   await test('confirming part of the offer turns on only that, in every space but the Lobby; then 409', async () => {
@@ -270,13 +292,20 @@ try {
     const settings = (await asOwner('GET', '/api/settings')).json.settings;
     assert.deepEqual([settings.words.space.one, settings.reactions.map((r) => r.id), settings.template.source, settings.template.appliedVersion], ['voyage', ['wave'], 'host', 1]);
     assert.equal((await asOwner('GET', '/api/themes')).json.themes.find((t) => t.id === settings.activeThemeId).name, 'Harbour', 'its theme added and active');
+    assert.deepEqual((await asOwner('GET', '/api/modules/travel/context?scope=environment')).json.phases, [], 'no phases until the template lists them');
     const list = (await console_('GET', '/api/host/templates')).json.templates;
     assert.deepEqual(list.find((t) => t.id === 'harbour').usedBy, ['sail']);
     assert.equal(list.find((t) => t.id === 'travel').source, 'bundled');
     // An edit: the words at once, the version up, the new module offered on the Template tab, nothing forced.
-    const edited = await console_('PATCH', '/api/host/templates/harbour', { words: { space: { one: 'sail', many: 'sails' } }, modules: [...harbour.modules, 'calendar'] });
+    const edited = await console_('PATCH', '/api/host/templates/harbour', { words: { space: { one: 'sail', many: 'sails' } }, modules: [...harbour.modules, 'calendar'], phases: [{ id: 'planning', label: 'Planning' }, { id: 'sailing', label: 'Sailing', main: true }] });
     assert.deepEqual([edited.status, edited.json.template.version], [200, 2], edited.text);
     assert.equal((await call(server, 'sail', 'GET', '/api/branding')).json.words.space.one, 'sail', 'live at once');
+    const crossing = await asOwner('POST', '/api/spaces', { name: 'Crossing' });
+    assert.equal(crossing.status, 200, crossing.text);
+    const inSpace = await asOwner('GET', `/api/modules/travel/context?scope=space&space=${crossing.json.space.id}`);
+    assert.equal(inSpace.status, 200, inSpace.text);
+    assert.deepEqual(inSpace.json.space, { id: crossing.json.space.id, name: 'Crossing', createdAt: crossing.json.space.createdAt });
+    assert.deepEqual(inSpace.json.phases, [{ id: 'planning', label: 'Planning' }, { id: 'sailing', label: 'Sailing', main: true }], 'a phase edit is on the next read');
     const tab = (await asOwner('GET', '/api/environment/template')).json;
     assert.deepEqual([tab.template.version, tab.template.appliedVersion, tab.template.offerOpen, tab.offer.modules.map((m) => m.id)], [2, 1, true, ['calendar']]);
     assert.equal((await asOwner('GET', '/api/modules')).json.modules.some((m) => m.id === 'calendar'), false, 'nothing forced');

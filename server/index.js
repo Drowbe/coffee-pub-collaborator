@@ -1666,7 +1666,7 @@ function templateFields(body) {
 const bundledIds = () => bundledModules(BUNDLED_DIR).map((m) => m.id);
 // A template in full, for an editor or an import's answer: its fields, source, version and hidden.
 const fullTemplate = (t) => (t ? { ...t } : null);
-// Every built environment made from template `id` reads its live part (words, home icon, module names and icons) again.
+// Every built environment made from template `id` reads its live part (words, phases, home icon, module names and icons) again.
 function refreshTemplateLive(id) {
   for (const env of environments.values()) if (env.store.templateRecord?.id === id) templates.useLive(env.store, templateFor(env, id));
 }
@@ -5161,6 +5161,8 @@ app.get('/api/modules/:id/context', (req, res) => {
   const ctx = moduleAccess(req, res, 'read');
   if (!ctx) return;
   const { manifest, perms, who } = ctx;
+  const here = ctx.scope === 'space' ? store.spaceById(ctx.spaceId) : null;
+  const phases = Array.isArray(store.templatePhases) ? store.templatePhases : [];
   res.json({
     user: who.keyed ? { key: 'viewer', name: 'Viewer', role: 'viewer' } : who.user ? { key: who.user.key, name: who.user.displayName, role: who.user.role } : { key: 'guest', name: word('guest', { cap: true }), role: 'guest' },
     permissions: Object.fromEntries(manifest.permissions.map((p) => [p.key, Boolean(perms[`module.${manifest.id}.${p.key}`])])),
@@ -5172,6 +5174,9 @@ app.get('/api/modules/:id/context', (req, res) => {
     // `currencies`: the codes the server takes (as GET /api/currencies), for a module's currency picker.
     // `words`: every level's and role's words in this environment, as branding()'s (server/words.js), for host.locale().words.
     locale: { language: store.settings.language || 'en', clock: store.settings.clock === '24' ? '24' : '12', currency: store.settings.currency || 'USD', currencies: currencyCodes(store.settings.currency), words: store.resolvedWords() },
+    // The space this read is in, or null outside one. `phases` is the template's, live, or [] when there is none.
+    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt } : null,
+    phases: phases.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}) })),
   });
 });
 

@@ -851,6 +851,12 @@
     // load the icon font). Read stored data across them with storage.list(prefix, { scope: 'spaces' }),
     // which returns each item with its `spaceId`; 'change' events for those spaces carry `spaceId` too.
     spaces: () => call('spaces'),
+    // The space this module is open in: { id, name, createdAt }, or null on an environment page or a keyed page.
+    // Answered from the hello, so it is there once host.ready() has resolved.
+    space: () => (info && info.space) || null,
+    // The environment's template's phases, [{ id, label, main? }], or [] when it has none. Live: a template edit
+    // is in the next hello. Answered from the hello, so it is there once host.ready() has resolved.
+    phases: () => (info && Array.isArray(info.phases) ? info.phases : []),
 
     // Files an admin placed for this module (a `file` setting names one). `url(name)` is the address to read it from,
     // range requests included, for a module running in the page (a frame cannot fetch).

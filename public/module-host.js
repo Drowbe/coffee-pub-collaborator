@@ -642,6 +642,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         module: contextInfo.module,
         context: keyed ? { scope: 'keyed', spaceId: null, path: keyed.path, subject: keyed.subject, query: keyed.query || {} } : { scope, spaceId: scope === 'space' ? spaceId : null },
         locale: contextInfo.locale || { language: 'en', clock: '12', currency: 'USD', words: words() },
+        space: contextInfo.space || null,
+        phases: Array.isArray(contextInfo.phases) ? contextInfo.phases : [],
         theme: readTheme(),
         debug: debugOn(),
       };

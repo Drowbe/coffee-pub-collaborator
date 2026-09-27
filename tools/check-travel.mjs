@@ -35,6 +35,10 @@ test('a link item needs a pointer and may have no title', () => {
   assert.equal(lib.cleanItem({ id: 'l', kind: 'link' }), null);
   const l = lib.cleanItem({ id: 'l', kind: 'link', ref: { module: 'calendar', kind: 'event', id: 'e1', scope: 'space', space: 'lobby' } });
   assert.deepEqual(l.ref, { module: 'calendar', kind: 'event', id: 'e1', scope: 'space', space: 'lobby' });
+  assert.equal(l.pinned, false);
+  assert.equal(lib.cleanItem({ id: 'l', kind: 'link', ref: l.ref, pinned: true }).pinned, true);
+  assert.equal(lib.cleanItem({ id: 's', kind: 'stop', title: 'Museum', pinned: true }).pinned, true);
+  assert.equal(lib.cleanItem({ id: 's', kind: 'stop', title: 'Museum' }).pinned, false);
 });
 
 test('a stay cannot check out before it checks in', () => {

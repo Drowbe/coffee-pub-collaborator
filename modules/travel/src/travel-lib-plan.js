@@ -229,14 +229,23 @@
     }
 
     // Put the item at a place in a day (the drag, and "Move to..."): untimed items are ordered by hand, a timed
-    // one only changes day. Coming off the line, it leaves its joint.
+    // one only changes day. Coming off the line, it leaves its joint. A link dragged to a day other than its
+    // object's day stays there (`pinned`); dragged back onto that day, it follows the object again.
+    function pinPatch(item, date) {
+      if (item.kind !== 'link' || !item.ref || !date) return {};
+      const summary = summaries.get(objectKey(item.ref));
+      const when = summary && !summary.error ? summaryWhen(summary) : null;
+      if (!when || !when.day) return {};
+      return { pinned: date !== when.day };
+    }
     async function moveTo(id, date, index) {
       const cur = items.get(id);
       if (!cur) return;
-      if (timed(cur.item).time) return void (await updateItem(id, { date, after: null }));
+      const pin = pinPatch(cur.item, date);
+      if (timed(cur.item).time) return void (await updateItem(id, { date, after: null, ...pin }));
       const dayUntimed = sortDay(sortable().filter((i) => !i.time && dayOf(i) === date && i.id !== id));
       const changes = placeUntimed(dayUntimed, cur.item, date, index);
-      changes[id] = { ...(changes[id] || {}), after: null };
+      changes[id] = { ...(changes[id] || {}), after: null, ...pin };
       await applyChanges(changes);
     }
     // Put the item at a joint on the line ('' the head), at `index` among the items already there.

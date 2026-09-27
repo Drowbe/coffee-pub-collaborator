@@ -167,6 +167,7 @@
     <div class="editor-row"><label><span id="f-date-label">When</span><select id="f-date" name="date"></select></label>
       <label data-types="block flight train ferry bus car taxi rideshare shuttle restaurant cafe bar sight museum tour show hotel"><span id="f-time-label">Time</span><input id="f-time" name="time" type="time"></label>
       <label class="duration" data-types="block flight train ferry bus car taxi rideshare shuttle restaurant cafe bar sight museum tour show"><span id="f-minutes-label">How long</span><span class="hm"><input id="f-hours" name="hours" type="number" min="0" step="1" inputmode="numeric" aria-label="Hours"><span>h</span><input id="f-minutes" name="minutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Minutes"><span>min</span></span></label></div>
+    <label class="check" id="f-pinned-row" hidden><input id="f-pinned" name="pinned" type="checkbox"> Keep on this day</label>
     <p class="arrives hint" id="f-arrives" data-types="flight train ferry bus taxi rideshare shuttle" hidden></p>
     <div class="editor-row" data-types="hotel"><label>Check out<input id="f-checkout" name="checkOut" type="date"></label>
       <label>Check-out time<input id="f-checkOutTime" name="checkOutTime" type="time"></label></div>

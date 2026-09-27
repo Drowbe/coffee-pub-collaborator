@@ -7,8 +7,10 @@
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
+import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
@@ -28,12 +30,54 @@ const bundled = bundledModules(path.join(ROOT, 'modules')).map((m) => m.id);
 const travelRaw = JSON.parse(fs.readFileSync(path.join(ROOT, 'templates', 'travel.json'), 'utf8'));
 const base = fs.mkdtempSync(path.join(os.tmpdir(), 'check-templates-'));
 const built = [];
+let server = null;
 const quiet = () => {};
 const freshEnvironment = (name) => {
   const env = buildEnvironment(path.join(base, name), { log: quiet });
   built.push(env);
   return env;
 };
+
+function startServer(dataDir, env = {}) {
+  const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
+    cwd: ROOT,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...env },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  let out = '';
+  child.stdout.on('data', (d) => { out += d; });
+  child.stderr.on('data', (d) => { out += d; });
+  const portPromise = new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { child.kill(); reject(new Error(`the server did not start in time:\n${out}`)); }, 20000);
+    const onData = () => { const m = /listening on :(\d+)/.exec(out); if (m) { clearTimeout(timer); resolve(Number(m[1])); } };
+    child.stdout.on('data', onData);
+    child.stderr.on('data', onData);
+    child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`the server stopped (${code}):\n${out}`)); });
+  });
+  return portPromise.then((port) => ({ port, output: () => out, stop: () => new Promise((resolve) => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); }) }));
+}
+function call(server, host, method, urlPath, { body, cookie } = {}) {
+  const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
+  const headers = { host: host ? `${host}.localhost:${server.port}` : `127.0.0.1:${server.port}`, accept: 'application/json' };
+  if (payload) { headers['content-type'] = 'application/json'; headers['content-length'] = payload.length; }
+  if (cookie) headers.cookie = cookie;
+  return new Promise((resolve, reject) => {
+    const req = http.request({ host: '127.0.0.1', port: server.port, method, path: urlPath, headers }, (res) => {
+      const chunks = [];
+      res.on('data', (c) => chunks.push(c));
+      res.on('end', () => {
+        const text = Buffer.concat(chunks).toString('utf8');
+        let json = null;
+        try { json = JSON.parse(text); } catch { /* not JSON */ }
+        resolve({ status: res.statusCode, json, text, headers: res.headers });
+      });
+    });
+    req.on('error', reject);
+    if (payload) req.write(payload);
+    req.end();
+  });
+}
+const cookieOf = (res) => [].concat(res.headers['set-cookie'] || []).map((c) => c.split(';')[0]).join('; ');
 
 try {
   await test('every bundled template is valid, and the server loads them all', () => {
@@ -364,7 +408,172 @@ try {
     await templates.applyOffer(env, v3, { iconSet: true }, { applied });
     assert.ok(env.store.iconIds().includes('compass'));
   });
+
+  // --- addendum 3: editing a bundled template (GitHub #91) -------------------------------------------------------
+  // A hosted server on a throwaway folder. The ten cases in the plan. A single install is started at the end.
+  const hosted = path.join(base, 'hosted');
+  const hostedEnv = { BASE_DOMAIN: 'localhost', ADMIN_LOGIN: 'boss', ADMIN_PASSWORD: 'host-password-1' };
+  let console_ = null;
+  const readHost = () => JSON.parse(fs.readFileSync(path.join(hosted, 'host.json'), 'utf8'));
+  const travelRow = () => (console_('GET', '/api/host/templates')).then((r) => r.json.templates.find((t) => t.id === 'travel'));
+  async function boot(dir, env) {
+    server = await startServer(dir, env);
+  }
+  async function restartHost(mutate) {
+    await server.stop();
+    if (mutate) mutate();
+    await boot(hosted, hostedEnv);
+    const host = cookieOf(await call(server, 'admin', 'POST', '/api/host/login', { body: { login: 'boss', password: 'host-password-1' } }));
+    console_ = (method, url, body) => call(server, 'admin', method, url, { cookie: host, body });
+  }
+  await boot(hosted, hostedEnv);
+  {
+    const host = cookieOf(await call(server, 'admin', 'POST', '/api/host/login', { body: { login: 'boss', password: 'host-password-1' } }));
+    console_ = (method, url, body) => call(server, 'admin', method, url, { cookie: host, body });
+  }
+
+  await test('an edit that fails the checks is refused, and nothing is stored', async () => {
+    const shipped = await console_('GET', '/api/host/templates/travel');
+    const bad = await console_('PATCH', '/api/host/templates/travel', { modules: ['travel'] });
+    assert.deepEqual([bad.status, bad.json.error], [400, 'modules: "chat" must be listed; Chat can\'t be switched off yet.']);
+    assert.ok(Array.isArray(bad.json.problems) && bad.json.problems.length >= 1);
+    assert.equal(readHost().bundledEdits.some((r) => r.id === 'travel'), false);
+    assert.equal((await console_('GET', '/api/host/templates/travel')).json.template.name, shipped.json.template.name);
+  });
+
+  await test('the first edit of a bundled template raises the version, keeps the id, and reaches environments at once', async () => {
+    const shipped = (await console_('GET', '/api/host/templates/travel')).json.template;
+    assert.equal((await console_('POST', '/api/host/environments', { slug: 'out', name: 'Out', template: 'travel', owner: { login: 'owner', password: 'owner-password-1' } })).status, 201);
+    for (let i = 0; i < 100 && !server.output().includes('[out] Applied the "travel" template'); i += 1) await new Promise((r) => setTimeout(r, 50));
+    assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'trip');
+    const edited = await console_('PATCH', '/api/host/templates/travel', { words: { space: { one: 'journey', many: 'journeys' } }, modules: [...shipped.modules, 'polls'] });
+    assert.deepEqual([edited.status, edited.json.template.id, edited.json.template.version, edited.json.template.edited, edited.json.template.source], [200, 'travel', shipped.version + 1, true, 'bundled'], edited.text);
+    assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'journey', 'the new word, with no restart');
+    const owner = cookieOf(await call(server, 'out', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
+    const tab = await call(server, 'out', 'GET', '/api/environment/template', { cookie: owner });
+    assert.equal(tab.json.template.offerOpen, true);
+    assert.ok(tab.json.offer.modules.some((m) => m.id === 'polls'), 'a changed module is offered, not forced');
+    assert.equal((await call(server, 'out', 'GET', '/api/modules', { cookie: owner })).json.modules.some((m) => m.id === 'polls'), false);
+  });
+
+  await test('duplicate makes a host template at version 1 from the template in use; a taken id is refused', async () => {
+    const before = (await travelRow()).version;
+    const copy = await console_('POST', '/api/host/templates/travel/duplicate', { id: 'day-trips', name: 'Day trips' });
+    assert.equal(copy.status, 201, copy.text);
+    assert.deepEqual([copy.json.template.source, copy.json.template.version, copy.json.template.hidden, copy.json.template.id, copy.json.template.name], ['host', 1, false, 'day-trips', 'Day trips']);
+    assert.deepEqual(copy.json.template.words, { space: { one: 'journey', many: 'journeys' } });
+    assert.ok(copy.json.template.modules.includes('polls'));
+    assert.equal((await travelRow()).version, before, 'the original is unchanged');
+    const again = await console_('POST', '/api/host/templates/day-trips/duplicate', { id: 'day-trips-2', name: 'Day trips two' });
+    assert.equal(again.status, 201, again.text);
+    assert.deepEqual([again.json.template.version, again.json.template.words, again.json.template.modules], [1, copy.json.template.words, copy.json.template.modules]);
+    assert.deepEqual(await console_('POST', '/api/host/templates/travel/duplicate', { id: 'day-trips', name: 'Taken' }).then((r) => [r.status, r.json.error]), [409, 'There is already a template called day-trips.']);
+    const renamed = await console_('PATCH', '/api/host/templates/day-trips', { name: 'Day trips edited' });
+    assert.deepEqual([renamed.status, renamed.json.template.version, renamed.json.template.name], [200, 2, 'Day trips edited']);
+    assert.equal((await travelRow()).name, 'Travel');
+  });
+
+  await test('an edited template exports with edited set, and importing it under a new id drops nothing', async () => {
+    const file = await console_('GET', '/api/host/templates/travel/export');
+    assert.equal(file.status, 200, file.text);
+    assert.equal(file.json.edited, true);
+    assert.deepEqual(file.json.words.space, { one: 'journey', many: 'journeys' });
+    assert.ok(file.json.modules.includes('polls'));
+    const imported = await console_('POST', '/api/host/templates/import?id=from-file', file.json);
+    assert.equal(imported.status, 201, imported.text);
+    assert.deepEqual(imported.json.dropped, []);
+    assert.equal(imported.json.template.id, 'from-file');
+    assert.deepEqual(imported.json.template.words.space, { one: 'journey', many: 'journeys' });
+  });
+
+  await test('hiding a bundled template takes it off the create list and does not raise the version', async () => {
+    const version = (await travelRow()).version;
+    assert.equal((await console_('PATCH', '/api/host/templates/travel', { hidden: true })).json.template.version, version);
+    assert.equal((await call(server, 'admin', 'GET', '/api/product')).json.templates.some((t) => t.id === 'travel'), false);
+    const choices = (await console_('GET', '/api/host/environments/out/template')).json.choices;
+    assert.ok(choices.some((t) => t.id === 'travel'), 'the environment made from it still sees it');
+    assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'journey');
+    assert.equal((await console_('PATCH', '/api/host/templates/travel', { hidden: false })).json.template.version, version);
+  });
+
+  await test('a bundled template cannot be deleted; reset is only for an edited bundled template', async () => {
+    assert.deepEqual(await console_('DELETE', '/api/host/templates/travel').then((r) => [r.status, r.json]), [403, { error: "Bundled templates can't be deleted. Hide it instead." }]);
+    assert.deepEqual(await console_('DELETE', '/api/host/templates/day-trips/edits').then((r) => [r.status, r.json]), [400, { error: 'Only a bundled template can be reset.' }]);
+    assert.deepEqual(await console_('POST', '/api/host/templates/travel/update', { keep: 'later' }).then((r) => [r.status, r.json]), [400, { error: 'keep must be shipped or mine.' }]);
+    assert.deepEqual(await console_('POST', '/api/host/templates/travel/update', { keep: 'mine' }).then((r) => [r.status, r.json.error]), [409, 'There is no update to review for Travel.']);
+    assert.equal((await console_('POST', '/api/host/templates/no-such/duplicate', { id: 'n', name: 'N' })).status, 404);
+  });
+
+  await test('reset brings the shipped template back and the version still rises', async () => {
+    const before = (await travelRow()).version;
+    const reset = await console_('DELETE', '/api/host/templates/travel/edits');
+    assert.equal(reset.status, 200, reset.text);
+    assert.equal(reset.json.template.edited, false);
+    assert.equal(reset.json.template.version, before + 1);
+    assert.notEqual(reset.json.template.version, 1, 'never back to the shipped number');
+    assert.equal(reset.json.template.name, 'Travel');
+    assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'trip');
+    assert.deepEqual(await console_('DELETE', '/api/host/templates/travel/edits').then((r) => [r.status, r.json.error]), [409, 'Travel has no edits to reset.']);
+  });
+
+  await test('a shipped change with no edits raises the version at start and opens no notice', async () => {
+    const before = (await travelRow()).version;
+    await restartHost(() => {
+      const data = readHost();
+      const row = data.bundledEdits.find((r) => r.id === 'travel');
+      row.base.fingerprint = 'stale-fingerprint';
+      data.bundledEdits.push({ id: 'retired', template: { id: 'retired', name: 'Retired', description: 'Gone.', modules: ['chat'] }, version: 2, base: { version: 1, fingerprint: 'x', whole: 'y' }, hidden: false, updatedAt: '2026-09-26T00:00:00.000Z' });
+      fs.writeFileSync(path.join(hosted, 'host.json'), JSON.stringify(data, null, 2));
+    });
+    assert.ok(server.output().includes('The bundled template "retired" is no longer shipped; its edits are left unused.'));
+    const row = await travelRow();
+    assert.deepEqual([row.version, row.edited, row.update, row.name], [before + 1, false, null, 'Travel']);
+    assert.equal((await console_('GET', '/api/host/templates')).json.templates.some((t) => t.id === 'retired'), false);
+  });
+
+  await test('a shipped change with edits keeps them and opens the notice; keep mine, then take the new version', async () => {
+    const edited = await console_('PATCH', '/api/host/templates/travel', { name: 'Journeys', words: { space: { one: 'journey', many: 'journeys' } } });
+    assert.equal(edited.json.template.edited, true);
+    const version = edited.json.template.version;
+    await restartHost(() => {
+      const data = readHost();
+      data.bundledEdits.find((r) => r.id === 'travel').base.whole = 'stale-whole';
+      fs.writeFileSync(path.join(hosted, 'host.json'), JSON.stringify(data, null, 2));
+    });
+    let row = await travelRow();
+    assert.deepEqual([row.name, row.edited, row.version, row.update], ['Journeys', true, version, { shippedVersion: 1 }]);
+    const mine = await console_('POST', '/api/host/templates/travel/update', { keep: 'mine' });
+    assert.deepEqual([mine.status, mine.json.template.version, mine.json.template.edited, mine.json.template.update, mine.json.template.name], [200, version, true, null, 'Journeys'], mine.text);
+    await restartHost(() => {
+      const data = readHost();
+      data.bundledEdits.find((r) => r.id === 'travel').base.fingerprint = 'stale-fingerprint';
+      fs.writeFileSync(path.join(hosted, 'host.json'), JSON.stringify(data, null, 2));
+    });
+    row = await travelRow();
+    assert.deepEqual([row.update, row.name, row.version], [{ shippedVersion: 1 }, 'Journeys', version]);
+    const shipped = await console_('POST', '/api/host/templates/travel/update', { keep: 'shipped' });
+    assert.equal(shipped.status, 200, shipped.text);
+    assert.equal(shipped.json.template.edited, false);
+    assert.equal(shipped.json.template.version, version + 1);
+    assert.equal(shipped.json.template.name, 'Travel');
+    assert.equal(shipped.json.template.update, null);
+    assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'trip');
+  });
+
+  await server.stop();
+  server = null;
+  await test('a single install has none of the bundled-edit routes', async () => {
+    const single = path.join(base, 'single');
+    await boot(single, { ADMIN_PASSWORD: 'admin-password-1' });
+    for (const [method, url] of [['GET', '/api/host/templates'], ['PATCH', '/api/host/templates/travel'], ['DELETE', '/api/host/templates/travel/edits'], ['POST', '/api/host/templates/travel/update'], ['POST', '/api/host/templates/travel/duplicate']]) {
+      const res = await call(server, '', method, url, { body: method === 'GET' ? undefined : {} });
+      assert.equal(res.status, 404, `${method} ${url} -> ${res.status} ${res.text}`);
+    }
+    await server.stop();
+    server = null;
+  });
 } finally {
+  if (server) await server.stop();
   fs.rmSync(base, { recursive: true, force: true });
 }
 if (failed) {

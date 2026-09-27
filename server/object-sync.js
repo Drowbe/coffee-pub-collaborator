@@ -334,11 +334,36 @@ function afterWrite({ module, scopeKey, key, before, after, by, tz }) {
   try { mirrorIn(ref, found.produce, scopeKey, after, zone, by); } catch (err) { if (!err || err.status !== 413) throw err; }
 }
 
+// Dated objects already stored, with no pair yet, get their twin once the kind says it sends them. Running it again
+// changes nothing: a pair is the record. Timed values use the server's zone (TZ, then UTC). Personal objects are skipped.
+function backfill() {
+  if (!deps || !deps.senders) return 0;
+  const zone = writerZone(undefined);
+  let made = 0;
+  for (const sender of deps.senders()) {
+    if (sender.produce.mirror !== 'out' || sender.produce.dated?.form !== 'wall') continue;
+    for (const scopeKey of sender.scopes) {
+      if (!scopeKey.startsWith('space:')) continue;
+      for (const row of sender.rows(scopeKey)) {
+        const ref = refOf(sender.moduleId, sender.produce, row.id, scopeKey);
+        if (!ref) continue;
+        const wall = readWall(row.value, sender.produce.dated);
+        if (!wall.day || holdsPointer(sender.produce, row.value)) continue;
+        if ((deps.pairsFrom(ref) || []).length) continue;
+        try { mirrorOut(ref, sender.produce, scopeKey, null, row.value, zone, row.by || ''); } catch (err) { if (!err || err.status !== 413) throw err; }
+        if ((deps.pairsFrom(ref) || []).length) made += 1;
+      }
+    }
+  }
+  return made;
+}
+
 module.exports = {
   writerZone,
   dayInZone,
   configure,
   afterWrite,
+  backfill,
   on: (event, fn) => bus.on(event, fn),
   off: (event, fn) => bus.off(event, fn),
 };

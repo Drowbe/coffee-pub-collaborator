@@ -70,6 +70,19 @@ class ModuleLinks extends EventEmitter {
     return this.items.filter((l) => key(l.from) === k).map((l) => l.to);
   }
 
+  // The object is gone: every link it held, and every link that pointed at it, goes too.
+  drop(ref) {
+    const k = key(ref);
+    const left = this.items.filter((l) => key(l.from) !== k && key(l.to) !== k);
+    if (left.length === this.items.length) return;
+    const gone = this.items.filter((l) => key(l.from) === k || key(l.to) === k);
+    this.items = left;
+    this.save();
+    const refs = [];
+    for (const l of gone) refs.push(plain(l.from), plain(l.to));
+    this.emit('change', { refs });
+  }
+
   // A module was uninstalled with its data: its links, both ways, go too.
   dropModule(id) {
     const left = this.items.filter((l) => l.from.module !== id && l.to.module !== id);

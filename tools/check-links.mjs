@@ -127,7 +127,7 @@ try {
 
   const mods = path.join(base, 'mods');
   const ownerDir = writeModule(mods, 'link-owner', {
-    produces: [{ kind: 'note', name: 'Note', key: 'note:{id}', summary: { title: 'title' }, backlinks: true }],
+    produces: [{ kind: 'note', name: 'Note', key: 'note:{id}', summary: { title: 'title', when: 'start' }, backlinks: true }],
     consumes: [],
   });
   const holderDir = writeModule(mods, 'link-holder', {
@@ -138,16 +138,30 @@ try {
     produces: [{ kind: 'mark', name: 'Mark', key: 'mark:{id}', summary: { title: 'title' } }],
     consumes: [],
   });
+  const moverDir = writeModule(mods, 'link-mover', {
+    produces: [{
+      kind: 'row', name: 'Row', key: 'row:{id}', summary: { title: 'title' },
+      holds: { field: 'ref', onDelete: 'remove', follow: { title: 'title', day: 'date', pin: 'pinned' } },
+    }],
+    consumes: ['link-owner:note'],
+  });
+  const markerDir = writeModule(mods, 'link-marker', {
+    produces: [{
+      kind: 'row', name: 'Row', key: 'row:{id}', summary: { title: 'title' },
+      holds: { field: 'ref', onDelete: 'mark', markField: 'gone' },
+    }],
+    consumes: ['link-owner:note'],
+  });
 
   server = await startServer(path.join(base, 'data'));
   const cookie = cookieOf(await call(server, 'POST', '/api/login', { body: { login: 'admin', password: 'admin-password-1' } }));
   const as = (method, url, body, type) => call(server, method, url, { cookie, body, type });
   const space = (await as('POST', '/api/spaces', { name: 'Side' })).json.space.id;
-  for (const dir of [ownerDir, holderDir, bystanderDir]) {
+  for (const dir of [ownerDir, holderDir, bystanderDir, moverDir, markerDir]) {
     const up = await as('POST', '/api/modules', buildModule(dir).zip, 'application/zip');
     assert.equal(up.status, 201, up.text);
   }
-  for (const id of ['link-owner', 'link-holder', 'link-bystander']) {
+  for (const id of ['link-owner', 'link-holder', 'link-bystander', 'link-mover', 'link-marker']) {
     assert.equal((await as('PATCH', `/api/modules/${id}`, { enabled: true, allSpaces: true })).status, 200, id);
   }
   const note = { module: 'link-owner', kind: 'note', id: 'a', scope: 'space', space };
@@ -187,6 +201,118 @@ try {
     assert.equal(heard.length, 2, JSON.stringify(heard));
     assert.equal(heard[1].data.change, 'deleted');
     assert.deepEqual(heard[1].data.modules, ['link-holder']);
+  });
+
+  const noteRef = (id) => ({ module: 'link-owner', kind: 'note', id, scope: 'space', space });
+  const putNote = (id, value, tz) => as('PUT', `/api/modules/link-owner/data/note:${id}?scope=space&space=${space}`, { value, ...(tz ? { tz } : {}) });
+  const putRow = (mod, id, value) => as('PUT', `/api/modules/${mod}/data/row:${id}?scope=space&space=${space}`, { value });
+  const getRow = async (mod, id) => (await as('GET', `/api/modules/${mod}/data/row:${id}?scope=space&space=${space}`)).json?.item;
+  const linkTo = async (mod, id, to) => {
+    const res = await as('POST', '/api/objects/links', {
+      module: mod,
+      from: { module: mod, kind: 'row', id, scope: 'space', space },
+      to: [to],
+    });
+    assert.equal(res.status, 200, res.text);
+  };
+  const linksOf = () => JSON.parse(fs.readFileSync(path.join(base, 'data', 'modules', 'links.json'), 'utf8'));
+
+  await test('a manifest with a bad holds is refused', async () => {
+    const bad = async (id, holds) => {
+      const dir = writeModule(mods, id, {
+        produces: [{ kind: 'row', name: 'Row', key: 'row:{id}', summary: { title: 'title' }, holds }],
+        consumes: [],
+      });
+      return as('POST', '/api/modules', buildModule(dir).zip, 'application/zip');
+    };
+    const wrong = await bad('link-bad-delete', { field: 'ref', onDelete: 'keep' });
+    assert.equal(wrong.status, 400, wrong.text);
+    assert.match(wrong.json.error, /holds\.onDelete/);
+    const marked = await bad('link-bad-mark', { field: 'ref', onDelete: 'remove', markField: 'gone' });
+    assert.equal(marked.status, 400, marked.text);
+    assert.match(marked.json.error, /markField/);
+    const named = await bad('link-bad-field', { field: 'not a field', onDelete: 'remove' });
+    assert.equal(named.status, 400, named.text);
+    assert.match(named.json.error, /holds\.field/);
+  });
+
+  const day = noteRef('day');
+  await putNote('day', { title: 'Walk', start: '2026-06-14' });
+  const rows = {
+    placed: { title: 'Walk', date: '2026-06-14', pinned: false, ref: day },
+    pinned: { title: 'Walk', date: '2026-06-14', pinned: true, ref: day },
+    loose: { title: 'Walk', ref: day },
+    other: { title: 'Walk', date: '2026-06-01', pinned: false, ref: day },
+    elsewhere: { title: 'Walk', date: '2026-06-14', pinned: false, ref: { ...day, id: 'nope' } },
+  };
+  for (const [id, value] of Object.entries(rows)) {
+    assert.equal((await putRow('link-mover', id, value)).status, 200, id);
+    await linkTo('link-mover', id, day);
+  }
+
+  await test('a rename rewrites the followed title, and a pointer aimed elsewhere is left alone', async () => {
+    assert.equal((await putNote('day', { title: 'Hike', start: '2026-06-14' })).status, 200);
+    assert.equal((await getRow('link-mover', 'placed')).value.title, 'Hike');
+    assert.equal((await getRow('link-mover', 'pinned')).value.title, 'Hike');
+    assert.equal((await getRow('link-mover', 'loose')).value.title, 'Hike');
+    assert.equal((await getRow('link-mover', 'other')).value.title, 'Hike');
+    assert.equal((await getRow('link-mover', 'elsewhere')).value.title, 'Walk');
+  });
+
+  await test('a second identical write does not write the holder again', async () => {
+    const version = (await getRow('link-mover', 'placed')).version;
+    assert.equal((await putNote('day', { title: 'Hike', start: '2026-06-14' })).status, 200);
+    assert.equal((await getRow('link-mover', 'placed')).version, version);
+    assert.equal((await getRow('link-mover', 'elsewhere')).version, 1);
+  });
+
+  await test('a date change moves a placed holder, and leaves a pinned one, an unplaced one and one on another day', async () => {
+    assert.equal((await putNote('day', { title: 'Hike', start: '2026-06-15' })).status, 200);
+    assert.equal((await getRow('link-mover', 'placed')).value.date, '2026-06-15');
+    assert.equal((await getRow('link-mover', 'pinned')).value.date, '2026-06-14');
+    assert.equal((await getRow('link-mover', 'pinned')).value.pinned, true);
+    assert.equal((await getRow('link-mover', 'loose')).value.date, undefined);
+    assert.equal((await getRow('link-mover', 'other')).value.date, '2026-06-01');
+  });
+
+  await test('a time near midnight lands on the day of the person who entered it', async () => {
+    const la = noteRef('la');
+    await putNote('la', { title: 'Late', start: '2026-06-15T06:30:00.000Z' });
+    assert.equal((await putRow('link-mover', 'la', { title: 'Late', date: '2026-06-14', pinned: false, ref: la })).status, 200);
+    await linkTo('link-mover', 'la', la);
+    assert.equal((await putNote('la', { title: 'Late', start: '2026-06-15T08:30:00.000Z' }, 'America/Los_Angeles')).status, 200);
+    assert.equal((await getRow('link-mover', 'la')).value.date, '2026-06-15', 'Los Angeles is still on the 14th at 06:30Z and on the 15th at 08:30Z');
+
+    const utc = noteRef('utc');
+    await putNote('utc', { title: 'Late', start: '2026-06-15T23:30:00.000Z' });
+    assert.equal((await putRow('link-mover', 'utc', { title: 'Late', date: '2026-06-15', pinned: false, ref: utc })).status, 200);
+    await linkTo('link-mover', 'utc', utc);
+    assert.equal((await putNote('utc', { title: 'Late', start: '2026-06-16T00:30:00.000Z' }, 'UTC')).status, 200);
+    assert.equal((await getRow('link-mover', 'utc')).value.date, '2026-06-16');
+  });
+
+  await test('delete with remove removes the holder and its links', async () => {
+    const gone = noteRef('gone');
+    await putNote('gone', { title: 'Gone', start: '2026-06-14' });
+    assert.equal((await putRow('link-mover', 'doomed', { title: 'Gone', date: '2026-06-14', ref: gone })).status, 200);
+    await linkTo('link-mover', 'doomed', gone);
+    assert.equal((await as('DELETE', `/api/modules/link-owner/data/note:gone?scope=space&space=${space}`)).status, 200);
+    assert.equal((await as('GET', `/api/modules/link-mover/data/row:doomed?scope=space&space=${space}`)).status, 404);
+    const left = linksOf();
+    assert.equal(left.some((l) => l.from.module === 'link-mover' && l.from.id === 'doomed'), false);
+    assert.equal(left.some((l) => l.to.id === 'gone'), false);
+  });
+
+  await test('delete with mark sets the mark and keeps the holder and its link', async () => {
+    const stay = noteRef('stay');
+    await putNote('stay', { title: 'Stay', start: '2026-06-14' });
+    assert.equal((await putRow('link-marker', 'kept', { title: 'Stay', ref: stay })).status, 200);
+    await linkTo('link-marker', 'kept', stay);
+    assert.equal((await as('DELETE', `/api/modules/link-owner/data/note:stay?scope=space&space=${space}`)).status, 200);
+    const kept = await getRow('link-marker', 'kept');
+    assert.equal(kept.value.gone, true);
+    assert.equal(kept.value.title, 'Stay');
+    assert.equal(linksOf().some((l) => l.from.module === 'link-marker' && l.from.id === 'kept' && l.to.id === 'stay'), true);
   });
 } finally {
   if (stream) stream.close();

@@ -226,7 +226,10 @@ function cleanRefs(rawRefs, id) {
     // What a person sees it called; whether the module can open one of its objects when asked (it
     // handles host.objects.onOpen); whether it shows what links to its objects (host.objects.linksTo).
     const name = String(p.name ?? '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 40) || kind.charAt(0).toUpperCase() + kind.slice(1);
-    refs.produces.push({ kind, name, key, summary, open: Boolean(p.open), backlinks: Boolean(p.backlinks) });
+    const produced = { kind, name, key, summary, open: Boolean(p.open), backlinks: Boolean(p.backlinks) };
+    const holds = cleanHolds(kind, p.holds);
+    if (holds) produced.holds = holds;
+    refs.produces.push(produced);
   }
   // "*" means whatever other modules share, so a module can link to the items of a module written
   // after it without either being changed; otherwise named kinds, "module:kind".
@@ -237,6 +240,40 @@ function cleanRefs(rawRefs, id) {
   }
 
   return refs;
+}
+
+// What a kind's objects hold (plan-linked-objects.md). One `holds` per kind: the stored field that is the pointer,
+// what to do when that object is deleted, and which of the holder's fields follow the object's title and day.
+const HOLDS_FIELD_RE = /^[A-Za-z][A-Za-z0-9_]{0,31}$/;
+function cleanHolds(kind, raw) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new ModuleError(`module.json: refs "${kind}" holds must be an object`);
+  for (const key of Object.keys(raw)) {
+    if (key !== 'field' && key !== 'onDelete' && key !== 'markField' && key !== 'follow') throw new ModuleError(`module.json: refs "${kind}" holds.${key} is not used`);
+  }
+  if (typeof raw.field !== 'string' || !HOLDS_FIELD_RE.test(raw.field)) throw new ModuleError(`module.json: refs "${kind}" holds.field must name a stored field`);
+  if (raw.onDelete !== 'remove' && raw.onDelete !== 'mark') throw new ModuleError(`module.json: refs "${kind}" holds.onDelete must be "remove" or "mark"`);
+  const holds = { field: raw.field, onDelete: raw.onDelete };
+  if (Object.prototype.hasOwnProperty.call(raw, 'markField')) {
+    if (raw.onDelete !== 'mark') throw new ModuleError(`module.json: refs "${kind}" holds.markField is only for onDelete "mark"`);
+    if (typeof raw.markField !== 'string' || !HOLDS_FIELD_RE.test(raw.markField)) throw new ModuleError(`module.json: refs "${kind}" holds.markField must name a stored field`);
+    holds.markField = raw.markField;
+  } else if (raw.onDelete === 'mark') {
+    throw new ModuleError(`module.json: refs "${kind}" holds.onDelete "mark" needs a markField`);
+  }
+  if (raw.follow !== undefined) {
+    if (typeof raw.follow !== 'object' || raw.follow === null || Array.isArray(raw.follow)) throw new ModuleError(`module.json: refs "${kind}" holds.follow must be an object`);
+    const follow = {};
+    for (const key of Object.keys(raw.follow)) {
+      if (key !== 'title' && key !== 'day' && key !== 'pin') throw new ModuleError(`module.json: refs "${kind}" holds.follow.${key} is not used`);
+      const from = raw.follow[key];
+      if (typeof from !== 'string' || !HOLDS_FIELD_RE.test(from)) throw new ModuleError(`module.json: refs "${kind}" holds.follow.${key} must name a stored field`);
+      follow[key] = from;
+    }
+    if (!follow.title && !follow.day) throw new ModuleError(`module.json: refs "${kind}" holds.follow needs a title or a day`);
+    holds.follow = follow;
+  }
+  return holds;
 }
 
 // Events and actions: how modules react to and ask things of each other, carried by the host without

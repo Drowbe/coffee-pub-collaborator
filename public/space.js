@@ -123,9 +123,27 @@ const asideEntry = (a) => ({ ...a, name: word('aside', { cap: true }), isAside: 
 // Whether I am in an aside right now: the call only, no modules, chat or chat pictures (plan-names decision 5).
 const inAside = () => Boolean(currentSpace?.isAside);
 
+// Who is in a call comes from LiveKit. When that does not answer, the page gives up and keeps what it
+// already has: the space list and the call do not wait on it (GitHub #71). A little longer than the
+// server's own two seconds, so a slow answer still arrives.
+const PRESENCE_GIVE_UP_MS = 3000;
+
+function adoptPendingSpace() {
+  if (!currentSpace?.pending) return;
+  const found = presenceSpaces.find((r) => r.id === currentSpace.id);
+  if (!found) return;
+  currentSpace = found;
+  spaceName = spaceDisplayName(found);
+  renderSpaceLink();
+  applyPermissions();
+  updateRecallButton();
+  updateCrumb();
+}
+
 async function loadPresence() {
   try {
-    const { users, spaces, asides, activeSpace: active, ownerOnline: hasOwner } = await api('GET', guestToken ? `/api/presence?guest=${encodeURIComponent(guestToken)}` : '/api/presence');
+    const url = guestToken ? `/api/presence?guest=${encodeURIComponent(guestToken)}` : '/api/presence';
+    const { users, spaces, asides, activeSpace: active, ownerOnline: hasOwner } = await api('GET', url, undefined, undefined, AbortSignal.timeout(PRESENCE_GIVE_UP_MS));
     presenceUsers.clear();
     for (const u of users) presenceUsers.set(u.key, u);
     // The asides are their own record (plan-names step 8); the page lists them after the spaces, marked isAside, so
@@ -144,8 +162,9 @@ async function loadPresence() {
     renderGuestLink();
     renderSpaceLink();
     updateRecallButton();
+    adoptPendingSpace();
   } catch (err) {
-    // default colour stands
+    // default colour stands; the next poll tries again
   }
 }
 
@@ -2179,8 +2198,12 @@ async function join(spaceId = 'lobby') {
     // Fresh permissions each join -- an admin may have changed them since
     // this page loaded.
     me = (await api('GET', '/api/me')).user;
-    await loadPresence();
-    currentSpace = presenceSpaces.find((r) => r.id === spaceId) || { id: spaceId, name: spaceName };
+    // The call connects with the space already on the list. Presence, which asks LiveKit who is in a
+    // call, fills the rest in when it answers and does not hold the connection (GitHub #71).
+    const known = presenceSpaces.find((r) => r.id === spaceId);
+    currentSpace = known || { id: spaceId, name: spaceName, members: [], pending: true };
+    if (!currentSpace.pending) spaceName = spaceDisplayName(currentSpace);
+    loadPresence();
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id); // asides have no modules
     spaceName = spaceDisplayName(currentSpace);
     renderSpaceLink();
@@ -2205,12 +2228,11 @@ async function joinAsGuest(token, livekitUrl, joinedId, joinedName) {
   try {
     setStatus('connecting...');
     spaceName = joinedName;
-    await loadPresence();
-    // The full space object (members, isAside, ...), same as a real
-    // member's join -- not just the {id, name} guest-join handed back, or
-    // anything reading currentSpace.members downstream breaks.
-    currentSpace = presenceSpaces.find((r) => r.id === joinedId) || { id: joinedId, name: joinedName, members: [] };
-    await canvas.refresh(currentSpace.id);
+    // Same as a member's join: connect now, and let presence fill in members when LiveKit answers.
+    const known = presenceSpaces.find((r) => r.id === joinedId);
+    currentSpace = known || { id: joinedId, name: joinedName, members: [], pending: true };
+    loadPresence();
+    await canvas.refresh(currentSpace.isAside ? null : currentSpace.id);
     renderSpaceLink();
     applyPermissions();
     updateRecallButton();
@@ -3460,7 +3482,7 @@ async function init() {
       applyPermissions();
       populateCallSettingsUI();
     }
-    await loadPresence(); // the join screen's member grid
+    loadPresence(); // the join screen's member grid; it does not hold the page when LiveKit is slow
   } catch (err) {
     location.href = '/login';
     return;
@@ -3471,10 +3493,9 @@ async function init() {
     history.replaceState(null, '', location.pathname + location.search);
     joinInvitedSpace(invited[1]);
   } else if (!guestToken && rememberedSpace()) {
-    // A reload: back into the space this tab was in, if it is still there for this person.
-    const again = presenceSpaces.find((r) => r.id === rememberedSpace() && !r.isAside);
-    if (again) join(again.id);
-    else forgetSpace();
+    // A reload: back into the space this tab was in. Joining checks it is still there; presence
+    // does not have to have answered first.
+    join(rememberedSpace());
   }
 }
 init();

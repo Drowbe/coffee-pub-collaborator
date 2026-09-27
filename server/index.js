@@ -991,7 +991,10 @@ function livekitApiUrl() {
   return `${local ? 'http' : 'https'}://${LIVEKIT_HOST}`;
 }
 
-const callService = new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVEKIT_API_SECRET);
+// The SDK waits 10 seconds when the call service does not answer, and /api/presence and /api/status wait
+// with it, so the call page and the space list sit still (GitHub #71). Two seconds, then those routes
+// answer with nobody in a call. The same client serves every other call to the service.
+const callService = new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { requestTimeout: 2 });
 
 // `media` is whether they may send and receive the conference's audio and video
 // (the "See and join the conference" permission); without it they still connect,

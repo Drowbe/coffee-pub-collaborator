@@ -14,9 +14,8 @@ side of things.
 - #3 Entering a space: Enter as the main action, the call its own control ([plan-entering](plans/plan-entering.md)).
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
 - #95 Planner phases: a plan in every space from the start, phases from the template, and what opens on entering ([plan-planner-phases](plans/plan-planner-phases.md)).
-- #96 A dated object on a plan kept in step with the calendar, both ways ([plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)), after the rest of [plan-linked-objects](plans/plan-linked-objects.md): dead links cleaned up, renames and date moves carried across. Overlaps #13.
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
-- #13 Planner changes shown in the Calendar.
+- #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
 
@@ -27,6 +26,7 @@ side of things.
 
 ## Small fixes and checks
 
+- Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.
 - #25 A check that compiles every `pattern` attribute the way browsers do.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.

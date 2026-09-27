@@ -84,6 +84,7 @@ await host.storage.delete('event:123');
 - Keys are 1 to 128 of letters, digits and `. _ : / -`. A value can be any JSON up to about 60 KB. A module may store 5 MB in all.
 - Every write bumps the key's `version`. Pass the version you read to detect a change made since: `set(key, value, { version })` rejects with `error.status === 409` and `error.current` (what is stored now) if someone wrote first. Without a version, the last write wins.
 - Store each thing under its own key, not everything as one blob, so two people editing different things never collide.
+- `set` and `delete` also send the browser's time zone, which the server uses only to turn an instant into a day and a time for [held pointers and twins](#keeping-links-true). You pass nothing; a zone the server does not accept falls back to its `TZ`, then UTC, and the write still succeeds.
 - Renaming your own keys: list the change in `module.json` as `"storage": { "renamed": [{ "from": "item:", "to": "plan:" }] }` (up to 10 key prefixes) and the server moves every stored key starting with `from` to `to`, in every scope. A rename is in effect for every version from the one that introduced it onward, even if later versions stop listing it. While it is in effect, keys still under the old prefix are moved on every start, install, update and rollback; switching to a version older than the one that introduced it moves the keys back (the newest rename first) and drops the record. The registry records each as `renamed: [{ from, to, version, at, kept }]`. A key whose new name is already taken is never overwritten: both are kept (`kept`). The log and the activity list note only keys actually moved and new conflicts. A list that would move keys in a circle is refused. Your code then reads only the new keys.
 
 ### Live changes
@@ -214,6 +215,44 @@ host.objects.dropTarget({
 The **drop context** is `{ summary, target?, date?, time?, place? }`: `summary` is the dropped object's summary (resolved for you, or the one the drag carried), `target` a pointer to your own object under the pointer, `date`/`time` the day and time there, `place` the `{ lat, lng }` there (a map). An action is offered when every required input can be filled from it: a `ref:module:kind` input takes the dropped pointer when it is that kind; a plain `ref` takes the dropped pointer (a second one, or one named `target`, takes `target`); `date`/`datetime` the day (else the summary's own date); `string` named `title` the summary's title, `kind` its kind; `text` named `notes`, `body`, `content` or `text` the summary's text (only when the drag carried it); `number` named `lat`/`lng` the place. Of the actions that fill, a drop offers only the dropped object's own module's, taking the object by its exact kind (`ref:todo:task`, never plain `ref` alone) and using something from under the pointer (the target object, the day, the spot); and not one whose declared `needs` (a place, a date, text) the object's summary lacks. `offersFor` is what applies that; the fill rules themselves also serve the finished-poll buttons and "Send all to plan", where a plain `ref` input taking the object is right. An own offer is `{ id, label, hint?, icon?, run(ctx), when?(ctx) }`; `when` leaves it out for a summary it does not suit (a place needs a position); it wears your module's own icon unless `icon` names another, and each action offered wears its module's, in the same look as `host.menu.show`. `host.objects.offersFor(dragged, context)` is the same list without the menu. `tools/check-drop.mjs` runs the fill rules.
 
 Treat `ref` as untrusted: `dropMenu` resolves it, which is where Magpie checks what the viewer may see, and shows its error if not. Magpie brokers a drag between module frames in the same window (the page, or the popped-out app). `host.objects.drag(event, ...)`, called from a native `dragstart`, and `host.objects.accepts` / `host.objects.parse` for a native drop remain for a drag that does not come from a module, but a module offering objects should use `draggable`. Search is the way to link without dragging at all.
+
+### Keeping links true
+
+The server keeps a pointer true after the object it points at changes, with no page open. Four declarations on a `refs.produces[]` entry, and one event, do it. None of them names another module. A manifest with a bad one is refused (400, a sentence naming the field). The rules and the reasons are in [plan-linked-objects](../plans/plan-linked-objects.md) and [plan-plan-calendar-sync](../plans/plan-plan-calendar-sync.md).
+
+**Change events.** When an object that something points at is written or deleted, the modules that hold a link to it hear about it, where the viewer may see them. A write that leaves the object's summary the same sends nothing.
+
+```js
+const off = host.objects.onChange(({ ref, change }) => { /* change is 'updated' or 'deleted': resolve ref again */ });
+```
+
+**Held pointers (`holds`).** A kind whose objects store a pointer says which field holds it, so the server can act for the holder.
+
+```json
+"holds": { "field": "ref", "onDelete": "remove", "follow": { "title": "title", "day": "date", "pin": "pinned" } }
+```
+
+- `field`: the stored field that is the pointer. Field names here and below are 1 to 32 letters, digits or `_`, starting with a letter. One `holds` per kind.
+- `onDelete`: `remove` deletes the holding object and its links when the object is deleted; `mark` keeps it and sets `markField` (required with `mark`, refused otherwise) to `true`.
+- `follow` (optional, needs `title` or `day`): `title` is the field that takes the object's summary title. `day` is the field that moves to the object's new day, only when the holder was on the object's old day and its `pin` field is not `true`; a holder with no day, or on another day, stays put. The day of a timed object is the day in the writer's time zone.
+- The holder is written only when a followed value differs, and its version goes up as usual, so an editor open on it gets the normal 409.
+
+**Dated twins (`dated`, `mirror`, `create`).** A kind that sends twins and a kind that receives them are paired by the server in the same space, and kept in step both ways.
+
+```json
+{ "kind": "plan", "dated": { "title": "title", "day": "date", "time": "time", "endDay": "checkOut" }, "mirror": "out" }
+{ "kind": "event", "dated": { "title": "title", "start": "start", "end": "end", "allDay": "allDay" }, "mirror": "in",
+  "create": { "id": "{id}", "desc": "", "remind": null, "repeat": null, "by": "{by}" } }
+```
+
+- `dated` is either a wall clock (`title` and `day` required, `time` and `endDay` optional) or an instant (`title` and `start` required, `end` and `allDay` optional), each naming a stored field. Mixing the two is refused.
+- `mirror` is `out` (sends twins) or `in` (receives them), and needs `dated`. The server sends from a wall-clock kind to an instant kind.
+- `create`, required with `mirror: "in"` and refused otherwise, is the stored value a new twin starts from: text (up to 200 characters), a number, a boolean or `null` per field. `{id}` becomes the new id and `{by}` the writer's name.
+- A space object of a sending kind that has a day, and holds no pointer, gets one twin in each receiving kind that is on in that space and that the sender was approved to link to. A personal object never gets one.
+- A wall-clock day with no time becomes an all-day twin starting on that day, with `endDay` as its end; with a time it becomes the instant of that day and time in the writer's time zone, and the end is left alone. The way back reads the day and time of `start` in the writer's time zone.
+- Title, day and time write both ways. Clearing the sender's day, or deleting the sender, deletes the twin. Deleting the twin leaves the sender as it is until its day changes, which makes a new twin. A receiver's own objects never make a sender object.
+- The pair is the server's: it shows in `linksTo` and `linksFrom`, and `setLinks` never removes it. Twin writes are the server's, do not count toward the write limit, and are skipped when the receiving module's store is full (tried again on the sender's next change).
+- Objects that already had a day when their kind first declared `mirror: "out"` get their twin on the next server start, once; see [Modules API](api-modules.md).
 
 ### Bringing objects in
 

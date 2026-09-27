@@ -52,11 +52,27 @@ Objects with no time come first in a day, in the order you put them; objects wit
 ## What other modules bring
 
 - Something from the Calendar, To-do or Polls that is dated on a trip day appears under that day as a suggestion, with an **Add** button that puts it on the plan. An added object shows where it comes from and has an **Open** button that takes you to it. It is read only here: change it where it lives.
+- An added object keeps up with the one it points at. A new title shows on the plan, and when that object moves to another day, it moves with it, provided it was on the object's old day. To keep it where it is, open it and tick **Keep on this day**. Dragging it to a day other than its object's day ticks that for you; dragging it back to the object's day clears it. When the object is deleted, it leaves the plan too.
 - Drag an object from another module onto a day to put it on that day.
 - Another module can ask Planner to add something: a closed poll's winner can go onto the plan as a stop.
 - An object kept from an AI answer in Chat that is marked as a flight, a train, a bus, a ferry, a car, a hotel, a restaurant, a cafe, a bar, a sight, a museum, a tour or a show is kept here as that proper kind of object, on the day it names, not just a plain note. That holds for `/ai` answers and for research brought in from another AI (see [Chat](userguide-chat.md)). Its text, with its links, goes into the object's notes; research brought in ends with the line "External source".
 - An object's **Notes** hold up to 8000 characters.
 - Objects other modules link to a stop show under it.
+
+## On the Calendar
+
+When the space has the Calendar on, every object on the plan with a date is on the Calendar too, and the two stay in step. Objects added from another module (see above) are not copied.
+
+- Give an object a date and it appears on the Calendar on that day: at its time, in your time zone, or as an all-day event if it has no time. A stay without a time runs to its **Check out** day.
+- Change the title, the day or the time on either side, and the other side changes too.
+- Clear the object's date and it leaves the Calendar and stays on the plan. Delete the object and its event goes too.
+- Delete the event on the Calendar and the object stays on the plan with its date. Give it another day and it is back on the Calendar.
+- An event added on the Calendar stays on the Calendar only.
+- An object that already had a date before this came in appears on the Calendar the next time the server starts, once. If it has a time, the time is read in the server's time zone.
+
+## Deleting something others use
+
+**Delete** asks you to click a second time. In the object's editor, when something else points at the object (a task, or its event on the Calendar), the button says so first, for example "Used by 1. Really delete?". **Delete** in the object's menu (the three dots) does not say this yet.
 
 ## Bookings
 

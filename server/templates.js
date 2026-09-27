@@ -49,6 +49,10 @@ function appliedPartsChanged(record, template) {
 // The applied-once part of a template as a whole (modules, settings, the Lobby, space defaults, reactions, icon set,
 // theme): a bundled template's version must go up when this changes (tools/template-versions.json).
 const appliedOnceFingerprint = (template) => fingerprint(['modules', 'settings', 'lobby', 'spaceDefaults', 'reactions', 'iconSet', 'theme'].map((k) => template[k] ?? null));
+// The whole shipped template apart from its version. An edited bundled template's notice opens when this or the
+// applied-once fingerprint differs from the file the edits were made against (addendum 3: a change to words, the home
+// icon or module names and icons must not stay quiet).
+const wholeFingerprint = (template) => fingerprint(FIELDS.filter((k) => k !== 'version').map((k) => template[k] ?? null));
 // A theme's own check, without a Store: Store#sanitizeTheme reads nothing of the instance.
 const sanitizeTheme = (t) => Store.prototype.sanitizeTheme.call(null, t);
 // An embedded theme (addendum 2): the theme file's fields, checked as a theme import is. Answers { theme, dropped } or
@@ -455,4 +459,4 @@ async function applyOffer(env, template, { modules: ids = [], lobby = false, spa
   return skipped;
 }
 
-module.exports = { PARTS, partFingerprints, appliedPartsChanged, appliedOnceFingerprint, loadTemplates, problemsOf, cleanTemplate, get, list, all, useLive, applyTemplate, withRequirements, addIcons, turnOnModules, offerFor, applyOffer, readEmbeddedTheme, FIELDS, BUILTIN_MODULE_IDS, SETTINGS, TEMPLATES_DIR };
+module.exports = { PARTS, partFingerprints, appliedPartsChanged, appliedOnceFingerprint, wholeFingerprint, loadTemplates, problemsOf, cleanTemplate, get, list, all, useLive, applyTemplate, withRequirements, addIcons, turnOnModules, offerFor, applyOffer, readEmbeddedTheme, FIELDS, BUILTIN_MODULE_IDS, SETTINGS, TEMPLATES_DIR };

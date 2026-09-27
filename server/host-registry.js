@@ -167,6 +167,24 @@ function cleanEnvironmentRecord(raw) {
   };
 }
 
+// One host edit over a bundled template (addendum 3). `template` null means not edited (hidden only, or reset).
+function cleanBundledEdit(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string') return null;
+  const base = raw.base && typeof raw.base === 'object' ? raw.base : {};
+  return {
+    id: raw.id,
+    template: raw.template && typeof raw.template === 'object' && !Array.isArray(raw.template) ? structuredClone(raw.template) : null,
+    version: Number.isInteger(raw.version) && raw.version >= 1 ? raw.version : 1,
+    base: {
+      version: Number.isInteger(base.version) ? base.version : 0,
+      fingerprint: typeof base.fingerprint === 'string' ? base.fingerprint : '',
+      whole: typeof base.whole === 'string' ? base.whole : '',
+    },
+    hidden: raw.hidden === true,
+    updatedAt: typeof raw.updatedAt === 'string' ? raw.updatedAt : null,
+  };
+}
+
 class HostRegistry {
   constructor(dataDir) {
     this.dir = dataDir;
@@ -211,6 +229,9 @@ class HostRegistry {
       // The host's own templates (plan-environment-templates.md, addendum 2): each checked by server/templates.js
       // before it is saved, with its version, hidden, createdAt and updatedAt. Kept as found here.
       templates: Array.isArray(raw.templates) ? raw.templates.filter((t) => t && typeof t === 'object' && typeof t.id === 'string') : [],
+      // Edits over bundled templates (addendum 3): one record per bundled id the host has touched. `template` is the
+      // whole edit, or null when the record only hides or has been reset. Checked before it is saved.
+      bundledEdits: Array.isArray(raw.bundledEdits) ? raw.bundledEdits.map(cleanBundledEdit).filter(Boolean) : [],
       // The Names migration's record of the host's own parts (server/migrate-names.js), kept exactly as found.
       ...(Array.isArray(raw.migrations) ? { migrations: raw.migrations } : {}),
     };
@@ -302,6 +323,30 @@ class HostRegistry {
 
   removeTemplate(id) {
     this.data.templates = this.data.templates.filter((t) => t.id !== id);
+    this.save();
+  }
+
+  get bundledEdits() {
+    return structuredClone(this.data.bundledEdits);
+  }
+
+  bundledEdit(id) {
+    const found = this.data.bundledEdits.find((r) => r.id === id);
+    return found ? structuredClone(found) : null;
+  }
+
+  // Adds a bundled-edit record, or replaces the one with its id. The caller has checked the template.
+  putBundledEdit(record) {
+    const clean = cleanBundledEdit(record);
+    if (!clean) throw new HostError('a bundled edit needs an id');
+    const i = this.data.bundledEdits.findIndex((r) => r.id === clean.id);
+    if (i >= 0) this.data.bundledEdits[i] = clean;
+    else this.data.bundledEdits.push(clean);
+    this.save();
+  }
+
+  removeBundledEdit(id) {
+    this.data.bundledEdits = this.data.bundledEdits.filter((r) => r.id !== id);
     this.save();
   }
 

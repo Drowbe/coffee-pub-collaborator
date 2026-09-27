@@ -32,6 +32,7 @@ function templateToFile(t) {
     const { magpieTheme, ...theme } = themeFile.themeToFile(t.theme);
     out.theme = theme;
   }
+  if (t.edited) out.edited = true; // an edited bundled template; import ignores this and does not list it as dropped
   return out;
 }
 
@@ -59,7 +60,7 @@ function readTemplateFile(input, { bundled = [], byteLength = null } = {}) {
   const dropped = [];
   const raw = {};
   for (const [key, value] of Object.entries(file)) {
-    if (key === 'magpieTemplate') continue;
+    if (key === 'magpieTemplate' || key === 'edited') continue; // `edited` marks an export; it is not a template field
     if (!templates.FIELDS.includes(key)) { dropped.push(key); continue; }
     raw[key] = value;
   }

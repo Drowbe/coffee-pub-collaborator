@@ -171,12 +171,26 @@
           <input id="template-import-file" type="file" accept=".json,application/json" hidden>
           <button class="btn btn-small btn-primary" id="template-new" type="button">New template</button>
         </div>
-        <p class="hint">What a new environment can be made from. Bundled templates come with Magpie and can't be edited: export one and import it to start your own. Hidden templates aren't offered for new environments; the ones using them keep them.</p>
+        <p class="hint">What a new environment can be made from. Edits to a bundled template stay over the one Magpie ships. Hidden templates aren't offered for new environments; the ones using them keep them.</p>
+        <ul class="template-notices" id="template-notices"></ul>
         <ul class="template-list" id="template-list"></ul>
+      </section>
+
+      <section class="panel" id="template-compare" hidden>
+        <h2 id="template-compare-title">Review</h2>
+        <p class="hint">The shipped template is on the left. Yours is on the right.</p>
+        <div class="template-compare-head"><span></span><span>Shipped</span><span>Yours</span></div>
+        <div id="template-compare-fields"></div>
+        <div class="row-actions">
+          <button class="btn btn-small" id="template-take-shipped" type="button">Take the new version</button>
+          <button class="btn btn-small btn-primary" id="template-keep-mine" type="button">Keep mine</button>
+          <button class="btn btn-small" id="template-compare-close" type="button">Close</button>
+        </div>
       </section>
 
       <form class="panel template-editor" id="template-editor" hidden novalidate>
         <h2 id="template-editor-title">New template</h2>
+        <p class="hint" id="te-bundled-hint" hidden>Your edits are kept over the shipped template.</p>
         <p class="hint">Words, phases, the home icon and module names and icons reach every environment using the template at once. The rest is applied once: owners are offered it, never forced.</p>
         <ul class="problems" id="tp-problems"></ul>
         <div class="fields">

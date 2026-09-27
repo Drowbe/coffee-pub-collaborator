@@ -6086,6 +6086,15 @@ body.in-space .topbar.menu-open .links .module-nav-link {
 body.host-console .template-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
 body.host-console .template-list .list-row { flex-wrap: wrap; }
 body.host-console .template-list-name { flex: 1; min-width: 12em; }
+body.host-console .template-edited { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 8px; background: var(--accent); color: var(--on-accent); font-size: 11px; font-weight: 700; line-height: 16px; vertical-align: 1px; }
+body.host-console .template-notices { list-style: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+body.host-console .template-notices:empty { display: none; }
+body.host-console .template-compare-head,
+body.host-console .template-compare-row { display: grid; grid-template-columns: 8em minmax(0, 1fr) minmax(0, 1fr); gap: 8px; align-items: start; }
+body.host-console .template-compare-head { margin: 8px 0 4px; color: var(--text-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+body.host-console .template-compare-row { padding: 6px 0; border-top: 1px solid var(--border); }
+body.host-console .template-compare-row pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; }
+body.host-console #template-compare .row-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
 body.host-console #te-icon-set { width: 100%; box-sizing: border-box; }
 body.host-console .template-editor fieldset { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; margin: 12px 0 0; min-width: 0; }
 body.host-console .template-editor legend { padding: 0 4px; color: var(--text-dim); font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; }

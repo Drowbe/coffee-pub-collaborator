@@ -543,7 +543,7 @@ export function accessKeyHeaders() {
   return accessKey ? { 'x-stream-key': accessKey } : {};
 }
 
-export async function api(method, url, body, contentType) {
+export async function api(method, url, body, contentType, signal) {
   const headers = accessKeyHeaders();
   let payload = body;
   if (body !== undefined && !(body instanceof Blob)) {
@@ -552,7 +552,7 @@ export async function api(method, url, body, contentType) {
   } else if (body instanceof Blob) {
     headers['content-type'] = contentType || body.type;
   }
-  const res = await fetch(url, { method, headers, body: payload });
+  const res = await fetch(url, { method, headers, body: payload, signal });
   let data = {};
   try {
     data = await res.json();

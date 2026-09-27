@@ -311,7 +311,10 @@ try {
     assert.equal((await asOwner('GET', '/api/modules')).json.modules.some((m) => m.id === 'calendar'), false, 'nothing forced');
     const applied = await asOwner('POST', '/api/environment/template/apply', { modules: ['calendar'] });
     assert.deepEqual([applied.status, applied.json.template.appliedVersion, applied.json.template.offerOpen], [200, 2, false]);
-    assert.deepEqual(await console_('PATCH', '/api/host/templates/travel', { name: 'x' }).then((r) => [r.status, r.json]), [403, { error: "Bundled templates can't be edited; export one to start your own." }]);
+    const touch = await console_('PATCH', '/api/host/templates/travel', { name: 'Trips' });
+    assert.equal(touch.status, 200, touch.text);
+    assert.equal(touch.json.template.edited, true);
+    assert.equal((await console_('DELETE', '/api/host/templates/travel/edits')).status, 200, 'the edit is reset, so the rest of this test still sees the shipped template');
     // Hidden: gone from new choices; the environment keeps it.
     assert.equal((await console_('PATCH', '/api/host/templates/harbour', { hidden: true })).json.template.version, 2, 'hiding is not a new version');
     assert.deepEqual(await console_('POST', '/api/host/environments', { slug: 'sail2', name: 'Sail 2', template: 'harbour' }).then((r) => [r.status, r.json]), [400, { error: 'There is no template called harbour.' }]);

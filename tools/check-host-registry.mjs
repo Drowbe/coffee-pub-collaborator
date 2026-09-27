@@ -1476,6 +1476,29 @@ try {
       fs.mkdirSync(path.join(dir, 'environments'));
     });
   });
+
+  await liveTest('live: presence and status answer when LiveKit does not (GitHub #71)', async () => {
+    const dir = path.join(liveDir, 'livekit-silent');
+    // 10.255.255.1 is an address that does not answer, the case that used to take the SDK's 10 seconds.
+    server = await startServer(dir, { ADMIN_PASSWORD: 'admin-password-1', LIVEKIT_HOST: '10.255.255.1' });
+    const admin = await signInSingle('admin', 'admin-password-1');
+    const time = async (urlPath) => {
+      const t = Date.now();
+      const res = await call(server, '', 'GET', urlPath, { cookie: admin.cookie });
+      return { res, ms: Date.now() - t };
+    };
+    const [presence, status] = await Promise.all([time('/api/presence'), time('/api/status')]);
+    for (const [name, got] of [['presence', presence], ['status', status]]) {
+      assert.equal(got.res.status, 200, `${name}: ${got.res.text}`);
+      assert.ok(got.ms < 4000, `${name} took ${got.ms}ms`);
+      assert.ok(Array.isArray(got.res.json.users) && got.res.json.users.length > 0, name);
+      assert.ok(Array.isArray(got.res.json.spaces), name);
+    }
+    assert.equal(presence.res.json.users.find((u) => u.key === admin.key).inCall, false);
+    assert.equal(status.res.json.users.find((u) => u.key === admin.key).online, null);
+    await server.stop();
+    server = null;
+  });
 } finally {
   if (server) await server.stop();
   fs.rmSync(liveDir, { recursive: true, force: true });

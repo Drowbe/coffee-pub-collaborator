@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides how links between modules stay true, and whoever builds it: server-development (the link table, the store hooks, the checks) and experience-design (the Planner, the SDK).
 
-**Status:** approved by Thomas, September 26, 2026, with every recommendation below accepted (the open questions and the suggested rules). Built (Planner 0.6.4, cc35dfb): a resolve answer carries `state` (`gone`, `hidden`), and the Planner draws a deleted or hidden linked object as such, offers Remove and never opens its editor. Not built: dead links cleaned up everywhere, a link showing the object as it is now, a link following its object's date. The two-way pairs of GitHub #96 build on this plan: [plan-plan-calendar-sync](plan-plan-calendar-sync.md).
+**Status:** approved by Thomas, September 26, 2026, with every recommendation below accepted (the open questions and the suggested rules). Built. Before this plan (Planner 0.6.4, cc35dfb): a resolve answer carries `state` (`gone`, `hidden`), and the Planner draws a deleted or hidden linked object as such. Step 1, change events and `tz`: pull request #98. Step 2, held pointers: #99. Step 3, the Planner (0.8.0; the plan's 0.9.0 assumed #95 landed first, and it had not): #100. Step 4, "Used by N." (Calendar 1.17.18, Planner 0.8.1): #101. The full `npm run check` passed on the stacked head; the drag rule, the live refresh and the confirmation text were read as code only, and nothing was verified live in a browser. The two-way pairs of GitHub #96 build on this plan: [plan-plan-calendar-sync](plan-plan-calendar-sync.md).
 
 ## Why
 

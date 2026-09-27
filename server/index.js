@@ -5530,7 +5530,7 @@ app.get('/api/currencies', requireUser, (_req, res) => res.json({ currencies: cu
 // `template`: the template the environment was made from and what was skipped (templateView), or null; `ownHomeIcon` the
 // owner's own home icon (null: the template's or the default).
 // `templateWords` and `templateHomeIcon`: the template's own (null for none), whatever the owner has set over them;
-// `spaceDefaults`: what a new space starts with ({ profile }, or null for the built-in default).
+// `spaceDefaults`: what a new space starts with ({ profile?, opensWith? }, or null for the built-in default).
 const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null });
 app.get('/api/settings', requireOwner, (_req, res) => res.json({ settings: ownerSettings(), streamKey: store.streamKey }));
 // `template` ("none" for none) switches the environment's template (the switching addendum): taken out of the body

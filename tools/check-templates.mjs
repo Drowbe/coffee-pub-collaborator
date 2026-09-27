@@ -49,6 +49,10 @@ try {
     assert.deepEqual(t.words, { space: { one: 'trip', many: 'trips' } });
     assert.deepEqual(t.modules, ['travel', 'places', 'maps', 'research', 'calendar', 'chat', 'conference']);
     assert.deepEqual([t.moduleNames.travel, t.icons.home, t.lobby.name, t.lobby.description, t.spaceDefaults.profile], ['Itinerary', 'suitcase-rolling', 'Home base', 'Everyone on every trip.', 'participants']);
+    assert.deepEqual(t.spaceDefaults.opensWith, ['travel', 'chat']);
+    assert.equal(t.version, 2);
+    assert.deepEqual(t.phases.map((p) => p.id), ['planning', 'booking', 'buffer', 'pre-trip', 'trip', 'post-trip']);
+    assert.equal(t.phases.find((p) => p.main).id, 'trip');
   });
 
   await test('a template that breaks a rule is refused, each with its sentence', () => {
@@ -71,7 +75,7 @@ try {
       [with_({ settings: { clock: 24 } }), 'settings: 24 is not a value "clock" takes.'],
       [with_({ spaceDefaults: { profile: 'players' } }), 'spaceDefaults.profile must be one of roleplaying, participants, characters.'],
       [with_({ lobby: { name: 'x'.repeat(41) } }), 'lobby.name must be text of 1 to 40 characters.'],
-      [with_({ plan: 'pro' }), '"plan" is not a template field; the fields are id, name, description, version, words, icons, moduleNames, moduleIcons, modules, settings, lobby, spaceDefaults, reactions, theme, iconSet.'],
+      [with_({ plan: 'pro' }), '"plan" is not a template field; the fields are id, name, description, version, words, phases, icons, moduleNames, moduleIcons, modules, settings, lobby, spaceDefaults, reactions, theme, iconSet.'],
     ];
     for (const [raw, sentence] of cases) assert.deepEqual(problems(raw), [sentence], sentence);
     assert.deepEqual(problems(travelRaw, 'trips.json'), ['"id" must match the file\'s name (trips.json).']);
@@ -80,6 +84,34 @@ try {
     fs.mkdirSync(dir);
     fs.writeFileSync(path.join(dir, 'travel.json'), JSON.stringify(with_({ modules: ['travel'] })));
     assert.throws(() => templates.loadTemplates({ dir }), /templates\/travel\.json: modules: "chat" must be listed/);
+  });
+
+  await test('a phase list that breaks a rule is refused, and opensWith is offered when its fingerprint changes', async () => {
+    const with_ = (patch) => ({ ...structuredClone(travelRaw), ...patch });
+    const problems = (raw) => templates.problemsOf(raw, { bundled });
+    const phase = (id, extra = {}) => ({ id, label: id[0].toUpperCase() + id.slice(1), ...extra });
+    assert.deepEqual(problems(with_({ phases: [phase('planning'), phase('planning')] })), ['phases: "planning" is listed twice.']);
+    assert.deepEqual(problems(with_({ phases: [phase('planning', { main: true }), phase('booking', { main: true })] })), ['phases: only one phase can be the main one.']);
+    assert.deepEqual(problems(with_({ phases: Array.from({ length: 13 }, (_, i) => phase(`p${i}`)) })), ['"phases" must be a list of at most 12 phases.']);
+    assert.deepEqual(problems(with_({ phases: [{ id: 'planning', label: 'x'.repeat(41) }] })), ['phases[0]: a label is text of 1 to 40 characters.']);
+    assert.deepEqual(problems(with_({ phases: [{ id: 'planning', label: 'Planning', note: 'x' }] })), ['phases[0]: "note" is not a phase field; a phase takes id, label and main.']);
+    assert.deepEqual(problems(with_({ spaceDefaults: { opensWith: ['chat', 1] } })), ['spaceDefaults.opensWith: 1 is not a module id.']);
+    const withoutOpen = templates.cleanTemplate(with_({ spaceDefaults: { profile: 'participants' } }));
+    const withOpen = templates.cleanTemplate(with_({ spaceDefaults: { profile: 'participants', opensWith: ['travel', 'chat'] } }));
+    assert.notEqual(templates.appliedOnceFingerprint(withoutOpen), templates.appliedOnceFingerprint(withOpen));
+    assert.equal(templates.appliedOnceFingerprint(templates.cleanTemplate(with_({ phases: [] }))), templates.appliedOnceFingerprint(templates.cleanTemplate(with_({ phases: [phase('planning')] }))), 'phases follow the template live');
+    const env = freshEnvironment('opens-with');
+    env.store.updateSettings({ spaceDefaults: { profile: 'participants' } });
+    const travel = templates.get('travel');
+    const old = templates.partFingerprints(withoutOpen);
+    assert.deepEqual(templates.offerFor(env, travel, { applied: old }).spaceDefaults, { opensWith: ['travel', 'chat'] });
+    await templates.applyOffer(env, travel, { spaceDefaults: true });
+    assert.deepEqual(env.store.settings.spaceDefaults, { profile: 'participants', opensWith: ['travel', 'chat'] });
+    assert.equal(templates.offerFor(env, travel).spaceDefaults, null);
+    templates.useLive(env.store, travel);
+    assert.equal(env.store.templatePhases.find((p) => p.main).id, 'trip');
+    templates.useLive(env.store, null);
+    assert.equal(env.store.templatePhases, null);
   });
 
   // The once-only part, twice: the same environment either way (only the time it was applied differs).
@@ -104,7 +136,7 @@ try {
     assert.deepEqual(snapshot(env), once);
     assert.deepEqual(first, []);
     assert.deepEqual(once.lobby, ['Home base', 'Everyone on every trip.']);
-    assert.deepEqual([once.settings.conferenceEnabled, once.settings.homeIcon, once.settings.spaceDefaults], [true, null, { profile: 'participants' }]);
+    assert.deepEqual([once.settings.conferenceEnabled, once.settings.homeIcon, once.settings.spaceDefaults], [true, null, { profile: 'participants', opensWith: ['travel', 'chat'] }]);
     assert.ok(once.settings.icons.includes('suitcase-rolling'), 'the home icon joins the icon list');
     for (const id of ['travel', 'places', 'maps', 'research', 'calendar']) assert.deepEqual(once.modules[id].slice(1), [true, true], id);
     assert.equal(env.modules.isInstalled('assistant'), false, 'a new install leaves the Assistant out');
@@ -112,8 +144,9 @@ try {
     assert.equal(env.store.addSpace({ name: 'Lisbon' }).profile, 'participants', 'a new trip starts with the Participants profile');
     assert.equal(env.store.addSpace({ name: 'Game night', profile: 'roleplaying' }).profile, 'roleplaying', 'unless told otherwise');
     const before = JSON.stringify(env.store.settings);
-    assert.throws(() => env.store.updateSettings({ spaceDefaults: { profile: 'characters', evil: 1 }, clock: '24' }), (err) => err.status === 400 && err.message === 'spaceDefaults takes only profile.');
-    assert.throws(() => env.store.updateSettings({ spaceDefaults: 'characters' }), /spaceDefaults takes only profile\./);
+    assert.throws(() => env.store.updateSettings({ spaceDefaults: { profile: 'characters', evil: 1 }, clock: '24' }), (err) => err.status === 400 && err.message === 'spaceDefaults takes only profile and opensWith.');
+    assert.throws(() => env.store.updateSettings({ spaceDefaults: 'characters' }), /spaceDefaults takes only profile and opensWith\./);
+    assert.throws(() => env.store.updateSettings({ spaceDefaults: { opensWith: [1] }, clock: '24' }), (err) => err.status === 400 && err.message === 'spaceDefaults.opensWith: 1 is not a module id.');
     assert.equal(JSON.stringify(env.store.settings), before, 'a refused change changes nothing');
     env.store.updateSettings({ spaceDefaults: null });
     assert.equal('spaceDefaults' in env.store.settings, false, 'null clears it');
@@ -205,7 +238,7 @@ try {
     assert.deepEqual(offer.modules.map((m) => [m.id, m.allowed, m.why || null]), [['travel', true, null], ['places', true, null], ['maps', true, null], ['research', false, 'not in the plan'], ['calendar', true, null], ['conference', true, null]]);
     assert.equal(offer.modules[0].name, 'name of travel');
     assert.deepEqual(offer.lobby, { name: 'Home base', description: 'Everyone on every trip.' });
-    assert.deepEqual(offer.spaceDefaults, { profile: 'participants' });
+    assert.deepEqual(offer.spaceDefaults, { profile: 'participants', opensWith: ['travel', 'chat'] });
     // Only Maps, the conference and the new-space profile ticked (and Research, which the plan refuses, asked for too).
     const confirm = { modules: ['maps', 'conference', 'research', 'not-offered'], lobby: false, spaceDefaults: true };
     const first = await templates.applyOffer(env, travel, confirm, opts);
@@ -213,7 +246,7 @@ try {
     assert.deepEqual(first, [{ id: 'research', why: 'not in the plan' }]);
     assert.deepEqual([once.modules.maps.slice(1), once.modules.places.slice(1)], [[true, true], [true, true]], 'Maps, with Places which it needs');
     assert.equal(once.modules.travel, undefined, 'the Planner, not ticked, is not installed');
-    assert.deepEqual([once.settings.conferenceEnabled, once.settings.spaceDefaults, once.lobby[0]], [true, { profile: 'participants' }, 'Lobby'], 'the conference on, the profile taken, the Lobby left as it was');
+    assert.deepEqual([once.settings.conferenceEnabled, once.settings.spaceDefaults, once.lobby[0]], [true, { profile: 'participants', opensWith: ['travel', 'chat'] }, 'Lobby'], 'the conference on, the profile taken, the Lobby left as it was');
     assert.deepEqual([env.store.settings.homeIcon, env.store.settings.words], [owned.homeIcon, owned.words], 'the owner\'s home icon and words untouched');
     assert.equal(env.modules.isOnIn('maps', LOBBY), false, 'not in the Lobby');
     const second = await templates.applyOffer(env, travel, confirm, opts);
@@ -278,7 +311,9 @@ try {
     assert.deepEqual(problems(grown({ theme: { ...harbour, glow: 1 } })), ['theme: "glow" is not part of a theme.']);
     const clean = templates.cleanTemplate(grown());
     assert.deepEqual([clean.version, clean.reactions[0].id, clean.theme.name, clean.theme.author, clean.theme.light.bg], [1, 'wave', 'Harbour', 'Thomas', '#ffffff']);
-    assert.equal(templates.cleanTemplate(travelRaw).version, 1, 'a bundled file without a version is version 1');
+    const unversioned = structuredClone(travelRaw);
+    delete unversioned.version;
+    assert.equal(templates.cleanTemplate(unversioned).version, 1, 'a file without a version is version 1');
   });
 
   await test('applied once: reactions become the environment\'s, the theme is added and made active; twice gives the same', async () => {

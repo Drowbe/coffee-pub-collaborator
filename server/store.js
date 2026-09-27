@@ -34,6 +34,19 @@ const SLOTS = ['profile', 'background', ...PARTICIPANT_SLOTS, ...CHARACTER_SLOTS
 // offered for it, on a member's per-space section and (eventually) in
 // Studio's publish UI: Roleplaying wants both, the other two just one.
 const SPACE_PROFILES = ['roleplaying', 'participants', 'characters'];
+const OPENS_WITH_ID = /^[a-z][a-z0-9-]{0,31}$/;
+const MAX_OPENS_WITH = 20;
+// What a new space opens with: up to 20 module ids, in order. A sentence when it is not that, else null.
+function opensWithProblem(list) {
+  if (!Array.isArray(list) || list.length > MAX_OPENS_WITH) return `spaceDefaults.opensWith must be a list of at most ${MAX_OPENS_WITH} module ids.`;
+  const seen = new Set();
+  for (const id of list) {
+    if (typeof id !== 'string' || !OPENS_WITH_ID.test(id)) return `spaceDefaults.opensWith: ${JSON.stringify(id)} is not a module id.`;
+    if (seen.has(id)) return `spaceDefaults.opensWith: "${id}" is listed twice.`;
+    seen.add(id);
+  }
+  return null;
+}
 // A space's optional "launch" link (their VTT, wiki, playlist, whatever) --
 // shown as a button next to Join and in the in-call toolbar. The icon is
 // picked from the admin's Font Awesome list (Theme tab), stored as that
@@ -969,15 +982,30 @@ class Store {
       else if (!this.iconIds().includes(patch.homeIcon)) throw new StoreError('unknown home icon');
       else s.homeIcon = patch.homeIcon;
     }
-    // What a new space starts with (a template sets it; plan-environment-templates.md, spaceDefaults): its profile.
-    // null clears it (a new space then starts as roleplaying); anything but profile inside it is refused.
+    // What a new space starts with (a template sets it): its profile, and which modules open. null clears it
+    // (a new space then starts as roleplaying, and opens as the product does). A key left out is left as it is.
     let clearSpaceDefaults = false;
     if (patch.spaceDefaults !== undefined) {
       const given = patch.spaceDefaults;
       if (given === null) { delete s.spaceDefaults; clearSpaceDefaults = true; }
-      else if (!given || typeof given !== 'object' || Array.isArray(given) || Object.keys(given).some((k) => k !== 'profile')) throw new StoreError('spaceDefaults takes only profile.');
-      else if (!SPACE_PROFILES.includes(given.profile)) throw new StoreError('profile must be roleplaying, participants or characters');
-      else s.spaceDefaults = { profile: given.profile };
+      else if (!given || typeof given !== 'object' || Array.isArray(given) || Object.keys(given).some((k) => k !== 'profile' && k !== 'opensWith')) throw new StoreError('spaceDefaults takes only profile and opensWith.');
+      else {
+        const next = { ...(s.spaceDefaults || {}) };
+        if (given.profile !== undefined) {
+          if (!SPACE_PROFILES.includes(given.profile)) throw new StoreError('profile must be roleplaying, participants or characters');
+          next.profile = given.profile;
+        }
+        if (given.opensWith !== undefined) {
+          if (given.opensWith === null || (Array.isArray(given.opensWith) && given.opensWith.length === 0)) delete next.opensWith;
+          else {
+            const problem = opensWithProblem(given.opensWith);
+            if (problem) throw new StoreError(problem);
+            next.opensWith = [...given.opensWith];
+          }
+        }
+        if (next.profile || (next.opensWith && next.opensWith.length)) s.spaceDefaults = next;
+        else { delete s.spaceDefaults; clearSpaceDefaults = true; }
+      }
     }
     if (patch.loginText !== undefined) s.loginText = String(patch.loginText ?? '').trim().slice(0, 1000);
     if (patch.allowRegistration !== undefined) s.allowRegistration = Boolean(patch.allowRegistration);

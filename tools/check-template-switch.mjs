@@ -147,7 +147,7 @@ try {
     assert.deepEqual([r.json.template.id, r.json.template.name, r.json.template.offerOpen, r.json.template.appliedAt], ['travel', 'Travel', true, null]);
     assert.deepEqual(r.json.offer.modules.map((m) => [m.id, m.allowed]), [['travel', true], ['places', true], ['maps', true], ['research', true]], 'the Calendar is on in every space already; the conference is on');
     assert.deepEqual(r.json.offer.lobby, { name: 'Home base', description: 'Everyone on every trip.' });
-    assert.deepEqual(r.json.offer.spaceDefaults, { profile: 'participants' });
+    assert.deepEqual(r.json.offer.spaceDefaults, { profile: 'participants', opensWith: ['travel', 'chat'] });
     const b = await words();
     assert.deepEqual([b.words.space.one, b.words.member.one, b.homeIcon], ['trip', 'player', icon], 'the template\'s words at once; the owner\'s own still win');
     assert.equal((await as('GET', '/api/modules')).json.modules.some((m) => m.id === 'travel'), false, 'nothing turned on before it is confirmed');

@@ -25,7 +25,10 @@ const FA_FREE_SOLID = path.join(ROOT, 'node_modules', '@fortawesome', 'fontaweso
 // The modules built into every environment: named like a bundled one, never installed.
 const BUILTIN_MODULE_IDS = ['conference', 'chat'];
 const ID_RE = /^[a-z][a-z0-9-]{0,31}$/;
-const FIELDS = ['id', 'name', 'description', 'version', 'words', 'icons', 'moduleNames', 'moduleIcons', 'modules', 'settings', 'lobby', 'spaceDefaults', 'reactions', 'theme', 'iconSet'];
+const FIELDS = ['id', 'name', 'description', 'version', 'words', 'phases', 'icons', 'moduleNames', 'moduleIcons', 'modules', 'settings', 'lobby', 'spaceDefaults', 'reactions', 'theme', 'iconSet'];
+const MAX_PHASES = 12;
+const MAX_OPENS_WITH = 20;
+const PHASE_KEYS = ['id', 'label', 'main'];
 const MAX_REACTIONS = 30;
 const MAX_ICON_SET = 60;
 // The applied-once parts an update can offer, each with a fingerprint of the template's value kept in the record once
@@ -178,10 +181,59 @@ function problemsOf(raw, { file = null, bundled = [], faDir = FA_FREE_SOLID } = 
       if (raw.lobby.description !== undefined && (typeof raw.lobby.description !== 'string' || raw.lobby.description.length > LOBBY_DESCRIPTION_MAX)) say(`lobby.description must be text of at most ${LOBBY_DESCRIPTION_MAX} characters.`);
     }
   }
-  if (raw.spaceDefaults !== undefined) {
-    if (!isObject(raw.spaceDefaults) || Object.keys(raw.spaceDefaults).some((k) => k !== 'profile')) say('"spaceDefaults" takes only "profile".');
-    else if (raw.spaceDefaults.profile !== undefined && !SPACE_PROFILES.includes(raw.spaceDefaults.profile)) say(`spaceDefaults.profile must be one of ${SPACE_PROFILES.join(', ')}.`);
+  if (raw.phases !== undefined) {
+    if (!Array.isArray(raw.phases) || raw.phases.length > MAX_PHASES) say(`"phases" must be a list of at most ${MAX_PHASES} phases.`);
+    else {
+      const seen = new Set();
+      let main = false;
+      raw.phases.forEach((phase, i) => {
+        if (!isObject(phase)) { say(`phases[${i}] must be an object with an id and a label.`); return; }
+        for (const key of Object.keys(phase)) if (!PHASE_KEYS.includes(key)) say(`phases[${i}]: "${key}" is not a phase field; a phase takes id, label and main.`);
+        if (typeof phase.id !== 'string' || !ID_RE.test(phase.id)) say(`phases[${i}]: an id is lowercase letters, digits and dashes, starting with a letter.`);
+        else if (seen.has(phase.id)) say(`phases: "${phase.id}" is listed twice.`);
+        else seen.add(phase.id);
+        const label = typeof phase.label === 'string' ? phase.label.trim() : '';
+        if (typeof phase.label !== 'string' || !label || phase.label.length > 40) say(`phases[${i}]: a label is text of 1 to 40 characters.`);
+        if (phase.main !== undefined && phase.main !== true) say(`phases[${i}]: "main" is true or left out.`);
+        else if (phase.main === true) {
+          if (main) say('phases: only one phase can be the main one.');
+          main = true;
+        }
+      });
+    }
   }
+  if (raw.spaceDefaults !== undefined) {
+    if (!isObject(raw.spaceDefaults) || Object.keys(raw.spaceDefaults).some((k) => k !== 'profile' && k !== 'opensWith')) say('"spaceDefaults" takes only "profile" and "opensWith".');
+    else {
+      if (raw.spaceDefaults.profile !== undefined && !SPACE_PROFILES.includes(raw.spaceDefaults.profile)) say(`spaceDefaults.profile must be one of ${SPACE_PROFILES.join(', ')}.`);
+      if (raw.spaceDefaults.opensWith !== undefined) {
+        const list = raw.spaceDefaults.opensWith;
+        if (!Array.isArray(list) || list.length > MAX_OPENS_WITH) say(`spaceDefaults.opensWith must be a list of at most ${MAX_OPENS_WITH} module ids.`);
+        else {
+          const seen = new Set();
+          for (const id of list) {
+            if (typeof id !== 'string') say(`spaceDefaults.opensWith: ${JSON.stringify(id)} is not a module id.`);
+            else if (!knownModule(id)) say(`spaceDefaults.opensWith: "${id}" is not a bundled or built-in module.`);
+            else if (seen.has(id)) say(`spaceDefaults.opensWith: "${id}" is listed twice.`);
+            else seen.add(id);
+          }
+        }
+      }
+    }
+  }
+  return out;
+}
+
+function cleanPhases(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((phase) => ({ id: phase.id, label: String(phase.label).trim(), ...(phase.main === true ? { main: true } : {}) }));
+}
+
+function cleanSpaceDefaults(raw) {
+  if (!isObject(raw)) return {};
+  const out = {};
+  if (raw.profile) out.profile = raw.profile;
+  if (Array.isArray(raw.opensWith) && raw.opensWith.length) out.opensWith = [...raw.opensWith];
   return out;
 }
 
@@ -200,7 +252,8 @@ function cleanTemplate(raw) {
     modules: [...raw.modules],
     settings: { ...(raw.settings || {}) },
     lobby: { ...(raw.lobby || {}) },
-    spaceDefaults: { ...(raw.spaceDefaults || {}) },
+    phases: cleanPhases(raw.phases),
+    spaceDefaults: cleanSpaceDefaults(raw.spaceDefaults),
     // Addendum 2: a template's version (a bundled file without one is 1), its reactions and its theme, each applied
     // once (null for none).
     version: Number.isInteger(raw.version) ? raw.version : 1,
@@ -235,10 +288,11 @@ const all = () => (loaded ||= loadTemplates());
 const get = (id) => all().get(id) || null;
 const list = () => [...all().values()].map((t) => ({ id: t.id, name: t.name, description: t.description }));
 
-// The live part of a recorded template (its words, home icon and module names and icons) onto an environment's store.
+// The live part of a recorded template (its words, phases, home icon and module names and icons) onto an environment's store.
 // Answers the template, or null when the store has none recorded or this build does not have it.
 function useLive(store, template) {
   store.templateWords = template ? template.words : null;
+  store.templatePhases = template ? template.phases || [] : null;
   store.templateModuleNames = template ? template.moduleNames : null;
   store.templateModuleIcons = template ? template.moduleIcons : null;
   store.templateHomeIcon = template ? template.icons.home || null : null;
@@ -311,7 +365,10 @@ async function applyTemplate(env, template, { allowed = () => true, modulesDir =
   const { store } = env;
   if (Object.keys(template.settings).length) store.updateSettings(template.settings);
   if (template.lobby.name !== undefined || template.lobby.description !== undefined) store.updateSpace(LOBBY, template.lobby);
-  if (template.spaceDefaults.profile) store.updateSettings({ spaceDefaults: { profile: template.spaceDefaults.profile } });
+  const defaults = {};
+  if (template.spaceDefaults.profile) defaults.profile = template.spaceDefaults.profile;
+  if (template.spaceDefaults.opensWith && template.spaceDefaults.opensWith.length) defaults.opensWith = template.spaceDefaults.opensWith;
+  if (Object.keys(defaults).length) store.updateSettings({ spaceDefaults: defaults });
   // The home icon itself stays the template's (settings.homeIcon unset) until the owner picks one.
   addIcons(store, template, { iconSet: true });
   if (template.icons.home) store.updateSettings({ homeIcon: null });
@@ -340,7 +397,7 @@ const sameTheme = (store, theme) => store.themes.find((t) => setsOf(store.saniti
 //   modules: each module it lists (with what it requires) not already on in every space it may be in, with whether
 //            the plan allows it ({ id, name, allowed, why? }); the conference when listed and off
 //   lobby: the template's Lobby name and description when they differ from the Lobby's own, else null
-//   spaceDefaults: the template's new-space profile when it differs from the environment's, else null
+//   spaceDefaults: the new-space profile, and what a new space opens with, for each that differs from the environment's, else null
 function offerFor(env, template, { allowed = () => true, modulesDir = MODULES_DIR, name = (id) => id, applied = null } = {}) {
   const { store, modules } = env;
   // With fingerprints from the last time this template's once-only part was applied or passed over, a part is offered
@@ -360,6 +417,11 @@ function offerFor(env, template, { allowed = () => true, modulesDir = MODULES_DI
   const lobby = store.spaceById(LOBBY);
   const lobbyDiffers = (template.lobby.name !== undefined && template.lobby.name !== lobby?.name) || (template.lobby.description !== undefined && template.lobby.description !== lobby?.description);
   const profile = template.spaceDefaults.profile;
+  const opensWith = template.spaceDefaults.opensWith || [];
+  const haveDefaults = store.settings.spaceDefaults;
+  const defaultsOffer = {};
+  if (profile && profile !== haveDefaults?.profile) defaultsOffer.profile = profile;
+  if (opensWith.length && JSON.stringify(opensWith) !== JSON.stringify(haveDefaults?.opensWith || [])) defaultsOffer.opensWith = [...opensWith];
   const missingIcons = changed('iconSet') ? (template.iconSet || []).filter((id) => !store.iconIds().includes(id)) : [];
   const reactionsDiffer = changed('reactions') && template.reactions && JSON.stringify(template.reactions) !== JSON.stringify(store.settings.reactions || []);
   const theme = changed('theme') ? template.theme || null : null;
@@ -369,7 +431,7 @@ function offerFor(env, template, { allowed = () => true, modulesDir = MODULES_DI
     theme: theme && !(sameTheme(store, theme) && store.settings.activeThemeId === sameTheme(store, theme).id) ? { name: theme.name, ...(theme.author ? { author: theme.author } : {}) } : null,
     modules: offered,
     lobby: changed('lobby') && lobbyDiffers ? { name: template.lobby.name ?? lobby?.name ?? '', description: template.lobby.description ?? lobby?.description ?? '' } : null,
-    spaceDefaults: changed('spaceDefaults') && profile && profile !== store.settings.spaceDefaults?.profile ? { profile } : null,
+    spaceDefaults: changed('spaceDefaults') && Object.keys(defaultsOffer).length ? defaultsOffer : null,
   };
 }
 

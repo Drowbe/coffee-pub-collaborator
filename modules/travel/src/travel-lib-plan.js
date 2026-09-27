@@ -176,7 +176,13 @@
 
     async function stretchFor(item) {
       const span = coverTrip(trip, coverDaysOf(item), item, templatePhases());
-      if (span) await saveTrip(span);
+      if (span && span.start) await saveTrip({ start: span.start, end: span.end });
+      // No trip yet, or a phase that is not the main one: the object is kept, and nothing is left off the day list.
+      const missed = span && span.outside;
+      if (!missed || !missed.length) return;
+      throw new Error(missed.length > 1
+        ? `A plan can be at most ${MAX_DAYS} days long, so those days are left off the plan.`
+        : `A plan can be at most ${MAX_DAYS} days long, so that day is left off the plan.`);
     }
 
     async function addItem(fields) {

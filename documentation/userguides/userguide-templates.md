@@ -5,7 +5,7 @@ whose environment uses a template or could.
 
 A **template** sets an environment up for one use when it is made: what things are called, which modules are
 on, how the Lobby reads, how new spaces start, and, if it has them, its reactions, a theme and a set of icons. It is picked when the environment is made, and an owner or the
-host admin can switch it later. An environment without one reads exactly as Magpie always has.
+host admin can switch it later. An environment without one reads exactly as Collaborator always has.
 
 ## The Travel template
 
@@ -18,6 +18,10 @@ The Travel template sets an environment up for planning trips together:
   every trip. Home base keeps only the chat, the call and the Calendar, as the Lobby always does.
 - The home icon is a rolling suitcase.
 - A new trip starts with the **Participants** picture profile. The Lobby keeps its own profile.
+- A trip goes through six phases: **Planning**, **Booking**, **Buffer**, **Pre-trip**, **Trip** (the main one) and
+  **Post-trip**. The Itinerary shows which one a trip is in; see [Planner](userguide-planner.md).
+- A new trip is set to open the Itinerary and the chat, not the call. This is recorded in the environment's
+  settings; opening them when someone enters a trip is not built yet.
 
 More bundled templates may come later, and the host admin can make their own (below).
 
@@ -45,7 +49,7 @@ Some of it is applied once, when the environment is made: its settings, its modu
 start, its reactions, its icons (added to the icon list) and its theme (added and made the one in use). After that they are the owner's, like anything else in Manage. A template's modules go on in every space
 except the Lobby, which keeps only the chat, the call and the modules made for it.
 
-Its words, its home icon and the names and icons it gives modules keep following the template. Anything an owner
+Its words, its phases, its home icon and the names and icons it gives modules keep following the template. Anything an owner
 changes wins, and **Reset** goes back to the template's, not the default. Manage shows which is which:
 
 - **Words**: a word the template set is marked "From the template", and a word the owner changed shows "The
@@ -67,7 +71,7 @@ An owner can switch the environment to another template, or to none, on Manage's
    - **Turn on**: the template's modules that aren't on in every space yet, ticked. One your plan doesn't include
      is shown unticked, with why. Each goes on in every space except the Lobby.
    - **Also**, unticked: the template's name and description for the Lobby, the picture profile new spaces
-     start with, **Use its reactions** (this replaces the reactions you have), **Add and use the <name> theme**, and
+     start with and what a new space opens, in order (one line and one tick for both), **Use its reactions** (this replaces the reactions you have), **Add and use the <name> theme**, and
      **Add its icons to the icon list**. Each shows only when the template has it and it isn't already yours.
 4. Untick anything you don't want, then click **Apply** (**Done** when there is nothing to add). Only what is
    ticked is applied, and the offer closes even with nothing ticked.
@@ -84,12 +88,12 @@ a **Template** choice and **Switch**, then the same offer, with **Review** to br
 ## When a template is updated
 
 The host admin can edit a template, and a new release can bring a new version of a bundled one. Its words, home
-icon and module names and icons change at once in every environment using it; anything an owner set still wins.
+icon, phases and module names and icons change at once in every environment using it; anything an owner set still wins.
 The rest is offered, never forced:
 
 1. Manage's **Template** tab reads "Version <N>, updated: review what's new", with a badge on the tab.
 2. Click **Review**. The offer lists only what the template changed since you last applied or passed over it: a
-   new module, new reactions, a new theme, new icons, a new Lobby or new-space profile.
+   new module, new reactions, a new theme, new icons, a new Lobby, or a new profile or list of what a new space opens.
 3. Tick what you want and click **Apply**. Nothing is turned off or removed, and a part you turned down is not
    offered again until the template changes it.
 
@@ -97,7 +101,8 @@ The rest is offered, never forced:
 
 On a server with environments, the host admin makes templates on the host console's **Templates** tab. It lists
 every template with where it comes from (**Bundled**, **Yours** or **Imported**), its version, how many environments
-use it, and whether it is hidden. Bundled templates come with Magpie and can't be edited or deleted.
+use it, and whether it is hidden. A bundled template can be edited (see "Edit a bundled template"), but never
+deleted.
 
 **Make one:**
 
@@ -106,15 +111,24 @@ use it, and whether it is hidden. Bundled templates come with Magpie and can't b
    **Description**.
 3. Fill in what it should set: **Words** (blank keeps the default; give the singular and the plural), the **Home
    icon**, the **Modules** and, under **Module names and icons**, what to show them as, and under **New
-   environments** the **Lobby name**, **Lobby description** and what **New spaces use**.
-4. If it should, tick **Give reactions** and add them, click **Choose a theme file…** to give it a theme (a
+   environments** the **Lobby name**, **Lobby description**, what **New spaces use**, and what a new space opens:
+   tick the modules, then order them with the arrows (the list is the template's modules, including the chat and
+   the conference).
+4. Under **Phases**, click **Add phase** for each one, up to 12: an id (lowercase letters, digits and dashes) and a
+   label. Tick **Main** on at most one: its dates are the plan's own. Use the arrows to order them and **Remove**
+   to take one out. Leave the list empty for none.
+5. If it should, tick **Give reactions** and add them, click **Choose a theme file…** to give it a theme (a
    `.magpie-theme.json` file, see [userguide-themes](userguide-themes.md)), and list **Icons** by their Font Awesome
    names, separated by spaces.
-5. Click **Save**. It is version 1, and offered on the create form straight away.
+6. Click **Save**. It is version 1, and offered on the create form straight away. A problem, such as a phase id
+   listed twice, shows beside the part it is about, and nothing is saved.
 
 **Edit one:** click **Edit** on its row, change what you need, and click **Save**. Each save is a new version.
-Every environment using it gets the words, home icon and module names and icons at once, and is offered the rest
-(see "When a template is updated").
+Every environment using it gets the words, phases, home icon and module names and icons at once, and is offered the
+rest (see "When a template is updated").
+
+**Duplicate one:** click **Duplicate** on any row, bundled or yours. Give the new template an id, then a name. It is
+a template of your own at version 1, with everything the one you duplicated has now, and opens in the editor.
 
 **Hide one:** tick **Hidden** on its row. It is no longer offered for new environments, on sign-up or for a
 switch; the environments using it keep it. Untick it to offer it again.
@@ -123,16 +137,46 @@ switch; the environments using it keep it. Untick it to offer it again.
 Hide it instead."): hide it, or switch those environments to another first.
 
 **Import a file:** click **Import…** and choose a `.magpie-template.json` file. If a template already has its id,
-you are asked for another. Anything in the file Magpie doesn't know is left out and listed. It keeps the file's
-version.
+you are asked for another. Anything in the file Collaborator doesn't know is left out and listed. It keeps the
+file's version.
 
-**Export one:** click **Export** on any row, a bundled one included. To start your own from a bundled template,
-export it, change its `id` and `name` in the file (or give a new id when asked), and import it.
+**Export one:** click **Export** on any row, a bundled one included. An edited bundled template exports as you
+have it, marked as edited.
+
+## Edit a bundled template
+
+The host admin can change a bundled template, such as Travel, in place. The id stays, so every environment made
+from it gets the change.
+
+1. On the **Templates** tab, click **Edit** on the bundled template's row. The editor says "Your edits are kept over
+   the shipped template."
+2. Change what you need and click **Save**. The first save is the shipped version plus one, and each later save
+   adds one. Environments using it get the words, phases, home icon and module names and icons at once, and are
+   offered the rest.
+3. The row now shows **Edited**.
+
+**Hidden** works as for your own templates and changes no version. **Delete** is never offered for a bundled
+template: hide it instead.
+
+**Reset to shipped**, on an edited row, removes your edits after you confirm ("Reset <name> to the shipped version?
+Your edits are removed."). The shipped template is back, and the version still goes up by one, so environments
+using it are offered what changed.
+
+**When a new release changes a template you edited,** your edits are kept, and a notice above the list reads
+"<name> was updated in this image: review". Click **Review** to see each part that differs, the shipped one beside
+yours, then:
+
+- **Keep mine** keeps your edits and closes the notice. The version stays as it is.
+- **Take the new version** drops your edits (you confirm first: "This drops your edits to <name>.") and raises the
+  version.
+- **Close** leaves the notice for later.
+
+If you never edited it, a new release's template simply replaces it, with no notice.
 
 ## Template files
 
 A template can travel as a file, `<name>.magpie-template.json`, of at most 64 KB. Its theme travels inside it.
-Magpie refuses a file it can't read ("That isn't a Magpie template file.") and one from a newer Magpie ("This
+Collaborator refuses a file it can't read ("That isn't a Magpie template file.") and one from a newer Magpie ("This
 template was made by a newer version of Magpie.").
 
 **The owner of a single server** has **Template files** on Manage's **Template** tab:

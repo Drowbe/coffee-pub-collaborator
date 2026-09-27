@@ -85,6 +85,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   const canvasEmpty = document.getElementById('canvas-empty');
   let spaceId = null;
   let available = [];
+  // What this space opens with, and the environment's list for a space that has none. Both null until a space is loaded.
+  let spaceOpensWith = null;
+  let environmentOpensWith = null;
   let z = 40;
   let order = 0;
   let unread = {}; // module id -> unread notifications, from brand.js
@@ -960,8 +963,21 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     snapshot();
   }
 
-  // Open the space's remembered modules: what was open when it was last used, or just the
-  // conference for a space not used before.
+  // Ids from a list that this person may open here. Null when the list itself is absent, so the next fallback applies.
+  // An empty result means the list was set and nothing on it can be opened.
+  function openable(list) {
+    if (!Array.isArray(list)) return null;
+    return list.filter((id) => {
+      if (builtins.has(id)) {
+        const def = builtins.get(id);
+        return !def.allowed || def.allowed();
+      }
+      return available.some((m) => m.id === id);
+    });
+  }
+
+  // Open what this space starts with: a fresh request, then the remembered layout, then the space's own list,
+  // then the environment's list, then the conference (or the chat, when the conference is off).
   function restore() {
     suspended = true;
     restoring = true;
@@ -969,9 +985,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === openRequest.module) ? openRequest : null;
     openRequest = null;
     keepLayout = Boolean(request);
-    // A space not used before opens on the conference, or on the chat when the conference is off on this server.
     const noConference = builtins.has('conference') && builtins.get('conference').allowed && !builtins.get('conference').allowed();
-    const want = request ? [request.module] : Array.isArray(saved.__open) ? saved.__open : [noConference ? 'chat' : 'conference'];
+    const product = [noConference ? 'chat' : 'conference'];
+    const own = openable(spaceOpensWith);
+    const fromEnvironment = openable(environmentOpensWith);
+    const configured = own !== null ? own : (fromEnvironment !== null ? fromEnvironment : product);
+    const want = request ? [request.module] : Array.isArray(saved.__open) ? saved.__open : configured;
     for (const id of want) {
       if (builtins.has(id)) api_openBuiltin(id);
       else {
@@ -988,8 +1007,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
         sequence.forEach((p, i) => { p.order = values[i]; });
       }
     }
-    // On a phone the call is the view to start on, whatever was opened last.
+    // On a phone the call is the view to start on when it was opened. Otherwise the first thing opened is the view.
     if (isNarrow() && opened.has('conference')) view = 'conference';
+    else if (isNarrow()) {
+      const first = want.find((id) => opened.has(id));
+      if (first) view = first;
+    }
     restoring = false;
     suspended = false;
     syncDock();
@@ -1129,12 +1152,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     spaceId = id;
     saved = loadSaved(id);
     available = [];
+    spaceOpensWith = null;
+    environmentOpensWith = null;
     if (id) {
       try {
         const q = new URLSearchParams({ space: id });
         if (guestToken) q.set('guest', guestToken);
         const answer = await api('GET', `/api/modules/for-space?${q}`);
         available = (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false);
+        spaceOpensWith = Array.isArray(answer.opensWith) ? answer.opensWith : null;
+        environmentOpensWith = Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null;
         showBuiltin(answer.builtin);
       } catch {
         available = [];

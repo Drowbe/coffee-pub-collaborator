@@ -118,7 +118,9 @@ try {
     const ids = async (space) => (await as('GET', `/api/modules/for-space?space=${space}`)).json.modules.map((m) => m.id).sort();
     assert.deepEqual(await ids('lobby'), ['calendar'], 'Polls in every space leaves the Lobby out; the Calendar is allowed');
     assert.deepEqual(await ids(side), ['calendar', 'polls', 'todo']);
-    assert.deepEqual((await as('GET', '/api/modules/for-space?space=lobby')).json.builtin.map((b) => b.id), ['conference', 'chat'], 'chat and the conference are the built-ins, as before');
+    const lobbyModules = (await as('GET', '/api/modules/for-space?space=lobby')).json;
+    assert.deepEqual(lobbyModules.builtin.map((b) => b.id), ['conference', 'chat'], 'chat and the conference are the built-ins, as before');
+    assert.deepEqual([lobbyModules.opensWith, lobbyModules.spaceDefaultsOpensWith], [null, null], 'with no template, nothing is set to open');
     assert.equal((await as('GET', '/api/modules')).json.modules.find((m) => m.id === 'polls').lobby, false);
     assert.equal((await as('GET', '/api/modules')).json.modules.find((m) => m.id === 'calendar').lobby, true);
   });
@@ -268,7 +270,10 @@ try {
     const owner = cookieOf(await call(server, 'beta', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
     const lobby = (await call(server, 'beta', 'GET', '/api/spaces', { cookie: owner })).json.spaces.find((s) => s.id === 'lobby');
     assert.equal(lobby.name, 'Home base', 'the Lobby\'s name, ticked, taken');
-    assert.deepEqual((await call(server, 'beta', 'GET', '/api/modules/for-space?space=lobby', { cookie: owner })).json.modules.map((m) => m.id), ['calendar'], 'the Planner is not in "Home base"');
+    const home = (await call(server, 'beta', 'GET', '/api/modules/for-space?space=lobby', { cookie: owner })).json;
+    assert.deepEqual(home.modules.map((m) => m.id), ['calendar'], 'the Planner is not in "Home base"');
+    assert.equal(home.opensWith, null, 'Home base has no list of its own');
+    assert.deepEqual(home.spaceDefaultsOpensWith, ['travel', 'chat'], 'the environment opens the Planner and chat');
     assert.equal((await call(server, 'beta', 'GET', '/api/environment', { cookie: owner })).json.template.id, 'travel');
     const history = readJson(path.join(hosted, 'environments', 'beta', 'app.json')).templateHistory;
     assert.deepEqual(history.map((h) => [h.from, h.to, h.by]), [[null, 'travel', 'host']]);

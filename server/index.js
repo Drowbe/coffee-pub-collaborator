@@ -5337,6 +5337,10 @@ app.get('/api/modules/for-space', (req, res) => {
       .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
     // The built-in modules' names and icons as this environment shows them (the canvas's Conference and Chat switches).
     builtin: BUILTIN_MODULES.map((b) => ({ id: b.id, ...shownModule(b) })),
+    // What this space opens with, or null when it has no list of its own. The environment's list is what a new space
+    // opens with when the space itself has none.
+    opensWith: Array.isArray(space.opensWith) && space.opensWith.length ? [...space.opensWith] : null,
+    spaceDefaultsOpensWith: Array.isArray(store.settings.spaceDefaults?.opensWith) && store.settings.spaceDefaults.opensWith.length ? [...store.settings.spaceDefaults.opensWith] : null,
   });
 });
 

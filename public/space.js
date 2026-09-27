@@ -2246,10 +2246,9 @@ async function joinAsGuest(token, livekitUrl, joinedId, joinedName) {
 }
 
 // Shared by join() and joinAsGuest() once a LiveKit token is in hand:
-// connect, reveal the canvas, and open the conference (unless the role has no
-// conference). Errors propagate to whichever of those called it, to land on the
-// right error message. Nothing is received until the conference starts, so
-// autoSubscribe is off.
+// connect, reveal the canvas, and open what this space starts with.
+// Errors propagate to whichever of those called it, to land on the right error message.
+// Nothing is received until the conference starts, so autoSubscribe is off.
 async function connectAndSetup(token, livekitUrl) {
     await call.connect(livekitUrl, token, { autoSubscribe: false });
     console.debug('[app] connected to', currentSpace.id);
@@ -2266,7 +2265,7 @@ async function connectAndSetup(token, livekitUrl) {
       if (chatInput) chatInput.loadThread();
     }
     canvas.updateMenu();
-    canvas.restore(); // the modules this space had open last time, or the conference the first time
+    canvas.restore(); // remembered layout, else what this space or environment opens with, else the conference
     syncSnapBar(); // and this space's canvas-level snap
     if (canvas.builtinOpen('conference')) await callStarting;
     else setStatus(`in ${spaceName} (not in the call)`);

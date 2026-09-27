@@ -30,7 +30,7 @@ On the spaces page, the dashboard's **Coming up** card lists the next seven days
 
 ## Add and change events
 
-If you can edit, choose **Add event** (in the bar along the bottom of the Calendar; docked, it sits in the same row as the video toolbar and the chat box), or click a day in the month. Give it a title, a date, and a start and end time (or tick **All day**), and add details if you like. Choose **Save**. Click an event to change or delete it; the delete button asks you to click a second time. If two people change the same event at once, the second person is told and can reopen it to see the other change.
+If you can edit, choose **Add event** (in the bar along the bottom of the Calendar; docked, it sits in the same row as the video toolbar and the chat box), or click a day in the month. Give it a title, a date, and a start and end time (or tick **All day**), and add details if you like. Choose **Save**. Click an event to change or delete it; the delete button asks you to click a second time. When something else points at the event (a task, or an object on a plan), it says so first, for example "Used by 1. Really delete?". If two people change the same event at once, the second person is told and can reopen it to see the other change.
 
 To type an event, use `/c` in Chat while the Calendar is open, and the New event form opens filled in: `/c meet with bob sep 29 at 7pm` gives the title "meet with bob", the day Sep 29 and the time 7:00 PM. Days can be typed as "tomorrow", "fri", "next mon", "sep 29", "29 sep" or "9/29"; times as "7pm", "7:30pm", "19:00", "at 7", "noon" or "midnight". Whatever it does not understand stays in the title, and you can change anything before saving. See [Chat](userguide-chat.md), "Commands".
 
@@ -47,6 +47,10 @@ Give an event an **Ends** date, and a time if it is not all day, to make it run 
 ## Linking an event elsewhere
 
 An event can be dragged onto a task in the To-do module, or onto an open task there, to link the task to it. The task then shows the event's name and date, and clicking that link opens the event here. When you open an event that tasks (or anything else) link to, it lists them under **Linked from**, and clicking one opens it. See [To-do](userguide-todo.md).
+
+## Events from a plan
+
+When the space also has the Planner, every object on the plan with a date is an event here too, and the two stay in step. Change its title, day or time here and the plan changes; change it on the plan and it changes here. Deleting such an event leaves the object on the plan, and it comes back here when its day changes. An event you add here stays on the Calendar only. See [Planner](userguide-planner.md), "On the Calendar".
 
 ## Dropping something on the calendar
 

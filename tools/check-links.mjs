@@ -455,7 +455,7 @@ try {
     assert.equal(left.some((l) => !l.pair && l.to.id === 'holiday'), true);
   });
 
-  await test('clearing the day deletes the twin, and deleting either side follows the table', async () => {
+  await test('clearing the day deletes the twin, and deleting either side follows the rules', async () => {
     assert.equal((await putOut('clear', { title: 'Clear', date: '2026-06-15' }, 'UTC')).status, 200);
     const twin = await twinOf('clear');
     assert.equal((await putOut('clear', { title: 'Clear' }, 'UTC')).status, 200);

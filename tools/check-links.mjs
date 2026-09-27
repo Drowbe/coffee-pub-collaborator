@@ -101,11 +101,11 @@ function openStream(server, cookie, space) {
   return { refchanges, waitFor, close: () => { req.destroy(); if (res) res.destroy(); } };
 }
 
-function writeModule(dir, id, refs) {
+function writeModule(dir, id, refs, scope = ['space']) {
   const root = path.join(dir, id);
   fs.mkdirSync(path.join(root, 'src'), { recursive: true });
   fs.writeFileSync(path.join(root, 'module.json'), JSON.stringify({
-    id, name: id, version: '1.0.0', scope: ['space'], icon: 'circle',
+    id, name: id, version: '1.0.0', scope, icon: 'circle',
     surfaces: { canvas: { entry: `${id}.html`, menu: false } },
     refs,
   }));
@@ -313,6 +313,172 @@ try {
     assert.equal(kept.value.gone, true);
     assert.equal(kept.value.title, 'Stay');
     assert.equal(linksOf().some((l) => l.from.module === 'link-marker' && l.from.id === 'kept' && l.to.id === 'stay'), true);
+  });
+
+  const outDir = writeModule(mods, 'sync-out', {
+    produces: [{
+      kind: 'note', name: 'Note', key: 'note:{id}', summary: { title: 'title', when: 'date' },
+      holds: { field: 'ref', onDelete: 'remove' },
+      dated: { title: 'title', day: 'date', time: 'time', endDay: 'checkOut' },
+      mirror: 'out',
+    }],
+    consumes: ['sync-in:mark', 'sync-off:mark'],
+  }, ['space', 'person']);
+  const inDated = {
+    kind: 'mark', name: 'Mark', key: 'mark:{id}', summary: { title: 'title' },
+    dated: { title: 'title', start: 'start', end: 'end', allDay: 'allDay' },
+    mirror: 'in',
+    create: { id: '{id}', desc: '', remind: null, repeat: null, by: '{by}' },
+  };
+  const inDir = writeModule(mods, 'sync-in', { produces: [inDated], consumes: [] });
+  const offDir = writeModule(mods, 'sync-off', { produces: [{ ...inDated, kind: 'mark' }], consumes: [] });
+  for (const dir of [outDir, inDir, offDir]) {
+    const up = await as('POST', '/api/modules', buildModule(dir).zip, 'application/zip');
+    assert.equal(up.status, 201, up.text);
+  }
+  assert.equal((await as('PATCH', '/api/modules/sync-out', { enabled: true, allSpaces: true })).status, 200);
+  assert.equal((await as('PATCH', '/api/modules/sync-in', { enabled: true, allSpaces: true })).status, 200);
+  assert.equal((await as('PATCH', '/api/modules/sync-off', { enabled: true })).status, 200);
+
+  const putOut = (id, value, tz) => as('PUT', `/api/modules/sync-out/data/note:${id}?scope=space&space=${space}`, { value, ...(tz ? { tz } : {}) });
+  const getOut = async (id) => (await as('GET', `/api/modules/sync-out/data/note:${id}?scope=space&space=${space}`)).json.item;
+  const getIn = async (id) => as('GET', `/api/modules/sync-in/data/mark:${id}?scope=space&space=${space}`);
+  const pairOf = (id) => linksOf().filter((l) => l.pair && l.from && l.from.module === 'sync-out' && l.from.id === id);
+  const twinOf = async (id) => {
+    const pair = pairOf(id).find((l) => l.pair === 'active');
+    assert.ok(pair, `no active pair for ${id}`);
+    const got = await getIn(pair.to.id);
+    assert.equal(got.status, 200, got.text);
+    return { pair, item: got.json.item };
+  };
+
+  await test('a dated sender makes one twin, and an undated one, a holding one, a personal one and an off receiver do not', async () => {
+    const bad = writeModule(mods, 'sync-bad', {
+      produces: [{ kind: 'note', name: 'Note', key: 'note:{id}', summary: { title: 'title' }, dated: { title: 'title', day: 'date', start: 'start' }, mirror: 'out' }],
+      consumes: [],
+    });
+    const refused = await as('POST', '/api/modules', buildModule(bad).zip, 'application/zip');
+    assert.equal(refused.status, 400, refused.text);
+
+    assert.equal((await putOut('plain', { title: 'Plain' })).status, 200);
+    assert.equal(pairOf('plain').length, 0);
+    assert.equal((await putOut('held', { title: 'Held', date: '2026-06-15', ref: { module: 'sync-in', kind: 'mark', id: 'nope', scope: 'space', space } })).status, 200);
+    assert.equal(pairOf('held').length, 0);
+    assert.equal((await as('PUT', '/api/modules/sync-out/data/note:mine?scope=person', { value: { title: 'Mine', date: '2026-06-15' } })).status, 200);
+    assert.equal(pairOf('mine').length, 0);
+
+    assert.equal((await putOut('dated', { title: 'Walk', date: '2026-06-15', time: '09:30' }, 'UTC')).status, 200);
+    const pairs = pairOf('dated');
+    assert.equal(pairs.length, 1);
+    assert.equal(pairs[0].pair, 'active');
+    assert.equal(pairs[0].to.module, 'sync-in');
+    const twin = await twinOf('dated');
+    assert.equal(twin.item.value.title, 'Walk');
+    assert.equal(twin.item.value.allDay, false);
+    assert.equal(twin.item.value.start, '2026-06-15T09:30:00.000Z');
+  });
+
+  await test('title, day and time travel both ways, and a same write does not write again', async () => {
+    const version = (await twinOf('dated')).item.version;
+    assert.equal((await putOut('dated', { title: 'Walk', date: '2026-06-15', time: '09:30', notes: 'extra' }, 'UTC')).status, 200);
+    assert.equal((await twinOf('dated')).item.version, version);
+
+    assert.equal((await putOut('dated', { title: 'Hike', date: '2026-06-15', time: '09:30' }, 'UTC')).status, 200);
+    assert.equal((await twinOf('dated')).item.value.title, 'Hike');
+    assert.equal((await putOut('dated', { title: 'Hike', date: '2026-06-16', time: '09:30' }, 'UTC')).status, 200);
+    assert.equal((await twinOf('dated')).item.value.start, '2026-06-16T09:30:00.000Z');
+    assert.equal((await putOut('dated', { title: 'Hike', date: '2026-06-16', time: '10:00' }, 'UTC')).status, 200);
+    assert.equal((await twinOf('dated')).item.value.start, '2026-06-16T10:00:00.000Z');
+
+    const back = await twinOf('dated');
+    const edited = { ...back.item.value, title: 'Return', start: '2026-06-17T15:00:00.000Z' };
+    assert.equal((await as('PUT', `/api/modules/sync-in/data/mark:${back.pair.to.id}?scope=space&space=${space}`, { value: edited, tz: 'UTC' })).status, 200);
+    const sender = await getOut('dated');
+    assert.equal(sender.value.title, 'Return');
+    assert.equal(sender.value.date, '2026-06-17');
+    assert.equal(sender.value.time, '15:00');
+  });
+
+  await test('an end day is written only for a whole-day twin', async () => {
+    assert.equal((await putOut('span', { title: 'Stay', date: '2026-06-15', time: '09:30', checkOut: '2026-06-18' }, 'UTC')).status, 200);
+    const timed = await twinOf('span');
+    assert.equal(timed.item.value.end, undefined);
+    assert.equal((await putOut('span', { title: 'Stay', date: '2026-06-15', checkOut: '2026-06-18' }, 'UTC')).status, 200);
+    const whole = await twinOf('span');
+    assert.equal(whole.item.value.allDay, true);
+    assert.equal(whole.item.value.start, '2026-06-15');
+    assert.equal(whole.item.value.end, '2026-06-18');
+    assert.equal((await getOut('span')).value.time ?? null, null);
+  });
+
+  await test('09:30 is the writer\'s instant in New York and in Tokyo, and reads back the same', async () => {
+    assert.equal((await putOut('ny', { title: 'Morning', date: '2026-06-15', time: '09:30' }, 'America/New_York')).status, 200);
+    assert.equal((await twinOf('ny')).item.value.start, '2026-06-15T13:30:00.000Z');
+    const ny = await twinOf('ny');
+    assert.equal((await as('PUT', `/api/modules/sync-in/data/mark:${ny.pair.to.id}?scope=space&space=${space}`, { value: ny.item.value, tz: 'America/New_York' })).status, 200);
+    assert.equal((await getOut('ny')).value.time, '09:30');
+    assert.equal((await getOut('ny')).value.date, '2026-06-15');
+
+    assert.equal((await putOut('tokyo', { title: 'Morning', date: '2026-06-15', time: '09:30' }, 'Asia/Tokyo')).status, 200);
+    assert.equal((await twinOf('tokyo')).item.value.start, '2026-06-15T00:30:00.000Z');
+    const tokyo = await twinOf('tokyo');
+    const asDay = { ...tokyo.item.value, allDay: true, start: '2026-06-15', end: null };
+    assert.equal((await as('PUT', `/api/modules/sync-in/data/mark:${tokyo.pair.to.id}?scope=space&space=${space}`, { value: asDay, tz: 'Asia/Tokyo' })).status, 200);
+    assert.equal((await getOut('tokyo')).value.time ?? null, null);
+    assert.equal((await getOut('tokyo')).value.date, '2026-06-15');
+  });
+
+  await test('a receiver\'s own object makes no sender, a repeating twin keeps its pair, and setLinks leaves the pair', async () => {
+    const before = (await as('GET', `/api/modules/sync-out/data?scope=space&space=${space}`)).json.items.map((it) => it.key);
+    assert.equal((await as('PUT', `/api/modules/sync-in/data/mark:holiday?scope=space&space=${space}`, { value: { id: 'holiday', title: 'Holiday', start: '2026-12-25', allDay: true, desc: '', remind: null, repeat: null, by: 'me' } })).status, 200);
+    const after = (await as('GET', `/api/modules/sync-out/data?scope=space&space=${space}`)).json.items.map((it) => it.key);
+    assert.deepEqual(after, before);
+    assert.equal(linksOf().some((l) => l.pair && l.to && l.to.id === 'holiday'), false);
+
+    const twin = await twinOf('dated');
+    const repeating = { ...twin.item.value, repeat: { every: 'week' } };
+    assert.equal((await as('PUT', `/api/modules/sync-in/data/mark:${twin.pair.to.id}?scope=space&space=${space}`, { value: repeating, tz: 'UTC' })).status, 200);
+    assert.equal((await putOut('dated', { title: 'Series', date: '2026-06-17', time: '15:00' }, 'UTC')).status, 200);
+    const still = await twinOf('dated');
+    assert.equal(still.pair.to.id, twin.pair.to.id);
+    assert.equal(still.item.value.repeat.every, 'week');
+    assert.equal(still.item.value.title, 'Series');
+
+    const linked = await as('POST', '/api/objects/links', {
+      module: 'sync-out',
+      from: { module: 'sync-out', kind: 'note', id: 'dated', scope: 'space', space },
+      to: [{ module: 'sync-in', kind: 'mark', id: 'holiday', scope: 'space', space }],
+    });
+    assert.equal(linked.status, 200, linked.text);
+    const left = linksOf().filter((l) => l.from && l.from.module === 'sync-out' && l.from.id === 'dated');
+    assert.equal(left.filter((l) => l.pair === 'active').length, 1);
+    assert.equal(left.some((l) => !l.pair && l.to.id === 'holiday'), true);
+  });
+
+  await test('clearing the day deletes the twin, and deleting either side follows the table', async () => {
+    assert.equal((await putOut('clear', { title: 'Clear', date: '2026-06-15' }, 'UTC')).status, 200);
+    const twin = await twinOf('clear');
+    assert.equal((await putOut('clear', { title: 'Clear' }, 'UTC')).status, 200);
+    assert.equal((await getIn(twin.pair.to.id)).status, 404);
+    assert.equal(pairOf('clear').length, 0);
+
+    assert.equal((await putOut('gone', { title: 'Gone', date: '2026-06-15' }, 'UTC')).status, 200);
+    const gone = await twinOf('gone');
+    assert.equal((await as('DELETE', `/api/modules/sync-out/data/note:gone?scope=space&space=${space}`)).status, 200);
+    assert.equal((await getIn(gone.pair.to.id)).status, 404);
+    assert.equal(pairOf('gone').length, 0);
+
+    assert.equal((await putOut('detach', { title: 'Detach', date: '2026-06-15', time: '09:30' }, 'UTC')).status, 200);
+    const detached = await twinOf('detach');
+    assert.equal((await as('DELETE', `/api/modules/sync-in/data/mark:${detached.pair.to.id}?scope=space&space=${space}`)).status, 200);
+    assert.equal((await getOut('detach')).value.date, '2026-06-15');
+    assert.equal(pairOf('detach')[0].pair, 'detached');
+    assert.equal((await putOut('detach', { title: 'Detach', date: '2026-06-15', time: '11:00' }, 'UTC')).status, 200);
+    assert.equal(pairOf('detach')[0].pair, 'detached', 'a new time on the same day does not make a new twin');
+    assert.equal((await putOut('detach', { title: 'Detach', date: '2026-06-20', time: '11:00' }, 'UTC')).status, 200);
+    const again = await twinOf('detach');
+    assert.notEqual(again.pair.to.id, detached.pair.to.id);
+    assert.equal(again.item.value.start, '2026-06-20T11:00:00.000Z');
   });
 } finally {
   if (stream) stream.close();

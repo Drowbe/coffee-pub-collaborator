@@ -229,6 +229,12 @@ function cleanRefs(rawRefs, id) {
     const produced = { kind, name, key, summary, open: Boolean(p.open), backlinks: Boolean(p.backlinks) };
     const holds = cleanHolds(kind, p.holds);
     if (holds) produced.holds = holds;
+    const dated = cleanDated(kind, p.dated);
+    if (dated) produced.dated = dated;
+    const mirror = cleanMirror(kind, p.mirror, dated);
+    if (mirror) produced.mirror = mirror;
+    const create = cleanCreate(kind, p.create, mirror);
+    if (create) produced.create = create;
     refs.produces.push(produced);
   }
   // "*" means whatever other modules share, so a module can link to the items of a module written
@@ -274,6 +280,69 @@ function cleanHolds(kind, raw) {
     holds.follow = follow;
   }
   return holds;
+}
+
+// How a kind's objects are dated, and whether the server keeps a twin of each one (plan-plan-calendar-sync.md).
+// A kind either sends twins (`mirror: out`) or receives them (`mirror: in`), and says which stored fields hold the
+// title and the day. The two shapes are a wall clock (a day, and maybe a time) or an instant.
+function cleanDated(kind, raw) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new ModuleError(`module.json: refs "${kind}" dated must be an object`);
+  const wall = ['day', 'time', 'endDay'].some((name) => raw[name] !== undefined);
+  const instant = ['start', 'end', 'allDay'].some((name) => raw[name] !== undefined);
+  if (wall === instant) throw new ModuleError(`module.json: refs "${kind}" dated is either a day or an instant`);
+  const allowed = wall ? ['title', 'day', 'time', 'endDay'] : ['title', 'start', 'end', 'allDay'];
+  for (const key of Object.keys(raw)) {
+    if (!allowed.includes(key)) throw new ModuleError(`module.json: refs "${kind}" dated.${key} is not used`);
+  }
+  const field = (name, required) => {
+    if (raw[name] === undefined || raw[name] === null) {
+      if (required) throw new ModuleError(`module.json: refs "${kind}" dated.${name} must name a stored field`);
+      return null;
+    }
+    if (typeof raw[name] !== 'string' || !HOLDS_FIELD_RE.test(raw[name])) throw new ModuleError(`module.json: refs "${kind}" dated.${name} must name a stored field`);
+    return raw[name];
+  };
+  const title = field('title', true);
+  if (wall) {
+    const dated = { form: 'wall', title, day: field('day', true) };
+    const time = field('time', false);
+    const endDay = field('endDay', false);
+    if (time) dated.time = time;
+    if (endDay) dated.endDay = endDay;
+    return dated;
+  }
+  const dated = { form: 'instant', title, start: field('start', true) };
+  const end = field('end', false);
+  const allDay = field('allDay', false);
+  if (end) dated.end = end;
+  if (allDay) dated.allDay = allDay;
+  return dated;
+}
+
+function cleanMirror(kind, raw, dated) {
+  if (raw === undefined || raw === null) return null;
+  if (raw !== 'out' && raw !== 'in') throw new ModuleError(`module.json: refs "${kind}" mirror must be "out" or "in"`);
+  if (!dated) throw new ModuleError(`module.json: refs "${kind}" mirror needs dated`);
+  return raw;
+}
+
+function cleanCreate(kind, raw, mirror) {
+  if (raw === undefined || raw === null) {
+    if (mirror === 'in') throw new ModuleError(`module.json: refs "${kind}" mirror "in" needs create`);
+    return null;
+  }
+  if (mirror !== 'in') throw new ModuleError(`module.json: refs "${kind}" create is only for mirror "in"`);
+  if (typeof raw !== 'object' || Array.isArray(raw)) throw new ModuleError(`module.json: refs "${kind}" create must be an object`);
+  const create = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (!HOLDS_FIELD_RE.test(key)) throw new ModuleError(`module.json: refs "${kind}" create.${key} must name a stored field`);
+    const ok = value === null || typeof value === 'string' || typeof value === 'boolean' || (typeof value === 'number' && Number.isFinite(value));
+    if (!ok || (typeof value === 'string' && value.length > 200)) throw new ModuleError(`module.json: refs "${kind}" create.${key} must be text, a number, or null`);
+    create[key] = value;
+  }
+  if (!Object.keys(create).length) throw new ModuleError(`module.json: refs "${kind}" create needs a field`);
+  return create;
 }
 
 // Events and actions: how modules react to and ask things of each other, carried by the host without

@@ -924,6 +924,21 @@ function carryReplacedGrants(env) {
   }
 }
 
+// A start without BASE_DOMAIN on a folder that already belongs to a hosted server would build a second, empty
+// install beside it (app.json, chat.json, the AI files, secrets.key). Seen on the real server (GitHub #90): every
+// later start with BASE_DOMAIN then refused, because the root looked like a single-environment install. Refuse
+// first, and write nothing.
+function refuseHostedDataWithoutBaseDomain() {
+  if (BASE_DOMAIN) return;
+  const environmentsDir = path.join(DATA_DIR, 'environments');
+  let environments = false;
+  try { environments = fs.statSync(environmentsDir).isDirectory(); } catch { /* no environments folder */ }
+  if (!fs.existsSync(path.join(DATA_DIR, 'host.json')) && !environments) return;
+  console.error('This data folder belongs to a server with environments: set BASE_DOMAIN.');
+  process.exit(1);
+}
+refuseHostedDataWithoutBaseDomain();
+
 // An environment whose data the Names migration refuses (buildEnvironment throws a MigrationError; see
 // server/migrate-names.js): a single-environment install stops, with the file named; on a hosted server that one
 // environment is skipped and answers 503 when asked for, while the rest and the console run.

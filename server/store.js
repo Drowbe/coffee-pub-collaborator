@@ -38,10 +38,10 @@ const OPENS_WITH_ID = /^[a-z][a-z0-9-]{0,31}$/;
 const MAX_OPENS_WITH = 20;
 // What a new space opens with: up to 20 module ids, in order. A sentence when it is not that, else null.
 function opensWithProblem(list) {
-  if (!Array.isArray(list) || list.length > MAX_OPENS_WITH) return `spaceDefaults.opensWith must be a list of at most ${MAX_OPENS_WITH} module ids.`;
+  if (!Array.isArray(list) || list.length > MAX_OPENS_WITH) return `spaceDefaults.opensWith must be a list of at most ${MAX_OPENS_WITH} ${words.word('module')} ids.`;
   const seen = new Set();
   for (const id of list) {
-    if (typeof id !== 'string' || !OPENS_WITH_ID.test(id)) return `spaceDefaults.opensWith: ${JSON.stringify(id)} is not a module id.`;
+    if (typeof id !== 'string' || !OPENS_WITH_ID.test(id)) return `spaceDefaults.opensWith: ${JSON.stringify(id)} is not ${words.word('module', { a: true })} id.`;
     if (seen.has(id)) return `spaceDefaults.opensWith: "${id}" is listed twice.`;
     seen.add(id);
   }

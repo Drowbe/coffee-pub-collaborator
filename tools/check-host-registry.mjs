@@ -1400,7 +1400,7 @@ try {
     const owner = cookieOf(await call(server, 'trips', 'POST', '/api/login', { body: { login: 'olga', password: 'olga-password-1' } }));
     const settingsOf = async () => (await call(server, 'trips', 'GET', '/api/settings', { cookie: owner })).json.settings;
     let st = await settingsOf();
-    assert.deepEqual([st.template.id, st.words.space.one, st.homeIcon, st.ownHomeIcon, st.templateWords, st.templateHomeIcon, st.spaceDefaults], ['travel', 'trip', 'suitcase-rolling', null, { space: { one: 'trip', many: 'trips' } }, 'suitcase-rolling', { profile: 'participants' }]);
+    assert.deepEqual([st.template.id, st.words.space.one, st.homeIcon, st.ownHomeIcon, st.templateWords, st.templateHomeIcon, st.spaceDefaults], ['travel', 'trip', 'suitcase-rolling', null, { space: { one: 'trip', many: 'trips' } }, 'suitcase-rolling', { opensWith: ['travel', 'chat'], profile: 'participants' }]);
     await call(server, 'trips', 'PATCH', '/api/settings', { cookie: owner, body: { words: { space: { one: 'journey', many: 'journeys' } }, homeIcon: 'couch' } });
     await call(server, 'trips', 'PATCH', '/api/modules/travel', { cookie: owner, body: { displayName: 'Plans' } });
     st = await settingsOf();

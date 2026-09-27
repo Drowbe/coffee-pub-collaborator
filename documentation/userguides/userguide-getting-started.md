@@ -165,6 +165,10 @@ the default is the app's own) and `CONTACT_EMAIL` (where "ask for an environment
 domain ever changes, set the new one as `BASE_DOMAIN` and list the old one in `PREVIOUS_BASE_DOMAINS`;
 every old address redirects to the new.
 
+Once a server has environments, keep `BASE_DOMAIN` set on every start, and set it on any server you move the
+data folder to. A start without it stops with "This data folder belongs to a server with environments: set
+BASE_DOMAIN." and changes nothing: set it and start again.
+
 ## Back up and restore an environment
 
 A host admin does this from the host console's **Environments** tab. Each environment's card has
@@ -210,3 +214,7 @@ the copy of the data folder you took before the update.
 The app itself has nothing that is specific to a NAS. To run both services on a Windows or Mac
 computer, use the same `docker-compose.yml` under Docker Desktop, forward the same ports on your
 router, and point the two hostnames at your public address.
+
+Moving a server with environments: copy the whole data folder, set the same `BASE_DOMAIN` (and the DNS and
+certificate from "Environments: one server, several groups"), then start it. Without `BASE_DOMAIN` it will not
+start; see above.

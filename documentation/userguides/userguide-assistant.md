@@ -2,12 +2,12 @@
 
 **Audience:** an owner setting up the AI on a Collaborator server, and anyone asking it questions or bringing in research from another AI.
 
-The AI is asked from Chat now, with `/ai`; see [Chat](userguide-chat.md), "Ask the AI". The Assistant module (0.1.20) has no window of its own and is not in the space bar. It stays installed for two things: its **Use the assistant** permission, which decides who may use `/ai`, and the AI hook. Research brought in from another AI comes in through Chat too.
+The AI is asked from Chat now, with `/ai`; see [Chat](userguide-chat.md), "Ask the AI". The Assistant module (0.1.21) has no window of its own and is not in the space bar. A new install leaves it out, even when its template lists it. Where it is installed, it keeps its **Use the assistant** permission, which decides who may use `/ai` and bring in research, and the AI hook; **Ask the assistant** asks in Chat. Research brought in from another AI comes in through Chat too.
 
 ## Set it up (owner)
 
 1. Set up the AI itself first: on the Modules tab, **AI service** (none, OpenAI, Anthropic, or another OpenAI-compatible service), a model and a key, then **Approve and enable**. See [Modules](userguide-modules.md).
-2. On the Modules tab, choose **Install** beside Assistant, then **Approve and enable**, and tick **Available in every space** or tick it per space.
+2. Optional: to limit who may use `/ai` by role, choose **Install** beside Assistant on the Modules tab, then **Approve and enable**, and tick **Available in every space** or tick it per space.
 3. On the Roles tab, under Module: Assistant, **Use the assistant** decides who may use `/ai` (on for every role by default). A guest never can, and nobody can in a space where **Turn AI off in this space** is ticked. **Use AI in modules**, under AI, governs AI inside other modules (Research's **Suggest tags**), not `/ai`.
 
 Without the Assistant installed, anyone signed in who is not a guest may use `/ai`, wherever AI is not turned off.
@@ -20,7 +20,7 @@ When the AI writes something worth keeping, it appears as an object of its own i
 
 You can research in another AI (a chat app on your computer or phone, say) and bring the results into Magpie as objects, kept the same way the Assistant keeps its own answers. Bringing research in uses none of this environment's AI: it works without an AI service set up and without **Use AI in modules**.
 
-Who can: anyone signed in, except guests, in a space where **Turn AI off in this space** is not ticked. It also needs somewhere to keep things: the Planner, or a module that keeps notes such as Research. When you can't, **Bring in research** is not shown.
+Who can: the same people as `/ai` (see "Set it up"): anyone signed in, except guests, in a space where **Turn AI off in this space** is not ticked, and, if the Assistant is installed, with **Use the assistant**. It also needs somewhere to keep things: the Planner, or a module that keeps notes such as Research. When you can't, **Bring in research** is not shown.
 
 The steps are in [Chat](userguide-chat.md), "Bring in research from another AI": **Bring in research** in Chat's formatting menu, **Copy instructions for another AI**, paste the answer or choose a `.magpie-objects.json` file, **Preview**, then **Keep ticked**. If your browser does not allow copying, the instructions are shown selected instead: select all and copy them. Each object in the preview reads "From another AI: check it before you rely on it", and the confirmation names what is kept (for example "Keep 3 hotels and 2 notes?").
 
@@ -40,4 +40,4 @@ Research's object menu has **Research this**: it asks in Chat, privately, "What 
 
 ## For module authors
 
-To ask in Chat from a module, use `host.chat.ask({ question, refs })` ([the SDK guide](../api/api-module-sdk.md), "AI"). The Assistant still declares its `askAssistant` action (optional `ref` and `question`, `local`), but the canvas no longer opens the Assistant, so a request for it waits and is not carried out; use `host.chat.ask` instead. A kept object, answered or brought in, is saved through whichever module in the space offers a matching action, found by name and input shape, never by naming a module: an object with a recognised `kind` prefers a suggestion-shaped action (a `title` and a `kind`), which the Planner's `acceptSuggestion` offers; any other object, or without one, falls back to a note-shaped action (a `title` and a `body`), which Research's `saveNote` offers.
+To ask in Chat from a module, use `host.chat.ask({ question, refs })` ([the SDK guide](../api/api-module-sdk.md), "AI"). The Assistant still declares its `askAssistant` action (optional `ref` and `question`, `local`) and carries it out by calling `host.chat.ask`, so an existing caller still works; new code should call `host.chat.ask` itself. A kept object, answered or brought in, is saved through whichever module in the space offers a matching action, found by name and input shape, never by naming a module: an object with a recognised `kind` prefers a suggestion-shaped action (a `title` and a `kind`), which the Planner's `acceptSuggestion` offers; any other object, or without one, falls back to a note-shaped action (a `title` and a `body`), which Research's `saveNote` offers.

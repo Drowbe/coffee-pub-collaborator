@@ -10,7 +10,7 @@ Who can use it: anyone allowed to send messages in the space (set per role on th
 
 | Command | What it does | Needs |
 | --- | --- | --- |
-| `/ai` | Asks the AI; only you see the answer | See "Ask the AI" below |
+| `/ai` | Asks the AI; private unless you choose **Shared** | See "Ask the AI" below |
 | `/t` | Opens To-do's new task form | [To-do](userguide-todo.md) open |
 | `/c` | Opens the Calendar's new event form | [Calendar](userguide-calendar.md) open |
 | `/r` | Opens a new Research note, or a link when you type a web address | [Research](userguide-research.md) open |
@@ -33,13 +33,17 @@ What to know:
 
 Type `/ai` and your question, then press Enter. Your question and the answer appear in Chat marked **private**: nobody else in the space sees them. The conversation is saved for you in this space and is still there after a refresh or on another device. It keeps your last 200 entries, none older than 30 days.
 
+To have answers go to everyone, choose **Shared** in the Chat header (beside **Private**) before you ask: the answer is also posted to the space as "AI answer shared by <your name>", and is marked **shared** in your thread. The switch is remembered for this space until you close the browser tab. It shows only when you may use `/ai`.
+
+To clear your thread, choose **Clear your AI thread** (the eraser in the Chat header), then **Clear AI thread**. Only your own private questions and answers go; answers already shared stay in the chat.
+
 Each answer has:
 
 - **Copy**, which copies its text.
 - **Share to the space**, which posts the answer as an ordinary message from you, headed "AI answer shared by <your name>".
 - **Keep**, on each object the answer holds (a hotel, a sight, a note). An object that is plainly a flight, a hotel, a sight and so on is kept in the Planner as that kind; anything else goes to Research as a note. If that module isn't open, the button shows it is waiting and the object arrives when someone next opens it.
 
-To ask about something you already have, drag it onto Chat while `/ai` is in the box; the line under the box says how many objects the question will use. Research's **Research this** does the same for one object.
+To ask about something you already have, drag it onto Chat while `/ai` is in the box; the line under the box says how many objects the question will use. Research's **Research this** and a drop menu's **Ask the assistant** do the same for one object.
 
 Who can: anyone signed in, except guests, in a space where **Turn AI off in this space** is not ticked. If the Assistant module is installed, you also need its **Use the assistant** permission (Roles tab). The owner must have set up an AI service first; see [Assistant](userguide-assistant.md).
 
@@ -47,7 +51,7 @@ Who can: anyone signed in, except guests, in a space where **Turn AI off in this
 
 You can research in another AI and bring what it finds into Magpie as objects. This uses none of the environment's AI.
 
-1. Open the formatting menu and choose **Bring in research** (the file icon). It shows only to people who may bring research in, and only where something can keep it (the Planner, or a module that keeps notes such as Research).
+1. Open the formatting menu and choose **Bring in research**. It shows only to people who may use `/ai` here (the same rule as "Ask the AI", with or without an AI service set up), and only where something can keep it (the Planner, or a module that keeps notes such as Research).
 2. Choose **Copy instructions for another AI**, paste them into the other AI, then ask your question.
 3. Paste its whole answer into **Paste the whole answer here** and choose **Preview**, or choose **Choose a file** and pick its `.magpie-objects.json` file.
 4. A preview marked **Brought in** lists each object with a tick. Untick any you don't want.

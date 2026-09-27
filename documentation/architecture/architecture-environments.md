@@ -80,6 +80,13 @@ The "door" is one middleware, registered right after `express.json()`, before an
   both the main app and `hostRouter`, never behind a session) answers `{ name, contact, baseDomain, version }`
   wherever it is reached.
 
+A start without `BASE_DOMAIN` on a data folder that already belongs to a hosted server (it has `host.json` or an
+`environments/` folder) stops before anything is written: `refuseHostedDataWithoutBaseDomain()` in
+`server/index.js` logs "This data folder belongs to a server with environments: set BASE_DOMAIN." and exits
+with code 1. Without it, such a start built a second, empty single-environment install (`app.json`, `chat.json`,
+the AI files, `secrets.key`) beside the environments, and every later start with `BASE_DOMAIN` refused (GitHub
+#90). `tools/check-host-registry.mjs` covers it.
+
 Two more pieces exist only to let the product page's own **Sign in** send someone to the right place, without the
 host ever learning who anyone is (accounts live inside each environment, not in `host.json`):
 

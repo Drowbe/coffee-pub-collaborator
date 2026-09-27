@@ -4029,6 +4029,31 @@ objectSync.configure({
   dropLinks(ref) {
     moduleLinks.drop(ref);
   },
+  pairsFrom: (ref) => moduleLinks.pairsFrom(ref),
+  pairTo: (ref) => moduleLinks.pairTo(ref),
+  addPair: (from, to, by) => moduleLinks.addPair(from, to, by),
+  detachPair: (ref) => moduleLinks.detachPair(ref),
+  removePairs: (ref) => moduleLinks.removePairs(ref),
+  newId: () => crypto.randomBytes(8).toString('hex'),
+  nameOf: (by) => store.userByKey(by)?.displayName || String(by || ''),
+  // Kinds in this space that receive a dated twin, and that this sender is approved to link to.
+  takers(moduleId, kind, spaceId) {
+    const sender = modules.enabled(moduleId);
+    if (!sender || !spaceId) return [];
+    const out = [];
+    for (const view of modules.list()) {
+      if (!view.enabled || !modules.isOnIn(view.id, spaceId)) continue;
+      const found = modules.enabled(view.id);
+      if (!found) continue;
+      for (const produce of found.manifest.refs.produces) {
+        if (produce.mirror !== 'in' || !produce.create) continue;
+        if (view.id === moduleId && produce.kind === kind) continue;
+        if (!consumerMayLink(sender, view.id, produce.kind)) continue;
+        out.push({ moduleId: view.id, produce });
+      }
+    }
+    return out;
+  },
   summarize(moduleId, produce, ref, id, value) {
     if (value == null) return null;
     const found = modules.enabled(moduleId);

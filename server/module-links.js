@@ -39,7 +39,9 @@ class ModuleLinks extends EventEmitter {
   // Replace everything `from` points at with `tos`. Returns every pointer whose links changed.
   set(from, tos, by) {
     const fk = key(from);
-    const before = this.items.filter((l) => key(l.from) === fk);
+    // A pair is the server's, not the module's. Replacing what `from` points at leaves it in place.
+    const pairs = this.items.filter((l) => key(l.from) === fk && (l.pair === 'active' || l.pair === 'detached'));
+    const before = this.items.filter((l) => key(l.from) === fk && !l.pair);
     const kept = this.items.filter((l) => key(l.from) !== fk);
     const seen = new Set();
     const added = [];
@@ -49,10 +51,10 @@ class ModuleLinks extends EventEmitter {
       seen.add(tk);
       added.push({ from: plain(from), to: plain(to), by, at: Date.now() });
     }
-    if (kept.length + added.length > LIMITS.total) return [];
+    if (kept.length + added.length + pairs.length > LIMITS.total) return [];
     const same = before.length === added.length && before.every((l) => seen.has(key(l.to)));
     if (same) return [];
-    this.items = [...kept, ...added];
+    this.items = [...kept, ...added, ...pairs];
     this.save();
     const changed = [plain(from), ...before.map((l) => l.to), ...added.map((l) => l.to)];
     this.emit('change', { refs: changed });
@@ -68,6 +70,50 @@ class ModuleLinks extends EventEmitter {
   from(ref) {
     const k = key(ref);
     return this.items.filter((l) => key(l.from) === k).map((l) => l.to);
+  }
+
+  // Pairs are links the server keeps between a dated object and its twin. `to` and `from` include them.
+  pairsFrom(ref) {
+    const k = key(ref);
+    return this.items.filter((l) => l.pair && key(l.from) === k).map((l) => ({ pair: l.pair, from: plain(l.from), to: plain(l.to) }));
+  }
+
+  pairTo(ref) {
+    const k = key(ref);
+    const found = this.items.find((l) => l.pair && key(l.to) === k);
+    return found ? { pair: found.pair, from: plain(found.from), to: plain(found.to) } : null;
+  }
+
+  addPair(from, to, by) {
+    const fk = key(from);
+    const rest = this.items.filter((l) => !(l.pair && key(l.from) === fk && l.to.module === to.module && l.to.kind === to.kind));
+    if (rest.length + 1 > LIMITS.total) return;
+    this.items = [...rest, { from: plain(from), to: plain(to), by, at: Date.now(), pair: 'active' }];
+    this.save();
+    this.emit('change', { refs: [plain(from), plain(to)] });
+  }
+
+  detachPair(ref) {
+    const k = key(ref);
+    let hit = null;
+    this.items = this.items.map((l) => {
+      if (l.pair === 'active' && key(l.to) === k) { hit = l; return { ...l, pair: 'detached' }; }
+      return l;
+    });
+    if (!hit) return;
+    this.save();
+    this.emit('change', { refs: [plain(hit.from), plain(hit.to)] });
+  }
+
+  removePairs(ref) {
+    const fk = key(ref);
+    const gone = this.items.filter((l) => l.pair && key(l.from) === fk);
+    if (!gone.length) return;
+    this.items = this.items.filter((l) => !(l.pair && key(l.from) === fk));
+    this.save();
+    const refs = [plain(ref)];
+    for (const l of gone) refs.push(plain(l.to));
+    this.emit('change', { refs });
   }
 
   // The object is gone: every link it held, and every link that pointed at it, goes too.

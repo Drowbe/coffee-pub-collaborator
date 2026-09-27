@@ -113,9 +113,197 @@ function applyFollow(holder, ref, beforeSummary, afterSummary, zone, by) {
   if (changed) deps.write(holder.module, loaded.scopeKey, loaded.key, next, by);
 }
 
+const YMD = /^\d{4}-\d{2}-\d{2}$/;
+const HM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+function zonedParts(date, tz) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+  }).formatToParts(date);
+  const get = (type) => Number(parts.find((p) => p.type === type)?.value);
+  return { year: get('year'), month: get('month'), day: get('day'), hour: get('hour'), minute: get('minute') };
+}
+
+// The UTC instant of a wall-clock day and time in `tz`.
+function instantOf(day, time, tz) {
+  const [y, m, d] = day.split('-').map(Number);
+  const [hh, mm] = time.split(':').map(Number);
+  let utc = Date.UTC(y, m - 1, d, hh, mm, 0);
+  const shown = zonedParts(new Date(utc), tz);
+  const hour = shown.hour === 24 ? 0 : shown.hour;
+  const want = Date.UTC(y, m - 1, d, hh, mm);
+  const got = Date.UTC(shown.year, shown.month - 1, shown.day, hour, shown.minute);
+  return new Date(utc + (want - got)).toISOString();
+}
+
+function timeInZone(when, tz) {
+  const ms = Date.parse(when);
+  if (Number.isNaN(ms)) return null;
+  const shown = zonedParts(new Date(ms), tz);
+  const hour = shown.hour === 24 ? 0 : shown.hour;
+  return `${String(hour).padStart(2, '0')}:${String(shown.minute).padStart(2, '0')}`;
+}
+
+function readWall(value, dated) {
+  const v = value && typeof value === 'object' ? value : {};
+  return {
+    title: typeof v[dated.title] === 'string' ? v[dated.title] : '',
+    day: YMD.test(v[dated.day]) ? v[dated.day] : null,
+    time: dated.time && HM.test(v[dated.time]) ? v[dated.time] : null,
+    endDay: dated.endDay && YMD.test(v[dated.endDay]) ? v[dated.endDay] : null,
+  };
+}
+
+function readInstant(value, dated) {
+  const v = value && typeof value === 'object' ? value : {};
+  const start = typeof v[dated.start] === 'string' && v[dated.start] ? v[dated.start] : null;
+  return {
+    title: typeof v[dated.title] === 'string' ? v[dated.title] : '',
+    start,
+    end: dated.end && typeof v[dated.end] === 'string' && v[dated.end] ? v[dated.end] : null,
+    allDay: dated.allDay ? v[dated.allDay] === true : false,
+  };
+}
+
+function holdsPointer(produce, value) {
+  const field = produce.holds?.field;
+  if (!field || !value || typeof value !== 'object') return false;
+  const got = value[field];
+  return Boolean(got && typeof got === 'object' && got.module && got.id);
+}
+
+// Wall clock onto an instant twin. No time means the whole day, and the end day is written only then.
+function fieldsForTwin(wall, tz, dated) {
+  if (!wall.day) return null;
+  const patch = { [dated.title]: wall.title };
+  if (!wall.time) {
+    if (dated.allDay) patch[dated.allDay] = true;
+    patch[dated.start] = wall.day;
+    if (dated.end) patch[dated.end] = wall.endDay;
+    return patch;
+  }
+  if (dated.allDay) patch[dated.allDay] = false;
+  patch[dated.start] = instantOf(wall.day, wall.time, tz);
+  return patch;
+}
+
+// An instant twin onto a wall-clock sender. A whole day leaves the time empty. A timed twin leaves the end day alone.
+function fieldsForSender(instant, tz, dated) {
+  const patch = { [dated.title]: instant.title };
+  const whole = instant.allDay || (instant.start && YMD.test(instant.start));
+  if (whole) {
+    patch[dated.day] = instant.start && YMD.test(instant.start) ? instant.start : dayInZone(instant.start, tz);
+    if (dated.time) patch[dated.time] = null;
+    if (dated.endDay) patch[dated.endDay] = !instant.end ? null : (YMD.test(instant.end) ? instant.end : dayInZone(instant.end, tz));
+    return patch;
+  }
+  patch[dated.day] = instant.start ? dayInZone(instant.start, tz) : null;
+  if (dated.time) patch[dated.time] = instant.start ? timeInZone(instant.start, tz) : null;
+  return patch;
+}
+
+function changed(current, patch) {
+  const base = current && typeof current === 'object' ? current : {};
+  let diff = false;
+  const next = { ...base };
+  for (const [name, value] of Object.entries(patch)) {
+    if (value === undefined) continue;
+    if (next[name] !== value) { next[name] = value; diff = true; }
+  }
+  return diff ? next : null;
+}
+
+function fillCreate(create, id, name) {
+  const value = {};
+  for (const [field, template] of Object.entries(create || {})) {
+    value[field] = typeof template === 'string' ? template.replaceAll('{id}', id).replaceAll('{by}', name) : template;
+  }
+  return value;
+}
+
+function twinKey(produce, id) {
+  return produce.key.replace('{id}', id);
+}
+
+function removeTwin(produce, to, scopeKey, by) {
+  deps.remove(to.module, scopeKey, twinKey(produce, to.id), by);
+}
+
+function createTwin(ref, wall, zone, by, taker, scopeKey) {
+  const patch = fieldsForTwin(wall, zone, taker.produce.dated);
+  if (!patch) return;
+  const id = deps.newId();
+  const value = { ...fillCreate(taker.produce.create, id, deps.nameOf(by)), ...patch };
+  deps.write(taker.moduleId, scopeKey, twinKey(taker.produce, id), value, by);
+  deps.addPair(ref, { module: taker.moduleId, kind: taker.produce.kind, id, scope: ref.scope, space: ref.space }, by);
+}
+
+function updateTwin(pair, wall, zone, by, taker, scopeKey) {
+  const key = twinKey(taker.produce, pair.to.id);
+  const current = deps.read(taker.moduleId, scopeKey, key);
+  if (!current) return createTwin(refFromPair(pair), wall, zone, by, taker, scopeKey);
+  const patch = fieldsForTwin(wall, zone, taker.produce.dated);
+  const next = patch && changed(current, patch);
+  if (next) deps.write(taker.moduleId, scopeKey, key, next, by);
+}
+
+function refFromPair(pair) {
+  return pair.from;
+}
+
+// A dated sender keeps one twin in each kind that receives them. A sender that holds a pointer sends none.
+// Server writes do not come back through afterWrite. A full store (413) skips that twin until the next change.
+function mirrorOut(ref, produce, scopeKey, before, after, zone, by) {
+  if (produce.mirror !== 'out' || produce.dated?.form !== 'wall' || ref.scope !== 'space' || !deps.takers) return;
+  const was = readWall(before, produce.dated);
+  const now = after == null ? { title: '', day: null, time: null, endDay: null } : readWall(after, produce.dated);
+  const pairs = deps.pairsFrom(ref) || [];
+  if (!now.day) {
+    for (const pair of pairs) {
+      if (pair.pair !== 'active') continue;
+      const twin = deps.produceOf(pair.to.module, pair.to.kind);
+      if (twin) removeTwin(twin, pair.to, scopeKey, by);
+    }
+    if (pairs.length) deps.removePairs(ref);
+    return;
+  }
+  if (holdsPointer(produce, after)) return;
+  for (const taker of deps.takers(ref.module, produce.kind, ref.space)) {
+    const pair = pairs.find((p) => p.to.module === taker.moduleId && p.to.kind === taker.produce.kind);
+    try {
+      if (!pair) createTwin(ref, now, zone, by, taker, scopeKey);
+      else if (pair.pair === 'detached') { if (was.day !== now.day) createTwin(ref, now, zone, by, taker, scopeKey); }
+      else updateTwin(pair, now, zone, by, taker, scopeKey);
+    } catch (err) {
+      if (!err || err.status !== 413) throw err;
+    }
+  }
+}
+
+// A twin's edit writes the sender. A twin with no pair is left alone. Deleting the twin detaches the pair
+// and leaves the sender's day. A repeating twin stays paired; the sender follows its first start.
+function mirrorIn(ref, produce, scopeKey, after, zone, by) {
+  if (produce.mirror !== 'in' || produce.dated?.form !== 'instant' || !deps.pairTo) return;
+  if (after == null) {
+    const pair = deps.pairTo(ref);
+    if (pair && pair.pair === 'active') deps.detachPair(ref);
+    return;
+  }
+  const pair = deps.pairTo(ref);
+  if (!pair || pair.pair !== 'active') return;
+  const sender = deps.produceOf(pair.from.module, pair.from.kind);
+  if (!sender || sender.mirror !== 'out' || sender.dated?.form !== 'wall') return;
+  const senderScope = scopeKeyOfHolder(pair.from);
+  if (!senderScope) return;
+  const current = deps.read(pair.from.module, senderScope, twinKey(sender, pair.from.id));
+  if (!current) return;
+  const next = changed(current, fieldsForSender(readInstant(after, produce.dated), zone, sender.dated));
+  if (next) deps.write(pair.from.module, senderScope, twinKey(sender, pair.from.id), next, by);
+}
+
 // { module, scopeKey, key, before, after, by, tz }. `before` and `after` are the stored values; `after` is null
-// when the object was deleted. Does nothing when the key is not a produced kind, nothing points at it, or an
-// update leaves its summary the same.
+// when the object was deleted. A summary that did not change sends no refchange. A dated sender still updates
+// its twin when a mapped field changed and the summary did not.
 function afterWrite({ module, scopeKey, key, before, after, by, tz }) {
   const zone = writerZone(tz);
   if (!deps) return;
@@ -124,8 +312,10 @@ function afterWrite({ module, scopeKey, key, before, after, by, tz }) {
   const ref = refOf(module, found.produce, found.id, scopeKey);
   if (!ref) return;
   const holders = deps.linksTo(ref);
-  if (!holders.length) return;
   if (after == null) {
+    try { mirrorOut(ref, found.produce, scopeKey, before, null, zone, by); } catch (err) { if (!err || err.status !== 413) throw err; }
+    try { mirrorIn(ref, found.produce, scopeKey, null, zone, by); } catch (err) { if (!err || err.status !== 413) throw err; }
+    if (!holders.length) return;
     for (const holder of holders) {
       try { applyDelete(holder, ref, by); } catch { /* a holder that cannot be written waits */ }
     }
@@ -134,11 +324,14 @@ function afterWrite({ module, scopeKey, key, before, after, by, tz }) {
   }
   const beforeSummary = deps.summarize(module, found.produce, ref, found.id, before);
   const afterSummary = deps.summarize(module, found.produce, ref, found.id, after);
-  if (JSON.stringify(beforeSummary) === JSON.stringify(afterSummary)) return;
-  for (const holder of holders) {
-    try { applyFollow(holder, ref, beforeSummary, afterSummary, zone, by); } catch { /* a holder that cannot be written waits */ }
+  if (holders.length && JSON.stringify(beforeSummary) !== JSON.stringify(afterSummary)) {
+    for (const holder of holders) {
+      try { applyFollow(holder, ref, beforeSummary, afterSummary, zone, by); } catch { /* a holder that cannot be written waits */ }
+    }
+    bus.emit('refchange', { ref, change: 'updated', holders });
   }
-  bus.emit('refchange', { ref, change: 'updated', holders });
+  try { mirrorOut(ref, found.produce, scopeKey, before, after, zone, by); } catch (err) { if (!err || err.status !== 413) throw err; }
+  try { mirrorIn(ref, found.produce, scopeKey, after, zone, by); } catch (err) { if (!err || err.status !== 413) throw err; }
 }
 
 module.exports = {

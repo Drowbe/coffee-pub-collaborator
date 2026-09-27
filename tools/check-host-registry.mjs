@@ -4,7 +4,8 @@
  * previousBaseDomains, and that a fresh registry (or a stale one) still loads to something sane. Then the
  * server itself, started with BASE_DOMAIN=localhost on a copy of an old-format hosted directory
  * (tools/fixtures/names-v1/host/): the host's Names migration on start, the console's /api/host/environments,
- * restores refusing hand-made newer backups, an environment refused at startup, and the pre-environment move.
+ * restores refusing hand-made newer backups, an environment refused at startup, the pre-environment move, and a
+ * start without BASE_DOMAIN on a hosted data folder (host.json or environments/) refusing before it writes.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -1446,6 +1447,34 @@ try {
     assert.equal((await call(server, '', 'POST', '/api/login', { body: { login: 'admin', password: 'admin-password-1' } })).status, 200);
     await server.stop();
     server = null;
+  });
+
+  await liveTest('live: a start without BASE_DOMAIN on a hosted data folder refuses and writes nothing', async () => {
+    const message = 'This data folder belongs to a server with environments: set BASE_DOMAIN.';
+    const stray = ['app.json', 'chat.json', 'ai.json', 'ai-usage.json', 'ai-threads.json', 'secrets.key'];
+    const expectRefuse = async (name, setup) => {
+      const dir = path.join(liveDir, name);
+      fs.mkdirSync(dir);
+      setup(dir);
+      const before = fs.readdirSync(dir).sort();
+      let stopped = null;
+      try { server = await startServer(dir, { ADMIN_PASSWORD: 'admin-password-1' }); } catch (err) { stopped = err; }
+      if (server) { await server.stop(); server = null; }
+      assert.ok(stopped, `${name}: the start stops`);
+      assert.match(stopped.message, /the server stopped \(1\)/);
+      assert.ok(stopped.message.includes(message), stopped.message);
+      assert.deepEqual(fs.readdirSync(dir).sort(), before, `${name}: nothing new was written`);
+      for (const file of stray) assert.equal(fs.existsSync(path.join(dir, file)), false, `${name}: ${file} was not written`);
+      server = null;
+    };
+    await expectRefuse('hosted-host-json', (dir) => {
+      fs.writeFileSync(path.join(dir, 'host.json'), '{}\n');
+    });
+    const hostFile = path.join(liveDir, 'hosted-host-json', 'host.json');
+    assert.equal(fs.readFileSync(hostFile, 'utf8'), '{}\n', 'host.json was left as it was');
+    await expectRefuse('hosted-environments', (dir) => {
+      fs.mkdirSync(path.join(dir, 'environments'));
+    });
   });
 } finally {
   if (server) await server.stop();

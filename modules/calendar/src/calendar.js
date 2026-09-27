@@ -491,12 +491,23 @@
   });
 
   let deleteArmed = false;
+  let deleteAsking = false;
   $('f-delete').addEventListener('click', async () => {
-    if (!editing || !editing.id) return;
+    if (!editing || !editing.id || deleteAsking) return;
     if (!deleteArmed) {
-      deleteArmed = true;
+      deleteAsking = true;
       const current = events.get(keyOf(editing.scope, editing.id));
-      $('f-delete').textContent = current && current.ev.repeat ? 'Delete every one?' : 'Really delete?';
+      const usual = current && current.ev.repeat ? 'Delete every one?' : 'Really delete?';
+      let n = 0;
+      if (current && host.objects && host.objects.linksTo) {
+        try {
+          const summaries = await host.objects.linksTo(host.objects.make('event', current.id, whereFor(current)));
+          n = Array.isArray(summaries) ? summaries.length : 0;
+        } catch { /* the usual question still stands */ }
+      }
+      deleteAsking = false;
+      deleteArmed = true;
+      $('f-delete').textContent = n ? `Used by ${n}. ${usual}` : usual;
       setTimeout(() => { deleteArmed = false; $('f-delete').textContent = 'Delete'; }, 4000);
       return;
     }

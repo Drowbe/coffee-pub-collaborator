@@ -2,7 +2,7 @@
 
 **Audience:** the author deciding how links between modules are kept true, and whoever builds it afterwards.
 
-**Status:** Proposed by the interface side from a bug the author found. Nothing here is built.
+**Status:** proposed; partly built. Built (Planner 0.6.4, cc35dfb): a resolve answer carries a state (`gone`, `hidden`), and the Planner shows a deleted or hidden linked object as such, lets it be removed and never opens its editor; it draws a linked object from its current summary when it can. Not built: cleaning up dead links, and carrying a changed date across (an event moved, the plan stays on the old day).
 
 ## The bug that started it
 

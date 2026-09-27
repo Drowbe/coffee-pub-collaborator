@@ -27,6 +27,7 @@ const { ModuleUploads } = require('./module-uploads');
 const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
+const objectSync = require('./object-sync');
 const themeFile = require('./theme-file');
 const templateFile = require('./template-file');
 const { EventEmitter } = require('events');
@@ -3985,6 +3986,33 @@ function objectSummary({ manifest, produce, ref }, id, value, withText = false) 
   return summary;
 }
 
+// The link hook (plan-linked-objects, step 1): which stored key is a produced kind, who points at it, and whether
+// its summary changed. Wired here so a data route can call afterWrite without this file and object-sync circling.
+objectSync.configure({
+  produceFor(moduleId, key) {
+    const found = modules.enabled(moduleId);
+    if (!found) return null;
+    for (const produce of found.manifest.refs.produces) {
+      const at = produce.key.indexOf('{id}');
+      if (at < 0) continue;
+      const prefix = produce.key.slice(0, at);
+      const suffix = produce.key.slice(at + 4);
+      if (!key.startsWith(prefix) || !key.endsWith(suffix)) continue;
+      const id = key.slice(prefix.length, suffix ? key.length - suffix.length : undefined);
+      if (!id) continue;
+      return { produce, id };
+    }
+    return null;
+  },
+  linksTo: (ref) => moduleLinks.to(ref),
+  summarize(moduleId, produce, ref, id, value) {
+    if (value == null) return null;
+    const found = modules.enabled(moduleId);
+    if (!found) return null;
+    return objectSummary({ manifest: found.manifest, produce, ref }, id, value);
+  },
+});
+
 function resolveRef(who, ref, from, opts = {}) {
   if (!refShape(ref)) throw refError(400, 'that is not a valid reference');
   const at = refScope(who, { provider: ref.module, kind: ref.kind, scope: ref.scope, space: ref.space, from, ...opts });
@@ -5164,7 +5192,10 @@ app.put('/api/modules/:id/data/:key', (req, res) => {
   const slow = overLimit(ctx.manifest.id, ctx.by, 'write');
   if (slow) return void res.set('Retry-After', String(slow.retrySeconds)).status(429).json({ error: limitMessage() });
   try {
-    res.json({ item: moduleData.put(ctx.manifest.id, ctx.scopeKey, req.params.key, req.body?.value, { expected: Number.isInteger(req.body?.version) ? req.body.version : null, by: ctx.by }) });
+    const had = moduleData.get(ctx.manifest.id, ctx.scopeKey, req.params.key);
+    const item = moduleData.put(ctx.manifest.id, ctx.scopeKey, req.params.key, req.body?.value, { expected: Number.isInteger(req.body?.version) ? req.body.version : null, by: ctx.by });
+    objectSync.afterWrite({ module: ctx.manifest.id, scopeKey: ctx.scopeKey, key: req.params.key, before: had ? had.value : null, after: item.value, by: ctx.by, tz: req.body?.tz });
+    res.json({ item });
   } catch (err) {
     sendModuleConflict(err, res);
   }
@@ -5176,7 +5207,10 @@ app.delete('/api/modules/:id/data/:key', (req, res) => {
   if (slow) return void res.set('Retry-After', String(slow.retrySeconds)).status(429).json({ error: limitMessage() });
   try {
     const expected = req.query.version !== undefined ? Number(req.query.version) : null;
-    res.json(moduleData.remove(ctx.manifest.id, ctx.scopeKey, req.params.key, { expected: Number.isInteger(expected) ? expected : null, by: ctx.by }));
+    const had = moduleData.get(ctx.manifest.id, ctx.scopeKey, req.params.key);
+    const removed = moduleData.remove(ctx.manifest.id, ctx.scopeKey, req.params.key, { expected: Number.isInteger(expected) ? expected : null, by: ctx.by });
+    if (had) objectSync.afterWrite({ module: ctx.manifest.id, scopeKey: ctx.scopeKey, key: req.params.key, before: had.value, after: null, by: ctx.by, tz: req.query.tz });
+    res.json(removed);
   } catch (err) {
     sendModuleConflict(err, res);
   }
@@ -5347,7 +5381,17 @@ app.get('/api/modules/stream', (req, res) => {
   moduleSettings.on('change', onSettings);
   moduleData.on('change', onChange);
   moduleHooks.on('fire', onFire);
+  // A linked object changed: only the modules that point at it are told, and only a viewer who may see that module here.
+  const onRefChange = (ev) => {
+    const hearing = [];
+    for (const holder of ev.holders) {
+      const at = place(holder.module, refScopeKey(holder));
+      if (at && !hearing.includes(holder.module)) hearing.push(holder.module);
+    }
+    if (hearing.length) res.write(`event: refchange\ndata: ${JSON.stringify({ ref: ev.ref, change: ev.change, modules: hearing })}\n\n`);
+  };
   moduleLinks.on('change', onLinks);
+  objectSync.on('refchange', onRefChange);
   moduleBus.on('event', onBus);
   moduleBus.on('action', onAction);
   const beat = setInterval(() => res.write(': ping\n\n'), 25000);
@@ -5357,6 +5401,7 @@ app.get('/api/modules/stream', (req, res) => {
     moduleData.off('change', onChange);
     moduleHooks.off('fire', onFire);
     moduleLinks.off('change', onLinks);
+    objectSync.off('refchange', onRefChange);
     moduleBus.off('event', onBus);
     moduleBus.off('action', onAction);
   }));

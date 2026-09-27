@@ -1038,6 +1038,8 @@
       // one points at: summaries. The 'links' event says when to ask again.
       linksTo: (ref) => call('objects.links', { ref, dir: 'to' }),
       linksFrom: (ref) => call('objects.links', { ref, dir: 'from' }),
+      // A linked object changed (`updated`) or was deleted (`deleted`). Only a module that points at it is told.
+      onChange: (fn) => host.on('refchange', (e) => fn({ ref: e.ref, change: e.change })),
       // Objects this module may link to (kinds it consumes), matching the text, in this place
       // or (from a space) { scope: 'environment' }. Each is a summary with its pointer in summary.ref.
       search: (text, o) => call('objects.search', { q: text || '', ...opts(o) }),

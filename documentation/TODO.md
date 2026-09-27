@@ -6,7 +6,7 @@ side of things.
 
 ## In progress
 
-- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68).
+- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is approved and not built.
   (September 25, 2026).
 
 ## Planned

@@ -3415,7 +3415,13 @@ function requireHostTrust(req, res, next) {
   next();
 }
 app.post('/api/modules', requireOwner, requireHostTrust, rawZip, async (req, res) => {
-  const installed = await modules.install(req.body);
+  let installed;
+  try {
+    installed = await modules.install(req.body);
+  } catch (err) {
+    if (err instanceof StoreError) return res.status(err.status).json({ error: err.message });
+    throw err;
+  }
   // The zip's own id is only known once it is unpacked -- refused after the fact, undoing the install, rather
   // than duplicating modules.js's own manifest parsing here just to check the plan first (plan-environments.md,
   // "Phase 3"). keepData: false since this was never really installed from the plan's point of view.
@@ -4005,6 +4011,24 @@ objectSync.configure({
     return null;
   },
   linksTo: (ref) => moduleLinks.to(ref),
+  produceOf(moduleId, kind) {
+    const found = modules.enabled(moduleId);
+    if (!found) return null;
+    return found.manifest.refs.produces.find((p) => p.kind === kind) || null;
+  },
+  read(moduleId, scopeKey, key) {
+    const stored = moduleData.get(moduleId, scopeKey, key);
+    return stored ? stored.value : null;
+  },
+  write(moduleId, scopeKey, key, value, by) {
+    moduleData.put(moduleId, scopeKey, key, value, { by });
+  },
+  remove(moduleId, scopeKey, key, by) {
+    moduleData.remove(moduleId, scopeKey, key, { by });
+  },
+  dropLinks(ref) {
+    moduleLinks.drop(ref);
+  },
   summarize(moduleId, produce, ref, id, value) {
     if (value == null) return null;
     const found = modules.enabled(moduleId);

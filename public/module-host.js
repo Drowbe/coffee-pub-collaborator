@@ -37,7 +37,7 @@ function joinStream(space, guest, onEvent) {
     if (guest) p.set('guest', guest);
     const source = new EventSource(`/api/modules/stream?${p}`);
     s = { source, subs: new Set() };
-    for (const type of ['change', 'schedule', 'links', 'bus', 'action', 'settings']) {
+    for (const type of ['change', 'schedule', 'links', 'refchange', 'bus', 'action', 'settings']) {
       source.addEventListener(type, (ev) => {
         let data;
         try {
@@ -655,10 +655,14 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       }
     },
     async 'storage.set'({ key, value, version, scope: s }) {
-      return (await api('PUT', url(`/data/${encodeURIComponent(key)}`, scopeOf(s)), { value, version })).item;
+      let tz = '';
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* the server falls back */ }
+      return (await api('PUT', url(`/data/${encodeURIComponent(key)}`, scopeOf(s)), { value, version, tz })).item;
     },
     async 'storage.delete'({ key, version, scope: s }) {
-      return api('DELETE', url(`/data/${encodeURIComponent(key)}`, scopeOf(s), { version }));
+      let tz = '';
+      try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* the server falls back */ }
+      return api('DELETE', url(`/data/${encodeURIComponent(key)}`, scopeOf(s), { version, tz }));
     },
     async 'storage.list'({ prefix, scope: s }) {
       const sc = scopeOf(s);
@@ -1218,9 +1222,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   // environment and the viewer's spaces (see the stream's scopes on the server). A keyed page has no session for the
   // event stream, so it asks after its settings now and then instead (the one live thing it needs).
   const leaveStream = keyed ? pollSettings() : joinStream(scope === 'space' ? spaceId : null, guestToken, (type, d) => {
-    if (type !== 'bus' && type !== 'action' && d.module !== module.id) return;
+    if (type !== 'bus' && type !== 'action' && type !== 'refchange' && d.module !== module.id) return;
     const here = scope === 'space' ? 'space' : 'environment';
     if (type === 'change') send('change', { key: d.key, value: d.value, version: d.version, deleted: d.deleted, by: d.by, scope: d.scope, spaceId: d.spaceId });
+    else if (type === 'refchange') {
+      if (Array.isArray(d.modules) && d.modules.includes(module.id)) send('refchange', { ref: d.ref, change: d.change });
+    }
     else if (type === 'links') send('links', { ref: d.ref });
     else if (type === 'settings') send('settings', { scope: d.scope });
     else if (type === 'bus') {

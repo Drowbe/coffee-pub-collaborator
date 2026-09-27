@@ -13,7 +13,7 @@
 // See documentation/architecture/architecture-canvas.md.
 
 import { api, markModuleRead, followTheme } from '/brand.js';
-import { mountModule } from '/module-host.js';
+import { mountModule, openClearMenu } from '/module-host.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
 // and each module's mode and sizes. `app.canvas` alone is what earlier versions kept for all
@@ -497,7 +497,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
 
   const moduleHeader = (m, mode, canDock, canFloat, snap = false) => `
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span>${toolsHtml({ mode, canDock, canFloat, snap })}</span>`;
+    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>${toolsHtml({ mode, canDock, canFloat, snap })}</span>`;
 
   // An installed module's place on the canvas: a frame for a sandboxed module, an element of its own for one that runs in the page.
   const holder = (m, cls) => (m.runMode === 'page'
@@ -938,6 +938,21 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     el.querySelector('[data-popout]').addEventListener('click', () => popOut(mod.id));
     el.querySelector('[data-mode]')?.addEventListener('click', (event) => setMode(mod.id, event.currentTarget.dataset.mode));
     el.querySelector('[data-snap]')?.addEventListener('click', () => setSnap(mod.id, !snapping(mod.id)));
+    el.querySelector('[data-module-menu]')?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      openClearMenu(event.currentTarget, () => clearModuleData(mod));
+    });
+  }
+
+  // Everything this module holds in this space. The conference and the chat are not modules, so they never get this.
+  async function clearModuleData(mod) {
+    const q = new URLSearchParams({ scope: 'space', space: spaceId });
+    if (guestToken) q.set('guest', guestToken);
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) q.set('tz', tz);
+    } catch { /* the server falls back */ }
+    await api('DELETE', `/api/modules/${encodeURIComponent(mod.m.id)}/data?${q}`);
   }
 
   // The call moved to (or came back from) a window of its own. Module frames cannot

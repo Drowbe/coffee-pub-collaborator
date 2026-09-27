@@ -124,6 +124,7 @@ try {
     ['member: sign out', 'POST', 'aaa', '/api/logout'],
     ['module data: write', 'PUT', 'aaa', '/api/modules/stream/data/check', { value: 1 }],
     ['module data: delete', 'DELETE', 'aaa', '/api/modules/stream/data/check'],
+    ['module data: clear', 'DELETE', 'aaa', '/api/modules/stream/data'],
     ['module settings', 'PUT', 'aaa', '/api/modules/stream/settings/user', { values: {} }],
     ['module upload', 'POST', 'aaa', '/api/modules/stream/uploads', png, 'image/png'],
     ['the bus', 'POST', 'aaa', '/api/bus/publish', { topic: 'x', payload: {} }],

@@ -1034,13 +1034,6 @@ await (async () => {
   assert.equal(planP.days().at(-1), '2026-10-05');
   await planP.addItem({ kind: 'stop', title: 'Fly', date: '2026-10-01', phase: 'trip' });
   assert.equal(planP.trip.start, '2026-10-01');
-  await planP.clearPlan();
-  assert.equal(planP.list().length, 0);
-  assert.equal(planP.trip.title, '');
-  assert.equal(planP.trip.start, null);
-  assert.equal(planP.trip.end, null);
-  assert.deepEqual(planP.trip.phases, {});
-  assert.deepEqual(planP.days(), []);
   n += 1;
 })();
 
@@ -1051,7 +1044,7 @@ test('the page: the round trip switch, its mark on a card, and the delete questi
   assert.ok(html.includes('id="f-roundtrip" name="roundtrip" type="checkbox" role="switch"'));
   for (const id of ['f-return', 'f-back-date', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-number', 'f-back-from', 'f-back-to', 'f-back-fromCode', 'f-back-toCode']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(html.includes('<template id="tpl-card-roundtrip">'));
-  for (const words of ['Delete both legs', 'Delete only this leg', 'Remove the return leg', 'Return is before the outbound', 'Clear the plan']) assert.ok(js.includes(words), words);
+  for (const words of ['Delete both legs', 'Delete only this leg', 'Remove the return leg', 'Return is before the outbound']) assert.ok(js.includes(words), words);
   assert.ok(!js.includes("e.target === $('editor')"), 'clicking the dimmed area does not close the editor');
 });
 

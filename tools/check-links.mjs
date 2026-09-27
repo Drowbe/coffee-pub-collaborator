@@ -481,6 +481,19 @@ try {
     assert.equal(again.item.value.start, '2026-06-20T11:00:00.000Z');
   });
 
+  await test('clearing a module removes every key in that scope, and a dated twin goes with it', async () => {
+    assert.equal((await putOut('wipe', { title: 'Wipe', date: '2026-06-15' }, 'UTC')).status, 200);
+    const twin = await twinOf('wipe');
+    const cleared = await as('DELETE', `/api/modules/sync-out/data?scope=space&space=${space}&tz=UTC`);
+    assert.equal(cleared.status, 200, cleared.text);
+    assert.ok(cleared.json.cleared >= 1);
+    assert.equal((await as('GET', `/api/modules/sync-out/data?scope=space&space=${space}`)).json.items.length, 0);
+    assert.equal((await getIn(twin.pair.to.id)).status, 404);
+    assert.equal(pairOf('wipe').filter((l) => l.pair === 'active').length, 0);
+    assert.equal((await as('GET', '/api/modules/sync-out/data/note:mine?scope=person')).status, 200, 'another scope is left as it is');
+    assert.equal((await putOut('after', { title: 'After' })).status, 200);
+  });
+
   await test('a dated object with no pair gets its twin the next time the server starts, and not twice', async () => {
     if (stream) stream.close();
     stream = null;

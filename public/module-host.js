@@ -434,6 +434,7 @@ function toggleOverflow(trigger, items) {
     label.textContent = item.label || item.title || '';
     b.appendChild(label);
     if (!item.disabled) b.addEventListener('click', () => { closeOverflow(); item.onPick(); });
+    if (item.danger) b.classList.add('danger');
     menu.appendChild(b);
   }
   const host = trigger.closest('.module-floating, .module-docked, .module') || doc.body;
@@ -444,7 +445,7 @@ function toggleOverflow(trigger, items) {
   menu.style.left = `${Math.max(4, Math.min(t.left - hostBox.left, hostBox.width - menu.offsetWidth - 4))}px`;
   menu.style.top = `${t.bottom - hostBox.top + 4}px`;
   const onKey = (e) => { if (e.key === 'Escape') closeOverflow(); };
-  const onOutside = (e) => { if (!menu.contains(e.target) && e.target !== trigger) closeOverflow(); };
+  const onOutside = (e) => { if (!menu.contains(e.target) && !trigger.contains(e.target)) closeOverflow(); };
   doc.addEventListener('keydown', onKey, true);
   doc.addEventListener('pointerdown', onOutside, true);
   openOverflow = {
@@ -471,6 +472,24 @@ function drawMoreButton(doc, extraClass, onClick) {
   more.appendChild(i);
   more.addEventListener('click', onClick);
   return more;
+}
+
+// The titlebar "..." on an installed module (not the conference or the chat). The first choice asks;
+// the second is the one that clears. Both open under that button, in this same menu.
+export function openClearMenu(trigger, onClear) {
+  const open = (armed) => {
+    const items = armed
+      ? [
+          { icon: 'trash', label: 'Clear everything and start again?', danger: true, onPick: async () => {
+            try { await onClear(); }
+            catch (err) { toggleOverflow(trigger, [{ label: err.message || 'It could not be cleared.', disabled: true }]); }
+          } },
+          { icon: 'xmark', label: 'Keep it', onPick: () => {} },
+        ]
+      : [{ icon: 'trash', label: 'Clear', danger: true, onPick: () => open(true) }];
+    toggleOverflow(trigger, items);
+  };
+  open(false);
 }
 
 // Splits a cleaned item list into what a header/bar/toolbar row shows directly and what collapses into

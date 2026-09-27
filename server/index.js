@@ -5430,6 +5430,22 @@ app.put('/api/modules/:id/data/:key', (req, res) => {
     sendModuleConflict(err, res);
   }
 });
+app.delete('/api/modules/:id/data', (req, res) => {
+  const ctx = moduleAccess(req, res, 'write');
+  if (!ctx) return;
+  const slow = overLimit(ctx.manifest.id, ctx.by, 'write');
+  if (slow) return void res.set('Retry-After', String(slow.retrySeconds)).status(429).json({ error: limitMessage() });
+  try {
+    const items = moduleData.list(ctx.manifest.id, ctx.scopeKey);
+    for (const item of items) {
+      moduleData.remove(ctx.manifest.id, ctx.scopeKey, item.key, { by: ctx.by });
+      objectSync.afterWrite({ module: ctx.manifest.id, scopeKey: ctx.scopeKey, key: item.key, before: item.value, after: null, by: ctx.by, tz: req.query.tz });
+    }
+    res.json({ cleared: items.length });
+  } catch (err) {
+    sendModuleConflict(err, res);
+  }
+});
 app.delete('/api/modules/:id/data/:key', (req, res) => {
   const ctx = moduleAccess(req, res, 'write');
   if (!ctx) return;

@@ -171,7 +171,10 @@ take over someone else's account.
 
 ## Call names
 
-One `RoomServiceClient`, shared by every environment. Each space has its own call at LiveKit, and its name is
+One `RoomServiceClient`, shared by every environment, built with `requestTimeout: 2` (seconds; the SDK's own is
+10). When the call service does not answer, every request to it gives up after two seconds, so `GET /api/presence`
+and `GET /api/status` answer with nobody in a call instead of waiting (GitHub #71), and the page carries on with the
+space list it has (see [architecture-overview](architecture-overview.md), presence). Each space has its own call at LiveKit, and its name is
 worked out, never stored (plan-names decision 14). `server/call-names.js` holds both directions: `callName()`
 and `spaceIdOfCall()`, wrapped in `index.js` by `callName(spaceId)` and `spaceIdOfCall(name)` for the current
 environment.
@@ -471,12 +474,15 @@ one. The old `/api/host/tenants...` paths are gone and answer 404; there is no a
 |---|---|
 | `GET /api/host/environments` | `{ environments: [{ ...the registry record, usage: { members, storageBytes, aiCallsThisMonth, spaces }, refused, template }] }`, `template` being `{ id, name, source, version, appliedVersion, appliedAt, offerOpen, skipped: [{ id, name, why }] }` or null, read from the environment itself (see "Templates"); every field is present even for an environment that isn't open |
 | `GET /api/host/settings` | `{ baseDomain, version, hostAdmins, productName, contactEmail, plans, signup, billingSecretSet, modules }`; `modules` is `[{ id, name, icon }]`, the conference and the chat first, then the bundled modules by id, for the template editor |
-| `GET /api/host/templates` | `{ templates: [{ id, name, description, source, version, hidden, usedBy: [slugs] }] }`, every template the host can see (see "Templates") |
-| `GET /api/host/templates/:id` | `{ template }`, the template in full, with `source`, `version`, `hidden`, `createdAt` and `updatedAt`; 404 `There is no template called <id>.` |
+| `GET /api/host/templates` | `{ templates: [{ id, name, description, source, version, hidden, edited, update, usedBy: [slugs] }] }`, every template the host can see (see "Templates"); `edited` is true for a bundled template with the host's edits, and `update` is `{ shippedVersion }` while its "updated in this image" notice is open, else null |
+| `GET /api/host/templates/:id` | `{ template }`, the template in full, with `source`, `version`, `hidden`, `createdAt` and `updatedAt`; an edited bundled template adds `shipped`, the shipped template in full, for compare; 404 `There is no template called <id>.` |
 | `POST /api/host/templates` `{ ...the template's fields }` | 201 `{ template }`, saved as version 1, not hidden; 400 `{ error, problems }` (the first problem, then every one); 409 `There is already a template called <id>.` |
-| `PATCH /api/host/templates/:id` `{ ...fields?, hidden? }` | `{ template }`. Any field raises `version` by one and reaches every environment using it at once (its live part); a field sent as `null` is removed; `id`, `version` and the dates are ignored. `{ hidden }` alone hides or shows it, with no new version. 400 `hidden must be true or false.` or `{ error, problems }`; 403 `Bundled templates can't be edited; export one to start your own.`; 404 as above |
-| `DELETE /api/host/templates/:id` | `{ ok: true }`; 403 `Bundled templates can't be deleted.`; 409 `Environments use this template: <names>. Hide it instead.` (the environment word is the host's); 404 as above |
-| `GET /api/host/templates/:id/export` | the template file (`Content-Disposition` `<name>.magpie-template.json`), bundled ones included; 404 as above |
+| `PATCH /api/host/templates/:id` `{ ...fields?, hidden? }` | `{ template }`. Any field raises `version` by one and reaches every environment using it at once (its live part); a field sent as `null` is removed; `id`, `version` and the dates are ignored. `{ hidden }` alone hides or shows it, with no new version. A bundled id takes the same body and checks, kept as the host's edit (see "Editing a bundled template"). 400 `hidden must be true or false.` or `{ error, problems }`; 404 as above |
+| `DELETE /api/host/templates/:id/edits` | Reset a bundled template to the shipped file: `{ template }`, the edit dropped and `version` up by one. 400 `Only a bundled template can be reset.`; 409 `<name> has no edits to reset.`; 404 as above |
+| `POST /api/host/templates/:id/update` `{ keep: "shipped" \| "mine" }` | Answers the "updated in this image" notice: `shipped` is a reset (above); `mine` keeps the edits and closes the notice, with no new version. `{ template }`; 400 `keep must be shipped or mine.`; 409 `There is no update to review for <name>.`; 404 as above |
+| `POST /api/host/templates/:id/duplicate` `{ id, name }` | 201 `{ template }`: a new host template with the fields of the template in use (bundled, edited or not, or a host one), version 1, not hidden. 400 `{ error, problems }`; 409 `There is already a template called <id>.`; 404 as above |
+| `DELETE /api/host/templates/:id` | `{ ok: true }`; 403 `Bundled templates can't be deleted. Hide it instead.`; 409 `Environments use this template: <names>. Hide it instead.` (the environment word is the host's); 404 as above |
+| `GET /api/host/templates/:id/export` | the template file (`Content-Disposition` `<name>.magpie-template.json`), bundled ones included; an edited bundled template's file is the template in use plus `"edited": true`, which every import ignores without listing it in `dropped`; 404 as above |
 | `POST /api/host/templates/import[?id=<new id>]`, the file's text as the body (any content type) | 201 `{ template, dropped }`, keeping the file's `version`; `?id=` saves it under another id. 400 `That isn't a Magpie template file.`, `This template was made by a newer version of Magpie.` or `{ error, problems }`; 409 `There is already a template called <id>.`; 403 from another origin with a cookie (`sameOriginOnly`) |
 | `POST /api/host/environments` `{ slug, name, plan?, template?, owner?: { login, displayName, password } }` | 201 `{ environment }`; 409 `"<slug>" is already in use`; a bad slug answers `cleanSlug`'s own error; 400 `There is no template called <id>.` or `A template is named by its id, such as travel.` |
 | `PATCH /api/host/environments/:slug` `{ name?, plan?, status?, template? }` | `{ environment }`; 404 `no such environment`; 400 for a status not in the list. With `template` (an id, or `"none"`) it switches the environment's template, building the environment if it isn't built yet, and `environment` also carries `template` and `offer` (see "Templates"); 400 `There is no template called <id>.` or `A template is named by its id, or "none" for no template.` |
@@ -534,7 +540,8 @@ read and checked by `server/templates.js`. Nothing in the code knows which templ
 **Where templates come from** (addendum 2, GitHub #68). `templateCatalog()` in `server/index.js` gathers them, each
 with a `source`:
 
-- `bundled`: `templates/<id>.json`, read-only, released with the image.
+- `bundled`: `templates/<id>.json`, released with the image. On a hosted server the host can edit one in place; the
+  edit is kept in `host.json`, not in the file (see "Editing a bundled template").
 - `host`: `host.json`'s `templates: [{ ...the template, version, hidden, createdAt, updatedAt }]`, made, edited and
   imported on the host console (`HostRegistry#putTemplate`, `#removeTemplate`). Only on a hosted server.
 - `imported`: a single install's `app.json` `templates: [...]`, from files its owner imports, so a backup carries
@@ -546,13 +553,16 @@ so an environment's template never changes under it. A stored template that fail
 line.
 
 **The file.** `{ id, name, description, version?, words, icons: { home }, moduleNames, moduleIcons, modules, settings,
-lobby: { name, description }, spaceDefaults: { profile }, reactions?, theme?, iconSet? }`, the same shape and checks
+lobby: { name, description }, phases?, spaceDefaults: { profile?, opensWith? }, reactions?, theme?, iconSet? }`, the same shape and checks
 for every source. `words` covers only the ten changeable keys (never `host` or
 `admin`), in the form Manage takes. `icons.home` and `moduleIcons` must be plain solid Font Awesome Free icons.
 `modules` lists module ids, bundled or built in, and must include `chat`. `settings` takes only `language`,
 `clock`, `currency`, `loginText`, `allowRegistration`, `mfaRequired`, `maxQuality`, `allowScreenShare`,
 `allowAsides`, `allowPrivate`, `allowReactions`, `activeThemeId` and `themeMode`. `spaceDefaults.profile` is
-`roleplaying`, `participants` or `characters`. The fields added by addendum 2:
+`roleplaying`, `participants` or `characters`. `spaceDefaults.opensWith` is up to 20 module ids, bundled or built in,
+none twice, in the order a new space opens them (plan-planner-phases; nothing opens from it until that plan's step 6).
+`phases` is up to 12 `{ id, label, main? }`: `id` as a module id and unique, `label` 1 to 40 characters, `main: true`
+on at most one; any other key is refused. The fields added by addendum 2:
 
 - `version`: a whole number, 1 or more (a bundled file without one is 1). A host template's counts up on every
   edit; an imported one keeps the file's.
@@ -594,12 +604,14 @@ is for being together"). A backup carries the record, and a restore brings it ba
 skipped: [{ id, name, why }] }`; `source` is `bundled`, `host` or `imported`, or null when this server doesn't have
 the template.
 
-**Followed live.** Its words, home icon and module display names and icons are read from the template on
+**Followed live.** Its words, phases, home icon and module display names and icons are read from the template on
 every build, and a host template's edit reaches every built environment using it at once (`refreshTemplateLive()`), as the layer between the default and the owner's own: an owner's change wins, and a reset goes
 back to the template's. `GET` and `PATCH /api/settings` give the owner `template`, `ownHomeIcon`, `templateWords`,
 `templateHomeIcon` and `spaceDefaults`; `PATCH` takes `homeIcon: null` (back to the template's) and
-`spaceDefaults: { profile } | null` (400 `spaceDefaults takes only profile.` or `profile must be roleplaying,
-participants or characters`). `GET /api/modules` adds `templateDisplayName` and `templateDisplayIcon`.
+`spaceDefaults: { profile?, opensWith? } | null` (400 `spaceDefaults takes only profile and opensWith.`, `profile must be roleplaying,
+participants or characters`, or a sentence naming a bad `opensWith` entry). A key left out is kept; `opensWith: null`
+or `[]` removes it, and with neither left `spaceDefaults` is cleared. The phases reach modules through the module
+context (`store.templatePhases`; [api-modules](../api/api-modules.md), `GET /api/modules/:id/context`). `GET /api/modules` adds `templateDisplayName` and `templateDisplayIcon`.
 `settings.homeIcon` is stored only when an owner picks one (null otherwise, so the template's shows, else the
 default). Environments made before this stored the default `couch` as if chosen; the first start clears a stored
 `couch` once and sets `homeIconChoiceSeeded`, so an owner who picks it from then on keeps it.
@@ -620,11 +632,12 @@ parts whose fingerprint differs from the record's `applied`, so a part the templ
 again, whatever the owner did with it since; a record without `applied` (a switch, or one from before) is compared
 with the environment as it is. A newer version with nothing to offer (it changed only live parts) opens no offer.
 `templates.offerFor()`: `{ modules: [{ id, name, allowed, why? }], lobby: { name, description } | null,
-spaceDefaults: { profile } | null, reactions: [{ id, glyph, label }] | null, theme: { name, author? } | null,
+spaceDefaults: { profile?, opensWith? } | null, reactions: [{ id, glyph, label }] | null, theme: { name, author? } | null,
 iconSet: [names] | null }`. `modules` holds each module the template lists (with what it requires) that
 isn't already on in every space it may be in, `allowed: false` with `why: "not in the plan"` when the plan leaves
 it out, and the conference when listed and off. `lobby` is the template's Lobby name and description when they
-differ from the Lobby's, `spaceDefaults` its new-space profile when it differs, `reactions` the template's list when
+differ from the Lobby's, `spaceDefaults` its new-space profile and its `opensWith`, each only when it differs (one
+tick applies both), `reactions` the template's list when
 it differs from the environment's (it replaces them), `theme` the template's theme unless it is already the active
 one, and `iconSet` the names missing from the icon list. `templates.applyOffer()` applies only what is confirmed:
 the ticked modules (installed if needed, enabled, `allSpaces`), and the Lobby, the profile, the reactions, the theme
@@ -635,7 +648,7 @@ and any confirmed one that couldn't be turned on), so the offer closes. The temp
 **Hidden and deleted.** A host template can be hidden (`PATCH { hidden: true }`): it is left out of the create
 form, sign-up (`GET /api/product`) and every switch's choices, and an environment using it keeps it and still sees
 it among its own choices. Deleting a host template answers 409 while any environment's registry entry names it; a
-bundled one can't be edited or deleted (403). A single install's owner can delete an imported template only when
+bundled one can be hidden (no new version) but not deleted (403). A single install's owner can delete an imported template only when
 the environment doesn't use it.
 
 **Template files** (`server/template-file.js`). `<name>.magpie-template.json`, at most 64 KB:
@@ -658,7 +671,24 @@ shape without its `magpieTheme`. `readTemplateFile()` refuses, in order: over 64
 ("This template was made by a newer version of Magpie."); then the template's own check (the first problem is the
 error, `problems` lists every one). Unknown keys, at the top level and inside the theme and its sets, are dropped
 and listed in `dropped` (`plan`, `theme.glow`, `theme.light.shine`). An import keeps the file's `version`. Any
-template can be exported, a bundled one included, so a host can start its own from it.
+template can be exported, a bundled one included. To start a host template from another, the console's
+**Duplicate** is the one step.
+
+**Editing a bundled template** (addendum 3, GitHub #91, hosted servers only). `host.json` keeps `bundledEdits: [{ id,
+template, version, base: { version, fingerprint, whole }, hidden, updatedAt }]`, one record per bundled id the host
+has touched (`HostRegistry#bundledEdit`, `#putBundledEdit`, `#removeBundledEdit`). `template` is the whole edited
+template, or null after a reset or for a record that only hides. The merge is whole, not field by field: while
+`template` is set it is the template, and the shipped file is not read (`templateCatalog()`), so "keep mine" means
+exactly what the host sees. `version` is what environments see: the first edit is the shipped version plus one,
+and every later edit, reset or take-new adds one; it never goes down. `base` is the shipped file the edit was made
+against: its version, `templates.appliedOnceFingerprint()` and `templates.wholeFingerprint()` (every field but the
+version, so a shipped change to words alone still counts). While `base` differs from the shipped file, an edited
+template carries `update: { shippedVersion }`, the console's notice. At start, `reconcileBundledEdits()` moves a
+record with no edit onto the new shipped file with `version` + 1 and no notice, and leaves one with an edit as it
+is. A record for an id this image no longer ships is ignored, with a log line; one that fails its check is logged
+and the shipped template used. Every edit, reset and take-new runs `refreshTemplateLive()`, so environments get
+the live part at once and are offered the rest. `tools/check-templates.mjs` covers it, and
+`tools/check-template-switch.mjs` edits and resets Travel.
 
 **Who may export and import.** The host admin exports and imports any template on the console (the host routes in
 "The host API: environments"). A single install's owner imports, exports any template it can see, and deletes

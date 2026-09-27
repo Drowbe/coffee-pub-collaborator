@@ -190,7 +190,11 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   own presence ping. `spaces` holds spaces only; `asides` holds each aside's record plus `mine`, true when the
   caller is one of its members or has owner rights. A signed-in person, the access key or a guest's token
   (`?guest=`) may ask; anyone else gets 401. `GET /api/status` also carries `asides` (the records), and
-  `GET /api/spaces` lists spaces only.
+  `GET /api/spaces` lists spaces only. When LiveKit does not answer within two seconds, both routes answer with
+  nobody in a call (GitHub #71; the client's timeout is in [architecture-environments](architecture-environments.md),
+  "Call names"). The space page does not wait on presence: joining, a reload back into a space and the join screen
+  go ahead with the spaces they already know, `loadPresence()` gives up after three seconds, and the next poll tries
+  again (`public/space.js`).
 - `POST /api/asides` `{ with, private }` pulls people who are in the caller's call into a new aside and answers
   `{ aside }`, the aside's record. It answers 403 "asides are turned off" or "private conversations are turned off" (or the caller
   lacks the permission), 400 "pick someone to pull aside" or "you need to be in a call yourself to pull someone

@@ -10,9 +10,32 @@ The Planner module plans one trip for a space, day by day. The space's Calendar 
 2. Tick **Available in every space** on its card, or tick it per space on the space's own page.
 3. On the Roles tab, under **Module: Planner**, choose who can **See the trip** and who can **Plan the trip**. By default everyone can see it, members and moderators can plan, and guests can see but not plan.
 
-## Start a trip
+## The plan
 
-Open the Planner in a space. With no trip yet it offers **Start planning**: give the trip a **Name**, **Where** it is, its **First day** and its **Last day**. The days appear as one list from top to bottom, however long the trip, with a strip of days at the top to jump to one and each day's heading staying in view as you scroll. **Edit trip** changes the name or the dates.
+Every space has one plan from the start; there is nothing to create. Open the Planner in a space and the plan is there, named after the space. With nothing on it yet it reads "Nothing on the plan yet. Add something below.", and anyone who can plan the trip can add to it straight away. No dates are needed.
+
+**Edit trip** (the pen) opens **The plan**: a **Name** (leave it empty to keep showing the space's name), **Where**, the **Currency** and notes. Every date is optional.
+
+- **With phases** (the environment's template lists them; Travel does): one row per phase, each with an optional **Start** and **End**. The main phase's dates (Trip, in Travel) are the trip's own first and last day.
+- **Without phases:** **First day** and **Last day**.
+
+The days appear once the trip has a first day or anything on it has a date: one list from top to bottom, from the earliest date to the latest, with a strip of days at the top to jump to one and each day's heading staying in view as you scroll.
+
+## Phases
+
+When the environment's template has phases, the line under the plan's name says which phase the trip is in:
+
+- "Planning · 12 days to go" before the main phase, counting down to its start once that is set.
+- "Trip · day 3 of 9" during the main phase, once it has a start and an end.
+- The label alone otherwise, such as "Booking".
+
+A phase begins on its own **Start**, or else the day after the phase before it ends. The first phase begins on the day the space was created. The current phase is the last one that has begun, and the first one until then. A phase with a start on one of the plan's days is named above that day.
+
+A plan made before phases keeps its dates as the trip's, and its first phase starts on the day the space was created.
+
+## Not on a day yet
+
+Something added with no date goes under **Not on a day yet**, above the days. With phases, it is grouped by phase in phase order, and a new object starts in the current phase; in the form, **When** includes "Not on a day yet", and **Phase** (shown only then) moves it to another phase. Give it a date and it moves to that day.
 
 ## Add to a day
 
@@ -35,13 +58,13 @@ Objects with no time come first in a day, in the order you put them; objects wit
 
 ## Markers, extra days and empty days
 
-- **Markers** are drawn for you, not objects, and sit on the main timeline between the days: **Planning starts** above the first day and **Planning ends** below the last, and **Trip starts** above the day of the first booked object and **Trip ends** below the day the last one ends: for a journey, the day it arrives. When that is after the plan's last day, **Trip ends** shows the date (such as "Oct 8") over the time. The days the trip covers have their own colour. Booked means a journey, a stay, or anything with a booking reference; with none of those, the first and last object with a time. With no objects there are no trip markers. Markers cannot be edited, moved or removed, and do not count as something planned.
+- **Markers** are drawn for you, not objects, and sit on the main timeline between the days: **Planning starts** on the day the first phase begins and **Planning ends** on the last day of the phase before the main one (with no phases, on the plan's first and last day), and **Trip starts** above the day of the first booked object and **Trip ends** below the day the last one ends: for a journey, the day it arrives. When that is after the plan's last day, **Trip ends** shows the date (such as "Oct 8") over the time. The days the trip covers have their own colour. Booked means a journey, a stay, or anything with a booking reference; with none of those, the first and last object with a time. With no objects there are no trip markers. Markers cannot be edited, moved or removed, and do not count as something planned.
 - **Time blocks** are the other kind of marker: things that happen inside a day and have no place, such as free time, rest, a buffer, a meet-up or a leave-by time. Add one from the editor's **Time** group of tiles (a label is optional; the type names it), with a time, a length (not for a meet-up or leave-by) and a note. They are drawn as the same coloured pill, sit among the day's objects in time order, and are edited, moved and removed like any object. They are not stops and do not count in the day's summary. A marker with **no time** marks the whole day instead -- **Travel day** and **Free day** are two more types made for that -- and shows as a tag in the day's header; the day's "..." has a **Mark the day** group that adds one in a click, and clicking the tag opens its menu.
 - **More on a card.** What a card's face has no room for -- the note, who is going, the booking reference, the terminal or platform, the room, the cost and who paid -- folds under it behind a **More** line. Open it and it stays open while you work.
 - **Markers between the days** are markers that live only on the line ("lunch break", "travel day"). Add one with the small **+** that appears on the line where two days meet, before the first day and after the last, or from a hidden-days badge; the same + adds anything else there too. It has a type, an optional label and a note, and no time. Its menu (the three dots) can change its type, move it earlier or later along the line, move it to another joint and remove it; you can also drag it by its pill. They are not in any day, so they do not count as something planned.
 - **Marker types** (their label, icon and colour) are a list in the Planner's Module Configuration on the Modules tab. The four automatic ones can be changed but not removed; time-block types can be added, changed, reordered and removed.
-- **Add days before** (above the first day) and **Add days after** (below the last) move the plan's first or last date by 1 to 30 days, the same as changing the dates under Edit trip. A plan can be at most 60 days long, and the page says so when you ask for more. Objects and trip markers stay where they were; the planning markers move with the new ends.
-- **The dates grow to fit.** When you add an object on a date outside the trip, or move one there, the trip's first or last day moves out to cover it: a date before the first day, a date after the last day, a stay's **Check out**, or the day a journey arrives. It never moves in again; take days off under **Edit trip**. This holds for the form, research brought in with **Keep** ticked, or an object kept or changed from the Assistant. An object on the line, with no day, does not move the dates.
+- **Add days before** (above the first day) and **Add days after** (below the last) move the plan's first or last date by 1 to 30 days, the same as changing the dates under Edit trip. A plan can be at most 60 days long, and the page says so when you ask for more. The trip needs a first day first ("Set the first day before adding days."). Objects and trip markers stay where they were; the planning markers move with the new ends.
+- **The dates grow to fit.** Once the trip has a first day, when you add an object on a date outside the trip, or move one there, the trip's first or last day moves out to cover it: a date before the first day, a date after the last day, a stay's **Check out**, or the day a journey arrives. It never moves in again; take days off under **Edit trip**. This holds for the form, research brought in with **Keep** ticked, or an object kept or changed from the Assistant. An object on the line, with no day, does not move the dates, and neither does an object in a phase other than the main one.
 - The eye button in the toolbar hides days with nothing on them (a stay that covers the night counts), with a small badge on the line where a run of them was: it shows how many days are hidden, and its + adds a time block on the first of them or shows the days again. It is remembered for you in this browser and is off by default. If every day is empty, nothing is hidden.
 
 ## Move things
@@ -100,4 +123,4 @@ Changes show up for everyone straight away. If someone changes an object while y
 
 ## The dashboard
 
-The **Trips** card on the spaces page lists your spaces' trips that are on now or coming, soonest first, each with how far away it is; while a trip is on it lists today's objects. Click a trip or an object to open it in its space.
+The **Trips** card on the spaces page lists your spaces' trips that are on now or coming, soonest first, each with its phase line when the template has phases (otherwise how far away it is); while a trip is on it lists today's objects. Click a trip or an object to open it in its space.

@@ -4,35 +4,35 @@
     "hash": "ca16f899ef4103fc"
   },
   "calendar": {
-    "version": "1.18.0",
-    "hash": "d73b599bd71d2cd7"
+    "version": "1.18.1",
+    "hash": "fe3289a2c4578e9e"
   },
   "maps": {
     "version": "0.7.18",
     "hash": "b6e82e1dfe27bf20"
   },
   "places": {
-    "version": "0.8.18",
-    "hash": "bf53abeb205448d0"
+    "version": "0.8.19",
+    "hash": "33ee85d4e5acf6b9"
   },
   "polls": {
-    "version": "1.12.17",
-    "hash": "20d2f0a3cc6e6716"
+    "version": "1.12.18",
+    "hash": "a6a4157b87464524"
   },
   "research": {
-    "version": "0.2.20",
-    "hash": "ac0110eb9065cfbd"
+    "version": "0.2.21",
+    "hash": "34672279ac5084ca"
   },
   "stream": {
     "version": "0.1.6",
     "hash": "866a2b8c2d3f6153"
   },
   "todo": {
-    "version": "1.11.15",
-    "hash": "473ae4346d05e56d"
+    "version": "1.11.16",
+    "hash": "603011d9518d41b4"
   },
   "travel": {
-    "version": "0.10.2",
-    "hash": "7bd4937fa8926983"
+    "version": "0.10.3",
+    "hash": "8df27fc083a0fc86"
   }
 }

@@ -438,8 +438,6 @@
     state.armed = null;
     try { await places.remove(e.id); closeEditor(); } catch (err) { editorError('It could not be deleted: ' + ((err && err.message) || err)); }
   });
-  $('editor').addEventListener('pointerdown', (ev) => { if (ev.target === $('editor')) closeEditor(); });
-
   // --- clicks on the page -------------------------------------------------------------------------------------------
 
   root.addEventListener('click', async (ev) => {

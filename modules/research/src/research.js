@@ -504,8 +504,6 @@
     state.armed = null;
     try { await research.remove(e.id); closeEditor(); } catch (err) { editorError('It could not be removed: ' + message(err)); }
   });
-  $('editor').addEventListener('pointerdown', (ev) => { if (ev.target === $('editor')) closeEditor(); });
-
   // --- photos: choose, prepare (resize and a thumbnail, here in the page), upload ------------------------------------
 
   const jpegOf = (bitmap, max, quality) => {

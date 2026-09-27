@@ -475,8 +475,6 @@
   });
 
   $('f-cancel').addEventListener('click', closeEditor);
-  $('editor').addEventListener('click', (e) => { if (e.target === $('editor')) closeEditor(); });
-
   async function save() {
     if (!editing) return;
     showError('');

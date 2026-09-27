@@ -10,6 +10,10 @@
   const PLAN_PREFIX = 'plan:';
   const OLD_PLAN_PREFIX = 'item:';
   const MOVED_KEY = '_moved:plan-keys';
+  // Phases (plan-planner-phases): once per space, an old trip is marked `v: 2` and, when the first phase is not the
+  // main one, that phase starts on the day the space was created. Recorded so it runs once.
+  const PHASES_MOVED_KEY = '_moved:phases';
+  const PHASE_ID = /^[a-z][a-z0-9-]{0,31}$/;
   // The id of an item of the plan from its stored key, under either prefix, or null for any other key.
   const planIdOf = (key) => (typeof key !== 'string' ? null : key.startsWith(PLAN_PREFIX) ? key.slice(PLAN_PREFIX.length) : key.startsWith(OLD_PLAN_PREFIX) ? key.slice(OLD_PLAN_PREFIX.length) : null);
   const CATEGORIES = ['do', 'eat', 'stay', 'travel', 'other'];
@@ -61,6 +65,7 @@
       owners: Array.isArray(raw.owners) ? [...new Set(raw.owners.filter((k) => typeof k === 'string').map((k) => k.slice(0, 40)))].slice(0, 20) : [],
       done: Boolean(raw.done),
       pinned: Boolean(raw.pinned),
+      phase: typeof raw.phase === 'string' && PHASE_ID.test(raw.phase) ? raw.phase : null,
       by: clip(raw.by, 40),
       cost: Number.isFinite(raw.cost) && raw.cost > 0 ? Math.min(Math.round(raw.cost * 100) / 100, 1e9) : null,
       paidBy: typeof raw.paidBy === 'string' ? raw.paidBy.slice(0, 40) : '',
@@ -293,13 +298,112 @@
     return Math.round((parseYmd(item.checkOut) - parseYmd(item.date)) / DAY_MS);
   }
 
-  // The trip itself: a heading, where, and its dates.
+  // The trip itself: a heading, where, and its dates. `start` and `end` are the main phase's dates (or the plan's own,
+  // when the template has no phases). `phases` holds the other phases' dates. `v: 2` is this shape. An empty title
+  // means the plan is shown under the space's name (planName).
   function cleanTrip(raw) {
     const r = raw && typeof raw === 'object' ? raw : {};
     const start = isYmd(r.start) ? r.start : null;
     const end = isYmd(r.end) && start && r.end >= start ? r.end : start;
     const currency = typeof r.currency === 'string' && /^[A-Za-z]{3}$/.test(r.currency.trim()) ? r.currency.trim().toUpperCase() : '';
-    return { title: clip(r.title, 80), destination: clip(r.destination, 80), start, end, notes: clip(r.notes, 2000), currency, by: clip(r.by, 40) };
+    return { title: clip(r.title, 80), destination: clip(r.destination, 80), start, end, notes: clip(r.notes, 2000), currency, by: clip(r.by, 40), v: 2, phases: phaseDates(r.phases) };
+  }
+
+  // One phase's stored dates: `start` and `end` as days, and an end never before its start. Anything else is left out.
+  function phaseDates(raw) {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+    const out = {};
+    for (const [id, span] of Object.entries(raw)) {
+      if (!PHASE_ID.test(id) || !span || typeof span !== 'object' || Array.isArray(span)) continue;
+      const start = isYmd(span.start) ? span.start : null;
+      const end = isYmd(span.end) && (!start || span.end >= start) ? span.end : null;
+      if (!start && !end) continue;
+      out[id] = { ...(start ? { start } : {}), ...(end ? { end } : {}) };
+    }
+    return out;
+  }
+
+  // The name the plan shows: its own title, or the space's name when the title is empty (including when nothing is stored yet).
+  function planName(trip, space) {
+    const title = trip && typeof trip.title === 'string' ? trip.title.trim() : '';
+    if (title) return title;
+    return space && typeof space.name === 'string' ? space.name.trim() : '';
+  }
+
+  // The day the space was created, from `createdAt` (a day, or a moment). Null when there is no space.
+  function createdDay(space) {
+    const c = space && space.createdAt;
+    if (typeof c !== 'string' || !c) return null;
+    if (c.length === 10 && isYmd(c)) return c;
+    const d = new Date(c);
+    return Number.isNaN(d.getTime()) ? null : ymd(d);
+  }
+
+  // A phase's own dates. The main phase's dates are the trip's `start` and `end` when it has none of its own.
+  function phaseSpan(phase, trip) {
+    const stored = (trip && trip.phases && phase && trip.phases[phase.id]) || {};
+    const start = isYmd(stored.start) ? stored.start : (phase && phase.main && trip && isYmd(trip.start) ? trip.start : null);
+    const end = isYmd(stored.end) ? stored.end : (phase && phase.main && trip && isYmd(trip.end) ? trip.end : null);
+    return { start, end: start && end && end < start ? null : end };
+  }
+
+  // When a phase begins: its own start, else the day after the previous phase's end, else (the first phase only) the
+  // day the space was created. Null when none of those is known.
+  function effectiveStart(phases, trip, index, created) {
+    if (!Array.isArray(phases) || index < 0 || index >= phases.length) return null;
+    const own = phaseSpan(phases[index], trip).start;
+    if (own) return own;
+    if (index > 0) {
+      const prev = phaseSpan(phases[index - 1], trip).end;
+      if (prev) {
+        const d = parseYmd(prev);
+        return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1));
+      }
+    }
+    return index === 0 && isYmd(created) ? created : null;
+  }
+
+  // The last phase, in order, whose effective start is today or earlier. The first phase when none has started. Null
+  // when the template lists no phases.
+  function currentPhase(phases, trip, today, created) {
+    if (!Array.isArray(phases) || !phases.length) return null;
+    let found = null;
+    for (let i = 0; i < phases.length; i += 1) {
+      const start = effectiveStart(phases, trip, i, created);
+      if (start && isYmd(today) && start <= today) found = phases[i];
+    }
+    return found || phases[0];
+  }
+
+  // Which phase an object is in: its own, when that phase is still listed, else the current phase.
+  function phaseOf(item, phases, trip, today, created) {
+    const list = Array.isArray(phases) ? phases : [];
+    if (!list.length) return null;
+    if (item && item.phase && list.some((p) => p && p.id === item.phase)) return item.phase;
+    const cur = currentPhase(list, trip, today, created);
+    return cur ? cur.id : null;
+  }
+
+  // Whole days from one calendar day to another. A daylight-saving shift is still one day.
+  const daysBetween = (a, b) => Math.round((parseYmd(b) - parseYmd(a)) / DAY_MS);
+
+  // The line under the plan's name. The current phase's label, then the days until the main phase when that start
+  // is still ahead, or which day of it this is while it is on. The label alone otherwise. Nothing when there are no phases.
+  function phaseLine(phases, trip, today, created) {
+    if (!Array.isArray(phases) || !phases.length || !isYmd(today)) return '';
+    const cur = currentPhase(phases, trip, today, created);
+    if (!cur) return '';
+    const mainAt = phases.findIndex((p) => p && p.main);
+    const start = mainAt >= 0 ? effectiveStart(phases, trip, mainAt, created) : null;
+    const end = mainAt >= 0 ? phaseSpan(phases[mainAt], trip).end : null;
+    if (cur.main && start && end && today >= start && today <= end) {
+      return `${cur.label} · day ${daysBetween(start, today) + 1} of ${daysBetween(start, end) + 1}`;
+    }
+    if (start && today < start) {
+      const n = daysBetween(today, start);
+      return `${cur.label} · ${n} ${n === 1 ? 'day' : 'days'} to go`;
+    }
+    return cur.label;
   }
 
   // The days an object occupies on the plan: its own day, a stay's check-out, and the day a journey arrives.
@@ -313,9 +417,30 @@
     return days;
   }
 
+  // The days the plan shows: from the earliest to the latest of the trip's start and end and every object's date
+  // (a stay's check-out and a journey's arrival count). None of those: no days. Capped the same way as the trip's own days.
+  function planDays(trip, items) {
+    const dates = [];
+    if (trip && isYmd(trip.start)) dates.push(trip.start);
+    if (trip && isYmd(trip.end)) dates.push(trip.end);
+    for (const item of items || []) for (const d of coverDaysOf(item)) if (isYmd(d)) dates.push(d);
+    if (!dates.length) return [];
+    dates.sort();
+    return tripDays({ start: dates[0], end: dates[dates.length - 1] });
+  }
+
+  // An object moves the trip's dates only when its phase is the main one, or it has none. A phase that is not the
+  // main one never does. With no object given, every date is considered (a caller that has already chosen).
+  function phaseExtendsTrip(item, phases) {
+    if (!item || !item.phase) return true;
+    const main = (Array.isArray(phases) ? phases : []).find((p) => p && p.main);
+    return Boolean(main) && item.phase === main.id;
+  }
+
   // Move the trip's first or last day out so every given day sits on it. Only grows; never shrinks. Null when
-  // there is no trip yet, or when the trip already covers them.
-  function coverTrip(trip, dates) {
+  // there is no trip yet, when the trip already covers them, or when the object is in a phase that is not the main one.
+  function coverTrip(trip, dates, item, phases) {
+    if (item && !phaseExtendsTrip(item, phases)) return null;
     if (!trip || !isYmd(trip.start)) return null;
     let start = trip.start;
     let end = isYmd(trip.end) ? trip.end : trip.start;

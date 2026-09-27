@@ -1,6 +1,6 @@
 // A template's offer after a switch (plan-environment-templates.md, "Addendum: switching a template", GitHub #59), shared
 // by Manage's Template tab and the host console's environment card. The offer is what the server answers with a switch:
-// { modules: [{ id, name, allowed, why? }], lobby: { name, description } | null, spaceDefaults: { profile } | null,
+// { modules: [{ id, name, allowed, why? }], lobby: { name, description } | null, spaceDefaults: { profile?, opensWith? } | null,
 // reactions: [{ id, glyph, label }] | null, theme: { name, author? } | null, iconSet: [Font Awesome names] | null }
 // (addendum 2, "templates grow").
 // Modules are ticked by default; one the plan leaves out is shown unticked and disabled, with the server's why. The
@@ -45,8 +45,23 @@ export function renderOffer(box, { templateName, offer, lobbyName = '', apply, l
     return `<label class="check"><input type="checkbox" data-offer-lobby> <span>${text}${l.description ? ` <span class="hint">${escapeHtml(l.description)}</span>` : ''}</span></label>`;
   };
   const profileRow = () => {
-    const p = offer.spaceDefaults.profile;
-    return `<label class="check"><input type="checkbox" data-offer-space-defaults> <span>New ${escapeHtml(word('space', { many: true }))} use the ${escapeHtml(PROFILE_LABELS[p] || p)} profile</span></label>`;
+    const defaults = offer.spaceDefaults;
+    const p = defaults.profile;
+    const profile = p ? `New ${escapeHtml(word('space', { many: true }))} use the ${escapeHtml(PROFILE_LABELS[p] || p)} profile` : '';
+    const names = (defaults.opensWith || []).map((id) => {
+      const offered = (offer.modules || []).find((m) => m.id === id);
+      if (offered && offered.name) return offered.name;
+      if (id === 'chat') return 'Chat';
+      if (id === 'conference') return 'Conference';
+      return id;
+    });
+    const opens = names.length === 1
+      ? `A new ${escapeHtml(word('space'))} opens ${escapeHtml(names[0])}`
+      : names.length > 1
+        ? `A new ${escapeHtml(word('space'))} opens ${names.slice(0, -1).map(escapeHtml).join(', ')} and ${escapeHtml(names[names.length - 1])}`
+        : '';
+    const text = [profile, opens].filter(Boolean).join('. ');
+    return `<label class="check"><input type="checkbox" data-offer-space-defaults> <span>${text}</span></label>`;
   };
   const reactionsRow = () => {
     const list = offer.reactions;

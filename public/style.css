@@ -6109,6 +6109,9 @@ body.host-console .icon-field { display: flex; align-items: center; gap: 6px; }
 body.host-console .icon-field input { flex: 1; min-width: 0; }
 body.host-console .icon-field i { width: 1.4em; text-align: center; flex: none; }
 body.host-console .template-modules { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 4px 12px; }
+body.host-console .phase-row, body.host-console .opens-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+body.host-console .phase-row input[type="text"] { flex: 1 1 8rem; min-width: 0; }
+body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 @media (max-width: 560px) {
   body.host-console .word-row, body.host-console .module-display-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   body.host-console .word-row > :first-child, body.host-console .module-display-row > :first-child { grid-column: 1 / -1; }

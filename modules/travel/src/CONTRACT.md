@@ -29,8 +29,9 @@ Other states replace the header and body: see "States".
 
 | Element | Meaning |
 |---|---|
-| `[data-slot=title]` | the trip name (the Name field when editing); hidden when `host.setTitle` put it in the titlebar |
-| `[data-slot=dates]` | "Sat 3 – Fri 9 Oct 2026", already formatted |
+| `[data-slot=title]` | the plan's name (the space's name until the Name field is set); hidden when `host.setTitle` put it in the titlebar |
+| `[data-slot=phase]` | the phase line (`p.phase-line`): "`<label>` · 12 days to go" before the main phase, "`<label>` · day 3 of 9" during it, the label alone otherwise. Hidden when the template has no phases |
+| `[data-slot=dates]` | "Sat 3 – Fri 9 Oct 2026", already formatted; hidden when the plan has no first day |
 | `.trip-sep` | `|` between the dates and the facts; hidden when there are no facts |
 | `[data-slot=summary]` | `.trip-facts` spans on the same line as the dates: days, travellers, open decisions; a `<b>` is the number |
 
@@ -127,7 +128,7 @@ The Bookings and Money views reuse the same list markup: `.section-title` headin
 | State | What the script renders |
 |---|---|
 | Loading | `.app` with the header and `#body > .skeleton[aria-busy=true]` holding four `.skel` |
-| No trip yet | `.app > .body > .state#state-empty-trip` with an `h2`, a `p`, and `button.btn.btn-primary[data-action=create-trip]` |
+| Nothing on the plan | The header stays (the space's name, and the phase line when the template has phases). With no days and no objects, `#body > .state#state-empty-trip` reads "Nothing on the plan yet. Add something below." and, for someone who can edit, a `form.add-row` whose button adds an object with no date. There is no create step |
 | Empty day | `ol.items` holds one `li.day-empty.has-add` (`tpl-day-empty-add`) whose `button.day-empty-add[data-action=day-menu]` reads "Nothing planned yet. Click to add." ("Tap to add." when `matchMedia('(pointer: coarse)')` matches; the pointer decides, not the width). It is the same action as the header's "...", so it opens the same add menu for that day, anchored to the row. A viewer who cannot edit gets a plain `li.day-empty` (`tpl-day-empty`) reading "Nothing planned yet." and no button. A day that has things opens nothing from its blank space. The add row stays |
 | Conflict | the item gets `.conflict` and a last child `.conflict-bar[role=alert]`: a `span` ("Christy changed this while you were editing."), `button.btn[data-action=use-theirs]`, `button.btn[data-action=keep-mine]` |
 | Busy day (20+ items) | nothing special: `.items` scrolls inside a column on a wide pane, the page scrolls on a phone; the day header stays put (sticky) |
@@ -142,7 +143,8 @@ The Bookings and Money views reuse the same list markup: `.section-title` headin
 
 ## Ideas and suggestions
 
-- **Ideas** are the items on the plan's line rather than in a day (see "The line" below): an item with no day is at a joint on the line, and the head of the line (before the first day) is where an idea with no place yet sits. There is no Ideas column. The item menu's **Back to the line** takes an item off its day (to the joint before that day), and a drop on a joint puts anything there.
+- **Ideas** are the objects on the plan's line rather than in a day (see "The line" below): one placed at a joint stays there, and the head of the line (before the first day) is a joint someone chose. There is no Ideas column. The menu's **Back to the line** takes an object off its day (to the joint before that day), and a drop on a joint puts anything there.
+- **Not on a day yet** (`section#undated`) sits above the days. It lists every object that has no date and was not placed on the line, under each phase's label in phase order (an empty group is left out). With no phases the list is not grouped. A new object with no date starts in the current phase.
 - **Suggestions** are dated items other modules hold on a trip day that are not on the plan yet. A day with any gets `div.suggestions` between `ol.items` and the add row: `.suggestions-title` ("Other modules have") and one `.suggestion[data-ref]` per item (the module icon, a `.suggestion-main` with `<b>` the title and the module name, and `button[data-action=add-suggestion]`). No suggestions: the element is absent (or `[hidden]`).
 
 ## The item menu (`#item-menu.menu`)
@@ -151,7 +153,7 @@ One popover the script positions under the `.item-menu` button that opened it (`
 
 ## The editor (`#editor` > `form#form.editor-card`)
 
-A dialog over the page for an item and for the trip. The script shows the fields a kind needs: an element with `data-kinds="stop journey stay"` is shown only for those kinds; the kind tabs are `#f-kinds button[data-kind]` (`.on` on the current one). Fields, all with `id="f-<name>"`: title, date (select of days), time, minutes, checkout (select, a stay's last night), from, to, category, place, address, confirm (the booking reference), notes, owners (`#f-owners`, checkboxes for the space's people), done. `#f-by` says who last changed it, `#f-error` an error, and the buttons are `#f-save`, `#f-cancel` and `#f-delete`. The trip has its own form of the same shape opened by `button[data-action=edit-trip]`.
+A dialog over the page for an item and for the trip. The script shows the fields a kind needs: an element with `data-kinds="stop journey stay"` is shown only for those kinds; the kind tabs are `#f-kinds button[data-kind]` (`.on` on the current one). Fields, all with `id="f-<name>"`: title, date (select of days), time, minutes, checkout (select, a stay's last night), from, to, category, place, address, confirm (the booking reference), notes, owners (`#f-owners`, checkboxes for the space's people), done. `#f-by` says who last changed it, `#f-error` an error, and the buttons are `#f-save`, `#f-cancel` and `#f-delete`. The plan has its own form (`tpl-editor-trip`, opened by `button[data-action=edit-trip]`). Name's placeholder is the space's name, and an empty name keeps showing that. With phases, `#f-phases` holds one `div.phase-dates[data-phase]` per phase (`tpl-phase-row`: the label, Start, End). The main phase's row writes the plan's `start` and `end`; the others write that phase's dates. Every date is optional. With no phases, First day (`f-start`) and Last day (`f-end`) stay, and they are optional too. Where, currency and notes stay either way.
 
 ## Not decided yet
 
@@ -197,7 +199,7 @@ Empty slots hide (`[data-slot]` with no value gets `hidden`), so a card with few
 Reference rendering: `design/markers.html` (`?state=normal|edge|hidden`, `?theme=light`, `?w=390`).
 
 **Automatic markers** (`li.row.marker[data-marker=planning-start|planning-end|trip-start|trip-end]`, `tpl-row-marker`). They are not items: no id, no menu, no handle, not editable, draggable or removable, and never counted as something planned. The script writes them; a person cannot.
-- `planning-start` is the first thing on the plan's first day and `planning-end` the last thing on its last day. Icon `flag` and `flag-checkered`; title "Planning starts" and "Planning ends"; `[data-slot=time]` is the date ("Sat 3"); `[data-slot=sub]` a short line ("the plan begins").
+- `planning-start` is the first phase's effective start and `planning-end` is the end of the phase just before the main one. With no phases they stay on the plan's first and last day. Icon `flag` and `flag-checkered`; title "Planning starts" and "Planning ends"; `[data-slot=time]` is the date ("Sat 3"); `[data-slot=sub]` a short line ("the plan begins"). A dated phase also gets `div.phase-head[data-phase]` before the first day of that phase. The other phases have that band only.
 - `trip-start` sits just before the first booked item and `trip-end` just after the last, in their day, in time order. "Booked" is a journey, a stay, or any item with a confirmation; if nothing is booked, the first and last timed item; with no items there are no trip markers. Icon `plane-departure` and `plane-arrival`; title "Trip starts" and "Trip ends"; `[data-slot=time]` is that item's start (for the end, its arrival or check-out) and the sub names the item ("TAP Air Portugal TP 214 · Denver").
 - Planning markers are quiet (dashed outline); trip markers are filled in the accent. Each row keeps the same three columns as an item, so the rail is unbroken.
 
@@ -213,7 +215,7 @@ Reference rendering: `design/markers.html` (`?state=normal|edge|hidden|blocks`, 
 
 **Marker types are a list in Module Configuration** (Planner > Markers): each has a **label**, an **icon** and a **colour**. The four automatic types (planning-start, planning-end, trip-start, trip-end) are always there; their label, icon and colour can be changed but they cannot be removed. Others (free time, rest, buffer, meet-up, leave-by to start with) are added, changed, reordered and removed. The author verifies the starting list. The script sets `--marker` (from the colour, as a custom property; a hex colour) on the pill and gives the article its `data-type` (the type's id).
 
-**Plan-wide markers** (`li.row.marker[data-marker=planning-start|planning-end|trip-start|trip-end]`, `tpl-row-marker`) are not items: no id, menu, handle, editing, dragging or removing. They sit between the day blocks (`ol.timeline.ends[data-ends=before|after]`). A day that is part of the trip (the first booked item's day to the last one's) carries `.day2.in-trip` (a green badge) and its strip chip `.daychip.in-trip`.
+**Plan-wide markers** (`li.row.marker[data-marker=planning-start|planning-end|trip-start|trip-end]`, `tpl-row-marker`) are not objects a person adds: no id, menu, handle, editing, dragging or removing. `planning-start` sits on the first phase's effective start and `planning-end` on the end of the phase just before the main one (on the first and last day when there are no phases). `trip-start` and `trip-end` stay with the booked objects. They sit between the day blocks (`ol.timeline.ends[data-ends=before|after]`). `div.phase-head[data-phase]` names a dated phase before its first day. A day that is part of the trip (the first booked object's day to the last one's) carries `.day2.in-trip` (a green badge) and its strip chip `.daychip.in-trip`.
 
 **Time blocks** are the other use of the pill: things that happen inside a day and have no place. They are items a person adds (`li.row.entry[data-kind=block]`, `article.card.block.markerpill[data-type]`, `tpl-card-block`) with a time, an optional length (`[data-slot=minutes]`), a one-line note (`[data-slot=body]`) and a menu button; they are edited, moved and removed like any item and take part in the day's time order. In the editor they are a group "Time" in `#f-types` with a tile for each type (its icon and colour), and show only the type, an optional label, the time, the length (not for a meet-up or leave-by) and a note.
 
@@ -262,7 +264,7 @@ The same dialog (`#editor > form#form.editor-card`), rebuilt around **what kind 
 
 | Group | Fields (type) |
 |---|---|
-| Top | `f-title`, `f-date`, `f-time` (all but note), `f-hours` + `f-minutes` (the length as hours and minutes, stored as `minutes`; not for hotel, note), `#f-arrives` (a journey's arrival, worked out), `f-checkout` (a date input: any day after check-in) and `f-checkOutTime` (hotel). The labels of `f-date`, `f-time`, the length, `f-operator`, `f-number`, `f-from` and `f-to` are spans (`f-<name>-label`) the script words for the chosen type: "Check in" for a stay, "Departure day" / "Departure time" / "Flight time" for a flight, "Pick-up time" for a taxi, else "When", "Time", "How long" |
+| Top | `f-title`, `f-date` (includes "Not on a day yet"), `f-phase` (`select#f-phase` in `#f-phase-row`, the phase labels, shown only when the object has no date and the template has phases; a new object starts in the current phase), `f-time` (all but note), `f-hours` + `f-minutes` (the length as hours and minutes, stored as `minutes`; not for hotel, note), `#f-arrives` (a journey's arrival, worked out), `f-checkout` (a date input: any day after check-in) and `f-checkOutTime` (hotel). The labels of `f-date`, `f-time`, the length, `f-operator`, `f-number`, `f-from` and `f-to` are spans (`f-<name>-label`) the script words for the chosen type: "Check in" for a stay, "Departure day" / "Departure time" / "Flight time" for a flight, "Pick-up time" for a taxi, else "When", "Time", "How long" |
 | Journey | `f-operator`, `f-number` (not taxi, rideshare, car), `f-fromCode`, `f-toCode` (flight), `f-from`, `f-to` (not car), `f-pickup`, `f-dropoff` (car), `f-terminal`, `f-gate` (flight), `f-platform`, `f-carriage` (train), `f-seat` (flight, train), `f-travelClass` (flight) |
 | Stay | `f-address`, `f-roomType`, `f-guests` (hotel) |
 | Where and who | `f-address-stop`, `f-partySize`, `f-reservationName` (meals), `f-admissionCount` (sight, museum, tour, show), `f-gate-show` (show's entry, saved as `gate`) |

@@ -59,8 +59,43 @@
       }
     }
 
+    const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []) || [];
+    const spaceOf = () => (typeof host.space === 'function' ? host.space() : null);
+
+    // An old trip (no `v: 2`) keeps its dates and, when the first phase is not the main one, that phase starts on the
+    // day the space was created. Once per space (PHASES_MOVED_KEY). A 409 means someone else wrote it; the load that
+    // follows reads their copy. Objects are not rewritten. Someone who cannot edit writes nothing and reads the same
+    // dates from the defaults (the first phase begins on the created day when it has no start of its own).
+    async function movePhases() {
+      try {
+        if (await host.storage.get(PHASES_MOVED_KEY)) return;
+        const t = await host.storage.get(TRIP_KEY);
+        if (t && t.value && t.value.v !== 2) {
+          const phases = templatePhases();
+          const first = Array.isArray(phases) ? phases[0] : null;
+          const main = Array.isArray(phases) ? phases.find((p) => p && p.main) : null;
+          const next = cleanTrip(t.value);
+          if (first && first.id && (!main || first.id !== main.id)) {
+            const day = createdDay(spaceOf());
+            if (day && !(next.phases[first.id] && next.phases[first.id].start)) {
+              next.phases = { ...next.phases, [first.id]: { ...(next.phases[first.id] || {}), start: day } };
+            }
+          }
+          try {
+            await host.storage.set(TRIP_KEY, next, { version: t.version });
+          } catch (err) {
+            if (!err || err.status !== 409) throw err;
+          }
+        }
+        await host.storage.set(PHASES_MOVED_KEY, { at: new Date().toISOString() }, { version: 0 });
+      } catch (err) {
+        // not allowed to write here, or it failed part way: tried again on the next load; nothing is lost meanwhile
+      }
+    }
+
     async function load() {
       await moveOldKeys();
+      await movePhases();
       const t = await host.storage.get(TRIP_KEY);
       remember(TRIP_KEY, t ? t.value : null, t ? t.version : null);
       items.clear();
@@ -123,7 +158,7 @@
     // The items on the line, in the order they are on it: by joint (the head first, then the day each follows), then by hand order.
     const onLine = () => sortLine(list().filter((i) => jointOf(i) !== null).map((i) => ({ ...i, after: jointOf(i) })));
     const atJoint = (after) => onLine().filter((i) => i.after === after);
-    const days = () => tripDays(trip);
+    const days = () => planDays(trip, list().map((i) => ({ ...i, date: dayOf(i) })));
     const byDay = () => itemsByDay(sortable(), days(), dayOf);
     const nextOrder = (date) => {
       const same = sortable().filter((i) => !i.time && i.date === date);
@@ -140,7 +175,7 @@
     }
 
     async function stretchFor(item) {
-      const span = coverTrip(trip, coverDaysOf(item));
+      const span = coverTrip(trip, coverDaysOf(item), item, templatePhases());
       if (span) await saveTrip(span);
     }
 

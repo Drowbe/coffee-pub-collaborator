@@ -378,8 +378,15 @@
     const rows = [];
     const dateText = (d) => parseYmd(d).toLocaleDateString([], { weekday: 'short', day: 'numeric' });
     const itemOf = (id) => plan.list().find((i) => i.id === id);
+    const phases = templatePhases();
+    const created = createdDay(spaceOf());
+    // With phases, planning starts on the first phase and ends at the close of the phase just before the main one.
+    // With none, both stay on the first and last day of the plan. The booked start and end are unchanged.
+    const mainAt = phases.findIndex((p) => p.main);
+    const planningStart = phases.length ? effectiveStart(phases, plan.trip, 0, created) : days[0];
+    const planningEnd = phases.length ? (mainAt > 0 ? phaseSpan(phases[mainAt - 1], plan.trip).end : null) : days[days.length - 1];
     if (position === 'before') {
-      if (day === days[0]) rows.push(buildMarker('planning-start', dateText(day), 'the plan begins'));
+      if (planningStart && day === planningStart) rows.push(buildMarker('planning-start', dateText(day), 'the plan begins'));
       if (bounds && bounds.start.day === day) rows.push(buildMarker('trip-start', tt(bounds.start.time), describe(itemOf(bounds.start.id) || {})));
     } else {
       // An arrival after the plan's last day (a journey home overnight) ends the trip under the last day, with its own date.
@@ -387,7 +394,7 @@
       const after = bounds && bounds.end.day > days[days.length - 1];
       const endDate = after ? parseYmd(bounds.end.day).toLocaleDateString([], { month: 'short', day: 'numeric' }) : '';
       if (bounds && (bounds.end.day === day || (last && after))) rows.push(buildMarker('trip-end', [endDate, tt(bounds.end.time)].filter(Boolean).join('\n'), describe(itemOf(bounds.end.id) || {})));
-      if (day === days[days.length - 1]) rows.push(buildMarker('planning-end', dateText(day), 'the plan ends'));
+      if (planningEnd && day === planningEnd) rows.push(buildMarker('planning-end', dateText(day), 'the plan ends'));
     }
     if (!rows.length) return null;
     const list = document.createElement('ol');
@@ -496,8 +503,13 @@
   // The items at a joint on the line (`after` is the day before it; '' is the head, before the first day): a marker as its
   // pill, anything else as the card it would be in a day. Then the + where a new one goes (`withJoint`; a hidden day's joint
   // has no + of its own, the badge standing in for the day has it).
+  // An object with no date and no place on the line belongs under "Not on a day yet", not at the head of the line.
+  const placedOnLine = (item) => {
+    const stored = plan.list().find((i) => i.id === item.id);
+    return Boolean(stored && (stored.kind === 'lane' || stored.after === '' || (stored.after && stored.after !== null)));
+  };
   function buildBetween(after, withJoint = true) {
-    const mine = plan.atJoint(after);
+    const mine = plan.atJoint(after).filter(placedOnLine);
     const out = [];
     if (mine.length) {
       const list = document.createElement('ol');
@@ -532,6 +544,7 @@
     select.replaceChildren();
     const add = (value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; select.append(o); };
     const days = plan.days();
+    if (!jointsOnly) add('d:', 'Not on a day yet');
     add('j:', jointLabel(''));
     days.forEach((d) => {
       if (!jointsOnly) add(`d:${d}`, dayShort(d));
@@ -624,6 +637,7 @@
     if (!(count >= 1)) return;
     if (count > left) { note(left > 0 ? `A plan can be at most ${MAX_DAYS} days long, so at most ${left} more can be added.` : `A plan can be at most ${MAX_DAYS} days long.`); return; }
     const shift = (day, n) => { const d = parseYmd(day); return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)); };
+    if (!trip || !trip.start) { note('Set the first day before adding days.'); return; }
     const start = where === 'before' ? shift(trip.start, -count) : trip.start;
     const end = where === 'after' ? shift(trip.end || trip.start, count) : trip.end || trip.start;
     attempt(async () => { await plan.saveTrip({ ...trip, start, end }); scrolled = true; });
@@ -640,6 +654,14 @@
     // Empty days can be hidden, unless every day is empty (then there would be nothing to show).
     const hiding = state.hideEmpty && empties.size > 0 && empties.size < days.length;
     $('app').classList.toggle('hide-empty', hiding);
+    const phases = templatePhases();
+    const heads = new Map();
+    phases.forEach((p) => {
+      const start = phaseSpan(p, plan.trip).start;
+      if (!start || !days.includes(start)) return;
+      if (!heads.has(start)) heads.set(start, []);
+      heads.get(start).push(p);
+    });
     if (canEdit) wrap.append(buildEdge('before'));
     // One badge for each run of hidden days, standing in for them on the line.
     const runs = new Map(); // first hidden day of a run -> the days in it
@@ -650,6 +672,12 @@
       }
     }
     days.forEach((day, i) => {
+      for (const p of heads.get(day) || []) {
+        const band = clone('tpl-phase-head');
+        band.dataset.phase = p.id;
+        fill(band, { label: p.label });
+        wrap.append(band);
+      }
       const above = timelineMarkers(day, 'before', days, by);
       if (above) wrap.append(above);
       if (runs.has(day)) wrap.append(buildGap(runs.get(day)));
@@ -663,7 +691,7 @@
       if (below) wrap.append(below);
     });
     if (canEdit) wrap.append(buildEdge('after'));
-    $('body').replaceChildren(wrap);
+    return wrap;
   }
 
   function renderStrip() {
@@ -849,23 +877,59 @@
     });
   }
 
+  const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []);
+  const spaceOf = () => (typeof host.space === 'function' ? host.space() : null);
+  // No date, and not placed at a joint: it belongs under "Not on a day yet".
+  const undatedItems = () => plan.list().filter((i) => i.kind !== 'lane' && !i.date && (i.after === null || i.after === undefined));
+  function undatedRow(ul, item) {
+    row(ul, { icon: cardOf(item).badge || 'note-sticky', title: item.title, sub: '', button: canEdit ? 'Edit' : '', id: item.id });
+  }
+  function buildUndated() {
+    const items = undatedItems();
+    if (!items.length) return null;
+    const phases = templatePhases();
+    const today = ymd(new Date());
+    const created = createdDay(spaceOf());
+    const box = clone('tpl-undated');
+    if (!phases.length) {
+      const ul = document.createElement('ul');
+      ul.className = 'decisions';
+      for (const item of items) undatedRow(ul, item);
+      box.append(ul);
+    } else {
+      for (const p of phases) {
+        const mine = items.filter((item) => phaseOf(item, phases, plan.trip, today, created) === p.id);
+        if (!mine.length) continue;
+        const group = clone('tpl-undated-group');
+        fill(group, { label: p.label });
+        const ul = group.querySelector('ul');
+        for (const item of mine) undatedRow(ul, item);
+        box.append(group);
+      }
+    }
+    return box;
+  }
+
   function renderHeader() {
     const trip = plan.trip;
     const head = $('trip');
     const days = plan.days();
-    const tripName = trip.title || trip.destination || 'Trip';
-    fill(head, { title: tripName });
+    const tripName = planName(trip, spaceOf()) || 'Trip';
+    fill(head, { title: tripName, phase: phaseLine(templatePhases(), trip, ymd(new Date()), createdDay(spaceOf())) });
     if (host.setTitle) {
       host.setTitle(tripName);
       hide(slot(head, 'title'), true);
     }
-    const a = parseYmd(trip.start);
-    const b = parseYmd(trip.end || trip.start);
-    const part = (d, o) => d.toLocaleDateString([], o);
-    const same = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
-    const dates = trip.end && trip.end !== trip.start
-      ? `${part(a, { weekday: 'short' })} ${a.getDate()}${same ? '' : ' ' + part(a, { month: 'short' })} – ${part(b, { weekday: 'short' })} ${b.getDate()} ${part(b, { month: 'short' })} ${b.getFullYear()}`
-      : `${part(a, { weekday: 'short' })} ${a.getDate()} ${part(a, { month: 'short' })} ${a.getFullYear()}`;
+    let dates = '';
+    if (trip && trip.start) {
+      const a = parseYmd(trip.start);
+      const b = parseYmd(trip.end || trip.start);
+      const part = (d, o) => d.toLocaleDateString([], o);
+      const same = a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth();
+      dates = trip.end && trip.end !== trip.start
+        ? `${part(a, { weekday: 'short' })} ${a.getDate()}${same ? '' : ' ' + part(a, { month: 'short' })} – ${part(b, { weekday: 'short' })} ${b.getDate()} ${part(b, { month: 'short' })} ${b.getFullYear()}`
+        : `${part(a, { weekday: 'short' })} ${a.getDate()} ${part(a, { month: 'short' })} ${a.getFullYear()}`;
+    }
     fill(head, { dates });
     const summary = slot(head, 'summary');
     summary.replaceChildren();
@@ -877,7 +941,8 @@
       summary.append(s);
     }
     const sep = head.querySelector('.trip-sep');
-    if (sep) sep.hidden = !summary.children.length;
+    const datesNode = slot(head, 'dates');
+    if (sep) sep.hidden = !summary.children.length || !datesNode || datesNode.hidden;
     const openCount = openDecisions().length;
     viewSwitch.set(state.view, VIEWS.map((v) => (v.id === 'decisions' && openCount ? { ...v, label: `Decisions (${openCount} open)` } : v)));
     hide(head.querySelector('[data-action="edit-trip"]'), !canEdit);
@@ -907,15 +972,6 @@
       $('body').replaceChildren(clone('tpl-state-loading'));
       return;
     }
-    if (!plan.trip || !plan.days().length) {
-      if (host.setTitle) host.setTitle(info.module.name);
-      $('trip').hidden = true;
-      $('stripbar').hidden = true;
-      const s = clone('tpl-state-empty-trip');
-      if (!canEdit) s.querySelector('[data-action="create-trip"]').remove();
-      $('body').replaceChildren(s);
-      return;
-    }
     $('trip').hidden = false;
     const kept = keepInputs();
     const scroller = $('body');
@@ -924,10 +980,18 @@
     if (state.view !== 'days') {
       $('stripbar').hidden = true;
       ({ decisions: renderDecisions, bookings: renderBookings, money: renderMoney })[state.view]();
+    } else if (!plan.days().length && !undatedItems().length) {
+      $('stripbar').hidden = true;
+      const s = clone('tpl-state-empty-trip');
+      if (!canEdit) { const form = s.querySelector('form'); if (form) form.remove(); }
+      $('body').replaceChildren(s);
     } else {
-      $('stripbar').hidden = false;
-      renderStrip();
-      renderDays();
+      $('stripbar').hidden = !plan.days().length;
+      if (plan.days().length) renderStrip();
+      else $('daystrip').replaceChildren();
+      const undated = buildUndated();
+      const days = plan.days().length ? renderDays() : null;
+      $('body').replaceChildren(...[undated, days].filter(Boolean));
     }
     hydrate(root === document ? document.body : root);
     restoreInputs(kept);
@@ -1472,11 +1536,13 @@
     $('f-error').hidden = true;
     if (mode === 'trip') {
       const t = plan.trip || {};
-      $('editor-title').textContent = plan.trip ? 'Edit the trip' : 'Plan a trip';
+      $('editor-title').textContent = 'The plan';
       $('f-title').value = t.title || '';
+      $('f-title').placeholder = (spaceOf() && spaceOf().name) || '';
       $('f-destination').value = t.destination || '';
       $('f-start').value = t.start || '';
       $('f-end').value = t.end || '';
+      fillTripPhases(t);
       host.ui.currencySelect($('f-currency'), { value: t.currency || '', empty: true }); // "" is the server's currency
       $('f-notes').value = t.notes || '';
       $('f-by').textContent = '';
@@ -1487,6 +1553,8 @@
       hide($('f-delete'), !item);
       applyType(item ? tileOf(item) || 'sight' : (place && place.tile) || 'sight');
       $('f-date').value = placeValue(item ? placeOf(item) : place);
+      fillPhaseSelect(item);
+      $('f-date').addEventListener('change', syncPhaseField);
       checkoutMin();
       const v = item || {};
       setVal('f-checkout', v.checkOut);
@@ -1517,6 +1585,50 @@
     $('editor').hidden = false;
     $('f-title').focus();
   }
+  // One row per phase. The main phase's dates are the plan's own start and end; the others are stored on the phase.
+  function fillTripPhases(trip) {
+    const box = $('f-phases');
+    const phases = templatePhases();
+    if (!box) return;
+    box.replaceChildren();
+    const show = phases.length > 0;
+    hide($('f-start').closest('label'), show);
+    hide($('f-end').closest('label'), show);
+    if (!show) return;
+    for (const p of phases) {
+      const row = clone('tpl-phase-row');
+      row.dataset.phase = p.id;
+      fill(row, { label: p.label });
+      const span = phaseSpan(p, trip);
+      row.querySelector('[data-phase-start]').value = span.start || '';
+      row.querySelector('[data-phase-end]').value = span.end || '';
+      box.append(row);
+    }
+  }
+  function fillPhaseSelect(item) {
+    const select = $('f-phase');
+    if (!select) return;
+    const phases = templatePhases();
+    select.replaceChildren();
+    const cur = currentPhase(phases, plan.trip, ymd(new Date()), createdDay(spaceOf()));
+    for (const p of phases) {
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.label;
+      select.append(o);
+    }
+    const want = item && item.phase && phases.some((p) => p.id === item.phase) ? item.phase : (cur && cur.id);
+    if (want) select.value = want;
+    syncPhaseField();
+  }
+  function syncPhaseField() {
+    const row = $('f-phase-row');
+    if (!row || !$('f-date')) return;
+    const place = parsePlace($('f-date').value);
+    const undated = !(place && place.date) && !(place && place.after !== null && place.after !== undefined);
+    hide(row, !undated || !templatePhases().length);
+  }
+
   // Either leg of a round trip opens the one editor with both legs; the outbound's fields are the main ones.
   const openItemEditor = (id) => {
     const item = plan.list().find((i) => i.id === id);
@@ -1630,9 +1742,38 @@
     $('f-save').disabled = true;
     try {
       if (ed.mode === 'trip') {
-        if (!$('f-start').value) return fail('Give the trip a first day.');
-        if ($('f-end').value && $('f-end').value < $('f-start').value) return fail('The last day is before the first.');
-        await plan.saveTrip({ title: $('f-title').value.trim(), destination: $('f-destination').value.trim(), start: $('f-start').value, end: $('f-end').value || $('f-start').value, currency: $('f-currency').value.trim(), notes: $('f-notes').value.trim() });
+        const phases = templatePhases();
+        const patch = { title: $('f-title').value.trim(), destination: $('f-destination').value.trim(), currency: $('f-currency').value.trim(), notes: $('f-notes').value.trim() };
+        if (phases.length && $('f-phases')) {
+          const map = {};
+          let start = null;
+          let end = null;
+          for (const row of $('f-phases').querySelectorAll('[data-phase]')) {
+            const phase = phases.find((p) => p.id === row.dataset.phase);
+            const s = row.querySelector('[data-phase-start]').value;
+            const e = row.querySelector('[data-phase-end]').value;
+            const label = phase ? phase.label : row.dataset.phase;
+            if (s && e && e < s) return fail(`${label}: the last day is before the first.`);
+            if (phase && phase.main) {
+              if (e && !s) return fail(`${label}: the last day needs a first day.`);
+              start = s || null;
+              end = e || null;
+            } else if (s || e) {
+              map[row.dataset.phase] = { ...(s ? { start: s } : {}), ...(e ? { end: e } : {}) };
+            }
+          }
+          patch.start = start;
+          patch.end = end || start;
+          patch.phases = map;
+        } else {
+          const start = $('f-start').value;
+          const end = $('f-end').value;
+          if (end && !start) return fail('The last day needs a first day.');
+          if (start && end && end < start) return fail('The last day is before the first.');
+          patch.start = start || null;
+          patch.end = end || start || null;
+        }
+        await plan.saveTrip(patch);
         scrolled = false;
         plan.suggest().catch(() => {});
         return closeEditor();
@@ -1644,6 +1785,7 @@
         title: $('f-title').value.trim(),
         ...placeFields(parsePlace($('f-date').value)),
         notes: $('f-notes').value.trim(),
+        ...($('f-phase-row') && !$('f-phase-row').hidden ? { phase: $('f-phase').value || null } : {}),
         owners: [...$('f-owners').querySelectorAll('input:checked')].map((i) => i.value),
         travelMode: shown('f-travelMode') ? chosenMode() : null,
         travelMinutes: lengthOf('f-travelHours', 'f-travelMinutes'),
@@ -1837,7 +1979,7 @@
       const edge = b.closest('.dayedge');
       hide(edge.querySelector('.edge-form'), true);
       hide(edge.querySelector('[data-action="edge-open"]'), false);
-    } else if (action === 'edit-trip' || action === 'create-trip') {
+    } else if (action === 'edit-trip') {
       openEditor('trip');
     } else if (action === 'use-theirs' && li) {
       state.conflicts.delete(li.dataset.id);
@@ -1881,8 +2023,8 @@
   };
   const addFromBar = (tile) => {
     if (!canEdit) return;
-    if (!plan.days().length) return openEditor('trip');
-    openEditor('item', null, { date: defaultDay(), tile });
+    const day = defaultDay();
+    openEditor('item', null, day ? { date: day, tile } : { tile });
   };
   if (host.bar) {
     host.bar.set(canEdit ? [
@@ -1911,7 +2053,6 @@
   plan.provide();
   plan.onFromText((text) => {
     if (!canEdit) return;
-    if (!plan.days().length) return openEditor('trip');
     const parsed = host.util.parseWhen ? host.util.parseWhen(text) : { title: text };
     const day = parsed.date && plan.days().includes(parsed.date) ? parsed.date : defaultDay();
     openEditor('item', null, { date: day });

@@ -1373,7 +1373,7 @@ function migrationCheck() {
       const logged = [];
       const opts = { hosted: true, log: (m) => logged.push(m), stop: () => {} };
       names.refusedAtStartup(new names.MigrationError('The names migration part "x" stopped at /d/app.json: this value is not a shape the part knows', '/d/app.json'), opts);
-      names.refusedAtStartup(new names.MigrationError('/d/app.json records the migration part "y", which this version of Magpie does not know: so it will not be opened here.', '/d/app.json', 'newer'), opts);
+      names.refusedAtStartup(new names.MigrationError('/d/app.json records the migration part "y", which this version of Collaborator does not know: so it will not be opened here.', '/d/app.json', 'newer'), opts);
       assert.ok(logged[0].includes('the part knows. This environment is skipped'), logged[0]);
       assert.ok(logged[1].includes('opened here. This environment is skipped') && !logged[1].includes('..'), logged[1]);
     });
@@ -1417,7 +1417,7 @@ function migrationCheck() {
     });
 
     test('what a person asking for a refused environment is told, exactly', () => {
-      assert.equal(names.REFUSED_NEWER, "This environment's data is from a newer version of Magpie.");
+      assert.equal(names.REFUSED_NEWER, "This environment's data is from a newer version of Collaborator.");
       assert.equal(names.REFUSED_FAILED, "This environment's data could not be updated. The host admin has been told.");
       const dir = copyFixture();
       const file = path.join(dir, 'app.json');
@@ -2230,7 +2230,7 @@ function migrationCheck() {
       assert.equal(fs.readFileSync(path.join(dir, 'app.json'), 'utf8'), '{ not json');
     });
 
-    test('a record naming a part this server does not know is from a newer Magpie', () => {
+    test('a record naming a part this server does not know is from a newer Collaborator', () => {
       assert.deepEqual(names.unknownParts({ version: 2, migrations: [{ id: 'names-from-the-future', at: '', moved: [] }] }), ['names-from-the-future']);
       assert.deepEqual(names.unknownParts({ version: 1 }), []);
       assert.deepEqual(names.unknownParts(null), []);
@@ -2263,6 +2263,36 @@ function oldRouteCheck(files) {
   console.log(`check-names: old settings routes, ${n} call${n === 1 ? '' : 's'} left`);
 }
 
+// The old product name must not come back, in a file's text or its name, under the code this server ships.
+// The letters are split so this file does not contain them as one word. Documentation and the changelog
+// are history and are not walked.
+function oldProductNameCheck() {
+  const needle = ['m', 'a', 'g', 'p', 'i', 'e'].join('');
+  const re = new RegExp(needle, 'i');
+  const roots = ['server', 'public', 'modules', 'tools', 'templates'];
+  const exts = new Set(['.js', '.mjs', '.html', '.css', '.json', '.txt', '.md']);
+  function walk(rel) {
+    const abs = path.join(ROOT, rel);
+    let ents;
+    try { ents = fs.readdirSync(abs, { withFileTypes: true }); } catch { return; }
+    for (const ent of ents) {
+      if (ent.name === 'node_modules') continue;
+      const child = path.join(rel, ent.name);
+      const shown = child.split(path.sep).join('/');
+      if (re.test(ent.name)) fail(`check-names: ${shown} still uses the old product name in its file name`);
+      if (ent.isDirectory()) walk(child);
+      else if (exts.has(path.extname(ent.name))) {
+        const text = fs.readFileSync(path.join(ROOT, child), 'utf8');
+        const lines = text.split(/\r?\n/);
+        for (let i = 0; i < lines.length; i += 1) {
+          if (re.test(lines[i])) fail(`check-names: ${shown}:${i + 1} still uses the old product name`);
+        }
+      }
+    }
+  }
+  for (const r of roots) walk(r);
+}
+
 // --- run ---------------------------------------------------------------------------------------------------------
 const { entries: allow, problems } = loadAllow();
 for (const p of problems) fail(`check-names: ${p}`);
@@ -2275,6 +2305,7 @@ if (runCode || runWords) {
   }
 }
 if (runMigration) migrationCheck();
+oldProductNameCheck();
 if (failed) {
   console.error(`check-names: ${failed} problem${failed === 1 ? '' : 's'}`);
   process.exit(1);

@@ -797,7 +797,7 @@ async function autoInstallBundled(env) {
 // requests are permissions off for every role (pendingWidensNothing: only owners and the admin hold them, so a module
 // that was on stays on, and the log says so). An update that asks for anything else new (a permission on for some
 // role, a hook, a link, an event, an action) waits for an owner in Modules, and the installed version keeps running;
-// the log says so on each start. The exception is an installed version built for an older Magpie (outdated, which
+// the log says so on each start. The exception is an installed version built for an older version of the product (outdated, which
 // can't run at all): it is updated whatever the update asks for, and what it newly asks for waits for an owner, off
 // until then. An uploaded module is never touched: it waits for its author.
 async function updateBundled(env) {
@@ -841,7 +841,7 @@ async function updateBundled(env) {
           note = ' It waits for an owner to approve what it newly asks for in Modules.';
         }
       }
-      console.log(`${where}Updated "${bundled.id}" from ${from} to ${view.version}${outdated ? ': the version installed was built for an older Magpie' : ', the version this server ships'}.${note}`);
+      console.log(`${where}Updated "${bundled.id}" from ${from} to ${view.version}${outdated ? `: the version installed was built for an older version of ${PRODUCT_NAME}` : ', the version this server ships'}.${note}`);
       // Its stored keys renamed at once, before anyone opens the new version (no request is served in between).
       syncStoredKeys(env, bundled.id);
     } catch (err) {
@@ -1400,7 +1400,7 @@ function watchTheme(change) {
 
 function branding() {
   const s = store.settings;
-  return { environmentName: s.environmentName, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
+  return { environmentName: s.environmentName, productName: PRODUCT_NAME, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
 }
 
 function initials(name) {
@@ -2121,7 +2121,7 @@ hostRouter.post('/api/host/environments/:slug/restore', requireHostAdmin, rawHos
   try {
     const files = await readEnvironmentZip(req.body);
     // A backup whose data (app.json, or tavern.json when there is no app.json) cannot be read, or whose app.json (or
-    // older tavern.json) records a Names migration part this server does not know (made by a newer Magpie), is
+    // older tavern.json) records a Names migration part this server does not know (made by a newer version of the product), is
     // refused before anything is replaced. Checked on what would actually land: names as written to disk, the last
     // of any repeated entry.
     const refusal = backupRefusal(files);
@@ -4316,8 +4316,8 @@ app.get('/api/objects/format', (req, res) => {
   if (!moduleViewer(req)) return res.status(401).json({ error: 'sign in first' });
   res.json({
     version: objectFormat.FORMAT_VERSION,
-    fence: 'magpie',
-    fileSuffix: '.magpie-objects.json',
+    fence: 'collaborator',
+    fileSuffix: '.collaborator-objects.json',
     instructions: objectFormat.instructions(word('object')),
     schema: objectFormat.schema(),
   });
@@ -5897,14 +5897,14 @@ app.get('/:path/:key', (req, res, next) => {
 app.use((err, _req, res, _next) => {
   if (err instanceof StoreError) return res.status(err.status).json({ error: err.message });
   // An environment built after startup whose Names migration could not finish, or whose data is from a newer
-  // Magpie (see server/migrate-names.js): that environment is refused until its data is seen to; the file and
+  // the product (see server/migrate-names.js): that environment is refused until its data is seen to; the file and
   // the reason go to the log, never to the person asking.
   if (err instanceof MigrationError) {
     if (err.slug !== undefined) logRefusalOnce(err.slug); else console.error(err.message);
     const sentence = refusalSentence(err);
     // A browser asking for a page gets a plain page with the sentence; everything else the JSON answer.
     if (!_req.path.startsWith('/api/') && _req.accepts(['json', 'html']) === 'html') {
-      return res.status(503).type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Magpie</title></head><body style="font-family: system-ui, sans-serif; margin: 3rem auto; max-width: 32rem; padding: 0 1rem;"><p>${sentence}</p></body></html>`);
+      return res.status(503).type('html').send(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>${escapeXml(PRODUCT_NAME)}</title></head><body style="font-family: system-ui, sans-serif; margin: 3rem auto; max-width: 32rem; padding: 0 1rem;"><p>${sentence}</p></body></html>`);
     }
     return res.status(503).json({ error: sentence });
   }

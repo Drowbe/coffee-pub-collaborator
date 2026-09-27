@@ -5106,7 +5106,7 @@ body.in-space .topbar.menu-open .links .module-nav-link {
   display: none;
 }
 
-/* A module built for an older Magpie: it can't run until its author updates it. */
+/* A module built for an older version of the product: it can't run until its author updates it. */
 .module-outdated {
   display: flex;
   align-items: flex-start;

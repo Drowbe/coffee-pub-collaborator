@@ -388,15 +388,15 @@ try {
   await test('template files: a round trip gives the same template; newer, too big and not a file are refused; unknown keys dropped and listed', () => {
     const t = templates.cleanTemplate(grown());
     const file = templateFile.templateToFile(t);
-    assert.equal(file.magpieTemplate, 1);
-    assert.equal('magpieTheme' in file.theme, false);
+    assert.equal(file.collaboratorTemplate, 1);
+    assert.equal('collaboratorTheme' in file.theme, false);
     const back = templateFile.readTemplateFile(JSON.stringify(file), { bundled });
     assert.deepEqual(back.dropped, []);
     assert.deepEqual(templates.cleanTemplate(back.raw), t);
-    assert.equal(templateFile.templateFileName('Harbour Trips'), 'harbour-trips.magpie-template.json');
+    assert.equal(templateFile.templateFileName('Harbour Trips'), 'harbour-trips.collaborator-template.json');
     const refused = (input, sentence) => assert.throws(() => templateFile.readTemplateFile(input, { bundled }), (err) => err instanceof templateFile.TemplateFileError && err.message === sentence);
-    refused({ ...file, magpieTemplate: 2 }, templateFile.NEWER);
-    refused({ ...file, magpieTemplate: undefined }, templateFile.NOT_A_TEMPLATE_FILE);
+    refused({ ...file, collaboratorTemplate: 2 }, templateFile.NEWER);
+    refused({ ...file, collaboratorTemplate: undefined }, templateFile.NOT_A_TEMPLATE_FILE);
     refused('not json', templateFile.NOT_A_TEMPLATE_FILE);
     refused(JSON.stringify({ ...file, description: 'x'.repeat(70 * 1024) }), templateFile.NOT_A_TEMPLATE_FILE);
     refused({ ...file, modules: ['travel'] }, 'modules: "chat" must be listed; Chat can\'t be switched off yet.');

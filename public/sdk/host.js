@@ -319,7 +319,7 @@
   // for 'environment'; its environment page may read across the viewer's spaces with 'spaces'; 'person' is
   // the viewer's own.
   const opts = (o) => ({ scope: (o && o.scope) || 'context' });
-  // The names modules used before Magpie's rename, refused with the word to use instead (no module is translated).
+  // The names modules used before the product's rename, refused with the word to use instead (no module is translated).
   const OLD_WORDS = { server: 'scope "environment"', room: '{ space }', rooms: 'scope "spaces"' };
   function refuseOld(o, what) {
     if (!o) return;

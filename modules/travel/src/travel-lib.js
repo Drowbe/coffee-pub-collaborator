@@ -4,7 +4,7 @@
 
   // The trip is one stored value per space (its key is a pointer's id, so the trip can be pointed at and opened).
   const TRIP_KEY = 'trip:main';
-  // Each item of the plan is its own stored value, `plan:<id>` (its kind's name, as other modules point at it). Before Magpie's
+  // Each item of the plan is its own stored value, `plan:<id>` (its kind's name, as other modules point at it). Before the product's
   // rename of items to objects (plan-names step 7) it was `item:<id>`: the plan moves those to `plan:` the first time it loads
   // in a place and records that it has (MOVED_KEY), and reads both until then, so nothing is lost for someone who cannot edit.
   const PLAN_PREFIX = 'plan:';

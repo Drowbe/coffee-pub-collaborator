@@ -76,6 +76,13 @@ function migrateStoredKeys() {
 }
 migrateStoredKeys();
 
+let product = 'Collaborator';
+
+// The configured product name (PRODUCT_NAME), from /api/branding. Sentences use this, never a hard-coded name.
+export function productName() {
+  return product;
+}
+
 // Fills in the environment's name and icon on every page from /api/branding.
 export async function loadBranding() {
   let b = { environmentName: 'Coffee Pub', loginText: '', hasIcon: false };
@@ -85,6 +92,7 @@ export async function loadBranding() {
   } catch (err) {
     // keep the defaults
   }
+  if (typeof b.productName === 'string' && b.productName.trim()) product = b.productName.trim();
   ICONS = Array.isArray(b.icons) ? b.icons : [];
   setEnvironmentMode(b.themeMode, b.themeVersion); // the default mode, and a stylesheet that changed since this page loaded
   setWords(b.words); // every data-word and data-fill on the page, and word() from here on

@@ -177,7 +177,7 @@
 
       <form class="panel template-editor" id="template-editor" hidden novalidate>
         <h2 id="template-editor-title">New template</h2>
-        <p class="hint">Words, the home icon and module names and icons reach every environment using the template at once. The rest is applied once: owners are offered it, never forced.</p>
+        <p class="hint">Words, phases, the home icon and module names and icons reach every environment using the template at once. The rest is applied once: owners are offered it, never forced.</p>
         <ul class="problems" id="tp-problems"></ul>
         <div class="fields">
           <label id="te-id-label">Id<input id="te-id" type="text" maxlength="32" pattern="[a-z][a-z0-9\-]*" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="travel"></label>
@@ -219,7 +219,17 @@
             <label>New spaces use<select id="te-profile"><option value="">The usual profile</option><option value="roleplaying">Roleplaying</option><option value="participants">Participants</option><option value="characters">Characters</option></select></label>
             <label class="wide">Lobby description<input id="te-lobby-description" type="text" maxlength="300"></label>
           </div>
+          <p class="hint">What a new space opens, in this order. The ticks are the template's modules, including chat and the conference.</p>
+          <div id="te-opens"></div>
           <ul class="problems" data-problems="lobby spaceDefaults settings"></ul>
+        </fieldset>
+
+        <fieldset>
+          <legend>Phases</legend>
+          <p class="hint">Up to 12. An id is lowercase letters, digits and dashes. One may be the main phase.</p>
+          <div id="te-phases"></div>
+          <button class="btn btn-small" id="te-phase-add" type="button">Add phase</button>
+          <ul class="problems" data-problems="phases"></ul>
         </fieldset>
 
         <fieldset>

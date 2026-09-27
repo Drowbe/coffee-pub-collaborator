@@ -48,8 +48,19 @@ export function renderOffer(box, { templateName, offer, lobbyName = '', apply, l
     const defaults = offer.spaceDefaults;
     const p = defaults.profile;
     const profile = p ? `New ${escapeHtml(word('space', { many: true }))} use the ${escapeHtml(PROFILE_LABELS[p] || p)} profile` : '';
-    const opens = Array.isArray(defaults.opensWith) && defaults.opensWith.length ? `Set what a new ${escapeHtml(word('space'))} opens with` : '';
-    const text = p && opens ? `${profile}. ${opens}` : (profile || opens);
+    const names = (defaults.opensWith || []).map((id) => {
+      const offered = (offer.modules || []).find((m) => m.id === id);
+      if (offered && offered.name) return offered.name;
+      if (id === 'chat') return 'Chat';
+      if (id === 'conference') return 'Conference';
+      return id;
+    });
+    const opens = names.length === 1
+      ? `A new ${escapeHtml(word('space'))} opens ${escapeHtml(names[0])}`
+      : names.length > 1
+        ? `A new ${escapeHtml(word('space'))} opens ${names.slice(0, -1).map(escapeHtml).join(', ')} and ${escapeHtml(names[names.length - 1])}`
+        : '';
+    const text = [profile, opens].filter(Boolean).join('. ');
     return `<label class="check"><input type="checkbox" data-offer-space-defaults> <span>${text}</span></label>`;
   };
   const reactionsRow = () => {

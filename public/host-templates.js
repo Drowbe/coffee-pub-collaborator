@@ -162,6 +162,8 @@ async function openEditor(t) {
   $('te-lobby-name').value = (t && t.lobby && t.lobby.name) || '';
   $('te-lobby-description').value = (t && t.lobby && t.lobby.description) || '';
   $('te-profile').value = (t && t.spaceDefaults && t.spaceDefaults.profile) || '';
+  renderPhases((t && t.phases) || []);
+  renderOpens((t && t.spaceDefaults && t.spaceDefaults.opensWith) || []);
   $('te-reactions').replaceChildren(...((t && t.reactions) || []).map(reactionRow));
   $('te-reactions-on').checked = Boolean(t && t.reactions);
   $('te-reactions-box').hidden = !$('te-reactions-on').checked;
@@ -173,6 +175,89 @@ async function openEditor(t) {
   form.scrollIntoView({ block: 'start' });
   (t ? $('te-name') : $('te-id')).focus();
 }
+
+const MAX_PHASES = 12;
+function phaseRow(phase = {}) {
+  const row = document.createElement('div');
+  row.className = 'phase-row';
+  row.innerHTML = `<input type="text" data-phase-id maxlength="32" value="${escapeHtml(phase.id || '')}" placeholder="planning" aria-label="Phase id" autocapitalize="off" spellcheck="false">`
+    + `<input type="text" data-phase-label maxlength="40" value="${escapeHtml(phase.label || '')}" placeholder="Planning" aria-label="Phase label">`
+    + `<label class="check"><input type="checkbox" data-phase-main${phase.main ? ' checked' : ''}> Main</label>`
+    + `<span class="list-tools"><button type="button" class="btn btn-small" data-phase="up" aria-label="Move up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>`
+    + `<button type="button" class="btn btn-small" data-phase="down" aria-label="Move down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button>`
+    + `<button type="button" class="btn btn-small danger" data-phase="remove">Remove</button></span>`;
+  return row;
+}
+function renderPhases(phases) {
+  $('te-phases').replaceChildren(...(phases || []).slice(0, MAX_PHASES).map(phaseRow));
+  $('te-phase-add').disabled = $('te-phases').childElementCount >= MAX_PHASES;
+}
+function readPhases() {
+  return [...$('te-phases').children].flatMap((row) => {
+    const id = row.querySelector('[data-phase-id]').value.trim().toLowerCase();
+    const label = row.querySelector('[data-phase-label]').value.trim();
+    if (!id && !label) return [];
+    const main = row.querySelector('[data-phase-main]').checked;
+    return [{ id, label, ...(main ? { main: true } : {}) }];
+  });
+}
+function moveRow(row, dir) {
+  const sib = dir === 'up' ? row.previousElementSibling : row.nextElementSibling;
+  if (!sib) return;
+  if (dir === 'up') row.parentElement.insertBefore(row, sib);
+  else row.parentElement.insertBefore(sib, row);
+}
+$('te-phase-add').addEventListener('click', () => {
+  if ($('te-phases').childElementCount >= MAX_PHASES) return;
+  const row = phaseRow();
+  $('te-phases').append(row);
+  $('te-phase-add').disabled = $('te-phases').childElementCount >= MAX_PHASES;
+  row.querySelector('[data-phase-id]').focus();
+});
+$('te-phases').addEventListener('change', (e) => {
+  if (!e.target.matches('[data-phase-main]') || !e.target.checked) return;
+  for (const box of $('te-phases').querySelectorAll('[data-phase-main]')) if (box !== e.target) box.checked = false;
+});
+$('te-phases').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-phase]');
+  if (!btn) return;
+  const row = btn.closest('.phase-row');
+  if (btn.dataset.phase === 'remove') {
+    row.remove();
+    $('te-phase-add').disabled = false;
+    $('te-phase-add').focus();
+    return;
+  }
+  moveRow(row, btn.dataset.phase);
+  btn.focus();
+});
+
+function selectedModules() {
+  return [...$('te-modules').querySelectorAll('[data-module]:checked')].map((box) => box.dataset.module);
+}
+function renderOpens(saved) {
+  const fromTemplate = arguments.length > 0;
+  const mods = selectedModules();
+  const have = new Set(mods);
+  const prior = fromTemplate ? (saved || []) : [...$('te-opens').querySelectorAll('.opens-row')].map((row) => row.dataset.open);
+  const ticked = new Set(fromTemplate
+    ? (saved || [])
+    : [...$('te-opens').querySelectorAll('[data-opens]:checked')].map((box) => box.closest('.opens-row').dataset.open));
+  const ranked = [...prior.filter((id) => have.has(id)), ...mods.filter((id) => !prior.includes(id))];
+  $('te-opens').innerHTML = ranked.map((id) => `<div class="opens-row" data-open="${escapeHtml(id)}"><label class="check"><input type="checkbox" data-opens${ticked.has(id) ? ' checked' : ''}> ${escapeHtml(moduleName(id))}</label>`
+    + `<span class="list-tools"><button type="button" class="btn btn-small" data-open-move="up" aria-label="Move ${escapeHtml(moduleName(id))} up"><i class="fa-solid fa-arrow-up" aria-hidden="true"></i></button>`
+    + `<button type="button" class="btn btn-small" data-open-move="down" aria-label="Move ${escapeHtml(moduleName(id))} down"><i class="fa-solid fa-arrow-down" aria-hidden="true"></i></button></span></div>`).join('');
+}
+function readOpens() {
+  return [...$('te-opens').querySelectorAll('.opens-row')].filter((row) => row.querySelector('[data-opens]').checked).map((row) => row.dataset.open);
+}
+$('te-modules').addEventListener('change', () => { if (!$('template-editor').hidden) renderOpens(); });
+$('te-opens').addEventListener('click', (e) => {
+  const btn = e.target.closest('[data-open-move]');
+  if (!btn) return;
+  moveRow(btn.closest('.opens-row'), btn.dataset.openMove);
+  btn.focus();
+});
 
 function previewHome() { $('te-home-preview').className = `fa-solid fa-${$('te-home').value.trim() || DEFAULT_HOME_ICON} fa-fw`; }
 $('te-home').addEventListener('input', previewHome);
@@ -247,16 +332,21 @@ function fields() {
     ? [...$('te-reactions').children].map((row) => ({ ...(row.dataset.id ? { id: row.dataset.id } : {}), glyph: row.querySelector('.reaction-glyph').value.trim(), label: row.querySelector('.reaction-label').value.trim() })).filter((r) => r.glyph || r.label)
     : gone;
   const iconSet = iconSetNames();
+  const opensWith = readOpens();
+  const spaceDefaults = {};
+  if ($('te-profile').value) spaceDefaults.profile = $('te-profile').value;
+  if (opensWith.length) spaceDefaults.opensWith = opensWith;
   const out = {
     name: $('te-name').value.trim(),
     description: $('te-description').value.trim(),
     words,
+    phases: readPhases(),
     icons: $('te-home').value.trim() ? { home: $('te-home').value.trim() } : {},
     modules: [...$('te-modules').querySelectorAll('[data-module]:checked')].map((i) => i.dataset.module),
     moduleNames,
     moduleIcons,
     lobby,
-    spaceDefaults: $('te-profile').value ? { profile: $('te-profile').value } : {},
+    spaceDefaults: Object.keys(spaceDefaults).length ? spaceDefaults : (editing ? null : {}),
     reactions,
     theme: theme || gone,
     iconSet: iconSet.length ? iconSet : gone,

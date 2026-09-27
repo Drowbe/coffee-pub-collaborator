@@ -4836,6 +4836,7 @@ body.conference-window {
   color: inherit;
   font: inherit;
   text-align: left;
+  white-space: normal;
   cursor: pointer;
 }
 
@@ -4854,6 +4855,10 @@ body.conference-window {
   color: var(--text-dim);
   cursor: default;
 }
+
+.host-menu-item.danger { color: var(--danger); }
+.host-menu-item.danger:hover,
+.host-menu-item.danger:focus-visible { background: color-mix(in srgb, var(--danger) 14%, transparent); }
 
 .dock-frame {
   flex: 1;

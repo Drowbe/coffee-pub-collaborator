@@ -855,7 +855,6 @@
     const items = [];
     if (state.view === 'days') items.push({ id: 'toggle-empty', icon: 'eye-slash', title: state.hideEmpty ? 'Show empty days' : 'Hide empty days', on: state.hideEmpty });
     if (canEdit) items.push({ id: 'edit-trip', icon: 'pen', title: 'Edit trip' });
-    if (canEdit) items.push({ id: 'clear-plan', icon: 'trash', title: 'Clear the plan', overflow: true });
     const sig = JSON.stringify(items);
     if (sig === headerSig) return;
     headerSig = sig;
@@ -875,7 +874,6 @@
         return redraw();
       }
       if (e.id === 'edit-trip') return openEditor('trip');
-      if (e.id === 'clear-plan') return askClearPlan($('trip'));
     });
   }
 
@@ -948,7 +946,6 @@
     const openCount = openDecisions().length;
     viewSwitch.set(state.view, VIEWS.map((v) => (v.id === 'decisions' && openCount ? { ...v, label: `Decisions (${openCount} open)` } : v)));
     hide(head.querySelector('[data-action="edit-trip"]'), !canEdit);
-    hide(head.querySelector('[data-action="clear-plan"]'), !canEdit);
     const toggle = head.querySelector('[data-action="toggle-empty"]');
     if (toggle) {
       toggle.setAttribute('aria-pressed', String(state.hideEmpty));
@@ -1735,18 +1732,6 @@
   // Whether a patch would change what is stored for an item.
   const changes = (item, patch) => JSON.stringify(cleanItem({ ...item, ...patch, id: item.id })) !== JSON.stringify(item);
   const closeEditor = () => { $('editor').hidden = true; $('editor').replaceChildren(); state.editing = null; };
-  // Clearing is a second, deliberate choice: the menu names what goes, and Keep it leaves the plan as it is.
-  function askClearPlan(anchor) {
-    if (!canEdit) return;
-    host.menu.show({
-      id: 'clear-plan',
-      anchor: anchor || $('trip'),
-      items: [
-        { id: 'clear', label: 'Clear the plan', hint: 'Everything on it is deleted, so you can start again.', icon: 'trash', danger: true, onClick: () => attempt(async () => { await plan.clearPlan(); closeEditor(); }) },
-        { id: 'keep', label: 'Keep it', icon: 'xmark' },
-      ],
-    });
-  }
   root.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (!$('editor').hidden) closeEditor(); else closeMenu(); } });
 
   async function saveEditor() {
@@ -1926,7 +1911,6 @@
     const b = e.target.closest('button');
     if (!b) return;
     if (b.id === 'f-cancel') return closeEditor();
-    if (b.id === 'f-clear') return askClearPlan(b);
     if (b.classList.contains('tile')) return applyType(b.dataset.type);
     if (b.classList.contains('mode')) {
       const was = b.classList.contains('on');
@@ -1996,8 +1980,6 @@
       hide(edge.querySelector('[data-action="edge-open"]'), false);
     } else if (action === 'edit-trip') {
       openEditor('trip');
-    } else if (action === 'clear-plan') {
-      askClearPlan(b);
     } else if (action === 'use-theirs' && li) {
       state.conflicts.delete(li.dataset.id);
       redraw();

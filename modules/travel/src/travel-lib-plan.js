@@ -235,13 +235,6 @@
       changed();
     }
 
-    // Everything on the plan goes, and the plan itself is empty again: no name, dates, notes or phase dates.
-    // Each object is deleted on its own, so a dated one drops its twin the same way a single delete does.
-    async function clearPlan() {
-      for (const id of list().map((item) => item.id)) await removeItem(id);
-      return saveTrip({ title: '', destination: '', start: null, end: null, notes: '', currency: '', phases: {} });
-    }
-
     // A round trip: the outbound, then the return pointing at it. A car cannot be one.
     async function addRoundTrip(outFields, backFields) {
       if (outFields.mode === 'car') throw new Error('A rental car cannot be a round trip.');
@@ -396,7 +389,6 @@
 
     return {
       refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, saveTrip, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, nudgeItem, addLink, fromSuggestion,
-      clearPlan,
       get trip() { return trip; },
       get suggestions() { return suggested; },
       versionOf: (id) => (items.get(id) || {}).version,

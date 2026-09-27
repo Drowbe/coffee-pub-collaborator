@@ -7,7 +7,7 @@
 //                                          (add &guest=<token> for a guest)
 // (A module page opened over a call also carries from=space&spaceName=<the space's name>, for its Back link.)
 import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, crumbLink, markModuleRead, hasOwnerRights, word } from '/brand.js';
-import { mountModule } from '/module-host.js';
+import { mountModule, openClearMenu } from '/module-host.js';
 
 const $ = (id) => document.getElementById(id);
 const id = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -135,6 +135,18 @@ function refFromHash() {
   }
 }
 
+// Everything this module holds in the scope this window is open in.
+async function clearModuleData() {
+  const q = new URLSearchParams({ scope });
+  if (scope === 'space' && spaceId) q.set('space', spaceId);
+  if (guestToken) q.set('guest', guestToken);
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) q.set('tz', tz);
+  } catch { /* the server falls back */ }
+  await api('DELETE', `/api/modules/${encodeURIComponent(id)}/data?${q}`);
+}
+
 // The window's own titlebar: close, and (while the space page that opened it is still there) the
 // way back into the space as a docked column or floating.
 function wireTitlebar(mod) {
@@ -142,6 +154,10 @@ function wireTitlebar(mod) {
   $('module-titlebar-icon').className = `fa-solid fa-${mod.icon} fa-fw`;
   $('module-titlebar-title').textContent = mod.name;
   $('module-close').addEventListener('click', () => window.close());
+  $('module-menu').addEventListener('click', (event) => {
+    event.stopPropagation();
+    openClearMenu(event.currentTarget, () => clearModuleData());
+  });
   let host = null;
   try {
     host = window.opener && !window.opener.closed ? window.opener.hostModules : null;

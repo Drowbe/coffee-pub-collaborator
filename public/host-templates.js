@@ -8,6 +8,7 @@ import { fileText } from '/file-text.js';
 
 const $ = (id) => document.getElementById(id);
 const say = (el, text, error = false) => { el.textContent = text; el.classList.toggle('error', error); el.hidden = !text; };
+let product = 'Collaborator';
 const BUILT_IN = ['conference', 'chat'];
 const SOURCE = { bundled: 'Bundled', host: 'Yours', imported: 'Imported' };
 const DEFAULT_HOME_ICON = 'couch';
@@ -24,7 +25,10 @@ const moduleName = (id) => (shipped || []).find((m) => m.id === id)?.name || id;
 const moduleIcon = (id) => (shipped || []).find((m) => m.id === id)?.icon || 'puzzle-piece';
 
 // host.js hands over the list it loaded, and is told when it changes (the create form uses it too).
-export function initTemplates(templates, changed) {
+export function initTemplates(templates, changed, name) {
+  if (typeof name === 'string' && name.trim()) product = name.trim();
+  const by = $('template-shipped-by');
+  if (by) by.textContent = product;
   onChange = changed || onChange;
   list = templates || [];
   renderList();
@@ -183,7 +187,7 @@ $('template-import-file').addEventListener('change', async () => {
   input.value = '';
   if (!file) return;
   const status = $('templates-status');
-  if (file.size > 1024 * 1024) return say(status, "That isn't a Magpie template file.", true);
+  if (file.size > 1024 * 1024) return say(status, `That isn't a ${product} template file.`, true);
   const text = await fileText(file);
   let id = '';
   for (;;) {
@@ -391,12 +395,12 @@ $('te-theme-file').addEventListener('change', async () => {
   try {
     if (file.size > 1024 * 1024) throw new Error();
     const parsed = JSON.parse(await fileText(file));
-    if (!parsed || typeof parsed !== 'object' || !parsed.magpieTheme) throw new Error();
-    const { magpieTheme, ...rest } = parsed;
+    if (!parsed || typeof parsed !== 'object' || !parsed.collaboratorTheme) throw new Error();
+    const { collaboratorTheme, ...rest } = parsed;
     theme = rest;
     renderTheme();
   } catch {
-    showProblems(["theme: That isn't a Magpie theme file."]);
+    showProblems([`theme: That isn't a ${product} theme file.`]);
   }
 });
 

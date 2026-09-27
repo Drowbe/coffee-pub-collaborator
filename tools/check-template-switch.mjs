@@ -223,7 +223,7 @@ try {
   });
   await test('a single install imports, exports and deletes its own templates; one in use can\'t be deleted', async () => {
     const travel = await as('GET', '/api/templates/travel/export');
-    assert.deepEqual([travel.status, travel.headers['content-disposition']], [200, 'attachment; filename="travel.magpie-template.json"'], 'a bundled one exports');
+    assert.deepEqual([travel.status, travel.headers['content-disposition']], [200, 'attachment; filename="travel.collaborator-template.json"'], 'a bundled one exports');
     assert.deepEqual(await as('POST', '/api/templates/import', travel.json).then((r) => [r.status, r.json]), [409, { error: 'There is already a template called travel.' }]);
     const mine = await as('POST', '/api/templates/import?id=my-trips', { ...travel.json, name: 'My trips' });
     assert.deepEqual([mine.status, mine.json.template.source, mine.json.template.name], [201, 'imported', 'My trips'], mine.text);
@@ -233,7 +233,7 @@ try {
     assert.equal((await as('PATCH', '/api/settings', { template: 'travel' })).status, 200);
     assert.equal((await as('DELETE', '/api/templates/my-trips')).status, 200);
     assert.deepEqual(await as('DELETE', '/api/templates/travel').then((r) => [r.status, r.json]), [403, { error: "Bundled templates can't be deleted." }]);
-    assert.deepEqual(await as('POST', '/api/templates/import', '{ not json').then((r) => [r.status, r.json]), [400, { error: "That isn't a Magpie template file." }]);
+    assert.deepEqual(await as('POST', '/api/templates/import', '{ not json').then((r) => [r.status, r.json]), [400, { error: "That isn't a Collaborator template file." }]);
   });
   await server.stop();
   server = null;
@@ -327,12 +327,12 @@ try {
     assert.deepEqual(await console_('DELETE', '/api/host/templates/harbour').then((r) => [r.status, r.json]), [409, { error: 'Environments use this template: Sail. Hide it instead.' }]);
     // Export, then import under a new id; an import with a taken id is refused.
     const file = await console_('GET', '/api/host/templates/harbour/export');
-    assert.equal(file.headers['content-disposition'], 'attachment; filename="harbour.magpie-template.json"');
-    assert.deepEqual([file.json.magpieTemplate, file.json.version, file.json.theme.name], [1, 2, 'Harbour']);
+    assert.equal(file.headers['content-disposition'], 'attachment; filename="harbour.collaborator-template.json"');
+    assert.deepEqual([file.json.collaboratorTemplate, file.json.version, file.json.theme.name], [1, 2, 'Harbour']);
     assert.deepEqual(await console_('POST', '/api/host/templates/import', file.json).then((r) => [r.status, r.json]), [409, { error: 'There is already a template called harbour.' }]);
     const copy = await console_('POST', '/api/host/templates/import?id=harbour-copy', { ...file.json, extra: 1 });
     assert.deepEqual([copy.status, copy.json.template.id, copy.json.template.version, copy.json.dropped], [201, 'harbour-copy', 2, ['extra']], 'the file\'s version kept');
-    assert.deepEqual(await console_('POST', '/api/host/templates/import', { ...file.json, magpieTemplate: 2 }).then((r) => [r.status, r.json]), [400, { error: 'This template was made by a newer version of Magpie.' }]);
+    assert.deepEqual(await console_('POST', '/api/host/templates/import', { ...file.json, collaboratorTemplate: 2 }).then((r) => [r.status, r.json]), [400, { error: 'This template was made by a newer version of Collaborator.' }]);
     assert.equal((await console_('DELETE', '/api/host/templates/harbour-copy')).status, 200, 'an unused one can be deleted');
     // Owners on a hosted server export only their own template; import and delete are the host's.
     const own = await asOwner('GET', '/api/templates/harbour/export');

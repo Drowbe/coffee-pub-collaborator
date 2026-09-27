@@ -4,8 +4,8 @@
  * Store.importTheme on their own, then a real server on a throwaway DATA_DIR:
  *   - every built-in and Strong Coffee exports with all sixteen keys per set and imports back to the same colors,
  *     named "(2)", and /theme.css with the import applied says what it said with the original;
- *   - each refusal in the plan's order, with its sentence: over 16 KB, not JSON, not an object, no magpieTheme or not
- *     a whole number, a newer magpieTheme, no complete set;
+ *   - each refusal in the plan's order, with its sentence: over 16 KB, not JSON, not an object, no collaboratorTheme or not
+ *     a whole number, a newer collaboratorTheme, no complete set;
  *   - unknown keys dropped and named; a bad color drops its set; an import never changes the active theme or mode;
  *   - CSS typed into a color (`red; background: url(x)`) never reaches /theme.css;
  *   - control and format characters never reach a name or author; the 101st theme is refused;
@@ -38,7 +38,7 @@ const test = async (name, fn) => {
 };
 const EVIL = 'red; background: url(x)';
 const set = (over = {}) => ({ bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff', ...over });
-const file = (over = {}) => ({ magpieTheme: 1, name: 'Harbour', author: 'Thomas', light: set(), dark: null, ...over });
+const file = (over = {}) => ({ collaboratorTheme: 1, name: 'Harbour', author: 'Thomas', light: set(), dark: null, ...over });
 const refusedWith = (sentence) => (err) => err instanceof tf.ThemeFileError && err.status === 400 && err.message === sentence;
 
 // --- on their own ----------------------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ await test('export: every key of each set, null for Auto and for a set the theme
   for (const id of BUILTIN_THEME_IDS) {
     const theme = store.themes.find((t) => t.id === id);
     const out = tf.themeToFile(theme);
-    assert.deepEqual(Object.keys(out), ['magpieTheme', 'name', 'light', 'dark']);
+    assert.deepEqual(Object.keys(out), ['collaboratorTheme', 'name', 'light', 'dark']);
     for (const mode of ['light', 'dark']) assert.deepEqual(Object.keys(out[mode]), tf.SET_KEYS, `${id} ${mode}: sixteen keys`);
   }
   const coffee = tf.themeToFile(null);
@@ -59,23 +59,23 @@ await test('export: every key of each set, null for Auto and for a set the theme
   assert.equal(coffee.dark.secondary, null);
   const one = tf.themeToFile({ name: 'Only light', light: set(), dark: null });
   assert.equal(one.dark, null);
-  assert.equal(tf.themeFileName('Strong Coffee'), 'strong-coffee.magpie-theme.json');
-  assert.equal(tf.themeFileName('  Ünïcode & "quotes"!! '), 'n-code-quotes.magpie-theme.json');
-  assert.equal(tf.themeFileName('***'), 'theme.magpie-theme.json');
+  assert.equal(tf.themeFileName('Strong Coffee'), 'strong-coffee.collaborator-theme.json');
+  assert.equal(tf.themeFileName('  Ünïcode & "quotes"!! '), 'n-code-quotes.collaborator-theme.json');
+  assert.equal(tf.themeFileName('***'), 'theme.collaborator-theme.json');
 });
 
 await test('import refusals, each with its sentence, in the plan\'s order', () => {
   const read = (x) => () => tf.readThemeFile(x, sanitize);
-  assert.throws(read(`{"magpieTheme":1,"name":"${'x'.repeat(17 * 1024)}"}`), refusedWith(tf.NOT_A_THEME_FILE), 'over 16 KB');
+  assert.throws(read(`{"collaboratorTheme":1,"name":"${'x'.repeat(17 * 1024)}"}`), refusedWith(tf.NOT_A_THEME_FILE), 'over 16 KB');
   assert.throws(read('not json'), refusedWith(tf.NOT_A_THEME_FILE));
   assert.throws(read('[1,2]'), refusedWith(tf.NOT_A_THEME_FILE));
   assert.throws(read('"a string"'), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ magpieTheme: undefined })), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ magpieTheme: 1.5 })), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ magpieTheme: '1' })), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ magpieTheme: 0 })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ collaboratorTheme: undefined })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ collaboratorTheme: 1.5 })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ collaboratorTheme: '1' })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ collaboratorTheme: 0 })), refusedWith(tf.NOT_A_THEME_FILE));
   // A newer version is refused before anything else is looked at, even a file with nothing usable in it.
-  assert.throws(read({ magpieTheme: 2 }), refusedWith(tf.NEWER));
+  assert.throws(read({ collaboratorTheme: 2 }), refusedWith(tf.NEWER));
   assert.throws(read(file({ light: null })), refusedWith(tf.NO_COMPLETE_SET));
   assert.throws(read(file({ light: set({ accent: undefined }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color missing');
   assert.throws(read(file({ light: set({ accent: EVIL }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color that is CSS');
@@ -93,7 +93,7 @@ await test('import: unknown keys dropped and named; a bad color drops its set or
   assert.equal(named.name.length, 40);
   assert.equal(named.author.length, 60);
   assert.ok(!/\p{Cc}/u.test(named.author));
-  const bare = tf.readThemeFile({ magpieTheme: 1, dark: set({ bg: '#10181b' }) }, sanitize);
+  const bare = tf.readThemeFile({ collaboratorTheme: 1, dark: set({ bg: '#10181b' }) }, sanitize);
   assert.deepEqual([bare.name, 'author' in bare, bare.light, bare.dark.bg, bare.dropped], ['Theme', false, null, '#10181b', []]);
   assert.deepEqual(tf.readThemeFile(file({ name: 5, author: ['x'] }), sanitize).dropped, ['name', 'author']);
 });
@@ -236,9 +236,9 @@ try {
     for (const [id, name] of [['default', 'strong-coffee'], ['staying-blonde', 'calming-teal'], ['willhavebeen', 'burnt-orange']]) {
       const r = await call('GET', `/api/themes/${id}/export`);
       assert.equal(r.status, 200, r.text);
-      assert.equal(r.headers.get('content-disposition'), `attachment; filename="${name}.magpie-theme.json"`);
+      assert.equal(r.headers.get('content-disposition'), `attachment; filename="${name}.collaborator-theme.json"`);
       assert.match(r.headers.get('content-type'), /application\/json/);
-      assert.equal(r.json.magpieTheme, 1);
+      assert.equal(r.json.collaboratorTheme, 1);
     }
     assert.deepEqual(await call('GET', '/api/themes/nope/export').then((r) => [r.status, r.json]), [404, { error: 'no such theme' }]);
     const saved = cookie;
@@ -283,15 +283,15 @@ try {
     const count = async () => (await call('GET', '/api/themes')).json.themes.length;
     const had = await count();
     const cases = [
-      [JSON.stringify({ magpieTheme: 1, name: 'x'.repeat(20 * 1024), light: set() }), 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify({ magpieTheme: 1, name: 'x'.repeat(80 * 1024), light: set() }), 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify({ magpieTheme: 1, name: 'x'.repeat(20 * 1024), light: set() }), 'application/octet-stream', tf.NOT_A_THEME_FILE],
+      [JSON.stringify({ collaboratorTheme: 1, name: 'x'.repeat(20 * 1024), light: set() }), 'application/json', tf.NOT_A_THEME_FILE],
+      [JSON.stringify({ collaboratorTheme: 1, name: 'x'.repeat(80 * 1024), light: set() }), 'application/json', tf.NOT_A_THEME_FILE],
+      [JSON.stringify({ collaboratorTheme: 1, name: 'x'.repeat(20 * 1024), light: set() }), 'application/octet-stream', tf.NOT_A_THEME_FILE],
       ['{ not json', 'application/json', tf.NOT_A_THEME_FILE],
       ['{ not json', 'text/plain', tf.NOT_A_THEME_FILE],
       ['[1]', 'application/json', tf.NOT_A_THEME_FILE],
       ['', 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify(file({ magpieTheme: undefined })), 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify(file({ magpieTheme: 2 })), 'application/json', tf.NEWER],
+      [JSON.stringify(file({ collaboratorTheme: undefined })), 'application/json', tf.NOT_A_THEME_FILE],
+      [JSON.stringify(file({ collaboratorTheme: 2 })), 'application/json', tf.NEWER],
       [JSON.stringify(file({ light: set({ bg: EVIL }) })), 'application/json', tf.NO_COMPLETE_SET],
       [JSON.stringify(file({ light: null, dark: null })), 'text/plain', tf.NO_COMPLETE_SET],
     ];
@@ -306,7 +306,7 @@ try {
   });
 
   await test('live: a hand-edited file -- an unknown key, CSS in a color, no dark set -- comes in with what was dropped, and no CSS reaches /theme.css', async () => {
-    const edited = { magpieTheme: 1, name: 'Harbour', author: 'Thomas', font: 'x', light: { ...set({ secondary: EVIL, headerBg: '#123456' }), glow: EVIL }, dark: { ...set({ accent: EVIL }) } };
+    const edited = { collaboratorTheme: 1, name: 'Harbour', author: 'Thomas', font: 'x', light: { ...set({ secondary: EVIL, headerBg: '#123456' }), glow: EVIL }, dark: { ...set({ accent: EVIL }) } };
     const r = await call('POST', '/api/themes/import', { body: edited });
     assert.equal(r.status, 200, r.text);
     assert.deepEqual(r.json.dropped, ['font', 'light.glow', 'light.secondary', 'dark']);

@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SENTENCE = 'This request came from another site, so it was refused.';
-const BASE = 'magpie.test';
+const BASE = 'collaborator.test';
 
 let n = 0;
 let failed = 0;
@@ -119,7 +119,7 @@ try {
     ['owner: delete a theme', 'DELETE', 'aaa', '/api/themes/staying-blonde'],
     ['owner: a new stream key (no body)', 'POST', 'aaa', '/api/stream-key/regenerate'],
     ['owner: the site icon (raw image)', 'PUT', 'aaa', '/api/settings/icon', png, 'image/png'],
-    ['owner: theme import (text/plain)', 'POST', 'aaa', '/api/themes/import', JSON.stringify({ magpieTheme: 1, name: 'Cross', light: set }), 'text/plain'],
+    ['owner: theme import (text/plain)', 'POST', 'aaa', '/api/themes/import', JSON.stringify({ collaboratorTheme: 1, name: 'Cross', light: set }), 'text/plain'],
     ['member: own settings', 'PATCH', 'aaa', '/api/me', { themeMode: 'light' }],
     ['member: sign out', 'POST', 'aaa', '/api/logout'],
     ['module data: write', 'PUT', 'aaa', '/api/modules/stream/data/check', { value: 1 }],

@@ -1,9 +1,10 @@
-// The Magpie objects format: what an AI (this server's or another) may write, and how it is read.
+// The objects format: what an AI (this server's or another) may write, and how it is read.
 // One checker for the Assistant's answers and for an import. Nothing here names a module.
 
 'use strict';
 
 const { word } = require('./words');
+const { productName } = require('./product-name');
 
 const FORMAT_VERSION = 1;
 const MAX_IMPORT_OBJECTS = 50;
@@ -104,15 +105,15 @@ function objectRule({ fence, noun, max, withProvenance }) {
 }
 
 function instructions(noun) {
-  return `I keep my research in Magpie. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one ${objectRule({ fence: 'magpie', noun, max: MAX_IMPORT_OBJECTS, withProvenance: false })}\nIf I ask for a file instead, write one JSON file named <something>.magpie-objects.json holding {"magpieObjects":1,"objects":[...]}, with the same ${word('object', { many: true })} in that one list. Do not write a separate file or a separate fenced block for each ${noun}.`;
+  return `I keep my research in ${productName()}. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one ${objectRule({ fence: 'collaborator', noun, max: MAX_IMPORT_OBJECTS, withProvenance: false })}\nIf I ask for a file instead, write one JSON file named <something>.collaborator-objects.json holding {"collaboratorObjects":1,"objects":[...]}, with the same ${word('object', { many: true })} in that one list. Do not write a separate file or a separate fenced block for each ${noun}.`;
 }
 
 function schema() {
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $id: 'urn:coffee-pub-magpie:objects:1',
-    title: `Magpie ${word('object', { many: true })}, format 1`,
-    description: `One ${word('object')}, a list of ${word('object', { many: true })}, or a .magpie-objects.json file. Other fields are ignored.`,
+    $id: 'urn:coffee-pub-collaborator:objects:1',
+    title: `${productName()} ${word('object', { many: true })}, format 1`,
+    description: `One ${word('object')}, a list of ${word('object', { many: true })}, or a .collaborator-objects.json file. Other fields are ignored.`,
     oneOf: [
       { $ref: '#/$defs/object' },
       { type: 'array', items: { $ref: '#/$defs/object' }, maxItems: MAX_IMPORT_OBJECTS },
@@ -121,9 +122,9 @@ function schema() {
     $defs: {
       file: {
         type: 'object',
-        required: ['magpieObjects', 'objects'],
+        required: ['collaboratorObjects', 'objects'],
         properties: {
-          magpieObjects: { const: 1 },
+          collaboratorObjects: { const: 1 },
           objects: { type: 'array', items: { $ref: '#/$defs/object' }, maxItems: MAX_IMPORT_OBJECTS },
         },
       },
@@ -217,10 +218,10 @@ function readObjects(text) {
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
       const parsed = JSON.parse(trimmed);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.prototype.hasOwnProperty.call(parsed, 'magpieObjects')) {
-        const n = parsed.magpieObjects;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.prototype.hasOwnProperty.call(parsed, 'collaboratorObjects')) {
+        const n = parsed.collaboratorObjects;
         if (Number.isInteger(n) && n > 1) throw new FormatError(400, `that file is format ${n}; this server reads format 1`);
-        if (n !== 1) throw new FormatError(400, 'that is not a .magpie-objects.json file');
+        if (n !== 1) throw new FormatError(400, 'that is not a .collaborator-objects.json file');
         if (!Array.isArray(parsed.objects)) throw new FormatError(400, `that file has no list of ${word('object', { many: true })}`);
         candidates = parsed.objects;
       } else if (Array.isArray(parsed)) {
@@ -236,7 +237,7 @@ function readObjects(text) {
 
   if (candidates === null) {
     candidates = [];
-    const re = /```(magpie|card)[ \t]*\n([\s\S]*?)\n?```/g;
+    const re = /```(collaborator|card)[ \t]*\n([\s\S]*?)\n?```/g;
     let m;
     while ((m = re.exec(trimmed))) {
       const parsed = parseFenceValue(m[2]);
@@ -254,7 +255,7 @@ function readObjects(text) {
   }
 
   if (!candidates.length) {
-    throw new FormatError(400, `nothing in that could be read as ${word('object', { many: true })}: paste the whole answer, with its magpie blocks`);
+    throw new FormatError(400, `nothing in that could be read as ${word('object', { many: true })}: paste the whole answer, with its collaborator blocks`);
   }
 
   const found = Math.min(candidates.length, MAX_IMPORT_CANDIDATES);

@@ -121,7 +121,7 @@
     const t = item.value;
     t.links = Array.isArray(t.links) ? t.links.filter((r) => r && typeof r === 'object' && typeof r.module === 'string' && typeof r.kind === 'string' && typeof r.id === 'string' && linkable(r)).slice(0, MAX_LINKS) : [];
     // A rule is kept under its link's key (host.util.objectKey), which named the place 'room' or 'server' before
-    // Magpie's names changed: read those under the new names. Saving the task writes the new keys.
+    // The product's names changed: read those under the new names. Saving the task writes the new keys.
     if (t.rules && typeof t.rules === 'object') t.rules = Object.fromEntries(Object.entries(t.rules).map(([k, v]) => [ruleKey(k), v]));
     tasks.set(key, { key, scope, spaceId, id, version: item.version, t });
   }

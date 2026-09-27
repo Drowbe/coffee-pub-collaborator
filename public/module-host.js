@@ -514,7 +514,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (requested === 'spaces' && (scope !== 'environment' || !module.scope?.includes('space'))) throw Object.assign(new Error('only a module\'s environment page can read across spaces'), { status: 400 });
       return requested;
     }
-    // A name from before Magpie's rename says which word replaced it.
+    // A name from before the product's rename says which word replaced it.
     const renamed = { server: 'environment', room: 'space', rooms: 'spaces' }[requested];
     if (renamed) throw Object.assign(new Error(`scope "${requested}" is an old name; use "${renamed}"`), { status: 400 });
     throw Object.assign(new Error(`scope "${String(requested).slice(0, 20)}" is not one of context, environment, space, spaces or person`), { status: 400 });

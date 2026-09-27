@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /*
- * check-object-format.mjs -- the Magpie objects format on its own: the Assistant's rule and the
+ * check-object-format.mjs -- the objects format on its own: the Assistant's rule and the
  * published instructions ask for one fenced JSON array, the schema matches the checker, and readObjects keeps what it should.
  */
 import fs from 'node:fs';
@@ -28,13 +28,13 @@ test('SUMMARY_RULE asks for one array in one card fence', () => {
   assert.equal(MAX_SUMMARIES, 20);
 });
 
-test('published instructions: one magpie array, icons, kinds, 50, file paragraph, no provenance', () => {
+test('published instructions: one collaborator array, icons, kinds, 50, file paragraph, no provenance', () => {
   const text = instructions('object');
-  assert.match(text, /```magpie\n\[/);
+  assert.match(text, /```collaborator\n\[/);
   assert.match(text, /exactly one, never one per object/);
   assert.match(text, /at most 50/);
-  assert.match(text, /<something>\.magpie-objects\.json/);
-  assert.match(text, /magpieObjects/);
+  assert.match(text, /<something>\.collaborator-objects\.json/);
+  assert.match(text, /collaboratorObjects/);
   assert.match(text, /Do not write a separate file or a separate fenced block/);
   assert.ok(!text.includes('one block per'));
   assert.ok(!text.includes('basis'));
@@ -45,7 +45,7 @@ test('published instructions: one magpie array, icons, kinds, 50, file paragraph
 
 test('schema() matches the checker', () => {
   const s = schema();
-  assert.equal(s.$id, 'urn:coffee-pub-magpie:objects:1');
+  assert.equal(s.$id, 'urn:coffee-pub-collaborator:objects:1');
   assert.deepEqual(s.$defs.object.properties.icon.enum, ICONS);
   assert.deepEqual(s.$defs.object.properties.kind.enum, KINDS);
   JSON.parse(JSON.stringify(s));
@@ -64,8 +64,8 @@ test('schema() matches the checker', () => {
   assert.match(kept.links[0].url, new RegExp(obj.properties.links.items.properties.url.pattern));
 });
 
-test('pasted answer: magpie blocks and a card block', () => {
-  const three = readObjects(fixtures('three-magpie.txt'));
+test('pasted answer: collaborator blocks and a card block', () => {
+  const three = readObjects(fixtures('three-collaborator.txt'));
   assert.equal(three.objects.length, 3);
   assert.equal(three.objects[0].title, 'Casa do Largo');
   assert.equal(three.objects[1].title, 'Bar do Peixe');
@@ -75,8 +75,8 @@ test('pasted answer: magpie blocks and a card block', () => {
   assert.equal(one.objects[0].title, 'Old fence');
 });
 
-test('a magpie block holding an array of two', () => {
-  const out = readObjects(fixtures('magpie-array.txt'));
+test('a collaborator block holding an array of two', () => {
+  const out = readObjects(fixtures('collaborator-array.txt'));
   assert.equal(out.objects.length, 2);
   assert.equal(out.objects[0].title, 'First');
   assert.equal(out.objects[1].title, 'Second');
@@ -93,9 +93,9 @@ test('raw JSON: one object or an array', () => {
 test('a file: format 1, refused when the version or list is wrong', () => {
   const ok = readObjects(fixtures('file-ok.json'));
   assert.equal(ok.objects.length, 2);
-  assert.throws(() => readObjects('{"magpieObjects":2,"objects":[]}'), (e) => e instanceof FormatError && e.status === 400 && /format 2/.test(e.message));
-  assert.throws(() => readObjects('{"magpieObjects":"1","objects":[]}'), (e) => /not a \.magpie-objects\.json file/.test(e.message));
-  assert.throws(() => readObjects('{"magpieObjects":1}'), (e) => /no list of objects/.test(e.message));
+  assert.throws(() => readObjects('{"collaboratorObjects":2,"objects":[]}'), (e) => e instanceof FormatError && e.status === 400 && /format 2/.test(e.message));
+  assert.throws(() => readObjects('{"collaboratorObjects":"1","objects":[]}'), (e) => /not a \.collaborator-objects\.json file/.test(e.message));
+  assert.throws(() => readObjects('{"collaboratorObjects":1}'), (e) => /no list of objects/.test(e.message));
 });
 
 test('UTF-16 with a byte order mark reads the same as UTF-8', () => {
@@ -184,15 +184,15 @@ test('empty and white space is refused', () => {
 });
 
 test('a block that is not JSON is dropped; others still come through', () => {
-  const text = '```magpie\nnot json\n```\n```magpie\n{"title":"Ok","content":"yes"}\n```';
+  const text = '```collaborator\nnot json\n```\n```collaborator\n{"title":"Ok","content":"yes"}\n```';
   const out = readObjects(text);
   assert.equal(out.objects.length, 1);
   assert.equal(out.objects[0].title, 'Ok');
   assert.deepEqual(out.dropped, [{ at: 1, why: 'not valid JSON' }]);
 });
 
-test('parseSummaries still reads a magpie block', () => {
-  const out = parseSummaries('```magpie\n{"title":"T","content":"c"}\n```', 0);
+test('parseSummaries still reads a collaborator block', () => {
+  const out = parseSummaries('```collaborator\n{"title":"T","content":"c"}\n```', 0);
   assert.equal(out.summaries.length, 1);
   assert.equal(out.summaries[0].title, 'T');
 });

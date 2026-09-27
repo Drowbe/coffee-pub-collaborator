@@ -58,8 +58,8 @@ const sanitizeTheme = (t) => Store.prototype.sanitizeTheme.call(null, t);
 // An embedded theme (addendum 2): the theme file's fields, checked as a theme import is. Answers { theme, dropped } or
 // throws the theme file's own refusal.
 function readEmbeddedTheme(raw) {
-  const { magpieTheme, ...fields } = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  const read = themeFile.readThemeFile({ ...fields, magpieTheme: 1 }, sanitizeTheme);
+  const { collaboratorTheme, ...fields } = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const read = themeFile.readThemeFile({ ...fields, collaboratorTheme: 1 }, sanitizeTheme);
   const { dropped, ...theme } = read;
   return { theme, dropped };
 }

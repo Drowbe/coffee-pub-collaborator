@@ -1,5 +1,5 @@
-// A theme as a file (documentation/plans/plan-themes.md, "The file"): `<name>.magpie-theme.json`, holding
-// { magpieTheme: 1, name, author?, light, dark }, each set with every one of the sixteen stored keys (the seven base
+// A theme as a file (documentation/plans/plan-themes.md, "The file"): `<name>.collaborator-theme.json`, holding
+// { collaboratorTheme: 1, name, author?, light, dark }, each set with every one of the sixteen stored keys (the seven base
 // colors and the nine optional ones, null for Auto), or null for a set the theme doesn't have. Keys are the stored
 // names, never CSS property names: server/theme-css.js stays the one place that maps a key to CSS, so a file can
 // only ever carry colors.
@@ -10,15 +10,16 @@
 'use strict';
 
 const { THEME_BASE, THEME_OPTIONAL, DEFAULT_THEME, cleanAuthor, cleanThemeName } = require('./store');
+const { productName } = require('./product-name');
 
-const THEME_FILE_VERSION = 1; // the newest magpieTheme this server reads
+const THEME_FILE_VERSION = 1; // the newest collaboratorTheme this server reads
 const MAX_THEME_FILE_BYTES = 16 * 1024;
 const SET_KEYS = [...THEME_BASE, ...THEME_OPTIONAL];
-const TOP_KEYS = ['magpieTheme', 'name', 'author', 'light', 'dark'];
+const TOP_KEYS = ['collaboratorTheme', 'name', 'author', 'light', 'dark'];
 const MODES = ['light', 'dark'];
 
-const NOT_A_THEME_FILE = "That isn't a Magpie theme file.";
-const NEWER = 'This theme was made by a newer version of Magpie.';
+const NOT_A_THEME_FILE = `That isn't a ${productName()} theme file.`;
+const NEWER = `This theme was made by a newer version of ${productName()}.`;
 const NO_COMPLETE_SET = 'This theme has no complete light or dark set: each needs all seven base colors.';
 
 class ThemeFileError extends Error {
@@ -36,18 +37,18 @@ const fullSet = (set) => (set ? Object.fromEntries(SET_KEYS.map((key) => [key, s
 function themeToFile(theme) {
   const t = theme || DEFAULT_THEME;
   const author = cleanAuthor(t.author);
-  return { magpieTheme: THEME_FILE_VERSION, name: t.name, ...(author ? { author } : {}), light: fullSet(t.light), dark: fullSet(t.dark) };
+  return { collaboratorTheme: THEME_FILE_VERSION, name: t.name, ...(author ? { author } : {}), light: fullSet(t.light), dark: fullSet(t.dark) };
 }
 
-// The theme's name made safe for a file: lower-case letters, digits and hyphens, then .magpie-theme.json.
+// The theme's name made safe for a file: lower-case letters, digits and hyphens, then .collaborator-theme.json.
 function themeFileName(name) {
   const safe = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-  return `${safe || 'theme'}.magpie-theme.json`;
+  return `${safe || 'theme'}.collaborator-theme.json`;
 }
 
 // Checks a file, given as its text (or bytes) or as JSON already parsed, in the plan's order:
-//   over 16 KB, not JSON, not an object; magpieTheme missing or not a whole number  -> NOT_A_THEME_FILE
-//   magpieTheme above THEME_FILE_VERSION                                            -> NEWER
+//   over 16 KB, not JSON, not an object; collaboratorTheme missing or not a whole number  -> NOT_A_THEME_FILE
+//   collaboratorTheme above THEME_FILE_VERSION                                            -> NEWER
 //   every unknown key dropped, at the top level and inside each set (named in `dropped`, "light.glow", "font")
 //   each set through `sanitize` (Store#sanitizeTheme, the same check as a theme made in Manage): a set missing a
 //   base color, or with one that isn't #rrggbb, is dropped whole ("dark"); an optional one that isn't a color goes
@@ -65,7 +66,7 @@ function readThemeFile(input, sanitize, { byteLength = null } = {}) {
     throw new ThemeFileError(NOT_A_THEME_FILE);
   }
   if (!file || typeof file !== 'object' || Array.isArray(file)) throw new ThemeFileError(NOT_A_THEME_FILE);
-  const version = file.magpieTheme;
+  const version = file.collaboratorTheme;
   if (!Number.isInteger(version) || version < 1) throw new ThemeFileError(NOT_A_THEME_FILE);
   if (version > THEME_FILE_VERSION) throw new ThemeFileError(NEWER);
 

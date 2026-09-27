@@ -13,6 +13,7 @@
 const fs = require('fs');
 const path = require('path');
 const yauzl = require('yauzl');
+const { productName } = require('./product-name');
 const { StoreError, LOBBY } = require('./store');
 const { word, fill } = require('./words');
 
@@ -71,11 +72,11 @@ const SCOPES = ['environment', 'space', 'person'];
 // keyed `user`, from step 6 `surfaces.panel`, and from step 7 a kind's `card`) is refused at install with a sentence naming the field and what to use instead; one already
 // installed does not run (see ModuleManager.outdated) and its card says so.
 const OLD_SCOPE_NAMES = {
-  room: { use: 'space', why: 'Magpie renamed rooms to spaces' },
-  server: { use: 'environment', why: 'Magpie renamed the server to the environment' },
+  room: { use: 'space', why: productName() + ' renamed rooms to spaces' },
+  server: { use: 'environment', why: productName() + ' renamed the server to the environment' },
 };
 // Filled with the environment's words where it is shown (list()); OUTDATED is the text in the default words.
-const OUTDATED_TEXT = 'This {module} was built for an older Magpie and needs an update from its author.';
+const OUTDATED_TEXT = 'This {module} was built for an older version of ' + productName() + ' and needs an update from its author.';
 const OUTDATED = fill(OUTDATED_TEXT, null);
 // The old name of surfaces.canvas (plan-names decision 13), named only so a manifest that still uses it is refused.
 const OLD_CANVAS_SURFACE = 'panel';
@@ -95,17 +96,17 @@ function oldNameIn(raw) {
   if (isOldScope(from)) return `module.json: install.settingsFrom uses the old name "${from}"; use "${OLD_SCOPE_NAMES[from].use}" (${OLD_SCOPE_NAMES[from].why}).`;
   for (const p of Array.isArray(raw.permissions) ? raw.permissions : []) {
     if (p && p.default && typeof p.default === 'object' && Object.prototype.hasOwnProperty.call(p.default, 'user')) {
-      return `module.json: permission "${String(p.key ?? '')}" names the old role "user" in its default; use "member" (Magpie renamed the user role to member).`;
+      return `module.json: permission "${String(p.key ?? '')}" names the old role "user" in its default; use "member" (${productName()} renamed the user role to member).`;
     }
   }
   // Plan-names step 6: a module's docked or floating surface is on the canvas (surfaces.canvas), no longer a panel.
   if (raw.surfaces && typeof raw.surfaces === 'object' && Object.prototype.hasOwnProperty.call(raw.surfaces, OLD_CANVAS_SURFACE)) {
-    return `module.json uses the old surfaces.${OLD_CANVAS_SURFACE}; use surfaces.canvas (Magpie renamed a module's panel to its place on the canvas).`;
+    return `module.json uses the old surfaces.${OLD_CANVAS_SURFACE}; use surfaces.canvas (${productName()} renamed a module's panel to its place on the canvas).`;
   }
   // Plan-names step 7: what a kind of object shows of itself is its summary, no longer a card.
   for (const p of Array.isArray(raw.refs?.produces) ? raw.refs.produces : []) {
     if (p && typeof p === 'object' && Object.prototype.hasOwnProperty.call(p, OLD_SUMMARY)) {
-      return `module.json: refs kind "${String(p.kind ?? '')}" uses the old ${OLD_SUMMARY}; use summary (Magpie renamed an object's ${OLD_SUMMARY} to its summary).`;
+      return `module.json: refs kind "${String(p.kind ?? '')}" uses the old ${OLD_SUMMARY}; use summary (${productName()} renamed an object's ${OLD_SUMMARY} to its summary).`;
     }
   }
   return null;
@@ -1220,7 +1221,7 @@ class ModuleManager {
     let switchOff = []; // the modules that need this one, to turn off with it
     if (patch.enabled !== undefined) {
       if (patch.enabled) {
-        if (manifest.outdated) throw new ModuleError(`${this.shownName(manifest)} was built for an older Magpie and needs an update from its author.`, 409);
+        if (manifest.outdated) throw new ModuleError(`${this.shownName(manifest)} was built for an older version of ${productName()} and needs an update from its author.`, 409);
         const waiting = this.needsUpdateFor(manifest);
         if (waiting.length) throw new ModuleError(`${this.shownName(manifest)} needs ${waiting.map((r) => this.missingName(r)).join(' and ')}, which ${waiting.length === 1 ? 'needs an update from its author' : 'need an update from their authors'}.`, 409);
         const missing = this.missingFor(manifest);
@@ -1274,7 +1275,7 @@ class ModuleManager {
   rollback(id, version) {
     const entry = this.get(id);
     if (!entry.versions.includes(version) || version === entry.version) throw new ModuleError('that version is not available');
-    if (this.manifestOf(id, version)?.outdated) throw new ModuleError(`${this.shownName(this.manifestOf(id, version))} ${version} was built for an older Magpie, so it can't be rolled back to.`, 409);
+    if (this.manifestOf(id, version)?.outdated) throw new ModuleError(`${this.shownName(this.manifestOf(id, version))} ${version} was built for an older version of ${productName()}, so it can't be rolled back to.`, 409);
     entry.version = version;
     entry.updatedAt = new Date().toISOString();
     const manifest = this.manifestOf(id, version);

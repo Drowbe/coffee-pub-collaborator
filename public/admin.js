@@ -1,4 +1,4 @@
-import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, refreshModuleNav, themeMode } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, refreshModuleNav, themeMode, productName } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, words, fill as fillWords } from '/words.js';
 import { renderOffer, switchQuestion } from '/template-offer.js';
@@ -769,7 +769,7 @@ $('theme-import-file').addEventListener('change', async () => {
   if (!file) return;
   sayImport('');
   // Far bigger than any theme (the server takes 16 KB): not read at all.
-  if (file.size > 1024 * 1024) return sayImport("That isn't a Magpie theme file.", true);
+  if (file.size > 1024 * 1024) return sayImport(`That isn't a ${productName()} theme file.`, true);
   try {
     const { theme, dropped } = await api('POST', '/api/themes/import', new Blob([await fileText(file)], { type: 'text/plain' }));
     themes.push(theme);
@@ -994,9 +994,9 @@ function moduleCard(m) {
   // Where it shows (a person's own data is not a place of its own).
   // An outdated module's old scopes are not read, so it has no place to show: say why instead.
   const scopes = m.outdated ? 'Can\'t run until it is updated' : m.scope.filter((s) => s !== 'person').map((s) => (s === 'environment' ? `${word('environment', { cap: true })} page` : `${word('space', { cap: true })} ${word('canvas')}`)).join(' + ');
-  // Versions built for an older Magpie can't be switched to: marked, and not offered.
+  // Versions built for an older version of the product can't be switched to: marked, and not offered.
   const staleVersions = new Set(m.outdatedVersions || (m.outdated ? [m.version] : []));
-  // What a requirement needs to be turned on first (one built for an older Magpie is in needsUpdate instead).
+  // What a requirement needs to be turned on first (one built for an older version of the product is in needsUpdate instead).
   const nameOf = (r) => escapeHtml(shownName(installedModules.find((x) => x.id === r)) || r);
   const asks = [
     ...m.permissions.map((p) => `<li><strong>${escapeHtml(p.label)}</strong> <span class="hint">permission, appears in Roles</span></li>`),
@@ -1036,7 +1036,7 @@ function moduleCard(m) {
       ${several ? `<select data-module-version aria-label="Version">${m.versions.map((v) => `<option value="${escapeHtml(v)}"${v === m.version ? ' selected' : ''}${staleVersions.has(v) && v !== m.version ? ' disabled' : ''}>${escapeHtml(v)}${v === m.version ? ' (current)' : ''}${staleVersions.has(v) ? ' (needs an update)' : ''}</option>`).join('')}</select><button class="btn" data-module-action="rollback" type="button" disabled>Switch to this version</button>` : ''}
       <button class="btn btn-danger" data-module-action="uninstall" type="button">Uninstall</button>
     </div>`;
-  // Built for an older Magpie (its module.json uses a name that has since changed): it can't be turned on until its author
+  // Built for an older version of the product (its module.json uses a name that has since changed): it can't be turned on until its author
   // updates it. Say so plainly, and what exactly, and offer no Enable; Update, another version and Uninstall still work.
   if (m.outdated) {
     const why = document.createElement('div');
@@ -1927,7 +1927,7 @@ $('template-import-file').addEventListener('change', async () => {
   input.value = ''; // the same file can be picked again
   if (!file) return;
   const status = $('template-files-status');
-  if (file.size > 1024 * 1024) return say(status, "That isn't a Magpie template file.", true);
+  if (file.size > 1024 * 1024) return say(status, `That isn't a ${productName()} template file.`, true);
   const text = await fileText(file);
   let id = '';
   for (;;) {

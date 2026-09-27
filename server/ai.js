@@ -567,7 +567,7 @@ function cleanSummary(raw, count) {
 // draw in place, and the summaries. (A block still being written is never one: it has no closing fence yet, so it stays text.)
 function parseSummaries(text, count) {
   const summaries = [];
-  const out = String(text).replace(/```(?:card|summary|json|magpie)?[ \t]*\n([\s\S]*?)\n?```/g, (whole, body) => {
+  const out = String(text).replace(/```(?:card|summary|json|collaborator)?[ \t]*\n([\s\S]*?)\n?```/g, (whole, body) => {
     if (summaries.length >= MAX_SUMMARIES) return whole;
     let parsed;
     try { parsed = JSON.parse(body); } catch { return whole; }

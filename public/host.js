@@ -47,7 +47,7 @@ async function load() {
   followTemplates();
   renderCreateChoices();
   // The Templates tab: a change there (new, edited, hidden, deleted, imported) reaches the create form and the cards.
-  initTemplates(templates, (next) => { templates = next; renderCreateChoices(); renderEnvironments(); });
+  initTemplates(templates, (next) => { templates = next; renderCreateChoices(); renderEnvironments(); }, settings.productName);
   renderAdmins();
   renderFacts();
   renderPlans();
@@ -221,18 +221,21 @@ function renderFacts() {
   $('host-facts').innerHTML = `<dt>Base domain</dt><dd>${escapeHtml(settings.baseDomain || '(none: one environment)')}</dd><dt>Version</dt><dd>${escapeHtml(settings.version || '')}</dd><dt>Environments</dt><dd>${environments.length}</dd><dt>Sign-up</dt><dd>${settings.signup === false ? 'off (SIGNUP=off)' : 'on, at the base domain, on the free plan'}</dd><dt>Billing webhook</dt><dd>${webhook ? `<code>${escapeHtml(webhook)}</code>, a JSON body { slug, plan, event: paid | lapsed | cancelled } signed with <code>BILLING_SECRET</code> (x-billing-signature, HMAC-SHA256 of the body, hex)${settings.billingSecretSet === false ? '; <strong>BILLING_SECRET is not set</strong>, so the webhook refuses everything' : ''}` : 'needs a base domain'}</dd>`;
 }
 
-// Why a refused environment won't open (GET /api/host/environments' `refused.reason`).
-const REFUSED_WORDS = {
-  newer: "Won't open: its data is from a newer version of Magpie.",
-  failed: "Won't open: its data could not be updated.",
-  unreadable: "Won't open: its data could not be read.",
-};
-// What to do about it, under the card's file and time lines.
-const REFUSED_HINTS = {
-  newer: 'Restore a good backup, or run a newer version of Magpie.',
-  failed: 'Restore a good backup. The server log has the details.',
-  unreadable: 'Fix or restore this file (the server log names it), or restore a good backup.',
-};
+function refusedCopy() {
+  const name = settings.productName || 'Collaborator';
+  return {
+    words: {
+      newer: `Won't open: its data is from a newer version of ${name}.`,
+      failed: "Won't open: its data could not be updated.",
+      unreadable: "Won't open: its data could not be read.",
+    },
+    hints: {
+      newer: `Restore a good backup, or run a newer version of ${name}.`,
+      failed: 'Restore a good backup. The server log has the details.',
+      unreadable: 'Fix or restore this file (the server log names it), or restore a good backup.',
+    },
+  };
+}
 
 function renderEnvironments() {
   const box = $('environments');
@@ -249,7 +252,7 @@ function renderEnvironments() {
     status.textContent = t.status === 'pastDue' ? 'past due' : t.status || 'active';
     status.dataset.status = t.status || 'active';
     el.querySelector('[data-action="suspend"]').textContent = t.status === 'suspended' ? 'Resume' : 'Suspend';
-    // Refused (its data is from a newer Magpie, its app.json can't be read, or its data update could not finish): it answers its visitors with
+    // Refused (its data is from a newer version of the product, its app.json can't be read, or its data update could not finish): it answers its visitors with
     // a 503 until a good backup is restored, so the card says so and why, and has nothing to count.
     const refused = t.refused || null;
     if (refused) {
@@ -257,9 +260,10 @@ function renderEnvironments() {
       status.dataset.status = 'refused';
       const box = slot(el, 'refused');
       const when = refused.at ? new Date(refused.at) : null;
-      box.innerHTML = `<p class="refused-what">${escapeHtml(REFUSED_WORDS[refused.reason] || REFUSED_WORDS.failed)}</p>`
+      const refusedCopy_ = refusedCopy();
+      box.innerHTML = `<p class="refused-what">${escapeHtml(refusedCopy_.words[refused.reason] || refusedCopy_.words.failed)}</p>`
         + `<p class="hint refused-where">${refused.file ? `<code>${escapeHtml(refused.file)}</code>` : ''}${refused.file && when ? ', ' : ''}${when ? `since ${escapeHtml(when.toLocaleString())}` : ''}</p>`
-        + `<p class="hint">${escapeHtml(REFUSED_HINTS[refused.reason] || REFUSED_HINTS.failed)}</p>`;
+        + `<p class="hint">${escapeHtml(refusedCopy_.hints[refused.reason] || refusedCopy_.hints.failed)}</p>`;
       box.title = refused.message || '';
       box.hidden = false;
       slot(el, 'owner-reset').hidden = true; // nothing inside it can be reached until a good backup is restored
@@ -365,7 +369,7 @@ $('environments').addEventListener('click', async (e) => {
     b.textContent = 'Restoring\u2026';
     try {
       const res = await api('POST', `/api/host/environments/${encodeURIComponent(slug)}/restore`, file, 'application/zip');
-      if (res.refused) say($('environments-status'), `${slug} was restored, but still won't open: ${(REFUSED_WORDS[res.refused.reason] || REFUSED_WORDS.failed).replace(/^Won't open: /, '')} Try an older backup.`, true);
+      if (res.refused) say($('environments-status'), `${slug} was restored, but still won't open: ${(refusedCopy().words[res.refused.reason] || refusedCopy().words.failed).replace(/^Won't open: /, '')} Try an older backup.`, true);
       else say($('environments-status'), `${slug} was restored from ${file.name}.`);
     } catch (err) { say($('environments-status'), `${slug} was not restored: ${err.message}`, true); }
     await load();

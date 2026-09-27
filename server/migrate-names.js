@@ -20,7 +20,7 @@
 // or the process killed between two moves) leaves the next start's attempt able to record every folder the part
 // moved, not only its own.
 //
-// A record naming a part this server does not know is from a newer Magpie: the start (or, for an environment built
+// A record naming a part this server does not know is from a newer version of the product: the start (or, for an environment built
 // later, that environment) is refused with the file and the part named, the same way a restore refuses such a
 // backup (backupRefusal below).
 //
@@ -36,6 +36,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { productName } = require('./product-name');
 
 const NAMES_VERSION = 2; // app.json's version once the first names part has run
 const ENVIRONMENT_RECORD = 'app.json';
@@ -432,7 +433,7 @@ const ENVIRONMENT_PARTS = [tablePart, rolesPart, spacesPart(), pointersPart, obj
 
 // What a person asking for a refused environment is told (plan-names.md, "The migration"); the file and the detail
 // go to the log and the host console only.
-const REFUSED_NEWER = "This environment's data is from a newer version of Magpie.";
+const REFUSED_NEWER = `This environment's data is from a newer version of ${productName()}.`;
 const REFUSED_FAILED = "This environment's data could not be updated. The host admin has been told.";
 const REFUSED_UNREADABLE = "This environment's data could not be read. The host admin has been told.";
 const refusalSentence = (err) => (err && err.reason === 'newer' ? REFUSED_NEWER : err && err.reason === 'unreadable' ? REFUSED_UNREADABLE : REFUSED_FAILED);
@@ -491,20 +492,20 @@ function recordedParts(record) {
   return record.migrations.map((m) => (m && typeof m.id === 'string' ? m.id : null)).filter(Boolean);
 }
 
-// The parts a record says have run that this server does not know: a record from a newer Magpie.
+// The parts a record says have run that this server does not know: a record from a newer version of the product.
 function unknownParts(record, parts = ENVIRONMENT_PARTS) {
   const known = new Set(parts.map((p) => p.id));
   return recordedParts(record).filter((id) => !known.has(id));
 }
 
-const NEWER_BACKUP = 'This backup is from a newer version of Magpie.';
+const NEWER_BACKUP = `This backup is from a newer version of ${productName()}.`;
 const UNREADABLE_BACKUP = "This backup's data can't be read, so nothing was restored.";
 
 // A restore's check, over a backup's entries ([[name, Buffer]], in zip order): the files that would actually land
 // (a later entry of the same name overwrites an earlier one, and "./app.json" is app.json). The environment's data
 // (app.json, or the older tavern.json when there is no app.json, the one Store would read) must be readable: valid
 // JSON holding an object, the way a start refuses unreadable data (decision 23); a backup with neither starts fresh,
-// as a new environment does. Then app.json and tavern.json both are checked for a part from a newer Magpie. Answers
+// as a new environment does. Then app.json and tavern.json both are checked for a part from a newer version of the product. Answers
 // the refusal sentence, or null.
 function backupRefusal(entries, parts = ENVIRONMENT_PARTS) {
   const landing = new Map();
@@ -548,7 +549,7 @@ const describeJson = (value) => (value === null ? 'null' : Array.isArray(value) 
 function refuseNewer(file, record, parts) {
   const unknown = unknownParts(record, parts);
   if (!unknown.length) return;
-  throw new MigrationError(`${file} records the migration part "${unknown[0]}", which this version of Magpie does not know: this data is from a newer version of Magpie, so it will not be opened here.`, file, 'newer');
+  throw new MigrationError(`${file} records the migration part "${unknown[0]}", which this version of ${productName()} does not know: this data is from a newer version of ${productName()}, so it will not be opened here.`, file, 'newer');
 }
 
 // Runs every part `parts` lists that `dir`'s record does not, in order, and records each. Answers the ids it ran.
@@ -556,7 +557,7 @@ function refuseNewer(file, record, parts) {
 function runParts(dir, { parts, recordName, copyDir, versioned, log }) {
   dir = path.resolve(dir);
   const recordFile = path.join(dir, recordName);
-  // Data from a newer Magpie is refused whether or not any part is due here.
+  // Data from a newer version of the product is refused whether or not any part is due here.
   refuseNewer(recordFile, readRecordLeniently(recordFile), parts);
   // No parts due: nothing further is read or written.
   if (!parts.length) return [];
@@ -783,7 +784,7 @@ function commit(dir, writes, moves, { removes = [], noteMoves = null, copyRoot =
 }
 
 // One environment's directory, before Store reads app.json (buildEnvironment calls this first). Throws a
-// MigrationError naming the file when a part cannot finish, or when the data is from a newer Magpie.
+// MigrationError naming the file when a part cannot finish, or when the data is from a newer version of the product.
 function migrateEnvironment(dir, options = {}) {
   try {
     return migrateEnvironmentUnwrapped(dir, options);

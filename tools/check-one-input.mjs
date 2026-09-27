@@ -175,7 +175,7 @@ try {
   await call('PATCH', `/api/spaces/${space.id}`, { cookie: owner, body: { aiOff: false } });
   n += 1;
 
-  const fence = '```magpie\n{"title":"Faro","content":"A city in Portugal."}\n```';
+  const fence = '```collaborator\n{"title":"Faro","content":"A city in Portugal."}\n```';
   const check = await call('POST', `/api/spaces/${space.id}/objects/check`, { cookie: pat, raw: fence, type: 'text/plain' });
   assert.equal(check.status, 200, check.text);
   assert.equal(check.json.objects.length, 1);

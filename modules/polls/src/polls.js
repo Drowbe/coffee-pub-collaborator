@@ -559,8 +559,6 @@
   }
   $('f-more').addEventListener('click', () => addOptionField().focus());
   $('f-cancel').addEventListener('click', closeEditor);
-  $('editor').addEventListener('click', (e) => { if (e.target === $('editor')) closeEditor(); });
-
 
   async function save() {
     showError('');

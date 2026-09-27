@@ -395,8 +395,6 @@
     editing = null;
   }
   $('f-cancel').addEventListener('click', closeEditor);
-  $('editor').addEventListener('click', (e) => { if (e.target === $('editor')) closeEditor(); });
-
   // A reminder is a schedule the host runs for us: at the right time it sends the
   // notification, and for a repeating event the host schedules the next one itself,
   // so reminders keep coming while this page is closed. It stops if the event

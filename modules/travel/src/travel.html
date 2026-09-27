@@ -32,6 +32,7 @@
       <div class="actions" role="group" aria-label="Plan">
         <button class="btn tool tool-empty" type="button" data-action="toggle-empty" title="Hide empty days" aria-label="Hide empty days" aria-pressed="false"><span class="ic" data-icon="eye-slash"></span></button>
         <button class="btn tool tool-edit" type="button" data-action="edit-trip" title="Edit trip" aria-label="Edit trip" hidden><span class="ic" data-icon="pen"></span></button>
+        <button class="btn tool tool-clear" type="button" data-action="clear-plan" title="Clear the plan" aria-label="Clear the plan" hidden><span class="ic" data-icon="trash"></span></button>
       </div>
     </div>
   </header>
@@ -165,7 +166,7 @@
     <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="8000"></textarea></label>
     <p class="hint" id="f-by"></p>
     <p class="error" id="f-error" hidden></p>
-    <div class="editor-buttons"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button></div>
+    <div class="editor-buttons"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button><span class="grow"></span><button class="btn btn-danger" type="button" id="f-clear">Clear the plan</button></div>
   </form></template>
 <template id="tpl-editor2"><form class="editor-card" id="form">
     <h3 id="editor-title">Add to the plan</h3>

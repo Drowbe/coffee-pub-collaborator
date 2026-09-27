@@ -27,7 +27,7 @@ const test = async (name, fn) => {
 function startServer(dataDir) {
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'admin-password-1' },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, TZ: 'UTC', LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'admin-password-1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';
@@ -455,7 +455,7 @@ try {
     assert.equal(left.some((l) => !l.pair && l.to.id === 'holiday'), true);
   });
 
-  await test('clearing the day deletes the twin, and deleting either side follows the table', async () => {
+  await test('clearing the day deletes the twin, and deleting either side follows the rules', async () => {
     assert.equal((await putOut('clear', { title: 'Clear', date: '2026-06-15' }, 'UTC')).status, 200);
     const twin = await twinOf('clear');
     assert.equal((await putOut('clear', { title: 'Clear' }, 'UTC')).status, 200);
@@ -479,6 +479,32 @@ try {
     const again = await twinOf('detach');
     assert.notEqual(again.pair.to.id, detached.pair.to.id);
     assert.equal(again.item.value.start, '2026-06-20T11:00:00.000Z');
+  });
+
+  await test('a dated object with no pair gets its twin the next time the server starts, and not twice', async () => {
+    if (stream) stream.close();
+    stream = null;
+    await server.stop();
+    const file = path.join(base, 'data', 'modules', 'sync-out', 'data', `space-${space}.json`);
+    const stored = JSON.parse(fs.readFileSync(file, 'utf8'));
+    stored['note:backfill'] = { value: { title: 'Already', date: '2026-07-01', time: '09:30' }, version: 1, updatedAt: new Date().toISOString(), by: 'admin' };
+    fs.writeFileSync(file, JSON.stringify(stored));
+    server = await startServer(path.join(base, 'data'));
+    const again = cookieOf(await call(server, 'POST', '/api/login', { body: { login: 'admin', password: 'admin-password-1' } }));
+    const asAgain = (method, url) => call(server, method, url, { cookie: again });
+    const pairs = () => JSON.parse(fs.readFileSync(path.join(base, 'data', 'modules', 'links.json'), 'utf8')).filter((l) => l.pair && l.from && l.from.id === 'backfill');
+    assert.equal(pairs().length, 1);
+    assert.equal(pairs()[0].pair, 'active');
+    const twin = await asAgain('GET', `/api/modules/sync-in/data/mark:${pairs()[0].to.id}?scope=space&space=${space}`);
+    assert.equal(twin.status, 200, twin.text);
+    assert.equal(twin.json.item.value.start, '2026-07-01T09:30:00.000Z');
+    assert.equal(twin.json.item.value.title, 'Already');
+    const id = pairs()[0].to.id;
+    await server.stop();
+    server = await startServer(path.join(base, 'data'));
+    const still = JSON.parse(fs.readFileSync(path.join(base, 'data', 'modules', 'links.json'), 'utf8')).filter((l) => l.pair && l.from && l.from.id === 'backfill');
+    assert.equal(still.length, 1);
+    assert.equal(still[0].to.id, id);
   });
 } finally {
   if (stream) stream.close();

@@ -4054,6 +4054,34 @@ objectSync.configure({
     }
     return out;
   },
+  senders() {
+    const out = [];
+    for (const view of modules.list()) {
+      if (!view.enabled) continue;
+      const found = modules.enabled(view.id);
+      if (!found) continue;
+      for (const produce of found.manifest.refs.produces) {
+        if (produce.mirror !== 'out' || produce.dated?.form !== 'wall') continue;
+        const at = produce.key.indexOf('{id}');
+        if (at < 0) continue;
+        const prefix = produce.key.slice(0, at);
+        const suffix = produce.key.slice(at + 4);
+        out.push({
+          moduleId: view.id,
+          produce,
+          scopes: moduleData.scopesOf(view.id),
+          rows(scopeKey) {
+            return moduleData.list(view.id, scopeKey, prefix).flatMap((row) => {
+              if (!row.key.startsWith(prefix) || !row.key.endsWith(suffix)) return [];
+              const id = row.key.slice(prefix.length, suffix ? row.key.length - suffix.length : undefined);
+              return id ? [{ id, value: row.value, by: row.by || '' }] : [];
+            });
+          },
+        });
+      }
+    }
+    return out;
+  },
   summarize(moduleId, produce, ref, id, value) {
     if (value == null) return null;
     const found = modules.enabled(moduleId);
@@ -5759,8 +5787,17 @@ if (adminMfaLockoutBypass) console.warn(`The lockout bypass (ADMIN_MFA_LOCKOUT_B
 // The port it really listens on is logged, so PORT=0 (any free port, for a check) says which one it got.
 const listener = app.listen(Number(PORT), () => {
   const port = listener.address().port;
+  const fillTwins = () => {
+    try {
+      const n = objectSync.backfill();
+      if (n) console.log(`Made ${n} dated twin${n === 1 ? '' : 's'}.`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
   if (!BASE_DOMAIN) {
     envContext.run(environmentFor(DEFAULT_SLUG), () => {
+      fillTwins();
       console.log(`${store.settings.environmentName} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, data in ${DATA_DIR}`);
       // A module that takes a file the operator supplies: say where it looks and what it found, once.
       for (const m of modules.list()) for (const d of m.settings || []) if (d.type === 'file' || d.type === 'files') console.log(`${m.name}: looks for "${d.label}" in ${describeModuleFiles(m, d.folder)}`);
@@ -5769,4 +5806,5 @@ const listener = app.listen(Number(PORT), () => {
     return;
   }
   console.log(`${PRODUCT_NAME} ${VERSION} listening on :${port}, LiveKit at ${LIVEKIT_HOST}, base domain ${BASE_DOMAIN}, ${environments.size} environment${environments.size === 1 ? '' : 's'}, host console at admin.${BASE_DOMAIN}`);
+  for (const env of environments.values()) envContext.run(env, fillTwins);
 });

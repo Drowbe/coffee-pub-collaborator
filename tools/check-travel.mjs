@@ -12,7 +12,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-plan.js');
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText'];
+const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'planName', 'createdDay'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 
 let n = 0;
@@ -213,7 +213,7 @@ await (async () => {
 
 // --- the plan, against a small stand-in for the SDK -------------------------------------------------------------
 
-function fakeHost({ summaries = [], search = [], readOnly = false } = {}) {
+function fakeHost({ summaries = [], search = [], readOnly = false, phases = [], space = null } = {}) {
   const store = new Map(); // key -> { value, version }
   const handlers = { change: [] };
   const provided = {};
@@ -222,6 +222,8 @@ function fakeHost({ summaries = [], search = [], readOnly = false } = {}) {
   const refuse = () => { if (readOnly) throw Object.assign(new Error('you may not change this'), { status: 403 }); };
   const t = {
     user: { key: 'u1', name: 'Ann' },
+    phases: () => phases,
+    space: () => space,
     util: { id: () => 'id' + (++clock), objectKey, ymd, parseYmd, word: (k) => k },
     storage: {
       get: async (key) => (store.has(key) ? { key, ...store.get(key) } : null),
@@ -865,6 +867,155 @@ const coverDates = async () => {
   n += 1;
 };
 await coverDates();
+
+const TRAVEL_PHASES = [
+  { id: 'planning', label: 'Planning' },
+  { id: 'booking', label: 'Booking' },
+  { id: 'trip', label: 'Trip', main: true },
+  { id: 'post-trip', label: 'Post-trip' },
+];
+
+test('a phase keeps a sound id, and its end is never before its start', () => {
+  assert.equal(lib.cleanItem({ id: 'a', kind: 'stop', title: 'Pack', phase: 'pre-trip' }).phase, 'pre-trip');
+  assert.equal(lib.cleanItem({ id: 'a', kind: 'stop', title: 'Pack', phase: 'Pre' }).phase, null);
+  assert.equal(lib.cleanItem({ id: 'a', kind: 'stop', title: 'Pack' }).phase, null);
+  const t = lib.cleanTrip({ title: 'Harbour', start: '2026-10-01', end: '2026-10-05', phases: { planning: { start: '2026-10-08', end: '2026-10-01' }, 'Not Id': { start: '2026-10-01' }, booking: { start: 'nope' } } });
+  assert.equal(t.v, 2);
+  assert.equal(t.start, '2026-10-01');
+  assert.equal(t.end, '2026-10-05');
+  assert.deepEqual(t.phases, { planning: { start: '2026-10-08' } });
+  assert.equal(lib.planName(null, { name: 'Harbour' }), 'Harbour');
+  assert.equal(lib.planName({ title: '' }, { name: 'Harbour' }), 'Harbour');
+  assert.equal(lib.planName({ title: 'Cabin' }, { name: 'Harbour' }), 'Cabin');
+  assert.equal(lib.planName(null, null), '');
+});
+
+test('the current phase is the latest one that has started', () => {
+  const none = { phases: {} };
+  assert.equal(lib.currentPhase(TRAVEL_PHASES, none, '2026-09-15', null).id, 'planning', 'no dates');
+  const created = '2026-09-01';
+  assert.equal(lib.currentPhase(TRAVEL_PHASES, none, '2026-09-15', created).id, 'planning', 'only the created date');
+  assert.equal(lib.effectiveStart(TRAVEL_PHASES, none, 0, created), created);
+  const trip = { start: '2026-10-01', end: '2026-10-09', phases: {} };
+  assert.equal(lib.currentPhase(TRAVEL_PHASES, trip, '2026-09-15', null).id, 'planning', 'only the trip dates, before it');
+  assert.equal(lib.currentPhase(TRAVEL_PHASES, trip, '2026-10-03', null).id, 'trip', 'only the trip dates, during it');
+  const between = { start: '2026-10-01', end: '2026-10-09', phases: { planning: { start: '2026-09-01', end: '2026-09-10' } } };
+  assert.equal(lib.effectiveStart(TRAVEL_PHASES, between, 1, null), '2026-09-11');
+  assert.equal(lib.currentPhase(TRAVEL_PHASES, between, '2026-09-20', null).id, 'booking', 'a day between phases');
+  assert.equal(lib.effectiveStart(TRAVEL_PHASES, trip, 3, null), '2026-10-10');
+  assert.equal(lib.currentPhase(TRAVEL_PHASES, trip, '2026-10-15', null).id, 'post-trip', 'after the trip');
+  assert.equal(lib.phaseOf({ phase: 'planning' }, TRAVEL_PHASES, trip, '2026-10-03', null), 'planning');
+  assert.equal(lib.phaseOf({ phase: 'gone' }, TRAVEL_PHASES, trip, '2026-10-03', null), 'trip');
+  assert.equal(lib.phaseOf({}, TRAVEL_PHASES, trip, '2026-10-03', null), 'trip');
+  assert.equal(lib.currentPhase([], trip, '2026-10-03', null), null);
+});
+
+test('days run from the earliest date to the latest, and there are none without one', () => {
+  assert.deepEqual(lib.planDays(null, []), []);
+  assert.deepEqual(lib.planDays({}, []), []);
+  const one = lib.cleanItem({ id: 'a', kind: 'stop', title: 'Museum', date: '2026-10-04' });
+  assert.deepEqual(lib.planDays(null, [one]), ['2026-10-04']);
+  const pre = lib.cleanItem({ id: 'b', kind: 'stop', title: 'Pack', date: '2026-09-28', phase: 'planning' });
+  assert.deepEqual(lib.planDays({ start: '2026-10-01', end: '2026-10-03' }, [pre]), ['2026-09-28', '2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03']);
+});
+
+test('coverTrip grows for the main phase and for no phase, and not for another phase or with no start', () => {
+  const trip = { start: '2026-10-03', end: '2026-10-05' };
+  assert.deepEqual(lib.coverTrip(trip, ['2026-10-01'], { phase: 'trip' }, TRAVEL_PHASES), { start: '2026-10-01', end: '2026-10-05' });
+  assert.deepEqual(lib.coverTrip(trip, ['2026-10-01'], {}, TRAVEL_PHASES), { start: '2026-10-01', end: '2026-10-05' });
+  assert.equal(lib.coverTrip(trip, ['2026-09-20'], { phase: 'planning' }, TRAVEL_PHASES), null);
+  assert.equal(lib.coverTrip({}, ['2026-10-01'], { phase: 'trip' }, TRAVEL_PHASES), null);
+  assert.equal(lib.coverTrip(null, ['2026-10-01'], { phase: 'trip' }, TRAVEL_PHASES), null);
+});
+
+await (async () => {
+  const space = { id: 'harbour', name: 'Harbour', createdAt: '2026-09-01T12:00:00.000Z' };
+  const day = lib.createdDay(space);
+
+  const f = fakeHost({ phases: TRAVEL_PHASES, space });
+  f.store.set(lib.TRIP_KEY, { value: { title: 'Old', destination: 'Faro', start: '2026-10-01', end: '2026-10-09', currency: 'EUR' }, version: 1 });
+  f.store.set('plan:keep', { value: { kind: 'stop', title: 'Museum', date: '2026-10-02', order: 1000 }, version: 4 });
+  const plan = lib.createPlan(f.t);
+  await plan.load();
+  const saved = f.store.get(lib.TRIP_KEY).value;
+  assert.equal(saved.start, '2026-10-01', 'the trip dates stay');
+  assert.equal(saved.end, '2026-10-09');
+  assert.equal(saved.title, 'Old');
+  assert.equal(saved.destination, 'Faro');
+  assert.equal(saved.currency, 'EUR');
+  assert.equal(saved.v, 2);
+  assert.equal(saved.phases.planning.start, day, 'planning starts on the day the space was created');
+  assert.deepEqual(f.store.get('plan:keep'), { value: { kind: 'stop', title: 'Museum', date: '2026-10-02', order: 1000 }, version: 4 }, 'an object is not rewritten');
+  assert.ok(f.store.get(lib.PHASES_MOVED_KEY));
+  const before = JSON.stringify([...f.store]);
+  await lib.createPlan(f.t).load();
+  assert.equal(JSON.stringify([...f.store]), before, 'a second load changes nothing');
+  n += 1;
+
+  const mainFirst = [{ id: 'trip', label: 'Trip', main: true }, { id: 'post-trip', label: 'Post-trip' }];
+  const g = fakeHost({ phases: mainFirst, space });
+  g.store.set(lib.TRIP_KEY, { value: { title: 'Only', start: '2026-10-01', end: '2026-10-05' }, version: 1 });
+  await lib.createPlan(g.t).load();
+  const only = g.store.get(lib.TRIP_KEY).value;
+  assert.equal(only.start, '2026-10-01');
+  assert.equal(only.v, 2);
+  assert.deepEqual(only.phases, {});
+  n += 1;
+
+  const h = fakeHost({ phases: TRAVEL_PHASES, space });
+  h.store.set(lib.TRIP_KEY, { value: { title: 'Old', start: '2026-10-01', end: '2026-10-05' }, version: 1 });
+  const theirs = { title: 'Theirs', start: '2026-10-01', end: '2026-10-05', v: 2, phases: { planning: { start: day } } };
+  const orig = h.t.storage.set;
+  h.t.storage.set = async (key, value, o) => {
+    if (key === lib.TRIP_KEY) {
+      h.store.set(lib.TRIP_KEY, { value: theirs, version: 9 });
+      throw Object.assign(new Error('stale'), { status: 409 });
+    }
+    return orig(key, value, o);
+  };
+  const planH = lib.createPlan(h.t);
+  await planH.load();
+  assert.equal(h.store.get(lib.TRIP_KEY).value.title, 'Theirs');
+  assert.equal(h.store.get(lib.TRIP_KEY).version, 9);
+  assert.equal(planH.trip.title, 'Theirs');
+  assert.ok(h.store.get(lib.PHASES_MOVED_KEY));
+  n += 1;
+
+  const r = fakeHost({ readOnly: true, phases: TRAVEL_PHASES, space });
+  r.store.set(lib.TRIP_KEY, { value: { title: 'Old', start: '2026-10-01', end: '2026-10-09' }, version: 1 });
+  const planR = lib.createPlan(r.t);
+  await planR.load();
+  assert.equal(r.store.get(lib.TRIP_KEY).value.v, undefined);
+  assert.ok(!r.store.has(lib.PHASES_MOVED_KEY));
+  assert.equal(lib.effectiveStart(TRAVEL_PHASES, planR.trip, 0, lib.createdDay(r.t.space())), day);
+  assert.equal(lib.currentPhase(TRAVEL_PHASES, planR.trip, '2026-09-15', day).id, 'planning');
+  n += 1;
+
+  const empty = fakeHost({ space });
+  const planE = lib.createPlan(empty.t);
+  await planE.load();
+  assert.equal(planE.trip, null);
+  assert.equal(lib.planName(planE.trip, empty.t.space()), 'Harbour');
+  assert.ok(!empty.store.has(lib.TRIP_KEY));
+  assert.deepEqual(planE.days(), []);
+  n += 1;
+
+  const p = fakeHost({ phases: TRAVEL_PHASES, space });
+  const planP = lib.createPlan(p.t);
+  await planP.load();
+  await planP.addItem({ kind: 'stop', title: 'Idea', date: '2026-10-04', phase: 'trip' });
+  assert.equal(planP.trip, null, 'no start, so nothing is written');
+  assert.deepEqual(planP.days(), ['2026-10-04']);
+  await planP.saveTrip({ title: 'Faro', start: '2026-10-03', end: '2026-10-05' });
+  await planP.addItem({ kind: 'stop', title: 'Pack', date: '2026-09-20', phase: 'planning' });
+  assert.equal(planP.trip.start, '2026-10-03');
+  assert.equal(planP.trip.end, '2026-10-05');
+  assert.equal(planP.days()[0], '2026-09-20');
+  assert.equal(planP.days().at(-1), '2026-10-05');
+  await planP.addItem({ kind: 'stop', title: 'Fly', date: '2026-10-01', phase: 'trip' });
+  assert.equal(planP.trip.start, '2026-10-01');
+  n += 1;
+})();
 
 test('the page: the round trip switch, its mark on a card, and the delete question', () => {
   const html = read('travel.html');

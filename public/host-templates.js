@@ -1,7 +1,7 @@
-// The host console's Templates tab (plan-environment-templates.md, addendum 2, GitHub #68): every template (bundled,
-// the host's own), with its source, version, whether it is hidden and which environments use it; Export for any; New,
-// Edit, Hide and Delete for the host's own; Import… from a file (a clashing id asks for another). The editor sends the
-// template's fields to POST or PATCH /api/host/templates and shows the server's `problems` beside the fields they name.
+// The host console's Templates tab (plan-environment-templates.md, addendum 3, GitHub #91): every template (bundled,
+// the host's own), with its source, version, whether it is hidden and which environments use it. A bundled template
+// can be edited in place (an Edited badge, Reset to shipped, and a notice when a newer image changed the file).
+// Duplicate makes a host template. Export for any; Import… from a file (a clashing id asks for another).
 import { api, escapeHtml, word } from '/brand.js';
 import { CHANGEABLE, DEFAULTS } from '/words.js';
 import { fileText } from '/file-text.js';
@@ -13,16 +13,17 @@ const SOURCE = { bundled: 'Bundled', host: 'Yours', imported: 'Imported' };
 const DEFAULT_HOME_ICON = 'couch';
 const cap = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
 
-let list = []; // GET /api/host/templates: [{ id, name, description, source, version, hidden, usedBy }]
+let list = []; // GET /api/host/templates: [{ id, name, description, source, version, hidden, edited, update, usedBy }]
 let onChange = () => {};
 let editing = null; // the template being edited in full, or null for a new one
+let comparing = null; // the bundled id whose update is open in the compare panel
 let theme = null; // the editor's embedded theme ({ name, author?, light, dark }) or null
 let moduleIds = [...BUILT_IN]; // the modules a template can list: the ones the image ships, then any other a template names
 let shipped = null; // GET /api/host/settings `modules`: [{ id, name, icon }], loaded once
 const moduleName = (id) => (shipped || []).find((m) => m.id === id)?.name || id;
 const moduleIcon = (id) => (shipped || []).find((m) => m.id === id)?.icon || 'puzzle-piece';
 
-// host.js hands over the list it loaded, and is told when it changes (the create form and the cards use it too).
+// host.js hands over the list it loaded, and is told when it changes (the create form uses it too).
 export function initTemplates(templates, changed) {
   onChange = changed || onChange;
   list = templates || [];
@@ -36,17 +37,25 @@ async function reload() {
 
 function renderList() {
   const box = $('template-list');
+  const notices = $('template-notices');
+  const updates = list.filter((t) => t.update);
+  notices.innerHTML = updates.map((t) => `<li class="list-row" data-id="${escapeHtml(t.id)}"><span class="template-list-name">${escapeHtml(t.name || t.id)} was updated in this image: review</span><button class="btn btn-small" type="button" data-action="review">Review</button></li>`).join('');
   if (!list.length) { box.innerHTML = '<li class="hint">No templates yet.</li>'; return; }
   box.innerHTML = list.map((t) => {
     const own = t.source === 'host';
+    const bundled = t.source === 'bundled';
     const used = (t.usedBy || []).length;
     const id = escapeHtml(t.id);
+    const badge = t.edited ? ' <span class="template-edited">Edited</span>' : '';
     return `<li class="list-row" data-id="${id}">
-      <span class="template-list-name"><strong>${escapeHtml(t.name || t.id)}</strong> <code>${id}</code>
+      <span class="template-list-name"><strong>${escapeHtml(t.name || t.id)}</strong>${badge} <code>${id}</code>
         <span class="hint">${escapeHtml(SOURCE[t.source] || t.source)}, version ${escapeHtml(String(t.version || 1))}, <span title="${escapeHtml((t.usedBy || []).join(', '))}">used by ${used}</span>${t.hidden ? ', hidden' : ''}</span></span>
-      ${own ? `<label class="check"><input type="checkbox" data-action="hide"${t.hidden ? ' checked' : ''}> Hidden</label>` : ''}
+      ${own || bundled ? `<label class="check"><input type="checkbox" data-action="hide"${t.hidden ? ' checked' : ''}> Hidden</label>` : ''}
       <a class="btn btn-small" href="/api/host/templates/${encodeURIComponent(t.id)}/export" download>Export</a>
-      ${own ? `<button class="btn btn-small" type="button" data-action="edit">Edit</button><button class="btn btn-small danger" type="button" data-action="delete">Delete</button>` : ''}
+      ${own || bundled ? `<button class="btn btn-small" type="button" data-action="edit">Edit</button>` : ''}
+      ${own || bundled ? `<button class="btn btn-small" type="button" data-action="duplicate">Duplicate</button>` : ''}
+      ${bundled && t.edited ? `<button class="btn btn-small" type="button" data-action="reset">Reset to shipped</button>` : ''}
+      ${own ? `<button class="btn btn-small danger" type="button" data-action="delete">Delete</button>` : ''}
     </li>`;
   }).join('');
 }
@@ -67,12 +76,22 @@ $('template-list').addEventListener('click', async (e) => {
   const b = e.target.closest('button[data-action]');
   if (!b) return;
   const id = b.closest('[data-id]').dataset.id;
+  const t = list.find((x) => x.id === id);
   if (b.dataset.action === 'edit') {
     try {
       openEditor((await api('GET', `/api/host/templates/${encodeURIComponent(id)}`)).template);
     } catch (err) { say($('templates-status'), err.message, true); }
+  } else if (b.dataset.action === 'duplicate') {
+    await duplicateTemplate(t);
+  } else if (b.dataset.action === 'reset') {
+    if (!window.confirm(`Reset ${t.name || id} to the shipped version? Your edits are removed.`)) return;
+    try {
+      await api('DELETE', `/api/host/templates/${encodeURIComponent(id)}/edits`);
+      closeCompare();
+      await reload();
+      say($('templates-status'), `${t.name || id} is back to the shipped version.`);
+    } catch (err) { say($('templates-status'), err.message, true); }
   } else if (b.dataset.action === 'delete') {
-    const t = list.find((x) => x.id === id);
     if ((t.usedBy || []).length) return say($('templates-status'), `In use by ${t.usedBy.join(', ')}. Hide it instead.`, true);
     if (!window.confirm(`Delete the ${t.name || id} template?`)) return;
     try {
@@ -83,6 +102,77 @@ $('template-list').addEventListener('click', async (e) => {
     } catch (err) { say($('templates-status'), err.message, true); }
   }
 });
+
+$('template-notices').addEventListener('click', async (e) => {
+  const b = e.target.closest('button[data-action="review"]');
+  if (!b) return;
+  const id = b.closest('[data-id]').dataset.id;
+  try {
+    const { template } = await api('GET', `/api/host/templates/${encodeURIComponent(id)}`);
+    openCompare(template);
+  } catch (err) { say($('templates-status'), err.message, true); }
+});
+
+async function duplicateTemplate(t) {
+  const id = window.prompt('Id for the new template (lowercase letters, digits and dashes):', '');
+  if (!id || !id.trim()) return;
+  const name = window.prompt('Name for the new template:', t.name || '');
+  if (!name || !name.trim()) return;
+  try {
+    const made = await api('POST', `/api/host/templates/${encodeURIComponent(t.id)}/duplicate`, { id: id.trim().toLowerCase(), name: name.trim() });
+    await reload();
+    openEditor((await api('GET', `/api/host/templates/${encodeURIComponent(made.template.id)}`)).template);
+    say($('templates-status'), `Duplicated ${t.name || t.id} as ${made.template.name}.`);
+  } catch (err) { say($('templates-status'), err.message, true); }
+}
+
+const COMPARE_FIELDS = [
+  ['name', 'Name'],
+  ['description', 'Description'],
+  ['words', 'Words'],
+  ['icons', 'Home icon'],
+  ['moduleNames', 'Module names'],
+  ['moduleIcons', 'Module icons'],
+  ['modules', 'Modules'],
+  ['settings', 'Settings'],
+  ['lobby', 'Lobby'],
+  ['spaceDefaults', 'New space'],
+  ['reactions', 'Reactions'],
+  ['theme', 'Theme'],
+  ['iconSet', 'Icons'],
+];
+const shown = (value) => JSON.stringify(value ?? null, null, 2);
+function openCompare(template) {
+  comparing = template.id;
+  const shipped = template.shipped || {};
+  $('template-compare-title').textContent = `${template.name} was updated in this image: review`;
+  const rows = COMPARE_FIELDS.filter(([key]) => shown(template[key]) !== shown(shipped[key]));
+  $('template-compare-fields').innerHTML = rows.length
+    ? rows.map(([key, label]) => `<div class="template-compare-row"><strong>${escapeHtml(label)}</strong><pre>${escapeHtml(shown(shipped[key]))}</pre><pre>${escapeHtml(shown(template[key]))}</pre></div>`).join('')
+    : '<p class="hint">Nothing in the template differs. The shipped file\'s version changed.</p>';
+  $('template-compare').hidden = false;
+  $('template-compare').scrollIntoView({ block: 'start' });
+  $('template-keep-mine').focus();
+}
+function closeCompare() {
+  $('template-compare').hidden = true;
+  comparing = null;
+}
+$('template-compare-close').addEventListener('click', closeCompare);
+$('template-keep-mine').addEventListener('click', () => answerUpdate('mine'));
+$('template-take-shipped').addEventListener('click', () => answerUpdate('shipped'));
+async function answerUpdate(keep) {
+  const id = comparing;
+  const t = list.find((x) => x.id === id);
+  if (!id || !t) return;
+  if (keep === 'shipped' && !window.confirm(`This drops your edits to ${t.name || id}.`)) return;
+  try {
+    await api('POST', `/api/host/templates/${encodeURIComponent(id)}/update`, { keep });
+    closeCompare();
+    await reload();
+    say($('templates-status'), keep === 'mine' ? `Kept your edits to ${t.name || id}.` : `${t.name || id} is back to the shipped version.`);
+  } catch (err) { say($('templates-status'), err.message, true); }
+}
 
 // Import…: the file's text; a clashing id asks for another and sends it again with ?id=.
 $('template-import').addEventListener('click', () => $('template-import-file').click());
@@ -141,6 +231,7 @@ async function openEditor(t) {
   say($('te-status'), '');
   await loadModuleIds();
   $('template-editor-title').textContent = t ? `Edit ${t.name}` : 'New template';
+  $('te-bundled-hint').hidden = !(t && t.source === 'bundled');
   $('te-id-label').hidden = Boolean(t);
   $('te-id').value = t ? t.id : '';
   $('te-name').value = t ? t.name : '';

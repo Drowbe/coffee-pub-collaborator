@@ -576,9 +576,40 @@ function templateOptions(env, slug) {
 // --- where templates come from (addendum 2, "Where templates come from") ---------------------------------------------
 // Bundled (templates/<id>.json), the host's own (host.json, on a hosted server) and a single install's imported ones
 // (app.json). Ids are unique across them: a host or imported template with a bundled template's id keeps it, and that
-// bundled one is not offered here (logged once).
+// bundled one is not offered here (logged once). A bundled id the host has edited is the edit, whole, over the file
+// (addendum 3); the file is used only while that edit is unset.
 const clashLogged = new Set();
-// Every template an environment can see, by id: { ...template (cleanTemplate's shape), source, hidden, usedBy? }.
+const bundledEditLogged = new Set();
+// The shipped file an edit was made against: its version, what it applies once, and the whole template, so a change
+// to words alone still opens the notice (addendum 3, the decided open question).
+function bundledBase(shipped) {
+  return { version: shipped.version, fingerprint: templates.appliedOnceFingerprint(shipped), whole: templates.wholeFingerprint(shipped) };
+}
+function bundledBaseDiffers(record, shipped) {
+  const base = record?.base;
+  if (!base) return true;
+  const now = bundledBase(shipped);
+  return base.version !== now.version || base.fingerprint !== now.fingerprint || base.whole !== now.whole;
+}
+// At start: a record with nothing edited takes the new shipped file and raises its version (no notice). One with edits
+// is left as it is, and the notice stays open while `base` differs. A record for an id this image does not ship is
+// ignored, with a log line.
+function reconcileBundledEdits() {
+  if (!hostRegistry) return;
+  for (const record of hostRegistry.bundledEdits) {
+    const shipped = templates.get(record.id);
+    if (!shipped) {
+      if (!bundledEditLogged.has(record.id)) {
+        bundledEditLogged.add(record.id);
+        console.warn(`The bundled template "${record.id}" is no longer shipped; its edits are left unused.`);
+      }
+      continue;
+    }
+    if (record.template != null || !bundledBaseDiffers(record, shipped)) continue;
+    hostRegistry.putBundledEdit({ ...record, version: record.version + 1, base: bundledBase(shipped), updatedAt: new Date().toISOString() });
+  }
+}
+// Every template an environment can see, by id: { ...template (cleanTemplate's shape), source, hidden, edited?, update? }.
 // `env` is needed only on a single install (its imported templates); { store } is enough.
 function templateCatalog(env) {
   const own = hostRegistry
@@ -597,7 +628,27 @@ function templateCatalog(env) {
       if (!clashLogged.has(b.id)) { clashLogged.add(b.id); console.warn(`The bundled template "${b.id}" is not offered here: a ${out.get(b.id).source} template already has that id.`); }
       continue;
     }
-    out.set(b.id, { ...b, source: 'bundled', hidden: false });
+    const record = hostRegistry ? hostRegistry.bundledEdit(b.id) : null;
+    if (!record) {
+      out.set(b.id, { ...b, source: 'bundled', hidden: false, edited: false, update: null });
+      continue;
+    }
+    try {
+      const body = record.template != null ? templates.cleanTemplate({ ...record.template, id: b.id, version: record.version }) : b;
+      const notice = record.template != null && bundledBaseDiffers(record, b);
+      out.set(b.id, {
+        ...body,
+        id: b.id,
+        version: record.version,
+        source: 'bundled',
+        edited: record.template != null,
+        hidden: Boolean(record.hidden),
+        update: notice ? { shippedVersion: b.version } : null,
+      });
+    } catch (err) {
+      console.error(`The edits for the bundled template "${b.id}" could not be read (${err.message}); the shipped template is used.`);
+      out.set(b.id, { ...b, source: 'bundled', hidden: false, edited: false, update: null });
+    }
   }
   return out;
 }
@@ -952,6 +1003,7 @@ function buildAtStartup(slug) {
     return null;
   }
 }
+reconcileBundledEdits();
 if (!BASE_DOMAIN) {
   buildAtStartup(DEFAULT_SLUG); // the one environment, built eagerly, exactly as today
 } else {
@@ -1594,13 +1646,18 @@ hostRouter.get('/api/host/environments', requireHostAdmin, (_req, res) => {
 // Every template, with where it comes from, its version, whether it is hidden and which environments use it.
 hostRouter.get('/api/host/templates', requireHostAdmin, (_req, res) => {
   const used = hostRegistry.listEnvironments();
-  res.json({ templates: [...templateCatalog(null).values()].map((t) => ({ ...templateSummary(t), usedBy: used.filter((e) => e.template === t.id).map((e) => e.slug) })) });
+  res.json({ templates: [...templateCatalog(null).values()].map((t) => ({ ...templateSummary(t), edited: Boolean(t.edited), update: t.update || null, usedBy: used.filter((e) => e.template === t.id).map((e) => e.slug) })) });
 });
-// One template in full, for the console's editor.
+// One template in full, for the console's editor. An edited bundled template also carries `shipped`, for compare.
 hostRouter.get('/api/host/templates/:id', requireHostAdmin, (req, res) => {
   const t = templateFor(null, req.params.id);
-  if (!t) return res.status(404).json({ error: `There is no template called ${req.params.id.slice(0, 40)}.` });
-  res.json({ template: fullTemplate(t) });
+  if (!t) return noSuchTemplate(res, req.params.id);
+  const template = fullTemplate(t);
+  if (t.source === 'bundled' && t.edited) {
+    const shipped = templates.get(t.id);
+    if (shipped) template.shipped = { ...shipped, source: 'bundled', edited: false, hidden: false, update: null };
+  }
+  res.json({ template });
 });
 // A new host template: its fields (version, hidden and the dates are the server's). 409 when the id is taken.
 hostRouter.post('/api/host/templates', requireHostAdmin, (req, res) => {
@@ -1612,15 +1669,16 @@ hostRouter.post('/api/host/templates', requireHostAdmin, (req, res) => {
   hostRegistry.putTemplate({ ...raw, version: 1, hidden: false, createdAt: now, updatedAt: now });
   res.status(201).json({ template: fullTemplate(templateFor(null, raw.id)) });
 });
-// Edits a host template: its version goes up, and every environment made from it reads its words, home icon and module
-// names and icons from the new version at once. `{ hidden }` hides or shows it (no new version). A field sent as null
-// is removed. Bundled templates can't be edited.
+// Edits a host template, or a bundled one (addendum 3: the edit is kept over the shipped file). Its version goes up,
+// and every environment made from it reads its words, home icon and module names and icons from the new version at
+// once. `{ hidden }` hides or shows it (no new version). A field sent as null is removed. The first edit of a bundled
+// template is the shipped version plus one; every later edit adds one, and the version never goes down.
 hostRouter.patch('/api/host/templates/:id', requireHostAdmin, (req, res) => {
   const t = templateFor(null, req.params.id);
-  if (!t) return res.status(404).json({ error: `There is no template called ${req.params.id.slice(0, 40)}.` });
-  if (t.source === 'bundled') return res.status(403).json({ error: "Bundled templates can't be edited; export one to start your own." });
+  if (!t) return noSuchTemplate(res, req.params.id);
   const body = req.body && typeof req.body === 'object' ? req.body : {};
   if (body.hidden !== undefined && typeof body.hidden !== 'boolean') return res.status(400).json({ error: 'hidden must be true or false.' });
+  if (t.source === 'bundled') return patchBundledTemplate(t, body, res);
   const stored = hostRegistry.templates.find((x) => x.id === t.id);
   const { id: _ignored, ...edits } = templateFields(body);
   const changed = Object.keys(edits).length > 0;
@@ -1636,11 +1694,56 @@ hostRouter.patch('/api/host/templates/:id', requireHostAdmin, (req, res) => {
   if (changed) refreshTemplateLive(t.id);
   res.json({ template: fullTemplate(templateFor(null, t.id)) });
 });
-// Deletes a host template no environment uses; one in use is hidden instead.
+// Reset a bundled template to the shipped file: the edit is dropped and the version goes up. A host template can't
+// be reset; one that isn't edited has nothing to reset.
+hostRouter.delete('/api/host/templates/:id/edits', requireHostAdmin, (req, res) => {
+  const t = templateFor(null, req.params.id);
+  if (!t) return noSuchTemplate(res, req.params.id);
+  if (t.source !== 'bundled') return res.status(400).json({ error: 'Only a bundled template can be reset.' });
+  if (!t.edited) return res.status(409).json({ error: `${t.name} has no edits to reset.` });
+  const record = hostRegistry.bundledEdit(t.id);
+  saveBundledEdit(t.id, { template: null, version: record.version + 1, base: bundledBase(templates.get(t.id)), hidden: record.hidden });
+  refreshTemplateLive(t.id);
+  res.json({ template: fullTemplate(templateFor(null, t.id)) });
+});
+// Answers the "updated in this image" notice. `shipped` drops the edits (a reset); `mine` keeps them and clears the
+// notice, with no new version.
+hostRouter.post('/api/host/templates/:id/update', requireHostAdmin, (req, res) => {
+  const keep = req.body?.keep;
+  if (keep !== 'shipped' && keep !== 'mine') return res.status(400).json({ error: 'keep must be shipped or mine.' });
+  const t = templateFor(null, req.params.id);
+  if (!t) return noSuchTemplate(res, req.params.id);
+  if (!t.update) return res.status(409).json({ error: `There is no update to review for ${t.name}.` });
+  const record = hostRegistry.bundledEdit(t.id);
+  const shipped = templates.get(t.id);
+  if (keep === 'mine') {
+    saveBundledEdit(t.id, { template: record.template, version: record.version, base: bundledBase(shipped), hidden: record.hidden });
+    return res.json({ template: fullTemplate(templateFor(null, t.id)) });
+  }
+  saveBundledEdit(t.id, { template: null, version: record.version + 1, base: bundledBase(shipped), hidden: record.hidden });
+  refreshTemplateLive(t.id);
+  res.json({ template: fullTemplate(templateFor(null, t.id)) });
+});
+// A new host template from the one in use (bundled or host), at version 1. The id and name come from the body.
+hostRouter.post('/api/host/templates/:id/duplicate', requireHostAdmin, (req, res) => {
+  const t = templateFor(null, req.params.id);
+  if (!t) return noSuchTemplate(res, req.params.id);
+  const body = req.body && typeof req.body === 'object' ? req.body : {};
+  const raw = { ...templateFields(t), id: body.id, name: body.name };
+  for (const [k, v] of Object.entries(raw)) if (v === null) delete raw[k];
+  const problems = templates.problemsOf(raw, { bundled: bundledIds() });
+  if (problems.length) return res.status(400).json({ error: problems[0], problems });
+  if (templateFor(null, raw.id)) return res.status(409).json({ error: `There is already a template called ${raw.id}.` });
+  const now = new Date().toISOString();
+  const stored = storedTemplate(templates.cleanTemplate(raw));
+  hostRegistry.putTemplate({ ...stored, version: 1, hidden: false, createdAt: now, updatedAt: now });
+  res.status(201).json({ template: fullTemplate(templateFor(null, raw.id)) });
+});
+// Deletes a host template no environment uses; one in use is hidden instead. A bundled template is hidden, not deleted.
 hostRouter.delete('/api/host/templates/:id', requireHostAdmin, (req, res) => {
   const t = templateFor(null, req.params.id);
-  if (!t) return res.status(404).json({ error: `There is no template called ${req.params.id.slice(0, 40)}.` });
-  if (t.source === 'bundled') return res.status(403).json({ error: "Bundled templates can't be deleted." });
+  if (!t) return noSuchTemplate(res, req.params.id);
+  if (t.source === 'bundled') return res.status(403).json({ error: "Bundled templates can't be deleted. Hide it instead." });
   const users = hostRegistry.listEnvironments().filter((e) => e.template === t.id);
   if (users.length) return res.status(409).json({ error: `${word('environment', { many: true, cap: true })} use this template: ${users.map((e) => e.name || e.slug).join(', ')}. Hide it instead.` });
   hostRegistry.removeTemplate(t.id);
@@ -1661,6 +1764,44 @@ function templateFields(body) {
   const out = {};
   for (const key of templates.FIELDS) if (key !== 'version' && body && body[key] !== undefined) out[key] = body[key];
   return out;
+}
+function noSuchTemplate(res, id) {
+  return res.status(404).json({ error: `There is no template called ${String(id).slice(0, 40)}.` });
+}
+// The fields kept for a bundled edit: the template, without its version and without a part it does not have.
+function storedTemplate(clean) {
+  const out = {};
+  for (const key of templates.FIELDS) {
+    if (key === 'version') continue;
+    if (clean[key] !== undefined && clean[key] !== null) out[key] = clean[key];
+  }
+  return out;
+}
+function saveBundledEdit(id, { template, version, base, hidden }) {
+  hostRegistry.putBundledEdit({ id, template, version, base, hidden: Boolean(hidden), updatedAt: new Date().toISOString() });
+}
+// PATCH of a bundled id: the same body and checks as a host template. `{ hidden }` alone changes no version.
+function patchBundledTemplate(t, body, res) {
+  const shipped = templates.get(t.id);
+  const record = hostRegistry.bundledEdit(t.id);
+  const { id: _ignored, ...edits } = templateFields(body);
+  const changed = Object.keys(edits).length > 0;
+  const hidden = body.hidden !== undefined ? body.hidden : Boolean(record?.hidden);
+  const versionNow = record?.version ?? shipped.version;
+  const base = record?.base || bundledBase(shipped);
+  if (!changed) {
+    saveBundledEdit(t.id, { template: record?.template ?? null, version: versionNow, base, hidden });
+    return res.json({ template: fullTemplate(templateFor(null, t.id)) });
+  }
+  const current = record?.template != null ? record.template : storedTemplate(shipped);
+  const merged = { ...templateFields(current), ...edits, id: t.id };
+  for (const [k, v] of Object.entries(merged)) if (v === null) delete merged[k];
+  const problems = templates.problemsOf(merged, { bundled: bundledIds() });
+  if (problems.length) return res.status(400).json({ error: problems[0], problems });
+  const clean = templates.cleanTemplate({ ...merged, version: versionNow + 1 });
+  saveBundledEdit(t.id, { template: storedTemplate(clean), version: versionNow + 1, base, hidden });
+  refreshTemplateLive(t.id);
+  return res.json({ template: fullTemplate(templateFor(null, t.id)) });
 }
 const bundledIds = () => bundledModules(BUNDLED_DIR).map((m) => m.id);
 // A template in full, for an editor or an import's answer: its fields, source, version and hidden.

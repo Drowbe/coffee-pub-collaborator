@@ -32,6 +32,8 @@
 
   const canEdit = host.can('edit');
   const plan = createPlan(host);
+  // A linked object changed or was deleted: ask again, so the plan shows the current one without a reload.
+  if (host.objects && host.objects.onChange) host.objects.onChange(() => { plan.refreshSummaries().catch(() => {}); });
   const CAT = { do: 'things', eat: 'food', stay: 'stay', travel: 'travel', other: 'other' };
   const CAT_LABEL = { do: 'Things to do', eat: 'Food', stay: 'Stay', travel: 'Travel', other: 'Other' };
   const CAT_ICON = { do: 'ticket', eat: 'utensils', stay: 'bed', travel: 'plane', other: 'note-sticky' };
@@ -1491,6 +1493,8 @@
       setVal('f-checkOutTime', v.checkOutTime);
       $('f-time').value = v.time || '';
       setLength('f-hours', 'f-minutes', v.minutes);
+      hide($('f-pinned-row'), !isLink);
+      if ($('f-pinned')) $('f-pinned').checked = Boolean(v.pinned);
       $('f-title').value = item ? item.title : '';
       for (const f of ['operator', 'number', 'fromCode', 'toCode', 'from', 'to', 'pickup', 'dropoff', 'terminal', 'platform', 'carriage', 'seat', 'roomType', 'partySize', 'reservationName', 'admissionCount', 'guests']) setVal(`f-${f}`, v[f]);
       setVal('f-travelClass', v.travelClass);
@@ -1648,7 +1652,7 @@
       common.paidBy = common.cost ? $('f-paidBy').value : '';
       let fields;
       if (ed.isLink) {
-        fields = { ...common, kind: 'link', time: $('f-time').value || null, minutes: lengthOf('f-hours', 'f-minutes') };
+        fields = { ...common, kind: 'link', time: $('f-time').value || null, minutes: lengthOf('f-hours', 'f-minutes'), pinned: Boolean($('f-pinned') && $('f-pinned').checked) };
       } else {
         const t = fromTile(ed.tile, item);
         // A round trip stays a journey other than a car: its return is removed first, with the switch.

@@ -60,6 +60,7 @@
       order: Number.isFinite(raw.order) ? raw.order : 0,
       owners: Array.isArray(raw.owners) ? [...new Set(raw.owners.filter((k) => typeof k === 'string').map((k) => k.slice(0, 40)))].slice(0, 20) : [],
       done: Boolean(raw.done),
+      pinned: Boolean(raw.pinned),
       by: clip(raw.by, 40),
       cost: Number.isFinite(raw.cost) && raw.cost > 0 ? Math.min(Math.round(raw.cost * 100) / 100, 1e9) : null,
       paidBy: typeof raw.paidBy === 'string' ? raw.paidBy.slice(0, 40) : '',

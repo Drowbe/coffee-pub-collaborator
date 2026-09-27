@@ -1,7 +1,7 @@
 {
   "id": "travel",
   "name": "Planner",
-  "version": "0.7.44",
+  "version": "0.8.0",
   "icon": "suitcase-rolling",
   "description": "Plan together: a day-by-day itinerary that draws in the events, tasks and polls your {space} already has.",
   "author": "Coffee Pub",
@@ -131,6 +131,7 @@
         "open": true,
         "backlinks": true,
         "key": "plan:{id}",
+        "holds": { "field": "ref", "onDelete": "remove", "follow": { "title": "title", "day": "date", "pin": "pinned" } },
         "summary": {
           "title": "title",
           "subtitle": "place",

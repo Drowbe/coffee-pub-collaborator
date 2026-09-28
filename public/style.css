@@ -4811,8 +4811,8 @@ body.conference-window {
    toggleOverflow) -- the same idea as a module's own host.menu.show, but for the host's own chrome, so
    it can't reach into a module's sandboxed frame to draw there. */
 .host-menu {
-  position: absolute;
-  z-index: 9;
+  position: fixed;
+  z-index: 26; /* above a floating module (the layer is 25), under a page opened over the call (30) */
   min-width: 160px;
   max-width: 280px;
   padding: 4px;

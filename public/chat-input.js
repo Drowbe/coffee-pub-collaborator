@@ -80,6 +80,26 @@ function answerParts(text, summaryCount) {
   return parts;
 }
 
+// Puts a chat popup just above its button, shifted so the whole of it stays on screen. Fixed, so the
+// chat column cannot clip it.
+export function placeAbove(popup, anchor) {
+  if (!popup || !anchor) return;
+  const view = popup.ownerDocument.defaultView;
+  popup.style.right = 'auto';
+  popup.style.bottom = 'auto';
+  popup.style.margin = '0';
+  const box = anchor.getBoundingClientRect();
+  const w = popup.offsetWidth;
+  const h = popup.offsetHeight;
+  let left = box.right - w;
+  let top = box.top - h - 6;
+  if (top < 8) top = box.bottom + 6;
+  left = Math.max(8, Math.min(left, view.innerWidth - w - 8));
+  top = Math.max(8, Math.min(top, view.innerHeight - h - 8));
+  popup.style.left = `${left}px`;
+  popup.style.top = `${top}px`;
+}
+
 export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup }) {
   const input = () => $('chat-input');
   const note = () => $('chat-note');
@@ -164,6 +184,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
     hidePicker();
     $('chat-command-wrap').appendChild(menu);
+    placeAbove(menu, $('chat-command'));
     const close = (ev) => {
       if (ev.target.closest('#chat-command-wrap')) return;
       hidePicker();

@@ -488,12 +488,17 @@ function drawMoreButton(doc, extraClass, onClick) {
   return more;
 }
 
+export function openHostMenu(trigger, items) {
+  toggleOverflow(trigger, items);
+}
+
 // A confirm in this same menu, under the button that opened it. The first choice asks; the second does it.
-export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash', onConfirm, fail = 'It could not be cleared.' } = {}) {
-  const open = (armed) => {
-    const items = armed
+// `armed` skips the ask, for a choice that was already picked from a longer menu.
+export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash', onConfirm, fail = 'It could not be cleared.', armed = false } = {}) {
+  const open = (isArmed) => {
+    const items = isArmed
       ? [
-          { icon, label: confirm, danger: true, onPick: async () => {
+          { icon, label: confirm, hint, danger: true, onPick: async () => {
             try { await onConfirm(); }
             catch (err) { toggleOverflow(trigger, [{ label: err.message || fail, disabled: true }]); }
           } },
@@ -502,7 +507,7 @@ export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash',
       : [{ icon, label, hint, danger: true, onPick: () => open(true) }];
     toggleOverflow(trigger, items);
   };
-  open(false);
+  open(armed);
 }
 
 // The titlebar "..." on an installed module (not the conference or the chat).

@@ -80,7 +80,7 @@ function answerParts(text, summaryCount) {
   return parts;
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup, openTools, closeTools }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup }) {
   const input = () => $('chat-input');
   const note = () => $('chat-note');
   const importBtn = () => $('chat-import');
@@ -135,7 +135,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
   }
 
   function showPicker() {
-    openTools?.();
     const items = commandList();
     const byName = new Map();
     for (const c of items) {
@@ -181,8 +180,13 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
     const priv = $('chat-ai-private');
     const pub = $('chat-ai-shared');
-    if (priv) priv.setAttribute('aria-pressed', shareMode === 'private' ? 'true' : 'false');
-    if (pub) pub.setAttribute('aria-pressed', shareMode === 'shared' ? 'true' : 'false');
+    const mark = (el, on) => {
+      if (!el) return;
+      el.classList.toggle('on', on);
+      el.setAttribute('aria-pressed', on ? 'true' : 'false');
+    };
+    mark(priv, shareMode === 'private');
+    mark(pub, shareMode === 'shared');
   }
 
   function loadShare() {
@@ -643,7 +647,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     const panel = $('chat-import-panel');
     const opening = panel.hidden;
     setImportOpen(opening);
-    if (opening) closeTools?.();
   });
   $('chat-import-close')?.addEventListener('click', (e) => {
     e.preventDefault();

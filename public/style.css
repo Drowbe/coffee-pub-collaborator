@@ -35,6 +35,9 @@
   /* The height of every control in the shared bottom row (the call toolbar's buttons, the chat's input and
      Send, each module's quick-add), so they line up whatever cell they are in. */
   --bar-control-h: 38px;
+  /* The shared bottom row itself: one line of those controls, with the padding around them and the bar's top
+     border. A second toolbar uses this same height and sits in the column above, so it does not make this row taller. */
+  --bar-h: calc(var(--bar-control-h) + 21px);
   /* The one height a module's optional toolbar row (under the titlebar) has, wherever it appears. */
   --toolbar-h: 34px;
   /* Themeable on their own (Manage > Theme); each follows the tokens above
@@ -1996,8 +1999,8 @@ a.crumb-here:hover {
 }
 
 /* The space is a grid: each module owns a column with a content area over an
-   action bar, and the bars share one bottom row so they line up. The row is
-   as tall as the tallest bar; nothing is measured. See
+   action bar, and the bars share one bottom row of --bar-h so they line up.
+   A second toolbar is part of the column above, not of this row. See
    documentation/architecture/architecture-canvas.md. */
 .canvas {
   position: relative;
@@ -2008,7 +2011,7 @@ a.crumb-here:hover {
   /* a column for each docked module (conference, chat, then modules); the canvas
      manager sets the whole template, one column flexible and the rest fixed */
   grid-template-columns: var(--canvas-cols, minmax(0, 1fr));
-  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-rows: minmax(0, 1fr) calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
   background: var(--bg);
   overflow: hidden;
 }
@@ -2029,6 +2032,7 @@ a.crumb-here:hover {
   grid-row: 2;
   position: relative;
   min-width: 0;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2365,8 +2369,7 @@ a.crumb-here:hover {
   z-index: 2;
 }
 
-/* The chat module: its content (header and messages) over its bar (the
-   formatting buttons and the message box), in the second column. */
+/* The chat module: header, messages and a formatting row, over the input bar. The formatting row is part of the column, so it shortens the messages and does not raise the shared bottom row. */
 .module-chat .mod-content {
   display: flex;
   flex-direction: column;
@@ -2377,7 +2380,11 @@ a.crumb-here:hover {
 .chat-bar {
   flex-direction: column;
   align-items: stretch;
+  align-self: end;
   justify-content: flex-end;
+  height: auto;
+  min-height: 100%;
+  overflow: visible; /* a message of more than one line grows up into the chat column, not the shared row */
   background: var(--shade); /* the same as the video toolbar and the module bars in the shared bottom row */
   border-left: 1px solid var(--border);
   border-top: 1px solid var(--border);
@@ -2730,32 +2737,6 @@ a.crumb-here:hover {
   font-size: 0.85em;
 }
 
-.chat-ai-share {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  margin-right: 4px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  flex: none;
-}
-
-.chat-ai-share[hidden] {
-  display: none;
-}
-
-.chat-ai-share .msg-btn {
-  border-radius: 0;
-  font-size: 12px;
-  padding: 4px 8px;
-}
-
-.chat-ai-share .msg-btn[aria-pressed="true"] {
-  background: var(--accent);
-  color: var(--on-accent);
-}
-
 .message.private-ai .who .msg-badge {
   margin-left: auto;
 }
@@ -2816,23 +2797,17 @@ a.crumb-here:hover {
   display: inline-flex;
 }
 
+/* One row, the same height as a single-line input bar, at the bottom of the chat column. */
 .chat-format-bar {
-  position: absolute;
-  z-index: 9;
-  left: 8px;
-  bottom: calc(100% + 6px);
+  flex: none;
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 6px 8px;
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--bg-section) 97%, transparent);
-  border: 1px solid var(--border);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-}
-
-.chat-format-bar[hidden] {
-  display: none;
+  box-sizing: border-box;
+  height: var(--bar-h);
+  padding: 0 8px;
+  border-top: 1px solid var(--border);
+  background: var(--shade);
 }
 
 .chat-format-spacer {
@@ -4186,7 +4161,7 @@ input[type="color"] {
 }
 
 .canvas.narrow.chat-open {
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)) auto;
 }
 
 /* One view at a time: the module being shown (the conference, the chat or a module) takes the whole canvas above
@@ -4205,7 +4180,7 @@ input[type="color"] {
 
 /* A docked module on a narrow window is laid out as the chat is: it fills the canvas, its action bar under it. */
 .canvas.narrow.module-open {
-  grid-template-rows: minmax(0, 1fr) auto auto;
+  grid-template-rows: minmax(0, 1fr) calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)) auto;
 }
 
 .canvas.narrow.module-open .module-docked > * {

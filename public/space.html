@@ -259,19 +259,18 @@
       <header>
         <span data-module-name>Chat</span>
         <span class="chat-tools">
-          <span class="chat-ai-share" id="chat-ai-share" role="group" aria-label="AI replies" hidden>
-            <button class="msg-btn" id="chat-ai-private" type="button" aria-pressed="true">Private</button>
-            <button class="msg-btn" id="chat-ai-shared" type="button" aria-pressed="false">Shared</button>
-          </span>
           <button class="sdk-more" id="chat-more" type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
           <button class="msg-btn" id="chat-close" type="button" title="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
-      <div class="messages" id="messages"></div>
+      <div class="mod-toolbar" id="chat-ai-share" hidden>
+        <span class="tb-tabs" role="group" aria-label="AI replies">
+          <button class="tb-tab on" id="chat-ai-private" type="button" aria-pressed="true">Private</button>
+          <button class="tb-tab" id="chat-ai-shared" type="button" aria-pressed="false">Shared</button>
+        </span>
       </div>
-      <div class="mod-bar chat-bar" id="chat-bar">
-      <!-- The formatting tools open as a layer above the input row from the icons button, so the bar stays one row. -->
-      <div class="chat-format-bar" id="chat-format-bar" hidden>
+      <div class="messages" id="messages"></div>
+      <div class="chat-format-bar" id="chat-format-bar">
         <button class="msg-btn" id="chat-pic" type="button" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
         <button class="msg-btn" id="chat-bold" type="button" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
         <button class="msg-btn" id="chat-italic" type="button" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
@@ -293,6 +292,8 @@
           </div>
         </span>
       </div>
+      </div>
+      <div class="mod-bar chat-bar" id="chat-bar">
       <div class="chat-import-panel" id="chat-import-panel" hidden>
         <button class="btn btn-small" type="button" id="chat-import-copy">Copy instructions for another AI</button>
         <textarea id="chat-import-show" hidden readonly></textarea>
@@ -306,7 +307,6 @@
         <p class="chat-import-why" id="chat-import-why" hidden></p>
       </div>
       <form id="chat-form">
-        <button class="msg-btn" id="chat-tools" type="button" title="Formatting, emoji, pictures and commands" aria-label="Formatting, emoji, pictures and commands" aria-expanded="false" aria-controls="chat-format-bar"><i class="fa-solid fa-icons fa-fw" aria-hidden="true"></i></button>
         <textarea id="chat-input" maxlength="1000" placeholder="Chat or type / for commands..." rows="1"></textarea>
         <button class="btn btn-small" id="chat-import" type="button" hidden data-fill>Bring in {objects}</button>
         <button class="btn btn-primary btn-small" type="submit" title="Send" aria-label="Send"><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i></button>

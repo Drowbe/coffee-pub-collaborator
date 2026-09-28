@@ -1,6 +1,8 @@
 // Chat's one input: ordinary messages, /ai, module commands, and paste import.
 // Chat never names a module; commands and Keep actions come from the space APIs.
 
+import { openConfirmMenu } from '/module-host.js';
+
 const OBJECT_MIME = 'application/x-host-object';
 const KIND_PLURAL = {
   flight: 'flights', train: 'trains', bus: 'buses', ferry: 'ferries', car: 'cars',
@@ -638,21 +640,20 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
   });
   $('chat-clear-ai')?.addEventListener('click', (e) => {
     e.preventDefault();
-    $('chat-clear-ai-overlay').hidden = false;
-  });
-  $('chat-clear-ai-cancel')?.addEventListener('click', () => { $('chat-clear-ai-overlay').hidden = true; });
-  $('chat-clear-ai-confirm')?.addEventListener('click', async () => {
-    const id = spaceId();
-    if (!id) return;
-    try {
-      await api('DELETE', `/api/spaces/${encodeURIComponent(id)}/ai/thread`);
-    } catch (err) {
-      setNote(err.message || 'The thread could not be cleared.');
-      return;
-    }
-    for (const el of [...($('messages')?.querySelectorAll('.message.private-ai:not(.chat-import-msg)') || [])]) el.remove();
-    $('chat-clear-ai-overlay').hidden = true;
-    refreshClearAi();
+    e.stopPropagation();
+    openConfirmMenu(e.currentTarget, {
+      label: 'Clear your AI thread',
+      hint: 'Only you see this. Shared answers stay.',
+      icon: 'eraser',
+      confirm: 'Clear the thread?',
+      onConfirm: async () => {
+        const id = spaceId();
+        if (!id) return;
+        await api('DELETE', `/api/spaces/${encodeURIComponent(id)}/ai/thread`);
+        for (const el of [...($('messages')?.querySelectorAll('.message.private-ai:not(.chat-import-msg)') || [])]) el.remove();
+        refreshClearAi();
+      },
+    });
   });
   loadShare();
   $('chat-command').addEventListener('click', (e) => {

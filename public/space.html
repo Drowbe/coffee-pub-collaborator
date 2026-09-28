@@ -270,23 +270,6 @@
         </span>
       </header>
       <div class="messages" id="messages"></div>
-      <!-- Covers just the chat panel, not the whole canvas -- clearing chat
-           is scoped to this one space and this one browser, not a call-wide
-           action, so the confirmation shouldn't read as bigger than it is. -->
-      <div class="chat-delete-overlay" id="chat-delete-overlay" hidden>
-        <p>Clear this chat? What came before disappears from your view on this browser -- not for anyone else, and not what's already been said out loud.</p>
-        <div class="chat-delete-overlay-actions">
-          <button class="btn btn-danger btn-small" id="chat-delete-confirm" type="button"><i class="fa-solid fa-trash-can fa-fw" aria-hidden="true"></i> Clear chat</button>
-          <button class="btn btn-small" id="chat-delete-cancel" type="button">Cancel</button>
-        </div>
-      </div>
-      <div class="chat-delete-overlay" id="chat-clear-ai-overlay" hidden>
-        <p>Clear your AI thread? Only you see this. Shared answers already in the chat stay there.</p>
-        <div class="chat-delete-overlay-actions">
-          <button class="btn btn-danger btn-small" id="chat-clear-ai-confirm" type="button"><i class="fa-solid fa-eraser fa-fw" aria-hidden="true"></i> Clear AI thread</button>
-          <button class="btn btn-small" id="chat-clear-ai-cancel" type="button">Cancel</button>
-        </div>
-      </div>
       </div>
       <div class="mod-bar chat-bar" id="chat-bar">
       <!-- The formatting tools open as a layer above the input row from the icons button, so the bar stays one row. -->

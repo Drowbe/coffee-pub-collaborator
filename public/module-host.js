@@ -411,6 +411,9 @@ function closeOverflow() {
   openOverflow = null;
   cleanup();
 }
+export function closeHostMenu() {
+  closeOverflow();
+}
 function toggleOverflow(trigger, items) {
   const reopening = openOverflow && openOverflow.trigger === trigger;
   closeOverflow();
@@ -433,6 +436,12 @@ function toggleOverflow(trigger, items) {
     const label = doc.createElement('span');
     label.textContent = item.label || item.title || '';
     b.appendChild(label);
+    if (item.hint) {
+      const hint = doc.createElement('span');
+      hint.className = 'host-menu-hint';
+      hint.textContent = item.hint;
+      b.appendChild(hint);
+    }
     if (!item.disabled) b.addEventListener('click', () => { closeOverflow(); item.onPick(); });
     if (item.danger) b.classList.add('danger');
     menu.appendChild(b);
@@ -479,22 +488,26 @@ function drawMoreButton(doc, extraClass, onClick) {
   return more;
 }
 
-// The titlebar "..." on an installed module (not the conference or the chat). The first choice asks;
-// the second is the one that clears. Both open under that button, in this same menu.
-export function openClearMenu(trigger, onClear) {
+// A confirm in this same menu, under the button that opened it. The first choice asks; the second does it.
+export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash', onConfirm, fail = 'It could not be cleared.' } = {}) {
   const open = (armed) => {
     const items = armed
       ? [
-          { icon: 'trash', label: 'Clear everything and start again?', danger: true, onPick: async () => {
-            try { await onClear(); }
-            catch (err) { toggleOverflow(trigger, [{ label: err.message || 'It could not be cleared.', disabled: true }]); }
+          { icon, label: confirm, danger: true, onPick: async () => {
+            try { await onConfirm(); }
+            catch (err) { toggleOverflow(trigger, [{ label: err.message || fail, disabled: true }]); }
           } },
           { icon: 'xmark', label: 'Keep it', onPick: () => {} },
         ]
-      : [{ icon: 'trash', label: 'Clear', danger: true, onPick: () => open(true) }];
+      : [{ icon, label, hint, danger: true, onPick: () => open(true) }];
     toggleOverflow(trigger, items);
   };
   open(false);
+}
+
+// The titlebar "..." on an installed module (not the conference or the chat).
+export function openClearMenu(trigger, onClear) {
+  openConfirmMenu(trigger, { label: 'Clear', confirm: 'Clear everything and start again?', onConfirm: onClear });
 }
 
 // Splits a cleaned item list into what a header/bar/toolbar row shows directly and what collapses into

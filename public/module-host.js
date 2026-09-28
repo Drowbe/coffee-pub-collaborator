@@ -437,13 +437,18 @@ function toggleOverflow(trigger, items) {
     if (item.danger) b.classList.add('danger');
     menu.appendChild(b);
   }
-  const host = trigger.closest('.module-floating, .module-docked, .module') || doc.body;
-  if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
-  host.appendChild(menu);
-  const hostBox = host.getBoundingClientRect();
+  // A docked module's own element has no box (display: contents; the column is the grid's).
+  // Measure the button in the window, the same way a menu inside a module does, and hang this one under it.
+  doc.body.appendChild(menu);
+  const view = doc.defaultView;
   const t = trigger.getBoundingClientRect();
-  menu.style.left = `${Math.max(4, Math.min(t.left - hostBox.left, hostBox.width - menu.offsetWidth - 4))}px`;
-  menu.style.top = `${t.bottom - hostBox.top + 4}px`;
+  let x = t.left;
+  let y = t.bottom + 4;
+  if (y + menu.offsetHeight > view.innerHeight) y = t.top - menu.offsetHeight - 4;
+  x = Math.max(4, Math.min(x, view.innerWidth - menu.offsetWidth - 4));
+  y = Math.max(4, Math.min(y, view.innerHeight - menu.offsetHeight - 4));
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
   const onKey = (e) => { if (e.key === 'Escape') closeOverflow(); };
   const onOutside = (e) => { if (!menu.contains(e.target) && !trigger.contains(e.target)) closeOverflow(); };
   doc.addEventListener('keydown', onKey, true);

@@ -6,6 +6,7 @@ import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput } from '/chat-input.js';
+import { openConfirmMenu, closeHostMenu } from '/module-host.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
 // window, which takes the whole canvas with it).
@@ -2003,8 +2004,7 @@ call
     ghostTiles.clear();
     canvasDoc().querySelectorAll('audio').forEach((el) => el.remove());
     $('messages').textContent = '';
-    $('chat-delete-overlay').hidden = true;
-    $('chat-clear-ai-overlay').hidden = true;
+    closeHostMenu();
     if ($('chat-clear-ai')) $('chat-clear-ai').hidden = true;
     if ($('chat-ai-share')) $('chat-ai-share').hidden = true;
     toggleChat(false);
@@ -2616,24 +2616,28 @@ window.addEventListener('beforeunload', () => call.disconnect());
 
 $('chat-close').addEventListener('click', () => toggleChat(false));
 $('chat-save').addEventListener('click', saveChat);
-$('chat-delete').addEventListener('click', () => { $('chat-delete-overlay').hidden = false; });
-$('chat-delete-cancel').addEventListener('click', () => { $('chat-delete-overlay').hidden = true; });
-$('chat-delete-confirm').addEventListener('click', () => {
-  chatLog.length = 0;
-  $('messages').textContent = '';
-  unread = 0;
-  canvas.setBuiltinUnread('chat', 0);
-  if (currentSpace) {
-    try {
-      localStorage.setItem(chatClearedKey(currentSpace.id), String(Date.now()));
-      localStorage.removeItem(chatHistoryKey(currentSpace.id));
-    } catch {
-      // private browsing: the chat is cleared for now, but the history returns on the next join
-    }
-  }
-  $('chat-delete-overlay').hidden = true;
-  $('chat-clear-ai-overlay').hidden = true;
-  if ($('chat-clear-ai')) $('chat-clear-ai').hidden = true;
+$('chat-delete').addEventListener('click', (event) => {
+  event.stopPropagation();
+  openConfirmMenu(event.currentTarget, {
+    label: 'Clear the chat',
+    hint: 'Only on this browser. Not for anyone else.',
+    confirm: 'Clear it from this browser?',
+    onConfirm: () => {
+      chatLog.length = 0;
+      $('messages').textContent = '';
+      unread = 0;
+      canvas.setBuiltinUnread('chat', 0);
+      if (currentSpace) {
+        try {
+          localStorage.setItem(chatClearedKey(currentSpace.id), String(Date.now()));
+          localStorage.removeItem(chatHistoryKey(currentSpace.id));
+        } catch {
+          // private browsing: the chat is cleared for now, but the history returns on the next join
+        }
+      }
+      if ($('chat-clear-ai')) $('chat-clear-ai').hidden = true;
+    },
+  });
 });
 $('chat-pic').addEventListener('click', () => { toggleChatTools(false); $('chat-file').click(); });
 $('chat-file').addEventListener('change', () => {

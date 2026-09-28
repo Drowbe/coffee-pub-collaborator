@@ -2383,32 +2383,6 @@ a.crumb-here:hover {
   border-top: 1px solid var(--border);
 }
 
-/* Covers just the chat's content, not the whole canvas -- see the markup comment
-   in space.html for why. */
-.chat-delete-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  background: color-mix(in srgb, var(--bg) 82%, transparent);
-}
-
-.chat-delete-overlay p {
-  margin: 0 0 14px;
-  font-size: 13px;
-  font-weight: 500;
-  text-align: center;
-}
-
-.chat-delete-overlay-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
 /* a thin strip over the chat column's left edge, to drag it wider or narrower */
 .chat-resize {
   grid-column: 2;
@@ -4826,6 +4800,7 @@ body.conference-window {
 
 .host-menu-item {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   width: 100%;
@@ -4843,6 +4818,13 @@ body.conference-window {
 .host-menu-item i {
   flex: none;
   width: 1em;
+}
+
+.host-menu-hint {
+  flex-basis: 100%;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 400;
 }
 
 .host-menu-item:hover,

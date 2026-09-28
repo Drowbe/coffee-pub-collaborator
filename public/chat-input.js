@@ -1,8 +1,6 @@
 // Chat's one input: ordinary messages, /ai, module commands, and paste import.
 // Chat never names a module; commands and Keep actions come from the space APIs.
 
-import { openConfirmMenu } from '/module-host.js';
-
 const OBJECT_MIME = 'application/x-host-object';
 const KIND_PLURAL = {
   flight: 'flights', train: 'trains', bus: 'buses', ferry: 'ferries', car: 'cars',
@@ -196,12 +194,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     setShare(next);
   }
 
-  function refreshClearAi() {
-    const btn = $('chat-clear-ai');
-    if (!btn) return;
-    btn.hidden = !$('messages')?.querySelector('.message.private-ai:not(.chat-import-msg)');
-  }
-
   function setShareVisible(on) {
     const g = $('chat-ai-share');
     if (g) g.hidden = !on;
@@ -235,7 +227,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     } catch {
       // no thread, or not allowed
     }
-    refreshClearAi();
     await refreshImport();
   }
 
@@ -346,7 +337,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
     $('messages').appendChild(el);
     $('messages').scrollTop = $('messages').scrollHeight;
-    refreshClearAi();
   }
 
   async function refreshActions() {
@@ -637,23 +627,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
   $('chat-ai-shared')?.addEventListener('click', (e) => {
     e.preventDefault();
     setShare('shared');
-  });
-  $('chat-clear-ai')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    openConfirmMenu(e.currentTarget, {
-      label: 'Clear your AI thread',
-      hint: 'Only you see this. Shared answers stay.',
-      icon: 'eraser',
-      confirm: 'Clear the thread?',
-      onConfirm: async () => {
-        const id = spaceId();
-        if (!id) return;
-        await api('DELETE', `/api/spaces/${encodeURIComponent(id)}/ai/thread`);
-        for (const el of [...($('messages')?.querySelectorAll('.message.private-ai:not(.chat-import-msg)') || [])]) el.remove();
-        refreshClearAi();
-      },
-    });
   });
   loadShare();
   $('chat-command').addEventListener('click', (e) => {

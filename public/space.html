@@ -270,42 +270,46 @@
         </span>
       </div>
       <div class="messages" id="messages"></div>
+      <div class="chat-import-panel" id="chat-import-panel" hidden>
+        <textarea id="chat-import-show" hidden readonly></textarea>
+        <textarea id="chat-import-text" rows="5" placeholder="Paste the whole answer here"></textarea>
+        <p class="chat-import-why" id="chat-import-why" hidden></p>
+        <div class="chat-import-panel-foot">
+          <button class="btn btn-small" type="button" id="chat-import-copy">Copy instructions</button>
+          <button class="btn btn-small" type="button" id="chat-import-choose">Choose a file</button>
+          <span class="chat-import-gap"></span>
+          <button class="btn btn-small" type="button" id="chat-import-close">Close</button>
+          <button class="btn btn-primary btn-small" type="button" id="chat-import-check">Import</button>
+        </div>
+        <input id="chat-import-file" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" hidden>
+      </div>
       <div class="chat-format-bar" id="chat-format-bar">
-        <button class="msg-btn" id="chat-pic" type="button" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
-        <button class="msg-btn" id="chat-bold" type="button" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
-        <button class="msg-btn" id="chat-italic" type="button" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
-        <button class="msg-btn" id="chat-code" type="button" title="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
-        <button class="msg-btn" id="chat-list" type="button" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
-        <span class="chat-format-item">
-          <button class="msg-btn" id="chat-emoji" type="button" title="Emoji" aria-label="Emoji"><i class="fa-regular fa-face-smile fa-fw" aria-hidden="true"></i></button>
-          <div class="chat-emoji-popup" id="chat-emoji-popup" hidden></div>
+        <span class="chat-format-side">
+          <button class="msg-btn" id="chat-pic" type="button" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-bold" type="button" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-italic" type="button" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-code" type="button" title="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-list" type="button" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
+          <span class="chat-format-item">
+            <button class="msg-btn" id="chat-emoji" type="button" title="Emoji" aria-label="Emoji"><i class="fa-regular fa-face-smile fa-fw" aria-hidden="true"></i></button>
+            <div class="chat-emoji-popup" id="chat-emoji-popup" hidden></div>
+          </span>
         </span>
-        <span class="chat-format-spacer"></span>
-        <button class="msg-btn" id="chat-bring" type="button" title="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
-        <span class="chat-format-item chat-command-wrap" id="chat-command-wrap">
-          <button class="msg-btn" id="chat-command" type="button" title="Commands" aria-label="Commands" aria-haspopup="true"><i class="fa-solid fa-square-poll-horizontal fa-fw" aria-hidden="true"></i></button>
-        </span>
-        <span class="chat-format-item">
-          <button class="msg-btn" id="chat-help" type="button" title="Formatting help" aria-label="Formatting help"><i class="fa-solid fa-square-pen fa-fw" aria-hidden="true"></i></button>
-          <div class="chat-help-popup" id="chat-help-popup" hidden>
-            <p><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, and lines starting with <code>- </code> for a bulleted list all work. Links become clickable automatically. Paste or drop a picture to send it. Shift+Enter starts a new line without sending.</p>
-          </div>
+        <span class="chat-format-side">
+          <button class="msg-btn" id="chat-bring" type="button" title="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
+          <span class="chat-format-item chat-command-wrap" id="chat-command-wrap">
+            <button class="msg-btn" id="chat-command" type="button" title="Commands" aria-label="Commands" aria-haspopup="true"><i class="fa-solid fa-square-poll-horizontal fa-fw" aria-hidden="true"></i></button>
+          </span>
+          <span class="chat-format-item">
+            <button class="msg-btn" id="chat-help" type="button" title="Formatting help" aria-label="Formatting help"><i class="fa-solid fa-square-pen fa-fw" aria-hidden="true"></i></button>
+            <div class="chat-help-popup" id="chat-help-popup" hidden>
+              <p><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, and lines starting with <code>- </code> for a bulleted list all work. Links become clickable automatically. Paste or drop a picture to send it. Shift+Enter starts a new line without sending.</p>
+            </div>
+          </span>
         </span>
       </div>
       </div>
       <div class="mod-bar chat-bar" id="chat-bar">
-      <div class="chat-import-panel" id="chat-import-panel" hidden>
-        <button class="btn btn-small" type="button" id="chat-import-copy">Copy instructions for another AI</button>
-        <textarea id="chat-import-show" hidden readonly></textarea>
-        <textarea id="chat-import-text" rows="5" placeholder="Paste the whole answer here"></textarea>
-        <input id="chat-import-file" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" hidden>
-        <div class="chat-import-panel-foot">
-          <button class="btn btn-small" type="button" id="chat-import-choose">Choose a file</button>
-          <button class="btn btn-primary btn-small" type="button" id="chat-import-check">Preview</button>
-          <button class="btn btn-small" type="button" id="chat-import-close">Close</button>
-        </div>
-        <p class="chat-import-why" id="chat-import-why" hidden></p>
-      </div>
       <form id="chat-form">
         <textarea id="chat-input" maxlength="1000" placeholder="Chat or type / for commands..." rows="1"></textarea>
         <button class="btn btn-small" id="chat-import" type="button" hidden data-fill>Bring in {objects}</button>

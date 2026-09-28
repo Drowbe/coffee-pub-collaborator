@@ -5,7 +5,7 @@ import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
-import { attachChatInput } from '/chat-input.js';
+import { attachChatInput, placeAbove } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
@@ -2774,7 +2774,9 @@ $('chat-help').addEventListener('click', (e) => {
   e.stopPropagation();
   $('chat-emoji-popup').hidden = true;
   if (chatInput) chatInput.hidePicker();
-  $('chat-help-popup').hidden = !$('chat-help-popup').hidden;
+  const help = $('chat-help-popup');
+  help.hidden = !help.hidden;
+  if (!help.hidden) placeAbove(help, $('chat-help'));
 });
 document.addEventListener('click', (e) => {
   if (!$('chat-help-popup').hidden && !e.target.closest('#chat-help-popup')) $('chat-help-popup').hidden = true;
@@ -2810,7 +2812,9 @@ $('chat-emoji').addEventListener('click', (e) => {
   e.stopPropagation();
   $('chat-help-popup').hidden = true;
   if (chatInput) chatInput.hidePicker();
-  $('chat-emoji-popup').hidden = !$('chat-emoji-popup').hidden;
+  const emoji = $('chat-emoji-popup');
+  emoji.hidden = !emoji.hidden;
+  if (!emoji.hidden) placeAbove(emoji, $('chat-emoji'));
 });
 
 $('layout').addEventListener('click', cycleView);

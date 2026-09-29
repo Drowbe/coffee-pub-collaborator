@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { cleanManifest, ModuleError } = createRequire(import.meta.url)('../server/modules.js');
 const { AiThreads, AI_THREAD_LIMITS } = createRequire(import.meta.url)('../server/ai-threads.js');
+const { ChatHistory } = createRequire(import.meta.url)('../server/chat-history.js');
 
 let n = 0;
 const files = new Set(['page.html', 'canvas.html']);
@@ -61,6 +62,22 @@ assert.equal(shared[0].shared, true);
 assert.equal(shared[1].shared, true);
 n += 1;
 fs.rmSync(tmpThreads, { recursive: true, force: true });
+
+const tmpChat = fs.mkdtempSync(path.join(os.tmpdir(), 'check-chat-history-'));
+const hist = new ChatHistory(tmpChat);
+const pats = hist.add('s', { by: 'pat', who: 'Pat', text: 'one' });
+const sams = hist.add('s', { by: 'sam', who: 'Sam', text: 'two' });
+assert.equal(hist.remove('s', pats.id, 'sam'), false);
+assert.equal(hist.remove('s', pats.id, 'pat').text, 'one');
+assert.equal(hist.list('s').map((m) => m.id).join(','), sams.id);
+hist.clear('s');
+hist.flush();
+const reread = new ChatHistory(tmpChat);
+assert.equal(reread.list('s').length, 0);
+assert.ok(reread.clearedAt('s') > 0);
+assert.equal(reread.remove('s', sams.id, 'sam'), null);
+n += 1;
+fs.rmSync(tmpChat, { recursive: true, force: true });
 
 const seen = [];
 const aiServer = http.createServer((req, res) => {
@@ -135,6 +152,34 @@ try {
   const chat = await call('GET', `/api/spaces/${space.id}/chat`, { cookie: pat });
   assert.equal(chat.status, 200, chat.text);
   assert.ok(Array.isArray(chat.json.messages));
+  const sent = await call('POST', `/api/spaces/${space.id}/chat`, { cookie: pat, body: { text: 'hello from pat' } });
+  assert.equal(sent.status, 200, sent.text);
+  const mine = sent.json.message && sent.json.message.id;
+  assert.match(mine, /^[a-f0-9]{12}$/);
+  const notYours = await call('DELETE', `/api/spaces/${space.id}/chat/${mine}`, { cookie: sam });
+  assert.equal(notYours.status, 403, notYours.text);
+  const memberClear = await call('DELETE', `/api/spaces/${space.id}/chat`, { cookie: pat });
+  assert.equal(memberClear.status, 403, memberClear.text);
+  const removed = await call('DELETE', `/api/spaces/${space.id}/chat/${mine}`, { cookie: pat });
+  assert.equal(removed.status, 200, removed.text);
+  const afterOne = await call('GET', `/api/spaces/${space.id}/chat`, { cookie: sam });
+  assert.equal(afterOne.json.messages.length, 0, afterOne.text);
+  const again = await call('POST', `/api/spaces/${space.id}/chat`, { cookie: sam, body: { text: 'from sam' } });
+  assert.equal(again.status, 200, again.text);
+  const wiped = await call('DELETE', `/api/spaces/${space.id}/chat`, { cookie: owner });
+  assert.equal(wiped.status, 200, wiped.text);
+  const emptyChat = await call('GET', `/api/spaces/${space.id}/chat`, { cookie: pat });
+  assert.equal(emptyChat.json.messages.length, 0, emptyChat.text);
+  assert.ok(emptyChat.json.clearedAt > 0, emptyChat.text);
+  const missing = await call('DELETE', `/api/spaces/${space.id}/chat/abcdefabcdef`, { cookie: pat });
+  assert.equal(missing.status, 404, missing.text);
+  await call('PATCH', `/api/users/${member.key}/spaces/${space.id}`, { cookie: owner, body: { permissions: { moderator: true } } });
+  await call('POST', `/api/spaces/${space.id}/chat`, { cookie: sam, body: { text: 'still here' } });
+  const modClear = await call('DELETE', `/api/spaces/${space.id}/chat`, { cookie: pat });
+  assert.equal(modClear.status, 200, modClear.text);
+  const gone = await call('GET', `/api/spaces/${space.id}/chat`, { cookie: sam });
+  assert.equal(gone.json.messages.length, 0, gone.text);
+  await call('PATCH', `/api/users/${member.key}/spaces/${space.id}`, { cookie: owner, body: { permissions: { moderator: false } } });
   n += 1;
 
   const asked = await call('POST', `/api/spaces/${space.id}/ai`, { cookie: pat, body: { question: 'What is Faro?' } });

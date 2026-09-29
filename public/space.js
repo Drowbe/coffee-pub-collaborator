@@ -1288,10 +1288,11 @@ function canvasDoc() {
 // which keeps a rolling window per space (see server/chat-history.js), and everyone who joins reads it back, so a
 // late joiner or a new browser sees what was said. Pictures are live only. An aside/private space keeps nothing,
 // staying as off-the-record as everything else about it. The log here is what Save writes out and goes when you
-// leave; "Clear chat" hides what came before from this browser only.
-const chatLog = []; // { who, at, text } or { who, at, blob, name }
-// Older versions kept the history in this browser only; it is still read when the server has none for the space
-// (or cannot be reached). "Clear chat" remembers when, per person, so what came before stays hidden here.
+// leave. Deleting the chat removes it for everyone. Deleting one message removes that message for everyone, and
+// only the person who sent it can.
+const chatLog = []; // { id, who, by, at, text } or { id, who, by, at, blob, name }
+// Older versions kept the history in this browser only. It is still read when the server has none and has never
+// been deleted (or cannot be reached). A delete on the server records when, so that old copy stays hidden.
 const chatHistoryKey = (spaceId) => `app:chat:${spaceId}:${me?.key || guestToken || 'guest'}`;
 const chatClearedKey = (spaceId) => `app:chatclear:${spaceId}:${me?.key || guestToken || 'guest'}`;
 function loadChatHistory(spaceId) {
@@ -1308,34 +1309,99 @@ function chatClearedAt(spaceId) {
     return 0;
   }
 }
+function chatIdOk(id) {
+  return typeof id === 'string' && /^[a-f0-9]{12}$/.test(id);
+}
+function newChatId() {
+  const bytes = new Uint8Array(6);
+  crypto.getRandomValues(bytes);
+  return [...bytes].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+function chatMessageNode(id) {
+  if (!chatIdOk(id)) return null;
+  return $('messages')?.querySelector(`.message[data-chat-id="${CSS.escape(id)}"]`) || null;
+}
 async function fetchChatHistory(spaceId) {
   const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-  const { messages } = await api('GET', `/api/spaces/${encodeURIComponent(spaceId)}/chat${q}`);
-  return messages.map((m) => ({ who: m.who, by: m.by, text: m.text, at: new Date(m.at).toISOString() }));
+  const { messages, clearedAt } = await api('GET', `/api/spaces/${encodeURIComponent(spaceId)}/chat${q}`);
+  return {
+    messages: messages.map((m) => ({ id: m.id, who: m.who, by: m.by, text: m.text, at: new Date(m.at).toISOString() })),
+    clearedAt: Number(clearedAt) || 0,
+  };
 }
-// Tell the server what was just said, so the space's history has it. Best effort: the message already went out live.
-function postChatMessage(text) {
-  if (!currentSpace || currentSpace.isAside) return;
+// Tell the server what was just said, so the space's history has it. Returns the stored message, or null when it
+// could not be kept (an aside, or the server did not answer).
+async function postChatMessage(text) {
+  if (!currentSpace || currentSpace.isAside) return null;
   const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-  api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat${q}`, { text, name: me?.displayName || call.localParticipant.name }).catch(() => {});
+  try {
+    const { message } = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat${q}`, { text, name: me?.displayName || call.localParticipant?.name });
+    return message || null;
+  } catch {
+    return null;
+  }
+}
+function publishChat(data) {
+  if (!call || call.state !== 'connected' || !call.localParticipant) return;
+  call.localParticipant.publishData(encoder.encode(JSON.stringify(data)), { reliable: true, topic: 'chat' }).catch(() => {});
+}
+// Stores the message, draws it here with that id, and tells everyone else in the call. Without a stored id (the
+// server did not answer) it still goes out live, and then it cannot be deleted for everyone.
+async function sendChatText(text) {
+  const stored = await postChatMessage(text);
+  if (stored?.id) {
+    addEntry({ id: stored.id, who: stored.who, by: stored.by, text: stored.text, at: new Date(stored.at) }, true);
+    publishChat({ type: 'chat', id: stored.id, text: stored.text, at: stored.at, who: stored.who, by: stored.by });
+    return;
+  }
+  try {
+    if (call && call.localParticipant) await call.localParticipant.sendChatMessage(text);
+  } catch (err) {
+    setStatus(`chat: ${err.message}`, true);
+  }
+}
+function dropChatMessage(id) {
+  chatMessageNode(id)?.remove();
+  const at = chatLog.findIndex((e) => e.id === id);
+  if (at >= 0) chatLog.splice(at, 1);
+}
+function dropSharedChat() {
+  for (const el of [...($('messages')?.querySelectorAll('.message.is-chat, .chat-session-divider') || [])]) el.remove();
+  for (let i = chatLog.length - 1; i >= 0; i -= 1) if (chatLog[i].chat) chatLog.splice(i, 1);
+  unread = 0;
+  canvas.setBuiltinUnread('chat', 0);
+}
+// An owner, or a member marked moderator in this space.
+function canModerateChat() {
+  if (!currentSpace || currentSpace.isAside || !me || me.role === 'guest') return false;
+  if (hasOwnerRights(me)) return true;
+  return Boolean(me.spaces?.[currentSpace.id]?.permissions?.moderator);
+}
+// A shared message can be deleted by the person who sent it. A picture is live only, so its id is this page's.
+function canDeleteChatEntry(entry) {
+  return Boolean(entry?.chat && chatIdOk(entry.id) && me?.key && entry.by === me.key && (entry.blob || me.role !== 'guest'));
 }
 // Called once per join, after the canvas is up but before anything live has
 // arrived -- fills #messages with whatever this space already said, so it
 // reads as "still here" rather than the chat looking wiped on every rejoin.
 async function renderChatHistory(spaceId) {
   let history;
+  let serverCleared = 0;
   try {
-    history = await fetchChatHistory(spaceId);
-    if (!history.length) history = loadChatHistory(spaceId);
+    const got = await fetchChatHistory(spaceId);
+    history = got.messages;
+    serverCleared = got.clearedAt;
+    if (!history.length && !serverCleared) history = loadChatHistory(spaceId);
   } catch {
     history = loadChatHistory(spaceId);
   }
-  const cleared = chatClearedAt(spaceId);
+  const cleared = Math.max(chatClearedAt(spaceId), serverCleared);
   history = history.filter((e) => new Date(e.at).getTime() > cleared);
   // Anything live that arrived while this was loading is already there, so the history goes above it.
   const fragment = document.createDocumentFragment();
   for (const entry of history) {
-    const el = messageEl({ who: entry.who, by: entry.by, text: entry.text, at: new Date(entry.at) }, entry.who === me?.displayName);
+    if (entry.id && chatMessageNode(entry.id)) continue;
+    const el = messageEl({ id: entry.id, who: entry.who, by: entry.by, text: entry.text, at: new Date(entry.at) }, entry.who === me?.displayName);
     el.classList.add('history');
     fragment.appendChild(el);
   }
@@ -1531,12 +1597,15 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   more.innerHTML = '<i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i>';
   more.addEventListener('click', (event) => {
     event.stopPropagation();
-    openHostMenu(more, [
+    const items = [
       { icon: 'copy', label: 'Copy', onPick: () => copyEntry(entry) },
       { icon: 'reply', label: 'Reply', onPick: () => replyToEntry(entry) },
       { icon: 'share', label: 'Send to...', onPick: () => {} },
-      { icon: 'trash', label: 'Delete', danger: true, onPick: () => deleteMessage(el, entry, right) },
-    ]);
+    ];
+    if (!entry?.chat || canDeleteChatEntry(entry)) {
+      items.push({ icon: 'trash', label: 'Delete', danger: true, onPick: () => deleteMessage(el, entry) });
+    }
+    openHostMenu(more, items);
   });
   right.append(vis, more);
   head.append(left, right);
@@ -1544,18 +1613,20 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   return el;
 }
 
-function deleteMessage(el, entry, right) {
-  if (entry && entry.chat) {
-    entry.deleted = true;
-    entry.text = 'Message deleted';
-    entry.blob = null;
-    const body = el.querySelector('.message-body');
-    if (body) {
-      body.replaceChildren();
-      body.textContent = 'Message deleted';
-      body.classList.add('is-deleted');
+async function deleteMessage(el, entry) {
+  if (entry?.chat) {
+    if (!canDeleteChatEntry(entry)) return;
+    if (!entry.blob) {
+      try {
+        const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
+        await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}${q}`);
+      } catch (err) {
+        setStatus(err.message || 'Could not delete that.', true);
+        return;
+      }
     }
-    right.remove();
+    dropChatMessage(entry.id);
+    publishChat({ type: 'chat-delete', id: entry.id });
     return;
   }
   el.remove();
@@ -1576,7 +1647,7 @@ function messageEl(entry, own) {
   } else {
     body.innerHTML = renderMarkup(entry.text);
   }
-  return frameMessage({
+  const el = frameMessage({
     name: entry.who,
     at: entry.at,
     visibility: 'public',
@@ -1585,10 +1656,15 @@ function messageEl(entry, own) {
     body,
     entry,
   });
+  el.classList.add('is-chat');
+  if (chatIdOk(entry.id)) el.dataset.chatId = entry.id;
+  return el;
 }
 
 function addEntry(entry, own = false) {
-  entry.at = new Date();
+  if (!entry.at) entry.at = new Date();
+  else if (!(entry.at instanceof Date)) entry.at = new Date(entry.at);
+  entry.chat = true;
   chatLog.push(entry);
   $('messages').appendChild(messageEl(entry, own));
   $('messages').scrollTop = $('messages').scrollHeight;
@@ -1632,8 +1708,10 @@ async function sendImage(file) {
   if (!file || !file.type.startsWith('image/') || call.state !== 'connected' || !canDo('sendPictures')) return;
   try {
     const out = await shrinkImage(file);
-    addEntry({ who: call.localParticipant.name || call.localParticipant.identity, blob: out, name: out.name }, true);
-    await call.localParticipant.sendFile(out, { topic: 'chat-image', mimeType: out.type });
+    const id = newChatId();
+    const named = new File([out], `cid-${id}-${out.name || 'picture'}`, { type: out.type });
+    addEntry({ id, who: call.localParticipant.name || call.localParticipant.identity, by: me?.key || call.localParticipant.identity, blob: named, name: out.name || 'picture' }, true);
+    await call.localParticipant.sendFile(named, { topic: 'chat-image', mimeType: named.type });
   } catch (err) {
     setStatus(`picture: ${err.message}`, true);
   }
@@ -1645,7 +1723,8 @@ call.registerByteStreamHandler('chat-image', async (reader, { identity }) => {
     const chunks = await reader.readAll();
     const blob = new Blob(chunks, { type: reader.info.mimeType || 'image/png' });
     const from = call.remoteParticipants.get(identity);
-    addEntry({ who: from?.name || identity, blob, name: reader.info.name }, false);
+    const named = /^cid-([a-f0-9]{12})-(.*)$/.exec(reader.info.name || '');
+    addEntry({ id: named ? named[1] : '', who: from?.name || identity, by: identity, blob, name: named ? (named[2] || 'picture') : (reader.info.name || 'picture') }, false);
   } catch (err) {
     setStatus(`picture: ${err.message}`, true);
   }
@@ -2048,6 +2127,11 @@ call
       const data = JSON.parse(decoder.decode(payload));
       if (topic === 'reaction' && participant && data.type === 'reaction') showReaction(participant.identity, data.id);
       else if (topic === 'away' && participant && data.type === 'away') updateAwayOverlay(participant.identity, !!data.on, data.message);
+      else if (topic === 'chat' && data.type === 'chat' && chatIdOk(data.id)) {
+        if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
+        addEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: new Date(data.at) }, false);
+      } else if (topic === 'chat' && data.type === 'chat-delete' && chatIdOk(data.id)) dropChatMessage(data.id);
+      else if (topic === 'chat' && data.type === 'chat-clear') dropSharedChat();
       // A server push (no sending participant): someone pulled me aside.
       // An owner's word is final -- just go. A peer's "Privately" needs
       // this end to actually agree to it first. Deferred a tick so this
@@ -2744,26 +2828,31 @@ $('chat-more').addEventListener('click', (event) => {
   const button = event.currentTarget;
   const items = [
     { icon: 'download', label: 'Save the chat', onPick: () => saveChat() },
-    { icon: 'trash', label: 'Clear the chat', danger: true, onPick: () => openConfirmMenu(button, {
-      confirm: 'Clear it from this browser?',
-      hint: 'Only on this browser. Not for anyone else.',
+  ];
+  if (canModerateChat()) {
+    items.push({ icon: 'trash', label: 'Delete the chat', danger: true, onPick: () => openConfirmMenu(button, {
+      confirm: 'Delete the chat for everyone?',
+      hint: 'Every message goes, for everyone.',
       armed: true,
-      onConfirm: () => {
-        chatLog.length = 0;
-        $('messages').textContent = '';
-        unread = 0;
-        canvas.setBuiltinUnread('chat', 0);
-        if (currentSpace) {
-          try {
-            localStorage.setItem(chatClearedKey(currentSpace.id), String(Date.now()));
-            localStorage.removeItem(chatHistoryKey(currentSpace.id));
-          } catch {
-            // private browsing: the chat is cleared for now, but the history returns on the next join
-          }
+      onConfirm: async () => {
+        if (!currentSpace) return;
+        try {
+          await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat`);
+        } catch (err) {
+          setStatus(err.message || 'Could not delete the chat.', true);
+          return;
+        }
+        dropSharedChat();
+        publishChat({ type: 'chat-clear' });
+        try {
+          localStorage.removeItem(chatHistoryKey(currentSpace.id));
+          localStorage.removeItem(chatClearedKey(currentSpace.id));
+        } catch {
+          // the server already deleted it
         }
       },
-    }) },
-  ];
+    }) });
+  }
   if ($('messages')?.querySelector('.message.private-ai:not(.chat-import-msg)')) {
     items.push({ icon: 'eraser', label: 'Clear your AI thread', danger: true, onPick: () => openConfirmMenu(button, {
       icon: 'eraser',
@@ -2808,14 +2897,7 @@ const chatInput = attachChatInput({
   getMe: () => me,
   canvas,
   canDo,
-  sendChat: async (text) => {
-    try {
-      if (call && call.localParticipant) await call.localParticipant.sendChatMessage(text);
-    } catch {
-      // no live call: history still gets it
-    }
-    postChatMessage(text);
-  },
+  sendChat: (text) => sendChatText(text),
   resizeChatInput,
   setStatus,
   renderMarkup,
@@ -2834,12 +2916,7 @@ $('chat-form').addEventListener('submit', async (event) => {
   if (/^\//.test(text)) return;
   $('chat-input').value = '';
   resizeChatInput();
-  try {
-    await call.localParticipant.sendChatMessage(text); // echoed back through ChatMessage
-    postChatMessage(text);
-  } catch (err) {
-    setStatus(`chat: ${err.message}`, true);
-  }
+  await sendChatText(text);
 });
 // Enter sends, like a normal chat; Shift+Enter is the way to actually get a
 // newline into a <textarea> without that also submitting the form.

@@ -1377,6 +1377,15 @@ function canModerateChat() {
   if (hasOwnerRights(me)) return true;
   return Boolean(me.spaces?.[currentSpace.id]?.permissions?.moderator);
 }
+// Only the person who posted a shared message can change private or public. A private turn on this page
+// (an AI answer, a command) is already only on their screen. Guests share one stored sender, so a guest
+// cannot change a stored message; a picture they sent still can, because that one carries their own id.
+function canChangeVisibility(entry, by) {
+  if (!entry?.chat) return true;
+  if (!me?.key) return false;
+  if (me.role === 'guest') return Boolean(entry.blob && by === me.key);
+  return by === me.key;
+}
 // A shared message can be deleted by the person who sent it. A picture is live only, so its id is this page's.
 function canDeleteChatEntry(entry) {
   if (!entry?.chat || !chatIdOk(entry.id)) return false;
@@ -1565,15 +1574,16 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   right.className = 'message-head-side';
   let state = visibility === 'private' ? 'private' : 'public';
   let posted = state === 'public';
-  const vis = document.createElement('button');
-  vis.type = 'button';
+  const canChange = canChangeVisibility(entry, by);
+  const vis = document.createElement(canChange ? 'button' : 'span');
+  if (canChange) vis.type = 'button';
   vis.className = 'message-vis';
   const paintVis = () => {
     vis.textContent = state;
     vis.setAttribute('aria-label', state === 'private' ? 'Private' : 'Public');
   };
   paintVis();
-  vis.addEventListener('click', (event) => {
+  if (canChange) vis.addEventListener('click', (event) => {
     event.stopPropagation();
     const next = state === 'private' ? 'public' : 'private';
     openHostMenu(vis, [{

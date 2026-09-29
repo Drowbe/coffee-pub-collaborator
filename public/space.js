@@ -608,6 +608,7 @@ function updateBackgroundPlaceholder(tile, key) {
   // fetch the current page as an "image" and show a broken-image icon once
   // it fails to decode; only actually removing the attribute stays invisible.
   if (bg) { if (hasBg) bg.src = imgUrl(key, 'background'); else bg.removeAttribute('src'); }
+  tile.style.setProperty('--pic-scale', user?.pictureScale || 100);
 }
 
 // Admin only, on hover: mute (toggles, reading the live mic state fresh on

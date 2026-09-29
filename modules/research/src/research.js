@@ -303,6 +303,29 @@
     await store.save(next, store.versionOf(id));
   }
 
+  // Read the page again and replace the title, description and picture with what it says now.
+  async function refreshLink(id) {
+    const it = research.get(id);
+    if (!it || it.kind !== 'link' || !it.url || !canEdit) return;
+    if (!state.previews) { say('Turn on Fetch link previews to read the page again.', 4000); return; }
+    say('Reading the page...');
+    try {
+      const got = await host.preview.link(it.url);
+      const cur = research.get(id);
+      if (!cur) return;
+      if (!got || got.enabled === false) { say('Turn on Fetch link previews to read the page again.', 4000); return; }
+      const title = String(got.title || '').trim();
+      const description = String(got.description || '').trim();
+      const image = cleanUrl(got.image, 2000) || '';
+      const next = { ...cur, title: title || cur.title, excerpt: description || cur.excerpt, image: image || cur.image };
+      if (next.title === cur.title && next.excerpt === cur.excerpt && next.image === cur.image) { say('Nothing new on that page.', 2500); return; }
+      await research.save(next, research.versionOf(id));
+      say('Link refreshed.', 2500);
+    } catch (err) {
+      say('That page could not be read.', 4000);
+    }
+  }
+
   // Cards pack like masonry: each takes as many rows of the grid's fine row unit as its own height needs, so a short card
   // beside a tall one leaves no hole under it, and the columns adapt to the pane's width (the grid's own auto-fill). A card's
   // height is read after layout and again whenever it changes (a photo loading, the pane resizing), never guessed.
@@ -374,6 +397,9 @@
     const items = [
       { id: 'edit', label: canEdit ? 'Edit' : 'View', icon: 'pen', onClick: () => openEditor(id) },
     ];
+    if (canEdit && it.kind === 'link' && it.url) {
+      items.push({ id: 'refresh', label: 'Refresh link', icon: 'arrows-rotate', onClick: () => refreshLink(id) });
+    }
     if (canEdit && personal && inSpace && it.kind !== 'photo') {
       items.push({
         id: 'copy-to',

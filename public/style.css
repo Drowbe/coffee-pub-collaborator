@@ -1484,10 +1484,13 @@ body.in-space .topbar {
   font-size: 0;
 }
 
-/* Behind the portrait, only while the camera is off and only when that person
-   has a background image (see updateBackgroundPlaceholder in space.js). An
-   empty img with no src stays invisible. The portrait on top stays the same
-   size either way: the whole picture, fitted inside the tile. */
+/* Behind the profile photo, only present while the camera is off and only
+   filled in when that person has a background image set at all (see
+   updateBackgroundPlaceholder in space.js) -- an empty img with no src
+   stays invisible on its own, .has-bg-image is just what shrinks the
+   photo on top of it into a centered picture once there's really a
+   picture behind it. The same size when the camera is off and when they
+   are away: a square, centered, with the background showing around it. */
 .tile .placeholder-bg {
   position: absolute;
   inset: 0;
@@ -1497,6 +1500,22 @@ body.in-space .topbar {
 }
 
 .tile.has-bg-image .placeholder {
+  inset: auto;
+  top: 50%;
+  left: 50%;
+  /* sized off the tile's height on both axes (via container query units, since
+     .tile is a size container) so it comes out square no matter the tile's
+     own aspect ratio, instead of stretching into an ellipse. --pic-scale
+     (set from the space, from the same Portrait Size setting the OBS view
+     uses) is a 0-100 percentage of that height. */
+  width: calc(var(--pic-scale, 38) * 1cqh);
+  height: calc(var(--pic-scale, 38) * 1cqh);
+  min-width: 72px;
+  min-height: 72px;
+  transform: translate(-50%, -50%);
+  border-radius: 16%;
+  object-fit: cover;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.5);
   background: transparent;
 }
 

@@ -185,7 +185,10 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
     hidePicker();
     $('chat-command-wrap').appendChild(menu);
-    placeAbove(menu, $('chat-command'));
+    const command = $('chat-command');
+    const wrap = $('chat-command-wrap');
+    const more = $('chat-format-more');
+    placeAbove(menu, (wrap?.dataset.collapsed && more && !more.hidden) ? more : command);
     const close = (ev) => {
       if (ev.target.closest('#chat-command-wrap')) return;
       hidePicker();

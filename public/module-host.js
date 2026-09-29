@@ -631,16 +631,18 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     }
     const b = document.createElement('button');
     b.type = 'button';
-    b.className = `btn${item.primary ? ' btn-primary' : ''}${item.iconOnly && item.icon ? ' bar-icon' : ''}`;
+    // An icon is the button. The words stay as the tooltip and as the line in "...".
+    const iconOnly = Boolean(item.icon);
+    b.className = `btn${item.primary ? ' btn-primary' : ''}${iconOnly ? ' bar-icon' : ''}`;
     b.disabled = item.disabled;
-    if (item.iconOnly && item.icon) { b.title = item.label; b.setAttribute('aria-label', item.label); }
+    if (iconOnly) { b.title = item.label; b.setAttribute('aria-label', item.label); }
     if (item.icon) {
       const i = document.createElement('i');
       i.className = `fa-solid fa-${item.icon} fa-fw`;
       i.setAttribute('aria-hidden', 'true');
-      b.append(i, ' ');
+      b.append(i);
     }
-    if (!(item.iconOnly && item.icon)) b.append(item.label);
+    if (!iconOnly) b.append(item.label);
     b.addEventListener('click', () => send('bar', { id: item.id }));
     bar.appendChild(b);
   }
@@ -670,9 +672,21 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       };
       paint();
       if (!bar.clientWidth) return;
-      while (visible.length && bar.scrollWidth > bar.clientWidth + 1) {
-        hidden.push(visible.shift());
+      // The bar packs to the right, so a button that does not fit sticks out of the left. scrollWidth
+      // does not count that. Measure the buttons against the bar instead, and fold them left to right.
+      const spills = () => {
+        const edge = bar.getBoundingClientRect();
+        return [...bar.children].some((child) => {
+          if (child.hidden) return false;
+          const box = child.getBoundingClientRect();
+          return box.left < edge.left - 1 || box.right > edge.right + 1;
+        });
+      };
+      let guard = 0;
+      while ((visible.length || primaries.length) && spills() && guard < 20) {
+        hidden.push(visible.length ? visible.shift() : primaries.shift());
         paint();
+        guard += 1;
       }
     } finally {
       fittingBar = false;

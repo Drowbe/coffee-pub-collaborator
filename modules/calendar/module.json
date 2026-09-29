@@ -1,7 +1,7 @@
 {
   "id": "calendar",
   "name": "Calendar",
-  "version": "1.18.1",
+  "version": "1.18.2",
   "icon": "calendar-days",
   "description": "Sessions and events for the whole {environment} and for each {space}, with reminders.",
   "author": "Coffee Pub",

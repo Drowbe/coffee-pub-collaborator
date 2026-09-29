@@ -542,7 +542,7 @@
   // The host draws Add event in the module's action bar when docked; the header button stays for a host without one.
   if (host.bar) {
     $('add').classList.add('hosted');
-    host.bar.set(canEdit ? [{ id: 'add', label: 'Add event', primary: true }] : []).catch(() => $('add').classList.remove('hosted'));
+    host.bar.set(canEdit ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => $('add').classList.remove('hosted'));
     host.on('bar', (e) => {
       if (e.id !== 'add' || !canEdit) return;
       startNew();

@@ -730,7 +730,7 @@
   // Typing is `/v` in Chat, which opens the same form.
   if (host.bar) {
     $('add').classList.add('hosted');
-    host.bar.set(canCreate ? [{ id: 'add', label: 'New poll', primary: true }] : []).catch(() => $('add').classList.remove('hosted'));
+    host.bar.set(canCreate ? [{ id: 'add', label: 'New poll', icon: 'square-poll-horizontal', primary: true }] : []).catch(() => $('add').classList.remove('hosted'));
     host.on('bar', (e) => {
       if (e.id !== 'add' || !canCreate) return;
       openEditor();

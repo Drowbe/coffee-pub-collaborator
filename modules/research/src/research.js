@@ -487,14 +487,24 @@
   let previewWait = 0;
   let previewFor = '';
   const previewImg = $('f-preview-img');
-  if (previewImg) previewImg.addEventListener('error', () => { previewImg.hidden = true; });
+  const shotEmpty = () => $('f-preview') && $('f-preview').querySelector('.link-shot-empty');
+  function showShot(src) {
+    if (!previewImg) return;
+    if (!src) {
+      previewImg.hidden = true;
+      previewImg.removeAttribute('src');
+      if (shotEmpty()) shotEmpty().hidden = false;
+      return;
+    }
+    previewImg.hidden = false;
+    previewImg.src = src;
+    if (shotEmpty()) shotEmpty().hidden = true;
+  }
+  if (previewImg) previewImg.addEventListener('error', () => { if (previewImg.getAttribute('src')) showShot(''); });
   function clearPreview() {
     previewFor = '';
     if ($('f-url-note')) $('f-url-note').textContent = '';
-    const box = $('f-preview');
-    if (box) box.hidden = true;
-    if (previewImg) { previewImg.hidden = true; previewImg.removeAttribute('src'); }
-    if ($('f-preview-text')) $('f-preview-text').textContent = '';
+    showShot('');
   }
   async function pullPreview() {
     const e = state.editing;
@@ -515,22 +525,20 @@
       $('f-url-note').textContent = (title || description) ? 'Read from the page.' : '';
       const image = cleanUrl(got.image, 2000) || '';
       if (image) e.image = image;
-      if ($('f-preview-text')) $('f-preview-text').textContent = description;
-      if ($('f-preview')) $('f-preview').hidden = !(image || description);
-      if (previewImg) {
-        previewImg.hidden = !image;
-        if (image) host.preview.image(image).then((u) => { if (previewFor === url && u) { previewImg.src = u; previewImg.hidden = false; } }).catch(() => {});
-      }
+      if (image) host.preview.image(image).then((u) => { if (previewFor === url && u) showShot(u); }).catch(() => {});
+      else showShot('');
     } catch (err) {
       if (previewFor !== url) return;
       $('f-url-note').textContent = 'That page could not be read.';
-      if ($('f-preview')) $('f-preview').hidden = true;
+      showShot('');
     }
   }
   $('f-url').addEventListener('input', () => {
     clearTimeout(previewWait);
     previewFor = '';
     if (state.editing) state.editing.image = '';
+    showShot('');
+    if ($('f-url-note')) $('f-url-note').textContent = '';
     previewWait = setTimeout(pullPreview, 500);
   });
   $('f-url').addEventListener('change', () => { clearTimeout(previewWait); previewFor = ''; pullPreview(); });
@@ -576,7 +584,7 @@
     hydrate($('editor'));
     if (canEdit) (kind === 'photo' ? $('f-caption') : kind === 'link' && !id ? $('f-url') : $('f-title')).focus();
     if (kind === 'link' && it.image && state.previews) {
-      host.preview.image(it.image).then((u) => { if (state.editing && state.editing.image === it.image && u) { previewImg.hidden = false; previewImg.src = u; if ($('f-preview')) $('f-preview').hidden = false; } }).catch(() => {});
+      host.preview.image(it.image).then((u) => { if (state.editing && state.editing.image === it.image && u) showShot(u); }).catch(() => {});
     }
     if (kind === 'link' && it.url) pullPreview();
   }

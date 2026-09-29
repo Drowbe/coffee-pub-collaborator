@@ -5,6 +5,7 @@ All notable changes to Collaborator. Format follows Keep a Changelog, and versio
 ## [Unreleased]
 
 ### Added
+- A new link asks for the address first, then the title, with the page's picture to the right of both. The picture's place is there even before the page is read. Research 0.2.28.
 - A research link's card shows the page's picture and its description, so they are there without opening the link. The picture is read by this server. Research 0.2.27.
 - Adding a link can read the page. With **Fetch link previews** on for Research, an empty title or description is filled in from the page, and its picture is shown while editing. Off, which is how it starts, the server fetches nothing. Research 0.2.26.
 - Entering a space opens the remembered layout, then that space's own list, then the list the environment set for a new space, then the conference (or chat, when the conference is off). A Travel space opens the Planner and chat, and does not open the conference. Home base in that environment opens chat only, because the Planner is not on there. This is step 6 of Planner phases. A space's own list is not stored yet, so the canvas route answers null for it and sends the environment's list beside it. Checked by `tools/check-template-switch.mjs`. Not watched in a browser: signing in there was blocked on this machine, and there is no LiveKit server here, so a join never reaches the canvas. A real call was not checked.

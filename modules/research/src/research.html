@@ -47,8 +47,8 @@
       <div class="icon-field" data-kinds="note"><span class="hint">Type</span><div class="icon-choices" id="f-icons"></div></div>
       <label data-kinds="photo">Caption<input id="f-caption" name="caption" type="text" maxlength="200"></label>
       <label data-kinds="link">Address<input id="f-url" name="url" type="url" maxlength="500" placeholder="https://" autocomplete="off"></label>
-      <label data-kinds="note answer"><span data-slot="body-label">Note</span><textarea id="f-body" name="body" rows="6" maxlength="8000"></textarea></label>
-      <label data-kinds="link">What to remember from it<textarea id="f-excerpt" name="excerpt" rows="4" maxlength="2000"></textarea></label>
+      <label data-kinds="note answer"><span class="field-head"><span data-slot="body-label">Note</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span><textarea id="f-body" name="body" rows="6" maxlength="8000"></textarea></label>
+      <label data-kinds="link"><span class="field-head"><span>What to remember from it</span><span class="format-bar"><button type="button" data-format="bold" title="Bold" aria-label="Bold"><span class="ic" data-icon="bold"></span></button><button type="button" data-format="italic" title="Italic" aria-label="Italic"><span class="ic" data-icon="italic"></span></button><button type="button" data-format="code" title="Code" aria-label="Code"><span class="ic" data-icon="code"></span></button><button type="button" data-format="list" title="Bulleted list" aria-label="Bulleted list"><span class="ic" data-icon="list-ul"></span></button></span></span><textarea id="f-excerpt" name="excerpt" rows="4" maxlength="2000"></textarea></label>
       <label data-kinds="note link photo answer">Tags<span class="with-button"><input id="f-tags" name="tags" type="text" maxlength="200" placeholder="words, separated by commas" list="tag-list" autocomplete="off"><button type="button" class="btn" data-action="suggest-tags" hidden><span class="ic" data-icon="wand-magic-sparkles"></span> Suggest tags</button></span></label>
       <datalist id="tag-list"></datalist>
       <div class="editor-row" data-kinds="note link">
@@ -88,7 +88,7 @@
     <img class="thumb" data-slot="thumb" alt="" hidden>
     <div class="top"><span class="kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="menu sdk-more" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
     <div class="site" data-slot="site-wrap"><span class="ic" data-icon="globe"></span><span data-slot="site"></span></div>
-    <p class="excerpt" data-slot="excerpt"></p>
+    <div class="excerpt" data-slot="excerpt"></div>
     <div class="tags" data-slot="tags"></div>
     <div class="backlinks" data-slot="backlinks" hidden></div>
     <div class="meta">

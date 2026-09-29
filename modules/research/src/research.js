@@ -178,7 +178,13 @@
     el.dataset.id = it.id;
     el.dataset.kind = it.kind;
     setIcon(el.querySelector('.kind [data-icon]'), it.kind === 'note' ? noteIcon(it.icon) : KIND_ICON[it.kind]);
-    fill(el, { kind: it.kind === 'note' ? noteIconLabel(it.icon) : KIND_LABEL[it.kind], title: it.title, site: it.site, excerpt: it.kind === 'photo' ? '' : textOf(it), when: it.date ? dayText(it.date) : '', place: placeText(it.point), by: initial(it.by) });
+    fill(el, { kind: it.kind === 'note' ? noteIconLabel(it.icon) : KIND_LABEL[it.kind], title: it.title, site: it.site, when: it.date ? dayText(it.date) : '', place: placeText(it.point), by: initial(it.by) });
+    const words = it.kind === 'photo' ? '' : textOf(it);
+    const excerpt = slot(el, 'excerpt');
+    if (excerpt) {
+      excerpt.innerHTML = words ? host.util.markdown(words) : '';
+      excerpt.hidden = !words;
+    }
     hide(slot(el, 'ai'), it.kind !== 'answer');
     const by = slot(el, 'by-wrap');
     if (by) by.title = nameOf(it.by) ? `Added by ${nameOf(it.by)}` : '';
@@ -382,7 +388,39 @@
     }
   }
   const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
-  const setFormEditable = (yes) => { for (const f of $('form').querySelectorAll('input, textarea, select')) f.disabled = !yes; };
+  const setFormEditable = (yes) => { for (const f of $('form').querySelectorAll('input, textarea, select, .format-bar button')) f.disabled = !yes; };
+  // The same marks chat writes: **bold**, *italic*, `code`, and "- " at the start of a line.
+  function wrapSelection(el, marker) {
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const selected = el.value.slice(start, end);
+    el.value = el.value.slice(0, start) + marker + selected + marker + el.value.slice(end);
+    el.focus();
+    const from = start + marker.length;
+    el.setSelectionRange(from, from + selected.length);
+  }
+  function listSelection(el) {
+    const start = el.selectionStart;
+    const end = el.selectionEnd;
+    const value = el.value;
+    const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+    const lineEnd = value.indexOf('\n', end) === -1 ? value.length : value.indexOf('\n', end);
+    const block = value.slice(lineStart, lineEnd);
+    const next = block.split('\n').map((line) => (line.trim() ? `- ${line}` : line)).join('\n');
+    el.value = value.slice(0, lineStart) + next + value.slice(lineEnd);
+    el.focus();
+    el.setSelectionRange(lineStart, lineStart + next.length);
+  }
+  const FORMAT = { bold: '**', italic: '*', code: '`' };
+  $('form').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-format]');
+    if (!b || b.disabled) return;
+    const field = b.closest('label') && b.closest('label').querySelector('textarea');
+    if (!field || field.disabled) return;
+    ev.preventDefault();
+    if (b.dataset.format === 'list') listSelection(field);
+    else if (FORMAT[b.dataset.format]) wrapSelection(field, FORMAT[b.dataset.format]);
+  });
 
   function readPoint() {
     const text = $('f-point').value.trim();
@@ -637,7 +675,7 @@
     if (t && t.dataset.action === 'new-link') return openEditor(null, { kind: 'link' });
     if (t && t.dataset.action === 'add-photo') return choosePhotos();
     if (t && t.dataset.action === 'clear-filter') { state.filter = ''; state.kind = ''; state.tags = []; $('filter').value = ''; return render(); }
-    if (cardEl && !ev.target.closest('.menu')) openEditor(cardEl.dataset.id);
+    if (cardEl && !ev.target.closest('.menu, a')) openEditor(cardEl.dataset.id);
   });
   // An object can be dragged out to another module (onto a day of a plan, or a task that links to it): press its card and move.
   if (host.objects && host.objects.draggable) {

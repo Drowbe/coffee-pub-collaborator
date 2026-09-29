@@ -39,6 +39,8 @@ test('a page title, description and image are read', () => {
   assert.equal(got.title, 'Disneyland & more');
   assert.equal(got.description, 'The page says this.');
   assert.equal(got.image, 'https://disneyland.disney.go.com/hero.jpg');
+  const twitter = readPreview('<meta name="twitter:image" content="https://cdn.example.org/a.jpg"><title>T</title>', 'https://example.org/');
+  assert.equal(twitter.image, 'https://cdn.example.org/a.jpg');
 });
 
 test('a private image address is dropped', () => {

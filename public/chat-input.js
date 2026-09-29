@@ -404,6 +404,49 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
   }
 
+  function postCommand(parsed, chosen) {
+    return api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/command`, {
+      name: parsed.name,
+      text: parsed.rest,
+      module: chosen.module,
+    });
+  }
+
+  function askClosed(chosen, parsed) {
+    const name = chosen.moduleName;
+    const box = document.createElement('div');
+    box.className = 'chat-closed-ask';
+    const q = document.createElement('p');
+    q.textContent = `The ${name} is not open. What would you like to do?`;
+    const actions = document.createElement('div');
+    actions.className = 'chat-closed-actions';
+    const finish = () => box.remove();
+    const go = (open) => async () => {
+      finish();
+      try {
+        await postCommand(parsed, chosen);
+        if (open) canvas.open(chosen.module);
+      } catch (err) {
+        setNote(err.message || `The ${name} could not take that.`);
+      }
+    };
+    for (const [label, primary, onClick] of [
+      [`Add it and open ${name}.`, true, go(true)],
+      [`Add it and keep ${name} closed.`, false, go(false)],
+      ['Cancel', false, finish],
+    ]) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = primary ? 'btn btn-primary btn-small' : 'btn btn-small';
+      b.textContent = label;
+      b.addEventListener('click', onClick);
+      actions.appendChild(b);
+    }
+    box.append(q, actions);
+    $('messages').appendChild(box);
+    $('messages').scrollTop = $('messages').scrollHeight;
+  }
+
   async function runCommand(parsed) {
     const hits = matchesFor(parsed.name);
     if (!hits.length) {
@@ -423,18 +466,14 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
     const chosen = openHits[0] || hits[0];
     if (chosen.module && !canvas.isOpen(chosen.module)) {
-      setNote(`${chosen.moduleName} isn't open`);
+      askClosed(chosen, parsed);
       return false;
     }
     try {
-      await api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/command`, {
-        name: parsed.name,
-        text: parsed.rest,
-        module: chosen.module,
-      });
+      await postCommand(parsed, chosen);
       return true;
     } catch (err) {
-      setNote(err.message || `${chosen.moduleName} isn't open`);
+      setNote(err.message || `The ${chosen.moduleName} could not take that.`);
       return false;
     }
   }

@@ -143,21 +143,126 @@ function metaContent(html, which) {
   return '';
 }
 
+// An image address the page named, or ''. Resolved against the final page address. A private or local host is dropped.
+function absoluteImage(raw, base) {
+  const text = decode(String(raw || '')).trim();
+  if (!text) return '';
+  try {
+    const u = new URL(text, base);
+    const ip = net.isIP(u.hostname) ? u.hostname : '';
+    if ((u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password && !blockedName(u.hostname) && !(ip && blockedAddress(ip)) && u.href.length <= 2000) return u.href;
+  } catch { /* not an address */ }
+  return '';
+}
+
+// The kinds of thing a page is about. A logo on the site or a picture of the author is not one of these.
+const SUBJECT_TYPES = new Set([
+  'article', 'newsarticle', 'blogposting', 'report', 'scholarlyarticle', 'techarticle', 'socialmediaposting',
+  'product', 'productgroup',
+  'place', 'localbusiness', 'restaurant', 'hotel', 'touristattraction', 'touristtrip', 'event', 'recipe',
+  'lodgingbusiness', 'accommodation', 'landmarksorhistoricalbuildings', 'airport', 'civicstructure',
+]);
+
+function typeNames(node) {
+  const raw = node && node['@type'];
+  const list = Array.isArray(raw) ? raw : [raw];
+  return list.filter((t) => typeof t === 'string').map((t) => t.toLowerCase().split('/').pop());
+}
+
+function ldNodes(html) {
+  const nodes = [];
+  const scripts = String(html || '').matchAll(/<script\b[^>]*\btype\s*=\s*["']application\/ld\+json[^"']*["'][^>]*>([\s\S]*?)<\/script>/gi);
+  for (const script of scripts) {
+    const raw = script[1].trim();
+    if (!raw) continue;
+    let data = null;
+    try { data = JSON.parse(raw); } catch { try { data = JSON.parse(decode(raw)); } catch { data = null; } }
+    collectNodes(data, nodes);
+  }
+  return nodes;
+}
+
+function collectNodes(data, nodes) {
+  if (Array.isArray(data)) { for (const one of data) collectNodes(one, nodes); return; }
+  if (!data || typeof data !== 'object') return;
+  if (Array.isArray(data['@graph'])) { collectNodes(data['@graph'], nodes); return; }
+  nodes.push(data);
+}
+
+function nodesById(nodes) {
+  const map = new Map();
+  for (const node of nodes) if (typeof node['@id'] === 'string') map.set(node['@id'], node);
+  return map;
+}
+
+// A string, a list, or an ImageObject. An @id that names another block is followed once.
+function firstImage(value, base, byId, seen) {
+  if (value == null) return '';
+  if (typeof value === 'string') return absoluteImage(value, base);
+  if (Array.isArray(value)) {
+    for (const one of value) {
+      const got = firstImage(one, base, byId, seen);
+      if (got) return got;
+    }
+    return '';
+  }
+  if (typeof value !== 'object') return '';
+  const direct = absoluteImage(value.url || value.contentUrl || '', base);
+  if (direct) return direct;
+  const id = value['@id'];
+  if (typeof id !== 'string' || !byId || seen?.has(id)) return absoluteImage(id, base);
+  const node = byId.get(id);
+  if (!node) return absoluteImage(id, base);
+  const next = new Set(seen || []);
+  next.add(id);
+  return firstImage(node.url || node.contentUrl || node.image, base, byId, next);
+}
+
+function resolveNode(value, byId) {
+  if (typeof value === 'string') return byId.get(value) || null;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const id = value['@id'];
+  const pointed = typeof id === 'string' ? byId.get(id) : null;
+  if (pointed && !value.image && !value.url && !value.contentUrl) return pointed;
+  return value;
+}
+
+// The picture the page names for itself, the way a search result does: primaryImageOfPage, then the picture on
+// the main thing (an article, a product, a place), before the share tags.
+function schemaImage(html, base) {
+  const nodes = ldNodes(html);
+  if (!nodes.length) return '';
+  const byId = nodesById(nodes);
+  for (const node of nodes) {
+    const got = firstImage(node.primaryImageOfPage, base, byId);
+    if (got) return got;
+  }
+  for (const node of nodes) {
+    const main = node.mainEntity;
+    const target = Array.isArray(main) ? resolveNode(main[0], byId) : resolveNode(main, byId);
+    const got = target ? firstImage(target.image, base, byId) : '';
+    if (got) return got;
+  }
+  for (const node of nodes) {
+    if (!node.mainEntityOfPage) continue;
+    const got = firstImage(node.image, base, byId);
+    if (got) return got;
+  }
+  for (const node of nodes) {
+    if (!typeNames(node).some((name) => SUBJECT_TYPES.has(name))) continue;
+    const got = firstImage(node.image, base, byId);
+    if (got) return got;
+  }
+  return '';
+}
+
 // Title, description and image from a page's HTML. The image address is resolved against the final page address.
 function readPreview(html, base) {
   const text = String(html || '');
   const titleTag = /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(text);
   const title = plain(metaContent(text, 'og:title') || (titleTag && titleTag[1]) || '', 120);
   const description = plain(metaContent(text, 'og:description') || metaContent(text, 'description') || '', 2000);
-  let image = '';
-  const raw = metaContent(text, 'og:image') || metaContent(text, 'twitter:image');
-  if (raw) {
-    try {
-      const u = new URL(decode(raw).trim(), base);
-      const ip = net.isIP(u.hostname) ? u.hostname : '';
-      if ((u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password && !blockedName(u.hostname) && !(ip && blockedAddress(ip)) && u.href.length <= 2000) image = u.href;
-    } catch { /* not an address */ }
-  }
+  const image = schemaImage(text, base) || absoluteImage(metaContent(text, 'og:image') || metaContent(text, 'twitter:image'), base);
   return { title, description, image };
 }
 

@@ -49,4 +49,53 @@ test('a private image address is dropped', () => {
   assert.equal(readPreview(html, 'https://example.org/').title, 'Hi');
 });
 
+test('a page picture comes from structured data before the share tags', () => {
+  const primary = `<script type="application/ld+json">{
+    "@type": "WebPage",
+    "primaryImageOfPage": { "@type": "ImageObject", "url": "https://cdn.example.org/page.jpg" }
+  }</script><meta property="og:image" content="https://cdn.example.org/share.jpg">`;
+  assert.equal(readPreview(primary, 'https://example.org/').image, 'https://cdn.example.org/page.jpg');
+
+  const article = `<script type="application/ld+json">{
+    "@type": "NewsArticle",
+    "image": ["/hero.jpg", "https://cdn.example.org/other.jpg"]
+  }</script>`;
+  assert.equal(readPreview(article, 'https://example.org/story').image, 'https://example.org/hero.jpg');
+
+  const product = `<script type="application/ld+json">{
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "Organization", "image": "https://cdn.example.org/logo.jpg" },
+      { "@type": "Product", "image": { "@type": "ImageObject", "contentUrl": "https://cdn.example.org/product.jpg" } }
+    ]
+  }</script><meta property="og:image" content="https://cdn.example.org/share.jpg">`;
+  assert.equal(readPreview(product, 'https://example.org/').image, 'https://cdn.example.org/product.jpg');
+
+  const place = `<script type="application/ld+json">{
+    "@type": "TouristAttraction",
+    "mainEntityOfPage": "https://example.org/park",
+    "image": "https://cdn.example.org/park.jpg"
+  }</script>`;
+  assert.equal(readPreview(place, 'https://example.org/park').image, 'https://cdn.example.org/park.jpg');
+
+  const linked = `<script type="application/ld+json">{
+    "@graph": [
+      { "@type": "ImageObject", "@id": "https://example.org/#img", "url": "https://cdn.example.org/from-id.jpg" },
+      { "@type": "WebPage", "primaryImageOfPage": { "@id": "https://example.org/#img" } }
+    ]
+  }</script>`;
+  assert.equal(readPreview(linked, 'https://example.org/').image, 'https://cdn.example.org/from-id.jpg');
+});
+
+test('a site logo in structured data is not the page picture', () => {
+  const html = `<script type="application/ld+json">{ "@type": "Organization", "image": "https://cdn.example.org/logo.jpg" }</script>
+    <meta property="og:image" content="https://cdn.example.org/share.jpg">`;
+  assert.equal(readPreview(html, 'https://example.org/').image, 'https://cdn.example.org/share.jpg');
+  const broken = `<script type="application/ld+json">{ not json</script><meta property="og:image" content="/ok.jpg">`;
+  assert.equal(readPreview(broken, 'https://example.org/a').image, 'https://example.org/ok.jpg');
+  const priv = `<script type="application/ld+json">{ "@type": "Article", "image": "http://127.0.0.1/a.jpg" }</script>
+    <meta property="og:image" content="https://cdn.example.org/share.jpg">`;
+  assert.equal(readPreview(priv, 'https://example.org/').image, 'https://cdn.example.org/share.jpg');
+});
+
 console.log(`check-link-preview: OK (${n} checks)`);

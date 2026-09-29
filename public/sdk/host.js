@@ -922,6 +922,7 @@
     // { enabled, title, description, image }. `enabled` is false until the module's link previews setting is on.
     preview: {
       link: (url) => call('preview.link', { url }),
+      image: (url) => call('preview.image', { url }),
     },
 
     // The people of the space this module is in: [{ key, name }] (empty outside a space's canvas). For choosing a person

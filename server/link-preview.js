@@ -71,16 +71,19 @@ async function publicAddresses(hostname) {
   return addresses;
 }
 
-function getOnce(target, addresses) {
+function getOnce(target, addresses, maxBytes, accept) {
   return new Promise((resolve, reject) => {
     const lib = target.protocol === 'https:' ? https : http;
+    let settled = false;
+    const done = (value) => { if (!settled) { settled = true; resolve(value); } };
+    const fail = (err) => { if (!settled) { settled = true; reject(err); } };
     const req = lib.request({
       protocol: target.protocol,
       hostname: target.hostname,
       port: target.port || (target.protocol === 'https:' ? 443 : 80),
       path: `${target.pathname}${target.search}`,
       method: 'GET',
-      headers: { 'user-agent': 'Collaborator', accept: 'text/html,application/xhtml+xml' },
+      headers: { 'user-agent': 'Collaborator', accept: accept || 'text/html,application/xhtml+xml' },
       timeout: TIMEOUT_MS,
       lookup: (_hostname, opts, cb) => {
         const list = addresses.map((address) => ({ address, family: net.isIP(address) }));
@@ -92,17 +95,17 @@ function getOnce(target, addresses) {
       let size = 0;
       res.on('data', (chunk) => {
         size += chunk.length;
-        if (size > MAX_BYTES) {
+        if (size > maxBytes) {
           req.destroy();
-          reject(new PreviewError('that page is too large'));
+          done({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks), cut: true });
           return;
         }
         chunks.push(chunk);
       });
-      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks) }));
+      res.on('end', () => done({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks), cut: false }));
     });
     req.on('timeout', () => req.destroy(new PreviewError('that page took too long')));
-    req.on('error', () => reject(new PreviewError('that page could not be read')));
+    req.on('error', () => fail(new PreviewError('that page could not be read')));
     req.end();
   });
 }
@@ -147,12 +150,12 @@ function readPreview(html, base) {
   const title = plain(metaContent(text, 'og:title') || (titleTag && titleTag[1]) || '', 120);
   const description = plain(metaContent(text, 'og:description') || metaContent(text, 'description') || '', 2000);
   let image = '';
-  const raw = metaContent(text, 'og:image');
+  const raw = metaContent(text, 'og:image') || metaContent(text, 'twitter:image');
   if (raw) {
     try {
       const u = new URL(decode(raw).trim(), base);
       const ip = net.isIP(u.hostname) ? u.hostname : '';
-      if ((u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password && !blockedName(u.hostname) && !(ip && blockedAddress(ip)) && u.href.length <= 500) image = u.href;
+      if ((u.protocol === 'https:' || u.protocol === 'http:') && !u.username && !u.password && !blockedName(u.hostname) && !(ip && blockedAddress(ip)) && u.href.length <= 2000) image = u.href;
     } catch { /* not an address */ }
   }
   return { title, description, image };
@@ -163,7 +166,7 @@ async function fetchPreview(text) {
   if (!current) throw new PreviewError('give a web address that starts with https:// or http://');
   for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
     const addresses = await publicAddresses(current.hostname);
-    const res = await getOnce(current, addresses);
+    const res = await getOnce(current, addresses, MAX_BYTES);
     const status = res.status || 0;
     if (status >= 300 && status < 400 && res.headers.location) {
       if (hop === MAX_REDIRECTS) throw new PreviewError('that page could not be read');
@@ -187,4 +190,58 @@ async function fetchPreview(text) {
   throw new PreviewError('that page could not be read');
 }
 
-module.exports = { PreviewError, blockedAddress, blockedName, readPreview, fetchPreview };
+const IMAGE_BYTES = 1048576;
+const IMAGE_CACHE_MS = 10 * 60 * 1000;
+const IMAGE_CACHE_MAX = 40;
+const imageCache = new Map();
+
+function imageType(buf, header) {
+  const type = String(header || '').split(';')[0].trim().toLowerCase();
+  if (type === 'image/jpeg' || type === 'image/png' || type === 'image/webp' || type === 'image/gif') return type;
+  if (buf.length >= 3 && buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return 'image/jpeg';
+  if (buf.length >= 8 && buf[0] === 0x89 && buf.toString('ascii', 1, 4) === 'PNG') return 'image/png';
+  if (buf.length >= 6 && (buf.toString('ascii', 0, 6) === 'GIF87a' || buf.toString('ascii', 0, 6) === 'GIF89a')) return 'image/gif';
+  if (buf.length >= 12 && buf.toString('ascii', 0, 4) === 'RIFF' && buf.toString('ascii', 8, 12) === 'WEBP') return 'image/webp';
+  return '';
+}
+
+// A picture already read for this address, or null. The card asks again for every view, so a repeat is not fetched twice.
+function cachedImage(text) {
+  const target = pageUrl(text);
+  if (!target || target.href.length > 2000) return null;
+  const hit = imageCache.get(target.href);
+  if (!hit || Date.now() - hit.at > IMAGE_CACHE_MS) return null;
+  return hit;
+}
+
+// The picture itself, fetched here so the card does not ask the other site (many refuse that). Same address rules as the page.
+async function fetchImage(text) {
+  const hit = cachedImage(text);
+  if (hit) return hit;
+  let current = pageUrl(text);
+  if (!current || current.href.length > 2000) throw new PreviewError('that address is not allowed');
+  const asked = current.href;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const addresses = await publicAddresses(current.hostname);
+    const res = await getOnce(current, addresses, IMAGE_BYTES, 'image/webp,image/png,image/jpeg,image/gif');
+    const status = res.status || 0;
+    if (status >= 300 && status < 400 && res.headers.location) {
+      if (hop === MAX_REDIRECTS) throw new PreviewError('that picture could not be read');
+      let next;
+      try { next = new URL(res.headers.location, current); } catch { throw new PreviewError('that picture could not be read'); }
+      current = pageUrl(next.href);
+      if (!current) throw new PreviewError('that address is not allowed');
+      continue;
+    }
+    if (status < 200 || status >= 300 || res.cut) throw new PreviewError('that picture could not be read');
+    const type = imageType(res.body, res.headers['content-type']);
+    if (!type) throw new PreviewError('that picture could not be read');
+    const stored = { type, body: res.body, at: Date.now() };
+    if (imageCache.size >= IMAGE_CACHE_MAX) imageCache.delete(imageCache.keys().next().value);
+    imageCache.set(asked, stored);
+    return stored;
+  }
+  throw new PreviewError('that picture could not be read');
+}
+
+module.exports = { PreviewError, blockedAddress, blockedName, readPreview, fetchPreview, fetchImage, cachedImage };

@@ -52,9 +52,12 @@ await test('items are checked: what a kind needs, and nothing else', () => {
   assert.equal(lib.cleanItem('link', 'a', { title: 'x', url: 'javascript:alert(1)' }), null);
   assert.equal(lib.cleanItem('link', 'a', { url: 'https://u:p@x.example' }), null);
   assert.equal(lib.cleanItem('photo', 'a', { title: 'x' }), null); // a photo needs its file
-  const link = lib.cleanItem('link', 'a', { url: 'https://www.example.org/page', excerpt: 'the part that mattered', tags: ['Hotel', 'hotel', 'Two Words'] });
+  const link = lib.cleanItem('link', 'a', { url: 'https://www.example.org/page', excerpt: 'the part that mattered', image: 'https://cdn.example.org/hero.jpg', tags: ['Hotel', 'hotel', 'Two Words'] });
   assert.equal(link.title, 'example.org');
   assert.equal(link.site, 'example.org');
+  assert.equal(link.image, 'https://cdn.example.org/hero.jpg');
+  assert.equal(lib.itemValue(link).image, 'https://cdn.example.org/hero.jpg');
+  assert.equal(lib.cleanItem('link', 'a', { url: 'https://example.org/a', image: 'javascript:alert(1)' }).image, '');
   assert.deepEqual(link.tags, ['hotel', 'twowords']);
   const note = lib.cleanItem('note', 'b', { body: 'First line\nsecond', date: '2026-02-30', point: { lat: 95, lng: 0 } });
   assert.equal(note.title, 'First line');

@@ -73,10 +73,10 @@
   const parseTags = (text) => cleanTags(String(text || '').split(/[\s,;]+/));
 
   // A web address (http or https only, no user name or password), or null.
-  function cleanUrl(text) {
+  function cleanUrl(text, max = 500) {
     let u;
     try { u = new URL(String(text || '').trim()); } catch (err) { return null; }
-    if (!/^https?:$/.test(u.protocol) || u.username || u.password || u.href.length > 500) return null;
+    if (!/^https?:$/.test(u.protocol) || u.username || u.password || u.href.length > max) return null;
     return u.href;
   }
   const siteOf = (url) => { try { return new URL(url).hostname.replace(/^www\./, ''); } catch (err) { return ''; } };
@@ -103,6 +103,7 @@
       content: kind === 'answer' ? plainText(v.content, 8000) : '',
       url: url || '',
       site: url ? siteOf(url) : '',
+      image: '',
       tags: cleanTags(v.tags),
       date: isDay(v.date) ? v.date : '',
       point: null,
@@ -116,6 +117,10 @@
       const lat = Number(v.point.lat);
       const lng = Number(v.point.lng);
       if (geo.inRange(lat, lng)) item.point = { lat: geo.round6(lat), lng: geo.round6(lng), ...(typeof v.point.name === 'string' && v.point.name.trim() ? { name: geo.oneLine(v.point.name, 120) } : {}) };
+    }
+    if (kind === 'link') {
+      const image = cleanUrl(v.image, 2000);
+      if (image) item.image = image;
     }
     if (kind === 'photo' && v.file && typeof v.file.id === 'string' && /^[a-f0-9]{24}$/.test(v.file.id)) item.file = { id: v.file.id, hasThumb: v.file.hasThumb === true };
     if (kind === 'photo' && !item.file) return null;
@@ -132,7 +137,7 @@
   function itemValue(it) {
     const v = { kind: it.kind, title: it.title, tags: it.tags, date: it.date, by: it.by, at: it.at, text: textOf(it), sub: it.kind === 'link' ? it.site : '' };
     if (it.kind === 'note') { v.body = it.body; v.icon = noteIcon(it.icon); }
-    if (it.kind === 'link') { v.url = it.url; v.excerpt = it.excerpt; }
+    if (it.kind === 'link') { v.url = it.url; v.excerpt = it.excerpt; if (it.image) v.image = it.image; }
     if (it.kind === 'answer') { v.content = it.content; if (it.ai) v.ai = it.ai; }
     if (it.kind === 'photo' && it.file) v.file = it.file;
     if (it.point) v.point = it.point;

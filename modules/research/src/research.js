@@ -53,6 +53,7 @@
     uploads: [], // { el, file, step, progress, error, posAsk }
     tagColors: new Map(), // a well-known tag -> its colour
     previews: false, // the environment's Fetch link previews setting
+    warming: new Set(), // link ids already asked for a picture, so a redraw does not ask again
     ai: false, // whether this person may use AI here (for Suggest tags, and Research this)
     thumbs: new Map(), // photo id -> address of its thumbnail in the view it was asked for
   };
@@ -192,8 +193,16 @@
     hide(slot(el, 'by-wrap'), !it.by || view === 'my');
     const img = slot(el, 'thumb');
     // A picture that will not load (its file was removed) shows a quiet placeholder instead of nothing.
-    img.addEventListener('error', () => { if (img.getAttribute('src')) { img.classList.add('missing'); img.hidden = false; } });
-    if (it.kind === 'photo' && it.file) { const u = thumbUrl(it); if (u) { img.src = u; img.hidden = false; } } else hide(img, true);
+    // A link's picture is the page's, fetched by this server: if that fails, leave the card without it.
+    img.addEventListener('error', () => {
+      if (!img.getAttribute('src')) return;
+      if (el.dataset.kind === 'link') { img.hidden = true; img.removeAttribute('src'); return; }
+      img.classList.add('missing');
+      img.hidden = false;
+    });
+    if (it.kind === 'photo' && it.file) { const u = thumbUrl(it); if (u) { img.src = u; img.hidden = false; } }
+    else if (it.kind === 'link' && it.image && state.previews) showLinkImage(it, img);
+    else hide(img, true);
     const tags = slot(el, 'tags');
     tags.replaceChildren(...it.tags.map((t) => tagNode(t, 'tpl-tag')));
     tags.hidden = !it.tags.length;
@@ -253,6 +262,45 @@
     if (state.layout !== 'list') masonry(grid);
     renderUploads();
     hydrate(root);
+    warmLinks();
+  }
+
+  // The page's picture, through this server, so the other site is not asked by the browser.
+  function showLinkImage(it, img) {
+    host.preview.image(it.image).then((u) => {
+      const node = root.querySelector(`.rcard[data-id="${it.id}"] [data-slot="thumb"]`) || img;
+      if (!node || !u) return;
+      node.src = u;
+      node.hidden = false;
+    }).catch(() => {});
+  }
+
+  // A saved link that has no picture yet: read the page once and keep the picture, and a description when the note is empty.
+  let warmChain = Promise.resolve();
+  function warmLinks() {
+    if (!state.previews || !canEdit) return;
+    for (const it of research.list()) {
+      if (it.kind !== 'link' || !it.url || (it.image && it.excerpt) || state.warming.has(it.id)) continue;
+      if (state.editing && state.editing.id === it.id) continue;
+      state.warming.add(it.id);
+      const id = it.id;
+      const store = stores[view];
+      warmChain = warmChain.then(() => warmLink(store, id)).catch(() => {});
+    }
+  }
+  async function warmLink(store, id) {
+    const it = store.get(id);
+    if (!it || it.kind !== 'link' || !it.url || (it.image && it.excerpt)) return;
+    if (state.editing && state.editing.id === id) { state.warming.delete(id); return; }
+    const got = await host.preview.link(it.url);
+    if (!got || got.enabled === false) return;
+    const cur = store.get(id);
+    if (!cur || (state.editing && state.editing.id === id)) return;
+    const image = cleanUrl(got.image, 2000) || '';
+    const description = String(got.description || '').trim();
+    const next = { ...cur, image: cur.image || image, excerpt: cur.excerpt || description };
+    if (next.image === cur.image && next.excerpt === cur.excerpt) return;
+    await store.save(next, store.versionOf(id));
   }
 
   // Cards pack like masonry: each takes as many rows of the grid's fine row unit as its own height needs, so a short card
@@ -435,7 +483,7 @@
   $('f-point').addEventListener('input', readPoint);
 
   // A link's page, read by the server when Fetch link previews is on. An empty title or description is filled in.
-  // What the person already typed is left as it is. The picture is only shown here; it is not stored.
+  // What the person already typed is left as it is. The picture is kept on the link and drawn on the card.
   let previewWait = 0;
   let previewFor = '';
   const previewImg = $('f-preview-img');
@@ -465,13 +513,14 @@
       if (title && !geo.oneLine($('f-title').value, 120)) $('f-title').value = title;
       if (description && !$('f-excerpt').value.trim()) $('f-excerpt').value = description;
       $('f-url-note').textContent = (title || description) ? 'Read from the page.' : '';
-      const image = String(got.image || '');
-      if ($('f-preview-text')) $('f-preview-text').textContent = image ? description : '';
+      const image = cleanUrl(got.image, 2000) || '';
+      if (image) e.image = image;
+      if ($('f-preview-text')) $('f-preview-text').textContent = description;
+      if ($('f-preview')) $('f-preview').hidden = !(image || description);
       if (previewImg) {
         previewImg.hidden = !image;
-        if (image) previewImg.src = image;
+        if (image) host.preview.image(image).then((u) => { if (previewFor === url && u) { previewImg.src = u; previewImg.hidden = false; } }).catch(() => {});
       }
-      if ($('f-preview')) $('f-preview').hidden = !image;
     } catch (err) {
       if (previewFor !== url) return;
       $('f-url-note').textContent = 'That page could not be read.';
@@ -481,6 +530,7 @@
   $('f-url').addEventListener('input', () => {
     clearTimeout(previewWait);
     previewFor = '';
+    if (state.editing) state.editing.image = '';
     previewWait = setTimeout(pullPreview, 500);
   });
   $('f-url').addEventListener('change', () => { clearTimeout(previewWait); previewFor = ''; pullPreview(); });
@@ -492,7 +542,7 @@
     const s = seed || {};
     const kind = cur ? cur.kind : KINDS.includes(s.kind) ? s.kind : 'note';
     const it = cur || { kind, title: s.title || '', body: s.body || '', excerpt: s.excerpt || '', content: '', url: s.url || '', tags: [], date: '', point: s.point || null, by: '', ai: null, icon: s.icon || '' };
-    state.editing = { id: id || null, kind, version: cur ? research.versionOf(id) : undefined, point: it.point, pointOk: true, conflict: null, icon: kind === 'note' ? noteIcon(it.icon) : '' };
+    state.editing = { id: id || null, kind, version: cur ? research.versionOf(id) : undefined, point: it.point, pointOk: true, conflict: null, icon: kind === 'note' ? noteIcon(it.icon) : '', image: kind === 'link' ? (it.image || '') : '' };
     paintIconChoices();
     dropConflict();
     $('form').dataset.kind = kind;
@@ -525,6 +575,9 @@
     hide($('editor'), false);
     hydrate($('editor'));
     if (canEdit) (kind === 'photo' ? $('f-caption') : kind === 'link' && !id ? $('f-url') : $('f-title')).focus();
+    if (kind === 'link' && it.image && state.previews) {
+      host.preview.image(it.image).then((u) => { if (state.editing && state.editing.image === it.image && u) { previewImg.hidden = false; previewImg.src = u; if ($('f-preview')) $('f-preview').hidden = false; } }).catch(() => {});
+    }
     if (kind === 'link' && it.url) pullPreview();
   }
   function closeEditor() { hide($('editor'), true); state.editing = null; }
@@ -576,6 +629,7 @@
       excerpt: kind === 'link' ? $('f-excerpt').value : '',
       content: kind === 'answer' ? $('f-body').value : '',
       url: url || '',
+      image: kind === 'link' ? (e.image || '') : '',
       tags: parseTags($('f-tags').value),
       date: $('f-date').value,
       point: kind === 'photo' || kind === 'answer' ? (base ? base.point : null) : e.point,

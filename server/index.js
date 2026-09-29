@@ -27,7 +27,7 @@ const { ModuleUploads } = require('./module-uploads');
 const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
-const { fetchPreview, PreviewError } = require('./link-preview');
+const { fetchPreview, fetchImage, cachedImage, PreviewError } = require('./link-preview');
 const objectSync = require('./object-sync');
 const themeFile = require('./theme-file');
 const templateFile = require('./template-file');
@@ -4990,6 +4990,27 @@ function geocodeSetup(manifest) {
 }
 // A link someone is adding: the server reads that page's title, description and image. Off until the module's
 // linkPreviews setting is on, because the request leaves this server for an address the person typed.
+// The picture from a link preview, fetched here and sent to the card. A browser asking the other site for it is often refused.
+app.get('/api/modules/:id/link-image', async (req, res) => {
+  const ctx = moduleAccess(req, res, 'read');
+  if (!ctx) return;
+  if (!(ctx.manifest.settings || []).some((s) => s.key === 'linkPreviews')) return res.status(404).end();
+  const values = moduleSettings.values(ctx.manifest, 'environment', {});
+  if (values.linkPreviews !== true) return res.status(404).end();
+  const asked = String(req.query.url || '');
+  try {
+    let image = cachedImage(asked);
+    if (!image) {
+      if (overLimit(ctx.manifest.id, ctx.by, 'search')) return res.status(429).end();
+      image = await fetchImage(asked);
+    }
+    res.set('Content-Type', image.type);
+    res.set('Cache-Control', 'private, max-age=600');
+    res.send(image.body);
+  } catch {
+    res.status(404).end();
+  }
+});
 app.post('/api/modules/:id/link-preview', async (req, res) => {
   const ctx = moduleAccess(req, res, 'write');
   if (!ctx) return;

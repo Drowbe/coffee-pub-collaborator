@@ -910,6 +910,10 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     async 'preview.link'({ url: page }) {
       return api('POST', url('/link-preview', scopeOf()), { url: String(page ?? '').slice(0, 500) });
     },
+    // The address of a link's picture, fetched by this server, for an <img> on the card.
+    async 'preview.image'({ url: page }) {
+      return url('/link-image', scopeOf(), { url: String(page ?? '').slice(0, 2000) });
+    },
     // The people of the space this module is in: [{ key, name }], for a module that lets a person be chosen ("whose is it").
     // Empty on a module's environment page, which is not in one space.
     async people() {

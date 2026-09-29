@@ -27,6 +27,7 @@ const { ModuleUploads } = require('./module-uploads');
 const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
+const { fetchPreview, PreviewError } = require('./link-preview');
 const objectSync = require('./object-sync');
 const themeFile = require('./theme-file');
 const templateFile = require('./template-file');
@@ -4987,6 +4988,23 @@ function geocodeSetup(manifest) {
   if (chosen === g.custom && typeof values[g.address] === 'string' && /^https?:\/\//i.test(values[g.address])) return { name: 'the search service', address: values[g.address], credit: '', save: g.save ? values[g.save] === true : false };
   return null;
 }
+// A link someone is adding: the server reads that page's title, description and image. Off until the module's
+// linkPreviews setting is on, because the request leaves this server for an address the person typed.
+app.post('/api/modules/:id/link-preview', async (req, res) => {
+  const ctx = moduleAccess(req, res, 'write');
+  if (!ctx) return;
+  if (!(ctx.manifest.settings || []).some((s) => s.key === 'linkPreviews')) return res.status(404).json({ error: `this ${word('module')} does not read link previews` });
+  const values = moduleSettings.values(ctx.manifest, 'environment', {});
+  if (values.linkPreviews !== true) return res.json({ enabled: false });
+  if (overLimit(ctx.manifest.id, ctx.by, 'search')) return res.status(429).json({ error: limitMessage() });
+  try {
+    const preview = await fetchPreview(String(req.body?.url || ''));
+    res.json({ enabled: true, ...preview });
+  } catch (err) {
+    const message = err instanceof PreviewError ? err.message : 'that page could not be read';
+    res.status(400).json({ error: message });
+  }
+});
 app.get('/api/modules/:id/geocode', async (req, res) => {
   const ctx = geocodeAccess(req, res, 'read');
   if (!ctx) return;

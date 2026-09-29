@@ -906,6 +906,10 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     async 'geocode.used'({ key }) {
       return api('POST', url('/geocode/use', scopeOf()), { key: String(key ?? '') });
     },
+    // A page's title, description and image, read by the server (a module with a linkPreviews setting).
+    async 'preview.link'({ url: page }) {
+      return api('POST', url('/link-preview', scopeOf()), { url: String(page ?? '').slice(0, 500) });
+    },
     // The people of the space this module is in: [{ key, name }], for a module that lets a person be chosen ("whose is it").
     // Empty on a module's environment page, which is not in one space.
     async people() {

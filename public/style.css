@@ -2681,6 +2681,26 @@ a.crumb-here:hover {
   color: var(--text-dim);
 }
 
+.chat-closed-ask {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+}
+
+.chat-closed-ask p {
+  margin: 0;
+}
+
+.chat-closed-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .chat-session-divider {
   display: flex;
   align-items: center;

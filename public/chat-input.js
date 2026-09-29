@@ -329,6 +329,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
       at: entry.at,
       visibility: shared ? 'public' : 'private',
       kind: kind === 'you' ? 'you' : 'ai',
+      by: kind === 'you' ? (getMe()?.key || '') : '',
       body,
       entry,
       onPublic: kind === 'ai' ? () => {

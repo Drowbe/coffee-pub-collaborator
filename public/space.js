@@ -1311,7 +1311,7 @@ function chatClearedAt(spaceId) {
 async function fetchChatHistory(spaceId) {
   const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
   const { messages } = await api('GET', `/api/spaces/${encodeURIComponent(spaceId)}/chat${q}`);
-  return messages.map((m) => ({ who: m.who, text: m.text, at: new Date(m.at).toISOString() }));
+  return messages.map((m) => ({ who: m.who, by: m.by, text: m.text, at: new Date(m.at).toISOString() }));
 }
 // Tell the server what was just said, so the space's history has it. Best effort: the message already went out live.
 function postChatMessage(text) {
@@ -1335,7 +1335,7 @@ async function renderChatHistory(spaceId) {
   // Anything live that arrived while this was loading is already there, so the history goes above it.
   const fragment = document.createDocumentFragment();
   for (const entry of history) {
-    const el = messageEl({ who: entry.who, text: entry.text, at: new Date(entry.at) }, entry.who === me?.displayName);
+    const el = messageEl({ who: entry.who, by: entry.by, text: entry.text, at: new Date(entry.at) }, entry.who === me?.displayName);
     el.classList.add('history');
     fragment.appendChild(el);
   }
@@ -1436,7 +1436,16 @@ function messageStamp(at) {
   return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
 
-function messagePortrait(name, kind, icon) {
+function senderKey(entry) {
+  if (entry?.by) return entry.by;
+  if (entry?.who && me?.displayName === entry.who) return me.key;
+  for (const [key, user] of presenceUsers) {
+    if (user?.displayName === entry.who) return key;
+  }
+  return '';
+}
+
+function messagePortrait(name, kind, icon, by) {
   const el = document.createElement('span');
   el.className = 'message-portrait';
   el.setAttribute('aria-hidden', 'true');
@@ -1445,13 +1454,24 @@ function messagePortrait(name, kind, icon) {
     el.innerHTML = `<i class="fa-solid fa-${safe} fa-fw"></i>`;
     return el;
   }
+  if (by) {
+    const img = document.createElement('img');
+    img.className = 'message-portrait';
+    img.alt = '';
+    img.src = spacePortraitUrl(by);
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = imgUrl(by, 'profile');
+    };
+    return img;
+  }
   el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
   return el;
 }
 
 // A chat message is a header and a container. The header has a left zone (portrait, name, time) and a
 // right zone (private or public, then the menu). The container is the message itself.
-function frameMessage({ name, at, visibility = 'public', kind, icon, body, entry, onPublic }) {
+function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, entry, onPublic }) {
   const el = document.createElement('div');
   el.className = 'message';
   if (kind === 'own' || kind === 'you') el.classList.add('own');
@@ -1471,7 +1491,7 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, body, entry
   const when = document.createElement('span');
   when.className = 'message-when';
   when.textContent = messageStamp(at);
-  left.append(messagePortrait(name, kind, icon), nameEl);
+  left.append(messagePortrait(name, kind, icon, by), nameEl);
   if (when.textContent) left.append(dash, when);
   const right = document.createElement('span');
   right.className = 'message-head-side';
@@ -1561,6 +1581,7 @@ function messageEl(entry, own) {
     at: entry.at,
     visibility: 'public',
     kind: own ? 'own' : '',
+    by: senderKey(entry),
     body,
     entry,
   });
@@ -1577,8 +1598,8 @@ function addEntry(entry, own = false) {
   }
 }
 
-function addMessage(message, from, own = false) {
-  addEntry({ who: from, text: message }, own);
+function addMessage(message, from, own = false, by = '') {
+  addEntry({ who: from, text: message, by }, own);
 }
 
 function saveChat() {
@@ -2020,7 +2041,7 @@ call
   })
   .on(RoomEvent.ChatMessage, (message, participant) => {
     if (!canDo('chatRead')) return;
-    addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal);
+    addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal, participant?.identity);
   })
   .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
     try {

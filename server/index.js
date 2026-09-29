@@ -3838,6 +3838,7 @@ app.post('/api/spaces/:id/ai', async (req, res) => {
       // gone or invisible: left out
     }
   }
+  const askedAt = Date.now();
   try {
     const out = await ai.run('ask', material, question);
     if (BASE_DOMAIN && hostRegistry) {
@@ -3846,10 +3847,10 @@ app.post('/api/spaces/:id/ai', async (req, res) => {
     }
     const summaries = (out.summaries || []).map((c) => ({ ...c, sources: (c.sources || []).map((n) => given[n - 1]).filter(Boolean) }));
     const shared = req.body?.share === true;
-    aiThreads.add(found.space.id, found.who.user.key, { role: 'user', text: question, shared });
-    aiThreads.add(found.space.id, found.who.user.key, { role: 'ai', text: out.text, summaries, shared });
+    aiThreads.add(found.space.id, found.who.user.key, { role: 'user', text: question, shared, at: askedAt });
+    const answered = aiThreads.add(found.space.id, found.who.user.key, { role: 'ai', text: out.text, summaries, shared });
     noteActivity('chat', `asked the AI (${out.tokens} tokens)`, found.who.user.key, found.space.id);
-    res.json({ text: out.text, summaries, used: out.used.map((n) => given[n - 1]).filter(Boolean), tokens: out.tokens, shared });
+    res.json({ text: out.text, summaries, used: out.used.map((n) => given[n - 1]).filter(Boolean), tokens: out.tokens, shared, at: answered && answered.at });
   } catch (err) {
     sendAiError(err, res);
   }

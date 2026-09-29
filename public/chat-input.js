@@ -247,8 +247,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     try {
       const { entries } = await api('GET', `/api/spaces/${encodeURIComponent(id)}/ai/thread`);
       for (const e of entries || []) {
-        if (e.role === 'user') addAiTurn('you', e.text, [], '', { shared: Boolean(e.shared) });
-        else addAiTurn('ai', e.text, e.summaries || [], e.text, { shared: Boolean(e.shared) });
+        if (e.role === 'user') addAiTurn('you', e.text, [], '', { shared: Boolean(e.shared), at: e.at });
+        else addAiTurn('ai', e.text, e.summaries || [], e.text, { shared: Boolean(e.shared), at: e.at });
       }
     } catch {
       // no thread, or not allowed
@@ -306,7 +306,13 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     return el;
   }
 
-  function addAiTurn(kind, text, summaries, question, { shared } = {}) {
+  function turnTime(at) {
+    if (at == null || at === '') return new Date();
+    const d = at instanceof Date ? at : new Date(at);
+    return Number.isNaN(d.getTime()) ? new Date() : d;
+  }
+
+  function addAiTurn(kind, text, summaries, question, { shared, at } = {}) {
     const name = kind === 'you' ? (getMe()?.displayName || 'You') : 'AI';
     const body = document.createElement('div');
     body.className = 'message-body text';
@@ -323,7 +329,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     } else {
       body.innerHTML = renderMarkup(String(text || ''));
     }
-    const entry = { who: name, text: String(text || ''), at: new Date(), chat: false };
+    const entry = { who: name, text: String(text || ''), at: turnTime(at), chat: false };
     const el = frameMessage({
       name,
       at: entry.at,
@@ -392,7 +398,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
         refs: aiContext.map((c) => c.ref).filter(Boolean),
         share: shared,
       });
-      addAiTurn('ai', reply.text, reply.summaries || [], question, { shared });
+      addAiTurn('ai', reply.text, reply.summaries || [], question, { shared, at: reply.at });
       if (shared) {
         const me = getMe();
         sendChat(`AI answer shared by ${me?.displayName || 'someone'}\n\n${reply.text || ''}`);

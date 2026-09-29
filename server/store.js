@@ -663,8 +663,9 @@ class Store {
       description: String(r.description ?? '').trim().slice(0, 300),
       members: Array.isArray(r.members) ? [...new Set(r.members.filter((k) => typeof k === 'string'))] : [],
       createdAt: typeof r.createdAt === 'string' ? r.createdAt : new Date().toISOString(),
-      // Which image sections a member's per-space section (and Studio) offer
-      // for this space -- see SPACE_PROFILE_SLOTS.
+      // Which set the conference shows. characters uses the Character pictures.
+      // participants, and roleplaying (the older name), use the Participant pictures.
+      // Both sets stay available to upload. Coffee Pub Studio picks its own sources.
       profile: SPACE_PROFILES.includes(r.profile) ? r.profile : 'roleplaying',
       // An optional external link (their VTT, wiki, playlist...) offered as
       // a button next to Join and in the in-call toolbar. null when unset.

@@ -292,7 +292,7 @@ function spaceRowFor(space) {
   return row;
 }
 
-const PROFILE_LABELS = { roleplaying: 'Roleplaying', participants: 'Participants', characters: 'Characters' };
+const PROFILE_LABELS = { roleplaying: 'Participant images', participants: 'Participant images', characters: 'Character images' };
 
 function fillSpaceRow(row, space, index) {
   const img = row.querySelector('[data-thumb]');

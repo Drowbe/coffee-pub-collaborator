@@ -8,10 +8,6 @@ import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, cr
 import { formatHotkey, comboFromEvent } from '/hotkeys.js';
 import { mountEnrolment, mountDisable } from '/mfa-enrol.js';
 
-const PARTICIPANT_SLOTS = ['playerOffline', 'player', 'playerTalking', 'playerMuted', 'playerAside', 'playerPrivate'];
-const CHARACTER_SLOTS = ['characterOffline', 'character', 'talking', 'muted', 'characterAside', 'characterPrivate'];
-const SPACE_PROFILE_SLOTS = { roleplaying: [...PARTICIPANT_SLOTS, ...CHARACTER_SLOTS], participants: PARTICIPANT_SLOTS, characters: CHARACTER_SLOTS };
-
 const $ = (id) => document.getElementById(id);
 const editingKey = decodeURIComponent(location.pathname.split('/')[2] || '') || null;
 let me = null; // the signed-in owner or admin, when editing someone: only used to tell their own account apart
@@ -256,9 +252,8 @@ function fillSpaceSection(section, space, spaceImages) {
     ? `${user.displayName}'s images just for ${space.name}. Anything left unset here uses the Default Profile Images above.`
     : `Your images just for ${space.name}. Anything left unset here uses your Default Profile Images above.`;
 
-  const allowed = SPACE_PROFILE_SLOTS[space.profile] || SPACE_PROFILE_SLOTS.roleplaying;
-  section.querySelector('[data-group="participant"]').hidden = !PARTICIPANT_SLOTS.some((s) => allowed.includes(s));
-  section.querySelector('[data-group="character"]').hidden = !CHARACTER_SLOTS.some((s) => allowed.includes(s));
+  section.querySelector('[data-group="participant"]').hidden = false;
+  section.querySelector('[data-group="character"]').hidden = false;
 
   for (const slot of section.querySelectorAll('.slot')) {
     const name = slot.dataset.slot;

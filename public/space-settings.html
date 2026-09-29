@@ -39,15 +39,13 @@
         <div class="fields">
           <label>Name<input id="e-name" type="text" maxlength="40"></label>
           <label class="wide">Description<textarea id="e-description" rows="3" maxlength="300"></textarea></label>
-          <label class="wide">Profile<select id="e-profile">
-            <option value="roleplaying">Roleplaying -- Participant and Character images</option>
-            <option value="participants">Participants -- Participant images only</option>
-            <option value="characters">Characters -- Character images only</option>
+          <label class="wide">Conference pictures<select id="e-profile">
+            <option value="participants">Participant images</option>
+            <option value="characters">Character images</option>
           </select></label>
           <label class="wide">Launch link<input id="e-link" type="url" placeholder="https://your-vtt-or-site.example" maxlength="500"></label>
         </div>
-        <p class="hint" data-fill>Decides which image sections show up for this {space} on {a member}'s own profile page,
-          and which ones Coffee Pub Studio offers to publish for it.</p>
+        <p class="hint">The conference shows this set. Coffee Pub Studio can still use either set, or both.</p>
 
         <div class="icon-pick-field">
           <span class="field-label">Link icon</span>

@@ -2369,10 +2369,12 @@ a.crumb-here:hover {
   z-index: 2;
 }
 
-/* The chat module: header, messages and a formatting row, over the input bar. The formatting row is part of the column, so it shortens the messages and does not raise the shared bottom row. */
+/* The chat module: header, messages and a formatting row, over the input bar. The formatting row is part of the column, so it shortens the messages and does not raise the shared bottom row. The column keeps its own overflow, so a tall import panel scrolls inside the column instead of pushing the formatting row out from under the input. */
 .module-chat .mod-content {
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   background: color-mix(in srgb, var(--bg) 96%, transparent);
   border-left: 1px solid var(--border);
 }
@@ -2760,8 +2762,11 @@ a.crumb-here:hover {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
+/* Yields to the formatting row. On a short column, or an empty message list, this panel shrinks and the text scrolls, so the row under it keeps its height. */
 .chat-import-panel {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2775,8 +2780,9 @@ a.crumb-here:hover {
 }
 
 .chat-import-panel textarea {
+  flex: 1 1 auto;
   width: 100%;
-  min-height: 88px;
+  min-height: 0;
   resize: vertical;
   box-sizing: border-box;
   font: inherit;
@@ -2788,6 +2794,7 @@ a.crumb-here:hover {
 }
 
 .chat-import-panel-foot {
+  flex: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -2902,9 +2909,10 @@ a.crumb-here:hover {
   display: inline-flex;
 }
 
-/* A short row above the input, about as tall as the old floating strip. Formatting on the left, the three tools on the right. */
+/* A short row above the input, about as tall as the old floating strip. Formatting on the left, the three tools on the right. It does not shrink: the import panel above it gives up space instead, including after that panel is closed. */
 .chat-format-bar {
-  flex: none;
+  flex: 0 0 auto;
+  min-height: max-content;
   display: flex;
   align-items: center;
   justify-content: space-between;

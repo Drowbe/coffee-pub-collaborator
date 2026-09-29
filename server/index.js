@@ -3746,7 +3746,46 @@ function chatSpaceFor(req, res, permission) {
 app.get('/api/spaces/:id/chat', (req, res) => {
   const found = chatSpaceFor(req, res, 'chatRead');
   if (!found) return;
-  res.json({ messages: chatHistory.list(found.space.id) });
+  res.json({ messages: chatHistory.list(found.space.id), clearedAt: chatHistory.clearedAt(found.space.id) });
+});
+
+// An owner, or a member ticked as moderator in this space. Guests are neither.
+function chatModerator(who, space) {
+  if (!who.user) return false;
+  if (hasOwnerRights(who.user)) return true;
+  return Boolean(store.spaceFlags(who.user.key, space.id).moderator);
+}
+
+// People in the call hear about a delete at once. The stored history is what a later join reads. No call service
+// (or it does not answer) still leaves the history updated; the page sends the same notice itself.
+function tellChat(spaceId, data) {
+  try {
+    const payload = new TextEncoder().encode(JSON.stringify(data));
+    callService.sendData(callName(spaceId), payload, DataPacket_Kind.RELIABLE, { topic: 'chat' }).catch(() => {});
+  } catch {
+    // the history is already updated
+  }
+}
+
+app.delete('/api/spaces/:id/chat', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chatRead');
+  if (!found) return;
+  if (!chatModerator(found.who, found.space)) return res.status(403).json({ error: `only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can delete the chat` });
+  chatHistory.clear(found.space.id);
+  tellChat(found.space.id, { type: 'chat-clear' });
+  res.json({ ok: true });
+});
+
+app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chat');
+  if (!found) return;
+  if (!found.who.user) return res.status(403).json({ error: 'you can only delete a message you sent' });
+  if (!/^[a-f0-9]{12}$/.test(req.params.messageId)) return res.status(404).json({ error: 'no such message' });
+  const gone = chatHistory.remove(found.space.id, req.params.messageId, found.who.user.key);
+  if (gone === false) return res.status(403).json({ error: 'you can only delete a message you sent' });
+  if (!gone) return res.status(404).json({ error: 'no such message' });
+  tellChat(found.space.id, { type: 'chat-delete', id: gone.id });
+  res.json({ ok: true });
 });
 
 app.post('/api/spaces/:id/chat', (req, res) => {

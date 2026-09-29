@@ -17,10 +17,12 @@ class ChatHistory {
   constructor(dataDir) {
     this.file = path.join(dataDir, 'chat.json');
     this.spaces = {}; // spaceId -> [{ id, at, by, who, text }], oldest first
+    this.cleared = {}; // spaceId -> ms when the chat was deleted for everyone
     this.timer = null;
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, 'utf8'));
       if (raw && typeof raw.spaces === 'object') this.spaces = raw.spaces;
+      if (raw && typeof raw.cleared === 'object') this.cleared = raw.cleared;
     } catch {
       // first run
     }
@@ -39,7 +41,7 @@ class ChatHistory {
     try {
       fs.mkdirSync(path.dirname(this.file), { recursive: true });
       const tmp = `${this.file}.tmp`;
-      fs.writeFileSync(tmp, JSON.stringify({ spaces: this.spaces }));
+      fs.writeFileSync(tmp, JSON.stringify({ spaces: this.spaces, cleared: this.cleared }));
       fs.renameSync(tmp, this.file);
     } catch {
       // the chat still works; it just is not kept this time
@@ -71,11 +73,37 @@ class ChatHistory {
     return message;
   }
 
+  clearedAt(spaceId) {
+    const at = this.cleared[spaceId];
+    return Number.isFinite(at) ? at : 0;
+  }
+
+  // null: no such message. false: it is someone else's.
+  remove(spaceId, messageId, by) {
+    const list = this.spaces[spaceId];
+    if (!list) return null;
+    const at = list.findIndex((m) => m.id === messageId);
+    if (at < 0) return null;
+    if (list[at].by !== by) return false;
+    const [gone] = list.splice(at, 1);
+    if (!list.length) delete this.spaces[spaceId];
+    this.save();
+    return gone;
+  }
+
+  // Empties the space's chat for everyone. The time is kept so a browser that still has an old local copy does not
+  // bring those messages back.
+  clear(spaceId) {
+    delete this.spaces[spaceId];
+    this.cleared[spaceId] = Date.now();
+    this.save();
+  }
+
   forgetSpace(spaceId) {
-    if (this.spaces[spaceId]) {
-      delete this.spaces[spaceId];
-      this.save();
-    }
+    const changed = Boolean(this.spaces[spaceId] || this.cleared[spaceId]);
+    delete this.spaces[spaceId];
+    delete this.cleared[spaceId];
+    if (changed) this.save();
   }
 }
 

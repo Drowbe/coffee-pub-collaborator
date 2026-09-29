@@ -39,6 +39,7 @@ function keepInput(summary, question) {
     body: keptText(summary, { question }),
     tags: ((summary && summary.tags) || []).join(', '),
     icon: (summary && summary.icon) || '',
+    kind: (summary && summary.kind) || '',
   };
 }
 

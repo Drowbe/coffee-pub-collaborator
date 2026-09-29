@@ -8,7 +8,8 @@
   const KIND_LABEL = { note: 'Note', link: 'Link', photo: 'Photo', answer: 'Answer' };
   const KIND_ICON = { note: 'note-sticky', link: 'link', photo: 'camera', answer: 'wand-magic-sparkles' };
   // A note's type, chosen in the editor and drawn beside its title. Anything else is a general note.
-  // `note` is the name an imported object uses for the same general icon.
+  // An imported object names its icon from a wider list, and may name an everyday kind (a flight, a hotel).
+  // `note` is that list's general icon. The aliases and kinds below are the ones that mean a type here.
   const NOTE_ICONS = [
     ['note-sticky', 'General'],
     ['plane', 'Flight'],
@@ -29,9 +30,24 @@
     ['suitcase', 'Packing'],
     ['circle-info', 'Info'],
   ];
-  const noteIcon = (name) => {
-    const id = name === 'note' ? 'note-sticky' : String(name || '');
-    return NOTE_ICONS.some(([icon]) => icon === id) ? id : 'note-sticky';
+  const NOTE_ICON_ALIAS = {
+    bed: 'hotel',
+    coins: 'wallet',
+    'bag-shopping': 'suitcase',
+    mountain: 'landmark',
+    'circle-check': 'list-check',
+    'triangle-exclamation': 'circle-info',
+  };
+  const NOTE_KIND_ICON = {
+    flight: 'plane', train: 'train', bus: 'bus', ferry: 'ship', car: 'car',
+    hotel: 'hotel', restaurant: 'utensils', cafe: 'mug-hot', bar: 'utensils',
+    sight: 'landmark', museum: 'landmark', tour: 'map', show: 'ticket',
+  };
+  const noteIcon = (name, kind) => {
+    const id = String(name || '');
+    const fromName = id === 'note' ? '' : (NOTE_ICONS.some(([icon]) => icon === id) ? id : (NOTE_ICON_ALIAS[id] || ''));
+    if (fromName) return fromName;
+    return NOTE_KIND_ICON[String(kind || '')] || 'note-sticky';
   };
   const noteIconLabel = (name) => NOTE_ICONS.find(([icon]) => icon === noteIcon(name))[1];
 
@@ -228,7 +244,7 @@
           const i = input || {};
           const title = geo.oneLine(i.title, 120);
           if (!title) throw new Error('a note needs a title');
-          const item = await save({ kind: 'note', title, body: plainText(i.body, 8000), tags: parseTags(i.tags), date: '', icon: i.icon, by: me || (ctx && ctx.by) || '' });
+          const item = await save({ kind: 'note', title, body: plainText(i.body, 8000), tags: parseTags(i.tags), date: '', icon: noteIcon(i.icon, i.kind), by: me || (ctx && ctx.by) || '' });
           link(item, i.ref);
           return { ref: refOf('note', item.id) };
         },

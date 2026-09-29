@@ -84,10 +84,10 @@ class ChatHistory {
     if (!list) return null;
     const at = list.findIndex((m) => m.id === messageId);
     if (at < 0) return null;
-    if (list[at].by !== by) return false;
+    if (by != null && list[at].by !== by) return false;
     const [gone] = list.splice(at, 1);
     if (!list.length) delete this.spaces[spaceId];
-    this.save();
+    this.flush();
     return gone;
   }
 
@@ -96,7 +96,7 @@ class ChatHistory {
   clear(spaceId) {
     delete this.spaces[spaceId];
     this.cleared[spaceId] = Date.now();
-    this.save();
+    this.flush();
   }
 
   forgetSpace(spaceId) {

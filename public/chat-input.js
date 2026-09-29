@@ -247,8 +247,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     try {
       const { entries } = await api('GET', `/api/spaces/${encodeURIComponent(id)}/ai/thread`);
       for (const e of entries || []) {
-        if (e.role === 'user') addAiTurn('you', e.text, [], '', { shared: Boolean(e.shared), at: e.at });
-        else addAiTurn('ai', e.text, e.summaries || [], e.text, { shared: Boolean(e.shared), at: e.at });
+        if (e.role === 'user') addAiTurn('you', e.text, [], '', { shared: Boolean(e.shared), at: e.at, id: e.id });
+        else addAiTurn('ai', e.text, e.summaries || [], e.text, { shared: Boolean(e.shared), at: e.at, id: e.id });
       }
     } catch {
       // no thread, or not allowed
@@ -312,7 +312,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     return Number.isNaN(d.getTime()) ? new Date() : d;
   }
 
-  function addAiTurn(kind, text, summaries, question, { shared, at } = {}) {
+  function addAiTurn(kind, text, summaries, question, { shared, at, id } = {}) {
     const name = kind === 'you' ? (getMe()?.displayName || 'You') : 'AI';
     const body = document.createElement('div');
     body.className = 'message-body text';
@@ -329,7 +329,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     } else {
       body.innerHTML = renderMarkup(String(text || ''));
     }
-    const entry = { who: name, text: String(text || ''), at: turnTime(at), chat: false };
+    const entry = { who: name, text: String(text || ''), at: turnTime(at), chat: false, threadId: id || '' };
     const el = frameMessage({
       name,
       at: entry.at,
@@ -388,7 +388,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
   }
 
-  async function runAi(question) {
+  async function runAi(question, echoed) {
     const id = spaceId();
     if (!id) { setNote(`AI is only in ${word('space', { a: true })}.`); return false; }
     const shared = shareMode === 'shared';
@@ -398,7 +398,11 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
         refs: aiContext.map((c) => c.ref).filter(Boolean),
         share: shared,
       });
-      addAiTurn('ai', reply.text, reply.summaries || [], question, { shared, at: reply.at });
+      if (echoed) {
+        if (echoed.el.isConnected) echoed.entry.threadId = reply.questionId || '';
+        else if (reply.questionId) api('DELETE', `/api/spaces/${encodeURIComponent(id)}/ai/thread/${reply.questionId}`).catch(() => {});
+      }
+      addAiTurn('ai', reply.text, reply.summaries || [], question, { shared, at: reply.at, id: reply.id });
       if (shared) {
         const me = getMe();
         sendChat(`AI answer shared by ${me?.displayName || 'someone'}\n\n${reply.text || ''}`);
@@ -453,7 +457,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     $('messages').scrollTop = $('messages').scrollHeight;
   }
 
-  async function runCommand(parsed) {
+  async function runCommand(parsed, echoed) {
     const hits = matchesFor(parsed.name);
     if (!hits.length) {
       setNote(`No command /${parsed.name}`);
@@ -462,7 +466,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     const openHits = hits.filter((h) => !h.module || canvas.isOpen(h.module));
     if (hits[0].name === 'ai') {
       if (!parsed.rest) { setNote('Type a question after /ai.'); return false; }
-      const ok = await runAi(parsed.rest);
+      const ok = await runAi(parsed.rest, echoed);
       return ok;
     }
     if (hits.length > 1 && openHits.length !== 1) {
@@ -792,6 +796,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     });
     $('messages').appendChild(el);
     $('messages').scrollTop = $('messages').scrollHeight;
+    return { entry, el };
   }
 
   return {
@@ -799,8 +804,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
       setNote('');
       const parsed = parseCommand(text);
       if (!parsed) return false;
-      reflectCommand(parsed);
-      await runCommand(parsed);
+      const echoed = reflectCommand(parsed);
+      await runCommand(parsed, echoed);
       return true;
     },
     loadThread,

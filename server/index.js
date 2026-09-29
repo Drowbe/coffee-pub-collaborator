@@ -3772,6 +3772,7 @@ app.delete('/api/spaces/:id/chat', (req, res) => {
   if (!found) return;
   if (!chatModerator(found.who, found.space)) return res.status(403).json({ error: `only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can delete the chat` });
   chatHistory.clear(found.space.id);
+  aiThreads.forgetSpace(found.space.id);
   tellChat(found.space.id, { type: 'chat-clear' });
   res.json({ ok: true });
 });
@@ -3781,7 +3782,7 @@ app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {
   if (!found) return;
   if (!found.who.user) return res.status(403).json({ error: 'you can only delete a message you sent' });
   if (!/^[a-f0-9]{12}$/.test(req.params.messageId)) return res.status(404).json({ error: 'no such message' });
-  const gone = chatHistory.remove(found.space.id, req.params.messageId, found.who.user.key);
+  const gone = chatHistory.remove(found.space.id, req.params.messageId, chatModerator(found.who, found.space) ? null : found.who.user.key);
   if (gone === false) return res.status(403).json({ error: 'you can only delete a message you sent' });
   if (!gone) return res.status(404).json({ error: 'no such message' });
   tellChat(found.space.id, { type: 'chat-delete', id: gone.id });
@@ -3854,6 +3855,15 @@ app.delete('/api/spaces/:id/ai/thread', (req, res) => {
   res.json({ ok: true });
 });
 
+app.delete('/api/spaces/:id/ai/thread/:entryId', (req, res) => {
+  const found = chatAiSpace(req, res);
+  if (!found) return;
+  if (!/^[a-f0-9]{12}$/.test(req.params.entryId)) return res.status(404).json({ error: 'no such message' });
+  const gone = aiThreads.remove(found.space.id, found.who.user.key, req.params.entryId);
+  if (!gone) return res.status(404).json({ error: 'no such message' });
+  res.json({ ok: true });
+});
+
 app.post('/api/spaces/:id/ai', async (req, res) => {
   const found = chatAiSpace(req, res);
   if (!found) return;
@@ -3886,10 +3896,10 @@ app.post('/api/spaces/:id/ai', async (req, res) => {
     }
     const summaries = (out.summaries || []).map((c) => ({ ...c, sources: (c.sources || []).map((n) => given[n - 1]).filter(Boolean) }));
     const shared = req.body?.share === true;
-    aiThreads.add(found.space.id, found.who.user.key, { role: 'user', text: question, shared, at: askedAt });
+    const asked = aiThreads.add(found.space.id, found.who.user.key, { role: 'user', text: question, shared, at: askedAt });
     const answered = aiThreads.add(found.space.id, found.who.user.key, { role: 'ai', text: out.text, summaries, shared });
     noteActivity('chat', `asked the AI (${out.tokens} tokens)`, found.who.user.key, found.space.id);
-    res.json({ text: out.text, summaries, used: out.used.map((n) => given[n - 1]).filter(Boolean), tokens: out.tokens, shared, at: answered && answered.at });
+    res.json({ text: out.text, summaries, used: out.used.map((n) => given[n - 1]).filter(Boolean), tokens: out.tokens, shared, at: answered && answered.at, id: answered && answered.id, questionId: asked && asked.id });
   } catch (err) {
     sendAiError(err, res);
   }

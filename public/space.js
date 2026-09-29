@@ -1366,8 +1366,8 @@ function dropChatMessage(id) {
   if (at >= 0) chatLog.splice(at, 1);
 }
 function dropSharedChat() {
-  for (const el of [...($('messages')?.querySelectorAll('.message.is-chat, .chat-session-divider') || [])]) el.remove();
-  for (let i = chatLog.length - 1; i >= 0; i -= 1) if (chatLog[i].chat) chatLog.splice(i, 1);
+  for (const el of [...($('messages')?.querySelectorAll('.message, .chat-session-divider, .chat-closed-ask') || [])]) el.remove();
+  chatLog.length = 0;
   unread = 0;
   canvas.setBuiltinUnread('chat', 0);
 }
@@ -1379,7 +1379,10 @@ function canModerateChat() {
 }
 // A shared message can be deleted by the person who sent it. A picture is live only, so its id is this page's.
 function canDeleteChatEntry(entry) {
-  return Boolean(entry?.chat && chatIdOk(entry.id) && me?.key && entry.by === me.key && (entry.blob || me.role !== 'guest'));
+  if (!entry?.chat || !chatIdOk(entry.id)) return false;
+  if (entry.blob) return Boolean(me?.key && entry.by === me.key);
+  if (canModerateChat()) return true;
+  return Boolean(me?.key && entry.by === me.key && me.role !== 'guest');
 }
 // Called once per join, after the canvas is up but before anything live has
 // arrived -- fills #messages with whatever this space already said, so it
@@ -1391,7 +1394,6 @@ async function renderChatHistory(spaceId) {
     const got = await fetchChatHistory(spaceId);
     history = got.messages;
     serverCleared = got.clearedAt;
-    if (!history.length && !serverCleared) history = loadChatHistory(spaceId);
   } catch {
     history = loadChatHistory(spaceId);
   }
@@ -1614,12 +1616,24 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
 }
 
 async function deleteMessage(el, entry) {
+  if (!currentSpace) return;
+  const space = `/api/spaces/${encodeURIComponent(currentSpace.id)}`;
+  if (entry?.threadId && chatIdOk(entry.threadId)) {
+    try {
+      await api('DELETE', `${space}/ai/thread/${entry.threadId}`);
+    } catch (err) {
+      setStatus(err.message || 'Could not delete that.', true);
+      return;
+    }
+    el.remove();
+    return;
+  }
   if (entry?.chat) {
     if (!canDeleteChatEntry(entry)) return;
     if (!entry.blob) {
       try {
         const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-        await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}${q}`);
+        await api('DELETE', `${space}/chat/${entry.id}${q}`);
       } catch (err) {
         setStatus(err.message || 'Could not delete that.', true);
         return;

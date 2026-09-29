@@ -442,7 +442,12 @@ function toggleOverflow(trigger, items) {
       hint.textContent = item.hint;
       b.appendChild(hint);
     }
-    if (!item.disabled) b.addEventListener('click', () => { closeOverflow(); item.onPick(); });
+    if (!item.disabled) b.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      closeOverflow();
+      item.onPick();
+    });
     if (item.danger) b.classList.add('danger');
     menu.appendChild(b);
   }
@@ -460,12 +465,21 @@ function toggleOverflow(trigger, items) {
   menu.style.top = `${y}px`;
   const onKey = (e) => { if (e.key === 'Escape') closeOverflow(); };
   const onOutside = (e) => { if (!menu.contains(e.target) && !trigger.contains(e.target)) closeOverflow(); };
-  doc.addEventListener('keydown', onKey, true);
-  doc.addEventListener('pointerdown', onOutside, true);
+  // The click that opened this menu has already happened. Listening on the next frame keeps that same
+  // click from counting as an outside press and closing the menu before it can be used.
+  let listening = false;
+  const frame = view.requestAnimationFrame(() => {
+    if (!menu.isConnected) return;
+    listening = true;
+    doc.addEventListener('keydown', onKey, true);
+    doc.addEventListener('pointerdown', onOutside, true);
+  });
   openOverflow = {
     trigger,
     cleanup: () => {
+      view.cancelAnimationFrame(frame);
       menu.remove();
+      if (!listening) return;
       doc.removeEventListener('keydown', onKey, true);
       doc.removeEventListener('pointerdown', onOutside, true);
     },

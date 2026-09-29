@@ -110,13 +110,32 @@ function imgUrl(key, slot, params = {}) {
   return `/img/${encodeURIComponent(urlKey)}/${urlSlot}${qs ? `?${qs}` : ''}`;
 }
 
-// A member's Online picture for the space we're in, when they've set one there
-// (Use Default Profile Images off); otherwise the tile falls back to their
-// profile photo. Private asides count as their origin space.
+// The conference shows one set, chosen on the space: Character images, or
+// Participant images (the usual, including a space still marked roleplaying).
+// An aside uses the space it came from.
+function conferenceSlot(spaceId, offline) {
+  const space = presenceSpaces.find((r) => r.id === spaceId);
+  const character = space?.profile === 'characters';
+  if (offline) return character ? 'characterOffline' : 'playerOffline';
+  return character ? 'character' : 'player';
+}
+// That set's picture, in the same order as the other views: this space's own,
+// then this person's, then the default set. The profile photo is only the last
+// step, when the image fails to load. The lobby and a guest have no space
+// picture, so they use the profile photo.
 function spacePortraitUrl(key) {
   const spaceId = currentSpace?.isAside ? currentSpace.origin : currentSpace?.id;
   if (!spaceId || spaceId === LOBBY || key.startsWith(GUEST_PREFIX)) return imgUrl(key, 'profile');
-  return imgUrl(key, 'player', { space: spaceId, spaceOnly: 1 });
+  return imgUrl(key, conferenceSlot(spaceId), { space: spaceId });
+}
+// One box. Only the address changes when the space's set changes, or when the
+// picture is missing and the profile photo stands in.
+function showConferencePortrait(img, key) {
+  const src = spacePortraitUrl(key);
+  if (img.dataset.src === src) return;
+  img.dataset.src = src;
+  img.onerror = () => { img.onerror = null; img.src = imgUrl(key, 'profile'); };
+  img.src = src;
 }
 
 // An aside as the page lists it beside the spaces: its record, the environment's word for it, and the mark.
@@ -156,6 +175,8 @@ async function loadPresence() {
       const colour = presenceUsers.get(key)?.borderColor;
       if (colour) tile.style.setProperty('--talk', colour);
       updateBackgroundPlaceholder(tile, key);
+      const portrait = tile.querySelector('.placeholder');
+      if (portrait) showConferencePortrait(portrait, key);
     }
     renderSpaces();
     if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: joinInvitedSpace });
@@ -442,15 +463,14 @@ function renderMembers(list, members, spaceId) {
       list.appendChild(el);
     }
     const here = Boolean(u.online) && u.space === spaceId;
-    // This space's Online/Offline picture when they've set one here (Use
-    // Default Profile Images off); otherwise their profile photo.
+    // The same set the conference shows for this space, Online or Offline.
     const img = el.querySelector('img');
-    const slot = here ? 'player' : 'playerOffline';
+    const slot = conferenceSlot(spaceId, !here);
     if (img.dataset.slot !== slot) {
       img.dataset.slot = slot;
       const profile = imgUrl(u.key, 'profile');
       img.onerror = () => { img.onerror = null; img.src = profile; };
-      img.src = spaceId && spaceId !== LOBBY && !u.key.startsWith(GUEST_PREFIX) ? imgUrl(u.key, slot, { space: spaceId, spaceOnly: 1 }) : profile;
+      img.src = spaceId && spaceId !== LOBBY && !u.key.startsWith(GUEST_PREFIX) ? imgUrl(u.key, slot, { space: spaceId }) : profile;
     }
     el.querySelector('.member-name').textContent = u.displayName;
     el.querySelector('.dot').classList.toggle('online', here);
@@ -724,8 +744,7 @@ function tileFor(participant) {
   const placeholder = document.createElement('img');
   placeholder.className = 'placeholder';
   placeholder.alt = '';
-  placeholder.src = spacePortraitUrl(participant.identity);
-  placeholder.onerror = () => { placeholder.onerror = null; placeholder.src = imgUrl(participant.identity, 'profile'); };
+  showConferencePortrait(placeholder, participant.identity);
   const colour = presenceUsers.get(participant.identity)?.borderColor;
   if (colour) tile.style.setProperty('--talk', colour);
   tile.appendChild(placeholder);

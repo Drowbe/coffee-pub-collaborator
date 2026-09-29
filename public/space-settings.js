@@ -61,7 +61,7 @@ function render() {
   if (document.activeElement?.closest?.('.fields') == null) {
     $('e-name').value = space.name;
     $('e-description').value = space.description;
-    $('e-profile').value = space.profile;
+    $('e-profile').value = space.profile === 'characters' ? 'characters' : 'participants';
     $('e-link').value = space.link || '';
   }
   if (document.activeElement?.closest?.('.icon-grid') == null) {

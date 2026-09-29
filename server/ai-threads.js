@@ -86,6 +86,19 @@ class AiThreads {
     }
   }
 
+  // null when that entry is not in this person's thread.
+  remove(spaceId, userId, id) {
+    const key = this.key(spaceId, userId);
+    const list = this.threads[key];
+    if (!list) return null;
+    const at = list.findIndex((m) => m.id === id);
+    if (at < 0) return null;
+    const [gone] = list.splice(at, 1);
+    if (!list.length) delete this.threads[key];
+    this.flush();
+    return gone;
+  }
+
   forgetSpace(spaceId) {
     const prefix = `${spaceId}:`;
     let changed = false;
@@ -95,7 +108,7 @@ class AiThreads {
         changed = true;
       }
     }
-    if (changed) this.save();
+    if (changed) this.flush();
   }
 }
 

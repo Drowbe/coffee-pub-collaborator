@@ -166,6 +166,8 @@ try {
   assert.equal(afterOne.json.messages.length, 0, afterOne.text);
   const again = await call('POST', `/api/spaces/${space.id}/chat`, { cookie: sam, body: { text: 'from sam' } });
   assert.equal(again.status, 200, again.text);
+  const ownerCut = await call('DELETE', `/api/spaces/${space.id}/chat/${again.json.message.id}`, { cookie: owner });
+  assert.equal(ownerCut.status, 200, ownerCut.text);
   const wiped = await call('DELETE', `/api/spaces/${space.id}/chat`, { cookie: owner });
   assert.equal(wiped.status, 200, wiped.text);
   const emptyChat = await call('GET', `/api/spaces/${space.id}/chat`, { cookie: pat });
@@ -190,6 +192,14 @@ try {
   assert.equal(thread.json.entries.length, 2);
   assert.equal(thread.json.entries[0].role, 'user');
   assert.equal(thread.json.entries[1].role, 'ai');
+  assert.match(thread.json.entries[0].id, /^[a-f0-9]{12}$/);
+  const oneGone = await call('DELETE', `/api/spaces/${space.id}/ai/thread/${thread.json.entries[0].id}`, { cookie: pat });
+  assert.equal(oneGone.status, 200, oneGone.text);
+  const samCut = await call('DELETE', `/api/spaces/${space.id}/ai/thread/${thread.json.entries[1].id}`, { cookie: sam });
+  assert.equal(samCut.status, 404, samCut.text);
+  const left = await call('GET', `/api/spaces/${space.id}/ai/thread`, { cookie: pat });
+  assert.equal(left.json.entries.length, 1, left.text);
+  assert.equal(left.json.entries[0].role, 'ai');
   n += 1;
 
   const peek = await call('GET', `/api/spaces/${space.id}/ai/thread?user=${member.key}`, { cookie: sam });

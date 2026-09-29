@@ -181,7 +181,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // Floating is free by default (anywhere, any size). A module with `snap` on sits in the cells of a grid laid over
   // the canvas instead: dragged, it jumps from cell to cell; resized, it grows a cell at a time; and what is
   // remembered is its cells (`cell`: col, row, cols, rows), so it keeps its place in the grid when the window
-  // changes size. The grid is as many cells of about SNAP_CELL as the canvas fits (never fewer than one), gutter
+  // changes size. Turning the grid on keeps a place the user dragged or resized (`layout: 'user'`, or a saved box
+  // that does not sit on another). Windows still on a default spot are tiled so they do not stack. The grid is as many cells of about SNAP_CELL as the canvas fits (never fewer than one), gutter
   // SNAP_GAP, drawn (`.snap-grid`) only while a snapped module is being dragged. Docked and window are untouched.
   // The grid's pitch (a cell's width; a cell is 0.77 as tall) is the canvas's: the space bar's slider sets it, remembered with
   // the space's layout (`__snap.pitch`), beside the canvas-level switch (`__snap.all`) that snaps every floating module, now and later.
@@ -213,10 +214,155 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // Put a snapped module in its cells (its remembered ones, or the ones nearest its box) and remember both.
   function settleSnap(id, floater, cell) {
     const g = snapGrid();
-    const c = cell || snapCell(g, currentBox(floater));
+    const c = clampCell(g, cell || snapCell(g, currentBox(floater)));
     const box = place(floater, cellBox(g, c));
     remember(id, { cell: c, box });
     return box;
+  }
+  // A cell run that fits this grid, at least as big as a module's smallest size.
+  function leastSpan(g) {
+    return {
+      cols: Math.min(g.cols, Math.max(1, Math.ceil((MIN_W + SNAP_GAP) / g.cw))),
+      rows: Math.min(g.rows, Math.max(1, Math.ceil((MIN_H + SNAP_GAP) / g.ch))),
+    };
+  }
+  function clampCell(g, c) {
+    const least = leastSpan(g);
+    const cols = Math.max(least.cols, Math.min(g.cols, Math.round(c?.cols) || least.cols));
+    const rows = Math.max(least.rows, Math.min(g.rows, Math.round(c?.rows) || least.rows));
+    return {
+      col: Math.max(0, Math.min(g.cols - cols, Math.round(c?.col) || 0)),
+      row: Math.max(0, Math.min(g.rows - rows, Math.round(c?.row) || 0)),
+      cols, rows,
+    };
+  }
+  const cellsOverlap = (a, b) => a.col < b.col + b.cols && b.col < a.col + a.cols && a.row < b.row + b.rows && b.row < a.row + a.rows;
+  // The cells already taken by snapped modules that are not part of this layout pass.
+  function takenCells(exceptIds) {
+    const g = snapGrid();
+    const taken = [];
+    for (const p of opened.values()) {
+      if (exceptIds.has(p.id) || !snapping(p.id)) continue;
+      if (saved[p.id]?.cell) taken.push(clampCell(g, saved[p.id].cell));
+    }
+    return taken;
+  }
+  function nearestFree(g, prefer, taken) {
+    const base = clampCell(g, prefer);
+    if (!taken.some((t) => cellsOverlap(t, base))) return base;
+    const max = g.cols + g.rows;
+    for (let dist = 1; dist <= max; dist += 1) {
+      for (let dr = -dist; dr <= dist; dr += 1) {
+        for (let dc = -dist; dc <= dist; dc += 1) {
+          if (Math.abs(dr) + Math.abs(dc) !== dist) continue;
+          const cell = clampCell(g, { ...base, col: base.col + dc, row: base.row + dr });
+          if (!taken.some((t) => cellsOverlap(t, cell))) return cell;
+        }
+      }
+    }
+    return base;
+  }
+  function nextFree(g, taken, cols, rows) {
+    for (let row = 0; row <= g.rows - rows; row += 1) {
+      for (let col = 0; col <= g.cols - cols; col += 1) {
+        const cell = { col, row, cols, rows };
+        if (!taken.some((t) => cellsOverlap(t, cell))) return cell;
+      }
+    }
+    return null;
+  }
+  // Windows nobody has placed yet: share the grid, or the gaps left by the ones someone did place.
+  function tileFresh(g, count, taken) {
+    const least = leastSpan(g);
+    const cells = [];
+    if (!count) return cells;
+    if (!taken.length) {
+      let across = Math.max(1, Math.round(Math.sqrt(count * (g.cols / Math.max(1, g.rows)))));
+      let down = Math.ceil(count / across);
+      while (across > 1 && Math.floor(g.cols / across) < least.cols) across -= 1;
+      down = Math.ceil(count / across);
+      while (down > 1 && Math.floor(g.rows / down) < least.rows) {
+        down -= 1;
+        across = Math.ceil(count / Math.max(1, down));
+      }
+      const spanC = Math.max(least.cols, Math.min(g.cols, Math.floor(g.cols / across)));
+      const spanR = Math.max(least.rows, Math.min(g.rows, Math.floor(g.rows / down)));
+      for (let i = 0; i < count; i += 1) {
+        const c = i % across;
+        const r = Math.floor(i / across);
+        const cell = clampCell(g, { col: c * spanC, row: r * spanR, cols: spanC, rows: spanR });
+        cells.push(nearestFree(g, cell, taken.concat(cells)));
+      }
+      return cells;
+    }
+    for (let i = 0; i < count; i += 1) {
+      const used = taken.concat(cells);
+      cells.push(nextFree(g, used, least.cols, least.rows) || nearestFree(g, { col: 0, row: 0, cols: least.cols, rows: least.rows }, used));
+    }
+    return cells;
+  }
+  const overlapArea = (a, b) => {
+    const w = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
+    const h = Math.max(0, Math.min(a.y + a.h, b.y + b.h) - Math.max(a.y, b.y));
+    return w * h;
+  };
+  // A saved box from before this flag counts as a placement, unless those boxes sit on top of each other
+  // (the old snap, or the default cascade). A box the user dragged is always a placement, even if it overlaps.
+  function userPlaced(p, mods) {
+    const rec = saved[p.id] || {};
+    if (rec.layout === 'user') return true;
+    if (rec.layout === 'auto' || !rec.box || !floaterOf(p)) return false;
+    const box = currentBox(floaterOf(p));
+    const area = box.w * box.h;
+    if (!area) return false;
+    for (const other of mods) {
+      if (other.id === p.id || !floaterOf(other)) continue;
+      const theirs = saved[other.id] || {};
+      if (theirs.layout === 'auto' || !theirs.box) continue;
+      if (overlapArea(box, currentBox(floaterOf(other))) > area * 0.45) return false;
+    }
+    return true;
+  }
+  // Snap a group. A module the user has placed keeps that place (the cells nearest where it is, clear of the
+  // others). Modules still on a default spot are tiled, so a first visit to the grid does not stack them.
+  function applySnapLayout(mods) {
+    const g = snapGrid();
+    const ids = new Set(mods.map((p) => p.id));
+    const taken = takenCells(ids);
+    const live = mods.filter((p) => floaterOf(p));
+    const user = live.filter((p) => userPlaced(p, live));
+    const fresh = live.filter((p) => !user.includes(p));
+    for (const p of user) {
+      const cell = nearestFree(g, snapCell(g, currentBox(floaterOf(p))), taken);
+      settleSnap(p.id, floaterOf(p), cell);
+      remember(p.id, { layout: 'user' });
+      taken.push(cell);
+    }
+    const alone = fresh.length === 1 && !user.length && !taken.length;
+    const cells = alone ? [snapCell(g, currentBox(floaterOf(fresh[0])))] : tileFresh(g, fresh.length, taken);
+    fresh.forEach((p, i) => {
+      settleSnap(p.id, floaterOf(p), cells[i]);
+      remember(p.id, { layout: 'auto' });
+    });
+  }
+  function paintSnap(mod, on) {
+    for (const b of [mod.el, floaterOf(mod)].flatMap((el) => [...(el?.querySelectorAll?.('[data-snap]') || [])])) {
+      b.classList.toggle('on', Boolean(on));
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
+  // A module opening while the grid is on: back to the cells the user left it in, or the next free spot.
+  function snapOntoGrid(id, floater) {
+    const rec = saved[id] || {};
+    const g = snapGrid();
+    const taken = takenCells(new Set([id]));
+    if (rec.layout !== 'auto' && rec.cell) {
+      settleSnap(id, floater, nearestFree(g, rec.cell, taken));
+      return;
+    }
+    const least = leastSpan(g);
+    settleSnap(id, floater, nextFree(g, taken, least.cols, least.rows) || nearestFree(g, { col: 0, row: 0, cols: least.cols, rows: least.rows }, taken));
+    remember(id, { layout: 'auto' });
   }
   // The grid, drawn in the layer while a snapped module moves.
   function showGrid(layer, g) {
@@ -242,11 +388,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const floater = mod && floaterOf(mod);
     if (!floater) return;
     remember(id, { snap: Boolean(on) });
-    if (on) settleSnap(id, floater);
-    for (const b of [mod.el, floater].flatMap((el) => [...(el?.querySelectorAll?.('[data-snap]') || [])])) {
-      b.classList.toggle('on', Boolean(on));
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
-    }
+    if (on) applySnapLayout([mod]);
+    paintSnap(mod, on);
   }
   // The canvas-level switch. On: every module that can float does -- the docked ones are floated first, their docked mode
   // remembered (`__snap.before`) -- and snaps, each one's own switch following; any module opened later floats and snaps too
@@ -261,7 +404,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       }
       saved.__snap = { ...snap, all: true, before };
       persist();
-      for (const p of opened.values()) if (floaterOf(p)) setSnap(p.id, true);
+      const mods = [...opened.values()].filter((p) => floaterOf(p));
+      for (const p of mods) remember(p.id, { snap: true });
+      applySnapLayout(mods);
+      for (const p of mods) paintSnap(p, true);
       return;
     }
     saved.__snap = { ...snap, all: false, before: {} };
@@ -284,13 +430,13 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     for (const p of [...opened.values()]) if (p.mode === 'float' && supports(p, 'dock') && !isNarrow()) setMode(p.id, 'dock');
     update();
   }
-  // The grid's size, from the space bar's slider: every snapped module refits to the cells nearest its box. While the slider
+  // The grid's size, from the space bar's slider: every snapped module keeps the cells it already has. While the slider
   // moves (`preview`) the grid shows, so the size can be seen; it hides when the slider is let go.
   function setSnapPitch(px, { preview = false } = {}) {
     const pitch = Math.min(SNAP_PITCH.max, Math.max(SNAP_PITCH.min, Math.round(Number(px) || SNAP_PITCH.default)));
     saved.__snap = { ...(saved.__snap || {}), pitch };
     persist();
-    for (const p of opened.values()) { const floater = floaterOf(p); if (floater && snapping(p.id)) settleSnap(p.id, floater); }
+    for (const p of opened.values()) { const floater = floaterOf(p); if (floater && snapping(p.id)) settleSnap(p.id, floater, saved[p.id]?.cell); }
     const layer = layerFor(canvasDoc());
     if (preview) showGrid(layer, snapGrid()); else hideGrid(layer);
   }
@@ -321,8 +467,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       drag = null;
       layer.classList.remove('dragging');
       hideGrid(layer);
-      if (g) settleSnap(id, floater, snapCell(g, currentBox(floater)));
-      else remember(id, { box: currentBox(floater) });
+      if (g) {
+        settleSnap(id, floater, snapCell(g, currentBox(floater)));
+        remember(id, { layout: 'user' });
+      } else remember(id, { box: currentBox(floater), layout: 'user' });
     };
     for (const [el, kind] of [[handle, 'move'], [grip, 'size']]) {
       el.addEventListener('pointerdown', begin(kind));
@@ -532,8 +680,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
         const b = currentBox(mod.el);
         if (Number.isFinite(width)) b.w = width;
         if (Number.isFinite(height)) b.h = height + HEAD_H;
-        if (snapping(m.id)) { const g = snapGrid(); settleSnap(m.id, mod.el, snapCell(g, b)); return; }
-        remember(m.id, { box: place(mod.el, b) });
+        if (snapping(m.id)) { const g = snapGrid(); settleSnap(m.id, mod.el, snapCell(g, b)); remember(m.id, { layout: 'user' }); return; }
+        remember(m.id, { box: place(mod.el, b), layout: 'user' });
       },
       ...extra,
     });
@@ -563,7 +711,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       x: win.innerWidth - m.canvas.width - 24 - index * 28,
       y: 70 + index * 28,
     });
-    if (snapping(m.id)) settleSnap(m.id, floater, saved[m.id]?.cell);
+    if (snapping(m.id)) snapOntoGrid(m.id, floater);
     front(floater);
     const mod = { id: m.id, kind: 'module', mode: 'float', m, el: floater, modes: m.canvas.mode, order: ++order, parts: () => [] };
     if (reuse) {
@@ -688,7 +836,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       el.hidden = false;
       const size = def.floatSize || { w: 340, h: 480 };
       place(floater, saved[def.id]?.box || { ...size, x: Math.max(8, canvasWin().innerWidth - size.w - 24), y: 70 });
-      if (snapping(def.id)) settleSnap(def.id, floater, saved[def.id]?.cell);
+      if (snapping(def.id)) snapOntoGrid(def.id, floater);
       front(floater);
       mod.floatEl = floater;
       wireFloating(def.id, floater, el.querySelector('header'), grip);

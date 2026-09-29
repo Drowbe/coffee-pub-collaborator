@@ -177,8 +177,8 @@
     const el = clone('tpl-card');
     el.dataset.id = it.id;
     el.dataset.kind = it.kind;
-    setIcon(el.querySelector('.kind [data-icon]'), KIND_ICON[it.kind]);
-    fill(el, { kind: KIND_LABEL[it.kind], title: it.title, site: it.site, excerpt: it.kind === 'photo' ? '' : textOf(it), when: it.date ? dayText(it.date) : '', place: placeText(it.point), by: initial(it.by) });
+    setIcon(el.querySelector('.kind [data-icon]'), it.kind === 'note' ? noteIcon(it.icon) : KIND_ICON[it.kind]);
+    fill(el, { kind: it.kind === 'note' ? noteIconLabel(it.icon) : KIND_LABEL[it.kind], title: it.title, site: it.site, excerpt: it.kind === 'photo' ? '' : textOf(it), when: it.date ? dayText(it.date) : '', place: placeText(it.point), by: initial(it.by) });
     hide(slot(el, 'ai'), it.kind !== 'answer');
     const by = slot(el, 'by-wrap');
     if (by) by.title = nameOf(it.by) ? `Added by ${nameOf(it.by)}` : '';
@@ -373,6 +373,14 @@
   // --- the dialog for one object --------------------------------------------------------------------------------------
 
   const editorError = (text) => { $('f-error').textContent = text; $('f-error').hidden = !text; };
+  function paintIconChoices() {
+    const icon = state.editing && state.editing.kind === 'note' ? noteIcon(state.editing.icon) : '';
+    for (const b of $('f-icons').querySelectorAll('[data-action="pick-icon"]')) {
+      const on = b.dataset.iconName === icon;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+  }
   const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
   const setFormEditable = (yes) => { for (const f of $('form').querySelectorAll('input, textarea, select')) f.disabled = !yes; };
 
@@ -393,8 +401,9 @@
     if (id && !cur) return;
     const s = seed || {};
     const kind = cur ? cur.kind : KINDS.includes(s.kind) ? s.kind : 'note';
-    const it = cur || { kind, title: s.title || '', body: s.body || '', excerpt: s.excerpt || '', content: '', url: s.url || '', tags: [], date: '', point: s.point || null, by: '', ai: null };
-    state.editing = { id: id || null, kind, version: cur ? research.versionOf(id) : undefined, point: it.point, pointOk: true, conflict: null };
+    const it = cur || { kind, title: s.title || '', body: s.body || '', excerpt: s.excerpt || '', content: '', url: s.url || '', tags: [], date: '', point: s.point || null, by: '', ai: null, icon: s.icon || '' };
+    state.editing = { id: id || null, kind, version: cur ? research.versionOf(id) : undefined, point: it.point, pointOk: true, conflict: null, icon: kind === 'note' ? noteIcon(it.icon) : '' };
+    paintIconChoices();
     dropConflict();
     $('form').dataset.kind = kind;
     $('editor-title').textContent = id ? (canEdit ? `Change this ${KIND_LABEL[kind].toLowerCase()}` : it.title) : `New ${KIND_LABEL[kind].toLowerCase()}`;
@@ -482,6 +491,7 @@
       by: base ? base.by : me,
       at: base ? base.at : new Date().toISOString(),
       ai: base ? base.ai : null,
+      icon: kind === 'note' ? noteIcon(e.icon) : '',
     };
     $('f-save').disabled = true;
     try {
@@ -755,7 +765,24 @@
     state.people = await host.people().catch(() => []);
     try { loadTagColors(await host.settings.get()); } catch (err) { loadTagColors(null); }
     host.settings.onChange((v) => { loadTagColors(v); if (state.loaded) render(); });
-    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(KIND_ICON), ['note', 'lightbulb', 'location-dot', 'calendar-days', 'link', 'star', 'bed', 'hotel', 'utensils', 'ticket', 'train', 'plane', 'car', 'ship', 'bus', 'camera', 'circle-info', 'mug-hot', 'landmark', 'mountain', 'umbrella-beach', 'sun', 'moon', 'bell', 'clock', 'wallet', 'triangle-exclamation', 'circle-check', 'heart', 'users', 'bag-shopping', 'music', 'map', 'suitcase', 'hourglass-half', 'flag', 'magnifying-glass', 'list-check', 'scale-balanced', 'coins']))].filter(Boolean).map(wantIcon));
+    const choices = $('f-icons');
+    choices.replaceChildren(...NOTE_ICONS.map(([icon, label]) => {
+      const el = clone('tpl-icon-choice');
+      el.dataset.iconName = icon;
+      el.title = label;
+      el.setAttribute('aria-label', label);
+      setIcon(el.querySelector('[data-icon]'), icon);
+      fill(el, { label });
+      return el;
+    }));
+    choices.addEventListener('click', (ev) => {
+      const b = ev.target.closest('[data-action="pick-icon"]');
+      if (!b || !state.editing || state.editing.kind !== 'note') return;
+      state.editing.icon = b.dataset.iconName;
+      paintIconChoices();
+    });
+    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(KIND_ICON), NOTE_ICONS.map(([icon]) => icon)))].filter(Boolean).map(wantIcon));
+    hydrate(choices);
     state.loaded = true;
     render();
     loadLinks().catch(() => {});

@@ -13,7 +13,7 @@ win.parent = win;
 new Function('window', 'document', sdk)(win, { createElement: (tag) => ({ tag }) }); // ready() adds the SDK's shared styles: a <style> stand-in
 const geo = win.createHost({ call: async () => ({}), root: { appendChild() {} }, rootElement: {} }).host.util.geo;
 
-const names = ['KINDS', 'cleanItem', 'itemValue', 'textOf', 'parseTags', 'cleanTags', 'cleanUrl', 'readEntry', 'filterItems', 'tagCounts', 'fitSize', 'captionOf', 'createResearch'];
+const names = ['KINDS', 'cleanItem', 'itemValue', 'textOf', 'parseTags', 'cleanTags', 'cleanUrl', 'readEntry', 'filterItems', 'tagCounts', 'fitSize', 'captionOf', 'noteIcon', 'createResearch'];
 const lib = new Function('geo', `${fs.readFileSync(new URL('../modules/research/src/research-lib.js', import.meta.url), 'utf8')}\nreturn { ${names.join(', ')} };`)(geo);
 
 function fakeHost() {
@@ -64,6 +64,11 @@ await test('items are checked: what a kind needs, and nothing else', () => {
   assert.equal(lib.cleanItem('note', 'b', { title: 'x', icon: 'plane' }).icon, 'plane');
   assert.equal(lib.cleanItem('note', 'b', { title: 'x', icon: 'note' }).icon, 'note-sticky');
   assert.equal(lib.cleanItem('note', 'b', { title: 'x', icon: 'nope' }).icon, 'note-sticky');
+  assert.equal(lib.noteIcon('bed'), 'hotel');
+  assert.equal(lib.noteIcon('note', 'flight'), 'plane');
+  assert.equal(lib.noteIcon('plane', 'hotel'), 'plane');
+  assert.equal(lib.noteIcon('', 'restaurant'), 'utensils');
+  assert.equal(lib.noteIcon('coins'), 'wallet');
   assert.equal(lib.itemValue(lib.cleanItem('note', 'b', { title: 'x', icon: 'map' })).icon, 'map');
   assert.equal(lib.itemValue(link).icon, undefined);
   assert.equal(lib.cleanItem('note', 'b', { title: 'x', date: '2026-02-28', point: { lat: 1, lng: 2, name: 'Pier' } }).point.name, 'Pier');
@@ -130,6 +135,10 @@ await test('the store: save, edit with versions, remove (and the picture), and w
   const out = await f.handlers.saveNote({ title: 'From elsewhere', body: 'text', tags: '#Hotel, Lisbon', ref: { module: 'places', kind: 'place', id: 'p' } }, { by: 'u2' });
   assert.equal(out.ref.kind, 'note');
   assert.deepEqual(r.get(out.ref.id).tags, ['hotel', 'lisbon']);
+  const flight = await f.handlers.saveNote({ title: 'SJC to SNA', body: 'Morning', icon: 'note', kind: 'flight' });
+  assert.equal(r.get(flight.ref.id).icon, 'plane');
+  const stay = await f.handlers.saveNote({ title: 'The inn', body: 'Two nights', icon: 'bed' });
+  assert.equal(r.get(stay.ref.id).icon, 'hotel');
   assert.equal(f.links.at(-1)[1], 1);
   await assert.rejects(f.handlers.saveNote({ title: '' }), /title/);
   const link = await f.handlers.saveLink({ url: 'https://example.org/a', excerpt: 'because' });

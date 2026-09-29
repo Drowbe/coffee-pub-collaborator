@@ -1407,7 +1407,7 @@ async function copyEntry(entry, btn) {
     } else {
       await navigator.clipboard.writeText(entry.text);
     }
-    flashIcon(btn, 'check');
+    if (btn) flashIcon(btn, 'check');
   } catch (err) {
     setStatus(`copy: ${err.message}`, true);
   }
@@ -1428,20 +1428,124 @@ function replyToEntry(entry) {
   resizeChatInput();
 }
 
-function messageEl(entry, own) {
-  const el = document.createElement('div');
-  el.className = `message${own ? ' own' : ''}`;
-  const who = document.createElement('span');
-  who.className = 'who';
-  who.textContent = entry.who;
-  if (entry.at) {
-    const when = document.createElement('span');
-    when.className = 'when';
-    when.textContent = entry.at.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-    who.appendChild(when);
+function messageStamp(at) {
+  const d = at instanceof Date ? at : new Date(at);
+  if (Number.isNaN(d.getTime())) return '';
+  const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  if (d.toDateString() === new Date().toDateString()) return time;
+  return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+}
+
+function messagePortrait(name, kind, icon) {
+  const el = document.createElement('span');
+  el.className = 'message-portrait';
+  el.setAttribute('aria-hidden', 'true');
+  const safe = /^[a-z0-9-]{1,40}$/.test(icon || '') ? icon : (kind === 'ai' ? 'robot' : '');
+  if (safe) {
+    el.innerHTML = `<i class="fa-solid fa-${safe} fa-fw"></i>`;
+    return el;
   }
-  const body = document.createElement('span');
-  body.className = 'text';
+  el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
+  return el;
+}
+
+// A chat message is a header and a container. The header has a left zone (portrait, name, time) and a
+// right zone (private or public, then the menu). The container is the message itself.
+function frameMessage({ name, at, visibility = 'public', kind, icon, body, entry, onPublic }) {
+  const el = document.createElement('div');
+  el.className = 'message';
+  if (kind === 'own' || kind === 'you') el.classList.add('own');
+  if (kind === 'ai' || kind === 'you') el.classList.add('private-ai');
+  if (kind === 'ai') el.classList.add('msg-ai');
+  const head = document.createElement('div');
+  head.className = 'message-head';
+  const left = document.createElement('span');
+  left.className = 'message-head-side';
+  const nameEl = document.createElement('span');
+  nameEl.className = 'message-name';
+  nameEl.textContent = name || 'someone';
+  const dash = document.createElement('span');
+  dash.className = 'message-dash';
+  dash.setAttribute('aria-hidden', 'true');
+  dash.textContent = '–';
+  const when = document.createElement('span');
+  when.className = 'message-when';
+  when.textContent = messageStamp(at);
+  left.append(messagePortrait(name, kind, icon), nameEl);
+  if (when.textContent) left.append(dash, when);
+  const right = document.createElement('span');
+  right.className = 'message-head-side';
+  let state = visibility === 'private' ? 'private' : 'public';
+  let posted = state === 'public';
+  const vis = document.createElement('button');
+  vis.type = 'button';
+  vis.className = 'message-vis';
+  const paintVis = () => {
+    vis.textContent = state;
+    vis.setAttribute('aria-label', state === 'private' ? 'Private' : 'Public');
+  };
+  paintVis();
+  vis.addEventListener('click', (event) => {
+    event.stopPropagation();
+    const next = state === 'private' ? 'public' : 'private';
+    openHostMenu(vis, [{
+      icon: next === 'public' ? 'users' : 'lock',
+      label: next === 'public' ? 'Make public' : 'Make private',
+      onPick: () => {
+        state = next;
+        if (entry) entry.visibility = state;
+        paintVis();
+        if (state === 'public' && !posted && onPublic) {
+          posted = true;
+          onPublic();
+        }
+      },
+    }]);
+  });
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'sdk-more';
+  more.title = 'More';
+  more.setAttribute('aria-label', 'More');
+  more.setAttribute('aria-haspopup', 'menu');
+  more.innerHTML = '<i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i>';
+  more.addEventListener('click', (event) => {
+    event.stopPropagation();
+    openHostMenu(more, [
+      { icon: 'copy', label: 'Copy', onPick: () => copyEntry(entry) },
+      { icon: 'reply', label: 'Reply', onPick: () => replyToEntry(entry) },
+      { icon: 'share', label: 'Send to...', onPick: () => {} },
+      { icon: 'trash', label: 'Delete', danger: true, onPick: () => deleteMessage(el, entry, right) },
+    ]);
+  });
+  right.append(vis, more);
+  head.append(left, right);
+  el.append(head, body);
+  return el;
+}
+
+function deleteMessage(el, entry, right) {
+  if (entry && entry.chat) {
+    entry.deleted = true;
+    entry.text = 'Message deleted';
+    entry.blob = null;
+    const body = el.querySelector('.message-body');
+    if (body) {
+      body.replaceChildren();
+      body.textContent = 'Message deleted';
+      body.classList.add('is-deleted');
+    }
+    right.remove();
+    return;
+  }
+  el.remove();
+}
+
+function messageEl(entry, own) {
+  entry.chat = true;
+  entry.visibility = 'public';
+  const body = document.createElement('div');
+  body.className = 'message-body text';
   if (entry.blob) {
     const img = document.createElement('img');
     img.src = URL.createObjectURL(entry.blob);
@@ -1452,14 +1556,14 @@ function messageEl(entry, own) {
   } else {
     body.innerHTML = renderMarkup(entry.text);
   }
-  const actions = document.createElement('span');
-  actions.className = 'actions';
-  const copyBtn = iconButton('copy', entry.blob ? 'Copy picture' : 'Copy text', () => copyEntry(entry, copyBtn));
-  actions.appendChild(copyBtn);
-  actions.appendChild(iconButton('reply', 'Reply', () => replyToEntry(entry)));
-  if (entry.blob) actions.appendChild(iconButton('download', 'Save picture', () => saveBlob(entry.blob, entry.name)));
-  el.append(who, body, actions);
-  return el;
+  return frameMessage({
+    name: entry.who,
+    at: entry.at,
+    visibility: 'public',
+    kind: own ? 'own' : '',
+    body,
+    entry,
+  });
 }
 
 function addEntry(entry, own = false) {
@@ -2694,6 +2798,7 @@ const chatInput = attachChatInput({
   resizeChatInput,
   setStatus,
   renderMarkup,
+  frameMessage,
 });
 askInChat = (input) => chatInput.askAbout(input);
 $('chat-form').addEventListener('submit', async (event) => {

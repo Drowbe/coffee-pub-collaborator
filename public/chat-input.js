@@ -100,7 +100,7 @@ export function placeAbove(popup, anchor) {
   popup.style.top = `${top}px`;
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup, frameMessage }) {
   const input = () => $('chat-input');
   const note = () => $('chat-note');
   const importBtn = () => $('chat-import');
@@ -123,7 +123,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
 
   function commandList() {
     const list = [];
-    list.push({ name: 'ai', label: 'Ask the AI', module: null, moduleName: '', hint: 'a question for the AI', action: null });
+    list.push({ name: 'ai', label: 'Ask the AI', module: null, moduleName: 'AI', icon: 'robot', hint: 'a question for the AI', action: null });
     for (const m of canvas.list()) {
       for (const c of m.commands || []) {
         list.push({
@@ -131,6 +131,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
           label: c.label,
           module: m.id,
           moduleName: m.displayName || m.name,
+          icon: /^[a-z0-9-]{1,40}$/.test(m.icon || '') ? m.icon : '',
           hint: c.hint || '',
           action: c.action,
         });
@@ -306,18 +307,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
   }
 
   function addAiTurn(kind, text, summaries, question, { shared } = {}) {
-    const el = document.createElement('div');
-    el.className = `message private-ai ${kind === 'you' ? 'own' : 'msg-ai'}`;
-    const who = document.createElement('span');
-    who.className = 'who';
-    const name = document.createElement('span');
-    name.textContent = kind === 'you' ? 'You' : 'AI';
-    const badge = document.createElement('span');
-    badge.className = shared ? 'msg-badge msg-badge-shared' : 'msg-badge msg-badge-private';
-    badge.textContent = shared ? 'shared' : 'private';
-    who.append(name);
+    const name = kind === 'you' ? (getMe()?.displayName || 'You') : 'AI';
     const body = document.createElement('div');
-    body.className = 'text';
+    body.className = 'message-body text';
     const objects = summaries || [];
     if (kind === 'ai' && objects.length) {
       for (const p of answerParts(text, objects.length)) {
@@ -331,35 +323,19 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     } else {
       body.innerHTML = renderMarkup(String(text || ''));
     }
-    el.append(who, body);
-    if (kind === 'ai') {
-      const actions = document.createElement('span');
-      actions.className = 'actions';
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'msg-btn';
-      copy.title = 'Copy';
-      copy.textContent = 'Copy';
-      copy.addEventListener('click', () => navigator.clipboard.writeText(text || '').catch(() => {}));
-      if (!shared) {
-        const share = document.createElement('button');
-        share.type = 'button';
-        share.className = 'msg-btn';
-        share.title = `Share to the ${word('space')}`;
-        share.textContent = `Share to the ${word('space')}`;
-        share.addEventListener('click', () => {
-          const me = getMe();
-          const label = `AI answer shared by ${me?.displayName || 'someone'}`;
-          sendChat(`${label}\n\n${text || ''}`);
-        });
-        actions.append(copy, share);
-      } else {
-        actions.append(copy);
-      }
-      who.append(actions, badge);
-    } else {
-      who.appendChild(badge);
-    }
+    const entry = { who: name, text: String(text || ''), at: new Date(), chat: false };
+    const el = frameMessage({
+      name,
+      at: entry.at,
+      visibility: shared ? 'public' : 'private',
+      kind: kind === 'you' ? 'you' : 'ai',
+      body,
+      entry,
+      onPublic: kind === 'ai' ? () => {
+        const me = getMe();
+        sendChat(`AI answer shared by ${me?.displayName || 'someone'}\n\n${text || ''}`);
+      } : null,
+    });
     $('messages').appendChild(el);
     $('messages').scrollTop = $('messages').scrollHeight;
   }
@@ -409,7 +385,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     const id = spaceId();
     if (!id) { setNote(`AI is only in ${word('space', { a: true })}.`); return false; }
     const shared = shareMode === 'shared';
-    addAiTurn('you', question, [], '', { shared });
     try {
       const reply = await api('POST', `/api/spaces/${encodeURIComponent(id)}/ai`, {
         question,
@@ -748,13 +723,39 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
   });
 
+  function reflectCommand(parsed) {
+    const hits = matchesFor(parsed.name);
+    const openHits = hits.filter((h) => !h.module || canvas.isOpen(h.module));
+    const chosen = hits.length > 1 && openHits.length === 1 ? openHits[0] : hits[0];
+    const name = chosen?.moduleName || `/${parsed.name}`;
+    const icon = chosen?.icon || '';
+    const bodyText = parsed.rest || chosen?.label || `/${parsed.name}`;
+    const body = document.createElement('div');
+    body.className = 'message-body text';
+    body.innerHTML = renderMarkup(bodyText);
+    const entry = { who: name, text: bodyText, at: new Date(), chat: false };
+    const el = frameMessage({
+      name,
+      at: entry.at,
+      visibility: 'private',
+      kind: parsed.name === 'ai' ? 'ai' : 'command',
+      icon,
+      body,
+      entry,
+      onPublic: () => sendChat(bodyText),
+    });
+    $('messages').appendChild(el);
+    $('messages').scrollTop = $('messages').scrollHeight;
+  }
+
   return {
     async handleSubmit(text) {
       setNote('');
       const parsed = parseCommand(text);
       if (!parsed) return false;
-      const sent = await runCommand(parsed);
-      return sent;
+      reflectCommand(parsed);
+      await runCommand(parsed);
+      return true;
     },
     loadThread,
     refreshActions,

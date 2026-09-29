@@ -1454,7 +1454,8 @@
     // The module's action bar: buttons the host draws along the bottom of the
     // module (in the space's bottom row when docked, lined up with the video
     // toolbar and the chat box). set([{ id, label, icon, primary, disabled, overflow }]);
-    // a click arrives as the 'bar' event with the button's id. The primary button sits on
+    // a click arrives as the 'bar' event with the button's id. Give an icon: the bar draws that
+    // alone, and the label is the tooltip and the line in "...". The primary button sits on
     // the far right; the rest sit to its left. As the bar shrinks, leftover buttons come
     // off the left into a host-drawn "...". An item marked `overflow: true` always goes there.
     bar: {

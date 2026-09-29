@@ -2993,7 +2993,7 @@ $('chat-help').addEventListener('click', (e) => {
   if (chatInput) chatInput.hidePicker();
   const help = $('chat-help-popup');
   help.hidden = !help.hidden;
-  if (!help.hidden) placeAbove(help, $('chat-help'));
+  if (!help.hidden) placeAbove(help, visibleAnchor($('chat-help')));
 });
 document.addEventListener('click', (e) => {
   if (!$('chat-help-popup').hidden && !e.target.closest('#chat-help-popup')) $('chat-help-popup').hidden = true;
@@ -3031,7 +3031,7 @@ $('chat-emoji').addEventListener('click', (e) => {
   if (chatInput) chatInput.hidePicker();
   const emoji = $('chat-emoji-popup');
   emoji.hidden = !emoji.hidden;
-  if (!emoji.hidden) placeAbove(emoji, $('chat-emoji'));
+  if (!emoji.hidden) placeAbove(emoji, visibleAnchor($('chat-emoji')));
 });
 
 $('layout').addEventListener('click', cycleView);
@@ -3069,6 +3069,84 @@ function fitFloatbar() {
     $('floatbar-overflow').appendChild(item);
     $('floatbar-more').hidden = false;
   }
+  fitChatChrome();
+}
+
+// The same fold as the conference bar, for a row of icon buttons in the chat: lowest data-collapse
+// first (left to right) into that row's "...". A button hidden for its own reason (Bring in research
+// when it does not apply) is left alone. data-collapsed marks the ones this fold hid, so they can come back.
+function rowIcon(el) {
+  const node = el.querySelector('i');
+  const match = node && node.className.match(/fa-(?!solid|regular|fw\b)([a-z0-9-]+)/);
+  return match ? match[1] : '';
+}
+function rowLabel(el) {
+  const named = el.matches('button') ? el : el.querySelector('button');
+  return (named && (named.getAttribute('aria-label') || named.title)) || el.getAttribute('aria-label') || 'More';
+}
+function fitRow(bar) {
+  if (!bar) return;
+  const more = bar.querySelector('[data-more]');
+  const items = [...bar.querySelectorAll('[data-collapse]')].sort(
+    (a, b) => Number(a.dataset.collapse) - Number(b.dataset.collapse)
+  );
+  for (const item of items) {
+    if (!item.dataset.collapsed) continue;
+    item.hidden = false;
+    delete item.dataset.collapsed;
+  }
+  if (more) more.hidden = true;
+  if (!bar.clientWidth) return;
+  const spills = () => {
+    const edge = bar.getBoundingClientRect();
+    return [...bar.querySelectorAll('button')].some((child) => {
+      if (child.hidden || child.closest('[hidden]')) return false;
+      const box = child.getBoundingClientRect();
+      return box.left < edge.left - 1 || box.right > edge.right + 1;
+    });
+  };
+  let guard = 0;
+  while (spills() && guard < 20) {
+    const next = items.find((el) => !el.hidden && !el.dataset.collapsed);
+    if (!next) break;
+    next.hidden = true;
+    next.dataset.collapsed = '1';
+    if (more) more.hidden = false;
+    guard += 1;
+  }
+}
+function fitChatChrome() {
+  fitRow($('chat-format-bar'));
+  fitRow($('chat-import-foot'));
+}
+function openCollapsed(more, bar) {
+  const hidden = [...bar.querySelectorAll('[data-collapsed]')];
+  openHostMenu(more, hidden.map((el) => ({
+    icon: rowIcon(el),
+    label: rowLabel(el),
+    onPick: () => {
+      const btn = el.matches('button') ? el : el.querySelector('button');
+      btn?.click();
+    },
+  })));
+}
+function visibleAnchor(el) {
+  const collapsed = el.closest('[data-collapsed]');
+  const more = $('chat-format-more');
+  if ((el.hidden || collapsed) && more && !more.hidden) return more;
+  return el;
+}
+for (const barId of ['chat-format-bar', 'chat-import-foot']) {
+  const bar = $(barId);
+  if (!bar) continue;
+  const more = bar.querySelector('[data-more]');
+  if (more) more.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openCollapsed(more, bar);
+  });
+  // The row's own box, not the column: opening the import panel does not resize the column.
+  new ResizeObserver(() => fitRow(bar)).observe(bar);
 }
 $('floatbar-overflow').addEventListener('click', (event) => {
   const trigger = event.target.closest('[data-settings]');

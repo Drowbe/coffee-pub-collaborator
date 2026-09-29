@@ -2014,7 +2014,7 @@
 
   // --- what other modules may ask, and the first load ---------------------------------------------------------
 
-  // The shared bar: Add plan, and icon-only Flight / Hotel / Restaurant / Note. Typing is `/p` in Chat.
+  // The shared bar: icon buttons, Add plan on the right. Typing is `/p` in Chat.
   const defaultDay = () => {
     const days = plan.days();
     const today = ymd(new Date());
@@ -2027,7 +2027,7 @@
   };
   if (host.bar) {
     host.bar.set(canEdit ? [
-      { id: 'add', label: 'Add plan', primary: true },
+      { id: 'add', label: 'Add plan', icon: 'plus', primary: true },
       { id: 'flight', icon: 'plane', iconOnly: true, label: 'Flight' },
       { id: 'hotel', icon: 'bed', iconOnly: true, label: 'Hotel' },
       { id: 'restaurant', icon: 'utensils', iconOnly: true, label: 'Restaurant' },

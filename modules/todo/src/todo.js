@@ -635,7 +635,7 @@
   if (host.bar) {
     $('add').classList.add('hosted');
     $('new-form').classList.add('hosted');
-    host.bar.set(canEdit ? [{ id: 'add', label: 'New todo', primary: true }] : []).catch(() => {
+    host.bar.set(canEdit ? [{ id: 'add', label: 'New todo', icon: 'square-plus', primary: true }] : []).catch(() => {
       $('add').classList.remove('hosted');
       $('new-form').classList.remove('hosted');
     });

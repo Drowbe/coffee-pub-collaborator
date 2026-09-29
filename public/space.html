@@ -274,33 +274,35 @@
         <textarea id="chat-import-show" hidden readonly></textarea>
         <textarea id="chat-import-text" rows="5" placeholder="Paste the whole answer here"></textarea>
         <p class="chat-import-why" id="chat-import-why" hidden></p>
-        <div class="chat-import-panel-foot">
-          <button class="btn btn-small" type="button" id="chat-import-copy">Copy instructions</button>
-          <button class="btn btn-small" type="button" id="chat-import-choose">Choose a file</button>
+        <div class="chat-import-panel-foot" id="chat-import-foot">
+          <button class="sdk-more" type="button" id="chat-import-more" data-more hidden title="More" aria-label="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" type="button" id="chat-import-copy" data-collapse="1" title="Copy instructions" aria-label="Copy instructions"><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" type="button" id="chat-import-choose" data-collapse="2" title="Choose a file" aria-label="Choose a file"><i class="fa-solid fa-file-arrow-up fa-fw" aria-hidden="true"></i></button>
           <span class="chat-import-gap"></span>
-          <button class="btn btn-small" type="button" id="chat-import-close">Close</button>
-          <button class="btn btn-primary btn-small" type="button" id="chat-import-check">Import</button>
+          <button class="msg-btn" type="button" id="chat-import-close" data-collapse="3" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" type="button" id="chat-import-check" data-collapse="4" title="Import" aria-label="Import"><i class="fa-solid fa-file-import fa-fw" aria-hidden="true"></i></button>
         </div>
         <input id="chat-import-file" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" hidden>
       </div>
       <div class="chat-format-bar" id="chat-format-bar">
         <span class="chat-format-side">
-          <button class="msg-btn" id="chat-pic" type="button" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-bold" type="button" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-italic" type="button" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-code" type="button" title="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-list" type="button" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
-          <span class="chat-format-item">
+          <button class="sdk-more" id="chat-format-more" type="button" data-more hidden title="More" aria-label="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-pic" type="button" data-collapse="1" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-bold" type="button" data-collapse="2" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-italic" type="button" data-collapse="3" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-code" type="button" data-collapse="4" title="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-list" type="button" data-collapse="5" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
+          <span class="chat-format-item" data-collapse="6">
             <button class="msg-btn" id="chat-emoji" type="button" title="Emoji" aria-label="Emoji"><i class="fa-regular fa-face-smile fa-fw" aria-hidden="true"></i></button>
             <div class="chat-emoji-popup" id="chat-emoji-popup" hidden></div>
           </span>
         </span>
         <span class="chat-format-side">
-          <button class="msg-btn" id="chat-bring" type="button" title="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
-          <span class="chat-format-item chat-command-wrap" id="chat-command-wrap">
+          <button class="msg-btn" id="chat-bring" type="button" data-collapse="7" title="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
+          <span class="chat-format-item chat-command-wrap" id="chat-command-wrap" data-collapse="8">
             <button class="msg-btn" id="chat-command" type="button" title="Commands" aria-label="Commands" aria-haspopup="true"><i class="fa-solid fa-square-poll-horizontal fa-fw" aria-hidden="true"></i></button>
           </span>
-          <span class="chat-format-item">
+          <span class="chat-format-item" data-collapse="9">
             <button class="msg-btn" id="chat-help" type="button" title="Formatting help" aria-label="Formatting help"><i class="fa-solid fa-square-pen fa-fw" aria-hidden="true"></i></button>
             <div class="chat-help-popup" id="chat-help-popup" hidden>
               <p><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, and lines starting with <code>- </code> for a bulleted list all work. Links become clickable automatically. Paste or drop a picture to send it. Shift+Enter starts a new line without sending.</p>

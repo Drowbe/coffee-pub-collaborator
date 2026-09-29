@@ -2797,7 +2797,30 @@ a.crumb-here:hover {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.chat-import-panel-foot > .msg-btn,
+.chat-import-panel-foot > .sdk-more,
+.chat-format-bar .sdk-more {
+  flex: none;
+}
+
+.chat-import-panel-foot > .chat-import-gap {
+  flex: 1;
+  min-width: 0;
+}
+
+#chat-import-check {
+  color: var(--on-accent);
+  background: var(--accent);
+}
+
+#chat-import-check:hover {
+  color: var(--on-accent);
+  background: var(--accent-hover);
 }
 
 .chat-import-gap {
@@ -2913,6 +2936,8 @@ a.crumb-here:hover {
 .chat-format-bar {
   flex: 0 0 auto;
   min-height: max-content;
+  min-width: 0;
+  overflow: hidden; /* a button that does not fit is folded into "...", not painted into the next module */
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -2927,7 +2952,7 @@ a.crumb-here:hover {
   display: flex;
   align-items: center;
   gap: 2px;
-  min-width: 0;
+  flex: none; /* do not shrink; fitChatChrome hides buttons into "..." instead */
 }
 
 .chat-format-bar .msg-btn {
@@ -4998,6 +5023,15 @@ body.module-popout .topbar {
   padding: 8px 10px;
   background: var(--shade);
   border-top: 1px solid var(--border);
+}
+
+/* Same rule as the conference bar: buttons keep their size, and what does not fit overflows so the
+   host can move it into "..." (scrollWidth vs clientWidth). Nothing paints outside the module. */
+.dock-bar,
+.module-floating-bar,
+.module-bar {
+  min-width: 0;
+  overflow: hidden;
 }
 
 .dock-bar > .btn,

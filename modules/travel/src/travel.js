@@ -92,6 +92,13 @@
     }
   }
   const setIcon = (node, name) => { if (node) { node.dataset.icon = name || ''; delete node.dataset.shown; node.textContent = ''; } };
+  // A note drawn with the same markdown as chat and research. Links open in a new window.
+  function setMarkup(node, text) {
+    if (!node) return;
+    const words = String(text || '').trim();
+    node.hidden = !words;
+    node.innerHTML = words ? host.util.markdown(words) : '';
+  }
 
   const dayShort = (d) => parseYmd(d).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   // A stored time ("22:30") the way the server shows times (host.util.time: "10:30 PM" on the default 12-hour clock).
@@ -188,7 +195,8 @@
       colourPill(el, type);
       put(el, { title: item.title || type.label, minutes: duration, body: item.notes });
     } else if (c.template === 'note') {
-      put(el, { title: item.title, body: item.notes });
+      put(el, { title: item.title });
+      setMarkup(slot(el, 'body'), item.notes);
     } else if (c.template === 'place') {
       put(el, { title: summary.title || item.title, address: summary.subtitle });
     } else {
@@ -259,7 +267,9 @@
     const dl = more.querySelector('dl');
     for (const [label, value] of rows) {
       const dt = document.createElement('dt'); dt.textContent = label;
-      const dd = document.createElement('dd'); dd.textContent = value;
+      const dd = document.createElement('dd');
+      if (label === 'Note') { dd.className = 'note-text'; setMarkup(dd, value); }
+      else dd.textContent = value;
       dl.append(dt, dd);
     }
     more.addEventListener('toggle', () => { if (more.open) state.expanded.add(item.id); else state.expanded.delete(item.id); });

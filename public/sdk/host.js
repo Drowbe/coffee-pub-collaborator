@@ -918,6 +918,12 @@
       used: (key) => call('geocode.used', { key }),
     },
 
+    // A page's title, description and image, read by the server for a link someone is adding. Answers
+    // { enabled, title, description, image }. `enabled` is false until the module's link previews setting is on.
+    preview: {
+      link: (url) => call('preview.link', { url }),
+    },
+
     // The people of the space this module is in: [{ key, name }] (empty outside a space's canvas). For choosing a person
     // ("whose is it"): store their `key`, never the name.
     people: () => call('people'),

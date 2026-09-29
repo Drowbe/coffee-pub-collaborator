@@ -129,6 +129,9 @@ body { margin: 0; overflow: hidden; }
 .format-bar button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text); cursor: pointer; }
 .format-bar button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
 .format-bar button:disabled { opacity: 0.4; cursor: default; }
+.link-preview { display: flex; gap: 8px; align-items: flex-start; }
+.link-preview img { width: 72px; height: 54px; object-fit: cover; border-radius: 6px; flex: none; background: color-mix(in srgb, var(--text) 8%, var(--bg)); }
+.link-preview p { margin: 0; font-size: 12px; line-height: 1.4; color: var(--text-dim); }
 .editor-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .editor-buttons .grow { flex: 1; }
 /* one form for the four kinds: a row shows only for the kinds listed in its data-kinds */

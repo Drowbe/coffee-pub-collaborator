@@ -52,6 +52,7 @@
     armed: null,
     uploads: [], // { el, file, step, progress, error, posAsk }
     tagColors: new Map(), // a well-known tag -> its colour
+    previews: false, // the environment's Fetch link previews setting
     ai: false, // whether this person may use AI here (for Suggest tags, and Research this)
     thumbs: new Map(), // photo id -> address of its thumbnail in the view it was asked for
   };
@@ -433,6 +434,57 @@
   }
   $('f-point').addEventListener('input', readPoint);
 
+  // A link's page, read by the server when Fetch link previews is on. An empty title or description is filled in.
+  // What the person already typed is left as it is. The picture is only shown here; it is not stored.
+  let previewWait = 0;
+  let previewFor = '';
+  const previewImg = $('f-preview-img');
+  if (previewImg) previewImg.addEventListener('error', () => { previewImg.hidden = true; });
+  function clearPreview() {
+    previewFor = '';
+    if ($('f-url-note')) $('f-url-note').textContent = '';
+    const box = $('f-preview');
+    if (box) box.hidden = true;
+    if (previewImg) { previewImg.hidden = true; previewImg.removeAttribute('src'); }
+    if ($('f-preview-text')) $('f-preview-text').textContent = '';
+  }
+  async function pullPreview() {
+    const e = state.editing;
+    if (!e || e.kind !== 'link' || !state.previews || !canEdit) return clearPreview();
+    const url = cleanUrl($('f-url').value);
+    if (!url) return clearPreview();
+    if (url === previewFor) return;
+    previewFor = url;
+    $('f-url-note').textContent = 'Reading the page...';
+    try {
+      const got = await host.preview.link(url);
+      if (previewFor !== url || !state.editing) return;
+      if (!got || got.enabled === false) return clearPreview();
+      const title = String(got.title || '').trim();
+      const description = String(got.description || '').trim();
+      if (title && !geo.oneLine($('f-title').value, 120)) $('f-title').value = title;
+      if (description && !$('f-excerpt').value.trim()) $('f-excerpt').value = description;
+      $('f-url-note').textContent = (title || description) ? 'Read from the page.' : '';
+      const image = String(got.image || '');
+      if ($('f-preview-text')) $('f-preview-text').textContent = image ? description : '';
+      if (previewImg) {
+        previewImg.hidden = !image;
+        if (image) previewImg.src = image;
+      }
+      if ($('f-preview')) $('f-preview').hidden = !image;
+    } catch (err) {
+      if (previewFor !== url) return;
+      $('f-url-note').textContent = 'That page could not be read.';
+      if ($('f-preview')) $('f-preview').hidden = true;
+    }
+  }
+  $('f-url').addEventListener('input', () => {
+    clearTimeout(previewWait);
+    previewFor = '';
+    previewWait = setTimeout(pullPreview, 500);
+  });
+  $('f-url').addEventListener('change', () => { clearTimeout(previewWait); previewFor = ''; pullPreview(); });
+
   // Show an object in the dialog: a new one (`id` null; `seed` its start, with its kind), or an existing one.
   function openEditor(id, seed) {
     const cur = id ? research.get(id) : null;
@@ -454,6 +506,7 @@
     $('f-tags').value = it.tags.join(', ');
     $('f-point').value = it.point ? geo.coordsText(it.point.lat, it.point.lng) : '';
     $('f-point-note').textContent = '';
+    clearPreview();
     $('f-date').value = it.date;
     hide($('f-asked'), !(kind === 'answer' && it.ai));
     if (kind === 'answer' && it.ai) {
@@ -472,6 +525,7 @@
     hide($('editor'), false);
     hydrate($('editor'));
     if (canEdit) (kind === 'photo' ? $('f-caption') : kind === 'link' && !id ? $('f-url') : $('f-title')).focus();
+    if (kind === 'link' && it.url) pullPreview();
   }
   function closeEditor() { hide($('editor'), true); state.editing = null; }
 
@@ -801,8 +855,9 @@
   try {
     await ensureLoaded(view);
     state.people = await host.people().catch(() => []);
-    try { loadTagColors(await host.settings.get()); } catch (err) { loadTagColors(null); }
-    host.settings.onChange((v) => { loadTagColors(v); if (state.loaded) render(); });
+    const applySettings = (v) => { loadTagColors(v); state.previews = Boolean(v && v.linkPreviews); };
+    try { applySettings(await host.settings.get()); } catch (err) { applySettings(null); }
+    host.settings.onChange((v) => { applySettings(v); if (state.loaded) render(); });
     const choices = $('f-icons');
     choices.replaceChildren(...NOTE_ICONS.map(([icon, label]) => {
       const el = clone('tpl-icon-choice');

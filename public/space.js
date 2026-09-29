@@ -1436,12 +1436,13 @@ function messageStamp(at) {
   return `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
 }
 
-function messagePortrait(name, kind) {
+function messagePortrait(name, kind, icon) {
   const el = document.createElement('span');
   el.className = 'message-portrait';
   el.setAttribute('aria-hidden', 'true');
-  if (kind === 'ai') {
-    el.innerHTML = '<i class="fa-solid fa-robot fa-fw"></i>';
+  const safe = /^[a-z0-9-]{1,40}$/.test(icon || '') ? icon : (kind === 'ai' ? 'robot' : '');
+  if (safe) {
+    el.innerHTML = `<i class="fa-solid fa-${safe} fa-fw"></i>`;
     return el;
   }
   el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
@@ -1450,7 +1451,7 @@ function messagePortrait(name, kind) {
 
 // A chat message is a header and a container. The header has a left zone (portrait, name, time) and a
 // right zone (private or public, then the menu). The container is the message itself.
-function frameMessage({ name, at, visibility = 'public', kind, body, entry, onPublic }) {
+function frameMessage({ name, at, visibility = 'public', kind, icon, body, entry, onPublic }) {
   const el = document.createElement('div');
   el.className = 'message';
   if (kind === 'own' || kind === 'you') el.classList.add('own');
@@ -1470,7 +1471,7 @@ function frameMessage({ name, at, visibility = 'public', kind, body, entry, onPu
   const when = document.createElement('span');
   when.className = 'message-when';
   when.textContent = messageStamp(at);
-  left.append(messagePortrait(name, kind), nameEl);
+  left.append(messagePortrait(name, kind, icon), nameEl);
   if (when.textContent) left.append(dash, when);
   const right = document.createElement('span');
   right.className = 'message-head-side';

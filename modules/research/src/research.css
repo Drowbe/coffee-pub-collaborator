@@ -74,6 +74,12 @@ body { margin: 0; overflow: hidden; }
 .rcard .menu { margin-left: auto; }
 .rcard h3 { margin: 0; font-size: 14px; line-height: 1.3; overflow-wrap: anywhere; }
 .rcard .excerpt { margin: 0; color: var(--text); opacity: 0.88; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.rcard .excerpt :is(p, ul, ol, blockquote, h1, h2, h3, pre) { margin: 0; }
+.rcard .excerpt :is(h1, h2, h3) { font-size: inherit; }
+.rcard .excerpt p + p, .rcard .excerpt ul, .rcard .excerpt ol, .rcard .excerpt blockquote { margin-top: 4px; }
+.rcard .excerpt ul, .rcard .excerpt ol { padding-left: 1.1em; }
+.rcard .excerpt a { color: var(--accent); }
+.rcard .excerpt code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
 .rcard .site { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 12px; }
 .rcard .thumb { display: block; width: calc(100% + 24px); margin: -12px -12px 4px; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 13px 13px 0 0; background: color-mix(in srgb, var(--tone) 25%, var(--bg-card)); }
 .rcard .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--text-dim); font-size: 11px; }
@@ -117,6 +123,11 @@ body { margin: 0; overflow: hidden; }
 .icon-choice { display: inline-flex; flex-direction: column; align-items: center; gap: 2px; width: 58px; padding: 4px 2px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text-dim); font: inherit; font-size: 10px; line-height: 1.2; cursor: pointer; }
 .icon-choice .ic { color: var(--text); font-size: 16px; }
 .icon-choice.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, var(--bg)); color: var(--text); }
+.field-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.format-bar { display: inline-flex; align-items: center; gap: 2px; }
+.format-bar button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text); cursor: pointer; }
+.format-bar button:hover { background: color-mix(in srgb, var(--text) 8%, transparent); }
+.format-bar button:disabled { opacity: 0.4; cursor: default; }
 .editor-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .editor-buttons .grow { flex: 1; }
 /* one form for the four kinds: a row shows only for the kinds listed in its data-kinds */

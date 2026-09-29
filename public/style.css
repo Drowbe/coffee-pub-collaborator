@@ -5112,10 +5112,21 @@ body.module-page .module-canvas {
   flex-direction: column;
 }
 
-/* The chat as a floating panel or in a window of its own: its pieces stack instead of taking grid columns. */
+/* The chat as a floating panel or in a window of its own: its pieces stack instead of taking grid columns.
+   Docked, the chat box vanishes (display: contents) and the bar fills the shared bottom row (min-height: 100%,
+   aligned to the end). Floating, that same bar would take the whole window and sit in the corner, so the
+   chat is a column of its own and the bar is only as tall as the input. */
 .builtin-floating .chat-resize,
 .chat-window-grid .chat-resize {
   display: none;
+}
+
+.builtin-floating .module-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .builtin-floating .module-chat .mod-content {
@@ -5126,6 +5137,10 @@ body.module-page .module-canvas {
 
 .builtin-floating .chat-bar {
   flex: none;
+  align-self: stretch;
+  width: auto;
+  height: auto;
+  min-height: 0;
   border-left: 0;
 }
 

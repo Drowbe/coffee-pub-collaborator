@@ -7,6 +7,33 @@
   const KINDS = ['note', 'link', 'photo', 'answer'];
   const KIND_LABEL = { note: 'Note', link: 'Link', photo: 'Photo', answer: 'Answer' };
   const KIND_ICON = { note: 'note-sticky', link: 'link', photo: 'camera', answer: 'wand-magic-sparkles' };
+  // A note's type, chosen in the editor and drawn beside its title. Anything else is a general note.
+  // `note` is the name an imported object uses for the same general icon.
+  const NOTE_ICONS = [
+    ['note-sticky', 'General'],
+    ['plane', 'Flight'],
+    ['hotel', 'Hotel'],
+    ['map', 'Map'],
+    ['train', 'Train'],
+    ['bus', 'Bus'],
+    ['ship', 'Ferry'],
+    ['car', 'Car'],
+    ['utensils', 'Meal'],
+    ['mug-hot', 'Cafe'],
+    ['landmark', 'Sight'],
+    ['ticket', 'Ticket'],
+    ['location-dot', 'Place'],
+    ['lightbulb', 'Idea'],
+    ['list-check', 'List'],
+    ['wallet', 'Money'],
+    ['suitcase', 'Packing'],
+    ['circle-info', 'Info'],
+  ];
+  const noteIcon = (name) => {
+    const id = name === 'note' ? 'note-sticky' : String(name || '');
+    return NOTE_ICONS.some(([icon]) => icon === id) ? id : 'note-sticky';
+  };
+  const noteIconLabel = (name) => NOTE_ICONS.find(([icon]) => icon === noteIcon(name))[1];
 
   const plainText = (s, n) => String(s == null ? '' : s).replace(/\p{Cc}(?<!\n)/gu, ' ').slice(0, n);
   const isDay = (s) => {
@@ -67,6 +94,7 @@
       by: typeof v.by === 'string' ? v.by.slice(0, 64) : '',
       at: typeof v.at === 'string' ? v.at.slice(0, 32) : '',
       ai: null,
+      icon: kind === 'note' ? noteIcon(v.icon) : '',
     };
     if (v.point && typeof v.point === 'object') {
       const lat = Number(v.point.lat);
@@ -87,7 +115,7 @@
   // What is stored for an item: only what its kind uses, plus the derived `text` and `sub` its summary carries.
   function itemValue(it) {
     const v = { kind: it.kind, title: it.title, tags: it.tags, date: it.date, by: it.by, at: it.at, text: textOf(it), sub: it.kind === 'link' ? it.site : '' };
-    if (it.kind === 'note') v.body = it.body;
+    if (it.kind === 'note') { v.body = it.body; v.icon = noteIcon(it.icon); }
     if (it.kind === 'link') { v.url = it.url; v.excerpt = it.excerpt; }
     if (it.kind === 'answer') { v.content = it.content; if (it.ai) v.ai = it.ai; }
     if (it.kind === 'photo' && it.file) v.file = it.file;
@@ -200,7 +228,7 @@
           const i = input || {};
           const title = geo.oneLine(i.title, 120);
           if (!title) throw new Error('a note needs a title');
-          const item = await save({ kind: 'note', title, body: plainText(i.body, 8000), tags: parseTags(i.tags), date: '', by: me || (ctx && ctx.by) || '' });
+          const item = await save({ kind: 'note', title, body: plainText(i.body, 8000), tags: parseTags(i.tags), date: '', icon: i.icon, by: me || (ctx && ctx.by) || '' });
           link(item, i.ref);
           return { ref: refOf('note', item.id) };
         },

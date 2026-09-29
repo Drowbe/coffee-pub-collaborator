@@ -60,6 +60,12 @@ await test('items are checked: what a kind needs, and nothing else', () => {
   assert.equal(note.title, 'First line');
   assert.equal(note.date, '');
   assert.equal(note.point, null);
+  assert.equal(note.icon, 'note-sticky');
+  assert.equal(lib.cleanItem('note', 'b', { title: 'x', icon: 'plane' }).icon, 'plane');
+  assert.equal(lib.cleanItem('note', 'b', { title: 'x', icon: 'note' }).icon, 'note-sticky');
+  assert.equal(lib.cleanItem('note', 'b', { title: 'x', icon: 'nope' }).icon, 'note-sticky');
+  assert.equal(lib.itemValue(lib.cleanItem('note', 'b', { title: 'x', icon: 'map' })).icon, 'map');
+  assert.equal(lib.itemValue(link).icon, undefined);
   assert.equal(lib.cleanItem('note', 'b', { title: 'x', date: '2026-02-28', point: { lat: 1, lng: 2, name: 'Pier' } }).point.name, 'Pier');
   const photo = lib.cleanItem('photo', 'c', { title: 'Harbour', file: { id: FILE, hasThumb: true } });
   assert.deepEqual(photo.file, { id: FILE, hasThumb: true });

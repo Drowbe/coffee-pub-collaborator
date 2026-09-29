@@ -44,6 +44,7 @@
     <form id="form" class="editor-card" data-kind="note">
       <h3 id="editor-title">Note</h3>
       <label data-kinds="note link answer">Title<input id="f-title" name="title" type="text" maxlength="120"></label>
+      <div class="icon-field" data-kinds="note"><span class="hint">Type</span><div class="icon-choices" id="f-icons"></div></div>
       <label data-kinds="photo">Caption<input id="f-caption" name="caption" type="text" maxlength="200"></label>
       <label data-kinds="link">Address<input id="f-url" name="url" type="url" maxlength="500" placeholder="https://" autocomplete="off"></label>
       <label data-kinds="note answer"><span data-slot="body-label">Note</span><textarea id="f-body" name="body" rows="6" maxlength="8000"></textarea></label>
@@ -81,11 +82,11 @@
 <template id="tpl-tag"><span class="tag"><span data-slot="label"></span></span></template>
 
 <!-- a card. data-kind is note, link, photo or answer. A photo has its picture in .thumb (the script sets src); .kicker's [data-slot=ai] is shown for an answer. -->
+<template id="tpl-icon-choice"><button class="icon-choice" type="button" data-action="pick-icon"><span class="ic" data-icon=""></span><span data-slot="label"></span></button></template>
 <template id="tpl-card">
   <article class="rcard" tabindex="0">
     <img class="thumb" data-slot="thumb" alt="" hidden>
-    <div class="top"><span class="kind"><span class="ic" data-icon=""></span></span><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><button class="menu sdk-more" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
-    <h3 data-slot="title"></h3>
+    <div class="top"><span class="kind"><span class="ic" data-icon=""></span></span><div class="head-main"><span class="kicker"><span data-slot="kind"></span><span class="ai-mark" data-slot="ai" hidden>AI</span></span><h3 data-slot="title"></h3></div><button class="menu sdk-more" type="button" data-action="menu" aria-label="Menu"><span class="ic" data-icon="ellipsis-vertical"></span></button></div>
     <div class="site" data-slot="site-wrap"><span class="ic" data-icon="globe"></span><span data-slot="site"></span></div>
     <p class="excerpt" data-slot="excerpt"></p>
     <div class="tags" data-slot="tags"></div>

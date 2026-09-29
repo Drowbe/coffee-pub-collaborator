@@ -38,6 +38,7 @@ function keepInput(summary, question) {
     title: oneLine((summary && summary.title) || '', 120) || 'Untitled',
     body: keptText(summary, { question }),
     tags: ((summary && summary.tags) || []).join(', '),
+    icon: (summary && summary.icon) || '',
   };
 }
 
@@ -542,15 +543,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
     setImportOpen(false);
     setImportWhy('');
-    const wrap = document.createElement('div');
-    wrap.className = 'message private-ai msg-ai chat-import-msg';
-    const who = document.createElement('span');
-    who.className = 'who';
-    const name = document.createElement('span');
-    name.textContent = 'Brought in';
-    who.appendChild(name);
     const body = document.createElement('div');
-    body.className = 'text';
+    body.className = 'message-body text';
     const rows = [];
     for (const obj of objects) {
       const row = document.createElement('label');
@@ -581,7 +575,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
       keepTicked.textContent = `Keep ticked (${ticked().length})`;
     };
     refresh();
-    wrap.addEventListener('change', refresh);
+    body.addEventListener('change', refresh);
     keepTicked.addEventListener('click', async () => {
       const left = ticked();
       if (!left.length) return;
@@ -603,8 +597,23 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     });
     foot.append(keepTicked, droppedEl);
     body.appendChild(foot);
-    wrap.append(who, body);
-    $('messages').appendChild(wrap);
+    const entry = {
+      who: 'Imported',
+      text: objects.map((o) => [o.title, o.content].filter(Boolean).join('\n')).join('\n\n'),
+      at: new Date(),
+      chat: false,
+    };
+    const el = frameMessage({
+      name: 'Imported',
+      at: entry.at,
+      visibility: 'private',
+      kind: 'ai',
+      icon: 'file-import',
+      body,
+      entry,
+    });
+    el.classList.add('chat-import-msg');
+    $('messages').appendChild(el);
     $('messages').scrollTop = $('messages').scrollHeight;
   }
 

@@ -2469,14 +2469,95 @@ a.crumb-here:hover {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 1px;
-  padding: 4px 6px;
+  gap: 0;
+  padding: 0;
   border-radius: 6px;
-  background: color-mix(in srgb, var(--text) 6%, transparent);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text) 5%, transparent);
 }
 
 .message.own {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* Header, then the message. The header is a step darker than the message under it. */
+.message-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 2px 3px 8px;
+  background: color-mix(in srgb, var(--text) 8%, var(--bg));
+}
+
+.message.own .message-head {
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg));
+}
+
+.message-head-side {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.message-head-side:last-child {
+  flex: none;
+}
+
+.message-portrait {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text) 14%, var(--bg));
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.message-name {
+  font-size: 12px;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.message-dash,
+.message-when {
+  flex: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.message-vis {
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 650;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.message-head .sdk-more {
+  width: 24px;
+  height: 24px;
+}
+
+.message-body {
+  padding: 6px 8px 8px;
+}
+
+.message-body.is-deleted {
+  color: var(--text-dim);
+  font-style: italic;
 }
 
 .message .actions {

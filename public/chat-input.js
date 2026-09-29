@@ -100,7 +100,7 @@ export function placeAbove(popup, anchor) {
   popup.style.top = `${top}px`;
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup, frameMessage }) {
   const input = () => $('chat-input');
   const note = () => $('chat-note');
   const importBtn = () => $('chat-import');
@@ -306,18 +306,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
   }
 
   function addAiTurn(kind, text, summaries, question, { shared } = {}) {
-    const el = document.createElement('div');
-    el.className = `message private-ai ${kind === 'you' ? 'own' : 'msg-ai'}`;
-    const who = document.createElement('span');
-    who.className = 'who';
-    const name = document.createElement('span');
-    name.textContent = kind === 'you' ? 'You' : 'AI';
-    const badge = document.createElement('span');
-    badge.className = shared ? 'msg-badge msg-badge-shared' : 'msg-badge msg-badge-private';
-    badge.textContent = shared ? 'shared' : 'private';
-    who.append(name);
+    const name = kind === 'you' ? (getMe()?.displayName || 'You') : 'AI';
     const body = document.createElement('div');
-    body.className = 'text';
+    body.className = 'message-body text';
     const objects = summaries || [];
     if (kind === 'ai' && objects.length) {
       for (const p of answerParts(text, objects.length)) {
@@ -331,35 +322,19 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     } else {
       body.innerHTML = renderMarkup(String(text || ''));
     }
-    el.append(who, body);
-    if (kind === 'ai') {
-      const actions = document.createElement('span');
-      actions.className = 'actions';
-      const copy = document.createElement('button');
-      copy.type = 'button';
-      copy.className = 'msg-btn';
-      copy.title = 'Copy';
-      copy.textContent = 'Copy';
-      copy.addEventListener('click', () => navigator.clipboard.writeText(text || '').catch(() => {}));
-      if (!shared) {
-        const share = document.createElement('button');
-        share.type = 'button';
-        share.className = 'msg-btn';
-        share.title = `Share to the ${word('space')}`;
-        share.textContent = `Share to the ${word('space')}`;
-        share.addEventListener('click', () => {
-          const me = getMe();
-          const label = `AI answer shared by ${me?.displayName || 'someone'}`;
-          sendChat(`${label}\n\n${text || ''}`);
-        });
-        actions.append(copy, share);
-      } else {
-        actions.append(copy);
-      }
-      who.append(actions, badge);
-    } else {
-      who.appendChild(badge);
-    }
+    const entry = { who: name, text: String(text || ''), at: new Date(), chat: false };
+    const el = frameMessage({
+      name,
+      at: entry.at,
+      visibility: shared ? 'public' : 'private',
+      kind: kind === 'you' ? 'you' : 'ai',
+      body,
+      entry,
+      onPublic: kind === 'ai' ? () => {
+        const me = getMe();
+        sendChat(`AI answer shared by ${me?.displayName || 'someone'}\n\n${text || ''}`);
+      } : null,
+    });
     $('messages').appendChild(el);
     $('messages').scrollTop = $('messages').scrollHeight;
   }

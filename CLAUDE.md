@@ -56,6 +56,10 @@ environment template. The code doesn't match yet; a renaming plan with a data mi
 Until then, new code uses these names, and nobody argues for keeping the old ones. Never use room,
 table, stage, pane, tenant or item for these things, in code or in words.
 
+Identifiers (file formats and their markers, fenced blocks, stored keys, cookies, environment variables) are
+named by kind, never by the product. The product's name comes only from `PRODUCT_NAME`; the brand, Coffee Pub,
+may appear.
+
 Levels, top down:
 - Host, `host`: the main admin host.
 - Environment, `environment`: what people sign in to; shows as whatever they name it.

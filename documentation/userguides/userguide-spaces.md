@@ -12,10 +12,19 @@ the pages use its word (see [Templates](userguide-templates.md)).
 
 ## The space list
 
-Every space card has an **Enter** button (a door), an icon button to the right of it that enters in a
-pop-out window instead of the page, a sliders button that chooses what opens (see "Open with" below), and (for
-owners) an **Edit** button. If a space has a launch link, its icon button sits there too. A space you are still
-connected to offers **Back to <space>** instead of Enter.
+Every space card has an **Enter** button (a door) first. After it come the smaller buttons, together: the space's
+launch link, if it has one; one that enters in a pop-out window instead of the page ("Enter in a pop-out window");
+a sliders button that chooses what opens (see "Open with" below); and, for owners, **Space settings** (or, for a
+moderator of that space, **Module settings**). On a narrow card the smaller buttons move to a line of their own
+under **Enter**. A space you are still connected to offers **Back to <space>** instead of Enter; a long name is cut
+short with "…", and hovering over the button shows it in full.
+
+**Enter** is the default word. The template or the owner can change it, for example to "Board" (see "The word on
+the button for entering a space" in [Manage](userguide-environment-settings.md)); the pop-out button follows it.
+
+An aside you are part of also shows on the list while it lasts, as a card with **Join** (a phone) and a pop-out
+button, "Join in a pop-out window". An aside is a call, so its button always reads Join, whatever the word for
+entering a space.
 
 The card says who is there: "3 here · 2 in the call", "3 here" when nobody is in the call, or "Nobody here". In the
 row of members, someone in the call has a small camera mark beside their green dot; hover over it for "<name> is in
@@ -31,7 +40,7 @@ The **Who's around** strip shows everyone who is online: signed in with Collabor
 
 ## Open with
 
-The button with sliders on a space card, next to Enter (its tooltip is "Choose what opens"), opens a list headed
+The button with sliders on a space card, after Enter (its tooltip is "Choose what opens"), opens a list headed
 **Open with**: the conference, the chat, and any other module the space has on. Tick what you want open when you
 enter. A person can enter with only the chat, or the chat and the Calendar, and still be in the space and online
 for everyone else. The choice is remembered for that space in this browser and is the same list the space updates
@@ -99,7 +108,7 @@ yet, then confirm with **Step aside with N**. Everyone picked moves together at 
 clicking anything on their own end.
 
 Each pulled player, and the owner, gets a **Rejoin call** button in the space's bar. Clicking it on any
-one of their screens brings the rest back too, to whichever space they were pulled out of. The aside is never shown as something to pick from a list, and it disappears on
+one of their screens brings the rest back too, to whichever space they were pulled out of. The aside shows on the space list only for the people in it and owners, with **Join** (see "The space list"), and it disappears on
 its own once everyone has left it.
 
 Anyone left behind sees those tiles dim to a placeholder reading **In an aside**, naming who they

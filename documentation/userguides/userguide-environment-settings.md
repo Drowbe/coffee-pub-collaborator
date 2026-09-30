@@ -70,6 +70,22 @@ a space a "trip" and a member a "traveller"; a game might have a "game master" a
 A blank row uses the default. **Reset** on a row puts that word back to its default at once. Only owners (and the
 admin) can change the words.
 
+### The word on the button for entering a space
+
+The last row under the words, **Button for entering a space**, sets the word on each space's main button on the
+space list and on the guest form. It is **Enter** unless the template or you set another, such as "Board" or
+"Go to". An aside's button always reads **Join**, since an aside is a call.
+
+1. On Manage > **Template**, find **Button for entering a space** at the end of **Words**. Its hint says what it
+   reads now.
+2. Type the word as it should read at the start of the button, with its capital: at most 20 characters, using only
+   letters, spaces, hyphens and apostrophes.
+3. Click **Save**. It is saved with the words; if the server refuses it, nothing is saved and the message says why.
+
+Leave the field blank for the template's word, or **Enter** with no template. When the template gives a word, the
+row says "From the template", or "The template's: <word>" once you have set your own. **Reset** puts it back to
+the template's word, or to **Enter**. Only owners (and the admin) can change it.
+
 Everything people read in this environment follows: the pages, the server's messages, the Roles grid, the texts
 of the built-in modules, the names new spaces get ("New trip", "Trip 3"), and the bundled modules' own words. Until
 the next step of the templates plan, the text a module's `module.json` carries (its description, its settings'

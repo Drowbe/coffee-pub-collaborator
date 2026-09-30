@@ -1,11 +1,11 @@
 import { nav } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
-import { word, setWords } from '/words.js';
+import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode } from '/theme-mode.js';
 
 // The words a person reads for each level and role (public/words.js), for every page that already imports from here.
-export { word, words, fill, applyWords, setWords } from '/words.js';
+export { word, words, fill, applyWords, setWords, verb, verbs, setVerbs } from '/words.js';
 // Light and dark (GitHub #62): the mode showing now, and a popped-out window following this page's look.
 export { themeMode, followTheme } from '/theme-mode.js';
 
@@ -97,6 +97,7 @@ export async function loadBranding() {
   if (typeof b.productName === 'string' && b.productName.trim()) product = b.productName.trim();
   ICONS = Array.isArray(b.icons) ? b.icons : [];
   setEnvironmentMode(b.themeMode, b.themeVersion); // the default mode, and a stylesheet that changed since this page loaded
+  setVerbs(b.verbs); // every data-verb and {enter} on the page, and verb() from here on (addendum 4)
   setWords(b.words); // every data-word and data-fill on the page, and word() from here on
   refreshSpacesLink();
   clockHour12 = b.clock !== '24';

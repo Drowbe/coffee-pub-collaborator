@@ -1,6 +1,6 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, iconClasses, spaceCrumbIcon, hasOwnerRights, word, applyWords, followTheme } from '/brand.js';
+import { loadBranding, api, renderTopbar, setTopbarLocation, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { whatOpens, conferenceAllowed } from '/opens-with.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
@@ -409,14 +409,20 @@ function renderSpaces() {
       list.appendChild(card);
     }
     card.classList.toggle('aside', Boolean(r.isAside));
-    // Entering is the primary action; joining the call is a separate choice inside (plan-entering.md). Still
-    // connected to this one (just browsing the space list -- see showSpaceList()): offer to go back instead.
+    // Entering is the primary action; joining the call is a separate choice inside (plan-entering.md). A space's
+    // button reads this environment's enter verb; an aside is a call, so its button reads Join with the phone
+    // (plan-environment-templates.md, addendum 4). Still connected to this one (just browsing the space list -- see
+    // showSpaceList()): offer to go back instead.
     const back = call.state === 'connected' && currentSpace?.id === r.id;
-    const enterLabel = back ? `Back to ${spaceDisplayName(r)}` : 'Enter';
+    const action = r.isAside ? 'Join' : verb('enter');
+    const enterLabel = back ? `Back to ${spaceDisplayName(r)}` : action;
     const enter = card.querySelector('[data-join]');
-    card.querySelector('[data-join-icon]').className = `fa-solid fa-${back ? 'circle-left' : 'door-open'} fa-fw`;
+    card.querySelector('[data-join-icon]').className = `fa-solid fa-${back ? 'circle-left' : r.isAside ? 'phone' : 'door-open'} fa-fw`;
     card.querySelector('[data-join-label]').textContent = enterLabel;
-    if (back) enter.title = enterLabel; else enter.removeAttribute('title'); // the whole name, when a long one is cut short
+    const popout = card.querySelector('[data-join-popout]');
+    const popoutLabel = `${action} in a pop-out window`;
+    if (popout.title !== popoutLabel) { popout.title = popoutLabel; popout.setAttribute('aria-label', popoutLabel); }
+    if (enter.title !== enterLabel) enter.title = enterLabel; // the whole label, wherever a narrow card cuts it short
     card.querySelector('[data-join-with]').hidden = Boolean(r.isAside);
     const edit = card.querySelector('[data-edit]');
     edit.hidden = r.isAside || !hasOwnerRights(me);
@@ -559,7 +565,8 @@ async function toggleJoinWith(card, spaceId) {
   pop.setAttribute('role', 'group');
   pop.setAttribute('aria-label', 'Open with');
   pop.innerHTML = `<strong>Open with</strong><div class="join-with-list"></div><p class="hint">Remembered for this ${escapeHtml(word('space'))}.</p>`;
-  card.appendChild(pop);
+  // In the buttons' row, after the buttons (the same place in the tab order), shown above the whole row.
+  (card.querySelector('.space-choice-actions') || card).appendChild(pop);
   button.setAttribute('aria-expanded', 'true');
   button.setAttribute('aria-controls', pop.id);
   if (!spaceModuleList.has(spaceId)) {
@@ -3941,7 +3948,7 @@ async function init() {
     $('settings-links').hidden = true;
     try {
       const info = await api('GET', `/api/guest-link/${encodeURIComponent(guestToken)}`);
-      $('guest-space-name').textContent = `Join ${info.spaceName}`;
+      $('guest-space-name').textContent = `${verb('enter')} ${info.spaceName}`;
       $('guest-join').hidden = false;
       $('guest-join').dataset.spaceId = info.spaceId;
       $('guest-join').dataset.spaceName = info.spaceName;

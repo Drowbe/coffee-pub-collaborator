@@ -49,11 +49,14 @@ Some of it is applied once, when the environment is made: its settings, its modu
 start, its reactions, its icons (added to the icon list) and its theme (added and made the one in use). After that they are the owner's, like anything else in Manage. A template's modules go on in every space
 except the Lobby, which keeps only the chat, the call and the modules made for it.
 
-Its words, its phases, its home icon and the names and icons it gives modules keep following the template. Anything an owner
-changes wins, and **Reset** goes back to the template's, not the default. Manage shows which is which:
+Its words, the word on the button for entering a space, its phases, its home icon and the names and icons it gives
+modules keep following the template. Anything an owner changes wins, and **Reset** goes back to the template's, not
+the default. Manage shows which is which:
 
 - **Words**: a word the template set is marked "From the template", and a word the owner changed shows "The
-  template's: <word>" beside it.
+  template's: <word>" beside it. The same goes for **Button for entering a space**, the last row (see "The word on
+  the button for entering a space" in [Manage](userguide-environment-settings.md)). A template that doesn't set it
+  leaves it at **Enter**; the Travel template doesn't set it.
 - **Home icon**: the template's is marked "Template's own".
 - **Shown as**, on a module's card: "From the template"; **Reset** reads "Back to the template's name and icon".
 
@@ -109,7 +112,8 @@ deleted.
 1. Click **New template**.
 2. Give it an **Id** (lowercase letters, digits and dashes; it can't be changed later), a **Name** and a
    **Description**.
-3. Fill in what it should set: **Words** (blank keeps the default; give the singular and the plural), the **Home
+3. Fill in what it should set: **Words** (blank keeps the default; give the singular and the plural) and, under
+   them, **Button for entering a space** (blank keeps **Enter**; at most 20 characters), the **Home
    icon**, the **Modules** and, under **Module names and icons**, what to show them as, and under **New
    environments** the **Lobby name**, **Lobby description**, what **New spaces use**, and what a new space opens:
    tick the modules, then order them with the arrows (the list is the template's modules, including the chat and
@@ -126,7 +130,7 @@ deleted.
    listed twice, shows beside the part it is about, and nothing is saved.
 
 **Edit one:** click **Edit** on its row, change what you need, and click **Save**. Each save is a new version.
-Every environment using it gets the words, phases, home icon and module names and icons at once, and is offered the
+Every environment using it gets the words, the word for entering a space, phases, home icon and module names and icons at once, and is offered the
 rest (see "When a template is updated").
 
 **Duplicate one:** click **Duplicate** on any row, bundled or yours. Give the new template an id, then a name. It is

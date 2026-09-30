@@ -580,10 +580,13 @@ template that has a bundled template's id keeps it, and that bundled one isn't o
 so an environment's template never changes under it. A stored template that fails its check is left out with a log
 line.
 
-**The file.** `{ id, name, description, version?, words, icons: { home }, moduleNames, moduleIcons, modules, settings,
+**The file.** `{ id, name, description, version?, words, verbs?, icons: { home }, moduleNames, moduleIcons, modules, settings,
 lobby: { name, description }, phases?, spaceDefaults: { profile?, opensWith? }, reactions?, theme?, iconSet? }`, the same shape and checks
 for every source. `words` covers only the ten changeable keys (never `host` or
-`admin`), in the form Manage takes. `icons.home` and `moduleIcons` must be plain solid Font Awesome Free icons.
+`admin`), in the form Manage takes. `verbs` (addendum 4) is `{ enter: "<text>" }`: the word on the button for
+entering a space, tidied, 1 to 20 characters of letters, spaces, hyphens and apostrophes; a verb that isn't text,
+null included, is refused with "verbs: The enter verb must be text." (leaving the key out is how a file asks for the
+default), and an unknown key with "verbs: there is no verb called "<key>"; the verbs are enter.". Travel sets none. `icons.home` and `moduleIcons` must be plain solid Font Awesome Free icons.
 `modules` lists module ids, bundled or built in, and must include `chat`. `settings` takes only `language`,
 `clock`, `currency`, `loginText`, `allowRegistration`, `mfaRequired`, `maxQuality`, `allowScreenShare`,
 `allowAsides`, `allowPrivate`, `allowReactions`, `activeThemeId` and `themeMode`. `spaceDefaults.profile` is
@@ -606,8 +609,8 @@ problem; a host template and an import are checked before they are saved. `tools
 check`) checks the same.
 
 **A bundled template's version is raised by hand** when its applied-once part (modules, settings, Lobby, space
-defaults, reactions, icon set or theme) changes; a change to its words or icons alone needs none, since those are
-live. `tools/template-versions.json` keeps each bundled template's version beside a fingerprint of that part
+defaults, reactions, icon set or theme) changes; a change to its words, verbs or icons alone needs none, since
+those are live. `tools/template-versions.json` keeps each bundled template's version beside a fingerprint of that part
 (`templates.appliedOnceFingerprint()`), and `check-templates` fails when the part changed but the version didn't, or
 when either is new and not recorded. After raising `version`, record it with
 `node tools/check-templates.mjs --update`.
@@ -632,14 +635,31 @@ is for being together"). A backup carries the record, and a restore brings it ba
 skipped: [{ id, name, why }] }`; `source` is `bundled`, `host` or `imported`, or null when this server doesn't have
 the template.
 
-**Followed live.** Its words, phases, home icon and module display names and icons are read from the template on
+**Followed live.** Its words, verbs, phases, home icon and module display names and icons are read from the template on
 every build, and a host template's edit reaches every built environment using it at once (`refreshTemplateLive()`), as the layer between the default and the owner's own: an owner's change wins, and a reset goes
 back to the template's. `GET` and `PATCH /api/settings` give the owner `template`, `ownHomeIcon`, `templateWords`,
-`templateHomeIcon` and `spaceDefaults`; `PATCH` takes `homeIcon: null` (back to the template's) and
+`templateHomeIcon`, `ownVerbs`, `templateVerbs` and `spaceDefaults` (the verbs are described below); `PATCH` takes `homeIcon: null` (back to the template's) and
 `spaceDefaults: { profile?, opensWith? } | null` (400 `spaceDefaults takes only profile and opensWith.`, `profile must be roleplaying,
 participants or characters`, or a sentence naming a bad `opensWith` entry). A key left out is kept; `opensWith: null`
 or `[]` removes it, and with neither left `spaceDefaults` is cleared. The phases reach modules through the module
 context (`store.templatePhases`; [api-modules](../api/api-modules.md), `GET /api/modules/:id/context`). `GET /api/modules` adds `templateDisplayName` and `templateDisplayIcon`.
+**The verbs** (addendum 4, "the word for entering a space"). Beside the ten words, `server/words.js` keeps a small
+set of verbs: the actions a person reads at the start of a button. There is one, `enter`, default "Enter". A verb is
+one string, with no plural or article, never lower-cased; it is not a level or role, so it stays out of `words` and
+the Names. It resolves as the owner's (`settings.verbs.enter`), else the template's (`store.templateVerbs`, set by
+`useLive()`), else the default (`resolveVerbs()`). `branding()` carries `verbs`, resolved (`{ enter: "Enter" }`);
+the owner's settings view adds `ownVerbs` (what the owner set, `{}` for none) and `templateVerbs` (the template's own:
+null with no template, `{}` for a template that sets none). `PATCH /api/settings` `{ verbs: { enter: "<text>" |
+null } }` is owner only; null returns it to the template's or the default, and a refused verb refuses the whole
+patch with one sentence: `Verbs must be given by name, each as text.`, `There is no verb called <key>; the verbs are
+enter.`, `The enter verb must be text, or null to use the default.`, `The enter verb must be 1 to 20 characters.` or
+`The enter verb can use only letters, spaces, hyphens and apostrophes.`. The verbs are not in `host.locale()`: no
+module enters a space. In the pages, `public/words.js` (re-exported by `brand.js`) gives `verb(key)`, `verbs()` and
+`setVerbs()`, fills `data-verb="enter"` elements and `{enter}` in `fill()` and `data-fill`, and keeps an
+environment's own verbs under `app.verbs` in the browser. A space's card, its pop-out button's title ("<verb> in a
+pop-out window") and the guest form's heading and button read the verb; an aside's card reads the fixed **Join**
+with a phone icon, and **Back to <space>** stays fixed text. `check-names --words` has no rule for it (a one-word
+label can't be told from code such as `e.key === 'Enter'`).
 `settings.homeIcon` is stored only when an owner picks one (null otherwise, so the template's shows, else the
 default). Environments made before this stored the default `couch` as if chosen; the first start clears a stored
 `couch` once and sets `homeIconChoiceSeeded`, so an owner who picks it from then on keeps it.
@@ -648,7 +668,7 @@ default). Environments made before this stored the default `couch` as if chosen;
 host can switch an environment to another template, or to none. `switchTemplate()` in `server/index.js` waits for
 a creation-time template to finish applying, then replaces the record with `{ id, appliedAt: null, switchedAt,
 skipped: [] }` (none removes it), runs `templates.useLive()` against the new template and adds its icons to the
-icon list (`templates.addIcons()`), and follows the registry entry on a hosted server. Words, the home icon and
+icon list (`templates.addIcons()`), and follows the registry entry on a hosted server. Words, verbs, the home icon and
 module display names and icons change at once; the owner's own still win. Nothing is turned off and no data is
 touched. A record with `switchedAt` is never applied on its own at the next start, the way a creation-time one
 is. Each switch adds `{ from, to, at, by }` (`by`: the owner's key or `host`) to `app.json`'s `templateHistory`,
@@ -714,7 +734,8 @@ template, or null after a reset or for a record that only hides. The merge is wh
 exactly what the host sees. `version` is what environments see: the first edit is the shipped version plus one,
 and every later edit, reset or take-new adds one; it never goes down. `base` is the shipped file the edit was made
 against: its version, `templates.appliedOnceFingerprint()` and `templates.wholeFingerprint()` (every field but the
-version, so a shipped change to words alone still counts). While `base` differs from the shipped file, an edited
+version, so a shipped change to words alone still counts; `verbs` counts only when the template sets one, so a
+template without verbs keeps the fingerprint it had before the field existed). While `base` differs from the shipped file, an edited
 template carries `update: { shippedVersion }`, the console's notice. At start, `reconcileBundledEdits()` moves a
 record with no edit onto the new shipped file with `version` + 1 and no notice, and leaves one with an edit as it
 is. A record for an id this image no longer ships is ignored, with a log line; one that fails its check is logged

@@ -55,7 +55,9 @@ sign-up is on, expires after 7 days, and works once.
 
 A guest has no account, for someone dropping in once. While in a call, open the settings popover
 (the gear next to chat and reactions) and, under **Guests**, turn on that space's link. Anyone with it
-lands on a page asking only for a name, then enters that space. A guest's first visit opens the conference and
+lands on a page headed "Enter <space>" that asks only for a name; **Enter** (a door) takes them into that space.
+Where the template or the owner has changed the word for entering a space, the heading and the button use that
+word instead (see "The word on the button for entering a space" in [Manage](userguide-environment-settings.md)). A guest's first visit opens the conference and
 the chat, unless the space's **Opens with** (or the environment's list for a new space) says otherwise; the page
 mentions the microphone only when the conference will open.
 
@@ -77,7 +79,7 @@ Open **Roles** on the Manage page to see a grid of checkboxes: one row per permi
 - **Moderator** is what someone gets in any space where they are marked **Moderator** on their
   profile's **Spaces** tab, on top of their ordinary role there.
 - **Member** is an ordinary account.
-- **Guest** is everyone who joins from a space's guest link.
+- **Guest** is everyone who comes in from a space's guest link.
 
 The permissions are grouped:
 

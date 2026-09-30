@@ -3,7 +3,7 @@
 // can be edited in place (an Edited badge, Reset to shipped, and a notice when a newer image changed the file).
 // Duplicate makes a host template. Export for any; Import… from a file (a clashing id asks for another).
 import { api, escapeHtml, word } from '/brand.js';
-import { CHANGEABLE, DEFAULTS } from '/words.js';
+import { CHANGEABLE, DEFAULTS, VERBS, DEFAULT_VERBS } from '/words.js';
 import { fileText } from '/file-text.js';
 
 const $ = (id) => document.getElementById(id);
@@ -137,6 +137,7 @@ const COMPARE_FIELDS = () => [
   ['name', 'Name'],
   ['description', 'Description'],
   ['words', 'Words'],
+  ['verbs', 'Verbs'],
   ['icons', 'Home icon'],
   ['moduleNames', `${word('module', { cap: true })} names`],
   ['moduleIcons', `${word('module', { cap: true })} icons`],
@@ -247,6 +248,11 @@ async function openEditor(t) {
   $('te-words').innerHTML = CHANGEABLE.map((key) => `<div class="word-row" data-word="${key}"><strong>${escapeHtml(cap(DEFAULTS[key].one))}</strong>`
     + `<input type="text" data-part="one" maxlength="30" value="${escapeHtml(w[key]?.one || '')}" placeholder="${escapeHtml(DEFAULTS[key].one)}" aria-label="${escapeHtml(DEFAULTS[key].one)}, singular">`
     + `<input type="text" data-part="many" maxlength="30" value="${escapeHtml(w[key]?.many || '')}" placeholder="${escapeHtml(DEFAULTS[key].many)}" aria-label="${escapeHtml(DEFAULTS[key].one)}, plural"></div>`).join('');
+  // The verbs (addendum 4): one field each, blank for the default. `data-verb-key`, not data-verb, which the page fills.
+  const v = (t && t.verbs) || {};
+  const verbLabel = { enter: `Button for entering ${word('space', { a: true })}` };
+  $('te-verbs').innerHTML = VERBS.map((key) => `<div class="word-row" data-verb-key="${key}"><strong>${escapeHtml(verbLabel[key] || key)}</strong>`
+    + `<input type="text" data-verb-input maxlength="20" value="${escapeHtml(v[key] || '')}" placeholder="${escapeHtml(DEFAULT_VERBS[key])}" aria-label="${escapeHtml(verbLabel[key] || key)}"></div>`).join('');
   $('te-home').value = (t && t.icons && t.icons.home) || '';
   previewHome();
   const on = new Set((t && t.modules) || ['chat', 'conference']);
@@ -416,6 +422,11 @@ function fields() {
     const many = row.querySelector('[data-part="many"]').value.trim();
     if (one || many) words[row.dataset.word] = { one, many };
   }
+  const verbs = {};
+  for (const row of $('te-verbs').children) {
+    const text = row.querySelector('[data-verb-input]').value.trim();
+    if (text) verbs[row.dataset.verbKey] = text;
+  }
   const moduleNames = {};
   const moduleIcons = {};
   for (const row of $('te-module-display').children) {
@@ -439,6 +450,7 @@ function fields() {
     name: $('te-name').value.trim(),
     description: $('te-description').value.trim(),
     words,
+    verbs: Object.keys(verbs).length ? verbs : gone,
     phases: readPhases(),
     icons: $('te-home').value.trim() ? { home: $('te-home').value.trim() } : {},
     modules: [...$('te-modules').querySelectorAll('[data-module]:checked')].map((i) => i.dataset.module),

@@ -3,7 +3,8 @@
  * check-templates.mjs -- the bundled environment templates (templates/<id>.json; documentation/plans/
  * plan-environment-templates.md, "check-templates"): each is valid by the server's own rules (server/templates.js), a
  * template that breaks one is refused with its sentence, and applying one to a throwaway environment gives the same
- * result twice, with a module the plan leaves out recorded as skipped.
+ * result twice, with a module the plan leaves out recorded as skipped. The enter verb (addendum 4): the template field's
+ * rules, the owner's over the template's over the default, PATCH /api/settings's refusals, and a host edit live at once.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -95,6 +96,8 @@ try {
   await test('the travel template is the one decided (decisions 10 and 17)', () => {
     const t = templates.get('travel');
     assert.deepEqual(t.words, { space: { one: 'trip', many: 'trips' } });
+    assert.equal(t.verbs, null, 'Travel sets no verb (addendum 4, decision 3): it reads the default');
+    assert.equal('verbs' in travelRaw, false, 'travel.json has no verbs entry');
     assert.deepEqual(t.modules, ['travel', 'places', 'maps', 'research', 'calendar', 'chat', 'conference']);
     assert.deepEqual([t.moduleNames.travel, t.icons.home, t.lobby.name, t.lobby.description, t.spaceDefaults.profile], ['Itinerary', 'suitcase-rolling', 'Home base', 'Everyone on every trip.', 'participants']);
     assert.deepEqual(t.spaceDefaults.opensWith, ['travel', 'chat']);
@@ -114,6 +117,13 @@ try {
       [with_({ words: { admin: { one: 'chief', many: 'chiefs' } } }), 'words: "admin" is the host\'s own word and a template can\'t change it.'],
       [with_({ words: { lobby: { one: 'a', many: 'b' } } }), 'words: there is no word called "lobby"; the words are environment, space, aside, canvas, module, object, owner, moderator, member, guest.'],
       [with_({ words: { space: { one: 'trip' } } }), 'words: The word for space needs both its singular and its plural.'],
+      [with_({ verbs: ['Enter'] }), '"verbs" must be an object of verbs by name.'],
+      [with_({ verbs: { join: 'Join' } }), 'verbs: there is no verb called "join"; the verbs are enter.'],
+      [with_({ verbs: { enter: 'Board the flight right now' } }), 'verbs: The enter verb must be 1 to 20 characters.'],
+      [with_({ verbs: { enter: '  ' } }), 'verbs: The enter verb must be 1 to 20 characters.'],
+      [with_({ verbs: { enter: 'Go!' } }), 'verbs: The enter verb can use only letters, spaces, hyphens and apostrophes.'],
+      [with_({ verbs: { enter: 42 } }), 'verbs: The enter verb must be text.'],
+      [with_({ verbs: { enter: null } }), 'verbs: The enter verb must be text.'],
       [with_({ icons: { home: 'discord' } }), 'icons.home: "discord" is not a Font Awesome Free solid icon.'],
       [with_({ icons: { home: 'no-such-icon-at-all' } }), 'icons.home: "no-such-icon-at-all" is not a Font Awesome Free solid icon.'],
       [with_({ moduleIcons: { travel: 'fa-route' } }), 'moduleIcons.travel: "fa-route" is not a Font Awesome Free solid icon.'],
@@ -123,7 +133,7 @@ try {
       [with_({ settings: { clock: 24 } }), 'settings: 24 is not a value "clock" takes.'],
       [with_({ spaceDefaults: { profile: 'players' } }), 'spaceDefaults.profile must be one of roleplaying, participants, characters.'],
       [with_({ lobby: { name: 'x'.repeat(41) } }), 'lobby.name must be text of 1 to 40 characters.'],
-      [with_({ plan: 'pro' }), '"plan" is not a template field; the fields are id, name, description, version, words, phases, icons, moduleNames, moduleIcons, modules, settings, lobby, spaceDefaults, reactions, theme, iconSet.'],
+      [with_({ plan: 'pro' }), '"plan" is not a template field; the fields are id, name, description, version, words, verbs, phases, icons, moduleNames, moduleIcons, modules, settings, lobby, spaceDefaults, reactions, theme, iconSet.'],
     ];
     for (const [raw, sentence] of cases) assert.deepEqual(problems(raw), [sentence], sentence);
     assert.deepEqual(problems(travelRaw, 'trips.json'), ['"id" must match the file\'s name (trips.json).']);
@@ -132,6 +142,63 @@ try {
     fs.mkdirSync(dir);
     fs.writeFileSync(path.join(dir, 'travel.json'), JSON.stringify(with_({ modules: ['travel'] })));
     assert.throws(() => templates.loadTemplates({ dir }), /templates\/travel\.json: modules: "chat" must be listed/);
+  });
+
+  await test('verbs (addendum 4): a live part, tidied, left out of an export when unset, and not in what a version bump guards', () => {
+    const with_ = (patch) => ({ ...structuredClone(travelRaw), ...patch });
+    assert.deepEqual(templates.problemsOf(with_({ verbs: { enter: 'Go to' } }), { file: 'travel.json', bundled }), [], 'a valid verb');
+    assert.deepEqual(templates.problemsOf(with_({ verbs: {} }), { file: 'travel.json', bundled }), [], 'an empty set');
+    assert.deepEqual(templates.cleanTemplate(with_({ verbs: { enter: '  Go   to ' } })).verbs, { enter: 'Go to' }, 'tidied');
+    const { verbs: _v, ...without } = travelRaw;
+    assert.equal(templates.cleanTemplate(without).verbs, null, 'none set: null');
+    assert.equal(templates.cleanTemplate(with_({ verbs: {} })).verbs, null, 'an empty set: null');
+    const templateFile = require('../server/template-file.js');
+    assert.equal('verbs' in templateFile.templateToFile(templates.cleanTemplate(without)), false, 'an export leaves it out when unset');
+    const file = templateFile.templateToFile(templates.cleanTemplate(with_({ verbs: { enter: 'Board' } })));
+    assert.deepEqual([file.verbs, file.format, file.formatVersion], [{ enter: 'Board' }, 'template', 1], 'and carries it when set, the format unchanged');
+    assert.deepEqual(templateFile.readTemplateFile(JSON.stringify(file), { bundled }).raw.verbs, { enter: 'Board' }, 'an import reads it back');
+    // Live, so not a part a switch offers or a version bump guards; the whole fingerprint (addendum 3's notice) sees it.
+    assert.equal(templates.PARTS.includes('verbs'), false);
+    const a = templates.cleanTemplate(with_({ verbs: { enter: 'Enter' } }));
+    const b = templates.cleanTemplate(with_({ verbs: { enter: 'Board' } }));
+    assert.equal(templates.appliedOnceFingerprint(a), templates.appliedOnceFingerprint(b), 'the applied-once fingerprint ignores it');
+    assert.deepEqual(templates.partFingerprints(a), templates.partFingerprints(b));
+    assert.notEqual(templates.wholeFingerprint(a), templates.wholeFingerprint(b), 'the whole fingerprint sees it');
+    // A template without verbs keeps the whole fingerprint it had before the field existed.
+    const c = templates.cleanTemplate(without);
+    const crypto = require('node:crypto');
+    const before = crypto.createHash('sha256').update(JSON.stringify(templates.FIELDS.filter((k) => k !== 'version' && k !== 'verbs').map((k) => c[k] ?? null))).digest('hex').slice(0, 16);
+    assert.equal(templates.wholeFingerprint(c), before);
+  });
+
+  await test('the live part: the verb, the owner\'s over the template\'s over the default', () => {
+    const travel = templates.get('travel');
+    const env = freshEnvironment('live-verbs');
+    assert.deepEqual([env.store.resolvedVerbs(), env.store.ownVerbs(), env.store.templateVerbsView()], [{ enter: 'Enter' }, {}, null], 'no template: the default');
+    templates.useLive(env.store, { ...travel, verbs: { enter: 'Board' } });
+    assert.deepEqual([env.store.resolvedVerbs(), env.store.templateVerbsView()], [{ enter: 'Board' }, { enter: 'Board' }], 'the template\'s');
+    env.store.updateSettings({ verbs: { enter: ' Go  to ' } });
+    assert.deepEqual([env.store.resolvedVerbs(), env.store.ownVerbs(), env.store.settings.verbs], [{ enter: 'Go to' }, { enter: 'Go to' }, { enter: 'Go to' }], 'the owner\'s wins, tidied');
+    assert.deepEqual(env.store.templateVerbsView(), { enter: 'Board' }, 'the template\'s stays readable under it');
+    const refused = (patch) => { try { env.store.updateSettings(patch); return null; } catch (err) { return err.message; } };
+    assert.equal(refused({ verbs: { enter: 'x'.repeat(21) } }), 'The enter verb must be 1 to 20 characters.');
+    assert.equal(refused({ verbs: { enter: '' } }), 'The enter verb must be 1 to 20 characters.');
+    assert.equal(refused({ verbs: { enter: 'Go!' } }), 'The enter verb can use only letters, spaces, hyphens and apostrophes.');
+    assert.equal(refused({ verbs: { enter: 5 } }), 'The enter verb must be text, or null to use the default.');
+    assert.equal(refused({ verbs: { enter: { one: 'Go' } } }), 'The enter verb must be text, or null to use the default.');
+    assert.equal(refused({ verbs: { join: 'Join' } }), 'There is no verb called join; the verbs are enter.');
+    assert.equal(refused({ verbs: 'Enter' }), 'Verbs must be given by name, each as text.');
+    assert.equal(refused({ verbs: ['Enter'] }), 'Verbs must be given by name, each as text.');
+    assert.equal(refused({ verbs: { join: 'Join' }, environmentName: 'Changed' }), 'There is no verb called join; the verbs are enter.');
+    assert.notEqual(env.store.settings.environmentName, 'Changed', 'a refused verb refuses the whole patch');
+    assert.equal(env.store.resolvedVerbs().enter, 'Go to', 'nothing changed');
+    env.store.updateSettings({ verbs: { enter: null } });
+    assert.deepEqual([env.store.resolvedVerbs().enter, env.store.ownVerbs(), 'verbs' in env.store.settings], ['Board', {}, false], 'null goes back to the template\'s, and leaves the settings');
+    templates.useLive(env.store, travel);
+    assert.deepEqual([env.store.resolvedVerbs().enter, env.store.templateVerbsView()], ['Enter', {}], 'Travel sets none: the default');
+    templates.useLive(env.store, { ...travel, verbs: null });
+    assert.deepEqual([env.store.resolvedVerbs().enter, env.store.templateVerbsView()], ['Enter', {}], 'a template without verbs: the default');
+    templates.useLive(env.store, null);
   });
 
   await test('a phase list that breaks a rule is refused, and opensWith is offered when its fingerprint changes', async () => {
@@ -508,6 +575,45 @@ try {
     assert.equal((await call(server, 'out', 'GET', '/api/modules', { cookie: owner })).json.modules.some((m) => m.id === 'polls'), false);
   });
 
+  await test('verbs (addendum 4), hosted: the owner\'s over the template\'s over the default, and a host edit reaches branding at once', async () => {
+    const owner = cookieOf(await call(server, 'out', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
+    const settings = async () => (await call(server, 'out', 'GET', '/api/settings', { cookie: owner })).json.settings;
+    const branding = async () => (await call(server, 'out', 'GET', '/api/branding')).json;
+    assert.deepEqual((await branding()).verbs, { enter: 'Enter' }, 'Travel sets none: the default');
+    let st = await settings();
+    assert.deepEqual([st.verbs, st.ownVerbs, st.templateVerbs], [{ enter: 'Enter' }, {}, {}]);
+    // The host template editor's save takes verbs, and every environment made from it reads the new one at once.
+    const edited = await console_('PATCH', '/api/host/templates/travel', { verbs: { enter: 'Board' } });
+    assert.deepEqual([edited.status, edited.json.template.verbs], [200, { enter: 'Board' }], edited.text);
+    assert.deepEqual((await branding()).verbs, { enter: 'Board' }, 'the template\'s new verb, with no restart');
+    const bad = await console_('PATCH', '/api/host/templates/travel', { verbs: { enter: 'Board!' } });
+    assert.deepEqual([bad.status, bad.json.error], [400, 'verbs: The enter verb can use only letters, spaces, hyphens and apostrophes.']);
+    // The owner's own wins, and null returns it to the template's.
+    const saved = await call(server, 'out', 'PATCH', '/api/settings', { cookie: owner, body: { verbs: { enter: 'Go to' } } });
+    assert.deepEqual([saved.status, saved.json.settings.verbs, saved.json.settings.ownVerbs, saved.json.settings.templateVerbs], [200, { enter: 'Go to' }, { enter: 'Go to' }, { enter: 'Board' }], saved.text);
+    assert.deepEqual((await branding()).verbs, { enter: 'Go to' });
+    const b = await branding();
+    assert.deepEqual([b.ownVerbs, b.templateVerbs], [undefined, undefined], 'the public branding carries only the resolved verbs');
+    for (const [body, sentence] of [
+      [{ verbs: { enter: 'x'.repeat(21) } }, 'The enter verb must be 1 to 20 characters.'],
+      [{ verbs: { enter: 7 } }, 'The enter verb must be text, or null to use the default.'],
+      [{ verbs: { join: 'Join' } }, 'There is no verb called join; the verbs are enter.'],
+      [{ verbs: 'Enter' }, 'Verbs must be given by name, each as text.'],
+    ]) {
+      const res = await call(server, 'out', 'PATCH', '/api/settings', { cookie: owner, body });
+      assert.deepEqual([res.status, res.json.error], [400, sentence], JSON.stringify(body));
+    }
+    assert.equal((await call(server, 'out', 'PATCH', '/api/settings', { body: { verbs: { enter: 'Hop' } } })).status, 401, 'signed out: refused');
+    assert.deepEqual((await branding()).verbs, { enter: 'Go to' }, 'nothing refused changed it');
+    const cleared = await call(server, 'out', 'PATCH', '/api/settings', { cookie: owner, body: { verbs: { enter: null } } });
+    assert.deepEqual([cleared.json.settings.verbs, cleared.json.settings.ownVerbs], [{ enter: 'Board' }, {}], 'null: the template\'s again');
+    // The host removes the template's verbs: the default.
+    const removed = await console_('PATCH', '/api/host/templates/travel', { verbs: null });
+    assert.deepEqual([removed.status, removed.json.template.verbs], [200, null], removed.text);
+    st = await settings();
+    assert.deepEqual([st.verbs, st.templateVerbs], [{ enter: 'Enter' }, {}], 'a template without verbs: the default');
+  });
+
   await test('duplicate makes a host template at version 1 from the template in use; a taken id is refused', async () => {
     const before = (await travelRow()).version;
     const copy = await console_('POST', '/api/host/templates/travel/duplicate', { id: 'day-trips', name: 'Day trips' });
@@ -621,6 +727,17 @@ try {
       const res = await call(server, '', method, url, { body: method === 'GET' ? undefined : {} });
       assert.equal(res.status, 404, `${method} ${url} -> ${res.status} ${res.text}`);
     }
+    // Verbs on a single install without a template: the default, the admin's own over it, null back to the default.
+    assert.deepEqual((await call(server, '', 'GET', '/api/branding')).json.verbs, { enter: 'Enter' });
+    const admin = cookieOf(await call(server, '', 'POST', '/api/login', { body: { login: 'admin', password: 'admin-password-1' } }));
+    const st = (await call(server, '', 'GET', '/api/settings', { cookie: admin })).json.settings;
+    assert.deepEqual([st.verbs, st.ownVerbs, st.templateVerbs], [{ enter: 'Enter' }, {}, null]);
+    const set = await call(server, '', 'PATCH', '/api/settings', { cookie: admin, body: { verbs: { enter: 'Step into' } } });
+    assert.deepEqual([set.status, set.json.settings.verbs], [200, { enter: 'Step into' }], set.text);
+    assert.deepEqual((await call(server, '', 'GET', '/api/branding')).json.verbs, { enter: 'Step into' });
+    const back = await call(server, '', 'PATCH', '/api/settings', { cookie: admin, body: { verbs: { enter: null } } });
+    assert.deepEqual([back.json.settings.verbs, back.json.settings.ownVerbs], [{ enter: 'Enter' }, {}]);
+    assert.equal('verbs' in JSON.parse(fs.readFileSync(path.join(single, 'app.json'), 'utf8')).settings, false, 'nothing left stored');
     await server.stop();
     server = null;
   });

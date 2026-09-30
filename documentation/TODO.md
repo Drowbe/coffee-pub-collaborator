@@ -6,7 +6,7 @@ side of things.
 
 ## In progress
 
-- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30).
+- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
 
 ## Planned
@@ -17,7 +17,6 @@ side of things.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
 - #132 A document editor (ProseMirror) for the long prose fields: research notes and answers, plan notes, to-dos, places, and calendar details. Markdown stays what is stored. Chat stays a textarea. About two weeks. Building waits on a go-ahead.
-- The word for entering a space ([plan-environment-templates](plans/plan-environment-templates.md), Addendum 4, approved 2026-09-30): a `verbs` set, starting with `enter`, set by the template; the guest form and the space list use it, and an aside's button says Join. The server side is being built.
 
 ## Verify in a real call
 
@@ -25,7 +24,7 @@ side of things.
 - #30 Modules with two people on a real server.
 - #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
 - The chat's **Bring in N objects** button: offered for a pasted answer with an `objects` block, a `card` block or no fences, and not for an answer with an old-named block ([plan-kind-names](plans/plan-kind-names.md), step 5; the route behind it was checked).
-- #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list; what opens on a first and a second visit, and for a guest; the phone's first tab; the call control's count, **Join** and microphone hint; the status line.
+- #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list (and **Back to** an aside); what opens on a first and a second visit, and for a guest; the phone's first tab; the call control's count, **Join** and microphone hint; the status line.
 
 ## Small fixes and checks
 
@@ -73,6 +72,7 @@ side of things.
 - Joining the call on a phone must be something the person chooses to do, as part of the navigation work: showing or hiding the conference module is not joining (Thomas, 2026-09-30).
 - Thomas's, for later: a **Clean Up** button that rearranges the modules on the canvas, and a way to choose and save layouts.
 - Decided, no change (2026-09-30): on touch screens the microphone note stays a hover and focus hint.
+- With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 
 ## Modules
 

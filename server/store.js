@@ -542,6 +542,8 @@ class Store {
     // The words this environment's template gives (plan-environment-templates.md): none until templates are built,
     // so every key reads the owner's word or the default.
     this.templateWords = null;
+    // The verbs this environment's template gives (addendum 4): null with no template.
+    this.templateVerbs = null;
     // The module display names and icons this environment's template gives, by module id (step 3; none until then).
     this.templateModuleNames = null;
     this.templateModuleIcons = null;
@@ -861,6 +863,21 @@ class Store {
     return words.ownOnly(this.data.settings.words);
   }
 
+  // Every verb for this environment (server/words.js, addendum 4): the owner's, else the template's, else the default.
+  resolvedVerbs() {
+    return words.resolveVerbs(this.data.settings.verbs, this.templateVerbs);
+  }
+
+  // The template's own verbs, unresolved ({ <key>: "<text>" }), or null for an environment with no template.
+  templateVerbsView() {
+    return this.templateVerbs ? words.ownVerbsOnly(this.templateVerbs) : null;
+  }
+
+  // The owner's own verbs as stored (settings.verbs), unresolved: { <key>: "<text>" }, {} when none are set.
+  ownVerbs() {
+    return words.ownVerbsOnly(this.data.settings.verbs);
+  }
+
   // --- module display names and icons (plan-environment-templates.md, "Module display names and icons") -------
   // What a module is called and shown as in this environment, by module id (installed, bundled or built in): the
   // owner's own (settings.moduleNames / settings.moduleIcons), else the template's, else null, meaning the module's
@@ -993,6 +1010,14 @@ class Store {
       if (Object.keys(next).length) s.words = next;
       else { delete s.words; clearWords = true; }
     }
+    // The owner's verbs (settings.verbs, addendum 4), the same way: null returns one to the template's or the default.
+    let clearVerbs = false;
+    if (patch.verbs !== undefined) {
+      const { verbs: next, error } = words.applyVerbsPatch(s.verbs, patch.verbs);
+      if (error) throw new StoreError(error);
+      if (Object.keys(next).length) s.verbs = next;
+      else { delete s.verbs; clearVerbs = true; }
+    }
     if (patch.environmentName !== undefined) s.environmentName = cleanText(patch.environmentName, 60) || DEFAULT_SETTINGS.environmentName;
     // null (or '') goes back to the template's home icon, else the default.
     if (patch.homeIcon !== undefined) {
@@ -1110,6 +1135,7 @@ class Store {
     }
     Object.assign(this.data.settings, s);
     if (clearWords) delete this.data.settings.words;
+    if (clearVerbs) delete this.data.settings.verbs;
     if (clearSpaceDefaults) delete this.data.settings.spaceDefaults;
     this.save();
     return this.data.settings;

@@ -9,7 +9,9 @@
  *     confirming part of the offer, 409s, switching to none, the history, and a switched template never applied on a
  *     restart (a space's "AI off" kept across it);
  *   - a hosted server: the host switching an environment made with no template, the plan's refusal in the offer and
- *     recorded as skipped when confirmed, the console's list showing it.
+ *     recorded as skipped when confirmed, the console's list showing it;
+ *   - the enter verb (addendum 4) on both: the owner's own kept over a switched-to template's, null back to the
+ *     template's or the default, a host template's verb live at once and never in the offer.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -213,6 +215,10 @@ try {
   await test('an owner switches to travel: the words at once, the owner\'s own word and home icon kept, and the offer', async () => {
     const icon = (await as('GET', '/api/settings')).json.settings.icons.at(-1).id;
     assert.equal((await as('PATCH', '/api/settings', { words: { member: { one: 'player', many: 'players' } }, homeIcon: icon })).status, 200);
+    // Addendum 4: no template, the default verb; the owner's own set before the switch.
+    assert.deepEqual((await words()).verbs, { enter: 'Enter' });
+    const ownVerb = await as('PATCH', '/api/settings', { verbs: { enter: 'Step in' } });
+    assert.deepEqual([ownVerb.status, ownVerb.json.settings.verbs, ownVerb.json.settings.ownVerbs, ownVerb.json.settings.templateVerbs], [200, { enter: 'Step in' }, { enter: 'Step in' }, null], ownVerb.text);
     assert.deepEqual(await as('PATCH', '/api/settings', { template: 'nope' }).then((r) => [r.status, r.json]), [400, { error: 'There is no template called nope.' }]);
     assert.deepEqual(await as('PATCH', '/api/settings', { template: 5 }).then((r) => [r.status, r.json]), [400, { error: 'A template is named by its id, or "none" for no template.' }]);
     const r = await as('PATCH', '/api/settings', { template: 'travel' });
@@ -224,6 +230,12 @@ try {
     assert.deepEqual(r.json.offer.spaceDefaults, { profile: 'participants', opensWith: ['travel', 'chat'] });
     const b = await words();
     assert.deepEqual([b.words.space.one, b.words.member.one, b.homeIcon], ['trip', 'player', icon], 'the template\'s words at once; the owner\'s own still win');
+    assert.deepEqual(b.verbs, { enter: 'Step in' }, 'the owner\'s verb kept over the template\'s');
+    assert.deepEqual([r.json.settings.ownVerbs, r.json.settings.templateVerbs], [{ enter: 'Step in' }, {}], 'Travel sets no verb of its own');
+    assert.equal('verbs' in r.json.offer, false, 'a live part: never in the offer');
+    const cleared = await as('PATCH', '/api/settings', { verbs: { enter: null } });
+    assert.deepEqual([cleared.json.settings.verbs, cleared.json.settings.ownVerbs], [{ enter: 'Enter' }, {}], 'null: the template\'s, here the default');
+    assert.equal((await as('PATCH', '/api/settings', { verbs: { enter: 'Step in' } })).status, 200);
     assert.equal((await as('GET', '/api/modules')).json.modules.some((m) => m.id === 'travel'), false, 'nothing turned on before it is confirmed');
     const again = await as('PATCH', '/api/settings', { template: 'travel' });
     assert.deepEqual([again.status, again.json.template.offerOpen], [200, true], 'the same template: nothing changes');
@@ -262,6 +274,10 @@ try {
     assert.deepEqual([r.status, r.json.template, r.json.offer], [200, null, null]);
     const b = await words();
     assert.deepEqual([b.words.space.one, b.words.member.one], ['space', 'player']);
+    assert.deepEqual(b.verbs, { enter: 'Step in' }, 'the owner\'s verb kept');
+    const st = (await as('GET', '/api/settings')).json.settings;
+    assert.deepEqual([st.templateVerbs, st.ownVerbs], [null, { enter: 'Step in' }]);
+    assert.deepEqual((await as('PATCH', '/api/settings', { verbs: { enter: null } })).json.settings.verbs, { enter: 'Enter' }, 'no template: the default');
     assert.equal((await as('GET', '/api/modules')).json.modules.find((m) => m.id === 'travel').enabled, true, 'still on');
     assert.deepEqual(await as('POST', '/api/environment/template/apply', {}).then((r2) => [r2.status, r2.json]), [409, { error: 'This environment has no template to apply.' }]);
     const app = readJson(path.join(single, 'app.json'));
@@ -369,7 +385,7 @@ try {
   // --- addendum 2: the host's own templates and template files (#68) ------------------------------------------------
   await test('hosted: a host template is made, used, edited (live at once, a new module offered), hidden, refused deletion, exported and imported', async () => {
     const set = { bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff' };
-    const harbour = { id: 'harbour', name: 'Harbour', description: 'Sailing trips.', words: { space: { one: 'voyage', many: 'voyages' } }, modules: ['travel', 'places', 'chat', 'conference'], reactions: [{ id: 'wave', glyph: '👋', label: 'Wave' }], theme: { name: 'Harbour', light: set, dark: null } };
+    const harbour = { id: 'harbour', name: 'Harbour', description: 'Sailing trips.', words: { space: { one: 'voyage', many: 'voyages' } }, verbs: { enter: 'Board' }, modules: ['travel', 'places', 'chat', 'conference'], reactions: [{ id: 'wave', glyph: '👋', label: 'Wave' }], theme: { name: 'Harbour', light: set, dark: null } };
     const made = await console_('POST', '/api/host/templates', harbour);
     assert.equal(made.status, 201, made.text);
     assert.deepEqual([made.json.template.source, made.json.template.version, made.json.template.hidden], ['host', 1, false]);
@@ -382,6 +398,7 @@ try {
     for (let i = 0; i < 100 && !server.output().includes('[sail] Applied the "harbour" template'); i += 1) await new Promise((r) => setTimeout(r, 50));
     const settings = (await asOwner('GET', '/api/settings')).json.settings;
     assert.deepEqual([settings.words.space.one, settings.reactions.map((r) => r.id), settings.template.source, settings.template.appliedVersion], ['voyage', ['wave'], 'host', 1]);
+    assert.deepEqual([settings.verbs, settings.templateVerbs, settings.ownVerbs], [{ enter: 'Board' }, { enter: 'Board' }, {}], 'the host template\'s verb');
     assert.equal((await asOwner('GET', '/api/themes')).json.themes.find((t) => t.id === settings.activeThemeId).name, 'Harbour', 'its theme added and active');
     assert.deepEqual((await asOwner('GET', '/api/modules/travel/context?scope=environment')).json.phases, [], 'no phases until the template lists them');
     const list = (await console_('GET', '/api/host/templates')).json.templates;
@@ -449,13 +466,20 @@ try {
     assert.deepEqual(await asOwner('GET', '/api/templates/travel/export').then((r) => [r.status, r.json]), [403, { error: 'On a hosted server, the host manages templates.' }]);
     assert.deepEqual(await asOwner('POST', '/api/templates/import', own.json).then((r) => [r.status, r.json]), [403, { error: 'On a hosted server, the host manages templates.' }]);
     // A newer version that changed only the words: the Template tab offers nothing (every part fingerprinted when applied).
-    assert.equal((await console_('PATCH', '/api/host/templates/harbour', { words: { space: { one: 'crossing', many: 'crossings' } } })).json.template.version, 3);
+    // Verbs are live too (addendum 4): an edit reaches branding at once and offers nothing.
+    assert.equal((await console_('PATCH', '/api/host/templates/harbour', { words: { space: { one: 'crossing', many: 'crossings' } }, verbs: { enter: 'Sail into' } })).json.template.version, 3);
+    assert.deepEqual((await call(server, 'sail', 'GET', '/api/branding')).json.verbs, { enter: 'Sail into' }, 'the edited verb, at once');
     const after = (await asOwner('GET', '/api/environment/template')).json;
     assert.deepEqual([after.template.version, after.template.offerOpen, after.offer], [3, false, null], 'no offer: nothing it applies once changed');
     const card = () => console_('GET', '/api/host/environments').then((r) => r.json.environments.find((e) => e.slug === 'sail').template);
     assert.deepEqual(await card().then((t) => [t.version, t.appliedVersion, t.offerOpen]), [3, 2, false], 'the console\'s card agrees');
     assert.equal((await console_('PATCH', '/api/host/templates/harbour', { modules: [...harbour.modules, 'calendar', 'polls'] })).json.template.version, 4);
     assert.deepEqual(await card().then((t) => [t.version, t.appliedVersion, t.offerOpen]), [4, 2, true], 'a changed module list flags the card');
+    // Hosted switch: the owner's own verb stays over the new template's; cleared, it is the new template's.
+    assert.equal((await asOwner('PATCH', '/api/settings', { verbs: { enter: 'Cast off' } })).status, 200);
+    const switched = await asOwner('PATCH', '/api/settings', { template: 'travel' });
+    assert.deepEqual([switched.status, switched.json.settings.verbs, switched.json.settings.templateVerbs], [200, { enter: 'Cast off' }, {}], switched.text);
+    assert.deepEqual((await asOwner('PATCH', '/api/settings', { verbs: { enter: null } })).json.settings.verbs, { enter: 'Enter' });
   });
 
   await test('hosted: the host settings list the modules the image ships, with names and icons, for the template editor', async () => {

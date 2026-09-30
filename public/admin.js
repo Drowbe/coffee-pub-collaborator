@@ -1,6 +1,6 @@
 import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, refreshModuleNav, themeMode, productName } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
-import { CHANGEABLE, DEFAULTS, words, fill as fillWords } from '/words.js';
+import { CHANGEABLE, DEFAULTS, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import '/slot-paste.js'; // paste a picture into any image slot
 import { renderOffer, switchQuestion } from '/template-offer.js';
 import { fileText } from '/file-text.js';
@@ -29,10 +29,15 @@ let ownHomeIcon = null;
 // `templateHomeIcon`), each null for none.
 let templateWords = {};
 let templateHomeIcon = null;
+// The verbs the same way (addendum 4): the owner's own (`ownVerbs`, {} for none) and the template's (`templateVerbs`).
+let ownVerbs = {};
+let templateVerbs = {};
 const DEFAULT_HOME_ICON = 'couch';
 function useOwnerSettings(settings) {
   madeFrom = settings.template || null;
   ownWords = settings.ownWords || {};
+  ownVerbs = settings.ownVerbs || {};
+  templateVerbs = (madeFrom && settings.templateVerbs) || {};
   ownHomeIcon = settings.ownHomeIcon || null;
   templateWords = (madeFrom && settings.templateWords) || {};
   templateHomeIcon = (madeFrom && settings.templateHomeIcon) || null;
@@ -467,6 +472,29 @@ function renderWords() {
     follow();
     list.appendChild(row);
   }
+  for (const key of VERBS) list.appendChild(verbRow(key));
+}
+
+// A verb's row (addendum 4), under the words: its name, one field (blank for the template's or the default), Reset.
+const VERB_NAMES = { enter: () => fillWords('Button for entering {a space}') };
+const VERB_ABOUT = { enter: () => fillWords('The {space} list\'s main button and the {guest} form. {An aside}\'s button always reads Join.') };
+function verbRow(key) {
+  const own = ownVerbs[key] || '';
+  const t = templateVerbs[key] || null;
+  const name = VERB_NAMES[key] ? VERB_NAMES[key]() : key;
+  const note = !t ? '' : own ? `The template's: ${t}` : 'From the template';
+  const back = t ? `Back to ${t}, the template's` : `Back to ${DEFAULT_VERBS[key]}, the default`;
+  const row = document.createElement('div');
+  row.className = 'word-row verb-row';
+  row.dataset.verbKey = key;
+  row.setAttribute('role', 'group');
+  row.setAttribute('aria-label', name);
+  row.innerHTML = `
+      <div class="word-name"><strong>${escapeHtml(name)}</strong><span class="hint">${escapeHtml(VERB_ABOUT[key] ? VERB_ABOUT[key]() : '')} Now: ${escapeHtml(verbs()[key])}.</span>${note ? `<span class="from-template">${escapeHtml(note)}</span>` : ''}</div>
+      <label class="verb-field"><span class="word-field-label">Button</span><input type="text" data-verb-input maxlength="20" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t || DEFAULT_VERBS[key])}" aria-label="${escapeHtml(name)}${t ? `, blank for ${escapeHtml(t)}, the template's` : `, blank for ${escapeHtml(DEFAULT_VERBS[key])}`}"></label>
+      <button class="btn btn-small" type="button" data-verb-reset ${own ? '' : 'disabled'} title="${escapeHtml(back)}" aria-label="Reset ${escapeHtml(name)}: ${escapeHtml(back.charAt(0).toLowerCase() + back.slice(1))}">Reset</button>`;
+  row.querySelector('[data-verb-input]').value = own;
+  return row;
 }
 
 // After the words change (`settings`: the PATCH's answer): the page's own words (data-word and data-fill are done by
@@ -489,14 +517,22 @@ $('save-words').addEventListener('click', async () => {
     if (one || many || a) patch[key] = a ? { one, many, a } : { one, many };
     else if (ownWords[key]) patch[key] = null; // emptied: back to the template's word or the default
   }
-  if (!Object.keys(patch).length) {
+  // The verbs (addendum 4), in the same change: a refused one refuses the whole patch.
+  const verbPatch = {};
+  for (const row of $('words-list').querySelectorAll('[data-verb-key]')) {
+    const key = row.dataset.verbKey;
+    const text = row.querySelector('[data-verb-input]').value.trim();
+    if (text && text !== ownVerbs[key]) verbPatch[key] = text;
+    else if (!text && ownVerbs[key]) verbPatch[key] = null; // emptied: back to the template's or the default
+  }
+  if (!Object.keys(patch).length && !Object.keys(verbPatch).length) {
     say($('words-status'), 'nothing to save');
     return;
   }
   const button = $('save-words');
   button.disabled = true;
   try {
-    const answer = await api('PATCH', '/api/settings', { words: patch });
+    const answer = await api('PATCH', '/api/settings', { ...(Object.keys(patch).length ? { words: patch } : {}), ...(Object.keys(verbPatch).length ? { verbs: verbPatch } : {}) });
     await wordsChanged(answer && answer.settings);
     say($('words-status'), 'saved');
   } catch (err) {
@@ -507,6 +543,23 @@ $('save-words').addEventListener('click', async () => {
 });
 
 $('words-list').addEventListener('click', async (event) => {
+  const verbReset = event.target.closest('[data-verb-reset]');
+  if (verbReset) {
+    const key = verbReset.closest('[data-verb-key]').dataset.verbKey;
+    verbReset.disabled = true;
+    try {
+      const answer = await api('PATCH', '/api/settings', { verbs: { [key]: null } });
+      await wordsChanged(answer && answer.settings);
+      const name = VERB_NAMES[key] ? VERB_NAMES[key]() : key;
+      const t = templateVerbs[key];
+      say($('words-status'), t ? `${name} is back to ${t}, the template's` : `${name} is back to ${DEFAULT_VERBS[key]}, the default`);
+      $('words-list').querySelector(`[data-verb-key="${key}"] [data-verb-input]`)?.focus();
+    } catch (err) {
+      verbReset.disabled = false;
+      say($('words-status'), err.message, true);
+    }
+    return;
+  }
   const reset = event.target.closest('[data-word-reset]');
   if (!reset) return;
   const key = reset.closest('[data-word-key]').dataset.wordKey;

@@ -716,7 +716,9 @@ body.in-space .page-scroll {
 
 .space-choice-actions {
   grid-area: join;
+  position: relative; /* the Open with box sits above the whole row (below) */
   display: flex;
+  flex-wrap: wrap; /* the other buttons go to a second line before the main button's word is cut */
   align-items: center;
   gap: 8px;
   margin-top: auto;
@@ -735,10 +737,22 @@ body.in-space .page-scroll {
 }
 
 .space-choice-actions .btn-primary {
-  flex: 1;
-  min-width: 0; /* "Back to <space>" with a long name shortens, not the row's other buttons */
+  /* As wide as its label (the environment's enter word, up to 20 characters), growing into the rest of the row; only a
+     label wider than the whole row ("Back to <space>" with a long name) is cut, and its title reads it in full. */
+  flex: 1 0 auto; /* its label's own width, growing into the rest of the row */
+  max-width: 100%;
+  min-width: 0;
   font-size: 16px;
   padding: 0 16px;
+}
+
+/* The smaller buttons (link, pop-out, choose, settings) stay together: when the main button's word needs the room they
+   move to a line of their own as one group. */
+.space-choice-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
 }
 
 .space-choice-actions .join-label {
@@ -5321,6 +5335,12 @@ body.chat-window {
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
 }
 
+/* Inside the buttons' row: above all of it, so it never covers the main button when the smaller ones wrap beneath. */
+.space-choice-actions > .join-with {
+  right: 0;
+  bottom: calc(100% + 8px);
+}
+
 .join-with-list {
   display: flex;
   flex-direction: column;
@@ -6377,6 +6397,15 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   body.host-console .word-row, body.host-console .module-display-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   body.host-console .word-row > :first-child, body.host-console .module-display-row > :first-child { grid-column: 1 / -1; }
 }
+
+/* Manage > Template > Words: the verb's row under the ten words (addendum 4), one field across the three word columns.
+   On a phone it stacks like a word's row: the name and Reset across the top, the field beneath. */
+.verb-row .verb-field { grid-column: 2 / 5; }
+@media (max-width: 760px) {
+  .verb-row .verb-field { grid-column: 1 / -1; }
+  .verb-row [data-verb-reset] { grid-column: -2 / -1; grid-row: 1; justify-self: end; align-self: start; }
+}
+
 /* --- image slots: paste a picture (slot-paste.js) --------------------------- */
 .slot-pick:focus-visible, .slot-pick-wrap.slot-armed .slot-pick:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
 .slot-paste {

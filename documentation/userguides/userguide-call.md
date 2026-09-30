@@ -8,7 +8,8 @@ a module or an aside something else; the buttons and menus follow its words (see
 
 ## Enter a space and join the call
 
-The space list shows the spaces you belong to. **Enter** is one click, and puts you in the space: the header stays,
+The space list shows the spaces you belong to. **Enter** (or the word your environment uses in its place) is one
+click, and puts you in the space: the header stays,
 now naming the space you are in, with the space bar under it (see below), and what the space opens with fills the
 middle. Entering does not put you in the call.
 

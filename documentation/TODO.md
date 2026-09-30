@@ -38,6 +38,8 @@ side of things.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.
 - #23 Too many connections to the server from one page.
+- `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
+- A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).
 - With push to talk on and its key at Space (the default), Space can't press a focused button or menu entry in a space; Enter works ([known-issues](known-issues.md)).
 
 ## Sign-in and accounts

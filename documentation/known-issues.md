@@ -72,16 +72,24 @@ installed)", under its id rather than its name. Seen on 2026-09-30.
 
 Workaround: none; untick it to take it off the list.
 
-## Changing the grid size can make snapped modules overlap
+## Snapped modules come back small after a reload
 
-With modules snapped to the grid, moving **Grid size** in the space bar keeps each module's own cells rather than
-fitting it to where it was. A module never takes fewer cells than its smallest size needs, so at a smaller grid a
-module can widen onto its neighbour: To-do and Polls tiled side by side at 130 overlap at 60 or 50. Growing the grid
-back does not shrink them again; they stay large. Seen on 2026-09-30, in headless Chromium; it was there before
-the smallest size went from 60 to 50.
+With **Snap every floating module to a grid** on, modules the switch tiled come back at their smallest size after
+the page is reloaded: two modules of about 684 by 394 pixels come back at about 280 by 180. A module that is closed
+and opened again does the same. After either, moving **Grid size** back no longer returns the sizes the modules had
+before. Seen on 2026-09-30; it is older than the grid size keeping modules apart.
 
-Workaround: turn **Snap every floating module to a grid** in the space bar off and on again, which puts each
-module in the free cells nearest it, or drag the modules apart.
+Workaround: resize the modules, or turn **Snap every floating module to a grid** off and on again, which tiles
+them across the canvas.
+
+## Resizing the window can leave snapped modules overlapping
+
+Resizing the window re-fits snapped modules to the grid the new size makes, and forgets where they were put. At a
+narrow width they can overlap, and they stay small and overlapping when the window grows again, until the grid size
+changes or they are dragged. Moving **Grid size** back then returns the sizes from the narrow window, not the ones
+from before. Seen on 2026-09-30; it is older than the grid size keeping modules apart.
+
+Workaround: move **Grid size** once, which settles them apart, or drag them apart.
 
 ## The header crowds between about 641 and 800 pixels wide
 

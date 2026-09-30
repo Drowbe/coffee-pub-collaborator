@@ -1,7 +1,7 @@
 {
   "id": "research",
   "name": "Research",
-  "version": "0.2.29",
+  "version": "0.2.30",
   "icon": "book-open",
   "description": "What a group finds out while it plans: notes, links with the part that mattered, photos with a caption. Tagged, searchable, linkable from anywhere, and questioned or summarised by the AI the {owner} chose.",
   "author": "Coffee Pub",
@@ -192,7 +192,7 @@
       "type": "boolean",
       "scope": "environment",
       "default": false,
-      "help": "When someone adds a link, this server reads that page for its title, description and image, and fills in an empty title or description. The card shows the picture and that description. Off, nothing is fetched. The request goes from this server to the address they typed."
+      "help": "When someone adds a link, this server reads that page for its title, description and image, and fills in an empty title or description. The link shows the picture and that description. Off, nothing is fetched. The request goes from this server to the address they typed."
     }
   ]
 }

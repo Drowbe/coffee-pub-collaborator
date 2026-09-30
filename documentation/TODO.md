@@ -6,14 +6,13 @@ side of things.
 
 ## In progress
 
-- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built; its console is still to be walked live.
+- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30).
   (September 25, 2026).
 
 ## Planned
 
-- #3 Entering a space: Enter as the main action, the call its own control ([plan-entering](plans/plan-entering.md)).
+- #3 Entering a space: Enter as the main action, the call its own control ([plan-entering](plans/plan-entering.md)). This includes storing a space's own list of what it opens with; the canvas already reads it once it is stored (#95).
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
-- #95 Planner phases ([plan-planner-phases](plans/plan-planner-phases.md)): steps 1 to 5 are built. Still to come: step 6, what a new space opens on entering (`spaceDefaults.opensWith` is stored and offered, and nothing opens from it yet); and a live look at the home widget's phase line.
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.
@@ -24,10 +23,12 @@ side of things.
 
 - #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
 - #30 Modules with two people on a real server.
+- #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
 
 ## Small fixes and checks
 
 - Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.
+- #110 The old name, Magpie, is gone from the code and the templates. Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the documents in `documentation/` that still say Magpie (37 documents, about 230 lines).
 - #25 A check that compiles every `pattern` attribute the way browsers do.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.

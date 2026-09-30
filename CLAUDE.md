@@ -19,6 +19,9 @@ decide those.
 ## Commands
 
 - `npm run check`: every check. Run it before calling anything done.
+- In a cloud container running as root, `check-names` fails two `--migration` cases (a read-only parent
+  folder, the `tavern.json` rename) because root ignores read-only permissions. That isn't a defect; don't
+  change the check. Run the checks after `check-names` in the `check` script one by one to see them.
 - `npm run check:docs`: the documentation standard.
 - `npm run docs:build`: builds the wiki pages into `tools/.wiki-build/` for review.
 - Local server: `LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=devsecretdevsecret ADMIN_PASSWORD=testpass1234 npm run dev`

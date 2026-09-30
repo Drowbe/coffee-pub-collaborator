@@ -35,3 +35,17 @@ Workaround: keep the data folder itself readable only by the user the server run
 On the host console at phone width, the Maps tab runs past the right edge of the screen.
 
 Workaround: use a wider window or turn the phone sideways.
+
+## Saving a bundled template reorders its module list
+
+On the host console, saving an edit to a bundled template, such as Travel, rewrites the order of its module list,
+even when only the description changed. **Review** then lists **Modules** as changed. Seen on 2026-09-30.
+
+Workaround: none is needed for owners, since no offer is made to them. Ignore the **Modules** line in **Review**.
+
+## The logo still reads the old name
+
+The logo on the landing page and on the host console's bar reads "COFFEE PUB MAGPIE", the product's old name.
+The words on those pages say Collaborator. GitHub #110.
+
+Workaround: none.

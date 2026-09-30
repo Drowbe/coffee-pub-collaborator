@@ -53,7 +53,7 @@ You can research in another AI and bring what it finds into Magpie as objects. T
 
 1. Open the formatting menu and choose **Bring in research**. It shows only to people who may use `/ai` here (the same rule as "Ask the AI", with or without an AI service set up), and only where something can keep it (the Planner, or a module that keeps notes such as Research).
 2. Choose **Copy instructions for another AI**, paste them into the other AI, then ask your question.
-3. Paste its whole answer into **Paste the whole answer here** and choose **Preview**, or choose **Choose a file** and pick its `.magpie-objects.json` file.
+3. Paste its whole answer into **Paste the whole answer here** and choose **Preview**, or choose **Choose a file** and pick its `.collaborator-objects.json` file.
 4. A preview marked **Brought in** lists each object with a tick. Untick any you don't want.
 5. Choose **Keep ticked** and confirm.
 

@@ -47,7 +47,7 @@ until you choose **Apply**, which puts the theme and the default mode live on ev
 
 A theme can be saved as a file and brought into another environment.
 
-1. To share one, choose it in the chooser and click **Export**. The browser saves `<name>.magpie-theme.json`. Any
+1. To share one, choose it in the chooser and click **Export**. The browser saves `<name>.collaborator-theme.json`. Any
    theme can be exported, the built-in ones and Strong Coffee included. Export saves the theme as it was last
    saved, not changes still in the editor, so choose **Update** or **Save as new theme** first.
 2. To bring one in, click **Import…** and choose the file. It is added as a new theme and chosen in the chooser, so

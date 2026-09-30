@@ -1,6 +1,6 @@
 # Navigation: two rows, six zones
 
-**Status:** decided September 23, 2026 (the author's sketch); the frame is built, the registry the bars draw from is built (September 24), what fills each zone is being worked out zone by zone.
+**Status:** decided September 23, 2026 (the author's sketch); the frame is built, the registry the bars draw from is built (September 24), what fills each zone is being worked out zone by zone. The account menu decided by Thomas, September 30, 2026: on desktop your picture is last in the right zone and opens the account menu (View profile, Sign out); on a phone it folds into the menu with the rest of the right zone; Sign out is no longer its own item in the right zone.
 
 ## The model
 
@@ -12,7 +12,7 @@ The header is two rows, and each row is three zones: **left** (left-justified), 
 |---|---|---|
 | Left | The logo (home), where you are, and quick actions (to be defined) | the server icon and name (the home link), the crumb ("> Lobby", "> Server Settings") |
 | Middle | Core navigation, system-level: the spaces (decided: rooms are "spaces" in everything a person reads; the code keeps `room`), and more to come | Spaces, and each module's own page |
-| Right | System-level actions and system information: settings, your profile, sign out, install; a clock | your profile, Manage, Install, Sign out, and the time on the server's clock (12- or 24-hour, the Language, time and money setting) |
+| Right | System-level actions and system information: settings, install, a clock, and you | Manage, Install, the time on the server's clock (12- or 24-hour, the Language, time and money setting), and last your picture, which opens the account menu (View profile, Sign out); there is no separate Sign out item (decided 2026-09-30) |
 
 **Secondary nav: the space.** Only at the table (a room), under the primary nav.
 
@@ -27,7 +27,7 @@ The header is two rows, and each row is three zones: **left** (left-justified), 
 - A control belongs to exactly one zone, chosen by what it is about (the system or the space) and what it does (navigation, action, information), not by where it happens to fit. Adding a control means naming its zone.
 - The middle zone is centred on the row, not on what is left over: the row is a three-column grid (`1fr auto 1fr`), so the core navigation sits in the same place whatever the left and right zones hold.
 - The markup is the same on every page: `public/brand.js` builds the primary nav (`.topbar` with `.nav-left`, `.nav-middle`, `.nav-right`), `public/room.js` builds the secondary (`.subnav` with the same three). Nothing else adds to the header; a page that wants a control in it asks one of these two.
-- On a phone (below 640px) the primary nav keeps the logo, the crumb and a menu button; the middle and right zones fold into the menu. The secondary nav is the tab bar at the bottom of the page: the left zone (the pane switches) is the bar, the right zone keeps only Leave. The zones do not change meaning, only where they are drawn.
+- On a phone (below 640px) the primary nav keeps the logo, the crumb and a menu button; the middle and right zones fold into the menu. Your picture folds into the menu with the rest of the right zone: inside it, your picture and name, then View profile and Sign out as entries. The secondary nav is the tab bar at the bottom of the page: the left zone (the pane switches) is the bar, the right zone keeps only Leave. The zones do not change meaning, only where they are drawn.
 
 ## Modules register into the bars (built September 24, 2026; from the author's Blacksmith menubar)
 

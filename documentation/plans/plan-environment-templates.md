@@ -443,6 +443,7 @@ Templates are bundled files only (`templates/<id>.json`, read by `server/templat
 4. **"Back to <space>" stays fixed text.** It is going back, not entering, and matches the header's "Back to" link (`brand.js:650`).
 5. **The prose that says a person "joins" a space is reworded as fixed text** that says neither "join" nor the verb: the guest link's hint, the Roles hint, and the product page's "guests can join a space".
 6. **The icon stays `fa-door-open`**; the template sets only the word.
+7. **An aside's Join button has the phone icon, `fa-phone`, "for now"**, and its pop-out title reads "Join in a pop-out window" (Thomas, 2026-09-30, answering this addendum's one open question).
 
 ### The contract
 
@@ -455,7 +456,7 @@ Templates are bundled files only (`templates/<id>.json`, read by `server/templat
   - The guest form's heading: `<enter> <space name>` once the link is read; before that, `<enter> as {a guest}`.
 - **Fixed text:**
   - **Back to <space>**, with `fa-circle-left`, as built.
-  - **An aside's card:** the primary button reads **Join** with `fa-phone`, and the pop-out button's title and label "Join in a pop-out window". When the page is still connected to that aside, it reads **Back to <aside>** as a space does. The words are fixed; an aside never reads the enter word.
+  - **An aside's card:** the primary button reads **Join** with `fa-phone` (for now, decision 7), and the pop-out button's title and label "Join in a pop-out window". When the page is still connected to that aside, it reads **Back to <aside>** as a space does. The words are fixed; an aside never reads the enter word.
   - **The reworded hints**, experience-design's wording, for example: "Anyone with this link can come into this {space} with just a name" (`space.html:233`); "{Guest} is everyone who comes in from {a space}'s {guest} link" (`admin.html:177`); "guests can come into a space with just a name" (`landing.html:83`, the host's page, no environment words).
 - **"Join"** stays only for the call: the call control, the microphone note, the aside invitation, an aside's card, and the layout readout.
 - **Server** (`server/words.js`, beside the words):
@@ -485,4 +486,4 @@ Templates are bundled files only (`templates/<id>.json`, read by `server/templat
 
 ### Open questions
 
-1. **An aside card's icon and pop-out title.** Decision 2 settles the word; the contract suggests `fa-phone` (the call control's icon) and "Join in a pop-out window" to match it. Not yet confirmed by Thomas; neither blocks step 1.
+None. The aside card's icon and pop-out title were settled on 2026-09-30 (decision 7).

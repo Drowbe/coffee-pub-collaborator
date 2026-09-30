@@ -303,7 +303,8 @@ const DEFAULT_SETTINGS = {
   plateOpacity: 60,
   plateTextCase: 'default',
   // Behind the Offline / Online picture in the player box: a colour (or
-  // transparent) and the picture's size as a percentage of the box.
+  // transparent). pictureScale is the conference's portrait size, a percentage
+  // of the tile's height. The participant box uses the same number.
   pictureBackground: false,
   pictureColor: '#1a1410',
   pictureScale: 100,

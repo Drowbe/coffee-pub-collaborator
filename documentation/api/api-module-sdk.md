@@ -530,7 +530,8 @@ const p = await host.presence.get();
 // p.spaces       [{ id, name }]
 // p.asides       [{ id, origin, private }]   origin: the space it was pulled from; private: a private conversation
 // p.activeSpace  the space the stream follows (an owner's or the admin's); p.ownerOnline whether one is online
-// p.reactions  [{ id, glyph }]
+// p.reactions    [{ id, glyph }]
+// p.pictureScale the conference's portrait size, a percentage of the tile height; the participant box uses it
 const stop = host.presence.onChange((p) => { ... }, { every: 5000 }); // polls; called once at the start and whenever anything differs
 ```
 

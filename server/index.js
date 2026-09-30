@@ -1365,7 +1365,8 @@ function publicUser(req, u, opts = {}) {
 }
 
 // What the call and the view pages need about everyone: name and the
-// talking colour, so tiles and frames match.
+// talking colour, so tiles and frames match. pictureScale is the conference's
+// portrait size (store.settings), the same number the participant box uses.
 function presenceUser(u) {
   const p = store.effectivePlayer(u);
   return { key: u.key, displayName: u.displayName, isOwner: hasOwnerRights(u), border: p.border, borderColor: p.borderColor, borderWidth: p.borderWidth, mutedBorder: p.mutedBorder, mutedColor: p.mutedColor, plate: p.plate, plateLayout: p.plateLayout, plateColor: p.plateColor, plateTextColor: p.plateTextColor, plateFontSize: p.plateFontSize, plateOpacity: p.plateOpacity, plateTextCase: p.plateTextCase, charBorder: p.charBorder, charBorderColor: p.charBorderColor, charMutedBorder: p.charMutedBorder, charMutedColor: p.charMutedColor, charBorderWidth: p.charBorderWidth, pictureBackground: p.pictureBackground, pictureColor: p.pictureColor, pictureScale: p.pictureScale, images: Object.fromEntries(SLOTS.map((slot) => [slot, !!u.images[slot]])) };

@@ -46,9 +46,9 @@ The exact options a link accepts (name plate, silent audio, hiding reactions) ar
 Under the module's settings (**Module Configuration** on its card on the Modules tab): the talking and
 muted borders and their colours and width for the Participant box and, separately, the Character box;
 the name plate (on or off, position, box colour and opacity, text colour, size and case); a colour behind
-the Participant picture and how large the portrait sits in the box; and how a box is dimmed or tinted
+the Participant picture; and how a box is dimmed or tinted
 while the person is offline, in an aside away from the space the stream follows, or in a private
-conversation. These are the same for everyone. A server that had these on its Server tab (now Environment) before the
+conversation. These are the same for everyone. Portrait size is not here. It is a conference setting, under Call features on the Environment tab, and the participant box uses that same size. A server that had these on its Server tab (now Environment) before the
 module arrived keeps its values: they were carried over when the module installed itself.
 
 ## Sound

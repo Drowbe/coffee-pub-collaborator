@@ -535,6 +535,7 @@ async function fillCurrencies(current) {
 $('save-locale').addEventListener('click', () => saveSettings({ language: $('set-language').value, clock: $('set-clock').value, currency: $('set-currency').value }, $('locale-status')));
 $('save-features').addEventListener('click', () => saveSettings({
   maxQuality: Number($('set-max-quality').value),
+  pictureScale: Number($('set-picture-scale').value),
   allowScreenShare: $('set-allow-screen-share').checked,
   allowAsides: $('set-allow-asides').checked,
   allowPrivate: $('set-allow-private').checked,
@@ -2086,6 +2087,7 @@ async function init() {
     await loadRoles();
     await loadModules();
     $('set-max-quality').value = String(settings.maxQuality || 720);
+    $('set-picture-scale').value = String(settings.pictureScale || 100);
     $('set-allow-screen-share').checked = settings.allowScreenShare !== false;
     $('set-allow-asides').checked = settings.allowAsides !== false;
     $('set-allow-private').checked = settings.allowPrivate !== false;

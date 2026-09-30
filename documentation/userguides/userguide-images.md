@@ -55,8 +55,41 @@ uploaded, uncropped, since they may be transparent overlays.
 
 ## Set a picture
 
-Images are PNG, JPEG, GIF or WebP up to 20 MB. Click a picture box to change it, and the small
-**x** over its corner to clear it. An empty box says "not set".
+Images are PNG, JPEG, GIF or WebP up to 20 MB. An empty box says "not set", and the small **x** over
+a box's corner clears it. Pointing at a box, or reaching it with Tab, shows the hint "Paste or click to
+choose".
+
+Every picture box in Collaborator works this way: the profile photo and call background, the
+Participant and Character sets and the per-space sets on a profile, and on the Manage page the
+environment icon, the sign-in background and the Default and Guest sets, and a space's picture in its
+settings.
+
+To choose a file:
+
+1. Click the picture box, or Tab to it and press Enter or Space.
+2. Pick the file.
+
+To paste a picture you have copied, from another page, an image editor or a screenshot:
+
+1. Copy the picture.
+2. Tab to the picture box and press Ctrl+V (Cmd+V on a Mac). Or, with the mouse or on a touch
+   screen, choose the small **Paste** button on the box's corner (beside the box, for the small
+   environment icon). It shows when you point at the box, and always on a touch screen.
+3. The browser may ask whether the page can read the clipboard. Allow it.
+
+A pasted picture is saved exactly like a chosen file, with the same types, the same 20 MB limit and
+the same messages. If it doesn't go in, the box says why:
+
+- "No picture to paste. Copy one first." The clipboard holds text or nothing.
+- "Can't read the clipboard here. Press Ctrl+V now to paste." (Cmd+V on a Mac) The browser would not
+  let **Paste** read the clipboard. The picture box now has focus, so Ctrl+V pastes into it.
+- "Can't read the clipboard here. Tap the picture to choose one." The same, on a touch screen.
+- "That picture couldn't be read. Try choosing the file."
+
+A box you are not allowed to change takes no paste and shows no **Paste** button. Pasting into a text
+field on the same page pastes into the field as usual. Some browsers only pass **Paste** a PNG; see
+[known issues](../known-issues.md). A screen reader names each box, such as "Profile picture" or
+"Default Online picture", using the environment's own words.
 
 ## Per-space pictures
 

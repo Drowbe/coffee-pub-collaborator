@@ -122,6 +122,10 @@ On a phone your picture is not in the header. It is in the header's menu instead
 From the keyboard, opening the menu puts you on its first entry, Tab moves through the entries and back to the menu
 button, and Escape closes it.
 
+To change your photo, open your profile and click the photo at the top, or paste a picture you have copied into it
+(Tab to it and press Ctrl+V, Cmd+V on a Mac, or choose its **Paste** button). Your other pictures on the profile
+work the same way; see "Set a picture" in [Participant and Character Images](userguide-images.md).
+
 ## Light or dark
 
 The sun and moon switch next to the gear at the top of every page changes between light and dark at once, with

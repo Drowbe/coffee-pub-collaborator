@@ -62,6 +62,7 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
 | `public/view.html` | The OBS view |
 | `public/brand.js` | Shared header, branding and icon lookup |
 | `public/words.js` | The environment's words in the pages: `word()`, `fill()`, `applyWords()` |
+| `public/slot-paste.js` | Paste into picture slots; see "Picture slots" under Design rules |
 | `server/words.js` | The words, their defaults, and the checks on an owner's own |
 | `public/style.css` | The one stylesheet |
 | `public/sw.js` | The service worker that lets the app install |
@@ -245,6 +246,20 @@ eight times seven times 1.5 Mbps out at the server. Player quality is capped by 
   that one thing. People (`/profile/<key>`) and spaces (`/spaces/<id>`) work this way: their Manage tabs are a
   roster of a picture, a name, a status line and a link. Keep new admin surfaces to this shape rather than growing
   an inline editor on a list; the two earlier ones scaled badly enough to need rebuilding.
+- **Picture slots.** A picture a person sets is a `.slot` holding `.slot-pick-wrap > label.slot-pick >
+  input[type=file]`, and a page with slots imports `/slot-paste.js` from its own module script. That one import
+  gives every slot on the page, including ones drawn later (it watches the page), a paste by Ctrl+V or Cmd+V
+  while the slot has focus, a **Paste** button where the browser offers `navigator.clipboard.read` in a secure
+  context, Enter and Space to open the file chooser, the "Paste or click to choose" hint, and a name for screen
+  readers. A pasted picture is put into the slot's own file input and a `change` event is sent from it, so the
+  page's existing upload handler, limits and messages apply unchanged. A slot that is `.still`, disabled, hidden
+  or in a disabled fieldset takes no paste and no focus; a paste in a text field is left alone. The name is the
+  slot's `data-slot-name` (level words in braces are filled from the environment's words, `fill()`), or else its
+  caption (a `<span>` in the `.slot`, outside the picture) followed by "picture", after the name of each
+  `data-slot-group` it sits in, outermost first; an empty `data-slot-group` takes its group's first heading.
+  `tools/check-slot-names.mjs` (in `npm run check`) reads the pages' markup and fails a slot with neither a
+  `data-slot-name` nor a caption, a `.slot` holding more than one picture, a picture outside a `.slot`, and a
+  page with slots whose script does not import `/slot-paste.js`.
 
 ## Development
 

@@ -41,6 +41,7 @@ side of things.
 - `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
 - A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).
 - The SDK menu's link entries (`<a role=menuitem>` in `public/sdk/host.js`, `host.menu.show`) don't open on Space; Enter opens them. Buttons and other entries do.
+- Pasting a picture into a picture box: check it in Firefox, Safari, on a real phone, with a real screen reader, and with a file (not a picture) copied from the computer's own file manager. Verified in headless Chromium only.
 
 ## Sign-in and accounts
 
@@ -88,3 +89,4 @@ side of things.
 - #45 Reading booking confirmation emails into the Planner.
 - #32 A module for Foundry.
 - #33 A module for WhatsApp or SMS.
+- Research's **Add a photo** could take a pasted picture too, as the picture boxes do. A small module change; Thomas hasn't decided.

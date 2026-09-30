@@ -1,6 +1,7 @@
 import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, refreshModuleNav, themeMode, productName } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, words, fill as fillWords } from '/words.js';
+import '/slot-paste.js'; // paste a picture into any image slot
 import { renderOffer, switchQuestion } from '/template-offer.js';
 import { fileText } from '/file-text.js';
 

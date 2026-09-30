@@ -9,12 +9,13 @@ Open the Manage page with the gear icon in the header. It has seven tabs, in thi
 
 - **Environment** (a hosted server only). The plan's name, each cap with what is used, the overdue banner when a payment has lapsed, **Upgrade**, **Download a copy** and **Ask for deletion**. See [Your environment](userguide-environments.md).
 - **Name and icon.** The **Name** shows in the header and the browser tab. The icon is any image;
-  it is used in the header, as the favicon, and on the sign-in page. Click it to change it, and the
+  it is used in the header, as the favicon, and on the sign-in page. Click it to change it, or paste a
+  picture (see "Set a picture" in [Participant and Character Images](userguide-images.md)), and the
   small **x** over its corner to clear it.
 - The home icon, the words and the module names are on the **Template** tab (below).
 - **Call features.** Turns screen sharing, asides, private conversations and reactions on or off for
   everyone, and sets the highest video quality anyone can pick.
-- **Sign-in page.** A background picture behind the sign-in box, the text under the password field, and **Require two-step sign-in for everyone**: off (the default: anyone may set up an authenticator app on their profile) or on (everyone must, from their next sign-in; a session already open keeps working); see "Two-step sign-in" in [Accounts, roles and permissions](userguide-accounts.md). The switch is not shown when the server does not offer two-step sign-in (`ENABLE_MFA` in the compose file). The Users tab marks accounts that have set it up. Click the picture to upload your own, or choose **Choose from the library** for one of the pre-made backgrounds that ship with Collaborator (filter by theme and style, pick one, **Use this background**). New pre-made images are added by putting files in `public/assets/images/backgrounds/`; see the README there for the format and file names.
+- **Sign-in page.** A background picture behind the sign-in box, the text under the password field, and **Require two-step sign-in for everyone**: off (the default: anyone may set up an authenticator app on their profile) or on (everyone must, from their next sign-in; a session already open keeps working); see "Two-step sign-in" in [Accounts, roles and permissions](userguide-accounts.md). The switch is not shown when the server does not offer two-step sign-in (`ENABLE_MFA` in the compose file). The Users tab marks accounts that have set it up. Click the picture to upload your own, paste one, or choose **Choose from the library** for one of the pre-made backgrounds that ship with Collaborator (filter by theme and style, pick one, **Use this background**). New pre-made images are added by putting files in `public/assets/images/backgrounds/`; see the README there for the format and file names.
 - **Sign-up.** Self-service `/register` on or off, and invite links into specific spaces. See
   [Accounts, roles and permissions](userguide-accounts.md).
 - **Access key.** The key that a keyed page's link carries in place of a sign-in (the Stream module's

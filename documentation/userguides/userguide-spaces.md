@@ -67,7 +67,9 @@ offers Character images only. It decides which sections appear on each member's 
 as a button next to Enter and in the call's toolbar, with the icon you pick. The icons come from the
 **Icons** list on the Template tab of the Manage page.
 
-Space pictures are square; anything else is cropped to the middle.
+Space pictures are square; anything else is cropped to the middle. Click the picture to choose a
+file, or paste a picture you have copied; see "Set a picture" in
+[Participant and Character Images](userguide-images.md).
 
 ### Choose what a space opens with
 

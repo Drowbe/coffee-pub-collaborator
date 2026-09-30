@@ -99,3 +99,14 @@ saying where you are wraps onto two lines, and the right end (Manage, the time, 
 2026-09-30, in headless Chromium at 700 pixels.
 
 Workaround: make the window wider than 800 pixels, or narrower than 640, where the header folds into its menu.
+
+## The Paste button on a picture only gets a PNG
+
+In Chromium, the **Paste** button on a picture box receives a copied picture only as a PNG. A copied animated GIF
+arrives as a still picture, and a copied JPEG photo arrives as a PNG, which can be larger than the photo and go over
+the 20 MB limit where the same file would not. Where the browser won't let the page read the clipboard (and on a
+server not reached over HTTPS, where there is no **Paste** button at all), only the keyboard paste works. Seen on
+2026-09-30, in headless Chromium.
+
+Workaround: Tab to the picture box and press Ctrl+V (Cmd+V on a Mac), which keeps a copied file as it is, or click
+the box and choose the file.

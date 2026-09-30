@@ -4,6 +4,7 @@
 import { renderModuleSettings } from '/module-settings.js';
 import { opensWithSummary } from '/opens-with.js';
 import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, escapeHtml, crumbLink, getIcons, spaceCrumbIcon, hasOwnerRights, word } from '/brand.js';
+import '/slot-paste.js'; // paste a picture into any image slot
 
 const $ = (id) => document.getElementById(id);
 const spaceId = decodeURIComponent(location.pathname.split('/')[2] || '');

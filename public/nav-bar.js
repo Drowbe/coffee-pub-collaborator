@@ -8,8 +8,7 @@
 // groupOrder?, href? | onClick?, visible?, toggleable?, active?, badge? }, plus, for the page's own tools only,
 // `element` (an element the registry places and orders but does not draw: the snap slider, the clock, your picture),
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
-// (the icon a toggle shows while it is on: full screen's compress) and `keepOnPhone` (a primary right-zone tool that stays
-// in the bar on a phone rather than folding into the menu: your picture). `register()` returns the element drawn, which lives
+// (the icon a toggle shows while it is on: full screen's compress). `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
 // The pure parts (the bands, the sort, the visibility rule, the cleaning of a module's registration) touch no document,
@@ -142,8 +141,8 @@ let seq = 0;
 
 // On a phone the primary nav's middle and right zones fold into the one menu (the right zone's element, which the
 // stylesheet turns into the menu): the registry draws the middle's tools there, ahead of the right's, and back when
-// the window widens. A right-zone tool marked `keepOnPhone` (the page's own only: your picture) is drawn in the middle
-// zone instead, so it stays in the bar beside the menu button.
+// the window widens. Nothing stays behind: your picture folds in too, last (brand.js shows it there with your name,
+// View profile and Sign out after it).
 const phone = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 640px)') : null;
 if (phone) phone.addEventListener('change', () => draw('primary'));
 
@@ -222,6 +221,14 @@ export function setBadge(id, n) {
   return true;
 }
 
+// The primary bar's zones on a phone (plan-nav.md, "Phones"): the left stays, and the middle's tools and then the
+// right's all go into the menu, which is the right zone's element; the middle is left empty. Each zone is a list of
+// runs, each run arranged on its own, so the middle's tools stay ahead of the right's whatever their orders. Pure, for
+// check-nav.
+export function phoneZones(byZone) {
+  return { left: [byZone.left], middle: [], right: [byZone.middle, byZone.right] };
+}
+
 // Redraw a bar (or both): order, dividers and visibility. Call it after something a `visible` function reads has
 // changed; registering, unregistering and the phone fold call it themselves.
 export function draw(bar) {
@@ -240,16 +247,9 @@ export function draw(bar) {
     if (!zone) continue;
     for (const d of zone.querySelectorAll(':scope > [data-nav-divider]')) d.remove();
   }
+  const runs = fold ? phoneZones(byZone) : Object.fromEntries(ZONES.map((z) => [z, [byZone[z]]]));
   const lists = {};
-  if (fold) {
-    // A right-zone tool marked keepOnPhone (your picture) stays in the bar, in the middle zone's place beside the menu
-    // button; everything else is in the menu.
-    lists.left = flatten(byZone.left, doc);
-    lists.middle = flatten(byZone.right.filter((t) => t.keepOnPhone), doc);
-    lists.right = [...flatten(byZone.middle, doc), ...flatten(byZone.right.filter((t) => !t.keepOnPhone), doc)];
-  } else {
-    for (const z of ZONES) lists[z] = flatten(byZone[z], doc);
-  }
+  for (const z of ZONES) lists[z] = runs[z].flatMap((run) => flatten(run, doc));
   for (const z of ZONES) if (b.zones[z]) place(b.zones[z], lists[z]);
 }
 
@@ -280,8 +280,23 @@ function ensureEl(t, doc) {
   }
   el.dataset.navTool = t.id;
   els.set(t.id, el);
+  watchHidden(t.id, el);
   apply(el, t);
   return el;
+}
+
+// A tool with no `visible` is shown or hidden by other code (Manage for an admin, your picture for a guest); when it
+// is, its bar is drawn again so no divider is left before a group with nothing in it. The draw never writes these
+// elements' `hidden`, so this cannot loop.
+const pending = new Set();
+function watchHidden(id, el) {
+  if (typeof MutationObserver !== 'function') return;
+  new MutationObserver(() => {
+    const t = tools.get(id);
+    if (!t || t.visible !== undefined || els.get(id) !== el) return;
+    if (!pending.size) queueMicrotask(() => { const list = [...pending]; pending.clear(); for (const b of list) draw(b); });
+    pending.add(t.bar);
+  }).observe(el, { attributes: true, attributeFilter: ['hidden'] });
 }
 
 function iconEl(doc, name, extra) {
@@ -341,13 +356,22 @@ function paintBadge(el, t) {
   badge.textContent = n > 9 ? '9+' : String(n);
 }
 
+// A tool counts as shown when its `visible` says so, or, with no `visible`, while whoever owns its `hidden` has not set
+// it (your picture, hidden for a guest). `hiddenOf(tool)` says whether its element is hidden. Pure, for check-nav: a
+// divider only ever separates two groups that each show something.
+export function isShown(tool, hiddenOf) {
+  if (tool.visible !== undefined) return isVisible(tool);
+  return !hiddenOf(tool);
+}
+
 // One zone's elements in drawing order, dividers between the groups that show something. A tool whose `visible`
-// says no keeps its place, hidden; one with no `visible` is left to whoever toggles its `hidden`.
+// says no keeps its place, hidden; one with no `visible` is left to whoever toggles its `hidden` (and the bar is
+// drawn again when they do, see watchHidden).
 function flatten(list, doc) {
   const out = [];
   let shownBefore = false;
   for (const group of arrange(list)) {
-    const shown = group.filter(isVisible);
+    const shown = group.filter((t) => isShown(t, (x) => Boolean(ensureEl(x, doc).hidden)));
     if (shown.length && shownBefore) {
       const d = doc.createElement('span');
       d.className = 'nav-divider';
@@ -381,5 +405,5 @@ function place(container, list) {
   }
 }
 
-export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, cleanModuleTools, bandOf, BANDS };
+export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, isShown, phoneZones, cleanModuleTools, bandOf, BANDS };
 export default nav;

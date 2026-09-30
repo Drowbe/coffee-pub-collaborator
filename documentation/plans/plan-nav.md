@@ -1,6 +1,6 @@
 # Navigation: two rows, six zones
 
-**Status:** decided September 23, 2026 (the author's sketch); the frame is built, the registry the bars draw from is built (September 24), what fills each zone is being worked out zone by zone. The account menu decided by Thomas, September 30, 2026: on desktop your picture is last in the right zone and opens the account menu (View profile, Sign out); on a phone it folds into the menu with the rest of the right zone; Sign out is no longer its own item in the right zone.
+**Status:** decided September 23, 2026 (the author's sketch); the frame is built, the registry the bars draw from is built (September 24), what fills each zone is being worked out zone by zone. The account menu decided by Thomas, September 30, 2026: on desktop your picture is last in the right zone and opens the account menu (View profile, Sign out); on a phone it folds into the menu with the rest of the right zone; Sign out is no longer its own item in the right zone. Built September 30, 2026, the phone fold included (your picture, View profile and Sign out in the menu).
 
 ## The model
 

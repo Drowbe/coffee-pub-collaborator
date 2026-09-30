@@ -1364,7 +1364,8 @@ body.in-space .topbar {
 }
 
 /* The signed-in player, last in the bar: their image next to their name, a button that opens the account menu
-   (View profile, Sign out: brand.js). On a phone only the image, beside the menu button. */
+   (View profile, Sign out: brand.js). On a phone it is last in the header's menu, with View profile and Sign out
+   after it as that menu's own entries. */
 .whoami {
   display: inline-flex;
   align-items: center;
@@ -5636,9 +5637,9 @@ body.in-space .topbar.menu-open .links .module-nav-link {
 
 /* --- phone: the header's links are a menu -----------------------------------
    Below 640px, on every page, the header keeps where you are (the server, the crumb) and a menu
-   button, and your picture beside it (its own menu: View profile, Sign out). The links (the spaces, Manage,
-   install, the module pages, the time) open as a panel under the menu button, with their names, big enough to
-   tap. brand.js builds the button. */
+   button. The links (the spaces, Manage, install, the module pages, the time, and last you: your picture and
+   name, View profile, Sign out) open as a panel under the menu button, with their names, big enough to tap.
+   brand.js builds the button. */
 .topbar .nav-toggle,
 .topbar .call-settings-link {
   display: none;
@@ -5651,21 +5652,12 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     justify-content: space-between;
   }
 
-  /* The middle zone holds only your picture here (nav-bar.js's keepOnPhone), at the right beside the menu button. */
-  .topbar .nav-middle {
-    margin-left: auto;
-  }
-
-  .topbar .whoami #whoami {
-    display: none;
-  }
-
   .topbar .nav-toggle {
     display: inline-flex;
     flex: none;
     width: 40px;
     height: 36px;
-    margin-left: 0;
+    margin-left: auto;
     font-size: 18px;
   }
 
@@ -5692,6 +5684,26 @@ body.in-space .topbar.menu-open .links .module-nav-link {
 
   .topbar.menu-open .links .topbar-clock {
     padding: 6px 12px;
+  }
+
+  /* You, in the menu: your picture and name, a label (it opens nothing here), View profile and Sign out after it. */
+  /* :not([hidden]) to outweigh the menu's own row rule (font-weight 500) below */
+  .topbar.menu-open .links > button.whoami:not([hidden]) {
+    cursor: default;
+    font-weight: 600;
+  }
+
+  .topbar.menu-open .links > button.whoami:hover {
+    background: none;
+  }
+
+  .topbar.menu-open .links .whoami img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .topbar.menu-open .links .whoami #whoami {
+    max-width: none;
   }
 
   /* The light or dark switch: a row of its own, its name after it. */

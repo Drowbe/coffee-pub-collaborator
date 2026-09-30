@@ -110,8 +110,17 @@ guest has no picture there and no account menu.
 3. Or choose **Sign out**. It also forgets the light or dark choice made in this browser, so the next person here
    starts from the default.
 
-On a phone your picture stays in the header beside the menu button, and works the same way. The menu also works
-from the keyboard: the arrow keys move, Enter picks, and Escape closes it.
+The menu also works from the keyboard: the arrow keys move, Enter picks, and Escape closes it.
+
+On a phone your picture is not in the header. It is in the header's menu instead:
+
+1. Tap the menu button (**Menu**, three lines) at the right of the header.
+2. At the end of the menu, after a line, are your picture and name. They are only a label; tapping them does
+   nothing.
+3. Tap **View profile** or **Sign out** under them. They do the same as on a wider screen.
+
+From the keyboard, opening the menu puts you on its first entry, Tab moves through the entries and back to the menu
+button, and Escape closes it.
 
 ## Light or dark
 

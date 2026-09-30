@@ -1,5 +1,5 @@
 import { nav } from '/nav-bar.js';
-import { openHostMenu } from '/host-menu.js';
+import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
 import { word, setWords } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode } from '/theme-mode.js';
@@ -235,44 +235,89 @@ function registerSystemTools(header, initialIcon, adminHref, withThemeSwitch) {
   clock.title = 'The time';
   nav.register({ id: 'topbar-clock', bar: 'primary', zone: 'right', group: 'session', groupOrder: 51, order: 51, element: clock });
   // You, last: your picture and name, a button that opens the account menu (View profile, Sign out). On a phone it
-  // stays in the bar beside the menu button instead of folding into that menu (keepOnPhone).
+  // folds into the header's menu with everything else: there it is only your picture and name, and View profile and
+  // Sign out follow it as the menu's own entries (no menu inside the menu).
   const whoami = doc.createElement('button');
   whoami.type = 'button';
   whoami.className = 'whoami';
   whoami.id = 'whoami-link';
-  whoami.title = 'Account';
-  whoami.setAttribute('aria-haspopup', 'menu');
-  whoami.setAttribute('aria-expanded', 'false');
-  whoami.setAttribute('aria-labelledby', 'whoami whoami-account'); // "<your name> Account"
   whoami.innerHTML = '<img id="whoami-img" alt="" hidden><span id="whoami"></span><span id="whoami-account" hidden>Account</span>';
-  whoami.addEventListener('click', () => openHostMenu(whoami, accountMenuItems())); // on a phone this also closes the header's menu, a click elsewhere
-  nav.register({ id: 'whoami-link', bar: 'primary', zone: 'right', group: 'you', groupOrder: 999, order: 999, keepOnPhone: true, element: whoami });
+  whoami.addEventListener('click', (event) => {
+    if (onPhone()) {
+      event.stopPropagation(); // only a label in the header's menu: the menu stays open
+      return;
+    }
+    openHostMenu(whoami, accountMenuItems());
+  });
+  paintWhoami(whoami);
+  if (phoneQuery) phoneQuery.addEventListener('change', () => paintWhoami(whoami));
+  nav.register({ id: 'whoami-link', bar: 'primary', zone: 'right', group: 'you', groupOrder: 999, order: 999, element: whoami });
+  // View profile and Sign out as the header menu's own entries: on a phone only, and only for someone signed in (your
+  // picture is showing). The menu draws the bar again as it opens, so these follow a page that hid your picture.
+  const signedIn = () => !whoami.hidden && !byId('whoami-img')?.hidden;
+  const inMenu = () => onPhone() && signedIn();
+  nav.register({ id: 'account-profile', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'user', label: 'View profile', visible: inMenu, onClick: viewProfile });
+  nav.register({ id: 'account-sign-out', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'right-from-bracket', label: 'Sign out', visible: inMenu, onClick: signOut });
 }
 
-// The account menu under your picture. View profile goes to /profile; a page that can show it without leaving
-// (a space, where leaving would end the call) takes the app:open-profile event and opens it over itself instead; on
-// the profile page itself it does nothing.
+// The phone width, the same one nav-bar.js folds the header at.
+const phoneQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 640px)') : null;
+const onPhone = () => Boolean(phoneQuery && phoneQuery.matches);
+
+// Your picture is the account menu's button on a wider screen, and only a label (your picture and name) in the
+// header's menu on a phone: out of the Tab order there, and it opens nothing.
+function paintWhoami(whoami) {
+  // An account menu open across the change would be left under a label (off screen on a phone) or without its button.
+  // Its focus goes back to your picture, which on a phone is inside the closed header menu: the menu button takes it.
+  const doc = whoami.ownerDocument;
+  const hadFocus = Boolean(doc.activeElement?.closest?.('.host-menu'));
+  closeHostMenu();
+  if (onPhone() && hadFocus && !whoami.getClientRects().length) doc.getElementById('nav-toggle')?.focus();
+  if (onPhone()) {
+    whoami.tabIndex = -1;
+    whoami.removeAttribute('title');
+    whoami.removeAttribute('aria-haspopup');
+    whoami.removeAttribute('aria-expanded');
+    whoami.setAttribute('aria-disabled', 'true'); // read as your name, not as a button to press
+    whoami.setAttribute('aria-labelledby', 'whoami');
+  } else {
+    whoami.removeAttribute('tabindex');
+    whoami.removeAttribute('aria-disabled');
+    whoami.title = 'Account';
+    whoami.setAttribute('aria-haspopup', 'menu');
+    whoami.setAttribute('aria-expanded', 'false');
+    whoami.setAttribute('aria-labelledby', 'whoami whoami-account'); // "<your name> Account"
+  }
+}
+
+// View profile goes to /profile; a page that can show it without leaving (a space, where leaving would end the call)
+// takes the app:open-profile event and opens it over itself instead; on the profile page itself it does nothing.
+function viewProfile() {
+  const unhandled = document.dispatchEvent(new CustomEvent('app:open-profile', { cancelable: true }));
+  if (!unhandled || location.pathname === '/profile') return; // already there: the menu just closes
+  // Opened over a call (?from=space), the query stays, so the profile page keeps its way back (as crumbLink does).
+  const keep = new URLSearchParams(location.search).get('from') === 'space' ? location.search : '';
+  location.href = `/profile${keep}`;
+}
+
 // Sign out forgets this browser's light or dark choice first, so the next person here starts from the default, and
 // signs the whole window out (from a page opened over a call too, not only that page).
+function signOut() {
+  forgetThemeMode();
+  let win = window;
+  try {
+    if (window.top.location.origin === location.origin) win = window.top;
+  } catch {
+    // framed by another origin: sign this page out
+  }
+  win.location.href = '/logout';
+}
+
+// The account menu under your picture, on a wider screen.
 function accountMenuItems() {
   return [
-    { icon: 'user', label: 'View profile', onPick: () => {
-      const unhandled = document.dispatchEvent(new CustomEvent('app:open-profile', { cancelable: true }));
-      if (!unhandled || location.pathname === '/profile') return; // already there: the menu just closes
-      // Opened over a call (?from=space), the query stays, so the profile page keeps its way back (as crumbLink does).
-      const keep = new URLSearchParams(location.search).get('from') === 'space' ? location.search : '';
-      location.href = `/profile${keep}`;
-    } },
-    { icon: 'right-from-bracket', label: 'Sign out', onPick: () => {
-      forgetThemeMode();
-      let win = window;
-      try {
-        if (window.top.location.origin === location.origin) win = window.top;
-      } catch {
-        // framed by another origin: sign this page out
-      }
-      win.location.href = '/logout';
-    } },
+    { icon: 'user', label: 'View profile', onPick: viewProfile },
+    { icon: 'right-from-bracket', label: 'Sign out', onPick: signOut },
   ];
 }
 
@@ -317,20 +362,73 @@ function startClock() {
 // window widens (nav-bar.js watches the same width).
 function wireNavMenu(header) {
   const toggle = header.querySelector('#nav-toggle');
-  const setOpen = (on) => {
+  const menu = header.querySelector('.nav-right');
+  const isOpen = () => header.classList.contains('menu-open');
+  const setOpen = (on, { focus = false } = {}) => {
+    const wasOpen = isOpen();
+    if (on) nav.draw('primary'); // what shows in it is decided as it opens (View profile and Sign out follow your picture)
     header.classList.toggle('menu-open', on);
     toggle.setAttribute('aria-expanded', String(on));
+    // The menu comes before its button in the markup, so Tab from the button would go into the page: opening it
+    // takes focus to its first entry (Tab from its last comes back to the button), and closing it from inside puts
+    // focus back on the button.
+    if (on && !wasOpen) firstEntry(menu)?.focus();
+    if (!on && wasOpen && focus) toggle.focus();
   };
   toggle.addEventListener('click', (event) => {
     event.stopPropagation();
-    setOpen(!header.classList.contains('menu-open'));
+    setOpen(!isOpen());
   });
   header.ownerDocument.addEventListener('click', (event) => {
     if (!event.target.closest('#nav-toggle')) setOpen(false);
   });
   header.ownerDocument.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') setOpen(false);
+    if (event.key === 'Escape' && isOpen()) setOpen(false, { focus: menu.contains(event.target.ownerDocument.activeElement) });
   });
+  // Focus leaving the menu and its button (Shift+Tab back into the crumb, Tab on from the button into the page) closes it.
+  const leaving = (event) => {
+    const to = event.relatedTarget;
+    if (isOpen() && to && !menu.contains(to) && to !== toggle) setOpen(false);
+  };
+  menu.addEventListener('focusout', leaving);
+  toggle.addEventListener('focusout', leaving);
+  // Crossing the phone width closes it (wider, there is no menu; narrower again, it starts closed). The registry moves
+  // the header's tools between the bar and the menu for the new width, which can drop the focus of the one it moved,
+  // so the header remembers what last had focus in it: that again if it is still shown, else the menu button on a
+  // phone, or the bar's first entry on a wider screen. After the registry has drawn the bar for the new width.
+  let lastFocus = null;
+  header.addEventListener('focusin', (event) => { lastFocus = event.target; });
+  header.addEventListener('focusout', (event) => {
+    if (event.relatedTarget && !header.contains(event.relatedTarget)) lastFocus = null;
+  });
+  if (phoneQuery) {
+    phoneQuery.addEventListener('change', () => {
+      const doc = header.ownerDocument;
+      const had = doc.activeElement;
+      const dropped = !had || had === doc.body;
+      const was = dropped ? lastFocus : had;
+      const wasHere = Boolean(was && (was === toggle || menu.contains(was) || (dropped && header.contains(was))));
+      setOpen(false);
+      if (!wasHere) return;
+      setTimeout(() => {
+        const now = doc.activeElement;
+        if (now && now !== doc.body && now.getClientRects().length) return;
+        const shown = (el) => el && header.contains(el) && el.tabIndex >= 0 && el.getClientRects().length;
+        (shown(was) ? was : onPhone() ? toggle : firstEntry(menu))?.focus();
+      }, 0);
+    });
+  }
+}
+
+// The first entry of the open header menu that takes focus: a link, a button or the light or dark switch, shown and
+// in the Tab order (your picture, only a label there, is not).
+function firstEntry(menu) {
+  const all = menu ? menu.querySelectorAll('a[href], button, input, select, [tabindex]') : [];
+  for (const el of all) {
+    if (el.disabled || el.tabIndex < 0 || el.closest('[hidden]') || !el.getClientRects().length) continue;
+    return el;
+  }
+  return null;
 }
 
 // --- module notifications ----------------------------------------------------

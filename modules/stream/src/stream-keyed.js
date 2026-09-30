@@ -51,6 +51,7 @@
   let profile = null;
   let bgImage = null;
   let settings = {};
+  let portraitSize = 100; // the conference's portrait size; the participant box uses it too
   let REACTIONS = {}; // id -> glyph, from the server's reaction list
   let displayName = '';
 
@@ -94,15 +95,19 @@
     render();
   }
 
+  function applyPortraitSize(scale) {
+    const n = kind === 'player' ? scale : 100;
+    box.style.setProperty('--pic-inset', `${(100 - n) / 2}%`);
+    box.style.setProperty('--pic-scale', n);
+  }
+
   function applySettings(values) {
     settings = values || {};
     const b = borders();
     box.style.setProperty('--talk', b.talkColor);
     box.style.setProperty('--talk-w', `${b.width}px`);
     box.style.setProperty('--mute', b.muteColor);
-    const scale = kind === 'player' ? settings.pictureScale || 100 : 100;
-    box.style.setProperty('--pic-inset', `${(100 - scale) / 2}%`);
-    box.style.setProperty('--pic-scale', scale);
+    applyPortraitSize(portraitSize);
     box.style.setProperty('--pic-bg', settings.pictureColor || '#1a1410');
     box.classList.toggle('picture-bg', kind === 'player' && Boolean(settings.pictureBackground));
     box.style.setProperty('--plate-bg', settings.plateColor || '#000000');
@@ -114,6 +119,9 @@
   }
 
   function applyPresence(p) {
+    const n = Math.round(Number(p?.pictureScale));
+    if (Number.isFinite(n)) portraitSize = Math.max(20, Math.min(100, n));
+    applyPortraitSize(portraitSize);
     REACTIONS = Object.fromEntries((p.reactions || []).map((r) => [r.id, r.glyph]));
     const me = (p.people || []).find((u) => u.key === wanted);
     if (me) {

@@ -13,8 +13,8 @@ The link's shape, its query options and which pictures a box draws are the contr
 
 ## What it takes from the host
 
-- `host.settings.get()` and `onChange`: the box settings (borders, plate, picture, dim and tint), all environment-scope, declared in `module.json` with the same keys the host's own settings once had (`install.settingsFrom: "environment"` carried them over on the first install).
-- `host.presence.get()` and `onChange`: who is online, in which space (`space`, an aside's id while they are in one), whether an owner is online (`ownerOnline`) and which space the stream follows (`activeSpace`), the asides (each with its `origin` space and whether it is `private`), and the reaction glyphs.
+- `host.settings.get()` and `onChange`: the box settings (borders, plate, picture background, dim and tint), all environment-scope, declared in `module.json`. Portrait size is not one of them. It is the conference's, and arrives on `host.presence` as `pictureScale`.
+- `host.presence.get()` and `onChange`: who is online, in which space (`space`, an aside's id while they are in one), whether an owner is online (`ownerOnline`) and which space the stream follows (`activeSpace`), the asides (each with its `origin` space and whether it is `private`), the reaction glyphs, and `pictureScale` (the conference's portrait size, which the participant box uses).
 - `host.images.get(key, slot, { space })`: the pictures, per space set.
 - `host.media.watch(key, { video, audio, space }, handlers)`: the read-only viewer connection the host keeps; `follow(spaceId)` when the roster says they moved.
 - `host.access.key()` and `regenerate()` on the links page.

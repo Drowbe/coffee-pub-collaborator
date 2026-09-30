@@ -1506,8 +1506,8 @@ body.in-space .topbar {
   /* sized off the tile's height on both axes (via container query units, since
      .tile is a size container) so it comes out square no matter the tile's
      own aspect ratio, instead of stretching into an ellipse. --pic-scale
-     (set from the space, from the same Portrait Size setting the OBS view
-     uses) is a 0-100 percentage of that height. */
+     is the conference's Portrait size, as a percentage of that height.
+     Coffee Pub Studio's participant box uses the same number. */
   width: calc(var(--pic-scale, 38) * 1cqh);
   height: calc(var(--pic-scale, 38) * 1cqh);
   min-width: 72px;

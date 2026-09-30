@@ -1228,6 +1228,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         activeSpace: d.activeSpace || null,
         ownerOnline: Boolean(d.ownerOnline),
         reactions: (d.reactions || []).map((r) => ({ id: r.id, glyph: r.glyph })),
+        pictureScale: d.pictureScale || 100,
       };
     },
     // One person's picture in a slot (profile, player, character, talking ...), as a blob URL the module shows and

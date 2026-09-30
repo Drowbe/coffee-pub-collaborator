@@ -14,6 +14,7 @@
 
 import { api, markModuleRead, followTheme } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
+import { whatOpens } from '/opens-with.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
 // and each module's mode and sizes. `app.canvas` alone is what earlier versions kept for all
@@ -41,8 +42,8 @@ function loadSaved(spaceId) {
   return rest;
 }
 
-// The modules a space opens with (ids, in order), or null when nothing is remembered yet. The space
-// list's "Join with" choice reads and writes this.
+// The modules this person had open in a space (ids, in order), or null when nothing is remembered yet. The space
+// list's "Open with" choice reads and writes this.
 export function joinModules(spaceId) {
   const open = loadSaved(spaceId).__open;
   return Array.isArray(open) ? open : null;
@@ -1126,21 +1127,19 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     snapshot();
   }
 
-  // Ids from a list that this person may open here. Null when the list itself is absent, so the next fallback applies.
-  // An empty result means the list was set and nothing on it can be opened.
-  function openable(list) {
-    if (!Array.isArray(list)) return null;
-    return list.filter((id) => {
-      if (builtins.has(id)) {
-        const def = builtins.get(id);
-        return !def.allowed || def.allowed();
-      }
-      return available.some((m) => m.id === id);
-    });
+  // Whether this person may open a module here: the conference and the chat by their own rule, any other by being on
+  // in this space for them.
+  function canOpenHere(id) {
+    if (builtins.has(id)) {
+      const def = builtins.get(id);
+      return !def.allowed || def.allowed();
+    }
+    return available.some((m) => m.id === id);
   }
 
-  // Open what this space starts with: a fresh request, then the remembered layout, then the space's own list,
-  // then the environment's list, then the conference (or the chat, when the conference is off).
+  // Open what this space starts with (plan-entering.md, "What opens on entering"): a fresh request, then the
+  // remembered layout (never for a guest), then the space's own list, then the environment's list, then the chat and
+  // every module on here without the conference (for a guest, the conference and the chat). See opens-with.js.
   function restore() {
     suspended = true;
     restoring = true;
@@ -1148,14 +1147,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === openRequest.module) ? openRequest : null;
     openRequest = null;
     keepLayout = Boolean(request);
-    const noConference = builtins.has('conference') && builtins.get('conference').allowed && !builtins.get('conference').allowed();
-    const product = [noConference ? 'chat' : 'conference'];
-    const own = openable(spaceOpensWith);
-    const fromEnvironment = openable(environmentOpensWith);
-    const configured = own !== null ? own : (fromEnvironment !== null ? fromEnvironment : product);
-    const want = request ? [request.module] : Array.isArray(saved.__open) ? saved.__open : configured;
+    const want = request ? [request.module] : whatOpens({
+      remembered: saved.__open,
+      own: spaceOpensWith,
+      environment: environmentOpensWith,
+      modules: available.map((m) => m.id),
+      canOpen: canOpenHere,
+      guest: Boolean(guestToken),
+    });
     for (const id of want) {
-      if (builtins.has(id)) api_openBuiltin(id);
+      if (builtins.has(id)) { if (canOpenHere(id)) api_openBuiltin(id); }
       else {
         const m = available.find((x) => x.id === id);
         if (m) openModule(m);
@@ -1170,9 +1171,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
         sequence.forEach((p, i) => { p.order = values[i]; });
       }
     }
-    // On a phone the call is the view to start on when it was opened. Otherwise the first thing opened is the view.
-    if (isNarrow() && opened.has('conference')) view = 'conference';
-    else if (isNarrow()) {
+    // On a phone the first tab is the first module opened, whichever it is (the call only when it comes first).
+    if (isNarrow()) {
       const first = want.find((id) => opened.has(id));
       if (first) view = first;
     }

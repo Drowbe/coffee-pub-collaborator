@@ -8,10 +8,10 @@ side of things.
 
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30).
   (September 25, 2026).
+- **Kind-based names for the file formats** ([plan-kind-names](plans/plan-kind-names.md)): approved 2026-09-30, the follow-up to #110. The theme, template and objects formats are named by their kind rather than by the product. Building.
 
 ## Planned
 
-- #3 Entering a space: Enter as the main action, the call its own control ([plan-entering](plans/plan-entering.md)). This includes storing a space's own list of what it opens with; the canvas already reads it once it is stored (#95).
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.
@@ -24,11 +24,12 @@ side of things.
 - #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
 - #30 Modules with two people on a real server.
 - #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
+- #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list; what opens on a first and a second visit, and for a guest; the phone's first tab; the call control's count, **Join** and microphone hint; the status line.
 
 ## Small fixes and checks
 
 - Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.
-- #110 The old name, Magpie, is gone from the code and the templates. Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the documents in `documentation/` that still say Magpie (37 documents, about 230 lines).
+- #110 The old name, Magpie, is gone from the code and the templates. The file formats' names follow in [plan-kind-names](plans/plan-kind-names.md) (In progress). Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the documents in `documentation/` that still say Magpie (37 documents, about 230 lines).
 - #25 A check that compiles every `pattern` attribute the way browsers do.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.

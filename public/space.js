@@ -2,6 +2,7 @@
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, iconClasses, spaceCrumbIcon, hasOwnerRights, word, applyWords, followTheme } from '/brand.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
+import { whatOpens, conferenceAllowed } from '/opens-with.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
@@ -88,7 +89,7 @@ let activeSpace = LOBBY; // the space the stream currently hears (server-compute
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
 // Server-wide call feature toggles (Manage > Settings) -- these defaults
 // hold until init() replaces them with whatever /api/branding actually says.
-let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true };
+let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true, conferenceEnabled: true };
 
 // A guest link (/guest/<token>): no account, just a name and this space. The
 // token both identifies which space's guest link this is and, appended to
@@ -407,11 +408,14 @@ function renderSpaces() {
       list.appendChild(card);
     }
     card.classList.toggle('aside', Boolean(r.isAside));
-    // Still connected to this one (just browsing the space list -- see
-    // showSpaceList()): offer to jump back in instead of joining fresh.
-    const rejoin = call.state === 'connected' && currentSpace?.id === r.id;
-    card.querySelector('[data-join-icon]').className = `fa-solid fa-${rejoin ? 'circle-left' : 'comments'} fa-fw`;
-    card.querySelector('[data-join-label]').textContent = rejoin ? 'Rejoin' : 'Join';
+    // Entering is the primary action; joining the call is a separate choice inside (plan-entering.md). Still
+    // connected to this one (just browsing the space list -- see showSpaceList()): offer to go back instead.
+    const back = call.state === 'connected' && currentSpace?.id === r.id;
+    const enterLabel = back ? `Back to ${spaceDisplayName(r)}` : 'Enter';
+    const enter = card.querySelector('[data-join]');
+    card.querySelector('[data-join-icon]').className = `fa-solid fa-${back ? 'circle-left' : 'door-open'} fa-fw`;
+    card.querySelector('[data-join-label]').textContent = enterLabel;
+    if (back) enter.title = enterLabel; else enter.removeAttribute('title'); // the whole name, when a long one is cut short
     card.querySelector('[data-join-with]').hidden = Boolean(r.isAside);
     const edit = card.querySelector('[data-edit]');
     edit.hidden = r.isAside || !hasOwnerRights(me);
@@ -437,11 +441,18 @@ function renderSpaces() {
       img.src = src;
     }
     const members = r.members.map((k) => presenceUsers.get(k)).filter(Boolean);
-    const here = members.filter((u) => u.online && u.space === r.id).length;
-    card.querySelector('.space-choice-count').textContent = r.isAside ? '' : `${here}/${members.length} Online`;
+    card.querySelector('.space-choice-count').textContent = r.isAside ? '' : hereCount(members, r.id);
     renderMembers(card.querySelector('.members'), members, r.id);
   }
   for (const card of [...list.children]) if (!keep.has(card.dataset.space)) card.remove();
+}
+
+// "3 here · 2 in the call", or "3 here" with nobody in the call, from /api/presence (`space` and `inCall` per person).
+function hereCount(members, spaceId) {
+  const here = members.filter((u) => u.online && u.space === spaceId);
+  const calling = here.filter((u) => u.inCall).length;
+  const people = here.length ? `${here.length} here` : 'Nobody here';
+  return calling ? `${people} · ${calling} in the call` : people;
 }
 
 function renderMembers(list, members, spaceId) {
@@ -475,8 +486,24 @@ function renderMembers(list, members, spaceId) {
     el.querySelector('.member-name').textContent = u.displayName;
     el.querySelector('.dot').classList.toggle('online', here);
     el.classList.toggle('online', here);
+    // In the call: a small mark beside the online dot, with its own words, never the colour alone.
+    const calling = here && Boolean(u.inCall);
+    let mark = el.querySelector('.call-mark');
+    if (calling && !mark) {
+      mark = document.createElement('span');
+      mark.className = 'call-mark';
+      mark.setAttribute('role', 'img');
+      mark.innerHTML = '<i class="fa-solid fa-video" aria-hidden="true"></i>'; // the same mark as Who's around
+      el.querySelector('.dot').after(mark);
+    } else if (!calling && mark) {
+      mark.remove();
+    }
+    if (mark && calling) {
+      mark.title = `${u.displayName} is in the call`;
+      mark.setAttribute('aria-label', 'In the call');
+    }
     const elsewhere = u.online && !here ? presenceSpaces.find((r) => r.id === u.space) : null;
-    el.title = here ? `${u.displayName} is here` : elsewhere ? `${u.displayName} is in ${spaceDisplayName(elsewhere)}` : u.displayName;
+    el.title = calling ? `${u.displayName} is here, in the call` : here ? `${u.displayName} is here` : elsewhere ? `${u.displayName} is in ${spaceDisplayName(elsewhere)}` : u.displayName;
     // Off stream: this member is online but not in the space the stream
     // currently hears (wherever the owner actually is); "aside" is the
     // more specific case of a pulled-aside private word, which implies off
@@ -514,50 +541,73 @@ async function joinInPopout(spaceId) {
   else await join(spaceId);
   if (call.state !== 'connected') closePopout(); // it failed; don't leave an empty window
 }
-// "Join with": which modules a space opens with, remembered for that space (see joinModules in
-// canvas.js). The list is the conference, the chat and the space's modules.
-const spaceModuleList = new Map(); // space id -> the modules on for it, fetched once
+// "Open with": what this person's own layout for a space opens with, remembered for that space (see joinModules in
+// canvas.js). The list is the conference, the chat and the space's modules; with nothing remembered, the ticks are what
+// entering would open (the space's "Opens with", else the environment's, else the chat and the modules; opens-with.js).
+const spaceModuleList = new Map(); // space id -> the modules on for it and what it opens with, fetched once
 const canIn = (spaceId, permission) => hasOwnerRights(me) || !!(me?.spaces?.[spaceId]?.effective || me?.permissions || {})[permission];
 
 async function toggleJoinWith(card, spaceId) {
   const open = card.querySelector('.join-with');
   closeJoinWith();
   if (open) return;
+  const button = card.querySelector('[data-join-with]');
   const pop = document.createElement('div');
   pop.className = 'join-with';
-  pop.innerHTML = `<strong>Join with</strong><div class="join-with-list"></div><p class="hint">Remembered for this ${word('space')}.</p>`;
+  pop.id = `open-with-${spaceId}`;
+  pop.setAttribute('role', 'group');
+  pop.setAttribute('aria-label', 'Open with');
+  pop.innerHTML = `<strong>Open with</strong><div class="join-with-list"></div><p class="hint">Remembered for this ${escapeHtml(word('space'))}.</p>`;
   card.appendChild(pop);
+  button.setAttribute('aria-expanded', 'true');
+  button.setAttribute('aria-controls', pop.id);
   if (!spaceModuleList.has(spaceId)) {
     try {
-      const { modules, builtin } = await api('GET', `/api/modules/for-space?space=${encodeURIComponent(spaceId)}`);
-      spaceModuleList.set(spaceId, { modules, builtin: builtin || [] });
+      const { modules, builtin, opensWith, spaceDefaultsOpensWith } = await api('GET', `/api/modules/for-space?space=${encodeURIComponent(spaceId)}`);
+      spaceModuleList.set(spaceId, { modules: (modules || []).filter((m) => !m.canvas || m.canvas.menu !== false), builtin: builtin || [], opensWith: opensWith ?? null, environment: spaceDefaultsOpensWith ?? null });
     } catch {
-      spaceModuleList.set(spaceId, { modules: [], builtin: [] });
+      spaceModuleList.set(spaceId, { modules: [], builtin: [], opensWith: null, environment: null });
     }
   }
+  if (!pop.isConnected) return; // closed while it loaded
   // The conference and the chat as this environment shows them (their display names and icons, else their own).
-  const { modules: onHere, builtin } = spaceModuleList.get(spaceId);
+  const { modules: onHere, builtin, opensWith, environment } = spaceModuleList.get(spaceId);
   const shownBuiltin = (id, name, icon) => ({ id, name, icon, ...builtin.find((b) => b.id === id) });
-  const items = [
-    ...(canIn(spaceId, 'conference') ? [shownBuiltin('conference', 'Conference', 'video')] : []),
+  const choices = [
+    ...(conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canIn(spaceId, 'conference') }) ? [shownBuiltin('conference', 'Conference', 'video')] : []),
     ...(canIn(spaceId, 'chatRead') ? [shownBuiltin('chat', 'Chat', 'message')] : []),
     ...onHere.map((m) => ({ id: m.id, name: m.name, icon: m.icon })),
   ];
-  const chosen = new Set(joinModules(spaceId) ?? ['conference']);
+  const chosen = new Set(whatOpens({
+    remembered: joinModules(spaceId),
+    own: opensWith,
+    environment,
+    modules: onHere.map((m) => m.id),
+    canOpen: (id) => choices.some((c) => c.id === id),
+  }));
   const list = pop.querySelector('.join-with-list');
-  for (const item of items) {
+  for (const choice of choices) {
     const label = document.createElement('label');
     label.className = 'check';
-    label.innerHTML = `<input type="checkbox" data-join-module="${escapeHtml(item.id)}"> <i class="fa-solid fa-${escapeHtml(item.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(item.name)}`;
-    label.querySelector('input').checked = chosen.has(item.id);
+    label.innerHTML = `<input type="checkbox" data-join-module="${escapeHtml(choice.id)}"> <i class="fa-solid fa-${escapeHtml(choice.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(choice.name)}`;
+    label.querySelector('input').checked = chosen.has(choice.id);
     list.appendChild(label);
   }
   list.addEventListener('change', () => {
     setJoinModules(spaceId, [...list.querySelectorAll('input:checked')].map((i) => i.dataset.joinModule));
   });
+  // From the keyboard: straight into the list, and Escape goes back to the button.
+  if (document.activeElement === button) list.querySelector('input')?.focus();
+  pop.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    event.stopPropagation();
+    closeJoinWith();
+    button.focus();
+  });
 }
 function closeJoinWith() {
   for (const pop of document.querySelectorAll('.join-with')) pop.remove();
+  for (const b of document.querySelectorAll('[data-join-with][aria-expanded="true"]')) b.setAttribute('aria-expanded', 'false');
 }
 document.addEventListener('click', (event) => {
   if (!event.target.closest('.join-with, [data-join-with]')) closeJoinWith();
@@ -650,6 +700,7 @@ function canDo(permission) {
 // and which space I'm in are both known, not just at load.
 function applyPermissions() {
   applyFeatureFlags();
+  syncCallControl();
   $('chat-form').hidden = !canDo('chat');
   $('chat-pic').hidden = !canDo('sendPictures');
 }
@@ -908,6 +959,44 @@ nav.register({
   },
 }).classList.add('call-settings-link');
 topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw('primary'));
+
+// The call control, in the space bar's middle zone (the space's information): while I am in the space and not in the
+// call, how many are in it and a Join that opens the conference, the same as the Modules menu's "Rejoin call"
+// (plan-entering.md, decisions 2 and 16). Not shown in the call, in an aside (the call only), for a role without the
+// conference, or with the conference switched off in the environment. Its hint is the microphone note; on a phone the
+// middle zone is not drawn and the Conference tab is the way in. The count is live, from the call's own participants.
+const callControl = document.createElement('span');
+callControl.className = 'call-control';
+callControl.innerHTML = `
+  <span class="call-control-count" id="call-count" hidden></span><span class="call-control-sep" id="call-count-sep" aria-hidden="true" hidden>·</span>
+  <button class="btn btn-small" id="call-join" type="button" aria-label="Join the call" aria-describedby="call-hint"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> Join</button>
+  <span class="call-control-hint" id="call-hint" role="tooltip">Your browser will ask for your microphone. You join with your camera off; turn it on whenever you're ready. <span class="install-hint" id="install-hint" hidden></span></span>`;
+function callControlWanted() {
+  return Boolean(currentSpace && !currentSpace.isAside && !inCall && call.state === 'connected' && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }));
+}
+nav.register({ bar: 'secondary', zone: 'middle', group: 'call', id: 'call-control', order: 1, icon: 'phone', label: 'Join the call', element: callControl, visible: callControlWanted });
+function inTheCall() {
+  let n = 0;
+  for (const p of call.remoteParticipants.values()) if (p.attributes?.call !== 'off') n += 1;
+  return n;
+}
+function syncCallControl() {
+  const n = callControlWanted() ? inTheCall() : 0;
+  $('call-count').textContent = `${n} in the call`;
+  $('call-count').hidden = n === 0;
+  $('call-count-sep').hidden = n === 0;
+  nav.draw('secondary');
+}
+function joinCall() {
+  if (!callControlWanted()) return;
+  if (canvas.builtinOpen('conference')) callStarting = startCall().catch((err) => setStatus(`call: ${err.message}`, true)); // hung up, the module still open
+  else canvas.openBuiltin('conference');
+}
+$('call-join').addEventListener('click', joinCall);
+call
+  .on(RoomEvent.ParticipantConnected, syncCallControl)
+  .on(RoomEvent.ParticipantDisconnected, syncCallControl)
+  .on(RoomEvent.ParticipantAttributesChanged, syncCallControl);
 
 // The canvas-level snap, in the space bar: one switch that makes every floating module, now and later, snap to a grid over the
 // canvas, and, while it is on, a slider for the grid's size (the grid shows while the slider moves). Each module's own switch
@@ -1887,7 +1976,9 @@ canvas.registerBuiltin({
   windowClass: 'conference-window',
   windowSize: { w: 640, h: 420 },
   floatSize: { w: 560, h: 380 },
-  allowed: () => canDo('conference'),
+  // The environment's switch holds for owners and the admin too (canDo says yes to them whatever it is), so the
+  // canvas, the Modules menu, the call control and the Open with popover agree.
+  allowed: () => conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }),
   // A window of its own has its own document: idle/hover, popovers and keys need to hear it.
   onWindow: (win) => {
     win.document.title = spaceName;
@@ -2220,6 +2311,7 @@ call
   .on(RoomEvent.Disconnected, () => {
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
+    syncCallControl();
     closeMic();
     closePopout();
     canvas.closeBuiltin('conference');
@@ -2516,10 +2608,10 @@ async function connectAndSetup(token, livekitUrl) {
       if (chatInput) chatInput.loadThread();
     }
     canvas.updateMenu();
-    canvas.restore(); // remembered layout, else what this space or environment opens with, else the conference
+    canvas.restore(); // a fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules
     syncSnapBar(); // and this space's canvas-level snap
+    syncCallControl(); // the space bar's Join, while the call is not open
     if (canvas.builtinOpen('conference')) await callStarting;
-    else setStatus(`in ${spaceName} (not in the call)`);
 }
 
 // Start the conference: tiles for everyone in it, their media, and my own microphone.
@@ -2527,6 +2619,7 @@ async function connectAndSetup(token, livekitUrl) {
 async function startCall() {
   if (inCall || call.state !== 'connected') return;
   inCall = true;
+  syncCallControl();
   setNoCall(false);
   if (call.localParticipant.attributes?.call !== 'on') {
     await call.localParticipant.setAttributes({ call: 'on' }).catch(() => {});
@@ -2597,7 +2690,8 @@ async function stopCall() {
   $('screen-share').classList.remove('on');
   toggleTray(false);
   closeSettings();
-  setStatus(`in ${spaceName} (not in the call)`);
+  setStatus(`in ${spaceName}`);
+  syncCallControl();
 }
 
 // The hang-up button. In a pop-out window the canvas comes back to the page first, since the
@@ -3736,6 +3830,19 @@ function applyFeatureFlags() {
   select.value = String(prefs.quality);
 }
 
+// The guest form says the browser will ask for the microphone only when entering opens the conference for a guest:
+// the space's own "Opens with", else the environment's, else the conference and the chat (plan-entering.md, decision 7).
+async function guestMicNote(spaceId) {
+  if (!features.conferenceEnabled) return;
+  try {
+    const q = new URLSearchParams({ space: spaceId, guest: guestToken });
+    const { opensWith, spaceDefaultsOpensWith } = await api('GET', `/api/modules/for-space?${q}`);
+    $('guest-mic-note').hidden = !whatOpens({ own: opensWith ?? null, environment: spaceDefaultsOpensWith ?? null, guest: true }).includes('conference');
+  } catch {
+    // no note: the call control inside says it again
+  }
+}
+
 async function init() {
   const branding = await loadBranding();
   registerWordTools();
@@ -3746,6 +3853,7 @@ async function init() {
     allowAsides: branding.allowAsides !== false,
     allowPrivate: branding.allowPrivate !== false,
     allowReactions: branding.allowReactions !== false,
+    conferenceEnabled: branding.conferenceEnabled !== false,
   };
   applyFeatureFlags();
   // The topbar dropped its own version readout -- too cramped alongside
@@ -3779,6 +3887,7 @@ async function init() {
       $('guest-join').hidden = false;
       $('guest-join').dataset.spaceId = info.spaceId;
       $('guest-join').dataset.spaceName = info.spaceName;
+      guestMicNote(info.spaceId);
     } catch (err) {
       $('guest-space-name').textContent = 'This link is off';
       $('guest-join-error').textContent = err.message;

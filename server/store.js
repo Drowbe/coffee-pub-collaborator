@@ -47,6 +47,14 @@ function opensWithProblem(list) {
   }
   return null;
 }
+// A space's own "Opens with" (plan-entering): the module ids it opens with the first time, in order, the built-ins
+// `conference` and `chat` included. Keeps up to 20 distinct strings of the module id pattern and drops anything else;
+// a module that is off or not installed is kept. null when nothing is left, which means "not set".
+function cleanOpensWith(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [...new Set(list.filter((id) => typeof id === 'string' && OPENS_WITH_ID.test(id)))].slice(0, MAX_OPENS_WITH);
+  return out.length ? out : null;
+}
 // A space's optional "launch" link (their VTT, wiki, playlist, whatever) --
 // shown as a button next to Join and in the in-call toolbar. The icon is
 // picked from the admin's Font Awesome list (Theme tab), stored as that
@@ -678,6 +686,10 @@ class Store {
       // Whether this space allows a guest link at all. Default on: existing
       // spaces from before this setting existed keep working as before.
       allowGuests: r.allowGuests === undefined ? true : Boolean(r.allowGuests),
+      // What the space opens with the first time someone enters it; absent while not set (see cleanOpensWith).
+      ...(cleanOpensWith(r.opensWith) ? { opensWith: cleanOpensWith(r.opensWith) } : {}),
+      // AI turned off in this space, whatever a role may do (updateSpace); absent while AI is allowed here.
+      ...(r.aiOff === true ? { aiOff: true } : {}),
     };
   }
 
@@ -1557,7 +1569,17 @@ class Store {
       draft.allowGuests = Boolean(patch.allowGuests);
       if (!draft.allowGuests && draft.guestToken) draft.guestToken = null;
     }
+    // Opens with: a list of module ids, or null to clear it back to "not set". An empty list is "not set" too.
+    if (patch.opensWith !== undefined) {
+      if (patch.opensWith !== null && (!Array.isArray(patch.opensWith) || patch.opensWith.some((id) => typeof id !== 'string'))) {
+        throw new StoreError(`Opens with must be a list of ${this.word('module', { many: true })}.`);
+      }
+      const list = cleanOpensWith(patch.opensWith);
+      if (list) draft.opensWith = list;
+      else delete draft.opensWith;
+    }
     Object.assign(space, draft);
+    if (!('opensWith' in draft)) delete space.opensWith;
     this.save();
     return this.spaceById(id);
   }

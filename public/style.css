@@ -736,8 +736,16 @@ body.in-space .page-scroll {
 
 .space-choice-actions .btn-primary {
   flex: 1;
+  min-width: 0; /* "Back to <space>" with a long name shortens, not the row's other buttons */
   font-size: 16px;
   padding: 0 16px;
+}
+
+.space-choice-actions .join-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Who belongs to a space, with a dot for those in it right now. */
@@ -784,6 +792,22 @@ body.in-space .page-scroll {
   height: 7px;
   border: 2px solid var(--bg-card);
   box-sizing: content-box;
+}
+
+/* In the call: a small camera (the conference's icon, as in Who's around) beside the online dot, with a title; never the colour alone. */
+.member .call-mark {
+  position: absolute;
+  top: 6px;
+  right: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--ok);
+  font-size: 8px;
 }
 
 .member-name {
@@ -1122,6 +1146,57 @@ body.in-space .subnav {
 
 .subnav .nav-right {
   justify-self: end;
+}
+
+/* The call control, in the space bar's middle zone while you are not in the call: "2 in the call · Join". Its hint (the
+   microphone note) shows under it on hover and on keyboard focus. */
+.call-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--header-text);
+  white-space: nowrap;
+}
+
+.call-control[hidden],
+.call-control [hidden] {
+  display: none;
+}
+
+.call-control-sep {
+  color: color-mix(in srgb, var(--header-text) 60%, transparent);
+}
+
+.call-control .btn {
+  height: 22px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.call-control-hint {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 30;
+  display: none;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-section);
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: normal;
+  transform: translateX(-50%);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.call-control:hover .call-control-hint,
+.call-control:focus-within .call-control-hint {
+  display: block;
 }
 
 .space-name {
@@ -5185,7 +5260,15 @@ body.chat-window {
   right: -2px;
 }
 
-/* "Join with": the modules a space opens with, from its card on the space list. */
+/* Space settings' Opens with: a tick for the conference, the chat and each module on in the space. */
+.opens-with-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+/* "Open with": a person's own choice of what a space opens with, from its tile on the space list. */
 .space-choice {
   position: relative;
 }
@@ -5426,6 +5509,12 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     flex: 1;
     gap: 0;
     justify-content: space-around;
+  }
+
+  /* The middle zone is not drawn in the tab bar (architecture-navigation.md, "Phones"): the call control's Join is the
+     Conference tab here. */
+  body.in-space .subnav .nav-middle {
+    display: none;
   }
 
   body.in-space .subnav-modules .modules-menu-item {

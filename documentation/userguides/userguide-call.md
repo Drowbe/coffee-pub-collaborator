@@ -1,29 +1,43 @@
 # The Call
 
-**Audience:** a player using Collaborator in a browser: joining a space, talking, chatting, and
-stepping away.
+**Audience:** a player using Collaborator in a browser: entering a space, joining the call, talking,
+chatting, and stepping away.
 
 The words here are the defaults. An environment set up from a template, or renamed by its owner, may call a space,
 a module or an aside something else; the buttons and menus follow its words (see [Templates](userguide-templates.md)).
 
-## Join and leave
+## Enter a space and join the call
 
-The join screen lists the spaces you belong to. Join is one click. The page then becomes the call:
-the header stays, now naming the space you are in, with the space bar under it (see below), the tiles fill the
-middle, and a bar of controls sits at the bottom edge.
+The space list shows the spaces you belong to. **Enter** is one click, and puts you in the space: the header stays,
+now naming the space you are in, with the space bar under it (see below), and what the space opens with fills the
+middle. Entering does not put you in the call.
+
+To join the call:
+
+1. In the middle of the space bar, find **Join**. It shows how many are in the call, such as "2 in the call · Join",
+   or **Join** alone when nobody is.
+2. Click **Join**. Your browser asks for your microphone. You join with your camera off; turn it on whenever you're
+   ready. (Hover over **Join** to read this before you click.)
+
+**Join** is not shown while you are in the call, in an aside, when your role does not allow the conference, or when
+the owner has switched the conference off. On a phone, open the **Conference** tab ("Rejoin call") instead.
+**Rejoin call** in the space bar's module switches does the same on any screen.
+
+In the call the tiles fill the middle, and a bar of controls sits at the bottom edge.
 
 Left to right, the bar holds: microphone (with a live level meter inside the button), deafen, camera,
 share screen, layout, away, reactions, settings, the space's launch link if it has one, and hang up.
 The space bar under the header has the modules, **Full screen**, **Pop out** and **Leave space**. Keys: **M** microphone, **D** deafen, **V** camera, **C** chat, **R** reactions, **L**
 layout, **1** to **6** send a reaction. As the window narrows, buttons tuck under a **More** button (the three-dot button): the extras first, then chat, then camera, then the microphone. At its smallest the bar is just **More** and leave. On a narrow window, such as a phone, opening chat puts the conference in a strip above the chat, with the toolbar under both.
 
-## What opens when you join
+## What opens when you enter
 
 Each space remembers the modules you had open when you last used it, in which mode (docked, floating or in
-a window), and how big, and opens them again when you join. A space you have not used before opens with
-the conference. Hanging up is remembered too, so hang up and leave, and the space opens without the
-conference next time; the **Join with** button on the space list changes that before you join (see
-[Spaces](userguide-spaces.md)).
+a window), and how big, and opens them again when you enter. The first time, a space opens what its owner chose
+under **Opens with**, else what the environment sets for a new space, else the chat and every module on in the
+space, without the conference. A guest with nothing set gets the conference and the chat. Hanging up is remembered
+too, so hang up and leave, and the space opens without the conference next time; the **Open with** button on the
+space list changes what opens before you enter (see [Spaces](userguide-spaces.md)).
 
 ## Leaving the call, staying in the space
 
@@ -33,14 +47,16 @@ stay in the space and stay online, with the chat and the modules still open. The
 space** button, at the right of the space bar, is what leaves the space.
 
 With the conference closed, the space bar under the header still opens the chat and the modules. It
-offers **Rejoin call** to bring the conference back, along with the chat and the modules. If nothing at
+offers **Join** in its middle and **Rejoin call** among the module switches to bring the conference back, along
+with the chat and the modules. The status line reads "in <space>" whether or not you are in the call. If nothing at
 all is open, the canvas says so and points at that button. In a pop-out window, hang up brings the app back
 to the page first.
 
-A role without **See and join the conference** joins with the conference closed and cannot reopen it: the
-person has the chat and the modules only.
+A role without **See and join the conference** enters with the conference closed and cannot open it: the
+person has the chat and the modules only. The same holds for everyone, owners included, while the owner has
+switched the conference off.
 
-A player with no camera or microphone still joins; whatever is missing is named in the status line
+A player with no camera or microphone still joins the call; whatever is missing is named in the status line
 and your Online picture stands in for the camera.
 
 ## Layouts

@@ -195,6 +195,17 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   "Call names"). The space page does not wait on presence: joining, a reload back into a space and the join screen
   go ahead with the spaces they already know, `loadPresence()` gives up after three seconds, and the next poll tries
   again (`public/space.js`).
+- A space may carry `opensWith`: the modules its first visit opens, in order, the built-ins `conference` and `chat`
+  included ([plan-entering](../plans/plan-entering.md)). It is up to 20 distinct ids matching `^[a-z][a-z0-9-]{0,31}$`,
+  stored in `app.json`, and absent while not set; the store's space cleaning (`cleanOpensWith()` in `server/store.js`)
+  drops repeats and anything else, and keeps an id for a module that is off or not installed, so turning it back on
+  restores it. It comes with the space wherever the space is answered (`GET /api/presence`, `GET /api/spaces`,
+  `GET /api/status`, `POST /api/spaces`, the `PATCH` answer), and `GET /api/modules/for-space` answers it as
+  `opensWith` beside `spaceDefaultsOpensWith`. Asides never carry it. `PATCH /api/spaces/:id` (owner only) takes
+  `opensWith: [ids] | null`: `null`, `[]` or a list with nothing usable left clears it. Anything else that is not an
+  array of strings answers 400 "Opens with must be a list of modules." and nothing in the request is saved; 401
+  "sign in first", 403 "owners only", 404 "no such space". The same cleaning keeps `aiOff` (the space's **Turn AI
+  off in this space**), which until 2026-09-30 was dropped every time `app.json` was loaded.
 - `POST /api/asides` `{ with, private }` pulls people who are in the caller's call into a new aside and answers
   `{ aside }`, the aside's record. It answers 403 "asides are turned off" or "private conversations are turned off" (or the caller
   lacks the permission), 400 "pick someone to pull aside" or "you need to be in a call yourself to pull someone

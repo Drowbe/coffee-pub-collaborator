@@ -49,3 +49,25 @@ The logo on the landing page and on the host console's bar reads "COFFEE PUB MAG
 The words on those pages say Collaborator. GitHub #110.
 
 Workaround: none.
+
+## Opens with can show an older list after a failed save
+
+In a space's settings, **Opens with** saves each tick as you click. If one save fails while later clicks are still
+waiting to be saved, the ticks can show an older list than the one the server kept. Seen on 2026-09-30.
+
+Workaround: reload the page to see what is saved.
+
+## Opens with notes a module with no canvas as off in this space
+
+A module that has no canvas at all, such as Stream, can be on a space's saved **Opens with** list when it was
+put there through the API. The list keeps it ticked with the note "(off in this space)", where "(can't open on the
+canvas)" is meant. Seen on 2026-09-30.
+
+Workaround: none is needed; untick it.
+
+## Opens with shows an uninstalled module by its id
+
+A module on a space's saved **Opens with** list that has since been uninstalled is listed with the note "(not
+installed)", under its id rather than its name. Seen on 2026-09-30.
+
+Workaround: none; untick it to take it off the list.

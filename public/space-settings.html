@@ -51,7 +51,7 @@
           <span class="field-label">Link icon</span>
           <div class="icon-grid" id="e-link-icon" role="group" aria-label="Link icon"></div>
         </div>
-        <p class="hint">Shown on the button next to Join, and in the call toolbar, once a launch link is set above.</p>
+        <p class="hint">Shown on the button next to Enter, and in the call toolbar, once a launch link is set above.</p>
 
         <div class="row">
           <button class="btn btn-primary btn-small" id="save-btn" type="button">Save</button>
@@ -61,6 +61,15 @@
         <div class="row danger-row" id="danger-row">
           <button class="btn btn-small btn-danger" id="delete-btn" type="button" data-fill>Delete {space}</button>
         </div>
+      </div>
+
+      <!-- What a first visit opens (plan-entering.md): saves as you click; no ticks saves "not set". -->
+      <div class="panel" id="section-opens-with">
+        <h2>Opens with</h2>
+        <p class="hint" data-fill>What opens the first time someone enters this {space}. After that, each person's own layout is remembered.</p>
+        <div class="opens-with-list" id="opens-with" role="group" aria-label="Opens with"></div>
+        <p class="hint" id="opens-with-unset" hidden></p>
+        <span class="status" id="opens-with-status" role="status"></span>
       </div>
     </section>
 

@@ -55,8 +55,9 @@ sign-up is on, expires after 7 days, and works once.
 
 A guest has no account, for someone dropping in once. While in a call, open the settings popover
 (the gear next to chat and reactions) and, under **Guests**, turn on that space's link. Anyone with it
-lands on a page asking only for a name, then joins straight into that space with video, microphone,
-chat and reactions.
+lands on a page asking only for a name, then enters that space. A guest's first visit opens the conference and
+the chat, unless the space's **Opens with** (or the environment's list for a new space) says otherwise; the page
+mentions the microphone only when the conference will open.
 
 Anyone in the call with the right permission can turn the link on, copy it, or turn it off. It is a
 standing door rather than single-use: it works for as many guests as show up until someone turns it
@@ -81,7 +82,7 @@ Open **Roles** on the Manage page to see a grid of checkboxes: one row per permi
 The permissions are grouped:
 
 - **Modules** (the environment's word for it): see and join the conference, open and read the chat. Everyone has both by default. Without
-  the first, a person joins a space for its chat and modules only and cannot send or receive audio or video.
+  the first, a person enters a space for its chat and modules only and cannot send or receive audio or video.
 - **In the Space**: send chat messages, send pictures in chat, use reactions, share their screen.
 - **Asides**: start a private conversation, step aside with someone (recorded).
 - **Moderation**: mute other people, kick other people, manage a space's guest link.

@@ -40,7 +40,7 @@ side of things.
 - #23 Too many connections to the server from one page.
 - `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
 - A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).
-- With push to talk on and its key at Space (the default), Space can't press a focused button or menu entry in a space; Enter works ([known-issues](known-issues.md)).
+- The SDK menu's link entries (`<a role=menuitem>` in `public/sdk/host.js`, `host.menu.show`) don't open on Space; Enter opens them. Buttons and other entries do.
 
 ## Sign-in and accounts
 

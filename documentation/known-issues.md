@@ -99,12 +99,3 @@ saying where you are wraps onto two lines, and the right end (Manage, the time, 
 2026-09-30, in headless Chromium at 700 pixels.
 
 Workaround: make the window wider than 800 pixels, or narrower than 640, where the header folds into its menu.
-
-## With push to talk on, Space does not press a button in a space
-
-In a space with push to talk on and its key left at Space (the default), Space talks instead of pressing the
-focused button or menu entry, anywhere on the page. This is older than the account menu's keyboard support. Seen
-on 2026-09-30. A fix is queued.
-
-Workaround: press Enter, which presses a focused button or picks a menu entry; or set another **Push-to-talk key** on
-your profile page.

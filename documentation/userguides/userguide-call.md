@@ -122,14 +122,37 @@ The settings popover holds your audio and video choices:
 
 - **Audio.** Microphone choice, a level slider (0 to 300 percent), a noise gate that cuts the
   microphone below a threshold, and switches for the browser's noise suppression, echo cancellation
-  and auto gain. Talk mode is open microphone or push to talk (hold Space by default). Hover another
-  player's tile for a volume slider that applies only on your side.
+  and auto gain. **Talking** is **Open mic** or **Push to talk** (hold Space by default; see
+  [Push to talk](#push-to-talk)). Hover another player's tile for a volume slider that applies only on your side.
 - **Video.** Camera choice, quality (360p, 540p or 720p, up to the ceiling the owner sets), and a
   mirror for your own preview. Background is off, **blur**, or a **custom image** you upload on your
   profile page. Blur and custom images run on your own device and load their model only the first
   time you turn one on; nothing external is fetched.
 
 Your own settings for these are also on your profile page.
+
+### Push to talk
+
+With **Talking** set to **Push to talk**, your microphone is open only while you hold the key. To choose
+another key:
+
+1. Open your profile page.
+2. Click **Push-to-talk key**.
+3. Press the key you want.
+
+The key talks anywhere in the space, including in a module's own window, except in these cases:
+
+- **Typing.** In a text field the key types as usual.
+- **A control you reached with the keyboard.** If you moved to a button, a menu entry or another control with Tab
+  or the arrow keys, Space or Enter presses it, and picks an entry in an open menu. After you click a button with
+  the mouse, or pick from a menu with the mouse, the key talks again; so clicking the microphone and then holding
+  Space talks rather than pressing the microphone a second time. On a link, or on the page itself, the key talks.
+- **Another key.** If your push-to-talk key is not Space, Space always presses the control you are on.
+- **Enter as the key.** If you set Enter as the push-to-talk key, Enter on a link talks rather than following the
+  link. Click the link instead.
+
+Letting go of the key always stops talking, even if focus has moved into a text field or you pressed Shift or
+another modifier while holding it. Switching to another window or tab, or leaving the page, also stops talking.
 
 ## Your profile and Manage over the call
 

@@ -1987,6 +1987,12 @@ canvas.registerBuiltin({
     watchOutsideClick(win.document);
     win.document.addEventListener('keydown', onKey);
     win.document.addEventListener('keyup', onKeyUp);
+    win.addEventListener('keydown', noteKey, true);
+    win.document.addEventListener('pointerdown', notePointer, true);
+    win.document.addEventListener('focusin', noteFocus, true);
+    win.document.addEventListener('visibilitychange', releaseWhenHidden);
+    win.addEventListener('blur', releaseTalk);
+    win.addEventListener('pagehide', releaseTalk);
     win.document.addEventListener('fullscreenchange', syncFullscreenButton);
   },
   onWindowResize: () => applyLayout(),
@@ -2041,7 +2047,7 @@ function toggleChat(open = !canvas.builtinOpen('chat')) {
 // published track stays the same.
 
 const mic = { ctx: null, raw: null, source: null, level: null, gate: null, analyser: null, timer: 0, dest: null, track: null, open: true, shown: 0, bypass: false };
-let pttHeld = false;
+let pttHeld = false; // while the push-to-talk key is held: its code (see onKeyUp)
 
 function micConstraints() {
   const c = { noiseSuppression: prefs.noise, echoCancellation: prefs.echo, autoGainControl: prefs.agc };
@@ -3351,20 +3357,61 @@ function typing(event) {
   const target = (event.composedPath && event.composedPath()[0]) || event.target;
   return Boolean(target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT' || target.isContentEditable));
 }
+// Where focus last went by keyboard (see pressesControl): taken as focus moves, after a key or a pointer press, so a
+// script's focus counts as whatever the person did last (a menu picked by mouse gives its button focus back by mouse).
+// The browser's :focus-visible can't tell: by the time the key's own keydown arrives, it already says keyboard.
+let byPointer = false;
+let keyFocus = null;
+function notePointer() {
+  byPointer = true;
+  keyFocus = null; // a click on the control focus is already on moves no focus, and makes it the mouse's
+}
+function noteKey() {
+  byPointer = false;
+}
+function noteFocus(event) {
+  keyFocus = byPointer ? null : (event.composedPath && event.composedPath()[0]) || event.target;
+}
+window.addEventListener('keydown', noteKey, true); // the window's capture runs first, before a menu's own keys move focus
+document.addEventListener('pointerdown', notePointer, true);
+document.addEventListener('focusin', noteFocus, true);
+// Whether the key presses the focused control, so push-to-talk leaves it alone: Space or Enter on an entry of an open
+// menu, or on a button (or anything playing one) reached by keyboard. A button focused by a mouse click keeps
+// push-to-talk, or clicking the mic and then holding Space would press the mic again. Fields are typing()'s.
+function pressesControl(event) {
+  if (event.key !== ' ' && event.key !== 'Enter') return false;
+  const target = (event.composedPath && event.composedPath()[0]) || event.target;
+  if (!target || !target.matches) return false;
+  if (target.closest('[role=menu]')) return true;
+  if (target !== keyFocus) return false;
+  return target.matches('button, summary, [role=button], [role=menuitem], [role=menuitemcheckbox], [role=menuitemradio], [role=checkbox], [role=switch], [role=tab]');
+}
+// Talking stops when the key that started it comes up, wherever focus has moved and whatever modifier came down since
+// (pttHeld holds that key's code), or when its release can't reach the page: the window loses focus, is hidden or goes.
+function releaseTalk() {
+  if (!pttHeld) return;
+  pttHeld = false;
+  call.localParticipant.setMicrophoneEnabled(false).then(reflectMic).catch(() => {});
+}
+function releaseWhenHidden(event) {
+  if (event.target.visibilityState === 'hidden') releaseTalk();
+}
+window.addEventListener('blur', releaseTalk);
+window.addEventListener('pagehide', releaseTalk);
+document.addEventListener('visibilitychange', releaseWhenHidden);
 function onKeyUp(event) {
-  if (prefs.ptt && pttHeld && !typing(event) && hotkeyMatches(event, prefs.pttKey)) {
-    pttHeld = false;
-    call.localParticipant.setMicrophoneEnabled(false).then(reflectMic).catch(() => {});
+  if (prefs.ptt && pttHeld && event.code === pttHeld) {
+    releaseTalk();
     event.preventDefault();
   }
 }
 function onKey(event) {
   if (!document.body.classList.contains('in-space')) return;
   if (typing(event)) return;
-  if (prefs.ptt && hotkeyMatches(event, prefs.pttKey)) {
+  if (prefs.ptt && hotkeyMatches(event, prefs.pttKey) && !pressesControl(event)) {
     event.preventDefault();
     if (event.repeat || pttHeld) return;
-    pttHeld = true;
+    pttHeld = event.code;
     call.localParticipant.setMicrophoneEnabled(true).then(reflectMic).catch(() => {});
     return;
   }
@@ -3547,6 +3594,12 @@ function setUpPopoutWindow(win) {
   watchOutsideClick(win.document);
   win.document.addEventListener('keydown', onKey);
   win.document.addEventListener('keyup', onKeyUp);
+  win.addEventListener('keydown', noteKey, true);
+  win.document.addEventListener('pointerdown', notePointer, true);
+  win.document.addEventListener('focusin', noteFocus, true);
+  win.document.addEventListener('visibilitychange', releaseWhenHidden);
+  win.addEventListener('blur', releaseTalk);
+  win.addEventListener('pagehide', releaseTalk);
   // Full screen while popped out should fullscreen that window, not the
   // (now mostly empty) main one left behind -- see toggleFullscreen().
   win.document.addEventListener('fullscreenchange', syncFullscreenButton);

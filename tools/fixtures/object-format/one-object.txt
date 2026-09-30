@@ -1,0 +1,5 @@
+One thing worth keeping.
+
+```objects
+{"icon":"note","title":"One object","content":"A single object in its own block."}
+```

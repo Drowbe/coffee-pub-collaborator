@@ -1,0 +1,11 @@
+An answer mixing an objects block with a block fenced with a past label.
+
+```objects
+[{"icon":"note","title":"New block","content":"In the format's own block."}]
+```
+
+And an older one:
+
+```collaborator
+[{"icon":"note","title":"Old block","content":"In a block with a past label."}]
+```

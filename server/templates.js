@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const words = require('./words');
 const { Store, SPACE_PROFILES, QUALITY_OPTIONS, LANGUAGES, CURRENCIES, BUILTIN_THEME_IDS, LOBBY, displayNameProblem, cleanReactions } = require('./store');
 const themeFile = require('./theme-file');
+const fileFormat = require('./file-format');
 const { bundledModules, buildModule } = require('./module-build');
 
 const ROOT = path.join(__dirname, '..');
@@ -25,7 +26,7 @@ const FA_FREE_SOLID = path.join(ROOT, 'node_modules', '@fortawesome', 'fontaweso
 // The modules built into every environment: named like a bundled one, never installed.
 const BUILTIN_MODULE_IDS = ['conference', 'chat'];
 const ID_RE = /^[a-z][a-z0-9-]{0,31}$/;
-const FIELDS = ['id', 'name', 'description', 'version', 'words', 'phases', 'icons', 'moduleNames', 'moduleIcons', 'modules', 'settings', 'lobby', 'spaceDefaults', 'reactions', 'theme', 'iconSet'];
+const FIELDS = ['id', 'name', 'description', 'version', 'words', 'verbs', 'phases', 'icons', 'moduleNames', 'moduleIcons', 'modules', 'settings', 'lobby', 'spaceDefaults', 'reactions', 'theme', 'iconSet'];
 const MAX_PHASES = 12;
 const MAX_OPENS_WITH = 20;
 const PHASE_KEYS = ['id', 'label', 'main'];
@@ -52,14 +53,17 @@ const appliedOnceFingerprint = (template) => fingerprint(['modules', 'settings',
 // The whole shipped template apart from its version. An edited bundled template's notice opens when this or the
 // applied-once fingerprint differs from the file the edits were made against (addendum 3: a change to words, the home
 // icon or module names and icons must not stay quiet).
-const wholeFingerprint = (template) => fingerprint(FIELDS.filter((k) => k !== 'version').map((k) => template[k] ?? null));
+// A template without verbs (addendum 4) is fingerprinted as it was before the field existed, so adding the field does
+// not open the notice for every edited bundled template.
+const hasVerbs = (template) => isObject(template.verbs) && Object.keys(template.verbs).length > 0;
+const wholeFingerprint = (template) => fingerprint(FIELDS.filter((k) => k !== 'version' && (k !== 'verbs' || hasVerbs(template))).map((k) => template[k] ?? null));
 // A theme's own check, without a Store: Store#sanitizeTheme reads nothing of the instance.
 const sanitizeTheme = (t) => Store.prototype.sanitizeTheme.call(null, t);
 // An embedded theme (addendum 2): the theme file's fields, checked as a theme import is. Answers { theme, dropped } or
 // throws the theme file's own refusal.
 function readEmbeddedTheme(raw) {
-  const { collaboratorTheme, ...fields } = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  const read = themeFile.readThemeFile({ ...fields, collaboratorTheme: 1 }, sanitizeTheme);
+  const { format, formatVersion, ...fields } = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const read = themeFile.readThemeFile({ ...fileFormat.stamp('theme'), ...fields }, sanitizeTheme);
   const { dropped, ...theme } = read;
   return { theme, dropped };
 }
@@ -138,6 +142,21 @@ function problemsOf(raw, { file = null, bundled = [], faDir = FA_FREE_SOLID } = 
         else {
           const { error } = words.cleanWord(key, value);
           if (error) say(`words: ${error}`);
+        }
+      }
+    }
+  }
+  // Addendum 4: the verbs, a live part like the words.
+  if (raw.verbs !== undefined) {
+    if (!isObject(raw.verbs)) say('"verbs" must be an object of verbs by name.');
+    else {
+      for (const [key, value] of Object.entries(raw.verbs)) {
+        if (!words.VERBS.includes(key)) say(`verbs: there is no verb called "${key}"; the verbs are ${words.VERBS.join(', ')}.`);
+        // A file has no "null for the default" (leaving the key out is that), so its own wording for the type.
+        else if (typeof value !== 'string') say(`verbs: The ${key} verb must be text.`);
+        else {
+          const { error } = words.cleanVerb(key, value);
+          if (error) say(`verbs: ${error}`);
         }
       }
     }
@@ -245,11 +264,15 @@ function cleanSpaceDefaults(raw) {
 function cleanTemplate(raw) {
   const own = {};
   for (const [key, value] of Object.entries(raw.words || {})) own[key] = words.cleanWord(key, value).word;
+  const verbs = {};
+  for (const [key, value] of Object.entries(raw.verbs || {})) verbs[key] = words.cleanVerb(key, value).verb;
   return {
     id: raw.id,
     name: raw.name.trim(),
     description: raw.description.trim(),
     words: own,
+    // Addendum 4: null when the template sets none, so an export leaves the field out.
+    verbs: Object.keys(verbs).length ? verbs : null,
     icons: { ...(raw.icons?.home ? { home: raw.icons.home } : {}) },
     moduleNames: Object.fromEntries(Object.entries(raw.moduleNames || {}).map(([id, n]) => [id, n.replace(/\s+/g, ' ').trim()])),
     moduleIcons: { ...(raw.moduleIcons || {}) },
@@ -292,10 +315,11 @@ const all = () => (loaded ||= loadTemplates());
 const get = (id) => all().get(id) || null;
 const list = () => [...all().values()].map((t) => ({ id: t.id, name: t.name, description: t.description }));
 
-// The live part of a recorded template (its words, phases, home icon and module names and icons) onto an environment's store.
+// The live part of a recorded template (its words, verbs, phases, home icon and module names and icons) onto an environment's store.
 // Answers the template, or null when the store has none recorded or this build does not have it.
 function useLive(store, template) {
   store.templateWords = template ? template.words : null;
+  store.templateVerbs = template ? template.verbs || {} : null;
   store.templatePhases = template ? template.phases || [] : null;
   store.templateModuleNames = template ? template.moduleNames : null;
   store.templateModuleIcons = template ? template.moduleIcons : null;

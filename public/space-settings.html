@@ -27,7 +27,7 @@
     <section class="tab-stack" id="tab-space">
       <div class="panel" id="section-space">
         <div class="profile-head">
-          <div class="slot" id="space-image-slot" data-space-image><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img id="space-image" alt=""><span class="unset">not set</span><input type="file" id="space-image-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" id="space-image-clear" type="button" title="Remove" aria-label="Remove">&times;</button></div></div>
+          <div class="slot" id="space-image-slot" data-space-image data-slot-name="{Space} picture"><div class="slot-pick-wrap"><label class="slot-pick" title="Click to change"><img id="space-image" alt=""><span class="unset">not set</span><input type="file" id="space-image-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></label><button class="slot-remove" id="space-image-clear" type="button" title="Remove" aria-label="Remove">&times;</button></div></div>
           <div class="profile-title">
             <h1 id="space-title"></h1>
             <span class="tag" id="lobby-tag" data-fill hidden>Everyone's {space}</span>
@@ -51,7 +51,7 @@
           <span class="field-label">Link icon</span>
           <div class="icon-grid" id="e-link-icon" role="group" aria-label="Link icon"></div>
         </div>
-        <p class="hint">Shown on the button next to Join, and in the call toolbar, once a launch link is set above.</p>
+        <p class="hint">Shown on the button next to <span data-verb="enter"></span>, and in the call toolbar, once a launch link is set above.</p>
 
         <div class="row">
           <button class="btn btn-primary btn-small" id="save-btn" type="button">Save</button>
@@ -61,6 +61,15 @@
         <div class="row danger-row" id="danger-row">
           <button class="btn btn-small btn-danger" id="delete-btn" type="button" data-fill>Delete {space}</button>
         </div>
+      </div>
+
+      <!-- What a first visit opens (plan-entering.md): saves as you click; no ticks saves "not set". -->
+      <div class="panel" id="section-opens-with">
+        <h2>Opens with</h2>
+        <p class="hint" data-fill>What opens the first time someone enters this {space}. After that, each person's own layout is remembered.</p>
+        <div class="opens-with-list" id="opens-with" role="group" aria-label="Opens with"></div>
+        <p class="hint" id="opens-with-unset" hidden></p>
+        <span class="status" id="opens-with-status" role="status"></span>
       </div>
     </section>
 
@@ -85,7 +94,7 @@
         </div>
 
         <h2 data-fill>{Guest} link</h2>
-        <p class="hint" data-fill>Anyone with this link joins this {space} with just a name -- no account, no invite needed. Anyone already in the {space} can also manage this from the {space} itself, not just here.</p>
+        <p class="hint" data-fill>Anyone with this link can come into this {space} with just a name -- no account, no invite needed. Anyone already in the {space} can also manage this from the {space} itself, not just here.</p>
         <div class="row">
           <label class="check" data-fill><input type="checkbox" id="e-allow-guests"> Allow {Guests}</label>
         </div>

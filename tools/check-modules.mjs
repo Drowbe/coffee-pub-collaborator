@@ -10,6 +10,10 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
+// A made-up product name, set before server/modules.js is loaded, so a sentence that hard-codes the default fails here
+// (plan-kind-names.md, The guard).
+const PRODUCT = 'Testname';
+process.env.PRODUCT_NAME = PRODUCT;
 const { cleanManifest, cleanStorage, oldNameIn, OUTDATED, permissionDefaults, pendingWidensNothing, PERMISSION_KEY_RE, ModuleError, ModuleManager } = createRequire(import.meta.url)('../server/modules.js');
 let n = 0;
 const { ModuleData } = createRequire(import.meta.url)('../server/module-data.js');
@@ -60,17 +64,17 @@ test('a manifest\'s scopes are environment, space and person', () => {
 const OLD_SURFACE = 'panel'; // surfaces.canvas before plan-names step 6
 const OLD_SUMMARY = 'card'; // refs.produces[].summary before plan-names step 7
 const OLD_MANIFESTS = [
-  [{ scope: ['environment', 'room'] }, 'module.json uses the old scope "room"; use "space" (Collaborator renamed rooms to spaces).'],
-  [{ scope: ['server'] }, 'module.json uses the old scope "server"; use "environment" (Collaborator renamed the server to the environment).'],
-  [{ settings: [{ key: 'a', label: 'A', type: 'boolean', scope: 'room' }] }, 'module.json: setting "a" uses the old scope "room"; use "space" (Collaborator renamed rooms to spaces).'],
-  [{ settings: [{ key: 'n', label: 'N', type: 'note', scope: 'server' }] }, 'module.json: setting "n" uses the old scope "server"; use "environment" (Collaborator renamed the server to the environment).'],
-  [{ install: { auto: true, settingsFrom: 'server' } }, 'module.json: install.settingsFrom uses the old name "server"; use "environment" (Collaborator renamed the server to the environment).'],
-  [{ permissions: [{ key: 'view', label: 'View', default: { user: true } }] }, 'module.json: permission "view" names the old role "user" in its default; use "member" (Collaborator renamed the user role to member).'],
+  [{ scope: ['environment', 'room'] }, `module.json uses the old scope "room"; use "space" (${PRODUCT} renamed rooms to spaces).`],
+  [{ scope: ['server'] }, `module.json uses the old scope "server"; use "environment" (${PRODUCT} renamed the server to the environment).`],
+  [{ settings: [{ key: 'a', label: 'A', type: 'boolean', scope: 'room' }] }, `module.json: setting "a" uses the old scope "room"; use "space" (${PRODUCT} renamed rooms to spaces).`],
+  [{ settings: [{ key: 'n', label: 'N', type: 'note', scope: 'server' }] }, `module.json: setting "n" uses the old scope "server"; use "environment" (${PRODUCT} renamed the server to the environment).`],
+  [{ install: { auto: true, settingsFrom: 'server' } }, `module.json: install.settingsFrom uses the old name "server"; use "environment" (${PRODUCT} renamed the server to the environment).`],
+  [{ permissions: [{ key: 'view', label: 'View', default: { user: true } }] }, `module.json: permission "view" names the old role "user" in its default; use "member" (${PRODUCT} renamed the user role to member).`],
   // Plan-names step 6: the canvas surface's old name.
-  [{ scope: ['environment', 'space'], surfaces: { page: { entry: 'page.html' }, [OLD_SURFACE]: { entry: 'canvas.html' } } }, "module.json uses the old surfaces.panel; use surfaces.canvas (Collaborator renamed a module's panel to its place on the canvas)."],
+  [{ scope: ['environment', 'space'], surfaces: { page: { entry: 'page.html' }, [OLD_SURFACE]: { entry: 'canvas.html' } } }, `module.json uses the old surfaces.panel; use surfaces.canvas (${PRODUCT} renamed a module's panel to its place on the canvas).`],
   // Plan-names step 7: a kind's summary was its card; refused even beside a summary.
-  [{ refs: { produces: [{ kind: 'note', key: 'note:{id}', [OLD_SUMMARY]: { title: 'title' } }] } }, 'module.json: refs kind "note" uses the old card; use summary (Collaborator renamed an object\'s card to its summary).'],
-  [{ refs: { produces: [{ kind: 'note', key: 'note:{id}', summary: { title: 'title' } }, { kind: 'memo', key: 'memo:{id}', summary: { title: 'title' }, [OLD_SUMMARY]: { title: 'title' } }] } }, 'module.json: refs kind "memo" uses the old card; use summary (Collaborator renamed an object\'s card to its summary).'],
+  [{ refs: { produces: [{ kind: 'note', key: 'note:{id}', [OLD_SUMMARY]: { title: 'title' } }] } }, `module.json: refs kind "note" uses the old card; use summary (${PRODUCT} renamed an object's card to its summary).`],
+  [{ refs: { produces: [{ kind: 'note', key: 'note:{id}', summary: { title: 'title' } }, { kind: 'memo', key: 'memo:{id}', summary: { title: 'title' }, [OLD_SUMMARY]: { title: 'title' } }] } }, `module.json: refs kind "memo" uses the old card; use summary (${PRODUCT} renamed an object's card to its summary).`],
 ];
 test('a manifest with an old name is refused with a sentence naming the field and what to use', () => {
   for (const [part, sentence] of OLD_MANIFESTS) {
@@ -250,14 +254,14 @@ test('an installed module with an old manifest does not run, says why, and canno
     assert.equal(mm.resolveFile('old', '0.9.0', 'page.html'), null, 'its files are not served');
     const view = mm.view('old');
     assert.deepEqual(view.outdatedVersions, ['0.9.0'], 'the installed versions in the old names');
-    assert.deepEqual([view.enabled, view.outdated, view.outdatedWhy], [false, OUTDATED, 'module.json uses the old scope "server"; use "environment" (Collaborator renamed the server to the environment).']);
+    assert.deepEqual([view.enabled, view.outdated, view.outdatedWhy], [false, OUTDATED, `module.json uses the old scope "server"; use "environment" (${PRODUCT} renamed the server to the environment).`]);
     // What requires it does not run either, and says it waits on an update rather than on being turned on.
     assert.equal(mm.enabled('needer'), null, 'what requires it does not run');
     assert.deepEqual(mm.enabledAll().map(({ manifest }) => manifest.id), []);
     const needer = mm.view('needer');
     assert.deepEqual([needer.enabled, needer.needsUpdate, needer.missing, needer.outdated], [false, ['old'], [], null]);
     assert.throws(() => mm.update('needer', { enabled: true }), (err) => err.status === 409 && err.message === 'needer needs old, which needs an update from its author.');
-    assert.throws(() => mm.update('old', { enabled: true }), (err) => err.status === 409 && err.message === 'old was built for an older version of Collaborator and needs an update from its author.');
+    assert.throws(() => mm.update('old', { enabled: true }), (err) => err.status === 409 && err.message === `old was built for an older version of ${PRODUCT} and needs an update from its author.`);
     assert.equal(fs.readFileSync(file, 'utf8'), before, 'nothing was written at start or by the refused updates');
     // Turning the outdated one off does not ask about what requires it: that is not running.
     assert.equal(mm.update('old', { enabled: false }).enabled, false);
@@ -271,7 +275,7 @@ test('an installed module with an old manifest does not run, says why, and canno
     assert.equal(mm.update('old', { enabled: true }).enabled, true);
     assert.deepEqual([mm.view('needer').enabled, mm.view('needer').needsUpdate, mm.view('needer').missing], [true, [], []]);
     assert.deepEqual([mm.view('old').outdated, mm.view('old').outdatedVersions], [null, ['0.9.0']], 'the old version is still marked while it is kept');
-    assert.throws(() => mm.rollback('old', '0.9.0'), (err) => err.status === 409 && err.message === "old 0.9.0 was built for an older version of Collaborator, so it can't be rolled back to.");
+    assert.throws(() => mm.rollback('old', '0.9.0'), (err) => err.status === 409 && err.message === `old 0.9.0 was built for an older version of ${PRODUCT}, so it can't be rolled back to.`);
     assert.equal(mm.registry.modules.old.version, '1.0.0');
     // Uninstalling what it requires turns it off, as before.
     mm.uninstall('old');

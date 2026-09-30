@@ -2,7 +2,9 @@
 // space in Manage > Spaces and land here, instead of editing it inline in
 // the list. Admin only.
 import { renderModuleSettings } from '/module-settings.js';
+import { opensWithSummary } from '/opens-with.js';
 import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, escapeHtml, crumbLink, getIcons, spaceCrumbIcon, hasOwnerRights, word } from '/brand.js';
+import '/slot-paste.js'; // paste a picture into any image slot
 
 const $ = (id) => document.getElementById(id);
 const spaceId = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -185,12 +187,105 @@ $('space-modules').addEventListener('change', async (event) => {
     const { module } = await api('PATCH', `/api/modules/${m.id}`, { spaces: [...spaces] });
     m.spaces = module.spaces;
     say($('space-modules-status'), 'saved');
+    loadOpensWith(); // the modules Opens with lists follow what is on here
     // The module's own settings for this space appear (or go) with it.
     renderModuleSettings($('module-settings'), { scope: 'space', space: spaceId }).then(() => { $('section-module-settings').hidden = $('module-settings').hidden; syncModulesTab(); });
   } catch (err) {
     box.checked = !box.checked;
     say($('space-modules-status'), err.message, true);
   }
+});
+
+// Opens with: what a first visit to this space opens (plan-entering.md). The conference, the chat and the modules on
+// in this space, each with a tick, in that order; the ticks save in the order shown (there is no reordering). An id
+// already saved that cannot open now (a module off in this space or not installed, the conference switched off) is
+// listed after them, ticked, with a note saying why, so the owner sees it is kept (turning it back on restores it) and
+// can untick it. Unticking every tick, those too, saves null: "not set".
+// `opensWithList` is the list as the owner last left it (null for not set); each change sends the whole of it, one save
+// at a time, so a slow answer never brings back an older list.
+let opensWithOptions = { modules: [], builtin: [], environment: null, installed: [] };
+let opensWithList = null;
+let conferenceOn = true;
+let opensWithSaving = Promise.resolve();
+let opensWithPending = 0;
+async function loadOpensWith() {
+  try {
+    const [answer, installed] = await Promise.all([
+      api('GET', `/api/modules/for-space?space=${encodeURIComponent(space.id)}`),
+      api('GET', '/api/modules').then((r) => r.modules || []).catch(() => []),
+    ]);
+    opensWithOptions = {
+      modules: (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false),
+      builtin: answer.builtin || [],
+      environment: Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null,
+      installed,
+    };
+  } catch {
+    opensWithOptions = { modules: [], builtin: [], environment: null, installed: [] };
+  }
+  if (!opensWithPending) opensWithList = Array.isArray(space.opensWith) ? [...space.opensWith] : null;
+  renderOpensWith();
+}
+const builtinShown = (id, name, icon) => ({ id, name, icon, ...opensWithOptions.builtin.find((b) => b.id === id) });
+// What can open now, in the order shown.
+function opensWithChoices() {
+  return [
+    ...(conferenceOn ? [builtinShown('conference', 'Conference', 'video')] : []),
+    builtinShown('chat', 'Chat', 'message'),
+    ...opensWithOptions.modules.map((m) => ({ id: m.id, name: m.name, icon: m.icon })),
+  ];
+}
+// A saved id that cannot open now, as the owner reads it: its name and icon where they are known, and why.
+function keptChoice(id) {
+  if (id === 'conference') return { ...builtinShown('conference', 'Conference', 'video'), note: 'switched off' };
+  const m = opensWithOptions.installed.find((x) => x.id === id);
+  if (!m) return { id, name: id, icon: 'puzzle-piece', note: 'not installed' };
+  const shown = { id, name: m.displayName || m.name, icon: m.displayIcon || m.icon };
+  if (!m.enabled) return { ...shown, note: 'turned off' };
+  if (!m.allSpaces && !(m.spaces || []).includes(space.id)) return { ...shown, note: `off in this ${word('space')}` };
+  return { ...shown, note: `can't open on the ${word('canvas')}` };
+}
+function renderOpensWith() {
+  const choices = opensWithChoices();
+  const chosen = new Set(opensWithList || []);
+  const kept = (opensWithList || []).filter((id) => !choices.some((c) => c.id === id)).map(keptChoice);
+  $('opens-with').innerHTML = [...choices, ...kept].map((c) => `<label class="check"><input type="checkbox" data-opens="${escapeHtml(c.id)}" ${chosen.has(c.id) ? 'checked' : ''}> <i class="fa-solid fa-${escapeHtml(c.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(c.name)}${c.note ? ` <span class="hint">(${escapeHtml(c.note)})</span>` : ''}</label>`).join('');
+  syncOpensWithSummary();
+}
+// Under the ticks: what a first visit opens when that is not plain from them, from the list itself (opens-with.js).
+function syncOpensWithSummary() {
+  const choices = opensWithChoices();
+  const text = opensWithSummary({
+    list: opensWithList,
+    environment: opensWithOptions.environment,
+    modules: opensWithOptions.modules.map((m) => m.id),
+    canOpen: (id) => choices.some((c) => c.id === id),
+    nameOf: (id) => choices.find((c) => c.id === id)?.name || id,
+  });
+  $('opens-with-unset').textContent = text;
+  $('opens-with-unset').hidden = !text;
+}
+$('opens-with').addEventListener('change', (event) => {
+  if (event.target.type !== 'checkbox') return;
+  // Every tick on screen, in the order shown: what can open, then what is kept.
+  const ticked = [...$('opens-with').querySelectorAll('input:checked')].map((i) => i.dataset.opens);
+  opensWithList = ticked.length ? ticked : null;
+  syncOpensWithSummary();
+  const send = opensWithList;
+  opensWithPending += 1;
+  opensWithSaving = opensWithSaving.then(async () => {
+    try {
+      space = (await api('PATCH', `/api/spaces/${space.id}`, { opensWith: send })).space;
+      say($('opens-with-status'), 'saved');
+    } catch (err) {
+      // Back to what the server has, with the reason.
+      opensWithList = Array.isArray(space.opensWith) ? [...space.opensWith] : null;
+      renderOpensWith();
+      say($('opens-with-status'), err.message, true);
+    } finally {
+      opensWithPending -= 1;
+    }
+  });
 });
 
 // Manage > this space, with the space's own icon.
@@ -313,7 +408,8 @@ function syncModulesTab() {
 
 async function init() {
   renderTopbar({ adminHref: '/admin#spaces', location: crumbLink('gear', 'Manage', '/admin#spaces') });
-  await loadBranding();
+  const branding = await loadBranding();
+  conferenceOn = branding.conferenceEnabled !== false;
   wireOverlayBack();
   buildIconGrid();
   try {
@@ -330,6 +426,7 @@ async function init() {
     renderCrumb();
     await loadSpaceModules();
     syncModulesTab();
+    loadOpensWith();
     // The AI switch is for a server that has an AI service set up.
     api('GET', '/api/ai').then((d) => { $('section-ai').hidden = !d.ai || d.ai.active.provider === 'none'; syncModulesTab(); }).catch(() => {});
     renderModuleSettings($('module-settings'), { scope: 'space', space: spaceId }).then(() => { $('section-module-settings').hidden = $('module-settings').hidden; syncModulesTab(); });

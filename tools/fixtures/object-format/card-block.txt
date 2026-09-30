@@ -1,0 +1,5 @@
+An answer whose block is labelled card, which the format does not treat as its own.
+
+```card
+[{"icon":"note","title":"Loose one","content":"Read only by the loose reading."},{"title":"Loose two","content":"Also."}]
+```

@@ -19,6 +19,9 @@ decide those.
 ## Commands
 
 - `npm run check`: every check. Run it before calling anything done.
+- In a cloud container running as root, `check-names` fails two `--migration` cases (a read-only parent
+  folder, the `tavern.json` rename) because root ignores read-only permissions. That isn't a defect; don't
+  change the check. Run the checks after `check-names` in the `check` script one by one to see them.
 - `npm run check:docs`: the documentation standard.
 - `npm run docs:build`: builds the wiki pages into `tools/.wiki-build/` for review.
 - Local server: `LIVEKIT_API_KEY=devkey LIVEKIT_API_SECRET=devsecretdevsecret ADMIN_PASSWORD=testpass1234 npm run dev`
@@ -52,6 +55,10 @@ routes, API fields and stored keys use them. Only the word a person reads can ch
 environment template. The code doesn't match yet; a renaming plan with a data migration is coming.
 Until then, new code uses these names, and nobody argues for keeping the old ones. Never use room,
 table, stage, pane, tenant or item for these things, in code or in words.
+
+Identifiers (file formats and their markers, fenced blocks, stored keys, cookies, environment variables) are
+named by kind, never by the product. The product's name comes only from `PRODUCT_NAME`; the brand, Coffee Pub,
+may appear.
 
 Levels, top down:
 - Host, `host`: the main admin host.

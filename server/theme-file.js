@@ -1,5 +1,5 @@
-// A theme as a file (documentation/plans/plan-themes.md, "The file"): `<name>.collaborator-theme.json`, holding
-// { collaboratorTheme: 1, name, author?, light, dark }, each set with every one of the sixteen stored keys (the seven base
+// A theme as a file (documentation/plans/plan-themes.md, "The file"; its marker, plan-kind-names.md): `<name>.theme.json`,
+// holding { format: "theme", formatVersion: 1, name, author?, light, dark }, each set with every one of the sixteen stored keys (the seven base
 // colors and the nine optional ones, null for Auto), or null for a set the theme doesn't have. Keys are the stored
 // names, never CSS property names: server/theme-css.js stays the one place that maps a key to CSS, so a file can
 // only ever carry colors.
@@ -11,15 +11,17 @@
 
 const { THEME_BASE, THEME_OPTIONAL, DEFAULT_THEME, cleanAuthor, cleanThemeName } = require('./store');
 const { productName } = require('./product-name');
+const fileFormat = require('./file-format');
 
-const THEME_FILE_VERSION = 1; // the newest collaboratorTheme this server reads
+const THEME_FILE_VERSION = fileFormat.FORMAT_VERSIONS.theme; // the newest formatVersion of a theme file this server reads
 const MAX_THEME_FILE_BYTES = 16 * 1024;
 const SET_KEYS = [...THEME_BASE, ...THEME_OPTIONAL];
-const TOP_KEYS = ['collaboratorTheme', 'name', 'author', 'light', 'dark'];
+const TOP_KEYS = ['format', 'formatVersion', 'name', 'author', 'light', 'dark'];
 const MODES = ['light', 'dark'];
 
 const NOT_A_THEME_FILE = `That isn't a ${productName()} theme file.`;
 const NEWER = `This theme was made by a newer version of ${productName()}.`;
+const OLD_THEME_FILE = fileFormat.OLD_SENTENCES.theme;
 const NO_COMPLETE_SET = 'This theme has no complete light or dark set: each needs all seven base colors.';
 
 class ThemeFileError extends Error {
@@ -37,18 +39,23 @@ const fullSet = (set) => (set ? Object.fromEntries(SET_KEYS.map((key) => [key, s
 function themeToFile(theme) {
   const t = theme || DEFAULT_THEME;
   const author = cleanAuthor(t.author);
-  return { collaboratorTheme: THEME_FILE_VERSION, name: t.name, ...(author ? { author } : {}), light: fullSet(t.light), dark: fullSet(t.dark) };
+  return { ...fileFormat.stamp('theme'), name: t.name, ...(author ? { author } : {}), light: fullSet(t.light), dark: fullSet(t.dark) };
 }
 
-// The theme's name made safe for a file: lower-case letters, digits and hyphens, then .collaborator-theme.json.
+// A name made safe for a file: lower-case letters, digits and hyphens, at most 60, or `fallback` when nothing is left.
+function safeFileStem(name, fallback) {
+  return String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || fallback;
+}
+
+// The theme's name made safe for a file, then .theme.json.
 function themeFileName(name) {
-  const safe = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60);
-  return `${safe || 'theme'}.collaborator-theme.json`;
+  return `${safeFileStem(name, 'theme')}.theme.json`;
 }
 
 // Checks a file, given as its text (or bytes) or as JSON already parsed, in the plan's order:
-//   over 16 KB, not JSON, not an object; collaboratorTheme missing or not a whole number  -> NOT_A_THEME_FILE
-//   collaboratorTheme above THEME_FILE_VERSION                                            -> NEWER
+//   over 16 KB, not JSON, not an object; format not "theme", formatVersion missing or not a whole number -> NOT_A_THEME_FILE
+//   a marker from before the formats were named by kind (server/file-format.js)                     -> OLD_THEME_FILE
+//   formatVersion above THEME_FILE_VERSION                                                           -> NEWER
 //   every unknown key dropped, at the top level and inside each set (named in `dropped`, "light.glow", "font")
 //   each set through `sanitize` (Store#sanitizeTheme, the same check as a theme made in Manage): a set missing a
 //   base color, or with one that isn't #rrggbb, is dropped whole ("dark"); an optional one that isn't a color goes
@@ -66,9 +73,10 @@ function readThemeFile(input, sanitize, { byteLength = null } = {}) {
     throw new ThemeFileError(NOT_A_THEME_FILE);
   }
   if (!file || typeof file !== 'object' || Array.isArray(file)) throw new ThemeFileError(NOT_A_THEME_FILE);
-  const version = file.collaboratorTheme;
-  if (!Number.isInteger(version) || version < 1) throw new ThemeFileError(NOT_A_THEME_FILE);
-  if (version > THEME_FILE_VERSION) throw new ThemeFileError(NEWER);
+  const marker = fileFormat.readMarker(file, 'theme');
+  if (marker === 'old') throw new ThemeFileError(OLD_THEME_FILE);
+  if (marker === 'newer') throw new ThemeFileError(NEWER);
+  if (marker !== 'ok') throw new ThemeFileError(NOT_A_THEME_FILE);
 
   const dropped = Object.keys(file).filter((key) => !TOP_KEYS.includes(key));
   const sets = {};
@@ -97,6 +105,6 @@ function readThemeFile(input, sanitize, { byteLength = null } = {}) {
 }
 
 module.exports = {
-  THEME_FILE_VERSION, MAX_THEME_FILE_BYTES, SET_KEYS, NOT_A_THEME_FILE, NEWER, NO_COMPLETE_SET,
-  ThemeFileError, themeToFile, themeFileName, readThemeFile,
+  THEME_FILE_VERSION, MAX_THEME_FILE_BYTES, SET_KEYS, NOT_A_THEME_FILE, NEWER, OLD_THEME_FILE, NO_COMPLETE_SET,
+  ThemeFileError, themeToFile, themeFileName, safeFileStem, readThemeFile,
 };

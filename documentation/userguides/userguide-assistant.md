@@ -18,11 +18,11 @@ When the AI writes something worth keeping, it appears as an object of its own i
 
 ## Bring in research from another AI
 
-You can research in another AI (a chat app on your computer or phone, say) and bring the results into Magpie as objects, kept the same way the Assistant keeps its own answers. Bringing research in uses none of this environment's AI: it works without an AI service set up and without **Use AI in modules**.
+You can research in another AI (a chat app on your computer or phone, say) and bring the results into Collaborator as objects, kept the same way the Assistant keeps its own answers. Bringing research in uses none of this environment's AI: it works without an AI service set up and without **Use AI in modules**.
 
 Who can: the same people as `/ai` (see "Set it up"): anyone signed in, except guests, in a space where **Turn AI off in this space** is not ticked, and, if the Assistant is installed, with **Use the assistant**. It also needs somewhere to keep things: the Planner, or a module that keeps notes such as Research. When you can't, **Bring in research** is not shown.
 
-The steps are in [Chat](userguide-chat.md), "Bring in research from another AI": **Bring in research** in Chat's formatting menu, **Copy instructions for another AI**, paste the answer or choose a `.magpie-objects.json` file, **Preview**, then **Keep ticked**. If your browser does not allow copying, the instructions are shown selected instead: select all and copy them. Each object in the preview reads "From another AI: check it before you rely on it", and the confirmation names what is kept (for example "Keep 3 hotels and 2 notes?").
+The steps are in [Chat](userguide-chat.md), "Bring in research from another AI": **Bring in research** in Chat's formatting menu, **Copy instructions for another AI**, paste the answer or choose a `.objects.json` file, **Preview**, then **Keep ticked**. If your browser does not allow copying, the instructions are shown selected instead: select all and copy them. Each object in the preview reads "From another AI: check it before you rely on it", and the confirmation names what is kept (for example "Keep 3 hotels and 2 notes?").
 
 What to know:
 
@@ -32,7 +32,8 @@ What to know:
 - **The kept text ends with the line "External source"**, after the object's text and its links, so you can tell later where it came from. The AI's own answers from `/ai` never get that line.
 - **Size.** A paste or file can be up to 256 KB. Each object's text is kept up to 6000 characters; anything longer is cut.
 - **Twice is twice.** Bringing the same answer in again keeps it again; nothing spots duplicates.
-- If the other AI's answer was copied from its formatted view and lost its `magpie` blocks, pasting it usually still works.
+- If the other AI's answer was copied from its formatted view and lost its `objects` blocks, pasting it usually still works.
+- **An older answer is refused.** An answer or file made from instructions copied before 2026-09-30 is refused with "that answer is in an older format: copy the instructions again and ask the AI for a new answer", and nothing in it is brought in. Copy the instructions again and ask for a new answer.
 
 ## Research this
 

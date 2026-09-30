@@ -1,10 +1,11 @@
 import { nav } from '/nav-bar.js';
+import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
-import { word, setWords } from '/words.js';
+import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode } from '/theme-mode.js';
 
 // The words a person reads for each level and role (public/words.js), for every page that already imports from here.
-export { word, words, fill, applyWords, setWords } from '/words.js';
+export { word, words, fill, applyWords, setWords, verb, verbs, setVerbs } from '/words.js';
 // Light and dark (GitHub #62): the mode showing now, and a popped-out window following this page's look.
 export { themeMode, followTheme } from '/theme-mode.js';
 
@@ -76,9 +77,10 @@ function migrateStoredKeys() {
 }
 migrateStoredKeys();
 
-let product = 'Collaborator';
+let product = ''; // filled by loadBranding(); no name is written in the page
 
-// The configured product name (PRODUCT_NAME), from /api/branding. Sentences use this, never a hard-coded name.
+// The configured product name (PRODUCT_NAME), from /api/branding. Sentences use this, never a hard-coded name; it is ''
+// until loadBranding() has answered, so a sentence that uses it reads without it then.
 export function productName() {
   return product;
 }
@@ -95,6 +97,7 @@ export async function loadBranding() {
   if (typeof b.productName === 'string' && b.productName.trim()) product = b.productName.trim();
   ICONS = Array.isArray(b.icons) ? b.icons : [];
   setEnvironmentMode(b.themeMode, b.themeVersion); // the default mode, and a stylesheet that changed since this page loaded
+  setVerbs(b.verbs); // every data-verb and {enter} on the page, and verb() from here on (addendum 4)
   setWords(b.words); // every data-word and data-fill on the page, and word() from here on
   refreshSpacesLink();
   clockHour12 = b.clock !== '24';
@@ -160,7 +163,8 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
   const initialIcon = handoff.get('homeIcon') || 'couch';
   // The primary nav is about the system, in three zones (see documentation/plans/plan-nav.md and architecture-navigation.md):
   // left, the logo (home) and where you are; middle, the core navigation (the spaces, each module's own page); right, the
-  // system's actions (your profile, Manage, Install, Sign out) and information (the time, on the server's clock).
+  // system's actions (Manage, Install), information (the time, on the server's clock) and, last, you (your picture: View
+  // profile, Sign out).
   // The markup here is only what is not a tool: the logo, the crumb, the status, the menu button. Everything in the
   // middle and right zones is a registration in the nav-bar registry (public/nav-bar.js), the same shape a module's
   // tools take, so there is one drawing path.
@@ -188,14 +192,16 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
   loadUpdateBadge();
   startPresence();
   if (withThemeSwitch) loadAccountMode();
+  fillWhoami();
   startNotifications();
   mountEnvironmentBanner(loadMe); // an owner's past-due line under the header, on a hosted environment only
 }
 
 // The system's own tools, in the bands plan-nav.md sets out (1-10 core, 11-50 secondary, 51-100 utility, 999 last), so a
 // module's own (101-998) always draw after them. The middle zone is one group, the core navigation; the right zone is
-// three: who you are, what you can do from anywhere, and the session (the time, then Sign out), a divider between each.
-// The profile link and the clock are the page's own elements the registry places (their look is theirs, not a button's).
+// three: what you can do from anywhere, the time, and you (your picture, which opens View profile and Sign out), a
+// divider between each. Your picture and the clock are the page's own elements the registry places (their look is
+// theirs, not a button's).
 // The Spaces link, in this environment's words (registered again, the same element, when loadBranding() has them).
 const spacesTool = (icon) => ({ id: 'spaces-link', bar: 'primary', zone: 'middle', group: 'core', groupOrder: 1, order: 1, icon, label: word('space', { many: true, cap: true }), title: `All ${word('space', { many: true })}`, href: '/', target: '_top' });
 function refreshSpacesLink() {
@@ -215,24 +221,126 @@ function registerSystemTools(header, initialIcon, adminHref, withThemeSwitch) {
   const doc = header.ownerDocument;
   const spaces = nav.register(spacesTool(initialIcon));
   spaces.querySelector('i').dataset.brand = 'home-icon'; // loadBranding() swaps in the server's own home icon
-  const whoami = doc.createElement('a');
-  whoami.className = 'whoami';
-  whoami.id = 'whoami-link';
-  whoami.href = '/profile';
-  whoami.title = 'Your profile';
-  whoami.innerHTML = '<img id="whoami-img" alt="" hidden><span id="whoami"></span>';
-  nav.register({ id: 'whoami-link', bar: 'primary', zone: 'right', group: 'you', groupOrder: 1, order: 1, element: whoami });
   // Manage: each page shows it once it knows the viewer is an admin (its own `hidden`), so no `visible` here.
   // Light or dark, the person's own (theme-mode.js), beside Manage.
   if (withThemeSwitch) nav.register({ id: 'theme-mode-switch', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 10, element: themeSwitch(doc) });
-  nav.register({ id: 'admin-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 11, icon: 'gear', label: 'Manage', href: adminHref }).hidden = true;
+  // Opened over a call (?from=space), Manage keeps the query, so it keeps its way back (as crumbLink does).
+  const keep = new URLSearchParams(window.location.search).get('from') === 'space' ? window.location.search : '';
+  const [adminPath, adminHash] = String(adminHref).split('#');
+  const manageHref = keep && !adminPath.includes('?') ? `${adminPath}${keep}${adminHash ? `#${adminHash}` : ''}` : adminHref;
+  nav.register({ id: 'admin-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 11, icon: 'gear', label: 'Manage', href: manageHref }).hidden = true;
   nav.register({ id: 'install-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 12, icon: 'download', label: 'Install as an app', visible: () => Boolean(installPromptEvent), onClick: installFromPrompt });
   const clock = doc.createElement('span');
   clock.className = 'topbar-clock';
   clock.id = 'topbar-clock';
   clock.title = 'The time';
   nav.register({ id: 'topbar-clock', bar: 'primary', zone: 'right', group: 'session', groupOrder: 51, order: 51, element: clock });
-  nav.register({ id: 'logout-link', bar: 'primary', zone: 'right', group: 'session', groupOrder: 51, order: 52, icon: 'right-from-bracket', label: 'Sign out', href: '/logout', onClick: forgetThemeMode }); // the next person here starts from the default
+  // You, last: your picture and name, a button that opens the account menu (View profile, Sign out). On a phone it
+  // folds into the header's menu with everything else: there it is only your picture and name, and View profile and
+  // Sign out follow it as the menu's own entries (no menu inside the menu).
+  const whoami = doc.createElement('button');
+  whoami.type = 'button';
+  whoami.className = 'whoami';
+  whoami.id = 'whoami-link';
+  whoami.innerHTML = '<img id="whoami-img" alt="" hidden><span id="whoami"></span><span id="whoami-account" hidden>Account</span>';
+  whoami.addEventListener('click', (event) => {
+    if (onPhone()) {
+      event.stopPropagation(); // only a label in the header's menu: the menu stays open
+      return;
+    }
+    openHostMenu(whoami, accountMenuItems());
+  });
+  paintWhoami(whoami);
+  if (phoneQuery) phoneQuery.addEventListener('change', () => paintWhoami(whoami));
+  nav.register({ id: 'whoami-link', bar: 'primary', zone: 'right', group: 'you', groupOrder: 999, order: 999, element: whoami });
+  // View profile and Sign out as the header menu's own entries: on a phone only, and only for someone signed in (your
+  // picture is showing). The menu draws the bar again as it opens, so these follow a page that hid your picture.
+  const signedIn = () => !whoami.hidden && !byId('whoami-img')?.hidden;
+  const inMenu = () => onPhone() && signedIn();
+  nav.register({ id: 'account-profile', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'user', label: 'View profile', visible: inMenu, onClick: viewProfile });
+  nav.register({ id: 'account-sign-out', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'right-from-bracket', label: 'Sign out', visible: inMenu, onClick: signOut });
+}
+
+// The phone width, the same one nav-bar.js folds the header at.
+const phoneQuery = typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 640px)') : null;
+const onPhone = () => Boolean(phoneQuery && phoneQuery.matches);
+
+// Your picture is the account menu's button on a wider screen, and only a label (your picture and name) in the
+// header's menu on a phone: out of the Tab order there, and it opens nothing.
+function paintWhoami(whoami) {
+  // An account menu open across the change would be left under a label (off screen on a phone) or without its button.
+  // Its focus goes back to your picture, which on a phone is inside the closed header menu: the menu button takes it.
+  const doc = whoami.ownerDocument;
+  const hadFocus = Boolean(doc.activeElement?.closest?.('.host-menu'));
+  closeHostMenu();
+  if (onPhone() && hadFocus && !whoami.getClientRects().length) doc.getElementById('nav-toggle')?.focus();
+  if (onPhone()) {
+    whoami.tabIndex = -1;
+    whoami.removeAttribute('title');
+    whoami.removeAttribute('aria-haspopup');
+    whoami.removeAttribute('aria-expanded');
+    whoami.setAttribute('aria-disabled', 'true'); // read as your name, not as a button to press
+    whoami.setAttribute('aria-labelledby', 'whoami');
+  } else {
+    whoami.removeAttribute('tabindex');
+    whoami.removeAttribute('aria-disabled');
+    whoami.title = 'Account';
+    whoami.setAttribute('aria-haspopup', 'menu');
+    whoami.setAttribute('aria-expanded', 'false');
+    whoami.setAttribute('aria-labelledby', 'whoami whoami-account'); // "<your name> Account"
+  }
+}
+
+// View profile goes to /profile; a page that can show it without leaving (a space, where leaving would end the call)
+// takes the app:open-profile event and opens it over itself instead; on the profile page itself it does nothing.
+function viewProfile() {
+  const unhandled = document.dispatchEvent(new CustomEvent('app:open-profile', { cancelable: true }));
+  if (!unhandled || location.pathname === '/profile') return; // already there: the menu just closes
+  // Opened over a call (?from=space), the query stays, so the profile page keeps its way back (as crumbLink does).
+  const keep = new URLSearchParams(location.search).get('from') === 'space' ? location.search : '';
+  location.href = `/profile${keep}`;
+}
+
+// Sign out forgets this browser's light or dark choice first, so the next person here starts from the default, and
+// signs the whole window out (from a page opened over a call too, not only that page).
+function signOut() {
+  forgetThemeMode();
+  let win = window;
+  try {
+    if (window.top.location.origin === location.origin) win = window.top;
+  } catch {
+    // framed by another origin: sign this page out
+  }
+  win.location.href = '/logout';
+}
+
+// The account menu under your picture, on a wider screen.
+function accountMenuItems() {
+  return [
+    { icon: 'user', label: 'View profile', onPick: viewProfile },
+    { icon: 'right-from-bracket', label: 'Sign out', onPick: signOut },
+  ];
+}
+
+// Your picture and name, for a page that does not fill them itself (the pages that do fill them first, or after: the
+// same person). No account here (a guest's page): no picture, and so no account menu.
+async function fillWhoami() {
+  if (document.body.classList.contains('host-console')) return;
+  const me = await loadMe();
+  const button = byId('whoami-link');
+  const name = byId('whoami');
+  const img = byId('whoami-img');
+  if (!button || !name || !img) return;
+  if (me === null) {
+    button.hidden = true;
+    return;
+  }
+  if (!me || !me.user) return;
+  if (!name.textContent) name.textContent = me.user.displayName || me.user.key || '';
+  if (img.hidden) {
+    img.src = `/img/${encodeURIComponent(me.user.key)}/profile`;
+    img.hidden = false;
+  }
 }
 
 // The time, in the primary nav's right zone, on the server's clock (12- or 24-hour: Manage > Settings > Language, time and
@@ -255,20 +363,73 @@ function startClock() {
 // window widens (nav-bar.js watches the same width).
 function wireNavMenu(header) {
   const toggle = header.querySelector('#nav-toggle');
-  const setOpen = (on) => {
+  const menu = header.querySelector('.nav-right');
+  const isOpen = () => header.classList.contains('menu-open');
+  const setOpen = (on, { focus = false } = {}) => {
+    const wasOpen = isOpen();
+    if (on) nav.draw('primary'); // what shows in it is decided as it opens (View profile and Sign out follow your picture)
     header.classList.toggle('menu-open', on);
     toggle.setAttribute('aria-expanded', String(on));
+    // The menu comes before its button in the markup, so Tab from the button would go into the page: opening it
+    // takes focus to its first entry (Tab from its last comes back to the button), and closing it from inside puts
+    // focus back on the button.
+    if (on && !wasOpen) firstEntry(menu)?.focus();
+    if (!on && wasOpen && focus) toggle.focus();
   };
   toggle.addEventListener('click', (event) => {
     event.stopPropagation();
-    setOpen(!header.classList.contains('menu-open'));
+    setOpen(!isOpen());
   });
   header.ownerDocument.addEventListener('click', (event) => {
     if (!event.target.closest('#nav-toggle')) setOpen(false);
   });
   header.ownerDocument.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') setOpen(false);
+    if (event.key === 'Escape' && isOpen()) setOpen(false, { focus: menu.contains(event.target.ownerDocument.activeElement) });
   });
+  // Focus leaving the menu and its button (Shift+Tab back into the crumb, Tab on from the button into the page) closes it.
+  const leaving = (event) => {
+    const to = event.relatedTarget;
+    if (isOpen() && to && !menu.contains(to) && to !== toggle) setOpen(false);
+  };
+  menu.addEventListener('focusout', leaving);
+  toggle.addEventListener('focusout', leaving);
+  // Crossing the phone width closes it (wider, there is no menu; narrower again, it starts closed). The registry moves
+  // the header's tools between the bar and the menu for the new width, which can drop the focus of the one it moved,
+  // so the header remembers what last had focus in it: that again if it is still shown, else the menu button on a
+  // phone, or the bar's first entry on a wider screen. After the registry has drawn the bar for the new width.
+  let lastFocus = null;
+  header.addEventListener('focusin', (event) => { lastFocus = event.target; });
+  header.addEventListener('focusout', (event) => {
+    if (event.relatedTarget && !header.contains(event.relatedTarget)) lastFocus = null;
+  });
+  if (phoneQuery) {
+    phoneQuery.addEventListener('change', () => {
+      const doc = header.ownerDocument;
+      const had = doc.activeElement;
+      const dropped = !had || had === doc.body;
+      const was = dropped ? lastFocus : had;
+      const wasHere = Boolean(was && (was === toggle || menu.contains(was) || (dropped && header.contains(was))));
+      setOpen(false);
+      if (!wasHere) return;
+      setTimeout(() => {
+        const now = doc.activeElement;
+        if (now && now !== doc.body && now.getClientRects().length) return;
+        const shown = (el) => el && header.contains(el) && el.tabIndex >= 0 && el.getClientRects().length;
+        (shown(was) ? was : onPhone() ? toggle : firstEntry(menu))?.focus();
+      }, 0);
+    });
+  }
+}
+
+// The first entry of the open header menu that takes focus: a link, a button or the light or dark switch, shown and
+// in the Tab order (your picture, only a label there, is not).
+function firstEntry(menu) {
+  const all = menu ? menu.querySelectorAll('a[href], button, input, select, [tabindex]') : [];
+  for (const el of all) {
+    if (el.disabled || el.tabIndex < 0 || el.closest('[hidden]') || !el.getClientRects().length) continue;
+    return el;
+  }
+  return null;
 }
 
 // --- module notifications ----------------------------------------------------

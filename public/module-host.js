@@ -6,6 +6,7 @@
 
 import { api, accessKeyHeaders, word, words } from '/brand.js';
 import { nav as navBar } from '/nav-bar.js';
+import { openHostMenu, closeHostMenu } from '/host-menu.js';
 
 // The design tokens a module's frame receives (see design-theme.md).
 const THEME_TOKENS = [
@@ -401,90 +402,9 @@ function ptrDrop(x, y) {
   ptrEnd();
 }
 
-// A host-drawn "..." dropdown for whatever a header, action bar or toolbar row didn't have room for --
-// the host's own chrome, so it cannot use a module's host.menu.show (that draws inside the module's own
-// frame). Only one is ever open at once across every mounted module, same rule as host.menu.show.
-let openOverflow = null;
-function closeOverflow() {
-  if (!openOverflow) return;
-  const { cleanup } = openOverflow;
-  openOverflow = null;
-  cleanup();
-}
-export function closeHostMenu() {
-  closeOverflow();
-}
-function toggleOverflow(trigger, items) {
-  const reopening = openOverflow && openOverflow.trigger === trigger;
-  closeOverflow();
-  if (reopening || !items.length) return;
-  const doc = trigger.ownerDocument;
-  const menu = doc.createElement('div');
-  menu.className = 'host-menu';
-  menu.setAttribute('role', 'menu');
-  for (const item of items) {
-    const b = doc.createElement('button');
-    b.type = 'button';
-    b.className = 'host-menu-item';
-    b.disabled = Boolean(item.disabled);
-    if (item.icon) {
-      const i = doc.createElement('i');
-      i.className = `fa-${item.regular ? 'regular' : 'solid'} fa-${item.icon} fa-fw`;
-      i.setAttribute('aria-hidden', 'true');
-      b.appendChild(i);
-    }
-    const label = doc.createElement('span');
-    label.textContent = item.label || item.title || '';
-    b.appendChild(label);
-    if (item.hint) {
-      const hint = doc.createElement('span');
-      hint.className = 'host-menu-hint';
-      hint.textContent = item.hint;
-      b.appendChild(hint);
-    }
-    if (!item.disabled) b.addEventListener('click', (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      closeOverflow();
-      item.onPick();
-    });
-    if (item.danger) b.classList.add('danger');
-    menu.appendChild(b);
-  }
-  // A docked module's own element has no box (display: contents; the column is the grid's).
-  // Measure the button in the window, the same way a menu inside a module does, and hang this one under it.
-  doc.body.appendChild(menu);
-  const view = doc.defaultView;
-  const t = trigger.getBoundingClientRect();
-  let x = t.left;
-  let y = t.bottom + 4;
-  if (y + menu.offsetHeight > view.innerHeight) y = t.top - menu.offsetHeight - 4;
-  x = Math.max(4, Math.min(x, view.innerWidth - menu.offsetWidth - 4));
-  y = Math.max(4, Math.min(y, view.innerHeight - menu.offsetHeight - 4));
-  menu.style.left = `${x}px`;
-  menu.style.top = `${y}px`;
-  const onKey = (e) => { if (e.key === 'Escape') closeOverflow(); };
-  const onOutside = (e) => { if (!menu.contains(e.target) && !trigger.contains(e.target)) closeOverflow(); };
-  // The click that opened this menu has already happened. Listening on the next frame keeps that same
-  // click from counting as an outside press and closing the menu before it can be used.
-  let listening = false;
-  const frame = view.requestAnimationFrame(() => {
-    if (!menu.isConnected) return;
-    listening = true;
-    doc.addEventListener('keydown', onKey, true);
-    doc.addEventListener('pointerdown', onOutside, true);
-  });
-  openOverflow = {
-    trigger,
-    cleanup: () => {
-      view.cancelAnimationFrame(frame);
-      menu.remove();
-      if (!listening) return;
-      doc.removeEventListener('keydown', onKey, true);
-      doc.removeEventListener('pointerdown', onOutside, true);
-    },
-  };
-}
+// The host-drawn "..." dropdown for whatever a header, action bar or toolbar row didn't have room for is the page's
+// shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
+export { openHostMenu, closeHostMenu };
 
 // The host's "..." (same look as host.ui.moreButton / .sdk-more inside a module).
 function drawMoreButton(doc, extraClass, onClick) {
@@ -502,10 +422,6 @@ function drawMoreButton(doc, extraClass, onClick) {
   return more;
 }
 
-export function openHostMenu(trigger, items) {
-  toggleOverflow(trigger, items);
-}
-
 // A confirm in this same menu, under the button that opened it. The first choice asks; the second does it.
 // `armed` skips the ask, for a choice that was already picked from a longer menu.
 export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash', onConfirm, fail = 'It could not be cleared.', armed = false } = {}) {
@@ -514,12 +430,12 @@ export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash',
       ? [
           { icon, label: confirm, hint, danger: true, onPick: async () => {
             try { await onConfirm(); }
-            catch (err) { toggleOverflow(trigger, [{ label: err.message || fail, disabled: true }]); }
+            catch (err) { openHostMenu(trigger, [{ label: err.message || fail, disabled: true }]); }
           } },
           { icon: 'xmark', label: 'Keep it', onPick: () => {} },
         ]
       : [{ icon, label, hint, danger: true, onPick: () => open(true) }];
-    toggleOverflow(trigger, items);
+    openHostMenu(trigger, items);
   };
   open(armed);
 }
@@ -648,7 +564,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   }
 
   function drawBarMore(hidden) {
-    const more = drawMoreButton(document, 'bar-more', () => toggleOverflow(more, hidden.map((item) => ({ ...item, onPick: () => send('bar', { id: item.id }) }))));
+    const more = drawMoreButton(document, 'bar-more', () => openHostMenu(more, hidden.map((item) => ({ ...item, onPick: () => send('bar', { id: item.id }) }))));
     bar.appendChild(more);
   }
 
@@ -976,7 +892,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       header.textContent = '';
       const doc = header.ownerDocument;
       if (hidden.length) {
-        const more = drawMoreButton(doc, '', () => toggleOverflow(more, hidden.map((item) => ({ ...item, onPick: () => send('header', { id: item.id }) }))));
+        const more = drawMoreButton(doc, '', () => openHostMenu(more, hidden.map((item) => ({ ...item, onPick: () => send('header', { id: item.id }) }))));
         header.appendChild(more);
       }
       for (const item of shown) {
@@ -1061,7 +977,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       const drawToolbarMore = () => {
         if (moreDrawn || !overflow.length) return;
         moreDrawn = true;
-        const more = drawMoreButton(doc, '', () => toggleOverflow(more, overflow.map((item) => ({ ...item, onPick: () => send('toolbar', { id: item.id }) }))));
+        const more = drawMoreButton(doc, '', () => openHostMenu(more, overflow.map((item) => ({ ...item, onPick: () => send('toolbar', { id: item.id }) }))));
         toolbar.appendChild(more);
       };
       for (const item of clean) {

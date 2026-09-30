@@ -8,6 +8,7 @@ const dns = require('dns').promises;
 const http = require('http');
 const https = require('https');
 const net = require('net');
+const { userAgent } = require('./product-name');
 
 const MAX_BYTES = 262144;
 const MAX_REDIRECTS = 3;
@@ -83,7 +84,7 @@ function getOnce(target, addresses, maxBytes, accept) {
       port: target.port || (target.protocol === 'https:' ? 443 : 80),
       path: `${target.pathname}${target.search}`,
       method: 'GET',
-      headers: { 'user-agent': 'Collaborator', accept: accept || 'text/html,application/xhtml+xml' },
+      headers: { 'user-agent': userAgent(), accept: accept || 'text/html,application/xhtml+xml' },
       timeout: TIMEOUT_MS,
       lookup: (_hostname, opts, cb) => {
         const list = addresses.map((address) => ({ address, family: net.isIP(address) }));
@@ -349,4 +350,5 @@ async function fetchImage(text) {
   throw new PreviewError('that picture could not be read');
 }
 
-module.exports = { PreviewError, blockedAddress, blockedName, readPreview, fetchPreview, fetchImage, cachedImage };
+// getOnce is exported for tools/check-link-preview.mjs only (the request it sends, to an address already checked).
+module.exports = { PreviewError, blockedAddress, blockedName, readPreview, fetchPreview, fetchImage, cachedImage, getOnce };

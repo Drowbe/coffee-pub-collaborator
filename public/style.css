@@ -716,7 +716,9 @@ body.in-space .page-scroll {
 
 .space-choice-actions {
   grid-area: join;
+  position: relative; /* the Open with box sits above the whole row (below) */
   display: flex;
+  flex-wrap: wrap; /* the other buttons go to a second line before the main button's word is cut */
   align-items: center;
   gap: 8px;
   margin-top: auto;
@@ -735,9 +737,29 @@ body.in-space .page-scroll {
 }
 
 .space-choice-actions .btn-primary {
-  flex: 1;
+  /* As wide as its label (the environment's enter word, up to 20 characters), growing into the rest of the row; only a
+     label wider than the whole row ("Back to <space>" with a long name) is cut, and its title reads it in full. */
+  flex: 1 0 auto; /* its label's own width, growing into the rest of the row */
+  max-width: 100%;
+  min-width: 0;
   font-size: 16px;
   padding: 0 16px;
+}
+
+/* The smaller buttons (link, pop-out, choose, settings) stay together: when the main button's word needs the room they
+   move to a line of their own as one group. */
+.space-choice-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.space-choice-actions .join-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* Who belongs to a space, with a dot for those in it right now. */
@@ -784,6 +806,22 @@ body.in-space .page-scroll {
   height: 7px;
   border: 2px solid var(--bg-card);
   box-sizing: content-box;
+}
+
+/* In the call: a small camera (the conference's icon, as in Who's around) beside the online dot, with a title; never the colour alone. */
+.member .call-mark {
+  position: absolute;
+  top: 6px;
+  right: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--ok);
+  font-size: 8px;
 }
 
 .member-name {
@@ -1075,8 +1113,8 @@ body.in-space .page-scroll {
   color: var(--text-dim);
 }
 
-/* Separates "who you are" (whoami) from "what you can do from anywhere"
-   (the global nav icons) -- both always there, but visibly two groups. */
+/* Separates the groups of a nav zone: in the primary nav's right zone, what you can do from anywhere
+   (Manage, Install), the time, and last who you are (your picture). */
 .nav-divider {
   width: 1px;
   height: 22px;
@@ -1122,6 +1160,57 @@ body.in-space .subnav {
 
 .subnav .nav-right {
   justify-self: end;
+}
+
+/* The call control, in the space bar's middle zone while you are not in the call: "2 in the call · Join". Its hint (the
+   microphone note) shows under it on hover and on keyboard focus. */
+.call-control {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--header-text);
+  white-space: nowrap;
+}
+
+.call-control[hidden],
+.call-control [hidden] {
+  display: none;
+}
+
+.call-control-sep {
+  color: color-mix(in srgb, var(--header-text) 60%, transparent);
+}
+
+.call-control .btn {
+  height: 22px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.call-control-hint {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 30;
+  display: none;
+  width: max-content;
+  max-width: min(320px, 80vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-section);
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: normal;
+  transform: translateX(-50%);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+}
+
+.call-control:hover .call-control-hint,
+.call-control:focus-within .call-control-hint {
+  display: block;
 }
 
 .space-name {
@@ -1288,14 +1377,45 @@ body.in-space .topbar {
   display: inline-block;
 }
 
-/* The signed-in player: their image next to their name, leading to their profile */
-.links a.whoami,
+/* The signed-in player, last in the bar: their image next to their name, a button that opens the account menu
+   (View profile, Sign out: brand.js). On a phone it is last in the header's menu, with View profile and Sign out
+   after it as that menu's own entries. */
 .whoami {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--header-text);
   font-weight: 600;
+}
+
+button.whoami {
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.whoami:hover,
+button.whoami[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+/* A long name is cut short; the full name stays in the button's accessible name ("<name> Account"). */
+.whoami #whoami {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.whoami:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .whoami img {
@@ -1306,7 +1426,7 @@ body.in-space .topbar {
   border: 1px solid var(--border);
 }
 
-/* Icon links in the header: manage, sign out, install as an app, and the
+/* Icon links in the header: Manage, install as an app, and the
    crumb's own leave/rejoin -- .icon-link on a <button> (install, leave,
    rejoin) as well as an <a>, so it needs its own reset. Not scoped to
    .links: the crumb uses this class too (see LEAVE_BTN/REJOIN_BTN in
@@ -4901,9 +5021,10 @@ body.conference-window {
   height: var(--bar-control-h);
 }
 
-/* The host-drawn "..." for a header, action bar or toolbar row that ran out of room (module-host.js's
-   toggleOverflow) -- the same idea as a module's own host.menu.show, but for the host's own chrome, so
-   it can't reach into a module's sandboxed frame to draw there. */
+/* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
+   that ran out of room, the canvas title bars' menus and the account menu under your picture -- the same idea as
+   a module's own host.menu.show, but for the host's own chrome, so it can't reach into a module's sandboxed
+   frame to draw there. */
 .host-menu {
   position: fixed;
   z-index: 26; /* above a floating module (the layer is 25), under a page opened over the call (30) */
@@ -5185,7 +5306,15 @@ body.chat-window {
   right: -2px;
 }
 
-/* "Join with": the modules a space opens with, from its card on the space list. */
+/* Space settings' Opens with: a tick for the conference, the chat and each module on in the space. */
+.opens-with-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+/* "Open with": a person's own choice of what a space opens with, from its tile on the space list. */
 .space-choice {
   position: relative;
 }
@@ -5204,6 +5333,12 @@ body.chat-window {
   border: 1px solid var(--border);
   background: var(--bg-section);
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* Inside the buttons' row: above all of it, so it never covers the main button when the smaller ones wrap beneath. */
+.space-choice-actions > .join-with {
+  right: 0;
+  bottom: calc(100% + 8px);
 }
 
 .join-with-list {
@@ -5428,6 +5563,12 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     justify-content: space-around;
   }
 
+  /* The middle zone is not drawn in the tab bar (architecture-navigation.md, "Phones"): the call control's Join is the
+     Conference tab here. */
+  body.in-space .subnav .nav-middle {
+    display: none;
+  }
+
   body.in-space .subnav-modules .modules-menu-item {
     flex: 1 0 60px;
     flex-direction: column;
@@ -5516,8 +5657,9 @@ body.in-space .topbar.menu-open .links .module-nav-link {
 
 /* --- phone: the header's links are a menu -----------------------------------
    Below 640px, on every page, the header keeps where you are (the server, the crumb) and a menu
-   button. The links (your profile, the spaces, Manage, install, the module pages, sign out) open
-   as a panel under it, with their names, big enough to tap. brand.js builds the button. */
+   button. The links (the spaces, Manage, install, the module pages, the time, and last you: your picture and
+   name, View profile, Sign out) open as a panel under the menu button, with their names, big enough to tap.
+   brand.js builds the button. */
 .topbar .nav-toggle,
 .topbar .call-settings-link {
   display: none;
@@ -5528,10 +5670,6 @@ body.in-space .topbar.menu-open .links .module-nav-link {
   .topbar {
     display: flex;
     justify-content: space-between;
-  }
-
-  .topbar .nav-middle {
-    display: none;
   }
 
   .topbar .nav-toggle {
@@ -5568,6 +5706,26 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     padding: 6px 12px;
   }
 
+  /* You, in the menu: your picture and name, a label (it opens nothing here), View profile and Sign out after it. */
+  /* :not([hidden]) to outweigh the menu's own row rule (font-weight 500) below */
+  .topbar.menu-open .links > button.whoami:not([hidden]) {
+    cursor: default;
+    font-weight: 600;
+  }
+
+  .topbar.menu-open .links > button.whoami:hover {
+    background: none;
+  }
+
+  .topbar.menu-open .links .whoami img {
+    width: 28px;
+    height: 28px;
+  }
+
+  .topbar.menu-open .links .whoami #whoami {
+    max-width: none;
+  }
+
   /* The light or dark switch: a row of its own, its name after it. */
   .topbar.menu-open .links .topbar-theme-mode {
     gap: 8px;
@@ -5592,6 +5750,7 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     position: absolute;
     top: 100%;
     right: 8px;
+    margin-right: 0; /* the right zone's own -16px would push the panel off the screen's edge */
     z-index: 40;
     min-width: 240px;
     max-width: calc(100vw - 16px);
@@ -5635,15 +5794,6 @@ body.in-space .topbar.menu-open .links .module-nav-link {
 
   .topbar.menu-open .links .module-nav-label {
     display: inline;
-  }
-
-  .topbar.menu-open .links .whoami {
-    color: var(--text);
-  }
-
-  .topbar.menu-open .links .whoami img {
-    width: 28px;
-    height: 28px;
   }
 
   .topbar.menu-open .links .nav-divider {
@@ -6246,4 +6396,43 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 @media (max-width: 560px) {
   body.host-console .word-row, body.host-console .module-display-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
   body.host-console .word-row > :first-child, body.host-console .module-display-row > :first-child { grid-column: 1 / -1; }
+}
+
+/* Manage > Template > Words: the verb's row under the ten words (addendum 4), one field across the three word columns.
+   On a phone it stacks like a word's row: the name and Reset across the top, the field beneath. */
+.verb-row .verb-field { grid-column: 2 / 5; }
+@media (max-width: 760px) {
+  .verb-row .verb-field { grid-column: 1 / -1; }
+  .verb-row [data-verb-reset] { grid-column: -2 / -1; grid-row: 1; justify-self: end; align-self: start; }
+}
+
+/* --- image slots: paste a picture (slot-paste.js) --------------------------- */
+.slot-pick:focus-visible, .slot-pick-wrap.slot-armed .slot-pick:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+.slot-paste {
+  position: absolute; top: -8px; left: -8px; width: 22px; height: 22px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--border); border-radius: 50%;
+  background: var(--secondary); color: var(--secondary-text); font-size: 12px; line-height: 1; cursor: pointer;
+  opacity: 0; transition: opacity 0.15s;
+}
+.slot-paste:hover { background: var(--secondary-hover); }
+.slot-pick-wrap:hover .slot-paste, .slot-paste:focus-visible, .slot-pick-wrap:has(.slot-pick:focus-visible) .slot-paste { opacity: 1; }
+.slot-hint {
+  position: absolute; top: calc(100% + 4px); left: 50%; transform: translateX(-50%); z-index: 5;
+  width: max-content; max-width: 150px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 4px;
+  background: var(--bg-section); color: var(--text); font-size: 11px; line-height: 1.3; text-align: center;
+  text-transform: none; letter-spacing: normal; pointer-events: none;
+  visibility: hidden; opacity: 0; transition: opacity 0.15s;
+}
+.slot-pick-wrap:hover .slot-hint { transition-delay: 0.4s; }
+.slot-pick-wrap:hover .slot-hint, .slot-pick-wrap:has(:focus-visible) .slot-hint, .slot-hint.say { visibility: visible; opacity: 1; }
+.slot-pick-wrap.slot-fixed .slot-hint:not(.say) { visibility: hidden; opacity: 0; }
+.slot-pick.icon-size ~ .slot-hint { left: 0; transform: none; }
+/* The 40 px icon is too small to carry Paste on its corner: it sits beside the preview, low, clear of Remove. */
+.slot-pick.icon-size ~ .slot-paste { top: auto; bottom: -8px; left: calc(100% + 12px); }
+.slot-pick-wrap:has(> .slot-pick.icon-size ~ .slot-paste:not([hidden])) { margin-right: 34px; }
+@media (hover: none) {
+  .slot-paste { opacity: 1; }
+  .slot-pick-wrap:hover .slot-hint { visibility: hidden; opacity: 0; }
+  .slot-pick-wrap .slot-hint.say { visibility: visible; opacity: 1; }
 }

@@ -222,15 +222,15 @@ function renderFacts() {
 }
 
 function refusedCopy() {
-  const name = settings.productName || 'Collaborator';
+  const of = settings.productName ? ` of ${settings.productName}` : ''; // the name from the settings; none is written here
   return {
     words: {
-      newer: `Won't open: its data is from a newer version of ${name}.`,
+      newer: `Won't open: its data is from a newer version${of}.`,
       failed: "Won't open: its data could not be updated.",
       unreadable: "Won't open: its data could not be read.",
     },
     hints: {
-      newer: `Restore a good backup, or run a newer version of ${name}.`,
+      newer: `Restore a good backup, or run a newer version${of}.`,
       failed: 'Restore a good backup. The server log has the details.',
       unreadable: 'Fix or restore this file (the server log names it), or restore a good backup.',
     },

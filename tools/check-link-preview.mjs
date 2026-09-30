@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 /*
  * check-link-preview.mjs -- the page reader (server/link-preview.js) on its own: what it takes from HTML,
- * and which addresses it refuses before any request is made.
+ * and which addresses it refuses before any request is made; and the user-agent it sends, "<product>/<version>"
+ * (plan-kind-names.md, step 2), from the configured name.
  */
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
-const { blockedAddress, blockedName, readPreview } = createRequire(import.meta.url)('../server/link-preview.js');
+const require = createRequire(import.meta.url);
+const { blockedAddress, blockedName, readPreview, getOnce } = require('../server/link-preview.js');
+const { version } = require('../package.json');
 
 let n = 0;
 const test = (name, fn) => { fn(); n += 1; console.log(`ok ${name}`); };
@@ -98,4 +101,34 @@ test('a site logo in structured data is not the page picture', () => {
   assert.equal(readPreview(priv, 'https://example.org/').image, 'https://cdn.example.org/share.jpg');
 });
 
+
+// The request the reader sends, to a local server standing in for a page (its address given as already checked).
+{
+  const http = require('node:http');
+  const saved = process.env.PRODUCT_NAME;
+  process.env.PRODUCT_NAME = 'Testname';
+  let seen = null;
+  const server = http.createServer((req, res) => { seen = req.headers['user-agent']; res.end('<title>t</title>'); });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await getOnce(new URL(`http://preview.test:${server.address().port}/`), ['127.0.0.1'], 4096);
+    assert.equal(seen, `Testname/${version}`, 'the user-agent: the configured product name and the version');
+    n += 1;
+    console.log('ok the user-agent names the product and its version');
+    // A name a header can't carry (above Latin-1) still sends a valid user-agent: printable ASCII kept, spaces as
+    // hyphens, the default when nothing is left.
+    const { DEFAULT_PRODUCT_NAME } = require('../server/product-name.js');
+    for (const [name, shown] of [['Kollab \u2013 Mesa', 'Kollab-Mesa'], ['\u5354\u4f5c', DEFAULT_PRODUCT_NAME], ['Pub \u{1F37A}', 'Pub']]) {
+      process.env.PRODUCT_NAME = name;
+      seen = null;
+      await getOnce(new URL(`http://preview.test:${server.address().port}/`), ['127.0.0.1'], 4096);
+      assert.equal(seen, `${shown}/${version}`, `the user-agent for ${JSON.stringify(name)}`);
+    }
+    n += 1;
+    console.log('ok a product name a header can\'t carry still sends a valid user-agent');
+  } finally {
+    server.close();
+    if (saved === undefined) delete process.env.PRODUCT_NAME; else process.env.PRODUCT_NAME = saved;
+  }
+}
 console.log(`check-link-preview: OK (${n} checks)`);

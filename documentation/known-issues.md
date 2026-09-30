@@ -35,3 +35,78 @@ Workaround: keep the data folder itself readable only by the user the server run
 On the host console at phone width, the Maps tab runs past the right edge of the screen.
 
 Workaround: use a wider window or turn the phone sideways.
+
+## Saving a bundled template reorders its module list
+
+On the host console, saving an edit to a bundled template, such as Travel, rewrites the order of its module list,
+even when only the description changed. **Review** then lists **Modules** as changed. Seen on 2026-09-30.
+
+Workaround: none is needed for owners, since no offer is made to them. Ignore the **Modules** line in **Review**.
+
+## The logo still reads the old name
+
+The logo on the landing page and on the host console's bar reads "COFFEE PUB MAGPIE", the product's old name.
+The words on those pages say Collaborator. GitHub #110.
+
+Workaround: none.
+
+## Opens with can show an older list after a failed save
+
+In a space's settings, **Opens with** saves each tick as you click. If one save fails while later clicks are still
+waiting to be saved, the ticks can show an older list than the one the server kept. Seen on 2026-09-30.
+
+Workaround: reload the page to see what is saved.
+
+## Opens with notes a module with no canvas as off in this space
+
+A module that has no canvas at all, such as Stream, can be on a space's saved **Opens with** list when it was
+put there through the API. The list keeps it ticked with the note "(off in this space)", where "(can't open on the
+canvas)" is meant. Seen on 2026-09-30.
+
+Workaround: none is needed; untick it.
+
+## Opens with shows an uninstalled module by its id
+
+A module on a space's saved **Opens with** list that has since been uninstalled is listed with the note "(not
+installed)", under its id rather than its name. Seen on 2026-09-30.
+
+Workaround: none; untick it to take it off the list.
+
+## Snapped modules come back small after a reload
+
+With **Snap every floating module to a grid** on, modules the switch tiled come back at their smallest size after
+the page is reloaded: two modules of about 684 by 394 pixels come back at about 280 by 180. A module that is closed
+and opened again does the same. After either, moving **Grid size** back no longer returns the sizes the modules had
+before. Seen on 2026-09-30; it is older than the grid size keeping modules apart.
+
+Workaround: resize the modules, or turn **Snap every floating module to a grid** off and on again, which tiles
+them across the canvas.
+
+## Resizing the window can leave snapped modules overlapping
+
+Resizing the window re-fits snapped modules to the grid the new size makes, and forgets where they were put. At a
+narrow width they can overlap, and they stay small and overlapping when the window grows again, until the grid size
+changes or they are dragged. Moving **Grid size** back then returns the sizes from the narrow window, not the ones
+from before. Seen on 2026-09-30; it is older than the grid size keeping modules apart.
+
+Workaround: move **Grid size** once, which settles them apart, or drag them apart.
+
+## The header crowds between about 641 and 800 pixels wide
+
+In a window between about 641 and 800 pixels wide, the header has too little room for its three parts: the crumb
+saying where you are wraps onto two lines, and the right end (Manage, the time, your picture) can run over the
+**Spaces** link in the middle. This is older than the account menu; it is a limit of the header's layout. Seen on
+2026-09-30, in headless Chromium at 700 pixels.
+
+Workaround: make the window wider than 800 pixels, or narrower than 640, where the header folds into its menu.
+
+## The Paste button on a picture only gets a PNG
+
+In Chromium, the **Paste** button on a picture box receives a copied picture only as a PNG. A copied animated GIF
+arrives as a still picture, and a copied JPEG photo arrives as a PNG, which can be larger than the photo and go over
+the 20 MB limit where the same file would not. Where the browser won't let the page read the clipboard (and on a
+server not reached over HTTPS, where there is no **Paste** button at all), only the keyboard paste works. Seen on
+2026-09-30, in headless Chromium.
+
+Workaround: Tab to the picture box and press Ctrl+V (Cmd+V on a Mac), which keeps a copied file as it is, or click
+the box and choose the file.

@@ -55,8 +55,11 @@ sign-up is on, expires after 7 days, and works once.
 
 A guest has no account, for someone dropping in once. While in a call, open the settings popover
 (the gear next to chat and reactions) and, under **Guests**, turn on that space's link. Anyone with it
-lands on a page asking only for a name, then joins straight into that space with video, microphone,
-chat and reactions.
+lands on a page headed "Enter <space>" that asks only for a name; **Enter** (a door) takes them into that space.
+Where the template or the owner has changed the word for entering a space, the heading and the button use that
+word instead (see "The word on the button for entering a space" in [Manage](userguide-environment-settings.md)). A guest's first visit opens the conference and
+the chat, unless the space's **Opens with** (or the environment's list for a new space) says otherwise; the page
+mentions the microphone only when the conference will open.
 
 Anyone in the call with the right permission can turn the link on, copy it, or turn it off. It is a
 standing door rather than single-use: it works for as many guests as show up until someone turns it
@@ -76,12 +79,12 @@ Open **Roles** on the Manage page to see a grid of checkboxes: one row per permi
 - **Moderator** is what someone gets in any space where they are marked **Moderator** on their
   profile's **Spaces** tab, on top of their ordinary role there.
 - **Member** is an ordinary account.
-- **Guest** is everyone who joins from a space's guest link.
+- **Guest** is everyone who comes in from a space's guest link.
 
 The permissions are grouped:
 
 - **Modules** (the environment's word for it): see and join the conference, open and read the chat. Everyone has both by default. Without
-  the first, a person joins a space for its chat and modules only and cannot send or receive audio or video.
+  the first, a person enters a space for its chat and modules only and cannot send or receive audio or video.
 - **In the Space**: send chat messages, send pictures in chat, use reactions, share their screen.
 - **Asides**: start a private conversation, step aside with someone (recorded).
 - **Moderation**: mute other people, kick other people, manage a space's guest link.
@@ -98,6 +101,32 @@ An owner opens someone's profile and chooses the **Spaces** tab to see one secti
 belong to. In each, **Moderator** makes them a moderator in that space only, so they get everything
 the Moderator role has there and nothing extra elsewhere. **Use Default Profile Images** decides
 whether the space's own pictures replace their defaults, and **Remove** takes them out of the space.
+
+## Your profile and signing out
+
+Your picture and name are at the right end of the header on every page. Anyone with an account can use them; a
+guest has no picture there and no account menu.
+
+1. Click your picture. A menu opens under it.
+2. Choose **View profile** to open your profile page. In a space it opens over the call, which keeps running.
+3. Or choose **Sign out**. It also forgets the light or dark choice made in this browser, so the next person here
+   starts from the default.
+
+The menu also works from the keyboard: the arrow keys move, Enter picks, and Escape closes it.
+
+On a phone your picture is not in the header. It is in the header's menu instead:
+
+1. Tap the menu button (**Menu**, three lines) at the right of the header.
+2. At the end of the menu, after a line, are your picture and name. They are only a label; tapping them does
+   nothing.
+3. Tap **View profile** or **Sign out** under them. They do the same as on a wider screen.
+
+From the keyboard, opening the menu puts you on its first entry, Tab moves through the entries and back to the menu
+button, and Escape closes it.
+
+To change your photo, open your profile and click the photo at the top, or paste a picture you have copied into it
+(Tab to it and press Ctrl+V, Cmd+V on a Mac, or choose its **Paste** button). Your other pictures on the profile
+work the same way; see "Set a picture" in [Participant and Character Images](userguide-images.md).
 
 ## Light or dark
 

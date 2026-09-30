@@ -14,14 +14,14 @@
 
 import { api, markModuleRead, followTheme } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
+import { whatOpens } from '/opens-with.js';
+import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle } from '/snap-grid.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
 // and each module's mode and sizes. `app.canvas` alone is what earlier versions kept for all
 // spaces, and is the starting point for a space with nothing saved yet.
 const STORE_KEY = 'app.canvas';
 const storeKey = (spaceId) => `${STORE_KEY}.${spaceId}`;
-const MIN_W = 240;
-const MIN_H = 160;
 const HEAD_H = 42; // the shared module header height (--module-header-h in style.css)
 const DOCK_MIN = 240;
 const VIDEO_MIN = 280; // the flexible column always keeps at least this much of the canvas
@@ -41,8 +41,8 @@ function loadSaved(spaceId) {
   return rest;
 }
 
-// The modules a space opens with (ids, in order), or null when nothing is remembered yet. The space
-// list's "Join with" choice reads and writes this.
+// The modules this person had open in a space (ids, in order), or null when nothing is remembered yet. The space
+// list's "Open with" choice reads and writes this.
 export function joinModules(spaceId) {
   const open = loadSaved(spaceId).__open;
   return Array.isArray(open) ? open : null;
@@ -126,8 +126,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     return w > 0 ? w < 640 : canvas.classList.contains('narrow');
   }
 
+  // `holdStore`: the grid-size slider's preview changes the layout on every step but writes it once, when let go.
+  let holdStore = false;
   function persist() {
-    if (!spaceId) return; // an aside remembers nothing
+    if (!spaceId || holdStore) return; // an aside remembers nothing
     try {
       localStorage.setItem(storeKey(spaceId), JSON.stringify(saved));
     } catch {
@@ -186,8 +188,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // SNAP_GAP, drawn (`.snap-grid`) only while a snapped module is being dragged. Docked and window are untouched.
   // The grid's pitch (a cell's width; a cell is 0.77 as tall) is the canvas's: the space bar's slider sets it, remembered with
   // the space's layout (`__snap.pitch`), beside the canvas-level switch (`__snap.all`) that snaps every floating module, now and later.
-  const SNAP_PITCH = { min: 60, max: 320, step: 10, default: 130 };
-  const SNAP_GAP = 16; // the same 16px clampBox keeps clear of the window's edges, so a module spanning every cell still fits the grid
+  const SNAP_PITCH = { min: 50, max: 320, step: 10, default: 130 };
   const snapPitch = () => { const p = Number(saved.__snap?.pitch); return p >= SNAP_PITCH.min && p <= SNAP_PITCH.max ? p : SNAP_PITCH.default; };
   const snapAllOn = () => Boolean(saved.__snap?.all);
   const snapping = (id) => snapAllOn() || Boolean(saved[id]?.snap);
@@ -195,48 +196,18 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const win = canvasWin();
     const r = canvas.getBoundingClientRect();
     const s = r.width > 0 && r.height > 0 ? r : { left: 0, top: 0, width: win.innerWidth, height: win.innerHeight };
-    const pitch = snapPitch();
-    const cols = Math.max(1, Math.floor(s.width / pitch));
-    const rows = Math.max(1, Math.floor(s.height / (pitch * 0.77)));
-    return { x: s.left, y: s.top, w: s.width, h: s.height, cols, rows, cw: s.width / cols, ch: s.height / rows };
+    return gridFor(s, snapPitch());
   }
-  // The box a run of cells makes, and the run of cells a box is nearest to (never fewer cells than a module's smallest size needs).
-  const cellBox = (g, c) => ({ x: g.x + c.col * g.cw + SNAP_GAP / 2, y: g.y + c.row * g.ch + SNAP_GAP / 2, w: c.cols * g.cw - SNAP_GAP, h: c.rows * g.ch - SNAP_GAP });
-  function snapCell(g, box) {
-    const leastCols = Math.min(g.cols, Math.ceil((MIN_W + SNAP_GAP) / g.cw));
-    const leastRows = Math.min(g.rows, Math.ceil((MIN_H + SNAP_GAP) / g.ch));
-    const cols = Math.max(leastCols, Math.min(g.cols, Math.round((box.w + SNAP_GAP) / g.cw)));
-    const rows = Math.max(leastRows, Math.min(g.rows, Math.round((box.h + SNAP_GAP) / g.ch)));
-    const col = Math.max(0, Math.min(g.cols - cols, Math.round((box.x - g.x) / g.cw)));
-    const row = Math.max(0, Math.min(g.rows - rows, Math.round((box.y - g.y) / g.ch)));
-    return { col, row, cols, rows };
-  }
-  // Put a snapped module in its cells (its remembered ones, or the ones nearest its box) and remember both.
-  function settleSnap(id, floater, cell) {
+  // The grid's arithmetic (cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle) is in snap-grid.js.
+  // Put a snapped module in its cells (its remembered ones, or the ones nearest its box) and remember both. `placed` is the
+  // box it was put in, kept apart from `box` so a change of grid size can go back to it (setSnapPitch leaves it alone).
+  function settleSnap(id, floater, cell, { keepPlaced = false } = {}) {
     const g = snapGrid();
     const c = clampCell(g, cell || snapCell(g, currentBox(floater)));
     const box = place(floater, cellBox(g, c));
-    remember(id, { cell: c, box });
+    remember(id, keepPlaced ? { cell: c, box } : { cell: c, box, placed: { x: box.x - g.x, y: box.y - g.y, w: box.w, h: box.h } });
     return box;
   }
-  // A cell run that fits this grid, at least as big as a module's smallest size.
-  function leastSpan(g) {
-    return {
-      cols: Math.min(g.cols, Math.max(1, Math.ceil((MIN_W + SNAP_GAP) / g.cw))),
-      rows: Math.min(g.rows, Math.max(1, Math.ceil((MIN_H + SNAP_GAP) / g.ch))),
-    };
-  }
-  function clampCell(g, c) {
-    const least = leastSpan(g);
-    const cols = Math.max(least.cols, Math.min(g.cols, Math.round(c?.cols) || least.cols));
-    const rows = Math.max(least.rows, Math.min(g.rows, Math.round(c?.rows) || least.rows));
-    return {
-      col: Math.max(0, Math.min(g.cols - cols, Math.round(c?.col) || 0)),
-      row: Math.max(0, Math.min(g.rows - rows, Math.round(c?.row) || 0)),
-      cols, rows,
-    };
-  }
-  const cellsOverlap = (a, b) => a.col < b.col + b.cols && b.col < a.col + a.cols && a.row < b.row + b.rows && b.row < a.row + a.rows;
   // The cells already taken by snapped modules that are not part of this layout pass.
   function takenCells(exceptIds) {
     const g = snapGrid();
@@ -246,60 +217,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       if (saved[p.id]?.cell) taken.push(clampCell(g, saved[p.id].cell));
     }
     return taken;
-  }
-  function nearestFree(g, prefer, taken) {
-    const base = clampCell(g, prefer);
-    if (!taken.some((t) => cellsOverlap(t, base))) return base;
-    const max = g.cols + g.rows;
-    for (let dist = 1; dist <= max; dist += 1) {
-      for (let dr = -dist; dr <= dist; dr += 1) {
-        for (let dc = -dist; dc <= dist; dc += 1) {
-          if (Math.abs(dr) + Math.abs(dc) !== dist) continue;
-          const cell = clampCell(g, { ...base, col: base.col + dc, row: base.row + dr });
-          if (!taken.some((t) => cellsOverlap(t, cell))) return cell;
-        }
-      }
-    }
-    return base;
-  }
-  function nextFree(g, taken, cols, rows) {
-    for (let row = 0; row <= g.rows - rows; row += 1) {
-      for (let col = 0; col <= g.cols - cols; col += 1) {
-        const cell = { col, row, cols, rows };
-        if (!taken.some((t) => cellsOverlap(t, cell))) return cell;
-      }
-    }
-    return null;
-  }
-  // Windows nobody has placed yet: share the grid, or the gaps left by the ones someone did place.
-  function tileFresh(g, count, taken) {
-    const least = leastSpan(g);
-    const cells = [];
-    if (!count) return cells;
-    if (!taken.length) {
-      let across = Math.max(1, Math.round(Math.sqrt(count * (g.cols / Math.max(1, g.rows)))));
-      let down = Math.ceil(count / across);
-      while (across > 1 && Math.floor(g.cols / across) < least.cols) across -= 1;
-      down = Math.ceil(count / across);
-      while (down > 1 && Math.floor(g.rows / down) < least.rows) {
-        down -= 1;
-        across = Math.ceil(count / Math.max(1, down));
-      }
-      const spanC = Math.max(least.cols, Math.min(g.cols, Math.floor(g.cols / across)));
-      const spanR = Math.max(least.rows, Math.min(g.rows, Math.floor(g.rows / down)));
-      for (let i = 0; i < count; i += 1) {
-        const c = i % across;
-        const r = Math.floor(i / across);
-        const cell = clampCell(g, { col: c * spanC, row: r * spanR, cols: spanC, rows: spanR });
-        cells.push(nearestFree(g, cell, taken.concat(cells)));
-      }
-      return cells;
-    }
-    for (let i = 0; i < count; i += 1) {
-      const used = taken.concat(cells);
-      cells.push(nextFree(g, used, least.cols, least.rows) || nearestFree(g, { col: 0, row: 0, cols: least.cols, rows: least.rows }, used));
-    }
-    return cells;
   }
   const overlapArea = (a, b) => {
     const w = Math.max(0, Math.min(a.x + a.w, b.x + b.w) - Math.max(a.x, b.x));
@@ -430,15 +347,34 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     for (const p of [...opened.values()]) if (p.mode === 'float' && supports(p, 'dock') && !isNarrow()) setMode(p.id, 'dock');
     update();
   }
-  // The grid's size, from the space bar's slider: every snapped module keeps the cells it already has. While the slider
-  // moves (`preview`) the grid shows, so the size can be seen; it hides when the slider is let go.
+  // The grid's size, from the space bar's slider: every snapped module is re-settled into the cells nearest the box it was
+  // put in (`placed`), so it keeps about its size in pixels, not its count of cells, and none sits on another where the canvas
+  // has room (snap-grid.js's resettle). Going back to the old size gives back the old boxes. While the slider moves
+  // (`preview`) the grid shows, so the size can be seen, and the modules already sit where letting go leaves them.
   function setSnapPitch(px, { preview = false } = {}) {
     const pitch = Math.min(SNAP_PITCH.max, Math.max(SNAP_PITCH.min, Math.round(Number(px) || SNAP_PITCH.default)));
-    saved.__snap = { ...(saved.__snap || {}), pitch };
-    persist();
-    for (const p of opened.values()) { const floater = floaterOf(p); if (floater && snapping(p.id)) settleSnap(p.id, floater, saved[p.id]?.cell); }
+    holdStore = true;
+    try { resnap(pitch); } finally { holdStore = false; }
+    if (!preview) persist(); // stored once, when the slider is let go (a key press is a let go too)
     const layer = layerFor(canvasDoc());
     if (preview) showGrid(layer, snapGrid()); else hideGrid(layer);
+  }
+  function resnap(pitch) {
+    const before = snapGrid();
+    const snapped = [...opened.values()].filter((p) => floaterOf(p) && snapping(p.id));
+    // A module snapped before `placed` was kept starts from where it is now, on the grid it is on now.
+    for (const p of snapped) {
+      if (saved[p.id]?.placed) continue;
+      const b = currentBox(floaterOf(p));
+      remember(p.id, { placed: { x: b.x - before.x, y: b.y - before.y, w: b.w, h: b.h } });
+    }
+    saved.__snap = { ...(saved.__snap || {}), pitch };
+    const g = snapGrid();
+    const cells = resettle(g, snapped.map((p) => {
+      const b = saved[p.id].placed;
+      return { id: p.id, box: { x: g.x + b.x, y: g.y + b.y, w: b.w, h: b.h } };
+    }));
+    for (const p of snapped) settleSnap(p.id, floaterOf(p), cells.get(p.id), { keepPlaced: true });
   }
 
   // Drag a floating module by `handle`, resize it by `grip`. A snapped module moves and grows by whole cells.
@@ -1126,21 +1062,19 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     snapshot();
   }
 
-  // Ids from a list that this person may open here. Null when the list itself is absent, so the next fallback applies.
-  // An empty result means the list was set and nothing on it can be opened.
-  function openable(list) {
-    if (!Array.isArray(list)) return null;
-    return list.filter((id) => {
-      if (builtins.has(id)) {
-        const def = builtins.get(id);
-        return !def.allowed || def.allowed();
-      }
-      return available.some((m) => m.id === id);
-    });
+  // Whether this person may open a module here: the conference and the chat by their own rule, any other by being on
+  // in this space for them.
+  function canOpenHere(id) {
+    if (builtins.has(id)) {
+      const def = builtins.get(id);
+      return !def.allowed || def.allowed();
+    }
+    return available.some((m) => m.id === id);
   }
 
-  // Open what this space starts with: a fresh request, then the remembered layout, then the space's own list,
-  // then the environment's list, then the conference (or the chat, when the conference is off).
+  // Open what this space starts with (plan-entering.md, "What opens on entering"): a fresh request, then the
+  // remembered layout (never for a guest), then the space's own list, then the environment's list, then the chat and
+  // every module on here without the conference (for a guest, the conference and the chat). See opens-with.js.
   function restore() {
     suspended = true;
     restoring = true;
@@ -1148,14 +1082,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === openRequest.module) ? openRequest : null;
     openRequest = null;
     keepLayout = Boolean(request);
-    const noConference = builtins.has('conference') && builtins.get('conference').allowed && !builtins.get('conference').allowed();
-    const product = [noConference ? 'chat' : 'conference'];
-    const own = openable(spaceOpensWith);
-    const fromEnvironment = openable(environmentOpensWith);
-    const configured = own !== null ? own : (fromEnvironment !== null ? fromEnvironment : product);
-    const want = request ? [request.module] : Array.isArray(saved.__open) ? saved.__open : configured;
+    const want = request ? [request.module] : whatOpens({
+      remembered: saved.__open,
+      own: spaceOpensWith,
+      environment: environmentOpensWith,
+      modules: available.map((m) => m.id),
+      canOpen: canOpenHere,
+      guest: Boolean(guestToken),
+    });
     for (const id of want) {
-      if (builtins.has(id)) api_openBuiltin(id);
+      if (builtins.has(id)) { if (canOpenHere(id)) api_openBuiltin(id); }
       else {
         const m = available.find((x) => x.id === id);
         if (m) openModule(m);
@@ -1170,9 +1106,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
         sequence.forEach((p, i) => { p.order = values[i]; });
       }
     }
-    // On a phone the call is the view to start on when it was opened. Otherwise the first thing opened is the view.
-    if (isNarrow() && opened.has('conference')) view = 'conference';
-    else if (isNarrow()) {
+    // On a phone the first tab is the first module opened, whichever it is (the call only when it comes first).
+    if (isNarrow()) {
       const first = want.find((id) => opened.has(id));
       if (first) view = first;
     }

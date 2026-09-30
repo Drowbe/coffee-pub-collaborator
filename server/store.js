@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const words = require('./words');
+const { LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
 
 // Image slots. Participant: what the video box shows when the camera is
 // off, plus optional overlays drawn on top while they talk, are muted, are
@@ -46,6 +47,14 @@ function opensWithProblem(list) {
     seen.add(id);
   }
   return null;
+}
+// A space's own "Opens with" (plan-entering): the module ids it opens with the first time, in order, the built-ins
+// `conference` and `chat` included. Keeps up to 20 distinct strings of the module id pattern and drops anything else;
+// a module that is off or not installed is kept. null when nothing is left, which means "not set".
+function cleanOpensWith(list) {
+  if (!Array.isArray(list)) return null;
+  const out = [...new Set(list.filter((id) => typeof id === 'string' && OPENS_WITH_ID.test(id)))].slice(0, MAX_OPENS_WITH);
+  return out.length ? out : null;
 }
 // A space's optional "launch" link (their VTT, wiki, playlist, whatever) --
 // shown as a button next to Join and in the in-call toolbar. The icon is
@@ -238,8 +247,11 @@ const DEFAULT_CALL_PREFS = {
 const LANGUAGES = ['en'];
 // The currencies the server setting accepts: the ISO 4217 codes Node's own Intl knows (the page lists the same ones).
 const CURRENCIES = new Set(typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('currency') : []);
+// The environment name a never-renamed install still has: a sentinel from before the name was configurable, kept as it
+// was so a stored one is still recognised; environmentFor() in server/index.js replaces it once, on start.
+const UNNAMED_ENVIRONMENT = 'Coffee Pub Tavern';
 const DEFAULT_SETTINGS = {
-  environmentName: 'Coffee Pub Tavern', // a sentinel for a never-renamed install; environmentFor() replaces it once, on start
+  environmentName: UNNAMED_ENVIRONMENT, // a sentinel for a never-renamed install; environmentFor() replaces it once, on start
   // null: the owner hasn't chosen one, so the template's shows, else DEFAULT_HOME_ICON (Store#homeIcon). Stored only
   // when the owner picks one.
   homeIcon: null,
@@ -522,7 +534,7 @@ class Store {
     this.file = path.join(dir, 'app.json');
     // A rename from before this file was called app.json: move it once, so nobody's data goes missing under the
     // new name and nobody needs to touch anything by hand.
-    const legacyFile = path.join(dir, 'tavern.json');
+    const legacyFile = path.join(dir, LEGACY_ENVIRONMENT_RECORD);
     if (!fs.existsSync(this.file) && fs.existsSync(legacyFile)) fs.renameSync(legacyFile, this.file);
     this.imagesDir = path.join(dir, 'images');
     fs.mkdirSync(this.imagesDir, { recursive: true });
@@ -530,6 +542,8 @@ class Store {
     // The words this environment's template gives (plan-environment-templates.md): none until templates are built,
     // so every key reads the owner's word or the default.
     this.templateWords = null;
+    // The verbs this environment's template gives (addendum 4): null with no template.
+    this.templateVerbs = null;
     // The module display names and icons this environment's template gives, by module id (step 3; none until then).
     this.templateModuleNames = null;
     this.templateModuleIcons = null;
@@ -678,6 +692,10 @@ class Store {
       // Whether this space allows a guest link at all. Default on: existing
       // spaces from before this setting existed keep working as before.
       allowGuests: r.allowGuests === undefined ? true : Boolean(r.allowGuests),
+      // What the space opens with the first time someone enters it; absent while not set (see cleanOpensWith).
+      ...(cleanOpensWith(r.opensWith) ? { opensWith: cleanOpensWith(r.opensWith) } : {}),
+      // AI turned off in this space, whatever a role may do (updateSpace); absent while AI is allowed here.
+      ...(r.aiOff === true ? { aiOff: true } : {}),
     };
   }
 
@@ -845,6 +863,21 @@ class Store {
     return words.ownOnly(this.data.settings.words);
   }
 
+  // Every verb for this environment (server/words.js, addendum 4): the owner's, else the template's, else the default.
+  resolvedVerbs() {
+    return words.resolveVerbs(this.data.settings.verbs, this.templateVerbs);
+  }
+
+  // The template's own verbs, unresolved ({ <key>: "<text>" }), or null for an environment with no template.
+  templateVerbsView() {
+    return this.templateVerbs ? words.ownVerbsOnly(this.templateVerbs) : null;
+  }
+
+  // The owner's own verbs as stored (settings.verbs), unresolved: { <key>: "<text>" }, {} when none are set.
+  ownVerbs() {
+    return words.ownVerbsOnly(this.data.settings.verbs);
+  }
+
   // --- module display names and icons (plan-environment-templates.md, "Module display names and icons") -------
   // What a module is called and shown as in this environment, by module id (installed, bundled or built in): the
   // owner's own (settings.moduleNames / settings.moduleIcons), else the template's, else null, meaning the module's
@@ -977,6 +1010,14 @@ class Store {
       if (Object.keys(next).length) s.words = next;
       else { delete s.words; clearWords = true; }
     }
+    // The owner's verbs (settings.verbs, addendum 4), the same way: null returns one to the template's or the default.
+    let clearVerbs = false;
+    if (patch.verbs !== undefined) {
+      const { verbs: next, error } = words.applyVerbsPatch(s.verbs, patch.verbs);
+      if (error) throw new StoreError(error);
+      if (Object.keys(next).length) s.verbs = next;
+      else { delete s.verbs; clearVerbs = true; }
+    }
     if (patch.environmentName !== undefined) s.environmentName = cleanText(patch.environmentName, 60) || DEFAULT_SETTINGS.environmentName;
     // null (or '') goes back to the template's home icon, else the default.
     if (patch.homeIcon !== undefined) {
@@ -1094,6 +1135,7 @@ class Store {
     }
     Object.assign(this.data.settings, s);
     if (clearWords) delete this.data.settings.words;
+    if (clearVerbs) delete this.data.settings.verbs;
     if (clearSpaceDefaults) delete this.data.settings.spaceDefaults;
     this.save();
     return this.data.settings;
@@ -1557,7 +1599,17 @@ class Store {
       draft.allowGuests = Boolean(patch.allowGuests);
       if (!draft.allowGuests && draft.guestToken) draft.guestToken = null;
     }
+    // Opens with: a list of module ids, or null to clear it back to "not set". An empty list is "not set" too.
+    if (patch.opensWith !== undefined) {
+      if (patch.opensWith !== null && (!Array.isArray(patch.opensWith) || patch.opensWith.some((id) => typeof id !== 'string'))) {
+        throw new StoreError(`Opens with must be a list of ${this.word('module', { many: true })}.`);
+      }
+      const list = cleanOpensWith(patch.opensWith);
+      if (list) draft.opensWith = list;
+      else delete draft.opensWith;
+    }
     Object.assign(space, draft);
+    if (!('opensWith' in draft)) delete space.opensWith;
     this.save();
     return this.spaceById(id);
   }
@@ -1970,5 +2022,5 @@ module.exports = {
   LEGACY_SLOTS, ROLES, ASSIGNABLE_ROLES, hasOwnerRights, ROLE_PERMISSIONS, IMAGE_TYPES, MAX_IMAGE_BYTES, DEFAULT_BORDER_COLOR, LOBBY, randomToken, cleanText, cleanLogin,
   sanitizeMfa, CURRENCIES, QUALITY_OPTIONS, LANGUAGES, BUILTIN_THEME_IDS: BUILTIN_THEMES.map((t) => t.id), displayNameProblem,
   THEME_BASE, THEME_OPTIONAL, DEFAULT_THEME, cleanColor, cleanAuthor, cleanReactions, cleanThemeName, MAX_THEMES,
-  DEFAULT_HOME_ICON,
+  DEFAULT_HOME_ICON, UNNAMED_ENVIRONMENT,
 };

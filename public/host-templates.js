@@ -3,12 +3,14 @@
 // can be edited in place (an Edited badge, Reset to shipped, and a notice when a newer image changed the file).
 // Duplicate makes a host template. Export for any; Import… from a file (a clashing id asks for another).
 import { api, escapeHtml, word } from '/brand.js';
-import { CHANGEABLE, DEFAULTS } from '/words.js';
+import { CHANGEABLE, DEFAULTS, VERBS, DEFAULT_VERBS } from '/words.js';
 import { fileText } from '/file-text.js';
 
 const $ = (id) => document.getElementById(id);
 const say = (el, text, error = false) => { el.textContent = text; el.classList.toggle('error', error); el.hidden = !text; };
-let product = 'Collaborator';
+let product = ''; // the product's name (PRODUCT_NAME), from the host console's settings; see initTemplates
+// "That isn't a <product> theme file.", or "a theme file" before the name is known.
+const fileOfKind = (kind) => (product ? `${product} ${kind} file` : `${kind} file`);
 const BUILT_IN = ['conference', 'chat'];
 const SOURCE = { bundled: 'Bundled', host: 'Yours', imported: 'Imported' };
 const DEFAULT_HOME_ICON = 'couch';
@@ -28,7 +30,7 @@ const moduleIcon = (id) => (shipped || []).find((m) => m.id === id)?.icon || 'pu
 export function initTemplates(templates, changed, name) {
   if (typeof name === 'string' && name.trim()) product = name.trim();
   const by = $('template-shipped-by');
-  if (by) by.textContent = product;
+  if (by && product) by.textContent = `${product} ships`; // "the one shipped" until the name is known
   onChange = changed || onChange;
   list = templates || [];
   renderList();
@@ -135,6 +137,7 @@ const COMPARE_FIELDS = () => [
   ['name', 'Name'],
   ['description', 'Description'],
   ['words', 'Words'],
+  ['verbs', 'Verbs'],
   ['icons', 'Home icon'],
   ['moduleNames', `${word('module', { cap: true })} names`],
   ['moduleIcons', `${word('module', { cap: true })} icons`],
@@ -187,7 +190,7 @@ $('template-import-file').addEventListener('change', async () => {
   input.value = '';
   if (!file) return;
   const status = $('templates-status');
-  if (file.size > 1024 * 1024) return say(status, `That isn't a ${product} template file.`, true);
+  if (file.size > 1024 * 1024) return say(status, `That isn't a ${fileOfKind('template')}.`, true);
   const text = await fileText(file);
   let id = '';
   for (;;) {
@@ -245,6 +248,11 @@ async function openEditor(t) {
   $('te-words').innerHTML = CHANGEABLE.map((key) => `<div class="word-row" data-word="${key}"><strong>${escapeHtml(cap(DEFAULTS[key].one))}</strong>`
     + `<input type="text" data-part="one" maxlength="30" value="${escapeHtml(w[key]?.one || '')}" placeholder="${escapeHtml(DEFAULTS[key].one)}" aria-label="${escapeHtml(DEFAULTS[key].one)}, singular">`
     + `<input type="text" data-part="many" maxlength="30" value="${escapeHtml(w[key]?.many || '')}" placeholder="${escapeHtml(DEFAULTS[key].many)}" aria-label="${escapeHtml(DEFAULTS[key].one)}, plural"></div>`).join('');
+  // The verbs (addendum 4): one field each, blank for the default. `data-verb-key`, not data-verb, which the page fills.
+  const v = (t && t.verbs) || {};
+  const verbLabel = { enter: `Button for entering ${word('space', { a: true })}` };
+  $('te-verbs').innerHTML = VERBS.map((key) => `<div class="word-row" data-verb-key="${key}"><strong>${escapeHtml(verbLabel[key] || key)}</strong>`
+    + `<input type="text" data-verb-input maxlength="20" value="${escapeHtml(v[key] || '')}" placeholder="${escapeHtml(DEFAULT_VERBS[key])}" aria-label="${escapeHtml(verbLabel[key] || key)}"></div>`).join('');
   $('te-home').value = (t && t.icons && t.icons.home) || '';
   previewHome();
   const on = new Set((t && t.modules) || ['chat', 'conference']);
@@ -379,9 +387,12 @@ $('te-reactions-on').addEventListener('change', () => {
 $('te-reaction-add').addEventListener('click', () => { const row = reactionRow(); $('te-reactions').append(row); row.querySelector('input').focus(); });
 $('te-reactions').addEventListener('click', (e) => { if (e.target.closest('[data-action="te-reaction-remove"]')) { e.target.closest('.reaction-row').remove(); $('te-reaction-add').focus(); } });
 
-// The theme: a theme file (as Manage > Theme exports it), embedded as it is; the server checks it on Save.
-function renderTheme() {
-  $('te-theme-name').textContent = theme ? `${theme.name}${theme.author ? ` by ${theme.author}` : ''}: added to a new ${word('environment')} and used there.` : `None: ${word('environment', { many: true })} keep their own theme.`;
+// The theme: a theme file (as Manage > Theme exports it). The server reads it (POST /api/host/themes/check, which stores
+// nothing) and answers the theme as it will be embedded, so this page knows no file format of its own; Save checks the
+// embedded theme again.
+function renderTheme(dropped = []) {
+  const left = dropped.length ? ` Left out: ${dropped.join(', ')}.` : '';
+  $('te-theme-name').textContent = theme ? `${theme.name}${theme.author ? ` by ${theme.author}` : ''}: added to a new ${word('environment')} and used there.${left}` : `None: ${word('environment', { many: true })} keep their own theme.`;
   $('te-theme-clear').hidden = !theme;
 }
 $('te-theme-pick').addEventListener('click', () => $('te-theme-file').click());
@@ -392,15 +403,13 @@ $('te-theme-file').addEventListener('change', async () => {
   input.value = '';
   if (!file) return;
   clearProblems('theme');
+  if (file.size > 1024 * 1024) { showProblems([`theme: That isn't a ${fileOfKind('theme')}.`]); return; }
   try {
-    if (file.size > 1024 * 1024) throw new Error();
-    const parsed = JSON.parse(await fileText(file));
-    if (!parsed || typeof parsed !== 'object' || !parsed.collaboratorTheme) throw new Error();
-    const { collaboratorTheme, ...rest } = parsed;
-    theme = rest;
-    renderTheme();
-  } catch {
-    showProblems([`theme: That isn't a ${product} theme file.`]);
+    const answer = await api('POST', '/api/host/themes/check', new Blob([await fileText(file)], { type: 'text/plain' }));
+    theme = answer.theme;
+    renderTheme(Array.isArray(answer.dropped) ? answer.dropped : []);
+  } catch (err) {
+    showProblems([`theme: ${err.message}`]);
   }
 });
 
@@ -412,6 +421,11 @@ function fields() {
     const one = row.querySelector('[data-part="one"]').value.trim();
     const many = row.querySelector('[data-part="many"]').value.trim();
     if (one || many) words[row.dataset.word] = { one, many };
+  }
+  const verbs = {};
+  for (const row of $('te-verbs').children) {
+    const text = row.querySelector('[data-verb-input]').value.trim();
+    if (text) verbs[row.dataset.verbKey] = text;
   }
   const moduleNames = {};
   const moduleIcons = {};
@@ -436,6 +450,7 @@ function fields() {
     name: $('te-name').value.trim(),
     description: $('te-description').value.trim(),
     words,
+    verbs: Object.keys(verbs).length ? verbs : gone,
     phases: readPhases(),
     icons: $('te-home').value.trim() ? { home: $('te-home').value.trim() } : {},
     modules: [...$('te-modules').querySelectorAll('[data-module]:checked')].map((i) => i.dataset.module),

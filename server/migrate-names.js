@@ -843,5 +843,5 @@ function refusedAtStartup(err, { hosted, log = console.error, stop = (code) => p
 module.exports = {
   NAMES_VERSION, HOST_PARTS, ENVIRONMENT_PARTS, ENVIRONMENT_COPY_DIR, HOST_COPY_DIR, NEWER_BACKUP, UNREADABLE_BACKUP,
   MigrationError, migrateEnvironment, migrateHost, recordedParts, unknownParts, backupRefusal, refusedAtStartup,
-  REFUSED_NEWER, REFUSED_FAILED, REFUSED_UNREADABLE, refusalSentence, asMigrationError,
+  REFUSED_NEWER, REFUSED_FAILED, REFUSED_UNREADABLE, refusalSentence, asMigrationError, LEGACY_ENVIRONMENT_RECORD,
 };

@@ -230,11 +230,24 @@ try {
   await call('PATCH', `/api/spaces/${space.id}`, { cookie: owner, body: { aiOff: false } });
   n += 1;
 
-  const fence = '```collaborator\n{"title":"Faro","content":"A city in Portugal."}\n```';
+  const fence = '```objects\n{"title":"Faro","content":"A city in Portugal."}\n```';
   const check = await call('POST', `/api/spaces/${space.id}/objects/check`, { cookie: pat, raw: fence, type: 'text/plain' });
   assert.equal(check.status, 200, check.text);
   assert.equal(check.json.objects.length, 1);
   assert.equal(check.json.objects[0].title, 'Faro');
+  n += 1;
+
+  // The chat's paste detection asks this route: an answer with a block fenced with a past label (and one mixing it with
+  // an objects block) is refused whole, so no "Bring in" is offered (plan-kind-names.md, decision 11); an answer whose
+  // fences were lost is still read.
+  const oldAnswer = 'that answer is in an older format: copy the instructions again and ask the AI for a new answer';
+  const OLD_DIR = new URL('./fixtures/format-old/', import.meta.url);
+  for (const name of fs.readdirSync(OLD_DIR).filter((f) => f.startsWith('answer-'))) {
+    const refusedPaste = await call('POST', `/api/spaces/${space.id}/objects/check`, { cookie: pat, raw: fs.readFileSync(new URL(name, OLD_DIR), 'utf8'), type: 'text/plain' });
+    assert.deepEqual([refusedPaste.status, refusedPaste.json], [400, { error: oldAnswer }], name);
+  }
+  const lost = await call('POST', `/api/spaces/${space.id}/objects/check`, { cookie: pat, raw: fs.readFileSync(new URL('./fixtures/object-format/no-fences.txt', import.meta.url), 'utf8'), type: 'text/plain' });
+  assert.deepEqual([lost.status, lost.json.objects.map((o) => o.title)], [200, ['Casa do Largo', 'Bar do Peixe']], lost.text);
   n += 1;
 
   assert.equal((await call('POST', '/api/modules/bundled/assistant/install', { cookie: owner, body: {} })).status, 201);

@@ -6,14 +6,12 @@ side of things.
 
 ## In progress
 
-- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built; its console is still to be walked live.
+- **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
 
 ## Planned
 
-- #3 Entering a space: Enter as the main action, the call its own control ([plan-entering](plans/plan-entering.md)).
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
-- #95 Planner phases ([plan-planner-phases](plans/plan-planner-phases.md)): steps 1 to 5 are built. Still to come: step 6, what a new space opens on entering (`spaceDefaults.opensWith` is stored and offered, and nothing opens from it yet); and a live look at the home widget's phase line.
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.
@@ -24,14 +22,25 @@ side of things.
 
 - #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
 - #30 Modules with two people on a real server.
+- #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
+- The chat's **Bring in N objects** button: offered for a pasted answer with an `objects` block, a `card` block or no fences, and not for an answer with an old-named block ([plan-kind-names](plans/plan-kind-names.md), step 5; the route behind it was checked).
+- #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list (and **Back to** an aside); what opens on a first and a second visit, and for a guest; the phone's first tab; the call control's count, **Join** and microphone hint; the status line.
 
 ## Small fixes and checks
 
 - Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.
+- #110 The old name, Magpie, is gone from the code, the templates and the guides, architecture, API and design documents, and the file formats are named by kind ([plan-kind-names](plans/plan-kind-names.md), built 2026-09-30). Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the plans that still say Magpie or name the old formats (17 plans, product-planner's).
+- An accented product name loses its accents in the server's user-agent: `PRODUCT_NAME` "Café Pub" is sent as `Caf-Pub` (only printable ASCII is kept, `headerProductName()` in `server/product-name.js`).
+- The product name guard in `tools/check-names.mjs` checks that `PAST_BLOCK_LABELS` is a frozen list of two; it should pin the two past labels exactly.
+- A fixed-time check case for the old-fence pattern in `server/object-format.js` (`PAST_FENCE`) on a very long "> " prefix.
 - #25 A check that compiles every `pattern` attribute the way browsers do.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.
 - #23 Too many connections to the server from one page.
+- `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
+- A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).
+- The SDK menu's link entries (`<a role=menuitem>` in `public/sdk/host.js`, `host.menu.show`) don't open on Space; Enter opens them. Buttons and other entries do.
+- Pasting a picture into a picture box: check it in Firefox, Safari, on a real phone, with a real screen reader, and with a file (not a picture) copied from the computer's own file manager. Verified in headless Chromium only.
 
 ## Sign-in and accounts
 
@@ -60,6 +69,10 @@ side of things.
 - #39 The nav colours in the theme editor.
 - #31 Customising the dashboard's layout, and snapping on the spaces page.
 - #58 One input in Chat ([plan-one-input](plans/plan-one-input.md)): every step is built. Still to come: the plan's live checks in a browser and a real call.
+- Joining the call on a phone must be something the person chooses to do, as part of the navigation work: showing or hiding the conference module is not joining (Thomas, 2026-09-30).
+- Thomas's, for later: a **Clean Up** button that rearranges the modules on the canvas, and a way to choose and save layouts.
+- Decided, no change (2026-09-30): on touch screens the microphone note stays a hover and focus hint.
+- With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 
 ## Modules
 
@@ -76,3 +89,4 @@ side of things.
 - #45 Reading booking confirmation emails into the Planner.
 - #32 A module for Foundry.
 - #33 A module for WhatsApp or SMS.
+- Research's **Add a photo** could take a pasted picture too, as the picture boxes do. A small module change; Thomas hasn't decided.

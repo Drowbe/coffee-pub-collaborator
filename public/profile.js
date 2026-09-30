@@ -4,6 +4,7 @@
 // changed, rather than a flat table of everyone on the Manage page.
 import { renderModuleSettings } from '/module-settings.js';
 import { pickBackground } from '/background-picker.js';
+import '/slot-paste.js'; // paste a picture into any image slot
 import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, crumbLink, hasOwnerRights, isAdminAccount, roleLabel, word, applyWords, maskPassword } from '/brand.js';
 import { formatHotkey, comboFromEvent } from '/hotkeys.js';
 import { mountEnrolment, mountDisable } from '/mfa-enrol.js';
@@ -120,8 +121,8 @@ function render() {
 
   $('admin-link').hidden = !hasOwnerRights(me || user);
   $('portrait-hint').textContent = editing
-    ? `${user.displayName}'s own photo: it shows next to their name in the header and on their tile in the call. Click it to change it -- it is not the picture used in the recording, that's below.`
-    : 'Your own photo: it shows next to your name in the header and on your tile in the call. Click it to change it; square images look best. It is not the picture used in the recording; that one is set in Manage.';
+    ? `${user.displayName}'s own photo: it shows next to their name in the header and on their tile in the call. Click it to change it, or paste a picture -- it is not the picture used in the recording, that's below.`
+    : 'Your own photo: it shows next to your name in the header and on your tile in the call. Click it to change it, or paste a picture; square images look best. It is not the picture used in the recording; that one is set in Manage.';
 
   // Account: read-only facts normally, editable fields for an owner. Same
   // boxed layout either way (see .facts/.fact in style.css) -- only

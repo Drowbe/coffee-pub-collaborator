@@ -49,12 +49,14 @@ Who can: anyone signed in, except guests, in a space where **Turn AI off in this
 
 ## Bring in research from another AI
 
-You can research in another AI and bring what it finds into Magpie as objects. This uses none of the environment's AI.
+You can research in another AI and bring what it finds into Collaborator as objects. This uses none of the environment's AI.
 
 1. Open the formatting menu and choose **Bring in research**. It shows only to people who may use `/ai` here (the same rule as "Ask the AI", with or without an AI service set up), and only where something can keep it (the Planner, or a module that keeps notes such as Research).
 2. Choose **Copy instructions for another AI**, paste them into the other AI, then ask your question.
-3. Paste its whole answer into **Paste the whole answer here** and choose **Preview**, or choose **Choose a file** and pick its `.magpie-objects.json` file.
+3. Paste its whole answer into **Paste the whole answer here** and choose **Preview**, or choose **Choose a file** and pick its `.objects.json` file.
 4. A preview marked **Brought in** lists each object with a tick. Untick any you don't want.
 5. Choose **Keep ticked** and confirm.
 
-Pasting an answer straight into the Chat box works too: when it holds objects, **Bring in N objects** appears beside Send and opens the same preview. The limits (50 objects at a time, 256 KB, the "External source" line) are in [Assistant](userguide-assistant.md), "Bring in research from another AI".
+Pasting an answer straight into the Chat box works too: when it holds objects, **Bring in N objects** appears beside Send and opens the same preview.
+
+An answer or file written from instructions copied before 2026-09-30 is in an older format and is refused, with nothing brought in: "that answer is in an older format: copy the instructions again and ask the AI for a new answer" (or "... for a new file"). Copy the instructions again, give them to the AI and ask it for a new answer. Pasted into the Chat box, such an answer offers no **Bring in** button. The limits (50 objects at a time, 256 KB, the "External source" line) are in [Assistant](userguide-assistant.md), "Bring in research from another AI".

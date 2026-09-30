@@ -20,7 +20,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER } = await import(pathToFileURL(copy).href);
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, isShown } = await import(pathToFileURL(copy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -169,6 +169,66 @@ test('the primary bar: refused unless the owner allowed the module there and the
   assert.equal(ok.bar, 'primary');
   assert.equal(ok.zone, 'right');
   assert.equal(ok.system, true);
+});
+
+test('on a phone the primary bar folds: the middle zone and then the right, your picture too, into the menu; nothing stays', () => {
+  const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
+  const byZone = {
+    left: [t('home', 'left')],
+    middle: [t('spaces-link', 'middle', { order: 1 }), t('page-todo', 'middle', { order: 60 })],
+    right: [t('admin-link', 'right', { order: 11 }), t('whoami-link', 'right', { group: 'you', order: 999 }), t('account-profile', 'right', { group: 'you', order: 999 })],
+  };
+  const z = phoneZones(byZone);
+  assert.deepEqual(z.left.map((run) => run.map((x) => x.id)), [['home']]);
+  assert.deepEqual(z.middle, [], 'the middle is empty on a phone: your picture is not kept in the bar');
+  assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [['spaces-link', 'page-todo'], ['admin-link', 'whoami-link', 'account-profile']], 'the middle run first, then the right');
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.ok(!/keepOnPhone/.test(src), 'keepOnPhone is gone: nothing stays in the bar on a phone');
+});
+
+test('a divider only separates groups that show something: a tool hidden by its owner (your picture, for a guest) counts as not shown', () => {
+  const hidden = new Set(['whoami-link']);
+  const hiddenOf = (t) => hidden.has(t.id);
+  const you = [{ id: 'whoami-link' }, { id: 'account-profile', visible: () => false }, { id: 'account-sign-out', visible: false }];
+  assert.equal(you.some((t) => isShown(t, hiddenOf)), false, 'a guest\'s "you" group shows nothing, so no divider goes before it');
+  hidden.clear();
+  assert.equal(isShown(you[0], hiddenOf), true, 'shown again once its owner shows it');
+  assert.equal(isShown({ id: 'x', visible: true }, () => true), true, 'a tool with `visible` follows it, not the element');
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  assert.match(src, /shown = group\.filter\(\(t\) => isShown\(/, 'flatten() decides dividers with isShown');
+  assert.match(src, /watchHidden\(t\.id, el\)/, 'the bar is drawn again when a page toggles a tool\'s hidden');
+});
+
+test('the phone menu: opening it focuses its first entry, Escape from inside returns to the button; the picture is a label there and a width change closes the account menu', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const wire = src.slice(src.indexOf('function wireNavMenu('), src.indexOf('function firstEntry('));
+  assert.match(wire, /if \(on && !wasOpen\) firstEntry\(menu\)\?\.focus\(\)/);
+  assert.match(wire, /if \(!on && wasOpen && focus\) toggle\.focus\(\)/);
+  assert.match(wire, /Escape/);
+  const paint = src.slice(src.indexOf('function paintWhoami('), src.indexOf('function viewProfile('));
+  assert.ok(paint.indexOf('closeHostMenu()') > -1 && paint.indexOf('closeHostMenu()') < paint.indexOf('if (onPhone())'), 'paintWhoami closes the account menu before repainting');
+  assert.match(paint, /aria-disabled', 'true'/);
+  assert.match(paint, /removeAttribute\('aria-disabled'\)/);
+});
+
+test('the phone menu closes when focus leaves it and its button, from either (Tab on from the button into the page too)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const wire = src.slice(src.indexOf('function wireNavMenu('), src.indexOf('function firstEntry('));
+  assert.match(wire, /menu\.addEventListener\('focusout', leaving\)/);
+  assert.match(wire, /toggle\.addEventListener\('focusout', leaving\)/);
+  assert.match(wire, /!menu\.contains\(to\) && to !== toggle\) setOpen\(false\)/);
+});
+
+test('the phone menu closes when the width crosses the phone line, and focus it held goes to something shown', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const wire = src.slice(src.indexOf('function wireNavMenu('), src.indexOf('function firstEntry('));
+  const change = wire.slice(wire.indexOf("phoneQuery.addEventListener('change'"));
+  assert.ok(change.length > 0, 'wireNavMenu watches the phone width');
+  assert.match(change, /setOpen\(false\)/);
+  assert.match(change, /\(shown\(was\) \? was : onPhone\(\) \? toggle : firstEntry\(menu\)\)\?\.focus\(\)/, 'back to what had focus if still shown, else the menu button on a phone or the bar\'s first entry');
+  assert.match(wire, /header\.addEventListener\('focusin'/, 'the header remembers what last had focus, since a redraw can drop it');
+  assert.match(src, /matchMedia\('\(max-width: 640px\)'\)/, 'the same width as nav-bar.js folds at');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8'), /matchMedia\('\(max-width: 640px\)'\)/);
 });
 
 console.log(`check-nav: OK (${n} tests)`);

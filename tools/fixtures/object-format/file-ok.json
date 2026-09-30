@@ -1,5 +1,6 @@
 {
-  "collaboratorObjects": 1,
+  "format": "objects",
+  "formatVersion": 1,
   "objects": [
     { "title": "File one", "content": "From a file." },
     { "title": "File two", "content": "Also from a file." }

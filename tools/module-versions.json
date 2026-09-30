@@ -1,7 +1,7 @@
 {
   "assistant": {
-    "version": "0.1.21",
-    "hash": "ca16f899ef4103fc"
+    "version": "0.1.22",
+    "hash": "1fc017b8f0129b8d"
   },
   "calendar": {
     "version": "1.18.2",
@@ -20,8 +20,8 @@
     "hash": "8996cd54f47e3348"
   },
   "research": {
-    "version": "0.2.29",
-    "hash": "64e33771e95669d3"
+    "version": "0.2.30",
+    "hash": "d21d42205d415c87"
   },
   "stream": {
     "version": "0.1.7",

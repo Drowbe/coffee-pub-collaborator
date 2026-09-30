@@ -1,7 +1,7 @@
 # Collaborator
 
-Voice and video for your tabletop game, on a server you run yourself. Each player signs in once, allows
-camera and microphone, and is in the call, with nothing to install. Every player is also an OBS
+Voice and video for your tabletop game, on a server you run yourself. Each player signs in once, enters a
+space, and joins the call with one click, with nothing to install. Every player is also an OBS
 Browser Source, so a recorded session shows their camera or a picture you chose.
 
 ## What it does

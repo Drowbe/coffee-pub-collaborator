@@ -58,7 +58,9 @@ longer read: use ADMIN_LOGIN instead." on every start. `TAVERN_ADMIN_PASSWORD`, 
 `ADMIN_KEY` are no longer read either, and the log says "TAVERN_ADMIN_PASSWORD is no longer read: use
 ADMIN_PASSWORD instead." (with the name you set). **Move the value to `ADMIN_PASSWORD` before you update:** if
 one of these was your only password setting, a new server makes a random admin password instead, and a server
-that already has accounts makes no admin at all.
+that already has accounts makes no admin at all. `TAVERN_REVISION` is no longer read either: the image sets
+`APP_REVISION` to the commit it was built from, which the version line shows, so you only need to change something
+if you set `TAVERN_REVISION` yourself; set `APP_REVISION` instead.
 `OWNER_PASSWORD`, from the previous version, is ignored: "OWNER_PASSWORD is ignored: owners are made in Manage.
 Use ADMIN_PASSWORD for the server's admin." If you set it in that version, put the same login and password in
 `ADMIN_LOGIN` and `ADMIN_PASSWORD`, and that account becomes the admin again on the next start; without them,
@@ -186,16 +188,16 @@ To restore one from a backup:
    "<slug> was restored from <file>." when it worked, or "<slug> was not restored:" and the reason when it
    did not, in which case nothing was changed.
 
-A backup made by a newer version of Magpie than the one running is refused ("This backup is from a newer
-version of Magpie."), and the environment is left as it was.
+A backup made by a newer version of Collaborator than the one running is refused ("This backup is from a newer
+version of Collaborator."), and the environment is left as it was.
 
 ## An environment that won't open
 
 An environment's card can carry the tag **won't open**, with a red edge and a dash for every count. Its
-people see a page saying the environment's data is from a newer version of Magpie, or could not be updated;
+people see a page saying the environment's data is from a newer version of Collaborator, or could not be updated;
 every other environment keeps working. The card says which, and names the file and when it happened:
 
-- **Won't open: its data is from a newer version of Magpie.** A newer version of Magpie has run on this
+- **Won't open: its data is from a newer version of Collaborator.** A newer version of Collaborator has run on this
   environment's data, and this one cannot read it. Run the newer version again, or restore a backup made
   before it.
 - **Won't open: its data could not be updated.** The data could not be brought up to date on this start.

@@ -102,7 +102,7 @@ await test('the source: the host\'s managed service, or the environment\'s own',
 await test('a request: the frame, the numbered items, the key as a header, the tokens counted', async () => {
   const ai = new Ai(dir, {});
   ai.set({ enabled: true, provider: 'compatible', address, model: 'local', key: 'sk-secret' });
-  reply = 'The hotel is near the station [1].\n```card\n{"icon":"bed","title":"Hotel","content":"Near the station.","tags":["Hotel"],"sources":[1,9]}\n```';
+  reply = 'The hotel is near the station [1].\n```objects\n{"icon":"bed","title":"Hotel","content":"Near the station.","tags":["Hotel"],"sources":[1,9]}\n```';
   const r = await ai.run('ask', items, 'Where is the hotel?');
   const s = sent.at(-1);
   assert.equal(s.url, '/v1/chat/completions');
@@ -212,7 +212,7 @@ await test('the enable step', () => {
 
 await test('summaries are checked field by field', () => {
   const good = { icon: 'nope', title: `  ${'t'.repeat(200)} `, content: 'a <b>bold</b> claim\nsecond line', tags: ['One Word', 'x y', 'a', 'b', 'c', 'd', 'e'], place: { name: 'Cafe', lat: 95, lng: 10 }, date: '2026-02-30', links: [{ title: 'ok', url: 'https://a.example/x' }, { url: 'http://plain.example' }, { url: 'javascript:1' }, { url: 'https://u:p@a.example' }], sources: [1, 2, 3] };
-  const c = parseSummaries('intro\n```card\n' + JSON.stringify(good) + '\n```\noutro', 2);
+  const c = parseSummaries('intro\n```objects\n' + JSON.stringify(good) + '\n```\noutro', 2);
   assert.equal(c.summaries.length, 1);
   const k = c.summaries[0];
   assert.equal(k.icon, ICONS[0]);
@@ -225,23 +225,27 @@ await test('summaries are checked field by field', () => {
   assert.deepEqual(k.sources, [1, 2]);
   assert.equal(c.text, 'intro\n\n{{summary:0}}\n\noutro');
   // Not a summary: it stays as text. An unfinished block is never one.
-  assert.equal(parseSummaries('```card\n{"title":"T","content":"c"}\n```', 0).summaries[0].basis, 'general'); // no material: general
-  assert.equal(parseSummaries('```card\n{"title":"T","content":"c"}\n```', 2).summaries[0].basis, 'items');
-  assert.equal(parseSummaries('```card\n{"title":"T","content":"c","basis":"both"}\n```', 2).summaries[0].basis, 'both');
-  assert.equal(parseSummaries('```card\n{"title":"T","content":"c","basis":"nonsense"}\n```', 2).summaries[0].basis, 'items');
-  assert.equal(parseSummaries('```card\nnot json\n```', 1).summaries.length, 0);
-  assert.equal(parseSummaries('```card\n{"title":"","content":"x"}\n```', 1).summaries.length, 0);
-  assert.equal(parseSummaries('```card\n{"title":"T","content":"still writing', 1).summaries.length, 0);
-  assert.equal(parseSummaries('```card\n{"title":"T","content":"c","date":"2026-02-28"}\n```', 1).summaries[0].date, '2026-02-28');
-  // The model is asked for one ```card fence holding an array; a ```summary or ```json fence, or a lone object, is read the same way.
+  assert.equal(parseSummaries('```objects\n{"title":"T","content":"c"}\n```', 0).summaries[0].basis, 'general'); // no material: general
+  assert.equal(parseSummaries('```objects\n{"title":"T","content":"c"}\n```', 2).summaries[0].basis, 'items');
+  assert.equal(parseSummaries('```objects\n{"title":"T","content":"c","basis":"both"}\n```', 2).summaries[0].basis, 'both');
+  assert.equal(parseSummaries('```objects\n{"title":"T","content":"c","basis":"nonsense"}\n```', 2).summaries[0].basis, 'items');
+  assert.equal(parseSummaries('```objects\nnot json\n```', 1).summaries.length, 0);
+  assert.equal(parseSummaries('```objects\n{"title":"","content":"x"}\n```', 1).summaries.length, 0);
+  assert.equal(parseSummaries('```objects\n{"title":"T","content":"still writing', 1).summaries.length, 0);
+  assert.equal(parseSummaries('```objects\n{"title":"T","content":"c","date":"2026-02-28"}\n```', 1).summaries[0].date, '2026-02-28');
+  // The model is asked for one ```objects fence holding an array; a ```summary or ```json fence, or a lone object, is read the
+  // same way. A ```card fence is not read any more (plan-kind-names.md): it stays text.
   assert.equal(parseSummaries('```summary\n{"title":"T","content":"c"}\n```', 1).text, '{{summary:0}}');
   assert.equal(parseSummaries('```json\n{"title":"T","content":"c"}\n```', 1).summaries.length, 1);
-  assert.match(buildPrompt('ask', [], 'Why?').prompt, /```card\n\[/);
-  assert.match(buildPrompt('ask', [], 'Why?').prompt, /exactly one, never one per card/);
-  const packed = parseSummaries('```card\n[{"title":"A","content":"one"},{"title":"B","content":"two"}]\n```', 1);
+  assert.match(buildPrompt('ask', [], 'Why?').prompt, /```objects\n\[/);
+  assert.match(buildPrompt('ask', [], 'Why?').prompt, /exactly one, never one per object/);
+  assert.match(buildPrompt('summarise', items, '').prompt, /Always include at least one object: /);
+  const cardBlock = '```card\n{"title":"T","content":"c"}\n```';
+  assert.deepEqual(parseSummaries(cardBlock, 1), { text: cardBlock, summaries: [] });
+  const packed = parseSummaries('```objects\n[{"title":"A","content":"one"},{"title":"B","content":"two"}]\n```', 1);
   assert.equal(packed.summaries.length, 2);
   assert.equal(packed.text, '{{summary:0}}\n{{summary:1}}');
-  const many = Array(MAX_SUMMARIES + 5).fill('```card\n{"title":"T","content":"c"}\n```').join('\n');
+  const many = Array(MAX_SUMMARIES + 5).fill('```objects\n{"title":"T","content":"c"}\n```').join('\n');
   assert.equal(parseSummaries(many, 1).summaries.length, MAX_SUMMARIES);
 });
 

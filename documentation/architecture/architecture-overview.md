@@ -16,21 +16,21 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
         ^                                             ^
         | pages and API                               | access tokens
 +--------------------------------------------------------------+
-| Magpie web app (Node/Express): pages, accounts, images, API  |
+| Collaborator (Node/Express): pages, accounts, images, API    |
 +--------------------------------------------------------------+
 ```
 
 - **LiveKit server** is open source and runs as its own container. It is a selective forwarding unit:
   each player uploads once and the server fans the stream out. It has a built-in TURN relay for players
-  behind strict routers. Magpie calls its server API for the participant list, kick and mute.
-- **Magpie web app** serves the pages, mints LiveKit access tokens, and keeps accounts, spaces, images and
+  behind strict routers. Collaborator calls its server API for the participant list, kick and mute.
+- **Collaborator web app** serves the pages, mints LiveKit access tokens, and keeps accounts, spaces, images and
   settings. It never touches media.
 - **Coffee Pub Studio** signs in as an owner and creates one OBS Browser Source per player, pointing at
   that player's view page.
 
 ## Technology
 
-- **LiveKit** on both sides, with `livekit-client` served by Magpie itself from `/lib/`. It was chosen
+- **LiveKit** on both sides, with `livekit-client` served by Collaborator itself from `/lib/`. It was chosen
   over a hand-rolled mesh, whose upload cost grows with every person in the call, and over Jitsi, where per-participant
   OBS views would need low-level work.
 - **Node 22 and Express 5.** One app serves every page and the JSON API.
@@ -62,6 +62,7 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
 | `public/view.html` | The OBS view |
 | `public/brand.js` | Shared header, branding and icon lookup |
 | `public/words.js` | The environment's words in the pages: `word()`, `fill()`, `applyWords()` |
+| `public/slot-paste.js` | Paste into picture slots; see "Picture slots" under Design rules |
 | `server/words.js` | The words, their defaults, and the checks on an owner's own |
 | `public/style.css` | The one stylesheet |
 | `public/sw.js` | The service worker that lets the app install |
@@ -111,6 +112,10 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
   (see [api-module-sdk](../api/api-module-sdk.md)). `tools/check-names.mjs --words` fails, in `server/`, `public/` and
   `modules/`, on a changeable word typed into text people read; the host console and the product page use the
   host's own words and are allow-listed.
+  Beside the words, `branding()` carries `verbs`, the actions a person reads on a button: for now one, `enter`
+  (default "Enter"), the word on a space's main button and the guest form. Pages read it with `verb('enter')`,
+  `data-verb="enter"` or `{enter}` in `fill()`; the owner sets it with `PATCH /api/settings` `{ verbs }`. See
+  [architecture-environments](architecture-environments.md), "Templates", for the contract.
 - **Who sees a link that signs someone in.** A person's personal sign-in link (`linkToken`) is sent only to owners
   and to that person, and never in `GET /api/status`, whatever key the request carries. A space's guest link
   (`guestToken`) is sent only to owners and to members of that space who may manage its guest link; everyone else
@@ -138,14 +143,17 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
   `accent`, `onAccent`, `card`, `headerBg`, `headerText`, `icon`, `iconHover`, `primaryHover`, `secondary`,
   `secondaryText`, `secondaryHover`), `null` for Auto; `server/theme-css.js` is the one place that maps them to CSS.
   `GET /api/themes/:id/export` (owner; `default` is Strong Coffee) answers the file
-  `{ magpieTheme: 1, name, author?, light, dark }` with every key in each set, as
-  `<name>.magpie-theme.json`, or 404 "no such theme". `POST /api/themes/import` (owner; the file's JSON as the body,
-  at most 16 KB) checks each set as a theme made in Manage would be (`sanitizeTheme`), adds it as a new theme
+  `{ format: "theme", formatVersion: 1, name, author?, light, dark }` with every key in each set, as
+  `<name>.theme.json`, or 404 "no such theme". The marker pair is named by kind, never by the product, and read by
+  one rule for all three file formats (`server/file-format.js`, [plan-kind-names](../plans/plan-kind-names.md)).
+  `POST /api/themes/import` (owner; the file's text or JSON as the body, at most 16 KB) checks each set as a theme made in Manage would be (`sanitizeTheme`), adds it as a new theme
   ("Name (2)" when the name is taken, never overwriting) without applying it, and answers `{ theme, dropped }`:
   `dropped` lists what was left out, unknown keys and any optional colour that isn't `#rrggbb` (which goes back to
-  Auto). It refuses with 400 "That isn't a Magpie theme file.", "This theme was made by a newer version of
-  Magpie." or "This theme has no complete light or dark set: each needs all seven base colors." A body the parser
-  can't read at all (an unknown charset or encoding) gets the same "That isn't a Magpie theme file."; Manage
+  Auto). It refuses with 400 "That isn't a <product> theme file.", "This theme was made by a newer version of
+  <product>.", "That theme file is in an older format. Export the theme again and import the new file." (a file
+  from before the formats were named by kind) or "This theme has no complete light or dark set: each needs all seven
+  base colors.", where <product> is `PRODUCT_NAME`. A body the parser can't read at all (an unknown charset or
+  encoding) gets the same "That isn't a <product> theme file."; Manage
   decodes a UTF-16 file by its byte-order mark before sending it. An environment holds at most 100 themes
   (`MAX_THEMES`): an import past that answers 400 "This environment has 100 themes, the most it can hold. Delete
   one to import another." A theme's name and author lose line breaks and tabs (made spaces) and control, direction
@@ -195,6 +203,17 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   "Call names"). The space page does not wait on presence: joining, a reload back into a space and the join screen
   go ahead with the spaces they already know, `loadPresence()` gives up after three seconds, and the next poll tries
   again (`public/space.js`).
+- A space may carry `opensWith`: the modules its first visit opens, in order, the built-ins `conference` and `chat`
+  included ([plan-entering](../plans/plan-entering.md)). It is up to 20 distinct ids matching `^[a-z][a-z0-9-]{0,31}$`,
+  stored in `app.json`, and absent while not set; the store's space cleaning (`cleanOpensWith()` in `server/store.js`)
+  drops repeats and anything else, and keeps an id for a module that is off or not installed, so turning it back on
+  restores it. It comes with the space wherever the space is answered (`GET /api/presence`, `GET /api/spaces`,
+  `GET /api/status`, `POST /api/spaces`, the `PATCH` answer), and `GET /api/modules/for-space` answers it as
+  `opensWith` beside `spaceDefaultsOpensWith`. Asides never carry it. `PATCH /api/spaces/:id` (owner only) takes
+  `opensWith: [ids] | null`: `null`, `[]` or a list with nothing usable left clears it. Anything else that is not an
+  array of strings answers 400 "Opens with must be a list of modules." and nothing in the request is saved; 401
+  "sign in first", 403 "owners only", 404 "no such space". The same cleaning keeps `aiOff` (the space's **Turn AI
+  off in this space**), which until 2026-09-30 was dropped every time `app.json` was loaded.
 - `POST /api/asides` `{ with, private }` pulls people who are in the caller's call into a new aside and answers
   `{ aside }`, the aside's record. It answers 403 "asides are turned off" or "private conversations are turned off" (or the caller
   lacks the permission), 400 "pick someone to pull aside" or "you need to be in a call yourself to pull someone
@@ -231,6 +250,20 @@ eight times seven times 1.5 Mbps out at the server. Player quality is capped by 
   that one thing. People (`/profile/<key>`) and spaces (`/spaces/<id>`) work this way: their Manage tabs are a
   roster of a picture, a name, a status line and a link. Keep new admin surfaces to this shape rather than growing
   an inline editor on a list; the two earlier ones scaled badly enough to need rebuilding.
+- **Picture slots.** A picture a person sets is a `.slot` holding `.slot-pick-wrap > label.slot-pick >
+  input[type=file]`, and a page with slots imports `/slot-paste.js` from its own module script. That one import
+  gives every slot on the page, including ones drawn later (it watches the page), a paste by Ctrl+V or Cmd+V
+  while the slot has focus, a **Paste** button where the browser offers `navigator.clipboard.read` in a secure
+  context, Enter and Space to open the file chooser, the "Paste or click to choose" hint, and a name for screen
+  readers. A pasted picture is put into the slot's own file input and a `change` event is sent from it, so the
+  page's existing upload handler, limits and messages apply unchanged. A slot that is `.still`, disabled, hidden
+  or in a disabled fieldset takes no paste and no focus; a paste in a text field is left alone. The name is the
+  slot's `data-slot-name` (level words in braces are filled from the environment's words, `fill()`), or else its
+  caption (a `<span>` in the `.slot`, outside the picture) followed by "picture", after the name of each
+  `data-slot-group` it sits in, outermost first; an empty `data-slot-group` takes its group's first heading.
+  `tools/check-slot-names.mjs` (in `npm run check`) reads the pages' markup and fails a slot with neither a
+  `data-slot-name` nor a caption, a `.slot` holding more than one picture, a picture outside a `.slot`, and a
+  page with slots whose script does not import `/slot-paste.js`.
 
 ## Development
 

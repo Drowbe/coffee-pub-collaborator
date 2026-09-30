@@ -141,4 +141,62 @@ function fill(text, resolved) {
   });
 }
 
-module.exports = { KEYS, FIXED, CHANGEABLE, DEFAULTS, MAX_LENGTH, cleanWord, applyPatch, ownOnly, resolve, format, word, fill, useCurrent };
+// --- verbs (addendum 4, "the word for entering a space") ------------------------------------------------------------
+// The actions a person reads on a button, beside the nouns above and resolved the same way: the owner's own
+// (settings.verbs.<key>), else the environment's template's, else the default. Each is one string, as it reads at the
+// start of a button ("Enter", "Board", "Go to"): no plural, no article, never lower-cased or conjugated. A verb is not
+// a level or role, so it is kept out of `words` and the Names vocabulary. The key is a code name and never changes.
+const VERBS = ['enter'];
+const DEFAULT_VERBS = Object.freeze({ enter: 'Enter' });
+const VERB_MAX_LENGTH = 20;
+
+// One verb as given, checked: { verb } (tidied) or { error }, one sentence.
+function cleanVerb(key, raw) {
+  if (typeof raw !== 'string') return { error: `The ${key} verb must be text, or null to use the default.` };
+  const verb = tidy(raw);
+  if (!verb || verb.length > VERB_MAX_LENGTH) return { error: `The ${key} verb must be 1 to ${VERB_MAX_LENGTH} characters.` };
+  if (!WORD_RE.test(verb)) return { error: `The ${key} verb can use only letters, spaces, hyphens and apostrophes.` };
+  return { verb };
+}
+
+const unknownVerb = (key) => `There is no verb called ${String(key).slice(0, 40)}; the verbs are ${VERBS.join(', ')}.`;
+
+// The owner's verbs after a change: `patch` is { <key>: "<text>" | null }, null returning that key to the template's
+// verb or the default. Answers { verbs } (the whole new set; {} when none are the owner's own) or { error }, one
+// sentence; on an error nothing is changed.
+function applyVerbsPatch(current, patch) {
+  if (!patch || typeof patch !== 'object' || Array.isArray(patch)) return { error: 'Verbs must be given by name, each as text.' };
+  const next = { ...ownVerbsOnly(current) };
+  for (const [key, raw] of Object.entries(patch)) {
+    if (!VERBS.includes(key)) return { error: unknownVerb(key) };
+    if (raw === null) { delete next[key]; continue; }
+    const { verb, error } = cleanVerb(key, raw);
+    if (error) return { error };
+    next[key] = verb;
+  }
+  return { verbs: Object.fromEntries(VERBS.filter((k) => next[k]).map((k) => [k, next[k]])) };
+}
+
+// A stored set, keeping only the known keys whose verbs are still good.
+function ownVerbsOnly(set) {
+  if (!set || typeof set !== 'object' || Array.isArray(set)) return {};
+  const out = {};
+  for (const key of VERBS) {
+    if (set[key] === undefined || set[key] === null) continue;
+    const { verb } = cleanVerb(key, set[key]);
+    if (verb) out[key] = verb;
+  }
+  return out;
+}
+
+// Every verb, resolved: the owner's, else the template's, else the default. { enter: "Enter" }.
+function resolveVerbs(ownerVerbs, templateVerbs) {
+  const owner = ownVerbsOnly(ownerVerbs);
+  const template = ownVerbsOnly(templateVerbs);
+  return Object.fromEntries(VERBS.map((key) => [key, owner[key] || template[key] || DEFAULT_VERBS[key]]));
+}
+
+module.exports = {
+  KEYS, FIXED, CHANGEABLE, DEFAULTS, MAX_LENGTH, cleanWord, applyPatch, ownOnly, resolve, format, word, fill, useCurrent,
+  VERBS, DEFAULT_VERBS, VERB_MAX_LENGTH, cleanVerb, unknownVerb, applyVerbsPatch, ownVerbsOnly, resolveVerbs,
+};

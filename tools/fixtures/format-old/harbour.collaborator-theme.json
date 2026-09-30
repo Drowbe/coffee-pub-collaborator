@@ -1,0 +1,15 @@
+{
+  "collaboratorTheme": 1,
+  "name": "Harbour",
+  "author": "Thomas",
+  "light": {
+    "bg": "#f4efe6",
+    "bgSection": "#ffffff",
+    "border": "#d8cfc2",
+    "text": "#1d1a16",
+    "textDim": "#6b6258",
+    "accent": "#2f6f8f",
+    "onAccent": "#ffffff"
+  },
+  "dark": null
+}

@@ -14,7 +14,7 @@ The plan is to make the conference a pane too, with the same three modes, so a p
 
 | Area | Decision |
 |---|---|
-| Joining | Joining a room opens the panes the person used last in that room (default: the conference and chat). The room card offers a small "Join with" choice. Being in the room is what makes someone online, whatever is open. |
+| Joining | Joining a room opens the panes the person used last in that room (default: the conference and chat; replaced by [plan-entering](plan-entering.md), built 2026-09-30: with nothing set, a first visit opens the chat and every module on in the space, without the conference). The room card offers a small "Join with" choice. Being in the room is what makes someone online, whatever is open. |
 | Closing the conference pane | Leaves the call and stays in the room. Mic and camera stop and incoming media stops; the person is still online with chat and modules. The Modules menu offers "Rejoin call". |
 | Room-level controls | Leave room stays in the header and works with any pane. Away, settings, mic, camera and layout live in the conference pane's bar. The hang-up button leaves the call, meaning it closes the conference pane; it does not leave the room. |
 | The flexible column | The conference pane takes the leftover width when it is docked. With no docked conference, the first docked pane takes it and the others keep their widths, so there is never an empty canvas. |
@@ -72,7 +72,7 @@ Stages 2 and 3 (built together, as asked):
 
 Stage 4 (remembered layouts):
 
-- [x] Each room remembers its open panes, modes and sizes in the browser and restores them on join; a room not used before opens with the conference.
+- [x] Each room remembers its open panes, modes and sizes in the browser and restores them on join; a room not used before opens with the conference (since 2026-09-30, what [plan-entering](plan-entering.md) decides: the space's own list, else the environment's, else the chat and the modules without the conference).
 - [x] Teardown never becomes the layout (the manager is suspended from the start of a disconnect until the next restore); an aside remembers nothing.
 - [x] "Join with" on the room card: a sliders button opens a list of the conference, the chat and the room's modules (limited by the role), saved for that room without joining.
 - [x] Checked in a browser: the card's popover, a chat-only choice restoring chat without the conference, the saved list following opens and closes, and a simulated teardown leaving it alone.

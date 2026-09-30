@@ -11,7 +11,7 @@
 const fs = require('fs');
 const path = require('path');
 const { encryptSecret, decryptSecret } = require('./auth');
-const { ICONS, KINDS, cleanObject, objectRule } = require('./object-format');
+const { ICONS, KINDS, FENCE, cleanObject, objectRule } = require('./object-format');
 
 // A key kept at rest is encrypted (AES-256-GCM, server/auth.js's encryptSecret: 'aesgcm$...'). The sentence shown
 // when a saved one can't be read with this server's key -- data restored onto a different host, say, which has a
@@ -554,20 +554,21 @@ function buildPrompt(task, items, question) {
   return { system: task === 'ask' ? ASK_FRAME : FRAME, prompt: `${material}${material ? '\n\n' : ''}${job}` };
 }
 
-// What the model is asked to write inside its answer: the part worth keeping, as summaries in one fenced JSON array. Everything else in the
-// conversation is chatter and is not kept. The model's own instructions call a summary a "card" and its fence ```card: that is
-// between the server and the model only, never an answer's field.
-const SUMMARY_RULE = 'Always include at least one card: the part of your answer worth keeping, written as a ' + objectRule({ fence: 'card', noun: 'card', max: MAX_SUMMARIES, withProvenance: true });
+// What the model is asked to write inside its answer: the part worth keeping, as summaries in one JSON array fenced ```objects,
+// the same block as the published objects format (server/object-format.js; plan-kind-names.md, "The /ai rule"). Everything
+// else in the conversation is chatter and is not kept. The model is told to call each one an "object".
+const SUMMARY_RULE = 'Always include at least one object: the part of your answer worth keeping, written as a ' + objectRule({ fence: FENCE, noun: 'object', max: MAX_SUMMARIES, withProvenance: true });
 
 function cleanSummary(raw, count) {
   return cleanObject(raw, { count });
 }
 
 // The answer with its valid summaries taken out and each replaced by a marker line {{summary:0}}, {{summary:1}} for the page to
-// draw in place, and the summaries. (A block still being written is never one: it has no closing fence yet, so it stays text.)
+// draw in place, and the summaries. Blocks labelled objects are read, and, for a model that labels its block loosely, summary,
+// json or no label. (A block still being written is never one: it has no closing fence yet, so it stays text.)
 function parseSummaries(text, count) {
   const summaries = [];
-  const out = String(text).replace(/```(?:card|summary|json|collaborator)?[ \t]*\n([\s\S]*?)\n?```/g, (whole, body) => {
+  const out = String(text).replace(/```(?:objects|summary|json)?[ \t]*\n([\s\S]*?)\n?```/g, (whole, body) => {
     if (summaries.length >= MAX_SUMMARIES) return whole;
     let parsed;
     try { parsed = JSON.parse(body); } catch { return whole; }

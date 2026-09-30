@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /*
  * check-geocode.mjs -- run the place-search collection (server/geocode.js) on its own: reading what an outside service answers,
- * keeping it, finding it again, marking it used and purging by that mark. No network: the answer is a fixture.
+ * keeping it, finding it again, marking it used and purging by that mark. No network: the answer is a fixture. And the
+ * user-agent it sends a service (plan-kind-names.md, step 2): "<product>/<version> (+<the repository's address>)", from the
+ * configured name, so the service can identify and reach the app, as the OpenStreetMap services' usage policy asks.
  */
 import fs from 'node:fs';
 import os from 'node:os';
@@ -9,7 +11,9 @@ import path from 'node:path';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 
-const { GeocodeCache, parsePhoton, keyOf, ENOUGH } = createRequire(import.meta.url)('../server/geocode.js');
+const require = createRequire(import.meta.url);
+const { GeocodeCache, parsePhoton, keyOf, askService, ENOUGH } = require('../server/geocode.js');
+const { REPOSITORY_URL } = require('../server/product-name.js');
 let n = 0;
 const test = (name, fn) => { fn(); n += 1; };
 const feat = (name, lat, lng, extra = {}) => ({ geometry: { type: 'Point', coordinates: [lng, lat] }, properties: { name, osm_type: 'N', osm_id: Math.round(lat * 1000), ...extra } });
@@ -74,6 +78,35 @@ test('the collection survives a restart', () => {
   assert.equal(again.stats('keep').saved, 1);
   assert.equal(again.search('keep', 'museu', null)[0].name, 'Museu');
 });
+
+// A local server stands in for the search service.
+{
+  const http = require('node:http');
+  const { version } = require('../package.json');
+  const saved = process.env.PRODUCT_NAME;
+  process.env.PRODUCT_NAME = 'Testname';
+  let seen = null;
+  const server = http.createServer((req, res) => { seen = req.headers['user-agent']; res.setHeader('content-type', 'application/json'); res.end('{"features":[]}'); });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    await askService(`http://127.0.0.1:${server.address().port}/api`, 'faro', null);
+    assert.equal(seen, `Testname/${version} (+${REPOSITORY_URL})`);
+    assert.equal(REPOSITORY_URL, 'https://github.com/Drowbe/coffee-pub-collaborator');
+    // A name a header can't carry (above Latin-1) still sends a valid user-agent: printable ASCII kept, spaces as
+    // hyphens, the default when nothing is left.
+    const { DEFAULT_PRODUCT_NAME } = require('../server/product-name.js');
+    for (const [name, shown] of [['Kollab \u2013 Mesa', 'Kollab-Mesa'], ['\u5354\u4f5c', DEFAULT_PRODUCT_NAME], ['Pub \u{1F37A}', 'Pub']]) {
+      process.env.PRODUCT_NAME = name;
+      seen = null;
+      await askService(`http://127.0.0.1:${server.address().port}/api`, 'faro', null);
+      assert.equal(seen, `${shown}/${version} (+${REPOSITORY_URL})`, `the user-agent for ${JSON.stringify(name)}`);
+    }
+    n += 1;
+  } finally {
+    server.close();
+    if (saved === undefined) delete process.env.PRODUCT_NAME; else process.env.PRODUCT_NAME = saved;
+  }
+}
 
 fs.rmSync(dir, { recursive: true, force: true });
 console.log(`check-geocode: ${n} groups OK`);

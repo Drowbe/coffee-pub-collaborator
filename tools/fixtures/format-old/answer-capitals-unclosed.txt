@@ -1,0 +1,5 @@
+An answer cut off while its block was being written, its past label in capitals.
+
+```COLLABORATOR   
+[{"icon":"note","title":"Visa reminder","content":"Check passport validity before you book."},
+ {"title":"Half written","content":"The answer stops here

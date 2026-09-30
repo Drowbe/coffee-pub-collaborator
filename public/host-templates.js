@@ -8,7 +8,9 @@ import { fileText } from '/file-text.js';
 
 const $ = (id) => document.getElementById(id);
 const say = (el, text, error = false) => { el.textContent = text; el.classList.toggle('error', error); el.hidden = !text; };
-let product = 'Collaborator';
+let product = ''; // the product's name (PRODUCT_NAME), from the host console's settings; see initTemplates
+// "That isn't a <product> theme file.", or "a theme file" before the name is known.
+const fileOfKind = (kind) => (product ? `${product} ${kind} file` : `${kind} file`);
 const BUILT_IN = ['conference', 'chat'];
 const SOURCE = { bundled: 'Bundled', host: 'Yours', imported: 'Imported' };
 const DEFAULT_HOME_ICON = 'couch';
@@ -28,7 +30,7 @@ const moduleIcon = (id) => (shipped || []).find((m) => m.id === id)?.icon || 'pu
 export function initTemplates(templates, changed, name) {
   if (typeof name === 'string' && name.trim()) product = name.trim();
   const by = $('template-shipped-by');
-  if (by) by.textContent = product;
+  if (by && product) by.textContent = `${product} ships`; // "the one shipped" until the name is known
   onChange = changed || onChange;
   list = templates || [];
   renderList();
@@ -187,7 +189,7 @@ $('template-import-file').addEventListener('change', async () => {
   input.value = '';
   if (!file) return;
   const status = $('templates-status');
-  if (file.size > 1024 * 1024) return say(status, `That isn't a ${product} template file.`, true);
+  if (file.size > 1024 * 1024) return say(status, `That isn't a ${fileOfKind('template')}.`, true);
   const text = await fileText(file);
   let id = '';
   for (;;) {
@@ -379,9 +381,12 @@ $('te-reactions-on').addEventListener('change', () => {
 $('te-reaction-add').addEventListener('click', () => { const row = reactionRow(); $('te-reactions').append(row); row.querySelector('input').focus(); });
 $('te-reactions').addEventListener('click', (e) => { if (e.target.closest('[data-action="te-reaction-remove"]')) { e.target.closest('.reaction-row').remove(); $('te-reaction-add').focus(); } });
 
-// The theme: a theme file (as Manage > Theme exports it), embedded as it is; the server checks it on Save.
-function renderTheme() {
-  $('te-theme-name').textContent = theme ? `${theme.name}${theme.author ? ` by ${theme.author}` : ''}: added to a new ${word('environment')} and used there.` : `None: ${word('environment', { many: true })} keep their own theme.`;
+// The theme: a theme file (as Manage > Theme exports it). The server reads it (POST /api/host/themes/check, which stores
+// nothing) and answers the theme as it will be embedded, so this page knows no file format of its own; Save checks the
+// embedded theme again.
+function renderTheme(dropped = []) {
+  const left = dropped.length ? ` Left out: ${dropped.join(', ')}.` : '';
+  $('te-theme-name').textContent = theme ? `${theme.name}${theme.author ? ` by ${theme.author}` : ''}: added to a new ${word('environment')} and used there.${left}` : `None: ${word('environment', { many: true })} keep their own theme.`;
   $('te-theme-clear').hidden = !theme;
 }
 $('te-theme-pick').addEventListener('click', () => $('te-theme-file').click());
@@ -392,15 +397,13 @@ $('te-theme-file').addEventListener('change', async () => {
   input.value = '';
   if (!file) return;
   clearProblems('theme');
+  if (file.size > 1024 * 1024) { showProblems([`theme: That isn't a ${fileOfKind('theme')}.`]); return; }
   try {
-    if (file.size > 1024 * 1024) throw new Error();
-    const parsed = JSON.parse(await fileText(file));
-    if (!parsed || typeof parsed !== 'object' || !parsed.collaboratorTheme) throw new Error();
-    const { collaboratorTheme, ...rest } = parsed;
-    theme = rest;
-    renderTheme();
-  } catch {
-    showProblems([`theme: That isn't a ${product} theme file.`]);
+    const answer = await api('POST', '/api/host/themes/check', new Blob([await fileText(file)], { type: 'text/plain' }));
+    theme = answer.theme;
+    renderTheme(Array.isArray(answer.dropped) ? answer.dropped : []);
+  } catch (err) {
+    showProblems([`theme: ${err.message}`]);
   }
 });
 

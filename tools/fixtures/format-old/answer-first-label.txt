@@ -1,0 +1,5 @@
+An answer from before the block was named by kind, fenced with the first past label. What is inside is valid.
+
+```magpie
+[{"icon":"hotel","kind":"hotel","title":"Casa do Largo","content":"Small guesthouse in the old town."}]
+```

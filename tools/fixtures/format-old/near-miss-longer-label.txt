@@ -1,0 +1,5 @@
+An answer whose block label only starts with a past label: not an old-named block, so it is read.
+
+```collaborators
+[{"icon":"note","title":"Near miss","content":"Read through the loose reading."}]
+```

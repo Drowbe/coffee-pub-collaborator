@@ -118,7 +118,9 @@ deleted.
    label. Tick **Main** on at most one: its dates are the plan's own. Use the arrows to order them and **Remove**
    to take one out. Leave the list empty for none.
 5. If it should, tick **Give reactions** and add them, click **Choose a theme file…** to give it a theme (a
-   `.collaborator-theme.json` file, see [userguide-themes](userguide-themes.md)), and list **Icons** by their Font Awesome
+   `.theme.json` file, see [userguide-themes](userguide-themes.md)). The theme is checked as you choose it: its name
+   shows, followed by "Left out: ..." when part of the file wasn't a colour Collaborator knows, and a file that can't
+   be used is refused beside **Theme** with a sentence saying why. List **Icons** by their Font Awesome
    names, separated by spaces.
 6. Click **Save**. It is version 1, and offered on the create form straight away. A problem, such as a phase id
    listed twice, shows beside the part it is about, and nothing is saved.
@@ -136,7 +138,7 @@ switch; the environments using it keep it. Untick it to offer it again.
 **Delete one:** click **Delete** and confirm. A template an environment uses can't be deleted ("In use by <environments>.
 Hide it instead."): hide it, or switch those environments to another first.
 
-**Import a file:** click **Import…** and choose a `.collaborator-template.json` file. If a template already has its id,
+**Import a file:** click **Import…** and choose a `.template.json` file. If a template already has its id,
 you are asked for another. Anything in the file Collaborator doesn't know is left out and listed. It keeps the
 file's version.
 
@@ -175,9 +177,11 @@ If you never edited it, a new release's template simply replaces it, with no not
 
 ## Template files
 
-A template can travel as a file, `<name>.collaborator-template.json`, of at most 64 KB. Its theme travels inside it.
-Collaborator refuses a file it can't read ("That isn't a Magpie template file.") and one from a newer Magpie ("This
-template was made by a newer version of Magpie.").
+A template can travel as a file, `<name>.template.json`, of at most 64 KB. Its theme travels inside it.
+Collaborator refuses a file it can't read ("That isn't a Collaborator template file."), one from a newer version ("This
+template was made by a newer version of Collaborator.") and one exported before 2026-09-30, which is in an older
+format ("That template file is in an older format. Export the template again and import the new file."). Where the
+server has been given another product name, the sentences use it.
 
 **The owner of a single server** has **Template files** on Manage's **Template** tab:
 

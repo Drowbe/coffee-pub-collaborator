@@ -1,0 +1,5 @@
+An answer with CRLF line ends and an indented block fenced with a past label.
+
+    ```collaborator
+    [{"icon":"note","title":"Old block","content":"In a block with a past label."}]
+    ```

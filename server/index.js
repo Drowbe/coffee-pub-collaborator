@@ -30,16 +30,17 @@ const objectFormat = require('./object-format');
 const { fetchPreview, fetchImage, cachedImage, PreviewError } = require('./link-preview');
 const objectSync = require('./object-sync');
 const themeFile = require('./theme-file');
+const { productName } = require('./product-name');
 const templateFile = require('./template-file');
 const { EventEmitter } = require('events');
 const { ModuleData } = require('./module-data');
 const { ModuleHooks } = require('./module-hooks');
 const themeCssLib = require('./theme-css');
-const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText } = require('./store');
+const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText, UNNAMED_ENVIRONMENT } = require('./store');
 const auth = require('./auth');
 const { buildEnvironment, flushEnvironment } = require('./environment');
 const { HostRegistry, HostError, cleanSlug } = require('./host-registry');
-const { migrateHost, backupRefusal, refusedAtStartup, refusalSentence, MigrationError, recordedParts } = require('./migrate-names');
+const { migrateHost, backupRefusal, refusedAtStartup, refusalSentence, MigrationError, recordedParts, LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
 const callNames = require('./call-names');
 const { mountOldLinks } = require('./old-links');
 const { currencyCodes } = require('./currencies');
@@ -56,11 +57,10 @@ const {
   ADMIN_LOGIN = '',
   ADMIN_PASSWORD = '',
   OWNER_PASSWORD = '', // built in step 4 and dropped: ignored, with a line on start
-  TAVERN_REVISION = 'dev',
+  APP_REVISION = 'dev', // the commit the image was built from (the Dockerfile sets it)
   BASE_DOMAIN = '',
   PREVIOUS_BASE_DOMAINS = '',
   MIGRATE_ENVIRONMENT_SLUG = '',
-  PRODUCT_NAME = 'Collaborator', // the product's own name -- configuration, never code
   CONTACT_EMAIL = '',
   // Seed the host's managed AI service, per company (documentation/plans/plan-environments.md, "Managed AI, per
   // company"): AI_OPENAI_KEY/AI_ANTHROPIC_KEY name a company's key directly; AI_PROVIDER (with AI_ADDRESS,
@@ -97,6 +97,9 @@ const {
   // host console and the sign-up pick one).
   TEMPLATE = '',
 } = process.env;
+// The product's own name -- configuration, never code: PRODUCT_NAME, or the default when it is unset, empty or only
+// spaces. One rule, productName() in server/product-name.js, for everything the server answers and says.
+const PRODUCT_NAME = productName();
 
 // The server's admin (plan-names decisions 7, 15 and 20): ADMIN_LOGIN and ADMIN_PASSWORD, on every kind of install.
 // The old names that went in plan-names step 10 (decision 20), and after it TAVERN_ADMIN_PASSWORD, TAVERN_ADMIN_KEY
@@ -134,7 +137,7 @@ function checkoutUrlFor(planId) {
   return process.env[`BILLING_CHECKOUT_${String(planId).toUpperCase().replace(/[^A-Z0-9]/g, '_')}`] || null;
 }
 
-const VERSION = `v${require('../package.json').version} (${String(TAVERN_REVISION).slice(0, 7)})`;
+const VERSION = `v${require('../package.json').version} (${String(APP_REVISION).slice(0, 7)})`;
 
 if (!LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
   console.error('LIVEKIT_API_KEY and LIVEKIT_API_SECRET are required.');
@@ -265,10 +268,10 @@ if (!hostRegistry && fs.existsSync(path.join(DATA_DIR, 'secrets.key'))) {
 const sharedRegionCutJobs = BASE_DOMAIN ? new RegionCutJobs(path.join(DATA_DIR, 'shared'), undefined, { under: '' }) : null;
 
 // First start with BASE_DOMAIN set and data still at DATA_DIR's own root (a pre-environment install -- its settings
-// file is app.json now, or still tavern.json if it has not been started since that rename): refuses to start
+// file is app.json now, or still the older LEGACY_ENVIRONMENT_RECORD if it has not been started since that rename): refuses to start
 // until told which environment that data becomes.
 function migrateIfNeeded() {
-  const preEnvironment = fs.existsSync(path.join(DATA_DIR, 'app.json')) || fs.existsSync(path.join(DATA_DIR, 'tavern.json'));
+  const preEnvironment = fs.existsSync(path.join(DATA_DIR, 'app.json')) || fs.existsSync(path.join(DATA_DIR, LEGACY_ENVIRONMENT_RECORD));
   if (!BASE_DOMAIN || !preEnvironment) return;
   if (!migrateEnvironmentSlug) {
     console.error(`BASE_DOMAIN is set and ${DATA_DIR} is a single-environment install. Set MIGRATE_ENVIRONMENT_SLUG=<slug> for one start to move it to that environment, then remove it.`);
@@ -325,7 +328,7 @@ function secretsToHostKey(dir) {
     fs.renameSync(`${file}.tmp`, file);
   };
   rewrite(path.join(dir, 'ai.json'), (ai) => { if (ai.key) ai.key = swap(ai.key); });
-  const appFile = ['app.json', 'tavern.json'].map((f) => path.join(dir, f)).find((f) => fs.existsSync(f));
+  const appFile = ['app.json', LEGACY_ENVIRONMENT_RECORD].map((f) => path.join(dir, f)).find((f) => fs.existsSync(f));
   if (appFile) {
     rewrite(appFile, (app) => {
       for (const u of Array.isArray(app.users) ? app.users : []) {
@@ -477,7 +480,7 @@ function environmentFor(slug) {
   if (env) return env;
   const dataDir = slug ? path.join(DATA_DIR, 'environments', slug) : DATA_DIR;
   // A template applies only to an environment being made now: a data directory with no app.json yet.
-  const fresh = !fs.existsSync(path.join(dataDir, 'app.json')) && !fs.existsSync(path.join(dataDir, 'tavern.json'));
+  const fresh = !fs.existsSync(path.join(dataDir, 'app.json')) && !fs.existsSync(path.join(dataDir, LEGACY_ENVIRONMENT_RECORD));
   try {
     env = buildEnvironment(dataDir, {
       slug: slug || null,
@@ -497,7 +500,7 @@ function environmentFor(slug) {
   // a brand new environment, or one never renamed since before this was configurable -- picks its real one up
   // right here: the default environment gets the product's own name, an environment its registry name. Runs on every
   // build, not just the first, so an install that skipped a few versions catches up on its next start too.
-  if (env.store.settings.environmentName === 'Coffee Pub Tavern') {
+  if (env.store.settings.environmentName === UNNAMED_ENVIRONMENT) {
     env.store.updateSettings({ environmentName: slug ? (hostRegistry.findEnvironment(slug)?.name || PRODUCT_NAME) : PRODUCT_NAME });
   }
   environments.set(key, env);
@@ -1473,6 +1476,10 @@ const clientDist = path.join(__dirname, '..', 'node_modules', 'livekit-client', 
 const page = (name) => path.join(publicDir, name);
 // A template file's text, whatever type it is sent as (the JSON body parser reads it when it is JSON).
 const templateFileText = express.text({ type: () => true, limit: 64 * 1024 });
+// A theme file's text (POST /api/themes/import, POST /api/host/themes/check). Its own 16 KB limit: a JSON body is parsed
+// by the app's own parser (64 KB) and measured by the route by the bytes received; any other type is read as text up
+// to the limit (a bigger one, and one the app's parser can't read, get the same sentence -- see the error handler).
+const themeFileText = express.text({ type: () => true, limit: themeFile.MAX_THEME_FILE_BYTES });
 const rawZip = express.raw({ type: ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'], limit: MODULE_LIMITS.zipBytes + 1024 });
 const rawImage = express.raw({ type: Object.keys(IMAGE_TYPES), limit: MAX_IMAGE_BYTES + 1024 });
 
@@ -1754,6 +1761,19 @@ hostRouter.delete('/api/host/templates/:id', requireHostAdmin, (req, res) => {
   if (users.length) return res.status(409).json({ error: `${word('environment', { many: true, cap: true })} use this template: ${users.map((e) => e.name || e.slug).join(', ')}. Hide it instead.` });
   hostRegistry.removeTemplate(t.id);
   res.json({ ok: true });
+});
+// A theme file checked for the template editor's theme picker (plan-kind-names.md, "Checking a theme file for the template
+// editor"): the file's text as the body, read exactly as POST /api/themes/import reads it (the same 16 KB limit and
+// sentences), and nothing stored. Answers the theme as the picker keeps it, and the keys it left out.
+hostRouter.post('/api/host/themes/check', requireHostAdmin, sameOriginOnly, themeFileText, (req, res) => {
+  try {
+    const given = typeof req.body === 'string' ? req.body : req.body === undefined ? '' : req.body;
+    const { dropped, ...theme } = themeFile.readThemeFile(given, (t) => Store.prototype.sanitizeTheme.call(null, t), { byteLength: req.rawBody ? req.rawBody.length : null });
+    res.json({ theme, dropped });
+  } catch (err) {
+    if (err instanceof themeFile.ThemeFileError) return res.status(err.status).json({ error: err.message });
+    throw err;
+  }
 });
 hostRouter.get('/api/host/templates/:id/export', requireHostAdmin, (req, res) => sendTemplateFile(res, templateFor(null, req.params.id), req.params.id));
 // Imports a template file as a new host template, keeping the file's version (at least 1). `?id=` gives it another id, for a file whose id is taken.
@@ -2122,8 +2142,8 @@ hostRouter.post('/api/host/environments/:slug/restore', requireHostAdmin, rawHos
   if (!req.body || !req.body.length) return res.status(400).json({ error: 'choose a zip file to restore' });
   try {
     const files = await readEnvironmentZip(req.body);
-    // A backup whose data (app.json, or tavern.json when there is no app.json) cannot be read, or whose app.json (or
-    // older tavern.json) records a Names migration part this server does not know (made by a newer version of the product), is
+    // A backup whose data (app.json, or the older LEGACY_ENVIRONMENT_RECORD when there is no app.json) cannot be read, or
+    // whose app.json (or that older record) records a Names migration part this server does not know (made by a newer version of the product), is
     // refused before anything is replaced. Checked on what would actually land: names as written to disk, the last
     // of any repeated entry.
     const refusal = backupRefusal(files);
@@ -4368,8 +4388,8 @@ app.get('/api/objects/format', (req, res) => {
   if (!moduleViewer(req)) return res.status(401).json({ error: 'sign in first' });
   res.json({
     version: objectFormat.FORMAT_VERSION,
-    fence: 'collaborator',
-    fileSuffix: '.collaborator-objects.json',
+    fence: objectFormat.FENCE,
+    fileSuffix: objectFormat.FILE_SUFFIX,
     instructions: objectFormat.instructions(word('object')),
     schema: objectFormat.schema(),
   });
@@ -5929,10 +5949,6 @@ app.get('/api/themes/:id/export', requireOwner, (req, res) => {
   res.set('Content-Disposition', `attachment; filename="${themeFile.themeFileName(file.name)}"`);
   res.type('application/json').send(`${JSON.stringify(file, null, 2)}\n`);
 });
-// Its own 16 KB limit: a JSON body is parsed by the app's own parser (64 KB) and measured here by the bytes received;
-// any other type is read as text up to the limit (a bigger one, and one the app's parser can't read, get the same
-// sentence -- see the error handler).
-const themeFileText = express.text({ type: () => true, limit: themeFile.MAX_THEME_FILE_BYTES });
 // Any body type is read here, so sameOriginOnly (see "the app", above) is named on the route as well as run for every
 // write: this route must never lose it.
 app.post('/api/themes/import', requireOwner, sameOriginOnly, themeFileText, (req, res) => {
@@ -6016,7 +6032,7 @@ app.use((err, _req, res, _next) => {
   }
   // A theme file too big, not JSON, or a body the parser can't read at all (an unknown charset or content-encoding,
   // bytes that don't unzip): the one sentence the import gives for anything that isn't a theme file.
-  if (_req.path === '/api/themes/import' && (typeof err.type === 'string' || (err.status >= 400 && err.status < 500))) {
+  if (/^\/api\/(themes\/import|host\/themes\/check)$/.test(_req.path) && (typeof err.type === 'string' || (err.status >= 400 && err.status < 500))) {
     return res.status(400).json({ error: themeFile.NOT_A_THEME_FILE });
   }
   // The same for a template file (the host's import and a single install's).

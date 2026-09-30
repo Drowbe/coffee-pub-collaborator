@@ -34,7 +34,7 @@ Whether your environment requires it of everyone is yours to set (Manage > Envir
 
 ## If your environment won't open
 
-If your environment shows only a page saying its data is from a newer version of Magpie, or could not be
+If your environment shows only a page saying its data is from a newer version of Collaborator, or could not be
 updated, nothing in it has been lost, but it cannot be used until the host puts it right, usually by
 restoring a backup. The host console shows the host admin that it won't open, and why. Other environments on the
 same host are not affected.

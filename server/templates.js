@@ -15,6 +15,7 @@ const crypto = require('crypto');
 const words = require('./words');
 const { Store, SPACE_PROFILES, QUALITY_OPTIONS, LANGUAGES, CURRENCIES, BUILTIN_THEME_IDS, LOBBY, displayNameProblem, cleanReactions } = require('./store');
 const themeFile = require('./theme-file');
+const fileFormat = require('./file-format');
 const { bundledModules, buildModule } = require('./module-build');
 
 const ROOT = path.join(__dirname, '..');
@@ -58,8 +59,8 @@ const sanitizeTheme = (t) => Store.prototype.sanitizeTheme.call(null, t);
 // An embedded theme (addendum 2): the theme file's fields, checked as a theme import is. Answers { theme, dropped } or
 // throws the theme file's own refusal.
 function readEmbeddedTheme(raw) {
-  const { collaboratorTheme, ...fields } = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
-  const read = themeFile.readThemeFile({ ...fields, collaboratorTheme: 1 }, sanitizeTheme);
+  const { format, formatVersion, ...fields } = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  const read = themeFile.readThemeFile({ ...fileFormat.stamp('theme'), ...fields }, sanitizeTheme);
   const { dropped, ...theme } = read;
   return { theme, dropped };
 }

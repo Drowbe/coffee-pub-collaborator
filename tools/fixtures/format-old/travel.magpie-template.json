@@ -1,0 +1,68 @@
+{
+  "magpieTemplate": 1,
+  "id": "travel",
+  "name": "Travel",
+  "description": "Plan trips together: the itinerary, places, maps, research and a calendar.",
+  "version": 2,
+  "words": {
+    "space": {
+      "one": "trip",
+      "many": "trips"
+    }
+  },
+  "phases": [
+    {
+      "id": "planning",
+      "label": "Planning"
+    },
+    {
+      "id": "booking",
+      "label": "Booking"
+    },
+    {
+      "id": "buffer",
+      "label": "Buffer"
+    },
+    {
+      "id": "pre-trip",
+      "label": "Pre-trip"
+    },
+    {
+      "id": "trip",
+      "label": "Trip",
+      "main": true
+    },
+    {
+      "id": "post-trip",
+      "label": "Post-trip"
+    }
+  ],
+  "icons": {
+    "home": "suitcase-rolling"
+  },
+  "moduleNames": {
+    "travel": "Itinerary"
+  },
+  "moduleIcons": {},
+  "modules": [
+    "travel",
+    "places",
+    "maps",
+    "research",
+    "calendar",
+    "chat",
+    "conference"
+  ],
+  "settings": {},
+  "lobby": {
+    "name": "Home base",
+    "description": "Everyone on every trip."
+  },
+  "spaceDefaults": {
+    "profile": "participants",
+    "opensWith": [
+      "travel",
+      "chat"
+    ]
+  }
+}

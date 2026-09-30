@@ -16,6 +16,10 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
+// A made-up product name for the server code this check loads and the servers it starts, so a sentence that hard-codes the default
+// fails here (plan-kind-names.md, The guard).
+const PRODUCT = 'Testname';
+process.env.PRODUCT_NAME = PRODUCT;
 const templates = require('../server/templates.js');
 const { buildEnvironment } = require('../server/environment.js');
 const { bundledModules } = require('../server/module-build.js');
@@ -41,7 +45,7 @@ const freshEnvironment = (name) => {
 function startServer(dataDir, env = {}) {
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...env },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, PRODUCT_NAME: PRODUCT, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';
@@ -388,15 +392,28 @@ try {
   await test('template files: a round trip gives the same template; newer, too big and not a file are refused; unknown keys dropped and listed', () => {
     const t = templates.cleanTemplate(grown());
     const file = templateFile.templateToFile(t);
-    assert.equal(file.collaboratorTemplate, 1);
-    assert.equal('collaboratorTheme' in file.theme, false);
+    assert.deepEqual(Object.keys(file).slice(0, 2), ['format', 'formatVersion']);
+    assert.deepEqual([file.format, file.formatVersion], ['template', 1]);
+    assert.equal('format' in file.theme || 'formatVersion' in file.theme, false, 'the embedded theme has no marker of its own');
     const back = templateFile.readTemplateFile(JSON.stringify(file), { bundled });
     assert.deepEqual(back.dropped, []);
     assert.deepEqual(templates.cleanTemplate(back.raw), t);
-    assert.equal(templateFile.templateFileName('Harbour Trips'), 'harbour-trips.collaborator-template.json');
+    assert.equal(templateFile.templateFileName('Harbour Trips'), 'harbour-trips.template.json');
+    assert.equal(templateFile.templateFileName('***'), 'template.template.json');
     const refused = (input, sentence) => assert.throws(() => templateFile.readTemplateFile(input, { bundled }), (err) => err instanceof templateFile.TemplateFileError && err.message === sentence);
-    refused({ ...file, collaboratorTemplate: 2 }, templateFile.NEWER);
-    refused({ ...file, collaboratorTemplate: undefined }, templateFile.NOT_A_TEMPLATE_FILE);
+    refused({ ...file, formatVersion: 2 }, templateFile.NEWER);
+    // The sentences that name the product take it from PRODUCT_NAME.
+    assert.equal(templateFile.NEWER, `This template was made by a newer version of ${PRODUCT}.`);
+    assert.equal(templateFile.NOT_A_TEMPLATE_FILE, `That isn't a ${PRODUCT} template file.`);
+    refused({ ...file, formatVersion: undefined }, templateFile.NOT_A_TEMPLATE_FILE);
+    refused({ ...file, format: 'theme' }, templateFile.NOT_A_TEMPLATE_FILE);
+    const { format, formatVersion, ...unmarked } = file;
+    refused(unmarked, templateFile.NOT_A_TEMPLATE_FILE);
+    for (const label of require('../server/file-format.js').PAST_BLOCK_LABELS) refused({ [`${label}Template`]: 1, ...unmarked }, templateFile.OLD_TEMPLATE_FILE);
+    refused({ someTemplate: 1, ...unmarked }, templateFile.NOT_A_TEMPLATE_FILE); // an unknown xxxTemplate key is not an old marker
+    // An embedded theme with the theme file's own marker (a template made by hand from an exported theme) reads the same.
+    const marked = templateFile.readTemplateFile({ ...file, theme: { format: 'theme', formatVersion: 1, ...file.theme } }, { bundled });
+    assert.deepEqual([templates.cleanTemplate(marked.raw), marked.dropped], [t, []]);
     refused('not json', templateFile.NOT_A_TEMPLATE_FILE);
     refused(JSON.stringify({ ...file, description: 'x'.repeat(70 * 1024) }), templateFile.NOT_A_TEMPLATE_FILE);
     refused({ ...file, modules: ['travel'] }, 'modules: "chat" must be listed; Chat can\'t be switched off yet.');
@@ -606,6 +623,21 @@ try {
     }
     await server.stop();
     server = null;
+  });
+  await test('an empty or blank PRODUCT_NAME is the default everywhere: branding answers what productName() gives, and the environment takes it as its name', async () => {
+    const { productName } = require('../server/product-name.js');
+    for (const [i, blank] of ['', '   '].entries()) {
+      await boot(path.join(base, `blank-name-${i}`), { ADMIN_PASSWORD: 'admin-password-1', PRODUCT_NAME: blank });
+      const saved = process.env.PRODUCT_NAME;
+      process.env.PRODUCT_NAME = blank;
+      const expected = productName();
+      if (saved === undefined) delete process.env.PRODUCT_NAME; else process.env.PRODUCT_NAME = saved;
+      const branding = (await call(server, '', 'GET', '/api/branding')).json;
+      assert.ok(expected.trim(), 'productName() falls back to the default');
+      assert.deepEqual([branding.productName, branding.environmentName], [expected, expected], JSON.stringify(blank));
+      await server.stop();
+      server = null;
+    }
   });
 } finally {
   if (server) await server.stop();

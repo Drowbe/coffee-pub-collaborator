@@ -1,0 +1,5 @@
+An answer fenced with the second past label. What is inside is valid.
+
+```collaborator
+[{"icon":"utensils","kind":"restaurant","title":"Bar do Peixe","content":"Grilled fish on the harbour."}]
+```

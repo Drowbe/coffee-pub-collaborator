@@ -4,7 +4,7 @@
  * along with a request from another origin on the same site, and on a hosted server every environment and the host
  * console share one (*.BASE_DOMAIN). A real server with a base domain, on a throwaway DATA_DIR, reached by Host header:
  *   - a sample of POST, PUT, PATCH and DELETE routes of each kind (an environment's owner routes, a member's own,
- *     module data and settings, the bus, uploads, the theme import, the host console) is refused with the one sentence
+ *     module data and settings, the bus, uploads, the theme import, the host console and its theme file check) is refused with the one sentence
  *     when it carries a cookie and Sec-Fetch-Site says same-site or cross-site, or its Origin is another environment,
  *     the console, the bare base domain or "null" -- and nothing it would have done happens;
  *   - the same requests pass the rule from their own origin (also behind a proxy, X-Forwarded-*), with
@@ -23,7 +23,7 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SENTENCE = 'This request came from another site, so it was refused.';
-const BASE = 'collaborator.test';
+const BASE = 'origin.test';
 
 let n = 0;
 let failed = 0;
@@ -119,7 +119,7 @@ try {
     ['owner: delete a theme', 'DELETE', 'aaa', '/api/themes/staying-blonde'],
     ['owner: a new stream key (no body)', 'POST', 'aaa', '/api/stream-key/regenerate'],
     ['owner: the site icon (raw image)', 'PUT', 'aaa', '/api/settings/icon', png, 'image/png'],
-    ['owner: theme import (text/plain)', 'POST', 'aaa', '/api/themes/import', JSON.stringify({ collaboratorTheme: 1, name: 'Cross', light: set }), 'text/plain'],
+    ['owner: theme import (text/plain)', 'POST', 'aaa', '/api/themes/import', JSON.stringify({ format: 'theme', formatVersion: 1, name: 'Cross', light: set }), 'text/plain'],
     ['member: own settings', 'PATCH', 'aaa', '/api/me', { themeMode: 'light' }],
     ['member: sign out', 'POST', 'aaa', '/api/logout'],
     ['module data: write', 'PUT', 'aaa', '/api/modules/stream/data/check', { value: 1 }],
@@ -131,6 +131,7 @@ try {
     ['host console: rename an environment', 'PATCH', 'admin', '/api/host/environments/bbb', { name: 'Taken over' }, undefined, 'host'],
     ['host console: plans', 'PUT', 'admin', '/api/host/plans', {}, undefined, 'host'],
     ['host console: sign out', 'POST', 'admin', '/api/host/logout', undefined, undefined, 'host'],
+    ['host console: theme file check (text/plain)', 'POST', 'admin', '/api/host/themes/check', JSON.stringify({ format: 'theme', formatVersion: 1, name: 'Cross', light: set }), 'text/plain', 'host'],
   ];
   const cookieFor = (kind) => (kind === 'host' ? hostCookie : ownerCookie);
 

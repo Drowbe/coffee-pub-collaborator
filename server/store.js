@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const words = require('./words');
+const { LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
 
 // Image slots. Participant: what the video box shows when the camera is
 // off, plus optional overlays drawn on top while they talk, are muted, are
@@ -246,8 +247,11 @@ const DEFAULT_CALL_PREFS = {
 const LANGUAGES = ['en'];
 // The currencies the server setting accepts: the ISO 4217 codes Node's own Intl knows (the page lists the same ones).
 const CURRENCIES = new Set(typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('currency') : []);
+// The environment name a never-renamed install still has: a sentinel from before the name was configurable, kept as it
+// was so a stored one is still recognised; environmentFor() in server/index.js replaces it once, on start.
+const UNNAMED_ENVIRONMENT = 'Coffee Pub Tavern';
 const DEFAULT_SETTINGS = {
-  environmentName: 'Coffee Pub Tavern', // a sentinel for a never-renamed install; environmentFor() replaces it once, on start
+  environmentName: UNNAMED_ENVIRONMENT, // a sentinel for a never-renamed install; environmentFor() replaces it once, on start
   // null: the owner hasn't chosen one, so the template's shows, else DEFAULT_HOME_ICON (Store#homeIcon). Stored only
   // when the owner picks one.
   homeIcon: null,
@@ -530,7 +534,7 @@ class Store {
     this.file = path.join(dir, 'app.json');
     // A rename from before this file was called app.json: move it once, so nobody's data goes missing under the
     // new name and nobody needs to touch anything by hand.
-    const legacyFile = path.join(dir, 'tavern.json');
+    const legacyFile = path.join(dir, LEGACY_ENVIRONMENT_RECORD);
     if (!fs.existsSync(this.file) && fs.existsSync(legacyFile)) fs.renameSync(legacyFile, this.file);
     this.imagesDir = path.join(dir, 'images');
     fs.mkdirSync(this.imagesDir, { recursive: true });
@@ -1992,5 +1996,5 @@ module.exports = {
   LEGACY_SLOTS, ROLES, ASSIGNABLE_ROLES, hasOwnerRights, ROLE_PERMISSIONS, IMAGE_TYPES, MAX_IMAGE_BYTES, DEFAULT_BORDER_COLOR, LOBBY, randomToken, cleanText, cleanLogin,
   sanitizeMfa, CURRENCIES, QUALITY_OPTIONS, LANGUAGES, BUILTIN_THEME_IDS: BUILTIN_THEMES.map((t) => t.id), displayNameProblem,
   THEME_BASE, THEME_OPTIONAL, DEFAULT_THEME, cleanColor, cleanAuthor, cleanReactions, cleanThemeName, MAX_THEMES,
-  DEFAULT_HOME_ICON,
+  DEFAULT_HOME_ICON, UNNAMED_ENVIRONMENT,
 };

@@ -5,8 +5,11 @@
 
 const { word } = require('./words');
 const { productName } = require('./product-name');
+const fileFormat = require('./file-format');
 
-const FORMAT_VERSION = 1;
+const FORMAT_VERSION = fileFormat.FORMAT_VERSIONS.objects;
+const FENCE = 'objects'; // the label of the format's fenced block (plan-kind-names.md)
+const FILE_SUFFIX = '.objects.json';
 const MAX_IMPORT_OBJECTS = 50;
 const MAX_IMPORT_CANDIDATES = 200;
 const MAX_IMPORT_BYTES = 262144;
@@ -105,15 +108,14 @@ function objectRule({ fence, noun, max, withProvenance }) {
 }
 
 function instructions(noun) {
-  return `I keep my research in ${productName()}. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one ${objectRule({ fence: 'collaborator', noun, max: MAX_IMPORT_OBJECTS, withProvenance: false })}\nIf I ask for a file instead, write one JSON file named <something>.collaborator-objects.json holding {"collaboratorObjects":1,"objects":[...]}, with the same ${word('object', { many: true })} in that one list. Do not write a separate file or a separate fenced block for each ${noun}.`;
+  return `I keep my research in ${productName()}. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun, max: MAX_IMPORT_OBJECTS, withProvenance: false })}\nIf I ask for a file instead, write one JSON file named <something>${FILE_SUFFIX} holding {"format":"objects","formatVersion":1,"objects":[...]}, with the same ${word('object', { many: true })} in that one list. Do not write a separate file or a separate fenced block for each ${noun}.`;
 }
 
 function schema() {
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $id: 'urn:coffee-pub-collaborator:objects:1',
     title: `${productName()} ${word('object', { many: true })}, format 1`,
-    description: `One ${word('object')}, a list of ${word('object', { many: true })}, or a .collaborator-objects.json file. Other fields are ignored.`,
+    description: `One ${word('object')}, a list of ${word('object', { many: true })}, or a ${FILE_SUFFIX} file. Other fields are ignored.`,
     oneOf: [
       { $ref: '#/$defs/object' },
       { type: 'array', items: { $ref: '#/$defs/object' }, maxItems: MAX_IMPORT_OBJECTS },
@@ -122,9 +124,10 @@ function schema() {
     $defs: {
       file: {
         type: 'object',
-        required: ['collaboratorObjects', 'objects'],
+        required: ['format', 'formatVersion', 'objects'],
         properties: {
-          collaboratorObjects: { const: 1 },
+          format: { const: 'objects' },
+          formatVersion: { const: FORMAT_VERSION },
           objects: { type: 'array', items: { $ref: '#/$defs/object' }, maxItems: MAX_IMPORT_OBJECTS },
         },
       },
@@ -208,22 +211,42 @@ function braceSpans(text) {
   return out;
 }
 
+// An opening fence whose label is a past block label (server/file-format.js), in any letter case: at the start of a
+// line, after any indent, list markers (-, *, +, 1. or 1)) and quote markers (>, nested too); then three or more
+// backticks, any spaces or tabs, and the label as a whole word (not followed by a letter, digit, _ or -, so a word
+// that only starts with the label is not it); anything may follow. Lines may end in LF or CRLF. The block need not be
+// closed (plan-kind-names.md, "Objects files and blocks").
+const FENCE_PREFIX = '(?:[ \\t]*(?:>|[-*+][ \\t]|\\d{1,9}[.)][ \\t]))*[ \\t]*';
+const PAST_FENCE = new RegExp(`^${FENCE_PREFIX}\`{3,}[ \\t]*(?:${fileFormat.PAST_BLOCK_LABELS.join('|')})(?![\\w-])`, 'im');
+const OBJECTS_BLOCK = new RegExp(`\`\`\`${FENCE}[ \\t]*\\r?\\n([\\s\\S]*?)\\n?\`\`\``, 'g');
+
+// Reads pasted text or a file's text, in this order (plan-kind-names.md, "Objects files and blocks"):
+//   a block fenced with a past label anywhere -> the whole paste refused (OLD_SENTENCES.answer); nothing in it is read
+//   JSON that is an objects file (format "objects", or any formatVersion) -> its marker checked, then its list
+//   a JSON object with an old-shaped marker and no format -> refused (OLD_SENTENCES.objects)
+//   any other JSON object or array -> read as one object or a list
+//   ```objects blocks; when there are none, any JSON object with a title anywhere in the text (a paste that lost its fences)
 function readObjects(text) {
   let src = String(text == null ? '' : text);
   if (src.charCodeAt(0) === 0xfeff) src = src.slice(1);
   const trimmed = src.trim();
   if (!trimmed) throw new FormatError(400, 'paste an answer or choose a file first');
+  if (PAST_FENCE.test(trimmed)) throw new FormatError(400, fileFormat.OLD_SENTENCES.answer);
 
   let candidates = null;
   if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
     try {
       const parsed = JSON.parse(trimmed);
-      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Object.prototype.hasOwnProperty.call(parsed, 'collaboratorObjects')) {
-        const n = parsed.collaboratorObjects;
-        if (Number.isInteger(n) && n > 1) throw new FormatError(400, `that file is format ${n}; this server reads format 1`);
-        if (n !== 1) throw new FormatError(400, 'that is not a .collaborator-objects.json file');
+      const isObject = parsed && typeof parsed === 'object' && !Array.isArray(parsed);
+      const has = (key) => Object.prototype.hasOwnProperty.call(parsed, key);
+      if (isObject && (parsed.format === 'objects' || has('formatVersion'))) {
+        const marker = fileFormat.readMarker(parsed, 'objects');
+        if (marker === 'newer') throw new FormatError(400, `that file is format ${parsed.formatVersion}; this server reads format ${FORMAT_VERSION}`);
+        if (marker !== 'ok') throw new FormatError(400, `that is not a ${FILE_SUFFIX} file`);
         if (!Array.isArray(parsed.objects)) throw new FormatError(400, `that file has no list of ${word('object', { many: true })}`);
         candidates = parsed.objects;
+      } else if (isObject && fileFormat.readMarker(parsed, 'objects') === 'old') {
+        throw new FormatError(400, fileFormat.OLD_SENTENCES.objects);
       } else if (Array.isArray(parsed)) {
         candidates = parsed;
       } else {
@@ -237,10 +260,10 @@ function readObjects(text) {
 
   if (candidates === null) {
     candidates = [];
-    const re = /```(collaborator|card)[ \t]*\n([\s\S]*?)\n?```/g;
+    OBJECTS_BLOCK.lastIndex = 0;
     let m;
-    while ((m = re.exec(trimmed))) {
-      const parsed = parseFenceValue(m[2]);
+    while ((m = OBJECTS_BLOCK.exec(trimmed))) {
+      const parsed = parseFenceValue(m[1]);
       if (parsed.bad) candidates.push({ __notJson: true });
       else addCandidates(candidates, parsed.value);
     }
@@ -255,7 +278,7 @@ function readObjects(text) {
   }
 
   if (!candidates.length) {
-    throw new FormatError(400, `nothing in that could be read as ${word('object', { many: true })}: paste the whole answer, with its collaborator blocks`);
+    throw new FormatError(400, `nothing in that could be read as ${word('object', { many: true })}: paste the whole answer, with its ${FENCE} blocks`);
   }
 
   const found = Math.min(candidates.length, MAX_IMPORT_CANDIDATES);
@@ -276,6 +299,8 @@ function readObjects(text) {
 
 module.exports = {
   FORMAT_VERSION,
+  FENCE,
+  FILE_SUFFIX,
   MAX_IMPORT_OBJECTS,
   MAX_IMPORT_CANDIDATES,
   MAX_IMPORT_BYTES,

@@ -17,6 +17,10 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
+// A made-up product name for the servers this check starts (and the server code it loads), so a sentence that
+// hard-codes the default fails here (plan-kind-names.md, The guard).
+const PRODUCT = 'Testname';
+process.env.PRODUCT_NAME = PRODUCT;
 const { HostRegistry, HostError, cleanSlug } = require('../server/host-registry.js');
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 let n = 0;
@@ -319,7 +323,7 @@ const liveTest = async (name, fn) => {
 async function startServer(dataDir, env = {}) {
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...env },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, PRODUCT_NAME: PRODUCT, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';
@@ -538,7 +542,7 @@ try {
     };
     for (const [what, entries] of Object.entries(zips)) {
       const res = await call(server, 'admin', 'POST', '/api/host/environments/beta/restore', { cookie, body: zipFiles(entries), type: 'application/zip' });
-      assert.deepEqual([res.status, res.json], [400, { error: 'This backup is from a newer version of Collaborator.' }], what);
+      assert.deepEqual([res.status, res.json], [400, { error: `This backup is from a newer version of ${PRODUCT}.` }], what);
       assert.deepEqual(fs.readFileSync(appFile), good, `${what}: app.json unchanged`);
       assert.ok(!fs.existsSync(path.join(data, 'environments', 'beta', 'tavern.json')), `${what}: nothing landed`);
     }
@@ -567,7 +571,7 @@ try {
     const appFile = path.join(data, 'environments', 'beta', 'app.json');
     fs.writeFileSync(appFile, JSON.stringify({ ...readJson(appFile), version: 2, migrations: [{ id: 'names-from-the-future', at: '', moved: [] }] }));
     server = await startServer(data, hostedEnv);
-    assert.match(server.output(), /names-from-the-future", which this version of Collaborator does not know: this data is from a newer version of Collaborator, so it will not be opened here\. This environment is skipped and answers 503/);
+    assert.ok(server.output().includes(`names-from-the-future", which this version of ${PRODUCT} does not know: this data is from a newer version of ${PRODUCT}, so it will not be opened here. This environment is skipped and answers 503`), server.output());
     const product = await call(server, '', 'GET', '/api/product/environments');
     assert.deepEqual(product.json.environments.map((e) => e.slug), ['acme', 'bravo'], 'left out of the sign-in list');
     const page = await call(server, 'beta', 'GET', '/', { accept: 'text/html' });
@@ -575,7 +579,7 @@ try {
     assert.match(page.headers['content-type'], /text\/html/);
     assert.ok(page.text.includes(names.REFUSED_NEWER), page.text);
     const api = await call(server, 'beta', 'GET', '/api/me');
-    assert.deepEqual([api.status, api.json], [503, { error: "This environment's data is from a newer version of Collaborator." }]);
+    assert.deepEqual([api.status, api.json], [503, { error: `This environment's data is from a newer version of ${PRODUCT}.` }]);
     assert.equal((await call(server, 'acme', 'GET', '/api/me')).status, 401, 'the other environment still runs');
     cookie = await signInHost(server);
     const list = await call(server, 'admin', 'GET', '/api/host/environments', { cookie });
@@ -1089,7 +1093,7 @@ try {
     putModules(envDir);
     server = await startServer(hosted, hostedEnv);
     await waitFor('[deps] Module "depmod" 1.0.0 can\'t run until "oldmod", which it requires, is updated.');
-    await waitFor('[deps] Module "oldmod" 1.0.0 can\'t run until it is updated: module.json uses the old scope "server"; use "environment" (Collaborator renamed the server to the environment).');
+    await waitFor(`[deps] Module "oldmod" 1.0.0 can't run until it is updated: module.json uses the old scope "server"; use "environment" (${PRODUCT} renamed the server to the environment).`);
     await waitFor('[deps] Carried the member role\'s choice for module.renamer.links over to module.renamer.view_page.');
     assert.deepEqual(readJson(path.join(envDir, 'app.json')).settings.roles.member, { 'module.renamer.view_page': true }, 'the grant carried, the old key gone');
     const owner = cookieOf(await call(server, 'deps', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
@@ -1144,11 +1148,11 @@ try {
     registry.autoInstalled = [...new Set([...(registry.autoInstalled || []), 'stream'])];
     fs.writeFileSync(path.join(modulesDir, 'registry.json'), JSON.stringify(registry));
     server = await startServer(single, { ADMIN_PASSWORD: 'admin-password-1' });
-    for (const id of ['maps', 'places', 'stream']) await waitFor(`Updated "${id}" from ${oldVersion(current[id])} to ${current[id]}: the version installed was built for an older version of Collaborator.`);
+    for (const id of ['maps', 'places', 'stream']) await waitFor(`Updated "${id}" from ${oldVersion(current[id])} to ${current[id]}: the version installed was built for an older version of ${PRODUCT}.`);
     const out = server.output();
     assert.ok(!out.includes('Could not update'), out);
     assert.ok(out.indexOf('Updated "places"') < out.indexOf('Updated "maps"'), `Places before Maps:\n${out}`);
-    assert.ok(out.includes(`Updated "stream" from ${oldVersion(current.stream)} to ${current.stream}: the version installed was built for an older version of Collaborator. It stays on: its new permission (view_page) is off for every role, so only owners have it.`), out);
+    assert.ok(out.includes(`Updated "stream" from ${oldVersion(current.stream)} to ${current.stream}: the version installed was built for an older version of ${PRODUCT}. It stays on: its new permission (view_page) is off for every role, so only owners have it.`), out);
     const admin = cookieOf(await call(server, '', 'POST', '/api/login', { body: { login: 'admin', password: 'admin-password-1' } }));
     const byId = Object.fromEntries((await call(server, '', 'GET', '/api/modules', { cookie: admin })).json.modules.map((m) => [m.id, m]));
     for (const id of ['maps', 'places', 'stream']) assert.deepEqual([id, byId[id].version, byId[id].enabled, byId[id].missing, byId[id].needsUpdate], [id, current[id], true, [], []]);

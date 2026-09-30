@@ -33,8 +33,8 @@ from the zip, or overwritten by a stale in-memory copy right after).
 
 An environment's own name is its `environmentName` setting (the author's call; `serverName` before step 5a). `environmentFor()` in `index.js` runs one
 check every time it builds an environment, not just the first: still on the shipped sentinel default ("Coffee
-Pub Tavern", from before an install's name was ever set, or before the setting existed at all) means the
-default environment gets `PRODUCT_NAME` and a hosted environment gets `hostRegistry.findEnvironment(slug).name`, written with
+Pub Tavern", `UNNAMED_ENVIRONMENT` in `server/store.js`, from before an install's name was ever set, or before the setting existed at all) means the
+default environment gets the product name (`PRODUCT_NAME`, or the default when it is blank) and a hosted environment gets `hostRegistry.findEnvironment(slug).name`, written with
 `store.updateSettings`. The same check covers a brand new environment (still on the sentinel right after
 `buildEnvironment`) and an old one catching up on its next start after skipping a few versions -- one code path,
 not two.
@@ -78,7 +78,17 @@ The "door" is one middleware, registered right after `express.json()`, before an
   current base first. `PRODUCT_NAME` (default "Collaborator") and `CONTACT_EMAIL` (default none) are
   configuration, never code, since the product's own name is not settled yet -- `GET /api/product` (registered on
   both the main app and `hostRouter`, never behind a session) answers `{ name, contact, baseDomain, version }`
-  wherever it is reached.
+  wherever it is reached. `PRODUCT_NAME` unset, empty or only spaces means the default, everywhere: `productName()`
+  in `server/product-name.js` is the one rule, and `DEFAULT_PRODUCT_NAME` there is the only place the default is
+  written. The pages write no name of their own: they start with none and fill it in from branding. `version` is
+  the package version and the first seven characters of `APP_REVISION` (`v0.4.0 (1a2b3c4)`), which the Dockerfile
+  sets to the commit the image was built from (`dev` when unset). It was `TAVERN_REVISION`, which is no longer read;
+  only the Dockerfile ever set it.
+  Identifiers (file formats and their markers, fenced blocks, stored keys, cookies, environment variables) are
+  named by kind, never by the product ([plan-kind-names](../plans/plan-kind-names.md)), and
+  `tools/check-names.mjs` fails on a product name written into the code (see "The product name guard", under
+  "The Names migration" below; the formats are in [architecture-modules](architecture-modules.md), "The objects
+  format", and [architecture-overview](architecture-overview.md), "Themes").
 
 A start without `BASE_DOMAIN` on a data folder that already belongs to a hosted server (it has `host.json` or an
 `environments/` folder) stops before anything is written: `refuseHostedDataWithoutBaseDomain()` in
@@ -267,6 +277,23 @@ every hit. The allow-list is `tools/check-names-allow.json`: `{ file, level, pat
 pattern tested against the hit's own name; an entry with no reason fails, `level: "*"` or a pattern that
 matches anything is allowed only for one exact file or under `tools/fixtures/`, and unused entries are listed.
 
+**The product name guard** (`productNameCheck`, run on every `check-names` mode). No product name is written into
+an identifier or into text in what the server ships and checks: the name comes only from `PRODUCT_NAME`, and
+identifiers are named by kind ([plan-kind-names](../plans/plan-kind-names.md)). The names are the default,
+read from `DEFAULT_PRODUCT_NAME` in `server/product-name.js` and never repeated in the check, and the past names in
+`PAST_PRODUCT_NAMES` (magpie and tavern), matched in any letter case anywhere in a line, comments included, and in
+file and folder names, under `server/`, `public/`, `modules/`, `tools/` and `templates/`, and in the `Dockerfile`.
+The brand, Coffee Pub, and the repository and image addresses (`github.com/Drowbe/coffee-pub-collaborator`,
+`ghcr.io/drowbe/coffee-pub-collaborator`) are allowed. Anything else is exempt only by an allow-list entry of level
+`product-name` with a reason: the read-once migrations of what installs stored or were configured with (the
+`tavern_session` cookie, `tavern.json`, the "Coffee Pub Tavern" environment name, `TAVERN_AI_KEY` and the removed
+admin names, the browser's `tavern.*` keys), the checks that prove them, the default's one definition,
+`PAST_BLOCK_LABELS` in `server/file-format.js` and `tools/fixtures/format-old/`. The guard also fails when the
+entry for the default's line or for `PAST_BLOCK_LABELS` would allow more than that one line as it is, and when
+`PAST_BLOCK_LABELS` is not a frozen list of two. The checks whose sentences carry the product's name run with
+`PRODUCT_NAME=Testname` and build what they expect from it, so a sentence that hard-codes the default fails too.
+If the default product name ever changes, the old one must be added to `PAST_PRODUCT_NAMES` by hand.
+
 ### The host's part: `names-environment`
 
 The first real part, in `HOST_PARTS`, run by `migrateHost(DATA_DIR)` on a hosted server only (a
@@ -380,7 +407,7 @@ data, and are gone after the start after it. This departs from the plan, which h
 first run; the project manager chose the extra start. A delete that fails part-way is not recorded, and the next
 start deletes what is left.
 
-### Bundled modules built for an older Magpie
+### Bundled modules built for an older version
 
 Since step 5c a manifest in the old names can't run (see [architecture-modules](architecture-modules.md)). So,
 on each start, `updateOutdatedBundled()` in `index.js` installs the new copy of each module that came with this
@@ -388,7 +415,7 @@ deployment (`source: "bundled"`) whose installed version is outdated, requiremen
 keeping its on or off, its spaces and its data. A module that was on is turned back on only when what it newly
 asks for widens nothing (`pendingWidensNothing()`: a new permission that is off for every role); anything else
 waits for an owner's approval, as any update does. Each update logs one line, such as `Updated "polls" to
-1.12.11: the version installed was built for an older Magpie.`; if turning it back on is refused, the line adds
+1.12.11: the version installed was built for an older version of <product>.` (<product> is `PRODUCT_NAME`); if turning it back on is refused, the line adds
 "It is off for now: <reason>" rather than reporting a failed update. A failed install logs
 `Could not update "<id>" ...`. Since step 7 the same start also updates every bundled module, outdated or not, to
 the version the server ships whenever the update asks for nothing new to approve; one that asks for more waits for
@@ -482,8 +509,9 @@ one. The old `/api/host/tenants...` paths are gone and answer 404; there is no a
 | `POST /api/host/templates/:id/update` `{ keep: "shipped" \| "mine" }` | Answers the "updated in this image" notice: `shipped` is a reset (above); `mine` keeps the edits and closes the notice, with no new version. `{ template }`; 400 `keep must be shipped or mine.`; 409 `There is no update to review for <name>.`; 404 as above |
 | `POST /api/host/templates/:id/duplicate` `{ id, name }` | 201 `{ template }`: a new host template with the fields of the template in use (bundled, edited or not, or a host one), version 1, not hidden. 400 `{ error, problems }`; 409 `There is already a template called <id>.`; 404 as above |
 | `DELETE /api/host/templates/:id` | `{ ok: true }`; 403 `Bundled templates can't be deleted. Hide it instead.`; 409 `Environments use this template: <names>. Hide it instead.` (the environment word is the host's); 404 as above |
-| `GET /api/host/templates/:id/export` | the template file (`Content-Disposition` `<name>.magpie-template.json`), bundled ones included; an edited bundled template's file is the template in use plus `"edited": true`, which every import ignores without listing it in `dropped`; 404 as above |
-| `POST /api/host/templates/import[?id=<new id>]`, the file's text as the body (any content type) | 201 `{ template, dropped }`, keeping the file's `version`; `?id=` saves it under another id. 400 `That isn't a Magpie template file.`, `This template was made by a newer version of Magpie.` or `{ error, problems }`; 409 `There is already a template called <id>.`; 403 from another origin with a cookie (`sameOriginOnly`) |
+| `GET /api/host/templates/:id/export` | the template file (`Content-Disposition` `<name>.template.json`), bundled ones included; an edited bundled template's file is the template in use plus `"edited": true`, which every import ignores without listing it in `dropped`; 404 as above |
+| `POST /api/host/templates/import[?id=<new id>]`, the file's text as the body (any content type) | 201 `{ template, dropped }`, keeping the file's `version`; `?id=` saves it under another id. 400 `That isn't a <product> template file.`, `This template was made by a newer version of <product>.`, `That template file is in an older format. Export the template again and import the new file.` or `{ error, problems }` (<product> is `PRODUCT_NAME`); 409 `There is already a template called <id>.`; 403 from another origin with a cookie (`sameOriginOnly`) |
+| `POST /api/host/themes/check`, a theme file's text (or its JSON) as the body, at most 16 KB | For the template editor's theme picker: reads the file exactly as `POST /api/themes/import` does and stores nothing. 200 `{ theme: { name, author?, light, dark }, dropped }`, `dropped` listing the keys left out; 400 `{ error }` with the theme file's sentence (`That isn't a <product> theme file.`, also for a body over 16 KB or one the parser can't read; `This theme was made by a newer version of <product>.`; `That theme file is in an older format. Export the theme again and import the new file.`; or the no complete set sentence); 403 from another origin with a cookie (`sameOriginOnly`) |
 | `POST /api/host/environments` `{ slug, name, plan?, template?, owner?: { login, displayName, password } }` | 201 `{ environment }`; 409 `"<slug>" is already in use`; a bad slug answers `cleanSlug`'s own error; 400 `There is no template called <id>.` or `A template is named by its id, such as travel.` |
 | `PATCH /api/host/environments/:slug` `{ name?, plan?, status?, template? }` | `{ environment }`; 404 `no such environment`; 400 for a status not in the list. With `template` (an id, or `"none"`) it switches the environment's template, building the environment if it isn't built yet, and `environment` also carries `template` and `offer` (see "Templates"); 400 `There is no template called <id>.` or `A template is named by its id, or "none" for no template.` |
 | `GET /api/host/environments/:slug/template` | `{ template, offer, choices }`, as the owner's `GET /api/environment/template`; read-only; 404 `no such environment` |
@@ -496,21 +524,21 @@ one. The old `/api/host/tenants...` paths are gone and answer 404; there is no a
 
 ## Refused environments
 
-Data that records a migration part this server does not know is from a newer Magpie, and is refused rather
+Data that records a migration part this server does not know is from a newer version, and is refused rather
 than read in a shape this server does not understand (plan-names decision 22).
 
 - **At startup, when nothing else can run.** An unknown part in `host.json`, or in the one environment of a
   single-environment install, logs one line and exits with code 1; so does an unreadable `app.json` on a single
   install (see "Data that cannot be read" above). For an unknown part, the line names the file and the part:
-  `<file> records the migration part "<id>", which this version of Magpie does not know: this data is from a
-  newer version of Magpie, so it will not be opened here.`
+  `<file> records the migration part "<id>", which this version of <product> does not know: this data is from a
+  newer version of <product>, so it will not be opened here.` (<product> is `PRODUCT_NAME`)
 - **On a hosted server, one environment.** `buildAtStartup()` in `index.js` skips an environment whose build
   throws a `MigrationError`; the others and the console keep running. `environmentFor()` keeps the refusal in
   `refusals` (by slug: `reason`, `file` relative to `DATA_DIR`, such as `environments/beta/app.json`, the full `message`, the sentence, `at`), logs
   the message once per refusal, and tries to build again on every request, so a fixed or restored environment
   opens without a restart. The log line for a skipped environment adds "This environment is skipped and answers 503
   until its data is restored or fixed; the others run as usual." Until it builds, the error handler answers 503 with
-  `{ error: "This environment's data is from a newer version of Magpie." }` (`newer`),
+  `{ error: "This environment's data is from a newer version of <product>." }` (`newer`),
   `{ error: "This environment's data could not be read. The host admin has been told." }` (`unreadable`) or
   `{ error: "This environment's data could not be updated. The host admin has been told." }` (`failed`), or a
   plain HTML page with the same sentence for a browser asking for a page. The file and the detail go to the log
@@ -521,7 +549,7 @@ than read in a shape this server does not understand (plan-names decision 22).
   it is refused.
 - **Restore.** `POST /api/host/environments/:slug/restore` checks the zip before touching anything: when the
   `app.json` or `tavern.json` that would land (names normalised, the last of a repeated entry) records an
-  unknown part, it answers 400 `{ error: "This backup is from a newer version of Magpie." }` and the
+  unknown part, it answers 400 `{ error: "This backup is from a newer version of <product>." }` and the
   environment is unchanged. Otherwise it replaces the environment's folder, builds it at once, and answers
   `{ ok: true }`, or `{ ok: true, refused: { reason, file, message, at } }` when the restored data is itself
   refused. A backup whose `app.json` (or `tavern.json`, when there is no `app.json`) is not valid JSON or not an
@@ -568,7 +596,7 @@ on at most one; any other key is refused. The fields added by addendum 2:
   edit; an imported one keeps the file's.
 - `reactions`: `[{ id?, glyph, label? }]`, at most 30, a glyph of 1 to 8 characters and a label of at most 40, then
   cleaned by `cleanReactions`.
-- `theme`: an embedded theme in the theme file's shape, `{ name, author?, light, dark }` without `magpieTheme`,
+- `theme`: an embedded theme in the theme file's shape, `{ name, author?, light, dark }` without the theme file's `format` and `formatVersion`,
   checked as a theme import is (`server/theme-file.js`).
 - `iconSet`: at most 60 Font Awesome Free solid names, none twice, for the environment's icon list. It is separate
   from `icons`, which stays `{ home }`.
@@ -651,11 +679,11 @@ it among its own choices. Deleting a host template answers 409 while any environ
 bundled one can be hidden (no new version) but not deleted (403). A single install's owner can delete an imported template only when
 the environment doesn't use it.
 
-**Template files** (`server/template-file.js`). `<name>.magpie-template.json`, at most 64 KB:
+**Template files** (`server/template-file.js`). `<name>.template.json`, at most 64 KB:
 
 ```json
 {
-  "magpieTemplate": 1,
+  "format": "template", "formatVersion": 1,
   "id": "harbour", "name": "Harbour", "description": "...", "version": 3,
   "words": {}, "icons": { "home": "anchor" }, "iconSet": ["anchor", "ship"],
   "moduleNames": {}, "moduleIcons": {}, "modules": ["chat", "conference"],
@@ -666,9 +694,13 @@ the environment doesn't use it.
 ```
 
 `templateToFile()` writes every field the template has (a part it lacks is left out), the theme in the theme file's
-shape without its `magpieTheme`. `readTemplateFile()` refuses, in order: over 64 KB, not JSON, not an object, or
-`magpieTemplate` missing or not a whole number ("That isn't a Magpie template file."); a newer `magpieTemplate`
-("This template was made by a newer version of Magpie."); then the template's own check (the first problem is the
+shape without its `format` and `formatVersion`. The marker is read by `readMarker()` in `server/file-format.js`, the
+one rule for the theme, template and objects files. `readTemplateFile()` refuses, in order: over 64 KB, not JSON,
+not an object, or a marker that isn't `"format": "template"` with a whole-number `formatVersion` ("That isn't a
+<product> template file."); a file from before the formats were named by kind, with no `format` and a top-level key
+named after a past product name followed by `Template` ("That template file is in an older format. Export the
+template again and import the new file."); a newer `formatVersion` ("This template was made by a newer version of
+<product>."); then the template's own check (the first problem is the
 error, `problems` lists every one). Unknown keys, at the top level and inside the theme and its sets, are dropped
 and listed in `dropped` (`plan`, `theme.glow`, `theme.light.shine`). An import keeps the file's `version`. Any
 template can be exported, a bundled one included. To start a host template from another, the console's

@@ -4,8 +4,9 @@
  * Store.importTheme on their own, then a real server on a throwaway DATA_DIR:
  *   - every built-in and Strong Coffee exports with all sixteen keys per set and imports back to the same colors,
  *     named "(2)", and /theme.css with the import applied says what it said with the original;
- *   - each refusal in the plan's order, with its sentence: over 16 KB, not JSON, not an object, no collaboratorTheme or not
- *     a whole number, a newer collaboratorTheme, no complete set;
+ *   - each refusal in the plan's order, with its sentence: over 16 KB, not JSON, not an object, format not "theme" or
+ *     formatVersion not a whole number, a marker from before the formats were named by kind (plan-kind-names.md), a newer
+ *     formatVersion, no complete set;
  *   - unknown keys dropped and named; a bad color drops its set; an import never changes the active theme or mode;
  *   - CSS typed into a color (`red; background: url(x)`) never reaches /theme.css;
  *   - control and format characters never reach a name or author; the 101st theme is refused;
@@ -21,6 +22,10 @@ import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
+// A made-up product name for the server code this check loads and the server it starts, so a sentence that hard-codes the default
+// fails here (plan-kind-names.md, The guard).
+const PRODUCT = 'Testname';
+process.env.PRODUCT_NAME = PRODUCT;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tf = require('../server/theme-file.js');
 const { Store, BUILTIN_THEME_IDS, DEFAULT_THEME } = require('../server/store.js');
@@ -38,7 +43,11 @@ const test = async (name, fn) => {
 };
 const EVIL = 'red; background: url(x)';
 const set = (over = {}) => ({ bg: '#ffffff', bgSection: '#f5f7f8', border: '#dde3e6', text: '#222222', textDim: '#6b7479', accent: '#1c7c8c', onAccent: '#ffffff', ...over });
-const file = (over = {}) => ({ collaboratorTheme: 1, name: 'Harbour', author: 'Thomas', light: set(), dark: null, ...over });
+const file = (over = {}) => ({ format: 'theme', formatVersion: 1, name: 'Harbour', author: 'Thomas', light: set(), dark: null, ...over });
+// The old-format theme fixture (tools/fixtures/format-old/), found by its kind so no product name is written here.
+const OLD_DIR = path.join(ROOT, 'tools', 'fixtures', 'format-old');
+const oldThemeFiles = () => fs.readdirSync(OLD_DIR).filter((f) => f.endsWith('-theme.json')).sort().map((f) => fs.readFileSync(path.join(OLD_DIR, f), 'utf8'));
+const { PAST_BLOCK_LABELS } = require('../server/file-format.js');
 const refusedWith = (sentence) => (err) => err instanceof tf.ThemeFileError && err.status === 400 && err.message === sentence;
 
 // --- on their own ----------------------------------------------------------------------------------------------
@@ -50,7 +59,8 @@ await test('export: every key of each set, null for Auto and for a set the theme
   for (const id of BUILTIN_THEME_IDS) {
     const theme = store.themes.find((t) => t.id === id);
     const out = tf.themeToFile(theme);
-    assert.deepEqual(Object.keys(out), ['collaboratorTheme', 'name', 'light', 'dark']);
+    assert.deepEqual(Object.keys(out), ['format', 'formatVersion', 'name', 'light', 'dark']);
+    assert.deepEqual([out.format, out.formatVersion], ['theme', 1]);
     for (const mode of ['light', 'dark']) assert.deepEqual(Object.keys(out[mode]), tf.SET_KEYS, `${id} ${mode}: sixteen keys`);
   }
   const coffee = tf.themeToFile(null);
@@ -59,23 +69,35 @@ await test('export: every key of each set, null for Auto and for a set the theme
   assert.equal(coffee.dark.secondary, null);
   const one = tf.themeToFile({ name: 'Only light', light: set(), dark: null });
   assert.equal(one.dark, null);
-  assert.equal(tf.themeFileName('Strong Coffee'), 'strong-coffee.collaborator-theme.json');
-  assert.equal(tf.themeFileName('  Ünïcode & "quotes"!! '), 'n-code-quotes.collaborator-theme.json');
-  assert.equal(tf.themeFileName('***'), 'theme.collaborator-theme.json');
+  assert.equal(tf.themeFileName('Strong Coffee'), 'strong-coffee.theme.json');
+  assert.equal(tf.themeFileName('  Ünïcode & "quotes"!! '), 'n-code-quotes.theme.json');
+  assert.equal(tf.themeFileName('***'), 'theme.theme.json');
+  assert.equal(tf.themeFileName(''), 'theme.theme.json');
 });
 
 await test('import refusals, each with its sentence, in the plan\'s order', () => {
   const read = (x) => () => tf.readThemeFile(x, sanitize);
-  assert.throws(read(`{"collaboratorTheme":1,"name":"${'x'.repeat(17 * 1024)}"}`), refusedWith(tf.NOT_A_THEME_FILE), 'over 16 KB');
+  assert.throws(read(`{"format":"theme","formatVersion":1,"name":"${'x'.repeat(17 * 1024)}"}`), refusedWith(tf.NOT_A_THEME_FILE), 'over 16 KB');
   assert.throws(read('not json'), refusedWith(tf.NOT_A_THEME_FILE));
   assert.throws(read('[1,2]'), refusedWith(tf.NOT_A_THEME_FILE));
   assert.throws(read('"a string"'), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ collaboratorTheme: undefined })), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ collaboratorTheme: 1.5 })), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ collaboratorTheme: '1' })), refusedWith(tf.NOT_A_THEME_FILE));
-  assert.throws(read(file({ collaboratorTheme: 0 })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ formatVersion: undefined })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ formatVersion: 1.5 })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ formatVersion: '1' })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ formatVersion: 0 })), refusedWith(tf.NOT_A_THEME_FILE));
+  assert.throws(read(file({ format: 'template' })), refusedWith(tf.NOT_A_THEME_FILE), 'another kind');
+  const { format, formatVersion, ...unmarked } = file();
+  assert.throws(read(unmarked), refusedWith(tf.NOT_A_THEME_FILE), 'no marker');
+  // A marker from before the formats were named by kind: a past label and the kind, built from the one list.
+  for (const label of PAST_BLOCK_LABELS) assert.throws(read({ ...unmarked, [`${label}Theme`]: 1 }), refusedWith(tf.OLD_THEME_FILE), label);
+  // Any other key ending in the kind is not an old marker (plan-kind-names.md, F4).
+  assert.throws(read({ ...unmarked, someTheme: 1 }), refusedWith(tf.NOT_A_THEME_FILE), 'an unknown xxxTheme key');
+  assert.equal(tf.OLD_THEME_FILE, 'That theme file is in an older format. Export the theme again and import the new file.');
   // A newer version is refused before anything else is looked at, even a file with nothing usable in it.
-  assert.throws(read({ collaboratorTheme: 2 }), refusedWith(tf.NEWER));
+  assert.throws(read({ format: 'theme', formatVersion: 2 }), refusedWith(tf.NEWER));
+  // The sentences that name the product take it from PRODUCT_NAME.
+  assert.equal(tf.NOT_A_THEME_FILE, `That isn't a ${PRODUCT} theme file.`);
+  assert.equal(tf.NEWER, `This theme was made by a newer version of ${PRODUCT}.`);
   assert.throws(read(file({ light: null })), refusedWith(tf.NO_COMPLETE_SET));
   assert.throws(read(file({ light: set({ accent: undefined }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color missing');
   assert.throws(read(file({ light: set({ accent: EVIL }) })), refusedWith(tf.NO_COMPLETE_SET), 'a base color that is CSS');
@@ -93,7 +115,7 @@ await test('import: unknown keys dropped and named; a bad color drops its set or
   assert.equal(named.name.length, 40);
   assert.equal(named.author.length, 60);
   assert.ok(!/\p{Cc}/u.test(named.author));
-  const bare = tf.readThemeFile({ collaboratorTheme: 1, dark: set({ bg: '#10181b' }) }, sanitize);
+  const bare = tf.readThemeFile({ format: 'theme', formatVersion: 1, dark: set({ bg: '#10181b' }) }, sanitize);
   assert.deepEqual([bare.name, 'author' in bare, bare.light, bare.dark.bg, bare.dropped], ['Theme', false, null, '#10181b', []]);
   assert.deepEqual(tf.readThemeFile(file({ name: 5, author: ['x'] }), sanitize).dropped, ['name', 'author']);
 });
@@ -160,10 +182,10 @@ await test('Store.importTheme: the 101st theme is refused with its sentence, and
 });
 
 // Only these parsers in the app read a body a page on another origin can send without asking first (text/plain, a
-// form, multipart): the sign-in form, which signs in rather than trusting a cookie, and the theme, template and
-// objects imports (a module's check, and Chat's), which refuse anything but their own origin. Every other body is JSON, which the browser won't send cross-origin without a
+// form, multipart): the sign-in form, which signs in rather than trusting a cookie, and the theme import and the host's
+// theme file check, the template and objects imports (a module's check, and Chat's), which refuse anything but their own origin. Every other body is JSON, which the browser won't send cross-origin without a
 // preflight the server never answers. A new parser taking one of those types must be added here, with its guard.
-await test('only /login, /api/themes/import, the two template imports and the objects checks read a body another origin can send; each import is behind sameOriginOnly', () => {
+await test('only /login, /api/themes/import, the host\'s theme check, the two template imports and the objects checks read a body another origin can send; each is behind sameOriginOnly', () => {
   const src = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');
   const SIMPLE = /text\/|x-www-form-urlencoded|multipart\/form-data|\*\/\*|=>/;
   const found = [];
@@ -177,8 +199,9 @@ await test('only /login, /api/themes/import, the two template imports and the ob
   const uses = [...src.matchAll(/(?:app|hostRouter)\.(?:post|put|patch|delete)\(([^\n]*?\b(?:loginForm|themeFileText|templateFileText|objectsFileText)\b[^\n]*)/g)].map((m) => m[1]);
   assert.equal(uses.filter((u) => u.includes('templateFileText')).length, 2, 'the template file parser is used by the two imports only');
   assert.equal(uses.filter((u) => u.includes('objectsFileText')).length, 2, 'the objects file parser is used by the module and Chat checks only');
+  assert.equal(uses.filter((u) => u.includes('themeFileText')).length, 2, 'the theme file parser is used by the import and the host\'s theme check only');
   for (const u of uses) {
-    if (u.includes('themeFileText')) assert.match(u, /^'\/api\/themes\/import', requireOwner, sameOriginOnly, themeFileText,/);
+    if (u.includes('themeFileText')) assert.match(u, /^'\/api\/(themes\/import', requireOwner|host\/themes\/check', requireHostAdmin), sameOriginOnly, themeFileText,/);
     else if (u.includes('objectsFileText')) assert.match(u, /^'\/api\/(modules|spaces)\/:id\/objects\/check', sameOriginOnly, objectsFileType, objectsFileText,/);
     else if (u.includes('templateFileText')) assert.match(u, /^'\/api\/(templates\/import', requireOwner|host\/templates\/import', requireHostAdmin), sameOriginOnly, templateFileText,/);
     else assert.match(u, /^'\/login', loginForm,/);
@@ -190,7 +213,7 @@ fs.rmSync(dir, { recursive: true, force: true });
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-themes-live-'));
 const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
   cwd: ROOT,
-  env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234' },
+  env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, PRODUCT_NAME: PRODUCT, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234' },
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let out = '';
@@ -236,9 +259,10 @@ try {
     for (const [id, name] of [['default', 'strong-coffee'], ['staying-blonde', 'calming-teal'], ['willhavebeen', 'burnt-orange']]) {
       const r = await call('GET', `/api/themes/${id}/export`);
       assert.equal(r.status, 200, r.text);
-      assert.equal(r.headers.get('content-disposition'), `attachment; filename="${name}.collaborator-theme.json"`);
+      assert.equal(r.headers.get('content-disposition'), `attachment; filename="${name}.theme.json"`);
       assert.match(r.headers.get('content-type'), /application\/json/);
-      assert.equal(r.json.collaboratorTheme, 1);
+      assert.deepEqual(Object.keys(r.json).slice(0, 2), ['format', 'formatVersion']);
+      assert.deepEqual([r.json.format, r.json.formatVersion], ['theme', 1]);
     }
     assert.deepEqual(await call('GET', '/api/themes/nope/export').then((r) => [r.status, r.json]), [404, { error: 'no such theme' }]);
     const saved = cookie;
@@ -283,15 +307,17 @@ try {
     const count = async () => (await call('GET', '/api/themes')).json.themes.length;
     const had = await count();
     const cases = [
-      [JSON.stringify({ collaboratorTheme: 1, name: 'x'.repeat(20 * 1024), light: set() }), 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify({ collaboratorTheme: 1, name: 'x'.repeat(80 * 1024), light: set() }), 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify({ collaboratorTheme: 1, name: 'x'.repeat(20 * 1024), light: set() }), 'application/octet-stream', tf.NOT_A_THEME_FILE],
+      [JSON.stringify(file({ name: 'x'.repeat(20 * 1024) })), 'application/json', tf.NOT_A_THEME_FILE],
+      [JSON.stringify(file({ name: 'x'.repeat(80 * 1024) })), 'application/json', tf.NOT_A_THEME_FILE],
+      [JSON.stringify(file({ name: 'x'.repeat(20 * 1024) })), 'application/octet-stream', tf.NOT_A_THEME_FILE],
       ['{ not json', 'application/json', tf.NOT_A_THEME_FILE],
       ['{ not json', 'text/plain', tf.NOT_A_THEME_FILE],
       ['[1]', 'application/json', tf.NOT_A_THEME_FILE],
       ['', 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify(file({ collaboratorTheme: undefined })), 'application/json', tf.NOT_A_THEME_FILE],
-      [JSON.stringify(file({ collaboratorTheme: 2 })), 'application/json', tf.NEWER],
+      [JSON.stringify(file({ formatVersion: undefined })), 'application/json', tf.NOT_A_THEME_FILE],
+      [JSON.stringify(file({ formatVersion: 2 })), 'application/json', tf.NEWER],
+      ...oldThemeFiles().flatMap((old) => [[old, 'application/json', tf.OLD_THEME_FILE], [old, 'text/plain', tf.OLD_THEME_FILE]]),
+      [JSON.stringify({ ...file(), format: undefined, formatVersion: undefined, someTheme: 1 }), 'application/json', tf.NOT_A_THEME_FILE],
       [JSON.stringify(file({ light: set({ bg: EVIL }) })), 'application/json', tf.NO_COMPLETE_SET],
       [JSON.stringify(file({ light: null, dark: null })), 'text/plain', tf.NO_COMPLETE_SET],
     ];
@@ -306,7 +332,7 @@ try {
   });
 
   await test('live: a hand-edited file -- an unknown key, CSS in a color, no dark set -- comes in with what was dropped, and no CSS reaches /theme.css', async () => {
-    const edited = { collaboratorTheme: 1, name: 'Harbour', author: 'Thomas', font: 'x', light: { ...set({ secondary: EVIL, headerBg: '#123456' }), glow: EVIL }, dark: { ...set({ accent: EVIL }) } };
+    const edited = { format: 'theme', formatVersion: 1, name: 'Harbour', author: 'Thomas', font: 'x', light: { ...set({ secondary: EVIL, headerBg: '#123456' }), glow: EVIL }, dark: { ...set({ accent: EVIL }) } };
     const r = await call('POST', '/api/themes/import', { body: edited });
     assert.equal(r.status, 200, r.text);
     assert.deepEqual(r.json.dropped, ['font', 'light.glow', 'light.secondary', 'dark']);

@@ -8,7 +8,6 @@ side of things.
 
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30).
   (September 25, 2026).
-- **Kind-based names for the file formats** ([plan-kind-names](plans/plan-kind-names.md)): approved 2026-09-30, the follow-up to #110. The theme, template and objects formats are named by their kind rather than by the product. Building.
 
 ## Planned
 
@@ -24,12 +23,16 @@ side of things.
 - #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
 - #30 Modules with two people on a real server.
 - #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
+- The chat's **Bring in N objects** button: offered for a pasted answer with an `objects` block, a `card` block or no fences, and not for an answer with an old-named block ([plan-kind-names](plans/plan-kind-names.md), step 5; the route behind it was checked).
 - #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list; what opens on a first and a second visit, and for a guest; the phone's first tab; the call control's count, **Join** and microphone hint; the status line.
 
 ## Small fixes and checks
 
 - Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.
-- #110 The old name, Magpie, is gone from the code and the templates. The file formats' names follow in [plan-kind-names](plans/plan-kind-names.md) (In progress). Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the documents in `documentation/` that still say Magpie (37 documents, about 230 lines).
+- #110 The old name, Magpie, is gone from the code, the templates and the guides, architecture, API and design documents, and the file formats are named by kind ([plan-kind-names](plans/plan-kind-names.md), built 2026-09-30). Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the plans that still say Magpie or name the old formats (17 plans, product-planner's).
+- An accented product name loses its accents in the server's user-agent: `PRODUCT_NAME` "Café Pub" is sent as `Caf-Pub` (only printable ASCII is kept, `headerProductName()` in `server/product-name.js`).
+- The product name guard in `tools/check-names.mjs` checks that `PAST_BLOCK_LABELS` is a frozen list of two; it should pin the two past labels exactly.
+- A fixed-time check case for the old-fence pattern in `server/object-format.js` (`PAST_FENCE`) on a very long "> " prefix.
 - #25 A check that compiles every `pattern` attribute the way browsers do.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.

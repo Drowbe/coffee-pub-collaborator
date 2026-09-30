@@ -770,7 +770,7 @@ $('theme-import-file').addEventListener('change', async () => {
   if (!file) return;
   sayImport('');
   // Far bigger than any theme (the server takes 16 KB): not read at all.
-  if (file.size > 1024 * 1024) return sayImport(`That isn't a ${productName()} theme file.`, true);
+  if (file.size > 1024 * 1024) return sayImport(`That isn't a ${[productName(), 'theme'].filter(Boolean).join(' ')} file.`, true);
   try {
     const { theme, dropped } = await api('POST', '/api/themes/import', new Blob([await fileText(file)], { type: 'text/plain' }));
     themes.push(theme);
@@ -1928,7 +1928,7 @@ $('template-import-file').addEventListener('change', async () => {
   input.value = ''; // the same file can be picked again
   if (!file) return;
   const status = $('template-files-status');
-  if (file.size > 1024 * 1024) return say(status, `That isn't a ${productName()} template file.`, true);
+  if (file.size > 1024 * 1024) return say(status, `That isn't a ${[productName(), 'template'].filter(Boolean).join(' ')} file.`, true);
   const text = await fileText(file);
   let id = '';
   for (;;) {

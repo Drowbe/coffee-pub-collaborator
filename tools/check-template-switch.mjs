@@ -20,6 +20,9 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// A made-up product name for the servers this check starts, so a sentence that hard-codes the default fails here
+// (plan-kind-names.md, The guard).
+const PRODUCT = 'Testname';
 let n = 0;
 let failed = 0;
 const test = async (name, fn) => {
@@ -32,11 +35,14 @@ const test = async (name, fn) => {
   }
 };
 const readJson = (file) => JSON.parse(fs.readFileSync(file, 'utf8'));
+// A file from before the formats were named by kind (tools/fixtures/format-old/), found by its kind.
+const OLD_DIR = path.join(ROOT, 'tools', 'fixtures', 'format-old');
+const oldFiles = (kind) => fs.readdirSync(OLD_DIR).filter((f) => f.endsWith(`-${kind}.json`)).sort().map((f) => fs.readFileSync(path.join(OLD_DIR, f), 'utf8'));
 
 async function startServer(dataDir, env = {}) {
   const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...env },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, PRODUCT_NAME: PRODUCT, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ...env },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';
@@ -57,10 +63,11 @@ async function startServer(dataDir, env = {}) {
 }
 
 // One request, as `host` (a subdomain of localhost, or '' for 127.0.0.1 on a single install).
-function call(server, host, method, urlPath, { body, cookie } = {}) {
-  const payload = body === undefined ? null : Buffer.from(JSON.stringify(body));
+// `raw`: a body sent as it is, with `type` (a file's own text), instead of `body` as JSON.
+function call(server, host, method, urlPath, { body, cookie, raw, type } = {}) {
+  const payload = raw !== undefined ? Buffer.from(raw) : body === undefined ? null : Buffer.from(JSON.stringify(body));
   const headers = { host: host ? `${host}.localhost:${server.port}` : `127.0.0.1:${server.port}`, accept: 'application/json' };
-  if (payload) { headers['content-type'] = 'application/json'; headers['content-length'] = payload.length; }
+  if (payload) { headers['content-type'] = raw !== undefined ? (type || 'text/plain') : 'application/json'; headers['content-length'] = payload.length; }
   if (cookie) headers.cookie = cookie;
   return new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port: server.port, method, path: urlPath, headers }, (res) => {
@@ -293,7 +300,9 @@ try {
   });
   await test('a single install imports, exports and deletes its own templates; one in use can\'t be deleted', async () => {
     const travel = await as('GET', '/api/templates/travel/export');
-    assert.deepEqual([travel.status, travel.headers['content-disposition']], [200, 'attachment; filename="travel.collaborator-template.json"'], 'a bundled one exports');
+    assert.deepEqual([travel.status, travel.headers['content-disposition']], [200, 'attachment; filename="travel.template.json"'], 'a bundled one exports');
+    assert.deepEqual([travel.json.format, travel.json.formatVersion], ['template', 1]);
+    for (const old of oldFiles('template')) assert.deepEqual(await call(server, '', 'POST', '/api/templates/import?id=old-trips', { cookie, raw: old }).then((r) => [r.status, r.json]), [400, { error: 'That template file is in an older format. Export the template again and import the new file.' }], 'an old template file, with its sentence');
     assert.deepEqual(await as('POST', '/api/templates/import', travel.json).then((r) => [r.status, r.json]), [409, { error: 'There is already a template called travel.' }]);
     const mine = await as('POST', '/api/templates/import?id=my-trips', { ...travel.json, name: 'My trips' });
     assert.deepEqual([mine.status, mine.json.template.source, mine.json.template.name], [201, 'imported', 'My trips'], mine.text);
@@ -303,7 +312,7 @@ try {
     assert.equal((await as('PATCH', '/api/settings', { template: 'travel' })).status, 200);
     assert.equal((await as('DELETE', '/api/templates/my-trips')).status, 200);
     assert.deepEqual(await as('DELETE', '/api/templates/travel').then((r) => [r.status, r.json]), [403, { error: "Bundled templates can't be deleted." }]);
-    assert.deepEqual(await as('POST', '/api/templates/import', '{ not json').then((r) => [r.status, r.json]), [400, { error: "That isn't a Collaborator template file." }]);
+    assert.deepEqual(await as('POST', '/api/templates/import', '{ not json').then((r) => [r.status, r.json]), [400, { error: `That isn't a ${PRODUCT} template file.` }]);
   });
   await server.stop();
   server = null;
@@ -404,13 +413,36 @@ try {
     assert.deepEqual(await console_('DELETE', '/api/host/templates/harbour').then((r) => [r.status, r.json]), [409, { error: 'Environments use this template: Sail. Hide it instead.' }]);
     // Export, then import under a new id; an import with a taken id is refused.
     const file = await console_('GET', '/api/host/templates/harbour/export');
-    assert.equal(file.headers['content-disposition'], 'attachment; filename="harbour.collaborator-template.json"');
-    assert.deepEqual([file.json.collaboratorTemplate, file.json.version, file.json.theme.name], [1, 2, 'Harbour']);
+    assert.equal(file.headers['content-disposition'], 'attachment; filename="harbour.template.json"');
+    assert.deepEqual([file.json.format, file.json.formatVersion, file.json.version, file.json.theme.name], ['template', 1, 2, 'Harbour']);
+    assert.equal('format' in file.json.theme, false, 'the embedded theme carries no marker');
     assert.deepEqual(await console_('POST', '/api/host/templates/import', file.json).then((r) => [r.status, r.json]), [409, { error: 'There is already a template called harbour.' }]);
     const copy = await console_('POST', '/api/host/templates/import?id=harbour-copy', { ...file.json, extra: 1 });
     assert.deepEqual([copy.status, copy.json.template.id, copy.json.template.version, copy.json.dropped], [201, 'harbour-copy', 2, ['extra']], 'the file\'s version kept');
-    assert.deepEqual(await console_('POST', '/api/host/templates/import', { ...file.json, collaboratorTemplate: 2 }).then((r) => [r.status, r.json]), [400, { error: 'This template was made by a newer version of Collaborator.' }]);
+    assert.deepEqual(await console_('POST', '/api/host/templates/import', { ...file.json, formatVersion: 2 }).then((r) => [r.status, r.json]), [400, { error: `This template was made by a newer version of ${PRODUCT}.` }]);
+    for (const old of oldFiles('template')) assert.deepEqual(await call(server, 'admin', 'POST', '/api/host/templates/import?id=old-harbour', { cookie: host, raw: old }).then((r) => [r.status, r.json]), [400, { error: 'That template file is in an older format. Export the template again and import the new file.' }]);
     assert.equal((await console_('DELETE', '/api/host/templates/harbour-copy')).status, 200, 'an unused one can be deleted');
+    // The template editor's theme picker asks the server about a theme file (plan-kind-names.md): read as an import
+    // reads it, nothing stored, the sentence on a refusal.
+    const themeText = (await asOwner('GET', '/api/themes/default/export')).text;
+    const checked = await call(server, 'admin', 'POST', '/api/host/themes/check', { cookie: host, raw: themeText, type: 'application/octet-stream' });
+    assert.equal(checked.status, 200, checked.text);
+    assert.deepEqual([Object.keys(checked.json).sort(), Object.keys(checked.json.theme), checked.json.theme.name, checked.json.dropped], [['dropped', 'theme'], ['name', 'light', 'dark'], 'Strong Coffee', []]);
+    assert.deepEqual(checked.json.theme.dark, JSON.parse(themeText).dark, 'the colors as the file has them');
+    assert.equal((await console_('POST', '/api/host/themes/check', JSON.parse(themeText))).status, 200, 'sent as JSON too');
+    const themeRefusals = [
+      ...oldFiles('theme').map((old) => [old, 'That theme file is in an older format. Export the theme again and import the new file.']),
+      [JSON.stringify({ someTheme: 1, name: 'x', light: {}, dark: {} }), `That isn't a ${PRODUCT} theme file.`],
+      [JSON.stringify({ ...JSON.parse(themeText), formatVersion: 2 }), `This theme was made by a newer version of ${PRODUCT}.`],
+      ['not json', `That isn't a ${PRODUCT} theme file.`],
+      [JSON.stringify({ ...JSON.parse(themeText), name: 'x'.repeat(20 * 1024) }), `That isn't a ${PRODUCT} theme file.`],
+      [JSON.stringify({ format: 'theme', formatVersion: 1, name: 'Empty', light: null, dark: null }), 'This theme has no complete light or dark set: each needs all seven base colors.'],
+    ];
+    for (const [raw, error] of themeRefusals) {
+      assert.deepEqual(await call(server, 'admin', 'POST', '/api/host/themes/check', { cookie: host, raw }).then((r) => [r.status, r.json]), [400, { error }], raw.slice(0, 40));
+    }
+    assert.deepEqual(await call(server, 'admin', 'POST', '/api/host/themes/check', { raw: themeText }).then((r) => [r.status, r.json]), [401, { error: 'sign in first' }], 'host admins only');
+    assert.equal((await call(server, 'sail', 'POST', '/api/host/themes/check', { cookie: owner, raw: themeText })).status, 404, 'not on an environment');
     // Owners on a hosted server export only their own template; import and delete are the host's.
     const own = await asOwner('GET', '/api/templates/harbour/export');
     assert.deepEqual([own.status, own.json.id, own.json.version], [200, 'harbour', 2]);

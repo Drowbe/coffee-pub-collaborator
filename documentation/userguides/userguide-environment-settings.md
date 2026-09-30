@@ -14,13 +14,13 @@ Open the Manage page with the gear icon in the header. It has seven tabs, in thi
 - The home icon, the words and the module names are on the **Template** tab (below).
 - **Call features.** Turns screen sharing, asides, private conversations and reactions on or off for
   everyone, and sets the highest video quality anyone can pick.
-- **Sign-in page.** A background picture behind the sign-in box, the text under the password field, and **Require two-step sign-in for everyone**: off (the default: anyone may set up an authenticator app on their profile) or on (everyone must, from their next sign-in; a session already open keeps working); see "Two-step sign-in" in [Accounts, roles and permissions](userguide-accounts.md). The switch is not shown when the server does not offer two-step sign-in (`ENABLE_MFA` in the compose file). The Users tab marks accounts that have set it up. Click the picture to upload your own, or choose **Choose from the library** for one of the pre-made backgrounds that ship with Magpie (filter by theme and style, pick one, **Use this background**). New pre-made images are added by putting files in `public/assets/images/backgrounds/`; see the README there for the format and file names.
+- **Sign-in page.** A background picture behind the sign-in box, the text under the password field, and **Require two-step sign-in for everyone**: off (the default: anyone may set up an authenticator app on their profile) or on (everyone must, from their next sign-in; a session already open keeps working); see "Two-step sign-in" in [Accounts, roles and permissions](userguide-accounts.md). The switch is not shown when the server does not offer two-step sign-in (`ENABLE_MFA` in the compose file). The Users tab marks accounts that have set it up. Click the picture to upload your own, or choose **Choose from the library** for one of the pre-made backgrounds that ship with Collaborator (filter by theme and style, pick one, **Use this background**). New pre-made images are added by putting files in `public/assets/images/backgrounds/`; see the README there for the format and file names.
 - **Sign-up.** Self-service `/register` on or off, and invite links into specific spaces. See
   [Accounts, roles and permissions](userguide-accounts.md).
 - **Access key.** The key that a keyed page's link carries in place of a sign-in (the Stream module's
   OBS views, `?s=...`). Show, copy or regenerate it; regenerating stops every existing link working.
   How the OBS boxes look (borders, the name plate, dimming) is the Stream module's own settings now; see
-  [Magpie in OBS](userguide-obs.md).
+  [Collaborator in OBS](userguide-obs.md).
 
 ## Language, time and money
 
@@ -44,7 +44,7 @@ The **Template** tab gathers what a template gives an environment. From the top:
   **1** to **6**.
 - **Icons.** The icons you want available. Paste an icon's HTML from fontawesome.com, for example
   `<i class="fa-solid fa-dice"></i>`, and the preview shows it. These icons are the choices offered for a
-  space's launch link, the home icon and a module's icon. Only the Free icons that ship with Magpie will
+  space's launch link, the home icon and a module's icon. Only the Free icons that ship with Collaborator will
   draw, unless you have added your own Pro package (see "Font Awesome Pro" under Theme).
 
 An old link to `#reactions` or `#icons` on the Manage page opens this tab at that section.
@@ -85,7 +85,7 @@ labels and help) still uses the default words.
   own.
 - **Font Awesome Pro (optional).** If you have a Pro licence, drop your own "Web" download from your
   Font Awesome account (the folder with `css/`, `webfonts/` and `svgs/` in it, the Classic style) at
-  `DATA_DIR/fontawesome-pro/` on the server and restart it. Magpie serves and draws from it ahead of
+  `DATA_DIR/fontawesome-pro/` on the server and restart it. Collaborator serves and draws from it ahead of
   the bundled Free set, falling back to Free for any style or icon it does not have. Nothing about your
   licence or your package ever leaves your own server: it is never built into the shared image, never
   uploaded, and no token for it lives in this repository.
@@ -107,4 +107,4 @@ Upload and manage add-on features. See [Modules](userguide-modules.md).
 
 ## About
 
-The version, the licence, and the credits for the open-source software Magpie is built on.
+The version, the licence, and the credits for the open-source software Collaborator is built on.

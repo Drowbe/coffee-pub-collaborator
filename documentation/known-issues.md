@@ -71,3 +71,14 @@ A module on a space's saved **Opens with** list that has since been uninstalled 
 installed)", under its id rather than its name. Seen on 2026-09-30.
 
 Workaround: none; untick it to take it off the list.
+
+## Changing the grid size can make snapped modules overlap
+
+With modules snapped to the grid, moving **Grid size** in the space bar keeps each module's own cells rather than
+fitting it to where it was. A module never takes fewer cells than its smallest size needs, so at a smaller grid a
+module can widen onto its neighbour: To-do and Polls tiled side by side at 130 overlap at 60 or 50. Growing the grid
+back does not shrink them again; they stay large. Seen on 2026-09-30, in headless Chromium; it was there before
+the smallest size went from 60 to 50.
+
+Workaround: turn **Snap every floating module to a grid** in the space bar off and on again, which puts each
+module in the free cells nearest it, or drag the modules apart.

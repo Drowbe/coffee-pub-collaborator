@@ -3,7 +3,7 @@
 **Audience:** anyone styling a page, a panel or a module against Collaborator, who needs the
 colors to follow whatever theme the admin has chosen.
 
-Admins can re-theme Magpie from the Theme tab of the Manage page, including light themes. A theme
+Admins can re-theme Collaborator from the Theme tab of the Manage page, including light themes. A theme
 changes colors only, never layout. Anything drawn with a fixed color will be unreadable on some
 server, so every color must come from the tokens below.
 
@@ -16,7 +16,7 @@ untouched server sends only the default theme's light set, so it looks exactly l
 `public/theme-mode.js` sets `data-theme-mode` from the person's own choice (their account's `themeMode`, or
 `app.themeMode` in the browser for a guest), else the environment's default, and swaps it without a reload when
 either changes; `branding()`'s `themeMode` and `themeVersion` and the notifications stream's `theme` and `mode`
-events tell an open page. A person's own choice is `PATCH /api/me` `{ themeMode: 'light' | 'dark' | null }` (`null` follows the environment's default again; anything else answers 400 "the mode is light or dark, or null to follow the environment's default"), shown as `user.themeMode`. Draw every colour from the tokens and both modes follow. A theme is shared as a `.magpie-theme.json` file (`{ magpieTheme: 1, name, author?, light, dark }`, each set with the 16 stored keys); the routes are in [architecture-overview](../architecture/architecture-overview.md), "Themes", and the owner's steps in [userguide-themes](../userguides/userguide-themes.md). Because it is an ordinary stylesheet link, the popped-out
+events tell an open page. A person's own choice is `PATCH /api/me` `{ themeMode: 'light' | 'dark' | null }` (`null` follows the environment's default again; anything else answers 400 "the mode is light or dark, or null to follow the environment's default"), shown as `user.themeMode`. Draw every colour from the tokens and both modes follow. A theme is shared as a `.theme.json` file (`{ format: "theme", formatVersion: 1, name, author?, light, dark }`, each set with the 16 stored keys); the routes are in [architecture-overview](../architecture/architecture-overview.md), "Themes", and the owner's steps in [userguide-themes](../userguides/userguide-themes.md). Because it is an ordinary stylesheet link, the popped-out
 call window picks the theme up too, when the page clones its stylesheets into the new window.
 
 ## The tokens
@@ -71,4 +71,4 @@ default theme and unreadable on a light one.
 
 ## Modules
 
-A module runs in a sandboxed frame, so it cannot see Magpie's stylesheet. The host reads the current theme from the page's computed style and hands it to the module on start, and the module SDK sets it on the frame's `:root` as CSS custom properties. A module written to the rules above follows the theme with no code. Magpie also adds a small base stylesheet to each module page (`.btn`, `.btn-primary`, `.card`, styled inputs) built from the same tokens. The rules apply to module authors too; see [api-module-sdk](../api/api-module-sdk.md).
+A module runs in a sandboxed frame, so it cannot see Collaborator's stylesheet. The host reads the current theme from the page's computed style and hands it to the module on start, and the module SDK sets it on the frame's `:root` as CSS custom properties. A module written to the rules above follows the theme with no code. Collaborator also adds a small base stylesheet to each module page (`.btn`, `.btn-primary`, `.card`, styled inputs) built from the same tokens. The rules apply to module authors too; see [api-module-sdk](../api/api-module-sdk.md).

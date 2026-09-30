@@ -336,7 +336,7 @@ const catchAll = (re) => ['', 'q', 'zzqx', 'anyName'].some((probe) => re.test(pr
 function validateAllow(raw) {
   const problems = [];
   if (!Array.isArray(raw)) return { entries: [], problems: ['tools/check-names-allow.json: must be a list of { file, level, pattern, line?, reason }'] };
-  const levels = new Set([...LEVELS.map((l) => l.id), VOCABULARY_LEVEL]);
+  const levels = new Set([...LEVELS.map((l) => l.id), VOCABULARY_LEVEL, PRODUCT_NAME_LEVEL]);
   const entries = [];
   raw.forEach((e, n) => {
     const where = `tools/check-names-allow.json entry ${n + 1}`;
@@ -456,6 +456,7 @@ function report(mode, files, allow) {
 // Where a typed level or role word fails: everywhere it is read, the server, the pages and the SDK (public/), and the
 // bundled modules (converted in step 1). The host console and the product page keep the host's words, by the allow-list.
 const VOCABULARY_LEVEL = 'word';
+const PRODUCT_NAME_LEVEL = 'product-name'; // productNameCheck's exemptions
 const VOCABULARY_ENFORCED = ['server/', 'public/', 'modules/'];
 const VOCABULARY_SCOPE = ['server/', 'public/', 'modules/'];
 const WORDS = require('../server/words.js');
@@ -2263,39 +2264,109 @@ function oldRouteCheck(files) {
   console.log(`check-names: old settings routes, ${n} call${n === 1 ? '' : 's'} left`);
 }
 
-// The old product name must not come back, in a file's text or its name, under the code this server ships.
-// The letters are split so this file does not contain them as one word. Documentation and the changelog
-// are history and are not walked.
-function oldProductNameCheck() {
-  const needle = ['m', 'a', 'g', 'p', 'i', 'e'].join('');
-  const re = new RegExp(needle, 'i');
-  const roots = ['server', 'public', 'modules', 'tools', 'templates'];
-  const exts = new Set(['.js', '.mjs', '.html', '.css', '.json', '.txt', '.md']);
-  function walk(rel) {
+// --- the product's name (plan-kind-names.md, "The guard") -------------------------------------------------------
+// No product name is written into an identifier or hard-coded text in what this server ships and checks: the product's
+// name comes only from PRODUCT_NAME, and identifiers are named by kind. The names are the default, read from its one
+// definition (DEFAULT_PRODUCT_NAME in server/product-name.js, never repeated here), and the past names below, matched
+// in any letter case anywhere in a line (comments too) and in file and folder names, under server/, public/,
+// modules/, tools/ and templates/, and in the Dockerfile. "Coffee Pub" is the brand and is not a product name.
+// Documentation and the changelog are history and are not read; neither are the allow-list (the check's input), the
+// wiki build or node_modules. Exempt only by an allow-list entry of level "product-name" (or "*", for the files the
+// Names check already exempts whole): its file, the name's own token, and its line when it gives one.
+const PAST_PRODUCT_NAMES = ['magpie', 'tavern'];
+const PRODUCT_NAME_ROOTS = ['server', 'public', 'modules', 'tools', 'templates'];
+const PRODUCT_NAME_FILES = ['Dockerfile'];
+const PRODUCT_NAME_EXTS = new Set(['.js', '.mjs', '.cjs', '.html', '.css', '.json', '.txt', '.md']);
+const PRODUCT_NAME_SKIP = [/(^|\/)node_modules$/, /^tools\/\.wiki-build$/, /^tools\/check-names-allow\.json$/];
+function productNames() {
+  const { DEFAULT_PRODUCT_NAME } = require('../server/product-name.js');
+  if (typeof DEFAULT_PRODUCT_NAME !== 'string' || !DEFAULT_PRODUCT_NAME.trim()) {
+    fail('check-names: server/product-name.js exports no DEFAULT_PRODUCT_NAME, so the product name guard has nothing to look for');
+    return PAST_PRODUCT_NAMES;
+  }
+  return [DEFAULT_PRODUCT_NAME.trim(), ...PAST_PRODUCT_NAMES];
+}
+// Every product name in `text` (a line, or a file or folder name), each with its token: [{ name, token }].
+function productNameHits(text, re) {
+  re.lastIndex = 0;
+  return [...text.matchAll(re)].map((m) => ({ name: m[0], token: tokenAt(text, m.index, m.index + m[0].length) || m[0] }));
+}
+// The files and folders the guard reads, from the repository's root: [{ rel, dir }].
+function productNameTargets() {
+  const out = [];
+  const walkAll = (rel) => {
     const abs = path.join(ROOT, rel);
     let ents;
     try { ents = fs.readdirSync(abs, { withFileTypes: true }); } catch { return; }
     for (const ent of ents) {
-      if (ent.name === 'node_modules') continue;
-      const child = path.join(rel, ent.name);
-      const shown = child.split(path.sep).join('/');
-      if (re.test(ent.name)) fail(`check-names: ${shown} still uses the old product name in its file name`);
-      if (ent.isDirectory()) walk(child);
-      else if (exts.has(path.extname(ent.name))) {
-        const text = fs.readFileSync(path.join(ROOT, child), 'utf8');
-        const lines = text.split(/\r?\n/);
-        for (let i = 0; i < lines.length; i += 1) {
-          if (re.test(lines[i])) fail(`check-names: ${shown}:${i + 1} still uses the old product name`);
-        }
-      }
+      const child = `${rel}/${ent.name}`;
+      if (PRODUCT_NAME_SKIP.some((re) => re.test(child))) continue;
+      if (ent.isDirectory()) { out.push({ rel: child, dir: true }); walkAll(child); } else if (ent.isFile()) out.push({ rel: child, dir: false });
     }
+  };
+  for (const r of PRODUCT_NAME_ROOTS) walkAll(r);
+  for (const f of PRODUCT_NAME_FILES) if (fs.existsSync(path.join(ROOT, f))) out.push({ rel: f, dir: false });
+  return out;
+}
+function productNameCheck(allow) {
+  const names = productNames();
+  const re = new RegExp(names.map(escapeRe).join('|'), 'gi');
+  const exempt = (fileAllow, token, lineText) => {
+    const hit = fileAllow.find((e) => e.re.test(token) && (!e.lineRe || e.lineRe.test(lineText)));
+    if (hit) hit.used += 1;
+    return Boolean(hit);
+  };
+  let files = 0;
+  let allowed = 0;
+  let found = 0;
+  for (const { rel, dir } of productNameTargets()) {
+    const fileAllow = allow.filter((e) => (e.level === PRODUCT_NAME_LEVEL || e.level === '*') && e.fileRe.test(rel));
+    const base = path.basename(rel);
+    for (const h of productNameHits(base, re)) {
+      if (exempt(fileAllow, base, rel)) { allowed += 1; continue; }
+      found += 1;
+      fail(`check-names: ${rel} has the product name "${h.name}" in its ${dir ? 'folder' : 'file'} name; name it by kind (plan-kind-names.md)`);
+    }
+    if (dir || !(PRODUCT_NAME_FILES.includes(rel) || PRODUCT_NAME_EXTS.has(path.extname(rel)))) continue;
+    files += 1;
+    const lines = fs.readFileSync(path.join(ROOT, rel), 'utf8').split(/\r?\n/);
+    lines.forEach((line, i) => {
+      for (const h of productNameHits(line, re)) {
+        if (exempt(fileAllow, h.token, line)) { allowed += 1; continue; }
+        found += 1;
+        fail(`check-names: ${rel}:${i + 1} writes the product name "${h.name}" (in ${h.token}); a sentence takes productName(), and an identifier is named by kind (plan-kind-names.md)`);
+      }
+    });
   }
-  for (const r of roots) walk(r);
+  // The two single-line entries allow only their line as it is: more on the default's line, or a third past block label
+  // (the list must never grow, plan-kind-names.md decision 11), is not exempt. Probed on each file's own line.
+  const lineEntry = (file, start) => {
+    const text = fs.existsSync(path.join(ROOT, file)) ? fs.readFileSync(path.join(ROOT, file), 'utf8').split(/\r?\n/).find((l) => l.startsWith(start)) : null;
+    if (!text) fail(`check-names: ${file} has no line starting "${start}" for its product-name entry`);
+    return text;
+  };
+  const exemptOnLine = (file, line) => {
+    const fileAllow = allow.filter((e) => e.level === PRODUCT_NAME_LEVEL && e.fileRe.test(file));
+    const hits = productNameHits(line, re);
+    return hits.length > 0 && hits.every((h) => fileAllow.some((e) => e.re.test(h.token) && (!e.lineRe || e.lineRe.test(line))));
+  };
+  const defaultLine = lineEntry('server/product-name.js', 'const DEFAULT_PRODUCT_NAME = ');
+  if (defaultLine && exemptOnLine('server/product-name.js', `${defaultLine} const other = '${PAST_PRODUCT_NAMES[1]}';`)) fail('check-names: the product-name entry for server/product-name.js allows more than the one definition on its line');
+  const labelsLine = lineEntry('server/file-format.js', 'const PAST_BLOCK_LABELS = ');
+  if (labelsLine && exemptOnLine('server/file-format.js', labelsLine.replace(/'\]\);$/, `', '${PAST_PRODUCT_NAMES[1]}']);`))) fail('check-names: the product-name entry for server/file-format.js lets PAST_BLOCK_LABELS grow');
+  const { PAST_BLOCK_LABELS } = require('../server/file-format.js');
+  if (!Array.isArray(PAST_BLOCK_LABELS) || PAST_BLOCK_LABELS.length !== 2 || !Object.isFrozen(PAST_BLOCK_LABELS)) fail(`check-names: PAST_BLOCK_LABELS in server/file-format.js must stay the two labels ever published, frozen; it has ${Array.isArray(PAST_BLOCK_LABELS) ? PAST_BLOCK_LABELS.length : 'no list'}`);
+  // The guard itself, on made-up text: each name in any letter case is caught, inside a word too; the brand is not.
+  const probe = (text) => productNameHits(text, re).length;
+  const planted = names.flatMap((n) => [n, n.toUpperCase(), `x${n.toLowerCase()}_y`]);
+  if (planted.some((t) => probe(t) !== 1) || probe('Coffee Pub') !== 0 || probe('coffee-pub coffeePub COFFEE_PUB') !== 0) fail('check-names: the product name guard does not match as it should');
+  console.log(`check-names: product name, ${names.length} names in ${files} files: ${found} left, ${allowed} allowed`);
 }
 
 // --- run ---------------------------------------------------------------------------------------------------------
 const { entries: allow, problems } = loadAllow();
 for (const p of problems) fail(`check-names: ${p}`);
+productNameCheck(allow);
 if (runCode || runWords) {
   const files = scannedFiles();
   if (runCode) { report('code', files, allow); scannerCheck(); callNamesCheck(); oldRouteCheck(files); }
@@ -2305,7 +2376,6 @@ if (runCode || runWords) {
   }
 }
 if (runMigration) migrationCheck();
-oldProductNameCheck();
 if (failed) {
   console.error(`check-names: ${failed} problem${failed === 1 ? '' : 's'}`);
   process.exit(1);

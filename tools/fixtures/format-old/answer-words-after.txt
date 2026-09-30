@@ -1,0 +1,5 @@
+An answer fenced with a past label followed by more words on the fence line.
+
+```collaborator json
+[{"icon":"note","title":"Old block","content":"In a block with a past label."}]
+```

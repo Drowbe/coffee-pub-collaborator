@@ -76,9 +76,10 @@ function migrateStoredKeys() {
 }
 migrateStoredKeys();
 
-let product = 'Collaborator';
+let product = ''; // filled by loadBranding(); no name is written in the page
 
-// The configured product name (PRODUCT_NAME), from /api/branding. Sentences use this, never a hard-coded name.
+// The configured product name (PRODUCT_NAME), from /api/branding. Sentences use this, never a hard-coded name; it is ''
+// until loadBranding() has answered, so a sentence that uses it reads without it then.
 export function productName() {
   return product;
 }

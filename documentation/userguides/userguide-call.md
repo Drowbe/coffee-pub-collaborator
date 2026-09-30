@@ -108,7 +108,7 @@ for when something else needs quiet for a minute. Only you are affected, and nob
 ## Away
 
 The moon button pauses your microphone and camera and marks your tile so everyone knows. When you
-click it, Magpie asks for an optional **away message** (up to 200 characters, several lines allowed).
+click it, Collaborator asks for an optional **away message** (up to 200 characters, several lines allowed).
 Ctrl or Cmd plus Enter, or **Go away**, confirms. Everyone else sees your message on your tile in
 place of "Away"; leave it empty to show plain "Away". Click the button again to come back, and only
 the microphone and camera that were on before come back on.
@@ -138,7 +138,7 @@ because leaving the page would drop the call. A **Back to** button in that page'
 
 ## Install it as an app, and pop it out
 
-To run Magpie without browser bars, install it as an app: Chrome and Edge show **Install as an
+To run Collaborator without browser bars, install it as an app: Chrome and Edge show **Install as an
 app** in the settings popover, Safari on macOS has **File, Add to Dock**, and iPhones and iPads use
 **Share, Add to Home Screen**.
 

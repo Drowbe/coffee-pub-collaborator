@@ -16,21 +16,21 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
         ^                                             ^
         | pages and API                               | access tokens
 +--------------------------------------------------------------+
-| Magpie web app (Node/Express): pages, accounts, images, API  |
+| Collaborator (Node/Express): pages, accounts, images, API    |
 +--------------------------------------------------------------+
 ```
 
 - **LiveKit server** is open source and runs as its own container. It is a selective forwarding unit:
   each player uploads once and the server fans the stream out. It has a built-in TURN relay for players
-  behind strict routers. Magpie calls its server API for the participant list, kick and mute.
-- **Magpie web app** serves the pages, mints LiveKit access tokens, and keeps accounts, spaces, images and
+  behind strict routers. Collaborator calls its server API for the participant list, kick and mute.
+- **Collaborator web app** serves the pages, mints LiveKit access tokens, and keeps accounts, spaces, images and
   settings. It never touches media.
 - **Coffee Pub Studio** signs in as an owner and creates one OBS Browser Source per player, pointing at
   that player's view page.
 
 ## Technology
 
-- **LiveKit** on both sides, with `livekit-client` served by Magpie itself from `/lib/`. It was chosen
+- **LiveKit** on both sides, with `livekit-client` served by Collaborator itself from `/lib/`. It was chosen
   over a hand-rolled mesh, whose upload cost grows with every person in the call, and over Jitsi, where per-participant
   OBS views would need low-level work.
 - **Node 22 and Express 5.** One app serves every page and the JSON API.
@@ -138,14 +138,17 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
   `accent`, `onAccent`, `card`, `headerBg`, `headerText`, `icon`, `iconHover`, `primaryHover`, `secondary`,
   `secondaryText`, `secondaryHover`), `null` for Auto; `server/theme-css.js` is the one place that maps them to CSS.
   `GET /api/themes/:id/export` (owner; `default` is Strong Coffee) answers the file
-  `{ magpieTheme: 1, name, author?, light, dark }` with every key in each set, as
-  `<name>.magpie-theme.json`, or 404 "no such theme". `POST /api/themes/import` (owner; the file's JSON as the body,
-  at most 16 KB) checks each set as a theme made in Manage would be (`sanitizeTheme`), adds it as a new theme
+  `{ format: "theme", formatVersion: 1, name, author?, light, dark }` with every key in each set, as
+  `<name>.theme.json`, or 404 "no such theme". The marker pair is named by kind, never by the product, and read by
+  one rule for all three file formats (`server/file-format.js`, [plan-kind-names](../plans/plan-kind-names.md)).
+  `POST /api/themes/import` (owner; the file's text or JSON as the body, at most 16 KB) checks each set as a theme made in Manage would be (`sanitizeTheme`), adds it as a new theme
   ("Name (2)" when the name is taken, never overwriting) without applying it, and answers `{ theme, dropped }`:
   `dropped` lists what was left out, unknown keys and any optional colour that isn't `#rrggbb` (which goes back to
-  Auto). It refuses with 400 "That isn't a Magpie theme file.", "This theme was made by a newer version of
-  Magpie." or "This theme has no complete light or dark set: each needs all seven base colors." A body the parser
-  can't read at all (an unknown charset or encoding) gets the same "That isn't a Magpie theme file."; Manage
+  Auto). It refuses with 400 "That isn't a <product> theme file.", "This theme was made by a newer version of
+  <product>.", "That theme file is in an older format. Export the theme again and import the new file." (a file
+  from before the formats were named by kind) or "This theme has no complete light or dark set: each needs all seven
+  base colors.", where <product> is `PRODUCT_NAME`. A body the parser can't read at all (an unknown charset or
+  encoding) gets the same "That isn't a <product> theme file."; Manage
   decodes a UTF-16 file by its byte-order mark before sending it. An environment holds at most 100 themes
   (`MAX_THEMES`): an import past that answers 400 "This environment has 100 themes, the most it can hold. Delete
   one to import another." A theme's name and author lose line breaks and tabs (made spaces) and control, direction

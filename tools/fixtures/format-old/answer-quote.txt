@@ -1,0 +1,6 @@
+An answer quoted, with a block fenced with a past label inside the quote.
+
+> Here it is:
+> ```collaborator
+> [{"icon":"note","title":"Old block","content":"In a block with a past label."}]
+> ```

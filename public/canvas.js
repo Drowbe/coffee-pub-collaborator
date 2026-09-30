@@ -187,7 +187,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // SNAP_GAP, drawn (`.snap-grid`) only while a snapped module is being dragged. Docked and window are untouched.
   // The grid's pitch (a cell's width; a cell is 0.77 as tall) is the canvas's: the space bar's slider sets it, remembered with
   // the space's layout (`__snap.pitch`), beside the canvas-level switch (`__snap.all`) that snaps every floating module, now and later.
-  const SNAP_PITCH = { min: 60, max: 320, step: 10, default: 130 };
+  const SNAP_PITCH = { min: 50, max: 320, step: 10, default: 130 };
   const SNAP_GAP = 16; // the same 16px clampBox keeps clear of the window's edges, so a module spanning every cell still fits the grid
   const snapPitch = () => { const p = Number(saved.__snap?.pitch); return p >= SNAP_PITCH.min && p <= SNAP_PITCH.max ? p : SNAP_PITCH.default; };
   const snapAllOn = () => Boolean(saved.__snap?.all);

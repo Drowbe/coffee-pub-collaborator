@@ -1,4 +1,5 @@
 import { nav } from '/nav-bar.js';
+import { openHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
 import { word, setWords } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode } from '/theme-mode.js';
@@ -161,7 +162,8 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
   const initialIcon = handoff.get('homeIcon') || 'couch';
   // The primary nav is about the system, in three zones (see documentation/plans/plan-nav.md and architecture-navigation.md):
   // left, the logo (home) and where you are; middle, the core navigation (the spaces, each module's own page); right, the
-  // system's actions (your profile, Manage, Install, Sign out) and information (the time, on the server's clock).
+  // system's actions (Manage, Install), information (the time, on the server's clock) and, last, you (your picture: View
+  // profile, Sign out).
   // The markup here is only what is not a tool: the logo, the crumb, the status, the menu button. Everything in the
   // middle and right zones is a registration in the nav-bar registry (public/nav-bar.js), the same shape a module's
   // tools take, so there is one drawing path.
@@ -189,14 +191,16 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
   loadUpdateBadge();
   startPresence();
   if (withThemeSwitch) loadAccountMode();
+  fillWhoami();
   startNotifications();
   mountEnvironmentBanner(loadMe); // an owner's past-due line under the header, on a hosted environment only
 }
 
 // The system's own tools, in the bands plan-nav.md sets out (1-10 core, 11-50 secondary, 51-100 utility, 999 last), so a
 // module's own (101-998) always draw after them. The middle zone is one group, the core navigation; the right zone is
-// three: who you are, what you can do from anywhere, and the session (the time, then Sign out), a divider between each.
-// The profile link and the clock are the page's own elements the registry places (their look is theirs, not a button's).
+// three: what you can do from anywhere, the time, and you (your picture, which opens View profile and Sign out), a
+// divider between each. Your picture and the clock are the page's own elements the registry places (their look is
+// theirs, not a button's).
 // The Spaces link, in this environment's words (registered again, the same element, when loadBranding() has them).
 const spacesTool = (icon) => ({ id: 'spaces-link', bar: 'primary', zone: 'middle', group: 'core', groupOrder: 1, order: 1, icon, label: word('space', { many: true, cap: true }), title: `All ${word('space', { many: true })}`, href: '/', target: '_top' });
 function refreshSpacesLink() {
@@ -216,24 +220,81 @@ function registerSystemTools(header, initialIcon, adminHref, withThemeSwitch) {
   const doc = header.ownerDocument;
   const spaces = nav.register(spacesTool(initialIcon));
   spaces.querySelector('i').dataset.brand = 'home-icon'; // loadBranding() swaps in the server's own home icon
-  const whoami = doc.createElement('a');
-  whoami.className = 'whoami';
-  whoami.id = 'whoami-link';
-  whoami.href = '/profile';
-  whoami.title = 'Your profile';
-  whoami.innerHTML = '<img id="whoami-img" alt="" hidden><span id="whoami"></span>';
-  nav.register({ id: 'whoami-link', bar: 'primary', zone: 'right', group: 'you', groupOrder: 1, order: 1, element: whoami });
   // Manage: each page shows it once it knows the viewer is an admin (its own `hidden`), so no `visible` here.
   // Light or dark, the person's own (theme-mode.js), beside Manage.
   if (withThemeSwitch) nav.register({ id: 'theme-mode-switch', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 10, element: themeSwitch(doc) });
-  nav.register({ id: 'admin-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 11, icon: 'gear', label: 'Manage', href: adminHref }).hidden = true;
+  // Opened over a call (?from=space), Manage keeps the query, so it keeps its way back (as crumbLink does).
+  const keep = new URLSearchParams(window.location.search).get('from') === 'space' ? window.location.search : '';
+  const [adminPath, adminHash] = String(adminHref).split('#');
+  const manageHref = keep && !adminPath.includes('?') ? `${adminPath}${keep}${adminHash ? `#${adminHash}` : ''}` : adminHref;
+  nav.register({ id: 'admin-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 11, icon: 'gear', label: 'Manage', href: manageHref }).hidden = true;
   nav.register({ id: 'install-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 12, icon: 'download', label: 'Install as an app', visible: () => Boolean(installPromptEvent), onClick: installFromPrompt });
   const clock = doc.createElement('span');
   clock.className = 'topbar-clock';
   clock.id = 'topbar-clock';
   clock.title = 'The time';
   nav.register({ id: 'topbar-clock', bar: 'primary', zone: 'right', group: 'session', groupOrder: 51, order: 51, element: clock });
-  nav.register({ id: 'logout-link', bar: 'primary', zone: 'right', group: 'session', groupOrder: 51, order: 52, icon: 'right-from-bracket', label: 'Sign out', href: '/logout', onClick: forgetThemeMode }); // the next person here starts from the default
+  // You, last: your picture and name, a button that opens the account menu (View profile, Sign out). On a phone it
+  // stays in the bar beside the menu button instead of folding into that menu (keepOnPhone).
+  const whoami = doc.createElement('button');
+  whoami.type = 'button';
+  whoami.className = 'whoami';
+  whoami.id = 'whoami-link';
+  whoami.title = 'Account';
+  whoami.setAttribute('aria-haspopup', 'menu');
+  whoami.setAttribute('aria-expanded', 'false');
+  whoami.setAttribute('aria-labelledby', 'whoami whoami-account'); // "<your name> Account"
+  whoami.innerHTML = '<img id="whoami-img" alt="" hidden><span id="whoami"></span><span id="whoami-account" hidden>Account</span>';
+  whoami.addEventListener('click', () => openHostMenu(whoami, accountMenuItems())); // on a phone this also closes the header's menu, a click elsewhere
+  nav.register({ id: 'whoami-link', bar: 'primary', zone: 'right', group: 'you', groupOrder: 999, order: 999, keepOnPhone: true, element: whoami });
+}
+
+// The account menu under your picture. View profile goes to /profile; a page that can show it without leaving
+// (a space, where leaving would end the call) takes the app:open-profile event and opens it over itself instead; on
+// the profile page itself it does nothing.
+// Sign out forgets this browser's light or dark choice first, so the next person here starts from the default, and
+// signs the whole window out (from a page opened over a call too, not only that page).
+function accountMenuItems() {
+  return [
+    { icon: 'user', label: 'View profile', onPick: () => {
+      const unhandled = document.dispatchEvent(new CustomEvent('app:open-profile', { cancelable: true }));
+      if (!unhandled || location.pathname === '/profile') return; // already there: the menu just closes
+      // Opened over a call (?from=space), the query stays, so the profile page keeps its way back (as crumbLink does).
+      const keep = new URLSearchParams(location.search).get('from') === 'space' ? location.search : '';
+      location.href = `/profile${keep}`;
+    } },
+    { icon: 'right-from-bracket', label: 'Sign out', onPick: () => {
+      forgetThemeMode();
+      let win = window;
+      try {
+        if (window.top.location.origin === location.origin) win = window.top;
+      } catch {
+        // framed by another origin: sign this page out
+      }
+      win.location.href = '/logout';
+    } },
+  ];
+}
+
+// Your picture and name, for a page that does not fill them itself (the pages that do fill them first, or after: the
+// same person). No account here (a guest's page): no picture, and so no account menu.
+async function fillWhoami() {
+  if (document.body.classList.contains('host-console')) return;
+  const me = await loadMe();
+  const button = byId('whoami-link');
+  const name = byId('whoami');
+  const img = byId('whoami-img');
+  if (!button || !name || !img) return;
+  if (me === null) {
+    button.hidden = true;
+    return;
+  }
+  if (!me || !me.user) return;
+  if (!name.textContent) name.textContent = me.user.displayName || me.user.key || '';
+  if (img.hidden) {
+    img.src = `/img/${encodeURIComponent(me.user.key)}/profile`;
+    img.hidden = false;
+  }
 }
 
 // The time, in the primary nav's right zone, on the server's clock (12- or 24-hour: Manage > Settings > Language, time and

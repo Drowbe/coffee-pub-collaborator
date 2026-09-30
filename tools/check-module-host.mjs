@@ -69,5 +69,26 @@ test('nothing is left of the old translation (WIRE_SCOPE, toSdk, toWire)', () =>
   for (const name of ['WIRE_SCOPE', 'SDK_SCOPE', 'toSdk', 'toWire', 'pointersIn']) assert.equal(src.includes(name), false, `${name} is still in module-host.js`);
 });
 
+// A module's own window (public/module.js): Clear in the title bar's "..." runs clearModuleData, a top-level function.
+// It once used start()'s local `scope` and failed with "scope is not defined". Run it with only the page's top-level
+// names (id, spaceId, guestToken, api) and check what it asks the server to clear.
+{
+  const clearSrc = slice('public/module.js', 'async function clearModuleData() {', '\n}\n');
+  const clearFor = (spaceId, guestToken) => {
+    const calls = [];
+    const api = async (method, url) => { calls.push([method, url]); };
+    const fn = new Function('id', 'spaceId', 'guestToken', 'api', `${clearSrc}\nreturn clearModuleData;`)('todo', spaceId, guestToken, api);
+    return fn().then(() => calls.map(([method, url]) => [method, url.replace(/&tz=[^&]*/, '')]));
+  };
+  const cases = [
+    ['a module\'s window in a space clears that space', ['gq2zb7pq', null], [['DELETE', '/api/modules/todo/data?scope=space&space=gq2zb7pq']]],
+    ['a guest\'s window in a space carries the guest token', ['gq2zb7pq', 'tok'], [['DELETE', '/api/modules/todo/data?scope=space&space=gq2zb7pq&guest=tok']]],
+    ['a module\'s window with no space clears the environment\'s data', [null, null], [['DELETE', '/api/modules/todo/data?scope=environment']]],
+  ];
+  for (const [name, args, want] of cases) {
+    try { assert.deepEqual(await clearFor(...args), want); n += 1; } catch (err) { failed += 1; console.error(`check-module-host: Clear in ${name}: ${err.message}`); }
+  }
+}
+
 if (failed) process.exit(1);
 console.log(`check-module-host: OK (${n} groups)`);

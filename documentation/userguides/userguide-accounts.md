@@ -100,6 +100,19 @@ belong to. In each, **Moderator** makes them a moderator in that space only, so 
 the Moderator role has there and nothing extra elsewhere. **Use Default Profile Images** decides
 whether the space's own pictures replace their defaults, and **Remove** takes them out of the space.
 
+## Your profile and signing out
+
+Your picture and name are at the right end of the header on every page. Anyone with an account can use them; a
+guest has no picture there and no account menu.
+
+1. Click your picture. A menu opens under it.
+2. Choose **View profile** to open your profile page. In a space it opens over the call, which keeps running.
+3. Or choose **Sign out**. It also forgets the light or dark choice made in this browser, so the next person here
+   starts from the default.
+
+On a phone your picture stays in the header beside the menu button, and works the same way. The menu also works
+from the keyboard: the arrow keys move, Enter picks, and Escape closes it.
+
 ## Light or dark
 
 The sun and moon switch next to the gear at the top of every page changes between light and dark at once, with

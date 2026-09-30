@@ -58,8 +58,9 @@ phoneWidth.addEventListener('change', placeSubnav);
 placeSubnav();
 // Only this page loads your profile/Manage as an overlay over a running
 // call instead of a real navigation (see openOverlay() below) -- the
-// shared header doesn't know that, so it's marked here instead.
-$('whoami-link').dataset.overlayLink = '';
+// shared header doesn't know that, so it's marked here instead. Your
+// profile is the account menu's View profile, which asks first
+// (app:open-profile, see the listener by openOverlay()).
 $('admin-link').dataset.overlayLink = '';
 const call = new Room({ adaptiveStream: true, dynacast: true });
 const tiles = new Map(); // participant identity (user key) -> tile element
@@ -943,7 +944,7 @@ function registerWordTools() {
   nav.register({ ...SPACE_TOOL, id: 'dock-all', order: 1, icon: 'table-columns', label: `Dock every floating ${word('module')} beside the call`, onClick: () => { canvas.dockAll(); syncSnapBar(); } });
   nav.register({ ...SPACE_TOOL, id: 'snap-all', order: 2, icon: 'border-all', label: `Snap every floating ${word('module')} to a grid`, toggleable: true, active: canvas.snapAllOn(), onClick: () => { canvas.snapAll(!canvas.snapAllOn()); syncSnapBar(); } });
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull Participants Back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
-  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, icon: 'square-xmark', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
+  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, icon: 'right-from-bracket', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
 }
 registerWordTools();
 nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin), onClick: () => returnFromAside() });
@@ -3558,7 +3559,6 @@ function setUpPopoutWindow(win) {
     const href = link.getAttribute('href');
     closePopout();
     if (link.matches('#spaces-link, .brand-home')) showSpaceList();
-    else if (href === '/logout') location.href = '/logout';
     else if (link.matches('[data-overlay-link]')) openOverlay(href);
   });
   win.addEventListener('resize', () => {
@@ -3611,6 +3611,12 @@ function closeOverlay() {
   setAway(false);
 }
 window.closeProfileOverlay = closeOverlay; // called directly by the (same-origin) iframe
+// The account menu's View profile (brand.js): over the page, not a navigation, from the popped-out window too.
+document.addEventListener('app:open-profile', (event) => {
+  event.preventDefault();
+  closePopout();
+  openOverlay('/profile');
+});
 
 // Also called directly by the profile page overlay, right after it saves a
 // background/call-prefs change -- otherwise the call keeps running with
@@ -3872,13 +3878,12 @@ async function init() {
   $('install-note').textContent = hint;
 
   if (guestToken) {
-    // No account: no whoami, no Manage, no Sign out, no Guests section (that
+    // No account: no whoami (and so no Sign out), no Manage, no Guests section (that
     // needs a real session too) -- just the name field and, past that,
     // everything the space itself already handles the same for everyone.
     $('join').hidden = true;
     $('whoami-link').hidden = true;
     $('spaces-link').hidden = true;
-    $('logout-link').hidden = true;
     $('guest-section').hidden = true;
     $('settings-links').hidden = true;
     try {

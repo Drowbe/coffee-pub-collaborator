@@ -1099,8 +1099,8 @@ body.in-space .page-scroll {
   color: var(--text-dim);
 }
 
-/* Separates "who you are" (whoami) from "what you can do from anywhere"
-   (the global nav icons) -- both always there, but visibly two groups. */
+/* Separates the groups of a nav zone: in the primary nav's right zone, what you can do from anywhere
+   (Manage, Install), the time, and last who you are (your picture). */
 .nav-divider {
   width: 1px;
   height: 22px;
@@ -1363,14 +1363,44 @@ body.in-space .topbar {
   display: inline-block;
 }
 
-/* The signed-in player: their image next to their name, leading to their profile */
-.links a.whoami,
+/* The signed-in player, last in the bar: their image next to their name, a button that opens the account menu
+   (View profile, Sign out: brand.js). On a phone only the image, beside the menu button. */
 .whoami {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   color: var(--header-text);
   font-weight: 600;
+}
+
+button.whoami {
+  height: 34px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.whoami:hover,
+button.whoami[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+/* A long name is cut short; the full name stays in the button's accessible name ("<name> Account"). */
+.whoami #whoami {
+  max-width: 10em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+button.whoami:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .whoami img {
@@ -1381,7 +1411,7 @@ body.in-space .topbar {
   border: 1px solid var(--border);
 }
 
-/* Icon links in the header: manage, sign out, install as an app, and the
+/* Icon links in the header: Manage, install as an app, and the
    crumb's own leave/rejoin -- .icon-link on a <button> (install, leave,
    rejoin) as well as an <a>, so it needs its own reset. Not scoped to
    .links: the crumb uses this class too (see LEAVE_BTN/REJOIN_BTN in
@@ -4976,9 +5006,10 @@ body.conference-window {
   height: var(--bar-control-h);
 }
 
-/* The host-drawn "..." for a header, action bar or toolbar row that ran out of room (module-host.js's
-   toggleOverflow) -- the same idea as a module's own host.menu.show, but for the host's own chrome, so
-   it can't reach into a module's sandboxed frame to draw there. */
+/* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
+   that ran out of room, the canvas title bars' menus and the account menu under your picture -- the same idea as
+   a module's own host.menu.show, but for the host's own chrome, so it can't reach into a module's sandboxed
+   frame to draw there. */
 .host-menu {
   position: fixed;
   z-index: 26; /* above a floating module (the layer is 25), under a page opened over the call (30) */
@@ -5605,8 +5636,9 @@ body.in-space .topbar.menu-open .links .module-nav-link {
 
 /* --- phone: the header's links are a menu -----------------------------------
    Below 640px, on every page, the header keeps where you are (the server, the crumb) and a menu
-   button. The links (your profile, the spaces, Manage, install, the module pages, sign out) open
-   as a panel under it, with their names, big enough to tap. brand.js builds the button. */
+   button, and your picture beside it (its own menu: View profile, Sign out). The links (the spaces, Manage,
+   install, the module pages, the time) open as a panel under the menu button, with their names, big enough to
+   tap. brand.js builds the button. */
 .topbar .nav-toggle,
 .topbar .call-settings-link {
   display: none;
@@ -5619,7 +5651,12 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     justify-content: space-between;
   }
 
+  /* The middle zone holds only your picture here (nav-bar.js's keepOnPhone), at the right beside the menu button. */
   .topbar .nav-middle {
+    margin-left: auto;
+  }
+
+  .topbar .whoami #whoami {
     display: none;
   }
 
@@ -5628,7 +5665,7 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     flex: none;
     width: 40px;
     height: 36px;
-    margin-left: auto;
+    margin-left: 0;
     font-size: 18px;
   }
 
@@ -5681,6 +5718,7 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     position: absolute;
     top: 100%;
     right: 8px;
+    margin-right: 0; /* the right zone's own -16px would push the panel off the screen's edge */
     z-index: 40;
     min-width: 240px;
     max-width: calc(100vw - 16px);
@@ -5724,15 +5762,6 @@ body.in-space .topbar.menu-open .links .module-nav-link {
 
   .topbar.menu-open .links .module-nav-label {
     display: inline;
-  }
-
-  .topbar.menu-open .links .whoami {
-    color: var(--text);
-  }
-
-  .topbar.menu-open .links .whoami img {
-    width: 28px;
-    height: 28px;
   }
 
   .topbar.menu-open .links .nav-divider {

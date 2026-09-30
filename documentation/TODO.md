@@ -17,6 +17,7 @@ side of things.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
 - #132 A document editor (ProseMirror) for the long prose fields: research notes and answers, plan notes, to-dos, places, and calendar details. Markdown stays what is stored. Chat stays a textarea. About two weeks. Building waits on a go-ahead.
+- The word for entering a space ([plan-environment-templates](plans/plan-environment-templates.md), Addendum 4, approved 2026-09-30): a `verbs` set, starting with `enter`, set by the template; the guest form and the space list use it, and an aside's button says Join. The server side is being built.
 
 ## Verify in a real call
 
@@ -37,6 +38,7 @@ side of things.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.
 - #23 Too many connections to the server from one page.
+- With push to talk on and its key at Space (the default), Space can't press a focused button or menu entry in a space; Enter works ([known-issues](known-issues.md)).
 
 ## Sign-in and accounts
 
@@ -65,6 +67,9 @@ side of things.
 - #39 The nav colours in the theme editor.
 - #31 Customising the dashboard's layout, and snapping on the spaces page.
 - #58 One input in Chat ([plan-one-input](plans/plan-one-input.md)): every step is built. Still to come: the plan's live checks in a browser and a real call.
+- Joining the call on a phone must be something the person chooses to do, as part of the navigation work: showing or hiding the conference module is not joining (Thomas, 2026-09-30).
+- Thomas's, for later: a **Clean Up** button that rearranges the modules on the canvas, and a way to choose and save layouts.
+- Decided, no change (2026-09-30): on touch screens the microphone note stays a hover and focus hint.
 
 ## Modules
 

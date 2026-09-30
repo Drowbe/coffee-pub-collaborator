@@ -134,7 +134,9 @@ Your own settings for these are also on your profile page.
 ## Your profile and Manage over the call
 
 Your profile and the Manage page open in an overlay from inside a call rather than navigating away,
-because leaving the page would drop the call. A **Back to** button in that page's header returns you.
+because leaving the page would drop the call. To open your profile, click your picture at the right end of the
+header and choose **View profile**. A **Back to** button in that page's header returns you, and it stays there if
+you go on from your profile to Manage, or from Manage to your profile.
 
 ## Install it as an app, and pop it out
 
@@ -146,7 +148,7 @@ In Chrome and Edge the **Pop out** button in the space bar (next to **Full scree
 and every module included, into a small window and back; **Full screen** applies to the whole app too. The
 page behind shows **Bring the app back**, and the button in the space bar becomes **Pop it back in**. Popped
 out, the header, the conference's titlebar and the toolbar all slide away when the pointer rests and come
-back on any movement, leaving only the tiles. A header link (your profile, the spaces, a module's page)
+back on any movement, leaving only the tiles. A header link (the spaces, a module's page) or **View profile**
 brings the app back to the page first.
 
 A module in a window of its own, the chat and the conference included, can come back as a docked column or float over the canvas, from the buttons on its titlebar. Those buttons work while the space's page that opened the window is still open.

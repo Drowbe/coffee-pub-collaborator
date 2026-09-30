@@ -136,9 +136,10 @@ function refFromHash() {
 }
 
 // Everything this module holds in the scope this window is open in.
+// (start()'s `scope` is not reachable here; it follows from ?space= the same way.)
 async function clearModuleData() {
-  const q = new URLSearchParams({ scope });
-  if (scope === 'space' && spaceId) q.set('space', spaceId);
+  const q = new URLSearchParams({ scope: spaceId ? 'space' : 'environment' });
+  if (spaceId) q.set('space', spaceId);
   if (guestToken) q.set('guest', guestToken);
   try {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;

@@ -6,9 +6,10 @@
 //
 // A tool is { id, bar: 'primary' | 'secondary', zone: 'left' | 'middle' | 'right', icon, label, title?, order?, group?,
 // groupOrder?, href? | onClick?, visible?, toggleable?, active?, badge? }, plus, for the page's own tools only,
-// `element` (an element the registry places and orders but does not draw: the snap slider, the clock, the profile link),
+// `element` (an element the registry places and orders but does not draw: the snap slider, the clock, your picture),
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
-// (the icon a toggle shows while it is on: full screen's compress). `register()` returns the element drawn, which lives
+// (the icon a toggle shows while it is on: full screen's compress) and `keepOnPhone` (a primary right-zone tool that stays
+// in the bar on a phone rather than folding into the menu: your picture). `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
 // The pure parts (the bands, the sort, the visibility rule, the cleaning of a module's registration) touch no document,
@@ -141,7 +142,8 @@ let seq = 0;
 
 // On a phone the primary nav's middle and right zones fold into the one menu (the right zone's element, which the
 // stylesheet turns into the menu): the registry draws the middle's tools there, ahead of the right's, and back when
-// the window widens.
+// the window widens. A right-zone tool marked `keepOnPhone` (the page's own only: your picture) is drawn in the middle
+// zone instead, so it stays in the bar beside the menu button.
 const phone = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 640px)') : null;
 if (phone) phone.addEventListener('change', () => draw('primary'));
 
@@ -239,10 +241,14 @@ export function draw(bar) {
     for (const d of zone.querySelectorAll(':scope > [data-nav-divider]')) d.remove();
   }
   const lists = {};
-  for (const z of ZONES) lists[z] = flatten(byZone[z], doc);
   if (fold) {
-    lists.right = [...lists.middle, ...lists.right];
-    lists.middle = [];
+    // A right-zone tool marked keepOnPhone (your picture) stays in the bar, in the middle zone's place beside the menu
+    // button; everything else is in the menu.
+    lists.left = flatten(byZone.left, doc);
+    lists.middle = flatten(byZone.right.filter((t) => t.keepOnPhone), doc);
+    lists.right = [...flatten(byZone.middle, doc), ...flatten(byZone.right.filter((t) => !t.keepOnPhone), doc)];
+  } else {
+    for (const z of ZONES) lists[z] = flatten(byZone[z], doc);
   }
   for (const z of ZONES) if (b.zones[z]) place(b.zones[z], lists[z]);
 }

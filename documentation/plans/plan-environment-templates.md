@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides what a template sets and how an environment follows it, and the sessions that build it: server-development (`server/`, the host registry, the checks) and experience-design (the pages, the console, the SDK's words).
 
-**Status:** Addendum 2 (#68), "Templates grow", approved 2026-09-25: built (2026-09-25). The switching addendum (GitHub #59) is built (2026-09-25). Approved by Thomas on September 25, 2026 (reworked 2026-09-24); **done** (2026-09-25): steps 1 to 3 built. Deferred: the chat and the conference as modules a template can switch off stay in [plan-optional-conference](plan-optional-conference.md); more templates come later, each only a new file. Built right after [plan-names](plan-names.md) step 5c, before its steps 6 to 10. Asked for by Thomas: "Environment profiles: an environment can have a profile, e.g. "travel", that sets it up for that use: what things are called, icons, which modules are on, and possibly more." Named a **template**, since "profile" already means a space's profile and a person's profile page. On the words, Thomas (2026-09-24): "based on the template, the level name and code name NEVER change, but what's exposed to the user could change." Everything the first draft said about rooms and tables is done by plan-names and is not repeated here.
+**Status:** Addendum 4, "the word for entering a space", approved by Thomas, 2026-09-30; not built. Addendum 2 (#68), "Templates grow", approved 2026-09-25: built (2026-09-25). The switching addendum (GitHub #59) is built (2026-09-25). Approved by Thomas on September 25, 2026 (reworked 2026-09-24); **done** (2026-09-25): steps 1 to 3 built. Deferred: the chat and the conference as modules a template can switch off stay in [plan-optional-conference](plan-optional-conference.md); more templates come later, each only a new file. Built right after [plan-names](plan-names.md) step 5c, before its steps 6 to 10. Asked for by Thomas: "Environment profiles: an environment can have a profile, e.g. "travel", that sets it up for that use: what things are called, icons, which modules are on, and possibly more." Named a **template**, since "profile" already means a space's profile and a person's profile page. On the words, Thomas (2026-09-24): "based on the template, the level name and code name NEVER change, but what's exposed to the user could change." Everything the first draft said about rooms and tables is done by plan-names and is not repeated here.
 
 ## What it is today
 
@@ -419,3 +419,70 @@ Templates are bundled files only (`templates/<id>.json`, read by `server/templat
 ### Open questions
 
 1. **A shipped change to live parts only** (words, home icon, module names or icons). Decided (PM, 2026-09-26): record a fingerprint of the whole shipped template in `base` as well, and raise the "updated in this image" notice when either fingerprint differs, so an edited template never silently keeps old words.
+
+## Addendum 4: the word for entering a space
+
+**Status:** Approved by Thomas, 2026-09-30. Not built. From the open question in [plan-entering](plan-entering.md) ("Should the guest form's 'Join' say Enter?"). Thomas (2026-09-30): "Yes, as a matter of fact in our 'template' settings, the template should drive what that button says. Default to 'enter' instead of join -- because a previous mandate was that we do not join calls by default." An addendum here rather than a new plan, since it adds one more live, owner-editable word to the machinery this plan built (addenda 1 to 3 follow the same pattern). **Changes what plan-entering Part 1 built for asides:** an aside's card says **Join**, not **Enter** (decision 2).
+
+### What it is today
+
+- plan-entering Part 1 is built: the space list's primary button reads **Enter** with `fa-door-open` (`public/space.html:58`), set in `public/space.js:415`, and **Back to <space>** with `fa-circle-left` when the page is still connected to that space. The pop-out button's title and label are "Enter in a pop-out window" (`space.html:59`). All typed text.
+- The guest form still reads as joining a call: the heading "Join as {a guest}" (`space.html:39`), replaced by "Join <space>" once the link is read (`space.js:3891`), and the button **Join** with `fa-comments` (`space.html:41`).
+- Prose that says a person "joins" a space: the guest link's hint, "Anyone with this link joins this {space} with just a name" (`space.html:233`); the Roles hint, "{Guest} is everyone who joins from {a space}'s {guest} link" (`admin.html:177`); and the product page, "guests can join a space with just a name" (`landing.html:83`), which is the host's page and has no environment words.
+- "Join" that is about the call, and stays: the call control's **Join** and "Join the call" (`space.js:973`, `978`), the microphone note ("You join with your camera off"), the aside invitation's "Join them?" (`space.js:2279`), and the layout readout's hint (`admin.html:233`). "You're invited to join <environment>" (`register.js:14`) is about the environment and stays.
+- The code names stay as they are, per CLAUDE.md: `#join`, `data-join`, `data-join-label`, `#guest-join`, `.join-with` and `POST /api/guest-join`.
+- The words machinery (step 1 and addenda 2 and 3): `server/words.js` holds the ten changeable nouns, each `{ one, many, a? }`, resolved owner, then template, then default; `settings.words`, `PATCH /api/settings`, `branding().words`, `public/words.js` (`word()`, `data-word`, `data-fill`), Manage's **Words** panel on the Template tab, the host template editor's word rows (`public/host-templates.js:247`), the template file's `words` (checked in `server/templates.js`), and `check-names --words`. The vocabulary section above says "Adding a key means adding a level, which is a change to CLAUDE.md's Names first."
+
+- An aside's card uses the same code (`space.js:411-420`), so today it also reads **Enter**.
+
+### Decisions (Thomas, 2026-09-30)
+
+1. **A small `verbs` map beside `words`**, starting with one key, `enter`. The action is a verb, not a level or role: it has no plural and no article, and the vocabulary stays exactly the Names. (A key in `words` would have broken the vocabulary rule; a setting applied once would not be driven live by the template.)
+2. **An aside's button says "Join".** An aside is a call; choosing an aside is choosing the call. The enter word is for spaces only.
+3. **Travel's word is "Enter"**, the default, so `templates/travel.json` gets no `verbs` entry.
+4. **"Back to <space>" stays fixed text.** It is going back, not entering, and matches the header's "Back to" link (`brand.js:650`).
+5. **The prose that says a person "joins" a space is reworded as fixed text** that says neither "join" nor the verb: the guest link's hint, the Roles hint, and the product page's "guests can join a space".
+6. **The icon stays `fa-door-open`**; the template sets only the word.
+
+### The contract
+
+- **The key** is `enter`, a code name that never changes; only what a person reads does. Default **Enter**. The map is named `verbs`, so later actions can join it without touching the Names.
+- **Its shape** is one string, as it reads at the start of a button ("Enter", "Go to"): no plural, no article, no `cap` form. Tidied like a word; 1 to 20 characters; letters, spaces, hyphens and apostrophes (the `WORD_RE` rule). It is always used first in a label, followed by nothing, a space's name, or fixed text, so it is never lower-cased or conjugated.
+- **Sentences built from it** (spaces only):
+  - The space list's primary button: `<enter>`, with `fa-door-open`.
+  - The pop-out button's title and label: `<enter> in a pop-out window`.
+  - The guest form's button: `<enter>`, with `fa-door-open` in place of `fa-comments`.
+  - The guest form's heading: `<enter> <space name>` once the link is read; before that, `<enter> as {a guest}`.
+- **Fixed text:**
+  - **Back to <space>**, with `fa-circle-left`, as built.
+  - **An aside's card:** the primary button reads **Join** with `fa-phone`, and the pop-out button's title and label "Join in a pop-out window". When the page is still connected to that aside, it reads **Back to <aside>** as a space does. The words are fixed; an aside never reads the enter word.
+  - **The reworded hints**, experience-design's wording, for example: "Anyone with this link can come into this {space} with just a name" (`space.html:233`); "{Guest} is everyone who comes in from {a space}'s {guest} link" (`admin.html:177`); "guests can come into a space with just a name" (`landing.html:83`, the host's page, no environment words).
+- **"Join"** stays only for the call: the call control, the microphone note, the aside invitation, an aside's card, and the layout readout.
+- **Server** (`server/words.js`, beside the words):
+  - `VERBS = ['enter']` and `DEFAULT_VERBS = { enter: 'Enter' }`; resolved as the owner's (`settings.verbs.enter`), else the template's, else the default.
+  - `PATCH /api/settings` takes `verbs: { enter: "<text>" | null }`; null returns it to the template's or the default. It answers 400 with one sentence for an unknown key ("There is no verb called x; the verbs are enter."), and for text that is too long or has other characters.
+  - `branding()` gains `verbs` (resolved). The owner's settings view gains `ownVerbs` and `templateVerbs`, like `ownWords` and `templateWords`.
+  - Not in `host.locale()`: no module enters a space.
+- **The template file** gains an optional `verbs: { enter }`, checked by `problemsOf()`, kept by `cleanTemplate()`, and made live by `useLive()` (`store.templateVerbs`). It is a live part, so it is not in `PARTS`, the applied-once fingerprint or the switch's offer, and changing it needs no `version` bump. It is in `FIELDS`, so the whole-template fingerprint (addendum 3's notice) sees it. `format` and `formatVersion` stay `template` and 1: the field is optional, and an export leaves it out when it is not set. An older server refuses a file that has it, with its unknown-field sentence.
+- **Switching templates**: the new template's verb shows at once, under the owner's own, as words do.
+- **Pages:** `public/words.js` gains `verb('enter')` and a `data-verb="enter"` attribute that `loadBranding()` fills, with the default until `/api/branding` answers. `space.js` builds a space's button, pop-out title and the guest heading from `verb('enter')`, and an aside's from the fixed **Join**.
+- **Manage > Template > Words** gains one row under the ten words: "Button for entering {a space}", one field, blank for the template's or the default, with the same "from the template" mark and Reset. **The host template editor** gains the same row and saves `verbs`; its compare panel lists **Verbs**.
+- **`check-names --words`**: no new rule. A one-word string reads as code to its scanner, so it cannot tell a typed "Enter" label from `e.key === 'Enter'`. QA greps for it instead.
+- **Travel** (`templates/travel.json`): unchanged; a trip reads **Enter** (decision 3).
+
+### Left to build, in order
+
+1. **The server** (server-development): `verbs` in `server/words.js`, `settings.verbs` and `PATCH /api/settings`, `branding().verbs`, `ownVerbs` and `templateVerbs`, the template field (`FIELDS`, `problemsOf`, `cleanTemplate`, `useLive`), export and import, and the check cases. Done when `npm run check` passes and an environment with nothing set answers `verbs: { enter: 'Enter' }`.
+2. **The pages** (experience-design): `verb()` and `data-verb`; a space's button and pop-out title from the verb; an aside's card as **Join** with `fa-phone` and "Join in a pop-out window"; the guest form's heading, button and icon; the three reworded hints (`space.html:233`, `admin.html:177`, `landing.html:83`); the Manage row; the host template editor's row and compare label. Done when every place in "Sentences built from it" reads the verb, an aside's card reads **Join**, and no other typed "Join" or "Enter" for a space is left.
+3. **QA** (quality-assurance): the checks below.
+4. **The documentation** (content-manager): architecture-environments ("Templates"), the Manage, spaces and templates user guides, the API's settings and branding fields, and plan-entering's status (the guest form question answered, and an aside's card now **Join**).
+
+### Verify
+
+- **Checked by a tool:** `check-templates` (a valid `verbs`; an unknown key, too long, and bad characters refused; a live field, so no version bump required); `check-template-switch` (the verb follows a switch, the owner's own wins, null returns to the template's); `PATCH /api/settings` refusals.
+- **Live on a local server** (`BASE_DOMAIN=localhost`, `DATA_DIR` under `/tmp`): a space's button and pop-out title; an aside's card reading **Join** (an aside needs a person to start one, so it may need to be made through the API); a guest link's form (heading, button, icon) before and after the link is read; an owner's verb set on Manage and cleared; a host-edited template's verb reaching an environment at once; a template export and import carrying it; the three reworded hints. A grep of `public/` for "Join" and "Enter" as label text finds only the call's and the aside's.
+- **Not checkable here:** **Back to <space>** and **Back to <aside>** need a connected call, so they are read as code only until a real LiveKit server.
+
+### Open questions
+
+1. **An aside card's icon and pop-out title.** Decision 2 settles the word; the contract suggests `fa-phone` (the call control's icon) and "Join in a pop-out window" to match it. Not yet confirmed by Thomas; neither blocks step 1.

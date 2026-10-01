@@ -2393,11 +2393,14 @@ call
       else if (topic === 'aside-return' && data.type === 'aside-return' && data.spaceId) {
         setTimeout(() => reconnectTo(data.spaceId, 'back to the call...', { keepCall: true }), 0);
       }
-      // Someone just got pulled into a private aside, myself excluded: prime
+      // Someone just got pulled into a private aside: prime
       // the local data so their tile can turn into an "in an aside"
       // placeholder right away, without waiting for the next /api/presence poll.
+      // The server sends this to everyone on the call, those pulled too, and their join can find this entry before
+      // presence answers. It has no origin, so it is marked pending: presence replaces it (adoptPendingSpace), and
+      // with the origin "Rejoin call" shows in the aside.
       else if (topic === 'aside-started' && data.type === 'aside-started' && data.spaceId && Array.isArray(data.members)) {
-        if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: data.members }));
+        if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: data.members, pending: true }));
         for (const key of data.members) {
           const user = presenceUsers.get(key);
           if (user) { user.online = true; user.space = data.spaceId; }

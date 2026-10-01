@@ -243,7 +243,7 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
 
 The server tells the other people involved over the data channel, on four topics: `aside-pull`
 `{ type, spaceId, byOwner, private, from }` to the people pulled, `aside-started` `{ type, spaceId, members }` to
-everyone left behind, `aside-recall` `{ type, spaceId, spaceName }` and `aside-return` `{ type, spaceId }` (before step 5a they carried `roomId` and `roomName`). The old
+everyone on the call, the people pulled included, `aside-recall` `{ type, spaceId, spaceName }` and `aside-return` `{ type, spaceId }` (before step 5a they carried `roomId` and `roomName`). The old
 `/api/table...` routes answer 404 and the old topics are no longer sent.
 
 ## Hosting

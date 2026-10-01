@@ -669,6 +669,58 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
 }
 
+// The way back from an aside: "Rejoin call" shows while I am in an aside that came from a space (its `origin`). The
+// server tells everyone on the call that an aside started (aside-started), those pulled into it too, and the page
+// lists it at once, without its origin; a join that finds that entry before presence answers must still end up with
+// presence's record (adoptPendingSpace), or Rejoin call never shows and Leave is the only way out.
+{
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const fn = (name, end = '\n}\n') => {
+    const at = spaceJs.indexOf(name);
+    return at < 0 ? '' : spaceJs.slice(at, spaceJs.indexOf(end, at) + end.length);
+  };
+  try {
+    const entryLine = spaceJs.match(/^const asideEntry = .*$/m)?.[0];
+    const rejoin = spaceJs.match(/id: 'rejoin-call'.*?visible: (\(\) => .*?), onClick:/)?.[1];
+    assert.ok(entryLine && rejoin, 'asideEntry and the rejoin-call tool\'s visible() are where this check looks');
+    // join() takes what the page already lists, else a pending stand-in; page.join below does the same.
+    assert.match(fn('async function join('), /const known = presenceSpaces\.find\(\(r\) => r\.id === spaceId\);\n\s*currentSpace = known \|\| \{ id: spaceId, name: spaceName, members: \[\], pending: true \};/, 'join() looks the space up as this check does');
+    const chainAt = spaceJs.indexOf('call\n  .on(RoomEvent.TrackSubscribed');
+    const chain = spaceJs.slice(chainAt, spaceJs.indexOf('\n\nasync function fillDevices(', chainAt));
+    const handlers = {};
+    const fakeCall = { on(name, h) { handlers[name] = h; return fakeCall; } };
+    const noop = () => {};
+    const stubs = {
+      RoomEvent: new Proxy({}, { get: (_t, name) => name }),
+      decoder: new TextDecoder(), presenceUsers: new Map(), word: () => 'Aside', reconcileGhostTiles: noop, removeParticipant: noop,
+      setTimeout: noop, spaceDisplayName: (r) => r.name, renderSpaceLink: noop, applyPermissions: noop, updateRecallButton: noop, updateCrumb: noop,
+    };
+    const names = Object.keys(stubs);
+    const page = new Function(...names, `const call = arguments[${names.length}];
+      let presenceSpaces = [];
+      let currentSpace = null;
+      let spaceName = '';
+      ${entryLine}
+      ${fn('function adoptPendingSpace(')}
+      ${chain};
+      return {
+        list: () => presenceSpaces,
+        presence: (spaces) => { presenceSpaces = spaces.map(asideEntry); adoptPendingSpace(); },
+        join: (id) => { currentSpace = presenceSpaces.find((r) => r.id === id) || { id, members: [], pending: true }; },
+        rejoinShown: ${rejoin},
+      };`)(...names.map((k) => stubs[k]), fakeCall);
+    assert.equal(typeof handlers.DataReceived, 'function', 'a DataReceived handler');
+    const started = new TextEncoder().encode(JSON.stringify({ type: 'aside-started', spaceId: 'a1', members: ['me', 'ann'] }));
+    handlers.DataReceived(started, undefined, 0, 'aside-started');
+    assert.ok(page.list().some((r) => r.id === 'a1' && r.isAside), 'aside-started lists the aside at once');
+    page.join('a1'); // the pulled person's join, before presence has answered
+    page.presence([{ id: 'a1', origin: 'lobby', members: ['me', 'ann'], private: false }]);
+    assert.equal(page.rejoinShown(), true, 'Rejoin call shows once presence has answered with where the aside came from');
+  } catch (err) {
+    fail('public/space.js', `in an aside, Rejoin call must show (the aside-started entry gives way to presence's record): ${err.message}`);
+  }
+}
+
 if (problems.length) {
   console.error(`check-canvas: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);

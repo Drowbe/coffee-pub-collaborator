@@ -126,6 +126,10 @@ const rememberedSpace = () => { try { return sessionStorage.getItem(REMEMBERED_S
 // for the chat and the modules, and only sends and receives audio and video while the
 // conference module is open. Others see the difference through the "call" attribute.
 let inCall = false;
+// Away (setAway, below): declared up here because what you hear (hearingOff) is set from page load on.
+let isAway = false;
+let awayRestoreMic = false;
+let awayRestoreCam = false;
 const LOBBY = 'lobby';
 let activeSpace = LOBBY; // the space the stream currently hears (server-computed)
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
@@ -1372,6 +1376,7 @@ function attachTrack(participant, track) {
     const video = track.attach();
     video.muted = true;
     screenTile.prepend(video);
+    keepPoppedVideoLive(track, video);
     return;
   }
   const tile = tileFor(participant);
@@ -1380,6 +1385,7 @@ function attachTrack(participant, track) {
     const video = track.attach();
     video.muted = true; // audio comes through its own element
     tile.prepend(video);
+    keepPoppedVideoLive(track, video); // in the pop-out window, LiveKit must not think it unseen
     // placeholder-bg sits later in the tile than the just-prepended video,
     // so it paints on top and hides live video behind whoever's custom
     // background picture unless it's hidden here too -- updateCamera()
@@ -1391,7 +1397,7 @@ function attachTrack(participant, track) {
     if (participant.isLocal) return; // never play your own voice back
     const audio = track.attach();
     audio.dataset.identity = participant.identity;
-    audio.muted = prefs.deafened;
+    audio.muted = hearingOff(); // deafened or away
     if (prefs.speakerId && audio.setSinkId) audio.setSinkId(prefs.speakerId).catch(() => {});
     $('canvas').appendChild(audio);
     track.setVolume(effectiveVolume(participant.identity));
@@ -1422,12 +1428,16 @@ function removeParticipant(participant) {
   applyLayout();
 }
 
+// Marked muted: no microphone published, or the one published is muted. Only the publication's own state, which a
+// late joiner gets with the publication, never what events happened to arrive (tools/check-canvas.mjs runs it).
+function micMarkedMuted(pub) {
+  return !pub || !!pub.isMuted;
+}
 function updateMuted(participant) {
   if (!shownInCall(participant)) return;
   const tile = tileFor(participant);
-  const mic = participant.getTrackPublication(Track.Source.Microphone);
   let badge = tile.querySelector('.muted');
-  const muted = !mic || mic.isMuted;
+  const muted = micMarkedMuted(participant.getTrackPublication(Track.Source.Microphone));
   if (muted && !badge) {
     badge = document.createElement('span');
     badge.className = 'muted';
@@ -2301,14 +2311,19 @@ function reflectMic() {
 
 // --- call events ---------------------------------------------------------------
 
+// A tile's muted mark follows the person's microphone publication: one coming or going changes it as much as a mute
+// does. Someone joining the call says "on" before their microphone is published, so their tile is made with none
+// (marked muted), and no TrackMuted/TrackUnmuted ever comes for a microphone published unmuted. updateMuted does nothing
+// for someone not in the call. The camera's picture keeps to TrackMuted/TrackUnmuted and attachTrack/detachTrack.
 call
-  .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => attachTrack(participant, track))
+  .on(RoomEvent.TrackSubscribed, (track, _pub, participant) => { attachTrack(participant, track); updateMuted(participant); })
   .on(RoomEvent.TrackUnsubscribed, (track, _pub, participant) => detachTrack(participant, track))
-  .on(RoomEvent.LocalTrackPublished, (pub) => pub.track && attachTrack(call.localParticipant, pub.track))
-  .on(RoomEvent.LocalTrackUnpublished, (pub) => pub.track && detachTrack(call.localParticipant, pub.track))
+  .on(RoomEvent.LocalTrackPublished, (pub) => { if (pub.track) attachTrack(call.localParticipant, pub.track); updateMuted(call.localParticipant); })
+  .on(RoomEvent.LocalTrackUnpublished, (pub) => { if (pub.track) detachTrack(call.localParticipant, pub.track); updateMuted(call.localParticipant); })
   .on(RoomEvent.ParticipantConnected, (p) => { if (shownInCall(p)) tileFor(p); })
   // Nothing is received until I am in the conference; then everything published is taken.
-  .on(RoomEvent.TrackPublished, (pub, p) => { if (shownInCall(p)) pub.setSubscribed(true); })
+  .on(RoomEvent.TrackPublished, (pub, p) => { if (shownInCall(p)) pub.setSubscribed(true); updateMuted(p); })
+  .on(RoomEvent.TrackUnpublished, (_pub, p) => updateMuted(p))
   // Someone left or rejoined the conference without leaving the space.
   .on(RoomEvent.ParticipantAttributesChanged, (changed, p) => {
     if (p.isLocal || !inCall || !('call' in changed)) return;
@@ -2426,7 +2441,7 @@ call
     $('away-overlay').hidden = true;
     isAway = false;
     $('away-toggle').classList.remove('off');
-    $('away-toggle').title = 'Away: pauses your mic and camera and lets everyone know';
+    $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
     for (const [, tile] of tiles) tile.remove();
     tiles.clear();
     for (const [, tile] of ghostTiles) tile.remove();
@@ -2783,7 +2798,9 @@ async function startCall() {
       if (stopped()) return await backOut(track);
       haveMic = true;
       console.debug('[app] published audio');
-      if (prefs.ptt) {
+      // Away when joining: the microphone stays off and comes on with Back, unless push to talk keeps it off anyway.
+      if (isAway) awayRestoreMic = !prefs.ptt;
+      if (prefs.ptt || isAway) {
         await call.localParticipant.setMicrophoneEnabled(false);
         if (stopped()) return await backOut(track);
       }
@@ -2832,7 +2849,7 @@ async function stopCall() {
   $('away-overlay').hidden = true;
   isAway = false;
   $('away-toggle').classList.remove('off');
-  $('away-toggle').title = 'Away: pauses your mic and camera and lets everyone know';
+  $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
   for (const [, tile] of tiles) tile.remove();
   tiles.clear();
   for (const [, tile] of ghostTiles) tile.remove();
@@ -2881,6 +2898,8 @@ function phoneButton() {
 async function toggleMic() {
   if (!inCall) return;
   const enabled = !call.localParticipant.isMicrophoneEnabled;
+  // Away, nobody hears you: coming back (the away button) is what turns the microphone on again.
+  if (enabled && isAway) { setStatus('away: come back to turn your microphone on'); return; }
   try {
     await call.localParticipant.setMicrophoneEnabled(enabled);
   } catch (err) {
@@ -2944,11 +2963,17 @@ async function toggleScreenShare() {
   $('screen-share').title = on ? 'Stop sharing your screen (S)' : 'Share your screen (S)';
 }
 
+// What I hear is off while I have muted it (deafened) or am away (setAway): every remote
+// audio element, including any attached later (attachTrack), wherever the canvas is.
+const hearingOff = () => !!prefs.deafened || isAway;
+function applyHearing() {
+  canvasDoc().querySelectorAll('audio').forEach((el) => { el.muted = hearingOff(); });
+}
 // Mute what I hear: everyone else's audio, not my own mic -- for when a
 // phone call or something else needs the space quiet for a minute without
 // actually leaving or muting yourself to the others.
 function applyDeafen() {
-  canvasDoc().querySelectorAll('audio').forEach((el) => { el.muted = prefs.deafened; });
+  applyHearing();
   $('deafen').classList.toggle('on', !prefs.deafened);
   $('deafen').classList.toggle('off', prefs.deafened);
   $('deafen').title = prefs.deafened ? 'Unmute what you hear (D)' : 'Mute what you hear (D)';
@@ -3564,7 +3589,7 @@ function onKey(event) {
   // (LiveKit publishes one) with the person not in the call. Letting go is safe either way (releaseTalk).
   if (inCall && prefs.ptt && hotkeyMatches(event, prefs.pttKey) && !pressesControl(event)) {
     event.preventDefault();
-    if (event.repeat || pttHeld) return;
+    if (event.repeat || pttHeld || isAway) return; // away, nobody hears you (setAway)
     pttHeld = event.code;
     call.localParticipant.setMicrophoneEnabled(true).then(reflectMic).catch(() => {});
     return;
@@ -3682,8 +3707,8 @@ function syncFullscreenButton() {
 document.addEventListener('fullscreenchange', syncFullscreenButton);
 
 // --- install as an app / pop out ------------------------------------------------
-// The button itself (and the beforeinstallprompt handling behind it) now
-// lives in the shared header -- see renderTopbar()/wireInstall() in
+// The entry itself (and the beforeinstallprompt handling behind it) now
+// lives in the shared header's account menu -- see accountMenuItems() in
 // brand.js -- so this is just the manual-instructions fallback for
 // browsers that never fire that event at all.
 
@@ -3694,7 +3719,7 @@ function describeInstall() {
   if (/iPhone|iPad/.test(ua)) return 'Add to your home screen for a full-screen call: Share, then Add to Home Screen.';
   if (/Safari/.test(ua) && !/Chrome|Chromium|Edg/.test(ua)) return 'For a window without browser bars: File, then Add to Dock.';
   if (/Firefox/.test(ua)) return 'Firefox has no install; Chrome, Edge or Safari can open the call in its own window.';
-  return 'For a window without browser bars, use Install in the header once your browser offers it.';
+  return 'For a window without browser bars, use Install as an app in your profile menu once your browser offers it.';
 }
 
 // A plain popup window: the whole canvas moves into it and comes back when
@@ -3745,6 +3770,7 @@ function setUpPopoutWindow(win) {
   placeSubnav(); // phone or wide by this window's width now: the tab bar, or the chooser's button and list
   canvas.popped(); // the modules open again in this window
   $('away').hidden = false;
+  keepPoppedVideosLive();
   watchPointer(win.document);
   watchOutsideClick(win.document);
   win.document.addEventListener('keydown', onKey);
@@ -3782,6 +3808,7 @@ function setUpPopoutWindow(win) {
     canvas.popped(); // and back in this one
     $('away').hidden = true;
     pipWindow = null;
+    dropPoppedWatches();
     nav.setActive('popout', false);
     $('popout').title = 'Pop out into its own window';
     wake();
@@ -3790,6 +3817,46 @@ function setUpPopoutWindow(win) {
 function closePopout() {
   if (pipWindow) pipWindow.close();
 }
+
+// LiveKit's adaptive stream stops a remote video it thinks nobody sees: when the main page is hidden
+// (document.visibilityState, after a few seconds) or the element is out of the main window's view. It allows for
+// Chrome's document picture-in-picture, not for this pop-out window, so a pop-out over a minimised or covered main
+// window (an installed app's, most often) froze every video on its last picture. While a remote video is in the
+// pop-out, a second watch of ours tells LiveKit it is shown in a window of its own (pictureInPicture, as its own
+// picture-in-picture does) and how big it is there; popping back in drops it.
+const poppedWatches = new Set(); // { track, info }
+function keepPoppedVideoLive(track, video) {
+  if (!pipWindow || video.ownerDocument === document || typeof track?.observeElementInfo !== 'function' || !track.isAdaptiveStream) return;
+  for (const w of poppedWatches) if (w.info.element === video) return;
+  const info = {
+    element: video,
+    visible: true,
+    pictureInPicture: true,
+    visibilityChangedAt: 0,
+    width: () => video.clientWidth,
+    height: () => video.clientHeight,
+    observe() {
+      const Observer = video.ownerDocument.defaultView?.ResizeObserver;
+      this.resize = Observer ? new Observer(() => this.handleResize?.()) : null;
+      this.resize?.observe(video);
+    },
+    stopObserving() { this.resize?.disconnect(); },
+  };
+  poppedWatches.add({ track, info });
+  track.observeElementInfo(info);
+}
+function keepPoppedVideosLive() {
+  for (const p of call.remoteParticipants.values()) {
+    for (const pub of p.videoTrackPublications.values()) {
+      for (const el of pub.track?.attachedElements || []) keepPoppedVideoLive(pub.track, el);
+    }
+  }
+}
+function dropPoppedWatches() {
+  for (const { track, info } of poppedWatches) track.stopObservingElementInfo(info); // already gone with a detached video: harmless
+  poppedWatches.clear();
+}
+
 $('bring-back').addEventListener('click', closePopout);
 
 // --- your profile / Manage, without leaving the call -------------------------
@@ -3953,13 +4020,13 @@ async function sendAway(on, message = '') {
 // yourself away on purpose. Whichever mic/camera were actually on get
 // remembered and only those come back when away turns back off, so someone
 // whose camera was already off before stepping away doesn't have it turned
-// on for them.
-let isAway = false;
-let awayRestoreMic = false;
-let awayRestoreCam = false;
+// on for them. Away also stops you hearing everyone else (hearingOff), and while away
+// nothing opens the microphone: not push to talk, not the mic button or its keys (toggleMic),
+// not a join (startCall). The state itself is declared near inCall, at the top.
 async function setAway(on, message = '') {
   if (on === isAway) return;
   isAway = on;
+  applyHearing(); // straight away, before the waits for the microphone and camera
   if (on) {
     awayRestoreMic = !!call.localParticipant.isMicrophoneEnabled;
     awayRestoreCam = !!call.localParticipant.isCameraEnabled;
@@ -3975,7 +4042,7 @@ async function setAway(on, message = '') {
   $('cam').classList.toggle('off', !camOn);
   updateCamera(call.localParticipant);
   $('away-toggle').classList.toggle('off', on);
-  $('away-toggle').title = on ? 'Back: unpause your mic and camera and let everyone know' : 'Away: pauses your mic and camera and lets everyone know';
+  $('away-toggle').title = on ? 'Back: unpause your mic, camera and sound, and let everyone know' : 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
   await sendAway(on, message);
 }
 

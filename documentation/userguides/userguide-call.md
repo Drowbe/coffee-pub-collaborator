@@ -47,20 +47,23 @@ The bar under the header belongs to the space you are in. From left to right:
   while you switch; click **Modules** again, press Escape or click elsewhere to close it. With the keyboard, the
   arrow keys move between switches and Space or Enter flips one. A count shows what is unread, on the switch and
   on the button.
-- **Who is here**, in the middle: the pictures of the people in the space, up to four, then "+2" for the rest, and
-  how many ("3 here", or "Just you"). A camera mark is on those on the call. Click it for the list: everyone here,
-  you first, and "on the call" beside those on it. It changes as people come, go, join and hang up.
+- **Who is here**, in the middle: small square pictures of the people in the space, you first, up to four, then
+  "+2" for the rest, and who they are in a few words: "Just you", "You and Alex", "You, Alex and Sam" or "You and 4
+  others". A camera mark is on those on the call. Click it for the list, headed "In this space (5)": everyone here,
+  you first with "(you)", and the camera with "on the call" beside those on it. It changes as people come, go, join
+  and hang up.
 - The space's tools, at the right: **Dock all**, the grid switch and **Grid size**, **Full screen**, **Pop out**,
   **Pull participants back** or **Rejoin call** during an aside, a module's own tools, and **Leave space** last.
 
-When the window is too narrow for everything, who is here shows fewer pictures, then only the count. Then the tools
+When the window is too narrow for everything, who is here first says how many instead of who ("5 in this space"),
+then shows fewer pictures, then only an icon and the count ("5 here"). Then the tools
 fold into a **…** button (**More**) just before **Leave space**: **Pop out** first, then **Full screen**, a
 module's own tools, the grid switch and **Grid size**, **Dock all**, **Rejoin call** and **Pull participants
 back**. Click **…** to use them; a switch there shows a tick while it is on. **Leave space**, **…** and **Modules**
 never fold. The space's name is cut short only after everything else has folded.
 
-On a phone the space bar is a row of tabs at the bottom of the page: a tab for each module, how many are here, and
-**Leave space**.
+On a phone the space bar is a row of tabs at the bottom of the page: a tab for each module, how many are here ("5
+here"), and **Leave space**.
 
 ## What opens when you enter
 
@@ -81,6 +84,8 @@ turns green to join again. Switching the Conference off in **Modules**, or closi
 call, so nobody is left on the call with the Conference hidden. The space's own **Leave space** button, at the right
 of the space bar, is what leaves the space. The status line reads "in <space>" whether or not you are on the call.
 If nothing at all is open, the canvas says so. In a pop-out window, hang up brings the app back to the page first.
+
+Videos in the pop-out keep playing when the main window is minimised or covered by another window.
 
 If an owner pulls you into an aside or a private conversation, or back again, you stay on the call if you were on
 it. If you were not on the call, you arrive out of it, in **Not in a call**.
@@ -142,14 +147,25 @@ for when something else needs quiet for a minute. Only you are affected, and nob
 
 ## Away
 
-The moon button pauses your microphone and camera and marks your tile so everyone knows. When you
+The moon button pauses your microphone and camera, mutes what you hear, and marks your tile so everyone knows. When you
 click it, Collaborator asks for an optional **away message** (up to 200 characters, several lines allowed).
 Ctrl or Cmd plus Enter, or **Go away**, confirms. Everyone else sees your message on your tile in
-place of "Away"; leave it empty to show plain "Away". Click the button again to come back, and only
-the microphone and camera that were on before come back on.
+place of "Away"; leave it empty to show plain "Away".
+
+While you are away you hear nobody, including anyone who starts talking after you left, and nothing opens your
+microphone: not the microphone button, not **M**, not push to talk, and not joining the call. Pressing the
+microphone button says "away: come back to turn your microphone on".
+
+Click the button again to come back. What you hear comes back (unless you had muted it with deafen), and only the
+microphone and camera that were on before come back on. If you joined the call while away, your microphone comes on
+when you come back, unless you use push to talk.
 
 Opening your profile or the Manage page from inside a call, or going to the space list, also marks you
-as "Away" without asking for a message.
+as "Away" without asking for a message, with the same effect: you hear nobody until you close the page or go back
+to the space.
+
+Someone who joins the call after you went away does not see you as away yet; see
+[Known issues](../known-issues.md).
 
 ## Settings in the call
 
@@ -198,9 +214,15 @@ you go on from your profile to Manage, or from Manage to your profile.
 
 ## Install it as an app, and pop it out
 
-To run Collaborator without browser bars, install it as an app: Chrome and Edge show **Install as an
-app** in the settings popover, Safari on macOS has **File, Add to Dock**, and iPhones and iPads use
-**Share, Add to Home Screen**.
+To run Collaborator without browser bars, install it as an app:
+
+- **Chrome and Edge.** Click your picture at the right end of the header and choose **Install as an app**. On a
+  phone it is in the header's menu, after **View profile**. It is there only while the browser offers to install,
+  so it is gone once Collaborator is installed. A guest has no profile menu, and so no **Install as an app**.
+- **Safari on macOS.** **File, Add to Dock**.
+- **iPhones and iPads.** **Share, Add to Home Screen**.
+
+The hint under **Join the call** says which applies to your browser.
 
 In Chrome and Edge the **Pop out** button in the space bar (next to **Full screen**) moves the whole app, header
 and every module included, into a small window and back; **Full screen** applies to the whole app too. The

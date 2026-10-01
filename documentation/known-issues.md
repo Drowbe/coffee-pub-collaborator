@@ -112,3 +112,19 @@ server not reached over HTTPS, where there is no **Paste** button at all), only 
 
 Workaround: Tab to the picture box and press Ctrl+V (Cmd+V on a Mac), which keeps a copied file as it is, or click
 the box and choose the file.
+
+## Someone who joins after you went away does not see you as away
+
+Going away (the moon button, or opening your profile or Manage over the call) sends the away mark, and your message,
+once, to the people on the call at that moment. Someone who joins the call later, or reloads, sees your tile as
+usual, with no "Away" and no message, although your microphone and camera are off and you hear nobody. Found while
+fixing away on 2026-10-01 (read in the code); not yet seen in a real call.
+
+Workaround: come back and go away again once they have joined.
+
+## The camera can be turned on while away
+
+While you are away, the microphone stays off whatever you press, but the camera button (and **V**) still turns the
+camera on, so others see you while your tile says "Away". Found while fixing away on 2026-10-01 (read in the code).
+
+Workaround: come back first, then turn the camera on.

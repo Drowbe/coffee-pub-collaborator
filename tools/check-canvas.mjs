@@ -256,6 +256,24 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   for (const id of ['no-call-list', 'no-call-empty', 'no-call-join', 'install-hint']) {
     if (!spaceHtml.includes(`id="${id}"`)) fail('public/space.html', `the "Not in a call" note needs #${id}`);
   }
+  // Guests get no install at all (Thomas, 2026-10-01): a guest link's page or an account whose role is guest has no
+  // install hint or note, no service worker, no Install as an app in either menu, and keeps no beforeinstallprompt.
+  {
+    const brandJs = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+    const describe = spaceJs.slice(spaceJs.indexOf('function describeInstall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function describeInstall(')));
+    if (!/const isGuestViewer = \(\) => Boolean\(guestToken\) \|\| me\?\.role === 'guest'/.test(spaceJs)) fail('public/space.js', 'isGuestViewer() must cover a guest link and an account whose role is guest');
+    if (!/^\s*if \(isGuestViewer\(\)\) return '';/m.test(describe)) fail('public/space.js', 'describeInstall() must give a guest no install text');
+    const swCalls = [...spaceJs.matchAll(/serviceWorker\.register\(/g)].length;
+    if (swCalls !== 1 || !/if \(!isGuestViewer\(\) && 'serviceWorker' in navigator\) navigator\.serviceWorker\.register/.test(spaceJs)) fail('public/space.js', 'the service worker (it only makes the site installable) is registered once, never for a guest');
+    if (/describeInstall\(\)/.test(spaceJs.slice(spaceJs.indexOf('async function init('), spaceJs.indexOf('if (guestToken) {', spaceJs.indexOf('async function init('))))) fail('public/space.js', 'init() must not paint the install hint before it knows the viewer is not a guest (offerInstall() after /api/me)');
+    const guestBranch = spaceJs.slice(spaceJs.indexOf('if (guestToken) {', spaceJs.indexOf('async function init(')), spaceJs.indexOf("const info = await api('GET', '/api/me')", spaceJs.indexOf('async function init(')));
+    if (/offerInstall\(/.test(guestBranch)) fail('public/space.js', 'a guest link\'s page must not offer install');
+    if (!/visible: \(\) => inMenu\(\) && Boolean\(installPromptEvent\) && !installBarred/.test(brandJs)) fail('public/brand.js', 'the ☰ entry account-install must stay hidden for a guest (installBarred)');
+    if (!/installPromptEvent && !installBarred \? \[\{ icon: 'download', label: 'Install as an app'/.test(brandJs)) fail('public/brand.js', 'accountMenuItems() must leave Install as an app out for a guest (installBarred)');
+    const bip = brandJs.slice(brandJs.indexOf("window.addEventListener('beforeinstallprompt'"), brandJs.indexOf('});', brandJs.indexOf("window.addEventListener('beforeinstallprompt'")));
+    if (!/if \(installBarred\) return;[\s\S]*installPromptEvent = event/.test(bip)) fail('public/brand.js', 'beforeinstallprompt must not keep the event for a guest');
+    if (!/if \(isGuestPage\(\)\) barInstall\(\);/.test(brandJs) || !/me\?\.user\?\.role === 'guest'\) barInstall\(\)/.test(brandJs)) fail('public/brand.js', 'install must be barred on a guest link\'s page and for an account whose role is guest');
+  }
   // Entering a space never joins the call, for members and guests alike (Thomas, 2026-09-30): the conference shows
   // "Not in a call", and only a click joins (the green phone or "Join the call", both through phoneButton()). The one
   // other way on (Thomas, 2026-09-30, "Pull keeps you on the call"): a pull (into an aside, or back) while on the call

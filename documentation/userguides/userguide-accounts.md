@@ -69,6 +69,10 @@ off shows the shared **Guest images** picture set (see
 [Manage](userguide-environment-settings.md)). A space can turn guests off entirely with **Allow
 Guests** on its own settings page, which also turns off any link already in use there.
 
+Guests can't install Collaborator as an app. On a guest link there is no install hint, and the browser does not
+offer to install; see "Install it as an app, and pop it out" in
+[The call](userguide-call.md).
+
 ## Roles and what they can do
 
 Open **Roles** on the Manage page to see a grid of checkboxes: one row per permission, and the columns
@@ -111,8 +115,7 @@ guest has no picture there and no account menu.
 1. Click your picture. A menu opens under it.
 2. Choose **View profile** to open your profile page. In a space it opens over the call, which keeps running.
 3. Or choose **Install as an app** to run Collaborator in its own window, without browser bars. It is there only
-   while your browser offers to install (Chrome and Edge, before Collaborator is installed); see "Install it as an
-   app, and pop it out" in [The call](userguide-call.md).
+   while your browser offers to install (Chrome and Edge, before Collaborator is installed); see "Install it as an app, and pop it out" in [The call](userguide-call.md).
 4. Or choose **Sign out**. It also forgets the light or dark choice made in this browser, so the next person here
    starts from the default.
 
@@ -123,8 +126,7 @@ On a phone your picture is not in the header. It is in the header's menu instead
 1. Tap the menu button (**Menu**, three lines) at the right of the header.
 2. At the end of the menu, after a line, are your picture and name. They are only a label; tapping them does
    nothing.
-3. Tap **View profile**, **Install as an app** (while your browser offers it) or **Sign out** under them. They do
-   the same as on a wider screen.
+3. Tap **View profile**, **Install as an app** (while your browser offers it) or **Sign out** under them. They do the same as on a wider screen.
 
 From the keyboard, opening the menu puts you on its first entry, Tab moves through the entries and back to the menu
 button, and Escape closes it.

@@ -168,8 +168,9 @@ when you come back, unless you use push to talk. Leaving the call while away end
 more.
 
 Opening your profile or the Manage page from inside a call, or going to the space list, also marks you
-as "Away" without asking for a message, with the same effect: you hear nobody until you close the page or go back
-to the space.
+as "Away" without asking for a message. This is intended, and it has the same effect as the moon button: your
+microphone and camera pause, you hear nobody, and everyone sees you as away. When you close the page or go back to
+the space, you come back as if you had clicked **Back**.
 
 ## Settings in the call
 
@@ -222,11 +223,15 @@ To run Collaborator without browser bars, install it as an app:
 
 - **Chrome and Edge.** Click your picture at the right end of the header and choose **Install as an app**. On a
   phone it is in the header's menu, after **View profile**. It is there only while the browser offers to install,
-  so it is gone once Collaborator is installed. A guest has no profile menu, and so no **Install as an app**.
+  so it is gone once Collaborator is installed.
 - **Safari on macOS.** **File, Add to Dock**.
 - **iPhones and iPads.** **Share, Add to Home Screen**.
 
-The hint under **Join the call** says which applies to your browser.
+The hint under **Join the call** in **Not in a call**, and a line in the call's settings (the gear), say which applies
+to your browser.
+
+Guests can't install Collaborator. On a guest link (and the windows popped out from it) there is no install hint and
+no install line in the settings, and the browser itself does not offer to install.
 
 In Chrome and Edge the **Pop out** button in the space bar (next to **Full screen**) moves the whole app, header
 and every module included, into a small window and back; **Full screen** applies to the whole app too. The

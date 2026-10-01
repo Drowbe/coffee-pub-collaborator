@@ -7,7 +7,7 @@ The Planner module plans one trip for a space, day by day. The space's Calendar 
 ## Set it up (owner)
 
 1. On the Modules tab, choose **Install** beside Planner under **Available with this server**, then **Approve and enable**. It asks to add two permissions to the Roles tab, to link to other modules' objects and to ask other modules to do things.
-2. Tick **Available in every space** on its card, or tick it per space on the space's own page.
+2. Tick **Available in every space** on its card, or switch it on per space on the space's own page.
 3. On the Roles tab, under **Module: Planner**, choose who can **See the trip** and who can **Plan the trip**. By default everyone can see it, members and moderators can plan, and guests can see but not plan.
 
 ## The plan

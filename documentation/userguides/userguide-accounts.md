@@ -58,8 +58,9 @@ A guest has no account, for someone dropping in once. While in a call, open the 
 lands on a page headed "Enter <space>" that asks only for a name; **Enter** (a door) takes them into that space.
 Where the template or the owner has changed the word for entering a space, the heading and the button use that
 word instead (see "The word on the button for entering a space" in [Manage](userguide-environment-settings.md)). A guest's first visit opens the conference and
-the chat, unless the space's **Opens with** (or the environment's list for a new space) says otherwise; the page
-mentions the microphone only when the conference will open.
+the chat, unless the space's **Opens with** (or the environment's list for a new space) says otherwise. Entering does
+not put a guest in the call: the conference shows **Not in a call**, and the guest joins with **Join the call** or the
+green phone, when the browser asks for the microphone (see [The call](userguide-call.md)).
 
 Anyone in the call with the right permission can turn the link on, copy it, or turn it off. It is a
 standing door rather than single-use: it works for as many guests as show up until someone turns it

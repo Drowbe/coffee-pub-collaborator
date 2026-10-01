@@ -135,7 +135,7 @@ export async function loadBranding() {
 
 // One header, built once here, used by every page including the call page
 // itself -- space.html included, its live-call controls (Leave, Pull
-// Participants Back) folded in through the "location and actions" crumb
+// participants back) folded in through the "location and actions" crumb
 // zone (see setTopbarLocation()) rather than kept as a bespoke header of
 // its own. Four zones, left to right: the server icon and name (always
 // the same), the crumb (changes with where you are and what you can do
@@ -731,6 +731,7 @@ export async function api(method, url, body, contentType, signal) {
   if (!res.ok) {
     const err = new Error(data.error || `HTTP ${res.status}`);
     err.status = res.status;
+    err.serverSaid = typeof data.error === 'string' && data.error !== ''; // the server's own sentence, not "HTTP 500"
     err.current = data.current; // set on a 409 from the module data store
     if (Array.isArray(data.problems)) err.problems = data.problems; // every problem with a template, not only the first
     throw err;

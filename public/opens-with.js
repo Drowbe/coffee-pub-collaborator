@@ -34,9 +34,9 @@ export function conferenceAllowed({ conferenceEnabled = true, permitted = false 
 // `nameOf(id)` is the name a person reads.
 export function opensWithSummary({ list = null, environment = null, modules = [], canOpen = () => true, nameOf = (id) => id } = {}) {
   const opens = whatOpens({ own: list, environment, modules, canOpen });
-  if (Array.isArray(list)) return opens.length ? '' : 'None of the ticked ones can open now, so nothing opens.';
+  if (Array.isArray(list)) return opens.length ? '' : 'None of the ones switched on can open now, so nothing opens.';
   const names = opens.map(nameOf);
-  if (!names.length) return 'Nothing ticked: nothing opens.';
+  if (!names.length) return 'Nothing switched on: nothing opens.';
   const said = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0];
-  return `Nothing ticked: ${said} ${names.length > 1 ? 'open' : 'opens'}.`;
+  return `Nothing switched on: ${said} ${names.length > 1 ? 'open' : 'opens'}.`;
 }

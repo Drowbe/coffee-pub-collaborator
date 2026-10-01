@@ -15,7 +15,7 @@ Manage > Environment starts with an **Environment** panel: the plan's name, and 
 - **Members** is the number of accounts (guests never count). At the cap, no more accounts can be made, sign-up closes and invites stop, with a sentence saying why; everyone already in keeps working.
 - **Storage** is the whole environment on disk: pictures, module uploads, the map. At the cap, new uploads and pictures are refused.
 - **Assistant calls this month** counts every question the AI answers, whichever service it uses; at the cap the assistant stops until the month turns.
-- **Calls at once** is how many spaces may be in a call at the same time; joining a space already in a call is never refused, starting one more is.
+- **Calls at once** is how many spaces may have a call running at the same time. A space counts only while someone there is on the call, not while people are merely in it. Entering a space is never refused, and neither is joining a call already running; starting one more is: **Join the call** leaves you in **Not in a call**, which says "This environment's plan allows N call(s) at once; one is running in <space>". Stepping aside with people when others stay on the call starts one more too, and is refused the same way.
 - **Modules** is which of the bundled modules your plan includes; one not included shows "Not in your plan" under Available.
 
 Over a cap, that one thing stops and everything else keeps running. **Upgrade** opens the host's plans page, where a plan is bought on the payment provider's own page; the app never sees a card, and the plan changes here once the provider says so.

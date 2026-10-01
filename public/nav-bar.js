@@ -8,7 +8,9 @@
 // groupOrder?, href? | onClick?, visible?, toggleable?, active?, badge? }, plus, for the page's own tools only,
 // `element` (an element the registry places and orders but does not draw: the snap slider, the clock, your picture),
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
-// (the icon a toggle shows while it is on: full screen's compress). `register()` returns the element drawn, which lives
+// (the icon a toggle shows while it is on: full screen's compress). A secondary middle-zone tool may also give `fit(avail)`: the
+// fold (below) calls it with the width the middle may take before it folds anything, and the tool shrinks to fit (who
+// is here drops portraits, then shows only its count). `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
 // The pure parts (the bands, the sort, the visibility rule, the cleaning of a module's registration) touch no document,
@@ -156,6 +158,7 @@ export function has(bar) {
 export function attach(bar, el) {
   if (!BARS.includes(bar)) throw new Error(`no such bar: ${bar}`);
   bars[bar] = { el, zones: Object.fromEntries(ZONES.map((z) => [z, el.querySelector(`.nav-${z}`)])) };
+  if (bar === 'secondary') attachFold(el);
   draw(bar);
 }
 
@@ -218,6 +221,7 @@ export function setBadge(id, n) {
   t.badge = Math.max(0, Math.round(Number(n) || 0));
   const el = els.get(id);
   if (el && !t.element) paintBadge(el, t);
+  if (fold.ids.has(id)) paintMoreBadge();
   return true;
 }
 
@@ -239,7 +243,9 @@ export function draw(bar) {
   const b = bars[bar];
   if (!b) return;
   const doc = b.el.ownerDocument;
-  const fold = bar === 'primary' && phone && phone.matches;
+  // Phone or not is the bar's own window (a popped-out header is in a window of its own width; space.js redraws it there).
+  const view = doc.defaultView;
+  const fold = bar === 'primary' && Boolean(view && typeof view.matchMedia === 'function' ? view.matchMedia('(max-width: 640px)').matches : phone && phone.matches);
   const byZone = { left: [], middle: [], right: [] };
   for (const t of tools.values()) if (t.bar === bar) byZone[t.zone].push(t);
   for (const z of ZONES) {
@@ -251,6 +257,7 @@ export function draw(bar) {
   const lists = {};
   for (const z of ZONES) lists[z] = runs[z].flatMap((run) => flatten(run, doc));
   for (const z of ZONES) if (b.zones[z]) place(b.zones[z], lists[z]);
+  if (bar === 'secondary') scheduleFold();
 }
 
 // --- drawing -------------------------------------------------------------------------------------
@@ -405,5 +412,263 @@ function place(container, list) {
   }
 }
 
-export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, isShown, phoneZones, cleanModuleTools, bandOf, BANDS };
+// --- the space bar's "..." ---------------------------------------------------------------------
+
+// The secondary bar never lets its zones run into each other: when they do not fit, the right zone's tools fold into
+// a "..." (More) just before Leave, and come back as the bar widens. Which fold first is by band, each band from its
+// end: the secondary tools (Pop out, then Full screen), then a module's own, then the core ones (the snap switch with
+// its grid slider, then Dock all), then the utility ones (Rejoin call, then Pull participants back). Leave (the last
+// band) never folds, a tool that says `fold: false` never does, and nothing in the left or middle zone does: the
+// space's name is cut short with an ellipsis instead, once everything that can fold has. An `element` tool with no
+// click of its own (the grid slider) folds with the tool before it, the one it belongs to. On a phone the bar is the
+// tab bar and none of this applies.
+//
+// `foldSteps(list)` takes a zone's tools in drawing order and gives the steps in folding order, each step the ids that
+// fold together. Pure, for check-nav.
+const FOLD_RANK = { secondary: 0, module: 1, core: 2, utility: 3 };
+export function foldSteps(list) {
+  const steps = [];
+  let prev = null;
+  list.forEach((t, at) => {
+    const band = bandOf(orderOf(t));
+    const foldable = t.fold !== false && band !== 'last' && band !== null;
+    if (t.element && typeof t.onClick !== 'function' && !t.href) {
+      if (prev && foldable) prev.ids.push(t.id); // a companion folds with the tool it sits after
+      else if (foldable) steps.push((prev = { ids: [t.id], rank: FOLD_RANK[band], at }));
+      return;
+    }
+    if (!foldable) { prev = null; return; }
+    steps.push((prev = { ids: [t.id], rank: FOLD_RANK[band], at }));
+  });
+  steps.sort((a, b) => a.rank - b.rank || b.at - a.at);
+  return steps.map((s) => s.ids);
+}
+
+// How many of those steps to fold for the bar to fit. `width` is the bar's inner width, `gap` the gap between its
+// zones, `middle` the middle zone's width (0 when it shows nothing), `left` and `right` the zones' natural widths with
+// nothing folded (the left one with the space's name at its full length), `more` what the "..." adds to the right zone
+// once it shows, and `steps` the widths the steps free, in folding order. With something in the middle it is centred
+// on the row while the left zone fits its half (`middleCentred`), and the right zone then has the other half; when the
+// name is too long for that, the middle gives up the centre and the three zones share the row. With nothing in the
+// middle, the two zones share the row. The name is cut short only once everything that can fold has: folds everything
+// when even that does not fit. Pure, for check-nav.
+export function middleCentred({ width, gap = 0, middle = 0, left = 0 }) {
+  return middle > 0 && left <= (width - middle) / 2 - gap + 0.5;
+}
+// The width the middle zone may take with the left and right zones at their natural widths (nothing folded, the name
+// at its full length), in the layout foldCount works out: centred, each side of it as wide as the wider zone; or, when
+// the left zone is the wider one (a long name), beside it, the three sharing the row, which leaves
+// the middle more. A middle tool that can shrink (`fit`) gets this, so it gives way first: before anything on the right
+// folds and before the name is cut. The grid has two gaps whatever the middle holds. `left` is the left zone's own
+// width (its box, not its margins: its max-width is its column's), `right` the right zone's with its margins (its
+// column is as wide as that). Pure, for check-nav.
+export function middleWidth({ width, gap = 0, left = 0, right = 0 }) {
+  if (left > right) return width - left - right - 2 * gap;
+  return width - 2 * (Math.max(left, right) + gap);
+}
+export function foldCount({ width, gap = 0, middle = 0, left = 0, right = 0, more = 0, steps = [] }) {
+  const centred = middleCentred({ width, gap, middle, left });
+  const fits = (r) => (centred ? r <= (width - middle) / 2 - gap + 0.5 : left + middle + r + 2 * gap <= width + 0.5);
+  if (fits(right)) return 0;
+  let r = right + more;
+  for (let k = 0; k < steps.length; k += 1) {
+    r -= steps[k];
+    if (fits(r)) return k + 1;
+  }
+  return steps.length;
+}
+
+const fold = { el: null, more: null, ids: new Set(), frame: 0, view: null, observer: null, picked: null };
+const FOLDED = 'nav-folded';
+
+function attachFold(el) {
+  fold.el = el;
+  if (fold.more) return;
+  const doc = el.ownerDocument;
+  const more = doc.createElement('button');
+  more.type = 'button';
+  more.id = 'subnav-more';
+  more.className = 'sdk-more nav-more'; // the same "..." as a module's bars (host.ui.moreButton, module-host.js)
+  more.title = 'More';
+  more.setAttribute('aria-label', 'More');
+  more.setAttribute('aria-haspopup', 'menu');
+  more.setAttribute('aria-expanded', 'false');
+  more.appendChild(iconEl(doc, 'ellipsis-vertical'));
+  more.addEventListener('click', openFoldMenu);
+  fold.more = more;
+  // Just before Leave, in its group, so the divider before Leave's group comes before it too.
+  register({ bar: 'secondary', zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.ids.size > 0 });
+}
+
+// On the next frame, once whatever changed has been laid out; any number of calls in one frame fold once.
+function scheduleFold() {
+  const el = fold.el;
+  if (!el) return;
+  const view = el.ownerDocument.defaultView;
+  if (!view || fold.frame) return;
+  fold.frame = view.requestAnimationFrame(() => {
+    fold.frame = 0;
+    fitSecondary();
+  });
+}
+
+// Watch what can change the width the bar has to work with, in whichever window it is in now (the header moves to a popped-out
+// window): the bar's width, and the left and middle zones' content (the space's name arriving, the words loading).
+function watchFold(view) {
+  if (fold.view === view) return;
+  if (fold.observer) fold.observer.disconnect();
+  fold.view = view;
+  fold.observer = null;
+  if (typeof view.ResizeObserver === 'function') {
+    fold.observer = new view.ResizeObserver(() => scheduleFold());
+    fold.observer.observe(fold.el);
+    const b = bars.secondary;
+    for (const z of ['left', 'middle']) if (b && b.zones[z]) fold.observer.observe(b.zones[z]);
+  }
+  view.addEventListener('resize', scheduleFold);
+  view.matchMedia('(max-width: 640px)').addEventListener('change', scheduleFold);
+  const fonts = view.document.fonts;
+  if (fonts && typeof fonts.addEventListener === 'function') {
+    fonts.addEventListener('loadingdone', scheduleFold);
+    fonts.ready.then(scheduleFold, () => {});
+  }
+}
+
+const shownEl = (el) => !el.hidden && el.ownerDocument.defaultView.getComputedStyle(el).display !== 'none';
+const px = (v) => parseFloat(v) || 0;
+
+// A zone's natural width: its shown children side by side with its gap between them, plus the zone's own padding and
+// margins (the header's zones carry both, style.css `.topbar .nav-left`). Measured while the bar is
+// `nav-measuring` (style.css), when nothing in it shrinks, so the space's name counts at its full width (up to its
+// max-width) even when it is cut short right now.
+// `margins: false` for the left zone: its max-width (100%, style.css) holds its box, not its margins, to its column.
+function naturalWidth(zone, skip, { margins = true } = {}) {
+  const view = zone.ownerDocument.defaultView;
+  const zs = view.getComputedStyle(zone);
+  const gap = px(zs.columnGap);
+  let w = px(zs.paddingLeft) + px(zs.paddingRight) + (margins ? px(zs.marginLeft) + px(zs.marginRight) : 0) + px(zs.borderLeftWidth) + px(zs.borderRightWidth);
+  let n = 0;
+  for (const c of zone.children) {
+    if (c === skip || !shownEl(c)) continue;
+    w += c.getBoundingClientRect().width;
+    n += 1;
+  }
+  return { w: w + gap * Math.max(0, n - 1), gap };
+}
+
+function fitSecondary() {
+  const b = bars.secondary;
+  const el = fold.el;
+  if (!b || !el || !fold.more) return;
+  const doc = el.ownerDocument;
+  const view = doc.defaultView;
+  watchFold(view);
+  const right = b.zones.right;
+  if (!right) return;
+  const wasFocused = right.contains(doc.activeElement) ? doc.activeElement : null;
+  // Everything back and at its full size, to measure it as it would be.
+  for (const c of right.querySelectorAll(`:scope > .${FOLDED}`)) c.classList.remove(FOLDED);
+  el.classList.add('nav-measuring');
+  const cs = view.getComputedStyle(el);
+  const width = el.clientWidth - px(cs.paddingLeft) - px(cs.paddingRight);
+  const phoneNow = view.matchMedia('(max-width: 640px)').matches;
+  let ids = new Set();
+  let middle = 0;
+  let leftWidth = 0;
+  if (!phoneNow && width > 0 && shownEl(el)) {
+    const list = [...tools.values()].filter((t) => t.bar === 'secondary' && t.zone === 'right' && els.has(t.id));
+    const inOrder = [...right.children].map((c) => c.dataset && c.dataset.navTool).filter(Boolean).map((id) => tools.get(id)).filter((t) => t && list.includes(t));
+    const steps = foldSteps(inOrder.filter((t) => shownEl(els.get(t.id))));
+    const r = naturalWidth(right, fold.more);
+    const stepWidths = steps.map((s) => s.reduce((sum, id) => sum + els.get(id).getBoundingClientRect().width + r.gap, 0));
+    const moreWidth = px(view.getComputedStyle(fold.more).width) + r.gap;
+    // A middle tool that can give way (`fit`, the space bar's who is here) is told what it may take, and gives it
+    // before anything here folds or the name is cut: what the left and right zones leave at their full widths
+    // (middleWidth: centred, or beside a name too long to centre on).
+    // Its box (not its negative margin), rounded up: the name's cut is counted in whole pixels.
+    leftWidth = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
+    const avail = middleWidth({ width, gap: px(cs.columnGap), left: leftWidth, right: r.w });
+    for (const t of tools.values()) {
+      if (t.bar !== 'secondary' || t.zone !== 'middle' || typeof t.fit !== 'function' || !els.has(t.id)) continue;
+      try { t.fit(avail); } catch { /* a tool that cannot measure keeps its size */ }
+    }
+    middle = b.zones.middle ? b.zones.middle.getBoundingClientRect().width : 0;
+    const k = foldCount({ width, gap: px(cs.columnGap), middle, left: leftWidth, right: r.w, more: moreWidth, steps: stepWidths });
+    ids = new Set(steps.slice(0, k).flat());
+  }
+  el.classList.remove('nav-measuring');
+  for (const id of ids) els.get(id).classList.add(FOLDED);
+  // With nothing in the middle, or a name too long for the middle to stay centred, the left zone takes whatever the others do not.
+  if (phoneNow || middleCentred({ width, gap: px(cs.columnGap), middle, left: leftWidth })) delete el.dataset.middle;
+  else el.dataset.middle = middle > 0 ? 'beside' : 'empty';
+  const heldBefore = fold.ids;
+  fold.ids = ids;
+  fold.more.hidden = ids.size === 0;
+  // No divider with nothing shown before it since the last one (a group that folded away).
+  let seen = false;
+  for (const c of right.children) {
+    if (c.dataset && 'navDivider' in c.dataset) {
+      if (!seen) c.classList.add(FOLDED);
+      seen = false;
+    } else if (!c.classList.contains(FOLDED) && shownEl(c)) {
+      seen = true;
+    }
+  }
+  paintMoreBadge();
+  const picked = fold.picked;
+  fold.picked = null;
+  const focusable = (node) => node && (node.matches('button, a[href], input, select, [tabindex]') ? node : node.querySelector('button, a[href], input, select, [tabindex]'));
+  const visible = (node) => node && node.isConnected && !node.closest(`.${FOLDED}`) && shownEl(node) && node.getBoundingClientRect().width > 0;
+  const inLeft = () => (b.zones.left ? [...b.zones.left.querySelectorAll('button, a[href], input')].find(visible) : null);
+  if (picked) {
+    // A tool picked from the "...": the keyboard goes to it when the pick brought it back into the bar (the bar fits
+    // now), else stays on the "..." while that shows, else (the "..." gone) to the first control in the left zone, the
+    // module chooser's button; never left on a hidden button, nor taken by whatever the tool opened.
+    const target = [focusable(picked), fold.more.hidden ? null : fold.more, inLeft()].find(visible);
+    if (target) target.focus();
+  } else if (wasFocused === fold.more && fold.more.hidden) {
+    // The "..." had the keyboard and is gone (the bar grew): to the first tool it held, back in the bar now, else the
+    // module chooser's button; never left on <body>.
+    const back = [...right.children].filter((c) => c.dataset && heldBefore.has(c.dataset.navTool)).map(focusable);
+    const target = [...back, inLeft()].find(visible);
+    if (target) target.focus();
+  } else if (wasFocused && wasFocused.closest(`.${FOLDED}`)) fold.more.focus(); // what had focus folded away: the "..." holds it
+}
+
+// A count on a folded tool shows on the "..." too, so it is not lost.
+function paintMoreBadge() {
+  let n = 0;
+  for (const id of fold.ids) n += Number(tools.get(id)?.badge) || 0;
+  paintBadge(fold.more, { badge: n, bar: 'secondary', zone: 'right' });
+}
+
+// The folded tools, in the bar's order, in the page's shared menu under the "...". A toggle shows its state (a
+// checkbox item) and a pick is a click on the tool's own element, so it does exactly what the tool does in the bar.
+async function openFoldMenu() {
+  const right = bars.secondary && bars.secondary.zones.right;
+  if (!right) return;
+  const items = [];
+  for (const c of right.children) {
+    const id = c.dataset && c.dataset.navTool;
+    if (!id || !fold.ids.has(id)) continue;
+    const t = tools.get(id);
+    if (!t || (t.element && typeof t.onClick !== 'function' && !t.href)) continue; // the grid slider has no place in a menu
+    const on = Boolean(t.toggleable && t.active);
+    items.push({
+      icon: on && t.activeIcon ? t.activeIcon : t.icon,
+      label: t.label,
+      checked: t.toggleable ? on : undefined,
+      badge: Number(t.badge) || 0,
+      onPick: () => {
+        fold.picked = c;
+        c.click();
+        scheduleFold(); // the fit after the pick says where the keyboard goes (fitSecondary)
+      },
+    });
+  }
+  const { openHostMenu } = await import('/host-menu.js');
+  openHostMenu(fold.more, items);
+}
+
+export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, isShown, phoneZones, foldSteps, foldCount, middleCentred, middleWidth, cleanModuleTools, bandOf, BANDS };
 export default nav;

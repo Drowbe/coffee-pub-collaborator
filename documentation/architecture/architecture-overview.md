@@ -214,11 +214,24 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   array of strings answers 400 "Opens with must be a list of modules." and nothing in the request is saved; 401
   "sign in first", 403 "owners only", 404 "no such space". The same cleaning keeps `aiOff` (the space's **Turn AI
   off in this space**), which until 2026-09-30 was dropped every time `app.json` was loaded.
+- `POST /api/token` `{ space }` answers a token for the space's call (or an aside's), `{ token, livekitUrl,
+  identity, call, spaceId, conference }`; `POST /api/guest-join` `{ token, name }` answers a guest's. Both tokens
+  start out of the call (the LiveKit attribute `call: 'off'`): entering a space never joins the call, and the page
+  sets `on` itself when the person joins. Neither reads `call` from the request any more, and neither is ever
+  refused by the plan's calls cap. An OBS viewer's token carries no `call` attribute.
+- `POST /api/call/join` is asked by the page just before it joins the call, for the plan's calls cap. A signed-in
+  person sends `{ space }` (the Lobby when left out) and must belong to it, or be an owner; a guest sends
+  `{ guest }`, the guest link's token, in the body or as `?guest=`, and may send `space` only as that link's own
+  space. It answers 200 `{ ok: true }`; 401 "sign in first"; 403 "you are not in that space", "that guest link is
+  for another space", or the cap's sentence, "This <environment>'s plan allows N call(s) at once; one is running
+  in <space>"; 404 "no such space" or "that guest link is off or wrong". An aside's call is never refused here.
+  How the cap counts is in [architecture-environments](architecture-environments.md), "Phases 2 to 5".
 - `POST /api/asides` `{ with, private }` pulls people who are in the caller's call into a new aside and answers
   `{ aside }`, the aside's record. It answers 403 "asides are turned off" or "private conversations are turned off" (or the caller
   lacks the permission), 400 "pick someone to pull aside" or "you need to be in a call yourself to pull someone
-  aside", 404 "`<name>` is not with you right now", 409 "`<name>` is not in the conference right now", and 502
-  "LiveKit: ..." when the call service fails.
+  aside", 404 "`<name>` is not with you right now", 409 "`<name>` is not in the conference right now", 403 with the calls cap's sentence when the aside would
+  start a call over the plan's limit (asked before anyone is pulled), and 502 "LiveKit: ..." when the call service
+  fails.
 - `POST /api/asides/invite` `{ to }` makes a private aside for two and answers `{ aside, invite: { id } }` (the aside's record);
   `POST /api/asides/invite/:id/decline` answers `{ ok: true }`.
 - `POST /api/asides/recall` (an owner) tells every private conversation pulled out of the owner's space to come

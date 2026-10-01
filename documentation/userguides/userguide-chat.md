@@ -25,7 +25,7 @@ A module's command opens the same form as its own add button, filled in from wha
 
 What to know:
 
-- **The module must be open.** If it isn't, the text stays in the box and a line under it says so, for example "To-do isn't open". Open it from the space bar and press Enter again.
+- **The module must be open.** If it isn't, the text stays in the box and a line under it says so, for example "To-do isn't open". Open it from **Modules** in the space bar and press Enter again.
 - **An unknown command** stays in the box with "No command /x". Nothing is sent to the space. Text that starts with `/` is never sent as a message.
 - **Two modules with the same command** are both listed, each with its module's name. If both are open, the line under the box asks you to choose from the list.
 

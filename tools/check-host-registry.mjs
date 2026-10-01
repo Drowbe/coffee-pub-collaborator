@@ -734,8 +734,10 @@ try {
   });
 
   // --- call names against a stand-in LiveKit (plan-names decision 14; QA on step 3) ---
-  // A small Twirp JSON server answering ListRooms and ListParticipants from `calls` ({ name: [identity, ...] }), so
-  // the calls cap and callsNow can be checked with other environments' calls running beside this one's.
+  // A small Twirp JSON server answering ListRooms and ListParticipants from `calls` ({ name: [person, ...] }), so
+  // the calls cap and callsNow can be checked with other environments' calls running beside this one's. A person is
+  // an identity on the call (the "call" attribute 'on'), or { id, call } for one connected with another state
+  // ('off': in the space, not on the call). SendData is taken and dropped (an aside's pull sends one).
   const calls = {};
   const standIn = http.createServer((req, res) => {
     let body = '';
@@ -744,7 +746,8 @@ try {
       const ask = body ? JSON.parse(body) : {};
       let answer = {};
       if (req.url.endsWith('/ListRooms')) answer = { rooms: Object.entries(calls).map(([name, people]) => ({ sid: `RM_${name}`, name, numParticipants: people.length })) };
-      else if (req.url.endsWith('/ListParticipants')) answer = { participants: (calls[ask.room] || []).map((identity) => ({ sid: `PA_${identity}`, identity, name: identity, joinedAt: '1', permission: { hidden: false }, tracks: [], attributes: {} })) };
+      else if (req.url.endsWith('/ListParticipants')) answer = { participants: (calls[ask.room] || []).map((person) => { const identity = person.id || person; return { sid: `PA_${identity}`, identity, name: identity, joinedAt: '1', permission: { hidden: false }, tracks: [], attributes: { call: person.call || 'on' } }; }) };
+      else if (req.url.endsWith('/SendData')) answer = {};
       else { res.writeHead(404); return res.end(); }
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(answer));
@@ -753,7 +756,7 @@ try {
   await new Promise((resolve) => standIn.listen(0, '127.0.0.1', resolve));
   const setCalls = (next) => { for (const k of Object.keys(calls)) delete calls[k]; Object.assign(calls, next); };
   try {
-    await liveTest('live: the calls cap and callsNow count only this environment\'s calls, never another\'s that starts with its slug', async () => {
+    await liveTest('live: the calls cap and callsNow count only this environment\'s real calls (people on them), never another\'s that starts with its slug; entering is never refused', async () => {
       const data = path.join(liveDir, 'calls');
       fs.mkdirSync(data);
       server = await startServer(data, { ...hostedEnv, LIVEKIT_API_URL: `http://127.0.0.1:${standIn.address().port}` });
@@ -780,21 +783,98 @@ try {
       const presence = (await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json;
       assert.equal(presence.users.find((u) => u.key === ownerKey).online, false, 'nobody in another environment\'s call is placed here');
 
-      // One of acme's own calls running: counted, and a second is refused, while joining the running one is not.
-      setCalls({ 'acme-aside.lobby': ['x1'], [`acme.${keep}`]: [ownerKey] });
-      assert.equal(await callsNow(), 1);
-      const refused = await token('lobby');
-      assert.deepEqual([refused.status, refused.json], [403, { error: 'This environment\'s plan allows 1 call at once; one is running in The Keep' }]);
-      assert.equal((await token(keep)).status, 200, 'joining the running call is never refused');
-      const placed = (await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === ownerKey);
-      assert.deepEqual([placed.online, placed.space], [true, keep]);
+      // Entering never joins the call: a player's and a guest's token start with the "call" attribute 'off' (the page
+      // sets 'on' on a join), asked for the call or not; an OBS viewer's carries no attribute and stays hidden.
+      const claims = (jwt) => JSON.parse(Buffer.from(jwt.split('.')[1], 'base64url').toString('utf8'));
+      assert.deepEqual(claims(first.json.token).attributes, { call: 'off' }, 'a player token starts out of the call');
+      const askedOff = await call(server, 'acme', 'POST', '/api/token', { cookie: owner, body: { space: 'lobby', call: false } });
+      assert.deepEqual([askedOff.status, claims(askedOff.json.token).attributes], [200, { call: 'off' }]);
+      const guestUrl = (await call(server, 'acme', 'POST', '/api/spaces/lobby/guest-link', { cookie: owner })).json.guestUrl;
+      const guestLink = guestUrl.split('/guest/')[1];
+      const guestJoin = (body) => call(server, 'acme', 'POST', '/api/guest-join', { body: { token: guestLink, name: 'Wanderer', ...body } });
+      const guest = await guestJoin();
+      assert.equal(guest.status, 200, guest.text);
+      const guestClaims = claims(guest.json.token);
+      assert.deepEqual([guestClaims.attributes, guestClaims.video.canPublishData, guestClaims.video.canUpdateOwnMetadata], [{ call: 'off' }, true, true], 'a guest token starts out of the call, and may say when it joins');
+      const streamKey = (await call(server, 'acme', 'GET', '/api/settings', { cookie: owner })).json.streamKey;
+      for (const viewer of [
+        await call(server, 'acme', 'POST', `/api/token?s=${encodeURIComponent(streamKey)}`, { body: { role: 'viewer', space: keep } }),
+        await call(server, 'acme', 'POST', '/api/token', { cookie: owner, body: { role: 'viewer', space: keep } }),
+      ]) {
+        assert.equal(viewer.status, 200, viewer.text);
+        const v = claims(viewer.json.token);
+        assert.deepEqual([v.attributes, v.video.hidden, v.video.canPublish, v.video.canPublishData, v.video.canUpdateOwnMetadata, v.name], [undefined, true, false, false, false, 'OBS'], 'an OBS viewer token is unchanged: no attribute, hidden');
+      }
 
-      // acme's own call under its old name (someone in it across the upgrade): counted and placed, and joining it is joining.
-      setCalls({ 'acme-table': [ownerKey], 'acme-aside-table': ['x3'] });
+      // The calls cap counts people on a call (the "call" attribute 'on'), never people merely in a space.
+      const join = (space) => call(server, 'acme', 'POST', '/api/call/join', { cookie: owner, body: { space } });
+      const guestCallJoin = (link, body = {}) => call(server, 'acme', 'POST', '/api/call/join', { body: { guest: link, ...body } });
+      const keepLink = (await call(server, 'acme', 'POST', `/api/spaces/${keep}/guest-link`, { cookie: owner })).json.guestUrl.split('/guest/')[1];
+      const OVER = (where) => ({ error: `This environment's plan allows 1 call at once; one is running in ${where}` });
+      const consoleCallsNow = async () => Object.fromEntries((await call(server, 'admin', 'GET', '/api/host/environments', { cookie: hostCookie })).json.environments.map((e) => [e.slug, e.usage.callsNow]));
+      setCalls({ [`acme.${keep}`]: [{ id: 'm1', call: 'off' }], 'acme.lobby': [{ id: 'm2', call: 'off' }, { id: 'm3' , call: 'off' }] });
+      assert.equal(await callsNow(), 0, 'connected, in their spaces, and nobody on a call');
+      assert.deepEqual(await consoleCallsNow(), { acme: 0, 'acme-aside': undefined, 'acme-table': undefined }, 'the host console counts the same way; left out with no cap');
+
+      // One of acme's own calls running: counted. Entering anywhere is never refused; starting a second call is, while
+      // joining the running one is not.
+      setCalls({ 'acme-aside.lobby': ['x1'], [`acme.${keep}`]: [ownerKey, 'm1', { id: 'm2', call: 'off' }], 'acme.lobby': [{ id: 'm3', call: 'off' }] });
       assert.equal(await callsNow(), 1);
-      assert.equal((await token('lobby')).status, 200, 'the Lobby\'s call is running under its old name: joining');
-      assert.equal((await token(keep)).status, 403, 'a second call is refused');
+      assert.equal((await consoleCallsNow()).acme, 1, 'and the host console');
+      const entered = await token('lobby');
+      assert.deepEqual([entered.status, claims(entered.json.token).attributes], [200, { call: 'off' }], 'entering over the cap is never refused');
+      assert.equal((await guestJoin()).status, 200, 'nor is a guest entering');
+      const refused = await join('lobby');
+      assert.deepEqual([refused.status, refused.json], [403, OVER('The Keep')], 'starting a second call is refused');
+      const refusedGuest = await guestCallJoin(guestLink);
+      assert.deepEqual([refusedGuest.status, refusedGuest.json], [403, OVER('The Keep')], 'a guest starting one too');
+      assert.deepEqual([(await join(keep)).status, (await join(keep)).json], [200, { ok: true }], 'joining the running call is never refused');
+      assert.deepEqual([(await guestCallJoin(keepLink)).status, (await guestCallJoin(keepLink)).json], [200, { ok: true }]);
+      assert.equal((await call(server, 'acme', 'POST', `/api/token?s=${encodeURIComponent(streamKey)}`, { body: { role: 'viewer', space: 'lobby' } })).status, 200, 'an OBS viewer is never asked about the cap');
+      const placed = (await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === ownerKey);
+      assert.deepEqual([placed.online, placed.space, placed.inCall], [true, keep, true]);
+
+      // The join route's own refusals.
+      assert.deepEqual(await call(server, 'acme', 'POST', '/api/call/join', { body: { space: 'lobby' } }).then((r) => [r.status, r.json]), [401, { error: 'sign in first' }]);
+      assert.deepEqual(await join('nowhere').then((r) => [r.status, r.json]), [404, { error: 'no such space' }]);
+      assert.deepEqual(await guestCallJoin('wrong').then((r) => [r.status, r.json]), [404, { error: 'that guest link is off or wrong' }]);
+      assert.deepEqual(await guestCallJoin(guestLink, { space: keep }).then((r) => [r.status, r.json]), [403, { error: 'that guest link is for another space' }]);
+
+      // Moving from one call to another never counts the mover's own: the only one on the Keep's call starts the Lobby's.
+      setCalls({ [`acme.${keep}`]: [ownerKey] });
+      assert.equal((await join('lobby')).status, 200, 'their own call is not another one');
+      // Two starts at once: the Lobby's start holds its slot until its person shows on the call, so a guest starting the
+      // Keep's a moment later, with nobody on any call yet, is refused.
+      setCalls({});
+      assert.equal(await callsNow(), 0);
+      assert.deepEqual(await guestCallJoin(keepLink).then((r) => [r.status, r.json]), [403, OVER('Lobby')], 'the race is closed');
+      assert.equal((await guestCallJoin(guestLink)).status, 200, 'joining the call just started is joining');
+
+      // acme's own call under its old name (someone on it across the upgrade): counted and placed, and joining it is joining.
+      setCalls({ 'acme-table': [ownerKey, 'm1'], 'acme-aside-table': ['x3'] });
+      assert.equal(await callsNow(), 1);
+      assert.equal((await join('lobby')).status, 200, 'the Lobby\'s call is running under its old name: joining');
+      assert.equal((await join(keep)).status, 403, 'a second call is refused');
       assert.equal((await call(server, 'acme', 'GET', '/api/presence', { cookie: owner })).json.users.find((u) => u.key === ownerKey).space, 'lobby');
+
+      // An aside is a call. Pulling everyone on a call into one moves the call (allowed); pulling some while others stay
+      // on it starts a second (refused over the cap, before anyone is pulled). Joining an aside is never refused.
+      const pat = (await call(server, 'acme', 'POST', '/api/users', { cookie: owner, body: { login: 'pat', displayName: 'Pat', role: 'member', password: 'pat-password-1' } })).json.user.key;
+      setCalls({ [`acme.${keep}`]: [ownerKey, pat] });
+      const pulled = await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } });
+      assert.equal(pulled.status, 200, pulled.text);
+      assert.deepEqual([(await join(pulled.json.aside.id)).status, (await join(pulled.json.aside.id)).json], [200, { ok: true }]);
+      setCalls({ [`acme.${keep}`]: [ownerKey, pat, 'm1'] });
+      const second = await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } });
+      assert.deepEqual([second.status, second.json], [403, OVER('The Keep')]);
+      setCalls({ [`acme.${keep}`]: ['m1'], [`acme.${pulled.json.aside.id}`]: [ownerKey, pat] });
+      assert.equal(await callsNow(), 2, 'an aside running beside its origin is a running call');
+
+      // No limit: every join is allowed, however many calls are running.
+      assert.equal((await call(server, 'admin', 'PATCH', '/api/host/environments/acme', { cookie: hostCookie, body: { plan: { calls: null } } })).status, 200);
+      assert.deepEqual(await join('lobby').then((r) => [r.status, r.json]), [200, { ok: true }], 'no cap: starting a third call is allowed');
+      assert.equal((await guestCallJoin(guestLink)).status, 200);
+      assert.equal((await call(server, 'acme', 'POST', '/api/asides', { cookie: owner, body: { with: [pat] } })).status, 200, 'and an aside beside them');
       await server.stop();
       server = null;
     });

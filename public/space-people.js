@@ -1,5 +1,6 @@
 // Who is here: the space bar's middle zone shows everyone in this space right now (you among them), as a short row of
-// overlapping portraits and a count, with a camera mark on those on the call. Clicking it (or Enter or Space) opens the
+// square portraits and who they are in a few words ("You and Alex", "You and 3 others", "5 in this space"), with a
+// camera mark on those on the call. Clicking it (or Enter or Space) opens the
 // list under it: each person's portrait and name, "(you)", and "on the call". In an aside it shows the aside's people.
 //
 // The source is the call itself (the page's LiveKit connection, open while it is in a space: everyone in a space is
@@ -8,8 +9,9 @@
 // changes (a join, a hang-up, entering and leaving).
 //
 // It gives way before anything in the bar folds: nav-bar.js calls the tool's `fit(avail)` with the width the middle
-// zone may take, and the row drops portraits, then shows only the count (`facesThatFit`, pure, for check-nav). On a
-// phone it is a compact count in the tab bar, between the module tabs and Leave (style.css).
+// zone may take, and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
+// then it shows only an icon and the short count ("5 here"; `facesThatFit`, pure, for check-nav). On a phone it is that
+// compact count in the tab bar, between the module tabs and Leave (style.css).
 //
 // The list is the same popover pattern as the Modules chooser beside it: by its button (under it, or above it in a
 // tab bar at the window's bottom, kept inside the window, place()), open until the button,
@@ -19,8 +21,8 @@
 export const MAX_FACES = 4;
 
 // How many portraits fit in `avail` px (the width available). `base` is the tool's width with no portraits (its
-// padding and its count), `first` what the first portrait adds (itself and the gap after it), `step` what each further,
-// overlapping one adds, and `plus` what the "+N" adds when some are left out. Everyone fits up to `max`; when not even
+// padding and its words), `first` what the first portrait adds (itself and the gap after it), `step` what each further
+// one adds, and `plus` what the "+N" adds when some are left out. Everyone fits up to `max`; when not even
 // one portrait fits, 0: the count alone, the smallest it gets (and what it stays at when even that does not fit: the
 // bar folds its right zone then).
 export function facesThatFit({ avail, count, base = 0, first = 0, step = 0, plus = 0, max = MAX_FACES }) {
@@ -48,13 +50,35 @@ export function peopleIn(call, { meOnCall = false } = {}) {
   return out.concat(others);
 }
 
-// What the button says to a screen reader and as its tooltip, and what it shows.
+// What the button says to a screen reader and as its tooltip (`said`), and what it shows when only the count fits
+// (`shown`, under an icon: "5 here", "Just you").
 export function hereWords(people, where) {
   const n = people.length;
   const calling = people.filter((p) => p.onCall).length;
   const shown = n <= 1 ? 'Just you' : `${n} here`;
   const said = `${n <= 1 ? 'Just you' : `${n} people`} in this ${where}${calling ? `, ${calling} on the call` : ''}`;
   return { shown, said };
+}
+
+// What the row says beside the portraits, longest first; fit() takes the first that leaves room for every portrait.
+// `names`: you, then the others by first name ("You and Alex", "You, Alex and Sam", "You and 3 others"); `count`: "5
+// in this space" (the environment's word). Alone, both are "Just you".
+const firstName = (name) => {
+  const word = String(name || '').trim().split(/\s+/)[0] || '?';
+  return word.length > 16 ? `${word.slice(0, 15)}\u2026` : word;
+};
+export function hereLabel(people, where) {
+  const n = people.length;
+  if (n <= 1) return { names: 'Just you', count: 'Just you' };
+  const count = `${n} in this ${where}`;
+  const youHere = people.some((p) => p.you);
+  const first = youHere ? 'You' : firstName(people[0].name);
+  const rest = people.filter((p, i) => (youHere ? !p.you : i > 0)).map((p) => firstName(p.name));
+  let names;
+  if (rest.length === 1) names = `${first} and ${rest[0]}`;
+  else if (rest.length === 2) names = `${first}, ${rest[0]} and ${rest[1]}`;
+  else names = `${first} and ${rest.length} others`;
+  return { names, count };
 }
 
 // The tool. `call` is the call (the page's LiveKit Room); `meOnCall()` whether I am on the call; `where()` the
@@ -79,6 +103,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   const countEl = el.querySelector('.who-here-count');
   let people = [];
   let shownFaces = MAX_FACES; // what fit() last allowed
+  let wording = 'names'; // which of hereLabel()'s words fit() last allowed: 'names' or 'count'
   let lastAvail = Infinity;
 
   // A portrait: this space's picture, else the profile picture, else the first letter. One element per person and
@@ -127,23 +152,31 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     return mark;
   }
 
+  // The stylesheet may show the short count alone whatever fits (a phone's tab bar hides the portraits): then the
+  // words are the short ones too.
+  function cssCompact() {
+    if (!el.isConnected) return false;
+    return el.ownerDocument.defaultView.getComputedStyle(faces).display === 'none';
+  }
+
   function drawRow() {
     const k = Math.min(shownFaces, people.length);
     faces.replaceChildren(...people.slice(0, k).map((p, i) => {
       const face = doc.createElement('span');
       face.className = `who-here-face${p.you ? ' you' : ''}`;
-      face.style.zIndex = String(k - i); // each overlaps the next, so you (first) are whole
+      face.style.zIndex = String(k - i); // a camera mark is drawn over the next portrait, not under it
       face.appendChild(portrait(p, 'who-here-img', 'row'));
       if (p.onCall) face.appendChild(callMark());
       return face;
     }));
     faces.hidden = k === 0;
+    const compact = k === 0 || cssCompact();
     const left = people.length - k;
     more.hidden = !(k > 0 && left > 0);
     more.textContent = `+${left}`;
     el.classList.toggle('count-only', k === 0);
     const { shown, said } = hereWords(people, where());
-    countEl.textContent = shown;
+    countEl.textContent = compact ? shown : hereLabel(people, where())[wording];
     toggle.setAttribute('aria-label', `${said}. Show who is here`);
     toggle.title = said;
   }
@@ -249,26 +282,37 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     if (!listEl.hidden && event.relatedTarget && !el.contains(event.relatedTarget)) setOpen(false);
   });
 
-  // The width the middle zone may take (nav-bar.js calls this while it measures the bar with nothing folded): as many
-  // portraits as fit, down to the count alone. Every size is measured, so the stylesheet (or a theme) may change them.
+  // The width the middle zone may take (nav-bar.js calls this while it measures the bar with nothing folded): the
+  // names with every portrait, else the count ("5 in this space") with as many portraits as fit, else the short count
+  // alone. Every size is measured, so the stylesheet (or a theme) may change them.
   function fit(avail) {
     lastAvail = avail;
     const count = people.length;
     shownFaces = MAX_FACES;
+    wording = 'names';
     if (!count || !el.isConnected || !el.getClientRects().length) { drawRow(); return; }
     const view = el.ownerDocument.defaultView;
     const gap = parseFloat(view.getComputedStyle(toggle).columnGap) || 0;
     const w = (x) => x.getBoundingClientRect().width;
-    // With every portrait: the base (padding and count), one portrait, the step between overlapping ones, the "+N".
-    drawRow();
-    more.hidden = false;
-    if (count <= MAX_FACES) more.textContent = `+${count}`;
-    const k = Math.min(MAX_FACES, count);
-    const facesW = w(faces);
-    const faceW = w(faces.firstElementChild);
-    const moreW = w(more);
-    const base = w(el) - facesW - moreW - 2 * gap;
-    shownFaces = facesThatFit({ avail, count, base, first: faceW + gap, step: k > 1 ? (facesW - faceW) / (k - 1) : 0, plus: moreW + gap });
+    const all = Math.min(MAX_FACES, count);
+    const tiers = hereLabel(people, where());
+    for (const tier of tiers.names === tiers.count ? ['count'] : ['names', 'count']) {
+      // With every portrait and these words: the base (padding and words), one portrait, the step between them, the "+N".
+      wording = tier;
+      shownFaces = MAX_FACES;
+      drawRow();
+      if (cssCompact()) return; // a phone's tab bar shows the short count alone (style.css): nothing to measure
+      more.hidden = false;
+      if (count <= MAX_FACES) more.textContent = `+${count}`;
+      const facesW = w(faces);
+      const faceW = w(faces.firstElementChild);
+      const moreW = w(more);
+      const base = w(el) - facesW - moreW - 2 * gap;
+      const k = facesThatFit({ avail, count, base, first: faceW + gap, step: all > 1 ? (facesW - faceW) / (all - 1) : 0, plus: moreW + gap });
+      // The names only with every portrait: words give way before faces do.
+      if (tier === 'names' ? k === all : k > 0) { shownFaces = k; break; }
+      shownFaces = 0;
+    }
     drawRow();
   }
 

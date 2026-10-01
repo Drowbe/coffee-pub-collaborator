@@ -358,6 +358,126 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (/guest-mic-note/.test(spaceHtml + spaceJs)) fail('public/space.html', 'entering never joins the call, so the guest form must not say the browser will ask for the microphone');
 }
 
+// The call's marks, away and the pop-out (Thomas's real-call report of 2026-10-01). A tile's muted mark is the
+// microphone publication's own state (micMarkedMuted), refreshed whenever a publication comes or goes, not only on
+// TrackMuted/TrackUnmuted: someone joining the call says "on" before their microphone is published, and no
+// TrackUnmuted comes for a microphone published unmuted, so their mark used to stick on "muted". Away stops you
+// hearing others (every remote audio element, those attached later too) and nothing opens your microphone while
+// away. A remote video moved into the pop-out window carries a watch telling LiveKit's adaptive stream it is shown
+// in a window of its own, or a hidden main window pauses it (a frozen picture).
+{
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const fn = (name, end = '\n}\n') => {
+    const at = spaceJs.indexOf(name);
+    return at < 0 ? '' : spaceJs.slice(at, spaceJs.indexOf(end, at) + end.length);
+  };
+  try {
+    const micMarkedMuted = new Function(`${fn('function micMarkedMuted(')}\nreturn micMarkedMuted;`)();
+    assert.equal(micMarkedMuted(undefined), true, 'no microphone published');
+    assert.equal(micMarkedMuted({ isMuted: true }), true, 'a muted microphone');
+    assert.equal(micMarkedMuted({ isMuted: false }), false, 'a live microphone');
+    // The call's event handlers, run against a stand-in call: each step's mark is what a viewer's tile shows.
+    const chainAt = spaceJs.indexOf('call\n  .on(RoomEvent.TrackSubscribed');
+    const chain = spaceJs.slice(chainAt, spaceJs.indexOf('\n\nasync function fillDevices(', chainAt));
+    const handlers = {};
+    const fakeCall = { on(name, h) { handlers[name] = h; return fakeCall; } };
+    const marks = new Map();
+    const shownInCall = (p) => p.isLocal || p.attributes?.call !== 'off';
+    const stubs = {
+      RoomEvent: new Proxy({}, { get: (_t, name) => name }),
+      inCall: true,
+      shownInCall,
+      updateMuted: (p) => { if (shownInCall(p)) marks.set(p.identity, micMarkedMuted(p.getTrackPublication('microphone'))); },
+      updateCamera: () => {}, attachTrack: () => {}, detachTrack: () => {}, tileFor: () => {}, subscribeAll: () => {}, applyLayout: () => {},
+      removeParticipant: (p) => marks.delete(p.identity),
+    };
+    const names = Object.keys(stubs);
+    new Function(...names, `const call = arguments[${names.length}];\n${chain};`)(...names.map((k) => stubs[k]), fakeCall);
+    const person = (identity, isLocal = false) => {
+      const pubs = new Map();
+      return { identity, isLocal, attributes: {}, pubs, getTrackPublication: (source) => pubs.get(source) };
+    };
+    const ann = person('ann');
+    const local = person('me', true);
+    fakeCall.localParticipant = local;
+    const step = (what, mark, who = ann) => assert.equal(marks.get(who.identity), mark, what);
+    const fire = (name, ...args) => { assert.equal(typeof handlers[name], 'function', `a ${name} handler`); handlers[name](...args); };
+    ann.attributes = { call: 'on' };
+    fire('ParticipantAttributesChanged', { call: 'on' }, ann);
+    step('joined the call, microphone not yet published', true);
+    const mic = { source: 'microphone', isMuted: false, setSubscribed() {} };
+    ann.pubs.set('microphone', mic);
+    fire('TrackPublished', mic, ann);
+    step('microphone published unmuted (no TrackUnmuted follows)', false);
+    fire('TrackSubscribed', { kind: 'audio' }, mic, ann);
+    step('and subscribed', false);
+    mic.isMuted = true; fire('TrackMuted', mic, ann);
+    step('muted', true);
+    mic.isMuted = false; fire('TrackUnmuted', mic, ann);
+    step('unmuted', false);
+    ann.pubs.delete('microphone'); fire('TrackUnpublished', mic, ann);
+    step('microphone unpublished', true);
+    ann.pubs.set('microphone', mic); fire('TrackPublished', mic, ann);
+    step('published again (a rejoin)', false);
+    const own = { source: 'microphone', isMuted: false, track: {} };
+    local.pubs.set('microphone', own);
+    fire('LocalTrackPublished', own);
+    step('my own microphone published', false, local);
+    local.pubs.delete('microphone');
+    fire('LocalTrackUnpublished', own);
+    step('my own microphone unpublished', true, local);
+  } catch (err) {
+    fail('public/space.js', `the muted mark must follow the microphone publication, joiners and late publishes too: ${err.message}`);
+  }
+  // Away: what I hear is off (deafened or away), set at once on setAway, and on every audio element attached later.
+  const hearing = /const hearingOff = \(\) => ([^;]+);/.exec(spaceJs);
+  if (!hearing) fail('public/space.js', 'what I hear must be off while away or deafened (const hearingOff = () => ...)');
+  else {
+    const off = (deafened, isAway) => new Function('prefs', 'isAway', `return ${hearing[1]};`)({ deafened }, isAway);
+    if (off(false, false) || !off(true, false) || !off(false, true)) fail('public/space.js', 'hearingOff() must be true when deafened or away, and only then');
+  }
+  if (!/function applyHearing\(\) \{\n\s*canvasDoc\(\)\.querySelectorAll\('audio'\)\.forEach\(\(el\) => \{ el\.muted = hearingOff\(\); \}\);/.test(spaceJs)) fail('public/space.js', 'applyHearing() must mute every audio element where the canvas is (canvasDoc()) by hearingOff()');
+  const attach = fn('function attachTrack(');
+  if (!/audio\.muted = hearingOff\(\)/.test(attach)) fail('public/space.js', 'attachTrack() must mute a new remote audio element while away or deafened (hearingOff())');
+  const away = fn('async function setAway(');
+  if (!/isAway = on;\n\s*applyHearing\(\);/.test(away)) fail('public/space.js', 'setAway() must turn what I hear off (or back) at once (applyHearing() right after isAway = on)');
+  if (!/if \(enabled && isAway\) \{[^}]*return; \}/.test(fn('async function toggleMic('))) fail('public/space.js', 'toggleMic() must not open the microphone while away');
+  if (!/if \(prefs\.ptt \|\| isAway\) \{\n\s*await call\.localParticipant\.setMicrophoneEnabled\(false\);/.test(fn('async function startCall('))) fail('public/space.js', 'startCall() must leave the microphone off when joining while away');
+  // The pop-out: every remote video attached there (now or later) is kept live, and the watch goes on popping back in.
+  if ((attach.match(/prepend\(video\);\n\s*keepPoppedVideoLive\(track, video\);/g) || []).length !== 2) fail('public/space.js', 'attachTrack() must keep each video it adds (camera and screen) live in the pop-out (keepPoppedVideoLive(track, video) after the prepend)');
+  const setUp = fn('function setUpPopoutWindow(');
+  if (!/appendChild\(\$\('canvas'\)\);[\s\S]*keepPoppedVideosLive\(\);/.test(setUp)) fail('public/space.js', 'popping out must keep the moved videos live (keepPoppedVideosLive())');
+  if (!/pipWindow = null;\n\s*dropPoppedWatches\(\);/.test(setUp)) fail('public/space.js', 'popping back in must drop the pop-out watches (dropPoppedWatches())');
+  try {
+    const src = `${fn('function keepPoppedVideoLive(')}${fn('function dropPoppedWatches(')}`;
+    const make = (pipWindow) => new Function('pipWindow', 'document', `const poppedWatches = new Set();\n${src}\nreturn { keepPoppedVideoLive, dropPoppedWatches, poppedWatches };`)(pipWindow, mainDoc);
+    const mainDoc = { name: 'main' };
+    const popDoc = { name: 'pop-out', defaultView: { ResizeObserver: class { observe() {} disconnect() {} } } };
+    const track = () => ({ isAdaptiveStream: true, infos: [], observeElementInfo(i) { this.infos.push(i); i.observe(); }, stopObservingElementInfo(i) { this.infos = this.infos.filter((x) => x !== i); } });
+    const popped = make({});
+    const t = track();
+    const video = { ownerDocument: popDoc, clientWidth: 320, clientHeight: 180 };
+    popped.keepPoppedVideoLive(t, video);
+    popped.keepPoppedVideoLive(t, video);
+    assert.equal(t.infos.length, 1, 'one watch for a video in the pop-out, however often asked');
+    const [info] = t.infos;
+    assert.ok(info.visible && info.pictureInPicture && info.element === video && info.width() === 320 && info.height() === 180, 'the watch says shown, in a window of its own, at its size there');
+    const inMain = track();
+    popped.keepPoppedVideoLive(inMain, { ownerDocument: mainDoc });
+    assert.equal(inMain.infos.length, 0, 'no watch for a video still in the main window');
+    const notPopped = track();
+    make(null).keepPoppedVideoLive(notPopped, video);
+    assert.equal(notPopped.infos.length, 0, 'no watch when nothing is popped out');
+    const local = { attach() {} };
+    popped.keepPoppedVideoLive(local, video); // my own camera: a local track, nothing to keep
+    popped.dropPoppedWatches();
+    assert.equal(t.infos.length, 0, 'popping back in drops the watch');
+    assert.equal(popped.poppedWatches.size, 0, 'and forgets it');
+  } catch (err) {
+    fail('public/space.js', `a remote video in the pop-out must be kept live for LiveKit's adaptive stream: ${err.message}`);
+  }
+}
+
 if (problems.length) {
   console.error(`check-canvas: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);

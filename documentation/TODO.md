@@ -26,6 +26,7 @@ side of things.
 - Joining and pulls (Thomas's changes of 2026-09-30, [plan-entering](plans/plan-entering.md)): **Join the call** and the green phone with two people, **Currently on the call** and who is here following them live, the calls cap's refusal in **Not in a call**, and entering never asking for the microphone. An owner's pull into a real aside and back, and **Rejoin call**, keeping the call for those on it and not for those off it, including within the server's 15-second hold on a new call's place. Verified so far in headless Chromium with a faked LiveKit and by tools only.
 - #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
 - The chat's **Bring in N objects** button: offered for a pasted answer with an `objects` block, a `card` block or no fences, and not for an answer with an old-named block ([plan-kind-names](plans/plan-kind-names.md), step 5; the route behind it was checked).
+- The fixes from Thomas's real call of 2026-10-01, verified so far with a faked LiveKit and by tools only. Join first, then have two people join without push to talk: no "muted" on their tiles, and muting and unmuting follows on every screen. Away: you hear nobody, the microphone button, **M** and push to talk don't open the microphone, and **Back** restores what was on. In the installed app, pop out, then minimise or cover the main window for more than 10 seconds: the videos in the pop-out keep moving. Also see whether audio in the pop-out is ever held back by the browser's autoplay rule (suspected, not seen).
 - #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list (and **Back to** an aside); what opens on a first and a second visit, and for a guest; the phone's first tab; the status line.
 
 ## Small fixes and checks
@@ -39,6 +40,9 @@ side of things.
 - #26 Remove the unneeded fallback in the console's Save plans.
 - #27 The console's top bar requests that answer 404.
 - #23 Too many connections to the server from one page.
+- The pop-out's video fix (`keepPoppedVideoLive()` in `public/space.js`) uses LiveKit's internal `observeElementInfo()`, not its public API. Check it still works whenever `livekit-client` is upgraded (now `^2.22.3`).
+- The install hint under **Join the call** ("use Install as an app in your profile menu once your browser offers it") is shown to a guest too, who has no profile menu and so no Install (`describeInstall()` in `public/space.js`).
+- `hereLabel()` and the who-is-here wording steps in `public/space-people.js` have no check in `tools/check-nav.mjs`.
 - `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
 - A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).
 - The SDK menu's link entries (`<a role=menuitem>` in `public/sdk/host.js`, `host.menu.show`) don't open on Space; Enter opens them. Buttons and other entries do.
@@ -74,6 +78,7 @@ side of things.
 - #39 The nav colours in the theme editor.
 - #31 Customising the dashboard's layout, and snapping on the spaces page.
 - #58 One input in Chat ([plan-one-input](plans/plan-one-input.md)): every step is built. Still to come: the plan's live checks in a browser and a real call.
+- Thomas's idea, not decided (2026-10-01): rethink navigating away and hanging up, for instance putting the call in away mode automatically. An open question; no decision yet.
 - Thomas's, for later: a **Clean Up** button that rearranges the modules on the canvas, and a way to choose and save layouts.
 - With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 

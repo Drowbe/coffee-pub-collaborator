@@ -118,12 +118,12 @@ test('nothing is left of the old translation (WIRE_SCOPE, toSdk, toWire)', () =>
     const heard = {};
     return { heard, addEventListener(type, fn) { (heard[type] ||= []).push(fn); } };
   };
-  const run = (steps, pttKey, inSpace = true, inCall = true) => {
+  const run = (steps, pttKey, inSpace = true, inCall = true, isAway = false) => {
     const mic = [];
     const doc = { ...listening(), visibilityState: 'visible', body: { classList: { contains: (c) => inSpace && c === 'in-space' } } };
     const win = listening();
-    const h = new Function('document', 'window', 'prefs', 'call', 'hotkeyMatches', 'reflectMic', 'inCall', `let pttHeld = false;\n${src}\nreturn { onKey, onKeyUp };`)(
-      doc, win, { ptt: true, pttKey, muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE' }, { localParticipant: { setMicrophoneEnabled: (on) => { mic.push(on); return Promise.resolve(); } } }, hotkeyMatches, () => {}, inCall);
+    const h = new Function('document', 'window', 'prefs', 'call', 'hotkeyMatches', 'reflectMic', 'inCall', 'isAway', `let pttHeld = false;\n${src}\nreturn { onKey, onKeyUp };`)(
+      doc, win, { ptt: true, pttKey, muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE' }, { localParticipant: { setMicrophoneEnabled: (on) => { mic.push(on); return Promise.resolve(); } } }, hotkeyMatches, () => {}, inCall, isAway);
     const prevented = [];
     for (const [type, target, code = pttKey, extra = {}] of steps) {
       if (type === 'blur' || type === 'pagehide') { for (const fn of win.heard[type] || []) fn({ type, target: win }); continue; }
@@ -179,9 +179,11 @@ test('nothing is left of the old translation (WIRE_SCOPE, toSdk, toWire)', () =>
     ['the page hidden while the key is held stops talking', [['keydown', body], ['hidden']], { mic: [true, false], prevented: ['keydown'] }],
     ['the page going away while the key is held stops talking', [['keydown', body], ['pagehide']], { mic: [true, false], prevented: ['keydown'] }],
     ['the window losing focus with the key up changes nothing, and the next press talks', [['blur'], ['hidden'], ['visible'], ...press(body)], talks],
+    // Away, nobody hears you (setAway): the key is the page's still (no scrolling), but it opens nothing.
+    ['push to talk opens nothing while away', press(body), { mic: [], prevented: ['keydown'] }, 'Space', true, true, true],
   ];
-  for (const [name, steps, want, pttKey = 'Space', inSpace = true, inCall = true] of cases) {
-    try { assert.deepEqual(run(steps, pttKey, inSpace, inCall), want); n += 1; } catch (err) { failed += 1; console.error(`check-module-host: push to talk, ${name}: ${err.message.split('\n')[0]}`); }
+  for (const [name, steps, want, pttKey = 'Space', inSpace = true, inCall = true, isAway = false] of cases) {
+    try { assert.deepEqual(run(steps, pttKey, inSpace, inCall, isAway), want); n += 1; } catch (err) { failed += 1; console.error(`check-module-host: push to talk, ${name}: ${err.message.split('\n')[0]}`); }
   }
   test('every document that hears the call\'s keys hears pointer presses and focus, and its window going away, too (the page and both pop-outs)', () => {
     const page = fs.readFileSync(new URL('../public/space.js', import.meta.url), 'utf8');

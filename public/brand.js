@@ -163,8 +163,8 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
   const initialIcon = handoff.get('homeIcon') || 'couch';
   // The primary nav is about the system, in three zones (see documentation/plans/plan-nav.md and architecture-navigation.md):
   // left, the logo (home) and where you are; middle, the core navigation (the spaces, each module's own page); right, the
-  // system's actions (Manage, Install), information (the time, on the server's clock) and, last, you (your picture: View
-  // profile, Sign out).
+  // system's actions (Manage, light or dark), information (the time, on the server's clock) and, last, you (your picture:
+  // View profile, Install as an app when the browser offers it, Sign out).
   // The markup here is only what is not a tool: the logo, the crumb, the status, the menu button. Everything in the
   // middle and right zones is a registration in the nav-bar registry (public/nav-bar.js), the same shape a module's
   // tools take, so there is one drawing path.
@@ -229,15 +229,14 @@ function registerSystemTools(header, initialIcon, adminHref, withThemeSwitch) {
   const [adminPath, adminHash] = String(adminHref).split('#');
   const manageHref = keep && !adminPath.includes('?') ? `${adminPath}${keep}${adminHash ? `#${adminHash}` : ''}` : adminHref;
   nav.register({ id: 'admin-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 11, icon: 'gear', label: 'Manage', href: manageHref }).hidden = true;
-  nav.register({ id: 'install-link', bar: 'primary', zone: 'right', group: 'system', groupOrder: 11, order: 12, icon: 'download', label: 'Install as an app', visible: () => Boolean(installPromptEvent), onClick: installFromPrompt });
   const clock = doc.createElement('span');
   clock.className = 'topbar-clock';
   clock.id = 'topbar-clock';
   clock.title = 'The time';
   nav.register({ id: 'topbar-clock', bar: 'primary', zone: 'right', group: 'session', groupOrder: 51, order: 51, element: clock });
-  // You, last: your picture and name, a button that opens the account menu (View profile, Sign out). On a phone it
-  // folds into the header's menu with everything else: there it is only your picture and name, and View profile and
-  // Sign out follow it as the menu's own entries (no menu inside the menu).
+  // You, last: your picture and name, a button that opens the account menu (View profile, Install as an app when the
+  // browser offers it, Sign out). On a phone it folds into the header's menu with everything else: there it is only
+  // your picture and name, and the account menu's entries follow it as the menu's own (no menu inside the menu).
   const whoami = doc.createElement('button');
   whoami.type = 'button';
   whoami.className = 'whoami';
@@ -258,6 +257,7 @@ function registerSystemTools(header, initialIcon, adminHref, withThemeSwitch) {
   const signedIn = () => !whoami.hidden && !byId('whoami-img')?.hidden;
   const inMenu = () => onPhone() && signedIn();
   nav.register({ id: 'account-profile', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'user', label: 'View profile', visible: inMenu, onClick: viewProfile });
+  nav.register({ id: 'account-install', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'download', label: 'Install as an app', visible: () => inMenu() && Boolean(installPromptEvent), onClick: installFromPrompt });
   nav.register({ id: 'account-sign-out', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'right-from-bracket', label: 'Sign out', visible: inMenu, onClick: signOut });
 }
 
@@ -314,10 +314,11 @@ function signOut() {
   win.location.href = '/logout';
 }
 
-// The account menu under your picture, on a wider screen.
+// The account menu under your picture, on a wider screen. Install as an app only while the browser offers it.
 function accountMenuItems() {
   return [
     { icon: 'user', label: 'View profile', onPick: viewProfile },
+    ...(installPromptEvent ? [{ icon: 'download', label: 'Install as an app', onPick: installFromPrompt }] : []),
     { icon: 'right-from-bracket', label: 'Sign out', onPick: signOut },
   ];
 }
@@ -683,8 +684,10 @@ export function setTopbarLocation(html) {
 
 // Chrome/Edge's "Install as an app" prompt -- a chromeless window (Settings
 // > Install, or here) with none of a browser tab's own address bar or tab
-// strip. Shared so any page can offer it, not just the call page.
-// The Install tool's `visible` reads installPromptEvent, so the bar is redrawn when it changes.
+// strip. Shared so any page can offer it, not just the call page. It is an
+// entry in the account menu (accountMenuItems(), and the phone menu's
+// account-install), shown only while installPromptEvent is set; the phone
+// entry's `visible` reads it, so the bar is redrawn when it changes.
 let installPromptEvent = null;
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();

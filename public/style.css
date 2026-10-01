@@ -6742,10 +6742,12 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 /* --- who is here: the space bar's middle zone (space-people.js) ------------------------------------------------
-   Everyone in this space now, as overlapping portraits and a count, a camera mark on those on the call; its list opens
-   under it, the same popover as the Modules chooser. It drops portraits, then shows only the count (an icon and "3
-   here"), before the bar folds anything. On a phone it is a tab-like count in the tab bar, between the module tabs and Leave, its list above it when the tab bar
-   is at the window's bottom. */
+   Everyone in this space now, as a row of small square portraits and a few words ("You and Alex", "You and 3
+   others", "5 in this space"), a camera mark on those on the call; its list opens under it, the same popover as the
+   Modules chooser. It shortens its words, then drops portraits, then shows only the short count (an icon and "3
+   here"), before the bar folds anything. On a phone it is a tab-like count in the tab bar, between the module tabs and
+   Leave, its list above it when the tab bar is at the window's bottom. Neutral throughout: a thin border, no colour
+   ring on anyone (you are first, and "(you)" in the list); the only colour is the camera mark, never alone. */
 .who-here {
   position: relative;
   display: inline-flex;
@@ -6755,17 +6757,22 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .who-here-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  height: 26px;
-  padding: 0 8px 0 4px;
+  gap: 8px;
+  height: 28px;
+  padding: 0 10px 0 4px;
   border: 1px solid transparent;
-  border-radius: 13px;
+  border-radius: 7px;
   background: transparent;
   color: var(--header-text);
   font: inherit;
   font-size: 12px;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.who-here.count-only .who-here-toggle {
+  gap: 6px;
+  padding-left: 8px;
 }
 
 .who-here-toggle:hover,
@@ -6782,6 +6789,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .who-here-faces {
   display: inline-flex;
   align-items: center;
+  gap: 3px;
 }
 
 .who-here-faces[hidden],
@@ -6794,23 +6802,16 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   position: relative;
   display: inline-flex;
   flex: none;
-  border-radius: 50%;
-  box-shadow: 0 0 0 2px var(--nav-secondary-bg, var(--header-bg));
 }
 
-.who-here-face + .who-here-face {
-  margin-left: -5px;
-}
-
-.who-here-face.you {
-  box-shadow: 0 0 0 2px var(--nav-secondary-bg, var(--header-bg)), 0 0 0 3px var(--accent);
-}
-
+/* A portrait: square, its corners a little rounded, a hairline border so a dark picture keeps its edge on a dark bar. */
 .who-here-img {
+  box-sizing: border-box;
   flex: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
   object-fit: cover;
   background: var(--secondary);
 }
@@ -6821,27 +6822,42 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   justify-content: center;
   font-size: 10px;
   font-weight: 700;
+  line-height: 1;
   color: var(--secondary-text);
 }
 
-/* The camera, the same mark the space list and the conference use: never the colour alone (the list says it in words). */
+/* The camera, the same mark the space list and the conference use: never the colour alone (the camera's shape, and
+   the list says it in words). */
 .who-here-face .who-here-call {
   position: absolute;
-  right: -4px;
-  bottom: -4px;
+  right: -3px;
+  bottom: -3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
+  box-sizing: border-box;
+  width: 12px;
+  height: 12px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
   background: var(--bg-card);
   color: var(--ok);
-  font-size: 7px;
+  font-size: 6px;
 }
 
+/* "+N": a square the portraits' size, the same border, so the row reads as one even line. */
 .who-here-more {
-  font-size: 11px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: -5px; /* the row's gap, not the toggle's: it belongs to the portraits */
+  padding: 0 3px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 10px;
   font-weight: 700;
   color: var(--text-dim);
 }
@@ -6866,9 +6882,9 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   flex-direction: column;
   overflow: hidden;
   width: max-content;
-  min-width: 220px;
+  min-width: 240px;
   max-width: min(320px, calc(100vw - 16px));
-  padding: 8px;
+  padding: 8px 6px;
   border-radius: 10px;
   border: 1px solid var(--border);
   background: var(--bg-section);
@@ -6891,8 +6907,9 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
 .who-here-title {
   flex: none;
-  margin: 0 0 6px;
-  padding: 0 2px;
+  margin: 0 0 4px;
+  padding: 0 6px 6px;
+  border-bottom: 1px solid var(--border);
   font-size: 12px;
   font-weight: 700;
   color: var(--text-dim);
@@ -6901,26 +6918,30 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .who-here-people {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
   min-height: 0;
   max-height: min(60vh, 360px);
   overflow-y: auto;
   margin: 0;
-  padding: 0 2px;
+  padding: 0;
   list-style: none;
 }
 
 .who-here-person {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   min-width: 0;
+  min-height: 36px;
+  padding: 3px 6px;
+  border-radius: 6px;
   font-size: 14px;
 }
 
 .who-here-person .who-here-img {
-  width: 26px;
-  height: 26px;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
 }
 
 .who-here-person .who-here-initial {
@@ -6936,13 +6957,17 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
 .who-here-you {
   flex: none;
+  margin-left: -4px;
   color: var(--text-dim);
 }
 
 .who-here-oncall {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   margin-left: auto;
-  padding-left: 8px;
+  padding-left: 12px;
   font-size: 12px;
   color: var(--text-dim);
 }
@@ -6963,7 +6988,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
     display: none;
   }
 
-  body.in-space .who-here-toggle {
+  body.in-space .who-here .who-here-toggle {
     flex-direction: column;
     justify-content: center;
     gap: 3px;

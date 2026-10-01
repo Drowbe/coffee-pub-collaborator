@@ -3739,9 +3739,24 @@ document.addEventListener('fullscreenchange', syncFullscreenButton);
 // The entry itself (and the beforeinstallprompt handling behind it) now
 // lives in the shared header's account menu -- see accountMenuItems() in
 // brand.js -- so this is just the manual-instructions fallback for
-// browsers that never fire that event at all.
+// browsers that never fire that event at all. Guests get no install at all
+// (Thomas, 2026-10-01): a guest link, or an account whose role is guest, has
+// no hint, no note and no service worker (the worker is only there to make the
+// site installable).
+
+const isGuestViewer = () => Boolean(guestToken) || me?.role === 'guest';
+
+// Once the page knows who is looking (an account's /api/me has answered): nothing for a guest.
+function offerInstall() {
+  const hint = describeInstall();
+  $('install-hint').textContent = hint;
+  $('install-hint').hidden = !hint;
+  $('install-note').textContent = hint;
+  if (!isGuestViewer() && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
+}
 
 function describeInstall() {
+  if (isGuestViewer()) return '';
   const standalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone;
   if (standalone) return '';
   const ua = navigator.userAgent;
@@ -4213,14 +4228,9 @@ async function init() {
   if (branding.version) document.title += ` — ${branding.version}`;
   renderReactionTray(branding.reactions);
   updateCrumb();
-  if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
   syncLayoutPick();
   populateCallSettingsUI();
   applyLayout();
-  const hint = describeInstall();
-  $('install-hint').textContent = hint;
-  $('install-hint').hidden = !hint;
-  $('install-note').textContent = hint;
 
   if (guestToken) {
     // No account: no whoami (and so no Sign out), no Manage, no Guests section (that
@@ -4251,6 +4261,7 @@ async function init() {
   try {
     const info = await api('GET', '/api/me');
     me = info.user;
+    offerInstall();
     $('whoami').textContent = me.displayName;
     $('whoami-img').src = `/img/${encodeURIComponent(me.key)}/profile?v=${Date.now()}`;
     $('whoami-img').hidden = false;

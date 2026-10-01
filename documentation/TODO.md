@@ -41,7 +41,6 @@ side of things.
 - #27 The console's top bar requests that answer 404.
 - #23 Too many connections to the server from one page.
 - The pop-out's video fix (`keepPoppedVideoLive()` in `public/space.js`) uses LiveKit's internal `observeElementInfo()`, not its public API. Check it still works whenever `livekit-client` is upgraded (now `^2.22.3`).
-- The install hint under **Join the call** ("use Install as an app in your profile menu once your browser offers it") is shown to a guest too, who has no profile menu and so no Install (`describeInstall()` in `public/space.js`).
 - `hereLabel()` and the who-is-here wording steps in `public/space-people.js` have no check in `tools/check-nav.mjs`.
 - `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
 - A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).

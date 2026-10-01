@@ -257,7 +257,7 @@ function registerSystemTools(header, initialIcon, adminHref, withThemeSwitch) {
   const signedIn = () => !whoami.hidden && !byId('whoami-img')?.hidden;
   const inMenu = () => onPhone() && signedIn();
   nav.register({ id: 'account-profile', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'user', label: 'View profile', visible: inMenu, onClick: viewProfile });
-  nav.register({ id: 'account-install', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'download', label: 'Install as an app', visible: () => inMenu() && Boolean(installPromptEvent), onClick: installFromPrompt });
+  nav.register({ id: 'account-install', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'download', label: 'Install as an app', visible: () => inMenu() && Boolean(installPromptEvent) && !installBarred, onClick: installFromPrompt });
   nav.register({ id: 'account-sign-out', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'right-from-bracket', label: 'Sign out', visible: inMenu, onClick: signOut });
 }
 
@@ -318,7 +318,7 @@ function signOut() {
 function accountMenuItems() {
   return [
     { icon: 'user', label: 'View profile', onPick: viewProfile },
-    ...(installPromptEvent ? [{ icon: 'download', label: 'Install as an app', onPick: installFromPrompt }] : []),
+    ...(installPromptEvent && !installBarred ? [{ icon: 'download', label: 'Install as an app', onPick: installFromPrompt }] : []),
     { icon: 'right-from-bracket', label: 'Sign out', onPick: signOut },
   ];
 }
@@ -489,6 +489,9 @@ function loadMe(fresh = false) {
     mePromise = isGuestPage()
       ? Promise.resolve(null)
       : fetch('/api/me').then((res) => (res.ok ? res.json() : res.status === 401 ? null : undefined)).catch(() => undefined);
+    mePromise.then((me) => {
+      if (me?.user?.role === 'guest') barInstall(); // an account whose role is guest: no install either
+    });
   }
   return mePromise;
 }
@@ -688,17 +691,32 @@ export function setTopbarLocation(html) {
 // entry in the account menu (accountMenuItems(), and the phone menu's
 // account-install), shown only while installPromptEvent is set; the phone
 // entry's `visible` reads it, so the bar is redrawn when it changes.
+//
+// Guests get no install at all (Thomas, 2026-10-01): not on a guest link's page
+// (isGuestPage()), and not for an account whose role is guest (loadMe() bars it
+// once /api/me answers). The browser's prompt is still held back (no mini-infobar
+// of its own), the event is not kept, and the page drops its manifest link so
+// the browser has no app to offer.
 let installPromptEvent = null;
+let installBarred = false;
+function barInstall() {
+  installBarred = true;
+  installPromptEvent = null;
+  document.querySelectorAll('link[rel="manifest"]').forEach((link) => link.remove());
+  nav.draw('primary');
+}
 window.addEventListener('beforeinstallprompt', (event) => {
   event.preventDefault();
+  if (installBarred) return;
   installPromptEvent = event;
   nav.draw('primary');
 });
+if (isGuestPage()) barInstall();
 function wireInstall() {
   nav.draw('primary');
 }
 async function installFromPrompt() {
-  if (!installPromptEvent) return;
+  if (!installPromptEvent || installBarred) return;
   installPromptEvent.prompt();
   await installPromptEvent.userChoice.catch(() => {});
   installPromptEvent = null;

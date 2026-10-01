@@ -40,6 +40,10 @@
   --bar-h: calc(var(--bar-control-h) + 21px);
   /* The one height a module's optional toolbar row (under the titlebar) has, wherever it appears. */
   --toolbar-h: 34px;
+  /* Stacking: a menu or list opened from the page's own chrome draws above every module (the floating layer is 25)
+     and under a page opened over the call (the overlay is 30). The header holds the space bar and is its own layer
+     (20), so it rises to this while one of its lists is open. */
+  --z-menu: 26;
   /* Themeable on their own (Manage > Theme); each follows the tokens above
      until a theme sets it. */
   --header-bg: var(--bg);
@@ -155,6 +159,13 @@ a:hover {
   border-bottom: 1px solid var(--border);
   color: var(--header-text);
   background: var(--nav-primary-bg);
+}
+
+/* The header is a layer of its own, under the modules, so a list opened from the space bar (the modules chooser,
+   who's here) could not draw above a module however high its own z-index: while one is open, the header rises to
+   the menus' level. */
+.topbar:has(.module-chooser-list:not([hidden]), .who-here-list:not([hidden])) {
+  z-index: var(--z-menu);
 }
 
 /* The left and right zones are a shade darker than the middle, the full height of the row. */
@@ -1450,7 +1461,7 @@ input.switch:disabled {
   position: absolute;
   top: calc(100% + 6px);
   left: 0;
-  z-index: 60;
+  z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -5335,7 +5346,7 @@ body.conference-window {
    frame to draw there. */
 .host-menu {
   position: fixed;
-  z-index: 26; /* above a floating module (the layer is 25), under a page opened over the call (30) */
+  z-index: var(--z-menu); /* above a floating module (the layer is 25), under a page opened over the call (30) */
   min-width: 160px;
   max-width: 280px;
   padding: 4px;
@@ -6849,7 +6860,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   position: absolute;
   top: calc(100% + 6px);
   left: 50%;
-  z-index: 60;
+  z-index: var(--z-menu);
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;

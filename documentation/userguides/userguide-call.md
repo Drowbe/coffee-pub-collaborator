@@ -156,16 +156,20 @@ While you are away you hear nobody, including anyone who starts talking after yo
 microphone: not the microphone button, not **M**, not push to talk, and not joining the call. Pressing the
 microphone button says "away: come back to turn your microphone on".
 
+Your camera stays off too: the camera button, **V** and your **Toggle video key** (in your profile) say
+"away: come back to turn your camera on". If you change the camera or the video quality in Settings or your profile while away, the change is kept and
+used when you come back, if your camera comes back on.
+
+Everyone on the call sees you as away, including anyone who joins, reloads or reconnects after you went away.
+
 Click the button again to come back. What you hear comes back (unless you had muted it with deafen), and only the
 microphone and camera that were on before come back on. If you joined the call while away, your microphone comes on
-when you come back, unless you use push to talk.
+when you come back, unless you use push to talk. Leaving the call while away ends it: nobody sees you as away any
+more.
 
 Opening your profile or the Manage page from inside a call, or going to the space list, also marks you
 as "Away" without asking for a message, with the same effect: you hear nobody until you close the page or go back
 to the space.
-
-Someone who joins the call after you went away does not see you as away yet; see
-[Known issues](../known-issues.md).
 
 ## Settings in the call
 

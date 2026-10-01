@@ -130,6 +130,8 @@ let inCall = false;
 let isAway = false;
 let awayRestoreMic = false;
 let awayRestoreCam = false;
+let awayMessage = ''; // the away message others read (the "awayMessage" attribute), '' for a plain Away
+let awayRestartCam = false; // a camera change (device, quality) made while away, applied on Back (restartCamera)
 const LOBBY = 'lobby';
 let activeSpace = LOBBY; // the space the stream currently hears (server-computed)
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
@@ -896,6 +898,7 @@ function tileFor(participant) {
   tile.addEventListener('dragend', onDragEnd);
   tile.addEventListener('click', () => spotlight(participant.identity));
   tiles.set(participant.identity, tile);
+  showAway(participant); // someone already away when their tile is made (a late join, a reload)
   placeInOrder(tile);
   applyLayout();
   return tile;
@@ -2324,15 +2327,18 @@ call
   // Nothing is received until I am in the conference; then everything published is taken.
   .on(RoomEvent.TrackPublished, (pub, p) => { if (shownInCall(p)) pub.setSubscribed(true); updateMuted(p); })
   .on(RoomEvent.TrackUnpublished, (_pub, p) => updateMuted(p))
-  // Someone left or rejoined the conference without leaving the space.
+  // Someone left or rejoined the conference without leaving the space, or went away or came back (showAway).
   .on(RoomEvent.ParticipantAttributesChanged, (changed, p) => {
-    if (p.isLocal || !inCall || !('call' in changed)) return;
-    if (p.attributes?.call === 'off') return removeParticipant(p);
-    tileFor(p);
-    subscribeAll(p);
-    updateMuted(p);
-    updateCamera(p);
-    applyLayout();
+    if (p.isLocal || !inCall) return;
+    if ('call' in changed) {
+      if (p.attributes?.call === 'off') return removeParticipant(p);
+      tileFor(p);
+      subscribeAll(p);
+      updateMuted(p);
+      updateCamera(p);
+      applyLayout();
+    }
+    if ('away' in changed || 'awayMessage' in changed) showAway(p);
   })
   .on(RoomEvent.ParticipantDisconnected, removeParticipant)
   .on(RoomEvent.TrackMuted, (_pub, participant) => {
@@ -2360,6 +2366,7 @@ call
     try {
       const data = JSON.parse(decoder.decode(payload));
       if (topic === 'reaction' && participant && data.type === 'reaction') showReaction(participant.identity, data.id);
+      // A page still on the build before the "away" attribute (showAway) says it only this way. Kept for one release.
       else if (topic === 'away' && participant && data.type === 'away') updateAwayOverlay(participant.identity, !!data.on, data.message);
       else if (topic === 'chat' && data.type === 'chat' && chatIdOk(data.id)) {
         if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
@@ -2407,7 +2414,11 @@ call
     }
   })
   .on(RoomEvent.Reconnecting, () => setStatus('reconnecting...'))
-  .on(RoomEvent.Reconnected, () => setStatus(`in ${spaceName}`))
+  // A full reconnect joins the call service afresh, with the token's attributes ("call" off, no away): say both again.
+  .on(RoomEvent.Reconnected, () => {
+    setStatus(`in ${spaceName}`);
+    syncCallAttributes();
+  })
   .on(RoomEvent.Disconnected, () => {
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
@@ -2440,6 +2451,8 @@ call
     // next space starts clean, not still marked away from the last one.
     $('away-overlay').hidden = true;
     isAway = false;
+    awayMessage = '';
+    awayRestartCam = false;
     $('away-toggle').classList.remove('off');
     $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
     for (const [, tile] of tiles) tile.remove();
@@ -2705,6 +2718,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     // Everyone connects out of the call (the token's "call" attribute is off); entering never joins. Said again here
     // in case a token ever says otherwise, else others would draw a tile and list this person as on the call.
     if (call.localParticipant.attributes?.call !== 'off') await call.localParticipant.setAttributes({ call: 'off' }).catch(() => {});
+    await syncAwayAttributes(); // away before the call service was reached: said now
     if (!guestToken && currentSpace && !currentSpace.isAside) rememberSpace(currentSpace.id); // an aside is gone once it ends, so it is not kept
     $('join').hidden = true;
     $('guest-join').hidden = true;
@@ -2770,8 +2784,9 @@ async function startCall() {
     syncCallControl();
     setNoCall(false);
     canvas.updateMenu(); // the phone's Conference tab carries its in-call dot
-    if (call.localParticipant.attributes?.call !== 'on') {
-      await call.localParticipant.setAttributes({ call: 'on' }).catch(() => {});
+    // "on", with away said in the same request when joining while away (or it was lost).
+    if (call.localParticipant.attributes?.call !== 'on' || awayAttributesChanged()) {
+      await call.localParticipant.setAttributes({ call: 'on', ...awayAttributes() }).catch(() => {});
       if (stopped()) return await backOut();
     }
     tileFor(call.localParticipant);
@@ -2838,7 +2853,8 @@ async function stopCall() {
   if (!inCall) return;
   inCall = false;
   if (call.state === 'connected') {
-    await call.localParticipant.setAttributes({ call: 'off' }).catch(() => {});
+    // Away ends with the call (below), so it is cleared for everyone with it.
+    await call.localParticipant.setAttributes({ call: 'off', away: 'off', awayMessage: '' }).catch(() => {});
     for (const pub of [...call.localParticipant.trackPublications.values()]) {
       if (pub.track) await call.localParticipant.unpublishTrack(pub.track, true).catch(() => {});
     }
@@ -2848,6 +2864,8 @@ async function stopCall() {
   // Away is a conference state: going out of the call ends it without a word to anyone.
   $('away-overlay').hidden = true;
   isAway = false;
+  awayMessage = '';
+  awayRestartCam = false;
   $('away-toggle').classList.remove('off');
   $('away-toggle').title = 'Away: pauses your mic and camera, mutes what you hear, and lets everyone know';
   for (const [, tile] of tiles) tile.remove();
@@ -2915,11 +2933,20 @@ async function toggleCam() {
   // guard a quick double-tap fires a second toggle before the first one has
   // actually turned the camera on, landing on whichever finishes last.
   if (camToggling) return;
+  const enabled = !call.localParticipant.isCameraEnabled;
+  // Away, nobody sees you: coming back (the away button) is what turns the camera on again.
+  if (enabled && isAway) { setStatus('away: come back to turn your camera on'); return; }
   camToggling = true;
   $('cam').classList.add('loading');
-  const enabled = !call.localParticipant.isCameraEnabled;
   try {
     await setCameraEnabledWithRetry(enabled);
+    if (enabled) await keepCameraOffWhileAway();
+    // A camera change made while away with the camera off (restartCamera) is applied now it is on: turning it on
+    // alone would open the device it had before.
+    if (enabled && awayRestartCam && !isAway && call.localParticipant.isCameraEnabled) {
+      awayRestartCam = false;
+      await restartCamera();
+    }
     if (enabled && prefs.background !== 'none') await applyBackground(); // a fresh track on re-enable needs the processor reapplied
   } catch (err) {
     setStatus(`camera: ${err.message}`, true);
@@ -3121,6 +3148,8 @@ async function applyBackground() {
 async function restartCamera() {
   const pub = call.localParticipant?.getTrackPublication(Track.Source.Camera);
   if (!pub?.track) return;
+  // Away: a restart asks the browser for the camera afresh, so it waits for Back (setAway).
+  if (isAway) { awayRestartCam = true; return; }
   try {
     await pub.track.restartTrack(videoConstraints());
   } catch (err) {
@@ -4004,9 +4033,53 @@ function updateAwayOverlay(identity, on, message) {
   }
 }
 
+// Away as everyone reads it, kept with me at the call service so that someone who joins, reloads or reconnects later
+// sees it too: the "away" attribute, 'on' or 'off' (none, for a page before it, is 'off'), and "awayMessage", '' for a
+// plain Away. setAttributes changes only the keys it is given, so these never touch "call", nor "call" these.
+function awayAttributes() {
+  return { away: isAway ? 'on' : 'off', awayMessage: isAway ? awayMessage : '' };
+}
+function awayAttributesChanged() {
+  const said = call.localParticipant?.attributes || {};
+  const want = awayAttributes();
+  return (said.away === 'on' ? 'on' : 'off') !== want.away || (said.awayMessage || '') !== want.awayMessage;
+}
+async function syncAwayAttributes() {
+  if (call.state !== 'connected' || !awayAttributesChanged()) return;
+  await call.localParticipant.setAttributes(awayAttributes()).catch(() => {});
+}
+// "call" as inCall says, with away, after a reconnect that may have put the token's attributes back.
+async function syncCallAttributes() {
+  if (call.state !== 'connected') return;
+  const want = inCall ? 'on' : 'off';
+  if (call.localParticipant.attributes?.call === want && !awayAttributesChanged()) return;
+  await call.localParticipant.setAttributes({ call: want, ...awayAttributes() }).catch(() => {});
+}
+// Someone's away mark on their tile, from their attributes; mine from my own state, since my attributes change only
+// once the call service has them.
+function showAway(participant) {
+  if (participant.isLocal) return updateAwayOverlay(participant.identity, isAway, awayMessage);
+  updateAwayOverlay(participant.identity, participant.attributes?.away === 'on', participant.attributes?.awayMessage || '');
+}
+// A camera that came on during a wait after going away (a click just before, Back and away again) goes off again, and
+// comes back with Back.
+async function keepCameraOffWhileAway() {
+  if (!isAway || !call.localParticipant.isCameraEnabled) return;
+  awayRestoreCam = true;
+  await call.localParticipant.setCameraEnabled(false).catch(() => {});
+}
+// The same for the microphone: Back, then away again before the microphone was on.
+async function keepMicOffWhileAway() {
+  if (!isAway || !call.localParticipant.isMicrophoneEnabled) return;
+  awayRestoreMic = true;
+  await call.localParticipant.setMicrophoneEnabled(false).catch(() => {});
+}
+
 async function sendAway(on, message = '') {
   updateAwayOverlay(call.localParticipant?.identity, on, message);
   if (call.state !== 'connected') return;
+  await syncAwayAttributes();
+  // The "away" message too, for a page still on the build before the attribute. Kept for one release.
   try {
     await call.localParticipant.publishData(encoder.encode(JSON.stringify({ type: 'away', on, message })), { reliable: true, topic: 'away' });
   } catch (err) {
@@ -4027,6 +4100,7 @@ async function setAway(on, message = '') {
   if (on === isAway) return;
   isAway = on;
   applyHearing(); // straight away, before the waits for the microphone and camera
+  awayMessage = on ? String(message || '').trim().slice(0, 200) : '';
   if (on) {
     awayRestoreMic = !!call.localParticipant.isMicrophoneEnabled;
     awayRestoreCam = !!call.localParticipant.isCameraEnabled;
@@ -4034,7 +4108,15 @@ async function setAway(on, message = '') {
     if (awayRestoreCam) await call.localParticipant.setCameraEnabled(false).catch(() => {});
   } else {
     if (awayRestoreMic) await call.localParticipant.setMicrophoneEnabled(true).catch(() => {});
+    await keepMicOffWhileAway();
     if (awayRestoreCam) await setCameraEnabledWithRetry(true).catch(() => {});
+    // A camera change made while away (restartCamera), now that the camera is back on. A camera left off is not
+    // opened just to take it: the change waits for the camera to be turned on (toggleCam).
+    if (!isAway && awayRestartCam && call.localParticipant.isCameraEnabled) {
+      awayRestartCam = false;
+      await restartCamera();
+    }
+    await keepCameraOffWhileAway();
   }
   reflectMic();
   const camOn = call.localParticipant.isCameraEnabled;

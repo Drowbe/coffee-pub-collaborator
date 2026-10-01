@@ -7,7 +7,7 @@ The Calendar keeps sessions and events. There is one for the whole environment, 
 ## Set it up (owner)
 
 1. On the Modules tab, choose **Install** beside Calendar under **Available with this server**, then **Approve and enable** (when a newer version comes with a server update, choose **Update** on its card instead; see [Modules](userguide-modules.md)). The Calendar asks to add two permissions to the Roles tab and to run reminders.
-2. To use it in spaces, tick **Available in every space** on its card, or tick it per space on the space's own page.
+2. To use it in spaces, tick **Available in every space** on its card, or switch it on per space on the space's own page.
 3. On the Roles tab, under **Module: Calendar**, choose who can **See the calendar** and who can **Add and change events**. By default everyone can see it, members and moderators can edit, and guests can see but not edit.
 
 ## The environment's calendar
@@ -18,7 +18,7 @@ The environment's calendar also shows, read-only, the events of every space you 
 
 ## A space's calendar
 
-In a call, switch on **Calendar** in the space bar under the header. It opens as a column beside the video and the chat: a month on top and that month's events listed beneath it. The header buttons switch it to floating over the canvas or open it in a window of its own. It shows that space's events, and the environment's events beside them marked **environment**. The environment's events are read-only in a space; change them on the environment's calendar.
+In a space, switch on **Calendar** in **Modules**, in the space bar under the header. It opens as a column beside the video and the chat: a month on top and that month's events listed beneath it. The header buttons switch it to floating over the canvas or open it in a window of its own. It shows that space's events, and the environment's events beside them marked **environment**. The environment's events are read-only in a space; change them on the environment's calendar.
 
 ## Settings
 

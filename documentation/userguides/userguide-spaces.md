@@ -41,8 +41,8 @@ The **Who's around** strip shows everyone who is online: signed in with Collabor
 ## Open with
 
 The button with sliders on a space card, after Enter (its tooltip is "Choose what opens"), opens a list headed
-**Open with**: the conference, the chat, and any other module the space has on. Tick what you want open when you
-enter. A person can enter with only the chat, or the chat and the Calendar, and still be in the space and online
+**Open with**: a switch for the conference, the chat, and any other module the space has on. Switch on what you
+want open when you enter. A person can enter with only the chat, or the chat and the Calendar, and still be in the space and online
 for everyone else. The choice is remembered for that space in this browser and is the same list the space updates
 itself as you open and close modules, so the next visit opens what you had open last time. Someone whose role does
 not allow the conference or the chat does not see them in the list, and nobody sees the conference when the
@@ -50,8 +50,9 @@ owner has switched it off.
 
 The first time you enter a space, what opens is, in order: what the space's owner chose under **Opens with** (see
 below); else what the environment sets for a new space (a template may set this); else the chat and every module
-on in the space, without the conference. A guest with nothing set gets the conference and the chat. On a phone,
-the first tab shown is the first thing opened.
+on in the space, without the conference. A guest with nothing set gets the conference and the chat. The
+conference always opens out of the call: entering never joins it, for anyone (see [The call](userguide-call.md)).
+On a phone, the first tab shown is the first thing opened.
 
 If you reload the page while you are in a space, you are put back in that space rather than on the space list. It is remembered for that browser tab only; leaving the space, being removed from it, or a space that cannot be joined clears it, and a step-aside or private word is not remembered.
 
@@ -86,19 +87,20 @@ Who can: an owner.
 
 1. On the Manage page, open the **Spaces** tab and click the space.
 2. On its **Space** tab, find **Opens with**.
-3. Tick what should open the first time someone enters this space: the conference (unless it is switched off),
-   the chat, and each module on in the space. They open in the order listed; there is no reordering. Each tick
-   saves as you click.
+3. Switch on what should open the first time someone enters this space: the conference (unless it is switched
+   off), the chat, and each module on in the space. They open in the order listed; there is no reordering. Each
+   switch saves as you click. The conference opens out of the call; people join it themselves.
 
 This decides only a first visit. After that, each person's own layout is remembered, and they can change it with
 **Open with** on the space list.
 
-With nothing ticked, the page says what opens instead, for example "Nothing ticked: Chat and To-do open.". With
-ticks that none can open right now, it says "None of the ticked ones can open now, so nothing opens."
+With every switch off, the page says what opens instead, for example "Nothing switched on: Chat and To-do open.".
+When none of the ones switched on can open right now, it says "None of the ones switched on can open now, so nothing
+opens."
 
-A module that is ticked but can't open now stays in the list, ticked, with a note saying why: "(off in this space)",
-"(switched off)", "(turned off)", "(not installed)" or "(can't open on the canvas)". It is kept so that turning it
-back on restores it; untick it to take it off the list.
+A module that is switched on but can't open now stays in the list, on, with a note saying why: "(off in this
+space)", "(switched off)", "(turned off)", "(not installed)" or "(can't open on the canvas)". It is kept so that
+turning it back on restores it; switch it off to take it off the list.
 
 ## Step aside
 
@@ -108,7 +110,8 @@ yet, then confirm with **Step aside with N**. Everyone picked moves together at 
 clicking anything on their own end.
 
 Each pulled player, and the owner, gets a **Rejoin call** button in the space's bar. Clicking it on any
-one of their screens brings the rest back too, to whichever space they were pulled out of. The aside shows on the space list only for the people in it and owners, with **Join** (see "The space list"), and it disappears on
+one of their screens brings the rest back too, to whichever space they were pulled out of. Everyone who was on the
+call stays on it, into the aside and back again; anyone who was not arrives out of the call. The aside shows on the space list only for the people in it and owners, with **Join** (see "The space list"), and it disappears on
 its own once everyone has left it.
 
 Anyone left behind sees those tiles dim to a placeholder reading **In an aside**, naming who they

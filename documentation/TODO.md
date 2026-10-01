@@ -15,6 +15,7 @@ side of things.
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.
+- Rename the dashboard's widgets to **tiles** (Thomas, 2026-09-30): "widget" now means a live piece in the header's bars, such as who is here. A renaming plan with a data migration comes next; not written or built.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
 - #132 A document editor (ProseMirror) for the long prose fields: research notes and answers, plan notes, to-dos, places, and calendar details. Markdown stays what is stored. Chat stays a textarea. About two weeks. Building waits on a go-ahead.
 
@@ -22,9 +23,10 @@ side of things.
 
 - #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
 - #30 Modules with two people on a real server.
+- Joining and pulls (Thomas's changes of 2026-09-30, [plan-entering](plans/plan-entering.md)): **Join the call** and the green phone with two people, **Currently on the call** and who is here following them live, the calls cap's refusal in **Not in a call**, and entering never asking for the microphone. An owner's pull into a real aside and back, and **Rejoin call**, keeping the call for those on it and not for those off it, including within the server's 15-second hold on a new call's place. Verified so far in headless Chromium with a faked LiveKit and by tools only.
 - #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
 - The chat's **Bring in N objects** button: offered for a pasted answer with an `objects` block, a `card` block or no fences, and not for an answer with an old-named block ([plan-kind-names](plans/plan-kind-names.md), step 5; the route behind it was checked).
-- #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list (and **Back to** an aside); what opens on a first and a second visit, and for a guest; the phone's first tab; the call control's count, **Join** and microphone hint; the status line.
+- #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list (and **Back to** an aside); what opens on a first and a second visit, and for a guest; the phone's first tab; the status line.
 
 ## Small fixes and checks
 
@@ -40,6 +42,7 @@ side of things.
 - `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
 - A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).
 - The SDK menu's link entries (`<a role=menuitem>` in `public/sdk/host.js`, `host.menu.show`) don't open on Space; Enter opens them. Buttons and other entries do.
+- The **Modules** list, who is here and the space bar's **…**: check them with a real screen reader, in Firefox and Safari, and on a real phone. Verified in headless Chromium only.
 - Pasting a picture into a picture box: check it in Firefox, Safari, on a real phone, with a real screen reader, and with a file (not a picture) copied from the computer's own file manager. Verified in headless Chromium only.
 
 ## Sign-in and accounts
@@ -53,6 +56,8 @@ side of things.
 - #49 A billing relay for a payment provider's webhook.
 - #50 An environment's own domain, and one identity across environments.
 - #51 The past-due sweep for a server that restarts often.
+- The calls cap is enforced by the page only: the page asks `POST /api/call/join` before joining, but a token can publish as soon as it is minted, so a modified page could skip the check, as it could before. Making the cap binding means granting publish only after the check.
+- The host console's environment list waits on LiveKit when any environment's plan caps calls (it counts each one's running calls, up to two seconds a request).
 - #57 An About page.
 
 ## Streaming and OBS
@@ -69,9 +74,7 @@ side of things.
 - #39 The nav colours in the theme editor.
 - #31 Customising the dashboard's layout, and snapping on the spaces page.
 - #58 One input in Chat ([plan-one-input](plans/plan-one-input.md)): every step is built. Still to come: the plan's live checks in a browser and a real call.
-- Joining the call on a phone must be something the person chooses to do, as part of the navigation work: showing or hiding the conference module is not joining (Thomas, 2026-09-30).
 - Thomas's, for later: a **Clean Up** button that rearranges the modules on the canvas, and a way to choose and save layouts.
-- Decided, no change (2026-09-30): on touch screens the microphone note stays a hover and focus hint.
 - With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 
 ## Modules

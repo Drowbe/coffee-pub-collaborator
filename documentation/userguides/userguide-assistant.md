@@ -7,7 +7,7 @@ The AI is asked from Chat now, with `/ai`; see [Chat](userguide-chat.md), "Ask t
 ## Set it up (owner)
 
 1. Set up the AI itself first: on the Modules tab, **AI service** (none, OpenAI, Anthropic, or another OpenAI-compatible service), a model and a key, then **Approve and enable**. See [Modules](userguide-modules.md).
-2. Optional: to limit who may use `/ai` by role, choose **Install** beside Assistant on the Modules tab, then **Approve and enable**, and tick **Available in every space** or tick it per space.
+2. Optional: to limit who may use `/ai` by role, choose **Install** beside Assistant on the Modules tab, then **Approve and enable**, and tick **Available in every space** or switch it on per space.
 3. On the Roles tab, under Module: Assistant, **Use the assistant** decides who may use `/ai` (on for every role by default). A guest never can, and nobody can in a space where **Turn AI off in this space** is ticked. **Use AI in modules**, under AI, governs AI inside other modules (Research's **Suggest tags**), not `/ai`.
 
 Without the Assistant installed, anyone signed in who is not a guest may use `/ai`, wherever AI is not turned off.

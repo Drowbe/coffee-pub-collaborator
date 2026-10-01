@@ -40,7 +40,7 @@
     <label>Your name<input id="guest-name" type="text" maxlength="40" required autocomplete="name"></label>
     <button class="btn btn-primary" type="submit"><i class="fa-solid fa-door-open fa-fw" aria-hidden="true"></i> <span data-verb="enter"></span></button>
     <p class="status error" id="guest-join-error" hidden></p>
-    <p class="hint join-note"><span id="guest-mic-note" hidden>Your browser will ask for your microphone. You join with your camera off; turn it on whenever you're ready. </span>Nothing about you is kept once you leave.</p>
+    <p class="hint join-note">Nothing about you is kept once you leave.</p>
   </form>
   </div>
 
@@ -93,8 +93,19 @@
         </span>
       </header>
       <div class="grid" id="grid"></div>
-      <!-- After Hang up the module stays, saying so; the green phone on the toolbar dials back in. -->
-      <div class="no-call" id="no-call" hidden><i class="fa-solid fa-phone-slash" aria-hidden="true"></i><span>Not in a call</span></div>
+      <!-- Not in the call (after Hang up, or the module switched on): it says so, shows who is in the call now, and
+           offers Join the call, the same as the green phone on the toolbar. space.js keeps the list live. -->
+      <div class="no-call" id="no-call" hidden>
+        <i class="fa-solid fa-phone-slash" aria-hidden="true"></i><span>Not in a call</span>
+        <section class="no-call-who" aria-labelledby="no-call-who-title">
+          <h3 class="no-call-who-title" id="no-call-who-title">Currently on the call</h3>
+          <ul class="no-call-list" id="no-call-list"></ul>
+          <p class="no-call-empty" id="no-call-empty">No one is on the call yet. Be the first to join.</p>
+        </section>
+        <p class="no-call-hint no-call-error" id="no-call-error" role="alert" hidden></p>
+        <button class="btn btn-primary no-call-join" id="no-call-join" type="button" aria-describedby="call-hint"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> Join the call</button>
+        <p class="no-call-hint" id="call-hint">Your browser will ask for your microphone. You join with your camera off; turn it on whenever you're ready. <span class="install-hint" id="install-hint" hidden></span></p>
+      </div>
 
       <div class="float status-float" id="status-float">
         <span data-brand="environmentName">Coffee Pub</span>
@@ -123,7 +134,7 @@
         </div>
 
         <!-- Shown on a Private Conversation participant's own screen once the
-             admin clicks "Pull Participants Back" in the space they stepped out
+             admin clicks "Pull participants back" in the space they stepped out
              of -- a warned countdown, not an instant yank, so it doesn't cut
              someone off mid-sentence. No cancel: this is the admin's call, not
              theirs to override. -->

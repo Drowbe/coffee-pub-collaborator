@@ -781,7 +781,32 @@ The console page for both is `public/host.js` with the form and the region cut s
 
 ## Phases 2 to 5: the owner, the caps, the calls, self-serve and billing
 
-Built to the contract in plan-environments.md, "Phases 2 to 5 in detail". The owner is the environment's `owner` role (see "Roles" below; before step 4 it was `admin`, shown as Owner only on a hosted server), and the host's own cross sign-in (`environment.hostAdmin`) is the one viewer who still sees the host-only controls on Manage (uploading a module zip, running a module in the page). `GET /api/environment` gives an owner the plan and the usage; the caps are enforced at the seam, one thing at a time, with a 403 and a sentence: members on account creation, registration and invites; storage on uploads and pictures (the environment's directory measured at most once a minute and cached on the registry entry); assistant calls on `host.ai.ask` (counted per month on the entry); the module list on install and enable; calls at once on the join that would start a call (LiveKit's rooms with the slug prefix, asked at join time). The plan catalog lives in `host.json` (`plans`, `free` always present) and an environment's plan carries the catalog's `name` beside its own caps. Sign-up is `POST /api/product/signup` on the free plan, rate-limited, and off unless `SIGNUP=on`; billing is the signed webhook `POST /api/host/billing` (`BILLING_SECRET`) with `paid`, `lapsed` and `cancelled`, an hourly sweep that degrades an environment past due for fourteen days to the free caps, and checkout pages that are configuration (`BILLING_CHECKOUT_<PLAN>`). An owner's export is the environment's zip; a deletion request is a mark on the registry entry the console shows and a host admin acts on.
+Built to the contract in plan-environments.md, "Phases 2 to 5 in detail". The owner is the environment's `owner` role (see "Roles" below; before step 4 it was `admin`, shown as Owner only on a hosted server), and the host's own cross sign-in (`environment.hostAdmin`) is the one viewer who still sees the host-only controls on Manage (uploading a module zip, running a module in the page). `GET /api/environment` gives an owner the plan and the usage; the caps are enforced at the seam, one thing at a time, with a 403 and a sentence: members on account creation, registration and invites; storage on uploads and pictures (the environment's directory measured at most once a minute and cached on the registry entry); assistant calls on `host.ai.ask` (counted per month on the entry); the module list on install and enable; calls at once on the join that would start a call (see "The calls cap" below). The plan catalog lives in `host.json` (`plans`, `free` always present) and an environment's plan carries the catalog's `name` beside its own caps. Sign-up is `POST /api/product/signup` on the free plan, rate-limited, and off unless `SIGNUP=on`; billing is the signed webhook `POST /api/host/billing` (`BILLING_SECRET`) with `paid`, `lapsed` and `cancelled`, an hourly sweep that degrades an environment past due for fourteen days to the free caps, and checkout pages that are configuration (`BILLING_CHECKOUT_<PLAN>`). An owner's export is the environment's zip; a deletion request is a mark on the registry entry the console shows and a host admin acts on.
+
+### The calls cap
+
+Counted from real calls (Thomas, 2026-09-30). Entering a space is never refused: every player and guest token
+starts out of the call (`call: 'off'`), and `POST /api/token` and `POST /api/guest-join` never ask the cap. A space
+(or aside) counts as a running call while at least one person there, not hidden, has the `call` attribute `on`
+(`runningCalls()` in `server/index.js`: LiveKit's calls that `spaceIdOfCall()` says are this environment's, with
+their participants listed; never cached, so a call ending frees its place at once). The cap is asked just before a
+join, by `POST /api/call/join` (`callsCapRefusal()`): joining a call already running is never refused, the person
+joining is left out of the count (moving from one call to another never counts their own), and over the limit the
+answer is 403 "This <environment>'s plan allows N call(s) at once; one is running in <space>". Two starts at the
+same moment would both see a free place, so a start that passes holds its space's place for 15 seconds
+(`CALL_START_HOLD_MS`, in memory for each environment, `callStartHolds`) until the person shows on the call; a
+restart drops the holds, which only reopens that short window. `POST /api/asides` asks the cap before pulling anyone,
+leaving the aside's members out of the calls they are in (if nobody stays behind, the aside takes that call's
+place), and holds the new aside's place. When LiveKit cannot be asked, the cap fails open.
+
+`usage.callsNow` counts the same way: `GET /api/environment` (`liveCallCount()`, 0 when LiveKit cannot be asked)
+and the host console's `GET /api/host/environments` (`hostCallsNow()`, from one list of LiveKit's calls for the
+whole host, and only for an environment whose plan caps calls; left out otherwise). The console's list therefore
+waits on LiveKit when any environment has a calls cap: up to two seconds a request (the call service client's
+timeout), one to list the calls and one for each call's participants.
+
+The cap is enforced by the page asking first. A token can publish as soon as it is minted, so a modified page could
+skip `POST /api/call/join`, as it could before; making the cap binding means granting publish only after the check.
 
 ## Adding a new module-level singleton
 

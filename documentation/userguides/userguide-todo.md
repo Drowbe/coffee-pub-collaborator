@@ -7,7 +7,7 @@ The To-do module keeps a shared task list. There is one for the whole environmen
 ## Set it up (owner)
 
 1. On the Modules tab, choose **Install** beside To-do under **Available with this server**, then **Approve and enable** (when a newer version comes with a server update, choose **Update** on its card instead; see [Modules](userguide-modules.md)). It asks to add two permissions to the Roles tab and to run reminders.
-2. To use it in spaces, tick **Available in every space** on its card, or tick it per space on the space's own page.
+2. To use it in spaces, tick **Available in every space** on its card, or switch it on per space on the space's own page.
 3. On the Roles tab, under **Module: To-do**, choose who can **See the to-do list** and who can **Add, change and tick off tasks**. By default everyone can see it, members and moderators can edit, and guests can see but not edit.
 
 ## The environment's list
@@ -46,7 +46,7 @@ An admin approves what the To-do may hear from other modules when enabling it (a
 
 ## In a space
 
-In a call, switch on **To-do** in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own, from the buttons on its titlebar. It shows that space's list; the environment's list is on the To-do's own page.
+In a space, switch on **To-do** in **Modules**, in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own, from the buttons on its titlebar. It shows that space's list; the environment's list is on the To-do's own page.
 
 ## Reminders
 

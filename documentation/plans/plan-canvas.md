@@ -15,7 +15,7 @@ The plan is to make the conference a pane too, with the same three modes, so a p
 | Area | Decision |
 |---|---|
 | Joining | Joining a room opens the panes the person used last in that room (default: the conference and chat; replaced by [plan-entering](plan-entering.md), built 2026-09-30: with nothing set, a first visit opens the chat and every module on in the space, without the conference). The room card offers a small "Join with" choice. Being in the room is what makes someone online, whatever is open. |
-| Closing the conference pane | Leaves the call and stays in the room. Mic and camera stop and incoming media stops; the person is still online with chat and modules. The Modules menu offers "Rejoin call". |
+| Closing the conference pane | Leaves the call and stays in the room. Mic and camera stop and incoming media stops; the person is still online with chat and modules. The Modules menu offers "Rejoin call". *Changed by Thomas, 2026-09-30: the Conference switch always reads its name and only shows or hides it; shown out of the call it says "Not in a call", with **Join the call** ([plan-entering](plan-entering.md), "Thomas's changes, 2026-09-30").* |
 | Room-level controls | Leave room stays in the header and works with any pane. Away, settings, mic, camera and layout live in the conference pane's bar. The hang-up button leaves the call, meaning it closes the conference pane; it does not leave the room. |
 | The flexible column | The conference pane takes the leftover width when it is docked. With no docked conference, the first docked pane takes it and the others keep their widths, so there is never an empty canvas. |
 | Names | The video part is called the **conference**, never "video". Chat and Conference are listed on the Modules tab of Manage as built-in modules that are always on and cannot be removed (for now); every future module sits beside them. |
@@ -47,7 +47,7 @@ Each stage keeps the default experience unchanged and is verified before the nex
 Stage 1 (the conference as a closable pane):
 
 - [x] The conference joins the pane manager as a native pane (docked only), first column and the flexible one; the flexible-column rule lives in the manager (`syncDock`, `--stage-cols`).
-- [x] Closing the conference leaves the call and stays in the room: media stops both ways, tiles go, the `call` attribute goes to `off`; "Rejoin call" in the Modules menu brings it back.
+- [x] Closing the conference leaves the call and stays in the room: media stops both ways, tiles go, the `call` attribute goes to `off`; "Rejoin call" in the Modules menu brings it back. (Since 2026-09-30 the switch reads Conference and shows "Not in a call"; **Join the call** there joins.)
 - [x] The hang-up button leaves the call; Leave room stays in the header. In a pop-out window hang-up brings the stage back to the page first.
 - [x] The Modules button moves to the header while the conference is closed; the menu belongs to the stage.
 - [x] Nothing open shows a hint instead of an empty stage.

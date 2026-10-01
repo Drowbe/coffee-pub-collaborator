@@ -52,25 +52,25 @@ Workaround: none.
 
 ## Opens with can show an older list after a failed save
 
-In a space's settings, **Opens with** saves each tick as you click. If one save fails while later clicks are still
-waiting to be saved, the ticks can show an older list than the one the server kept. Seen on 2026-09-30.
+In a space's settings, **Opens with** saves each switch as you click. If one save fails while later clicks are
+still waiting to be saved, the switches can show an older list than the one the server kept. Seen on 2026-09-30.
 
 Workaround: reload the page to see what is saved.
 
 ## Opens with notes a module with no canvas as off in this space
 
 A module that has no canvas at all, such as Stream, can be on a space's saved **Opens with** list when it was
-put there through the API. The list keeps it ticked with the note "(off in this space)", where "(can't open on the
-canvas)" is meant. Seen on 2026-09-30.
+put there through the API. The list keeps it switched on with the note "(off in this space)", where "(can't open on
+the canvas)" is meant. Seen on 2026-09-30.
 
-Workaround: none is needed; untick it.
+Workaround: none is needed; switch it off.
 
 ## Opens with shows an uninstalled module by its id
 
 A module on a space's saved **Opens with** list that has since been uninstalled is listed with the note "(not
 installed)", under its id rather than its name. Seen on 2026-09-30.
 
-Workaround: none; untick it to take it off the list.
+Workaround: none; switch it off to take it off the list.
 
 ## Snapped modules come back small after a reload
 
@@ -93,10 +93,12 @@ Workaround: move **Grid size** once, which settles them apart, or drag them apar
 
 ## The header crowds between about 641 and 800 pixels wide
 
-In a window between about 641 and 800 pixels wide, the header has too little room for its three parts: the crumb
-saying where you are wraps onto two lines, and the right end (Manage, the time, your picture) can run over the
-**Spaces** link in the middle. This is older than the account menu; it is a limit of the header's layout. Seen on
-2026-09-30, in headless Chromium at 700 pixels.
+In a window between about 641 and 800 pixels wide, the header's top row has too little room for its three parts:
+the crumb saying where you are wraps onto two lines, and the right end (the light or dark switch, Manage, the time,
+your picture) can run over the **Spaces** link in the middle. This is older than the account menu; it is a limit of
+the header's layout. Seen on 2026-09-30, in headless Chromium at 700 pixels, and again at about 660 pixels, where
+**Spaces** overlaps the light or dark switch. The space bar under it no longer overlaps: its tools fold into a
+**…** instead.
 
 Workaround: make the window wider than 800 pixels, or narrower than 640, where the header folds into its menu.
 

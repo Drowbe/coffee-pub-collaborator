@@ -3,6 +3,8 @@ import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.e
 import { loadBranding, api, renderTopbar, setTopbarLocation, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { whatOpens, conferenceAllowed } from '/opens-with.js';
+import { switchListHtml, wireSwitchList } from '/switch-list.js';
+import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
@@ -39,22 +41,62 @@ subnav.id = 'subnav';
 subnav.innerHTML = `
   <div class="nav-left subnav-left">
     <span class="space-name" id="space-name" hidden><i class="fa-solid fa-fw" id="space-icon" aria-hidden="true"></i><span id="space-name-text"></span></span>
-    <div class="subnav-modules" id="modules-menu"></div>
   </div>
   <div class="nav-middle subnav-middle" id="subnav-middle"></div>
   <span class="nav-right subnav-tools"></span>`;
 topbarEl.appendChild(subnav);
 nav.attach('secondary', subnav); // its tools are registered further down, once the state their `visible` reads exists
+// The module chooser, after the space's name: one button that opens a list of switches, one per module (the conference,
+// the chat and the space's modules), each showing or hiding its module on the canvas (canvas.js fills #modules-menu,
+// with switch-list.js). On a phone the same #modules-menu is the tab bar instead, and the button is not drawn.
+const moduleChooser = document.createElement('span');
+moduleChooser.className = 'module-chooser';
+moduleChooser.innerHTML = `
+  <button class="btn btn-small module-chooser-toggle" id="modules-toggle" type="button" aria-expanded="false" aria-controls="modules-menu"><i class="fa-solid fa-puzzle-piece fa-fw" aria-hidden="true"></i> <span class="module-chooser-label"></span> <i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i><span class="badge" hidden></span></button>
+  <div class="module-chooser-list" id="modules-menu" role="group" hidden></div>`;
+nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, icon: 'puzzle-piece', label: word('module', { many: true, cap: true }), element: moduleChooser });
+// The chooser's words are the environment's word for modules (registerWordTools() below calls this once they are known).
+function nameModuleChooser() {
+  const many = word('module', { many: true, cap: true });
+  moduleChooser.querySelector('.module-chooser-label').textContent = many;
+  moduleChooser.querySelector('#modules-menu').setAttribute('aria-label', many);
+}
+nameModuleChooser();
 // On a phone the space bar is a tab bar at the bottom of the page, in the flow after the canvas, so
 // the call toolbar sits directly above it whatever the browser does with its own bottom bar. Wider,
-// it is the header's second row.
-const phoneWidth = window.matchMedia('(max-width: 640px)');
-const placeSubnav = () => {
-  if (subnav.ownerDocument !== document) return; // popped out with the header
-  if (phoneWidth.matches) document.body.appendChild(subnav);
+// it is the header's second row. The chooser's list is the tab bar on a phone (`subnav-modules`, always shown), a list
+// under its button wider.
+// Phone or wide is the header's own window: popped out, the header is in that window, whose width is its own (a
+// 480 wide pop-out is a phone there, and its stylesheet says so). Re-checked as that window crosses the line, and
+// when the header moves between windows (setUpPopoutWindow and its pagehide call placeSubnav()).
+let phoneWatch = null; // { view, query } the header's window and its phone-width query, listened to
+function phoneWidth() {
+  const view = subnav.ownerDocument.defaultView || window;
+  if (!phoneWatch || phoneWatch.view !== view) {
+    phoneWatch?.query.removeEventListener('change', placeSubnav);
+    const query = view.matchMedia('(max-width: 640px)');
+    query.addEventListener('change', placeSubnav);
+    phoneWatch = { view, query };
+  }
+  return phoneWatch.query.matches;
+}
+function placeSubnav() {
+  const popped = topbarEl.ownerDocument !== document;
+  if (popped && subnav.parentNode !== topbarEl) topbarEl.appendChild(subnav); // popped out, the bar is the header's second row
+  const list = moduleChooser.querySelector('#modules-menu');
+  const tabs = phoneWidth();
+  if (list.classList.contains('subnav-modules') !== tabs) {
+    list.classList.toggle('subnav-modules', tabs);
+    list.classList.toggle('module-chooser-list', !tabs);
+    if (tabs) list.removeAttribute('role'); else list.setAttribute('role', 'group');
+    list.hidden = !tabs;
+    moduleChooser.querySelector('#modules-toggle').setAttribute('aria-expanded', 'false');
+    window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
+  }
+  if (popped) { nav.draw('primary'); return; } // the header's phone menu follows that window too
+  if (tabs) document.body.appendChild(subnav);
   else topbarEl.appendChild(subnav);
-};
-phoneWidth.addEventListener('change', placeSubnav);
+}
 placeSubnav();
 // Only this page loads your profile/Manage as an overlay over a running
 // call instead of a real navigation (see openOverlay() below) -- the
@@ -84,7 +126,6 @@ const rememberedSpace = () => { try { return sessionStorage.getItem(REMEMBERED_S
 // for the chat and the modules, and only sends and receives audio and video while the
 // conference module is open. Others see the difference through the "call" attribute.
 let inCall = false;
-let callStarting = Promise.resolve(); // settles once the conference has finished starting
 const LOBBY = 'lobby';
 let activeSpace = LOBBY; // the space the stream currently hears (server-computed)
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
@@ -209,7 +250,7 @@ $('space-link').addEventListener('click', () => {
   if (space?.link) window.open(space.link, '_blank', 'noopener');
 });
 
-// Admin only: shows "Pull Participants Back" whenever a Private
+// Admin only: shows "Pull participants back" whenever a Private
 // Conversation was pulled out of the space I'm currently in -- the admin
 // is never part of those (see /api/asides), so without this
 // there'd be no way to know one is even happening, let alone end it.
@@ -231,7 +272,7 @@ function resetRecallButton() {
   const btn = $('recall-button');
   if (!btn) return;
   btn.disabled = false;
-  btn.innerHTML = '<i class="fa-solid fa-people-arrows fa-fw" aria-hidden="true"></i> Pull Participants Back';
+  btn.innerHTML = '<i class="fa-solid fa-people-arrows fa-fw" aria-hidden="true"></i> Pull participants back';
 }
 
 async function recallParticipants() {
@@ -273,7 +314,7 @@ function startRecallCountdown(spaceId, name) {
     if (n <= 0) {
       clearInterval(recallTimer);
       $('recall-overlay').hidden = true;
-      reconnectTo(spaceId, 'pulled back to the call...');
+      reconnectTo(spaceId, 'pulled back to the call...', { keepCall: true });
       return;
     }
     $('recall-countdown').textContent = n;
@@ -549,7 +590,7 @@ async function joinInPopout(spaceId) {
   if (call.state !== 'connected') closePopout(); // it failed; don't leave an empty window
 }
 // "Open with": what this person's own layout for a space opens with, remembered for that space (see joinModules in
-// canvas.js). The list is the conference, the chat and the space's modules; with nothing remembered, the ticks are what
+// canvas.js). The list is the conference, the chat and the space's modules; with nothing remembered, the switches on are what
 // entering would open (the space's "Opens with", else the environment's, else the chat and the modules; opens-with.js).
 const spaceModuleList = new Map(); // space id -> the modules on for it and what it opens with, fetched once
 const canIn = (spaceId, permission) => hasOwnerRights(me) || !!(me?.spaces?.[spaceId]?.effective || me?.permissions || {})[permission];
@@ -594,13 +635,8 @@ async function toggleJoinWith(card, spaceId) {
     canOpen: (id) => choices.some((c) => c.id === id),
   }));
   const list = pop.querySelector('.join-with-list');
-  for (const choice of choices) {
-    const label = document.createElement('label');
-    label.className = 'check';
-    label.innerHTML = `<input type="checkbox" data-join-module="${escapeHtml(choice.id)}"> <i class="fa-solid fa-${escapeHtml(choice.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(choice.name)}`;
-    label.querySelector('input').checked = chosen.has(choice.id);
-    list.appendChild(label);
-  }
+  list.innerHTML = switchListHtml(choices.map((c) => ({ ...c, on: chosen.has(c.id) })), 'join-module');
+  wireSwitchList(list);
   list.addEventListener('change', () => {
     setJoinModules(spaceId, [...list.querySelectorAll('input:checked')].map((i) => i.dataset.joinModule));
   });
@@ -948,9 +984,10 @@ nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand'
 nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
 // The tools whose words are the environment's: registered again (the same elements) once loadBranding() has them.
 function registerWordTools() {
+  nameModuleChooser();
   nav.register({ ...SPACE_TOOL, id: 'dock-all', order: 1, icon: 'table-columns', label: `Dock every floating ${word('module')} beside the call`, onClick: () => { canvas.dockAll(); syncSnapBar(); } });
   nav.register({ ...SPACE_TOOL, id: 'snap-all', order: 2, icon: 'border-all', label: `Snap every floating ${word('module')} to a grid`, toggleable: true, active: canvas.snapAllOn(), onClick: () => { canvas.snapAll(!canvas.snapAllOn()); syncSnapBar(); } });
-  nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull Participants Back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
+  nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
   nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, icon: 'right-from-bracket', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
 }
 registerWordTools();
@@ -968,43 +1005,71 @@ nav.register({
 }).classList.add('call-settings-link');
 topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw('primary'));
 
-// The call control, in the space bar's middle zone (the space's information): while I am in the space and not in the
-// call, how many are in it and a Join that opens the conference, the same as the Modules menu's "Rejoin call"
-// (plan-entering.md, decisions 2 and 16). Not shown in the call, in an aside (the call only), for a role without the
-// conference, or with the conference switched off in the environment. Its hint is the microphone note; on a phone the
-// middle zone is not drawn and the Conference tab is the way in. The count is live, from the call's own participants.
-const callControl = document.createElement('span');
-callControl.className = 'call-control';
-callControl.innerHTML = `
-  <span class="call-control-count" id="call-count" hidden></span><span class="call-control-sep" id="call-count-sep" aria-hidden="true" hidden>·</span>
-  <button class="btn btn-small" id="call-join" type="button" aria-label="Join the call" aria-describedby="call-hint"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> Join</button>
-  <span class="call-control-hint" id="call-hint" role="tooltip">Your browser will ask for your microphone. You join with your camera off; turn it on whenever you're ready. <span class="install-hint" id="install-hint" hidden></span></span>`;
-function callControlWanted() {
-  return Boolean(currentSpace && !currentSpace.isAside && !inCall && call.state === 'connected' && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }));
-}
-nav.register({ bar: 'secondary', zone: 'middle', group: 'call', id: 'call-control', order: 1, icon: 'phone', label: 'Join the call', element: callControl, visible: callControlWanted });
-function inTheCall() {
-  let n = 0;
-  for (const p of call.remoteParticipants.values()) if (p.attributes?.call !== 'off') n += 1;
-  return n;
-}
+// Who is in the call, while I am not: the conference's "Not in a call" note lists them, with "Join the call" and the
+// microphone note under it. The space bar's call control ("N in the call · Join", plan-entering decisions 2 and 16) is
+// gone (Thomas, 2026-09-30): joining lives in the conference, which its switch shows out of the call.
 function syncCallControl() {
-  const n = callControlWanted() ? inTheCall() : 0;
-  $('call-count').textContent = `${n} in the call`;
-  $('call-count').hidden = n === 0;
-  $('call-count-sep').hidden = n === 0;
-  nav.draw('secondary');
+  syncWhoIsInCall();
+  whoHere.refresh(); // who is here, in the space bar (space-people.js)
 }
-function joinCall() {
-  if (!callControlWanted()) return;
-  if (canvas.builtinOpen('conference')) callStarting = startCall().catch((err) => setStatus(`call: ${err.message}`, true)); // hung up, the module still open
-  else canvas.openBuiltin('conference');
+// The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
+// is not off (what /api/presence reports as inCall), with their picture in this space, else their first letter.
+// Kept live by the call's events; built only while the note shows.
+function syncWhoIsInCall() {
+  const list = $('no-call-list');
+  if (!list || $('no-call').hidden) return;
+  const people = [...call.remoteParticipants.values()].filter((p) => p.attributes?.call !== 'off')
+    .map((p) => ({ key: p.identity, name: p.name || p.identity }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  list.replaceChildren(...people.map(({ key, name }) => {
+    const li = document.createElement('li');
+    const img = document.createElement('img');
+    img.alt = '';
+    img.src = spacePortraitUrl(key);
+    img.onerror = () => {
+      if (img.dataset.fallback) { img.replaceWith(initialOf(name)); return; }
+      img.dataset.fallback = '1';
+      img.src = imgUrl(key, 'profile');
+    };
+    const label = document.createElement('span');
+    label.textContent = name;
+    li.append(img, label);
+    return li;
+  }));
+  list.hidden = people.length === 0;
+  $('no-call-empty').hidden = people.length > 0;
 }
-$('call-join').addEventListener('click', joinCall);
+function initialOf(name) {
+  const el = document.createElement('span');
+  el.className = 'no-call-initial';
+  el.setAttribute('aria-hidden', 'true');
+  el.textContent = String(name || '?').trim().charAt(0).toUpperCase() || '?';
+  return el;
+}
 call
   .on(RoomEvent.ParticipantConnected, syncCallControl)
   .on(RoomEvent.ParticipantDisconnected, syncCallControl)
-  .on(RoomEvent.ParticipantAttributesChanged, syncCallControl);
+  .on(RoomEvent.ParticipantAttributesChanged, syncCallControl)
+  .on(RoomEvent.ParticipantNameChanged, syncWhoIsInCall);
+
+// --- who is here (space-people.js) ------------------------------------------------------------------
+// The space bar's middle zone: everyone in this space (or aside) now, you among them, with a mark on those on the call,
+// and the list under it. Live from the call itself (LiveKit's Room); it gives way (fewer portraits, then the count alone) before
+// anything on the bar's right folds (its `fit`, called by nav-bar.js). On a phone it is a count in the tab bar.
+const whoHere = createWhoHere({
+  call,
+  meOnCall: () => inCall,
+  where: () => (inAside() ? word('aside') : word('space')),
+  portraitUrl: spacePortraitUrl,
+  profileUrl: (key) => imgUrl(key, 'profile'),
+  wanted: () => Boolean(currentSpace) && call.state === 'connected',
+  events: {
+    redraw: () => nav.draw('secondary'),
+    call: { [RoomEvent.ParticipantNameChanged]: () => whoHere.refresh(), [RoomEvent.Disconnected]: () => whoHere.refresh() },
+  },
+});
+nav.register({ bar: 'secondary', zone: 'middle', group: 'people', id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
+// --- end who is here ---
 
 // The canvas-level snap, in the space bar: one switch that makes every floating module, now and later, snap to a grid over the
 // canvas, and, while it is on, a slider for the grid's size (the grid shows while the slider moves). Each module's own switch
@@ -1968,12 +2033,15 @@ function showBuiltinName(def) {
 
 // The conference is a module too: docked, floating or in a window of its own, and it can be
 // closed, which leaves the call but not the space. It is the flexible column, and the first
-// one. Opening it starts the call (from a join or "Rejoin call"), closing it stops it;
-// only moving it between docked, floating and a window leaves the call running.
+// one. Its switch only shows and hides it, like every module's, and always reads its name (Thomas, 2026-09-30):
+// shown it says "Not in a call" and never joins by itself; switched off (the switch, its titlebar x) it hangs up, so
+// nobody is left in the call with the module hidden. Entering a space never joins either, for members and guests alike
+// (Thomas, 2026-09-30): only a click joins, the green phone or "Join the call". Moving it between docked, floating and
+// a window leaves the call running.
 canvas.registerBuiltin({
   id: 'conference',
   name: 'Conference',
-  closedLabel: 'Rejoin call',
+  inCall: () => inCall, // the phone's tab bar marks the switch while in the call, not merely while shown
   icon: 'video',
   el: $('conference'),
   onShown: showBuiltinName,
@@ -1985,7 +2053,7 @@ canvas.registerBuiltin({
   windowSize: { w: 640, h: 420 },
   floatSize: { w: 560, h: 380 },
   // The environment's switch holds for owners and the admin too (canDo says yes to them whatever it is), so the
-  // canvas, the Modules menu, the call control and the Open with popover agree.
+  // canvas, the Modules menu and the Open with popover agree.
   allowed: () => conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') }),
   // A window of its own has its own document: idle/hover, popovers and keys need to hear it.
   onWindow: (win) => {
@@ -2006,8 +2074,8 @@ canvas.registerBuiltin({
   onChange: ({ open, mode, moving }) => {
     $('canvas').classList.toggle('conference-open', open && mode === 'dock'); // the narrow layout keys off this
     if (!moving) {
-      if (open) callStarting = startCall().catch((err) => setStatus(`call: ${err.message}`, true));
-      else { stopCall(); setNoCall(false); } // closed, the module starts fresh next time
+      if (open) { if (!inCall) setNoCall(true); syncWhoIsInCall(); } // shown (entering or switched on): out of the call until a click joins
+      else { stopCall(); setNoCall(false); } // switched off: hang up (nothing to do out of the call); it starts fresh next time
     }
     updateCrumb();
     setTimeout(applyLayout, 0); // once the module is in place
@@ -2015,6 +2083,7 @@ canvas.registerBuiltin({
 });
 // The titlebar's x closes the module (and with it the call); Hang up on the toolbar only leaves the call.
 $('conf-close').addEventListener('click', () => { if (pipWindow) closePopout(); canvas.closeBuiltin('conference'); });
+$('no-call-join').addEventListener('click', () => phoneButton());
 
 
 // The chat is a built-in module, shown like any other: a column beside the video, floating,
@@ -2029,13 +2098,15 @@ canvas.registerBuiltin({
   allowed: () => canDo('chatRead'),
   width: prefs.chatWidth,
   onWidth: (w) => { prefs.chatWidth = w; savePrefs(); },
-  onChange: ({ open, mode }) => {
+  onChange: ({ open, mode, moving }) => {
     $('canvas').classList.toggle('chat-open', open && mode === 'dock'); // the narrow layout keys off this
     applyLayout();
     if (open) {
       unread = 0;
       canvas.setBuiltinUnread('chat', 0);
-      $('chat-input').focus();
+      // Into the message box when it opens, but not when it only moves (docked, floating, snapped), and not while the
+      // module chooser's list is open: the switch that turned it on keeps the keyboard.
+      if ((!moving || mode === 'window') && $('modules-toggle')?.getAttribute('aria-expanded') !== 'true') $('chat-input').focus();
       $('messages').scrollTop = $('messages').scrollHeight;
     }
   },
@@ -2286,11 +2357,11 @@ call
       // event's own dispatch finishes first.
       else if (topic === 'aside-pull' && data.type === 'aside-pull' && data.spaceId) {
         if (data.byOwner) {
-          setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...'), 0);
+          setTimeout(() => reconnectTo(data.spaceId, 'pulled aside...', { keepCall: true }), 0);
         } else {
           setTimeout(() => {
             if (window.confirm(`${data.from || 'Someone'} wants ${data.private === false ? 'to step aside with you' : 'to have a private word'}. Join them?`)) {
-              reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...');
+              reconnectTo(data.spaceId, data.private === false ? 'stepping aside...' : 'stepping aside privately...', { keepCall: true });
             }
           }, 0);
         }
@@ -2298,7 +2369,7 @@ call
       // The other member of a pull-aside space clicked "Rejoin call";
       // follow them there instead of being left behind.
       else if (topic === 'aside-return' && data.type === 'aside-return' && data.spaceId) {
-        setTimeout(() => reconnectTo(data.spaceId, 'back to the call...'), 0);
+        setTimeout(() => reconnectTo(data.spaceId, 'back to the call...', { keepCall: true }), 0);
       }
       // Someone just got pulled into a private aside, myself excluded: prime
       // the local data so their tile can turn into an "in an aside"
@@ -2311,7 +2382,7 @@ call
         }
         reconcileGhostTiles();
       }
-      // The admin clicked "Pull Participants Back" in the space this Private
+      // The admin clicked "Pull participants back" in the space this Private
       // Conversation came from: warn, don't yank -- a countdown, then go.
       else if (topic === 'aside-recall' && data.type === 'aside-recall' && data.spaceId) {
         startRecallCountdown(data.spaceId, data.spaceName);
@@ -2422,10 +2493,15 @@ async function openInSpace(spaceId, moduleId, ref) {
   if (call.state === 'connected') await reconnectTo(spaceId);
   else await join(spaceId);
 }
-async function reconnectTo(spaceId, statusText) {
+// A pull (into an aside, or back: "Pull participants back", "Rejoin call", following the others back) moves the call
+// with you (Thomas, 2026-09-30, "Pull keeps you on the call"): `keepCall` says this is one, and if I was on the call I
+// am on the new one without a click, through the same join check and microphone rules as a click (startCall). Out of
+// the call, I land out of it. Going somewhere myself (an invitation, a module opened from the dashboard) never joins.
+async function reconnectTo(spaceId, statusText, { keepCall = false } = {}) {
+  const stayOnCall = Boolean(keepCall) && inCall; // read before the disconnect, which ends the call here
   if (statusText) setStatus(statusText);
   await call.disconnect().catch(() => {});
-  await join(spaceId);
+  await join(spaceId, { joinCall: stayOnCall });
 }
 
 // Admin only: pick who to pull into a private space with me -- click a
@@ -2470,7 +2546,7 @@ async function pullAside(identities, priv = false) {
   try {
     const { aside } = await api('POST', '/api/asides', { with: identities, private: priv });
     asideSelection.clear();
-    await reconnectTo(aside.id, priv ? 'stepping aside privately...' : 'stepping aside...');
+    await reconnectTo(aside.id, priv ? 'stepping aside privately...' : 'stepping aside...', { keepCall: true });
   } catch (err) {
     setStatus(`pull aside: ${err.message}`, true);
   }
@@ -2482,7 +2558,7 @@ async function pullAside(identities, priv = false) {
 async function returnFromAside() {
   try {
     const { space: homeSpace } = await api('POST', '/api/asides/return');
-    await reconnectTo(homeSpace.id, 'back to the call...');
+    await reconnectTo(homeSpace.id, 'back to the call...', { keepCall: true });
   } catch (err) {
     setStatus(`rejoin call: ${err.message}`, true);
   }
@@ -2530,6 +2606,7 @@ function setSpaceName(icon, text) {
   if (i) i.className = `${icon.includes(' ') ? icon : `fa-solid fa-${icon}`} fa-fw`;
   const t = $('space-name-text');
   if (t) t.textContent = text || '';
+  el.title = text || ''; // the whole name, when the bar has had to cut it short
 }
 function updateCrumb() {
   setTopbarLocation('');
@@ -2546,7 +2623,8 @@ function updateCrumb() {
   nav.draw('secondary');
 }
 
-async function join(spaceId = 'lobby') {
+// `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins.
+async function join(spaceId = 'lobby', { joinCall = false } = {}) {
   $('join-error').hidden = true;
   for (const b of document.querySelectorAll('[data-join]')) b.disabled = true;
   try {
@@ -2566,7 +2644,7 @@ async function join(spaceId = 'lobby') {
     renderSpaceLink();
     applyPermissions();
     updateRecallButton();
-    await connectAndSetup(token, livekitUrl);
+    await connectAndSetup(token, livekitUrl, { joinCall });
   } catch (err) {
     setStatus('', false);
     forgetSpace(); // a space that cannot be joined is not remembered, so a reload does not try it again
@@ -2606,9 +2684,12 @@ async function joinAsGuest(token, livekitUrl, joinedId, joinedName) {
 // connect, reveal the canvas, and open what this space starts with.
 // Errors propagate to whichever of those called it, to land on the right error message.
 // Nothing is received until the conference starts, so autoSubscribe is off.
-async function connectAndSetup(token, livekitUrl) {
+async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     await call.connect(livekitUrl, token, { autoSubscribe: false });
     console.debug('[app] connected to', currentSpace.id);
+    // Everyone connects out of the call (the token's "call" attribute is off); entering never joins. Said again here
+    // in case a token ever says otherwise, else others would draw a tile and list this person as on the call.
+    if (call.localParticipant.attributes?.call !== 'off') await call.localParticipant.setAttributes({ call: 'off' }).catch(() => {});
     if (!guestToken && currentSpace && !currentSpace.isAside) rememberSpace(currentSpace.id); // an aside is gone once it ends, so it is not kept
     $('join').hidden = true;
     $('guest-join').hidden = true;
@@ -2622,61 +2703,121 @@ async function connectAndSetup(token, livekitUrl) {
       if (chatInput) chatInput.loadThread();
     }
     canvas.updateMenu();
-    canvas.restore(); // a fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules
+    // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
+    // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
+    canvas.restore();
     syncSnapBar(); // and this space's canvas-level snap
-    syncCallControl(); // the space bar's Join, while the call is not open
-    if (canvas.builtinOpen('conference')) await callStarting;
+    syncCallControl(); // who is in the call, for the conference's "Not in a call" note
+    // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
+    // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
+    // refusal is said in the "Not in a call" note as for a click.
+    if (joinCall) {
+      if (!canvas.builtinOpen('conference')) canvas.openBuiltin('conference');
+      if (canvas.builtinOpen('conference')) startCall().catch((err) => setStatus(`call: ${err.message}`, true));
+    }
 }
 
 // Start the conference: tiles for everyone in it, their media, and my own microphone.
-// Runs when the conference module opens (a join, or "Rejoin call").
+// Runs only on a join: a click (the green phone or "Join the call"), or a pull that finds me on the call, which joins
+// the new space's call from connectAndSetup() (entering a space otherwise never joins).
+// The server is asked first (POST /api/call/join, the calls cap); a refusal is said in the "Not in a call" note and
+// nothing is asked of the microphone. Every wait after that can outlast a stop (Hang up, the Conference switched off,
+// the call gone): after each one the join backs out if that happened, releasing what it got, and never publishes the
+// microphone or says "on" after a stop.
+let callGeneration = 0; // stopCall() counts it up, so a join still waiting sees it was stopped
+let callJoining = null; // the join under way, until it is in the call or has backed out
 async function startCall() {
-  if (inCall || call.state !== 'connected') return;
-  inCall = true;
-  syncCallControl();
-  setNoCall(false);
-  if (call.localParticipant.attributes?.call !== 'on') {
-    await call.localParticipant.setAttributes({ call: 'on' }).catch(() => {});
-  }
-  tileFor(call.localParticipant);
-  applyMirror();
-  for (const p of call.remoteParticipants.values()) {
-    if (!shownInCall(p)) continue;
-    tileFor(p);
-    subscribeAll(p);
-    updateMuted(p);
-    updateCamera(p);
-  }
-  reconcileGhostTiles(); // anyone else in this space who's aside elsewhere, without waiting for the next poll
-  // Only the microphone publishes on join. The camera stays off until
-  // deliberately turned on -- a safety default, so nobody's video goes out
-  // before they mean it to, and camera permission is only ever asked for
-  // once someone actually reaches for it. toggleCam()'s setCameraEnabled
-  // call already handles publishing a fresh track the first time, same as
-  // it does for anyone who declined the camera here and turns it on later.
-  let haveMic = false;
+  if (callJoining) await callJoining; // a join stopped part-way backs out first: the two would share the microphone
+  if (inCall || callJoining || call.state !== 'connected') return;
+  const generation = callGeneration;
+  const stopped = () => generation !== callGeneration || call.state !== 'connected' || !canvas.builtinOpen('conference');
+  // Back out of a stopped join. If nothing has stopped the call yet (the call or the module went some other way),
+  // stop it now, which unpublishes and releases everything; else release what this join got after the stop.
+  const backOut = async (published) => {
+    if (inCall && generation === callGeneration) { await stopCall(); return; }
+    if (published && call.state === 'connected') await call.localParticipant.unpublishTrack(published, true).catch(() => {});
+    closeMic();
+  };
+  let settle;
+  callJoining = new Promise((resolve) => { settle = resolve; });
   try {
-    const track = await openMic();
-    await call.localParticipant.publishTrack(track, { source: Track.Source.Microphone, name: 'microphone' });
-    haveMic = true;
-    console.debug('[app] published audio');
-    if (prefs.ptt) await call.localParticipant.setMicrophoneEnabled(false);
-  } catch (err) {
-    console.warn('[app] no microphone:', err.message);
+    setJoinProblem('');
+    try {
+      await api('POST', '/api/call/join', guestToken ? { guest: guestToken } : { space: currentSpace?.id });
+    } catch (err) {
+      // The server's own sentence when it gave one (the calls cap's refusal); anything else (no answer, a 500 page, a
+      // proxy's 502) is said plainly, never as "HTTP 500".
+      if (!stopped()) setJoinProblem(err.status && err.serverSaid ? err.message : 'Could not reach the server to join the call. Try again in a moment.');
+      return;
+    }
+    if (stopped()) return;
+    inCall = true;
+    syncCallControl();
+    setNoCall(false);
+    canvas.updateMenu(); // the phone's Conference tab carries its in-call dot
+    if (call.localParticipant.attributes?.call !== 'on') {
+      await call.localParticipant.setAttributes({ call: 'on' }).catch(() => {});
+      if (stopped()) return await backOut();
+    }
+    tileFor(call.localParticipant);
+    applyMirror();
+    for (const p of call.remoteParticipants.values()) {
+      if (!shownInCall(p)) continue;
+      tileFor(p);
+      subscribeAll(p);
+      updateMuted(p);
+      updateCamera(p);
+    }
+    reconcileGhostTiles(); // anyone else in this space who's aside elsewhere, without waiting for the next poll
+    // Only the microphone publishes on join. The camera stays off until
+    // deliberately turned on -- a safety default, so nobody's video goes out
+    // before they mean it to, and camera permission is only ever asked for
+    // once someone actually reaches for it. toggleCam()'s setCameraEnabled
+    // call already handles publishing a fresh track the first time, same as
+    // it does for anyone who declined the camera here and turns it on later.
+    let haveMic = false;
+    try {
+      const track = await openMic();
+      if (stopped()) return await backOut();
+      await call.localParticipant.publishTrack(track, { source: Track.Source.Microphone, name: 'microphone' });
+      if (stopped()) return await backOut(track);
+      haveMic = true;
+      console.debug('[app] published audio');
+      if (prefs.ptt) {
+        await call.localParticipant.setMicrophoneEnabled(false);
+        if (stopped()) return await backOut(track);
+      }
+    } catch (err) {
+      if (stopped()) return await backOut();
+      console.warn('[app] no microphone:', err.message);
+    }
+    updateMuted(call.localParticipant);
+    updateCamera(call.localParticipant);
+    await fillDevices();
+    if (stopped()) return await backOut();
+    reflectMic();
+    $('cam').classList.remove('on');
+    $('cam').classList.add('off');
+    setStatus(haveMic ? `in ${spaceName}` : `in ${spaceName} (no microphone)`);
+    applyLayout();
+  } finally {
+    callJoining = null;
+    settle();
   }
-  updateMuted(call.localParticipant);
-  updateCamera(call.localParticipant);
-  await fillDevices();
-  reflectMic();
-  $('cam').classList.remove('on');
-  $('cam').classList.add('off');
-  setStatus(haveMic ? `in ${spaceName}` : `in ${spaceName} (no microphone)`);
-  applyLayout();
+}
+// The join check's refusal (or no answer), said plainly in the "Not in a call" note; '' clears it.
+function setJoinProblem(text) {
+  const el = $('no-call-error');
+  if (!el) return;
+  el.textContent = text;
+  el.hidden = !text;
 }
 
 // Leave the conference and stay in the space: stop sending and receiving media, drop the
 // tiles, and tell everyone I am not in it (the "call" attribute), so they drop mine.
 async function stopCall() {
+  callGeneration += 1; // a join still under way backs out (it may not be in the call yet)
+  setJoinProblem('');
   if (!inCall) return;
   inCall = false;
   if (call.state === 'connected') {
@@ -2706,6 +2847,7 @@ async function stopCall() {
   closeSettings();
   setStatus(`in ${spaceName}`);
   syncCallControl();
+  canvas.updateMenu(); // and loses it
 }
 
 // The hang-up button. In a pop-out window the canvas comes back to the page first, since the
@@ -2721,16 +2863,19 @@ function hangUp() {
 function setNoCall(off) {
   $('conference').classList.toggle('call-off', off); // the section's state; .no-call is the note laid over the tiles
   $('no-call').hidden = !off;
+  $('conf-close').title = off ? 'Close' : 'Leave the call and close';
+  $('conf-close').setAttribute('aria-label', $('conf-close').title);
+  syncWhoIsInCall();
   const h = $('hangup');
   h.classList.toggle('danger', !off);
   h.classList.toggle('dial', off);
-  h.title = off ? 'Rejoin the call' : `Leave the call (you stay in the ${word('space')})`;
+  h.title = off ? 'Join the call' : `Leave the call (you stay in the ${word('space')})`;
   h.querySelector('i').className = off ? 'fa-solid fa-phone fa-fw' : 'fa-solid fa-phone-slash fa-fw';
 }
 // The toolbar's phone: red hangs up, green dials back in.
 function phoneButton() {
   if (inCall) hangUp();
-  else callStarting = startCall().catch((err) => setStatus(`call: ${err.message}`, true));
+  else startCall().catch((err) => setStatus(`call: ${err.message}`, true));
 }
 
 async function toggleMic() {
@@ -3415,7 +3560,9 @@ function onKeyUp(event) {
 function onKey(event) {
   if (!document.body.classList.contains('in-space')) return;
   if (typing(event)) return;
-  if (prefs.ptt && hotkeyMatches(event, prefs.pttKey) && !pressesControl(event)) {
+  // Push-to-talk only while in the call: out of it the key does nothing, or holding it would open the microphone
+  // (LiveKit publishes one) with the person not in the call. Letting go is safe either way (releaseTalk).
+  if (inCall && prefs.ptt && hotkeyMatches(event, prefs.pttKey) && !pressesControl(event)) {
     event.preventDefault();
     if (event.repeat || pttHeld) return;
     pttHeld = event.code;
@@ -3595,6 +3742,7 @@ function setUpPopoutWindow(win) {
   // node adopts it into the new document, video and audio and all.
   win.document.body.appendChild(topbarEl);
   win.document.body.appendChild($('canvas'));
+  placeSubnav(); // phone or wide by this window's width now: the tab bar, or the chooser's button and list
   canvas.popped(); // the modules open again in this window
   $('away').hidden = false;
   watchPointer(win.document);
@@ -3630,6 +3778,7 @@ function setUpPopoutWindow(win) {
   win.addEventListener('pagehide', () => {
     document.body.prepend(topbarEl);
     document.body.appendChild($('canvas'));
+    placeSubnav(); // and by this window's again
     canvas.popped(); // and back in this one
     $('away').hidden = true;
     pipWindow = null;
@@ -3896,19 +4045,6 @@ function applyFeatureFlags() {
   select.value = String(prefs.quality);
 }
 
-// The guest form says the browser will ask for the microphone only when entering opens the conference for a guest:
-// the space's own "Opens with", else the environment's, else the conference and the chat (plan-entering.md, decision 7).
-async function guestMicNote(spaceId) {
-  if (!features.conferenceEnabled) return;
-  try {
-    const q = new URLSearchParams({ space: spaceId, guest: guestToken });
-    const { opensWith, spaceDefaultsOpensWith } = await api('GET', `/api/modules/for-space?${q}`);
-    $('guest-mic-note').hidden = !whatOpens({ own: opensWith ?? null, environment: spaceDefaultsOpensWith ?? null, guest: true }).includes('conference');
-  } catch {
-    // no note: the call control inside says it again
-  }
-}
-
 async function init() {
   const branding = await loadBranding();
   registerWordTools();
@@ -3952,7 +4088,6 @@ async function init() {
       $('guest-join').hidden = false;
       $('guest-join').dataset.spaceId = info.spaceId;
       $('guest-join').dataset.spaceName = info.spaceName;
-      guestMicNote(info.spaceId);
     } catch (err) {
       $('guest-space-name').textContent = 'This link is off';
       $('guest-join-error').textContent = err.message;

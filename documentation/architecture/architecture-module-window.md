@@ -62,13 +62,15 @@ bar are there regardless), or the module's own standalone page.
 Each zone folds what it can't show into a "..." the host draws and opens (`openHostMenu` in
 `public/host-menu.js`, which `public/module-host.js` imports and re-exports with `closeHostMenu`) -- the host's
 own analogue of `host.menu.show`, needed because that one draws inside a module's own frame and these three are
-the host's chrome, outside it. The same menu serves the canvas title bars' "..." (`public/space.js`) and the
-account menu under your picture in the header (`public/brand.js`, see
-[architecture-navigation](architecture-navigation.md)). Only one is open at a time. It opens under its button,
-flipped above when there is no room below. Its entries are `role="menuitem"` and the button carries
-`aria-expanded`. From the keyboard: the first entry takes focus when it opens; Up, Down, Home and End move; Enter
+the host's chrome, outside it. The same menu serves the canvas title bars' "..." (`public/space.js`), the
+account menu under your picture in the header (`public/brand.js`) and the space bar's "..." (`public/nav-bar.js`), see
+[architecture-navigation](architecture-navigation.md). Only one is open at a time. It opens under its button,
+flipped above when there is no room below. Its entries are `role="menuitem"`, or `role="menuitemcheckbox"` with `aria-checked` for an entry given `checked`,
+and the button carries `aria-expanded`. From the keyboard: the first entry takes focus when it opens; Up, Down, Home and End move; Enter
 or Space picks; Escape closes and puts focus back on the button; Tab closes. An entry is
-`{ label, icon?, regular?, hint?, danger?, disabled?, onPick }`. The "..." is drawn by
+`{ label, icon?, regular?, hint?, danger?, disabled?, checked?, badge?, onPick }`: `checked` (true or false) makes it
+a checkbox entry that shows a tick while on (a toggle folded into the space bar's "..."), and `badge` is a count
+shown after its label (9+ above nine). The "..." is drawn by
 `drawMoreButton`, the same look as `host.ui.moreButton` (`.sdk-more`) inside a module. In every zone it sits
 on the **left**, and leftover items come off the left, so the rightmost item stays. An item marked
 `overflow: true` always goes into the "...", for something you always want tucked away (a destructive

@@ -118,12 +118,12 @@ test('nothing is left of the old translation (WIRE_SCOPE, toSdk, toWire)', () =>
     const heard = {};
     return { heard, addEventListener(type, fn) { (heard[type] ||= []).push(fn); } };
   };
-  const run = (steps, pttKey, inSpace = true) => {
+  const run = (steps, pttKey, inSpace = true, inCall = true) => {
     const mic = [];
     const doc = { ...listening(), visibilityState: 'visible', body: { classList: { contains: (c) => inSpace && c === 'in-space' } } };
     const win = listening();
-    const h = new Function('document', 'window', 'prefs', 'call', 'hotkeyMatches', 'reflectMic', `let pttHeld = false;\n${src}\nreturn { onKey, onKeyUp };`)(
-      doc, win, { ptt: true, pttKey, muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE' }, { localParticipant: { setMicrophoneEnabled: (on) => { mic.push(on); return Promise.resolve(); } } }, hotkeyMatches, () => {});
+    const h = new Function('document', 'window', 'prefs', 'call', 'hotkeyMatches', 'reflectMic', 'inCall', `let pttHeld = false;\n${src}\nreturn { onKey, onKeyUp };`)(
+      doc, win, { ptt: true, pttKey, muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE' }, { localParticipant: { setMicrophoneEnabled: (on) => { mic.push(on); return Promise.resolve(); } } }, hotkeyMatches, () => {}, inCall);
     const prevented = [];
     for (const [type, target, code = pttKey, extra = {}] of steps) {
       if (type === 'blur' || type === 'pagehide') { for (const fn of win.heard[type] || []) fn({ type, target: win }); continue; }
@@ -167,6 +167,9 @@ test('nothing is left of the old translation (WIRE_SCOPE, toSdk, toWire)', () =>
     ['Enter as the push-to-talk key presses a focused button', [...tabTo(button), ...press(button, 'Enter')], leaves, 'Enter'],
     ['Enter as the push-to-talk key talks on a link', [...tabTo(link), ...press(link, 'Enter')], talks, 'Enter'],
     ['push to talk does nothing outside a space', press(body), leaves, 'Space', false],
+    // In a space but not in the call (entering never joins): holding the key must not open the microphone.
+    ['push to talk does nothing out of the call', press(body), leaves, 'Space', true, false],
+    ['push to talk does nothing out of the call, the key held and the window losing focus', [['keydown', body], ['blur'], ['hidden'], ['keyup', body]], leaves, 'Space', true, false],
     ['releasing after focus moved into a text field stops talking', [['keydown', body], ['keyup', el('INPUT', null, body)]], talks],
     ['releasing after focus moved onto a button stops talking', [['keydown', body], ['keyup', button]], talks],
     ['releasing with Shift pressed meanwhile stops talking', [['keydown', body], ['keydown', body, 'ShiftLeft', shift], ['keyup', body, 'Space', shift], ['keyup', body, 'ShiftLeft']], talks],
@@ -177,8 +180,8 @@ test('nothing is left of the old translation (WIRE_SCOPE, toSdk, toWire)', () =>
     ['the page going away while the key is held stops talking', [['keydown', body], ['pagehide']], { mic: [true, false], prevented: ['keydown'] }],
     ['the window losing focus with the key up changes nothing, and the next press talks', [['blur'], ['hidden'], ['visible'], ...press(body)], talks],
   ];
-  for (const [name, steps, want, pttKey = 'Space', inSpace = true] of cases) {
-    try { assert.deepEqual(run(steps, pttKey, inSpace), want); n += 1; } catch (err) { failed += 1; console.error(`check-module-host: push to talk, ${name}: ${err.message.split('\n')[0]}`); }
+  for (const [name, steps, want, pttKey = 'Space', inSpace = true, inCall = true] of cases) {
+    try { assert.deepEqual(run(steps, pttKey, inSpace, inCall), want); n += 1; } catch (err) { failed += 1; console.error(`check-module-host: push to talk, ${name}: ${err.message.split('\n')[0]}`); }
   }
   test('every document that hears the call\'s keys hears pointer presses and focus, and its window going away, too (the page and both pop-outs)', () => {
     const page = fs.readFileSync(new URL('../public/space.js', import.meta.url), 'utf8');

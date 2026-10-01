@@ -20,7 +20,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, isShown } = await import(pathToFileURL(copy).href);
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, isShown, foldSteps, foldCount, middleCentred, middleWidth } = await import(pathToFileURL(copy).href);
+// Who is here (the space bar's middle zone) gives way before the bar folds; its fitting and its reading of the call are pure.
+const peopleCopy = path.join(tmp, 'space-people.mjs');
+fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
+const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFileURL(peopleCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -229,6 +233,124 @@ test('the phone menu closes when the width crosses the phone line, and focus it 
   assert.match(wire, /header\.addEventListener\('focusin'/, 'the header remembers what last had focus, since a redraw can drop it');
   assert.match(src, /matchMedia\('\(max-width: 640px\)'\)/, 'the same width as nav-bar.js folds at');
   assert.match(fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8'), /matchMedia\('\(max-width: 640px\)'\)/);
+});
+
+test('the space bar folds by band, each from its end: secondary, a module\'s, core (the slider with its switch), utility; never Leave or the "..."', () => {
+  const click = () => {};
+  const right = [
+    { id: 'dock-all', order: 1, onClick: click },
+    { id: 'snap-all', order: 2, onClick: click },
+    { id: 'snap-size', order: 3, element: {} },
+    { id: 'fullscreen-toggle', order: 11, onClick: click },
+    { id: 'popout', order: 12, onClick: click },
+    { id: 'recall-button', order: 51, onClick: click },
+    { id: 'rejoin-call', order: 52, onClick: click },
+    { id: 'm:a', order: 101 },
+    { id: 'm:b', order: 102 },
+    { id: 'subnav-more', order: 998, element: {}, fold: false },
+    { id: 'leave-space', order: 999, onClick: click },
+  ];
+  assert.deepEqual(foldSteps(right), [['popout'], ['fullscreen-toggle'], ['m:b'], ['m:a'], ['snap-all', 'snap-size'], ['dock-all'], ['rejoin-call'], ['recall-button']]);
+  assert.deepEqual(foldSteps([{ id: 'x', order: 20, fold: false }, { id: 'y', order: 21, onClick: click }]), [['y']], 'fold: false keeps a tool in the bar');
+  assert.deepEqual(foldSteps([{ id: 'e', order: 5, element: {} }]), [['e']], 'an element with nothing before it folds on its own');
+});
+
+test('the space bar folds only as much as it must, with and without something in the middle', () => {
+  const steps = [40, 40, 120];
+  // Nothing in the middle: the zones share the row (two grid gaps of 12).
+  assert.equal(foldCount({ width: 1000, gap: 12, left: 300, right: 300, more: 30, steps }), 0);
+  assert.equal(foldCount({ width: 600, gap: 12, left: 300, right: 300, more: 30, steps: [20, 20, 120] }), 3, 'the "..." takes width too: 300+30-20-20 is still too wide');
+  assert.equal(foldCount({ width: 600, gap: 12, left: 300, right: 300, more: 30, steps }), 2);
+  assert.equal(foldCount({ width: 700, gap: 12, left: 300, right: 420, more: 30, steps: [100, 40] }), 1);
+  // Something in the middle: it stays centred, so the right zone has half of what it leaves.
+  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 100, right: 388, more: 30, steps }), 0);
+  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 100, right: 389, more: 30, steps }), 1);
+  // A name too long for its half: the middle gives up the centre and the right zone folds before the name is cut.
+  assert.equal(middleCentred({ width: 1000, gap: 12, middle: 200, left: 388 }), true);
+  assert.equal(middleCentred({ width: 1000, gap: 12, middle: 200, left: 389 }), false);
+  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 500, right: 250, more: 30, steps }), 0, 'all three fit side by side: nothing folds');
+  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 500, right: 300, more: 30, steps }), 2, 'the right zone folds for the name');
+  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 900, right: 100, more: 30, steps }), 3, 'everything folds before the name is cut');
+  // Nothing fits: everything that can fold does, and no more.
+  assert.equal(foldCount({ width: 100, gap: 12, left: 300, right: 300, more: 30, steps }), 3);
+  assert.equal(foldCount({ width: 100, gap: 12, left: 300, right: 300, more: 30, steps: [] }), 0);
+});
+
+test('the space bar\'s "..." uses the shared menu, shows a toggle\'s state and clicks the tool itself', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  const menu = src.slice(src.indexOf('async function openFoldMenu('));
+  assert.match(menu, /openHostMenu\(fold\.more, items\)/);
+  assert.match(menu, /checked: t\.toggleable \? on : undefined/);
+  assert.match(menu, /onPick: \(\) => \{\s*fold\.picked = c;\s*c\.click\(\);/);
+  // After a pick the keyboard goes to the tool, else the "..." while it shows, else the left zone (the module chooser).
+  const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
+  assert.match(fit, /\[focusable\(picked\), fold\.more\.hidden \? null : fold\.more, inLeft\(\)\]/);
+  // The "..." had the keyboard and hides (the bar grew): to a tool it held, else the left zone; never <body>.
+  assert.match(fit, /wasFocused === fold\.more && fold\.more\.hidden/);
+  assert.match(fit, /heldBefore\.has\(c\.dataset\.navTool\)/);
+  assert.match(src, /more\.className = 'sdk-more nav-more'/);
+  const hm = fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8');
+  assert.match(hm, /'menuitemcheckbox'/);
+  assert.match(hm, /aria-checked/);
+});
+
+test('who is here drops portraits, then shows only its count, before the bar folds anything', () => {
+  const sizes = { base: 60, first: 26, step: 17, plus: 24 };
+  assert.equal(MAX_FACES, 4);
+  assert.equal(facesThatFit({ avail: Infinity, count: 9, ...sizes }), 4, 'at most four, the rest a "+N"');
+  assert.equal(facesThatFit({ avail: Infinity, count: 3, ...sizes }), 3, 'everyone when they fit, no "+N"');
+  assert.equal(facesThatFit({ avail: 60 + 26 + 17 * 2, count: 3, ...sizes }), 3);
+  assert.equal(facesThatFit({ avail: 60 + 26 + 17 * 2 - 1, count: 3, ...sizes }), 1, 'one fewer needs a "+1" too, which does not fit either');
+  assert.equal(facesThatFit({ avail: 60 + 26 + 17 + 24, count: 9, ...sizes }), 2);
+  assert.equal(facesThatFit({ avail: 60 + 26 + 24, count: 9, ...sizes }), 1);
+  assert.equal(facesThatFit({ avail: 60 + 26 + 23, count: 9, ...sizes }), 0, 'the count alone');
+  assert.equal(facesThatFit({ avail: 10, count: 9, ...sizes }), 0, 'the count alone is the smallest; the bar folds after that');
+  assert.equal(facesThatFit({ avail: 500, count: 0, ...sizes }), 0);
+});
+
+test('who is here gets the width the left and right zones leave, so it shrinks before a tool folds or the name is cut', () => {
+  const steps = [40, 40, 120];
+  // Centred: each side as wide as the wider zone.
+  assert.equal(middleWidth({ width: 1000, gap: 12, left: 100, right: 300 }), 1000 - 2 * (300 + 12));
+  // A long name (the left zone wider than the right): the middle sits beside it, and has what the two leave, not what
+  // the right zone alone would leave centred (1000 - 2 * (250 + 12) = 476, far more than the row holds).
+  assert.equal(middleWidth({ width: 1000, gap: 12, left: 500, right: 250 }), 1000 - 500 - 250 - 2 * 12, 'two grid gaps, whatever the middle holds');
+  assert.ok(middleWidth({ width: 1000, gap: 12, left: 500, right: 250 }) < 1000 - 2 * (250 + 12));
+  // A middle that takes exactly that width folds nothing, centred or beside; a little more folds the right zone.
+  for (const [left, right] of [[100, 300], [300, 100], [500, 250], [700, 120], [306, 300]]) {
+    const middle = middleWidth({ width: 1000, gap: 12, left, right });
+    assert.equal(foldCount({ width: 1000, gap: 12, middle, left, right, more: 30, steps }), 0, `left ${left}, right ${right}: nothing folds`);
+    assert.ok(foldCount({ width: 1000, gap: 12, middle: middle + 2, left, right, more: 30, steps }) > 0, `left ${left}, right ${right}: a little more folds`);
+  }
+  // The long name at 800 wide: with this width four portraits no longer fit, the count alone does, and nothing folds.
+  const sizes = { base: 60, first: 26, step: 17, plus: 24 };
+  const avail = middleWidth({ width: 800, gap: 12, left: 440, right: 230 });
+  assert.equal(avail, 800 - 440 - 230 - 24);
+  // Exact, so the name is never cut while portraits show: beside a long name, the middle, the left and right zones and
+  // the two gaps fill the row to the pixel and nothing folds; a pixel more on the left and the right zone folds.
+  for (const [width, left, right] of [[844, 453, 215], [842, 453, 215], [700, 420, 200], [1000, 600, 120]]) {
+    const m = middleWidth({ width, gap: 12, left, right });
+    assert.equal(left + m + right + 2 * 12, width, `${width}: the three and two gaps fill the row`);
+    assert.equal(foldCount({ width, gap: 12, middle: m, left, right, more: 30, steps }), 0, `${width}: nothing folds at that width`);
+    assert.ok(foldCount({ width, gap: 12, middle: m, left: left + 2, right, more: 30, steps }) > 0, `${width}: a wider name folds the right zone`);
+  }
+  assert.equal(facesThatFit({ avail, count: 9, ...sizes }), 0);
+  assert.equal(foldCount({ width: 800, gap: 12, middle: 60, left: 440, right: 230, more: 30, steps }), 0);
+});
+
+test('who is here reads the call: you first, then by name, never a hidden participant, "on the call" unless off', () => {
+  const remote = new Map([
+    ['z', { identity: 'z', name: 'Zoe', attributes: { call: 'on' } }],
+    ['a', { identity: 'a', name: 'Al', attributes: { call: 'off' } }],
+    ['obs', { identity: 'obs', name: 'OBS', attributes: {}, permissions: { hidden: true } }],
+    ['n', { identity: 'n', attributes: {} }],
+  ]);
+  const call = { localParticipant: { identity: 'me', name: 'Me', attributes: { call: 'off' } }, remoteParticipants: remote };
+  const people = peopleIn(call, { meOnCall: true });
+  assert.deepEqual(people.map((p) => [p.name, p.you, p.onCall]), [['Me', true, true], ['Al', false, false], ['n', false, true], ['Zoe', false, true]]);
+  assert.deepEqual(peopleIn(null), []);
+  assert.deepEqual(hereWords(people, 'space'), { shown: '4 here', said: '4 people in this space, 3 on the call' });
+  assert.deepEqual(hereWords(people.slice(0, 1).map((p) => ({ ...p, onCall: false })), 'aside'), { shown: 'Just you', said: 'Just you in this aside' });
 });
 
 console.log(`check-nav: OK (${n} tests)`);

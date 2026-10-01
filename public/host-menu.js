@@ -7,7 +7,9 @@
 // Keyboard: the first item takes focus when it opens, the arrow keys (and Home, End) move between the items, Enter
 // or Space picks, Escape or Tab closes, and Escape (or a pick) puts focus back on the button that opened it.
 //
-// An item is { label, icon?, regular?, hint?, danger?, disabled?, onPick }.
+// An item is { label, icon?, regular?, hint?, danger?, disabled?, checked?, badge?, onPick }. `checked` (true or false)
+// makes it a checkbox item that says whether it is on (a tool that toggles, folded into the space bar's "..."); `badge`
+// is a count shown after its label.
 let open = null;
 
 function close({ refocus = false } = {}) {
@@ -40,7 +42,9 @@ export function openHostMenu(trigger, items) {
     const b = doc.createElement('button');
     b.type = 'button';
     b.className = 'host-menu-item';
-    b.setAttribute('role', 'menuitem');
+    const checkable = typeof item.checked === 'boolean';
+    b.setAttribute('role', checkable ? 'menuitemcheckbox' : 'menuitem');
+    if (checkable) b.setAttribute('aria-checked', String(item.checked));
     b.tabIndex = -1;
     b.disabled = Boolean(item.disabled);
     if (item.icon) {
@@ -50,8 +54,22 @@ export function openHostMenu(trigger, items) {
       b.appendChild(i);
     }
     const label = doc.createElement('span');
+    label.className = 'host-menu-label';
     label.textContent = item.label || item.title || '';
     b.appendChild(label);
+    const count = Math.max(0, Math.round(Number(item.badge) || 0));
+    if (count) {
+      const badge = doc.createElement('span');
+      badge.className = 'host-menu-badge';
+      badge.textContent = count > 9 ? '9+' : String(count);
+      b.appendChild(badge);
+    }
+    if (checkable) {
+      const check = doc.createElement('i');
+      check.className = 'fa-solid fa-check fa-fw host-menu-check';
+      check.setAttribute('aria-hidden', 'true');
+      b.appendChild(check);
+    }
     if (item.hint) {
       const hint = doc.createElement('span');
       hint.className = 'host-menu-hint';

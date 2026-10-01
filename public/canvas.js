@@ -15,6 +15,7 @@
 import { api, markModuleRead, followTheme } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
 import { whatOpens } from '/opens-with.js';
+import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle } from '/snap-grid.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
@@ -921,6 +922,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       for (const el of p.parts()) el.classList.toggle('narrow-hidden', hide);
     }
   }
+  // Open, docked, and hidden on a narrow canvas because another view is shown.
+  function hiddenByView(id) {
+    const mod = opened.get(id);
+    return Boolean(mod && mod.mode === 'dock' && isNarrow() && view !== id);
+  }
   function setView(id) {
     if (!opened.has(id)) return;
     const mod = opened.get(id);
@@ -977,7 +983,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
 
   function closeAllModules() {
     for (const p of [...opened.values()]) if (p.kind === 'module') closeModule(p.id);
-    if (menu && !inline()) menu.hidden = true;
+    if (menu && !inline()) setMenuOpen(false);
   }
 
   function setMode(id, mode) {
@@ -1059,7 +1065,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     for (const { m, mode } of again) openModule(m, isNarrow() ? undefined : mode);
     suspended = false;
     syncDock();
-    snapshot();
+    update(); // the tab or switch for the view shown in this window's width
   }
 
   // Whether this person may open a module here: the conference and the chat by their own rule, any other by being on
@@ -1131,12 +1137,30 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       badge.textContent = total > 9 ? '9+' : String(total);
     }
     snapshot();
-    toggle?.classList.toggle('on', [...opened.keys()].some((id) => id !== 'conference'));
     if (canvasEmpty) canvasEmpty.hidden = opened.size > 0;
     if (!menu) return;
+    const builtinList = [...builtins.values()].sort((a, b) => a.order - b.order).filter((def) => !def.allowed || def.allowed());
+    // A switch always reads the module's name (the environment's name for it), open or not, in the call or not.
+    if (!inline()) {
+      // The space bar's chooser: a list of switches under its button (switch-list.js), on while the module is shown.
+      // Rebuilt in place, so the switch that had the keyboard keeps it.
+      const doc = menu.ownerDocument;
+      const had = menu.contains(doc.activeElement) ? doc.activeElement : null;
+      const key = had ? (had.dataset.builtin ? `builtin:${had.dataset.builtin}` : had.dataset.module ? `module:${had.dataset.module}` : null) : null;
+      // On a narrow canvas a module open but hidden behind the view shown reads off; its switch shows it.
+      const shown = (id) => opened.has(id) && !hiddenByView(id);
+      menu.innerHTML = switchListHtml(builtinList.map((def) => ({ id: def.id, icon: def.icon, name: def.name, on: shown(def.id), badge: builtinUnread[def.id] || 0 })), 'builtin')
+        + switchListHtml(available.map((m) => ({ id: m.id, icon: m.icon, name: m.name, on: shown(m.id), badge: unread[m.id] || 0 })), 'module');
+      wireSwitchList(menu);
+      if (key) {
+        const [kind, id] = key.split(/:(.*)/s);
+        [...menu.querySelectorAll(`[data-${kind}]`)].find((el) => el.dataset[kind] === id)?.focus();
+      }
+      return;
+    }
+    // The phone's tab bar: a tab per module (the highlighted tab is the view being shown).
     menu.innerHTML = '';
-    for (const def of [...builtins.values()].sort((a, b) => a.order - b.order)) {
-      if (def.allowed && !def.allowed()) continue;
+    for (const def of builtinList) {
       const open = opened.has(def.id);
       const b = menu.ownerDocument.createElement('button');
       b.type = 'button';
@@ -1144,10 +1168,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       b.dataset.builtin = def.id;
       // On a phone the highlighted tab is the view being shown, not just an open module.
       b.classList.toggle('on', isNarrow() && open ? view === def.id : open);
-      // The call is on: the phone's tab bar marks it, since the conference can be hidden while it runs.
-      b.classList.toggle('in-call', def.id === 'conference' && open);
+      // The call is on: the phone's tab bar marks it, since the conference can be hidden while it runs. Open is not
+      // enough: the conference can be shown and out of the call ("Not in a call"), so its owner says (def.inCall).
+      b.classList.toggle('in-call', open && Boolean(def.inCall?.()));
       const n = builtinUnread[def.id] || 0;
-      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(def.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(!open && def.closedLabel ? def.closedLabel : def.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
+      b.innerHTML = `<i class="fa-solid fa-${escapeHtml(def.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(def.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
       menu.appendChild(b);
     }
     for (const m of available) {
@@ -1165,11 +1190,13 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // Clicking away closes the menu, and a resize keeps floating modules on screen,
   // in whichever window the call is in.
   const bound = new WeakSet();
+  let lastNarrow = null;
   function bindDoc(doc) {
     if (bound.has(doc)) return;
     bound.add(doc);
     doc.addEventListener('click', (event) => {
-      if (menu && !inline() && !menu.hidden && !event.target.closest('#modules-menu, #modules-toggle')) menu.hidden = true;
+      // By the event's path: a switch just flipped is already rebuilt, out of the document, by the time this hears it.
+      if (menu && !inline() && !menu.hidden && !event.composedPath().some((n) => n === menu || n === toggle)) setMenuOpen(false);
     });
     (doc.defaultView || window).addEventListener('resize', () => {
       for (const p of opened.values()) {
@@ -1179,6 +1206,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
         if (snapping(p.id)) settleSnap(p.id, floater, saved[p.id]?.cell); else place(floater, currentBox(floater));
       }
       syncDock();
+      // Crossing the narrow line changes which module shows, so the tabs and switches say so.
+      if (isNarrow() !== lastNarrow) { lastNarrow = isNarrow(); update(); }
       if (menu && !inline() && !menu.hidden) positionMenu();
     });
   }
@@ -1191,7 +1220,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // The menu belongs to the canvas, so it works with the conference closed. It opens under the
   // Modules button in the page header (the one place to open modules).
   function positionMenu() {
-    if (inline()) return;
+    if (inline() || menu.closest('.module-chooser')) return; // the space bar's chooser: CSS puts it under its button
     const visible = (el) => el && el.getBoundingClientRect().width > 0;
     // The header moves with the canvas when the app is popped out, so the button is always beside it.
     const anchor = [toggle].find(visible);
@@ -1212,35 +1241,65 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     if (canvas.contains(anchor)) menu.style.top = `${a.bottom - s.top + 6}px`;
   }
 
+  // The chooser's list stays open while switches are flipped; its button, Escape or a click elsewhere closes it, and
+  // the keyboard goes back to the button. Opened from the keyboard, it goes straight to the first switch.
+  function setMenuOpen(open, { focus = false } = {}) {
+    if (!menu || inline()) return;
+    menu.hidden = !open;
+    toggle?.setAttribute('aria-expanded', String(open));
+    if (open) {
+      positionMenu();
+      if (focus) menu.querySelector('input, button')?.focus();
+    } else if (focus) toggle?.focus();
+  }
   function toggleMenu() {
     if (!menu || inline()) return;
-    menu.hidden = !menu.hidden;
-    if (!menu.hidden) positionMenu();
+    setMenuOpen(menu.hidden);
   }
 
   toggle?.addEventListener('click', (event) => {
     event.stopPropagation();
-    toggleMenu();
+    // A click from the keyboard (Enter or Space) has no pointer position.
+    setMenuOpen(menu.hidden, { focus: event.detail === 0 });
   });
+  menu?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || inline() || menu.hidden) return;
+    event.stopPropagation();
+    setMenuOpen(false, { focus: true });
+  });
+  // A tab on the phone's bar, or a switch in the chooser's list (its checkbox's click, from a pointer, Space or Enter).
+  // A switch shows or hides the module, the same for every one; the conference's owner hears it through onChange.
+  // On a narrow canvas one docked module shows at a time (syncView): a switch on a module that is open but hidden
+  // behind another shows it (it reads off until then, see update()), so seeing the conference never means switching it
+  // off, which hangs up. The switch keeps the keyboard while the list is open, whatever the module does as it opens
+  // (the chat puts it in its message box).
   menu?.addEventListener('click', (event) => {
-    const builtin = event.target.closest('[data-builtin]');
-    if (builtin) {
-      const id = builtin.dataset.builtin;
-      // On a phone a tab switches the view; it never closes a module (so it never hangs up the call).
-      if (isNarrow()) { if (opened.has(id)) setView(id); else api_openBuiltin(id); }
-      else if (opened.has(id)) closeBuiltin(id);
-      else api_openBuiltin(id);
-      if (!inline()) menu.hidden = true;
-      return;
+    const el = event.target.closest('[data-builtin], [data-module]');
+    if (!el) return;
+    const builtin = el.dataset.builtin;
+    const m = builtin ? null : available.find((x) => x.id === el.dataset.module);
+    if (!builtin && !m) return;
+    const id = builtin || m.id;
+    const open = () => (builtin ? api_openBuiltin(id) : openModule(m));
+    const close = () => (builtin ? closeBuiltin(id) : closeModule(id));
+    // On a phone a tab switches the view; it never closes a module (so it never hangs up the call).
+    if (inline() && isNarrow()) { if (opened.has(id)) setView(id); else open(); return; }
+    if (opened.has(id) && hiddenByView(id)) setView(id);
+    else if (opened.has(id)) close();
+    else open();
+    if (inline()) return;
+    update(); // the switch shows what happened (a module that may not open stays off)
+    if (!menu.hidden) {
+      const kind = builtin ? 'builtin' : 'module';
+      [...menu.querySelectorAll(`[data-${kind}]`)].find((x) => x.dataset[kind] === id)?.focus();
     }
-    const item = event.target.closest('[data-module]');
-    if (!item) return;
-    const m = available.find((x) => x.id === item.dataset.module);
-    if (!m) return;
-    if (isNarrow()) { if (opened.has(m.id)) setView(m.id); else openModule(m); }
-    else if (opened.has(m.id)) closeModule(m.id);
-    else openModule(m);
-    if (!inline()) menu.hidden = true;
+  });
+  // Esc on the chooser's button closes its list too, as it does from a switch.
+  toggle?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || inline() || !menu || menu.hidden) return;
+    event.stopPropagation();
+    event.preventDefault();
+    setMenuOpen(false, { focus: true });
   });
 
   // The modules on for this space and this viewer, or none (null = not in a space).

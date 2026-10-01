@@ -1162,55 +1162,97 @@ body.in-space .subnav {
   justify-self: end;
 }
 
-/* The call control, in the space bar's middle zone while you are not in the call: "2 in the call · Join". Its hint (the
-   microphone note) shows under it on hover and on keyboard focus. */
-.call-control {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--header-text);
-  white-space: nowrap;
+/* The bar never lets its zones run into each other (nav-bar.js, "the space bar's ..."): what does not fit folds into the
+   "..." before Leave (.nav-folded), and with nothing in the middle zone the left one takes whatever the right does not.
+   A name too long for its half gives up the middle's centre ("beside": the middle sits before the right zone) before it
+   is cut. The zones' own items keep their size; only the space's name gives, cut short with an ellipsis. */
+body.in-space .subnav[data-middle="empty"],
+body.in-space .subnav[data-middle="beside"] {
+  grid-template-columns: minmax(0, 1fr) auto auto;
 }
 
-.call-control[hidden],
-.call-control [hidden] {
-  display: none;
+.subnav .nav-folded {
+  display: none !important;
 }
 
-.call-control-sep {
-  color: color-mix(in srgb, var(--header-text) 60%, transparent);
+.subnav .nav-left > *,
+.subnav .nav-right > * {
+  flex: none;
 }
 
-.call-control .btn {
-  height: 22px;
-  padding: 0 10px;
-  font-size: 12px;
+.subnav .nav-left {
+  max-width: 100%; /* never past its column: the name gives instead */
 }
 
-.call-control-hint {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  z-index: 30;
-  display: none;
+/* For the moment nav-bar.js measures the bar (never painted): nothing shrinks, so it sees each item's full size. */
+.subnav.nav-measuring .nav-left {
+  max-width: none;
+}
+
+.subnav.nav-measuring .nav-left > * {
+  flex: none;
+}
+
+.subnav .nav-left > .space-name {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Measured at its full length: the name uses whatever room there is, and is cut short only once everything in the
+   right zone that can fold has (nav-bar.js). */
+.subnav.nav-measuring .nav-left {
   width: max-content;
-  max-width: min(320px, 80vw);
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-section);
-  color: var(--text-dim);
-  font-size: 12px;
-  white-space: normal;
-  transform: translateX(-50%);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
 }
 
-.call-control:hover .call-control-hint,
-.call-control:focus-within .call-control-hint {
-  display: block;
+.subnav.nav-measuring .nav-left > .space-name {
+  flex: none;
+}
+
+.subnav .space-name i {
+  flex: none;
+}
+
+.subnav #space-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The bar's "...": the shared More button (.sdk-more), in the header's colours and the bar's height. */
+.subnav .sdk-more {
+  position: relative;
+  width: 28px;
+  height: 20px;
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+}
+
+.subnav .sdk-more:hover,
+.subnav .sdk-more:focus-visible,
+.subnav .sdk-more[aria-expanded="true"] {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+.subnav .sdk-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.subnav .sdk-more .badge {
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
 }
 
 .space-name {
@@ -1272,15 +1314,16 @@ body.in-space .subnav {
   white-space: nowrap;
 }
 
-.subnav-modules .modules-menu-item::before {
+.subnav-modules .modules-menu-item::before,
+input.switch {
   content: "";
   flex: none;
   width: 22px;
   height: 12px;
   border-radius: 6px;
   background:
-    radial-gradient(circle at 6px 50%, color-mix(in srgb, var(--header-text) 70%, transparent) 4px, transparent 4.5px),
-    color-mix(in srgb, var(--header-text) 22%, transparent);
+    radial-gradient(circle at 6px 50%, color-mix(in srgb, var(--switch-ink, var(--header-text)) 70%, transparent) 4px, transparent 4.5px),
+    color-mix(in srgb, var(--switch-ink, var(--header-text)) 22%, transparent);
 }
 
 .subnav-modules .modules-menu-item:hover {
@@ -1292,10 +1335,149 @@ body.in-space .subnav {
   color: var(--header-text);
 }
 
-.subnav-modules .modules-menu-item.on::before {
+.subnav-modules .modules-menu-item.on::before,
+input.switch:checked {
   background:
     radial-gradient(circle at 16px 50%, var(--on-accent) 4px, transparent 4.5px),
     var(--accent);
+}
+
+/* The same switch as a checkbox (<input type="checkbox" class="switch" role="switch">), for a list of choices off the
+   space bar (Open with on the space list, Opens with in space settings): the page's text colour for its ink. */
+input.switch {
+  --switch-ink: var(--text);
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+}
+
+input.switch:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* One row of a switch list (switch-list.js): the switch, the module's icon and name, a note, a count. The same rows in the
+   space bar's module chooser, Open with on the space list and Opens with in space settings. */
+label.switch-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 5px 6px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: normal;
+  cursor: pointer;
+}
+
+label.switch-row:hover {
+  background: var(--surface-hover);
+}
+
+/* On and fixed (a module on for every space): it can't be switched here. */
+label.switch-row.disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+label.switch-row.disabled:hover {
+  background: none;
+}
+
+input.switch:disabled {
+  cursor: default;
+}
+
+.switch-row .switch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.switch-row .hint {
+  margin: 0;
+  white-space: nowrap;
+}
+
+.switch-row .badge,
+.module-chooser-toggle .badge {
+  margin-left: auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+/* The space bar's module chooser: one button after the space's name, its list of switches under it, open while you
+   flip several. On a phone the list is the tab bar (.subnav-modules) and the button is not drawn. */
+.module-chooser {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.module-chooser-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.module-chooser-toggle[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.module-chooser-toggle .badge[hidden] {
+  display: none;
+}
+
+.module-chooser-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: min(70vh, 480px);
+  overflow-y: auto;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-section);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.module-chooser-list[hidden] {
+  display: none;
+}
+
+/* Only while the list is the tab bar (space.js, placeSubnav, by the width of the header's own window, so a narrow
+   pop-out gets its tabs): no button, and the tab bar lays out the tabs as before. */
+body.in-space .module-chooser:has(> .subnav-modules) {
+  display: contents;
+}
+
+body.in-space .module-chooser:has(> .subnav-modules) > .module-chooser-toggle {
+  display: none;
 }
 
 /* The bar is a second row of the header; the gap between rows would add height to the first. */
@@ -2431,20 +2613,146 @@ a.crumb-here:hover {
 
 .no-call {
   position: absolute;
-  inset: 0;
+  /* Below the module's header, so its title, its tools and its x are never covered. */
+  top: var(--module-header-h);
+  right: 0;
+  bottom: 0;
+  left: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  /* Centred while it fits; a short module scrolls it from its top instead of cutting off the top. */
+  justify-content: safe center;
   gap: 10px;
   color: var(--text-dim);
   font-size: 15px;
-  pointer-events: none;
+}
+
+/* Popped out and idle, the header slides away and the note has the whole module. */
+.popout .canvas.idle .no-call,
+.conference-window .canvas.idle .no-call {
+  top: 0;
 }
 
 .no-call i {
   font-size: 28px;
   opacity: 0.7;
+}
+
+.no-call[hidden] {
+  display: none;
+}
+
+/* Who is in the call now, and Join the call. The note scrolls (wheel, touch, keyboard) when a short module can't hold it;
+   the toolbar is its own row below, so nothing needs clearing. */
+.no-call {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  box-sizing: border-box;
+}
+
+.no-call > * {
+  flex: none;
+}
+
+.no-call-who {
+  width: min(320px, 100%);
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-section);
+  color: var(--text);
+}
+
+.no-call-who-title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.no-call-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.no-call-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.no-call-list li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.no-call-list img,
+.no-call-list .no-call-initial {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--secondary);
+}
+
+.no-call-list .no-call-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  color: var(--secondary-text);
+}
+
+.no-call-empty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text-dim);
+}
+
+.no-call-empty[hidden],
+.no-call-list[hidden] {
+  display: none;
+}
+
+.no-call-hint {
+  width: min(320px, 100%);
+  margin: 0;
+  font-size: 12px;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+/* Why the join did not go through (the calls cap, or no answer from the server), from space.js. */
+.no-call-error {
+  font-size: 13px;
+  color: var(--danger-text);
+}
+
+.no-call-error[hidden] {
+  display: none;
+}
+
+.no-call-hint .install-hint:not([hidden]) {
+  display: block;
+}
+
+.no-call .no-call-join i {
+  font-size: inherit;
+  opacity: 1;
 }
 
 .module-video.call-off .fbtn:not(#hangup):not(#floatbar-more) {
@@ -5079,6 +5387,38 @@ body.conference-window {
   cursor: default;
 }
 
+/* A checkbox item (a folded toggle): a check at the end while it is on. A count sits before it. */
+.host-menu-label {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.host-menu-check {
+  margin-left: auto;
+}
+
+.host-menu-item[aria-checked="false"] .host-menu-check {
+  visibility: hidden;
+}
+
+.host-menu-badge {
+  margin-left: auto;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.host-menu-badge + .host-menu-check {
+  margin-left: 0;
+}
+
 .host-menu-item.danger { color: var(--danger); }
 .host-menu-item.danger:hover,
 .host-menu-item.danger:focus-visible { background: color-mix(in srgb, var(--danger) 14%, transparent); }
@@ -5306,11 +5646,12 @@ body.chat-window {
   right: -2px;
 }
 
-/* Space settings' Opens with: a tick for the conference, the chat and each module on in the space. */
+/* Space settings' Opens with: a switch for the conference, the chat and each module on in the space (switch-list.js). */
 .opens-with-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
+  align-items: flex-start;
   margin: 8px 0;
 }
 
@@ -5344,25 +5685,9 @@ body.chat-window {
 .join-with-list {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 2px;
 }
 
-.join-with .check {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  color: var(--text);
-  font-size: 13px;
-  text-transform: none;
-  letter-spacing: 0;
-  cursor: pointer;
-}
-
-.join-with .check input {
-  width: auto;
-  margin: 0;
-}
 
 /* In a space the Modules menu is the way to a module; the header's links to the global pages would be
    a second, confusing way to the same thing. The links are tools the nav-bar registry draws straight into the
@@ -5563,8 +5888,7 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     justify-content: space-around;
   }
 
-  /* The middle zone is not drawn in the tab bar (architecture-navigation.md, "Phones"): the call control's Join is the
-     Conference tab here. */
+  /* The middle zone is not drawn in the tab bar (architecture-navigation.md, "Phones"). */
   body.in-space .subnav .nav-middle {
     display: none;
   }
@@ -6404,6 +6728,255 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 @media (max-width: 760px) {
   .verb-row .verb-field { grid-column: 1 / -1; }
   .verb-row [data-verb-reset] { grid-column: -2 / -1; grid-row: 1; justify-self: end; align-self: start; }
+}
+
+/* --- who is here: the space bar's middle zone (space-people.js) ------------------------------------------------
+   Everyone in this space now, as overlapping portraits and a count, a camera mark on those on the call; its list opens
+   under it, the same popover as the Modules chooser. It drops portraits, then shows only the count (an icon and "3
+   here"), before the bar folds anything. On a phone it is a tab-like count in the tab bar, between the module tabs and Leave, its list above it when the tab bar
+   is at the window's bottom. */
+.who-here {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.who-here-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 8px 0 4px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--header-text);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.who-here-toggle:hover,
+.who-here-toggle[aria-expanded="true"] {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--icon-hover) 10%, transparent);
+}
+
+.who-here-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.who-here-faces {
+  display: inline-flex;
+  align-items: center;
+}
+
+.who-here-faces[hidden],
+.who-here-more[hidden],
+.who-here:not(.count-only) .who-here-icon {
+  display: none;
+}
+
+.who-here-face {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  border-radius: 50%;
+  box-shadow: 0 0 0 2px var(--nav-secondary-bg, var(--header-bg));
+}
+
+.who-here-face + .who-here-face {
+  margin-left: -5px;
+}
+
+.who-here-face.you {
+  box-shadow: 0 0 0 2px var(--nav-secondary-bg, var(--header-bg)), 0 0 0 3px var(--accent);
+}
+
+.who-here-img {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--secondary);
+}
+
+.who-here-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--secondary-text);
+}
+
+/* The camera, the same mark the space list and the conference use: never the colour alone (the list says it in words). */
+.who-here-face .who-here-call {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  color: var(--ok);
+  font-size: 7px;
+}
+
+.who-here-more {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.who-here-icon {
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+}
+
+.who-here-count {
+  font-weight: 600;
+}
+
+/* Its place in the window is set when it opens (space-people.js place()): under the button, or above it in a tab bar
+   at the window's bottom, inside the window's edges. These are where it starts before that. */
+.who-here-list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  z-index: 60;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  width: max-content;
+  min-width: 220px;
+  max-width: min(320px, calc(100vw - 16px));
+  padding: 8px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-section);
+  color: var(--text);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+}
+
+.who-here-list[hidden] {
+  display: none;
+}
+
+.who-here-list:focus {
+  outline: none;
+}
+
+.who-here-list:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.who-here-title {
+  flex: none;
+  margin: 0 0 6px;
+  padding: 0 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.who-here-people {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  max-height: min(60vh, 360px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 0 2px;
+  list-style: none;
+}
+
+.who-here-person {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+}
+
+.who-here-person .who-here-img {
+  width: 26px;
+  height: 26px;
+}
+
+.who-here-person .who-here-initial {
+  font-size: 12px;
+}
+
+.who-here-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.who-here-you {
+  flex: none;
+  color: var(--text-dim);
+}
+
+.who-here-oncall {
+  flex: none;
+  margin-left: auto;
+  padding-left: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.who-here-oncall .who-here-call {
+  color: var(--ok);
+}
+
+@media (max-width: 640px) {
+  /* The tab bar: the middle zone shows only this, a tab-like count (an icon over "3 here"), between the tabs and Leave. */
+  body.in-space .subnav .nav-middle.subnav-middle {
+    display: flex;
+    flex: none;
+    align-items: stretch;
+  }
+
+  body.in-space .subnav .nav-middle.subnav-middle > :not(.who-here) {
+    display: none;
+  }
+
+  body.in-space .who-here-toggle {
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    height: auto;
+    min-width: 48px;
+    padding: 4px 4px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+
+  body.in-space .who-here-faces,
+  body.in-space .who-here-more {
+    display: none;
+  }
+
+  body.in-space .who-here .who-here-icon {
+    display: inline-block;
+    font-size: 18px;
+  }
+
+  body.in-space .who-here-count {
+    font-weight: 400;
+  }
 }
 
 /* --- image slots: paste a picture (slot-paste.js) --------------------------- */

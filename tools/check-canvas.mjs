@@ -105,14 +105,14 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     // Space settings' sentence comes from the stored list, not the ticks on screen.
     ['a stored list with nothing that can open: nothing opens, and no module is named',
       opensWithSummary({ list: ['gone'], environment: ['chat'], modules: ['todo'], canOpen: (id) => id !== 'gone', nameOf: (id) => ({ chat: 'Chat', todo: 'To-do' })[id] || id }),
-      'None of the ticked ones can open now, so nothing opens.'],
+      'None of the ones switched on can open now, so nothing opens.'],
     ['a stored list that opens something: nothing to add', opensWithSummary({ list: ['gone', 'todo'], modules: ['todo'], canOpen: (id) => id !== 'gone' }), ''],
     ['nothing stored: what opens instead, by name',
       opensWithSummary({ list: null, modules: ['todo', 'polls'], nameOf: (id) => ({ chat: 'Chat', todo: 'To-do', polls: 'Polls' })[id] }),
-      'Nothing ticked: Chat, To-do and Polls open.'],
+      'Nothing switched on: Chat, To-do and Polls open.'],
     ['nothing stored, the environment\'s list: its names',
       opensWithSummary({ list: null, environment: ['todo'], modules: ['todo', 'polls'], nameOf: (id) => ({ todo: 'To-do' })[id] }),
-      'Nothing ticked: To-do opens.'],
+      'Nothing switched on: To-do opens.'],
   ];
   for (const [name, got, want] of checks) {
     try {
@@ -243,6 +243,119 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const pitchFn = canvasJs.slice(canvasJs.indexOf('function setSnapPitch('), canvasJs.indexOf('// Drag a floating module by'));
   if (!/resettle\(/.test(pitchFn) || !/keepPlaced: true/.test(pitchFn)) fail('public/canvas.js', 'setSnapPitch must re-settle snapped modules with resettle (snap-grid.js) from their placed box, keeping it');
   if (!/holdStore = true/.test(pitchFn) || !/if \(!preview\) persist\(\)/.test(pitchFn)) fail('public/canvas.js', 'setSnapPitch must store the layout once, when the slider is let go, not on every preview step');
+}
+
+// The conference's switch (Thomas, 2026-09-30): a switch always reads the module's name, never a closed label such as
+// "Rejoin call"; joining lives in the conference's "Not in a call" note, so the space bar has no call control.
+{
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const spaceHtml = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  if (/closedLabel/.test(canvasJs + spaceJs)) fail('public/canvas.js', 'a module switch must read the module\'s name; no closedLabel');
+  if (/id: 'call-control'|\.call-control\b|id="call-join"/.test(spaceJs + css)) fail('public/space.js', 'the space bar\'s call control is gone; join from the conference\'s "Not in a call" note');
+  for (const id of ['no-call-list', 'no-call-empty', 'no-call-join', 'install-hint']) {
+    if (!spaceHtml.includes(`id="${id}"`)) fail('public/space.html', `the "Not in a call" note needs #${id}`);
+  }
+  // Entering a space never joins the call, for members and guests alike (Thomas, 2026-09-30): the conference shows
+  // "Not in a call", and only a click joins (the green phone or "Join the call", both through phoneButton()). The one
+  // other way on (Thomas, 2026-09-30, "Pull keeps you on the call"): a pull (into an aside, or back) while on the call
+  // moves the call with you: reconnectTo(..., { keepCall: true }) reads inCall before it disconnects, and hands
+  // join() and connectAndSetup() `joinCall`, false unless so, which alone starts the call there (still startCall()).
+  const setup = spaceJs.slice(spaceJs.indexOf('async function connectAndSetup('), spaceJs.indexOf('async function startCall('));
+  if (!setup.includes('canvas.restore()')) fail('public/space.js', 'connectAndSetup() must open what the space starts with (canvas.restore())');
+  if (!/async function connectAndSetup\(token, livekitUrl, \{ joinCall = false \} = \{\}\)/.test(setup)) fail('public/space.js', 'connectAndSetup() joins only when told to (joinCall, false unless so)');
+  const setupJoin = setup.slice(setup.indexOf('if (joinCall) {'));
+  const setupRest = setup.slice(0, setup.indexOf('if (joinCall) {'));
+  if (!setup.includes('if (joinCall) {') || /startCall|joinOnShow|callStarting/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call, only a pull that moves the call (if (joinCall))');
+  if (!/setAttributes\(\{ call: 'off' \}\)/.test(setupRest)) fail('public/space.js', 'entering a space must tell others "off"');
+  if (/joinOnShow/.test(spaceJs)) fail('public/space.js', 'no joinOnShow: entering a space never joins the call');
+  if (!/async function join\(spaceId = 'lobby', \{ joinCall = false \} = \{\}\)/.test(spaceJs)) fail('public/space.js', 'join() joins the call only when told to (joinCall, false unless so)');
+  const joinCallers = [...spaceJs.matchAll(/\bjoin\([^)]*joinCall[^)]*\)/g)].map((m) => m[0]).filter((c) => !c.startsWith('join(spaceId = '));
+  const reconnect = spaceJs.slice(spaceJs.indexOf('async function reconnectTo('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('async function reconnectTo(')));
+  if (joinCallers.length !== 1 || !reconnect.includes(joinCallers[0])) fail('public/space.js', `only reconnectTo() may ask join() to join the call (found ${JSON.stringify(joinCallers)})`);
+  if (!/const stayOnCall = Boolean\(keepCall\) && inCall;/.test(reconnect) || reconnect.indexOf('stayOnCall =') > reconnect.indexOf('call.disconnect(')) fail('public/space.js', 'reconnectTo() keeps the call only for a pull, and only when I was on it (read before the disconnect)');
+  // Which moves are pulls: in and out of an aside, never going somewhere myself (an invitation, the dashboard, a pop-out).
+  const keepers = [...spaceJs.matchAll(/^.*reconnectTo\(.*\{ keepCall: true \}.*$/gm)].length;
+  if (keepers !== 6) fail('public/space.js', `a pull keeps the call: the aside's pull (an owner's, a peer's), following back, the recall's countdown, pullAside and Rejoin call (found ${keepers})`);
+  for (const fn of ['async function joinInvitedSpace(', 'async function openInSpace(', 'async function joinInPopout(']) {
+    const body = spaceJs.slice(spaceJs.indexOf(fn), spaceJs.indexOf('\n}\n', spaceJs.indexOf(fn)));
+    if (/keepCall/.test(body)) fail('public/space.js', `${fn.replace('async function ', '').replace('(', '()')} goes somewhere myself: it never joins the call`);
+  }
+  const callers = [...spaceJs.matchAll(/^.*\bstartCall\(\).*$/gm)].map((m) => m[0].trim()).filter((line) => !line.startsWith('//') && !line.startsWith('async function startCall('));
+  const inPhone = spaceJs.slice(spaceJs.indexOf('function phoneButton('), spaceJs.indexOf('async function toggleMic('));
+  const byClick = callers.filter((line) => inPhone.includes(line));
+  const byPull = callers.filter((line) => setupJoin.includes(line));
+  if (byClick.length !== 1 || byPull.length !== 1 || callers.length !== 2) fail('public/space.js', `startCall() is called from phoneButton() (a click) and connectAndSetup()'s joinCall (a pull) alone (found ${JSON.stringify(callers)})`);
+  const confDef = spaceJs.slice(spaceJs.indexOf("id: 'conference',"), spaceJs.indexOf("$('conf-close').addEventListener"));
+  if (/startCall/.test(confDef)) fail('public/space.js', 'showing the conference (its onChange) must never join the call');
+}
+
+// A join that is stopped part-way (Thomas, 2026-09-30: nobody is left in the call, or with their mic live, with the
+// Conference hidden). startCall() asks the server first (POST /api/call/join, the calls cap) and so, before the
+// microphone; and every wait after that is followed by a look at whether the call was stopped meanwhile (stopped(),
+// which stopCall() makes true by counting callGeneration up, even before the join is in the call), so the microphone is
+// never published, nor the call said "on", after a stop. Push to talk does nothing out of the call (check-module-host
+// runs it).
+{
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const start = spaceJs.slice(spaceJs.indexOf('async function startCall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('async function startCall(')));
+  const stop = spaceJs.slice(spaceJs.indexOf('async function stopCall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('async function stopCall(')));
+  const at = (s) => start.indexOf(s);
+  if (at("'/api/call/join'") < 0 || at("'/api/call/join'") > at('inCall = true') || at("'/api/call/join'") > at('openMic(')) fail('public/space.js', 'startCall() must ask POST /api/call/join before it joins or asks for the microphone');
+  const refused = start.slice(at("'/api/call/join'"), at('inCall = true'));
+  if (!/catch \(err\) \{[^}]*setJoinProblem\(err\.status && err\.serverSaid \? err\.message :[^}]*return;/.test(refused)) fail('public/space.js', 'a refused join check must say the server\'s own sentence (or a plain one, never "HTTP 500") in the "Not in a call" note (setJoinProblem) and not join');
+  if (!/const stopped = \(\) => generation !== callGeneration/.test(start)) fail('public/space.js', 'startCall() must know when a stop came while it waited (callGeneration)');
+  const stopBody = stop.split('\n');
+  const bump = stopBody.findIndex((l) => /callGeneration \+= 1/.test(l));
+  const early = stopBody.findIndex((l) => /if \(!inCall\) return/.test(l));
+  if (bump < 0 || bump > early) fail('public/space.js', 'stopCall() must count callGeneration up before it returns out of the call, so a join still asking backs out');
+  // Every wait after the join check, outside backOut itself, is followed by stopped() before the next wait.
+  const lines = start.split('\n');
+  const backFrom = lines.findIndex((l) => /const backOut = async/.test(l));
+  const backTo = lines.findIndex((l, i) => i > backFrom && /^ {2}\};/.test(l));
+  lines.forEach((line, i) => {
+    if (!/\bawait\b/.test(line) || (i >= backFrom && i <= backTo) || /await callJoining|return await backOut/.test(line)) return;
+    let j = i + 1;
+    while (j < lines.length && !/\bawait\b/.test(lines[j]) && !/stopped\(\)/.test(lines[j])) j += 1;
+    if (!/stopped\(\)/.test(lines[j] || '')) fail('public/space.js', `startCall(): after "${line.trim()}" look at stopped() before going on`);
+  });
+  if (!/await openMic\(\);\n\s*if \(stopped\(\)\) return await backOut\(\);\n\s*await call\.localParticipant\.publishTrack/.test(start)) fail('public/space.js', 'startCall() must back out, releasing the microphone, when stopped while the browser asked for it, before publishTrack');
+  if (!/publishTrack\([^\n]*\n\s*if \(stopped\(\)\) return await backOut\(track\);/.test(start)) fail('public/space.js', 'startCall() must unpublish the microphone it published after a stop');
+  const onKey = spaceJs.slice(spaceJs.indexOf('function onKey('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function onKey(')));
+  if (!/if \(inCall && prefs\.ptt && hotkeyMatches\(event, prefs\.pttKey\)/.test(onKey)) fail('public/space.js', 'push to talk must do nothing out of the call (inCall first)');
+}
+
+// The space bar's module chooser and the conference's "Not in a call" note (QA of the 2026-09-30 batch).
+{
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const spaceHtml = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  const rules = [...css.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+  // The note sits below the module's header (never over its title and x), and a short module scrolls it from its top.
+  const noCall = rules.filter((r) => r.selector === '.no-call');
+  if (!noCall.some((r) => /justify-content:\s*safe center/.test(r.body))) fail('public/style.css', '.no-call must centre with justify-content: safe center, so a short module does not cut off its top');
+  if (noCall.some((r) => /(^|;)\s*inset:\s*0/.test(r.body))) fail('public/style.css', '.no-call must not cover the module\'s header (inset: 0); start it below var(--module-header-h)');
+  if (!noCall.some((r) => /top:\s*var\(--module-header-h\)/.test(r.body))) fail('public/style.css', '.no-call must start below the module\'s header (top: var(--module-header-h))');
+  if (!noCall.some((r) => /overflow-y:\s*auto/.test(r.body)) || noCall.some((r) => /pointer-events:\s*none/.test(r.body))) fail('public/style.css', '.no-call must scroll (overflow-y: auto, and take the wheel: no pointer-events: none)');
+  // The chooser's button hides only while its list is the tab bar, and phone or wide is the header's own window (a
+  // narrow pop-out is a phone there), not the main window's.
+  for (const r of rules) {
+    if (/\.module-chooser-toggle\s*$/.test(r.selector) && /display:\s*none/.test(r.body) && !/\.subnav-modules/.test(r.selector)) {
+      fail('public/style.css', `${r.selector} hides the chooser's button without the list being the tab bar; scope it to .subnav-modules`);
+    }
+  }
+  const place = spaceJs.slice(spaceJs.indexOf('function phoneWidth('), spaceJs.indexOf('placeSubnav();\n'));
+  if (!/subnav\.ownerDocument\.defaultView/.test(place) || !/function placeSubnav\(/.test(place)) fail('public/space.js', 'placeSubnav must decide phone or wide by the header\'s own window (subnav.ownerDocument.defaultView)');
+  if (/window\.matchMedia\('\(max-width: 640px\)'\)/.test(spaceJs)) fail('public/space.js', 'phone or wide must not be the main window\'s matchMedia; the header may be in a pop-out');
+  const setUp = spaceJs.slice(spaceJs.indexOf('function setUpPopoutWindow('), spaceJs.indexOf('function closePopout('));
+  if ((setUp.match(/placeSubnav\(\)/g) || []).length < 2) fail('public/space.js', 'popping out and back must re-place the space bar for the window it is now in (placeSubnav())');
+  // On a narrow canvas a switch on a module open but hidden behind the view shows it, never closes it (switching the
+  // conference off hangs up).
+  const click = canvasJs.slice(canvasJs.indexOf("menu?.addEventListener('click'"), canvasJs.indexOf('// The modules on for this space and this viewer'));
+  if (!/hiddenByView\(id\)\) setView\(id\)/.test(click)) fail('public/canvas.js', 'a switch on a module hidden behind the narrow canvas\'s view must show it (setView), not close it');
+  if (!/on: shown\(def\.id\)/.test(canvasJs)) fail('public/canvas.js', 'a switch reads off while its module is hidden behind the narrow canvas\'s view');
+  if (/aria-haspopup="true"[^>]*id="modules-toggle"|id="modules-toggle"[^>]*aria-haspopup/.test(spaceJs)) fail('public/space.js', '#modules-toggle opens a group of switches, not a menu: aria-expanded and aria-controls, no aria-haspopup');
+  if (/guest-mic-note/.test(spaceHtml + spaceJs)) fail('public/space.html', 'entering never joins the call, so the guest form must not say the browser will ask for the microphone');
 }
 
 if (problems.length) {

@@ -11,47 +11,81 @@ a module or an aside something else; the buttons and menus follow its words (see
 The space list shows the spaces you belong to. **Enter** (or the word your environment uses in its place) is one
 click, and puts you in the space: the header stays,
 now naming the space you are in, with the space bar under it (see below), and what the space opens with fills the
-middle. Entering does not put you in the call.
+middle. Entering never puts you in the call, and nothing asks for your microphone until you join.
+
+Who can: anyone whose role allows **See and join the conference**, while the owner has not switched the conference
+off.
 
 To join the call:
 
-1. In the middle of the space bar, find **Join**. It shows how many are in the call, such as "2 in the call · Join",
-   or **Join** alone when nobody is.
-2. Click **Join**. Your browser asks for your microphone. You join with your camera off; turn it on whenever you're
-   ready. (Hover over **Join** to read this before you click.)
+1. If the Conference is not showing, click **Modules** in the space bar and switch **Conference** on. It shows
+   **Not in a call**, with who is on the call now under **Currently on the call** ("No one is on the call yet. Be
+   the first to join." when nobody is).
+2. Click **Join the call**, or the green phone on the toolbar (its tooltip reads "Join the call").
+3. Your browser asks for your microphone. You join with your camera off; turn it on whenever you're ready. (This
+   note is under the button.)
 
-**Join** is not shown while you are in the call, in an aside, when your role does not allow the conference, or when
-the owner has switched the conference off. On a phone, open the **Conference** tab ("Rejoin call") instead.
-**Rejoin call** in the space bar's module switches does the same on any screen.
+If the environment's plan allows only so many calls at once and they are all running elsewhere, **Not in a call**
+says so, for example "This environment's plan allows 1 call at once; one is running in The Keep". Joining a call
+that is already running is never refused. If the server does not answer, it says "Could not reach the server to
+join the call. Try again in a moment."
 
 In the call the tiles fill the middle, and a bar of controls sits at the bottom edge.
 
 Left to right, the bar holds: microphone (with a live level meter inside the button), deafen, camera,
 share screen, layout, away, reactions, settings, the space's launch link if it has one, and hang up.
-The space bar under the header has the modules, **Full screen**, **Pop out** and **Leave space**. Keys: **M** microphone, **D** deafen, **V** camera, **C** chat, **R** reactions, **L**
+Keys: **M** microphone, **D** deafen, **V** camera, **C** chat, **R** reactions, **L**
 layout, **1** to **6** send a reaction. As the window narrows, buttons tuck under a **More** button (the three-dot button): the extras first, then chat, then camera, then the microphone. At its smallest the bar is just **More** and leave. On a narrow window, such as a phone, opening chat puts the conference in a strip above the chat, with the toolbar under both.
+
+## The space bar
+
+The bar under the header belongs to the space you are in. From left to right:
+
+- **The space's name.** On a narrow window it is cut short; hover over it for the whole name.
+- **Modules** (or your environment's word for modules). Click it for a list of switches: the Conference, the Chat
+  and each module on in the space. Switch one on to show it on the canvas, off to hide it. The list stays open
+  while you switch; click **Modules** again, press Escape or click elsewhere to close it. With the keyboard, the
+  arrow keys move between switches and Space or Enter flips one. A count shows what is unread, on the switch and
+  on the button.
+- **Who is here**, in the middle: the pictures of the people in the space, up to four, then "+2" for the rest, and
+  how many ("3 here", or "Just you"). A camera mark is on those on the call. Click it for the list: everyone here,
+  you first, and "on the call" beside those on it. It changes as people come, go, join and hang up.
+- The space's tools, at the right: **Dock all**, the grid switch and **Grid size**, **Full screen**, **Pop out**,
+  **Pull participants back** or **Rejoin call** during an aside, a module's own tools, and **Leave space** last.
+
+When the window is too narrow for everything, who is here shows fewer pictures, then only the count. Then the tools
+fold into a **…** button (**More**) just before **Leave space**: **Pop out** first, then **Full screen**, a
+module's own tools, the grid switch and **Grid size**, **Dock all**, **Rejoin call** and **Pull participants
+back**. Click **…** to use them; a switch there shows a tick while it is on. **Leave space**, **…** and **Modules**
+never fold. The space's name is cut short only after everything else has folded.
+
+On a phone the space bar is a row of tabs at the bottom of the page: a tab for each module, how many are here, and
+**Leave space**.
 
 ## What opens when you enter
 
 Each space remembers the modules you had open when you last used it, in which mode (docked, floating or in
 a window), and how big, and opens them again when you enter. The first time, a space opens what its owner chose
 under **Opens with**, else what the environment sets for a new space, else the chat and every module on in the
-space, without the conference. A guest with nothing set gets the conference and the chat. Hanging up is remembered
-too, so hang up and leave, and the space opens without the conference next time; the **Open with** button on the
-space list changes what opens before you enter (see [Spaces](userguide-spaces.md)).
+space, without the conference. A guest with nothing set gets the conference and the chat. Whatever opens, the Conference
+opens out of the call, showing **Not in a call**. Switching the Conference off is remembered too, so switch it off
+and leave, and the space opens without it next time; the **Open with** button on the space list changes what opens
+before you enter (see [Spaces](userguide-spaces.md)).
 
 ## Leaving the call, staying in the space
 
-The red hang-up button leaves the call, not the space. The conference closes, your microphone and camera
-stop, you stop receiving anyone's audio and video, and your tile disappears for everyone else, but you
-stay in the space and stay online, with the chat and the modules still open. The space's own **Leave
-space** button, at the right of the space bar, is what leaves the space.
+The red hang-up button on the toolbar leaves the call, not the space. Your microphone and camera stop, you stop
+receiving anyone's audio and video, and your tile disappears for everyone else, but you stay in the space and stay
+online, with the chat and the modules still open. The Conference stays, showing **Not in a call**, and the phone
+turns green to join again. Switching the Conference off in **Modules**, or closing it with its x, also leaves the
+call, so nobody is left on the call with the Conference hidden. The space's own **Leave space** button, at the right
+of the space bar, is what leaves the space. The status line reads "in <space>" whether or not you are on the call.
+If nothing at all is open, the canvas says so. In a pop-out window, hang up brings the app back to the page first.
 
-With the conference closed, the space bar under the header still opens the chat and the modules. It
-offers **Join** in its middle and **Rejoin call** among the module switches to bring the conference back, along
-with the chat and the modules. The status line reads "in <space>" whether or not you are in the call. If nothing at
-all is open, the canvas says so and points at that button. In a pop-out window, hang up brings the app back
-to the page first.
+If an owner pulls you into an aside or a private conversation, or back again, you stay on the call if you were on
+it. If you were not on the call, you arrive out of it, in **Not in a call**.
+
+Push to talk does nothing while you are not on the call.
 
 A role without **See and join the conference** enters with the conference closed and cannot open it: the
 person has the chat and the modules only. The same holds for everyone, owners included, while the owner has
@@ -69,7 +103,7 @@ order and pin are remembered in your browser.
 
 ## Chat
 
-Open chat from the **space bar**, under the header, or with **C**. The space bar is the one place to show and hide modules on the canvas: it has a switch for the conference, the chat and each module the space has on, on when the module is open, and clicking one opens or closes it. A module with something unread shows a count.
+Open chat from **Modules** in the space bar, under the header, or with **C**. **Modules** is the one place to show and hide modules on the canvas: it lists a switch for the Conference, the Chat and each module the space has on, on while the module is shown. A module with something unread shows a count.
 
 - **Formatting.** The icons button to the left of the box opens a small layer above it with the
   picture button, **bold**, *italic*, code, bullet lists and emoji, and a question mark that shows the
@@ -92,7 +126,7 @@ chat box is hidden.
 
 ## Chat, docked, floating or in its own window
 
-The conference has the same titlebar as the chat and every module: the same buttons to float it over the page (and dock it again), to open it in a window of its own, and to close it, which leaves the call. In its own window the titlebar has no close: closing that window brings the call back into the page where it was. **Hang up** on the toolbar leaves the call and keeps the conference open, which says "Not in a call"; the phone turns green, and pressing it dials you back in. Chat opens as a column beside the video. Its header has the same buttons as a module's: one to float it over the canvas, where you can drag and resize it (and a matching button to dock it again), one to open it in a window of its own, and the x to close it. A floating module also has a **Snap to a grid** button: on, the module sits in the cells of a grid over the call (you see the grid while you drag), moving and resizing a cell at a time and keeping its place when the window changes size; off, it floats freely, as before. Each module remembers its own choice. The space bar (beside **Full screen**) has the same switch for the whole canvas: on, every module that can float is put on the grid -- docked ones float first -- and any you open later comes up floating and snapped; a slider beside it, **Grid size**, sets how fine the grid is (you see the grid while you slide). As you slide, the modules move to the cells nearest where you put them and keep about the same size on screen, without landing on each other while there is room for them all; slide back and they return to where they were. Off, the modules that were docked when you switched it on dock again, and the rest float freely. The space remembers both. The Calendar and other modules open as more columns after the chat, and the video always keeps some of the width. If you pop the whole call out, chat and modules come with it. Close a module's own window and the module comes back into the page, docked or floating as it was before, with whatever it held untouched.
+The conference has the same titlebar as the chat and every module: the same buttons to float it over the page (and dock it again), to open it in a window of its own, and to close it, which leaves the call. In its own window the titlebar has no close: closing that window brings the call back into the page where it was. **Hang up** on the toolbar leaves the call and keeps the conference open, which says "Not in a call"; the phone turns green, and pressing it, or **Join the call**, joins again. Chat opens as a column beside the video. Its header has the same buttons as a module's: one to float it over the canvas, where you can drag and resize it (and a matching button to dock it again), one to open it in a window of its own, and the x to close it. A floating module also has a **Snap to a grid** button: on, the module sits in the cells of a grid over the call (you see the grid while you drag), moving and resizing a cell at a time and keeping its place when the window changes size; off, it floats freely, as before. Each module remembers its own choice. The space bar (beside **Full screen**) has the same switch for the whole canvas: on, every module that can float is put on the grid -- docked ones float first -- and any you open later comes up floating and snapped; a slider beside it, **Grid size**, sets how fine the grid is (you see the grid while you slide). As you slide, the modules move to the cells nearest where you put them and keep about the same size on screen, without landing on each other while there is room for them all; slide back and they return to where they were. Off, the modules that were docked when you switched it on dock again, and the rest float freely. The space remembers both. The Calendar and other modules open as more columns after the chat, and the video always keeps some of the width. If you pop the whole call out, chat and modules come with it. Close a module's own window and the module comes back into the page, docked or floating as it was before, with whatever it held untouched.
 
 ## Reactions
 

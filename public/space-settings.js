@@ -3,6 +3,7 @@
 // the list. Admin only.
 import { renderModuleSettings } from '/module-settings.js';
 import { opensWithSummary } from '/opens-with.js';
+import { switchListHtml, switchRowHtml, wireSwitchList } from '/switch-list.js';
 import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, escapeHtml, crumbLink, getIcons, spaceCrumbIcon, hasOwnerRights, word } from '/brand.js';
 import '/slot-paste.js'; // paste a picture into any image slot
 
@@ -160,8 +161,8 @@ $('members').addEventListener('change', async (event) => {
   }
 });
 
-// The space's modules: the installed, enabled modules that have a space panel,
-// each ticked when it is on here (or for every space, which is read-only here).
+// The space's modules: the installed, enabled modules that have a space panel, each a switch (switch-list.js), on
+// when the module is on here (or for every space, which is read-only here).
 let spaceModules = [];
 async function loadSpaceModules() {
   try {
@@ -174,8 +175,9 @@ async function loadSpaceModules() {
   $('space-modules').innerHTML = (space.isLobby ? `<p class="hint">${escapeHtml(space.name)} keeps only chat, the call and ${escapeHtml(word('module', { many: true }))} made for it.</p>` : '') + spaceModules.map((m) => {
     const everywhere = m.allSpaces;
     const on = everywhere || m.spaces.includes(space.id);
-    return `<label class="check"><input type="checkbox" data-module="${escapeHtml(m.id)}" ${on ? 'checked' : ''} ${everywhere ? 'disabled' : ''}> <i class="fa-solid fa-${escapeHtml(m.displayIcon || m.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(m.displayName || m.name)}${everywhere ? ` <span class="hint">(on for every ${escapeHtml(word('space'))})</span>` : ''}</label>`;
+    return switchRowHtml({ id: m.id, icon: m.displayIcon || m.icon, name: m.displayName || m.name, on, disabled: everywhere, note: everywhere ? `on for every ${word('space')}` : '' }, 'module');
   }).join('');
+  wireSwitchList($('space-modules'));
 }
 $('space-modules').addEventListener('change', async (event) => {
   const box = event.target;
@@ -197,10 +199,10 @@ $('space-modules').addEventListener('change', async (event) => {
 });
 
 // Opens with: what a first visit to this space opens (plan-entering.md). The conference, the chat and the modules on
-// in this space, each with a tick, in that order; the ticks save in the order shown (there is no reordering). An id
+// in this space, each with a switch (switch-list.js), in that order; they save in the order shown (no reordering). An id
 // already saved that cannot open now (a module off in this space or not installed, the conference switched off) is
-// listed after them, ticked, with a note saying why, so the owner sees it is kept (turning it back on restores it) and
-// can untick it. Unticking every tick, those too, saves null: "not set".
+// listed after them, on, with a note saying why, so the owner sees it is kept (turning it back on restores it) and
+// switch it off. Every switch off, those too, saves null: "not set".
 // `opensWithList` is the list as the owner last left it (null for not set); each change sends the whole of it, one save
 // at a time, so a slow answer never brings back an older list.
 let opensWithOptions = { modules: [], builtin: [], environment: null, installed: [] };
@@ -249,10 +251,11 @@ function renderOpensWith() {
   const choices = opensWithChoices();
   const chosen = new Set(opensWithList || []);
   const kept = (opensWithList || []).filter((id) => !choices.some((c) => c.id === id)).map(keptChoice);
-  $('opens-with').innerHTML = [...choices, ...kept].map((c) => `<label class="check"><input type="checkbox" data-opens="${escapeHtml(c.id)}" ${chosen.has(c.id) ? 'checked' : ''}> <i class="fa-solid fa-${escapeHtml(c.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(c.name)}${c.note ? ` <span class="hint">(${escapeHtml(c.note)})</span>` : ''}</label>`).join('');
+  $('opens-with').innerHTML = switchListHtml([...choices, ...kept].map((c) => ({ ...c, on: chosen.has(c.id) })), 'opens');
+  wireSwitchList($('opens-with'));
   syncOpensWithSummary();
 }
-// Under the ticks: what a first visit opens when that is not plain from them, from the list itself (opens-with.js).
+// Under the switches: what a first visit opens when that is not plain from them, from the list itself (opens-with.js).
 function syncOpensWithSummary() {
   const choices = opensWithChoices();
   const text = opensWithSummary({
@@ -267,7 +270,7 @@ function syncOpensWithSummary() {
 }
 $('opens-with').addEventListener('change', (event) => {
   if (event.target.type !== 'checkbox') return;
-  // Every tick on screen, in the order shown: what can open, then what is kept.
+  // Every switch on, in the order shown: what can open, then what is kept.
   const ticked = [...$('opens-with').querySelectorAll('input:checked')].map((i) => i.dataset.opens);
   opensWithList = ticked.length ? ticked : null;
   syncOpensWithSummary();

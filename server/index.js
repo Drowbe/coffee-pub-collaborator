@@ -1055,12 +1055,14 @@ const callService = new RoomServiceClient(livekitApiUrl(), LIVEKIT_API_KEY, LIVE
 
 // `media` is whether they may send and receive the conference's audio and video
 // (the "See and join the conference" permission); without it they still connect,
-// for chat and the modules, and are online, but carry no media. `inCall` is
-// whether they start in the conference: everyone else sees a person who is not
-// in it as present in the space, with no tile. `call` is the call's name at the call service (callName).
-async function mintToken({ identity, name, call, publisher, media = publisher, inCall = media }) {
+// for chat and the modules, and are online, but carry no media. Every player and
+// guest starts out of the conference (the "call" attribute is 'off'): entering a
+// space never joins the call, and the page sets 'on' itself when they join, so
+// until then everyone else sees them present in the space, with no tile. OBS
+// viewers carry no attribute at all. `call` is the call's name at the call service (callName).
+async function mintToken({ identity, name, call, publisher, media = publisher }) {
   const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, { identity, name, ttl: publisher ? '24h' : '12h' });
-  if (publisher) token.attributes = { call: media && inCall ? 'on' : 'off' };
+  if (publisher) token.attributes = { call: 'off' };
   token.addGrant({
     room: call,
     roomJoin: true,
@@ -1650,10 +1652,37 @@ function environmentUsage(slug) {
   }
   return { members: env.store.users.length, storageBytes: null, aiCallsThisMonth: env.ai.usageView?.().callsThisMonth ?? null, spaces: env.store.spaces.length };
 }
-hostRouter.get('/api/host/environments', requireHostAdmin, (_req, res) => {
+// usage.callsNow for the console, for an environment whose plan caps calls: its running calls counted by the same rule
+// as the cap (runningCalls: someone on the call, not merely in the space), from one list of LiveKit's calls for the
+// whole host. Left out where there is no cap, or where LiveKit can't be asked.
+async function hostCallsNow(list) {
+  const out = new Map();
+  const capped = list.filter((t) => t.plan?.calls != null && !refusalView(t.slug));
+  if (!capped.length) return out;
+  let listed;
+  try {
+    listed = await callService.listRooms();
+  } catch {
+    return out;
+  }
+  for (const t of capped) {
+    let env;
+    try {
+      env = environmentFor(t.slug);
+    } catch {
+      continue;
+    }
+    const running = await envContext.run(env, () => runningCalls({ listed }));
+    if (running) out.set(t.slug, running.size);
+  }
+  return out;
+}
+hostRouter.get('/api/host/environments', requireHostAdmin, async (_req, res) => {
   // `refused`: null, or why this environment is not opening (see refusalView), for the console to show.
   // `template`: the template it was made from, with what was skipped (templateView), or null.
-  res.json({ environments: hostRegistry.listEnvironments().map((t) => { const usage = environmentUsage(t.slug); return { ...t, usage, refused: refusalView(t.slug), template: environmentTemplate(t) }; }) });
+  const list = hostRegistry.listEnvironments();
+  const callsNow = await hostCallsNow(list);
+  res.json({ environments: list.map((t) => { const usage = environmentUsage(t.slug); if (callsNow.has(t.slug)) usage.callsNow = callsNow.get(t.slug); return { ...t, usage, refused: refusalView(t.slug), template: environmentTemplate(t) }; }) });
 });
 // The templates an environment can be made from, for the console's create form.
 // Every template, with where it comes from, its version, whether it is hidden and which environments use it.
@@ -2004,17 +2033,32 @@ function environmentStorageBytes(slug, dataDir) {
   hostRegistry.recordStorageUsage(slug, bytes);
   return bytes;
 }
-// How many of this environment's own spaces have a live call right now (someone actually in it, not just
-// created), asked from LiveKit directly -- never cached, so a call ending frees the slot at once. Used by
-// /api/environment's usage.callsNow and, at join time, the calls cap itself (plan-environments.md, "Phase 4").
-// spaceIdOfCall already scopes to the current environment's own calls (null for anything else).
-async function liveCallCount() {
+// The spaces (and asides) of this environment with a call running right now: at least one person there is on the
+// call (their "call" attribute is 'on'), not merely connected -- entering a space connects without joining. Asked
+// from LiveKit directly, never cached, so a call ending frees its slot at once. `without` leaves people out (whoever
+// is about to join somewhere, so moving from one call to another never counts their own). A call under its name from
+// before the upgrade is the same space's. spaceIdOfCall scopes this to the current environment's own calls. null when
+// LiveKit can't be asked. `listed`, when given, is LiveKit's list of calls already asked for (the host console counts
+// every environment's from one list).
+async function runningCalls({ without = [], listed = null } = {}) {
   try {
-    const active = await callService.listRooms();
-    return active.filter((lk) => spaceIdOfCall(lk.name) && lk.numParticipants > 0).length;
+    const active = listed || (await callService.listRooms());
+    const running = new Set();
+    for (const lk of active) {
+      const spaceId = spaceIdOfCall(lk.name);
+      if (!spaceId || running.has(spaceId) || !(lk.numParticipants > 0)) continue;
+      const list = await callService.listParticipants(lk.name);
+      if (list.some((p) => !p.permission?.hidden && !without.includes(p.identity) && p.attributes?.call === 'on')) running.add(spaceId);
+    }
+    return running;
   } catch {
-    return 0;
+    return null;
   }
+}
+// How many calls are running: /api/environment's usage.callsNow (plan-environments.md, "Phase 4"). 0 when LiveKit
+// can't be asked.
+async function liveCallCount() {
+  return (await runningCalls())?.size ?? 0;
 }
 
 // --- plan caps (plan-environments.md, "Phase 3: the caps, enforced at the seam") --------------------------------
@@ -2073,28 +2117,50 @@ function refuseModuleNotInPlan(res, id, name) {
   res.status(403).json({ error: `This ${word('environment')}'s plan does not include ${store.moduleDisplay(id).name || name}.` });
   return true;
 }
-// The calls cap (plan-environments.md, "Phase 4"): joining a room already in a call is never refused, so this only
-// stops opening a *new* one once the plan's concurrent-call limit is already spent on other spaces. Asked at
-// join time, in both the places that mint a real (publishing) token -- /api/token and guest-join alike, since
-// a guest link would otherwise be an unmetered way around the same cap.
-// `spaceId` is the space being joined: a call already running for it (under its name from before the upgrade too,
-// for that one release) is joining, never opening.
-async function refuseOverCalls(res, spaceId) {
-  const cap = planCap('calls');
-  if (cap === null) return false;
-  let active;
-  try {
-    active = await callService.listRooms();
-  } catch {
-    return false; // can't ask LiveKit -- fail open, same as liveCallCount()
+// The calls cap (plan-environments.md, "Phase 4"), counted from real calls: entering a space is never refused, and
+// joining a call that is already running is never refused; only starting a *new* running call once the plan's
+// concurrent-call limit is spent on other spaces is (POST /api/call/join, and the pull that makes an aside).
+// Two people starting calls in two spaces at the same moment would both see a free slot before either shows as on the
+// call, so a start that passes holds its space's slot for CALL_START_HOLD_MS (in memory, per environment) until the
+// person shows as on the call. A server restart drops the holds, which only reopens that same short window.
+const CALL_START_HOLD_MS = 15000;
+const callStartHolds = new Map(); // environment slug -> Map(spaceId -> { identity, until })
+function heldCalls(without = []) {
+  const holds = callStartHolds.get(currentEnvironment().slug || '');
+  const held = new Set();
+  if (!holds) return held;
+  const now = Date.now();
+  for (const [spaceId, hold] of holds) {
+    if (hold.until <= now) holds.delete(spaceId);
+    else if (!without.includes(hold.identity)) held.add(spaceId);
   }
-  const live = active.filter((lk) => spaceIdOfCall(lk.name) && lk.numParticipants > 0);
-  if (live.some((lk) => spaceIdOfCall(lk.name) === spaceId)) return false;
-  if (live.length < cap) return false;
-  const runningId = spaceIdOfCall(live[0].name);
+  return held;
+}
+function holdCallStart(spaceId, identity) {
+  const slug = currentEnvironment().slug || '';
+  if (!callStartHolds.has(slug)) callStartHolds.set(slug, new Map());
+  callStartHolds.get(slug).set(spaceId, { identity, until: Date.now() + CALL_START_HOLD_MS });
+}
+function overCallsSentence(cap, runningId) {
   const runningName = store.spaceById(runningId)?.name || (store.asideById(runningId) ? word('aside', { a: true }) : `another ${word('space')}`);
-  res.status(403).json({ error: `This ${word('environment')}'s plan allows ${cap} call${cap === 1 ? '' : 's'} at once; one is running in ${runningName}` });
-  return true;
+  return `This ${word('environment')}'s plan allows ${cap} call${cap === 1 ? '' : 's'} at once; one is running in ${runningName}`;
+}
+// Whether `identity` may start or join the call in `spaceId`: null when they may (and then a new start holds its
+// slot, unless `hold` is false), else the refusal's sentence. `leaving` are people moving out of their calls with this start (an aside's
+// members): they are not counted where they are now. LiveKit not answering fails open, as callsNow reads 0.
+async function callsCapRefusal(spaceId, identity, { leaving = [], hold = true } = {}) {
+  const cap = planCap('calls');
+  if (cap === null) return null;
+  const without = [identity, ...leaving];
+  const running = await runningCalls({ without });
+  if (!running) return null;
+  for (const held of heldCalls(without)) running.add(held);
+  if (running.has(spaceId)) return null; // already running (or just started): joining it
+  if (running.size < cap) {
+    if (hold) holdCallStart(spaceId, identity);
+    return null;
+  }
+  return overCallsSentence(cap, [...running][0]);
 }
 function readEnvironmentZip(buffer) {
   return new Promise((resolve, reject) => {
@@ -3044,7 +3110,8 @@ app.delete('/api/users/:key/mfa', requireOwner, (req, res) => {
 
 // A token for the call service, for a space or an aside (the Lobby unless asked, as `space`): players need a session
 // and must belong to it; OBS viewers need the stream key. `call` in the answer is the call's own name there. An aside
-// is the call only: its token is the same kind, and nothing else (modules, chat) is reached through it.
+// is the call only: its token is the same kind, and nothing else (modules, chat) is reached through it. The token
+// starts out of the call and is never refused by the calls cap: that is asked on a join (POST /api/call/join).
 app.post('/api/token', async (req, res) => {
   const spaceId = typeof req.body?.space === 'string' && req.body.space ? req.body.space : LOBBY;
   const theSpace = store.spaceById(spaceId) || store.asideById(spaceId);
@@ -3058,10 +3125,43 @@ app.post('/api/token', async (req, res) => {
   const user = currentUser(req);
   if (!user) return res.status(401).json({ error: 'sign in first' });
   if (!theSpace.members.includes(user.key) && !isOwner(req)) return res.status(403).json({ error: `you are not in that ${word('space')}` });
-  if (req.body?.call !== false && (await refuseOverCalls(res, spaceId))) return;
   const media = Boolean(store.spacePermissions(user.key, spaceId).conference);
-  const token = await mintToken({ identity: user.key, name: user.displayName, call, publisher: true, media, inCall: req.body?.call !== false });
+  const token = await mintToken({ identity: user.key, name: user.displayName, call, publisher: true, media });
   res.json({ token, livekitUrl: livekitWsUrl(req), identity: user.key, call, spaceId, conference: media });
+});
+
+// Just before joining the call (a click: entering a space never joins, and its token always starts out of the call):
+// the calls cap, counted from people actually on a call. Joining a call already running is never refused; starting a
+// new one is, once the plan's limit is spent elsewhere. A person signed in asks for `space` (the Lobby unless given;
+// the same rights as /api/token); a guest sends their guest link's token as `guest` (in the body or the query, as the
+// guest reads do) and joins that link's space. An aside's call was checked when it was made (POST /api/asides), so
+// joining it is never refused here.
+app.post('/api/call/join', async (req, res) => {
+  const guestLink = typeof req.body?.guest === 'string' ? req.body.guest : typeof req.query.guest === 'string' ? req.query.guest : '';
+  const asked = typeof req.body?.space === 'string' && req.body.space ? req.body.space : null;
+  let spaceId;
+  let identity;
+  const user = currentUser(req);
+  if (user) {
+    spaceId = asked || LOBBY;
+    const theSpace = store.spaceById(spaceId) || store.asideById(spaceId);
+    if (!theSpace) return res.status(404).json({ error: `no such ${word('space')}` });
+    if (!theSpace.members.includes(user.key) && !isOwner(req)) return res.status(403).json({ error: `you are not in that ${word('space')}` });
+    identity = user.key;
+  } else if (guestLink) {
+    const theSpace = store.spaceByGuestToken(guestLink);
+    if (!theSpace) return res.status(404).json({ error: `that ${word('guest')} link is off or wrong` });
+    if (asked && asked !== theSpace.id) return res.status(403).json({ error: `that ${word('guest')} link is for another ${word('space')}` });
+    spaceId = theSpace.id;
+    identity = `guest-link:${guestLink}`; // a guest's LiveKit identity is not known here; this only names their hold
+  } else {
+    return res.status(401).json({ error: 'sign in first' });
+  }
+  if (!store.asideById(spaceId)) {
+    const refusal = await callsCapRefusal(spaceId, identity);
+    if (refusal) return res.status(403).json({ error: refusal });
+  }
+  res.json({ ok: true });
 });
 
 // Guests: no account, just a name and a space's guest link (see the
@@ -3077,10 +3177,9 @@ app.post('/api/guest-join', async (req, res) => {
   const name = cleanText(req.body?.name, 40);
   if (!name) return res.status(400).json({ error: 'a name is required' });
   const call = callName(theSpace.id);
-  if (req.body?.call !== false && (await refuseOverCalls(res, theSpace.id))) return;
   const identity = `guest-${randomToken(8)}`;
   const permissions = store.roleSet('guest');
-  const token = await mintToken({ identity, name, call, publisher: true, media: Boolean(permissions.conference), inCall: req.body?.call !== false });
+  const token = await mintToken({ identity, name, call, publisher: true, media: Boolean(permissions.conference) });
   res.json({ token, livekitUrl: livekitWsUrl(req), identity, call, spaceId: theSpace.id, spaceName: theSpace.name, guestToken: req.body.token, permissions });
 });
 
@@ -3234,7 +3333,14 @@ app.post('/api/asides', requireUser, async (req, res) => {
       if (!there || there.call !== initiatorCall) return res.status(404).json({ error: `${target.displayName} is not with you right now` });
       if (!there.inCall) return res.status(409).json({ error: `${target.displayName} is not in the conference right now` });
     }
-    const aside = store.addAside([initiator.key, ...targets.map((t) => t.key)], originId, priv);
+    // An aside is a call. Its members leave the call they are in for it: if nobody else stays on that call, the aside
+    // takes its slot; if others stay, the aside is a new running call and the plan's limit is asked here, before
+    // anyone is pulled (joining the aside is then never refused). The aside's slot is held until they show on its call.
+    const moving = [initiator.key, ...targets.map((t) => t.key)];
+    const refusal = await callsCapRefusal(null, initiator.key, { leaving: moving, hold: false });
+    if (refusal) return res.status(403).json({ error: refusal });
+    const aside = store.addAside(moving, originId, priv);
+    if (planCap('calls') !== null) holdCallStart(aside.id, initiator.key);
     // byOwner tells the target's page whether to just go (an owner's call) or ask first.
     const payload = asidePayload(ASIDE_TOPICS.pull, { spaceId: aside.id, byOwner: hasOwnerRights(initiator), private: priv, from: initiator.displayName });
     await callService.sendData(initiatorCall, payload, DataPacket_Kind.RELIABLE, { destinationIdentities: targets.map((t) => t.key), topic: ASIDE_TOPICS.pull });

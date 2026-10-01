@@ -353,4 +353,26 @@ test('who is here reads the call: you first, then by name, never a hidden partic
   assert.deepEqual(hereWords(people.slice(0, 1).map((p) => ({ ...p, onCall: false })), 'aside'), { shown: 'Just you', said: 'Just you in this aside' });
 });
 
+test('the space bar\'s lists draw above the modules and under a page opened over the call', () => {
+  // The header (.topbar) is its own stacking layer, under the floating modules' layer, so a list inside it can't rise
+  // above a module by its own z-index: the header rises to the menus' level while one is open, and the lists and the
+  // page's shared menu sit at that level (above .module-layer, under .page-overlay).
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  const block = (sel) => {
+    const at = css.search(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*\\{`));
+    assert.ok(at > -1, `style.css has ${sel}`);
+    return css.slice(at, css.indexOf('}', at));
+  };
+  const z = (sel) => (block(sel).match(/z-index:\s*([^;]+);/) || [])[1]?.trim();
+  const menu = Number((css.match(/--z-menu:\s*(\d+);/) || [])[1]);
+  assert.ok(menu > Number(z('.module-layer')), '--z-menu is above the floating modules\' layer');
+  assert.ok(menu < Number(z('.page-overlay')), '--z-menu is under a page opened over the call');
+  assert.ok(Number(z('.topbar')) < Number(z('.module-layer')), 'the header stays under a module dragged over it when nothing is open');
+  for (const sel of ['.host-menu', '.module-chooser-list', '.who-here-list']) assert.equal(z(sel), 'var(--z-menu)', `${sel} is at the menus' level`);
+  const lift = css.match(/\n\.topbar:has\(([^)]*\)[^{]*)\)\s*\{([^}]*)\}/);
+  assert.ok(lift, 'the header rises while one of its lists is open (.topbar:has(...))');
+  for (const list of ['.module-chooser-list:not([hidden])', '.who-here-list:not([hidden])']) assert.ok(lift[1].includes(list), `the header rises while ${list} is open`);
+  assert.match(lift[2], /z-index:\s*var\(--z-menu\)/);
+});
+
 console.log(`check-nav: OK (${n} tests)`);

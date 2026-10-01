@@ -443,6 +443,179 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/isAway = on;\n\s*applyHearing\(\);/.test(away)) fail('public/space.js', 'setAway() must turn what I hear off (or back) at once (applyHearing() right after isAway = on)');
   if (!/if \(enabled && isAway\) \{[^}]*return; \}/.test(fn('async function toggleMic('))) fail('public/space.js', 'toggleMic() must not open the microphone while away');
   if (!/if \(prefs\.ptt \|\| isAway\) \{\n\s*await call\.localParticipant\.setMicrophoneEnabled\(false\);/.test(fn('async function startCall('))) fail('public/space.js', 'startCall() must leave the microphone off when joining while away');
+  // Away is said with the "away" and "awayMessage" attributes (known-issues, 2026-10-01): kept at the call service, so
+  // someone who joins, reloads or reconnects later sees it, and setAttributes changes only the keys it is given, so
+  // "call" and away never undo each other. The old 'away' data message is still read, for one release. While away the
+  // camera does not come on: not the button or its keys (toggleCam), not a device or quality change (restartCamera).
+  try {
+    const helpers = ['function awayAttributes(', 'function awayAttributesChanged(', 'async function syncAwayAttributes(', 'async function syncCallAttributes(', 'function showAway(', 'async function keepCameraOffWhileAway(', 'async function keepMicOffWhileAway(', 'async function sendAway(', 'async function setAway(', 'async function toggleCam(', 'async function restartCamera('].map((name) => {
+      const body = fn(name);
+      if (!body) throw new Error(`no ${name.replace(/^(async )?function /, '')}...)`);
+      return body;
+    }).join('');
+    const make = () => new Function('Track', 'encoder', '$', 'applyHearing', 'reflectMic', 'updateCamera', 'updateAwayOverlay', 'setStatus', 'applyBackground', 'videoConstraints', 'prefs', `
+      let call; let isAway = false; let awayRestoreMic = false; let awayRestoreCam = false; let awayMessage = ''; let awayRestartCam = false;
+      let inCall = true; let camToggling = false;
+      async function setCameraEnabledWithRetry(enabled) { await call.localParticipant.setCameraEnabled(enabled); }
+      ${helpers}
+      return { setAway, toggleCam, restartCamera, showAway, syncCallAttributes, set call(c) { call = c; }, set inCall(v) { inCall = v; }, get isAway() { return isAway; } };
+    `)(
+      { Source: { Camera: 'camera' } }, { encode: (text) => text }, () => ({ classList: { toggle() {}, add() {}, remove() {} } }),
+      () => {}, () => {}, () => {}, (identity, on, message) => overlays.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'),
+      (text) => { said = text; }, async () => {}, () => ({ deviceId: prefs.camId }), prefs,
+    );
+    const prefs = { background: 'none', camId: 'first' };
+    const overlays = new Map();
+    let said = '';
+    const restarts = [];
+    const cameraPub = { track: { restartTrack: async (constraints) => restarts.push(constraints) } };
+    const me = {
+      identity: 'me', isLocal: true, attributes: { call: 'on' }, isMicrophoneEnabled: true, isCameraEnabled: true, cameraOpened: 0, sent: [], data: [],
+      async setAttributes(a) { this.sent.push(a); this.attributes = { ...this.attributes, ...a }; },
+      async publishData(payload, opts) { this.data.push([opts.topic, JSON.parse(payload)]); },
+      async setMicrophoneEnabled(on) { this.isMicrophoneEnabled = on; },
+      async setCameraEnabled(on) { this.isCameraEnabled = on; if (on) this.cameraOpened += 1; },
+      getTrackPublication: (source) => (source === 'camera' ? cameraPub : undefined),
+    };
+    const away = make();
+    away.call = { state: 'connected', localParticipant: me };
+    await away.setAway(true, '  back in five  ');
+    assert.equal(me.attributes.away, 'on', 'going away sets the "away" attribute to on');
+    assert.equal(me.attributes.awayMessage, 'back in five', 'and the message, trimmed, in "awayMessage"');
+    assert.equal(me.attributes.call, 'on', 'going away leaves the "call" attribute as it was');
+    assert.ok(me.sent.every((a) => !('call' in a)), 'away never sends the "call" key');
+    assert.deepEqual(me.data.at(-1), ['away', { type: 'away', on: true, message: '  back in five  ' }], 'the old "away" message is still sent, for a page on the build before');
+    assert.equal(me.isCameraEnabled, false, 'going away turns the camera off');
+    said = '';
+    await away.toggleCam();
+    assert.equal(me.cameraOpened, 0, 'the camera button does not turn the camera on while away');
+    assert.equal(said, 'away: come back to turn your camera on', 'and says why');
+    await away.restartCamera();
+    assert.equal(restarts.length, 0, 'a camera change while away does not open the camera (restartTrack)');
+    await away.setAway(false);
+    assert.equal(me.attributes.away, 'off', 'coming back sets "away" to off');
+    assert.equal(me.attributes.awayMessage, '', 'and clears the message');
+    assert.equal(me.attributes.call, 'on', 'and leaves "call" as it was');
+    assert.equal(me.isCameraEnabled, true, 'coming back turns on the camera that was on before');
+    assert.equal(restarts.length, 1, 'and applies the camera change made while away');
+    me.isCameraEnabled = false;
+    await away.setAway(true);
+    assert.equal(me.attributes.away, 'on', 'a plain Away is "away" on');
+    assert.equal(me.attributes.awayMessage, '', 'with no message');
+    await away.setAway(false);
+    assert.equal(me.isCameraEnabled, false, 'a camera off before going away stays off on Back');
+    // Going away before the call service is reached: said once connected (connectAndSetup, startCall, Reconnected).
+    const early = make();
+    const late = { ...me, attributes: { call: 'off' }, sent: [], data: [], isCameraEnabled: false, isMicrophoneEnabled: false };
+    early.call = { state: 'connecting', localParticipant: late };
+    await early.setAway(true, 'brb');
+    assert.equal(late.sent.length, 0, 'nothing is sent before connecting');
+    // A camera change while away with the camera off waits for the camera to be turned on, then opens the new device.
+    const offCam = make();
+    const off = { ...me, attributes: { call: 'on' }, sent: [], data: [], isCameraEnabled: false, cameraOpened: 0 };
+    offCam.call = { state: 'connected', localParticipant: off };
+    restarts.length = 0;
+    await offCam.setAway(true);
+    prefs.camId = 'second';
+    await offCam.restartCamera();
+    await offCam.setAway(false);
+    assert.equal(off.cameraOpened, 0, 'Back leaves a camera that was off, off');
+    assert.equal(restarts.length, 0, 'and does not open it to take the change');
+    await offCam.toggleCam();
+    assert.deepEqual(restarts, [{ deviceId: 'second' }], 'turning the camera on after Back restarts it with videoConstraints() (the device chosen while away)');
+    restarts.length = 0;
+    await offCam.toggleCam();
+    await offCam.toggleCam();
+    assert.equal(restarts.length, 0, 'once: the change is not applied again');
+    // Back, then away again before the microphone was on: the microphone ends up off.
+    const race = make();
+    let openMic;
+    const racer = {
+      ...me, attributes: { call: 'on' }, sent: [], data: [], isMicrophoneEnabled: true, isCameraEnabled: false, cameraOpened: 0,
+      setMicrophoneEnabled(on) {
+        if (!on) { this.isMicrophoneEnabled = false; return Promise.resolve(); }
+        return new Promise((resolve) => { openMic = () => { this.isMicrophoneEnabled = true; resolve(); }; });
+      },
+    };
+    race.call = { state: 'connected', localParticipant: racer };
+    await race.setAway(true);
+    const back = race.setAway(false);
+    await Promise.resolve();
+    await race.setAway(true);
+    openMic();
+    await back;
+    assert.equal(race.isAway, true, 'away again');
+    assert.equal(racer.isMicrophoneEnabled, false, 'Back then away before the microphone came on leaves it off');
+    // A reconnect: "call" back to what inCall says, away with it.
+    const recon = make();
+    const rejoined = { ...me, attributes: { call: 'off' }, sent: [], data: [] };
+    recon.call = { state: 'connected', localParticipant: rejoined };
+    await recon.syncCallAttributes();
+    assert.deepEqual(rejoined.sent, [{ call: 'on', away: 'off', awayMessage: '' }], 'in the call, a reconnect that lost "call" says it on again');
+    rejoined.sent.length = 0;
+    await recon.syncCallAttributes();
+    assert.equal(rejoined.sent.length, 0, 'nothing is sent when nothing was lost');
+    recon.inCall = false;
+    await recon.syncCallAttributes();
+    assert.deepEqual(rejoined.sent, [{ call: 'off', away: 'off', awayMessage: '' }], 'out of the call, "call" is said off');
+  } catch (err) {
+    fail('public/space.js', `away must be said with the "away" attributes, and the camera kept off while away: ${err.message}`);
+  }
+  {
+    const setup = fn('async function connectAndSetup(');
+    if (!/setAttributes\(\{ call: 'off' \}\)[^\n]*\n\s*await syncAwayAttributes\(\);/.test(setup)) fail('public/space.js', 'connectAndSetup() must say away once connected (syncAwayAttributes()) when away before connecting');
+    if (!/setAttributes\(\{ call: 'on', \.\.\.awayAttributes\(\) \}\)/.test(fn('async function startCall('))) fail('public/space.js', 'startCall() must say away with "call" on (awayAttributes()), for a join while away');
+    if (!/setAttributes\(\{ call: 'off', away: 'off', awayMessage: '' \}\)/.test(fn('async function stopCall('))) fail('public/space.js', 'stopCall() ends away with the call, so it must clear the away attributes with "call" off');
+    if (!/tiles\.set\(participant\.identity, tile\);\n\s*showAway\(participant\);/.test(fn('function tileFor('))) fail('public/space.js', 'tileFor() must show the away mark of someone already away (showAway) when it makes their tile');
+    if (!/RoomEvent\.Reconnected, \(\) => \{\n[^\n]*\n\s*syncCallAttributes\(\);/.test(spaceJs)) fail('public/space.js', 'a reconnect must say "call" and away again if the call service lost them (syncCallAttributes() on Reconnected)');
+  }
+  // The other end: a late joiner with the attribute, a change of it, and the old message, run through the call's events.
+  try {
+    const chainAt = spaceJs.indexOf('call\n  .on(RoomEvent.TrackSubscribed');
+    const chain = spaceJs.slice(chainAt, spaceJs.indexOf('\n\nasync function fillDevices(', chainAt));
+    const handlers = {};
+    const fakeCall = { on(name, h) { handlers[name] = h; return fakeCall; } };
+    const overlays = new Map();
+    const tilesMade = new Set();
+    const updateAwayOverlay = (identity, on, message) => { if (tilesMade.has(identity)) overlays.set(identity, on ? `away${message ? `: ${message}` : ''}` : 'here'); };
+    const showAway = new Function('updateAwayOverlay', 'isAway', 'awayMessage', `${fn('function showAway(')}\nreturn showAway;`)(updateAwayOverlay, false, '');
+    const stubs = {
+      RoomEvent: new Proxy({}, { get: (_t, name) => name }),
+      inCall: true,
+      shownInCall: (p) => p.isLocal || p.attributes?.call !== 'off',
+      updateMuted: () => {}, updateCamera: () => {}, attachTrack: () => {}, detachTrack: () => {}, subscribeAll: () => {}, applyLayout: () => {},
+      tileFor: (p) => { if (!tilesMade.has(p.identity)) { tilesMade.add(p.identity); showAway(p); } },
+      removeParticipant: (p) => { tilesMade.delete(p.identity); overlays.delete(p.identity); },
+      showAway, updateAwayOverlay,
+      decoder: { decode: (payload) => payload },
+    };
+    const names = Object.keys(stubs);
+    new Function(...names, `const call = arguments[${names.length}];\n${chain};`)(...names.map((k) => stubs[k]), fakeCall);
+    const fire = (name, ...args) => { assert.equal(typeof handlers[name], 'function', `a ${name} handler`); handlers[name](...args); };
+    const bo = { identity: 'bo', isLocal: false, attributes: { call: 'on', away: 'on', awayMessage: 'at the door' } };
+    fire('ParticipantConnected', bo);
+    assert.equal(overlays.get('bo'), 'away: at the door', 'someone already away when they arrive shows away, with their message');
+    const cy = { identity: 'cy', isLocal: false, attributes: { call: 'off' } };
+    fire('ParticipantConnected', cy);
+    cy.attributes = { call: 'on', away: 'on', awayMessage: '' };
+    fire('ParticipantAttributesChanged', { call: 'on', away: 'on' }, cy);
+    assert.equal(overlays.get('cy'), 'away', 'joining the call while away shows a plain Away');
+    bo.attributes = { ...bo.attributes, away: 'off', awayMessage: '' };
+    fire('ParticipantAttributesChanged', { away: 'off', awayMessage: '' }, bo);
+    assert.equal(overlays.get('bo'), 'here', 'coming back (away off) takes the mark off');
+    bo.attributes = { ...bo.attributes, away: 'on', awayMessage: 'lunch' };
+    fire('ParticipantAttributesChanged', { away: 'on', awayMessage: 'lunch' }, bo);
+    assert.equal(overlays.get('bo'), 'away: lunch', 'going away again puts it back');
+    bo.attributes = { ...bo.attributes, call: 'on' };
+    fire('ParticipantAttributesChanged', { call: 'on' }, bo);
+    assert.equal(overlays.get('bo'), 'away: lunch', 'a change of "call" alone leaves the mark as it is');
+    const old = { identity: 'old', isLocal: false, attributes: { call: 'on' } };
+    fire('ParticipantConnected', old);
+    fire('DataReceived', JSON.stringify({ type: 'away', on: true, message: 'old build' }), old, undefined, 'away');
+    assert.equal(overlays.get('old'), 'away: old build', 'the old "away" message is still read');
+  } catch (err) {
+    fail('public/space.js', `a tile must show away from the "away" attributes, for late joiners and changes alike: ${err.message}`);
+  }
   // The pop-out: every remote video attached there (now or later) is kept live, and the watch goes on popping back in.
   if ((attach.match(/prepend\(video\);\n\s*keepPoppedVideoLive\(track, video\);/g) || []).length !== 2) fail('public/space.js', 'attachTrack() must keep each video it adds (camera and screen) live in the pop-out (keepPoppedVideoLive(track, video) after the prepend)');
   const setUp = fn('function setUpPopoutWindow(');

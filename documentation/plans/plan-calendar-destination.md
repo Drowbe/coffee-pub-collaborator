@@ -147,10 +147,10 @@ Decision 9. Two other ways were set aside: the Calendar's page showing tasks its
 
 ## What is not decided
 
-Nothing Thomas was asked: decisions 8 to 19 answer every question of the draft. Left as they are today, not asked: a click on one event or task in a home tile still enters its space, as now.
+Nothing Thomas was asked: decisions 8 to 19 answer every question of the draft. Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.
 
 Settled after decisions 20 to 22. The first point follows Thomas's words; the rest are the project manager's calls (2026-10-02), not Thomas's decisions, and he can overrule them:
 
 - **What "open the Calendar destination" covers.** A click on an event or task in the Calendar or To-do tile opens the destination on it (`/calendar#ref=<ref>`), as well as the headings (decision 16). With Show Calendar off, both tiles keep today's behaviour: the headings go to the module pages, and a click on an event or task enters its space (project manager's call).
 - **The Polls tile.** A click on a poll goes into its space, as it does now (decision 21). The heading keeps going to `/modules/polls` (project manager's call).
-- **Removing the Trips tile.** experience-design removes it now by dropping `surfaces.widget` from `modules/travel/module.json`, with a version bump. The Planner's `widget.html` stays unused until [plan-dashboard](plan-dashboard.md) phase 5 decides whether the space tile's rollup reuses it (project manager's call). Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.
+- **Removing the Trips tile.** experience-design removes it now by dropping `surfaces.widget` from `modules/travel/module.json`, with a version bump. The Planner's `widget.html` stays unused until [plan-dashboard](plan-dashboard.md) phase 5 decides whether the space tile's rollup reuses it (project manager's call).

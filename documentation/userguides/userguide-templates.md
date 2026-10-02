@@ -50,7 +50,7 @@ Some of it is applied once, when the environment is made: its settings, its modu
 start, its reactions, its icons (added to the icon list) and its theme (added and made the one in use). After that they are the owner's, like anything else in Manage. A template's modules go on in every space
 except the Lobby, which keeps only the chat, the call and the modules made for it.
 
-Its words, the word on the button for entering a space, its phases, its home icon and the names and icons it gives
+Its words, the words on the buttons for entering a space and for the canvas layout, its phases, its home icon and the names and icons it gives
 modules keep following the template. Anything an owner changes wins, and **Reset** goes back to the template's, not
 the default. Manage shows which is which:
 

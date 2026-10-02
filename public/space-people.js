@@ -1,4 +1,4 @@
-// Who is here (Online, plan-two-zone-nav.md): the space bar's left zone, after the Modules button, shows everyone in this space right now (you among them), as a short row of
+// Who is here (Online, plan-two-zone-nav.md): the space bar's left zone, after the Layout button, shows everyone in this space right now (you among them), as a short row of
 // square portraits and who they are in a few words ("You and Alex", "You and 3 others", "5 in this space"), with a
 // camera mark on those on the call. Clicking it (or Enter or Space) opens the
 // list under it: each person's portrait and name, "(you)", and "on the call". In an aside it shows the aside's people.
@@ -9,7 +9,7 @@
 // changes (a join, a hang-up, entering and leaving).
 //
 // It gives way before anything in the bar folds: nav-bar.js calls the tool's `fit(avail)` with the width it may take
-// (fitWidth: the bar less the right zone at its full width and the Modules button), and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
+// (fitWidth: the bar less the right zone at its full width and the Layout button), and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
 // then it shows only an icon and the short count ("5 here"; `facesThatFit`, pure, for check-nav). On a phone it is that
 // compact count in the tab bar, between the module tabs and Leave (style.css).
 //

@@ -347,11 +347,76 @@ test('Online gets the width the rest of the left zone and the right zone leave, 
   assert.match(fit, /foldCount\(\{ width, gap, left: leftWidth, right: r\.w, more: moreWidth, steps: stepWidths \}\)/);
 });
 
-test('the space bar in two zones: Modules, then Online, on the left; one colour; no #subnav-middle', () => {
+test('the Layout panel (plan-layout-menu.md): Show, rewritten on every change, then Arrange with Dock all, Clean up, the snap switch and the grid size; none of them in the space bar', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  // Not registered with the bar any more, so the right zone and its fold no longer hold them.
+  for (const id of ['dock-all', 'snap-all', 'snap-size', 'clean-up']) assert.ok(!new RegExp(`nav\\.register\\([^\\n]*id: '${id}'`).test(space), `${id} is not a space bar tool`);
+  assert.ok(!/nav\.setActive\('snap-all'/.test(space), 'syncSnapBar() drives the panel\'s switch, not the bar');
+  // The Arrange section, in the panel, in order, with its own heading and labelled group; the ids kept.
+  const arrange = space.slice(space.indexOf("arrangeSection.innerHTML = `"), space.indexOf('</div>`;', space.indexOf("arrangeSection.innerHTML = `")));
+  assert.match(arrange, /<div class="nav-menu-heading module-chooser-heading" id="modules-menu-arrange">Arrange<\/div>\n\s*<div class="module-chooser-section" role="group" aria-labelledby="modules-menu-arrange">/);
+  const at = (needle) => arrange.indexOf(needle);
+  for (const needle of ['id="dock-all"', 'id="clean-up"', 'id="snap-all"', 'id="snap-size"']) assert.ok(at(needle) > 0, `${needle} is in Arrange`);
+  assert.ok(at('id="dock-all"') < at('id="clean-up"') && at('id="clean-up"') < at('id="snap-all"') && at('id="snap-all"') < at('id="snap-size"'), 'Dock all, Clean up, the snap switch, then the grid size');
+  assert.match(arrange, /<input type="checkbox" class="switch" role="switch" id="snap-all">/, 'the snap switch is a real switch');
+  assert.match(arrange, /<label class="module-chooser-range" id="snap-size-row" hidden><span class="switch-name">Grid size<\/span><input type="range" id="snap-size"><\/label>/, 'the grid size is labelled, hidden until snap is on');
+  assert.match(space, /moduleChooser\.querySelector\('#modules-menu'\)\.appendChild\(arrangeSection\);/, 'Arrange is inside the panel');
+  // syncSnapBar() runs the switch and shows the slider only while snap is on; the controls call the canvas.
+  const sync = space.slice(space.indexOf('function syncSnapBar()'), space.indexOf('\nsyncSnapBar();\n', space.indexOf('function syncSnapBar()')));
+  assert.match(sync, /snapAllSwitch\.checked = on;/);
+  assert.match(sync, /querySelector\('#snap-size-row'\)\.hidden = !on;/);
+  assert.match(sync, /querySelector\('#dock-all'\)\.addEventListener\('click', \(\) => \{ canvas\.dockAll\(\); syncSnapBar\(\); \}\);/);
+  assert.match(sync, /querySelector\('#clean-up'\)\.addEventListener\('click', \(\) => \{ canvas\.cleanUp\(\); \}\);/);
+  assert.match(sync, /snapAllSwitch\.addEventListener\('change', \(\) => \{ canvas\.snapAll\(snapAllSwitch\.checked\); syncSnapBar\(\); \}\);/);
+  assert.match(sync, /wireSwitchList\(arrangeSection\);/, 'Enter flips the snap switch');
+  // update() rewrites only the Show section; Arrange is kept, put back after a phone's tabs, and not drawn on a narrow canvas.
+  const update = canvasJs.slice(canvasJs.indexOf('  function update() {'), canvasJs.indexOf('  function bindDoc(doc) {'));
+  assert.ok(!/menu\.innerHTML = (?!'')/.test(update), 'update() never rewrites the whole panel on a wide canvas');
+  assert.match(update, /if \(arrangeEl\.parentNode !== menu\) menu\.appendChild\(arrangeEl\);\n\s*arrangeEl\.hidden = isNarrow\(\);/);
+  assert.match(update, /wireSwitchList\(show\);/, 'Up and Down move between the Show switches only');
+  assert.match(canvasJs, /const arrangeEl = menu \? menu\.querySelector\('\.module-chooser-arrange'\) : null;/);
+  // Escape anywhere in the panel closes it and gives the keyboard back to the button.
+  assert.match(canvasJs, /menu\?\.addEventListener\('keydown', \(event\) => \{\n\s*if \(event\.key !== 'Escape' \|\| inline\(\) \|\| menu\.hidden\) return;\n\s*event\.stopPropagation\(\);\n\s*setMenuOpen\(false, \{ focus: true \}\);/);
+  // The 560 px rule no longer names them.
+  const narrow = css.slice(css.indexOf('@media (max-width: 560px) {\n  .subnav #fullscreen-toggle'));
+  assert.ok(!/#dock-all|#snap-all|#snap-size/.test(narrow.slice(0, narrow.indexOf('}'))), 'the 560 px rule hides none of the Arrange controls');
+});
+
+test('the top bar\'s space segment and the Spaces slot wear the top bar\'s link look (core-link), and nothing restyles them on a wider screen', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  const seg = space.slice(space.indexOf('function crumbSegmentHtml('), space.indexOf('function updateCrumb()'));
+  assert.match(seg, /<button type="button" class="crumb-here core-link crumb-link"/, 'an aside\'s parent segment');
+  assert.match(seg, /<div class="crumb-here core-link"/, 'the space\'s segment, a div so .brand span does not size it');
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  for (const cls of ['core-link nav-slot', 'core-link nav-slot-caret']) assert.ok(brand.includes(cls), `the Spaces slot\'s ${cls}`);
+  // Outside the phone's block, no rule on a segment, its label or its icon sets a size, weight or colour of its own
+  // (the separator, the .crumb box and the hover reset of the current space excepted).
+  const phone = css.indexOf('@media (max-width: 640px) {');
+  const wide = css.slice(0, phone) + css.slice(css.indexOf('\n}\n', phone));
+  for (const m of wide.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim();
+    if (!/crumb-here|crumb-label|crumb-link|\.crumb span|\.crumb i\b|nav-slot(?!-pair)/.test(sel) || /:hover|:not\(\.core-link\)|aria-expanded/.test(sel)) continue;
+    const own = m[2].split(';').map((d) => d.trim()).filter((d) => /^(font-size|font-weight|font|color)\s*:/.test(d) && !/:\s*inherit$/.test(d));
+    assert.deepEqual(own, [], `${sel} restyles the segment`);
+  }
+});
+
+test('the space bar in two zones: Layout (the module chooser), then Online, on the left; one colour; no #subnav-middle', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.ok(!/subnav-middle|nav-middle/.test(space), 'the space bar\'s markup has no middle');
   assert.match(space, /<div class="nav-left subnav-left"><\/div>\n  <span class="nav-right subnav-tools"><\/span>/);
   assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1,/);
+  // The chooser reads Layout (the environment's layout verb) with its own icon (not the snap switch's border-all, the dock
+  // columns or the conference's view grid), and its panel opens with a Show heading.
+  assert.match(space, /id: 'module-chooser', order: 1, icon: 'object-group', label: verb\('layout'\),/);
+  assert.match(space, /module-chooser-toggle" id="modules-toggle"[^\n]*fa-object-group[^\n]*module-chooser-label/);
+  assert.ok(!/module-chooser-toggle[^\n]*(puzzle-piece|border-all)/.test(space), 'the chooser\'s icon is its own');
+  assert.match(space, /function nameModuleChooser\(\) \{\n  const name = verb\('layout'\);/);
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  assert.match(canvasJs, /show\.innerHTML = '<div class="nav-menu-heading module-chooser-heading" id="modules-menu-show">Show<\/div>'\n\s*\+ '<div class="module-chooser-section" role="group" aria-labelledby="modules-menu-show">'/);
   assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false,[^\n]*fit: whoHere\.fit,/, 'Online after Modules, never folding, with fit');
   // In drawing order, Modules then Online, two groups (a divider between).
   const left = arrange([{ id: 'who-here', group: 'people', groupOrder: 2, order: 1, seq: 1 }, { id: 'module-chooser', group: 'modules', order: 1, seq: 2 }]);

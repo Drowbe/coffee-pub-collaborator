@@ -83,8 +83,9 @@ try {
 // The actions a person reads on a button, beside the words: one string each, as it reads at the start of a label
 // ("Enter", "Go to"), never lower-cased or conjugated. From /api/branding's `verbs` (loadBranding() calls setVerbs),
 // kept in the browser like the words. The key is a code name and never changes.
-export const VERBS = ['enter'];
-export const DEFAULT_VERBS = Object.freeze({ enter: 'Enter' });
+// `layout` is the space bar's Layout button (the one that shows and hides modules on the canvas); in fill() as {layout}.
+export const VERBS = ['enter', 'layout'];
+export const DEFAULT_VERBS = Object.freeze({ enter: 'Enter', layout: 'Layout' });
 const STORED_VERBS = 'app.verbs';
 
 function resolveVerbs(set) {

@@ -490,8 +490,11 @@ function renderWords() {
 }
 
 // A verb's row (addendum 4), under the words: its name, one field (blank for the template's or the default), Reset.
-const VERB_NAMES = { enter: () => fillWords('Button for entering {a space}') };
-const VERB_ABOUT = { enter: () => fillWords('The {space} list\'s main button and the {guest} form. {An aside}\'s button always reads Join.') };
+const VERB_NAMES = { enter: () => fillWords('Button for entering {a space}'), layout: () => fillWords('Button for the {canvas} layout') };
+const VERB_ABOUT = {
+  enter: () => fillWords('The {space} list\'s main button and the {guest} form. {An aside}\'s button always reads Join.'),
+  layout: () => fillWords('The {space} bar\'s menu that shows and hides {modules} on the {canvas}.'),
+};
 function verbRow(key) {
   const own = ownVerbs[key] || '';
   const t = templateVerbs[key] || null;

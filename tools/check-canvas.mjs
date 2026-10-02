@@ -245,6 +245,102 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/holdStore = true/.test(pitchFn) || !/if \(!preview\) persist\(\)/.test(pitchFn)) fail('public/canvas.js', 'setSnapPitch must store the layout once, when the slider is let go, not on every preview step');
 }
 
+// Clean up with the grid off (public/snap-grid.js's tidyBoxes; canvas.js's cleanUp, plan-layout-menu.md): floating modules
+// moved fully onto the canvas and apart, a box that fits keeping its size, a box clear of the others not moved, boxes the
+// grid holds (taken) kept clear of, and many boxes on a small canvas all still inside it, every one placed.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'snap-grid.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), copy);
+  const { MIN_W, MIN_H, tidyBoxes, tidyCells, gridFor, cellBox, resettle, cellsOverlap, leastSpan } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  const inside = (b, A) => b.x >= A.x && b.y >= A.y && b.x + b.w <= A.x + A.w && b.y + b.h <= A.y + A.h;
+  const check = (label, boxes, area, { taken = [], apart = true } = {}) => {
+    const got = tidyBoxes(boxes, area, taken);
+    if (got.size !== boxes.length) fail('public/snap-grid.js', `${label}: ${got.size} of ${boxes.length} placed`);
+    const list = [...got.values()];
+    for (const [id, b] of got) {
+      if (!inside(b, area)) fail('public/snap-grid.js', `${label}: ${id} is off the canvas: ${JSON.stringify(b)}`);
+      if (b.w < Math.min(MIN_W, area.w) || b.h < Math.min(MIN_H, area.h)) fail('public/snap-grid.js', `${label}: ${id} is below its smallest size: ${b.w}x${b.h}`);
+    }
+    if (apart) {
+      list.forEach((a, i) => list.forEach((b, j) => { if (i < j && overlap(a, b)) fail('public/snap-grid.js', `${label}: two modules overlap: ${JSON.stringify([a, b])}`); }));
+      for (const t of taken) for (const b of list) if (overlap(b, t)) fail('public/snap-grid.js', `${label}: a module sits on a snapped one: ${JSON.stringify([b, t])}`);
+    }
+    return got;
+  };
+  const area = { x: 8, y: 68, w: 1264, h: 624 }; // a 1280x640 canvas under the header, less the margin
+  // Four stacked on one spot, one half off the right edge, one above the top: all fit, so each keeps its size.
+  const stacked = [
+    { id: 'a', box: { x: 100, y: 100, w: 400, h: 300 } },
+    { id: 'b', box: { x: 110, y: 110, w: 400, h: 300 } },
+    { id: 'c', box: { x: 1100, y: 120, w: 360, h: 260 } },
+    { id: 'd', box: { x: 300, y: -200, w: 320, h: 240 } },
+  ];
+  const tidied = check('four stacked and off the canvas', stacked, area);
+  for (const { id, box } of stacked) {
+    const b = tidied.get(id);
+    if (b.w !== box.w || b.h !== box.h) fail('public/snap-grid.js', `four stacked: ${id} lost its size though it fits (${b.w}x${b.h} for ${box.w}x${box.h})`);
+  }
+  if (JSON.stringify(tidied.get('a')) !== JSON.stringify(stacked[0].box)) fail('public/snap-grid.js', `the first module, on the canvas and clear, moved: ${JSON.stringify(tidied.get('a'))}`);
+  // Two already apart and on the canvas stay where they are.
+  const apart = [{ id: 'x', box: { x: 20, y: 80, w: 500, h: 400 } }, { id: 'y', box: { x: 600, y: 80, w: 500, h: 400 } }];
+  const kept = check('two already apart', apart, area);
+  for (const { id, box } of apart) if (JSON.stringify(kept.get(id)) !== JSON.stringify(box)) fail('public/snap-grid.js', `two already apart: ${id} moved to ${JSON.stringify(kept.get(id))}`);
+  // Bigger than the canvas: brought down to it.
+  check('one bigger than the canvas', [{ id: 'big', box: { x: -50, y: 0, w: 3000, h: 2000 } }], area);
+  // Three as big as the canvas: they cannot all keep their size, so they are made smaller and set apart.
+  check('three canvas-sized', [0, 1, 2].map((i) => ({ id: `f${i}`, box: { x: area.x, y: area.y, w: area.w, h: area.h } })), area);
+  // Kept clear of what the grid holds: a snapped module in the middle.
+  const g = gridFor({ left: 0, top: 60, width: 1280, height: 640 }, 130);
+  const snapped = [...resettle(g, [{ id: 's', box: { x: 400, y: 200, w: 400, h: 300 } }]).values()].map((c) => cellBox(g, c));
+  check('around a snapped module', stacked, area, { taken: snapped });
+  // Many on a small canvas, more than fit even at the smallest size: every one placed, every one still on the canvas.
+  const small = { x: 8, y: 8, w: 684, h: 400 };
+  check('twelve on a small canvas', Array.from({ length: 12 }, (_, i) => ({ id: `m${i}`, box: { x: 900 + i * 10, y: -100, w: 500, h: 400 } })), small, { apart: false });
+  // As many as fit at the smallest size: apart.
+  check('four smallest on a small canvas', Array.from({ length: 4 }, (_, i) => ({ id: `n${i}`, box: { x: 0, y: 0, w: 600, h: 380 } })), small);
+  // Snap off and on alike: every size from a phone-wide canvas to a wide one, six modules piled up, all on it and apart.
+  for (const [w, h] of [[700, 500], [900, 640], [1280, 640], [1920, 1000]]) {
+    const A = { x: 8, y: 8, w: w - 16, h: h - 16 };
+    check(`six piled on ${w}x${h}`, Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, box: { x: 40 + i * 5, y: 40, w: 420, h: 320 } })), A, { apart: 6 <= Math.floor(A.w / (MIN_W + 8)) * Math.floor(A.h / (MIN_H + 8)) });
+  }
+  // Clean up with the grid on (tidyCells; QA's repro): a small Chat and three modules a third of the grid wide and its full
+  // height, two dragged onto the third. Where the grid holds all of them (12 columns) every one keeps its cells;
+  // where it has not (9 and 6 columns), the ones with a place keep theirs and only the rest are made smaller. Never all shrunk
+  // because one could not fit, and a second Clean up changes nothing.
+  for (const [width, allFit, mustKeep] of [[1600, true, []], [1280, false, ['chat', 'todo']], [900, false, ['chat']]]) {
+    const gg = gridFor({ left: 0, top: 77, width, height: 683 }, 130);
+    const items = [
+      { id: 'chat', cell: { col: 0, row: 0, cols: 2, rows: 3 } },
+      { id: 'todo', cell: { col: 4, row: 0, cols: 3, rows: 6 } },
+      { id: 'polls', cell: { col: 4, row: 0, cols: 3, rows: 6 } },
+      { id: 'calendar', cell: { col: 4, row: 0, cols: 3, rows: 6 } },
+    ];
+    const got = tidyCells(gg, items);
+    const list = [...got.values()];
+    const label = `Clean up, snapped, ${gg.cols} columns`;
+    if (got.size !== items.length) fail('public/snap-grid.js', `${label}: ${got.size} of ${items.length} placed`);
+    list.forEach((a, i) => list.forEach((b, j) => { if (i < j && cellsOverlap(a, b)) fail('public/snap-grid.js', `${label}: two modules overlap: ${JSON.stringify([...got])}`); }));
+    const kept = items.filter(({ id, cell }) => got.get(id)?.cols === cell.cols && got.get(id)?.rows === cell.rows).map(({ id }) => id);
+    if (allFit && kept.length !== items.length) fail('public/snap-grid.js', `${label}: every module fits at its size, but only ${kept.join(', ') || 'none'} kept it: ${JSON.stringify([...got])}`);
+    if (mustKeep.some((id) => !kept.includes(id))) fail('public/snap-grid.js', `${label}: ${mustKeep.join(' and ')} have a place and must keep their size: ${JSON.stringify([...got])}`);
+    if (!allFit && kept.length === 0) fail('public/snap-grid.js', `${label}: every module was made smaller`);
+    const l = leastSpan(gg);
+    for (const [id, c] of got) if (c.cols < l.cols || c.rows < l.rows) fail('public/snap-grid.js', `${label}: ${id} below its smallest size`);
+    const again = tidyCells(gg, [...got].map(([id, cell]) => ({ id, cell })));
+    if (JSON.stringify([...again]) !== JSON.stringify([...got])) fail('public/snap-grid.js', `${label}: a second Clean up moved something: ${JSON.stringify([...again])}`);
+  }
+  // canvas.js runs it from cleanUp(), floating modules only, in this window, snapped ones by the grid's resettle.
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const clean = canvasJs.slice(canvasJs.indexOf('  function cleanUp() {'), canvasJs.indexOf('  // The grid\'s size, from the space bar\'s slider'));
+  if (!/floaterOf\(p\) && floaterOf\(p\)\.ownerDocument === doc/.test(clean)) fail('public/canvas.js', 'cleanUp() must take only the floating modules in the canvas\'s window');
+  if (!/tidyCells\(g, snapped\.map\(\(p\) => \(\{ id: p\.id, cell: snapCell\(g, currentBox\(floaterOf\(p\)\)\) \}\)\)\)/.test(clean) || !/tidyBoxes\(free\.map/.test(clean)) fail('public/canvas.js', 'cleanUp() must place snapped modules by tidyCells, in their own cells, and free ones by tidyBoxes');
+  if (!/remember\(p\.id, \{ box: currentBox\(floater\), layout: 'user' \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() must remember the tidy places as a drag does');
+  if (!/\n    cleanUp,\n/.test(canvasJs)) fail('public/canvas.js', 'the canvas must offer cleanUp()');
+}
+
 // The conference's switch (Thomas, 2026-09-30): a switch always reads the module's name, never a closed label such as
 // "Rejoin call"; joining lives in the conference's "Not in a call" note, so the space bar has no call control.
 {

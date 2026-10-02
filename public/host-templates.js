@@ -261,7 +261,7 @@ async function openEditor(t) {
   });
   // The verbs (addendum 4): one field each, blank for the default. `data-verb-key`, not data-verb, which the page fills.
   const v = (t && t.verbs) || {};
-  const verbLabel = { enter: `Button for entering ${word('space', { a: true })}` };
+  const verbLabel = { enter: `Button for entering ${word('space', { a: true })}`, layout: `Button for the ${word('canvas')} layout` };
   $('te-verbs').innerHTML = VERBS.map((key) => `<div class="word-row" data-verb-key="${key}"><strong>${escapeHtml(verbLabel[key] || key)}</strong>`
     + `<input type="text" data-verb-input maxlength="20" value="${escapeHtml(v[key] || '')}" placeholder="${escapeHtml(DEFAULT_VERBS[key])}" aria-label="${escapeHtml(verbLabel[key] || key)}"></div>`).join('');
   $('te-home').value = (t && t.icons && t.icons.home) || '';

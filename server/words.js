@@ -160,13 +160,13 @@ function fill(text, resolved) {
   });
 }
 
-// --- verbs (addendum 4, "the word for entering a space") ------------------------------------------------------------
+// --- verbs (addendum 4, "the word for entering a space"; and the space bar's Layout button) ---------------------------
 // The actions a person reads on a button, beside the nouns above and resolved the same way: the owner's own
 // (settings.verbs.<key>), else the environment's template's, else the default. Each is one string, as it reads at the
 // start of a button ("Enter", "Board", "Go to"): no plural, no article, never lower-cased or conjugated. A verb is not
 // a level or role, so it is kept out of `words` and the Names vocabulary. The key is a code name and never changes.
-const VERBS = ['enter'];
-const DEFAULT_VERBS = Object.freeze({ enter: 'Enter' });
+const VERBS = ['enter', 'layout'];
+const DEFAULT_VERBS = Object.freeze({ enter: 'Enter', layout: 'Layout' });
 const VERB_MAX_LENGTH = 20;
 
 // One verb as given, checked: { verb } (tidied) or { error }, one sentence.
@@ -208,7 +208,7 @@ function ownVerbsOnly(set) {
   return out;
 }
 
-// Every verb, resolved: the owner's, else the template's, else the default. { enter: "Enter" }.
+// Every verb, resolved: the owner's, else the template's, else the default. { enter: "Enter", layout: "Layout" }.
 function resolveVerbs(ownerVerbs, templateVerbs) {
   const owner = ownVerbsOnly(ownerVerbs);
   const template = ownVerbsOnly(templateVerbs);

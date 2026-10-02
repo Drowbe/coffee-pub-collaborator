@@ -256,16 +256,15 @@ a:hover {
   display: none;
 }
 
-/* Spaces in the left zone: two controls side by side as one slot, the word (home) and the caret (the switcher). */
+/* Spaces in the left zone: two controls side by side as one slot, the word (home) and the caret (the switcher). Their
+   type, colour and icon size are the top bar's link look (.core-link), as Calendar, Map and the space's segment. */
 .topbar .nav-slot,
 .topbar .nav-slot-caret {
   position: relative;
   flex: none;
   border: 0;
   background: none;
-  font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-family: inherit;
   cursor: pointer;
 }
 
@@ -1458,7 +1457,7 @@ body.in-space .page-scroll {
   background: var(--nav-secondary-bg);
 }
 
-/* Two zones, like the top bar (plan-two-zone-nav.md): left, the Modules button and Online (who is here); right, the
+/* Two zones, like the top bar (plan-two-zone-nav.md): left, the Layout button and Online (who is here); right, the
    space's actions. The left zone takes what the right does not. One colour across the bar (--nav-secondary-bg, above):
    neither zone has a background of its own. See architecture-navigation.md. */
 body.in-space .subnav {
@@ -1843,6 +1842,69 @@ input.switch:disabled {
   display: none;
 }
 
+/* The Layout panel's sections (plan-layout-menu.md): Show, then Arrange, each a heading (the header's .nav-menu-heading
+   look, lined up with the rows' text) over its own group. */
+.module-chooser-show,
+.module-chooser-arrange,
+.module-chooser-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.module-chooser-arrange {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
+.module-chooser-arrange[hidden],
+.module-chooser-range[hidden] {
+  display: none;
+}
+
+.module-chooser-list .module-chooser-heading {
+  padding: 4px 6px 2px;
+}
+
+/* Dock all and Clean up: a row like a switch's, an icon and the word, no switch. */
+.module-chooser-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.module-chooser-action:hover,
+.module-chooser-action:focus-visible {
+  background: var(--surface-hover);
+}
+
+/* The grid's size, under the snap switch while it is on. */
+.module-chooser-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.module-chooser-range input[type="range"] {
+  flex: 1;
+  min-width: 90px;
+  accent-color: var(--accent);
+}
+
 /* Only while the list is the tab bar (space.js, placeSubnav, by the width of the header's own window, so a narrow
    pop-out gets its tabs): no button, and the tab bar lays out the tabs as before. */
 body.in-space .module-chooser:has(> .subnav-modules) {
@@ -1867,9 +1929,6 @@ body.in-space .topbar {
 @media (max-width: 560px) {
   .subnav #fullscreen-toggle,
   .subnav #popout,
-  .subnav #dock-all,
-  .subnav #snap-all,
-  .subnav #snap-size,
   .subnav .nav-divider {
     display: none;
   }
@@ -2010,14 +2069,13 @@ button.whoami:focus-visible {
   color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
 }
 
-/* The home icon and the crumb icons (space, page) are header icons too. */
+/* The home icon and a page's anchor icon on a phone are header icons too (a space's segment is a .core-link: its own). */
 .topbar .brand-home i,
-.topbar .crumb-here i {
+.topbar .crumb-here:not(.core-link) i {
   color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
 }
 
-.topbar .brand-home:hover i,
-.topbar a.crumb-here:hover i {
+.topbar .brand-home:hover i {
   color: var(--icon-hover);
 }
 
@@ -2601,9 +2659,14 @@ body.in-space .topbar {
   display: none;
 }
 
-/* A segment is cut short with an ellipsis when the bar runs out of room; its title has the whole name. */
+/* A segment is cut short with an ellipsis when the bar runs out of space; its title has the whole name. The name gives
+   way, never the icon. */
 .topbar .crumb .crumb-here {
   min-width: 0;
+}
+
+.topbar .crumb .crumb-here i {
+  flex: none;
 }
 
 .topbar .crumb .crumb-label {
@@ -2618,19 +2681,23 @@ body.in-space .topbar {
   font-weight: 600;
 }
 
-/* An aside's parent segment: a button that reads as a link (it does what Rejoin call does). */
-.topbar .crumb-link {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
+/* Each segment wears the top bar's link look (.core-link: its size, weight, colour, icon and height), set in space.js;
+   nothing here restyles it. The current space is a place, not a link: it doesn't light up on hover. */
+.topbar .crumb div.core-link {
+  cursor: default;
 }
 
-.topbar .crumb-link:hover {
-  color: var(--icon-hover);
-  text-decoration: underline;
+.topbar .crumb div.core-link:hover {
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+  background: none;
+}
+
+/* An aside's parent segment: a button that reads as a link (it does what Rejoin call does). */
+.topbar .crumb-link {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
 }
 
 .crumb-sep {
@@ -6416,6 +6483,19 @@ body.chat-window {
 
   .topbar .crumb .crumb-label {
     max-width: none;
+  }
+
+  /* On a phone the anchor is the page's title, in the bar's own type, not a link among others. */
+  .topbar .crumb .core-link {
+    height: auto;
+    padding: 0;
+    color: inherit;
+    font-size: inherit;
+    background: none;
+  }
+
+  .topbar .crumb .core-link i {
+    color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
   }
 
   .topbar.menu-open .links .whoami-caret {

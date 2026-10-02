@@ -51,7 +51,7 @@ An admin approves what the To-do may hear from other modules when enabling it (a
 
 ## In a space
 
-In a space, switch on **To-do** in **Modules**, in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own, from the buttons on its titlebar. It shows that space's list; the environment's list is on the To-do's own page.
+In a space, switch on **To-do** in **Layout**, in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own, from the buttons on its titlebar. It shows that space's list; the environment's list is on the To-do's own page.
 
 ## Reminders
 

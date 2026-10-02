@@ -18,7 +18,7 @@ off.
 
 To join the call:
 
-1. If the Conference is not showing, click **Modules** in the space bar and switch **Conference** on. It shows
+1. If the Conference is not showing, click **Layout** in the space bar and switch **Conference** on. It shows
    **Not in a call**, with who is on the call now under **Currently on the call** ("No one is on the call yet. Be
    the first to join." when nobody is).
 2. Click **Join the call**, or the green phone on the toolbar (its tooltip reads "Join the call").
@@ -43,25 +43,34 @@ layout, **1** to **6** send a reaction. As the window narrows, buttons tuck unde
 The bar under the top bar belongs to the space you are in. The space's name is in the top bar, not here. From left
 to right:
 
-- **Modules** (or your environment's word for modules). Click it for a list of switches: the Conference, the Chat
-  and each module on in the space. Switch one on to show it on the canvas, off to hide it. The list stays open
-  while you switch; click **Modules** again, press Escape or click elsewhere to close it. With the keyboard, the
-  arrow keys move between switches and Space or Enter flips one. A count shows what is unread, on the switch and
-  on the button.
-- **Online**, right after **Modules**: who is here, as small square pictures of the people in the space, you first, up to four, then
+- **Layout** (or the word your environment uses for it). Click it to open a panel with two parts. Under **Show**
+  are switches for the Conference, the Chat and each module on in the space: switch one on to show it on the
+  canvas, off to hide it. A count shows what is unread, on the switch and on the button. Under **Arrange**:
+  - **Dock all** puts every floating module back beside the call.
+  - **Clean up** tidies the floating modules: each is moved fully onto the canvas so none overlap, keeping its
+    size where it fits. With **Snap to a grid** on, each keeps its size in cells wherever a place exists, and only
+    one with no place is made smaller. Clean up again changes nothing. Docked modules and modules in their own window stay as they are, and the new
+    places are remembered.
+  - **Snap to a grid** puts every module that can float on a grid (see below), and **Grid size**, shown while it
+    is on, sets how fine the grid is.
+
+  The panel stays open while you use it; click **Layout** again, press Escape or click elsewhere to close it. With
+  the keyboard, Tab moves through it, the arrow keys move between switches (and move the slider), and Space or
+  Enter flips a switch or presses a button. On a phone there is no **Layout** button: the modules are tabs along
+  the bottom.
+- **Online**, right after **Layout**: who is here, as small square pictures of the people in the space, you first, up to four, then
   "+2" for the rest, and who they are in a few words: "Just you", "You and Alex", "You, Alex and Sam" or "You and 4
   others". A camera mark is on those on the call. Click it for the list, headed "In this space (5)": everyone here,
   you first with "(you)", and the camera with "on the call" beside those on it. It changes as people come, go, join
   and hang up.
-- The space's tools, at the right: **Dock all**, the grid switch and **Grid size**, **Full screen**, **Pop out**,
+- The space's tools, at the right: **Full screen**, **Pop out**,
   **Pull participants back** or **Rejoin call** during an aside, a module's own tools, and **Leave space** last.
 
 When the window is too narrow for everything, Online first says how many instead of who ("5 in this space"),
 then shows fewer pictures, then only an icon and the count ("5 here"). Then the tools
 fold into a **…** button (**More**) just before **Leave space**: **Pop out** first, then **Full screen**, a
-module's own tools, the grid switch and **Grid size**, **Dock all**, **Rejoin call** and **Pull participants
-back**. Click **…** to use them; a switch there shows a tick while it is on. **Leave space**, **…** and **Modules**
-never fold.
+module's own tools, **Rejoin call** and **Pull participants back**. Click **…** to use them. **Leave space**,
+**…** and **Layout** never fold.
 
 On a phone the space bar is a row of tabs at the bottom of the page: a tab for each module, how many are here ("5
 here"), and **Leave space**.
@@ -81,7 +90,7 @@ before you enter (see [Spaces](userguide-spaces.md)).
 The red hang-up button on the toolbar leaves the call, not the space. Your microphone and camera stop, you stop
 receiving anyone's audio and video, and your tile disappears for everyone else, but you stay in the space and stay
 online, with the chat and the modules still open. The Conference stays, showing **Not in a call**, and the phone
-turns green to join again. Switching the Conference off in **Modules**, or closing it with its x, also leaves the
+turns green to join again. Switching the Conference off in **Layout**, or closing it with its x, also leaves the
 call, so nobody is left on the call with the Conference hidden. The space's own **Leave space** button, at the right
 of the space bar, is what leaves the space. The status line reads "in <space>" whether or not you are on the call.
 If nothing at all is open, the canvas says so. In a pop-out window, hang up brings the app back to the page first.
@@ -109,7 +118,7 @@ order and pin are remembered in your browser.
 
 ## Chat
 
-Open chat from **Modules** in the space bar, under the header, or with **C**. **Modules** is the one place to show and hide modules on the canvas: it lists a switch for the Conference, the Chat and each module the space has on, on while the module is shown. A module with something unread shows a count.
+Open chat from **Layout** in the space bar, under the header, or with **C**. **Layout**'s **Show** section is the one place to show and hide modules on the canvas: it lists a switch for the Conference, the Chat and each module the space has on, on while the module is shown. A module with something unread shows a count.
 
 - **Formatting.** The icons button to the left of the box opens a small layer above it with the
   picture button, **bold**, *italic*, code, bullet lists and emoji, and a question mark that shows the
@@ -132,7 +141,7 @@ chat box is hidden.
 
 ## Chat, docked, floating or in its own window
 
-The conference has the same titlebar as the chat and every module: the same buttons to float it over the page (and dock it again), to open it in a window of its own, and to close it, which leaves the call. In its own window the titlebar has no close: closing that window brings the call back into the page where it was. **Hang up** on the toolbar leaves the call and keeps the conference open, which says "Not in a call"; the phone turns green, and pressing it, or **Join the call**, joins again. Chat opens as a column beside the video. Its header has the same buttons as a module's: one to float it over the canvas, where you can drag and resize it (and a matching button to dock it again), one to open it in a window of its own, and the x to close it. A floating module also has a **Snap to a grid** button: on, the module sits in the cells of a grid over the call (you see the grid while you drag), moving and resizing a cell at a time and keeping its place when the window changes size; off, it floats freely, as before. Each module remembers its own choice. The space bar (beside **Full screen**) has the same switch for the whole canvas: on, every module that can float is put on the grid -- docked ones float first -- and any you open later comes up floating and snapped; a slider beside it, **Grid size**, sets how fine the grid is (you see the grid while you slide). As you slide, the modules move to the cells nearest where you put them and keep about the same size on screen, without landing on each other while there is room for them all; slide back and they return to where they were. Off, the modules that were docked when you switched it on dock again, and the rest float freely. The space remembers both. The Calendar and other modules open as more columns after the chat, and the video always keeps some of the width. If you pop the whole call out, chat and modules come with it. Close a module's own window and the module comes back into the page, docked or floating as it was before, with whatever it held untouched.
+The conference has the same titlebar as the chat and every module: the same buttons to float it over the page (and dock it again), to open it in a window of its own, and to close it, which leaves the call. In its own window the titlebar has no close: closing that window brings the call back into the page where it was. **Hang up** on the toolbar leaves the call and keeps the conference open, which says "Not in a call"; the phone turns green, and pressing it, or **Join the call**, joins again. Chat opens as a column beside the video. Its header has the same buttons as a module's: one to float it over the canvas, where you can drag and resize it (and a matching button to dock it again), one to open it in a window of its own, and the x to close it. A floating module also has a **Snap to a grid** button: on, the module sits in the cells of a grid over the call (you see the grid while you drag), moving and resizing a cell at a time and keeping its place when the window changes size; off, it floats freely, as before. Each module remembers its own choice. The **Layout** panel's **Arrange** section has the same switch for the whole canvas, **Snap to a grid**: on, every module that can float is put on the grid -- docked ones float first -- and any you open later comes up floating and snapped; a slider under it, **Grid size**, sets how fine the grid is (you see the grid while you slide). As you slide, the modules move to the cells nearest where you put them and keep about the same size on screen, without landing on each other while there is space for them all; slide back and they return to where they were. Off, the modules that were docked when you switched it on dock again, and the rest float freely. The space remembers both. The Calendar and other modules open as more columns after the chat, and the video always keeps some of the width. If you pop the whole call out, chat and modules come with it. Close a module's own window and the module comes back into the page, docked or floating as it was before, with whatever it held untouched.
 
 ## Reactions
 

@@ -1,0 +1,145 @@
+name: Project status from labels
+
+# When an issue gets a `status: ...` label, keep that one status label on the issue and move the issue's
+# card on the project board to the matching Status option ("status: needs plan" -> "Needs plan").
+# The board's own workflows still handle Inbox (auto-add), Building (linked pull request) and Shipped (closed).
+#
+# One-time setup, in the repository's Settings > Secrets and variables > Actions:
+#   - secret   PROJECT_TOKEN   a personal access token (classic) with the `project` scope (and `repo` if this
+#                              repository is private); fine-grained tokens can't reach projects owned by a user.
+#   - variable PROJECT_OWNER   the user who owns the project, e.g. Drowbe
+#   - variable PROJECT_NUMBER  the project's number, from its URL, e.g. 8
+#   - variable PROJECT_FIELD   optional; the single-select field to set, default Status
+# Without the secret or the owner and number, the labels are still tidied and the board step is skipped.
+
+on:
+  issues:
+    types: [labeled]
+
+permissions:
+  issues: write
+
+# One run at a time per issue. GitHub keeps at most one pending run per group, so when labels change
+# quickly only the newest pending change runs; each run reads the issue's current labels, not the event's.
+concurrency:
+  group: project-status-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  status:
+    if: "startsWith(github.event.label.name, 'status: ')"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+          PROJECT_FIELD: ${{ vars.PROJECT_FIELD }}
+        with:
+          script: |
+            const PREFIX = 'status: ';
+            const norm = (s) => String(s || '').trim().toLowerCase();
+            const label = context.payload.label?.name || '';
+            const issue = context.payload.issue;
+            if (!issue || !norm(label).startsWith(PREFIX)) {
+              core.notice(`Label "${label}" is not a status label; nothing to do.`);
+              return;
+            }
+            const wanted = norm(label.slice(PREFIX.length));
+
+            // 1. One status label at a time, judged on the issue's labels now, not when the event fired:
+            //    if this label was already replaced by a later one, that later run owns the board.
+            const current = await github.paginate(github.rest.issues.listLabelsOnIssue, {
+              ...context.repo,
+              issue_number: issue.number,
+              per_page: 100,
+            });
+            if (!current.some((l) => l.name === label)) {
+              core.notice(`Label "${label}" is no longer on issue #${issue.number}, so neither the labels nor the board were changed.`);
+              return;
+            }
+            for (const other of current) {
+              if (other.name === label || !norm(other.name).startsWith(PREFIX)) continue;
+              try {
+                await github.rest.issues.removeLabel({ ...context.repo, issue_number: issue.number, name: other.name });
+                core.info(`Removed label "${other.name}".`);
+              } catch (err) {
+                if (err.status !== 404) throw err; // already gone
+              }
+            }
+
+            // 2. The board, if it is set up here.
+            const token = process.env.PROJECT_TOKEN;
+            const owner = (process.env.PROJECT_OWNER || '').trim();
+            const numberText = (process.env.PROJECT_NUMBER || '').trim();
+            const fieldName = (process.env.PROJECT_FIELD || '').trim() || 'Status';
+            if (!token || !owner || !numberText) {
+              const missing = [!token && 'secret PROJECT_TOKEN', !owner && 'variable PROJECT_OWNER', !numberText && 'variable PROJECT_NUMBER'].filter(Boolean);
+              core.notice(`The project board is not set up for this repository (missing ${missing.join(', ')}), so the board was not updated.`);
+              return;
+            }
+            const number = Number(numberText);
+            if (!Number.isInteger(number) || number < 1) {
+              core.setFailed(`PROJECT_NUMBER must be a whole number, but it is "${numberText}".`);
+              return;
+            }
+
+            const board = getOctokit(token);
+            let project;
+            try {
+              const found = await board.graphql(
+                `query($owner: String!, $number: Int!) {
+                  user(login: $owner) {
+                    projectV2(number: $number) {
+                      id
+                      title
+                      fields(first: 100) {
+                        nodes {
+                          ... on ProjectV2SingleSelectField { id name options { id name } }
+                        }
+                      }
+                    }
+                  }
+                }`,
+                { owner, number }
+              );
+              project = found?.user?.projectV2;
+            } catch (err) {
+              core.setFailed(`Could not read project ${number} of user ${owner}: ${err.message}`);
+              return;
+            }
+            if (!project) {
+              core.setFailed(`Project ${number} of user ${owner} was not found, or PROJECT_TOKEN cannot see it.`);
+              return;
+            }
+
+            const field = (project.fields?.nodes || []).find((f) => f && f.options && norm(f.name) === norm(fieldName));
+            if (!field) {
+              core.setFailed(`Project "${project.title}" has no single-select field named "${fieldName}".`);
+              return;
+            }
+            const option = field.options.find((o) => norm(o.name) === wanted);
+            if (!option) {
+              const names = field.options.map((o) => `"${o.name}"`).join(', ') || 'none';
+              core.setFailed(`No "${field.name}" option matches label "${label}"; the options are ${names}.`);
+              return;
+            }
+
+            const added = await board.graphql(
+              `mutation($project: ID!, $content: ID!) {
+                addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
+              }`,
+              { project: project.id, content: issue.node_id }
+            );
+            const itemId = added.addProjectV2ItemById.item.id;
+
+            await board.graphql(
+              `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+                updateProjectV2ItemFieldValue(
+                  input: { projectId: $project, itemId: $item, fieldId: $field, value: { singleSelectOptionId: $option } }
+                ) { projectV2Item { id } }
+              }`,
+              { project: project.id, item: itemId, field: field.id, option: option.id }
+            );
+            core.notice(`Issue #${issue.number} moved to "${option.name}" on "${project.title}".`);

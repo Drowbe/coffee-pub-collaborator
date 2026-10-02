@@ -44,20 +44,36 @@ subnav.innerHTML = `
   <span class="nav-right subnav-tools"></span>`;
 topbarEl.appendChild(subnav);
 nav.attach('secondary', subnav); // its tools are registered further down, once the state their `visible` reads exists
-// The module chooser, first in the space bar: one button that opens a list of switches, one per module (the conference,
-// the chat and the space's modules), each showing or hiding its module on the canvas (canvas.js fills #modules-menu,
-// with switch-list.js). On a phone the same #modules-menu is the tab bar instead, and the button is not drawn.
+// The module chooser, first in the space bar: one button, Layout (the environment's `layout` verb), that opens a panel
+// (plan-layout-menu.md) in two sections. Show: a switch per module (the conference, the chat and the space's modules),
+// each showing or hiding its module on the canvas (canvas.js writes it, with switch-list.js). Arrange: Dock all, Clean up,
+// the canvas-level snap switch and, while it is on, the grid's size; written once here, wired further down (by
+// syncSnapBar()), and kept in place by canvas.js. On a phone the same #modules-menu is the tab bar instead, the button is
+// not drawn, and Arrange is not shown.
+const arrangeSection = document.createElement('div');
+arrangeSection.className = 'module-chooser-arrange';
+arrangeSection.innerHTML = `
+  <div class="nav-menu-heading module-chooser-heading" id="modules-menu-arrange">Arrange</div>
+  <div class="module-chooser-section" role="group" aria-labelledby="modules-menu-arrange">
+    <button class="module-chooser-action" id="dock-all" type="button"><i class="fa-solid fa-table-columns fa-fw" aria-hidden="true"></i><span>Dock all</span></button>
+    <button class="module-chooser-action" id="clean-up" type="button"><i class="fa-solid fa-broom fa-fw" aria-hidden="true"></i><span>Clean up</span></button>
+    <label class="switch-row"><input type="checkbox" class="switch" role="switch" id="snap-all"><i class="fa-solid fa-border-all fa-fw" aria-hidden="true"></i><span class="switch-name">Snap to a grid</span></label>
+    <label class="module-chooser-range" id="snap-size-row" hidden><span class="switch-name">Grid size</span><input type="range" id="snap-size"></label>
+  </div>`;
 const moduleChooser = document.createElement('span');
 moduleChooser.className = 'module-chooser';
 moduleChooser.innerHTML = `
-  <button class="btn btn-small module-chooser-toggle" id="modules-toggle" type="button" aria-expanded="false" aria-controls="modules-menu"><i class="fa-solid fa-puzzle-piece fa-fw" aria-hidden="true"></i> <span class="module-chooser-label"></span> <i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i><span class="badge" hidden></span></button>
+  <button class="btn btn-small module-chooser-toggle" id="modules-toggle" type="button" aria-expanded="false" aria-controls="modules-menu"><i class="fa-solid fa-object-group fa-fw" aria-hidden="true"></i> <span class="module-chooser-label"></span> <i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i><span class="badge" hidden></span></button>
   <div class="module-chooser-list" id="modules-menu" role="group" hidden></div>`;
-nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, icon: 'puzzle-piece', label: word('module', { many: true, cap: true }), element: moduleChooser });
-// The chooser's words are the environment's word for modules (registerWordTools() below calls this once they are known).
+moduleChooser.querySelector('#modules-menu').appendChild(arrangeSection);
+nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, icon: 'object-group', label: verb('layout'), element: moduleChooser });
+// The chooser reads the environment's layout verb (registerWordTools() below calls this once it is known). Its list is
+// named for the button; as the phone's tab bar it is the modules themselves, so it is named by the module word.
 function nameModuleChooser() {
-  const many = word('module', { many: true, cap: true });
-  moduleChooser.querySelector('.module-chooser-label').textContent = many;
-  moduleChooser.querySelector('#modules-menu').setAttribute('aria-label', many);
+  const name = verb('layout');
+  const list = moduleChooser.querySelector('#modules-menu');
+  moduleChooser.querySelector('.module-chooser-label').textContent = name;
+  list.setAttribute('aria-label', list.classList.contains('subnav-modules') ? word('module', { many: true, cap: true }) : name);
 }
 nameModuleChooser();
 // On a phone the space bar is a tab bar at the bottom of the page, in the flow after the canvas, so
@@ -87,6 +103,7 @@ function placeSubnav() {
     list.classList.toggle('subnav-modules', tabs);
     list.classList.toggle('module-chooser-list', !tabs);
     if (tabs) list.removeAttribute('role'); else list.setAttribute('role', 'group');
+    nameModuleChooser();
     list.hidden = !tabs;
     moduleChooser.querySelector('#modules-toggle').setAttribute('aria-expanded', 'false');
     window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
@@ -985,20 +1002,15 @@ window.hostModules = canvas; // for debugging and tests
 // plan-nav.md sets out (the layout tools core, full screen and pop out secondary, the aside's two utility), and Leave
 // last on its own, a divider before it. Registered here, after the state their `visible` functions read exists.
 const SPACE_TOOL = { bar: 'secondary', zone: 'right', group: 'space', groupOrder: 1 };
-const snapSize = document.createElement('input');
-snapSize.type = 'range';
-snapSize.id = 'snap-size';
-snapSize.title = 'Grid size';
-snapSize.setAttribute('aria-label', 'Grid size');
-snapSize.hidden = true;
-nav.register({ ...SPACE_TOOL, id: 'snap-size', order: 3, element: snapSize }); // the slider: the registry places it, syncSnapBar() runs it
 nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', toggleable: true, active: false, onClick: () => toggleFullscreen() });
 nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
 // The tools whose words are the environment's: registered again (the same elements) once loadBranding() has them.
 function registerWordTools() {
   nameModuleChooser();
-  nav.register({ ...SPACE_TOOL, id: 'dock-all', order: 1, icon: 'table-columns', label: `Dock every floating ${word('module')} beside the call`, onClick: () => { canvas.dockAll(); syncSnapBar(); } });
-  nav.register({ ...SPACE_TOOL, id: 'snap-all', order: 2, icon: 'border-all', label: `Snap every floating ${word('module')} to a grid`, toggleable: true, active: canvas.snapAllOn(), onClick: () => { canvas.snapAll(!canvas.snapAllOn()); syncSnapBar(); } });
+  // The Layout panel's Arrange controls: their tooltips name the environment's module word.
+  arrangeSection.querySelector('#dock-all').title = `Dock every floating ${word('module')} beside the call`;
+  arrangeSection.querySelector('#clean-up').title = `Tidy the floating ${word('module', { many: true })}`;
+  arrangeSection.querySelector('#snap-all').closest('label').title = `Snap every floating ${word('module')} to a grid`;
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
   nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, icon: 'right-from-bracket', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
 }
@@ -1065,7 +1077,7 @@ call
   .on(RoomEvent.ParticipantNameChanged, syncWhoIsInCall);
 
 // --- who is here (space-people.js) ------------------------------------------------------------------
-// Online, in the space bar's left zone after the Modules button (plan-two-zone-nav.md, decisions 4 and 9): everyone in
+// Online, in the space bar's left zone after the Layout button (plan-two-zone-nav.md, decisions 4 and 9): everyone in
 // this space (or aside) now, you among them, with a mark on those on the call, and the list under it. Live from the call
 // itself (LiveKit's Room); it gives way (the count for the names, fewer portraits, then the short count) before anything
 // on the bar's right folds (its `fit`, called by nav-bar.js). On a phone it is a count in the tab bar, before Leave.
@@ -1084,22 +1096,29 @@ const whoHere = createWhoHere({
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
 // --- end who is here ---
 
-// The canvas-level snap, in the space bar: one switch that makes every floating module, now and later, snap to a grid over the
-// canvas, and, while it is on, a slider for the grid's size (the grid shows while the slider moves). Each module's own switch
-// on its titlebar still works on its own; this one sets them all. Remembered with the space's layout.
-// The switch and Dock all (the way back: every floating module docks beside the call, and the canvas-level snap goes off with it,
-// or it would float them again) are registered with the bar's other tools at the top of this file.
+// The Layout panel's Arrange section (written at the top of this file, kept in the panel by canvas.js): Dock all (every
+// floating module docks beside the call, and the canvas-level snap goes off with it, or it would float them again), Clean
+// up (every floating module onto the canvas and apart), and the canvas-level snap: one switch that makes every floating
+// module, now and later, snap to a grid over the canvas, and, while it is on, a slider for the grid's size (the grid shows
+// while the slider moves). Each module's own switch on its titlebar still works on its own; this one sets them all.
+// Remembered with the space's layout. Pressing one leaves the panel open. Held by reference: on a phone the section is
+// out of the page.
+const snapAllSwitch = arrangeSection.querySelector('#snap-all');
+const snapSize = arrangeSection.querySelector('#snap-size');
 function syncSnapBar() {
   const on = canvas.snapAllOn();
   const range = canvas.snapPitchRange();
-  nav.setActive('snap-all', on);
-  const size = $('snap-size');
-  size.hidden = !on;
-  size.min = String(range.min); size.max = String(range.max); size.step = String(range.step);
-  size.value = String(canvas.snapPitch());
+  snapAllSwitch.checked = on;
+  arrangeSection.querySelector('#snap-size-row').hidden = !on;
+  snapSize.min = String(range.min); snapSize.max = String(range.max); snapSize.step = String(range.step);
+  snapSize.value = String(canvas.snapPitch());
 }
-$('snap-size').addEventListener('input', () => canvas.setSnapPitch(Number($('snap-size').value), { preview: true }));
-$('snap-size').addEventListener('change', () => canvas.setSnapPitch(Number($('snap-size').value)));
+arrangeSection.querySelector('#dock-all').addEventListener('click', () => { canvas.dockAll(); syncSnapBar(); });
+arrangeSection.querySelector('#clean-up').addEventListener('click', () => { canvas.cleanUp(); });
+snapAllSwitch.addEventListener('change', () => { canvas.snapAll(snapAllSwitch.checked); syncSnapBar(); });
+wireSwitchList(arrangeSection); // Enter flips the switch, as Space does
+snapSize.addEventListener('input', () => canvas.setSnapPitch(Number(snapSize.value), { preview: true }));
+snapSize.addEventListener('change', () => canvas.setSnapPitch(Number(snapSize.value)));
 syncSnapBar();
 // A toast about a space module opens it on the canvas; an environment module opens over the call.
 document.addEventListener('app:notification', (event) => {
@@ -2632,8 +2651,10 @@ async function leaveSpace() {
 function crumbSegmentHtml(seg, icon) {
   const inner = `<i class="${icon.includes(' ') ? icon : `fa-solid fa-${icon}`} fa-fw" aria-hidden="true"></i><span class="crumb-label">${escapeHtml(seg.label)}</span>`;
   // An aside's parent segment says what it does: "Rejoin call in <space>" (its title and its accessible name).
-  if (seg.action) return `<button type="button" class="crumb-here crumb-link" data-crumb-action="${seg.action}" title="${escapeHtml(seg.title || seg.label)}" aria-label="${escapeHtml(seg.title || seg.label)}">${inner}</button>`;
-  return `<span class="crumb-here"${seg.current ? ' aria-current="location"' : ''} title="${escapeHtml(seg.label)}">${inner}</span>`;
+  // Each segment is a top-bar link to look at (`core-link`, as Calendar, Map and Spaces are), so it can't drift from them.
+  if (seg.action) return `<button type="button" class="crumb-here core-link crumb-link" data-crumb-action="${seg.action}" title="${escapeHtml(seg.title || seg.label)}" aria-label="${escapeHtml(seg.title || seg.label)}">${inner}</button>`;
+  // A div, not a span: the top bar's left zone is .brand, whose `span` rule sizes the environment's name.
+  return `<div class="crumb-here core-link"${seg.current ? ' aria-current="location"' : ''} title="${escapeHtml(seg.label)}">${inner}</div>`;
 }
 function updateCrumb() {
   const connected = call.state === 'connected' && currentSpace;
@@ -2895,7 +2916,7 @@ async function stopCall() {
 }
 
 // The hang-up button. In a pop-out window the canvas comes back to the page first, since the
-// Modules button that brings the conference back is in the page's header.
+// Layout button that brings the conference back is in the page's header.
 // Hang up leaves the call but keeps the conference module, which says "Not in a call" while the toolbar's phone turns
 // green to dial back in; the module's own close (its titlebar x) is what closes it. The whole-call popout comes back
 // in with the call, as before.

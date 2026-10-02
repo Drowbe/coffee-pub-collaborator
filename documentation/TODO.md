@@ -1,8 +1,31 @@
 # To do
 
-Work is tracked at <https://github.com/Drowbe/coffee-pub-collaborator/issues>. This page is an index of the open
-issues, grouped, with a few words each; the issue holds the detail. See the Studio repository for that app's
-side of things.
+GitHub issues are the work list: <https://github.com/Drowbe/coffee-pub-collaborator/issues>, on the board at
+<https://github.com/users/Drowbe/projects/8>. This page is an index of the open issues, grouped, with a few words
+each; the issue holds the detail. See the Studio repository for that app's side of things.
+
+## How issues are tracked
+
+Each issue carries one priority label and one status label:
+
+- Priority: `priority: now`, `priority: next`, `priority: later`.
+- Status: `status: needs plan`, `status: approved`, `status: building`. **Shipped** is set on the board when the
+  issue closes.
+
+A workflow (`.github/workflows/project-status.yml`) keeps the board's Status in step with the status labels: adding
+a `status: ` label moves the issue's card to the matching column and removes the issue's other status label.
+Without the setup below, it only tidies the labels and logs a notice. When two status labels arrive at once only one is kept, and the run for the other logs `Label "<label>" is no longer on issue #N, so neither the labels nor the board were changed.` Adding a status label after a pull request is
+linked overrides the board's own Building rule. `tools/check-project-status.mjs` (in `npm run check`, 10 cases) checks the
+workflow without a network.
+
+### Board setup (once)
+
+1. Create a classic personal access token with the `project` scope, and `repo` too if the repository is private.
+   Fine-grained tokens can't reach a project owned by a user yet. Give it an expiry, and renew it.
+2. In the repository's **Settings** > **Secrets and variables** > **Actions**, on **Secrets**, add `PROJECT_TOKEN`
+   with the token.
+3. On **Variables**, add `PROJECT_OWNER` = `Drowbe` and `PROJECT_NUMBER` = `8`, and, if the field isn't called
+   Status, `PROJECT_FIELD`.
 
 ## In progress
 
@@ -18,7 +41,7 @@ side of things.
   - For Thomas, choices the plan made that he may overrule: on a phone the top bar shows the page's name as a plain label; a module's tools always go in the space bar's right zone (`zone` ignored); the **Manage** link at the start of the page bar on pages that belong to Manage.
   - The Profile page's bar reads "Profile" beside a tab also named **Profile**.
   - A popped-out window narrower than 641 pixels has a cramped space bar, with **Leave space** off the edge. It was like this before the two-zone nav.
-- **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md), approved 2026-10-02): Dock all, the snap switch and the grid slider move from the space bar's right zone into the **Layout ▾** menu under an Arrange heading after Show, then a **Clean up** button. Two steps, building after the rename to Layout lands. Saved layouts are #161, later.
+- **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md)): steps 1 and 2 built 2026-10-02 (the Arrange section and **Clean up**). Saved layouts are #161, not planned yet.
 
 ## Planned
 
@@ -67,7 +90,7 @@ side of things.
 - `tools/check-canvas.mjs` times `resettle` against budgets of 16 to 33 ms. They have four to five times headroom on the development machine, but could fail on a slow CI machine.
 - A **Grid size** drag that ends without a `change` event leaves the previewed layout on screen but unsaved until the next save (`holdStore` in `public/canvas.js`).
 - The SDK menu's link entries (`<a role=menuitem>` in `public/sdk/host.js`, `host.menu.show`) don't open on Space; Enter opens them. Buttons and other entries do.
-- The **Modules** list, who is here and the space bar's **…**: check them with a real screen reader, in Firefox and Safari, and on a real phone. Verified in headless Chromium only.
+- The **Layout** panel (with its Arrange section and the Grid size slider), Online and the space bar's **…**: check them with a real screen reader, in Firefox and Safari, and on a real phone. Verified in headless Chromium only.
 - Pasting a picture into a picture box: check it in Firefox, Safari, on a real phone, with a real screen reader, and with a file (not a picture) copied from the computer's own file manager. Verified in headless Chromium only.
 - Remove the old `away` data message next release: `sendAway()` still sends it and `DataReceived` still reads it in `public/space.js`, for pages on the script before the `away` and `awayMessage` attributes. Its check in `tools/check-canvas.mjs` goes with it.
 - Outside away, changing the camera or quality while the camera is off but still published reopens the camera hardware (`restartCamera()` in `public/space.js`), and `setCameraEnabled(true)` does not pass `prefs.camId`, so the camera turned back on may not be the one chosen.
@@ -111,7 +134,7 @@ side of things.
 - Who sees every space's name and member list: decided (2026-10-02), anyone signed in, for now ([plan-primary-nav](plans/plan-primary-nav.md), decision 35).
 - Owners and the admin missing from Calendar's and Map's filters for spaces they don't belong to: decided (2026-10-02), correct as built, since managing a space is not being a member of it ([plan-calendar-destination](plans/plan-calendar-destination.md), decision 23; [plan-map-destination](plans/plan-map-destination.md), decision 25).
 - `objectSync` (`server/object-sync.js`) is one event source shared by every environment on a hosted server, so a `refchange` from one environment reaches another's `GET /api/modules/stream` listeners when the module id and the scope key match. It carries only pointers, and modules ask again with their own permissions, but it should be scoped per environment. Found while fixing the schedule crash (2026-10-02).
-- Thomas's, for later: a way to choose and save layouts (#161). Clean up is in [plan-layout-menu](plans/plan-layout-menu.md).
+- Thomas's, for later: a way to choose and save layouts (#161). **Clean up** is built ([plan-layout-menu](plans/plan-layout-menu.md)).
 - With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 
 ## Modules

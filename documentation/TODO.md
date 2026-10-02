@@ -9,12 +9,13 @@ side of things.
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
 - **Calendar and Map in the top bar** ([plan-calendar-destination](plans/plan-calendar-destination.md), [plan-map-destination](plans/plan-map-destination.md)): built 2026-10-02, every build step of both plans. Open for Thomas:
-  - On a wide screen the destination's name shows twice: as the entry in the middle of the bar and as the breadcrumb ("› Calendar"). Not to be fixed alone: it waits on a larger usability change Thomas is to send (2026-10-02).
+  - On a wide screen the destination's name shows twice: as the entry in the middle of the bar and as the breadcrumb ("› Calendar"). Decided (2026-10-02): a destination page shows no breadcrumb segment ([plan-two-zone-nav](plans/plan-two-zone-nav.md), decision 7, step 1).
   - On a phone the **Agenda** tab has the Calendar's icon, the same as the **Calendar** tab beside it (a tab's icon is its module's).
   - Map stays hidden while Maps' map is a file at a web address: only a map file on the server (or the host's folder) counts, though the plan said a web address does too.
   - The destination page reads the Calendar's **Open on** setting by its key (`defaultView` in `KINDS` in `public/destination.js`), so the host page knows one module's setting by name.
   - Manage's reason for Map with no map file reads "Choose a file for "Map files" in Maps' settings first."; the plan had "Choose a map file in Maps' settings first.".
 - **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): nine steps. Steps 1 (the `home` word and the full list of module pages) and 2 (the bar's layout and moves) are built (2026-10-02), and so is step 2b, the Modules slot leaving the bar (decision 30), and step 3, presence filtered by membership (2026-10-02). Next is the online people widget; then the aside rules, views over the space with the return pill, the visit view and the bell's notifications.
+- **Two-zone nav** (#152, #153, [plan-two-zone-nav](plans/plan-two-zone-nav.md)): no middle zone in either bar; Calendar and Map move to the top bar's left zone, who is here to the space bar's left zone, and the space bar is one colour. Approved 2026-10-02; building step 1. Also brings theme fields for the top bar's branding area and right side (part of #39).
 
 ## Planned
 
@@ -97,7 +98,7 @@ side of things.
 
 - #37 Call time in the conference's titlebar.
 - #38 A shorter header.
-- #39 The nav colours in the theme editor.
+- #39 The nav colours in the theme editor: the top bar's branding area and right side are planned ([plan-two-zone-nav](plans/plan-two-zone-nav.md), steps 2 and 3); the space bar's colour is not.
 - #31 Customising the dashboard's layout, and snapping on the spaces page.
 - #58 One input in Chat ([plan-one-input](plans/plan-one-input.md)): every step is built. Still to come: the plan's live checks in a browser and a real call.
 - Navigating away without hanging up: decided (2026-10-02), views over the space that set Away while on the call ([plan-primary-nav](plans/plan-primary-nav.md), steps 7 and 8).

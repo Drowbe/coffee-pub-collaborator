@@ -1,7 +1,7 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
-import { anchorSegments, pageOpens } from '/primary-nav.js';
+import { anchorSegments, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { whatOpens, conferenceAllowed } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
@@ -104,6 +104,10 @@ placeSubnav();
 const call = new Room({ adaptiveStream: true, dynacast: true });
 const tiles = new Map(); // participant identity (user key) -> tile element
 const ghostTiles = new Map(); // identity -> tile element, for space members aside elsewhere
+// What the call's aside-started message said of the aside each person went to (key -> { private, members }): someone
+// outside an aside learns who it is with only from that, since presence names only the space they stepped out of.
+const startedAsides = new Map();
+const STARTED_ASIDE_MS = 15000; // a presence answer older than the message can still say they are here
 const asideSelection = new Set(); // identities picked to pull aside together, before confirming
 let me = null;
 let spaceName = 'Coffee Pub'; // the space I am in, once joined; the environment's name before that
@@ -132,7 +136,9 @@ let awayRestoreCam = false;
 let awayMessage = ''; // the away message others read (the "awayMessage" attribute), '' for a plain Away
 let awayRestartCam = false; // a camera change (device, quality) made while away, applied on Back (restartCamera)
 const LOBBY = 'lobby';
-let activeSpace = LOBBY; // the space the stream currently hears (server-computed)
+// The space the stream currently hears (server-computed), as this viewer may read it: null when it is somewhere they
+// can't see (decision 6, step 3: a space or an aside they don't belong to).
+let activeSpace = LOBBY;
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
 // Server-wide call feature toggles (Manage > Settings) -- these defaults
 // hold until init() replaces them with whatever /api/branding actually says.
@@ -217,7 +223,7 @@ async function loadPresence() {
     // The asides are their own record (plan-names step 8); the page lists them after the spaces, marked isAside, so
     // everything that finds where someone is reads one list.
     presenceSpaces = [...(spaces || []), ...(asides || []).map(asideEntry)];
-    activeSpace = active || LOBBY;
+    activeSpace = active === undefined ? LOBBY : active; // null: the stream is somewhere I can't see
     ownerOnline = Boolean(hasOwner);
     for (const [key, tile] of tiles) {
       const colour = presenceUsers.get(key)?.borderColor;
@@ -402,22 +408,26 @@ function reconcileGhostTiles() {
       continue;
     }
     const user = presenceUsers.get(key);
-    const aside = user?.online && user.space && user.space !== currentSpace.id ? presenceSpaces.find((r) => r.id === user.space) : null;
-    if (aside?.isAside) {
+    // Stepped out of this space (presence says so, aside record or not), or in an aside the page can see.
+    const away = asidePlaceholder(user, currentSpace, presenceSpaces, startedAsides.get(key));
+    if (away) {
       const tile = ghostTile(key);
-      const isPrivate = Boolean(aside.private);
-      tile.classList.toggle('tile-ghost-private', isPrivate);
-      setGhostBadge(tile.querySelector('.tile-ghost-badge'), key, isPrivate ? 'playerPrivate' : 'playerAside');
+      tile.classList.toggle('tile-ghost-private', away.private);
+      setGhostBadge(tile.querySelector('.tile-ghost-badge'), key, away.private ? 'playerPrivate' : 'playerAside');
       tile.querySelector('.name').textContent = user.displayName;
-      tile.querySelector('.tile-ghost-status').textContent = isPrivate ? 'In a private conversation' : `In ${word('aside', { a: true })}`;
+      tile.querySelector('.tile-ghost-status').textContent = away.private ? 'In a private conversation' : `In ${word('aside', { a: true })}`;
       // Who a private word is with stays off the record here too, same as
       // it's kept off the OBS-facing recording -- everyone else at the
       // call only gets to know that it's happening, not with whom.
-      tile.querySelector('.tile-ghost-with').textContent = isPrivate ? '' : othersLabel(aside.members, key);
+      tile.querySelector('.tile-ghost-with').textContent = away.private ? '' : othersLabel(away.members, key);
       changed = true;
-    } else if (ghostTiles.has(key)) {
-      removeGhost(key);
-      changed = true;
+    } else {
+      // Back, or gone: forget what the message said, once presence has had time to catch up with it.
+      if (Date.now() - (startedAsides.get(key)?.at || 0) > STARTED_ASIDE_MS) startedAsides.delete(key);
+      if (ghostTiles.has(key)) {
+        removeGhost(key);
+        changed = true;
+      }
     }
   }
   for (const key of [...ghostTiles.keys()]) {
@@ -495,20 +505,14 @@ function renderSpaces() {
     }
     const members = r.members.map((k) => presenceUsers.get(k)).filter(Boolean);
     card.querySelector('.space-choice-count').textContent = r.isAside ? '' : hereCount(members, r.id);
-    renderMembers(card.querySelector('.members'), members, r.id);
+    renderMembers(card.querySelector('.members'), members, r.id, Boolean(r.isAside));
   }
   for (const card of [...list.children]) if (!keep.has(card.dataset.space)) card.remove();
 }
 
-// "3 here · 2 in the call", or "3 here" with nobody in the call, from /api/presence (`space` and `inCall` per person).
-function hereCount(members, spaceId) {
-  const here = members.filter((u) => u.online && u.space === spaceId);
-  const calling = here.filter((u) => u.inCall).length;
-  const people = here.length ? `${here.length} here` : 'Nobody here';
-  return calling ? `${people} · ${calling} in the call` : people;
-}
-
-function renderMembers(list, members, spaceId) {
+// hereCount() (primary-nav.js, held by check-nav): "3 here · 2 in the call", leaving out those stepped out into an aside.
+// `isAside`: the card is an aside's, whose own people read `aside: true` and are in it.
+function renderMembers(list, members, spaceId, isAside = false) {
   const keep = new Set();
   for (const u of members) {
     keep.add(u.key);
@@ -526,7 +530,7 @@ function renderMembers(list, members, spaceId) {
       el.append(img, dot, name);
       list.appendChild(el);
     }
-    const here = Boolean(u.online) && u.space === spaceId;
+    const here = isHere(u, spaceId, { aside: isAside });
     // The same set the conference shows for this space, Online or Offline.
     const img = el.querySelector('img');
     const slot = conferenceSlot(spaceId, !here);
@@ -555,18 +559,22 @@ function renderMembers(list, members, spaceId) {
       mark.title = `${u.displayName} is in the call`;
       mark.setAttribute('aria-label', 'In the call');
     }
-    const elsewhere = u.online && !here ? presenceSpaces.find((r) => r.id === u.space) : null;
-    el.title = calling ? `${u.displayName} is here, in the call` : here ? `${u.displayName} is here` : elsewhere ? `${u.displayName} is in ${spaceDisplayName(elsewhere)}` : u.displayName;
+    // Where they are instead (whereWords, primary-nav.js): in an aside or a private conversation (who with is not said
+    // here; checked first, since someone stepped out reads as their parent space's id), a space of mine, or one I can't see.
+    const there = u.online && !here && !u.aside && !u.elsewhere ? presenceSpaces.find((r) => r.id === u.space) : null;
+    const where = !u.online || here ? '' : there && !there.isAside ? `in ${spaceDisplayName(there)}` : whereWords(u, presenceSpaces, { aside: word('aside', { a: true }), space: word('space') });
+    el.title = calling ? `${u.displayName} is here, in the call` : here ? `${u.displayName} is here` : where ? `${u.displayName} is ${where}` : u.displayName;
     // Off stream: this member is online but not in the space the stream
     // currently hears (wherever the owner actually is); "aside" is the
     // more specific case of a pulled-aside private word, which implies off
     // stream too. Only meaningful when an owner is actually online -- with
     // none, activeSpace is just the Lobby fallback, not a real "here's where
     // the stream is" signal, so nobody should read as off stream against it.
-    const asideNow = u.online && presenceSpaces.find((r) => r.id === u.space)?.isAside;
-    const offStream = u.online && ownerOnline && u.space !== activeSpace;
+    // offStream() is primary-nav.js's: activeSpace null is a stream somewhere I can't see.
+    const asideNow = u.online && (Boolean(u.aside) || presenceSpaces.find((r) => r.id === u.space)?.isAside);
+    const offTheStream = offStream(u, activeSpace, ownerOnline, presenceSpaces.filter((r) => r.isAside).map((r) => r.id));
     let badge = el.querySelector('.stream-badge');
-    if (asideNow || offStream) {
+    if (asideNow || offTheStream) {
       if (!badge) {
         badge = document.createElement('span');
         badge.className = 'stream-badge';
@@ -2397,14 +2405,22 @@ call
       // placeholder right away, without waiting for the next /api/presence poll.
       // The server sends this to everyone on the call, those pulled too, and their join can find this entry before
       // presence answers. It has no origin, so it is marked pending: presence replaces it (adoptPendingSpace), and
-      // with the origin "Rejoin call" shows in the aside.
-      else if (topic === 'aside-started' && data.type === 'aside-started' && data.spaceId && Array.isArray(data.members)) {
-        if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: data.members, pending: true }));
-        for (const key of data.members) {
+      // with the origin "Rejoin call" shows in the aside. It says whether the aside is private: then the placeholders
+      // never name who it is with: a private one's message carries no members, and its entry keeps none even when one
+      // does (so it reads "Private", never "Private with ..."). Presence names only the space they stepped out of to
+      // those outside the aside (decision 6), so what the message said is kept for the placeholders (startedAsides).
+      else if (topic === 'aside-started' && data.type === 'aside-started' && data.spaceId) {
+        const priv = data.private !== false; // not said reads as private: never name who it is with by mistake
+        const said = Array.isArray(data.members) ? data.members.filter((k) => typeof k === 'string') : [];
+        if (!presenceSpaces.some((r) => r.id === data.spaceId)) presenceSpaces.push(asideEntry({ id: data.spaceId, members: priv ? [] : said, private: priv, pending: true }));
+        for (const key of said) {
+          startedAsides.set(key, { private: priv, members: priv ? [] : said, at: Date.now() });
           const user = presenceUsers.get(key);
-          if (user) { user.online = true; user.space = data.spaceId; }
+          if (user) { user.online = true; user.space = data.spaceId; user.aside = true; user.asidePrivate = priv; user.elsewhere = false; user.inCall = false; }
         }
         reconcileGhostTiles();
+        // A private one names nobody, so who stepped out comes from presence (asidePrivate): ask now, not at the next poll.
+        if (priv || !said.length) loadPresence();
       }
       // The admin clicked "Pull participants back" in the space this Private
       // Conversation came from: warn, don't yank -- a countdown, then go.

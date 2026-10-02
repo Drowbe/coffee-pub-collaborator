@@ -13,6 +13,7 @@
   <header class="bar">
     <div class="nav">
       <span class="hint" id="count"></span>
+      <span class="show" id="show" role="group" aria-label="Show" hidden></span>
     </div>
     <div class="nav">
       <button class="btn btn-primary" id="add" type="button" hidden>Add task</button>
@@ -28,6 +29,8 @@
   <div id="editor" class="editor" hidden>
     <form id="form" class="editor-card">
       <h3 id="editor-title">New task</h3>
+      <label id="f-where-wrap" hidden>Where<select id="f-where"></select></label>
+      <p class="hint" id="f-readonly" hidden></p>
       <label>Task<input id="f-title" type="text" maxlength="200" required></label>
       <label>Notes<textarea id="f-notes" rows="3" maxlength="1000"></textarea></label>
       <div class="row">

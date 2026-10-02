@@ -26,8 +26,9 @@ To join the call:
    note is under the button.)
 
 If the environment's plan allows only so many calls at once and they are all running elsewhere, **Not in a call**
-says so, for example "This environment's plan allows 1 call at once; one is running in The Keep". Joining a call
-that is already running is never refused. If the server does not answer, it says "Could not reach the server to
+says so, for example "This environment's plan allows 1 call at once; one is running in The Keep". It names the space only
+if you belong to it; otherwise it says "one is running in another space" or "one is running in an aside". Joining a
+call that is already running is never refused. If the server does not answer, it says "Could not reach the server to
 join the call. Try again in a moment."
 
 In the call the tiles fill the middle, and a bar of controls sits at the bottom edge.

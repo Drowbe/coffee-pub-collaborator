@@ -16,11 +16,16 @@ On the spaces page, click the **Due soon** card's heading to open the full list.
 
 - Tick the box to mark a task done. **Open**, **Done** and **All** choose what the list shows. Open tasks are ordered by due date, with undated ones after, and done tasks are listed newest first.
 - Click a task's name to change it, or delete it. A due date shows beside the task: Today and Tomorrow in the accent color, and a date in the past in red.
-- Under the toolbar the environment's list also shows, read-only, the lists of every space you belong to that has To-do on. Each is headed by its space's icon and name, and a row of your spaces shows or hides each one. To tick off or change a space's task, open that space's list.
+- Under the toolbar the environment's list also shows the lists of every space you belong to that has To-do on. Each is headed by its space's icon and name, and a row of your spaces shows or hides each one. You can tick off and change a space's task here if you may change tasks in that space; otherwise it opens read-only and says "Only people who can add tasks in <space> can change this."
+- A new task asks **Where** it goes: the environment's own list (if you may change tasks there) or one of the spaces where you may. It starts empty every time, and **Save** says "Pick a space first." until you choose (in your environment's word for space). A task already saved stays where it is.
+
+## To-do beside Calendar in the top bar
+
+When an owner turns on **Show Calendar**, the To-do is the **To-do** tab on the right of Calendar in the top bar (see [Calendar](userguide-calendar.md), "Calendar in the top bar"). It lists the open tasks from the environment and the spaces chosen under **Trips** (your environment's word for spaces), grouped **Overdue**, **Today**, **This week**, **Later** and **No date**, each with its space's icon, a tick box and its due date. **Open**, **Done** and **All** and **Add task** are at its top; ticking, changing and adding work in place, with **Where** as above. While Calendar is shown, the To-do's own page and the **Due soon** heading lead to it. On a phone it is the **To-do** tab at the bottom.
 
 ## Due soon on the dashboard
 
-On the spaces page, the dashboard's **Due soon** card lists tasks that are not done and are due within the next week or already overdue, soonest first (up to eight), across every space you are in and the environment's own list. Overdue ones are marked in red, and each shows its space's icon. Clicking a task opens it in its space; the heading opens the full list. Tasks with no due date are not shown. See [Spaces](userguide-spaces.md).
+On the spaces page, the dashboard's **Due soon** card lists tasks that are not done and are due within the next week or already overdue, soonest first (up to eight), across every space you are in and the environment's own list. Overdue ones are marked in red, and each shows its space's icon. Clicking a task opens it in its space; the heading opens the full list, or Calendar in the top bar when it is shown. Tasks with no due date are not shown. See [Spaces](userguide-spaces.md).
 
 ## Add a task
 
@@ -50,4 +55,4 @@ In a space, switch on **To-do** in **Modules**, in the space bar under the heade
 
 ## Reminders
 
-Set **Remind people at 9:00 that day** on a task with a due date to send a notification at 9:00 on that day. Everyone in that space (or everyone in the environment, for one of its tasks) who is allowed to see the list gets a toast, a count on the bell in the top bar, and a number on the **Due soon** card's heading and on To-do's switch in the space bar until they open it or the bell. Ticking a task done, changing its date or deleting it cancels the reminder. A due date whose 9:00 has already passed sends no reminder.
+Set **Remind people at 9:00 that day** on a task with a due date to send a notification at 9:00 on that day. Everyone in that space (or everyone in the environment, for one of its tasks) who is allowed to see the list gets a toast, a count on the bell in the top bar, and a number on the **Due soon** card's heading and on To-do's switch in the space bar until they open it or the bell. A space's task set from the environment's list, or from Calendar, reminds that space's people. Ticking a task done, changing its date or deleting it cancels the reminder. A due date whose 9:00 has already passed sends no reminder.

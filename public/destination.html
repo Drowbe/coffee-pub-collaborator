@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1410">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- A destination's parts may run in the page (a map needs a worker and reads its tiles from an address). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self' https:; img-src 'self' data: blob:; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self'">
+  <link rel="icon" href="/img/site/icon">
+  <title></title>
+  <link rel="stylesheet" href="/fa/css/all.min.css">
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/destination.css">
+  <script src="/theme-head.js"></script>
+  <link rel="stylesheet" href="/theme.css" id="theme-link">
+</head>
+<body class="destination-page">
+  <header class="topbar"></header>
+
+  <!-- A destination (Calendar, Map): a host page made of modules' parts (plan-calendar-destination.md). The page bar
+       is the header's second row (destination.js); the main part fills the page, the panel sits on its right. On a
+       phone the main part and each panel are tabs along the bottom. -->
+  <main class="dest" id="dest">
+    <section class="dest-main" id="dest-main" aria-label="" hidden></section>
+    <aside class="dest-panel" id="dest-panel" hidden>
+      <div class="dest-panel-head" id="dest-panel-head" hidden>
+        <span class="tb-tabs" id="dest-panel-tabs" role="group" aria-label="Show"></span>
+      </div>
+      <div class="dest-panel-body" id="dest-panel-body"></div>
+    </aside>
+    <p class="hint dest-missing" id="dest-missing" hidden></p>
+  </main>
+  <nav class="dest-tabs" id="dest-tabs" aria-label="Parts" hidden></nav>
+
+  <script src="/sdk/host.js" data-host-sdk></script>
+  <script type="module" src="/destination.js"></script>
+</body>
+</html>

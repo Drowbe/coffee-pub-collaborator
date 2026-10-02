@@ -314,8 +314,11 @@
   // How the server shows language, time and money, and the words it uses (Manage > Settings): known once hello has
   // answered, the defaults before.
   const locale = () => (info && info.locale) || { language: 'en', clock: '12', currency: 'USD', words: DEFAULT_WORDS };
+  // A destination's part: the page's shared state, as the hello gave it and each 'destination' event since.
+  let destinationState = null;
   const readyPromise = call('hello').then((result) => {
     info = result;
+    if (result && result.destinationState && typeof result.destinationState === 'object') destinationState = result.destinationState;
     if (env.applyTheme) env.applyTheme(result.theme);
     ensureUiStyles();
     return result;
@@ -323,9 +326,9 @@
 
   // Scope: 'context' (the default) is wherever the module is showing, the whole
   // environment on its page and one space on a space's canvas. On a space's canvas a module may also ask
-  // for 'environment'; its environment page may read across the viewer's spaces with 'spaces'; 'person' is
-  // the viewer's own.
-  const opts = (o) => ({ scope: (o && o.scope) || 'context' });
+  // for 'environment'; its environment page may read across the viewer's spaces with 'spaces', and read and write
+  // one of them with { space: <id> }; 'person' is the viewer's own. A module in a space reaches only that space.
+  const opts = (o) => ({ scope: (o && o.scope) || 'context', ...(o && o.space ? { space: String(o.space) } : {}) });
   // The names modules used before the product's rename, refused with the word to use instead (no module is translated).
   const OLD_WORDS = { server: 'scope "environment"', room: '{ space }', rooms: 'scope "spaces"' };
   function refuseOld(o, what) {
@@ -839,6 +842,8 @@
     get user() {
       return info && info.user;
     },
+    // { scope, spaceId, environment: { name }, destination? }: `environment.name` is the environment's name as its header
+    // shows it ('' when unknown), for naming the environment's own list (a keyed page has none).
     get context() {
       return info && info.context;
     },
@@ -937,9 +942,13 @@
     people: () => call('people'),
 
     // Who is online right now, everyone, for a page that follows people (a keyed page about one of them):
-    // { people: [{ key, name, online, space, inCall, isOwner }], spaces: [{ id, name }],
+    // { people: [{ key, name, online, space, aside, asidePrivate, elsewhere, inCall, isOwner }], spaces: [{ id, name }],
     //   asides: [{ id, origin, private }], activeSpace, ownerOnline, reactions: [{ id, glyph }] }.
-    // A person's `space` is an aside's id while they are in one; `origin` is the space it came out of.
+    // A person's place is as this viewer may know it: `space` is a space or aside they share with the viewer, else null;
+    // `aside` is true while they are in an aside (`space` is then the aside's id, or the space it came out of), and
+    // `asidePrivate` whether that aside is a private conversation (never with whom);
+    // `elsewhere` is true when they are online somewhere the viewer is not told of. `activeSpace` may be null.
+    // An aside's `origin` is the space it came out of.
     // `onChange(fn)` asks every 5 seconds (`{ every }` in ms to change that) and calls fn(presence) when anything
     // differs, once at the start; it returns a function that stops asking.
     presence: {
@@ -1053,7 +1062,9 @@
       // Tell the host what one of your objects points at (`from` is a pointer to it, from make(); `to` is the
       // list of pointers it now points at, replacing the last), so the objects pointed at can ask what points
       // at them. Only pointers are kept, and only what the viewer may see is ever shown.
-      setLinks: (from, to) => call('objects.setLinks', { from, to }),
+      // `{ space }` says the object is in that space (a module's environment page linking one of a space's objects);
+      // the pointer from make() already carries it, so it is only a check.
+      setLinks: (from, to, o) => call('objects.setLinks', { from, to, ...(o && o.space ? { space: String(o.space) } : {}) }),
       // What points at one of your objects (its kind must have "backlinks": true in module.json), and what
       // one points at: summaries. The 'links' event says when to ask again.
       linksTo: (ref) => call('objects.links', { ref, dir: 'to' }),
@@ -1061,8 +1072,10 @@
       // A linked object changed (`updated`) or was deleted (`deleted`). Only a module that points at it is told.
       onChange: (fn) => host.on('refchange', (e) => fn({ ref: e.ref, change: e.change })),
       // Objects this module may link to (kinds it consumes), matching the text, in this place
-      // or (from a space) { scope: 'environment' }. Each is a summary with its pointer in summary.ref.
-      search: (text, o) => call('objects.search', { q: text || '', ...opts(o) }),
+      // or (from a space) { scope: 'environment' }. Each is a summary with its pointer in summary.ref. On a module's
+      // environment page { scope: 'spaces' } asks every space the viewer belongs to at once (each pointer carries its
+      // space), and { has: 'place' } keeps only summaries with a place (up to 1,000 then, rather than 50).
+      search: (text, o) => call('objects.search', { q: text || '', ...opts(o), ...(o && o.has ? { has: String(o.has) } : {}) }),
       // The published objects format (instructions in this environment's words, and the schema).
       format: () => call('objects.format', {}),
       // Whether this person may bring objects into this place with this module.
@@ -1209,7 +1222,7 @@
         // summary the drag carried has no module of its own, so only this module's own offers apply to it.
         if (!d.ref) return [];
         let list = [];
-        try { list = await host.actions.list({ accepts: `${d.ref.module}:${d.ref.kind}` }); } catch (err) { list = []; }
+        try { list = await host.actions.list({ accepts: `${d.ref.module}:${d.ref.kind}`, ref: d.ref }); } catch (err) { list = []; }
         const offers = [];
         const kindType = `ref:${d.ref.module}:${d.ref.kind}`;
         for (const a of list) {
@@ -1341,7 +1354,9 @@
       // whichever you can fill in from what you have (an action that takes a `title`, say), and do not name modules.
       // { accepts: "module:kind" } keeps the ones that take a pointer to that kind of item; { self: true } also
       // lists this module's own, marked own: true.
-      list: (o) => call('actions.list', { accepts: o && o.accepts, self: Boolean(o && o.self) }),
+      // { accepts, self, ref }: `ref` the object they would be about, so only the actions that can be carried out in its
+      // own place are listed.
+      list: (o) => call('actions.list', { accepts: o && o.accepts, self: Boolean(o && o.self), ref: o && o.ref }),
       // A small menu at a point (in your own coordinates, as a drop gives it) to let the person choose what to
       // do: pick([{ label, hint? }], point) resolves to the chosen item, or null if they dismiss it. With a single
       // item there is nothing to ask, and it resolves to it at once. With { remember: "some key" } the choice is
@@ -1458,12 +1473,28 @@
     // "notify" for a notification) in the manifest's hooks. `at` is a time
     // (ms since 1970 or an ISO string); `key` names the schedule so setting it
     // again replaces it. When it fires the module is told (event "schedule")
-    // if open, and `notify`, if given, is delivered.
+    // if open, and `notify`, if given, is delivered. On a module's environment page, `space: <id>` sets it in that
+    // space (as its storage calls take { space }), so it runs and notifies there.
     schedule: (spec) => call('schedule', spec),
     cancelSchedule: (key, o) => call('cancelSchedule', { key, ...opts(o) }),
 
-    // { to: 'space' | 'environment' | a person's key, title, body }. Needs the "notify" hook.
+    // { to: 'space' | 'environment' | a person's key, title, body }. Needs the "notify" hook. On a module's
+    // environment page, `space: <id>` makes it that space's: `to: 'space'` is then that space's people.
     notify: (spec) => call('notify', spec),
+
+    // A destination (a host page made of modules' parts, such as Calendar): present only on a destination's part,
+    // null anywhere else. info.context.destination says which ({ id, part }: part 'main' or 'panel'), so a part can
+    // draw itself for it, with no header or filter of its own. The page owns the shared state and gives it whole:
+    //   onState(fn)  fn(state) now (once ready) and on each change. Returns the off. The calendar's state is
+    //                { view: 'month' | 'week' | 'day', spaces: [<id>...], environment: true | false, day, from, to }
+    //                (`spaces` and `environment` are the filter; `day` the selected day; `from` and `to` the period
+    //                shown, YYYY-MM-DD, `to` the day after it).
+    //   set(patch)   change what this part may: in the calendar only the main part, { day, from, to }; on the map
+    //                either part, { selected }. The page passes it on to every part, this one included.
+    get destination() {
+      if (!info || !info.context || !info.context.destination) return null;
+      return destinationApi;
+    },
 
     // The module's action bar: buttons the host draws along the bottom of the
     // module (in the space's bottom row when docked, lined up with the video
@@ -1571,6 +1602,19 @@
       return () => listeners.get(event).delete(fn);
     },
   };
+
+  const destinationApi = {
+    onState: (fn) => {
+      let heard = false;
+      const off = host.on('destination', (state) => { heard = true; destinationState = state; fn(state); });
+      // The state as it is now, unless a change already brought a newer one.
+      if (destinationState) setTimeout(() => { if (!heard) fn(destinationState); }, 0);
+      return off;
+    },
+    set: (patch) => call('destination.set', { patch }),
+  };
+  // Kept current even before a part asks, so onState starts from the latest.
+  host.on('destination', (state) => { destinationState = state; });
 
   // The hard break (plan-names step 7): refs became objects. A module that still reaches for the old names is told
   // which to use, instead of failing later on an undefined. Not enumerable, so nothing that walks the SDK trips on them.

@@ -1,0 +1,287 @@
+/* A destination's page (public/destination.html, destination.js): the header with its second row (the page bar), the
+   main part filling the page and the panel on its right; on a phone, the parts as tabs along the bottom. Colours are
+   the theme's tokens only (design-theme.md). */
+
+body.destination-page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+}
+
+/* The page bar is the header's second row, as the space bar is in a space (style.css, .subnav). */
+body.destination-page .topbar {
+  flex-wrap: wrap;
+  row-gap: 0;
+}
+
+body.destination-page .subnav {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+}
+
+/* Each zone in its own column, so a zone the space bar's narrow rules hide (the middle) leaves its column empty. */
+body.destination-page .subnav > .nav-left { grid-column: 1; }
+body.destination-page .subnav > .nav-middle { grid-column: 2; }
+body.destination-page .subnav > .nav-right { grid-column: 3; }
+
+body.destination-page .subnav[data-middle="empty"],
+body.destination-page .subnav[data-middle="beside"] {
+  grid-template-columns: minmax(0, 1fr) auto auto;
+}
+
+.dest-bar .nav-left {
+  gap: 12px;
+  padding: 3px 0;
+}
+
+/* The view switch: host.ui.viewSwitch's tabs, in the header's colours. */
+.dest-views .tb-tab {
+  color: color-mix(in srgb, var(--header-text) 75%, transparent);
+}
+
+.dest-views .tb-tab:hover {
+  color: var(--header-text);
+}
+
+.dest-views .tb-tab.on {
+  color: var(--on-accent);
+}
+
+.dest-views .tb-tab:focus-visible,
+.dest-panel-head .tb-tab:focus-visible,
+.dest-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The filter: a button with the space word and a count, its list of switches under it (the module chooser's look). */
+.dest-filter {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.dest-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 24px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.dest-filter-toggle[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.topbar:has(.dest-filter-list:not([hidden])) {
+  z-index: var(--z-menu);
+}
+
+/* The search (the map): one field on the right of the page bar. */
+.dest-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: min(380px, 40vw);
+  height: 26px;
+  margin: 2px 0;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text-dim);
+}
+
+.dest-search:focus-within {
+  border-color: var(--accent);
+}
+
+.dest-search input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+}
+
+/* The parts. */
+.dest {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.dest-main {
+  flex: 2 1 0;
+  min-width: 0;
+  display: flex;
+}
+
+.dest-panel {
+  flex: 1 1 0;
+  min-width: 280px;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--border);
+  background: var(--bg);
+}
+
+.dest-main[hidden],
+.dest-panel[hidden],
+.dest-panel-part[hidden],
+.dest-panel-head[hidden],
+.dest-tabs[hidden] {
+  display: none;
+}
+
+.dest-panel-head {
+  flex: none;
+  padding: 8px 10px 0;
+}
+
+.dest-panel-head .tb-tabs {
+  display: flex;
+}
+
+.dest-panel-head .tb-tab {
+  flex: 1;
+  justify-content: center;
+}
+
+.dest-panel-body,
+.dest-panel-part {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  display: flex;
+}
+
+.dest-part-root,
+.dest-part-frame {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  border: 0;
+  background: var(--bg);
+}
+
+.dest-missing {
+  margin: 40px auto;
+}
+
+/* Without WebGL (a map part, destination.js): the main part is a strip with its notice, the panel takes the width. */
+@media (min-width: 641px) {
+  body.dest-no-webgl .dest {
+    flex-direction: column;
+  }
+
+  body.dest-no-webgl .dest-main {
+    flex: none;
+    height: 190px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  body.dest-no-webgl .dest-panel {
+    flex: 1;
+    max-width: none;
+    min-width: 0;
+    border-left: 0;
+  }
+}
+
+/* The phone's tabs: only on a phone (destination.js shows them). */
+.dest-tabs {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .dest-panel {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    border-left: 0;
+  }
+
+  /* With a search, the page bar is the filter and the field taking the rest of the row. */
+  body.destination-page .dest-bar.has-search {
+    grid-template-columns: auto 0 minmax(0, 1fr);
+  }
+
+  .dest-bar.has-search .nav-right {
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .dest-bar.has-search .nav-right > .dest-search {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+  }
+
+  /* The filter shows its icon and caret only; its words stay its name for a screen reader. */
+  .dest-filter-label {
+    display: none;
+  }
+
+  .dest-tabs {
+    display: flex;
+    flex: none;
+    align-items: stretch;
+    min-height: calc(var(--tabbar-h, 54px) + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+    padding: 0 4px env(safe-area-inset-bottom);
+    background: var(--header-bg);
+    border-top: 1px solid var(--border);
+  }
+
+  .dest-tab {
+    flex: 1 0 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    min-width: 0;
+    padding: 4px 2px;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: color-mix(in srgb, var(--header-text) 65%, transparent);
+    font: inherit;
+    font-size: 11px;
+    line-height: 1.1;
+    cursor: pointer;
+  }
+
+  .dest-tab i {
+    font-size: 18px;
+  }
+
+  .dest-tab span {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dest-tab:hover {
+    color: var(--header-text);
+  }
+
+  .dest-tab[aria-current="page"] {
+    color: var(--accent);
+  }
+}

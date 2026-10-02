@@ -75,8 +75,11 @@ class ModuleBus extends EventEmitter {
 
   // --- actions --------------------------------------------------------------
 
-  request({ from, provider, action, input, scopeKey, by, local }) {
-    const request = { id: ++this.state.seq, at: Date.now(), from, provider, action, input, scopeKey, by, ...(local ? { local: true } : {}), status: 'pending', claimedAt: 0, result: null };
+  // `space`: for a request from an environment page about one of the provider's own objects in a space, that space.
+  // The request still waits in `scopeKey` (where the asking and providing pages are), but only someone who may change
+  // the module in that space may take it (plan-calendar-destination, decision 21).
+  request({ from, provider, action, input, scopeKey, by, local, space }) {
+    const request = { id: ++this.state.seq, at: Date.now(), from, provider, action, input, scopeKey, by, ...(local ? { local: true } : {}), ...(space ? { space } : {}), status: 'pending', claimedAt: 0, result: null };
     this.state.actions.push(request);
     this.prune();
     this.save();

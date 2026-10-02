@@ -1,7 +1,8 @@
 // To-do module. One file of code for every place it shows: the environment's own page, a
-// space's canvas (docked or floating), and a window of its own. Each place has its own
-// list. On the environment page the viewer's spaces' lists are shown too, read-only, each with
-// its space's icon. The SDK (window.host) is injected by the host.
+// space's canvas (docked or floating), a window of its own, and the Calendar destination's panel. Each place has its
+// own list. On the environment page (and as the panel) the viewer's spaces' lists are shown too, each with its
+// space's icon, and editable where the viewer may change tasks in that space (`write` from host.spaces()); a new task
+// there asks where it goes, every time. The SDK (window.host) is injected by the host.
 (async function () {
   'use strict';
 
@@ -22,14 +23,31 @@
     return;
   }
   const inSpace = info.context.scope === 'space';
-  const canEdit = host.can('edit');
+  const canEdit = host.can('edit'); // in this frame's own place: the space it is in, else the environment
+  // The Calendar destination's panel ('panel'), or null on every other surface. As the panel it draws no filter of
+  // its own (the page's bar has it, through host.destination) and groups the tasks by when they are due.
+  const part = (info.context.destination && info.context.destination.part) || null;
   const DAY = 24 * 60 * 60 * 1000;
 
   // Every task we know of, by key. `scope` is 'own' (this place's list) or 'spaces' (another space's, read-only).
   const tasks = new Map();
-  const spaceInfo = new Map(); // space id -> { id, name, icon, svg }, on the environment page
+  const spaceInfo = new Map(); // space id -> { id, name, icon, svg, write }, on the environment page
   const hiddenSpaces = new Set();
+  let hideOwn = false; // as the panel: the page's filter has the environment's own list off
   let show = 'open';
+
+  // Where a task may be changed: this place's list by this module's permission here; another space's (on the
+  // environment page) where host.spaces() says `write`. A space that does not say is read only.
+  const spaceWritable = (spaceId) => Boolean(spaceInfo.get(spaceId) && spaceInfo.get(spaceId).write === true);
+  const writable = (x) => (x.scope === 'own' ? canEdit : x.scope === 'spaces' ? spaceWritable(x.spaceId) : false);
+  const writableSpaces = () => [...spaceInfo.values()].filter((r) => r.write === true);
+  const canAdd = () => canEdit || (!inSpace && writableSpaces().length > 0);
+  // The storage options for a task's place: another space's list is reached with { space }.
+  const placeOpts = (scope, spaceId) => (scope === 'spaces' ? { space: spaceId } : {});
+  // The environment's own list is named by the environment's name (info.context.environment.name), as the destination's
+  // filter names it (decision 19); the environment word only where the name is not known.
+  const envName = () => (info.context.environment && info.context.environment.name) || word('environment', { cap: true });
+  const placeName = (scope, spaceId) => (scope === 'spaces' ? (spaceInfo.get(spaceId) ? spaceInfo.get(spaceId).name : word('space', { cap: true })) : inSpace ? word('space', { cap: true }) : envName());
   let editing = null; // { key, id, version } while the editor is open
   let editingLinks = []; // the links the open editor will save
   let editingRules = {}; // and what each does when the object reports something: { pointerKey: { eventName: outcome } }
@@ -155,19 +173,20 @@
   // viewer may see. The pointers are checked in the drop and search: only the kinds above.
 
   const linkable = (r) => consumable.has(r.module + ':' + r.kind);
-  const myRef = (id) => host.objects.make('task', id);
-  const syncedLinks = new Map(); // task id -> the links last told to the host
+  // A pointer to one of this module's tasks: in this place, or (from the environment page) in another space.
+  const myRef = (id, spaceId) => host.objects.make('task', id, spaceId ? { space: spaceId } : undefined);
+  const syncedLinks = new Map(); // task key -> the links last told to the host
 
   // Tell the host what a task points at, so the things it points at can show it. Only when it changed.
-  async function syncLinks(id, links) {
+  async function syncLinks(x, links) {
     if (!host.objects || !host.objects.setLinks) return;
     const sig = JSON.stringify(links.map(objectKey));
-    if (syncedLinks.get(id) === sig) return;
-    syncedLinks.set(id, sig);
+    if (syncedLinks.get(x.key) === sig) return;
+    syncedLinks.set(x.key, sig);
     try {
-      await host.objects.setLinks(myRef(id), links);
+      await host.objects.setLinks(myRef(x.id, x.spaceId), links, placeOpts(x.scope, x.spaceId));
     } catch (err) {
-      syncedLinks.delete(id); // try again next time
+      syncedLinks.delete(x.key); // try again next time
     }
   }
 
@@ -212,7 +231,7 @@
   // Add a pointer to a task (from a drop) and save it.
   async function linkTo(key, ref) {
     const x = tasks.get(key);
-    if (!x || !canEdit || x.scope !== 'own' || !ref || !linkable(ref)) return;
+    if (!x || !writable(x) || !ref || !linkable(ref)) return;
     const links = x.t.links || [];
     if (links.some((r) => objectKey(r) === objectKey(ref))) return;
     if (links.length >= MAX_LINKS) return showNote('A task can link to ' + MAX_LINKS + ' things.');
@@ -244,13 +263,13 @@
 
   function taskHtml(x) {
     const t = x.t;
-    const editable = canEdit && x.scope === 'own';
+    const editable = writable(x);
     const due = t.due ? dueText(t.due) : null;
     const notes = t.notes ? `<small>${esc(t.notes.split('\n')[0].slice(0, 90))}</small>` : '';
     const links = (t.links || []).length ? `<span class="links">${t.links.map((r) => linkChip(r, false)).join('')}</span>` : '';
     return `<div class="task ${t.done ? 'done' : ''}" data-task="${esc(x.key)}">
       <input class="tick" type="checkbox" data-tick="${esc(x.key)}" ${t.done ? 'checked' : ''} ${editable ? '' : 'disabled'} aria-label="Done">
-      <button class="text" type="button" data-open="${esc(x.key)}">${esc(t.title)}${notes}${links}</button>
+      <button class="text" type="button" data-open="${esc(x.key)}">${part && x.scope === 'spaces' ? spaceIcon(x.spaceId) : ''}${esc(t.title)}${notes}${links}</button>
       ${due && !t.done ? `<span class="due ${due.cls}">${esc(due.text)}</span>` : ''}
     </div>`;
   }
@@ -269,14 +288,62 @@
     { id: 'done', label: 'Done' },
     { id: 'all', label: 'All' },
   ];
-  const filterSwitch = host.ui.viewSwitch({
+  // As the panel there is no toolbar row: the same switch is drawn in the page, at the top beside Add task.
+  const filterSwitch = part ? {
+    set(value, options) {
+      $('show').innerHTML = options.map((f) => `<button type="button" data-show="${esc(f.id)}" aria-pressed="${f.id === value}">${esc(f.label)}</button>`).join('');
+    },
+  } : host.ui.viewSwitch({
     id: 'filter',
     options: FILTERS,
     value: show,
     onChange: (id) => { show = id; render(); },
   });
+  $('show').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-show]');
+    if (!b) return;
+    show = b.dataset.show;
+    render();
+    const again = root.querySelector(`[data-show="${show}"]`);
+    if (again) again.focus();
+  });
+
+  // As the panel: open tasks across the places the page's filter has on, by when they are due.
+  function dueGroup(t) {
+    if (!t.due) return 'none';
+    const today = startOfToday();
+    const due = parseYmd(t.due);
+    if (due < today) return 'late';
+    if (due - today < DAY / 2) return 'today';
+    const weekEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate() + (6 - today.getDay()));
+    return due <= weekEnd ? 'week' : 'later';
+  }
+  const DUE_GROUPS = [['late', 'Overdue'], ['today', 'Today'], ['week', 'This week'], ['later', 'Later'], ['none', 'No date']];
+  function renderByDue() {
+    const shown = [...tasks.values()].filter((x) => (x.scope === 'own' ? !hideOwn : !hiddenSpaces.has(x.spaceId)));
+    const openCount = shown.filter((x) => !x.t.done).length;
+    filterSwitch.set(show, FILTERS.map((f) => (f.id === 'open' && openCount ? { ...f, label: `Open (${openCount})` } : f)));
+    if (hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id))) {
+      $('body').innerHTML = `<p class="empty">Pick at least one in ${esc(word('space', { many: true, cap: true }))}.</p>`;
+      return;
+    }
+    let html = '';
+    if (show !== 'done') {
+      const open = shown.filter((x) => !x.t.done);
+      for (const [id, label] of DUE_GROUPS) {
+        const list = sorted(open.filter((x) => dueGroup(x.t) === id), false);
+        if (list.length) html += `<section class="group"><h4>${esc(label)}</h4>${list.map(taskHtml).join('')}</section>`;
+      }
+    }
+    if (show !== 'open') {
+      const done = sorted(shown.filter((x) => x.t.done), true);
+      if (done.length) html += `<section class="group">${show === 'all' ? '<h4>Done</h4>' : ''}${done.map(taskHtml).join('')}</section>`;
+    }
+    $('body').innerHTML = html || `<p class="empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
+  }
 
   function render() {
+    if (part) return renderByDue();
     const own = [...tasks.values()].filter((x) => x.scope === 'own');
     const openCount = own.filter((x) => !x.t.done).length;
     $('count').textContent = own.length ? `${openCount} open` : '';
@@ -287,12 +354,12 @@
       $('spaces').innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
     }
 
-    let html = groupHtml(spaceInfo.size ? word('environment', { cap: true }) : '', own);
+    let html = groupHtml(spaceInfo.size ? esc(envName()) : '', own);
     for (const r of spaceInfo.values()) {
       if (hiddenSpaces.has(r.id)) continue;
       html += groupHtml(`${spaceIcon(r.id)} ${esc(r.name)}`, [...tasks.values()].filter((x) => x.scope === 'spaces' && x.spaceId === r.id));
     }
-    $('body').innerHTML = html || `<p class="empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canEdit && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
+    $('body').innerHTML = html || `<p class="empty">${show === 'done' ? 'Nothing done yet.' : 'Nothing to do.'}${canAdd() && show !== 'done' ? ' Add a task to get started.' : ''}</p>`;
   }
 
   function showNote(text) {
@@ -305,13 +372,15 @@
   // A reminder is a schedule the host runs for us: at 9:00 on the due date it sends a
   // notification, even with this page closed. It stops when the task is done, changed or deleted.
 
-  async function applyReminder(t) {
+  // `where` is the task's place for the host ({ space } for another space's task), so the reminder is set in that
+  // space and reaches its people.
+  async function applyReminder(t, where) {
     const key = 'remind:' + t.id;
     try {
-      if (!t.remind || !t.due || t.done) return await host.cancelSchedule(key);
+      if (!t.remind || !t.due || t.done) return await host.cancelSchedule(key, where);
       const at = parseYmd(t.due).getTime() + 9 * 60 * 60 * 1000;
-      if (at <= Date.now()) return await host.cancelSchedule(key);
-      await host.schedule({ key, at, payload: { id: t.id }, notify: { title: t.title, body: 'Due today' } });
+      if (at <= Date.now()) return await host.cancelSchedule(key, where);
+      await host.schedule({ key, at, payload: { id: t.id }, notify: { title: t.title, body: 'Due today' }, ...(where || {}) });
     } catch (err) {
       showNote('Saved, but the reminder could not be set: ' + err.message);
       throw err;
@@ -320,21 +389,27 @@
 
   // --- changing tasks --------------------------------------------------------
 
-  async function put(x, t) {
-    const saved = await host.storage.set('task:' + t.id, t, x && x.version ? { version: x.version } : {});
-    remember('own', { key: 'task:' + t.id, value: t, version: saved.version });
-    syncLinks(t.id, t.links || []);
-    return saved;
+  // Save a task in its place: an existing task's own (`x`), or `target` ({ scope: 'own' } or { scope: 'spaces',
+  // spaceId }) for a new one. Answers the saved record, with `where` (the storage options for its place).
+  async function put(x, t, target) {
+    const place = x ? { scope: x.scope, spaceId: x.spaceId } : target || { scope: 'own' };
+    const where = placeOpts(place.scope, place.spaceId);
+    const saved = await host.storage.set('task:' + t.id, t, { ...(x && x.version ? { version: x.version } : {}), ...where });
+    remember(place.scope, { key: 'task:' + t.id, value: t, version: saved.version }, place.spaceId);
+    const now = tasks.get(keyOf(place.scope, t.id, place.spaceId));
+    if (now) syncLinks(now, t.links || []);
+    return { ...saved, where };
   }
+  const whereOf = (x) => placeOpts(x.scope, x.spaceId);
 
 
   async function tick(key, done) {
     const x = tasks.get(key);
-    if (!x || !canEdit || x.scope !== 'own') return;
+    if (!x || !writable(x)) return;
     const t = { ...x.t, done, doneAt: done ? Date.now() : null };
     try {
       await put(x, t);
-      applyReminder(t).catch(() => {});
+      applyReminder(t, whereOf(x)).catch(() => {});
     } catch (err) {
       showNote(err.status === 409 ? 'Someone changed that task first. It has been refreshed.' : err.message);
       try { await load(); } catch (e) { /* keep what we have */ }
@@ -355,10 +430,47 @@
   $('f-due').addEventListener('change', syncForm);
   const duePicker = host.ui.datePicker($('f-due'), { clearable: true });
 
+  // --- where a task goes ------------------------------------------------------------
+  // On the environment page (and as the panel) a new task asks where it goes, every time: the environment's own list,
+  // for people who may change it, then each space where the viewer may add tasks. It starts empty whatever was picked
+  // last, and Save says to pick first. A task that exists stays where it is: Where shows its place, unchangeable.
+  const pickWhere = () => `Pick ${word('space', { a: true })}`;
+  function fillWhere(x) {
+    const select = $('f-where');
+    $('f-where-wrap').hidden = inSpace;
+    if (inSpace) return;
+    if (x) {
+      select.innerHTML = `<option value="">${esc(placeName(x.scope, x.spaceId))}</option>`;
+      select.disabled = true;
+      return;
+    }
+    const options = [`<option value="" selected disabled>${esc(pickWhere())}</option>`];
+    if (canEdit) options.push(`<option value="own">${esc(placeName('own'))}</option>`);
+    for (const r of writableSpaces()) options.push(`<option value="in:${esc(r.id)}">${esc(r.name)}</option>`);
+    select.innerHTML = options.join('');
+    select.value = '';
+    select.disabled = false;
+  }
+  // Where the open editor's new task goes, or null while none is picked on the environment page.
+  function targetOf() {
+    if (inSpace) return { scope: 'own' };
+    const w = $('f-where').value;
+    if (w === 'own' && canEdit) return { scope: 'own' };
+    if (w.startsWith('in:') && spaceWritable(w.slice(3))) return { scope: 'spaces', spaceId: w.slice(3) };
+    return null;
+  }
+  $('f-where').addEventListener('change', () => showError(''));
+
   function openEditor(x, prefill) {
-    const readOnly = !canEdit || (x && x.scope !== 'own');
+    if (!x && !canAdd()) return;
+    const readOnly = x ? !writable(x) : false;
     const t = x ? x.t : { title: (prefill && prefill.title) || '', notes: '', due: (prefill && prefill.date) || null, remind: false, done: false };
     editing = x ? { key: x.key, id: x.id, version: x.version } : { key: null, id: null, version: null };
+    fillWhere(x);
+    // Read only in a place where the viewer may not change tasks: say why (on the environment page, where it can differ).
+    const why = readOnly && !inSpace && x ? `Only people who can add tasks in ${placeName(x.scope, x.spaceId)} can change this.` : '';
+    $('f-readonly').textContent = why;
+    $('f-readonly').hidden = !why;
     editingLinks = ((x && x.t.links) || []).slice();
     editingRules = rulesFor(x && x.t);
     $('f-link-search').value = '';
@@ -384,7 +496,7 @@
     $('f-cancel').textContent = readOnly ? 'Close' : 'Cancel';
     syncForm();
     $('editor').hidden = false;
-    $(readOnly ? 'f-cancel' : 'f-title').focus();
+    $(readOnly ? 'f-cancel' : x || inSpace ? 'f-title' : 'f-where').focus();
   }
   function closeEditor() {
     $('editor').hidden = true;
@@ -478,9 +590,11 @@
   async function save() {
     if (!editing) return;
     showError('');
+    const current = editing.key ? tasks.get(editing.key) : null;
+    const target = current ? null : targetOf();
+    if (!current && !target) return showError(`${pickWhere()} first.`);
     const title = $('f-title').value.trim();
     if (!title) return showError('A task needs a name.');
-    const current = editing.key ? tasks.get(editing.key) : null;
     const done = $('f-done').checked;
     const due = $('f-due').value || null;
     const t = {
@@ -498,9 +612,9 @@
     };
     $('f-save').disabled = true;
     try {
-      await put(current, t);
+      const saved = await put(current, t, target);
       let reminderFailed = false;
-      try { await applyReminder(t); } catch (err) { reminderFailed = true; }
+      try { await applyReminder(t, saved.where); } catch (err) { reminderFailed = true; }
       render();
       if (!reminderFailed) closeEditor();
     } catch (err) {
@@ -527,10 +641,12 @@
       return;
     }
     deleteArmed = false;
+    const x = tasks.get(editing.key);
+    if (!x) return;
     try {
-      await host.storage.delete('task:' + editing.id);
-      syncLinks(editing.id, []);
-      try { await host.cancelSchedule('remind:' + editing.id); } catch (err) { /* nothing to cancel */ }
+      await host.storage.delete('task:' + editing.id, whereOf(x));
+      syncLinks(x, []);
+      try { await host.cancelSchedule('remind:' + editing.id, whereOf(x)); } catch (err) { /* nothing to cancel */ }
       tasks.delete(editing.key);
       closeEditor();
       render();
@@ -567,7 +683,7 @@
     host.objects.draggable($('body'), (target) => {
       const row = target.closest('[data-task]');
       const x = row && tasks.get(row.dataset.task);
-      return x && x.scope === 'own' ? { kind: 'task', id: x.id, label: x.t.title } : null;
+      return x && writable(x) ? { kind: 'task', id: x.id, label: x.t.title, ...whereOf(x) } : null;
     });
   }
 
@@ -582,13 +698,13 @@
   const taskAt = (pt) => {
     const el = host.objects.elementAt(pt);
     const row = el && el.closest('[data-task]');
-    return row && tasks.get(row.dataset.task) && tasks.get(row.dataset.task).scope === 'own' ? row : null;
+    return row && tasks.get(row.dataset.task) && writable(tasks.get(row.dataset.task)) ? row : null;
   };
   if (host.objects && host.objects.dropTarget) {
     host.objects.dropTarget({
       over: (pt, ref, dragged) => {
         clearDrop();
-        if (!(ref || dragged.summary) || !canEdit) return;
+        if (!(ref || dragged.summary) || !canAdd()) return;
         if (!$('editor').hidden) {
           if (ref && linkable(ref) && !$('f-link-search').hidden) $('editor').classList.add('drop');
           return;
@@ -599,7 +715,7 @@
       leave: clearDrop,
       drop: async (ref, pt, dragged) => {
         clearDrop();
-        if (!(ref || dragged.summary) || !canEdit) return host.objects.trace(`drop ignored: ${canEdit ? 'nothing valid was dropped' : 'cannot edit'}`);
+        if (!(ref || dragged.summary) || !canAdd()) return host.objects.trace(`drop ignored: ${canAdd() ? 'nothing valid was dropped' : 'cannot edit'}`);
         if (!$('editor').hidden) {
           if (ref && linkable(ref) && !$('f-link-search').hidden) addEditorLink(ref);
           return;
@@ -612,7 +728,7 @@
           const own = x && ref && linkable(ref)
             ? [{ id: 'link', label: `Link it to "${x.t.title}"`, run: () => linkTo(row.dataset.task, ref) }]
             : [{ id: 'create', label: 'Start a task from it', run: (ctx) => { openEditor(null, { title: ctx.summary.title || '', date: ctx.summary.date || null }); if (ref && linkable(ref)) addEditorLink(ref); } }];
-          const chosen = await host.objects.dropMenu(dragged, pt, { context: x ? { target: myRef(x.id) } : {}, own, remember: x ? 'task' : 'list' });
+          const chosen = await host.objects.dropMenu(dragged, pt, { context: x ? { target: myRef(x.id, x.spaceId) } : {}, own, remember: x ? 'task' : 'list' });
           if (chosen && chosen.id !== 'link' && chosen.id !== 'create') showNote(`${chosen.label}: done`);
         } catch (err) {
           showNote(err.message);
@@ -625,29 +741,59 @@
     if (box) tick(box.dataset.tick, box.checked);
   });
   function startNew() {
-    if (!canEdit) return;
+    if (!canAdd()) return;
     openEditor(null);
   }
   $('add').addEventListener('click', startNew);
   $('new-todo').addEventListener('click', startNew);
   // Typed text goes through Chat `/t` (addTask): parseWhen, then this same editor, nothing saved until Save.
-  // The host draws New todo in the module's action bar when docked; the in-page button stays for a host without one.
-  if (host.bar) {
+  // The host draws New todo in the module's action bar when docked; the in-page button stays for a host without one,
+  // and as the panel, whose page has no action bar (Add task at its top). Who may add is known once the spaces are in.
+  let barHosted = false;
+  function showAdd() {
+    $('add').hidden = !canAdd();
+    $('new-form').hidden = Boolean(part) || !canAdd();
+    if (barHosted) host.bar.set(canAdd() ? [{ id: 'add', label: 'New todo', icon: 'square-plus', primary: true }] : []).catch(() => {});
+  }
+  if (host.bar && !part) {
+    barHosted = true;
     $('add').classList.add('hosted');
     $('new-form').classList.add('hosted');
     host.bar.set(canEdit ? [{ id: 'add', label: 'New todo', icon: 'square-plus', primary: true }] : []).catch(() => {
+      barHosted = false;
       $('add').classList.remove('hosted');
       $('new-form').classList.remove('hosted');
     });
     host.on('bar', (e) => {
-      if (e.id !== 'add' || !canEdit) return;
+      if (e.id !== 'add' || !canAdd()) return;
       startNew();
     });
   }
   root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('editor').hidden) closeEditor(); });
 
-  $('add').hidden = !canEdit;
-  $('new-form').hidden = !canEdit;
+  // As the panel: the page's filter says whose tasks show (host.destination.onState); the panel sets nothing.
+  let pickedSpaces = null;
+  let loaded = false;
+  function takeState(st) {
+    if (!st || typeof st !== 'object') return;
+    if (Array.isArray(st.spaces)) {
+      pickedSpaces = new Set(st.spaces.map(String));
+      hiddenSpaces.clear();
+      for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
+    }
+    hideOwn = st.environment === false;
+    if (loaded) render();
+  }
+  if (part && host.destination) host.destination.onState(takeState);
+  if (part) {
+    $('count').hidden = true;
+    $('show').hidden = false;
+    $('spaces').hidden = true;
+    $('app').classList.add('part');
+  }
+
+  $('add').hidden = true;
+  $('new-form').hidden = true;
   try {
     await loadKinds();
     await loadAskable();
@@ -656,6 +802,9 @@
     $('msg').textContent = 'The to-do list could not load: ' + err.message;
     return;
   }
+  if (pickedSpaces) for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
+  showAdd();
+  loaded = true;
   $('msg').hidden = true;
   $('app').hidden = false;
   render();
@@ -708,10 +857,16 @@
     });
   }
 
-  // What other modules may ask of this one about a task it names: link it to something, or set its due date.
+  // What other modules may ask of this one about a task it names: link it to something, or set its due date. On the
+  // environment page that may be one of a space's tasks, where the viewer may change it.
+  const taskFor = (ref) => {
+    if (!ref || ref.kind !== 'task') return null;
+    if (ref.scope === 'space' && !inSpace) return tasks.get(keyOf('spaces', ref.id, ref.space)) || null;
+    return tasks.get('own:' + ref.id) || null;
+  };
   const ownTask = (ref) => {
-    const x = ref && ref.kind === 'task' ? tasks.get('own:' + ref.id) : null;
-    if (!x) throw new Error('that task is not here');
+    const x = taskFor(ref);
+    if (!x || !writable(x)) throw new Error('that task is not here');
     return x;
   };
   // What other modules may ask of this one. A task made this way links to the object it came from.
@@ -731,18 +886,18 @@
         const x = ownTask(input.task);
         if (!linkable(input.target)) throw new Error('this list may not link to that');
         await linkTo(x.key, input.target);
-        return { ref: myRef(x.id) };
+        return { ref: myRef(x.id, x.spaceId) };
       },
       setTaskDue: async (input) => {
         const x = ownTask(input.task);
         const t = { ...x.t, due: input.date, remind: x.t.remind };
         await put(x, t);
-        applyReminder(t).catch(() => {});
+        applyReminder(t, whereOf(x)).catch(() => {});
         render();
-        return { ref: myRef(x.id) };
+        return { ref: myRef(x.id, x.spaceId) };
       },
       addTask: async (input) => {
-        if (!canEdit) throw new Error('this person cannot add tasks here');
+        if (!canAdd()) throw new Error('this person cannot add tasks here');
         const parsed = input.text && host.util.parseWhen ? host.util.parseWhen(input.text) : { title: input.text || '' };
         openEditor(null, parsed);
         return {};
@@ -753,13 +908,13 @@
   // Another module asking to show one of this module's tasks (from a link to it): open it.
   if (host.objects && host.objects.onOpen) {
     host.objects.onOpen((ref) => {
-      const x = ref.kind === 'task' ? tasks.get('own:' + ref.id) : null;
+      const x = taskFor(ref);
       if (x) openEditor(x);
     });
   }
   resolveLinks();
   // Tell the host about links made before it was told (and only those that changed).
-  for (const x of [...tasks.values()].filter((t) => t.scope === 'own' && (t.t.links || []).length).slice(0, 100)) syncLinks(x.id, x.t.links);
+  for (const x of [...tasks.values()].filter((t) => t.scope === 'own' && (t.t.links || []).length).slice(0, 100)) syncLinks(x, x.t.links);
   // The objects linked to can change or go; look again now and then.
   const relook = setInterval(() => { if (!$('body')) return void clearInterval(relook); summaries.clear(); resolveLinks(); }, 60000);
 })();

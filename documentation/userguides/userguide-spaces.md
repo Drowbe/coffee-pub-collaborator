@@ -19,11 +19,12 @@ The bar at the top of every page says where you are and takes you anywhere in th
   is left out and the logo stays.
 - **Spaces** (or the environment's word for its home page). Click the word to go home. Click the small arrow beside
   it (**Switch space**) for a menu of the spaces you belong to: the one you are in says "You are here", and a space
-  with people in it says how many ("3 here"). Pick one to go to it. In an aside, picking the space it came from does
+  with people in it says how many ("3 here"), not counting anyone who has stepped into an aside. Pick one to go to it. In an aside, picking the space it came from does
   what **Rejoin call** does: everyone goes back to that space's call.
 - **Where you are**, while you are in a space: "› Disneyland". In an aside it is "› Disneyland › Aside: Michelle";
   click **Disneyland** (its tooltip reads "Rejoin call in Disneyland") to go back to the space, as **Rejoin call**
   does. A long name is cut short with "…"; hover over it for the whole name.
+- In the middle, **Calendar** and **Maps** when an owner has turned them on (Manage, "Top bar"), each with its module's icon and the name your environment gives it (between about 641 and 820 pixels wide, the icon alone): pages of their own that gather the Calendar and the To-do, or the map and Places, across your spaces. Opened while you are in a space, they open over it and you are marked Away on the call until you go back. See [Calendar](userguide-calendar.md) and [Maps](userguide-maps.md).
 - On the right, **the bell** and **your picture** (up to about 1000 pixels wide, your picture without your name). See "The bell" below, and "Your profile and signing out" in
   [Accounts, roles and permissions](userguide-accounts.md).
 
@@ -52,7 +53,7 @@ to what it is about.
 ### On a phone
 
 The top bar is the logo, where you are, the bell and the menu button (**Menu**, three lines). Everything else is in
-the menu: the environment's name, the home page and your spaces, **New space** for owners and the admin, then
+the menu: the environment's name, the home page and your spaces, **Calendar** and **Maps** when they are shown, **New space** for owners and the admin, then
 your picture and the profile menu's entries.
 
 ### Guests
@@ -77,17 +78,33 @@ An aside you are part of also shows on the list while it lasts, as a card with *
 button, "Join in a pop-out window". An aside is a call, so its button always reads Join, whatever the word for
 entering a space.
 
-The card says who is there: "3 here · 2 in the call", "3 here" when nobody is in the call, or "Nobody here". In the
-row of members, someone in the call has a small camera mark beside their green dot; hover over it for "<name> is in
-the call".
+The card says who is there: "3 here · 2 in the call", "3 here" when nobody is in the call, or "Nobody here". Someone
+who has stepped into an aside is not counted as here. In the row of members, someone in the call has a small camera
+mark beside their green dot; hover over it for "<name> is in the call". Someone who is not here has their dot off,
+and hovering over them says where they are instead: "<name> is in <space>" for a space you belong to, "<name> is in
+an aside" or "<name> is in a private conversation", or "<name> is in another space" for a space you don't belong to.
+
+A member who is online but not where the stream is (the space an owner or the admin is in) is marked **off stream**.
+When the stream is somewhere you can't see, everyone whose place you can see is marked off stream; people in another
+space, or in an aside you aren't part of, are not marked, since they may be where the stream is.
+
+### What you can see of where people are
+
+You see where someone is only in the spaces you belong to. Everyone is in the Lobby, and owners and the admin belong
+to every space and every aside. Someone in a space you don't belong to shows as "in another space", never with its
+name, and never as in the call. Someone who has stepped into an aside from one of your spaces shows as "in an aside",
+or "in a private conversation"; you are not told who else is in it. You always see where you are yourself. A guest
+sees only their own space and the people in it.
 
 ## The dashboard
 
-The spaces page has the space cards in two columns on the right, under a **Who's around** strip, and the dashboard down the left: a card for each module that offers one, across all of your spaces. The left column stays in view while the spaces scroll. On a phone it is one column, with who is around and the spaces first and the dashboard below. The Calendar's **Coming up** is a small month with a dot on each day that has something (click a day to open it in the full calendar), over the next few events; the To-do's **Due soon** the tasks due within a week or overdue, and Polls' **Need your vote** the open polls you have not voted in; each draws from every space you are in and the environment's own data. Each entry shows its space's icon on the left and an arrow on the right that says clicking goes there. Click an entry to go to it in its space, or click a card's heading to open that module in full. While you are in a space (with the spaces page shown over it), the module's page opens over the space instead of leaving it: the call keeps running, you are marked Away on it, and **Back to <space>** returns you. A card's own "open in full" link, a link to a module inside a card, and an entry that isn't in any space open the same way. Ctrl-click, Cmd-click or a middle click opens a new tab instead. The cards are laid out by Collaborator, the same for everyone. Guests do not see it.
+The spaces page has the space cards in two columns on the right, under a **Who's around** strip, and the dashboard down the left: a card for each module that offers one, across all of your spaces. The left column stays in view while the spaces scroll. On a phone it is one column, with who is around and the spaces first and the dashboard below. The Calendar's **Coming up** is a small month with a dot on each day that has something (click a day to open it in the full calendar), over the next few events; the To-do's **Due soon** the tasks due within a week or overdue, and Polls' **Need your vote** the open polls you have not voted in; each draws from every space you are in and the environment's own data. Each entry shows its space's icon on the left and an arrow on the right that says clicking goes there. Click an entry to go to it in its space, or click a card's heading to open that module in full; while Calendar is in the top bar, the Calendar's and the To-do's headings open it. While you are in a space (with the spaces page shown over it), the module's page opens over the space instead of leaving it: the call keeps running, you are marked Away on it, and **Back to <space>** returns you. A card's own "open in full" link, a link to a module inside a card, and an entry that isn't in any space open the same way. Ctrl-click, Cmd-click or a middle click opens a new tab instead. The cards are laid out by Collaborator, the same for everyone. Guests do not see it.
 
 ## Who is online, and inviting someone to talk
 
-The **Who's around** strip shows everyone who is online: signed in with Collaborator open in a page you are looking at, whether or not they are in a space. Each person shows the space they are in, or "online", and a video mark while they are in the call. Beside everyone but you is a **people arrows** button: click it to invite them to a private conversation. It makes a private aside for the two of you, off the record like a pull-aside, and takes you into it; they get a notice wherever they have Collaborator open with **Join** and **Decline**. Join takes them straight into the aside. The invitation lasts a couple of minutes, and the aside goes away when nobody is left in it. A person who is not online cannot be invited, and you need the permission to start a private conversation (and the environment must allow them).
+The **Who's around** strip shows everyone who is online: signed in with Collaborator open in a page you are looking at, whether or not they are in a space. Each person shows where they are, with the same words as the space cards: "in <space>" for a space you belong to,
+"in an aside", "in a private conversation", "in another space" for one you don't belong to, or "online" when they
+are in no space; and a video mark while they are in the call. Beside everyone but you is a **people arrows** button: click it to invite them to a private conversation. It makes a private aside for the two of you, off the record like a pull-aside, and takes you into it; they get a notice wherever they have Collaborator open with **Join** and **Decline**. Join takes them straight into the aside. The invitation lasts a couple of minutes, and the aside goes away when nobody is left in it. A person who is not online cannot be invited, and you need the permission to start a private conversation (and the environment must allow them).
 
 ## Open with
 
@@ -166,9 +183,11 @@ call stays on it, into the aside and back again; anyone who was not arrives out 
 its own once everyone has left it.
 
 Anyone left behind sees those tiles dim to a placeholder reading **In an aside**, naming who they
-stepped out with, until they return.
+stepped out with, until they return. The names show to the people in the aside, to owners and the admin, and to anyone who
+was on the call when the aside started and has not reloaded the page since; anyone else sees **In an aside** alone.
 
 **Privately** is a second button on the confirmation, for a conversation that must stay off the
-recording: Coffee Pub Studio hides everyone in a private conversation from the stream entirely,
+recording: the placeholder reads **In a private conversation** and never names anyone, also after a reload, and
+Coffee Pub Studio hides everyone in a private conversation from the stream entirely,
 where an ordinary aside only mutes and dims them. Who may step aside, and who may start a private
 conversation, is set per role on the Roles tab.

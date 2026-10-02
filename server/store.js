@@ -275,6 +275,12 @@ const DEFAULT_SETTINGS = {
   // The video and voice conference. Off, nobody (an admin included) has the "See and join the conference" permission, so joins carry
   // no media and the space page shows no conference; chat, presence and the modules carry on.
   conferenceEnabled: true,
+  // The top bar's Calendar destination (plan-calendar-destination.md, decision 12): off until an owner turns it on (or a
+  // template does, as Travel's does when an environment is made from it).
+  showCalendar: false,
+  // The top bar's Map destination (plan-map-destination.md, decision 17): off until an owner or a template turns it on;
+  // shown only while a map file is set, too.
+  showMap: false,
   // Language, time and money: how the server and every module show them. The clock is 12-hour by default; the
   // currency is the one amounts are shown in unless a trip says otherwise; only English is available so far.
   language: 'en',
@@ -1059,6 +1065,8 @@ class Store {
     if (patch.allowPrivate !== undefined) s.allowPrivate = Boolean(patch.allowPrivate);
     if (patch.allowReactions !== undefined) s.allowReactions = Boolean(patch.allowReactions);
     if (patch.conferenceEnabled !== undefined) s.conferenceEnabled = Boolean(patch.conferenceEnabled);
+    if (patch.showCalendar !== undefined) s.showCalendar = Boolean(patch.showCalendar);
+    if (patch.showMap !== undefined) s.showMap = Boolean(patch.showMap);
     if (patch.language !== undefined) s.language = LANGUAGES.includes(patch.language) ? patch.language : DEFAULT_SETTINGS.language;
     if (patch.clock !== undefined) s.clock = String(patch.clock) === '24' ? '24' : '12';
     if (patch.currency !== undefined) {

@@ -85,7 +85,7 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
 - A member's entry for a space holds their pictures for that space, whether those replace their defaults, and that
   Moderator flag. Picture lookups fall from the space's picture, to the member's default, to the environment's
   Default Images.
-- **Presence and invitations.** A page tells the server it is open with `POST /api/presence` every half minute while it is visible (`startPresence` in `public/brand.js`); the server remembers when in memory, counts a person as present for 75 seconds, and `GET /api/presence` returns `present` beside `online` (in a call). `POST /api/asides/invite` makes a private aside (an `asides` record, `private`, no origin) for the inviter and one present person, and sends an `invite` event down the same server-sent stream as notifications (`/api/notifications/stream`); `brand.js` shows the invitation toast, and the space page joins on accept (`app:invite-accept`, or `/#join=<aside id>` from another page). It needs the private-conversation permission and the environment's setting; an invitation lasts two minutes.
+- **Presence and invitations.** A page tells the server it is open with `POST /api/presence` every half minute while it is visible (`startPresence` in `public/brand.js`); the server remembers when in memory, counts a person as present for 75 seconds, and `GET /api/presence` returns `present` beside `online` (in a call), filtered by what the viewer belongs to (the route's contract is under "Spaces and calls" below). `POST /api/asides/invite` makes a private aside (an `asides` record, `private`, no origin) for the inviter and one present person, and sends an `invite` event down the same server-sent stream as notifications (`/api/notifications/stream`); `brand.js` shows the invitation toast, and the space page joins on accept (`app:invite-accept`, or `/#join=<aside id>` from another page). It needs the private-conversation permission and the environment's setting; an invitation lasts two minutes.
 - **Currencies.** `GET /api/currencies` (anyone signed in; otherwise 401 `sign in first`) answers
   `{ currencies: [codes] }`, sorted: exactly the codes `PATCH /api/settings` accepts, the ISO 4217 codes the
   server's Node knows (`CURRENCIES` in `server/store.js`), plus the one already stored if it is not among them
@@ -198,12 +198,33 @@ online is in it (`pruneAsides()` in `server/store.js`, after a short grace perio
 `/api/spaces/:id` (chat, settings, modules) answers 404 "no such space" for one. In an aside the page offers the
 call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.js`).
 
-- `GET /api/presence` answers who is online and where (`users` with each one's `space`, `spaces`, `asides`,
-  `activeSpace`, `ownerOnline`, and the environment's branding), from LiveKit's participant list and each page's
-  own presence ping. `spaces` holds spaces only; `asides` holds each aside's record plus `mine`, true when the
-  caller is one of its members or has owner rights. A signed-in person, the access key or a guest's token
-  (`?guest=`) may ask; anyone else gets 401. `GET /api/status` also carries `asides` (the records), and
-  `GET /api/spaces` lists spaces only. When LiveKit does not answer within two seconds, both routes answer with
+- `GET /api/presence` answers who is online and where (`users`, `spaces`, `asides`, `activeSpace`, `ownerOnline`,
+  and the environment's branding), from LiveKit's participant list and each page's own presence ping. A signed-in
+  person, the access key (`?s=` or `x-stream-key`) or a guest's token (`?guest=`) may ask; anyone else gets 401
+  "sign in first". The answer is filtered by membership ([plan-primary-nav](../plans/plan-primary-nav.md),
+  decision 6, step 3): a viewer reads where a person is only for the spaces and asides the viewer belongs to. Every
+  space member belongs to the Lobby; owners and the admin belong to every space and every aside. The rules are
+  `presenceView()` in `server/presence-view.js` (the viewer is `presenceViewer()` in `server/index.js`), held by
+  `tools/check-presence.mjs`.
+  - Each user carries `online`, `present`, `space`, `inCall`, `aside`, `asidePrivate` and `elsewhere`:
+    - in a space the viewer belongs to: `space` is its id, `aside: false`, `elsewhere: false`;
+    - in an aside the viewer belongs to: `space` is the aside's id, `aside: true`;
+    - in an aside pulled out of a space the viewer belongs to, but not the viewer's aside: `space` is that parent
+      space's id, `aside: true`, `inCall: false`. `asidePrivate` says whether it is a private conversation, and
+      nothing in the answer says who else is in it;
+    - anywhere else: `space: null`, `elsewhere: true`, `online: true`, `inCall: false`;
+    - in no call: `space: null`, `aside: false`, `elsewhere: false`, `inCall: false`.
+    The viewer always reads their own place.
+  - `spaces` lists every space, each with `mine` (whether the viewer belongs to it). `asides` lists only the asides
+    the viewer belongs to, each record with `mine: true`.
+  - `activeSpace` is the space the stream follows, or `null` when it is somewhere the viewer cannot see: a space
+    they do not belong to, or an aside they are not in.
+  - A guest reads only their own space: `spaces` holds it alone, `users` holds the people in it and its members
+    (members who are not in it read `online: false`, `present: false`, with no place), and nobody else.
+  - The access key (Coffee Pub Studio, OBS) reads everything, as before.
+
+  `GET /api/status` is unchanged and still carries `asides` (the records), and `GET /api/spaces` lists spaces
+  only. When LiveKit does not answer within two seconds, both routes answer with
   nobody in a call (GitHub #71; the client's timeout is in [architecture-environments](architecture-environments.md),
   "Call names"). The space page does not wait on presence: joining, a reload back into a space and the join screen
   go ahead with the spaces they already know, `loadPresence()` gives up after three seconds, and the next poll tries
@@ -229,7 +250,9 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   `{ guest }`, the guest link's token, in the body or as `?guest=`, and may send `space` only as that link's own
   space. It answers 200 `{ ok: true }`; 401 "sign in first"; 403 "you are not in that space", "that guest link is
   for another space", or the cap's sentence, "This <environment>'s plan allows N call(s) at once; one is running
-  in <space>"; 404 "no such space" or "that guest link is off or wrong". An aside's call is never refused here.
+  in <space>". The sentence names a space only to someone who belongs to it (`overCallsSentence()`); otherwise it
+  reads "in an aside" (the `aside` word) or "in another <space>" (the `space` word). `POST /api/asides` uses the
+  same sentence. 404 "no such space" or "that guest link is off or wrong". An aside's call is never refused here.
   How the cap counts is in [architecture-environments](architecture-environments.md), "Phases 2 to 5".
 - `POST /api/asides` `{ with, private }` pulls people who are in the caller's call into a new aside and answers
   `{ aside }`, the aside's record. It answers 403 "asides are turned off" or "private conversations are turned off" (or the caller
@@ -247,9 +270,17 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   in an aside".
 
 The server tells the other people involved over the data channel, on four topics: `aside-pull`
-`{ type, spaceId, byOwner, private, from }` to the people pulled, `aside-started` `{ type, spaceId, members }` to
-everyone on the call, the people pulled included, `aside-recall` `{ type, spaceId, spaceName }` and `aside-return` `{ type, spaceId }` (before step 5a they carried `roomId` and `roomName`). The old
+`{ type, spaceId, byOwner, private, from }` to the people pulled, `aside-started` to everyone on the call the
+aside was pulled out of, the people pulled included, `aside-recall` `{ type, spaceId, spaceName }` and `aside-return` `{ type, spaceId }` (before step 5a they carried `roomId` and `roomName`). The old
 `/api/table...` routes answer 404 and the old topics are no longer sent.
+
+`aside-started` is what lets the people left behind turn the tiles of those who stepped out into placeholders at
+once, before the next presence poll. An ordinary aside's is `{ type, spaceId, members, private: false }`. A private
+conversation's is `{ type, spaceId, private: true }`, with no members: who is in it stays off the record, and the
+page learns who stepped out from `GET /api/presence` (`aside: true`, `asidePrivate: true`), which it asks at once.
+The space page reads a message without `private` as private, so it never names anyone by mistake, and keeps what
+an ordinary aside's message said (`startedAsides` in `public/space.js`) for the placeholders, since presence tells
+someone outside the aside only which space they stepped out of.
 
 ## Hosting
 

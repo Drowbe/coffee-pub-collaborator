@@ -418,6 +418,19 @@
       </div>
       </div>
 
+      <!-- The top bar's destinations (plan-calendar-destination.md, plan-map-destination.md): each a switch, saved at once,
+           off and disabled with the reason when it cannot show for anyone (GET /api/settings' topBarReasons). -->
+      <div class="panel" id="top-bar-panel">
+      <h2>Top bar</h2>
+      <div class="checks top-bar-checks">
+        <label class="check"><input id="set-show-calendar" type="checkbox" class="switch" role="switch" aria-describedby="show-calendar-hint"> Show Calendar</label>
+        <p class="hint" id="show-calendar-hint" data-fill>Adds Calendar to the top bar: events and tasks from every {space} in one place.</p>
+        <label class="check"><input id="set-show-map" type="checkbox" class="switch" role="switch" aria-describedby="show-map-hint"> Show Map</label>
+        <p class="hint" id="show-map-hint" data-fill>Adds Map to the top bar: places from every {space} on one map.</p>
+      </div>
+      <span class="status" id="top-bar-status"></span>
+      </div>
+
       <div class="panel">
       <h2>Sign-in page</h2>
       <p class="hint">A picture behind the sign-in box, and a note under the password field.</p>

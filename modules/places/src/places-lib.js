@@ -64,9 +64,15 @@
 
   // The places of a space, kept live, and what other modules may ask of them. `host` is the SDK.
   // `opts.scope` says whose they are: 'space' (this space's, the default), 'environment' (everyone's) or 'person' (the signed-in person's own, private).
+  // `opts.space` names one of the viewer's spaces from the environment page (the Map destination's panel): scope 'space'
+  // there reaches that space with { space }, and its changes arrive as the 'spaces' scope with its id.
   function createPlaces(host, opts) {
     const scope = (opts && opts.scope) || 'space';
-    const at = { scope };
+    const space = scope === 'space' && opts && opts.space ? String(opts.space) : null;
+    const at = space ? { scope, space } : { scope };
+    // A pointer to one of these places, and the options that say where it is for setLinks.
+    const pointer = (id) => host.objects.make('place', id, scope === 'environment' ? { scope: 'environment' } : space ? { space } : undefined);
+    const linkOpts = space ? { space } : undefined;
     const byId = new Map(); // id -> { place, version }
     const listeners = new Set();
     const changed = () => { for (const fn of listeners) fn(); };
@@ -81,8 +87,15 @@
       for (const it of await host.storage.list(PLACE_PREFIX, at)) remember(it.key.slice(PLACE_PREFIX.length), it.value, it.version);
       changed();
     }
+    // Fill from items already read (a list across every space, each item with its spaceId), instead of asking again.
+    function seed(items) {
+      byId.clear();
+      for (const it of items || []) if (String(it.key).startsWith(PLACE_PREFIX)) remember(it.key.slice(PLACE_PREFIX.length), it.value, it.version);
+      changed();
+    }
     host.on('change', (e) => {
-      if (e.scope === 'spaces' || (e.scope || 'space') !== scope || !String(e.key).startsWith(PLACE_PREFIX)) return;
+      if (!String(e.key).startsWith(PLACE_PREFIX)) return;
+      if (space ? !(e.scope === 'spaces' && String(e.spaceId) === space) : e.scope === 'spaces' || (e.scope || 'space') !== scope) return;
       remember(String(e.key).slice(PLACE_PREFIX.length), e.deleted ? null : e.value, e.version);
       changed();
     });
@@ -99,14 +112,14 @@
       const place = cleanPlace(id, value);
       byId.set(id, { place, version: saved && saved.version });
       // Personal places are private, so nothing is linked to or from them.
-      if (place.ref && scope !== 'person') host.objects.setLinks(host.objects.make('place', id, scope === 'environment' ? { scope: 'environment' } : undefined), [place.ref]).catch(() => {});
+      if (place.ref && scope !== 'person') host.objects.setLinks(pointer(id), [place.ref], linkOpts).catch(() => {});
       changed();
       return place;
     }
     async function remove(id) {
       await host.storage.delete(PLACE_PREFIX + id, byId.has(id) ? { ...at, version: byId.get(id).version } : at);
       byId.delete(id);
-      if (scope !== 'person') host.objects.setLinks(host.objects.make('place', id, scope === 'environment' ? { scope: 'environment' } : undefined), []).catch(() => {});
+      if (scope !== 'person') host.objects.setLinks(pointer(id), [], linkOpts).catch(() => {});
       changed();
     }
     // Give a place a point (or take it away with null).
@@ -134,7 +147,7 @@
       });
     }
 
-    return { load, list, get, versionOf, save, remove, setPoint, provide, subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
+    return { load, seed, list, get, versionOf, save, remove, setPoint, provide, scope, space, subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
   }
 
   // --- finding a place ----------------------------------------------------------------------------------------------

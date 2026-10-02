@@ -98,3 +98,22 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); }
 .note.bad { border-color: var(--danger, #c0574a); }
 .day.pick { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+
+/* The day view: an all-day row, then a column of hours (as one day of the week). */
+.dayview { display: flex; flex-direction: column; gap: 6px; }
+.hours { display: flex; flex-direction: column; gap: 2px; }
+.allday, .hour { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; }
+.hour { min-height: 34px; cursor: pointer; }
+.hour:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.hour.now { border-color: var(--accent); }
+.hr { flex: none; width: 66px; padding-top: 1px; color: var(--text-dim); font-size: 11px; }
+.allday .chips, .hour .chips { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dayview .chip { white-space: normal; overflow-wrap: anywhere; }
+
+/* As a part of the Calendar destination: the selected day, and the Agenda's end line. */
+.day.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); }
+.day:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.app.part { padding: 8px; }
+.empty.end { padding: 10px 8px; }
+.item .what strong .ri { margin-right: 5px; }
+.editor-card select:disabled { opacity: 0.75; }

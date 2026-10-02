@@ -37,6 +37,20 @@ Nothing is sent to any service you did not choose: the map comes from your file,
 - **Put an object on the map.** Drop an object from another module on the map: if it already has a position it is shown, and if its module can give it one (Places can, for a place with only an address) it is placed where you dropped it.
 - **Many places close together** show as one pin with a count; click it to zoom in.
 
+## Map in the top bar
+
+When an owner turns on **Show Map** (see [Manage](userguide-environment-settings.md), "Top bar"), **Maps** sits in the middle of the top bar, after **Calendar**, with the Maps icon and the name your environment gives it. It puts the map and the list of [Places](userguide-places.md) on one page, across the whole environment and every space you are in. On a phone it is in the menu, after your spaces. It shows only while Maps is on, a map file is set (see "Set it up" above), and you may see Maps for the whole environment. Guests never see it.
+
+1. Click **Maps** in the top bar. If you are in a space, it opens over the space: you are marked Away on the call until you go back, and **Back to <space>** returns you.
+2. Click **Trips** (your environment's word for spaces) on the left of the bar under the top bar to choose whose places show: **Mine**, then the environment's own places by the environment's name, then each of your spaces. The button says how many are on, such as "Trips (3 of 5)".
+3. Type in the field on the right to find a place. As you type, the list keeps the places that match and the map dims the pins that don't. Press Enter to look the name up with the place search, when Places has one set up: the results show at the top of the list with **Save**, and on the map as dashed pins. Press Escape to clear the field. Coordinates or a map link put a pin there and start a new place.
+4. Click a pin to select it: the map shows its callout and the list marks the place. Click a place in the list to fly the map to it.
+5. To add a place, choose **+** at the top left of the map ("Add a place: click the map") and click the map, or **Add a place** at the top of the list. Places' dialog opens and asks **Where** it goes (see [Places](userguide-places.md)).
+
+This browser remembers what **Trips** shows, where the map was and, on a phone, the tab. On a phone the page has two tabs at the bottom, **Maps** and **Places**. On a device that can't draw the map, the list takes the whole page.
+
+While Map shows, the Maps and Places pages (`/modules/maps`, `/modules/places`) lead to it. Without it, `/modules/maps` shows a map of all your places, from every space you are in, your own and the environment's, with no list beside it; its field takes coordinates or a map link to go there, and places are added from Places or in a space.
+
 ## When there is no map
 
 Without a map file, everyone, owners included, sees "Maps is not set up yet. An owner adds map files in Manage. Your places are in the Places module." A device that cannot draw the map (no WebGL) says so; your places are still in Places, each opening in your maps app.

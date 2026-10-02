@@ -112,7 +112,8 @@ await test('offersFor: only the dropped object\'s own module\'s actions, by its 
   assert.deepEqual(onDay.map((o) => o.id), ['todo:setTaskDue'], 'a task on a day: its due date, and not an event, a note, another task or the map');
   assert.deepEqual(onDay[0].input, { task, date: '2026-10-03' });
   assert.equal(onDay[0].icon, 'list-check', 'an offer wears its module\'s icon');
-  assert.deepEqual(calls.find((c) => c[0] === 'actions.list')[1], { accepts: 'todo:task', self: false });
+  // Asked with the dropped object, so only what can be done in its own place is listed (decision 21).
+  assert.deepEqual(calls.find((c) => c[0] === 'actions.list')[1], { accepts: 'todo:task', self: false, ref: task });
   const onEvent = await host.objects.offersFor({ ref: task }, { target: event, date: '2026-10-03' });
   assert.deepEqual(onEvent.map((o) => o.id), ['todo:setTaskDue', 'todo:linkTask'], 'on an event: its due date, and linking it to the event');
   const nowhere = await host.objects.offersFor({ ref: task }, {});

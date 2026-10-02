@@ -140,7 +140,9 @@ try {
   await test('a guest reads the presence roster without any space\'s guest link', async () => {
     const r = await call('GET', `/api/presence?guest=${tokenOne}`);
     assert.equal(r.status, 200);
-    assert.deepEqual(tokensIn(r.json.spaces), { One: null, Two: null });
+    // Presence by membership (plan-primary-nav.md, decision 6): a guest reads only their own space.
+    assert.deepEqual(tokensIn(r.json.spaces), { One: null });
+    assert.ok(!anyTokenText(r.text), 'no guest token anywhere in a guest\'s presence');
   });
 
   await test('a member sees a guest link only for a space where they may manage it', async () => {

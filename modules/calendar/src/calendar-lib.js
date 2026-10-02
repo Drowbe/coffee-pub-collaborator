@@ -76,3 +76,14 @@
     }
     return out;
   }
+
+  // --- views ---------------------------------------------------------------
+
+  // The views: Month, Week, Day and the Agenda, whose stored key stays `list` (it read "List" before). "Open on" keeps
+  // what a person stored: the old "Month + list" (`both`) opens on Month, which now has that list; anything unknown
+  // opens on Month too.
+  const VIEW_IDS = ['month', 'week', 'day', 'list'];
+  const openView = (stored) => (VIEW_IDS.includes(stored) ? stored : 'month');
+  // Month and Week list the period's events under the grid; Day and the Agenda do not. Nor does a part of the Calendar
+  // destination (`part`), whose Agenda beside it is that list already.
+  const listUnder = (view, part) => !part && (view === 'month' || view === 'week');

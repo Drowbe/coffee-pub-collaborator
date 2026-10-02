@@ -263,6 +263,92 @@
     return select.value;
   }
 
+  // The view switch (the view-switch rules in public/style.css and public/sdk/host.css), the one implementation the
+  // host's pages and the SDK share. fillChoice(button, { id, label, icon?, regular?, iconOnly?, svg? }) draws one choice:
+  // its icon (a Font Awesome <i>, or with `svg` an empty .tb-tab-glyph the caller fills with host.ui.icon's SVG, which
+  // it returns) and its word. fitSwitches(container) shows the switches in it as icons only while their words do not fit
+  // the container (its own width, never the window's); watchSwitches(container) fits now and again whenever the
+  // container changes size or the fonts arrive. In icons only, every choice keeps its word as its title and its
+  // aria-label; a choice without an icon keeps its word; what is selected, the keyboard and focus do not change.
+  const SWITCH_COMPACT = 'tb-tabs-compact';
+  const SWITCH_ICON = /^[a-z0-9-]{1,40}$/;
+  function fillChoice(button, o) {
+    const doc = button.ownerDocument;
+    const word = String((o && o.label) || '');
+    const icon = o && SWITCH_ICON.test(o.icon || '') ? o.icon : '';
+    const iconOnly = Boolean(icon && o.iconOnly);
+    const name = word || String((o && o.id) || icon);
+    button.textContent = '';
+    button.classList.add('tb-tab');
+    button.classList.toggle('tb-tab-icon', iconOnly);
+    button.removeAttribute('title');
+    delete button.dataset.fitTitle;
+    let glyph = null;
+    if (icon) {
+      glyph = doc.createElement(o.svg ? 'span' : 'i');
+      glyph.className = o.svg ? 'tb-tab-glyph' : `tb-tab-glyph fa-${o.regular ? 'regular' : 'solid'} fa-${icon} fa-fw`;
+      glyph.setAttribute('aria-hidden', 'true');
+      button.appendChild(glyph);
+    }
+    if (word && !iconOnly) {
+      const w = doc.createElement('span');
+      w.className = 'tb-tab-word';
+      w.textContent = word;
+      button.appendChild(w);
+    }
+    button.setAttribute('aria-label', name);
+    if (iconOnly) button.title = name;
+    return glyph;
+  }
+  // A choice with an icon and a word, in or out of icons only: its word is its accessible name either way, and its
+  // tooltip only while the word is hidden (a title the page set itself is left alone).
+  function labelChoice(button, compact) {
+    const wordEl = button.querySelector(':scope > .tb-tab-word');
+    if (!wordEl || !button.querySelector(':scope > .tb-tab-glyph')) return;
+    const word = wordEl.textContent.trim();
+    button.setAttribute('aria-label', word);
+    if (compact && (!button.title || button.dataset.fitTitle)) {
+      button.title = word;
+      button.dataset.fitTitle = '1';
+    } else if (!compact && button.dataset.fitTitle) {
+      button.removeAttribute('title');
+      delete button.dataset.fitTitle;
+    }
+  }
+  function fitSwitches(container) {
+    if (!container || !container.isConnected) return;
+    const groups = [...container.querySelectorAll('.tb-tabs')];
+    if (!groups.length) return;
+    // Measured with every word showing; a container that is not laid out (hidden) keeps the words.
+    for (const g of groups) g.classList.remove(SWITCH_COMPACT);
+    const width = container.clientWidth;
+    const narrow = width > 0 && (container.scrollWidth > width + 1 || groups.some((g) => g.getBoundingClientRect().width > width + 1));
+    for (const g of groups) {
+      g.classList.toggle(SWITCH_COMPACT, narrow);
+      for (const b of g.querySelectorAll('.tb-tab')) labelChoice(b, narrow);
+    }
+  }
+  const switchWatch = new WeakMap(); // container -> the view it is watched in
+  function watchSwitches(container) {
+    if (!container) return;
+    fitSwitches(container);
+    const view = container.ownerDocument && container.ownerDocument.defaultView;
+    if (!view || switchWatch.get(container) === view) return;
+    switchWatch.set(container, view);
+    let frame = 0;
+    const later = () => {
+      if (frame) return;
+      frame = view.requestAnimationFrame(() => { frame = 0; fitSwitches(container); });
+    };
+    if (typeof view.ResizeObserver === 'function') new view.ResizeObserver(later).observe(container);
+    else view.addEventListener('resize', later);
+    const fonts = view.document.fonts;
+    if (fonts && typeof fonts.addEventListener === 'function') {
+      fonts.addEventListener('loadingdone', later);
+      fonts.ready.then(later, () => {});
+    }
+  }
+
   // env: { call(method, params) -> Promise, root, rootElement, elementAt({x, y}), localPoint(clientX, clientY),
   // applyTheme(theme) }.
   // Returns { host, emit }: `emit` is how the host pushes an event to the module.
@@ -279,6 +365,78 @@
     if (sig === switchesSig) return;
     switchesSig = sig;
     host.toolbar.set(items).catch(() => {});
+  }
+
+  // host.ui.viewSwitch with `element`: the switch in the module's own page, drawn with the shared fillChoice and fitted
+  // to the element's parent. Its buttons are kept between draws (only a change of choices rebuilds them), so the
+  // keyboard stays on the choice it was on.
+  function pageSwitch({ element, options, value, onChange }) {
+    ensureUiStyles();
+    let current = value;
+    let opts = Array.isArray(options) ? options : [];
+    let shape = '';
+    element.classList.add('tb-tabs');
+    if (!element.getAttribute('role')) element.setAttribute('role', 'group');
+    const holder = () => element.parentElement || element;
+    const draw = () => {
+      const valid = opts.filter((o) => o && o.id && (o.label || o.icon));
+      const nextShape = JSON.stringify(valid.map((o) => [String(o.id), o.icon || '', Boolean(o.regular), Boolean(o.iconOnly)]));
+      if (nextShape !== shape) {
+        shape = nextShape;
+        element.textContent = '';
+        for (const o of valid) {
+          const b = element.ownerDocument.createElement('button');
+          b.type = 'button';
+          b.dataset.choice = String(o.id);
+          const glyph = fillChoice(b, { ...o, svg: true });
+          if (glyph) {
+            menuIcon(o.icon, o.regular ? 'regular' : 'solid').then((svg) => {
+              if (!svg) return;
+              glyph.innerHTML = svg;
+              fitSwitches(holder());
+            });
+          }
+          element.appendChild(b);
+        }
+      } else {
+        // The same choices: only the words can have changed ("Open (3)").
+        valid.forEach((o, i) => {
+          const b = element.children[i];
+          const w = b && b.querySelector(':scope > .tb-tab-word');
+          if (w && w.textContent !== String(o.label || '')) w.textContent = String(o.label || '');
+          else if (b && !w) {
+            b.setAttribute('aria-label', String(o.label || o.id));
+            b.title = String(o.label || o.id);
+          }
+        });
+      }
+      for (const b of element.querySelectorAll(':scope > .tb-tab')) {
+        const on = b.dataset.choice === String(current);
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', String(on));
+      }
+      watchSwitches(holder());
+    };
+    const click = (e) => {
+      const b = e.target.closest('[data-choice]');
+      if (!b || b.parentElement !== element || b.dataset.choice === String(current)) return;
+      current = b.dataset.choice;
+      draw();
+      if (typeof onChange === 'function') onChange(current);
+    };
+    element.addEventListener('click', click);
+    draw();
+    return {
+      set(newValue, newOptions) {
+        current = newValue;
+        if (Array.isArray(newOptions)) opts = newOptions;
+        draw();
+      },
+      destroy: () => {
+        element.removeEventListener('click', click);
+        element.textContent = '';
+      },
+    };
   }
 
   // An "open this object" from the host can arrive before the module has said what to do with one.
@@ -763,7 +921,13 @@
       // when nothing did). Returns { set(value, options?), destroy() }.
       // A module may have more than one (whose items, and how they are laid out): every live switch shares the
       // toolbar, drawn in the order they were made with a separator between, and any one changing redraws the row.
-      viewSwitch: ({ id, options, value, onChange }) => {
+      // Each choice shows its icon and its word, and only its icon while the switch's row is too narrow for the words
+      // (the word stays its tooltip and accessible name); a choice with no icon always shows its word.
+      // `element`: an element in the module's own page to draw the switch in instead of the toolbar (where there is
+      // no toolbar row: a destination's panel). The same look, choices, fit and set()/destroy(); its icons are the SVGs
+      // host.ui.icon gives, so they show in a frame too.
+      viewSwitch: ({ id, options, value, onChange, element }) => {
+        if (element && element.nodeType === 1) return pageSwitch({ element, options, value, onChange });
         let current = value;
         let opts = options;
         const off = host.on('toolbar', (e) => {
@@ -1534,7 +1698,8 @@
     //   { type: 'text', text }                                             -- plain dim label
     //   { type: 'tabs', id, value, options: [{ id, label?, icon?, regular?, iconOnly? }] } -- a segmented
     //       switch; give label, icon, or both per option (iconOnly hides the label, kept for aria-label
-    //       and the tooltip). A click arrives as the 'toolbar' event { id, value: optionId }
+    //       and the tooltip). With label and icon both, the option shows only its icon while the row is too narrow
+    //       for the words. A click arrives as the 'toolbar' event { id, value: optionId }
     //   { type: 'progress', value, label? }                               -- a read-only bar, value 0-100
     //   { type: 'slider', id, value, min?, max?, step?, label?, disabled? } -- a range input; moving it
     //       arrives as the 'toolbar' event { id, value } (min 0, max 100, step 1 unless given)
@@ -1691,4 +1856,7 @@
   global.hostText = { esc, markdown };
   // The currency list likewise, for Manage's Currency (a page, not a module): the same choices a module's currencySelect makes.
   global.hostCurrency = { fill: fillCurrencySelect, name: currencyName, common: COMMON_CURRENCIES.slice() };
+  // The view switch likewise, for the host's own pages: the toolbar a module's switch is drawn in (module-host.js),
+  // Chat's Private | Shared and a destination's switches all draw and fit with these.
+  global.hostSwitch = { fill: fillChoice, fit: fitSwitches, watch: watchSwitches };
 })(window);

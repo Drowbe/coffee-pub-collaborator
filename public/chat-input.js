@@ -104,6 +104,25 @@ export function placeAbove(popup, anchor) {
 
 export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup, frameMessage }) {
   const input = () => $('chat-input');
+  // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
+  // (the wider Send button leaves a narrow chat a narrow field). A command's own hint is left alone.
+  const HINTS = ['Chat or type / for commands...', 'Chat, or / for commands', 'Chat'];
+  let hintCtx = null;
+  function defaultHint() {
+    const el = input();
+    const cs = el && getComputedStyle(el);
+    const free = el ? el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) : 0;
+    if (!(free > 0)) return HINTS[0];
+    hintCtx ||= document.createElement('canvas').getContext('2d');
+    if (!hintCtx) return HINTS[0];
+    hintCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    return HINTS.find((h) => hintCtx.measureText(h).width <= free) || HINTS[HINTS.length - 1];
+  }
+  function fitHint() {
+    const el = input();
+    if (el && (!el.placeholder || HINTS.includes(el.placeholder))) el.placeholder = defaultHint();
+  }
+  if (input() && typeof ResizeObserver === 'function') new ResizeObserver(fitHint).observe(input());
   const note = () => $('chat-note');
   const importBtn = () => $('chat-import');
   let pendingImport = null;
@@ -227,7 +246,10 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
 
   function setShareVisible(on) {
     const g = $('chat-ai-share');
-    if (g) g.hidden = !on;
+    if (!g) return;
+    g.hidden = !on;
+    // The shared view switch's fit (public/sdk/host.js): icons only while the chat is too narrow for the words.
+    if (on && window.hostSwitch) window.hostSwitch.watch(g);
   }
 
   async function refreshShareVisible() {
@@ -763,7 +785,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
   input().addEventListener('input', () => {
     const parsed = parseCommand(input().value);
     if (input().value.trim() === '/') showPicker();
-    if (!parsed) input().placeholder = 'Chat or type / for commands...';
+    if (!parsed) input().placeholder = defaultHint();
     else if (parsed.name === 'ai') input().placeholder = 'a question for the AI';
     if (!input().value.trim()) { pendingImport = null; importBtn().hidden = true; setNote(''); }
   });

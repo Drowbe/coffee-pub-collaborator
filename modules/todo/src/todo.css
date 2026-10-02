@@ -72,12 +72,9 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .rule { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
 .rule select { flex: 1 1 160px; min-width: 0; }
 
-/* As the Calendar destination's panel: Open / Done / All in the page (it has no toolbar row), and each task's place. */
-.show { display: inline-flex; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
-.show button { padding: 3px 10px; border: 0; background: none; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
-.show button + button { border-left: 1px solid var(--border); }
-.show button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); }
-.show button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* As the Calendar destination's panel: Open / Done / All in the page (it has no toolbar row; host.ui.viewSwitch draws
+   it with `element`, in the SDK's view-switch look), and each task's place. */
+.show .tb-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .app.part { padding: 8px; }
 .task .text .ri { margin-right: 5px; }
 .editor-card select { width: 100%; color: var(--text); }

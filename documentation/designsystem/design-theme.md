@@ -60,7 +60,7 @@ working. The rest are derived with `color-mix`.
 3. Never assume a dark background. Test every new surface with a dark and a light theme.
 4. Scrims and shadows may stay black, because they darken whatever is behind them rather than
    standing in for a theme color.
-5. A button is Primary (`--accent` with `--on-accent`) or Secondary (`--secondary` with `--secondary-text`); do not invent a third look. Hover comes from `--primary-hover` and `--secondary-hover`.
+5. A button is Primary (`--accent` with `--on-accent`) or Secondary (`--secondary` with `--secondary-text`); do not invent a third look. Hover comes from `--primary-hover` and `--secondary-hover`. The square icon button of the bottom row is the action button (see "The action button" below), not a button of its own.
 6. A fixed color is acceptable only where it carries a meaning the theme must not change, such as the
    red of a muted badge, and then its text is fixed too so the pair stays readable.
 7. Anything drawn on its own, such as a canvas or SVG, reads the tokens with `getComputedStyle` and
@@ -69,6 +69,21 @@ working. The rest are derived with `color-mix`.
 A fixed dark background under theme-colored text is the classic failure: it looks correct on the
 default theme and unreadable on a light one.
 
+## The action button
+
+`.action-btn` is the one square icon button of the bottom row: the call's controls, the chat's Send, a module's action bar (docked, floating, popped out and on its own page) and a module's own add buttons. It is Secondary, or Primary with `.primary`, and red for **Leave the call** (`.danger` on the call's toolbar). Two layout tokens size it; they are not colours and no theme sets them:
+
+| Token | Use |
+|---|---|
+| `--action-btn-h` | the button's width and height: `--bar-control-h` (38px) on the app's pages, 38px on a module's page; a compact call toolbar and the phone's sizes set it smaller (40, 34 or 30px) |
+| `--action-icon-ratio` | the icon's size as a share of the button, `calc(20 / 38)`: a 20px icon in a 38px button, the same share at every size |
+
+A smaller button sets `--action-btn-h` only, never the icon's size. The rules are written once in `public/style.css` and once, word for word, in `public/sdk/host.css` (between `action-btn:start` and `action-btn:end`); `tools/check-buttons.mjs` holds the two copies equal, the call controls, Send and the action bar on `.action-btn`, and the bundled modules from sizing it or setting the tokens.
+
+## The switch
+
+A view or filter switch (**Month | Week | Day | Agenda**, **Open | Done | All**, **Private | Shared**) is one row of segments, each an icon beside its word, the chosen one marked. When the row is too narrow for the words, every segment shows its icon only (`.tb-tabs-compact`), and the word stays the tooltip and the accessible name; a segment with no icon always shows its word. It takes its colours from the tokens above and needs no tokens of its own. The rules are in `public/style.css` for the app's pages and in `public/sdk/host.css` for a module's (`.tb-tabs`, `.tb-tab`, `.tb-tab-glyph`, `.tb-tab-word`, `.tb-tabs-compact`); a module draws one with `host.ui.viewSwitch` ([api-module-sdk](../api/api-module-sdk.md)) and never sizes it, which `tools/check-switches.mjs` holds.
+
 ## Modules
 
-A module runs in a sandboxed frame, so it cannot see Collaborator's stylesheet. The host reads the current theme from the page's computed style and hands it to the module on start, and the module SDK sets it on the frame's `:root` as CSS custom properties. A module written to the rules above follows the theme with no code. Collaborator also adds a small base stylesheet to each module page (`.btn`, `.btn-primary`, `.card`, styled inputs) built from the same tokens. The rules apply to module authors too; see [api-module-sdk](../api/api-module-sdk.md).
+A module runs in a sandboxed frame, so it cannot see Collaborator's stylesheet. The host reads the current theme from the page's computed style and hands it to the module on start, and the module SDK sets it on the frame's `:root` as CSS custom properties. A module written to the rules above follows the theme with no code. Collaborator also adds a small base stylesheet to each module page (`.btn`, `.btn-primary`, `.action-btn`, `.card`, styled inputs) built from the same tokens. The rules apply to module authors too; see [api-module-sdk](../api/api-module-sdk.md).

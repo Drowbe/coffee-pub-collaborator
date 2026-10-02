@@ -43,7 +43,7 @@
   let hideOwn = false; // as a part: the page's filter has the environment's own events off
   let cursor = new Date();
   cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  let view = ['month', 'week', 'day', 'both', 'list'].includes(prefs.defaultView) ? prefs.defaultView : 'month';
+  let view = 'month'; // set from "Open on" once the library is in (openView, below)
   let anchor = new Date(); // the day the week and day views are built around; as a part, the selected day
   let editing = null; // { scope, id, version, spaceId } while the editor is open
 
@@ -63,6 +63,8 @@
   const placeName = (scope, spaceId) => (scope === 'spaces' ? (spaceInfo.get(spaceId) ? spaceInfo.get(spaceId).name : word('space', { cap: true })) : inSpace && scope === 'here' ? word('space', { cap: true }) : envName());
 
   /*__LIB__*/
+
+  view = openView(prefs.defaultView);
 
   // Every occurrence of every event that touches [from, to), soonest first: one that began earlier
   // and runs into the range counts too.
@@ -189,6 +191,11 @@
     return listHtml(inRange(from, to), `Nothing in ${cursor.toLocaleDateString([], { month: 'long' })}.${canEdit ? ' Add an event to get started.' : ''}`, from);
   }
 
+  function weekList() {
+    const from = weekStart();
+    return listHtml(inRange(from, addDays(from, 7)), `Nothing this week.${canEdit ? ' Add an event to get started.' : ''}`, from);
+  }
+
   function upcomingList() {
     const from = new Date();
     from.setHours(0, 0, 0, 0);
@@ -268,14 +275,13 @@
     requestAnimationFrame(() => { if (row.isConnected) go(); }); // once laid out, in case the first pass had no height yet
   }
 
-  // Month / Week / Day / Month + list / List is the toolbar's view switch. As the destination's calendar the page's
-  // bar has Month, Week and Day, and this draws whichever it says.
+  // Month / Week / Day / Agenda is the toolbar's view switch (the Agenda's key is `list`). As the destination's
+  // calendar the page's bar has Month, Week and Day, and this draws whichever it says.
   const VIEWS = [
-    { id: 'month', label: 'Month' },
-    { id: 'week', label: 'Week' },
-    { id: 'day', label: 'Day' },
-    { id: 'both', label: 'Month + list' },
-    { id: 'list', label: 'List' },
+    { id: 'month', label: 'Month', icon: 'calendar-days' },
+    { id: 'week', label: 'Week', icon: 'calendar-week' },
+    { id: 'day', label: 'Day', icon: 'calendar-day' },
+    { id: 'list', label: 'Agenda', icon: 'list' },
   ];
   const PART_VIEWS = ['month', 'week', 'day'];
   if (part && !PART_VIEWS.includes(view)) view = prefs.defaultView === 'week' ? 'week' : 'month';
@@ -307,7 +313,6 @@
 
   function render() {
     if (part === 'panel') return renderAgenda();
-    const compact = isCompact();
     const showNav = view !== 'list';
     $('prev').hidden = $('next').hidden = !showNav;
     viewSwitch.set(view);
@@ -318,7 +323,9 @@
     if (nothingPicked()) {
       $('body').innerHTML = `<p class="empty">${esc(pickOne())}</p>`;
     } else if (view === 'week') {
-      $('body').innerHTML = weekHtml();
+      // Week and Month list their events beneath the grid (listUnder); not as the destination's calendar, whose
+      // Agenda beside it is that list.
+      $('body').innerHTML = listUnder(view, part) ? `<div class="stack">${weekHtml()}<div><h3 class="list-title">This week</h3>${weekList()}</div></div>` : weekHtml();
     } else if (view === 'day') {
       // A redraw of the same day keeps where it was scrolled to; a new day opens at its first event.
       const keep = $('body').scrollTop;
@@ -327,8 +334,7 @@
       else scrollDay();
     } else if (view === 'list') {
       $('body').innerHTML = upcomingList();
-    } else if (compact || view === 'both') {
-      // A narrow pane, or the Month + list view, shows the month on top and that month's events beneath.
+    } else if (listUnder(view, part)) {
       $('body').innerHTML = `<div class="stack">${monthGrid()}<div><h3 class="list-title">This month</h3>${monthList()}</div></div>`;
     } else {
       $('body').innerHTML = monthGrid();

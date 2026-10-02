@@ -674,7 +674,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       field.setAttribute('aria-label', item.placeholder || 'Quick add');
       const go = document.createElement('button');
       go.type = 'submit';
-      go.className = 'btn btn-primary quick-add-go';
+      go.className = 'action-btn primary quick-add-go';
       go.setAttribute('aria-label', item.label || 'Add');
       go.title = item.label || 'Add';
       go.disabled = item.disabled;
@@ -693,9 +693,10 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     }
     const b = document.createElement('button');
     b.type = 'button';
-    // An icon is the button. The words stay as the tooltip and as the line in "...".
+    // An icon is the button (the shared .action-btn, the same size and icon as the call's controls). The words stay as
+    // the tooltip and as the line in "...". A button with no icon is a worded .btn.
     const iconOnly = Boolean(item.icon);
-    b.className = `btn${item.primary ? ' btn-primary' : ''}${iconOnly ? ' bar-icon' : ''}`;
+    b.className = iconOnly ? `action-btn${item.primary ? ' primary' : ''}` : `btn${item.primary ? ' btn-primary' : ''}`;
     b.disabled = item.disabled;
     if (iconOnly) { b.title = item.label; b.setAttribute('aria-label', item.label); }
     if (item.icon) {
@@ -1184,22 +1185,14 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
           continue;
         }
         if (item.type === 'tabs') {
+          // The shared view switch (hostSwitch, public/sdk/host.js): icon and word, icons only while the row is too narrow.
           const seg = doc.createElement('span');
           seg.className = 'tb-tabs';
           for (const opt of item.options) {
             const b = doc.createElement('button');
             b.type = 'button';
-            b.className = `tb-tab${opt.id === item.value ? ' on' : ''}${opt.iconOnly && opt.icon ? ' tb-tab-icon' : ''}`;
-            if (opt.icon) {
-              const i = doc.createElement('i');
-              i.className = `fa-${opt.regular ? 'regular' : 'solid'} fa-${opt.icon} fa-fw`;
-              i.setAttribute('aria-hidden', 'true');
-              b.appendChild(i);
-              if (opt.label && !opt.iconOnly) b.append(' ');
-            }
-            if (opt.label && !(opt.iconOnly && opt.icon)) b.append(opt.label);
-            b.setAttribute('aria-label', opt.label || opt.id);
-            if (opt.iconOnly && opt.icon) b.title = opt.label || '';
+            window.hostSwitch.fill(b, opt);
+            if (opt.id === item.value) b.classList.add('on');
             b.addEventListener('click', () => send('toolbar', { id: item.id, value: opt.id }));
             seg.appendChild(b);
           }
@@ -1225,6 +1218,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       }
       drawToolbarMore();
       toolbar.hidden = clean.length === 0;
+      window.hostSwitch.watch(toolbar);
       if (onToolbar) onToolbar(clean.length > 0);
       return true;
     },

@@ -2,7 +2,7 @@
 
 **Audience:** anyone in a space on a Collaborator server who types in Chat: to talk, to ask the AI, to add something to a module, or to bring in research from another AI.
 
-Chat has one box, **Chat or type / for commands...**. Plain text is a message to the space. Text that starts with a command does something else: `/ai` asks the AI privately, and a module's command opens that module's add form. Opening Chat, formatting, pictures and history are covered in [The call](userguide-call.md), "Chat".
+Chat has one box, **Chat or type / for commands...** ("Chat, or / for commands", or just "Chat", when the chat is narrow). Plain text is a message to the space. Text that starts with a command does something else: `/ai` asks the AI privately, and a module's command opens that module's add form. Opening Chat, formatting, pictures and history are covered in [The call](userguide-call.md), "Chat".
 
 Who can use it: anyone allowed to send messages in the space (set per role on the Roles tab). Commands work only in a space, not in an aside.
 

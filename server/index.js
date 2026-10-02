@@ -4977,7 +4977,8 @@ app.get('/api/modules/nav', (req, res) => {
 
 // The widgets for the dashboard on the rooms page: enabled modules with a surfaces.widget that this person may
 // read, in the order the modules ask for. A guest has no dashboard. `href`: where the tile's heading goes, the module's
-// page, or the destination it is a part of while that is shown (plan-calendar-destination.md, decision 16).
+// page, or the destination it is a part of while that is shown (plan-calendar-destination.md, decision 16), with
+// #panel=<module id> for a panel.
 app.get('/api/modules/widgets', (req, res) => {
   const who = moduleViewer(req);
   if (!who?.user) return res.json({ widgets: [] });
@@ -4990,7 +4991,7 @@ app.get('/api/modules/widgets', (req, res) => {
       // The widget's own title stays its own (plan decision 9: a display name replaces the module's name, not a widget's
       // label); a widget with none takes the module's name, as shown.
       title: manifest.surfaces.widget.title || shownModule(manifest).name, size: manifest.surfaces.widget.size, order: manifest.surfaces.widget.order, entry: manifest.surfaces.widget.entry,
-      href: destinationPathOf(manifest.id, ctx) || `/modules/${encodeURIComponent(manifest.id)}`,
+      href: widgetHref(manifest.id, ctx),
     }))
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   res.json({ widgets });
@@ -5052,6 +5053,14 @@ const destinationPageReady = () => fs.existsSync(page('destination.html'));
 function destinationPathOf(moduleId, ctx) {
   if (!ctx || !destinationPageReady()) return null;
   return destinations.destinationOfModule(moduleId, ctx)?.dest.path || null;
+}
+
+// Where a tile's heading goes: the module's page; the destination while the module is part of a shown one, with
+// #panel=<module id> when it is a panel there (not the main), so the page opens that panel or phone tab.
+function widgetHref(moduleId, ctx) {
+  const shown = ctx && destinationPageReady() ? destinations.destinationOfModule(moduleId, ctx) : null;
+  if (!shown) return `/modules/${encodeURIComponent(moduleId)}`;
+  return shown.main.manifest.id === moduleId ? shown.dest.path : `${shown.dest.path}#panel=${encodeURIComponent(moduleId)}`;
 }
 
 // The destinations shown for this viewer, for the top bar: [{ id, name, icon, href }], the name and icon its main

@@ -143,6 +143,7 @@ export function pageOpens({ kind = '', present = false } = {}) {
 // there, for a new tab), anything else to its module's page. Returns { how: 'page' | 'space', href }.
 export function tileRefTarget(ref, { page = '', module = '' } = {}) {
   const hash = `#ref=${encodeURIComponent(JSON.stringify(ref))}`;
+  page = String(page || '').split('#')[0]; // a panel's heading names its panel (#panel=); the pointer opens it anyway
   if (page && page.startsWith('/') && !page.startsWith('/modules/') && ref.module === module) return { how: 'page', href: page + hash };
   const q = ref.scope === 'space' && ref.space ? `?${new URLSearchParams({ space: ref.space })}` : '';
   return { how: ref.scope === 'space' && ref.space ? 'space' : 'page', href: `/modules/${encodeURIComponent(ref.module)}${q}${hash}` };
@@ -180,6 +181,33 @@ export function anchorSegments({ space = null, viewingHome = false, guestSpaceNa
   if (!space) return guestSpaceName ? [{ label: guestSpaceName, current: true }] : [];
   if (viewingHome) return [];
   return crumbSegments({ space, ...rest });
+}
+
+// Where a home tile's heading goes (dashboard.js): the server's `href`, a path on this server, with a panel's
+// `#panel=<module id>` when the module is a destination's panel; anything else, its module's page. Returns { page, path }:
+// `page` the whole address (the heading), `path` without the hash (a widget's own place is added to that).
+export function tileHeading(href, id) {
+  const own = `/modules/${encodeURIComponent(id)}`;
+  if (typeof href !== 'string' || !/^\/[A-Za-z0-9/_-]*(#panel=[a-z0-9][a-z0-9_-]{0,63})?$/.test(href)) return { page: own, path: own };
+  return { page: href, path: href.split('#')[0] };
+}
+
+// A destination page's `#panel=<module id>` (a panel tile's heading, plan-calendar-destination.md): the panel to show,
+// as `panel:<id>` when it is one of `panelKeys`, else '' (unknown or unreadable: ignored). `rest` is the hash without
+// it, for the rest of the page's places (#ref=, #day=). `hash` is location.hash without its '#'.
+export function hashPanel(hash, panelKeys = []) {
+  const bits = String(hash || '').split('&');
+  const at = bits.findIndex((b) => b.startsWith('panel='));
+  if (at < 0) return { key: '', found: false, rest: String(hash || '') };
+  let id = '';
+  try {
+    id = decodeURIComponent(bits[at].slice(6));
+  } catch {
+    id = '';
+  }
+  bits.splice(at, 1);
+  const key = /^[a-z0-9][a-z0-9_-]{0,63}$/.test(id) && panelKeys.includes(`panel:${id}`) ? `panel:${id}` : '';
+  return { key, found: true, rest: bits.join('&') };
 }
 
 // The top bar's destinations (plan-calendar-destination.md, "The bar's entry"; plan-map-destination.md): one entry per

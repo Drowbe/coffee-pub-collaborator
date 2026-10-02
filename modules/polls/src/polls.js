@@ -292,9 +292,9 @@
   // Open / Closed / All is the toolbar's view switch: host.ui.viewSwitch draws it, tracks the current
   // choice and only redraws when the value or a label (the open count) actually changes.
   const FILTERS = [
-    { id: 'open', label: 'Open' },
-    { id: 'closed', label: 'Closed' },
-    { id: 'all', label: 'All' },
+    { id: 'open', label: 'Open', icon: 'lock-open' },
+    { id: 'closed', label: 'Closed', icon: 'lock' },
+    { id: 'all', label: 'All', icon: 'list' },
   ];
   const filterSwitch = host.ui.viewSwitch({
     id: 'filter',

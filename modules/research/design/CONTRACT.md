@@ -13,7 +13,7 @@
   <div class="rs-chips">                      kind chips: All, Notes, Links, Photos, Answers (.rs-chip.on)
   <div class="rs-chips">                      tag chips (.rs-chip.tag[style=--tag], .on)
   <main class="rs-body">                      .upload and .pos-ask when needed, then .rs-grid of .rcard, or .rs-empty
-  <div class="rs-bar">                        the host's bottom bar is the quick add (see below)
+  (no bar of its own)                         the host's action bar (host.bar.set, .action-btn) is the quick add (see below)
 ```
 
 Views are as in Places: **Mine** (the person scope, private across rooms) and **This room**; the choice is remembered and a guest has only This room. Filtering combines: search text, a kind, and one or more tags.

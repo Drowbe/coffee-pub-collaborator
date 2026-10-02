@@ -21,6 +21,9 @@
   --secondary-text: var(--text);
   --secondary-hover: color-mix(in srgb, var(--bg-section) 78%, var(--accent) 22%);
   --danger: #b8503f;
+  /* The action button's size and its icon's share of it, the same as the page's own (public/style.css). */
+  --action-btn-h: 38px;
+  --action-icon-ratio: calc(20 / 38);
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 14px;
 }
@@ -86,6 +89,121 @@ a {
   opacity: 0.5;
   cursor: default;
 }
+
+/* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
+   chat's Send, a module's action bar, a module's own bottom buttons). Its size is --action-btn-h and its icon
+   --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
+   rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
+   so and keeps a module from sizing the button itself. */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--action-btn-h);
+  height: var(--action-btn-h);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.action-btn:hover {
+  background: var(--secondary-hover);
+  border-color: var(--accent);
+}
+
+.action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.action-btn.primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* action-btn:end */
+
+/* view-switch:start -- the view switch: a row of choices (.tb-tab) in a .tb-tabs, each an icon (.tb-tab-glyph, a Font
+   Awesome <i> or an inline SVG) and a word (.tb-tab-word). host.ui.viewSwitch draws it (in a module's toolbar, or in
+   the module's own page), and the host's pages use it as it is (Chat's Private | Shared, a destination's switches).
+   When the words do not fit the switch's container (its width, not the window's), the shared fit (hostSwitch.fit in
+   public/sdk/host.js) adds .tb-tabs-compact: a choice with an icon shows only its icon, its word kept as its tooltip
+   and accessible name; a choice without one keeps its word. These rules are word for word the same in
+   public/style.css and public/sdk/host.css; tools/check-switches.mjs keeps them so and keeps a module from sizing the
+   switch itself. */
+.tb-tabs {
+  display: inline-flex;
+  flex: none;
+}
+
+.tb-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border: 1px solid var(--border);
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 12px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.tb-tab-icon,
+.tb-tabs-compact .tb-tab:has(> .tb-tab-glyph) {
+  padding-inline: 8px;
+}
+
+.tb-tab-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25em;
+}
+
+.tb-tab-glyph svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+.tb-tabs-compact .tb-tab-glyph ~ .tb-tab-word {
+  display: none;
+}
+
+.tb-tab:first-child {
+  border-radius: 6px 0 0 6px;
+}
+
+.tb-tab:last-child {
+  border-radius: 0 6px 6px 0;
+}
+
+.tb-tab:not(:first-child) {
+  margin-left: -1px;
+}
+
+.tb-tab.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+/* view-switch:end */
 
 input,
 textarea,

@@ -15,7 +15,7 @@
  *     permissions: a member who may edit the To-do only in one space may set a task's due date there, not in another
  *     space nor at environment level; a reader, a non-member and a guest are refused; a page in a space as before;
  *   - /modules/<id> leading to /calendar while it is shown (not with ?space=, not with the option off), the tiles'
- *     `href`, and /calendar itself;
+ *     `href` (a panel's with #panel=<module id>, a main's bare), and /calendar itself;
  *   - with no destination page built yet (public/destination.html), nothing leads to it;
  *   - Travel's template giving showCalendar: true, and a single install with nothing set behaving as before.
  * And the Map's (plan-map-destination.md, Verify step 1):
@@ -26,7 +26,7 @@
  *   - GET /api/objects/search?scope=spaces&has=place: only the viewer's spaces where the provider is on and readable,
  *     each pointer with its space, only summaries with a place, and more than 50 of them; refused for a guest;
  *   - a place written into a space (scope=space) only by a member with edit there;
- *   - /modules/<id> leading to /map while it is shown, not with ?space=, not with the option off; the tile's href;
+ *   - /modules/<id> leading to /map while it is shown, not with ?space=, not with the option off; the tile's href (#panel=);
  *   - Travel's template giving showMap: true.
  * The server runs from a throwaway copy of the app whose public/ links to the real one's files, with or without a
  * stand-in destination.html, so the check does not depend on whether that page is built yet. No network beyond
@@ -362,7 +362,9 @@ try {
     assert.equal(await goes(`/modules/dest-dates?space=${keep}`, aliceT), 200);
     assert.equal(await goes(`/modules/dest-tasks?space=${keep}&popout=1`, aliceT), 200);
     assert.equal(await goes(`/modules/dest-dates?space=${keep}&guest=${encodeURIComponent(guest)}`), 200, 'a guest\'s pop-out');
-    assert.deepEqual(await hrefs(aliceT), { 'dest-dates': '/calendar', 'dest-tasks': '/calendar' });
+    // A main keeps the bare address (dest-dates is the main and a panel too); a panel's tile names it: #panel=<module id>.
+    // The redirect itself carries no hash, so the browser keeps the address's own (#day=, #ref=).
+    assert.deepEqual(await hrefs(aliceT), { 'dest-dates': '/calendar', 'dest-tasks': '/calendar#panel=dest-tasks' });
   });
 
   await test('live: a panel off or unreadable at environment level is left out, and its page stays its own', async () => {
@@ -560,7 +562,7 @@ try {
     assert.equal(await goes('/modules/dest-pins', aliceT), '/map');
     assert.equal(await goes(`/modules/dest-globe?space=${keep}`, aliceT), 200);
     assert.equal(await goes(`/modules/dest-pins?space=${keep}&popout=1`, aliceT), 200);
-    assert.equal((await hrefs(aliceT))['dest-pins'], '/map');
+    assert.equal((await hrefs(aliceT))['dest-pins'], '/map#panel=dest-pins');
     assert.equal((await hrefs(aliceT))['dest-dates'], '/modules/dest-dates', 'the calendar\'s tiles are their own while it is off');
   });
 

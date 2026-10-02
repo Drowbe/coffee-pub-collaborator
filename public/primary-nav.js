@@ -136,6 +136,18 @@ export function pageOpens({ kind = '', present = false } = {}) {
   return 'overlay';
 }
 
+// Where a home tile sends one of its objects (plan-calendar-destination.md, decisions 16 and 20 to 22). `page` is where
+// the tile's heading goes (the server's `href`): a destination the module is a part of while that shows (/calendar),
+// else its module's page. Its own module's object goes to the destination, opened there (`#ref=`); with no destination
+// shown (or another module's object), one in a space goes into that space (`how: 'space'`, `href` its module's page
+// there, for a new tab), anything else to its module's page. Returns { how: 'page' | 'space', href }.
+export function tileRefTarget(ref, { page = '', module = '' } = {}) {
+  const hash = `#ref=${encodeURIComponent(JSON.stringify(ref))}`;
+  if (page && page.startsWith('/') && !page.startsWith('/modules/') && ref.module === module) return { how: 'page', href: page + hash };
+  const q = ref.scope === 'space' && ref.space ? `?${new URLSearchParams({ space: ref.space })}` : '';
+  return { how: ref.scope === 'space' && ref.space ? 'space' : 'page', href: `/modules/${encodeURIComponent(ref.module)}${q}${hash}` };
+}
+
 // The bell (decisions 9 and 18): its count is the unread module notices, and for owners and the admin the module
 // updates too. `moduleWord` is the environment's word for a module.
 export function bellState({ unread = 0, updates = 0, role = null, moduleWord = '' } = {}) {

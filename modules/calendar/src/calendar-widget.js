@@ -1,6 +1,7 @@
 // The Calendar's dashboard widget: what is coming up in the next week, across every space the viewer is in and
 // the environment's own calendar. It shows and opens; it never edits. The dashboard hosts it, and clicking an event
-// takes the person to that event (host.objects.open) while the widget's heading opens the full calendar.
+// takes the person to that event (host.objects.open), a day to that day (host.page.open), while the widget's heading
+// opens the full calendar; the dashboard decides where (the Calendar destination while it shows).
 (async () => {
   'use strict';
 
@@ -107,19 +108,34 @@
     }
   }
 
+  // A day or an event opens where the heading goes (the Calendar destination while it shows, at that day or on that
+  // event; else the full calendar, or the event's space). Ctrl or Cmd, Shift, or the middle button: in a new tab.
+  function opened(e) {
+    const newTab = Boolean(e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1);
+    const day = e.target.closest('[data-day]');
+    if (day) return void host.page.open('day=' + day.dataset.day, { newTab }).catch(() => {});
+    const b = e.target.closest('[data-event]');
+    if (!b) return;
+    const [space, id] = b.dataset.event.split('|');
+    host.objects.open(host.objects.make('event', id, space ? { space } : undefined), { newTab }).catch(() => {});
+  }
   root.addEventListener('click', (e) => {
     const step = e.target.closest('[data-step]');
     if (step) {
       shown = new Date(shown.getFullYear(), shown.getMonth() + Number(step.dataset.step), 1);
       return render();
     }
-    const day = e.target.closest('[data-day]');
-    if (day) return void host.page.open('day=' + day.dataset.day).catch(() => {});
-    const b = e.target.closest('[data-event]');
-    if (!b) return;
-    const [space, id] = b.dataset.event.split('|');
-    host.objects.open(host.objects.make('event', id, space ? { space } : undefined)).catch(() => {});
+    opened(e);
   });
+  root.addEventListener('auxclick', (e) => { if (e.button === 1) opened(e); });
+  // From the keyboard: Ctrl or Cmd + Enter on one opens it in a new tab (Enter alone opens it here).
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey) || !e.target.closest('[data-day], [data-event]')) return;
+    e.preventDefault();
+    opened(e);
+  });
+  // No scrolling by the middle button over a day or an event: it opens a new tab.
+  root.addEventListener('mousedown', (e) => { if (e.button === 1 && e.target.closest('[data-day], [data-event]')) e.preventDefault(); });
 
   let refreshing = 0;
   host.on('change', (e) => {

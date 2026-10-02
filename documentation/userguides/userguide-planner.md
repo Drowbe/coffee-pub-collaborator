@@ -123,4 +123,4 @@ Changes show up for everyone straight away. If someone changes an object while y
 
 ## The dashboard
 
-The **Trips** card on the spaces page lists your spaces' trips that are on now or coming, soonest first, each with its phase line when the template has phases (otherwise how far away it is); while a trip is on it lists today's objects. Click a trip or an object to open it in its space.
+The Planner has no card on the spaces page any more: the **Trips** card was removed in Planner 0.11.0. A summary of each space's plan on its card in the space list is planned ([plan-dashboard](../plans/plan-dashboard.md), phase 5).

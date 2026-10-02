@@ -2,7 +2,7 @@
 // the host's own; every other card is a widget a module provides (its manifest's surfaces.widget), hosted here
 // exactly as a module page is, so the host names no module. The section stays hidden while there is nothing to show.
 import { api, escapeHtml, word } from '/brand.js';
-import { whereWords } from '/primary-nav.js';
+import { whereWords, tileRefTarget } from '/primary-nav.js';
 import { mountModule } from '/module-host.js';
 
 // What each module has unread (the host's notification counts): shown on its card's heading, since the header no
@@ -31,18 +31,24 @@ let started = false;
 
 const section = () => document.getElementById('dashboard');
 
-// Showing an item where its module keeps it. An item in a space takes the person into that space with the module
-// open on its canvas (the page supplies how, since it owns joining); anything else goes to the module's own page,
-// given the pointer in the address (the page hands it on).
+// Showing an object a tile opens (tileRefTarget, primary-nav.js). Its own module's object goes to the destination the
+// tile's heading leads to while that shows (/calendar#ref=), over the space while present in one. Otherwise one in a
+// space takes the person into that space with the module open on its canvas (the page supplies how, since it owns
+// joining), and anything else goes to the module's own page, given the pointer in the address (the page hands it on).
+// Asked for a new tab (Ctrl or middle click in the tile), the same address opens in one, leaving this page and the call.
 let openInSpace = null;
-function openRef(ref) {
-  if (ref.scope === 'space' && ref.space && openInSpace) {
+function openRef(ref, { page = '', module = '', newTab = false } = {}) {
+  const to = tileRefTarget(ref, { page, module });
+  if (newTab) return openNewTab(to.href);
+  if (to.how === 'space' && openInSpace) {
     openInSpace(ref.space, ref.module, ref);
     return true;
   }
-  const q = new URLSearchParams();
-  if (ref.scope === 'space') q.set('space', ref.space);
-  openModulePage(`/modules/${encodeURIComponent(ref.module)}${q.toString() ? '?' + q : ''}#ref=${encodeURIComponent(JSON.stringify(ref))}`);
+  openModulePage(to.href);
+  return true;
+}
+function openNewTab(href) {
+  window.open(href, '_blank', 'noopener');
   return true;
 }
 
@@ -106,10 +112,15 @@ function mountWidget(w) {
     ...(inPage ? { container: holder } : { frame: holder }),
     scope: 'environment',
     entry: w.entry,
-    onOpenRef: openRef,
-    // A click in the widget that means "show me this in full": the module's own page, at that place (over the space while
-    // present in one).
-    onOpenPage: (hash) => { openModulePage(`${page}${hash ? '#' + hash : ''}`); return true; },
+    onOpenRef: (ref, o = {}) => openRef(ref, { page, module: w.id, newTab: o.newTab }),
+    // A click in the widget that means "show me this in full": where its heading goes (the destination, or the module's
+    // own page), at that place; over the space while present in one, or in a new tab when the click asked for one.
+    onOpenPage: (hash, o = {}) => {
+      const href = `${page}${hash ? '#' + hash : ''}`;
+      if (o.newTab) return openNewTab(href);
+      openModulePage(href);
+      return true;
+    },
     // A widget in a frame says how tall it is.
     onResize: ({ height }) => { if (!inPage && Number.isFinite(height)) holder.style.height = `${Math.min(Math.max(Math.ceil(height), 40), 600)}px`; },
   });

@@ -1423,8 +1423,13 @@ try {
     const shown = (list) => list.find((m) => m.id === 'travel');
     const nav = shown((await as('GET', '/api/modules/nav')).json.modules);
     assert.deepEqual([nav.name, nav.icon], ['Itinerary', 'compass'], 'the nav');
-    const widget = shown((await as('GET', '/api/modules/widgets')).json.widgets);
-    assert.deepEqual([widget.name, widget.icon, widget.title], ['Itinerary', 'compass', 'Trips'], 'the dashboard: the widget keeps its own title');
+    // The Planner has no tile on home (plan-calendar-destination, decision 22); the To-do's tile keeps its own title.
+    assert.equal(shown((await as('GET', '/api/modules/widgets')).json.widgets), undefined, 'no Trips tile');
+    assert.equal((await as('POST', '/api/modules/bundled/todo/install')).status, 201);
+    assert.equal((await as('PATCH', '/api/modules/todo', { enabled: true, allSpaces: true, displayName: 'Chores', displayIcon: 'compass' })).status, 200);
+    const widget = (await as('GET', '/api/modules/widgets')).json.widgets.find((m) => m.id === 'todo');
+    assert.deepEqual([widget.name, widget.icon, widget.title], ['Chores', 'compass', 'Due soon'], 'the dashboard: the widget keeps its own title');
+    await as('PATCH', '/api/modules/todo', { displayName: null, displayIcon: null });
     const canvas = shown((await as('GET', `/api/modules/for-space?space=${side}`)).json.modules);
     assert.deepEqual([canvas.name, canvas.icon], ['Itinerary', 'compass'], 'the canvas');
     const context = (await as('GET', '/api/modules/travel/context?scope=environment')).json.module;

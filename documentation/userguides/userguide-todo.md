@@ -25,7 +25,7 @@ When an owner turns on **Show Calendar**, the To-do is the **To-do** tab on the 
 
 ## Due soon on the dashboard
 
-On the spaces page, the dashboard's **Due soon** card lists tasks that are not done and are due within the next week or already overdue, soonest first (up to eight), across every space you are in and the environment's own list. Overdue ones are marked in red, and each shows its space's icon. Clicking a task opens it in its space; the heading opens the full list, or Calendar in the top bar when it is shown. Tasks with no due date are not shown. See [Spaces](userguide-spaces.md).
+On the spaces page, the dashboard's **Due soon** card lists tasks that are not done and are due within the next week or already overdue, soonest first (up to eight), across every space you are in and the environment's own list. Overdue ones are marked in red, and each shows its space's icon. Click a task to open it. While Calendar is in the top bar, it opens there on the **To-do** panel (the **To-do** tab on a phone) with the task's editor open; otherwise it opens in its space. The heading opens Calendar in the top bar when it is shown, else the full list. From inside a space these open over the space, and you are Away on the call until you go back. Ctrl-click, Cmd-click, Shift-click, a middle click or Ctrl or Cmd with Enter opens it in a new tab instead, leaving home and the call alone. Tasks with no due date are not shown. See [Spaces](userguide-spaces.md).
 
 ## Add a task
 

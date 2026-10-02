@@ -1003,11 +1003,13 @@
       regenerate: () => call('access.regenerate'),
     },
 
-    // The module's own page. `open(hash)` asks the host to open it at a place in it ("day=2026-09-24": letters,
-    // digits and = & _ . : , - only), which a widget uses for a click that means "show me this in full";
+    // The module's own page. `open(hash, { newTab })` asks the host to open it at a place in it ("day=2026-09-24":
+    // letters, digits and = & _ . : , - only), which a widget uses for a click that means "show me this in full" (on
+    // home, where the tile's heading goes: the destination it is a part of while that shows); `newTab: true` for a click
+    // that asked for a new tab (Ctrl or Cmd, the middle button);
     // `onHash(fn)` is called on the page with that place when it is opened that way (and again if it changes).
     page: {
-      open: (hash) => call('page.open', { hash }),
+      open: (hash, o) => call('page.open', { hash, newTab: Boolean(o && o.newTab) }),
       onHash: (fn) => host.on('pagehash', (e) => fn(e.hash)),
     },
 
@@ -1043,8 +1045,9 @@
       // summaries' own module and kind) rather than naming other modules in your code.
       kinds: () => call('objects.kinds', {}),
       // Show an object in the module that owns it (it opens on the canvas, and it is asked to show the object). The
-      // summary says whether it can: summary.open.
-      open: (ref) => call('objects.open', { ref }),
+      // summary says whether it can: summary.open. `{ newTab: true }` for a click that asked for a new tab (Ctrl or Cmd,
+      // the middle button): a page that can (home) opens it in one; any other shows it as usual.
+      open: (ref, o) => call('objects.open', { ref, newTab: Boolean(o && o.newTab) }),
       // For a module that owns objects: called when someone asks to see one of them (host.objects.open from
       // another module): open it. The pointer is checked for shape and points at one of your own objects.
       onOpen: (fn) => {

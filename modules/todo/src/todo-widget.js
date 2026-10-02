@@ -73,12 +73,25 @@
     }
   }
 
-  root.addEventListener('click', (e) => {
+  // A task opens where the heading goes (the Calendar destination's To-do while it shows; else its space, or the full
+  // list). Ctrl or Cmd, Shift, or the middle button: in a new tab.
+  function opened(e) {
     const b = e.target.closest('[data-task]');
     if (!b) return;
     const [space, id] = b.dataset.task.split('|');
-    host.objects.open(host.objects.make('task', id, space ? { space } : undefined)).catch(() => {});
+    const newTab = Boolean(e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1);
+    host.objects.open(host.objects.make('task', id, space ? { space } : undefined), { newTab }).catch(() => {});
+  }
+  root.addEventListener('click', opened);
+  root.addEventListener('auxclick', (e) => { if (e.button === 1) opened(e); });
+  // From the keyboard: Ctrl or Cmd + Enter on one opens it in a new tab (Enter alone opens it here).
+  root.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !(e.ctrlKey || e.metaKey) || !e.target.closest('[data-task]')) return;
+    e.preventDefault();
+    opened(e);
   });
+  // No scrolling by the middle button over a task: it opens a new tab.
+  root.addEventListener('mousedown', (e) => { if (e.button === 1 && e.target.closest('[data-task]')) e.preventDefault(); });
 
   let refreshing = 0;
   host.on('change', (e) => {

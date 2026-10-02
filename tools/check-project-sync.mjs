@@ -8,7 +8,10 @@
  *     repository in Now, Next or Later exactly that priority label, clears it for Inbox or no column, leaves Done
  *     alone, skips closed issues and other repositories, writes nothing when the labels already match, and ends
  *     green with a notice when the board isn't set up. A missing, non-single-select or mis-pointed field (none of
- *     Now, Next, Later) fails the run before any write. Each change is a notice and a summary line.
+ *     Now, Next, Later) fails the run before any write. Each change is a notice and a summary line;
+ *   - after the labels it reports the board's order, read by POSITION: Now, Next and Later ranked top to bottom in
+ *     the step summary ("Order on the board", with titles) and as one notice per column, then Inbox unranked if
+ *     anything is in it; Done, closed issues, pull requests and other repositories are not listed.
  * No network. The YAML is read as text: no YAML parser is a dependency here.
  */
 import fs from 'node:fs';
@@ -52,12 +55,12 @@ const run = scriptBlock();
 const fn = new AsyncFunction('github', 'context', 'core', 'getOctokit', 'process', run);
 
 // One board object. `repo` defaults to this repository; `column` is the Status option's name, or null for none.
-const item = (number, column, labels = [], { state = 'OPEN', repo = 'o/r', kind = 'issue' } = {}) => ({
+const item = (number, column, labels = [], { state = 'OPEN', repo = 'o/r', kind = 'issue', title = `Issue ${number}` } = {}) => ({
   fieldValueByName: column == null ? null : { name: column },
   content:
     kind === 'draft'
       ? { title: 'a draft' }
-      : { number, state, repository: { nameWithOwner: repo }, labels: { nodes: labels.map((name) => ({ name })) } },
+      : { number, title, state, repository: { nameWithOwner: repo }, labels: { nodes: labels.map((name) => ({ name })) } },
 });
 
 // `items` is the board, split into pages of `pageSize`. Labels live in `state.labels[number]`, changed by the writes.
@@ -94,7 +97,7 @@ async function simulate({ items = [], pageSize = 100, env = {}, project = 'prese
         calls.graphql.push({ query, vars });
         if (project === null) return { user: { projectV2: null } };
         if (/field\(name: \$field\)/.test(query)) return { user: { projectV2: { title: 'Board', field } } };
-        assert.match(query, /items\(first: 100, after: \$after\)/);
+        assert.match(query, /items\(first: 100, after: \$after, orderBy: \{ field: POSITION, direction: ASC \}\)/);
         const start = vars.after ? Number(vars.after.slice(1)) : 0;
         const nodes = items.slice(start, start + pageSize);
         const end = start + nodes.length;
@@ -110,9 +113,9 @@ async function simulate({ items = [], pageSize = 100, env = {}, project = 'prese
     };
   };
   const summary = {
-    addHeading: (t) => (calls.summary.push(`# ${t}`), summary),
+    addHeading: (t, level = 1) => (calls.summary.push(`${'#'.repeat(level)} ${t}`), summary),
     addRaw: (t) => (calls.summary.push(t), summary),
-    addList: (list) => (calls.summary.push(...list.map((l) => `- ${l}`)), summary),
+    addList: (list, ordered = false) => (calls.summary.push(...list.map((l, i) => `${ordered ? `${i + 1}.` : '-'} ${l}`)), summary),
     write: async () => summary,
   };
   const core = {
@@ -124,6 +127,10 @@ async function simulate({ items = [], pageSize = 100, env = {}, project = 'prese
   const fullEnv = { PROJECT_TOKEN: 'tok', PROJECT_OWNER: 'someone', PROJECT_NUMBER: '8', PROJECT_FIELD: '', ...env };
   await fn(github, context, core, getOctokit, { env: fullEnv });
   calls.labels = labels;
+  calls.total = calls.notices.find((m) => /issue\(s\) changed/.test(m));
+  calls.order = calls.notices.filter((m) => /^(Now|Next|Later|Inbox)\b/.test(m));
+  const at = calls.summary.indexOf('## Order on the board');
+  calls.orderSummary = at < 0 ? [] : calls.summary.slice(at);
   calls.writes = calls.removed.length + calls.added.length;
   return calls;
 }
@@ -155,9 +162,9 @@ await test('Next to Now: the old label goes, the new one comes, logged as a noti
   assert.deepEqual(c.added, ['#160 priority: now']);
   assert.deepEqual(c.labels[160], ['bug', 'priority: now']);
   assert.equal(c.notices[0], '#160 priority: next → priority: now');
-  assert.match(c.notices.at(-1), /1 issue\(s\) changed, 0 already matched, 0 left alone/);
+  assert.match(c.total, /1 issue\(s\) changed, 0 already matched, 0 left alone/);
   assert.ok(c.summary.includes('- #160 priority: next → priority: now'));
-  assert.ok(c.summary.includes(c.notices.at(-1)));
+  assert.ok(c.summary.includes(c.total));
 });
 
 await test('Now, Next, Later from none, and two priority labels down to one', async () => {
@@ -185,13 +192,13 @@ await test('Done is left alone', async () => {
   const c = await simulate({ items: [item(7, 'Done', ['priority: now']), item(8, 'Done')] });
   assert.equal(c.writes, 0);
   assert.deepEqual(c.labels[7], ['priority: now']);
-  assert.match(c.notices.at(-1), /0 issue\(s\) changed, 0 already matched, 2 left alone/);
+  assert.match(c.total, /0 issue\(s\) changed, 0 already matched, 2 left alone/);
 });
 
 await test('a closed issue is skipped', async () => {
   const c = await simulate({ items: [item(9, 'Now', ['priority: later'], { state: 'CLOSED' })] });
   assert.equal(c.writes, 0);
-  assert.match(c.notices.at(-1), /out of 0 open issue/);
+  assert.match(c.total, /out of 0 open issue/);
 });
 
 await test("another repository's issue, a pull request or a draft is skipped", async () => {
@@ -205,7 +212,7 @@ await test("another repository's issue, a pull request or a draft is skipped", a
   });
   assert.equal(c.writes, 0);
   assert.deepEqual(c.failed, []);
-  assert.match(c.notices.at(-1), /out of 0 open issue/);
+  assert.match(c.total, /out of 0 open issue/);
 });
 
 await test('every page of the board is read', async () => {
@@ -214,7 +221,7 @@ await test('every page of the board is read', async () => {
   assert.deepEqual(c.graphql.slice(1).map((g) => g.vars.after), [null, 'c100', 'c200']);
   assert.equal(c.added.length, 250);
   assert.deepEqual(c.labels[250], ['priority: next']);
-  assert.match(c.notices.at(-1), /250 issue\(s\) changed/);
+  assert.match(c.total, /250 issue\(s\) changed/);
 });
 
 await test('no writes when every label already matches', async () => {
@@ -222,8 +229,8 @@ await test('no writes when every label already matches', async () => {
     items: [item(1, 'Now', ['priority: now', 'bug']), item(2, 'Inbox', ['bug']), item(3, null), item(4, 'Done', ['priority: next'])],
   });
   assert.equal(c.writes, 0);
-  assert.equal(c.notices.length, 1, 'only the total');
-  assert.match(c.notices[0], /0 issue\(s\) changed, 3 already matched, 1 left alone/);
+  assert.equal(c.notices.filter((m) => /^#/.test(m)).length, 0, 'no change notices');
+  assert.match(c.total, /0 issue\(s\) changed, 3 already matched, 1 left alone/);
   assert.ok(c.summary.includes('No labels changed.'));
 });
 
@@ -285,6 +292,87 @@ await test('a single-select field with none of Now, Next or Later fails, naming 
   const c = await simulate({ items: labelled(), field: { id: 'F_size', name: 'Size', options: [{ name: 'S' }, { name: 'L' }] } });
   assert.equal(c.writes, 0);
   assert.equal(c.failed[0], 'Field "Size" has none of the options Now, Next or Later (it has "S", "L"), so no labels were changed.');
+});
+
+await test('the order is read with orderBy POSITION and kept from the board across pages', async () => {
+  // 250 objects on three pages; the board order is not the number order.
+  const columns = ['Now', 'Next', 'Later'];
+  const numbers = Array.from({ length: 250 }, (_, i) => 1000 - i * 3);
+  const items = numbers.map((num, i) => item(num, columns[i % 3]));
+  const c = await simulate({ items, pageSize: 100 });
+  assert.deepEqual(c.failed, []);
+  for (const g of c.graphql.slice(1)) assert.match(g.query, /orderBy: \{ field: POSITION, direction: ASC \}/);
+  for (const [k, column] of columns.entries()) {
+    const want = numbers.filter((_, i) => i % 3 === k);
+    assert.equal(c.order[k], `${column}: ${want.map((x) => `#${x}`).join(', ')}`);
+    const at = c.orderSummary.indexOf(`### ${column}`);
+    assert.ok(at > 0, `the summary has a ${column} section`);
+    assert.deepEqual(c.orderSummary.slice(at + 1, at + 1 + want.length), want.map((x, i) => `${i + 1}. #${x} Issue ${x}`));
+  }
+});
+
+await test('one notice per column, after the total, then Inbox unranked; Done not listed', async () => {
+  const c = await simulate({
+    items: [
+      item(157, 'Now', [], { title: 'Map pins' }),
+      item(170, 'Inbox', [], { title: 'New idea' }),
+      item(165, 'Now', [], { title: 'Chat <b>bold</b> & more' }),
+      item(150, 'Done'),
+      item(160, 'Now'),
+      item(158, 'Later'),
+      item(161, 'Now'),
+      item(171, 'Inbox'),
+    ],
+  });
+  const i = c.notices.indexOf(c.total);
+  assert.deepEqual(c.notices.slice(i + 1), ['Now: #157, #165, #160, #161', 'Next: (none)', 'Later: #158', 'Inbox (unranked): #170, #171']);
+  assert.deepEqual(c.orderSummary, [
+    '## Order on the board',
+    '### Now',
+    '1. #157 Map pins',
+    '2. #165 Chat &lt;b&gt;bold&lt;/b&gt; &amp; more',
+    '3. #160 Issue 160',
+    '4. #161 Issue 161',
+    '### Next',
+    'Nothing here.',
+    '### Later',
+    '1. #158 Issue 158',
+    '### Inbox (unranked)',
+    '- #170 New idea',
+    '- #171 Issue 171',
+  ]);
+  assert.ok(!c.notices.some((m) => /#150\b/.test(m)), 'Done is not listed');
+  assert.ok(!c.orderSummary.some((m) => /#150\b/.test(m)));
+});
+
+await test('an empty Inbox is not listed', async () => {
+  const c = await simulate({ items: [item(1, 'Now'), item(2, null)] });
+  assert.deepEqual(c.order, ['Now: #1', 'Next: (none)', 'Later: (none)']);
+  assert.ok(!c.orderSummary.some((m) => /Inbox/.test(m)));
+});
+
+await test('other repositories, pull requests, drafts and closed issues are left out of the order', async () => {
+  const c = await simulate({
+    items: [
+      item(10, 'Now', [], { repo: 'someone/else' }),
+      item(11, 'Now'),
+      { fieldValueByName: { name: 'Now' }, content: {} }, // a pull request
+      item(0, 'Next', [], { kind: 'draft' }),
+      item(12, 'Next', [], { state: 'CLOSED' }),
+      item(13, 'Inbox', [], { state: 'CLOSED' }),
+      item(14, 'Later'),
+    ],
+  });
+  assert.deepEqual(c.order, ['Now: #11', 'Next: (none)', 'Later: #14']);
+  assert.deepEqual(c.orderSummary.filter((m) => /^(\d+\.|-) /.test(m)), ['1. #11 Issue 11', '1. #14 Issue 14']);
+});
+
+await test('no order is reported when the run fails or the board is not set up', async () => {
+  for (const opts of [{ field: null }, { env: { PROJECT_TOKEN: '' } }, { project: null }]) {
+    const c = await simulate({ items: [item(1, 'Now')], ...opts });
+    assert.deepEqual(c.order, []);
+    assert.deepEqual(c.orderSummary, []);
+  }
 });
 
 if (failed) {

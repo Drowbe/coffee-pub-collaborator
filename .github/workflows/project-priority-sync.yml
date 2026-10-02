@@ -8,6 +8,12 @@ name: Project priority from the board
 # Closed issues, pull requests, draft issues and other repositories' issues are skipped. Labels are changed only
 # where they differ from the board, so most runs make no changes.
 #
+# After the labels, the run reports the board's order: Now, Next and Later each top to bottom as Thomas ranked them
+# by dragging the cards (the board's manual order, items ordered by POSITION), then Inbox, unranked, if anything is
+# in it. Done is not listed. Only this repository's open issues are listed. The order goes to the step summary
+# ("Order on the board", with titles) and to one notice per column, e.g. "Now: #157, #165, #160", because a
+# check-run annotation carries notices but not the summary.
+#
 # No loop: the labels are changed with GITHUB_TOKEN, and events caused by GITHUB_TOKEN don't start other workflow
 # runs (only workflow_dispatch and repository_dispatch are exempt), so project-priority.yml does not fire back.
 # If it ever did, it would move the card to the column it is already in.
@@ -22,8 +28,8 @@ name: Project priority from the board
 # single-select, or has none of Now, Next and Later fails the run before any label is changed.
 
 # Runs when asked: from the Actions tab, or POST repos/{owner}/{repo}/actions/workflows/project-priority-sync.yml/dispatches
-# with ref=main. The result is in the run's notices (one per change, then the total; they show as check-run
-# annotations) and in its step summary.
+# with ref=main. The result is in the run's notices (one per change, then the total, then one per column for the
+# order; they show as check-run annotations) and in its step summary.
 on:
   workflow_dispatch:
 
@@ -107,7 +113,8 @@ jobs:
               return;
             }
 
-            // 2. Read the board: every object on it, a page of 100 at a time.
+            // 2. Read the board: every object on it, a page of 100 at a time, in the board's manual order (POSITION,
+            //    the order the cards were dragged into), so `issues` keeps that order across pages.
             const repoName = norm(`${context.repo.owner}/${context.repo.repo}`);
             const issues = [];
             let title = '';
@@ -120,7 +127,7 @@ jobs:
                     user(login: $owner) {
                       projectV2(number: $number) {
                         title
-                        items(first: 100, after: $after) {
+                        items(first: 100, after: $after, orderBy: { field: POSITION, direction: ASC }) {
                           pageInfo { hasNextPage endCursor }
                           nodes {
                             fieldValueByName(name: $field) {
@@ -129,6 +136,7 @@ jobs:
                             content {
                               ... on Issue {
                                 number
+                                title
                                 state
                                 repository { nameWithOwner }
                                 labels(first: 100) { nodes { name } }
@@ -158,6 +166,7 @@ jobs:
                 if (issue.state !== 'OPEN') continue;
                 issues.push({
                   number: issue.number,
+                  title: issue.title || '',
                   column: item.fieldValueByName?.name || '',
                   labels: (issue.labels?.nodes || []).map((l) => l.name),
                 });
@@ -205,4 +214,23 @@ jobs:
             const summary = core.summary.addHeading('Priority labels from the board');
             if (changes.length) summary.addList(changes);
             else summary.addRaw('No labels changed.', true);
-            await summary.addRaw(total, true).write();
+            summary.addRaw(total, true);
+
+            // 4. The order on the board: Now, Next and Later ranked top to bottom, then Inbox unranked if anything is
+            //    in it. Done is not listed. `issues` is already in the board's order and holds only this
+            //    repository's open issues. Notices carry the numbers; the summary adds the titles.
+            const escape = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const shown = (column) => field.options.find((o) => norm(o.name) === column)?.name || column[0].toUpperCase() + column.slice(1);
+            summary.addHeading('Order on the board', 2);
+            for (const column of [...PRIORITY_COLUMNS, 'inbox']) {
+              const ranked = column !== 'inbox';
+              const inColumn = issues.filter((issue) => norm(issue.column) === column);
+              if (!ranked && !inColumn.length) continue;
+              const name = shown(column);
+              const numbers = inColumn.map((issue) => `#${issue.number}`).join(', ') || '(none)';
+              core.notice(ranked ? `${name}: ${numbers}` : `${name} (unranked): ${numbers}`);
+              summary.addHeading(ranked ? name : `${name} (unranked)`, 3);
+              if (inColumn.length) summary.addList(inColumn.map((issue) => `#${issue.number} ${escape(issue.title)}`), ranked);
+              else summary.addRaw('Nothing here.', true);
+            }
+            await summary.write();

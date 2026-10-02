@@ -1,0 +1,208 @@
+name: Project priority from the board
+
+# The reverse of project-priority.yml: the issues' `priority: ...` labels follow the project board. Every open issue
+# of this repository on the board gets the label for its Status column:
+#   - Now, Next or Later: exactly one priority label, "priority: now", "priority: next" or "priority: later";
+#   - Inbox, or no column: no priority label;
+#   - Done, or a column with no matching label: the labels are left alone.
+# Closed issues, pull requests, draft issues and other repositories' issues are skipped. Labels are changed only
+# where they differ from the board, so most runs make no changes.
+#
+# No loop: the labels are changed with GITHUB_TOKEN, and events caused by GITHUB_TOKEN don't start other workflow
+# runs (only workflow_dispatch and repository_dispatch are exempt), so project-priority.yml does not fire back.
+# If it ever did, it would move the card to the column it is already in.
+#
+# Setup is the same as project-priority.yml, in Settings > Secrets and variables > Actions:
+#   - secret   PROJECT_TOKEN   a personal access token (classic) with the `project` scope (and `repo` if this
+#                              repository is private); it only reads the board here.
+#   - variable PROJECT_OWNER   the user who owns the project, e.g. Drowbe
+#   - variable PROJECT_NUMBER  the project's number, from its URL, e.g. 8
+#   - variable PROJECT_FIELD   optional; the single-select field to read, default Status
+# Without the secret or the owner and number, the run ends green with a notice. A field that is missing, not
+# single-select, or has none of Now, Next and Later fails the run before any label is changed.
+
+# Runs when asked: from the Actions tab, or POST repos/{owner}/{repo}/actions/workflows/project-priority-sync.yml/dispatches
+# with ref=main. The result is in the run's notices (one per change, then the total; they show as check-run
+# annotations) and in its step summary.
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+# One sync at a time; a run started while another is going waits for it.
+concurrency:
+  group: project-priority-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+          PROJECT_FIELD: ${{ vars.PROJECT_FIELD }}
+        with:
+          script: |
+            const PREFIX = 'priority: ';
+            const norm = (s) => String(s || '').trim().toLowerCase();
+            const PRIORITY_COLUMNS = ['now', 'next', 'later'];
+            const CLEAR_COLUMNS = ['inbox', ''];
+
+            const token = process.env.PROJECT_TOKEN;
+            const owner = (process.env.PROJECT_OWNER || '').trim();
+            const numberText = (process.env.PROJECT_NUMBER || '').trim();
+            const fieldName = (process.env.PROJECT_FIELD || '').trim() || 'Status';
+            if (!token || !owner || !numberText) {
+              const missing = [!token && 'secret PROJECT_TOKEN', !owner && 'variable PROJECT_OWNER', !numberText && 'variable PROJECT_NUMBER'].filter(Boolean);
+              const message = `The project board is not set up for this repository (missing ${missing.join(', ')}), so no labels were changed.`;
+              core.notice(message);
+              await core.summary.addHeading('Priority labels from the board').addRaw(message, true).write();
+              return;
+            }
+            const number = Number(numberText);
+            if (!Number.isInteger(number) || number < 1) {
+              core.setFailed(`PROJECT_NUMBER must be a whole number, but it is "${numberText}".`);
+              return;
+            }
+
+            // 1. Check the field first. A missing, renamed or non-single-select field would read as "no column" on
+            //    every card and clear every priority label, so it fails the run instead.
+            const board = getOctokit(token);
+            let project;
+            try {
+              const found = await board.graphql(
+                `query($owner: String!, $number: Int!, $field: String!) {
+                  user(login: $owner) {
+                    projectV2(number: $number) {
+                      title
+                      field(name: $field) {
+                        ... on ProjectV2SingleSelectField { id name options { name } }
+                      }
+                    }
+                  }
+                }`,
+                { owner, number, field: fieldName }
+              );
+              project = found?.user?.projectV2;
+            } catch (err) {
+              core.setFailed(`Could not read project ${number} of user ${owner}: ${err.message}`);
+              return;
+            }
+            if (!project) {
+              core.setFailed(`Project ${number} of user ${owner} was not found, or PROJECT_TOKEN cannot see it.`);
+              return;
+            }
+            const field = project.field;
+            if (!field || !Array.isArray(field.options)) {
+              core.setFailed(`Project "${project.title}" has no single-select field named "${fieldName}", so no labels were changed.`);
+              return;
+            }
+            if (!field.options.some((o) => PRIORITY_COLUMNS.includes(norm(o.name)))) {
+              const names = field.options.map((o) => `"${o.name}"`).join(', ') || 'none';
+              core.setFailed(`Field "${field.name}" has none of the options Now, Next or Later (it has ${names}), so no labels were changed.`);
+              return;
+            }
+
+            // 2. Read the board: every object on it, a page of 100 at a time.
+            const repoName = norm(`${context.repo.owner}/${context.repo.repo}`);
+            const issues = [];
+            let title = '';
+            let after = null;
+            for (;;) {
+              let page;
+              try {
+                const found = await board.graphql(
+                  `query($owner: String!, $number: Int!, $field: String!, $after: String) {
+                    user(login: $owner) {
+                      projectV2(number: $number) {
+                        title
+                        items(first: 100, after: $after) {
+                          pageInfo { hasNextPage endCursor }
+                          nodes {
+                            fieldValueByName(name: $field) {
+                              ... on ProjectV2ItemFieldSingleSelectValue { name }
+                            }
+                            content {
+                              ... on Issue {
+                                number
+                                state
+                                repository { nameWithOwner }
+                                labels(first: 100) { nodes { name } }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }`,
+                  { owner, number, field: fieldName, after }
+                );
+                page = found?.user?.projectV2;
+              } catch (err) {
+                core.setFailed(`Could not read project ${number} of user ${owner}: ${err.message}`);
+                return;
+              }
+              if (!page) {
+                core.setFailed(`Project ${number} of user ${owner} was not found, or PROJECT_TOKEN cannot see it.`);
+                return;
+              }
+              title = page.title;
+              for (const item of page.items?.nodes || []) {
+                const issue = item?.content;
+                if (!issue || typeof issue.number !== 'number') continue; // a pull request or a draft issue
+                if (norm(issue.repository?.nameWithOwner) !== repoName) continue;
+                if (issue.state !== 'OPEN') continue;
+                issues.push({
+                  number: issue.number,
+                  column: item.fieldValueByName?.name || '',
+                  labels: (issue.labels?.nodes || []).map((l) => l.name),
+                });
+              }
+              if (!page.items?.pageInfo?.hasNextPage) break;
+              after = page.items.pageInfo.endCursor;
+            }
+
+            // 3. Make each open issue's priority labels match its column, writing only where they differ.
+            const changes = [];
+            let unchanged = 0;
+            let skipped = 0;
+            for (const issue of issues) {
+              const column = norm(issue.column);
+              let wanted;
+              if (PRIORITY_COLUMNS.includes(column)) wanted = PREFIX + column;
+              else if (CLEAR_COLUMNS.includes(column)) wanted = null;
+              else {
+                skipped += 1; // Done, or a column with no priority label
+                continue;
+              }
+              const have = issue.labels.filter((name) => norm(name).startsWith(PREFIX));
+              const keep = wanted ? have.find((name) => norm(name) === wanted) : undefined;
+              const remove = have.filter((name) => name !== keep);
+              const add = wanted && !keep;
+              if (!add && remove.length === 0) {
+                unchanged += 1;
+                continue;
+              }
+              for (const name of remove) {
+                try {
+                  await github.rest.issues.removeLabel({ ...context.repo, issue_number: issue.number, name });
+                } catch (err) {
+                  if (err.status !== 404) throw err; // already gone
+                }
+              }
+              if (add) await github.rest.issues.addLabels({ ...context.repo, issue_number: issue.number, labels: [wanted] });
+              const line = `#${issue.number} ${have.length ? have.join(', ') : '(none)'} → ${keep || wanted || '(none)'}`;
+              core.notice(line);
+              changes.push(line);
+            }
+
+            const total = `"${title}": ${changes.length} issue(s) changed, ${unchanged} already matched, ${skipped} left alone (Done or another column), out of ${issues.length} open issue(s) of this repository on the board.`;
+            core.notice(total);
+            const summary = core.summary.addHeading('Priority labels from the board');
+            if (changes.length) summary.addList(changes);
+            else summary.addRaw('No labels changed.', true);
+            await summary.addRaw(total, true).write();

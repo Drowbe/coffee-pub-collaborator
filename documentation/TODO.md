@@ -8,7 +8,8 @@ each; the issue holds the detail. See the Studio repository for that app's side 
 
 Each issue carries one priority label: `priority: now`, `priority: next` or `priority: later`. The board's columns
 are the priorities, **Now**, **Next** and **Later**, then **Done**, which the board sets when an issue closes or its
-pull request merges.
+pull request merges. The board is the source of truth for priority: Thomas drags the cards, running the sync below
+brings the labels in line, and adding a label moves the card.
 
 A workflow (`.github/workflows/project-priority.yml`) keeps the board in step with the labels: adding a
 `priority: ` label moves the issue's card to the matching column and removes the issue's other priority label.
@@ -16,6 +17,13 @@ Without the setup below, it only tidies the labels and logs a notice. When two p
 one is kept, and the run for the other logs `Label "<label>" is no longer on issue #N, so neither the labels nor the
 board were changed.` Any other label logs `Label "<label>" is not a priority label; nothing to do.`
 `tools/check-project-status.mjs` (in `npm run check`, 11 cases) checks the workflow without a network.
+
+The reverse, **Project priority from the board** (`.github/workflows/project-priority-sync.yml`), runs only when
+started: from the **Actions** tab (**Run workflow**), or with `POST repos/{owner}/{repo}/actions/workflows/project-priority-sync.yml/dispatches`
+and `ref=main`. It sets each open issue's `priority:` label to match its column: Now, Next or Later sets that
+label, Inbox or no column clears it, and Done is left alone. It fails without changing any labels when the board's field is missing, isn't single-select, or has no Now, Next or Later option. It reports each change as a notice and in the run
+summary. `tools/check-project-sync.mjs` (in `npm run check`, 16 cases) checks it without a network. It uses the
+same setup.
 
 ### Board setup (once)
 

@@ -450,7 +450,7 @@ export function foldSteps(list) {
 // The width a left-zone tool that can shrink (`fit`: Online) may take before anything folds: the bar's inner width
 // (`width`), less the gap between the two zones (`gap`), the right zone at its natural width with nothing folded
 // (`right`, with its margins: its column is as wide as that) and the rest of the left zone (`left`: its padding, the
-// Modules button, the divider and the gaps, the one before the tool too). A tool given exactly this width folds nothing
+// Layout button, the divider and the gaps, the one before the tool too). A tool given exactly this width folds nothing
 // (foldCount). Pure, for check-nav.
 export function fitWidth({ width, gap = 0, left = 0, right = 0 }) {
   return width - gap - left - right;

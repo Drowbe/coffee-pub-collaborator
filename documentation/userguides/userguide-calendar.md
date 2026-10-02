@@ -34,7 +34,7 @@ The environment's calendar also shows the events of every space you belong to th
 
 ## A space's calendar
 
-In a space, switch on **Calendar** in **Modules**, in the space bar under the header. It opens as a column beside the video and the chat: a month on top and that month's events listed beneath it. The header buttons switch it to floating over the canvas or open it in a window of its own. It shows that space's events, and the environment's events beside them marked **environment**. The environment's events are read-only in a space; change them on the environment's calendar.
+In a space, switch on **Calendar** in **Layout**, in the space bar under the header. It opens as a column beside the video and the chat: a month on top and that month's events listed beneath it. The header buttons switch it to floating over the canvas or open it in a window of its own. It shows that space's events, and the environment's events beside them marked **environment**. The environment's events are read-only in a space; change them on the environment's calendar.
 
 ## Settings
 

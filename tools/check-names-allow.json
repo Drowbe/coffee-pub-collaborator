@@ -41,7 +41,6 @@
   { "file": "server/module-build.js", "level": "table", "pattern": "^crcTable$", "reason": "A CRC-32 lookup table for the zip writer, not the call." },
   { "file": "server/store.js", "level": "table", "pattern": "^EDITABLE_ROLES(\\.\\w+)?$", "reason": "Editable, not the call: EDITABLE_ROLES keeps its name (plan-names, The server, Roles)." },
   { "file": "public/brand.js", "level": "table", "pattern": "^host\\.table$", "line": "'host\\.table': 'app\\.call'", "reason": "The old browser key, read only to move it once to app.call (plan-names, The migration, The browser)." },
-  { "file": "public/space.js", "level": "table", "pattern": "^table-columns$", "line": "icon: 'table-columns'", "reason": "A Font Awesome icon name (fa-table-columns) passed bare to the nav registry, not the call." },
   { "file": "modules/travel/src/travel.js", "level": "table", "pattern": "^Table$", "line": "`Table for \\$\\{item\\.partySize\\}`", "reason": "Plain English on a restaurant booking (\"Table for 4\"), not the call." },
   { "file": "server/ai.js", "level": "role", "pattern": "^role: 'user'$", "line": "messages: \\[", "reason": "The AI service's own message roles (system, user), not an account's role." },
   { "file": "server/ai-threads.js", "level": "role", "pattern": "^(e\\.)?role(: | [!=]== )'user'$", "reason": "An AI conversation turn's role (user or ai), stored in ai-threads.json as plan-one-input names it, not an account's role." },

@@ -1,4 +1,4 @@
-// The canvas of a space: the Modules button and its menu, and every module the space has
+// The canvas of a space: the Layout button and its menu, and every module the space has
 // open on it. A module is either an installed one (a sandboxed frame driven by module-host.js)
 // or a built-in one, the conference and the chat. Both work the same way and can be shown
 // three ways:
@@ -16,7 +16,7 @@ import { api, markModuleRead, followTheme } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
 import { whatOpens } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
-import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle } from '/snap-grid.js';
+import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle, tidyCells, tidyBoxes, TIDY_GAP } from '/snap-grid.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
 // and each module's mode and sizes. `app.canvas` alone is what earlier versions kept for all
@@ -76,6 +76,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // An inline menu (the module buttons sit in a bar in the space header) is always shown: it is never hidden
   // or positioned by this file, only kept up to date.
   const inline = () => Boolean(menu && menu.classList.contains('subnav-modules'));
+  // The panel's Arrange section (space.js writes it once, inside #modules-menu): kept here, since the phone's tab bar
+  // takes the list's whole content and the section comes back with the panel.
+  const arrangeEl = menu ? menu.querySelector('.module-chooser-arrange') : null;
   const canvas = document.getElementById('canvas');
   let saved = loadSaved(null);
   // Nothing is remembered until a join has restored the space's modules, and not while the space is
@@ -347,6 +350,39 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     }
     for (const p of [...opened.values()]) if (p.mode === 'float' && supports(p, 'dock') && !isNarrow()) setMode(p.id, 'dock');
     update();
+  }
+  // Clean up (the Layout panel's Arrange section): every floating module on this canvas, in this window, moved fully onto
+  // the canvas and apart. Snapped ones go to the grid's nearest free cells, keeping their size in cells wherever a place
+  // for it exists, only one with no place made smaller (snap-grid.js's tidyCells); free ones are placed around them (tidyBoxes), keeping their
+  // size where it fits, in the order they were opened. Docked modules and modules in their own window are left alone.
+  // Remembered as a drag is (`layout: 'user'`). Answers how many moved.
+  function cleanUp() {
+    if (isNarrow()) return 0;
+    const doc = canvasDoc();
+    const mods = [...opened.values()].filter((p) => floaterOf(p) && floaterOf(p).ownerDocument === doc).sort((a, b) => a.order - b.order);
+    if (!mods.length) return 0;
+    const snapped = mods.filter((p) => snapping(p.id));
+    const free = mods.filter((p) => !snapping(p.id));
+    const taken = [];
+    if (snapped.length) {
+      const g = snapGrid();
+      const cells = tidyCells(g, snapped.map((p) => ({ id: p.id, cell: snapCell(g, currentBox(floaterOf(p))) })));
+      for (const p of snapped) {
+        taken.push(settleSnap(p.id, floaterOf(p), cells.get(p.id)));
+        remember(p.id, { layout: 'user' });
+      }
+    }
+    if (free.length) {
+      const g = snapGrid(); // the canvas's box, in the layer's coordinates
+      const area = { x: g.x + TIDY_GAP, y: g.y + TIDY_GAP, w: g.w - 2 * TIDY_GAP, h: g.h - 2 * TIDY_GAP };
+      const boxes = tidyBoxes(free.map((p) => ({ id: p.id, box: currentBox(floaterOf(p)) })), area, taken);
+      for (const p of free) {
+        const floater = floaterOf(p);
+        place(floater, boxes.get(p.id));
+        remember(p.id, { box: currentBox(floater), layout: 'user' });
+      }
+    }
+    return mods.length;
   }
   // The grid's size, from the space bar's slider: every snapped module is re-settled into the cells nearest the box it was
   // put in (`placed`), so it keeps about its size in pixels, not its count of cells, and none sits on another where the canvas
@@ -1149,16 +1185,34 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       const key = had ? (had.dataset.builtin ? `builtin:${had.dataset.builtin}` : had.dataset.module ? `module:${had.dataset.module}` : null) : null;
       // On a narrow canvas a module open but hidden behind the view shown reads off; its switch shows it.
       const shown = (id) => opened.has(id) && !hiddenByView(id);
-      menu.innerHTML = switchListHtml(builtinList.map((def) => ({ id: def.id, icon: def.icon, name: def.name, on: shown(def.id), badge: builtinUnread[def.id] || 0 })), 'builtin')
-        + switchListHtml(available.map((m) => ({ id: m.id, icon: m.icon, name: m.name, on: shown(m.id), badge: unread[m.id] || 0 })), 'module');
-      wireSwitchList(menu);
+      // The panel's sections (plan-layout-menu.md): Show, rewritten here on every change, then Arrange, the space page's
+      // own (Dock all, Clean up, the snap switch and the grid's size), never rewritten here, so a control in use is
+      // never replaced under the pointer or the keyboard. Arrange is not drawn on a narrow canvas: nothing docks there.
+      let show = menu.querySelector(':scope > .module-chooser-show');
+      if (!show) {
+        for (const el of [...menu.children]) if (el !== arrangeEl) el.remove(); // the phone's tabs, before
+        show = doc.createElement('div');
+        show.className = 'module-chooser-show';
+        menu.prepend(show);
+        wireSwitchList(show);
+      }
+      if (arrangeEl) {
+        if (arrangeEl.parentNode !== menu) menu.appendChild(arrangeEl);
+        arrangeEl.hidden = isNarrow();
+      }
+      // Under a Show heading (the header's menu heading), its own group, so a screen reader reads "Show" with the switches.
+      show.innerHTML = '<div class="nav-menu-heading module-chooser-heading" id="modules-menu-show">Show</div>'
+        + '<div class="module-chooser-section" role="group" aria-labelledby="modules-menu-show">'
+        + switchListHtml(builtinList.map((def) => ({ id: def.id, icon: def.icon, name: def.name, on: shown(def.id), badge: builtinUnread[def.id] || 0 })), 'builtin')
+        + switchListHtml(available.map((m) => ({ id: m.id, icon: m.icon, name: m.name, on: shown(m.id), badge: unread[m.id] || 0 })), 'module')
+        + '</div>';
       if (key) {
         const [kind, id] = key.split(/:(.*)/s);
         [...menu.querySelectorAll(`[data-${kind}]`)].find((el) => el.dataset[kind] === id)?.focus();
       }
       return;
     }
-    // The phone's tab bar: a tab per module (the highlighted tab is the view being shown).
+    // The phone's tab bar: a tab per module (the highlighted tab is the view being shown). Arrange is kept, out of it.
     menu.innerHTML = '';
     for (const def of builtinList) {
       const open = opened.has(def.id);
@@ -1218,7 +1272,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     update();
   });
   // The menu belongs to the canvas, so it works with the conference closed. It opens under the
-  // Modules button in the page header (the one place to open modules).
+  // Layout button in the page header (the one place to open modules).
   function positionMenu() {
     if (inline() || menu.closest('.module-chooser')) return; // the space bar's chooser: CSS puts it under its button
     const visible = (el) => el && el.getBoundingClientRect().width > 0;
@@ -1379,6 +1433,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     snapAll: setSnapAll,
     snapAllOn,
     dockAll,
+    cleanUp,
     snapPitch,
     snapPitchRange: () => ({ ...SNAP_PITCH }),
     setSnapPitch,

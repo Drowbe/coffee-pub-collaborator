@@ -84,7 +84,11 @@ a space a "trip" and a member a "traveller"; a game might have a "game master" a
 A blank row uses the default. **Reset** on a row puts that word back to its default at once. Only owners (and the
 admin) can change the words.
 
-### The word on the button for entering a space
+### The words on two buttons
+
+Two rows at the end of **Words** set the word on a button rather than a level or role.
+
+#### The button for entering a space
 
 The last row under the words, **Button for entering a space**, sets the word on each space's main button on the
 space list and on the guest form. It is **Enter** unless the template or you set another, such as "Board" or
@@ -95,6 +99,10 @@ space list and on the guest form. It is **Enter** unless the template or you set
 2. Type the word as it should read at the start of the button, with its capital: at most 20 characters, using only
    letters, spaces, hyphens and apostrophes.
 3. Click **Save**. It is saved with the words; if the server refuses it, nothing is saved and the message says why.
+
+#### The button for the canvas layout
+
+The row **Button for the canvas layout** (with your environment's word for canvas) sets the word on the space bar's **Layout** button, which shows and hides modules and arranges them on the canvas. It is **Layout** unless the template or you set another. Set it the same way: at most 20 characters, only letters, spaces, hyphens and apostrophes, then **Save**.
 
 Leave the field blank for the template's word, or **Enter** with no template. When the template gives a word, the
 row says "From the template", or "The template's: <word>" once you have set your own. **Reset** puts it back to

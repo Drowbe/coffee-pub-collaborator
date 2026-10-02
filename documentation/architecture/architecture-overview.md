@@ -117,9 +117,10 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
   (see [api-module-sdk](../api/api-module-sdk.md)). `tools/check-names.mjs --words` fails, in `server/`, `public/` and
   `modules/`, on a changeable word typed into text people read; the host console and the product page use the
   host's own words and are allow-listed.
-  Beside the words, `branding()` carries `verbs`, the actions a person reads on a button: for now one, `enter`
-  (default "Enter"), the word on a space's main button and the guest form. Pages read it with `verb('enter')`,
-  `data-verb="enter"` or `{enter}` in `fill()`; the owner sets it with `PATCH /api/settings` `{ verbs }`. See
+  Beside the words, `branding()` carries `verbs`, the actions a person reads on a button: `enter` (default
+  "Enter"), the word on a space's main button and the guest form, and `layout` (default "Layout"), the space bar's
+  Layout button. Pages read them with `verb('enter')`, `data-verb="enter"` or `{enter}` in `fill()` (and the same for
+  `layout`); the owner sets it with `PATCH /api/settings` `{ verbs }`. See
   [architecture-environments](architecture-environments.md), "Templates", for the contract.
 - **Who sees a link that signs someone in.** A person's personal sign-in link (`linkToken`) is sent only to owners
   and to that person, and never in `GET /api/status`, whatever key the request carries. A space's guest link

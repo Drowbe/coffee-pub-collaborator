@@ -666,7 +666,7 @@ function firstEntry(menu) {
 
 // --- module notifications ----------------------------------------------------
 // A module can notify people (its reminders, say). They arrive as a toast while you are in the host, as a count on the
-// bell, on the home tiles and on the space bar's Modules button; opening the module clears its own, and opening the
+// bell, on the home tiles and on the space bar's Layout button; opening the module clears its own, and opening the
 // bell's list marks them all read. A page opened over a call (?from=space) asks for the count once and
 // leaves the live stream to the call page underneath.
 const unreadByModule = {};

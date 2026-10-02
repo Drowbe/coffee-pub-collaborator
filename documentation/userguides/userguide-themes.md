@@ -20,11 +20,13 @@ Every theme sets these seven. The labels are the ones on Manage > Theme.
 
 ## The optional colours and Auto
 
-Under **Header, buttons and icons** are nine more: **Card background**, **Header background**, **Header text**,
-**Icons**, **Icon hover**, **Primary accent hover**, **Secondary accent**, **Text on secondary** and **Secondary
+Under **Header, buttons and icons** are thirteen more: **Card background**, **Header background**, **Header text**,
+**Branding area background**, **Branding area text**, **Right side background**, **Right side text**, **Icons**, **Icon hover**, **Primary accent hover**, **Secondary accent**, **Text on secondary** and **Secondary
 accent hover**. Each starts on **Auto**, which works it out from the base colours, so a theme that never touches
 one still looks right. Untick Auto only when you want that one thing to differ, for example a header in your own
 brand colour.
+
+The top bar has three areas: the branding area (the logo and the environment's name, on the left), the main part (Calendar, Map, the spaces and where you are) in **Header background**, and the right side (the bell and your picture). On **Auto** the branding area and the right side are a shade darker than the header, as they always were. Choose your own when you want the branding area in your brand's colour, say; each has its text colour beside it. On a phone only the branding area keeps its colour. The bar under the top bar (the space bar, and the page bar on other pages) stays one colour, worked out from the header.
 
 ## Light and dark
 

@@ -1,4 +1,4 @@
-import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName, refreshDestinations } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName, refreshDestinations } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import '/slot-paste.js'; // paste a picture into any image slot
@@ -680,6 +680,11 @@ const THEME_OPTIONAL_FIELDS = [
   ['theme-card', '--bg-card', 'card', 'var(--bg-input)'],
   ['theme-header-bg', '--header-bg', 'headerBg', 'var(--bg)'],
   ['theme-header-text', '--header-text', 'headerText', 'var(--text)'],
+  // The top bar's colour areas (plan-two-zone-nav.md decision 8): the branding area and the right side.
+  ['theme-nav-brand-bg', '--nav-brand-bg', 'navBrandBg', 'var(--nav-primary-edge-bg)'],
+  ['theme-nav-brand-text', '--nav-brand-text', 'navBrandText', 'var(--header-text)'],
+  ['theme-nav-right-bg', '--nav-right-bg', 'navRightBg', 'var(--nav-primary-edge-bg)'],
+  ['theme-nav-right-text', '--nav-right-text', 'navRightText', 'var(--header-text)'],
   ['theme-icon', '--icon', 'icon', 'initial'], // initial: unset, so the fallbacks in style.css apply
   ['theme-icon-hover', '--icon-hover', 'iconHover', 'var(--accent)'],
   ['theme-primary-hover', '--primary-hover', 'primaryHover', 'var(--accent-hover)'],
@@ -704,13 +709,23 @@ function toHex(cssColor) {
   const m = v.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
   return m ? '#' + [m[1], m[2], m[3]].map((n) => Number(n).toString(16).padStart(2, '0')).join('') : '#000000';
 }
-function resolvedVar(cssVar) {
+function computedColor(css) {
   const probe = document.createElement('span');
-  probe.style.color = `var(${cssVar})`;
+  probe.style.color = css;
   document.body.appendChild(probe);
   const color = getComputedStyle(probe).color;
   probe.remove();
-  return toHex(color);
+  return color;
+}
+// A see-through color (the top bar's areas are a 3% shade by default) shows as it looks over the header.
+function resolvedVar(cssVar) {
+  const color = computedColor(`var(${cssVar})`);
+  const rgba = color.match(/^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/);
+  if (!rgba || Number(rgba[4]) >= 1) return toHex(color);
+  const under = toHex(computedColor('var(--nav-primary-bg, var(--header-bg))'));
+  const a = Number(rgba[4]);
+  const mix = (i) => Math.round(Number(rgba[i]) * a + parseInt(under.slice(2 * i - 1, 2 * i + 1), 16) * (1 - a));
+  return '#' + [1, 2, 3].map((i) => mix(i).toString(16).padStart(2, '0')).join('');
 }
 let themes = [];
 let defaultTheme = null; // Strong Coffee: { name, light, dark }
@@ -755,9 +770,10 @@ function updateThemePreview() {
   // An Auto field shows what it currently works out to.
   for (const [id, cssVar] of THEME_OPTIONAL_FIELDS) {
     if (!isAuto(id)) continue;
-    // --icon has no value when Auto; show what an icon in the sample header actually draws.
+    // --icon has no value when Auto; show what an icon on the header's main colour draws (style.css, .topbar .icon-link).
+    // Not read from the sample header's icons: they sit in its right side, whose text colour a theme may set apart.
     $(id).value = cssVar === '--icon'
-      ? toHex(getComputedStyle(document.querySelector('.theme-preview-header .icon-link')).color)
+      ? toHex(computedColor('var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent))'))
       : resolvedVar(cssVar);
   }
   if (!previewing) clearThemePreview();
@@ -2164,7 +2180,8 @@ $('env-delete-cancel').addEventListener('click', async () => {
 });
 
 async function init() {
-  renderTopbar({ location: crumbLink('gear', 'Manage', '/admin') });
+  renderTopbar();
+  renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the tabs in the page bar (plan-two-zone-nav.md)
   await loadBranding();
   buildHomeIconGrid(); // after the branding: the choices are its icon list
   wireOverlayBack(word('space', { many: true, cap: true }));

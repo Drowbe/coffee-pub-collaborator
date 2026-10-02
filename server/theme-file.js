@@ -1,6 +1,6 @@
 // A theme as a file (documentation/plans/plan-themes.md, "The file"; its marker, plan-kind-names.md): `<name>.theme.json`,
-// holding { format: "theme", formatVersion: 1, name, author?, light, dark }, each set with every one of the sixteen stored keys (the seven base
-// colors and the nine optional ones, null for Auto), or null for a set the theme doesn't have. Keys are the stored
+// holding { format: "theme", formatVersion: 1, name, author?, light, dark }, each set with every one of the twenty stored keys (the seven base
+// colors and the thirteen optional ones, null for Auto), or null for a set the theme doesn't have. Keys are the stored
 // names, never CSS property names: server/theme-css.js stays the one place that maps a key to CSS, so a file can
 // only ever carry colors.
 //

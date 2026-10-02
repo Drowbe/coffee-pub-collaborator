@@ -1,10 +1,11 @@
 // The AI service's configuration page (Manage > Modules > AI service > AI Configuration): /ai-config.html. Admins only.
 // The choice is the host's managed service (its own provider, model and key, set on the host console or by the
 // server's environment variables) or a custom one for this environment; the form itself is public/ai-form.js.
-import { loadBranding, api, renderTopbar, crumbLink, wireOverlayBack, hasOwnerRights } from '/brand.js';
+import { loadBranding, api, renderTopbar, renderPageBar, wireOverlayBack, hasOwnerRights } from '/brand.js';
 import { mountAiForm } from '/ai-form.js';
 
-renderTopbar({ location: crumbLink('gear', 'Manage', '/admin') });
+renderTopbar();
+renderPageBar({ name: 'AI configuration', icon: 'robot', manage: '/admin#modules' }); // plan-two-zone-nav.md
 await loadBranding();
 wireOverlayBack();
 

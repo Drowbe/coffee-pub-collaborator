@@ -3,10 +3,11 @@
 // bell's count and words, and the breadcrumb's segments. brand.js and space.js draw them; nothing here touches a
 // document, so tools/check-nav.mjs runs them in node.
 
-// The bar's slots, left to right. The left zone is the logo, the environment, Spaces and the anchor; the right zone is
-// online people (a later step), the bell and the profile. No Modules slot: Thomas removed it on 2026-10-02 (most module
-// pages are not destinations; a module page is reached from its tile on home, or at /modules/<id>).
-export const SLOTS = ['logo', 'environment', 'home', 'anchor', 'people', 'notifications', 'profile'];
+// The bar's slots, left to right (plan-two-zone-nav.md). The branding (the logo and the environment), then the left
+// zone: the destinations (Calendar, Map), Spaces and the anchor; then the right zone: online people (a later step), the
+// bell and the profile. No Modules slot: Thomas removed it on 2026-10-02 (most module pages are not destinations; a
+// module page is reached from its tile on home, or at /modules/<id>).
+export const SLOTS = ['logo', 'environment', 'destinations', 'home', 'anchor', 'people', 'notifications', 'profile'];
 
 // The profile menu's entries, in order, as a pure function of the account, the install and the browser's offer
 // (decisions 4 and 17):
@@ -173,6 +174,16 @@ export function crumbSegments({ space = null, parentName = '', asideWord = '', o
   return out;
 }
 
+// What the anchor shows on any page but the space page (plan-two-zone-nav.md, decisions 7 and 10): the top bar holds
+// places, not a breadcrumb, so wider than a phone nothing (a destination's entry is marked current, and the page bar
+// names the rest); on a phone the page's name as a plain label (its icon and name, current, the whole name as its
+// title), since the phone's bar names where you are in that place. Null for nothing.
+export function pageAnchor({ phone = false, name = '', icon = '' } = {}) {
+  const label = String(name || '').trim();
+  if (!phone || !label) return null;
+  return { label, icon: String(icon || ''), title: label, current: 'page' };
+}
+
 // What the anchor shows on the space page, from where the page is: the breadcrumb of the space it is in (crumbSegments),
 // nothing while it shows home over a space it is still in (`viewingHome`, until the return pill of a later step), and
 // for a guest who has not entered yet, the guest link's space. `viewingHome` only counts while there is a space:
@@ -212,8 +223,9 @@ export function hashPanel(hash, panelKeys = []) {
 
 // The top bar's destinations (plan-calendar-destination.md, "The bar's entry"; plan-map-destination.md): one entry per
 // destination GET /api/destinations lists for this viewer, in its order, each its main module's name and icon as this
-// environment shows them. On a wider screen it is a middle-zone tool (`dest-<id>`, the core links' look); on a phone an
-// entry in the menu after the Spaces slot's entries (`menu-dest-<id>`, in their group, before New <space>). `current`
+// environment shows them. On a wider screen it is a left-zone tool (`dest-<id>`, the core links' look) in the group
+// `where`, ahead of the Spaces slot (plan-two-zone-nav.md: orders 1 to 8, then Spaces, the anchor and the status line);
+// on a phone an entry in the menu after the Spaces slot's entries (`menu-dest-<id>`, in their group, before New <space>). `current`
 // while that page is open (`path` is the page's own). `overlay` while present in a space, so the space page opens it
 // over the space as a view (data-overlay-link, Away while on the call). Anything malformed in the list is left out.
 export function destinationTools(list, { path = '', present = false } = {}) {
@@ -222,7 +234,7 @@ export function destinationTools(list, { path = '', present = false } = {}) {
   return (Array.isArray(list) ? list : []).filter(ok).slice(0, 8).map((d, i) => {
     const shared = { icon: /^[a-z0-9-]{1,40}$/.test(d.icon || '') ? d.icon : 'puzzle-piece', label: d.name.trim().slice(0, 40), href: d.href, current: path === d.href, overlay: Boolean(present) };
     return {
-      bar: { id: `dest-${d.id}`, zone: 'middle', group: 'destinations', groupOrder: 1, order: 1 + i, ...shared },
+      bar: { id: `dest-${d.id}`, zone: 'left', group: 'where', groupOrder: 1, order: 1 + i, ...shared },
       menu: { id: `menu-dest-${d.id}`, zone: 'right', group: 'menu-where', order: 950 + i, ...shared },
     };
   });

@@ -8,7 +8,7 @@
 // Remembered in this browser (decision 18): the view, the filter and the panel's tab, under app.destination.<id>. On a
 // phone (640 px or less) the main part and each panel are tabs along the bottom, the view switch shows only on the
 // main part's tab, and the first view is the phone's own (Day for the calendar) until one is picked.
-import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, crumbLink, word } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word } from '/brand.js';
 import { nav } from '/nav-bar.js';
 import { mountModule, createDestination } from '/module-host.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
@@ -110,7 +110,6 @@ async function start() {
     return;
   }
   document.title = `${document.title.split(' - ')[0]} - ${d.name}`;
-  setTopbarLocation(crumbLink(d.icon, d.name, location.pathname));
 
   // Where it starts: what this browser remembers, else the phone's own first view or the main part's choice.
   const saved = remembered();
@@ -152,7 +151,7 @@ async function start() {
   });
   // Without WebGL a map part shows only its notice: the panel takes the page's width (plan-map-destination, "States").
   if (kind.needsWebgl && !webglWorks()) document.body.classList.add('dest-no-webgl');
-  drawPageBar(d);
+  drawPageBar(d); // also names the page in the anchor on a phone (no segment wider: the top bar's entry is current)
   if (kind.search) drawSearch(d);
   drawPanelSwitch(d);
   drawTabs(d);
@@ -263,15 +262,11 @@ function mountPart(part, container, key) {
 }
 
 // --- the page bar: the header's second row --------------------------------------------------------
-// The view switch (the look of host.ui.viewSwitch's tabs) and the filter, registered as the secondary bar's tools in
-// the nav-bar registry, as the space bar's are.
+// The shared page bar (renderPageBar() in brand.js, plan-two-zone-nav.md decision 10), without the page's name: the
+// top bar's entry is marked current; on a phone the anchor names the page. The view switch (the look of
+// host.ui.viewSwitch's tabs) and the filter are registered as the secondary bar's tools, as the space bar's are.
 function drawPageBar(d) {
-  const bar = document.createElement('div');
-  bar.className = 'subnav dest-bar';
-  bar.id = 'dest-bar';
-  bar.innerHTML = '<div class="nav-left"></div><div class="nav-middle"></div><span class="nav-right"></span>';
-  document.querySelector('.topbar').appendChild(bar);
-  nav.attach('secondary', bar);
+  const bar = renderPageBar({ name: d.name, icon: d.icon, showName: false, id: 'dest-bar', className: 'dest-bar' }).el;
 
   if (kind.views.length) {
     const views = document.createElement('span');

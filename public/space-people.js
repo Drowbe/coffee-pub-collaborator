@@ -1,4 +1,4 @@
-// Who is here: the space bar's middle zone shows everyone in this space right now (you among them), as a short row of
+// Who is here (Online, plan-two-zone-nav.md): the space bar's left zone, after the Modules button, shows everyone in this space right now (you among them), as a short row of
 // square portraits and who they are in a few words ("You and Alex", "You and 3 others", "5 in this space"), with a
 // camera mark on those on the call. Clicking it (or Enter or Space) opens the
 // list under it: each person's portrait and name, "(you)", and "on the call". In an aside it shows the aside's people.
@@ -8,8 +8,8 @@
 // view). Kept live by the call's events; space.js registers it in the bar and calls refresh() when its own call state
 // changes (a join, a hang-up, entering and leaving).
 //
-// It gives way before anything in the bar folds: nav-bar.js calls the tool's `fit(avail)` with the width the middle
-// zone may take, and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
+// It gives way before anything in the bar folds: nav-bar.js calls the tool's `fit(avail)` with the width it may take
+// (fitWidth: the bar less the right zone at its full width and the Modules button), and the row gives way in steps: the names become the count ("5 in this space"), then portraits drop,
 // then it shows only an icon and the short count ("5 here"; `facesThatFit`, pure, for check-nav). On a phone it is that
 // compact count in the tab bar, between the module tabs and Leave (style.css).
 //
@@ -282,7 +282,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     if (!listEl.hidden && event.relatedTarget && !el.contains(event.relatedTarget)) setOpen(false);
   });
 
-  // The width the middle zone may take (nav-bar.js calls this while it measures the bar with nothing folded): the
+  // The width it may take (nav-bar.js calls this while it measures the bar with nothing folded): the
   // names with every portrait, else the count ("5 in this space") with as many portraits as fit, else the short count
   // alone. Every size is measured, so the stylesheet (or a theme) may change them.
   function fit(avail) {

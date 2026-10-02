@@ -5,7 +5,7 @@
 import { renderModuleSettings } from '/module-settings.js';
 import { pickBackground } from '/background-picker.js';
 import '/slot-paste.js'; // paste a picture into any image slot
-import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, crumbLink, hasOwnerRights, isAdminAccount, roleLabel, word, applyWords, maskPassword } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, hasOwnerRights, isAdminAccount, roleLabel, word, applyWords, maskPassword } from '/brand.js';
 import { formatHotkey, comboFromEvent } from '/hotkeys.js';
 import { mountEnrolment, mountDisable } from '/mfa-enrol.js';
 
@@ -617,7 +617,10 @@ $('subtabs').addEventListener('click', (event) => {
 window.addEventListener('hashchange', () => selectTab(location.hash.slice(1)));
 
 async function init() {
-  renderTopbar({ location: crumbLink('user', 'Profile', location.pathname) });
+  renderTopbar();
+  // The page bar (plan-two-zone-nav.md): "Profile" and its tabs; someone else's profile, opened from Manage > Users, is
+  // named once loaded, with a Manage link first.
+  renderPageBar({ name: editingKey ? '' : 'Profile', icon: 'user', manage: editingKey ? '/admin#users' : '', controls: [$('subtabs')] });
   const branding = await loadBranding();
   // The stored value is already clamped server-side (see sanitizeCallPrefs)
   // -- this just keeps the picker from offering an option that would get
@@ -638,8 +641,8 @@ async function init() {
     return;
   }
   document.title = `${document.title.split(' - ')[0]} - ${user.displayName}`;
-  // An owner editing someone: Manage > their name, each a way back.
-  if (editingKey) setTopbarLocation(crumbLink('gear', 'Manage', '/admin#users') + '<span class="crumb-sep">&rsaquo;</span>' + crumbLink('user', user.displayName, location.pathname));
+  // An owner editing someone: the page bar names them (its Manage link is the way back).
+  if (editingKey) renderPageBar({ name: user.displayName, icon: 'user' });
   render();
   selectTab(location.hash.slice(1));
   // Your own module settings (not when an admin is editing someone else's profile).

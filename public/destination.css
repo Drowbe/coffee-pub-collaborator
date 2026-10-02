@@ -15,22 +15,16 @@ body.destination-page .topbar {
   row-gap: 0;
 }
 
+/* Two zones (plan-two-zone-nav.md): the left takes what the right does not. Each zone in its own column. */
 body.destination-page .subnav {
   display: grid;
   grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
 }
 
-/* Each zone in its own column, so a zone the space bar's narrow rules hide (the middle) leaves its column empty. */
 body.destination-page .subnav > .nav-left { grid-column: 1; }
-body.destination-page .subnav > .nav-middle { grid-column: 2; }
-body.destination-page .subnav > .nav-right { grid-column: 3; }
-
-body.destination-page .subnav[data-middle="empty"],
-body.destination-page .subnav[data-middle="beside"] {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-}
+body.destination-page .subnav > .nav-right { grid-column: 2; }
 
 .dest-bar .nav-left {
   gap: 12px;
@@ -215,7 +209,7 @@ body.destination-page .subnav[data-middle="beside"] {
 
   /* With a search, the page bar is the filter and the field taking the rest of the row. */
   body.destination-page .dest-bar.has-search {
-    grid-template-columns: auto 0 minmax(0, 1fr);
+    grid-template-columns: auto minmax(0, 1fr);
   }
 
   .dest-bar.has-search .nav-right {

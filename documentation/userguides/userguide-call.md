@@ -48,7 +48,7 @@ to right:
   while you switch; click **Modules** again, press Escape or click elsewhere to close it. With the keyboard, the
   arrow keys move between switches and Space or Enter flips one. A count shows what is unread, on the switch and
   on the button.
-- **Who is here**, in the middle: small square pictures of the people in the space, you first, up to four, then
+- **Online**, right after **Modules**: who is here, as small square pictures of the people in the space, you first, up to four, then
   "+2" for the rest, and who they are in a few words: "Just you", "You and Alex", "You, Alex and Sam" or "You and 4
   others". A camera mark is on those on the call. Click it for the list, headed "In this space (5)": everyone here,
   you first with "(you)", and the camera with "on the call" beside those on it. It changes as people come, go, join
@@ -56,7 +56,7 @@ to right:
 - The space's tools, at the right: **Dock all**, the grid switch and **Grid size**, **Full screen**, **Pop out**,
   **Pull participants back** or **Rejoin call** during an aside, a module's own tools, and **Leave space** last.
 
-When the window is too narrow for everything, who is here first says how many instead of who ("5 in this space"),
+When the window is too narrow for everything, Online first says how many instead of who ("5 in this space"),
 then shows fewer pictures, then only an icon and the count ("5 here"). Then the tools
 fold into a **…** button (**More**) just before **Leave space**: **Pop out** first, then **Full screen**, a
 module's own tools, the grid switch and **Grid size**, **Dock all**, **Rejoin call** and **Pull participants

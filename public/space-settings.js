@@ -4,7 +4,7 @@
 import { renderModuleSettings } from '/module-settings.js';
 import { opensWithSummary } from '/opens-with.js';
 import { switchListHtml, switchRowHtml, wireSwitchList } from '/switch-list.js';
-import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, escapeHtml, crumbLink, getIcons, spaceCrumbIcon, hasOwnerRights, word } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, spaceCrumbIcon, hasOwnerRights, word } from '/brand.js';
 import '/slot-paste.js'; // paste a picture into any image slot
 
 const $ = (id) => document.getElementById(id);
@@ -291,13 +291,9 @@ $('opens-with').addEventListener('change', (event) => {
   });
 });
 
-// Manage > this space, with the space's own icon.
+// The page bar names this space, with its own icon (plan-two-zone-nav.md; its Manage link is the way back).
 function renderCrumb() {
-  setTopbarLocation(
-    crumbLink('gear', 'Manage', '/admin#spaces') +
-    `<span class="crumb-sep">&rsaquo;</span>` +
-    crumbLink(spaceCrumbIcon(space), space.name, location.pathname)
-  );
+  renderPageBar({ name: space.name, icon: spaceCrumbIcon(space) });
 }
 
 $('save-btn').addEventListener('click', async () => {
@@ -410,7 +406,8 @@ function syncModulesTab() {
 }
 
 async function init() {
-  renderTopbar({ adminHref: '/admin#spaces', location: crumbLink('gear', 'Manage', '/admin#spaces') });
+  renderTopbar({ adminHref: '/admin#spaces' });
+  renderPageBar({ manage: '/admin#spaces', controls: [$('subtabs')] }); // named once the space has loaded (renderCrumb)
   const branding = await loadBranding();
   conferenceOn = branding.conferenceEnabled !== false;
   wireOverlayBack();

@@ -6,7 +6,7 @@
 //   /modules/<id>?space=<space>&popout=1   a module on a space's canvas, in a window of its own (?moduleRoom= redirects here)
 //                                          (add &guest=<token> for a guest)
 // (A module page opened over a call also carries from=space&spaceName=<the space's name>, for its Back link.)
-import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, crumbLink, markModuleRead, word } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, markModuleRead, word } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
 
 const $ = (id) => document.getElementById(id);
@@ -60,7 +60,7 @@ async function start() {
   }
   document.title = `${document.title.split(' - ')[0]} - ${mod.name}`;
   if (popout) wireTitlebar(mod);
-  if (!popout) setTopbarLocation(crumbLink(mod.icon, mod.name, location.pathname));
+  if (!popout) renderPageBar({ name: mod.name, icon: mod.icon }); // its name in the page bar (plan-two-zone-nav.md)
   if (!guestToken) markModuleRead(mod.id);
   let frame = $('module-frame');
   // A module that runs in the page gets an element of its own where the frame would be.
@@ -102,7 +102,7 @@ async function start() {
     onTitle: (title) => {
       document.title = `${title || mod.name}`;
       if (popout) $('module-titlebar-title').textContent = title || mod.name;
-      if (!popout) setTopbarLocation(crumbLink(mod.icon, title || mod.name, location.pathname));
+      if (!popout) renderPageBar({ name: title || mod.name, icon: mod.icon });
     },
   });
   // Opened by another module's link: hand the pointer on, and again if the address changes.

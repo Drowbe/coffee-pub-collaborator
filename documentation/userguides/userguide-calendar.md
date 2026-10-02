@@ -12,7 +12,7 @@ The Calendar keeps sessions and events. There is one for the whole environment, 
 
 ## Calendar in the top bar
 
-When an owner turns on **Show Calendar** (see [Manage](userguide-environment-settings.md), "Top bar"), **Calendar** sits in the middle of the top bar, with the Calendar's icon and the name your environment gives it. It puts the Calendar and the To-do on one page: your events and tasks from the whole environment and every space you are in. On a phone it is in the menu, after your spaces.
+When an owner turns on **Show Calendar** (see [Manage](userguide-environment-settings.md), "Top bar"), **Calendar** sits in the top bar, after the environment's name, with the Calendar's icon and the name your environment gives it. It puts the Calendar and the To-do on one page: your events and tasks from the whole environment and every space you are in. On a phone it is in the menu, after your spaces.
 
 1. Click **Calendar** in the top bar. If you are in a space, it opens over the space: you are marked Away on the call until you go back, and **Back to <space>** returns you. Otherwise it is a page of its own.
 2. In the bar under the top bar, choose **Month**, **Week** or **Day**. **Day** is one column of hours with the all-day events above.

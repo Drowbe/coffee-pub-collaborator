@@ -8,6 +8,7 @@ side of things.
 
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
+- **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): the eight slots, the online people widget, the aside rules, views over the space with the return pill and the visit view, and the bell's notifications, in nine steps. Building step 1, the `home` word and the full list of module pages. For Thomas: CLAUDE.md's Names gains `home`.
 
 ## Planned
 
@@ -83,9 +84,9 @@ side of things.
 - #39 The nav colours in the theme editor.
 - #31 Customising the dashboard's layout, and snapping on the spaces page.
 - #58 One input in Chat ([plan-one-input](plans/plan-one-input.md)): every step is built. Still to come: the plan's live checks in a browser and a real call.
-- Thomas's idea, not decided (2026-10-01): rethink navigating away and hanging up, for instance putting the call in away mode automatically. An open question; no decision yet.
-- A private conversation started by invitation (`POST /api/asides/invite`) has no origin, so it has no **Rejoin call** and **Leave** is the only way out, which takes you out of the space. Thomas to decide whether it needs a way back.
-- An aside's card in the space list reads **Join**, with the phone, but entering it from there does not join the call. Thomas to decide whether the button or the behaviour should change.
+- Navigating away without hanging up: decided (2026-10-02), views over the space that set Away while on the call ([plan-primary-nav](plans/plan-primary-nav.md), steps 7 and 8).
+- A private conversation started by invitation has no origin: decided (2026-10-02), its parent is the inviter's space ([plan-primary-nav](plans/plan-primary-nav.md), step 5).
+- An aside's **Join** entry in the space list: decided (2026-10-02), asides leave the space list ([plan-primary-nav](plans/plan-primary-nav.md), step 6).
 - Thomas's, for later: a **Clean Up** button that rearranges the modules on the canvas, and a way to choose and save layouts.
 - With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 

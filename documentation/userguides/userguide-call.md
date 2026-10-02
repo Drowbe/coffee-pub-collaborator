@@ -9,8 +9,8 @@ a module or an aside something else; the buttons and menus follow its words (see
 ## Enter a space and join the call
 
 The space list shows the spaces you belong to. **Enter** (or the word your environment uses in its place) is one
-click, and puts you in the space: the header stays,
-now naming the space you are in, with the space bar under it (see below), and what the space opens with fills the
+click, and puts you in the space: the top bar stays,
+now naming the space you are in after **Spaces** ("› Disneyland"; see "The top bar" in [Spaces](userguide-spaces.md)), with the space bar under it (see below), and what the space opens with fills the
 middle. Entering never puts you in the call, and nothing asks for your microphone until you join.
 
 Who can: anyone whose role allows **See and join the conference**, while the owner has not switched the conference
@@ -39,9 +39,9 @@ layout, **1** to **6** send a reaction. As the window narrows, buttons tuck unde
 
 ## The space bar
 
-The bar under the header belongs to the space you are in. From left to right:
+The bar under the top bar belongs to the space you are in. The space's name is in the top bar, not here. From left
+to right:
 
-- **The space's name.** On a narrow window it is cut short; hover over it for the whole name.
 - **Modules** (or your environment's word for modules). Click it for a list of switches: the Conference, the Chat
   and each module on in the space. Switch one on to show it on the canvas, off to hide it. The list stays open
   while you switch; click **Modules** again, press Escape or click elsewhere to close it. With the keyboard, the
@@ -60,7 +60,7 @@ then shows fewer pictures, then only an icon and the count ("5 here"). Then the 
 fold into a **…** button (**More**) just before **Leave space**: **Pop out** first, then **Full screen**, a
 module's own tools, the grid switch and **Grid size**, **Dock all**, **Rejoin call** and **Pull participants
 back**. Click **…** to use them; a switch there shows a tick while it is on. **Leave space**, **…** and **Modules**
-never fold. The space's name is cut short only after everything else has folded.
+never fold.
 
 On a phone the space bar is a row of tabs at the bottom of the page: a tab for each module, how many are here ("5
 here"), and **Leave space**.
@@ -212,17 +212,18 @@ another modifier while holding it. Switching to another window or tab, or leavin
 
 ## Your profile and Manage over the call
 
-Your profile and the Manage page open in an overlay from inside a call rather than navigating away,
-because leaving the page would drop the call. To open your profile, click your picture at the right end of the
-header and choose **View profile**. A **Back to** button in that page's header returns you, and it stays there if
+Your profile, the Manage page and a module's own page open in an overlay from inside a space rather than navigating
+away, because leaving the page would drop the call. To open your profile, click your picture at the right end of the
+top bar and choose **View profile**; **Manage** is in the same menu, for owners and the admin. A module's page is in
+**Modules** in the top bar. A **Back to** button in that page's header returns you, and it stays there if
 you go on from your profile to Manage, or from Manage to your profile.
 
 ## Install it as an app, and pop it out
 
 To run Collaborator without browser bars, install it as an app:
 
-- **Chrome and Edge.** Click your picture at the right end of the header and choose **Install as an app**. On a
-  phone it is in the header's menu, after **View profile**. It is there only while the browser offers to install,
+- **Chrome and Edge.** Click your picture at the right end of the top bar and choose **Install as an app**. On a
+  phone it is in the top bar's menu, with the other entries under your picture. It is there only while the browser offers to install,
   so it is gone once Collaborator is installed.
 - **Safari on macOS.** **File, Add to Dock**.
 - **iPhones and iPads.** **Share, Add to Home Screen**.
@@ -237,8 +238,8 @@ In Chrome and Edge the **Pop out** button in the space bar (next to **Full scree
 and every module included, into a small window and back; **Full screen** applies to the whole app too. The
 page behind shows **Bring the app back**, and the button in the space bar becomes **Pop it back in**. Popped
 out, the header, the conference's titlebar and the toolbar all slide away when the pointer rests and come
-back on any movement, leaving only the tiles. A header link (the spaces, a module's page) or **View profile**
-brings the app back to the page first.
+back on any movement, leaving only the tiles. Going home from the top bar, opening a module's page from
+**Modules**, or choosing **View profile** or **Manage** brings the app back to the page first.
 
 A module in a window of its own, the chat and the conference included, can come back as a docked column or float over the canvas, from the buttons on its titlebar. Those buttons work while the space's page that opened the window is still open.
 

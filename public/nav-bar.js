@@ -6,6 +6,7 @@
 //
 // A tool is { id, bar: 'primary' | 'secondary', zone: 'left' | 'middle' | 'right', icon, label, title?, order?, group?,
 // groupOrder?, href? | onClick?, visible?, toggleable?, active?, badge? }, plus, for the page's own tools only,
+// `phone: 'bar'` (a primary tool that stays in the bar on a phone instead of folding into the menu: the bell),
 // `element` (an element the registry places and orders but does not draw: the snap slider, the clock, your picture),
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
 // (the icon a toggle shows while it is on: full screen's compress). A secondary middle-zone tool may also give `fit(avail)`: the
@@ -79,14 +80,15 @@ export function arrange(list) {
 
 // A module's registration, checked and namespaced. Ids, groups and orders are the module's own (`<module>:<id>`,
 // `<module>:<group>`, orders clamped into the module band), so a module can neither touch another's tools nor the
-// system's, nor get ahead of them. The secondary bar takes any zone; the primary takes a tool only when the admin has
-// allowed the module there (its manifest's surfaces.page.nav, `allowPrimary`), the tool says system: true, and it goes
-// into the right zone, the system-level actions. Throws with a status on anything else, so the module hears why.
+// system's, nor get ahead of them. Every module tool goes in the space bar (the secondary), in any zone: a module never
+// places a tool in the top bar (plan-primary-nav.md, decision 10). A tool written for the old contract, with
+// bar: 'primary' or system: true, is not refused; both are ignored and it lands in the space bar like any other.
+// Throws with a status on anything else, so the module hears why.
 const TOOL_ID = /^[a-z][a-z0-9-]{0,39}$/;
 const ICON = /^[a-z0-9-]{1,40}$/;
 const clamp = (n, lo, hi, fallback) => (Number.isFinite(Number(n)) ? Math.max(lo, Math.min(hi, Math.round(Number(n)))) : fallback);
 const refuse = (message, status = 400) => { throw Object.assign(new Error(message), { status }); };
-export function cleanModuleTools(moduleId, tools, { allowPrimary = false } = {}) {
+export function cleanModuleTools(moduleId, tools) {
   if (!Array.isArray(tools)) refuse('nav.set takes a list of tools');
   if (tools.length > 12) refuse('a module may register at most 12 nav tools');
   const [lo, hi] = BANDS.module;
@@ -97,12 +99,8 @@ export function cleanModuleTools(moduleId, tools, { allowPrimary = false } = {})
     if (!TOOL_ID.test(id)) refuse(`a nav tool needs an id of letters, digits and hyphens (got "${id.slice(0, 40)}")`);
     if (seen.has(id)) refuse(`nav tool "${id}" is listed twice`);
     seen.add(id);
-    const bar = t.bar === 'primary' ? 'primary' : 'secondary';
+    const bar = 'secondary'; // `bar` and `system` are not read: the host decides where a module's tools go
     const zone = ZONES.includes(t.zone) ? t.zone : 'right';
-    if (bar === 'primary') {
-      if (!allowPrimary || !t.system) refuse(`nav tool "${id}": the primary bar takes only a system-wide tool (system: true) from a module allowed there (surfaces.page.nav); a module's own tools go in the secondary bar`, 403);
-      if (zone !== 'right') refuse(`nav tool "${id}": a module's system tool goes into the primary bar's right zone only`);
-    }
     const icon = String(t.icon ?? '');
     if (!ICON.test(icon)) refuse(`nav tool "${id}" needs an icon (a Font Awesome name)`);
     const label = String(t.label ?? '').trim().slice(0, 40);
@@ -127,7 +125,6 @@ export function cleanModuleTools(moduleId, tools, { allowPrimary = false } = {})
       toggleable: Boolean(t.toggleable),
       active: Boolean(t.active),
       badge: clamp(t.badge, 0, 999, 0),
-      system: Boolean(t.system),
     };
     if (href) out.href = href;
     return out;
@@ -143,8 +140,9 @@ let seq = 0;
 
 // On a phone the primary nav's middle and right zones fold into the one menu (the right zone's element, which the
 // stylesheet turns into the menu): the registry draws the middle's tools there, ahead of the right's, and back when
-// the window widens. Nothing stays behind: your picture folds in too, last (brand.js shows it there with your name,
-// View profile and Sign out after it).
+// the window widens. Only a tool that says `phone: 'bar'` stays in the bar (the bell), drawn in the middle zone, which
+// is otherwise empty there; your picture folds in, last (brand.js shows it there with your name and the profile
+// menu's entries after it).
 const phone = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 640px)') : null;
 if (phone) phone.addEventListener('change', () => draw('primary'));
 
@@ -225,12 +223,18 @@ export function setBadge(id, n) {
   return true;
 }
 
-// The primary bar's zones on a phone (plan-nav.md, "Phones"): the left stays, and the middle's tools and then the
-// right's all go into the menu, which is the right zone's element; the middle is left empty. Each zone is a list of
-// runs, each run arranged on its own, so the middle's tools stay ahead of the right's whatever their orders. Pure, for
-// check-nav.
+// The primary bar's zones on a phone (plan-primary-nav.md, decision 7: the logo, the anchor, the bell and the menu
+// button): the left stays; a middle or right tool that says `phone: 'bar'` (the bell) stays in the bar, drawn in the
+// middle zone; everything else from the middle and then the right goes into the menu, which is the right zone's
+// element. Each zone is a list of runs, each run arranged on its own, so the middle's tools stay ahead of the right's
+// whatever their orders. Pure, for check-nav.
 export function phoneZones(byZone) {
-  return { left: [byZone.left], middle: [], right: [byZone.middle, byZone.right] };
+  const stays = (t) => t.phone === 'bar';
+  return {
+    left: [byZone.left],
+    middle: [[...byZone.middle, ...byZone.right].filter(stays)],
+    right: [byZone.middle.filter((t) => !stays(t)), byZone.right.filter((t) => !stays(t))],
+  };
 }
 
 // Redraw a bar (or both): order, dividers and visibility. Call it after something a `visible` function reads has

@@ -29,8 +29,8 @@ brand colour.
 ## Light and dark
 
 One theme holds both a light and a dark version. People see the environment's default, which **Dark by default**
-on Manage > Theme sets, until they choose their own with the light or dark switch next to the gear at the top of
-any page; their choice then stays theirs.
+on Manage > Theme sets, until they choose their own with **Dark mode** in the menu under their picture; their choice then
+stays theirs. Guests always see the default.
 
 To make the second version, start from the first and adjust it: change the backgrounds first, then the text so it
 stays readable. Keep **Text** readable on both backgrounds, and **Text on accent**

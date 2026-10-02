@@ -582,7 +582,7 @@ line.
 
 **The file.** `{ id, name, description, version?, words, verbs?, icons: { home }, moduleNames, moduleIcons, modules, settings,
 lobby: { name, description }, phases?, spaceDefaults: { profile?, opensWith? }, reactions?, theme?, iconSet? }`, the same shape and checks
-for every source. `words` covers only the ten changeable keys (never `host` or
+for every source. `words` covers only the eleven changeable keys, `home` among them (never `host` or
 `admin`), in the form Manage takes. `verbs` (addendum 4) is `{ enter: "<text>" }`: the word on the button for
 entering a space, tidied, 1 to 20 characters of letters, spaces, hyphens and apostrophes; a verb that isn't text,
 null included, is refused with "verbs: The enter verb must be text." (leaving the key out is how a file asks for the

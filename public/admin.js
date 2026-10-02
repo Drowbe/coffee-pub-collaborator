@@ -1,6 +1,6 @@
 import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, refreshModuleNav, themeMode, productName } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
-import { CHANGEABLE, DEFAULTS, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
+import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import '/slot-paste.js'; // paste a picture into any image slot
 import { renderOffer, switchQuestion } from '/template-offer.js';
 import { fileText } from '/file-text.js';
@@ -129,7 +129,8 @@ function selectTab(name) {
   if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
   if (inTab) {
     at.scrollIntoView({ block: 'start' });
-    const field = at.querySelector('input[type="text"]') || at.querySelector('input, select, button, summary');
+    // The section's first field, or the control itself (#add-space, "+ New <space>" in the top bar's switcher).
+    const field = at.matches('input, select, button, summary') ? at : at.querySelector('input[type="text"]') || at.querySelector('input, select, button, summary');
     if (field) field.focus({ preventScroll: true });
   }
 }
@@ -409,6 +410,7 @@ $('save-home-icon').addEventListener('click', () => saveSettings({ homeIcon: sel
 const WORD_ABOUT = {
   environment: 'What people sign in to',
   space: 'Where people meet: {lobby}, and each one you add',
+  home: 'The page that lists the {spaces}, named in the top bar',
   aside: 'A short, private call apart from the {space}',
   canvas: 'Where {modules} are used in {a space}',
   module: 'A tool on the {canvas}',
@@ -423,8 +425,17 @@ const WORD_ABOUT = {
 function wordAbout(key) {
   const lobby = spaces.find((sp) => sp.isLobby);
   const name = !lobby ? 'the first one' : lobby.name === 'Lobby' ? 'the Lobby' : lobby.name;
-  return fillWords(WORD_ABOUT[key]).replace('{lobby}', name);
+  const about = fillWords(WORD_ABOUT[key]).replace('{lobby}', name);
+  // Home's blank is the template's own word when it gives one, else the space word's plural.
+  if (key === 'home') return templateWords.home ? `${about}. Blank uses the template's: ${templateWords.home.many}` : `${about}. Blank follows the ${word('space')} word`;
+  return about;
 }
+// A row's name where it is not the default word itself: home's default is the space word's plural. Every sentence
+// about a row (its label, Reset and its status) names it by wordName().
+const WORD_NAMES = { home: 'Home page' };
+const wordName = (key) => WORD_NAMES[key] || capitalOf(DEFAULTS[key].one);
+// The rows without an article field: home is a name, never "a Trips".
+const NO_ARTICLE = ['home'];
 const usualArticle = (one) => `${/^[aeiou]/i.test(one) ? 'an' : 'a'} ${one}`;
 const capitalOf = (text) => text.charAt(0).toLocaleUpperCase('en') + text.slice(1);
 
@@ -440,13 +451,14 @@ function renderWords() {
   head.innerHTML = '<span></span><span class="field-label">Singular</span><span class="field-label">Plural</span><span class="field-label">With its article</span><span></span>';
   list.appendChild(head);
   for (const key of CHANGEABLE) {
-    const d = DEFAULTS[key];
+    const d = key === 'home' ? homeDefault(now.space) : DEFAULTS[key]; // home's default follows the space word in use
     const w = now[key];
     const own = Boolean(ownWords[key]);
     // What a blank field reads: the template's word where it gives one, else the default.
     const t = templateWords[key] || null;
     const base = t ? { one: t.one, many: t.many, a: t.a || usualArticle(t.one) } : { one: d.one, many: d.many, a: usualArticle(d.one) };
-    const name = capitalOf(d.one);
+    const name = wordName(key);
+    const article = !NO_ARTICLE.includes(key);
     const note = !t ? '' : own ? `The template's: ${t.one}` : 'From the template';
     const back = t ? `Back to ${t.one}, the template's` : `Back to ${d.one}, the default`;
     const row = document.createElement('div');
@@ -458,18 +470,20 @@ function renderWords() {
       <div class="word-name"><strong>${escapeHtml(name)}</strong><span class="hint" data-word-about>${escapeHtml(wordAbout(key))}</span>${note ? `<span class="from-template">${escapeHtml(note)}</span>` : ''}</div>
       <label><span class="word-field-label">Singular</span><input type="text" data-word-part="one" maxlength="30" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(base.one)}" aria-label="${escapeHtml(name)}, singular${t ? `, blank for ${escapeHtml(t.one)}, the template's` : ''}"></label>
       <label><span class="word-field-label">Plural</span><input type="text" data-word-part="many" maxlength="30" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(base.many)}" aria-label="${escapeHtml(name)}, plural"></label>
-      <label><span class="word-field-label">With its article</span><input type="text" data-word-part="a" maxlength="41" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(base.a)}" aria-label="${escapeHtml(name)}, with its article (optional)"></label>
+      ${article ? `<label><span class="word-field-label">With its article</span><input type="text" data-word-part="a" maxlength="41" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(base.a)}" aria-label="${escapeHtml(name)}, with its article (optional)"></label>` : '<span></span>'}
       <button class="btn btn-small" type="button" data-word-reset ${own ? '' : 'disabled'} title="${escapeHtml(back)}" aria-label="Reset ${escapeHtml(name)}: ${escapeHtml(back.charAt(0).toLowerCase() + back.slice(1))}">Reset</button>`;
     const input = (part) => row.querySelector(`[data-word-part="${part}"]`);
     if (own) {
       input('one').value = w.one;
       input('many').value = w.many;
-      if (w.a !== usualArticle(w.one)) input('a').value = w.a;
+      if (article && w.a !== usualArticle(w.one)) input('a').value = w.a;
     }
     // The article's placeholder follows the singular being typed ("a trip"), so the usual one is always shown.
-    const follow = () => { const typed = input('one').value.trim(); input('a').placeholder = typed ? usualArticle(typed) : base.a; };
-    input('one').addEventListener('input', follow);
-    follow();
+    if (article) {
+      const follow = () => { const typed = input('one').value.trim(); input('a').placeholder = typed ? usualArticle(typed) : base.a; };
+      input('one').addEventListener('input', follow);
+      follow();
+    }
     list.appendChild(row);
   }
   for (const key of VERBS) list.appendChild(verbRow(key));
@@ -512,7 +526,7 @@ $('save-words').addEventListener('click', async () => {
   const patch = {};
   for (const row of $('words-list').querySelectorAll('[data-word-key]')) {
     const key = row.dataset.wordKey;
-    const value = (part) => row.querySelector(`[data-word-part="${part}"]`).value.trim();
+    const value = (part) => (row.querySelector(`[data-word-part="${part}"]`)?.value || '').trim(); // home has no article field
     const [one, many, a] = [value('one'), value('many'), value('a')];
     if (one || many || a) patch[key] = a ? { one, many, a } : { one, many };
     else if (ownWords[key]) patch[key] = null; // emptied: back to the template's word or the default
@@ -568,7 +582,7 @@ $('words-list').addEventListener('click', async (event) => {
     const answer = await api('PATCH', '/api/settings', { words: { [key]: null } });
     await wordsChanged(answer && answer.settings);
     const t = templateWords[key];
-    say($('words-status'), t ? `${capitalOf(DEFAULTS[key].one)} is back to ${t.one}, the template's` : `${capitalOf(DEFAULTS[key].one)} is back to its default`);
+    say($('words-status'), t ? `${wordName(key)} is back to ${t.one}, the template's` : key === 'home' ? `${wordName(key)} is back to ${words().home.many}` : `${wordName(key)} is back to its default`);
     $('words-list').querySelector(`[data-word-key="${key}"] [data-word-part="one"]`)?.focus();
   } catch (err) {
     reset.disabled = false;
@@ -2119,7 +2133,6 @@ async function init() {
     $('whoami').textContent = me.displayName;
     $('whoami-img').src = imgUrl(me.key, 'profile');
     $('whoami-img').hidden = false;
-    $('admin-link').hidden = false;
     streamKey = info.streamKey;
     environment = { ...environment, ...(info.environment || {}) };
     applyHosted();

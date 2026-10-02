@@ -8,7 +8,7 @@ side of things.
 
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
-- **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): the eight slots, the online people widget, the aside rules, views over the space with the return pill and the visit view, and the bell's notifications, in nine steps. Building step 1, the `home` word and the full list of module pages. For Thomas: CLAUDE.md's Names gains `home`.
+- **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): nine steps. Steps 1 (the `home` word and the full list of module pages) and 2 (the bar's layout and moves) are built (2026-10-02). Next is step 3, presence filtered by membership; then the online people widget, the aside rules, views over the space with the return pill, the visit view and the bell's notifications. For Thomas: CLAUDE.md's Names gains `home` (decision 13).
 
 ## Planned
 
@@ -22,16 +22,22 @@ side of things.
 
 ## Verify in a real call
 
+- The top bar (steps 1 and 2, [plan-primary-nav](plans/plan-primary-nav.md)): the breadcrumb in a real aside ("› Disneyland › Aside: Michelle", and clicking Disneyland, or picking it in the switcher, bringing everyone back to the space's call), the switcher and Manage over a running call, **Host console** on a hosted install (only its address was checked, as a pure function), **Install as an app** in the profile menu, and the bar with a screen reader. Verified so far by `tools/check-nav.mjs` and in headless Chromium with a stand-in LiveKit at 1280, 1024 and 390 pixels.
 - #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
 - #30 Modules with two people on a real server.
 - Joining and pulls (Thomas's changes of 2026-09-30, [plan-entering](plans/plan-entering.md)): **Join the call** and the green phone with two people, **Currently on the call** and who is here following them live, the calls cap's refusal in **Not in a call**, and entering never asking for the microphone. An owner's pull into a real aside and back, and **Rejoin call**, keeping the call for those on it and not for those off it, including within the server's 15-second hold on a new call's place. Verified so far in headless Chromium with a faked LiveKit and by tools only.
-- Pulled into an aside, then **Rejoin call** (fixed 2026-10-01): the pulled person's space bar shows **Rejoin call** and reads "<space> · Aside", and **Rejoin call** takes them back to the space's call, still on it if they were. Verified so far in headless Chromium with a stand-in LiveKit and by `tools/check-canvas.mjs`.
+- Pulled into an aside, then **Rejoin call** (fixed 2026-10-01): the pulled person's space bar shows **Rejoin call** and the top bar's breadcrumb reads "<space> › Aside: <names>" (since 2026-10-02; it was "<space> · Aside" in the space bar), and **Rejoin call** takes them back to the space's call, still on it if they were. Verified so far in headless Chromium with a stand-in LiveKit and by `tools/check-canvas.mjs`.
 - #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.
 - The chat's **Bring in N objects** button: offered for a pasted answer with an `objects` block, a `card` block or no fences, and not for an answer with an old-named block ([plan-kind-names](plans/plan-kind-names.md), step 5; the route behind it was checked).
 - The fixes from Thomas's real call of 2026-10-01, verified so far with a faked LiveKit and by tools only. Join first, then have two people join without push to talk: no "muted" on their tiles, and muting and unmuting follows on every screen. Away: you hear nobody, the microphone button, **M** and push to talk don't open the microphone, and **Back** restores what was on. In the installed app, pop out, then minimise or cover the main window for more than 10 seconds: the videos in the pop-out keep moving. Also see whether audio in the pop-out is ever held back by the browser's autoplay rule (suspected, not seen). Away for late joiners: go away with a message, then have someone join, and someone reload; both see your tile as away with the message, and the camera button and **V** don't turn your camera on until **Back**. Drop someone's connection until it reconnects: the others keep their tile, and they still count as on the call.
 - #3 Entering a space ([plan-entering](plans/plan-entering.md), Part 1, built 2026-09-30): **Enter** and **Back to** on the space list (and **Back to** an aside); what opens on a first and a second visit, and for a guest; the phone's first tab; the status line.
 
 ## Small fixes and checks
+
+- Top bar follow-ups from steps 1 and 2 ([plan-primary-nav](plans/plan-primary-nav.md)):
+  - `server/index.js` still sends `module.nav` in a module's context (about line 5533), from `surfaces.page.nav`, which nothing reads now; drop it.
+  - The space list shown while still connected has an empty breadcrumb until the return pill (step 7).
+  - For Thomas: two buttons read **Modules**, the top bar's (module pages) and the space bar's (modules on the canvas); people may confuse them.
 
 - Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.
 - #110 The old name, Magpie, is gone from the code, the templates and the guides, architecture, API and design documents, and the file formats are named by kind ([plan-kind-names](plans/plan-kind-names.md), built 2026-09-30). Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the plans that still say Magpie or name the old formats (17 plans, product-planner's).

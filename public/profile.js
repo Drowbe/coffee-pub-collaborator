@@ -119,7 +119,6 @@ function render() {
     $('cp-cam-key').textContent = formatHotkey(cp.camKey);
   }
 
-  $('admin-link').hidden = !hasOwnerRights(me || user);
   $('portrait-hint').textContent = editing
     ? `${user.displayName}'s own photo: it shows next to their name in the header and on their tile in the call. Click it to change it, or paste a picture -- it is not the picture used in the recording, that's below.`
     : 'Your own photo: it shows next to your name in the header and on your tile in the call. Click it to change it, or paste a picture; square images look best. It is not the picture used in the recording; that one is set in Manage.';

@@ -10,6 +10,60 @@ space does not put you in the call; joining the call is a separate choice once y
 An environment set up from a template may call its spaces something else, such as a trip's stops;
 the pages use its word (see [Templates](userguide-templates.md)).
 
+## The top bar
+
+The bar at the top of every page says where you are and takes you anywhere in the environment. From left to right:
+
+- **The logo and the environment's name.** The logo is the picture the owner uploaded, or the home icon when there
+  is none. Click either to go home, the list of spaces. On a narrower window (up to about 820 pixels wide) the name
+  is left out and the logo stays.
+- **Modules** (or your environment's word for modules). Click it for a menu of every module with a page of its own,
+  such as the Calendar or To-do, each with its unread count. In a space the page opens over the space, so the call
+  keeps running. When there are no such modules, the button is not shown.
+- **Spaces** (or the environment's word for its home page). Click the word to go home. Click the small arrow beside
+  it (**Switch space**) for a menu of the spaces you belong to: the one you are in says "You are here", and a space
+  with people in it says how many ("3 here"). Pick one to go to it. In an aside, picking the space it came from does
+  what **Rejoin call** does: everyone goes back to that space's call.
+- **Where you are**, while you are in a space: "› Disneyland". In an aside it is "› Disneyland › Aside: Michelle";
+  click **Disneyland** (its tooltip reads "Rejoin call in Disneyland") to go back to the space, as **Rejoin call**
+  does. A long name is cut short with "…"; hover over it for the whole name.
+- On the right, **the bell** and **your picture** (up to about 1000 pixels wide, your picture without your name). See "The bell" below, and "Your profile and signing out" in
+  [Accounts, roles and permissions](userguide-accounts.md).
+
+To add a space from the top bar (owners and the admin only):
+
+1. Click the arrow beside **Spaces**.
+2. Choose **New space**, at the end of the menu. Manage opens on its **Spaces** tab, over the space if you are in one.
+3. **Add space** already has the focus: press Enter or click it. See "Add and set up a space" below.
+
+An owner can rename the home page on Manage > **Template** > **Words** (see [Manage](userguide-environment-settings.md)).
+Unless they do, it is called after the spaces: "Trips" where a space is called a trip.
+
+### The bell
+
+The bell shows a count of what is new: notices from modules, such as a To-do reminder, and, for owners and the
+admin, how many module updates are waiting.
+
+1. Click the bell. A list opens under it, newest first: each notice with its module, what it says and when.
+2. For owners and the admin, a first line says "2 module updates available". Click it to open Manage on the
+   **Modules** tab.
+3. With nothing waiting, the list says "Nothing new."
+
+Opening the list marks every notice read. A notice that arrives while it is open appears at the top, already read. Press Escape or click elsewhere to close it. A notice does not yet take you
+to what it is about.
+
+### On a phone
+
+The top bar is the logo, where you are, the bell and the menu button (**Menu**, three lines). Everything else is in
+the menu: the environment's name, the home page and your spaces, **New space** for owners and the admin, the
+modules, then your picture and the profile menu's entries.
+
+### Guests
+
+Someone on a guest link sees the logo, the environment's name and the space's name, and nothing else in the bar;
+on a phone there is no menu button either.
+They always see the environment's default light or dark look.
+
 ## The space list
 
 Every space card has an **Enter** button (a door) first. After it come the smaller buttons, together: the space's

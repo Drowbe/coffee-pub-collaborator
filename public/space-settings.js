@@ -422,7 +422,6 @@ async function init() {
     $('whoami').textContent = me.displayName;
     $('whoami-img').src = imgUrl(me.key, 'profile');
     $('whoami-img').hidden = false;
-    $('admin-link').hidden = false;
     const [spaceRes, usersRes] = await Promise.all([api('GET', `/api/spaces/${spaceId}`), api('GET', '/api/users')]);
     space = spaceRes.space;
     users = usersRes.users;

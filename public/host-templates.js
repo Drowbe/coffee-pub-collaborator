@@ -3,7 +3,7 @@
 // can be edited in place (an Edited badge, Reset to shipped, and a notice when a newer image changed the file).
 // Duplicate makes a host template. Export for any; Import… from a file (a clashing id asks for another).
 import { api, escapeHtml, word } from '/brand.js';
-import { CHANGEABLE, DEFAULTS, VERBS, DEFAULT_VERBS } from '/words.js';
+import { CHANGEABLE, DEFAULTS, homeDefault, VERBS, DEFAULT_VERBS } from '/words.js';
 import { fileText } from '/file-text.js';
 
 const $ = (id) => document.getElementById(id);
@@ -245,9 +245,20 @@ async function openEditor(t) {
   $('te-name').value = t ? t.name : '';
   $('te-description').value = t ? t.description : '';
   const w = (t && t.words) || {};
-  $('te-words').innerHTML = CHANGEABLE.map((key) => `<div class="word-row" data-word="${key}"><strong>${escapeHtml(cap(DEFAULTS[key].one))}</strong>`
-    + `<input type="text" data-part="one" maxlength="30" value="${escapeHtml(w[key]?.one || '')}" placeholder="${escapeHtml(DEFAULTS[key].one)}" aria-label="${escapeHtml(DEFAULTS[key].one)}, singular">`
-    + `<input type="text" data-part="many" maxlength="30" value="${escapeHtml(w[key]?.many || '')}" placeholder="${escapeHtml(DEFAULTS[key].many)}" aria-label="${escapeHtml(DEFAULTS[key].one)}, plural"></div>`).join('');
+  // Home's default is the template's space word's plural ("Trips"), or the default's ("Spaces"); its row is named for
+  // what it is, not for that word.
+  const base = (key) => (key === 'home' ? homeDefault(w.space) : DEFAULTS[key]);
+  const label = (key) => (key === 'home' ? 'Home page' : DEFAULTS[key].one);
+  $('te-words').innerHTML = CHANGEABLE.map((key) => `<div class="word-row" data-word="${key}"><strong>${escapeHtml(cap(label(key)))}</strong>`
+    + `<input type="text" data-part="one" maxlength="30" value="${escapeHtml(w[key]?.one || '')}" placeholder="${escapeHtml(base(key).one)}" aria-label="${escapeHtml(label(key))}, singular">`
+    + `<input type="text" data-part="many" maxlength="30" value="${escapeHtml(w[key]?.many || '')}" placeholder="${escapeHtml(base(key).many)}" aria-label="${escapeHtml(label(key))}, plural"></div>`).join('');
+  // Home's placeholders follow the space word's plural while it is typed (blank: the default's).
+  const spaceMany = $('te-words').querySelector('[data-word="space"] [data-part="many"]');
+  const homeInputs = [...$('te-words').querySelectorAll('[data-word="home"] input')];
+  spaceMany?.addEventListener('input', () => {
+    const d = homeDefault(spaceMany.value.trim() ? { many: spaceMany.value.trim() } : null);
+    for (const input of homeInputs) input.placeholder = d[input.dataset.part];
+  });
   // The verbs (addendum 4): one field each, blank for the default. `data-verb-key`, not data-verb, which the page fills.
   const v = (t && t.verbs) || {};
   const verbLabel = { enter: `Button for entering ${word('space', { a: true })}` };

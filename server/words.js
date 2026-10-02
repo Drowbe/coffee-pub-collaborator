@@ -6,18 +6,33 @@
 // the default below. `host` and `admin` are the host's own words and always read their defaults: neither an owner nor a
 // template can change them (decision 18). Resolved per request, so a change is live on the next one.
 //
+// `home` (plan-primary-nav.md, decision 13) is what the home page, the list of spaces, is called: it is not always the
+// plural of space ("Campaigns" against "Game"). With no word of its own (the owner's, else the template's), it follows
+// the resolved space word: both its forms are the space word's plural with a capital ("Spaces", "Trips"). Its entry in
+// DEFAULTS is that for today's space word, and fill() has no placeholder for it.
+//
 // The server's sentences that name a level or role go through word() (or fill(), for fixed text such as a
 // permission's label), never a typed word: tools/check-names.mjs --words holds them to it.
 
-const KEYS = ['host', 'environment', 'space', 'aside', 'canvas', 'module', 'object', 'admin', 'owner', 'moderator', 'member', 'guest'];
+const KEYS = ['host', 'environment', 'space', 'home', 'aside', 'canvas', 'module', 'object', 'admin', 'owner', 'moderator', 'member', 'guest'];
 const FIXED = ['host', 'admin'];
 const CHANGEABLE = KEYS.filter((k) => !FIXED.includes(k));
+
+const capital = (text) => (text ? text.charAt(0).toLocaleUpperCase('en') + text.slice(1) : text);
+
+// The home word when nobody set one: a resolved space word's plural, with a capital, as both its forms (today's
+// space word's when none is given).
+function homeDefault(space) {
+  const many = capital((space && space.many) || 'spaces');
+  return { one: many, many };
+}
 
 // Today's words. `a` is left out here: every default takes the usual article, worked out from its first letter.
 const DEFAULTS = Object.freeze({
   host: { one: 'host', many: 'hosts' },
   environment: { one: 'environment', many: 'environments' },
   space: { one: 'space', many: 'spaces' },
+  home: homeDefault(null), // worked out from the space word: see homeDefault() and resolve()
   aside: { one: 'aside', many: 'asides' },
   canvas: { one: 'canvas', many: 'canvases' },
   module: { one: 'module', many: 'modules' },
@@ -37,8 +52,12 @@ const ARTICLE_RE = /^\p{L}{1,10}$/u; // the article itself: one word of up to te
 const tidy = (v) => String(v).trim().replace(/\s+/g, ' ');
 const usualArticle = (one) => `${/^[aeiou]/i.test(one) ? 'an' : 'a'} ${one}`;
 
+// What a refusal calls a key: its code name, except home, which is named for the page ("the word for the home page").
+const SAID = { home: 'the home page' };
+
 // One word as given ({ one, many, a? }), checked: { word } (tidied, `a` kept only when given) or { error }, one sentence.
-function cleanWord(key, raw) {
+function cleanWord(code, raw) {
+  const key = SAID[code] || code;
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: `The word for ${key} must be its singular and plural, or null to use the default.` };
   const extra = Object.keys(raw).find((f) => !['one', 'many', 'a'].includes(f));
   if (extra) return { error: `The word for ${key} takes only one, many and a.` };
@@ -95,15 +114,14 @@ function resolve(ownerWords, templateWords) {
   const template = ownOnly(templateWords);
   const out = {};
   for (const key of KEYS) {
-    const w = (!FIXED.includes(key) && (owner[key] || template[key])) || DEFAULTS[key];
+    const fallback = key === 'home' ? homeDefault(out.space) : DEFAULTS[key]; // `space` comes before `home` in KEYS
+    const w = (!FIXED.includes(key) && (owner[key] || template[key])) || fallback;
     out[key] = { one: w.one, many: w.many, a: w.a || usualArticle(w.one) };
   }
   return out;
 }
 
 const DEFAULT_RESOLVED = resolve(null, null);
-
-const capital = (text) => (text ? text.charAt(0).toLocaleUpperCase('en') + text.slice(1) : text);
 
 // One key's word from a resolved set: the singular, `many` the plural, `a` the singular with its article; `cap` gives
 // it a capital first letter. An unknown key is a mistake in the code, so it throws.
@@ -129,7 +147,8 @@ function word(key, options) {
 // in their default form: {space}, {spaces}, {Space}, {Spaces}, {a space}, {A space} ({an aside}: either article reads the
 // word's own). Each is replaced by the current
 // environment's word, in the same form; anything else in braces is left as it is.
-const BY_DEFAULT = new Map(KEYS.flatMap((k) => [[DEFAULTS[k].one, { key: k, many: false }], [DEFAULTS[k].many, { key: k, many: true }]]));
+// `home` has none: its default is the space word's ("Spaces"), which reads the space word.
+const BY_DEFAULT = new Map(KEYS.filter((k) => k !== 'home').flatMap((k) => [[DEFAULTS[k].one, { key: k, many: false }], [DEFAULTS[k].many, { key: k, many: true }]]));
 const PLACEHOLDER = /\{((?:a|an|A|An) )?([A-Za-z]+)\}/g;
 function fill(text, resolved) {
   const set = resolved || current() || DEFAULT_RESOLVED;
@@ -197,6 +216,6 @@ function resolveVerbs(ownerVerbs, templateVerbs) {
 }
 
 module.exports = {
-  KEYS, FIXED, CHANGEABLE, DEFAULTS, MAX_LENGTH, cleanWord, applyPatch, ownOnly, resolve, format, word, fill, useCurrent,
+  KEYS, FIXED, CHANGEABLE, DEFAULTS, MAX_LENGTH, homeDefault, cleanWord, applyPatch, ownOnly, resolve, format, word, fill, useCurrent,
   VERBS, DEFAULT_VERBS, VERB_MAX_LENGTH, cleanVerb, unknownVerb, applyVerbsPatch, ownVerbsOnly, resolveVerbs,
 };

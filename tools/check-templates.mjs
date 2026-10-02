@@ -115,8 +115,10 @@ try {
       [with_({ modules: ['chat', 'chat'] }), 'modules: "chat" is listed twice.'],
       [with_({ words: { host: { one: 'boss', many: 'bosses' } } }), 'words: "host" is the host\'s own word and a template can\'t change it.'],
       [with_({ words: { admin: { one: 'chief', many: 'chiefs' } } }), 'words: "admin" is the host\'s own word and a template can\'t change it.'],
-      [with_({ words: { lobby: { one: 'a', many: 'b' } } }), 'words: there is no word called "lobby"; the words are environment, space, aside, canvas, module, object, owner, moderator, member, guest.'],
+      [with_({ words: { lobby: { one: 'a', many: 'b' } } }), 'words: there is no word called "lobby"; the words are environment, space, home, aside, canvas, module, object, owner, moderator, member, guest.'],
       [with_({ words: { space: { one: 'trip' } } }), 'words: The word for space needs both its singular and its plural.'],
+      [with_({ words: { home: { one: 'Campaigns' } } }), 'words: The word for the home page needs both its singular and its plural.'],
+      [with_({ words: { home: { one: 'Camp<b>', many: 'Campaigns' } } }), 'words: The word for the home page can use only letters, spaces, hyphens and apostrophes.'],
       [with_({ verbs: ['Enter'] }), '"verbs" must be an object of verbs by name.'],
       [with_({ verbs: { join: 'Join' } }), 'verbs: there is no verb called "join"; the verbs are enter.'],
       [with_({ verbs: { enter: 'Board the flight right now' } }), 'verbs: The enter verb must be 1 to 20 characters.'],
@@ -308,10 +310,18 @@ try {
     env.store.updateSettings({ homeIcon: null }); // as applying the template leaves it: unset, the template's
     templates.useLive(env.store, travel);
     assert.deepEqual(env.store.resolvedWords().space, { one: 'trip', many: 'trips', a: 'a trip' });
+    assert.deepEqual([env.store.resolvedWords().home.one, env.store.resolvedWords().home.many], ['Trips', 'Trips'], 'home follows the template\'s space word (plan-primary-nav, decision 13)');
     assert.equal(env.store.homeIcon, 'suitcase-rolling');
     assert.equal(env.store.moduleDisplay('travel').name, 'Itinerary');
     env.store.updateSettings({ words: { space: { one: 'journey', many: 'journeys' } }, homeIcon: 'couch' });
     assert.deepEqual([env.store.resolvedWords().space.one, env.store.homeIcon], ['journey', 'couch']);
+    assert.equal(env.store.resolvedWords().home.one, 'Journeys', 'home follows the owner\'s space word over the template\'s');
+    templates.useLive(env.store, { ...travel, words: { ...travel.words, home: { one: 'Adventure', many: 'Adventures' } } });
+    assert.deepEqual([env.store.resolvedWords().home.many, env.store.resolvedWords().space.one], ['Adventures', 'journey'], 'a template\'s own home wins over any space word');
+    env.store.updateSettings({ words: { home: { one: 'Atlas', many: 'Atlases' } } });
+    assert.equal(env.store.resolvedWords().home.many, 'Atlases', 'and the owner\'s own over the template\'s');
+    env.store.updateSettings({ words: { home: null } });
+    templates.useLive(env.store, travel);
     env.store.updateSettings({ words: { space: null }, homeIcon: null });
     assert.deepEqual([env.store.resolvedWords().space.one, env.store.homeIcon], ['trip', 'suitcase-rolling'], 'null goes back to the template\'s');
     // What the template gives stays readable under the owner's own (for Manage's "the template's" hints).
@@ -565,6 +575,7 @@ try {
     assert.equal((await console_('POST', '/api/host/environments', { slug: 'out', name: 'Out', template: 'travel', owner: { login: 'owner', password: 'owner-password-1' } })).status, 201);
     for (let i = 0; i < 100 && !server.output().includes('[out] Applied the "travel" template'); i += 1) await new Promise((r) => setTimeout(r, 50));
     assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'trip');
+    assert.deepEqual((await call(server, 'out', 'GET', '/api/branding')).json.words.home, { one: 'Trips', many: 'Trips', a: 'a Trips' }, 'branding\'s home, from the template\'s space word');
     const edited = await console_('PATCH', '/api/host/templates/travel', { words: { space: { one: 'journey', many: 'journeys' } }, modules: [...shipped.modules, 'polls'] });
     assert.deepEqual([edited.status, edited.json.template.id, edited.json.template.version, edited.json.template.edited, edited.json.template.source], [200, 'travel', shipped.version + 1, true, 'bundled'], edited.text);
     assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'journey', 'the new word, with no restart');

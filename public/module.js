@@ -6,7 +6,7 @@
 //   /modules/<id>?space=<space>&popout=1   a module on a space's canvas, in a window of its own (?moduleRoom= redirects here)
 //                                          (add &guest=<token> for a guest)
 // (A module page opened over a call also carries from=space&spaceName=<the space's name>, for its Back link.)
-import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, crumbLink, markModuleRead, hasOwnerRights, word } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, crumbLink, markModuleRead, word } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
 
 const $ = (id) => document.getElementById(id);
@@ -32,7 +32,6 @@ async function start() {
     $('whoami').textContent = me.displayName;
     $('whoami-img').src = `/img/${encodeURIComponent(me.key)}/profile`;
     $('whoami-img').hidden = false;
-    $('admin-link').hidden = !hasOwnerRights(me);
   }
 
   // Which module, and how it is shown: its own page (the environment's scope), or on a space's canvas.

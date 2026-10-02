@@ -1293,6 +1293,20 @@ try {
     const byId = Object.fromEntries((await as('GET', '/api/modules')).json.modules.map((m) => [m.id, m]));
     for (const id of ['places', 'maps', 'travel']) assert.deepEqual([id, byId[id].version, byId[id].enabled, byId[id].allSpaces], [id, current[id], true, true]);
     assert.deepEqual([byId.todo.version, byId.todo.enabled], [older(current.todo), true], 'the To-do waits, still on, on its old version');
+    // plan-primary-nav step 1 (decision 12): every module with an environment page is listed, widget or not, and a
+    // manifest's surfaces.page.nav is no longer read (Places sets it to false). Maps has only a space's canvas page.
+    const pages = (await as('GET', '/api/modules/nav')).json.modules;
+    assert.deepEqual(pages.map((m) => m.id).sort(), ['places', 'stream', 'todo', 'travel'], 'Places and the modules with a tile are listed; Maps has no environment page');
+    for (const m of pages) assert.deepEqual([m.id, m.nav, typeof m.name, typeof m.icon, typeof m.page], [m.id, true, 'string', 'string', 'string'], 'each with its name, icon and page, and nav always true');
+    assert.equal(pages.find((m) => m.id === 'places').widget, false);
+    assert.equal(pages.find((m) => m.id === 'todo').widget, true);
+    // Nobody signed in, and a guest's link: no module pages (a guest uses modules only in their space).
+    const link = await as('POST', `/api/spaces/${side}/guest-link`, {});
+    assert.equal(link.status, 200, link.text);
+    const token = link.json.guestUrl.split('/guest/')[1];
+    for (const [who, answer] of [['signed out', await call(server, '', 'GET', '/api/modules/nav')], ['a guest', await call(server, '', 'GET', `/api/modules/nav?guest=${encodeURIComponent(token)}`)]]) {
+      assert.deepEqual([who, answer.status, answer.json], [who, 200, { modules: [] }]);
+    }
     assert.equal((await as('GET', `/api/modules/maps/context?scope=space&space=${side}`)).status, 200, 'Maps runs');
     // Found as plan: objects without anyone having opened the Planner.
     const found = await as('GET', `/api/objects/search?from=todo&scope=space&space=${side}&q=ferry`);

@@ -21,15 +21,27 @@
 // so the next page reads them before its own fetch answers. Until then, and when a key is missing, the defaults below:
 // today's words. The code names never change; only what a person reads does.
 
-export const KEYS = ['host', 'environment', 'space', 'aside', 'canvas', 'module', 'object', 'admin', 'owner', 'moderator', 'member', 'guest'];
+export const KEYS = ['host', 'environment', 'space', 'home', 'aside', 'canvas', 'module', 'object', 'admin', 'owner', 'moderator', 'member', 'guest'];
 // The two the host keeps: neither an owner nor a template changes them.
 export const FIXED = ['host', 'admin'];
 export const CHANGEABLE = KEYS.filter((k) => !FIXED.includes(k));
+
+const capital = (text) => (text ? text.charAt(0).toLocaleUpperCase('en') + text.slice(1) : text);
+
+// The home word when nobody set one, from a resolved space word: its plural with a capital, as both forms (today's
+// space word's when none is given).
+export function homeDefault(space) {
+  const many = capital((space && space.many) || 'spaces');
+  return { one: many, many };
+}
 
 export const DEFAULTS = Object.freeze({
   host: { one: 'host', many: 'hosts' },
   environment: { one: 'environment', many: 'environments' },
   space: { one: 'space', many: 'spaces' },
+  // What the home page, the list of spaces, is called (plan-primary-nav.md, decision 13). With no word of its own it
+  // follows the space word, as the server's: its plural with a capital ("Spaces", "Trips"); see homeDefault().
+  home: homeDefault(null),
   aside: { one: 'aside', many: 'asides' },
   canvas: { one: 'canvas', many: 'canvases' },
   module: { one: 'module', many: 'modules' },
@@ -43,7 +55,6 @@ export const DEFAULTS = Object.freeze({
 
 const STORED = 'app.words';
 const usualArticle = (one) => `${/^[aeiou]/i.test(one) ? 'an' : 'a'} ${one}`;
-const capital = (text) => (text ? text.charAt(0).toLocaleUpperCase('en') + text.slice(1) : text);
 
 // A set as the server sends it ({ <key>: { one, many, a } }), made whole: a key missing or malformed reads its default,
 // and host and admin always do.
@@ -52,8 +63,9 @@ function resolve(set) {
   for (const key of KEYS) {
     const w = set && typeof set === 'object' && !FIXED.includes(key) ? set[key] : null;
     const good = w && typeof w.one === 'string' && w.one && typeof w.many === 'string' && w.many;
-    const one = good ? w.one : DEFAULTS[key].one;
-    const many = good ? w.many : DEFAULTS[key].many;
+    const fallback = key === 'home' ? homeDefault(out.space) : DEFAULTS[key]; // `space` comes before `home` in KEYS
+    const one = good ? w.one : fallback.one;
+    const many = good ? w.many : fallback.many;
     out[key] = { one, many, a: good && typeof w.a === 'string' && w.a ? w.a : usualArticle(one) };
   }
   return out;
@@ -129,7 +141,9 @@ export function setWords(set) {
   const changed = JSON.stringify(next) !== JSON.stringify(current);
   current = next;
   try {
-    const own = Object.fromEntries(CHANGEABLE.filter((k) => next[k].one !== DEFAULTS[k].one || next[k].many !== DEFAULTS[k].many || next[k].a !== usualArticle(DEFAULTS[k].one)).map((k) => [k, next[k]]));
+    // Kept: each word that is not what it reads with nothing set (home's, from the space word kept beside it).
+    const base = (k) => (k === 'home' ? homeDefault(next.space) : DEFAULTS[k]);
+    const own = Object.fromEntries(CHANGEABLE.filter((k) => next[k].one !== base(k).one || next[k].many !== base(k).many || next[k].a !== usualArticle(base(k).one)).map((k) => [k, next[k]]));
     if (Object.keys(own).length) localStorage.setItem(STORED, JSON.stringify(own));
     else localStorage.removeItem(STORED);
   } catch {
@@ -151,7 +165,8 @@ export function word(key, { many = false, cap = false, a = false } = {}) {
 // Fixed text with its level and role words as placeholders in their default form, each replaced by this environment's
 // word in the same form: {space}, {spaces}, {Space}, {Spaces}, {a space}, {A space} ({an aside}: either article reads the
 // word's own). A verb's key ({enter}) reads the verb. Anything else in braces is left as it is.
-const BY_DEFAULT = new Map(KEYS.flatMap((k) => [[DEFAULTS[k].one, { key: k, many: false }], [DEFAULTS[k].many, { key: k, many: true }]]));
+// `home` has none: its default is the space word's ("Spaces"), which reads the space word.
+const BY_DEFAULT = new Map(KEYS.filter((k) => k !== 'home').flatMap((k) => [[DEFAULTS[k].one, { key: k, many: false }], [DEFAULTS[k].many, { key: k, many: true }]]));
 const PLACEHOLDER = /\{((?:a|an|A|An) )?([A-Za-z]+)\}/g;
 export function fill(text) {
   return String(text).replace(PLACEHOLDER, (whole, article, name) => {

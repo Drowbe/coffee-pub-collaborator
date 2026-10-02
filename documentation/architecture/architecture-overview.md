@@ -94,15 +94,20 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
   `window.hostCurrency`, which `/sdk/host.js` defines. Names come from the viewer's browser
   (`Intl.DisplayNames`), not the server.
 - **Words.** An environment's levels and roles are shown in its own words (plan-environment-templates, step 1).
-  The code names never change; only what people read does. `server/words.js` holds the twelve keys (`host`,
-  `environment`, `space`, `aside`, `canvas`, `module`, `object`, `admin`, `owner`, `moderator`, `member`, `guest`)
-  and their defaults; `host` and `admin` are the host's and can't be changed. `branding()` (so `/api/branding`,
+  The code names never change; only what people read does. `server/words.js` holds the thirteen keys (`host`,
+  `environment`, `space`, `home`, `aside`, `canvas`, `module`, `object`, `admin`, `owner`, `moderator`, `member`,
+  `guest`) and their defaults; `host` and `admin` are the host's and can't be changed. `home` is what the home page,
+  the list of spaces, is called (plan-primary-nav, decision 13). With no word of its own (the owner's, else the
+  template's) it follows the resolved `space` word: both its forms are that word's plural with a capital ("Spaces",
+  "Trips"; `homeDefault()`), and its `a` takes the usual article ("a Trips"), which nothing shows. `fill()` has no
+  placeholder for it. `branding()` (so `/api/branding`,
   `/api/config`, `/api/me` and `/api/settings`) carries `words`: every key as `{ one, many, a }`, resolved.
   `GET /api/settings` also gives the owner `ownWords`, only what they set. `PATCH /api/settings`
   `{ words: { <key>: { one, many, a? } | null } }` (owner only; `null` puts one back) checks every word and refuses
   the whole save with a sentence naming the word ("The word for `<key>` needs both its singular and its plural.",
   "... can be at most 30 characters.", "... can use only letters, spaces, hyphens and apostrophes.", "... with its
-  article must be its singular with the article in front, such as "a `<word>`"."). The server's own sentences go
+  article must be its singular with the article in front, such as "a `<word>`"."); for `home`
+  they read "The word for the home page …"). The server's own sentences go
   through the same words.
   In the pages, `public/words.js` gives `word(key, { many, cap, a })`, `fill(text)` for placeholders such as
   `{space}`, `{Spaces}` and `{a space}`, and `applyWords(root)`, which fills `data-word` elements (with

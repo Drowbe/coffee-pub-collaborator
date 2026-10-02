@@ -23,6 +23,7 @@ const switches = new Set(); // every header switch drawn
 let signedIn = null; // null until known
 let envMode = null; // the environment's default mode (Manage > Theme), from /api/branding
 let envVersion = null; // the fingerprint of the environment's /theme.css, from /api/branding
+let fixedToDefault = false; // a guest's page: the environment's default mode only (useDefaultMode)
 
 function stored() {
   try {
@@ -145,7 +146,7 @@ export function setEnvironmentMode(mode, version) {
 // The signed-in person's own mode (GET /api/me's user.themeMode, or the stream's 'mode' event), or signedIn false for
 // a guest. The account wins over what this browser remembers, and the browser keeps a copy for the next first paint.
 export function setAccountMode(user) {
-  if (!user) {
+  if (!user || fixedToDefault) {
     signedIn = false;
     return;
   }
@@ -169,14 +170,24 @@ export function forgetThemeMode() {
   store(null);
 }
 
-// Another tab of this browser picked a mode (a guest's, or a copy of the account's): follow it.
+// A guest's page (plan-primary-nav.md, decision 5): the environment's default mode, whatever this browser remembers,
+// and no switch. theme-head.js leaves the attribute off before the first paint on a guest link's page; this keeps it
+// off, and the person's own mode is never read or kept here.
+export function useDefaultMode() {
+  fixedToDefault = true;
+  applyMode(null);
+}
+
+// Another tab of this browser picked a mode (a copy of the account's): follow it. Not on a guest's page.
 window.addEventListener('storage', (event) => {
-  if (event.key !== KEY) return;
+  if (event.key !== KEY || fixedToDefault) return;
   applyMode(isMode(event.newValue) ? event.newValue : null);
 });
 
-// The person flips the switch: at once here, then kept (the account, or this browser for a guest).
-async function toggle() {
+// The person flips the switch: at once here, then kept (the account, or this browser). The profile menu's Dark mode
+// entry calls it too (brand.js).
+export async function toggleThemeMode() {
+  if (fixedToDefault) return;
   const next = themeMode() === 'dark' ? 'light' : 'dark';
   store(next);
   applyMode(next);
@@ -201,7 +212,7 @@ export function themeSwitch(doc = document) {
   button.innerHTML = '<i class="fa-solid fa-sun fa-fw" aria-hidden="true"></i><span class="theme-mode-track" aria-hidden="true"><span class="theme-mode-knob"></span></span><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i><span class="theme-mode-label" aria-hidden="true">Dark mode</span>';
   button.addEventListener('click', (event) => {
     event.stopPropagation(); // the phone menu stays open, so the change can be seen and undone
-    toggle();
+    toggleThemeMode();
   });
   switches.add(button);
   paintSwitch(button, themeMode());

@@ -37,7 +37,7 @@ Camera access requires HTTPS, which the proxy provides. Players need nothing but
 ## Sign in as the admin
 
 The compose file holds one account, the server's **admin**: `ADMIN_LOGIN` and `ADMIN_PASSWORD`. Open
-`https://collaborator.<domain>/`, sign in with them, and choose the gear icon to open the Manage page. Add your
+`https://collaborator.<domain>/`, sign in with them, and choose **Manage** in the menu under your picture, at the right of the top bar. Add your
 players under **Users** and send each of them a login and password, or a personal link; see
 [Accounts, roles and permissions](userguide-accounts.md). If someone else will run the server day to day, make
 them an **Owner** there; owners are made in Manage, never in the compose file, and a server doesn't need one.

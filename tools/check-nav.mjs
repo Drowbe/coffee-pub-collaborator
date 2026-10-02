@@ -25,6 +25,10 @@ const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phon
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
 const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFileURL(peopleCopy).href);
+// The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
+const primaryCopy = path.join(tmp, 'primary-nav.mjs');
+fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
+const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments } = await import(pathToFileURL(primaryCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -163,29 +167,35 @@ test('href: a path on this server or an https address, nothing else', () => {
   assert.throws(() => cleanModuleTools('m', [{ id: 'a', icon: 'x', label: 'x', href: 'http://example.org/' }]), /href/);
 });
 
-test('the primary bar: refused unless the owner allowed the module there and the tool is system-wide, and then only the right zone', () => {
-  const tool = { id: 'a', icon: 'x', label: 'x', bar: 'primary' };
-  assert.throws(() => cleanModuleTools('m', [tool]), (e) => /primary bar/.test(e.message) && e.status === 403);
-  assert.throws(() => cleanModuleTools('m', [tool], { allowPrimary: true }), (e) => /system: true/.test(e.message) && e.status === 403);
-  assert.throws(() => cleanModuleTools('m', [{ ...tool, system: true }]), (e) => e.status === 403);
-  assert.throws(() => cleanModuleTools('m', [{ ...tool, system: true, zone: 'middle' }], { allowPrimary: true }), /right zone only/);
-  const [ok] = cleanModuleTools('m', [{ ...tool, system: true }], { allowPrimary: true });
-  assert.equal(ok.bar, 'primary');
-  assert.equal(ok.zone, 'right');
-  assert.equal(ok.system, true);
+test('a module never places a tool in the top bar: bar: \'primary\' and system: true are ignored, not refused, and the tool lands in the space bar', () => {
+  const tool = { id: 'a', icon: 'x', label: 'x', bar: 'primary', system: true };
+  const [t] = cleanModuleTools('m', [tool]);
+  assert.equal(t.bar, 'secondary', 'placed in the space bar like any other tool');
+  assert.equal(t.zone, 'right');
+  assert.ok(!('system' in t), 'system is not carried');
+  const [u] = cleanModuleTools('m', [{ ...tool, zone: 'middle' }], { allowPrimary: true });
+  assert.equal(u.bar, 'secondary', 'even with the old option passed, nothing reaches the top bar');
+  assert.equal(u.zone, 'middle');
+  const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  const hostSrc = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
+  assert.ok(!/allowPrimary/.test(navSrc + hostSrc), 'allowPrimary is gone from nav-bar.js and module-host.js');
+  assert.ok(!/contextInfo\.module\.nav/.test(hostSrc), 'module-host.js no longer reads the manifest\'s surfaces.page.nav');
 });
 
-test('on a phone the primary bar folds: the middle zone and then the right, your picture too, into the menu; nothing stays', () => {
+test('on a phone the primary bar folds: the left stays, the bell stays (phone: \'bar\'), and everything else goes into the menu, your picture too', () => {
   const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
   const byZone = {
-    left: [t('home', 'left')],
-    middle: [t('spaces-link', 'middle', { order: 1 }), t('page-todo', 'middle', { order: 60 })],
-    right: [t('admin-link', 'right', { order: 11 }), t('whoami-link', 'right', { group: 'you', order: 999 }), t('account-profile', 'right', { group: 'you', order: 999 })],
+    left: [t('modules-nav', 'left', { order: 1 }), t('topbar-crumb', 'left', { order: 3 })],
+    middle: [t('mid', 'middle', { order: 1 })],
+    right: [t('menu-home', 'right', { order: 2 }), t('notifications-bell', 'right', { order: 90, phone: 'bar' }), t('whoami-link', 'right', { group: 'you', order: 999 }), t('account-profile', 'right', { group: 'you', order: 999 })],
   };
   const z = phoneZones(byZone);
-  assert.deepEqual(z.left.map((run) => run.map((x) => x.id)), [['home']]);
-  assert.deepEqual(z.middle, [], 'the middle is empty on a phone: your picture is not kept in the bar');
-  assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [['spaces-link', 'page-todo'], ['admin-link', 'whoami-link', 'account-profile']], 'the middle run first, then the right');
+  assert.deepEqual(z.left.map((run) => run.map((x) => x.id)), [['modules-nav', 'topbar-crumb']], 'the left zone stays (Modules and Spaces hide themselves there)');
+  assert.deepEqual(z.middle.map((run) => run.map((x) => x.id)), [['notifications-bell']], 'only the bell stays in the bar, in the middle zone');
+  assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [['mid'], ['menu-home', 'whoami-link', 'account-profile']], 'the middle run first, then the right, without the bell');
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.match(brand, /id: 'notifications-bell'[^\n]*phone: 'bar'/, 'the bell says phone: \'bar\'');
+  for (const id of ['modules-nav', 'spaces-slot']) assert.match(brand, new RegExp(`id: '${id}'[^\\n]*visible: \\(\\) => wide\\(\\) && signedIn\\(\\)`), `${id} leaves the bar on a phone`);
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.ok(!/keepOnPhone/.test(src), 'keepOnPhone is gone: nothing stays in the bar on a phone');
 });
@@ -373,6 +383,145 @@ test('the space bar\'s lists draw above the modules and under a page opened over
   assert.ok(lift, 'the header rises while one of its lists is open (.topbar:has(...))');
   for (const list of ['.module-chooser-list:not([hidden])', '.who-here-list:not([hidden])']) assert.ok(lift[1].includes(list), `the header rises while ${list} is open`);
   assert.match(lift[2], /z-index:\s*var\(--z-menu\)/);
+});
+
+test('the top bar\'s slots, left to right: logo, environment, Modules, Spaces, the anchor, then online people, the bell and the profile', () => {
+  assert.deepEqual(SLOTS, ['logo', 'environment', 'modules', 'home', 'anchor', 'people', 'notifications', 'profile']);
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const reg = (id) => {
+    const m = brand.match(new RegExp(`nav\\.register\\(\\{ id: '${id}', bar: 'primary', zone: '(\\w+)'[^\\n]*?order: (\\d+)`));
+    assert.ok(m, `brand.js registers ${id}`);
+    return { zone: m[1], order: Number(m[2]) };
+  };
+  const left = ['modules-nav', 'spaces-slot', 'topbar-crumb', 'topbar-status'].map(reg);
+  assert.ok(left.every((t) => t.zone === 'left'), 'Modules, Spaces and the anchor are the left zone');
+  assert.deepEqual(left.map((t) => t.order), [1, 2, 3, 4], 'Modules before Spaces (decision 26), then the anchor');
+  const html = brand.slice(brand.indexOf('header.innerHTML = `'), brand.indexOf('nav.attach(\'primary\', header)'));
+  assert.ok(html.indexOf('brand-logo') > -1 && html.indexOf('brand-logo') < html.indexOf('data-brand="environmentName"'), 'the logo box, then the environment\'s name, in the left zone\'s markup ahead of the tools');
+  assert.ok(reg('notifications-bell').zone === 'right' && reg('whoami-link').zone === 'right', 'the bell and the profile are the right zone');
+  assert.match(brand, /id: 'notifications-bell'[^\n]*groupOrder: 90/);
+  assert.match(brand, /id: 'whoami-link'[^\n]*groupOrder: 999/, 'the profile last');
+});
+
+test('gone from the top bar: the clock, the lock or luggage icon beside the logo, the theme switch and Manage on a wider screen, the module page links', () => {
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.ok(!/topbar-clock|startClock/.test(brand), 'no clock');
+  assert.ok(!/id: 'spaces-link'|spacesTool/.test(brand), 'the Spaces slot replaced the spaces-link tool');
+  assert.ok(!/zone: 'middle'/.test(brand), 'nothing of the system\'s in the middle zone');
+  assert.match(brand, /id: 'theme-mode-switch'[^\n]*visible: \(\) => inMenu\(\) && offers\('theme'\)/, 'the theme switch is in the phone menu only; the profile menu has Dark mode');
+  assert.match(brand, /id: 'admin-link'[^\n]*visible: \(\) => inMenu\(\) && offers\('manage'\)/, 'Manage is in the phone menu only; the profile menu has it');
+  assert.match(brand, /<img data-brand="icon"[^>]*><i [^>]*data-brand="home-icon"/, 'the uploaded logo and the home icon share one box');
+  assert.match(brand, /if \(img\) img\.hidden = !b\.hasIcon;/, 'the uploaded logo shows only when there is one');
+  assert.match(brand, /if \(icon\) icon\.hidden = Boolean\(b\.hasIcon\);/, 'never both');
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.ok(!/id="space-name"/.test(space), 'the space bar no longer names the space (decision 14)');
+  assert.match(space, /anchorSegments\(/, 'the space page draws the breadcrumb with anchorSegments (crumbSegments inside)');
+});
+
+test('the profile menu by role: owners get Manage; the single install\'s admin Manage only; the host admin\'s stand-in Manage and Host console; members and moderators nothing more; Install only while offered; no menu for a guest', () => {
+  const base = ['profile', 'theme'];
+  assert.deepEqual(profileEntries({ role: 'member' }), [...base, 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'member', installOffered: true }), [...base, 'install', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'owner' }), [...base, 'manage', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'owner', hosted: true, installOffered: true }), [...base, 'manage', 'install', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'admin', hosted: false }), [...base, 'manage', 'sign-out'], 'a single install: Manage only, no host console');
+  assert.deepEqual(profileEntries({ role: 'admin', hosted: false, hostAdmin: true }), [...base, 'manage', 'sign-out'], 'no host console without a hosted server');
+  assert.deepEqual(profileEntries({ role: 'admin', hosted: true, hostAdmin: true }), [...base, 'manage', 'host-console', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'admin', hosted: true, hostAdmin: true, installOffered: true }), [...base, 'manage', 'host-console', 'install', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'member', themeSwitch: false }), ['profile', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'guest', installOffered: true }), [], 'a guest: no menu, no install');
+  assert.deepEqual(profileEntries({}), []);
+  assert.equal(seesUpdates('owner') && seesUpdates('admin'), true);
+  assert.equal(seesUpdates('member') || seesUpdates('guest') || seesUpdates(undefined), false);
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const menu = brand.slice(brand.indexOf('function accountMenuItems('), brand.indexOf('\n}\n', brand.indexOf('function accountMenuItems(')));
+  assert.match(menu, /new Set\(profileFor\(\)\)/, 'the menu under your picture follows profileEntries');
+  assert.match(menu, /label: 'Dark mode', checked: modeNow\(\) === 'dark'/, 'Dark mode is a checkbox entry');
+});
+
+test('the host console\'s address, from an environment\'s own; none on a single install', () => {
+  assert.equal(hostConsoleUrl({ protocol: 'https:', hostname: 'sandbox.example.org', port: '' }, 'sandbox'), 'https://admin.example.org/');
+  assert.equal(hostConsoleUrl({ protocol: 'http:', hostname: 'sandbox.localhost', port: '3000' }, 'sandbox'), 'http://admin.localhost:3000/');
+  assert.equal(hostConsoleUrl({ protocol: 'https:', hostname: 'example.org' }, ''), null);
+  assert.equal(hostConsoleUrl({ protocol: 'https:', hostname: 'other.example.org' }, 'sandbox'), null);
+});
+
+test('the space switcher: your spaces in the list\'s order, never an aside, a mark where you are present, the count; a pick enters or goes back', () => {
+  const spaces = [
+    { id: 'lobby', name: 'Lobby', mine: true },
+    { id: 'paris', name: 'Paris', mine: false },
+    { id: 'disney', name: 'Disneyland', mine: true },
+    { id: 'aside1', name: 'Aside', mine: true, isAside: true },
+  ];
+  const users = [{ key: 'a', online: true, space: 'disney' }, { key: 'b', online: true, space: 'disney' }, { key: 'c', online: false, space: 'disney' }, { key: 'd', online: true, space: 'lobby' }];
+  assert.deepEqual(switcherEntries({ spaces, users, present: 'disney' }), [
+    { id: 'lobby', name: 'Lobby', here: false, count: 1 },
+    { id: 'disney', name: 'Disneyland', here: true, count: 2 },
+  ]);
+  assert.deepEqual(switcherEntries({}), []);
+  assert.equal(switchPick(null, 'disney'), 'enter', 'present nowhere: enter');
+  assert.equal(switchPick('disney', 'disney'), 'back', 'present there: back to it');
+  assert.equal(switchPick('lobby', 'disney'), 'enter', 'present elsewhere: enter, until the visit view');
+});
+
+test('the bell: unread notices for everyone, and module updates for owners and the admin only', () => {
+  assert.deepEqual(bellState({ unread: 2, updates: 3, role: 'member', moduleWord: 'module' }), { count: 2, updates: 0, title: 'Notifications, 2 unread' });
+  assert.deepEqual(bellState({ unread: 2, updates: 3, role: 'owner', moduleWord: 'module' }), { count: 5, updates: 3, title: 'Notifications, 2 unread, 3 module updates' });
+  assert.deepEqual(bellState({ unread: 0, updates: 1, role: 'admin', moduleWord: 'tool' }), { count: 1, updates: 1, title: 'Notifications, 0 unread, 1 tool update' });
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.ok(!/nav\.setBadge\('admin-link'/.test(brand), 'the update count is off Manage and your picture: it is on the bell');
+});
+
+test('the breadcrumb: nothing on home; a space\'s name; an aside\'s parent (Rejoin call) then the aside word and the others\' first names', () => {
+  assert.deepEqual(crumbSegments({ space: null }), []);
+  assert.deepEqual(crumbSegments({ space: { name: 'Disneyland' } }), [{ label: 'Disneyland', current: true }]);
+  assert.deepEqual(crumbSegments({ space: { isAside: true }, parentName: 'Disneyland', asideWord: 'Aside', others: ['Michelle Obama', 'Sam'] }), [
+    { label: 'Disneyland', current: false, action: 'rejoin', title: 'Rejoin call in Disneyland' },
+    { label: 'Aside: Michelle, Sam', current: true },
+  ]);
+  assert.deepEqual(crumbSegments({ space: { isAside: true }, asideWord: 'Side chat' }), [{ label: 'Side chat', current: true }]);
+});
+
+test('the anchor on the space page: the space\'s breadcrumb, nothing while home shows over it, a guest link\'s space; entering any space clears home', () => {
+  assert.deepEqual(anchorSegments({ space: { name: 'Paris' } }), [{ label: 'Paris', current: true }]);
+  assert.deepEqual(anchorSegments({ space: { name: 'Paris' }, viewingHome: true }), [], 'home over the space: empty (the pill is a later step)');
+  assert.deepEqual(anchorSegments({ space: null, viewingHome: true }), []);
+  assert.deepEqual(anchorSegments({ space: null, guestSpaceName: 'Disneyland' }), [{ label: 'Disneyland', current: true }]);
+  assert.equal(anchorSegments({ space: { isAside: true }, parentName: 'Disneyland', asideWord: 'Aside', others: ['Max'] })[0].title, 'Rejoin call in Disneyland');
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const crumb = space.slice(space.indexOf('function updateCrumb('), space.indexOf('\n}\n', space.indexOf('function updateCrumb(')));
+  assert.match(crumb, /anchorSegments\(\{ space, viewingHome,/, 'updateCrumb draws anchorSegments');
+  // Every way into a space clears "home over the space": join() itself, connectAndSetup() (every join, pull, invitation
+  // and reload lands there) and a dropped connection.
+  const join = space.slice(space.indexOf("async function join(spaceId = 'lobby'"), space.indexOf('\n}\n', space.indexOf("async function join(spaceId = 'lobby'")));
+  assert.match(join, /viewingHome = false;/, 'join() clears viewingHome');
+  const setup = space.slice(space.indexOf('async function connectAndSetup('), space.indexOf('async function startCall('));
+  assert.ok(setup.indexOf('viewingHome = false;') > -1 && setup.indexOf('viewingHome = false;') < setup.indexOf('updateCrumb();'), 'connectAndSetup() clears viewingHome before it draws the breadcrumb');
+  assert.match(space, /\.on\(RoomEvent\.Disconnected, \(\) => \{\n\s*viewingHome = false;/, 'a dropped connection clears it');
+  assert.match(space, /aria-label="\$\{escapeHtml\(seg\.title \|\| seg\.label\)\}"/, 'the parent segment says what it does to a screen reader');
+});
+
+test('in an aside, picking the parent space in the switcher does what Rejoin call does: returnFromAside, never a move of my own', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const at = space.indexOf("document.addEventListener('app:enter-space'");
+  assert.ok(at > -1, 'the space page takes the switcher\'s picks');
+  const handler = space.slice(at, space.indexOf('\n});\n', at));
+  const aside = handler.indexOf('currentSpace.isAside && currentSpace.origin === id) returnFromAside()');
+  assert.ok(aside > -1, 'a pick of the aside\'s parent calls returnFromAside()');
+  assert.ok(aside < handler.indexOf('joinInvitedSpace(id)'), 'checked before any move (joinInvitedSpace would strand the others)');
+});
+
+test('no ☰ with nothing in its menu (a guest), and the place outlasts your name and the environment\'s between the phone and a wide screen', () => {
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const wire = brand.slice(brand.indexOf('function wireNavMenu('), brand.indexOf('function firstEntry('));
+  assert.match(wire, /const any = \[\.\.\.menu\.children\]\.some\(\(c\) => !c\.hidden && !\('navDivider' in c\.dataset\)\);/);
+  assert.match(wire, /toggle\.hidden = !any/);
+  assert.match(wire, /new MutationObserver\(syncToggle\)\.observe\(menu, \{ childList: true, subtree: true, attributes: true, attributeFilter: \['hidden'\] \}\)/);
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, /\.topbar \.nav-toggle\[hidden\] \{\s*display: none;/, 'the phone rule that shows the button gives way to [hidden]');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1000px\) \{\s*\.topbar button\.whoami #whoami \{\s*display: none;/, 'your name goes first');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar \.brand-home \.brand-name \{\s*display: none;/, 'then the environment\'s');
+  assert.match(css, /\.topbar \.nav-left > \.crumb \{\s*flex: 0 1 auto;\s*min-width: 6em;/, 'the place keeps a few letters and its ellipsis at any width');
 });
 
 console.log(`check-nav: OK (${n} tests)`);

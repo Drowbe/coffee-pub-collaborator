@@ -109,24 +109,31 @@ whether the space's own pictures replace their defaults, and **Remove** takes th
 
 ## Your profile and signing out
 
-Your picture and name are at the right end of the header on every page. Anyone with an account can use them; a
-guest has no picture there and no account menu.
+Your picture and name are at the right end of the top bar on every page. Anyone with an account can use them; a
+guest has no picture there and no profile menu.
 
 1. Click your picture. A menu opens under it.
-2. Choose **View profile** to open your profile page. In a space it opens over the call, which keeps running.
-3. Or choose **Install as an app** to run Collaborator in its own window, without browser bars. It is there only
-   while your browser offers to install (Chrome and Edge, before Collaborator is installed); see "Install it as an app, and pop it out" in [The call](userguide-call.md).
-4. Or choose **Sign out**. It also forgets the light or dark choice made in this browser, so the next person here
-   starts from the default.
+2. Choose what you need:
+   - **View profile** opens your profile page. In a space it opens over the call, which keeps running.
+   - **Dark mode** switches between light and dark (see "Light or dark" below). A tick shows while it is on.
+   - **Manage** (owners and the admin) opens the Manage page; in a space it opens over the call. See
+     [Manage](userguide-environment-settings.md).
+   - **Host console** (a host admin signed in to one of the environments on a hosted server) opens the host
+     console. From a space it opens in a new tab, so the call keeps running.
+   - **Install as an app** runs Collaborator in its own window, without browser bars. It is there only while your
+     browser offers to install (Chrome and Edge, before Collaborator is installed), and never for a guest; see
+     "Install it as an app, and pop it out" in [The call](userguide-call.md).
+   - **Sign out**, last. It also forgets the light or dark choice made in this browser, so the next person here
+     starts from the default.
 
 The menu also works from the keyboard: the arrow keys move, Enter picks, and Escape closes it.
 
-On a phone your picture is not in the header. It is in the header's menu instead:
+On a phone your picture is not in the top bar. It is in the top bar's menu instead:
 
-1. Tap the menu button (**Menu**, three lines) at the right of the header.
-2. At the end of the menu, after a line, are your picture and name. They are only a label; tapping them does
+1. Tap the menu button (**Menu**, three lines) at the right of the top bar.
+2. Near the end of the menu, after a line, are your picture and name. They are only a label; tapping them does
    nothing.
-3. Tap **View profile**, **Install as an app** (while your browser offers it) or **Sign out** under them. They do the same as on a wider screen.
+3. Tap an entry under them: the same ones as on a wider screen, with a switch for dark mode.
 
 From the keyboard, opening the menu puts you on its first entry, Tab moves through the entries and back to the menu
 button, and Escape closes it.
@@ -137,10 +144,10 @@ work the same way; see "Set a picture" in [Participant and Character Images](use
 
 ## Light or dark
 
-The sun and moon switch next to the gear at the top of every page changes between light and dark at once, with
-no refresh. When you are signed in, your choice is kept on your account and follows you to your other devices; a
-guest's is kept in that browser. Once you have used it, you keep your choice even when the owner changes the
-environment's default.
+**Dark mode** in the menu under your picture (on a phone, the sun and moon switch in the top bar's menu) changes
+between light and dark at once, with no refresh. Your choice is kept on your account and follows you to your other
+devices. Once you have used it, you keep your choice even when the owner changes the environment's default. A guest
+has no switch and always sees the environment's default.
 
 ## Two-step sign-in
 

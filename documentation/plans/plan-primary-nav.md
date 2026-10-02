@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides what the top bar holds and how presence works, and the sessions that build it: experience-design (`public/brand.js`, `public/nav-bar.js`, `public/space.js`, `public/dashboard.js`, the styles) and server-development (`server/words.js`, `/api/presence`, the aside routes, the notification routes, the checks).
 
-**Status:** draft for Thomas to approve, 2026-10-01. Not built. From Thomas's "Primary Nav Spec" (October 1, 2026): "The primary nav is the environment-level bar. It shows on every page, keeps the same layout everywhere, and always tells the user where they are present and how to get back." Thomas's decisions on the spec are recorded below; on present versus viewing he chose option (a), "this was actually always the intent", "first choice pending details". This plan gives those details. It replaces the primary nav sections of [plan-nav](plan-nav.md) ("The model", the primary table, the phone rule for the primary nav, and "Open, zone by zone" for the primary zones). The secondary nav stays in plan-nav until its own spec comes. Answers three TODO items once approved: the invited private conversation with no origin, the aside's **Join** button on home, and "rethink navigating away and hanging up".
+**Status:** draft for Thomas to approve, 2026-10-01; Thomas answered the bell, the SDK's top-bar tool and the aside rules on 2026-10-02 (decisions 9 to 11). Not built. From Thomas's "Primary Nav Spec" (October 1, 2026): "The primary nav is the environment-level bar. It shows on every page, keeps the same layout everywhere, and always tells the user where they are present and how to get back." Thomas's decisions on the spec are recorded below; on present versus viewing he chose option (a), "this was actually always the intent", "first choice pending details". This plan gives those details. It replaces the primary nav sections of [plan-nav](plan-nav.md) ("The model", the primary table, the phone rule for the primary nav, and "Open, zone by zone" for the primary zones). The secondary nav stays in plan-nav until its own spec comes. Answers three TODO items once approved: the invited private conversation with no origin, the aside's **Join** button on home, and "rethink navigating away and hanging up". Changes the module SDK: a module can no longer place a tool in the top bar (decision 10).
 
 ## What it is today
 
@@ -27,9 +27,11 @@
 
 **Presence data.** `GET /api/presence` answers every user with `online`, `present`, `space` and `inCall`, every space with `mine`, and every aside with its `members`, `origin` and `private`, to anyone signed in and to guests. The Who's around strip names any person's space, whether or not the viewer belongs to it. `GET /api/status` (Studio and OBS, the stream key) answers the same for its own use.
 
-**Asides.** `POST /api/asides` (a pull) records the origin. `POST /api/asides/invite` makes a private aside with no origin (`addAside(..., null, true)`). Nothing stops a pull from inside an aside. Leaving an aside (`leaveSpace()`) nudges the others back to the origin (`POST /api/asides/return`) and then disconnects, which lands you on home, not in the origin; **Rejoin call** is what takes you back. An aside is pruned when nobody is in it (`pruneAsides`).
+**Asides.** An aside's record is `{ id, members, origin, private, createdAt }` (`addAside()` in `server/store.js`); it does not say who started it. `POST /api/asides` (a pull) takes the origin from the initiator's call, so a pull from inside an aside would nest. `POST /api/asides/invite` makes a private aside with no origin (`addAside(..., null, true)`) and checks only that the invitee is online (`isPresent`), so someone already in an aside can be invited, and their **Join** pulls them out of the first one. The page hides the start controls inside an aside (`public/space.js`, the pull and private conversation entries), but the server refuses nothing. Any member's **Rejoin call** (`returnFromAside()`) or **Leave** (`leaveSpace()`) calls `POST /api/asides/return`, which sends everyone else back to the origin too; Leave then disconnects, which lands you on home, not in the origin. An owner's **Pull participants back** (`POST /api/asides/recall`) brings back every private conversation from the owner's space. An aside is pruned when nobody is in it (`pruneAsides`, after a 20-second grace).
 
 **Notifications.** A store already exists. A module with the `notify` hook calls `host.notify({ to, title, body })` (Calendar, Polls and To-do do). `ModuleHooks.deliver()` in `server/module-hooks.js` keeps up to 50 per person in `modules/notifications.json`, each `{ id, module, scope, spaceId, title, body, at, read, by }`. `GET /api/notifications` answers the list, unread counts by module and the total; `POST /api/notifications/read` marks a module or one notice read; `/api/notifications/stream` pushes each one live. The pages show a toast and a count on the module's link or widget. What is missing: one place to see them (the bell and its panel), a pointer from a notice to its object, mark all read, and mentions (chat has none).
+
+**Module tools in the top bar.** `host.nav.set` takes a tool with `bar: 'primary'` and `system: true` into the top bar's right zone when the module's manifest has `surfaces.page.nav` (`cleanModuleTools()`'s `allowPrimary` in `public/nav-bar.js`, set by the `nav.set` handler in `public/module-host.js`). No module does this. `surfaces.page.nav` also decides whether the module's page is linked in the bar.
 
 **Words.** `server/words.js` holds the twelve level and role keys (`words`, each `{ one, many, a? }`) and one verb (`verbs.enter`). Its rule: "Adding a key means adding a level, which is a change to CLAUDE.md's Names first."
 
@@ -47,6 +49,15 @@ Thomas, 2026-10-01.
 6. **The online people list** names only spaces the viewer belongs to. A person in an aside shows as in a side chat (the `aside` word). Later: show all spaces with a "request" option. Joining from the list follows that space's rules: the template's enter word, and entering never joins the call. A space that is a "call" space is a future option.
 7. **Phone layout:** the logo, the anchor or the return pill, the bell and the menu button. Everything else is in the menu.
 8. **Build order:** (1) the bar's layout and moves; (2) the online people widget; (3) the aside rules; (4) present versus viewing and the return pill, by (a); (5) notifications.
+
+Thomas, 2026-10-02.
+
+9. **The bell is there before phase 5.** At first it shows that module updates are available: today's count on Manage and on your picture moves to the bell, for those who can act on it (owners and the admin).
+10. **No module tool is placed in the top bar by the module.** Thomas: "not specifically to the top bar." The top-bar registration (`system: true` with `surfaces.page.nav`, into the right zone) is retired. Modules keep registering tools, and the host decides where they go.
+11. **The aside rules**, for pull asides and private conversations alike:
+    - **An invited private conversation gets a parent:** the space it was started from, the inviter's present space.
+    - **One at a time.** A person is in at most one aside, and nobody can start one from inside one: they end it first. The server refuses both starting one while in one, and inviting or pulling someone who is in one, and tells the inviter in a plain sentence. Thomas: being the other person and just getting dropped is a bad experience.
+    - **Control belongs to the person who started it.** Only the starter ends it, and ending brings everyone back to the parent. Anyone else can leave at any time and goes back to the parent alone; the others stay. The aside also closes when the last person leaves.
 
 ## The bar
 
@@ -97,14 +108,16 @@ In Thomas's five phases (decision 8). "Left to build" splits them into steps tha
 - **The Spaces slot** replaces `spaces-link`: the `home` word as a link to home, and a caret button (`aria-haspopup="menu"`, title "Switch <space word>") that opens the switcher through `openHostMenu()`. On the space page, both keep today's in-page handling (`showSpaceList()`), so the call keeps running.
 - **The switcher** lists the spaces the viewer belongs to (`mine` from `/api/presence`), in the space list's order. Each entry: the space's name, a mark on the space you are present in (an icon with a title, "You are here", not a coloured dot alone), and "N here" when anyone is. Asides are not listed. Last, after a divider, "+ New <space word>" for owners and the admin, which opens Manage > Spaces with the new-space form (over the space when present). A click on a space enters it with the template's enter word rules, as its entry on home does; once phase 4's visit view lands, a click on a space other than the one you are present in opens the visit view instead (question 4).
 - **The breadcrumb** fills the anchor: on home, nothing; in a space, its name (`spaceDisplayName()`, the space's own icon as today's `spaceCrumbIcon()`); in an aside, the parent's name and "<Aside word>: <the other members' first names>". A segment that is not the current one is a link. Whether it shows while in a space is question 3; until Thomas answers, it follows the spec and shows.
+- **The bell** (decision 9): an icon button in the right zone, between online people and your picture. For owners and the admin it counts the module updates available (`loadUpdateBadge()`, `GET /api/modules`'s `bundled[].update`), title "N module updates available"; its panel says "N module updates available" with a link to Manage > Modules (over the space when present). What it shows to everyone else until phase 5 is question 7; the suggestion in the contract is the notices the server already keeps. The count leaves your picture and the Manage entry.
 - **The profile menu** (`accountMenuItems()`) by role:
   - every account: **View profile**; the light or dark switch as a checkbox entry ("Dark mode", `role="menuitemcheckbox"`); **Install as an app** while the browser offers it (as today, never a guest); **Sign out** last;
-  - an owner: **Manage** (`/admin`, keeping `?from=space` and the overlay as today), with the module update count as its badge;
+  - an owner: **Manage** (`/admin`, keeping `?from=space` and the overlay as today);
   - the admin: **Manage**; and, when the admin is the host admin's stand-in (`hostAdmin`), **Host console** (the host's address);
   - a moderator: nothing more (question 6).
-  The update count also shows as a small badge on your picture while it is above zero, so an owner still sees it without opening the menu.
+- **Until question 7 is answered, a suggestion for everyone else's bell:** the module notices the server already keeps (`GET /api/notifications`'s `unread` and `notifications`, and the stream's `notification` event): the unread total on the bell, and a plain list in the panel, newest first, each marked read when shown. Owners and the admin see the update line above the same list. Phase 5 adds what is missing.
+- **Module tools no longer reach the top bar** (decision 10). `cleanModuleTools()` drops `allowPrimary` and the `bar: 'primary'` path: a module's tools all go where the host puts them, which today is the space bar. A tool that still says `bar: 'primary'` or `system: true` is not refused; the two fields are ignored and the tool is placed like any other, so a module written against the old contract keeps working. `surfaces.page.nav` keeps only its other meaning, whether the module's page is listed. For module authors: the SDK reference's "Registering into the nav bars" loses the primary-bar paragraph, and the CHANGELOG says `bar` and `system` are ignored from this release.
 - **Guests** (a guest link's page): the logo and the environment's name as plain text, not links (a guest has no home); the anchor shows the space's name; no Spaces slot, no online people, no bell, no profile menu. The page uses the environment's default theme and ignores a mode this browser remembers.
-- **Phones** (640 px or less): the bar is the logo, the anchor or the pill (the last segment only, cut short with an ellipsis, the whole name as its title), the bell and the menu button. The menu holds, in order: the environment's name, the Spaces slot (the home link, then the switcher's entries inline), online people (the count, opening the list), then your picture and name, the profile menu's entries for your role, and Sign out. `phoneZones()` keeps doing the folding.
+- **Phones** (640 px or less): the bar is the logo, the anchor or the pill (the last segment only, cut short with an ellipsis, the whole name as its title), the bell (with its count, as on a wider screen) and the menu button. The menu holds, in order: the environment's name, the Spaces slot (the home link, then the switcher's entries inline), online people (the count, opening the list), then your picture and name, the profile menu's entries for your role, and Sign out. `phoneZones()` keeps doing the folding.
 - The clock setting stays in Manage. Its hint drops nothing: it already speaks of "every module". (Flag answered: removing the bar's clock does not leave the setting unused.)
 
 ### Phase 2: the online people widget
@@ -119,24 +132,34 @@ In Thomas's five phases (decision 8). "Left to build" splits them into steps tha
 
 - A widget in the right zone, `online-people` (an `element` tool, group `people`, before the bell): up to three square portraits in the style of who is here (`public/space-people.js`), then the count. Its title and accessible name: "N people online". "Just you" when alone.
 - The list, under it, inside the window (the same placement as who is here): you first, then each person with their portrait, name and where they are: "in Disneyland", "in an aside" (the `aside` word, `a` form), "online" (present on a page, in no space), or "in another <space word>" for `elsewhere`. A mark for "on the call". For a space the viewer belongs to and is not present in, an **<enter word>** button that enters it (never joining the call); none for an aside. The invite to a private conversation (today's Who's around button) moves here as an icon button per person.
-- Home: the Who's around strip is replaced by the widget (question 7).
+- Home: the Who's around strip is replaced by the widget (question 8).
 - Live: the widget redraws on each `/api/presence` answer the page already asks for; on pages that do not poll presence, it asks every 30 seconds while the page is visible.
 
 ### Phase 3: the aside rules
 
+Decision 11, for pull asides and private conversations alike.
+
 **Server:**
 
-- **One level.** `POST /api/asides` answers 409 "You are already in <an aside>." when the initiator's call is an aside, for a pull and a private conversation alike.
-- **Every aside has a parent.** `POST /api/asides/invite` sets the origin to the inviter's present space (question 8 covers an invitee who is not a member of it, and an inviter present nowhere).
-- **Leaving returns to the parent.** `POST /api/asides/return` answers the parent as today; what happens to the others when one person leaves is question 9.
+- **Who started it.** The aside's record gains `startedBy`, the starter's user key: the initiator of a pull, the inviter of a private conversation. `sanitizeAside()` keeps it; an aside from before it has none and reads as started by its first member. `GET /api/presence` gives `startedBy` to the aside's own members only.
+- **Every aside has a parent.** `POST /api/asides/invite` sets the origin to the inviter's present space. When the inviter is present nowhere, or the invitee is not a member of that space, see question 9.
+- **One at a time.** Each refusal answers 409 with one plain sentence, built with the `aside` word:
+  - `POST /api/asides` and `POST /api/asides/invite` when the initiator is in an aside: "End or leave your <aside> first."
+  - `POST /api/asides` when a person to pull is in an aside, and `POST /api/asides/invite` when the invitee is: "<Name> is in <an aside> right now. Try again once they're back."
+  - `POST /api/token` for an aside when the caller is already in another aside (an invitation accepted after its invitee went into another aside): "End or leave your <aside> first."
+- **Ending.** `POST /api/asides/end`, the starter only (403 "Only the person who started <the aside> can end it." for anyone else): every other member gets the `aside-return` nudge to the parent, and the answer is the parent. The aside is then removed.
+- **Leaving.** `POST /api/asides/return` sends only the caller back: it answers the parent and nudges nobody. The others stay. When the caller was the last one in it, the aside closes (as `pruneAsides` does now, without waiting for its grace).
+- **The starter dropping or leaving without ending.** Question 10. The suggestion: after the same 20-second grace `pruneAsides` gives (long enough for a reload or a reconnect), the server ends it as `POST /api/asides/end` would, and everyone returns to the parent.
+- **An owner's Pull participants back** (`POST /api/asides/recall`) is unchanged (question 15).
 - **Stepped out.** The phase 2 presence shape (`space: <parent>, aside: true`) is what the parent's members read.
 
 **Pages:**
 
 - An aside's entry leaves the space list; asides are not on home or in the switcher. The parent's entry on home shows who is in an aside from it: "Thomas, Michelle · in an aside".
-- **Leave** in an aside goes back to the parent (what **Rejoin call** does today, keeping the call for those on it). So does the parent's segment in the breadcrumb. **Rejoin call** goes from the space bar, since Leave now does the same (question 10).
+- **The space bar in an aside** (Thomas left the labels to the plan): the starter has **End <aside>** (the `aside` word, `fa-circle-xmark`), which calls `POST /api/asides/end` and takes everyone, the starter included, back to the parent, keeping the call for those on it. Everyone else has **Leave** (`fa-circle-left`, title "Back to <parent>"), which calls `POST /api/asides/return` and takes only them back. **Rejoin call** (`#rejoin-call`) goes. Leaving the space itself is done from the parent.
+- **The parent's segment in the breadcrumb** does the same as the space bar: Leave for a member; for the starter it asks first, "End <the aside> for everyone?", since it brings everyone back.
+- **One at a time on the page.** The pull, private conversation and invite controls are never offered while you are in an aside (for everyone, not only owners), and the invite button in the online people list is not offered for a person shown in an aside. A refusal from the server is shown as its sentence.
 - In the parent, who is here lists a person in an aside from it as "stepped out" (fixed words), under those present, with no call mark.
-- The space bar never offers a pull or a private conversation while you are in an aside (already true for owners; made true for everyone).
 
 ### Phase 4: present versus viewing, by option (a)
 
@@ -174,32 +197,32 @@ Built on the store that exists (`ModuleHooks.deliver`, `/api/notifications`).
 
 **Pages:**
 
-- The bell: an icon button with the unread total (`9+` above nine), title "Notifications, N unread".
+- The bell (drawn since phase 1): the unread total (`9+` above nine), title "Notifications, N unread".
 - The panel, under it: the newest first, each with its module's icon and name, title, body, time and whether read; a click opens the object (in its space, as a view when present) and marks it read; **Mark all read** at the top; "Nothing new." when empty.
 - The per-module counts on module links and home's tiles stay as they are; the toast stays.
-- Until this phase lands, the bell's slot is reserved: the bell is drawn without a count and its panel says "Notifications are coming." (question 13).
+- For owners and the admin, the module update line stays at the top of the panel, and the count on the bell is the unread notices plus the updates.
 
 ## Left to build, in order
 
 1. **The `home` word** (server-development). The key, its default, `branding()`, `PATCH /api/settings`, the template field and check, Manage's and the host editor's row.
-2. **The bar's layout and moves** (experience-design). The seven slots, the switcher, the breadcrumb, the profile menu by role, the guest bar, the phone menu; the clock, the home icon, the theme switch and Manage moved or removed.
+2. **The bar's layout and moves** (experience-design). The seven slots, the switcher, the breadcrumb, the bell with the module updates (and, per question 7, the notices that exist), the profile menu by role, the guest bar, the phone menu; the clock, the home icon, the theme switch, Manage and the update count moved or removed; the top-bar path for module tools retired in `nav-bar.js` and `module-host.js`, with `tools/check-nav.mjs`'s cases changed to match.
 3. **Presence by membership** (server-development). The filtered `/api/presence` and its check.
 4. **The online people widget** (experience-design). The widget, its list, entering and inviting from it, home's strip replaced.
-5. **The aside rules on the server** (server-development). One level, the invite's parent, leaving, stepped out.
-6. **The aside rules on the pages** (experience-design). The aside cards gone, Leave to the parent, stepped out, the parent's entry on home.
+5. **The aside rules on the server** (server-development). `startedBy`, the invite's parent, the one-at-a-time refusals (both start routes and the token), `POST /api/asides/end`, `/return` for the caller alone, the starter's drop, stepped out.
+6. **The aside rules on the pages** (experience-design). Aside entries gone from home, End and Leave in place of Rejoin call, the breadcrumb's parent segment, the start and invite controls hidden in an aside, the refusals shown, stepped out, the parent's entry on home.
 7. **Views and the pill: home and the settings pages** (experience-design). One open and one close for every view, Away on both, the pill, the history entries, the framed pages' pill.
 8. **The visit view** (experience-design, and server-development or the SDK for read only if question 11 says so).
-9. **Notifications** (server-development for `ref`, mark all and mentions; experience-design for the bell and the panel).
+9. **Notifications** (server-development for `ref`, mark all and mentions; experience-design for the panel's full form).
 
-Documentation after each step is content-manager's: [architecture-navigation](../architecture/architecture-navigation.md), the SDK reference (`host.notify`'s `ref`, and `host.nav.set` if question 14 removes the primary bar), the spaces and accounts user guides, and plan-nav's status.
+Documentation after each step is content-manager's: [architecture-navigation](../architecture/architecture-navigation.md), the SDK reference (`host.nav.set` without the top bar, after step 2; `host.notify`'s `ref`, after step 9), the CHANGELOG's note for module authors (step 2), the spaces and accounts user guides, and plan-nav's status.
 
 ## Verify
 
 - **Step 1.** Checked by a tool: `check-names --words` and `check-templates` with the `home` key, its default following the `space` word, and its refusals. Live with curl on a throwaway `DATA_DIR`: `branding()` with and without a template.
-- **Step 2.** Checked by `tools/check-nav.mjs`: the slot order, the phone fold (`phoneZones()`), and the profile menu's entries for each role (the entries as a pure function of the role and the browser's offer). Live in headless Chromium at 1280, 1024 and 390 px, signed in as a member, an owner and the admin, and on a guest link: each bar, the switcher, the menu, Manage's overlay keeping `?from=space`.
+- **Step 2.** Checked by `tools/check-nav.mjs`: the slot order, the phone fold (`phoneZones()`), the profile menu's entries for each role (the entries as a pure function of the role and the browser's offer), and a module tool with `bar: 'primary'` and `system: true` placed in the space bar, not refused. Live: the bell's update count for an owner with an update waiting, none for a member, and neither on your picture nor on Manage. Live in headless Chromium at 1280, 1024 and 390 px, signed in as a member, an owner and the admin, and on a guest link: each bar, the switcher, the menu, Manage's overlay keeping `?from=space`.
 - **Step 3.** Checked by a new case in a server check: a member sees only their spaces' names, `elsewhere` for the rest, an aside as its parent to the parent's members, and a guest only their own space. Live with curl as two members of different spaces.
 - **Step 4.** Live in headless Chromium with the faked LiveKit: the widget, its list, the count, the enter button. Entering from the list without joining the call needs a real call.
-- **Steps 5 and 6.** Checked by a server check with the stand-in LiveKit: a pull from an aside refused, an invite given a parent. Needs a real call with three people: leaving an aside lands in the parent, still on the call if you were; the parent sees "stepped out"; the others' fate when one leaves.
+- **Steps 5 and 6.** Checked by a server check with the stand-in LiveKit: a pull and an invite from inside an aside refused; a pull of, and an invite to, someone in an aside refused with the sentence; a token for a second aside refused; an invite given the inviter's space as parent; `startedBy` kept; End refused to anyone but the starter; `/return` nudging nobody. Needs a real call with three people: the starter's End bringing everyone back, on the call if they were; a member's Leave bringing only them back while the others stay; the last one out closing it; the starter dropping; the parent seeing "stepped out".
 - **Step 7.** Checked by a tool: the anchor's state as a pure function of present and viewing, every row of "Anchor states". Live in headless Chromium with the faked LiveKit: each view sets the `away` attribute and the pill; Back closes the view and clears it; a reload. Needs a real call: hearing muted, microphone and camera held off and restored, and a late joiner seeing Away.
 - **Step 8.** Live in headless Chromium: the visit view's layout, its enter button, and (if read only) a refused write. Needs a real call: the call carrying on underneath while visiting, and nobody in the visited space seeing you.
 - **Step 9.** Checked by a server check: `ref` kept, mark all. Live in headless Chromium: a To-do reminder and a Polls vote reaching the bell, the panel, opening the object.
@@ -215,11 +238,11 @@ Open (question 1). Thomas is torn. Today Maps, Research and Stream sit in the ba
 
 Suggestion, for Thomas to decide: **B**, with home keeping its tiles and gaining C's row of links. It keeps the spec's layout, keeps every module page one click from the bar, and costs no slot on a phone. `surfaces.page.nav` then means "listed among the environment's module pages".
 
-**The SDK's primary-bar tool.** `host.nav.set` takes a `system: true` tool into the primary bar's right zone; no module uses it, and the spec's right side is people, the bell and you. Options: keep it (the bar needs a place for it, against the spec); retire it (the registry refuses it with "the top bar takes no module tools; use host.notify for news" and `nav.set` resolves false, as it does where there is no space bar); or turn it into an entry in the profile menu. Suggestion: **retire it**; a module's news goes to the bell, and its tools to the space bar (question 14).
+**The SDK's top-bar tool** is decided (decision 10): retired; see phase 1.
 
 ## What is not decided
 
-Questions for Thomas, the ones that block a step first.
+Questions for Thomas, the ones that block a step first. Renumbered 2026-10-02: the old 9, 10, 13 and 14 are answered (decisions 9 to 11).
 
 1. **Module pages** (blocks step 2): A, B or C above, or another.
 2. **Where `home` lives** (blocks step 1). (a) In `words`, beside the levels, with a `one` and a `many`; CLAUDE.md's Names gains a line for it, since the vocabulary is the Names. (b) Beside `words` as its own one-string map, as `verbs.enter` is, so the vocabulary stays exactly the levels and roles. Suggestion: (b), since home is a page, not a level, and has no plural; it is still a code name that never changes.
@@ -227,15 +250,14 @@ Questions for Thomas, the ones that block a step first.
 4. **A click on a space in the switcher** (blocks step 2's wording, decides step 8). Present nowhere: enter it, or open the visit view with an enter button there? Present elsewhere: the visit view (the spec's rule 2), or enter? Suggestion: enter when present nowhere; visit when present elsewhere.
 5. **Who sees "+ New <space>"** (blocks step 2). Owners and the admin only, as `POST /api/spaces` allows today? Or a role permission so members can make a space (a server change)? Suggestion: owners and the admin only for now.
 6. **The profile menu for a moderator** (blocks step 2): nothing more than a member (their tools are per space, in the space bar), or a list of the spaces they moderate? And on a single install, is **Manage** the admin's "host settings", with no Host console entry? Suggestion: nothing more for a moderator; yes on a single install.
-7. **Home's Who's around strip** (blocks step 4): replaced by the online people widget, or kept beside it?
-8. **An invited private conversation's parent** (blocks step 5). The spec says only members of the parent can be in an aside, but Who's around invites anyone online. The parent is the inviter's present space; when the invitee is not a member of it, or the inviter is present nowhere: the Lobby, refuse the invite, or offer the invite only to members of the inviter's space?
-9. **One person leaving an aside** (blocks step 5). Today it takes everyone back to the parent. The spec says the aside closes when the last person leaves, which suggests the others stay. Which?
-10. **Rejoin call in an aside** (blocks step 6): goes, now that Leave returns to the parent? Leave's label in an aside: "Back to <parent>"?
+7. **What the bell shows to members and moderators before phase 5** (blocks step 2). (a) The module notices the server already keeps (Calendar, Polls and To-do raise them today): their unread total and a plain list. (b) Nothing: no count, and a panel that says "Nothing new." (c) No bell for them until phase 5. Suggestion: (a); it costs only page work, uses routes that exist, and a bell that never counts anything teaches people to ignore it.
+8. **Home's Who's around strip** (blocks step 4): replaced by the online people widget, or kept beside it?
+9. **An invited private conversation's parent, at the edges** (blocks step 5). The parent is the inviter's present space (decision 11). (a) The inviter is present nowhere (on home): the parent is the Lobby, which everyone belongs to; or the invite is not offered until the inviter enters a space. (b) The invitee is not a member of the inviter's space: the invite is not offered to them; or the parent becomes the Lobby; or each returns to where they were before. Suggestion: the Lobby for (a); for (b), the invite offered only to members of the inviter's present space, since the spec lets only the parent's members into an aside, and the online people list already knows which spaces the viewer shares.
+10. **The starter drops or leaves without ending** (blocks step 5). (a) After a 20-second grace (a reload or a reconnect keeps it), the aside ends and everyone returns to the parent. (b) Control passes to the person who has been in it longest. Suggestion: (a); control stays with one known person, nobody is handed a role they did not ask for, and the others land where End would have put them.
 11. **The visit view** (blocks step 8). Read only, or usable as your role allows? And how does an object come out of it: not at all at first; a "Copy to <present space>" action on an object; or dragging onto the pill? Suggestion: read only, with "Copy to <present space>" through the modules' existing actions, as a later step if it is not needed at once.
 12. **Mentions** (blocks step 9): in the notifications step, or later? The spec lists them; chat has no mentions today.
-13. **The bell before step 9**: drawn, with "Notifications are coming." as its panel, or left out until step 9 so nothing on the bar does nothing?
-14. **The SDK's primary-bar tool**: retire, keep, or move to the profile menu.
-15. **The home icon.** With the luggage icon gone from the bar and no icon on the Spaces slot, `settings.homeIcon` and a template's `icons.home` show nowhere in the bar. Keep them for home's own heading, or retire them?
-16. **Away for someone present but not on the call.** Option (a) sets Away on every view. With no call there is nothing to mute, but who is here would show them away. Intended?
+13. **The home icon.** With the luggage icon gone from the bar and no icon on the Spaces slot, `settings.homeIcon` and a template's `icons.home` show nowhere in the bar. Keep them for home's own heading, or retire them?
+14. **Away for someone present but not on the call.** Option (a) sets Away on every view. With no call there is nothing to mute, but who is here would show them away. Intended?
+15. **An owner's Pull participants back** against the starter's control. It brings back every private conversation from the owner's space, whoever started it. Keep it as the owner's override? Suggestion: keep it; the owner runs the space, and its 10-second countdown already warns the people in it.
 
 Later, decided as later: all spaces in the online list with a "request" option; a space that is a "call" space; the secondary nav's own spec; final template words for asides.

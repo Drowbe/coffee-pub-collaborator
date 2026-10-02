@@ -2,7 +2,7 @@
 // the host's own; every other card is a widget a module provides (its manifest's surfaces.widget), hosted here
 // exactly as a module page is, so the host names no module. The section stays hidden while there is nothing to show.
 import { api, escapeHtml, word } from '/brand.js';
-import { whereWords, tileRefTarget } from '/primary-nav.js';
+import { whereWords, tileRefTarget, tileHeading } from '/primary-nav.js';
 import { mountModule } from '/module-host.js';
 
 // What each module has unread (the host's notification counts): shown on its card's heading, since the header no
@@ -92,8 +92,9 @@ function card({ id, title, icon, name, href, size }) {
 }
 
 function mountWidget(w) {
-  // Where its heading goes: the server's `href` (the module's page, or the destination it is a part of while that shows).
-  const page = typeof w.href === 'string' && /^\/[A-Za-z0-9/_-]*$/.test(w.href) ? w.href : `/modules/${encodeURIComponent(w.id)}`;
+  // Where its heading goes: the server's `href` (the module's page, or the destination it is a part of while that shows,
+  // a panel's with #panel=<module id> so the page opens on it). `path` is that without the hash, for a place of its own.
+  const { page, path } = tileHeading(w.href, w.id);
   const { el, body } = card({ id: w.id, title: w.title, icon: w.icon, name: w.name, href: page, size: w.size });
   const inPage = w.runMode === 'page';
   let holder;
@@ -116,7 +117,7 @@ function mountWidget(w) {
     // A click in the widget that means "show me this in full": where its heading goes (the destination, or the module's
     // own page), at that place; over the space while present in one, or in a new tab when the click asked for one.
     onOpenPage: (hash, o = {}) => {
-      const href = `${page}${hash ? '#' + hash : ''}`;
+      const href = hash ? `${path}#${hash}` : page;
       if (o.newTab) return openNewTab(href);
       openModulePage(href);
       return true;

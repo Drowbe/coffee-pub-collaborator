@@ -12,6 +12,7 @@ import { loadBranding, api, wireOverlayBack, renderTopbar, setTopbarLocation, cr
 import { nav } from '/nav-bar.js';
 import { mountModule, createDestination } from '/module-host.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
+import { hashPanel } from '/primary-nav.js';
 
 const $ = (id) => document.getElementById(id);
 const destId = decodeURIComponent(location.pathname.split('/')[1] || '').toLowerCase(); // /CALENDAR is /calendar
@@ -26,9 +27,9 @@ const onPhone = () => phoneQuery.matches;
 // and without it the panel takes the page's width (the main part shows its own notice above it).
 const KINDS = {
   calendar: {
-    views: [{ id: 'month', label: 'Month' }, { id: 'week', label: 'Week' }, { id: 'day', label: 'Day' }],
+    views: [{ id: 'month', label: 'Month', icon: 'calendar-days' }, { id: 'week', label: 'Week', icon: 'calendar-week' }, { id: 'day', label: 'Day', icon: 'calendar-day' }],
     phoneView: 'day',
-    // Month, Week or Day as "Open on" says; its other views (Month + list, List) open on Month here.
+    // Month, Week or Day as "Open on" says; the Agenda (`list`) and an old stored Month + list (`both`) open on Month here.
     firstView: (values) => (values && ['month', 'week', 'day'].includes(values.defaultView) ? values.defaultView : 'month'),
   },
   map: {
@@ -278,7 +279,14 @@ function drawPageBar(d) {
     views.id = 'dest-views';
     views.setAttribute('role', 'group');
     views.setAttribute('aria-label', 'View');
-    views.innerHTML = kind.views.map((v) => `<button type="button" class="tb-tab" data-view="${v.id}">${v.label}</button>`).join('');
+    // The shared view switch (hostSwitch, public/sdk/host.js): icon and word, icons only while the bar is too narrow.
+    for (const v of kind.views) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.view = v.id;
+      window.hostSwitch.fill(b, v);
+      views.appendChild(b);
+    }
     views.addEventListener('click', (event) => {
       const b = event.target.closest('[data-view]');
       if (!b || b.dataset.view === view) return;
@@ -289,6 +297,7 @@ function drawPageBar(d) {
     });
     nav.register({ id: 'dest-views', bar: 'secondary', zone: 'left', group: 'dest-view', groupOrder: 1, order: 1, icon: 'calendar', label: 'View', element: views, visible: () => !onPhone() || tab === 'main' });
     paintViews();
+    window.hostSwitch.watch(bar.querySelector('.nav-left'));
   }
 
   const filter = document.createElement('span');
@@ -370,7 +379,15 @@ function drawPanelSwitch(d) {
   if (panels.length < 2) return;
   $('dest-panel-head').hidden = false;
   const tabs = $('dest-panel-tabs');
-  tabs.innerHTML = panels.map((p) => `<button type="button" class="tb-tab" data-panel="panel:${p.module.id}">${escape(p.label)}</button>`).join('');
+  // The shared view switch, each panel with its module's icon (as the phone's tabs have): icons only while the panel is too narrow.
+  for (const p of panels) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.panel = `panel:${p.module.id}`;
+    window.hostSwitch.fill(b, { id: p.module.id, label: p.label, icon: /^[a-z0-9-]{1,40}$/.test(p.module.icon || '') ? p.module.icon : 'puzzle-piece' });
+    tabs.appendChild(b);
+  }
+  window.hostSwitch.watch($('dest-panel-head'));
   tabs.addEventListener('click', (event) => {
     const b = event.target.closest('[data-panel]');
     if (!b || b.dataset.panel === panel) return;
@@ -447,8 +464,25 @@ function openRef(ref) {
 }
 
 function takeHash() {
-  const h = location.hash.slice(1);
+  let h = location.hash.slice(1);
   if (!h) return;
+  // A panel to show (#panel=<module id>, a panel tile's heading on home): it wins over the remembered tab this once and is
+  // then remembered as a pick in the switch would be (the bottom tab on a phone). It leaves the address, so a reload
+  // keeps the person's later picks. An unknown or unreadable one is ignored.
+  const asked = hashPanel(h, parts.filter((p) => p.key !== 'main').map((p) => p.key));
+  if (asked.found) {
+    h = asked.rest;
+    history.replaceState(history.state, '', `${location.pathname}${location.search}${h ? `#${h}` : ''}`);
+    if (asked.key) {
+      panel = asked.key;
+      if (onPhone()) {
+        tab = asked.key;
+        remember({ panel, tab });
+      } else remember({ panel });
+      layout();
+    }
+    if (!h) return;
+  }
   if (h.startsWith('ref=')) {
     try {
       const ref = JSON.parse(decodeURIComponent(h.slice(4)));

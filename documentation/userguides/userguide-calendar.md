@@ -18,7 +18,7 @@ When an owner turns on **Show Calendar** (see [Manage](userguide-environment-set
 2. In the bar under the top bar, choose **Month**, **Week** or **Day**. **Day** is one column of hours with the all-day events above.
 3. Click **Trips** (your environment's word for spaces) to choose whose events and tasks show: first the environment's own calendar, by the environment's name, then each of your spaces with its icon. The button says how many are on, such as "Trips (3 of 5)". With nothing on, the page says "Pick at least one in Trips."
 4. Use the arrows and **Today** above the calendar to move around. Click a day to select it.
-5. On the right, choose **Agenda** for the events from the selected day onward, grouped by day, or **To-do** for the open tasks (see [To-do](userguide-todo.md)). With the To-do off, or not yours to see, only the Agenda shows.
+5. On the right, choose **Agenda** for the events from the selected day onward, grouped by day, or **To-do** for the open tasks (see [To-do](userguide-todo.md)). With the To-do off, or not yours to see, only the Agenda shows. Here nothing is listed under the grid: the Agenda is the list, and on a phone it is the **Agenda** tab.
 
 This browser remembers the view, what **Trips** shows and the tab on the right. On a phone the page has three tabs at the bottom, **Calendar**, **Agenda** and **To-do**, and opens on **Day** until you pick another view.
 
@@ -28,7 +28,7 @@ Calendar shows only while the Calendar module is on and you may see it for the w
 
 ## The environment's calendar
 
-Without Calendar in the top bar, click the **Coming up** card's heading on the spaces page to open the full calendar. You see a month with each day's events. Use the arrows and **Today** to move around, and the five view buttons (icons; hover for the name) to switch between **Month** (the grid), **Week** (seven days with their events in full; the arrows step a week), **Day** (one day's hours), **Month + list** (the grid with that month's events listed under it) and **List** (what is coming up). On a narrow window it starts in the list.
+Without Calendar in the top bar, click the **Coming up** card's heading on the spaces page to open the full calendar. You see a month with each day's events. Use the arrows and **Today** to move around, and the four view buttons (icons; hover for the name) to switch between **Month** (the grid, with that month's events listed under it), **Week** (seven days with their events in full, and that week's events listed under them; the arrows step a week), **Day** (one day's hours, with no list) and **Agenda** (what is coming up).
 
 The environment's calendar also shows the events of every space you belong to that has the Calendar on. Each shows its space's icon (the space's launch-link icon, or the message icon if it has none) before the time and title, and in the list beside the space's name. A row of your spaces under the toolbar shows or hides each space. You can change a space's event here if you may add events in that space; otherwise it opens read-only and says "Only people who can add events in <space> can change this."
 
@@ -38,11 +38,11 @@ In a space, switch on **Calendar** in **Modules**, in the space bar under the he
 
 ## Settings
 
-On your profile page, under Module settings, **Open on** chooses the view the Calendar opens on: Month, Week, Day, Month + list or List. On a wider screen, Calendar in the top bar opens on the same view when it is Month, Week or Day, and on Month otherwise, until you pick a view there.
+On your profile page, under Module settings, **Open on** chooses the view the Calendar opens on: Month, Week, Day or Agenda. If you had chosen Month + list, which is gone, it opens on Month. On a wider screen, Calendar in the top bar opens on the same view when it is Month, Week or Day, and on Month for Agenda, until you pick a view there.
 
 ## Coming up on the dashboard
 
-On the spaces page, the dashboard's **Coming up** card lists the next seven days of events, up to eight, across every space you are in that has the Calendar on and the environment's own calendar, each with its space's icon; repeating events show on the days they land on. Click an event to open it. While Calendar is in the top bar, it opens there on the event, with its editor open; otherwise it opens in its space. Click a day in the small month to open the calendar at that day, and the heading for the full calendar: Calendar in the top bar when it is shown, else the Calendar's own page. From inside a space these open over the space, and you are Away on the call until you go back. Ctrl-click, Cmd-click, Shift-click, a middle click or Ctrl or Cmd with Enter opens it in a new tab instead, leaving home and the call alone. See [Spaces](userguide-spaces.md).
+On the spaces page, the dashboard's **Coming up** card lists the next seven days of events, up to eight, across every space you are in that has the Calendar on and the environment's own calendar, each with its space's icon; repeating events show on the days they land on. Click an event to open it. While Calendar is in the top bar, it opens there on the event, with its editor open; otherwise it opens in its space. Click a day in the small month to open the calendar at that day, and the heading for the full calendar: Calendar in the top bar when it is shown, on whichever of **Agenda** and **To-do** you chose last, else the Calendar's own page. From inside a space these open over the space, and you are Away on the call until you go back. Ctrl-click, Cmd-click, Shift-click, a middle click or Ctrl or Cmd with Enter opens it in a new tab instead, leaving home and the call alone. See [Spaces](userguide-spaces.md).
 
 ## Add and change events
 

@@ -38,6 +38,11 @@
   /* The shared bottom row itself: one line of those controls, with the padding around them and the bar's top
      border. A second toolbar uses this same height and sits in the column above, so it does not make this row taller. */
   --bar-h: calc(var(--bar-control-h) + 21px);
+  /* The action button (.action-btn below): a square icon button the height of the bottom row's controls, its icon a
+     fixed share of that height, so a smaller button (a compact call toolbar) keeps the same look. The ratio is the
+     call toolbar's own: a 20px icon in a 38px button. public/sdk/host.css has the same two tokens. */
+  --action-btn-h: var(--bar-control-h);
+  --action-icon-ratio: calc(20 / 38);
   /* The one height a module's optional toolbar row (under the titlebar) has, wherever it appears. */
   --toolbar-h: 34px;
   /* Stacking: a menu or list opened from the page's own chrome draws above every module (the floating layer is 25)
@@ -777,6 +782,53 @@ body.host-console .grow {
   border-color: var(--danger);
   color: var(--danger-text);
 }
+
+/* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
+   chat's Send, a module's action bar, a module's own bottom buttons). Its size is --action-btn-h and its icon
+   --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
+   rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
+   so and keeps a module from sizing the button itself. */
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--action-btn-h);
+  height: var(--action-btn-h);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.action-btn:hover {
+  background: var(--secondary-hover);
+  border-color: var(--accent);
+}
+
+.action-btn.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.action-btn.primary:hover {
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
+}
+
+.action-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+/* action-btn:end */
 
 select {
   background: var(--bg-input);
@@ -2708,21 +2760,10 @@ a.crumb-here:hover {
   flex-shrink: 0;
 }
 
+/* A call control: an .action-btn (its size, icon and colours), with room for the mic's level meter. */
 .fbtn {
   position: relative;
-  width: var(--bar-control-h);
-  height: var(--bar-control-h);
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--secondary);
-  color: var(--secondary-text);
-  font-size: 18px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   overflow: hidden;
-  flex-shrink: 0;
 }
 
 /* mic, audio, camera and layout each carry a small caret over their corner
@@ -2754,11 +2795,6 @@ a.crumb-here:hover {
 .fbtn-caret:hover,
 .fbtn-caret.on {
   color: var(--accent);
-}
-
-.fbtn:hover {
-  background: var(--secondary-hover);
-  border-color: var(--accent);
 }
 
 .fbtn.on {
@@ -2795,10 +2831,6 @@ a.crumb-here:hover {
 .fbtn.off {
   border-color: var(--danger);
   background: rgba(184, 80, 63, 0.35);
-}
-
-.fbtn .glyph i {
-  font-size: 20px;
 }
 
 /* the off state swaps to the slashed icon */
@@ -3729,6 +3761,14 @@ span.message-vis {
   line-height: 18px; /* one line plus padding is exactly the control height */
 }
 
+/* The hint stays on one line and never wraps; chat-input.js picks a shorter hint when the field is too narrow for the
+   full one (a textarea's hint gets no ellipsis in every browser). What a person types still wraps as before. */
+.chat textarea::placeholder {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .popover {
   position: absolute;
   z-index: 7;
@@ -3819,8 +3859,7 @@ span.message-vis {
     padding-bottom: max(6px, env(safe-area-inset-bottom));
   }
   .fbtn {
-    width: 40px;
-    height: 40px;
+    --action-btn-h: 40px;
   }
   .fbtn-caret {
     width: 14px;
@@ -4282,13 +4321,7 @@ span.message-vis {
 }
 
 .canvas.compact .fbtn {
-  width: 34px;
-  height: 34px;
-  font-size: 15px;
-}
-
-.canvas.compact .fbtn .glyph i {
-  font-size: 14px;
+  --action-btn-h: 34px;
 }
 
 .canvas.compact .fbtn-caret {
@@ -4328,13 +4361,7 @@ span.message-vis {
 }
 
 .canvas.tiny .fbtn {
-  width: 30px;
-  height: 30px;
-  font-size: 13px;
-}
-
-.canvas.tiny .fbtn .glyph i {
-  font-size: 12px;
+  --action-btn-h: 30px;
 }
 
 /* space pictures fill their square */
@@ -5375,6 +5402,14 @@ body.conference-window {
   background: var(--border);
 }
 
+/* view-switch:start -- the view switch: a row of choices (.tb-tab) in a .tb-tabs, each an icon (.tb-tab-glyph, a Font
+   Awesome <i> or an inline SVG) and a word (.tb-tab-word). host.ui.viewSwitch draws it (in a module's toolbar, or in
+   the module's own page), and the host's pages use it as it is (Chat's Private | Shared, a destination's switches).
+   When the words do not fit the switch's container (its width, not the window's), the shared fit (hostSwitch.fit in
+   public/sdk/host.js) adds .tb-tabs-compact: a choice with an icon shows only its icon, its word kept as its tooltip
+   and accessible name; a choice without one keeps its word. These rules are word for word the same in
+   public/style.css and public/sdk/host.css; tools/check-switches.mjs keeps them so and keeps a module from sizing the
+   switch itself. */
 .tb-tabs {
   display: inline-flex;
   flex: none;
@@ -5390,11 +5425,30 @@ body.conference-window {
   color: var(--text-dim);
   font: inherit;
   font-size: 12px;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.tb-tab-icon {
+.tb-tab-icon,
+.tb-tabs-compact .tb-tab:has(> .tb-tab-glyph) {
   padding-inline: 8px;
+}
+
+.tb-tab-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25em;
+}
+
+.tb-tab-glyph svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+.tb-tabs-compact .tb-tab-glyph ~ .tb-tab-word {
+  display: none;
 }
 
 .tb-tab:first-child {
@@ -5414,6 +5468,7 @@ body.conference-window {
   border-color: var(--accent);
   color: var(--on-accent);
 }
+/* view-switch:end */
 
 .tb-progress {
   position: relative;
@@ -5527,11 +5582,13 @@ body.conference-window {
   width: 1em;
   text-align: center;
 }
+/* In an action bar the "..." is as big as the action buttons beside it, with the same icon size. */
 .dock-bar .sdk-more,
 .module-floating-bar .sdk-more,
 .module-bar .sdk-more {
-  width: var(--bar-control-h);
-  height: var(--bar-control-h);
+  width: var(--action-btn-h);
+  height: var(--action-btn-h);
+  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
 }
 
 /* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
@@ -5756,16 +5813,9 @@ body.module-popout .topbar {
   color: var(--text-dim);
 }
 
-.quick-add input,
-.quick-add-go {
+.quick-add input {
   box-sizing: border-box;
   height: var(--bar-control-h);
-}
-
-.quick-add-go {
-  flex: none;
-  padding-left: 10px;
-  padding-right: 10px;
 }
 
 /* a quick-add with buttons beside it (a module sets more than one bar item): the field takes the room, and an icon-only button is as tall as the field is */
@@ -5773,13 +5823,6 @@ body.module-popout .topbar {
 .module-floating-bar:has(.quick-add),
 .module-bar:has(.quick-add) {
   gap: 6px;
-}
-
-.mod-bar .bar-icon {
-  flex: none;
-  width: var(--bar-control-h);
-  height: var(--bar-control-h);
-  padding: 0;
 }
 
 body.module-page .module-canvas {

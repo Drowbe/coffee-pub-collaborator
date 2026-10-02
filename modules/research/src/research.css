@@ -103,9 +103,6 @@ body { margin: 0; overflow: hidden; }
 .rs.narrow .rs-grid { grid-template-columns: minmax(0, 1fr); }
 .rs.narrow .rs-tools { flex-wrap: nowrap; }
 .rs.narrow .rs-search { max-width: none; flex: 1 1 0; min-width: 0; }
-.rs-bar { display: flex; align-items: flex-end; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--border); }
-.rs-bar input { flex: 1; min-width: 0; height: 38px; }
-.rs-bar .btn { height: 38px; min-width: 38px; }
 
 /* ---- the item menu trigger, the dialog, sources, states ---- */
 /* .menu is the card's own "..." trigger button (the menu itself is host.menu.show, drawn by the SDK). */

@@ -16,6 +16,9 @@
 html.light { --bg:#f4f1ec; --bg-section:#ffffff; --bg-card:#f6f2ea; --bg-input:#ffffff; --border:#d6cfc4; --text:#2a2118; --text-dim:#6f6558; --accent:#b8702a; --on-accent:#ffffff; --danger:#c0392b; }
 body { display: block; margin: 0; padding: 12px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 #stage { margin: 0 auto; height: 720px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+/* The host's action bar under the module, as the mock draws it (the module has no bar of its own); its buttons are the SDK's .action-btn. */
+.rs-bar { display: flex; align-items: flex-end; gap: 6px; padding: 8px 14px; border-top: 1px solid var(--border); }
+.rs-bar input { flex: 1; min-width: 0; height: var(--action-btn-h); }
 </style>
 </head>
 <body>
@@ -69,7 +72,7 @@ document.getElementById('stage').innerHTML = `<div class="rs${narrow ? ' narrow'
 <div class="rs-tools"><div class="rs-search">${i('magnifying-glass')}<input type="search" placeholder="Search research" value="${state === 'filtered' ? 'trip' : ''}"></div><button class="ai-btn" type="button">${i('wand-magic-sparkles')} Ask</button></div>
 <div class="rs-chips">${chips}</div><div class="rs-chips">${tagChips}</div>
 <main class="rs-body">${upload}${pos}${list.length ? `<div class="rs-grid">${list.join('')}</div>` : empty}</main>
-<div class="rs-bar"><input type="text" placeholder="Write a note, or paste a link"><button class="btn btn-primary" type="button" title="Add">${i('plus')}</button><button class="btn" type="button" title="Add a photo">${i('camera')}</button></div></div>`;
+<div class="rs-bar"><input type="text" placeholder="Write a note, or paste a link"><button class="action-btn" type="button" title="Add a photo">${i('camera')}</button><button class="action-btn primary" type="button" title="Add">${i('plus')}</button></div></div>`;
 </script>
 </body>
 </html>

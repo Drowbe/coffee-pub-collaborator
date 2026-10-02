@@ -480,4 +480,33 @@ test('polls ships /v as a local addPoll command', () => {
   assert.equal(raw.actions.provides.find((a) => a.name === 'addPoll')?.local, true);
 });
 
+test('calendar: the views are Month, Week, Day and Agenda; an old stored "Open on" still opens', () => {
+  const src = (name) => fs.readFileSync(path.join(ROOT, 'modules/calendar/src', name), 'utf8');
+  const lib = new Function('ymd', 'parseYmd', `${src('calendar-lib.js')}\nreturn { VIEW_IDS, openView, listUnder };`)(() => '', () => new Date());
+  assert.deepEqual(lib.VIEW_IDS, ['month', 'week', 'day', 'list']);
+  // What a person stored keeps working: the old Month + list ("both") opens on Month, which now lists; List is the Agenda.
+  for (const [stored, opens] of [['month', 'month'], ['week', 'week'], ['day', 'day'], ['list', 'list'], ['both', 'month'], [undefined, 'month'], ['', 'month'], ['nope', 'month']]) {
+    assert.equal(lib.openView(stored), opens, `"Open on" stored as ${JSON.stringify(stored)} opens on ${opens}`);
+  }
+  // Month and Week list under the grid, Day and the Agenda do not, and the destination's parts never do (its Agenda is the list).
+  assert.deepEqual(['month', 'week', 'day', 'list'].map((v) => lib.listUnder(v, null)), [true, true, false, false]);
+  assert.deepEqual(['month', 'week', 'day', 'list'].map((v) => lib.listUnder(v, 'main')), [false, false, false, false]);
+  const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules/calendar/module.json'), 'utf8'));
+  const openOn = raw.settings.find((d) => d.key === 'defaultView');
+  assert.deepEqual(openOn.options.map((o) => [o.value, o.label]), [['month', 'Month'], ['week', 'Week'], ['day', 'Day'], ['list', 'Agenda']], '"Open on" offers Month, Week, Day and Agenda');
+  assert.equal(openOn.default, 'month');
+  const js = src('calendar.js');
+  assert.match(js, /view = openView\(prefs\.defaultView\)/, 'the calendar opens on openView of "Open on"');
+  assert.match(js, /\{ id: 'list', label: 'Agenda'(, icon: '[a-z0-9-]+')? \},\n\s*\];/, 'the view switch ends with Agenda');
+  assert.doesNotMatch(js, /id: 'both'|Month \+ list'/, 'no Month + list view');
+  assert.equal((js.match(/listUnder\(view, part\)/g) || []).length, 2, 'Month and Week both ask listUnder');
+  // The Calendar destination's first view from "Open on": Month, Week or Day; the Agenda and an old Month + list open on Month.
+  const dest = fs.readFileSync(path.join(ROOT, 'public/destination.js'), 'utf8').match(/firstView: (\(values\) => .*),\n/);
+  assert.ok(dest, 'public/destination.js: KINDS.calendar.firstView');
+  const firstView = new Function(`return ${dest[1]};`)();
+  for (const [stored, opens] of [['month', 'month'], ['week', 'week'], ['day', 'day'], ['list', 'month'], ['both', 'month'], [undefined, 'month']]) {
+    assert.equal(firstView({ defaultView: stored }), opens, `/calendar with "Open on" ${JSON.stringify(stored)} opens on ${opens}`);
+  }
+});
+
 console.log(`check-modules: ${n} groups OK`);

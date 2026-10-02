@@ -284,28 +284,17 @@
 
   // Open / Done / All is the toolbar's view switch.
   const FILTERS = [
-    { id: 'open', label: 'Open' },
-    { id: 'done', label: 'Done' },
-    { id: 'all', label: 'All' },
+    { id: 'open', label: 'Open', icon: 'circle', regular: true },
+    { id: 'done', label: 'Done', icon: 'circle-check' },
+    { id: 'all', label: 'All', icon: 'list-check' },
   ];
-  // As the panel there is no toolbar row: the same switch is drawn in the page, at the top beside Add task.
-  const filterSwitch = part ? {
-    set(value, options) {
-      $('show').innerHTML = options.map((f) => `<button type="button" data-show="${esc(f.id)}" aria-pressed="${f.id === value}">${esc(f.label)}</button>`).join('');
-    },
-  } : host.ui.viewSwitch({
+  // As the panel there is no toolbar row: the same switch is drawn in the page (`element`), at the top beside Add task.
+  const filterSwitch = host.ui.viewSwitch({
     id: 'filter',
     options: FILTERS,
     value: show,
     onChange: (id) => { show = id; render(); },
-  });
-  $('show').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-show]');
-    if (!b) return;
-    show = b.dataset.show;
-    render();
-    const again = root.querySelector(`[data-show="${show}"]`);
-    if (again) again.focus();
+    ...(part ? { element: $('show') } : {}),
   });
 
   // As the panel: open tasks across the places the page's filter has on, by when they are due.

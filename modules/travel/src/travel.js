@@ -844,10 +844,10 @@
   // they're the trip's own actions, and stay icons in the titlebar when the host has one (a pane, or a
   // module's own window); on the server page there is none, and the buttons stay in the page.
   const VIEWS = [
-    { id: 'days', label: 'Days' },
-    { id: 'decisions', label: 'Decisions' },
-    { id: 'bookings', label: 'Bookings' },
-    { id: 'money', label: 'Money' },
+    { id: 'days', label: 'Days', icon: 'calendar-days' },
+    { id: 'decisions', label: 'Decisions', icon: 'scale-balanced' },
+    { id: 'bookings', label: 'Bookings', icon: 'ticket' },
+    { id: 'money', label: 'Money', icon: 'coins' },
   ];
   const viewSwitch = host.ui.viewSwitch({
     id: 'view',

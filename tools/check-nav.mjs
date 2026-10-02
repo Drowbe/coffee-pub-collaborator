@@ -29,7 +29,7 @@ const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFile
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, tileRefTarget } = await import(pathToFileURL(primaryCopy).href);
+const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
 // The server's presence by membership (plan-primary-nav.md, step 3), so the pages' reading is held against the real answer.
 const { presenceView } = createRequire(import.meta.url)('../server/presence-view.js');
 fs.rmSync(tmp, { recursive: true, force: true });
@@ -711,7 +711,7 @@ test('a module page opened from home while present in a space slides over the sp
   assert.match(dash, /<a class="dashboard-widget-title" href="\$\{escapeHtml\(href\)\}"/, 'the heading stays a real link (new tab, present nowhere)');
   // To the module's page, or (plan-calendar-destination, decision 16) the destination it is a part of while that shows:
   // the server's `href`, a path on this server.
-  assert.match(dash, /typeof w\.href === 'string' && [^\n]*\? w\.href : `\/modules\/\$\{encodeURIComponent\(w\.id\)\}`/, 'to the server\'s href, else the module\'s page');
+  assert.match(dash, /const \{ page, path \} = tileHeading\(w\.href, w\.id\);/, 'to the server\'s href, else the module\'s page (tileHeading)');
   assert.match(dash, /card\(\{ id: w\.id, [^\n]*href: page,/, 'the heading uses it');
   assert.match(dash, /title="Open \$\{escapeHtml\(name \|\| title\)\}" data-page-link>/, 'a heading says it is a page link, whatever its address');
   const dashClick = handlerOf(dash, "document.addEventListener('click', (event) => {", '\n  if (event.defaultPrevented');
@@ -749,6 +749,10 @@ test('a module page opened from home while present in a space slides over the sp
   assert.deepEqual(run(true, toDest), { navigated: false, opened: ['/calendar#day=2026-10-02'] }, 'present: a destination heading opens over the space');
   assert.deepEqual(run(false, toDest), { navigated: true, opened: [] }, 'present nowhere: it navigates');
   assert.deepEqual(run(true, { href: 'http://h.test/calendar' }), { navigated: true, opened: [] }, 'another link on home, not a heading, is left alone');
+  // A panel tile's heading (/calendar#panel=todo) keeps its hash over the space; present nowhere the link itself goes.
+  const toPanel = { href: 'http://h.test/calendar#panel=todo', pageLink: true };
+  assert.deepEqual(run(true, toPanel), { navigated: false, opened: ['/calendar#panel=todo'] }, 'present: a panel heading opens over the space, hash and all');
+  assert.deepEqual(run(false, toPanel), { navigated: true, opened: [] }, 'present nowhere: it navigates (the link has the hash)');
   // The widget's own "open in full" and an object out of a space go the same way, never straight to location.href.
   assert.ok(!/location\.href = `\/modules/.test(dash), 'dashboard.js never navigates to a module page directly');
   assert.match(dash, /openModulePage\(href\);/, 'a widget\'s "open in full" goes through openModulePage');
@@ -777,7 +781,7 @@ test('home tiles: an object opens where its tile\'s heading goes (the destinatio
   const body = dash.slice(dash.indexOf('let openInSpace = null;'), dash.indexOf('// A plain click on a link to a module page on home'));
   assert.match(body, /function openRef\(/);
   assert.match(dash, /onOpenRef: \(ref, o = \{\}\) => openRef\(ref, \{ page, module: w\.id, newTab: o\.newTab \}\)/, 'a widget\'s objects go by its heading\'s address');
-  assert.match(dash, /onOpenPage: \(hash, o = \{\}\) => \{\n\s*const href = `\$\{page\}\$\{hash \? '#' \+ hash : ''\}`;\n\s*if \(o\.newTab\) return openNewTab\(href\);/, 'a day: where the heading goes, a new tab when asked');
+  assert.match(dash, /onOpenPage: \(hash, o = \{\}\) => \{\n\s*const href = hash \? `\$\{path\}#\$\{hash\}` : page;\n\s*if \(o\.newTab\) return openNewTab\(href\);/, 'a day: where the heading goes (its place replacing a #panel=), a new tab when asked');
   const run = ({ present = false, page, module, ref, newTab = false, hooks = true }) => {
     const out = { pages: [], spaces: [], tabs: [], navigated: null };
     const doc = { dispatchEvent: (e) => { if (present) { out.pages.push(e.detail.href); return false; } return true; } };
@@ -904,6 +908,62 @@ test('destinations: an entry each in the middle zone, in the server\'s order, cu
   assert.equal(destinationTools(list, { present: true })[0].bar.overlay, true);
   assert.equal(destinationTools(list)[0].bar.overlay, false);
 });
+// A panel tile's heading (plan-calendar-destination.md): the server gives a panel's tile `href: '/calendar#panel=<id>'`;
+// home keeps the hash on every way there, and the destination page opens on that panel (its bottom tab on a phone),
+// once, then remembered as a pick. An unknown or unreadable id is ignored; #ref= and #day= still work beside it.
+test('a panel tile\'s heading: /calendar#panel=<id> survives home and the overlay, and opens that panel', () => {
+  assert.deepEqual(tileHeading('/calendar#panel=todo', 'todo'), { page: '/calendar#panel=todo', path: '/calendar' });
+  assert.deepEqual(tileHeading('/calendar', 'calendar'), { page: '/calendar', path: '/calendar' });
+  assert.deepEqual(tileHeading('/calendar#ref=x', 'todo'), { page: '/modules/todo', path: '/modules/todo' }, 'only #panel= is a heading\'s hash');
+  assert.deepEqual(tileHeading('https://evil.test/x', 'todo'), { page: '/modules/todo', path: '/modules/todo' });
+  assert.deepEqual(tileHeading(undefined, 'polls'), { page: '/modules/polls', path: '/modules/polls' });
+  const own = { module: 'todo', kind: 'task', id: 't1', scope: 'environment' };
+  assert.deepEqual(tileRefTarget(own, { page: '/calendar#panel=todo', module: 'todo' }), { how: 'page', href: `/calendar#ref=${encodeURIComponent(JSON.stringify(own))}` }, 'a task from a panel tile: one hash, the pointer');
+
+  const keys = ['panel:calendar', 'panel:todo'];
+  assert.deepEqual(hashPanel('panel=todo', keys), { key: 'panel:todo', found: true, rest: '' });
+  assert.deepEqual(hashPanel('panel=nope', keys), { key: '', found: true, rest: '' }, 'unknown: ignored');
+  assert.deepEqual(hashPanel('panel=%E0%A4%A', keys), { key: '', found: true, rest: '' }, 'unreadable: ignored');
+  assert.deepEqual(hashPanel('panel=todo&day=2026-10-02', keys), { key: 'panel:todo', found: true, rest: 'day=2026-10-02' });
+  assert.deepEqual(hashPanel('day=2026-10-02', keys), { key: '', found: false, rest: 'day=2026-10-02' });
+  assert.deepEqual(hashPanel('ref=%7B%7D', keys), { key: '', found: false, rest: 'ref=%7B%7D' });
+
+  // The space page's overlay puts its ?from=space… before the hash.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const ov = space.slice(space.indexOf('function openOverlay(path) {'), space.indexOf('\n}\n', space.indexOf('function openOverlay(path) {'))) + '\n}';
+  const frame = { hidden: true, src: '' };
+  new Function('$', 'document', 'spaceName', 'setAway', `${ov}\nopenOverlay('/calendar#panel=todo');`)(() => frame, { querySelector: () => null }, 'Paris', () => {});
+  assert.equal(frame.src, '/calendar?from=space&spaceName=Paris#panel=todo', 'over the space: the query, then the hash');
+
+  // destination.js's takeHash, run against stand-ins.
+  const dest = fs.readFileSync(path.join(ROOT, 'public/destination.js'), 'utf8');
+  assert.match(dest, /import \{ hashPanel \} from '\/primary-nav\.js';/);
+  const take = dest.slice(dest.indexOf('function takeHash() {'), dest.indexOf('\n}\n', dest.indexOf('function takeHash() {'))) + '\n}';
+  const runDest = (hash, { phone = false, saved = {} } = {}) => {
+    const out = { stored: { ...saved }, delivered: [], refs: [], address: null, layouts: 0, shown: [] };
+    const st = { panel: saved.panel || 'panel:calendar', tab: saved.tab || 'main' };
+    const location = { hash: hash ? `#${hash}` : '', pathname: '/calendar', search: '?from=space' };
+    const history = { state: null, replaceState: (s, t, u) => { out.address = u; } };
+    const parts = [{ key: 'main', mounted: { deliver: (k, v) => out.delivered.push(v.hash) } }, { key: 'panel:calendar' }, { key: 'panel:todo' }];
+    const f = new Function('location', 'history', 'parts', 'hashPanel', 'onPhone', 'remember', 'layout', 'show', 'openRef', 'st',
+      `let panel = st.panel, tab = st.tab;\n${take}\ntakeHash();\nreturn { panel, tab };`);
+    const r = f(location, history, parts, hashPanel, () => phone, (p) => Object.assign(out.stored, p), () => { out.layouts++; },
+      (k) => out.shown.push(k), (ref) => out.refs.push(ref), st);
+    return { ...out, ...r };
+  };
+  const wide = runDest('panel=todo', { saved: { panel: 'panel:calendar' } });
+  assert.deepEqual([wide.panel, wide.stored.panel, wide.layouts, wide.address, wide.shown], ['panel:todo', 'panel:todo', 1, '/calendar?from=space', []], 'wide: the To-do panel, remembered, the hash taken out (the query kept)');
+  const phone = runDest('panel=todo', { phone: true, saved: { tab: 'main' } });
+  assert.deepEqual([phone.tab, phone.stored.tab, phone.shown], ['panel:todo', 'panel:todo', []], 'phone: the To-do tab, remembered; not the main part');
+  const unknown = runDest('panel=nope', { saved: { panel: 'panel:calendar' } });
+  assert.deepEqual([unknown.panel, unknown.stored, unknown.layouts, unknown.delivered], ['panel:calendar', { panel: 'panel:calendar' }, 0, []], 'unknown: ignored, never handed to the main part');
+  const withDay = runDest('panel=todo&day=2026-10-02');
+  assert.deepEqual([withDay.panel, withDay.delivered], ['panel:todo', ['day=2026-10-02']], 'with a day: both');
+  assert.deepEqual(runDest('day=2026-10-02').delivered, ['day=2026-10-02'], 'a day alone, as before');
+  assert.deepEqual(runDest(`ref=${encodeURIComponent(JSON.stringify(own))}`).refs, [own], 'a pointer alone, as before');
+  assert.match(dest, /takeHash\(\);\n\s*window\.addEventListener\('hashchange', takeHash\);/, 'on load and on hashchange');
+});
+
 test('destinations: none listed (the option off, the Calendar off or unreadable, a guest) means no entry; a malformed one is left out', () => {
   assert.deepEqual(destinationTools([]), []);
   assert.deepEqual(destinationTools(undefined), []);

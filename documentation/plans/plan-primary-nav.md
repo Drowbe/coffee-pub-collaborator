@@ -265,7 +265,7 @@ Decisions 30 and 31, before step 3.
 
 ### Phase 6: Calendar and Map
 
-Decision 32. The Calendar half is [plan-calendar-destination](plan-calendar-destination.md) and the Map half is [plan-map-destination](plan-map-destination.md), both decided by Thomas 2026-10-02 and ready for approval. Each needs its own plan before anything is built: Calendar and To-do each need an environment-wide page that works together, and Places and Maps likewise (Maps has no environment page today). That plan decides each destination's design, the "Show Calendar" and "Show Map" options in Manage, how the Modules tab's on, off and permissions hide them, and where they sit in the bar: after Spaces ▾ and its breadcrumb, or on the right beside online people. This plan only keeps the bar ready for them.
+Decision 32. Planned in [plan-calendar-destination](plan-calendar-destination.md) and [plan-map-destination](plan-map-destination.md), both approved by Thomas, 2026-10-02, and queued after steps 3 to 9, Calendar first. They settle each destination's design, the "Show Calendar" and "Show Map" options in Manage's Top bar section, how the Modules tab's on, off and permissions hide them, and where they sit: in the middle zone of the bar, Calendar then Map. This plan only keeps the bar ready for them.
 
 ## Left to build, in order
 
@@ -299,6 +299,6 @@ Documentation after each step is content-manager's: [architecture-navigation](..
 
 ## What is not decided
 
-Nothing for this plan: Thomas answered every question (decisions 1 to 33). Two notes for later work: what becomes of `GET /api/modules/nav` (step 2b), and, for phase 6's own plan, where the Calendar and Map destinations sit in the bar.
+Nothing for this plan: Thomas answered every question (decisions 1 to 33). One note for later work: what becomes of `GET /api/modules/nav` (step 2b). Where the Calendar and Map destinations sit is settled by their plans: the middle zone, Calendar then Map.
 
 Later, decided as later: all spaces in the online list with a "request" option; a space that is a "call" space; private conversations between two people outside any space (decision 20); the secondary nav's own spec, which takes the space's name out of the space bar (decision 14); final template words for asides.

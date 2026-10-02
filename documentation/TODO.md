@@ -12,7 +12,7 @@ side of things.
 
 ## Planned
 
-- Calendar and Map as top-bar destinations (decision 32 of [plan-primary-nav](plans/plan-primary-nav.md), Thomas 2026-10-02): Calendar is the Calendar and To-do together, Map is Places and Maps together, each its own design, each an environment option ("Show Calendar", "Show Map"), hidden when the module is off or the viewer has no permission. Needs its own plan first: environment-wide pages for both pairs (Maps has none), and where they sit in the bar.
+- **Calendar and Map in the top bar** ([plan-calendar-destination](plans/plan-calendar-destination.md), [plan-map-destination](plans/plan-map-destination.md), approved by Thomas 2026-10-02): phase 6 of [plan-primary-nav](plans/plan-primary-nav.md). Calendar is the Calendar and To-do together, Map is Places and Maps together, on one shared destination page, each an environment option ("Show Calendar", "Show Map"). Queued after the top bar's steps 3 to 9, Calendar first.
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.

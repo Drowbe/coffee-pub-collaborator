@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides what the Calendar destination shows, how it behaves and where it sits, and the sessions that build it: server-development (the setting, the manifest field, the destination routes, the redirects, the checks) and experience-design (the destination page, the SDK changes, the bar's entry, Manage's row, and the Calendar and To-do modules).
 
-**Status:** decided, ready for approval (2026-10-02); nothing built. Drafted 2026-10-02; Thomas answered every question the same day (decisions 8 to 18). Phase 6 of [plan-primary-nav](plan-primary-nav.md) (decision 32), Calendar half only; Map is [plan-map-destination](plan-map-destination.md), which shares this plan's frame (the destination page, `surfaces.destination`, `/api/destinations`, `host.destination` and Manage's Top bar section). Thomas's direction, 2026-10-02: Calendar is "a combination of the Calendar and To-do modules, as a direct destination in the top bar (not a dropdown)". It "has its own specific design and never pops out or floats". It is an environment option, "Show Calendar", "since not every environment wants it". It "honours the module settings on Manage's Modules tab: if a module is off or the viewer lacks permission, that part doesn't show". His layout sketch:
+**Status:** approved by Thomas, 2026-10-02; queued after primary nav steps 3-9, Calendar first; nothing built. Drafted 2026-10-02; Thomas answered every question the same day (decisions 8 to 18), confirmed what Where lists (decision 19) and approved the plan. Phase 6 of [plan-primary-nav](plan-primary-nav.md) (decision 32), Calendar half only; Map is [plan-map-destination](plan-map-destination.md), which shares this plan's frame (the destination page, `surfaces.destination`, `/api/destinations`, `host.destination` and Manage's Top bar section). Thomas's direction, 2026-10-02: Calendar is "a combination of the Calendar and To-do modules, as a direct destination in the top bar (not a dropdown)". It "has its own specific design and never pops out or floats". It is an environment option, "Show Calendar", "since not every environment wants it". It "honours the module settings on Manage's Modules tab: if a module is off or the viewer lacks permission, that part doesn't show". His layout sketch:
 
 ```text
 [ Primary Nav                                              ]
@@ -49,6 +49,10 @@ Thomas, 2026-10-02, answering the draft's questions.
 17. **To-do on but Calendar off: no destination.** The Calendar is its main part.
 18. **The view, the filter and the panel's tab are remembered per browser.**
 
+Thomas, 2026-10-02, approving the plan.
+
+19. **Where lists what the filter lists:** the environment's own calendar or list, for people allowed to edit there, then the spaces where the viewer may add. It matches the filter (decision 8), less what the viewer may not add to.
+
 ## How it is put together
 
 Decision 9. Two other ways were set aside: the Calendar's page showing tasks itself through pointers (a module cannot write another's data, so adding or ticking a task would wait on actions until the To-do is open somewhere), and a host page that names `calendar` and `todo` and frames their environment pages side by side (it breaks the rule that Collaborator names no module, and each page would bring its own header and filter row).
@@ -72,7 +76,7 @@ Decision 9. Two other ways were set aside: the Calendar's page showing tasks its
 - **Agenda** (the Calendar's `panel` part): the events of the shown period from the selected day onward, grouped by day, each with its time, title and space icon; "Nothing else this month." (or week, or day) at the end. Clicking one opens the same editor.
 - **To-do** (the To-do's `panel` part): open tasks across the chosen spaces, grouped Overdue, Today, This week, Later and No date, each with its space icon, a tick box and its due date; the existing open or done choice; **Add task** at the top. Ticking and editing work in place.
 
-**Making and changing things.** Full editing, by each space's own permissions, as in the visit view (plan-primary-nav decision 21). The event and task editors gain a **Where** choice at the top, listing the environment's own calendar or list (for those who may edit the module at environment level), then the spaces where the viewer may add (the module's `edit` permission there, `write` in `spaces-data`). It always starts empty, reading "Pick a <space>", whatever the filter shows or was used last; **Save** says "Pick a <space> first." until one is picked (decision 13). An existing event or task cannot be moved to another space; for one, Where shows its place and cannot be changed (decision 13). An event or task in a space where the viewer may only read opens read only, saying "Only people who can add events in <space> can change this." Reminders are set in the event's or task's own space, as today.
+**Making and changing things.** Full editing, by each space's own permissions, as in the visit view (plan-primary-nav decision 21). The event and task editors gain a **Where** choice at the top (decision 19), listing the environment's own calendar or list (for those who may edit the module at environment level), then the spaces where the viewer may add (the module's `edit` permission there, `write` in `spaces-data`). It always starts empty, reading "Pick a <space>", whatever the filter shows or was used last; **Save** says "Pick a <space> first." until one is picked (decision 13). An existing event or task cannot be moved to another space; for one, Where shows its place and cannot be changed (decision 13). An event or task in a space where the viewer may only read opens read only, saying "Only people who can add events in <space> can change this." Reminders are set in the event's or task's own space, as today.
 
 **Dragging.** A task dragged onto a day sets its due date, and an event dragged onto the To-do makes a linked task, through the drop menu that already works between module frames in one window (`host.objects.dropMenu`, To-do's `setTaskDue` and `createTask`). Nothing new is built for it; it is checked live.
 
@@ -137,4 +141,4 @@ Decision 9. Two other ways were set aside: the Calendar's page showing tasks its
 
 ## What is not decided
 
-Nothing Thomas was asked: decisions 8 to 18 answer every question of the draft. Left as they are today, not asked: a click on one event or task in a home tile still enters its space, as now. Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.
+Nothing Thomas was asked: decisions 8 to 19 answer every question of the draft. Left as they are today, not asked: a click on one event or task in a home tile still enters its space, as now. Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.

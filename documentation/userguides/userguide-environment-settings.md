@@ -2,14 +2,14 @@
 
 **Audience:** an owner or the admin running a Collaborator environment, working through the Manage page.
 
-Open the Manage page with the gear icon in the header. It has seven tabs, in this order: **Environment**,
+Open the Manage page from the menu under your picture in the top bar: choose **Manage**. It has seven tabs, in this order: **Environment**,
 **Template**, **Theme**, **Spaces**, **Roles**, **Users** and **Modules**, plus **About**. On a phone the row of tabs scrolls sideways within itself. (Old addresses still work: `/admin#server` and `#settings` open Environment, `#rooms` opens Spaces, and `#words` and `#home-icon` open the Template tab at that section.) The header's crumb on the pages reached from here (a space's settings, a person's profile, a module's configuration, the AI configuration) says **Manage**. Only owners and the admin (on a hosted server, the host admin) see it; anyone else asking for it is told "Owners only."
 
 ## Environment
 
 - **Environment** (a hosted server only). The plan's name, each cap with what is used, the overdue banner when a payment has lapsed, **Upgrade**, **Download a copy** and **Ask for deletion**. See [Your environment](userguide-environments.md).
-- **Name and icon.** The **Name** shows in the header and the browser tab. The icon is any image;
-  it is used in the header, as the favicon, and on the sign-in page. Click it to change it, or paste a
+- **Name and icon.** The **Name** shows in the top bar and the browser tab. The icon is any image;
+  it is used in the top bar's logo box (in place of the home icon), as the favicon, and on the sign-in page. Click it to change it, or paste a
   picture (see "Set a picture" in [Participant and Character Images](userguide-images.md)), and the
   small **x** over its corner to clear it.
 - The home icon, the words and the module names are on the **Template** tab (below).
@@ -37,7 +37,8 @@ The **Template** tab gathers what a template gives an environment. From the top:
 - **Words** (below).
 - **Module names and icons.** Every module, the built-in Conference and Chat first, with what it is shown as here.
   See "Show a module under another name" in [Modules](userguide-modules.md).
-- **Home icon.** The icon beside the environment's name wherever it is a link back to the list of spaces. Choose
+- **Home icon.** The icon in the top bar's logo box, beside the environment's name, when no environment icon is
+  uploaded (an uploaded icon takes its place). Choose
   one from the environment's icons (with a template, **Template's own** is first), then click this section's own
   **Save**. The icons offered are the **Icons** list (below).
 - **Reactions.** The emoji tray in the call and on stream, also offered in chat. Add, remove, reorder
@@ -52,18 +53,21 @@ An old link to `#reactions` or `#icons` on the Manage page opens this tab at tha
 
 ## Words
 
-On the Template tab, **Words** sets what people in this environment read for its ten changeable words:
-environment, space, aside, canvas, module, object, owner, moderator, member and guest. A travel group might call
+On the Template tab, **Words** sets what people in this environment read for its eleven changeable words:
+environment, space, the home page, aside, canvas, module, object, owner, moderator, member and guest. A travel group might call
 a space a "trip" and a member a "traveller"; a game might have a "game master" and "players". The host's own words
 (host and admin) can't be changed here.
 
-1. On Manage > **Template**, find **Words**. Each word has a row showing its default.
+1. On Manage > **Template**, find **Words**. Each word has a row showing its default. The **Home page** row is
+   what the list of spaces is called in the top bar; blank, it follows the space word ("Spaces", or "Trips" where a
+   space is a trip), or the template's own word when it gives one. It is a name, so type it as it should read, capital included
+   ("Campaigns"); it has no article field.
 2. Type the new word in lower case: its **Singular** and its **Plural** (both are needed). Capitals are added
    where a sentence needs one.
 3. Fill in **With its article** only when the usual "a" or "an" is wrong for it, such as "an hour". Leave it blank
    otherwise.
 4. Click **Save**. Every word is saved together, and if the server refuses one, nothing is saved and the message
-   says which word and why: it needs both its singular and its plural, it can be at most 30 characters, it can use
+   says which word and why ("The word for the home page…" for the home page row): it needs both its singular and its plural, it can be at most 30 characters, it can use
    only letters, spaces, hyphens and apostrophes, or its article form must be the singular with the article in
    front ("a trip").
 

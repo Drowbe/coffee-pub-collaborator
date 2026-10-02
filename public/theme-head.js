@@ -3,8 +3,11 @@
 // switch, public/theme-mode.js) goes on <html data-theme-mode>. Nothing picked: no attribute, and /theme.css's
 // default shows (the signed-in person's own mode, else the environment's). An external file, not an inline
 // script, so a page's content security policy never has to allow inline code.
+// A guest link's page (and a window it popped out) shows the environment's default mode only (plan-primary-nav.md,
+// decision 5), so the remembered one is not read there.
 try {
-  const mode = localStorage.getItem('app.themeMode');
+  const guest = location.pathname.startsWith('/guest/') || new URLSearchParams(location.search).has('guest');
+  const mode = guest ? null : localStorage.getItem('app.themeMode');
   if (mode === 'light' || mode === 'dark') document.documentElement.dataset.themeMode = mode;
 } catch {
   // no storage: the default mode shows

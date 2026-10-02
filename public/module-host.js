@@ -1065,18 +1065,18 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     },
     // The module's tools in the nav bars (host.nav.set): registered under the module's own namespace in the shared
     // registry (public/nav-bar.js), drawn while this mount lives (the module open on this space's canvas) and taken out when it is
-    // destroyed. The set replaces the last one. A tool for the primary bar is refused unless the admin allowed the
-    // module there (its manifest's surfaces.page.nav, which the context reports) and the tool says system: true; see
-    // cleanModuleTools for every rule. Resolves false when there is no secondary bar here (a module's own page), in
-    // which case only a system tool is drawn.
+    // destroyed. The set replaces the last one. Every tool goes in the space bar: a module never places one in the top
+    // bar (plan-primary-nav.md, decision 10), and a tool that still says bar: 'primary' or system: true is placed like
+    // any other; see cleanModuleTools for every rule. Resolves false when there is no space bar here (a module's own
+    // page), and then nothing is drawn.
     async 'nav.set'({ tools }) {
-      const clean = navBar.cleanModuleTools(module.id, tools, { allowPrimary: Boolean(contextInfo && contextInfo.module && contextInfo.module.nav) });
+      const clean = navBar.cleanModuleTools(module.id, tools);
       const wanted = new Set(clean.map((t) => t.id));
       for (const id of navIds) if (!wanted.has(id)) { navBar.unregister(id); navIds.delete(id); }
       let drawn = true;
       for (const t of clean) {
         if (!navBar.has(t.bar)) { drawn = false; continue; }
-        const { own, module: _m, system: _s, ...tool } = t;
+        const { own, module: _m, ...tool } = t;
         navBar.register({ ...tool, onClick: () => send('nav', { id: own }) });
         navIds.add(t.id);
       }

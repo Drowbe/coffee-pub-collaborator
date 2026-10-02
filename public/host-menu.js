@@ -9,7 +9,8 @@
 //
 // An item is { label, icon?, regular?, hint?, danger?, disabled?, checked?, badge?, onPick }. `checked` (true or false)
 // makes it a checkbox item that says whether it is on (a tool that toggles, folded into the space bar's "..."); `badge`
-// is a count shown after its label.
+// is a count shown after its label. `icon` is a Font Awesome name, or a whole class list (a module's own icon).
+// { divider: true } draws a line between two runs of entries (the space switcher's "+ New").
 let open = null;
 
 function close({ refocus = false } = {}) {
@@ -39,6 +40,13 @@ export function openHostMenu(trigger, items) {
   menu.setAttribute('role', 'menu');
   const rows = [];
   for (const item of items) {
+    if (item.divider) {
+      const line = doc.createElement('div');
+      line.className = 'host-menu-divider';
+      line.setAttribute('role', 'separator');
+      menu.appendChild(line);
+      continue;
+    }
     const b = doc.createElement('button');
     b.type = 'button';
     b.className = 'host-menu-item';
@@ -49,7 +57,7 @@ export function openHostMenu(trigger, items) {
     b.disabled = Boolean(item.disabled);
     if (item.icon) {
       const i = doc.createElement('i');
-      i.className = `fa-${item.regular ? 'regular' : 'solid'} fa-${item.icon} fa-fw`;
+      i.className = String(item.icon).includes(' ') ? `${item.icon} fa-fw` : `fa-${item.regular ? 'regular' : 'solid'} fa-${item.icon} fa-fw`;
       i.setAttribute('aria-hidden', 'true');
       b.appendChild(i);
     }

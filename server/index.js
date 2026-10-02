@@ -4844,9 +4844,10 @@ app.get('/api/backgrounds', (req, res) => {
   res.json({ backgrounds: backgrounds.all() });
 });
 
-// Every enabled module with a server page this viewer may read -- not only the ones shown as a main-nav
-// icon (public/module.js also asks this to find a module's own page at all, by direct link or a room's
-// own "open this"; `nav` just says whether brand.js's topbar should offer an icon for it too).
+// Every enabled module with a page of its own (surfaces.page, mounted for the environment) that this viewer may read,
+// widget or not: the top bar's module menu, and public/module.js's way to find a module's page at all. A manifest's
+// surfaces.page.nav is no longer read (plan-primary-nav.md, decision 12): every page is listed, so `nav` is always
+// true, kept only for the pages that still filter on it until the bar is redrawn.
 app.get('/api/modules/nav', (req, res) => {
   const who = moduleViewer(req);
   if (!who?.user) return res.json({ modules: [] });
@@ -4854,7 +4855,7 @@ app.get('/api/modules/nav', (req, res) => {
   res.json({
     modules: modules.enabledAll()
       .filter(({ manifest }) => manifest.scope.includes('environment') && manifest.surfaces.page && moduleCan(manifest, perms, 'read'))
-      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), page: manifest.surfaces.page.entry, widget: Boolean(manifest.surfaces.widget), nav: Boolean(manifest.surfaces.page.nav) })),
+      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), page: manifest.surfaces.page.entry, widget: Boolean(manifest.surfaces.widget), nav: true })),
   });
 });
 

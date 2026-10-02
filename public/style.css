@@ -142,14 +142,15 @@ a:hover {
   color: var(--accent-hover);
 }
 
-/* Three zones: left (the logo, where you are), middle (the core navigation, centred on the row whatever the other two
-   hold), right (the system's actions and information). See architecture-navigation.md. */
+/* Three zones (plan-primary-nav.md, "The bar"): left, identity and location (the logo, the environment, Modules,
+   Spaces and the breadcrumb); middle, empty on a wider screen (the bell on a phone); right, people and you (the bell,
+   your picture). The right zone takes what it needs and the left the rest, so a long breadcrumb is cut, never the bell. */
 .topbar {
   position: sticky; /* stays at the top while the page scrolls */
   top: 0;
   z-index: 20;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 12px;
   /* Installed to the home screen, a page runs under the status bar (black-translucent), so the
@@ -189,20 +190,196 @@ a:hover {
   padding-right: 16px;
 }
 
-/* The server icon runs the full height of the header, flush to its top,
-   bottom and left edges (hence the negative margins cancelling .topbar's
-   own padding on those three sides) rather than sitting inline with the
-   name as a small rounded square. Fixed to match .topbar's own
-   min-height exactly -- auto/stretch sizing an <img> against aspect-ratio
-   with no other definite dimension in the flex line let it render at its
-   full natural (1024x1024) size instead. */
-.topbar .brand .icon {
-  flex-shrink: 0;
+/* The logo box (decision 23): the uploaded logo, else the chosen home icon, never both. It runs the full height of the
+   header, flush to its top, bottom and left edges (the negative margin cancels .topbar's own padding). Fixed to match
+   .topbar's own min-height exactly -- auto sizing an <img> with no other definite dimension let it render at its full
+   natural (1024x1024) size. */
+.topbar .brand-logo {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 43px;
   height: 43px; /* the topbar's whole content height, so there is no gap above or below */
+  margin: 0 0 0 -16px;
+  font-size: 20px;
+}
+
+.topbar .brand .icon {
+  width: 100%;
+  height: 100%;
   border-radius: 0;
   object-fit: cover;
-  margin: 0 0 0 -16px;
+}
+
+.topbar .brand-logo [hidden] {
+  display: none;
+}
+
+/* Modules and Spaces in the left zone: the word and a caret. Spaces is two controls, the word (home) and the caret
+   (the switcher), side by side as one slot. */
+.topbar .nav-slot,
+.topbar .nav-slot-caret {
+  position: relative;
+  flex: none;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.topbar .nav-slot {
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.topbar .nav-slot-pair {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.topbar .nav-slot-pair .nav-slot {
+  padding-right: 4px;
+  border-radius: 6px 0 0 6px;
+}
+
+.topbar .nav-slot-caret {
+  padding: 0 4px;
+  border-radius: 0 6px 6px 0;
+}
+
+.topbar .nav-slot[aria-expanded="true"],
+.topbar .nav-slot-caret[aria-expanded="true"] {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+.topbar .nav-slot:focus-visible,
+.topbar .nav-slot-caret:focus-visible,
+.topbar .crumb-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.topbar .nav-slot .nav-badge {
+  margin-left: 2px;
+}
+
+/* .brand span sizes the environment's name; the slots and the breadcrumb keep their own size. */
+.topbar .nav-left .nav-slot span,
+.topbar .crumb span {
+  font-size: inherit;
+}
+
+/* The bell: an icon with its count. */
+.topbar .nav-bell .badge[hidden] {
+  display: none;
+}
+
+/* The bell's list, under the bell, inside the window (brand.js places it). Only theme tokens. */
+.bell-list {
+  position: fixed;
+  z-index: var(--z-menu);
+  box-sizing: border-box;
+  overflow: auto;
+  padding: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+}
+
+.bell-list:focus {
+  outline: none;
+}
+
+.bell-list:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.bell-head {
+  padding: 6px 8px;
+  font-weight: 700;
+}
+
+.bell-updates {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0;
+  padding: 8px;
+  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+  color: var(--text);
+  font-weight: 600;
+}
+
+.bell-updates:hover,
+.bell-updates:focus-visible {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  text-decoration: none;
+  outline: none;
+}
+
+.bell-notices {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.bell-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.bell-notice:first-child {
+  border-top: 0;
+}
+
+.bell-notice-icon {
+  flex: none;
+  margin-top: 2px;
+  color: var(--icon, var(--text-dim));
+}
+
+.bell-notice-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.bell-notice-from,
+.bell-empty {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.bell-empty {
+  margin: 4px 8px 8px;
+}
+
+/* The phone menu's heading: the environment's name. */
+.topbar .nav-menu-heading {
+  padding: 6px 12px 2px;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.topbar .nav-menu-heading[hidden] {
+  display: none;
 }
 
 .brand {
@@ -214,7 +391,44 @@ a:hover {
 
 .topbar .nav-left {
   min-width: 0;
+  max-width: 100%;
   justify-self: start;
+  gap: 6px;
+  overflow: hidden;
+}
+
+/* The brand link keeps its own gap; Modules, Spaces and the breadcrumb sit closer. Out of room, the environment's name
+   is cut before the place (the breadcrumb keeps at least a few letters and its ellipsis). */
+.topbar .nav-left > .brand-home {
+  flex: 0 1 auto;
+  min-width: 0;
+  margin-right: 6px;
+}
+
+.topbar .brand-home .brand-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar .nav-left > .crumb {
+  flex: 0 1 auto;
+  min-width: 6em;
+}
+
+/* Between the phone and a wide screen the place never gives way first: your name goes (your picture and its caret
+   stay, and the button keeps its name for a screen reader), then the environment's name. */
+@media (min-width: 641px) and (max-width: 1000px) {
+  .topbar button.whoami #whoami {
+    display: none;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 820px) {
+  .topbar .brand-home .brand-name {
+    display: none;
+  }
 }
 
 .topbar .nav-middle {
@@ -440,18 +654,6 @@ body.host-console .btn.danger {
 
 body.host-console .grow {
   flex: 1;
-}
-
-/* The time, on the server's clock: information, not an action, so it is text among the icons. */
-.topbar-clock {
-  color: var(--text-dim);
-  font-size: 13px;
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-
-.topbar-clock:empty {
-  display: none;
 }
 
 /* The server icon, its own small configurable icon, and the server name
@@ -1204,30 +1406,10 @@ body.in-space .subnav[data-middle="beside"] {
   flex: none;
 }
 
-.subnav .nav-left > .space-name {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-}
-
 /* Measured at its full length: the name uses whatever room there is, and is cut short only once everything in the
    right zone that can fold has (nav-bar.js). */
 .subnav.nav-measuring .nav-left {
   width: max-content;
-}
-
-.subnav.nav-measuring .nav-left > .space-name {
-  flex: none;
-}
-
-.subnav .space-name i {
-  flex: none;
-}
-
-.subnav #space-name-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 /* The bar's "...": the shared More button (.sdk-more), in the header's colours and the bar's height. */
@@ -1264,21 +1446,6 @@ body.in-space .subnav[data-middle="beside"] {
   font-weight: 700;
   line-height: 14px;
   text-align: center;
-}
-
-.space-name {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding-right: 10px;
-  border-right: 1px solid var(--border);
-  font-size: 13px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.space-name i {
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
 }
 
 .subnav-tools {
@@ -1508,7 +1675,6 @@ body.in-space .topbar {
   .subnav #dock-all,
   .subnav #snap-all,
   .subnav #snap-size,
-  .subnav .space-name,
   .subnav .nav-middle,
   .subnav .nav-divider {
     display: none;
@@ -1604,6 +1770,11 @@ button.whoami[aria-expanded="true"] {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.whoami .whoami-caret {
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+  font-size: 12px;
 }
 
 button.whoami:focus-visible {
@@ -2224,11 +2395,47 @@ body.in-space .topbar {
 .crumb {
   white-space: nowrap; /* the left zone shares the row with two others; a long crumb must not wrap into a second line */
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 8px;
-  font-size: 17px;
+  min-width: 0;
+  font-size: 15px;
   font-weight: 400;
+}
+
+.crumb:empty {
+  display: none;
+}
+
+/* A segment is cut short with an ellipsis when the bar runs out of room; its title has the whole name. */
+.topbar .crumb .crumb-here {
+  min-width: 0;
+}
+
+.topbar .crumb .crumb-label {
+  min-width: 0;
+  max-width: 22em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.topbar .crumb [aria-current="location"] {
+  font-weight: 600;
+}
+
+/* An aside's parent segment: a button that reads as a link (it does what Rejoin call does). */
+.topbar .crumb-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.topbar .crumb-link:hover {
+  color: var(--icon-hover);
+  text-decoration: underline;
 }
 
 .crumb-sep {
@@ -2275,10 +2482,6 @@ a.crumb-here:hover {
   .crumb {
     font-size: 16px;
   }
-  /* Every crumb-here carries its own icon for exactly this: run out of
-     space and the label drops, the icon (and the space/page it names)
-     doesn't. */
-  .crumb-label,
   .brand-home span[data-brand="environmentName"] {
     display: none;
   }
@@ -5430,6 +5633,12 @@ body.conference-window {
   margin-left: 0;
 }
 
+.host-menu-divider {
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--border);
+}
+
 .host-menu-item.danger { color: var(--danger); }
 .host-menu-item.danger:hover,
 .host-menu-item.danger:focus-visible { background: color-mix(in srgb, var(--danger) 14%, transparent); }
@@ -5700,14 +5909,6 @@ body.chat-window {
 }
 
 
-/* In a space the Modules menu is the way to a module; the header's links to the global pages would be
-   a second, confusing way to the same thing. The links are tools the nav-bar registry draws straight into the
-   zone (and, on a phone, into the menu), so this names the link, not a wrapper, at both places. */
-body.in-space .topbar .module-nav-link,
-body.in-space .topbar.menu-open .links .module-nav-link {
-  display: none;
-}
-
 /* A module built for an older version of the product: it can't run until its author updates it. */
 .module-outdated {
   display: flex;
@@ -5863,7 +6064,7 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     padding: env(safe-area-inset-top) 10px 0;
   }
 
-  body.in-space .topbar .brand .icon {
+  body.in-space .topbar .brand-logo {
     width: 39px;
     height: 39px;
     margin-left: -10px;
@@ -6012,8 +6213,51 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     flex: none;
     width: 40px;
     height: 36px;
-    margin-left: auto;
     font-size: 18px;
+  }
+
+  /* Nothing in the menu (a guest's page): no menu button (brand.js hides it). */
+  .topbar .nav-toggle[hidden] {
+    display: none;
+  }
+
+  /* The bar on a phone (decision 7): the logo, the anchor, the bell (the middle zone here) and the menu button, on one
+     row: the left zone takes what is left (a zero basis, so a long name is cut rather than wrapped onto a second row). */
+  .topbar .nav-left,
+  .topbar .brand {
+    flex: 1 1 0;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .topbar .crumb {
+    overflow: hidden;
+  }
+
+  .topbar .nav-middle {
+    flex: none;
+    margin-left: auto;
+  }
+
+  .topbar .brand-home span[data-brand="environmentName"] {
+    display: none;
+  }
+
+  /* The anchor: its last segment only, cut short with an ellipsis (its title has the whole name). */
+  .topbar .crumb > :not(:last-child) {
+    display: none;
+  }
+
+  .topbar .crumb .crumb-label {
+    max-width: none;
+  }
+
+  .topbar.menu-open .links .whoami-caret {
+    display: none;
+  }
+
+  .topbar.menu-open .links .nav-menu-heading:not([hidden]) {
+    display: block;
   }
 
   .topbar.menu-open .links .core-link {
@@ -6035,10 +6279,6 @@ body.in-space .topbar.menu-open .links .module-nav-link {
     width: 22px;
     font-size: 18px;
     color: var(--icon, var(--text-dim));
-  }
-
-  .topbar.menu-open .links .topbar-clock {
-    padding: 6px 12px;
   }
 
   /* You, in the menu: your picture and name, a label (it opens nothing here), View profile and Sign out after it. */

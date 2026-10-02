@@ -1,6 +1,7 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
+import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
+import { anchorSegments } from '/primary-nav.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { whatOpens, conferenceAllowed } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
@@ -34,19 +35,18 @@ const subnav = document.createElement('div');
 subnav.className = 'subnav';
 subnav.id = 'subnav';
 // The secondary nav is about the space, in three zones (see documentation/plans/plan-nav.md and
-// architecture-navigation.md): left, the space's name and the module selector; middle, the space's own information and
+// architecture-navigation.md): left, the module selector (the space's name is the top bar's breadcrumb, not repeated
+// here: plan-primary-nav.md, decision 14); middle, the space's own information and
 // navigation (nothing yet); right, the space's actions: the canvas-level snap, full screen, pop out, pulling people back
 // from an aside, and leaving. The right zone's controls are registrations in the nav-bar registry (public/nav-bar.js),
 // made below beside the code each one drives; a module's own tools (host.nav.set) land in the same bar, after them.
 subnav.innerHTML = `
-  <div class="nav-left subnav-left">
-    <span class="space-name" id="space-name" hidden><i class="fa-solid fa-fw" id="space-icon" aria-hidden="true"></i><span id="space-name-text"></span></span>
-  </div>
+  <div class="nav-left subnav-left"></div>
   <div class="nav-middle subnav-middle" id="subnav-middle"></div>
   <span class="nav-right subnav-tools"></span>`;
 topbarEl.appendChild(subnav);
 nav.attach('secondary', subnav); // its tools are registered further down, once the state their `visible` reads exists
-// The module chooser, after the space's name: one button that opens a list of switches, one per module (the conference,
+// The module chooser, first in the space bar: one button that opens a list of switches, one per module (the conference,
 // the chat and the space's modules), each showing or hiding its module on the canvas (canvas.js fills #modules-menu,
 // with switch-list.js). On a phone the same #modules-menu is the tab bar instead, and the button is not drawn.
 const moduleChooser = document.createElement('span');
@@ -98,12 +98,9 @@ function placeSubnav() {
   else topbarEl.appendChild(subnav);
 }
 placeSubnav();
-// Only this page loads your profile/Manage as an overlay over a running
-// call instead of a real navigation (see openOverlay() below) -- the
-// shared header doesn't know that, so it's marked here instead. Your
-// profile is the account menu's View profile, which asks first
-// (app:open-profile, see the listener by openOverlay()).
-$('admin-link').dataset.overlayLink = '';
+// Only this page loads your profile, Manage and a module's page as an overlay over a running call instead of a real
+// navigation (see openOverlay() below): the shared header asks first (app:open-profile, app:open-page, see the
+// listeners by openOverlay()).
 const call = new Room({ adaptiveStream: true, dynacast: true });
 const tiles = new Map(); // participant identity (user key) -> tile element
 const ghostTiles = new Map(); // identity -> tile element, for space members aside elsewhere
@@ -113,6 +110,8 @@ let spaceName = 'Coffee Pub'; // the space I am in, once joined; the environment
 const presenceUsers = new Map(); // key -> { displayName, borderColor, online, space, ... } from /api/presence
 let presenceSpaces = []; // the spaces, with `mine` for the ones I may join
 let currentSpace = null; // the space I am in, once joined
+let viewingHome = false; // the space list shown while still connected (showSpaceList); the breadcrumb is empty then
+let guestSpaceName = ''; // a guest link's space, named in the top bar's anchor before the guest enters
 // Reloading the page keeps you in your space: the space is remembered for this tab (not across tabs or restarts) and rejoined when the
 // page starts again. It is forgotten when you leave or are removed, but not when the page itself is going away.
 let unloading = false;
@@ -2423,6 +2422,7 @@ call
     syncCallAttributes();
   })
   .on(RoomEvent.Disconnected, () => {
+    viewingHome = false; // no space left to show home over
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
     syncCallControl();
@@ -2610,52 +2610,42 @@ async function leaveSpace() {
   call.disconnect();
 }
 
-// Keeps the header's crumb in sync with where we actually are: the space
-// list (nobody's called join() yet, or Disconnected just fired), a real
-// space (with its own Leave), or an aside/private pulled out of one (with
-// both a Leave for the whole call and a Rejoin Call back into the space it
-// came from). Same delegated click handler covers both, wired once below.
-// "Spaces" is a real ancestor, not a label that only shows up when there's
-// nothing more specific to say -- the path never skips a level, so it's
-// always here and always a link back to the space list, whether or not
-// there's anything after it.
-// Rejoin is icon-only, styled like the header's other icon buttons
-// (settings, sign out) rather than a labeled pill -- title carries the
-// name for a screen reader or a hover, same as those. Leave is in the subnav.
-// The label text hides at narrow widths (see .crumb-label in style.css),
-// leaving just the icon -- which is why every crumb-here needs one.
-const crumbHere = (icon, text) => `<span class="crumb-here"><i class="${icon.includes(' ') ? icon : `fa-solid fa-${icon}`} fa-fw" aria-hidden="true"></i><span class="crumb-label"> ${escapeHtml(text)}</span></span>`;
-
-// The space's name in the secondary nav's left zone. On the call page the primary nav's crumb is empty: the secondary nav says
-// where you are, and saying it twice was noise (plan-nav.md). In an aside the name is the origin's plus the kind, and the
-// Rejoin call tool (a space action, its `visible` reads currentSpace) shows in the right zone once the bar is redrawn.
-function setSpaceName(icon, text) {
-  const el = $('space-name');
-  if (!el) return;
-  el.hidden = !text;
-  const i = $('space-icon');
-  if (i) i.className = `${icon.includes(' ') ? icon : `fa-solid fa-${icon}`} fa-fw`;
-  const t = $('space-name-text');
-  if (t) t.textContent = text || '';
-  el.title = text || ''; // the whole name, when the bar has had to cut it short
+// The breadcrumb in the top bar's anchor (plan-primary-nav.md, decision 14): nothing on home; in a space, its name,
+// current; in an aside, the parent's name (a button that does what Rejoin call does, decision 25, through the crumb's
+// listener below), then "<Aside word>: <the others' first names>", current. The space bar no longer names the space.
+// The top bar is told where this page is present, for the switcher's mark.
+function crumbSegmentHtml(seg, icon) {
+  const inner = `<i class="${icon.includes(' ') ? icon : `fa-solid fa-${icon}`} fa-fw" aria-hidden="true"></i><span class="crumb-label">${escapeHtml(seg.label)}</span>`;
+  // An aside's parent segment says what it does: "Rejoin call in <space>" (its title and its accessible name).
+  if (seg.action) return `<button type="button" class="crumb-here crumb-link" data-crumb-action="${seg.action}" title="${escapeHtml(seg.title || seg.label)}" aria-label="${escapeHtml(seg.title || seg.label)}">${inner}</button>`;
+  return `<span class="crumb-here"${seg.current ? ' aria-current="location"' : ''} title="${escapeHtml(seg.label)}">${inner}</span>`;
 }
 function updateCrumb() {
-  setTopbarLocation('');
-  if (!currentSpace) {
-    setSpaceName('couch', '');
-  } else if (currentSpace.isAside && currentSpace.origin) {
-    const originSpace = presenceSpaces.find((r) => r.id === currentSpace.origin);
-    const originName = originSpace ? spaceDisplayName(originSpace) : 'the call';
-    const kind = currentSpace.private ? 'Private' : word('aside', { cap: true });
-    setSpaceName('people-arrows', `${originName} · ${kind}`);
-  } else {
-    setSpaceName(spaceCrumbIcon(currentSpace), spaceName);
+  const connected = call.state === 'connected' && currentSpace;
+  setPresentSpace(connected ? (currentSpace.isAside ? currentSpace.origin || null : currentSpace.id) : null);
+  // What the anchor shows is anchorSegments() (primary-nav.js, held by check-nav): the space's breadcrumb, nothing while
+  // home is shown over it, or a guest link's space before the guest enters.
+  let space = null;
+  let parentName = '';
+  let others = [];
+  let originSpace = null;
+  if (currentSpace?.isAside) {
+    originSpace = presenceSpaces.find((r) => r.id === currentSpace.origin) || null;
+    parentName = originSpace && !originSpace.isAside ? spaceDisplayName(originSpace) : '';
+    others = (currentSpace.members || []).filter((k) => k !== me?.key).map((k) => presenceUsers.get(k)?.displayName).filter(Boolean);
+    space = { isAside: true };
+  } else if (currentSpace) {
+    space = { name: spaceName };
   }
+  const segs = anchorSegments({ space, viewingHome, guestSpaceName: guestToken ? guestSpaceName : '', parentName, asideWord: word('aside', { cap: true }), others });
+  const iconOf = (seg) => (!currentSpace ? 'message' : currentSpace.isAside ? (seg.action ? spaceCrumbIcon(originSpace) : 'people-arrows') : spaceCrumbIcon(currentSpace));
+  setTopbarLocation(segs.map((seg) => crumbSegmentHtml(seg, iconOf(seg))).join('<span class="crumb-sep" aria-hidden="true">&rsaquo;</span>'));
   nav.draw('secondary');
 }
 
 // `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins.
 async function join(spaceId = 'lobby', { joinCall = false } = {}) {
+  viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
   $('join-error').hidden = true;
   for (const b of document.querySelectorAll('[data-join]')) b.disabled = true;
   try {
@@ -2726,6 +2716,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     $('join').hidden = true;
     $('guest-join').hidden = true;
     $('canvas').hidden = false;
+    viewingHome = false; // every way into a space (join, a pull, an invitation, a reload) lands here
     updateCrumb();
     document.body.classList.add('in-space');
     wake();
@@ -3160,15 +3151,12 @@ async function restartCamera() {
   }
 }
 $('hangup').addEventListener('click', phoneButton);
-// The crumb's own action buttons (Leave, Rejoin Call) get regenerated with
-// every updateCrumb() call, so one delegated listener on the stable
-// container instead of rewiring a fresh element's click every time.
+// The breadcrumb is drawn again with every updateCrumb() call, so one delegated listener on the stable container: an
+// aside's parent segment does what Rejoin call does (decision 25). Rejoin call and Leave also live in the space's bar.
 $('topbar-crumb').addEventListener('click', (event) => {
   const action = event.target.closest('[data-crumb-action]')?.dataset.crumbAction;
   if (action === 'rejoin') returnFromAside();
 });
-// Rejoin call and Leave live in the space's bar (registered with its other tools at the top of this file); the crumb
-// listener above is kept for any page that still draws Rejoin there.
 $('aside-confirm').addEventListener('click', () => pullAside([...asideSelection]));
 $('aside-confirm-private').addEventListener('click', () => pullAside([...asideSelection], true));
 $('aside-cancel').addEventListener('click', cancelAsideSelection);
@@ -3839,7 +3827,7 @@ function setUpPopoutWindow(win) {
     event.preventDefault();
     const href = link.getAttribute('href');
     closePopout();
-    if (link.matches('#spaces-link, .brand-home')) showSpaceList();
+    if (link.matches('#spaces-link, #menu-home, .brand-home')) showSpaceList();
     else if (link.matches('[data-overlay-link]')) openOverlay(href);
   });
   win.addEventListener('resize', () => {
@@ -3924,7 +3912,10 @@ function openOverlay(path) {
   const homeIconEl = document.querySelector('[data-brand="home-icon"]');
   const homeIcon = homeIconEl?.dataset.iconId;
   if (homeIcon) params.set('homeIcon', homeIcon);
-  $('page-overlay-frame').src = `${path}${path.includes('?') ? '&' : '?'}${params}`;
+  if (document.querySelector('.topbar .brand-logo img:not([hidden])')) params.set('hasIcon', '1'); // the logo box shows the uploaded logo
+  // The query goes before any #section (Manage's #modules or #add-space), so the page reads both.
+  const [where, section] = String(path).split('#');
+  $('page-overlay-frame').src = `${where}${where.includes('?') ? '&' : '?'}${params}${section ? `#${section}` : ''}`;
   $('page-overlay-frame').hidden = false;
   setAway(true);
 }
@@ -3932,6 +3923,7 @@ function closeOverlay() {
   $('page-overlay-frame').hidden = true;
   $('page-overlay-frame').src = 'about:blank';
   setAway(false);
+  refreshNotices(); // the page over the call may have read them (its bell): the counts here follow
 }
 window.closeProfileOverlay = closeOverlay; // called directly by the (same-origin) iframe
 // The account menu's View profile (brand.js): over the page, not a navigation, from the popped-out window too.
@@ -3939,6 +3931,35 @@ document.addEventListener('app:open-profile', (event) => {
   event.preventDefault();
   closePopout();
   openOverlay('/profile');
+});
+// The top bar's Manage, "+ New <space>", the bell's updates line and the Modules menu (brand.js): over the page, as the
+// profile is. A module page opens over the page only while present in a space; present nowhere it is a real page
+// (plan-primary-nav.md, the Modules slot). The host console, another site, opens in a new tab so the call keeps running.
+document.addEventListener('app:open-page', (event) => {
+  const { href, kind } = event.detail || {};
+  if (!href) return;
+  if (kind === 'module' && call.state !== 'connected') return;
+  event.preventDefault();
+  closePopout();
+  if (kind === 'host-console') {
+    window.open(href, '_blank', 'noopener');
+    return;
+  }
+  openOverlay(href);
+});
+// A pick in the top bar's space switcher (from this page, or from a page opened over it): back to the space this page
+// is in, or into another, as its entry on home does (decision 15; the visit view comes in a later step).
+document.addEventListener('app:enter-space', (event) => {
+  const { id, action } = event.detail || {};
+  if (!id || guestToken) return;
+  event.preventDefault();
+  if (!$('page-overlay-frame').hidden) closeOverlay();
+  const connected = call.state === 'connected' && currentSpace;
+  // In an aside, the parent is marked "You are here": picking it does what Rejoin call does (and the breadcrumb's parent
+  // segment), bringing everyone back, never leaving the others behind in the aside.
+  if (connected && currentSpace.isAside && currentSpace.origin === id) returnFromAside();
+  else if (action === 'back' && connected && currentSpace.id === id) returnToCanvas();
+  else joinInvitedSpace(id);
 });
 
 // Also called directly by the profile page overlay, right after it saves a
@@ -3983,6 +4004,8 @@ document.addEventListener('click', (event) => {
 function showSpaceList() {
   if (!document.body.classList.contains('in-space')) return;
   setAway(true);
+  viewingHome = true;
+  updateCrumb();
   document.body.classList.remove('in-space');
   $('canvas').hidden = true;
   canvas.showFloating(false); // a floating module lives beside the canvas, not inside it
@@ -4003,11 +4026,12 @@ function returnToCanvas() {
   $('canvas').hidden = false;
   canvas.showFloating(true);
   document.body.classList.add('in-space');
+  viewingHome = false;
   updateCrumb();
   setAway(false);
 }
 document.addEventListener('click', (event) => {
-  if (!event.target.closest('#spaces-link, .brand-home')) return;
+  if (!event.target.closest('#spaces-link, #menu-home, .brand-home')) return;
   if (guestToken || !document.body.classList.contains('in-space')) return; // a real navigation is fine here
   event.preventDefault();
   showSpaceList();
@@ -4240,13 +4264,13 @@ async function init() {
     // needs a real session too) -- just the name field and, past that,
     // everything the space itself already handles the same for everyone.
     $('join').hidden = true;
-    $('whoami-link').hidden = true;
-    $('spaces-link').hidden = true;
     $('guest-section').hidden = true;
     $('settings-links').hidden = true;
     try {
       const info = await api('GET', `/api/guest-link/${encodeURIComponent(guestToken)}`);
       $('guest-space-name').textContent = `${verb('enter')} ${info.spaceName}`;
+      guestSpaceName = info.spaceName; // a guest's anchor: the space's name, before entering too
+      updateCrumb();
       $('guest-join').hidden = false;
       $('guest-join').dataset.spaceId = info.spaceId;
       $('guest-join').dataset.spaceName = info.spaceName;
@@ -4268,7 +4292,6 @@ async function init() {
     $('whoami').textContent = me.displayName;
     $('whoami-img').src = `/img/${encodeURIComponent(me.key)}/profile?v=${Date.now()}`;
     $('whoami-img').hidden = false;
-    $('admin-link').hidden = !hasOwnerRights(me);
     $('admin-link-2').hidden = !hasOwnerRights(me);
     // The account's own mic/camera processing settings take over from
     // whatever this browser had locally, so joining from anywhere lands

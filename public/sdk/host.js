@@ -295,13 +295,20 @@
     }
   }
 
-  // The words a person reads for each level and role, by their code names (host, environment, space, aside, canvas, module,
-  // object, admin, owner, moderator, member, guest): each { one, many, a }, `a` the singular with its article. These are
-  // the defaults; an environment's own come in host.locale().words. host.util.word applies them.
+  // The words a person reads for each level and role, by their code names (WORD_KEYS, server/words.js's KEYS in its
+  // order): each { one, many, a }, `a` the singular with its article. These are the defaults; an environment's own come
+  // in host.locale().words. host.util.word applies them. `home` (the home page, the list of spaces) is the space word's
+  // plural with a capital by default, "Spaces".
+  const WORD_KEYS = ['host', 'environment', 'space', 'home', 'aside', 'canvas', 'module', 'object', 'admin', 'owner', 'moderator', 'member', 'guest'];
   const DEFAULT_WORDS = (() => {
-    const pairs = { host: 'hosts', environment: 'environments', space: 'spaces', aside: 'asides', canvas: 'canvases', module: 'modules', object: 'objects', admin: 'admins', owner: 'owners', moderator: 'moderators', member: 'members', guest: 'guests' };
+    const plural = { host: 'hosts', environment: 'environments', space: 'spaces', aside: 'asides', canvas: 'canvases', module: 'modules', object: 'objects', admin: 'admins', owner: 'owners', moderator: 'moderators', member: 'members', guest: 'guests' };
+    const article = (one) => `${/^[aeiou]/i.test(one) ? 'an' : 'a'} ${one}`;
     const out = {};
-    for (const [one, many] of Object.entries(pairs)) out[one] = { one, many, a: `${/^[aeiou]/i.test(one) ? 'an' : 'a'} ${one}` };
+    for (const key of WORD_KEYS) {
+      const one = key === 'home' ? plural.space.charAt(0).toUpperCase() + plural.space.slice(1) : key;
+      const many = key === 'home' ? one : plural[key];
+      out[key] = { one, many, a: article(one) };
+    }
     return out;
   })();
   // How the server shows language, time and money, and the words it uses (Manage > Settings): known once hello has
@@ -1514,11 +1521,10 @@
     //   id is letters, digits and hyphens, the module's own (the host namespaces it); zone 'left', 'middle' or 'right'
     //   (the default); icon a Font Awesome name; label what a screen reader and the tooltip say; order and groupOrder
     //   in the module band (101-998, clamped); href a path on this server or an https address, for a real link.
-    // The set replaces the last. A click arrives as the 'nav' event { id }. A tool for the primary bar (bar:
-    // 'primary') is refused unless the admin allowed the module there (surfaces.page.nav in module.json) and the tool
-    // is marked system: true, and then only into the right zone. Resolves true when the host drew them, false when
-    // there is no space bar here (the module's own page). setActive(id, on) and setBadge(id, n) change a tool in
-    // place; never set() again for that.
+    // The set replaces the last. A click arrives as the 'nav' event { id }. The host decides where a module's tools
+    // go: always the space bar, never the top bar. `bar` and `system` are ignored (a tool that sets them is placed like
+    // any other). Resolves true when the host drew them, false when there is no space bar here (the module's own
+    // page). setActive(id, on) and setBadge(id, n) change a tool in place; never set() again for that.
     nav: {
       set: (tools) => call('nav.set', { tools }),
       setActive: (id, on) => call('nav.setActive', { id, on }),

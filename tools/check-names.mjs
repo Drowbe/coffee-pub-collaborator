@@ -606,10 +606,50 @@ function wordsCheck() {
     try { fn(); n += 1; } catch (err) { fail(`check-names words: ${name}: ${err.message}`); }
   };
   const { Store } = require('../server/store.js');
-  test('the vocabulary is the ten changeable keys and the two fixed ones, in the Names\' order', () => {
-    assert.deepEqual(WORDS.KEYS, ['host', 'environment', 'space', 'aside', 'canvas', 'module', 'object', 'admin', 'owner', 'moderator', 'member', 'guest']);
+  test('the vocabulary is the eleven changeable keys and the two fixed ones, in the Names\' order, home after space', () => {
+    assert.deepEqual(WORDS.KEYS, ['host', 'environment', 'space', 'home', 'aside', 'canvas', 'module', 'object', 'admin', 'owner', 'moderator', 'member', 'guest']);
     assert.deepEqual(WORDS.FIXED, ['host', 'admin']);
-    assert.equal(WORDS.CHANGEABLE.length, 10);
+    assert.equal(WORDS.CHANGEABLE.length, 11);
+  });
+  // plan-primary-nav.md, decision 13: the home page's word, by default the space word's plural with a capital.
+  test('home follows the space word unless it is set: the owner\'s, else the template\'s, else the space word\'s plural', () => {
+    assert.deepEqual(WORDS.resolve(null, null).home, { one: 'Spaces', many: 'Spaces', a: 'a Spaces' }, 'nothing set: Spaces, as the bar reads today');
+    assert.deepEqual(WORDS.resolve({ space: { one: 'trip', many: 'trips' } }, null).home, { one: 'Trips', many: 'Trips', a: 'a Trips' }, 'the owner\'s space word');
+    assert.equal(WORDS.resolve(null, { space: { one: 'journey', many: 'journeys' } }).home.one, 'Journeys', 'the template\'s space word');
+    assert.equal(WORDS.resolve({ space: { one: 'trip', many: 'trips' } }, { space: { one: 'journey', many: 'journeys' } }).home.many, 'Trips', 'the owner\'s space word over the template\'s');
+    assert.equal(WORDS.resolve({ space: { one: 'game', many: 'games' } }, { home: { one: 'Campaign', many: 'Campaigns' } }).home.many, 'Campaigns', 'the template\'s own home over the space word');
+    assert.deepEqual(WORDS.resolve({ home: { one: 'Lobby list', many: 'Lobby lists' } }, { home: { one: 'Campaign', many: 'Campaigns' } }).home, { one: 'Lobby list', many: 'Lobby lists', a: 'a Lobby list' }, 'the owner\'s own home over the template\'s');
+    assert.equal(WORDS.resolve({ home: { one: '<b>', many: 'x' }, space: { one: 'trip', many: 'trips' } }, null).home.one, 'Trips', 'a bad stored home reads the default, from the space word');
+    assert.equal(WORDS.resolve({ space: { one: 'base camp', many: 'base camps' } }, null).home.one, 'Base camps', 'only the first letter is made a capital');
+    assert.deepEqual(WORDS.homeDefault(undefined), { one: 'Spaces', many: 'Spaces' });
+    const r = WORDS.resolve({ space: { one: 'trip', many: 'trips' } }, null);
+    assert.equal(WORDS.format(r, 'home', { many: true, cap: true }), 'Trips');
+    assert.equal(WORDS.fill('{Spaces} and {spaces}', r), 'Trips and trips', 'home takes none of the space word\'s placeholders');
+    assert.equal(WORDS.word('home', { many: true }), 'Spaces', 'outside a request, the default');
+  });
+  test('the module SDK\'s default words (public/sdk/host.js) are the vocabulary, home reading Spaces', () => {
+    const sdk = fs.readFileSync(path.join(ROOT, 'public', 'sdk', 'host.js'), 'utf8');
+    const block = sdk.match(/const WORD_KEYS = [\s\S]*?\n {2}\}\)\(\);/);
+    assert.ok(block, 'WORD_KEYS and DEFAULT_WORDS found in public/sdk/host.js');
+    const defaults = new Function(`${block[0]}\nreturn DEFAULT_WORDS;`)();
+    assert.deepEqual(Object.keys(defaults), WORDS.KEYS);
+    for (const key of WORDS.KEYS) assert.deepEqual(defaults[key], WORDS.resolve(null, null)[key], key);
+  });
+  test('Manage\'s word rows name a row by wordName() (WORD_NAMES first) in its label and every status sentence', () => {
+    const admin = fs.readFileSync(path.join(ROOT, 'public', 'admin.js'), 'utf8');
+    assert.match(admin, /const WORD_NAMES = \{ home: 'Home page' \};/);
+    assert.match(admin, /const wordName = \(key\) => WORD_NAMES\[key\] \|\| capitalOf\(DEFAULTS\[key\]\.one\);/);
+    assert.equal((admin.match(/capitalOf\(DEFAULTS\[/g) || []).length, 1, 'DEFAULTS\' own word names a row only inside wordName()');
+    const backTo = [...admin.matchAll(/`\$\{([^}]+)\} is back to /g)].map((m) => m[1]);
+    assert.deepEqual([...new Set(backTo)].sort(), ['name', 'wordName(key)'], 'a word row\'s Reset status names it by wordName(); a verb row by its own name');
+    assert.match(admin, /const name = wordName\(key\);/, 'the row\'s label');
+  });
+  test('home is changed and refused like any word', () => {
+    assert.deepEqual(WORDS.applyPatch({ space: { one: 'trip', many: 'trips' } }, { home: { one: ' Campaign ', many: 'Campaigns' } }), { words: { space: { one: 'trip', many: 'trips' }, home: { one: 'Campaign', many: 'Campaigns' } } });
+    assert.deepEqual(WORDS.applyPatch({ home: { one: 'Campaign', many: 'Campaigns' } }, { home: null }), { words: {} });
+    assert.equal(WORDS.applyPatch({}, { home: { one: 'Campaign' } }).error, 'The word for the home page needs both its singular and its plural.');
+    assert.equal(WORDS.applyPatch({}, { home: { one: 'Camp<i>', many: 'x' } }).error, 'The word for the home page can use only letters, spaces, hyphens and apostrophes.');
+    assert.match(WORDS.applyPatch({}, { lobby: { one: 'a', many: 'b' } }).error, /the words are environment, space, home, aside, /);
   });
   test('with nothing set, every key reads today\'s words, with the usual article', () => {
     const r = WORDS.resolve(null, null);
@@ -677,6 +717,10 @@ function wordsCheck() {
       assert.equal('words' in store.settings, false, 'no words left: the key goes, as before any were set');
       store.templateWords = { space: { one: 'journey', many: 'journeys' } };
       assert.equal(store.resolvedWords().space.one, 'journey', 'the template\'s word, with the owner\'s cleared');
+      assert.equal(store.resolvedWords().home.one, 'Journeys', 'home follows the template\'s space word');
+      store.updateSettings({ words: { home: { one: 'Campaign', many: 'Campaigns' } } });
+      assert.deepEqual([store.settings.words, store.resolvedWords().home.many, store.resolvedWords().space.one], [{ home: { one: 'Campaign', many: 'Campaigns' } }, 'Campaigns', 'journey'], 'the owner\'s own home, kept apart from the space word');
+      store.updateSettings({ words: { home: null } });
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }

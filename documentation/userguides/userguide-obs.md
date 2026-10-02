@@ -18,7 +18,7 @@ for every player in the space you pick, in one click. See Studio's own guide for
 
 ## By hand
 
-1. Open the Stream module from the header (its clapperboard icon), or from Manage > Modules. It lists
+1. Open the Stream module from **Modules** in the top bar, or from Manage > Modules. It lists
    every player with a **Player** (the Participant box) and a **Character** button; each copies that link.
    **Open** shows the Player view in a new tab to check it.
 2. In OBS, choose Sources, +, Browser, and paste the link.

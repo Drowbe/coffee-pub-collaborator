@@ -50,4 +50,4 @@ In a space, switch on **To-do** in **Modules**, in the space bar under the heade
 
 ## Reminders
 
-Set **Remind people at 9:00 that day** on a task with a due date to send a notification at 9:00 on that day. Everyone in that space (or everyone in the environment, for one of its tasks) who is allowed to see the list gets a toast, and a number on the To-do's link in the header and its switch in the space bar until they open it. Ticking a task done, changing its date or deleting it cancels the reminder. A due date whose 9:00 has already passed sends no reminder.
+Set **Remind people at 9:00 that day** on a task with a due date to send a notification at 9:00 on that day. Everyone in that space (or everyone in the environment, for one of its tasks) who is allowed to see the list gets a toast, a count on the bell in the top bar, and a number on To-do in the top bar's **Modules** menu and on its switch in the space bar until they open it or the bell. Ticking a task done, changing its date or deleting it cancels the reminder. A due date whose 9:00 has already passed sends no reminder.

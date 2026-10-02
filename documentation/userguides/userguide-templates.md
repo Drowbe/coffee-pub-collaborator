@@ -11,7 +11,7 @@ host admin can switch it later. An environment without one reads exactly as Coll
 
 The Travel template sets an environment up for planning trips together:
 
-- Spaces are called **trips** everywhere people read them.
+- Spaces are called **trips** everywhere people read them, and the home page **Trips**.
 - The Lobby is called **Home base**, "Everyone on every trip."
 - The Planner is shown as **Itinerary**.
 - The Itinerary (Planner), Places, Maps, Research and the Calendar are turned on, with the chat and the call, in
@@ -112,7 +112,8 @@ deleted.
 1. Click **New template**.
 2. Give it an **Id** (lowercase letters, digits and dashes; it can't be changed later), a **Name** and a
    **Description**.
-3. Fill in what it should set: **Words** (blank keeps the default; give the singular and the plural) and, under
+3. Fill in what it should set: **Words** (blank keeps the default; give the singular and the plural; a blank **Home page** row follows the
+   template's space word, "Trips" for "trip") and, under
    them, **Button for entering a space** (blank keeps **Enter**; at most 20 characters), the **Home
    icon**, the **Modules** and, under **Module names and icons**, what to show them as, and under **New
    environments** the **Lobby name**, **Lobby description**, what **New spaces use**, and what a new space opens:

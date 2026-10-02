@@ -91,16 +91,15 @@ from before. Seen on 2026-09-30; it is older than the grid size keeping modules 
 
 Workaround: move **Grid size** once, which settles them apart, or drag them apart.
 
-## The header crowds between about 641 and 800 pixels wide
+## The bell's notices don't open what they are about, and there are no mentions
 
-In a window between about 641 and 800 pixels wide, the header's top row has too little room for its three parts:
-the crumb saying where you are wraps onto two lines, and the right end (the light or dark switch, Manage, the time,
-your picture) can run over the **Spaces** link in the middle. This is older than the account menu; it is a limit of
-the header's layout. Seen on 2026-09-30, in headless Chromium at 700 pixels, and again at about 660 pixels, where
-**Spaces** overlaps the light or dark switch. The space bar under it no longer overlaps: its tools fold into a
-**…** instead.
+The bell in the top bar lists module notices, but clicking one does nothing: a notice does not carry a link to its
+object yet. Nobody is notified when they are mentioned in chat. Both are the notifications step of
+[plan-primary-nav](plans/plan-primary-nav.md) (decision 3, step 9), not built yet. Opening the bell marks every
+notice read at once; there is no **Mark all read** and no way to keep one unread.
 
-Workaround: make the window wider than 800 pixels, or narrower than 640, where the header folds into its menu.
+Workaround: open the module named on the notice (from **Modules** in the top bar, or the space it came from) and find
+the object there.
 
 ## The Paste button on a picture only gets a PNG
 

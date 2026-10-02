@@ -69,6 +69,205 @@ test('nothing is left of the old translation (WIRE_SCOPE, toSdk, toWire)', () =>
   for (const name of ['WIRE_SCOPE', 'SDK_SCOPE', 'toSdk', 'toWire', 'pointersIn']) assert.equal(src.includes(name), false, `${name} is still in module-host.js`);
 });
 
+// Where a module's call goes (placeOf in public/module-host.js; plan-calendar-destination, "SDK and the host"): a module's
+// environment page may name one of the viewer's spaces with { space } (to read and write there, the server deciding), a
+// mount in a space reaches only its own space, and the rules that were there before still hold.
+{
+  const src = slice('public/module-host.js', 'const SPACE_ID', '\n  return { scope: \'space\', space };\n}\n');
+  const placeOf = new Function(`${src}\nreturn placeOf;`)();
+  const env = { scope: 'environment', spaceId: null, moduleScopes: ['environment', 'space'] };
+  const inSpace = { scope: 'space', spaceId: 'gq2zb7pq', moduleScopes: ['environment', 'space'] };
+  const refused = (fn, re) => assert.throws(fn, (err) => err.status === 400 && (!re || re.test(err.message)));
+  test('an environment page names a space with { space }, with or without scope "space"', () => {
+    assert.deepEqual(placeOf(undefined, 'abc123', env), { scope: 'space', space: 'abc123' });
+    assert.deepEqual(placeOf('context', 'abc123', env), { scope: 'space', space: 'abc123' });
+    assert.deepEqual(placeOf('space', 'abc123', env), { scope: 'space', space: 'abc123' });
+  });
+  test('an environment page without a space stays in the environment, and reads across spaces as before', () => {
+    assert.deepEqual(placeOf(undefined, undefined, env), { scope: 'environment', space: null });
+    assert.deepEqual(placeOf('environment', null, env), { scope: 'environment', space: null });
+    assert.deepEqual(placeOf('spaces', undefined, env), { scope: 'spaces', space: null });
+    refused(() => placeOf('space', undefined, env), /not in a space/);
+  });
+  test('a space mount keeps to its own space and refuses another', () => {
+    assert.deepEqual(placeOf(undefined, undefined, inSpace), { scope: 'space', space: 'gq2zb7pq' });
+    assert.deepEqual(placeOf('space', undefined, inSpace), { scope: 'space', space: 'gq2zb7pq' });
+    assert.deepEqual(placeOf(undefined, 'gq2zb7pq', inSpace), { scope: 'space', space: 'gq2zb7pq' });
+    assert.deepEqual(placeOf('environment', undefined, inSpace), { scope: 'environment', space: null });
+    refused(() => placeOf(undefined, 'other1', inSpace), /another space/);
+    refused(() => placeOf('space', 'other1', inSpace), /another space/);
+    refused(() => placeOf('spaces', undefined, inSpace), /environment page/);
+  });
+  test('a space goes only with scope "space", must look like an id, and needs a module with the space scope', () => {
+    refused(() => placeOf('environment', 'abc123', env), /scope "space"/);
+    refused(() => placeOf('spaces', 'abc123', env), /scope "space"/);
+    refused(() => placeOf('person', 'abc123', { ...env, moduleScopes: ['environment', 'space', 'person'] }), /scope "space"/);
+    for (const bad of ['a b', 'x'.repeat(65), '../x', 7]) refused(() => placeOf(undefined, bad, env), /not a space/);
+    refused(() => placeOf(undefined, 'abc123', { ...env, moduleScopes: ['environment'] }), /no space scope/);
+  });
+  test('the person scope and the old names are as before', () => {
+    refused(() => placeOf('person', undefined, env), /no personal scope/);
+    assert.deepEqual(placeOf('person', undefined, { ...env, moduleScopes: ['environment', 'person'] }), { scope: 'person', space: null });
+    for (const old of ['server', 'room', 'rooms']) refused(() => placeOf(old, undefined, env), /old name/);
+    refused(() => placeOf('everywhere', undefined, env), /not one of/);
+  });
+  test('storage, schedule, notify and links pass the space on (module-host.js and the SDK)', () => {
+    const host = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+    for (const call of ['storage.get', 'storage.set', 'storage.delete', 'storage.list', 'cancelSchedule']) {
+      const at = host.indexOf(`async ${call.includes('.') ? `'${call}'` : call}(`);
+      assert.ok(at > 0, `${call} is in module-host.js`);
+      assert.match(host.slice(at, host.indexOf('\n    },', at)), /scopeOf\(s, space\)/, `${call} passes { space }`);
+    }
+    for (const call of ['schedule', 'notify']) {
+      const at = host.indexOf(`async ${call}(spec)`);
+      assert.match(host.slice(at, host.indexOf('\n    },', at)), /scopeOf\(spec\?\.scope, spec\?\.space\)[^\n]*space: undefined/, `${call} passes { space } and keeps it out of the body`);
+    }
+    assert.ok(host.includes("async 'objects.setLinks'({ from, to, space })"), 'setLinks takes { space }');
+    const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+    assert.ok(sdk.includes("const opts = (o) => ({ scope: (o && o.scope) || 'context', ...(o && o.space ? { space: String(o.space) } : {}) });"), 'the SDK passes { space }');
+  });
+}
+
+// host.objects.search (objectSearchParams in public/module-host.js; plan-map-destination, "SDK and the host"): an
+// environment page may search every space at once and ask only for summaries with a place; a space mount may not.
+{
+  const placeSrc = slice('public/module-host.js', 'const SPACE_ID', '\n  return { scope: \'space\', space };\n}\n');
+  const src = slice('public/module-host.js', 'function objectSearchParams(', '// --- end of the search');
+  const objectSearchParams = new Function(`${placeSrc}\n${src}\nreturn objectSearchParams;`)();
+  const env = { scope: 'environment', spaceId: null, moduleScopes: ['environment', 'space'] };
+  const inSpace = { scope: 'space', spaceId: 'gq2zb7pq', moduleScopes: ['environment', 'space'] };
+  const q = (o, mount) => Object.fromEntries(objectSearchParams('maps', o, mount));
+  const refused = (fn) => assert.throws(fn, (err) => err.status === 400);
+  test('search: an environment page asks every space at once, and only for places', () => {
+    assert.deepEqual(q({ q: '', scope: 'spaces', has: 'place' }, env), { from: 'maps', q: '', scope: 'spaces', has: 'place' });
+    assert.deepEqual(q({ q: 'cafe', scope: 'spaces' }, env), { from: 'maps', q: 'cafe', scope: 'spaces' });
+  });
+  test('search: a space mount, or a keyed page, cannot ask across spaces', () => {
+    refused(() => q({ scope: 'spaces' }, inSpace));
+    refused(() => q({ scope: 'spaces' }, { ...env, keyed: true }));
+    refused(() => q({ scope: 'spaces', space: 'abc123' }, env));
+  });
+  test('search: one place as before, has only "place"', () => {
+    assert.deepEqual(q({ q: 'x' }, inSpace), { from: 'maps', q: 'x', scope: 'space', space: 'gq2zb7pq' });
+    assert.deepEqual(q({ q: 'x', scope: 'environment', has: 'place' }, inSpace), { from: 'maps', q: 'x', scope: 'environment', has: 'place' });
+    assert.deepEqual(q({ scope: 'person' }, inSpace), { from: 'maps', q: '', scope: 'person' });
+    assert.deepEqual(q({ space: 'abc123' }, env), { from: 'maps', q: '', scope: 'space', space: 'abc123' });
+    refused(() => q({ space: 'other1' }, inSpace));
+    refused(() => q({ has: 'date' }, env));
+  });
+}
+
+// host.actions.list with the object a drop is about (decision 21): the host passes the pointer on, cleaned, and the drop
+// asks with the dropped object, so the server lists only what can be done in that object's own place.
+test('actions.list passes a valid ref on, cleaned, and drops a bad one; the drop menu asks with the dropped object', () => {
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  const at = src.indexOf("async 'actions.list'(");
+  const body = src.slice(at, src.indexOf('\n    },', at));
+  const run = new Function('REF_SHAPE', 'cleanPointer', `return (${body.replace("async 'actions.list'", 'function')}\n    });`.replace(/\(await api\('GET', `\/api\/bus\/actions\?\$\{busQuery\(\{ from: module\.id, \.\.\.extra \}\)\}`\)\)\.actions/, 'extra'));
+  const list = run(REF_SHAPE, cleanPointer);
+  const ref = { module: 'todo', kind: 'task', id: 'list', scope: 'space', space: 'gq2zb7pq', title: 'x' };
+  assert.deepEqual(list({ accepts: 'todo:task', ref }), { accepts: 'todo:task', ref: JSON.stringify({ module: 'todo', kind: 'task', id: 'list', scope: 'space', space: 'gq2zb7pq' }) });
+  assert.deepEqual(list({ accepts: 'todo:task', ref: { module: 'todo', scope: 'room' } }), { accepts: 'todo:task' });
+  assert.deepEqual(list({}), {});
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  assert.ok(sdk.includes("list: (o) => call('actions.list', { accepts: o && o.accepts, self: Boolean(o && o.self), ref: o && o.ref }),"), 'the SDK passes ref');
+  assert.ok(sdk.includes('host.actions.list({ accepts: `${d.ref.module}:${d.ref.kind}`, ref: d.ref })'), 'a drop asks with the dropped object');
+});
+
+// A destination's shared state (createDestination in public/module-host.js): the page sets what it owns, every part
+// hears every change, and a part may set only what its destination lets it (the calendar: main sets the day and the
+// period; the map: either part selects).
+{
+  const src = slice('public/module-host.js', '// --- destinations', '// --- end of destinations').replace('export function createDestination', 'function createDestination');
+  const createDestination = new Function(`${hostSrc}\n${src}\nreturn createDestination;`)();
+  const listen = (hub, part) => { const got = []; hub.join(part, (s) => got.push(s)); return got; };
+  const status = (fn, code) => assert.throws(fn, (err) => err.status === code);
+  test('the calendar: the page\'s state reaches every part, and only main sets the day and the period', () => {
+    const hub = createDestination('calendar', { view: 'month', spaces: ['a1'], environment: true });
+    const main = listen(hub, 'main');
+    const panel = listen(hub, 'panel');
+    const page = [];
+    hub.onChange((s) => page.push(s));
+    hub.update({ view: 'week' });
+    assert.equal(main.at(-1).view, 'week');
+    assert.equal(panel.at(-1).view, 'week');
+    const period = { day: '2026-10-02', from: '2026-09-27', to: '2026-10-04' };
+    hub.fromPart('main', period);
+    assert.deepEqual(panel.at(-1), { view: 'week', spaces: ['a1'], environment: true, ...period });
+    assert.deepEqual(main.at(-1), panel.at(-1));
+    assert.equal(page.length, 2);
+    status(() => hub.fromPart('panel', { day: '2026-10-03' }), 403);
+    status(() => hub.fromPart('main', { view: 'day' }), 403);
+    status(() => hub.fromPart('main', { selected: null }), 403);
+    status(() => hub.fromPart('main', { reveal: 'panel' }), 403); // the calendar's parts do not ask
+    status(() => hub.fromPart('main', { day: '2 October' }), 400);
+    status(() => hub.fromPart('main', 'day'), 400);
+    assert.equal(hub.state.day, '2026-10-02');
+    hub.fromPart('main', { day: '2026-10-02' }); // nothing changed: nobody is told again
+    assert.equal(panel.length, 2);
+  });
+  test('the map: either part selects, with a pointer or null, and a part that left hears nothing', () => {
+    const hub = createDestination('map', { q: '' });
+    const main = listen(hub, 'main');
+    const got = [];
+    const leave = hub.join('panel', (s) => got.push(s));
+    const place = { module: 'places', kind: 'place', id: 'p1', scope: 'space', space: 'gq2zb7pq', title: 'not a pointer field' };
+    hub.fromPart('panel', { selected: place });
+    assert.deepEqual(main.at(-1).selected, { module: 'places', kind: 'place', id: 'p1', scope: 'space', space: 'gq2zb7pq' });
+    hub.fromPart('main', { selected: null });
+    assert.equal(got.at(-1).selected, null);
+    status(() => hub.fromPart('main', { selected: { module: 'places', kind: 'place', id: 'p1', scope: 'room', room: 'x' } }), 400);
+    status(() => hub.fromPart('panel', { day: '2026-10-02' }), 403);
+    // Either part may ask the page to show a part (a phone's tabs); nothing else, and never the page's own `phone`.
+    hub.fromPart('main', { reveal: 'panel' });
+    assert.equal(main.at(-1).reveal, 'panel');
+    status(() => hub.fromPart('main', { reveal: 'sideways' }), 400);
+    status(() => hub.fromPart('panel', { phone: true }), 403);
+    leave();
+    hub.update({ q: 'cafe' });
+    assert.equal(got.length, 3);
+    assert.equal(main.at(-1).q, 'cafe');
+  });
+  test('an unknown destination is refused', () => {
+    assert.throws(() => createDestination('kitchen'));
+  });
+  test('a part is told the destination and its state in the hello, and mounting checks the part', () => {
+    const host = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+    // Every module hears the environment's name (decision 19: Where and the filter name the environment's own alike).
+    assert.ok(host.includes('environment: { name: envName }'), 'the hello carries info.context.environment.name');
+    assert.ok(/fetch\('\/api\/branding'\)/.test(host), 'from the public branding, asked once per page');
+    for (const piece of ['destination: { id: destination.hub.id, part: destination.part }', 'destinationState: destination.hub.state', 'part is "main" or "panel"', 'destination.hub.join(destination.part,', 'leaveDestination();']) {
+      assert.ok(host.includes(piece), `module-host.js has ${piece}`);
+    }
+    assert.ok(/async 'destination\.set'\(\{ patch \}\) \{\n\s+if \(!destination\)/.test(host), 'destination.set refuses a mount that is not a part');
+  });
+}
+
+// host.presence.get (presenceForModule in public/module-host.js): a person's place as the viewer may know it (plan-primary-nav
+// step 3) reaches the module: `aside` and `elsewhere` pass through, and `activeSpace` may be null.
+{
+  const src = slice('public/module-host.js', 'function presenceForModule(d) {', '\n}\n');
+  const presenceForModule = new Function(`${src}\nreturn presenceForModule;`)();
+  test('presence: aside, asidePrivate (only with an aside) and elsewhere pass through, and nothing else of the person', () => {
+    const p = presenceForModule({ users: [
+      { key: 'a', displayName: 'Ana', online: true, space: 'as1', aside: true, asidePrivate: true, elsewhere: false, inCall: true, isOwner: false, secret: 'x' },
+      { key: 'b', displayName: 'Bo', online: true, space: null, aside: false, asidePrivate: true, elsewhere: true, inCall: false },
+      { key: 'c', displayName: 'Cy', online: false, space: 'sp1' },
+    ], activeSpace: null });
+    assert.deepEqual(p.people, [
+      { key: 'a', name: 'Ana', online: true, space: 'as1', aside: true, asidePrivate: true, elsewhere: false, inCall: true, isOwner: false },
+      { key: 'b', name: 'Bo', online: true, space: null, aside: false, asidePrivate: false, elsewhere: true, inCall: false, isOwner: false },
+      { key: 'c', name: 'Cy', online: false, space: 'sp1', aside: false, asidePrivate: false, elsewhere: false, inCall: false, isOwner: false },
+    ]);
+  });
+  test('presence: activeSpace null, missing or a space id', () => {
+    assert.equal(presenceForModule({ activeSpace: null }).activeSpace, null);
+    assert.equal(presenceForModule({}).activeSpace, null);
+    assert.equal(presenceForModule({ activeSpace: 'sp1' }).activeSpace, 'sp1');
+    assert.deepEqual(presenceForModule({}).people, []);
+  });
+}
+
 // A module's own window (public/module.js): Clear in the title bar's "..." runs clearModuleData, a top-level function.
 // It once used start()'s local `scope` and failed with "scope is not defined". Run it with only the page's top-level
 // names (id, spaceId, guestToken, api) and check what it asks the server to clear.

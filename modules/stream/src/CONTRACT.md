@@ -15,6 +15,7 @@ The link's shape, its query options and which pictures a box draws are the contr
 
 - `host.settings.get()` and `onChange`: the box settings (borders, plate, picture background, dim and tint), all environment-scope, declared in `module.json`. Portrait size is not one of them. It is the conference's, and arrives on `host.presence` as `pictureScale`.
 - `host.presence.get()` and `onChange`: who is online, in which space (`space`, an aside's id while they are in one), whether an owner is online (`ownerOnline`) and which space the stream follows (`activeSpace`), the asides (each with its `origin` space and whether it is `private`), the reaction glyphs, and `pictureScale` (the conference's portrait size, which the participant box uses).
+  That is what the access key reads (the keyed page, OBS). A signed-in page's `host.presence` is filtered by the viewer's spaces (server/presence-view.js): someone in an aside the viewer is not in, from a space they belong to, shows as that parent space with `aside: true`; `asidePrivate` says whether the aside is private; someone anywhere the viewer cannot see has `space: null` and `elsewhere: true`; and `activeSpace` is null when the stream follows a place the viewer cannot see.
 - `host.images.get(key, slot, { space })`: the pictures, per space set.
 - `host.media.watch(key, { video, audio, space }, handlers)`: the read-only viewer connection the host keeps; `follow(spaceId)` when the roster says they moved.
 - `host.access.key()` and `regenerate()` on the links page.

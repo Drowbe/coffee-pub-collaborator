@@ -1,7 +1,8 @@
 // The dashboard on the spaces page: cards under the space list, across all of a person's spaces. Who is around is
 // the host's own; every other card is a widget a module provides (its manifest's surfaces.widget), hosted here
 // exactly as a module page is, so the host names no module. The section stays hidden while there is nothing to show.
-import { api, escapeHtml } from '/brand.js';
+import { api, escapeHtml, word } from '/brand.js';
+import { whereWords } from '/primary-nav.js';
 import { mountModule } from '/module-host.js';
 
 // What each module has unread (the host's notification counts): shown on its card's heading, since the header no
@@ -60,7 +61,8 @@ document.addEventListener('click', (event) => {
   const link = event.target.closest?.('#dashboard a[href]');
   if (!link || (link.target && link.target !== '_self')) return;
   const url = new URL(link.href, location.href);
-  if (url.origin !== location.origin || !url.pathname.startsWith('/modules/')) return;
+  // A tile's heading may lead to a destination (/calendar) rather than its module's page: the same way (data-page-link).
+  if (url.origin !== location.origin || !(url.pathname.startsWith('/modules/') || link.hasAttribute('data-page-link'))) return;
   const unhandled = document.dispatchEvent(new CustomEvent('app:open-page', { detail: { href: url.pathname + url.search + url.hash, kind: 'module' }, cancelable: true }));
   if (!unhandled) event.preventDefault();
 });
@@ -75,7 +77,7 @@ function card({ id, title, icon, name, href, size }) {
   const head = document.createElement('header');
   const label = `<i class="fa-solid fa-${escapeHtml(icon || 'puzzle-piece')} fa-fw" aria-hidden="true"></i> ${escapeHtml(title)}`;
   head.innerHTML = href
-    ? `<a class="dashboard-widget-title" href="${escapeHtml(href)}" title="Open ${escapeHtml(name || title)}">${label}</a>`
+    ? `<a class="dashboard-widget-title" href="${escapeHtml(href)}" title="Open ${escapeHtml(name || title)}" data-page-link>${label}</a>`
     : `<span class="dashboard-widget-title">${label}</span>`;
   const body = document.createElement('div');
   body.className = 'dashboard-widget-body';
@@ -84,7 +86,9 @@ function card({ id, title, icon, name, href, size }) {
 }
 
 function mountWidget(w) {
-  const { el, body } = card({ id: w.id, title: w.title, icon: w.icon, name: w.name, href: `/modules/${encodeURIComponent(w.id)}`, size: w.size });
+  // Where its heading goes: the server's `href` (the module's page, or the destination it is a part of while that shows).
+  const page = typeof w.href === 'string' && /^\/[A-Za-z0-9/_-]*$/.test(w.href) ? w.href : `/modules/${encodeURIComponent(w.id)}`;
+  const { el, body } = card({ id: w.id, title: w.title, icon: w.icon, name: w.name, href: page, size: w.size });
   const inPage = w.runMode === 'page';
   let holder;
   if (inPage) {
@@ -105,28 +109,29 @@ function mountWidget(w) {
     onOpenRef: openRef,
     // A click in the widget that means "show me this in full": the module's own page, at that place (over the space while
     // present in one).
-    onOpenPage: (hash) => { openModulePage(`/modules/${encodeURIComponent(w.id)}${hash ? '#' + hash : ''}`); return true; },
+    onOpenPage: (hash) => { openModulePage(`${page}${hash ? '#' + hash : ''}`); return true; },
     // A widget in a frame says how tall it is.
     onResize: ({ height }) => { if (!inPage && Number.isFinite(height)) holder.style.height = `${Math.min(Math.max(Math.ceil(height), 40), 600)}px`; },
   });
 }
 
 // Who is around: a strip above the space cards of everyone online (signed in with the host open, in a space or not),
-// with where they are, and a button to ask them into a private conversation of two.
+// with where they are, and a button to ask them into a private conversation of two. Where is whereWords()
+// (primary-nav.js): a space of mine by name, "in an aside", or "in another <space>" for one I don't belong to.
 let joinSpace = null;
 let whoNote = '';
 function renderWho(presence) {
   const el = document.getElementById('whos-around');
   if (!el) return;
-  const spaces = new Map((presence.spaces || []).map((r) => [r.id, r]));
+  const spaces = presence.spaces || [];
   const here = (presence.users || []).filter((u) => u.present || u.online);
   const people = here.map((u) => {
     const mine = u.key === presence.me;
-    const where = u.space && spaces.get(u.space) ? spaces.get(u.space).name : '';
+    const where = whereWords(u, spaces, { aside: word('aside', { a: true }), space: word('space') });
     const label = escapeHtml(u.displayName || u.login || 'Someone');
     // One cell of the grid: who, where they are, and what can be done (in the call, invite).
     const actions = `${u.inCall ? '<i class="fa-solid fa-video fa-fw dashboard-person-call" title="In the call" aria-hidden="true"></i>' : ''}${!mine && joinSpace ? `<button type="button" class="dashboard-invite" data-invite="${escapeHtml(u.key)}" title="Invite ${label} to a private conversation" aria-label="Invite ${label} to a private conversation"><i class="fa-solid fa-people-arrows fa-fw" aria-hidden="true"></i></button>` : ''}`;
-    return `<div class="dashboard-person${where ? ' is-placed' : ''}"><img src="/img/${encodeURIComponent(u.key)}/profile" alt=""><span class="dashboard-person-text"><span class="dashboard-person-name">${label}${mine ? ' (you)' : ''}</span><span class="dashboard-person-where">${where ? `in ${escapeHtml(where)}` : 'online'}</span></span><span class="dashboard-person-actions">${actions}</span></div>`;
+    return `<div class="dashboard-person${where ? ' is-placed' : ''}"><img src="/img/${encodeURIComponent(u.key)}/profile" alt=""><span class="dashboard-person-text"><span class="dashboard-person-name">${label}${mine ? ' (you)' : ''}</span><span class="dashboard-person-where">${where ? escapeHtml(where) : 'online'}</span></span><span class="dashboard-person-actions">${actions}</span></div>`;
   });
   el.innerHTML = `<h2 class="whos-around-title"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i> Who's around <span class="whos-around-count">${people.length || ''}</span></h2>` + (people.length ? `<div class="whos-around-list">${people.join('')}</div>` : '<p class="dashboard-empty">Nobody is around right now.</p>') + (whoNote ? `<p class="whos-around-note">${escapeHtml(whoNote)}</p>` : '');
   el.hidden = false;

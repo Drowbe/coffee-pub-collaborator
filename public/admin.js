@@ -1,4 +1,4 @@
-import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName, refreshDestinations } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import '/slot-paste.js'; // paste a picture into any image slot
@@ -611,6 +611,52 @@ $('save-features').addEventListener('click', () => saveSettings({
 }, $('features-status')));
 $('save-login').addEventListener('click', () => saveSettings({ loginText: $('set-login-text').value, mfaRequired: $('set-mfa-required').checked }, $('login-status')));
 
+// --- the top bar's destinations ---------------------------------------------------------------------
+// Show Calendar and Show Map (plan-calendar-destination.md, plan-map-destination.md): switches saved as they are flipped.
+// One that cannot show for anyone (its module off, no map file) is off and disabled, its hint saying why instead
+// (GET /api/settings' topBarReasons, one sentence each). Read again whenever the Modules tab changes something.
+let topBarReady = false;
+const TOP_BAR = [
+  { key: 'showCalendar', id: 'calendar', input: 'set-show-calendar', hint: 'show-calendar-hint' },
+  { key: 'showMap', id: 'map', input: 'set-show-map', hint: 'show-map-hint' },
+];
+const topBarHints = {};
+function renderTopBar(settings) {
+  const reasons = (settings && settings.topBarReasons) || {};
+  for (const t of TOP_BAR) {
+    const input = $(t.input);
+    const hint = $(t.hint);
+    if (!input || !hint) continue;
+    if (!(t.hint in topBarHints)) topBarHints[t.hint] = hint.textContent;
+    const why = typeof reasons[t.id] === 'string' && reasons[t.id] ? reasons[t.id] : '';
+    input.checked = !why && settings[t.key] === true;
+    input.disabled = Boolean(why);
+    input.closest('label').classList.toggle('disabled', Boolean(why));
+    hint.textContent = why || topBarHints[t.hint];
+  }
+}
+async function refreshTopBar() {
+  try {
+    renderTopBar((await api('GET', '/api/settings')).settings);
+  } catch {
+    // keeps what it shows
+  }
+}
+for (const t of TOP_BAR) {
+  $(t.input).addEventListener('change', async (event) => {
+    const input = event.target;
+    try {
+      const answer = await api('PATCH', '/api/settings', { [t.key]: input.checked });
+      if (answer && answer.settings) renderTopBar(answer.settings);
+      refreshDestinations(); // the bar's entry comes or goes on this page too
+      say($('top-bar-status'), 'saved');
+    } catch (err) {
+      input.checked = !input.checked;
+      say($('top-bar-status'), err.message, true);
+    }
+  });
+}
+
 // --- theme -------------------------------------------------------------------
 // A chooser (Strong Coffee, the default, + every saved theme) and a
 // Light/Dark switch, plus the same seven color inputs, used to create/edit
@@ -1020,6 +1066,7 @@ const shownNameOf = (id) => shownName(installedModules.find((m) => m.id === id) 
 
 async function loadModules() {
   const data = await api('GET', '/api/modules');
+  if (topBarReady) refreshTopBar(); // a module on or off may change what the top bar can show
   installedModules = data.modules;
   builtinModules = data.builtin || [];
   bundledModules = data.bundled || [];
@@ -2157,6 +2204,8 @@ async function init() {
     $('set-allow-asides').checked = settings.allowAsides !== false;
     $('set-allow-private').checked = settings.allowPrivate !== false;
     $('set-allow-reactions').checked = settings.allowReactions !== false;
+    renderTopBar(settings);
+    topBarReady = true;
     $('set-login-text').value = settings.loginText;
     $('set-mfa-required').checked = Boolean(settings.mfaRequired);
     $('set-allow-registration').checked = Boolean(settings.allowRegistration);

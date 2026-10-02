@@ -827,7 +827,7 @@ try {
       const refused = await join('lobby');
       assert.deepEqual([refused.status, refused.json], [403, OVER('The Keep')], 'starting a second call is refused');
       const refusedGuest = await guestCallJoin(guestLink);
-      assert.deepEqual([refusedGuest.status, refusedGuest.json], [403, OVER('The Keep')], 'a guest starting one too');
+      assert.deepEqual([refusedGuest.status, refusedGuest.json], [403, OVER('another space')], 'a guest starting one too, never told where a space they don\'t belong to has its call');
       assert.deepEqual([(await join(keep)).status, (await join(keep)).json], [200, { ok: true }], 'joining the running call is never refused');
       assert.deepEqual([(await guestCallJoin(keepLink)).status, (await guestCallJoin(keepLink)).json], [200, { ok: true }]);
       assert.equal((await call(server, 'acme', 'POST', `/api/token?s=${encodeURIComponent(streamKey)}`, { body: { role: 'viewer', space: 'lobby' } })).status, 200, 'an OBS viewer is never asked about the cap');
@@ -847,7 +847,7 @@ try {
       // Keep's a moment later, with nobody on any call yet, is refused.
       setCalls({});
       assert.equal(await callsNow(), 0);
-      assert.deepEqual(await guestCallJoin(keepLink).then((r) => [r.status, r.json]), [403, OVER('Lobby')], 'the race is closed');
+      assert.deepEqual(await guestCallJoin(keepLink).then((r) => [r.status, r.json]), [403, OVER('another space')], 'the race is closed (the Lobby is not named to a guest of the Keep)');
       assert.equal((await guestCallJoin(guestLink)).status, 200, 'joining the call just started is joining');
 
       // acme's own call under its old name (someone on it across the upgrade): counted and placed, and joining it is joining.
@@ -1294,9 +1294,10 @@ try {
     for (const id of ['places', 'maps', 'travel']) assert.deepEqual([id, byId[id].version, byId[id].enabled, byId[id].allSpaces], [id, current[id], true, true]);
     assert.deepEqual([byId.todo.version, byId.todo.enabled], [older(current.todo), true], 'the To-do waits, still on, on its old version');
     // plan-primary-nav step 1 (decision 12): every module with an environment page is listed, widget or not, and a
-    // manifest's surfaces.page.nav is no longer read (Places sets it to false). Maps has only a space's canvas page.
+    // manifest's surfaces.page.nav is no longer read (Places sets it to false). Maps has an environment page from 0.8.0
+    // (plan-map-destination, decision 20: the map across the person's spaces).
     const pages = (await as('GET', '/api/modules/nav')).json.modules;
-    assert.deepEqual(pages.map((m) => m.id).sort(), ['places', 'stream', 'todo', 'travel'], 'Places and the modules with a tile are listed; Maps has no environment page');
+    assert.deepEqual(pages.map((m) => m.id).sort(), ['maps', 'places', 'stream', 'todo', 'travel'], 'Places, Maps and the modules with a tile are listed');
     for (const m of pages) assert.deepEqual([m.id, m.nav, typeof m.name, typeof m.icon, typeof m.page], [m.id, true, 'string', 'string', 'string'], 'each with its name, icon and page, and nav always true');
     assert.equal(pages.find((m) => m.id === 'places').widget, false);
     assert.equal(pages.find((m) => m.id === 'todo').widget, true);

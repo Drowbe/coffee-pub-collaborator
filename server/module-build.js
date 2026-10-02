@@ -84,8 +84,10 @@ function buildModule(dir) {
   const shared = build(manifest.id);
   const files = [['module.json', fs.readFileSync(manifestPath)]];
   const seen = new Set();
-  for (const [surface, def] of Object.entries(manifest.surfaces || {})) {
-    if (seen.has(def.entry)) continue;
+  // surfaces.destination is a list of parts (plan-calendar-destination.md), each drawn from the module's own page.
+  const entries = Object.entries(manifest.surfaces || {}).flatMap(([surface, def]) => (Array.isArray(def) ? def.map((d) => [surface, d]) : [[surface, def]]));
+  for (const [surface, def] of entries) {
+    if (!def || typeof def.entry !== 'string' || seen.has(def.entry)) continue;
     seen.add(def.entry);
     files.push([def.entry, Buffer.from(surface === 'widget' ? build(`${manifest.id}-widget`) : surface === 'keyed' ? build(`${manifest.id}-keyed`) : shared)]);
   }

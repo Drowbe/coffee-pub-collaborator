@@ -15,6 +15,7 @@ Open the Manage page from the menu under your picture in the top bar: choose **M
 - The home icon, the words and the module names are on the **Template** tab (below).
 - **Call features.** Turns screen sharing, asides, private conversations and reactions on or off for
   everyone, and sets the highest video quality anyone can pick.
+- **Top bar.** **Show Calendar** and **Show Map**, two pages of their own in the top bar; see "Top bar" below.
 - **Sign-in page.** A background picture behind the sign-in box, the text under the password field, and **Require two-step sign-in for everyone**: off (the default: anyone may set up an authenticator app on their profile) or on (everyone must, from their next sign-in; a session already open keeps working); see "Two-step sign-in" in [Accounts, roles and permissions](userguide-accounts.md). The switch is not shown when the server does not offer two-step sign-in (`ENABLE_MFA` in the compose file). The Users tab marks accounts that have set it up. Click the picture to upload your own, paste one, or choose **Choose from the library** for one of the pre-made backgrounds that ship with Collaborator (filter by theme and style, pick one, **Use this background**). New pre-made images are added by putting files in `public/assets/images/backgrounds/`; see the README there for the format and file names.
 - **Sign-up.** Self-service `/register` on or off, and invite links into specific spaces. See
   [Accounts, roles and permissions](userguide-accounts.md).
@@ -22,6 +23,15 @@ Open the Manage page from the menu under your picture in the top bar: choose **M
   OBS views, `?s=...`). Show, copy or regenerate it; regenerating stops every existing link working.
   How the OBS boxes look (borders, the name plate, dimming) is the Stream module's own settings now; see
   [Collaborator in OBS](userguide-obs.md).
+
+## Top bar
+
+Owners and the admin can add two pages to the middle of everyone's top bar: **Calendar**, the Calendar and the To-do together, and **Maps**, the map and Places together. Both are off unless you turn them on; an environment made from the Travel template starts with both on.
+
+1. Open Manage on the **Environment** tab.
+2. Under **Top bar**, switch on **Show Calendar** ("Adds Calendar to the top bar: events and tasks from every space in one place.") or **Show Map** ("Adds Map to the top bar: places from every space on one map."). Each switch saves as you flip it.
+
+A switch that can't work yet is shown off and greyed, and its line says why instead: "Turn on Calendar on the Modules tab first.", "Turn on Maps on the Modules tab first.", or, for Map without a map file, "Choose a file for "Map files" in Maps' settings first." (on a hosted server, "Ask the host's admin for a file for Maps."). The names are the ones your environment gives those modules. Each page shows only to people who may see its module for the whole environment, never to guests. How they work: [Calendar](userguide-calendar.md), "Calendar in the top bar", and [Maps](userguide-maps.md), "Map in the top bar".
 
 ## Language, time and money
 

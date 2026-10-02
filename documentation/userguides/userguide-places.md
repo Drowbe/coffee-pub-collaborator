@@ -25,9 +25,21 @@ The Places module keeps the places your space cares about: where you are staying
 
 Another module can also add a place for you: a trip's stop can offer to save itself as a place.
 
-## Mine, this space and everyone
+## Mine, this space and the environment's
 
-At the top, **Mine**, **This space** and **Everyone** switch between three lists. **Everyone** is the places for the whole environment (an office, a regular haunt): everyone in the environment sees them, and anyone who may edit places can add, change and delete there, the same right as in a space. Guests see only the space's. **This space** is what the space shares. **Mine** is your own places: only you can see them, not even an administrator, and they follow you into every space you are in. Guests have only the space's. A place's menu has **Share to this space** (in Mine) or **Save to mine** (in This space), which copies it to the other list and leaves the original where it is. Places you keep in Mine are not linked to trips, events or tasks, so their "used by" pills do not apply. Places also has a page of its own (from the header) that shows Mine and Everyone outside any space.
+At the top, **Mine**, **This space** and the environment's name (for example **Coffee Pub**) switch between three lists. The environment's list is the places for the whole environment (an office, a regular haunt): everyone in the environment sees them, and anyone who may edit places can add, change and delete there, the same right as in a space. Guests see only the space's. **This space** is what the space shares. **Mine** is your own places: only you can see them, not even an administrator, and they follow you into every space you are in. Guests have only the space's. A place's menu has **Share to this space** (in Mine) or **Save to mine** (in This space), which copies it to the other list and leaves the original where it is. Places you keep in Mine are not linked to trips, events or tasks, so their "used by" pills do not apply. Places also has a page of its own, at `/modules/places`, that shows Mine and the environment's list outside any space; while Map is in the top bar, that address leads to it.
+
+## Places beside Map in the top bar
+
+When an owner turns on **Show Map**, Places is the list on the right of Map in the top bar (see [Maps](userguide-maps.md), "Map in the top bar"). It lists, in one list, your own places, the environment's and each space's that **Trips** (your environment's word for spaces) has on. Each place says where it is kept: the person icon and **Mine**, the globe and the environment's name, or the space's icon and name. The search field in the bar above filters the list; with a name typed, **Search for new places** at the foot of the list (or Enter) asks the place search, and **Save** on a result opens the dialog with it filled in. With nothing on in **Trips** the list says "Pick at least one in Trips."; with nothing there, "No places here yet."
+
+To add a place there:
+
+1. Choose **Add a place** at the top of the list, **Save** on a search result, or **+** on the map and click it.
+2. In the dialog, choose **Where** it goes: **Mine**, the environment's own places (if you may change places for the whole environment), or a space where you may add places. It starts empty every time, its prompt naming only what you may choose, and **Save** says "Pick where it goes first." until you choose. The category chips count what the filter and the search leave.
+3. Fill in the rest as below, and choose **Save**.
+
+A place already saved stays where it is; **Where** shows it and can't be changed. A place you may only read opens read-only, with **Where** showing its place, greyed, and says why, such as "Only people who can add places in <space> can change this." The place menu copies a place: **Save to mine** on a shared place, and **Share to <space>** for each space where you may add places on one of yours; the original stays where it was. Click a place with a position to show it on the map; one with no position opens its dialog. On a phone, picking a place with a position switches to the **Maps** tab, and the map's callout has **Show in list** to come back.
 
 ## Find and open a place
 

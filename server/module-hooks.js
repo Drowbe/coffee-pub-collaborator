@@ -105,6 +105,30 @@ class ModuleHooks extends EventEmitter {
     if (!Array.isArray(this.schedules)) this.schedules = [];
     this.notifications = this.read(this.notificationsFile, {});
     this.timer = null;
+    // Runs the timer's work inside this environment (server/index.js sets it to envContext.run for the environment),
+    // so what a fired schedule tells its listeners reads this environment's services, not none.
+    this.runIn = (fn) => fn();
+  }
+
+  // Tells every listener, each on its own: one that throws is logged and the rest still hear, and nothing already
+  // stored (the schedule's removal, the notification) is undone or lost.
+  tell(event, payload) {
+    for (const listener of this.listeners(event)) {
+      try {
+        listener(payload);
+      } catch (err) {
+        console.error(`A ${event} listener failed: ${err.stack || err.message}`);
+      }
+    }
+  }
+
+  // The timer's tick: in this environment, and never able to stop the process.
+  safeTick() {
+    try {
+      this.runIn(() => this.tick());
+    } catch (err) {
+      console.error(`Module schedules could not run: ${err.stack || err.message}`);
+    }
   }
 
   read(file, fallback) {
@@ -125,9 +149,9 @@ class ModuleHooks extends EventEmitter {
 
   start(intervalMs = 10000) {
     if (this.timer) return;
-    this.timer = setInterval(() => this.tick(), intervalMs);
+    this.timer = setInterval(() => this.safeTick(), intervalMs);
     this.timer.unref?.();
-    this.tick();
+    this.safeTick();
   }
 
   stop() {
@@ -194,8 +218,13 @@ class ModuleHooks extends EventEmitter {
     for (const s of due) {
       if (s.repeat) this.requeue(s, now);
       if (now - s.at > LIMITS.lateFireMs) continue; // missed while the server was off, and too late to matter
-      if (s.notify) this.deliver({ module: s.module, scopeKey: s.scopeKey, spaceId: s.spaceId }, s.notify, { by: 'schedule' });
-      this.emit('fire', { module: s.module, scopeKey: s.scopeKey, key: s.key, payload: s.payload, at: s.at });
+      // One schedule that cannot be carried out does not stop the others that are due.
+      try {
+        if (s.notify) this.deliver({ module: s.module, scopeKey: s.scopeKey, spaceId: s.spaceId }, s.notify, { by: 'schedule' });
+      } catch (err) {
+        console.error(`A scheduled notification from ${s.module} could not be delivered: ${err.stack || err.message}`);
+      }
+      this.tell('fire', { module: s.module, scopeKey: s.scopeKey, key: s.key, payload: s.payload, at: s.at });
     }
     if (due.some((s) => s.repeat)) this.write(this.schedulesFile, this.schedules);
   }
@@ -217,7 +246,7 @@ class ModuleHooks extends EventEmitter {
     if (!title) throw new StoreError('a notification needs a title');
     const recipients = this.resolveRecipients(ctx, note.to);
     const at = Date.now();
-    let count = 0;
+    const made = [];
     for (const userKey of recipients) {
       const list = (this.notifications[userKey] ||= []);
       const n = {
@@ -233,11 +262,12 @@ class ModuleHooks extends EventEmitter {
       };
       list.unshift(n);
       if (list.length > LIMITS.notificationsPerUser) list.length = LIMITS.notificationsPerUser;
-      this.emit('notification', { userKey, notification: n });
-      count += 1;
+      made.push({ userKey, notification: n });
     }
-    if (count) this.write(this.notificationsFile, this.notifications);
-    return count;
+    // Stored first, then told: a listener that fails cannot lose a notification.
+    if (made.length) this.write(this.notificationsFile, this.notifications);
+    for (const m of made) this.tell('notification', m);
+    return made.length;
   }
 
   list(userKey) {

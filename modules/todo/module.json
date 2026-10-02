@@ -1,7 +1,7 @@
 {
   "id": "todo",
   "name": "To-do",
-  "version": "1.11.17",
+  "version": "1.12.0",
   "icon": "list-check",
   "description": "A shared to-do list for the whole {environment} and for each {space}, with due dates and reminders.",
   "author": "Coffee Pub",
@@ -10,6 +10,9 @@
     "space"
   ],
   "surfaces": {
+    "destination": [
+      { "id": "calendar", "part": "panel", "entry": "page.html", "label": "To-do", "order": 20 }
+    ],
     "page": {
       "entry": "page.html"
     },

@@ -1,8 +1,10 @@
 // Calendar module. One file of code for every place it shows: the environment's own
-// page, a space's canvas (docked or floating), and a window of its own. On the
-// environment page it holds the environment's events and shows, read-only, the events of every
-// space the viewer belongs to (each marked with its space's icon); in a space it holds
-// that space's events and shows the environment's beside them. The SDK (window.host) is injected by the host.
+// page, a space's canvas (docked or floating), a window of its own, and the two parts of the Calendar destination
+// (the calendar itself, `main`, and the Agenda beside it, `panel`). On the environment page (and as a part) it holds
+// the environment's events and shows the events of every space the viewer belongs to, each marked with its space's
+// icon, editable where the viewer may add events in that space (`write` from host.spaces()); a new event there asks
+// where it goes, every time. In a space it holds that space's events and shows the environment's beside them. The
+// SDK (window.host) is injected by the host.
 (async function () {
   'use strict';
 
@@ -23,23 +25,42 @@
     return;
   }
   const inSpace = info.context.scope === 'space';
+  // A part of the Calendar destination: 'main' (the calendar) or 'panel' (the Agenda); null on every other surface.
+  // As a part it draws no view switch or filter of its own: the page's bar does those (host.destination).
+  const part = (info.context.destination && info.context.destination.part) || null;
   // The person's own choice of the view to open on (Settings > Module settings).
   let prefs = {};
   try { prefs = await host.settings.get(); } catch (err) { prefs = {}; }
-  const canEdit = host.can('edit');
+  const canEdit = host.can('edit'); // in this frame's own place: the space it is in, else the environment
   const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (err) { return undefined; } })();
 
   // Every event we know of, by "<scope>:<id>". `scope` is where it is stored: 'here'
   // (this space, or the environment on its page -- the frame's own context),
   // 'environment' (shown read-only in a space) or 'spaces' (another space's, on the environment page).
   const events = new Map();
-  const spaceInfo = new Map(); // space id -> { id, name, icon, svg }, on the environment page
+  const spaceInfo = new Map(); // space id -> { id, name, icon, svg, write }, on the environment page
   const hiddenSpaces = new Set(); // spaces filtered out on the environment page
+  let hideOwn = false; // as a part: the page's filter has the environment's own events off
   let cursor = new Date();
   cursor = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-  let view = ['month', 'week', 'both', 'list'].includes(prefs.defaultView) ? prefs.defaultView : 'month';
-  let anchor = new Date(); // the day the week view is built around
-  let editing = null; // { scope, id, version } while the editor is open
+  let view = ['month', 'week', 'day', 'both', 'list'].includes(prefs.defaultView) ? prefs.defaultView : 'month';
+  let anchor = new Date(); // the day the week and day views are built around; as a part, the selected day
+  let editing = null; // { scope, id, version, spaceId } while the editor is open
+
+  // Where an event may be changed. Another space's (on the environment page) where the viewer may add events there:
+  // host.spaces() says so with `write`, and a space that does not say is read only. The environment's events, seen
+  // from a space, are read only there as before.
+  const spaceWritable = (spaceId) => Boolean(spaceInfo.get(spaceId) && spaceInfo.get(spaceId).write === true);
+  const writable = (x) => (x.scope === 'here' ? canEdit : x.scope === 'spaces' ? spaceWritable(x.spaceId) : false);
+  const writableSpaces = () => [...spaceInfo.values()].filter((r) => r.write === true);
+  // Anyone who may add an event somewhere here: in this place, or (on the environment page) in one of their spaces.
+  const canAdd = () => canEdit || (!inSpace && writableSpaces().length > 0);
+  // The storage options for a place: another space's events are reached with { space }.
+  const placeOpts = (scope, spaceId) => (scope === 'spaces' ? { space: spaceId } : {});
+  // The environment's own calendar is named by the environment's name (info.context.environment.name), as the
+  // destination's filter names it (decision 19); the environment word only where the name is not known.
+  const envName = () => (info.context.environment && info.context.environment.name) || word('environment', { cap: true });
+  const placeName = (scope, spaceId) => (scope === 'spaces' ? (spaceInfo.get(spaceId) ? spaceInfo.get(spaceId).name : word('space', { cap: true })) : inSpace && scope === 'here' ? word('space', { cap: true }) : envName());
 
   /*__LIB__*/
 
@@ -49,6 +70,7 @@
     const out = [];
     for (const x of events.values()) {
       if (x.scope === 'spaces' && hiddenSpaces.has(x.spaceId)) continue;
+      if (x.scope === 'here' && hideOwn) continue;
       const dur = durationOf(x.ev);
       for (const start of occurrences(x.ev, new Date(from.getTime() - dur), to)) {
         const end = endOf(x.ev, start);
@@ -99,7 +121,7 @@
     const id = e.key.slice(6);
     if (e.deleted) events.delete(keyOf(scope, id, e.spaceId));
     else remember(scope, { key: e.key, value: e.value, version: e.version }, e.spaceId);
-    if (editing && editing.scope === scope && editing.id === id && e.by !== info.user.key) {
+    if (editing && editing.scope === scope && editing.id === id && (scope !== 'spaces' || editing.spaceId === e.spaceId) && e.by !== info.user.key) {
       showError('This event was just changed by someone else. Close and reopen it to see the change.');
     }
     render();
@@ -131,12 +153,13 @@
       }
     }
     const today = ymd(new Date());
+    const sel = selectedDay();
     let html = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((d) => `<div class="dow">${d}</div>`).join('');
     for (let i = 0; i < 42; i += 1) {
       const day = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
       const list = byDay.get(ymd(day)) || [];
       const shown = isCompact() ? list : list.slice(0, 3);
-      html += `<div class="day ${day.getMonth() !== cursor.getMonth() ? 'other' : ''} ${ymd(day) === today ? 'today' : ''}" data-day="${ymd(day)}">
+      html += `<div class="day ${day.getMonth() !== cursor.getMonth() ? 'other' : ''} ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}>
         <span class="n">${day.getDate()}</span><div class="chips">${shown.map(chipHtml).join('')}</div>
         ${shown.length < list.length ? `<span class="more">+${list.length - shown.length} more</span>` : ''}</div>`;
     }
@@ -144,8 +167,10 @@
   }
 
   // Occurrences as a list grouped by day.
-  function listHtml(occs, emptyText, floor) {
+  function listHtml(occs, emptyText, floor, end) {
     if (!occs.length) return `<p class="empty">${emptyText}</p>`;
+    // The Agenda (the destination's panel) is narrow: a space's icon before the title stands for its name.
+    const agenda = part === 'panel';
     const groups = new Map();
     for (const occ of occs) {
       // An event that began before the list does starts it on the list's first day.
@@ -155,7 +180,7 @@
     }
     return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4>${g.map(({ x, start, end }) => `
       <button class="item" data-open="${esc(x.key)}"><span class="when">${esc(whenText(x.ev, start, end))}</span>
-        <span class="what"><strong>${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(word('environment'))}</span>` : ''}${x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}</strong>${x.ev.desc ? `<span>${esc(x.ev.desc.slice(0, 120))}</span>` : ''}</span></button>`).join('')}</div>`).join('')}</div>`;
+        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}</strong>${x.ev.desc && !agenda ? `<span>${esc(x.ev.desc.slice(0, 120))}</span>` : ''}</span></button>`).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
   }
 
   function monthList() {
@@ -186,11 +211,12 @@
       }
     }
     const today = ymd(new Date());
+    const sel = selectedDay();
     let html = '';
     for (let i = 0; i < 7; i += 1) {
       const day = addDays(start, i);
       const list = byDay.get(ymd(day)) || [];
-      html += `<div class="day ${ymd(day) === today ? 'today' : ''}" data-day="${ymd(day)}"><span class="n">${esc(day.toLocaleDateString([], { weekday: 'short' }))} <b>${day.getDate()}</b></span><div class="chips">${list.map(chipHtml).join('')}</div></div>`;
+      html += `<div class="day ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}><span class="n">${esc(day.toLocaleDateString([], { weekday: 'short' }))} <b>${day.getDate()}</b></span><div class="chips">${list.map(chipHtml).join('')}</div></div>`;
     }
     return `<div class="week">${html}</div>`;
   }
@@ -201,29 +227,104 @@
     return s.getMonth() === e.getMonth() ? `${m(s)} ${s.getDate()} \u2013 ${e.getDate()}, ${e.getFullYear()}` : `${m(s)} ${s.getDate()} \u2013 ${m(e)} ${e.getDate()}, ${e.getFullYear()}`;
   }
 
-  // Month / Week / Month + list / List is the toolbar's view switch.
+  // One day: an all-day row (with what runs into the day from before it), then a column of hours, each with the
+  // events that start in it. As one day of the Week view, hour by hour.
+  function dayHtml() {
+    const start = startOfDay(anchor);
+    const end = addDays(start, 1);
+    const allDay = [];
+    const byHour = new Map();
+    for (const occ of inRange(start, end)) {
+      if (occ.x.ev.allDay || occ.start < start) allDay.push({ ...occ, cont: occ.start < start });
+      else {
+        const h = occ.start.getHours();
+        if (!byHour.has(h)) byHour.set(h, []);
+        byHour.get(h).push({ ...occ, cont: false });
+      }
+    }
+    const k = ymd(start);
+    let html = `<div class="allday"><span class="hr">All day</span><div class="chips">${allDay.map(chipHtml).join('')}</div></div><div class="hours">`;
+    const now = new Date();
+    for (let h = 0; h < 24; h += 1) {
+      const at = new Date(start.getFullYear(), start.getMonth(), start.getDate(), h);
+      const current = ymd(now) === k && now.getHours() === h;
+      html += `<div class="hour${current ? ' now' : ''}" data-day="${k}" data-hour="${h}"><span class="hr">${esc(timeText(at))}</span><div class="chips">${(byHour.get(h) || []).map(chipHtml).join('')}</div></div>`;
+    }
+    return `<div class="dayview">${html}</div></div>`;
+  }
+  // Open the day at its first event, or the hour it is now, or 7:00; once per day shown, so a change does not jump it.
+  let scrolledFor = '';
+  function scrollDay() {
+    const k = ymd(anchor);
+    if (scrolledFor === k) return;
+    scrolledFor = k;
+    const first = root.querySelector('.hours .hour .chip');
+    const now = root.querySelector('.hours .hour.now');
+    const row = (first && first.closest('.hour')) || now || root.querySelector('.hours .hour[data-hour="7"]');
+    const body = $('body');
+    if (!row || !body) return;
+    const go = () => { body.scrollTop = Math.max(0, row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 4); };
+    go();
+    requestAnimationFrame(() => { if (row.isConnected) go(); }); // once laid out, in case the first pass had no height yet
+  }
+
+  // Month / Week / Day / Month + list / List is the toolbar's view switch. As the destination's calendar the page's
+  // bar has Month, Week and Day, and this draws whichever it says.
   const VIEWS = [
     { id: 'month', label: 'Month' },
     { id: 'week', label: 'Week' },
+    { id: 'day', label: 'Day' },
     { id: 'both', label: 'Month + list' },
     { id: 'list', label: 'List' },
   ];
-  const viewSwitch = host.ui.viewSwitch({
+  const PART_VIEWS = ['month', 'week', 'day'];
+  if (part && !PART_VIEWS.includes(view)) view = prefs.defaultView === 'week' ? 'week' : 'month';
+  const viewSwitch = part ? { set() {} } : host.ui.viewSwitch({
     id: 'view',
     options: VIEWS,
     value: view,
     onChange: (id) => { view = id; render(); },
   });
 
+  // As the destination's calendar a day is selected by keyboard too: Tab to it, then Enter or Space. (Not a button:
+  // it holds the events' own buttons.)
+  function dayKeys(day) {
+    return part === 'main' ? ` tabindex="0" title="${esc(dayHeading(day))}"` : '';
+  }
+  // As a part: the selected day (YYYY-MM-DD), which the Agenda follows.
+  function selectedDay() {
+    return part === 'main' ? ymd(anchor) : '';
+  }
+  // The period the calendar shows: [from, to).
+  function period() {
+    if (view === 'day') { const d = startOfDay(anchor); return { from: d, to: addDays(d, 1) }; }
+    if (view === 'week') { const s0 = weekStart(); return { from: s0, to: addDays(s0, 7) }; }
+    return { from: new Date(cursor.getFullYear(), cursor.getMonth(), 1), to: new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1) };
+  }
+  // The destination's filter left nothing on.
+  const nothingPicked = () => Boolean(part) && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id));
+  const pickOne = () => `Pick at least one in ${word('space', { many: true, cap: true })}.`;
+
   function render() {
+    if (part === 'panel') return renderAgenda();
     const compact = isCompact();
     const showNav = view !== 'list';
     $('prev').hidden = $('next').hidden = !showNav;
     viewSwitch.set(view);
     renderFilters();
-    $('title').textContent = view === 'week' ? weekTitle() : view === 'list' ? 'Next 90 days' : cursor.toLocaleDateString([], { month: 'long', year: 'numeric' });
-    if (view === 'week') {
+    $('title').textContent = view === 'week' ? weekTitle() : view === 'day' ? dayHeading(anchor) : view === 'list' ? 'Next 90 days' : cursor.toLocaleDateString([], { month: 'long', year: 'numeric' });
+    if (part === 'main') tellPeriod();
+    if (view !== 'day') scrolledFor = ''; // back to the day view later opens it at its first event again
+    if (nothingPicked()) {
+      $('body').innerHTML = `<p class="empty">${esc(pickOne())}</p>`;
+    } else if (view === 'week') {
       $('body').innerHTML = weekHtml();
+    } else if (view === 'day') {
+      // A redraw of the same day keeps where it was scrolled to; a new day opens at its first event.
+      const keep = $('body').scrollTop;
+      $('body').innerHTML = dayHtml();
+      if (scrolledFor === ymd(anchor)) $('body').scrollTop = keep;
+      else scrollDay();
     } else if (view === 'list') {
       $('body').innerHTML = upcomingList();
     } else if (compact || view === 'both') {
@@ -234,10 +335,28 @@
     }
   }
 
-  // On the environment page, a row of the viewer's spaces to show or hide.
+  // The Agenda (the destination's panel): the events of the period the calendar shows, from the selected day on.
+  let agendaState = null;
+  function renderAgenda() {
+    if (nothingPicked()) {
+      $('body').innerHTML = `<p class="empty">${esc(pickOne())}</p>`;
+      return;
+    }
+    const st = agendaState || {};
+    const today = startOfDay(new Date());
+    const from = st.from ? parseYmd(st.from) : new Date(today.getFullYear(), today.getMonth(), 1);
+    const to = st.to ? parseYmd(st.to) : new Date(today.getFullYear(), today.getMonth() + 1, 1);
+    const day = st.day ? parseYmd(st.day) : today;
+    const start = day > from && day < to ? day : from;
+    const unit = st.view === 'day' ? 'day' : st.view === 'week' ? 'week' : 'month';
+    const occs = inRange(start, to);
+    $('body').innerHTML = listHtml(occs, `Nothing else this ${unit}.`, start, `Nothing else this ${unit}.`);
+  }
+
+  // On the environment page, a row of the viewer's spaces to show or hide. As a part, the page's filter does this.
   function renderFilters() {
     const box = $('filters');
-    box.hidden = spaceInfo.size === 0;
+    box.hidden = Boolean(part) || spaceInfo.size === 0;
     if (box.hidden) return;
     box.innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
   }
@@ -264,12 +383,52 @@
   $('f-allday').addEventListener('change', syncForm);
   $('f-repeat').addEventListener('change', syncForm);
 
+  // Who a reminder reaches: everyone in the event's own place.
   function remindHint() {
-    $('f-remind-hint').textContent = $('f-remind').value === ''
-      ? ''
-      : (inSpace ? `Everyone in this ${word('space')}` : `Everyone in this ${word('environment')}`) + ' gets a notification, if they are allowed to see the calendar.';
+    let who;
+    const target = editing ? targetOf() : null;
+    if (inSpace) who = `Everyone in this ${word('space')}`;
+    else if (!target) who = `Everyone in the ${word('space')} you pick`;
+    else if (target.scope === 'spaces') who = `Everyone in ${placeName('spaces', target.spaceId)}`;
+    else who = `Everyone in this ${word('environment')}`;
+    $('f-remind-hint').textContent = $('f-remind').value === '' ? '' : who + ' gets a notification, if they are allowed to see the calendar.';
   }
   $('f-remind').addEventListener('change', remindHint);
+
+  // --- where an event goes ----------------------------------------------------------
+  // On the environment page (and as a destination's part) a new event asks where it goes, every time: the
+  // environment's own calendar, for people who may add events there, then each space where the viewer may add events.
+  // It starts empty whatever was picked last, and Save says to pick first. An event that exists stays where it is:
+  // Where shows its place and cannot be changed. In a space there is nothing to ask: it goes in that space.
+  const pickWhere = () => `Pick ${word('space', { a: true })}`;
+  function fillWhere(x) {
+    const select = $('f-where');
+    $('f-where-wrap').hidden = inSpace;
+    if (inSpace) return;
+    if (x) {
+      select.innerHTML = `<option value="">${esc(placeName(x.scope, x.spaceId))}</option>`;
+      select.disabled = true;
+      return;
+    }
+    const options = [`<option value="" selected disabled>${esc(pickWhere())}</option>`];
+    if (canEdit) options.push(`<option value="own">${esc(placeName('here'))}</option>`);
+    for (const r of writableSpaces()) options.push(`<option value="in:${esc(r.id)}">${esc(r.name)}</option>`);
+    select.innerHTML = options.join('');
+    select.value = '';
+    select.disabled = false;
+  }
+  // Where the open editor's event is, or goes: { scope: 'here' } or { scope: 'spaces', spaceId }; null while a new
+  // event on the environment page has no place picked yet.
+  function targetOf() {
+    if (!editing) return null;
+    if (editing.id) return { scope: editing.scope, spaceId: editing.spaceId };
+    if (inSpace) return { scope: 'here' };
+    const w = $('f-where').value;
+    if (w === 'own') return { scope: 'here' };
+    if (w.startsWith('in:') && spaceWritable(w.slice(3))) return { scope: 'spaces', spaceId: w.slice(3) };
+    return null;
+  }
+  $('f-where').addEventListener('change', () => { showError(''); remindHint(); });
 
   // --- the date pickers ------------------------------------------------------
   // The shared picker from the SDK; the end and repeat-until fields can be cleared, and the picker on either
@@ -317,7 +476,7 @@
       if (Number.isNaN(d.getTime())) return;
       cursor = new Date(d.getFullYear(), d.getMonth(), 1);
       anchor = d;
-      view = 'month';
+      if (!part) view = 'month'; // as a part the page's bar has the view
       render();
       const cell = root.querySelector(`.day[data-day="${m[1]}"]`);
       if (cell) {
@@ -336,8 +495,8 @@
     if (!x) return;
     const d = startOf(x.ev);
     cursor = new Date(d.getFullYear(), d.getMonth(), 1);
-    anchor = d;
-    view = 'month';
+    anchor = startOfDay(d);
+    if (!part) view = 'month';
     render();
     openEditor(x);
   }
@@ -352,10 +511,16 @@
   }
 
   function openEditor(x, day, prefill) {
-    const readOnly = !canEdit || (x && ((x.scope === 'environment' && inSpace) || x.scope === 'spaces'));
+    if (!x && !canAdd()) return;
+    const readOnly = x ? !writable(x) : false;
     const ev = x ? x.ev : { title: '', allDay: false, start: '', end: null, desc: '', remind: null, repeat: null };
-    editing = x ? { scope: x.scope, id: x.id, version: x.version } : { scope: 'here', id: null, version: null };
+    editing = x ? { scope: x.scope, id: x.id, version: x.version, spaceId: x.spaceId } : { scope: null, id: null, version: null, spaceId: null };
     showError('');
+    fillWhere(x);
+    // Read only in a place where the viewer may not add events: say why (on the environment page, where it can differ).
+    const why = readOnly && !inSpace && x ? `Only people who can add events in ${placeName(x.scope, x.spaceId)} can change this.` : '';
+    $('f-readonly').textContent = why;
+    $('f-readonly').hidden = !why;
     const from = x && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? ` (${spaceInfo.get(x.spaceId).name})` : '';
     $('editor-title').textContent = x ? (readOnly ? ev.title + from : 'Edit event') : 'New event';
     $('f-title').value = ev.title;
@@ -386,7 +551,7 @@
     pickers.forEach((p) => p.refresh());
     showBacklinks(x || null);
     $('editor').hidden = false;
-    $(readOnly ? 'f-cancel' : 'f-title').focus();
+    $(readOnly ? 'f-cancel' : x || inSpace ? 'f-title' : 'f-where').focus();
   }
   function closeEditor() {
     pickers.forEach((p) => p.close());
@@ -399,9 +564,11 @@
   // notification, and for a repeating event the host schedules the next one itself,
   // so reminders keep coming while this page is closed. It stops if the event
   // changes or goes away.
-  async function applyReminder(id, ev) {
+  // `where` is the event's place for the host ({ space } for another space's event), so the reminder is set there and
+  // reaches that space's people.
+  async function applyReminder(id, ev, where) {
     const key = 'remind:' + id;
-    const stop = () => host.cancelSchedule(key);
+    const stop = () => host.cancelSchedule(key, where);
     try {
       if (ev.remind === null || ev.remind === undefined) return await stop();
       const lead = ev.remind * 60 * 1000;
@@ -420,6 +587,7 @@
         payload: { id },
         notify: { title: ev.title, body: label },
         repeat: ev.repeat ? { every: ev.repeat.every, until, tz: TZ } : undefined,
+        ...(where || {}),
       });
     } catch (err) {
       showError('Saved, but the reminder could not be set: ' + err.message);
@@ -430,6 +598,8 @@
   async function save() {
     if (!editing) return;
     showError('');
+    const target = targetOf();
+    if (!target) return showError(`${pickWhere()} first.`);
     const title = $('f-title').value.trim();
     const date = $('f-date').value;
     if (!title || !date) return showError('A title and a date are needed.');
@@ -463,15 +633,16 @@
     }
     const id = editing.id || Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const ev = { id, title, allDay, start, end, desc: $('f-desc').value.trim(), remind, repeat, by: info.user.name };
+    const where = placeOpts(target.scope, target.spaceId);
     $('f-save').disabled = true;
     try {
-      const saved = await host.storage.set('event:' + id, ev, editing.id ? { version: editing.version } : {});
-      remember('here', { key: 'event:' + id, value: ev, version: saved.version });
+      const saved = await host.storage.set('event:' + id, ev, { ...(editing.id ? { version: editing.version } : {}), ...where });
+      remember(target.scope, { key: 'event:' + id, value: ev, version: saved.version }, target.spaceId);
       let reminderFailed = false;
-      try { await applyReminder(id, ev); } catch (err) { reminderFailed = true; }
+      try { await applyReminder(id, ev, where); } catch (err) { reminderFailed = true; }
       render();
       if (!reminderFailed) closeEditor();
-      else editing = { scope: 'here', id, version: saved.version };
+      else editing = { scope: target.scope, id, version: saved.version, spaceId: target.spaceId };
     } catch (err) {
       showError(err.status === 409 ? 'Someone changed this event since you opened it. Close it and open it again.' : err.message);
     } finally {
@@ -494,7 +665,7 @@
     if (!editing || !editing.id || deleteAsking) return;
     if (!deleteArmed) {
       deleteAsking = true;
-      const current = events.get(keyOf(editing.scope, editing.id));
+      const current = events.get(keyOf(editing.scope, editing.id, editing.spaceId));
       const usual = current && current.ev.repeat ? 'Delete every one?' : 'Really delete?';
       let n = 0;
       if (current && host.objects && host.objects.linksTo) {
@@ -511,9 +682,10 @@
     }
     deleteArmed = false;
     try {
-      await host.storage.delete('event:' + editing.id);
-      try { await host.cancelSchedule('remind:' + editing.id); } catch (err) { /* nothing to cancel */ }
-      events.delete(keyOf(editing.scope, editing.id));
+      const where = placeOpts(editing.scope, editing.spaceId);
+      await host.storage.delete('event:' + editing.id, where);
+      try { await host.cancelSchedule('remind:' + editing.id, where); } catch (err) { /* nothing to cancel */ }
+      events.delete(keyOf(editing.scope, editing.id, editing.spaceId));
       closeEditor();
       render();
     } catch (err) {
@@ -523,31 +695,84 @@
 
   // --- wiring ---------------------------------------------------------------
 
-  // Previous and next step a month, or a week in the week view; the month and the week follow each other.
+  // Previous and next step a month, a week in the week view or a day in the day view; the month, the week and the
+  // day follow each other. As the destination's calendar a month keeps today selected when it is in it, else its 1st.
   const step = (n) => {
-    if (view === 'week') anchor = addDays(anchor, 7 * n);
-    else anchor = new Date(cursor.getFullYear(), cursor.getMonth() + n, 1);
+    if (view === 'day') anchor = addDays(anchor, n);
+    else if (view === 'week') anchor = addDays(anchor, 7 * n);
+    else {
+      anchor = new Date(cursor.getFullYear(), cursor.getMonth() + n, 1);
+      const now = new Date();
+      if (part && now.getFullYear() === anchor.getFullYear() && now.getMonth() === anchor.getMonth()) anchor = startOfDay(now);
+    }
     cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
     render();
   };
   $('prev').addEventListener('click', () => step(-1));
   $('next').addEventListener('click', () => step(1));
-  $('today').addEventListener('click', () => { anchor = new Date(); cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1); render(); });
+  $('today').addEventListener('click', () => { anchor = part ? startOfDay(new Date()) : new Date(); cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1); render(); });
   function startNew() {
-    if (!canEdit) return;
-    openEditor(null);
+    if (!canAdd()) return;
+    openEditor(null, part === 'main' ? ymd(anchor) : undefined);
   }
   $('add').addEventListener('click', startNew);
   // Typed text goes through Chat `/c` (addEvent): parseWhen, then this same editor, nothing saved until Save.
-  // The host draws Add event in the module's action bar when docked; the header button stays for a host without one.
-  if (host.bar) {
+  // The host draws Add event in the module's action bar when docked; the header button stays for a host without one,
+  // and as a destination's part, whose page has no action bar. Who may add is known once the spaces are in.
+  let barHosted = false;
+  function showAdd() {
+    $('add').hidden = part === 'panel' || !canAdd();
+    if (barHosted) host.bar.set(canAdd() ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => {});
+  }
+  if (host.bar && !part) {
+    barHosted = true;
     $('add').classList.add('hosted');
-    host.bar.set(canEdit ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => $('add').classList.remove('hosted'));
+    host.bar.set(canEdit ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => { barHosted = false; $('add').classList.remove('hosted'); });
     host.on('bar', (e) => {
-      if (e.id !== 'add' || !canEdit) return;
+      if (e.id !== 'add' || !canAdd()) return;
       startNew();
     });
   }
+
+  // --- as a part of the Calendar destination -------------------------------------------
+  // The page owns the view and the filter and hands them over (host.destination.onState); the calendar owns the
+  // selected day and the period it shows, and tells the page (host.destination.set), which tells the Agenda.
+  let told = '';
+  function tellPeriod() {
+    if (part !== 'main' || !host.destination) return;
+    const p = period();
+    const next = { day: ymd(anchor), from: ymd(p.from), to: ymd(p.to) };
+    const sig = JSON.stringify(next);
+    if (sig === told) return;
+    told = sig;
+    host.destination.set(next).catch(() => { told = ''; });
+  }
+  let firstState = true;
+  function takeState(st) {
+    if (!st || typeof st !== 'object') return;
+    if (Array.isArray(st.spaces)) {
+      const on = new Set(st.spaces.map(String));
+      hiddenSpaces.clear();
+      for (const id of spaceInfo.keys()) if (!on.has(id)) hiddenSpaces.add(id);
+      pickedSpaces = on;
+    }
+    hideOwn = st.environment === false;
+    if (part === 'main') {
+      if (PART_VIEWS.includes(st.view)) view = st.view;
+      // The day the page opens on (a link to a day, say); after that the calendar says which day is selected.
+      if (firstState && typeof st.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(st.day)) {
+        anchor = parseYmd(st.day);
+        cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+      }
+    } else {
+      agendaState = st;
+    }
+    firstState = false;
+    if (loaded) render();
+  }
+  // The filter's spaces, kept so a space that loads after the state (or joins later) is shown or hidden by it.
+  let pickedSpaces = null;
+  if (part && host.destination) host.destination.onState(takeState);
   // An event can be dragged onto another module that links to events (a to-do, say): it carries a
   // pointer to the event, and the other module asks the host for what it may show.
   if (host.objects && host.objects.draggable) {
@@ -597,16 +822,18 @@
   if (host.objects && host.objects.dropTarget && host.actions) {
     const foreign = (ref, dragged) => (ref ? ref.module !== info.module.id : Boolean(dragged && dragged.summary));
     host.objects.dropTarget({
+      // A drop is taken from anyone: what it offers may be another module's to do (a task's due date, To-do's own
+      // permission), and this module's own offer (an event made of it) only for those who may add events here.
       over: (pt, ref, dragged) => {
         clearDrop();
-        if (!foreign(ref, dragged) || !canEdit) return;
+        if (!foreign(ref, dragged)) return;
         const spot = dropSpot(pt);
         if (spot) spot.el.classList.add('drop');
       },
       leave: clearDrop,
       drop: async (ref, pt, dragged) => {
         clearDrop();
-        if (!foreign(ref, dragged) || !canEdit) return;
+        if (!foreign(ref, dragged)) return;
         const spot = dropSpot(pt);
         host.objects.trace(spot ? 'drop on ' + (spot.event ? 'event ' + spot.event.id : 'day ' + spot.day) : 'drop: nothing under the pointer');
         if (!spot) return;
@@ -614,7 +841,7 @@
           const context = { date: spot.day, ...(spot.event ? { target: host.objects.make('event', spot.event.id, whereFor(spot.event)) } : {}) };
           const chosen = await host.objects.dropMenu(dragged, pt, {
             context,
-            own: spot.event ? [] : [{ id: 'create', label: 'Add to the calendar as an event', hint: shortDay(parseYmd(spot.day)), run: (ctx) => createEventOn(ctx.summary.title || (ref ? ref.kind : 'Event'), spot.day, ref) }],
+            own: spot.event || !canEdit ? [] : [{ id: 'create', label: 'Add to the calendar as an event', hint: shortDay(parseYmd(spot.day)), run: (ctx) => createEventOn(ctx.summary.title || (ref ? ref.kind : 'Event'), spot.day, ref) }],
             remember: spot.event ? 'event' : 'day',
           });
           if (chosen) note(chosen.label + ': done');
@@ -625,14 +852,15 @@
     });
   }
   // What other modules may ask of this one: put something on the calendar, pointing at `ref` when one is given.
-  if (host.actions && host.actions.provide) {
+  // The Agenda leaves them to the calendar beside it, so one page does each once.
+  if (host.actions && host.actions.provide && part !== 'panel') {
     host.actions.provide({
       createEvent: async (input) => {
         if (!canEdit) throw new Error('this person cannot add events here');
         return createEventOn(input.title, input.date, input.ref);
       },
       addEvent: async (input) => {
-        if (!canEdit) throw new Error('this person cannot add events here');
+        if (!canAdd()) throw new Error('this person cannot add events here');
         const parsed = input.text && host.util.parseWhen ? host.util.parseWhen(input.text) : { title: input.text || '' };
         openEditor(null, parsed.date, parsed);
         return {};
@@ -646,10 +874,30 @@
       if (x) openEditor(x);
       return;
     }
+    // An hour of the day view: a new event at that hour.
+    const hour = e.target.closest('[data-hour]');
+    if (hour) {
+      if (canAdd()) openEditor(null, hour.dataset.day, { time: `${pad(Number(hour.dataset.hour))}:00` });
+      return;
+    }
     const day = e.target.closest('[data-day]');
-    if (day && canEdit) openEditor(null, day.dataset.day);
+    if (!day) return;
+    // As the destination's calendar a click selects the day (the Agenda follows); elsewhere it starts an event on it.
+    if (part === 'main') {
+      anchor = parseYmd(day.dataset.day);
+      cursor = new Date(anchor.getFullYear(), anchor.getMonth(), 1);
+      render();
+    } else if (canAdd()) openEditor(null, day.dataset.day);
   });
   root.addEventListener('keydown', (e) => {
+    if ((e.key === 'Enter' || e.key === ' ') && part === 'main' && e.target.matches && e.target.matches('.day[data-day]')) {
+      e.preventDefault();
+      const k = e.target.dataset.day;
+      e.target.click();
+      const again = root.querySelector(`.day[data-day="${k}"]`);
+      if (again) again.focus();
+      return;
+    }
     if (e.key !== 'Escape') return;
     if (!$('editor').hidden) closeEditor();
   });
@@ -664,13 +912,18 @@
   // A calendar that was just closed (in the page, its elements go before its root stops resizing) has nothing to draw.
   new ResizeObserver(() => { if (!$('app')) return; fit(); render(); }).observe(host.rootElement);
 
-  $('add').hidden = !canEdit;
+  $('add').hidden = true;
+  // The Agenda draws no header of its own: the page's panel switch is its heading.
+  if (part === 'panel') root.querySelector('.bar').hidden = true;
+  $('app').classList.toggle('part', Boolean(part));
   try {
     await load();
   } catch (err) {
     $('msg').textContent = 'The calendar could not load: ' + err.message;
     return;
   }
+  if (pickedSpaces) for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
+  showAdd();
   $('msg').hidden = true;
   $('app').hidden = false;
   fit();
@@ -689,7 +942,7 @@
   const WEEK = 7 * 24 * 60 * 60 * 1000;
   const announcing = new Set();
   async function announceEnded() {
-    if (!host.events || !canEdit) return;
+    if (!host.events || !canEdit || part === 'panel') return;
     const now = Date.now();
     let sent = 0;
     for (const x of [...events.values()]) {

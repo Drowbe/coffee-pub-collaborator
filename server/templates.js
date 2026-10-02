@@ -81,6 +81,8 @@ const SETTINGS = {
   allowAsides: bool,
   allowPrivate: bool,
   allowReactions: bool,
+  showCalendar: bool,
+  showMap: bool,
   activeThemeId: (v) => v === null || BUILTIN_THEME_IDS.includes(v),
   themeMode: (v) => v === 'light' || v === 'dark',
 };

@@ -62,7 +62,9 @@ Collaborator adds the SDK and a base stylesheet to each of your HTML pages when 
 const t = await host.ready();
 // t.module    { id, name, icon }   name and icon as this environment shows the module: an owner may rename it (print your own name from here, never a string of your own)
 // t.user      { key, name, role }   role: 'owner', 'member', 'guest', or 'admin' for the host admin's own account
-// t.context   { scope: 'environment' | 'space' | 'keyed', spaceId }   a keyed page adds path, subject and query
+// t.context   { scope: 'environment' | 'space' | 'keyed', spaceId, environment: { name }, destination? }   a keyed page has path, subject and query instead
+//             environment.name: the environment's name as its header shows it ('' when unknown), to name the environment's own list by
+//             destination: { id, part } on a destination's part only (see "A destination's part")
 // t.permissions  { view: true, edit: false }   the module's own permissions, by short key
 // t.theme     the current theme tokens; host.on('theme', (theme) => { ... }) fires whenever the theme or the light or dark mode changes
 host.can('edit');   // true or false, from the permissions above; always true for an owner
@@ -77,6 +79,8 @@ Every call returns a promise. Do not call anything before `ready()` resolves.
 ### Storage
 
 A small key-value store per module, with a scope: the whole **environment**, one **space**, or one **person**. The person scope (declare `"person"` in the manifest's `scope`; a page asks with `{ scope: 'person' }`) is the signed-in person's own data, kept for them alone whichever space or page they are in: nobody else can read it, not even an owner, and a guest has none. Its changes are pushed only to that person's own pages, with `scope: 'person'` on the `change` event (check `e.scope` if your page also shows a space's data). Pointers to a personal object have `scope: 'person'` (`host.objects.make(kind, id, { scope: 'person' })`) and find nothing for anyone but the owner; personal objects are not linked (`setLinks` refuses them). `host.objects.search(text, { scope: 'person' })` lists the viewer's own. A page uses its own scope (`'context'`, the default). A space's module may also ask for `{ scope: 'environment' }` to read the environment's data. A module with both an environment page and a canvas surface may, on its environment page, read `{ scope: 'spaces' }`: read-only, across every space the viewer is a member of that has the module on and lets their role read it. Each entry comes back with its `spaceId`, and `host.spaces()` returns those spaces as `[{ id, name, icon, svg }]`, where `svg` is the space's icon as inline SVG (a module cannot load the icon font). Live `change` events carry `scope` and `spaceId`; from those spaces, `scope: 'spaces'`.
+
+On its environment page a module may also read and write one of those spaces with `{ space: <id> }`: `host.storage.get`, `set`, `delete` and `list` take it (`host.storage.set(key, value, { space })`), as do `host.schedule`, `host.cancelSchedule` and `host.notify` (see below) and `host.objects.setLinks`. The server decides, by the same rule as a page in that space: the module on there, the viewer a member, and the module's permission there. `host.spaces()` says where the viewer may write: each space carries `write: true | false`, the module's `write` permission there, so offer adding only where it is true. A page in a space reaches only its own space; naming another refuses ("this module is in another space"), and `{ space }` with a scope other than `space` refuses ("a space goes with scope \"space\", not ...").
 
 ```js
 await host.storage.set('event:123', { title: 'Session' });        // returns { key, value, version, updatedAt, by }
@@ -122,6 +126,7 @@ host.on('schedule', ({ key, payload }) => {});   // when one fires, if the modul
 - A notification reaches the people it is addressed to who could see the module in that place (the module's `read` permission). It shows as a toast, and as an unread count on the module's dashboard card or header item and the call's Modules button, until they open the module. Notifications are kept for people who are away, up to 50 each.
 - `repeat` makes Collaborator schedule the next one itself when each fires, so it keeps going while the module is closed. `every` is `day`, `week`, `2weeks`, `month` or `year`; `until` (optional) ends it; `tz` is an IANA time zone name, and the wall-clock time is kept in it across daylight saving changes. A monthly repeat on the 31st goes back to the 31st after a shorter month. Cancelling the key cancels the whole series.
 - `notify` in `schedule` defaults to the module's own scope: the space, or the whole environment. Its `to`, like `host.notify`'s, is `'space'`, `'environment'` or a person's key.
+- On a module's environment page, `space: <id>` in `host.schedule`'s, `host.notify`'s or `host.cancelSchedule`'s argument makes it that space's: it runs and notifies there, and `to: 'space'` is that space's people. The Calendar and To-do set a space event's or task's reminder this way.
 
 ### Objects: pointing at another module's objects
 
@@ -163,6 +168,9 @@ const summaries = await host.objects.resolve([refA, refB]);
 
 // Find objects to link to, in this place (or from a space, { scope: 'environment' }): every kind this module consumes.
 const found = await host.objects.search('retreat');     // summaries, each with its pointer in summary.ref
+// On an environment page, { scope: 'spaces' } asks every space the viewer is a member of at once (each pointer carries its space);
+// { has: 'place' } keeps only summaries with a place, up to 1,000 rather than 50 (a map's pins). A page in a space cannot ask 'spaces'.
+const pins = await host.objects.search('', { scope: 'spaces', has: 'place' });
 
 // What can I link to? Whatever other modules share and Collaborator says this module may, so never name modules in your code.
 const kinds = await host.objects.kinds();               // [{ module, moduleName, icon, kind, name, open }]
@@ -173,6 +181,8 @@ host.objects.onOpen((ref) => { /* you own ref: show it (select it, scroll to it,
 
 // Tell Collaborator what one of your objects points at (the whole list, replacing the last), so what is pointed at can ask.
 await host.objects.setLinks(host.objects.make('task', id), [refA, refB]);
+// From an environment page, for one of a space's objects: the pointer already carries the space; { space } is only a check.
+await host.objects.setLinks(host.objects.make('task', id, { scope: 'space', space }), [refA], { space });
 // What points at one of your objects (kind has "backlinks": true), and what one points at: summaries.
 const from = await host.objects.linksTo(ref);
 const to = await host.objects.linksFrom(ref);
@@ -466,7 +476,7 @@ The other two conduits between modules, and like refs they name no module. Decla
 
 **What the object must have.** An action that takes a pointer may say what the object behind it needs to have on its summary for the action to make sense of it: `"needs": ["place"]` (or `date`, `text`, `subtitle`) on the entry in `actions.provides`. A drop menu then leaves the action out for an object without it ("Show on the map" for a task with no position), rather than offering it and failing. It is advice for the menu, not a check the server makes on the request.
 
-**Typed pointers.** A `ref` field may name the kind of object it takes: `"task": "ref:todo:task"` takes only a pointer to a To-do task, plain `"ref"` takes any. Collaborator refuses a pointer of another kind. `host.actions.list({ accepts: "module:kind", self: true })` narrows the list to the actions that take a pointer to that kind (an action with plain `ref` counts), and `self` adds this module's own, marked `own: true`.
+**Typed pointers.** A `ref` field may name the kind of object it takes: `"task": "ref:todo:task"` takes only a pointer to a To-do task, plain `"ref"` takes any. Collaborator refuses a pointer of another kind. `host.actions.list({ accepts: "module:kind", self: true })` narrows the list to the actions that take a pointer to that kind (an action with plain `ref` counts), and `self` adds this module's own, marked `own: true`. `ref` (a pointer, such as the object just dropped) keeps, on an environment page, only the actions the viewer could carry out where that object is: an action that takes one of its provider's own objects is checked in that object's space, by the viewer's permissions there. `host.objects.dropMenu` passes the dropped pointer itself. A request about an object in a space is checked the same way, and only someone who may change the provider in that space can take it.
 
 **What a drop can do.** When another module's object is dropped on yours, never decide on your own what can be done with it: hand it to `host.objects.dropMenu` (see "Dragging" under Objects), which builds your own choices plus every action the modules around you can fill from where it landed, and lets the person choose. Under it, `host.actions.pick(items, point)` is the menu: `items` are `[{ id, label, hint? }]`, it resolves to the chosen item or `null` if dismissed (Escape, or a click elsewhere), one item resolves at once with nothing asked, and `{ remember: "key" }` keeps the choice (in that browser, for your module) and lists it first, marked "last used", the next time the same key is asked. `pick` is also there for a choice that is not a drop. The person always confirms; nothing runs on its own, and two choices that do different things (add it as an event, or set its date) are two items.
 
@@ -481,6 +491,29 @@ The other two conduits between modules, and like refs they name no module. Decla
 ### A dashboard widget
 
 A module with the `environment` scope can offer a widget for the dashboard on the spaces page: a small card, across all of the viewer's spaces. Declare `"widget": { "entry": "widget.html", "title": "Coming up", "size": "medium", "order": 10 }` under `surfaces`. The widget is its own single HTML file (in this repository, `src/<id>-widget.html`, `.css` and `.js`, built like the module page), and runs like an environment page: `info.context.scope` is `"environment"`, `host.storage.list(prefix)` reads the environment's data, `host.storage.list(prefix, { scope: 'spaces' })` the module's data in each of the viewer's spaces (each entry with its `spaceId`), and `host.spaces()` names those spaces and their icons. The widget shows; it does not edit. `host.page.open(hash)` (letters, digits and `= & _ . : , -` only, at most 80 characters) opens the module's own page at a place in it, for a click that means "show me this in full"; the page passes the hash to your module, which reads it with `host.page.onHash(fn)` (the Calendar's month opens a day with `day=2026-09-24`). Clicking an object should call `host.objects.open(ref)`, which takes the person to that object in its space; the card's heading opens the module's full page. A widget in a frame tells the dashboard how tall it is with `host.resize({ height })` (measure your own content, not the frame). Keep it small and quick: it loads with the spaces page. Code the page and the widget share can go in `src/<id>-lib.js`, which the build puts where a script has `/*__LIB__*/`.
+
+### A destination's part
+
+A destination is a page of its own in the top bar, such as Calendar or Map, made of parts that modules offer ([api-modules](api-modules.md), "Destinations"). Offer one with `surfaces.destination` in `module.json`: `[{ "id": "calendar", "part": "main", "entry": "page.html" }, { "id": "calendar", "part": "panel", "entry": "page.html", "label": "Agenda", "order": 10 }]`. The module needs the `environment` scope; the entry may be the module's own page. A destination has one `main` (the large area) and any number of panels (beside it, one shown at a time, switched by their `label`; on a phone each is a tab). The host draws the page's header, its bar and its filter; a part draws only itself.
+
+A part runs as the module's environment page does (`info.context.scope` is `"environment"`, with the same storage, `{ scope: 'spaces' }` and `{ space }`), and knows it is a part from `info.context.destination`, `{ id, part }`. Leave out your own header, view switch, filter row and action bar there. `host.destination` is the page's shared state, and is `null` anywhere else:
+
+```js
+const t = await host.ready();
+if (t.context.destination) {
+  const off = host.destination.onState((state) => { /* draw what the state says */ });   // now, and on each change
+  await host.destination.set({ day: '2026-10-05' });   // only what your part may change; every part hears it, yours too
+}
+```
+
+Each destination's state is its own shape, and the host owns all of it except what a part may `set`:
+
+| Destination | State | Who may `set` what |
+|---|---|---|
+| `calendar` | `{ view: 'month' \| 'week' \| 'day', spaces: [<id>...], environment: true \| false, day, from, to }`: the view switch, the filter (the spaces on, and whether the environment's own list is), the selected day and the period shown (`YYYY-MM-DD`, `to` the day after it) | the `main` part only: `{ day, from, to }` |
+| `map` | `{ mine: true \| false, environment: true \| false, spaces: [<id>...], q: '<search text>', find: <number>, selected: <pointer or null>, phone: true \| false, reveal: 'main' \| 'panel' \| null }`: the filter (Mine, the environment's own, the spaces on), the search field as typed, a number raised on each Enter (the person asked the place search), the selected object, whether the parts are a phone's tabs, and a request to bring a part into view (the page shows that tab and clears it) | either part: `{ selected, reveal }`; `phone` is the page's |
+
+`set` refuses a field the part may not change (403 "the panel part cannot set day"), a part of a destination that lets it change nothing (403), and a value of the wrong shape (400 "day is not valid"); a set that changes nothing tells nobody. The filter's choice, the view and the panel's tab are remembered per browser by the page, not by you. When the page is opened at a place (`/calendar#day=2026-10-05`) the main part hears it as `host.page.onHash`, as a module's own page does, and an object (`#ref=`) as `host.objects.onOpen`.
 
 ### The action bar
 
@@ -522,14 +555,19 @@ const t = await host.ready();
 
 A keyed page can read its settings and what the SDK offers a page that follows people, nothing else: no storage, no refs, no uploads. `host.settings.onChange` still fires (the host asks after the settings every 10 seconds there, having no session for the event stream).
 
-**Presence.** Who is online and in which call right now, everyone, from any page (a keyed page, a dashboard):
+**Presence.** Who is online and in which call right now, from any page (a keyed page, a dashboard). It is `GET /api/presence` as the viewer may read it ([architecture-overview](../architecture/architecture-overview.md), "Spaces and calls"): a signed-in person sees where people are only in the spaces and asides they belong to (owners and the admin belong to all of them), a guest only their own space, and a keyed page, carrying the access key, everyone.
 
 ```js
 const p = await host.presence.get();
-// p.people       [{ key, name, online, space, inCall, isOwner }]   space: the space (or aside) they are in; isOwner: an owner or the admin
+// p.people       [{ key, name, online, space, aside, asidePrivate, elsewhere, inCall, isOwner }]   isOwner: an owner or the admin
+//                  space: the space or aside they are in, if you belong to it; the space they stepped out of, with
+//                    aside: true and inCall: false, if they are in an aside of one of your spaces that you are not in;
+//                    null otherwise
+//                  asidePrivate: with aside, whether that aside is a private conversation (never with whom)
+//                  elsewhere: online somewhere you don't belong (space is then null and inCall false)
 // p.spaces       [{ id, name }]
-// p.asides       [{ id, origin, private }]   origin: the space it was pulled from; private: a private conversation
-// p.activeSpace  the space the stream follows (an owner's or the admin's); p.ownerOnline whether one is online
+// p.asides       [{ id, origin, private }]   only the asides you belong to; origin: the space it was pulled from; private: a private conversation
+// p.activeSpace  the space the stream follows (an owner's or the admin's), or null when it is somewhere you can't see; p.ownerOnline whether one is online
 // p.reactions    [{ id, glyph }]
 // p.pictureScale the conference's portrait size, a percentage of the tile height; the participant box uses it
 const stop = host.presence.onChange((p) => { ... }, { every: 5000 }); // polls; called once at the start and whenever anything differs

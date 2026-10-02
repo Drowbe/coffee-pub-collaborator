@@ -68,4 +68,28 @@ test('several map files are drawn together, layer by layer', () => {
   assert.equal(one.layers.filter((l) => l.source === 'map').length, one.layers.length - 1);
 });
 
+test('nothing is drawn once the module\'s markup is gone (a space left while the map still moves)', () => {
+  const page = read('maps.js');
+  for (const fn of ['render', 'drawPins', 'drawDraft']) {
+    const at = page.indexOf(`  function ${fn}() {\n`);
+    assert.ok(at >= 0, `${fn} is there`);
+    assert.match(page.slice(at, at + 120), new RegExp(`function ${fn}\\(\\) \\{\\n    if \\(torn\\(\\)\\) return;`), `${fn} stops after teardown`);
+  }
+  assert.match(page, /function torn\(\) \{\n    if \(host\.rootElement\.isConnected && \$\('tpl-pin'\)\) return false;/);
+});
+
+test('a pin is the map library\'s marker: no rule sets the position of .pin itself, so it stays absolute where the library puts it', () => {
+  const css = read('maps.css').replace(/\/\*[\s\S]*?\*\//g, '');
+  const html = read('maps.html');
+  // The pin templates are the markers' own elements (makePin hands them to new maplibregl.Marker).
+  assert.match(html, /<template id="tpl-pin"><button class="pin"/);
+  assert.match(read('maps.js'), /new maplibregl\.Marker\(\{ element: makePin\(/);
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selectors = m[1].split(',').map((x) => x.trim());
+    // A selector whose last compound is the pin itself (.pin, .pin.selected, .pin[data-cat] ...), not something inside it.
+    const onPin = selectors.filter((sel) => /(^|\s|>)\.pin(?![\w-])[^\s>+~]*$/.test(sel) && !sel.includes('::'));
+    if (onPin.length) assert.ok(!/(^|;)\s*(position|top|left|right|bottom|inset)\s*:/.test(m[2]), `${onPin.join(', ')} sets the position of a marker: ${m[2].trim().slice(0, 80)}`);
+  }
+});
+
 console.log(`check-maps: OK (${n} checks)`);

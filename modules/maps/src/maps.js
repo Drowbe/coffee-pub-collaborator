@@ -1,6 +1,8 @@
 // The Maps module's page: a map of every place the space has, from the admin's map file. Maps keeps no data of its own: it draws
 // every summary in the space that carries a `place` (through the objects conduit), each with its own module's icon and grouped by
-// module, and it saves a new place by asking whichever module provides the `addPlace` action. This page draws into the markup
+// module, and it saves a new place by asking whichever module provides the `newPlace` action. On the environment's own page it
+// draws the same across the viewer's spaces, their own places and the environment's (plan-map-destination, decision 20), and
+// as the Map destination's main part it follows the page's filter, search and selection (host.destination). This page draws into the markup
 // in maps.html by cloning its templates and filling their [data-slot] and [data-icon] hooks, and toggles the state classes
 // and data attributes CONTRACT.md lists. It builds no markup from strings and sets no style (the map library positions the
 // pins). Nothing here names another module, and no request leaves the server unless the admin set a search address.
@@ -20,10 +22,16 @@
     $('msg').textContent = 'Maps could not start: ' + err.message;
     return;
   }
-  if (info.context.scope !== 'space') {
-    $('msg').textContent = `A map belongs to ${word('space', { a: true })}. Open the ${word('space')}, then ${info.module.name} from its ${word('module', { many: true })}.`;
+  // On a space's canvas (or its pop-out): that space's places. On the environment page: every space's the viewer belongs to,
+  // with their own and the environment's. As the Map destination's main part ('main'), the same, through the page's filter.
+  const inSpace = info.context.scope === 'space';
+  if (!inSpace && info.context.scope !== 'environment') {
+    $('msg').textContent = `${info.module.name} could not open here.`;
     return;
   }
+  const part = (!inSpace && info.context.destination && info.context.destination.part) || null;
+  // The environment page on its own (no destination): a view of every place, with nothing beside it to save one in.
+  const alone = !inSpace && !part;
 
   const geo = host.util.geo;
   const { round6, oneLine, parsePoint, coordsText, mapsLink } = geo;
@@ -38,7 +46,10 @@
   const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
 
   const state = {
-    found: [], // the summaries in this space (and the viewer's own, and the environment's) that carry a place
+    all: [], // every summary read that carries a place: this space's (or every space's), the viewer's own and the environment's
+    found: [], // the ones drawn: as the destination's part, those in the page's filter; elsewhere all of them
+    filter: null, // as the destination's part: { mine, environment, spaces: Set | null } from the page; null shows everything
+    q: '', // as the destination's part: the page's search text, which dims the pins that do not match it
     settings: { maps: [], web: false }, // the map files to draw (names on this server, or one https address when `web`)
     candidates: [], // search results drawn as pins to pick from
     searcher: null, // the action that searches for a place, if some module provides one
@@ -98,14 +109,37 @@
   async function loadFound() {
     if (!host.objects || !host.objects.search) return;
     try {
-      // This space's, the person's own (private to them) and everyone's in this environment (a guest has neither of the last, so those answer with nothing).
-      const [here, mine, everyone] = await Promise.all([host.objects.search(''), host.objects.search('', { scope: 'person' }).catch(() => []), host.objects.search('', { scope: 'environment' }).catch(() => [])]);
-      const found = [...here, ...mine, ...everyone];
-      state.found = found.filter((c) => c && c.ref && c.place && geo.inRange(Number(c.place.lat), Number(c.place.lng)) && c.title);
+      // This space's (on the environment page every space's the viewer belongs to, each pointer with its space), the person's
+      // own (private to them) and everyone's in this environment (a guest has neither of the last, so those answer with
+      // nothing). Only summaries with a place, so a busy space's pins are all there, not the newest 50.
+      const here = inSpace ? host.objects.search('', { has: 'place' }) : host.objects.search('', { scope: 'spaces', has: 'place' }).catch(() => []);
+      const [spaces, mine, everyone] = await Promise.all([here, host.objects.search('', { scope: 'person', has: 'place' }).catch(() => []), host.objects.search('', { scope: 'environment', has: 'place' }).catch(() => [])]);
+      const seen = new Set();
+      state.all = [...spaces, ...mine, ...everyone].filter((c) => {
+        if (!(c && c.ref && c.place && geo.inRange(Number(c.place.lat), Number(c.place.lng)) && c.title)) return false;
+        const id = summaryId(c);
+        if (seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
     } catch (err) {
-      state.found = [];
+      state.all = [];
     }
+    applyFilter();
   }
+  // As the destination's part: only the scopes the page's filter has on (Mine, the environment's own, each space).
+  function inFilter(c) {
+    const f = state.filter;
+    if (!f) return true;
+    if (c.ref.scope === 'person') return f.mine;
+    if (c.ref.scope === 'environment') return f.environment;
+    return !f.spaces || f.spaces.has(String(c.ref.space));
+  }
+  function applyFilter() {
+    state.found = state.all.filter(inFilter);
+  }
+  // A pin the search text does not match is dimmed, not hidden: by its title and where it is.
+  const dimmed = (c) => Boolean(state.q) && !`${c.title} ${c.subtitle || ''}`.toLowerCase().includes(state.q);
   // What the module that keeps places offers: a dialog for a new place at a position (`newPlace`) and a search by name
   // (`searchPlaces`, which answers with a few results). Found by what they offer, never by name.
   async function findAdder() {
@@ -113,6 +147,9 @@
     state.searcher = null;
     if (!host.actions || !host.actions.list) return;
     try {
+      // The environment page on its own has nothing beside it that keeps places: these actions are carried out by the asking
+      // person's own open page, so asking here would wait for a page that is not open. Its map is a view.
+      if (alone) return;
       const list = await host.actions.list();
       if (canEdit) state.adder = list.find((a) => a.name === 'newPlace' && a.input && a.input.lat && a.input.lng) || null;
       state.searcher = list.find((a) => a.name === 'searchPlaces' && a.input && a.input.q) || null;
@@ -137,12 +174,24 @@
     fill(el, { title: c.title, where: c.subtitle || '', coords: coordsText(c.place.lat, c.place.lng), from: `from ${moduleName(c)}${c.when ? ' \u00b7 ' + whenText(c.when) : ''}` });
     setIcon(el.querySelector('.callout-source [data-icon]'), (c.module && c.module.icon) || 'link');
     el.querySelector('[data-action="open-in-maps"]').href = mapsLink(c.place.lat, c.place.lng, c.title, apple);
+    // As the destination's part on a phone, where the list is the other tab: "Show in list" asks the page to show it.
+    const inList = el.querySelector('[data-action="show-in-list"]');
+    if (inList) inList.hidden = !(part && state.phone);
     box.replaceChildren(el);
     hide(box, false);
     hydrate(box);
   }
 
+  // The module's markup is gone (its page or the space was left): the map library may still fire a move or a late
+  // answer may still arrive, so stop the map and draw nothing more.
+  function torn() {
+    if (host.rootElement.isConnected && $('tpl-pin')) return false;
+    if (state.map) { try { state.map.remove(); } catch (err) { /* already gone */ } state.map = null; state.mapReady = false; }
+    return true;
+  }
+
   function render() {
+    if (torn()) return;
     if (state.selected && !current()) state.selected = null;
     renderCallout();
     hydrate(root);
@@ -163,11 +212,19 @@
   fit();
   new ResizeObserver(fit).observe(host.rootElement);
 
+  // As the destination's part the selection is the page's too (the panel beside follows it): tell it, unless it told us
+  // (`o.quiet`).
+  let told = null; // the selection last told to the page or heard from it (an object key, '' for none)
   function select(id, o) {
     state.selected = id || null;
     render();
     const c = current();
     if (c && state.map && !(o && o.still)) state.map.easeTo({ center: [c.place.lng, c.place.lat], zoom: Math.max(state.map.getZoom(), 13), duration: 500 });
+    const now = c ? summaryId(c) : '';
+    if (part && host.destination && !(o && o.quiet) && now !== told) {
+      told = now;
+      host.destination.set({ selected: c ? c.ref : null }).catch(() => {});
+    }
   }
 
   // --- the pins -----------------------------------------------------------------------------------------------------
@@ -176,12 +233,13 @@
   let draftMarker = null;
   function clearPins() { while (markers.length) markers.pop().remove(); }
 
-  function makePin(kind, id, icon, label, on, cat, scope) {
+  function makePin(kind, id, icon, label, on, cat, scope, dim) {
     const pin = clone('tpl-pin');
     pin.dataset.kind = kind;
     pin.dataset.id = id;
     if (cat) pin.dataset.cat = cat;
     if (scope) pin.dataset.scope = scope;
+    if (dim) pin.classList.add('dim');
     setIcon(pin.querySelector('[data-icon]'), icon);
     if (label && state.map.getZoom() >= 11) fill(pin, { label }); else pin.querySelector('.pin-label').remove();
     if (state.selected === id) pin.classList.add('selected');
@@ -190,19 +248,21 @@
   }
 
   function drawPins() {
+    if (torn()) return;
     if (!state.map || !state.mapReady) return;
     clearPins();
     const map = state.map;
-    const all = state.found.map((c) => ({ kind: kindOf(c), id: summaryId(c), lat: c.place.lat, lng: c.place.lng, title: c.title, cat: c.category || '', scope: c.ref.scope === 'person' ? 'person' : '', icon: (c.module && c.module.icon) || 'location-dot' }));
+    const all = state.found.map((c) => ({ kind: kindOf(c), id: summaryId(c), lat: c.place.lat, lng: c.place.lng, title: c.title, cat: c.category || '', scope: c.ref.scope === 'person' ? 'person' : '', icon: (c.module && c.module.icon) || 'location-dot', dim: dimmed(c) }));
     const picked = all.filter((x) => x.id === state.selected);
     const rest = all.filter((x) => !picked.includes(x));
     for (const g of clusterPoints(rest, (lat, lng) => map.project([lng, lat]), 36)) {
       if (g.points.length === 1) {
         const x = g.points[0];
-        markers.push(new maplibregl.Marker({ element: makePin(x.kind, x.id, x.icon, x.title, () => select(x.id), x.cat, x.scope), anchor: 'bottom' }).setLngLat([x.lng, x.lat]).addTo(map));
+        markers.push(new maplibregl.Marker({ element: makePin(x.kind, x.id, x.icon, x.title, () => select(x.id), x.cat, x.scope, x.dim), anchor: 'bottom' }).setLngLat([x.lng, x.lat]).addTo(map));
       } else {
         const c = clone('tpl-pin-cluster');
         fill(c, { count: g.points.length });
+        if (g.points.every((x) => x.dim)) c.classList.add('dim');
         c.addEventListener('click', (e) => {
           e.stopPropagation();
           map.fitBounds(boundsOf(g.points), { padding: 60, maxZoom: 17, duration: 500 });
@@ -224,6 +284,7 @@
   }
 
   function drawDraft() {
+    if (torn()) return;
     if (draftMarker) { draftMarker.remove(); draftMarker = null; }
     if (!state.draft || !state.map) return;
     const pin = clone('tpl-pin');
@@ -252,7 +313,7 @@
     setAdding(false);
     state.candidates = [];
     if (state.map) state.map.easeTo({ center: [lng, lat], zoom: Math.max(state.map.getZoom(), 14), duration: 500 });
-    const before = state.found.length;
+    const before = state.all.length;
     const a = o || {};
     host.actions.request(state.adder.action, { lat, lng, ...(a.title ? { title: a.title } : {}), ...(a.address ? { address: a.address } : {}), ...(a.notes ? { notes: a.notes } : {}), ...(a.origin ? { origin: a.origin } : {}) }).catch((err) => { state.draft = null; drawDraft(); say('It could not be started: ' + ((err && err.message) || err)); });
     waitForSummary(before).then(() => { if (state.draft && state.draft.lat === lat && state.draft.lng === lng) { state.draft = null; drawDraft(); render(); } });
@@ -261,7 +322,7 @@
     for (let i = 0; i < 30; i += 1) {
       await new Promise((r) => setTimeout(r, 2000));
       await loadFound();
-      if (state.found.length > before) return true;
+      if (state.all.length > before) return true;
     }
     return false;
   }
@@ -275,8 +336,11 @@
   let hits = [];
   let hit = -1;
   function drawResults() {
+    if (torn()) return;
     const list = $('results');
     list.replaceChildren();
+    // As the destination's part the results are listed in the panel beside the map; the map draws only their pins.
+    if (part) { list.hidden = true; return; }
     if (state.searchMessage) {
       const li = document.createElement('li');
       li.className = 'note';
@@ -438,11 +502,14 @@
       if (state.selected) select(null);
     });
     map.on('moveend', drawPins);
+    map.on('moveend', keepView);
     map.once('load', () => {
       state.mapReady = true;
       showState(null);
       const b = boundsOf(state.found.map((c) => c.place));
-      if (b && (b[0][0] !== b[1][0] || b[0][1] !== b[1][1])) map.fitBounds(b, { padding: 70, maxZoom: 14, animate: false });
+      const last = lastView();
+      if (last) map.jumpTo(last);
+      else if (b && (b[0][0] !== b[1][0] || b[0][1] !== b[1][1])) map.fitBounds(b, { padding: 70, maxZoom: 14, animate: false });
       else if (b) map.jumpTo({ center: b[0], zoom: 13 });
       else map.fitBounds([[header.minLon, header.minLat], [header.maxLon, header.maxLat]], { padding: 20, animate: false });
       render();
@@ -458,6 +525,28 @@
       const status = e && e.error && e.error.status;
       if (status === 404 || status === 401 || status === 403) { failed = true; showError(); }
     });
+  }
+
+  // As the destination's part the map opens where it was last left in this browser (plan-map-destination, decision 22).
+  const VIEW_KEY = 'maps-destination-view';
+  function lastView() {
+    if (!part) return null;
+    try {
+      const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
+      return v && geo.inRange(Number(v.lat), Number(v.lng)) && Number.isFinite(Number(v.zoom)) ? { center: [Number(v.lng), Number(v.lat)], zoom: Math.min(19, Math.max(0, Number(v.zoom))) } : null;
+    } catch (err) {
+      return null;
+    }
+  }
+  let keepTimer = 0;
+  function keepView() {
+    if (!part || !state.map || !state.mapReady) return;
+    clearTimeout(keepTimer);
+    keepTimer = setTimeout(() => {
+      if (!state.map) return;
+      const c = state.map.getCenter();
+      try { localStorage.setItem(VIEW_KEY, JSON.stringify({ lat: round6(c.lat), lng: round6(c.lng), zoom: Math.round(state.map.getZoom() * 100) / 100 })); } catch (err) { /* not remembered */ }
+    }, 400);
   }
 
   function webgl() {
@@ -502,7 +591,9 @@
     const a = t.dataset.action;
     const c = current();
     if (a === 'close-callout') select(null);
+    else if (a === 'show-in-list' && part && host.destination) host.destination.set({ reveal: 'panel' }).catch(() => {});
     else if (a === 'cancel') setAdding(false);
+    else if (a === 'add') { if (state.adder) setAdding(!state.adding); }
     else if (a === 'copy-coords' && c) {
       try { await navigator.clipboard.writeText(coordsText(c.place.lat, c.place.lng)); say('Coordinates copied.'); setTimeout(() => say(''), 2000); } catch (err) { say('Copy them from the place: ' + coordsText(c.place.lat, c.place.lng)); }
     } else if (a === 'open' && c) host.objects.open(c.ref).catch(() => say(`That ${word('object')} could not be opened.`));
@@ -544,13 +635,15 @@
   // The host's bottom bar is the map's search: type a place, or paste coordinates or a map link (Enter). A second button
   // starts adding a place by clicking the map. Only where something can be done with it.
   function setBar() {
-    if (!host.bar) return;
+    hide($('ctrl-add'), !(part && state.adder));
+    if (!host.bar || part) return;
     const items = [];
-    if (state.searcher || state.adder) items.push({ id: 'find', type: 'quickadd', icon: 'magnifying-glass', label: 'Search', placeholder: state.searcher ? 'Search, or paste coordinates or a link' : 'Paste coordinates or a link' });
+    if (state.searcher || state.adder || alone) items.push({ id: 'find', type: 'quickadd', icon: 'magnifying-glass', label: 'Search', placeholder: state.searcher ? 'Search, or paste coordinates or a link' : 'Paste coordinates or a link' });
     if (state.adder) items.push({ id: 'add', icon: 'plus', iconOnly: true, label: 'Add a place: click the map' });
     host.bar.set(items).catch(() => {});
   }
-  if (host.bar) {
+  // As the destination's part there is no bar: the page's search field and the + on the map do these.
+  if (host.bar && !part) {
     host.on('bar', (e) => {
       if (e.id === 'add') { if (state.adder) setAdding(!state.adding); return; }
       if (e.id !== 'find') return;
@@ -559,7 +652,7 @@
       const p = parsePoint(text);
       if (p) { if (state.adder) draftAt(p.lat, p.lng); else if (state.map) state.map.easeTo({ center: [p.lng, p.lat], zoom: 15 }); return; }
       if (state.searcher) { search(text); return; }
-      say(`${NO_SEARCH} Paste coordinates or a map link, or click the map.`);
+      say(alone ? 'Paste coordinates or a map link to go there.' : `${noSearch()} Paste coordinates or a map link, or click the map.`);
     });
   }
 
@@ -609,6 +702,43 @@
   const refresh = async () => { await Promise.all([loadFound(), findAdder()]); setBar(); if (state.started) render(); };
   const timer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(timer); else refresh(); }, 90000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+
+  // --- as the Map destination's main part ------------------------------------------------------------------------------
+  // The page owns the filter (Mine, the environment's own, which spaces) and the search field, and hands them over
+  // (host.destination.onState); the selection is shared with the panel beside, either may set it. Typing dims the pins
+  // that do not match; Enter (`find` raised) searches for new places, whose pins are drawn here and whose rows the panel
+  // lists, or with a pasted position starts a new place there.
+  let lastFind = null;
+  function showWanted(key) {
+    if (!state.all.some((c) => summaryId(c) === key)) return false;
+    if (state.mapReady) select(key, { quiet: true }); else state.openWanted = key;
+    return true;
+  }
+  function takeState(st) {
+    if (!st || typeof st !== 'object') return;
+    state.phone = st.phone === true; // the page's parts are tabs (the callout offers Show in list)
+    state.filter = { mine: st.mine !== false, environment: st.environment !== false, spaces: Array.isArray(st.spaces) ? new Set(st.spaces.map(String)) : null };
+    const text = typeof st.q === 'string' ? st.q.trim() : '';
+    const point = text ? parsePoint(text) : null;
+    state.q = point ? '' : text.toLowerCase();
+    if (!text && (hits.length || state.candidates.length)) { searchToken += 1; hits = []; state.searchMessage = ''; state.candidates = []; }
+    applyFilter();
+    if (state.started) render();
+    const find = Number(st.find) || 0;
+    if (lastFind === null) lastFind = find; // what the page held when this part came: nothing asked yet
+    else if (find !== lastFind) {
+      lastFind = find;
+      if (point) { if (state.adder) draftAt(point.lat, point.lng); else if (state.map) state.map.easeTo({ center: [point.lng, point.lat], zoom: 15 }); }
+      else if (text && state.searcher) search(text);
+    }
+    const sel = st.selected && typeof st.selected === 'object' ? host.util.objectKey(st.selected) : '';
+    if (sel === told) return;
+    told = sel;
+    if (!sel) { if (state.selected) select(null, { quiet: true }); return; }
+    // A place the panel picked that the map has not read yet (one just saved): read again, then show it.
+    if (!showWanted(sel)) loadFound().then(() => { if (told === sel && showWanted(sel)) return; render(); });
+  }
+  if (part && host.destination) host.destination.onState(takeState);
 
   // --- start --------------------------------------------------------------------------------------------------------
 

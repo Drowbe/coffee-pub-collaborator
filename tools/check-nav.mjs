@@ -13,6 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createRequire } from 'node:module';
 
 // The page's file is plain ES module syntax under a .js name; node wants .mjs to load it without a warning, so it is
 // imported from a temporary copy (the same way check-syntax.mjs parses the pages).
@@ -28,7 +29,9 @@ const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFile
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens } = await import(pathToFileURL(primaryCopy).href);
+const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools } = await import(pathToFileURL(primaryCopy).href);
+// The server's presence by membership (plan-primary-nav.md, step 3), so the pages' reading is held against the real answer.
+const { presenceView } = createRequire(import.meta.url)('../server/presence-view.js');
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -504,6 +507,133 @@ test('the space switcher: your spaces in the list\'s order, never an aside, a ma
   assert.equal(switchPick('lobby', 'disney'), 'enter', 'present elsewhere: enter, until the visit view');
 });
 
+// One presence answer, as GET /api/presence gives it to `viewer` (decision 6, step 3). Bo, Cy and Di are in the
+// Hall; Bo and Cy stepped out of it into an aside (private when `priv`); Di stays; Ed is in the Cellar, which the
+// member Al does not belong to.
+function presenceAnswer(viewer, { priv = false } = {}) {
+  const spaces = [
+    { id: 'hall', name: 'Hall', members: ['al', 'bo', 'cy', 'di'] },
+    { id: 'cellar', name: 'Cellar', members: ['ed'] },
+  ];
+  const asides = [{ id: 'aside-1', origin: 'hall', private: priv, members: ['bo', 'cy'] }];
+  const online = new Map([
+    ['al', { key: 'al', space: 'hall', inCall: true }],
+    ['bo', { key: 'bo', space: 'aside-1', inCall: true }],
+    ['cy', { key: 'cy', space: 'aside-1', inCall: true }],
+    ['di', { key: 'di', space: 'hall', inCall: false }],
+    ['ed', { key: 'ed', space: 'cellar', inCall: true }],
+  ]);
+  const users = ['al', 'bo', 'cy', 'di', 'ed'].map((key) => ({ key, displayName: key.toUpperCase() }));
+  const view = presenceView(viewer, {
+    users, spaces, asides, online, present: () => false, activeSpace: 'cellar',
+    describeUser: (u) => ({ key: u.key, displayName: u.displayName }), describeSpace: (r) => ({ ...r }),
+  });
+  // As space.js lists them: the asides after the spaces, marked.
+  return { ...view, list: [...view.spaces, ...view.asides.map((a) => ({ ...a, isAside: true }))], user: (k) => view.users.find((u) => u.key === k) };
+}
+
+test('presence by membership: those stepped out into an aside are not here, in the cards, the switcher or the count', () => {
+  const p = presenceAnswer({ key: 'al', owner: false });
+  assert.equal(p.user('bo').space, 'hall', 'the stand-in answer: Bo reads as the Hall');
+  assert.equal(p.user('bo').aside, true);
+  assert.equal(p.user('ed').elsewhere, true, 'Ed is somewhere Al cannot see');
+  assert.equal(steppedOut(p.user('bo'), 'hall'), true);
+  assert.equal(isHere(p.user('bo'), 'hall'), false, 'stepped out: not here');
+  assert.equal(isHere(p.user('di'), 'hall'), true);
+  assert.equal(isHere(p.user('ed'), 'hall'), false);
+  const hallPeople = ['al', 'bo', 'cy', 'di'].map(p.user);
+  assert.equal(hereCount(hallPeople, 'hall'), '2 here · 1 in the call', 'Al and Di here, Al on the call; Bo and Cy left out');
+  assert.equal(hereCount([p.user('bo')], 'hall'), 'Nobody here');
+  assert.deepEqual(switcherEntries({ spaces: p.spaces, users: p.users, present: 'hall' }).map((e) => [e.id, e.count]), [['hall', 2]], 'the switcher: only the Hall, 2 here');
+  // An aside's own people (an owner sees the aside itself) are in it, not stepped out of it.
+  const o = presenceAnswer({ key: 'zz', owner: true });
+  assert.equal(o.user('bo').space, 'aside-1');
+  assert.equal(isHere(o.user('bo'), 'aside-1', { aside: true }), true);
+  assert.equal(isHere(o.user('bo'), 'hall'), false);
+  assert.equal(hereCount(['al', 'bo', 'cy', 'di'].map(o.user), 'hall'), '2 here · 1 in the call', 'an owner counts the same');
+  // A guest of the Hall: the cut-down answer, the same count.
+  const g = presenceAnswer({ guestSpace: 'hall' });
+  assert.deepEqual(g.spaces.map((s) => s.id), ['hall']);
+  assert.equal(hereCount(g.users.filter((u) => ['al', 'bo', 'cy', 'di'].includes(u.key)), 'hall'), '2 here · 1 in the call');
+  // The page draws it this way.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.ok(!/function hereCount\(/.test(space), 'space.js uses primary-nav.js\'s hereCount, not its own');
+  assert.match(space, /const here = isHere\(u, spaceId, \{ aside: isAside \}\);/, 'renderMembers reads here with isHere');
+});
+
+test('presence by membership: the "In an aside" placeholder tiles come from the answer, and a private one names nobody', () => {
+  const hall = { id: 'hall', members: ['al', 'bo', 'cy', 'di'] };
+  for (const priv of [false, true]) {
+    const p = presenceAnswer({ key: 'al', owner: false }, { priv });
+    assert.equal(p.asides.length, 0, 'Al is not in the aside, so it is not listed');
+    // From the answer alone (asidePrivate, so it holds after a reload): a placeholder, naming nobody.
+    assert.equal(p.user('bo').asidePrivate, priv, 'the answer says which kind');
+    assert.deepEqual(asidePlaceholder(p.user('bo'), hall, p.list), { private: priv, members: [] });
+    assert.equal(asidePlaceholder(p.user('di'), hall, p.list), null, 'Di is here');
+    assert.equal(asidePlaceholder(p.user('ed'), hall, p.list), null, 'Ed is elsewhere, not aside from here');
+    // With what the call's aside-started message said.
+    const said = { private: priv, members: priv ? [] : ['bo', 'cy'] };
+    assert.deepEqual(asidePlaceholder(p.user('bo'), hall, p.list, said), priv ? { private: true, members: [] } : { private: false, members: ['bo', 'cy'] });
+    // An owner sees the aside record itself; a private one still names nobody.
+    const o = presenceAnswer({ key: 'zz', owner: true }, { priv });
+    assert.deepEqual(asidePlaceholder(o.user('bo'), hall, o.list), priv ? { private: true, members: [] } : { private: false, members: ['bo', 'cy'] });
+    // In the aside myself: its own people are not placeholders.
+    const b = presenceAnswer({ key: 'bo', owner: false }, { priv });
+    assert.equal(asidePlaceholder(b.user('cy'), { id: 'aside-1', isAside: true, members: ['bo', 'cy'] }, b.list), null);
+    // A guest of the Hall sees the placeholder too.
+    const g = presenceAnswer({ guestSpace: 'hall' }, { priv });
+    assert.deepEqual(asidePlaceholder(g.users.find((u) => u.key === 'bo'), hall, g.list), { private: priv, members: [] });
+    // A message that names people for a private aside still names nobody.
+    assert.deepEqual(asidePlaceholder(p.user('bo'), hall, p.list, { private: false, members: ['bo', 'cy'] }), priv ? { private: true, members: [] } : { private: false, members: ['bo', 'cy'] });
+  }
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const reconcile = space.slice(space.indexOf('function reconcileGhostTiles('), space.indexOf('\n}\n', space.indexOf('function reconcileGhostTiles(')));
+  assert.match(reconcile, /asidePlaceholder\(user, currentSpace, presenceSpaces, startedAsides\.get\(key\)\)/, 'the tiles come from asidePlaceholder');
+  const started = space.slice(space.indexOf("topic === 'aside-started'"), space.indexOf("topic === 'aside-recall'"));
+  assert.match(started, /data\.private/, 'the aside-started message is read for private');
+  assert.match(started, /pending: true/, 'the pulled member\'s join still finds the pending entry');
+  assert.ok(!/Array\.isArray\(data\.members\)\)\s*\{/.test(started), 'a private message with no members is still read');
+  assert.match(started, /if \(priv \|\| !said\.length\) loadPresence\(\);/, 'a private message asks presence at once for who stepped out');
+  assert.match(started, /asideEntry\(\{ id: data\.spaceId, members: priv \? \[\] : said,/, 'a private entry keeps no members, so it never reads "Private with ..."');
+});
+
+test('presence by membership: Who\'s around says "in an aside" and "in another <space>"; the stream somewhere unseen', () => {
+  const p = presenceAnswer({ key: 'al', owner: false });
+  const words = { aside: 'a side chat', space: 'trip' };
+  assert.equal(whereWords(p.user('di'), p.list, words), 'in Hall');
+  assert.equal(whereWords(p.user('bo'), p.list, words), 'in a side chat');
+  assert.equal(whereWords(p.user('ed'), p.list, words), 'in another trip');
+  assert.equal(whereWords({ online: true, space: null }, p.list, words), '');
+  const o = presenceAnswer({ key: 'zz', owner: true });
+  assert.equal(whereWords(o.user('bo'), o.list, words), 'in a side chat', 'an owner, who sees the aside: still the aside word');
+  // Private, from the answer: "in a private conversation", for members and owners alike.
+  const pp = presenceAnswer({ key: 'al', owner: false }, { priv: true });
+  assert.equal(whereWords(pp.user('bo'), pp.list, words), 'in a private conversation');
+  const op = presenceAnswer({ key: 'zz', owner: true }, { priv: true });
+  assert.equal(whereWords(op.user('bo'), op.list, words), 'in a private conversation');
+  // The home cards' tooltip on a card other than the parent's: stepped out reads as the aside, never "in Hall".
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const members = space.slice(space.indexOf('function renderMembers('), space.indexOf('\n}\n', space.indexOf('function renderMembers(')));
+  assert.match(members, /const there = u\.online && !here && !u\.aside && !u\.elsewhere \?/, 'a stepped-out person is not "in" their parent space');
+  assert.match(members, /whereWords\(u, presenceSpaces,/, 'the tooltip takes the aside words from whereWords');
+  // The stream is in the Cellar, which Al can't see: activeSpace is null.
+  assert.equal(p.activeSpace, null);
+  assert.equal(offStream(p.user('di'), p.activeSpace, true), true, 'Di is off the stream');
+  assert.equal(offStream(p.user('ed'), p.activeSpace, true), false, 'Ed may be on it: not marked');
+  assert.equal(offStream(p.user('ed'), 'hall', true), true, 'the stream in the Hall: Ed is off it');
+  assert.equal(offStream(p.user('di'), null, false), false, 'no owner online: no stream to be off');
+  // Stepped out of the space the stream hears: off it, on its own (not only through the aside badge).
+  assert.equal(offStream(p.user('bo'), 'hall', true), true, 'the stream in the Hall, Bo stepped out of it: off');
+  assert.equal(offStream(p.user('bo'), null, true), false, 'the stream somewhere unseen (perhaps Bo\'s aside): not marked');
+  assert.equal(offStream(o.user('bo'), 'aside-1', true, ['aside-1']), false, 'an owner, the stream following the aside Bo is in: on it');
+  assert.equal(offStream(o.user('bo'), 'hall', true, ['aside-1']), true, 'an owner, the stream in the Hall: Bo is off it');
+  assert.equal(offStream(p.user('di'), 'hall', true), false, 'Di, in the Hall with the stream: on it');
+  const dash = fs.readFileSync(path.join(ROOT, 'public/dashboard.js'), 'utf8');
+  assert.match(dash, /whereWords\(u, spaces,/, 'Who\'s around uses whereWords');
+  assert.ok(!/activeSpace = active \|\| LOBBY/.test(space), 'activeSpace null is kept, not read as the Lobby');
+  assert.match(members, /offStream\(u, activeSpace, ownerOnline, presenceSpaces\.filter\(\(r\) => r\.isAside\)/, 'off stream knows the asides I can see');
+});
+
 test('the bell: unread notices for everyone, and module updates for owners and the admin only', () => {
   assert.deepEqual(bellState({ unread: 2, updates: 3, role: 'member', moduleWord: 'module' }), { count: 2, updates: 0, title: 'Notifications, 2 unread' });
   assert.deepEqual(bellState({ unread: 2, updates: 3, role: 'owner', moduleWord: 'module' }), { count: 5, updates: 3, title: 'Notifications, 2 unread, 3 module updates' });
@@ -579,7 +709,11 @@ test('a module page opened from home while present in a space slides over the sp
     return src.slice(at + head.length, src.indexOf('\n});\n', at));
   };
   assert.match(dash, /<a class="dashboard-widget-title" href="\$\{escapeHtml\(href\)\}"/, 'the heading stays a real link (new tab, present nowhere)');
-  assert.match(dash, /href: `\/modules\/\$\{encodeURIComponent\(w\.id\)\}`/, 'to the module\'s page');
+  // To the module's page, or (plan-calendar-destination, decision 16) the destination it is a part of while that shows:
+  // the server's `href`, a path on this server.
+  assert.match(dash, /typeof w\.href === 'string' && [^\n]*\? w\.href : `\/modules\/\$\{encodeURIComponent\(w\.id\)\}`/, 'to the server\'s href, else the module\'s page');
+  assert.match(dash, /card\(\{ id: w\.id, [^\n]*href: page,/, 'the heading uses it');
+  assert.match(dash, /title="Open \$\{escapeHtml\(name \|\| title\)\}" data-page-link>/, 'a heading says it is a page link, whatever its address');
   const dashClick = handlerOf(dash, "document.addEventListener('click', (event) => {", '\n  if (event.defaultPrevented');
   const spaceOpen = handlerOf(space, "document.addEventListener('app:open-page', (event) => {");
   const run = (present, click = {}) => {
@@ -598,7 +732,7 @@ test('a module page opened from home while present in a space slides over the sp
       `document.addEventListener('app:open-page', (event) => {${spaceOpen}\n});`)(
       doc, pageOpens, present ? { id: 'lobby' } : null, () => {}, (h) => opened.push(h), { open: () => {} });
     new Function('document', 'location', 'CustomEvent', 'URL', `document.addEventListener('click', (event) => {${dashClick}\n});`)(doc, loc, CustomEvent, URL);
-    const link = { href: 'http://h.test/modules/todo', target: '' };
+    const link = { href: click.href || 'http://h.test/modules/todo', target: '', hasAttribute: (a) => Boolean(click.pageLink) && a === 'data-page-link' };
     const event = {
       type: 'click', button: 0, defaultPrevented: false, ...click,
       target: { closest: (sel) => (sel === '#dashboard a[href]' ? link : null) },
@@ -610,6 +744,11 @@ test('a module page opened from home while present in a space slides over the sp
   assert.deepEqual(run(true), { navigated: false, opened: ['/modules/todo'] }, 'present: the heading opens over the space and the page stays');
   assert.deepEqual(run(false), { navigated: true, opened: [] }, 'present nowhere: the link navigates');
   assert.deepEqual(run(true, { ctrlKey: true }), { navigated: true, opened: [] }, 'a click meant for a new tab is left to the browser');
+  // A tile heading that leads to a destination (/calendar) goes the same way: over the space while present, a page otherwise.
+  const toDest = { href: 'http://h.test/calendar#day=2026-10-02', pageLink: true };
+  assert.deepEqual(run(true, toDest), { navigated: false, opened: ['/calendar#day=2026-10-02'] }, 'present: a destination heading opens over the space');
+  assert.deepEqual(run(false, toDest), { navigated: true, opened: [] }, 'present nowhere: it navigates');
+  assert.deepEqual(run(true, { href: 'http://h.test/calendar' }), { navigated: true, opened: [] }, 'another link on home, not a heading, is left alone');
   // The widget's own "open in full" and an object out of a space go the same way, never straight to location.href.
   assert.ok(!/location\.href = `\/modules/.test(dash), 'dashboard.js never navigates to a module page directly');
   assert.match(dash, /onOpenPage: \(hash\) => \{ openModulePage\(/);
@@ -681,6 +820,71 @@ test('closing a page opened from home keeps Away; Away clears only back on the s
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const back = space.slice(space.indexOf('function returnToCanvas('), space.indexOf('\n}\n', space.indexOf('function returnToCanvas(')));
   assert.match(back, /viewingHome = false;[\s\S]*setAway\(false\);/, 'returnToCanvas() clears Away');
+});
+
+// The top bar's destinations (plan-calendar-destination.md, step 5): a middle-zone entry per destination the server lists
+// for this viewer, none when it lists none; on a phone an entry in the menu after the Spaces slot's entries.
+test('destinations: an entry each in the middle zone, in the server\'s order, current on its own page', () => {
+  const list = [{ id: 'calendar', name: 'Calendar', icon: 'calendar-days', href: '/calendar' }, { id: 'map', name: 'Maps', icon: 'map', href: '/map' }];
+  const t = destinationTools(list, { path: '/calendar' });
+  assert.deepEqual(t.map((x) => x.bar.id), ['dest-calendar', 'dest-map']);
+  assert.ok(t.every((x) => x.bar.zone === 'middle' && x.bar.group === 'destinations'));
+  assert.deepEqual(t.map((x) => x.bar.order), [1, 2]);
+  assert.deepEqual(t.map((x) => [x.bar.label, x.bar.icon, x.bar.href]), [['Calendar', 'calendar-days', '/calendar'], ['Maps', 'map', '/map']]);
+  assert.deepEqual(t.map((x) => x.bar.current), [true, false]);
+  assert.equal(destinationTools(list, { present: true })[0].bar.overlay, true);
+  assert.equal(destinationTools(list)[0].bar.overlay, false);
+});
+test('destinations: none listed (the option off, the Calendar off or unreadable, a guest) means no entry; a malformed one is left out', () => {
+  assert.deepEqual(destinationTools([]), []);
+  assert.deepEqual(destinationTools(undefined), []);
+  const bad = [{ id: 'Cal', name: 'x', href: '/x' }, { id: 'calendar', name: '', href: '/calendar' }, { id: 'calendar', name: 'C', href: 'https://elsewhere.example/calendar' }, { id: 'calendar', name: 'C', href: '/calendar?x=1' }];
+  assert.deepEqual(destinationTools(bad), []);
+  assert.equal(destinationTools([{ id: 'calendar', name: 'Calendar', icon: '<b>', href: '/calendar' }])[0].bar.icon, 'puzzle-piece');
+});
+test('destinations: on a phone the entry is in the menu after the Spaces slot\'s entries, before New <space>', () => {
+  const [d] = destinationTools([{ id: 'calendar', name: 'Calendar', icon: 'calendar-days', href: '/calendar' }]);
+  const tools = [
+    { id: 'menu-environment', zone: 'right', group: 'menu-where', groupOrder: 1, order: 1, seq: 1 },
+    { id: 'menu-home', zone: 'right', group: 'menu-where', order: 2, seq: 2 },
+    { id: 'menu-new-space', zone: 'right', group: 'menu-new', groupOrder: 2, order: 1, seq: 3 },
+    { ...d.bar, seq: 4 },
+    { ...d.menu, seq: 5 },
+    { id: 'menu-space-a', zone: 'right', group: 'menu-where', order: 3, seq: 6 },
+    { id: 'menu-space-b', zone: 'right', group: 'menu-where', order: 4, seq: 7 },
+  ];
+  const byZone = { left: [], middle: tools.filter((t) => t.zone === 'middle'), right: tools.filter((t) => t.zone === 'right') };
+  const z = phoneZones(byZone);
+  // The middle-zone entry is hidden on a phone (brand.js: visible only wider), so the menu's own entry is the one read.
+  const menu = z.right.flatMap((run) => arrange(run).flatMap((g) => g.map((t) => t.id))).filter((id) => id !== 'dest-calendar');
+  assert.deepEqual(menu, ['menu-environment', 'menu-home', 'menu-space-a', 'menu-space-b', 'menu-dest-calendar', 'menu-new-space']);
+});
+test('destinations: the middle zone is centred only from 1001px; narrower, the breadcrumb keeps its width', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, /@media \(min-width: 1001px\) \{\s*\.topbar:has\(> \.nav-middle > :not\(\[hidden\]\)\) \{\s*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\);/);
+  assert.ok(!/@media \(min-width: 641px\) \{\s*\.topbar:has\(> \.nav-middle/.test(css), 'not centred from 641px');
+  assert.match(css, /\.topbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto auto;/, 'below that the left zone takes the width');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar \.nav-middle \.core-link \.core-label \{\s*display: none;/, 'from 641 to 820px the entries are their icons only');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8'), /el\.title = tool\.label;/, 'and keep their name as the tooltip');
+});
+test('destinations: brand.js registers them from GET /api/destinations, wider only and phone only, and opens them over a space while present', () => {
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const load = brand.slice(brand.indexOf('async function loadDestinations('), brand.indexOf('\n}\n', brand.indexOf('function markDestinations(')));
+  assert.match(load, /fetch\('\/api\/destinations'\)/);
+  assert.match(load, /destinationTools\(list/);
+  assert.match(load, /\[\[inBar, wide\], \[menu, inMenuOnly\]\]/);
+  assert.match(load, /setAttribute\('aria-current', 'page'\)/);
+  assert.match(load, /toggleAttribute\('data-overlay-link', over\)/);
+  assert.match(load, /const over = Boolean\(presentSpaceNow\(\)\) && !overCall\(\);/);
+  assert.match(brand, /presentSpace = id \|\| null;\n  markDestinations\(\);/, 'entering or leaving a space marks them again');
+  assert.match(brand, /loadDestinations\(\{ wide: \(\) => wide\(\) && signedIn\(\), inMenuOnly \}\);/);
+  assert.match(load, /for \(const id of destinationIds\) nav\.unregister\(id\);/, 'asked again, the old entries go first');
+  assert.match(brand, /export function refreshDestinations\(\)/, 'Manage can ask again');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8'), /refreshDestinations\(\); \/\/ the bar's entry comes or goes/, 'Manage asks again after a Top bar switch');
+  assert.match(load, /window\.location\.pathname\.toLowerCase\(\)/, '/CALENDAR is current too');
+  // A guest's bar and the host console return before the menu's entries are registered, so they have no entry.
+  const sys = brand.slice(brand.indexOf('function registerSystemTools('), brand.indexOf('loadDestinations({'));
+  assert.match(sys, /if \(guest \|\| hostConsole\) return;/);
 });
 
 console.log(`check-nav: OK (${n} tests)`);

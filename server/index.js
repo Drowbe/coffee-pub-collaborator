@@ -27,6 +27,8 @@ const { ModuleUploads } = require('./module-uploads');
 const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
 const objectFormat = require('./object-format');
+const { presenceView, belongsToSpace } = require('./presence-view');
+const destinations = require('./destinations');
 const { fetchPreview, fetchImage, cachedImage, PreviewError } = require('./link-preview');
 const objectSync = require('./object-sync');
 const themeFile = require('./theme-file');
@@ -169,6 +171,17 @@ function currentEnvironment() {
   const env = envContext.getStore();
   if (!env) throw new Error('no environment resolved for this request');
   return env;
+}
+// A listener a long-lived request (a server-sent stream) leaves on a service: it runs in that request's environment
+// whoever emits (a timer, a child process, another request), and a throw is logged, never left to stop the process.
+function listenIn(env, fn) {
+  return (...args) => {
+    try {
+      envContext.run(env, () => fn(...args));
+    } catch (err) {
+      console.error(`${env.slug ? `[${env.slug}] ` : ''}A live stream's listener failed: ${err.stack || err.message}`);
+    }
+  };
 }
 
 // A Proxy standing in for one of the current environment's services, by name: every property access resolves
@@ -493,6 +506,8 @@ function environmentFor(slug) {
     throw err;
   }
   refusals.delete(key);
+  // A fired schedule is told from a timer, outside any request: its listeners run in this environment.
+  env.moduleHooks.runIn = (fn) => envContext.run(env, fn);
   // A display icon may also be a built-in module's own icon (store.displayIconIds), beside the installed modules' ones.
   const installedIcons = env.store.moduleIconIds;
   env.store.moduleIconIds = () => [...installedIcons(), ...BUILTIN_MODULES.map((b) => b.icon)];
@@ -1298,11 +1313,11 @@ function hasStreamAccess(req) {
   return isOwner(req) || hasStreamKey(req);
 }
 
-// A guest's own reads (the presence roster, everyone's pictures): any request
-// carrying a space's current guest token, on top of a real session or the
-// stream key. Not scoped to that one space -- same broad-but-low-stakes
-// trust as the stream key above, and lets a guest see the call they're
-// actually in without an account to check space membership against.
+// A guest's reads of pictures (/img/...): any request carrying a space's
+// current guest token, on top of a real session or the stream key. Not
+// scoped to that one space -- same broad-but-low-stakes trust as the stream
+// key above. A guest's presence read does not use this: presenceViewer()
+// below scopes it to the guest link's own space (server/presence-view.js).
 function hasGuestAccess(req) {
   const token = req.query.guest;
   return typeof token === 'string' && !!store.spaceByGuestToken(token);
@@ -2141,8 +2156,15 @@ function holdCallStart(spaceId, identity) {
   if (!callStartHolds.has(slug)) callStartHolds.set(slug, new Map());
   callStartHolds.get(slug).set(spaceId, { identity, until: Date.now() + CALL_START_HOLD_MS });
 }
-function overCallsSentence(cap, runningId) {
-  const runningName = store.spaceById(runningId)?.name || (store.asideById(runningId) ? word('aside', { a: true }) : `another ${word('space')}`);
+// Names the space a running call is in only to someone who belongs to it (presence by membership,
+// plan-primary-nav.md decision 6): a running call they can see is named first; otherwise "an aside" or "another
+// <space>". `identity` is the person's key, or `guest-link:<token>` for a guest (POST /api/call/join).
+function overCallsSentence(cap, running, identity) {
+  const guestSpace = identity.startsWith('guest-link:') ? store.spaceByGuestToken(identity.slice('guest-link:'.length)) : null;
+  const user = guestSpace ? null : store.userByKey(identity);
+  const viewer = guestSpace ? { guestSpace: guestSpace.id } : { key: identity, owner: hasOwnerRights(user) };
+  const shown = running.map((id) => store.spaceById(id)).find((r) => r && belongsToSpace(viewer, r));
+  const runningName = shown?.name || (store.asideById(running[0]) ? word('aside', { a: true }) : `another ${word('space')}`);
   return `This ${word('environment')}'s plan allows ${cap} call${cap === 1 ? '' : 's'} at once; one is running in ${runningName}`;
 }
 // Whether `identity` may start or join the call in `spaceId`: null when they may (and then a new start holds its
@@ -2160,7 +2182,7 @@ async function callsCapRefusal(spaceId, identity, { leaving = [], hold = true } 
     if (hold) holdCallStart(spaceId, identity);
     return null;
   }
-  return overCallsSentence(cap, [...running][0]);
+  return overCallsSentence(cap, [...running], identity);
 }
 function readEnvironmentZip(buffer) {
   return new Promise((resolve, reject) => {
@@ -3288,20 +3310,35 @@ app.post('/api/asides/invite/:id/decline', requireUser, (req, res) => {
   res.json({ ok: true });
 });
 
-app.get('/api/presence', async (req, res) => {
+// Presence by membership (plan-primary-nav.md, decision 6; server/presence-view.js has the rules): a signed-in person
+// reads where someone is only for the spaces (and asides) they belong to -- owners and the admin belong to all of
+// them -- someone in an aside reads as its parent space with `aside: true` to the parent's members, and anyone else's
+// place is `space: null, elsewhere: true`. A guest reads only their own space and its people. The access key (OBS,
+// Studio) reads everything, as before; GET /api/status is unchanged.
+function presenceViewer(req) {
+  if (hasStreamKey(req)) return { all: true };
   const user = currentUser(req);
-  if (!user && !hasStreamAccess(req) && !hasGuestAccess(req)) return res.status(401).json({ error: 'sign in first' });
+  if (user) return { key: user.key, owner: hasOwnerRights(user) };
+  const guestSpace = typeof req.query.guest === 'string' ? store.spaceByGuestToken(req.query.guest) : null;
+  return guestSpace ? { guestSpace: guestSpace.id } : null;
+}
+app.get('/api/presence', async (req, res) => {
+  const viewer = presenceViewer(req);
+  if (!viewer) return res.status(401).json({ error: 'sign in first' });
   const online = await participants();
   const byKey = new Map(online.map((p) => [p.key, p]));
   store.pruneAsides(byKey);
-  res.json({
-    ...branding(),
-    users: store.users.map((u) => ({ ...presenceUser(u), online: byKey.has(u.key), present: byKey.has(u.key) || isPresent(u.key), space: byKey.get(u.key)?.space || null, inCall: byKey.get(u.key)?.inCall ?? false })),
-    spaces: store.spaces.map((r) => ({ ...shownSpace(req, r), mine: !user || r.members.includes(user.key) || hasOwnerRights(user) })),
-    asides: store.asides.map((a) => ({ ...a, mine: !user || a.members.includes(user.key) || hasOwnerRights(user) })),
+  const view = presenceView(viewer, {
+    users: store.users,
+    spaces: store.spaces,
+    asides: store.asides,
+    online: byKey,
+    present: isPresent,
+    describeUser: presenceUser,
+    describeSpace: (r) => shownSpace(req, r),
     activeSpace: activeSpaceId(byKey),
-    ownerOnline: hasOnlineOwner(byKey),
   });
+  res.json({ ...branding(), ...view, ownerOnline: hasOnlineOwner(byKey) });
 });
 
 // An admin pulls one or more people who are in their call into a new aside with them, for a word away from
@@ -3346,8 +3383,11 @@ app.post('/api/asides', requireUser, async (req, res) => {
     await callService.sendData(initiatorCall, payload, DataPacket_Kind.RELIABLE, { destinationIdentities: targets.map((t) => t.key), topic: ASIDE_TOPICS.pull });
     // Everyone left behind: a private word is private from the others, not invisible to them -- this is what lets
     // their tiles turn into "in an aside" placeholders right away instead of just looking like they hung up until
-    // the next poll catches up.
-    const bystanderPayload = asidePayload(ASIDE_TOPICS.started, { spaceId: aside.id, members: aside.members });
+    // the next poll catches up. It goes only to this call, whose people just saw these members leave it. A private
+    // conversation's carries no members: who is with whom stays off the record (presence by membership gives the
+    // parent's members only `aside: true, asidePrivate: true` for each), and the page learns who stepped out from
+    // GET /api/presence.
+    const bystanderPayload = asidePayload(ASIDE_TOPICS.started, priv ? { spaceId: aside.id, private: true } : { spaceId: aside.id, members: aside.members, private: false });
     await callService.sendData(initiatorCall, bystanderPayload, DataPacket_Kind.RELIABLE, { topic: ASIDE_TOPICS.started }).catch(() => {});
     res.json({ aside });
   } catch (err) {
@@ -4178,28 +4218,31 @@ app.get('/api/icons/:style/:name', requireUser, (req, res) => {
   res.type('image/svg+xml').set('Cache-Control', 'private, max-age=86400').send(svg);
 });
 
+// The spaces a signed-in viewer belongs to where this module is on and they may read it, in the space list's order.
+const readableSpacesOf = ({ manifest, entry }, who) => (manifest.scope.includes('space') ? store.spaces.filter((r) => r.members.includes(who.user.key)
+  && modules.isOnIn(entry.id, r.id) && moduleCan(manifest, modulePerms(who, r.id), 'read')) : []);
 // The viewer's spaces for this module, or null after sending the error.
 function moduleSpacesFor(req, res) {
   const found = modules.enabled(req.params.id);
   if (!found) return void res.status(404).json({ error: `no such ${word('module')}` });
   const who = moduleViewer(req);
   if (!who?.user) return void res.status(403).json({ error: `${word('guest', { many: true })} can only use ${word('module', { a: true })} in ${word('space', { a: true })}` });
-  const { manifest, entry } = found;
+  const { manifest } = found;
   if (!manifest.scope.includes('space')) return void res.status(400).json({ error: `this ${word('module')} has no space scope` });
   if (!moduleCan(manifest, modulePerms(who, null), 'read')) return void res.status(403).json({ error: `your role can't do that in this ${word('module')}` });
-  const spaces = store.spaces.filter((r) => r.members.includes(who.user.key)
-    && modules.isOnIn(entry.id, r.id) && moduleCan(manifest, modulePerms(who, r.id), 'read'));
-  return { manifest, spaces };
+  return { manifest, who, spaces: readableSpacesOf(found, who) };
 }
 const spaceSummary = (r) => {
   const icon = r.linkIcon && r.linkIcon !== 'link' ? r.linkIcon : 'message';
   return { id: r.id, name: r.name, icon, svg: iconSvg(icon) };
 };
 
+// Each space also says whether the viewer may write there (`write`: the module's write permission in that space,
+// plan-calendar-destination.md, "Server"), so an environment page knows where it may add.
 app.get('/api/modules/:id/spaces-data', (req, res) => {
   const found = moduleSpacesFor(req, res);
   if (!found) return;
-  const spaces = found.spaces.map(spaceSummary);
+  const spaces = found.spaces.map((r) => ({ ...spaceSummary(r), write: moduleCan(found.manifest, modulePerms(found.who, r.id), 'write') }));
   if (req.query.info) return res.json({ spaces });
   const prefix = typeof req.query.prefix === 'string' ? req.query.prefix : '';
   const items = found.spaces.flatMap((r) => moduleData.list(found.manifest.id, scopeKeyOf('space', { spaceId: r.id }), prefix).map((item) => ({ ...item, spaceId: r.id })));
@@ -4459,34 +4502,51 @@ app.get('/api/objects/kinds', (req, res) => {
   res.json({ kinds: consumableKinds(String(req.query.from || '')) });
 });
 
-// Objects the asking module could link to, in one scope: every kind it was approved to consume.
+// Objects the asking module could link to, in one scope: every kind it was approved to consume. `scope=spaces`
+// (plan-map-destination.md, "Server") reads every space the viewer belongs to instead, each provider only where it is
+// on and readable for them there (refScope per space, the spaces-data rule), each pointer carrying its `space`; signed-in
+// people only. `has=place` keeps only summaries with a place, and then answers up to 1,000 rather than 50 (a map needs
+// every pin, not the newest 50).
+const SEARCH_CAP = 50;
+const SEARCH_CAP_PLACES = 1000;
 app.get('/api/objects/search', (req, res) => {
   const who = moduleViewer(req);
   if (!who) return res.status(401).json({ error: 'sign in first' });
   const from = String(req.query.from || '');
   if (!modules.enabled(from)) return res.status(404).json({ error: `no such ${word('module')}` });
-  const scope = askedScope(req.query.scope, res, ['environment', 'space', 'person']);
+  const scope = askedScope(req.query.scope, res, ['environment', 'space', 'spaces', 'person']);
   if (!scope) return;
+  if (scope === 'spaces' && !who.user) return res.status(403).json({ error: `${word('guest', { many: true })} can only search one ${word('space')}` });
+  const has = req.query.has === undefined || req.query.has === '' ? null : String(req.query.has);
+  if (has !== null && has !== 'place') return res.status(400).json({ error: 'has must be place' });
+  const cap = has === 'place' ? SEARCH_CAP_PLACES : SEARCH_CAP;
   const q = String(req.query.q || '').trim().toLowerCase();
+  // Each place to read: one scope as asked, or each space the viewer belongs to.
+  const places = scope === 'spaces'
+    ? store.spaces.filter((r) => r.members.includes(who.user.key)).map((r) => ({ scope: 'space', space: r.id }))
+    : [{ scope, space: req.query.space }];
   const summaries = [];
-  for (const k of consumableKinds(from)) {
-    let at;
-    try {
-      at = refScope(who, { provider: k.module, kind: k.kind, scope, space: req.query.space, from });
-    } catch {
-      continue; // not on for this scope, or not for this viewer
-    }
-    const prefix = at.produce.key.replace('{id}', '');
-    for (const item of moduleData.list(k.module, at.scopeKey, prefix)) {
-      if (!item.value || !REF_ID_RE.test(item.key.slice(prefix.length))) continue;
-      const summary = objectSummary(at, item.key.slice(prefix.length), item.value);
-      if (q && !`${summary.title} ${summary.subtitle || ''}`.toLowerCase().includes(q)) continue;
-      summaries.push(summary);
+  for (const where of places) {
+    for (const k of consumableKinds(from)) {
+      let at;
+      try {
+        at = refScope(who, { provider: k.module, kind: k.kind, scope: where.scope, space: where.space, from });
+      } catch {
+        continue; // not on for this scope, or not for this viewer
+      }
+      const prefix = at.produce.key.replace('{id}', '');
+      for (const item of moduleData.list(k.module, at.scopeKey, prefix)) {
+        if (!item.value || !REF_ID_RE.test(item.key.slice(prefix.length))) continue;
+        const summary = objectSummary(at, item.key.slice(prefix.length), item.value);
+        if (has === 'place' && !summary.place) continue;
+        if (q && !`${summary.title} ${summary.subtitle || ''}`.toLowerCase().includes(q)) continue;
+        summaries.push(summary);
+      }
     }
   }
   // Newest dates first, undated last.
   summaries.sort((a, b) => String(b.when ?? '').localeCompare(String(a.when ?? '')) || a.title.localeCompare(b.title));
-  res.json({ summaries: summaries.slice(0, 50) });
+  res.json({ summaries: summaries.slice(0, cap) });
 });
 
 // The published objects format: instructions (this environment's word for object) and the schema.
@@ -4635,6 +4695,39 @@ function busScope(v) {
   if (scope !== 'environment' && scope !== 'space') throw refError(400, 'scope must be environment or space here');
   return scope;
 }
+
+// An action about one of the provider's own objects is checked in that object's place, not the asker's
+// (plan-calendar-destination, decision 21: each space's own permissions). This matters only for a page in the
+// environment (the Calendar destination's parts): asking to change a task in a space takes the right to change the
+// To-do in that space, whatever the viewer may do at environment level. A page in a space keeps its own place.
+// Answers the space id of the provider's own objects named in the input, or null when none is in a space; refuses
+// objects in more than one place.
+const actionOwnKind = (providerId, type) => String(type).replace(/\?$/, '').startsWith(`ref:${providerId}:`);
+const takesOwnObject = (providerId, def) => !def.local && Object.values(def.input || {}).some((t) => actionOwnKind(providerId, t));
+function actionObjectSpace(providerId, def, input) {
+  const given = input && typeof input === 'object' ? input : {};
+  const places = new Set();
+  for (const [field, type] of Object.entries(def.input || {})) {
+    if (!actionOwnKind(providerId, type)) continue;
+    const v = given[field];
+    if (refShape(v) && v.module === providerId) places.add(v.scope === 'space' ? v.space : '');
+  }
+  if (places.size > 1) throw refError(400, `an action can change ${word('object', { many: true })} in only one place at a time`);
+  const [only] = [...places];
+  return only || null;
+}
+// Whether this viewer may change the provider where a waiting request's object is: in its space when it names one,
+// else in the place the request waits in (as before).
+function busMayDo(who, providerId, scope, space, request) {
+  try {
+    if (request && request.space) busPlace(who, providerId, 'space', request.space, 'write');
+    else busPlace(who, providerId, scope, space, 'write');
+    return true;
+  } catch (err) {
+    if (!err.status) throw err;
+    return false;
+  }
+}
 const busRoute = (fn) => (req, res) => {
   const who = moduleViewer(req);
   if (!who) return res.status(401).json({ error: 'sign in first' });
@@ -4692,23 +4785,40 @@ app.get('/api/bus/actions', busRoute((who, req) => {
   const from = String(req.query.from || '');
   const scope = busScope(req.query.scope);
   const asker = busPlace(who, from, scope, req.query.space, 'read');
+  // `ref` (optional, a pointer as JSON): the object the actions would be about, such as the one just dropped. From a
+  // page in the environment, an action on one of its provider's own objects is then listed by that object's place.
+  let about = null;
+  if (req.query.ref !== undefined && req.query.ref !== '') {
+    try { about = JSON.parse(String(req.query.ref)); } catch { about = null; }
+    if (!refShape(about)) throw refError(400, 'that is not a valid reference');
+  }
+  const can = (providerId, sc, sp, need) => {
+    try { busPlace(who, providerId, sc, sp, need); return true; } catch (err) { if (!err.status) throw err; return false; }
+  };
+  // Whether the viewer could ask for this action from here (you can ask only for what you could do yourself).
+  const mayAsk = (found, a) => {
+    const id = found.manifest.id;
+    if (scope !== 'environment' || !takesOwnObject(id, a)) return can(id, scope, req.query.space, a.local ? 'read' : 'write');
+    if (!can(id, scope, req.query.space, 'read')) return false; // the request waits at environment level
+    if (about && about.module === id) return about.scope === 'space' ? can(id, 'space', about.space, 'write') : can(id, scope, req.query.space, 'write');
+    // No object named: listed when the viewer may change the provider at environment level or in one of their spaces;
+    // the request itself is checked in its object's place.
+    return can(id, scope, req.query.space, 'write') || Boolean(who.user && readableSpacesOf(found, who).some((r) => can(id, 'space', r.id, 'write')));
+  };
   // `accepts=module:kind` keeps the actions that take a pointer to that kind of item; `self=1` also lists the
   // asking module's own, which it may always use.
   const accepts = String(req.query.accepts || '');
   const takes = (input) => !accepts || Object.values(input).some((t) => { const b = t.replace(/\?$/, ''); return b === 'ref' || b === `ref:${accepts}`; });
   const actions = [];
-  for (const { manifest } of modules.enabledAll()) {
+  for (const found of modules.enabledAll()) {
+    const { manifest } = found;
     const own = manifest.id === from;
     if (own && req.query.self !== '1') continue;
     for (const a of manifest.actions.provides) {
       if (!takes(a.input)) continue;
       if (!own) {
         if (!mayUse(asker.found, manifest.id, a.name)) continue;
-        try {
-          busPlace(who, manifest.id, scope, req.query.space, a.local ? 'read' : 'write'); // you can ask only for what you could do yourself
-        } catch {
-          continue;
-        }
+        if (!mayAsk(found, a)) continue;
       }
       actions.push({ action: `${manifest.id}:${a.name}`, module: manifest.id, moduleName: shownModule(manifest).name, icon: shownModule(manifest).icon, name: a.name, label: a.label, input: a.input, ...(a.needs ? { needs: a.needs } : {}), ...(own ? { own: true } : {}) });
     }
@@ -4766,24 +4876,30 @@ app.post('/api/bus/actions/request', busRoute((who, req) => {
   const def = provider.found.manifest.actions.provides.find((a) => a.name === name);
   if (!def) throw refError(404, `that ${word('module')} does not offer that action`);
   if (!mayUse(asker.found, providerId, name)) throw refError(403, `that ${word('module')} has not been approved to ask for that`);
-  if (!def.local) busPlace(who, String(providerId), sc, space, 'write'); // asking for a change takes the right to make it
-  const request = moduleBus.request({ from, provider: providerId, action: name, input: busInput(who, def.input, input), scopeKey: provider.scopeKey, by: who.user?.key || 'guest', local: def.local });
+  // Asking for a change takes the right to make it: from a page in the environment, about an object in a space, the
+  // right to change the module in that space (decision 21); otherwise in the place the asker is in, as before.
+  const objectSpace = sc === 'environment' && takesOwnObject(providerId, def) ? actionObjectSpace(providerId, def, input) : null;
+  if (objectSpace) busPlace(who, String(providerId), 'space', objectSpace, 'write');
+  else if (!def.local) busPlace(who, String(providerId), sc, space, 'write');
+  const request = moduleBus.request({ from, provider: providerId, action: name, input: busInput(who, def.input, input), scopeKey: provider.scopeKey, by: who.user?.key || 'guest', local: def.local, space: objectSpace });
   return { id: request.id, status: request.status };
 }));
 
 // The providing module's page: what is waiting, take one, say how it went.
 app.get('/api/bus/actions/pending', busRoute((who, req) => {
-  const at = busPlace(who, String(req.query.module || ''), busScope(req.query.scope), req.query.space, 'read');
-  let canWrite = true;
-  try { busPlace(who, String(req.query.module || ''), busScope(req.query.scope), req.query.space, 'write'); } catch { canWrite = false; }
-  // A view (`local`) is for the person who asked, from their own page; anything else waits for a page that may make the change.
-  return { actions: moduleBus.pending(String(req.query.module), at.scopeKey).filter((a) => (a.local ? a.by === (who.user?.key || 'guest') : canWrite)).map(publicAction) };
+  const id = String(req.query.module || '');
+  const scope = busScope(req.query.scope);
+  const at = busPlace(who, id, scope, req.query.space, 'read');
+  const canWrite = busMayDo(who, id, scope, req.query.space, null);
+  // A view (`local`) is for the person who asked, from their own page; anything else waits for a page that may make the
+  // change: in the object's space when the request names one, else here.
+  return { actions: moduleBus.pending(id, at.scopeKey).filter((a) => (a.local ? a.by === (who.user?.key || 'guest') : a.space ? busMayDo(who, id, scope, req.query.space, a) : canWrite)).map(publicAction) };
 }));
 app.post('/api/bus/actions/claim', busRoute((who, req) => {
   const { module: id, id: requestId, scope, space } = req.body || {};
   const at = busPlace(who, String(id || ''), busScope(scope), space, 'read');
   const waiting = moduleBus.actionById(Number(requestId));
-  if (waiting && waiting.local) { if (waiting.by !== (who.user?.key || 'guest')) return { ok: false }; } else busPlace(who, String(id || ''), busScope(scope), space, 'write');
+  if (waiting && waiting.local) { if (waiting.by !== (who.user?.key || 'guest')) return { ok: false }; } else if (waiting && waiting.space && waiting.provider === id && waiting.scopeKey === at.scopeKey) busPlace(who, String(id || ''), 'space', waiting.space, 'write'); else busPlace(who, String(id || ''), busScope(scope), space, 'write');
   const request = moduleBus.claim(Number(requestId), id, at.scopeKey);
   return request ? { ok: true, action: publicAction(request) } : { ok: false };
 }));
@@ -4791,7 +4907,7 @@ app.post('/api/bus/actions/complete', busRoute((who, req) => {
   const { module: id, id: requestId, scope, space, result } = req.body || {};
   const at = busPlace(who, String(id || ''), busScope(scope), space, 'read');
   const done = moduleBus.actionById(Number(requestId));
-  if (done && done.local) { if (done.by !== (who.user?.key || 'guest')) return { ok: false }; } else busPlace(who, String(id || ''), busScope(scope), space, 'write');
+  if (done && done.local) { if (done.by !== (who.user?.key || 'guest')) return { ok: false }; } else if (done && done.space && done.provider === id && done.scopeKey === at.scopeKey) busPlace(who, String(id || ''), 'space', done.space, 'write'); else busPlace(who, String(id || ''), busScope(scope), space, 'write');
   const clean = { ok: Boolean(result?.ok) };
   if (typeof result?.error === 'string') clean.error = result.error.slice(0, 200);
   // A small piece of plain data may come back with the result (up to about 8 KB of JSON), for a view that asks a question.
@@ -4860,11 +4976,13 @@ app.get('/api/modules/nav', (req, res) => {
 });
 
 // The widgets for the dashboard on the rooms page: enabled modules with a surfaces.widget that this person may
-// read, in the order the modules ask for. A guest has no dashboard.
+// read, in the order the modules ask for. A guest has no dashboard. `href`: where the tile's heading goes, the module's
+// page, or the destination it is a part of while that is shown (plan-calendar-destination.md, decision 16).
 app.get('/api/modules/widgets', (req, res) => {
   const who = moduleViewer(req);
   if (!who?.user) return res.json({ widgets: [] });
   const perms = modulePerms(who, null);
+  const ctx = destinationContext(who);
   const widgets = modules.enabledAll()
     .filter(({ manifest }) => manifest.scope.includes('environment') && manifest.surfaces.widget && moduleCan(manifest, perms, 'read'))
     .map(({ manifest, entry }) => ({
@@ -4872,9 +4990,103 @@ app.get('/api/modules/widgets', (req, res) => {
       // The widget's own title stays its own (plan decision 9: a display name replaces the module's name, not a widget's
       // label); a widget with none takes the module's name, as shown.
       title: manifest.surfaces.widget.title || shownModule(manifest).name, size: manifest.surfaces.widget.size, order: manifest.surfaces.widget.order, entry: manifest.surfaces.widget.entry,
+      href: destinationPathOf(manifest.id, ctx) || `/modules/${encodeURIComponent(manifest.id)}`,
     }))
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name));
   res.json({ widgets });
+});
+
+// --- destinations (plan-calendar-destination.md, plan-map-destination.md; the rules are server/destinations.js) ------------
+// A destination is a page of its own in the top bar, made of parts modules declare (surfaces.destination). Shown to a
+// signed-in person while its environment option is on and its main part is enabled and readable at environment level.
+
+// Whether a module's environment file settings name at least one file that is there (a destination that `needsFile`:
+// the map's file, plan-map-destination.md, "Server"). A shared folder (the host's, with environments) gives every file
+// in it; otherwise the ticked names count, each only if it is still a file. Read by name and stat only, never the
+// files' headers, since the top bar asks on every page.
+function moduleHasFile(manifest) {
+  const values = moduleSettings.values(manifest, 'environment', {});
+  return (manifest.settings || []).some((d) => {
+    if (d.scope !== 'environment' || (d.type !== 'file' && d.type !== 'files')) return false;
+    const dir = filesDirFor(manifest, d.folder);
+    const isFile = (name) => {
+      try { return FILE_NAME_RE.test(name) && fs.statSync(path.join(dir, name)).isFile(); } catch { return false; }
+    };
+    if (settingIsShared(manifest, d)) {
+      try { return fs.readdirSync(dir).some(isFile); } catch { return false; }
+    }
+    const v = values[d.key];
+    return (Array.isArray(v) ? v : v ? [v] : []).some((name) => typeof name === 'string' && isFile(name));
+  });
+}
+// What server/destinations.js needs to know about one viewer (null: a guest or nobody signed in, who sees none).
+function destinationContext(who) {
+  if (!who?.user) return null;
+  const perms = modulePerms(who, null);
+  return { settings: store.settings, enabled: modules.enabledAll(), canRead: (manifest) => manifest.scope.includes('environment') && moduleCan(manifest, perms, 'read'), hasFile: moduleHasFile };
+}
+// For Manage's Top bar switches (GET /api/settings, `topBarReasons`): why each destination cannot show for anyone
+// whatever its option, in one sentence, or null when nothing stands in its way. The module named is the one whose
+// main part it is: the enabled one, else the installed one that is off.
+function destinationReasons() {
+  const enabled = modules.enabledAll();
+  const installed = modules.list().map((m) => ({ manifest: m, entry: { source: m.source } }));
+  const possessive = (name) => (/s$/i.test(name) ? `${name}'` : `${name}'s`);
+  return Object.fromEntries(destinations.DESTINATIONS.map((dest) => {
+    const blocked = destinations.blockerOf(dest.id, { enabled, hasFile: moduleHasFile });
+    if (!blocked) return [dest.id, null];
+    if (blocked.why === 'no-main') {
+      const off = destinations.mainOf(dest.id, installed);
+      return [dest.id, off ? `Turn on ${shownModule(off.manifest).name} on the ${word('module', { many: true, cap: true })} tab first.` : `No installed ${word('module')} offers this page yet.`];
+    }
+    const name = shownModule(blocked.manifest).name;
+    const def = (blocked.manifest.settings || []).find((d) => d.scope === 'environment' && (d.type === 'file' || d.type === 'files'));
+    if (def && settingIsShared(blocked.manifest, def)) return [dest.id, `Ask the ${word('host')}'s ${word('admin')} for a file for ${name}.`];
+    return [dest.id, `Choose a file for "${def?.label || 'Files'}" in ${possessive(name)} settings first.`];
+  }));
+}
+// The page every destination is drawn on (experience-design's step 4). Until it exists, nothing leads to a destination:
+// its address goes home, module pages stay where they are and the tiles keep their own links.
+const destinationPageReady = () => fs.existsSync(page('destination.html'));
+// Where a module's environment page leads while it is part of a shown destination: the destination's address, or null.
+function destinationPathOf(moduleId, ctx) {
+  if (!ctx || !destinationPageReady()) return null;
+  return destinations.destinationOfModule(moduleId, ctx)?.dest.path || null;
+}
+
+// The destinations shown for this viewer, for the top bar: [{ id, name, icon, href }], the name and icon its main
+// module's as this environment shows it. Anyone else (a guest, nobody signed in) gets none.
+app.get('/api/destinations', (req, res) => {
+  const ctx = destinationContext(moduleViewer(req));
+  res.json({
+    destinations: ctx ? destinations.shownDestinations(ctx).map(({ dest, main }) => ({ id: dest.id, ...shownModule(main.manifest), href: dest.path })) : [],
+  });
+});
+
+// One destination, for its page: its main part, its panels (in their order) and the spaces any of its parts reads, in
+// the space list's order. A part is what mountModule() takes: { part, module: { id, version, scope, name, icon },
+// entry, runMode, label }. 404 when it is not shown for this viewer.
+app.get('/api/destinations/:id', (req, res) => {
+  const who = moduleViewer(req);
+  const ctx = destinationContext(who);
+  const shown = ctx ? destinations.resolveDestination(req.params.id, ctx) : null;
+  if (!shown) return res.status(404).json({ error: 'That page is not in this top bar.' });
+  const describe = ({ manifest, entry, part }) => ({
+    part: part.part,
+    module: { id: manifest.id, version: manifest.version, scope: manifest.scope, ...shownModule(manifest) },
+    entry: part.entry,
+    runMode: modules.runModeOf(entry),
+    label: part.label || shownModule(manifest).name,
+  });
+  const parts = [shown.main, ...shown.panels];
+  const inSome = new Set(parts.flatMap((p) => readableSpacesOf(p, who).map((r) => r.id)));
+  res.json({
+    id: shown.dest.id,
+    ...shownModule(shown.main.manifest),
+    main: describe(shown.main),
+    panels: shown.panels.map(describe),
+    spaces: store.spaces.filter((r) => inSome.has(r.id)).map(spaceSummary),
+  });
 });
 
 // --- module settings -------------------------------------------------------------------------------------
@@ -5179,9 +5391,11 @@ app.get('/api/modules/:id/geocode', async (req, res) => {
     res.status(502).json({ error: 'search is not available right now' });
   }
 });
-// Someone picked a result (or saved it as a place): mark it used, which protects it from being purged.
+// Someone picked a result (or saved it as a place): mark it used, which protects it from being purged. Read is enough, as for
+// the search: it reveals nothing a search does not and changes only that mark, and the place may have been saved into a space
+// the person may write to while they only read the module here (the Map page, at environment level).
 app.post('/api/modules/:id/geocode/use', (req, res) => {
-  const ctx = geocodeAccess(req, res, 'write');
+  const ctx = geocodeAccess(req, res, 'read');
   if (!ctx) return;
   res.json({ ok: geocodeCache.markUsed(ctx.manifest.id, String(req.body?.key || '')) });
 });
@@ -5305,9 +5519,10 @@ app.get('/api/modules/:id/region-cut/:jobId/stream', requireOwner, (req, res) =>
   }
   const { jobId } = req.params;
   const cleanup = () => { regionCutJobs.off('progress', onProgress); regionCutJobs.off('done', onDone); regionCutJobs.off('error', onErr); };
-  const onProgress = (id, p) => { if (id === jobId) res.write(`event: progress\ndata: ${JSON.stringify(p)}\n\n`); };
-  const onDone = (id, d) => { if (id !== jobId) return; res.write(`event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); };
-  const onErr = (id, error) => { if (id !== jobId) return; res.write(`event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); };
+  // Told from the cutting process, outside this request: cleanup() reads this environment's jobs (listenIn).
+  const onProgress = listenIn(env, (id, p) => { if (id === jobId) res.write(`event: progress\ndata: ${JSON.stringify(p)}\n\n`); });
+  const onDone = listenIn(env, (id, d) => { if (id !== jobId) return; res.write(`event: done\ndata: ${JSON.stringify(d)}\n\n`); cleanup(); res.end(); });
+  const onErr = listenIn(env, (id, error) => { if (id !== jobId) return; res.write(`event: error\ndata: ${JSON.stringify({ error })}\n\n`); cleanup(); res.end(); });
   regionCutJobs.on('progress', onProgress);
   regionCutJobs.on('done', onDone);
   regionCutJobs.on('error', onErr);
@@ -5567,11 +5782,35 @@ app.get('/api/modules/for-space', (req, res) => {
 // space in the query, ?space=<id> (and a guest's link token, if that is who is looking).
 app.get('/modules/:id', (req, res) => {
   if (!currentUser(req) && !hasGuestAccess(req)) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+  // A module's environment page (no space, not a pop-out) leads to the destination it is a part of while that is shown
+  // (plan-calendar-destination.md, decision 16). The browser keeps the address's #day= or #ref= across the redirect.
+  if (req.query.space === undefined && req.query.popout === undefined && req.query.guest === undefined) {
+    const to = destinationPathOf(req.params.id, destinationContext(moduleViewer(req)));
+    if (to) return res.redirect(to);
+  }
   // A module popped out of the Lobby that the Lobby doesn't allow: the sentence, not its page.
   const found = req.query.space === LOBBY ? modules.enabled(req.params.id) : null;
   if (found && refusedInLobby(found.manifest, LOBBY)) return res.status(404).type('text').send(lobbyRefusal(found.manifest));
   res.sendFile(page('module.html'));
 });
+
+// A destination's page (/calendar; /map once Map is built): the one host page, public/destination.html, for a signed-in
+// person it is shown for. Anyone else signed in goes home, and so does everyone while the page is not built yet.
+for (const dest of destinations.DESTINATIONS) {
+  app.get(dest.path, (req, res) => {
+    if (!currentUser(req)) {
+      // A guest (a space's guest link, no session) goes home: back to their space by its link, or / for a dead link.
+      if (req.query.guest !== undefined) {
+        const guestSpace = typeof req.query.guest === 'string' ? store.spaceByGuestToken(req.query.guest) : null;
+        return res.redirect(guestSpace ? `/guest/${encodeURIComponent(req.query.guest)}` : '/');
+      }
+      return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
+    }
+    const ctx = destinationContext(moduleViewer(req));
+    if (!destinationPageReady() || !destinations.resolveDestination(dest.id, ctx)) return res.redirect('/');
+    res.sendFile(page('destination.html'));
+  });
+}
 
 // The module's own files. Sandboxed by header, so even opened directly they
 // run with no access to the app's pages or cookies, and can only load their own files.
@@ -5743,21 +5982,21 @@ app.get('/api/notifications/stream', requireUser, (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
   res.write('retry: 5000\n\n');
-  const onNote = ({ userKey, notification }) => {
+  const onNote = listenIn(env, ({ userKey, notification }) => {
     if (userKey !== key || !modules.enabled(notification.module)) return;
     const { manifest } = modules.enabled(notification.module);
     res.write(`event: notification\ndata: ${JSON.stringify({ ...notification, moduleName: shownModule(manifest).name, icon: shownModule(manifest).icon })}\n\n`);
-  };
+  });
   moduleHooks.on('notification', onNote);
-  const onInvite = (invite) => {
+  const onInvite = listenIn(env, (invite) => {
     if (invite.to !== key || Date.now() - invite.at > INVITE_MS) return;
     res.write(`event: invite\ndata: ${JSON.stringify({ id: invite.id, spaceId: invite.spaceId, fromName: invite.fromName })}\n\n`);
-  };
+  });
   inviteEvents.on('invite', onInvite);
   // GitHub #62: the owner's theme changed (everyone re-fetches /theme.css), or this person picked light or dark on
   // another page or device (this page sets <html data-theme-mode> to match).
-  const onTheme = (t) => res.write(`event: theme\ndata: ${JSON.stringify(t)}\n\n`);
-  const onMode = ({ userKey, themeMode }) => { if (userKey === key) res.write(`event: mode\ndata: ${JSON.stringify({ themeMode })}\n\n`); };
+  const onTheme = listenIn(env, (t) => res.write(`event: theme\ndata: ${JSON.stringify(t)}\n\n`));
+  const onMode = listenIn(env, ({ userKey, themeMode }) => { if (userKey === key) res.write(`event: mode\ndata: ${JSON.stringify({ themeMode })}\n\n`); });
   themeEvents.on('theme', onTheme);
   themeEvents.on('mode', onMode);
   const beat = setInterval(() => res.write(': ping\n\n'), 25000);
@@ -5807,52 +6046,52 @@ app.get('/api/modules/stream', (req, res) => {
     const mine = who.user && r.members.includes(who.user.key) && modules.isOnIn(entry.id, r.id);
     return mine && moduleCan(manifest, modulePerms(who, r.id), 'read') ? { scope: 'spaces', spaceId: r.id } : null;
   };
-  const onChange = (change) => {
+  const onChange = listenIn(env, (change) => {
     const at = place(change.module, change.scopeKey);
     if (at) res.write(`event: change\ndata: ${JSON.stringify({ ...change, ...at })}\n\n`);
-  };
-  const onFire = (fire) => {
+  });
+  const onFire = listenIn(env, (fire) => {
     const at = place(fire.module, fire.scopeKey);
     if (at && at.scope !== 'spaces') res.write(`event: schedule\ndata: ${JSON.stringify({ module: fire.module, key: fire.key, payload: fire.payload, ...at })}\n\n`);
-  };
+  });
   // What points at (or from) an item changed: only the pointers go, and the module asks again for what it may see.
-  const onLinks = ({ refs }) => {
+  const onLinks = listenIn(env, ({ refs }) => {
     for (const ref of refs) {
       const at = place(ref.module, refScopeKey(ref));
       if (at) res.write(`event: links\ndata: ${JSON.stringify({ module: ref.module, ref, ...at })}\n\n`);
     }
-  };
+  });
   // A module said something happened: sent to every module here that may hear it (the host delivers it to those frames).
-  const onBus = (ev) => {
+  const onBus = listenIn(env, (ev) => {
     const at = place(ev.module, ev.scopeKey);
     if (!at) return;
     const subscribers = modules.enabledAll().filter((m) => m.manifest.id !== ev.module && mayHear(m, ev.module, ev.name) && place(m.manifest.id, ev.scopeKey)).map((m) => m.manifest.id);
     if (subscribers.length) res.write(`event: bus\ndata: ${JSON.stringify({ ...publicEvent(ev), scope: at.scope, subscribers })}\n\n`);
-  };
+  });
   // A request for a module to do something: the providing module's frames are told; one claims it.
-  const onAction = (r) => {
+  const onAction = listenIn(env, (r) => {
     if (r.local && r.by !== (who.user?.key || 'guest')) return; // a view is for the person who asked
     const at = place(r.provider, r.scopeKey);
     if (at) res.write(`event: action\ndata: ${JSON.stringify({ ...publicAction(r), provider: r.provider, scope: at.scope })}\n\n`);
-  };
+  });
   // A setting of a module changed: its pages here read their values again.
-  const onSettings = (c) => {
+  const onSettings = listenIn(env, (c) => {
     if (c.scope === 'person' && c.userKey !== who.user?.key) return;
     if (c.scope === 'space' && !(space && space.id === c.spaceId) && !(who.user && store.spaceById(c.spaceId)?.members.includes(who.user.key))) return;
     res.write(`event: settings\ndata: ${JSON.stringify({ module: c.module, scope: c.scope, spaceId: c.spaceId })}\n\n`);
-  };
+  });
   moduleSettings.on('change', onSettings);
   moduleData.on('change', onChange);
   moduleHooks.on('fire', onFire);
   // A linked object changed: only the modules that point at it are told, and only a viewer who may see that module here.
-  const onRefChange = (ev) => {
+  const onRefChange = listenIn(env, (ev) => {
     const hearing = [];
     for (const holder of ev.holders) {
       const at = place(holder.module, refScopeKey(holder));
       if (at && !hearing.includes(holder.module)) hearing.push(holder.module);
     }
     if (hearing.length) res.write(`event: refchange\ndata: ${JSON.stringify({ ref: ev.ref, change: ev.change, modules: hearing })}\n\n`);
-  };
+  });
   moduleLinks.on('change', onLinks);
   objectSync.on('refchange', onRefChange);
   moduleBus.on('event', onBus);
@@ -5881,7 +6120,7 @@ app.get('/api/modules/:id/events', (req, res) => {
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
   res.write('retry: 3000\n\n');
-  const onChange = (change) => {
+  const onChange = listenIn(env, (change) => {
     if (change.module !== ctx.manifest.id) return;
     if (spaceIds) {
       const spaceId = change.scopeKey.startsWith('space:') ? change.scopeKey.slice(6) : null;
@@ -5890,11 +6129,11 @@ app.get('/api/modules/:id/events', (req, res) => {
     }
     if (change.scopeKey !== ctx.scopeKey) return;
     res.write(`event: change\ndata: ${JSON.stringify(change)}\n\n`);
-  };
-  const onFire = (fire) => {
+  });
+  const onFire = listenIn(env, (fire) => {
     if (spaceIds || fire.module !== ctx.manifest.id || fire.scopeKey !== ctx.scopeKey) return;
     res.write(`event: schedule\ndata: ${JSON.stringify({ key: fire.key, payload: fire.payload })}\n\n`);
-  };
+  });
   moduleData.on('change', onChange);
   moduleHooks.on('fire', onFire);
   const beat = setInterval(() => res.write(': ping\n\n'), 25000);
@@ -5918,7 +6157,10 @@ app.get('/api/currencies', requireUser, (_req, res) => res.json({ currencies: cu
 // `templateWords` and `templateHomeIcon`: the template's own (null for none), whatever the owner has set over them;
 // `spaceDefaults`: what a new space starts with ({ profile?, opensWith? }, or null for the built-in default).
 // `ownVerbs` and `templateVerbs` (addendum 4): the same for the verbs beside branding()'s resolved `verbs`.
-const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null });
+// `showCalendar` and `showMap`: the top bar's Calendar and Map (plan-calendar-destination.md, plan-map-destination.md),
+// off unless an owner or a template turned them on. `topBarReasons`: { calendar, map }, why each cannot show whatever
+// its switch (one sentence), or null.
+const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null, showCalendar: store.settings.showCalendar === true, showMap: store.settings.showMap === true, topBarReasons: destinationReasons() });
 app.get('/api/settings', requireOwner, (_req, res) => res.json({ settings: ownerSettings(), streamKey: store.streamKey }));
 // `template` ("none" for none) switches the environment's template (the switching addendum): taken out of the body
 // before the settings; an unknown one refuses the whole change. With it, the answer also carries `template` and `offer`.

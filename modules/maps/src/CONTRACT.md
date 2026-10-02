@@ -103,6 +103,18 @@ Maps becomes a view of places and a gesture to choose a point. What stays: the p
 - **A pin from mine** (the person scope) has `data-scope="person"`, which draws the small person mark on it.
 - **Views** (mine, this space, everyone): Maps draws whichever view Places has selected, and a pin from mine wears a small person mark so it is not mistaken for a shared one.
 
+## As the Map destination's main part (0.8.0)
+
+Maps has the `environment` scope and declares `surfaces.destination` `{ id: 'map', part: 'main' }` (plan-map-destination). On that mount (`info.context.destination.part === 'main'`) it reads every place across the viewer's spaces (`host.objects.search('', { scope: 'spaces', has: 'place' })`), their own and the environment's, and follows the page's state (`host.destination.onState`):
+- **The filter** (`mine`, `environment`, `spaces`): only those pins are drawn.
+- **The search text** (`q`): a pin that does not match it (by title and address), or a cluster none of whose pins do, gets `.pin.dim` (set back; full again on hover or focus).
+- **Enter** (`find` raised): a name asks the place search (`searchPlaces`, near the map's centre) and draws `.pin.candidate` pins; the results are listed by the panel beside, so `#results` stays hidden. A pasted position puts the `.draft` pin there and asks `newPlace`.
+- **On a phone** (the page's `phone`, its parts are tabs): the callout has **Show in list** (`data-action=show-in-list`), which sets the page's `reveal: 'panel'`, and the page shows the list's tab with the place selected.
+- **The selection** (`selected`): either part may set it. A pin clicked here sets it; one set by the panel is selected here (the map flies to it), read again first when it is new.
+- There is no host bar: `#ctrl-add` (top left, `.maplibregl-ctrl-top-left`) holds the **+** "Add a place: click the map", shown when something offers `newPlace`. The map's last view is kept in this browser (`maps-destination-view`).
+
+**The environment page on its own** (`/modules/maps`, when the Map destination is not shown) draws the same pins with no filter, no panel and no adding (the actions it would ask are carried out by a Places page that is not open there); its bar field takes pasted coordinates or a map link to go there.
+
 ## Not decided yet
 
 Routes and directions (out of scope), an offline area, and heat or category layers.

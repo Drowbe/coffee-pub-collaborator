@@ -1,7 +1,7 @@
 {
   "id": "calendar",
   "name": "Calendar",
-  "version": "1.18.2",
+  "version": "1.19.0",
   "icon": "calendar-days",
   "description": "Sessions and events for the whole {environment} and for each {space}, with reminders.",
   "author": "Coffee Pub",
@@ -10,6 +10,10 @@
     "space"
   ],
   "surfaces": {
+    "destination": [
+      { "id": "calendar", "part": "main", "entry": "page.html" },
+      { "id": "calendar", "part": "panel", "entry": "page.html", "label": "Agenda", "order": 10 }
+    ],
     "page": {
       "entry": "page.html"
     },
@@ -66,6 +70,10 @@
         {
           "value": "week",
           "label": "Week"
+        },
+        {
+          "value": "day",
+          "label": "Day"
         },
         {
           "value": "both",

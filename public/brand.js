@@ -3,7 +3,7 @@ import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
 import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode, toggleThemeMode, useDefaultMode, themeMode as modeNow } from '/theme-mode.js';
-import { profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState } from '/primary-nav.js';
+import { profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools } from '/primary-nav.js';
 
 // The words a person reads for each level and role (public/words.js), for every page that already imports from here.
 export { word, words, fill, applyWords, setWords, verb, verbs, setVerbs } from '/words.js';
@@ -168,6 +168,7 @@ function keepingQuery(href) {
 // page opened over a call reads it from the space page underneath.
 export function setPresentSpace(id) {
   presentSpace = id || null;
+  markDestinations();
 }
 window.appPresentSpace = () => presentSpace;
 function presentSpaceNow() {
@@ -300,6 +301,7 @@ function registerSystemTools(header) {
   nav.register({ id: 'menu-environment', bar: 'primary', zone: 'right', group: 'menu-where', groupOrder: 1, order: 1, element: envName, visible: inMenuOnly });
   nav.register({ id: 'menu-home', bar: 'primary', zone: 'right', group: 'menu-where', order: 2, icon: 'house', label: word('home'), href: '/', target: '_top', visible: inMenuOnly });
   nav.register({ id: 'menu-new-space', bar: 'primary', zone: 'right', group: 'menu-new', groupOrder: 2, order: 1, icon: 'plus', label: `New ${word('space')}`, visible: () => inMenuOnly() && seesUpdates(account?.role), onClick: newSpace });
+  loadDestinations({ wide: () => wide() && signedIn(), inMenuOnly });
   // The bell: the unread module notices, and the module updates for owners and the admin (decisions 9 and 18).
   const bell = doc.createElement('button');
   bell.type = 'button';
@@ -345,6 +347,50 @@ function registerSystemTools(header) {
   nav.register({ id: 'account-host-console', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'server', label: 'Host console', visible: () => inMenu() && offers('host-console'), onClick: openHostConsole });
   nav.register({ id: 'account-install', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'download', label: 'Install as an app', visible: () => inMenu() && Boolean(installPromptEvent) && !installBarred, onClick: installFromPrompt });
   nav.register({ id: 'account-sign-out', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'right-from-bracket', label: 'Sign out', visible: inMenu, onClick: signOut });
+}
+
+// The top bar's destinations (Calendar, Map; plan-calendar-destination.md): a middle-zone entry each, from GET
+// /api/destinations, and on a phone an entry in the menu after the Spaces slot's (destinationTools() in primary-nav.js).
+// While this page is present in a space they carry data-overlay-link, so the space page opens them over the space as a
+// view (Away while on the call); a page already over a call keeps its way back (keepingQuery).
+const destinationEls = new Set();
+const destinationIds = new Set();
+let destinationVisibility = null;
+async function loadDestinations({ wide, inMenuOnly }) {
+  destinationVisibility = { wide, inMenuOnly };
+  let list = [];
+  try {
+    const res = await fetch('/api/destinations');
+    if (res.ok) list = (await res.json()).destinations || [];
+  } catch {
+    // none, then
+  }
+  // Asked again (Manage's Top bar switches): what was there goes first.
+  for (const id of destinationIds) nav.unregister(id);
+  destinationIds.clear();
+  destinationEls.clear();
+  for (const { bar: inBar, menu } of destinationTools(list, { path: window.location.pathname.toLowerCase() })) {
+    for (const [t, visible] of [[inBar, wide], [menu, inMenuOnly]]) {
+      const { current, overlay, href, ...tool } = t;
+      const el = nav.register({ ...tool, bar: 'primary', href: keepingQuery(href), visible, onClick: () => markDestinations() });
+      destinationIds.add(tool.id);
+      if (!el) continue;
+      el.dataset.destination = href;
+      el.title = tool.label; // the tooltip where the entry is its icon only (641-820px, style.css)
+      if (current) el.setAttribute('aria-current', 'page');
+      destinationEls.add(el);
+    }
+  }
+  markDestinations();
+}
+// The bar's destinations again, once they may have changed (Manage's Show Calendar, Show Map).
+export function refreshDestinations() {
+  if (destinationVisibility) return loadDestinations(destinationVisibility);
+  return Promise.resolve();
+}
+function markDestinations() {
+  const over = Boolean(presentSpaceNow()) && !overCall();
+  for (const el of destinationEls) el.toggleAttribute('data-overlay-link', over);
 }
 
 // The profile menu's entries for whoever is looking (primary-nav.js's profileEntries, a pure function of the role, the

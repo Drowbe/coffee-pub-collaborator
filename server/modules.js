@@ -16,6 +16,7 @@ const yauzl = require('yauzl');
 const { productName } = require('./product-name');
 const { StoreError, LOBBY } = require('./store');
 const { word, fill } = require('./words');
+const { DESTINATION_IDS, DESTINATION_PARTS } = require('./destinations');
 
 // The text a person reads from a manifest, which may name levels by {space}-style placeholders (server/words.js's fill):
 // its description, the dashboard widget's title, its permissions' labels, its settings' labels and help (and their
@@ -29,6 +30,7 @@ function manifestTexts(m) {
   const at = (obj, key) => { if (obj && typeof obj[key] === 'string') out.push([obj, key]); };
   at(m, 'description');
   at(m.surfaces?.widget, 'title');
+  for (const d of Array.isArray(m.surfaces?.destination) ? m.surfaces.destination : []) at(d, 'label');
   for (const p of m.permissions || []) at(p, 'label');
   for (const d of m.settings || []) {
     at(d, 'label'); at(d, 'help');
@@ -592,6 +594,33 @@ function cleanScope(raw) {
   return [...new Set(Array.isArray(raw) ? raw : [])].filter((s) => SCOPES.includes(s));
 }
 
+// A module's parts of the host's destinations (plan-calendar-destination.md, "Server"; server/destinations.js): up to two,
+// each { id, part, entry, label?, order? }, for a destination the host knows, at most one main and one panel per
+// destination. A part is mounted at environment scope, so it needs that scope. Asks the admin for nothing new.
+const DESTINATION_PART_KEYS = ['id', 'part', 'entry', 'label', 'order'];
+function cleanDestinationParts(raw, files, scope) {
+  const what = 'module.json: surfaces.destination';
+  if (!Array.isArray(raw)) throw new ModuleError(`${what} must be a list of parts`);
+  if (raw.length > 2) throw new ModuleError(`${what} lists at most two parts`);
+  if (raw.length && !scope.includes('environment')) throw new ModuleError('module.json: surfaces.destination needs the "environment" scope');
+  const seen = new Set();
+  return raw.map((p) => {
+    if (!p || typeof p !== 'object' || Array.isArray(p)) throw new ModuleError(`${what}: write each part as { "id", "part", "entry" }`);
+    const extra = Object.keys(p).find((k) => !DESTINATION_PART_KEYS.includes(k));
+    if (extra) throw new ModuleError(`${what}: "${extra}" is not a part's field; the fields are ${DESTINATION_PART_KEYS.join(', ')}`);
+    if (!DESTINATION_IDS.includes(p.id)) throw new ModuleError(`${what}: "${String(p.id ?? '').slice(0, 40)}" is not a destination; the destinations are ${DESTINATION_IDS.join(' and ')}`);
+    if (!DESTINATION_PARTS.includes(p.part)) throw new ModuleError(`${what}: a part must be "main" or "panel"`);
+    if (seen.has(`${p.id}:${p.part}`)) throw new ModuleError(`${what}: only one ${p.part} part for ${p.id}`);
+    seen.add(`${p.id}:${p.part}`);
+    if (p.label !== undefined && typeof p.label !== 'string') throw new ModuleError(`${what}: a part's label must be words`);
+    if (p.order !== undefined && !Number.isFinite(p.order)) throw new ModuleError(`${what}: a part's order must be a number`);
+    const part = { id: p.id, part: p.part, entry: cleanEntry(p.entry, files, `surfaces.destination (${p.id} ${p.part})`) };
+    const label = text(p.label, 40);
+    if (label) part.label = label;
+    if (p.order !== undefined) part.order = clamp(Math.round(p.order), -1000, 1000, 100);
+    return part;
+  });
+}
 function cleanManifest(raw, files) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new ModuleError('module.json must be an object');
   const old = oldNameIn(raw);
@@ -657,6 +686,7 @@ function cleanManifest(raw, files) {
     if (RESERVED_KEYED_PATHS.includes(kpath)) throw new ModuleError(`module.json: "${kpath}" is a path the host already serves and cannot be claimed`);
     surfaces.keyed = { path: kpath, entry: cleanEntry(k.entry, files, 'surfaces.keyed') };
   }
+  if (raw.surfaces?.destination !== undefined) surfaces.destination = cleanDestinationParts(raw.surfaces.destination, files, scope);
   if (scope.includes('environment') && !surfaces.page) throw new ModuleError('a module with the "environment" scope needs a surfaces.page');
   if (scope.includes('space') && !surfaces.canvas) throw new ModuleError('a module with the "space" scope needs a surfaces.canvas');
 

@@ -237,6 +237,161 @@ const REF_SHAPE = (r) => r && typeof r.module === 'string' && typeof r.kind === 
 // A pointer that passed REF_SHAPE, with only its own fields.
 const cleanPointer = (r) => ({ module: r.module, kind: r.kind, id: r.id, scope: r.scope, ...(r.scope === 'space' ? { space: r.space } : {}) });
 
+// The environment's name, as its header shows it (GET /api/branding, public, asked once per page): a module names the
+// environment's own list by it (info.context.environment.name), as the destination's filter does (decision 19).
+let brandingAsked = null;
+function environmentName() {
+  if (!brandingAsked) {
+    brandingAsked = fetch('/api/branding').then((res) => (res.ok ? res.json() : {})).then((b) => (typeof b.environmentName === 'string' ? b.environmentName.trim() : '')).catch(() => '');
+  }
+  return brandingAsked;
+}
+
+// --- who is where, for a module (host.presence) -----------------------------------------------------
+// GET /api/presence as a module reads it. A person's place is as the viewer may know it (plan-primary-nav step 3):
+// `space` is a space or an aside the viewer belongs to, or null; `aside` says they are in an aside (`space` is then
+// the aside's id, or the space it came out of), and `asidePrivate` whether that aside is a private conversation (never
+// with whom); `elsewhere` says they are online somewhere the viewer is not told of.
+// `activeSpace` is null when there is none the viewer may know of.
+function presenceForModule(d) {
+  return {
+    people: (d.users || []).map((u) => ({ key: u.key, name: u.displayName, online: Boolean(u.online), space: u.space || null, aside: Boolean(u.aside), asidePrivate: Boolean(u.aside && u.asidePrivate), elsewhere: Boolean(u.elsewhere), inCall: Boolean(u.inCall), isOwner: Boolean(u.isOwner) })),
+    spaces: (d.spaces || []).map((r) => ({ id: r.id, name: r.name })),
+    asides: (d.asides || []).map((r) => ({ id: r.id, origin: r.origin || null, private: Boolean(r.private) })),
+    activeSpace: typeof d.activeSpace === 'string' && d.activeSpace ? d.activeSpace : null,
+    ownerOnline: Boolean(d.ownerOnline),
+    reactions: (d.reactions || []).map((r) => ({ id: r.id, glyph: r.glyph })),
+    pictureScale: d.pictureScale || 100,
+  };
+}
+
+// --- where a module's call goes -------------------------------------------------------------------
+// A call names a scope ('context', the default, is wherever the frame is showing) and may name a space:
+// { space: <id> } from a module's environment page reaches into one of the viewer's spaces, to write there as well as
+// read (plan-calendar-destination). The host only shapes the request; the server decides whether this viewer may.
+// A mount in a space reaches only its own space. `mount` is { scope, spaceId, moduleScopes }. Returns { scope, space }.
+const SPACE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+function placeOf(requested, space, mount) {
+  const fail = (message) => { throw Object.assign(new Error(message), { status: 400 }); };
+  const named = space !== undefined && space !== null && space !== '';
+  if (named && (typeof space !== 'string' || !SPACE_ID.test(space))) fail('that is not a space');
+  const scopes = Array.isArray(mount.moduleScopes) ? mount.moduleScopes : [];
+  let sc = !requested || requested === 'context' ? (named ? 'space' : mount.scope) : requested;
+  // A name from before the product's rename says which word replaced it.
+  const renamed = { server: 'environment', room: 'space', rooms: 'spaces' }[sc];
+  if (renamed) fail(`scope "${sc}" is an old name; use "${renamed}"`);
+  if (!['environment', 'space', 'spaces', 'person'].includes(sc)) fail(`scope "${String(sc).slice(0, 20)}" is not one of context, environment, space, spaces or person`);
+  if (named && sc !== 'space') fail(`a space goes with scope "space", not "${sc}"`);
+  // 'person' is the viewer's own data (their profile's), from a page anywhere; the module must have declared the scope.
+  if (sc === 'person' && !scopes.includes('person')) fail('this module has no personal scope');
+  // 'spaces' is the environment page reading every space the viewer belongs to (read-only).
+  if (sc === 'spaces' && (mount.scope !== 'environment' || !scopes.includes('space'))) fail('only a module\'s environment page can read across spaces');
+  if (sc !== 'space') return { scope: sc, space: null };
+  if (mount.scope === 'space') {
+    if (named && space !== mount.spaceId) fail('this module is in another space');
+    return { scope: 'space', space: mount.spaceId };
+  }
+  if (!named) fail('this module is not in a space');
+  if (!scopes.includes('space')) fail('this module has no space scope');
+  return { scope: 'space', space };
+}
+
+// The query for GET /api/objects/search on a module's behalf (host.objects.search). 'person' is the viewer's own
+// private objects, from anywhere. `scope: 'spaces'` (a module's environment page only, never a space or a keyed page)
+// asks every space the viewer belongs to at once, each pointer with its space; `has: 'place'` keeps only summaries
+// with a place (plan-map-destination, "SDK and the host"). Otherwise the place is placeOf's.
+function objectSearchParams(moduleId, { q, scope: s, space, has } = {}, mount) {
+  const fail = (message) => { throw Object.assign(new Error(message), { status: 400 }); };
+  let sc;
+  if (s === 'person') sc = { scope: 'person', space: null };
+  else if (s === 'spaces') {
+    if (mount.scope !== 'environment' || mount.keyed) fail('only a module\'s environment page can search across spaces');
+    if (space !== undefined && space !== null && space !== '') fail('a space goes with scope "space", not "spaces"');
+    sc = { scope: 'spaces', space: null };
+  } else sc = placeOf(s, space, mount);
+  if (has !== undefined && has !== null && has !== '' && has !== 'place') fail('has is "place" or nothing');
+  const p = new URLSearchParams({ from: moduleId, q: String(q || '').slice(0, 100), scope: sc.scope });
+  if (sc.scope === 'space') p.set('space', sc.space);
+  if (has === 'place') p.set('has', 'place');
+  return p;
+}
+// --- end of the search
+
+// --- destinations ---------------------------------------------------------------------------------
+// A destination (plan-calendar-destination, plan-map-destination) is a host page made of modules' parts: a `main`
+// and up to one `panel`. The page keeps one shared state per destination and hands it to every part on mount and on
+// each change (host.destination.onState). The page sets what it owns (the view, the filter, the search) with
+// update(); a part may change only the fields its destination lets that part change (host.destination.set), each
+// checked for shape. Each destination's state is its own shape.
+const DAY_TEXT = /^\d{4}-\d{2}-\d{2}$/;
+const DESTINATION_FIELDS = {
+  day: (v) => (typeof v === 'string' && DAY_TEXT.test(v) ? v : undefined),
+  from: (v) => (typeof v === 'string' && DAY_TEXT.test(v) ? v : undefined),
+  to: (v) => (typeof v === 'string' && DAY_TEXT.test(v) ? v : undefined),
+  selected: (v) => (v === null ? null : REF_SHAPE(v) ? cleanPointer(v) : undefined),
+  // A part asking the page to bring a part into view (on a phone, its tab): the map's "Show in list".
+  reveal: (v) => (v === 'main' || v === 'panel' ? v : undefined),
+};
+// Which part may set what, by destination: in the calendar only the main part (the calendar) sets the selected day
+// and the period shown; on the map both parts select a place, and either may ask for a part to be shown (`reveal`).
+// The page's own fields (the view, the filter, the search, `phone`) are set only by the page.
+const DESTINATIONS = {
+  calendar: { main: ['day', 'from', 'to'] },
+  map: { main: ['selected', 'reveal'], panel: ['selected', 'reveal'] },
+};
+const DESTINATION_PARTS = ['main', 'panel'];
+export function createDestination(id, initial = {}) {
+  const rules = DESTINATIONS[id];
+  if (!rules) throw new Error(`there is no destination called ${String(id).slice(0, 20)}`);
+  let state = { ...initial };
+  const parts = new Set(); // { part, send }
+  const watchers = new Set();
+  const copy = () => JSON.parse(JSON.stringify(state));
+  const publish = () => {
+    for (const p of parts) p.send(copy());
+    for (const fn of watchers) fn(copy());
+  };
+  return {
+    id,
+    get state() { return copy(); },
+    // The page's own changes (the view, the filter, the search): anything it likes, passed to every part.
+    update(patch) {
+      state = { ...state, ...(patch || {}) };
+      publish();
+    },
+    // A part's change: only what its destination lets that part set, and only in the right shape.
+    fromPart(part, patch) {
+      const allowed = rules[part] || [];
+      if (!allowed.length) throw Object.assign(new Error(`the ${String(part).slice(0, 20)} part cannot change this page`), { status: 403 });
+      if (!patch || typeof patch !== 'object' || Array.isArray(patch)) throw Object.assign(new Error('send the fields to change'), { status: 400 });
+      const clean = {};
+      for (const [key, value] of Object.entries(patch)) {
+        if (!allowed.includes(key)) throw Object.assign(new Error(`the ${part} part cannot set ${String(key).slice(0, 20)}`), { status: 403 });
+        const ok = DESTINATION_FIELDS[key](value);
+        if (ok === undefined) throw Object.assign(new Error(`${key} is not valid`), { status: 400 });
+        clean[key] = ok;
+      }
+      if (Object.keys(clean).some((k) => JSON.stringify(state[k]) !== JSON.stringify(clean[k]))) {
+        state = { ...state, ...clean };
+        publish();
+      }
+      return copy();
+    },
+    // A part joins (mountModule does this); `send` gets the whole state on each change. Returns the leave.
+    join(part, send) {
+      const p = { part, send };
+      parts.add(p);
+      return () => parts.delete(p);
+    },
+    // The page hears every change too, the parts' included. Returns the off.
+    onChange(fn) {
+      watchers.add(fn);
+      return () => watchers.delete(fn);
+    },
+  };
+}
+// --- end of destinations
+
 function endDrag() {
   if (!activeDrag) return;
   clearTimeout(activeDrag.timer);
@@ -461,36 +616,27 @@ function splitOverflow(items, max) {
 // root of its own, beside the page's own elements, with the page's power (see the run modes in
 // documentation/architecture/architecture-modules.md).
 //
-// `scope` is 'environment' (the module's own page) or 'space' (on a space's canvas, with `spaceId`). Returns
+// `scope` is 'environment' (the module's own page) or 'space' (on a space's canvas, with `spaceId`). `destination`
+// is { hub, part } for a destination's part: `hub` from createDestination(), `part` 'main' or 'panel'. Returns
 // { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null }) {
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null }) {
   const base = `/api/modules/${encodeURIComponent(module.id)}`;
   let contextInfo = null;
   // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
   // session. `keyed` is { path, subject, query }; the page's own api() already carries the key.
+  if (destination && (!destination.hub || !DESTINATION_PARTS.includes(destination.part))) throw new Error('a destination\'s part is "main" or "panel"');
 
+  // `sc` is a scope name ('space' meaning the space this frame is in) or a place from scopeOf ({ scope, space }).
   const q = (sc) => {
+    const place = typeof sc === 'string' ? { scope: sc, space: sc === 'space' ? spaceId : null } : sc;
     const p = new URLSearchParams();
-    if (sc === 'space') { p.set('scope', 'space'); p.set('space', spaceId); } else if (sc === 'spaces' || sc === 'person') p.set('scope', sc); else p.set('scope', 'environment');
+    if (place.scope === 'space') { p.set('scope', 'space'); p.set('space', place.space); } else if (place.scope === 'spaces' || place.scope === 'person') p.set('scope', place.scope); else p.set('scope', 'environment');
     if (guestToken) p.set('guest', guestToken);
     return p;
   };
-  // 'context' means wherever this frame is showing; a module on a space's canvas may also ask for 'environment'.
-  const scopeOf = (requested) => {
-    if (!requested || requested === 'context') return scope;
-    if (requested === 'environment' || requested === 'space' || requested === 'spaces' || requested === 'person') {
-      // 'person' is the viewer's own data (their profile's), from a page anywhere; the module must have declared the scope.
-      if (requested === 'person' && !module.scope?.includes('person')) throw Object.assign(new Error('this module has no personal scope'), { status: 400 });
-      if (requested === 'space' && scope !== 'space') throw Object.assign(new Error('this module is not in a space'), { status: 400 });
-      // 'spaces' is the environment page reading every space the viewer belongs to (read-only)
-      if (requested === 'spaces' && (scope !== 'environment' || !module.scope?.includes('space'))) throw Object.assign(new Error('only a module\'s environment page can read across spaces'), { status: 400 });
-      return requested;
-    }
-    // A name from before the product's rename says which word replaced it.
-    const renamed = { server: 'environment', room: 'space', rooms: 'spaces' }[requested];
-    if (renamed) throw Object.assign(new Error(`scope "${requested}" is an old name; use "${renamed}"`), { status: 400 });
-    throw Object.assign(new Error(`scope "${String(requested).slice(0, 20)}" is not one of context, environment, space, spaces or person`), { status: 400 });
-  };
+  // 'context' means wherever this frame is showing; a module on a space's canvas may also ask for 'environment', and a
+  // module's environment page for one of the viewer's spaces ({ space }). See placeOf.
+  const scopeOf = (requested, space) => placeOf(requested, space, { scope, spaceId, moduleScopes: module.scope });
   const url = (path, sc, extra = {}) => {
     const p = q(sc);
     for (const [k, v] of Object.entries(extra)) if (v !== undefined && v !== null && v !== '') p.set(k, v);
@@ -619,14 +765,17 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
 
   const handlers = {
     async hello() {
-      contextInfo = await api('GET', url('/context', scope));
+      const [answer, envName] = await Promise.all([api('GET', url('/context', scope)), environmentName()]);
+      contextInfo = answer;
       ready = true;
       setTimeout(() => { for (const [event, data] of queued.splice(0)) send(event, data); }, 50);
       return {
         user: contextInfo.user,
         permissions: contextInfo.permissions,
         module: contextInfo.module,
-        context: keyed ? { scope: 'keyed', spaceId: null, path: keyed.path, subject: keyed.subject, query: keyed.query || {} } : { scope, spaceId: scope === 'space' ? spaceId : null },
+        context: keyed ? { scope: 'keyed', spaceId: null, path: keyed.path, subject: keyed.subject, query: keyed.query || {} } : { scope, spaceId: scope === 'space' ? spaceId : null, environment: { name: envName }, ...(destination ? { destination: { id: destination.hub.id, part: destination.part } } : {}) },
+        // A destination's part gets the page's state now, and each change after it as the 'destination' event.
+        ...(destination ? { destinationState: destination.hub.state } : {}),
         locale: contextInfo.locale || { language: 'en', clock: '12', currency: 'USD', words: words() },
         space: contextInfo.space || null,
         phases: Array.isArray(contextInfo.phases) ? contextInfo.phases : [],
@@ -634,27 +783,27 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         debug: debugOn(),
       };
     },
-    async 'storage.get'({ key, scope: s }) {
+    async 'storage.get'({ key, scope: s, space }) {
       try {
-        return (await api('GET', url(`/data/${encodeURIComponent(key)}`, scopeOf(s)))).item;
+        return (await api('GET', url(`/data/${encodeURIComponent(key)}`, scopeOf(s, space)))).item;
       } catch (err) {
         if (err.status === 404) return null;
         throw err;
       }
     },
-    async 'storage.set'({ key, value, version, scope: s }) {
+    async 'storage.set'({ key, value, version, scope: s, space }) {
       let tz = '';
       try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* the server falls back */ }
-      return (await api('PUT', url(`/data/${encodeURIComponent(key)}`, scopeOf(s)), { value, version, tz })).item;
+      return (await api('PUT', url(`/data/${encodeURIComponent(key)}`, scopeOf(s, space)), { value, version, tz })).item;
     },
-    async 'storage.delete'({ key, version, scope: s }) {
+    async 'storage.delete'({ key, version, scope: s, space }) {
       let tz = '';
       try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { /* the server falls back */ }
-      return api('DELETE', url(`/data/${encodeURIComponent(key)}`, scopeOf(s), { version, tz }));
+      return api('DELETE', url(`/data/${encodeURIComponent(key)}`, scopeOf(s, space), { version, tz }));
     },
-    async 'storage.list'({ prefix, scope: s }) {
-      const sc = scopeOf(s);
-      if (sc === 'spaces') return (await api('GET', url('/spaces-data', sc, { prefix }))).items;
+    async 'storage.list'({ prefix, scope: s, space }) {
+      const sc = scopeOf(s, space);
+      if (sc.scope === 'spaces') return (await api('GET', url('/spaces-data', sc, { prefix }))).items;
       return (await api('GET', url('/data', sc, { prefix }))).items;
     },
     // Objects: summaries for pointers to other modules' objects, and a search for objects this module may link to.
@@ -693,8 +842,14 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       return Boolean(await onOpenPage(h));
     },
     // Tell the host what one of this module's objects points at (all of it: the list replaces the last).
-    async 'objects.setLinks'({ from, to }) {
+    async 'objects.setLinks'({ from, to, space }) {
       if (!REF_SHAPE(from)) throw Object.assign(new Error('that is not a valid reference'), { status: 400 });
+      // The object's own place, as any other write: a mount in a space speaks only for that space, and { space } must
+      // be the pointer's. The server checks the viewer may change the module's data there.
+      if (from.scope === 'space') {
+        const place = scopeOf('space', space === undefined || space === null || space === '' ? from.space : space);
+        if (place.space !== from.space) throw Object.assign(new Error('that object is in another space'), { status: 400 });
+      } else if (space !== undefined && space !== null && space !== '') throw Object.assign(new Error('that object is not in a space'), { status: 400 });
       const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
       return api('POST', `/api/objects/links${q}`, { module: module.id, from: cleanPointer(from), to: (Array.isArray(to) ? to : []).filter(REF_SHAPE).slice(0, 20).map(cleanPointer) });
     },
@@ -713,10 +868,13 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     async 'events.since'({ after }) {
       return api('GET', `/api/bus/events?${busQuery({ module: module.id, after: String(after ?? 0) })}`);
     },
-    async 'actions.list'({ accepts, self } = {}) {
+    // `ref`: the object the actions would be about (a drop's): the server then lists only those that can be carried out
+    // in that object's own place for this viewer (plan-calendar-destination, decision 21).
+    async 'actions.list'({ accepts, self, ref } = {}) {
       const extra = {};
       if (typeof accepts === 'string' && accepts) extra.accepts = accepts.slice(0, 80);
       if (self) extra.self = '1';
+      if (REF_SHAPE(ref)) extra.ref = JSON.stringify(cleanPointer(ref));
       return (await api('GET', `/api/bus/actions?${busQuery({ from: module.id, ...extra })}`)).actions;
     },
     async 'actions.request'({ action, input }) {
@@ -757,11 +915,10 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       const body = file instanceof Blob ? file : new Blob([String(text ?? '')], { type: 'text/plain' });
       return api('POST', url('/objects/check', scopeOf()), body, file instanceof Blob ? 'application/octet-stream' : 'text/plain');
     },
-    async 'objects.search'({ q, scope: s }) {
-      const sc = s === 'person' ? 'person' : scopeOf(s); // anyone may look at their own private objects of a kind they may link to
-      if (sc === 'spaces') throw Object.assign(new Error('search one place at a time'), { status: 400 });
-      const p = new URLSearchParams({ from: module.id, q: String(q || '').slice(0, 100), scope: sc });
-      if (sc === 'space') p.set('space', spaceId);
+    // `scope: 'spaces'` (an environment page only) asks every space the viewer belongs to at once, each pointer with its
+    // space; `has: 'place'` keeps only summaries with a place (plan-map-destination, "SDK and the host").
+    async 'objects.search'({ q, scope: s, space, has }) {
+      const p = objectSearchParams(module.id, { q, scope: s, space, has }, { scope, spaceId, moduleScopes: module.scope, keyed: Boolean(keyed) });
       if (guestToken) p.set('guest', guestToken);
       return (await api('GET', `/api/objects/search?${p}`)).summaries;
     },
@@ -840,13 +997,20 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       return (users || []).filter((u) => members.has(u.key)).map((u) => ({ key: u.key, name: u.displayName }));
     },
     async schedule(spec) {
-      return api('POST', url('/schedule', scopeOf(spec?.scope)), { ...spec, scope: undefined });
+      return api('POST', url('/schedule', scopeOf(spec?.scope, spec?.space)), { ...spec, scope: undefined, space: undefined });
     },
-    async cancelSchedule({ key, scope: s }) {
-      return api('DELETE', url(`/schedule/${encodeURIComponent(key)}`, scopeOf(s)));
+    async cancelSchedule({ key, scope: s, space }) {
+      return api('DELETE', url(`/schedule/${encodeURIComponent(key)}`, scopeOf(s, space)));
     },
+    // `to: 'space'` is the space the call is in: this frame's, or the one named with { space }.
     async notify(spec) {
-      return api('POST', url('/notify', scopeOf(spec?.scope)), { ...spec, scope: undefined });
+      return api('POST', url('/notify', scopeOf(spec?.scope, spec?.space)), { ...spec, scope: undefined, space: undefined });
+    },
+    // A destination's part changing the page's shared state (host.destination.set): only what its destination lets
+    // this part set (see DESTINATIONS); the page passes it on to every part.
+    async 'destination.set'({ patch }) {
+      if (!destination) throw Object.assign(new Error('this is not part of a destination'), { status: 400 });
+      return destination.hub.fromPart(destination.part, patch);
     },
     // The module's action bar: the host draws the buttons into `bar` and sends
     // clicks back as a 'bar' event.
@@ -1136,16 +1300,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // people (a keyed page about one of them, a dashboard) rather than the members of the space a module is in (`people`).
     // The asides are their own record (plan-names step 8), never among the spaces.
     async 'presence.get'() {
-      const d = await api('GET', `/api/presence${busGuest()}`);
-      return {
-        people: (d.users || []).map((u) => ({ key: u.key, name: u.displayName, online: Boolean(u.online), space: u.space || null, inCall: Boolean(u.inCall), isOwner: Boolean(u.isOwner) })),
-        spaces: (d.spaces || []).map((r) => ({ id: r.id, name: r.name })),
-        asides: (d.asides || []).map((r) => ({ id: r.id, origin: r.origin || null, private: Boolean(r.private) })),
-        activeSpace: d.activeSpace || null,
-        ownerOnline: Boolean(d.ownerOnline),
-        reactions: (d.reactions || []).map((r) => ({ id: r.id, glyph: r.glyph })),
-        pictureScale: d.pictureScale || 100,
-      };
+      return presenceForModule(await api('GET', `/api/presence${busGuest()}`));
     },
     // One person's picture in a slot (profile, player, character, talking ...), as a blob URL the module shows and
     // releases; null when they have none there. `space` asks for that space's own picture set, the way the call page does.
@@ -1204,6 +1359,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   const hostWin = (pageMode ? container : frame).ownerDocument.defaultView || window;
   if (!pageMode) hostWin.addEventListener('message', onMessage);
   mounted.add(mine);
+  // A destination's part hears the page's state on each change (the hello carried it as it was then).
+  const leaveDestination = destination ? destination.hub.join(destination.part, (state) => deliver('destination', state)) : () => {};
 
   // Live changes: one stream per scope the frame can see. For a module in the page, an event goes
   // straight to its SDK.
@@ -1339,6 +1496,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       navIds.clear();
       if (barObserver) { barObserver.disconnect(); barObserver = null; }
       leaveStream();
+      leaveDestination();
       if (pageMode) container.shadowRoot?.replaceChildren();
       else frame.removeAttribute('src');
     },

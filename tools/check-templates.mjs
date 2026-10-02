@@ -101,7 +101,10 @@ try {
     assert.deepEqual(t.modules, ['travel', 'places', 'maps', 'research', 'calendar', 'chat', 'conference']);
     assert.deepEqual([t.moduleNames.travel, t.icons.home, t.lobby.name, t.lobby.description, t.spaceDefaults.profile], ['Itinerary', 'suitcase-rolling', 'Home base', 'Everyone on every trip.', 'participants']);
     assert.deepEqual(t.spaceDefaults.opensWith, ['travel', 'chat']);
-    assert.equal(t.version, 2);
+    assert.equal(t.version, 4);
+    // plan-calendar-destination.md, decision 12, and plan-map-destination.md, decision 17: Show Calendar and Show Map
+    // are on for Travel (applied once, as template settings are).
+    assert.deepEqual(t.settings, { showCalendar: true, showMap: true });
     assert.deepEqual(t.phases.map((p) => p.id), ['planning', 'booking', 'buffer', 'pre-trip', 'trip', 'post-trip']);
     assert.equal(t.phases.find((p) => p.main).id, 'trip');
   });
@@ -131,7 +134,7 @@ try {
       [with_({ moduleIcons: { travel: 'fa-route' } }), 'moduleIcons.travel: "fa-route" is not a Font Awesome Free solid icon.'],
       [with_({ moduleNames: { travel: '<b>Trips</b>' } }), 'moduleNames.travel: A display name is plain text, without < or >.'],
       [with_({ moduleNames: { nope: 'Nope' } }), 'moduleNames: "nope" is not a bundled or built-in module.'],
-      [with_({ settings: { environmentName: 'x' } }), 'settings: "environmentName" is not a setting a template can give; those are language, clock, currency, loginText, allowRegistration, mfaRequired, maxQuality, allowScreenShare, allowAsides, allowPrivate, allowReactions, activeThemeId, themeMode.'],
+      [with_({ settings: { environmentName: 'x' } }), 'settings: "environmentName" is not a setting a template can give; those are language, clock, currency, loginText, allowRegistration, mfaRequired, maxQuality, allowScreenShare, allowAsides, allowPrivate, allowReactions, showCalendar, showMap, activeThemeId, themeMode.'],
       [with_({ settings: { clock: 24 } }), 'settings: 24 is not a value "clock" takes.'],
       [with_({ spaceDefaults: { profile: 'players' } }), 'spaceDefaults.profile must be one of roleplaying, participants, characters.'],
       [with_({ lobby: { name: 'x'.repeat(41) } }), 'lobby.name must be text of 1 to 40 characters.'],

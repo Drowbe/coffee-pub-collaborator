@@ -22,6 +22,8 @@
     <span class="count" data-slot="count"></span>
     <div class="filter"><span class="ic" data-icon="magnifying-glass"></span><input id="filter" type="search" maxlength="100" placeholder="Filter places" aria-label="Filter places" autocomplete="off"></div>
   </header>
+  <!-- as the Map destination's panel, which has no header or bar of its own: add a place (it asks where it goes) -->
+  <div class="part-head" id="part-head" hidden><button class="btn btn-primary" type="button" data-action="add-place"><span class="ic" data-icon="plus"></span> Add a place</button></div>
   <!-- whose places (Mine/This space/Everyone): host.ui.viewSwitch draws it in the toolbar, not here -->
   <p class="view-note" data-slot="view-note" hidden><span class="ic" data-icon="circle-info"></span><span data-slot="text"></span></p>
   <div class="chips" id="chips" role="group" aria-label="Category"></div>
@@ -34,6 +36,9 @@
   <div id="editor" class="editor" hidden>
     <form id="form" class="editor-card">
       <h3 id="editor-title">Add a place</h3>
+      <!-- as the Map destination's panel: where a new place goes, picked every time (an existing one shows where it is) -->
+      <label id="f-where-wrap" hidden>Where<select id="f-where" name="where"></select></label>
+      <p class="hint" id="f-readonly" hidden></p>
       <label>Name<input id="f-title" name="title" type="text" maxlength="120" required></label>
       <div class="editor-row">
         <label>Category<select id="f-category" name="category"><option value="do">Things to do</option><option value="eat">Food</option><option value="stay">Stay</option><option value="travel">Travel</option><option value="other">Other</option></select></label>
@@ -75,6 +80,7 @@
       <h3 class="title" data-slot="title"></h3>
       <p class="sub" data-slot="address"></p>
       <div class="meta">
+        <span class="scope-mark" hidden><span class="ic" data-icon=""></span><span data-slot="scope"></span></span>
         <span class="pinned" data-slot="pinned"><span class="ic" data-icon="location-dot"></span> On the map</span>
         <span class="nopos" data-slot="nopos">No position yet</span>
         <span class="owners" data-slot="owners"></span>
@@ -95,7 +101,9 @@
 <template id="tpl-readonly"><div class="readonly"><dl><dt>Category</dt><dd data-slot="category"></dd><dt>Address</dt><dd data-slot="address"></dd><dt>Position</dt><dd data-slot="point"></dd><dt>Whose</dt><dd data-slot="owners"></dd></dl><p data-slot="notes"></p></div></template>
 
 <template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
-<template id="tpl-state-empty"><div class="state" id="state-empty"><span class="ic" data-icon="location-dot"></span><h2>No places yet</h2><p>Save the places your group cares about: where you are staying, where to eat, what to see. Each can be found on the map and linked from a trip, an event or a task.</p><p><button class="btn btn-primary" type="button" data-action="add-place">Add a place</button></p></div></template>
+<template id="tpl-state-empty"><div class="state" id="state-empty"><span class="ic" data-icon="location-dot"></span><h2 data-slot="title">No places yet</h2><p data-slot="text">Save the places your group cares about: where you are staying, where to eat, what to see. Each can be found on the map and linked from a trip, an event or a task.</p><p><button class="btn btn-primary" type="button" data-action="add-place">Add a place</button></p></div></template>
+<template id="tpl-state-none"><div class="state" id="state-none"><p data-slot="text"></p></div></template>
+<template id="tpl-find-more"><p class="find-more"><button class="btn" type="button" data-action="find-new"><span class="ic" data-icon="magnifying-glass"></span> Search for new places</button></p></template>
 <template id="tpl-state-noresults"><div class="state" id="state-noresults"><h2>Nothing matches</h2><p>No place matches your filter.</p><p><button class="btn" type="button" data-action="clear-filter">Show everything</button></p></div></template>
 
 <script>

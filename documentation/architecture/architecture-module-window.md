@@ -63,7 +63,7 @@ Each zone folds what it can't show into a "..." the host draws and opens (`openH
 `public/host-menu.js`, which `public/module-host.js` imports and re-exports with `closeHostMenu`) -- the host's
 own analogue of `host.menu.show`, needed because that one draws inside a module's own frame and these three are
 the host's chrome, outside it. The same menu serves the canvas title bars' "..." (`public/space.js`), the
-profile menu under your picture, the Modules menu and the space switcher in the top bar (`public/brand.js`) and the space bar's "..." (`public/nav-bar.js`), see
+profile menu under your picture and the space switcher in the top bar (`public/brand.js`) and the space bar's "..." (`public/nav-bar.js`), see
 [architecture-navigation](architecture-navigation.md). Only one is open at a time. It opens under its button,
 flipped above when there is no room below. Its entries are `role="menuitem"`, or `role="menuitemcheckbox"` with `aria-checked` for an entry given `checked`,
 and the button carries `aria-expanded`. From the keyboard: the first entry takes focus when it opens; Up, Down, Home and End move; Enter

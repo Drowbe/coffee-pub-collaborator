@@ -3,9 +3,10 @@
 // bell's count and words, and the breadcrumb's segments. brand.js and space.js draw them; nothing here touches a
 // document, so tools/check-nav.mjs runs them in node.
 
-// The bar's slots, left to right (decision 26: Modules before Spaces). The left zone is the logo, the environment,
-// Modules, Spaces and the anchor; the right zone is online people (a later step), the bell and the profile.
-export const SLOTS = ['logo', 'environment', 'modules', 'home', 'anchor', 'people', 'notifications', 'profile'];
+// The bar's slots, left to right. The left zone is the logo, the environment, Spaces and the anchor; the right zone is
+// online people (a later step), the bell and the profile. No Modules slot: Thomas removed it on 2026-10-02 (most module
+// pages are not destinations; a module page is reached from its tile on home, or at /modules/<id>).
+export const SLOTS = ['logo', 'environment', 'home', 'anchor', 'people', 'notifications', 'profile'];
 
 // The profile menu's entries, in order, as a pure function of the account, the install and the browser's offer
 // (decisions 4 and 17):

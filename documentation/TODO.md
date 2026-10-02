@@ -8,10 +8,11 @@ side of things.
 
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
-- **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): nine steps. Steps 1 (the `home` word and the full list of module pages) and 2 (the bar's layout and moves) are built (2026-10-02). Next is step 3, presence filtered by membership; then the online people widget, the aside rules, views over the space with the return pill, the visit view and the bell's notifications. For Thomas: CLAUDE.md's Names gains `home` (decision 13).
+- **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): nine steps. Steps 1 (the `home` word and the full list of module pages) and 2 (the bar's layout and moves) are built (2026-10-02), and so is step 2b, the Modules slot leaving the bar (decision 30). Next is step 3, presence filtered by membership; then the online people widget, the aside rules, views over the space with the return pill, the visit view and the bell's notifications. For Thomas: CLAUDE.md's Names gains `home` (decision 13).
 
 ## Planned
 
+- Calendar and Map as top-bar destinations (decision 32 of [plan-primary-nav](plans/plan-primary-nav.md), Thomas 2026-10-02): Calendar is the Calendar and To-do together, Map is Places and Maps together, each its own design, each an environment option ("Show Calendar", "Show Map"), hidden when the module is off or the viewer has no permission. Needs its own plan first: environment-wide pages for both pairs (Maps has none), and where they sit in the bar.
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.
@@ -37,7 +38,7 @@ side of things.
 - Top bar follow-ups from steps 1 and 2 ([plan-primary-nav](plans/plan-primary-nav.md)):
   - `server/index.js` still sends `module.nav` in a module's context (about line 5533), from `surfaces.page.nav`, which nothing reads now; drop it.
   - The space list shown while still connected has an empty breadcrumb until the return pill (step 7).
-  - For Thomas: two buttons read **Modules**, the top bar's (module pages) and the space bar's (modules on the canvas); people may confuse them.
+  - Stream's environment page: list anything that belongs in its settings on Manage's Modules tab instead (decision 33).
 
 - Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.
 - #110 The old name, Magpie, is gone from the code, the templates and the guides, architecture, API and design documents, and the file formats are named by kind ([plan-kind-names](plans/plan-kind-names.md), built 2026-09-30). Still to do: the logo images (`public/assets/images/brand/logo-light.png` and `logo-dark.png` read "COFFEE PUB MAGPIE"; see [known-issues](known-issues.md)), and the plans that still say Magpie or name the old formats (17 plans, product-planner's).

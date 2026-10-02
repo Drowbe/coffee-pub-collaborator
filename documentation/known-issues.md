@@ -98,7 +98,7 @@ object yet. Nobody is notified when they are mentioned in chat. Both are the not
 [plan-primary-nav](plans/plan-primary-nav.md) (decision 3, step 9), not built yet. Opening the bell marks every
 notice read at once; there is no **Mark all read** and no way to keep one unread.
 
-Workaround: open the module named on the notice (from **Modules** in the top bar, or the space it came from) and find
+Workaround: open the module named on the notice (from its card on the spaces page, or the space it came from) and find
 the object there.
 
 ## The Paste button on a picture only gets a PNG

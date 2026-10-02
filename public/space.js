@@ -3932,13 +3932,11 @@ document.addEventListener('app:open-profile', (event) => {
   closePopout();
   openOverlay('/profile');
 });
-// The top bar's Manage, "+ New <space>", the bell's updates line and the Modules menu (brand.js): over the page, as the
-// profile is. A module page opens over the page only while present in a space; present nowhere it is a real page
-// (plan-primary-nav.md, the Modules slot). The host console, another site, opens in a new tab so the call keeps running.
+// The top bar's Manage, "+ New <space>" and the bell's updates line (brand.js): over the page, as the profile is. The
+// host console, another site, opens in a new tab so the call keeps running.
 document.addEventListener('app:open-page', (event) => {
   const { href, kind } = event.detail || {};
   if (!href) return;
-  if (kind === 'module' && call.state !== 'connected') return;
   event.preventDefault();
   closePopout();
   if (kind === 'host-console') {

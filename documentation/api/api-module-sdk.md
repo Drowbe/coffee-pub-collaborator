@@ -10,7 +10,7 @@ A module is a zip of static files that runs in the browser, inside a sandboxed f
 
 A module has one or two **surfaces**:
 
-- **page**: a full-width page of its own (environment scope), listed in the top bar's **Modules** menu; a widget card's heading opens it too.
+- **page**: a full-width page of its own (environment scope), at `/modules/<id>`; a widget card's heading on home opens it. The top bar has no entry for module pages.
 - **canvas**: a module a space can open on its canvas from the space's module selector (space scope). On the canvas it can be **docked** as a column beside the video and the chat, **floating** over the call, or **popped out** into a window of its own; the manifest says which of docked and floating it supports, and every module on the canvas can be popped out.
 
 The same HTML file can serve all of them. The SDK tells the module which scope it is in, and the page should adapt to its width: a docked module is narrow.
@@ -45,7 +45,7 @@ A zip holds a `module.json` and the HTML pages it names. Everything a page needs
 ```
 
 - `scope` says where the module can run: `environment`, `space`, `person`, or several. An `environment` module needs a `page` surface and a `space` module needs a `canvas` surface. The old names (`server`, `room`) are refused at install with one sentence naming the new word, for example `module.json uses the old scope "room"; use "space" (<product> renamed rooms to spaces).`, where <product> is the configured product name (`PRODUCT_NAME`)
-- `icon` is the name of a Font Awesome icon, used in the top bar's and the space bar's Modules menus.
+- `icon` is the name of a Font Awesome icon, used in the space bar's Modules list and beside the module's name elsewhere.
 - `canvas` is the module's place on a space's canvas: `{ entry, width, height, mode, menu? }` (it was `surfaces.panel`, with `panel.html`; a manifest still using `panel` is refused, see [api-modules](api-modules.md)). `canvas.mode` lists how it may be shown: `dock` (a column of the space's canvas beside the video and chat), `float` (floating over the call), or both. Leave it out and both are allowed. A space opens a module docked when it can, and people can switch between them. A docked module keeps the width you drag it to. `width` and `height` are the starting size. `menu: false` keeps the module out of the space bar and the canvas never opens it, for a module that is on in a space only for its permissions or hooks (the Assistant); absent or `true`, it is listed.
 - `permissions` are the module's own permissions. Each appears on the Roles tab as `Module: <name>`, with the `default` you give per role: `member`, `moderator` and `guest` (a missing `moderator` takes `member`'s value; the old key `user` is refused). A permission can say `"replaces": "<old key>"` when it was renamed: each role's choice for the old key is carried over once, when the server starts and after any install. It is refused if it names a key the module still uses, or an old key another permission already replaces. A key matches `^[a-z][a-z0-9_]{0,23}$`: a lower-case letter, then up to 23 lower-case letters, digits or underscores. Owners, and the host admin on a hosted server, always have every permission, so a module never needs a role check of its own: ask `host.can()`.
 - `access` names which of those permissions guards reading and writing the module's data. Leave it out and any signed-in person who can see the module can read and write.
@@ -427,7 +427,7 @@ A tool is `{ id, zone?, icon, label, title?, order?, group?, groupOrder?, href?,
 
 The set replaces the last one; it is drawn while the module is open on that space's canvas and taken out when it closes or the module is unmounted. It resolves `true` when the host drew the tools and `false` when there is no space bar here (the module's own page, its own window), so keep such a control in the page in that case.
 
-**The top bar.** A module's tools always go in the space bar; the host decides where they go, and a module never places one in the top bar. `bar` and `system` on a tool are ignored: a tool that still says `bar: 'primary'` or `system: true`, written for an earlier contract, is placed in the space bar like any other and is not refused. A module's own page is listed in the top bar's **Modules** menu by the host, from its manifest; nothing in `nav.set` does that.
+**The top bar.** A module's tools always go in the space bar; the host decides where they go, and a module never places one in the top bar. `bar` and `system` on a tool are ignored: a tool that still says `bar: 'primary'` or `system: true`, written for an earlier contract, is placed in the space bar like any other and is not refused. Nothing a module does puts it in the top bar.
 
 ### An action menu
 

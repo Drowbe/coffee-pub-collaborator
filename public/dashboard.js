@@ -41,9 +41,29 @@ function openRef(ref) {
   }
   const q = new URLSearchParams();
   if (ref.scope === 'space') q.set('space', ref.space);
-  location.href = `/modules/${encodeURIComponent(ref.module)}${q.toString() ? '?' + q : ''}#ref=${encodeURIComponent(JSON.stringify(ref))}`;
+  openModulePage(`/modules/${encodeURIComponent(ref.module)}${q.toString() ? '?' + q : ''}#ref=${encodeURIComponent(JSON.stringify(ref))}`);
   return true;
 }
+
+// A module's page from home. Present in a space (home shows over it), the space page takes it (app:open-page, kind
+// 'module') and opens it over the space, so the call keeps running; present nowhere, nobody takes it and it is a real
+// navigation (plan-primary-nav.md, decision 2, option (a)).
+function openModulePage(href) {
+  const unhandled = document.dispatchEvent(new CustomEvent('app:open-page', { detail: { href, kind: 'module' }, cancelable: true }));
+  if (unhandled) location.href = href;
+}
+// A plain click on a link to a module page on home (a card's heading, or a link inside a widget that runs in the page)
+// goes the same way. A click meant for a new tab or window (a modifier, the middle button, target) is left to the
+// browser: it leaves this page, and the call, alone.
+document.addEventListener('click', (event) => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const link = event.target.closest?.('#dashboard a[href]');
+  if (!link || (link.target && link.target !== '_self')) return;
+  const url = new URL(link.href, location.href);
+  if (url.origin !== location.origin || !url.pathname.startsWith('/modules/')) return;
+  const unhandled = document.dispatchEvent(new CustomEvent('app:open-page', { detail: { href: url.pathname + url.search + url.hash, kind: 'module' }, cancelable: true }));
+  if (!unhandled) event.preventDefault();
+});
 
 // `title` is the widget's own; `icon` and `name` are its module's as this environment shows them (its display name and
 // icon, else its own): the icon beside the title, and the name on the link to the module's page.
@@ -83,8 +103,9 @@ function mountWidget(w) {
     scope: 'environment',
     entry: w.entry,
     onOpenRef: openRef,
-    // A click in the widget that means "show me this in full": the module's own page, at that place.
-    onOpenPage: (hash) => { location.href = `/modules/${encodeURIComponent(w.id)}${hash ? '#' + hash : ''}`; return true; },
+    // A click in the widget that means "show me this in full": the module's own page, at that place (over the space while
+    // present in one).
+    onOpenPage: (hash) => { openModulePage(`/modules/${encodeURIComponent(w.id)}${hash ? '#' + hash : ''}`); return true; },
     // A widget in a frame says how tall it is.
     onResize: ({ height }) => { if (!inPage && Number.isFinite(height)) holder.style.height = `${Math.min(Math.max(Math.ceil(height), 40), 600)}px`; },
   });

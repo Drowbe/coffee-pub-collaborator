@@ -28,7 +28,7 @@ const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFile
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments } = await import(pathToFileURL(primaryCopy).href);
+const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens } = await import(pathToFileURL(primaryCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -562,6 +562,125 @@ test('no ☰ with nothing in its menu (a guest), and the place outlasts your nam
   assert.match(css, /@media \(min-width: 641px\) and \(max-width: 1000px\) \{\s*\.topbar button\.whoami #whoami \{\s*display: none;/, 'your name goes first');
   assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar \.brand-home \.brand-name \{\s*display: none;/, 'then the environment\'s');
   assert.match(css, /\.topbar \.nav-left > \.crumb \{\s*flex: 0 1 auto;\s*min-width: 6em;/, 'the place keeps a few letters and its ellipsis at any width');
+});
+
+test('a module page opened from home while present in a space slides over the space (option (a)); present nowhere it is a real page', () => {
+  assert.equal(pageOpens({ kind: 'module', present: true }), 'overlay');
+  assert.equal(pageOpens({ kind: 'module', present: false }), 'page');
+  assert.equal(pageOpens({ kind: 'manage', present: false }), 'overlay', 'Manage and the rest open over the page as before');
+  assert.equal(pageOpens({ kind: 'host-console', present: true }), 'new-tab');
+  // The real handlers, run against a stand-in document: dashboard.js's click on a card's heading and space.js's
+  // app:open-page listener.
+  const dash = fs.readFileSync(path.join(ROOT, 'public/dashboard.js'), 'utf8');
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const handlerOf = (src, head, first = '') => {
+    const at = src.indexOf(head + first);
+    assert.ok(at > -1, `found: ${head}${first}`);
+    return src.slice(at + head.length, src.indexOf('\n});\n', at));
+  };
+  assert.match(dash, /<a class="dashboard-widget-title" href="\$\{escapeHtml\(href\)\}"/, 'the heading stays a real link (new tab, present nowhere)');
+  assert.match(dash, /href: `\/modules\/\$\{encodeURIComponent\(w\.id\)\}`/, 'to the module\'s page');
+  const dashClick = handlerOf(dash, "document.addEventListener('click', (event) => {", '\n  if (event.defaultPrevented');
+  const spaceOpen = handlerOf(space, "document.addEventListener('app:open-page', (event) => {");
+  const run = (present, click = {}) => {
+    const listeners = {};
+    const doc = {
+      addEventListener: (type, fn) => { (listeners[type] ||= []).push(fn); },
+      dispatchEvent: (e) => { for (const fn of listeners[e.type] || []) fn(e); return !e.defaultPrevented; },
+    };
+    class CustomEvent {
+      constructor(type, { detail, cancelable } = {}) { Object.assign(this, { type, detail, cancelable, defaultPrevented: false }); }
+      preventDefault() { if (this.cancelable) this.defaultPrevented = true; }
+    }
+    const loc = { href: 'http://h.test/', origin: 'http://h.test' };
+    const opened = [];
+    new Function('document', 'pageOpens', 'currentSpace', 'closePopout', 'openOverlay', 'window',
+      `document.addEventListener('app:open-page', (event) => {${spaceOpen}\n});`)(
+      doc, pageOpens, present ? { id: 'lobby' } : null, () => {}, (h) => opened.push(h), { open: () => {} });
+    new Function('document', 'location', 'CustomEvent', 'URL', `document.addEventListener('click', (event) => {${dashClick}\n});`)(doc, loc, CustomEvent, URL);
+    const link = { href: 'http://h.test/modules/todo', target: '' };
+    const event = {
+      type: 'click', button: 0, defaultPrevented: false, ...click,
+      target: { closest: (sel) => (sel === '#dashboard a[href]' ? link : null) },
+      preventDefault() { this.defaultPrevented = true; },
+    };
+    doc.dispatchEvent(event);
+    return { navigated: !event.defaultPrevented, opened };
+  };
+  assert.deepEqual(run(true), { navigated: false, opened: ['/modules/todo'] }, 'present: the heading opens over the space and the page stays');
+  assert.deepEqual(run(false), { navigated: true, opened: [] }, 'present nowhere: the link navigates');
+  assert.deepEqual(run(true, { ctrlKey: true }), { navigated: true, opened: [] }, 'a click meant for a new tab is left to the browser');
+  // The widget's own "open in full" and an object out of a space go the same way, never straight to location.href.
+  assert.ok(!/location\.href = `\/modules/.test(dash), 'dashboard.js never navigates to a module page directly');
+  assert.match(dash, /onOpenPage: \(hash\) => \{ openModulePage\(/);
+});
+
+// The space page's own functions, cut from the source and run against stand-ins: home over the space, and a page over it.
+function homeHarness({ present = true, inSpace = true, home = false, overlayOpen = false } = {}) {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const fn = (name) => {
+    const at = space.indexOf(`function ${name}(`);
+    assert.ok(at > -1, `space.js has ${name}()`);
+    return space.slice(at, space.indexOf('\n}\n', at) + 2);
+  };
+  const at = space.indexOf("const HOME_LINKS = '");
+  assert.ok(at > -1, 'space.js names the home links once');
+  const links = space.slice(at, space.indexOf('\n', at));
+  const listener = space.slice(space.indexOf("document.addEventListener('click', (event) => {\n  if (event.target.closest(HOME_LINKS))"), space.indexOf('\n});\n', space.indexOf('if (event.target.closest(HOME_LINKS)) goHome(event)')) + 4);
+  assert.match(listener, /goHome\(event\)/, 'the page\'s Spaces, logo and menu home go through goHome()');
+  const state = { away: [], navigated: true, classes: new Set(inSpace ? ['in-space'] : []), frameHidden: !overlayOpen };
+  const listeners = [];
+  const doc = { addEventListener: (type, f) => { if (type === 'click') listeners.push(f); }, body: { classList: { contains: (c) => state.classes.has(c), remove: (c) => state.classes.delete(c) } } };
+  const $ = (id) => (id === 'page-overlay-frame' ? { get hidden() { return state.frameHidden; }, set hidden(v) { state.frameHidden = v; }, src: '' } : {});
+  const api = new Function('document', '$', 'setAway', 'state', 'currentSpace', 'guestToken', `
+    let viewingHome = ${home};
+    function showSpaceList() { setAway(true); viewingHome = true; document.body.classList.remove('in-space'); }
+    function refreshNotices() {}
+    ${fn('closeOverlay')}
+    ${fn('goHome')}
+    ${links}
+    ${listener}
+    return { closeOverlay, viewingHome: () => viewingHome };
+  `)(doc, $, (on) => state.away.push(on), state, present ? { id: 'lobby' } : null, null);
+  const click = () => {
+    const event = { target: { closest: (sel) => (sel.includes('#spaces-link') ? {} : null) }, preventDefault() { state.navigated = false; } };
+    for (const f of listeners) f(event);
+  };
+  return { state, click, ...api };
+}
+
+test('Spaces or the logo on home while present stays in the page (the call keeps running); present nowhere it navigates', () => {
+  let h = homeHarness({ inSpace: true });
+  h.click();
+  assert.equal(h.state.navigated, false, 'from the space: home over it');
+  assert.equal(h.viewingHome(), true);
+  h = homeHarness({ inSpace: false, home: true });
+  h.click();
+  assert.equal(h.state.navigated, false, 'again on home over the space: still no navigation');
+  assert.deepEqual(h.state.away, [], 'and Away is left as it is');
+  h = homeHarness({ inSpace: false, home: true, overlayOpen: true });
+  h.click();
+  assert.equal(h.state.navigated, false);
+  assert.equal(h.state.frameHidden, true, 'a page open over home closes');
+  assert.ok(!h.state.away.includes(false), 'without clearing Away');
+  h = homeHarness({ present: false, inSpace: false, home: false });
+  h.click();
+  assert.equal(h.state.navigated, true, 'present nowhere: a real navigation');
+  // The same links in the header of a page opened over the call (target _top) go the same way.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /\$\('page-overlay-frame'\)\.addEventListener\('load', \(\) => \{[\s\S]*?doc\?\.addEventListener\('click', \(event\) => \{\n\s*if \(event\.target\.closest\?\.\(HOME_LINKS\)\) goHome\(event\);/);
+});
+
+test('closing a page opened from home keeps Away; Away clears only back on the space\'s canvas', () => {
+  let h = homeHarness({ inSpace: false, home: true, overlayOpen: true });
+  h.closeOverlay();
+  assert.deepEqual(h.state.away, [], 'closed onto home over the space: still Away');
+  h = homeHarness({ inSpace: true, home: false, overlayOpen: true });
+  h.closeOverlay();
+  assert.deepEqual(h.state.away, [false], 'closed onto the space: Away clears');
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const back = space.slice(space.indexOf('function returnToCanvas('), space.indexOf('\n}\n', space.indexOf('function returnToCanvas(')));
+  assert.match(back, /viewingHome = false;[\s\S]*setAway\(false\);/, 'returnToCanvas() clears Away');
 });
 
 console.log(`check-nav: OK (${n} tests)`);

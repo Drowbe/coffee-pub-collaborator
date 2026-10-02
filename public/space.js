@@ -1,7 +1,7 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
-import { anchorSegments } from '/primary-nav.js';
+import { anchorSegments, pageOpens } from '/primary-nav.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { whatOpens, conferenceAllowed } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
@@ -3922,7 +3922,9 @@ function openOverlay(path) {
 function closeOverlay() {
   $('page-overlay-frame').hidden = true;
   $('page-overlay-frame').src = 'about:blank';
-  setAway(false);
+  // Closed onto home over the space, you are still away from the call: Away clears only back on the space's canvas
+  // (returnToCanvas, from the breadcrumb or Back to <space>).
+  if (!viewingHome) setAway(false);
   refreshNotices(); // the page over the call may have read them (its bell): the counts here follow
 }
 window.closeProfileOverlay = closeOverlay; // called directly by the (same-origin) iframe
@@ -3933,13 +3935,17 @@ document.addEventListener('app:open-profile', (event) => {
   openOverlay('/profile');
 });
 // The top bar's Manage, "+ New <space>" and the bell's updates line (brand.js): over the page, as the profile is. The
-// host console, another site, opens in a new tab so the call keeps running.
+// host console, another site, opens in a new tab so the call keeps running. A module page (a tile's heading or a
+// module link on home, dashboard.js) opens over the space while present in one, home over the space included; present
+// nowhere it is left unhandled, and the asker navigates (pageOpens, primary-nav.js).
 document.addEventListener('app:open-page', (event) => {
   const { href, kind } = event.detail || {};
   if (!href) return;
+  const how = pageOpens({ kind, present: Boolean(currentSpace) });
+  if (how === 'page') return;
   event.preventDefault();
   closePopout();
-  if (kind === 'host-console') {
+  if (how === 'new-tab') {
     window.open(href, '_blank', 'noopener');
     return;
   }
@@ -4028,11 +4034,31 @@ function returnToCanvas() {
   updateCrumb();
   setAway(false);
 }
-document.addEventListener('click', (event) => {
-  if (!event.target.closest('#spaces-link, #menu-home, .brand-home')) return;
-  if (guestToken || !document.body.classList.contains('in-space')) return; // a real navigation is fine here
+// Spaces, the logo or the phone menu's home: home over the space while present in one, never a real navigation (that
+// would drop the call), also when home already shows; present nowhere, a real navigation is fine.
+function goHome(event) {
+  if (guestToken || !currentSpace) return false;
+  if (!document.body.classList.contains('in-space') && !viewingHome) return false;
   event.preventDefault();
-  showSpaceList();
+  if (document.body.classList.contains('in-space')) showSpaceList(); // first, so closing a page over it keeps Away
+  if (!$('page-overlay-frame').hidden) closeOverlay();
+  return true;
+}
+const HOME_LINKS = '#spaces-link, #menu-home, .brand-home';
+document.addEventListener('click', (event) => {
+  if (event.target.closest(HOME_LINKS)) goHome(event);
+});
+// The same links in the header of a page opened over the call (they target the top window): home in this page.
+$('page-overlay-frame').addEventListener('load', () => {
+  let doc = null;
+  try {
+    doc = $('page-overlay-frame').contentDocument;
+  } catch {
+    return; // not our own page
+  }
+  doc?.addEventListener('click', (event) => {
+    if (event.target.closest?.(HOME_LINKS)) goHome(event);
+  });
 });
 
 // `message` is the optional away message; without one the tile just says Away.

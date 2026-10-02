@@ -23,7 +23,7 @@ side of things.
 
 ## Verify in a real call
 
-- The top bar (steps 1 and 2, [plan-primary-nav](plans/plan-primary-nav.md)): the breadcrumb in a real aside ("› Disneyland › Aside: Michelle", and clicking Disneyland, or picking it in the switcher, bringing everyone back to the space's call), the switcher and Manage over a running call, **Host console** on a hosted install (only its address was checked, as a pure function), **Install as an app** in the profile menu, and the bar with a screen reader. Verified so far by `tools/check-nav.mjs` and in headless Chromium with a stand-in LiveKit at 1280, 1024 and 390 pixels.
+- The top bar (steps 1 and 2, [plan-primary-nav](plans/plan-primary-nav.md)): the breadcrumb in a real aside ("› Disneyland › Aside: Michelle", and clicking Disneyland, or picking it in the switcher, bringing everyone back to the space's call), the switcher and Manage over a running call, **Host console** on a hosted install (only its address was checked, as a pure function), **Install as an app** in the profile menu, a module card's heading on home opening over a running call (Away, then **Back to**), and the bar with a screen reader. Verified so far by `tools/check-nav.mjs` and in headless Chromium with a stand-in LiveKit at 1280, 1024 and 390 pixels.
 - #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
 - #30 Modules with two people on a real server.
 - Joining and pulls (Thomas's changes of 2026-09-30, [plan-entering](plans/plan-entering.md)): **Join the call** and the green phone with two people, **Currently on the call** and who is here following them live, the calls cap's refusal in **Not in a call**, and entering never asking for the microphone. An owner's pull into a real aside and back, and **Rejoin call**, keeping the call for those on it and not for those off it, including within the server's 15-second hold on a new call's place. Verified so far in headless Chromium with a faked LiveKit and by tools only.
@@ -38,6 +38,7 @@ side of things.
 - Top bar follow-ups from steps 1 and 2 ([plan-primary-nav](plans/plan-primary-nav.md)):
   - `server/index.js` still sends `module.nav` in a module's context (about line 5533), from `surfaces.page.nav`, which nothing reads now; drop it.
   - The space list shown while still connected has an empty breadcrumb until the return pill (step 7).
+  - A page opened from home over a space says "← Back to <space>", but it returns you to home, not the space. The wording should say where it goes.
   - Stream's environment page: list anything that belongs in its settings on Manage's Modules tab instead (decision 33).
 
 - Walk linked objects and plan and calendar sync live, Planner and Calendar side by side in one space (the drag that keeps a link on its day, the live refresh, "Used by N.", a twin made, moved, retitled and deleted on each side), and the one-time backfill on a hosted install. Built in #98 to #104 and checked by tools only.

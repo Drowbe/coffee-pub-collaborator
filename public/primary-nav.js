@@ -60,6 +60,15 @@ export function switchPick(present, id) {
   return 'enter';
 }
 
+// How the space page opens a page asked for with app:open-page (decision 2, option (a)): the host console, another
+// site, in a new tab; a module page over the space while present in one (home over the space included), and as a real
+// page present nowhere, where nothing is lost; anything else (Manage, a new space, the updates line) over the page.
+export function pageOpens({ kind = '', present = false } = {}) {
+  if (kind === 'host-console') return 'new-tab';
+  if (kind === 'module' && !present) return 'page';
+  return 'overlay';
+}
+
 // The bell (decisions 9 and 18): its count is the unread module notices, and for owners and the admin the module
 // updates too. `moduleWord` is the environment's word for a module.
 export function bellState({ unread = 0, updates = 0, role = null, moduleWord = '' } = {}) {

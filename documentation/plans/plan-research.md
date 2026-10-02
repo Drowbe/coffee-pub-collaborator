@@ -12,13 +12,13 @@ A place to keep what a group finds out while it plans, and after: a note, a link
 
 - **A conduit, not a special case.** Research offers cards, links and actions in the generic ways; no other module is named in it, and it names none.
 - **Private by default, shared on purpose.** A person's own research (Mine) is theirs alone, in their profile, across rooms. A room's research is the room's. Sharing is a copy, as with Places.
-- **Nothing leaves the server unless the admin turned it on and said where to.** Link previews and AI are both off until configured, and each says plainly what it sends and to whom.
+- **Nothing leaves the server without saying so, and the AI only once the admin turned it on and said where to.** The AI is off until configured. Link previews are on by default (Thomas, 2026-10-02): the request goes only to the site the person named, and the server refuses private and loopback addresses so it can't be pointed at its own network (`tools/check-link-preview.mjs`). An owner can turn previews off, and they stay off. Each says plainly what it sends and to whom.
 - **No secrets in modules.** An API key for an AI service is a server setting. The module asks the server; it never sees a key.
 
 ## The kinds of item, one card family
 
 1. **Note.** A title, a body of plain text (paragraphs and lists; links in it are clickable), tags, and optionally a place and a date.
-2. **Snippet** (a link). A web address, a title, the site, and the person's own excerpt (what to remember from the page), tags. With the admin's "fetch link previews" turned on, the server reads the page's title, description and image so the person does not type them; off by default, because it is a request from the server to a site the person named.
+2. **Snippet** (a link). A web address, a title, the site, and the person's own excerpt (what to remember from the page), tags. With "Fetch link previews" on, the server reads the page's title, description and image so the person does not type them. It is on by default (Research 0.2.32); because it is a request from the server to a site the person named, private and loopback addresses are refused before any request is made. An owner can turn it off, and it stays off.
 3. **Photo.** An image, a caption and tags. On upload the server reads the file's own facts: when it was taken, the camera, and where. **The position is dropped by default** (a shared photo must not give away a home address by accident); a per-photo choice keeps it, and a photo with a position shows on the map and one with a date shows on its day. The file is re-encoded by the server (a size limit, a maximum edge of about 2000 px, a thumbnail), which also removes anything hidden in it.
 
 All of them (and the answer cards the AI writes, below) are cards for the rest of Magpie: a title, a subtitle, a date (`when`), a `place` if it has one, and a category naming its kind. That is what lets a note be dragged onto a plan's day, a photo appear on the map, and a place list "3 notes about this place".
@@ -96,7 +96,7 @@ The setting is a choice, as Place search is: **None** (the default), the two abo
 
 1. **Research core**: notes and snippets, tags, Mine and This room, cards, conduits, actions, the pane and its phone layout. (Design first, then the script.)
 2. **A file store for modules** (core, generic): per scope, limits, thumbnails, clean-up. Then **photos**: upload, the server's re-encode, metadata, the album, the map and day links.
-3. **Link previews**: the server fetch, off by default, with protection against being pointed at the server's own network.
+3. **Link previews**: the server fetch, on by default and turned off by an owner, with protection against being pointed at the server's own network.
 4. **The AI hook** and the provider setting: Summarise, Ask, Suggest tags. Usage, limits and the notice.
 5. **Extract and Draft**, photo captions, and the proposals flow.
 
@@ -111,3 +111,4 @@ The author agreed the recommendations:
 5. **Photos:** about 10 MB each, re-encoded to about 2000 px on the long edge with a thumbnail. Still to settle: how many photos a room may keep before the admin is warned.
 6. **Name:** Research (id `research`).
 7. **The AI writes a card inside its answer** (a JSON block drawn inline), and only that card is kept or dragged; the conversation is not saved.
+8. **Link previews are on by default** (Thomas, 2026-10-02; Research 0.2.32). The fetch goes only to the site the person named, and private and loopback addresses are refused (`tools/check-link-preview.mjs`). An owner can turn it off, and it stays off.

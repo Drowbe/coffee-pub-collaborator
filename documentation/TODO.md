@@ -6,17 +6,16 @@ each; the issue holds the detail. See the Studio repository for that app's side 
 
 ## How issues are tracked
 
-Each issue carries one priority label and one status label:
+Each issue carries one priority label: `priority: now`, `priority: next` or `priority: later`. The board's columns
+are the priorities, **Now**, **Next** and **Later**, then **Done**, which the board sets when an issue closes or its
+pull request merges.
 
-- Priority: `priority: now`, `priority: next`, `priority: later`.
-- Status: `status: needs plan`, `status: approved`, `status: building`. **Shipped** is set on the board when the
-  issue closes.
-
-A workflow (`.github/workflows/project-status.yml`) keeps the board's Status in step with the status labels: adding
-a `status: ` label moves the issue's card to the matching column and removes the issue's other status label.
-Without the setup below, it only tidies the labels and logs a notice. When two status labels arrive at once only one is kept, and the run for the other logs `Label "<label>" is no longer on issue #N, so neither the labels nor the board were changed.` Adding a status label after a pull request is
-linked overrides the board's own Building rule. `tools/check-project-status.mjs` (in `npm run check`, 10 cases) checks the
-workflow without a network.
+A workflow (`.github/workflows/project-priority.yml`) keeps the board in step with the labels: adding a
+`priority: ` label moves the issue's card to the matching column and removes the issue's other priority label.
+Without the setup below, it only tidies the labels and logs a notice. When two priority labels arrive at once only
+one is kept, and the run for the other logs `Label "<label>" is no longer on issue #N, so neither the labels nor the
+board were changed.` Any other label logs `Label "<label>" is not a priority label; nothing to do.`
+`tools/check-project-status.mjs` (in `npm run check`, 11 cases) checks the workflow without a network.
 
 ### Board setup (once)
 

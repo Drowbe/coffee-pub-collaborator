@@ -1,8 +1,8 @@
-name: Project status from labels
+name: Project priority from labels
 
-# When an issue gets a `status: ...` label, keep that one status label on the issue and move the issue's
-# card on the project board to the matching Status option ("status: needs plan" -> "Needs plan").
-# The board's own workflows still handle Inbox (auto-add), Building (linked pull request) and Shipped (closed).
+# When an issue gets a `priority: ...` label, keep that one priority label on the issue and move the issue's
+# card on the project board to the matching Status option ("priority: now" -> "Now", "priority: next" -> "Next",
+# "priority: later" -> "Later"). Done is left to the board's own workflow for closed issues.
 #
 # One-time setup, in the repository's Settings > Secrets and variables > Actions:
 #   - secret   PROJECT_TOKEN   a personal access token (classic) with the `project` scope (and `repo` if this
@@ -22,12 +22,12 @@ permissions:
 # One run at a time per issue. GitHub keeps at most one pending run per group, so when labels change
 # quickly only the newest pending change runs; each run reads the issue's current labels, not the event's.
 concurrency:
-  group: project-status-${{ github.event.issue.number }}
+  group: project-priority-${{ github.event.issue.number }}
   cancel-in-progress: false
 
 jobs:
-  status:
-    if: "startsWith(github.event.label.name, 'status: ')"
+  priority:
+    if: "startsWith(github.event.label.name, 'priority: ')"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/github-script@v9
@@ -38,17 +38,17 @@ jobs:
           PROJECT_FIELD: ${{ vars.PROJECT_FIELD }}
         with:
           script: |
-            const PREFIX = 'status: ';
+            const PREFIX = 'priority: ';
             const norm = (s) => String(s || '').trim().toLowerCase();
             const label = context.payload.label?.name || '';
             const issue = context.payload.issue;
             if (!issue || !norm(label).startsWith(PREFIX)) {
-              core.notice(`Label "${label}" is not a status label; nothing to do.`);
+              core.notice(`Label "${label}" is not a priority label; nothing to do.`);
               return;
             }
             const wanted = norm(label.slice(PREFIX.length));
 
-            // 1. One status label at a time, judged on the issue's labels now, not when the event fired:
+            // 1. One priority label at a time, judged on the issue's labels now, not when the event fired:
             //    if this label was already replaced by a later one, that later run owns the board.
             const current = await github.paginate(github.rest.issues.listLabelsOnIssue, {
               ...context.repo,

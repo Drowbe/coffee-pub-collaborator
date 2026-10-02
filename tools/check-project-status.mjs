@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /*
- * check-project-status.mjs -- the workflow that keeps the project board in step with `status: ...` labels
- * (.github/workflows/project-status.yml):
- *   - it runs on issues labeled, only for status labels, with only `issues: write`, and uses no action outside
+ * check-project-status.mjs -- the workflow that keeps the project board in step with `priority: ...` labels
+ * (.github/workflows/project-priority.yml):
+ *   - it runs on issues labeled, only for priority labels, with only `issues: write`, and uses no action outside
  *     actions/*; the project's owner and number come from repository variables, never from the file;
- *   - its inline script, run here with stand-ins for GitHub, keeps one status label on the issue, moves the card to
+ *   - its inline script, run here with stand-ins for GitHub, keeps one priority label on the issue, moves the card to
  *     the option named by the label (case-insensitively), skips the board quietly when it isn't set up, and fails
  *     with the label and the options when nothing matches.
  * No network. The YAML is read as text: no YAML parser is a dependency here.
@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const FILE = path.join(ROOT, '.github/workflows/project-status.yml');
+const FILE = path.join(ROOT, '.github/workflows/project-priority.yml');
 const text = fs.readFileSync(FILE, 'utf8');
 const lines = text.split('\n');
 
@@ -55,11 +55,11 @@ const PROJECT = {
   fields: {
     nodes: [
       {}, // a plain field: no options in the fragment
-      { id: 'F_other', name: 'Priority', options: [{ id: 'P1', name: 'Needs plan' }] },
+      { id: 'F_other', name: 'Size', options: [{ id: 'P1', name: 'Next' }] },
       {
         id: 'F_status',
         name: 'Status',
-        options: ['Inbox', 'Needs plan', 'Approved', 'Building', 'Shipped'].map((name, i) => ({ id: `O${i}`, name })),
+        options: ['Now', 'Next', 'Later', 'Done'].map((name, i) => ({ id: `O${i}`, name })),
       },
     ],
   },
@@ -123,7 +123,7 @@ async function simulate({ label, labels = [], env = {}, project = PROJECT, remov
 
 await test('the trigger, the condition, the permissions and the actions', () => {
   assert.match(text, /^on:\n  issues:\n    types: \[labeled\]\n/m);
-  assert.match(text, /^    if: "startsWith\(github\.event\.label\.name, 'status: '\)"$/m, 'the job runs only for status labels (quoted: a bare ": " breaks the YAML)');
+  assert.match(text, /^    if: "startsWith\(github\.event\.label\.name, 'priority: '\)"$/m, 'the job runs only for priority labels (quoted: a bare ": " breaks the YAML)');
   assert.match(text, /^permissions:\n  issues: write\n\n/m, 'only issues: write');
   const uses = [...text.matchAll(/uses:\s*(\S+)/g)].map((m) => m[1]);
   assert.ok(uses.length > 0);
@@ -136,39 +136,39 @@ await test('the trigger, the condition, the permissions and the actions', () => 
   assert.ok(!/\$\{\{/.test(run), 'the script itself has no workflow expressions');
 });
 
-await test('a matching label: other status labels go, the card moves to the matching option', async () => {
-  const c = await simulate({ label: 'status: needs plan', labels: ['status: approved', 'bug', 'status: building'] });
-  assert.deepEqual(c.removed, ['status: approved', 'status: building']);
+await test('a matching label: other priority labels go, the card moves to the matching option', async () => {
+  const c = await simulate({ label: 'priority: next', labels: ['priority: now', 'bug', 'priority: later'] });
+  assert.deepEqual(c.removed, ['priority: now', 'priority: later']);
   assert.deepEqual(c.failed, []);
   assert.deepEqual(c.tokens, ['tok']);
   assert.equal(c.graphql.length, 3);
   assert.deepEqual(c.graphql[0].vars, { owner: 'someone', number: 8 });
   assert.deepEqual(c.graphql[1].vars, { project: 'PVT_1', content: 'I_42' });
   assert.deepEqual(c.graphql[2].vars, { project: 'PVT_1', item: 'PVTI_1', field: 'F_status', option: 'O1' });
-  assert.match(c.notices.at(-1), /moved to "Needs plan"/);
+  assert.match(c.notices.at(-1), /moved to "Next"/);
 });
 
 await test('case does not matter, in the label or the field name', async () => {
-  const c = await simulate({ label: 'Status: APPROVED', env: { PROJECT_FIELD: 'status' } });
+  const c = await simulate({ label: 'Priority: LATER', env: { PROJECT_FIELD: 'status' } });
   assert.deepEqual(c.failed, []);
   assert.equal(c.graphql[2].vars.option, 'O2');
 });
 
 await test('a label that is already gone is not an error', async () => {
-  const c = await simulate({ label: 'status: building', labels: ['status: approved'], removeStatus: { 'status: approved': 404 } });
+  const c = await simulate({ label: 'priority: later', labels: ['priority: now'], removeStatus: { 'priority: now': 404 } });
   assert.deepEqual(c.failed, []);
   assert.equal(c.graphql.length, 3);
 });
 
-await test('two status labels added at once: the later run stands down, one label is left and the board matches it', async () => {
-  for (const order of [['status: approved', 'status: building'], ['status: building', 'status: approved']]) {
-    const state = { labels: ['bug', 'status: approved', 'status: building'], board: null };
+await test('two priority labels added at once: the later run stands down, one label is left and the board matches it', async () => {
+  for (const order of [['priority: now', 'priority: later'], ['priority: later', 'priority: now']]) {
+    const state = { labels: ['bug', 'priority: now', 'priority: later'], board: null };
     // Both events carry both labels; GitHub runs them one after the other.
     const first = await simulate({ label: order[0], labels: ['bug', order[1]], state });
     const second = await simulate({ label: order[1], labels: ['bug', order[0]], state });
-    const left = state.labels.filter((l) => l.startsWith('status: '));
-    assert.deepEqual(left, [order[0]], 'exactly one status label is left');
-    assert.equal(state.board, order[0] === 'status: approved' ? 'Approved' : 'Building', 'the board matches the label');
+    const left = state.labels.filter((l) => l.startsWith('priority: '));
+    assert.deepEqual(left, [order[0]], 'exactly one priority label is left');
+    assert.equal(state.board, order[0] === 'priority: now' ? 'Now' : 'Later', 'the board matches the label');
     assert.deepEqual(first.failed, []);
     assert.deepEqual(second.failed, []);
     assert.deepEqual(second.graphql, [], 'the run whose label is gone leaves the board alone');
@@ -178,43 +178,51 @@ await test('two status labels added at once: the later run stands down, one labe
   }
 });
 
-await test('a non-status label does nothing', async () => {
-  const c = await simulate({ label: 'bug', labels: ['status: approved'] });
-  assert.deepEqual(c.removed, []);
-  assert.deepEqual(c.graphql, []);
-  assert.deepEqual(c.failed, []);
-  assert.match(c.notices[0], /not a status label/);
+await test('a non-priority label does nothing, the old status labels included', async () => {
+  for (const label of ['bug', 'status: approved']) {
+    const c = await simulate({ label, labels: ['priority: now', 'status: building'] });
+    assert.deepEqual(c.removed, []);
+    assert.deepEqual(c.graphql, []);
+    assert.deepEqual(c.failed, []);
+    assert.match(c.notices[0], /not a priority label/);
+  }
+});
+
+await test('the prefix is one constant in the script', () => {
+  assert.equal((run.match(/'priority: '/g) || []).length, 1, "'priority: ' appears once, as PREFIX");
+  assert.match(run, /^const PREFIX = 'priority: ';$/m);
+  assert.ok(!/status: /.test(run), 'no status prefix is left in the script');
 });
 
 await test('no token: labels are still tidied, the board is skipped with a notice, nothing fails', async () => {
-  const c = await simulate({ label: 'status: approved', labels: ['status: needs plan'], env: { PROJECT_TOKEN: '' } });
-  assert.deepEqual(c.removed, ['status: needs plan']);
+  const c = await simulate({ label: 'priority: now', labels: ['priority: later'], env: { PROJECT_TOKEN: '' } });
+  assert.deepEqual(c.removed, ['priority: later']);
   assert.deepEqual(c.tokens, []);
   assert.deepEqual(c.failed, []);
   assert.match(c.notices.at(-1), /not set up.*secret PROJECT_TOKEN/);
 });
 
 await test('no owner or number: skipped with a notice naming them', async () => {
-  const c = await simulate({ label: 'status: approved', env: { PROJECT_OWNER: '', PROJECT_NUMBER: '' } });
+  const c = await simulate({ label: 'priority: now', env: { PROJECT_OWNER: '', PROJECT_NUMBER: '' } });
   assert.deepEqual(c.failed, []);
   assert.deepEqual(c.graphql, []);
   assert.match(c.notices.at(-1), /variable PROJECT_OWNER, variable PROJECT_NUMBER/);
 });
 
 await test('no matching option fails, naming the label and the options', async () => {
-  const c = await simulate({ label: 'status: review' });
+  const c = await simulate({ label: 'priority: soon' });
   assert.equal(c.failed.length, 1);
-  assert.match(c.failed[0], /label "status: review"/);
-  assert.match(c.failed[0], /"Inbox", "Needs plan", "Approved", "Building", "Shipped"/);
+  assert.match(c.failed[0], /label "priority: soon"/);
+  assert.match(c.failed[0], /"Now", "Next", "Later", "Done"/);
   assert.equal(c.graphql.length, 1, 'nothing is added or changed');
 });
 
 await test('a bad number, a missing project or a missing field fails with one plain sentence', async () => {
-  let c = await simulate({ label: 'status: approved', env: { PROJECT_NUMBER: 'eight' } });
+  let c = await simulate({ label: 'priority: now', env: { PROJECT_NUMBER: 'eight' } });
   assert.match(c.failed[0], /PROJECT_NUMBER must be a whole number/);
-  c = await simulate({ label: 'status: approved', project: null });
+  c = await simulate({ label: 'priority: now', project: null });
   assert.match(c.failed[0], /was not found, or PROJECT_TOKEN cannot see it/);
-  c = await simulate({ label: 'status: approved', env: { PROJECT_FIELD: 'Phase' } });
+  c = await simulate({ label: 'priority: now', env: { PROJECT_FIELD: 'Phase' } });
   assert.match(c.failed[0], /no single-select field named "Phase"/);
 });
 

@@ -64,6 +64,8 @@ Levels, top down:
 - Host, `host`: the main admin host.
 - Environment, `environment`: what people sign in to; shows as whatever they name it.
 - Space, `space`: shows as whatever they name it (for travel, likely a trip's name).
+- Home, `home`: the environment's page that lists its spaces, named in the top bar; shows as the template's word
+  (Trips, Campaigns), else the space word's plural.
 - Aside, `aside`: a temporary, ad hoc space that supports only conferencing.
 - Canvas, `canvas`: the work area where people use modules. Not "stage".
 - Module, `module`: a tool used on the canvas or popped out; shows as its name or the template's

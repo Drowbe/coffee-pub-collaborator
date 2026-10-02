@@ -42,7 +42,7 @@ On your profile page, under Module settings, **Open on** chooses the view the Ca
 
 ## Coming up on the dashboard
 
-On the spaces page, the dashboard's **Coming up** card lists the next seven days of events, up to eight, across every space you are in that has the Calendar on and the environment's own calendar, each with its space's icon; repeating events show on the days they land on. Clicking an event opens it in its space; the heading opens the full calendar, or Calendar in the top bar when it is shown. Clicking a day opens that day there. See [Spaces](userguide-spaces.md).
+On the spaces page, the dashboard's **Coming up** card lists the next seven days of events, up to eight, across every space you are in that has the Calendar on and the environment's own calendar, each with its space's icon; repeating events show on the days they land on. Click an event to open it. While Calendar is in the top bar, it opens there on the event, with its editor open; otherwise it opens in its space. Click a day in the small month to open the calendar at that day, and the heading for the full calendar: Calendar in the top bar when it is shown, else the Calendar's own page. From inside a space these open over the space, and you are Away on the call until you go back. Ctrl-click, Cmd-click, Shift-click, a middle click or Ctrl or Cmd with Enter opens it in a new tab instead, leaving home and the call alone. See [Spaces](userguide-spaces.md).
 
 ## Add and change events
 

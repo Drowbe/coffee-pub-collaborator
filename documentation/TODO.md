@@ -9,13 +9,12 @@ side of things.
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
 - **Calendar and Map in the top bar** ([plan-calendar-destination](plans/plan-calendar-destination.md), [plan-map-destination](plans/plan-map-destination.md)): built 2026-10-02, every build step of both plans. Open for Thomas:
-  - On a wide screen the destination's name shows twice: as the entry in the middle of the bar and as the breadcrumb ("› Calendar").
+  - On a wide screen the destination's name shows twice: as the entry in the middle of the bar and as the breadcrumb ("› Calendar"). Not to be fixed alone: it waits on a larger usability change Thomas is to send (2026-10-02).
   - On a phone the **Agenda** tab has the Calendar's icon, the same as the **Calendar** tab beside it (a tab's icon is its module's).
   - Map stays hidden while Maps' map is a file at a web address: only a map file on the server (or the host's folder) counts, though the plan said a web address does too.
   - The destination page reads the Calendar's **Open on** setting by its key (`defaultView` in `KINDS` in `public/destination.js`), so the host page knows one module's setting by name.
-  - Owners and the admin who aren't members of a space don't see it in Calendar's or Map's filter, nor its events, tasks or places there: those follow the `spaces-data` membership rule, though elsewhere (presence) owners and the admin belong to every space.
   - Manage's reason for Map with no map file reads "Choose a file for "Map files" in Maps' settings first."; the plan had "Choose a map file in Maps' settings first.".
-- **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): nine steps. Steps 1 (the `home` word and the full list of module pages) and 2 (the bar's layout and moves) are built (2026-10-02), and so is step 2b, the Modules slot leaving the bar (decision 30), and step 3, presence filtered by membership (2026-10-02). Next is the online people widget; then the aside rules, views over the space with the return pill, the visit view and the bell's notifications. For Thomas: CLAUDE.md's Names gains `home` (decision 13).
+- **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): nine steps. Steps 1 (the `home` word and the full list of module pages) and 2 (the bar's layout and moves) are built (2026-10-02), and so is step 2b, the Modules slot leaving the bar (decision 30), and step 3, presence filtered by membership (2026-10-02). Next is the online people widget; then the aside rules, views over the space with the return pill, the visit view and the bell's notifications.
 
 ## Planned
 
@@ -23,6 +22,7 @@ side of things.
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.
 - #73 Research from any AI ([plan-research-import](plans/plan-research-import.md)): phase 1 (copy instructions, paste or file import into Research or the Planner) is done. Still to come: To-do and Calendar as destinations through a generic conduit, which needs its own plan; and phase 3, a direct connection for AI apps, which waits on #64.
+- A rollup on each space's tile on home, starting with the Planner, chosen per space, in place of the removed Trips tile ([plan-dashboard](plans/plan-dashboard.md), phase 5): a direction from Thomas (2026-10-02) with open questions, not yet a contract.
 - Rename the dashboard's widgets to **tiles** (Thomas, 2026-09-30): "widget" now means a live piece in the header's bars, such as who is here. A renaming plan with a data migration comes next; not written or built.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
 - #132 A document editor (ProseMirror) for the long prose fields: research notes and answers, plan notes, to-dos, places, and calendar details. Markdown stays what is stored. Chat stays a textarea. About two weeks. Building waits on a go-ahead.
@@ -103,9 +103,10 @@ side of things.
 - Navigating away without hanging up: decided (2026-10-02), views over the space that set Away while on the call ([plan-primary-nav](plans/plan-primary-nav.md), steps 7 and 8).
 - A private conversation started by invitation has no origin: decided (2026-10-02), its parent is the inviter's space ([plan-primary-nav](plans/plan-primary-nav.md), step 5).
 - An aside's **Join** entry in the space list: decided (2026-10-02), asides leave the space list ([plan-primary-nav](plans/plan-primary-nav.md), step 6).
-- For Thomas to confirm: members of the space an aside was pulled out of may see that it is private (`asidePrivate` in `GET /api/presence`), never who is in it. The project manager chose this while building step 3 of [plan-primary-nav](plans/plan-primary-nav.md); it keeps the "In a private conversation" placeholder that showed before step 3. The plan itself gives them only `aside: true`.
+- Whether members of an aside's parent space see that it is private: decided (2026-10-02), they see that it is private (`asidePrivate`), never who is in it ([plan-primary-nav](plans/plan-primary-nav.md), decision 34).
+- Who sees every space's name and member list: decided (2026-10-02), anyone signed in, for now ([plan-primary-nav](plans/plan-primary-nav.md), decision 35).
+- Owners and the admin missing from Calendar's and Map's filters for spaces they don't belong to: decided (2026-10-02), correct as built, since managing a space is not being a member of it ([plan-calendar-destination](plans/plan-calendar-destination.md), decision 23; [plan-map-destination](plans/plan-map-destination.md), decision 25).
 - `objectSync` (`server/object-sync.js`) is one event source shared by every environment on a hosted server, so a `refchange` from one environment reaches another's `GET /api/modules/stream` listeners when the module id and the scope key match. It carries only pointers, and modules ask again with their own permissions, but it should be scoped per environment. Found while fixing the schedule crash (2026-10-02).
-- For Thomas to decide: every space's name and member list is still visible to anyone signed in (`GET /api/spaces`, and `spaces` in `GET /api/presence`). Step 3 filtered where people are, not which spaces exist or who belongs to them.
 - Thomas's, for later: a **Clean Up** button that rearranges the modules on the canvas, and a way to choose and save layouts.
 - With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 

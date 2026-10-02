@@ -818,11 +818,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (guestToken) p.set('guest', guestToken);
       return (await api('GET', `/api/objects/kinds?${p}`)).kinds;
     },
-    // Show an object in the module that owns it (the page decides how: the canvas, a page).
-    async 'objects.open'({ ref }) {
+    // Show an object in the module that owns it (the page decides how: the canvas, a page). `newTab`: the click asked for
+    // a new tab (Ctrl or the middle button); a page that can (home's tiles) opens it in one, any other ignores it.
+    async 'objects.open'({ ref, newTab }) {
       if (!REF_SHAPE(ref)) throw Object.assign(new Error('that is not a valid reference'), { status: 400 });
       if (!onOpenRef) throw Object.assign(new Error('nothing here can open it'), { status: 400 });
-      return Boolean(await onOpenRef(cleanPointer(ref)));
+      return Boolean(await onOpenRef(cleanPointer(ref), { newTab: newTab === true }));
     },
     // A Font Awesome icon as inline SVG, for a module in a sandboxed frame that cannot load the icon font.
     async 'icons.svg'({ name, style }) {
@@ -835,11 +836,11 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     },
     // Open this module's own page, at a place in it (a short hash such as day=2026-09-24). Only a host that has
     // somewhere to take it (the dashboard) answers; the page then hands the hash to the module (pagehash).
-    async 'page.open'({ hash }) {
+    async 'page.open'({ hash, newTab }) {
       const h = String(hash ?? '');
       if (!/^[A-Za-z0-9=&_.:,-]{0,80}$/.test(h)) throw Object.assign(new Error('that is not a valid place'), { status: 400 });
       if (!onOpenPage) throw Object.assign(new Error('nothing here can open it'), { status: 400 });
-      return Boolean(await onOpenPage(h));
+      return Boolean(await onOpenPage(h, { newTab: newTab === true }));
     },
     // Tell the host what one of this module's objects points at (all of it: the list replaces the last).
     async 'objects.setLinks'({ from, to, space }) {

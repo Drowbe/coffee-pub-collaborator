@@ -29,7 +29,7 @@ const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFile
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools } = await import(pathToFileURL(primaryCopy).href);
+const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, tileRefTarget } = await import(pathToFileURL(primaryCopy).href);
 // The server's presence by membership (plan-primary-nav.md, step 3), so the pages' reading is held against the real answer.
 const { presenceView } = createRequire(import.meta.url)('../server/presence-view.js');
 fs.rmSync(tmp, { recursive: true, force: true });
@@ -751,7 +751,76 @@ test('a module page opened from home while present in a space slides over the sp
   assert.deepEqual(run(true, { href: 'http://h.test/calendar' }), { navigated: true, opened: [] }, 'another link on home, not a heading, is left alone');
   // The widget's own "open in full" and an object out of a space go the same way, never straight to location.href.
   assert.ok(!/location\.href = `\/modules/.test(dash), 'dashboard.js never navigates to a module page directly');
-  assert.match(dash, /onOpenPage: \(hash\) => \{ openModulePage\(/);
+  assert.match(dash, /openModulePage\(href\);/, 'a widget\'s "open in full" goes through openModulePage');
+});
+
+// Home's tiles (plan-calendar-destination.md, decisions 16 and 20 to 22): an event or a task in the Calendar or To-do
+// tile opens the Calendar destination on it while that shows (over the space while present in one, a new tab on Ctrl
+// or the middle button); with no destination shown, today's way (its space, or its module's page). The Polls tile is
+// unchanged, and the Planner has no tile.
+test('home tiles: an object opens where its tile\'s heading goes (the destination), else its space or its module\'s page', () => {
+  const ev = { module: 'calendar', kind: 'event', id: 'e1', scope: 'space', space: 'paris' };
+  const own = { module: 'todo', kind: 'task', id: 't1', scope: 'environment' };
+  const hash = (r) => `#ref=${encodeURIComponent(JSON.stringify(r))}`;
+  assert.deepEqual(tileRefTarget(ev, { page: '/calendar', module: 'calendar' }), { how: 'page', href: `/calendar${hash(ev)}` }, 'the destination shows: an event in a space opens there');
+  assert.deepEqual(tileRefTarget(own, { page: '/calendar', module: 'todo' }), { how: 'page', href: `/calendar${hash(own)}` }, 'a task too (the To-do part)');
+  assert.deepEqual(tileRefTarget({ ...own, scope: 'space', space: 'p' }, { page: '/calendar', module: 'todo' }).how, 'page');
+  assert.deepEqual(tileRefTarget(ev, { page: '/modules/calendar', module: 'calendar' }), { how: 'space', href: `/modules/calendar?space=paris${hash(ev)}` }, 'no destination: into its space (the href for a new tab)');
+  assert.deepEqual(tileRefTarget(own, { page: '/modules/todo', module: 'todo' }), { how: 'page', href: `/modules/todo${hash(own)}` }, 'no destination: an environment task on its module\'s page');
+  assert.equal(tileRefTarget(ev, { page: '/calendar', module: 'polls' }).how, 'space', 'another module\'s object never goes to this tile\'s destination');
+  const poll = { module: 'polls', kind: 'poll', id: 'p1', scope: 'space', space: 'paris' };
+  assert.equal(tileRefTarget(poll, { page: '/modules/polls', module: 'polls' }).how, 'space', 'a poll still goes into its space');
+  assert.equal(tileRefTarget(ev, { page: '', module: 'calendar' }).how, 'space', 'no heading address: today\'s way');
+
+  // dashboard.js's own openRef, run against stand-ins: what it opens, and how.
+  const dash = fs.readFileSync(path.join(ROOT, 'public/dashboard.js'), 'utf8');
+  const body = dash.slice(dash.indexOf('let openInSpace = null;'), dash.indexOf('// A plain click on a link to a module page on home'));
+  assert.match(body, /function openRef\(/);
+  assert.match(dash, /onOpenRef: \(ref, o = \{\}\) => openRef\(ref, \{ page, module: w\.id, newTab: o\.newTab \}\)/, 'a widget\'s objects go by its heading\'s address');
+  assert.match(dash, /onOpenPage: \(hash, o = \{\}\) => \{\n\s*const href = `\$\{page\}\$\{hash \? '#' \+ hash : ''\}`;\n\s*if \(o\.newTab\) return openNewTab\(href\);/, 'a day: where the heading goes, a new tab when asked');
+  const run = ({ present = false, page, module, ref, newTab = false, hooks = true }) => {
+    const out = { pages: [], spaces: [], tabs: [], navigated: null };
+    const doc = { dispatchEvent: (e) => { if (present) { out.pages.push(e.detail.href); return false; } return true; } };
+    class CustomEvent { constructor(type, init) { Object.assign(this, { type }, init); } }
+    const loc = { set href(h) { out.navigated = h; } };
+    const win = { open: (h, t, f) => out.tabs.push([h, t, f]) };
+    const api = new Function('document', 'location', 'window', 'CustomEvent', 'tileRefTarget', `${body}\nreturn { openRef, set: (f) => { openInSpace = f; } };`)(doc, loc, win, CustomEvent, tileRefTarget);
+    if (hooks) api.set((space, mod) => out.spaces.push([space, mod]));
+    api.openRef(ref, { page, module, newTab });
+    return out;
+  };
+  const r1 = run({ present: true, page: '/calendar', module: 'calendar', ref: ev });
+  assert.deepEqual([r1.pages, r1.spaces, r1.navigated], [[`/calendar${hash(ev)}`], [], null], 'present: the destination opens over the space, the space is not entered');
+  const r2 = run({ present: false, page: '/calendar', module: 'calendar', ref: ev });
+  assert.equal(r2.navigated, `/calendar${hash(ev)}`, 'present nowhere: a real page');
+  const r3 = run({ present: true, page: '/calendar', module: 'todo', ref: own, newTab: true });
+  assert.deepEqual([r3.tabs, r3.pages], [[[`/calendar${hash(own)}`, '_blank', 'noopener']], []], 'Ctrl or middle click: a new tab, and nothing else');
+  const r4 = run({ present: true, page: '/modules/calendar', module: 'calendar', ref: ev });
+  assert.deepEqual([r4.spaces, r4.pages], [[['paris', 'calendar']], []], 'Show Calendar off: into the event\'s space, as before');
+  const r5 = run({ present: false, page: '/modules/polls', module: 'polls', ref: poll });
+  assert.deepEqual(r5.spaces, [['paris', 'polls']], 'a poll: into its space');
+
+  // The module host hands the click's wish on; the SDK sends it.
+  const hostSrc = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
+  assert.match(hostSrc, /onOpenRef\(cleanPointer\(ref\), \{ newTab: newTab === true \}\)/);
+  assert.match(hostSrc, /onOpenPage\(h, \{ newTab: newTab === true \}\)/);
+  const sdk = fs.readFileSync(path.join(ROOT, 'public/sdk/host.js'), 'utf8');
+  assert.match(sdk, /open: \(ref, o\) => call\('objects\.open', \{ ref, newTab: Boolean\(o && o\.newTab\) \}\)/);
+  assert.match(sdk, /open: \(hash, o\) => call\('page\.open', \{ hash, newTab: Boolean\(o && o\.newTab\) \}\)/);
+  // The two tiles ask for a new tab on Ctrl, Cmd, Shift or the middle button, for a day, an event and a task.
+  for (const [id, sel] of [['calendar', 'data-event'], ['todo', 'data-task']]) {
+    const w = fs.readFileSync(path.join(ROOT, `modules/${id}/src/${id}-widget.js`), 'utf8');
+    assert.match(w, /const newTab = Boolean\(e\.ctrlKey \|\| e\.metaKey \|\| e\.shiftKey \|\| e\.button === 1\);/, `${id}: a new tab on a modifier or the middle button`);
+    assert.match(w, /root\.addEventListener\('auxclick', \(e\) => \{ if \(e\.button === 1\) opened\(e\); \}\);/, `${id}: the middle button`);
+    assert.match(w, /host\.objects\.open\([^\n]*\{ newTab \}\)/, `${id}: the object, with the wish`);
+    assert.match(w, /if \(e\.key !== 'Enter' \|\| !\(e\.ctrlKey \|\| e\.metaKey\)/, `${id}: Ctrl or Cmd + Enter from the keyboard`);
+    assert.ok(w.includes(`'${sel}'`) || w.includes(`[${sel}]`), `${id}: its objects`);
+  }
+  assert.match(fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar-widget.js'), 'utf8'), /host\.page\.open\('day=' \+ day\.dataset\.day, \{ newTab \}\)/, 'calendar: a day, with the wish');
+  // The Planner has no tile on home (decision 22); the Polls tile is still there.
+  const manifest = (id) => JSON.parse(fs.readFileSync(path.join(ROOT, `modules/${id}/module.json`), 'utf8'));
+  assert.equal(manifest('travel').surfaces.widget, undefined, 'no Trips tile');
+  assert.ok(manifest('polls').surfaces.widget, 'the Polls tile stays');
 });
 
 // The space page's own functions, cut from the source and run against stand-ins: home over the space, and a page over it.

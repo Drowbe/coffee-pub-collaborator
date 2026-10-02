@@ -5337,8 +5337,8 @@ function geocodeSetup(manifest) {
   if (chosen === g.custom && typeof values[g.address] === 'string' && /^https?:\/\//i.test(values[g.address])) return { name: 'the search service', address: values[g.address], credit: '', save: g.save ? values[g.save] === true : false };
   return null;
 }
-// A link someone is adding: the server reads that page's title, description and image. Off until the module's
-// linkPreviews setting is on, because the request leaves this server for an address the person typed.
+// A link someone is adding: the server reads that page's title, description and image. Fetched only while the
+// module's linkPreviews setting resolves true (the manifest default applies when nothing is saved), because the request leaves this server for an address the person typed.
 // The picture from a link preview, fetched here and sent to the card. A browser asking the other site for it is often refused.
 app.get('/api/modules/:id/link-image', async (req, res) => {
   const ctx = moduleAccess(req, res, 'read');

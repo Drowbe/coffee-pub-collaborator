@@ -1,24 +1,25 @@
 // The registry behind both nav bars (documentation/plans/plan-nav.md, "Modules register into the bars";
 // documentation/architecture/architecture-navigation.md). The primary nav (brand.js) and the secondary (space.js) each
-// attach their three zones here and register their own controls as tools; a module's tools arrive through
+// attach their two zones here (plan-two-zone-nav.md: a left zone and a right zone, no middle) and register their own
+// controls as tools; a module's tools arrive through
 // module-host.js under the module's own namespace. One drawing path: the host draws every tool and owns its look, so a
 // module never hands over markup, and the page's own controls are registrations of the same shape as a module's.
 //
-// A tool is { id, bar: 'primary' | 'secondary', zone: 'left' | 'middle' | 'right', icon, label, title?, order?, group?,
+// A tool is { id, bar: 'primary' | 'secondary', zone: 'left' | 'right', icon, label, title?, order?, group?,
 // groupOrder?, href? | onClick?, visible?, toggleable?, active?, badge? }, plus, for the page's own tools only,
 // `phone: 'bar'` (a primary tool that stays in the bar on a phone instead of folding into the menu: the bell),
 // `element` (an element the registry places and orders but does not draw: the snap slider, the clock, your picture),
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
-// (the icon a toggle shows while it is on: full screen's compress). A secondary middle-zone tool may also give `fit(avail)`: the
-// fold (below) calls it with the width the middle may take before it folds anything, and the tool shrinks to fit (who
-// is here drops portraits, then shows only its count). `register()` returns the element drawn, which lives
+// (the icon a toggle shows while it is on: full screen's compress). A secondary left-zone tool may also give `fit(avail)`:
+// the fold (below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
+// (Online, who is here: its names become the count, then portraits drop, then it shows only the short count). `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
 // The pure parts (the bands, the sort, the visibility rule, the cleaning of a module's registration) touch no document,
 // so tools/check-nav.mjs runs them in node.
 
 const BARS = ['primary', 'secondary'];
-const ZONES = ['left', 'middle', 'right'];
+const ZONES = ['left', 'right'];
 
 // Where an order lands: the system's core tools first, then its secondary and utility ones, a module's own after
 // them, and 999 for the one thing that goes last (Leave). Nobody coordinates numbers across modules: a module's
@@ -80,9 +81,10 @@ export function arrange(list) {
 
 // A module's registration, checked and namespaced. Ids, groups and orders are the module's own (`<module>:<id>`,
 // `<module>:<group>`, orders clamped into the module band), so a module can neither touch another's tools nor the
-// system's, nor get ahead of them. Every module tool goes in the space bar (the secondary), in any zone: a module never
-// places a tool in the top bar (plan-primary-nav.md, decision 10). A tool written for the old contract, with
-// bar: 'primary' or system: true, is not refused; both are ignored and it lands in the space bar like any other.
+// system's, nor get ahead of them. Every module tool goes in the space bar's right zone (the secondary), where it can
+// fold: a module never places a tool in the top bar (plan-primary-nav.md, decision 10) nor in the space bar's left zone
+// (plan-two-zone-nav.md, decision 5). A tool written for an older contract, with bar: 'primary', system: true or any
+// `zone` ('left', 'middle'), is not refused; all three are ignored and it lands in the right zone like any other.
 // Throws with a status on anything else, so the module hears why.
 const TOOL_ID = /^[a-z][a-z0-9-]{0,39}$/;
 const ICON = /^[a-z0-9-]{1,40}$/;
@@ -99,8 +101,8 @@ export function cleanModuleTools(moduleId, tools) {
     if (!TOOL_ID.test(id)) refuse(`a nav tool needs an id of letters, digits and hyphens (got "${id.slice(0, 40)}")`);
     if (seen.has(id)) refuse(`nav tool "${id}" is listed twice`);
     seen.add(id);
-    const bar = 'secondary'; // `bar` and `system` are not read: the host decides where a module's tools go
-    const zone = ZONES.includes(t.zone) ? t.zone : 'right';
+    const bar = 'secondary'; // `bar`, `system` and `zone` are not read: the host decides where a module's tools go
+    const zone = 'right';
     const icon = String(t.icon ?? '');
     if (!ICON.test(icon)) refuse(`nav tool "${id}" needs an icon (a Font Awesome name)`);
     const label = String(t.label ?? '').trim().slice(0, 40);
@@ -135,13 +137,13 @@ export function cleanModuleTools(moduleId, tools) {
 
 const tools = new Map(); // id -> tool (with seq)
 const els = new Map(); // id -> the element drawn (or placed) for it
-const bars = { primary: null, secondary: null }; // bar -> { el, zones: { left, middle, right } }
+const bars = { primary: null, secondary: null }; // bar -> { el, zones: { left, right }, place }
 let seq = 0;
 
-// On a phone the primary nav's middle and right zones fold into the one menu (the right zone's element, which the
-// stylesheet turns into the menu): the registry draws the middle's tools there, ahead of the right's, and back when
-// the window widens. Only a tool that says `phone: 'bar'` stays in the bar (the bell), drawn in the middle zone, which
-// is otherwise empty there; your picture folds in, last (brand.js shows it there with your name and the profile
+// On a phone the primary nav's right zone folds into the one menu (the right zone's element, which the stylesheet
+// turns into the menu), and back when the window widens. Only a tool that says `phone: 'bar'` stays in the bar (the
+// bell), drawn in the phone's place (`.nav-middle`, #core-nav: the top bar's middle element, empty and not drawn from
+// 641px, plan-two-zone-nav.md); your picture folds in, last (brand.js shows it there with your name and the profile
 // menu's entries after it).
 const phone = typeof window !== 'undefined' && typeof window.matchMedia === 'function' ? window.matchMedia('(max-width: 640px)') : null;
 if (phone) phone.addEventListener('change', () => draw('primary'));
@@ -150,12 +152,12 @@ export function has(bar) {
   return Boolean(bars[bar]);
 }
 
-// Tell the registry where a bar is: its element holds `.nav-left`, `.nav-middle` and `.nav-right`. Tools registered
-// before this are drawn now. The elements may later move to another document (the popped-out window takes the header
+// Tell the registry where a bar is: its element holds `.nav-left` and `.nav-right` (the top bar also `.nav-middle`,
+// #core-nav, the phone's place for the bell: nothing registers into it). Tools registered before this are drawn now. The elements may later move to another document (the popped-out window takes the header
 // with it); the registry follows them, since it keeps the elements, not selectors.
 export function attach(bar, el) {
   if (!BARS.includes(bar)) throw new Error(`no such bar: ${bar}`);
-  bars[bar] = { el, zones: Object.fromEntries(ZONES.map((z) => [z, el.querySelector(`.nav-${z}`)])) };
+  bars[bar] = { el, zones: Object.fromEntries(ZONES.map((z) => [z, el.querySelector(`:scope > .nav-${z}`)])), place: el.querySelector(':scope > .nav-middle') };
   if (bar === 'secondary') attachFold(el);
   draw(bar);
 }
@@ -163,7 +165,7 @@ export function attach(bar, el) {
 export function register(tool) {
   if (!tool || typeof tool.id !== 'string' || !tool.id) throw new Error('a nav tool needs an id');
   if (!BARS.includes(tool.bar)) throw new Error(`nav tool "${tool.id}": bar must be primary or secondary`);
-  if (!ZONES.includes(tool.zone)) throw new Error(`nav tool "${tool.id}": zone must be left, middle or right`);
+  if (!ZONES.includes(tool.zone)) throw new Error(`nav tool "${tool.id}": zone must be left or right`);
   const prev = tools.get(tool.id);
   const rec = { ...tool, seq: prev ? prev.seq : ++seq };
   tools.set(tool.id, rec);
@@ -224,16 +226,15 @@ export function setBadge(id, n) {
 }
 
 // The primary bar's zones on a phone (plan-primary-nav.md, decision 7: the logo, the anchor, the bell and the menu
-// button): the left stays; a middle or right tool that says `phone: 'bar'` (the bell) stays in the bar, drawn in the
-// middle zone; everything else from the middle and then the right goes into the menu, which is the right zone's
-// element. Each zone is a list of runs, each run arranged on its own, so the middle's tools stay ahead of the right's
-// whatever their orders. Pure, for check-nav.
+// button): the left stays; a right tool that says `phone: 'bar'` (the bell) stays in the bar, drawn in the phone's
+// place (`bar`: #core-nav); everything else from the right goes into the menu, which is the right zone's element. Each
+// is a list of runs, each run arranged on its own. Pure, for check-nav.
 export function phoneZones(byZone) {
   const stays = (t) => t.phone === 'bar';
   return {
     left: [byZone.left],
-    middle: [[...byZone.middle, ...byZone.right].filter(stays)],
-    right: [byZone.middle.filter((t) => !stays(t)), byZone.right.filter((t) => !stays(t))],
+    bar: [byZone.right.filter(stays)],
+    right: [byZone.right.filter((t) => !stays(t))],
   };
 }
 
@@ -250,26 +251,24 @@ export function draw(bar) {
   // Phone or not is the bar's own window (a popped-out header is in a window of its own width; space.js redraws it there).
   const view = doc.defaultView;
   const fold = bar === 'primary' && Boolean(view && typeof view.matchMedia === 'function' ? view.matchMedia('(max-width: 640px)').matches : phone && phone.matches);
-  const byZone = { left: [], middle: [], right: [] };
+  const byZone = { left: [], right: [] };
   for (const t of tools.values()) if (t.bar === bar) byZone[t.zone].push(t);
-  for (const z of ZONES) {
-    const zone = b.zones[z];
+  const targets = { ...b.zones, bar: b.place };
+  for (const zone of Object.values(targets)) {
     if (!zone) continue;
     for (const d of zone.querySelectorAll(':scope > [data-nav-divider]')) d.remove();
   }
-  const runs = fold ? phoneZones(byZone) : Object.fromEntries(ZONES.map((z) => [z, [byZone[z]]]));
-  const lists = {};
-  for (const z of ZONES) lists[z] = runs[z].flatMap((run) => flatten(run, doc));
-  for (const z of ZONES) if (b.zones[z]) place(b.zones[z], lists[z]);
+  const runs = fold ? phoneZones(byZone) : { left: [byZone.left], right: [byZone.right], bar: [] };
+  for (const [z, list] of Object.entries(runs)) if (targets[z]) place(targets[z], list.flatMap((run) => flatten(run, doc)));
   if (bar === 'secondary') scheduleFold();
 }
 
 // --- drawing -------------------------------------------------------------------------------------
 
-// The look is the host's, by where the tool is: the primary nav's middle zone is the core navigation (an icon and its
-// name), everywhere else a tool is an icon button with its name as the tooltip and for a screen reader, unless the
+// The look is the host's, by where the tool is: the primary nav's left zone is the core navigation (an icon and its
+// name: the destinations; plan-two-zone-nav.md), everywhere else a tool is an icon button with its name as the tooltip and for a screen reader, unless the
 // page marked it `labelled`. Every class here already exists in the stylesheet; nothing new is styled.
-const lookOf = (t) => (t.bar === 'primary' && t.zone === 'middle' ? 'core' : t.labelled ? 'labelled' : 'icon');
+const lookOf = (t) => (t.bar === 'primary' && t.zone === 'left' ? 'core' : t.labelled ? 'labelled' : 'icon');
 const LOOK_CLASSES = { core: ['core-link'], labelled: ['btn', 'btn-small'], icon: ['icon-link'] };
 const PLAIN_ID = /^[a-z][a-z0-9-]*$/;
 
@@ -422,8 +421,8 @@ function place(container, list) {
 // a "..." (More) just before Leave, and come back as the bar widens. Which fold first is by band, each band from its
 // end: the secondary tools (Pop out, then Full screen), then a module's own, then the core ones (the snap switch with
 // its grid slider, then Dock all), then the utility ones (Rejoin call, then Pull participants back). Leave (the last
-// band) never folds, a tool that says `fold: false` never does, and nothing in the left or middle zone does: the
-// space's name is cut short with an ellipsis instead, once everything that can fold has. An `element` tool with no
+// band) never folds, a tool that says `fold: false` never does, and nothing in the left zone does: a tool there that can
+// shrink (`fit`: Online) gives way first, before anything here folds. An `element` tool with no
 // click of its own (the grid slider) folds with the tool before it, the one it belongs to. On a phone the bar is the
 // tab bar and none of this applies.
 //
@@ -448,31 +447,21 @@ export function foldSteps(list) {
   return steps.map((s) => s.ids);
 }
 
-// How many of those steps to fold for the bar to fit. `width` is the bar's inner width, `gap` the gap between its
-// zones, `middle` the middle zone's width (0 when it shows nothing), `left` and `right` the zones' natural widths with
-// nothing folded (the left one with the space's name at its full length), `more` what the "..." adds to the right zone
-// once it shows, and `steps` the widths the steps free, in folding order. With something in the middle it is centred
-// on the row while the left zone fits its half (`middleCentred`), and the right zone then has the other half; when the
-// name is too long for that, the middle gives up the centre and the three zones share the row. With nothing in the
-// middle, the two zones share the row. The name is cut short only once everything that can fold has: folds everything
+// The width a left-zone tool that can shrink (`fit`: Online) may take before anything folds: the bar's inner width
+// (`width`), less the gap between the two zones (`gap`), the right zone at its natural width with nothing folded
+// (`right`, with its margins: its column is as wide as that) and the rest of the left zone (`left`: its padding, the
+// Modules button, the divider and the gaps, the one before the tool too). A tool given exactly this width folds nothing
+// (foldCount). Pure, for check-nav.
+export function fitWidth({ width, gap = 0, left = 0, right = 0 }) {
+  return width - gap - left - right;
+}
+// How many of those steps to fold for the bar to fit. `width` is the bar's inner width, `gap` the gap between its two
+// zones, `left` the left zone's width once its fitting tool has shrunk (its box: its max-width is its column's), `right`
+// the right zone's natural width with nothing folded, `more` what the "..." adds to the right zone once it shows, and
+// `steps` the widths the steps free, in folding order. The left zone takes what the right does not; folds everything
 // when even that does not fit. Pure, for check-nav.
-export function middleCentred({ width, gap = 0, middle = 0, left = 0 }) {
-  return middle > 0 && left <= (width - middle) / 2 - gap + 0.5;
-}
-// The width the middle zone may take with the left and right zones at their natural widths (nothing folded, the name
-// at its full length), in the layout foldCount works out: centred, each side of it as wide as the wider zone; or, when
-// the left zone is the wider one (a long name), beside it, the three sharing the row, which leaves
-// the middle more. A middle tool that can shrink (`fit`) gets this, so it gives way first: before anything on the right
-// folds and before the name is cut. The grid has two gaps whatever the middle holds. `left` is the left zone's own
-// width (its box, not its margins: its max-width is its column's), `right` the right zone's with its margins (its
-// column is as wide as that). Pure, for check-nav.
-export function middleWidth({ width, gap = 0, left = 0, right = 0 }) {
-  if (left > right) return width - left - right - 2 * gap;
-  return width - 2 * (Math.max(left, right) + gap);
-}
-export function foldCount({ width, gap = 0, middle = 0, left = 0, right = 0, more = 0, steps = [] }) {
-  const centred = middleCentred({ width, gap, middle, left });
-  const fits = (r) => (centred ? r <= (width - middle) / 2 - gap + 0.5 : left + middle + r + 2 * gap <= width + 0.5);
+export function foldCount({ width, gap = 0, left = 0, right = 0, more = 0, steps = [] }) {
+  const fits = (r) => left + r + gap <= width + 0.5;
   if (fits(right)) return 0;
   let r = right + more;
   for (let k = 0; k < steps.length; k += 1) {
@@ -517,7 +506,7 @@ function scheduleFold() {
 }
 
 // Watch what can change the width the bar has to work with, in whichever window it is in now (the header moves to a popped-out
-// window): the bar's width, and the left and middle zones' content (the space's name arriving, the words loading).
+// window): the bar's width, and the left zone's content (the words loading, Online's people coming and going).
 function watchFold(view) {
   if (fold.view === view) return;
   if (fold.observer) fold.observer.disconnect();
@@ -527,7 +516,7 @@ function watchFold(view) {
     fold.observer = new view.ResizeObserver(() => scheduleFold());
     fold.observer.observe(fold.el);
     const b = bars.secondary;
-    for (const z of ['left', 'middle']) if (b && b.zones[z]) fold.observer.observe(b.zones[z]);
+    if (b && b.zones.left) fold.observer.observe(b.zones.left);
   }
   view.addEventListener('resize', scheduleFold);
   view.matchMedia('(max-width: 640px)').addEventListener('change', scheduleFold);
@@ -543,9 +532,9 @@ const px = (v) => parseFloat(v) || 0;
 
 // A zone's natural width: its shown children side by side with its gap between them, plus the zone's own padding and
 // margins (the header's zones carry both, style.css `.topbar .nav-left`). Measured while the bar is
-// `nav-measuring` (style.css), when nothing in it shrinks, so the space's name counts at its full width (up to its
-// max-width) even when it is cut short right now.
+// `nav-measuring` (style.css), when nothing in it shrinks, so each item counts at its full width.
 // `margins: false` for the left zone: its max-width (100%, style.css) holds its box, not its margins, to its column.
+// `n` is how many children counted, so a caller leaving one out (`skip`) knows whether a gap goes before it.
 function naturalWidth(zone, skip, { margins = true } = {}) {
   const view = zone.ownerDocument.defaultView;
   const zs = view.getComputedStyle(zone);
@@ -557,7 +546,7 @@ function naturalWidth(zone, skip, { margins = true } = {}) {
     w += c.getBoundingClientRect().width;
     n += 1;
   }
-  return { w: w + gap * Math.max(0, n - 1), gap };
+  return { w: w + gap * Math.max(0, n - 1), gap, n };
 }
 
 function fitSecondary() {
@@ -577,8 +566,6 @@ function fitSecondary() {
   const width = el.clientWidth - px(cs.paddingLeft) - px(cs.paddingRight);
   const phoneNow = view.matchMedia('(max-width: 640px)').matches;
   let ids = new Set();
-  let middle = 0;
-  let leftWidth = 0;
   if (!phoneNow && width > 0 && shownEl(el)) {
     const list = [...tools.values()].filter((t) => t.bar === 'secondary' && t.zone === 'right' && els.has(t.id));
     const inOrder = [...right.children].map((c) => c.dataset && c.dataset.navTool).filter(Boolean).map((id) => tools.get(id)).filter((t) => t && list.includes(t));
@@ -586,25 +573,22 @@ function fitSecondary() {
     const r = naturalWidth(right, fold.more);
     const stepWidths = steps.map((s) => s.reduce((sum, id) => sum + els.get(id).getBoundingClientRect().width + r.gap, 0));
     const moreWidth = px(view.getComputedStyle(fold.more).width) + r.gap;
-    // A middle tool that can give way (`fit`, the space bar's who is here) is told what it may take, and gives it
-    // before anything here folds or the name is cut: what the left and right zones leave at their full widths
-    // (middleWidth: centred, or beside a name too long to centre on).
-    // Its box (not its negative margin), rounded up: the name's cut is counted in whole pixels.
-    leftWidth = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
-    const avail = middleWidth({ width, gap: px(cs.columnGap), left: leftWidth, right: r.w });
-    for (const t of tools.values()) {
-      if (t.bar !== 'secondary' || t.zone !== 'middle' || typeof t.fit !== 'function' || !els.has(t.id)) continue;
+    // A left tool that can give way (`fit`, the space bar's Online) is told what it may take, and gives it before
+    // anything here folds: what the rest of the left zone and the right zone at its full width leave (fitWidth).
+    const gap = px(cs.columnGap);
+    const fitting = b.zones.left ? [...tools.values()].filter((t) => t.bar === 'secondary' && t.zone === 'left' && typeof t.fit === 'function' && els.has(t.id) && shownEl(els.get(t.id))) : [];
+    for (const t of fitting) {
+      const rest = naturalWidth(b.zones.left, els.get(t.id), { margins: false });
+      const avail = fitWidth({ width, gap, left: rest.w + (rest.n ? rest.gap : 0), right: r.w });
       try { t.fit(avail); } catch { /* a tool that cannot measure keeps its size */ }
     }
-    middle = b.zones.middle ? b.zones.middle.getBoundingClientRect().width : 0;
-    const k = foldCount({ width, gap: px(cs.columnGap), middle, left: leftWidth, right: r.w, more: moreWidth, steps: stepWidths });
+    // The left zone as it is now (its box, not its negative margin), rounded up: a cut is counted in whole pixels.
+    const leftWidth = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
+    const k = foldCount({ width, gap, left: leftWidth, right: r.w, more: moreWidth, steps: stepWidths });
     ids = new Set(steps.slice(0, k).flat());
   }
   el.classList.remove('nav-measuring');
   for (const id of ids) els.get(id).classList.add(FOLDED);
-  // With nothing in the middle, or a name too long for the middle to stay centred, the left zone takes whatever the others do not.
-  if (phoneNow || middleCentred({ width, gap: px(cs.columnGap), middle, left: leftWidth })) delete el.dataset.middle;
-  else el.dataset.middle = middle > 0 ? 'beside' : 'empty';
   const heldBefore = fold.ids;
   fold.ids = ids;
   fold.more.hidden = ids.size === 0;
@@ -674,5 +658,5 @@ async function openFoldMenu() {
   openHostMenu(fold.more, items);
 }
 
-export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, isShown, phoneZones, foldSteps, foldCount, middleCentred, middleWidth, cleanModuleTools, bandOf, BANDS };
+export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, isShown, phoneZones, foldSteps, foldCount, fitWidth, cleanModuleTools, bandOf, BANDS };
 export default nav;

@@ -21,15 +21,15 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, isShown, foldSteps, foldCount, middleCentred, middleWidth } = await import(pathToFileURL(copy).href);
-// Who is here (the space bar's middle zone) gives way before the bar folds; its fitting and its reading of the call are pure.
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
+// Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the call are pure.
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
 const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFileURL(peopleCopy).href);
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { SLOTS, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
+const { SLOTS, pageAnchor, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
 // The server's presence by membership (plan-primary-nav.md, step 3), so the pages' reading is held against the real answer.
 const { presenceView } = createRequire(import.meta.url)('../server/presence-view.js');
 fs.rmSync(tmp, { recursive: true, force: true });
@@ -137,7 +137,7 @@ test('a module\'s tools are namespaced: ids and groups carry the module id, and 
   assert.equal(t.visible, true);
   assert.equal(t.title, 'Only my tasks');
   const [u] = cleanModuleTools('todo', [{ id: 'all', icon: 'list', label: 'All', zone: 'middle', order: 200, groupOrder: 150, toggleable: true, active: true, badge: 3, visible: false }]);
-  assert.equal(u.zone, 'middle');
+  assert.equal(u.zone, 'right', 'a module tool naming the middle lands in the right zone, not refused (plan-two-zone-nav.md)');
   assert.equal(u.order, 200);
   assert.equal(u.groupOrder, 150);
   assert.equal(u.toggleable, true);
@@ -178,7 +178,9 @@ test('a module never places a tool in the top bar: bar: \'primary\' and system: 
   assert.ok(!('system' in t), 'system is not carried');
   const [u] = cleanModuleTools('m', [{ ...tool, zone: 'middle' }], { allowPrimary: true });
   assert.equal(u.bar, 'secondary', 'even with the old option passed, nothing reaches the top bar');
-  assert.equal(u.zone, 'middle');
+  assert.equal(u.zone, 'right');
+  // plan-two-zone-nav.md, step 5: every module tool goes in the space bar's right zone, where it can fold; `zone` is not read.
+  for (const zone of ['left', 'middle', 'right', 'nowhere', undefined]) assert.equal(cleanModuleTools('m', [{ id: 'a', icon: 'x', label: 'x', zone }])[0].zone, 'right', `zone ${zone}: the right zone`);
   const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   const hostSrc = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
   assert.ok(!/allowPrimary/.test(navSrc + hostSrc), 'allowPrimary is gone from nav-bar.js and module-host.js');
@@ -189,13 +191,15 @@ test('on a phone the primary bar folds: the left stays, the bell stays (phone: \
   const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
   const byZone = {
     left: [t('spaces-slot', 'left', { order: 1 }), t('topbar-crumb', 'left', { order: 2 })],
-    middle: [t('mid', 'middle', { order: 1 })],
     right: [t('menu-home', 'right', { order: 2 }), t('notifications-bell', 'right', { order: 90, phone: 'bar' }), t('whoami-link', 'right', { group: 'you', order: 999 }), t('account-profile', 'right', { group: 'you', order: 999 })],
   };
   const z = phoneZones(byZone);
   assert.deepEqual(z.left.map((run) => run.map((x) => x.id)), [['spaces-slot', 'topbar-crumb']], 'the left zone stays (Spaces hides itself there)');
-  assert.deepEqual(z.middle.map((run) => run.map((x) => x.id)), [['notifications-bell']], 'only the bell stays in the bar, in the middle zone');
-  assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [['mid'], ['menu-home', 'whoami-link', 'account-profile']], 'the middle run first, then the right, without the bell');
+  assert.deepEqual(z.bar.map((run) => run.map((x) => x.id)), [['notifications-bell']], 'only the bell stays in the bar, in the phone\'s place (#core-nav)');
+  assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [['menu-home', 'whoami-link', 'account-profile']], 'everything else from the right, without the bell, in the menu');
+  assert.ok(!('middle' in z), 'no middle zone (plan-two-zone-nav.md)');
+  const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  assert.match(navSrc, /place: el\.querySelector\(':scope > \.nav-middle'\)/, 'the top bar\'s #core-nav is where the phone\'s bell is drawn');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.match(brand, /id: 'notifications-bell'[^\n]*phone: 'bar'/, 'the bell says phone: \'bar\'');
   for (const id of ['spaces-slot']) assert.match(brand, new RegExp(`id: '${id}'[^\\n]*visible: \\(\\) => wide\\(\\) && signedIn\\(\\)`), `${id} leaves the bar on a phone`);
@@ -268,25 +272,23 @@ test('the space bar folds by band, each from its end: secondary, a module\'s, co
   assert.deepEqual(foldSteps([{ id: 'e', order: 5, element: {} }]), [['e']], 'an element with nothing before it folds on its own');
 });
 
-test('the space bar folds only as much as it must, with and without something in the middle', () => {
+test('the space bar folds only as much as it must: two zones, the left taking what the right does not', () => {
   const steps = [40, 40, 120];
-  // Nothing in the middle: the zones share the row (two grid gaps of 12).
+  // One grid gap of 12 between the two zones.
   assert.equal(foldCount({ width: 1000, gap: 12, left: 300, right: 300, more: 30, steps }), 0);
+  assert.equal(foldCount({ width: 612, gap: 12, left: 300, right: 300, more: 30, steps }), 0, 'exactly full: nothing folds');
+  assert.equal(foldCount({ width: 611, gap: 12, left: 300, right: 300, more: 30, steps }), 1, 'a pixel short: one step folds');
   assert.equal(foldCount({ width: 600, gap: 12, left: 300, right: 300, more: 30, steps: [20, 20, 120] }), 3, 'the "..." takes width too: 300+30-20-20 is still too wide');
   assert.equal(foldCount({ width: 600, gap: 12, left: 300, right: 300, more: 30, steps }), 2);
   assert.equal(foldCount({ width: 700, gap: 12, left: 300, right: 420, more: 30, steps: [100, 40] }), 1);
-  // Something in the middle: it stays centred, so the right zone has half of what it leaves.
-  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 100, right: 388, more: 30, steps }), 0);
-  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 100, right: 389, more: 30, steps }), 1);
-  // A name too long for its half: the middle gives up the centre and the right zone folds before the name is cut.
-  assert.equal(middleCentred({ width: 1000, gap: 12, middle: 200, left: 388 }), true);
-  assert.equal(middleCentred({ width: 1000, gap: 12, middle: 200, left: 389 }), false);
-  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 500, right: 250, more: 30, steps }), 0, 'all three fit side by side: nothing folds');
-  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 500, right: 300, more: 30, steps }), 2, 'the right zone folds for the name');
-  assert.equal(foldCount({ width: 1000, gap: 12, middle: 200, left: 900, right: 100, more: 30, steps }), 3, 'everything folds before the name is cut');
   // Nothing fits: everything that can fold does, and no more.
   assert.equal(foldCount({ width: 100, gap: 12, left: 300, right: 300, more: 30, steps }), 3);
   assert.equal(foldCount({ width: 100, gap: 12, left: 300, right: 300, more: 30, steps: [] }), 0);
+  // A middle, if anyone still passes one, is not read.
+  assert.equal(foldCount({ width: 612, gap: 12, middle: 500, left: 300, right: 300, more: 30, steps }), 0);
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  assert.ok(!/middleCentred|middleWidth|dataset\.middle/.test(src), 'middleCentred(), middleWidth() and data-middle are gone');
+  assert.match(src, /^const ZONES = \['left', 'right'\];/m, 'two zones');
 });
 
 test('the space bar\'s "..." uses the shared menu, shows a toggle\'s state and clicks the tool itself', () => {
@@ -321,34 +323,67 @@ test('who is here drops portraits, then shows only its count, before the bar fol
   assert.equal(facesThatFit({ avail: 500, count: 0, ...sizes }), 0);
 });
 
-test('who is here gets the width the left and right zones leave, so it shrinks before a tool folds or the name is cut', () => {
+test('Online gets the width the rest of the left zone and the right zone leave, so it shrinks before anything folds', () => {
   const steps = [40, 40, 120];
-  // Centred: each side as wide as the wider zone.
-  assert.equal(middleWidth({ width: 1000, gap: 12, left: 100, right: 300 }), 1000 - 2 * (300 + 12));
-  // A long name (the left zone wider than the right): the middle sits beside it, and has what the two leave, not what
-  // the right zone alone would leave centred (1000 - 2 * (250 + 12) = 476, far more than the row holds).
-  assert.equal(middleWidth({ width: 1000, gap: 12, left: 500, right: 250 }), 1000 - 500 - 250 - 2 * 12, 'two grid gaps, whatever the middle holds');
-  assert.ok(middleWidth({ width: 1000, gap: 12, left: 500, right: 250 }) < 1000 - 2 * (250 + 12));
-  // A middle that takes exactly that width folds nothing, centred or beside; a little more folds the right zone.
-  for (const [left, right] of [[100, 300], [300, 100], [500, 250], [700, 120], [306, 300]]) {
-    const middle = middleWidth({ width: 1000, gap: 12, left, right });
-    assert.equal(foldCount({ width: 1000, gap: 12, middle, left, right, more: 30, steps }), 0, `left ${left}, right ${right}: nothing folds`);
-    assert.ok(foldCount({ width: 1000, gap: 12, middle: middle + 2, left, right, more: 30, steps }) > 0, `left ${left}, right ${right}: a little more folds`);
+  // The bar's width, less the gap between the zones, the right zone at its full width and the rest of the left zone.
+  assert.equal(fitWidth({ width: 1000, gap: 12, left: 140, right: 300 }), 1000 - 12 - 140 - 300);
+  // A tool that takes exactly that width folds nothing; a little more folds the right zone.
+  for (const [width, rest, right] of [[1000, 140, 300], [800, 140, 230], [641, 140, 201], [700, 130, 420]]) {
+    const w = fitWidth({ width, gap: 12, left: rest, right });
+    assert.equal(rest + w + right + 12, width, `${width}: the rest, the tool, the right zone and the gap fill the row`);
+    assert.equal(foldCount({ width, gap: 12, left: rest + w, right, more: 30, steps }), 0, `${width}: nothing folds at that width`);
+    assert.ok(foldCount({ width, gap: 12, left: rest + w + 2, right, more: 30, steps }) > 0, `${width}: a little more folds the right zone`);
   }
-  // The long name at 800 wide: with this width four portraits no longer fit, the count alone does, and nothing folds.
+  // At 641 with the right zone wide (Rejoin call and Pull participants back showing), the portraits go first.
   const sizes = { base: 60, first: 26, step: 17, plus: 24 };
-  const avail = middleWidth({ width: 800, gap: 12, left: 440, right: 230 });
-  assert.equal(avail, 800 - 440 - 230 - 24);
-  // Exact, so the name is never cut while portraits show: beside a long name, the middle, the left and right zones and
-  // the two gaps fill the row to the pixel and nothing folds; a pixel more on the left and the right zone folds.
-  for (const [width, left, right] of [[844, 453, 215], [842, 453, 215], [700, 420, 200], [1000, 600, 120]]) {
-    const m = middleWidth({ width, gap: 12, left, right });
-    assert.equal(left + m + right + 2 * 12, width, `${width}: the three and two gaps fill the row`);
-    assert.equal(foldCount({ width, gap: 12, middle: m, left, right, more: 30, steps }), 0, `${width}: nothing folds at that width`);
-    assert.ok(foldCount({ width, gap: 12, middle: m, left: left + 2, right, more: 30, steps }) > 0, `${width}: a wider name folds the right zone`);
+  assert.equal(facesThatFit({ avail: fitWidth({ width: 641, gap: 12, left: 140, right: 420 }), count: 9, ...sizes }), 0, 'the count alone');
+  // The fold gives it that width, measured from the rest of the left zone (the tool itself left out, a gap before it).
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
+  assert.match(fit, /t\.zone === 'left' && typeof t\.fit === 'function'/, 'a left-zone tool that can shrink');
+  assert.match(fit, /const rest = naturalWidth\(b\.zones\.left, els\.get\(t\.id\), \{ margins: false \}\);/);
+  assert.match(fit, /fitWidth\(\{ width, gap, left: rest\.w \+ \(rest\.n \? rest\.gap : 0\), right: r\.w \}\)/);
+  assert.ok(fit.indexOf('t.fit(avail)') < fit.indexOf('const leftWidth'), 'the left zone is measured after it has shrunk');
+  assert.match(fit, /foldCount\(\{ width, gap, left: leftWidth, right: r\.w, more: moreWidth, steps: stepWidths \}\)/);
+});
+
+test('the space bar in two zones: Modules, then Online, on the left; one colour; no #subnav-middle', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.ok(!/subnav-middle|nav-middle/.test(space), 'the space bar\'s markup has no middle');
+  assert.match(space, /<div class="nav-left subnav-left"><\/div>\n  <span class="nav-right subnav-tools"><\/span>/);
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1,/);
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false,[^\n]*fit: whoHere\.fit,/, 'Online after Modules, never folding, with fit');
+  // In drawing order, Modules then Online, two groups (a divider between).
+  const left = arrange([{ id: 'who-here', group: 'people', groupOrder: 2, order: 1, seq: 1 }, { id: 'module-chooser', group: 'modules', order: 1, seq: 2 }]);
+  assert.deepEqual(ids(left), [['module-chooser'], ['who-here']]);
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  const dest = fs.readFileSync(path.join(ROOT, 'public/destination.css'), 'utf8');
+  assert.match(css, /body\.in-space \.subnav \{\s*display: grid;\s*grid-column: 1 \/ -1;[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/, 'the left zone takes what the right does not');
+  assert.ok(!/data-middle|subnav-middle/.test(css + dest), 'no data-middle and no #subnav-middle rules');
+  assert.ok(!/\.subnav[^{,]*\.nav-middle/.test(css + dest), 'no rule for a middle in the space bar or a page bar');
+  assert.match(dest, /body\.destination-page \.subnav \{\s*display: grid;\s*grid-column: 1 \/ -1;\s*grid-template-columns: minmax\(0, 1fr\) auto;/, 'the destination page\'s bar too');
+  // One colour: the bar's own, and no rule gives either zone a background.
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  for (const [, sel, body] of plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!/background/.test(body)) continue;
+    for (const one of sel.split(',').map((x) => x.trim())) {
+      assert.ok(!/(^|\s)\.topbar \.nav-(left|right)$|\.subnav[^>]*\.nav-(left|right)$|\.subnav-(left|tools)$/.test(one), `no background on the space bar's zones (${one})`);
+    }
   }
-  assert.equal(facesThatFit({ avail, count: 9, ...sizes }), 0);
-  assert.equal(foldCount({ width: 800, gap: 12, middle: 60, left: 440, right: 230, more: 30, steps }), 0);
+  assert.match(css, /\n\.subnav \{[^}]*background: var\(--nav-secondary-bg\);/, 'the whole bar is --nav-secondary-bg');
+  // The phone's tab bar: Online's count follows the tabs in the left zone, no divider there.
+  assert.match(css, /body\.in-space \.subnav \.nav-left > \.who-here \{\s*align-self: stretch;/);
+  assert.match(css, /body\.in-space \.subnav \.nav-left > \.nav-divider \{\s*display: none;/);
+});
+
+test('the registry has two zones: register() refuses the middle, as any unknown zone', () => {
+  assert.throws(() => register({ id: 'x', bar: 'secondary', zone: 'middle', icon: 'x', label: 'x' }), /zone must be left or right/);
+  assert.throws(() => register({ id: 'x', bar: 'primary', zone: 'middle', icon: 'x', label: 'x' }), /zone must be left or right/);
+  assert.throws(() => register({ id: 'x', bar: 'secondary', zone: 'top', icon: 'x', label: 'x' }), /zone must be left or right/);
+  assert.ok(!('middleCentred' in navApi) && !('middleWidth' in navApi) && 'fitWidth' in navApi, 'the registry\'s object');
+  for (const f of ['brand.js', 'primary-nav.js', 'space.js', 'destination.js']) assert.ok(!/zone: 'middle'/.test(fs.readFileSync(path.join(ROOT, 'public', f), 'utf8')), `${f} registers nothing in a middle zone`);
+  const sdk = fs.readFileSync(path.join(ROOT, 'public/sdk/host.js'), 'utf8');
+  assert.match(sdk, /`zone` is ignored/, 'the SDK says a module\'s zone is ignored');
 });
 
 test('who is here reads the call: you first, then by name, never a hidden participant, "on the call" unless off', () => {
@@ -393,7 +428,7 @@ test('nothing around the space bar\'s lists cuts them off: no overflow but visib
   // header (.topbar), so a rule meant for the top bar's own zones (`.topbar .nav-left`) reaches the space bar's too
   // unless it is a child selector (`.topbar > .nav-left`): an `overflow: hidden` there hid the Modules list as it opened.
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  const around = ['subnav', 'subnav-left', 'subnav-middle', 'subnav-tools', 'nav-left', 'nav-middle', 'nav-right', 'module-chooser'];
+  const around = ['subnav', 'subnav-left', 'subnav-tools', 'page-bar', 'dest-bar', 'nav-left', 'nav-right', 'module-chooser', 'who-here'];
   const bad = [];
   for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (!/(^|[;\s])overflow(-[xy])?\s*:\s*(hidden|clip|auto|scroll)/.test(body)) continue;
@@ -413,8 +448,8 @@ test('nothing around the space bar\'s lists cuts them off: no overflow but visib
   assert.match(css, /\n\.topbar > \.nav-left \{\s*overflow: hidden;/, 'the top bar\'s own left zone still cuts a long breadcrumb');
 });
 
-test('the top bar\'s slots, left to right: logo, environment, Spaces, the anchor, then online people, the bell and the profile', () => {
-  assert.deepEqual(SLOTS, ['logo', 'environment', 'home', 'anchor', 'people', 'notifications', 'profile']);
+test('the top bar\'s slots, left to right: logo, environment, the destinations, Spaces, the anchor, then online people, the bell and the profile', () => {
+  assert.deepEqual(SLOTS, ['logo', 'environment', 'destinations', 'home', 'anchor', 'people', 'notifications', 'profile']);
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   const reg = (id) => {
     const m = brand.match(new RegExp(`nav\\.register\\(\\{ id: '${id}', bar: 'primary', zone: '(\\w+)'[^\\n]*?order: (\\d+)`));
@@ -423,7 +458,10 @@ test('the top bar\'s slots, left to right: logo, environment, Spaces, the anchor
   };
   const left = ['spaces-slot', 'topbar-crumb', 'topbar-status'].map(reg);
   assert.ok(left.every((t) => t.zone === 'left'), 'Spaces and the anchor are the left zone');
-  assert.deepEqual(left.map((t) => t.order), [1, 2, 3], 'Spaces, then the anchor');
+  assert.deepEqual(left.map((t) => t.order), [9, 10, 11], 'Spaces, then the anchor, after the destinations (orders 1 to 8)');
+  assert.match(brand, /id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where'/, 'Spaces in the group `where`, with the destinations');
+  const dests = destinationTools(Array.from({ length: 9 }, (_, i) => ({ id: `d${'abcdefghi'[i]}x`, name: `D${i}`, href: `/d${i}` })));
+  assert.ok(dests.every((d) => d.bar.zone === 'left' && d.bar.group === 'where' && d.bar.order < 9), 'every destination ahead of Spaces (at most 8)');
   const html = brand.slice(brand.indexOf('header.innerHTML = `'), brand.indexOf('nav.attach(\'primary\', header)'));
   assert.ok(html.indexOf('brand-logo') > -1 && html.indexOf('brand-logo') < html.indexOf('data-brand="environmentName"'), 'the logo box, then the environment\'s name, in the left zone\'s markup ahead of the tools');
   assert.ok(reg('notifications-bell').zone === 'right' && reg('whoami-link').zone === 'right', 'the bell and the profile are the right zone');
@@ -451,6 +489,7 @@ test('gone from the top bar: the clock, the lock or luggage icon beside the logo
   assert.ok(!/topbar-clock|startClock/.test(brand), 'no clock');
   assert.ok(!/id: 'spaces-link'|spacesTool/.test(brand), 'the Spaces slot replaced the spaces-link tool');
   assert.ok(!/zone: 'middle'/.test(brand), 'nothing of the system\'s in the middle zone');
+  assert.ok(!/zone: 'middle'/.test(fs.readFileSync(path.join(ROOT, 'public/primary-nav.js'), 'utf8')), 'the destinations are not in the middle zone either (plan-two-zone-nav.md)');
   assert.match(brand, /id: 'theme-mode-switch'[^\n]*visible: \(\) => inMenu\(\) && offers\('theme'\)/, 'the theme switch is in the phone menu only; the profile menu has Dark mode');
   assert.match(brand, /id: 'admin-link'[^\n]*visible: \(\) => inMenu\(\) && offers\('manage'\)/, 'Manage is in the phone menu only; the profile menu has it');
   assert.match(brand, /<img data-brand="icon"[^>]*><i [^>]*data-brand="home-icon"/, 'the uploaded logo and the home icon share one box');
@@ -895,13 +934,14 @@ test('closing a page opened from home keeps Away; Away clears only back on the s
   assert.match(back, /viewingHome = false;[\s\S]*setAway\(false\);/, 'returnToCanvas() clears Away');
 });
 
-// The top bar's destinations (plan-calendar-destination.md, step 5): a middle-zone entry per destination the server lists
-// for this viewer, none when it lists none; on a phone an entry in the menu after the Spaces slot's entries.
-test('destinations: an entry each in the middle zone, in the server\'s order, current on its own page', () => {
+// The top bar's destinations (plan-calendar-destination.md, step 5; plan-two-zone-nav.md, decision 2): a left-zone entry
+// per destination the server lists for this viewer, ahead of Spaces, none when it lists none; on a phone an entry in the
+// menu after the Spaces slot's entries.
+test('destinations: an entry each in the left zone, in the server\'s order, ahead of Spaces, current on its own page', () => {
   const list = [{ id: 'calendar', name: 'Calendar', icon: 'calendar-days', href: '/calendar' }, { id: 'map', name: 'Maps', icon: 'map', href: '/map' }];
   const t = destinationTools(list, { path: '/calendar' });
   assert.deepEqual(t.map((x) => x.bar.id), ['dest-calendar', 'dest-map']);
-  assert.ok(t.every((x) => x.bar.zone === 'middle' && x.bar.group === 'destinations'));
+  assert.ok(t.every((x) => x.bar.zone === 'left' && x.bar.group === 'where'), 'the left zone, in Spaces\' group: no divider between Map and Spaces');
   assert.deepEqual(t.map((x) => x.bar.order), [1, 2]);
   assert.deepEqual(t.map((x) => [x.bar.label, x.bar.icon, x.bar.href]), [['Calendar', 'calendar-days', '/calendar'], ['Maps', 'map', '/map']]);
   assert.deepEqual(t.map((x) => x.bar.current), [true, false]);
@@ -982,20 +1022,106 @@ test('destinations: on a phone the entry is in the menu after the Spaces slot\'s
     { id: 'menu-space-a', zone: 'right', group: 'menu-where', order: 3, seq: 6 },
     { id: 'menu-space-b', zone: 'right', group: 'menu-where', order: 4, seq: 7 },
   ];
-  const byZone = { left: [], middle: tools.filter((t) => t.zone === 'middle'), right: tools.filter((t) => t.zone === 'right') };
+  const byZone = { left: tools.filter((t) => t.zone === 'left'), right: tools.filter((t) => t.zone === 'right') };
   const z = phoneZones(byZone);
-  // The middle-zone entry is hidden on a phone (brand.js: visible only wider), so the menu's own entry is the one read.
+  // The left-zone entry is hidden on a phone (brand.js: visible only wider), so the menu's own entry is the one read.
   const menu = z.right.flatMap((run) => arrange(run).flatMap((g) => g.map((t) => t.id))).filter((id) => id !== 'dest-calendar');
   assert.deepEqual(menu, ['menu-environment', 'menu-home', 'menu-space-a', 'menu-space-b', 'menu-dest-calendar', 'menu-new-space']);
 });
-test('destinations: the middle zone is centred only from 1001px; narrower, the breadcrumb keeps its width', () => {
+test('the top bar is two zones: no middle centred from 1001px, the phone\'s place for the bell not drawn wider, the entries icons only from 641 to 820px', () => {
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /@media \(min-width: 1001px\) \{\s*\.topbar:has\(> \.nav-middle > :not\(\[hidden\]\)\) \{\s*grid-template-columns: minmax\(0, 1fr\) auto minmax\(0, 1fr\);/);
-  assert.ok(!/@media \(min-width: 641px\) \{\s*\.topbar:has\(> \.nav-middle/.test(css), 'not centred from 641px');
-  assert.match(css, /\.topbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto auto;/, 'below that the left zone takes the width');
-  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar \.nav-middle \.core-link \.core-label \{\s*display: none;/, 'from 641 to 820px the entries are their icons only');
+  assert.ok(!/min-width: 1001px/.test(css), 'no 1001px rule centring a middle zone');
+  assert.ok(!/\.topbar:has\(> \.nav-middle/.test(css), 'nothing reads what the middle holds');
+  assert.match(css, /\n\.topbar \{[^}]*grid-template-columns: minmax\(0, 1fr\) auto;/, 'the left zone takes what the right does not');
+  assert.match(css, /@media \(min-width: 641px\) \{\s*\.topbar > \.nav-middle \{\s*display: none;/, '#core-nav is the phone\'s place only');
+  assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar > \.nav-left > \.core-link\[data-destination\] \.core-label \{\s*display: none;/, 'from 641 to 820px the entries in the left zone are their icons only');
+  assert.ok(!/\.nav-middle \.core-link/.test(css), 'no rule for entries in a middle zone');
+  assert.match(css, /\.topbar > \.nav-left > \.core-link\[data-destination\] \{\s*flex: none;/, 'the destinations never shrink');
+  assert.match(css, /\.topbar \.crumb span,\s*\.topbar \.core-link \.core-label \{\s*font-size: inherit;/, 'their names keep their own size in the branding\'s zone');
   assert.match(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8'), /el\.title = tool\.label;/, 'and keep their name as the tooltip');
+  const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  assert.match(navSrc, /const lookOf = \(t\) => \(t\.bar === 'primary' && t\.zone === 'left' \? 'core'/, 'the core links\' look in the top bar\'s left zone');
+  const html = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.match(html, /<div class="nav-middle core-nav" id="core-nav"><\/div>/, '#core-nav kept, for the bell on a phone');
 });
+
+// The top bar holds places, not a breadcrumb (plan-two-zone-nav.md, decisions 7 and 10): only the space page adds
+// segments; every other page names itself in its page bar, and on a phone in the anchor, as a plain label.
+test('the anchor: nothing wider than a phone, the page\'s name as a plain label on one; only space.js sets segments', () => {
+  assert.equal(pageAnchor({ phone: false, name: 'Calendar', icon: 'calendar-days' }), null, 'wider: nothing (the entry is current, or the page bar names it)');
+  assert.deepEqual(pageAnchor({ phone: true, name: ' Calendar ', icon: 'calendar-days' }), { label: 'Calendar', icon: 'calendar-days', title: 'Calendar', current: 'page' });
+  assert.equal(pageAnchor({ phone: true, name: '' }), null, 'no name yet: nothing');
+  const read = (f) => fs.readFileSync(path.join(ROOT, 'public', f), 'utf8');
+  for (const f of ['destination.js', 'admin.js', 'profile.js', 'space-settings.js', 'ai-config.js', 'module-config.js', 'module.js', 'module-settings-page.js', 'host.js']) {
+    const src = read(f);
+    assert.ok(!/crumbLink\(/.test(src), `${f} calls no crumbLink()`);
+    assert.ok(!/setTopbarLocation\(/.test(src), `${f} sets no segment`);
+    assert.ok(!/renderTopbar\(\{[^}]*location: [^'}]/.test(src), `${f} passes renderTopbar() no location`);
+  }
+  assert.match(read('space.js'), /setTopbarLocation\(segs\.map/, 'the space page keeps its breadcrumb');
+  const brand = read('brand.js');
+  assert.ok(!/export function crumbLink/.test(brand), 'crumbLink() is gone with its last caller');
+  const paint = brand.slice(brand.indexOf('function paintPageAnchor('), brand.indexOf('\n}\n', brand.indexOf('function paintPageAnchor(')));
+  assert.match(paint, /pageAnchor\(\{ phone: onPhone\(\), name, icon \}\)/);
+  assert.ok(!/crumb-sep|<a /.test(paint), 'no separator, not a link');
+  assert.match(paint, /setAttribute\('aria-current', a\.current\)/);
+  const bar = brand.slice(brand.indexOf('export function renderPageBar('), brand.indexOf('function paintPageAnchor('));
+  assert.match(bar, /phoneQuery\.addEventListener\('change', paint\)/, 'painted again as the window crosses 640px');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, /\.topbar \.crumb \[aria-current="location"\],\s*\.topbar \.crumb \[aria-current="page"\] \{/, 'the label reads as the current place');
+});
+
+test('the page bar: one shared builder, its name first, a Manage link for owners and the admin, the page\'s tabs inside it', () => {
+  const read = (f) => fs.readFileSync(path.join(ROOT, 'public', f), 'utf8');
+  const brand = read('brand.js');
+  const bar = brand.slice(brand.indexOf('export function renderPageBar('), brand.indexOf('function paintPageAnchor('));
+  assert.ok(bar.length > 0, 'brand.js exports renderPageBar()');
+  assert.match(bar, /el\.className = `subnav page-bar\$\{/, 'a .subnav.page-bar row');
+  assert.match(bar, /nav\.attach\('secondary', el\)/, 'attached as the secondary bar, so it folds as the space bar does');
+  assert.match(bar, /'<div class="nav-left"><\/div><span class="nav-right"><\/span>'/, 'two zones');
+  assert.match(bar, /id: 'page-bar-name', bar: 'secondary', zone: 'left'[^\n]*visible: \(\) => !onPhone\(\) && Boolean\(state\.name\)/, 'the name in the left zone, not on a phone (the anchor has it)');
+  assert.match(bar, /id: 'page-bar-manage', bar: 'secondary', zone: 'left', group: 'page-manage', groupOrder: 1[^\n]*visible: \(\) => seesUpdates\(account\?\.role\)/, 'the Manage link first, owners and the admin only');
+  assert.match(bar, /href: keepingQuery\(manage\)/, 'keeping ?from=space');
+  assert.match(bar, /zone: 'left', group: 'page', order: 2 \+ i, fold: false, element: c/, 'the page\'s controls after the name, never folding');
+  assert.match(brand, /nav\.draw\(\); \/\/ both bars/, 'the Manage link appears once the role is known');
+  // Each page in the plan's table.
+  assert.match(read('admin.js'), /renderPageBar\(\{ name: 'Manage', icon: 'gear', controls: \[\$\('subtabs'\)\] \}\)/);
+  assert.match(read('profile.js'), /renderPageBar\(\{ name: editingKey \? '' : 'Profile', icon: 'user', manage: editingKey \? '\/admin#users' : '', controls: \[\$\('subtabs'\)\] \}\)/);
+  assert.match(read('profile.js'), /if \(editingKey\) renderPageBar\(\{ name: user\.displayName/);
+  assert.match(read('space-settings.js'), /renderPageBar\(\{ manage: '\/admin#spaces', controls: \[\$\('subtabs'\)\] \}\)/);
+  assert.match(read('space-settings.js'), /renderPageBar\(\{ name: space\.name, icon: spaceCrumbIcon\(space\) \}\)/);
+  assert.match(read('ai-config.js'), /renderPageBar\(\{ name: 'AI configuration'[^\n]*manage: '\/admin#modules' \}\)/);
+  assert.match(read('module-config.js'), /renderPageBar\(\{ manage: '\/admin#modules' \}\)/);
+  assert.match(read('module-settings-page.js'), /renderPageBar\(\{ name: \$\('title'\)\.textContent/);
+  assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: mod\.name, icon: mod\.icon \}\)/);
+  assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: title \|\| mod\.name, icon: mod\.icon \}\)/);
+  const dest = read('destination.js');
+  assert.match(dest, /renderPageBar\(\{ name: d\.name, icon: d\.icon, showName: false, id: 'dest-bar', className: 'dest-bar' \}\)/, 'Calendar and Map: the shared bar, no name (their entry is current)');
+  assert.ok(!/bar\.className = 'subnav dest-bar'/.test(dest), 'no copy of the bar in destination.js');
+  assert.ok(!/renderPageBar/.test(read('host.js')), 'the host console has no page bar');
+  // The tabs keep their ids; the page bar's look.
+  for (const f of ['admin.html', 'profile.html', 'space-settings.html']) assert.match(read(f), /<nav class="subtabs" id="subtabs">/, `${f} keeps #subtabs`);
+  const css = read('style.css');
+  assert.match(css, /\.subnav\.page-bar \.nav-left > \.subtabs \{\s*flex: 0 1 auto;\s*min-width: 0;/, 'the tabs give way inside the bar and scroll sideways');
+  assert.match(css, /\.page-bar \.subtab\[hidden\] \{\s*display: none;/, 'a hidden tab stays hidden (space settings\' Modules)');
+  assert.match(css, /@media \(max-width: 640px\) \{\s*\.topbar > \.page-bar:not\(:has\(/, 'on a phone a bar with nothing to show is not drawn');
+});
+
+test('the top bar\'s colour areas: the branding and the right zone, with defaults that look as before, by child selectors', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  const root = css.slice(css.indexOf(':root {'), css.indexOf('\n}\n', css.indexOf(':root {')));
+  assert.match(root, /--nav-primary-edge-bg: color-mix\(in srgb, var\(--header-bg\) 97%, black\);/, 'the shade, opaque');
+  assert.match(root, /--nav-brand-bg: var\(--nav-primary-edge-bg\);/);
+  assert.match(root, /--nav-brand-text: var\(--header-text\);/);
+  assert.match(root, /--nav-right-bg: var\(--nav-primary-edge-bg\);/);
+  assert.match(root, /--nav-right-text: var\(--header-text\);/);
+  assert.match(css, /\n\.topbar > \.nav-left > \.brand-home \{\s*--header-text: var\(--nav-brand-text\);[^}]*background: var\(--nav-brand-bg\);/, 'the branding area, its text through --header-text');
+  assert.match(css, /@media \(min-width: 641px\) \{\s*\.topbar > \.nav-right \{\s*--header-text: var\(--nav-right-text\);\s*color: var\(--header-text\);\s*background: var\(--nav-right-bg\);/, 'the right zone, wider than a phone');
+  assert.ok(!/\.topbar \.nav-left,\s*\.topbar \.nav-right \{[^}]*background/.test(css), 'no descendant rule paints the zones (it reached the space bar)');
+  assert.ok(!/(^|\n)\.page-bar[^{]*\.nav-(left|right)[^{]*\{[^}]*background/.test(css), 'a page bar is one colour');
+  assert.match(css, /\.theme-preview-header > \.theme-preview-brand,\s*\.theme-preview-header > span:last-child \{/, 'Manage > Theme\'s sample header shows the two areas');
+});
+
 test('destinations: brand.js registers them from GET /api/destinations, wider only and phone only, and opens them over a space while present', () => {
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   const load = brand.slice(brand.indexOf('async function loadDestinations('), brand.indexOf('\n}\n', brand.indexOf('function markDestinations(')));

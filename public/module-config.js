@@ -1,13 +1,14 @@
 // One module's own settings page (Manage > Modules > Module Configuration): /module-config.html?id=<module id>.
 // Admins only. Every module gets a page, so a module with many settings is not squeezed into a shared box.
-import { loadBranding, api, renderTopbar, crumbLink, wireOverlayBack, word } from '/brand.js';
+import { loadBranding, api, renderTopbar, renderPageBar, wireOverlayBack, word } from '/brand.js';
 import { renderModuleSettings } from '/module-settings.js';
 import { wireRegionCut } from '/region-cut.js';
 
 const $ = (id) => document.getElementById(id);
 const id = new URLSearchParams(location.search).get('id') || '';
 
-renderTopbar({ location: crumbLink('gear', 'Manage', '/admin') });
+renderTopbar();
+renderPageBar({ manage: '/admin#modules' }); // named once the module is known (plan-two-zone-nav.md)
 await loadBranding();
 wireOverlayBack();
 
@@ -28,6 +29,7 @@ if (!m) {
   $('config').hidden = false;
   $('cfg-icon').classList.add(`fa-${m.displayIcon || m.icon}`);
   $('cfg-name').textContent = `${name} configuration`;
+  renderPageBar({ name, icon: m.displayIcon || m.icon });
   $('cfg-version').textContent = `${m.displayName ? `${m.name} ` : ''}v${m.version}${m.author ? ' by ' + m.author : ''}`;
   $('cfg-state').textContent = m.enabled ? 'Enabled' : 'Disabled';
   $('cfg-state').classList.add(m.enabled ? 'on' : 'warn');

@@ -12,21 +12,33 @@ the pages use its word (see [Templates](userguide-templates.md)).
 
 ## The top bar
 
-The bar at the top of every page says where you are and takes you anywhere in the environment. From left to right:
+The bar at the top of every page takes you to the environment's places: Calendar, Map, your spaces and, in a space, where you are. From left to right:
 
 - **The logo and the environment's name.** The logo is the picture the owner uploaded, or the home icon when there
   is none. Click either to go home, the list of spaces. On a narrower window (up to about 820 pixels wide) the name
   is left out and the logo stays.
+- **Calendar** and **Maps**, when an owner has turned them on (Manage, "Top bar"), each with its module's icon and the name your environment gives it (between about 641 and 820 pixels wide, the icon alone): pages of their own that gather the Calendar and the To-do, or the map and Places, across your spaces. The one you are on is marked. Opened while you are in a space, they open over it and you are marked Away on the call until you go back. See [Calendar](userguide-calendar.md) and [Maps](userguide-maps.md).
 - **Spaces** (or the environment's word for its home page). Click the word to go home. Click the small arrow beside
   it (**Switch space**) for a menu of the spaces you belong to: the one you are in says "You are here", and a space
   with people in it says how many ("3 here"), not counting anyone who has stepped into an aside. Pick one to go to it. In an aside, picking the space it came from does
   what **Rejoin call** does: everyone goes back to that space's call.
 - **Where you are**, while you are in a space: "› Disneyland". In an aside it is "› Disneyland › Aside: Michelle";
   click **Disneyland** (its tooltip reads "Rejoin call in Disneyland") to go back to the space, as **Rejoin call**
-  does. A long name is cut short with "…"; hover over it for the whole name.
-- In the middle, **Calendar** and **Maps** when an owner has turned them on (Manage, "Top bar"), each with its module's icon and the name your environment gives it (between about 641 and 820 pixels wide, the icon alone): pages of their own that gather the Calendar and the To-do, or the map and Places, across your spaces. Opened while you are in a space, they open over it and you are marked Away on the call until you go back. See [Calendar](userguide-calendar.md) and [Maps](userguide-maps.md).
+  does. A long name is cut short with "…"; hover over it for the whole name. No other page adds anything here.
 - On the right, **the bell** and **your picture** (up to about 1000 pixels wide, your picture without your name). See "The bell" below, and "Your profile and signing out" in
   [Accounts, roles and permissions](userguide-accounts.md).
+
+### The page bar
+
+Every page but a space has a second bar under the top bar, in the same colour as a space's bar. It starts with the page's name, then the page's own controls:
+
+- **Manage** and **Profile**: the name, then the page's tabs.
+- Someone's profile opened from Manage, and a space's settings: **Manage** (owners and the admin only) to go back to Manage, then the person's or the space's name, then the tabs.
+- **AI configuration** and a module's configuration: **Manage**, then the page's name.
+- The module settings page and a module's own page: the name only.
+- **Calendar** and **Maps** have their own controls there and no name, since their entry in the top bar is marked.
+
+On a phone the top bar shows the page's name where it shows a space's, and the page bar holds only the controls.
 
 To add a space from the top bar (owners and the admin only):
 

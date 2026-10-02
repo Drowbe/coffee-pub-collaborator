@@ -1717,11 +1717,11 @@
     // the host in its own look while the module is open in that space and taken out when it closes. Not the
     // module's toolbar (host.toolbar.set, about the module's own state): these are the space's actions the module adds.
     // set([{ id, zone?, icon, label, title?, order?, group?, groupOrder?, href?, visible?, toggleable?, active?, badge? }]):
-    //   id is letters, digits and hyphens, the module's own (the host namespaces it); zone 'left', 'middle' or 'right'
-    //   (the default); icon a Font Awesome name; label what a screen reader and the tooltip say; order and groupOrder
+    //   id is letters, digits and hyphens, the module's own (the host namespaces it); `zone` is ignored (every module
+    //   tool goes in the space bar's right zone, where it can fold); icon a Font Awesome name; label what a screen reader and the tooltip say; order and groupOrder
     //   in the module band (101-998, clamped); href a path on this server or an https address, for a real link.
     // The set replaces the last. A click arrives as the 'nav' event { id }. The host decides where a module's tools
-    // go: always the space bar, never the top bar. `bar` and `system` are ignored (a tool that sets them is placed like
+    // go: always the space bar's right zone, never the top bar. `bar`, `system` and `zone` are ignored (a tool that sets them is placed like
     // any other). Resolves true when the host drew them, false when there is no space bar here (the module's own
     // page). setActive(id, on) and setBadge(id, n) change a tool in place; never set() again for that.
     nav: {

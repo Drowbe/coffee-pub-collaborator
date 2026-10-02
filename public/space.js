@@ -34,15 +34,13 @@ if (new URLSearchParams(location.search).has('layout')) import('/layout-debug.js
 const subnav = document.createElement('div');
 subnav.className = 'subnav';
 subnav.id = 'subnav';
-// The secondary nav is about the space, in three zones (see documentation/plans/plan-nav.md and
-// architecture-navigation.md): left, the module selector (the space's name is the top bar's breadcrumb, not repeated
-// here: plan-primary-nav.md, decision 14); middle, the space's own information and
-// navigation (nothing yet); right, the space's actions: the canvas-level snap, full screen, pop out, pulling people back
+// The secondary nav is about the space, in two zones (plan-two-zone-nav.md, decisions 1, 4 and 5; see
+// architecture-navigation.md): left, the module selector and then Online, who is here (the space's name is the top bar's
+// breadcrumb, not repeated here: plan-primary-nav.md, decision 14); right, the space's actions: the canvas-level snap, full screen, pop out, pulling people back
 // from an aside, and leaving. The right zone's controls are registrations in the nav-bar registry (public/nav-bar.js),
 // made below beside the code each one drives; a module's own tools (host.nav.set) land in the same bar, after them.
 subnav.innerHTML = `
   <div class="nav-left subnav-left"></div>
-  <div class="nav-middle subnav-middle" id="subnav-middle"></div>
   <span class="nav-right subnav-tools"></span>`;
 topbarEl.appendChild(subnav);
 nav.attach('secondary', subnav); // its tools are registered further down, once the state their `visible` reads exists
@@ -1067,9 +1065,10 @@ call
   .on(RoomEvent.ParticipantNameChanged, syncWhoIsInCall);
 
 // --- who is here (space-people.js) ------------------------------------------------------------------
-// The space bar's middle zone: everyone in this space (or aside) now, you among them, with a mark on those on the call,
-// and the list under it. Live from the call itself (LiveKit's Room); it gives way (fewer portraits, then the count alone) before
-// anything on the bar's right folds (its `fit`, called by nav-bar.js). On a phone it is a count in the tab bar.
+// Online, in the space bar's left zone after the Modules button (plan-two-zone-nav.md, decisions 4 and 9): everyone in
+// this space (or aside) now, you among them, with a mark on those on the call, and the list under it. Live from the call
+// itself (LiveKit's Room); it gives way (the count for the names, fewer portraits, then the short count) before anything
+// on the bar's right folds (its `fit`, called by nav-bar.js). On a phone it is a count in the tab bar, before Leave.
 const whoHere = createWhoHere({
   call,
   meOnCall: () => inCall,
@@ -1082,7 +1081,7 @@ const whoHere = createWhoHere({
     call: { [RoomEvent.ParticipantNameChanged]: () => whoHere.refresh(), [RoomEvent.Disconnected]: () => whoHere.refresh() },
   },
 });
-nav.register({ bar: 'secondary', zone: 'middle', group: 'people', id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
+nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
 // --- end who is here ---
 
 // The canvas-level snap, in the space bar: one switch that makes every floating module, now and later, snap to a grid over the

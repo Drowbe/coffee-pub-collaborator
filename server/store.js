@@ -369,7 +369,7 @@ const DEFAULT_SETTINGS = {
 // Colors a theme may set beyond the seven base ones. null means "Auto": the
 // stylesheet derives it from the base colors (style.css :root), so a theme
 // that never touches one keeps following its accent, background and so on.
-const THEME_OPTIONAL = ['card', 'headerBg', 'headerText', 'icon', 'iconHover', 'primaryHover', 'secondary', 'secondaryText', 'secondaryHover'];
+const THEME_OPTIONAL = ['card', 'headerBg', 'headerText', 'navBrandBg', 'navBrandText', 'navRightBg', 'navRightText', 'icon', 'iconHover', 'primaryHover', 'secondary', 'secondaryText', 'secondaryHover'];
 const THEME_BASE = ['bg', 'bgSection', 'border', 'text', 'textDim', 'accent', 'onAccent'];
 // Every theme has a light and a dark set of those colors (either may be
 // missing; the other then shows in both modes), and the server's themeMode

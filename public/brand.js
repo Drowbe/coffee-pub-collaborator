@@ -3,7 +3,7 @@ import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
 import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode, toggleThemeMode, useDefaultMode, themeMode as modeNow } from '/theme-mode.js';
-import { profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools } from '/primary-nav.js';
+import { profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools, pageAnchor } from '/primary-nav.js';
 
 // The words a person reads for each level and role (public/words.js), for every page that already imports from here.
 export { word, words, fill, applyWords, setWords, verb, verbs, setVerbs } from '/words.js';
@@ -235,7 +235,7 @@ async function loadAccount() {
   const me = await loadMe();
   if (me === null) account = null;
   else if (me && me.user) account = { role: me.user.role, hostAdmin: Boolean(me.environment?.hostAdmin || me.user.hostAdmin), hosted: Boolean(me.environment?.hosted), slug: me.environment?.slug || '' };
-  nav.draw('primary');
+  nav.draw(); // both bars: a page bar's Manage link waits on the role too
   if (account && seesUpdates(account.role)) loadUpdateBadge();
   paintBell();
 }
@@ -256,11 +256,12 @@ function refreshWords() {
   if (nav.get('menu-new-space')) nav.register({ ...nav.get('menu-new-space'), label: `New ${word('space')}` });
 }
 
-// The system's own tools. The left zone, after the logo and the name: Modules, Spaces (the home word and the switcher's
-// caret) and the anchor (the breadcrumb, then the status line), one group. The right zone: the bell, then you (your
-// picture, which opens the profile menu), a divider between; online people come before the bell in a later step. On a
-// phone, Modules and Spaces leave the bar and the menu (the right zone) holds the environment's name, home and the
-// switcher's entries, the module pages, then you and the profile menu's entries; the bell stays (phone: 'bar').
+// The system's own tools. The left zone, after the branding (the logo and the name): the destinations (loadDestinations,
+// orders 1 to 8), Spaces (the home word and the switcher's caret) and the anchor (the breadcrumb, then the status line),
+// one group, `where` (plan-two-zone-nav.md). The right zone: the bell, then you (your picture, which opens the profile
+// menu), a divider between; online people come before the bell in a later step. On a phone, the destinations and Spaces
+// leave the bar and the menu (the right zone) holds the environment's name, home and the switcher's entries, the
+// destinations, then you and the profile menu's entries; the bell stays (phone: 'bar').
 function registerSystemTools(header) {
   const doc = header.ownerDocument;
   const { guest, hostConsole } = bar;
@@ -278,7 +279,7 @@ function registerSystemTools(header) {
     caret.title = `Switch ${word('space')}`;
     caret.setAttribute('aria-label', caret.title);
     caret.addEventListener('click', () => openSwitcher(caret));
-    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 1, element: slot, visible: () => wide() && signedIn() });
+    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() });
   }
   // The anchor: where you are, after the Spaces slot (setTopbarLocation; the space page's breadcrumb). On a phone only
   // its last segment shows (style.css).
@@ -286,11 +287,11 @@ function registerSystemTools(header) {
   crumb.className = 'crumb';
   crumb.id = 'topbar-crumb';
   crumb.setAttribute('aria-label', 'Where you are');
-  nav.register({ id: 'topbar-crumb', bar: 'primary', zone: 'left', group: 'where', order: 2, element: crumb });
+  nav.register({ id: 'topbar-crumb', bar: 'primary', zone: 'left', group: 'where', order: 10, element: crumb });
   const status = doc.createElement('span');
   status.className = 'status topbar-status';
   status.id = 'topbar-status';
-  nav.register({ id: 'topbar-status', bar: 'primary', zone: 'left', group: 'where', order: 3, element: status });
+  nav.register({ id: 'topbar-status', bar: 'primary', zone: 'left', group: 'where', order: 11, element: status });
   if (guest || hostConsole) return; // a guest's bar is the logo, the name and the anchor; the host console's is its own
   // The phone menu's own entries, first: the environment's name, then home and the switcher's entries (refreshed as
   // the menu opens), then "+ New" for owners and the admin.
@@ -349,7 +350,7 @@ function registerSystemTools(header) {
   nav.register({ id: 'account-sign-out', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'right-from-bracket', label: 'Sign out', visible: inMenu, onClick: signOut });
 }
 
-// The top bar's destinations (Calendar, Map; plan-calendar-destination.md): a middle-zone entry each, from GET
+// The top bar's destinations (Calendar, Map; plan-calendar-destination.md): a left-zone entry each, from GET
 // /api/destinations, and on a phone an entry in the menu after the Spaces slot's (destinationTools() in primary-nav.js).
 // While this page is present in a space they carry data-overlay-link, so the space page opens them over the space as a
 // view (Away while on the call); a page already over a call keeps its way back (keepingQuery).
@@ -522,7 +523,7 @@ function paintWhoami(whoami) {
 function viewProfile() {
   const unhandled = document.dispatchEvent(new CustomEvent('app:open-profile', { cancelable: true }));
   if (!unhandled || location.pathname === '/profile') return; // already there: the menu just closes
-  // Opened over a call (?from=space), the query stays, so the profile page keeps its way back (as crumbLink does).
+  // Opened over a call (?from=space), the query stays, so the profile page keeps its way back.
   const keep = new URLSearchParams(location.search).get('from') === 'space' ? location.search : '';
   location.href = `/profile${keep}`;
 }
@@ -1032,30 +1033,107 @@ async function loadUpdateBadge() {
   }
 }
 
-// The crumb zone: plain text for "you're already here" (Spaces, Profile,
-// Manage), or markup with its own buttons for a page that offers
-// actions from right where it says where you are (a space's own Leave, an
-// aside's own Rejoin Call) -- see space.js's updateCrumb() for the one page
-// that actually changes this after the initial render.
-// One crumb segment that goes somewhere. Opened as an overlay over a call
-// (?from=space), the link keeps that query so the next page still knows to
-// offer its "Back" button instead of quietly turning into a normal page.
 // The header icon for a space: the launch-link icon the space picked, or the
 // plain message icon when it has not picked one ('link' is the default).
 export function spaceCrumbIcon(space) {
   return space?.linkIcon && space.linkIcon !== 'link' ? iconClasses(space.linkIcon) : 'fa-solid fa-message';
 }
 
-export function crumbLink(icon, label, href) {
-  const params = new URLSearchParams(window.location.search);
-  const keep = params.get('from') === 'space' ? window.location.search : '';
-  const [path, hash] = href.split('#');
-  return `<a class="crumb-here" href="${path}${keep}${hash ? '#' + hash : ''}"><i class="${icon.includes(' ') ? icon : `fa-solid fa-${icon}`} fa-fw" aria-hidden="true"></i><span class="crumb-label"> ${escapeHtml(label)}</span></a>`;
-}
-
+// The anchor's segments after the Spaces slot. Only the space page sets them (updateCrumb() in space.js: "› <space>",
+// and an aside's "› <space> › <Aside word>: <names>"): the top bar holds places, not a breadcrumb (plan-two-zone-nav.md,
+// decision 10). Every other page names itself in its page bar (renderPageBar() below), and on a phone in the anchor.
 export function setTopbarLocation(html) {
   const crumb = byId('topbar-crumb');
   if (crumb) crumb.innerHTML = html ? `<span class="crumb-sep">&rsaquo;</span>${html}` : '';
+}
+
+// --- the page bar: the header's second row on every page but a space (plan-two-zone-nav.md, decision 10) ----------
+// The row Calendar and Map have, shared: a `.subnav.page-bar` attached to the registry as the secondary bar, so it has
+// the space bar's zones, look and fold. The left zone holds, in order: a Manage link (`manage`, the tab of Manage the
+// page belongs to; owners and the admin only), the page's name (`name`, `icon`; not on a phone, where the anchor has
+// it, and not when `showName` is false: Calendar and Map, whose top bar entry is marked current), then the page's own
+// controls (`controls`: elements placed as they are, ids kept: Manage's tabs, `#subtabs`). A page's own tools register
+// into it as any secondary tool does. On a phone the page's name is the anchor's plain label (pageAnchor() in
+// primary-nav.js), painted again as the window crosses 640px; a bar left with nothing to show there is not drawn
+// (style.css). Returns { el, setName(name, icon?) }; a second call on the same page only renames.
+let pageBar = null;
+export function renderPageBar({ name = '', icon = '', showName = true, manage = '', controls = [], id = 'page-bar', className = '' } = {}) {
+  if (pageBar) {
+    pageBar.setName(name, icon || undefined);
+    return pageBar;
+  }
+  const header = document.querySelector('.topbar');
+  if (!header) return null;
+  const doc = header.ownerDocument;
+  const el = doc.createElement('div');
+  el.className = `subnav page-bar${className ? ` ${className}` : ''}`;
+  el.id = id;
+  el.setAttribute('role', 'navigation');
+  el.setAttribute('aria-label', 'This page');
+  el.innerHTML = '<div class="nav-left"></div><span class="nav-right"></span>';
+  header.appendChild(el);
+  nav.attach('secondary', el);
+  const state = { name: String(name || ''), icon: String(icon || '') };
+  const iconHtml = (i) => (i ? `<i class="${i.includes(' ') ? escapeHtml(i) : `fa-solid fa-${escapeHtml(i)}`} fa-fw" aria-hidden="true"></i>` : '');
+  let nameEl = null;
+  if (showName) {
+    nameEl = doc.createElement('span');
+    nameEl.className = 'page-bar-name';
+    nameEl.id = 'page-bar-name';
+    nav.register({ id: 'page-bar-name', bar: 'secondary', zone: 'left', group: 'page', groupOrder: 2, order: 1, fold: false, element: nameEl, visible: () => !onPhone() && Boolean(state.name) });
+  }
+  if (manage) {
+    nav.register({ id: 'page-bar-manage', bar: 'secondary', zone: 'left', group: 'page-manage', groupOrder: 1, order: 1, fold: false, labelled: true, icon: 'gear', label: 'Manage', href: keepingQuery(manage), visible: () => seesUpdates(account?.role) });
+  }
+  controls.filter(Boolean).forEach((c, i) => {
+    c.classList.add('page-bar-control');
+    nav.register({ id: c.id || `page-bar-control-${i + 1}`, bar: 'secondary', zone: 'left', group: 'page', order: 2 + i, fold: false, element: c });
+  });
+  const paint = () => {
+    if (nameEl) {
+      nameEl.innerHTML = `${iconHtml(state.icon)}<span class="page-bar-label"></span>`;
+      nameEl.querySelector('.page-bar-label').textContent = state.name;
+      nameEl.title = state.name;
+    }
+    paintPageAnchor(state);
+    nav.draw('secondary');
+  };
+  if (phoneQuery) phoneQuery.addEventListener('change', paint);
+  paint();
+  pageBar = {
+    el,
+    setName(next, nextIcon) {
+      state.name = String(next || '');
+      if (nextIcon !== undefined) state.icon = String(nextIcon || '');
+      paint();
+    },
+  };
+  return pageBar;
+}
+
+// The anchor on a page with a page bar: nothing wider than a phone; on a phone the page's name, a plain label (not a
+// link, no separator), current, cut short with an ellipsis as the anchor is (style.css), the whole name as its title.
+function paintPageAnchor({ name, icon }) {
+  const crumb = byId('topbar-crumb');
+  if (!crumb) return;
+  const a = pageAnchor({ phone: onPhone(), name, icon });
+  crumb.replaceChildren();
+  if (!a) return;
+  const label = document.createElement('span');
+  label.className = 'crumb-here';
+  label.setAttribute('aria-current', a.current);
+  label.title = a.title;
+  if (a.icon) {
+    const i = document.createElement('i');
+    i.className = `${a.icon.includes(' ') ? a.icon : `fa-solid fa-${a.icon}`} fa-fw`;
+    i.setAttribute('aria-hidden', 'true');
+    label.appendChild(i);
+  }
+  const text = document.createElement('span');
+  text.className = 'crumb-label';
+  text.textContent = a.label;
+  label.appendChild(text);
+  crumb.appendChild(label);
 }
 
 // Chrome/Edge's "Install as an app" prompt -- a chromeless window (Settings

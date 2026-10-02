@@ -21,7 +21,7 @@ call window picks the theme up too, when the page clones its stylesheets into th
 
 ## The tokens
 
-The theme editor sets the first seven, and may also set the eleven in the second group. Every token in the second
+The theme editor sets the first seven, and may also set the thirteen in the second group. Every token in the second
 group follows the base colors until a theme sets it (**Auto**), so a theme that never touches one keeps
 working. The rest are derived with `color-mix`.
 
@@ -37,9 +37,13 @@ working. The rest are derived with `color-mix`.
 | `--bg-card` | card background: the small items inside a section, such as member tiles, facts and thumbnails; Auto is `--bg-input` |
 | `--header-bg` | header background, drawn as a soft gradient from this color; Auto is `--bg` |
 | `--header-text` | header text, the server name, breadcrumb and signed-in name; Auto is `--text` |
-| `--nav-primary-bg` | the primary nav's middle zone (the core navigation); Auto is `--header-bg` |
-| `--nav-primary-edge-bg` | the primary nav's left and right zones (the logo and where you are; the system's actions and the time), a whisper darker; Auto is a 3% black overlay on the header colour |
-| `--nav-secondary-bg` | the secondary nav (the space's bar, under the header); Auto is a 2% black overlay on the header colour |
+| `--nav-brand-bg` | the top bar's branding area (the logo and the environment's name), labeled Branding area background; Auto is `--nav-primary-edge-bg` |
+| `--nav-brand-text` | text in the branding area, labeled Branding area text; Auto is `--header-text` |
+| `--nav-right-bg` | the top bar's right zone (the bell and your picture), labeled Right side background; Auto is `--nav-primary-edge-bg` |
+| `--nav-right-text` | text in the right zone, labeled Right side text; Auto is `--header-text` |
+| `--nav-primary-bg` | the top bar's left zone (Calendar, Map, the home word and where you are, up to the right zone); Auto is `--header-bg`. Not set by a theme |
+| `--nav-primary-edge-bg` | the shared Auto of the branding area and the right zone, a whisper darker than the header: `color-mix(in srgb, var(--header-bg) 97%, black)`, opaque so the editor's colour box shows it truthfully. Not set by a theme |
+| `--nav-secondary-bg` | the second bar, in one colour: the space bar, and the page bar on every other page; Auto is a 2% black overlay on the header colour. Not set by a theme |
 | `--icon` | icons in the page, chat and header; Auto is dim text on the page and a softened header text in the header |
 | `--icon-hover` | icon hover; Auto is `--accent` |
 | `--primary-hover` | Primary buttons on hover; Auto is a lighter `--accent` |
@@ -68,6 +72,8 @@ working. The rest are derived with `color-mix`.
 
 A fixed dark background under theme-colored text is the classic failure: it looks correct on the
 default theme and unreadable on a light one.
+
+**The top bar's three areas.** The branding area, the left zone and the right zone each have a background and a text colour; each area sets `--header-text` to its own text token for what is inside it, so names, carets and icons that fall back on the header text follow. Until a theme sets them, the branding area and the right zone are `--nav-primary-edge-bg` with the header text, which is how the bar always looked. On a phone only the branding area keeps its colour. How the bar is built is in [architecture-navigation](../architecture/architecture-navigation.md).
 
 ## The action button
 

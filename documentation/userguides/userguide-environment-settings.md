@@ -3,7 +3,7 @@
 **Audience:** an owner or the admin running a Collaborator environment, working through the Manage page.
 
 Open the Manage page from the menu under your picture in the top bar: choose **Manage**. It has seven tabs, in this order: **Environment**,
-**Template**, **Theme**, **Spaces**, **Roles**, **Users** and **Modules**, plus **About**. On a phone the row of tabs scrolls sideways within itself. (Old addresses still work: `/admin#server` and `#settings` open Environment, `#rooms` opens Spaces, and `#words` and `#home-icon` open the Template tab at that section.) The header's crumb on the pages reached from here (a space's settings, a person's profile, a module's configuration, the AI configuration) says **Manage**. Only owners and the admin (on a hosted server, the host admin) see it; anyone else asking for it is told "Owners only."
+**Template**, **Theme**, **Spaces**, **Roles**, **Users** and **Modules**, plus **About**. On a phone the row of tabs scrolls sideways within itself. (Old addresses still work: `/admin#server` and `#settings` open Environment, `#rooms` opens Spaces, and `#words` and `#home-icon` open the Template tab at that section.) Manage's tabs are in the bar under the top bar. The pages reached from here (a space's settings, a person's profile, a module's configuration, the AI configuration) have **Manage** at the start of that bar, to come back. Only owners and the admin (on a hosted server, the host admin) see it; anyone else asking for it is told "Owners only."
 
 ## Environment
 
@@ -26,7 +26,7 @@ Open the Manage page from the menu under your picture in the top bar: choose **M
 
 ## Top bar
 
-Owners and the admin can add two pages to the middle of everyone's top bar: **Calendar**, the Calendar and the To-do together, and **Maps**, the map and Places together. Both are off unless you turn them on; an environment made from the Travel template starts with both on.
+Owners and the admin can add two pages to everyone's top bar, after the environment's name: **Calendar**, the Calendar and the To-do together, and **Maps**, the map and Places together. Both are off unless you turn them on; an environment made from the Travel template starts with both on.
 
 1. Open Manage on the **Environment** tab.
 2. Under **Top bar**, switch on **Show Calendar** ("Adds Calendar to the top bar: events and tasks from every space in one place.") or **Show Map** ("Adds Map to the top bar: places from every space on one map."). Each switch saves as you flip it.

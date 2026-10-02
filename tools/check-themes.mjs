@@ -2,12 +2,14 @@
 /*
  * check-themes.mjs -- themes as files (documentation/plans/plan-themes.md, GitHub #67): server/theme-file.js and
  * Store.importTheme on their own, then a real server on a throwaway DATA_DIR:
- *   - every built-in and Strong Coffee exports with all sixteen keys per set and imports back to the same colors,
+ *   - every built-in and Strong Coffee exports with all twenty keys per set and imports back to the same colors,
  *     named "(2)", and /theme.css with the import applied says what it said with the original;
  *   - each refusal in the plan's order, with its sentence: over 16 KB, not JSON, not an object, format not "theme" or
  *     formatVersion not a whole number, a marker from before the formats were named by kind (plan-kind-names.md), a newer
  *     formatVersion, no complete set;
  *   - unknown keys dropped and named; a bad color drops its set; an import never changes the active theme or mode;
+ *   - the top bar's colour keys (plan-two-zone-nav.md decision 8): a file with them round-trips, a bad one goes back to
+ *     Auto and is named, and a theme file, a template's theme and the bundled templates without them still load;
  *   - CSS typed into a color (`red; background: url(x)`) never reaches /theme.css;
  *   - control and format characters never reach a name or author; the 101st theme is refused;
  *   - an import from another origin is refused; a body the parser can't read is 400, not 500; and no owner write
@@ -61,7 +63,7 @@ await test('export: every key of each set, null for Auto and for a set the theme
     const out = tf.themeToFile(theme);
     assert.deepEqual(Object.keys(out), ['format', 'formatVersion', 'name', 'light', 'dark']);
     assert.deepEqual([out.format, out.formatVersion], ['theme', 1]);
-    for (const mode of ['light', 'dark']) assert.deepEqual(Object.keys(out[mode]), tf.SET_KEYS, `${id} ${mode}: sixteen keys`);
+    for (const mode of ['light', 'dark']) assert.deepEqual(Object.keys(out[mode]), tf.SET_KEYS, `${id} ${mode}: twenty keys`);
   }
   const coffee = tf.themeToFile(null);
   assert.equal(coffee.name, 'Strong Coffee');
@@ -118,6 +120,40 @@ await test('import: unknown keys dropped and named; a bad color drops its set or
   const bare = tf.readThemeFile({ format: 'theme', formatVersion: 1, dark: set({ bg: '#10181b' }) }, sanitize);
   assert.deepEqual([bare.name, 'author' in bare, bare.light, bare.dark.bg, bare.dropped], ['Theme', false, null, '#10181b', []]);
   assert.deepEqual(tf.readThemeFile(file({ name: 5, author: ['x'] }), sanitize).dropped, ['name', 'author']);
+});
+
+const NAV = { navBrandBg: '#102030', navBrandText: '#f0e0d0', navRightBg: '#203040', navRightText: '#e0d0c0' };
+await test('the nav keys: in every exported set; a file with them round-trips; a bad one goes back to Auto and is named; formatVersion stays 1', () => {
+  for (const key of Object.keys(NAV)) assert.ok(tf.SET_KEYS.includes(key), key);
+  assert.equal(tf.THEME_FILE_VERSION, 1);
+  const got = tf.readThemeFile(file({ light: set(NAV), dark: set({ bg: '#10181b', navRightBg: '#ABCDEF' }) }), sanitize);
+  assert.deepEqual(got.dropped, []);
+  for (const [key, value] of Object.entries(NAV)) assert.equal(got.light[key], value, key);
+  assert.deepEqual([got.dark.navRightBg, got.dark.navBrandBg], ['#abcdef', null]);
+  const out = tf.themeToFile({ name: 'Harbour', light: got.light, dark: got.dark });
+  assert.equal(out.formatVersion, 1);
+  assert.deepEqual(tf.readThemeFile(JSON.stringify(out), sanitize).light, got.light, 'export then import: the same set');
+  const bad = tf.readThemeFile(file({ light: set({ ...NAV, navBrandBg: EVIL, navRightText: 'blue' }) }), sanitize);
+  assert.deepEqual(bad.dropped, ['light.navBrandBg', 'light.navRightText']);
+  assert.deepEqual([bad.light.navBrandBg, bad.light.navRightText, bad.light.navBrandText], [null, null, NAV.navBrandText]);
+});
+
+await test('a theme file, a template\'s theme and the bundled templates without the nav keys still load, on Auto', () => {
+  const older = tf.readThemeFile(file(), sanitize); // file() is a theme file as an older server wrote it: none of the four
+  assert.deepEqual(older.dropped, []);
+  for (const key of Object.keys(NAV)) assert.equal(older.light[key], null, key);
+  const templates = require('../server/templates.js');
+  const embedded = templates.readEmbeddedTheme({ name: 'Trip', light: set(), dark: null });
+  assert.deepEqual(embedded.dropped, []);
+  for (const key of Object.keys(NAV)) assert.equal(embedded.theme.light[key], null, key);
+  for (const f of fs.readdirSync(path.join(ROOT, 'templates')).filter((x) => x.endsWith('.json'))) {
+    assert.ok(!/"nav(Brand|Right)(Bg|Text)"/.test(fs.readFileSync(path.join(ROOT, 'templates', f), 'utf8')), `${f} sets none of the nav keys`);
+  }
+  for (const id of BUILTIN_THEME_IDS) {
+    const theme = store.themes.find((t) => t.id === id);
+    for (const mode of ['light', 'dark']) for (const key of Object.keys(NAV)) assert.ok(theme[mode][key] == null, `${id} ${mode} ${key}`);
+  }
+  for (const mode of ['light', 'dark']) for (const key of Object.keys(NAV)) assert.ok(DEFAULT_THEME[mode][key] == null, `Strong Coffee ${mode} ${key}`);
 });
 
 await test('Store.importTheme: a new id, "Name (2)" on a clash (Strong Coffee\'s name too), author kept, nothing applied', () => {
@@ -301,6 +337,32 @@ try {
       }
     }
     await apply(null);
+  });
+
+  await test('live: the nav keys -- set with PATCH, written to /theme.css, a bad one back on Auto; exported and imported back the same', async () => {
+    const made = await call('POST', '/api/themes', { body: { name: 'Nav', mode: 'light', ...set() } });
+    assert.equal(made.status, 200, made.text);
+    const id = made.json.theme.id;
+    await apply(id);
+    const before = modeBlocks(await css());
+    assert.ok(!Object.keys(before.light).some((p) => p.startsWith('--nav-')), 'none set, none written');
+    const patched = await call('PATCH', `/api/themes/${id}`, { body: { mode: 'light', ...NAV, navRightText: EVIL } });
+    assert.equal(patched.status, 200, patched.text);
+    assert.deepEqual([patched.json.theme.light.navBrandBg, patched.json.theme.light.navRightText], [NAV.navBrandBg, null]);
+    const after = modeBlocks(await css());
+    assert.deepEqual([after.light['--nav-brand-bg'], after.light['--nav-brand-text'], after.light['--nav-right-bg'], after.light['--nav-right-text']], [NAV.navBrandBg, NAV.navBrandText, NAV.navRightBg, undefined]);
+    const exported = (await call('GET', `/api/themes/${id}/export`)).json;
+    assert.equal(exported.formatVersion, 1);
+    assert.deepEqual([exported.light.navBrandBg, exported.light.navRightText], [NAV.navBrandBg, null]);
+    const imported = await call('POST', '/api/themes/import', { body: exported });
+    assert.equal(imported.status, 200, imported.text);
+    assert.deepEqual(imported.json.dropped, []);
+    assert.deepEqual(tf.themeToFile(imported.json.theme).light, exported.light);
+    await apply(imported.json.theme.id);
+    assert.deepEqual(modeBlocks(await css()).light, after.light);
+    await apply(null);
+    await call('DELETE', `/api/themes/${imported.json.theme.id}`);
+    await call('DELETE', `/api/themes/${id}`);
   });
 
   await test('live: every refusal answers 400 with its sentence, however the file is sent, and adds nothing', async () => {

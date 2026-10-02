@@ -102,6 +102,30 @@ test('a site logo in structured data is not the page picture', () => {
 });
 
 
+// Research's "Fetch link previews" is on by default (Thomas, 2026-10-02): an environment that never saved it fetches
+// previews; one that saved it off stays off. The server's routes read exactly these values (values.linkPreviews === true).
+test('Research link previews are on unless an environment turned them off', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { ModuleSettings } = require('../server/module-settings.js');
+  const manifest = JSON.parse(fs.readFileSync(new URL('../modules/research/module.json', import.meta.url), 'utf8'));
+  const def = (manifest.settings || []).find((s) => s.key === 'linkPreviews');
+  assert.ok(def, 'Research declares linkPreviews');
+  assert.equal(def.scope, 'environment');
+  assert.equal(def.default, true, 'linkPreviews defaults to on');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'link-preview-'));
+  try {
+    const fresh = new ModuleSettings(dir);
+    assert.equal(fresh.values(manifest, 'environment', {}).linkPreviews, true, 'never saved: on');
+    fresh.set(manifest, 'environment', {}, { linkPreviews: false }, 'check');
+    assert.equal(fresh.values(manifest, 'environment', {}).linkPreviews, false, 'saved off: off');
+    assert.equal(new ModuleSettings(dir).values(manifest, 'environment', {}).linkPreviews, false, 'saved off: still off after a restart');
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 // The request the reader sends, to a local server standing in for a page (its address given as already checked).
 {
   const http = require('node:http');

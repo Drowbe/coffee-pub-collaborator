@@ -432,6 +432,15 @@ function cleanBus(rawEvents, rawActions, id) {
   return { events, actions };
 }
 
+// The tints a module may take as its colour (plan-chat-model.md): names of the theme's --tint-* tokens, never a
+// fixed colour. Absent means neutral. `gold` is AI's, which is the host's, but a module may use it too.
+const TINTS = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
+function cleanColor(raw) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== 'string' || !TINTS.includes(raw)) throw new ModuleError(`module.json: "color" must be one of ${TINTS.join(', ')}`);
+  return raw;
+}
+
 // Commands Chat lists and routes: each names a local action that takes `{ text }`. `ai` is reserved by the host.
 const COMMAND_NAME_RE = /^[a-z0-9]{1,12}$/;
 function cleanCommands(raw, actions) {
@@ -635,6 +644,7 @@ function cleanManifest(raw, files) {
   const scope = cleanScope(raw.scope);
   if (!scope.length) throw new ModuleError('module.json: "scope" must include "environment", "space", or both');
   const icon = typeof raw.icon === 'string' && /^[a-z0-9-]{1,40}$/.test(raw.icon) ? raw.icon : 'puzzle-piece';
+  const color = cleanColor(raw.color);
 
   const surfaces = {};
   // `nav: false` (default true) leaves a module's page out of the main nav's icon row -- for one better
@@ -750,7 +760,7 @@ function cleanManifest(raw, files) {
     ? { auto: raw.install.auto === true, settingsFrom: raw.install.settingsFrom === 'environment' ? 'environment' : null }
     : null;
 
-  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, install };
+  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, install };
 }
 
 // --- the registry ---------------------------------------------------------
@@ -903,6 +913,7 @@ class ModuleManager {
         manifest.events = { publishes: [], subscribes: [] };
         manifest.actions = { provides: [], uses: [] };
       }
+      manifest.color = TINTS.includes(manifest.color) ? manifest.color : null;
       try {
         manifest.commands = cleanCommands(manifest.commands, manifest.actions);
       } catch {
@@ -1350,4 +1361,4 @@ class ModuleManager {
   }
 }
 
-module.exports = { ModuleManager, ModuleError, fillManifest, manifestTexts, cleanManifest, cleanCommands, cleanStorage, oldNameIn, OUTDATED, permissionDefaults, pendingWidensNothing, PERMISSION_KEY_RE, readZip, compareVersions, LIMITS };
+module.exports = { ModuleManager, ModuleError, fillManifest, manifestTexts, cleanManifest, cleanCommands, TINTS, cleanStorage, oldNameIn, OUTDATED, permissionDefaults, pendingWidensNothing, PERMISSION_KEY_RE, readZip, compareVersions, LIMITS };

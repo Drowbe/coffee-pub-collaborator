@@ -75,6 +75,23 @@ default theme and unreadable on a light one.
 
 **The top bar's three areas.** The branding area, the left zone and the right zone each have a background and a text colour; each area sets `--header-text` to its own text token for what is inside it, so names, carets and icons that fall back on the header text follow. Until a theme sets them, the branding area and the right zone are `--nav-primary-edge-bg` with the header text, which is how the bar always looked. On a phone only the branding area keeps its colour. How the bar is built is in [architecture-navigation](../architecture/architecture-navigation.md).
 
+## Tints
+
+Eight named colours mark what a message or a module is from: a module's own colour (its manifest's `color`), and gold for the AI. They are fixed, not part of a theme, and no theme sets them; each has a dark and a light value, tested on both. On a light page the darker value is used: under the stylesheet's light set (`data-theme-mode="light"`), or the environment's light default when the person has made no choice (`data-mode-shown="light"`, set by `public/theme-mode.js`).
+
+| Token | Dark | Light |
+|---|---|---|
+| `--tint-gold` | `#d9a93c` | `#94680a` |
+| `--tint-blue` | `#6aa6e8` | `#2a62b0` |
+| `--tint-green` | `#6fbf73` | `#2e7d32` |
+| `--tint-teal` | `#4fbfb2` | `#00796b` |
+| `--tint-purple` | `#b18be0` | `#6a3fb0` |
+| `--tint-red` | `#e07a6e` | `#b3372b` |
+| `--tint-orange` | `#e8964a` | `#b35a00` |
+| `--tint-pink` | `#e58ab8` | `#ad3a78` |
+
+`data-tint="<name>"` on an element sets `--tint` to that token. A tint colours an icon and a thin edge only (a message's 3-pixel left edge and its portrait's icon, a module's icon in its titlebar and the Layout menu); text and backgrounds keep their usual tokens. The tokens are in `public/style.css` and in `/sdk/host.css`, so a module's page has them too.
+
 ## The action button
 
 `.action-btn` is the one square icon button of the bottom row: the call's controls, the chat's Send, a module's action bar (docked, floating, popped out and on its own page) and a module's own add buttons. It is Secondary, or Primary with `.primary`, and red for **Leave the call** (`.danger` on the call's toolbar). Two layout tokens size it; they are not colours and no theme sets them:
@@ -88,7 +105,7 @@ A smaller button sets `--action-btn-h` only, never the icon's size. The rules ar
 
 ## The switch
 
-A view or filter switch (**Month | Week | Day | Agenda**, **Open | Done | All**, **Private | Shared**) is one row of segments, each an icon beside its word, the chosen one marked. When the row is too narrow for the words, every segment shows its icon only (`.tb-tabs-compact`), and the word stays the tooltip and the accessible name; a segment with no icon always shows its word. It takes its colours from the tokens above and needs no tokens of its own. The rules are in `public/style.css` for the app's pages and in `public/sdk/host.css` for a module's (`.tb-tabs`, `.tb-tab`, `.tb-tab-glyph`, `.tb-tab-word`, `.tb-tabs-compact`); a module draws one with `host.ui.viewSwitch` ([api-module-sdk](../api/api-module-sdk.md)) and never sizes it, which `tools/check-switches.mjs` holds.
+A view or filter switch (**Month | Week | Day | Agenda**, **Open | Done | All**, **All | Private | Public**) is one row of segments, each an icon beside its word, the chosen one marked. When the row is too narrow for the words, every segment shows its icon only (`.tb-tabs-compact`), and the word stays the tooltip and the accessible name; a segment with no icon always shows its word. It takes its colours from the tokens above and needs no tokens of its own. The rules are in `public/style.css` for the app's pages and in `public/sdk/host.css` for a module's (`.tb-tabs`, `.tb-tab`, `.tb-tab-glyph`, `.tb-tab-word`, `.tb-tabs-compact`); a module draws one with `host.ui.viewSwitch` ([api-module-sdk](../api/api-module-sdk.md)) and never sizes it, which `tools/check-switches.mjs` holds.
 
 ## Modules
 

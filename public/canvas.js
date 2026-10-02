@@ -89,6 +89,13 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   const canvasEmpty = document.getElementById('canvas-empty');
   let spaceId = null;
   let available = [];
+  // Each module's colour in this space (plan-chat-model.md, decision 18), a tint name or null, from every module the
+  // server listed, the ones kept out of the Layout menu (canvas.menu false) included: Chat colours a command's
+  // messages by it.
+  let colors = new Map();
+  const TINTS = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
+  const colorOf = (id) => (colors.get(id) || null);
+  const tintAttr = (id) => (colorOf(id) ? ` data-tint="${colorOf(id)}"` : '');
   // What this space opens with, and the environment's list for a space that has none. Both null until a space is loaded.
   let spaceOpensWith = null;
   let environmentOpensWith = null;
@@ -617,7 +624,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // --- installed modules -------------------------------------------------------
 
   const moduleHeader = (m, mode, canDock, canFloat, snap = false) => `
-    <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i> <span data-title>${escapeHtml(m.name)}</span></span>
+    <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
     <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>${toolsHtml({ mode, canDock, canFloat, snap })}</span>`;
 
   // An installed module's place on the canvas: a frame for a sandboxed module, an element of its own for one that runs in the page.
@@ -1204,7 +1211,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       show.innerHTML = '<div class="nav-menu-heading module-chooser-heading" id="modules-menu-show">Show</div>'
         + '<div class="module-chooser-section" role="group" aria-labelledby="modules-menu-show">'
         + switchListHtml(builtinList.map((def) => ({ id: def.id, icon: def.icon, name: def.name, on: shown(def.id), badge: builtinUnread[def.id] || 0 })), 'builtin')
-        + switchListHtml(available.map((m) => ({ id: m.id, icon: m.icon, name: m.name, on: shown(m.id), badge: unread[m.id] || 0 })), 'module')
+        + switchListHtml(available.map((m) => ({ id: m.id, icon: m.icon, name: m.name, on: shown(m.id), badge: unread[m.id] || 0, tint: colorOf(m.id) })), 'module')
         + '</div>';
       if (key) {
         const [kind, id] = key.split(/:(.*)/s);
@@ -1363,6 +1370,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     spaceId = id;
     saved = loadSaved(id);
     available = [];
+    colors = new Map();
     spaceOpensWith = null;
     environmentOpensWith = null;
     if (id) {
@@ -1371,6 +1379,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
         if (guestToken) q.set('guest', guestToken);
         const answer = await api('GET', `/api/modules/for-space?${q}`);
         available = (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false);
+        colors = new Map((answer.modules || []).filter((m) => TINTS.includes(m.color)).map((m) => [m.id, m.color]));
         spaceOpensWith = Array.isArray(answer.opensWith) ? answer.opensWith : null;
         environmentOpensWith = Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null;
         showBuiltin(answer.builtin);
@@ -1407,6 +1416,17 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     // With the canvas-level snap on, a module that can float opens floating (and snapped), whatever it was last time.
     const want = canFloat && (saved[id]?.mode === 'float' || snapAllOn()) ? 'float' : 'dock';
     return openBuiltinIn(def, mode || (isNarrow() ? 'dock' : want));
+  };
+  // Show a built-in module the way its switch does (the click handler above): open it if it is closed; if it is open
+  // but out of sight (behind another view on a narrow canvas, or floating behind), bring it forward; a window of its
+  // own is focused. Never closes it. Says whether it is open now (false: it may not open here).
+  const api_showBuiltin = (id) => {
+    if (!builtins.has(id)) return false;
+    if (!opened.has(id)) api_openBuiltin(id);
+    else if (opened.get(id).mode === 'window') opened.get(id).win?.focus?.();
+    else setView(id);
+    update();
+    return opened.has(id);
   };
 
   return {
@@ -1456,6 +1476,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     setMode,
     popOut,
     list: () => available.slice(),
+    colorOf,
     // The built-in modules: the conference and the chat register their element and how to be told about changes.
     registerBuiltin(def) {
       def.order ??= 0; // the conference sets -1 to come first; the chat is the next column
@@ -1463,6 +1484,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       update(); // the menu lists it
     },
     openBuiltin: api_openBuiltin,
+    showBuiltin: api_showBuiltin,
     closeBuiltin,
     builtinOpen: (id) => opened.has(id),
     // The window a built-in module is popped out into, or null (the page's idle-hide needs that document's own canvas).

@@ -2,7 +2,7 @@
 
 **Audience:** Thomas decides; server-development and experience-design build.
 
-**Status:** Approved 2026-09-25 (GitHub issue #58). Thomas: one text input, in Chat, that replaces the modules' own text boxes, with the Assistant merged into Chat. **Phase 1 built** (steps 1 to 5) in PRs #77 and #78. **Phase 2, step 6 built** in PRs #79 to #84 (To-do, Calendar, Research, Planner and Polls lost their typed boxes; Polls gained `/v`). **Steps 7 and 8 built** on main after PR #84 (the **Private** / **Shared** switch; new installs leave the Assistant out). Verification so far is by tool only (`tools/check-one-input.mjs`, `tools/check-modules.mjs`, `tools/check-module-window.mjs`); none of the "Verified live" list below has been walked in a browser. See "Progress" at the end.
+**Status:** Approved 2026-09-25 (GitHub issue #58). Thomas: one text input, in Chat, that replaces the modules' own text boxes, with the Assistant merged into Chat. **Phase 1 built** (steps 1 to 5) in PRs #77 and #78. **Phase 2, step 6 built** in PRs #79 to #84 (To-do, Calendar, Research, Planner and Polls lost their typed boxes; Polls gained `/v`). **Steps 7 and 8 built** on main after PR #84 (the **Private** / **Shared** switch; new installs leave the Assistant out). Verification so far is by tool only (`tools/check-one-input.mjs`, `tools/check-modules.mjs`, `tools/check-module-window.mjs`); none of the "Verified live" list below has been walked in a browser. See "Progress" at the end. Progress, 2026-10-02: steps 7 and 8 are superseded by [plan-chat-model](plan-chat-model.md), built: an AI answer and a command are private chat messages, shared by making them public, and the Assistant's **Use** no longer gates `/ai`.
 
 ## What it is today
 

@@ -5,16 +5,18 @@
 // real checkbox with role="switch", so a screen reader says "on" or "off" and Space toggles it; wireSwitchList() adds
 // Enter to toggle and the arrow keys to move between them. Each page listens for `change` (or `click`) on the list.
 //
-//   switchListHtml(items, 'opens')  items: [{ id, icon, name, on, note?, badge?, disabled? }], the data attribute's name in
+//   switchListHtml(items, 'opens')  items: [{ id, icon, name, on, note?, badge?, disabled?, tint? }] (tint: the module's
+//                                   colour, a tint name, drawn on its icon), the data attribute's name in
 //                                   dashed form ('opens' gives data-opens="<id>" on each checkbox)
 
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const ICON = /^[a-z0-9-]{1,40}$/;
 
-export function switchRowHtml({ id, icon, name, on = false, note = '', badge = 0, disabled = false }, attr) {
+const TINT = /^(gold|blue|green|teal|purple|red|orange|pink)$/;
+export function switchRowHtml({ id, icon, name, on = false, note = '', badge = 0, disabled = false, tint = null }, attr) {
   const n = Number(badge) || 0;
   return `<label class="switch-row${disabled ? ' disabled' : ''}"><input type="checkbox" class="switch" role="switch" data-${attr}="${escapeHtml(id)}"${on ? ' checked' : ''}${disabled ? ' disabled' : ''}>`
-    + `<i class="fa-solid fa-${ICON.test(icon || '') ? icon : 'puzzle-piece'} fa-fw" aria-hidden="true"></i>`
+    + `<i class="fa-solid fa-${ICON.test(icon || '') ? icon : 'puzzle-piece'} fa-fw" aria-hidden="true"${TINT.test(tint || '') ? ` data-tint="${tint}"` : ''}></i>`
     + `<span class="switch-name">${escapeHtml(name)}</span>`
     + (note ? ` <span class="hint">(${escapeHtml(note)})</span>` : '')
     + (n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : '')

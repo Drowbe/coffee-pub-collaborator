@@ -21,7 +21,6 @@ const { ModuleManager } = require('./modules');
 const { ModuleData } = require('./module-data');
 const { ModuleHooks } = require('./module-hooks');
 const { ChatHistory } = require('./chat-history');
-const { AiThreads } = require('./ai-threads');
 const { ModuleLinks } = require('./module-links');
 const { ModuleBus } = require('./module-bus');
 const { ModuleSettings } = require('./module-settings');
@@ -133,7 +132,10 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   themeEvents.setMaxListeners(0);
 
   const chatHistory = new ChatHistory(dataDir);
-  const aiThreads = new AiThreads(dataDir);
+  // Once, on the first start after the one chat store (plan-chat-model.md): the old private AI threads move in as
+  // private messages, and ai-threads.json is renamed to ai-threads.moved.json. A later start does nothing.
+  const movedThreads = chatHistory.moveThreads((key) => store.userByKey(key)?.displayName || null);
+  if (movedThreads) log(`Moved ${movedThreads} private AI ${movedThreads === 1 ? 'message' : 'messages'} into the chat.`);
   const chatPosts = new Map(); // who -> recent post times, to keep one person from flooding a space's history
 
   const moduleLinks = new ModuleLinks(modules.dir);
@@ -192,7 +194,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
 
   return {
     slug, dataDir,
-    store, modules, moduleData, moduleHooks, chatHistory, aiThreads, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
+    store, modules, moduleData, moduleHooks, chatHistory, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
     geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatPosts, iconSvgs,
     moduleActivity, noteActivity, saveActivity,
   };
@@ -203,7 +205,6 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
 // four, which only debounce and flush on the way out.
 function flushEnvironment(env) {
   env.chatHistory.flush();
-  env.aiThreads.flush();
   env.ai.flush();
   env.geocodeCache.flush();
   env.saveActivity();

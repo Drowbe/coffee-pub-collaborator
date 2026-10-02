@@ -275,10 +275,12 @@
           <button class="msg-btn" id="chat-close" type="button" title="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
-      <div class="mod-toolbar" id="chat-ai-share" hidden>
-        <span class="tb-tabs" role="group" aria-label="AI replies">
-          <button class="tb-tab on" id="chat-ai-private" type="button" aria-pressed="true" aria-label="Private"><i class="tb-tab-glyph fa-solid fa-lock fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Private</span></button>
-          <button class="tb-tab" id="chat-ai-shared" type="button" aria-pressed="false" aria-label="Shared"><i class="tb-tab-glyph fa-solid fa-users fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Shared</span></button>
+      <!-- What Chat shows (plan-chat-model.md, "The filter"): never what is posted. chat-input.js keeps it. -->
+      <div class="mod-toolbar" id="chat-filter" hidden>
+        <span class="tb-tabs" role="group" aria-label="Show messages">
+          <button class="tb-tab on" id="chat-filter-all" type="button" aria-pressed="true" aria-label="All"><i class="tb-tab-glyph fa-solid fa-comments fa-fw" aria-hidden="true"></i><span class="tb-tab-word">All</span></button>
+          <button class="tb-tab" id="chat-filter-private" type="button" aria-pressed="false" aria-label="Private"><i class="tb-tab-glyph fa-solid fa-lock fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Private</span></button>
+          <button class="tb-tab" id="chat-filter-public" type="button" aria-pressed="false" aria-label="Public"><i class="tb-tab-glyph fa-solid fa-users fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Public</span></button>
         </span>
       </div>
       <div class="messages" id="messages"></div>

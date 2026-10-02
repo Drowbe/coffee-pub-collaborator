@@ -441,6 +441,64 @@ test('the space bar in two zones: Layout (the module chooser), then Online, on t
   assert.match(css, /body\.in-space \.subnav \.nav-left > \.nav-divider \{\s*display: none;/);
 });
 
+test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then Join the call, then Online', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  // The three left-zone registrations as space.js makes them, arranged as the registry draws them.
+  const reg = (id) => {
+    const m = space.match(new RegExp(`nav\\.register\\(\\{ bar: 'secondary', zone: 'left', group: '([\\w-]+)',(?: groupOrder: ([\\d.]+),)? id: '${id}', order: (\\d+),`));
+    assert.ok(m, `space.js registers ${id} in the space bar's left zone`);
+    return { id, group: m[1], groupOrder: m[2] === undefined ? undefined : Number(m[2]), order: Number(m[3]) };
+  };
+  const left = [reg('who-here'), reg('join-call'), reg('module-chooser')].map((t, i) => ({ ...t, seq: i + 1 }));
+  assert.deepEqual(ids(arrange(left)), [['module-chooser'], ['join-call'], ['who-here']], 'Layout, Join the call, Online: three groups, a divider between each');
+  // Its own button: a phone icon, the words "Join the call" (its accessible name; on a phone the tab reads "Join"),
+  // the accent look and the Layout button's size, nothing new in colour.
+  assert.match(space, /joinCallButton\.id = 'join-call';/);
+  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call';/);
+  assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Join the call'\);/);
+  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label">Join<span class="join-call-more"> the call<\/span><\/span>';/);
+  assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted \}\);/);
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, /\n\.module-chooser-toggle,\n\.join-call \{/, 'the Layout button\'s size');
+  assert.match(css, /\n\.join-call\[hidden\] \{\s*display: none;/, 'hidden means hidden, whatever its display');
+  const own = [...css.matchAll(/([^{}]*\.join-call[^{}]*)\{([^{}]*)\}/g)].map((m) => m[2]).join('');
+  assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(own), 'its rules use theme tokens only');
+});
+
+test('Join the call shows only out of the call, connected, where the conference may show; it joins through joinTheCall()', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const m = space.match(/const joinCallWanted = \(\) => ([^;]+);/);
+  assert.ok(m, 'space.js says when Join the call shows (joinCallWanted)');
+  // Run the rule itself against each state.
+  const wanted = (s) => new Function('currentSpace', 'call', 'inCall', 'conferenceAllowed', 'features', 'canDo', `return (${m[1]});`)(
+    s.space === undefined ? { id: 'lobby' } : s.space,
+    { state: s.state || 'connected' },
+    Boolean(s.inCall),
+    ({ conferenceEnabled = true, permitted = false } = {}) => conferenceEnabled !== false && Boolean(permitted),
+    { conferenceEnabled: s.enabled !== false },
+    () => s.permitted !== false,
+  );
+  assert.equal(wanted({}), true, 'in a space, connected, out of the call: shown');
+  assert.equal(wanted({ inCall: true }), false, 'in the call: hidden (Leave and Hang up stay as they are)');
+  assert.equal(wanted({ space: { id: 'a1', isAside: true } }), true, 'in an aside out of its call: shown (the aside\'s call)');
+  assert.equal(wanted({ space: null }), false, 'not in a space: hidden');
+  assert.equal(wanted({ state: 'disconnected' }), false, 'not connected: hidden');
+  assert.equal(wanted({ enabled: false }), false, 'the environment turned the conference off: hidden');
+  assert.equal(wanted({ permitted: false }), false, 'may not see the conference: hidden');
+  // A press shows the conference as its switch does and joins through the one join path; the bar draws again when the
+  // call state changes.
+  assert.match(space, /joinCallButton\.addEventListener\('click', \(\) => joinTheCall\(\)\);/);
+  assert.match(space, /function joinTheCall\(\) \{\n  if \(!canvas\.showBuiltin\('conference'\)\) return;\n  startCall\(\)\.catch\(\(err\) => setStatus\(`call: \$\{err\.message\}`, true\)\);\n\}/);
+  const sync = space.slice(space.indexOf('function syncCallControl('), space.indexOf('\n}\n', space.indexOf('function syncCallControl(')));
+  assert.match(sync, /nav\.draw\('secondary'\)/, 'syncCallControl() (called as the call starts and stops) draws the bar again');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const show = canvasJs.slice(canvasJs.indexOf('const api_showBuiltin = (id) => {'), canvasJs.indexOf('\n  };\n', canvasJs.indexOf('const api_showBuiltin = (id) => {')));
+  assert.match(show, /if \(!opened\.has\(id\)\) api_openBuiltin\(id\);/, 'closed: opened as the switch opens it');
+  assert.match(show, /else setView\(id\);/, 'open behind another view: shown, as the switch does');
+  assert.ok(!/closeBuiltin/.test(show), 'showing never closes (closing the conference hangs up)');
+  assert.match(canvasJs, /\n    showBuiltin: api_showBuiltin,\n/);
+});
+
 test('the registry has two zones: register() refuses the middle, as any unknown zone', () => {
   assert.throws(() => register({ id: 'x', bar: 'secondary', zone: 'middle', icon: 'x', label: 'x' }), /zone must be left or right/);
   assert.throws(() => register({ id: 'x', bar: 'primary', zone: 'middle', icon: 'x', label: 'x' }), /zone must be left or right/);

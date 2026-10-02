@@ -212,7 +212,6 @@ const modules = proxyFor('modules');
 const moduleData = proxyFor('moduleData');
 const moduleHooks = proxyFor('moduleHooks');
 const chatHistory = proxyFor('chatHistory');
-const aiThreads = proxyFor('aiThreads');
 const chatPosts = proxyFor('chatPosts');
 const moduleLinks = proxyFor('moduleLinks');
 const moduleBus = proxyFor('moduleBus');
@@ -3497,7 +3496,6 @@ app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   store.removeSpace(req.params.id);
   moduleSettings.forgetSpace(req.params.id);
   chatHistory.forgetSpace(req.params.id);
-  aiThreads.forgetSpace(req.params.id);
   res.json({ ok: true });
 });
 app.put('/api/spaces/:id/image', requireOwner, rawImage, checkStorageCap, (req, res) => {
@@ -3914,7 +3912,8 @@ function chatSpaceFor(req, res, permission) {
 app.get('/api/spaces/:id/chat', (req, res) => {
   const found = chatSpaceFor(req, res, 'chatRead');
   if (!found) return;
-  res.json({ messages: chatHistory.list(found.space.id), clearedAt: chatHistory.clearedAt(found.space.id) });
+  // Public messages, and the caller's own private ones (plan-chat-model.md); a guest reads public messages only.
+  res.json({ messages: chatHistory.list(found.space.id, found.who.user ? found.who.user.key : null), clearedAt: chatHistory.clearedAt(found.space.id) });
 });
 
 // An owner, or a member ticked as moderator in this space. Guests are neither.
@@ -3940,9 +3939,18 @@ app.delete('/api/spaces/:id/chat', (req, res) => {
   if (!found) return;
   if (!chatModerator(found.who, found.space)) return res.status(403).json({ error: `only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can delete the chat` });
   chatHistory.clear(found.space.id);
-  aiThreads.forgetSpace(found.space.id);
   tellChat(found.space.id, { type: 'chat-clear' });
   res.json({ ok: true });
+});
+
+// "Delete your private messages" (plan-chat-model.md, decision 13): every private message of the caller's in this
+// space, and nothing else -- never anyone else's, never a public one. Registered before /chat/:messageId.
+app.delete('/api/spaces/:id/chat/private', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chat');
+  if (!found) return;
+  if (!found.who.user) return res.status(403).json({ error: `${word('guest', { many: true })} have no private messages to delete` });
+  const deleted = chatHistory.removePrivate(found.space.id, found.who.user.key);
+  res.json({ ok: true, deleted });
 });
 
 app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {
@@ -3950,22 +3958,54 @@ app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {
   if (!found) return;
   if (!found.who.user) return res.status(403).json({ error: 'you can only delete a message you sent' });
   if (!/^[a-f0-9]{12}$/.test(req.params.messageId)) return res.status(404).json({ error: 'no such message' });
-  const gone = chatHistory.remove(found.space.id, req.params.messageId, chatModerator(found.who, found.space) ? null : found.who.user.key);
+  // Someone else's private message is "no such message", for a moderator too: they cannot see it.
+  const me = found.who.user.key;
+  const gone = chatHistory.remove(found.space.id, req.params.messageId, chatModerator(found.who, found.space) ? null : me, me);
   if (gone === false) return res.status(403).json({ error: 'you can only delete a message you sent' });
   if (!gone) return res.status(404).json({ error: 'no such message' });
-  tellChat(found.space.id, { type: 'chat-delete', id: gone.id });
+  // Only a public message was ever on anyone else's page; a private one's id is not told to the call.
+  if (gone.visibility !== 'private') tellChat(found.space.id, { type: 'chat-delete', id: gone.id });
   res.json({ ok: true });
 });
+
+// Who sees a message (plan-chat-model.md, decision 9): its author flips it public or private. Only `visibility`
+// changes. Someone else's private message answers 404, so its existence is not revealed.
+app.patch('/api/spaces/:id/chat/:messageId', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chat');
+  if (!found) return;
+  const visibility = req.body?.visibility;
+  if (visibility !== 'public' && visibility !== 'private') return res.status(400).json({ error: 'visibility is public or private' });
+  if (!found.who.user) return res.status(403).json({ error: 'only the person who posted it can change who sees it' });
+  if (!/^[a-f0-9]{12}$/.test(req.params.messageId)) return res.status(404).json({ error: 'no such message' });
+  const me = found.who.user.key;
+  if (chatPostLimited(me)) return res.status(429).json({ error: 'too many messages, slow down' });
+  const out = chatHistory.setVisibility(found.space.id, req.params.messageId, me, visibility);
+  if (out === false) return res.status(403).json({ error: 'only the person who posted it can change who sees it' });
+  if (!out) return res.status(404).json({ error: 'no such message' });
+  if (out.changed) {
+    tellChat(found.space.id, visibility === 'public'
+      ? { type: 'chat-visibility', id: out.message.id, visibility, message: out.message }
+      : { type: 'chat-visibility', id: out.message.id, visibility });
+  }
+  res.json({ message: out.message });
+});
+
+// One person's chat writes in the last ten seconds (posting, and changing who sees a message): 30 at most.
+function chatPostLimited(key) {
+  const now = Date.now();
+  const recent = (chatPosts.get(key) || []).filter((t) => now - t < 10000);
+  if (recent.length >= 30) return true;
+  chatPosts.set(key, [...recent, now]);
+  return false;
+}
 
 app.post('/api/spaces/:id/chat', (req, res) => {
   const found = chatSpaceFor(req, res, 'chat');
   if (!found) return;
   const { who, space } = found;
   const key = who.user ? who.user.key : `guest:${space.id}`;
-  const now = Date.now();
-  const recent = (chatPosts.get(key) || []).filter((t) => now - t < 10000);
-  if (recent.length >= 30) return res.status(429).json({ error: 'too many messages, slow down' });
-  chatPosts.set(key, [...recent, now]);
+  if (chatPostLimited(key)) return res.status(429).json({ error: 'too many messages, slow down' });
+  // Always an ordinary public message: private ones are made only by the command and AI routes.
   const message = chatHistory.add(space.id, {
     by: who.user ? who.user.key : 'guest',
     who: who.user ? who.user.displayName : req.body?.name,
@@ -3975,16 +4015,11 @@ app.post('/api/spaces/:id/chat', (req, res) => {
 });
 
 // --- Chat /ai and commands (plan-one-input, #58) ----------------------------------------------------------------
-// Same people as #73 import: signed in, not a guest, not in a space with AI turned off. If the Assistant
-// is installed, its `use` permission is also required. The environment's `useAi` flag is not.
+// Same people as #73 import: signed in, not a guest, not in a space with AI turned off. The retired Assistant's
+// `use` permission no longer counts (plan-chat-model.md, decision 12), nor does the environment's `useAi` flag.
 function chatAiRefusal(who, space) {
   if (!who.user) return `${word('guest', { many: true })} cannot use AI`;
   if (space && space.aiOff) return `AI is turned off in this ${word('space')}`;
-  const assistant = modules.enabled('assistant');
-  if (assistant && space) {
-    const perms = store.spacePermissions(who.user.key, space.id);
-    if (!moduleCan(assistant.manifest, perms, 'write')) return `your role can't do that in this ${word('module')}`;
-  }
   return '';
 }
 
@@ -4013,13 +4048,14 @@ app.get('/api/spaces/:id/ai/thread', (req, res) => {
   const found = chatAiSpace(req, res);
   if (!found) return;
   if (req.query.user) return res.status(403).json({ error: 'that thread is not yours' });
-  res.json({ entries: aiThreads.list(found.space.id, found.who.user.key) });
+  // The caller's private /ai questions and answers from the one chat store, in the old thread shape.
+  res.json({ entries: chatHistory.aiThread(found.space.id, found.who.user.key) });
 });
 
 app.delete('/api/spaces/:id/ai/thread', (req, res) => {
   const found = chatAiSpace(req, res);
   if (!found) return;
-  aiThreads.clear(found.space.id, found.who.user.key);
+  chatHistory.removeAiThread(found.space.id, found.who.user.key);
   res.json({ ok: true });
 });
 
@@ -4027,7 +4063,7 @@ app.delete('/api/spaces/:id/ai/thread/:entryId', (req, res) => {
   const found = chatAiSpace(req, res);
   if (!found) return;
   if (!/^[a-f0-9]{12}$/.test(req.params.entryId)) return res.status(404).json({ error: 'no such message' });
-  const gone = aiThreads.remove(found.space.id, found.who.user.key, req.params.entryId);
+  const gone = chatHistory.removeAiEntry(found.space.id, found.who.user.key, req.params.entryId);
   if (!gone) return res.status(404).json({ error: 'no such message' });
   res.json({ ok: true });
 });
@@ -4063,11 +4099,13 @@ app.post('/api/spaces/:id/ai', async (req, res) => {
       if (slug) hostRegistry.recordAiCall(slug);
     }
     const summaries = (out.summaries || []).map((c) => ({ ...c, sources: (c.sources || []).map((n) => given[n - 1]).filter(Boolean) }));
-    const shared = req.body?.share === true;
-    const asked = aiThreads.add(found.space.id, found.who.user.key, { role: 'user', text: question, shared, at: askedAt });
-    const answered = aiThreads.add(found.space.id, found.who.user.key, { role: 'ai', text: out.text, summaries, shared });
-    noteActivity('chat', `asked the AI (${out.tokens} tokens)`, found.who.user.key, found.space.id);
-    res.json({ text: out.text, summaries, used: out.used.map((n) => given[n - 1]).filter(Boolean), tokens: out.tokens, shared, at: answered && answered.at, id: answered && answered.id, questionId: asked && asked.id });
+    // Both kept as the asker's private messages (plan-chat-model.md). `share` is accepted and ignored: the author makes
+    // the answer public with PATCH .../chat/:messageId, and nothing is posted to the chat here.
+    const me = found.who.user.key;
+    const asked = chatHistory.add(found.space.id, { by: me, who: found.who.user.displayName, text: question, visibility: 'private', kind: 'command', command: 'ai', at: askedAt });
+    const answered = chatHistory.add(found.space.id, { by: me, who: 'AI', text: out.text, visibility: 'private', kind: 'ai', summaries, replyTo: asked ? asked.id : undefined });
+    noteActivity('chat', `asked the AI (${out.tokens} tokens)`, me, found.space.id);
+    res.json({ text: out.text, summaries, used: out.used.map((n) => given[n - 1]).filter(Boolean), tokens: out.tokens, shared: false, at: answered && answered.at, id: answered && answered.id, questionId: asked && asked.id, question: asked, message: answered });
   } catch (err) {
     sendAiError(err, res);
   }
@@ -4115,7 +4153,11 @@ app.post('/api/spaces/:id/command', (req, res) => {
     by: who.user?.key || 'guest',
     local: true,
   });
-  res.json({ id: request.id, status: request.status, module: chosen.module, moduleName: chosen.moduleName });
+  // The echo, kept as the caller's private message (plan-chat-model.md, decision 8); a guest's stays on their page.
+  const message = who.user
+    ? chatHistory.add(space.id, { by: who.user.key, who: who.user.displayName, text, visibility: 'private', kind: 'command', command: name, module: chosen.module })
+    : null;
+  res.json({ id: request.id, status: request.status, module: chosen.module, moduleName: chosen.moduleName, message });
 });
 
 // Actions placed modules offer in this space, so Chat can Keep and route without naming a module.
@@ -5162,7 +5204,7 @@ app.get('/api/modules/:id/ai', (req, res) => {
 function importRefusal(ctx) {
   if (!ctx.who.user) return `${word('guest', { many: true })} cannot bring in ${word('object', { many: true })}`;
   const space = ctx.spaceId ? store.spaceById(ctx.spaceId) : null;
-  // Same rule as /ai (plan-one-input): space AI off, and if the Assistant is installed, its Use.
+  // Same rule as /ai (plan-chat-model.md, decision 12): signed in, not a guest, space AI not off.
   return chatAiRefusal(ctx.who, space);
 }
 app.get('/api/modules/:id/objects/check', (req, res) => {
@@ -5775,7 +5817,7 @@ app.get('/api/modules/for-space', (req, res) => {
   res.json({
     modules: modules.enabledAll()
       .filter(({ manifest, entry }) => manifest.scope.includes('space') && manifest.surfaces.canvas && moduleSpaceAccess(entry, who, space) && moduleCan(manifest, perms, 'read'))
-      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
+      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), color: manifest.color || null, version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
     // The built-in modules' names and icons as this environment shows them (the canvas's Conference and Chat switches).
     builtin: BUILTIN_MODULES.map((b) => ({ id: b.id, ...shownModule(b) })),
     // What this space opens with, or null when it has no list of its own. The environment's list is what a new space

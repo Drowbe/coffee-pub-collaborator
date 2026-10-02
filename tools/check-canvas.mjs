@@ -348,7 +348,9 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const spaceHtml = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
   if (/closedLabel/.test(canvasJs + spaceJs)) fail('public/canvas.js', 'a module switch must read the module\'s name; no closedLabel');
-  if (/id: 'call-control'|\.call-control\b|id="call-join"/.test(spaceJs + css)) fail('public/space.js', 'the space bar\'s call control is gone; join from the conference\'s "Not in a call" note');
+  // The old "N in the call · Join" control stays gone; the space bar's Join the call (#join-call, GitHub #165) is checked
+  // below and in check-nav.mjs.
+  if (/id: 'call-control'|\.call-control\b|id="call-join"/.test(spaceJs + css)) fail('public/space.js', 'the space bar\'s call control is gone; join from the conference\'s "Not in a call" note or Join the call');
   for (const id of ['no-call-list', 'no-call-empty', 'no-call-join', 'install-hint']) {
     if (!spaceHtml.includes(`id="${id}"`)) fail('public/space.html', `the "Not in a call" note needs #${id}`);
   }
@@ -374,13 +376,14 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // "Not in a call", and only a click joins (the green phone or "Join the call", both through phoneButton()). The one
   // other way on (Thomas, 2026-09-30, "Pull keeps you on the call"): a pull (into an aside, or back) while on the call
   // moves the call with you: reconnectTo(..., { keepCall: true }) reads inCall before it disconnects, and hands
-  // join() and connectAndSetup() `joinCall`, false unless so, which alone starts the call there (still startCall()).
+  // join() and connectAndSetup() `joinCall`, false unless so, which alone starts the call there (joinTheCall(), which
+  // is still startCall()). The space bar's Join the call (GitHub #165) is a click too, through joinTheCall().
   const setup = spaceJs.slice(spaceJs.indexOf('async function connectAndSetup('), spaceJs.indexOf('async function startCall('));
   if (!setup.includes('canvas.restore()')) fail('public/space.js', 'connectAndSetup() must open what the space starts with (canvas.restore())');
   if (!/async function connectAndSetup\(token, livekitUrl, \{ joinCall = false \} = \{\}\)/.test(setup)) fail('public/space.js', 'connectAndSetup() joins only when told to (joinCall, false unless so)');
-  const setupJoin = setup.slice(setup.indexOf('if (joinCall) {'));
-  const setupRest = setup.slice(0, setup.indexOf('if (joinCall) {'));
-  if (!setup.includes('if (joinCall) {') || /startCall|joinOnShow|callStarting/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call, only a pull that moves the call (if (joinCall))');
+  const setupJoin = setup.slice(setup.indexOf('if (joinCall)'));
+  const setupRest = setup.slice(0, setup.indexOf('if (joinCall)'));
+  if (!setup.includes('if (joinCall)') || /startCall|joinTheCall|joinOnShow|callStarting/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call, only a pull that moves the call (if (joinCall))');
   if (!/setAttributes\(\{ call: 'off' \}\)/.test(setupRest)) fail('public/space.js', 'entering a space must tell others "off"');
   if (/joinOnShow/.test(spaceJs)) fail('public/space.js', 'no joinOnShow: entering a space never joins the call');
   if (!/async function join\(spaceId = 'lobby', \{ joinCall = false \} = \{\}\)/.test(spaceJs)) fail('public/space.js', 'join() joins the call only when told to (joinCall, false unless so)');
@@ -397,9 +400,16 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
   const callers = [...spaceJs.matchAll(/^.*\bstartCall\(\).*$/gm)].map((m) => m[0].trim()).filter((line) => !line.startsWith('//') && !line.startsWith('async function startCall('));
   const inPhone = spaceJs.slice(spaceJs.indexOf('function phoneButton('), spaceJs.indexOf('async function toggleMic('));
-  const byClick = callers.filter((line) => inPhone.includes(line));
-  const byPull = callers.filter((line) => setupJoin.includes(line));
-  if (byClick.length !== 1 || byPull.length !== 1 || callers.length !== 2) fail('public/space.js', `startCall() is called from phoneButton() (a click) and connectAndSetup()'s joinCall (a pull) alone (found ${JSON.stringify(callers)})`);
+  const linesOf = (text) => text.split('\n').map((l) => l.trim()); // whole lines: one caller's line may hold another's
+  const byClick = callers.filter((line) => linesOf(inPhone).includes(line));
+  const shared = spaceJs.slice(spaceJs.indexOf('function joinTheCall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function joinTheCall(')));
+  const byShared = callers.filter((line) => linesOf(shared).includes(line));
+  if (byClick.length !== 1 || byShared.length !== 1 || callers.length !== 2) fail('public/space.js', `startCall() is called from phoneButton() (a click in the conference) and joinTheCall() alone (found ${JSON.stringify(callers)})`);
+  // joinTheCall() shows the conference as its switch does, then joins; called by a pull's joinCall and by the space
+  // bar's Join the call, nothing else.
+  if (!/^function joinTheCall\(\) \{\n  if \(!canvas\.showBuiltin\('conference'\)\) return;\n  startCall\(\)/m.test(spaceJs)) fail('public/space.js', 'joinTheCall() shows the conference (canvas.showBuiltin) and then joins (startCall)');
+  const sharedCallers = [...spaceJs.matchAll(/^.*\bjoinTheCall\(\).*$/gm)].map((m) => m[0].trim()).filter((line) => !line.startsWith('//') && !line.startsWith('function joinTheCall('));
+  if (sharedCallers.length !== 2 || !setupJoin.includes(sharedCallers.find((l) => /joinCall\)/.test(l)) || '\0') || !sharedCallers.some((l) => l.startsWith('joinCallButton.addEventListener('))) fail('public/space.js', `joinTheCall() is called from connectAndSetup()'s joinCall (a pull) and the space bar's Join the call alone (found ${JSON.stringify(sharedCallers)})`);
   const confDef = spaceJs.slice(spaceJs.indexOf("id: 'conference',"), spaceJs.indexOf("$('conf-close').addEventListener"));
   if (/startCall/.test(confDef)) fail('public/space.js', 'showing the conference (its onChange) must never join the call');
 }

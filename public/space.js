@@ -9,7 +9,7 @@ import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
-import { attachChatInput, placeAbove } from '/chat-input.js';
+import { attachChatInput, placeAbove, stripSummaryMarkers } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
@@ -1031,10 +1031,12 @@ topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw(
 
 // Who is in the call, while I am not: the conference's "Not in a call" note lists them, with "Join the call" and the
 // microphone note under it. The space bar's call control ("N in the call · Join", plan-entering decisions 2 and 16) is
-// gone (Thomas, 2026-09-30): joining lives in the conference, which its switch shows out of the call.
+// gone (Thomas, 2026-09-30): joining lives in the conference, which its switch shows out of the call, and in the space
+// bar's Join the call (GitHub #165), which shows the conference and joins in one press.
 function syncCallControl() {
   syncWhoIsInCall();
   whoHere.refresh(); // who is here, in the space bar (space-people.js)
+  nav.draw('secondary'); // Join the call shows only out of the call
 }
 // The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
 // is not off (what /api/presence reports as inCall), with their picture in this space, else their first letter.
@@ -1075,6 +1077,24 @@ call
   .on(RoomEvent.ParticipantDisconnected, syncCallControl)
   .on(RoomEvent.ParticipantAttributesChanged, syncCallControl)
   .on(RoomEvent.ParticipantNameChanged, syncWhoIsInCall);
+
+// --- Join the call (GitHub #165) ---------------------------------------------------------------------
+// In the space bar's left zone, after Layout and before Online: one press shows the Conference (as its Show switch
+// does) and joins, through joinTheCall(), the same startCall() the conference's own "Join the call" uses. Shown only
+// while connected to a space (or an aside: there the call is the aside's), out of the call, and where this person may
+// see the conference; Leave and the conference's own Hang up end the call as before. On a phone it is a tab in the tab
+// bar, between the module tabs and Online's count, reading "Join".
+const joinCallButton = document.createElement('button');
+joinCallButton.type = 'button';
+joinCallButton.id = 'join-call';
+joinCallButton.className = 'btn btn-small btn-accent join-call';
+joinCallButton.setAttribute('aria-label', 'Join the call');
+joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label">Join<span class="join-call-more"> the call</span></span>';
+joinCallButton.addEventListener('click', () => joinTheCall());
+const joinCallWanted = () => Boolean(currentSpace) && call.state === 'connected' && !inCall
+  && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
+nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted });
+// --- end Join the call ---
 
 // --- who is here (space-people.js) ------------------------------------------------------------------
 // Online, in the space bar's left zone after the Layout button (plan-two-zone-nav.md, decisions 4 and 9): everyone in
@@ -1544,9 +1564,31 @@ async function fetchChatHistory(spaceId) {
   const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
   const { messages, clearedAt } = await api('GET', `/api/spaces/${encodeURIComponent(spaceId)}/chat${q}`);
   return {
-    messages: messages.map((m) => ({ id: m.id, who: m.who, by: m.by, text: m.text, at: new Date(m.at).toISOString() })),
+    messages: messages.map((m) => storedEntry(m)),
     clearedAt: Number(clearedAt) || 0,
   };
+}
+// A message as the server stores it (plan-chat-model.md, "One message, one store"), as this page keeps it: public or
+// private, and what kind (absent: an ordinary message; an unknown kind reads as one). `question` is a public AI answer's
+// read-only quote of what was asked (decision 11). `local`: drawn on this page only (a guest's command echo).
+function storedEntry(m, { local = false } = {}) {
+  const kind = m.kind === 'command' || m.kind === 'ai' ? m.kind : '';
+  const entry = {
+    id: local ? '' : String(m.id || ''),
+    who: String(m.who || 'someone'),
+    by: String(m.by || ''),
+    text: String(m.text || ''),
+    at: new Date(m.at),
+    visibility: m.visibility === 'private' ? 'private' : 'public',
+    kind,
+    stored: !local && chatIdOk(m.id),
+  };
+  if (kind && typeof m.command === 'string' && m.command) entry.command = m.command;
+  if (kind && typeof m.module === 'string' && m.module) entry.module = m.module;
+  if (kind === 'ai' && Array.isArray(m.summaries)) entry.summaries = m.summaries;
+  if (kind === 'ai' && typeof m.replyTo === 'string') entry.replyTo = m.replyTo;
+  if (kind === 'ai' && m.question && typeof m.question.text === 'string') entry.question = { who: String(m.question.who || 'someone'), text: m.question.text };
+  return entry;
 }
 // Tell the server what was just said, so the space's history has it. Returns the stored message, or null when it
 // could not be kept (an aside, or the server did not answer).
@@ -1569,7 +1611,7 @@ function publishChat(data) {
 async function sendChatText(text) {
   const stored = await postChatMessage(text);
   if (stored?.id) {
-    addEntry({ id: stored.id, who: stored.who, by: stored.by, text: stored.text, at: new Date(stored.at) }, true);
+    addEntry(storedEntry(stored), true);
     publishChat({ type: 'chat', id: stored.id, text: stored.text, at: stored.at, who: stored.who, by: stored.by });
     return;
   }
@@ -1596,19 +1638,19 @@ function canModerateChat() {
   if (hasOwnerRights(me)) return true;
   return Boolean(me.spaces?.[currentSpace.id]?.permissions?.moderator);
 }
-// Only the person who posted a shared message can change private or public. A private turn on this page
-// (an AI answer, a command) is already only on their screen. Guests share one stored sender, so a guest
-// cannot change a stored message; a picture they sent still can, because that one carries their own id.
-function canChangeVisibility(entry, by) {
-  if (!entry?.chat) return true;
-  if (!me?.key) return false;
-  if (me.role === 'guest') return Boolean(entry.blob && by === me.key);
-  return by === me.key;
+// Who sees a message is the author's to change, both ways, on any stored message (plan-chat-model.md, decisions 3 and
+// 9). Pictures are never stored and a guest's command echo stays on their page, so neither is a button; guests share
+// one stored sender, so a guest never changes one.
+function canChangeVisibility(entry) {
+  if (!entry?.stored || entry.blob || !chatIdOk(entry.id)) return false;
+  if (!me?.key || me.role === 'guest' || guestToken) return false;
+  return entry.by === me.key;
 }
 // A shared message can be deleted by the person who sent it. A picture is live only, so its id is this page's.
 function canDeleteChatEntry(entry) {
   if (!entry?.chat || !chatIdOk(entry.id)) return false;
   if (entry.blob) return Boolean(me?.key && entry.by === me.key);
+  if (entry.visibility === 'private') return Boolean(me?.key && entry.by === me.key && me.role !== 'guest'); // only ever on its author's page
   if (canModerateChat()) return true;
   return Boolean(me?.key && entry.by === me.key && me.role !== 'guest');
 }
@@ -1623,7 +1665,8 @@ async function renderChatHistory(spaceId) {
     history = got.messages;
     serverCleared = got.clearedAt;
   } catch {
-    history = loadChatHistory(spaceId);
+    // An old copy kept in this browser: public, and not a button (the server may not have it).
+    history = loadChatHistory(spaceId).map((m) => ({ ...storedEntry(m), stored: false }));
   }
   const cleared = Math.max(chatClearedAt(spaceId), serverCleared);
   history = history.filter((e) => new Date(e.at).getTime() > cleared);
@@ -1631,7 +1674,9 @@ async function renderChatHistory(spaceId) {
   const fragment = document.createDocumentFragment();
   for (const entry of history) {
     if (entry.id && chatMessageNode(entry.id)) continue;
-    const el = messageEl({ id: entry.id, who: entry.who, by: entry.by, text: entry.text, at: new Date(entry.at) }, entry.who === me?.displayName);
+    entry.chat = true;
+    chatLog.push(entry);
+    const el = messageEl(entry, ownEntry(entry));
     el.classList.add('history');
     fragment.appendChild(el);
   }
@@ -1746,6 +1791,7 @@ function messagePortrait(name, kind, icon, by) {
   el.className = 'message-portrait';
   el.setAttribute('aria-hidden', 'true');
   const safe = /^[a-z0-9-]{1,40}$/.test(icon || '') ? icon : (kind === 'ai' ? 'robot' : '');
+  if (safe) el.classList.add('message-portrait-icon'); // a command's or the AI's icon, in its colour (data-tint on the message)
   if (safe) {
     el.innerHTML = `<i class="fa-solid fa-${safe} fa-fw"></i>`;
     return el;
@@ -1767,12 +1813,17 @@ function messagePortrait(name, kind, icon, by) {
 
 // A chat message is a header and a container. The header has a left zone (portrait, name, time) and a
 // right zone (private or public, then the menu). The container is the message itself.
-function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, entry, onPublic }) {
+// `tint` is the colour of a command's module, or gold for the AI (plan-chat-model.md, decision 18): the portrait's icon
+// and a thin left edge. `command` ("/r") follows the name. data-vis says private or public, for the filter.
+function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, entry, tint, command }) {
   const el = document.createElement('div');
   el.className = 'message';
   if (kind === 'own' || kind === 'you') el.classList.add('own');
-  if (kind === 'ai' || kind === 'you') el.classList.add('private-ai');
+  if (kind === 'ai' || kind === 'you' || kind === 'command') el.classList.add('private-ai');
   if (kind === 'ai') el.classList.add('msg-ai');
+  if (/^(gold|blue|green|teal|purple|red|orange|pink)$/.test(tint || '')) el.dataset.tint = tint;
+  const atMs = at instanceof Date ? at.getTime() : new Date(at).getTime();
+  if (Number.isFinite(atMs)) el.dataset.at = String(atMs);
   const head = document.createElement('div');
   head.className = 'message-head';
   const left = document.createElement('span');
@@ -1788,12 +1839,18 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   when.className = 'message-when';
   when.textContent = messageStamp(at);
   left.append(messagePortrait(name, kind, icon, by), nameEl);
+  if (command) {
+    const cmd = document.createElement('span');
+    cmd.className = 'message-command';
+    cmd.textContent = command;
+    left.append(cmd);
+  }
   if (when.textContent) left.append(dash, when);
   const right = document.createElement('span');
   right.className = 'message-head-side';
   let state = visibility === 'private' ? 'private' : 'public';
-  let posted = state === 'public';
-  const canChange = canChangeVisibility(entry, by);
+  el.dataset.vis = state;
+  const canChange = canChangeVisibility(entry);
   const vis = document.createElement(canChange ? 'button' : 'span');
   if (canChange) vis.type = 'button';
   vis.className = 'message-vis';
@@ -1802,23 +1859,24 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
     vis.setAttribute('aria-label', state === 'private' ? 'Private' : 'Public');
   };
   paintVis();
+  // The badge flips who sees it, and nothing else (decision 3): PATCH, then repaint here and tell the call. On a
+  // refusal the badge stays and Chat's status line says why.
   if (canChange) vis.addEventListener('click', (event) => {
     event.stopPropagation();
     const next = state === 'private' ? 'public' : 'private';
     openHostMenu(vis, [{
       icon: next === 'public' ? 'users' : 'lock',
       label: next === 'public' ? 'Make public' : 'Make private',
-      onPick: () => {
+      onPick: async () => {
+        const done = await setMessageVisibility(entry, next);
+        if (!done) return;
         state = next;
-        if (entry) entry.visibility = state;
+        el.dataset.vis = state;
         paintVis();
-        if (state === 'public' && !posted && onPublic) {
-          posted = true;
-          onPublic();
-        }
       },
     }]);
   });
+  el.repaintVis = (v) => { state = v === 'private' ? 'private' : 'public'; el.dataset.vis = state; paintVis(); };
   const more = document.createElement('button');
   more.type = 'button';
   more.className = 'sdk-more';
@@ -1847,16 +1905,6 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
 async function deleteMessage(el, entry) {
   if (!currentSpace) return;
   const space = `/api/spaces/${encodeURIComponent(currentSpace.id)}`;
-  if (entry?.threadId && chatIdOk(entry.threadId)) {
-    try {
-      await api('DELETE', `${space}/ai/thread/${entry.threadId}`);
-    } catch (err) {
-      setStatus(err.message || 'Could not delete that.', true);
-      return;
-    }
-    el.remove();
-    return;
-  }
   if (entry?.chat) {
     if (!canDeleteChatEntry(entry)) return;
     if (!entry.blob) {
@@ -1869,39 +1917,125 @@ async function deleteMessage(el, entry) {
       }
     }
     dropChatMessage(entry.id);
-    publishChat({ type: 'chat-delete', id: entry.id });
+    if (entry.visibility !== 'private') publishChat({ type: 'chat-delete', id: entry.id }); // a private one was only ever here
     return;
   }
   el.remove();
 }
 
+// Make a stored message public or private (plan-chat-model.md, decision 9). True when the server took it. The others
+// in the call hear it from the server (chat-visibility) and from this page, the same notice, as with a delete.
+async function setMessageVisibility(entry, visibility) {
+  if (!currentSpace || !entry?.stored || !chatIdOk(entry.id)) return false;
+  try {
+    const { message } = await api('PATCH', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}`, { visibility });
+    entry.visibility = message?.visibility === 'private' ? 'private' : 'public';
+    if (message?.question && entry.kind === 'ai') entry.question = { who: String(message.question.who || ''), text: String(message.question.text || '') };
+    publishChat(entry.visibility === 'public'
+      ? { type: 'chat-visibility', id: entry.id, visibility: 'public', message }
+      : { type: 'chat-visibility', id: entry.id, visibility: 'private' });
+    return entry.visibility === visibility;
+  } catch (err) {
+    setStatus(err.message || 'Could not change who sees that.', true);
+    return false;
+  }
+}
+
+// A message someone else made public or private (the chat-visibility notice, from the server or their page). Made
+// public: drawn where its time places it, and it counts as unread while Chat is closed (decision 10). Made private:
+// gone from this page. Only its author may change it, so a notice from anyone else is ignored.
+function applyVisibilityNotice(data, participant) {
+  if (!chatIdOk(data.id) || !canDo('chatRead') || !currentSpace || currentSpace.isAside) return;
+  const from = participant?.identity || '';
+  const have = chatLog.find((e) => e.id === data.id);
+  if (data.visibility === 'private') {
+    if (!have || (from && have.by !== from)) return;
+    if (have.by === me?.key) { have.visibility = 'private'; chatMessageNode(data.id)?.repaintVis?.('private'); return; }
+    dropChatMessage(data.id);
+    return;
+  }
+  if (data.visibility !== 'public' || !data.message || data.message.id !== data.id) return;
+  if (from && data.message.by !== from) return;
+  if (have) {
+    have.visibility = 'public';
+    chatMessageNode(data.id)?.repaintVis?.('public');
+    return;
+  }
+  const entry = storedEntry({ ...data.message, visibility: undefined });
+  addEntry(entry, entry.by === me?.key);
+}
+
+// Whether a message is this person's own (its colour in the chat).
+function ownEntry(entry) {
+  if (entry.kind === 'ai') return false;
+  return Boolean(me?.key && entry.by === me.key) || entry.who === me?.displayName;
+}
+
+// One message, whatever it is: an ordinary message (its text, any {{summary:N}} left in an old copy removed, decision
+// 16), a command's echo (the person, with the command's icon and colour), an AI answer ("AI", gold, its objects with
+// Keep; public, "AI, for <name>" and the question quoted in one line, decision 11), or a picture.
 function messageEl(entry, own) {
   entry.chat = true;
-  entry.visibility = 'public';
-  const body = document.createElement('div');
-  body.className = 'message-body text';
+  if (entry.visibility !== 'private') entry.visibility = 'public';
+  let body;
+  let name = entry.who;
+  let look = null;
   if (entry.blob) {
+    body = document.createElement('div');
+    body.className = 'message-body text';
     const img = document.createElement('img');
     img.src = URL.createObjectURL(entry.blob);
     img.alt = entry.name || 'picture';
     img.title = 'Open full size';
     img.addEventListener('click', () => window.open(img.src, '_blank'));
     body.appendChild(img);
+  } else if (entry.kind === 'ai') {
+    look = chatInput.commandLook(entry);
+    const quote = entry.visibility === 'public' && entry.question ? entry.question : null;
+    if (quote) name = `AI, for ${quote.who}`;
+    body = chatInput.answerBody(entry.text, entry.summaries, quote ? quote.text : '');
+    if (quote) {
+      const q = document.createElement('p');
+      q.className = 'message-quote';
+      q.textContent = quote.text.replace(/\s+/g, ' ').trim();
+      q.title = quote.text;
+      body.prepend(q);
+    }
   } else {
-    body.innerHTML = renderMarkup(entry.text);
+    body = document.createElement('div');
+    body.className = 'message-body text';
+    if (entry.kind === 'command') look = chatInput.commandLook(entry);
+    body.innerHTML = renderMarkup(entry.kind ? entry.text : stripSummaryMarkers(entry.text));
   }
   const el = frameMessage({
-    name: entry.who,
+    name,
     at: entry.at,
-    visibility: 'public',
-    kind: own ? 'own' : '',
-    by: senderKey(entry),
+    visibility: entry.visibility,
+    kind: entry.kind === 'ai' ? 'ai' : entry.kind === 'command' ? 'command' : own ? 'own' : '',
+    icon: look ? look.icon : '',
+    tint: look ? look.tint : null,
+    command: entry.kind === 'command' && look ? look.label : '',
+    by: entry.kind === 'ai' ? '' : senderKey(entry),
     body,
     entry,
   });
+  if (entry.kind === 'command' && own) el.classList.add('own');
   el.classList.add('is-chat');
   if (chatIdOk(entry.id)) el.dataset.chatId = entry.id;
   return el;
+}
+
+// Put a message where its time places it (a message made public long after it was written, decision 10); a new one
+// goes last.
+function placeMessage(el) {
+  const list = $('messages');
+  const at = Number(el.dataset.at);
+  if (Number.isFinite(at)) {
+    const later = [...list.querySelectorAll(':scope > .message[data-at]')].find((m) => Number(m.dataset.at) > at);
+    if (later) { list.insertBefore(el, later); return false; }
+  }
+  list.appendChild(el);
+  return true;
 }
 
 function addEntry(entry, own = false) {
@@ -1909,12 +2043,21 @@ function addEntry(entry, own = false) {
   else if (!(entry.at instanceof Date)) entry.at = new Date(entry.at);
   entry.chat = true;
   chatLog.push(entry);
-  $('messages').appendChild(messageEl(entry, own));
-  $('messages').scrollTop = $('messages').scrollHeight;
-  if (!canvas.builtinOpen('chat') && !own) {
+  const last = placeMessage(messageEl(entry, own));
+  if (last) $('messages').scrollTop = $('messages').scrollHeight;
+  // The unread number counts new public messages from others, whatever the filter shows.
+  if (!canvas.builtinOpen('chat') && !own && entry.visibility !== 'private') {
     unread += 1;
     canvas.setBuiltinUnread('chat', unread);
   }
+}
+
+// A private message the server just stored and returned (a command's echo, an /ai question and its answer), or a
+// guest's echo drawn on this page only (`local`).
+function addStoredMessage(m, { local = false } = {}) {
+  if (!local && chatIdOk(m?.id) && chatMessageNode(m.id)) return;
+  const entry = storedEntry(m, { local });
+  addEntry(entry, entry.kind !== 'ai');
 }
 
 function addMessage(message, from, own = false, by = '') {
@@ -2395,8 +2538,9 @@ call
       else if (topic === 'away' && participant && data.type === 'away') updateAwayOverlay(participant.identity, !!data.on, data.message);
       else if (topic === 'chat' && data.type === 'chat' && chatIdOk(data.id)) {
         if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
-        addEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: new Date(data.at) }, false);
+        addEntry(storedEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: data.at }), false);
       } else if (topic === 'chat' && data.type === 'chat-delete' && chatIdOk(data.id)) dropChatMessage(data.id);
+      else if (topic === 'chat' && data.type === 'chat-visibility') applyVisibilityNotice(data, participant);
       else if (topic === 'chat' && data.type === 'chat-clear') dropSharedChat();
       // A server push (no sending participant): someone pulled me aside.
       // An owner's word is final -- just go. A peer's "Privately" needs
@@ -2499,7 +2643,7 @@ call
     canvasDoc().querySelectorAll('audio').forEach((el) => el.remove());
     $('messages').textContent = '';
     closeHostMenu();
-    if ($('chat-ai-share')) $('chat-ai-share').hidden = true;
+    if ($('chat-filter')) $('chat-filter').hidden = true;
     toggleChat(false);
     toggleTray(false);
     loadPresence();
@@ -2770,10 +2914,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
     // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
     // refusal is said in the "Not in a call" note as for a click.
-    if (joinCall) {
-      if (!canvas.builtinOpen('conference')) canvas.openBuiltin('conference');
-      if (canvas.builtinOpen('conference')) startCall().catch((err) => setStatus(`call: ${err.message}`, true));
-    }
+    if (joinCall) joinTheCall();
 }
 
 // Start the conference: tiles for everyone in it, their media, and my own microphone.
@@ -2936,6 +3077,14 @@ function setNoCall(off) {
   h.classList.toggle('dial', off);
   h.title = off ? 'Join the call' : `Leave the call (you stay in the ${word('space')})`;
   h.querySelector('i').className = off ? 'fa-solid fa-phone fa-fw' : 'fa-solid fa-phone-slash fa-fw';
+}
+// Join the call from outside the conference: the space bar's Join the call, and a pull that finds me on the call
+// (connectAndSetup). Shows the Conference the way its Show switch does (canvas.showBuiltin: opened if hidden, brought
+// into view on a phone), so its "Not in a call" note is there to say a refusal, then joins through startCall(), the
+// one join path. Nothing happens where the conference may not open.
+function joinTheCall() {
+  if (!canvas.showBuiltin('conference')) return;
+  startCall().catch((err) => setStatus(`call: ${err.message}`, true));
 }
 // The toolbar's phone: red hangs up, green dials back in.
 function phoneButton() {
@@ -3230,16 +3379,22 @@ $('chat-more').addEventListener('click', (event) => {
       },
     }) });
   }
-  if ($('messages')?.querySelector('.message.private-ai:not(.chat-import-msg)')) {
-    items.push({ icon: 'eraser', label: 'Clear your AI thread', danger: true, onPick: () => openConfirmMenu(button, {
+  // Every private message of yours in this space (plan-chat-model.md, decision 13): command echoes and AI messages alike.
+  if (me?.key && me.role !== 'guest' && !guestToken && currentSpace && !currentSpace.isAside && $('messages')?.querySelector('.message[data-vis="private"][data-chat-id]')) {
+    items.push({ icon: 'eraser', label: 'Delete your private messages', danger: true, onPick: () => openConfirmMenu(button, {
       icon: 'eraser',
-      confirm: 'Clear the thread?',
-      hint: 'Only you see this. Shared answers stay.',
+      confirm: 'Delete them?',
+      hint: 'Only you see them. Public messages stay.',
       armed: true,
       onConfirm: async () => {
         if (!currentSpace) return;
-        await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/ai/thread`);
-        for (const el of [...$('messages').querySelectorAll('.message.private-ai:not(.chat-import-msg)')]) el.remove();
+        try {
+          await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/private`);
+        } catch (err) {
+          setStatus(err.message || 'Could not delete them.', true);
+          return;
+        }
+        for (const entry of chatLog.filter((e) => e.stored && e.visibility === 'private' && e.by === me?.key)) dropChatMessage(entry.id);
       },
     }) });
   }
@@ -3273,12 +3428,10 @@ const chatInput = attachChatInput({
   getSpace: () => currentSpace,
   getMe: () => me,
   canvas,
-  canDo,
-  sendChat: (text) => sendChatText(text),
   resizeChatInput,
-  setStatus,
   renderMarkup,
   frameMessage,
+  addStored: (m, opts) => addStoredMessage(m, opts),
 });
 askInChat = (input) => chatInput.askAbout(input);
 $('chat-form').addEventListener('submit', async (event) => {

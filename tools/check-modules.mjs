@@ -509,4 +509,13 @@ test('calendar: the views are Month, Week, Day and Agenda; an old stored "Open o
   }
 });
 
+test('a manifest\'s color is one of the eight tints, or none; anything else refuses the install (plan-chat-model.md)', () => {
+  const { TINTS } = createRequire(import.meta.url)('../server/modules.js');
+  for (const tint of TINTS) assert.equal(cleanManifest({ ...base(), color: tint }, files).color, tint);
+  assert.equal(cleanManifest(base(), files).color, null);
+  for (const bad of ['mauve', '#00ff00', '', 1]) {
+    assert.throws(() => cleanManifest({ ...base(), color: bad }, files), (err) => err instanceof ModuleError && err.message === `module.json: "color" must be one of ${TINTS.join(', ')}`);
+  }
+});
+
 console.log(`check-modules: ${n} groups OK`);

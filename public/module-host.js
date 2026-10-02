@@ -13,6 +13,8 @@ const THEME_TOKENS = [
   '--bg', '--bg-section', '--bg-card', '--bg-input', '--border', '--text', '--text-dim', '--accent', '--on-accent',
   '--accent-hover', '--primary-hover', '--secondary', '--secondary-text', '--secondary-hover', '--header-bg',
   '--header-text', '--icon-hover', '--danger', '--ok', '--surface', '--surface-hover', '--shade',
+  // The tints (plan-chat-model.md), in the mode showing, so a module's own colour matches the host's.
+  '--tint-gold', '--tint-blue', '--tint-green', '--tint-teal', '--tint-purple', '--tint-red', '--tint-orange', '--tint-pink',
 ];
 
 export function readTheme() {

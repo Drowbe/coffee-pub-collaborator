@@ -1,8 +1,9 @@
 {
   "id": "todo",
   "name": "To-do",
-  "version": "1.12.2",
+  "version": "1.12.3",
   "icon": "list-check",
+  "color": "green",
   "description": "A shared to-do list for the whole {environment} and for each {space}, with due dates and reminders.",
   "author": "Coffee Pub",
   "scope": [

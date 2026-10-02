@@ -2,7 +2,7 @@
 
 **Audience:** anyone in a space on a Collaborator server who types in Chat: to talk, to ask the AI, to add something to a module, or to bring in research from another AI.
 
-Chat has one box, **Chat or type / for commands...** ("Chat, or / for commands", or just "Chat", when the chat is narrow). Plain text is a message to the space. Text that starts with a command does something else: `/ai` asks the AI privately, and a module's command opens that module's add form. Opening Chat, formatting, pictures and history are covered in [The call](userguide-call.md), "Chat".
+Chat has one box, **Chat or type / for commands...** ("Chat, or / for commands", or just "Chat", when the chat is narrow). Plain text is a message to the space. Text that starts with a command does something else: `/ai` asks the AI privately, and a module's command opens that module's add form. Every command you type shows in Chat as your own **private** message, with the module's icon and colour. Opening Chat, formatting, pictures and history are covered in [The call](userguide-call.md), "Chat".
 
 Who can use it: anyone allowed to send messages in the space (set per role on the Roles tab). Commands work only in a space, not in an aside.
 
@@ -10,7 +10,7 @@ Who can use it: anyone allowed to send messages in the space (set per role on th
 
 | Command | What it does | Needs |
 | --- | --- | --- |
-| `/ai` | Asks the AI; private unless you choose **Shared** | See "Ask the AI" below |
+| `/ai` | Asks the AI, privately | See "Ask the AI" below |
 | `/t` | Opens To-do's new task form | [To-do](userguide-todo.md) open |
 | `/c` | Opens the Calendar's new event form | [Calendar](userguide-calendar.md) open |
 | `/r` | Opens a new Research note, or a link when you type a web address | [Research](userguide-research.md) open |
@@ -25,27 +25,43 @@ A module's command opens the same form as its own add button, filled in from wha
 
 What to know:
 
-- **The module must be open.** If it isn't, the text stays in the box and a line under it says so, for example "To-do isn't open". Open it from **Modules** in the space bar and press Enter again.
+- **The module must be open.** If it isn't, the text stays in the box and a line under it says so, for example "To-do isn't open". Open it from **Layout** in the space bar and press Enter again.
 - **An unknown command** stays in the box with "No command /x". Nothing is sent to the space. Text that starts with `/` is never sent as a message.
 - **Two modules with the same command** are both listed, each with its module's name. If both are open, the line under the box asks you to choose from the list.
 
 ## Ask the AI
 
-Type `/ai` and your question, then press Enter. Your question and the answer appear in Chat marked **private**: nobody else in the space sees them. The conversation is saved for you in this space and is still there after a refresh or on another device. It keeps your last 200 entries, none older than 30 days.
+Type `/ai` and your question, then press Enter. Your question and the answer appear in Chat marked **private**: nobody else in the space sees them. The answer is from **AI**, in gold. Both are kept for you in this space, after a refresh or on another device, with your other private messages.
 
-To have answers go to everyone, choose **Shared** in the Chat header (beside **Private**) before you ask: the answer is also posted to the space as "AI answer shared by <your name>", and is marked **shared** in your thread. The switch is remembered for this space until you close the browser tab. It shows only when you may use `/ai`.
-
-To clear your thread, choose **Clear your AI thread** (the eraser in the Chat header), then **Clear AI thread**. Only your own private questions and answers go; answers already shared stay in the chat.
+To show an answer to everyone, make it public (see "Private and public" below). Others then see it from **AI, for <your name>**, with your question above it.
 
 Each answer has:
 
 - **Copy**, which copies its text.
-- **Share to the space**, which posts the answer as an ordinary message from you, headed "AI answer shared by <your name>".
 - **Keep**, on each object the answer holds (a hotel, a sight, a note). An object that is plainly a flight, a hotel, a sight and so on is kept in the Planner as that kind; anything else goes to Research as a note. If that module isn't open, the button shows it is waiting and the object arrives when someone next opens it.
 
 To ask about something you already have, drag it onto Chat while `/ai` is in the box; the line under the box says how many objects the question will use. Research's **Research this** and a drop menu's **Ask the assistant** do the same for one object.
 
-Who can: anyone signed in, except guests, in a space where **Turn AI off in this space** is not ticked. If the Assistant module is installed, you also need its **Use the assistant** permission (Roles tab). The owner must have set up an AI service first; see [Assistant](userguide-assistant.md).
+Who can: anyone signed in, except guests, in a space where **Turn AI off in this space** is not ticked. The owner must have set up an AI service first; see [Assistant](userguide-assistant.md).
+
+## Private and public
+
+Every message has a **private** or **public** badge in its header. A message is public when you type it plainly, and private when it is a command or an AI answer. Only you see your private messages; not even an owner or the admin sees them.
+
+1. To change who sees one of your messages, click its badge.
+2. Choose **Make public** or **Make private**. The message itself moves: nobody gets a copy.
+
+Made public, it appears for everyone in the space where its time places it. Made private, it disappears from their chat. Only the person who wrote a message can change it, and guests can't. Pictures are always public and not kept.
+
+**The filter.** Above the messages, **All**, **Private** and **Public** choose what you see. It only hides messages on your screen, and it is remembered for this space until you close the tab. With nothing to show it says "No private messages here yet." or "No public messages here yet."
+
+**Delete your private messages.** In Chat's menu (the **…** in its header), choose **Delete your private messages**, then **Delete them?** to confirm. Every private message of yours in the space goes; public ones stay.
+
+Chat keeps the space's last 500 public messages and each person's last 200 private ones, none older than 30 days.
+
+## Colours
+
+Each module has a colour, and it shows in three places: on the messages its command made, on the module's icon in its titlebar, and on its line in **Layout ▾**. The AI is gold, Research blue, the To-do green, the Calendar red, the Planner teal, Polls purple, Places orange and Maps pink. Plain messages have none.
 
 ## Bring in research from another AI
 

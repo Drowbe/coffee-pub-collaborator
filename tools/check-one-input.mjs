@@ -14,7 +14,6 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { cleanManifest, ModuleError } = createRequire(import.meta.url)('../server/modules.js');
-const { AiThreads, AI_THREAD_LIMITS } = createRequire(import.meta.url)('../server/ai-threads.js');
 const { ChatHistory } = createRequire(import.meta.url)('../server/chat-history.js');
 
 let n = 0;
@@ -41,27 +40,8 @@ for (const [commands, re] of [
   n += 1;
 }
 
-const tmpThreads = fs.mkdtempSync(path.join(os.tmpdir(), 'check-ai-threads-'));
-const store = new AiThreads(tmpThreads);
-const old = Date.now() - (AI_THREAD_LIMITS.MAX_AGE_MS + 1000);
-store.threads['s:u'] = [
-  { id: 'old', at: old, role: 'user', text: 'gone' },
-  ...Array.from({ length: 201 }, (_, i) => ({ id: `n${i}`, at: Date.now(), role: i % 2 ? 'ai' : 'user', text: `m${i}` })),
-];
-const kept = store.list('s', 'u');
-assert.equal(kept.length, 200);
-assert.equal(kept[0].text, 'm1');
-assert.ok(!kept.some((e) => e.text === 'gone'));
-n += 1;
-const sharedStore = new AiThreads(tmpThreads);
-sharedStore.add('s', 'u2', { role: 'user', text: 'shared q', shared: true });
-sharedStore.add('s', 'u2', { role: 'ai', text: 'shared a', shared: true });
-const shared = sharedStore.list('s', 'u2');
-assert.equal(shared.length, 2);
-assert.equal(shared[0].shared, true);
-assert.equal(shared[1].shared, true);
-n += 1;
-fs.rmSync(tmpThreads, { recursive: true, force: true });
+// The private /ai thread is now private messages in the one chat store: its windows, the move from ai-threads.json
+// and who reads what are checked in tools/check-chat-model.mjs.
 
 const tmpChat = fs.mkdtempSync(path.join(os.tmpdir(), 'check-chat-history-'));
 const hist = new ChatHistory(tmpChat);
@@ -252,15 +232,16 @@ try {
 
   assert.equal((await call('POST', '/api/modules/bundled/assistant/install', { cookie: owner, body: {} })).status, 201);
   assert.equal((await call('PATCH', '/api/modules/assistant', { cookie: owner, body: { enabled: true, allSpaces: true } })).status, 200);
+  // The retired Assistant's Use no longer gates /ai or bringing objects in (plan-chat-model.md, decision 12).
   const denied = await call('PATCH', '/api/roles/member', { cookie: owner, body: { 'module.assistant.use': false } });
   assert.equal(denied.status, 200, denied.text);
   const noUse = await call('GET', `/api/spaces/${space.id}/objects/check`, { cookie: pat });
   assert.equal(noUse.status, 200, noUse.text);
-  assert.equal(noUse.json.available, false);
-  const noImport = await call('POST', `/api/spaces/${space.id}/objects/check`, { cookie: pat, raw: fence, type: 'text/plain' });
-  assert.equal(noImport.status, 403, noImport.text);
-  const noAi = await call('POST', `/api/spaces/${space.id}/ai`, { cookie: pat, body: { question: 'hello there' } });
-  assert.equal(noAi.status, 403, noAi.text);
+  assert.equal(noUse.json.available, true);
+  const stillImport = await call('POST', `/api/spaces/${space.id}/objects/check`, { cookie: pat, raw: fence, type: 'text/plain' });
+  assert.equal(stillImport.status, 200, stillImport.text);
+  const stillAi = await call('POST', `/api/spaces/${space.id}/ai`, { cookie: pat, body: { question: 'hello there' } });
+  assert.equal(stillAi.status, 200, stillAi.text);
   await call('PATCH', '/api/roles/member', { cookie: owner, body: { 'module.assistant.use': true } });
   n += 1;
 
@@ -281,8 +262,8 @@ try {
   assert.equal(vote.json.module, 'polls');
   n += 1;
 
-  // chat/ai is 6 per minute; one ask already ran above.
-  for (let i = 0; i < 5; i += 1) {
+  // chat/ai is 6 per minute; two asks already ran above.
+  for (let i = 0; i < 4; i += 1) {
     const extra = await call('POST', `/api/spaces/${space.id}/ai`, { cookie: pat, body: { question: `again ${i}` } });
     assert.equal(extra.status, 200, extra.text);
   }

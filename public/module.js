@@ -152,6 +152,8 @@ async function clearModuleData() {
 function wireTitlebar(mod) {
   $('module-titlebar').hidden = false;
   $('module-titlebar-icon').className = `fa-solid fa-${mod.icon} fa-fw`;
+  // The module's colour on its icon, as on the canvas's titlebar (plan-chat-model.md, decision 18), when the server says one.
+  if (/^(gold|blue|green|teal|purple|red|orange|pink)$/.test(mod.color || '')) $('module-titlebar-icon').dataset.tint = mod.color;
   $('module-titlebar-title').textContent = mod.name;
   $('module-close').addEventListener('click', () => window.close());
   $('module-menu').addEventListener('click', (event) => {

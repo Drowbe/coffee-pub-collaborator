@@ -102,7 +102,25 @@ export function placeAbove(popup, anchor) {
   popup.style.top = `${top}px`;
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, sendChat, resizeChatInput, setStatus, renderMarkup, frameMessage }) {
+// The marker an AI answer uses for an object preview, {{summary:N}}. Only an AI answer turns it into a preview; an
+// ordinary message drops it (the "AI answer shared by" copies from before plan-chat-model.md, decision 16).
+export function stripSummaryMarkers(text) {
+  return String(text || '').replace(/[ \t]*\{\{summary:\d+\}\}/g, '');
+}
+
+// The filter at the top of Chat (plan-chat-model.md, decision 2): what you see, never what is posted. Pure, for the checks.
+export const CHAT_FILTERS = ['all', 'private', 'public'];
+export const filterKey = (spaceId) => `chat-filter:${spaceId}`;
+export function readFilter(value) {
+  return CHAT_FILTERS.includes(value) ? value : 'all';
+}
+// The line Chat shows when the filter leaves nothing to show, or ''.
+export function emptyLine(filter, visibilities) {
+  if (filter === 'all') return '';
+  return visibilities.some((v) => v === filter) ? '' : `No ${filter} messages here yet.`;
+}
+
+export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeChatInput, renderMarkup, frameMessage, addStored }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // (the wider Send button leaves a narrow chat a narrow field). A command's own hint is left alone.
@@ -128,7 +146,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
   let pendingImport = null;
   let aiContext = [];
   let lastActions = [];
-  let shareMode = 'private';
+  let filter = 'all';
 
   function spaceId() {
     const s = getSpace();
@@ -218,68 +236,73 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     document.addEventListener('pointerdown', close, true);
   }
 
-  function setShare(mode) {
-    shareMode = mode === 'shared' ? 'shared' : 'private';
+  // --- the filter: All | Private | Public (plan-chat-model.md, "The filter") ---
+  // #messages carries data-filter and each message data-vis; style.css hides the rest, so changing it fetches nothing
+  // and a message that arrives or changes visibility follows it at once. Remembered per space for the browser session.
+  function setFilter(next) {
+    filter = readFilter(next);
     const id = spaceId();
     if (id) {
-      try { sessionStorage.setItem(`chat-ai-share:${id}`, shareMode); } catch { /* not remembered */ }
+      try { sessionStorage.setItem(filterKey(id), filter); } catch { /* not remembered */ }
     }
-    const priv = $('chat-ai-private');
-    const pub = $('chat-ai-shared');
-    const mark = (el, on) => {
-      if (!el) return;
-      el.classList.toggle('on', on);
-      el.setAttribute('aria-pressed', on ? 'true' : 'false');
-    };
-    mark(priv, shareMode === 'private');
-    mark(pub, shareMode === 'shared');
+    for (const f of CHAT_FILTERS) {
+      const el = $(`chat-filter-${f}`);
+      if (!el) continue;
+      el.classList.toggle('on', f === filter);
+      el.setAttribute('aria-pressed', f === filter ? 'true' : 'false');
+    }
+    const list = $('messages');
+    if (list) list.dataset.filter = filter;
+    syncEmpty();
   }
 
-  function loadShare() {
+  function loadFilter() {
     const id = spaceId();
-    let next = 'private';
+    let next = 'all';
     if (id) {
-      try { if (sessionStorage.getItem(`chat-ai-share:${id}`) === 'shared') next = 'shared'; } catch { /* default */ }
+      try { next = readFilter(sessionStorage.getItem(filterKey(id))); } catch { /* the default */ }
     }
-    setShare(next);
+    setFilter(next);
   }
 
-  function setShareVisible(on) {
-    const g = $('chat-ai-share');
+  // Shown to everyone who can read Chat in a space, guests too; not in an aside, which keeps nothing.
+  function setFilterVisible(on) {
+    const g = $('chat-filter');
     if (!g) return;
     g.hidden = !on;
+    if (!on) { const list = $('messages'); if (list) list.dataset.filter = 'all'; syncEmpty(); return; }
+    loadFilter();
     // The shared view switch's fit (public/sdk/host.js): icons only while the chat is too narrow for the words.
-    if (on && window.hostSwitch) window.hostSwitch.watch(g);
+    if (window.hostSwitch) window.hostSwitch.watch(g);
   }
 
-  async function refreshShareVisible() {
-    const id = spaceId();
-    if (!id || !getMe()) { setShareVisible(false); return; }
-    try {
-      const avail = await api('GET', `/api/spaces/${encodeURIComponent(id)}/ai`);
-      setShareVisible(Boolean(avail.available));
-    } catch {
-      setShareVisible(false);
+  // "No private messages here yet." while the filter leaves nothing to show.
+  function syncEmpty() {
+    const list = $('messages');
+    if (!list) return;
+    let line = list.querySelector(':scope > .chat-filter-empty');
+    const text = emptyLine(list.dataset.filter || 'all', [...list.querySelectorAll(':scope > .message')].map((m) => m.dataset.vis));
+    if (!text) { line?.remove(); return; }
+    if (!line) {
+      line = document.createElement('p');
+      line.className = 'chat-filter-empty';
     }
+    line.textContent = text;
+    if (line.parentNode !== list || line !== list.lastElementChild) list.appendChild(line);
+  }
+  const messagesEl = $('messages');
+  if (messagesEl && typeof MutationObserver === 'function') {
+    new MutationObserver((records) => {
+      if (records.every((r) => [...r.addedNodes, ...r.removedNodes].every((n) => n.classList?.contains('chat-filter-empty')) && r.type === 'childList')) return;
+      syncEmpty();
+    }).observe(messagesEl, { childList: true, attributes: true, subtree: true, attributeFilter: ['data-vis'] });
   }
 
+  // On entering a space: the filter, and whether this space can keep a pasted import. Private and public messages
+  // alike come from GET .../chat (space.js, renderChatHistory); there is no separate AI thread to load any more.
   async function loadThread() {
-    const id = spaceId();
-    if (!id || !getMe()) {
-      setShareVisible(false);
-      return;
-    }
-    loadShare();
-    await refreshShareVisible();
-    try {
-      const { entries } = await api('GET', `/api/spaces/${encodeURIComponent(id)}/ai/thread`);
-      for (const e of entries || []) {
-        if (e.role === 'user') addAiTurn('you', e.text, [], '', { shared: Boolean(e.shared), at: e.at, id: e.id });
-        else addAiTurn('ai', e.text, e.summaries || [], e.text, { shared: Boolean(e.shared), at: e.at, id: e.id });
-      }
-    } catch {
-      // no thread, or not allowed
-    }
+    setFilterVisible(Boolean(spaceId()));
+    if (!spaceId() || !getMe()) return;
     await refreshImport();
   }
 
@@ -333,45 +356,35 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     return el;
   }
 
-  function turnTime(at) {
-    if (at == null || at === '') return new Date();
-    const d = at instanceof Date ? at : new Date(at);
-    return Number.isNaN(d.getTime()) ? new Date() : d;
+  // How a command's message looks: its module's icon and colour, looked up when drawn (never stored), so a module's
+  // new colour reaches its old messages. /ai and an AI answer are the host's: the robot, in gold (decision 4).
+  function commandLook({ kind, command, module } = {}) {
+    if (kind === 'ai' || command === 'ai') return { icon: 'robot', tint: 'gold', label: '/ai' };
+    const m = module ? canvas.list().find((x) => x.id === module) : null;
+    const icon = m && /^[a-z0-9-]{1,40}$/.test(m.icon || '') ? m.icon : 'terminal';
+    return { icon, tint: canvas.colorOf ? canvas.colorOf(module) : null, label: command ? `/${command}` : '' };
   }
 
-  function addAiTurn(kind, text, summaries, question, { shared, at, id } = {}) {
-    const name = kind === 'you' ? (getMe()?.displayName || 'You') : 'AI';
+  // An AI answer's body: its text with each {{summary:N}} drawn as a preview with Keep, for anyone who can keep (the
+  // space's actions), the author or not. `question` is what Keep records as asked: the asker's question when it is
+  // known (the author's page, or the public answer's quote).
+  function answerBody(text, summaries, question) {
     const body = document.createElement('div');
     body.className = 'message-body text';
-    const objects = summaries || [];
-    if (kind === 'ai' && objects.length) {
-      for (const p of answerParts(text, objects.length)) {
-        if (p.summary !== undefined) body.appendChild(objectPreview(objects[p.summary], question));
-        else {
-          const t = document.createElement('div');
-          t.innerHTML = renderMarkup(p.text);
-          body.appendChild(t);
-        }
-      }
-    } else {
+    const objects = Array.isArray(summaries) ? summaries : [];
+    if (!objects.length) {
       body.innerHTML = renderMarkup(String(text || ''));
+      return body;
     }
-    const entry = { who: name, text: String(text || ''), at: turnTime(at), chat: false, threadId: id || '' };
-    const el = frameMessage({
-      name,
-      at: entry.at,
-      visibility: shared ? 'public' : 'private',
-      kind: kind === 'you' ? 'you' : 'ai',
-      by: kind === 'you' ? (getMe()?.key || '') : '',
-      body,
-      entry,
-      onPublic: kind === 'ai' ? () => {
-        const me = getMe();
-        sendChat(`AI answer shared by ${me?.displayName || 'someone'}\n\n${text || ''}`);
-      } : null,
-    });
-    $('messages').appendChild(el);
-    $('messages').scrollTop = $('messages').scrollHeight;
+    for (const p of answerParts(text, objects.length)) {
+      if (p.summary !== undefined) body.appendChild(objectPreview(objects[p.summary], question || ''));
+      else {
+        const t = document.createElement('div');
+        t.innerHTML = renderMarkup(p.text);
+        body.appendChild(t);
+      }
+    }
+    return body;
   }
 
   async function refreshActions() {
@@ -415,25 +428,21 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
   }
 
-  async function runAi(question, echoed) {
+  // The question and the answer come back stored, both private (plan-chat-model.md, decision 1): drawn from what the
+  // server returns, never a copy made here. Nothing is posted to the chat; the author makes the answer public with its
+  // badge.
+  async function runAi(question) {
     const id = spaceId();
     if (!id) { setNote(`AI is only in ${word('space', { a: true })}.`); return false; }
-    const shared = shareMode === 'shared';
+    setNote('Asking the AI...');
     try {
       const reply = await api('POST', `/api/spaces/${encodeURIComponent(id)}/ai`, {
         question,
         refs: aiContext.map((c) => c.ref).filter(Boolean),
-        share: shared,
       });
-      if (echoed) {
-        if (echoed.el.isConnected) echoed.entry.threadId = reply.questionId || '';
-        else if (reply.questionId) api('DELETE', `/api/spaces/${encodeURIComponent(id)}/ai/thread/${reply.questionId}`).catch(() => {});
-      }
-      addAiTurn('ai', reply.text, reply.summaries || [], question, { shared, at: reply.at, id: reply.id });
-      if (shared) {
-        const me = getMe();
-        sendChat(`AI answer shared by ${me?.displayName || 'someone'}\n\n${reply.text || ''}`);
-      }
+      setNote('');
+      if (reply.question) addStored(reply.question);
+      if (reply.message) addStored(reply.message);
       return true;
     } catch (err) {
       setNote(err.message || 'The AI could not answer.');
@@ -461,7 +470,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     const go = (open) => async () => {
       finish();
       try {
-        await postCommand(parsed, chosen);
+        echo(parsed, chosen, await postCommand(parsed, chosen));
+        if (input().value.trim() === parsed.raw.trim()) { input().value = ''; resizeChatInput(); }
         if (open) canvas.open(chosen.module);
       } catch (err) {
         setNote(err.message || `The ${name} could not take that.`);
@@ -484,7 +494,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     $('messages').scrollTop = $('messages').scrollHeight;
   }
 
-  async function runCommand(parsed, echoed) {
+  async function runCommand(parsed) {
     const hits = matchesFor(parsed.name);
     if (!hits.length) {
       setNote(`No command /${parsed.name}`);
@@ -493,8 +503,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     const openHits = hits.filter((h) => !h.module || canvas.isOpen(h.module));
     if (hits[0].name === 'ai') {
       if (!parsed.rest) { setNote('Type a question after /ai.'); return false; }
-      const ok = await runAi(parsed.rest, echoed);
-      return ok;
+      return runAi(parsed.rest);
     }
     if (hits.length > 1 && openHits.length !== 1) {
       const names = hits.map((h) => h.moduleName).join(' or ');
@@ -507,7 +516,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
       return false;
     }
     try {
-      await postCommand(parsed, chosen);
+      echo(parsed, chosen, await postCommand(parsed, chosen));
       return true;
     } catch (err) {
       setNote(err.message || `The ${chosen.moduleName} could not take that.`);
@@ -705,15 +714,12 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
   }
 
-  $('chat-ai-private')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    setShare('private');
-  });
-  $('chat-ai-shared')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    setShare('shared');
-  });
-  loadShare();
+  for (const f of CHAT_FILTERS) {
+    $(`chat-filter-${f}`)?.addEventListener('click', (e) => {
+      e.preventDefault();
+      setFilter(f);
+    });
+  }
   $('chat-command').addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -808,42 +814,27 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, canDo, 
     }
   });
 
-  function reflectCommand(parsed) {
-    const hits = matchesFor(parsed.name);
-    const openHits = hits.filter((h) => !h.module || canvas.isOpen(h.module));
-    const chosen = hits.length > 1 && openHits.length === 1 ? openHits[0] : hits[0];
-    const name = chosen?.moduleName || `/${parsed.name}`;
-    const icon = chosen?.icon || '';
-    const bodyText = parsed.rest || chosen?.label || `/${parsed.name}`;
-    const body = document.createElement('div');
-    body.className = 'message-body text';
-    body.innerHTML = renderMarkup(bodyText);
-    const entry = { who: name, text: bodyText, at: new Date(), chat: false };
-    const el = frameMessage({
-      name,
-      at: entry.at,
-      visibility: 'private',
-      kind: parsed.name === 'ai' ? 'ai' : 'command',
-      icon,
-      body,
-      entry,
-      onPublic: () => sendChat(bodyText),
-    });
-    $('messages').appendChild(el);
-    $('messages').scrollTop = $('messages').scrollHeight;
-    return { entry, el };
+  // An accepted command's echo: the private message the server stored and returned (plan-chat-model.md, decision 8). A
+  // guest's is not stored (guests share one sender), so it is drawn on this page only, private and not a button.
+  function echo(parsed, chosen, reply) {
+    if (reply && reply.message) { addStored(reply.message); return; }
+    if (!parsed.rest) return;
+    const me = getMe();
+    addStored({ who: me?.displayName || 'You', by: me?.key || '', text: parsed.rest, at: Date.now(), visibility: 'private', kind: 'command', command: parsed.name, module: chosen?.module || '' }, { local: true });
   }
 
   return {
+    // true when the command was taken (the box empties); false leaves the text in the box to fix or send again.
     async handleSubmit(text) {
       setNote('');
       const parsed = parseCommand(text);
       if (!parsed) return false;
-      const echoed = reflectCommand(parsed);
-      await runCommand(parsed, echoed);
-      return true;
+      return runCommand(parsed);
     },
     loadThread,
+    answerBody,
+    commandLook,
+    syncEmpty,
     refreshActions,
     hidePicker,
     hideImport: () => setImportOpen(false),

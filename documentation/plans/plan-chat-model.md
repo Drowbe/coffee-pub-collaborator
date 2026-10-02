@@ -2,7 +2,7 @@
 
 **Audience:** Thomas decides; server-development and experience-design build; content-manager documents.
 
-**Status:** Approved 2026-10-02 (GitHub issue #157), with every open question answered as recommended (decisions 7
+**Status:** Approved 2026-10-02 (GitHub issue #157); built 2026-10-02, with #165. Every open question was answered as recommended (decisions 7
 to 20). It ships in one batch with #165, a **Join the call** button in the space bar before **Online**, which is
 planned and built on its own and not designed here. Not built yet.
 Thomas: "Commands are private: every command (`/ai`, module commands, and so on) posts privately. Only an ordinary

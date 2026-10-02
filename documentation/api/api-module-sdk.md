@@ -602,6 +602,8 @@ With `video: false` and `audio: false` only the state is followed (the host subs
 
 ## Theme
 
+The eight tint tokens (`--tint-gold`, `--tint-blue`, `--tint-green`, `--tint-teal`, `--tint-purple`, `--tint-red`, `--tint-orange`, `--tint-pink`) reach your page too: `/sdk/host.css` defines them, and the host sends them with the theme in the mode showing, so you can mark something with your module's colour (`color` in `module.json`). They are fixed, not a theme's; see [design-theme](../designsystem/design-theme.md), "Tints".
+
 The SDK applies the theme to your page as CSS custom properties on `:root`, so plain CSS follows the theme. **Never hard-code colors, and never assume a dark background.** The tokens and the rules are in [design-theme](../designsystem/design-theme.md). The base stylesheet gives you `.btn`, `.btn-primary`, `.btn-danger`, `.card`, `.section` and styled inputs.
 
 ## Running in the page

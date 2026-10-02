@@ -84,6 +84,9 @@ function applyMode(mode) {
 // re-sends a module's frame its colors.
 function changed() {
   const mode = themeMode();
+  // The mode showing, on every document, whether picked or the default: what the tint tokens' light values key on
+  // (style.css), since a bare <html> may be showing the environment's light default.
+  for (const doc of liveDocs()) doc.documentElement.dataset.modeShown = mode;
   for (const button of switches) {
     if (!button.ownerDocument.defaultView) {
       switches.delete(button);
@@ -128,6 +131,7 @@ window.appTheme = {
 export function followTheme(doc) {
   if (!doc) return;
   docs.add(doc);
+  doc.documentElement.dataset.modeShown = themeMode();
   const mode = document.documentElement.dataset.themeMode;
   if (isMode(mode)) doc.documentElement.dataset.themeMode = mode;
   else delete doc.documentElement.dataset.themeMode;

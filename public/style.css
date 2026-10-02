@@ -19,6 +19,17 @@
   --on-accent: #1a1206; /* text/icons drawn on an --accent background */
   --ok: #6fae6b;
   --danger: #b8503f;
+  /* The tints (plan-chat-model.md, decisions 17 to 20): a module's colour, on its icon and on its messages. Fixed, not
+     set by a theme; these are the dark values, and the light ones follow under the light mode below. A module names
+     one in its module.json ("color": "blue"); the AI is gold. See design-theme.md, "The tints". */
+  --tint-gold: #d9a93c;
+  --tint-blue: #6aa6e8;
+  --tint-green: #6fbf73;
+  --tint-teal: #4fbfb2;
+  --tint-purple: #b18be0;
+  --tint-red: #e07a6e;
+  --tint-orange: #e8964a;
+  --tint-pink: #e58ab8;
   --danger-text: color-mix(in srgb, var(--danger) 55%, white);
   --accent-hover: color-mix(in srgb, var(--accent) 85%, white);
   --bg-input: color-mix(in srgb, var(--bg) 85%, var(--border) 15%);
@@ -80,6 +91,35 @@
   font-size: 14px;
   color: var(--text);
   background: var(--bg);
+}
+
+/* The tints in the light mode: darker, so an icon and a message's edge read on a light page. On whichever mode shows:
+   the stylesheet's light set (data-theme-mode), or the environment's light default with no pick (data-mode-shown,
+   theme-mode.js). */
+:root[data-theme-mode="light"],
+:root[data-mode-shown="light"]:not([data-theme-mode="dark"]) {
+  --tint-gold: #94680a;
+  --tint-blue: #2a62b0;
+  --tint-green: #2e7d32;
+  --tint-teal: #00796b;
+  --tint-purple: #6a3fb0;
+  --tint-red: #b3372b;
+  --tint-orange: #b35a00;
+  --tint-pink: #ad3a78;
+}
+
+/* A tint by name: a message, a module's icon in its titlebar or the Layout menu (data-tint="<name>"). */
+[data-tint="gold"] { --tint: var(--tint-gold); }
+[data-tint="blue"] { --tint: var(--tint-blue); }
+[data-tint="green"] { --tint: var(--tint-green); }
+[data-tint="teal"] { --tint: var(--tint-teal); }
+[data-tint="purple"] { --tint: var(--tint-purple); }
+[data-tint="red"] { --tint: var(--tint-red); }
+[data-tint="orange"] { --tint: var(--tint-orange); }
+[data-tint="pink"] { --tint: var(--tint-pink); }
+
+i[data-tint] {
+  color: var(--tint);
 }
 
 * {
@@ -1801,13 +1841,25 @@ input.switch:disabled {
   align-items: center;
 }
 
-.module-chooser-toggle {
+.module-chooser-toggle,
+.join-call {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   height: 22px;
   padding: 0 8px;
   font-size: 12px;
+}
+
+/* The space bar's Join the call (space.js, GitHub #165): the Layout button's size, the accent look (.btn-accent) of the
+   conference's own Join the call; the registry hides it while in the call. */
+.join-call[hidden] {
+  display: none;
+}
+
+.join-call:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .module-chooser-toggle[aria-expanded="true"] {
@@ -3366,6 +3418,50 @@ a.crumb-here:hover {
 
 .message.own {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+/* A command's or the AI's message: the colour of its module (data-tint, below) on a thin left edge and on the
+   portrait's icon; text and backgrounds keep their tokens (plan-chat-model.md, decision 18). */
+.message[data-tint] {
+  --message-tint: var(--tint);
+  border-left: 3px solid var(--message-tint);
+}
+
+.message[data-tint] .message-portrait-icon {
+  color: var(--message-tint);
+}
+
+/* The command after the person's name ("/r"). */
+.message-command {
+  flex: none;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+/* A public AI answer's question, in one line (decision 11); the whole of it is the line's title. */
+.message-quote {
+  margin: 0 0 6px;
+  padding-left: 8px;
+  border-left: 2px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The filter (#chat-filter, chat-input.js): what Chat shows, never what is posted. */
+#messages[data-filter="private"] > .message:not([data-vis="private"]),
+#messages[data-filter="public"] > .message:not([data-vis="public"]) {
+  display: none;
+}
+
+.chat-filter-empty {
+  margin: auto 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  text-align: center;
 }
 
 /* Header, then the message. The header is a step darker than the message under it. */
@@ -7491,6 +7587,50 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
   body.in-space .who-here-count {
     font-weight: 400;
+  }
+
+  /* Join the call as a tab, between the module tabs and Online's count: the phone over "Join", the phone in the call's
+     green (the conference's green phone, .fbtn.dial); its accessible name stays "Join the call". */
+  body.in-space .subnav .nav-left > .join-call {
+    align-self: stretch;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    height: auto;
+    min-width: 48px;
+    padding: 4px 4px;
+    border-color: transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--header-text);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.1;
+  }
+
+  body.in-space .subnav .nav-left > .join-call:hover {
+    border-color: var(--border);
+    background: color-mix(in srgb, var(--icon-hover) 10%, transparent);
+    box-shadow: none;
+  }
+
+  body.in-space .subnav .nav-left > .join-call i {
+    font-size: 18px;
+    color: var(--ok);
+  }
+
+  body.in-space .join-call-more {
+    display: none;
+  }
+
+  /* While Join shows, the module tabs give it room: they narrow (their names cut with an ellipsis, as now) rather
+     than run under it. */
+  body.in-space .subnav:has(.join-call:not([hidden])) .subnav-modules {
+    min-width: 0;
+  }
+
+  body.in-space .subnav:has(.join-call:not([hidden])) .subnav-modules .modules-menu-item {
+    flex: 1 1 40px;
   }
 }
 

@@ -16,7 +16,7 @@ middle. Entering never puts you in the call, and nothing asks for your microphon
 Who can: anyone whose role allows **See and join the conference**, while the owner has not switched the conference
 off.
 
-To join the call:
+To join the call, press **Join the call** in the space bar: it shows the Conference and joins in one press. Or:
 
 1. If the Conference is not showing, click **Layout** in the space bar and switch **Conference** on. It shows
    **Not in a call**, with who is on the call now under **Currently on the call** ("No one is on the call yet. Be
@@ -58,7 +58,8 @@ to right:
   the keyboard, Tab moves through it, the arrow keys move between switches (and move the slider), and Space or
   Enter flips a switch or presses a button. On a phone there is no **Layout** button: the modules are tabs along
   the bottom.
-- **Online**, right after **Layout**: who is here, as small square pictures of the people in the space, you first, up to four, then
+- **Join the call**, with a green phone, while you are not on the call: one press shows the Conference if it is hidden and joins. It is gone while you are on the call. In an aside it joins the aside's call. On a phone it is a **Join** tab in the tab bar.
+- **Online**, after them: who is here, as small square pictures of the people in the space, you first, up to four, then
   "+2" for the rest, and who they are in a few words: "Just you", "You and Alex", "You, Alex and Sam" or "You and 4
   others". A camera mark is on those on the call. Click it for the list, headed "In this space (5)": everyone here,
   you first with "(you)", and the camera with "on the call" beside those on it. It changes as people come, go, join

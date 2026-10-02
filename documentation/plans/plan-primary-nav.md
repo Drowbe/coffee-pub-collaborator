@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides what the top bar holds and how presence works, and the sessions that build it: experience-design (`public/brand.js`, `public/nav-bar.js`, `public/space.js`, `public/dashboard.js`, the styles) and server-development (`server/words.js`, `/api/presence`, the aside routes, the notification routes, the checks).
 
-**Status:** approved by Thomas, 2026-10-02; steps 1 and 2 built 2026-10-02, step 3 next. Drafted 2026-10-01; Thomas answered the bell, the SDK's top-bar tool and the aside rules on 2026-10-02 (decisions 9 to 11), corrected the aside rules the same day (ending an aside stays as it is today), answered the remaining questions (decisions 12 to 25) and the four they raised (decisions 26 to 29), and approved the plan. From Thomas's "Primary Nav Spec" (October 1, 2026): "The primary nav is the environment-level bar. It shows on every page, keeps the same layout everywhere, and always tells the user where they are present and how to get back." Thomas's decisions on the spec are recorded below; on present versus viewing he chose option (a), "this was actually always the intent", "first choice pending details". This plan gives those details. It replaces the primary nav sections of [plan-nav](plan-nav.md) ("The model", its list of the primary nav's zones, the phone rule for the primary nav, and "Open, zone by zone" for the primary zones). The secondary nav stays in plan-nav until its own spec comes. Answers three TODO items once approved: the invited private conversation with no origin, the aside's **Join** button on home, and "rethink navigating away and hanging up". Changes the module SDK: a module can no longer place a tool in the top bar (decision 10), and `surfaces.page.nav` is no longer read (decision 12). Needs one change to CLAUDE.md, which is Thomas's: the Names section gains `home` (decision 13).
+**Status:** approved by Thomas, 2026-10-02; steps 1, 2 and 2b built 2026-10-02 (2b: the Modules slot left the bar, decision 30; `GET /api/modules/nav` kept for `public/module.js`); step 3 next. Drafted 2026-10-01; Thomas answered the bell, the SDK's top-bar tool and the aside rules on 2026-10-02 (decisions 9 to 11), corrected the aside rules the same day (ending an aside stays as it is today), answered the remaining questions (decisions 12 to 25) and the four they raised (decisions 26 to 29), and approved the plan. From Thomas's "Primary Nav Spec" (October 1, 2026): "The primary nav is the environment-level bar. It shows on every page, keeps the same layout everywhere, and always tells the user where they are present and how to get back." Thomas's decisions on the spec are recorded below; on present versus viewing he chose option (a), "this was actually always the intent", "first choice pending details". This plan gives those details. It replaces the primary nav sections of [plan-nav](plan-nav.md) ("The model", its list of the primary nav's zones, the phone rule for the primary nav, and "Open, zone by zone" for the primary zones). The secondary nav stays in plan-nav until its own spec comes. Answers three TODO items once approved: the invited private conversation with no origin, the aside's **Join** button on home, and "rethink navigating away and hanging up". Changes the module SDK: a module can no longer place a tool in the top bar (decision 10), and `surfaces.page.nav` is no longer read (decision 12); after testing, the Modules slot leaves the bar and two destinations, Calendar and Map, are to come with their own plan (decisions 30 to 33). Needs one change to CLAUDE.md, which is Thomas's: the Names section gains `home` (decision 13).
 
 ## What it is today
 
@@ -63,7 +63,7 @@ Thomas, 2026-10-02.
 
 Thomas, 2026-10-02, answering the remaining questions.
 
-12. **Module pages: a Modules slot.** A **Modules ▾** slot beside Spaces ▾, in the template's word for module, listing every environment-scope module page: Calendar, Places, Polls, Stream, To-do and Travel (Planner), those reached only from a tile on home included. Maps and Research have no environment page (theirs are space or person scope only), so they are not listed; adding them needs an environment page in each module first, which is module work Thomas has been told about (corrected 2026-10-02, after step 1's build). On a phone it goes into the menu. Under (a), opening one while present in a space slides over the space as a view.
+12. *Superseded by decisions 30 and 31 (2026-10-02): built in step 2, then removed.* **Module pages: a Modules slot.** A **Modules ▾** slot beside Spaces ▾, in the template's word for module, listing every environment-scope module page: Calendar, Places, Polls, Stream, To-do and Travel (Planner), those reached only from a tile on home included. Maps and Research have no environment page (theirs are space or person scope only), so they are not listed; adding them needs an environment page in each module first, which is module work Thomas has been told about (corrected 2026-10-02, after step 1's build). On a phone it goes into the menu. Under (a), opening one while present in a space slides over the space as a view.
 13. **`home` is a word key** in `server/words.js`'s `KEYS`, beside `space`, `aside` and `module`. Its default is the capitalised plural of the space word, so nothing changes without a template. CLAUDE.md's Names section needs `home` added; that file is Thomas's to change.
 14. **The breadcrumb shows while in a space**, as the spec draws it. The space bar stops repeating the space's name; the secondary spec is to take that into account.
 15. **A space in the switcher:** entered when you are present nowhere; visited, with an enter button, when you are present elsewhere.
@@ -80,31 +80,37 @@ Thomas, 2026-10-02, answering the remaining questions.
 
 Thomas, 2026-10-02, answering the questions raised by decisions 12 to 25, and approving the plan.
 
-26. **Modules ▾ sits before Spaces ▾**: `[logo] [environment] [Modules ▾] [Spaces ▾] › …`.
+26. *Superseded by decision 30 (2026-10-02).* **Modules ▾ sits before Spaces ▾**: `[logo] [environment] [Modules ▾] [Spaces ▾] › …`.
 27. **Chat in a visit is live.** The server relays each chat message over the space's module stream, so a visitor reads and writes chat live.
 28. **Visitors are seen.** They show in that space's who is here as "visiting", without a call tile.
 29. **A visit's layout changes are remembered** as your layout for that space.
 
+Thomas, 2026-10-02, after testing the build of steps 1 and 2.
+
+30. **The Modules ▾ slot leaves the top bar**, as a small change before step 3. Most module pages are not destinations: Stream belongs in its module's configuration, Places means nothing without a map, the Itinerary does nothing outside a space, and the Calendar stays reachable from its tile on home meanwhile. Supersedes decisions 12 and 26.
+31. **A module no longer gets into the top bar by having a page.** `GET /api/modules/nav` and the Modules slot go from the bar.
+32. **Two destinations in the top bar, shown directly, not in a menu:** **Calendar**, the Calendar and To-do modules together (dates and tasks across your spaces), and **Map**, Places and Maps together. Each has its own design and never pops out or becomes a floating module. Each is an environment option ("Show Calendar", "Show Map"), since not every environment wants them. Each honours the module settings on Manage's Modules tab: with the module off, or no permission for the viewer, the destination does not show. A new phase with its own plan, not yet written (phase 6 below).
+33. **Stream's environment page** is to be checked for anything that belongs in its settings on Manage's Modules tab instead.
+
 ## The bar
 
-Eight slots, left to right: the spec's seven and the Modules slot (decision 12). Default words; a template changes only the words.
+Seven slots, left to right, as the spec draws them. The Modules slot of decision 12 was built and is being removed (decision 30); the Calendar and Map destinations of decision 32 will add slots, placed by their own plan. Default words; a template changes only the words.
 
 ```text
-[logo] [Sandbox]  [Modules ▾] [Spaces ▾] › [Disneyland] › [Aside: Michelle]        [people 4] [bell 2] [Thomas ▾]
+[logo] [Sandbox]  [Spaces ▾] › [Disneyland] › [Aside: Michelle]        [people 4] [bell 2] [Thomas ▾]
 ```
 
 | Slot | Shows | Click |
 |---|---|---|
 | Logo | the uploaded logo, else the chosen home icon, in one box | home |
 | Environment | its name, no icon | home |
-| Modules | the `module` word (many, capitalised) and a caret | the module menu |
 | Spaces | the `home` word and a caret | the word: home; the caret: the space switcher |
 | Anchor | the breadcrumb (up to two segments after the Spaces slot), or the visiting label and the return pill | a segment: that space; the pill: back to where you are present |
 | Online people | up to three portraits and the count of everyone online | the list |
 | Notifications | the bell and its count | the panel |
 | Profile | your picture, your name and a caret | the profile menu |
 
-The Modules slot sits before Spaces (decision 26), so the breadcrumb runs on from Spaces unbroken. The left side is identity and location; the right is people and you. The three zones and the registry stay: logo, environment, Modules, Spaces and the anchor are the left zone; online people, the bell and the profile are the right zone; the middle zone is empty.
+The left side is identity and location; the right is people and you. The three zones and the registry stay: logo, environment, Spaces and the anchor are the left zone; online people, the bell and the profile are the right zone; the middle zone is empty.
 
 ### Anchor states
 
@@ -129,15 +135,15 @@ In Thomas's five phases (decision 8). "Left to build" splits them into steps tha
 **Server** (server-development):
 
 - **The `home` word** (decision 13). A thirteenth key in `KEYS` in `server/words.js`, changeable by an owner and a template like the others, with `one` and `many`. Its default is worked out from the resolved `space` word: `one` and `many` are both the capitalised plural of the space word ("Spaces", "Trips"), so an environment with nothing set reads **Spaces** as today, and an owner who calls a space "trip" reads **Trips** without setting `home`. An owner's or a template's own `home` wins as for any key. It flows everywhere the words do: `branding()`, `PATCH /api/settings`, the template file (`server/templates.js`, `tools/check-templates.mjs`), `host.locale().words`, Manage > Template > Words ("Home page"), the host template editor, and `check-names --words`, which learns the key. `templates/travel.json` sets nothing (it reads "Trips"). The vocabulary rule in `words.js` ("adding a key means adding a level") is met once CLAUDE.md's Names gains `home`.
-- **`surfaces.page.nav` is no longer read** (decision 12): `GET /api/modules/nav` lists every enabled module with an environment page that the viewer can read at environment level, widget or not, Places included. A read permission in some space is not enough: the page mounts at environment scope, so a space-only grant would open a page that refuses them. Each entry: `{ id, name, icon }`, the display name and icon. Manifests that set it keep loading; the field is ignored.
+- **`surfaces.page.nav` is no longer read** (decision 12; still true after decision 31, since no module page is listed in the bar): `GET /api/modules/nav` lists every enabled module with an environment page that the viewer can read at environment level, widget or not, Places included. A read permission in some space is not enough: the page mounts at environment scope, so a space-only grant would open a page that refuses them. Each entry: `{ id, name, icon }`, the display name and icon. Manifests that set it keep loading; the field is ignored.
 - **Module tools no longer reach the top bar** (decision 10): see the pages below; no server change.
 - **"+ New"** uses `POST /api/spaces` as it is: owners and the admin (decision 16).
 
 **Pages** (experience-design):
 
-- `renderTopbar()` draws the eight slots. Removed: the clock (`#topbar-clock`, `startClock()`), the light or dark switch and **Manage** from the right zone, the module page links from the middle zone, and the update count from your picture and Manage.
+- `renderTopbar()` draws the slots (eight as built in step 2; seven after step 2b). Removed: the clock (`#topbar-clock`, `startClock()`), the light or dark switch and **Manage** from the right zone, the module page links from the middle zone, and the update count from your picture and Manage.
 - **The logo slot** (decision 23): one box, the uploaded logo when there is one (`branding().hasIcon`), else the chosen home icon (`homeIcon`, the template's `icons.home`, the couch by default). Never both. The setting and its picker in Manage stay.
-- **The Modules slot** (decision 12): the `module` word (`word('module', { many: true, cap: true })`) and a caret, opening a menu through `openHostMenu()` of every environment-scope module page from `GET /api/modules/nav`, each with its display icon, its display name and its unread count. Present in a space, a pick opens the page as a view over the space (`data-overlay-link`, as today); present nowhere, it goes to `/modules/<id>`. With no module pages, the slot is not drawn. The tiles on home keep their links.
+- **The Modules slot** (decision 12; built, then removed by step 2b, decision 30): the `module` word (`word('module', { many: true, cap: true })`) and a caret, opening a menu through `openHostMenu()` of every environment-scope module page from `GET /api/modules/nav`, each with its display icon, its display name and its unread count. Present in a space, a pick opens the page as a view over the space (`data-overlay-link`, as today); present nowhere, it goes to `/modules/<id>`. With no module pages, the slot is not drawn. The tiles on home keep their links.
 - **The Spaces slot** replaces `spaces-link`: the `home` word as a link to home, and a caret button (`aria-haspopup="menu"`, title "Switch <space word>") that opens the switcher. On the space page, the home link keeps today's in-page handling (`showSpaceList()`), so the call keeps running.
 - **The switcher** lists the spaces the viewer belongs to (`mine` from `/api/presence`), in the space list's order. Each entry: the space's name, a mark on the space you are present in (an icon with the title "You are here", not a coloured dot alone), and "N here" when anyone is. Asides are not listed. Last, after a divider, "+ New <space word>" for owners and the admin, which opens Manage > Spaces with the new-space form (over the space when present). A pick (decision 15): present nowhere, it enters the space, as its entry on home does; present in that space, it goes back to it; present in another, it opens the visit view (from phase 4; until then it enters, as today).
 - **The breadcrumb** (decision 14) fills the anchor: on home, nothing; in a space, its name (`spaceDisplayName()`, with `spaceCrumbIcon()`); in an aside, the parent's name, then "<Aside word>: <the other members' first names>". A segment that is not the current one is a link; the parent's segment in an aside calls `returnFromAside()` (decision 25).
@@ -151,7 +157,7 @@ In Thomas's five phases (decision 8). "Left to build" splits them into steps tha
   - a moderator: nothing more than a member (decision 17).
 - **Module tools no longer reach the top bar** (decision 10). `cleanModuleTools()` drops `allowPrimary` and the `bar: 'primary'` path, and the `nav.set` handler in `module-host.js` stops passing it. A tool that still says `bar: 'primary'` or `system: true` is not refused: the two fields are ignored and the tool is placed like any other (the space bar), so a module written against the old contract keeps working. For module authors: the SDK reference's "Registering into the nav bars" loses the primary-bar paragraph, and the CHANGELOG says that `bar` and `system` in `host.nav.set`, and `surfaces.page.nav` in a manifest, are ignored from this release.
 - **Guests** (a guest link's page; decision 5): the logo and the environment's name as plain text, not links; the anchor shows the space's name; no Modules or Spaces slot, no online people, no bell, no profile menu. The page uses the environment's default theme and ignores a mode this browser remembers.
-- **Phones** (640 px or less; decision 7): the bar is the logo, the anchor or the pill (the last segment only, cut short with an ellipsis, the whole name as its title), the bell with its count, and the menu button. The menu holds, in order: the environment's name, the Spaces slot (the home link, then the switcher's entries inline), the Modules slot's entries, online people (the count, opening the list), then your picture and name, the profile menu's entries for your role, and Sign out. `phoneZones()` keeps doing the folding.
+- **Phones** (640 px or less; decision 7): the bar is the logo, the anchor or the pill (the last segment only, cut short with an ellipsis, the whole name as its title), the bell with its count, and the menu button. The menu holds, in order: the environment's name, the Spaces slot (the home link, then the switcher's entries inline), online people (the count, opening the list), then your picture and name, the profile menu's entries for your role, and Sign out. `phoneZones()` keeps doing the folding.
 - The clock setting stays in Manage: modules still read it (`host.locale().clock`).
 
 ### Phase 2: the online people widget
@@ -201,7 +207,7 @@ What "present" means: the page is connected to a space (or an aside) for presenc
 
 1. **Home** (exists as `showSpaceList()`): add the pill and the history entry.
 2. **Visiting another space** (new; below).
-3. **The settings pages and module pages** (exist as `openOverlay()`): profile, Manage, a space's settings, a space's module settings, and every module page from the Modules slot. Their framed header shows the pill in place of the "Back to" button.
+3. **The settings pages and module pages** (exist as `openOverlay()`): profile, Manage, a space's settings, a space's module settings, and a module page opened from its tile on home. Their framed header shows the pill in place of the "Back to" button.
 
 **Away** (decisions 2 and 24). Away is a call state only. A view opened while you are on the call sets Away, as `openOverlay()` and `showSpaceList()` do now; closing the view, the pill and the browser's Back clear it. A view opened while you are present but not on the call sets nothing. One function in `space.js` opens any view and one closes it, so no view forgets this.
 
@@ -247,12 +253,25 @@ Built on the store that exists (`ModuleHooks.deliver`, `/api/notifications`) and
 
 - The bell's panel gains: a click on a notice opens its object (in its space, as a view or a visit when present, per phase 4) and marks it read; **Mark all read** at the top; the unread ones marked (bold and a dot with "unread" for a screen reader), no longer all marked read when the panel opens.
 - **Mentions in the composer.** Typing `@` in the chat box offers the space's members by name, the way `/` offers commands ([plan-one-input](plan-one-input.md)); picking one writes `@Name`. A message that mentions you is marked in the chat.
-- The per-module counts on home's tiles and in the Modules menu stay; the toast stays.
+- The per-module counts on home's tiles stay; the toast stays.
+
+### Step 2b: the Modules slot leaves the bar
+
+Decisions 30 and 31, before step 3.
+
+- **Pages** (experience-design): the Modules slot, its menu and its phone entries go from `brand.js` (`modulePages`, `loadModuleNav()` and the slot's registration). Module pages stay reachable from their tiles and links on home, and open as views when present, as before. `tools/check-nav.mjs`'s slot order goes back to seven.
+- **Server cleanup** (server-development): the bar no longer asks `GET /api/modules/nav`. Its other caller is `public/module.js`, which reads it to name the module on its own page, and `tools/check-host-registry.mjs` checks it. Either keep it for `module.js` alone (its permission rule from step 1 stays useful there), or give `module.js` the module's name and icon another way and retire the route with its checks. Suggestion: keep it until phase 6's plan says what its destinations need, then decide.
+- **Stream** (decision 33): look at what its environment page holds, and list anything that belongs in its settings on Manage's Modules tab. In TODO; module work if anything moves.
+
+### Phase 6: Calendar and Map
+
+Decision 32. The Calendar half is [plan-calendar-destination](plan-calendar-destination.md) and the Map half is [plan-map-destination](plan-map-destination.md), both decided by Thomas 2026-10-02 and ready for approval. Each needs its own plan before anything is built: Calendar and To-do each need an environment-wide page that works together, and Places and Maps likewise (Maps has no environment page today). That plan decides each destination's design, the "Show Calendar" and "Show Map" options in Manage, how the Modules tab's on, off and permissions hide them, and where they sit in the bar: after Spaces ▾ and its breadcrumb, or on the right beside online people. This plan only keeps the bar ready for them.
 
 ## Left to build, in order
 
 1. **The `home` word and module pages on the server** (server-development). The key and its default in `words.js`, `branding()`, `PATCH /api/settings`, the template field and check, `check-names --words`, Manage's and the host editor's row; `GET /api/modules/nav` listing every environment-scope module page the viewer can read at environment level.
 2. **The bar's layout and moves** (experience-design). The eight slots, the logo box, the Modules menu, the switcher, the breadcrumb and the space bar's name gone, the bell with updates and notices, the profile menu by role, the guest bar, the phone menu; the clock, the theme switch, Manage and the update count moved or removed; the top-bar path for module tools retired in `nav-bar.js` and `module-host.js`.
+2b. **The Modules slot leaves the bar** (experience-design; server-development for the route's cleanup), before step 3.
 3. **Presence by membership** (server-development). The filtered `/api/presence` and its check.
 4. **The online people widget** (experience-design). The widget, its list, entering from it, the invite rules there and in Who's around.
 5. **The aside rules on the server** (server-development). The invite's parent, who can be invited, the one-at-a-time refusals (both start routes and the token), stepped out.
@@ -260,6 +279,7 @@ Built on the store that exists (`ModuleHooks.deliver`, `/api/notifications`) and
 7. **Views and the pill: home, the settings pages and module pages** (experience-design). One open and one close for every view, Away only on the call, the pill, the history entries, the framed pages' pill.
 8. **The visit view.** 8a, server-development: the chat relay on the module stream, `visiting` on `POST` and `GET /api/presence`, and their checks. 8b, experience-design: `createCanvas()` with a root, the second canvas, modules mounted for the visited space, `host.info.visiting`, the visiting band and label, opening objects, no call media, Enter, live chat through the stream with no doubles, visitors in who is here, the layout remembered.
 9. **Notifications** (server-development for `ref`, mark all and mentions; experience-design for the panel and the `@` in the composer).
+10. **Calendar and Map** (phase 6): their own plan first (product-planner), then built from it.
 
 Documentation after each step is content-manager's: [architecture-navigation](../architecture/architecture-navigation.md), the SDK reference (`host.nav.set` without the top bar and `surfaces.page.nav` ignored, after step 2; `host.info.visiting`, after step 8; `host.notify`'s `ref`, after step 9), the CHANGELOG's notes for module authors (steps 2 and 8), the spaces and accounts user guides, and plan-nav's status. For Thomas, not content-manager: CLAUDE.md's Names gains `home` (decision 13).
 
@@ -267,6 +287,7 @@ Documentation after each step is content-manager's: [architecture-navigation](..
 
 - **Step 1.** Checked by a tool: `check-names --words` and `check-templates` with the `home` key, its default following the `space` word, an owner's and a template's own `home`, and its refusals; `GET /api/modules/nav` listing Places and the modules with tiles, leaving out Maps and Research (no environment page), and leaving out a module the viewer can read only in a space. Live with curl on a throwaway `DATA_DIR`: `branding()` with and without a template.
 - **Step 2.** Checked by `tools/check-nav.mjs`: the slot order, the phone fold (`phoneZones()`), the profile menu's entries for each role and for a single and a hosted install (the entries as a pure function of the role, the install and the browser's offer), and a module tool with `bar: 'primary'` and `system: true` placed in the space bar, not refused. Live in headless Chromium at 1280, 1024 and 390 px, signed in as a member, a moderator, an owner and the admin, and on a guest link: each bar, the logo box with and without an uploaded logo, the Modules menu, the switcher and its "+ New", the breadcrumb in a space with no name in the space bar, the bell's count and panel (an owner with an update waiting, a member with a To-do reminder), the menu, Manage's overlay keeping `?from=space`.
+- **Step 2b.** Checked by `tools/check-nav.mjs`: seven slots, no Modules slot on a wider screen or in the phone menu. Live in headless Chromium: a module page still opens from its tile on home, as a view when present; its own page still shows its name and icon.
 - **Step 3.** Checked by a new case in a server check: a member sees only their spaces' names, `elsewhere` for the rest, an aside as its parent to the parent's members, and a guest only their own space. Live with curl as two members of different spaces.
 - **Step 4.** Live in headless Chromium with the faked LiveKit: the widget, its list, the count, the enter button, the invite button shown only for members of your space and not when you are in no space. Entering from the list without joining the call needs a real call.
 - **Steps 5 and 6.** Checked by a server check with the stand-in LiveKit: an invite from no space refused; an invite to a non-member refused; a pull and an invite from inside an aside refused; a pull of, and an invite to, someone in an aside refused with the sentence; a token for a second aside refused; an invite given the inviter's space as parent, and its return answering that space. Needs a real call with three people: ending a private conversation landing everyone in the space it was started from; the parent's segment landing everyone in the parent; the invite button gone for someone in an aside; the parent seeing "stepped out".
@@ -278,6 +299,6 @@ Documentation after each step is content-manager's: [architecture-navigation](..
 
 ## What is not decided
 
-Nothing: Thomas answered every question (decisions 1 to 29).
+Nothing for this plan: Thomas answered every question (decisions 1 to 33). Two notes for later work: what becomes of `GET /api/modules/nav` (step 2b), and, for phase 6's own plan, where the Calendar and Map destinations sit in the bar.
 
 Later, decided as later: all spaces in the online list with a "request" option; a space that is a "call" space; private conversations between two people outside any space (decision 20); the secondary nav's own spec, which takes the space's name out of the space bar (decision 14); final template words for asides.

@@ -150,7 +150,6 @@ const byId = (id) => document.getElementById(id) || headerEl?.querySelector(`#${
 // What the bar knows about who is looking: undefined until /api/me answers, null with no account (a guest, a keyed
 // page), else { role, hostAdmin, hosted, slug }. The slots that need an account wait for it only to hide.
 let account;
-let modulePages = []; // GET /api/modules/nav: every environment-scope module page this person can read
 let updatesWaiting = 0; // module updates available, for owners and the admin (GET /api/modules)
 let presentSpace = null; // the space this page is present in (an aside's parent in an aside); the space page says so
 let bar = { adminHref: '/admin', withThemeSwitch: true, guest: false, hostConsole: false };
@@ -217,7 +216,6 @@ export function renderTopbar({ location = '', adminHref = '/admin', themeSwitch:
   wireNavMenu(header);
   setTopbarLocation(location);
   wireInstall();
-  if (!guest && !hostConsole) loadModuleNav();
   startPresence();
   loadAccount();
   if (guest) useDefaultMode(); // a guest gets the environment's default mode, never one this browser remembers
@@ -253,8 +251,6 @@ function refreshWords() {
     caret.title = text;
     caret.setAttribute('aria-label', text);
   }
-  const modules = byId('modules-nav');
-  if (modules) modules.querySelector('.nav-slot-label').textContent = word('module', { many: true, cap: true });
   if (nav.get('menu-home')) nav.register({ ...nav.get('menu-home'), label: word('home') });
   if (nav.get('menu-new-space')) nav.register({ ...nav.get('menu-new-space'), label: `New ${word('space')}` });
 }
@@ -271,17 +267,6 @@ function registerSystemTools(header) {
   const wide = () => !onPhone();
   const inMenuOnly = () => onPhone() && signedIn();
   if (!guest && !hostConsole) {
-    // Modules: the module word and a caret, a menu of every environment module page (decision 12). Not drawn with none.
-    const modules = doc.createElement('button');
-    modules.type = 'button';
-    modules.id = 'modules-nav';
-    modules.className = 'core-link nav-slot';
-    modules.setAttribute('aria-haspopup', 'menu');
-    modules.setAttribute('aria-expanded', 'false');
-    modules.innerHTML = '<span class="nav-slot-label"></span><i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i><span class="nav-badge" hidden></span>';
-    modules.querySelector('.nav-slot-label').textContent = word('module', { many: true, cap: true });
-    modules.addEventListener('click', () => openHostMenu(modules, moduleMenuItems()));
-    nav.register({ id: 'modules-nav', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 1, element: modules, visible: () => wide() && signedIn() && modulePages.length > 0 });
     // Spaces: the home word, a link home (the space page keeps it in the page, showSpaceList()), and a caret that opens
     // the switcher.
     const slot = doc.createElement('span');
@@ -292,7 +277,7 @@ function registerSystemTools(header) {
     caret.title = `Switch ${word('space')}`;
     caret.setAttribute('aria-label', caret.title);
     caret.addEventListener('click', () => openSwitcher(caret));
-    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', order: 2, element: slot, visible: () => wide() && signedIn() });
+    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 1, element: slot, visible: () => wide() && signedIn() });
   }
   // The anchor: where you are, after the Spaces slot (setTopbarLocation; the space page's breadcrumb). On a phone only
   // its last segment shows (style.css).
@@ -300,14 +285,14 @@ function registerSystemTools(header) {
   crumb.className = 'crumb';
   crumb.id = 'topbar-crumb';
   crumb.setAttribute('aria-label', 'Where you are');
-  nav.register({ id: 'topbar-crumb', bar: 'primary', zone: 'left', group: 'where', order: 3, element: crumb });
+  nav.register({ id: 'topbar-crumb', bar: 'primary', zone: 'left', group: 'where', order: 2, element: crumb });
   const status = doc.createElement('span');
   status.className = 'status topbar-status';
   status.id = 'topbar-status';
-  nav.register({ id: 'topbar-status', bar: 'primary', zone: 'left', group: 'where', order: 4, element: status });
+  nav.register({ id: 'topbar-status', bar: 'primary', zone: 'left', group: 'where', order: 3, element: status });
   if (guest || hostConsole) return; // a guest's bar is the logo, the name and the anchor; the host console's is its own
   // The phone menu's own entries, first: the environment's name, then home and the switcher's entries (refreshed as
-  // the menu opens), then "+ New" for owners and the admin, then the module pages (loadModuleNav).
+  // the menu opens), then "+ New" for owners and the admin.
   const envName = doc.createElement('span');
   envName.className = 'nav-menu-heading';
   envName.dataset.brand = 'environmentName';
@@ -370,7 +355,7 @@ function profileFor() {
 }
 
 // A page to open: the space page takes it (app:open-page) and opens it over the call, so the call keeps running;
-// anywhere else it is a real navigation. `kind` is 'manage', 'module' or 'host-console'.
+// anywhere else it is a real navigation. `kind` is 'manage' or 'host-console'.
 function openPage(href, kind) {
   const unhandled = document.dispatchEvent(new CustomEvent('app:open-page', { detail: { href, kind }, cancelable: true }));
   if (unhandled) window.location.href = href;
@@ -378,9 +363,6 @@ function openPage(href, kind) {
 function openManage(hash = '') {
   const [path, own] = String(bar.adminHref).split('#');
   openPage(keepingQuery(hash ? `${path}#${hash}` : own ? `${path}#${own}` : path), 'manage');
-}
-function openModulePage(id) {
-  openPage(keepingQuery(`/modules/${encodeURIComponent(id)}`), 'module');
 }
 // "+ New <space>": Manage's Spaces tab at its Add button (decision 16, owners and the admin).
 function newSpace() {
@@ -400,11 +382,6 @@ function openHostConsole() {
     // framed by another origin: this page goes
   }
   win.location.href = url;
-}
-
-// The Modules menu: each environment module page, with its icon, its name and its unread count.
-function moduleMenuItems() {
-  return modulePages.map((m) => ({ icon: m.icon, label: m.name, badge: unreadByModule[m.id] || 0, onPick: () => openModulePage(m.id) }));
 }
 
 // The space switcher (decision 15): the spaces you belong to, a mark and "You are here" on the one you are present in,
@@ -642,26 +619,15 @@ function firstEntry(menu) {
 
 // --- module notifications ----------------------------------------------------
 // A module can notify people (its reminders, say). They arrive as a toast while you are in the host, as a count on the
-// bell, on the Modules slot and its entry, and on the call's Modules button; opening the module clears its own, and
-// opening the bell's list marks them all read. A page opened over a call (?from=space) asks for the count once and
+// bell, on the home tiles and on the space bar's Modules button; opening the module clears its own, and opening the
+// bell's list marks them all read. A page opened over a call (?from=space) asks for the count once and
 // leaves the live stream to the call page underneath.
 const unreadByModule = {};
 
 function paintUnread() {
-  for (const m of modulePages) nav.setBadge(`page-${m.id}`, unreadByModule[m.id] || 0);
-  const modules = byId('modules-nav');
-  if (modules) {
-    const n = modulePages.reduce((sum, m) => sum + (unreadByModule[m.id] || 0), 0);
-    const badge = modules.querySelector('.nav-badge');
-    badge.hidden = !n;
-    badge.textContent = n > 9 ? '9+' : String(n);
-    const many = word('module', { many: true, cap: true });
-    modules.setAttribute('aria-label', n ? `${many}, ${n} unread` : many);
-  }
   paintBell();
   document.dispatchEvent(new CustomEvent('app:unread', { detail: { ...unreadByModule } }));
 }
-document.addEventListener('module-nav-loaded', paintUnread);
 
 // The bell's count and its words: the unread notices, and for owners and the admin the module updates (bellState() in
 // primary-nav.js).
@@ -1017,29 +983,6 @@ async function loadUpdateBadge() {
     setUpdateBadge((bundled || []).filter((b) => b.update).length);
   } catch {
     // no count is fine
-  }
-}
-
-// Every environment module page (GET /api/modules/nav, decision 12; its `nav` and `widget` are not read): the Modules
-// slot's menu, and on a phone the menu's own entries. Opened from inside a call they use the same in-page view as the
-// profile, so the call keeps running (app:open-page, see openOverlay in space.js). Called again by a page that changed
-// what a module is called (Manage > Modules), so the header follows at once.
-export const refreshModuleNav = () => loadModuleNav();
-async function loadModuleNav() {
-  if (!nav.has('primary') || bar.guest || bar.hostConsole) return;
-  try {
-    const res = await fetch('/api/modules/nav');
-    if (!res.ok) return;
-    const { modules } = await res.json();
-    modulePages = (modules || []).map((m) => ({ id: m.id, name: m.name, icon: m.icon }));
-    nav.unregisterAll('page-');
-    modulePages.forEach((m, i) => {
-      nav.register({ id: `page-${m.id}`, bar: 'primary', zone: 'right', group: 'menu-modules', groupOrder: 3, order: Math.min(50, 11 + i), icon: m.icon, label: m.name, visible: () => onPhone() && account !== null, onClick: () => openModulePage(m.id) });
-    });
-    nav.draw('primary');
-    document.dispatchEvent(new CustomEvent('module-nav-loaded', { detail: modules }));
-  } catch {
-    // no module pages is fine
   }
 }
 

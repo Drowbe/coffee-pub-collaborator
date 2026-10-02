@@ -216,8 +216,7 @@ a:hover {
   display: none;
 }
 
-/* Modules and Spaces in the left zone: the word and a caret. Spaces is two controls, the word (home) and the caret
-   (the switcher), side by side as one slot. */
+/* Spaces in the left zone: two controls side by side as one slot, the word (home) and the caret (the switcher). */
 .topbar .nav-slot,
 .topbar .nav-slot-caret {
   position: relative;
@@ -264,12 +263,7 @@ a:hover {
   outline-offset: 1px;
 }
 
-.topbar .nav-slot .nav-badge {
-  margin-left: 2px;
-}
-
-/* .brand span sizes the environment's name; the slots and the breadcrumb keep their own size. */
-.topbar .nav-left .nav-slot span,
+/* .brand span sizes the environment's name; the breadcrumb keeps its own size. */
 .topbar .crumb span {
   font-size: inherit;
 }
@@ -394,10 +388,15 @@ a:hover {
   max-width: 100%;
   justify-self: start;
   gap: 6px;
+}
+
+/* Only the top bar's own left zone is cut at its edge (a child, not the space bar's left zone inside the header): the
+   space bar's Modules list hangs below its zone, so clipping that zone hid the list as it opened. */
+.topbar > .nav-left {
   overflow: hidden;
 }
 
-/* The brand link keeps its own gap; Modules, Spaces and the breadcrumb sit closer. Out of room, the environment's name
+/* The brand link keeps its own gap; Spaces and the breadcrumb sit closer. Out of room, the environment's name
    is cut before the place (the breadcrumb keeps at least a few letters and its ellipsis). */
 .topbar .nav-left > .brand-home {
   flex: 0 1 auto;
@@ -446,8 +445,7 @@ a:hover {
   gap: 4px;
 }
 
-.core-link,
-.core-nav .module-nav-link {
+.core-link {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -461,15 +459,10 @@ a:hover {
   white-space: nowrap;
 }
 
-.core-link:hover,
-.core-nav .module-nav-link:hover {
+.core-link:hover {
   color: var(--icon-hover);
   background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
   text-decoration: none;
-}
-
-.core-nav .module-nav-label {
-  display: inline;
 }
 
 /* The host console (admin.<base domain>, public/host.html): the primary nav's left zone only -- the console is the
@@ -5001,37 +4994,6 @@ input[type="color"] {
 
 /* --- modules ------------------------------------------------------------ */
 
-/* Header items for modules that have a page of their own. */
-.module-nav {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.module-nav-link {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border-radius: 6px;
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
-  font-weight: 500;
-}
-
-.module-nav-link:hover {
-  color: var(--icon-hover);
-  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
-  text-decoration: none;
-}
-
-/* Module links in the header are icons, the same size as the others. */
-.module-nav-label {
-  display: none;
-}
-
 /* A module's own page: the frame fills everything under the header. */
 body.module-page {
   display: flex;
@@ -5856,15 +5818,6 @@ body.chat-window {
   border-left: 0;
 }
 
-.module-nav-link i {
-  font-size: 16px;
-}
-
-.module-nav-link .nav-badge {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-}
 
 /* Space settings' Opens with: a switch for the conference, the chat and each module on in the space (switch-list.js). */
 .opens-with-list {
@@ -6339,8 +6292,7 @@ body.chat-window {
   }
 
   .topbar.menu-open .links > a:not([hidden]),
-  .topbar.menu-open .links > button:not([hidden]),
-  .topbar.menu-open .links .module-nav-link {
+  .topbar.menu-open .links > button:not([hidden]) {
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -6355,8 +6307,7 @@ body.chat-window {
     font-weight: 500;
   }
 
-  .topbar.menu-open .links .icon-link i,
-  .topbar.menu-open .links .module-nav-link i {
+  .topbar.menu-open .links .icon-link i {
     width: 22px;
     font-size: 18px;
     color: var(--icon, var(--text-dim));
@@ -6365,10 +6316,6 @@ body.chat-window {
   /* The links are icons with a name in aria-label; the menu shows the name. */
   .topbar.menu-open .links > .icon-link::after {
     content: attr(aria-label);
-  }
-
-  .topbar.menu-open .links .module-nav-label {
-    display: inline;
   }
 
   .topbar.menu-open .links .nav-divider {

@@ -1,4 +1,4 @@
-import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, refreshModuleNav, themeMode, productName } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, escapeHtml, crumbLink, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import '/slot-paste.js'; // paste a picture into any image slot
@@ -1191,7 +1191,6 @@ async function saveDisplay(box, patch, done) {
     const { module } = await api('PATCH', `/api/modules/${encodeURIComponent(id)}`, patch);
     await loadModules();
     loadRoles().catch(() => {}); // the Roles grid's group is named by it
-    refreshModuleNav(); // and so is the header's link to its page
     const again = displayBox(id);
     if (again) {
       say(again.querySelector('[data-display-status]'), done(module));
@@ -1910,7 +1909,6 @@ function renderTemplateOffer() {
       await loadModules(); // what was turned on (and renders the note, with what was left out)
       await loadUsers(); // the Lobby's name, if it was taken
       await loadRoles().catch(() => {});
-      refreshModuleNav();
       const skipped = (madeFrom && madeFrom.skipped) || [];
       say($('template-status'), skipped.length ? `Applied. ${skipped.length} left out, listed below` : 'Applied');
       $('template-select').focus();

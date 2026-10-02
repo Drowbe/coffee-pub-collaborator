@@ -17,9 +17,6 @@ The bar at the top of every page says where you are and takes you anywhere in th
 - **The logo and the environment's name.** The logo is the picture the owner uploaded, or the home icon when there
   is none. Click either to go home, the list of spaces. On a narrower window (up to about 820 pixels wide) the name
   is left out and the logo stays.
-- **Modules** (or your environment's word for modules). Click it for a menu of every module with a page of its own,
-  such as the Calendar or To-do, each with its unread count. In a space the page opens over the space, so the call
-  keeps running. When there are no such modules, the button is not shown.
 - **Spaces** (or the environment's word for its home page). Click the word to go home. Click the small arrow beside
   it (**Switch space**) for a menu of the spaces you belong to: the one you are in says "You are here", and a space
   with people in it says how many ("3 here"). Pick one to go to it. In an aside, picking the space it came from does
@@ -55,8 +52,8 @@ to what it is about.
 ### On a phone
 
 The top bar is the logo, where you are, the bell and the menu button (**Menu**, three lines). Everything else is in
-the menu: the environment's name, the home page and your spaces, **New space** for owners and the admin, the
-modules, then your picture and the profile menu's entries.
+the menu: the environment's name, the home page and your spaces, **New space** for owners and the admin, then
+your picture and the profile menu's entries.
 
 ### Guests
 

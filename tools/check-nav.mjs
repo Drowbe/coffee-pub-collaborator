@@ -185,17 +185,17 @@ test('a module never places a tool in the top bar: bar: \'primary\' and system: 
 test('on a phone the primary bar folds: the left stays, the bell stays (phone: \'bar\'), and everything else goes into the menu, your picture too', () => {
   const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
   const byZone = {
-    left: [t('modules-nav', 'left', { order: 1 }), t('topbar-crumb', 'left', { order: 3 })],
+    left: [t('spaces-slot', 'left', { order: 1 }), t('topbar-crumb', 'left', { order: 2 })],
     middle: [t('mid', 'middle', { order: 1 })],
     right: [t('menu-home', 'right', { order: 2 }), t('notifications-bell', 'right', { order: 90, phone: 'bar' }), t('whoami-link', 'right', { group: 'you', order: 999 }), t('account-profile', 'right', { group: 'you', order: 999 })],
   };
   const z = phoneZones(byZone);
-  assert.deepEqual(z.left.map((run) => run.map((x) => x.id)), [['modules-nav', 'topbar-crumb']], 'the left zone stays (Modules and Spaces hide themselves there)');
+  assert.deepEqual(z.left.map((run) => run.map((x) => x.id)), [['spaces-slot', 'topbar-crumb']], 'the left zone stays (Spaces hides itself there)');
   assert.deepEqual(z.middle.map((run) => run.map((x) => x.id)), [['notifications-bell']], 'only the bell stays in the bar, in the middle zone');
   assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [['mid'], ['menu-home', 'whoami-link', 'account-profile']], 'the middle run first, then the right, without the bell');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.match(brand, /id: 'notifications-bell'[^\n]*phone: 'bar'/, 'the bell says phone: \'bar\'');
-  for (const id of ['modules-nav', 'spaces-slot']) assert.match(brand, new RegExp(`id: '${id}'[^\\n]*visible: \\(\\) => wide\\(\\) && signedIn\\(\\)`), `${id} leaves the bar on a phone`);
+  for (const id of ['spaces-slot']) assert.match(brand, new RegExp(`id: '${id}'[^\\n]*visible: \\(\\) => wide\\(\\) && signedIn\\(\\)`), `${id} leaves the bar on a phone`);
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.ok(!/keepOnPhone/.test(src), 'keepOnPhone is gone: nothing stays in the bar on a phone');
 });
@@ -385,22 +385,62 @@ test('the space bar\'s lists draw above the modules and under a page opened over
   assert.match(lift[2], /z-index:\s*var\(--z-menu\)/);
 });
 
-test('the top bar\'s slots, left to right: logo, environment, Modules, Spaces, the anchor, then online people, the bell and the profile', () => {
-  assert.deepEqual(SLOTS, ['logo', 'environment', 'modules', 'home', 'anchor', 'people', 'notifications', 'profile']);
+test('nothing around the space bar\'s lists cuts them off: no overflow but visible on the space bar or its zones', () => {
+  // The Modules list and who's here hang below the space bar, out of its zones' boxes. The space bar sits inside the
+  // header (.topbar), so a rule meant for the top bar's own zones (`.topbar .nav-left`) reaches the space bar's too
+  // unless it is a child selector (`.topbar > .nav-left`): an `overflow: hidden` there hid the Modules list as it opened.
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  const around = ['subnav', 'subnav-left', 'subnav-middle', 'subnav-tools', 'nav-left', 'nav-middle', 'nav-right', 'module-chooser'];
+  const bad = [];
+  for (const [, selectors, body] of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    if (!/(^|[;\s])overflow(-[xy])?\s*:\s*(hidden|clip|auto|scroll)/.test(body)) continue;
+    for (const sel of selectors.split(',').map((x) => x.trim())) {
+      const m = sel.match(/(\s*>\s*|\s+)?([^\s>+~]+)$/);
+      if (!m) continue;
+      const classes = [...m[2].replace(/:[\w-]+(\([^)]*\))?/g, '').matchAll(/\.([\w-]+)/g)].map((c) => c[1]);
+      if (!classes.some((c) => around.includes(c))) continue;
+      const child = (m[1] || '').includes('>');
+      const before = sel.slice(0, sel.length - m[0].length).trim();
+      // A zone selected as the top bar's own child is not the space bar's; anything else may match it.
+      if (child && /(^|\s)\.topbar$/.test(before) && !classes.includes('subnav')) continue;
+      bad.push(sel);
+    }
+  }
+  assert.deepEqual(bad, [], 'these rules clip the space bar or its zones, and so its Modules list or who\'s here');
+  assert.match(css, /\n\.topbar > \.nav-left \{\s*overflow: hidden;/, 'the top bar\'s own left zone still cuts a long breadcrumb');
+});
+
+test('the top bar\'s slots, left to right: logo, environment, Spaces, the anchor, then online people, the bell and the profile', () => {
+  assert.deepEqual(SLOTS, ['logo', 'environment', 'home', 'anchor', 'people', 'notifications', 'profile']);
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   const reg = (id) => {
     const m = brand.match(new RegExp(`nav\\.register\\(\\{ id: '${id}', bar: 'primary', zone: '(\\w+)'[^\\n]*?order: (\\d+)`));
     assert.ok(m, `brand.js registers ${id}`);
     return { zone: m[1], order: Number(m[2]) };
   };
-  const left = ['modules-nav', 'spaces-slot', 'topbar-crumb', 'topbar-status'].map(reg);
-  assert.ok(left.every((t) => t.zone === 'left'), 'Modules, Spaces and the anchor are the left zone');
-  assert.deepEqual(left.map((t) => t.order), [1, 2, 3, 4], 'Modules before Spaces (decision 26), then the anchor');
+  const left = ['spaces-slot', 'topbar-crumb', 'topbar-status'].map(reg);
+  assert.ok(left.every((t) => t.zone === 'left'), 'Spaces and the anchor are the left zone');
+  assert.deepEqual(left.map((t) => t.order), [1, 2, 3], 'Spaces, then the anchor');
   const html = brand.slice(brand.indexOf('header.innerHTML = `'), brand.indexOf('nav.attach(\'primary\', header)'));
   assert.ok(html.indexOf('brand-logo') > -1 && html.indexOf('brand-logo') < html.indexOf('data-brand="environmentName"'), 'the logo box, then the environment\'s name, in the left zone\'s markup ahead of the tools');
   assert.ok(reg('notifications-bell').zone === 'right' && reg('whoami-link').zone === 'right', 'the bell and the profile are the right zone');
   assert.match(brand, /id: 'notifications-bell'[^\n]*groupOrder: 90/);
   assert.match(brand, /id: 'whoami-link'[^\n]*groupOrder: 999/, 'the profile last');
+});
+
+test('no Modules slot in the top bar (Thomas, 2026-10-02): no modules-nav, no module page entries in the phone menu, no Modules menu or its counts', () => {
+  assert.ok(!SLOTS.includes('modules'), 'SLOTS has no Modules slot');
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.ok(!/modules-nav|moduleMenuItems|openModulePage|modulePages|loadModuleNav|refreshModuleNav|module-nav-loaded/.test(brand), 'brand.js draws no Modules slot, menu or count');
+  assert.ok(!/id: `page-\$\{/.test(brand), 'no page-<id> entries in the phone menu');
+  assert.ok(!/\/api\/modules\/nav/.test(brand), 'the bar does not ask for the module pages');
+  const admin = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
+  assert.ok(!/refreshModuleNav/.test(admin), 'Manage no longer refreshes a bar entry that is gone');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.ok(!/module-nav-link|module-nav-label/.test(css), 'no styles left for the old module page links');
+  // The space bar's own Modules chooser (the canvas's switches) stays.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /id: 'module-chooser'/);
 });
 
 test('gone from the top bar: the clock, the lock or luggage icon beside the logo, the theme switch and Manage on a wider screen, the module page links', () => {

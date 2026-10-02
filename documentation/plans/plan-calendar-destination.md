@@ -53,6 +53,12 @@ Thomas, 2026-10-02, approving the plan.
 
 19. **Where lists what the filter lists:** the environment's own calendar or list, for people allowed to edit there, then the spaces where the viewer may add. It matches the filter (decision 8), less what the viewer may not add to.
 
+Thomas, 2026-10-02, after the build, on what the tiles on home open.
+
+20. **The Calendar and To-do tiles open the Calendar destination.**
+21. **The Polls tile goes into the space, for now.** Polls is not a part of Calendar and has no destination of its own.
+22. **The Trips tile (the Planner's tile on home, `surfaces.widget` in `modules/travel/module.json`) is removed.** It was confusing, being really a rollup of the Planner. What replaces it is a rollup on each space's tile on home, chosen per space: a direction in [plan-dashboard](plan-dashboard.md), phase 5, not yet a contract.
+
 ## How it is put together
 
 Decision 9. Two other ways were set aside: the Calendar's page showing tasks itself through pointers (a module cannot write another's data, so adding or ticking a task would wait on actions until the To-do is open somewhere), and a host page that names `calendar` and `todo` and frames their environment pages side by side (it breaks the rule that Collaborator names no module, and each page would bring its own header and filter row).
@@ -141,4 +147,10 @@ Decision 9. Two other ways were set aside: the Calendar's page showing tasks its
 
 ## What is not decided
 
-Nothing Thomas was asked: decisions 8 to 19 answer every question of the draft. Left as they are today, not asked: a click on one event or task in a home tile still enters its space, as now. Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.
+Nothing Thomas was asked: decisions 8 to 19 answer every question of the draft. Left as they are today, not asked: a click on one event or task in a home tile still enters its space, as now.
+
+Settled after decisions 20 to 22. The first point follows Thomas's words; the rest are the project manager's calls (2026-10-02), not Thomas's decisions, and he can overrule them:
+
+- **What "open the Calendar destination" covers.** A click on an event or task in the Calendar or To-do tile opens the destination on it (`/calendar#ref=<ref>`), as well as the headings (decision 16). With Show Calendar off, both tiles keep today's behaviour: the headings go to the module pages, and a click on an event or task enters its space (project manager's call).
+- **The Polls tile.** A click on a poll goes into its space, as it does now (decision 21). The heading keeps going to `/modules/polls` (project manager's call).
+- **Removing the Trips tile.** experience-design removes it now by dropping `surfaces.widget` from `modules/travel/module.json`, with a version bump. The Planner's `widget.html` stays unused until [plan-dashboard](plan-dashboard.md) phase 5 decides whether the space tile's rollup reuses it (project manager's call). Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.

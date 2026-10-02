@@ -58,6 +58,10 @@ Thomas, 2026-10-02, approving the plan.
 23. **Where lists what the filter lists:** Mine, the environment's own places for people allowed to edit there, then the spaces where the viewer may add. It matches the filter (decision 9), less what the viewer may not add to.
 24. **While Map is shown, `/modules/places` and `/modules/maps` redirect to `/map`**, as the Calendar's pages lead to `/calendar`.
 
+Thomas, 2026-10-02, on what the build left open.
+
+25. **The filter lists the spaces you are a member of.** Owners and the admin who are not members of a space do not see it in the filter, nor its places here, though they can manage it elsewhere: "being able to manage a thing and being a member of a thing are different." The same holds for Calendar ([plan-calendar-destination](plan-calendar-destination.md), decision 23).
+
 ## How it is put together
 
 Decision 10, the same frame as the Calendar's: **declared parts on a host page**. Maps declares the `main` part of the `map` destination (the map) and Places the `panel` part (the list). The host page draws the page bar, the filter and the search field, and mounts each part as it mounts a module page today. The host names the destination, not the modules. Whichever destination is built first builds the frame (`surfaces.destination`, `GET /api/destinations`, `public/destination.html`, `host.destination`); the second adds only what is its own.
@@ -164,4 +168,4 @@ Each step can be built and checked alone. If the Calendar destination is built f
 
 ## What is not decided
 
-Nothing Thomas was asked: decisions 9 to 24 answer every question of the draft. Later, by decision: moving a place to another scope (14), using the map without a connection (19), and a list that follows the map's bounds (21).
+Nothing Thomas was asked: decisions 9 to 24 answer every question of the draft, and decision 25 one the build raised. Later, by decision: moving a place to another scope (14), using the map without a connection (19), and a list that follows the map's bounds (21).

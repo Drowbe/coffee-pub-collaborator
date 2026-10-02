@@ -59,6 +59,10 @@ Thomas, 2026-10-02, after the build, on what the tiles on home open.
 21. **The Polls tile goes into the space, for now.** Polls is not a part of Calendar and has no destination of its own.
 22. **The Trips tile (the Planner's tile on home, `surfaces.widget` in `modules/travel/module.json`) is removed.** It was confusing, being really a rollup of the Planner. What replaces it is a rollup on each space's tile on home, chosen per space: a direction in [plan-dashboard](plan-dashboard.md), phase 5, not yet a contract.
 
+Thomas, 2026-10-02, on what the build left open.
+
+23. **The filter lists the spaces you are a member of.** Owners and the admin who are not members of a space do not see it in the filter, nor its events and tasks here, though they can manage it elsewhere: "being able to manage a thing and being a member of a thing are different." The same holds for Map ([plan-map-destination](plan-map-destination.md), decision 25).
+
 ## How it is put together
 
 Decision 9. Two other ways were set aside: the Calendar's page showing tasks itself through pointers (a module cannot write another's data, so adding or ticking a task would wait on actions until the To-do is open somewhere), and a host page that names `calendar` and `todo` and frames their environment pages side by side (it breaks the rule that Collaborator names no module, and each page would bring its own header and filter row).
@@ -147,7 +151,7 @@ Decision 9. Two other ways were set aside: the Calendar's page showing tasks its
 
 ## What is not decided
 
-Nothing Thomas was asked: decisions 8 to 19 answer every question of the draft. Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.
+Nothing Thomas was asked: decisions 8 to 19 answer every question of the draft, and decision 23 one the build raised. Later, by decision: moving an event or task to another space (13), and tasks on the grid (15). Map is its own plan.
 
 Settled after decisions 20 to 22. The first point follows Thomas's words; the rest are the project manager's calls (2026-10-02), not Thomas's decisions, and he can overrule them:
 

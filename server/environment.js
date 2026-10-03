@@ -137,6 +137,9 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   const movedThreads = chatHistory.moveThreads((key) => store.userByKey(key)?.displayName || null);
   if (movedThreads) log(`Moved ${movedThreads} private AI ${movedThreads === 1 ? 'message' : 'messages'} into the chat.`);
   const chatPosts = new Map(); // who -> recent post times, to keep one person from flooding a space's history
+  // "<space id>:<message id>" -> when its link's preview was asked for (plan-chat-links.md): one read per message, never
+  // retried after a failure, and never two at once. Only a message's first five minutes count, so older ones are dropped.
+  const chatPreviewsAsked = new Map();
 
   const moduleLinks = new ModuleLinks(modules.dir);
   const moduleBus = new ModuleBus(modules.dir);
@@ -195,7 +198,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   return {
     slug, dataDir,
     store, modules, moduleData, moduleHooks, chatHistory, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
-    geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatPosts, iconSvgs,
+    geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatPosts, chatPreviewsAsked, iconSvgs,
     moduleActivity, noteActivity, saveActivity,
   };
 }

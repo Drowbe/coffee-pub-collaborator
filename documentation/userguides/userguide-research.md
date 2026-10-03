@@ -33,6 +33,10 @@ The search box matches the title, the text, the site and the tags. The row under
 
 A card's menu has **Research this** (not on a photo), which asks in Chat, privately, what you should know about that object, with the object as context; see [Chat](userguide-chat.md), "Ask the AI". It shows only to people who may use AI here. An object in the answer that you **Keep** is saved back here as an ordinary note. Research brought in from another AI through Chat lands here too, as a note, when it is not marked as a kind the Planner takes (a flight, a hotel, a sight and so on), or when the Planner is not installed; its text ends with the line "External source". See [Assistant](userguide-assistant.md), "Bring in research from another AI". An object saved before this changed may still show as an **Answer**, with the question that made it; nothing new is saved that way now.
 
+## Links from Chat
+
+While Research is on in a space, a link in a chat message gets a preview box with **Keep** (see [Chat](userguide-chat.md), "Links"). Keep saves the link here, with its title and description, credited to whoever pressed it; so is anything kept from an AI answer. Only people who may add to Research see **Keep**, which leaves out guests by default. **Fetch link previews** (above) decides whether Chat's boxes show the page's title, picture and description, or one plain line.
+
 ## For module authors
 
-Research provides two actions (see [the SDK guide](api-module-sdk.md)): `saveNote` (`title`, optional `body`, `tags` and `ref`) and `saveLink` (`url`, optional `title`, `excerpt` and `ref`), so any module can offer "Save to research" on something without knowing Research is there. Its objects are pointers of kind `note`, `link`, `photo` and `answer`, and their summaries carry the object's words as `text`.
+Research provides two actions (see [the SDK guide](api-module-sdk.md)): `saveNote` (`title`, optional `body`, `tags` and `ref`) and `saveLink` (`url`, a `text` field so a link up to 500 characters is kept whole, optional `title`, `excerpt` and `ref`), so any module can offer "Save to research" on something without knowing Research is there. Its objects are pointers of kind `note`, `link`, `photo` and `answer`, and their summaries carry the object's words as `text`.

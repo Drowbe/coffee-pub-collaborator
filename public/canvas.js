@@ -14,6 +14,7 @@
 
 import { api, markModuleRead, followTheme, word } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
+import { nav } from '/nav-bar.js';
 import { whatOpens } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { layoutOf, placeLayout, leftOutNote } from '/layouts.js';
@@ -1548,6 +1549,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       b.innerHTML = `<i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(m.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
       menu.appendChild(b);
     }
+    // The tabs are new: the bar folds again (nav-bar.js, plan-phone-space-bar.md), so the tabs that do not fit and
+    // their unread counts go into its "...", and the view being shown keeps its tab. On the next frame, before a paint.
+    nav.draw('secondary');
   }
 
   // Clicking away closes the menu, and a resize keeps floating modules on screen,

@@ -193,6 +193,108 @@ export function clearNoticeTakes(entry, { ids, type, scope, by, fromPage = false
   return listed || clearTakesPicture(entry, { type, scope: fromPage ? 'mine' : scope, by });
 }
 
+// --- links in Chat (plan-chat-links.md, GitHub #158) ------------------------------------------------------------------
+// A message's link preview and its Keep, as this page holds them. Pure, for check-chat-page: everything a notice or the
+// server hands in goes through these, so only an http(s) address is ever a link, the words are text of known length,
+// and the picture is only ever a yes or no (the page loads it from the image route by the message's id, never from an
+// address it was sent).
+const MODULE_ID = /^[a-z][a-z0-9-]{0,31}$/;
+export function linkUrl(value) {
+  const s = typeof value === 'string' ? value.trim() : '';
+  if (!s || s.length > 500 || !/^https?:\/\//i.test(s)) return '';
+  try {
+    const u = new URL(s);
+    if ((u.protocol !== 'http:' && u.protocol !== 'https:') || u.username || u.password) return '';
+  } catch {
+    return '';
+  }
+  return s;
+}
+export function cleanPreview(p) {
+  if (!p || typeof p !== 'object') return null;
+  const url = linkUrl(p.url);
+  if (!url) return null;
+  const out = { url };
+  if (typeof p.module === 'string' && MODULE_ID.test(p.module)) out.module = p.module;
+  const at = Number(p.at);
+  if (Number.isFinite(at) && at > 0) {
+    out.at = at;
+    if (typeof p.title === 'string' && p.title.trim()) out.title = oneLine(p.title, 120);
+    if (typeof p.description === 'string' && p.description.trim()) out.description = String(p.description).trim().slice(0, 500);
+    if (typeof p.image === 'string' && p.image) out.image = true; // only whether there is one
+  }
+  return out;
+}
+export function cleanKept(k) {
+  if (!k || typeof k !== 'object' || typeof k.by !== 'string' || !k.by) return null;
+  const at = Number(k.at);
+  return { by: k.by.slice(0, 40), who: oneLine(k.who, 40) || 'someone', at: Number.isFinite(at) ? at : 0 };
+}
+// A message's one link, by the server's rule (findLink in server/chat-links.js; check-chat-page holds them equal): the
+// first usable http(s) address, bare or as [text](url), outside ``` fences, `>` quoted lines and `code` spans.
+const MARKDOWN_LINK = /\[([^\]\n]+)\]\((https?:\/\/[^\s)]+)\)/g;
+const BARE_LINK = /(^|[\s(])(https?:\/\/[^\s<]+[^\s<.,;:!?)"'])/g;
+export function findLink(text) {
+  const lines = String(text || '').replace(/\r\n/g, '\n').split('\n');
+  let fenced = false;
+  for (const line of lines) {
+    if (/^\s*```/.test(line)) { fenced = !fenced; continue; }
+    if (fenced || /^\s*>/.test(line)) continue;
+    const plain = line.replace(/`[^`\n]+`/g, (m) => ' '.repeat(m.length));
+    const found = [];
+    const masked = plain.replace(MARKDOWN_LINK, (all, _label, url, at) => {
+      found.push({ at, url });
+      return ' '.repeat(all.length);
+    });
+    for (const m of masked.matchAll(BARE_LINK)) found.push({ at: m.index + m[1].length, url: m[2] });
+    found.sort((a, b) => a.at - b.at);
+    for (const f of found) {
+      const url = linkUrl(f.url);
+      if (url) return url;
+    }
+  }
+  return '';
+}
+// What a live `chat` notice may say about its message's link: the address alone, and only the one its own text has.
+// Everything read about the page (title, description, picture, when) comes from chat-preview or the history.
+export function noticePreview(data) {
+  const p = cleanPreview(data && data.preview);
+  if (!p) return null;
+  const link = findLink(data.text);
+  return link && link === p.url ? { url: p.url } : null;
+}
+
+// The site's name, for the line under a link: its host without "www.".
+export function siteName(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./i, '');
+  } catch {
+    return '';
+  }
+}
+// The space's keeper of links (the action named saveLink taking `url`), from GET .../actions, or null; `may` says
+// whether this person may keep (decision 10: Keep is hidden otherwise).
+export function linkKeeper(actions) {
+  const a = (Array.isArray(actions) ? actions : []).find((x) => x && x.name === 'saveLink' && x.input && Object.hasOwn(x.input, 'url'));
+  return a ? { module: String(a.module || ''), name: String(a.moduleName || a.module || ''), may: a.may === true } : null;
+}
+// Whether a chat-preview notice may fill this message's preview: the first copy only, for a message held here that
+// has a link, never someone else's message from a page (`from`: the sending page's identity, '' for the server), and
+// only for the address the message already has.
+export function previewNoticeTakes(entry, data, from) {
+  if (!entry || !entry.id || entry.kind || !data || data.id !== entry.id) return false;
+  if (from && entry.by !== from) return false;
+  if (!entry.preview || entry.preview.at) return false;
+  const p = cleanPreview(data.preview);
+  return Boolean(p && p.at && p.url === entry.preview.url);
+}
+// Whether a chat-kept notice may mark this message kept: the server's only (it always tells the call), and the first
+// copy only. A page's is never taken: it could name anyone.
+export function keptNoticeTakes(entry, data, from) {
+  if (from || !entry || !entry.id || !entry.preview || entry.kept || !data || data.id !== entry.id) return false;
+  return Boolean(cleanKept(data.kept));
+}
+
 export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeChatInput, renderMarkup, frameMessage, addStored }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one

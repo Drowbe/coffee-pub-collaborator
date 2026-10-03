@@ -137,6 +137,7 @@ await test('the store: save, edit with versions, remove (and the picture), and w
   r.provide('u1');
   const out = await f.handlers.saveNote({ title: 'From elsewhere', body: 'text', tags: '#Hotel, Lisbon', ref: { module: 'places', kind: 'place', id: 'p' } }, { by: 'u2' });
   assert.equal(out.ref.kind, 'note');
+  assert.equal(r.get(out.ref.id).by, 'u2', 'a note asked for by someone else is theirs, not the open page\'s');
   assert.deepEqual(r.get(out.ref.id).tags, ['hotel', 'lisbon']);
   const flight = await f.handlers.saveNote({ title: 'SJC to SNA', body: 'Morning', icon: 'note', kind: 'flight' });
   assert.equal(r.get(flight.ref.id).icon, 'plane');
@@ -146,6 +147,14 @@ await test('the store: save, edit with versions, remove (and the picture), and w
   await assert.rejects(f.handlers.saveNote({ title: '' }), /title/);
   const link = await f.handlers.saveLink({ url: 'https://example.org/a', excerpt: 'because' });
   assert.equal(r.get(link.ref.id).excerpt, 'because');
+  assert.equal(r.get(link.ref.id).by, 'u1', 'the page\'s own request is its own person\'s');
+  const kept = await f.handlers.saveLink({ url: 'https://example.org/kept' }, { by: 'u2' });
+  assert.equal(r.get(kept.ref.id).by, 'u2', 'a link kept from Chat is the keeper\'s');
+  const long = `https://example.org/${'l'.repeat(280)}`;
+  assert.equal(long.length, 300);
+  const whole = await f.handlers.saveLink({ url: long }, { by: 'u2' });
+  assert.equal(r.get(whole.ref.id).url, long, 'a 300-character address is saved whole');
+  await assert.rejects(f.handlers.saveLink({ url: `https://example.org/${'l'.repeat(481)}` }), /web address/, 'over 500 is refused');
   await assert.rejects(f.handlers.saveLink({ url: 'ftp://x' }), /web address/);
   // A person's own items are private: nothing is linked.
   const mine = lib.createResearch(f.host, { scope: 'person' });

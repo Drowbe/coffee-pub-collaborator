@@ -1,7 +1,7 @@
 {
   "id": "research",
   "name": "Research",
-  "version": "0.2.33",
+  "version": "0.2.34",
   "icon": "book-open",
   "color": "blue",
   "description": "What a group finds out while it plans: notes, links with the part that mattered, photos with a caption. Tagged, searchable, linkable from anywhere, and questioned or summarised by the AI the {owner} chose.",
@@ -154,7 +154,7 @@
         "name": "saveLink",
         "label": "Save this link to research",
         "input": {
-          "url": "string",
+          "url": "text",
           "title": "string?",
           "excerpt": "text?",
           "ref": "ref?"

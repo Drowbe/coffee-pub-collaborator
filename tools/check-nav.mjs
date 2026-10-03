@@ -21,7 +21,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, phoneTabs, phoneFold, TAB_MIN, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
 // Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the call are pure.
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
@@ -294,8 +294,9 @@ test('the space bar folds only as much as it must: two zones, the left taking wh
 test('the space bar\'s "..." uses the shared menu, shows a toggle\'s state and clicks the tool itself', () => {
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   const menu = src.slice(src.indexOf('async function openFoldMenu('));
-  assert.match(menu, /openHostMenu\(fold\.more, items\)/);
-  assert.match(menu, /checked: t\.toggleable \? on : undefined/);
+  assert.match(menu, /openHostMenu\(fold\.more, \[\.\.\.tabItems, /);
+  assert.match(menu, /checked: t\.toggleable && !relabelled \? on : undefined/);
+  assert.match(menu, /label: relabelled \? t\.activeLabel : t\.label/, 'a toggle on with its own words reads them ("Pop it back in")');
   assert.match(menu, /onPick: \(\) => \{\s*fold\.picked = c;\s*c\.click\(\);/);
   // After a pick the keyboard goes to the tool, else the "..." while it shows, else the left zone (the module chooser).
   const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
@@ -307,6 +308,87 @@ test('the space bar\'s "..." uses the shared menu, shows a toggle\'s state and c
   const hm = fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8');
   assert.match(hm, /'menuitemcheckbox'/);
   assert.match(hm, /aria-checked/);
+});
+
+test('the phone\'s tab bar (plan-phone-space-bar.md): phoneTabs() shows the tabs that fit at 56 px, the rest and the tools in the "..."', () => {
+  assert.equal(TAB_MIN, 56, 'decision 7: the least width of a tab');
+  const tabs = (k) => Array.from({ length: k }, (_, i) => `t${i + 1}`);
+  // 390 px: the bar's inner width 382 (4 px padding each side), Online and Leave 48 each; the "..." 48.
+  const at390 = { width: 382, fixed: 96, more: 48 };
+  const at320 = { width: 312, fixed: 96, more: 48 };
+  assert.deepEqual(phoneTabs({ ...at390, tabs: tabs(3), shown: 't1' }), { shown: tabs(3), folded: [] }, 'three tabs: all shown, no "..."');
+  assert.deepEqual(phoneTabs({ ...at390, tabs: tabs(5), shown: 't1' }), { shown: tabs(5), folded: [] }, 'five tabs: all shown');
+  assert.deepEqual(phoneTabs({ ...at390, tabs: tabs(8), shown: 't1' }), { shown: tabs(4), folded: ['t5', 't6', 't7', 't8'] }, 'eight tabs: four and the "..."');
+  assert.deepEqual(phoneTabs({ ...at390, fixed: 96 + 48, tabs: tabs(5), shown: 't1' }), { shown: tabs(3), folded: ['t4', 't5'] }, 'Join showing: it takes its own 48 px, so the "..." comes and one tab fewer than without Join');
+  assert.deepEqual(phoneTabs({ ...at390, fixed: 96 + 48, tabs: tabs(4), shown: 't1' }), { shown: tabs(4), folded: [] }, 'Join showing: four still fit with no "..."');
+  assert.deepEqual(phoneTabs({ ...at390, tabs: tabs(5), shown: 't1', foldsTools: true }), { shown: tabs(4), folded: ['t5'] }, 'a tool already folded: the "..." is reserved');
+  assert.deepEqual(phoneTabs({ ...at390, tabs: tabs(3), shown: 't1', foldsTools: true }), { shown: tabs(3), folded: [] }, 'a tool folded and every tab fits beside the "..."');
+  assert.deepEqual(phoneTabs({ ...at390, tabs: tabs(8), shown: 't7' }), { shown: ['t1', 't2', 't3', 't7'], folded: ['t4', 't5', 't6', 't8'] }, 'the shown view past the cut takes the last place');
+  assert.deepEqual(phoneTabs({ ...at320, tabs: tabs(8), shown: 't1' }), { shown: tabs(3), folded: tabs(8).slice(3) }, '320 px: three and the "..."');
+  assert.deepEqual(phoneTabs({ ...at320, fixed: 96 + 48 + 48 + 48, tabs: tabs(8), shown: 't6' }), { shown: ['t6'], folded: ['t1', 't2', 't3', 't4', 't5', 't7', 't8'] }, 'never fewer than one tab, the shown view\'s');
+  assert.deepEqual(phoneTabs({ ...at320, tabs: [], shown: null, foldsTools: true }), { shown: [], folded: [] }, 'no tabs');
+  assert.deepEqual(phoneTabs({ ...at390, tabs: tabs(8), shown: 'gone' }), phoneTabs({ ...at390, tabs: tabs(8), shown: null }), 'a shown view with no tab changes nothing');
+  const input = { ...at390, tabs: tabs(8), shown: 't6', foldsTools: true };
+  assert.deepEqual(phoneTabs(input), phoneTabs({ ...input }), 'the same answer for the same input');
+  assert.deepEqual(input.tabs, tabs(8), 'the input is left alone');
+});
+
+test('the phone\'s fold of the space bar\'s right zone: every tool but Leave and Rejoin call (phone: \'bar\') and the "..."; Full screen and Pop out only popped out', () => {
+  const click = () => {};
+  const right = [
+    { id: 'fullscreen-toggle', order: 11, phone: 'popout', onClick: click },
+    { id: 'popout', order: 12, phone: 'popout', onClick: click },
+    { id: 'recall-button', order: 51, onClick: click },
+    { id: 'rejoin-call', order: 52, phone: 'bar', onClick: click },
+    { id: 'm:a', order: 101 },
+    { id: 'm:b', order: 102 },
+    { id: 'subnav-more', order: 998, element: {}, fold: false },
+    { id: 'leave-space', order: 999, phone: 'bar', onClick: click },
+  ];
+  assert.deepEqual(phoneFold(right), ['recall-button', 'm:a', 'm:b'], 'a phone or a narrow main window: Pull participants back and the module tools');
+  assert.deepEqual(phoneFold(right, { popped: true }), ['fullscreen-toggle', 'popout', 'recall-button', 'm:a', 'm:b'], 'a narrow pop-out: Full screen and Pop out too, in the bar\'s order');
+  // The page marks them so; a module can set none of it.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /id: 'leave-space', order: 999, phone: 'bar',/);
+  assert.match(space, /id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin',/);
+  assert.match(space, /id: 'fullscreen-toggle',[^\n]*activeLabel: 'Exit full screen', phone: 'popout',/);
+  assert.match(space, /id: 'popout',[^\n]*activeLabel: 'Pop it back in', phone: 'popout',/);
+  const [m] = cleanModuleTools('todo', [{ id: 'a', icon: 'x', label: 'x', phone: 'bar', short: 'A', activeLabel: 'B', fold: false }]);
+  for (const key of ['phone', 'short', 'activeLabel', 'fold']) assert.ok(!(key in m), `a module tool's ${key} is dropped`);
+  assert.deepEqual(phoneFold([{ ...m, seq: 1 }]), ['todo:a'], 'so a module tool always goes into the "..." on a phone');
+});
+
+test('the phone\'s tab bar is drawn: fitSecondary() folds on a phone too, the stylesheet\'s tab width is TAB_MIN, Rejoin and the "..." are tabs, Join no longer narrows the tabs', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
+  assert.ok(!/if \(!phoneNow/.test(fit), 'fitSecondary() no longer skips a phone');
+  assert.match(fit, /if \(phoneNow\) \{\n\s*if \(width > 0 && shownEl\(el\)\) \(\{ ids, tabs \} = fitPhone\(b, el, width\)\);/);
+  const phone = src.slice(src.indexOf('function fitPhone('), src.indexOf('function fitSecondary('));
+  assert.match(phone, /phoneFold\(shown, \{ popped: /);
+  assert.match(phone, /phoneTabs\(\{/);
+  assert.match(phone, /t\.fit\(width\)/, 'Online draws its short count again in the window it is in (the narrow pop-out\'s full words, #160)');
+  assert.match(fit, /fold\.more\.classList\.toggle\('in-call', tabs\.some/, 'the in-call dot on the "..." while the conference\'s tab is folded');
+  assert.match(src, /for \(const tab of fold\.tabs\) n \+= unreadOf\(tab\);/, 'the folded tabs\' unread counts on the "..."');
+  const menu = src.slice(src.indexOf('async function openFoldMenu('));
+  assert.match(menu, /\[\.\.\.tabItems, \.\.\.\(tabItems\.length && items\.length \? \[\{ divider: true \}\] : \[\]\), \.\.\.items\]/, 'the folded tabs, a divider, then the tools');
+  assert.match(menu, /fold\.picked = key;\s*tab\.click\(\);/, 'a folded tab\'s entry clicks the tab itself');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const update = canvasJs.slice(canvasJs.indexOf('  function update() {'), canvasJs.indexOf('  function bindDoc(doc) {'));
+  assert.ok(update.lastIndexOf("nav.draw('secondary');") > update.lastIndexOf('menu.appendChild(b);'), 'update() asks for the fold again after drawing the tabs');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, new RegExp(`body\\.in-space \\.subnav-modules \\.modules-menu-item \\{\\n\\s*flex: 1 0 ${TAB_MIN}px;`), 'the stylesheet\'s tab least width is TAB_MIN');
+  assert.ok(!/\.subnav:has\(\.join-call/.test(css), 'no #165 rule narrows the tabs while Join shows');
+  assert.match(css, /body\.in-space \.subnav #rejoin-call,\n\s*body\.in-space \.subnav #subnav-more \{\n\s*position: relative;\n\s*flex-direction: column;/, 'Rejoin call and the "..." are tabs');
+  assert.match(css, /\.subnav \.nav-short \{\n\s*display: none;/, 'their short words only in the tab bar');
+  assert.match(css, /body\.in-space\.popout \.subnav \{\n\s*flex: 0 0 calc\(100% \+ 20px\);/, 'a narrow pop-out\'s bar is its own row');
+  assert.match(css, /body\.in-space\.popout \.subnav \{\n\s*flex: 0 0 calc\(100% \+ 20px\);\n\s*min-width: 0;/, 'and never wider than the window');
+  assert.match(css, /body\.in-space\.popout \.subnav > \.nav-left,\n\s*body\.in-space\.popout \.subnav > \.nav-right \{\n\s*margin: 0;\n\s*padding: 0;/, 'the header\'s zone padding and edge margins (.topbar .nav-left, .nav-right) are not the pop-out tab bar\'s');
+  // Moving between windows: the bar folds again in its new window, and a frame left pending in a closed pop-out does not block it.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
+  assert.match(placeSub, /nav\.draw\('secondary'\);/);
+  const schedule = src.slice(src.indexOf('function scheduleFold()'), src.indexOf('function watchFold('));
+  assert.match(schedule, /if \(fold\.frame && fold\.frameView !== view\) \{/);
 });
 
 test('who is here drops portraits, then shows only its count, before the bar folds anything', () => {

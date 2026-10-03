@@ -2,7 +2,7 @@
 
 **Audience:** Thomas decides; server-development and experience-design build; content-manager documents.
 
-**Status:** Approved 2026-10-03 (GitHub issue #158), with every open question answered as recommended (decisions 7 to
+**Status:** Built 2026-10-03. Approved 2026-10-03 (GitHub issue #158), with every open question answered as recommended (decisions 7 to
 13). Not built. Thomas, 2026-10-02: "if someone
 posts a link in the chat, treat it as if they were adding a Research link." The message shows the link as a preview,
 "title, description and picture, the way Research shows a link", with a **Keep** action that saves it into Research,

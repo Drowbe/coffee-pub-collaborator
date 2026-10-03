@@ -241,6 +241,8 @@
 
     function provide(me) {
       if (!host.actions || !host.actions.provide) return;
+      // Who asked: the person behind the request (a Keep in Chat or Assistant), else this page's own person.
+      const byOf = (ctx) => (ctx && ctx.by) || me || '';
       const link = (item, ref) => { if (ref && scope !== 'person') host.objects.setLinks(refOf(item.kind, item.id), [ref]).catch(() => {}); };
       host.actions.provide({
         // tags is a plain comma- or space-separated string, as the field in the dialog reads it, so any module (or Assistant,
@@ -249,7 +251,7 @@
           const i = input || {};
           const title = geo.oneLine(i.title, 120);
           if (!title) throw new Error('a note needs a title');
-          const item = await save({ kind: 'note', title, body: plainText(i.body, 8000), tags: parseTags(i.tags), date: '', icon: noteIcon(i.icon, i.kind), by: me || (ctx && ctx.by) || '' });
+          const item = await save({ kind: 'note', title, body: plainText(i.body, 8000), tags: parseTags(i.tags), date: '', icon: noteIcon(i.icon, i.kind), by: byOf(ctx) });
           link(item, i.ref);
           return { ref: refOf('note', item.id) };
         },
@@ -257,7 +259,7 @@
           const i = input || {};
           const url = cleanUrl(i.url);
           if (!url) throw new Error('that is not a web address');
-          const item = await save({ kind: 'link', url, title: geo.oneLine(i.title, 120), excerpt: plainText(i.excerpt, 2000), tags: [], date: '', by: me || (ctx && ctx.by) || '' });
+          const item = await save({ kind: 'link', url, title: geo.oneLine(i.title, 120), excerpt: plainText(i.excerpt, 2000), tags: [], date: '', by: byOf(ctx) });
           link(item, i.ref);
           return { ref: refOf('link', item.id) };
         },

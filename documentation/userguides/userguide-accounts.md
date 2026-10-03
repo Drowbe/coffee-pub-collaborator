@@ -153,7 +153,9 @@ the calendar app don't come back.
 2. Choose **Make an address**. The address is shown once, with **Copy**. Anyone with the address can see your
    events, so keep it private.
 3. Add it to your calendar app:
-   - Google Calendar: choose **Other calendars**, then **From URL**, and paste it. Google reads it about once a day.
+   - Google Calendar: choose **Other calendars**, then **From URL**, and paste it. Google Calendar reads the address on
+     its own schedule, often every 8 to 24 hours, so new events, changes and deletions show there later. Apple
+     Calendar is usually quicker.
    - Apple Calendar on a Mac: **File**, then **New Calendar Subscription**. On an iPhone: **Settings**, **Calendar**,
      **Accounts**, **Add Account**, **Other**, **Add Subscribed Calendar**.
 
@@ -183,8 +185,9 @@ You can add up to five. Each row shows its name, its host and "Read <time ago>" 
 **Refresh** (once a minute; sooner, the row says to try again in a minute) and **Remove** (which asks first). A calendar too complex to read is refused with "The calendar is too complex to read." The address is never shown again. They are read
 again every 30 minutes.
 
-If the owner turns **Calendar feeds** off, the section shows only while you still have calendars: "Other calendars
-are off in <environment> for now, so their events do not show. You can still remove them.", with **Remove** only.
+When other calendars can't be used, the section says why: **Calendar feeds** are off, or the Calendar needs to be
+approved, turned on, updated or installed in Manage > **Modules**. An owner is told to do it; anyone else is told
+their owner needs to. Calendars you already added stay listed with **Remove**.
 
 ## Light or dark
 

@@ -4717,6 +4717,38 @@ function refuseExternal(res) {
   if (!externalModules().length) return void res.status(403).json({ error: `No ${word('module')} here shows other calendars.` });
   return false;
 }
+// Why Profile's Other calendars section can't be used, in plain words naming what to do and where: the switch, else the
+// module that would show them (installed but waiting for approval or off, installed in a version without the hook, or
+// shipped here and not installed). null when it can be used, or when nothing here could ever show them.
+const EXTERNAL_HOOK_LABEL = 'See each person\'s own other calendars';
+function externalWhy(user) {
+  if (externalAllowed()) return null;
+  const own = hasOwnerRights(user);
+  const manage = (tab) => `Manage > ${tab}`;
+  const modulesTab = manage(word('module', { many: true, cap: true }));
+  const ask = (doThis, where) => (own ? `${doThis[0].toUpperCase()}${doThis.slice(1)} in ${where}.` : `Your ${word('owner')} needs to ${doThis} in ${where}.`);
+  if (store.settings.calendarFeeds !== true) {
+    const where = `${manage(word('environment', { cap: true }))}, under Calendar apps`;
+    return `Calendar feeds are off in ${store.settings.environmentName || `this ${word('environment')}`}. ${ask('turn on Calendar feeds', where)}`;
+  }
+  // An installed module whose running version asks for the hook: waiting for approval, or switched off.
+  for (const id of Object.keys(modules.registry.modules)) {
+    const entry = modules.registry.modules[id];
+    const manifest = modules.manifestOf(id, entry.version);
+    if (!manifest?.hooks?.external) continue;
+    const name = modules.shownName(manifest);
+    if (modules.pendingFor(entry, manifest).hooks.includes('external')) return ask(`approve ${name}'s "${EXTERNAL_HOOK_LABEL}"`, modulesTab);
+    return ask(`turn on ${name}`, modulesTab);
+  }
+  // One that ships with this server asks for it: installed in an older version without it, or not installed.
+  for (const bundled of bundledModules(BUNDLED_DIR)) {
+    if (!bundled.hooks?.external || !moduleAllowedByPlan(bundled.id)) continue;
+    const name = store.moduleDisplay(bundled.id).name || bundled.name;
+    if (modules.isInstalled(bundled.id)) return ask(`update ${name} to ${bundled.version} and approve its "${EXTERNAL_HOOK_LABEL}"`, modulesTab);
+    return ask(`install ${name} and approve its "${EXTERNAL_HOOK_LABEL}"`, modulesTab);
+  }
+  return null;
+}
 // A pasted address as it is read: webcal: is https:, http: is refused. Answers { url } or { error }.
 function externalAddress(raw) {
   const text = typeof raw === 'string' ? raw.trim() : '';
@@ -4742,7 +4774,8 @@ function externalAddWait(key, now = Date.now()) {
   return 0;
 }
 
-// Profile's Other calendars section: whether it shows, and the person's own, each with its host only.
+// Profile's Other calendars section: whether it can be used, why not (`why`, null when it can or when nothing here could
+// show them), and the person's own, each with its host only.
 app.get('/api/me/external-calendars', requireUser, (req, res) => {
   const user = currentUser(req);
   const allowed = externalAllowed();
@@ -4750,7 +4783,7 @@ app.get('/api/me/external-calendars', requireUser, (req, res) => {
     externalCalendars.noteSeen(user.key);
     externalCalendars.readMissing(user.key);
   }
-  res.json({ allowed, calendars: externalCalendars.view(user.key) });
+  res.json({ allowed, why: allowed ? null : externalWhy(user), calendars: externalCalendars.view(user.key) });
 });
 // Adds one: read once first, so an address that cannot be read is not kept, and the answer says why.
 app.post('/api/me/external-calendars', requireUser, async (req, res) => {

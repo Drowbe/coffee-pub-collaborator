@@ -30,8 +30,9 @@ const FIELDS = ['id', 'name', 'description', 'version', 'words', 'verbs', 'phase
 const MAX_PHASES = 12;
 const MAX_OPENS_WITH = 20;
 const PHASE_KEYS = ['id', 'label', 'main'];
-const MAX_REACTIONS = 30;
-const MAX_ICON_SET = 60;
+// Room for the full default reaction set (105, server/default-lists.js) and the default icon list (113).
+const MAX_REACTIONS = 120;
+const MAX_ICON_SET = 120;
 // The applied-once parts an update can offer, each with a fingerprint of the template's value kept in the record once
 // applied or passed over (addendum 2; PM's decision 3), so a part is offered again only when the template changed it.
 const PARTS = ['modules', 'reactions', 'theme', 'iconSet', 'lobby', 'spaceDefaults'];

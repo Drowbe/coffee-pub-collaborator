@@ -2177,8 +2177,22 @@ function toggleTray(open = $('react-tray').hidden) {
   if (open && !(features.allowReactions && canDo('react'))) return;
   $('react-tray').hidden = !open;
   $('react-toggle').classList.toggle('on', open);
-  if (open) closeSettings();
+  if (open) { closeSettings(); fitTray(); }
 }
+// The tray rises from the toolbar; with many reactions it would rise under the header, and its first row (keys 1 to 6)
+// could not be clicked (GitHub #169). Its bottom stays where it is, so its height is capped to the room between its
+// bottom and the header's (or the window's top, in a window with no header), and the rest scrolls inside it.
+const TRAY_GAP = 8;
+function fitTray() {
+  const tray = $('react-tray');
+  if (!tray || tray.hidden) return;
+  const doc = tray.ownerDocument;
+  const header = doc.getElementById('topbar');
+  const top = header && header.getClientRects().length ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+  const height = Math.floor(tray.getBoundingClientRect().bottom - top - TRAY_GAP);
+  tray.style.maxHeight = `${Math.max(64, height)}px`; // never less than one row
+}
+window.addEventListener('resize', fitTray);
 
 // The settings popover shows one focused group at a time: mic, audio
 // (speaker + volume), camera, layout, or "more" (everything else -- guests,

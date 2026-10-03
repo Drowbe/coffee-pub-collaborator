@@ -341,6 +341,17 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/\n    cleanUp,\n/.test(canvasJs)) fail('public/canvas.js', 'the canvas must offer cleanUp()');
 }
 
+// The reaction tray (GitHub #169): with many reactions it never rises under the header. Opening it caps its height to
+// the room between its bottom and the header's, and the rest scrolls inside it, so its first row (keys 1 to 6) shows.
+{
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const toggle = spaceJs.slice(spaceJs.indexOf('function toggleTray('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function toggleTray(')));
+  if (!/if \(open\) \{ closeSettings\(\); fitTray\(\); \}/.test(toggle)) fail('public/space.js', 'opening the reaction tray must fit it under the header (fitTray)');
+  const fit = spaceJs.slice(spaceJs.indexOf('function fitTray('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function fitTray(')));
+  if (!/doc\.getElementById\('topbar'\)/.test(fit) || !/tray\.getBoundingClientRect\(\)\.bottom - top - TRAY_GAP/.test(fit) || !/tray\.style\.maxHeight = /.test(fit)) fail('public/space.js', 'fitTray() caps the tray to the height between its bottom and the header');
+  if (!/\n\.popover \{\s*max-height: [^;]+;\s*overflow-y: auto;/.test(css)) fail('public/style.css', 'a popover (the tray among them) scrolls inside when it is capped');
+}
+
 // The conference's switch (Thomas, 2026-09-30): a switch always reads the module's name, never a closed label such as
 // "Rejoin call"; joining lives in the conference's "Not in a call" note, so the space bar has no call control.
 {

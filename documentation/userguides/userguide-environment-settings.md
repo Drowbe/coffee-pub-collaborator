@@ -53,11 +53,16 @@ The **Template** tab gathers what a template gives an environment. From the top:
   **Save**. The icons offered are the **Icons** list (below).
 - **Reactions.** The emoji tray in the call and on stream, also offered in chat. Add, remove, reorder
   and edit the emoji and label, or leave the list empty to turn reactions off. The first six are keys
-  **1** to **6**.
+  **1** to **6**. A new environment starts with 105, the first six being Heart, Black Heart, 100%, Hi, Thumbs up and
+  Thumbs down.
 - **Icons.** The icons you want available. Paste an icon's HTML from fontawesome.com, for example
   `<i class="fa-solid fa-dice"></i>`, and the preview shows it. These icons are the choices offered for a
   space's launch link, the home icon and a module's icon. Only the Free icons that ship with Collaborator will
-  draw, unless you have added your own Pro package (see "Font Awesome Pro" under Theme).
+  draw, unless you have added your own Pro package (see "Font Awesome Pro" under Theme). A new environment starts with
+  113 icons.
+
+An environment that was still on the old six reactions, or the old 21 icons, moved to the new lists once when the
+server was updated. A list you had changed was kept.
 
 An old link to `#reactions` or `#icons` on the Manage page opens this tab at that section.
 

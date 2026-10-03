@@ -123,7 +123,7 @@ deleted.
 4. Under **Phases**, click **Add phase** for each one, up to 12: an id (lowercase letters, digits and dashes) and a
    label. Tick **Main** on at most one: its dates are the plan's own. Use the arrows to order them and **Remove**
    to take one out. Leave the list empty for none.
-5. If it should, tick **Give reactions** and add them, click **Choose a theme file…** to give it a theme (a
+5. If it should, tick **Give reactions** and add them (up to 120; a template's icons can be up to 120 too, solid icons only), click **Choose a theme file…** to give it a theme (a
    `.theme.json` file, see [userguide-themes](userguide-themes.md)). The theme is checked as you choose it: its name
    shows, followed by "Left out: ..." when part of the file wasn't a colour Collaborator knows, and a file that can't
    be used is refused beside **Theme** with a sentence saying why. List **Icons** by their Font Awesome

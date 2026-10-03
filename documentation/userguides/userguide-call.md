@@ -146,8 +146,8 @@ The conference has the same titlebar as the chat and every module: the same butt
 
 ## Reactions
 
-The smiley button in the bar opens a tray, set up by an owner on the Theme tab of the Manage page
-(six by default: heart, thumbs up, thumbs down, laugh, question mark, and a die for a natural 20).
+The smiley button in the bar opens a tray, set up by an owner on the Template tab of the Manage page
+(105 to start with; the first six are Heart, Black Heart, 100%, Hi, Thumbs up and Thumbs down).
 The first six are also keys **1** to **6**. A reaction floats up from your tile for a couple of
 seconds on everyone's screen, and up your Participant and Character boxes in OBS. Nothing is stored.
 

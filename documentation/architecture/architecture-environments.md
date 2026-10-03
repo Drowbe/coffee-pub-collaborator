@@ -597,12 +597,20 @@ on at most one; any other key is refused. The fields added by addendum 2:
 
 - `version`: a whole number, 1 or more (a bundled file without one is 1). A host template's counts up on every
   edit; an imported one keeps the file's.
-- `reactions`: `[{ id?, glyph, label? }]`, at most 30, a glyph of 1 to 8 characters and a label of at most 40, then
+- `reactions`: `[{ id?, glyph, label? }]`, at most 120 (`MAX_REACTIONS`), a glyph of 1 to 8 characters and a label of at most 40, then
   cleaned by `cleanReactions`.
 - `theme`: an embedded theme in the theme file's shape, `{ name, author?, light, dark }` without the theme file's `format` and `formatVersion`,
   checked as a theme import is (`server/theme-file.js`).
-- `iconSet`: at most 60 Font Awesome Free solid names, none twice, for the environment's icon list. It is separate
+- `iconSet`: at most 120 (`MAX_ICON_SET`) Font Awesome Free solid names, none twice, for the environment's icon list. It is separate
   from `icons`, which stays `{ home }`.
+
+**The defaults** (GitHub #169). An environment starts with Thomas's curated lists, `server/default-lists.js`: 105
+reactions, whose first six are the **1** to **6** keys (Heart, Black Heart, 100%, Hi, Thumbs up, Thumbs down), and 113
+icons (111 solid, and the brands `bluesky` and `xbox`). An existing environment still on exactly the old six reactions,
+or exactly the old 21 starter icons, moves to the curated list once, on its next start; the two are judged
+separately, and lists an owner or a template changed are kept. The settings flags `reactionsCuratedSeeded` and
+`iconsCuratedSeeded` record that the run happened, so an owner who later picks the old list by hand keeps it.
+`tools/check-defaults.mjs` holds this.
 
 Every bundled file is checked when the server starts, and an invalid one stops the start with a line naming each
 problem; a host template and an import are checked before they are saved. `tools/check-templates.mjs` (in `npm run

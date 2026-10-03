@@ -46,7 +46,7 @@ to right:
 - **Layout** (or the word your environment uses for it). Click it to open a panel with two parts. Under **Show**
   are switches for the Conference, the Chat and each module on in the space: switch one on to show it on the
   canvas, off to hide it. A count shows what is unread, on the switch and on the button. Under **Arrange**:
-  - **Dock all** puts every floating module back beside the call.
+  - **Dock all** puts every floating module back beside the call, as many as the window has columns for.
   - **Clean up** tidies the floating modules: each is moved fully onto the canvas so none overlap, keeping its
     size where it fits. With **Snap to a grid** on, each keeps its size in cells wherever a place exists, and only
     one with no place is made smaller. Clean up again changes nothing. Docked modules and modules in their own window stay as they are, and the new
@@ -143,6 +143,24 @@ chat box is hidden.
 ## Chat, docked, floating or in its own window
 
 The conference has the same titlebar as the chat and every module: the same buttons to float it over the page (and dock it again), to open it in a window of its own, and to close it, which leaves the call. In its own window the titlebar has no close: closing that window brings the call back into the page where it was. **Hang up** on the toolbar leaves the call and keeps the conference open, which says "Not in a call"; the phone turns green, and pressing it, or **Join the call**, joins again. Chat opens as a column beside the video. Its header has the same buttons as a module's: one to float it over the canvas, where you can drag and resize it (and a matching button to dock it again), one to open it in a window of its own, and the x to close it. A floating module also has a **Snap to a grid** button: on, the module sits in the cells of a grid over the call (you see the grid while you drag), moving and resizing a cell at a time and keeping its place when the window changes size; off, it floats freely, as before. Each module remembers its own choice. The **Layout** panel's **Arrange** section has the same switch for the whole canvas, **Snap to a grid**: on, every module that can float is put on the grid -- docked ones float first -- and any you open later comes up floating and snapped; a slider under it, **Grid size**, sets how fine the grid is (you see the grid while you slide). As you slide, the modules move to the cells nearest where you put them and keep about the same size on screen, without landing on each other while there is space for them all; slide back and they return to where they were. Off, the modules that were docked when you switched it on dock again, and the rest float freely. The space remembers both. The Calendar and other modules open as more columns after the chat, and the video always keeps some of the width. If you pop the whole call out, chat and modules come with it. Close a module's own window and the module comes back into the page, docked or floating as it was before, with whatever it held untouched.
+
+## When the window is too narrow for another column
+
+Each docked module needs a column at least 240 pixels wide, so a window holds only so many: 2 columns from 641
+pixels wide, 3 from 760, 4 from 1000, 5 from 1280, 6 from 1600 and 7 from 1920. The Conference and the Chat always
+keep theirs; installed modules give way from the right.
+
+- A module you dock or open that has no column floats instead, and waits. It docks again by itself, in its old
+  place and at its width, when the window is wide enough. Its **Dock** button is dimmed, with the tooltip "Docks
+  when the window is wide enough".
+- On another floating module, **Dock** says "The window is too narrow for another column" while the columns are
+  full. The Conference's and the Chat's **Dock** always works: the rightmost module waits instead.
+- **Layout ▾** says why, at the end of **Arrange**: for example "The window is too narrow for another column, so
+  Calendar is floating. It docks when the window is wide enough.", or after **Dock all**, "2 docked. 1 stays
+  floating until the window is wide enough." The note goes after a few seconds, or when you close the panel.
+- Drag or resize a waiting module and it stays floating for good.
+
+At 640 pixels wide and below the phone layout shows one view at a time, so nothing waits.
 
 ## Reactions
 

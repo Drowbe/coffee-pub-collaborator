@@ -16,7 +16,7 @@ import { api, markModuleRead, followTheme } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
 import { whatOpens } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
-import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle, tidyCells, tidyBoxes, TIDY_GAP } from '/snap-grid.js';
+import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle, tidyCells, tidyBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
 // and each module's mode and sizes. `app.canvas` alone is what earlier versions kept for all
@@ -24,8 +24,8 @@ import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearest
 const STORE_KEY = 'app.canvas';
 const storeKey = (spaceId) => `${STORE_KEY}.${spaceId}`;
 const HEAD_H = 42; // the shared module header height (--module-header-h in style.css)
-const DOCK_MIN = 240;
-const VIDEO_MIN = 280; // the flexible column always keeps at least this much of the canvas
+// A fixed column's least width (DOCK_MIN), the flexible column's (FLEX_MIN) and the narrow line (NARROW) are snap-grid.js's,
+// beside fitDock(), the rule for how many columns a window holds (plan-docked-limit.md).
 
 function readStore(key) {
   try {
@@ -70,7 +70,8 @@ const toolsHtml = ({ mode, canDock, canFloat, closable = true, snap = false }) =
   ${mode !== 'window' ? '<button class="msg-btn" data-popout type="button" title="Open in its own window" aria-label="Open in its own window"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>' : ''}
   ${closable ? '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>' : ''}`;
 
-export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
+// `onNote(text)`: a short line for the Layout panel's note (#modules-menu-note), '' to clear it.
+export function createCanvas({ guestToken = null, onChatAsk = null, onNote = null } = {}) {
   const toggle = document.getElementById('modules-toggle');
   const menu = document.getElementById('modules-menu');
   // An inline menu (the module buttons sit in a bar in the space header) is always shown: it is never hidden
@@ -134,7 +135,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   // A narrow canvas has no room for a column.
   function isNarrow() {
     const w = canvas.clientWidth;
-    return w > 0 ? w < 640 : canvas.classList.contains('narrow');
+    return w > 0 ? w <= NARROW : canvas.classList.contains('narrow'); // the same line as the space bar's tab bar
   }
 
   // `holdStore`: the grid-size slider's preview changes the layout on every step but writes it once, when let go.
@@ -327,9 +328,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const snap = saved.__snap || {};
     if (on) {
       const before = { ...(snap.before || {}) };
-      for (const p of [...opened.values()]) {
-        if (p.mode === 'dock' && supports(p, 'float') && !isNarrow()) { before[p.id] = 'dock'; setMode(p.id, 'float'); }
+      // Remembered in column order, so turning the switch off docks them back in it. A waiting module already floats; it
+      // wanted a column, so it docks again (or waits again) when the switch goes off.
+      const columns = isNarrow() ? [] : [...opened.values()].filter((p) => wantsColumn(p) && supports(p, 'float')).sort(byOrder).map((p) => p.id);
+      for (const id of columns) before[id] = 'dock';
+      for (const id of columns) {
+        const p = opened.get(id);
+        if (p?.waiting) { p.waiting = false; remember(id, { mode: 'float' }); }
       }
+      for (const id of columns) if (opened.get(id)?.mode === 'dock') setMode(id, 'float');
       saved.__snap = { ...snap, all: true, before };
       persist();
       const mods = [...opened.values()].filter((p) => floaterOf(p));
@@ -341,22 +348,43 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     saved.__snap = { ...snap, all: false, before: {} };
     persist();
     for (const p of [...opened.values()]) if (floaterOf(p)) setSnap(p.id, false);
-    for (const [id, mode] of Object.entries(snap.before || {})) {
-      const p = opened.get(id);
-      if (p && p.mode === 'float' && supports(p, mode)) setMode(id, mode);
-    }
+    // Back to docked through the fit: what the window has no room for waits, named in one note.
+    const was = new Set([...opened.values()].filter((p) => p.waiting).map((p) => p.id));
+    hush += 1;
+    try {
+      for (const [id, mode] of Object.entries(snap.before || {})) {
+        const p = opened.get(id);
+        if (p && p.mode === 'float' && supports(p, mode)) setMode(id, mode);
+      }
+    } finally { hush -= 1; }
+    tellWaiting([...opened.values()].filter((p) => p.waiting && !was.has(p.id)).sort(byOrder).map((p) => p.id));
   }
   // The space bar's "dock all": every floating module that can be a column goes back beside the call. The canvas-level snap
   // goes off first (it would float a module again the moment it opened), with nothing remembered to restore, since docked is
   // where everything is now. A module in a window of its own, and one that can only float, are left alone.
+  // Through the fit (plan-docked-limit.md): what the window holds gets a column, in column order; the rest wait, floating,
+  // and the panel's note says how many. Answers { docked, waiting }: how many of them docked, and how many wait now.
   function dockAll() {
     if (snapAllOn()) {
       saved.__snap = { ...(saved.__snap || {}), all: false, before: {} };
       persist();
       for (const p of opened.values()) if (floaterOf(p)) setSnap(p.id, false);
     }
-    for (const p of [...opened.values()]) if (p.mode === 'float' && supports(p, 'dock') && !isNarrow()) setMode(p.id, 'dock');
+    if (isNarrow()) { update(); return { docked: 0, waiting: 0 }; }
+    // The conference and the chat first (they always have a column), then the others in the order they opened.
+    const tried = [...opened.values()].filter((p) => p.mode === 'float' && !p.waiting && supports(p, 'dock'))
+      .sort((a, b) => (a.kind === 'builtin' ? 0 : 1) - (b.kind === 'builtin' ? 0 : 1) || byOrder(a, b)).map((p) => p.id);
+    hush += 1;
+    try {
+      for (const id of tried) setMode(id, 'dock');
+    } finally { hush -= 1; }
+    syncDock();
     update();
+    const docked = tried.filter((id) => opened.get(id)?.mode === 'dock').length;
+    const waiting = [...opened.values()].filter((p) => p.waiting).length;
+    if (waiting) note(`${docked} docked. ${waiting} ${waiting === 1 ? 'stays' : 'stay'} floating until the window is wide enough.`);
+    else note('');
+    return { docked, waiting };
   }
   // Clean up (the Layout panel's Arrange section): every floating module on this canvas, in this window, moved fully onto
   // the canvas and apart. Snapped ones go to the grid's nearest free cells, keeping their size in cells wherever a place
@@ -438,13 +466,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       const dx = event.clientX - drag.sx;
       const dy = event.clientY - drag.sy;
       const b = { ...drag.box };
+      if (dx || dy) drag.moved = true;
       if (drag.kind === 'move') { b.x += dx; b.y += dy; } else { b.w += dx; b.h += dy; }
       place(floater, drag.grid ? cellBox(drag.grid, snapCell(drag.grid, b)) : b);
     };
     const end = () => {
       if (!drag) return;
       const g = drag.grid;
+      const moved = drag.moved;
       drag = null;
+      if (moved) settleWaiting(id); // a waiting module the person moves is floating by their choice
       layer.classList.remove('dragging');
       hideGrid(layer);
       if (g) {
@@ -468,11 +499,124 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   const maxDock = () => Math.max(DOCK_MIN, Math.round(canvas.clientWidth * 0.6));
   const clampDock = (w) => Math.min(Math.max(Math.round(w), DOCK_MIN), maxDock());
 
+  // --- how many columns fit (plan-docked-limit.md) ----------------------------------------------------------------
+  // A module whose remembered mode is dock wants a column. snap-grid.js's fitDock() says which get one at the canvas's
+  // width: the conference and the chat always, installed modules from the left until the window is full. The rest are
+  // waiting (`mod.waiting`): shown floating, their remembered mode still dock, and docked again, in their old place in the
+  // column order, as soon as the canvas is wide enough. Dragging or resizing a waiting module makes it floating for good.
+  const wantsColumn = (p) => p.mode === 'dock' || Boolean(p.waiting);
+  const byOrder = (a, b) => a.order - b.order;
+  const dockWidthOf = (p) => p.width ?? clampDock(saved[p.id]?.dockW || p.m?.canvas?.width || p.def?.width || 320);
+  const columnsOf = (mods) => mods.slice().sort(byOrder).map((p) => ({ id: p.id, width: dockWidthOf(p), flex: Boolean(p.def?.flex), keep: p.kind === 'builtin' }));
+  // The canvas's width; while it is hidden (the space list shown over a running call), the last width it had.
+  let fitWidth = 0;
+  const canvasWidth = () => { if (canvas.clientWidth > 0) fitWidth = canvas.clientWidth; return fitWidth; };
+  // fitDock() over every module wanting a column now, and `extra` (one about to dock).
+  const planColumns = (extra = []) => fitDock(canvasWidth(), columnsOf([...opened.values()].filter(wantsColumn).concat(extra)));
+  // Whether a module about to dock would get a column, or wait.
+  const wouldWait = (p) => !isNarrow() && planColumns([{ ...p, order: order + 1, mode: 'dock', waiting: false }]).waiting.includes(p.id);
+
+  // No note while the layout is put back on entering, a canvas pops out or back, or the window is resized: the change is
+  // in front of the person, or is not theirs.
+  let hush = 0;
+  const quiet = () => hush > 0 || restoring || suspended;
+  const nameOf = (id) => opened.get(id)?.m?.name || available.find((x) => x.id === id)?.name || builtins.get(id)?.name || id;
+  let noteTimer = null;
+  let noteAt = 0;
+  function note(text) {
+    clearTimeout(noteTimer);
+    noteAt = Date.now();
+    onNote?.(text);
+    if (text) noteTimer = setTimeout(() => onNote?.(''), 6000);
+  }
+  function tellWaiting(ids) {
+    if (!ids.length || quiet()) return;
+    const names = ids.map(nameOf);
+    const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+    note(names.length === 1
+      ? `The window is too narrow for another column, so ${list} is floating. It docks when the window is wide enough.`
+      : `The window is too narrow for another column, so ${list} are floating. They dock when the window is wide enough.`);
+  }
+
+  // A waiting module with no remembered box is placed tidily around the other floating modules.
+  function placeWaiting(mod) {
+    if (saved[mod.id]?.box || snapping(mod.id)) return;
+    const doc = canvasDoc();
+    const g = snapGrid();
+    const area = { x: g.x + TIDY_GAP, y: g.y + TIDY_GAP, w: g.w - 2 * TIDY_GAP, h: g.h - 2 * TIDY_GAP };
+    const taken = [...opened.values()].filter((p) => p !== mod && floaterOf(p) && floaterOf(p).ownerDocument === doc).map((p) => currentBox(floaterOf(p)));
+    const box = tidyBoxes([{ id: mod.id, box: currentBox(mod.el) }], area, taken).get(mod.id);
+    if (box) place(mod.el, box);
+  }
+  // A docked module gives up its column and waits, floating, in its place in the column order.
+  function startWaiting(p) {
+    const { order: keepOrder, width } = p;
+    moveModule(p.id, 'float');
+    const mod = opened.get(p.id);
+    Object.assign(mod, { order: keepOrder, waiting: true, width });
+    placeWaiting(mod);
+  }
+  // A waiting module docks again, in its old place in the column order, at its remembered width.
+  function stopWaiting(p) {
+    const { order: keepOrder, width } = p;
+    moveModule(p.id, 'dock');
+    const mod = opened.get(p.id);
+    mod.order = keepOrder;
+    // Its own width, not the one a narrower canvas would clamp it to on the way back (none on a narrow one: no columns).
+    if (width) mod.width = isNarrow() ? width : clampDock(width);
+  }
+  // Fit the columns to the canvas: modules past the limit wait, waiting ones that now fit dock. Answers the ids that
+  // started waiting. Not while a fit is already moving modules (moving one calls syncDock again), nor on a hidden canvas.
+  let fitting = false;
+  function fitColumns() {
+    // While modules are being opened or closed together (entering, leaving, popping out), the fit waits for the end.
+    if (fitting || suspended || canvas.clientWidth <= 0) return [];
+    fitting = true;
+    const started = [];
+    try {
+      const waits = new Set(planColumns().waiting);
+      for (const p of [...opened.values()].sort(byOrder)) {
+        if (p.kind !== 'module') continue; // the conference and the chat always have a column (fitDock's `keep`)
+        if (p.mode === 'dock' && waits.has(p.id)) { startWaiting(p); started.push(p.id); }
+        else if (p.waiting && !waits.has(p.id)) stopWaiting(p);
+      }
+    } finally {
+      fitting = false;
+    }
+    tellWaiting(started);
+    return started;
+  }
+  // A floating module's Dock button: unavailable while it waits, and while the columns are full (so a press never stores
+  // a dock it cannot show). The conference and the chat always have a column, so theirs always works.
+  function paintDockButtons() {
+    const full = !isNarrow() && [...opened.values()].filter(wantsColumn).length >= dockLimit(canvasWidth());
+    for (const p of opened.values()) {
+      if (p.kind !== 'module' || p.mode !== 'float' || !p.el) continue;
+      p.el.toggleAttribute('data-waiting', Boolean(p.waiting));
+      const b = p.el.querySelector('[data-mode="dock"]');
+      if (!b) continue;
+      const off = Boolean(p.waiting) || full;
+      if (off) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
+      b.title = p.waiting ? 'Docks when the window is wide enough' : full ? 'The window is too narrow for another column' : 'Dock beside the video';
+    }
+  }
+  // A waiting module dragged or resized by the person floats for good.
+  function settleWaiting(id) {
+    const mod = opened.get(id);
+    if (!mod?.waiting) return;
+    mod.waiting = false;
+    remember(id, { mode: 'float' });
+    paintDockButtons();
+    snapshot();
+  }
+
   // Docked modules are the columns, in order: the conference, the chat, then modules. One
   // column is flexible and takes what is left: the conference when it is docked, else the
   // first docked module, so the canvas is never left with an empty column. The others keep
-  // their widths. On a narrow canvas CSS takes over (see architecture-room-layout).
+  // their widths while they fit, and shrink in step when they do not, none below DOCK_MIN (fitDock); a module past the
+  // limit waits, floating (fitColumns). On a narrow canvas CSS takes over (see architecture-canvas).
   function syncDock() {
+    fitColumns();
     const docked = dockedModules();
     // The narrow layout keys off this, as it does off chat-open.
     canvas.classList.toggle('module-open', docked.some((p) => p.kind === 'module'));
@@ -480,19 +624,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     for (const p of opened.values()) p.el.classList?.remove('is-flex');
     for (const p of docked) for (const el of p.parts()) el.style.gridColumn = '';
     if (canvasEmpty) canvasEmpty.hidden = opened.size > 0;
+    paintDockButtons();
     if (isNarrow() || !docked.length) {
       canvas.style.removeProperty('--canvas-cols');
       return;
     }
     const flex = docked.find((p) => p.def?.flex) || docked[0];
     flex.el.classList.add('is-flex');
-    // The fixed columns together may not crowd the flexible one out: past that, they all shrink
-    // in step (each module keeps the width it was given for when there is room again).
-    const fixed = docked.filter((p) => p !== flex);
-    const total = fixed.reduce((sum, p) => sum + p.width, 0);
-    const spare = Math.max(DOCK_MIN, canvas.clientWidth - VIDEO_MIN);
-    const ratio = total > spare ? spare / total : 1;
-    canvas.style.setProperty('--canvas-cols', docked.map((p) => (p === flex ? 'minmax(0, 1fr)' : `${Math.max(160, Math.floor(p.width * ratio))}px`)).join(' '));
+    // Each module keeps the width it was given for when there is room again; only what is shown shrinks.
+    const { widths } = fitDock(canvasWidth(), columnsOf(docked));
+    canvas.style.setProperty('--canvas-cols', docked.map((p) => (p === flex ? 'minmax(0, 1fr)' : `${widths.get(p.id) ?? DOCK_MIN}px`)).join(' '));
     docked.forEach((p, i) => { for (const el of p.parts()) el.style.gridColumn = String(1 + i); });
   }
 
@@ -506,10 +647,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const flex = docked.find((p) => p.def?.flex) || docked[0];
     const fixed = docked.filter((p) => p !== flex);
     const total = fixed.reduce((sum, p) => sum + p.width, 0);
-    const spare = Math.max(DOCK_MIN, canvas.clientWidth - VIDEO_MIN);
-    if (total <= spare) return;
-    const ratio = spare / total;
-    for (const p of fixed) p.width = Math.max(160, Math.floor(p.width * ratio));
+    if (total <= canvasWidth() - FLEX_MIN) return;
+    const { widths } = fitDock(canvasWidth(), columnsOf(docked));
+    for (const p of fixed) p.width = widths.get(p.id) ?? DOCK_MIN;
   }
 
   // Widening a column when there is no room left takes the width from the other fixed columns (each down to
@@ -521,12 +661,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     if (mod === flex) return;
     const fixed = docked.filter((p) => p !== flex);
     const others = fixed.filter((p) => p !== mod);
-    let excess = fixed.reduce((sum, p) => sum + p.width, 0) - Math.max(DOCK_MIN, canvas.clientWidth - VIDEO_MIN);
+    const excess = fixed.reduce((sum, p) => sum + p.width, 0) - Math.max(DOCK_MIN, canvasWidth() - FLEX_MIN);
     if (excess <= 0) return;
-    const spare = others.reduce((sum, p) => sum + Math.max(0, p.width - 160), 0);
+    const spare = others.reduce((sum, p) => sum + Math.max(0, p.width - DOCK_MIN), 0);
     if (spare <= 0) return;
     const take = Math.min(excess, spare);
-    for (const p of others) p.width -= Math.round(take * (Math.max(0, p.width - 160) / spare));
+    for (const p of others) p.width -= Math.round(take * (Math.max(0, p.width - DOCK_MIN) / spare));
   }
 
   // Reordering the columns: drag a docked module by its titlebar. The module's column follows the pointer as the others make way, so the
@@ -994,7 +1134,14 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     if (isNarrow()) view = m.id;
     mode ||= preferredMode(p);
     if (mode === 'dock' && !supports(p, 'dock')) mode = 'float';
-    if (mode === 'dock') openModuleDocked(m); else openModuleFloating(m);
+    // One too many for the window: it takes the newest place in the column order, so it is the one that waits, floating.
+    if (mode === 'dock' && wouldWait({ ...p, m })) {
+      openModuleFloating(m);
+      const mod = opened.get(m.id);
+      Object.assign(mod, { waiting: true, width: Math.max(DOCK_MIN, Math.round(saved[m.id]?.dockW || m.canvas.width)) });
+      placeWaiting(mod);
+      tellWaiting([m.id]);
+    } else if (mode === 'dock') openModuleDocked(m); else openModuleFloating(m);
     markModuleRead(m.id);
     update();
   }
@@ -1031,7 +1178,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
 
   function setMode(id, mode) {
     const mod = opened.get(id);
-    if (!mod || mod.mode === mode) return;
+    if (!mod) return;
+    // A waiting module already wants its column; floating it is the person's choice, so it stops waiting.
+    if (mod.waiting && mode === 'dock') return;
+    if (mod.waiting && mode === 'float') { settleWaiting(id); update(); return; }
+    if (mod.mode === mode) return;
     if (mod.kind === 'builtin') {
       const def = mod.def;
       const before = mod.mode;
@@ -1045,7 +1196,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     const m = mod.m;
     if (mode === 'window') { closeModule(id); return popOut(m.id); }
     remember(id, { mode });
+    // Docking one too many (not from its Dock button, which is unavailable then): it stays where it floats, and waits.
+    if (mode === 'dock' && wouldWait(mod)) {
+      Object.assign(mod, { waiting: true, order: ++order, width: dockWidthOf(mod) });
+      tellWaiting([id]);
+      update();
+      return;
+    }
     moveModule(id, mode);
+    syncDock(); // a column given up may let a waiting module dock
     markModuleRead(m.id);
     update();
   }
@@ -1069,7 +1228,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   function wireHeader(el, mod) {
     el.querySelector('[data-close]').addEventListener('click', () => closeModule(mod.id));
     el.querySelector('[data-popout]').addEventListener('click', () => popOut(mod.id));
-    el.querySelector('[data-mode]')?.addEventListener('click', (event) => setMode(mod.id, event.currentTarget.dataset.mode));
+    el.querySelector('[data-mode]')?.addEventListener('click', (event) => {
+      if (event.currentTarget.getAttribute('aria-disabled') === 'true') return; // the window has no room for another column
+      setMode(mod.id, event.currentTarget.dataset.mode);
+    });
     el.querySelector('[data-snap]')?.addEventListener('click', () => setSnap(mod.id, !snapping(mod.id)));
     el.querySelector('[data-module-menu]')?.addEventListener('click', (event) => {
       event.stopPropagation();
@@ -1096,7 +1258,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   function canvasPopped() {
     suspended = true; // closing and reopening the modules is not a change of layout
     const doc = canvasDoc();
-    const again = [...opened.values()].filter((p) => p.kind === 'module').map((p) => ({ m: p.m, mode: p.mode }));
+    const again = [...opened.values()].filter((p) => p.kind === 'module').sort(byOrder).map((p) => ({ m: p.m, mode: p.waiting ? 'dock' : p.mode }));
     for (const { m } of again) closeModule(m.id);
     for (const p of opened.values()) {
       if (p.kind === 'builtin' && p.mode === 'float' && p.floatEl) {
@@ -1148,8 +1310,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     }
     // The remembered order is the column order, for the built-in modules as well as the installed ones.
     if (!request) {
-      const docked = dockedModules();
-      const sequence = want.map((id) => opened.get(id)).filter((p) => p && p.mode === 'dock');
+      const docked = [...opened.values()].filter(wantsColumn).sort(byOrder); // waiting ones keep their place too
+      const sequence = want.map((id) => opened.get(id)).filter((p) => p && wantsColumn(p));
       if (sequence.length === docked.length) {
         const values = docked.map((p) => p.order).sort((a, b) => a - b);
         sequence.forEach((p, i) => { p.order = values[i]; });
@@ -1180,6 +1342,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
       badge.textContent = total > 9 ? '9+' : String(total);
     }
     snapshot();
+    paintDockButtons();
     if (canvasEmpty) canvasEmpty.hidden = opened.size > 0;
     if (!menu) return;
     const builtinList = [...builtins.values()].sort((a, b) => a.order - b.order).filter((def) => !def.allowed || def.allowed());
@@ -1266,7 +1429,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
         // A snapped module keeps its cells in the grid the new size makes; a free one just stays on screen.
         if (snapping(p.id)) settleSnap(p.id, floater, saved[p.id]?.cell); else place(floater, currentBox(floater));
       }
-      syncDock();
+      hush += 1; // the columns fit again, quietly: the change is in front of the person
+      try { syncDock(); } finally { hush -= 1; }
       // Crossing the narrow line changes which module shows, so the tabs and switches say so.
       if (isNarrow() !== lastNarrow) { lastNarrow = isNarrow(); update(); }
       if (menu && !inline() && !menu.hidden) positionMenu();
@@ -1308,6 +1472,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     if (!menu || inline()) return;
     menu.hidden = !open;
     toggle?.setAttribute('aria-expanded', String(open));
+    // Closing the panel clears its note, except one the same click just wrote (a titlebar's Dock, outside the panel).
+    if (!open && Date.now() - noteAt > 250) note('');
     if (open) {
       positionMenu();
       if (focus) menu.querySelector('input, button')?.focus();
@@ -1367,6 +1533,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
   async function refresh(id) {
     suspended = true;
     closeAllModules();
+    note('');
     spaceId = id;
     saved = loadSaved(id);
     available = [];
@@ -1442,7 +1609,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null } = {}) {
     closeAll: closeAllModules,
     popped: canvasPopped, // the call moved to (or back from) a window of its own
     showFloating,
-    layoutChanged: syncDock,
+    layoutChanged: () => { hush += 1; try { syncDock(); } finally { hush -= 1; } },
     updateMenu: update,
     openRef,
     // For tests: send a host event to an open module's frame.

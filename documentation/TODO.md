@@ -48,7 +48,8 @@ same setup.
   - For Thomas, choices the plan made that he may overrule: on a phone the top bar shows the page's name as a plain label; a module's tools always go in the space bar's right zone (`zone` ignored); the **Manage** link at the start of the page bar on pages that belong to Manage.
   - The Profile page's bar reads "Profile" beside a tab also named **Profile**.
   - A popped-out window narrower than 641 pixels has a cramped space bar, with **Leave space** off the edge. It was like this before the two-zone nav.
-- **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md)): steps 1 and 2 built 2026-10-02 (the Arrange section and **Clean up**). Saved layouts are #161, [plan-saved-layouts](plans/plan-saved-layouts.md), approved 2026-10-03, four steps, none built; step 2 waits on #156's plan.
+- **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md)): steps 1 and 2 built 2026-10-02 (the Arrange section and **Clean up**). Saved layouts are #161, [plan-saved-layouts](plans/plan-saved-layouts.md), approved 2026-10-03, four steps, none built; step 2 needs #156's step 1.
+- **Docked limit** (#156, [plan-docked-limit](plans/plan-docked-limit.md)): approved 2026-10-03, three steps, none built. Limits docked modules by the window's width; extras float and dock again when the window widens. Comes before saved layouts' step 2.
 
 ## Planned
 

@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides what a saved layout holds, who may save one and whether one can be a space's default, and the sessions that build it: server-development (`server/store.js`, `server/index.js`, a new check) and experience-design (`public/canvas.js`, `public/space.js`, `public/space-settings.js`, a new pure `public/layouts.js`, `public/style.css`, `tools/check-canvas.mjs`, `tools/check-nav.mjs`).
 
-**Status:** approved by Thomas, 2026-10-03, answering all nine of the draft's questions as recommended (decisions 1 to 9); nothing built yet. From GitHub #161 (Thomas, 2026-10-02): the space bar's **Layout** menu "should let people save the current layout under a name and load it again later. For example, "Planning" with the Calendar, To-do and Planner docked, or "Game night" with the conference large and chat floating." [plan-layout-menu](plan-layout-menu.md) deferred it here ("Saved layouts (later)"). It has to fit #156 (a limit on docked modules by the window's width), which comes before it in the Now column; its plan is [plan-docked-limit](plan-docked-limit.md), drafted 2026-10-03 and not yet approved.
+**Status:** approved by Thomas, 2026-10-03, answering all nine of the draft's questions as recommended (decisions 1 to 9); nothing built yet. From GitHub #161 (Thomas, 2026-10-02): the space bar's **Layout** menu "should let people save the current layout under a name and load it again later. For example, "Planning" with the Calendar, To-do and Planner docked, or "Game night" with the conference large and chat floating." [plan-layout-menu](plan-layout-menu.md) deferred it here ("Saved layouts (later)"). It has to fit #156 (a limit on docked modules by the window's width), which comes before it in the Now column; its plan is [plan-docked-limit](plan-docked-limit.md), approved 2026-10-03.
 
 ## What it is today
 
@@ -131,4 +131,4 @@ Documentation after each step is content-manager's: [architecture-canvas](../arc
 
 ## What is not decided
 
-Nothing for this plan: Thomas answered its nine questions (decisions 1 to 9). Step 2 waits on #156's plan, [plan-docked-limit](plan-docked-limit.md), being agreed. Left for later, not asked now: layouts usable in every space of an environment, layouts an environment template ships, and a phone loading a layout from the header's menu.
+Nothing for this plan: Thomas answered its nine questions (decisions 1 to 9). #156's plan, [plan-docked-limit](plan-docked-limit.md), is agreed (2026-10-03); step 2 needs its step 1 built. Left for later, not asked now: layouts usable in every space of an environment, layouts an environment template ships, and a phone loading a layout from the header's menu.

@@ -235,7 +235,7 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   drops repeats and anything else, and keeps an id for a module that is off or not installed, so turning it back on
   restores it. It comes with the space wherever the space is answered (`GET /api/presence`, `GET /api/spaces`,
   `GET /api/status`, `POST /api/spaces`, the `PATCH` answer), and `GET /api/modules/for-space` answers it as
-  `opensWith` beside `spaceDefaultsOpensWith`. Asides never carry it. `PATCH /api/spaces/:id` (owner only) takes
+  `opensWith` beside `spaceDefaultsOpensWith` and `defaultLayout` (a space's default saved layout, which sets `opensWith`; see [api-modules](../api/api-modules.md), "Saved layouts"). Asides never carry it. `PATCH /api/spaces/:id` (owner only) takes
   `opensWith: [ids] | null`: `null`, `[]` or a list with nothing usable left clears it. Anything else that is not an
   array of strings answers 400 "Opens with must be a list of modules." and nothing in the request is saved; 401
   "sign in first", 403 "owners only", 404 "no such space". The same cleaning keeps `aiOff` (the space's **Turn AI

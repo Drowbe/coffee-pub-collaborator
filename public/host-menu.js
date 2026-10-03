@@ -7,9 +7,10 @@
 // Keyboard: the first item takes focus when it opens, the arrow keys (and Home, End) move between the items, Enter
 // or Space picks, Escape or Tab closes, and Escape (or a pick) puts focus back on the button that opened it.
 //
-// An item is { label, icon?, regular?, hint?, danger?, disabled?, checked?, badge?, onPick }. `checked` (true or false)
+// An item is { label, icon?, regular?, tint?, hint?, danger?, disabled?, checked?, badge?, onPick }. `checked` (true or false)
 // makes it a checkbox item that says whether it is on (a tool that toggles, folded into the space bar's "..."); `badge`
-// is a count shown after its label. `icon` is a Font Awesome name, or a whole class list (a module's own icon).
+// is a count shown after its label. `icon` is a Font Awesome name, or a whole class list (a module's own icon); `tint`
+// colours it, one of the eight tint names (a module's colour, gold for the AI), as a message's icon is.
 // { divider: true } draws a line between two runs of entries (the space switcher's "+ New").
 let open = null;
 
@@ -59,6 +60,7 @@ export function openHostMenu(trigger, items) {
       const i = doc.createElement('i');
       i.className = String(item.icon).includes(' ') ? `${item.icon} fa-fw` : `fa-${item.regular ? 'regular' : 'solid'} fa-${item.icon} fa-fw`;
       i.setAttribute('aria-hidden', 'true');
+      if (/^(gold|blue|green|teal|purple|red|orange|pink)$/.test(item.tint || '')) i.dataset.tint = item.tint;
       b.appendChild(i);
     }
     const label = doc.createElement('span');

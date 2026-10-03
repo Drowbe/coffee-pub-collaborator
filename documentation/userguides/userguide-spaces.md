@@ -174,6 +174,11 @@ Who can: an owner.
 This decides only a first visit. After that, each person's own layout is remembered, and they can change it with
 **Open with** on the space list.
 
+When a shared saved layout is the space's default (**Make default** in **Layout ▾**, see "Saved layouts" in
+[The call](userguide-call.md)), **Opens with** shows "Opens with the layout <name>" above the switches, and the
+switches follow the layout. A first visit then opens the layout, with its places. Choose **Stop using it** to keep
+the switches as they are without the layout; changing a switch also stops using it.
+
 With every switch off, the page says what opens instead, for example "Nothing switched on: Chat and To-do open.".
 When none of the ones switched on can open right now, it says "None of the ones switched on can open now, so nothing
 opens."

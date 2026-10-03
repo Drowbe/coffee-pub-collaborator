@@ -120,6 +120,79 @@ export function emptyLine(filter, visibilities) {
   return visibilities.some((v) => v === filter) ? '' : `No ${filter} messages here yet.`;
 }
 
+// Clear… (plan-chat-clear.md, #166): the types, the scopes and the counts, from the messages the page holds. Pure, for
+// the checks. The filter plays no part (decision 7): a type takes public and private messages alike.
+//
+// The type a held message belongs to: 'chat', 'ai', 'module:<id>', 'other' (a stored command with no module, which only
+// All takes, as on the server), or '' when there is nothing to clear: a picture (never stored), a guest's echo drawn
+// here only, an old copy kept in this browser.
+export function clearTypeOf(entry) {
+  if (!entry || !entry.stored || entry.blob) return '';
+  if (!entry.kind) return 'chat';
+  if (entry.kind === 'ai' || entry.command === 'ai') return 'ai';
+  if (entry.kind === 'command' && entry.module) return `module:${entry.module}`;
+  return 'other';
+}
+// Whether a held message is of a clear's type ({ type, module } as the route takes them).
+export function ofClearType(entry, type, module) {
+  const t = clearTypeOf(entry);
+  if (!t) return false;
+  if (type === 'all') return true;
+  if (type === 'module') return Boolean(module) && t === `module:${module}`;
+  return t === type;
+}
+// 'mine': the person's own, public and private. 'everyone': every public message and the person's own private ones,
+// never someone else's private one (decision 4; the page never holds one anyway).
+export function inClearScope(entry, scope, by) {
+  if (!by || !entry) return false;
+  if (scope === 'mine') return entry.by === by;
+  if (scope === 'everyone') return entry.visibility !== 'private' || entry.by === by;
+  return false;
+}
+// What Clear… lists, in order: Chat messages, AI, each module (as first held), then All. Each is
+// { type, module?, command?, mine, everyone }; only the types with something the person could clear are listed (a
+// moderator: everyone's; anyone else: their own). Empty when there is nothing, and then Clear… is not offered.
+export function clearChoices(entries, { by, moderator = false } = {}) {
+  const found = new Map();
+  const all = { type: 'all', mine: 0, everyone: 0 };
+  for (const entry of entries || []) {
+    const t = clearTypeOf(entry);
+    if (!t) continue;
+    const mine = inClearScope(entry, 'mine', by) ? 1 : 0;
+    const everyone = inClearScope(entry, 'everyone', by) ? 1 : 0;
+    all.mine += mine;
+    all.everyone += everyone;
+    if (t === 'other') continue;
+    if (!found.has(t)) {
+      found.set(t, t.startsWith('module:')
+        ? { type: 'module', module: t.slice(7), command: entry.command || '', mine: 0, everyone: 0 }
+        : { type: t, mine: 0, everyone: 0 });
+    }
+    const choice = found.get(t);
+    choice.mine += mine;
+    choice.everyone += everyone;
+  }
+  const order = [found.get('chat'), found.get('ai'), ...[...found].filter(([t]) => t.startsWith('module:')).map(([, c]) => c)];
+  const listed = order.filter((c) => c && (moderator ? c.everyone : c.mine) > 0);
+  if (!listed.length) return [];
+  return [...listed, all];
+}
+// A clear of type chat or all also takes pictures: the person's own for 'mine', every one for 'everyone'. Pictures are
+// never stored, so this is each page's own work.
+export function clearTakesPicture(entry, { type, scope, by }) {
+  if (!entry || !entry.blob || (type !== 'chat' && type !== 'all')) return false;
+  return scope === 'everyone' || Boolean(by && entry.by === by);
+}
+// What a chat-clear-some notice takes from a page: the listed ids (never a picture by id), and pictures as
+// clearTakesPicture says. A notice from another person's page (`fromPage`) speaks only for that person: it takes only
+// `by`'s own, whatever its scope says. A clear of everyone's comes from the server's notice, which has no sender.
+export function clearNoticeTakes(entry, { ids, type, scope, by, fromPage = false }) {
+  if (!entry || !by) return false;
+  if (fromPage && entry.by !== by) return false;
+  const listed = Boolean(entry.id && ids && ids.has(entry.id) && !entry.blob);
+  return listed || clearTakesPicture(entry, { type, scope: fromPage ? 'mine' : scope, by });
+}
+
 export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeChatInput, renderMarkup, frameMessage, addStored }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one

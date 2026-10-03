@@ -3919,8 +3919,9 @@ app.get('/api/spaces/:id/layouts', (req, res) => {
   const found = layoutSpaceFor(req, res);
   if (!found) return;
   const { mine, shared } = store.layouts.list(found.space.id, found.who.user ? found.who.user.key : null);
-  // defaultLayout is step 4's (a space's default layout); until then no space has one.
-  res.json({ mine, shared, defaultLayout: null, canShare: found.canShare, canSetDefault: found.canSetDefault });
+  // defaultLayout: the id of the shared layout this space opens with on a first visit, or null (store.defaultLayoutOf).
+  const fallback = store.defaultLayoutOf(found.space.id);
+  res.json({ mine, shared, defaultLayout: fallback ? fallback.id : null, canShare: found.canShare, canSetDefault: found.canSetDefault });
 });
 
 app.post('/api/spaces/:id/layouts', (req, res) => {
@@ -3950,7 +3951,10 @@ app.put('/api/spaces/:id/layouts/:layoutId', (req, res) => {
   if (error) return res.status(400).json({ error });
   if (!Object.keys(patch).length) return res.status(400).json({ error: `Send a new name, or the ${word('module', { many: true })} and snap to replace the layout with.` });
   try {
-    res.json({ layout: store.layouts.update(found.space.id, req.params.layoutId, me, patch) });
+    const layout = store.layouts.update(found.space.id, req.params.layoutId, me, patch);
+    // Replacing the default layout's modules moves the space's Opens with along with it.
+    if (there.shared) store.syncDefaultLayout(found.space.id);
+    res.json({ layout });
   } catch (err) {
     sendLayoutError(err, res);
   }
@@ -3966,6 +3970,8 @@ app.delete('/api/spaces/:id/layouts/:layoutId', (req, res) => {
   if (there.shared && !found.canShare) return res.status(403).json({ error: sharedLayoutRefusal() });
   try {
     store.layouts.remove(found.space.id, req.params.layoutId, me);
+    // Deleting the default layout clears the space's defaultLayout; its Opens with stays as it was.
+    if (there.shared) store.syncDefaultLayout(found.space.id);
     res.status(204).end();
   } catch (err) {
     sendLayoutError(err, res);
@@ -4050,7 +4056,7 @@ app.delete('/api/spaces/:id/chat/messages', (req, res) => {
   if (scope !== 'mine' && scope !== 'everyone') return res.status(400).json({ error: 'scope is mine or everyone' });
   if (!found.who.user) return res.status(403).json({ error: `${word('guest', { many: true })} can't clear messages` });
   if (scope === 'everyone' && !chatModerator(found.who, found.space)) {
-    return res.status(403).json({ error: `only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can clear everyone's messages` });
+    return res.status(403).json({ error: `Only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can clear everyone's messages` });
   }
   const me = found.who.user.key;
   const removed = chatHistory.clearByType(found.space.id, { type, module: type === 'module' ? moduleId.trim() : undefined, scope, by: me });
@@ -5936,6 +5942,9 @@ app.get('/api/modules/for-space', (req, res) => {
     // opens with when the space itself has none.
     opensWith: Array.isArray(space.opensWith) && space.opensWith.length ? [...space.opensWith] : null,
     spaceDefaultsOpensWith: Array.isArray(store.settings.spaceDefaults?.opensWith) && store.settings.spaceDefaults.opensWith.length ? [...store.settings.spaceDefaults.opensWith] : null,
+    // The space's default layout, whole (as GET /api/spaces/:id/layouts lists it), or null: what a first visit opens,
+    // with its places, when Opens with is the space's own list (plan-saved-layouts.md, decision 4).
+    defaultLayout: store.defaultLayoutOf(space.id),
   });
 });
 

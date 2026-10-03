@@ -9,7 +9,7 @@ import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
-import { attachChatInput, placeAbove, stripSummaryMarkers } from '/chat-input.js';
+import { attachChatInput, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
@@ -1209,7 +1209,7 @@ const layoutForm = layoutsSection.querySelector('#layout-form');
 const layoutName = layoutsSection.querySelector('#layout-name');
 const layoutShared = layoutsSection.querySelector('#layout-shared');
 const layoutFormError = layoutsSection.querySelector('#layout-form-error');
-let layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false };
+let layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false };
 let layoutAsk = 0; // the latest request for the list; an older answer arriving late is dropped
 const layoutSpaceId = () => (currentSpace && !currentSpace.isAside ? currentSpace.id : null); // an aside has no layouts
 const layoutUrl = (id, layoutId = '') => `/api/spaces/${encodeURIComponent(id)}/layouts${layoutId ? `/${encodeURIComponent(layoutId)}` : ''}${guestToken ? `?guest=${encodeURIComponent(guestToken)}` : ''}`;
@@ -1223,6 +1223,8 @@ async function layoutRequest(method, url, body) {
   return data;
 }
 const mayChangeLayout = (shared) => !guestToken && (!shared || layoutList.canShare);
+// Making a shared layout the space's default is the owners' and the admin's, as Opens with is (decision 4).
+const maySetDefault = (shared) => !guestToken && shared && layoutList.canSetDefault;
 const findLayout = (id) => layoutList.shared.find((l) => l.id === id) || layoutList.mine.find((l) => l.id === id) || null;
 
 // Reads the list again (the panel opening, after a change) and draws it. `focus`: what takes the keyboard after.
@@ -1230,17 +1232,17 @@ async function refreshLayouts({ focus = null } = {}) {
   const id = layoutSpaceId();
   const ask = ++layoutAsk;
   if (!id) {
-    layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false };
+    layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false };
     renderLayouts();
     return;
   }
   try {
     const got = await layoutRequest('GET', layoutUrl(id));
     if (ask !== layoutAsk || layoutSpaceId() !== id) return;
-    layoutList = { spaceId: id, mine: got.mine || [], shared: got.shared || [], defaultLayout: got.defaultLayout || null, canShare: Boolean(got.canShare) };
+    layoutList = { spaceId: id, mine: got.mine || [], shared: got.shared || [], defaultLayout: got.defaultLayout || null, canShare: Boolean(got.canShare), canSetDefault: Boolean(got.canSetDefault) };
   } catch {
     if (ask !== layoutAsk) return;
-    layoutList = { spaceId: id, mine: [], shared: [], defaultLayout: null, canShare: false };
+    layoutList = { spaceId: id, mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false };
   }
   renderLayouts({ focus });
 }
@@ -1248,7 +1250,7 @@ async function refreshLayouts({ focus = null } = {}) {
 const layoutRowHtml = (l, shared) => `
   <div class="layout-row" data-layout-row="${escapeHtml(l.id)}">
     <button class="module-chooser-action layout-load" type="button" data-layout="${escapeHtml(l.id)}"><i class="fa-solid fa-${shared ? 'user-group' : 'object-group'} fa-fw" aria-hidden="true"></i><span class="layout-name">${escapeHtml(l.name)}</span>${l.id === layoutList.defaultLayout ? '<span class="layout-default">Default</span>' : ''}</button>
-    ${mayChangeLayout(shared) ? `<button class="msg-btn layout-more" type="button" data-layout-more="${escapeHtml(l.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="More for ${escapeHtml(l.name)}" title="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>` : ''}
+    ${mayChangeLayout(shared) || maySetDefault(shared) ? `<button class="msg-btn layout-more" type="button" data-layout-more="${escapeHtml(l.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="More for ${escapeHtml(l.name)}" title="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>` : ''}
   </div>`;
 
 // Draws the rows (and the empty line), shows Save this layout to those who may save, and hides the whole section where
@@ -1360,10 +1362,21 @@ layoutRows.addEventListener('click', (event) => {
 });
 
 // A row's ...: Replace with this layout, Rename, Delete (asked once, in the menu's own confirm row).
+// For an owner on a shared layout, also Make default or Stop using as default (decision 4).
 function openLayoutMenu(trigger, layoutId) {
   const layout = findLayout(layoutId);
   if (!layout) return;
+  const shared = layoutList.shared.includes(layout);
+  const entries = [];
+  if (maySetDefault(shared)) {
+    entries.push(layoutList.defaultLayout === layoutId
+      ? { icon: 'star', regular: true, label: 'Stop using as default', onPick: () => setDefaultLayout(null, layout) }
+      : { icon: 'star', label: 'Make default', onPick: () => setDefaultLayout(layoutId, layout) });
+  }
+  if (!mayChangeLayout(shared)) { openHostMenu(trigger, entries); return; }
+  if (entries.length) entries.push({ divider: true });
   openHostMenu(trigger, [
+    ...entries,
     { icon: 'arrows-rotate', label: 'Replace with this layout', onPick: () => replaceLayout(layoutId) },
     { icon: 'pen', label: 'Rename', onPick: () => startRename(layoutId) },
     { icon: 'trash', label: 'Delete', danger: true, onPick: () => openConfirmMenu(trigger, {
@@ -1376,6 +1389,21 @@ function openLayoutMenu(trigger, layoutId) {
       },
     }) },
   ]);
+}
+
+// Makes a shared layout the space's default, or stops (`layoutId` null): PATCH /api/spaces/:id, which also sets the
+// space's Opens with to the layout's modules (null keeps Opens with as it is). Then the list again, for the Default mark.
+async function setDefaultLayout(layoutId, layout) {
+  const id = layoutSpaceId();
+  if (!id) return;
+  try {
+    const { space } = await api('PATCH', `/api/spaces/${encodeURIComponent(id)}`, { defaultLayout: layoutId });
+    if (space && currentSpace?.id === space.id) Object.assign(currentSpace, { opensWith: space.opensWith ?? null, defaultLayout: space.defaultLayout ?? null });
+    layoutNote(layoutId ? `${layout.name} is what this ${word('space')} opens with now.` : `${layout.name} is no longer the default.`);
+  } catch (err) {
+    layoutNote(err.message || 'That did not work. Try again.');
+  }
+  await refreshLayouts({ focus: `[data-layout="${CSS.escape(layout.id)}"]` });
 }
 
 // Replaces a layout's modules and places with the canvas as it is now. From the Save form, its "Replace it" (a taken name).
@@ -1948,6 +1976,134 @@ function canDeleteChatEntry(entry) {
   if (canModerateChat()) return true;
   return Boolean(me?.key && entry.by === me.key && me.role !== 'guest');
 }
+// --- Clear… (plan-chat-clear.md, #166): clear messages by type, yours or everyone's ---------------------------------
+
+// Drops held messages and pictures, and takes any still unread off Chat's number: the unread ones are the newest that
+// were counted (addEntry), the last `unread` of them.
+function dropChatEntries(gone) {
+  if (!gone.length) return;
+  if (unread > 0) {
+    const still = new Set(chatLog.filter((e) => e.counted).slice(-unread));
+    const less = gone.filter((e) => still.has(e)).length;
+    if (less) {
+      unread = Math.max(0, unread - less);
+      canvas.setBuiltinUnread('chat', unread);
+    }
+  }
+  for (const entry of gone) {
+    if (entry.id) dropChatMessage(entry.id);
+    else {
+      const at = chatLog.indexOf(entry);
+      if (at >= 0) chatLog.splice(at, 1);
+    }
+  }
+}
+// Whether this person may clear at all: signed in, not a guest, in a space (an aside keeps no chat).
+function canClearChat() {
+  return Boolean(me?.key && me.role !== 'guest' && !guestToken && currentSpace && !currentSpace.isAside);
+}
+// How a type reads: its line in Clear… (name, icon, colour) and the word in its sentences ("the AI messages").
+// A module reads as its shown name; one this space no longer has reads as its command ("/t").
+function clearLook({ type, module, command }) {
+  if (type === 'chat') return { label: 'Chat messages', icon: 'comment', noun: 'chat' };
+  if (type === 'ai') return { label: 'AI', icon: 'robot', tint: 'gold', noun: 'AI' };
+  if (type === 'all') return { label: 'All of them', icon: 'layer-group', noun: '' };
+  const m = canvas.list().find((x) => x.id === module);
+  const icon = m && /^[a-z0-9-]{1,40}$/.test(m.icon || '') ? m.icon : 'terminal';
+  const name = m?.name || (command ? `/${command}` : '');
+  return { label: name || module, icon, tint: m && canvas.colorOf ? canvas.colorOf(module) : null, noun: name };
+}
+const messagesWord = (n) => (n === 1 ? 'message' : 'messages');
+// Clears one type, for this person ('mine') or for everyone ('everyone'), on the server, then here, then tells the
+// call (the server tells it too; a page that already dropped them finds nothing). Throws the server's refusal, which
+// the confirm shows in its place.
+async function clearChatMessages({ type, module }, scope) {
+  if (!canClearChat()) return;
+  const q = new URLSearchParams({ type, scope });
+  if (type === 'module') q.set('module', module);
+  await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/messages?${q}`);
+  const by = me.key;
+  const gone = chatLog.filter((e) => (ofClearType(e, type, module) && inClearScope(e, scope, by)) || clearTakesPicture(e, { type, scope, by }));
+  const ids = gone.filter((e) => e.stored && e.visibility !== 'private' && chatIdOk(e.id)).map((e) => e.id);
+  dropChatEntries(gone);
+  if (ids.length) publishChat({ type: 'chat-clear-some', ids, by, who: me.displayName || '', scope, clearType: type, ...(type === 'module' ? { module } : {}) });
+}
+// Clear…'s list, then the confirm with the count (decisions 5 and 9). A member clears their own; a moderator, an owner
+// or an admin picks theirs or everyone's. Opened from Chat's "..." (#chat-more), in the same menu.
+function openClearChatMenu(button) {
+  const moderator = canModerateChat();
+  const choices = clearChoices(chatLog, { by: me?.key, moderator });
+  if (!choices.length) return;
+  const entries = [];
+  for (const choice of choices) {
+    const look = clearLook(choice);
+    if (choice.type === 'all') entries.push({ divider: true });
+    entries.push({ icon: look.icon, tint: look.tint, label: look.label, badge: moderator ? choice.everyone : choice.mine, onPick: () => confirmClearChat(button, choice, moderator) });
+  }
+  openHostMenu(button, entries);
+}
+function confirmClearChat(button, choice, moderator) {
+  const { noun } = clearLook(choice);
+  const what = noun ? `${noun} ` : '';
+  if (!moderator) {
+    openConfirmMenu(button, {
+      icon: 'eraser',
+      confirm: `Clear your ${choice.mine} ${what}${messagesWord(choice.mine)}?`,
+      armed: true,
+      fail: 'They could not be cleared.',
+      onConfirm: () => clearChatMessages(choice, 'mine'),
+    });
+    return;
+  }
+  openConfirmMenu(button, {
+    icon: 'eraser',
+    confirm: choice.type === 'all' ? 'Clear all the messages?' : `Clear the ${what}messages?`,
+    armed: true,
+    fail: 'They could not be cleared.',
+    choices: [
+      { label: `Clear yours (${choice.mine})`, disabled: !choice.mine, onConfirm: () => clearChatMessages(choice, 'mine') },
+      { label: `Clear everyone's (${choice.everyone})`, hint: 'Private messages of others stay.', onConfirm: () => clearChatMessages(choice, 'everyone') },
+    ],
+  });
+}
+// Someone cleared messages by type (chat-clear-some, from the server or their page): drop each listed id held here, and
+// for chat or all the matching pictures (clearNoticeTakes). A page's notice drops only its sender's own messages and
+// adds no line; a clear of everyone's, and its line, come from the server's notice (no sender), which it always sends.
+// Someone else's clear of everyone's adds one line, not stored and not counted (decision 9), once.
+const heardClears = new Map();
+function applyClearNotice(data, participant) {
+  if (!canDo('chatRead') || !currentSpace || currentSpace.isAside) return;
+  const by = typeof data.by === 'string' ? data.by : '';
+  const from = participant?.identity || '';
+  if (!by || (from && from !== by)) return; // a page speaks only for itself
+  const scope = data.scope === 'everyone' ? 'everyone' : data.scope === 'mine' ? 'mine' : '';
+  const type = ['chat', 'ai', 'module', 'all'].includes(data.clearType) ? data.clearType : '';
+  if (!scope || !type) return;
+  const module = type === 'module' && typeof data.module === 'string' ? data.module : '';
+  const ids = new Set((Array.isArray(data.ids) ? data.ids : []).filter(chatIdOk));
+  const command = chatLog.find((e) => ids.has(e.id) && e.command)?.command || '';
+  const gone = chatLog.filter((e) => clearNoticeTakes(e, { ids, type, scope, by, fromPage: Boolean(from) }));
+  dropChatEntries(gone);
+  if (from || scope !== 'everyone' || by === me?.key) return;
+  const now = Date.now();
+  for (const [k, at] of heardClears) if (now - at > 10000) heardClears.delete(k);
+  const key = `${by}|${type}|${module}`;
+  if (heardClears.has(key)) return;
+  heardClears.set(key, now);
+  const who = String(data.who || '').trim() || 'Someone';
+  const { noun } = clearLook({ type, module, command });
+  const line = document.createElement('div');
+  line.className = 'chat-session-divider chat-clear-note';
+  const span = document.createElement('span');
+  span.textContent = type === 'all' ? `${who} cleared all the messages.` : noun ? `${who} cleared the ${noun} messages.` : `${who} cleared some messages.`;
+  line.append(span);
+  const list = $('messages');
+  if (!list) return;
+  list.appendChild(line);
+  list.scrollTop = list.scrollHeight;
+}
+// --- end Clear… ---
+
 // Called once per join, after the canvas is up but before anything live has
 // arrived -- fills #messages with whatever this space already said, so it
 // reads as "still here" rather than the chat looking wiped on every rejoin.
@@ -2217,6 +2373,15 @@ async function deleteMessage(el, entry) {
   el.remove();
 }
 
+// A message deleted (the chat-delete notice, from the server or its author's page). A page speaks only for its own
+// messages; a moderator's delete of someone else's comes from the server's notice, which has no sender.
+function applyDeleteNotice(data, participant) {
+  const from = participant?.identity || '';
+  const have = chatLog.find((e) => e.id === data.id);
+  if (from && have && have.by !== from) return;
+  dropChatMessage(data.id);
+}
+
 // Make a stored message public or private (plan-chat-model.md, decision 9). True when the server took it. The others
 // in the call hear it from the server (chat-visibility) and from this page, the same notice, as with a delete.
 async function setMessageVisibility(entry, visibility) {
@@ -2342,6 +2507,7 @@ function addEntry(entry, own = false) {
   // The unread number counts new public messages from others, whatever the filter shows.
   if (!canvas.builtinOpen('chat') && !own && entry.visibility !== 'private') {
     unread += 1;
+    entry.counted = true; // so a clear can take it off the number again (dropChatEntries)
     canvas.setBuiltinUnread('chat', unread);
   }
 }
@@ -2847,9 +3013,11 @@ call
       else if (topic === 'chat' && data.type === 'chat' && chatIdOk(data.id)) {
         if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
         addEntry(storedEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: data.at }), false);
-      } else if (topic === 'chat' && data.type === 'chat-delete' && chatIdOk(data.id)) dropChatMessage(data.id);
+      } else if (topic === 'chat' && data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, participant);
       else if (topic === 'chat' && data.type === 'chat-visibility') applyVisibilityNotice(data, participant);
-      else if (topic === 'chat' && data.type === 'chat-clear') dropSharedChat();
+      else if (topic === 'chat' && data.type === 'chat-clear-some') applyClearNotice(data, participant);
+      // Delete the chat is the server's word only (DELETE /chat always tells the call); a page's own notice is ignored.
+      else if (topic === 'chat' && data.type === 'chat-clear' && !participant) dropSharedChat();
       // A server push (no sending participant): someone pulled me aside.
       // An owner's word is final -- just go. A peer's "Privately" needs
       // this end to actually agree to it first. Deferred a tick so this
@@ -3665,10 +3833,14 @@ $('chat-more').addEventListener('click', (event) => {
   const items = [
     { icon: 'download', label: 'Save the chat', onPick: () => saveChat() },
   ];
+  // Clear… (plan-chat-clear.md): by type, for whoever has something here they could clear. Guests never.
+  if (canClearChat() && clearChoices(chatLog, { by: me.key, moderator: canModerateChat() }).length) {
+    items.push({ icon: 'eraser', label: 'Clear…', onPick: () => openClearChatMenu(button) });
+  }
   if (canModerateChat()) {
     items.push({ icon: 'trash', label: 'Delete the chat', danger: true, onPick: () => openConfirmMenu(button, {
       confirm: 'Delete the chat for everyone?',
-      hint: 'Every message goes, for everyone.',
+      hint: 'Every message goes, for everyone, private ones too.',
       armed: true,
       onConfirm: async () => {
         if (!currentSpace) return;
@@ -3686,25 +3858,6 @@ $('chat-more').addEventListener('click', (event) => {
         } catch {
           // the server already deleted it
         }
-      },
-    }) });
-  }
-  // Every private message of yours in this space (plan-chat-model.md, decision 13): command echoes and AI messages alike.
-  if (me?.key && me.role !== 'guest' && !guestToken && currentSpace && !currentSpace.isAside && $('messages')?.querySelector('.message[data-vis="private"][data-chat-id]')) {
-    items.push({ icon: 'eraser', label: 'Delete your private messages', danger: true, onPick: () => openConfirmMenu(button, {
-      icon: 'eraser',
-      confirm: 'Delete them?',
-      hint: 'Only you see them. Public messages stay.',
-      armed: true,
-      onConfirm: async () => {
-        if (!currentSpace) return;
-        try {
-          await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/private`);
-        } catch (err) {
-          setStatus(err.message || 'Could not delete them.', true);
-          return;
-        }
-        for (const entry of chatLog.filter((e) => e.stored && e.visibility === 'private' && e.by === me?.key)) dropChatMessage(entry.id);
       },
     }) });
   }

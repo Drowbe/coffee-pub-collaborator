@@ -67,6 +67,11 @@
       <div class="panel" id="section-opens-with">
         <h2>Opens with</h2>
         <p class="hint" data-fill>What opens the first time someone enters this {space}. After that, each person's own layout is remembered.</p>
+        <!-- A shared layout set as this space's default (plan-saved-layouts.md, decision 4): named here, with a way to stop. -->
+        <div class="row opens-with-layout" id="opens-with-layout" hidden>
+          <span class="opens-with-layout-text" id="opens-with-layout-text"></span>
+          <button class="btn btn-small" id="opens-with-layout-stop" type="button">Stop using it</button>
+        </div>
         <div class="opens-with-list" id="opens-with" role="group" aria-label="Opens with"></div>
         <p class="hint" id="opens-with-unset" hidden></p>
         <span class="status" id="opens-with-status" role="status"></span>

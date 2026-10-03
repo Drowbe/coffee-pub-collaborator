@@ -136,8 +136,8 @@ Open chat from **Layout** in the space bar, under the header, or with **C**. **L
 - **History.** Text messages travel live over the media server, and the server also keeps a rolling
   window for each space: the last 500 messages, none older than 30 days. Whoever joins, late or from
   another browser, sees what was said above a line that marks where they came in. Pictures are live
-  only and are not kept. An aside or a private conversation has no chat. **Clear chat**
-  hides what came before from your view on that browser; it does not delete anything for anyone else.
+  only and are not kept. An aside or a private conversation has no chat. To remove messages, use **Clear…** in
+  Chat's menu (see [Chat](userguide-chat.md), "Clear messages").
 
 Who may send messages or pictures is set per role on the Roles tab; if a permission is off the
 chat box is hidden.
@@ -170,7 +170,12 @@ The **⋮** beside a layout you may change offers **Replace with this layout** (
 **Rename** and **Delete**, which asks first. Anyone may save their own layouts, up to 10 in a space; owners, the
 admin and the space's moderators may save, change and delete the shared ones, up to 10; guests may only load shared
 ones. Names are up to 40 characters. With none saved, the section reads "No saved layouts yet." There are no
-layouts on a phone or in an aside. A space's default layout, opening on a first visit, is not built yet.
+layouts on a phone or in an aside.
+
+**The space's default layout.** Owners and the admin can choose **Make default** in a shared layout's **⋮**, and
+**Stop using as default** to stop. The default is marked "Default". Someone entering the space for the first time
+gets it, with its places; a guest gets it on every visit. After that, each person's own remembered layout wins.
+See "Opens with" in [Spaces](userguide-spaces.md).
 
 ## When the window is too narrow for another column
 

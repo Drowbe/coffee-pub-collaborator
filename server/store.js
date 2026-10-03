@@ -59,6 +59,10 @@ function cleanOpensWith(list) {
   const out = [...new Set(list.filter((id) => typeof id === 'string' && OPENS_WITH_ID.test(id)))].slice(0, MAX_OPENS_WITH);
   return out.length ? out : null;
 }
+// A saved layout's id as a space's defaultLayout keeps it (server/layouts.js makes `l` and six letters or digits; a
+// looser rule here so an id from a later version is not dropped). null when it is not one.
+const LAYOUT_ID = /^[a-z][a-z0-9]{1,31}$/;
+const cleanLayoutId = (id) => (typeof id === 'string' && LAYOUT_ID.test(id) ? id : null);
 // A space's optional "launch" link (their VTT, wiki, playlist, whatever) --
 // shown as a button next to Join and in the in-call toolbar. The icon is
 // picked from the admin's Font Awesome list (Theme tab), stored as that
@@ -712,6 +716,9 @@ class Store {
       allowGuests: r.allowGuests === undefined ? true : Boolean(r.allowGuests),
       // What the space opens with the first time someone enters it; absent while not set (see cleanOpensWith).
       ...(cleanOpensWith(r.opensWith) ? { opensWith: cleanOpensWith(r.opensWith) } : {}),
+      // The shared saved layout this space opens with on a first visit (plan-saved-layouts.md, decision 4): its id,
+      // absent while not set. Kept in step with opensWith by updateSpace and syncDefaultLayout.
+      ...(cleanLayoutId(r.defaultLayout) ? { defaultLayout: r.defaultLayout } : {}),
       // AI turned off in this space, whatever a role may do (updateSpace); absent while AI is allowed here.
       ...(r.aiOff === true ? { aiOff: true } : {}),
     };
@@ -1628,11 +1635,54 @@ class Store {
       const list = cleanOpensWith(patch.opensWith);
       if (list) draft.opensWith = list;
       else delete draft.opensWith;
+      // Opens with changed by hand: it no longer follows a layout.
+      delete draft.defaultLayout;
+    }
+    // The default layout (plan-saved-layouts.md, decision 4): a shared layout's id, or null to stop using it. Setting
+    // it sets Opens with to that layout's modules, so everything that reads Opens with keeps working; null leaves Opens
+    // with as it is. Who may do this is the route's to decide (owners only).
+    if (patch.defaultLayout !== undefined) {
+      if (patch.defaultLayout === null) {
+        delete draft.defaultLayout;
+      } else {
+        if (typeof patch.defaultLayout !== 'string') throw new StoreError('The default layout must be a shared layout\'s id, or null to stop using one.');
+        if (patch.opensWith !== undefined) throw new StoreError('Send a default layout or Opens with, not both: the default layout sets Opens with.');
+        const layout = this.layouts.listOf(id, null).find((l) => l.id === patch.defaultLayout);
+        if (!layout) throw new StoreError(`This ${this.word('space')} has no shared layout with that id.`, 404);
+        const list = cleanOpensWith(layout.modules.map((m) => m && m.id));
+        if (list) draft.opensWith = list;
+        else delete draft.opensWith;
+        draft.defaultLayout = layout.id;
+      }
     }
     Object.assign(space, draft);
     if (!('opensWith' in draft)) delete space.opensWith;
+    if (!('defaultLayout' in draft)) delete space.defaultLayout;
     this.save();
     return this.spaceById(id);
+  }
+
+  // After a shared layout is replaced or deleted: a space whose default it was follows it. Replaced, Opens with becomes
+  // its modules again; gone, the default is cleared and Opens with stays as it was. Nothing changes otherwise.
+  syncDefaultLayout(id) {
+    const space = this.data.spaces.find((r) => r.id === id);
+    if (!space || !space.defaultLayout) return;
+    const layout = this.layouts.listOf(id, null).find((l) => l.id === space.defaultLayout);
+    if (!layout) {
+      delete space.defaultLayout;
+    } else {
+      const list = cleanOpensWith(layout.modules.map((m) => m && m.id));
+      if (!list || JSON.stringify(list) === JSON.stringify(space.opensWith || null)) return;
+      space.opensWith = list;
+    }
+    this.save();
+  }
+
+  // A space's default layout, whole, or null while it has none (or its id no longer finds a shared layout).
+  defaultLayoutOf(id) {
+    const space = this.spaceById(id);
+    if (!space || !space.defaultLayout) return null;
+    return this.layouts.find(id, space.defaultLayout, null)?.layout || null;
   }
 
   removeSpace(id) {

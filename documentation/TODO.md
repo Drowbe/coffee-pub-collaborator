@@ -49,8 +49,6 @@ same setup.
   - The Profile page's bar reads "Profile" beside a tab also named **Profile**.
   - A popped-out window narrower than 641 pixels has a cramped space bar, with **Leave space** off the edge. It was like this before the two-zone nav. Planned in #160 ([plan-phone-space-bar](plans/plan-phone-space-bar.md)).
 - **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md)): steps 1 and 2 built 2026-10-02 (the Arrange section and **Clean up**).
-- **Saved layouts** (#161, [plan-saved-layouts](plans/plan-saved-layouts.md)): steps 1 to 3 built 2026-10-03 (the routes, save and load, the Layouts section). Next is step 4, a space's default layout on a first visit (`defaultLayout`, **Make default**, space settings' line).
-- **Clear…** in Chat (#166, [plan-chat-clear](plans/plan-chat-clear.md)): step 1, the server route `DELETE /api/spaces/:id/chat/messages`, built 2026-10-03; the menu is not built yet.
 - **Docked limit** (#156, [plan-docked-limit](plans/plan-docked-limit.md)): approved 2026-10-03, three steps, none built. Limits docked modules by the window's width; extras float and dock again when the window widens. Comes before saved layouts' step 2.
 
 ## Planned
@@ -63,13 +61,13 @@ same setup.
 - Rename the dashboard's widgets to **tiles** (Thomas, 2026-09-30): "widget" now means a live piece in the header's bars, such as who is here. A renaming plan with a data migration comes next; not written or built.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
 - #158 Links in Chat shown as a preview with **Keep**, saving into the space's Research ([plan-chat-links](plans/plan-chat-links.md)): approved 2026-10-03, five steps, none built.
-- #166 **Clear…** in Chat, by type of message ([plan-chat-clear](plans/plan-chat-clear.md)): approved 2026-10-03, none built.
 - #160 The space bar on a phone and in a narrow pop-out: a module's tools and the tabs that do not fit go in the **…**, Leave always in the window ([plan-phone-space-bar](plans/plan-phone-space-bar.md)): approved 2026-10-03, three steps, none built.
 - #42 Google Calendar ([plan-google-calendar](plans/plan-google-calendar.md)): approved 2026-10-03, seven steps, none built. Part 1 is a private address per person that a calendar app subscribes to; Part 2 shows a person's other calendars, from a pasted address, in the Calendar. Supersedes [plan-google-sync](plans/plan-google-sync.md).
 - #132 A document editor (ProseMirror) for the long prose fields: research notes and answers, plan notes, to-dos, places, and calendar details. Markdown stays what is stored. Chat stays a textarea. About two weeks. Building waits on a go-ahead.
 
 ## Verify in a real call
 
+- Saved layouts and Clear… ([plan-saved-layouts](plans/plan-saved-layouts.md), [plan-chat-clear](plans/plan-chat-clear.md), built 2026-10-03): loading a layout while on the call (the Conference kept), a default layout on a first visit and for a guest, and clearing everyone's messages with two people in the space (the line others see). Checked so far by `check-layouts`, `check-chat-model`, `check-chat-page` and `check-nav`.
 - The top bar (steps 1 and 2, [plan-primary-nav](plans/plan-primary-nav.md)): the breadcrumb in a real aside ("› Disneyland › Aside: Michelle", and clicking Disneyland, or picking it in the switcher, bringing everyone back to the space's call), the switcher and Manage over a running call, **Host console** on a hosted install (only its address was checked, as a pure function), **Install as an app** in the profile menu, a module card's heading on home opening over a running call (Away, then **Back to**), and the bar with a screen reader. Verified so far by `tools/check-nav.mjs` and in headless Chromium with a stand-in LiveKit at 1280, 1024 and 390 pixels.
 - Calendar and Map in the top bar ([plan-calendar-destination](plans/plan-calendar-destination.md), [plan-map-destination](plans/plan-map-destination.md)): opening either over a running call (muted while Away, the microphone and camera held off, everything back on closing), a task dragged onto a day and an event onto the To-do, the map drawn with WebGL from real map tiles, and a place search with Photon. Verified so far by `tools/check-destinations.mjs`, `check-module-host`, `check-nav` and `check-drop`, and in headless Chromium with a stand-in LiveKit and a stand-in place search, without WebGL.
 - Presence by membership (step 3, [plan-primary-nav](plans/plan-primary-nav.md)): with three people in two spaces, an aside and a private conversation pulled from one of them, check the space cards' "N here", the switcher, Who's around, the members' tooltips and "off stream", and the placeholder tiles (named for an ordinary aside, never for a private one, also after a reload). Verified so far by `tools/check-presence.mjs` (15 checks), `tools/check-nav.mjs`, and live against the API and in headless Chromium with a stand-in LiveKit.
@@ -148,7 +146,7 @@ same setup.
 - Who sees every space's name and member list: decided (2026-10-02), anyone signed in, for now ([plan-primary-nav](plans/plan-primary-nav.md), decision 35).
 - Owners and the admin missing from Calendar's and Map's filters for spaces they don't belong to: decided (2026-10-02), correct as built, since managing a space is not being a member of it ([plan-calendar-destination](plans/plan-calendar-destination.md), decision 23; [plan-map-destination](plans/plan-map-destination.md), decision 25).
 - `objectSync` (`server/object-sync.js`) is one event source shared by every environment on a hosted server, so a `refchange` from one environment reaches another's `GET /api/modules/stream` listeners when the module id and the scope key match. It carries only pointers, and modules ask again with their own permissions, but it should be scoped per environment. Found while fixing the schedule crash (2026-10-02).
-- Saving and loading layouts is built ([plan-saved-layouts](plans/plan-saved-layouts.md), steps 1 to 3), and so is **Clean up** ([plan-layout-menu](plans/plan-layout-menu.md)).
+- Saving and loading layouts, with a space's default layout, is built ([plan-saved-layouts](plans/plan-saved-layouts.md)), and so is **Clean up** ([plan-layout-menu](plans/plan-layout-menu.md)).
 - With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 
 ## Modules

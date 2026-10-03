@@ -27,7 +27,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -481,6 +481,24 @@ test('Keep: details are kept as "Label: value" lines after the content, for eith
   assert.equal(suggestionInput({ title: 'T', content: 'Just words.', kind: 'tour' }).content, 'Just words.');
   // A dropped picture gets its own words in the import's summary.
   assert.match(chat, /if \(why === 'it is a picture'\) return n === 1 \? "1 was a picture, which can't be imported" : `\$\{n\} were pictures, which can't be imported`;/);
+});
+
+// --- Object handoff, step 5: Keep sends the object itself to a keeper that takes it ------------------------------------
+
+test('Keep: a keeper whose takes names the kind gets the object whole; an older one the flat fields', () => {
+  const { takersOf, TRAVEL_KINDS: travel } = createRequire(import.meta.url)('../server/object-format.js');
+  const planner = JSON.parse(read('modules/travel/module.json')).actions.provides.find((a) => a.name === 'acceptSuggestion');
+  const research = JSON.parse(read('modules/research/module.json')).actions.provides.find((a) => a.name === 'saveNote');
+  // The page's rule is the server's.
+  const samples = [planner.takes, [{ kinds: ['*', 'text'], except: travel.slice(), as: 'an event' }], [{ kinds: ['text'], as: 'a note' }], [{ kinds: ['image'], as: 'an image' }], undefined];
+  for (const takes of samples) for (const kind of [...travel, 'event', 'task', 'poll', 'note', 'link', 'image', undefined]) assert.equal(takesKind(takes, kind), takersOf(takes, kind).length > 0, `${JSON.stringify(takes)} ${kind}`);
+  const flight = { title: 'Southwest **2483**', kind: 'flight', icon: 'plane', content: 'Window', date: '2026-11-14', basis: 'imported', sources: [1], details: { airline: 'Southwest', number: '2483', departs: '2026-11-14T12:50', arrives: '2026-11-14T15:25' }, links: [{ title: 'SW', url: 'https://southwest.com' }] };
+  assert.equal(objectInputOf(planner, flight), 'object');
+  assert.deepEqual(objectKeepInput(planner, 'object', flight), { title: 'Southwest **2483**', object: { title: 'Southwest **2483**', kind: 'flight', icon: 'plane', content: 'Window', details: flight.details, date: '2026-11-14', links: flight.links, basis: 'imported' } }, 'details travel as they are, not as lines of text');
+  assert.equal(objectInputOf(planner, { title: 'T', kind: 'task' }), '', 'a kind it does not take');
+  assert.equal(objectInputOf(research, { title: 'T', kind: 'note' }), research.takes ? 'object' : '', 'Research declares no takes yet: the flat fields');
+  assert.equal(objectInputOf({ name: 'acceptSuggestion', input: { title: 'string', kind: 'string?' } }, flight), '', 'an older Planner: the flat fields, details as lines');
+  assert.match(chat, /const field = objectInputOf\(placer, summary\);\n\s*const input = field \? objectKeepInput\(placer, field, summary\)/);
 });
 
 console.log(`check-chat-page: OK (${n} tests)`);

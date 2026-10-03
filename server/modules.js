@@ -17,6 +17,7 @@ const { productName } = require('./product-name');
 const { StoreError, LOBBY } = require('./store');
 const { word, fill } = require('./words');
 const { DESTINATION_IDS, DESTINATION_PARTS } = require('./destinations');
+const objectFormat = require('./object-format');
 
 // The text a person reads from a manifest, which may name levels by {space}-style placeholders (server/words.js's fill):
 // its description, the dashboard widget's title, its permissions' labels, its settings' labels and help (and their
@@ -375,6 +376,9 @@ function cleanCreate(kind, raw, mirror) {
 const EVENT_NAME_RE = /^[a-z][a-zA-Z0-9]{0,31}$/;
 const FIELD_RE = /^[a-z][a-zA-Z0-9]{0,23}$/;
 const FIELD_TYPES = ['string', 'text', 'date', 'datetime', 'boolean', 'number', 'ref'];
+// An action's input may also be `object`: a whole object of the objects format, cleaned by its checker on the bus
+// (plan-object-handoff.md, "What modules declare"). Event data may not.
+const INPUT_TYPES = [...FIELD_TYPES, 'object'];
 const BUS_USE_RE = /^[a-z][a-z0-9-]{1,31}:[a-z][a-zA-Z0-9]{0,31}$/;
 
 // Stored keys a module's author renamed (`storage.renamed: [{ from, to }]`, each a key prefix, applied in the order
@@ -402,7 +406,51 @@ function cleanStorage(raw) {
   return { renamed };
 }
 
-function cleanBus(rawEvents, rawActions, id) {
+// An action's `takes`: what objects it accepts (plan-object-handoff.md, "What modules declare"), as a list of
+// { kinds, except?, as, permission? }. `kinds` are kinds from the objects format's catalogue, "*" (any object) or "text"
+// (an ordinary message's words); `except` (with "*" only) the catalogue kinds "*" leaves out; `as` the words after
+// "Add to <module> as", up to 40 characters ({kind} is the object's kind with "a" or "an"); `permission` one of the
+// module's own permissions the person must also have. Null when the action declares none.
+const MAX_TAKES = 10;
+const MAX_TAKE_AS = 40;
+function cleanTakes(raw, action, permissionKeys) {
+  if (raw === undefined || raw === null) return null;
+  const known = [...objectFormat.KINDS, ...objectFormat.HANDOFF_KINDS];
+  const where = `module.json: action "${action}" takes`;
+  if (!Array.isArray(raw) || !raw.length || raw.length > MAX_TAKES) throw new ModuleError(`${where} must be a list of 1 to ${MAX_TAKES} entries, such as { "kinds": ["note"], "as": "a note" }`);
+  return raw.map((e) => {
+    if (!e || typeof e !== 'object' || Array.isArray(e)) throw new ModuleError(`${where} entries must each be an object with "kinds" and "as"`);
+    if (!Array.isArray(e.kinds) || !e.kinds.length || e.kinds.length > known.length + objectFormat.TAKE_WORDS.length) throw new ModuleError(`${where} needs "kinds": a list of kinds of object, "*" or "text"`);
+    const kinds = [];
+    for (const k of e.kinds) {
+      if (typeof k !== 'string' || (!known.includes(k) && !objectFormat.TAKE_WORDS.includes(k))) throw new ModuleError(`${where} "${String(k).slice(0, 40)}", which is not a kind of object, "*" or "text"`);
+      if (!kinds.includes(k)) kinds.push(k);
+    }
+    const entry = { kinds };
+    if (e.except !== undefined) {
+      if (!kinds.includes('*')) throw new ModuleError(`${where} "except" needs "*" in its kinds`);
+      if (!Array.isArray(e.except) || !e.except.length || e.except.length > objectFormat.KINDS.length) throw new ModuleError(`${where} "except" must be a list of kinds of object`);
+      const except = [];
+      for (const k of e.except) {
+        if (typeof k !== 'string' || !objectFormat.KINDS.includes(k)) throw new ModuleError(`${where} except "${String(k).slice(0, 40)}", which is not a kind of object "*" can take`);
+        if (kinds.includes(k)) throw new ModuleError(`${where} both lists and leaves out "${k}"`);
+        if (!except.includes(k)) except.push(k);
+      }
+      entry.except = except;
+    }
+    const as = typeof e.as === 'string' ? e.as.replace(/[\s\p{Cc}]+/gu, ' ').trim() : '';
+    if (!as || as.length > MAX_TAKE_AS) throw new ModuleError(`${where} needs "as": the words after "Add to <module> as", up to ${MAX_TAKE_AS} characters`);
+    entry.as = as;
+    if (e.permission !== undefined) {
+      if (typeof e.permission !== 'string' || !permissionKeys.includes(e.permission)) throw new ModuleError(`${where} permission "${String(e.permission).slice(0, 40)}" must name one of the module's own permissions`);
+      entry.permission = e.permission;
+    }
+    return entry;
+  });
+}
+
+// `permissionKeys`: the keys of the module's own permissions, which a `takes` entry may name.
+function cleanBus(rawEvents, rawActions, id, permissionKeys = []) {
   const events = { publishes: [], subscribes: [] };
   for (const p of Array.isArray(rawEvents?.publishes) ? rawEvents.publishes.slice(0, 10) : []) {
     const name = typeof p?.name === 'string' ? p.name.trim() : '';
@@ -434,15 +482,21 @@ function cleanBus(rawEvents, rawActions, id) {
       const base = typeof type === 'string' ? type.replace(/\?$/, '') : '';
       // A pointer field may say which kind of item it takes: "ref" (any) or "ref:module:kind".
       const plain = /^ref:[a-z][a-z0-9-]{1,31}:[a-z][a-z0-9-]{0,31}$/.test(base) ? 'ref' : base;
-      if (!FIELD_RE.test(field) || !FIELD_TYPES.includes(plain)) throw new ModuleError(`module.json: action "${name}" input "${field}" must be one of ${FIELD_TYPES.join(', ')} (add ? for optional)`);
+      if (!FIELD_RE.test(field) || !INPUT_TYPES.includes(plain)) throw new ModuleError(`module.json: action "${name}" input "${field}" must be one of ${INPUT_TYPES.join(', ')} (add ? for optional)`);
       input[field] = type;
     }
+    // An `object` input and `takes` go together: the bus checks the object's kind against `takes`.
+    const objectFields = Object.entries(input).filter(([, type]) => type.replace(/\?$/, '') === 'object').map(([field]) => field);
+    if (objectFields.length > 1) throw new ModuleError(`module.json: action "${name}" can have only one input of type "object"`);
+    const takes = cleanTakes(p.takes, name, permissionKeys);
+    if (takes && !objectFields.length) throw new ModuleError(`module.json: action "${name}" takes objects, so it needs an input of type "object"`);
+    if (!takes && objectFields.length) throw new ModuleError(`module.json: action "${name}" input "${objectFields[0]}" is an object, so the action needs "takes"`);
     // `local`: a view, carried out only by the requesting person's own open page of the module and needing only read access
     // (showing something on a map), not something done for the room.
     // `needs`: what the item a `ref` input points at must have on its card for this action to make sense of it (a
     // position, a date, text), so a drop menu leaves it out for an item without -- "Show on the map" for a task, say.
     const needs = [...new Set((Array.isArray(p.needs) ? p.needs : []).filter((f) => ['place', 'date', 'text', 'subtitle'].includes(f)))];
-    actions.provides.push({ name, label: String(p.label ?? '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 60) || name, input, ...(p.local === true ? { local: true } : {}), ...(needs.length ? { needs } : {}) });
+    actions.provides.push({ name, label: String(p.label ?? '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 60) || name, input, ...(p.local === true ? { local: true } : {}), ...(needs.length ? { needs } : {}), ...(takes ? { takes } : {}) });
   }
   for (const c of Array.isArray(rawActions?.uses) ? rawActions.uses.slice(0, 20) : []) {
     if (typeof c !== 'string' || (c !== '*' && !BUS_USE_RE.test(c))) throw new ModuleError(`module.json: actions.uses "${c}" must be "*" or look like "module:action"`);
@@ -745,7 +799,7 @@ function cleanManifest(raw, files) {
 
   const refs = cleanRefs(raw.refs, id);
   const storage = cleanStorage(raw.storage);
-  const { events, actions } = cleanBus(raw.events, raw.actions, id);
+  const { events, actions } = cleanBus(raw.events, raw.actions, id, permissions.map((p) => p.key));
   const commands = cleanCommands(raw.commands, actions);
 
   // Which of the module's own permissions guards reading and writing its data.
@@ -926,7 +980,7 @@ class ModuleManager {
         manifest.storage = { renamed: [] };
       }
       try {
-        const bus = cleanBus(manifest.events, manifest.actions, id);
+        const bus = cleanBus(manifest.events, manifest.actions, id, manifest.permissions.map((p) => p && p.key));
         manifest.events = bus.events;
         manifest.actions = bus.actions;
       } catch {

@@ -32,6 +32,46 @@
 
   const isYmd = (s) => typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(parseYmd(s).getTime()) && ymd(parseYmd(s)) === s;
   const isTime = (s) => typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+  // A ticket's arrival as stored (decision 11): a local day and time ("2026-11-14T15:25") while the journey has a day. While it
+  // has none, its time with how many days after the day it leaves ("15:25", "06:30+1", "13:00-1"; -1 to +7), so the offset
+  // survives a stay under "Not on a day yet" or on the line. Null for anything else.
+  const RELATIVE_ARRIVAL = /^(\d{2}:\d{2})(?:([+-])(\d))?$/;
+  const ticketWhen = (s) => {
+    if (typeof s !== 'string') return null;
+    if (s.length === 16 && s.charAt(10) === 'T') return isYmd(s.slice(0, 10)) && isTime(s.slice(11)) ? s : null;
+    const m = RELATIVE_ARRIVAL.exec(s);
+    if (!m || !isTime(m[1])) return null;
+    const n = m[2] ? Number(m[2] + m[3]) : 0;
+    return n >= -1 && n <= 7 ? `${m[1]}${n > 0 ? `+${n}` : n < 0 ? `${n}` : ''}` : null;
+  };
+  // A day `n` days later (earlier when negative). (Named so: the page has an addDays of its own, and the library is inlined
+  // into the page's scope.)
+  const daysLater = (day, n) => { const d = parseYmd(day); return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)); };
+  // A ticket's dated arrival moved with its journey: `n` days later. A relative one already follows the journey's day.
+  const shiftArrives = (arrives, n) => (typeof arrives === 'string' && arrives.length === 16 && n ? `${daysLater(arrives.slice(0, 10), n)}${arrives.slice(10)}` : arrives);
+  // A dated arrival as the relative one kept while the journey has no day, from the day it left on.
+  const relativeArrives = (date, arrives) => {
+    if (!isYmd(date) || typeof arrives !== 'string' || arrives.length !== 16) return arrives;
+    const n = Math.round((parseYmd(arrives.slice(0, 10)) - parseYmd(date)) / DAY_MS);
+    return ticketWhen(`${arrives.slice(11)}${n > 0 ? `+${n}` : n < 0 ? `${n}` : ''}`);
+  };
+  // A relative arrival on the day the journey leaves: dated again.
+  const datedArrives = (date, arrives) => {
+    const m = RELATIVE_ARRIVAL.exec(typeof arrives === 'string' ? arrives : '');
+    return m && isYmd(date) ? `${daysLater(date, m[2] ? Number(m[2] + m[3]) : 0)}T${m[1]}` : arrives;
+  };
+  // Whether a ticket's dated arrival can be one, against the day (and time) it leaves: at most 7 days after (the longest a
+  // journey can be), at most 1 day before (across the date line). A time alone, or no day to leave on, always can.
+  function arrivalFits(date, time, arrives) {
+    if (typeof arrives !== 'string' || arrives.length !== 16 || !isYmd(date)) return true;
+    const days = Math.round((parseYmd(arrives.slice(0, 10)) - parseYmd(date)) / DAY_MS);
+    if (!isTime(time)) return days >= -1 && days <= 7;
+    const at = (t) => Number(t.slice(0, 2)) * 60 + Number(t.slice(3, 5));
+    const minutes = days * 1440 + at(arrives.slice(11)) - at(time);
+    return minutes >= -1440 && minutes <= MAX_MINUTES;
+  }
+  // An arrival as a notes line ("Arrives: 2026-11-14 15:25"), for one that cannot be the ticket's.
+  const arrivesLine = (arrives) => `Arrives: ${String(arrives).replace('T', ' ')}`;
   // A small whole number, 1 to max, or null.
   const count = (n, max) => (Number.isFinite(n) && n >= 1 ? Math.min(Math.round(n), max) : null);
   // A code such as an airport (IATA, 3 letters) or a gate: letters and digits, upper case, or ''.
@@ -124,6 +164,16 @@
       item.travelClass = clip(raw.travelClass, 30);
       item.pickup = clip(raw.pickup, 120); // a car: where it is collected and where it goes back
       item.dropoff = clip(raw.dropoff, 120);
+      // When it arrives as the ticket says, in the local time where it lands (plan-object-handoff.md, decision 11): beside the
+      // length, so a journey across time zones shows both its arrival and its time in the air right. Not for a car.
+      item.arrives = item.mode === 'car' ? null : ticketWhen(raw.arrives);
+      // On a day, a relative arrival (kept while it had none) is dated again.
+      if (item.arrives && item.date && item.arrives.length !== 16) item.arrives = datedArrives(item.date, item.arrives);
+      // One that cannot be (more than 7 days after it leaves, more than a day before) is kept in the notes, not shown.
+      if (item.arrives && !arrivalFits(item.date, item.time, item.arrives)) {
+        item.notes = clip([item.notes, arrivesLine(item.arrives)].filter(Boolean).join('\n\n'), 8000);
+        item.arrives = null;
+      }
       // A later leg of one booking (a round trip's return) points at the first leg, which holds the booking reference, the cost
       // and who paid. Any journey but a car; never itself. More legs can use the same field. Its own booking details are kept
       // here: they are set aside only where its outbound is found (outboundOf), so a leg whose outbound is gone keeps them.
@@ -279,8 +329,19 @@
   }
 
   // When a timed item ends: its day (null when it has none), the time of day ("HH:MM"), and how many days after the day it starts
-  // that is (0 the same day, 1 the next). Null without a time and a length.
+  // that is (0 the same day, 1 the next, -1 the day before). A journey's arrival as on its ticket (`arrives`) wins, marked
+  // `ticket`; else it is worked out from the time and the length. Null with neither.
   function arrivalOf(item) {
+    if (item && item.arrives) {
+      const relative = RELATIVE_ARRIVAL.exec(item.arrives);
+      if (relative) {
+        const n = relative[2] ? Number(relative[2] + relative[3]) : 0;
+        return { day: item.date ? daysLater(item.date, n) : null, time: relative[1], days: n, ticket: true };
+      }
+      const day = item.arrives.slice(0, 10);
+      const days = item.date ? Math.round((parseYmd(day) - parseYmd(item.date)) / DAY_MS) : 0;
+      return { day, time: item.arrives.slice(11), days, ticket: true };
+    }
     if (!item || !item.time || !item.minutes) return null;
     const m = minutesOfDay(item.time) + item.minutes;
     const days = Math.floor(m / (24 * 60));
@@ -290,7 +351,8 @@
     return { day: start ? ymd(new Date(start.getFullYear(), start.getMonth(), start.getDate() + days)) : null, time, days };
   }
   // The words after an arrival time for the days it is later than the start: '' the same day, "the next day", "+2 days".
-  const laterText = (days) => (days === 1 ? 'the next day' : days > 1 ? `+${days} days` : '');
+  // A ticket's arrival can be the day before, across the date line.
+  const laterText = (days) => (days === 1 ? 'the next day' : days > 1 ? `+${days} days` : days === -1 ? 'the day before' : days < -1 ? `${days} days` : '');
 
   // A stay covers the nights from its date up to (not including) its check-out day.
   function stayNights(item) {
@@ -406,11 +468,11 @@
     return cur.label;
   }
 
-  // The days an object occupies on the plan: its own day, a stay's check-out, and the day a journey arrives.
+  // The days an object occupies on the plan: its own day, a stay's check-out, and the day a journey arrives. One with no day of
+  // its own occupies none (under "Not on a day yet", its check-out or ticket arrival does not stretch the plan).
   function coverDaysOf(item) {
-    if (!item) return [];
-    const days = [];
-    if (item.date) days.push(item.date);
+    if (!item || !item.date) return [];
+    const days = [item.date];
     if (item.checkOut) days.push(item.checkOut);
     const a = arrivalOf(item);
     if (a && a.day) days.push(a.day);
@@ -447,6 +509,15 @@
       if (k >= end) return true;
     }
     return false;
+  }
+
+  // Whether an object on `day` would show on the plan whose days are `days` (planDays): the plan stretches to it, or it already
+  // is one of them. A day that would make the plan longer than MAX_DAYS would not show (plan-object-handoff.md, decision 12).
+  function fitsPlan(days, day) {
+    if (!isYmd(day) || !Array.isArray(days) || !days.length) return true;
+    const first = days[0] < day ? days[0] : day;
+    const last = days[days.length - 1] > day ? days[days.length - 1] : day;
+    return withinDays(first, last);
   }
 
   // Move the trip's first or last day out so every given day sits on it. Only grows; never shrinks, and never

@@ -172,6 +172,142 @@
     return out.join('');
   }
 
+  // Markdown and HTML to plain text, for a field a module shows as plain text (a title, a form field, a description):
+  // **bold**, *italic*, ~~struck~~ and `code` unmarked; [text](address) as "text (address)" and a picture as its words;
+  // headings and quotes unmarked; a list's lines start "- " (a numbered list keeps its numbers); fences, rules and the
+  // ruled line under a header row (|---|) dropped; HTML tags removed (a <br>, a paragraph or a list item still breaks the
+  // line; <script> and <style> go with what they hold up to their closing tag, and with none only the tag goes) and its
+  // entities read. A backslash keeps a mark as it is (\* stays *). Lines are kept unless `line` is true, which makes it one
+  // line. Every pattern is bounded, so a long or crafted text takes linear time.
+  const BLOCK_TAGS = /^(?:p|div|h[1-6]|ul|ol|tr|blockquote|pre|section|article|header|footer|hr|dl|dt|dd)$/;
+  const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', ndash: '–', mdash: '—', hellip: '…', laquo: '«', raquo: '»', lsquo: '‘', rsquo: '’', ldquo: '“', rdquo: '”', middot: '·', bull: '•', copy: '©', reg: '®', trade: '™', euro: '€', pound: '£', yen: '¥', deg: '°', times: '×' };
+  function htmlToText(s) {
+    if (s.indexOf('<') < 0) return s;
+    let out = '';
+    let i = 0;
+    const unclosed = {}; // a <script> or <style> with no closing tag after it: none further on has one either
+    for (;;) {
+      const lt = s.indexOf('<', i);
+      if (lt < 0) break;
+      // Only "<" followed by a letter, "/" or "!" starts a tag; "a < b" is words.
+      if (!/[A-Za-z/!]/.test(s.charAt(lt + 1))) { out += s.slice(i, lt + 1); i = lt + 1; continue; }
+      const gt = s.indexOf('>', lt + 1);
+      if (gt < 0) break; // no ">" left: nothing more is a tag
+      out += s.slice(i, lt);
+      const inner = s.slice(lt + 1, gt);
+      const name = (/^\/?([A-Za-z][A-Za-z0-9]{0,15})/.exec(inner) || [])[1];
+      const tag = name ? name.toLowerCase() : '';
+      i = gt + 1;
+      if (/^(?:https?:\/\/|mailto:)\S+$/i.test(inner)) out += inner; // an <https://...> address is the address
+      else if (tag === 'br') out += '\n';
+      else if (tag === 'li' && inner.charAt(0) !== '/') out += '\n- ';
+      else if (BLOCK_TAGS.test(tag)) out += '\n';
+      else if ((tag === 'script' || tag === 'style') && inner.charAt(0) !== '/' && !unclosed[tag]) {
+        // What it holds goes with it, up to its closing tag. With none, only the tag itself goes and the words after it stay.
+        const closer = new RegExp(`</${tag}`, 'gi');
+        closer.lastIndex = i;
+        const found = closer.exec(s);
+        if (!found) unclosed[tag] = true;
+        else {
+          const close = s.indexOf('>', found.index);
+          i = close < 0 ? s.length : close + 1;
+        }
+      } else if (tag === 'td' || tag === 'th') out += ' ';
+    }
+    return out + s.slice(i);
+  }
+  function entityText(s) {
+    return s.replace(/&(#\d{1,7}|#[xX][0-9A-Fa-f]{1,6}|[A-Za-z]{2,8});/g, (whole, e) => {
+      if (e.charAt(0) === '#') {
+        const n = e.charAt(1) === 'x' || e.charAt(1) === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+        return n > 0 && n <= 0x10ffff && !(n >= 0xd800 && n <= 0xdfff) ? String.fromCodePoint(n) : whole;
+      }
+      return Object.prototype.hasOwnProperty.call(ENTITIES, e) ? ENTITIES[e] : whole;
+    });
+  }
+  // A backslash-kept mark is held as a private character while the marks around it are read, then put back.
+  const KEEP_BASE = 0xe000;
+  function plainText(text, o) {
+    let s = String(text == null ? '' : text).replace(/\r\n?/g, '\n').replace(/[\ue000-\ue07f]/g, '');
+    s = s.replace(/\\([\\`*_{}[\]()#+\-.!>~|<])/g, (m, c) => String.fromCharCode(KEEP_BASE + c.charCodeAt(0)));
+    s = htmlToText(s);
+    const lines = [];
+    let fenced = false;
+    for (let line of s.split('\n')) {
+      if (/^ {0,3}(?:```|~~~)/.test(line)) { fenced = !fenced; continue; }
+      if (fenced) { lines.push(line); continue; }
+      if (!line.trim()) { lines.push(''); continue; }
+      // A rule (---, ***, ___) or the ruled line under a header row (|---|:--:|) says nothing in plain text.
+      if (/^ {0,3}(?:(?:-[ \t]*){3,}|(?:\*[ \t]*){3,}|(?:_[ \t]*){3,})$/.test(line)) continue;
+      if (line.indexOf('-') >= 0 && line.indexOf('|') >= 0 && /^[\s|:-]+$/.test(line)) continue;
+      line = line.replace(/^[ \t]{0,40}(?:>[ \t]?){1,10}/, '');
+      const heading = /^[ \t]{0,3}#{1,6}[ \t]+/.exec(line);
+      if (heading) {
+        // "## Title ##": the closing marks go too, found from the end rather than by a pattern.
+        line = line.slice(heading[0].length).trimEnd();
+        let end = line.length;
+        while (end > 0 && line.charAt(end - 1) === '#') end -= 1;
+        if (end < line.length && (end === 0 || /[ \t]/.test(line.charAt(end - 1)))) line = line.slice(0, end).trimEnd();
+      }
+      line = line.replace(/^([ \t]{0,40})[-*+][ \t]+/, '$1- ');
+      if (/^[ \t]{0,3}\|/.test(line)) line = line.replace(/^[ \t]{0,3}\|[ \t]?/, '').replace(/[ \t]?\|[ \t]*$/, '');
+      lines.push(line
+        .replace(/!\[([^[\]\n]{0,300})\]\(([^()\s]{0,600})(?:[ \t]{1,10}"[^"\n]{0,200}")?\)/g, '$1')
+        .replace(/\[([^[\]\n]{1,300})\]\(([^()\s]{1,600})(?:[ \t]{1,10}"[^"\n]{0,200}")?\)/g, (m, words, address) => (words === address ? address : `${words} (${address})`))
+        .replace(/`([^`\n]{1,300})`/g, '$1')
+        .replace(/(\*\*|__)(?=\S)([^\n]{1,300}?)\1/g, '$2')
+        .replace(/~~(?=\S)([^\n]{1,300}?)~~/g, '$1')
+        .replace(/(^|[^\w*])\*(?=\S)([^*\n]{1,300}?)\*(?!\w)/g, '$1$2')
+        .replace(/(^|[^\w_])_(?=\S)([^_\n]{1,300}?)_(?!\w)/g, '$1$2'));
+    }
+    s = entityText(lines.join('\n')).replace(/[\ue000-\ue07f]/g, (c) => String.fromCharCode(c.charCodeAt(0) - KEEP_BASE));
+    s = s.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, ' ');
+    if (o && o.line) return s.replace(/\s+/g, ' ').trim();
+    return s.split('\n').map((l) => l.trimEnd()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  }
+
+  // A local date and time from a `when` (the objects format's: "2026-11-14T12:50", "2026-11-14", or "12:50" when the day is
+  // not known; plan-object-handoff.md, "Kinds and their details"), as { date, time }: "YYYY-MM-DD" and "HH:MM", each null when
+  // not given. The clock time is kept as written: seconds, and a trailing Z or offset, are dropped, never turned into another
+  // zone. A space may stand for the T, and a time may be "3:25 PM". `day` is the day for a time alone (the object's own
+  // date). Null when neither a day nor a time can be read; an impossible day or time is no value.
+  function localWhen(when, day) {
+    const pad = (n) => String(n).padStart(2, '0');
+    const realDay = (y, m, d) => {
+      const t = new Date(Date.UTC(+y, +m - 1, +d));
+      return t.getUTCFullYear() === +y && t.getUTCMonth() === +m - 1 && t.getUTCDate() === +d ? `${y}-${m}-${d}` : null;
+    };
+    const clock = (h, mi, half) => {
+      let hour = +h;
+      if (+mi > 59) return null;
+      if (half) {
+        if (hour < 1 || hour > 12) return null;
+        hour = (hour % 12) + (/^p/i.test(half) ? 12 : 0);
+      } else if (hour > 23) return null;
+      return `${pad(hour)}:${mi}`;
+    };
+    const s = typeof when === 'string' ? when.trim().slice(0, 40) : '';
+    const TIME = '(\\d{1,2}):(\\d{2})(?::\\d{2}(?:\\.\\d{1,9})?)?[ \\t]?([ap]\\.?m\\.?)?(?:z|[+-]\\d{2}(?::?\\d{2})?)?';
+    let date = null;
+    let time = null;
+    let m = new RegExp(`^(\\d{4})-(\\d{2})-(\\d{2})(?:[T ]${TIME})?$`, 'i').exec(s);
+    if (m) {
+      date = realDay(m[1], m[2], m[3]);
+      time = date && m[4] !== undefined ? clock(m[4], m[5], m[6]) : null;
+      if (!date || (m[4] !== undefined && !time)) { date = null; time = null; }
+    } else if ((m = new RegExp(`^${TIME}$`, 'i').exec(s))) {
+      time = clock(m[1], m[2], m[3]);
+    }
+    if (!date && time && typeof day === 'string') {
+      const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+      date = d ? realDay(d[1], d[2], d[3]) : null;
+    } else if (!date && !time && !s && typeof day === 'string') {
+      const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+      date = d ? realDay(d[1], d[2], d[3]) : null;
+    }
+    return date || time ? { date, time } : null;
+  }
+
   const UI_CSS = `
 .sdk-datefield { display: flex; gap: 4px; align-items: center; }
 .sdk-datefield input { flex: 1; min-width: 0; }
@@ -652,6 +788,14 @@
       // fenced code, lists, [text](url) and bare https:// links, > quotes, paragraphs. The one place a module may
       // set innerHTML from text nobody here wrote, because the safety is already done inside it.
       markdown,
+      // Markdown and HTML as plain text, for a field shown as plain text (see plainText above): plain('**Southwest**
+      // [details](https://x.example)') is "Southwest details (https://x.example)". plain(text, { line: true }) makes it one line.
+      // A field a module draws with markdown() keeps its Markdown instead.
+      plain: plainText,
+      // A local date and time from an object's `when` (see localWhen above): localWhen('2026-11-14T12:50') is
+      // { date: '2026-11-14', time: '12:50' }; localWhen('15:25', '2026-11-14') takes the object's own date for a time alone.
+      // The clock time stays as written: a zone or offset is dropped, never converted. Null when it says neither.
+      localWhen,
       // A new id for something a module stores: short, and unlikely to repeat.
       id: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       // A pointer's identity as one string, for keeping and comparing them.
@@ -1875,10 +2019,10 @@
     global.createHost = createHost;
   }
 
-  // `esc` and `markdown` need no per-module env, so the call page (which loads this file directly for the modules
+  // `esc`, `markdown`, `plain` and `localWhen` need no per-module env, so the call page (which loads this file directly for the modules
   // it hosts in the page, not as a module itself) can use the very same rendering Chat and every module share,
   // rather than a second copy. See host.util.markdown above for what this covers.
-  global.hostText = { esc, markdown };
+  global.hostText = { esc, markdown, plain: plainText, localWhen };
   // The currency list likewise, for Manage's Currency (a page, not a module): the same choices a module's currencySelect makes.
   global.hostCurrency = { fill: fillCurrencySelect, name: currencyName, common: COMMON_CURRENCIES.slice() };
   // The view switch likewise, for the host's own pages: the toolbar a module's switch is drawn in (module-host.js),

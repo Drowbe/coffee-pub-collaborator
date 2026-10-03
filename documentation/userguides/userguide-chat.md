@@ -38,7 +38,7 @@ To show an answer to everyone, make it public (see "Private and public" below). 
 Each answer has:
 
 - **Copy**, which copies its text.
-- **Keep**, on each object the answer holds (a hotel, a sight, a note). An object that is plainly a flight, a hotel, a sight and so on is kept in the Planner as that kind; anything else goes to Research as a note. If that module isn't open, the button shows it is waiting and the object arrives when someone next opens it.
+- **Keep**, on each object the answer holds (a hotel, a sight, a note). An object that is plainly a flight, a hotel, a sight and so on is kept in the Planner as that kind, with its own fields filled in (the airline, the times, the seat, the booking reference; see [Planner](userguide-planner.md), "What other modules bring"); anything else goes to Research as a note. If that module isn't open, the button shows it is waiting and the object arrives when someone next opens it.
 
 To ask about something you already have, drag it onto Chat while `/ai` is in the box; the line under the box says how many objects the question will use. Research's **Research this** and a drop menu's **Ask the assistant** do the same for one object.
 
@@ -106,5 +106,16 @@ You can research in another AI and bring what it finds into Collaborator as obje
 5. Choose **Keep ticked** and confirm.
 
 Pasting an answer straight into the Chat box works too: when it holds objects, **Bring in N objects** appears beside Send and opens the same preview.
+
+What the instructions ask the other AI for:
+
+- **Only what can be kept here.** They name the kinds of object the modules on in this environment can take (flights, stays, restaurants, tasks and so on), each with the details worth writing down, such as a flight's airline, number, airports, times and booking reference. Turn a module off and its kinds drop out the next time you copy them.
+- **A whole itinerary, one object per leg.** Each flight, train, stay, meal, visit and event is its own object, with its own date and times; a return flight is separate.
+- **Dates as given, never guessed.** The AI is told to copy dates from what you gave it and, if one is missing, to ask you before it answers. If you don't know, it leaves the date out. `/ai` can't stop to ask, so it leaves the date out and says which dates it still needs.
+- **Times in the local time where things happen**, on the 24-hour clock, with no time zone: a 12:50 departure from Chicago stays 12:50.
+
+Instructions copied since 2026-09-30 still work, but copy them again to get these. With the Planner on, they name its kinds: flights, trains, buses, ferries, cars, stays, restaurants, cafes, bars, sights, museums, tours, shows, events and notes.
+
+Where the details go when you keep an object: the Planner fills a flight, a stay, a meal or a visit's own fields from them, and puts anything it has no field for into Notes as a line such as "Cabin: 4B". Research, and any module that doesn't fill its fields yet, gets the details as lines of text after the object's notes ("Airline: Southwest"), so nothing is lost. An event or a note goes to Research for now.
 
 An answer or file written from instructions copied before 2026-09-30 is in an older format and is refused, with nothing brought in: "that answer is in an older format: copy the instructions again and ask the AI for a new answer" (or "... for a new file"). Copy the instructions again, give them to the AI and ask it for a new answer. Pasted into the Chat box, such an answer offers no **Bring in** button. The limits (50 objects at a time, 256 KB, the "External source" line) are in [Assistant](userguide-assistant.md), "Bring in research from another AI".

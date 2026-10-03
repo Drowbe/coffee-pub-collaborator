@@ -1,7 +1,7 @@
 {
   "id": "travel",
   "name": "Planner",
-  "version": "0.11.2",
+  "version": "0.12.0",
   "icon": "suitcase-rolling",
   "color": "teal",
   "description": "Plan together: a day-by-day itinerary that draws in the events, tasks and polls your {space} already has.",
@@ -81,8 +81,15 @@
           "kind": "string?",
           "content": "text?",
           "place": "string?",
-          "date": "date?"
-        }
+          "date": "date?",
+          "object": "object?"
+        },
+        "takes": [
+          { "kinds": ["flight", "train", "bus", "ferry", "car"], "as": "{kind}" },
+          { "kinds": ["hotel"], "as": "a stay" },
+          { "kinds": ["restaurant", "cafe", "bar", "sight", "museum", "tour", "show", "event"], "as": "{kind}" },
+          { "kinds": ["note"], "as": "a note" }
+        ]
       },
       {
         "name": "addFromText",

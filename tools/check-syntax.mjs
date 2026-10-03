@@ -14,6 +14,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import vm from 'node:vm';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -127,5 +128,31 @@ for (const rel of FILES) {
   }
 }
 fs.rmSync(tmp, { recursive: true, force: true });
+// A module page as the browser gets it: the build (server/module-build.js) puts its library -- src/<id>-lib.js, then
+// src/<id>-lib-*.js by name -- where the page's script has the placeholder comment, inside the page's own function. Each
+// file parses on its own, but a name declared in a library and again in the page ("const addDays" and "function addDays")
+// stops the whole page, which then never loads. So each page that takes the library is parsed once with it spliced in.
+let pages = 0;
+const LIB_MARK = '/*__LIB__*/';
+for (const id of fs.existsSync(path.join(ROOT, 'modules')) ? fs.readdirSync(path.join(ROOT, 'modules')) : []) {
+  const src = path.join(ROOT, 'modules', id, 'src');
+  if (!fs.existsSync(src)) continue;
+  const libFile = `${id}-lib.js`;
+  const libNames = fs.readdirSync(src).filter((f) => f === libFile || (f.startsWith(`${id}-lib-`) && f.endsWith('.js')))
+    .sort((x, y) => (x === libFile ? -1 : y === libFile ? 1 : x.localeCompare(y)));
+  if (!libNames.length) continue;
+  const lib = libNames.map((f) => fs.readFileSync(path.join(src, f), 'utf8')).join('\n');
+  for (const page of fs.readdirSync(src).filter((f) => f.endsWith('.js') && !libNames.includes(f))) {
+    const code = fs.readFileSync(path.join(src, page), 'utf8');
+    if (!code.includes(LIB_MARK)) continue;
+    pages += 1;
+    try {
+      new vm.Script(code.replace(LIB_MARK, () => lib), { filename: `modules/${id}/src/${page}` });
+    } catch (err) {
+      failed += 1;
+      console.error(`modules/${id}/src/${page} with ${libNames.join(', ')} spliced in as the build does: ${err.message}`);
+    }
+  }
+}
 if (failed) process.exit(1);
-console.log(`check-syntax: OK (${FILES.length} files)`);
+console.log(`check-syntax: OK (${FILES.length} files, ${pages} module pages with their library)`);

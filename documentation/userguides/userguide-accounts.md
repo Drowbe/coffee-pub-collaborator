@@ -142,6 +142,31 @@ To change your photo, open your profile and click the photo at the top, or paste
 (Tab to it and press Ctrl+V, Cmd+V on a Mac, or choose its **Paste** button). Your other pictures on the profile
 work the same way; see "Set a picture" in [Participant and Character Images](userguide-images.md).
 
+## Your calendar in a calendar app
+
+When an owner has turned on **Calendar feeds** (Manage, "Calendar apps"), members and owners can add the events
+they can see to Google Calendar, Apple Calendar or Outlook through a private address. It is one way: changes in
+the calendar app don't come back.
+
+1. Open your profile. **Calendar feed** is after **Call Settings**. It shows when feeds are on and there are events
+   you can see, or while you still have an address.
+2. Choose **Make an address**. The address is shown once, with **Copy**. Anyone with the address can see your
+   events, so keep it private.
+3. Add it to your calendar app:
+   - Google Calendar: choose **Other calendars**, then **From URL**, and paste it. Google reads it about once a day.
+   - Apple Calendar on a Mac: **File**, then **New Calendar Subscription**. On an iPhone: **Settings**, **Calendar**,
+     **Accounts**, **Add Account**, **Other**, **Add Subscribed Calendar**.
+
+Afterwards the section reads "On, made <date>. Last read <time ago>." (the time can lag by up to an hour).
+**New address** replaces it, so the old one stops working; **Turn off** stops it. Both ask first.
+
+The feed holds the environment's events and those of the spaces you belong to, as you may see them each time it is
+read; events more than 90 days past are left out. Repeating events repeat, a Planner object with a date appears
+once (as its Calendar event), and each event links back to the Calendar.
+
+**For owners:** Manage > **Users** marks who has a calendar feed, with **Turn off feed**, and a person's profile
+shows "Calendar feed · on/off · last read … · Turn off". You never see anyone's address.
+
 ## Light or dark
 
 **Dark mode** in the menu under your picture (on a phone, the sun and moon switch in the top bar's menu) changes

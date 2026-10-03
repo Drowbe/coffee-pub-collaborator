@@ -84,6 +84,12 @@ Set **Repeats** to every day, week, 2 weeks, month or year, and optionally an **
 
 Set **Remind people** on an event to send a notification when it starts, 15 minutes before, an hour before, or a day before. Everyone in that space (or everyone in the environment, for one of its events) who is allowed to see the calendar gets a toast, and a number on the Calendar's switch in the space bar until they open it. A space's event made or changed from the environment's calendar, or from Calendar in the top bar, reminds that space's people. Changing an event moves its reminder, and deleting it cancels the reminder. An event with a reminder time that has already passed gets no reminder. A repeating event reminds people before every occurrence, including while nobody has the calendar open.
 
+## In your own calendar app
+
+If the owner has turned on **Calendar feeds**, you can see these events in Google Calendar, Apple Calendar or
+Outlook through a private address made on your profile. See "Your calendar in a calendar app" in
+[Accounts, roles and permissions](userguide-accounts.md).
+
 ## Limits
 
 An event belongs to one day; an end time later that day is fine, but events that run across midnight are not shown on more than one day. There is no way yet to skip one occurrence of a repeating event or change just that one. Times show in each person's own time zone.

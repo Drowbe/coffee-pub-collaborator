@@ -509,6 +509,20 @@ test('calendar: the views are Month, Week, Day and Agenda; an old stored "Open o
   }
 });
 
+test('calendar offers its events to calendar feeds, with its repeat field; the Planner\'s plans are not offered (plan-google-calendar.md)', () => {
+  const cleaned = (id) => {
+    return cleanManifest(JSON.parse(fs.readFileSync(path.join(ROOT, 'modules', id, 'module.json'), 'utf8')), { has: () => true }); // its pages are built into the zip from src/
+  };
+  const event = cleaned('calendar').refs.produces.find((p) => p.kind === 'event');
+  assert.equal(event.feed, true, 'the event kind has "feed": true');
+  assert.equal(event.dated.repeat, 'repeat', 'its "dated" names the stored repeat field');
+  assert.ok('repeat' in event.create, 'the field the Calendar stores ({ every, until }) is called repeat');
+  assert.match(fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar-lib.js'), 'utf8'), /ev\.repeat\.every/, 'and the Calendar reads it as ev.repeat');
+  const offered = fs.readdirSync(path.join(ROOT, 'modules')).filter((id) => fs.existsSync(path.join(ROOT, 'modules', id, 'module.json')))
+    .flatMap((id) => (cleaned(id).refs?.produces || []).filter((p) => p.feed).map((p) => `${id}:${p.kind}`));
+  assert.deepEqual(offered, ['calendar:event'], 'only the Calendar\'s events are offered; a Planner object reaches the feed as its twin');
+});
+
 test('a manifest\'s color is one of the eight tints, or none; anything else refuses the install (plan-chat-model.md)', () => {
   const { TINTS } = createRequire(import.meta.url)('../server/modules.js');
   for (const tint of TINTS) assert.equal(cleanManifest({ ...base(), color: tint }, files).color, tint);

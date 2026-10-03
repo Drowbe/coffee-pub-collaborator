@@ -134,7 +134,7 @@ try {
       [with_({ moduleIcons: { travel: 'fa-route' } }), 'moduleIcons.travel: "fa-route" is not a Font Awesome Free solid icon.'],
       [with_({ moduleNames: { travel: '<b>Trips</b>' } }), 'moduleNames.travel: A display name is plain text, without < or >.'],
       [with_({ moduleNames: { nope: 'Nope' } }), 'moduleNames: "nope" is not a bundled or built-in module.'],
-      [with_({ settings: { environmentName: 'x' } }), 'settings: "environmentName" is not a setting a template can give; those are language, clock, currency, loginText, allowRegistration, mfaRequired, maxQuality, allowScreenShare, allowAsides, allowPrivate, allowReactions, showCalendar, showMap, activeThemeId, themeMode.'],
+      [with_({ settings: { environmentName: 'x' } }), 'settings: "environmentName" is not a setting a template can give; those are language, clock, currency, loginText, allowRegistration, mfaRequired, maxQuality, allowScreenShare, allowAsides, allowPrivate, allowReactions, showCalendar, showMap, calendarFeeds, activeThemeId, themeMode.'],
       [with_({ settings: { clock: 24 } }), 'settings: 24 is not a value "clock" takes.'],
       [with_({ spaceDefaults: { profile: 'players' } }), 'spaceDefaults.profile must be one of roleplaying, participants, characters.'],
       [with_({ lobby: { name: 'x'.repeat(41) } }), 'lobby.name must be text of 1 to 40 characters.'],

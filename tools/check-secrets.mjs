@@ -6,6 +6,9 @@
  *     never to an access-key holder, and never in GET /api/status (not even to an owner, not even to Studio);
  *   - a space's guest link (guestToken) goes to an owner and to a member of that space who may manage its guest
  *     link (canInvite), never to a member without it, a member of another space, a guest, or an access-key holder;
+ *   - a calendar feed's address (plan-google-calendar.md) is answered once, to the person who made it: app.json keeps
+ *     only its SHA-256, and neither the token nor the hash is in any other answer (the person's, an owner's, the access
+ *     key's); reading it sets no session, and a password change leaves it working;
  *   - app.json and ai.json are private to the server's user (mode 600), and ai.json never holds a plain key once
  *     the server has loaded it -- and the saved, encrypted key still reaches the AI service (a stand-in here).
  * No network beyond localhost.
@@ -16,9 +19,12 @@ import path from 'node:path';
 import http from 'node:http';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const { buildModule } = createRequire(import.meta.url)('../server/module-build.js');
 let n = 0;
 let failed = 0;
 const test = async (name, fn) => {
@@ -178,6 +184,55 @@ try {
     assert.match(mine.link, /\/j\//);
     assert.equal((await call('GET', '/api/users', { token: aliceT })).status, 403);
     assert.equal((await call('GET', `/api/status?s=${streamKey}`, { token: aliceT })).json.users.some((u) => 'link' in u), false);
+  });
+
+  await test('a calendar feed\'s address is answered once, kept only as its hash, and signs nobody in', async () => {
+    // A stand-in module whose kind offers itself to the feed, uploaded as any module is.
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), 'check-secrets-module-'));
+    try {
+      fs.mkdirSync(path.join(src, 'src'));
+      fs.writeFileSync(path.join(src, 'module.json'), JSON.stringify({
+        id: 'secret-dates', name: 'Dates', version: '1.0.0', scope: ['environment'], surfaces: { page: { entry: 'secret-dates.html' } },
+        refs: { produces: [{ kind: 'event', key: 'event:{id}', summary: { title: 'title' }, dated: { title: 'title', start: 'start' }, feed: true }] },
+      }));
+      fs.writeFileSync(path.join(src, 'src', 'secret-dates.html'), '<!DOCTYPE html><html><head><style>/*__CSS__*/</style></head><body><script>/*__JS__*/</script></body></html>');
+      fs.writeFileSync(path.join(src, 'src', 'secret-dates.css'), '');
+      fs.writeFileSync(path.join(src, 'src', 'secret-dates.js'), '');
+      const up = await fetch(`http://127.0.0.1:${port}/api/modules`, { method: 'POST', headers: { authorization: `Bearer ${owner}`, 'content-type': 'application/zip' }, body: buildModule(src).zip });
+      assert.equal(up.status, 201, await up.text());
+    } finally {
+      fs.rmSync(src, { recursive: true, force: true });
+    }
+    assert.equal((await call('PATCH', '/api/modules/secret-dates', { cookie: owner, body: { enabled: true } })).status, 200);
+    assert.equal((await call('PATCH', '/api/settings', { cookie: owner, body: { calendarFeeds: true } })).status, 200);
+    const made = await call('POST', '/api/me/feed', { token: aliceT, body: {} });
+    assert.equal(made.status, 201, made.text);
+    const feedToken = /\/feed\/([A-Za-z0-9_-]{43})\.ics$/.exec(made.json.url)[1];
+    const hash = crypto.createHash('sha256').update(feedToken).digest('hex');
+    const stored = fs.readFileSync(path.join(dataDir, 'app.json'), 'utf8');
+    assert.ok(!stored.includes(feedToken), 'no token in app.json');
+    assert.equal(JSON.parse(stored).users.find((u) => u.key === alice.key).calendarFeed.hash, hash, 'only its hash');
+    const answers = [
+      await call('GET', '/api/me/feed', { token: aliceT }),
+      await call('GET', '/api/me', { token: aliceT }),
+      await call('GET', '/api/users', { cookie: owner }),
+      await call('GET', `/api/users/${alice.key}`, { cookie: owner }),
+      await call('GET', '/api/status', { cookie: owner }),
+      await call('GET', `/api/status?s=${streamKey}`),
+      await call('GET', `/api/presence?s=${streamKey}`),
+      await call('GET', '/api/settings', { cookie: owner }),
+    ];
+    for (const r of answers) {
+      assert.equal(r.status, 200);
+      assert.ok(!r.text.includes(feedToken) && !r.text.includes(hash), 'neither the token nor its hash in any other answer');
+    }
+    assert.equal(answers[3].json.user.calendarFeed.on, true, 'an owner sees that it is on');
+    const read = await fetch(`http://127.0.0.1:${port}/feed/${feedToken}.ics`, { redirect: 'manual' });
+    assert.equal(read.status, 200);
+    assert.equal(read.headers.get('set-cookie'), null, 'reading it sets no session');
+    // A password change does not touch it.
+    assert.equal((await call('PATCH', `/api/users/${alice.key}`, { cookie: owner, body: { password: 'memberpass5678' } })).status, 200);
+    assert.equal((await fetch(`http://127.0.0.1:${port}/feed/${feedToken}.ics`)).status, 200);
   });
 
   await test('app.json, ai.json and secrets.key are private to the server\'s user', () => {

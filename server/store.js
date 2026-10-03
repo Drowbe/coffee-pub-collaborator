@@ -284,6 +284,10 @@ const DEFAULT_SETTINGS = {
   // The top bar's Map destination (plan-map-destination.md, decision 17): off until an owner or a template turns it on;
   // shown only while a map file is set, too.
   showMap: false,
+  // Calendar feeds (plan-google-calendar.md, decision 4): whether people may make a private address that shares the
+  // events they can read with their own calendar app. Off by default; off, every address answers 404 without being
+  // deleted.
+  calendarFeeds: false,
   // Language, time and money: how the server and every module show them. The clock is 12-hour by default; the
   // currency is the one amounts are shown in unless a trip says otherwise; only English is available so far.
   language: 'en',
@@ -805,6 +809,9 @@ class Store {
       callPrefs: this.sanitizeCallPrefs(u.callPrefs),
       // Their own light or dark (GitHub #62); left off while they follow the environment's default mode.
       ...(u.themeMode === 'light' || u.themeMode === 'dark' ? { themeMode: u.themeMode } : {}),
+      // Their calendar feed's address (plan-google-calendar.md): only the SHA-256 of its token, never the token; left
+      // off while they have none.
+      ...(cleanCalendarFeed(u.calendarFeed) ? { calendarFeed: cleanCalendarFeed(u.calendarFeed) } : {}),
       createdAt: typeof u.createdAt === 'string' ? u.createdAt : new Date().toISOString(),
     };
   }
@@ -1086,6 +1093,10 @@ class Store {
     if (patch.conferenceEnabled !== undefined) s.conferenceEnabled = Boolean(patch.conferenceEnabled);
     if (patch.showCalendar !== undefined) s.showCalendar = Boolean(patch.showCalendar);
     if (patch.showMap !== undefined) s.showMap = Boolean(patch.showMap);
+    if (patch.calendarFeeds !== undefined) {
+      if (typeof patch.calendarFeeds !== 'boolean') throw new StoreError('calendarFeeds is true or false');
+      s.calendarFeeds = patch.calendarFeeds;
+    }
     if (patch.language !== undefined) s.language = LANGUAGES.includes(patch.language) ? patch.language : DEFAULT_SETTINGS.language;
     if (patch.clock !== undefined) s.clock = String(patch.clock) === '24' ? '24' : '12';
     if (patch.currency !== undefined) {
@@ -1343,6 +1354,37 @@ class Store {
   userByLinkToken(token) {
     if (!token) return null;
     return this.data.users.find((u) => u.linkToken && u.linkToken === token) || null;
+  }
+
+  // The person whose calendar feed token hashes to `hash` (hex SHA-256), or null.
+  userByFeedHash(hash) {
+    if (typeof hash !== 'string' || !/^[0-9a-f]{64}$/.test(hash)) return null;
+    return this.data.users.find((u) => u.calendarFeed?.hash === hash) || null;
+  }
+
+  // A new feed address for this person, replacing any old one (the caller made the token and gives its hash), or none
+  // (null). Touches nothing else: a feed signs nobody in.
+  setCalendarFeed(key, hash) {
+    const user = this.userByKey(key);
+    if (!user) throw new StoreError('no such user', 404);
+    if (hash === null) {
+      if (!user.calendarFeed) return null;
+      delete user.calendarFeed;
+    } else {
+      if (!/^[0-9a-f]{64}$/.test(String(hash))) throw new StoreError('a feed is kept by its hash');
+      user.calendarFeed = { hash, made: new Date().toISOString(), readAt: null };
+    }
+    this.save();
+    return user.calendarFeed || null;
+  }
+
+  // A read of the feed: kept at most once an hour, so a calendar app polling it does not rewrite app.json each time.
+  noteCalendarFeedRead(key, now = Date.now()) {
+    const feed = this.userByKey(key)?.calendarFeed;
+    if (!feed) return;
+    if (feed.readAt && now - Date.parse(feed.readAt) < 60 * 60 * 1000) return;
+    feed.readAt = new Date(now).toISOString();
+    this.save();
   }
 
   newKey() {
@@ -2080,6 +2122,13 @@ class Store {
     const existing = this.defaultImagePath(slot);
     if (existing) fs.rmSync(existing, { force: true });
   }
+}
+
+// A stored calendar feed, { hash, made, readAt }, or null when it is not one.
+function cleanCalendarFeed(raw) {
+  if (!raw || typeof raw !== 'object' || typeof raw.hash !== 'string' || !/^[0-9a-f]{64}$/.test(raw.hash)) return null;
+  const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : null);
+  return { hash: raw.hash, made: when(raw.made) || new Date().toISOString(), readAt: when(raw.readAt) };
 }
 
 class StoreError extends Error {

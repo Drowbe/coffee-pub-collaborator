@@ -59,11 +59,12 @@ same setup.
 - A rollup on each space's tile on home, starting with the Planner, chosen per space, in place of the removed Trips tile ([plan-dashboard](plans/plan-dashboard.md), phase 5): a direction from Thomas (2026-10-02) with open questions, not yet a contract.
 - Rename the dashboard's widgets to **tiles** (Thomas, 2026-09-30): "widget" now means a live piece in the header's bars, such as who is here. A renaming plan with a data migration comes next; not written or built.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
-- #42 Google Calendar ([plan-google-calendar](plans/plan-google-calendar.md)): approved 2026-10-03, seven steps, none built. Part 1 is a private address per person that a calendar app subscribes to; Part 2 shows a person's other calendars, from a pasted address, in the Calendar. Supersedes [plan-google-sync](plans/plan-google-sync.md).
+- #42 Google Calendar ([plan-google-calendar](plans/plan-google-calendar.md)): approved 2026-10-03. Part 1, a private address per person that a calendar app subscribes to, is built (2026-10-03). Part 2, next, shows a person's other calendars, from a pasted address, in the Calendar. Supersedes [plan-google-sync](plans/plan-google-sync.md).
 - #132 A document editor (ProseMirror) for the long prose fields: research notes and answers, plan notes, to-dos, places, and calendar details. Markdown stays what is stored. Chat stays a textarea. About two weeks. Building waits on a go-ahead.
 
 ## Verify in a real call
 
+- Calendar feeds (#42 Part 1, built 2026-10-03): subscribe from real Google Calendar, Apple Calendar on a Mac and an iPhone, and Outlook; check repeats, all-day events and times in the server's `TZ`, and that turning the address off empties it. Checked so far by `tools/check-feed.mjs` (18 groups), with no real calendar app.
 - The phone space bar (#160) and chat links (#158), built 2026-10-03: the tab bar on a real phone and in a narrow pop-out (More's badge and the call's dot, Leave inside the window), and a link's preview and **Keep** with two people, one of them a guest (no Keep), and Research closed then opened. Checked so far by `check-nav`, `check-chat-links`, `check-chat-page` and `check-research`.
 - Saved layouts and Clear… ([plan-saved-layouts](plans/plan-saved-layouts.md), [plan-chat-clear](plans/plan-chat-clear.md), built 2026-10-03): loading a layout while on the call (the Conference kept), a default layout on a first visit and for a guest, and clearing everyone's messages with two people in the space (the line others see). Checked so far by `check-layouts`, `check-chat-model`, `check-chat-page` and `check-nav`.
 - The top bar (steps 1 and 2, [plan-primary-nav](plans/plan-primary-nav.md)): the breadcrumb in a real aside ("› Disneyland › Aside: Michelle", and clicking Disneyland, or picking it in the switcher, bringing everyone back to the space's call), the switcher and Manage over a running call, **Host console** on a hosted install (only its address was checked, as a pure function), **Install as an app** in the profile menu, a module card's heading on home opening over a running call (Away, then **Back to**), and the bar with a screen reader. Verified so far by `tools/check-nav.mjs` and in headless Chromium with a stand-in LiveKit at 1280, 1024 and 390 pixels.
@@ -156,7 +157,7 @@ same setup.
 - #47 Reminders for people who are away.
 - #40 A Journal module.
 - #41 Currency conversion beside a trip's currency.
-- #42 Google Calendar sync: planned, see Planned.
+- #42 Google Calendar: Part 1 (calendar feeds) built; Part 2 planned, see Planned.
 - #43 Installing the Font Awesome Pro package.
 - #44 A map in the Planner.
 - #45 Reading booking confirmation emails into the Planner.

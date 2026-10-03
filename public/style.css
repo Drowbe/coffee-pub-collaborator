@@ -7539,6 +7539,16 @@ body.chat-window {
 .owner-reset .hint { margin: 0; }
 .owner-reset input { max-width: 14em; }
 
+/* Profile's calendar feed (plan-google-calendar.md): the address, shown once in a box like the MFA block's, then the
+   short steps for a calendar app. The address wraps rather than widening the page on a phone. */
+.feed-made { margin: 6px 0 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card, var(--bg)); }
+.feed-made .row { flex-wrap: wrap; }
+.feed-made .key { flex: 1 1 16em; min-width: 0; }
+.feed-made h3 { margin: 12px 0 4px; }
+.feed-made .feed-steps { margin: 0; padding-left: 20px; white-space: normal; } /* .panel .hint keeps line breaks; a list has its own */
+.feed-made .row + .hint { margin-top: 6px; }
+.feed-steps li + li { margin-top: 2px; }
+
 /* The host console's shared map folder: the files table names files in its first column (the generic .files-table
    keeps a narrow first column for a thumbnail), and the world map address is a label, a field with its button, and
    the hint under them in sentence case. */

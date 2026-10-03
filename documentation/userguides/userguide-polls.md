@@ -57,6 +57,10 @@ The person who started a poll, an owner, and anyone given **Close and delete pol
 
 In a space, three icons in the Polls' titlebar, before the module's own buttons and set off by a pipe, choose what the list shows: the open padlock for open polls (its tooltip says how many), the closed padlock for closed ones, and the list icon for all. On the environment's page, which has no titlebar to put them in, they stay as buttons at the top of the page.
 
+## On the Calendar
+
+When the Calendar is on, a poll with a closing time shows on the Calendar at that time, as a marker with the Polls icon and colour: "Closes 6:00 PM: Where for dinner?". After the closing time it stays, dimmed, as "Closed 6:00 PM: Where for dinner?". A poll closed by hand, and a poll with no closing time, has no marker; reopening a poll clears its closing time. The marker is not a Calendar event and is not copied there. Click it to open the poll here. Anyone who can see the poll can see its marker; the Calendar's **Polls closing** switch hides them all. See [Calendar](userguide-calendar.md), "Tasks due and polls closing".
+
 ## Where it shows
 
 On the spaces page, click the **Need your vote** card's heading for the environment's polls. Under the toolbar it also shows, read-only, the polls of every space you belong to that has Polls on, each headed by its space's icon, with a row of your spaces to show or hide each. To vote in a space's poll, open that space's Polls from a call: switch on **Polls** in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own.

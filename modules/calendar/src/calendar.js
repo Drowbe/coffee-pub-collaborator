@@ -72,6 +72,30 @@
   const externalName = (id) => (externalCalendars.get(id) ? externalCalendars.get(id).name : 'Other');
   const isExternal = (x) => x.scope === 'external';
 
+  // Other modules' objects shown as markers (plan-calendar-markers.md): a task due on a day, a poll's closing time. Asked
+  // of the host for the period shown (host.objects.markers), never stored, never an event: a marker is not edited,
+  // dragged or made into anything here, and a click opens the object in its own module. Kept apart from `events`, as
+  // x = { key, scope: 'marker', marker, kindKey, tint, due, ev }, where `ev` is only what the drawing needs.
+  const showsMarkers = Boolean(host.objects && host.objects.markers);
+  const markerItems = new Map(); // key -> x
+  const markerKinds = new Map(); // '<module>:<kind>' -> { id, label, icon, tint }, in the order first seen
+  const hiddenMarkers = new Set(); // kinds of markers the filter has off
+  // In a space the kinds turned off in the Show menu are remembered in this browser, per space, as /calendar remembers
+  // its filter; as a part the page's filter holds them, and the environment's page remembers none of its filter.
+  const MARKERS_OFF_KEY = inSpace && !part && info.context.spaceId ? `calendar-markers-off:${info.context.spaceId}` : '';
+  if (MARKERS_OFF_KEY) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(MARKERS_OFF_KEY) || '[]');
+      if (Array.isArray(saved)) for (const id of saved.slice(0, 20)) if (typeof id === 'string') hiddenMarkers.add(id);
+    } catch (err) {
+      // nothing remembered: every kind on
+    }
+  }
+  const markerIcons = new Map(); // a module's icon name -> its SVG ('' while it is asked for, or when there is none)
+  const kindNames = new Map(); // '<module>:<kind>' -> the kind's name ("Task"), from host.objects.kinds()
+  const TINTS = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
+  const isMarker = (x) => x.scope === 'marker';
+
   /*__LIB__*/
 
   view = openView(prefs.defaultView);
@@ -89,6 +113,11 @@
         const end = endOf(x.ev, start);
         if (end > from || start >= from) out.push({ x, start, end });
       }
+    }
+    for (const x of markerItems.values()) {
+      if (!markerShown(x)) continue;
+      const start = startOf(x.ev);
+      if (start >= from && start < to) out.push({ x, start, end: endOf(x.ev, start) });
     }
     return out.sort((a, b) => a.start - b.start);
   }
@@ -111,6 +140,14 @@
   };
   async function load() {
     events.clear();
+    // The names of the kinds this module may show as markers ("Task"), for the filter's words.
+    if (showsMarkers && host.objects.kinds && !kindNames.size) {
+      try {
+        for (const k of await host.objects.kinds()) if (k && k.module && k.kind && k.name) kindNames.set(`${k.module}:${k.kind}`, String(k.name).slice(0, 30));
+      } catch (err) {
+        // the kind's own word, then
+      }
+    }
     for (const item of await host.storage.list('event:')) remember('here', item);
     if (inSpace) {
       try {
@@ -146,6 +183,7 @@
 
   const externalClass = (x) => `ext-${externalCalendars.get(x.calendar) ? externalCalendars.get(x.calendar).tint : 0}`;
   function chipHtml({ x, start, cont }) {
+    if (isMarker(x)) return markerChipHtml(x, start);
     // A multi-day event shows its time on the first day and an arrow on the days after.
     const label = cont ? '\u2192 ' + x.ev.title : (x.ev.allDay ? '' : timeText(start) + ' ') + x.ev.title;
     if (isExternal(x)) return `<button class="chip ext ${externalClass(x)}" data-open="${esc(x.key)}" title="${esc(`${x.ev.title} (${externalName(x.calendar)})`)}">${esc(label)}</button>`;
@@ -193,9 +231,9 @@
       if (!groups.has(k)) groups.set(k, []);
       groups.get(k).push(occ);
     }
-    return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4>${g.map(({ x, start, end }) => `
+    return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4>${g.map(({ x, start, end }) => (isMarker(x) ? markerItemHtml(x, start, agenda) : `
       <button class="item${isExternal(x) ? ` ext ${externalClass(x)}` : ''}" data-open="${esc(x.key)}"><span class="when">${esc(whenText(x.ev, start, end))}</span>
-        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="tag ext">${esc(externalName(x.calendar))}</span>` : ''}</strong>${x.ev.desc && !agenda ? `<span>${esc(x.ev.desc.slice(0, 120))}</span>` : ''}</span></button>`).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
+        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="tag ext">${esc(externalName(x.calendar))}</span>` : ''}</strong>${x.ev.desc && !agenda ? `<span>${esc(x.ev.desc.slice(0, 120))}</span>` : ''}</span></button>`)).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
   }
 
   function monthList() {
@@ -325,6 +363,8 @@
   const pickOne = () => `Pick at least one in ${word('space', { many: true, cap: true })}.`;
 
   function render() {
+    // A calendar that was just closed (its elements gone) draws nothing: an icon or markers arriving late, say.
+    if (!$('app')) return;
     if (part === 'panel') return renderAgenda();
     const showNav = view !== 'list';
     $('prev').hidden = $('next').hidden = !showNav;
@@ -353,6 +393,7 @@
       $('body').innerHTML = monthGrid();
     }
     askExternal(false);
+    askMarkers(false);
   }
 
   // The Agenda (the destination's panel): the events of the period the calendar shows, from the selected day on.
@@ -372,6 +413,7 @@
     const occs = inRange(start, to);
     $('body').innerHTML = listHtml(occs, `Nothing else this ${unit}.`, start, `Nothing else this ${unit}.`);
     askExternal(false);
+    askMarkers(false);
   }
 
   // --- the person's other calendars: asked of the host for what is shown -----------------------------------
@@ -423,18 +465,178 @@
   }
   if (showsExternal) host.on('external', () => askExternal(true));
 
-  // On the environment page, a row of the viewer's spaces to show or hide. As a part, the page's filter does this.
+  // --- markers: other modules' objects with a date, asked of the host for what is shown --------------------------
+  // The period shown, with a week of room either side (the host answers at most 92 days), asked again only when what is
+  // shown leaves what was asked for, and whenever the host says one changed (the 'markers' event). A failure (no
+  // approval yet, say) shows none.
+  let markerWindow = null; // { from, to }: what was last asked for
+  let markerTicket = 0;
+  function askMarkers(again) {
+    if (!showsMarkers || !loaded) return;
+    const need = externalNeed();
+    if (!again && markerWindow && need.from >= markerWindow.from && need.to <= markerWindow.to) return;
+    let want = { from: addDays(need.from, -7), to: addDays(need.to, 7) };
+    if (want.to - want.from > 90 * DAY) want = need;
+    markerWindow = want;
+    const ticket = ++markerTicket;
+    // `to` is the last day asked for: the host takes in the whole of a date-only `to`.
+    host.objects.markers({ from: ymd(want.from), to: ymd(addDays(want.to, -1)) }).then((list) => {
+      if (ticket !== markerTicket) return;
+      takeMarkers(Array.isArray(list) ? list : []);
+      render();
+    }).catch(() => {
+      // none to show: not approved to link to them, or the server could not answer just now
+    });
+  }
+  const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const plural = (name) => (/s$/i.test(name) ? name : name + 's');
+  // A kind's switch: "Tasks due" for a kind marked on a day, "Polls closing" for one marked at a time.
+  // The word is the kind's (`due`: dated by a due day, else by a moment), never one marker's allDay.
+  const markerKindLabel = (kindKey, m) => `${plural(kindNames.get(kindKey) || (m.kind.charAt(0).toUpperCase() + m.kind.slice(1)))} ${m.due === true ? 'due' : 'closing'}`;
+  function takeMarkers(list) {
+    markerItems.clear();
+    let newKind = false;
+    for (const m of list) {
+      const ref = m && m.ref;
+      if (!ref || typeof ref.module !== 'string' || typeof ref.kind !== 'string' || typeof ref.id !== 'string' || !m.module || typeof m.module.id !== 'string') continue;
+      const allDay = m.allDay === true;
+      if (allDay ? !(typeof m.start === 'string' && DAY_RE.test(m.start)) : !Number.isFinite(m.start)) continue;
+      const kindKey = `${m.module.id}:${m.kind}`;
+      const tint = TINTS.includes(m.module.color) ? m.module.color : null;
+      const key = `marker:${ref.module}:${ref.kind}:${ref.scope}:${ref.space || ''}:${ref.id}`;
+      const title = String(m.title || 'Untitled').slice(0, 200);
+      markerItems.set(key, { key, scope: 'marker', marker: m, kindKey, tint, due: m.due === true, ev: { title, allDay, start: m.start, end: null, repeat: null } });
+      if (!markerKinds.has(kindKey)) {
+        markerKinds.set(kindKey, { id: kindKey, label: markerKindLabel(kindKey, m), icon: typeof m.module.icon === 'string' ? m.module.icon : '', tint });
+        newKind = true;
+      }
+      // The icon comes with the marker as SVG (a guest cannot ask the host for icons); asked for only when it does not.
+      if (typeof m.module.icon === 'string' && typeof m.module.svg === 'string' && m.module.svg.includes('<svg') && !markerIcons.get(m.module.icon)) markerIcons.set(m.module.icon, m.module.svg);
+      else wantIcon(m.module.icon);
+    }
+    if (newKind) tellMarkerKinds();
+  }
+  if (showsMarkers) host.on('markers', () => askMarkers(true));
+
+  // Whether a marker shows: its kind on in the filter, and its place (on the environment's page and the destination,
+  // the environment's own and each space, by the filter; in a space there is only the space's).
+  function markerShown(x) {
+    if (hiddenMarkers.has(x.kindKey)) return false;
+    const ref = x.marker.ref;
+    if (ref.scope === 'space' && !inSpace) return pickedSpaces ? pickedSpaces.has(ref.space) : !hiddenSpaces.has(ref.space);
+    if (ref.scope === 'environment' && hideOwn) return false;
+    return true;
+  }
+  // Past: a day before today (an overdue task, until it is ticked done), or a time gone by (a closed poll).
+  const markerPast = (x) => (x.ev.allDay ? x.ev.start < ymd(new Date()) : x.ev.start <= Date.now());
+  // The module's icon, as inline SVG (a frame cannot load the icon font), asked for once.
+  function wantIcon(name) {
+    if (typeof name !== 'string' || !/^[a-z0-9-]{1,40}$/.test(name) || markerIcons.has(name) || !host.ui.icon) return;
+    markerIcons.set(name, '');
+    host.ui.icon(name).then((svg) => {
+      if (typeof svg !== 'string' || !svg.includes('<svg')) return;
+      markerIcons.set(name, svg);
+      if (loaded) render();
+    }).catch(() => {});
+  }
+  const markerIconHtml = (x) => {
+    const svg = markerIcons.get(x.marker.module.icon);
+    return svg ? `<span class="mi" aria-hidden="true">${svg}</span>` : '';
+  };
+  const markerSpaceIcon = (x) => (x.marker.ref.scope === 'space' && !inSpace ? spaceIcon({ scope: 'spaces', spaceId: x.marker.ref.space }) : '');
+  const tintClass = (x) => (x.tint ? ` tint-${x.tint}` : '');
+  // The words are the kind's. Due on a day: the title alone, or "Due 6:00 PM: Pack the bags" with a time. Closing at a
+  // moment: "Closes 6:00 PM: Where for dinner?", "Closed" once past, and "Closes: ..." on a day with no time.
+  function markerText(x, start, past) {
+    if (x.due) return x.ev.allDay ? x.ev.title : `Due ${timeText(start)}: ${x.ev.title}`;
+    return `${past ? 'Closed' : 'Closes'}${x.ev.allDay ? '' : ` ${timeText(start)}`}: ${x.ev.title}`;
+  }
+  function markerTip(x, past) {
+    const name = x.marker.module && x.marker.module.name ? String(x.marker.module.name) : '';
+    const late = x.due && past ? ' (overdue)' : '';
+    return `${markerText(x, startOf(x.ev), past)}${late}${name ? ` - open in ${name}` : ''}`;
+  }
+  function markerChipHtml(x, start) {
+    const past = markerPast(x);
+    return `<button type="button" class="chip marker${past ? ' past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}">${markerIconHtml(x)}${markerSpaceIcon(x)}${esc(markerText(x, start, past))}</button>`;
+  }
+  function markerItemHtml(x, start, agenda) {
+    const past = markerPast(x);
+    const said = x.due ? (past ? 'Overdue' : 'Due') : past ? 'Closed' : 'Closes';
+    const when = x.ev.allDay ? said : `${said} ${timeText(start)}`;
+    const r = x.marker.ref.scope === 'space' && !inSpace ? spaceInfo.get(x.marker.ref.space) : null;
+    const name = x.marker.module && x.marker.module.name ? String(x.marker.module.name) : '';
+    return `<button type="button" class="item marker${past ? ' past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}"><span class="when">${esc(when)}</span>
+      <span class="what"><strong>${markerIconHtml(x)}${agenda ? markerSpaceIcon(x) : ''}${esc(x.ev.title)}${name ? `<span class="tag">${esc(name)}</span>` : ''}${!agenda && r ? `<span class="tag space">${spaceIcon({ scope: 'spaces', spaceId: r.id })} ${esc(r.name)}</span>` : ''}</strong></span></button>`;
+  }
+  // A marker opens its object in its own module, as a link does; Ctrl or Cmd asks for a new tab where the page can.
+  function openMarker(key, e) {
+    const x = markerItems.get(key);
+    if (!x) return;
+    host.objects.open(x.marker.ref, { newTab: Boolean(e && (e.ctrlKey || e.metaKey)) }).catch((err) => note(err.message, true));
+  }
+
+  // The kinds of markers, for the filter: the environment's page draws them in its row, a space in the toolbar's
+  // menu, and as the destination's calendar the page's filter holds them (told here; the page tells every part).
+  function tellMarkerKinds() {
+    if (part === 'main' && host.destination) {
+      host.destination.set({ markerKinds: [...markerKinds.values()].slice(0, 20).map((k) => ({ id: k.id, label: k.label, icon: k.icon, tint: k.tint })) }).catch(() => {});
+    }
+    showMarkerMenu();
+  }
+  let markerButton = null;
+  function showMarkerMenu() {
+    if (part || !inSpace || !markerKinds.size || !host.ui.toolbarButton) return;
+    const on = hiddenMarkers.size > 0;
+    if (markerButton) { markerButton.set({ on }); return; }
+    markerButton = host.ui.toolbarButton({ id: 'markers', label: 'Show', icon: 'filter', on, onClick: openMarkerMenu });
+  }
+  function toggleMarkerKind(id) {
+    if (hiddenMarkers.has(id)) hiddenMarkers.delete(id); else hiddenMarkers.add(id);
+    if (MARKERS_OFF_KEY) {
+      try { localStorage.setItem(MARKERS_OFF_KEY, JSON.stringify([...hiddenMarkers])); } catch (err) { /* not remembered */ }
+    }
+    if (markerButton) markerButton.set({ on: hiddenMarkers.size > 0 });
+    render();
+  }
+  // Under the Show button: the toolbar's click says where the button starts across the module (`x`); at the right
+  // edge where the host does not say.
+  function openMarkerMenu(e) {
+    const items = [...markerKinds.values()].map((k) => {
+      const shown = !hiddenMarkers.has(k.id);
+      return {
+        id: `marker:${k.id}`,
+        label: k.label,
+        hint: shown ? 'Shown' : 'Hidden',
+        icon: shown ? 'square-check' : 'square',
+        regular: !shown,
+        ...(k.tint ? { iconColor: `var(--tint-${k.tint})` } : {}),
+        onClick: () => toggleMarkerKind(k.id),
+      };
+    });
+    host.menu.show({ id: 'markers', at: { x: e && Number.isFinite(e.x) ? e.x : 100000, y: 4 }, items });
+  }
+
+  // On the environment page, a row of the viewer's spaces to show or hide, then the kinds of markers ("Tasks due"). As
+  // a part, the page's filter does this; in a space the kinds of markers are in the toolbar's menu (showMarkerMenu).
   function renderFilters() {
     const box = $('filters');
-    box.hidden = Boolean(part) || (spaceInfo.size === 0 && externalCalendars.size === 0);
+    const kinds = inSpace ? [] : [...markerKinds.values()];
+    box.hidden = Boolean(part) || (spaceInfo.size === 0 && externalCalendars.size === 0 && kinds.length === 0);
     if (box.hidden) return;
-    const keep = root.activeElement && root.activeElement.closest && root.activeElement.closest('#filters [data-space], #filters [data-external]');
-    const kept = keep ? (keep.dataset.space ? `[data-space="${keep.dataset.space}"]` : `[data-external="${keep.dataset.external}"]`) : '';
+    const keep = root.activeElement && root.activeElement.closest && root.activeElement.closest('#filters [data-space], #filters [data-external], #filters [data-marker-kind]');
+    const kept = !keep ? '' : keep.dataset.space ? `[data-space="${keep.dataset.space}"]` : keep.dataset.markerKind ? `[data-marker-kind="${keep.dataset.markerKind}"]` : `[data-external="${keep.dataset.external}"]`;
     box.innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('')
+      + kinds.map((k) => `<button type="button" class="filter marker${k.tint ? ` tint-${k.tint}` : ''} ${hiddenMarkers.has(k.id) ? '' : 'on'}" data-marker-kind="${esc(k.id)}" aria-pressed="${!hiddenMarkers.has(k.id)}" title="${hiddenMarkers.has(k.id) ? 'Show' : 'Hide'} ${esc(k.label)}">${markerIcons.get(k.icon) ? `<span class="mi" aria-hidden="true">${markerIcons.get(k.icon)}</span>` : ''}${esc(k.label)}</button>`).join('')
       + [...externalCalendars.values()].map((c) => `<button type="button" class="filter ext ext-${c.tint} ${hiddenExternal.has(c.id) ? '' : 'on'}" data-external="${esc(c.id)}" aria-pressed="${!hiddenExternal.has(c.id)}" title="${hiddenExternal.has(c.id) ? 'Show' : 'Hide'} ${esc(c.name)}, only you see it"><span class="dot" aria-hidden="true"></span> ${esc(c.name)}</button>`).join('');
     if (kept) { const again = box.querySelector(kept); if (again) again.focus(); }
   }
   $('filters').addEventListener('click', (e) => {
+    const mk = e.target.closest('[data-marker-kind]');
+    if (mk) {
+      toggleMarkerKind(mk.dataset.markerKind);
+      return;
+    }
     const ext = e.target.closest('[data-external]');
     if (ext) {
       if (hiddenExternal.has(ext.dataset.external)) hiddenExternal.delete(ext.dataset.external); else hiddenExternal.add(ext.dataset.external);
@@ -846,6 +1048,10 @@
       hiddenExternal.clear();
       for (const id of st.externalOff) hiddenExternal.add(String(id));
     }
+    if (Array.isArray(st.markersOff)) {
+      hiddenMarkers.clear();
+      for (const id of st.markersOff) hiddenMarkers.add(String(id));
+    }
     if (part === 'main') {
       if (PART_VIEWS.includes(st.view)) view = st.view;
       // The day the page opens on (a link to a day, say); after that the calendar says which day is selected.
@@ -957,6 +1163,12 @@
     });
   }
   $('body').addEventListener('click', (e) => {
+    // A marker opens its object in its own module; it is never edited here.
+    const marker = e.target.closest('[data-marker]');
+    if (marker) {
+      openMarker(marker.dataset.marker, e);
+      return;
+    }
     const open = e.target.closest('[data-open]');
     if (open) {
       const x = events.get(open.dataset.open);
@@ -1019,6 +1231,15 @@
   render();
   loaded = true;
   askExternal(false);
+  askMarkers(false);
+  // A poll's closing time passing, or midnight making a task overdue, dims its marker without anyone asking.
+  // Stopped once this module is closed (in the page, its elements go and the timer would draw into nothing).
+  let pastSeen = '';
+  const pastTimer = setInterval(() => {
+    if (!$('app')) return void clearInterval(pastTimer);
+    const now = [...markerItems.values()].map(markerPast).join('');
+    if (now !== pastSeen) { pastSeen = now; if (markerItems.size) render(); }
+  }, 60000);
   if (waitingRef) {
     const ref = waitingRef;
     waitingRef = null;
@@ -1055,5 +1276,5 @@
     }
   }
   announceEnded();
-  setInterval(announceEnded, 60000);
+  const announceTimer = setInterval(() => { if (!$('app')) return void clearInterval(announceTimer); announceEnded(); }, 60000);
 })();

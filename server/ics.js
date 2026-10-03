@@ -122,18 +122,21 @@ function readDated(value, dated, tz) {
     const [hh, mi] = time.split(':').map(Number);
     return { title, allDay: false, start: instantOfWall(y, m, d, hh, mi, tz), end: null, repeat };
   }
+  // An instant is a date or date-time string, or a number of milliseconds (a poll's `closesAt`,
+  // plan-calendar-markers.md).
   const start = v[dated.start];
   const end = dated.end ? v[dated.end] : null;
+  const msOf = (x) => (typeof x === 'number' ? (Number.isFinite(x) && Math.abs(x) <= 8.64e15 ? x : NaN) : typeof x === 'string' ? Date.parse(x) : NaN);
   const whole = (dated.allDay && v[dated.allDay] === true) || (typeof start === 'string' && YMD.test(start));
   if (whole) {
-    const day = typeof start === 'string' ? (validYmd(start) ? start : (Number.isNaN(Date.parse(start)) ? null : ymdOf(Date.parse(start)))) : null;
+    const day = typeof start === 'string' && validYmd(start) ? start : (Number.isNaN(msOf(start)) ? null : ymdOf(msOf(start)));
     if (!day) return null;
     const last = typeof end === 'string' && validYmd(end) && end >= day ? end : null;
     return { title, allDay: true, start: day, end: last, repeat };
   }
-  if (typeof start !== 'string' || Number.isNaN(Date.parse(start))) return null;
-  const startMs = Date.parse(start);
-  const endMs = typeof end === 'string' && !Number.isNaN(Date.parse(end)) && Date.parse(end) > startMs ? Date.parse(end) : null;
+  const startMs = msOf(start);
+  if (Number.isNaN(startMs)) return null;
+  const endMs = !Number.isNaN(msOf(end)) && msOf(end) > startMs ? msOf(end) : null;
   return { title, allDay: false, start: startMs, end: endMs, repeat };
 }
 

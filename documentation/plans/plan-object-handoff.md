@@ -5,7 +5,7 @@ experience-design builds the modules' mapping, the SDK helpers, Chat's import pr
 content-manager documents.
 
 **Status:** approved by Thomas, 2026-10-03, with every open question of the draft answered as recommended (decisions 8 to
-19); not built. From two GitHub issues that share one question: what each module accepts,
+19); step 1 built 2026-10-03, the rest not built. From two GitHub issues that share one question: what each module accepts,
 in which shape, and how content maps into its fields.
 
 - #182, the import from another AI. Thomas: "our prompt needs to include instructions for ANYTHING we support
@@ -452,6 +452,13 @@ Nothing stored or linked breaks:
 
 1. **server-development: the catalogue.** `KINDS`, `cleanDetails`, `when` and `point` parsing, `content` optional with
    details, `image` dropped from imports, `schema()`. `tools/check-object-format.mjs` gains the cases below.
+   *Built 2026-10-03.* In `server/object-format.js` (`TRAVEL_KINDS`, `KINDS`, `HANDOFF_KINDS`, `DETAILS`,
+   `cleanDetails`); `image` is kept only when `cleanObject` is called with `handoff`. The schema points each kind's
+   `details` at a `details-<kind>` definition through `if`/`then` in `allOf`, rather than the `oneOf` written above.
+   Chat's **Keep** now sends only a travel kind to the typed keeper (`keeperFor` in `public/chat-input.js`), so the
+   five new kinds go to the note keeper until step 9. Checked by `tools/check-object-format.mjs` (11 new cases) and
+   `tools/check-chat-page.mjs`; not verified in a browser. The contract is in
+   [api-modules](../api/api-modules.md), "The objects format".
 2. **server-development: declarations.** `takes` and the `object` type in `cleanBus`; `object` in `busInput`; `takes`
    and the permission-aware `may` on `GET .../actions`. `tools/check-modules.mjs` and a curl check.
 3. **server-development: the prompt.** `objectRule` from the enabled modules' `takes`; `/ai` and the copied

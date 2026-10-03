@@ -1,7 +1,7 @@
 {
   "id": "polls",
   "name": "Polls",
-  "version": "1.12.21",
+  "version": "1.13.0",
   "icon": "square-poll-vertical",
   "color": "purple",
   "description": "Quick polls and votes for the whole {environment} and for each {space}, with live results.",
@@ -138,8 +138,11 @@
         "key": "poll:{id}",
         "summary": {
           "title": "question",
-          "when": "closesAt"
-        }
+          "when": "closesAt",
+          "done": "closed"
+        },
+        "dated": { "title": "question", "start": "closesAt" },
+        "marker": true
       }
     ],
     "consumes": [

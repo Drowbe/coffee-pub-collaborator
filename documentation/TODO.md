@@ -43,6 +43,8 @@ same setup.
   - Map stays hidden while Maps' map is a file at a web address: only a map file on the server (or the host's folder) counts, though the plan said a web address does too.
   - The destination page reads the Calendar's **Open on** setting by its key (`defaultView` in `KINDS` in `public/destination.js`), so the host page knows one module's setting by name.
   - Manage's reason for Map with no map file reads "Choose a file for "Map files" in Maps' settings first."; the plan had "Choose a map file in Maps' settings first.".
+- **Calendar markers** (#167, [plan-calendar-markers](plans/plan-calendar-markers.md)): built 2026-10-03, steps 1 to 4. Open:
+  - The Calendar's marker switches on the environment's calendar are not remembered after a reload, as that page's space switches are not; Calendar in the top bar remembers them, and a space's Calendar remembers them per space.
 - **The top bar** ([plan-primary-nav](plans/plan-primary-nav.md), approved 2026-10-02): nine steps. Steps 1 (the `home` word and the full list of module pages) and 2 (the bar's layout and moves) are built (2026-10-02), and so is step 2b, the Modules slot leaving the bar (decision 30), and step 3, presence filtered by membership (2026-10-02). Next is the online people widget; then the aside rules, views over the space with the return pill, the visit view and the bell's notifications.
 - **Two-zone nav** (#152, #153, [plan-two-zone-nav](plans/plan-two-zone-nav.md)): built 2026-10-02, steps 1 to 5. Open:
   - For Thomas, choices the plan made that he may overrule: on a phone the top bar shows the page's name as a plain label; a module's tools always go in the space bar's right zone (`zone` ignored); the **Manage** link at the start of the page bar on pages that belong to Manage.
@@ -53,8 +55,7 @@ same setup.
 ## Planned
 
 - **Space calendars** (#179, [plan-space-calendars](plans/plan-space-calendars.md)): approved 2026-10-03, nine steps (0 to 8), none built. A space's own address per person, the environment's published calendar, members' busy times in a space, and setup in Calendar's Configure and a Profile Calendars tab. Step 0 first: Profile's Other calendars form missing after the hook is approved, and the feed's 8 to 24 hours wording.
-- **Calendar markers** (#167, [plan-calendar-markers](plans/plan-calendar-markers.md)): approved 2026-10-03, four steps, none built. Poll closing times and to-do due days on the Calendar as markers that open their object.
-- **Object handoff** (#182, #181, [plan-object-handoff](plans/plan-object-handoff.md)): approved 2026-10-03, ten steps, none built. Per-kind details in the objects format (times, airports, references), a prompt that covers everything that can be imported, each module mapping them into its own fields, missing dates asked for in Chat's import preview, and a working **Send to...** on chat messages.
+- **Object handoff** (#182, #181, [plan-object-handoff](plans/plan-object-handoff.md)): approved 2026-10-03, ten steps; step 1 (per-kind details in the objects format) built 2026-10-03. Left: a prompt that covers everything that can be imported, each module mapping them into its own fields, missing dates asked for in Chat's import preview, and a working **Send to...** on chat messages.
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.

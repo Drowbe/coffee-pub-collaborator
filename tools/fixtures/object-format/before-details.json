@@ -1,0 +1,695 @@
+{
+ "about": "What the objects format gave before details (plan-object-handoff.md, step 1), recorded from the code of that time. Old input must read exactly the same.",
+ "cases": [
+  {
+   "name": "braces-no-title.txt",
+   "file": "braces-no-title.txt",
+   "expect": {
+    "error": [
+     400,
+     "nothing in that could be read as objects: paste the whole answer, with its objects blocks"
+    ]
+   }
+  },
+  {
+   "name": "card-block.txt",
+   "file": "card-block.txt",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "Loose one",
+       "content": "Read only by the loose reading.",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "Loose two",
+       "content": "Also.",
+       "basis": "imported"
+      }
+     ],
+     "found": 2,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "file-ok.json",
+   "file": "file-ok.json",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "File one",
+       "content": "From a file.",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "File two",
+       "content": "Also from a file.",
+       "basis": "imported"
+      }
+     ],
+     "found": 2,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "no-fences.txt",
+   "file": "no-fences.txt",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "hotel",
+       "title": "Casa do Largo",
+       "content": "Small guesthouse in the old town.",
+       "basis": "imported",
+       "kind": "hotel"
+      },
+      {
+       "icon": "utensils",
+       "title": "Bar do Peixe",
+       "content": "Grilled fish on the harbour.",
+       "basis": "imported",
+       "kind": "restaurant"
+      }
+     ],
+     "found": 2,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "objects-array.txt",
+   "file": "objects-array.txt",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "First",
+       "content": "One",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "Second",
+       "content": "Two",
+       "basis": "imported"
+      }
+     ],
+     "found": 2,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "one-object.txt",
+   "file": "one-object.txt",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "One object",
+       "content": "A single object in its own block.",
+       "basis": "imported"
+      }
+     ],
+     "found": 1,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "related-key.json",
+   "file": "related-key.json",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "Related",
+       "content": "A single object with a field of its own that ends in the kind.",
+       "basis": "imported"
+      }
+     ],
+     "found": 1,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "rendered-view.txt",
+   "file": "rendered-view.txt",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "hotel",
+       "title": "Hotel Nova",
+       "content": "Near the station, about 110 a night.",
+       "basis": "imported",
+       "kind": "hotel"
+      },
+      {
+       "icon": "note",
+       "title": "Museum hours",
+       "content": "Closed Mondays.",
+       "basis": "imported"
+      }
+     ],
+     "found": 2,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "three-objects.txt",
+   "file": "three-objects.txt",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "hotel",
+       "title": "Casa do Largo",
+       "content": "Small guesthouse in the old town.",
+       "basis": "imported",
+       "kind": "hotel",
+       "tags": [
+        "faro",
+        "stay"
+       ],
+       "place": {
+        "name": "Faro"
+       },
+       "date": "2026-10-03",
+       "links": [
+        {
+         "title": "Casa",
+         "url": "https://example.com/casa"
+        }
+       ]
+      },
+      {
+       "icon": "utensils",
+       "title": "Bar do Peixe",
+       "content": "Grilled fish on the harbour.",
+       "basis": "imported",
+       "kind": "restaurant",
+       "place": {
+        "name": "Faro"
+       }
+      },
+      {
+       "icon": "note",
+       "title": "Visa reminder",
+       "content": "Check passport validity before you book.",
+       "basis": "imported"
+      }
+     ],
+     "found": 3,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "utf8-sample.json",
+   "file": "utf8-sample.json",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "Cafe Faro",
+       "content": "A cafe on the square.",
+       "basis": "imported"
+      }
+     ],
+     "found": 1,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "full-flight",
+   "text": "{\"icon\":\"plane\",\"kind\":\"flight\",\"title\":\"LIS to FAO\",\"content\":\"Morning **flight**.\\n\\n- bag\\n- seat\",\"tags\":[\"Air\",\"tap\",\"tap\",\"a b\",\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"six\",\"seven\"],\"place\":{\"name\":\"Lisbon <b>airport</b>\",\"lat\":38.7742219,\"lng\":-9.1342},\"date\":\"2026-10-03\",\"links\":[{\"title\":\"TAP\",\"url\":\"https://flytap.example/a?b=1\"},{\"url\":\"http://x.example\"}],\"time\":\"12:50\",\"airline\":\"TAP\"}",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "plane",
+       "title": "LIS to FAO",
+       "content": "Morning **flight**.\n\n- bag\n- seat",
+       "basis": "imported",
+       "kind": "flight",
+       "tags": [
+        "air",
+        "tap",
+        "ab",
+        "xxxxxxxxxxxxxxxxxxxxxxxx",
+        "six"
+       ],
+       "place": {
+        "name": "Lisbon airport",
+        "lat": 38.774222,
+        "lng": -9.1342
+       },
+       "date": "2026-10-03",
+       "links": [
+        {
+         "title": "TAP",
+         "url": "https://flytap.example/a?b=1"
+        },
+        {
+         "title": "x.example",
+         "url": "http://x.example/"
+        }
+       ]
+      }
+     ],
+     "found": 1,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "every-old-kind",
+   "text": "[{\"kind\":\"flight\",\"title\":\"T0\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"train\",\"title\":\"T1\",\"content\":\"c\",\"icon\":\"bed\"},{\"kind\":\"bus\",\"title\":\"T2\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"ferry\",\"title\":\"T3\",\"content\":\"c\",\"icon\":\"bed\"},{\"kind\":\"car\",\"title\":\"T4\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"hotel\",\"title\":\"T5\",\"content\":\"c\",\"icon\":\"bed\"},{\"kind\":\"restaurant\",\"title\":\"T6\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"cafe\",\"title\":\"T7\",\"content\":\"c\",\"icon\":\"bed\"},{\"kind\":\"bar\",\"title\":\"T8\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"sight\",\"title\":\"T9\",\"content\":\"c\",\"icon\":\"bed\"},{\"kind\":\"museum\",\"title\":\"T10\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"tour\",\"title\":\"T11\",\"content\":\"c\",\"icon\":\"bed\"},{\"kind\":\"show\",\"title\":\"T12\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"nonsense\",\"title\":\"T13\",\"content\":\"c\",\"icon\":\"bed\"},{\"kind\":\"Flight\",\"title\":\"T14\",\"content\":\"c\",\"icon\":\"nope\"},{\"kind\":\"\",\"title\":\"T15\",\"content\":\"c\",\"icon\":\"bed\"}]",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "T0",
+       "content": "c",
+       "basis": "imported",
+       "kind": "flight"
+      },
+      {
+       "icon": "bed",
+       "title": "T1",
+       "content": "c",
+       "basis": "imported",
+       "kind": "train"
+      },
+      {
+       "icon": "note",
+       "title": "T2",
+       "content": "c",
+       "basis": "imported",
+       "kind": "bus"
+      },
+      {
+       "icon": "bed",
+       "title": "T3",
+       "content": "c",
+       "basis": "imported",
+       "kind": "ferry"
+      },
+      {
+       "icon": "note",
+       "title": "T4",
+       "content": "c",
+       "basis": "imported",
+       "kind": "car"
+      },
+      {
+       "icon": "bed",
+       "title": "T5",
+       "content": "c",
+       "basis": "imported",
+       "kind": "hotel"
+      },
+      {
+       "icon": "note",
+       "title": "T6",
+       "content": "c",
+       "basis": "imported",
+       "kind": "restaurant"
+      },
+      {
+       "icon": "bed",
+       "title": "T7",
+       "content": "c",
+       "basis": "imported",
+       "kind": "cafe"
+      },
+      {
+       "icon": "note",
+       "title": "T8",
+       "content": "c",
+       "basis": "imported",
+       "kind": "bar"
+      },
+      {
+       "icon": "bed",
+       "title": "T9",
+       "content": "c",
+       "basis": "imported",
+       "kind": "sight"
+      },
+      {
+       "icon": "note",
+       "title": "T10",
+       "content": "c",
+       "basis": "imported",
+       "kind": "museum"
+      },
+      {
+       "icon": "bed",
+       "title": "T11",
+       "content": "c",
+       "basis": "imported",
+       "kind": "tour"
+      },
+      {
+       "icon": "note",
+       "title": "T12",
+       "content": "c",
+       "basis": "imported",
+       "kind": "show"
+      },
+      {
+       "icon": "bed",
+       "title": "T13",
+       "content": "c",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "T14",
+       "content": "c",
+       "basis": "imported"
+      },
+      {
+       "icon": "bed",
+       "title": "T15",
+       "content": "c",
+       "basis": "imported"
+      }
+     ],
+     "found": 16,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "bad-dates",
+   "text": "[{\"title\":\"D0\",\"content\":\"c\",\"date\":\"2026-02-30\"},{\"title\":\"D1\",\"content\":\"c\",\"date\":\"2026-2-3\"},{\"title\":\"D2\",\"content\":\"c\",\"date\":\"2026-02-03T10:00\"},{\"title\":\"D3\",\"content\":\"c\",\"date\":20260203},{\"title\":\"D4\",\"content\":\"c\",\"date\":\"2024-02-29\"}]",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "D0",
+       "content": "c",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "D1",
+       "content": "c",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "D2",
+       "content": "c",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "D3",
+       "content": "c",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "D4",
+       "content": "c",
+       "basis": "imported",
+       "date": "2024-02-29"
+      }
+     ],
+     "found": 5,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "missing-parts",
+   "text": "[{\"content\":\"no title\"},{\"title\":\"No content\"},{\"title\":\"  \",\"content\":\"blank\"},{\"title\":\"Ok\",\"content\":\"yes\"},7,null,[\"x\"]]",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "Ok",
+       "content": "yes",
+       "basis": "imported"
+      }
+     ],
+     "found": 7,
+     "dropped": [
+      {
+       "at": 1,
+       "why": "it has no title"
+      },
+      {
+       "at": 2,
+       "why": "it has no content"
+      },
+      {
+       "at": 3,
+       "why": "it has no title"
+      },
+      {
+       "at": 5,
+       "why": "not an object"
+      },
+      {
+       "at": 6,
+       "why": "not an object"
+      },
+      {
+       "at": 7,
+       "why": "not an object"
+      }
+     ],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "place-shapes",
+   "text": "[{\"title\":\"P1\",\"content\":\"c\",\"place\":\"Faro\"},{\"title\":\"P2\",\"content\":\"c\",\"place\":{\"name\":\"Faro\",\"lat\":91,\"lng\":0}},{\"title\":\"P3\",\"content\":\"c\",\"place\":{\"lat\":1,\"lng\":2}}]",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "note",
+       "title": "P1",
+       "content": "c",
+       "basis": "imported"
+      },
+      {
+       "icon": "note",
+       "title": "P2",
+       "content": "c",
+       "basis": "imported",
+       "place": {
+        "name": "Faro"
+       }
+      },
+      {
+       "icon": "note",
+       "title": "P3",
+       "content": "c",
+       "basis": "imported"
+      }
+     ],
+     "found": 3,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "old-file-with-kinds",
+   "text": "{\"format\":\"objects\",\"formatVersion\":1,\"objects\":[{\"icon\":\"plane\",\"kind\":\"flight\",\"title\":\"LIS to FAO\",\"content\":\"Morning **flight**.\\n\\n- bag\\n- seat\",\"tags\":[\"Air\",\"tap\",\"tap\",\"a b\",\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"six\",\"seven\"],\"place\":{\"name\":\"Lisbon <b>airport</b>\",\"lat\":38.7742219,\"lng\":-9.1342},\"date\":\"2026-10-03\",\"links\":[{\"title\":\"TAP\",\"url\":\"https://flytap.example/a?b=1\"},{\"url\":\"http://x.example\"}],\"time\":\"12:50\",\"airline\":\"TAP\"},{\"title\":\"Hotel Nova\",\"content\":\"Two nights.\",\"kind\":\"hotel\",\"date\":\"2026-10-04\"}]}",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "plane",
+       "title": "LIS to FAO",
+       "content": "Morning **flight**.\n\n- bag\n- seat",
+       "basis": "imported",
+       "kind": "flight",
+       "tags": [
+        "air",
+        "tap",
+        "ab",
+        "xxxxxxxxxxxxxxxxxxxxxxxx",
+        "six"
+       ],
+       "place": {
+        "name": "Lisbon airport",
+        "lat": 38.774222,
+        "lng": -9.1342
+       },
+       "date": "2026-10-03",
+       "links": [
+        {
+         "title": "TAP",
+         "url": "https://flytap.example/a?b=1"
+        },
+        {
+         "title": "x.example",
+         "url": "http://x.example/"
+        }
+       ]
+      },
+      {
+       "icon": "note",
+       "title": "Hotel Nova",
+       "content": "Two nights.",
+       "basis": "imported",
+       "kind": "hotel",
+       "date": "2026-10-04"
+      }
+     ],
+     "found": 2,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  },
+  {
+   "name": "fenced-answer",
+   "text": "Here is your trip.\n```objects\n[{\"icon\":\"plane\",\"kind\":\"flight\",\"title\":\"LIS to FAO\",\"content\":\"Morning **flight**.\\n\\n- bag\\n- seat\",\"tags\":[\"Air\",\"tap\",\"tap\",\"a b\",\"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\",\"six\",\"seven\"],\"place\":{\"name\":\"Lisbon <b>airport</b>\",\"lat\":38.7742219,\"lng\":-9.1342},\"date\":\"2026-10-03\",\"links\":[{\"title\":\"TAP\",\"url\":\"https://flytap.example/a?b=1\"},{\"url\":\"http://x.example\"}],\"time\":\"12:50\",\"airline\":\"TAP\"},{\"title\":\"Dinner\",\"content\":\"At 8.\",\"kind\":\"restaurant\",\"basis\":\"both\",\"sources\":[1]}]\n```\nEnjoy.",
+   "expect": {
+    "out": {
+     "objects": [
+      {
+       "icon": "plane",
+       "title": "LIS to FAO",
+       "content": "Morning **flight**.\n\n- bag\n- seat",
+       "basis": "imported",
+       "kind": "flight",
+       "tags": [
+        "air",
+        "tap",
+        "ab",
+        "xxxxxxxxxxxxxxxxxxxxxxxx",
+        "six"
+       ],
+       "place": {
+        "name": "Lisbon airport",
+        "lat": 38.774222,
+        "lng": -9.1342
+       },
+       "date": "2026-10-03",
+       "links": [
+        {
+         "title": "TAP",
+         "url": "https://flytap.example/a?b=1"
+        },
+        {
+         "title": "x.example",
+         "url": "http://x.example/"
+        }
+       ]
+      },
+      {
+       "icon": "note",
+       "title": "Dinner",
+       "content": "At 8.",
+       "basis": "imported",
+       "kind": "restaurant"
+      }
+     ],
+     "found": 2,
+     "dropped": [],
+     "over": 0
+    }
+   }
+  }
+ ],
+ "answers": [
+  {
+   "name": "ask-with-sources",
+   "count": 3,
+   "text": "Answer [1].\n```objects\n[{\"icon\":\"hotel\",\"kind\":\"hotel\",\"title\":\"Casa\",\"content\":\"Stay *here*.\",\"basis\":\"items\",\"sources\":[1,3,3,9]},{\"title\":\"Tip\",\"content\":\"Go early.\",\"basis\":\"imported\"}]\n```",
+   "expect": {
+    "text": "Answer [1].\n\n{{summary:0}}\n{{summary:1}}",
+    "summaries": [
+     {
+      "icon": "hotel",
+      "title": "Casa",
+      "content": "Stay *here*.",
+      "basis": "items",
+      "kind": "hotel",
+      "sources": [
+       1,
+       3
+      ]
+     },
+     {
+      "icon": "note",
+      "title": "Tip",
+      "content": "Go early.",
+      "basis": "items"
+     }
+    ]
+   }
+  },
+  {
+   "name": "loose-labels",
+   "count": 0,
+   "text": "```json\n{\"title\":\"A\",\"content\":\"a\",\"kind\":\"tour\",\"date\":\"2026-10-05\"}\n```\n```\n{\"title\":\"B\",\"content\":\"b\"}\n```\n```summary\n[{\"title\":\"C\"}]\n```",
+   "expect": {
+    "text": "{{summary:0}}\n\n\n{{summary:1}}\n\n```summary\n[{\"title\":\"C\"}]\n```",
+    "summaries": [
+     {
+      "icon": "note",
+      "title": "A",
+      "content": "a",
+      "basis": "general",
+      "kind": "tour",
+      "date": "2026-10-05"
+     },
+     {
+      "icon": "note",
+      "title": "B",
+      "content": "b",
+      "basis": "general"
+     }
+    ]
+   }
+  }
+ ],
+ "prompts": {
+  "instructions": "I keep my research in Testname. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one single fenced block (exactly one, never one per object) whose JSON is an array of every object worth keeping (at most 50):\n```objects\n[{\"icon\":\"note\",\"kind\":\"optional\",\"title\":\"a short title\",\"content\":\"the text to keep; plain prose, or simple Markdown (headings, **bold**, *italic*, lists, links) if that reads better\",\"tags\":[\"one\",\"word\"],\"place\":{\"name\":\"optional\"},\"date\":\"optional YYYY-MM-DD\",\"links\":[{\"title\":\"optional\",\"url\":\"https://...\"}]}]\n```\nThe icon is one of: note, lightbulb, location-dot, calendar-days, link, star, bed, hotel, utensils, ticket, train, plane, car, ship, bus, camera, circle-info, mug-hot, landmark, mountain, umbrella-beach, sun, moon, bell, clock, wallet, triangle-exclamation, circle-check, heart, users, bag-shopping, music, map, suitcase, hourglass-half, flag, magnifying-glass, list-check, scale-balanced, coins. If the object is plainly one of these everyday things, set \"kind\" to it (leave it out otherwise): flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, tour, show. When asked for several distinct things (an itinerary, a list of options, \"find me three hotels\"), put one object in that array per thing instead of folding them into prose or writing another fence; a single question still gets one object in the array. Keep each title under 80 characters and each content under 6000. Links must start with http:// or https://. Leave out the optional parts you do not need, and add no other fields.\nIf I ask for a file instead, write one JSON file named <something>.objects.json holding {\"format\":\"objects\",\"formatVersion\":1,\"objects\":[...]}, with the same objects in that one list. Do not write a separate file or a separate fenced block for each object.",
+  "summaryRule": "Answer this question. Why?\nAlways include at least one object: the part of your answer worth keeping, written as a single fenced block (exactly one, never one per object) whose JSON is an array of every object worth keeping (at most 20):\n```objects\n[{\"icon\":\"note\",\"kind\":\"optional\",\"title\":\"a short title\",\"content\":\"the text to keep; plain prose, or simple Markdown (headings, **bold**, *italic*, lists, links) if that reads better\",\"tags\":[\"one\",\"word\"],\"place\":{\"name\":\"optional\"},\"date\":\"optional YYYY-MM-DD\",\"links\":[{\"title\":\"optional\",\"url\":\"https://...\"}],\"basis\":\"general\",\"sources\":[1]}]\n```\nThe icon is one of: note, lightbulb, location-dot, calendar-days, link, star, bed, hotel, utensils, ticket, train, plane, car, ship, bus, camera, circle-info, mug-hot, landmark, mountain, umbrella-beach, sun, moon, bell, clock, wallet, triangle-exclamation, circle-check, heart, users, bag-shopping, music, map, suitcase, hourglass-half, flag, magnifying-glass, list-check, scale-balanced, coins. If the object is plainly one of these everyday things, set \"kind\" to it (leave it out otherwise): flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, tour, show. When asked for several distinct things (an itinerary, a list of options, \"find me three hotels\"), put one object in that array per thing instead of folding them into prose or writing another fence; a single question still gets one object in the array. \"basis\" says where the object comes from: \"general\" (your own knowledge), \"items\" (the material) or \"both\". \"sources\" are the item numbers you used. Leave out the optional parts you do not need."
+ }
+}

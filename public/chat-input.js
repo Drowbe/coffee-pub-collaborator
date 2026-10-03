@@ -28,12 +28,38 @@ function keptText(summary, { question, sourceNames } = {}) {
   }
   if (imported) extras.push('External source');
   const suffix = extras.length ? `\n\n${extras.join('\n')}` : '';
-  let content = String((summary && summary.content) || '').trim();
+  const details = detailLines(summary && summary.details).join('\n');
+  let content = [String((summary && summary.content) || '').trim(), details].filter(Boolean).join('\n\n');
   if (content.length + suffix.length > 8000) content = content.slice(0, Math.max(0, 8000 - suffix.length - 1)) + '…';
   return content + suffix;
 }
 
-function keepInput(summary, question) {
+// An object's details as "Label: value" lines, kept after its content until each receiving module maps them into its own
+// fields (plan-object-handoff.md, "Nothing is lost"). The label is the field's name in words ("checkIn" is "Check in").
+export function detailLines(details) {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return [];
+  const label = (name) => {
+    const words = name.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+    return words.charAt(0).toUpperCase() + words.slice(1);
+  };
+  const shown = (v) => {
+    if (typeof v === 'boolean') return v ? 'yes' : 'no';
+    if (typeof v === 'number') return String(v);
+    if (typeof v === 'string') return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v) ? v.replace('T', ' ') : v;
+    if (Array.isArray(v)) return v.filter((o) => typeof o === 'string').join(', ');
+    if (v && typeof v === 'object') return v.name && v.code ? `${v.name} (${v.code})` : String(v.name || v.code || '');
+    return '';
+  };
+  const lines = [];
+  for (const [name, v] of Object.entries(details)) {
+    if (name === 'upload') continue;
+    const text = oneLine(shown(v), 300);
+    if (text) lines.push(`${label(name)}: ${text}`);
+  }
+  return lines;
+}
+
+export function keepInput(summary, question) {
   return {
     title: oneLine((summary && summary.title) || '', 120) || 'Untitled',
     body: keptText(summary, { question }),
@@ -43,7 +69,7 @@ function keepInput(summary, question) {
   };
 }
 
-function suggestionInput(summary) {
+export function suggestionInput(summary) {
   return {
     title: oneLine((summary && summary.title) || '', 120) || 'Untitled',
     kind: (summary && summary.kind) || '',
@@ -51,6 +77,16 @@ function suggestionInput(summary) {
     place: (summary && summary.place && summary.place.name) || '',
     date: (summary && summary.date) || '',
   };
+}
+
+// The kinds the typed keeper (acceptSuggestion) gets until actions declare what they take (plan-object-handoff.md):
+// a copy of TRAVEL_KINDS in server/object-format.js, held equal by tools/check-chat-page.mjs. Every other kind (note,
+// link, event, task, poll) goes to the note keeper, as before those kinds existed.
+export const TRAVEL_KINDS = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show'];
+
+// Which keeper an object goes to: the typed one for a travel kind when there is one, else the note keeper.
+export function keeperFor(summary, { note, suggestion } = {}) {
+  return (summary && TRAVEL_KINDS.includes(summary.kind) && suggestion) ? suggestion : note;
 }
 
 function findKeepers(actions) {
@@ -574,8 +610,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
 
   async function keepOne(summary, question, btn) {
     await refreshActions();
-    const { note, suggestion } = findKeepers(lastActions);
-    const placer = (summary.kind && suggestion) ? suggestion : note;
+    const placer = keeperFor(summary, findKeepers(lastActions));
     if (!placer) { setNote('Nothing here can keep that yet.'); return; }
     const input = placer.name === 'acceptSuggestion' ? suggestionInput(summary) : keepInput(summary, question);
     try {
@@ -708,6 +743,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
       const phrase = (why, n) => {
         if (why === 'it has no title') return n === 1 ? '1 had no title' : `${n} had no title`;
         if (why === 'it has no content') return n === 1 ? '1 had no content' : `${n} had no content`;
+        if (why === 'it is a picture') return n === 1 ? "1 was a picture, which can't be imported" : `${n} were pictures, which can't be imported`;
         if (why === 'not valid JSON') return n === 1 ? '1 was not valid JSON' : `${n} were not valid JSON`;
         if (why === `not ${word('object', { a: true })}`) return n === 1 ? `1 was not ${word('object', { a: true })}` : `${n} were not ${word('object', { many: true })}`;
         return `${n} ${why}`;
@@ -787,8 +823,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
       const left = ticked();
       if (!left.length) return;
       const counts = new Map();
+      const keepers = findKeepers(lastActions);
       for (const r of left) {
-        const k = r.obj.kind && findKeepers(lastActions).suggestion ? r.obj.kind : 'note';
+        const k = keepers.suggestion && keeperFor(r.obj, keepers) === keepers.suggestion ? r.obj.kind : 'note';
         counts.set(k, (counts.get(k) || 0) + 1);
       }
       const what = [...counts].map(([k, n]) => `${n} ${n === 1 ? k : (KIND_PLURAL[k] || `${k}s`)}`).join(' and ');

@@ -22,7 +22,9 @@ const onPhone = () => phoneQuery.matches;
 // What each destination's page bar holds. `views`: the view switch (none: no switch). `phoneView`: the first view on a
 // phone. `firstView(values)`: the first view on a wider screen, from the main part's own settings (the calendar's
 // "Open on": Week for Week, Month otherwise). `mine`: the filter has the person's own first (Mine). `external`: the
-// filter lists the person's own other calendars after the spaces (plan-google-calendar.md, Part 2), each with its tint. `search`: a search
+// filter lists the person's own other calendars after the spaces (plan-google-calendar.md, Part 2), each with its tint.
+// `markers`: the filter lists the kinds of markers the main part has shown ("Tasks due", "Polls closing";
+// plan-calendar-markers.md), after the spaces, each with its module's icon and tint. `search`: a search
 // field on the right of the page bar, its words by whether the panel's place search is set up (`searchSetUp(values)`,
 // the panel's settings). `initial`: the rest of the state the parts read. `needsWebgl`: the main part draws with WebGL,
 // and without it the panel takes the page's width (the main part shows its own notice above it).
@@ -33,6 +35,7 @@ const KINDS = {
     // Month, Week or Day as "Open on" says; the Agenda (`list`) and an old stored Month + list (`both`) open on Month here.
     firstView: (values) => (values && ['month', 'week', 'day'].includes(values.defaultView) ? values.defaultView : 'month'),
     external: true,
+    markers: true,
   },
   map: {
     views: [],
@@ -71,6 +74,7 @@ function remember(patch) {
 const OWN = ':own';
 const MINE = ':mine'; // the person's own (the map's Mine)
 const EXTERNAL = ':external:'; // one of the person's other calendars, by its id after this
+const MARKER = ':marker:'; // a kind of marker, by its '<module>:<kind>' after this
 // Each other calendar's tint, by its place in the person's list: the same order the Calendar draws them in.
 const EXTERNAL_TINTS = ['blue', 'teal', 'purple', 'green', 'orange'];
 
@@ -85,6 +89,8 @@ let ownOn = true;
 let mineOn = true;
 let externals = []; // the person's other calendars: [{ id, name }], in their order
 const externalOff = new Set(); // other calendars the filter has off
+let markerKinds = []; // the kinds of markers the calendar has shown: [{ id, label, icon, tint }], remembered here
+const markersOff = new Set(); // kinds of markers the filter has off
 let find = 0;
 let filterLabel = '';
 
@@ -125,6 +131,10 @@ async function start() {
   ownOn = saved.ownOff !== true;
   mineOn = saved.mineOff !== true;
   for (const id of Array.isArray(saved.externalOff) ? saved.externalOff : []) if (typeof id === 'string') externalOff.add(id);
+  if (kind.markers) {
+    markerKinds = cleanMarkerKinds(saved.markerKinds);
+    for (const id of Array.isArray(saved.markersOff) ? saved.markersOff : []) if (typeof id === 'string') markersOff.add(id);
+  }
   // Never shown over a call (?from=space in the space page's frame), where others may see the screen.
   if (kind.external && !withinSpacePage()) await loadExternals();
   if (kind.views.some((v) => v.id === saved.view)) view = saved.view;
@@ -154,6 +164,7 @@ async function start() {
       if (key) show(key);
       return;
     }
+    if (kind.markers && Array.isArray(st.markerKinds)) takeMarkerKinds(st.markerKinds);
     const sel = JSON.stringify(st.selected ?? null);
     if (sel === lastSelected) return;
     lastSelected = sel;
@@ -191,7 +202,27 @@ async function start() {
 
 // The filter's choice as the shared state has it: the spaces on, and whether the environment's own are.
 function filterState() {
-  return { ...(kind.mine ? { mine: mineOn } : {}), spaces: spaces.filter((r) => !off.has(r.id)).map((r) => r.id), environment: ownOn, ...(kind.external ? { externalOff: [...externalOff] } : {}) };
+  return { ...(kind.mine ? { mine: mineOn } : {}), spaces: spaces.filter((r) => !off.has(r.id)).map((r) => r.id), environment: ownOn, ...(kind.external ? { externalOff: [...externalOff] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) };
+}
+
+// The kinds of markers, as remembered or as the calendar said (createDestination checked its shape): kept in the order
+// first seen, a kind the calendar names again taking its newer label, icon and tint.
+const MARKER_TINTS = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
+function cleanMarkerKinds(list) {
+  return (Array.isArray(list) ? list : []).filter((k) => k && typeof k.id === 'string' && typeof k.label === 'string' && k.label).slice(0, 20)
+    .map((k) => ({ id: k.id.slice(0, 81), label: k.label.slice(0, 40), icon: typeof k.icon === 'string' ? k.icon : '', tint: MARKER_TINTS.includes(k.tint) ? k.tint : null }));
+}
+let redrawFilter = () => {};
+function takeMarkerKinds(list) {
+  const next = [...markerKinds];
+  for (const k of cleanMarkerKinds(list)) {
+    const at = next.findIndex((x) => x.id === k.id);
+    if (at >= 0) next[at] = k; else next.push(k);
+  }
+  if (JSON.stringify(next) === JSON.stringify(markerKinds)) return;
+  markerKinds = next.slice(0, 20);
+  remember({ markerKinds });
+  redrawFilter();
 }
 
 // The person's own other calendars, for the filter: none while the environment does not allow them.
@@ -329,6 +360,7 @@ function drawPageBar(d) {
       ...(kind.mine ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
       { id: OWN, icon: 'globe', name: environmentName, on: ownOn },
       ...spaces.map((r) => ({ id: r.id, icon: r.icon, name: r.name, on: !off.has(r.id) })),
+      ...(kind.markers ? markerKinds.map((k) => ({ id: `${MARKER}${k.id}`, icon: k.icon, name: k.label, tint: k.tint, on: !markersOff.has(k.id) })) : []),
       ...externals.map((c, i) => ({ id: `${EXTERNAL}${c.id}`, icon: 'calendar', name: c.name, note: 'only you', tint: EXTERNAL_TINTS[i % EXTERNAL_TINTS.length], on: !externalOff.has(c.id) })),
     ], 'dest-filter');
   };
@@ -351,6 +383,15 @@ function drawPageBar(d) {
     }
   };
   toggle.addEventListener('click', () => open(list.hidden));
+  // A kind of marker the calendar shows for the first time: in the list now if it is open, and in the label.
+  redrawFilter = () => {
+    if (!list.hidden) {
+      const at = document.activeElement?.dataset?.destFilter;
+      fill();
+      if (at) [...list.querySelectorAll('input[data-dest-filter]')].find((i) => i.dataset.destFilter === at)?.focus();
+    }
+    paintFilter();
+  };
   wireSwitchList(list);
   list.addEventListener('change', (event) => {
     const input = event.target.closest('input[data-dest-filter]');
@@ -361,9 +402,12 @@ function drawPageBar(d) {
     else if (id.startsWith(EXTERNAL)) {
       if (input.checked) externalOff.delete(id.slice(EXTERNAL.length));
       else externalOff.add(id.slice(EXTERNAL.length));
+    } else if (id.startsWith(MARKER)) {
+      if (input.checked) markersOff.delete(id.slice(MARKER.length));
+      else markersOff.add(id.slice(MARKER.length));
     } else if (input.checked) off.delete(id);
     else off.add(id);
-    remember({ off: [...off], ownOff: !ownOn, mineOff: !mineOn, ...(kind.external ? { externalOff: [...externalOff] } : {}) });
+    remember({ off: [...off], ownOff: !ownOn, mineOff: !mineOn, ...(kind.external ? { externalOff: [...externalOff] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) });
     paintFilter();
     hub.update(filterState());
   });
@@ -400,6 +444,9 @@ function paintFilter() {
   // The person's other calendars are counted apart, never as spaces: "Trips (2 of 3) · Other calendars (1 of 2)".
   const calendarsOn = externals.filter((c) => !externalOff.has(c.id)).length;
   if (calendarsOn < externals.length) filterLabel += ` · Other calendars (${calendarsOn} of ${externals.length})`;
+  // Markers turned off are named: "Trips · Tasks due off".
+  const markersHidden = kind.markers ? markerKinds.filter((k) => markersOff.has(k.id)).map((k) => k.label) : [];
+  if (markersHidden.length) filterLabel += ` · ${markersHidden.join(', ')} off`;
   $('dest-filter-label').textContent = filterLabel;
   $('dest-filter-toggle').title = filterLabel;
   $('dest-filter-toggle').setAttribute('aria-label', filterLabel);

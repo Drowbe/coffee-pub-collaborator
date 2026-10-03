@@ -27,7 +27,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -442,6 +442,45 @@ test('links: the page finds a message\'s link by the server\'s rule, and a live 
   assert.equal(noticePreview({ ...data, preview: { url: 'https://evil.example' } }), null, 'an address its text does not have');
   assert.equal(noticePreview({ ...data, text: 'no link' }), null);
   assert.equal(noticePreview({ ...data, preview: undefined }), null);
+});
+
+// --- Object handoff (plan-object-handoff.md, step 1) ---------------------------------------------------------------
+
+test('Keep: only a travel kind goes to the typed keeper; note, link, event, task and poll stay with the note keeper', () => {
+  const { TRAVEL_KINDS: serverKinds, KINDS } = createRequire(import.meta.url)('../server/object-format.js');
+  assert.deepEqual(TRAVEL_KINDS, serverKinds, 'the page\'s copy matches server/object-format.js');
+  const keepers = { note: { name: 'saveNote' }, suggestion: { name: 'acceptSuggestion' } };
+  for (const kind of TRAVEL_KINDS) assert.equal(keeperFor({ title: 'T', kind }, keepers), keepers.suggestion, kind);
+  for (const kind of KINDS.filter((k) => !TRAVEL_KINDS.includes(k))) assert.equal(keeperFor({ title: 'T', kind }, keepers), keepers.note, kind);
+  for (const kind of [undefined, '', 'image', 'nonsense']) assert.equal(keeperFor({ title: 'T', kind }, keepers), keepers.note, String(kind));
+  assert.equal(keeperFor({ title: 'T', kind: 'flight' }, { note: keepers.note }), keepers.note, 'no typed keeper: the note keeper');
+  assert.equal(keeperFor({ title: 'T', kind: 'note' }, { suggestion: keepers.suggestion }), undefined, 'no note keeper: nothing');
+  assert.equal(keeperFor(null, keepers), keepers.note);
+  // Keep and Keep ticked both choose through keeperFor.
+  assert.match(chat, /const placer = keeperFor\(summary, findKeepers\(lastActions\)\);/);
+  assert.match(chat, /keeperFor\(r\.obj, keepers\) === keepers\.suggestion \? r\.obj\.kind : 'note'/);
+  assert.ok(!/summary\.kind && suggestion/.test(chat), 'no keeper chosen by any kind at all');
+});
+
+test('Keep: details are kept as "Label: value" lines after the content, for either keeper', () => {
+  const { cleanObject } = createRequire(import.meta.url)('../server/object-format.js');
+  const sw = cleanObject({ kind: 'flight', title: 'Southwest 1234', details: {
+    airline: 'Southwest', number: 1234, from: { code: 'MDW', name: 'Chicago Midway' }, to: 'SJC',
+    departs: '2026-11-14T12:50', arrives: '2026-11-14T15:25', minutes: 155, reference: 'ABC123',
+  } }, { imported: true });
+  const lines = ['Airline: Southwest', 'Number: 1234', 'From: Chicago Midway (MDW)', 'To: SJC', 'Departs: 2026-11-14 12:50', 'Arrives: 2026-11-14 15:25', 'Minutes: 155', 'Reference: ABC123'];
+  assert.deepEqual(detailLines(sw.details), lines);
+  assert.equal(suggestionInput(sw).content, `${lines.join('\n')}\n\nExternal source`);
+  assert.equal(keepInput(sw, '').body, `${lines.join('\n')}\n\nExternal source`);
+  const hotel = { title: 'Casa', content: 'Two nights.', kind: 'hotel', details: { checkIn: '2026-11-14', checkOut: '2026-11-16T11:00', guests: 2 } };
+  assert.equal(keepInput(hotel, '').body, 'Two nights.\n\nCheck in: 2026-11-14\nCheck out: 2026-11-16 11:00\nGuests: 2');
+  assert.deepEqual(detailLines({ options: ['Tasca', 'Marisqueira'], multiple: false, allDay: true, upload: '0123456789abcdef01234567' }), ['Options: Tasca, Marisqueira', 'Multiple: no', 'All day: yes']);
+  for (const none of [undefined, null, 'x', [], {}]) assert.deepEqual(detailLines(none), []);
+  // No details: exactly as before.
+  assert.equal(keepInput({ title: 'T', content: 'Just words.' }, '').body, 'Just words.');
+  assert.equal(suggestionInput({ title: 'T', content: 'Just words.', kind: 'tour' }).content, 'Just words.');
+  // A dropped picture gets its own words in the import's summary.
+  assert.match(chat, /if \(why === 'it is a picture'\) return n === 1 \? "1 was a picture, which can't be imported" : `\$\{n\} were pictures, which can't be imported`;/);
 });
 
 console.log(`check-chat-page: OK (${n} tests)`);

@@ -537,6 +537,35 @@ test('calendar asks for the person\'s other calendars with the `external` hook, 
   assert.match(js, /return x && !isExternal\(x\) \?/, 'nor dragged to another module');
 });
 
+test('To-do\'s tasks and Polls\' polls are markers on a calendar, read from the fields each stores; only they are (plan-calendar-markers.md)', () => {
+  const cleaned = (id) => cleanManifest(JSON.parse(fs.readFileSync(path.join(ROOT, 'modules', id, 'module.json'), 'utf8')), { has: () => true });
+  const task = cleaned('todo').refs.produces.find((p) => p.kind === 'task');
+  assert.equal(task.marker, true, 'the task kind has "marker": true');
+  assert.deepEqual(task.dated, { form: 'wall', title: 'title', day: 'due' }, 'a task is a day marker: its title on its due day (YYYY-MM-DD)');
+  assert.equal(task.summary.done, 'done', 'a task ticked done leaves the grid');
+  const poll = cleaned('polls').refs.produces.find((p) => p.kind === 'poll');
+  assert.equal(poll.marker, true, 'the poll kind has "marker": true');
+  assert.deepEqual(poll.dated, { form: 'instant', title: 'question', start: 'closesAt' }, 'a poll is a timed marker: its question at closesAt (milliseconds)');
+  assert.equal(poll.summary.done, 'closed', 'a poll closed by hand (closed: true) has no marker; one closed by its time stays');
+  const todoJs = fs.readFileSync(path.join(ROOT, 'modules/todo/src/todo.js'), 'utf8');
+  assert.match(todoJs, /title: input\.title, notes: input\.notes \|\| '', due: null, remind: false, done: false/, 'To-do stores title, due and done');
+  const pollsJs = fs.readFileSync(path.join(ROOT, 'modules/polls/src/polls.js'), 'utf8');
+  assert.match(pollsJs, /closed: closing, closesAt: closing \? x\.p\.closesAt : null/, 'Polls stores closed and closesAt; closing by hand sets closed');
+  assert.match(pollsJs, /const p = \{\n\s+id: newId\(\),\n\s+question,/, 'and the question as question');
+  const marked = fs.readdirSync(path.join(ROOT, 'modules')).filter((id) => fs.existsSync(path.join(ROOT, 'modules', id, 'module.json')))
+    .flatMap((id) => (cleaned(id).refs?.produces || []).filter((p) => p.marker).map((p) => `${id}:${p.kind}`)).sort();
+  assert.deepEqual(marked, ['polls:poll', 'todo:task']);
+  // The Calendar draws them and never treats one as its own event: not opened in its editor, not dragged, not stored.
+  const js = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.js'), 'utf8');
+  assert.match(js, /host\.objects\.markers\(\{ from: ymd\(want\.from\), to: ymd\(addDays\(want\.to, -1\)\) \}\)/, 'the Calendar asks for the period it shows');
+  assert.match(js, /host\.on\('markers', \(\) => askMarkers\(true\)\)/, 'and asks again on the markers event');
+  assert.match(js, /if \(want\.to - want\.from > 90 \* DAY\) want = need;/, 'never more than the host answers (92 days)');
+  assert.match(js, /host\.objects\.open\(x\.marker\.ref/, 'a marker opens its object in its own module');
+  assert.ok(!/markerItems\.get\([^)]*\)[^;]*openEditor|openEditor\(markerItems/.test(js), 'never in the event editor');
+  assert.ok(!/data-open="\$\{esc\(x\.key\)\}"[^`]*class="chip marker/.test(js) && /class="chip marker[^`]*data-marker=/.test(js), 'a marker chip is data-marker, never data-open (so never dragged or dropped on as an event)');
+  assert.ok(!/host\.storage\.set\([^)]*marker/i.test(js), 'nothing about a marker is stored');
+});
+
 test('a manifest\'s color is one of the eight tints, or none; anything else refuses the install (plan-chat-model.md)', () => {
   const { TINTS } = createRequire(import.meta.url)('../server/modules.js');
   for (const tint of TINTS) assert.equal(cleanManifest({ ...base(), color: tint }, files).color, tint);
@@ -544,6 +573,28 @@ test('a manifest\'s color is one of the eight tints, or none; anything else refu
   for (const bad of ['mauve', '#00ff00', '', 1]) {
     assert.throws(() => cleanManifest({ ...base(), color: bad }, files), (err) => err instanceof ModuleError && err.message === `module.json: "color" must be one of ${TINTS.join(', ')}`);
   }
+});
+
+test('a module\'s timer stops once the module is closed (in the page its elements go, and the timer would draw into nothing)', () => {
+  // Every setInterval in a module's own code is kept and cleared by itself when the module's elements are gone (the
+  // Polls pattern: `const t = setInterval(() => { if (!$('app')) return void clearInterval(t); ... })`). The home
+  // page's widgets and a keyed page are left out: they live as long as their page.
+  const dir = path.join(ROOT, 'modules');
+  const found = [];
+  for (const id of fs.readdirSync(dir)) {
+    const src = path.join(dir, id, 'src');
+    if (!fs.existsSync(src)) continue;
+    for (const f of fs.readdirSync(src).filter((x) => x.endsWith('.js') && !/-(widget|keyed)\.js$/.test(x))) {
+      const lines = fs.readFileSync(path.join(src, f), 'utf8').split('\n');
+      lines.forEach((line, i) => {
+        if (!/\bsetInterval\(/.test(line)) return;
+        const kept = /\bconst (\w+) = setInterval\(/.exec(line);
+        // The guard is at the top of the timer's function: on its line or the next.
+        if (!kept || !lines.slice(i, i + 2).join('\n').includes(`clearInterval(${kept[1]})`)) found.push(`modules/${id}/src/${f}:${i + 1}`);
+      });
+    }
+  }
+  assert.deepEqual(found, [], 'a timer never cleared');
 });
 
 console.log(`check-modules: ${n} groups OK`);

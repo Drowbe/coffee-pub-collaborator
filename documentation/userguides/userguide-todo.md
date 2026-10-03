@@ -21,7 +21,7 @@ On the spaces page, click the **Due soon** card's heading to open the full list.
 
 ## To-do beside Calendar in the top bar
 
-When an owner turns on **Show Calendar**, the To-do is the **To-do** tab on the right of Calendar in the top bar (see [Calendar](userguide-calendar.md), "Calendar in the top bar"). It lists the open tasks from the environment and the spaces chosen under **Trips** (your environment's word for spaces), grouped **Overdue**, **Today**, **This week**, **Later** and **No date**, each with its space's icon, a tick box and its due date. **Open**, **Done** and **All** and **Add task** are at its top; ticking, changing and adding work in place, with **Where** as above. While Calendar is shown, the To-do's own page and the **Due soon** heading lead to it. On a phone it is the **To-do** tab at the bottom.
+When an owner turns on **Show Calendar**, the To-do is the **To-do** tab on the right of Calendar in the top bar (see [Calendar](userguide-calendar.md), "Calendar in the top bar"). It lists the open tasks from the environment and the spaces chosen under **Trips** (your environment's word for spaces), grouped **Overdue**, **Today**, **This week**, **Later** and **No date**, each with its space's icon, a tick box and its due date. **Open**, **Done** and **All** and **Add task** are at its top; ticking, changing and adding work in place, with **Where** as above. While Calendar is shown, the To-do's own page and the **Due soon** heading lead to it. On a phone it is the **To-do** tab at the bottom. Tasks with a due date also show on the calendar itself, on their due day (see "On the Calendar" below).
 
 ## Due soon on the dashboard
 
@@ -52,6 +52,10 @@ An admin approves what the To-do may hear from other modules when enabling it (a
 ## In a space
 
 In a space, switch on **To-do** in **Layout**, in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own, from the buttons on its titlebar. It shows that space's list; the environment's list is on the To-do's own page.
+
+## On the Calendar
+
+When the Calendar is on, a task with a due date shows on the Calendar on its due day, as a marker with the To-do's icon and colour and the task's title: in the all-day row in Week and Day, on the day in Month, and in the Agenda as **Due**, or **Overdue** (dimmed) once the day has passed. It is not a Calendar event and is not copied there. Click it to open the task here. Ticking the task done takes it off the Calendar, and changing its due date moves it. Anyone who can see the task can see its marker; the Calendar's **Tasks due** switch hides them all. See [Calendar](userguide-calendar.md), "Tasks due and polls closing".
 
 ## Reminders
 

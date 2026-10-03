@@ -13,6 +13,7 @@ const path = require('path');
 const crypto = require('crypto');
 const words = require('./words');
 const { LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
+const { DEFAULT_REACTION_LIST, DEFAULT_ICON_LIST, OLD_DEFAULT_REACTIONS, OLD_DEFAULT_ICONS, sameList } = require('./default-lists');
 
 // Image slots. Participant: what the video box shows when the camera is
 // off, plus optional overlays drawn on top while they talk, are muted, are
@@ -59,13 +60,9 @@ function cleanOpensWith(list) {
 // A space's optional "launch" link (their VTT, wiki, playlist, whatever) --
 // shown as a button next to Join and in the in-call toolbar. The icon is
 // picked from the admin's Font Awesome list (Theme tab), stored as that
-// icon's id, so a bad value can't render nothing. This is the starting list.
-const STARTER_ICONS = [
-  'link', 'globe', 'gamepad', 'dice-d20', 'dice-d6', 'scroll', 'book',
-  'book-open', 'map', 'compass', 'music', 'headphones', 'video', 'tv',
-  'comments', 'wand-magic-sparkles', 'chess', 'users', 'house', 'star', 'couch',
-];
-const DEFAULT_ICONS = STARTER_ICONS.map((name) => ({ id: name, classes: `fa-solid fa-${name}`, label: name.replace(/-/g, ' ') }));
+// icon's id, so a bad value can't render nothing. This is the starting list (Thomas's curated set, GitHub #169;
+// server/default-lists.js).
+const DEFAULT_ICONS = DEFAULT_ICON_LIST;
 const DEFAULT_SPACE_LINK_ICON = 'link';
 const DEFAULT_HOME_ICON = 'couch';
 // A module's display name (settings.moduleNames), at most this long.
@@ -353,14 +350,8 @@ const DEFAULT_SETTINGS = {
   icons: DEFAULT_ICONS,
   // The reaction tray in the call: id (also the 1-6 shortcut order and the
   // data-channel payload), glyph (what's drawn), label (button title/alt).
-  reactions: [
-    { id: 'heart', glyph: '❤️', label: 'Heart' },
-    { id: 'up', glyph: '👍', label: 'Thumbs up' },
-    { id: 'down', glyph: '👎', label: 'Thumbs down' },
-    { id: 'laugh', glyph: '😂', label: 'Laugh' },
-    { id: 'question', glyph: '❓', label: 'Question' },
-    { id: 'nat20', glyph: '🎲', label: 'Nat 20!' },
-  ],
+  // Thomas's curated set (GitHub #169; server/default-lists.js), 105 of them.
+  reactions: DEFAULT_REACTION_LIST,
 };
 
 // Shipped pre-made (see seedBuiltinThemes() below), fixed ids so seeding is
@@ -650,12 +641,29 @@ class Store {
     }
     // Same once-only idea for the starter Font Awesome icons: a list saved
     // before they existed keeps what it has and gains the starters up front.
+    // The starters were then the old 21 (OLD_DEFAULT_ICONS), so that is what
+    // it gains; a list that ends up exactly those moves on just below.
     let seededIcons = false;
     if (!data.settings.iconsSeeded) {
       const have = Array.isArray(raw.settings?.icons) ? raw.settings.icons : [];
-      data.settings.icons = [...DEFAULT_ICONS.filter((d) => !have.some((i) => i.id === d.id)), ...have].map((i) => ({ ...i }));
+      data.settings.icons = [...OLD_DEFAULT_ICONS.filter((d) => !have.some((i) => i.id === d.id)), ...have].map((i) => ({ ...i }));
       data.settings.iconsSeeded = true;
       seededIcons = true;
+    }
+    // Once each (GitHub #169): an environment still on exactly the old default reactions (the six, ids, glyphs and
+    // labels, in order) gets the curated set, and one on exactly the old 21 starter icons gets the curated icons. Judged
+    // separately; a list the owner (or a template) changed is kept as it is. The flag is set either way, so an owner
+    // who later picks the old six by hand keeps them.
+    let curatedLists = false;
+    if (!data.settings.reactionsCuratedSeeded) {
+      if (sameList(data.settings.reactions, OLD_DEFAULT_REACTIONS)) data.settings.reactions = structuredClone(DEFAULT_REACTION_LIST);
+      data.settings.reactionsCuratedSeeded = true;
+      curatedLists = true;
+    }
+    if (!data.settings.iconsCuratedSeeded) {
+      if (sameList(data.settings.icons, OLD_DEFAULT_ICONS)) data.settings.icons = structuredClone(DEFAULT_ICONS);
+      data.settings.iconsCuratedSeeded = true;
+      curatedLists = true;
     }
     // Once: environments made before the home icon was stored only as the owner's choice kept the default ("couch") as
     // if chosen, which hid a template's home icon after a switch. A stored default from then is not a choice; one
@@ -667,7 +675,7 @@ class Store {
       data.settings.homeIconChoiceSeeded = true;
       clearedHomeIcon = true;
     }
-    if (!raw.secrets?.session || !raw.secrets?.stream || !Array.isArray(raw.spaces) || seededThemes || seededIcons || clearedHomeIcon) {
+    if (!raw.secrets?.session || !raw.secrets?.stream || !Array.isArray(raw.spaces) || seededThemes || seededIcons || clearedHomeIcon || curatedLists) {
       this.data = data;
       this.save();
     }

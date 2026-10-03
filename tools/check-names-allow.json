@@ -5,6 +5,7 @@
   { "file": "server/index.js", "level": "environment", "pattern": "^MIGRATE_TENANT_SLUG$", "line": "^const REMOVED_CONFIG_NAMES = ", "reason": "The old name of MIGRATE_ENVIRONMENT_SLUG, no longer read (plan-names step 10): named only so a start that still sets it says so." },
   { "file": "tools/check-host-registry.mjs", "level": "environment", "pattern": "^(tenants|tenants-deleted|oldHost\\.tenants\\.map|api/host/tenants|MIGRATE_TENANT_SLUG)$", "reason": "The check asserts the old folders, key and route are gone after the host's migration, and that the old configuration name is no longer read (only named on start)." },
   { "file": "**", "level": "space", "pattern": "^(\\w+\\.)?(Room|RoomEvent|RoomServiceClient)(\\.\\w+)?$", "reason": "The LiveKit SDK's own names (Room, RoomEvent, RoomServiceClient), not ours." },
+  { "file": "server/default-lists.js", "level": "space", "pattern": "^[Mm]ushroom$", "reason": "The mushroom reaction in the default reactions (GitHub #169): a word that contains room, not the old name." },
   { "file": "server/index.js", "level": "space", "pattern": "^roomJoin$", "reason": "The LiveKit grant's own roomJoin field in mintToken's addGrant." },
   { "file": "server/index.js", "level": "space", "pattern": "^room$", "line": "^\\s*room: call,\\s*$", "reason": "The LiveKit grant's own room field in mintToken's addGrant({ room: call, ... })." },
   { "file": "server/index.js", "level": "space", "pattern": "^callService\\.listRooms$", "reason": "The LiveKit room-service client's own method (listRooms), not ours." },

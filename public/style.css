@@ -7549,6 +7549,29 @@ body.chat-window {
 .feed-made .row + .hint { margin-top: 6px; }
 .feed-steps li + li { margin-top: 2px; }
 
+/* Profile's other calendars (plan-google-calendar.md, Part 2): a row per calendar (its name, the address's host, when it
+   was read or why it could not be), its buttons on the right, under it on a phone; then Add, with the name and the
+   address side by side where there is room. */
+.external-list { list-style: none; margin: 8px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.external-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card, var(--bg)); }
+.external-what { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; min-width: 0; flex: 1 1 14em; }
+.external-what strong { overflow-wrap: anywhere; }
+.external-what .hint { overflow-wrap: anywhere; }
+.external-state.error { color: var(--danger-text, var(--danger)); font-size: 13px; flex-basis: 100%; }
+.external-actions { flex: none; }
+.external-row-status { flex-basis: 100%; font-size: 13px; }
+.external-row-status:empty { display: none; }
+.external-add { margin-top: 4px; }
+.external-add h3 { margin: 0 0 6px; }
+.external-fields { display: grid; grid-template-columns: minmax(8em, 1fr) minmax(12em, 3fr); gap: 8px 12px; }
+.external-fields .fact input { width: 100%; min-width: 0; }
+.external-add .hint { margin: 6px 0; white-space: normal; }
+.external-add[aria-busy="true"] #external-add-btn { cursor: progress; }
+@media (max-width: 640px) {
+  .external-fields { grid-template-columns: minmax(0, 1fr); }
+  .external-actions { width: 100%; }
+}
+
 /* The host console's shared map folder: the files table names files in its first column (the generic .files-table
    keeps a narrow first column for a thumbnail), and the world map address is a label, a field with its button, and
    the hint under them in sentence case. */

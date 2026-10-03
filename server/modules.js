@@ -62,7 +62,7 @@ const ALLOWED_EXT = new Set([
   '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.ico',
   '.woff', '.woff2', '.ttf', '.otf',
 ]);
-const HOOKS = ['schedule', 'notify', 'ai'];
+const HOOKS = ['schedule', 'notify', 'ai', 'external'];
 // What an object's summary (what another module may show of it) can carry, and which of the producing module's own
 // stored fields fill it (`refs.produces[].summary`). See documentation/api/api-module-sdk.md ("Objects").
 const SUMMARY_FIELDS = ['title', 'subtitle', 'when', 'end', 'allDay', 'done', 'place', 'category', 'text'];

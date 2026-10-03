@@ -167,6 +167,25 @@ once (as its Calendar event), and each event links back to the Calendar.
 **For owners:** Manage > **Users** marks who has a calendar feed, with **Turn off feed**, and a person's profile
 shows "Calendar feed · on/off · last read … · Turn off". You never see anyone's address.
 
+## Your other calendars in Collaborator
+
+The other way round: show events from your own Google, Apple or other calendar in the Calendar, for you alone. It is
+in your profile under **Calendar feed**, as **Other calendars**, while the owner has **Calendar feeds** on and the
+Calendar can show them. Members and owners have it; guests don't.
+
+1. Find your calendar's private address. In Google Calendar: open **Settings**, pick the calendar, choose
+   **Integrate calendar**, and copy the **Secret address in iCal format**. A `webcal://` address works too.
+2. Under **Other calendars**, type a **Name** and paste the **Address**.
+3. Add it. The address is read first, which can take up to 15 seconds; one that can't be read is refused with the
+   reason.
+
+You can add up to five. Each row shows its name, its host and "Read <time ago>" or what went wrong, with
+**Refresh** (once a minute; sooner, the row says to try again in a minute) and **Remove** (which asks first). A calendar too complex to read is refused with "The calendar is too complex to read." The address is never shown again. They are read
+again every 30 minutes.
+
+If the owner turns **Calendar feeds** off, the section shows only while you still have calendars: "Other calendars
+are off in <environment> for now, so their events do not show. You can still remove them.", with **Remove** only.
+
 ## Light or dark
 
 **Dark mode** in the menu under your picture (on a phone, the sun and moon switch in the top bar's menu) changes

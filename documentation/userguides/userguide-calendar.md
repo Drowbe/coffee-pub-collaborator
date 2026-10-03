@@ -90,6 +90,16 @@ If the owner has turned on **Calendar feeds**, you can see these events in Googl
 Outlook through a private address made on your profile. See "Your calendar in a calendar app" in
 [Accounts, roles and permissions](userguide-accounts.md).
 
+## Your other calendars
+
+Events from your own other calendars (added on your profile; see "Your other calendars in Collaborator" in
+[Accounts, roles and permissions](userguide-accounts.md)) show on the Calendar's own page and on Calendar in the top
+bar, for you alone. They look muted and italic, with a coloured edge and a tag naming the calendar; on a phone's month
+they are hollow dots. Opening one says "From your <name> calendar. Only you see this." and it can't be changed. Each
+calendar has its own entry in the filter, marked "(only you)"; while one is off, the filter's label adds
+"· Other calendars (1 of 2)". They never show inside a space (on its canvas, in a window popped out of it, or on
+Calendar opened over a call) or in the **Coming up** card, and they refresh every 30 minutes.
+
 ## Limits
 
 An event belongs to one day; an end time later that day is fine, but events that run across midnight are not shown on more than one day. There is no way yet to skip one occurrence of a repeating event or change just that one. Times show in each person's own time zone.

@@ -523,6 +523,20 @@ test('calendar offers its events to calendar feeds, with its repeat field; the P
   assert.deepEqual(offered, ['calendar:event'], 'only the Calendar\'s events are offered; a Planner object reaches the feed as its twin');
 });
 
+test('calendar asks for the person\'s other calendars with the `external` hook, and is the only bundled module that does (plan-google-calendar.md, Part 2)', () => {
+  const cleaned = (id) => cleanManifest(JSON.parse(fs.readFileSync(path.join(ROOT, 'modules', id, 'module.json'), 'utf8')), { has: () => true });
+  assert.equal(cleaned('calendar').hooks.external, true, 'the Calendar declares "hooks": { "external": true }');
+  assert.equal(cleanManifest({ ...base(), hooks: { external: true } }, files).hooks.external, true, 'cleanManifest keeps the hook');
+  const asking = fs.readdirSync(path.join(ROOT, 'modules')).filter((id) => fs.existsSync(path.join(ROOT, 'modules', id, 'module.json')) && cleaned(id).hooks.external);
+  assert.deepEqual(asking, ['calendar']);
+  const js = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.js'), 'utf8');
+  assert.match(js, /host\.external\.events\(\{ from: ymd\(want\.from\), to: ymd\(want\.to\) \}\)/, 'the Calendar asks for the period it shows');
+  assert.match(js, /host\.on\('external', \(\) => askExternal\(true\)\)/, 'and asks again on the external event');
+  assert.match(js, /const showsExternal = info\.context\.scope === 'environment'/, 'only on the environment\'s page and the destination, never in a space');
+  assert.match(js, /if \(!editing \|\| editing\.scope === 'external'\) return;/, 'another calendar\'s event is never saved');
+  assert.match(js, /return x && !isExternal\(x\) \?/, 'nor dragged to another module');
+});
+
 test('a manifest\'s color is one of the eight tints, or none; anything else refuses the install (plan-chat-model.md)', () => {
   const { TINTS } = createRequire(import.meta.url)('../server/modules.js');
   for (const tint of TINTS) assert.equal(cleanManifest({ ...base(), color: tint }, files).color, tint);

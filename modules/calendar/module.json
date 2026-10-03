@@ -1,7 +1,7 @@
 {
   "id": "calendar",
   "name": "Calendar",
-  "version": "1.20.0",
+  "version": "1.21.0",
   "icon": "calendar-days",
   "color": "red",
   "description": "Sessions and events for the whole {environment} and for each {space}, with reminders.",
@@ -89,7 +89,8 @@
   },
   "hooks": {
     "schedule": true,
-    "notify": true
+    "notify": true,
+    "external": true
   },
   "events": {
     "publishes": [

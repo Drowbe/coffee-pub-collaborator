@@ -62,6 +62,16 @@
   const envName = () => (info.context.environment && info.context.environment.name) || word('environment', { cap: true });
   const placeName = (scope, spaceId) => (scope === 'spaces' ? (spaceInfo.get(spaceId) ? spaceInfo.get(spaceId).name : word('space', { cap: true })) : inSpace && scope === 'here' ? word('space', { cap: true }) : envName());
 
+  // The person's own other calendars (plan-google-calendar.md, Part 2; the `external` hook): their events, read from
+  // the host on the environment's page and as a part of the destination, never in a space (where others may be
+  // watching the screen). Kept in `events` as scope 'external', read only, never stored, published or sent anywhere.
+  const showsExternal = info.context.scope === 'environment' && Boolean(host.external && host.external.events);
+  const externalCalendars = new Map(); // calendar id -> { id, name, tint } in the person's order (the tint: its place)
+  const hiddenExternal = new Set(); // other calendars filtered out
+  const EXTERNAL_TINTS = 5; // .ext-0 to .ext-4 in calendar.css; the destination's filter uses the same order
+  const externalName = (id) => (externalCalendars.get(id) ? externalCalendars.get(id).name : 'Other');
+  const isExternal = (x) => x.scope === 'external';
+
   /*__LIB__*/
 
   view = openView(prefs.defaultView);
@@ -73,6 +83,7 @@
     for (const x of events.values()) {
       if (x.scope === 'spaces' && hiddenSpaces.has(x.spaceId)) continue;
       if (x.scope === 'here' && hideOwn) continue;
+      if (isExternal(x) && hiddenExternal.has(x.calendar)) continue;
       const dur = durationOf(x.ev);
       for (const start of occurrences(x.ev, new Date(from.getTime() - dur), to)) {
         const end = endOf(x.ev, start);
@@ -133,9 +144,11 @@
 
   const isCompact = () => $('app').classList.contains('compact');
 
+  const externalClass = (x) => `ext-${externalCalendars.get(x.calendar) ? externalCalendars.get(x.calendar).tint : 0}`;
   function chipHtml({ x, start, cont }) {
     // A multi-day event shows its time on the first day and an arrow on the days after.
     const label = cont ? '\u2192 ' + x.ev.title : (x.ev.allDay ? '' : timeText(start) + ' ') + x.ev.title;
+    if (isExternal(x)) return `<button class="chip ext ${externalClass(x)}" data-open="${esc(x.key)}" title="${esc(`${x.ev.title} (${externalName(x.calendar)})`)}">${esc(label)}</button>`;
     return `<button class="chip ${x.scope === 'environment' && inSpace ? 'environment' : ''}" data-open="${esc(x.key)}" title="${esc(x.ev.title)}">${spaceIcon(x)}${x.ev.repeat ? '<span class="rep">&#8635;</span>' : ''}${esc(label)}</button>`;
   }
 
@@ -181,8 +194,8 @@
       groups.get(k).push(occ);
     }
     return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4>${g.map(({ x, start, end }) => `
-      <button class="item" data-open="${esc(x.key)}"><span class="when">${esc(whenText(x.ev, start, end))}</span>
-        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}</strong>${x.ev.desc && !agenda ? `<span>${esc(x.ev.desc.slice(0, 120))}</span>` : ''}</span></button>`).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
+      <button class="item${isExternal(x) ? ` ext ${externalClass(x)}` : ''}" data-open="${esc(x.key)}"><span class="when">${esc(whenText(x.ev, start, end))}</span>
+        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="tag ext">${esc(externalName(x.calendar))}</span>` : ''}</strong>${x.ev.desc && !agenda ? `<span>${esc(x.ev.desc.slice(0, 120))}</span>` : ''}</span></button>`).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
   }
 
   function monthList() {
@@ -308,7 +321,7 @@
     return { from: new Date(cursor.getFullYear(), cursor.getMonth(), 1), to: new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1) };
   }
   // The destination's filter left nothing on.
-  const nothingPicked = () => Boolean(part) && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id));
+  const nothingPicked = () => Boolean(part) && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id)) && ![...externalCalendars.keys()].some((id) => !hiddenExternal.has(id));
   const pickOne = () => `Pick at least one in ${word('space', { many: true, cap: true })}.`;
 
   function render() {
@@ -339,6 +352,7 @@
     } else {
       $('body').innerHTML = monthGrid();
     }
+    askExternal(false);
   }
 
   // The Agenda (the destination's panel): the events of the period the calendar shows, from the selected day on.
@@ -357,16 +371,76 @@
     const unit = st.view === 'day' ? 'day' : st.view === 'week' ? 'week' : 'month';
     const occs = inRange(start, to);
     $('body').innerHTML = listHtml(occs, `Nothing else this ${unit}.`, start, `Nothing else this ${unit}.`);
+    askExternal(false);
   }
+
+  // --- the person's other calendars: asked of the host for what is shown -----------------------------------
+  // The period shown, with room around it, asked again only when what is shown leaves what was asked for, and whenever
+  // the host says they changed (the 'external' event). A failure (the hook not approved yet, say) shows none.
+  let externalWindow = null; // { from, to }: what was last asked for
+  let externalTicket = 0;
+  function externalNeed() {
+    const today = startOfDay(new Date());
+    if (part === 'panel') {
+      const st = agendaState || {};
+      return { from: st.from ? parseYmd(st.from) : new Date(today.getFullYear(), today.getMonth(), 1), to: st.to ? parseYmd(st.to) : new Date(today.getFullYear(), today.getMonth() + 1, 1) };
+    }
+    if (view === 'list') return { from: today, to: addDays(today, 91) };
+    const p = period();
+    return { from: addDays(p.from, -7), to: addDays(p.to, 14) }; // the month grid's days from the months either side
+  }
+  function askExternal(again) {
+    if (!showsExternal || !loaded) return;
+    const need = externalNeed();
+    if (!again && externalWindow && need.from >= externalWindow.from && need.to <= externalWindow.to) return;
+    const want = { from: addDays(need.from, -31), to: addDays(need.to, 31) };
+    externalWindow = want;
+    const ticket = ++externalTicket;
+    host.external.events({ from: ymd(want.from), to: ymd(want.to) }).then((got) => {
+      if (ticket !== externalTicket) return;
+      takeExternal(got || {});
+      render();
+    }).catch(() => {
+      // none to show: the hook is not approved, the switch is off, or the server could not answer just now
+    });
+  }
+  function takeExternal(got) {
+    for (const k of [...events.keys()]) if (k.startsWith('external:')) events.delete(k);
+    externalCalendars.clear();
+    (Array.isArray(got.calendars) ? got.calendars : []).forEach((c, i) => {
+      if (c && c.id) externalCalendars.set(String(c.id), { id: String(c.id), name: String(c.name || 'Other').slice(0, 60), tint: i % EXTERNAL_TINTS });
+    });
+    for (const e of Array.isArray(got.events) ? got.events : []) {
+      const cal = e && externalCalendars.get(String(e.calendar));
+      if (!cal || typeof e.start !== 'string') continue;
+      const allDay = e.allDay === true;
+      const ev = { title: String(e.title || 'No title').slice(0, 200), allDay, start: e.start, end: typeof e.end === 'string' && e.end ? e.end : null, desc: '', remind: null, repeat: null };
+      if (Number.isNaN(startOf(ev).getTime())) continue;
+      const key = `external:${cal.id}:${String(e.uid || '')}:${e.start}`;
+      events.set(key, { key, scope: 'external', calendar: cal.id, id: String(e.uid || ''), version: null, ev });
+    }
+    if (editing && editing.scope === 'external' && !events.has(editing.key)) closeEditor();
+  }
+  if (showsExternal) host.on('external', () => askExternal(true));
 
   // On the environment page, a row of the viewer's spaces to show or hide. As a part, the page's filter does this.
   function renderFilters() {
     const box = $('filters');
-    box.hidden = Boolean(part) || spaceInfo.size === 0;
+    box.hidden = Boolean(part) || (spaceInfo.size === 0 && externalCalendars.size === 0);
     if (box.hidden) return;
-    box.innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('');
+    const keep = root.activeElement && root.activeElement.closest && root.activeElement.closest('#filters [data-space], #filters [data-external]');
+    const kept = keep ? (keep.dataset.space ? `[data-space="${keep.dataset.space}"]` : `[data-external="${keep.dataset.external}"]`) : '';
+    box.innerHTML = [...spaceInfo.values()].map((r) => `<button type="button" class="filter ${hiddenSpaces.has(r.id) ? '' : 'on'}" data-space="${esc(r.id)}" aria-pressed="${!hiddenSpaces.has(r.id)}" title="${hiddenSpaces.has(r.id) ? 'Show' : 'Hide'} ${esc(r.name)}"><span class="ri">${r.svg || ''}</span> ${esc(r.name)}</button>`).join('')
+      + [...externalCalendars.values()].map((c) => `<button type="button" class="filter ext ext-${c.tint} ${hiddenExternal.has(c.id) ? '' : 'on'}" data-external="${esc(c.id)}" aria-pressed="${!hiddenExternal.has(c.id)}" title="${hiddenExternal.has(c.id) ? 'Show' : 'Hide'} ${esc(c.name)}, only you see it"><span class="dot" aria-hidden="true"></span> ${esc(c.name)}</button>`).join('');
+    if (kept) { const again = box.querySelector(kept); if (again) again.focus(); }
   }
   $('filters').addEventListener('click', (e) => {
+    const ext = e.target.closest('[data-external]');
+    if (ext) {
+      if (hiddenExternal.has(ext.dataset.external)) hiddenExternal.delete(ext.dataset.external); else hiddenExternal.add(ext.dataset.external);
+      render();
+      return;
+    }
     const b = e.target.closest('[data-space]');
     if (!b) return;
     if (hiddenSpaces.has(b.dataset.space)) hiddenSpaces.delete(b.dataset.space); else hiddenSpaces.add(b.dataset.space);
@@ -412,7 +486,7 @@
     $('f-where-wrap').hidden = inSpace;
     if (inSpace) return;
     if (x) {
-      select.innerHTML = `<option value="">${esc(placeName(x.scope, x.spaceId))}</option>`;
+      select.innerHTML = `<option value="">${esc(x && isExternal(x) ? externalName(x.calendar) : placeName(x.scope, x.spaceId))}</option>`;
       select.disabled = true;
       return;
     }
@@ -456,7 +530,7 @@
   async function showBacklinks(x) {
     backlinksFor = x ? x.key : null;
     $('f-links-wrap').hidden = true;
-    if (!x || !host.objects || !host.objects.linksTo) return;
+    if (!x || isExternal(x) || !host.objects || !host.objects.linksTo) return;
     let summaries = [];
     try {
       summaries = await host.objects.linksTo(host.objects.make('event', x.id, whereFor(x)));
@@ -520,11 +594,15 @@
     if (!x && !canAdd()) return;
     const readOnly = x ? !writable(x) : false;
     const ev = x ? x.ev : { title: '', allDay: false, start: '', end: null, desc: '', remind: null, repeat: null };
-    editing = x ? { scope: x.scope, id: x.id, version: x.version, spaceId: x.spaceId } : { scope: null, id: null, version: null, spaceId: null };
+    editing = x ? { scope: x.scope, id: x.id, version: x.version, spaceId: x.spaceId, key: x.key } : { scope: null, id: null, version: null, spaceId: null };
     showError('');
     fillWhere(x);
+    // One of the person's other calendars: what it is and when, nothing to remind, repeat or link.
+    const outside = Boolean(x && isExternal(x));
+    for (const el of [$('f-remind').closest('label'), $('f-repeat').closest('.row'), $('f-desc').closest('label')]) el.hidden = outside;
     // Read only in a place where the viewer may not add events: say why (on the environment page, where it can differ).
-    const why = readOnly && !inSpace && x ? `Only people who can add events in ${placeName(x.scope, x.spaceId)} can change this.` : '';
+    const why = outside ? `From your ${externalName(x.calendar)} calendar. Only you see this.`
+      : readOnly && !inSpace && x ? `Only people who can add events in ${placeName(x.scope, x.spaceId)} can change this.` : '';
     $('f-readonly').textContent = why;
     $('f-readonly').hidden = !why;
     const from = x && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? ` (${spaceInfo.get(x.spaceId).name})` : '';
@@ -554,6 +632,7 @@
     $('f-cancel').textContent = readOnly ? 'Close' : 'Cancel';
     syncForm();
     remindHint();
+    if (outside) $('f-remind-hint').textContent = '';
     pickers.forEach((p) => p.refresh());
     showBacklinks(x || null);
     $('editor').hidden = false;
@@ -602,7 +681,7 @@
   }
 
   async function save() {
-    if (!editing) return;
+    if (!editing || editing.scope === 'external') return; // another calendar's event is never saved anywhere
     showError('');
     const target = targetOf();
     if (!target) return showError(`${pickWhere()} first.`);
@@ -763,6 +842,10 @@
       pickedSpaces = on;
     }
     hideOwn = st.environment === false;
+    if (Array.isArray(st.externalOff)) {
+      hiddenExternal.clear();
+      for (const id of st.externalOff) hiddenExternal.add(String(id));
+    }
     if (part === 'main') {
       if (PART_VIEWS.includes(st.view)) view = st.view;
       // The day the page opens on (a link to a day, say); after that the calendar says which day is selected.
@@ -785,7 +868,7 @@
     host.objects.draggable($('body'), (target) => {
       const open = target.closest('[data-open]');
       const x = open && events.get(open.dataset.open);
-      return x ? { kind: 'event', id: x.id, label: x.ev.title, ...whereFor(x) } : null;
+      return x && !isExternal(x) ? { kind: 'event', id: x.id, label: x.ev.title, ...whereFor(x) } : null;
     });
   }
   // --- what a drop can do ---------------------------------------------------
@@ -817,7 +900,7 @@
     if (!el) return null;
     const open = el.closest('[data-open]');
     const x = open && events.get(open.dataset.open);
-    if (x) return { el: open, event: x, day: ymd(startOf(x.ev)) };
+    if (x && !isExternal(x)) return { el: open, event: x, day: ymd(startOf(x.ev)) };
     const cell = el.closest('[data-day]');
     return cell ? { el: cell, event: null, day: cell.dataset.day } : null;
   };
@@ -935,6 +1018,7 @@
   fit();
   render();
   loaded = true;
+  askExternal(false);
   if (waitingRef) {
     const ref = waitingRef;
     waitingRef = null;

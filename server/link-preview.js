@@ -8,6 +8,7 @@ const dns = require('dns').promises;
 const http = require('http');
 const https = require('https');
 const net = require('net');
+const tls = require('tls');
 const { userAgent } = require('./product-name');
 
 const MAX_BYTES = 262144;
@@ -15,14 +16,38 @@ const MAX_REDIRECTS = 3;
 const TIMEOUT_MS = 8000;
 
 class PreviewError extends Error {
-  constructor(message) {
+  // `code` says which kind of refusal it is, for a caller that words it its own way (fetchCalendar's callers):
+  // blocked, missing, timeout, unreachable, wrong, status, big, type, redirects.
+  constructor(message, code = null) {
     super(message);
     this.name = 'PreviewError';
+    this.code = code;
   }
 }
 
+// An IPv6 address as its eight 16-bit groups, or null. Takes "::" shortening, a dotted IPv4 tail and a zone ("%eth0").
+function ipv6Groups(ip) {
+  let text = String(ip || '').toLowerCase().replace(/%.*$/, '');
+  if (net.isIP(text) !== 6) return null;
+  const dotted = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(text);
+  if (dotted) {
+    const b = dotted.slice(1).map(Number);
+    text = `${text.slice(0, dotted.index)}${((b[0] << 8) | b[1]).toString(16)}:${((b[2] << 8) | b[3]).toString(16)}`;
+  }
+  const halves = text.split('::');
+  if (halves.length > 2) return null;
+  const part = (h) => (h ? h.split(':') : []);
+  const head = part(halves[0]);
+  const tail = halves.length === 2 ? part(halves[1]) : [];
+  const fill = halves.length === 2 ? 8 - head.length - tail.length : 0;
+  if (fill < 0) return null;
+  const groups = [...head, ...Array(fill).fill('0'), ...tail].map((g) => parseInt(g, 16));
+  return groups.length === 8 && groups.every((g) => Number.isInteger(g) && g >= 0 && g <= 0xffff) ? groups : null;
+}
+const ipv4Of = (hi, lo) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
+
 function blockedAddress(ip) {
-  const kind = net.isIP(ip);
+  const kind = net.isIP(String(ip || '').replace(/%.*$/, ''));
   if (kind === 4) {
     const p = ip.split('.').map(Number);
     if (p[0] === 0 || p[0] === 10 || p[0] === 127) return true;
@@ -34,11 +59,21 @@ function blockedAddress(ip) {
     return false;
   }
   if (kind === 6) {
-    const n = ip.toLowerCase();
-    if (n === '::' || n === '::1') return true;
-    if (n.startsWith('fe80:') || n.startsWith('fc') || n.startsWith('fd')) return true;
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(n);
-    if (mapped) return blockedAddress(mapped[1]);
+    // Read as its 16 bytes, so every way of writing one address is judged alike (::ffff:127.0.0.1 is ::ffff:7f00:1).
+    const g = ipv6Groups(ip);
+    if (!g) return true;
+    const zero = (from, to) => g.slice(from, to).every((x) => x === 0);
+    if (zero(0, 6)) return true; // ::, ::1 and the IPv4-compatible ::/96
+    if (zero(0, 5) && g[5] === 0xffff) return blockedAddress(ipv4Of(g[6], g[7])); // IPv4-mapped ::ffff:0:0/96
+    if (zero(0, 4) && g[4] === 0xffff && g[5] === 0) return true; // IPv4-translated ::ffff:0:0:0/96
+    if (g[0] === 0x64 && g[1] === 0xff9b) return true; // NAT64, 64:ff9b::/96 and 64:ff9b:1::/48
+    if (g[0] === 0x100 && zero(1, 4)) return true; // discard-only 100::/64
+    if (g[0] === 0x2001 && g[1] < 0x200) return true; // 2001::/23: Teredo, ORCHID and other special use
+    if (g[0] === 0x2001 && g[1] === 0xdb8) return true; // documentation
+    if (g[0] === 0x2002) return true; // 6to4, which carries an IPv4 address inside
+    if ((g[0] & 0xfe00) === 0xfc00) return true; // unique local fc00::/7
+    if ((g[0] & 0xffc0) === 0xfe80 || (g[0] & 0xffc0) === 0xfec0) return true; // link-local and the old site-local
+    if ((g[0] & 0xff00) === 0xff00) return true; // multicast
     return false;
   }
   return true;
@@ -46,6 +81,8 @@ function blockedAddress(ip) {
 
 function blockedName(host) {
   const h = String(host || '').toLowerCase().replace(/\.$/, '');
+  // An IPv6 address written in the address itself ("[::1]") is refused outright: a page or a calendar has a name.
+  if (h.startsWith('[') || h.includes(':')) return true;
   if (!h || h === 'localhost' || h.endsWith('.localhost') || h.endsWith('.local') || h.endsWith('.internal')) return true;
   if (/^\d+$/.test(h) || /^0x[0-9a-f]+$/i.test(h)) return true;
   return false;
@@ -60,40 +97,63 @@ function pageUrl(text) {
 }
 
 async function publicAddresses(hostname) {
-  if (net.isIP(hostname)) {
-    if (blockedAddress(hostname)) throw new PreviewError('that address is not allowed');
+  if (net.isIP(hostname) === 4) {
+    if (blockedAddress(hostname)) throw new PreviewError('that address is not allowed', 'blocked');
     return [hostname];
   }
-  if (blockedName(hostname)) throw new PreviewError('that address is not allowed');
+  if (blockedName(hostname)) throw new PreviewError('that address is not allowed', 'blocked');
   let records;
-  try { records = await dns.lookup(hostname, { all: true, verbatim: true }); } catch { throw new PreviewError('that address could not be found'); }
+  try { records = await dns.lookup(hostname, { all: true, verbatim: true }); } catch { throw new PreviewError('that address could not be found', 'missing'); }
   const addresses = records.map((r) => r.address);
-  if (!addresses.length || addresses.some(blockedAddress)) throw new PreviewError('that address is not allowed');
+  if (!addresses.length || addresses.some(blockedAddress)) throw new PreviewError('that address is not allowed', 'blocked');
   return addresses;
 }
 
-function getOnce(target, addresses, maxBytes, accept) {
+// One GET to an address already checked. `timeoutMs` is how long the connection may sit idle; `deadline` (a time in
+// milliseconds), when given, is when the whole request is given up, however much is still arriving.
+function getOnce(target, addresses, maxBytes, accept, { timeoutMs = TIMEOUT_MS, deadline = 0 } = {}) {
   return new Promise((resolve, reject) => {
     const lib = target.protocol === 'https:' ? https : http;
     let settled = false;
     const done = (value) => { if (!settled) { settled = true; resolve(value); } };
     const fail = (err) => { if (!settled) { settled = true; reject(err); } };
-    const req = lib.request({
+    const onSocketError = (err) => fail(new PreviewError('that page could not be read', err && err.code === 'timeout' ? 'timeout' : 'unreachable'));
+    let req;
+    try {
+      req = lib.request({
       protocol: target.protocol,
       hostname: target.hostname,
       port: target.port || (target.protocol === 'https:' ? 443 : 80),
       path: `${target.pathname}${target.search}`,
       method: 'GET',
       headers: { 'user-agent': userAgent(), accept: accept || 'text/html,application/xhtml+xml' },
-      timeout: TIMEOUT_MS,
+      timeout: timeoutMs,
+      // The connection is made here, with its error listener on before it connects: a socket that fails at once (an
+      // address family this machine lacks, a TLS failure) is this request failing, never an error nobody hears,
+      // which would stop the server. (No agent: with one, Node makes its own socket and this is not used.)
+      createConnection: (opts) => {
+        const name = target.hostname;
+        const socket = target.protocol === 'https:' ? tls.connect({ ...opts, ...(net.isIP(name) || name.startsWith('[') ? {} : { servername: name }) }) : net.connect(opts);
+        socket.on('error', onSocketError);
+        return socket;
+      },
+      // The addresses already checked, never a second lookup. A connect that fails at once (an address family this
+      // machine lacks) throws from inside this callback, so it is caught here and becomes this request failing.
       lookup: (_hostname, opts, cb) => {
         const list = addresses.map((address) => ({ address, family: net.isIP(address) }));
-        if (opts && opts.all) cb(null, list);
-        else cb(null, list[0].address, list[0].family);
+        try {
+          if (opts && opts.all) cb(null, list);
+          else cb(null, list[0].address, list[0].family);
+        } catch {
+          fail(new PreviewError('that page could not be read', 'unreachable'));
+          if (req) req.destroy();
+        }
       },
     }, (res) => {
       const chunks = [];
       let size = 0;
+      res.on('error', () => fail(new PreviewError('that page could not be read', 'unreachable')));
+      res.on('aborted', () => fail(new PreviewError('that page could not be read', 'unreachable')));
       res.on('data', (chunk) => {
         size += chunk.length;
         if (size > maxBytes) {
@@ -105,8 +165,18 @@ function getOnce(target, addresses, maxBytes, accept) {
       });
       res.on('end', () => done({ status: res.statusCode, headers: res.headers, body: Buffer.concat(chunks), cut: false }));
     });
-    req.on('timeout', () => req.destroy(new PreviewError('that page took too long')));
-    req.on('error', () => fail(new PreviewError('that page could not be read')));
+    } catch {
+      fail(new PreviewError('that page could not be read', 'unreachable'));
+      return;
+    }
+    let late = null;
+    if (deadline) {
+      late = setTimeout(() => req.destroy(new PreviewError('that page took too long', 'timeout')), Math.max(1, deadline - Date.now()));
+      if (late.unref) late.unref();
+    }
+    req.on('close', () => { if (late) clearTimeout(late); });
+    req.on('timeout', () => req.destroy(new PreviewError('that page took too long', 'timeout')));
+    req.on('error', (err) => fail(new PreviewError('that page could not be read', err && err.code === 'timeout' ? 'timeout' : 'unreachable')));
     req.end();
   });
 }
@@ -350,5 +420,45 @@ async function fetchImage(text) {
   throw new PreviewError('that picture could not be read');
 }
 
+// --- a calendar file (plan-google-calendar.md, Part 2: a person's other calendars) -----------------------------------
+// The same guard as a page: the host resolved first, a private, loopback or link-local address refused, also after a
+// redirect. Only https (a pasted webcal: address is made https by the caller), 5 MB, 15 seconds for the whole read.
+const CALENDAR_BYTES = 5 * 1048576;
+const CALENDAR_TIMEOUT_MS = 15000;
+
+// A calendar address as it may be read: https, no user or password, not a local name. Null otherwise.
+function calendarUrl(text) {
+  const u = pageUrl(text);
+  return u && u.protocol === 'https:' && u.href.length <= 2000 ? u : null;
+}
+
+// The calendar file's text. Throws a PreviewError with a `code` saying why it could not be read.
+async function fetchCalendar(text) {
+  let current = calendarUrl(text);
+  if (!current) throw new PreviewError('that address is not allowed', 'blocked');
+  const deadline = Date.now() + CALENDAR_TIMEOUT_MS;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop += 1) {
+    const addresses = await publicAddresses(current.hostname);
+    if (Date.now() >= deadline) throw new PreviewError('that calendar took too long', 'timeout');
+    const res = await getOnce(current, addresses, CALENDAR_BYTES, 'text/calendar, text/plain;q=0.5, */*;q=0.1', { timeoutMs: CALENDAR_TIMEOUT_MS, deadline });
+    const status = res.status || 0;
+    if (status >= 300 && status < 400 && res.headers.location) {
+      if (hop === MAX_REDIRECTS) throw new PreviewError('that calendar was sent elsewhere too many times', 'redirects');
+      let next;
+      try { next = new URL(res.headers.location, current); } catch { throw new PreviewError('that calendar could not be read', 'status'); }
+      current = calendarUrl(next.href);
+      if (!current) throw new PreviewError('that address is not allowed', 'blocked');
+      continue;
+    }
+    if (status === 401 || status === 403 || status === 404 || status === 410) throw new PreviewError('that calendar address is wrong', 'wrong');
+    if (status < 200 || status >= 300) throw new PreviewError('that calendar could not be read', 'status');
+    if (res.cut) throw new PreviewError('that calendar is too large', 'big');
+    const body = res.body.toString('utf8');
+    if (!/^\s*BEGIN:VCALENDAR/i.test(body.replace(/^\uFEFF/, ''))) throw new PreviewError('that address did not give a calendar', 'type');
+    return body;
+  }
+  throw new PreviewError('that calendar was sent elsewhere too many times', 'redirects');
+}
+
 // getOnce is exported for tools/check-link-preview.mjs only (the request it sends, to an address already checked).
-module.exports = { PreviewError, blockedAddress, blockedName, readPreview, fetchPreview, fetchImage, cachedImage, getOnce };
+module.exports = { PreviewError, blockedAddress, blockedName, readPreview, fetchPreview, fetchImage, cachedImage, getOnce, fetchCalendar, calendarUrl, CALENDAR_BYTES, CALENDAR_TIMEOUT_MS };

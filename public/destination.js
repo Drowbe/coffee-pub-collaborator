@@ -8,7 +8,7 @@
 // Remembered in this browser (decision 18): the view, the filter and the panel's tab, under app.destination.<id>. On a
 // phone (640 px or less) the main part and each panel are tabs along the bottom, the view switch shows only on the
 // main part's tab, and the first view is the phone's own (Day for the calendar) until one is picked.
-import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word, withinSpacePage } from '/brand.js';
 import { nav } from '/nav-bar.js';
 import { mountModule, createDestination } from '/module-host.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
@@ -21,7 +21,8 @@ const onPhone = () => phoneQuery.matches;
 
 // What each destination's page bar holds. `views`: the view switch (none: no switch). `phoneView`: the first view on a
 // phone. `firstView(values)`: the first view on a wider screen, from the main part's own settings (the calendar's
-// "Open on": Week for Week, Month otherwise). `mine`: the filter has the person's own first (Mine). `search`: a search
+// "Open on": Week for Week, Month otherwise). `mine`: the filter has the person's own first (Mine). `external`: the
+// filter lists the person's own other calendars after the spaces (plan-google-calendar.md, Part 2), each with its tint. `search`: a search
 // field on the right of the page bar, its words by whether the panel's place search is set up (`searchSetUp(values)`,
 // the panel's settings). `initial`: the rest of the state the parts read. `needsWebgl`: the main part draws with WebGL,
 // and without it the panel takes the page's width (the main part shows its own notice above it).
@@ -31,6 +32,7 @@ const KINDS = {
     phoneView: 'day',
     // Month, Week or Day as "Open on" says; the Agenda (`list`) and an old stored Month + list (`both`) open on Month here.
     firstView: (values) => (values && ['month', 'week', 'day'].includes(values.defaultView) ? values.defaultView : 'month'),
+    external: true,
   },
   map: {
     views: [],
@@ -68,6 +70,9 @@ function remember(patch) {
 // The environment's own list in the filter, beside the spaces (whose ids never start with a colon).
 const OWN = ':own';
 const MINE = ':mine'; // the person's own (the map's Mine)
+const EXTERNAL = ':external:'; // one of the person's other calendars, by its id after this
+// Each other calendar's tint, by its place in the person's list: the same order the Calendar draws them in.
+const EXTERNAL_TINTS = ['blue', 'teal', 'purple', 'green', 'orange'];
 
 let hub = null;
 let parts = []; // { part, key, holder, wrap, mounted }
@@ -78,6 +83,8 @@ let spaces = []; // [{ id, name, icon }] in the space list's order
 const off = new Set(); // spaces the filter has off
 let ownOn = true;
 let mineOn = true;
+let externals = []; // the person's other calendars: [{ id, name }], in their order
+const externalOff = new Set(); // other calendars the filter has off
 let find = 0;
 let filterLabel = '';
 
@@ -117,6 +124,9 @@ async function start() {
   for (const id of Array.isArray(saved.off) ? saved.off : []) if (typeof id === 'string') off.add(id);
   ownOn = saved.ownOff !== true;
   mineOn = saved.mineOff !== true;
+  for (const id of Array.isArray(saved.externalOff) ? saved.externalOff : []) if (typeof id === 'string') externalOff.add(id);
+  // Never shown over a call (?from=space in the space page's frame), where others may see the screen.
+  if (kind.external && !withinSpacePage()) await loadExternals();
   if (kind.views.some((v) => v.id === saved.view)) view = saved.view;
   else if (kind.views.length && onPhone()) view = kind.phoneView;
   else if (kind.views.length) {
@@ -181,7 +191,17 @@ async function start() {
 
 // The filter's choice as the shared state has it: the spaces on, and whether the environment's own are.
 function filterState() {
-  return { ...(kind.mine ? { mine: mineOn } : {}), spaces: spaces.filter((r) => !off.has(r.id)).map((r) => r.id), environment: ownOn };
+  return { ...(kind.mine ? { mine: mineOn } : {}), spaces: spaces.filter((r) => !off.has(r.id)).map((r) => r.id), environment: ownOn, ...(kind.external ? { externalOff: [...externalOff] } : {}) };
+}
+
+// The person's own other calendars, for the filter: none while the environment does not allow them.
+async function loadExternals() {
+  try {
+    const got = await api('GET', '/api/me/external-calendars');
+    externals = got && got.allowed ? (got.calendars || []).map((c) => ({ id: String(c.id), name: String(c.name || '') })) : [];
+  } catch {
+    externals = [];
+  }
 }
 
 // Whether this browser can draw with WebGL, as a map part asks it.
@@ -309,6 +329,7 @@ function drawPageBar(d) {
       ...(kind.mine ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
       { id: OWN, icon: 'globe', name: environmentName, on: ownOn },
       ...spaces.map((r) => ({ id: r.id, icon: r.icon, name: r.name, on: !off.has(r.id) })),
+      ...externals.map((c, i) => ({ id: `${EXTERNAL}${c.id}`, icon: 'calendar', name: c.name, note: 'only you', tint: EXTERNAL_TINTS[i % EXTERNAL_TINTS.length], on: !externalOff.has(c.id) })),
     ], 'dest-filter');
   };
   const open = (yes) => {
@@ -317,6 +338,16 @@ function drawPageBar(d) {
     if (yes) {
       fill();
       list.querySelector('input.switch')?.focus();
+      // Calendars added or removed on Profile since the page opened: the list again, keeping the focus where it is.
+      if (kind.external && !withinSpacePage()) {
+        loadExternals().then(() => {
+          if (list.hidden) return;
+          const at = document.activeElement?.dataset?.destFilter;
+          fill();
+          paintFilter();
+          if (at) [...list.querySelectorAll('input[data-dest-filter]')].find((i) => i.dataset.destFilter === at)?.focus();
+        });
+      }
     }
   };
   toggle.addEventListener('click', () => open(list.hidden));
@@ -327,9 +358,12 @@ function drawPageBar(d) {
     const id = input.dataset.destFilter;
     if (id === OWN) ownOn = input.checked;
     else if (id === MINE) mineOn = input.checked;
-    else if (input.checked) off.delete(id);
+    else if (id.startsWith(EXTERNAL)) {
+      if (input.checked) externalOff.delete(id.slice(EXTERNAL.length));
+      else externalOff.add(id.slice(EXTERNAL.length));
+    } else if (input.checked) off.delete(id);
     else off.add(id);
-    remember({ off: [...off], ownOff: !ownOn, mineOff: !mineOn });
+    remember({ off: [...off], ownOff: !ownOn, mineOff: !mineOn, ...(kind.external ? { externalOff: [...externalOff] } : {}) });
     paintFilter();
     hub.update(filterState());
   });
@@ -363,6 +397,9 @@ function paintFilter() {
   const shown = spaces.filter((r) => !off.has(r.id)).length + (ownOn ? 1 : 0) + (kind.mine && mineOn ? 1 : 0);
   const plural = word('space', { many: true, cap: true });
   filterLabel = shown === total ? plural : `${plural} (${shown} of ${total})`;
+  // The person's other calendars are counted apart, never as spaces: "Trips (2 of 3) · Other calendars (1 of 2)".
+  const calendarsOn = externals.filter((c) => !externalOff.has(c.id)).length;
+  if (calendarsOn < externals.length) filterLabel += ` · Other calendars (${calendarsOn} of ${externals.length})`;
   $('dest-filter-label').textContent = filterLabel;
   $('dest-filter-toggle').title = filterLabel;
   $('dest-filter-toggle').setAttribute('aria-label', filterLabel);

@@ -128,6 +128,18 @@ host.on('schedule', ({ key, payload }) => {});   // when one fires, if the modul
 - `notify` in `schedule` defaults to the module's own scope: the space, or the whole environment. Its `to`, like `host.notify`'s, is `'space'`, `'environment'` or a person's key.
 - On a module's environment page, `space: <id>` in `host.schedule`'s, `host.notify`'s or `host.cancelSchedule`'s argument makes it that space's: it runs and notifies there, and `to: 'space'` is that space's people. The Calendar and To-do set a space event's or task's reminder this way.
 
+### A person's other calendars (`external`)
+
+With the `external` hook in the manifest, approved by an owner, a module may show the signed-in person their own other calendars (the ones they added on their profile), and nobody else:
+
+```js
+const { calendars, events } = await host.external.events({ from: '2026-10-01', to: '2026-11-01' });
+// calendars [{ id, name }]; events [{ calendar, uid, title, start, end, allDay }], all-day dates as YYYY-MM-DD, timed as ISO instants
+host.on('external', () => { /* a calendar was read again: ask again */ });
+```
+
+They are read only, and only for the person looking: never store them, show them in a space, or send them anywhere. A guest, a keyed page, or an environment with calendar feeds off gets none. The Calendar draws them muted, with a tag naming the calendar. On the Calendar destination the page's state also carries `externalOff`, the ids of the other calendars the filter has off.
+
 ### Objects: pointing at another module's objects
 
 Modules cannot read each other's storage, and that does not change. Pointers are the one narrow door between them: a module stores a **pointer** to another module's object, never a copy, and asks Collaborator for its small **summary** whenever it draws it. The SDK's part is `host.objects` (it was `host.refs`; the old name, and `host.util.refKey`, now throw naming the new ones).
@@ -513,7 +525,7 @@ Each destination's state is its own shape, and the host owns all of it except wh
 
 | Destination | State | Who may `set` what |
 |---|---|---|
-| `calendar` | `{ view: 'month' \| 'week' \| 'day', spaces: [<id>...], environment: true \| false, day, from, to }`: the view switch, the filter (the spaces on, and whether the environment's own list is), the selected day and the period shown (`YYYY-MM-DD`, `to` the day after it) | the `main` part only: `{ day, from, to }` |
+| `calendar` | `{ view: 'month' \| 'week' \| 'day', spaces: [<id>...], environment: true \| false, externalOff?: [<id>...], day, from, to }`: the view switch, the filter (the spaces on, and whether the environment's own list is), the selected day and the period shown (`YYYY-MM-DD`, `to` the day after it) | the `main` part only: `{ day, from, to }` |
 | `map` | `{ mine: true \| false, environment: true \| false, spaces: [<id>...], q: '<search text>', find: <number>, selected: <pointer or null>, phone: true \| false, reveal: 'main' \| 'panel' \| null }`: the filter (Mine, the environment's own, the spaces on), the search field as typed, a number raised on each Enter (the person asked the place search), the selected object, whether the parts are a phone's tabs, and a request to bring a part into view (the page shows that tab and clears it) | either part: `{ selected, reveal }`; `phone` is the page's |
 
 `set` refuses a field the part may not change (403 "the panel part cannot set day"), a part of a destination that lets it change nothing (403), and a value of the wrong shape (400 "day is not valid"); a set that changes nothing tells nobody. The filter's choice, the view and the panel's tab are remembered per browser by the page, not by you. When the page is opened at a place (`/calendar#day=2026-10-05`) the main part hears it as `host.page.onHash`, as a module's own page does, and an object (`#ref=`) as `host.objects.onOpen`.

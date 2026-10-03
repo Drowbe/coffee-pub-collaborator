@@ -1055,6 +1055,19 @@
       },
     },
 
+    // The person's own other calendars (declare the `external` hook; the admin approves it like the others). Each person
+    // adds theirs on Profile by a private address; the server reads them and keeps the events in memory. Read only, and
+    // only ever the signed-in person's own: never store them, publish them or send them anywhere.
+    //   events({ from, to })  from and to as YYYY-MM-DD (or ISO times), either optional ->
+    //                         { calendars: [{ id, name }], events: [{ calendar, uid, title, start, end, allDay }] }
+    //                         An all-day event's start and end are YYYY-MM-DD, `end` its last day; a timed event's are ISO
+    //                         times, `end` possibly null. A repeating event comes once per occurrence, with the same uid.
+    //                         A guest, or the environment's switch off: both lists empty.
+    // The 'external' event (host.on('external', fn)) says they changed: ask again.
+    external: {
+      events: (o) => call('external.events', { from: o && o.from, to: o && o.to }),
+    },
+
     // Ask in Chat on a space's canvas: posts a private /ai question (the reply shows only to the person who asked).
     // `refs` are optional objects the answer may use, the same pointers host.ai.ask takes as `objects`.
     chat: {
@@ -1653,9 +1666,10 @@
     // null anywhere else. info.context.destination says which ({ id, part }: part 'main' or 'panel'), so a part can
     // draw itself for it, with no header or filter of its own. The page owns the shared state and gives it whole:
     //   onState(fn)  fn(state) now (once ready) and on each change. Returns the off. The calendar's state is
-    //                { view: 'month' | 'week' | 'day', spaces: [<id>...], environment: true | false, day, from, to }
-    //                (`spaces` and `environment` are the filter; `day` the selected day; `from` and `to` the period
-    //                shown, YYYY-MM-DD, `to` the day after it).
+    //                { view: 'month' | 'week' | 'day', spaces: [<id>...], environment: true | false, externalOff: [<id>...],
+    //                day, from, to } (`spaces`, `environment` and `externalOff`, the person's other calendars the filter
+    //                has off, are the filter; `day` the selected day; `from` and `to` the period shown, YYYY-MM-DD, `to`
+    //                the day after it).
     //   set(patch)   change what this part may: in the calendar only the main part, { day, from, to }; on the map
     //                either part, { selected }. The page passes it on to every part, this one included.
     get destination() {

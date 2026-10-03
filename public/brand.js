@@ -155,7 +155,14 @@ let presentSpace = null; // the space this page is present in (an aside's parent
 let bar = { adminHref: '/admin', withThemeSwitch: true, guest: false, hostConsole: false };
 
 // A page opened over a call (?from=space, Profile or Manage in the space page's frame): the same origin underneath.
-const overCall = () => new URLSearchParams(window.location.search).get('from') === 'space' && window.parent !== window;
+export const overCall = () => new URLSearchParams(window.location.search).get('from') === 'space' && window.parent !== window;
+// Shown within a space's page in any way: opened over a call (?from=space), or in the space page's overlay frame even
+// where a redirect dropped that query (a module's page leading on to its destination, such as /modules/calendar to
+// /calendar). Same origin, so the frame's element can be read; anywhere else it is null.
+export const withinSpacePage = () => {
+  if (overCall()) return true;
+  try { return Boolean(window.frameElement && window.frameElement.id === 'page-overlay-frame'); } catch { return false; }
+};
 const keptQuery = () => (new URLSearchParams(window.location.search).get('from') === 'space' ? window.location.search : '');
 // A path with a page opened over a call's query kept (?from=space...), so the next page keeps its way back.
 function keepingQuery(href) {

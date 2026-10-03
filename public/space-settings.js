@@ -205,7 +205,7 @@ $('space-modules').addEventListener('change', async (event) => {
 // switch it off. Every switch off, those too, saves null: "not set".
 // `opensWithList` is the list as the owner last left it (null for not set); each change sends the whole of it, one save
 // at a time, so a slow answer never brings back an older list.
-let opensWithOptions = { modules: [], builtin: [], environment: null, installed: [] };
+let opensWithOptions = { modules: [], builtin: [], environment: null, installed: [], defaultLayout: null };
 let opensWithList = null;
 let conferenceOn = true;
 let opensWithSaving = Promise.resolve();
@@ -221,9 +221,10 @@ async function loadOpensWith() {
       builtin: answer.builtin || [],
       environment: Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null,
       installed,
+      defaultLayout: answer.defaultLayout && typeof answer.defaultLayout === 'object' ? answer.defaultLayout : null,
     };
   } catch {
-    opensWithOptions = { modules: [], builtin: [], environment: null, installed: [] };
+    opensWithOptions = { modules: [], builtin: [], environment: null, installed: [], defaultLayout: null };
   }
   if (!opensWithPending) opensWithList = Array.isArray(space.opensWith) ? [...space.opensWith] : null;
   renderOpensWith();
@@ -254,7 +255,27 @@ function renderOpensWith() {
   $('opens-with').innerHTML = switchListHtml([...choices, ...kept].map((c) => ({ ...c, on: chosen.has(c.id) })), 'opens');
   wireSwitchList($('opens-with'));
   syncOpensWithSummary();
+  syncDefaultLayout();
 }
+// The default layout (plan-saved-layouts.md, decision 4): while the space has one, the line above the switches names
+// it, with Stop using it (the switches stay as they are). Changing a switch clears it on the server, and the space it
+// answers says so.
+function syncDefaultLayout() {
+  const id = space.defaultLayout || null;
+  const layout = opensWithOptions.defaultLayout && opensWithOptions.defaultLayout.id === id ? opensWithOptions.defaultLayout : null;
+  $('opens-with-layout').hidden = !id;
+  $('opens-with-layout-text').textContent = id ? (layout ? `Opens with the layout ${layout.name}` : 'Opens with a saved layout') : '';
+}
+$('opens-with-layout-stop').addEventListener('click', async () => {
+  try {
+    space = (await api('PATCH', `/api/spaces/${space.id}`, { defaultLayout: null })).space;
+    say($('opens-with-status'), 'saved');
+  } catch (err) {
+    say($('opens-with-status'), err.message, true);
+  }
+  syncDefaultLayout();
+  if ($('opens-with-layout').hidden) $('opens-with').querySelector('input')?.focus();
+});
 // Under the switches: what a first visit opens when that is not plain from them, from the list itself (opens-with.js).
 function syncOpensWithSummary() {
   const choices = opensWithChoices();
@@ -280,6 +301,7 @@ $('opens-with').addEventListener('change', (event) => {
     try {
       space = (await api('PATCH', `/api/spaces/${space.id}`, { opensWith: send })).space;
       say($('opens-with-status'), 'saved');
+      syncDefaultLayout(); // a list set by hand is no longer the layout's
     } catch (err) {
       // Back to what the server has, with the reason.
       opensWithList = Array.isArray(space.opensWith) ? [...space.opensWith] : null;

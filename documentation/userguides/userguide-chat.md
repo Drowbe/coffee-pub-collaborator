@@ -55,7 +55,26 @@ Made public, it appears for everyone in the space where its time places it. Made
 
 **The filter.** Above the messages, **All**, **Private** and **Public** choose what you see. It only hides messages on your screen, and it is remembered for this space until you close the tab. With nothing to show it says "No private messages here yet." or "No public messages here yet."
 
-**Delete your private messages.** In Chat's menu (the **…** in its header), choose **Delete your private messages**, then **Delete them?** to confirm. Every private message of yours in the space goes; public ones stay.
+## Clear messages
+
+Chat's menu (the **⋮** in its header) reads **Save the chat**, **Clear…** and, for moderators, owners and the admin,
+**Delete the chat**.
+
+1. Choose **Clear…**. It lists what you can clear, each with how many: **Chat messages**, **AI**, one line for each
+   module's command messages (with its name, icon and colour, or its command, such as "/t", if the module is gone),
+   and **All of them**. The counts ignore the **All**, **Private** and **Public** filter.
+2. Choose one.
+   - A member clears only their own: for example "Clear your 12 AI messages?". Confirm it.
+   - A moderator, an owner or the admin chooses **Clear yours (n)** or **Clear everyone's (n)**. Everyone's says
+     "Private messages of others stay.": it takes every public message of that type, and your own private ones,
+     never anyone else's private messages.
+3. Clearing **Chat messages** or **All of them** also takes the pictures on your screen.
+
+When someone clears everyone's messages, the others in the space see one line saying so, for example "Mo cleared the
+AI messages.". It isn't kept.
+
+**Clear…** shows in a space, not an aside, to signed-in people, when there is something to clear. Guests never see
+it. **Delete the chat** removes every message, for everyone, private ones too.
 
 Chat keeps the space's last 500 public messages and each person's last 200 private ones, none older than 30 days.
 

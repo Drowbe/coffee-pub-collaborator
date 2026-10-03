@@ -3,8 +3,10 @@
  * check-layouts.mjs -- saved layouts, step 1 (documentation/plans/plan-saved-layouts.md, GitHub #161): the pure shape
  * check cleanLayout(), the limits, DATA_DIR/layouts.json (shared per space, each person's own per space), the clean-up
  * when a space or a person is removed, and the four routes under /api/spaces/:id/layouts with their codes for an
- * owner, a moderator, a member, someone not in the space, a guest and nobody signed in. The shape check and the file
- * run in-process; the routes run against a throwaway server.
+ * owner, a moderator, a member, someone not in the space, a guest and nobody signed in. Step 4: a space's
+ * defaultLayout (owners only), kept in step with its opensWith both ways, cleared when its layout is deleted, carried by
+ * GET /api/modules/for-space, and nothing stored before it changed. The shape check and the file run in-process; the
+ * routes run against a throwaway server.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -204,6 +206,88 @@ const refused = (input, pattern, label, options) => {
   n += 1;
 }
 
+// --- the store: a space's default layout (step 4) -----------------------------------------------------------------
+
+{
+  const dir = tmp('default');
+  const store = new Store(dir);
+  const pat = store.addUser({ login: 'pat', displayName: 'Pat', role: 'member', passwordHash: 'x' });
+  const a = store.addSpace({ name: 'A', members: [pat.key] });
+  const g = cleanLayout(good()).layout;
+  store.updateSpace(a.id, { opensWith: ['chat'] });
+  assert.ok(!('defaultLayout' in store.spaceById(a.id)), 'absent while not set');
+  const shared = store.layouts.add(a.id, pat.key, { ...g, shared: true });
+  const own = store.layouts.add(a.id, pat.key, { ...g, name: 'Mine' });
+
+  // Setting it sets Opens with to its modules; refusals change nothing.
+  let space = store.updateSpace(a.id, { defaultLayout: shared.id });
+  assert.equal(space.defaultLayout, shared.id);
+  assert.deepEqual(space.opensWith, ['conference', 'chat', 'calendar'], "Opens with follows the layout's modules, in order");
+  assert.deepEqual(store.defaultLayoutOf(a.id), store.layouts.find(a.id, shared.id, null).layout, 'the whole layout');
+  const storeRefused = (patch, status, pattern, label) => {
+    const before = JSON.stringify(store.spaceById(a.id));
+    assert.throws(() => store.updateSpace(a.id, { name: 'Renamed', ...patch }), (e) => e.status === status && pattern.test(e.message) && /^[A-Z][^\n]*\.$/.test(e.message), label);
+    assert.equal(JSON.stringify(store.spaceById(a.id)), before, `${label}: nothing changed`);
+    n += 1;
+  };
+  storeRefused({ defaultLayout: own.id }, 404, /no shared layout/, "a person's own layout cannot be the default");
+  storeRefused({ defaultLayout: 'lnosuch' }, 404, /no shared layout/, 'no such layout');
+  storeRefused({ defaultLayout: 7 }, 400, /shared layout's id/, 'not an id');
+  storeRefused({ defaultLayout: shared.id, opensWith: ['chat'] }, 400, /not both/, 'both at once');
+
+  // Replacing its modules moves Opens with (syncDefaultLayout, as the PUT route calls it); a rename does not touch it.
+  store.layouts.update(a.id, shared.id, pat.key, { modules: [{ id: 'notes', mode: 'dock' }, { id: 'chat', mode: 'float', box: { x: 0, y: 0, w: 0.5, h: 0.5 } }] });
+  store.syncDefaultLayout(a.id);
+  assert.deepEqual(store.spaceById(a.id).opensWith, ['notes', 'chat']);
+  assert.equal(store.spaceById(a.id).defaultLayout, shared.id);
+
+  // Kept across a restart.
+  assert.equal(new Store(dir).spaceById(a.id).defaultLayout, shared.id, 'read back as written');
+
+  // Opens with by hand clears it; null clears it and keeps Opens with.
+  space = store.updateSpace(a.id, { opensWith: ['chat', 'notes'] });
+  assert.ok(!('defaultLayout' in space), 'changing Opens with by hand clears the default');
+  assert.deepEqual(space.opensWith, ['chat', 'notes']);
+  store.updateSpace(a.id, { defaultLayout: shared.id });
+  space = store.updateSpace(a.id, { defaultLayout: null });
+  assert.ok(!('defaultLayout' in space), 'null clears it');
+  assert.deepEqual(space.opensWith, ['notes', 'chat'], 'null leaves Opens with as it was');
+  assert.equal(store.defaultLayoutOf(a.id), null);
+  space = store.updateSpace(a.id, { defaultLayout: null, opensWith: null });
+  assert.ok(!('opensWith' in space) && !('defaultLayout' in space), 'both cleared at once');
+
+  // Deleting it clears the default and leaves Opens with; deleting another changes nothing.
+  store.updateSpace(a.id, { defaultLayout: shared.id });
+  const other = store.layouts.add(a.id, pat.key, { ...g, name: 'Other', shared: true });
+  store.layouts.remove(a.id, other.id, pat.key);
+  store.syncDefaultLayout(a.id);
+  assert.equal(store.spaceById(a.id).defaultLayout, shared.id, 'deleting another shared layout keeps the default');
+  store.layouts.remove(a.id, shared.id, pat.key);
+  store.syncDefaultLayout(a.id);
+  assert.ok(!('defaultLayout' in store.spaceById(a.id)), 'deleting the default layout clears it');
+  assert.deepEqual(store.spaceById(a.id).opensWith, ['notes', 'chat'], 'and Opens with stays');
+  n += 1;
+
+  // Nothing stored breaks: a space from before this step (no defaultLayout) reads and writes as it did; a stored id
+  // whose layout is gone reads as no default; a stored value that is not an id is dropped.
+  const appFile = path.join(dir, 'app.json');
+  const b = store.addSpace({ name: 'B', members: [] });
+  const c = store.addSpace({ name: 'C', members: [] });
+  const rawNow = readJson(appFile);
+  const before = rawNow.spaces.find((r) => r.id === b.id);
+  assert.ok(!('defaultLayout' in before), 'a new space has no defaultLayout key');
+  rawNow.spaces.find((r) => r.id === a.id).defaultLayout = 'lgone12';
+  rawNow.spaces.find((r) => r.id === c.id).defaultLayout = 'Not an id!';
+  fs.writeFileSync(appFile, JSON.stringify(rawNow));
+  const again = new Store(dir);
+  assert.deepEqual(again.spaceById(b.id), store.spaceById(b.id), 'a space without a default reads exactly as before');
+  assert.equal(again.spaceById(a.id).defaultLayout, 'lgone12', 'a stored id is kept as it is');
+  assert.equal(again.defaultLayoutOf(a.id), null, 'and reads as no default while its layout is gone');
+  assert.ok(!('defaultLayout' in again.spaceById(c.id)), 'a stored value that is not an id is dropped');
+  fs.rmSync(dir, { recursive: true, force: true });
+  n += 1;
+}
+
 // --- the routes, against a throwaway server -----------------------------------------------------------------------
 
 const dataDir = tmp('server');
@@ -364,8 +448,85 @@ try {
   assert.equal((await call('GET', L, { cookie: pat2 })).json.mine.length, 10, 'read back after a restart');
   n += 1;
 
-  // A removed person takes their own layouts; a removed space takes all of its layouts.
+  // The default layout (step 4), in a space of its own: owners only, Opens with in step both ways, cleared by a delete.
   const owner2 = await login('admin', 'testpass1234');
+  const sam2 = await login('sam', 'memberpass1234');
+  const camp = (await call('POST', '/api/spaces', { cookie: owner2, body: { name: 'Camp', members: [patUser.key, samUser.key] } })).json.space;
+  assert.ok(!('defaultLayout' in camp), 'a new space has none');
+  const C = `/api/spaces/${camp.id}`;
+  await expect('sam made moderator of Camp', 200, 'PATCH', `/api/users/${samUser.key}/spaces/${camp.id}`, { cookie: owner2, body: { permissions: { moderator: true } } });
+  const night = (await expect('moderator saves shared in Camp', 201, 'POST', `${C}/layouts`, { cookie: sam2, body: { ...good(), shared: true } })).json.layout;
+  const plan = (await expect('owner saves shared in Camp', 201, 'POST', `${C}/layouts`, { cookie: owner2, body: { ...good(), name: 'Planning', modules: [{ id: 'calendar', mode: 'dock' }], shared: true } })).json.layout;
+  const ownCamp = (await expect('owner saves own in Camp', 201, 'POST', `${C}/layouts`, { cookie: owner2, body: { ...good(), name: 'Mine' } })).json.layout;
+  const forSpace = async (cookie, query = '') => (await expect('for-space', 200, 'GET', `/api/modules/for-space?space=${camp.id}${query}`, { cookie })).json;
+  assert.equal((await forSpace(pat2)).defaultLayout, null, 'for-space: null while none is set');
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: pat2 })).json.defaultLayout, null);
+
+  // Owners only: a moderator, a member and a guest are refused, and nothing changes.
+  for (const [label, cookie] of [['moderator', sam2], ['member', pat2]]) {
+    const r = await call('PATCH', C, { cookie, body: { defaultLayout: night.id } });
+    assert.equal(r.status, 403, `${label} sets the default: ${r.text}`);
+  }
+  assert.equal((await call('PATCH', C, { body: { defaultLayout: night.id } })).status, 401, 'nobody signed in');
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: owner2 })).json.defaultLayout, null, 'refusals changed nothing');
+  await expect("a person's own layout", 404, 'PATCH', C, { cookie: owner2, body: { defaultLayout: ownCamp.id } });
+  await expect('no such layout', 404, 'PATCH', C, { cookie: owner2, body: { defaultLayout: 'lnosuch' } });
+  await expect('not an id', 400, 'PATCH', C, { cookie: owner2, body: { defaultLayout: 12 } });
+  await expect('both at once', 400, 'PATCH', C, { cookie: owner2, body: { defaultLayout: night.id, opensWith: ['chat'] } });
+  await expect('a layout of another space', 404, 'PATCH', C, { cookie: owner2, body: { defaultLayout: samShared.json.layout.id } });
+  n += 1;
+
+  // Setting it sets Opens with; every reader sees it.
+  let set = await expect('owner sets the default', 200, 'PATCH', C, { cookie: owner2, body: { defaultLayout: night.id } });
+  assert.equal(set.json.space.defaultLayout, night.id);
+  assert.deepEqual(set.json.space.opensWith, ['conference', 'chat', 'calendar'], "Opens with is the layout's modules");
+  for (const [label, cookie] of [['owner', owner2], ['moderator', sam2], ['member', pat2]]) {
+    assert.equal((await call('GET', `${C}/layouts`, { cookie })).json.defaultLayout, night.id, `${label} reads the default's id`);
+    const fs1 = await forSpace(cookie);
+    assert.deepEqual(fs1.defaultLayout, night, `${label}: for-space carries the whole layout`);
+    assert.deepEqual(fs1.opensWith, ['conference', 'chat', 'calendar'], `${label}: for-space's opensWith in step`);
+  }
+  await expect('guests allowed in Camp', 200, 'PATCH', C, { cookie: owner2, body: { allowGuests: true } });
+  const campGuest = `?guest=${encodeURIComponent((await expect('Camp guest link', 200, 'POST', `${C}/guest-link`, { cookie: owner2, body: {} })).json.space.guestToken)}`;
+  assert.equal((await call('GET', `${C}/layouts${campGuest}`)).json.defaultLayout, night.id, 'a guest reads the default too');
+  assert.deepEqual((await call('GET', `/api/modules/for-space?space=${camp.id}&guest=${campGuest.slice(7)}`)).json.defaultLayout, night, 'and gets it from for-space');
+  assert.equal((await call('PATCH', `${C}${campGuest}`, { body: { defaultLayout: null } })).status, 401, 'a guest cannot clear it');
+
+  // Replacing the default's modules moves Opens with; a rename does not; replacing another layout does not.
+  await expect('moderator replaces the default', 200, 'PUT', `${C}/layouts/${night.id}`, { cookie: sam2, body: { modules: [{ id: 'chat', mode: 'dock' }, { id: 'notes', mode: 'dock' }] } });
+  assert.deepEqual((await forSpace(pat2)).opensWith, ['chat', 'notes'], 'Opens with follows a replace');
+  await expect('rename the default', 200, 'PUT', `${C}/layouts/${night.id}`, { cookie: sam2, body: { name: 'Late night' } });
+  await expect('replace another', 200, 'PUT', `${C}/layouts/${plan.id}`, { cookie: owner2, body: { modules: [{ id: 'map', mode: 'dock' }] } });
+  let fs2 = await forSpace(pat2);
+  assert.deepEqual(fs2.opensWith, ['chat', 'notes'], 'only the default moves Opens with');
+  assert.equal(fs2.defaultLayout.name, 'Late night');
+
+  // Changing Opens with by hand clears the default.
+  set = await expect('Opens with by hand', 200, 'PATCH', C, { cookie: owner2, body: { opensWith: ['chat'] } });
+  assert.ok(!('defaultLayout' in set.json.space), 'cleared by a hand change');
+  assert.equal((await forSpace(pat2)).defaultLayout, null);
+
+  // null stops using it and keeps Opens with.
+  await expect('set again', 200, 'PATCH', C, { cookie: owner2, body: { defaultLayout: plan.id } });
+  set = await expect('stop using it', 200, 'PATCH', C, { cookie: owner2, body: { defaultLayout: null } });
+  assert.ok(!('defaultLayout' in set.json.space));
+  assert.deepEqual(set.json.space.opensWith, ['map'], 'null leaves Opens with as it was');
+
+  // Deleting the default clears it and keeps Opens with; deleting another keeps it.
+  await expect('set the default', 200, 'PATCH', C, { cookie: owner2, body: { defaultLayout: night.id } });
+  await expect('delete another', 204, 'DELETE', `${C}/layouts/${plan.id}`, { cookie: owner2 });
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: pat2 })).json.defaultLayout, night.id, 'deleting another keeps the default');
+  await expect('delete the default', 204, 'DELETE', `${C}/layouts/${night.id}`, { cookie: sam2 });
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: pat2 })).json.defaultLayout, null, 'deleting the default clears it');
+  fs2 = await forSpace(pat2);
+  assert.equal(fs2.defaultLayout, null);
+  assert.deepEqual(fs2.opensWith, ['chat', 'notes'], 'and Opens with stays');
+  const campRecord = (await call('GET', C, { cookie: owner2 })).json.space;
+  assert.ok(!('defaultLayout' in campRecord), 'the key is gone from the record');
+  n += 1;
+
+  // A removed person takes their own layouts; a removed space takes all of its layouts.
+  await expect('remove Camp', 200, 'DELETE', C, { cookie: owner2 });
   await expect('remove pat', 200, 'DELETE', `/api/users/${patUser.key}`, { cookie: owner2 });
   assert.ok(!readJson(path.join(dataDir, 'layouts.json')).spaces[S].people[patUser.key], "pat's layouts are gone");
   assert.equal(readJson(path.join(dataDir, 'layouts.json')).spaces[S].shared.length, 10, 'the shared ones stay');

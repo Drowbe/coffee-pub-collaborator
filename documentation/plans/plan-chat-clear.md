@@ -3,7 +3,7 @@
 **Audience:** Thomas decides; server-development and experience-design build; content-manager documents.
 
 **Status:** Approved 2026-10-03 (GitHub issue #166), with every open question answered as recommended (decisions 3
-to 11). Step 1, the server, built 2026-10-03; steps 2 and 3 not built. Thomas: "Replace the single
+to 11). Built 2026-10-03. Thomas: "Replace the single
 AI-only clear with a **Clear…** submenu in Chat. It offers a choice for each type of message: chat, AI, and each
 module command type (to-do, poll, and so on). This lets people scrub whatever they see." It builds on the chat model
 ([plan-chat-model](plan-chat-model.md), #157), which is built, and replaces that plan's **Delete your private
@@ -121,7 +121,7 @@ own" cannot be told apart.
 - 400 `type is chat, ai, module or all` for a missing or unknown `type`; 400 `which module` when `type=module` has no
   `module`; 400 `scope is mine or everyone`. A `module` that matches no message is not an error: it deletes nothing.
 - 403 for a guest: `guests can't clear messages` (the `guest` word, plural).
-- 403 for `scope=everyone` without `chatModerator`: `only an owner or a moderator can clear everyone's messages` (the
+- 403 for `scope=everyone` without `chatModerator`: `Only an owner or a moderator can clear everyone's messages` (the
   `owner` and `moderator` words), the same shape as **Delete the chat**'s refusal.
 - 200 `{ ok: true, deleted: <count> }`, `deleted` 0 when nothing matched. The `cleared` time is **not** changed:
   that marks only a whole delete, and an old local copy in a browser is shown only when the server cannot be

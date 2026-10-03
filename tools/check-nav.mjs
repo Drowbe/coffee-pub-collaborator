@@ -441,6 +441,40 @@ test('the Layout panel\'s Layouts section (plan-saved-layouts.md, step 3): after
   assert.match(space, /const layoutSpaceId = \(\) => \(currentSpace && !currentSpace\.isAside \? currentSpace\.id : null\);/);
 });
 
+test('the default layout (plan-saved-layouts.md, step 4): Make default in a shared row\'s ..., restore() on a first visit, space settings\' line', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const settings = fs.readFileSync(path.join(ROOT, 'public/space-settings.js'), 'utf8');
+  const settingsHtml = fs.readFileSync(path.join(ROOT, 'public/space-settings.html'), 'utf8');
+  // Only on a shared row, only for those the server says may set it (canSetDefault), never a guest.
+  assert.match(space, /const maySetDefault = \(shared\) => !guestToken && shared && layoutList\.canSetDefault;/);
+  assert.match(space, /canSetDefault: Boolean\(got\.canSetDefault\)/, 'read from GET .../layouts');
+  assert.match(space, /\$\{mayChangeLayout\(shared\) \|\| maySetDefault\(shared\) \? `<button/, 'the ... shows for one who may only set the default');
+  assert.match(space, /\$\{l\.id === layoutList\.defaultLayout \? '<span class="layout-default">Default<\/span>' : ''\}/, 'the default row is marked Default');
+  const menuFn = space.slice(space.indexOf('function openLayoutMenu('), space.indexOf('async function setDefaultLayout('));
+  assert.match(menuFn, /if \(maySetDefault\(shared\)\) \{/);
+  assert.match(menuFn, /layoutList\.defaultLayout === layoutId\n\s*\? \{ icon: 'star', regular: true, label: 'Stop using as default', onPick: \(\) => setDefaultLayout\(null, layout\) \}\n\s*: \{ icon: 'star', label: 'Make default', onPick: \(\) => setDefaultLayout\(layoutId, layout\) \}\);/);
+  const setFn = space.slice(space.indexOf('async function setDefaultLayout('), space.indexOf('async function replaceLayout('));
+  assert.match(setFn, /api\('PATCH', `\/api\/spaces\/\$\{encodeURIComponent\(id\)\}`, \{ defaultLayout: layoutId \}\)/);
+  assert.match(setFn, /await refreshLayouts\(/, 'the list again, for the Default mark');
+  // Replace and delete read the list again (the server moves Opens with, or clears the default).
+  const replaceFn = space.slice(space.indexOf('async function replaceLayout('), space.indexOf('function startRename('));
+  assert.match(replaceFn, /await refreshLayouts\(/);
+  assert.match(menuFn, /await layoutRequest\('DELETE', layoutUrl\(layoutSpaceId\(\), layoutId\)\);[\s\S]*?await refreshLayouts\(/);
+  // restore(): from the space's own list (a first visit, or a guest) with a default set, through loadLayout; a
+  // remembered layout wins; a fresh request to open one object wins over both.
+  const restore = canvasJs.slice(canvasJs.indexOf('  function restore() {'), canvasJs.indexOf('  // --- saved layouts'));
+  assert.match(restore, /if \(!request && spaceDefaultLayout && Array\.isArray\(spaceOpensWith\) && \(guestToken \|\| !Array\.isArray\(saved\.__open\)\)\) \{[\s\S]*?loadLayout\(spaceDefaultLayout\);\n\s*return;/);
+  assert.ok(restore.indexOf('loadLayout(spaceDefaultLayout)') < restore.indexOf('whatOpens({'), 'before the module list');
+  assert.match(canvasJs, /spaceDefaultLayout = answer\.defaultLayout && Array\.isArray\(answer\.defaultLayout\.modules\) \? answer\.defaultLayout : null;/, 'from GET /api/modules/for-space');
+  // Space settings: the line and Stop using it; a list set by hand refreshes it from the answered space.
+  assert.match(settingsHtml, /<button class="btn btn-small" id="opens-with-layout-stop" type="button">Stop using it<\/button>/);
+  assert.ok(settingsHtml.indexOf('id="opens-with-layout"') < settingsHtml.indexOf('id="opens-with"'), 'above the switches');
+  assert.match(settings, /`Opens with the layout \$\{layout\.name\}`/);
+  assert.match(settings, /api\('PATCH', `\/api\/spaces\/\$\{space\.id\}`, \{ defaultLayout: null \}\)/);
+  assert.match(settings, /space = \(await api\('PATCH', `\/api\/spaces\/\$\{space\.id\}`, \{ opensWith: send \}\)\)\.space;\n\s*say\(\$\('opens-with-status'\), 'saved'\);\n\s*syncDefaultLayout\(\);/);
+});
+
 test('the top bar\'s space segment and the Spaces slot wear the top bar\'s link look (core-link), and nothing restyles them on a wider screen', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');

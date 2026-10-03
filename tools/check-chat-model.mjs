@@ -809,7 +809,7 @@ try {
   }
   for (const who of ['mia', 'max']) {
     const r = await clear('?type=all&scope=everyone', cookies[who]);
-    assert.deepEqual([r.status, r.json.error], [403, "only an owner or a moderator can clear everyone's messages"], `${who}: everyone`);
+    assert.deepEqual([r.status, r.json.error], [403, "Only an owner or a moderator can clear everyone's messages"], `${who}: everyone`);
   }
   assert.deepEqual((await everything()).map((m) => m.id).sort(), seeded.map((m) => m.id).sort(), 'every refusal left every message');
   assert.equal((await clearSome(0)).length, 0, 'and told the call nothing');

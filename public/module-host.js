@@ -581,16 +581,23 @@ function drawMoreButton(doc, extraClass, onClick) {
 
 // A confirm in this same menu, under the button that opened it. The first choice asks; the second does it.
 // `armed` skips the ask, for a choice that was already picked from a longer menu.
-export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash', onConfirm, fail = 'It could not be cleared.', armed = false } = {}) {
+// `choices` ([{ label, hint?, disabled?, onConfirm }]) makes the armed confirm offer more than one way to do it (Chat's
+// Clear…: yours or everyone's): `confirm` is then a heading line above them, and each acts at once. Keep it is last.
+// A failure shows its message in the menu's place, whichever choice it was.
+export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash', onConfirm, choices = null, fail = 'It could not be cleared.', armed = false } = {}) {
+  const act = (run) => async () => {
+    try { await run(); }
+    catch (err) { openHostMenu(trigger, [{ label: err.message || fail, disabled: true }]); }
+  };
   const open = (isArmed) => {
-    const items = isArmed
+    const doing = Array.isArray(choices) && choices.length
       ? [
-          { icon, label: confirm, hint, danger: true, onPick: async () => {
-            try { await onConfirm(); }
-            catch (err) { openHostMenu(trigger, [{ label: err.message || fail, disabled: true }]); }
-          } },
-          { icon: 'xmark', label: 'Keep it', onPick: () => {} },
+          ...(confirm ? [{ icon, label: confirm, disabled: true }] : []),
+          ...choices.map((c) => ({ icon, label: c.label, hint: c.hint, disabled: Boolean(c.disabled), danger: !c.disabled, onPick: act(c.onConfirm) })),
         ]
+      : [{ icon, label: confirm, hint, danger: true, onPick: act(onConfirm) }];
+    const items = isArmed
+      ? [...doing, { icon: 'xmark', label: 'Keep it', onPick: () => {} }]
       : [{ icon, label, hint, danger: true, onPick: () => open(true) }];
     openHostMenu(trigger, items);
   };

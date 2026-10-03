@@ -103,6 +103,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const tintAttr = (id) => (colorOf(id) ? ` data-tint="${colorOf(id)}"` : '');
   // What this space opens with, and the environment's list for a space that has none. Both null until a space is loaded.
   let spaceOpensWith = null;
+  let spaceDefaultLayout = null; // the space's default layout, whole (plan-saved-layouts.md, decision 4), or null
   let environmentOpensWith = null;
   let z = 40;
   let order = 0;
@@ -1297,6 +1298,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === openRequest.module) ? openRequest : null;
     openRequest = null;
     keepLayout = Boolean(request);
+    // The space's default layout (plan-saved-layouts.md, decision 4): when what opens comes from the space's own Opens
+    // with (a first visit, or a guest) and the space has one, it opens through loadLayout, modes and places included.
+    // A person's remembered layout still wins after their first visit (plan-entering, decision 5).
+    if (!request && spaceDefaultLayout && Array.isArray(spaceOpensWith) && (guestToken || !Array.isArray(saved.__open))) {
+      restoring = false;
+      suspended = false;
+      loadLayout(spaceDefaultLayout);
+      return;
+    }
     const want = request ? [request.module] : whatOpens({
       remembered: saved.__open,
       own: spaceOpensWith,
@@ -1669,6 +1679,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     available = [];
     colors = new Map();
     spaceOpensWith = null;
+    spaceDefaultLayout = null;
     environmentOpensWith = null;
     if (id) {
       try {
@@ -1678,6 +1689,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         available = (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false);
         colors = new Map((answer.modules || []).filter((m) => TINTS.includes(m.color)).map((m) => [m.id, m.color]));
         spaceOpensWith = Array.isArray(answer.opensWith) ? answer.opensWith : null;
+        spaceDefaultLayout = answer.defaultLayout && Array.isArray(answer.defaultLayout.modules) ? answer.defaultLayout : null;
         environmentOpensWith = Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null;
         showBuiltin(answer.builtin);
       } catch {

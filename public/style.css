@@ -6381,6 +6381,17 @@ body.chat-window {
   margin: 8px 0;
 }
 
+/* Its default layout's line, above the switches: the layout's name, then Stop using it (wraps on a narrow page). */
+.opens-with-layout {
+  margin: 8px 0;
+}
+
+.opens-with-layout-text {
+  flex: 1 1 12em;
+  min-width: 0;
+  font-weight: 600;
+}
+
 /* "Open with": a person's own choice of what a space opens with, from its tile on the space list. */
 .space-choice {
   position: relative;

@@ -52,6 +52,8 @@ same setup.
 
 ## Planned
 
+- **Space calendars** (#179, [plan-space-calendars](plans/plan-space-calendars.md)): approved 2026-10-03, nine steps (0 to 8), none built. A space's own address per person, the environment's published calendar, members' busy times in a space, and setup in Calendar's Configure and a Profile Calendars tab. Step 0 first: Profile's Other calendars form missing after the hook is approved, and the feed's 8 to 24 hours wording.
+- **Calendar markers** (#167, [plan-calendar-markers](plans/plan-calendar-markers.md)): approved 2026-10-03, four steps, none built. Poll closing times and to-do due days on the Calendar as markers that open their object.
 - #2 The first time: guidance, welcome cards, an owner's setup checklist ([plan-entering](plans/plan-entering.md)).
 - #12 Object status: action required, tentative, confirmed ([plan-object-status](plans/plan-object-status.md)).
 - #13 Planner changes shown in the Calendar. A dated plan object is now on the Calendar and kept in step (#96, [plan-plan-calendar-sync](plans/plan-plan-calendar-sync.md)); what #13 still asks beyond that is to be decided.

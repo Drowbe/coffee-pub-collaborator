@@ -21,6 +21,8 @@ let environmentName = ''; // the environment's own name, for the calendar feed's
 let feed = null; // your own calendar feed, from GET /api/me/feed: { allowed, on, made, readAt }
 let feedUrl = ''; // the address just made: answered once by the server, kept only until the page is left
 let feedsAllowed = false; // an owner editing someone: whether the environment allows calendar feeds (settings.calendarFeeds)
+let external = null; // your own other calendars, from GET /api/me/external-calendars: { allowed, calendars: [{ id, name, host, readAt, error }] }
+let externalBusy = false; // a calendar is being read for Add (up to 15 seconds)
 
 // If this page is open as the overlay on top of an active call (same
 // pattern as closeProfileOverlay -- see brand.js/space.js), and it's my own
@@ -200,6 +202,7 @@ function render() {
   }
 
   renderFeed(editing);
+  renderExternal(editing);
 
   $('danger-row').hidden = !editing;
   if (editing) {
@@ -573,6 +576,151 @@ $('feed-row-off').addEventListener('click', () => run(async () => {
   sayField($('account-status'), 'calendar feed turned off');
 }, $('account-status')));
 
+// --- other calendars (plan-google-calendar.md, Part 2) ----------------------
+// Your own calendars elsewhere (Google's, say), added by their private address: their events show in the calendar, read
+// only and only to you. The server keeps the address sealed and never answers it again, so a row shows its host only.
+// Shown while the environment allows them, and while you still have some (to remove them when it no longer does).
+const MAX_EXTERNAL = 5;
+
+function renderExternal(editing) {
+  const section = $('section-external');
+  const calendars = (external && external.calendars) || [];
+  section.hidden = editing || !external || !(external.allowed || calendars.length);
+  if (section.hidden) return;
+  const place = environmentName || `this ${word('environment')}`;
+  $('external-hint').textContent = `See the events of your own calendars, such as Google Calendar, beside the ones in ${place}. Only you see them.`;
+  $('external-off').hidden = external.allowed;
+  $('external-off').textContent = external.allowed ? '' : `Other calendars are off in ${place} for now, so their events do not show. You can still remove them.`;
+  const list = $('external-list');
+  list.hidden = !calendars.length;
+  list.innerHTML = '';
+  for (const c of calendars) {
+    const row = document.createElement('li');
+    row.className = 'external-row';
+    row.dataset.id = c.id;
+    const what = document.createElement('div');
+    what.className = 'external-what';
+    const name = document.createElement('strong');
+    name.textContent = c.name;
+    const host = document.createElement('span');
+    host.className = 'hint';
+    host.textContent = c.host || 'address unreadable';
+    const state = document.createElement('span');
+    state.className = c.error ? 'external-state error' : 'external-state hint';
+    state.textContent = c.error || (c.readAt ? `Read ${timeAgo(c.readAt)}` : 'Not read yet');
+    what.append(name, host, state);
+    const actions = document.createElement('div');
+    actions.className = 'row external-actions';
+    if (external.allowed) {
+      const refresh = document.createElement('button');
+      refresh.type = 'button';
+      refresh.className = 'btn btn-small';
+      refresh.dataset.refresh = c.id;
+      refresh.textContent = 'Refresh';
+      refresh.setAttribute('aria-label', `Refresh ${c.name}`);
+      actions.append(refresh);
+    }
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'btn btn-small btn-danger';
+    remove.dataset.remove = c.id;
+    remove.textContent = 'Remove';
+    remove.setAttribute('aria-label', `Remove ${c.name}`);
+    actions.append(remove);
+    const status = document.createElement('span');
+    status.className = 'status external-row-status';
+    status.setAttribute('role', 'status');
+    row.append(what, actions, status);
+    list.append(row);
+  }
+  const full = calendars.length >= MAX_EXTERNAL;
+  $('external-add').hidden = !external.allowed || (full && !externalBusy);
+  $('external-full').hidden = !external.allowed || !full;
+}
+
+async function loadExternal() {
+  if (editingKey) return;
+  try { external = await api('GET', '/api/me/external-calendars'); } catch { external = null; }
+}
+
+// Add: the server reads the address first (up to 15 seconds) and keeps it only when it could be read.
+function externalBusyState(on) {
+  externalBusy = on;
+  $('external-add').setAttribute('aria-busy', String(on));
+  for (const id of ['external-name', 'external-url', 'external-add-btn']) $(id).disabled = on;
+  $('external-add-btn').textContent = on ? 'Reading…' : 'Add';
+}
+$('external-add').addEventListener('submit', (e) => {
+  e.preventDefault();
+  if (externalBusy) return;
+  const status = $('external-status');
+  const url = $('external-url').value.trim();
+  if (!url) {
+    sayField(status, 'Paste the calendar’s address.', true);
+    $('external-url').focus();
+    return;
+  }
+  externalBusyState(true);
+  status.classList.remove('error');
+  status.textContent = 'Reading the calendar. This can take up to 15 seconds.';
+  run(async () => {
+    try {
+      const { calendar } = await api('POST', '/api/me/external-calendars', { name: $('external-name').value.trim(), url });
+      external.calendars = [...external.calendars.filter((c) => c.id !== calendar.id), calendar];
+      $('external-name').value = '';
+      $('external-url').value = '';
+      externalBusyState(false);
+      renderExternal(false);
+      sayField(status, `${calendar.name} added`);
+      (external.calendars.length >= MAX_EXTERNAL ? $('external-list').querySelector(`[data-remove="${CSS.escape(calendar.id)}"]`) : $('external-name'))?.focus();
+    } catch (err) {
+      externalBusyState(false);
+      renderExternal(false);
+      throw err;
+    }
+  }, status);
+});
+// A calendar's own status line, on its row.
+const rowStatus = (id) => $('external-list').querySelector(`.external-row[data-id="${CSS.escape(id)}"] .external-row-status`);
+$('external-list').addEventListener('click', (e) => {
+  const refresh = e.target.closest('[data-refresh]');
+  const remove = e.target.closest('[data-remove]');
+  const button = refresh || remove;
+  if (!button || button.disabled) return;
+  const id = button.dataset.refresh || button.dataset.remove;
+  const calendar = external.calendars.find((c) => c.id === id);
+  if (!calendar) return;
+  const status = rowStatus(id);
+  if (refresh) {
+    refresh.disabled = true;
+    status.classList.remove('error');
+    status.textContent = 'Reading…';
+    // Whatever comes back is said on this calendar's own row (looked up again: the list may have been drawn anew),
+    // never in the section's line under Add: a 429 (read less than a minute ago) included.
+    api('POST', `/api/me/external-calendars/${encodeURIComponent(id)}/refresh`, {}).then((got) => {
+      external.calendars = external.calendars.map((c) => (c.id === id ? got.calendar : c));
+      renderExternal(false);
+      $('external-list').querySelector(`[data-refresh="${CSS.escape(id)}"]`)?.focus();
+      const said = rowStatus(id);
+      if (said) sayField(said, got.calendar.error ? 'could not be read' : 'read now', Boolean(got.calendar.error));
+    }, (err) => {
+      const again = $('external-list').querySelector(`[data-refresh="${CSS.escape(id)}"]`);
+      if (again) again.disabled = false;
+      const said = rowStatus(id);
+      if (said) sayField(said, err.message, true);
+    });
+    return;
+  }
+  run(async () => {
+    if (!window.confirm(`Remove ${calendar.name}? Its events stop showing, and its address is deleted here.`)) return;
+    await api('DELETE', `/api/me/external-calendars/${encodeURIComponent(id)}`);
+    external.calendars = external.calendars.filter((c) => c.id !== id);
+    renderExternal(false);
+    sayField($('external-status'), `${calendar.name} removed`);
+    (external.allowed ? $('external-name') : $('external-list').querySelector('[data-remove]'))?.focus();
+  }, status);
+});
+
 // --- admin editing someone else -----------------------------------------
 
 // Two-step sign-in on the account: your own to turn on (the enrolment block: scan, confirm, keep the recovery codes) and
@@ -734,7 +882,7 @@ async function init() {
       me = mine.user;
       if (!hasOwnerRights(me)) { location.href = '/'; return; }
     }
-    const [, { spaces }] = await Promise.all([reload(), api('GET', '/api/spaces'), loadFeed()]);
+    const [, { spaces }] = await Promise.all([reload(), api('GET', '/api/spaces'), loadFeed(), loadExternal()]);
     spacesById = new Map(spaces.map((r) => [r.id, r]));
   } catch (err) {
     location.href = editingKey ? '/admin' : '/login?next=/profile';

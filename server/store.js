@@ -812,6 +812,9 @@ class Store {
       // Their calendar feed's address (plan-google-calendar.md): only the SHA-256 of its token, never the token; left
       // off while they have none.
       ...(cleanCalendarFeed(u.calendarFeed) ? { calendarFeed: cleanCalendarFeed(u.calendarFeed) } : {}),
+      // Their other calendars (plan-google-calendar.md, Part 2): each address sealed with the secrets key, never kept
+      // plain; left off while they have none.
+      ...(cleanExternalCalendars(u.externalCalendars).length ? { externalCalendars: cleanExternalCalendars(u.externalCalendars) } : {}),
       createdAt: typeof u.createdAt === 'string' ? u.createdAt : new Date().toISOString(),
     };
   }
@@ -1385,6 +1388,52 @@ class Store {
     if (feed.readAt && now - Date.parse(feed.readAt) < 60 * 60 * 1000) return;
     feed.readAt = new Date(now).toISOString();
     this.save();
+  }
+
+  // --- other calendars (plan-google-calendar.md, Part 2) --------------------------------------------------------
+  // Each { id, name, url, readAt, error }, `url` already sealed by the caller (server/index.js holds the key). The
+  // events read from them are never kept here.
+
+  externalCalendarsOf(key) {
+    return this.userByKey(key)?.externalCalendars || [];
+  }
+
+  addExternalCalendar(key, { name, url }) {
+    const user = this.userByKey(key);
+    if (!user) throw new StoreError('no such user', 404);
+    const list = user.externalCalendars || [];
+    if (list.length >= MAX_EXTERNAL_CALENDARS) throw new StoreError('You can add up to five calendars.');
+    if (typeof url !== 'string' || !url.startsWith('aesgcm$')) throw new StoreError('a calendar address is kept sealed');
+    let id;
+    do id = randomToken(6);
+    while (list.some((c) => c.id === id));
+    const calendar = { id, name: cleanText(name, 40) || 'Calendar', url, readAt: null, error: null };
+    user.externalCalendars = [...list, calendar];
+    this.save();
+    return calendar;
+  }
+
+  removeExternalCalendar(key, id) {
+    const user = this.userByKey(key);
+    const list = user?.externalCalendars || [];
+    if (!list.some((c) => c.id === id)) return false;
+    user.externalCalendars = list.filter((c) => c.id !== id);
+    if (!user.externalCalendars.length) delete user.externalCalendars;
+    this.save();
+    return true;
+  }
+
+  // A read of one: its time and its error (null when it went well). Written when the error changes, and otherwise at
+  // most once an hour, so a read every 30 minutes does not rewrite app.json each time.
+  noteExternalCalendarRead(key, id, { readAt = null, error = null } = {}, now = Date.now()) {
+    const calendar = this.externalCalendarsOf(key).find((c) => c.id === id);
+    if (!calendar) return null;
+    const changed = (calendar.error || null) !== (error || null);
+    const due = readAt && (!calendar.readAt || now - Date.parse(calendar.readAt) >= 60 * 60 * 1000);
+    if (readAt) calendar.readAt = readAt;
+    calendar.error = error || null;
+    if (changed || due) this.save();
+    return calendar;
   }
 
   newKey() {
@@ -2131,6 +2180,22 @@ function cleanCalendarFeed(raw) {
   return { hash: raw.hash, made: when(raw.made) || new Date().toISOString(), readAt: when(raw.readAt) };
 }
 
+// A person's other calendars as stored: at most five, each with its address sealed (an "aesgcm$" value); one with a
+// plain or missing address is dropped rather than kept.
+const MAX_EXTERNAL_CALENDARS = 5;
+function cleanExternalCalendars(raw) {
+  if (!Array.isArray(raw)) return [];
+  const when = (v) => (typeof v === 'string' && !Number.isNaN(Date.parse(v)) ? v : null);
+  const out = [];
+  for (const c of raw) {
+    if (!c || typeof c !== 'object' || typeof c.id !== 'string' || !/^[A-Za-z0-9_-]{1,24}$/.test(c.id)) continue;
+    if (typeof c.url !== 'string' || !c.url.startsWith('aesgcm$') || out.some((x) => x.id === c.id)) continue;
+    out.push({ id: c.id, name: cleanText(c.name, 40) || 'Calendar', url: c.url, readAt: when(c.readAt), error: typeof c.error === 'string' && c.error ? c.error.slice(0, 200) : null });
+    if (out.length >= MAX_EXTERNAL_CALENDARS) break;
+  }
+  return out;
+}
+
 class StoreError extends Error {
   constructor(message, status = 400) {
     super(message);
@@ -2143,5 +2208,5 @@ module.exports = {
   LEGACY_SLOTS, ROLES, ASSIGNABLE_ROLES, hasOwnerRights, ROLE_PERMISSIONS, IMAGE_TYPES, MAX_IMAGE_BYTES, DEFAULT_BORDER_COLOR, LOBBY, randomToken, cleanText, cleanLogin,
   sanitizeMfa, CURRENCIES, QUALITY_OPTIONS, LANGUAGES, BUILTIN_THEME_IDS: BUILTIN_THEMES.map((t) => t.id), displayNameProblem,
   THEME_BASE, THEME_OPTIONAL, DEFAULT_THEME, cleanColor, cleanAuthor, cleanReactions, cleanThemeName, MAX_THEMES,
-  DEFAULT_HOME_ICON, UNNAMED_ENVIRONMENT,
+  DEFAULT_HOME_ICON, UNNAMED_ENVIRONMENT, MAX_EXTERNAL_CALENDARS,
 };

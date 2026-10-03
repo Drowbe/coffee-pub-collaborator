@@ -4,7 +4,7 @@
 // back into the frame. Used by a module's own page (module.js), the dashboard (dashboard.js) and a
 // space's canvas (canvas.js).
 
-import { api, accessKeyHeaders, word, words } from '/brand.js';
+import { api, accessKeyHeaders, word, words, withinSpacePage } from '/brand.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu } from '/host-menu.js';
 
@@ -40,7 +40,7 @@ function joinStream(space, guest, onEvent) {
     if (guest) p.set('guest', guest);
     const source = new EventSource(`/api/modules/stream?${p}`);
     s = { source, subs: new Set() };
-    for (const type of ['change', 'schedule', 'links', 'refchange', 'bus', 'action', 'settings']) {
+    for (const type of ['change', 'schedule', 'links', 'refchange', 'bus', 'action', 'settings', 'external']) {
       source.addEventListener(type, (ev) => {
         let data;
         try {
@@ -318,6 +318,14 @@ function objectSearchParams(moduleId, { q, scope: s, space, has } = {}, mount) {
   return p;
 }
 // --- end of the search
+
+// Whether a mount may show the person's own other calendars: only at environment scope, on no keyed page, and not
+// within a space in any way (a page opened over a call, or a window popped out of a space's canvas).
+export function externalAllowedHere({ scope, keyed = false, overCall = false, search = '' }) {
+  const q = new URLSearchParams(search || '');
+  return scope === 'environment' && !keyed && !overCall && !q.get('space') && q.get('popout') !== '1' && q.get('from') !== 'space';
+}
+// --- end of externalAllowedHere
 
 // --- destinations ---------------------------------------------------------------------------------
 // A destination (plan-calendar-destination, plan-map-destination) is a host page made of modules' parts: a `main`
@@ -643,6 +651,11 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     if (guestToken) p.set('guest', guestToken);
     return p;
   };
+  // The person's own other calendars (plan-google-calendar.md, Part 2) are shown only on a module's own page and on a
+  // destination, never within a space, whatever the mount's scope says: not on a space's canvas, not in a window popped
+  // out of one, not on a page opened over a call (?from=space), and never on a keyed page. Elsewhere the module is
+  // answered none and never hears the 'external' event.
+  const externalHere = externalAllowedHere({ scope, keyed: Boolean(keyed), overCall: withinSpacePage(), search: location.search });
   // 'context' means wherever this frame is showing; a module on a space's canvas may also ask for 'environment', and a
   // module's environment page for one of the viewer's spaces ({ space }). See placeOf.
   const scopeOf = (requested, space) => placeOf(requested, space, { scope, spaceId, moduleScopes: module.scope });
@@ -951,6 +964,13 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     },
     async 'ai.ask'({ task, question, objects }) {
       return api('POST', url('/ai', scopeOf()), { task: String(task ?? ''), question: String(question ?? '').slice(0, 1000), objects: Array.isArray(objects) ? objects.slice(0, 12) : [] });
+    },
+    // The signed-in person's own other calendars (a module that declares the `external` hook), read only: their events
+    // between `from` and `to` (YYYY-MM-DD or ISO times), with the calendars they come from. A guest gets none.
+    async 'external.events'({ from, to }) {
+      if (!externalHere) return { calendars: [], events: [] };
+      const when = (v) => (v === undefined || v === null || v === '' ? undefined : String(v).slice(0, 40));
+      return api('GET', url('/external-events', scopeOf(), { from: when(from), to: when(to) }));
     },
     // Ask in this space's Chat (host.chat.ask). Only the canvas host provides it.
     async 'chat.ask'({ question, refs }) {
@@ -1380,6 +1400,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   // environment and the viewer's spaces (see the stream's scopes on the server). A keyed page has no session for the
   // event stream, so it asks after its settings now and then instead (the one live thing it needs).
   const leaveStream = keyed ? pollSettings() : joinStream(scope === 'space' ? spaceId : null, guestToken, (type, d) => {
+    // The person's own other calendars changed (plan-google-calendar.md, Part 2): only the modules the server named,
+    // those with the approved `external` hook, hear it, and ask again for what they show.
+    if (type === 'external') {
+      if (externalHere && Array.isArray(d.modules) && d.modules.includes(module.id)) send('external', {});
+      return;
+    }
     if (type !== 'bus' && type !== 'action' && type !== 'refchange' && d.module !== module.id) return;
     const here = scope === 'space' ? 'space' : 'environment';
     if (type === 'change') send('change', { key: d.key, value: d.value, version: d.version, deleted: d.deleted, by: d.by, scope: d.scope, spaceId: d.spaceId });

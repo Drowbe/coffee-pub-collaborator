@@ -9,6 +9,9 @@
  *   - a calendar feed's address (plan-google-calendar.md) is answered once, to the person who made it: app.json keeps
  *     only its SHA-256, and neither the token nor the hash is in any other answer (the person's, an owner's, the access
  *     key's); reading it sets no session, and a password change leaves it working;
+ *   - another calendar's address (plan-google-calendar.md, Part 2) is sealed in app.json, never plain, and in no answer
+ *     (the person's, an owner's, the access key's, a module's); sealed with a key this server no longer has, it is one
+ *     plain sentence, never a crash;
  *   - app.json and ai.json are private to the server's user (mode 600), and ai.json never holds a plain key once
  *     the server has loaded it -- and the saved, encrypted key still reaches the AI service (a stand-in here).
  * No network beyond localhost.
@@ -47,6 +50,14 @@ const aiServer = http.createServer((req, res) => {
 await new Promise((r) => aiServer.listen(0, '127.0.0.1', r));
 const aiAddress = `http://127.0.0.1:${aiServer.address().port}`;
 
+// A stand-in serving iCalendar, reached as https://cal.example.com/ through tools/fixtures/calendars-net.cjs.
+const calendarServer = http.createServer((req, res) => {
+  res.setHeader('content-type', 'text/calendar');
+  res.end(`BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:one\r\nDTSTART:${new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10).replace(/-/g, '')}T120000Z\r\nSUMMARY:Private\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n`);
+});
+await new Promise((r) => calendarServer.listen(0, '127.0.0.1', r));
+const CALENDAR_SECRET = crypto.randomBytes(18).toString('hex');
+
 const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-secrets-'));
 // An AI key saved in the clear, as every install had it before keys were encrypted: sealed when the server loads it.
 fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom', provider: 'compatible', address: aiAddress, model: 'stand-in-model', key: 'sk-plain-before', enabled: true }), { mode: 0o644 });
@@ -54,9 +65,9 @@ fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({ source: 'custom
 let child = null;
 let port = 0;
 async function startServer() {
-  child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
+  child = spawn(process.execPath, ['--require', path.join(ROOT, 'tools', 'fixtures', 'calendars-net.cjs'), path.join(ROOT, 'server', 'index.js')], {
     cwd: ROOT,
-    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234' },
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234', CHECK_STUB_PORT: String(calendarServer.address().port) },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let out = '';
@@ -235,6 +246,49 @@ try {
     assert.equal((await fetch(`http://127.0.0.1:${port}/feed/${feedToken}.ics`)).status, 200);
   });
 
+  await test('another calendar\'s address is sealed in app.json and in no answer', async () => {
+    const src = fs.mkdtempSync(path.join(os.tmpdir(), 'check-secrets-module-'));
+    try {
+      fs.mkdirSync(path.join(src, 'src'));
+      fs.writeFileSync(path.join(src, 'module.json'), JSON.stringify({
+        id: 'secret-other', name: 'Other', version: '1.0.0', scope: ['environment'], surfaces: { page: { entry: 'secret-other.html' } }, hooks: { external: true },
+      }));
+      fs.writeFileSync(path.join(src, 'src', 'secret-other.html'), '<!DOCTYPE html><html><head><style>/*__CSS__*/</style></head><body><script>/*__JS__*/</script></body></html>');
+      fs.writeFileSync(path.join(src, 'src', 'secret-other.css'), '');
+      fs.writeFileSync(path.join(src, 'src', 'secret-other.js'), '');
+      const up = await fetch(`http://127.0.0.1:${port}/api/modules`, { method: 'POST', headers: { authorization: `Bearer ${owner}`, 'content-type': 'application/zip' }, body: buildModule(src).zip });
+      assert.equal(up.status, 201, await up.text());
+    } finally {
+      fs.rmSync(src, { recursive: true, force: true });
+    }
+    assert.equal((await call('PATCH', '/api/modules/secret-other', { cookie: owner, body: { enabled: true } })).status, 200);
+    const aliceNow = await signIn('alice', 'memberpass5678'); // the feed case above changed her password
+    const added = await call('POST', '/api/me/external-calendars', { token: aliceNow, body: { name: 'Work', url: `webcal://cal.example.com/${CALENDAR_SECRET}/basic.ics` } });
+    assert.equal(added.status, 201, added.text);
+    const stored = fs.readFileSync(path.join(dataDir, 'app.json'), 'utf8');
+    assert.ok(!stored.includes(CALENDAR_SECRET), 'no plain address in app.json');
+    assert.match(JSON.parse(stored).users.find((u) => u.key === alice.key).externalCalendars[0].url, /^aesgcm\$/);
+    const answers = [
+      added,
+      await call('GET', '/api/me/external-calendars', { token: aliceNow }),
+      await call('GET', '/api/modules/secret-other/external-events', { token: aliceNow }),
+      await call('GET', '/api/me', { token: aliceNow }),
+      await call('GET', '/api/users', { cookie: owner }),
+      await call('GET', `/api/users/${alice.key}`, { cookie: owner }),
+      await call('GET', '/api/status', { cookie: owner }),
+      await call('GET', `/api/status?s=${streamKey}`),
+      await call('GET', `/api/presence?s=${streamKey}`),
+      await call('GET', `/api/modules/secret-other/external-events?s=${streamKey}`),
+      await call('GET', '/api/settings', { cookie: owner }),
+    ];
+    for (const r of answers) {
+      assert.ok(r.status === 200 || r.status === 201, r.text);
+      assert.ok(!r.text.includes(CALENDAR_SECRET) && !r.text.includes('aesgcm$'), 'no address in any answer');
+    }
+    assert.equal(answers[2].json.events[0].title, 'Private', 'read through the sealed address');
+    assert.deepEqual(answers[9].json, { calendars: [], events: [] }, 'the access key gets none');
+  });
+
   await test('app.json, ai.json and secrets.key are private to the server\'s user', () => {
     for (const name of ['app.json', 'ai.json', 'secrets.key']) assert.equal(fs.statSync(path.join(dataDir, name)).mode & 0o777, 0o600, name);
   });
@@ -292,10 +346,20 @@ try {
     seen.length = 0;
     await call('POST', '/api/ai/models', { cookie: owner2, body: { provider: 'compatible', address: aiAddress } });
     assert.equal(seen.at(-1), 'Bearer sk-entered-again');
+    // Another calendar's address sealed with the old key: one plain sentence on Profile, no host, nothing read.
+    const alice2 = await signIn('alice', 'memberpass5678');
+    const sealedAway = 'This address can no longer be read here. Remove it and add it again.';
+    let mine = null;
+    for (let i = 0; i < 40 && mine?.error !== sealedAway; i += 1) {
+      mine = (await call('GET', '/api/me/external-calendars', { token: alice2 })).json.calendars[0];
+      if (mine?.error !== sealedAway) await new Promise((r) => setTimeout(r, 100));
+    }
+    assert.deepEqual([mine.host, mine.error], [null, sealedAway]);
   });
 } finally {
   await stopServer();
   aiServer.close();
+  calendarServer.close();
   fs.rmSync(dataDir, { recursive: true, force: true });
 }
 

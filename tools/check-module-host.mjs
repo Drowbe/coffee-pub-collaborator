@@ -399,5 +399,45 @@ test('actions.list passes a valid ref on, cleaned, and drops a bad one; the drop
   });
 }
 
+// The person's own other calendars (plan-google-calendar.md, Part 2): host.external.events asks the module's route with
+// only `from` and `to`, and the stream's `external` event reaches only the modules the server named.
+await (async (name, fn) => {
+  try { await fn(); n += 1; } catch (err) { failed += 1; console.error(`check-module-host: ${name}: ${err.message}`); }
+})('external: events asks the route with from and to only; the stream event reaches only the modules named', async () => {
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  const at = src.indexOf("async 'external.events'(");
+  assert.ok(at > 0, "module-host.js answers 'external.events'");
+  const body = src.slice(at, src.indexOf('\n    },', at)).replace("async 'external.events'", 'async function');
+  const asked = [];
+  const api = async (method, u) => { asked.push([method, u]); return { calendars: [], events: [] }; };
+  const url = (path, place, extra) => `${path}?${new URLSearchParams(Object.entries(extra).filter(([, v]) => v !== undefined))}`;
+  const make = (externalHere) => new Function('api', 'url', 'scopeOf', 'externalHere', `return (${body}\n    });`)(api, url, () => ({ scope: 'environment' }), externalHere);
+  const run = make(true);
+  assert.deepEqual(await run({ from: '2026-10-01', to: '2026-11-01', extra: 'no' }), { calendars: [], events: [] });
+  await run({});
+  assert.deepEqual(asked, [['GET', '/external-events?from=2026-10-01&to=2026-11-01'], ['GET', '/external-events?']]);
+  assert.deepEqual(await make(false)({ from: '2026-10-01' }), { calendars: [], events: [] }, 'within a space: none, and nothing asked');
+  assert.equal(asked.length, 2);
+  const stream = src.slice(src.indexOf("if (type === 'external') {"), src.indexOf("if (type !== 'bus'", src.indexOf("if (type === 'external') {")));
+  const deliver = (moduleId, d, here = true) => { const sent = []; new Function('type', 'd', 'module', 'send', 'externalHere', `${stream}`)('external', d, { id: moduleId }, (e, x) => sent.push([e, x]), here); return sent; };
+  assert.deepEqual(deliver('calendar', { modules: ['calendar'] }), [['external', {}]]);
+  assert.deepEqual(deliver('calendar', { modules: ['calendar'] }, false), [], 'within a space it is never heard');
+  assert.deepEqual(deliver('todo', { modules: ['calendar'] }), []);
+  assert.deepEqual(deliver('calendar', {}), []);
+  assert.match(src, /for \(const type of \[[^\]]*'external'\]\)/, 'the shared stream listens for it');
+  // Never within a space, whatever the scope says (the coordinator's decision for #42 Part 2).
+  const rule = new Function(`${slice('public/module-host.js', 'export function externalAllowedHere', '// --- end of externalAllowedHere').replace('export function', 'function')}\nreturn externalAllowedHere;`)();
+  assert.equal(rule({ scope: 'environment', search: '' }), true, 'the module\'s own page');
+  assert.equal(rule({ scope: 'environment', search: '?' }), true, '/calendar');
+  assert.equal(rule({ scope: 'space', search: '' }), false, 'a space\'s canvas');
+  assert.equal(rule({ scope: 'environment', overCall: true, search: '?from=space&spaceName=Keep' }), false, 'a page opened over a call');
+  assert.equal(rule({ scope: 'environment', search: '?from=space' }), false, 'a page that says it is over a call');
+  assert.equal(rule({ scope: 'environment', search: '?space=gq2zb7pq&popout=1' }), false, 'a window popped out of a space');
+  assert.equal(rule({ scope: 'environment', keyed: true }), false, 'a keyed page');
+  assert.match(src, /const externalHere = externalAllowedHere\(\{ scope, keyed: Boolean\(keyed\), overCall: withinSpacePage\(\), search: location\.search \}\);/, 'each mount asks the rule');
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  assert.ok(sdk.includes("events: (o) => call('external.events', { from: o && o.from, to: o && o.to }),"), 'the SDK passes from and to');
+});
+
 if (failed) process.exit(1);
 console.log(`check-module-host: OK (${n} groups)`);

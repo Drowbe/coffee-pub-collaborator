@@ -30,7 +30,7 @@ const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require(
 const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
 const destinations = require('./destinations');
-const { fetchPreview, fetchImage, cachedImage, PreviewError } = require('./link-preview');
+const { fetchPreview, fetchImage, cachedImage, PreviewError, calendarUrl } = require('./link-preview');
 const { findLink, readFields, CHAT_LINK_LIMITS } = require('./chat-links');
 const objectSync = require('./object-sync');
 const ics = require('./ics');
@@ -41,7 +41,7 @@ const { EventEmitter } = require('events');
 const { ModuleData } = require('./module-data');
 const { ModuleHooks } = require('./module-hooks');
 const themeCssLib = require('./theme-css');
-const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText, UNNAMED_ENVIRONMENT } = require('./store');
+const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText, UNNAMED_ENVIRONMENT, MAX_EXTERNAL_CALENDARS } = require('./store');
 const auth = require('./auth');
 const { buildEnvironment, flushEnvironment } = require('./environment');
 const { HostRegistry, HostError, cleanSlug } = require('./host-registry');
@@ -232,6 +232,7 @@ const inviteEvents = proxyFor('inviteEvents');
 const themeEvents = proxyFor('themeEvents');
 const iconSvgs = proxyFor('iconSvgs');
 const moduleActivity = proxyFor('moduleActivity');
+const externalCalendars = proxyFor('externalCalendars');
 function noteActivity(...args) { return currentEnvironment().noteActivity(...args); }
 
 // The registry of environments (DATA_DIR/host.json): which environments exist, their plans, the host admins. Only
@@ -307,7 +308,7 @@ function migrateIfNeeded() {
   ownersFromServerAdmin(dest);
 }
 // A single-environment install encrypts its secrets (the AI key in ai.json, every two-step secret in app.json, live
-// and pending) with DATA_DIR/secrets.key; a hosted environment's are read with host.json's secretsKey. So the move
+// and pending, and each person's other calendars' addresses) with DATA_DIR/secrets.key; a hosted environment's are read with host.json's secretsKey. So the move
 // decrypts each one with the install's key and encrypts it again with the host's, and says what it did. A value the
 // install's key can't decrypt is left exactly as it is, and said so; a plain (never encrypted) AI key is left for
 // Ai to encrypt on its first load. The install's secrets.key stays in the environment's folder, unused from now on,
@@ -326,11 +327,12 @@ function secretsToHostKey(dir) {
   }
   const to = Buffer.from(hostRegistry.secretsKey, 'hex');
   const done = { moved: 0, unreadable: 0 };
-  const swap = (value) => {
+  const calendars = { moved: 0, unreadable: 0 }; // other calendars' addresses, told apart in the log
+  const swap = (value, tally = done) => {
     if (typeof value !== 'string' || !value.startsWith('aesgcm$')) return value;
     const plain = auth.decryptSecret(value, from);
-    if (plain === null) { done.unreadable += 1; return value; }
-    done.moved += 1;
+    if (plain === null) { tally.unreadable += 1; return value; }
+    tally.moved += 1;
     return auth.encryptSecret(plain, to);
   };
   const rewrite = (file, change) => {
@@ -348,15 +350,21 @@ function secretsToHostKey(dir) {
   if (appFile) {
     rewrite(appFile, (app) => {
       for (const u of Array.isArray(app.users) ? app.users : []) {
-        if (!u || !u.mfa || typeof u.mfa !== 'object') continue;
-        if (u.mfa.secret) u.mfa.secret = swap(u.mfa.secret);
-        if (u.mfa.pending && u.mfa.pending.secret) u.mfa.pending.secret = swap(u.mfa.pending.secret);
+        if (!u || typeof u !== 'object') continue;
+        if (u.mfa && typeof u.mfa === 'object') {
+          if (u.mfa.secret) u.mfa.secret = swap(u.mfa.secret);
+          if (u.mfa.pending && u.mfa.pending.secret) u.mfa.pending.secret = swap(u.mfa.pending.secret);
+        }
+        // A person's other calendars' addresses (plan-google-calendar.md, Part 2).
+        for (const c of Array.isArray(u.externalCalendars) ? u.externalCalendars : []) if (c && c.url) c.url = swap(c.url, calendars);
       }
     });
   }
   const where = `"${path.basename(dir)}"`;
   if (done.moved) console.log(`Moved ${done.moved} encrypted secret${done.moved === 1 ? '' : 's'} of ${where} (the AI key, two-step sign-in) to the host's key.`);
   if (done.unreadable) console.error(`${done.unreadable} encrypted secret${done.unreadable === 1 ? '' : 's'} of ${where} could not be read with the install's key and ${done.unreadable === 1 ? 'was' : 'were'} left as ${done.unreadable === 1 ? 'it was' : 'they were'}: the AI key has to be entered again, and anyone affected has to set up two-step sign-in again.`);
+  if (calendars.moved) console.log(`Moved ${calendars.moved} calendar address${calendars.moved === 1 ? '' : 'es'} of ${where} to the host's key.`);
+  if (calendars.unreadable) console.error(`${calendars.unreadable} calendar address${calendars.unreadable === 1 ? '' : 'es'} of ${where} could not be read with the install's key and ${calendars.unreadable === 1 ? 'was' : 'were'} left as ${calendars.unreadable === 1 ? 'it was' : 'they were'}: ${calendars.unreadable === 1 ? 'it has' : 'they have'} to be added again.`);
 }
 // A single-environment install's admin (role admin, made by ADMIN_LOGIN and ADMIN_PASSWORD) runs that install; once it
 // is one environment of a hosted server, the server's admin is the host admin, so that account becomes the
@@ -4697,6 +4705,120 @@ app.get('/feed/:file', (req, res) => {
   res.status(200).type('text/calendar; charset=utf-8').send(body);
 });
 
+// --- other calendars (documentation/plans/plan-google-calendar.md, Part 2) ----------------------------------------------
+// A person pastes a private calendar address (up to five); it is sealed with the secrets key, never answered again, and
+// read through the private-address guard (server/link-preview.js) on adding, on Refresh and every 30 minutes, into
+// memory only (server/external-calendars.js). A module sees the person's own events only through the admin-approved
+// `external` hook. Nothing here names a provider or a module. The same switch as the address out allows it.
+const externalModules = () => modules.enabledAll().filter(({ manifest }) => manifest.hooks.external);
+const externalAllowed = () => store.settings.calendarFeeds === true && externalModules().length > 0;
+function refuseExternal(res) {
+  if (store.settings.calendarFeeds !== true) return void res.status(403).json({ error: `Calendar feeds are off in this ${word('environment')}.` });
+  if (!externalModules().length) return void res.status(403).json({ error: `No ${word('module')} here shows other calendars.` });
+  return false;
+}
+// A pasted address as it is read: webcal: is https:, http: is refused. Answers { url } or { error }.
+function externalAddress(raw) {
+  const text = typeof raw === 'string' ? raw.trim() : '';
+  if (!text) return { error: 'Paste the calendar’s address.' };
+  const asHttps = text.replace(/^webcals?:\/\//i, 'https://');
+  let parsed = null;
+  try { parsed = new URL(asHttps); } catch { parsed = null; }
+  if (!parsed || !/^https?:$/.test(parsed.protocol)) return { error: 'Paste an address that starts with https:// or webcal://.' };
+  if (parsed.protocol === 'http:') return { error: 'That address is not private. Use the one that starts with https:// or webcal://.' };
+  if (asHttps.length > 2000) return { error: 'That address is too long.' };
+  const checked = calendarUrl(asHttps);
+  if (!checked) return { error: 'That address is not allowed.' };
+  return { url: checked.href };
+}
+// Adds per person in ten minutes that reach a read: each one makes this server read an address someone typed.
+const EXTERNAL_ADDS = 20;
+const externalAdds = new Map(); // "<slug>|<user key>" -> [times]
+function externalAddWait(key, now = Date.now()) {
+  const recent = (externalAdds.get(key) || []).filter((t) => now - t < 10 * 60 * 1000);
+  if (recent.length >= EXTERNAL_ADDS) { externalAdds.set(key, recent); return Math.max(1, Math.ceil((recent[0] + 10 * 60 * 1000 - now) / 1000)); }
+  recent.push(now);
+  externalAdds.set(key, recent);
+  return 0;
+}
+
+// Profile's Other calendars section: whether it shows, and the person's own, each with its host only.
+app.get('/api/me/external-calendars', requireUser, (req, res) => {
+  const user = currentUser(req);
+  const allowed = externalAllowed();
+  if (allowed) {
+    externalCalendars.noteSeen(user.key);
+    externalCalendars.readMissing(user.key);
+  }
+  res.json({ allowed, calendars: externalCalendars.view(user.key) });
+});
+// Adds one: read once first, so an address that cannot be read is not kept, and the answer says why.
+app.post('/api/me/external-calendars', requireUser, async (req, res) => {
+  const user = currentUser(req);
+  if (refuseExternal(res) !== false) return;
+  if (store.externalCalendarsOf(user.key).length >= MAX_EXTERNAL_CALENDARS) return res.status(400).json({ error: 'You can add up to five calendars.' });
+  const { url, error } = externalAddress(req.body?.url);
+  if (error) return res.status(400).json({ error });
+  if (store.externalCalendarsOf(user.key).some((c) => auth.decryptSecret(c.url, secretsKeyBuf()) === url)) return res.status(409).json({ error: 'That calendar is already added.' });
+  const wait = externalAddWait(`${currentEnvironment().slug || ''}|${user.key}`);
+  if (wait) return res.status(429).set('Retry-After', String(wait)).json({ error: 'Too many calendars added at once; try again in a few minutes.' });
+  const name = typeof req.body?.name === 'string' ? req.body.name : '';
+  const calendar = store.addExternalCalendar(user.key, { name: name.trim() || new URL(url).hostname, url: auth.encryptSecret(url, secretsKeyBuf()) });
+  externalCalendars.noteSeen(user.key);
+  const read = await externalCalendars.read(user.key, calendar.id);
+  if (!read.ok) {
+    store.removeExternalCalendar(user.key, calendar.id);
+    externalCalendars.forget(user.key, calendar.id);
+    return res.status(400).json({ error: read.error || 'That calendar could not be read.' });
+  }
+  res.status(201).json({ calendar: externalCalendars.viewOne(user.key, store.externalCalendarsOf(user.key).find((c) => c.id === calendar.id) || calendar) });
+});
+// Reads one again now, at most once a minute.
+app.post('/api/me/external-calendars/:id/refresh', requireUser, async (req, res) => {
+  const user = currentUser(req);
+  const calendar = store.externalCalendarsOf(user.key).find((c) => c.id === req.params.id);
+  if (!calendar) return res.status(404).json({ error: 'There is no such calendar.' });
+  if (refuseExternal(res) !== false) return;
+  const wait = externalCalendars.refreshWait(user.key, calendar.id);
+  if (wait) return res.status(429).set('Retry-After', String(wait)).json({ error: 'This calendar was read less than a minute ago; try again in a minute.' });
+  externalCalendars.noteSeen(user.key);
+  await externalCalendars.read(user.key, calendar.id, { refresh: true });
+  const now = store.externalCalendarsOf(user.key).find((c) => c.id === calendar.id);
+  if (!now) return res.status(404).json({ error: 'There is no such calendar.' });
+  res.json({ calendar: externalCalendars.viewOne(user.key, now) });
+});
+// Removes one, address and events, at once. Works with the switch off too.
+app.delete('/api/me/external-calendars/:id', requireUser, (req, res) => {
+  const user = currentUser(req);
+  if (!store.removeExternalCalendar(user.key, req.params.id)) return res.status(404).json({ error: 'There is no such calendar.' });
+  externalCalendars.forget(user.key, req.params.id);
+  res.status(204).end();
+});
+
+// A module's view of the signed-in person's own other calendars: only with the approved `external` hook, only their
+// own, read only. A guest, the access key, or the switch off: none. `from` and `to` are dates or times (optional).
+const externalWhen = (raw) => {
+  if (raw === undefined) return null;
+  const text = String(raw);
+  if (!/^\d{4}-\d{2}-\d{2}([T ][0-9:.]+(Z|[+-]\d{2}:?\d{2})?)?$/.test(text)) return NaN;
+  return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T00:00:00Z` : text);
+};
+app.get('/api/modules/:id/external-events', (req, res) => {
+  const found = modules.enabled(req.params.id);
+  if (!found) return res.status(404).json({ error: `no such ${word('module')}` });
+  const who = moduleViewer(req);
+  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!requireHook(found, res, 'external')) return;
+  const from = externalWhen(req.query.from);
+  const to = externalWhen(req.query.to);
+  if (Number.isNaN(from) || Number.isNaN(to)) return res.status(400).json({ error: 'from and to are dates, such as 2026-10-01.' });
+  if (from !== null && to !== null && to < from) return res.status(400).json({ error: 'to comes after from.' });
+  if (!who.user || store.settings.calendarFeeds !== true) return res.json({ calendars: [], events: [] });
+  externalCalendars.noteSeen(who.user.key);
+  externalCalendars.readMissing(who.user.key);
+  res.json(externalCalendars.eventsFor(who.user.key, { from, to }));
+});
+
 // --- objects: one module pointing at another's objects ---------------------------
 // Modules cannot reach each other's storage, and that stays. The host knows nothing about any module's
 // objects; it offers conduits. A module declares in its manifest the kinds of object it lets others point
@@ -6243,10 +6365,15 @@ app.get('/api/modules/for-space', (req, res) => {
 app.get('/modules/:id', (req, res) => {
   if (!currentUser(req) && !hasGuestAccess(req)) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
   // A module's environment page (no space, not a pop-out) leads to the destination it is a part of while that is shown
-  // (plan-calendar-destination.md, decision 16). The browser keeps the address's #day= or #ref= across the redirect.
+  // (plan-calendar-destination.md, decision 16). The browser keeps the address's #day= or #ref= across the redirect,
+  // and the query goes with it (?from=space&spaceName=... is the page's "Back to" link). Only the query is taken from
+  // the request: the path is the destination's own, so the redirect never leaves this site.
   if (req.query.space === undefined && req.query.popout === undefined && req.query.guest === undefined) {
     const to = destinationPathOf(req.params.id, destinationContext(moduleViewer(req)));
-    if (to) return res.redirect(to);
+    if (to && /^\/[A-Za-z0-9/_-]*$/.test(to) && !to.startsWith('//')) {
+      const asked = new URL(req.originalUrl, 'http://same.origin');
+      return res.redirect(`${to}${asked.search}`);
+    }
   }
   // A module popped out of the Lobby that the Lobby doesn't allow: the sentence, not its page.
   const found = req.query.space === LOBBY ? modules.enabled(req.params.id) : null;
@@ -6535,6 +6662,15 @@ app.get('/api/modules/stream', (req, res) => {
     if (at) res.write(`event: action\ndata: ${JSON.stringify({ ...publicAction(r), provider: r.provider, scope: at.scope })}\n\n`);
   });
   // A setting of a module changed: its pages here read their values again.
+  // The person's other calendars changed on a read (plan-google-calendar.md, Part 2): only their own streams hear it,
+  // naming the modules with the approved `external` hook, which ask again for what they show.
+  if (who.user) externalCalendars.noteSeen(who.user.key);
+  const onExternal = listenIn(env, ({ userKey }) => {
+    if (!who.user || userKey !== who.user.key || store.settings.calendarFeeds !== true) return;
+    const hearing = externalModules().map(({ manifest }) => manifest.id);
+    if (hearing.length) res.write(`event: external\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
+  });
+  externalCalendars.on('change', onExternal);
   const onSettings = listenIn(env, (c) => {
     if (c.scope === 'person' && c.userKey !== who.user?.key) return;
     if (c.scope === 'space' && !(space && space.id === c.spaceId) && !(who.user && store.spaceById(c.spaceId)?.members.includes(who.user.key))) return;
@@ -6566,6 +6702,7 @@ app.get('/api/modules/stream', (req, res) => {
     objectSync.off('refchange', onRefChange);
     moduleBus.off('event', onBus);
     moduleBus.off('action', onAction);
+    externalCalendars.off('change', onExternal);
   }));
 });
 
@@ -6863,6 +7000,17 @@ app.use((err, _req, res, _next) => {
 // The grace: an environment pastDue for 14 days is degraded to the free plan once an hour, never deleted
 // (plan-environments.md, "Phase 5"). Only with a base domain -- a self-hosted install has no environments to sweep.
 if (BASE_DOMAIN) setInterval(() => hostRegistry.degradeStalePastDue(), 3600000);
+// Other calendars (plan-google-calendar.md, Part 2): every five minutes, each environment reads again those of its
+// calendars last tried 30 minutes ago or more, for people seen in the last 14 days, while the switch allows it.
+setInterval(() => {
+  for (const env of environments.values()) {
+    try {
+      envContext.run(env, () => { if (externalAllowed()) externalCalendars.refreshDue().catch(() => {}); });
+    } catch (err) {
+      console.error(`${env.slug ? `[${env.slug}] ` : ''}Reading other calendars failed: ${err.message}`);
+    }
+  }
+}, 5 * 60 * 1000).unref();
 
 // Regaining access (documentation/plans/plan-mfa.md, "Regaining access"): the lockout bypass excuses every
 // admin from the code step and the enrol requirement for as long as it is set -- worth a loud warning on

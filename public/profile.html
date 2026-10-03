@@ -205,6 +205,28 @@
         </div>
       </section>
 
+      <!-- Your other calendars (plan-google-calendar.md, Part 2): their events show in the calendar, only to you. Each is
+           added by its private address, which is never shown again: a row shows its name and the address's host only. -->
+      <section class="panel" id="section-external" hidden>
+        <h2>Other calendars</h2>
+        <p class="hint" id="external-hint"></p>
+        <p class="hint" id="external-off" hidden></p>
+        <ul class="external-list" id="external-list" hidden></ul>
+        <form class="external-add" id="external-add" novalidate>
+          <h3>Add a calendar</h3>
+          <div class="external-fields">
+            <label class="fact">Name<input id="external-name" type="text" maxlength="40" placeholder="Work" autocomplete="off"></label>
+            <label class="fact external-address">Address<input id="external-url" type="url" maxlength="2000" placeholder="https:// or webcal://" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+          </div>
+          <p class="hint">In Google Calendar, open Settings, pick the calendar, choose Integrate calendar, and copy the Secret address in iCal format.</p>
+          <div class="row">
+            <button class="btn btn-primary btn-small" id="external-add-btn" type="submit">Add</button>
+            <span class="status" id="external-status" role="status"></span>
+          </div>
+        </form>
+        <p class="hint" id="external-full" hidden>You have added five calendars, the most there can be. Remove one to add another.</p>
+      </section>
+
       <section class="panel" id="section-module-settings" hidden>
         <h2 data-fill>{Module} settings</h2>
         <p class="hint" data-fill>How each {module} behaves for you.</p>

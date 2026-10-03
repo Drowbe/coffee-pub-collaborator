@@ -117,3 +117,22 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .empty.end { padding: 10px 8px; }
 .item .what strong .ri { margin-right: 5px; }
 .editor-card select:disabled { opacity: 0.75; }
+
+/* The person's own other calendars (plan-google-calendar.md, Part 2): read only and muted, each calendar's tint on a thin
+   edge only (design-theme.md, "Tints"), in the same order as the destination's filter. */
+.ext-0 { --ext: var(--tint-blue); }
+.ext-1 { --ext: var(--tint-teal); }
+.ext-2 { --ext: var(--tint-purple); }
+.ext-3 { --ext: var(--tint-green); }
+.ext-4 { --ext: var(--tint-orange); }
+.chip.ext { padding-left: 7px; background: color-mix(in srgb, var(--text-dim) 12%, transparent); color: var(--text-dim); font-style: italic; box-shadow: inset 3px 0 0 var(--ext, var(--text-dim)); }
+.chip.ext:hover { background: color-mix(in srgb, var(--text-dim) 22%, transparent); color: var(--text); }
+.compact .month .chip.ext { padding: 0; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-dim)); }
+.item.ext { border-style: dashed; box-shadow: inset 3px 0 0 var(--ext, var(--text-dim)); }
+.item.ext .when { color: var(--text-dim); }
+.item.ext .what strong { font-weight: 500; font-style: italic; }
+.tag.ext { font-style: normal; border-color: color-mix(in srgb, var(--ext, var(--text-dim)) 55%, var(--border)); }
+.filter.ext .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-dim)); }
+.filter.ext.on { border-color: var(--ext, var(--accent)); }
+.filter.ext.on .dot { background: var(--ext, var(--text-dim)); }
+.filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }

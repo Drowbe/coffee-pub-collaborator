@@ -358,6 +358,14 @@ try {
     assert.equal(await goes(`/map?guest=${encodeURIComponent(guest)}`), `/guest/${encodeURIComponent(guest)}`);
     assert.equal(await goes('/calendar?guest=not-a-link'), '/', 'a dead guest link goes to /');
     assert.equal(await goes('/modules/dest-dates', aliceT), '/calendar');
+    // The query goes with it (the page's "Back to" link); the path stays the destination's, whatever the query holds.
+    assert.equal(await goes('/modules/dest-dates?from=space&spaceName=Keep%2C%20East', aliceT), '/calendar?from=space&spaceName=Keep%2C%20East');
+    for (const sneaky of ['?next=//evil.example/x', '?a=1%0d%0aLocation:%20https://evil.example', '?@evil.example']) {
+      const to = await goes(`/modules/dest-dates${sneaky}`, aliceT);
+      assert.ok(typeof to === 'string' && to.startsWith('/calendar?') && !/[\r\n]/.test(to), `${sneaky} -> ${to}`);
+      assert.equal(new URL(to, 'http://same.origin').origin, 'http://same.origin', `${sneaky} stays on this site`);
+      assert.equal(new URL(to, 'http://same.origin').pathname, '/calendar');
+    }
     assert.equal(await goes('/modules/dest-tasks', aliceT), '/calendar');
     assert.equal(await goes(`/modules/dest-dates?space=${keep}`, aliceT), 200);
     assert.equal(await goes(`/modules/dest-tasks?space=${keep}&popout=1`, aliceT), 200);

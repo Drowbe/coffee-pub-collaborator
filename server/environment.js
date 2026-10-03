@@ -29,6 +29,8 @@ const { ModuleUploads } = require('./module-uploads');
 const { GeocodeCache } = require('./geocode');
 const { RegionCutJobs } = require('./region-cut');
 const { ModuleLimits } = require('./module-limits');
+const { ExternalCalendars } = require('./external-calendars');
+const { fetchCalendar } = require('./link-preview');
 const auth = require('./auth');
 const { migrateEnvironment } = require('./migrate-names');
 
@@ -148,6 +150,15 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   const ai = new Ai(dataDir, process.env, undefined, managed, secretsKey);
   modules.aiReady = () => ai.ready(); // a module declaring hooks.ai depends on the AI service the way one module depends on another
 
+  // A person's other calendars (plan-google-calendar.md, Part 2): read through the private-address guard, kept in
+  // memory. Their addresses are sealed with the same key as every other secret; without a key (a test that does not
+  // need it) none can be opened, so none is read.
+  const externalCalendars = new ExternalCalendars({
+    store,
+    open: (sealed) => (secretsKey ? auth.decryptSecret(sealed, secretsKey()) : null),
+    fetch: fetchCalendar,
+  });
+
   const moduleUploads = new ModuleUploads(modules.dir);
   const geocodeCache = new GeocodeCache(modules.dir);
   const regionCutJobs = new RegionCutJobs(dataDir);
@@ -199,7 +210,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
     slug, dataDir,
     store, modules, moduleData, moduleHooks, chatHistory, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
     geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatPosts, chatPreviewsAsked, iconSvgs,
-    moduleActivity, noteActivity, saveActivity,
+    moduleActivity, noteActivity, saveActivity, externalCalendars,
   };
 }
 

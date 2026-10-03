@@ -206,6 +206,21 @@ test('actions.list passes a valid ref on, cleaned, and drops a bad one; the drop
     hub.fromPart('main', { day: '2026-10-02' }); // nothing changed: nobody is told again
     assert.equal(panel.length, 2);
   });
+  // The kinds of markers the calendar has shown (plan-calendar-markers.md), for the page's filter: main only, checked.
+  test('the calendar: main tells the page the kinds of markers it shows, in shape; the panel cannot', () => {
+    const hub = createDestination('calendar', { view: 'month' });
+    const panel = listen(hub, 'panel');
+    const kinds = [{ id: 'todo:task', label: 'Tasks due', icon: 'list-check', tint: 'green' }, { id: 'polls:poll', label: ' Polls closing ', icon: 'Bad Icon', tint: 'plaid', extra: 1 }];
+    hub.fromPart('main', { markerKinds: kinds });
+    assert.deepEqual(panel.at(-1).markerKinds, [{ id: 'todo:task', label: 'Tasks due', icon: 'list-check', tint: 'green' }, { id: 'polls:poll', label: 'Polls closing', icon: 'calendar-check', tint: null }]);
+    hub.fromPart('main', { markerKinds: [] });
+    assert.deepEqual(hub.state.markerKinds, []);
+    status(() => hub.fromPart('panel', { markerKinds: [] }), 403);
+    status(() => hub.fromPart('main', { markerKinds: 'todo:task' }), 400);
+    status(() => hub.fromPart('main', { markerKinds: [{ id: 'no kind', label: 'x' }] }), 400);
+    status(() => hub.fromPart('main', { markerKinds: [{ id: 'todo:task', label: '  ' }] }), 400);
+    status(() => hub.fromPart('main', { markerKinds: Array.from({ length: 21 }, (_, i) => ({ id: `m${i}:k`, label: 'K' })) }), 400);
+  });
   test('the map: either part selects, with a pointer or null, and a part that left hears nothing', () => {
     const hub = createDestination('map', { q: '' });
     const main = listen(hub, 'main');
@@ -437,6 +452,34 @@ await (async (name, fn) => {
   assert.match(src, /const externalHere = externalAllowedHere\(\{ scope, keyed: Boolean\(keyed\), overCall: withinSpacePage\(\), search: location\.search \}\);/, 'each mount asks the rule');
   const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
   assert.ok(sdk.includes("events: (o) => call('external.events', { from: o && o.from, to: o && o.to }),"), 'the SDK passes from and to');
+});
+
+// Markers (plan-calendar-markers.md): host.objects.markers asks the module's own route with `from` and `to` in the
+// mount's place, answers the list, and a keyed page asks nothing; the stream's `markers` event reaches only the modules
+// the server named, with no data.
+await (async (name, fn) => {
+  try { await fn(); n += 1; } catch (err) { failed += 1; console.error(`check-module-host: ${name}: ${err.message}`); }
+})('markers: objects.markers asks the route with from and to; the stream event reaches only the modules named', async () => {
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  const at = src.indexOf("async 'objects.markers'(");
+  assert.ok(at > 0, "module-host.js answers 'objects.markers'");
+  const body = src.slice(at, src.indexOf('\n    },', at)).replace("async 'objects.markers'", 'async function');
+  const asked = [];
+  const api = async (method, u) => { asked.push([method, u]); return { markers: [{ title: 'Pack' }] }; };
+  const url = (path, place, extra) => `${path}?${new URLSearchParams({ ...place, ...Object.fromEntries(Object.entries(extra).filter(([, v]) => v !== undefined)) })}`;
+  const make = (keyed) => new Function('api', 'url', 'scopeOf', 'keyed', `return (${body}\n    });`)(api, url, () => ({ scope: 'space', space: 'gq2zb7pq' }), keyed);
+  assert.deepEqual(await make(null)({ from: '2026-10-01', to: '2026-10-31', extra: 'no' }), [{ title: 'Pack' }]);
+  assert.deepEqual(asked, [['GET', '/markers?scope=space&space=gq2zb7pq&from=2026-10-01&to=2026-10-31']]);
+  assert.deepEqual(await make({ path: '/keyed' })({ from: '2026-10-01', to: '2026-10-31' }), [], 'a keyed page has none');
+  assert.equal(asked.length, 1);
+  const stream = src.slice(src.indexOf("if (type === 'markers') {"), src.indexOf("if (type !== 'bus'", src.indexOf("if (type === 'markers') {")));
+  const deliver = (moduleId, d) => { const sent = []; new Function('type', 'd', 'module', 'send', `${stream}`)('markers', d, { id: moduleId }, (e, x) => sent.push([e, x])); return sent; };
+  assert.deepEqual(deliver('calendar', { modules: ['calendar'] }), [['markers', {}]]);
+  assert.deepEqual(deliver('todo', { modules: ['calendar'] }), []);
+  assert.deepEqual(deliver('calendar', {}), []);
+  assert.match(src, /for \(const type of \[[^\]]*'markers'[^\]]*\]\)/, 'the shared stream listens for it');
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  assert.ok(sdk.includes("markers: (o) => call('objects.markers', { from: o && o.from, to: o && o.to }),"), 'the SDK passes from and to');
 });
 
 if (failed) process.exit(1);

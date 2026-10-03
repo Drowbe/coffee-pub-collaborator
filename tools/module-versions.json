@@ -4,8 +4,8 @@
     "hash": "1fc017b8f0129b8d"
   },
   "calendar": {
-    "version": "1.21.0",
-    "hash": "55b39ef695e6bfe6"
+    "version": "1.22.1",
+    "hash": "8a7835ee6d3896ac"
   },
   "maps": {
     "version": "0.8.1",
@@ -16,8 +16,8 @@
     "hash": "fcfa74c90b166e32"
   },
   "polls": {
-    "version": "1.12.21",
-    "hash": "931429b4b18df33d"
+    "version": "1.13.0",
+    "hash": "7b13532b0194b18b"
   },
   "research": {
     "version": "0.2.34",
@@ -28,8 +28,8 @@
     "hash": "1fc1f5045a6cc4cb"
   },
   "todo": {
-    "version": "1.12.3",
-    "hash": "75a5b757a19dccdb"
+    "version": "1.13.0",
+    "hash": "024bf68a993e3e29"
   },
   "travel": {
     "version": "0.11.2",

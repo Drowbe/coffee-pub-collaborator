@@ -136,3 +136,29 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .filter.ext.on { border-color: var(--ext, var(--accent)); }
 .filter.ext.on .dot { background: var(--ext, var(--text-dim)); }
 .filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+/* Markers (plan-calendar-markers.md): other modules' objects with a date, a task due or a poll's closing time. Not
+   events: the module's icon and a thin edge in its tint (design-theme.md, "Tints"), a quiet background, dimmed once past. */
+.tint-gold { --mk: var(--tint-gold); }
+.tint-blue { --mk: var(--tint-blue); }
+.tint-green { --mk: var(--tint-green); }
+.tint-teal { --mk: var(--tint-teal); }
+.tint-purple { --mk: var(--tint-purple); }
+.tint-red { --mk: var(--tint-red); }
+.tint-orange { --mk: var(--tint-orange); }
+.tint-pink { --mk: var(--tint-pink); }
+.chip.marker { padding-left: 7px; background: color-mix(in srgb, var(--text-dim) 10%, transparent); box-shadow: inset 3px 0 0 var(--mk, var(--text-dim)); }
+.chip.marker:hover { background: color-mix(in srgb, var(--text-dim) 22%, transparent); }
+.chip.marker.past, .item.marker.past { opacity: 0.55; }
+.chip.marker.past:hover, .item.marker.past:hover { opacity: 0.85; }
+.mi { display: inline-flex; align-items: center; margin-right: 4px; vertical-align: -0.1em; }
+.mi svg { width: 1em; height: 1em; fill: var(--mk, var(--text-dim)); }
+.chip.marker:focus-visible, .item.marker:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.compact .month .chip.marker { padding: 0; border-radius: 1px; background: var(--mk, var(--text-dim)); box-shadow: none; }
+.compact .month .chip.marker.past { opacity: 0.45; }
+.compact .chip .mi { display: none; }
+.item.marker { box-shadow: inset 3px 0 0 var(--mk, var(--text-dim)); }
+.item.marker .when { color: var(--text-dim); }
+.item.marker .what strong { font-weight: 500; }
+.filter.marker { gap: 0; }
+.filter.marker.on { border-color: var(--mk, var(--accent)); }

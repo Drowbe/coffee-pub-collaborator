@@ -953,8 +953,9 @@
         };
       },
       // A button in the same toolbar row as the view switches (a chooser that opens a menu, say: Research's Tags),
-      // drawn after the switches made before it. { id, label?, icon?, iconOnly?, on?, onClick }. Returns
-      // { set({ label?, icon?, on? }), destroy() }; set() redraws only when something changed.
+      // drawn after the switches made before it. { id, label?, icon?, iconOnly?, on?, onClick }. onClick gets the
+      // 'toolbar' event, whose `x` (when the host gives it) puts a menu under the button: host.menu.show({ at: { x, y: 4 } }).
+      // Returns { set({ label?, icon?, on? }), destroy() }; set() redraws only when something changed.
       // The shared "..." button (ellipsis-vertical, icon centered): a card's menu, a day's, a poll's, a
       // place's. Pass a button you already have (its data-action and listeners stay); omit it to make one.
       // { label } is the accessible name (defaults to the button's aria-label, or "More").
@@ -979,7 +980,7 @@
       toolbarButton: ({ id, label, icon, iconOnly, on, onClick }) => {
         let state = { label, icon, iconOnly: Boolean(iconOnly), on: Boolean(on) };
         const off = host.on('toolbar', (e) => {
-          if (e.id === id && typeof onClick === 'function') onClick();
+          if (e.id === id && typeof onClick === 'function') onClick(e);
         });
         const mine = { item: () => ({ type: 'button', id, label: state.label, icon: state.icon, iconOnly: state.iconOnly, on: state.on }) };
         switches.push(mine);
@@ -1249,6 +1250,16 @@
       // one points at: summaries. The 'links' event says when to ask again.
       linksTo: (ref) => call('objects.links', { ref, dir: 'to' }),
       linksFrom: (ref) => call('objects.links', { ref, dir: 'from' }),
+      // Other modules' objects that show on a calendar as markers (a kind marked "marker": true beside "dated" in its
+      // module.json): a task due on a day, a poll's closing time. Read through the kinds this module consumes (as
+      // approved), in this module's place: in a space, that space's; on the environment's page, the environment's and
+      // each space the viewer belongs to. from and to are YYYY-MM-DD or ISO times, at most 92 days apart. Resolves to
+      // [{ ref, kind, title, start, allDay, due, past, module: { id, name, icon, color, svg } }] (`due`: the kind is dated
+      // by a due day, not a moment; `color`: the module's tint or null; `svg`: its icon as inline SVG, or null): `start`
+      // is YYYY-MM-DD when allDay, else
+      // milliseconds. Done objects are left out; at most 500. Never store or edit them: open one with open(ref).
+      // The 'markers' event (host.on('markers', fn)) says one changed: ask again.
+      markers: (o) => call('objects.markers', { from: o && o.from, to: o && o.to }),
       // A linked object changed (`updated`) or was deleted (`deleted`). Only a module that points at it is told.
       onChange: (fn) => host.on('refchange', (e) => fn({ ref: e.ref, change: e.change })),
       // Objects this module may link to (kinds it consumes), matching the text, in this place
@@ -1775,9 +1786,9 @@
     setTitle: (title) => call('setTitle', { title }),
 
     // Events: 'bar' ({ id }) when an action bar button is clicked, 'header' ({ id }) for a titlebar icon,
-    // 'toolbar' ({ id, value? }) for a toolbar item, 'nav' ({ id }) for one of the module's nav-bar tools,
+    // 'toolbar' ({ id, value?, x? }) for a toolbar item (x: a button's left edge across the module, for a menu under it), 'nav' ({ id }) for one of the module's nav-bar tools,
     // 'change' ({ key, value, version, deleted, scope, spaceId, by })
-    // whenever stored data changes, 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme).
+    // whenever stored data changes, 'markers' when another module's marker objects changed (host.objects.markers), 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme).
     on(event, fn) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event).add(fn);

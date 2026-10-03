@@ -44,7 +44,7 @@ Thomas, 2026-10-02, answering the draft's questions.
 12. **Show Calendar is off by default and on for Travel**, set in a new **Top bar** section on Manage's environment tab.
 13. **A new event or task always asks where it goes.** The editor makes you pick a space every time; there is no default. Moving an existing event or task to another space: not now.
 14. **Phone:** three tabs, **Calendar | Agenda | To-do**, with the Day view first.
-15. **Tasks are not drawn on the calendar grid** in this plan.
+15. **Tasks are not drawn on the calendar grid** in this plan. Changed by [plan-calendar-markers](plan-calendar-markers.md) (decision 3, built 2026-10-03): tasks with a due day now show on the grid as markers, with a **Tasks due** switch in the filter.
 16. **While Calendar is shown, the old pages lead to it:** `/modules/calendar`, `/modules/todo` and the two tiles' headings go to `/calendar`.
 17. **To-do on but Calendar off: no destination.** The Calendar is its main part.
 18. **The view, the filter and the panel's tab are remembered per browser.**

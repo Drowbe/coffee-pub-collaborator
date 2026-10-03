@@ -40,7 +40,7 @@ function joinStream(space, guest, onEvent) {
     if (guest) p.set('guest', guest);
     const source = new EventSource(`/api/modules/stream?${p}`);
     s = { source, subs: new Set() };
-    for (const type of ['change', 'schedule', 'links', 'refchange', 'bus', 'action', 'settings', 'external']) {
+    for (const type of ['change', 'schedule', 'links', 'refchange', 'bus', 'action', 'settings', 'markers', 'external']) {
       source.addEventListener(type, (ev) => {
         let data;
         try {
@@ -334,6 +334,8 @@ export function externalAllowedHere({ scope, keyed = false, overCall = false, se
 // update(); a part may change only the fields its destination lets that part change (host.destination.set), each
 // checked for shape. Each destination's state is its own shape.
 const DAY_TEXT = /^\d{4}-\d{2}-\d{2}$/;
+const MARKER_KIND_ID = /^[a-z0-9][a-z0-9-]{0,39}:[A-Za-z0-9_-]{1,40}$/;
+const TINT_NAMES = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
 const DESTINATION_FIELDS = {
   day: (v) => (typeof v === 'string' && DAY_TEXT.test(v) ? v : undefined),
   from: (v) => (typeof v === 'string' && DAY_TEXT.test(v) ? v : undefined),
@@ -341,12 +343,26 @@ const DESTINATION_FIELDS = {
   selected: (v) => (v === null ? null : REF_SHAPE(v) ? cleanPointer(v) : undefined),
   // A part asking the page to bring a part into view (on a phone, its tab): the map's "Show in list".
   reveal: (v) => (v === 'main' || v === 'panel' ? v : undefined),
+  // The kinds of markers the calendar has shown (plan-calendar-markers.md), for the page's filter: up to 20 of
+  // { id: '<module>:<kind>', label, icon, tint }, the label at most 40 characters, the icon a Font Awesome name, the
+  // tint one of the eight or none.
+  markerKinds: (v) => {
+    if (!Array.isArray(v) || v.length > 20) return undefined;
+    const out = [];
+    for (const k of v) {
+      if (!k || typeof k !== 'object' || typeof k.id !== 'string' || !MARKER_KIND_ID.test(k.id)) return undefined;
+      const label = typeof k.label === 'string' ? k.label.replace(/\p{Cc}/gu, ' ').trim().slice(0, 40) : '';
+      if (!label) return undefined;
+      out.push({ id: k.id, label, icon: typeof k.icon === 'string' && /^[a-z0-9-]{1,40}$/.test(k.icon) ? k.icon : 'calendar-check', tint: TINT_NAMES.includes(k.tint) ? k.tint : null });
+    }
+    return out;
+  },
 };
-// Which part may set what, by destination: in the calendar only the main part (the calendar) sets the selected day
-// and the period shown; on the map both parts select a place, and either may ask for a part to be shown (`reveal`).
+// Which part may set what, by destination: in the calendar only the main part (the calendar) sets the selected day,
+// the period shown and the kinds of markers it has shown; on the map both parts select a place, and either may ask for a part to be shown (`reveal`).
 // The page's own fields (the view, the filter, the search, `phone`) are set only by the page.
 const DESTINATIONS = {
-  calendar: { main: ['day', 'from', 'to'] },
+  calendar: { main: ['day', 'from', 'to', 'markerKinds'] },
   map: { main: ['selected', 'reveal'], panel: ['selected', 'reveal'] },
 };
 const DESTINATION_PARTS = ['main', 'panel'];
@@ -972,6 +988,14 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       const when = (v) => (v === undefined || v === null || v === '' ? undefined : String(v).slice(0, 40));
       return api('GET', url('/external-events', scopeOf(), { from: when(from), to: when(to) }));
     },
+    // Other modules' objects shown on a calendar as markers (host.objects.markers; plan-calendar-markers.md): the module's
+    // own route, in the mount's place (the space, or the environment and the viewer's spaces) and as the guest. A keyed
+    // page has none.
+    async 'objects.markers'({ from, to }) {
+      if (keyed) return [];
+      const when = (v) => (v === undefined || v === null || v === '' ? undefined : String(v).slice(0, 40));
+      return (await api('GET', url('/markers', scopeOf(), { from: when(from), to: when(to) }))).markers;
+    },
     // Ask in this space's Chat (host.chat.ask). Only the canvas host provides it.
     async 'chat.ask'({ question, refs }) {
       if (typeof onChatAsk !== 'function') throw Object.assign(new Error(`Ask this from Chat in ${word('space', { a: true })}.`), { status: 400 });
@@ -1242,7 +1266,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         if (item.label) b.append(item.label);
         if (!item.icon && !item.label) { b.append(item.id); }
         b.setAttribute('aria-label', item.label || item.icon || item.id);
-        b.addEventListener('click', () => send('toolbar', { id: item.id }));
+        // `x`: where the button starts across the module's own area, so a menu it opens can sit under it
+        // (host.ui.toolbarButton hands the event to its onClick).
+        b.addEventListener('click', () => {
+          const box = (pageMode ? container : frame).getBoundingClientRect();
+          send('toolbar', { id: item.id, x: Math.max(0, Math.round(b.getBoundingClientRect().left - box.left)) });
+        });
         toolbar.appendChild(b);
       }
       drawToolbarMore();
@@ -1404,6 +1433,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // those with the approved `external` hook, hear it, and ask again for what they show.
     if (type === 'external') {
       if (externalHere && Array.isArray(d.modules) && d.modules.includes(module.id)) send('external', {});
+      return;
+    }
+    // An object of a marker kind changed (plan-calendar-markers.md): only the modules the server named, those approved
+    // to show it, hear it, and ask again for what they show. No object data comes with it.
+    if (type === 'markers') {
+      if (Array.isArray(d.modules) && d.modules.includes(module.id)) send('markers', {});
       return;
     }
     if (type !== 'bus' && type !== 'action' && type !== 'refchange' && d.module !== module.id) return;

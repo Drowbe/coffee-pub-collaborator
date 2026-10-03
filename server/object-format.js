@@ -24,7 +24,46 @@ const MAX_LINK_URL = 500;
 const MAX_SOURCES = 12;
 
 const BASES = ['general', 'items', 'both'];
-const KINDS = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show'];
+// The kinds (plan-object-handoff.md, "Kinds and their details"). TRAVEL_KINDS are the 13 from before the plan; the prompt
+// lists only those until it is built from the modules' `takes` (plan step 3). KINDS is every kind an AI or an import may
+// write. HANDOFF_KINDS pass only between pages (cleanObject's `handoff`), never from an AI or an import.
+const TRAVEL_KINDS = Object.freeze(['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show']);
+const KINDS = [...TRAVEL_KINDS, 'event', 'task', 'poll', 'note', 'link'];
+const HANDOFF_KINDS = Object.freeze(['image']);
+
+// Each kind's `details` fields and their value types. Every field is optional; a bad one is dropped on its own.
+//   when      YYYY-MM-DDTHH:MM, YYYY-MM-DD or HH:MM, local, no zone    point   { code, name } or a string
+//   text:N    plain text, Markdown removed, cut at N                   count:N a whole number 1 to N
+//   minutes   a whole number 1 to 10080                                flag    true or false
+//   options   2 to 10 strings of up to 80, duplicates dropped          upload  a file id (handoffs only)
+const MAX_MINUTES = 10080;
+const MAX_POINT_NAME = 120;
+const MAX_OPTION = 80;
+const MIN_OPTIONS = 2;
+const MAX_OPTIONS = 10;
+const UPLOAD_ID = /^[a-f0-9]{24}$/; // a module upload's file id (server/module-uploads.js)
+const STOP_DETAILS = { starts: 'when', ends: 'when', minutes: 'minutes', address: 'text:200' };
+const DETAILS = deepFreeze({
+  flight: { airline: 'text:60', number: 'text:20', from: 'point', to: 'point', departs: 'when', arrives: 'when', minutes: 'minutes', terminal: 'text:30', gate: 'text:30', seat: 'text:30', class: 'text:30', reference: 'text:60' },
+  train: { operator: 'text:60', number: 'text:20', from: 'point', to: 'point', departs: 'when', arrives: 'when', minutes: 'minutes', platform: 'text:30', carriage: 'text:30', seat: 'text:30', class: 'text:30', reference: 'text:60' },
+  bus: { operator: 'text:60', number: 'text:20', from: 'point', to: 'point', departs: 'when', arrives: 'when', minutes: 'minutes', seat: 'text:30', reference: 'text:60' },
+  ferry: { operator: 'text:60', number: 'text:20', from: 'point', to: 'point', departs: 'when', arrives: 'when', minutes: 'minutes', cabin: 'text:30', seat: 'text:30', reference: 'text:60' },
+  car: { company: 'text:60', from: 'point', to: 'point', departs: 'when', arrives: 'when', class: 'text:30', reference: 'text:60' },
+  hotel: { address: 'text:200', checkIn: 'when', checkOut: 'when', roomType: 'text:60', guests: 'count:99', reference: 'text:60' },
+  restaurant: { ...STOP_DETAILS, partySize: 'count:99', name: 'text:60', reference: 'text:60' },
+  cafe: { ...STOP_DETAILS, partySize: 'count:99', name: 'text:60', reference: 'text:60' },
+  bar: { ...STOP_DETAILS, partySize: 'count:99', name: 'text:60', reference: 'text:60' },
+  sight: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
+  museum: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
+  tour: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
+  show: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
+  event: { starts: 'when', ends: 'when', allDay: 'flag', address: 'text:200' },
+  task: { due: 'when' },
+  poll: { options: 'options', closes: 'when', multiple: 'flag' },
+  note: {},
+  link: {},
+  image: { upload: 'upload', name: 'text:120' },
+});
 const ICONS = ['note', 'lightbulb', 'location-dot', 'calendar-days', 'link', 'star', 'bed', 'hotel', 'utensils', 'ticket', 'train', 'plane', 'car', 'ship', 'bus', 'camera', 'circle-info', 'mug-hot', 'landmark', 'mountain', 'umbrella-beach', 'sun', 'moon', 'bell', 'clock', 'wallet', 'triangle-exclamation', 'circle-check', 'heart', 'users', 'bag-shopping', 'music', 'map', 'suitcase', 'hourglass-half', 'flag', 'magnifying-glass', 'list-check', 'scale-balanced', 'coins'];
 
 const EXAMPLE = '{"icon":"note","kind":"optional","title":"a short title","content":"the text to keep; plain prose, or simple Markdown (headings, **bold**, *italic*, lists, links) if that reads better","tags":["one","word"],"place":{"name":"optional"},"date":"optional YYYY-MM-DD","links":[{"title":"optional","url":"https://..."}]}';
@@ -37,7 +76,28 @@ class FormatError extends Error {
   }
 }
 
-const plain = (s, n, lines) => String(s == null ? '' : s).replace(/<[^>]*>/g, ' ').replace(lines ? /(?!\n)\p{Cc}/gu : /\p{Cc}/gu, ' ').replace(lines ? /[ \t]+/g : /\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n);
+function deepFreeze(o) {
+  for (const v of Object.values(o)) if (v && typeof v === 'object') deepFreeze(v);
+  return Object.freeze(o);
+}
+
+// The same as .replace(/<[^>]*>/g, ' ') in one pass (that pattern takes quadratic time on many "<" with no ">"): each "<" up
+// to the next ">" becomes a space; once no ">" is left, nothing more is a tag.
+function stripTags(s) {
+  let out = '';
+  let i = 0;
+  for (;;) {
+    const lt = s.indexOf('<', i);
+    if (lt < 0) break;
+    const gt = s.indexOf('>', lt + 1);
+    if (gt < 0) break;
+    out += s.slice(i, lt) + ' ';
+    i = gt + 1;
+  }
+  return i ? out + s.slice(i) : s;
+}
+
+const plain = (s, n, lines) => stripTags(String(s == null ? '' : s)).replace(lines ? /(?!\n)\p{Cc}/gu : /\p{Cc}/gu, ' ').replace(lines ? /[ \t]+/g : /\s+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, n);
 
 // A file's bytes as text: UTF-16 when it starts with that byte order mark, else UTF-8. Same rule as public/file-text.js.
 function decodeBytes(buf) {
@@ -46,14 +106,124 @@ function decodeBytes(buf) {
   return new TextDecoder(encoding).decode(bytes);
 }
 
-function cleanObject(raw, { count = 0, imported = false } = {}) {
+// Markdown to plain text for a one-line details field: emphasis, code and heading, quote and list marks unmarked, a link
+// as "text (address)", a picture as its words. Every span is bounded and stays on one line, and link text holds no "[",
+// so each pattern runs in linear time; the value is also cut to a few times its limit first (detailText).
+function unmark(s) {
+  return String(s)
+    .replace(/!\[([^[\]\n]{0,300})\]\(([^()\s]{0,600})\)/g, '$1')
+    .replace(/\[([^[\]\n]{1,300})\]\(([^()\s]{1,600})\)/g, '$1 ($2)')
+    .replace(/`([^`\n]{0,300})`/g, '$1')
+    .replace(/(\*\*|__)(?=\S)([^\n]{1,300}?)\1/g, '$2')
+    .replace(/~~(?=\S)([^\n]{1,300}?)~~/g, '$1')
+    .replace(/(^|[^\w*])\*(?=\S)([^*\n]{1,300}?)\*(?!\w)/g, '$1$2')
+    .replace(/(^|[^\w_])_(?=\S)([^_\n]{1,300}?)_(?!\w)/g, '$1$2')
+    .replace(/^[ \t]{0,40}(?:#{1,6}[ \t]+|>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+)/gm, '');
+}
+
+// A details text value: cut to a few times its limit (room for a link's address and markup), unmarked, plain, cut.
+const detailText = (v, n) => plain(unmark(String(v).slice(0, Math.max(1000, n * 5))), n);
+
+const realDate = (y, m, d) => {
+  const t = new Date(Date.UTC(+y, +m - 1, +d));
+  return t.getUTCFullYear() === +y && t.getUTCMonth() === +m - 1 && t.getUTCDate() === +d;
+};
+const pad2 = (n) => String(n).padStart(2, '0');
+
+// A `when`: a local date and time, a date, or a time alone. A T or a space between them; seconds, and a trailing Z or offset,
+// are dropped, keeping the clock time as written. An impossible date or time is no value.
+const ZONE = '(?::\\d{2}(?:\\.\\d+)?)?(?:z|[+-]\\d{2}(?::?\\d{2})?)?';
+const WHEN_DATE_TIME = new RegExp(`^(\\d{4})-(\\d{2})-(\\d{2})(?:[T ](\\d{1,2}):(\\d{2})${ZONE})?$`, 'i');
+const WHEN_TIME = new RegExp(`^(\\d{1,2}):(\\d{2})${ZONE}$`, 'i');
+function cleanWhen(v) {
+  if (typeof v !== 'string') return undefined;
+  const s = v.trim();
+  const clock = (h, mi) => (+h <= 23 && +mi <= 59 ? `${pad2(+h)}:${mi}` : null);
+  let m = WHEN_DATE_TIME.exec(s);
+  if (m) {
+    if (!realDate(m[1], m[2], m[3])) return undefined;
+    const day = `${m[1]}-${m[2]}-${m[3]}`;
+    if (m[4] === undefined) return day;
+    const time = clock(m[4], m[5]);
+    return time ? `${day}T${time}` : undefined;
+  }
+  m = WHEN_TIME.exec(s);
+  return (m && clock(m[1], m[2])) || undefined;
+}
+
+// A `point`: { code, name } or a string. A string of three capital letters is a code, any other string a name.
+function cleanPoint(v) {
+  if (typeof v === 'string') {
+    const s = v.trim();
+    if (/^[A-Z]{3}$/.test(s)) return { code: s };
+    const name = detailText(s, MAX_POINT_NAME);
+    return name ? { name } : undefined;
+  }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined;
+  const point = {};
+  if (typeof v.code === 'string' && /^[A-Za-z0-9]{2,5}$/.test(v.code.trim())) point.code = v.code.trim().toUpperCase();
+  if (typeof v.name === 'string') {
+    const name = detailText(v.name, MAX_POINT_NAME);
+    if (name) point.name = name;
+  }
+  return point.code || point.name ? point : undefined;
+}
+
+function cleanValue(type, v) {
+  const [base, arg] = type.split(':');
+  const wholeIn = (lo, hi) => (Number.isInteger(v) && v >= lo && v <= hi ? v : undefined);
+  switch (base) {
+    case 'when': return cleanWhen(v);
+    case 'point': return cleanPoint(v);
+    // A whole number is read as its digits (an AI often writes a flight's number as 1234); any other non-string is dropped.
+    case 'text': return typeof v === 'string' ? detailText(v, +arg) || undefined : Number.isSafeInteger(v) ? String(v).slice(0, +arg) : undefined;
+    case 'count': return wholeIn(1, +arg);
+    case 'minutes': return wholeIn(1, MAX_MINUTES);
+    case 'flag': return typeof v === 'boolean' ? v : undefined;
+    case 'upload': return typeof v === 'string' && UPLOAD_ID.test(v) ? v : undefined;
+    case 'options': {
+      if (!Array.isArray(v)) return undefined;
+      const out = [];
+      for (const o of v) {
+        if (typeof o !== 'string') continue;
+        const option = detailText(o, MAX_OPTION);
+        if (option && !out.includes(option) && out.length < MAX_OPTIONS) out.push(option);
+      }
+      return out.length >= MIN_OPTIONS ? out : undefined;
+    }
+    default: return undefined;
+  }
+}
+
+// A kind's details, field by field: unknown fields and bad values dropped. Null when nothing is kept, or the kind has none.
+function cleanDetails(kind, raw) {
+  const fields = Object.prototype.hasOwnProperty.call(DETAILS, kind) ? DETAILS[kind] : null;
+  if (!fields || !raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const details = {};
+  for (const [name, type] of Object.entries(fields)) {
+    if (!Object.prototype.hasOwnProperty.call(raw, name)) continue;
+    const value = cleanValue(type, raw[name]);
+    if (value !== undefined) details[name] = value;
+  }
+  return Object.keys(details).length ? details : null;
+}
+
+const kindOf = (raw, handoff) => (KINDS.includes(raw.kind) || (handoff && HANDOFF_KINDS.includes(raw.kind)) ? raw.kind : undefined);
+
+// One object as kept. `imported`: from a paste or file (basis "imported", no sources). `handoff`: from another page, so a
+// handoff kind (image) is kept; never set for an AI's answer or an import. `content` may be left out when details are kept.
+function cleanObject(raw, { count = 0, imported = false, handoff = false } = {}) {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
   const title = plain(raw.title, MAX_TITLE);
   const content = plain(raw.content, MAX_CONTENT, true);
-  if (!title || !content) return null;
+  const kind = kindOf(raw, handoff);
+  const details = kind ? cleanDetails(kind, raw.details) : null;
+  if (!title || (!content && !details)) return null;
   const basis = imported ? 'imported' : (BASES.includes(raw.basis) ? raw.basis : count > 0 ? 'items' : 'general');
-  const summary = { icon: ICONS.includes(raw.icon) ? raw.icon : ICONS[0], title, content, basis };
-  if (KINDS.includes(raw.kind)) summary.kind = raw.kind;
+  const summary = { icon: ICONS.includes(raw.icon) ? raw.icon : ICONS[0], title };
+  if (content) summary.content = content;
+  summary.basis = basis;
+  if (kind) summary.kind = kind;
   const tags = [];
   for (const t of Array.isArray(raw.tags) ? raw.tags : []) {
     const tag = String(t == null ? '' : t).toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, MAX_TAG);
@@ -72,10 +242,7 @@ function cleanObject(raw, { count = 0, imported = false } = {}) {
     }
   }
   const d = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(raw.date || ''));
-  if (d) {
-    const t = new Date(Date.UTC(+d[1], +d[2] - 1, +d[3]));
-    if (t.getUTCFullYear() === +d[1] && t.getUTCMonth() === +d[2] - 1 && t.getUTCDate() === +d[3]) summary.date = raw.date;
-  }
+  if (d && realDate(d[1], d[2], d[3])) summary.date = raw.date;
   const links = [];
   for (const l of Array.isArray(raw.links) ? raw.links.slice(0, MAX_LINKS) : []) {
     let u;
@@ -84,6 +251,7 @@ function cleanObject(raw, { count = 0, imported = false } = {}) {
     links.push({ title: plain(l.title, MAX_LINK_TITLE) || u.hostname, url: u.href });
   }
   if (links.length) summary.links = links;
+  if (details) summary.details = details;
   if (!imported) {
     const sources = [...new Set((Array.isArray(raw.sources) ? raw.sources : []).filter((n) => Number.isInteger(n) && n >= 1 && n <= count))].slice(0, MAX_SOURCES);
     if (sources.length) summary.sources = sources;
@@ -95,7 +263,8 @@ function dropWhy(raw) {
   if (raw && raw.__notJson) return 'not valid JSON';
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return `not ${word('object', { a: true })}`;
   if (!plain(raw.title, MAX_TITLE)) return 'it has no title';
-  if (!plain(raw.content, MAX_CONTENT, true)) return 'it has no content';
+  if (HANDOFF_KINDS.includes(raw.kind) && !plain(raw.content, MAX_CONTENT, true)) return 'it is a picture';
+  if (!plain(raw.content, MAX_CONTENT, true) && !cleanDetails(kindOf(raw, false), raw.details)) return 'it has no content';
   return null;
 }
 
@@ -104,14 +273,54 @@ function objectRule({ fence, noun, max, withProvenance }) {
   const tail = withProvenance
     ? ` "basis" says where the ${noun} comes from: "general" (your own knowledge), "items" (the material) or "both". "sources" are the item numbers you used. Leave out the optional parts you do not need.`
     : ` Keep each title under 80 characters and each content under 6000. Links must start with http:// or https://. Leave out the optional parts you do not need, and add no other fields.`;
-  return `single fenced block (exactly one, never one per ${noun}) whose JSON is an array of every ${noun} worth keeping (at most ${max}):\n\`\`\`${fence}\n[${example}]\n\`\`\`\nThe icon is one of: ${ICONS.join(', ')}. If the ${noun} is plainly one of these everyday things, set "kind" to it (leave it out otherwise): ${KINDS.join(', ')}. When asked for several distinct things (an itinerary, a list of options, "find me three hotels"), put one ${noun} in that array per thing instead of folding them into prose or writing another fence; a single question still gets one ${noun} in the array.${tail}`;
+  return `single fenced block (exactly one, never one per ${noun}) whose JSON is an array of every ${noun} worth keeping (at most ${max}):\n\`\`\`${fence}\n[${example}]\n\`\`\`\nThe icon is one of: ${ICONS.join(', ')}. If the ${noun} is plainly one of these everyday things, set "kind" to it (leave it out otherwise): ${TRAVEL_KINDS.join(', ')}. When asked for several distinct things (an itinerary, a list of options, "find me three hotels"), put one ${noun} in that array per thing instead of folding them into prose or writing another fence; a single question still gets one ${noun} in the array.${tail}`;
 }
 
 function instructions(noun) {
   return `I keep my research in ${productName()}. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun, max: MAX_IMPORT_OBJECTS, withProvenance: false })}\nIf I ask for a file instead, write one JSON file named <something>${FILE_SUFFIX} holding {"format":"objects","formatVersion":1,"objects":[...]}, with the same ${word('object', { many: true })} in that one list. Do not write a separate file or a separate fenced block for each ${noun}.`;
 }
 
+// A day and a 24-hour clock as a pattern. An impossible day such as 2026-02-30 still passes; the reader drops it.
+const SCHEMA_DAY = '\\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\\d|3[01])';
+const SCHEMA_CLOCK = '([01]\\d|2[0-3]):[0-5]\\d';
+
+// The JSON Schema of one details value type: the shape an AI writes (the reader is looser, see cleanValue).
+function valueSchema(type) {
+  const [base, arg] = type.split(':');
+  switch (base) {
+    case 'when': return { type: 'string', pattern: `^(${SCHEMA_DAY}(T${SCHEMA_CLOCK})?|${SCHEMA_CLOCK})$` };
+    case 'point': return {
+      oneOf: [
+        { type: 'string', minLength: 1, maxLength: MAX_POINT_NAME },
+        { type: 'object', anyOf: [{ required: ['code'] }, { required: ['name'] }], properties: { code: { type: 'string', pattern: '^[A-Za-z0-9]{2,5}$' }, name: { type: 'string', minLength: 1, maxLength: MAX_POINT_NAME } } },
+      ],
+    };
+    case 'text': return { type: 'string', minLength: 1, maxLength: +arg };
+    case 'count': return { type: 'integer', minimum: 1, maximum: +arg };
+    case 'minutes': return { type: 'integer', minimum: 1, maximum: MAX_MINUTES };
+    case 'flag': return { type: 'boolean' };
+    case 'options': return { type: 'array', minItems: MIN_OPTIONS, maxItems: MAX_OPTIONS, items: { type: 'string', minLength: 1, maxLength: MAX_OPTION } };
+    case 'upload': return { type: 'string', pattern: UPLOAD_ID.source };
+    default: throw new Error(`no schema for ${type}`);
+  }
+}
+
+// `details` for each kind an AI may write, as $defs entries named details-<kind>, each needing at least one of its own
+// fields; `false` (never valid) for a kind with none. A handoff kind is not in the schema.
+function detailsSchemas() {
+  return Object.fromEntries(KINDS.map((kind) => {
+    const fields = Object.entries(DETAILS[kind]);
+    if (!fields.length) return [`details-${kind}`, false];
+    return [`details-${kind}`, {
+      type: 'object',
+      anyOf: fields.map(([name]) => ({ required: [name] })),
+      properties: Object.fromEntries(fields.map(([name, type]) => [name, valueSchema(type)])),
+    }];
+  }));
+}
+
 function schema() {
+  const details = detailsSchemas();
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
     title: `${productName()} ${word('object', { many: true })}, format 1`,
@@ -133,7 +342,12 @@ function schema() {
       },
       object: {
         type: 'object',
-        required: ['title', 'content'],
+        required: ['title'],
+        anyOf: [{ required: ['content'] }, { required: ['kind', 'details'] }],
+        allOf: KINDS.map((kind) => ({
+          if: { required: ['kind'], properties: { kind: { const: kind } } },
+          then: { properties: { details: { $ref: `#/$defs/details-${kind}` } } },
+        })),
         properties: {
           title: { type: 'string', minLength: 1, maxLength: MAX_TITLE },
           content: { type: 'string', minLength: 1, maxLength: MAX_CONTENT },
@@ -150,6 +364,7 @@ function schema() {
             },
           },
           date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+          details: { type: 'object', minProperties: 1, description: 'Optional; its fields depend on kind ($defs details-<kind>). Needs a kind.' },
           links: {
             type: 'array',
             maxItems: MAX_LINKS,
@@ -164,6 +379,7 @@ function schema() {
           },
         },
       },
+      ...details,
     },
   };
 }
@@ -307,9 +523,13 @@ module.exports = {
   MAX_CONTENT,
   ICONS,
   KINDS,
+  TRAVEL_KINDS,
+  HANDOFF_KINDS,
+  DETAILS,
   BASES,
   FormatError,
   cleanObject,
+  cleanDetails,
   objectRule,
   instructions,
   schema,

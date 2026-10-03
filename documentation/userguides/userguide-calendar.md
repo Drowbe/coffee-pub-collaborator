@@ -16,7 +16,7 @@ When an owner turns on **Show Calendar** (see [Manage](userguide-environment-set
 
 1. Click **Calendar** in the top bar. If you are in a space, it opens over the space: you are marked Away on the call until you go back, and **Back to <space>** returns you. Otherwise it is a page of its own.
 2. In the bar under the top bar, choose **Month**, **Week** or **Day**. **Day** is one column of hours with the all-day events above.
-3. Click **Trips** (your environment's word for spaces) to choose whose events and tasks show: first the environment's own calendar, by the environment's name, then each of your spaces with its icon. The button says how many are on, such as "Trips (3 of 5)". With nothing on, the page says "Pick at least one in Trips."
+3. Click **Trips** (your environment's word for spaces) to choose whose events and tasks show: first the environment's own calendar, by the environment's name, then each of your spaces with its icon. The button says how many are on, such as "Trips (3 of 5)". With nothing on, the page says "Pick at least one in Trips." After the spaces come switches for tasks and polls, such as **Tasks due** and **Polls closing**; see "Tasks due and polls closing" below.
 4. Use the arrows and **Today** above the calendar to move around. Click a day to select it.
 5. On the right, choose **Agenda** for the events from the selected day onward, grouped by day, or **To-do** for the open tasks (see [To-do](userguide-todo.md)). With the To-do off, or not yours to see, only the Agenda shows. Here nothing is listed under the grid: the Agenda is the list, and on a phone it is the **Agenda** tab.
 
@@ -99,6 +99,24 @@ they are hollow dots. Opening one says "From your <name> calendar. Only you see 
 calendar has its own entry in the filter, marked "(only you)"; while one is off, the filter's label adds
 "· Other calendars (1 of 2)". They never show inside a space (on its canvas, in a window popped out of it, or on
 Calendar opened over a call) or in the **Coming up** card, and they refresh every 30 minutes.
+
+## Tasks due and polls closing
+
+When the To-do or Polls is on, the Calendar also shows their tasks and polls as markers: small chips with the module's icon and colour that point back to the task or poll. They are not events, and nothing is copied into the Calendar. You see a marker only for a task or poll you can already see.
+
+- A task with a due date shows on its due day, as its title: in the all-day row in **Week** and **Day**, and on the day in **Month**. In the Agenda it reads **Due**, or **Overdue** once the day has passed, when it is also dimmed. Tick the task done and its marker goes.
+- A poll with a closing time shows at that time: "Closes 6:00 PM: Where for dinner?". After the time passes it stays, dimmed: "Closed 6:00 PM: Where for dinner?". A poll someone closes by hand, and a poll with no closing time, has no marker.
+- Click a marker to open the task or poll in its own module; hold Ctrl or Cmd to ask for a new tab. A marker can't be dragged, changed or deleted on the Calendar: change the task or the poll itself.
+
+Which markers show follows where you are. A space's Calendar shows that space's tasks and polls. The environment's calendar and Calendar in the top bar show the environment's own and those of every space you are a member of, following the same space switches as the events.
+
+To hide a kind of marker:
+
+1. On Calendar in the top bar, click **Trips** (your environment's word for spaces) and switch off **Tasks due** or **Polls closing**, after the spaces. This browser remembers the choice, and while one is off the button's label adds it, such as "Trips · Tasks due off".
+2. On the environment's calendar, click **Tasks due** or **Polls closing** in the row under the toolbar, after the spaces.
+3. In a space, choose **Show** in the Calendar's toolbar, then the kind; the menu opens under the button and says **Shown** or **Hidden** beside each. This browser remembers the choice for each space.
+
+A switch appears once the Calendar has shown a marker of that kind, and each is on to begin with. The switches on the environment's calendar are not remembered after you leave the page. Markers never go into your calendar app's feed, and the Calendar sends no reminders for them; the To-do and Polls keep their own.
 
 ## Limits
 

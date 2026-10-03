@@ -245,6 +245,15 @@ function cleanRefs(rawRefs, id) {
       if (p.feed && !dated) throw new ModuleError(`module.json: refs "${kind}" feed needs "dated"`);
       if (p.feed) produced.feed = true;
     }
+    // Shown on a calendar as a marker that links back to the object (plan-calendar-markers.md, decision 1): never a
+    // twin and never in a calendar feed, so not with "mirror" or "feed".
+    if (p.marker !== undefined && p.marker !== null) {
+      if (typeof p.marker !== 'boolean') throw new ModuleError(`module.json: refs "${kind}" marker must be true or false`);
+      if (p.marker && !dated) throw new ModuleError(`module.json: refs "${kind}" marker needs "dated"`);
+      if (p.marker && mirror) throw new ModuleError(`module.json: refs "${kind}" marker can't be used with "mirror"`);
+      if (p.marker && produced.feed) throw new ModuleError(`module.json: refs "${kind}" marker can't be used with "feed"`);
+      if (p.marker) produced.marker = true;
+    }
     refs.produces.push(produced);
   }
   // "*" means whatever other modules share, so a module can link to the items of a module written

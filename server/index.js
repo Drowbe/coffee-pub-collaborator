@@ -4834,6 +4834,10 @@ const externalWhen = (raw) => {
   if (raw === undefined) return null;
   const text = String(raw);
   if (!/^\d{4}-\d{2}-\d{2}([T ][0-9:.]+(Z|[+-]\d{2}:?\d{2})?)?$/.test(text)) return NaN;
+  // A day that does not exist (2026-02-30) is no date: Date.parse would roll it over into the next month.
+  const [y, mo, d] = text.slice(0, 10).split('-').map(Number);
+  const day = new Date(Date.UTC(y, mo - 1, d));
+  if (day.getUTCMonth() !== mo - 1 || day.getUTCDate() !== d) return NaN;
   return Date.parse(/^\d{4}-\d{2}-\d{2}$/.test(text) ? `${text}T00:00:00Z` : text);
 };
 app.get('/api/modules/:id/external-events', (req, res) => {
@@ -5174,6 +5178,102 @@ app.get('/api/modules/:id/objects/:kind/:objectId', (req, res) => {
   if (!who) return res.status(401).json({ error: 'sign in first' });
   const out = refAnswer(() => ({ summary: resolveRef(who, { module: req.params.id, kind: req.params.kind, id: req.params.objectId, scope: req.query.scope, space: req.query.space }, String(req.query.from || '')) }));
   res.status(out.status || 200).json(out);
+});
+
+// --- markers (documentation/plans/plan-calendar-markers.md) -----------------------------------------------------------
+// A kind marked "marker": true beside "dated" (cleanRefs in server/modules.js) shows on a calendar as a marker that links
+// back to its object: never an event, never a copy, never written anywhere and never in a calendar feed. The asking
+// module (the Calendar) reads them through the `consumes` the admin approved for each kind, as consumerMayLink decides,
+// and each read applies the viewer's rights as they are now (refScope: in the space, the module on there, `read`).
+const MARKER_DAYS = 92;
+const MARKER_CAP = 500;
+const MARKER_WHEN = 'from and to are dates or times, such as 2026-10-01 or 2026-10-01T18:00:00Z.';
+// The produced kind a stored key belongs to, when that kind is a marker kind; else null.
+function markerKindAt(moduleId, key) {
+  const found = modules.enabled(moduleId);
+  if (!found) return null;
+  return found.manifest.refs.produces.find((p) => p.marker && key.startsWith(p.key.replace('{id}', ''))) || null;
+}
+// Today's date where the server is, as YYYY-MM-DD: a day marker before it is past.
+function todayIn(tz, now = Date.now()) {
+  const got = {};
+  for (const p of new Intl.DateTimeFormat('en-US', { timeZone: tz, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(now))) got[p.type] = p.value;
+  return `${got.year}-${got.month}-${got.day}`;
+}
+app.get('/api/modules/:id/markers', (req, res) => {
+  if (moduleViewer(req)?.keyed) return res.status(403).json({ error: `Markers are for people signed in or a ${word('space')}'s ${word('guest', { many: true })}, not the access key.` });
+  if (!askedScope(req.query.scope, res, ['environment', 'space'])) return;
+  const ctx = moduleAccess(req, res, 'read');
+  if (!ctx) return;
+  const { manifest, entry, who } = ctx;
+  const consumer = { manifest, entry };
+  if (!manifest.refs.consumes.some((c) => (entry.approved?.refs || []).includes(c))) {
+    return res.status(403).json({ error: `This ${word('module')} has not been approved to link to other ${word('module', { many: true })}' ${word('object', { many: true })}.` });
+  }
+  const fromText = req.query.from;
+  const toText = req.query.to;
+  if (typeof fromText !== 'string' || typeof toText !== 'string' || !fromText || !toText) return res.status(400).json({ error: 'from and to are both needed, as dates or times, such as 2026-10-01 or 2026-10-01T18:00:00Z.' });
+  const fromMs = externalWhen(fromText);
+  const toMs = externalWhen(toText);
+  if (Number.isNaN(fromMs) || Number.isNaN(toMs)) return res.status(400).json({ error: MARKER_WHEN });
+  if (toMs < fromMs) return res.status(400).json({ error: 'to comes after from.' });
+  // A date-only `to` takes in its whole day; a day marker counts when its day is between from's and to's, as written.
+  // The 92 days are measured to that end, so a date-only `to` 92 days after `from` (93 days in all) is refused.
+  const toEnd = /^\d{4}-\d{2}-\d{2}$/.test(toText) ? toMs + 86400000 : toMs;
+  if (toEnd - fromMs > MARKER_DAYS * 86400000) return res.status(400).json({ error: `from and to can be at most ${MARKER_DAYS} days apart.` });
+  const fromDay = fromText.slice(0, 10);
+  const toDay = toText.slice(0, 10);
+  // Where to read: the space the module is mounted in, or the environment and each space the viewer is a member of
+  // (the spaces-data rule; refScope then checks each one, both modules on there and readable).
+  const places = ctx.scope === 'space'
+    ? [{ scope: 'space', space: ctx.spaceId }]
+    : [{ scope: 'environment' }, ...store.spaces.filter((r) => r.members.includes(who.user.key)).map((r) => ({ scope: 'space', space: r.id }))];
+  const tz = ics.serverZone();
+  const now = Date.now();
+  const today = todayIn(tz, now);
+  const markers = [];
+  for (const { manifest: producer } of modules.enabledAll()) {
+    if (producer.id === manifest.id) continue;
+    for (const kind of producer.refs.produces) {
+      if (!kind.marker || !kind.dated || !consumerMayLink(consumer, producer.id, kind.kind)) continue;
+      const prefix = kind.key.replace('{id}', '');
+      for (const where of places) {
+        let at;
+        try {
+          at = refScope(who, { provider: producer.id, kind: kind.kind, scope: where.scope, space: where.space, from: manifest.id });
+        } catch (err) {
+          if (!err.status) throw err;
+          continue; // not on there, no scope of that kind, or not readable by this viewer
+        }
+        for (const row of moduleData.list(producer.id, at.scopeKey, prefix)) {
+          const id = row.key.slice(prefix.length);
+          if (!REF_ID_RE.test(id) || !row.value || typeof row.value !== 'object') continue;
+          if (kind.summary.done && row.value[kind.summary.done] === true) continue; // done: off the grid
+          const read = ics.readDated(row.value, kind.dated, tz);
+          if (!read) continue; // no date, or a poll closed by hand (no closing time)
+          if (read.allDay ? read.start < fromDay || read.start > toDay : read.start < fromMs || read.start >= toEnd) continue;
+          const shown = shownModule(producer);
+          // `due`: the kind is dated by a day it is due (dated.day: "Tasks due"), not by a moment (dated.start: "Polls
+          // closing"), whether or not this one has a time. The module's tint (its manifest "color", one of the eight, or
+          // null) and its icon as inline SVG: a module's frame cannot load the icon font, and a guest cannot ask
+          // /api/icons, so the SVG comes with the marker.
+          markers.push({
+            ref: { ...at.ref, id },
+            kind: kind.kind,
+            title: String(read.title || '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 200) || 'Untitled',
+            start: read.start,
+            allDay: read.allDay,
+            due: kind.dated.form === 'wall',
+            past: read.allDay ? read.start < today : read.start < now,
+            module: { id: producer.id, name: shown.name, icon: shown.icon, color: producer.color || null, svg: iconSvg(shown.icon) || null },
+          });
+        }
+      }
+    }
+  }
+  const sortMs = (m) => (m.allDay ? Date.parse(`${m.start}T00:00:00Z`) : m.start);
+  markers.sort((a, b) => sortMs(a) - sortMs(b) || a.title.localeCompare(b.title));
+  res.json({ markers: markers.slice(0, MARKER_CAP) });
 });
 
 // Links: a module tells the host which items one of its items points at, so the items pointed at can
@@ -6710,6 +6810,21 @@ app.get('/api/modules/stream', (req, res) => {
     res.write(`event: settings\ndata: ${JSON.stringify({ module: c.module, scope: c.scope, spaceId: c.spaceId })}\n\n`);
   });
   moduleSettings.on('change', onSettings);
+  // An object of a marker kind was written or deleted where this viewer reads it (plan-calendar-markers.md): the
+  // modules here approved to show that kind, and on and readable there, are named, and ask again. No object data goes.
+  // A space's page hears its space only; a page without a space hears the environment and the viewer's own spaces.
+  const onMarkers = listenIn(env, (change) => {
+    if (!change.scopeKey.startsWith('space:') && change.scopeKey !== 'environment') return;
+    const kind = markerKindAt(change.module, change.key);
+    if (!kind) return;
+    const at = place(change.module, change.scopeKey);
+    if (!at || (space && at.scope !== 'space')) return;
+    const hearing = modules.enabledAll()
+      .filter((m) => m.manifest.id !== change.module && consumerMayLink(m, change.module, kind.kind) && place(m.manifest.id, change.scopeKey))
+      .map((m) => m.manifest.id);
+    if (hearing.length) res.write(`event: markers\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
+  });
+  moduleData.on('change', onMarkers);
   moduleData.on('change', onChange);
   moduleHooks.on('fire', onFire);
   // A linked object changed: only the modules that point at it are told, and only a viewer who may see that module here.
@@ -6729,6 +6844,7 @@ app.get('/api/modules/stream', (req, res) => {
   req.on('close', () => envContext.run(env, () => {
     clearInterval(beat);
     moduleSettings.off('change', onSettings);
+    moduleData.off('change', onMarkers);
     moduleData.off('change', onChange);
     moduleHooks.off('fire', onFire);
     moduleLinks.off('change', onLinks);

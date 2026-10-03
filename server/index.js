@@ -33,6 +33,7 @@ const destinations = require('./destinations');
 const { fetchPreview, fetchImage, cachedImage, PreviewError } = require('./link-preview');
 const { findLink, readFields, CHAT_LINK_LIMITS } = require('./chat-links');
 const objectSync = require('./object-sync');
+const ics = require('./ics');
 const themeFile = require('./theme-file');
 const { productName } = require('./product-name');
 const templateFile = require('./template-file');
@@ -1375,6 +1376,8 @@ function publicUser(req, u, opts = {}) {
     mfaEnrolled: Boolean(u.mfa), // the only mfa field a person other than the account itself ever sees
     // The personal link only for those maySeeLink allows; left out entirely for anyone else.
     ...(maySeeLink(req, u, opts) ? { link: u.linkToken ? `${baseUrl(req)}/j/${u.linkToken}` : null } : {}),
+    // Whether they have a calendar feed, for the same people: never its address or its hash (plan-google-calendar.md).
+    ...(maySeeLink(req, u, opts) ? { calendarFeed: calendarFeedView(u) } : {}),
     images: Object.fromEntries(SLOTS.map((slot) => [slot, !!u.images[slot]])),
     spaces,
     permissions: store.spacePermissions(u.key, null), // their role's, outside any one space
@@ -4567,6 +4570,133 @@ app.get('/api/modules/:id/spaces-data', (req, res) => {
   res.json({ spaces, items });
 });
 
+// --- calendar feeds (documentation/plans/plan-google-calendar.md, Part 1) ---------------------------------------------
+// A person's private address that shares the events they can read with their own calendar app. The token is shown
+// once and kept only as its SHA-256 (store.setCalendarFeed); /feed/<token>.ics is looked up in the environment the
+// request reached, so one environment's address is 404 at another. Nothing here names a module: a kind offers itself
+// with "feed": true beside "dated" (cleanRefs in server/modules.js), and is read with the person's rights at each read.
+const FEED_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
+const FEED_READS_PER_MINUTE = 30;
+const FEED_MAX_EVENTS = 2000;
+const FEED_NOT_HERE = 'There is no calendar at this address.';
+const feedHash = (token) => crypto.createHash('sha256').update(token).digest('hex');
+const calendarFeedView = (u) => ({ on: Boolean(u.calendarFeed), made: u.calendarFeed?.made || null, readAt: u.calendarFeed?.readAt || null });
+
+// The enabled modules with a kind offered to the feed that this person may read at environment level (the spaces-data
+// rule's first test), each with those kinds.
+function feedModulesFor(who) {
+  const perms = modulePerms(who, null);
+  return modules.enabledAll()
+    .map((found) => ({ ...found, kinds: found.manifest.refs.produces.filter((p) => p.feed && p.dated) }))
+    .filter(({ manifest, kinds }) => kinds.length && moduleCan(manifest, perms, 'read'));
+}
+const feedAllowed = (who) => store.settings.calendarFeeds === true && feedModulesFor(who).length > 0;
+
+// Every event the person may read, as server/ics.js writes them: the environment's own where the module has that scope,
+// and each space they are a member of where it is on and readable. Long past ones are left out; at most 2000, the
+// latest kept.
+function feedEvents(req, user) {
+  const who = { user, guestSpace: null };
+  const tz = ics.serverZone();
+  const base = baseUrl(req);
+  const host = new URL(base).hostname;
+  const environmentName = store.settings.environmentName || '';
+  const now = Date.now();
+  const out = [];
+  for (const found of feedModulesFor(who)) {
+    const { manifest } = found;
+    const places = [
+      ...(manifest.scope.includes('environment') ? [{ scopeKey: 'environment', space: null }] : []),
+      ...readableSpacesOf(found, who).map((r) => ({ scopeKey: scopeKeyOf('space', { spaceId: r.id }), space: r })),
+    ];
+    const destination = destinationPathOf(manifest.id, destinationContext(who));
+    for (const kind of found.kinds) {
+      const prefix = kind.key.replace('{id}', '');
+      for (const { scopeKey, space } of places) {
+        for (const row of moduleData.list(manifest.id, scopeKey, prefix)) {
+          const id = row.key.slice(prefix.length);
+          if (!REF_ID_RE.test(id)) continue;
+          const read = ics.readDated(row.value, kind.dated, tz);
+          if (!read || !ics.recentEnough(read, now)) continue;
+          const ref = { module: manifest.id, kind: kind.kind, id, scope: space ? 'space' : 'environment', ...(space ? { space: space.id } : {}) };
+          const hash = `#ref=${encodeURIComponent(JSON.stringify(ref))}`;
+          const url = destination ? `${base}${destination}${hash}` : `${base}/modules/${encodeURIComponent(manifest.id)}${space ? `?space=${encodeURIComponent(space.id)}` : ''}${hash}`;
+          const own = kind.summary.subtitle && typeof row.value?.[kind.summary.subtitle] === 'string' ? row.value[kind.summary.subtitle].trim() : '';
+          out.push({
+            ...read,
+            uid: `${kind.kind}-${id}-${space ? space.id : 'environment'}@${host}`,
+            stamp: Date.parse(row.updatedAt),
+            description: [space ? space.name : environmentName, own, url].filter(Boolean).join('\n'),
+            url,
+          });
+        }
+      }
+    }
+  }
+  const startMs = (e) => (e.allDay ? Date.parse(`${e.start}T00:00:00Z`) : e.start);
+  out.sort((a, b) => startMs(a) - startMs(b) || (a.uid < b.uid ? -1 : 1));
+  return { events: out.slice(-FEED_MAX_EVENTS), tz };
+}
+
+// Profile's Calendar feed section: whether the person may make an address, and theirs if they have one.
+app.get('/api/me/feed', requireUser, (req, res) => {
+  const user = currentUser(req);
+  res.json({ allowed: feedAllowed({ user, guestSpace: null }), ...calendarFeedView(user) });
+});
+// A new address, replacing any old one: answered once, never again.
+app.post('/api/me/feed', requireUser, (req, res) => {
+  const user = currentUser(req);
+  if (store.settings.calendarFeeds !== true) return res.status(403).json({ error: `Calendar feeds are off in this ${word('environment')}.` });
+  if (!feedAllowed({ user, guestSpace: null })) return res.status(403).json({ error: 'There are no events here you can add to a calendar app.' });
+  const token = crypto.randomBytes(32).toString('base64url');
+  const feed = store.setCalendarFeed(user.key, feedHash(token));
+  res.status(201).json({ url: `${baseUrl(req)}/feed/${token}.ics`, made: feed.made });
+});
+app.delete('/api/me/feed', requireUser, (req, res) => {
+  store.setCalendarFeed(currentUser(req).key, null);
+  res.status(204).end();
+});
+// An owner (or the admin) turning someone's address off. They never see it.
+app.delete('/api/users/:key/feed', requireOwner, (req, res) => {
+  if (!store.userByKey(req.params.key)) return res.status(404).json({ error: 'no such user' });
+  store.setCalendarFeed(req.params.key, null);
+  res.status(204).end();
+});
+
+// Reads per address in the current minute: "<slug>|<hash>" -> { from, count }. Kept in memory; a restart forgets it.
+const feedReads = new Map();
+function feedOverLimit(key, now = Date.now()) {
+  if (feedReads.size > 10000) for (const [k, v] of feedReads) if (now - v.from >= 60000) feedReads.delete(k);
+  const seen = feedReads.get(key);
+  if (!seen || now - seen.from >= 60000) {
+    feedReads.set(key, { from: now, count: 1 });
+    return 0;
+  }
+  seen.count += 1;
+  return seen.count > FEED_READS_PER_MINUTE ? Math.max(1, Math.ceil((seen.from + 60000 - now) / 1000)) : 0;
+}
+
+// The feed itself, no session: a plain 404 (never a page, never a redirect to sign in) for an unknown token, with the
+// setting off or the person gone; 429 past 30 reads a minute; else the calendar, with an ETag of what it holds.
+app.get('/feed/:file', (req, res) => {
+  const notHere = () => res.status(404).type('text/plain').send(FEED_NOT_HERE);
+  const m = /^(.+)\.ics$/.exec(req.params.file);
+  if (!m || !FEED_TOKEN_RE.test(m[1]) || store.settings.calendarFeeds !== true) return notHere();
+  const hash = feedHash(m[1]);
+  const user = store.userByFeedHash(hash);
+  if (!user) return notHere();
+  const wait = feedOverLimit(`${currentEnvironment().slug}|${hash}`);
+  if (wait) return res.status(429).set('Retry-After', String(wait)).type('text/plain').send('This address was read too often; try again in a minute.');
+  store.noteCalendarFeedRead(user.key);
+  const { events, tz } = feedEvents(req, user);
+  const body = ics.buildCalendar({ name: store.settings.environmentName || PRODUCT_NAME, tz, events });
+  const etag = `"${crypto.createHash('sha256').update(body).digest('base64url').slice(0, 32)}"`;
+  res.set({ ETag: etag, 'Cache-Control': 'private, no-cache', 'X-Robots-Tag': 'noindex' });
+  const asked = String(req.get('if-none-match') || '').split(',').map((t) => t.trim().replace(/^W\//, ''));
+  if (asked.includes(etag) || asked.includes('*')) return res.status(304).end();
+  res.status(200).type('text/calendar; charset=utf-8').send(body);
+});
+
 // --- objects: one module pointing at another's objects ---------------------------
 // Modules cannot reach each other's storage, and that stays. The host knows nothing about any module's
 // objects; it offers conduits. A module declares in its manifest the kinds of object it lets others point
@@ -6490,7 +6620,7 @@ app.get('/api/currencies', requireUser, (_req, res) => res.json({ currencies: cu
 // `showCalendar` and `showMap`: the top bar's Calendar and Map (plan-calendar-destination.md, plan-map-destination.md),
 // off unless an owner or a template turned them on. `topBarReasons`: { calendar, map }, why each cannot show whatever
 // its switch (one sentence), or null.
-const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null, showCalendar: store.settings.showCalendar === true, showMap: store.settings.showMap === true, topBarReasons: destinationReasons() });
+const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null, showCalendar: store.settings.showCalendar === true, showMap: store.settings.showMap === true, calendarFeeds: store.settings.calendarFeeds === true, topBarReasons: destinationReasons() });
 app.get('/api/settings', requireOwner, (_req, res) => res.json({ settings: ownerSettings(), streamKey: store.streamKey }));
 // `template` ("none" for none) switches the environment's template (the switching addendum): taken out of the body
 // before the settings; an unknown one refuses the whole change. With it, the answer also carries `template` and `offer`.

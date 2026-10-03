@@ -16,6 +16,7 @@ let streamShown = false;
 let environment = { hosted: false, owner: false, hostAdmin: false, slug: '', name: '' };
 const hostOnlyHidden = () => environment.hosted && !environment.hostAdmin;
 let users = [];
+let feeds = new Map(); // who has a calendar feed: key -> { on, made, readAt } (loadFeeds)
 
 // The choices come from the icon list on the Template tab. null (only with a template) is the template's own.
 let selectedHomeIcon = 'couch';
@@ -127,6 +128,8 @@ function selectTab(name) {
     else if (t.right > s.right) strip.scrollLeft += t.right - s.right;
   }
   if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
+  // Who has a calendar feed changes on their own Profile, so the Users tab asks again each time it opens.
+  if (tab === 'users' && users.length) loadFeeds().then(renderUsers);
   if (inTab) {
     at.scrollIntoView({ block: 'start' });
     // The section's first field, or the control itself (#add-space, "+ New <space>" in the top bar's switcher).
@@ -165,6 +168,10 @@ function fill(card, user) {
   card.querySelector('[data-thumb]').src = imgUrl(user.key, 'profile');
   card.querySelector('[data-action="edit"]').href = `/profile/${encodeURIComponent(user.key)}`;
   card.querySelector('[data-mfa]').hidden = !user.mfaEnrolled;
+  // Whether they have a calendar feed (plan-google-calendar.md): never the address, only on or off, with Turn off.
+  const feedOn = Boolean(feeds.get(user.key)?.on);
+  card.querySelector('[data-feed]').hidden = !feedOn;
+  card.querySelector('[data-action="feed-off"]').hidden = !feedOn;
   renderLive(card, user.online);
 }
 
@@ -201,6 +208,11 @@ function wire(card) {
     const action = button.dataset.action;
     if (action === 'mute') {
       api('POST', `/api/users/${user.key}/mute`, { muted: true }).then(refreshLive).catch((err) => say($('party-status'), err.message, true));
+    } else if (action === 'feed-off') {
+      if (!window.confirm(`Turn off ${user.displayName}'s calendar feed? Their address stops working. They can make a new one.`)) return;
+      api('DELETE', `/api/users/${user.key}/feed`)
+        .then(() => { feeds.delete(user.key); fill(card, user); say($('party-status'), 'calendar feed turned off'); })
+        .catch((err) => say($('party-status'), err.message, true));
     } else if (action === 'kick') {
       if (!window.confirm(`Kick ${user.displayName} from the call? They can rejoin.`)) return;
       api('POST', `/api/users/${user.key}/kick`).then(refreshLive).catch((err) => say($('party-status'), err.message, true));
@@ -232,8 +244,18 @@ async function refreshLive() {
   }
 }
 
+// Who has a calendar feed (feeds, above): /api/status leaves it out (the access key reads that), so it comes from the
+// owners' own list of users.
+async function loadFeeds() {
+  try {
+    feeds = new Map((await api('GET', '/api/users')).users.filter((u) => u.calendarFeed?.on).map((u) => [u.key, u.calendarFeed]));
+  } catch {
+    // keeps what it knew
+  }
+}
+
 async function loadUsers() {
-  const status = await api('GET', '/api/status');
+  const [status] = await Promise.all([api('GET', '/api/status'), loadFeeds()]);
   users = status.users;
   spaces = status.spaces || spaces;
   renderUsers();
@@ -659,6 +681,24 @@ for (const t of TOP_BAR) {
     }
   });
 }
+
+// --- calendar feeds ----------------------------------------------------------------------------------
+// Whether people may make a private address for their calendar app on Profile (plan-google-calendar.md, decision 4).
+// Saved as it is flipped; turning it off stops every address at once without deleting it.
+function renderCalendarFeeds(settings) {
+  $('set-calendar-feeds').checked = settings?.calendarFeeds === true;
+}
+$('set-calendar-feeds').addEventListener('change', async (event) => {
+  const input = event.target;
+  try {
+    const answer = await api('PATCH', '/api/settings', { calendarFeeds: input.checked });
+    if (answer && answer.settings) renderCalendarFeeds(answer.settings);
+    say($('calendar-feeds-status'), 'saved');
+  } catch (err) {
+    input.checked = !input.checked;
+    say($('calendar-feeds-status'), err.message, true);
+  }
+});
 
 // --- theme -------------------------------------------------------------------
 // A chooser (Strong Coffee, the default, + every saved theme) and a
@@ -2226,6 +2266,7 @@ async function init() {
     $('set-allow-reactions').checked = settings.allowReactions !== false;
     renderTopBar(settings);
     topBarReady = true;
+    renderCalendarFeeds(settings);
     $('set-login-text').value = settings.loginText;
     $('set-mfa-required').checked = Boolean(settings.mfaRequired);
     $('set-allow-registration').checked = Boolean(settings.allowRegistration);

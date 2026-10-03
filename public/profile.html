@@ -75,6 +75,15 @@
           </span>
         </div>
 
+        <!-- An owner looking at someone's profile: whether they have a calendar feed, never its address
+             (plan-google-calendar.md). Shown while the environment allows feeds or while they still have one. -->
+        <div class="row" id="feed-row" hidden>
+          <span class="field-label">Calendar feed</span>
+          <span class="pill" id="feed-row-state">off</span>
+          <span class="hint" id="feed-row-read"></span>
+          <button class="btn btn-small btn-danger" id="feed-row-off" type="button" hidden>Turn off</button>
+        </div>
+
         <div class="row danger-row" id="danger-row" hidden>
           <button class="btn btn-small" id="mute-btn" type="button">Mute mic</button>
           <button class="btn btn-small" id="kick-btn" type="button">Kick</button>
@@ -160,6 +169,39 @@
         </div>
         <div class="row">
           <span class="status" id="call-prefs-status"></span>
+        </div>
+      </section>
+
+      <!-- Calendar feed (plan-google-calendar.md, Part 1): a private address a calendar app reads to show the events
+           this person can see. Your own profile only, and only when the environment allows feeds or you still have one.
+           The address is answered once, when it is made, and shown only until the page is left. -->
+      <section class="panel" id="section-feed" hidden>
+        <h2>Calendar feed</h2>
+        <p class="hint" id="feed-hint"></p>
+        <p class="hint" id="feed-state" hidden></p>
+        <div class="feed-made" id="feed-made" hidden>
+          <div class="row">
+            <code class="key link" id="feed-url"></code>
+            <button class="btn btn-small" id="feed-copy" type="button">Copy</button>
+          </div>
+          <p class="hint"><strong>Copy it now. It will not be shown again.</strong></p>
+          <h3>Google Calendar</h3>
+          <ol class="hint feed-steps">
+            <li>In Google Calendar, choose Other calendars, then From URL.</li>
+            <li>Paste the address.</li>
+            <li>Google updates it about once a day.</li>
+          </ol>
+          <h3>Apple Calendar</h3>
+          <ol class="hint feed-steps">
+            <li>On a Mac, choose File, then New Calendar Subscription. On an iPhone, go to Settings, Calendar, Accounts, Add Account, Other, Add Subscribed Calendar.</li>
+            <li>Paste the address.</li>
+          </ol>
+        </div>
+        <div class="row">
+          <button class="btn btn-primary btn-small" id="feed-make" type="button" hidden>Make an address</button>
+          <button class="btn btn-small" id="feed-new" type="button" hidden>New address</button>
+          <button class="btn btn-small btn-danger" id="feed-off" type="button" hidden>Turn off</button>
+          <span class="status" id="feed-status" role="status"></span>
         </div>
       </section>
 

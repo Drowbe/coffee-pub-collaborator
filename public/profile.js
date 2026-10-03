@@ -17,6 +17,10 @@ let mfaRequired = false; // the environment requires a second factor of the sign
 let mfaOffered = true; // the server offers two-step sign-in at all (ENABLE_MFA)
 let mfaBypass = false; // the server's admin lockout bypass applies to the signed-in person: no code asked, own reset offered
 let spacesById = new Map(); // every real space (not the Lobby), for the per-space sections below
+let environmentName = ''; // the environment's own name, for the calendar feed's hint
+let feed = null; // your own calendar feed, from GET /api/me/feed: { allowed, on, made, readAt }
+let feedUrl = ''; // the address just made: answered once by the server, kept only until the page is left
+let feedsAllowed = false; // an owner editing someone: whether the environment allows calendar feeds (settings.calendarFeeds)
 
 // If this page is open as the overlay on top of an active call (same
 // pattern as closeProfileOverlay -- see brand.js/space.js), and it's my own
@@ -194,6 +198,8 @@ function render() {
     slot.querySelector('.slot-pick').classList.toggle('still', !canImg(name));
     slot.querySelector('[data-action="slot-clear"]').hidden = !canImg(name) || !set;
   }
+
+  renderFeed(editing);
 
   $('danger-row').hidden = !editing;
   if (editing) {
@@ -474,6 +480,99 @@ for (const [id, prefKey] of [['cp-mute-key', 'muteKey'], ['cp-ptt-key', 'pttKey'
   $(id).addEventListener('click', () => startHotkeyCapture($(id), prefKey));
 }
 
+// --- calendar feed (plan-google-calendar.md, Part 1) ----------------------
+// A private address a calendar app (Google, Apple, Outlook) reads to show the events this person can see. The server
+// keeps only its hash, so the address is shown once, right after it is made; a lost one is replaced with a new one.
+// An owner looking at someone sees whether they have one, and can turn it off, never the address.
+
+// "3 hours ago", "yesterday", or a date for anything older than a week.
+function timeAgo(iso) {
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return '';
+  const minutes = Math.round((Date.now() - then) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  return `on ${dayOf(iso)}`;
+}
+const dayOf = (iso) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+const readWhen = (readAt) => (readAt ? `last read ${timeAgo(readAt)}` : 'not read yet');
+const lastRead = (readAt) => { const t = readWhen(readAt); return `${t[0].toUpperCase()}${t.slice(1)}.`; };
+
+function renderFeed(editing) {
+  // Someone else's, for an owner: on or off and when it was last read, with Turn off.
+  const theirs = user.calendarFeed || { on: false };
+  $('feed-row').hidden = !editing || !(feedsAllowed || theirs.on);
+  if (editing) {
+    $('feed-row-state').textContent = theirs.on ? 'on' : 'off';
+    $('feed-row-state').classList.toggle('on', theirs.on);
+    $('feed-row-read').textContent = theirs.on ? readWhen(theirs.readAt) : '';
+    $('feed-row-off').hidden = !theirs.on;
+  }
+
+  // Your own: shown when you may make one, or while you still have one.
+  const section = $('section-feed');
+  section.hidden = editing || !feed || !(feed.allowed || feed.on);
+  if (section.hidden) return;
+  $('feed-hint').textContent = `Add your events from ${environmentName || `this ${word('environment')}`} to Google Calendar, Apple Calendar or Outlook. Anyone with the address can see them, so keep it private.`;
+  const state = $('feed-state');
+  state.hidden = !feed.on;
+  state.textContent = !feed.on ? ''
+    : feed.allowed ? `On, made ${dayOf(feed.made)}. ${lastRead(feed.readAt)}`
+      : `Calendar feeds are off in this ${word('environment')} for now, so the address does not work. ${lastRead(feed.readAt)}`;
+  $('feed-made').hidden = !(feed.on && feedUrl);
+  $('feed-url').textContent = feedUrl;
+  $('feed-make').hidden = feed.on || !feed.allowed;
+  $('feed-new').hidden = !feed.on || !feed.allowed;
+  $('feed-off').hidden = !feed.on;
+}
+
+async function loadFeed() {
+  if (editingKey) {
+    // Whether the environment allows feeds decides if an owner sees the row for someone without one.
+    try { feedsAllowed = (await api('GET', '/api/settings')).settings?.calendarFeeds === true; } catch { feedsAllowed = false; }
+    return;
+  }
+  try { feed = await api('GET', '/api/me/feed'); } catch { feed = null; }
+}
+
+async function makeFeed() {
+  const made = await api('POST', '/api/me/feed', {});
+  feedUrl = made.url;
+  feed = { ...feed, on: true, made: made.made, readAt: null };
+  render();
+  $('feed-copy').focus();
+}
+$('feed-make').addEventListener('click', () => run(async () => {
+  await makeFeed();
+  sayField($('feed-status'), 'address made');
+}, $('feed-status')));
+$('feed-new').addEventListener('click', () => run(async () => {
+  if (!window.confirm('Make a new address? The old address stops working. Add the new one in Google again.')) return;
+  await makeFeed();
+  sayField($('feed-status'), 'new address made');
+}, $('feed-status')));
+$('feed-off').addEventListener('click', () => run(async () => {
+  if (!window.confirm('Turn off your calendar feed? The address stops working, and your calendar app stops getting new events.')) return;
+  await api('DELETE', '/api/me/feed');
+  feedUrl = '';
+  await loadFeed();
+  render();
+  sayField($('feed-status'), 'calendar feed turned off');
+}, $('feed-status')));
+$('feed-copy').addEventListener('click', () => copy(feedUrl, $('feed-status')));
+$('feed-row-off').addEventListener('click', () => run(async () => {
+  if (!window.confirm(`Turn off ${user.displayName}'s calendar feed? Their address stops working. They can make a new one.`)) return;
+  await api('DELETE', `/api/users/${user.key}/feed`);
+  await reload();
+  render();
+  sayField($('account-status'), 'calendar feed turned off');
+}, $('account-status')));
+
 // --- admin editing someone else -----------------------------------------
 
 // Two-step sign-in on the account: your own to turn on (the enrolment block: scan, confirm, keep the recovery codes) and
@@ -622,6 +721,7 @@ async function init() {
   // named once loaded, with a Manage link first.
   renderPageBar({ name: editingKey ? '' : 'Profile', icon: 'user', manage: editingKey ? '/admin#users' : '', controls: [$('subtabs')] });
   const branding = await loadBranding();
+  environmentName = branding.environmentName || '';
   // The stored value is already clamped server-side (see sanitizeCallPrefs)
   // -- this just keeps the picker from offering an option that would get
   // silently rounded back down the moment it's picked.
@@ -634,7 +734,7 @@ async function init() {
       me = mine.user;
       if (!hasOwnerRights(me)) { location.href = '/'; return; }
     }
-    const [, { spaces }] = await Promise.all([reload(), api('GET', '/api/spaces')]);
+    const [, { spaces }] = await Promise.all([reload(), api('GET', '/api/spaces'), loadFeed()]);
     spacesById = new Map(spaces.map((r) => [r.id, r]));
   } catch (err) {
     location.href = editingKey ? '/admin' : '/login?next=/profile';

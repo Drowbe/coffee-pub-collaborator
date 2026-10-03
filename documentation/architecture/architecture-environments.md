@@ -589,7 +589,7 @@ null included, is refused with "verbs: The <verb> verb must be text." (leaving t
 default), and an unknown key with "verbs: there is no verb called "<key>"; the verbs are enter, layout.". Travel sets none. `icons.home` and `moduleIcons` must be plain solid Font Awesome Free icons.
 `modules` lists module ids, bundled or built in, and must include `chat`. `settings` takes only `language`,
 `clock`, `currency`, `loginText`, `allowRegistration`, `mfaRequired`, `maxQuality`, `allowScreenShare`,
-`allowAsides`, `allowPrivate`, `allowReactions`, `showCalendar`, `showMap` (booleans: the top bar's destinations; Travel sets both, from version 4), `activeThemeId` and `themeMode`. `spaceDefaults.profile` is
+`allowAsides`, `allowPrivate`, `allowReactions`, `showCalendar`, `showMap` (booleans: the top bar's destinations; Travel sets both, from version 4), `calendarFeeds` (a boolean: people's calendar feeds), `activeThemeId` and `themeMode`. `spaceDefaults.profile` is
 `roleplaying`, `participants` or `characters`. `spaceDefaults.opensWith` is up to 20 module ids, bundled or built in,
 none twice, in the order a new space opens them (plan-planner-phases; nothing opens from it until that plan's step 6).
 `phases` is up to 12 `{ id, label, main? }`: `id` as a module id and unique, `label` 1 to 40 characters, `main: true`

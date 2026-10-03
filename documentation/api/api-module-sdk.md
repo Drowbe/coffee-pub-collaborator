@@ -259,7 +259,8 @@ const off = host.objects.onChange(({ ref, change }) => { /* change is 'updated' 
   "create": { "id": "{id}", "desc": "", "remind": null, "repeat": null, "by": "{by}" } }
 ```
 
-- `dated` is either a wall clock (`title` and `day` required, `time` and `endDay` optional) or an instant (`title` and `start` required, `end` and `allDay` optional), each naming a stored field. Mixing the two is refused.
+- `dated` is either a wall clock (`title` and `day` required, `time` and `endDay` optional) or an instant (`title` and `start` required, `end` and `allDay` optional), each naming a stored field. Mixing the two is refused. Either shape may name a `repeat` field (stored as `{ every, until }`, the Calendar's shape).
+- `feed: true` (needs `dated`) offers the kind to people's calendar feeds ([api-modules](api-modules.md), "Calendar feeds"): each object is read with the person's own permissions whenever their calendar app asks.
 - `mirror` is `out` (sends twins) or `in` (receives them), and needs `dated`. The server sends from a wall-clock kind to an instant kind.
 - `create`, required with `mirror: "in"` and refused otherwise, is the stored value a new twin starts from: text (up to 200 characters), a number, a boolean or `null` per field. `{id}` becomes the new id and `{by}` the writer's name.
 - A space object of a sending kind that has a day, and holds no pointer, gets one twin in each receiving kind that is on in that space and that the sender was approved to link to. A personal object never gets one.

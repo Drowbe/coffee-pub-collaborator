@@ -435,6 +435,17 @@
       <span class="status" id="top-bar-status"></span>
       </div>
 
+      <!-- Calendar feeds (plan-google-calendar.md, decision 4): whether people may make a private address for their
+           calendar app on Profile. A switch saved at once; off stops every address without deleting it. -->
+      <div class="panel" id="calendar-feeds-settings">
+      <h2>Calendar apps</h2>
+      <div class="checks">
+        <label class="check"><input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Calendar feeds</label>
+        <p class="hint" id="calendar-feeds-hint" data-fill>Lets people add this {environment}'s events to their own calendar app with a private address.</p>
+      </div>
+      <span class="status" id="calendar-feeds-status"></span>
+      </div>
+
       <div class="panel">
       <h2>Sign-in page</h2>
       <p class="hint">A picture behind the sign-in box, and a note under the password field.</p>
@@ -540,11 +551,12 @@
       <img class="thumb" data-thumb alt="">
       <div class="user-title">
         <strong data-name></strong>
-        <span class="meta"><span data-login></span> · <span data-role></span> · key <code data-key></code> <span class="pill" data-mfa hidden title="Signs in in two steps">two-step</span></span>
+        <span class="meta"><span data-login></span> · <span data-role></span> · key <code data-key></code> <span class="pill" data-mfa hidden title="Signs in in two steps">two-step</span> <span class="pill" data-feed hidden title="Has a private address for a calendar app">calendar feed</span></span>
       </div>
       <span class="live" data-live></span>
       <button class="btn btn-small" data-action="mute" type="button">Mute mic</button>
       <button class="btn btn-small" data-action="kick" type="button">Kick</button>
+      <button class="btn btn-small btn-danger" data-action="feed-off" type="button" hidden>Turn off feed</button>
       <a class="btn btn-primary btn-small" data-action="edit" type="button">Edit profile</a>
     </article>
   </template>

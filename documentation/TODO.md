@@ -48,7 +48,7 @@ same setup.
   - For Thomas, choices the plan made that he may overrule: on a phone the top bar shows the page's name as a plain label; a module's tools always go in the space bar's right zone (`zone` ignored); the **Manage** link at the start of the page bar on pages that belong to Manage.
   - The Profile page's bar reads "Profile" beside a tab also named **Profile**.
   - A popped-out window narrower than 641 pixels has a cramped space bar, with **Leave space** off the edge. It was like this before the two-zone nav.
-- **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md)): steps 1 and 2 built 2026-10-02 (the Arrange section and **Clean up**). Saved layouts are #161, not planned yet.
+- **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md)): steps 1 and 2 built 2026-10-02 (the Arrange section and **Clean up**). Saved layouts are #161, [plan-saved-layouts](plans/plan-saved-layouts.md), approved 2026-10-03, four steps, none built; step 2 waits on #156's plan.
 
 ## Planned
 
@@ -141,7 +141,7 @@ same setup.
 - Who sees every space's name and member list: decided (2026-10-02), anyone signed in, for now ([plan-primary-nav](plans/plan-primary-nav.md), decision 35).
 - Owners and the admin missing from Calendar's and Map's filters for spaces they don't belong to: decided (2026-10-02), correct as built, since managing a space is not being a member of it ([plan-calendar-destination](plans/plan-calendar-destination.md), decision 23; [plan-map-destination](plans/plan-map-destination.md), decision 25).
 - `objectSync` (`server/object-sync.js`) is one event source shared by every environment on a hosted server, so a `refchange` from one environment reaches another's `GET /api/modules/stream` listeners when the module id and the scope key match. It carries only pointers, and modules ask again with their own permissions, but it should be scoped per environment. Found while fixing the schedule crash (2026-10-02).
-- Thomas's, for later: a way to choose and save layouts (#161). **Clean up** is built ([plan-layout-menu](plans/plan-layout-menu.md)).
+- Thomas's, for later: a way to choose and save layouts (#161, now planned in [plan-saved-layouts](plans/plan-saved-layouts.md)). **Clean up** is built ([plan-layout-menu](plans/plan-layout-menu.md)).
 - With an empty dashboard, the space list sits in one column about 300 pixels wide at desktop widths, leaving the rest of the page empty. Seen while checking the word for entering a space (2026-09-30); it was like this before.
 
 ## Modules

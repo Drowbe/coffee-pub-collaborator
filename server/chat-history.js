@@ -269,6 +269,35 @@ class ChatHistory {
     return count;
   }
 
+  // Clear… (plan-chat-clear.md): removes the messages of one type in one pass, flushes once, and returns them as they
+  // were stored (the route counts them and tells the call the public ids). `type` is `chat` (no `kind`), `ai` (an /ai
+  // question or an AI answer), `module` (a command echo of the module `module`) or `all`. `scope` `mine` takes `by`'s
+  // own messages of that type, public and private; `everyone` takes every public message of that type and `by`'s own
+  // private ones, never anyone else's private message (decision 4). Anything unknown, or no `by`, removes nothing, so
+  // a request that lost its words can never empty the chat. `cleared` is not touched: that marks a whole delete only.
+  clearByType(spaceId, { type, module, scope, by } = {}) {
+    const list = this.spaces[spaceId];
+    if (!list || by == null || by === '') return [];
+    const moduleId = typeof module === 'string' ? module.slice(0, 32) : '';
+    const types = {
+      chat: (m) => !m.kind,
+      ai: isAi,
+      module: (m) => Boolean(moduleId) && m.kind === 'command' && !isAi(m) && m.module === moduleId,
+      all: () => true,
+    };
+    const ofType = typeof type === 'string' && Object.hasOwn(types, type) ? types[type] : null;
+    if (!ofType || (scope !== 'mine' && scope !== 'everyone')) return [];
+    const inScope = scope === 'mine' ? (m) => m.by === by : (m) => (isPrivate(m) ? m.by === by : true);
+    const removed = [];
+    const kept = [];
+    for (const m of list) (ofType(m) && inScope(m) ? removed : kept).push(m);
+    if (!removed.length) return [];
+    if (kept.length) this.spaces[spaceId] = kept;
+    else delete this.spaces[spaceId];
+    this.flush();
+    return removed.map(copy);
+  }
+
   // The person's private /ai questions and answers, in the old thread shape, for the ai/thread routes.
   aiThread(spaceId, by) {
     return this.list(spaceId, by)

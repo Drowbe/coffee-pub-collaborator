@@ -2,7 +2,8 @@
 /*
  * check-chat-model.mjs -- the one chat store (documentation/plans/plan-chat-model.md, GitHub #157): private and
  * public messages in DATA_DIR/chat.json, the one-time move of ai-threads.json, who reads what, the visibility PATCH,
- * "Delete your private messages", the limits by kind, /ai's rule without the Assistant, and the manifest's `color`.
+ * "Delete your private messages", Clear… by type (plan-chat-clear.md, #166), the limits by kind, /ai's rule without
+ * the Assistant, and the manifest's `color`.
  * The store and the manifest run in-process; the routes run against a throwaway server with a stand-in AI service.
  */
 import assert from 'node:assert/strict';
@@ -338,6 +339,88 @@ function previousSees(dir, spaceId, label = '') {
   assert.deepEqual(d.list('d', 'sam').map((m) => m.text), ['pat public', 'sam private', 'sam public']);
   assert.equal(d.removePrivate('d', null), 0);
   n += 1;
+
+  // Clear… by type (plan-chat-clear.md): each type takes exactly its messages; `mine` the caller's own, public and
+  // private; `everyone` every public one plus the caller's own private ones, never another person's private message.
+  const cdir = tmp('clear');
+  const seedClear = () => {
+    const c = new ChatHistory(cdir);
+    delete c.spaces.c;
+    const at = Date.now() - 10000;
+    let i = 0;
+    const put = (by, text, extra = {}) => c.add('c', { by, who: by, text, at: at + (i += 1), ...extra });
+    for (const by of ['pat', 'sam']) {
+      put(by, `${by} chat`);
+      put(by, `${by} chat private`, { visibility: 'private' });
+      const q = put(by, `${by} asks`, { visibility: 'private', kind: 'command', command: 'ai' });
+      put(by, `${by} answer`, { visibility: 'private', kind: 'ai', replyTo: q.id });
+      put(by, `${by} public answer`, { kind: 'ai' });
+      put(by, `${by} todo`, { visibility: 'private', kind: 'command', command: 't', module: 'todo' });
+      put(by, `${by} todo public`, { kind: 'command', command: 't', module: 'todo' });
+      put(by, `${by} tasks`, { visibility: 'private', kind: 'command', command: 't', module: 'tasks' }); // same command, another module
+      put(by, `${by} tasks public`, { kind: 'command', command: 't', module: 'tasks' });
+    }
+    c.flush();
+    return c;
+  };
+  const texts = (list) => list.map((m) => m.text).sort();
+  const allTexts = (c) => texts(c.spaces.c || []);
+  const cases = [
+    [{ type: 'chat', scope: 'mine' }, ['pat chat', 'pat chat private']],
+    [{ type: 'ai', scope: 'mine' }, ['pat answer', 'pat asks', 'pat public answer']],
+    [{ type: 'module', module: 'todo', scope: 'mine' }, ['pat todo', 'pat todo public']],
+    [{ type: 'all', scope: 'mine' }, ['pat answer', 'pat asks', 'pat chat', 'pat chat private', 'pat public answer', 'pat tasks', 'pat tasks public', 'pat todo', 'pat todo public']],
+    [{ type: 'chat', scope: 'everyone' }, ['pat chat', 'pat chat private', 'sam chat']],
+    [{ type: 'ai', scope: 'everyone' }, ['pat answer', 'pat asks', 'pat public answer', 'sam public answer']],
+    [{ type: 'module', module: 'todo', scope: 'everyone' }, ['pat todo', 'pat todo public', 'sam todo public']],
+    [{ type: 'all', scope: 'everyone' }, ['pat answer', 'pat asks', 'pat chat', 'pat chat private', 'pat public answer', 'pat tasks', 'pat tasks public', 'pat todo', 'pat todo public', 'sam chat', 'sam public answer', 'sam tasks public', 'sam todo public']],
+  ];
+  for (const [ask, gone] of cases) {
+    const c = seedClear();
+    const before = allTexts(c);
+    const samPrivate = c.spaces.c.filter((m) => m.by === 'sam' && m.visibility === 'private').map((m) => m.id);
+    const removed = c.clearByType('c', { ...ask, by: 'pat' });
+    const label = JSON.stringify(ask);
+    assert.deepEqual(texts(removed), gone, label);
+    assert.deepEqual(allTexts(c), before.filter((t) => !gone.includes(t)), `${label}: the rest stays`);
+    for (const id of samPrivate) assert.ok(c.spaces.c.some((m) => m.id === id), `${label}: another person's private message stays`);
+    // Written once, to both files; read back the same after a restart.
+    const back = new ChatHistory(cdir);
+    assert.deepEqual(allTexts(back), allTexts(c), `${label}: as written`);
+    const onFile = onDisk(cdir, label).merged.c || [];
+    for (const m of removed) assert.ok(!onFile.some((x) => x.id === m.id), `${label}: gone from both files`);
+  }
+  n += 1;
+
+  // Anything unknown or missing removes nothing: a request that lost its words never empties the chat.
+  {
+    const c = seedClear();
+    const before = allTexts(c);
+    for (const ask of [
+      {}, { scope: 'everyone', by: 'pat' }, { type: 'all', by: 'pat' }, { type: 'all', scope: 'everyone' }, { type: 'all', scope: 'everyone', by: '' },
+      { type: 'All', scope: 'everyone', by: 'pat' }, { type: 'toString', scope: 'everyone', by: 'pat' }, { type: '__proto__', scope: 'everyone', by: 'pat' },
+      { type: 'constructor', scope: 'mine', by: 'pat' }, { type: ['all'], scope: 'everyone', by: 'pat' }, { type: 'all', scope: 'Everyone', by: 'pat' },
+      { type: 'module', scope: 'everyone', by: 'pat' }, { type: 'module', module: '', scope: 'everyone', by: 'pat' }, { type: 'module', module: 'nosuch', scope: 'everyone', by: 'pat' },
+      { type: 'module', module: 't', scope: 'everyone', by: 'pat' },
+    ]) {
+      assert.deepEqual(c.clearByType('c', ask), [], JSON.stringify(ask));
+    }
+    assert.deepEqual(allTexts(c), before, 'nothing went');
+    assert.deepEqual(c.clearByType('none', { type: 'all', scope: 'everyone', by: 'pat' }), [], 'a space with no chat');
+    // `cleared` is never touched, and an emptied space leaves no list behind.
+    c.cleared.c = 12345;
+    c.clearByType('c', { type: 'all', scope: 'everyone', by: 'pat' });
+    c.clearByType('c', { type: 'all', scope: 'mine', by: 'sam' });
+    assert.equal(c.spaces.c, undefined);
+    assert.equal(c.clearedAt('c'), 12345);
+    assert.equal(readJson(path.join(cdir, 'chat.json')).cleared.c, 12345);
+    // A guest's shared sender clears only the 'guest' messages, never a person's (the route refuses guests anyway).
+    const g = seedClear();
+    g.add('c', { by: 'guest', who: 'Guest', text: 'guest says' });
+    assert.deepEqual(texts(g.clearByType('c', { type: 'chat', scope: 'mine', by: 'guest' })), ['guest says']);
+  }
+  n += 1;
+  fs.rmSync(cdir, { recursive: true, force: true });
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -364,6 +447,22 @@ const aiServer = http.createServer((req, res) => {
 await new Promise((r) => aiServer.listen(0, '127.0.0.1', r));
 const aiAddress = `http://127.0.0.1:${aiServer.address().port}`;
 
+// A stand-in LiveKit that answers SendData only, so what the server tells the call can be read; everything else is
+// refused, as when no LiveKit is there.
+const sent = []; // { topic, payload }
+const liveKit = http.createServer((req, res) => {
+  let body = '';
+  req.on('data', (d) => { body += d; });
+  req.on('end', () => {
+    if (!req.url.endsWith('/SendData')) { res.writeHead(404); return res.end(); }
+    const ask = body ? JSON.parse(body) : {};
+    sent.push({ topic: ask.topic, payload: JSON.parse(Buffer.from(ask.data || '', 'base64').toString('utf8') || 'null') });
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end('{}');
+  });
+});
+await new Promise((r) => liveKit.listen(0, '127.0.0.1', r));
+
 const dataDir = tmp('server');
 fs.writeFileSync(path.join(dataDir, 'ai.json'), JSON.stringify({
   source: 'custom', provider: 'compatible', address: aiAddress, model: 'stand-in-model', key: 'sk-test', enabled: true,
@@ -378,6 +477,7 @@ async function startServer() {
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir,
       LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
+      LIVEKIT_API_URL: `http://127.0.0.1:${liveKit.address().port}`,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -624,6 +724,184 @@ try {
   assert.equal((await call('DELETE', `/api/spaces/${S}/chat/private`, { cookie: pat })).json.deleted, 0);
   n += 1;
 
+  // --- Clear… by type, through the route (plan-chat-clear.md) ---
+  // A space of its own: Mia a member, Mod its moderator, Max a moderator of another space only, Oli an owner, and the
+  // admin. Each of them has, in Clearing: a public and a private chat message, a private /ai question and answer plus
+  // a public answer, and a private and a public poll echo.
+  const newUser = async (login, role) => (await call('POST', '/api/users', { cookie: owner, body: { login, displayName: login[0].toUpperCase() + login.slice(1), role, password: 'memberpass1234' } })).json.user;
+  const mia = await newUser('mia', 'member');
+  const mod = await newUser('mod', 'member');
+  const max = await newUser('max', 'member');
+  const oli = await newUser('oli', 'owner');
+  assert.ok(mia && mod && max && oli, 'four more accounts');
+  const C = (await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Clearing', members: [mia.key, mod.key, max.key] } })).json.space.id;
+  const D = (await call('POST', '/api/spaces', { cookie: owner, body: { name: 'Elsewhere', members: [max.key] } })).json.space.id;
+  assert.equal((await call('PATCH', `/api/users/${mod.key}/spaces/${C}`, { cookie: owner, body: { permissions: { moderator: true } } })).status, 200);
+  assert.equal((await call('PATCH', `/api/users/${max.key}/spaces/${D}`, { cookie: owner, body: { permissions: { moderator: true } } })).status, 200);
+  const cookies = { admin: owner, mia: await login('mia', 'memberpass1234'), mod: await login('mod', 'memberpass1234'), max: await login('max', 'memberpass1234'), oli: await login('oli', 'memberpass1234') };
+  const keys = { admin: null, mia: mia.key, mod: mod.key, max: max.key, oli: oli.key };
+  const listC = async (cookie) => {
+    const r = await call('GET', `/api/spaces/${C}/chat`, { cookie });
+    assert.equal(r.status, 200, r.text);
+    return r.json;
+  };
+  keys.admin = (await call('POST', `/api/spaces/${C}/chat`, { cookie: owner, body: { text: 'who am I' } })).json.message.by;
+  const seedC = async () => {
+    for (const [name, cookie] of Object.entries(cookies)) {
+      assert.equal((await call('POST', `/api/spaces/${C}/chat`, { cookie, body: { text: `${name} chat` } })).status, 200);
+      const hid = await call('POST', `/api/spaces/${C}/chat`, { cookie, body: { text: `${name} chat private` } });
+      assert.equal((await call('PATCH', `/api/spaces/${C}/chat/${hid.json.message.id}`, { cookie, body: { visibility: 'private' } })).status, 200);
+      const ai1 = await call('POST', `/api/spaces/${C}/ai`, { cookie, body: { question: `${name} asks` } });
+      assert.equal(ai1.status, 200, ai1.text);
+      const ai2 = await call('POST', `/api/spaces/${C}/ai`, { cookie, body: { question: `${name} asks aloud` } });
+      assert.equal((await call('PATCH', `/api/spaces/${C}/chat/${ai2.json.id}`, { cookie, body: { visibility: 'public' } })).status, 200);
+      assert.equal((await call('POST', `/api/spaces/${C}/command`, { cookie, body: { name: 'v', text: `${name} vote` } })).status, 200);
+      const v2 = await call('POST', `/api/spaces/${C}/command`, { cookie, body: { name: 'v', text: `${name} vote aloud` } });
+      assert.equal((await call('PATCH', `/api/spaces/${C}/chat/${v2.json.message.id}`, { cookie, body: { visibility: 'public' } })).status, 200);
+    }
+  };
+  await seedC();
+  // Every message in Clearing, as the server holds it: each person's view, merged.
+  const everything = async () => {
+    const all = new Map();
+    for (const cookie of Object.values(cookies)) for (const m of (await listC(cookie)).messages) all.set(m.id, m);
+    return [...all.values()];
+  };
+  const privateOf = (all, who) => all.filter((m) => m.visibility === 'private' && m.by === keys[who]).map((m) => m.id);
+  const clear = (q, cookie) => call('DELETE', `/api/spaces/${C}/chat/messages${q}`, { cookie });
+  const clearSome = async (count) => {
+    const until = Date.now() + 3000;
+    while (sent.filter((s) => s.payload?.type === 'chat-clear-some').length < count && Date.now() < until) await new Promise((r) => setTimeout(r, 20));
+    return sent.filter((s) => s.payload?.type === 'chat-clear-some');
+  };
+  const seeded = await everything();
+  const clearedBefore = (await listC(owner)).clearedAt;
+
+  // A lost or bad query never wipes anything; refusals are plain sentences.
+  for (const [q, error] of [
+    ['', 'type is chat, ai, module or all'], ['?scope=everyone', 'type is chat, ai, module or all'], ['?type=', 'type is chat, ai, module or all'],
+    ['?type=All&scope=everyone', 'type is chat, ai, module or all'], ['?type=toString&scope=everyone', 'type is chat, ai, module or all'],
+    ['?type=all&type=ai&scope=everyone', 'type is chat, ai, module or all'], ['?type=all', 'scope is mine or everyone'],
+    ['?type=all&scope=all', 'scope is mine or everyone'], ['?type=ai&scope=everyone&scope=mine', 'scope is mine or everyone'],
+    ['?type=module&scope=everyone', 'which module'], ['?type=module&module=%20&scope=mine', 'which module'],
+  ]) {
+    const r = await clear(q, owner);
+    assert.deepEqual([r.status, r.json?.error], [400, error], `400 for "${q}"`);
+  }
+  const noSpace = await call('DELETE', '/api/spaces/nosuchspace/chat/messages?type=all&scope=mine', { cookie: owner });
+  assert.deepEqual([noSpace.status, noSpace.json.error], [404, 'no such space']);
+  assert.equal((await call('DELETE', `/api/spaces/${C}/chat/messages?type=all&scope=mine`)).status, 401, 'signed out');
+  // The access key (?s=) opens a module's keyed page, never the chat: every chat route answers it as signed out, not 500.
+  const keyQ = `?s=${encodeURIComponent((await call('GET', '/api/settings', { cookie: owner })).json.streamKey)}`;
+  for (const [method, route] of [
+    ['GET', 'chat'], ['POST', 'chat'], ['DELETE', 'chat'], ['DELETE', 'chat/private'], ['DELETE', 'chat/messages'],
+    ['DELETE', 'chat/abcdefabcdef'], ['PATCH', 'chat/abcdefabcdef'], ['POST', 'command'], ['GET', 'actions'], ['POST', 'action'],
+  ]) {
+    const r = await call(method, `/api/spaces/${C}/${route}${keyQ}${route === 'chat/messages' ? '&type=all&scope=mine' : ''}`, method === 'GET' || method === 'DELETE' ? {} : { body: {} });
+    assert.equal(r.status, 401, `a keyed viewer, ${method} ${route}: ${r.status} ${r.text}`);
+  }
+  const outsider = await call('DELETE', `/api/spaces/${C}/chat/messages?type=all&scope=mine`, { cookie: pat });
+  assert.deepEqual([outsider.status, outsider.json.error], [403, 'you are not in that space']);
+  const guestC = `?guest=${encodeURIComponent((await call('POST', `/api/spaces/${C}/guest-link`, { cookie: owner, body: {} })).json.space.guestToken)}`;
+  for (const scope of ['mine', 'everyone']) {
+    const r = await call('DELETE', `/api/spaces/${C}/chat/messages${guestC}&type=all&scope=${scope}`);
+    assert.deepEqual([r.status, r.json.error], [403, "guests can't clear messages"], `a guest, ${scope}`);
+  }
+  for (const who of ['mia', 'max']) {
+    const r = await clear('?type=all&scope=everyone', cookies[who]);
+    assert.deepEqual([r.status, r.json.error], [403, "only an owner or a moderator can clear everyone's messages"], `${who}: everyone`);
+  }
+  assert.deepEqual((await everything()).map((m) => m.id).sort(), seeded.map((m) => m.id).sort(), 'every refusal left every message');
+  assert.equal((await clearSome(0)).length, 0, 'and told the call nothing');
+  n += 1;
+
+  // A member clears their own AI messages: questions and answers, public and private; nobody else's.
+  const miaAi = seeded.filter((m) => m.by === mia.key && (m.kind === 'ai' || m.command === 'ai'));
+  assert.equal(miaAi.length, 4);
+  const miaClear = await clear('?type=ai&scope=mine', cookies.mia);
+  assert.deepEqual([miaClear.status, miaClear.json], [200, { ok: true, deleted: 4 }]);
+  let now = await everything();
+  assert.deepEqual(now.map((m) => m.id).sort(), seeded.filter((m) => !miaAi.includes(m)).map((m) => m.id).sort());
+  let told = await clearSome(1);
+  assert.deepEqual(told[0].payload, {
+    type: 'chat-clear-some', ids: miaAi.filter((m) => m.visibility !== 'private').map((m) => m.id), by: mia.key, who: 'Mia', scope: 'mine', clearType: 'ai',
+  }, 'only the public ids are told to the call');
+  assert.equal(told[0].topic, 'chat');
+  // A member's own polls messages, by module id.
+  const miaPolls = await clear('?type=module&module=polls&scope=mine', cookies.mia);
+  assert.deepEqual(miaPolls.json, { ok: true, deleted: 2 });
+  told = await clearSome(2);
+  assert.deepEqual([told[1].payload.clearType, told[1].payload.module, told[1].payload.ids.length], ['module', 'polls', 1]);
+  // Nothing left of that type: 0, and nothing told. A module that matches nothing is not an error.
+  assert.deepEqual((await clear('?type=ai&scope=mine', cookies.mia)).json, { ok: true, deleted: 0 });
+  assert.deepEqual((await clear('?type=module&module=nosuch&scope=everyone', cookies.mod)).json, { ok: true, deleted: 0 });
+  assert.equal((await clearSome(3)).length, 2, 'a clear of nothing tells the call nothing');
+  n += 1;
+
+  // Everyone's, for a moderator, an owner and the admin: every public message of the type and their own private ones,
+  // never another person's private message. A moderator of another space may not.
+  const everyoneClear = async (who, q, label) => {
+    const before = await everything();
+    const r = await clear(q, cookies[who]);
+    assert.equal(r.status, 200, `${label}: ${r.text}`);
+    const after = await everything();
+    for (const other of Object.keys(cookies).filter((k) => k !== who)) {
+      assert.deepEqual(privateOf(after, other), privateOf(before, other), `${label}: ${other}'s private messages all stay`);
+    }
+    assert.equal(r.json.deleted, before.length - after.length, `${label}: deleted is the count`);
+    return { before, after, r };
+  };
+  // Mod: every public poll echo, Mod's own private one.
+  let step = await everyoneClear('mod', '?type=module&module=polls&scope=everyone', 'moderator, polls');
+  assert.ok(!step.after.some((m) => m.module === 'polls' && (m.visibility !== 'private' || m.by === mod.key)));
+  assert.equal(step.r.json.deleted, 4 + 1, "four public echoes left (Mia's went) and Mod's own private one");
+  told = await clearSome(3);
+  assert.deepEqual([told[2].payload.scope, told[2].payload.by, told[2].payload.who, told[2].payload.ids.length], ['everyone', mod.key, 'Mod', 4]);
+  // Oli, an owner: chat messages.
+  step = await everyoneClear('oli', '?type=chat&scope=everyone', 'owner, chat');
+  assert.ok(!step.after.some((m) => !m.kind && (m.visibility !== 'private' || m.by === oli.key)));
+  assert.ok(step.after.some((m) => m.kind === 'ai'), 'chat leaves the AI messages');
+  assert.ok(step.after.some((m) => m.kind === 'command' && m.command === 'v'), 'and the commands');
+  // The admin: everything.
+  step = await everyoneClear('admin', '?type=all&scope=everyone', 'admin, all');
+  assert.ok(step.after.every((m) => m.visibility === 'private' && m.by !== keys.admin), 'only other people\'s private messages are left');
+  assert.ok(step.after.length > 0);
+  // A moderator of another space is refused in this one, and a member stays refused.
+  assert.equal((await clear('?type=chat&scope=everyone', cookies.max)).status, 403);
+  // Each one's `mine` still works on what is left of theirs: Max, a member here.
+  const maxLeft = step.after.filter((m) => m.by === max.key).length;
+  assert.ok(maxLeft > 0);
+  assert.deepEqual((await clear('?type=all&scope=mine', cookies.max)).json, { ok: true, deleted: maxLeft });
+  assert.equal((await listC(owner)).clearedAt, clearedBefore, '`cleared` is unchanged');
+  n += 1;
+
+  // Single message deletes and the old routes still answer at the same paths: /chat/messages is never a message id.
+  const miaLeft = (await everything()).filter((m) => m.by === mia.key);
+  assert.ok(miaLeft.length > 0 && miaLeft.every((m) => m.visibility === 'private'), "Mia's private chat message outlived everyone's clears");
+  assert.deepEqual((await call('DELETE', `/api/spaces/${C}/chat/private`, { cookie: cookies.mia })).json, { ok: true, deleted: miaLeft.length });
+  // After a restart, what was cleared is gone from both files; an aside has no chat.
+  const leftBefore = (await everything()).map((m) => m.id).sort();
+  await stopServer();
+  const app = readJson(path.join(dataDir, 'app.json'));
+  app.asides = [...(app.asides || []), { id: 'asideclear1', members: [mia.key, mod.key], origin: C, private: false, createdAt: new Date().toISOString() }];
+  fs.writeFileSync(path.join(dataDir, 'app.json'), JSON.stringify(app));
+  const fileIds = onDisk(dataDir, 'after clearing').merged[C] || [];
+  for (const m of seeded) {
+    if (!leftBefore.includes(m.id)) assert.ok(!fileIds.some((x) => x.id === m.id), `cleared ${m.text} is gone from both files`);
+  }
+  await startServer();
+  for (const who of Object.keys(cookies)) cookies[who] = await login(who === 'admin' ? 'admin' : who, who === 'admin' ? 'testpass1234' : 'memberpass1234');
+  assert.deepEqual((await everything()).map((m) => m.id).sort(), leftBefore, 'read back the same after a restart');
+  const asideClear = await call('DELETE', '/api/spaces/asideclear1/chat/messages?type=all&scope=mine', { cookie: cookies.mod });
+  assert.deepEqual([asideClear.status, asideClear.json.error], [404, 'no such space'], 'an aside has no chat');
+  // Delete the chat still empties everything, private messages included, and marks `cleared`.
+  await seedC();
+  assert.ok((await everything()).some((m) => m.visibility === 'private'));
+  assert.equal((await call('DELETE', `/api/spaces/${C}/chat`, { cookie: cookies.mod })).status, 200);
+  assert.deepEqual(await everything(), []);
+  assert.ok((await listC(cookies.mia)).clearedAt > 0);
+  n += 1;
+
   // /ai no longer depends on the retired Assistant's Use (decision 12); a space's AI off still refuses.
   assert.equal((await call('POST', '/api/modules/bundled/assistant/install', { cookie: owner, body: {} })).status, 201);
   assert.equal((await call('PATCH', '/api/modules/assistant', { cookie: owner, body: { enabled: true, allSpaces: true } })).status, 200);
@@ -699,6 +977,7 @@ try {
 } finally {
   await stopServer();
   aiServer.close();
+  liveKit.close();
   fs.rmSync(dataDir, { recursive: true, force: true });
 }
 

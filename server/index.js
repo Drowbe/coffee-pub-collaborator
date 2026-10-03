@@ -18,6 +18,7 @@ const { ModuleLinks } = require('./module-links');
 const { Backgrounds } = require('./backgrounds');
 const { ModuleBus } = require('./module-bus');
 const { ChatHistory } = require('./chat-history');
+const { LayoutError, cleanLayout } = require('./layouts');
 const { ModuleLimits } = require('./module-limits');
 const { ModuleSettings, SettingError } = require('./module-settings');
 const { GeocodeCache, askService, keyOf: keyOfPlace, ENOUGH } = require('./geocode');
@@ -3892,6 +3893,85 @@ function moduleAccess(req, res, need) {
   return { manifest, entry, scope, spaceId, scopeKey: scopeKeyOf(scope, { spaceId, userKey: who.user?.key }), who, perms, by: who.user?.key || 'guest' };
 }
 
+// --- saved layouts ------------------------------------------------------------------------------
+// Named arrangements of a space's canvas (documentation/plans/plan-saved-layouts.md, step 1; server/layouts.js):
+// each person's own, and the space's shared ones. Any signed-in person in the space keeps their own; owners, the
+// admin and the space's moderators keep the shared ones, and any of them may change or delete any shared layout;
+// a guest (the space's guest link) reads the shared ones only. Only a space has layouts: an aside's id answers 404.
+function layoutSpaceFor(req, res) {
+  const who = moduleViewer(req);
+  if (!who || who.keyed) return void res.status(401).json({ error: 'Sign in first.' });
+  const space = store.spaceById(req.params.id);
+  if (!space) return void res.status(404).json({ error: `There is no such ${word('space')}.` });
+  const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
+  if (!allowed) return void res.status(403).json({ error: `You are not in that ${word('space')}.` });
+  const canShare = Boolean(who.user) && (hasOwnerRights(who.user) || Boolean(store.spaceFlags(who.user.key, space.id).moderator));
+  return { who, space, canShare, canSetDefault: Boolean(who.user) && hasOwnerRights(who.user) };
+}
+const sharedLayoutRefusal = () => `Only ${word('owner', { many: true })}, the ${word('admin')} and this ${word('space')}'s ${word('moderator', { many: true })} can change shared layouts.`;
+const guestLayoutRefusal = () => `${word('guest', { many: true, cap: true })} can load shared layouts but not save or change them.`;
+function sendLayoutError(err, res) {
+  if (err instanceof LayoutError) return res.status(err.status).json({ error: err.message, ...err.extra });
+  throw err;
+}
+
+app.get('/api/spaces/:id/layouts', (req, res) => {
+  const found = layoutSpaceFor(req, res);
+  if (!found) return;
+  const { mine, shared } = store.layouts.list(found.space.id, found.who.user ? found.who.user.key : null);
+  // defaultLayout is step 4's (a space's default layout); until then no space has one.
+  res.json({ mine, shared, defaultLayout: null, canShare: found.canShare, canSetDefault: found.canSetDefault });
+});
+
+app.post('/api/spaces/:id/layouts', (req, res) => {
+  const found = layoutSpaceFor(req, res);
+  if (!found) return;
+  if (!found.who.user) return res.status(403).json({ error: guestLayoutRefusal() });
+  const { layout, error } = cleanLayout(req.body);
+  if (error) return res.status(400).json({ error });
+  if (layout.shared && !found.canShare) return res.status(403).json({ error: sharedLayoutRefusal() });
+  try {
+    res.status(201).json({ layout: store.layouts.add(found.space.id, found.who.user.key, layout) });
+  } catch (err) {
+    sendLayoutError(err, res);
+  }
+});
+
+// Rename (name), or replace with the current canvas (modules, snap): any of the three.
+app.put('/api/spaces/:id/layouts/:layoutId', (req, res) => {
+  const found = layoutSpaceFor(req, res);
+  if (!found) return;
+  if (!found.who.user) return res.status(403).json({ error: guestLayoutRefusal() });
+  const me = found.who.user.key;
+  const there = store.layouts.find(found.space.id, req.params.layoutId, me);
+  if (!there) return res.status(404).json({ error: 'There is no such layout here.' });
+  if (there.shared && !found.canShare) return res.status(403).json({ error: sharedLayoutRefusal() });
+  const { layout: patch, error } = cleanLayout(req.body, { partial: true });
+  if (error) return res.status(400).json({ error });
+  if (!Object.keys(patch).length) return res.status(400).json({ error: `Send a new name, or the ${word('module', { many: true })} and snap to replace the layout with.` });
+  try {
+    res.json({ layout: store.layouts.update(found.space.id, req.params.layoutId, me, patch) });
+  } catch (err) {
+    sendLayoutError(err, res);
+  }
+});
+
+app.delete('/api/spaces/:id/layouts/:layoutId', (req, res) => {
+  const found = layoutSpaceFor(req, res);
+  if (!found) return;
+  if (!found.who.user) return res.status(403).json({ error: guestLayoutRefusal() });
+  const me = found.who.user.key;
+  const there = store.layouts.find(found.space.id, req.params.layoutId, me);
+  if (!there) return res.status(404).json({ error: 'There is no such layout here.' });
+  if (there.shared && !found.canShare) return res.status(403).json({ error: sharedLayoutRefusal() });
+  try {
+    store.layouts.remove(found.space.id, req.params.layoutId, me);
+    res.status(204).end();
+  } catch (err) {
+    sendLayoutError(err, res);
+  }
+});
+
 // --- chat history --------------------------------------------------------------------------------
 // Chat travels live over LiveKit; the sender also posts the text here so someone who joins later reads what
 // was said (see server/chat-history.js for what is kept and for how long). Only a space has a chat: an aside is not
@@ -3899,7 +3979,8 @@ function moduleAccess(req, res, need) {
 // must be in the space (or an owner, or a guest of that space).
 function chatSpaceFor(req, res, permission) {
   const who = moduleViewer(req);
-  if (!who) return void res.status(401).json({ error: 'sign in first' });
+  // The access key is for a module's keyed page, never the chat: it answers as signed out (layoutSpaceFor does the same).
+  if (!who || who.keyed) return void res.status(401).json({ error: 'sign in first' });
   const space = store.spaceById(req.params.id);
   if (!space) return void res.status(404).json({ error: `no such ${word('space')}` });
   const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
@@ -3951,6 +4032,37 @@ app.delete('/api/spaces/:id/chat/private', (req, res) => {
   if (!found.who.user) return res.status(403).json({ error: `${word('guest', { many: true })} have no private messages to delete` });
   const deleted = chatHistory.removePrivate(found.space.id, found.who.user.key);
   res.json({ ok: true, deleted });
+});
+
+// Clear… (plan-chat-clear.md, GitHub #166): one type of message, the caller's own (`mine`) or every public one plus
+// the caller's own private ones (`everyone`, for an owner, an admin or this space's moderator). Never anyone else's
+// private message. Its own path, never a query on DELETE /chat, so a request that loses its query cannot fall through
+// to deleting the whole chat (decision 11); registered before /chat/:messageId. Messages only: the objects they made
+// stay in their modules. `cleared` is not changed.
+const CLEAR_TYPES = ['chat', 'ai', 'module', 'all'];
+const CLEAR_TYPES_SAID = `type is ${CLEAR_TYPES.slice(0, -1).join(', ')} or ${CLEAR_TYPES.at(-1)}`; // the values, as sent
+app.delete('/api/spaces/:id/chat/messages', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chatRead');
+  if (!found) return;
+  const { type, scope, module: moduleId } = req.query;
+  if (typeof type !== 'string' || !CLEAR_TYPES.includes(type)) return res.status(400).json({ error: CLEAR_TYPES_SAID });
+  if (type === 'module' && (typeof moduleId !== 'string' || !moduleId.trim())) return res.status(400).json({ error: `which ${word('module')}` });
+  if (scope !== 'mine' && scope !== 'everyone') return res.status(400).json({ error: 'scope is mine or everyone' });
+  if (!found.who.user) return res.status(403).json({ error: `${word('guest', { many: true })} can't clear messages` });
+  if (scope === 'everyone' && !chatModerator(found.who, found.space)) {
+    return res.status(403).json({ error: `only ${word('owner', { a: true })} or ${word('moderator', { a: true })} can clear everyone's messages` });
+  }
+  const me = found.who.user.key;
+  const removed = chatHistory.clearByType(found.space.id, { type, module: type === 'module' ? moduleId.trim() : undefined, scope, by: me });
+  // Only public ids are told to the call: a private message was only ever on its author's page.
+  const ids = removed.filter((m) => m.visibility !== 'private').map((m) => m.id);
+  if (ids.length) {
+    tellChat(found.space.id, {
+      type: 'chat-clear-some', ids, by: me, who: found.who.user.displayName, scope, clearType: type,
+      ...(type === 'module' ? { module: moduleId.trim() } : {}),
+    });
+  }
+  res.json({ ok: true, deleted: removed.length });
 });
 
 app.delete('/api/spaces/:id/chat/:messageId', (req, res) => {

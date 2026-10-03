@@ -3,7 +3,7 @@
 **Audience:** Thomas decides; server-development and experience-design build; content-manager documents.
 
 **Status:** Approved 2026-10-03 (GitHub issue #166), with every open question answered as recommended (decisions 3
-to 11). Not built. Thomas: "Replace the single
+to 11). Step 1, the server, built 2026-10-03; steps 2 and 3 not built. Thomas: "Replace the single
 AI-only clear with a **Clear…** submenu in Chat. It offers a choice for each type of message: chat, AI, and each
 module command type (to-do, poll, and so on). This lets people scrub whatever they see." It builds on the chat model
 ([plan-chat-model](plan-chat-model.md), #157), which is built, and replaces that plan's **Delete your private
@@ -129,7 +129,7 @@ own" cannot be told apart.
 - Registered before `DELETE /api/spaces/:id/chat/:messageId`, as `/chat/private` is. A separate path, rather than a
   query on `DELETE /chat`, so a request that loses its query can never fall through to **Delete the chat** (decision 11).
 - After a delete with at least one public message gone, `tellChat` sends
-  `{ type: "chat-clear-some", ids: [<public ids gone>], by: <caller's key>, who: <caller's name>, scope, type, module? }`.
+  `{ type: "chat-clear-some", ids: [<public ids gone>], by: <caller's key>, who: <caller's name>, scope, clearType, module? }` (built as `clearType`: the message's own `type` already names it, so the clear's type cannot also be `type`).
   Private ids are never sent: a private message was only ever on its author's page. At most 500 public messages
   exist per space, so the list fits one reliable data packet.
 - In the store: a new `ChatHistory.clearByType(spaceId, { type, module, scope, by })` that removes the matching

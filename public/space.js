@@ -69,6 +69,29 @@ moduleChooser.innerHTML = `
   <button class="btn btn-small module-chooser-toggle" id="modules-toggle" type="button" aria-expanded="false" aria-controls="modules-menu"><i class="fa-solid fa-object-group fa-fw" aria-hidden="true"></i> <span class="module-chooser-label"></span> <i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i><span class="badge" hidden></span></button>
   <div class="module-chooser-list" id="modules-menu" role="group" hidden></div>`;
 moduleChooser.querySelector('#modules-menu').appendChild(arrangeSection);
+// The panel's third section, Layouts (plan-saved-layouts.md, "The Layout panel"): the saved layouts, shared first, then
+// your own, each a row that loads it in one press, with a ... for those you may change; then Save this layout, which
+// opens a small form in place. Written here, filled by renderLayouts() (further down) from the server each time the
+// panel opens and after each change, and kept in the panel by canvas.js, never rewritten by its update(). Not drawn on a
+// narrow canvas, nor in an aside, nor for a guest with no shared layouts to load (data-empty).
+const layoutsSection = document.createElement('div');
+layoutsSection.className = 'module-chooser-layouts';
+layoutsSection.id = 'modules-menu-layouts';
+layoutsSection.setAttribute('role', 'group');
+layoutsSection.setAttribute('aria-labelledby', 'modules-menu-layouts-heading');
+layoutsSection.dataset.empty = 'true';
+layoutsSection.hidden = true;
+layoutsSection.innerHTML = `
+  <div class="nav-menu-heading module-chooser-heading" id="modules-menu-layouts-heading">Layouts</div>
+  <div class="module-chooser-section layout-rows" id="layout-rows"></div>
+  <button class="module-chooser-action" id="layout-save" type="button"><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i><span>Save this layout</span></button>
+  <form class="layout-form" id="layout-form" hidden novalidate>
+    <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" id="layout-name" autocomplete="off" spellcheck="false"></label>
+    <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
+    <p class="layout-form-error" id="layout-form-error" role="alert" hidden></p>
+    <div class="layout-form-buttons"><button class="btn btn-small btn-accent" type="submit">Save</button><button class="btn btn-small" type="button" id="layout-cancel">Cancel</button></div>
+  </form>`;
+moduleChooser.querySelector('#modules-menu').appendChild(layoutsSection);
 nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, icon: 'object-group', label: verb('layout'), element: moduleChooser });
 // The chooser reads the environment's layout verb (registerWordTools() below calls this once it is known). Its list is
 // named for the button; as the phone's tab bar it is the modules themselves, so it is named by the module word.
@@ -1018,6 +1041,8 @@ let askInChat = null;
 const canvas = createCanvas({
   guestToken,
   onNote: (text) => layoutNote(text),
+  // The Layouts section is read again each time the panel opens; a form left open closes with it.
+  onMenu: (open) => { if (open) refreshLayouts(); else closeLayoutForm(); },
   onChatAsk: (input) => {
     if (!askInChat) return Promise.reject(Object.assign(new Error('Chat is not ready.'), { status: 400 }));
     toggleChat(true);
@@ -1168,6 +1193,247 @@ wireSwitchList(arrangeSection); // Enter flips the switch, as Space does
 snapSize.addEventListener('input', () => canvas.setSnapPitch(Number(snapSize.value), { preview: true }));
 snapSize.addEventListener('change', () => canvas.setSnapPitch(Number(snapSize.value)));
 syncSnapBar();
+
+// --- the Layout panel's Layouts section (plan-saved-layouts.md, step 3; the markup is at the top of this file) ---------
+// The saved layouts of the space you are in: GET /api/spaces/:id/layouts answers { mine, shared, defaultLayout,
+// canShare, canSetDefault }. A press on a row loads it (canvas.loadLayout) and the panel stays open. The ... on a row
+// (only on a layout you may change: your own, or a shared one for owners, the admin and the space's moderators) offers
+// Replace with this layout, Rename and Delete through the host's own menu (openHostMenu). Save this layout opens a form
+// in the section: a name and, for those who may share, a switch for everyone in the space. A guest loads shared layouts
+// only. The server keeps the limits (10 of your own and 10 shared in a space, names up to 40 characters, each name once
+// in its list) and says what it refuses; its sentence is shown as it is. Keys: Up and Down move between the rows, Enter
+// or Space loads, Escape closes a form (else the panel, canvas.js).
+const layoutRows = layoutsSection.querySelector('#layout-rows');
+const layoutSaveButton = layoutsSection.querySelector('#layout-save');
+const layoutForm = layoutsSection.querySelector('#layout-form');
+const layoutName = layoutsSection.querySelector('#layout-name');
+const layoutShared = layoutsSection.querySelector('#layout-shared');
+const layoutFormError = layoutsSection.querySelector('#layout-form-error');
+let layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false };
+let layoutAsk = 0; // the latest request for the list; an older answer arriving late is dropped
+const layoutSpaceId = () => (currentSpace && !currentSpace.isAside ? currentSpace.id : null); // an aside has no layouts
+const layoutUrl = (id, layoutId = '') => `/api/spaces/${encodeURIComponent(id)}/layouts${layoutId ? `/${encodeURIComponent(layoutId)}` : ''}${guestToken ? `?guest=${encodeURIComponent(guestToken)}` : ''}`;
+// A request that keeps the server's whole answer on a refusal: a taken name answers 409 with the id of the layout that
+// has it, so the form can offer to replace that one.
+async function layoutRequest(method, url, body) {
+  const res = await fetch(url, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
+  let data = {};
+  try { data = res.status === 204 ? {} : await res.json(); } catch { data = {}; }
+  if (!res.ok) throw Object.assign(new Error(typeof data.error === 'string' && data.error ? data.error : 'That did not work. Try again.'), { status: res.status, id: data.id || null });
+  return data;
+}
+const mayChangeLayout = (shared) => !guestToken && (!shared || layoutList.canShare);
+const findLayout = (id) => layoutList.shared.find((l) => l.id === id) || layoutList.mine.find((l) => l.id === id) || null;
+
+// Reads the list again (the panel opening, after a change) and draws it. `focus`: what takes the keyboard after.
+async function refreshLayouts({ focus = null } = {}) {
+  const id = layoutSpaceId();
+  const ask = ++layoutAsk;
+  if (!id) {
+    layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false };
+    renderLayouts();
+    return;
+  }
+  try {
+    const got = await layoutRequest('GET', layoutUrl(id));
+    if (ask !== layoutAsk || layoutSpaceId() !== id) return;
+    layoutList = { spaceId: id, mine: got.mine || [], shared: got.shared || [], defaultLayout: got.defaultLayout || null, canShare: Boolean(got.canShare) };
+  } catch {
+    if (ask !== layoutAsk) return;
+    layoutList = { spaceId: id, mine: [], shared: [], defaultLayout: null, canShare: false };
+  }
+  renderLayouts({ focus });
+}
+
+const layoutRowHtml = (l, shared) => `
+  <div class="layout-row" data-layout-row="${escapeHtml(l.id)}">
+    <button class="module-chooser-action layout-load" type="button" data-layout="${escapeHtml(l.id)}"><i class="fa-solid fa-${shared ? 'user-group' : 'object-group'} fa-fw" aria-hidden="true"></i><span class="layout-name">${escapeHtml(l.name)}</span>${l.id === layoutList.defaultLayout ? '<span class="layout-default">Default</span>' : ''}</button>
+    ${mayChangeLayout(shared) ? `<button class="msg-btn layout-more" type="button" data-layout-more="${escapeHtml(l.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="More for ${escapeHtml(l.name)}" title="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>` : ''}
+  </div>`;
+
+// Draws the rows (and the empty line), shows Save this layout to those who may save, and hides the whole section where
+// there is nothing to load or save (an aside; a guest with no shared layouts).
+function renderLayouts({ focus = null } = {}) {
+  const { mine, shared } = layoutList;
+  const canSave = Boolean(layoutList.spaceId) && !guestToken;
+  const empty = !layoutList.spaceId || (!canSave && !shared.length);
+  layoutsSection.dataset.empty = String(empty);
+  layoutsSection.hidden = empty || canvas.isNarrow();
+  layoutSaveButton.hidden = !canSave || !layoutForm.hidden;
+  layoutsSection.querySelector('#layout-shared-label').textContent = `For everyone in this ${word('space')}`;
+  let html = '';
+  if (shared.length) html += `<div class="layout-group-label">Shared</div>${shared.map((l) => layoutRowHtml(l, true)).join('')}`;
+  if (mine.length) html += `${shared.length ? '<div class="layout-group-gap" aria-hidden="true"></div>' : ''}${mine.map((l) => layoutRowHtml(l, false)).join('')}`;
+  if (!shared.length && !mine.length && canSave) html = '<p class="module-chooser-note layout-empty">No saved layouts yet.</p>';
+  layoutRows.innerHTML = html;
+  if (focus) (typeof focus === 'string' ? layoutsSection.querySelector(focus) : focus)?.focus();
+}
+
+// A layout with nothing open has nothing to save; said here rather than with the server's API sentence.
+const nothingOpen = () => `Open ${word('module', { a: true })} first, then save the layout.`;
+
+// The open form (Save, or a row's Rename) back to its button or row.
+function closeLayoutForm({ focus = false } = {}) {
+  layoutForm.hidden = true;
+  layoutForm.dataset.replace = '';
+  layoutFormError.hidden = true;
+  layoutFormError.textContent = '';
+  layoutSaveButton.hidden = !layoutList.spaceId || Boolean(guestToken);
+  const renaming = layoutRows.querySelector('.layout-rename');
+  if (renaming) renderLayouts({ focus: focus ? `[data-layout="${CSS.escape(renaming.dataset.layoutId)}"]` : null });
+  else if (focus) layoutSaveButton.focus();
+}
+function showLayoutError(el, text, replaceId = null) {
+  el.hidden = false;
+  el.textContent = text;
+  if (replaceId) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'layout-replace-it';
+    b.textContent = 'Replace it';
+    b.addEventListener('click', () => replaceLayout(replaceId, { fromForm: true }));
+    el.append(' ', b);
+  }
+}
+
+layoutSaveButton.addEventListener('click', () => {
+  closeLayoutForm();
+  layoutForm.hidden = false;
+  layoutSaveButton.hidden = true;
+  layoutName.value = '';
+  layoutShared.checked = false;
+  layoutsSection.querySelector('#layout-shared-row').hidden = !layoutList.canShare;
+  layoutName.focus();
+});
+layoutsSection.querySelector('#layout-cancel').addEventListener('click', () => closeLayoutForm({ focus: true }));
+wireSwitchList(layoutForm); // Enter flips the share switch, as Space does
+layoutForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const id = layoutSpaceId();
+  const name = layoutName.value.trim();
+  if (!id) return;
+  if (!name) { showLayoutError(layoutFormError, 'Give the layout a name.'); layoutName.focus(); return; }
+  const shared = layoutList.canShare && layoutShared.checked;
+  const captured = canvas.captureLayout();
+  if (!captured.modules.length) { showLayoutError(layoutFormError, nothingOpen()); layoutName.focus(); return; }
+  try {
+    const { layout } = await layoutRequest('POST', layoutUrl(id), { name, shared, ...captured });
+    closeLayoutForm();
+    layoutNote(`Saved ${layout.name}.`);
+    await refreshLayouts({ focus: `[data-layout="${CSS.escape(layout.id)}"]` });
+  } catch (err) {
+    showLayoutError(layoutFormError, err.message, err.status === 409 ? err.id : null);
+    layoutName.focus();
+  }
+});
+// Escape closes a form back to its button or row, not the panel; Enter in the name saves (the form's submit).
+layoutsSection.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && event.target.closest('.layout-form, .layout-rename')) {
+    event.stopPropagation();
+    event.preventDefault();
+    closeLayoutForm({ focus: true });
+    return;
+  }
+  // Up and Down (and Home and End) move between the rows' load buttons.
+  const row = event.target.closest?.('.layout-load');
+  if (!row) return;
+  const all = [...layoutRows.querySelectorAll('.layout-load')];
+  const at = all.indexOf(row);
+  const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: all.length - 1 }[event.key];
+  if (to === undefined) return;
+  event.preventDefault();
+  all[Math.max(0, Math.min(all.length - 1, to))]?.focus();
+});
+
+layoutRows.addEventListener('click', (event) => {
+  const load = event.target.closest('[data-layout]');
+  if (load) {
+    const layout = findLayout(load.dataset.layout);
+    if (!layout) return;
+    canvas.loadLayout(layout);
+    syncSnapBar();
+    layoutsSection.querySelector(`[data-layout="${CSS.escape(layout.id)}"]`)?.focus(); // the keyboard stays on the row
+    return;
+  }
+  const more = event.target.closest('[data-layout-more]');
+  if (more) openLayoutMenu(more, more.dataset.layoutMore);
+});
+
+// A row's ...: Replace with this layout, Rename, Delete (asked once, in the menu's own confirm row).
+function openLayoutMenu(trigger, layoutId) {
+  const layout = findLayout(layoutId);
+  if (!layout) return;
+  openHostMenu(trigger, [
+    { icon: 'arrows-rotate', label: 'Replace with this layout', onPick: () => replaceLayout(layoutId) },
+    { icon: 'pen', label: 'Rename', onPick: () => startRename(layoutId) },
+    { icon: 'trash', label: 'Delete', danger: true, onPick: () => openConfirmMenu(trigger, {
+      label: 'Delete', confirm: `Delete ${layout.name}?`, armed: true, fail: 'It could not be deleted.',
+      onConfirm: async () => {
+        await layoutRequest('DELETE', layoutUrl(layoutSpaceId(), layoutId));
+        layoutNote(`Deleted ${layout.name}.`);
+        await refreshLayouts({ focus: '.layout-load' });
+        if (!layoutRows.querySelector('.layout-load')) layoutSaveButton.focus();
+      },
+    }) },
+  ]);
+}
+
+// Replaces a layout's modules and places with the canvas as it is now. From the Save form, its "Replace it" (a taken name).
+async function replaceLayout(layoutId, { fromForm = false } = {}) {
+  const id = layoutSpaceId();
+  if (!id) return;
+  const captured = canvas.captureLayout();
+  if (!captured.modules.length) {
+    if (fromForm) showLayoutError(layoutFormError, nothingOpen());
+    else layoutNote(nothingOpen());
+    return;
+  }
+  try {
+    const { layout } = await layoutRequest('PUT', layoutUrl(id, layoutId), captured);
+    if (fromForm) closeLayoutForm();
+    layoutNote(`${layout.name} now holds this layout.`);
+    await refreshLayouts({ focus: `[data-layout="${CSS.escape(layout.id)}"]` });
+  } catch (err) {
+    if (fromForm) showLayoutError(layoutFormError, err.message);
+    else layoutNote(err.message);
+  }
+}
+
+// Rename: the row becomes the same Name field, in place; Enter saves, Escape puts the row back.
+function startRename(layoutId) {
+  const layout = findLayout(layoutId);
+  const row = layoutRows.querySelector(`[data-layout-row="${CSS.escape(layoutId)}"]`);
+  if (!layout || !row) return;
+  closeLayoutForm();
+  const form = document.createElement('form');
+  form.className = 'layout-form layout-rename';
+  form.noValidate = true;
+  form.dataset.layoutId = layoutId;
+  form.innerHTML = `
+    <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" autocomplete="off" spellcheck="false"></label>
+    <p class="layout-form-error" role="alert" hidden></p>
+    <div class="layout-form-buttons"><button class="btn btn-small btn-accent" type="submit">Save</button><button class="btn btn-small" type="button" data-cancel>Cancel</button></div>`;
+  const input = form.querySelector('input');
+  const error = form.querySelector('.layout-form-error');
+  input.value = layout.name;
+  form.querySelector('[data-cancel]').addEventListener('click', () => closeLayoutForm({ focus: true }));
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const name = input.value.trim();
+    if (!name) { showLayoutError(error, 'Give the layout a name.'); input.focus(); return; }
+    if (name === layout.name) { closeLayoutForm({ focus: true }); return; }
+    try {
+      await layoutRequest('PUT', layoutUrl(layoutSpaceId(), layoutId), { name });
+      await refreshLayouts({ focus: `[data-layout="${CSS.escape(layoutId)}"]` });
+    } catch (err) {
+      showLayoutError(error, err.message);
+      input.focus();
+    }
+  });
+  row.replaceWith(form);
+  input.focus();
+  input.select();
+}
 // A toast about a space module opens it on the canvas; an environment module opens over the call.
 document.addEventListener('app:notification', (event) => {
   const n = event.detail;
@@ -2653,6 +2919,7 @@ call
     forgetSpace();
     currentSpace = null;
     canvas.refresh(null);
+    refreshLayouts(); // no space, no layouts
     document.body.classList.remove('in-space');
     $('canvas').hidden = true;
     $('space-link').hidden = true;
@@ -2952,6 +3219,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
     canvas.restore();
     syncSnapBar(); // and this space's canvas-level snap
+    refreshLayouts(); // and its saved layouts
     syncCallControl(); // who is in the call, for the conference's "Not in a call" note
     // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
     // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a

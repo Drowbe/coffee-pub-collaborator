@@ -414,6 +414,98 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/\.visually-hidden\s*\{[^}]*clip-path: inset\(50%\)/.test(css)) fail('public/style.css', '.visually-hidden must hide the status region from sight only');
 }
 
+// Saved layouts (public/layouts.js; plan-saved-layouts.md, step 2): layoutOf() turns the canvas into a layout (docked
+// first in column order, then floating; floating boxes as fractions; the flexible column without a width), and
+// placeLayout() puts one on a canvas (fractions back to pixels, at least the smallest size and on the canvas, snapped
+// ones on the grid without overlap, what cannot open left out and named). canvas.js's captureLayout() and loadLayout()
+// use them, keep the conference while on the call, fit the columns with fitDock() and remember the result.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-layouts-'));
+  fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), path.join(tmp, 'snap-grid.mjs'));
+  const src = fs.readFileSync(path.join(ROOT, 'public/layouts.js'), 'utf8');
+  if (!src.includes("from '/snap-grid.js'")) fail('public/layouts.js', 'must take the grid arithmetic from snap-grid.js');
+  fs.writeFileSync(path.join(tmp, 'layouts.mjs'), src.replace("from '/snap-grid.js'", "from './snap-grid.mjs'"));
+  const { layoutOf, placeLayout, leftOutNote, LAYOUT_LIMITS } = await import(pathToFileURL(path.join(tmp, 'layouts.mjs')).href);
+  const { MIN_W, MIN_H, DOCK_MIN, gridFor, cellsOverlap } = await import(pathToFileURL(path.join(tmp, 'snap-grid.mjs')).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const F = 'public/layouts.js';
+  if (/\bdocument\.\w|\bwindow\.\w|localStorage/.test(src)) fail(F, 'layouts.js must stay pure: no DOM, no storage');
+  const area = { x: 0, y: 77, w: 1600, h: 823 };
+  const mods = [
+    { id: 'calendar', mode: 'float', order: 5, box: { x: 300, y: 200, w: 400, h: 500 }, snap: false },
+    { id: 'chat', mode: 'dock', order: 0, width: 320 },
+    { id: 'conference', mode: 'dock', order: -1, flex: true, width: 600 },
+    { id: 'todo', mode: 'float', order: 3, box: { x: 900, y: 120, w: 300, h: 300 }, snap: true },
+    { id: 'polls', mode: 'float', order: 4, box: { x: 1000, y: 150, w: 300, h: 300 }, snap: true },
+    { id: 'travel', mode: 'window', was: 'dock', order: 2, width: 420 },
+    { id: 'notes', mode: 'dock', order: 6, width: 100 }, // waiting modules come in as dock: the layout is the intent
+  ];
+  const input = JSON.stringify(mods);
+  const layout = layoutOf(mods, area, { all: false, pitch: 130 });
+  if (JSON.stringify(mods) !== input) fail(F, 'layoutOf() must not change its input');
+  const ids = layout.modules.map((m) => m.id);
+  if (JSON.stringify(ids) !== JSON.stringify(['conference', 'chat', 'travel', 'notes', 'todo', 'polls', 'calendar'])) fail(F, `layoutOf(): docked first in column order (a window saved as its old mode), then floating in the order opened, not ${JSON.stringify(ids)}`);
+  const by = Object.fromEntries(layout.modules.map((m) => [m.id, m]));
+  if ('dockW' in by.conference) fail(F, 'the flexible column is saved without a width');
+  if (by.chat.dockW !== 320 || by.travel.dockW !== 420 || by.notes.dockW !== LAYOUT_LIMITS.dockWMin) fail(F, `docked widths are pixels, within the server's 160 to 2000: ${JSON.stringify(layout.modules)}`);
+  for (const m of layout.modules.filter((x) => x.mode === 'float')) {
+    if (!m.box || !['x', 'y', 'w', 'h'].every((k) => m.box[k] >= 0 && m.box[k] <= 1) || m.box.w === 0 || m.box.h === 0) fail(F, `${m.id}: a floating box is fractions of the canvas from 0 to 1: ${JSON.stringify(m.box)}`);
+    if (typeof m.snap !== 'boolean') fail(F, `${m.id}: a floating module says whether it snaps`);
+  }
+  if (JSON.stringify(layout.snap) !== JSON.stringify({ all: false, pitch: 130 })) fail(F, 'layoutOf() keeps the canvas-level snap');
+  if (layoutOf(Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, mode: 'dock', order: i })), area).modules.length !== LAYOUT_LIMITS.modules) fail(F, `a layout holds at most ${LAYOUT_LIMITS.modules} modules`);
+  if (layoutOf([{ id: 'x', mode: 'window', canDock: false }], area).modules[0].mode !== 'float') fail(F, 'a window that cannot dock is saved floating');
+  // The same size gives back the same boxes (within a pixel); the free ones exactly where they were.
+  const same = placeLayout(layout, area);
+  const back = Object.fromEntries(same.modules.map((m) => [m.id, m]));
+  const near = (a, b) => ['x', 'y', 'w', 'h'].every((k) => Math.abs(a[k] - b[k]) <= 1);
+  if (!near(back.calendar.box, mods[0].box)) fail(F, `placeLayout() at the same size must give back the same box: ${JSON.stringify(back.calendar.box)}`);
+  if (back.chat.dockW !== 320 || back.conference.dockW !== undefined) fail(F, 'placeLayout() keeps the docked widths, none for the flexible column');
+  if (same.left.length) fail(F, 'nothing is left out when everything may open');
+  // At half the width (and a smaller window), every box is on the canvas and at least the smallest size, and the snapped
+  // ones sit in grid cells, none on another.
+  for (const small of [{ x: 0, y: 77, w: 800, h: 600 }, { x: 0, y: 60, w: 1000, h: 700 }, { x: 0, y: 77, w: 1920, h: 923 }]) {
+    const got = placeLayout(layout, small);
+    const label = `at ${small.w}x${small.h}`;
+    for (const m of got.modules.filter((x) => x.box)) {
+      const b = m.box;
+      if (b.x < small.x || b.y < small.y || b.x + b.w > small.x + small.w + 1 || b.y + b.h > small.y + small.h + 1) fail(F, `${label}: ${m.id} is off the canvas: ${JSON.stringify(b)}`);
+      if (!m.cell && (b.w < MIN_W || b.h < MIN_H)) fail(F, `${label}: ${m.id} is under the smallest size: ${JSON.stringify(b)}`);
+    }
+    const snapped = got.modules.filter((m) => m.snap);
+    if (snapped.length !== 2 || snapped.some((m) => !m.cell)) fail(F, `${label}: the snapped modules get grid cells`);
+    else if (cellsOverlap(snapped[0].cell, snapped[1].cell)) fail(F, `${label}: snapped modules overlap: ${JSON.stringify(snapped.map((m) => m.cell))}`);
+    const g = gridFor({ left: small.x, top: small.y, width: small.w, height: small.h }, 130);
+    for (const m of snapped) if (m.cell && (m.cell.col + m.cell.cols > g.cols || m.cell.row + m.cell.rows > g.rows)) fail(F, `${label}: ${m.id} is off the grid`);
+    for (const m of got.modules.filter((x) => x.dockW)) if (m.dockW < DOCK_MIN || m.dockW > Math.max(DOCK_MIN, Math.round(small.w * 0.6))) fail(F, `${label}: ${m.id}'s width ${m.dockW} is not clamped as clampDock() does`);
+  }
+  // The canvas-level snap snaps every floating module.
+  if (!placeLayout({ ...layout, snap: { all: true, pitch: 200 } }, area).modules.filter((m) => m.mode === 'float').every((m) => m.snap && m.cell)) fail(F, 'with the canvas-level snap on, every floating module settles on the grid');
+  // What cannot open is left out and named, in order; the layout itself is not changed.
+  const before = JSON.stringify(layout);
+  const some = placeLayout(layout, area, (id) => !['travel', 'calendar'].includes(id));
+  if (JSON.stringify(some.left) !== JSON.stringify(['travel', 'calendar'])) fail(F, `the ids left out, in order: ${JSON.stringify(some.left)}`);
+  if (some.modules.some((m) => ['travel', 'calendar'].includes(m.id))) fail(F, 'a module that cannot open is not placed');
+  if (JSON.stringify(layout) !== before) fail(F, 'placeLayout() must not change the layout');
+  if (leftOutNote(['maps'], () => 'Map') !== "Map isn't on in this space, so it was left out.") fail(F, `the one line for one left out: ${leftOutNote(['maps'], () => 'Map')}`);
+  if (leftOutNote(['a', 'b', 'c'], (id) => id.toUpperCase(), 'trip') !== "A, B and C aren't on in this trip, so they were left out.") fail(F, 'the one line for several, in the space word');
+  if (leftOutNote([]) !== '') fail(F, 'no line when nothing was left out');
+  // canvas.js: captureLayout() through layoutOf(); loadLayout() (not applyLayout, space.js's) through placeLayout() and
+  // canOpenHere(), keeping the conference while on the call, fitting the columns (syncDock, fitDock), remembering the result.
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const C = 'public/canvas.js';
+  const capture = canvasJs.slice(canvasJs.indexOf('  function captureLayout() {'), canvasJs.indexOf('  function loadLayout('));
+  const load = canvasJs.slice(canvasJs.indexOf('  function loadLayout('), canvasJs.indexOf('  const nameOfLayout'));
+  if (!capture || !/layoutOf\(mods, canvasArea\(\), \{ all: snapAllOn\(\), pitch: snapPitch\(\) \}\)/.test(capture)) fail(C, 'captureLayout() must build the layout with layoutOf(), with the canvas-level snap');
+  if (!/p\.waiting \? 'dock'/.test(capture)) fail(C, 'captureLayout() saves a module waiting for a column as docked');
+  if (!/placeLayout\(layout, area, canOpenHere\)/.test(load)) fail(C, 'loadLayout() must place the layout with placeLayout() and canOpenHere()');
+  if (!/p\.id === 'conference' && p\.kind === 'builtin' && Boolean\(p\.def\?\.inCall\?\.\(\)\)/.test(load) || !/!named\.has\(p\.id\) && !keepCall\(p\)\) closeModule\(p\.id\)/.test(load)) fail(C, 'loadLayout() closes what the layout does not name, except the conference while on the call');
+  if (!/syncDock\(\)/.test(load) || !/snapshot\(\)/.test(load)) fail(C, 'loadLayout() fits the columns (syncDock, fitDock) and becomes the remembered layout (snapshot)');
+  if (!/leftOutNote\(plan\.left/.test(load)) fail(C, 'loadLayout() says in one line what it left out');
+  if (/function applyLayout\(/.test(canvasJs)) fail(C, 'applyLayout is space.js\'s window-width handler; the canvas\'s load is loadLayout()');
+  if (!/\n    captureLayout,\n    loadLayout,\n/.test(canvasJs)) fail(C, 'the canvas must offer captureLayout() and loadLayout()');
+}
+
 // The reaction tray (GitHub #169): with many reactions it never rises under the header. Opening it caps its height to
 // the room between its bottom and the header's, and the rest scrolls inside it, so its first row (keys 1 to 6) shows.
 {
@@ -908,6 +1000,28 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     assert.equal(page.rejoinShown(), true, 'Rejoin call shows once presence has answered with where the aside came from');
   } catch (err) {
     fail('public/space.js', `in an aside, Rejoin call must show (the aside-started entry gives way to presence's record): ${err.message}`);
+  }
+}
+
+// A Set or Map a canvas function reads (`x.has(`, `x.add(`, `x.delete(`) must be declared somewhere it can see: in the
+// function, as a parameter, in createCanvas or the file, or imported. A deleted `const was = new Set(...)` in setSnapAll
+// once left `was.has(...)` behind, and turning the canvas-level snap off threw a ReferenceError.
+{
+  const C = 'public/canvas.js';
+  const src = fs.readFileSync(path.join(ROOT, C), 'utf8');
+  const shared = new Set([...src.matchAll(/^(?: {2})?(?:export\s+)?(?:const|let|var|function)\s+(\w+)/gm)].map((m) => m[1]));
+  for (const m of src.matchAll(/^import\s*\{([^}]*)\}/gm)) for (const n of m[1].split(',')) shared.add(n.trim().split(/\s+as\s+/).pop());
+  const starts = [...src.matchAll(/^ {2}function (\w+)\(([^)]*)\)\s*\{/gm)];
+  for (const [i, s] of starts.entries()) {
+    const body = src.slice(s.index, starts[i + 1]?.index ?? src.length);
+    const local = new Set([...body.matchAll(/\b(?:const|let|var)\s+(\w+)/g)].map((m) => m[1]));
+    for (const m of body.matchAll(/\b(?:const|let|var)\s*[[{]([^\]}=]*)/g)) for (const n of m[1].split(',')) local.add(n.trim().split(/[:\s=]/).pop());
+    for (const m of body.matchAll(/(?:\(|\b)(\w+)\s*\)?\s*=>/g)) local.add(m[1]);
+    for (const m of body.matchAll(/\(([^()]*)\)\s*=>/g)) for (const n of m[1].split(',')) local.add(n.trim().split(/[\s=]/)[0]);
+    for (const n of s[2].split(',')) local.add(n.trim().split(/[\s=]/)[0].replace(/[{}]/g, ''));
+    for (const m of body.matchAll(/(?<![.\w])([a-z]\w*)\.(has|add|delete)\(/g)) {
+      if (!local.has(m[1]) && !shared.has(m[1])) fail(C, `${s[1]}() reads ${m[1]}.${m[2]}() but nothing it can see declares ${m[1]}`);
+    }
   }
 }
 

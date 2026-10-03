@@ -12,10 +12,11 @@
 // when it is popped out: they open in whichever window the canvas is in.
 // See documentation/architecture/architecture-canvas.md.
 
-import { api, markModuleRead, followTheme } from '/brand.js';
+import { api, markModuleRead, followTheme, word } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
 import { whatOpens } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
+import { layoutOf, placeLayout, leftOutNote } from '/layouts.js';
 import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle, tidyCells, tidyBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
@@ -70,8 +71,9 @@ const toolsHtml = ({ mode, canDock, canFloat, closable = true, snap = false }) =
   ${mode !== 'window' ? '<button class="msg-btn" data-popout type="button" title="Open in its own window" aria-label="Open in its own window"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>' : ''}
   ${closable ? '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>' : ''}`;
 
-// `onNote(text)`: a short line for the Layout panel's note (#modules-menu-note), '' to clear it.
-export function createCanvas({ guestToken = null, onChatAsk = null, onNote = null } = {}) {
+// `onNote(text)`: a short line for the Layout panel's note (#modules-menu-note), '' to clear it. `onMenu(open)`: the
+// Layout panel opened or closed (space.js refreshes its Layouts section as it opens).
+export function createCanvas({ guestToken = null, onChatAsk = null, onNote = null, onMenu = null } = {}) {
   const toggle = document.getElementById('modules-toggle');
   const menu = document.getElementById('modules-menu');
   // An inline menu (the module buttons sit in a bar in the space header) is always shown: it is never hidden
@@ -80,6 +82,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // The panel's Arrange section (space.js writes it once, inside #modules-menu): kept here, since the phone's tab bar
   // takes the list's whole content and the section comes back with the panel.
   const arrangeEl = menu ? menu.querySelector('.module-chooser-arrange') : null;
+  // The Layouts section after it (space.js writes and refreshes it; plan-saved-layouts.md), kept the same way.
+  const layoutsEl = menu ? menu.querySelector('.module-chooser-layouts') : null;
   const canvas = document.getElementById('canvas');
   let saved = loadSaved(null);
   // Nothing is remembered until a join has restored the space's modules, and not while the space is
@@ -1330,6 +1334,126 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (request) openRef(request.ref);
   }
 
+  // --- saved layouts (plan-saved-layouts.md) ------------------------------------------------------------------------
+  // The canvas's box, in the floating layer's coordinates (the window's); the window while the canvas is hidden.
+  function canvasArea() {
+    const win = canvasWin();
+    const r = canvas.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 ? { x: r.left, y: r.top, w: r.width, h: r.height } : { x: 0, y: 0, w: win.innerWidth, h: win.innerHeight };
+  }
+
+  // The canvas as a layout to save (layouts.js's layoutOf): the open modules in column order, docked widths in pixels,
+  // floating boxes as fractions of the canvas, and the canvas-level snap. A module waiting for a column is saved docked
+  // (the layout is the intent; each window fits it on load); one in a window of its own as the mode it had before. On a
+  // narrow canvas, where everything shows docked one at a time, each module's remembered mode and box are what is saved.
+  function captureLayout() {
+    const narrow = isNarrow();
+    const mods = [...opened.values()].map((p) => {
+      const rec = saved[p.id] || {};
+      const floater = floaterOf(p);
+      const mode = narrow ? (rec.mode === 'float' && supports(p, 'float') ? 'float' : 'dock') : p.waiting ? 'dock' : p.mode;
+      return {
+        id: p.id,
+        mode,
+        was: rec.mode,
+        order: p.order,
+        canDock: supports(p, 'dock'),
+        flex: Boolean(p.def?.flex),
+        width: p.width ?? rec.dockW,
+        box: !narrow && floater && p.mode === 'float' ? currentBox(floater) : rec.box,
+        snap: snapAllOn() || Boolean(rec.snap),
+      };
+    });
+    return layoutOf(mods, canvasArea(), { all: snapAllOn(), pitch: snapPitch() });
+  }
+
+  // Put a saved layout on the canvas (plan-saved-layouts.md, "Saving and loading"): what may open here (canOpenHere)
+  // opens or moves to its mode, in order; the open modules the layout does not name close, except the conference while
+  // this person is on the call (closing it would hang up); docked widths, floating boxes scaled from the fractions,
+  // snapped ones settled onto the grid at the saved pitch; then the columns are fitted to the window by fitDock(),
+  // exactly as a resize would. The result becomes this person's remembered layout for the space. On a narrow canvas the
+  // modes and places are remembered for a wider window and the first module is the view. Answers { left, waiting }:
+  // the ids left out, and the ids waiting for a column; the panel's note says both in plain words.
+  function loadLayout(layout) {
+    if (!spaceId || !layout || !Array.isArray(layout.modules)) return { left: [], waiting: [] };
+    const narrow = isNarrow();
+    const area = canvasArea();
+    const plan = placeLayout(layout, area, canOpenHere);
+    const named = new Set(plan.modules.map((p) => p.id));
+    const keepCall = (p) => p.id === 'conference' && p.kind === 'builtin' && Boolean(p.def?.inCall?.());
+    suspended = true;
+    restoring = true;
+    try {
+      for (const p of [...opened.values()]) if (!named.has(p.id) && !keepCall(p)) closeModule(p.id);
+      // The canvas-level snap as saved; what it floated before is not this layout's.
+      saved.__snap = { ...(saved.__snap || {}), all: plan.snap.all, pitch: plan.snap.pitch, before: {} };
+      const g = gridFor({ left: area.x, top: area.y, width: area.w, height: area.h }, plan.snap.pitch);
+      for (const want of plan.modules) {
+        const def = builtins.get(want.id);
+        const m = def ? null : available.find((x) => x.id === want.id);
+        const p = def ? { modes: def.modes || ['dock', 'float'] } : { modes: m.canvas.mode };
+        const mode = supports(p, want.mode) ? want.mode : supports(p, 'dock') ? 'dock' : 'float';
+        // The records first, so whatever opens now opens where the layout says.
+        const rec = { mode, snap: mode === 'float' && want.snap };
+        if (want.dockW) rec.dockW = want.dockW;
+        if (want.box) {
+          Object.assign(rec, { box: want.box, layout: 'user' });
+          if (want.cell) Object.assign(rec, { cell: want.cell, placed: { x: want.box.x - g.x, y: want.box.y - g.y, w: want.box.w, h: want.box.h } });
+        }
+        remember(want.id, rec);
+        let mod = opened.get(want.id);
+        if (mod && mod.waiting) {
+          if (mode === 'float') { mod.waiting = false; } else { mod.width = clampDock(want.dockW || mod.width); continue; }
+        }
+        const shown = narrow ? 'dock' : mode;
+        if (!mod) {
+          if (def) api_openBuiltin(want.id, narrow ? undefined : shown);
+          else openModule(m, narrow ? undefined : shown);
+        } else if (mod.mode !== shown && !(narrow && mod.mode === 'dock')) {
+          setMode(want.id, shown);
+        }
+        mod = opened.get(want.id);
+        if (!mod) continue; // a window the browser refused, or a module that may not open after all
+        if (mod.mode === 'dock' && want.dockW) {
+          mod.width = clampDock(want.dockW);
+          mod.onWidth?.(mod.width);
+        }
+        const floater = floaterOf(mod);
+        if (floater && mod.mode === 'float') {
+          if (want.cell) settleSnap(want.id, floater, want.cell, { keepPlaced: true });
+          else if (want.box) remember(want.id, { box: place(floater, want.box) });
+          paintSnap(mod, snapping(want.id));
+          front(floater);
+        }
+      }
+      // The column order is the layout's: the modules it names follow whatever stays (the conference on the call).
+      for (const want of plan.modules) { const mod = opened.get(want.id); if (mod) mod.order = ++order; }
+      if (narrow) {
+        const first = plan.modules.find((want) => opened.has(want.id));
+        if (first) view = first.id;
+      }
+    } finally {
+      restoring = false;
+      suspended = false;
+    }
+    keepLayout = false;
+    hush += 1; // one note for the whole load, below, not one per module
+    try { syncDock(); } finally { hush -= 1; }
+    update();
+    snapshot();
+    const waiting = [...opened.values()].filter((p) => p.waiting).sort(byOrder).map((p) => p.id);
+    const lines = [leftOutNote(plan.left, nameOfLayout, word('space'))];
+    if (waiting.length) {
+      const names = waiting.map(nameOf);
+      const list = names.length === 1 ? names[0] : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+      lines.push(names.length === 1 ? `The window is too narrow for another column, so ${list} is floating.` : `The window is too narrow for more columns, so ${list} are floating.`);
+    }
+    note(lines.filter(Boolean).join(' '));
+    return { left: plan.left, waiting };
+  }
+  // A module's name for the load's note, open or not, installed here or not (one left out has only its id).
+  const nameOfLayout = (id) => builtins.get(id)?.name || available.find((x) => x.id === id)?.name || id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
+
   // --- the toolbar button and its menu --------------------------------------
 
   // The one place to show and hide modules: the chat first, then the space's modules.
@@ -1360,7 +1484,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       // never replaced under the pointer or the keyboard. Arrange is not drawn on a narrow canvas: nothing docks there.
       let show = menu.querySelector(':scope > .module-chooser-show');
       if (!show) {
-        for (const el of [...menu.children]) if (el !== arrangeEl) el.remove(); // the phone's tabs, before
+        for (const el of [...menu.children]) if (el !== arrangeEl && el !== layoutsEl) el.remove(); // the phone's tabs, before
         show = doc.createElement('div');
         show.className = 'module-chooser-show';
         menu.prepend(show);
@@ -1369,6 +1493,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       if (arrangeEl) {
         if (arrangeEl.parentNode !== menu) menu.appendChild(arrangeEl);
         arrangeEl.hidden = isNarrow();
+      }
+      // Layouts, last, never rewritten here; hidden on a narrow canvas as Arrange is, and while space.js has none to show.
+      if (layoutsEl) {
+        if (layoutsEl.parentNode !== menu || layoutsEl.previousElementSibling !== arrangeEl) menu.appendChild(layoutsEl);
+        layoutsEl.hidden = isNarrow() || layoutsEl.dataset.empty === 'true';
       }
       // Under a Show heading (the header's menu heading), its own group, so a screen reader reads "Show" with the switches.
       show.innerHTML = '<div class="nav-menu-heading module-chooser-heading" id="modules-menu-show">Show</div>'
@@ -1474,6 +1603,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     toggle?.setAttribute('aria-expanded', String(open));
     // Closing the panel clears its note, except one the same click just wrote (a titlebar's Dock, outside the panel).
     if (!open && Date.now() - noteAt > 250) note('');
+    onMenu?.(open);
     if (open) {
       positionMenu();
       if (focus) menu.querySelector('input, button')?.focus();
@@ -1625,6 +1755,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     snapPitchRange: () => ({ ...SNAP_PITCH }),
     setSnapPitch,
     toggleMenu,
+    // Saved layouts (plan-saved-layouts.md): the canvas as a layout to save, and a saved layout put on the canvas.
+    captureLayout,
+    loadLayout,
+    // Whether the canvas is narrow (640 px and below): the Layout panel's Layouts section is not drawn then.
+    isNarrow,
     // `mode` (a module's own window asking to come back as a column or floating) is remembered.
     open: (id, mode) => {
       const m = available.find((x) => x.id === id);

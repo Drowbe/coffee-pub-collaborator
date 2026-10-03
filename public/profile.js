@@ -579,18 +579,21 @@ $('feed-row-off').addEventListener('click', () => run(async () => {
 // --- other calendars (plan-google-calendar.md, Part 2) ----------------------
 // Your own calendars elsewhere (Google's, say), added by their private address: their events show in the calendar, read
 // only and only to you. The server keeps the address sealed and never answers it again, so a row shows its host only.
-// Shown while the environment allows them, and while you still have some (to remove them when it no longer does).
+// Shown while the environment allows them, while you still have some (to remove them when it no longer does), and while
+// the server says why they can't be used here (`why`: the switch, or the module to approve, turn on, update or install).
+// When it can't be used it always says why: never just its title.
 const MAX_EXTERNAL = 5;
 
 function renderExternal(editing) {
   const section = $('section-external');
   const calendars = (external && external.calendars) || [];
-  section.hidden = editing || !external || !(external.allowed || calendars.length);
+  section.hidden = editing || !external || !(external.allowed || calendars.length || external.why);
   if (section.hidden) return;
   const place = environmentName || `this ${word('environment')}`;
   $('external-hint').textContent = `See the events of your own calendars, such as Google Calendar, beside the ones in ${place}. Only you see them.`;
   $('external-off').hidden = external.allowed;
-  $('external-off').textContent = external.allowed ? '' : `Other calendars are off in ${place} for now, so their events do not show. You can still remove them.`;
+  $('external-off').textContent = external.allowed ? ''
+    : [external.why || `Other calendars are off in ${place} for now.`, calendars.length ? 'Until then their events do not show. You can still remove them.' : ''].filter(Boolean).join(' ');
   const list = $('external-list');
   list.hidden = !calendars.length;
   list.innerHTML = '';

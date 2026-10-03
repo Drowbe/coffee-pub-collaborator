@@ -64,7 +64,7 @@ Written for the decisions above.
 **Profile, Profile tab**, a new section after Call Settings, **Calendar feed** (`#section-feed`), shown only when the environment allows feeds and at least one enabled module offers a kind to the feed that the person may read. A guest has no Profile and no feed.
 
 - Off: the hint "Add your events from <environment name> to Google Calendar, Apple Calendar or Outlook. Anyone with the address can see them, so keep it private." and **Make an address**.
-- Just made: the address in a `code` box with **Copy**, and "Copy it now. It will not be shown again." Then the steps for Google in three short lines: "In Google Calendar, choose Other calendars, then From URL. Paste the address. Google updates it about once a day."
+- Just made: the address in a `code` box with **Copy**, and "Copy it now. It will not be shown again." Then the steps for Google in three short lines: "In Google Calendar, choose Other calendars, then From URL. Paste the address. Google updates it about once a day." (As built: the section also says "Google Calendar reads the address on its own schedule, often every 8 to 24 hours, so new events, changes and deletions show there later. Apple Calendar is usually quicker.")
 - On, afterwards: "On, made <date>. Last read <time ago>." (or "Not read yet."), **New address** ("The old address stops working. Add the new one in Google again.", confirmed) and **Turn off** (confirmed).
 - An owner looking at someone else's profile sees "Calendar feed: on, last read <time ago>" and **Turn off**, not the address.
 
@@ -106,7 +106,7 @@ What #42 decided, by a pasted address rather than OAuth.
 
 #### What a person sees
 
-- **Profile, Profile tab**, a section **Other calendars** (`#section-external`) under Calendar feed, shown when an enabled module asks for them (below) and the environment allows feeds. **Add a calendar**: a name ("Work") and the address, with the hint "In Google Calendar's settings for that calendar, copy the Secret address in iCal format." Up to five. Each row shows its name, the address's host only, "Read <time ago>" or the last error in plain words ("Google said the address is wrong."), **Refresh** and **Remove**. The address is never shown again in full.
+- **Profile, Profile tab**, a section **Other calendars** (`#section-external`) under Calendar feed, shown when an enabled module asks for them (below) and the environment allows feeds. **Add a calendar**: a name ("Work") and the address, with the hint "In Google Calendar's settings for that calendar, copy the Secret address in iCal format." Up to five. Each row shows its name, the address's host only, "Read <time ago>" or the last error in plain words ("Google said the address is wrong."), **Refresh** and **Remove**. The address is never shown again in full. (As built: when it can't be used, the section also shows, with the reason: feeds off, or the Calendar to be approved, turned on, updated or installed; `why` in `GET /api/me/external-calendars`.)
 - **The Calendar**, in its destination and its own pages: the person's other calendars' events drawn among the others, read only, marked with the calendar's name in a muted style, each with its own entry in the filter (`#filters` and the destination's filter), remembered like the rest. Opening one shows its title, time and calendar name, and "From your <name> calendar. Only you see this." Never seen by anyone else, never in a space's store, never in the address out.
 
 #### Server (server-development)

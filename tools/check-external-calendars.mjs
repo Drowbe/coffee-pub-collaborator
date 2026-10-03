@@ -356,11 +356,11 @@ async function startServer(dataDir, extraEnv = {}) {
   const stop = () => new Promise((resolve) => { if (child.exitCode !== null || child.signalCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });
   return { call, stream, signIn, stop, output: () => out };
 }
-function moduleZip(id, hooks) {
+function moduleZip(id, hooks, version = '1.0.0') {
   const src = fs.mkdtempSync(path.join(base, `module-${id}-`));
   fs.mkdirSync(path.join(src, 'src'));
   fs.writeFileSync(path.join(src, 'module.json'), JSON.stringify({
-    id, name: id, version: '1.0.0', scope: ['environment'], icon: 'calendar', description: 'A stand-in for check-external-calendars.',
+    id, name: id, version, scope: ['environment'], icon: 'calendar', description: 'A stand-in for check-external-calendars.',
     surfaces: { page: { entry: `${id}.html` } },
     permissions: [{ key: 'view', label: 'See it', default: { member: true, moderator: true, guest: true } }],
     access: { read: 'view' },
@@ -416,20 +416,52 @@ try {
   const list = async (cookie) => (await call('GET', '/api/me/external-calendars', { cookie })).json;
   const events = (cookie, query = '', id = 'ext-cal') => call('GET', `/api/modules/${id}/external-events${query}`, { cookie });
 
-  await test('server: off until the switch is on and an enabled module asks with the approved hook', async () => {
-    assert.deepEqual(await list(aliceC), { allowed: false, calendars: [] });
+  // Whenever the section can't be used, the answer says why in plain words, naming what to do and where (`why`), so
+  // Profile never shows the section's title alone; the person who can do it is told to, anyone else that their owner can.
+  const HOOK = '"See each person\'s own other calendars"';
+  const BUNDLED_CALENDAR = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules', 'calendar', 'module.json'), 'utf8'));
+  const why = async (cookie) => (await list(cookie)).why;
+  await test('server: off until the switch is on and an enabled module asks with the approved hook; until then it says why', async () => {
+    const env = (await call('GET', '/api/settings', { cookie: admin })).json.settings.environmentName;
+    assert.deepEqual(await list(aliceC), { allowed: false, why: `Calendar feeds are off in ${env}. Your owner needs to turn on Calendar feeds in Manage > Environment, under Calendar apps.`, calendars: [] });
+    assert.equal(await why(admin), `Calendar feeds are off in ${env}. Turn on Calendar feeds in Manage > Environment, under Calendar apps.`, 'an owner is told to do it');
     const off = await add(aliceC, aliceAddress);
     assert.deepEqual([off.status, off.json], [403, { error: 'Calendar feeds are off in this environment.' }]);
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: true } })).status, 200);
     const none = await add(aliceC, aliceAddress);
     assert.deepEqual([none.status, none.json], [403, { error: 'No module here shows other calendars.' }]);
-    for (const [id, hooks] of [['ext-cal', { external: true }], ['no-hook', {}]]) {
-      const up = await call('POST', '/api/modules', { cookie: admin, raw: moduleZip(id, hooks) });
-      assert.equal(up.status, 201, up.text);
-      assert.deepEqual(up.json.module.pending.hooks, id === 'ext-cal' ? ['external'] : [], `${id}: the hook waits for the admin's approval`);
-      const on = await call('PATCH', `/api/modules/${id}`, { cookie: admin, body: { enabled: true } });
-      assert.equal(on.status, 200, on.text);
-    }
+    assert.ok(BUNDLED_CALENDAR.hooks.external, 'the bundled Calendar asks for the hook');
+    assert.equal(await why(aliceC), `Your owner needs to install Calendar and approve its ${HOOK} in Manage > Modules.`, 'shipped here, not installed');
+    // A Calendar installed in a version from before the hook: the update is named, with its version.
+    const older = await call('POST', '/api/modules', { cookie: admin, raw: moduleZip('calendar', {}, '0.0.1') });
+    assert.equal(older.status, 201, older.text);
+    assert.equal(await why(aliceC), `Your owner needs to update Calendar to ${BUNDLED_CALENDAR.version} and approve its ${HOOK} in Manage > Modules.`);
+    assert.equal((await call('DELETE', '/api/modules/calendar?keepData=0', { cookie: admin })).status, 200);
+    // The way an existing install goes: on in a version without the hook, then updated to one that asks for it (which
+    // switches it off until approved), then approved by turning it on. Not a fresh install with the hook from the start.
+    const first = await call('POST', '/api/modules', { cookie: admin, raw: moduleZip('ext-cal', {}, '1.0.0') });
+    assert.equal(first.status, 201, first.text);
+    assert.equal((await call('PATCH', '/api/modules/ext-cal', { cookie: admin, body: { enabled: true } })).status, 200);
+    assert.equal((await list(aliceC)).allowed, false, 'on, but its version does not ask for the hook');
+    const update = await call('POST', '/api/modules', { cookie: admin, raw: moduleZip('ext-cal', { external: true }, '1.1.0') });
+    assert.equal(update.status, 201, update.text);
+    assert.deepEqual([update.json.module.version, update.json.module.enabled, update.json.module.pending.hooks], ['1.1.0', false, ['external']], 'the update waits for approval');
+    assert.deepEqual(await list(aliceC), { allowed: false, why: `Your owner needs to approve ext-cal's ${HOOK} in Manage > Modules.`, calendars: [] });
+    assert.equal(await why(admin), `Approve ext-cal's ${HOOK} in Manage > Modules.`);
+    const approved = await call('PATCH', '/api/modules/ext-cal', { cookie: admin, body: { enabled: true } });
+    assert.equal(approved.status, 200, approved.text);
+    assert.deepEqual([approved.json.module.enabled, approved.json.module.pending.hooks], [true, []]);
+    const registry = JSON.parse(fs.readFileSync(path.join(dataDir, 'modules', 'registry.json'), 'utf8')).modules['ext-cal'];
+    assert.ok(registry.approved.hooks.includes('external'), 'the approval is stored with the update');
+    assert.deepEqual(await list(aliceC), { allowed: true, why: null, calendars: [] }, 'allowed once the update is approved');
+    // Approved but switched off: it says to turn it on.
+    assert.equal((await call('PATCH', '/api/modules/ext-cal', { cookie: admin, body: { enabled: false } })).status, 200);
+    assert.equal(await why(aliceC), 'Your owner needs to turn on ext-cal in Manage > Modules.');
+    assert.equal((await call('PATCH', '/api/modules/ext-cal', { cookie: admin, body: { enabled: true } })).status, 200);
+    const up = await call('POST', '/api/modules', { cookie: admin, raw: moduleZip('no-hook', {}) });
+    assert.equal(up.status, 201, up.text);
+    assert.deepEqual(up.json.module.pending.hooks, [], 'no-hook: nothing waits');
+    assert.equal((await call('PATCH', '/api/modules/no-hook', { cookie: admin, body: { enabled: true } })).status, 200);
     assert.equal((await list(aliceC)).allowed, true);
     assert.equal((await call('GET', '/api/me/external-calendars')).status, 401, 'signed in only');
     assert.equal((await call('GET', `/api/me/external-calendars?guest=${guestToken}`)).status, 401, 'a guest has none');
@@ -586,6 +618,7 @@ try {
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: false } })).status, 200);
     assert.deepEqual((await events(aliceC)).json, { calendars: [], events: [] });
     assert.equal((await list(aliceC)).allowed, false);
+    assert.match((await list(aliceC)).why, /^Calendar feeds are off in .+\. Your owner needs to turn on Calendar feeds in Manage > Environment, under Calendar apps\.$/);
     assert.equal((await add(aliceC, 'https://cal.example.com/extra-9.ics')).status, 403);
     const extra3 = (await list(aliceC)).calendars.find((c) => c.name === 'Extra 3');
     assert.equal((await call('POST', `/api/me/external-calendars/${extra3.id}/refresh`, { cookie: aliceC })).status, 403);
@@ -695,6 +728,16 @@ await test('pages: Profile\'s Other calendars section, wired to the routes; the 
   assert.match(html, /<section class="[^"]+" id="section-external" hidden>\s*<h2>Other calendars<\/h2>/, 'called Other calendars, hidden until the server allows it');
   assert.ok(html.indexOf('id="section-feed"') < html.indexOf('id="section-external"'), 'under Calendar feed');
   assert.ok(html.includes('Secret address in iCal format'), 'the how-to names Google\'s Secret address in iCal format');
+  // Never its title alone: shown while the server says why it can't be used, and that reason drawn in #external-off.
+  const render = js.slice(js.indexOf('function renderExternal('), js.indexOf('async function loadExternal('));
+  assert.match(render, /section\.hidden = editing \|\| !external \|\| !\(external\.allowed \|\| calendars\.length \|\| external\.why\)/, 'shown while there is a reason to give');
+  assert.match(render, /\$\('external-off'\)\.hidden = external\.allowed;/, 'the reason shows whenever it is not allowed');
+  assert.match(render, /\$\('external-off'\)\.textContent = external\.allowed \? ''\s*: \[external\.why \|\| `Other calendars are off in \$\{place\} for now\.`/, 'the server\'s reason, else a plain one: never empty');
+  assert.match(render, /\$\('external-add'\)\.hidden = !external\.allowed/, 'no form unless allowed');
+  // The Calendar feed section says plainly that Google reads a subscribed address on its own schedule.
+  const feed = html.slice(html.indexOf('id="section-feed"'), html.indexOf('id="section-external"'));
+  assert.match(feed, /<p class="hint" id="feed-timing">Google Calendar reads the address on its own schedule, often every 8 to 24 hours, so new events, changes and deletions show there later\. Apple Calendar is usually quicker\.<\/p>/, 'the feed section says how often Google reads it');
+  assert.ok(!/<p class="hint" id="feed-timing" hidden/.test(feed), 'always shown with the section');
   for (const [method, route] of [['GET', "'/api/me/external-calendars'"], ['POST', "'/api/me/external-calendars'"], ['POST', '`/api/me/external-calendars/${encodeURIComponent(id)}/refresh`'], ['DELETE', '`/api/me/external-calendars/${encodeURIComponent(id)}`']]) {
     assert.ok(js.includes(`api('${method}', ${route}`), `profile.js: ${method} ${route}`);
   }

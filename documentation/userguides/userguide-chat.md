@@ -55,6 +55,19 @@ Made public, it appears for everyone in the space where its time places it. Made
 
 **The filter.** Above the messages, **All**, **Private** and **Public** choose what you see. It only hides messages on your screen, and it is remembered for this space until you close the tab. With nothing to show it says "No private messages here yet." or "No public messages here yet."
 
+## Links
+
+When Research is on in the space, the first link in an ordinary message gets a box under it: the page's picture,
+its title (which is the link), up to three lines of its description, the site's name and **Keep**. The box has
+Research's colour on its left edge and icon. If the owner turned off Research's **Fetch link previews**, the box is one
+plain line, the icon, the site and **Keep**, and nothing is fetched. Pictures come only through this server, never
+straight from the other site.
+
+**Keep** saves the link into Research, credited to you; it arrives when Research is next open. Everyone sees
+"Kept by <name>" at once. A link can be kept once. You
+see **Keep** only if you may add to Research, which by default leaves out guests. A private message keeps its box for
+you alone.
+
 ## Clear messages
 
 Chat's menu (the **⋮** in its header) reads **Save the chat**, **Clear…** and, for moderators, owners and the admin,

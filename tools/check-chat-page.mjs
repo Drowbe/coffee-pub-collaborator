@@ -11,6 +11,8 @@
  *           menu for a member, a moderator and a guest, the two-choice confirm, the chat-clear-some notice.
  *   step 5: the eight tints, fixed light and dark values, on a message and on a module's icon; no fixed colour in a rule.
  *   step 6: every bundled module's colour (decision 20), a known tint.
+ *   Links (plan-chat-links.md, #158, step 4): the preview and Keep as the page holds them, the two notices' sender rule,
+ *           the picture only ever from the image route, Keep only with `may`, the box's tint on its edge and icon.
  *
  *   node tools/check-chat-page.mjs
  */
@@ -25,7 +27,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -333,6 +335,113 @@ test('every bundled module\'s colour (decision 20), a known tint; Stream and the
     assert.equal(manifest.color, want[id], `modules/${id}: "color"`);
     if (manifest.color !== undefined) assert.ok(TINTS.includes(manifest.color), `modules/${id}: a known tint`);
   }
+});
+
+test('links (plan-chat-links.md): a preview is cleaned whoever hands it in; the picture is only a yes or no', () => {
+  assert.equal(linkUrl('https://example.com/a'), 'https://example.com/a');
+  for (const bad of ['ftp://x.com', 'javascript:alert(1)', 'https://u:p@x.com', `https://x.com/${'a'.repeat(500)}`, '', null, 7]) assert.equal(linkUrl(bad), '', String(bad).slice(0, 30));
+  assert.equal(cleanPreview({ url: 'javascript:alert(1)', at: 1, title: 'x' }), null, 'no link, no preview');
+  assert.deepEqual(cleanPreview({ url: 'https://x.com/h' }), { url: 'https://x.com/h' }, 'not read: the address alone');
+  const read = cleanPreview({ url: 'https://x.com/h', module: 'research', at: 5, title: ` ${'T'.repeat(200)} `, description: 'D'.repeat(900), image: 'https://evil.example/track.gif' });
+  assert.equal(read.title.length, 120);
+  assert.equal(read.description.length, 500);
+  assert.equal(read.image, true, 'the picture\'s address is dropped: the page loads it from the image route by id');
+  assert.equal(cleanPreview({ url: 'https://x.com', module: '<b>', at: 1 }).module, undefined, 'a module id or nothing');
+  assert.deepEqual(cleanPreview({ url: 'https://x.com', title: 'only when read' }), { url: 'https://x.com' }, 'words only come with a read');
+  assert.deepEqual(cleanKept({ by: 'k1', who: 'Mia', at: 9 }), { by: 'k1', who: 'Mia', at: 9 });
+  assert.equal(cleanKept({ who: 'Mia' }), null);
+  assert.equal(siteName('https://www.Example.com/x'), 'example.com');
+});
+
+test('links: Keep only for the keeper\'s saveLink with may: true (decision 10), found by its shape, not its name', () => {
+  const save = { name: 'saveLink', module: 'research', moduleName: 'Research', input: { url: 'text', title: 'string?' }, may: true };
+  assert.deepEqual(linkKeeper([{ name: 'saveNote', input: { title: 'x', body: 'y' } }, save]), { module: 'research', name: 'Research', may: true });
+  assert.equal(linkKeeper([{ ...save, may: false }]).may, false, 'a guest or a reader: no Keep');
+  assert.equal(linkKeeper([{ ...save, may: undefined }]).may, false, 'an older server that does not say: no Keep');
+  assert.equal(linkKeeper([{ ...save, input: { title: 'string' } }]), null, 'no url input, not a keeper');
+  assert.equal(linkKeeper([]), null, 'no keeper (decision 9)');
+});
+
+test('links: chat-preview and chat-kept take the first copy, and a page\'s notice speaks only for its own messages', () => {
+  const entry = { id: 'aaaaaaaaaaaa', by: 'author', kind: '', preview: { url: 'https://x.com/h' } };
+  const notice = { id: entry.id, preview: { url: 'https://x.com/h', at: 3, title: 'T' } };
+  assert.equal(previewNoticeTakes(entry, notice, ''), true, 'the server\'s');
+  assert.equal(previewNoticeTakes(entry, notice, 'author'), true, 'its author\'s page');
+  assert.equal(previewNoticeTakes(entry, notice, 'someone-else'), false, 'a forged one from another page');
+  assert.equal(previewNoticeTakes({ ...entry, preview: { ...entry.preview, at: 1 } }, notice, ''), false, 'a second copy');
+  assert.equal(previewNoticeTakes(entry, { ...notice, preview: { ...notice.preview, url: 'https://evil.example' } }, ''), false, 'another address');
+  assert.equal(previewNoticeTakes(entry, { ...notice, preview: { url: 'https://x.com/h' } }, ''), false, 'nothing read');
+  assert.equal(previewNoticeTakes({ ...entry, kind: 'ai' }, notice, ''), false, 'only an ordinary message');
+  const kept = { id: entry.id, kept: { by: 'mia', who: 'Mia', at: 4 } };
+  assert.equal(keptNoticeTakes(entry, kept, ''), true, 'the server\'s');
+  assert.equal(keptNoticeTakes(entry, kept, 'mia'), false, 'another person\'s page, for someone else\'s message');
+  assert.equal(keptNoticeTakes(entry, { ...kept, kept: { by: 'author', who: 'Anyone at all' } }, 'author'), false, 'never a page\'s: it could name anyone');
+  assert.equal(keptNoticeTakes({ ...entry, kept: { by: 'x' } }, kept, ''), false, 'kept once (decision 11)');
+  assert.equal(keptNoticeTakes({ ...entry, preview: undefined }, kept, ''), false, 'no link');
+});
+
+test('links: storedEntry keeps preview and kept; the page asks for the preview, passes it on, draws from the image route; Keep calls the keep route', () => {
+  const space = read('public/space.js');
+  const stored = space.slice(space.indexOf('function storedEntry('), space.indexOf('async function postChatMessage('));
+  assert.match(stored, /if \(!kind\) \{\s*const preview = cleanPreview\(m\.preview\);/);
+  assert.match(stored, /const kept = preview \? cleanKept\(m\.kept\) : null;/);
+  const send = space.slice(space.indexOf('async function sendChatText('), space.indexOf('function dropChatMessage('));
+  assert.match(send, /\.\.\.\(entry\.preview \? \{ preview: \{ url: entry\.preview\.url \} \} : \{\}\)/, 'the chat notice carries the address');
+  assert.match(send, /me\?\.key && me\.role !== 'guest' && !guestToken/, 'never asked for a guest');
+  const ask = space.slice(space.indexOf('async function askLinkPreview('), space.indexOf('function applyLinkNotice('));
+  assert.match(ask, /\/chat\/\$\{entry\.id\}\/preview`/);
+  assert.match(ask, /publishChat\(\{ type: 'chat-preview', id: entry\.id, preview: message\.preview \}\)/);
+  assert.match(ask, /entry\.visibility !== 'private'/, 'a private message is never told');
+  const box = space.slice(space.indexOf('function linkBox('), space.indexOf('function paintLinkBox('));
+  assert.match(box, /img\.src = `\/api\/spaces\/\$\{encodeURIComponent\(currentSpace\.id\)\}\/chat\/\$\{entry\.id\}\/image\$\{q\}`/);
+  assert.ok(!/innerHTML/.test(box), 'a preview\'s words are drawn as text');
+  assert.match(box, /if \(!chatLinkKeeper\?\.may \|\| !entry\.stored/, 'Keep only with may');
+  assert.match(box, /`Kept by \$\{entry\.kept\.who\}`/);
+  assert.ok(!/Waiting/.test(box), 'no lasting waiting line: the server marks it kept at once');
+  const keep = space.slice(space.indexOf('async function keepLink('), space.indexOf('async function askLinkPreview('));
+  assert.match(keep, /\/chat\/\$\{entry\.id\}\/keep\$\{q\}`/);
+  assert.match(keep, /const kept = cleanKept\(out\?\.message\?\.kept\);\n\s*if \(kept\) entry\.kept = kept;/, '"Kept by" from the answer');
+  assert.ok(!/publishChat/.test(keep), 'chat-kept is the server\'s only');
+  assert.match(space, /preview: noticePreview\(data\) \}\), false\);/, 'a live chat notice keeps only its own text\'s address');
+  assert.match(space, /else if \(topic === 'chat' && \(data\.type === 'chat-preview' \|\| data\.type === 'chat-kept'\) && chatIdOk\(data\.id\)\) applyLinkNotice\(data, participant\);/);
+  const notice = space.slice(space.indexOf('function applyLinkNotice('), space.indexOf('// --- end links in Chat ---'));
+  assert.match(notice, /previewNoticeTakes\(entry, data, from\)/);
+  assert.match(notice, /keptNoticeTakes\(entry, data, from\)/);
+  assert.match(space, /loadLinkKeeper\(currentSpace\.id\);/);
+});
+
+test('links: the box wears the keeper\'s tint on its left edge and icon only, theme tokens throughout', () => {
+  const css = read('public/style.css');
+  const rules = [...css.matchAll(/([^{}]*\.chat-link[^{}]*)\{([^{}]*)\}/g)];
+  assert.ok(rules.length >= 8, 'the link box\'s rules');
+  for (const [, sel, body] of rules) {
+    assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(body), `${sel.trim()}: theme tokens only`);
+    const tinted = body.split(';').filter((d) => /var\(--tint/.test(d)).map((d) => d.split(':')[0].trim());
+    for (const prop of tinted) assert.ok(['border-left', 'color'].includes(prop), `${sel.trim()}: the tint only on the edge or the icon (${prop})`);
+    if (tinted.includes('color')) assert.match(sel, /chat-link-icon/, 'the coloured text is the icon');
+  }
+});
+
+test('an AI answer\'s Keep reads kept: the bus always answers pending, even when the module takes it at once', () => {
+  const src = read('public/chat-input.js');
+  const keep = src.slice(src.indexOf('async function keepOne('), src.indexOf('async function askAbout('));
+  assert.match(keep, /btn\.classList\.add\(out\.status === 'queued' \? 'queued' : 'kept'\);/);
+  assert.ok(!/'pending'/.test(keep), 'pending is not a waiting state here');
+});
+
+test('links: the page finds a message\'s link by the server\'s rule, and a live chat notice keeps only that address', () => {
+  const { findLink: serverFindLink } = createRequire(import.meta.url)('../server/chat-links.js');
+  const texts = [
+    'This one? https://example.com/hotel.', 'see [the hotel](https://a.example/x) and https://b.example', '`https://code.example` then http://plain.example/p',
+    '> quoted https://quoted.example\nmine https://mine.example', '```\nhttps://fenced.example\n```\nafter https://after.example', 'ftp://x.example and https://u:p@x.example',
+    `https://x.example/${'a'.repeat(600)}`, 'no link here', '(https://paren.example/a)', 'two https://first.example https://second.example',
+  ];
+  for (const t of texts) assert.equal(findLink(t), serverFindLink(t), t.slice(0, 50));
+  const data = { id: 'aaaaaaaaaaaa', text: 'look https://good.example/a', preview: { url: 'https://good.example/a', at: 9, title: 'Your bank', description: 'x', image: 'https://evil.example/i.png', module: 'research' } };
+  assert.deepEqual(noticePreview(data), { url: 'https://good.example/a' }, 'the address only: nothing read comes with a chat notice');
+  assert.equal(noticePreview({ ...data, preview: { url: 'https://evil.example' } }), null, 'an address its text does not have');
+  assert.equal(noticePreview({ ...data, text: 'no link' }), null);
+  assert.equal(noticePreview({ ...data, preview: undefined }), null);
 });
 
 console.log(`check-chat-page: OK (${n} tests)`);

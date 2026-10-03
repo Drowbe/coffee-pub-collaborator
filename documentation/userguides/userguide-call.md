@@ -75,8 +75,20 @@ fold into a **…** button (**More**) just before **Leave space**: **Pop out** f
 module's own tools, **Rejoin call** and **Pull participants back**. Click **…** to use them. **Leave space**,
 **…** and **Layout** never fold.
 
-On a phone the space bar is a row of tabs at the bottom of the page: a tab for each module, how many are here ("5
-here"), and **Leave space**.
+On a phone, in a window 640 pixels wide or narrower, and in a popped-out window that narrow, the space bar is a
+row of tabs at the bottom of the page. Left to right:
+
+- the module tabs that fit, each at least 56 pixels wide; the tab you are looking at always stays;
+- **Join**, while you are not on the call;
+- how many are here ("5 here"); tap it for the list, which opens upward;
+- **Rejoin**, in an aside;
+- **…** (**More**), only when something is in it: the tabs that didn't fit, a line, then **Pull participants back**
+  and the modules' own tools. In a narrow pop-out it also holds **Full screen** ("Exit full screen" while on) and
+  **Pop it back in**. Its badge adds up the unread counts of what it holds. If the Conference's tab is in it while
+  you are on the call, **…** shows the green dot, red while your microphone is live;
+- **Leave space**, always inside the window.
+
+In a narrow pop-out the bar sits on the header's second row and slides away with the header when you are idle.
 
 ## What opens when you enter
 

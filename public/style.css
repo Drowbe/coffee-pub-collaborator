@@ -1646,6 +1646,12 @@ body.in-space .subnav {
   width: max-content;
 }
 
+/* A tool's word under its icon (nav-bar.js, `short`: Rejoin call's "Rejoin", the "..."'s "More"): only where the space
+   bar is the phone's tab bar (below). */
+.subnav .nav-short {
+  display: none;
+}
+
 /* The bar's "...": the shared More button (.sdk-more), in the header's colours and the bar's height. */
 .subnav .sdk-more {
   position: relative;
@@ -4088,6 +4094,108 @@ span.message-vis {
 
 .message .chat-object-keep {
   display: inline-flex;
+}
+
+/* A link in a chat message (plan-chat-links.md): under the text, a box with the picture, the title as the link, the
+   description in up to three lines and the site, with Keep or who kept it. Read with the keeper's setting off, one
+   line: the site and Keep (.chat-link-plain). The keeper's colour (data-tint) is on the box's left edge and its icon
+   only, never its text or background; the message stays its author's. */
+.message .chat-link {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--tint, var(--border));
+  border-radius: 8px;
+  background: var(--bg-card);
+  white-space: normal;
+}
+
+.message .chat-link-plain {
+  padding: 4px 8px;
+  background: none;
+}
+
+.message .chat-link-img {
+  flex: none;
+  width: 72px;
+  height: 72px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--shade);
+}
+
+.message .chat-link-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.message .chat-link-title {
+  display: block;
+  overflow: hidden;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message .chat-link-desc {
+  display: -webkit-box;
+  margin: 3px 0 0;
+  overflow: hidden;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.4;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.message .chat-link-site {
+  display: flex;
+  flex-wrap: wrap; /* Keep's words go under the site on a narrow chat, never over it */
+  align-items: center;
+  gap: 2px 6px;
+  min-width: 0;
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.message .chat-link-plain .chat-link-site {
+  margin-top: 0;
+}
+
+.message .chat-link-icon {
+  flex: none;
+  color: var(--tint, var(--text-dim));
+}
+
+.message .chat-link-site-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message .chat-link-keep,
+.message .chat-link-kept {
+  flex: none;
+  margin-left: auto;
+}
+
+.message .chat-link-kept {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-style: italic;
+}
+
+/* A narrow chat: the picture smaller, so the words keep their room. */
+@media (max-width: 640px) {
+  .message .chat-link-img {
+    width: 52px;
+    height: 52px;
+  }
 }
 
 /* A short row above the input, about as tall as the old floating strip. Formatting on the left, the three tools on the right. It does not shrink: the import panel above it gives up space instead, including after that panel is closed. */
@@ -6618,7 +6726,7 @@ body.chat-window {
   }
 
   body.in-space .subnav-modules .modules-menu-item {
-    flex: 1 0 60px;
+    flex: 1 0 56px; /* the least width of a tab, TAB_MIN in nav-bar.js: the tabs that do not fit fold into the "..." */
     flex-direction: column;
     justify-content: center;
     gap: 3px;
@@ -6662,6 +6770,96 @@ body.chat-window {
   body.in-space .subnav-tools {
     align-items: stretch;
     margin-left: 0;
+  }
+
+  /* The left zone takes what the right leaves, and the tabs' strip what Join and Online leave in it (nav-bar.js
+     measures the strip to fold the tabs that do not fit). No gaps and no dividers: every control is a tab. */
+  body.in-space .subnav .nav-left {
+    flex: 1 1 0;
+    align-self: stretch;
+    gap: 0;
+  }
+
+  body.in-space .subnav .nav-right {
+    flex: none;
+    gap: 0;
+  }
+
+  body.in-space .subnav .nav-divider {
+    display: none;
+  }
+
+  /* Rejoin call (in an aside) and the "..." as tabs: the icon over a short word, 48px, before Leave. */
+  body.in-space .subnav #rejoin-call,
+  body.in-space .subnav #subnav-more {
+    position: relative;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    width: auto;
+    height: auto;
+    min-width: 48px;
+    padding: 4px 4px;
+    border-radius: 8px;
+    font-size: 11px;
+    line-height: 1.1;
+  }
+
+  body.in-space .subnav #rejoin-call {
+    display: inline-flex;
+  }
+
+  body.in-space .subnav #subnav-more[hidden] {
+    display: none;
+  }
+
+  body.in-space .subnav #rejoin-call i,
+  body.in-space .subnav #subnav-more i {
+    font-size: 18px;
+  }
+
+  body.in-space .subnav .nav-short {
+    display: block;
+  }
+
+  body.in-space .subnav #subnav-more .badge {
+    top: 2px;
+    right: auto;
+    left: calc(50% + 6px);
+  }
+
+  /* The conference's tab folded while in the call: its in-call dot is on the "..." (nav-bar.js), left of the icon so
+     the folded tabs' count beside it stays readable; green, red while the microphone is live. */
+  body.in-space .subnav #subnav-more.in-call::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    right: calc(50% + 6px);
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--ok);
+    border: 2px solid var(--header-bg);
+  }
+
+  body.in-space .subnav:has(.subnav-modules[data-mic="live"]) #subnav-more.in-call::after {
+    background: var(--danger);
+  }
+
+  /* A narrow popped-out window: the tab bar is the header's second row, its own full-width row under the logo's
+     (not squeezed onto it), and slides away with the header when the window is idle (.popout .topbar). */
+  body.in-space.popout .subnav {
+    flex: 0 0 calc(100% + 20px);
+    min-width: 0; /* a flex item's least width is its content's otherwise, and the tabs would push Leave out */
+    margin: 0 -10px;
+  }
+
+  /* Still inside the header there: the header's own zones' padding and edge margins (.topbar .nav-left, .nav-right)
+     are not the tab bar's, which takes the whole row as on a phone. */
+  body.in-space.popout .subnav > .nav-left,
+  body.in-space.popout .subnav > .nav-right {
+    margin: 0;
+    padding: 0;
   }
 
   body.in-space .subnav #fullscreen-toggle,
@@ -7752,7 +7950,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
     gap: 3px;
     height: auto;
     min-width: 48px;
-    padding: 4px 4px;
+    padding: 4px 2px; /* "Just you" fits the 48px every tab-like control keeps (plan-phone-space-bar.md) */
     border-radius: 8px;
     font-size: 11px;
     line-height: 1.1;
@@ -7773,7 +7971,8 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   }
 
   /* Join the call as a tab, between the module tabs and Online's count: the phone over "Join", the phone in the call's
-     green (the conference's green phone, .fbtn.dial); its accessible name stays "Join the call". */
+     green (the conference's green phone, .fbtn.dial); its accessible name stays "Join the call". It takes its own 48px:
+     the tabs that no longer fit fold into the "..." (nav-bar.js, plan-phone-space-bar.md, decision 3). */
   body.in-space .subnav .nav-left > .join-call {
     align-self: stretch;
     flex-direction: column;
@@ -7804,16 +8003,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
   body.in-space .join-call-more {
     display: none;
-  }
-
-  /* While Join shows, the module tabs give it room: they narrow (their names cut with an ellipsis, as now) rather
-     than run under it. */
-  body.in-space .subnav:has(.join-call:not([hidden])) .subnav-modules {
-    min-width: 0;
-  }
-
-  body.in-space .subnav:has(.join-call:not([hidden])) .subnav-modules .modules-menu-item {
-    flex: 1 1 40px;
   }
 }
 

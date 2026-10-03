@@ -31,6 +31,7 @@ const objectFormat = require('./object-format');
 const { presenceView, belongsToSpace } = require('./presence-view');
 const destinations = require('./destinations');
 const { fetchPreview, fetchImage, cachedImage, PreviewError } = require('./link-preview');
+const { findLink, readFields, CHAT_LINK_LIMITS } = require('./chat-links');
 const objectSync = require('./object-sync');
 const themeFile = require('./theme-file');
 const { productName } = require('./product-name');
@@ -214,6 +215,7 @@ const moduleData = proxyFor('moduleData');
 const moduleHooks = proxyFor('moduleHooks');
 const chatHistory = proxyFor('chatHistory');
 const chatPosts = proxyFor('chatPosts');
+const chatPreviewsAsked = proxyFor('chatPreviewsAsked');
 const moduleLinks = proxyFor('moduleLinks');
 const moduleBus = proxyFor('moduleBus');
 const moduleSettings = proxyFor('moduleSettings');
@@ -4123,13 +4125,159 @@ app.post('/api/spaces/:id/chat', (req, res) => {
   const { who, space } = found;
   const key = who.user ? who.user.key : `guest:${space.id}`;
   if (chatPostLimited(key)) return res.status(429).json({ error: 'too many messages, slow down' });
-  // Always an ordinary public message: private ones are made only by the command and AI routes.
+  // Always an ordinary public message: private ones are made only by the command and AI routes. Its first link
+  // (plan-chat-links.md) is stored as `preview: { url }` at once; nothing is fetched here.
   const message = chatHistory.add(space.id, {
     by: who.user ? who.user.key : 'guest',
     who: who.user ? who.user.displayName : req.body?.name,
     text: req.body?.text,
+    link: findLink(typeof req.body?.text === 'string' ? req.body.text : ''),
   });
   res.json({ message });
+});
+
+// --- links in Chat (plan-chat-links.md, GitHub #158) ----------------------------------------------------------------
+// The keeper: the first module on in the space (in the environment's module order) that provides an action named
+// saveLink taking `url`. Chat never names it. null when none is on.
+function chatKeeper(space) {
+  for (const found of modules.enabledAll()) {
+    const { manifest, entry } = found;
+    if (!manifest.scope.includes('space') || !ModuleManager.onInSpace(entry, manifest, space.id)) continue;
+    const def = manifest.actions.provides.find((a) => a.name === 'saveLink' && a.input && Object.hasOwn(a.input, 'url'));
+    if (def) return { manifest, entry, def };
+  }
+  return null;
+}
+// Whether the keeper's Fetch link previews setting is on for the environment (it must declare one).
+function keeperPreviews(keeper) {
+  if (!keeper || !(keeper.manifest.settings || []).some((s) => s.key === 'linkPreviews')) return false;
+  return moduleSettings.values(keeper.manifest, 'environment', {}).linkPreviews === true;
+}
+// Whether this person may add to the keeper in this space (write access, as POST .../action for a non-local action).
+function mayWriteKeeper(who, keeper, space) {
+  try {
+    busPlace(who, keeper.manifest.id, 'space', space.id, 'write');
+    return true;
+  } catch (err) {
+    if (!err.status) throw err;
+    return false;
+  }
+}
+const CHAT_MESSAGE_ID = /^[a-f0-9]{12}$/;
+
+// The author's page asks for its message's preview after posting (decision 7). The page is read only when every rule
+// holds; otherwise the message comes back unchanged and nothing leaves the server. A read that fails adds nothing, is
+// not retried, and is noted in the activity log, never told to the call.
+app.post('/api/spaces/:id/chat/:messageId/preview', async (req, res) => {
+  const found = chatSpaceFor(req, res, 'chat');
+  if (!found) return;
+  const { who, space } = found;
+  const me = who.user ? who.user.key : null;
+  const messageId = req.params.messageId;
+  const message = CHAT_MESSAGE_ID.test(messageId) ? chatHistory.find(space.id, messageId, me) : null;
+  if (!message) return res.status(404).json({ error: 'no such message' });
+  // A guest's sender is shared by every guest, so a guest is never the author here.
+  if (!me || message.by !== me) return res.status(403).json({ error: 'only the person who posted it can ask for its preview' });
+  const unchanged = () => res.json({ message: chatHistory.shown(space.id, message) });
+  const now = Date.now();
+  if (message.visibility === 'private' || message.kind || !message.preview?.url || message.preview.at) return unchanged();
+  if (now - message.at > CHAT_LINK_LIMITS.PREVIEW_WINDOW_MS || message.at > now + 60000) return unchanged();
+  const keeper = chatKeeper(space);
+  if (!keeper || !keeperPreviews(keeper) || !mayWriteKeeper(who, keeper, space)) return unchanged();
+  for (const [k, t] of chatPreviewsAsked) if (now - t > CHAT_LINK_LIMITS.PREVIEW_WINDOW_MS * 2) chatPreviewsAsked.delete(k);
+  const askedKey = `${space.id}:${message.id}`;
+  if (chatPreviewsAsked.has(askedKey)) return unchanged();
+  const keeperId = keeper.manifest.id;
+  if (overLimit(keeperId, me, 'search')) return res.status(429).json({ error: limitMessage() });
+  chatPreviewsAsked.set(askedKey, now);
+  let fetched;
+  try {
+    fetched = await fetchPreview(message.preview.url);
+  } catch (err) {
+    const why = err instanceof PreviewError ? err.message : 'that page could not be read';
+    noteActivity(keeperId, `could not read a link from the chat: ${why}`, me, scopeKeyOf('space', { spaceId: space.id }));
+    const now2 = chatHistory.find(space.id, message.id, me);
+    return now2 ? res.json({ message: chatHistory.shown(space.id, now2) }) : res.status(404).json({ error: 'no such message' });
+  }
+  // Read into the message as it is now: deleted meanwhile is gone; made private meanwhile keeps its preview, unannounced.
+  const out = chatHistory.setPreview(space.id, message.id, keeperId, readFields(fetched));
+  if (!out) return res.status(404).json({ error: 'no such message' });
+  if (out.changed && out.message.visibility !== 'private') tellChat(space.id, { type: 'chat-preview', id: out.message.id, preview: out.message.preview });
+  res.json({ message: out.message });
+});
+
+// The picture of a message's preview, read here so no browser asks another site (as Research's link-image). 404, with
+// no body, unless the caller can read the message, it has a picture, and the keeper is on here with its setting on:
+// turning Fetch link previews off stops the picture, while a stored title and description still show.
+app.get('/api/spaces/:id/chat/:messageId/image', async (req, res) => {
+  const found = chatSpaceFor(req, res, 'chatRead');
+  if (!found) return;
+  const { who, space } = found;
+  const reader = who.user ? who.user.key : null;
+  const messageId = req.params.messageId;
+  const message = CHAT_MESSAGE_ID.test(messageId) ? chatHistory.find(space.id, messageId, reader) : null;
+  const address = message?.preview?.image;
+  if (!address || typeof address !== 'string') return res.status(404).end();
+  const keeper = chatKeeper(space);
+  if (!keeper || !keeperPreviews(keeper)) return res.status(404).end();
+  try {
+    let image = cachedImage(address);
+    if (!image) {
+      if (overLimit(keeper.manifest.id, reader || 'guest', 'search')) return res.status(429).end();
+      image = await fetchImage(address);
+    }
+    res.set('Content-Type', image.type);
+    res.set('Cache-Control', 'private, max-age=600');
+    res.send(image.body);
+  } catch {
+    res.status(404).end();
+  }
+});
+
+// Keep (decision 4): the message's link saved into the keeper, as the person who kept it. The input is built here from
+// the stored message, never from the page, so a page cannot keep something the message does not say. Once per message
+// (decision 11): a second Keep answers `kept` and asks for nothing.
+app.post('/api/spaces/:id/chat/:messageId/keep', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chat');
+  if (!found) return;
+  const { who, space } = found;
+  const me = who.user ? who.user.key : null;
+  const messageId = req.params.messageId;
+  const message = CHAT_MESSAGE_ID.test(messageId) ? chatHistory.find(space.id, messageId, me) : null;
+  if (!message || !message.preview?.url) return res.status(404).json({ error: 'no such message' });
+  const keeper = chatKeeper(space);
+  if (!keeper) return res.status(404).json({ error: 'nothing here can keep links' });
+  const keeperId = keeper.manifest.id;
+  let provider;
+  try {
+    provider = busPlace(who, keeperId, 'space', space.id, keeper.def.local ? 'read' : 'write');
+  } catch (err) {
+    if (!err.status) throw err;
+    return res.status(403).json({ error: `you cannot add to ${shownModule(keeper.manifest).name || keeper.manifest.name} here` });
+  }
+  if (message.kept) return res.json({ status: 'kept', message: chatHistory.shown(space.id, message) });
+  if (chatPostLimited(me || `guest:${space.id}`)) return res.status(429).json({ error: 'too many messages, slow down' });
+  const p = message.preview;
+  let input;
+  try {
+    input = busInput(who, keeper.def.input, { url: p.url, ...(p.title ? { title: p.title } : {}), ...(p.description ? { excerpt: p.description } : {}) });
+  } catch (err) {
+    if (!err.status) throw err;
+    return res.status(err.status).json({ error: err.message });
+  }
+  const request = moduleBus.request({
+    from: keeperId,
+    provider: keeperId,
+    action: 'saveLink',
+    input,
+    scopeKey: provider.scopeKey,
+    by: me || 'guest',
+    local: keeper.def.local,
+  });
+  const out = chatHistory.setKept(space.id, message.id, { by: me || 'guest', who: who.user ? who.user.displayName : word('guest', { cap: true }), at: Date.now() });
+  if (!out) return res.status(404).json({ error: 'no such message' });
+  if (out.changed && out.message.visibility !== 'private') tellChat(space.id, { type: 'chat-kept', id: out.message.id, kept: out.message.kept });
+  res.json({ status: request.status, message: out.message });
 });
 
 // --- Chat /ai and commands (plan-one-input, #58) ----------------------------------------------------------------
@@ -4290,6 +4438,13 @@ app.get('/api/spaces/:id/actions', (req, res) => {
     if (!manifest.scope.includes('space') || !ModuleManager.onInSpace(entry, manifest, space.id)) continue;
     if (!moduleSpaceAccess(entry, who, space) || !moduleCan(manifest, perms, 'read')) continue;
     const shown = shownModule(manifest);
+    let writable = null;
+    const mayWrite = () => {
+      if (writable === null) {
+        try { busPlace(who, manifest.id, 'space', space.id, 'write'); writable = true; } catch (err) { if (!err.status) throw err; writable = false; }
+      }
+      return writable;
+    };
     for (const a of manifest.actions.provides) {
       actions.push({
         action: `${manifest.id}:${a.name}`,
@@ -4299,6 +4454,9 @@ app.get('/api/spaces/:id/actions', (req, res) => {
         label: a.label,
         input: a.input,
         local: Boolean(a.local),
+        // Whether this caller can carry it out here (plan-chat-links.md, decision 10): read access for a local
+        // action (already true to be listed), write access for any other.
+        may: a.local ? true : mayWrite(),
       });
     }
   }

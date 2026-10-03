@@ -17,6 +17,10 @@
 // both files on load (a write cut short between the two) is taken as private, so nothing is lost and nothing private
 // is ever shown. A chat.json from a build of this release that kept private entries in it is split on load.
 //
+// An ordinary message with a link may carry `preview` ({ url, and after a read module, title, description, image,
+// at }) and `kept` ({ by, who, at }) (plan-chat-links.md). Both are optional fields on the message, in whichever file it
+// lives; an earlier release reads past them, and a message without them reads as before.
+//
 // Once, on the first start after the upgrade, the old private AI threads (DATA_DIR/ai-threads.json) are moved in as
 // private messages (moveThreads); chat-private.json is marked `threadsMoved` and the old file is renamed, never
 // deleted.
@@ -40,8 +44,14 @@ const cleanText = (text, max) => String(text ?? '').replace(/\p{Cc}/gu, (c) => (
 const cleanWho = (who) => String(who || '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 40) || 'someone';
 const isPrivate = (m) => m.visibility === 'private';
 const isAi = (m) => m.kind === 'ai' || m.command === 'ai';
-const copy = (m) => ({ ...m, ...(Array.isArray(m.summaries) ? { summaries: m.summaries.map((s) => ({ ...s })) } : {}) });
+const copy = (m) => ({
+  ...m,
+  ...(Array.isArray(m.summaries) ? { summaries: m.summaries.map((s) => ({ ...s })) } : {}),
+  ...(m.preview && typeof m.preview === 'object' ? { preview: { ...m.preview } } : {}),
+  ...(m.kept && typeof m.kept === 'object' ? { kept: { ...m.kept } } : {}),
+});
 const QUOTE_MAX = 300;
+const MAX_LINK = 500; // a message's link, as Research keeps one (plan-chat-links.md)
 
 class ChatHistory {
   constructor(dataDir) {
@@ -197,8 +207,9 @@ class ChatHistory {
   // `by` is the sender's user key ('guest' for a guest), `who` the name to show. A private message is only ever added
   // for a signed-in person (the routes never pass `private` for a guest). `kind` absent is an ordinary message;
   // `command` (with `command` and, for a module's command, `module`) the echo of a command; `ai` an AI answer, with
-  // `summaries` and `replyTo`.
-  add(spaceId, { by, who, text, visibility, kind, command, module, summaries, replyTo, at }) {
+  // `summaries` and `replyTo`. `link` (plan-chat-links.md): the ordinary message's link, found by the route with
+  // findLink (server/chat-links.js), stored as `preview: { url }`.
+  add(spaceId, { by, who, text, visibility, kind, command, module, summaries, replyTo, at, link }) {
     const ai = kind === 'ai' || command === 'ai';
     const clean = cleanText(text, ai ? MAX_AI_TEXT : MAX_TEXT);
     if (!clean) return null;
@@ -210,6 +221,7 @@ class ChatHistory {
     if (typeof module === 'string' && module) message.module = module.slice(0, 32);
     if (kind === 'ai' && Array.isArray(summaries) && summaries.length) message.summaries = summaries.slice(0, MAX_SUMMARIES);
     if (typeof replyTo === 'string' && ID_RE.test(replyTo)) message.replyTo = replyTo;
+    if (!kind && typeof link === 'string' && link && link.length <= MAX_LINK) message.preview = { url: link };
     if (!this.spaces[spaceId]) this.spaces[spaceId] = [];
     const list = this.spaces[spaceId];
     // Kept in time order: a question asked before its answer came back is placed where its time puts it.
@@ -232,6 +244,31 @@ class ChatHistory {
     if (visibility === 'private') m.visibility = 'private';
     else delete m.visibility;
     this.flush({ publicFirst: visibility === 'public' });
+    return { message: this.shown(spaceId, m), changed: true };
+  }
+
+  // Links in Chat (plan-chat-links.md). Both change one stored message in place, in whichever file it lives (public or
+  // private), and nothing else about it; both are kept through a change of visibility, and go with the message when it
+  // is deleted. null when there is no such message.
+  //
+  // What a read of the message's link found (readFields in server/chat-links.js), with the keeper's id as `module`.
+  // Only once: a message whose preview was already read is left as it is (`changed: false`).
+  setPreview(spaceId, messageId, moduleId, fields) {
+    const m = (this.spaces[spaceId] || []).find((x) => x.id === messageId);
+    if (!m || !m.preview || !m.preview.url) return null;
+    if (m.preview.at) return { message: this.shown(spaceId, m), changed: false };
+    m.preview = { url: m.preview.url, module: String(moduleId || '').slice(0, 32), ...fields };
+    this.save();
+    return { message: this.shown(spaceId, m), changed: true };
+  }
+
+  // The first Keep of the message's link (decision 11): who kept it and when. A message already kept is left as it is.
+  setKept(spaceId, messageId, { by, who, at }) {
+    const m = (this.spaces[spaceId] || []).find((x) => x.id === messageId);
+    if (!m) return null;
+    if (m.kept) return { message: this.shown(spaceId, m), changed: false };
+    m.kept = { by: String(by || 'guest').slice(0, 40), who: cleanWho(who), at: Number.isFinite(at) ? Math.floor(at) : Date.now() };
+    this.flush();
     return { message: this.shown(spaceId, m), changed: true };
   }
 

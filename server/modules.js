@@ -238,6 +238,13 @@ function cleanRefs(rawRefs, id) {
     if (mirror) produced.mirror = mirror;
     const create = cleanCreate(kind, p.create, mirror);
     if (create) produced.create = create;
+    // Offered to a person's calendar feed (plan-google-calendar.md, decision 6): only what its author marks, and only
+    // a dated kind.
+    if (p.feed !== undefined && p.feed !== null) {
+      if (typeof p.feed !== 'boolean') throw new ModuleError(`module.json: refs "${kind}" feed must be true or false`);
+      if (p.feed && !dated) throw new ModuleError(`module.json: refs "${kind}" feed needs "dated"`);
+      if (p.feed) produced.feed = true;
+    }
     refs.produces.push(produced);
   }
   // "*" means whatever other modules share, so a module can link to the items of a module written
@@ -294,7 +301,8 @@ function cleanDated(kind, raw) {
   const wall = ['day', 'time', 'endDay'].some((name) => raw[name] !== undefined);
   const instant = ['start', 'end', 'allDay'].some((name) => raw[name] !== undefined);
   if (wall === instant) throw new ModuleError(`module.json: refs "${kind}" dated is either a day or an instant`);
-  const allowed = wall ? ['title', 'day', 'time', 'endDay'] : ['title', 'start', 'end', 'allDay'];
+  // `repeat` (either shape): the stored field holding a repeat in the Calendar's shape, { every, until }.
+  const allowed = wall ? ['title', 'day', 'time', 'endDay', 'repeat'] : ['title', 'start', 'end', 'allDay', 'repeat'];
   for (const key of Object.keys(raw)) {
     if (!allowed.includes(key)) throw new ModuleError(`module.json: refs "${kind}" dated.${key} is not used`);
   }
@@ -307,12 +315,14 @@ function cleanDated(kind, raw) {
     return raw[name];
   };
   const title = field('title', true);
+  const repeat = field('repeat', false);
   if (wall) {
     const dated = { form: 'wall', title, day: field('day', true) };
     const time = field('time', false);
     const endDay = field('endDay', false);
     if (time) dated.time = time;
     if (endDay) dated.endDay = endDay;
+    if (repeat) dated.repeat = repeat;
     return dated;
   }
   const dated = { form: 'instant', title, start: field('start', true) };
@@ -320,6 +330,7 @@ function cleanDated(kind, raw) {
   const allDay = field('allDay', false);
   if (end) dated.end = end;
   if (allDay) dated.allDay = allDay;
+  if (repeat) dated.repeat = repeat;
   return dated;
 }
 

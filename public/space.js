@@ -9,7 +9,7 @@ import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
-import { attachChatInput, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes } from '/chat-input.js';
+import { attachChatInput, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
@@ -134,6 +134,7 @@ function placeSubnav() {
     moduleChooser.querySelector('#modules-toggle').setAttribute('aria-expanded', 'false');
     window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
   }
+  nav.draw('secondary'); // the space bar folds again in the window it is in now (plan-phone-space-bar.md)
   if (popped) { nav.draw('primary'); return; } // the header's phone menu follows that window too
   if (tabs) document.body.appendChild(subnav);
   else topbarEl.appendChild(subnav);
@@ -1054,9 +1055,11 @@ window.hostModules = canvas; // for debugging and tests
 // The space's actions, in the secondary nav's right zone (built at the top of this file): one group in the bands
 // plan-nav.md sets out (the layout tools core, full screen and pop out secondary, the aside's two utility), and Leave
 // last on its own, a divider before it. Registered here, after the state their `visible` functions read exists.
+// On a phone (plan-phone-space-bar.md) Leave and Rejoin call stay in the tab bar (`phone: 'bar'`), Full screen and Pop
+// out are in the "..." only in a narrow popped-out window (`phone: 'popout'`), and the rest goes into the "...".
 const SPACE_TOOL = { bar: 'secondary', zone: 'right', group: 'space', groupOrder: 1 };
-nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', toggleable: true, active: false, onClick: () => toggleFullscreen() });
-nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
+nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', activeLabel: 'Exit full screen', phone: 'popout', toggleable: true, active: false, onClick: () => toggleFullscreen() });
+nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', activeLabel: 'Pop it back in', phone: 'popout', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
 // The tools whose words are the environment's: registered again (the same elements) once loadBranding() has them.
 function registerWordTools() {
   nameModuleChooser();
@@ -1065,10 +1068,10 @@ function registerWordTools() {
   arrangeSection.querySelector('#clean-up').title = `Tidy the floating ${word('module', { many: true })}`;
   arrangeSection.querySelector('#snap-all').closest('label').title = `Snap every floating ${word('module')} to a grid`;
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
-  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, icon: 'right-from-bracket', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
+  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
 }
 registerWordTools();
-nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin), onClick: () => returnFromAside() });
+nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin', icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin), onClick: () => returnFromAside() });
 // On a phone the header's links are a menu (see brand.js), and the call's settings would otherwise
 // only be reachable from the Conference view's toolbar. This tool, in the menu only (its class, see style.css) and
 // only while in the call, shows the conference and opens them. It sits in the session group, ahead of the clock.
@@ -1910,6 +1913,13 @@ function storedEntry(m, { local = false } = {}) {
   if (kind === 'ai' && Array.isArray(m.summaries)) entry.summaries = m.summaries;
   if (kind === 'ai' && typeof m.replyTo === 'string') entry.replyTo = m.replyTo;
   if (kind === 'ai' && m.question && typeof m.question.text === 'string') entry.question = { who: String(m.question.who || 'someone'), text: m.question.text };
+  // An ordinary message's link (plan-chat-links.md): its preview, and who kept it. Cleaned, whoever handed it in.
+  if (!kind) {
+    const preview = cleanPreview(m.preview);
+    if (preview) entry.preview = preview;
+    const kept = preview ? cleanKept(m.kept) : null;
+    if (kept) entry.kept = kept;
+  }
   return entry;
 }
 // Tell the server what was just said, so the space's history has it. Returns the stored message, or null when it
@@ -1933,8 +1943,13 @@ function publishChat(data) {
 async function sendChatText(text) {
   const stored = await postChatMessage(text);
   if (stored?.id) {
-    addEntry(storedEntry(stored), true);
-    publishChat({ type: 'chat', id: stored.id, text: stored.text, at: stored.at, who: stored.who, by: stored.by });
+    const entry = storedEntry(stored);
+    // Its link's preview is asked for now (below): nothing is drawn under it until that answers.
+    const asking = Boolean(entry.preview && !entry.preview.at && me?.key && me.role !== 'guest' && !guestToken);
+    if (asking) entry.previewAsked = true;
+    addEntry(entry, true);
+    publishChat({ type: 'chat', id: stored.id, text: stored.text, at: stored.at, who: stored.who, by: stored.by, ...(entry.preview ? { preview: { url: entry.preview.url } } : {}) });
+    if (asking) askLinkPreview(entry);
     return;
   }
   try {
@@ -2424,6 +2439,166 @@ function applyVisibilityNotice(data, participant) {
   addEntry(entry, entry.by === me?.key);
 }
 
+// --- links in Chat (plan-chat-links.md, GitHub #158) ------------------------------------------------------------------
+// An ordinary message's first link, kept as the message's `preview`. Once read (the keeper's Fetch link previews on),
+// a box under the text: the picture, the title as the link, the site, the description; else one line with the site.
+// Either way Keep, for someone who may add to the keeper (decision 10), or "Kept by <name>" once kept (decision 11).
+// The box wears the keeper's colour on its edge and icon only; the message stays its author's. No keeper on in the
+// space: nothing under the link (decision 9).
+let chatLinkKeeper = null; // { module, name, may } from GET .../actions, or null
+async function loadLinkKeeper(spaceId) {
+  chatLinkKeeper = null;
+  if (!spaceId || !canDo('chatRead')) return;
+  try {
+    const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
+    const { actions } = await api('GET', `/api/spaces/${encodeURIComponent(spaceId)}/actions${q}`);
+    if (!currentSpace || currentSpace.id !== spaceId) return;
+    chatLinkKeeper = linkKeeper(actions);
+  } catch {
+    chatLinkKeeper = null;
+  }
+  for (const entry of chatLog) if (entry.preview) paintLinkBox(entry);
+}
+function linkKeeperLook(moduleId) {
+  const m = canvas.list().find((x) => x.id === moduleId);
+  const name = m?.name || (chatLinkKeeper?.module === moduleId ? chatLinkKeeper.name : '') || moduleId;
+  return { icon: m && /^[a-z0-9-]{1,40}$/.test(m.icon || '') ? m.icon : 'link', tint: canvas.colorOf ? canvas.colorOf(moduleId) : null, name };
+}
+function linkBox(entry) {
+  const p = entry.preview;
+  if (!p || !p.url || !currentSpace || currentSpace.isAside) return null;
+  const moduleId = p.module || chatLinkKeeper?.module || '';
+  if (!moduleId) return null; // no keeper here (decision 9)
+  const read = Boolean(p.at);
+  if (!read && entry.previewAsked) return null; // its author's page is asking for it now
+  const look = linkKeeperLook(moduleId);
+  const box = document.createElement('div');
+  box.className = read ? 'chat-link' : 'chat-link chat-link-plain';
+  if (/^(gold|blue|green|teal|purple|red|orange|pink)$/.test(look.tint || '')) box.dataset.tint = look.tint;
+  const site = siteName(p.url);
+  if (read && p.image && chatIdOk(entry.id)) {
+    const img = document.createElement('img');
+    img.className = 'chat-link-img';
+    img.alt = '';
+    img.loading = 'lazy';
+    const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
+    img.src = `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/image${q}`; // never the page's own address
+    img.addEventListener('error', () => img.remove()); // left out, not shown broken
+    box.appendChild(img);
+  }
+  const text = document.createElement('div');
+  text.className = 'chat-link-text';
+  if (read) {
+    const title = document.createElement('a');
+    title.className = 'chat-link-title';
+    title.href = p.url;
+    title.target = '_blank';
+    title.rel = 'noopener noreferrer';
+    title.textContent = p.title || site || p.url;
+    text.appendChild(title);
+  }
+  const line = document.createElement('div');
+  line.className = 'chat-link-site';
+  const icon = document.createElement('i');
+  icon.className = `fa-solid fa-${look.icon} fa-fw chat-link-icon`;
+  icon.setAttribute('aria-hidden', 'true');
+  const siteEl = document.createElement('span');
+  siteEl.className = 'chat-link-site-name';
+  siteEl.textContent = site || p.url;
+  line.append(icon, siteEl);
+  const keep = linkKeepEl(entry, look);
+  if (keep) line.appendChild(keep);
+  if (read && p.description) {
+    const desc = document.createElement('p');
+    desc.className = 'chat-link-desc';
+    desc.textContent = p.description;
+    text.append(desc);
+  }
+  text.appendChild(line);
+  box.appendChild(text);
+  return box;
+}
+// Keep, its waiting line, or who kept it; null when this person may not keep and nobody has.
+function linkKeepEl(entry, look) {
+  if (entry.kept) {
+    const s = document.createElement('span');
+    s.className = 'chat-link-kept';
+    s.textContent = `Kept by ${entry.kept.who}`;
+    return s;
+  }
+  if (!chatLinkKeeper?.may || !entry.stored || !chatIdOk(entry.id)) return null;
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'msg-btn chat-link-keep';
+  b.textContent = 'Keep';
+  b.title = `Keep this link in ${look.name}`;
+  b.addEventListener('click', () => keepLink(entry, b));
+  return b;
+}
+function paintLinkBox(entry) {
+  const node = chatMessageNode(entry.id);
+  const body = node?.querySelector(':scope > .message-body');
+  if (!body) return;
+  const had = body.querySelector(':scope > .chat-link');
+  const box = linkBox(entry);
+  if (had && box) had.replaceWith(box);
+  else if (had) had.remove();
+  else if (box) body.appendChild(box);
+}
+// Keep (decision 4): the server saves the stored link into the keeper as this person and marks the message kept at
+// once (its bus request may still wait for the keeper to be open), so this page reads "Kept by" from its answer, and
+// everyone else hears it from the server (chat-kept).
+async function keepLink(entry, btn) {
+  if (!currentSpace || !chatIdOk(entry.id)) return;
+  btn.disabled = true;
+  try {
+    const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
+    const out = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/keep${q}`);
+    const kept = cleanKept(out?.message?.kept);
+    if (kept) entry.kept = kept;
+    else btn.disabled = false;
+    paintLinkBox(entry);
+  } catch (err) {
+    btn.disabled = false;
+    setStatus(err.message || 'Could not keep that.', true);
+  }
+}
+// The author's page asks for its new message's preview (decision 7) and passes the answer on to the call as well as
+// the server doing so; the first copy anyone gets is the one drawn.
+async function askLinkPreview(entry) {
+  let message = null;
+  try {
+    ({ message } = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/preview`));
+  } catch {
+    message = null;
+  }
+  entry.previewAsked = false;
+  const preview = cleanPreview(message?.preview);
+  if (preview?.at && !entry.preview?.at && preview.url === entry.preview?.url) {
+    entry.preview = preview;
+    if (entry.visibility !== 'private' && message.visibility !== 'private') publishChat({ type: 'chat-preview', id: entry.id, preview: message.preview });
+  }
+  paintLinkBox(entry);
+}
+// chat-preview (from the server, or the message's author's page) and chat-kept (the server's only): the first copy
+// only, and a page's notice speaks only for its own messages (previewNoticeTakes, keptNoticeTakes in chat-input.js).
+function applyLinkNotice(data, participant) {
+  if (!canDo('chatRead') || !currentSpace || currentSpace.isAside) return;
+  const from = participant?.identity || '';
+  const entry = chatLog.find((e) => e.id === data.id && !e.blob);
+  if (!entry) return;
+  if (data.type === 'chat-preview') {
+    if (!previewNoticeTakes(entry, data, from)) return;
+    entry.preview = cleanPreview(data.preview);
+    entry.previewAsked = false;
+  } else {
+    if (!keptNoticeTakes(entry, data, from)) return;
+    entry.kept = cleanKept(data.kept);
+  }
+  paintLinkBox(entry);
+}
+// --- end links in Chat ---
+
 // Whether a message is this person's own (its colour in the chat).
 function ownEntry(entry) {
   if (entry.kind === 'ai') return false;
@@ -2465,6 +2640,8 @@ function messageEl(entry, own) {
     body.className = 'message-body text';
     if (entry.kind === 'command') look = chatInput.commandLook(entry);
     body.innerHTML = renderMarkup(entry.kind ? entry.text : stripSummaryMarkers(entry.text));
+    const link = entry.kind ? null : linkBox(entry);
+    if (link) body.appendChild(link);
   }
   const el = frameMessage({
     name,
@@ -3012,10 +3189,11 @@ call
       else if (topic === 'away' && participant && data.type === 'away') updateAwayOverlay(participant.identity, !!data.on, data.message);
       else if (topic === 'chat' && data.type === 'chat' && chatIdOk(data.id)) {
         if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
-        addEntry(storedEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: data.at }), false);
+        addEntry(storedEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: data.at, preview: noticePreview(data) }), false); // only the address its own text has
       } else if (topic === 'chat' && data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, participant);
       else if (topic === 'chat' && data.type === 'chat-visibility') applyVisibilityNotice(data, participant);
       else if (topic === 'chat' && data.type === 'chat-clear-some') applyClearNotice(data, participant);
+      else if (topic === 'chat' && (data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, participant);
       // Delete the chat is the server's word only (DELETE /chat always tells the call); a page's own notice is ignored.
       else if (topic === 'chat' && data.type === 'chat-clear' && !participant) dropSharedChat();
       // A server push (no sending participant): someone pulled me aside.
@@ -3381,6 +3559,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     if (!currentSpace.isAside) {
       renderChatHistory(currentSpace.id);
       if (chatInput) chatInput.loadThread();
+      loadLinkKeeper(currentSpace.id); // who keeps links here, and whether this person may (plan-chat-links.md)
     }
     canvas.updateMenu();
     // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.

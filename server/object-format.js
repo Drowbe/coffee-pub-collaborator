@@ -25,7 +25,7 @@ const MAX_SOURCES = 12;
 
 const BASES = ['general', 'items', 'both'];
 // The kinds (plan-object-handoff.md, "Kinds and their details"). TRAVEL_KINDS are the 13 from before the plan; the prompt
-// lists only those until it is built from the modules' `takes` (plan step 3). KINDS is every kind an AI or an import may
+// lists them when no enabled module declares `takes` (kindsTaken). KINDS is every kind an AI or an import may
 // write. HANDOFF_KINDS pass only between pages (cleanObject's `handoff`), never from an AI or an import.
 const TRAVEL_KINDS = Object.freeze(['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show']);
 const KINDS = [...TRAVEL_KINDS, 'event', 'task', 'poll', 'note', 'link'];
@@ -66,8 +66,6 @@ const DETAILS = deepFreeze({
 });
 const ICONS = ['note', 'lightbulb', 'location-dot', 'calendar-days', 'link', 'star', 'bed', 'hotel', 'utensils', 'ticket', 'train', 'plane', 'car', 'ship', 'bus', 'camera', 'circle-info', 'mug-hot', 'landmark', 'mountain', 'umbrella-beach', 'sun', 'moon', 'bell', 'clock', 'wallet', 'triangle-exclamation', 'circle-check', 'heart', 'users', 'bag-shopping', 'music', 'map', 'suitcase', 'hourglass-half', 'flag', 'magnifying-glass', 'list-check', 'scale-balanced', 'coins'];
 
-const EXAMPLE = '{"icon":"note","kind":"optional","title":"a short title","content":"the text to keep; plain prose, or simple Markdown (headings, **bold**, *italic*, lists, links) if that reads better","tags":["one","word"],"place":{"name":"optional"},"date":"optional YYYY-MM-DD","links":[{"title":"optional","url":"https://..."}]}';
-const EXAMPLE_WITH_PROVENANCE = EXAMPLE.slice(0, -1) + ',"basis":"general","sources":[1]}';
 
 class FormatError extends Error {
   constructor(status, message) {
@@ -268,16 +266,141 @@ function dropWhy(raw) {
   return null;
 }
 
-function objectRule({ fence, noun, max, withProvenance }) {
-  const example = withProvenance ? EXAMPLE_WITH_PROVENANCE : EXAMPLE;
-  const tail = withProvenance
-    ? ` "basis" says where the ${noun} comes from: "general" (your own knowledge), "items" (the material) or "both". "sources" are the item numbers you used. Leave out the optional parts you do not need.`
-    : ` Keep each title under 80 characters and each content under 6000. Links must start with http:// or https://. Leave out the optional parts you do not need, and add no other fields.`;
-  return `single fenced block (exactly one, never one per ${noun}) whose JSON is an array of every ${noun} worth keeping (at most ${max}):\n\`\`\`${fence}\n[${example}]\n\`\`\`\nThe icon is one of: ${ICONS.join(', ')}. If the ${noun} is plainly one of these everyday things, set "kind" to it (leave it out otherwise): ${TRAVEL_KINDS.join(', ')}. When asked for several distinct things (an itinerary, a list of options, "find me three hotels"), put one ${noun} in that array per thing instead of folding them into prose or writing another fence; a single question still gets one ${noun} in the array.${tail}`;
+// What modules take (plan-object-handoff.md, "What modules declare"). A provided action's `takes` lists entries of
+// { kinds, except?, as, permission? }: `kinds` are kinds from the catalogue, "*" for any object (with or without a kind,
+// but a handoff kind only when it is named, and never one in `except`), or "text" for an ordinary message's words, which
+// travel as an object with no kind. These are the format's words; the server still names no module.
+const TAKE_WORDS = Object.freeze(['*', 'text']);
+function entryTakes(entry, kind) {
+  const kinds = Array.isArray(entry && entry.kinds) ? entry.kinds : [];
+  if (!kind) return kinds.includes('*') || kinds.includes('text');
+  if (kinds.includes(kind)) return true;
+  return kinds.includes('*') && !HANDOFF_KINDS.includes(kind) && !(Array.isArray(entry.except) && entry.except.includes(kind));
+}
+// The entries of an action's `takes` that take an object of this kind (undefined: an object with no kind).
+const takersOf = (takes, kind) => (Array.isArray(takes) ? takes.filter((e) => entryTakes(e, kind)) : []);
+
+// The kinds the prompt lists: every kind some enabled module's action names in its `takes` ("*" names none), in the
+// catalogue's order, never a handoff kind; plus the travel kinds while any enabled module still offers the typed keeper
+// from before `takes` (LEGACY_TRAVEL_ACTION, as Chat's old lookup finds it: a title and a kind, and no `takes`).
+const LEGACY_TRAVEL_ACTION = 'acceptSuggestion';
+const isLegacyTravel = (a) => a && a.name === LEGACY_TRAVEL_ACTION && !Array.isArray(a.takes) && a.input && a.input.title && a.input.kind;
+function kindsTaken(manifests) {
+  const named = new Set();
+  for (const m of Array.isArray(manifests) ? manifests : []) {
+    for (const a of (m && m.actions && Array.isArray(m.actions.provides)) ? m.actions.provides : []) {
+      if (isLegacyTravel(a)) for (const k of TRAVEL_KINDS) named.add(k);
+      for (const e of Array.isArray(a.takes) ? a.takes : []) for (const k of Array.isArray(e.kinds) ? e.kinds : []) named.add(k);
+    }
+  }
+  return KINDS.filter((k) => named.has(k));
 }
 
-function instructions(noun) {
-  return `I keep my research in ${productName()}. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun, max: MAX_IMPORT_OBJECTS, withProvenance: false })}\nIf I ask for a file instead, write one JSON file named <something>${FILE_SUFFIX} holding {"format":"objects","formatVersion":1,"objects":[...]}, with the same ${word('object', { many: true })} in that one list. Do not write a separate file or a separate fenced block for each ${noun}.`;
+// An action's `object` input as the bus carries it: what the format keeps from another page (cleanObject with `handoff`,
+// so a picture's `image` is kept). An AI's item numbers mean nothing here, so `sources` is dropped, and `basis` is kept
+// only as given (an AI answer's object keeps it; a chat message's words have none).
+function cleanHandoff(raw) {
+  const kept = cleanObject(raw, { handoff: true });
+  if (!kept) return null;
+  delete kept.sources;
+  if (raw.basis === 'imported' || BASES.includes(raw.basis)) kept.basis = raw.basis;
+  else delete kept.basis;
+  return kept;
+}
+
+const listWords = (list, last = 'or') => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} ${last} ${list[list.length - 1]}`);
+
+// The example in the prompt: Thomas's Southwest flight (#182) when flights are taken, else a plain object.
+const FLIGHT_EXAMPLE = '{"icon":"plane","kind":"flight","title":"Southwest 1234, Chicago to San Jose","content":"optional notes; plain prose, or simple Markdown","date":"2026-11-14","details":{"airline":"Southwest","number":"1234","from":{"code":"MDW","name":"Chicago Midway"},"to":{"code":"SJC","name":"San Jose"},"departs":"2026-11-14T12:50","arrives":"2026-11-14T15:25","reference":"ABC123"},"tags":["one","word"],"place":{"name":"optional"},"links":[{"title":"optional","url":"https://..."}]}';
+function promptExample(kinds, withProvenance) {
+  const example = kinds.includes('flight')
+    ? FLIGHT_EXAMPLE
+    : `{"icon":"note",${kinds.length ? `"kind":"${kinds[0]}",` : ''}"title":"a short title","content":"the text to keep; plain prose, or simple Markdown (headings, **bold**, *italic*, lists, links) if that reads better","date":"optional YYYY-MM-DD","tags":["one","word"],"place":{"name":"optional"},"links":[{"title":"optional","url":"https://..."}]}`;
+  return withProvenance ? `${example.slice(0, -1)},"basis":"general","sources":[1]}` : example;
+}
+
+// What a details field needs said beside its name in the prompt. A `when` is explained once, in the dates line.
+const FIELD_NOTES = { 'flight.minutes': 'time in the air', 'car.from': 'pick-up', 'car.to': 'drop-off', 'car.departs': 'pick-up', 'car.arrives': 'drop-off', 'restaurant.name': "the booking's name", 'cafe.name': "the booking's name", 'bar.name': "the booking's name" };
+const TYPE_NOTES = { flag: 'true or false', options: '2 to 10 short answers' };
+const KIND_NOTES = { hotel: 'any stay: hotel, rental, hostel' };
+
+// One line per kind, or per run of kinds with the same fields ("restaurant, cafe, bar: ..."), for the kinds listed. The
+// first line with a from and a to says how a place is written.
+function detailsLines(kinds) {
+  const lines = [];
+  let pointsSaid = false;
+  const empty = kinds.filter((k) => !Object.keys(DETAILS[k]).length);
+  const groups = [];
+  for (const k of kinds.filter((x) => Object.keys(DETAILS[x]).length)) {
+    const last = groups[groups.length - 1];
+    if (last && JSON.stringify(DETAILS[last[0]]) === JSON.stringify(DETAILS[k])) last.push(k);
+    else groups.push([k]);
+  }
+  for (const group of groups) {
+    const fields = DETAILS[group[0]];
+    const both = fields.from === 'point' && fields.to === 'point';
+    const words = [];
+    let merged = false;
+    for (const [name, type] of Object.entries(fields)) {
+      const note = FIELD_NOTES[`${group[0]}.${name}`] || TYPE_NOTES[type.split(':')[0]];
+      if (both && name === 'from' && !pointsSaid) {
+        pointsSaid = true;
+        merged = true;
+        words.push(`from and to ({"code","name"}${note ? `; ${note} and ${FIELD_NOTES[`${group[0]}.to`]}` : ''})`);
+      } else if (!(merged && name === 'to')) {
+        words.push(note ? `${name} (${note})` : name);
+      }
+    }
+    lines.push(`- ${group.map((k) => (KIND_NOTES[k] ? `${k} (${KIND_NOTES[k]})` : k)).join(', ')}: ${words.join(', ')}`);
+  }
+  if (empty.length) {
+    const link = empty.includes('link');
+    lines.push(`- ${listWords(empty, 'and')}: no details${link ? `; ${empty.length > 1 ? "a link's" : 'its'} address goes in "links"` : ''}.`);
+  }
+  return lines;
+}
+
+// The rule for the objects block, shared by the copied instructions (instructions) and the /ai rule (server/ai.js), so they
+// cannot drift (plan-object-handoff.md, "The prompt"). `kinds`: the kinds to list (kindsTaken), each with its details.
+// `withProvenance`: the /ai answer's "basis" and "sources"; it also cannot stop to ask for a date, so it says which it needs.
+function objectRule({ fence, noun, max, withProvenance, kinds = TRAVEL_KINDS }) {
+  const listed = KINDS.filter((k) => kinds.includes(k));
+  const travel = listed.some((k) => TRAVEL_KINDS.includes(k));
+  const hasDetails = listed.some((k) => Object.keys(DETAILS[k]).length);
+  const lines = [
+    `single fenced block (exactly one, never one per ${noun}), at most ${max}:`,
+    `\`\`\`${fence}`,
+    `[${promptExample(listed, withProvenance)}]`,
+    '\`\`\`',
+    `One ${noun} per thing.${travel ? ` A whole itinerary is one ${noun} for each flight, train, stay, meal, visit and event, in the order they happen; a return flight is its own ${noun}.` : ''} Never fold several into one ${noun}'s text.`,
+  ];
+  if (listed.length) lines.push(`Set "kind" to what the ${noun} is: ${listWords(listed)}. Leave it out only when none fits.`);
+  const missing = withProvenance
+    ? 'If something happens on a day you were not told, leave its date out and say in your answer which dates you still need.'
+    : 'If something happens on a day you were not told, ask me for the date before you write the block; if I do not know, leave the date out.';
+  lines.push(`Dates and times: copy them from what I gave you; never guess a date or a year. ${missing} ${hasDetails
+    ? 'Write a date as YYYY-MM-DD and a date with a time as YYYY-MM-DDTHH:MM, 24-hour, in the local time where it happens, with no time zone. If you know only the time, write HH:MM. Put the day in "date" as well.'
+    : 'Write a date as YYYY-MM-DD.'}`);
+  if (listed.length) {
+    lines.push(hasDetails
+      ? `"details" holds what a booking or plan says. Every field is optional; leave out what you do not know, and write nothing in "content" that is already in "details":`
+      : 'These kinds take no "details":');
+    lines.push(...detailsLines(listed));
+  }
+  const tail = withProvenance
+    ? `"basis" says where the ${noun} comes from: "general" (your own knowledge), "items" (the material) or "both". "sources" are the item numbers you used.`
+    : 'Keep each title under 80 characters and each content under 6000. Links must start with http:// or https://.';
+  // The example's placeholders are not values to copy.
+  const leave = hasDetails
+    ? 'Leave out tags, place and links when you have nothing for them, and content when "details" says it all.'
+    : 'Leave out tags, place and links when you have nothing for them.';
+  lines.push(`The icon is one of: ${ICONS.join(', ')}. ${tail} ${leave} Add no fields other than these.`);
+  return lines.join('\n');
+}
+
+// The copied instructions for another AI (GET /api/objects/format). `kinds`: the kinds the environment's modules take.
+function instructions(noun, { kinds } = {}) {
+  return `I keep my plans and research in ${productName()}. When I ask you to find or plan something, answer as you normally would, then put every thing worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun, max: MAX_IMPORT_OBJECTS, withProvenance: false, kinds })}\nIf I ask for a file instead, write one JSON file named <something>${FILE_SUFFIX} holding {"format":"objects","formatVersion":1,"objects":[...]}, with the same ${word('object', { many: true })} in that one list. Do not write a separate file or a separate fenced block for each ${noun}.`;
 }
 
 // A day and a 24-hour clock as a pattern. An impossible day such as 2026-02-30 still passes; the reader drops it.
@@ -525,11 +648,15 @@ module.exports = {
   KINDS,
   TRAVEL_KINDS,
   HANDOFF_KINDS,
+  TAKE_WORDS,
   DETAILS,
   BASES,
   FormatError,
   cleanObject,
   cleanDetails,
+  cleanHandoff,
+  takersOf,
+  kindsTaken,
   objectRule,
   instructions,
   schema,

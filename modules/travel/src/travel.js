@@ -294,7 +294,7 @@
     let sub = '';
     if (item.kind === 'link') { time = tt(timeOf(summary)); sub = ''; }
     else if (item.kind === 'stay') { time = span === 'end' ? tt(item.checkOutTime) : span === 'middle' ? '' : tt(item.time); sub = span === 'end' ? 'check out' : span === 'middle' ? '' : 'check in'; }
-    else if (item.kind === 'journey') sub = item.time && item.minutes ? `→ ${arriveText(item, '\n')}` : '';
+    else if (item.kind === 'journey') sub = arrivalOf(item) ? `→ ${arriveText(item, '\n')}` : '';
     else sub = lengthText(item.minutes);
     if (line) { time = ''; sub = ''; }
     fill(row, { time, sub });
@@ -889,10 +889,14 @@
 
   const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []);
   const spaceOf = () => (typeof host.space === 'function' ? host.space() : null);
-  // No date, and not placed at a joint: it belongs under "Not on a day yet".
-  const undatedItems = () => plan.list().filter((i) => i.kind !== 'lane' && !i.date && (i.after === null || i.after === undefined));
+  // No date, and not placed at a joint: it belongs under "Not on a day yet". So does one dated on a day the plan cannot show
+  // (past its 60 days, saved before such an object went there itself), rather than showing nowhere.
+  const undatedItems = () => {
+    const shownDays = new Set(plan.days());
+    return plan.list().filter((i) => i.kind !== 'lane' && (i.after === null || i.after === undefined) && (!i.date || !shownDays.has(i.date)));
+  };
   function undatedRow(ul, item) {
-    row(ul, { icon: cardOf(item).badge || 'note-sticky', title: item.title, sub: '', button: canEdit ? 'Edit' : '', id: item.id });
+    row(ul, { icon: cardOf(item).badge || 'note-sticky', title: item.title, sub: item.date ? `Dated ${dayShort(item.date)}, outside the plan` : '', button: canEdit ? 'Edit' : '', id: item.id });
   }
   function buildUndated() {
     const items = undatedItems();
@@ -1071,7 +1075,24 @@
   // --- the item menu, and moving ------------------------------------------------------------------------------
 
   // Where an item is, as the menu's Move to value: its joint on the line, or its day.
-  const placeOf = (item) => { const j = plan.jointOf(item); return j === null ? { date: plan.dayOf(item) } : { after: j }; };
+  // Where an item is, for the place menus: its day, its joint on the line, or (no day and not placed on the line) "Not on a day
+  // yet", which the plan's own reading would put at the head of the line.
+  const placeOf = (item) => {
+    if (item.kind !== 'lane' && !item.date && (item.after === null || item.after === undefined) && !plan.dayOf(item)) return { date: null };
+    const j = plan.jointOf(item);
+    return j === null ? { date: plan.dayOf(item) } : { after: j };
+  };
+  // Set a place menu, keeping a day the plan does not show (past its 60 days) as a choice of its own, so saving does not lose it.
+  function setPlaceMenu(select, place) {
+    const value = placeValue(place);
+    select.value = value;
+    if (select.value === value || !place || !place.date) return;
+    const o = document.createElement('option');
+    o.value = value;
+    o.textContent = `${dayShort(place.date)}, outside the plan`;
+    select.append(o);
+    select.value = value;
+  }
   function openMenu(id, button) {
     const menu = $('item-menu');
     state.menuFor = id;
@@ -1367,7 +1388,10 @@
             label: place.date ? `Put it on ${dayShort(place.date)}` : `Put it here, ${jointLabel(place.after).toLowerCase()}`,
             run: async (ctx) => (ref
               ? plan.addLink(await sharedRef(ref), place)
-              : plan.addItem(plan.fromSuggestion({ title: ctx.summary.title, kind: ctx.summary.kind, content: ctx.summary.text, place: ctx.summary.place && ctx.summary.place.name, ...place }))),
+              : plan.addItem(ctx.summary.details
+                // An object with details (plan-object-handoff.md): its fields filled, on the day it was dropped on.
+                ? plan.fromObject({ ...ctx.summary, content: ctx.summary.content || ctx.summary.text }, place)
+                : plan.fromSuggestion({ title: ctx.summary.title, kind: ctx.summary.kind, content: ctx.summary.text, place: ctx.summary.place && ctx.summary.place.name, ...place }))),
           }];
           if (ref && ref.scope === 'person') {
             const summary = await host.objects.resolve(ref);
@@ -1433,6 +1457,8 @@
   // Under a journey's departure: when it arrives, from its departure time and how long it takes.
   function showArrival() {
     arrivalInto('f-arrives', 'f-time', 'f-hours', 'f-minutes');
+    // The ticket's own arrival says it already.
+    if ($('f-arrives') && $('f-arrival') && $('f-arrival').value) $('f-arrives').hidden = true;
     arrivalInto('f-back-arrives', 'f-back-time', 'f-back-hours', 'f-back-minutes');
   }
   function arrivalInto(outId, timeId, hoursId, minutesId) {
@@ -1562,7 +1588,7 @@
       hide($('f-types'), Boolean(item) && isLink);
       hide($('f-delete'), !item);
       applyType(item ? tileOf(item) || 'sight' : (place && place.tile) || 'sight');
-      $('f-date').value = placeValue(item ? placeOf(item) : place);
+      setPlaceMenu($('f-date'), item ? placeOf(item) : place);
       fillPhaseSelect(item);
       $('f-date').addEventListener('change', syncPhaseField);
       checkoutMin();
@@ -1571,6 +1597,12 @@
       setVal('f-checkOutTime', v.checkOutTime);
       $('f-time').value = v.time || '';
       setLength('f-hours', 'f-minutes', v.minutes);
+      // The arrival as on the ticket. One kept relative to its day ("06:30+1", the journey has no day) shows once it has one,
+      // and is kept as it is until then.
+      const ticket = v.arrives ? (v.arrives.length === 16 ? v.arrives : v.date ? datedArrives(v.date, v.arrives) : '') : '';
+      setVal('f-arrival', ticket);
+      state.editing.arrivesKept = v.arrives && !ticket ? v.arrives : null;
+      state.editing.dayWas = parsePlace($('f-date').value).date; // a change of day moves the ticket's arrival along
       hide($('f-pinned-row'), !isLink);
       if ($('f-pinned')) $('f-pinned').checked = Boolean(v.pinned);
       $('f-title').value = item ? item.title : '';
@@ -1823,6 +1855,8 @@
           fields.toCode = get('f-toCode');
           fields.gate = get('f-gate');
           fields.confirm = get('f-confirm');
+          fields.arrives = get('f-arrival') || (shown('f-arrival') && ed.arrivesKept) || null;
+          if (fields.arrives && !arrivalFits(fields.date, fields.time, fields.arrives)) return fail('The arrival on the ticket can be at most 7 days after it leaves, and at most a day before.');
           // The editor always saves the main leg as a first leg (a return whose outbound is gone becomes a one-way journey).
           fields.legOf = null;
         } else if (t.kind === 'stay') {
@@ -1884,11 +1918,31 @@
   $('editor').addEventListener('submit', (e) => { e.preventDefault(); saveEditor(); });
   // A journey's arrival follows its departure and length as they are typed; a stay's checkout follows its check-in day.
   $('editor').addEventListener('input', (e) => {
-    if (['f-time', 'f-hours', 'f-minutes', 'f-back-time', 'f-back-hours', 'f-back-minutes'].includes(e.target.id)) showArrival();
+    if (['f-time', 'f-hours', 'f-minutes', 'f-arrival', 'f-back-time', 'f-back-hours', 'f-back-minutes'].includes(e.target.id)) showArrival();
     if (['f-title', 'f-back-to', 'f-back-toCode'].includes(e.target.id) && $('f-back-title')) $('f-back-title').placeholder = backTitle();
   });
   $('editor').addEventListener('change', (e) => {
-    if (e.target.id === 'f-date') checkoutMin();
+    if (e.target.id === 'f-date') {
+      checkoutMin();
+      // Another departure day: the ticket's arrival moves by as many days, as a move on the plan does. Off its days, it is kept
+      // relative to the day it left; given a day again, it is dated on that one.
+      const ed = state.editing;
+      const day = parsePlace(e.target.value).date;
+      const arrival = $('f-arrival');
+      if (ed && arrival) {
+        if (arrival.value.length === 16 && ed.dayWas && day && day !== ed.dayWas) {
+          arrival.value = shiftArrives(arrival.value, Math.round((parseYmd(day) - parseYmd(ed.dayWas)) / (24 * 60 * 60 * 1000)));
+        } else if (arrival.value.length === 16 && ed.dayWas && !day) {
+          ed.arrivesKept = relativeArrives(ed.dayWas, arrival.value);
+          arrival.value = '';
+        } else if (!arrival.value && ed.arrivesKept && day) {
+          arrival.value = datedArrives(day, ed.arrivesKept);
+          ed.arrivesKept = null;
+        }
+        showArrival();
+      }
+      if (ed) ed.dayWas = day;
+    }
     if (e.target.id === 'f-roundtrip') roundTripSwitched(e.target);
   });
   let deleteArmedInEditor = false;
@@ -2060,6 +2114,8 @@
   new ResizeObserver(fit).observe(host.rootElement);
 
   plan.provide();
+  // An object handed in that could not go on its day (past the plan's 60 days): say so here too.
+  plan.onSaid((text) => note(text));
   plan.onFromText((text) => {
     if (!canEdit) return;
     const parsed = host.util.parseWhen ? host.util.parseWhen(text) : { title: text };

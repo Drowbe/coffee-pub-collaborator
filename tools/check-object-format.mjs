@@ -51,7 +51,7 @@ test('the /ai rule asks for one array in one objects fence, each one an object',
 
 test('published instructions: one objects array, icons, kinds, 50, file paragraph, no provenance', () => {
   const text = instructions('object');
-  assert.ok(text.startsWith(`I keep my research in ${PRODUCT}. `), 'the product from PRODUCT_NAME');
+  assert.ok(text.startsWith(`I keep my plans and research in ${PRODUCT}. `), 'the product from PRODUCT_NAME');
   assert.match(text, /```objects\n\[/);
   assert.match(text, /exactly one, never one per object/);
   assert.match(text, /at most 50/);
@@ -601,9 +601,12 @@ test('old files, pastes and stored AI answers read exactly as before details', (
     // A stored summary (chat.json, chat-private.json, ai-threads.json) is the same when cleaned again.
     for (const s of a.expect.summaries) assert.equal(JSON.stringify(cleanObject(s, { count: a.count })), JSON.stringify(s), a.name);
   }
-  // Until the prompt is built from the modules' `takes` (plan step 3), the copied instructions and the /ai rule are unchanged.
+  // The prompt as built from the modules' `takes` (plan step 3), regenerated on purpose: with no `takes` declared (the travel
+  // kinds, as before) and with every kind taken (the plan's text).
   assert.equal(instructions('object'), before.prompts.instructions);
   assert.equal(buildPrompt('ask', [], 'Why?').prompt, before.prompts.summaryRule);
+  assert.equal(instructions('object', { kinds: KINDS }), before.prompts.instructionsEveryKind);
+  assert.equal(buildPrompt('ask', [], 'Why?', KINDS).prompt, before.prompts.summaryRuleEveryKind);
 });
 
 test('crafted text cannot stall a read: 120 KB in any field reads in under 100 ms', () => {

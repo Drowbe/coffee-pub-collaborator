@@ -34,8 +34,9 @@ function keptText(summary, { question, sourceNames } = {}) {
   return content + suffix;
 }
 
-// An object's details as "Label: value" lines, kept after its content until each receiving module maps them into its own
-// fields (plan-object-handoff.md, "Nothing is lost"). The label is the field's name in words ("checkIn" is "Check in").
+// An object's details as "Label: value" lines after its content, for a keeper that declares no `takes` and so cannot map
+// them into its own fields (plan-object-handoff.md, "Nothing is lost"). The label is the field's name in words ("checkIn" is
+// "Check in"). A keeper that takes the object gets the object itself (objectKeepInput).
 export function detailLines(details) {
   if (!details || typeof details !== 'object' || Array.isArray(details)) return [];
   const label = (name) => {
@@ -87,6 +88,36 @@ export const TRAVEL_KINDS = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 
 // Which keeper an object goes to: the typed one for a travel kind when there is one, else the note keeper.
 export function keeperFor(summary, { note, suggestion } = {}) {
   return (summary && TRAVEL_KINDS.includes(summary.kind) && suggestion) ? suggestion : note;
+}
+
+// Whether an action's `takes` (GET /api/spaces/:id/actions) takes an object of this kind: the same rule as takersOf in
+// server/object-format.js. A kind named takes it; "*" takes any kind but a picture and those in `except`; with no kind,
+// "*" or "text" (a message's words) does.
+export function takesKind(takes, kind) {
+  return (Array.isArray(takes) ? takes : []).some((e) => {
+    const kinds = Array.isArray(e && e.kinds) ? e.kinds : [];
+    if (!kind) return kinds.includes('*') || kinds.includes('text');
+    if (kinds.includes(kind)) return true;
+    return kinds.includes('*') && kind !== 'image' && !(Array.isArray(e.except) && e.except.includes(kind));
+  });
+}
+
+// The input of a keeper that takes this object whole (its input of type "object"), or '' when it declares no `takes` for
+// the object's kind and gets the older flat fields instead.
+export function objectInputOf(action, summary) {
+  if (!action || !summary || !takesKind(action.takes, summary.kind)) return '';
+  const entry = Object.entries(action.input || {}).find(([, type]) => String(type).replace(/\?$/, '') === 'object');
+  return entry ? entry[0] : '';
+}
+
+// What Keep sends a keeper that takes the object: the object as the format has it (its details too), which the bus checks
+// again and the module maps into its own fields; and the title, for an action that also asks for one on its own.
+export function objectKeepInput(action, field, summary) {
+  const object = { title: oneLine(summary.title, 120) || 'Untitled' };
+  for (const key of ['kind', 'icon', 'content', 'details', 'date', 'tags', 'place', 'links', 'basis']) {
+    if (summary[key] !== undefined && summary[key] !== null && summary[key] !== '') object[key] = summary[key];
+  }
+  return { ...(action.input && action.input.title ? { title: object.title } : {}), [field]: object };
 }
 
 function findKeepers(actions) {
@@ -612,7 +643,10 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     await refreshActions();
     const placer = keeperFor(summary, findKeepers(lastActions));
     if (!placer) { setNote('Nothing here can keep that yet.'); return; }
-    const input = placer.name === 'acceptSuggestion' ? suggestionInput(summary) : keepInput(summary, question);
+    // A keeper that takes this kind gets the object itself; an older one the flat fields, the details as lines of text.
+    const field = objectInputOf(placer, summary);
+    const input = field ? objectKeepInput(placer, field, summary)
+      : placer.name === 'acceptSuggestion' ? suggestionInput(summary) : keepInput(summary, question);
     try {
       const out = await api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/action`, { action: placer.action, input });
       if (btn) {

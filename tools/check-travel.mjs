@@ -8,12 +8,21 @@ import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
 const read = (name) => fs.readFileSync(new URL(`../modules/travel/src/${name}`, import.meta.url), 'utf8');
-const src = read('travel-lib.js') + '\n' + read('travel-lib-plan.js');
+// In the build's order: travel-lib.js, then travel-lib-*.js by name.
+const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' + read('travel-lib-plan.js');
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'phaseLine', 'planName', 'createdDay'];
+const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'phaseLine', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
+// The SDK's own text and time helpers (host.util.plain and host.util.localWhen in public/sdk/host.js), which the plan is given.
+const sdkText = (() => {
+  const win = { addEventListener() {}, location: { search: '' } };
+  win.parent = win;
+  new Function('window', 'document', fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8'))(win, { createElement: (tag) => ({ tag }) });
+  return win.hostText;
+})();
+const { plain, localWhen } = sdkText;
 
 let n = 0;
 const test = (name, fn) => { fn(); n += 1; };
@@ -234,7 +243,7 @@ function fakeHost({ summaries = [], search = [], readOnly = false, phases = [], 
     user: { key: 'u1', name: 'Ann' },
     phases: () => phases,
     space: () => space,
-    util: { id: () => 'id' + (++clock), objectKey, ymd, parseYmd, word: (k) => k },
+    util: { id: () => 'id' + (++clock), objectKey, ymd, parseYmd, word: (k) => k, plain, localWhen },
     storage: {
       get: async (key) => (store.has(key) ? { key, ...store.get(key) } : null),
       list: async (prefix) => [...store].filter(([k]) => k.startsWith(prefix)).map(([key, v]) => ({ key, ...v })),
@@ -1046,6 +1055,361 @@ test('the page: the round trip switch, its mark on a card, and the delete questi
   assert.ok(html.includes('<template id="tpl-card-roundtrip">'));
   for (const words of ['Delete both legs', 'Delete only this leg', 'Remove the return leg', 'Return is before the outbound']) assert.ok(js.includes(words), words);
   assert.ok(!js.includes("e.target === $('editor')"), 'clicking the dimmed area does not close the editor');
+});
+
+// --- the SDK's host.util.plain and host.util.localWhen (public/sdk/host.js; plan-object-handoff.md, step 4) ---------------
+
+test('host.util.plain: Markdown and HTML as plain text, lines kept or made one', () => {
+  assert.equal(plain('**Southwest** 2483'), 'Southwest 2483');
+  assert.equal(plain('# Flight ##\n- MDW to SJC\n* seat 12A\n1. board\n> a quote'), 'Flight\n- MDW to SJC\n- seat 12A\n1. board\na quote');
+  assert.equal(plain('[Manage it](https://southwest.com/x) and ![a map](https://m.example/p.png) and [https://a.example](https://a.example)'), 'Manage it (https://southwest.com/x) and a map and https://a.example');
+  assert.equal(plain('*one* _two_ `three` ~~four~~ __five__'), 'one two three four five');
+  assert.equal(plain('\\*kept\\* and snake_case_word and 2*3*4 and a < b > c'), '*kept* and snake_case_word and 2*3*4 and a < b > c');
+  assert.equal(plain('```\n**raw** in a fence\n```\n---\n|a|b|\n|---|:-:|\n|1|2|'), '**raw** in a fence\na|b\n1|2');
+  assert.equal(plain('<p>Hi&nbsp;<b>there</b><br>next &amp; &#8594; &#x41; &bogus; <https://x.example></p><script>alert(1)</script><style>p{}</style>end'), 'Hi there\nnext & → A &bogus; https://x.example\nend');
+  assert.equal(plain('<ul><li>one</li><li>two</li></ul>'), '- one\n- two');
+  assert.equal(plain('a\n\n\n\n b  \n'), 'a\n\n b');
+  assert.equal(plain('**Southwest**\n\n2483\u0007', { line: true }), 'Southwest 2483');
+  assert.equal(plain(null), '');
+  // An unclosed <script> or <style> loses only its tag, not the words after it; a closed one goes with what it holds.
+  assert.equal(plain('a<script>b'), 'ab');
+  assert.equal(plain('Use a<script> tag here'), 'Use a tag here');
+  assert.equal(plain('x<style>p{}</style>y<script>z'), 'xyz');
+  assert.equal(plain(2483), '2483');
+});
+
+test('host.util.plain takes linear time on long and crafted text (100 KB each)', () => {
+  const crafted = ['*'.repeat(1e5), '_'.repeat(1e5), '['.repeat(1e5), '[a]('.repeat(25000), '!['.repeat(5e4), '<a'.repeat(5e4), '<'.repeat(1e5), '<a>'.repeat(33000), '<script>'.repeat(12500), '**a'.repeat(33000), '`'.repeat(1e5), '~~a'.repeat(33000), '&#'.repeat(5e4), '&amp'.repeat(25000), '#'.repeat(1e5), `# ${' '.repeat(1e5)}x`, `${' '.repeat(1e5)}x`, `x${' '.repeat(1e5)}#x`, `|${' '.repeat(1e5)}x`, `${'- '.repeat(5e4)}x`, '> '.repeat(5e4), '\n'.repeat(1e5), ' \n'.repeat(5e4), '\\*'.repeat(5e4), `${'-|'.repeat(5e4)}x`, 'a_'.repeat(5e4), '*a '.repeat(33000), '[a](b "'.repeat(14000), `${'a'.repeat(1e5)}`];
+  plain('warm up **the** [engine](https://x.example)');
+  for (const text of crafted) {
+    const t = performance.now();
+    plain(text);
+    plain(text, { line: true });
+    const ms = performance.now() - t;
+    assert.ok(ms < 1500, `${JSON.stringify(text.slice(0, 10))} took ${Math.round(ms)} ms`);
+  }
+});
+
+test('host.util.localWhen: a local day and time from a when, the clock as written', () => {
+  assert.deepEqual(localWhen('2026-11-14T12:50'), { date: '2026-11-14', time: '12:50' });
+  assert.deepEqual(localWhen('2026-11-14T12:50:30Z'), { date: '2026-11-14', time: '12:50' }, 'seconds and the zone dropped, the clock kept');
+  assert.deepEqual(localWhen('2026-11-14T12:50+05:30'), { date: '2026-11-14', time: '12:50' });
+  assert.deepEqual(localWhen('2026-11-14 3:25 PM'), { date: '2026-11-14', time: '15:25' });
+  assert.deepEqual(localWhen('12:05 am'), { date: null, time: '00:05' });
+  assert.deepEqual(localWhen('2026-11-14'), { date: '2026-11-14', time: null });
+  assert.deepEqual(localWhen('15:25', '2026-11-14'), { date: '2026-11-14', time: '15:25' }, 'a time alone takes the object\'s day');
+  assert.deepEqual(localWhen('2026-11-15T09:00', '2026-11-14'), { date: '2026-11-15', time: '09:00' }, 'its own day wins');
+  assert.deepEqual(localWhen(undefined, '2026-11-14'), { date: '2026-11-14', time: null }, 'none given: the object\'s day');
+  for (const bad of ['2026-02-30', '2026-11-14T25:00', '24:00', '13:00 PM', 'tomorrow', '', 7, null]) assert.equal(localWhen(bad), null, String(bad));
+  assert.equal(localWhen('nonsense', '2026-11-14'), null, 'a when that cannot be read is no value');
+  assert.equal(localWhen(`${'1'.repeat(1e5)}:00`), null, 'a long text is read only as far as a when can be');
+});
+
+// --- an object handed in (plan-object-handoff.md, step 5) ---------------------------------------------------------------
+
+const util = { plain, localWhen };
+// Thomas's Southwest flight (#182), as the bus hands it over (cleaned by server/object-format.js's cleanHandoff).
+const SOUTHWEST = { kind: 'flight', icon: 'plane', title: 'Southwest **2483**, Chicago to San Jose', content: 'Booked with **points**.\n\n- Wanna Get Away', date: '2026-11-14', basis: 'imported', details: { airline: 'Southwest', number: '2483', from: { code: 'MDW', name: 'Chicago Midway' }, to: { code: 'SJC', name: 'San Jose' }, departs: '2026-11-14T12:50', arrives: '2026-11-14T15:25', minutes: 275, terminal: '1', gate: 'B12', seat: '12A', class: 'Wanna Get Away', reference: 'ABC123' } };
+
+test('fromObject: Thomas\'s Southwest flight fills every flight field, the ticket\'s arrival beside the flight time', () => {
+  const f = lib.objectFields(SOUTHWEST, util);
+  const item = lib.cleanItem({ ...f, id: 'sw' });
+  assert.equal(item.kind, 'journey');
+  assert.equal(item.mode, 'flight');
+  assert.equal(item.title, 'Southwest 2483, Chicago to San Jose', 'the title is plain text');
+  assert.equal(item.operator, 'Southwest');
+  assert.equal(item.number, '2483');
+  assert.equal(item.fromCode, 'MDW');
+  assert.equal(item.from, 'Chicago Midway');
+  assert.equal(item.toCode, 'SJC');
+  assert.equal(item.to, 'San Jose');
+  assert.equal(item.date, '2026-11-14');
+  assert.equal(item.time, '12:50');
+  assert.equal(item.arrives, '2026-11-14T15:25');
+  assert.equal(item.minutes, 275, 'the time in the air, which a ticket\'s two local times cannot give across zones');
+  assert.equal(item.terminal, '1');
+  assert.equal(item.gate, 'B12');
+  assert.equal(item.seat, '12A');
+  assert.equal(item.travelClass, 'Wanna Get Away');
+  assert.equal(item.confirm, 'ABC123');
+  assert.equal(item.notes, 'Booked with **points**.\n\n- Wanna Get Away\n\nExternal source', 'the notes keep their Markdown, which the plan draws');
+  assert.deepEqual(lib.arrivalOf(item), { day: '2026-11-14', time: '15:25', days: 0, ticket: true });
+  assert.equal(pageHelpers('12').arriveText(item), '3:25 PM', 'shown as on the ticket, not 12:50 plus 4 h 35 min');
+  // Without a day: the times stay, the flight is under "Not on a day yet".
+  const undated = lib.cleanItem({ ...lib.objectFields({ ...SOUTHWEST, date: undefined, details: { ...SOUTHWEST.details, departs: '12:50', arrives: '15:25' } }, util), id: 'u' });
+  assert.equal(undated.date, null);
+  assert.equal(undated.time, '12:50');
+  assert.equal(undated.arrives, '15:25');
+  assert.deepEqual(lib.coverDaysOf(undated), [], 'no day of its own: it stretches nothing');
+  // A time alone takes the object's own day; a ticket arriving across the date line says so.
+  assert.equal(lib.objectFields({ ...SOUTHWEST, details: { departs: '12:50', arrives: '15:25' } }, util).arrives, '2026-11-14T15:25');
+  const back = lib.cleanItem({ id: 'b', kind: 'journey', mode: 'flight', title: 'HNL', date: '2026-11-15', time: '01:00', arrives: '2026-11-14T13:00' });
+  assert.equal(pageHelpers('12').arriveText(back), '1:00 PM the day before');
+  assert.equal(lib.cleanItem({ id: 'c', kind: 'journey', mode: 'car', title: 'Car', arrives: '2026-11-14T15:25' }).arrives, null, 'not for a car');
+  assert.equal(lib.cleanItem({ id: 'c', kind: 'journey', mode: 'flight', title: 'F', arrives: '2026-11-14T25:00' }).arrives, null);
+});
+
+test('fromObject: each kind\'s details in the plan\'s own fields, and what has no field as a notes line', () => {
+  const at = (o) => lib.cleanItem({ ...lib.objectFields(o, util), id: 'x' });
+  const train = at({ kind: 'train', title: 'To Porto', details: { operator: 'CP', number: '521', from: { code: 'LIS', name: 'Lisboa Santa Apolonia' }, to: 'Porto Campanha', departs: '2026-10-02T09:00', arrives: '2026-10-02T11:50', platform: '4', carriage: '21', seat: '55', class: 'First', reference: 'CP9' } });
+  assert.deepEqual([train.mode, train.operator, train.number, train.from, train.to, train.date, train.time, train.arrives, train.platform, train.carriage, train.seat, train.travelClass, train.confirm], ['train', 'CP', '521', 'Lisboa Santa Apolonia (LIS)', 'Porto Campanha', '2026-10-02', '09:00', '2026-10-02T11:50', '4', '21', '55', 'First', 'CP9']);
+  const bus = at({ kind: 'bus', title: 'Bus', details: { operator: 'Rede', number: '7', seat: '3', reference: 'R1', from: 'FAO' } });
+  assert.deepEqual([bus.mode, bus.operator, bus.number, bus.seat, bus.confirm, bus.from], ['bus', 'Rede', '7', '3', 'R1', 'FAO']);
+  const ferry = at({ kind: 'ferry', title: 'Ferry', content: 'Deck chairs', details: { operator: 'Naxos', cabin: '4B', seat: '9', departs: '2026-10-03T22:00', minutes: 600 } });
+  assert.deepEqual([ferry.mode, ferry.seat, ferry.minutes, ferry.notes], ['ferry', '9', 600, 'Deck chairs\n\nCabin: 4B']);
+  assert.deepEqual(lib.arrivalOf(ferry), { day: '2026-10-04', time: '08:00', days: 1 });
+  const car = at({ kind: 'car', title: 'Car', details: { company: 'Hertz', from: { code: 'FAO', name: 'Faro airport' }, to: 'Lagos', departs: '2026-10-01T10:00', arrives: '2026-10-04T09:30', class: 'Compact', reference: 'H7' } });
+  assert.deepEqual([car.mode, car.operator, car.pickup, car.dropoff, car.date, car.time, car.minutes, car.confirm, car.arrives, car.notes], ['car', 'Hertz', 'Faro airport (FAO)', 'Lagos', '2026-10-01', '10:00', 3 * 1440 - 30, 'H7', null, 'Class: Compact']);
+  const longCar = at({ kind: 'car', title: 'Car', details: { departs: '2026-10-01T10:00', arrives: '2026-10-20T10:00' } });
+  assert.deepEqual([longCar.minutes, longCar.notes], [null, 'Drop off: 2026-10-20 10:00'], 'more than 7 days: a notes line');
+  const item = at({ kind: 'hotel', title: 'Seaside **Inn**', details: { address: '1 Beach Rd', checkIn: '2026-10-01T15:00', checkOut: '2026-10-04T11:00', roomType: 'Double', guests: 2, reference: 'B55' } });
+  assert.deepEqual([item.kind, item.type, item.title, item.date, item.time, item.checkOut, item.checkOutTime, item.roomType, item.guests, item.address, item.confirm], ['stay', 'hotel', 'Seaside Inn', '2026-10-01', '15:00', '2026-10-04', '11:00', 'Double', 2, '1 Beach Rd', 'B55']);
+  const badOut = at({ kind: 'hotel', title: 'Inn', date: '2026-10-05', details: { checkOut: '2026-10-03' } });
+  assert.deepEqual([badOut.date, badOut.checkOut, badOut.notes], ['2026-10-05', null, 'Check out: 2026-10-03']);
+  const dinner = at({ kind: 'restaurant', title: 'Ramiro', details: { starts: '2026-10-02T20:00', ends: '2026-10-02T22:15', address: 'Av. Almirante Reis', partySize: 4, name: 'Thomas', reference: 'T4' } });
+  assert.deepEqual([dinner.kind, dinner.type, dinner.category, dinner.time, dinner.minutes, dinner.address, dinner.partySize, dinner.reservationName, dinner.confirm], ['stop', 'restaurant', 'eat', '20:00', 135, 'Av. Almirante Reis', 4, 'Thomas', 'T4']);
+  for (const kind of ['cafe', 'bar']) assert.equal(at({ kind, title: 'x', details: { partySize: 2 } }).partySize, 2, kind);
+  for (const kind of ['sight', 'museum', 'tour', 'show']) {
+    const visit = at({ kind, title: 'x', details: { starts: '10:00', minutes: 90, tickets: 3, reference: 'V1', address: 'Here' }, date: '2026-10-03' });
+    assert.deepEqual([visit.type, visit.category, visit.date, visit.time, visit.minutes, visit.admissionCount, visit.confirm, visit.address], [kind, 'do', '2026-10-03', '10:00', 90, 3, 'V1', 'Here'], kind);
+  }
+  const allDay = at({ kind: 'event', title: 'Festival', details: { starts: '2026-10-03T10:00', allDay: true, address: 'The square' } });
+  assert.deepEqual([allDay.kind, allDay.type, allDay.date, allDay.time, allDay.address, allDay.notes], ['stop', 'other', '2026-10-03', null, 'The square', '']);
+  const timed = at({ kind: 'event', title: 'Talk', details: { starts: '2026-10-03T18:00', ends: '2026-10-03T19:30' } });
+  assert.deepEqual([timed.time, timed.minutes], ['18:00', 90]);
+  const note = at({ kind: 'note', title: 'Pack', content: '- passport\n- **charger**', links: [{ title: 'List', url: 'https://x.example/list' }] });
+  assert.deepEqual([note.kind, note.notes], ['note', '- passport\n- **charger**\n\nLinks:\n- List: https://x.example/list']);
+  const none = at({ title: 'Something', content: 'words' });
+  assert.deepEqual([none.kind, none.type, none.notes], ['stop', null, 'words']);
+  assert.throws(() => lib.objectFields({ title: '** **' }, util), /title/);
+  // The details win over the object's own date; the Planner's own drop wins over both.
+  assert.equal(at({ kind: 'sight', title: 'x', date: '2026-10-01', details: { starts: '2026-10-02T09:00' } }).date, '2026-10-02');
+  const dropped = lib.cleanItem({ ...lib.objectFields(SOUTHWEST, util, { date: '2026-11-13' }), id: 'd' });
+  assert.deepEqual([dropped.date, dropped.time], ['2026-11-13', '12:50']);
+  assert.deepEqual(lib.objectFields(SOUTHWEST, util, { after: '' }).after, '');
+});
+
+test('a relative arrival: kept while there is no day, dated on one', () => {
+  assert.equal(lib.relativeArrives('2026-11-12', '2026-11-13T06:30'), '06:30+1');
+  assert.equal(lib.relativeArrives('2026-11-14', '2026-11-13T13:00'), '13:00-1');
+  assert.equal(lib.relativeArrives('2026-11-14', '2026-11-14T15:25'), '15:25');
+  assert.equal(lib.datedArrives('2026-11-30', '06:30+1'), '2026-12-01T06:30');
+  assert.equal(lib.datedArrives('2026-11-14', '15:25'), '2026-11-14T15:25');
+  const kept = lib.cleanItem({ id: 'r', kind: 'journey', mode: 'flight', title: 'R', arrives: '06:30+1' });
+  assert.equal(kept.arrives, '06:30+1');
+  assert.deepEqual(lib.arrivalOf({ ...kept, time: '23:00' }), { day: null, time: '06:30', days: 1, ticket: true });
+  assert.equal(lib.cleanItem({ ...kept, date: '2026-11-30' }).arrives, '2026-12-01T06:30', 'given a day, dated again');
+  for (const bad of ['06:30+8', '06:30-2', '06:30+', '25:00', '06:30+1x']) assert.equal(lib.cleanItem({ ...kept, arrives: bad }).arrives, null, bad);
+  assert.equal(lib.cleanItem({ ...kept, arrives: '06:30+0' }).arrives, '06:30');
+  // The editor: an undated journey's kept arrival is dated on the day picked, and one moved off its days is kept relative.
+  const js = read('travel.js');
+  assert.ok(js.includes('arrival.value = datedArrives(day, ed.arrivesKept);'));
+  assert.ok(js.includes('ed.arrivesKept = relativeArrives(ed.dayWas, arrival.value);'));
+  assert.ok(js.includes(': v.date ? datedArrives(v.date, v.arrives) :'));
+});
+
+test('a ticket\'s arrival is at most 7 days after it leaves and at most a day before; else a notes line', () => {
+  assert.equal(lib.arrivalFits('2026-11-14', '12:50', '2026-11-21T12:50'), true, 'exactly 7 days');
+  assert.equal(lib.arrivalFits('2026-11-14', '12:50', '2026-11-21T12:51'), false);
+  assert.equal(lib.arrivalFits('2026-11-14', '12:50', '2026-11-13T12:50'), true, 'a day before, across the date line');
+  assert.equal(lib.arrivalFits('2026-11-14', '12:50', '2026-11-13T12:49'), false);
+  assert.equal(lib.arrivalFits('2026-11-14', null, '2026-11-21T23:00'), true, 'no departure time: by days');
+  assert.equal(lib.arrivalFits('2026-11-14', null, '2026-11-22T00:10'), false);
+  assert.equal(lib.arrivalFits(null, null, '2027-11-22T00:10'), true, 'no day to leave on yet');
+  const far = lib.cleanItem({ id: 'f', kind: 'journey', mode: 'flight', title: 'F', date: '2026-11-14', time: '12:50', arrives: '2027-01-01T15:25', notes: 'Booked' });
+  assert.deepEqual([far.arrives, far.notes], [null, 'Booked\n\nArrives: 2027-01-01 15:25'], 'cleanItem: +46 days is a notes line');
+  const before = lib.cleanItem({ id: 'f', kind: 'journey', mode: 'flight', title: 'F', date: '2026-11-14', time: '12:50', arrives: '2026-10-01T15:25' });
+  assert.deepEqual([before.arrives, before.notes], [null, 'Arrives: 2026-10-01 15:25'], '-44 days too');
+  const again = lib.cleanItem(far);
+  assert.equal(again.notes, far.notes, 'cleaning again adds nothing');
+  const odd = lib.cleanItem({ ...lib.objectFields({ ...SOUTHWEST, details: { ...SOUTHWEST.details, arrives: '2027-03-01T15:25' } }, util), id: 'o' });
+  assert.equal(odd.arrives, null, 'objectFields: +107 days is not the ticket\'s arrival');
+  assert.ok(odd.notes.includes('Arrives: 2027-03-01 15:25'));
+  assert.deepEqual([...new Set(lib.coverDaysOf(odd))], ['2026-11-14'], 'so it stretches nothing (its flight time lands the same day)');
+  const early = lib.objectFields({ kind: 'train', title: 'T', details: { departs: '2026-11-14T09:00', arrives: '2026-11-12T09:00' } }, util);
+  assert.equal(early.arrives, undefined);
+  assert.ok(early.notes.includes('Arrives: 2026-11-12 09:00'));
+  const js = read('travel.js');
+  assert.ok(js.includes("if (fields.arrives && !arrivalFits(fields.date, fields.time, fields.arrives)) return fail('The arrival on the ticket can be at most 7 days after it leaves, and at most a day before.');"), 'the editor refuses one');
+  assert.ok(js.includes('arrival.value = shiftArrives(arrival.value'), 'and moves it along with the departure day');
+});
+
+test('fitsPlan: a day shows when the plan can stretch to it within 60 days', () => {
+  const days = lib.tripDays({ start: '2026-11-10', end: '2026-11-14' });
+  assert.equal(lib.fitsPlan([], '2027-06-01'), true, 'nothing yet: any day');
+  assert.equal(lib.fitsPlan(days, '2026-11-12'), true);
+  assert.equal(lib.fitsPlan(days, '2027-01-08'), true, 'the 60th day from the first');
+  assert.equal(lib.fitsPlan(days, '2027-01-09'), false);
+  assert.equal(lib.fitsPlan(days, '2026-09-16'), true, 'before, inside the 60');
+  assert.equal(lib.fitsPlan(days, '2026-09-15'), false, 'before, past them');
+  assert.equal(lib.fitsPlan(days, null), true);
+});
+
+const handedIn = async () => {
+  // A full itinerary, as Keep sends it: 10 objects over 4 days, in no particular order, onto a plan with no dates yet.
+  const f = fakeHost();
+  const plan = lib.createPlan(f.t);
+  await plan.load();
+  const heard = [];
+  plan.onSaid((text) => heard.push(text));
+  plan.provide();
+  const itinerary = [
+    SOUTHWEST,
+    { kind: 'hotel', title: 'Hotel Valencia', details: { checkIn: '2026-11-14T16:00', checkOut: '2026-11-17T11:00', address: '355 Santana Row' } },
+    { kind: 'restaurant', title: 'Dinner at Lazy Dog', details: { starts: '2026-11-14T19:30', partySize: 2 } },
+    { kind: 'museum', title: 'Tech Interactive', details: { starts: '2026-11-15T10:00', minutes: 180, tickets: 2 } },
+    { kind: 'cafe', title: 'Coffee', date: '2026-11-15', details: { starts: '08:30' } },
+    { kind: 'tour', title: 'Winchester House', details: { starts: '2026-11-16T13:00' } },
+    { kind: 'car', title: 'Rental car', details: { company: 'Hertz', departs: '2026-11-16T09:00', arrives: '2026-11-17T09:00' } },
+    { kind: 'show', title: 'Comedy night', details: { starts: '2026-11-16T20:00' } },
+    { kind: 'event', title: 'Farmers market', date: '2026-11-15', details: { allDay: true } },
+    { kind: 'flight', title: 'Southwest 1170 home', details: { airline: 'Southwest', number: '1170', from: 'SJC', to: 'MDW', departs: '2026-11-17T14:10', arrives: '2026-11-17T20:15' } },
+  ];
+  for (const object of itinerary) {
+    const out = await f.provided.acceptSuggestion({ title: object.title, object });
+    assert.ok(out.ref && out.ref.kind === 'plan', object.title);
+  }
+  assert.deepEqual(plan.days(), ['2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17']);
+  const by = plan.byDay();
+  const titles = (day) => by.get(day).map((i) => i.title);
+  assert.deepEqual(titles('2026-11-14'), ['Southwest 2483, Chicago to San Jose', 'Hotel Valencia', 'Dinner at Lazy Dog']);
+  assert.deepEqual(titles('2026-11-15'), ['Farmers market', 'Coffee', 'Tech Interactive'], 'the all-day one first, then by time');
+  assert.deepEqual(titles('2026-11-16'), ['Rental car', 'Winchester House', 'Comedy night']);
+  assert.deepEqual(titles('2026-11-17'), ['Southwest 1170 home']);
+  assert.equal(by.get(null).length, 0, 'nothing left without a day');
+  assert.deepEqual(heard, [], 'nothing to say');
+  n += 1;
+
+  // 90 days out: under "Not on a day yet", its day in its notes, and the person told (decision 12).
+  const far = await f.provided.acceptSuggestion({ title: 'x', object: { kind: 'hotel', title: 'Ski lodge', content: 'Two **nights**', details: { checkIn: '2027-02-12T15:00', checkOut: '2027-02-14T10:00' } } });
+  const lodge = plan.list().find((i) => i.title === 'Ski lodge');
+  assert.equal(lodge.date, null);
+  assert.equal(lodge.after, null);
+  assert.equal(lodge.notes.split('\n')[0], 'Dated 2027-02-12, outside the plan');
+  assert.ok(lodge.notes.includes('Two **nights**'));
+  assert.deepEqual(plan.days(), ['2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17'], 'the plan did not grow to its check-out');
+  // No day and no place on the line is what the page lists under "Not on a day yet" (undatedItems in travel.js).
+  assert.match(far.data.note, /^Ski lodge is dated 2027-02-12, outside the plan's 60 days, so it is under Not on a day yet\.$/);
+  assert.deepEqual(heard, [far.data.note]);
+  // The older flat fields go the same way.
+  await f.provided.acceptSuggestion({ title: 'Far dinner', kind: 'restaurant', date: '2027-03-01' });
+  assert.equal(plan.list().find((i) => i.title === 'Far dinner').date, null);
+  assert.equal(heard.length, 2);
+  // A day inside the 60 still stretches the plan, as adding by hand does.
+  await f.provided.acceptSuggestion({ title: 'x', object: { kind: 'sight', title: 'Lick Observatory', date: '2026-11-20' } });
+  assert.equal(plan.days().at(-1), '2026-11-20');
+  n += 1;
+
+  // With a trip set: the trip stretches to an object's day within 60 days; its check-out past them leaves the stay on its day.
+  const g = fakeHost();
+  const plan2 = lib.createPlan(g.t);
+  await plan2.load();
+  await plan2.saveTrip({ title: 'Bay', start: '2026-11-14', end: '2026-11-17' });
+  const said2 = [];
+  plan2.onSaid((text) => said2.push(text));
+  plan2.provide();
+  await g.provided.acceptSuggestion({ title: 'x', object: { kind: 'sight', title: 'Early', date: '2026-11-12' } });
+  assert.equal(plan2.trip.start, '2026-11-12');
+  const long = await g.provided.acceptSuggestion({ title: 'x', object: { kind: 'hotel', title: 'Long stay', details: { checkIn: '2026-11-17T15:00', checkOut: '2027-01-30T10:00' } } });
+  const longStay = plan2.list().find((i) => i.title === 'Long stay');
+  assert.equal(longStay.date, '2026-11-17', 'on its day');
+  assert.deepEqual([longStay.checkOut, longStay.checkOutTime], [null, null], 'its check-out does not stretch the plan');
+  assert.ok(longStay.notes.endsWith('Check out: 2027-01-30 10:00'), 'it is kept in its notes');
+  assert.equal(long.data.note, "Long stay: its check-out, 2027-01-30, is outside the plan's 60 days, so it is in its notes.");
+  assert.equal(plan2.days().length, 6, 'Nov 12 to Nov 17');
+  assert.equal(said2.length, 1);
+  n += 1;
+
+  // QA: the same with NO trip set, where nothing used to say it and the plan quietly grew to 60 days of "Staying at".
+  const h = fakeHost();
+  const plan3 = lib.createPlan(h.t);
+  await plan3.load();
+  const said3 = [];
+  plan3.onSaid((text) => said3.push(text));
+  plan3.provide();
+  await h.provided.acceptSuggestion({ title: 'x', object: { kind: 'sight', title: 'Pier', date: '2026-11-14' } });
+  const lodge3 = await h.provided.acceptSuggestion({ title: 'x', object: { kind: 'hotel', title: 'Long stay', details: { checkIn: '2026-11-17T15:00', checkOut: '2027-01-30T10:00' } } });
+  assert.equal(plan3.trip, null);
+  assert.deepEqual(plan3.days(), ['2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17'], 'the plan stays small');
+  assert.equal(plan3.list().find((i) => i.title === 'Long stay').checkOut, null);
+  assert.match(lodge3.data.note, /its check-out, 2027-01-30, is outside the plan's 60 days/);
+  assert.deepEqual(said3, [lodge3.data.note], 'and the person is told');
+  // A check-out that fits is kept as it is.
+  await h.provided.acceptSuggestion({ title: 'x', object: { kind: 'hotel', title: 'Short stay', details: { checkIn: '2026-11-17T15:00', checkOut: '2026-11-19T10:00' } } });
+  assert.equal(plan3.list().find((i) => i.title === 'Short stay').checkOut, '2026-11-19');
+  assert.equal(said3.length, 1);
+  // A ticket's arrival past the 60 days (a long ferry from the plan's last day) is held the same way.
+  const boat = await h.provided.acceptSuggestion({ title: 'x', object: { kind: 'ferry', title: 'Long ferry', details: { departs: '2027-01-12T09:00', arrives: '2027-01-15T09:00' } } });
+  const ferry3 = plan3.list().find((i) => i.title === 'Long ferry');
+  assert.deepEqual([ferry3.date, ferry3.arrives], ['2027-01-12', null]);
+  assert.ok(ferry3.notes.endsWith('Arrives: 2027-01-15 09:00'));
+  assert.match(boat.data.note, /its arrival, 2027-01-15, is outside the plan's 60 days/);
+  assert.equal(plan3.days().at(-1), '2027-01-12');
+  n += 1;
+
+  // QA (must-fix): a move takes the ticket's dated arrival along, the same days later or earlier.
+  const m = fakeHost();
+  const plan4 = lib.createPlan(m.t);
+  await plan4.load();
+  await plan4.saveTrip({ start: '2026-11-10', end: '2026-11-20' });
+  plan4.provide();
+  await m.provided.acceptSuggestion({ title: 'x', object: SOUTHWEST });
+  const red = await plan4.addItem({ kind: 'journey', mode: 'flight', title: 'Red-eye', date: '2026-11-12', time: '23:00', arrives: '2026-11-13T06:30' });
+  const sw = () => plan4.list().find((i) => i.title.startsWith('Southwest'));
+  await plan4.moveTo(sw().id, '2026-11-18', 0);
+  assert.deepEqual([sw().date, sw().arrives], ['2026-11-18', '2026-11-18T15:25'], 'moveTo, four days later');
+  assert.equal(pageHelpers('12').arriveText(sw()), '3:25 PM', 'not "-4 days"');
+  await plan4.moveTo(red.id, '2026-11-10', 0);
+  const redNow = plan4.list().find((i) => i.id === red.id);
+  assert.deepEqual([redNow.date, redNow.arrives], ['2026-11-10', '2026-11-11T06:30'], 'earlier: still the next morning');
+  await plan4.nudgeItem(sw().id, -1);
+  assert.deepEqual([sw().date, sw().time, sw().arrives], ['2026-11-18', '12:20', '2026-11-18T15:25'], 'earlier in its day: the day stays');
+  await plan4.applyChanges({ [sw().id]: { date: '2026-11-17', order: 1 } });
+  assert.equal(sw().arrives, '2026-11-17T15:25', 'any change of day, as the drag of an untimed one makes');
+  await plan4.updateItem(sw().id, { date: '2026-11-19', arrives: '2026-11-19T16:00' });
+  assert.equal(sw().arrives, '2026-11-19T16:00', 'a change that says its own arrival (the editor) keeps it');
+  await plan4.moveTo(sw().id, null, 0);
+  assert.deepEqual([sw().date, sw().arrives], [null, '16:00'], 'to Not on a day yet: kept relative to the day it left');
+  // QA: a round trip through the line or "Not on a day yet" keeps the arrival's offset from its departure.
+  await plan4.moveTo(red.id, '2026-11-12', 0);
+  await plan4.moveToJoint(red.id, '', 0);
+  const onLine = plan4.list().find((i) => i.id === red.id);
+  assert.deepEqual([onLine.date, onLine.arrives], [null, '06:30+1'], 'on the line: the next morning, whatever day it goes back on');
+  await plan4.moveTo(red.id, '2026-11-15', 0);
+  const back = plan4.list().find((i) => i.id === red.id);
+  assert.deepEqual([back.date, back.arrives, back.notes], ['2026-11-15', '2026-11-16T06:30', ''], 'back on a day: dated again, one day after');
+  assert.equal(pageHelpers('12').arriveText(back), '6:30 AM the next day', 'not "the day before"');
+  await plan4.moveToJoint(red.id, '', 0);
+  await plan4.moveTo(red.id, '2026-11-20', 0);
+  const later = plan4.list().find((i) => i.id === red.id);
+  assert.deepEqual([later.arrives, later.notes], ['2026-11-21T06:30', ''], 'more than 7 days on: no notes line, still the next morning');
+  await plan4.moveTo(sw().id, '2026-11-11', 0);
+  assert.equal(sw().arrives, '2026-11-11T16:00', 'from Not on a day yet, the same');
+  assert.equal(lib.objectFields(SOUTHWEST, util, { date: '2026-11-16' }).arrives, '2026-11-16T15:25', 'the Planner\'s own drop onto another day');
+  assert.equal(lib.shiftArrives('15:25', 3), '15:25', 'a time alone follows its day already');
+  // The Planner's own drop at a joint on the line: relative too.
+  assert.equal(lib.objectFields({ kind: 'flight', title: 'Red-eye', details: { departs: '2026-11-12T23:00', arrives: '2026-11-13T06:30' } }, util, { after: '' }).arrives, '06:30+1');
+  // Over a far day: under "Not on a day yet" with the offset kept.
+  const farFlight = await m.provided.acceptSuggestion({ title: 'x', object: { kind: 'flight', title: 'Far red-eye', details: { departs: '2027-06-01T23:00', arrives: '2027-06-02T06:30' } } });
+  assert.ok(farFlight.data.note);
+  assert.deepEqual(['date', 'arrives'].map((k) => plan4.list().find((i) => i.title === 'Far red-eye')[k]), [null, '06:30+1']);
+  n += 1;
+};
+await handedIn();
+
+test('the page: the ticket\'s arrival field, and objects dated outside the plan under Not on a day yet', () => {
+  const html = read('travel.html');
+  const js = read('travel.js');
+  assert.ok(html.includes('<div class="editor-row" data-types="flight train ferry bus"><label>Arrival on the ticket<input id="f-arrival" name="arrives" type="datetime-local"></label></div>'));
+  assert.ok(html.includes('<label data-types="flight train ferry bus">Seat<input id="f-seat"'), 'a bus or ferry seat survives an edit');
+  assert.ok(html.includes('<label data-types="flight train">Class<select id="f-travelClass"'), 'a train class survives an edit');
+  assert.ok(js.includes("fields.arrives = get('f-arrival')"));
+  assert.ok(js.includes('plan.onSaid((text) => note(text));'));
+  assert.ok(js.includes('(!i.date || !shownDays.has(i.date))'), 'one saved before, dated past the plan, shows under Not on a day yet');
+  const manifest = JSON.parse(fs.readFileSync(new URL('../modules/travel/module.json', import.meta.url), 'utf8'));
+  const accept = manifest.actions.provides.find((a) => a.name === 'acceptSuggestion');
+  assert.equal(accept.input.object, 'object?', 'older callers still send the flat fields');
+  assert.deepEqual(accept.takes.flatMap((e) => e.kinds).sort(), ['bar', 'bus', 'cafe', 'car', 'event', 'ferry', 'flight', 'hotel', 'museum', 'note', 'restaurant', 'show', 'sight', 'tour', 'train']);
 });
 
 console.log(`check-travel: OK (${n} checks)`);

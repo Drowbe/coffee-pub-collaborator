@@ -4271,7 +4271,7 @@ app.post('/api/spaces/:id/chat/:messageId/keep', (req, res) => {
   const p = message.preview;
   let input;
   try {
-    input = busInput(who, keeper.def.input, { url: p.url, ...(p.title ? { title: p.title } : {}), ...(p.description ? { excerpt: p.description } : {}) });
+    input = busInput(who, keeper.def.input, { url: p.url, ...(p.title ? { title: p.title } : {}), ...(p.description ? { excerpt: p.description } : {}) }, takerOf(who, keeper.manifest, keeper.def, space.id));
   } catch (err) {
     if (!err.status) throw err;
     return res.status(err.status).json({ error: err.message });
@@ -4370,7 +4370,7 @@ app.post('/api/spaces/:id/ai', async (req, res) => {
   }
   const askedAt = Date.now();
   try {
-    const out = await ai.run('ask', material, question);
+    const out = await ai.run('ask', material, question, { kinds: promptKinds() });
     if (BASE_DOMAIN && hostRegistry) {
       const slug = currentEnvironment().slug;
       if (slug) hostRegistry.recordAiCall(slug);
@@ -4421,11 +4421,18 @@ app.post('/api/spaces/:id/command', (req, res) => {
   const provider = busPlace(who, chosen.module, 'space', space.id, 'read');
   const def = provider.found.manifest.actions.provides.find((a) => a.name === chosen.action);
   if (!def || !def.local) return res.status(404).json({ error: `that ${word('module')} does not offer that action` });
+  let input;
+  try {
+    input = busInput(who, def.input, { text }, takerOf(who, provider.found.manifest, def, space.id));
+  } catch (err) {
+    if (!err.status) throw err;
+    return res.status(err.status).json({ error: err.message });
+  }
   const request = moduleBus.request({
     from: chosen.module,
     provider: chosen.module,
     action: chosen.action,
-    input: busInput(who, def.input, { text }),
+    input,
     scopeKey: provider.scopeKey,
     by: who.user?.key || 'guest',
     local: true,
@@ -4465,9 +4472,12 @@ app.get('/api/spaces/:id/actions', (req, res) => {
         label: a.label,
         input: a.input,
         local: Boolean(a.local),
+        // What objects it takes (plan-object-handoff.md, "What modules declare"), when it says, each entry with whether
+        // this caller holds its permission.
+        ...(a.takes ? { takes: takesFor(manifest, a, perms) } : {}),
         // Whether this caller can carry it out here (plan-chat-links.md, decision 10): read access for a local
-        // action (already true to be listed), write access for any other.
-        may: a.local ? true : mayWrite(),
+        // action (already true to be listed), write access for any other; and, with `takes`, some entry they may use.
+        may: (a.local ? true : mayWrite()) && (!a.takes || takesFor(manifest, a, perms).some((e) => e.may)),
       });
     }
   }
@@ -4494,11 +4504,19 @@ app.post('/api/spaces/:id/action', (req, res) => {
       return res.status(err.status || 403).json({ error: err.message });
     }
   }
+  // A refusal of the input (a field missing, an object of a kind the action does not take) is its own status, not a 500.
+  let input;
+  try {
+    input = busInput(who, def.input, req.body?.input, takerOf(who, provider.found.manifest, def, space.id));
+  } catch (err) {
+    if (!err.status) throw err;
+    return res.status(err.status).json({ error: err.message });
+  }
   const request = moduleBus.request({
     from: providerId,
     provider: providerId,
     action: name,
-    input: busInput(who, def.input, req.body?.input),
+    input,
     scopeKey: provider.scopeKey,
     by: who.user?.key || 'guest',
     local: def.local,
@@ -5156,14 +5174,18 @@ app.get('/api/objects/search', (req, res) => {
   res.json({ summaries: summaries.slice(0, cap) });
 });
 
-// The published objects format: instructions (this environment's word for object) and the schema.
+// The kinds the objects prompt lists here: those the environment's enabled modules take (plan-object-handoff.md, "The prompt").
+const promptKinds = () => objectFormat.kindsTaken(modules.enabledAll().map(({ manifest }) => manifest));
+
+// The published objects format: instructions (this environment's word for object and the kinds its modules take) and
+// the schema (the whole catalogue).
 app.get('/api/objects/format', (req, res) => {
   if (!moduleViewer(req)) return res.status(401).json({ error: 'sign in first' });
   res.json({
     version: objectFormat.FORMAT_VERSION,
     fence: objectFormat.FENCE,
     fileSuffix: objectFormat.FILE_SUFFIX,
-    instructions: objectFormat.instructions(word('object')),
+    instructions: objectFormat.instructions(word('object'), { kinds: promptKinds() }),
     schema: objectFormat.schema(),
   });
 });
@@ -5513,24 +5535,49 @@ app.get('/api/bus/actions', busRoute((who, req) => {
   const accepts = String(req.query.accepts || '');
   const takes = (input) => !accepts || Object.values(input).some((t) => { const b = t.replace(/\?$/, ''); return b === 'ref' || b === `ref:${accepts}`; });
   const actions = [];
+  // The viewer's role here, for an action's `takes` permissions (plan-object-handoff.md): an action whose every entry
+  // they are refused is left out.
+  const viewerPerms = modulePerms(who, asker.spaceId);
   for (const found of modules.enabledAll()) {
     const { manifest } = found;
     const own = manifest.id === from;
     if (own && req.query.self !== '1') continue;
     for (const a of manifest.actions.provides) {
       if (!takes(a.input)) continue;
+      const taken = a.takes ? takesFor(manifest, a, viewerPerms) : null;
+      if (taken && !taken.some((e) => e.may)) continue;
       if (!own) {
         if (!mayUse(asker.found, manifest.id, a.name)) continue;
         if (!mayAsk(found, a)) continue;
       }
-      actions.push({ action: `${manifest.id}:${a.name}`, module: manifest.id, moduleName: shownModule(manifest).name, icon: shownModule(manifest).icon, name: a.name, label: a.label, input: a.input, ...(a.needs ? { needs: a.needs } : {}), ...(own ? { own: true } : {}) });
+      actions.push({ action: `${manifest.id}:${a.name}`, module: manifest.id, moduleName: shownModule(manifest).name, icon: shownModule(manifest).icon, name: a.name, label: a.label, input: a.input, ...(a.needs ? { needs: a.needs } : {}), ...(taken ? { takes: taken } : {}), ...(own ? { own: true } : {}) });
     }
   }
   return { actions };
 }));
 
-// Check an action's input against what the module said it takes; only those fields come out.
-function busInput(who, shape, input) {
+// An object's kind as a person reads it in a refusal: "a flight", "an event", or "an object with no kind".
+const kindWords = (kind) => (kind ? `${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}` : `${word('object', { a: true })} with no kind`);
+
+// An action's `takes` as a caller sees it: each entry with `may`, whether they hold the entry's permission (true when it
+// names none).
+const takesFor = (manifest, a, perms) => a.takes.map((e) => ({ ...e, may: !e.permission || Boolean(perms[`module.${manifest.id}.${e.permission}`]) }));
+
+// What busInput needs to check an `object` input: the action's `takes`, the module's shown name for a refusal, and
+// whether the person holds one of the module's own permissions in the place the request is for.
+function takerOf(who, manifest, def, spaceId) {
+  let perms = null;
+  return {
+    takes: def.takes,
+    moduleName: shownModule(manifest).name || manifest.name,
+    has: (key) => Boolean((perms || (perms = modulePerms(who, spaceId || null)))[`module.${manifest.id}.${key}`]),
+  };
+}
+
+// Check an action's input against what the module said it takes; only those fields come out. An `object` field is cleaned
+// by the objects format's checker (plan-object-handoff.md, "The bus's object type"); its kind must be one the action's
+// `takes` (`taker`, from takerOf) takes, with that entry's permission when it names one.
+function busInput(who, shape, input, taker) {
   const out = {};
   const given = input && typeof input === 'object' ? input : {};
   for (const [field, type] of Object.entries(shape)) {
@@ -5558,6 +5605,15 @@ function busInput(who, shape, input) {
     } else if (base === 'number') {
       if (typeof v !== 'number' || !Number.isFinite(v)) throw refError(400, `${field} must be a number`);
       out[field] = v;
+    } else if (base === 'object') {
+      if (typeof v !== 'object' || Array.isArray(v)) throw refError(400, `${field} must be ${word('object', { a: true })}`);
+      const kept = objectFormat.cleanHandoff(v);
+      if (v.kind === 'image' && !(kept && kept.details && kept.details.upload)) throw refError(400, `${field} is a picture, so its details.upload must be the id of a file uploaded to the ${word('module')}`);
+      if (!kept) throw refError(400, `${field} needs a title, and content or details`);
+      const entries = objectFormat.takersOf(taker && taker.takes, kept.kind);
+      if (!entries.length) throw refError(400, `${taker ? taker.moduleName : `that ${word('module')}`} cannot take ${kindWords(kept.kind)}`);
+      if (!entries.some((e) => !e.permission || taker.has(e.permission))) throw refError(403, `you may not add ${kindWords(kept.kind)} to ${taker.moduleName} here`);
+      out[field] = kept;
     } else if (base === 'ref' || base.startsWith('ref:')) {
       if (!refShape(v)) throw refError(400, `${field} must be a reference`);
       if (base !== 'ref' && base !== `ref:${v.module}:${v.kind}`) throw refError(400, `${field} must be a ${base.slice(4).replace(':', ' ')}`);
@@ -5584,7 +5640,7 @@ app.post('/api/bus/actions/request', busRoute((who, req) => {
   const objectSpace = sc === 'environment' && takesOwnObject(providerId, def) ? actionObjectSpace(providerId, def, input) : null;
   if (objectSpace) busPlace(who, String(providerId), 'space', objectSpace, 'write');
   else if (!def.local) busPlace(who, String(providerId), sc, space, 'write');
-  const request = moduleBus.request({ from, provider: providerId, action: name, input: busInput(who, def.input, input), scopeKey: provider.scopeKey, by: who.user?.key || 'guest', local: def.local, space: objectSpace });
+  const request = moduleBus.request({ from, provider: providerId, action: name, input: busInput(who, def.input, input, takerOf(who, provider.found.manifest, def, objectSpace || provider.spaceId)), scopeKey: provider.scopeKey, by: who.user?.key || 'guest', local: def.local, space: objectSpace });
   return { id: request.id, status: request.status };
 }));
 
@@ -5943,7 +5999,7 @@ app.post('/api/modules/:id/ai', async (req, res) => {
   }
   try {
     const task = String(req.body?.task || '');
-    const out = await ai.run(task, material, req.body?.question);
+    const out = await ai.run(task, material, req.body?.question, { kinds: promptKinds() });
     // Counted on the registry entry regardless of provider (managed or the environment's own key) -- the plan's
     // aiCallsPerMonth cap is about how much of the environment's own allowance is used, not who is paying for
     // the tokens (plan-environments.md, "Phase 3"). ai.js keeps its own separate per-provider token accounting.
@@ -7138,6 +7194,7 @@ app.use((err, _req, res, _next) => {
   if (err.type === 'entity.too.large') {
     if (/^\/api\/(modules\/[^/]+|spaces\/[^/]+)\/objects\/check$/.test(_req.path)) return res.status(413).json({ error: 'that is over 256 KB; bring it in in parts' });
     if (/^\/api\/modules\/[^/]+\/uploads/.test(_req.path)) return res.status(413).json({ error: 'that file is over the size limit' });
+    if (/^\/api\/(spaces\/[^/]+\/(action|command)|bus\/.+)$/.test(_req.path)) return res.status(413).json({ error: 'that request is over 64 KB' });
     const limit = _req.path.startsWith('/api/modules') ? MODULE_LIMITS.zipBytes : MAX_IMAGE_BYTES;
     return res.status(413).json({ error: `${_req.path.startsWith('/api/modules') ? 'the zip' : 'image'} is larger than ${limit / (1024 * 1024)} MB` });
   }

@@ -474,6 +474,48 @@ test('commands must name a local action that takes text, and cannot be ai', () =
   refuse([{ name: 'r', action: 'addNote' }], [{ name: 'addNote', local: true, input: { title: 'string' } }], /must accept/);
 });
 
+// plan-object-handoff.md, step 2: an action declares the objects it takes, with an `object` input. Stand-in manifests,
+// no module of this repository's.
+test('takes: kinds from the catalogue, "*" with except, "text", "as", a permission of its own; an object input with it', () => {
+  const both = { page: { entry: 'page.html' }, canvas: { entry: 'canvas.html' } };
+  const perms = [{ key: 'create', label: 'Create', default: { member: false } }];
+  const make = (provides) => cleanManifest({ ...base(), scope: ['environment', 'space'], surfaces: both, permissions: perms, actions: { provides } }, files);
+  const travel = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show'];
+  const ok = make([
+    { name: 'createEvent', label: 'Add an event', input: { title: 'string', date: 'date?', object: 'object?' }, takes: [{ kinds: ['*', 'text', '*'], except: travel, as: 'an event' }, { kinds: ['event'], as: 'an event' }] },
+    { name: 'savePhoto', label: 'Keep a photo', input: { object: 'object' }, takes: [{ kinds: ['image'], as: 'an image' }] },
+    { name: 'draftPoll', label: 'Start a poll', local: true, input: { object: 'object' }, takes: [{ kinds: ['poll', 'text'], as: ' a\tpoll ', permission: 'create' }] },
+    { name: 'old', label: 'An action from before', input: { title: 'string' } },
+  ]);
+  const [event, photo, poll, old] = ok.actions.provides;
+  assert.deepEqual(event.takes, [{ kinds: ['*', 'text'], except: travel, as: 'an event' }, { kinds: ['event'], as: 'an event' }], 'duplicates dropped, kept as declared');
+  assert.deepEqual(event.input.object, 'object?');
+  assert.deepEqual(photo.takes, [{ kinds: ['image'], as: 'an image' }], 'a handoff kind may be named');
+  assert.deepEqual(poll.takes, [{ kinds: ['poll', 'text'], as: 'a poll', permission: 'create' }], '"as" cleaned of control characters');
+  assert.equal('takes' in old, false, 'an action without takes has none');
+  // A stored manifest cleaned again on start reads the same.
+  assert.deepEqual(cleanManifest({ ...base(), scope: ['environment', 'space'], surfaces: both, permissions: perms, actions: { provides: ok.actions.provides } }, files).actions.provides, ok.actions.provides);
+  const refuse = (provides, sentence) => assert.throws(() => make(provides), (err) => err instanceof ModuleError && err.message === sentence, sentence);
+  const one = (takes, input = { object: 'object' }) => [{ name: 'take', input, takes }];
+  refuse(one([{ kinds: ['spaceship'], as: 'a ship' }]), 'module.json: action "take" takes "spaceship", which is not a kind of object, "*" or "text"');
+  refuse(one([{ kinds: [], as: 'a ship' }]), 'module.json: action "take" takes needs "kinds": a list of kinds of object, "*" or "text"');
+  refuse(one([]), 'module.json: action "take" takes must be a list of 1 to 10 entries, such as { "kinds": ["note"], "as": "a note" }');
+  refuse(one({ kinds: ['note'] }), 'module.json: action "take" takes must be a list of 1 to 10 entries, such as { "kinds": ["note"], "as": "a note" }');
+  refuse(one(['note']), 'module.json: action "take" takes entries must each be an object with "kinds" and "as"');
+  refuse(one([{ kinds: ['note'] }]), 'module.json: action "take" takes needs "as": the words after "Add to <module> as", up to 40 characters');
+  refuse(one([{ kinds: ['note'], as: 'x'.repeat(41) }]), 'module.json: action "take" takes needs "as": the words after "Add to <module> as", up to 40 characters');
+  refuse(one([{ kinds: ['note'], except: ['flight'], as: 'a note' }]), 'module.json: action "take" takes "except" needs "*" in its kinds');
+  refuse(one([{ kinds: ['*'], except: ['image'], as: 'a note' }]), 'module.json: action "take" takes except "image", which is not a kind of object "*" can take');
+  refuse(one([{ kinds: ['*'], except: 'flight', as: 'a note' }]), 'module.json: action "take" takes "except" must be a list of kinds of object');
+  refuse(one([{ kinds: ['*', 'note'], except: ['note'], as: 'a note' }]), 'module.json: action "take" takes both lists and leaves out "note"');
+  refuse(one([{ kinds: ['note'], as: 'a note', permission: 'nope' }]), 'module.json: action "take" takes permission "nope" must name one of the module\'s own permissions');
+  refuse(one([{ kinds: ['note'], as: 'a note' }], { title: 'string' }), 'module.json: action "take" takes objects, so it needs an input of type "object"');
+  refuse([{ name: 'take', input: { thing: 'object?' } }], 'module.json: action "take" input "thing" is an object, so the action needs "takes"');
+  refuse(one([{ kinds: ['note'], as: 'a note' }], { a: 'object', b: 'object?' }), 'module.json: action "take" can have only one input of type "object"');
+  // Event data has no object type.
+  assert.throws(() => cleanManifest({ ...base(), events: { publishes: [{ name: 'moved', data: { what: 'object' } }] } }, files), /event "moved" data "what" must be one of string, text, date, datetime, boolean, number, ref /);
+});
+
 test('polls ships /v as a local addPoll command', () => {
   const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules/polls/module.json'), 'utf8'));
   assert.deepEqual(raw.commands, [{ name: 'v', label: 'Start a poll', action: 'addPoll', hint: 'the question' }]);

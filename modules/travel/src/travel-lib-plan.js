@@ -195,13 +195,73 @@
       items.set(id, { item, version: saved.version, key: PLAN_PREFIX + id });
       changed();
       if (item.ref) resolveSummaries().catch(() => {});
-      await stretchFor(item);
+      try {
+        await stretchFor(item);
+      } catch (err) {
+        err.item = item; // it is saved; only a day of it is left off
+        throw err;
+      }
       return item;
     }
+
+    // An object handed in from elsewhere (an import, an AI's answer, another module's idea): on its day when the plan can show
+    // that day. A day past the plan's MAX_DAYS would show nowhere, so it goes under "Not on a day yet" with "Dated <day>,
+    // outside the plan" in its notes (plan-object-handoff.md, decision 12). What the person should know is said through
+    // onSaid (the page's note) and comes back with the result.
+    async function addHandedIn(fields) {
+      const said = [];
+      let next = fields;
+      if (next.date && !fitsPlan(days(), next.date)) {
+        said.push(`${next.title} is dated ${next.date}, outside the plan's ${MAX_DAYS} days, so it is under Not on a day yet.`);
+        next = { ...next, date: null, after: null, arrives: relativeArrives(next.date, next.arrives), notes: [`Dated ${next.date}, outside the plan`, next.notes].filter(Boolean).join('\n\n') };
+      }
+      // On its day, its check-out or its ticket's arrival must fit too, else the plan would grow to 60 days of nothing (with no
+      // trip set, quietly): that one is kept as a notes line instead, and said.
+      if (next.date) {
+        const span = [...days(), next.date].sort();
+        const keepAsLine = (line, what, day) => {
+          next = { ...next, notes: [next.notes, line].filter(Boolean).join('\n\n') };
+          said.push(`${next.title}: ${what}, ${day}, is outside the plan's ${MAX_DAYS} days, so it is in its notes.`);
+        };
+        if (isYmd(next.checkOut) && !fitsPlan(span, next.checkOut)) {
+          const out = next.checkOut;
+          keepAsLine(`Check out: ${out}${next.checkOutTime ? ` ${next.checkOutTime}` : ''}`, 'its check-out', out);
+          next = { ...next, checkOut: null, checkOutTime: null };
+        }
+        if (typeof next.arrives === 'string' && next.arrives.length === 16 && !fitsPlan(span, next.arrives.slice(0, 10))) {
+          const arrives = next.arrives;
+          keepAsLine(arrivesLine(arrives), 'its arrival', arrives.slice(0, 10));
+          next = { ...next, arrives: null };
+        }
+      }
+      let item;
+      try {
+        item = await addItem(next);
+      } catch (err) {
+        if (!err.item) throw err;
+        item = err.item;
+        said.push(err.message);
+      }
+      const words = said.join(' ');
+      if (words && tell) tell(words);
+      return { ref: host.objects.make('plan', item.id), ...(words ? { data: { note: words } } : {}) };
+    }
+
+    // A journey moved to another day (dragged, "Move to...", earlier or later) takes its ticket's dated arrival along, the same
+    // number of days later or earlier, unless the change says its own arrival (the editor does). Moved off its days (onto the
+    // line, under "Not on a day yet"), the arrival is kept relative to the day it left ("06:30+1"), and cleanItem dates it
+    // again on whatever day it is put back on.
+    const withArrival = (item, patch) => {
+      if (!patch || patch.arrives !== undefined || !Object.prototype.hasOwnProperty.call(patch, 'date')) return patch;
+      if (!item.date || patch.date === item.date || typeof item.arrives !== 'string' || item.arrives.length !== 16) return patch;
+      if (!isYmd(patch.date)) return { ...patch, arrives: relativeArrives(item.date, item.arrives) };
+      return { ...patch, arrives: shiftArrives(item.arrives, Math.round((parseYmd(patch.date) - parseYmd(item.date)) / DAY_MS)) };
+    };
 
     async function updateItem(id, patch) {
       const cur = items.get(id);
       if (!cur) throw new Error(`that ${host.util.word('object')} is not here any more`);
+      patch = withArrival(cur.item, patch);
       const item = cleanItem({ ...cur.item, ...patch, id });
       if (!item) throw new Error('that needs a title');
       const { id: _drop, ...value } = item;
@@ -360,10 +420,8 @@
         // `kind` is one of the everyday words a journey, a stay or a stop already knows (a flight, a hotel, a sight...); an
         // unrecognised or missing kind is an ordinary stop, the same as addStop. Found by name and input shape, never by
         // whoever asks for it.
-        acceptSuggestion: async (input) => {
-          const item = await addItem(fromSuggestion(input));
-          return { ref: host.objects.make('plan', item.id) };
-        },
+        // With `object` (plan-object-handoff.md): the whole object, its details in the plan's own fields (fromObject).
+        acceptSuggestion: async (input) => addHandedIn(input.object ? fromObject(input.object) : fromSuggestion(input)),
         addFromText: async (input) => {
           if (!composeFromText) throw new Error('the Planner is not open');
           composeFromText(String(input.text || ''));
@@ -373,10 +431,18 @@
     }
     let composeFromText = null;
     function onFromText(fn) { composeFromText = fn; }
+    // Who hears what an object handed in needs said (the page's note).
+    let tell = null;
+    function onSaid(fn) { tell = fn; }
+    // The item an object of the objects format becomes (objectFields in travel-lib-object.js), with host.util's plain text and
+    // local times. `place` ({ date } or { after }): the Planner's own drop, whose day wins over the object's.
+    const fromObject = (object, place) => objectFields(object, host.util, place);
     // The item a suggestion becomes ({ title, kind?, content?, place?, date? }, an AI's summary or a summary dropped here):
     // the right kind when `kind` is one of the everyday words a journey, a stay or a stop already knows, else a stop.
     function fromSuggestion(input) {
-      const title = clip(input.title, 120);
+      // A title is plain text (decision 5); the notes keep their Markdown, which the plan draws.
+      const plainTitle = typeof host.util.plain === 'function' ? host.util.plain(String(input.title ?? ''), { line: true }) : input.title;
+      const title = clip(plainTitle, 120);
       if (!title) throw new Error('that needs a title');
       const fields = { title, ...placeFields(input), notes: clip(input.content, 8000), place: clip(input.place, 120) };
       const kindWord = typeof input.kind === 'string' ? input.kind : '';
@@ -388,7 +454,7 @@
     }
 
     return {
-      refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, saveTrip, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, nudgeItem, addLink, fromSuggestion,
+      refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, onSaid, saveTrip, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, nudgeItem, addLink, fromSuggestion, fromObject,
       get trip() { return trip; },
       get suggestions() { return suggested; },
       versionOf: (id) => (items.get(id) || {}).version,

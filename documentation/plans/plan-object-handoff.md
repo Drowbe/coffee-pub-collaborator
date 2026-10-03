@@ -5,7 +5,7 @@ experience-design builds the modules' mapping, the SDK helpers, Chat's import pr
 content-manager documents.
 
 **Status:** approved by Thomas, 2026-10-03, with every open question of the draft answered as recommended (decisions 8 to
-19); step 1 built 2026-10-03, the rest not built. From two GitHub issues that share one question: what each module accepts,
+19); steps 1-5 built 2026-10-03, the rest not built. From two GitHub issues that share one question: what each module accepts,
 in which shape, and how content maps into its fields.
 
 - #182, the import from another AI. Thomas: "our prompt needs to include instructions for ANYTHING we support
@@ -461,12 +461,59 @@ Nothing stored or linked breaks:
    [api-modules](../api/api-modules.md), "The objects format".
 2. **server-development: declarations.** `takes` and the `object` type in `cleanBus`; `object` in `busInput`; `takes`
    and the permission-aware `may` on `GET .../actions`. `tools/check-modules.mjs` and a curl check.
+   *Built 2026-10-03.* `cleanTakes` and the `object` input type in `server/modules.js`; `cleanHandoff` and `takersOf` in
+   `server/object-format.js`; `busInput`, `takerOf` and `takesFor` in `server/index.js`. A `takes` entry may also carry
+   `except` beside `"*"`, which settles the Calendar question below; `"*"` never covers `image`. `GET /api/bus/actions`
+   also returns `takes` and leaves out an action whose every entry is refused. `POST /api/spaces/:id/action` and
+   `/command` now answer an input refusal with its own status rather than 500, and a body over 64 KB on those routes
+   and the bus routes gets 413. Checked by `tools/check-modules.mjs` and the new `tools/check-object-handoff.mjs`, whose
+   throwaway server with stand-in modules does the curl checks; not verified in a browser. The contract is in
+   [api-modules](../api/api-modules.md), the manifest's `takes` and "Handing an object to a module".
 3. **server-development: the prompt.** `objectRule` from the enabled modules' `takes`; `/ai` and the copied
    instructions; `tools/check-ai.mjs` updated. Needs steps 1 and 2 and at least one module with `takes` (a fixture).
+   *Built 2026-10-03.* `kindsTaken` and the new `objectRule` in `server/object-format.js`, `summaryRule(kinds)` in
+   `server/ai.js`, `promptKinds()` in `server/index.js`. Beyond the text above: while an enabled module still offers the
+   older typed keeper (`acceptSuggestion` with a title and a kind, no `takes`), the 13 travel kinds are listed too; `/ai`
+   cannot ask for a missing date, so it leaves it out and says which dates it needs; `hotel` is described as any stay;
+   the last line is "Leave out tags, place and links when you have nothing for them, and content when "details" says it
+   all." With every kind listed the copied instructions are about 3,600 characters. Checked by `tools/check-ai.mjs`,
+   `tools/check-object-format.mjs` and `tools/check-object-handoff.mjs`; not yet tried with an outside AI.
 4. **experience-design: the SDK.** `host.util.plain`, and a shared `when` reader for modules (`host.util.localWhen`:
    `{ date, time }` from a `when`).
+   *Built 2026-10-03.* Both in `public/sdk/host.js`, and on `window.hostText` beside `esc` and `markdown`. `plain` also
+   reads HTML (tags removed, block tags and `<br>` as line breaks, `<script>` and `<style>` with their contents dropped,
+   entities read; an unclosed `<script>` or `<style>` loses only the tag), keeps a fenced block's lines as written, drops rules and a table's ruled line, and takes
+   `{ line: true }` for a one-line field; every pattern is bounded, so it takes linear time. `localWhen(when, day)` also
+   reads a space for the `T`, a one-digit hour and `am`/`pm`, drops seconds and a zone keeping the clock time, and gives
+   null for an impossible day or time. Checked by `tools/check-travel.mjs`; the contract is in
+   [api-module-sdk](../api/api-module-sdk.md).
 5. **experience-design: the Planner.** `takes`, `fromObject`, the arrival (decision 11), past 60 days (decision 12),
    version bump. `tools/check-travel.mjs`.
+   *Built 2026-10-03, Planner 0.12.0.* `objectFields` in the new `modules/travel/src/travel-lib-object.js` (`fromObject`
+   in `travel-lib-plan.js` hands it the SDK's `plain` and `localWhen`); `takes` on `acceptSuggestion` as flights, trains,
+   buses, ferries and cars "{kind}", hotels "a stay", meals, visits and events "{kind}", notes "a note". Beyond the table
+   above: a non-flight journey's ends are "Name (CODE)"; a car's `class`, a ferry's `cabin`, an `arrives` with a day and
+   no time, and an `ends` or car drop-off that gives no length within 7 days are notes lines; `allDay` drops an event's
+   time; the title, and every details field, are plain, while the notes keep their Markdown. The arrival (decision 11) is
+   the editor's **Arrival on the ticket** (`f-arrival`, flights, trains, ferries and buses); with it set the plan shows it
+   and "the day before" across the date line. **Seat** now shows for buses and ferries and **Class** for trains, so an
+   edit no longer drops a kept value. A dated ticket arrival must be at most 7 days after the departure and at most a day
+   before (`arrivalFits`); outside that it is a notes line, "Arrives: ...", and the editor refuses it. Moving a journey to
+   another day (drag, **Move to**, the editor's day, a drop on a day) moves a dated arrival by the same days. With no day
+   ("Not on a day yet" or the line), `arrives` is stored relative to the departure day, a time with an offset of -1 to +7
+   (`"06:30+1"`, `"13:00-1"`; +0 is the plain time), and is dated again on whatever day the journey goes back on; in the
+   editor, picking a day fills **Arrival on the ticket**. Past 60 days
+   (decision 12) applies to every object handed in, the flat form too (`addHandedIn`); a check-out or dated arrival that
+   would take the plan past 60 days, with or without the trip's dates, is cleared into a notes line ("Check out: ...",
+   "Arrives: ...") and the object stays on its day, which replaces the first build's keeping the check-out and cutting the
+   plan. The person is told through the Planner's note and the action's `data.note`. Two fixes came with it:
+   an object saved before with such a date, which showed nowhere, is listed under "Not on a day yet" with "Dated <day>,
+   outside the plan", and opening an undated object's editor no longer moves it to "Before the first day". Chat's
+   **Keep** sends the object itself to a keeper whose `takes` covers its kind (`objectInputOf`, `objectKeepInput` in
+   `public/chat-input.js`) and the flat fields to one that doesn't; `keeperFor` is unchanged, so `event` and `note` still
+   go to Research's note keeper until step 9, although the Planner takes them. Checked by `tools/check-travel.mjs` (81
+   checks, including the fixes after QA) and `tools/check-chat-page.mjs`; the editor read as code only, not verified in a browser. The contract is in
+   [api-modules](../api/api-modules.md), "The Planner's acceptSuggestion".
 6. **experience-design: Research.** `takes` on `saveNote` and `saveLink`, `savePhoto`, version bump.
 7. **experience-design: To-do, Calendar and Polls.** `createTask` with `due` and `object`; `createEvent` with `object`
    and times; Polls' `draftPoll`; one bump each.
@@ -506,7 +553,8 @@ Nothing stored or linked breaks:
 
 - How `takes` says "any dated object except the travel kinds" for the Calendar (decision 19): an explicit list of the
   other kinds, or a way to exclude kinds. server-development settles it in step 2; it does not change what a person
-  sees.
+  sees. *Settled in step 2 (2026-10-03):* a way to exclude kinds, `except` beside `"*"` in a `takes` entry, such as
+  `{ "kinds": ["*", "text"], "except": [the 13 travel kinds], "as": "an event" }`.
 - Time zones on the Calendar: a local time from an import is read in the zone of the browser that carries the request
   out. A real fix needs zones on events and is its own plan.
 - Dropping a chat message or an object onto a module (the reverse of Send to...).

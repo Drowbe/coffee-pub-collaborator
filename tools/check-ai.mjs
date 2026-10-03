@@ -240,6 +240,14 @@ await test('summaries are checked field by field', () => {
   assert.match(buildPrompt('ask', [], 'Why?').prompt, /```objects\n\[/);
   assert.match(buildPrompt('ask', [], 'Why?').prompt, /exactly one, never one per object/);
   assert.match(buildPrompt('summarise', items, '').prompt, /Always include at least one object: /);
+  // The rule is the copied instructions' lines (plan-object-handoff.md, "The prompt"), with the /ai answer's own date line:
+  // it cannot stop to ask, so it says which dates it needs.
+  const rule = buildPrompt('ask', [], 'Why?').prompt;
+  assert.match(rule, /at most 20:\n```objects\n\[\{"icon":"plane","kind":"flight"/);
+  assert.match(rule, /never guess a date or a year\. If something happens on a day you were not told, leave its date out and say in your answer which dates you still need\./);
+  assert.ok(!rule.includes('ask me for the date'));
+  assert.match(rule, /"basis" says where the object comes from: "general" \(your own knowledge\), "items" \(the material\) or "both"\. "sources" are the item numbers you used\. Leave out tags, place and links when you have nothing for them, and content when "details" says it all\. Add no fields other than these\.$/);
+  assert.ok(!rule.includes('under 6000'), 'the copied instructions\' limits line is theirs');
   const cardBlock = '```card\n{"title":"T","content":"c"}\n```';
   assert.deepEqual(parseSummaries(cardBlock, 1), { text: cardBlock, summaries: [] });
   const packed = parseSummaries('```objects\n[{"title":"A","content":"one"},{"title":"B","content":"two"}]\n```', 1);
@@ -267,6 +275,26 @@ await test('tags and citations', async () => {
   assert.deepEqual((await ai.run('tags', items)).tags, ['hotel', 'station']);
 });
 
+await test('the /ai rule lists the kinds it is given, and the travel kinds when given none', async () => {
+  const travel = buildPrompt('ask', [], 'Why?').prompt;
+  assert.match(travel, /Set "kind" to what the object is: flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, tour or show\./);
+  assert.ok(!/- task: due/.test(travel));
+  const tasks = buildPrompt('ask', [], 'Why?', ['task', 'note']).prompt;
+  assert.match(tasks, /Set "kind" to what the object is: task or note\./);
+  assert.match(tasks, /\n- task: due\n- note: no details\.\n/);
+  assert.ok(!tasks.includes('flight'), 'no flight example or itinerary line without a travel kind');
+  // ai.run passes the environment's kinds to the prompt it sends.
+  const ai = new Ai(fs.mkdtempSync(path.join(os.tmpdir(), 'ai-')), {});
+  ai.set({ enabled: true, provider: 'compatible', address, model: 'local' });
+  reply = 'ok';
+  await ai.run('ask', [], 'which?', { kinds: ['poll'] });
+  const prompt = sent.at(-1).body.messages[1].content;
+  assert.match(prompt, /- poll: options \(2 to 10 short answers\), closes, multiple \(true or false\)/);
+  assert.ok(!prompt.includes('- flight:'));
+  await ai.run('ask', [], 'which?');
+  assert.match(sent.at(-1).body.messages[1].content, /- flight: airline/);
+});
+
 await test('limits and refusals', async () => {
   const ai = new Ai(fs.mkdtempSync(path.join(os.tmpdir(), 'ai-')), {});
   await assert.rejects(ai.run('ask', items, 'why?'), /not set up/);
@@ -286,7 +314,8 @@ await test('limits and refusals', async () => {
   await ai.run('ask', items, 'second?'); // 100 tokens now, over 60
   await assert.rejects(ai.run('ask', items, 'third?'), (e) => e instanceof AiError && e.status === 429);
   assert.match(buildPrompt('ask', [{ title: 'a"b', text: 'x'.repeat(20000) }], 'q').prompt, /title="a'b"/);
-  assert.ok(buildPrompt('ask', [{ title: 'a', text: 'x'.repeat(20000) }], 'q').prompt.length < 10500);
+  // An item is cut to 8000 characters; the objects rule around it grew with the kinds' details (plan-object-handoff.md, step 3).
+  assert.ok(buildPrompt('ask', [{ title: 'a', text: 'x'.repeat(20000) }], 'q').prompt.length < buildPrompt('ask', [], 'q').prompt.length + 8200);
 });
 
 await test('a non-ok answer: the status and the service\'s own message reach the caller, never the key or the prompt', async () => {

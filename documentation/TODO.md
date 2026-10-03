@@ -47,7 +47,7 @@ same setup.
 - **Two-zone nav** (#152, #153, [plan-two-zone-nav](plans/plan-two-zone-nav.md)): built 2026-10-02, steps 1 to 5. Open:
   - For Thomas, choices the plan made that he may overrule: on a phone the top bar shows the page's name as a plain label; a module's tools always go in the space bar's right zone (`zone` ignored); the **Manage** link at the start of the page bar on pages that belong to Manage.
   - The Profile page's bar reads "Profile" beside a tab also named **Profile**.
-  - A popped-out window narrower than 641 pixels has a cramped space bar, with **Leave space** off the edge. It was like this before the two-zone nav.
+  - A popped-out window narrower than 641 pixels has a cramped space bar, with **Leave space** off the edge. It was like this before the two-zone nav. Planned in #160 ([plan-phone-space-bar](plans/plan-phone-space-bar.md)).
 - **The Layout menu** ([plan-layout-menu](plans/plan-layout-menu.md)): steps 1 and 2 built 2026-10-02 (the Arrange section and **Clean up**). Saved layouts are #161, [plan-saved-layouts](plans/plan-saved-layouts.md), approved 2026-10-03, four steps, none built; step 2 needs #156's step 1.
 - **Docked limit** (#156, [plan-docked-limit](plans/plan-docked-limit.md)): approved 2026-10-03, three steps, none built. Limits docked modules by the window's width; extras float and dock again when the window widens. Comes before saved layouts' step 2.
 
@@ -60,6 +60,10 @@ same setup.
 - A rollup on each space's tile on home, starting with the Planner, chosen per space, in place of the removed Trips tile ([plan-dashboard](plans/plan-dashboard.md), phase 5): a direction from Thomas (2026-10-02) with open questions, not yet a contract.
 - Rename the dashboard's widgets to **tiles** (Thomas, 2026-09-30): "widget" now means a live piece in the header's bars, such as who is here. A renaming plan with a data migration comes next; not written or built.
 - The call-name fallback goes: `server/call-names.js` still reads the call names from before Names step 3 ([plan-names](plans/plan-names.md), step 10).
+- #158 Links in Chat shown as a preview with **Keep**, saving into the space's Research ([plan-chat-links](plans/plan-chat-links.md)): approved 2026-10-03, five steps, none built.
+- #166 **Clear…** in Chat, by type of message ([plan-chat-clear](plans/plan-chat-clear.md)): approved 2026-10-03, none built.
+- #160 The space bar on a phone and in a narrow pop-out: a module's tools and the tabs that do not fit go in the **…**, Leave always in the window ([plan-phone-space-bar](plans/plan-phone-space-bar.md)): approved 2026-10-03, three steps, none built.
+- #42 Google Calendar ([plan-google-calendar](plans/plan-google-calendar.md)): approved 2026-10-03, seven steps, none built. Part 1 is a private address per person that a calendar app subscribes to; Part 2 shows a person's other calendars, from a pasted address, in the Calendar. Supersedes [plan-google-sync](plans/plan-google-sync.md).
 - #132 A document editor (ProseMirror) for the long prose fields: research notes and answers, plan notes, to-dos, places, and calendar details. Markdown stays what is stored. Chat stays a textarea. About two weeks. Building waits on a go-ahead.
 
 ## Verify in a real call
@@ -154,7 +158,7 @@ same setup.
 - #47 Reminders for people who are away.
 - #40 A Journal module.
 - #41 Currency conversion beside a trip's currency.
-- #42 Google Calendar sync.
+- #42 Google Calendar sync: planned, see Planned.
 - #43 Installing the Font Awesome Pro package.
 - #44 A map in the Planner.
 - #45 Reading booking confirmation emails into the Planner.

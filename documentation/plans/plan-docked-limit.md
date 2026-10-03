@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides how many modules a window can hold docked and what happens to the rest, and the session that builds it: experience-design (`public/snap-grid.js`, `public/canvas.js`, `public/space.js`, `public/style.css`, `tools/check-canvas.mjs`). No server change.
 
-**Status:** approved by Thomas, 2026-10-03, taking all five of the draft's recommendations and its three own choices (decisions 1 to 8); nothing built yet. From GitHub #156, found by QA on 2026-10-02: at a window 760 px wide with six modules docked, the docked columns overflow, the chat column is pushed off screen and its message box shrinks to about 20 px. Thomas: "perhaps we add some rigor around number of panels [docked modules] based on a user's viewport? This would not be an option in floating mode." The issue adds that it applies to each person's own canvas only, that a space's Opens with must still open sensibly on a small window, and that phones are unaffected. [plan-saved-layouts](plan-saved-layouts.md) (approved 2026-10-03) runs a loaded layout's docked modules through this plan's rule, so the rule is one pure function both use.
+**Status:** approved by Thomas, 2026-10-03, taking all five of the draft's recommendations and its three own choices (decisions 1 to 8); built 2026-10-03. From GitHub #156, found by QA on 2026-10-02: at a window 760 px wide with six modules docked, the docked columns overflow, the chat column is pushed off screen and its message box shrinks to about 20 px. Thomas: "perhaps we add some rigor around number of panels [docked modules] based on a user's viewport? This would not be an option in floating mode." The issue adds that it applies to each person's own canvas only, that a space's Opens with must still open sensibly on a small window, and that phones are unaffected. [plan-saved-layouts](plan-saved-layouts.md) (approved 2026-10-03) runs a loaded layout's docked modules through this plan's rule, so the rule is one pure function both use.
 
 ## What it is today
 
@@ -33,10 +33,10 @@ The issue fixes the aim: limit how many modules can be docked by the width of th
 
 In `public/snap-grid.js`, beside `MIN_W` and the grid's arithmetic, so `tools/check-canvas.mjs` can run it and [plan-saved-layouts](plan-saved-layouts.md)'s load (its step 4) calls the same thing:
 
-- `DOCK_MIN = 240` (a fixed column's least width, moved here from `canvas.js`), `FLEX_MIN = 280` (the flexible column's least width, today's `VIDEO_MIN`), `NARROW = 640`.
-- `dockLimit(width)`: how many columns a canvas `width` px wide holds. Below `NARROW`, no limit (the tab bar shows one at a time). Otherwise `1 + Math.floor((width - FLEX_MIN) / DOCK_MIN)`: the flexible column at its least plus as many fixed columns at their least as fit. For example 640 px holds 2, 760 px holds 3, 1000 px holds 4, 1280 px holds 5, 1600 px holds 6 and 1920 px holds 7.
+- `DOCK_MIN = 240` (a fixed column's least width, moved here from `canvas.js`), `FLEX_MIN = 280` (the flexible column's least width, today's `VIDEO_MIN`), `NARROW = 640` (the phone layout's width, matching the space bar's `max-width: 640px`).
+- `dockLimit(width)`: how many columns a canvas `width` px wide holds. At 640 px and below (`width <= NARROW`), no limit: the tab bar shows one at a time. From 641 px, `1 + Math.floor((width - FLEX_MIN) / DOCK_MIN)`: the flexible column at its least plus as many fixed columns at their least as fit. For example 641 px holds 2, 760 px holds 3, 1000 px holds 4, 1280 px holds 5, 1600 px holds 6 and 1920 px holds 7.
 - `fitDock(width, columns)`: `columns` is every module that wants a column, in column order, each `{ id, width, flex, keep }` (`flex` for the conference, `keep` for the conference and the chat). Answers `{ docked, waiting, widths }`:
-  - `docked`: the ids that get a column now, in column order. Chosen in this order until the limit: the flexible column, then the conference and the chat, then the others from left to right. Below `NARROW`, every id.
+  - `docked`: the ids that get a column now, in column order. Chosen in this order until the limit: the flexible column, then the conference and the chat, then the others from left to right. At 640 px and below, every id.
   - `waiting`: the rest, in column order. They want a column and have none at this width.
   - `widths`: each docked fixed column's width to show. Its own width while they fit; past that they shrink in step, none below `DOCK_MIN`. Under the limit that always fits, so the 160 px floor goes.
 - Pure: no DOM, the same answer for the same input.
@@ -68,13 +68,13 @@ In `public/snap-grid.js`, beside `MIN_W` and the grid's arithmetic, so `tools/ch
 
 ### The note
 
-- One line at the end of the Layout panel's Arrange section: `#modules-menu-note`, `role="status"`, empty and hidden when there is nothing to say. Written by `space.js` (through a `createCanvas({ onNote })` callback for what `canvas.js` decides), cleared after a few seconds as `say()` does, and cleared when the panel closes. [plan-saved-layouts](plan-saved-layouts.md)'s "left out" line uses the same element.
+- One line at the end of the Layout panel's Arrange section: `#modules-menu-note`, `role="status"`, always in the page and simply empty when there is nothing to say (never `hidden`), so its status region announces reliably. With the panel closed, the same sentence is announced through a visually hidden live region instead. Written by `space.js` (through a `createCanvas({ onNote })` callback for what `canvas.js` decides), cleared after a few seconds as `say()` does, and cleared when the panel closes. [plan-saved-layouts](plan-saved-layouts.md)'s "left out" line uses the same element.
 
 ### What it leaves alone
 
 - **Floating.** Floating modules, free or snapped, are never counted and never limited. With the canvas-level snap on, everything that can float floats, so nothing waits. Turning snap off docks the modules in `__snap.before` through `fitDock()`.
 - **Windows.** A module in its own window takes no column and is not counted.
-- **Phones.** Below 640 px, a phone or a narrow popped-out window, there is no limit: the tab bar shows one view at a time, and nothing waits. Remembered `mode`s are untouched, so widening the window fits again.
+- **Phones.** At 640 px and below (2 columns from 641 px), a phone or a narrow popped-out window, there is no limit: the tab bar shows one view at a time, and nothing waits. Remembered `mode`s are untouched, so widening the window fits again.
 - **Each person's own canvas.** Nothing is stored on the server; another person's window size changes nothing for anyone else.
 - **Widths.** A remembered `dockW` is never rewritten by the squeeze; it is shown again when the window is wide enough.
 
@@ -92,9 +92,9 @@ All experience-design. Documentation after each step is content-manager's: [arch
 
 ## Verify
 
-- **Step 1.** `tools/check-canvas.mjs`: `dockLimit()` at 639, 640, 760, 1000, 1280 and 1920 px; `fitDock()` with six columns at 760 px docks the conference, the chat and the leftmost installed module and leaves three waiting; the conference and the chat are never waiting while the width is 640 px or more; below 640 px nothing waits; the docked widths add up to no more than the width less 280 and none is under 240; the order of `docked` is the column order; with the conference not docked, the first column is flexible.
+- **Step 1.** `tools/check-canvas.mjs`: `dockLimit()` at 640 (no limit), 641 (2), 760, 1000, 1280 and 1920 px; `fitDock()` with six columns at 760 px docks the conference, the chat and the leftmost installed module and leaves three waiting; the conference and the chat are never waiting from 641 px; at 640 px and below nothing waits; the docked widths add up to no more than the width less 280 and none is under 240; the order of `docked` is the column order; with the conference not docked, the first column is flexible.
 - **Step 2.** Live in headless Chromium with the faked LiveKit: six modules docked at 1600 px, then the window at 1280, 1000, 760 and 700 px: every column on screen, the chat's message box at least 240 px wide, the extras floating and on screen; back to 1600 px, the same six docked in their old order and widths; a reload at 760 px fits the same way; a waiting module dragged stays floating after widening; snap on and off; a popped-out canvas resized. At 390 px the tab bar as before, nothing waiting.
-- **Step 3.** Live in headless Chromium: at 1000 px with four docked, opening a fifth from Show leaves it floating with the note; the Dock button unavailable on a floating module; docking the chat when full sends the rightmost installed module to wait; Dock all with five floating at 1000 px gives the note's counts; the note read by the panel's `role="status"`.
+- **Step 3.** Live in headless Chromium: at 1000 px with four docked, opening a fifth from Show leaves it floating with the note; the Dock button unavailable on a floating module; docking the chat when full sends the rightmost installed module to wait; Dock all with five floating at 1000 px gives the note's counts; the note read by the panel's `role="status"`, and with the panel closed by the hidden live region.
 - **Needs a real call:** the conference's tiles re-fitting as columns fold and come back while on the call; the conference floating with modules docked. Not checked here: a real screen reader, Firefox, Safari, a real phone, a real popped-out window (the test browser blocks popups).
 
 ## What is not decided

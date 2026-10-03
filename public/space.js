@@ -48,7 +48,9 @@ nav.attach('secondary', subnav); // its tools are registered further down, once 
 // (plan-layout-menu.md) in two sections. Show: a switch per module (the conference, the chat and the space's modules),
 // each showing or hiding its module on the canvas (canvas.js writes it, with switch-list.js). Arrange: Dock all, Clean up,
 // the canvas-level snap switch and, while it is on, the grid's size; written once here, wired further down (by
-// syncSnapBar()), and kept in place by canvas.js. On a phone the same #modules-menu is the tab bar instead, the button is
+// syncSnapBar()), and kept in place by canvas.js. Its last line, #modules-menu-note, is a short note canvas.js writes
+// (onNote): a module that waits for a column because the window is too narrow, or how many Dock all could dock
+// (plan-docked-limit.md). Empty, it takes no room; it stays in the page so a screen reader hears it as it changes. On a phone the same #modules-menu is the tab bar instead, the button is
 // not drawn, and Arrange is not shown.
 const arrangeSection = document.createElement('div');
 arrangeSection.className = 'module-chooser-arrange';
@@ -59,7 +61,8 @@ arrangeSection.innerHTML = `
     <button class="module-chooser-action" id="clean-up" type="button"><i class="fa-solid fa-broom fa-fw" aria-hidden="true"></i><span>Clean up</span></button>
     <label class="switch-row"><input type="checkbox" class="switch" role="switch" id="snap-all"><i class="fa-solid fa-border-all fa-fw" aria-hidden="true"></i><span class="switch-name">Snap to a grid</span></label>
     <label class="module-chooser-range" id="snap-size-row" hidden><span class="switch-name">Grid size</span><input type="range" id="snap-size"></label>
-  </div>`;
+  </div>
+  <p class="module-chooser-note" id="modules-menu-note" role="status"></p>`;
 const moduleChooser = document.createElement('span');
 moduleChooser.className = 'module-chooser';
 moduleChooser.innerHTML = `
@@ -986,10 +989,35 @@ const DEFAULT_PREFS = {
 // Call preferences (layout, devices, volumes, keys). brand.js moves the key they had before the Names plan on load.
 const PREFS_KEY = 'app.call';
 const prefs = loadPrefs();
+// The Layout panel's note (canvas.js's onNote): written in the panel, where it is seen. A note from docking with the panel
+// closed (Join the call, a titlebar's Dock, a module's own window coming back, the snap switch) would sit unheard in a
+// hidden panel, so then the same sentence goes to a visually hidden status region of the page's own, outside the panel.
+// Decided once the click that wrote it is over, since that click may be the one closing the panel; never both, so a screen
+// reader hears it once.
+let layoutAnnouncer = null;
+function layoutNote(text) {
+  const t = text || '';
+  arrangeSection.querySelector('#modules-menu-note').textContent = t;
+  setTimeout(() => {
+    const list = moduleChooser.querySelector('#modules-menu');
+    const menuOpen = Boolean(list) && !list.hidden && !list.classList.contains('subnav-modules') && arrangeSection.isConnected;
+    const doc = moduleChooser.ownerDocument;
+    if (!layoutAnnouncer || layoutAnnouncer.ownerDocument !== doc) {
+      layoutAnnouncer?.remove();
+      layoutAnnouncer = doc.createElement('div');
+      layoutAnnouncer.id = 'layout-announce';
+      layoutAnnouncer.className = 'visually-hidden';
+      layoutAnnouncer.setAttribute('role', 'status');
+      doc.body.appendChild(layoutAnnouncer);
+    }
+    layoutAnnouncer.textContent = menuOpen ? '' : t;
+  }, 0);
+}
 // The space's canvas: the Modules menu and every module open on it, docked, floating or in a window.
 let askInChat = null;
 const canvas = createCanvas({
   guestToken,
+  onNote: (text) => layoutNote(text),
   onChatAsk: (input) => {
     if (!askInChat) return Promise.reject(Object.assign(new Error('Chat is not ready.'), { status: 400 }));
     toggleChat(true);
@@ -1260,7 +1288,7 @@ function applyLayout() {
   const portrait = grid.clientHeight > grid.clientWidth;
   grid.classList.toggle('portrait', portrait);
   const canvasEl = $('canvas');
-  canvasEl.classList.toggle('narrow', canvasEl.clientWidth < 640);
+  canvasEl.classList.toggle('narrow', canvasEl.clientWidth <= 640); // the same line as the tab bar (max-width: 640px) and snap-grid.js's NARROW
   // The sizes follow the conference itself, wherever it is (docked beside the chat, floating,
   // or in a window of its own), not the whole canvas.
   const host = confEl.closest('.canvas') || canvasEl;

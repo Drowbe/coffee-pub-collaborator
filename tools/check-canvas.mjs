@@ -341,6 +341,79 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/\n    cleanUp,\n/.test(canvasJs)) fail('public/canvas.js', 'the canvas must offer cleanUp()');
 }
 
+// The docked limit (public/snap-grid.js's dockLimit and fitDock; plan-docked-limit.md, GitHub #156): a window holds the
+// flexible column at 280 px and fixed columns at 240 px each; the conference and the chat keep their columns and installed
+// modules give way from the right; at 640 px and below nothing waits. canvas.js builds its columns from it.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'snap-grid.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), copy);
+  const grid = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const { DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } = grid;
+  const F = 'public/snap-grid.js';
+  if (DOCK_MIN !== 240 || FLEX_MIN !== 280 || NARROW !== 640) fail(F, `DOCK_MIN, FLEX_MIN and NARROW must be 240, 280 and 640 (are ${DOCK_MIN}, ${FLEX_MIN}, ${NARROW})`);
+  for (const [w, n] of [[639, Infinity], [640, Infinity], [641, 2], [760, 3], [1000, 4], [1280, 5], [1600, 6], [1920, 7]]) {
+    if (dockLimit(w) !== n) fail(F, `dockLimit(${w}) is ${dockLimit(w)}, not ${n}`);
+  }
+  const conference = { id: 'conference', width: 600, flex: true, keep: true };
+  const chat = { id: 'chat', width: 320, keep: true };
+  const mods = (n, width = 360) => Array.from({ length: n }, (_, i) => ({ id: `m${i + 1}`, width }));
+  const six = [conference, chat, ...mods(4)];
+  const at760 = fitDock(760, six);
+  if (JSON.stringify(at760.docked) !== JSON.stringify(['conference', 'chat', 'm1'])) fail(F, `six columns at 760 px must dock the conference, the chat and m1, not ${JSON.stringify(at760.docked)}`);
+  if (JSON.stringify(at760.waiting) !== JSON.stringify(['m2', 'm3', 'm4'])) fail(F, `six columns at 760 px must leave m2, m3 and m4 waiting, not ${JSON.stringify(at760.waiting)}`);
+  if (fitDock(641, [conference, chat]).waiting.length || fitDock(700, [conference, chat]).waiting.length) fail(F, 'the conference and the chat alone must both dock at 700 px');
+  // In any column order and at every width above 640 px, the conference and the chat never wait; the docked ids keep the
+  // column order; the fixed widths fit beside the flexible column, none under 240 px; and the waiting ones are the rightmost.
+  const orders = [six, [chat, ...mods(4), conference], [...mods(2), chat, ...mods(4).slice(2), conference], [mods(1)[0], chat, conference, ...mods(5).slice(1)]];
+  for (const cols of orders) {
+    for (const w of [641, ...Array.from({ length: 88 }, (_, i) => 660 + i * 20)]) {
+      const label = `${JSON.stringify(cols.map((c) => c.id))} at ${w} px`;
+      const got = fitDock(w, cols);
+      if (got.waiting.includes('conference') || got.waiting.includes('chat')) fail(F, `${label}: the conference or the chat is waiting`);
+      if (got.docked.length !== Math.min(cols.length, dockLimit(w))) fail(F, `${label}: ${got.docked.length} docked, the limit is ${dockLimit(w)}`);
+      if (got.docked.length + got.waiting.length !== cols.length) fail(F, `${label}: a column is lost`);
+      const ids = cols.map((c) => c.id);
+      if (JSON.stringify(got.docked) !== JSON.stringify(ids.filter((id) => got.docked.includes(id)))) fail(F, `${label}: docked is not in column order: ${JSON.stringify(got.docked)}`);
+      if (JSON.stringify(got.waiting) !== JSON.stringify(ids.filter((id) => got.waiting.includes(id)))) fail(F, `${label}: waiting is not in column order`);
+      const others = ids.filter((id) => id !== 'conference' && id !== 'chat');
+      const lastDocked = Math.max(-1, ...got.docked.filter((id) => others.includes(id)).map((id) => others.indexOf(id)));
+      if (got.waiting.some((id) => others.indexOf(id) < lastDocked)) fail(F, `${label}: a module waits while one to its right is docked`);
+      const sum = [...got.widths.values()].reduce((a, b) => a + b, 0);
+      if (sum > w - FLEX_MIN) fail(F, `${label}: the fixed columns take ${sum} px, more than ${w - FLEX_MIN}`);
+      for (const [id, px] of got.widths) if (px < DOCK_MIN) fail(F, `${label}: ${id} is ${px} px, under ${DOCK_MIN}`);
+      if (got.widths.has('conference')) fail(F, `${label}: the conference is the flexible column and has no fixed width`);
+      if (got.widths.size !== got.docked.length - 1) fail(F, `${label}: every docked column but the flexible one needs a width`);
+    }
+  }
+  // At 640 px and below nothing waits (the space bar is the phone tab bar there).
+  for (const w of [0, 390, 639, 640]) if (fitDock(w, [...six, ...mods(9)]).waiting.length) fail(F, `nothing may wait at 640 px or below (at ${w})`);
+  // With the conference not docked, the first column is the flexible one.
+  const noConf = fitDock(760, [mods(1)[0], chat, ...mods(4).slice(1)]);
+  if (JSON.stringify(noConf.docked) !== JSON.stringify(['m1', 'chat', 'm2']) || noConf.widths.has('m1')) fail(F, `with no conference the first column must be flexible: ${JSON.stringify(noConf.docked)}, ${JSON.stringify([...noConf.widths])}`);
+  // While they fit, every column keeps its own width; a column narrower than 240 px is shown at 240 px.
+  const wide = fitDock(1920, [conference, chat, { id: 'm1', width: 400 }, { id: 'm2', width: 200 }]);
+  if (wide.widths.get('chat') !== 320 || wide.widths.get('m1') !== 400 || wide.widths.get('m2') !== 240) fail(F, `at 1920 px the columns must keep their widths: ${JSON.stringify([...wide.widths])}`);
+  // Pure: the same answer for the same input, and the input is not changed.
+  const input = JSON.stringify(six);
+  if (JSON.stringify(fitDock(1000, six).docked) !== JSON.stringify(fitDock(1000, six).docked) || JSON.stringify(six) !== input) fail(F, 'fitDock must be pure');
+  // canvas.js takes the 240 px floor from here, and builds its columns from fitDock.
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  if (/const DOCK_MIN\s*=/.test(canvasJs) || !/import \{[^}]*\bDOCK_MIN\b[^}]*\} from '\/snap-grid\.js'/.test(canvasJs)) fail('public/canvas.js', 'DOCK_MIN must come from snap-grid.js');
+  if (/Math\.max\(160,/.test(canvasJs) || /- 160\)/.test(canvasJs)) fail('public/canvas.js', 'the 160 px floor is gone; a fixed column keeps at least DOCK_MIN');
+  if (!/fitDock\(/.test(canvasJs.slice(canvasJs.indexOf('function syncDock('), canvasJs.indexOf('function settleDock(')))) fail('public/canvas.js', 'syncDock() must build the columns from fitDock()');
+  // The note is in the panel (#modules-menu-note, role="status"), and, only while the panel is closed, in a visually
+  // hidden status region outside it (#layout-announce), so a dock with the panel closed is heard, and never twice.
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const noteFn = spaceJs.slice(spaceJs.indexOf('function layoutNote('), spaceJs.indexOf('// The space\'s canvas: the Modules menu'));
+  if (!/id="modules-menu-note" role="status"/.test(spaceJs)) fail('public/space.js', 'the Layout panel needs its note line, #modules-menu-note, role="status"');
+  if (!/onNote: \(text\) => layoutNote\(text\)/.test(spaceJs)) fail('public/space.js', 'createCanvas({ onNote }) must go through layoutNote()');
+  if (!/layoutAnnouncer\.id = 'layout-announce'/.test(noteFn) || !/setAttribute\('role', 'status'\)/.test(noteFn) || !/className = 'visually-hidden'/.test(noteFn) || !/doc\.body\.appendChild\(layoutAnnouncer\)/.test(noteFn)) fail('public/space.js', 'layoutNote() must announce through a visually hidden role="status" region on the page, outside the panel');
+  if (!/textContent = menuOpen \? '' : t/.test(noteFn) || !/setTimeout\(/.test(noteFn)) fail('public/space.js', 'the region outside the panel is for a closed panel only (decided after the click), so nothing is heard twice');
+  if (!/\.visually-hidden\s*\{[^}]*clip-path: inset\(50%\)/.test(css)) fail('public/style.css', '.visually-hidden must hide the status region from sight only');
+}
+
 // The reaction tray (GitHub #169): with many reactions it never rises under the header. Opening it caps its height to
 // the room between its bottom and the header's, and the rest scrolls inside it, so its first row (keys 1 to 6) shows.
 {

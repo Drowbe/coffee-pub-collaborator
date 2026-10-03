@@ -369,3 +369,64 @@ export function tidyBoxes(boxes, area, taken = []) {
   });
   return out;
 }
+
+// --- Docked columns: how many fit (plan-docked-limit.md, "The rule") -------------------------------------------------
+// A docked module is a column of the canvas's grid. One column is flexible (the conference when it is docked, else the
+// first) and keeps at least FLEX_MIN; every other column keeps at least DOCK_MIN. At NARROW and below there are no columns: one
+// view at a time, chosen by the tab bar, so there is no limit. No DOM; canvas.js measures the canvas, and a loaded layout
+// (plan-saved-layouts.md) runs through the same rule. tools/check-canvas.mjs runs it.
+export const DOCK_MIN = 240; // a fixed column's least width
+export const FLEX_MIN = 280; // the flexible column's least width
+export const NARROW = 640; // at this width and below a canvas shows one view at a time (the space bar's phone tab bar, max-width: 640px)
+
+// How many columns a canvas `width` px wide holds: the flexible column at its least, plus as many fixed columns at their
+// least as fit. At NARROW and below, no limit (Infinity); the first limit is 2, at NARROW + 1.
+export function dockLimit(width) {
+  const w = Number(width) || 0;
+  if (w <= NARROW) return Infinity;
+  return 1 + Math.floor((w - FLEX_MIN) / DOCK_MIN);
+}
+
+// Which of the modules that want a column get one now. `columns` is every one of them, in column order, each
+// { id, width, flex, keep }: `flex` for the conference, `keep` for the conference and the chat. The answer:
+//   docked   the ids with a column now, in column order: the flexible column, then the kept ones, then the others from
+//            left to right, until the limit (at NARROW and below, every id);
+//   waiting  the rest, in column order;
+//   widths   a Map of each docked fixed column's id to the width to show: its own while they fit, else all shrunk in
+//            step, none below DOCK_MIN (under the limit that always fits). The flexible column is not in it.
+export function fitDock(width, columns) {
+  const list = (Array.isArray(columns) ? columns : []).filter((c) => c && c.id != null);
+  const widths = new Map();
+  if (!list.length) return { docked: [], waiting: [], widths };
+  const limit = dockLimit(width);
+  const flex = list.find((c) => c.flex) || list[0];
+  const chosen = new Set([flex.id]);
+  for (const c of list) if (chosen.size < limit && c.keep) chosen.add(c.id);
+  for (const c of list) if (chosen.size < limit) chosen.add(c.id);
+  const docked = list.filter((c) => chosen.has(c.id));
+  const waiting = list.filter((c) => !chosen.has(c.id)).map((c) => c.id);
+  const fixed = docked.filter((c) => c.id !== flex.id).map((c) => ({ id: c.id, w: Math.max(DOCK_MIN, Math.round(Number(c.width)) || DOCK_MIN) }));
+  const spare = (Number(width) || 0) - FLEX_MIN;
+  if (limit === Infinity || fixed.reduce((sum, c) => sum + c.w, 0) <= spare) {
+    for (const c of fixed) widths.set(c.id, c.w);
+  } else {
+    // Shrunk in step: each by the same share of its own width, a column that would go under DOCK_MIN held there and the
+    // others sharing what is left.
+    let free = fixed;
+    let budget = spare;
+    for (;;) {
+      const total = free.reduce((sum, c) => sum + c.w, 0);
+      const ratio = total > 0 ? budget / total : 1;
+      const floored = free.filter((c) => c.w * ratio < DOCK_MIN);
+      if (!floored.length) {
+        for (const c of free) widths.set(c.id, Math.max(DOCK_MIN, Math.floor(c.w * ratio)));
+        break;
+      }
+      for (const c of floored) widths.set(c.id, DOCK_MIN);
+      budget -= floored.length * DOCK_MIN;
+      free = free.filter((c) => !floored.includes(c));
+      if (!free.length) break;
+    }
+  }
+  return { docked: docked.map((c) => c.id), waiting, widths };
+}

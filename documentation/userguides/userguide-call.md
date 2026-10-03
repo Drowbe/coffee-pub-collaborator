@@ -54,6 +54,8 @@ to right:
   - **Snap to a grid** puts every module that can float on a grid (see below), and **Grid size**, shown while it
     is on, sets how fine the grid is.
 
+  Under **Layouts**, save and load named layouts (see "Saved layouts" below).
+
   The panel stays open while you use it; click **Layout** again, press Escape or click elsewhere to close it. With
   the keyboard, Tab moves through it, the arrow keys move between switches (and move the slider), and Space or
   Enter flips a switch or presses a button. On a phone there is no **Layout** button: the modules are tabs along
@@ -143,6 +145,32 @@ chat box is hidden.
 ## Chat, docked, floating or in its own window
 
 The conference has the same titlebar as the chat and every module: the same buttons to float it over the page (and dock it again), to open it in a window of its own, and to close it, which leaves the call. In its own window the titlebar has no close: closing that window brings the call back into the page where it was. **Hang up** on the toolbar leaves the call and keeps the conference open, which says "Not in a call"; the phone turns green, and pressing it, or **Join the call**, joins again. Chat opens as a column beside the video. Its header has the same buttons as a module's: one to float it over the canvas, where you can drag and resize it (and a matching button to dock it again), one to open it in a window of its own, and the x to close it. A floating module also has a **Snap to a grid** button: on, the module sits in the cells of a grid over the call (you see the grid while you drag), moving and resizing a cell at a time and keeping its place when the window changes size; off, it floats freely, as before. Each module remembers its own choice. The **Layout** panel's **Arrange** section has the same switch for the whole canvas, **Snap to a grid**: on, every module that can float is put on the grid -- docked ones float first -- and any you open later comes up floating and snapped; a slider under it, **Grid size**, sets how fine the grid is (you see the grid while you slide). As you slide, the modules move to the cells nearest where you put them and keep about the same size on screen, without landing on each other while there is space for them all; slide back and they return to where they were. Off, the modules that were docked when you switched it on dock again, and the rest float freely. The space remembers both. The Calendar and other modules open as more columns after the chat, and the video always keeps some of the width. If you pop the whole call out, chat and modules come with it. Close a module's own window and the module comes back into the page, docked or floating as it was before, with whatever it held untouched.
+
+## Saved layouts
+
+Save the way the canvas is arranged, give it a name, and put it back in one press. **Layout ▾** has a **Layouts**
+section after **Arrange**: the space's shared layouts first, under **Shared**, then your own.
+
+To save one:
+
+1. Arrange the canvas the way you want it.
+2. Open **Layout ▾** and choose **Save this layout**.
+3. Type a **Name**. Owners, the admin and the space's moderators can also switch on **For everyone in this space**
+   to save a shared layout.
+4. Choose **Save**. The panel says "Saved <name>." If you already have a layout with that name, it offers
+   **Replace it**.
+
+To load one, press its name. The panel stays open. Modules the layout doesn't name close, except the Conference
+while you are on the call; a module in its own window comes back to the canvas. Floating modules are placed to fit
+this window, snapped ones settle on the grid, and docked modules the window has no column for wait (see below). If a
+module in the layout isn't on in this space, it is left out and the panel says so. The loaded layout becomes the
+one this space remembers for you.
+
+The **⋮** beside a layout you may change offers **Replace with this layout** (it then holds the canvas as it is now),
+**Rename** and **Delete**, which asks first. Anyone may save their own layouts, up to 10 in a space; owners, the
+admin and the space's moderators may save, change and delete the shared ones, up to 10; guests may only load shared
+ones. Names are up to 40 characters. With none saved, the section reads "No saved layouts yet." There are no
+layouts on a phone or in an aside. A space's default layout, opening on a first visit, is not built yet.
 
 ## When the window is too narrow for another column
 

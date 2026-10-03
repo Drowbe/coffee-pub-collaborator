@@ -5,6 +5,7 @@
 //   images/<key>/<slot>  one image per user slot (player, character, talking, muted...)
 //   images/site/<name>   the server icon and the sign-in background
 //   images/spaces/<id>    a space's picture
+//   layouts.json         saved layouts, shared per space and each person's own (server/layouts.js)
 // Everything is loaded once and written back whole; a group's worth of users
 // does not need a database.
 
@@ -12,6 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const words = require('./words');
+const { Layouts } = require('./layouts');
 const { LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
 const { DEFAULT_REACTION_LIST, DEFAULT_ICON_LIST, OLD_DEFAULT_REACTIONS, OLD_DEFAULT_ICONS, sameList } = require('./default-lists');
 
@@ -536,6 +538,8 @@ class Store {
     this.imagesDir = path.join(dir, 'images');
     fs.mkdirSync(this.imagesDir, { recursive: true });
     this.data = this.load();
+    // Saved layouts (plan-saved-layouts.md): their own file, kept in step when a space or a person is removed.
+    this.layouts = new Layouts(dir);
     // The words this environment's template gives (plan-environment-templates.md): none until templates are built,
     // so every key reads the owner's word or the default.
     this.templateWords = null;
@@ -1460,6 +1464,7 @@ class Store {
     for (const space of this.data.spaces) space.members = space.members.filter((k) => k !== key);
     for (const aside of this.data.asides) aside.members = aside.members.filter((k) => k !== key);
     this.save();
+    this.layouts.forgetPerson(key);
     fs.rmSync(path.join(this.imagesDir, key), { recursive: true, force: true });
     return user;
   }
@@ -1636,6 +1641,7 @@ class Store {
     if (!space) throw new StoreError(`no such ${this.word('space')}`, 404);
     this.data.spaces = this.data.spaces.filter((r) => r.id !== id);
     this.save();
+    this.layouts.forgetSpace(id);
     this.removeSpaceImage(id);
     return space;
   }

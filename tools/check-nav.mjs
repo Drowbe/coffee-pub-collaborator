@@ -384,6 +384,63 @@ test('the Layout panel (plan-layout-menu.md): Show, rewritten on every change, t
   assert.ok(!/#dock-all|#snap-all|#snap-size/.test(narrow.slice(0, narrow.indexOf('}'))), 'the 560 px rule hides none of the Arrange controls');
 });
 
+test('the Layout panel\'s Layouts section (plan-saved-layouts.md, step 3): after Arrange, its own ids, kept by canvas.js and never rewritten by update(), hidden on a narrow canvas; rows, a ... through openHostMenu(), the Save form and its keys', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  // The section: its id, a labelled group, the heading's id, in the panel after Arrange.
+  assert.match(space, /layoutsSection\.id = 'modules-menu-layouts';/);
+  assert.match(space, /layoutsSection\.setAttribute\('role', 'group'\);\nlayoutsSection\.setAttribute\('aria-labelledby', 'modules-menu-layouts-heading'\);/);
+  assert.match(space, /<div class="nav-menu-heading module-chooser-heading" id="modules-menu-layouts-heading">Layouts<\/div>/);
+  const arrangeAt = space.indexOf("moduleChooser.querySelector('#modules-menu').appendChild(arrangeSection);");
+  const layoutsAt = space.indexOf("moduleChooser.querySelector('#modules-menu').appendChild(layoutsSection);");
+  assert.ok(arrangeAt > 0 && layoutsAt > arrangeAt, 'Layouts is put in the panel after Arrange');
+  // The form: Name, the share switch (a real switch, its words from the space word), Save and Cancel; Save this layout.
+  const markup = space.slice(space.indexOf('layoutsSection.innerHTML = `'), layoutsAt);
+  for (const needle of ['id="layout-rows"', '<span>Save this layout</span>', 'id="layout-form"', '<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="switch" role="switch" id="layout-shared">', 'type="submit">Save</button>', 'id="layout-cancel">Cancel</button>']) {
+    assert.ok(markup.includes(needle), `the section has ${needle}`);
+  }
+  assert.match(space, /querySelector\('#layout-shared-label'\)\.textContent = `For everyone in this \$\{word\('space'\)\}`;/, 'the switch names the space by the environment\'s word');
+  // canvas.js keeps it in the panel, last, and hides it on a narrow canvas (and while space.js has nothing to show);
+  // update() never writes into it.
+  assert.match(canvasJs, /const layoutsEl = menu \? menu\.querySelector\('\.module-chooser-layouts'\) : null;/);
+  const update = canvasJs.slice(canvasJs.indexOf('  function update() {'), canvasJs.indexOf('  function bindDoc(doc) {'));
+  assert.match(update, /if \(el !== arrangeEl && el !== layoutsEl\) el\.remove\(\);/, 'the Show section\'s first build leaves Layouts alone');
+  assert.match(update, /layoutsEl\.hidden = isNarrow\(\) \|\| layoutsEl\.dataset\.empty === 'true';/, 'hidden on a narrow canvas');
+  assert.ok(!/layoutsEl\.innerHTML|layoutsEl\.replaceChildren/.test(update), 'update() never rewrites Layouts');
+  assert.match(space, /layoutsSection\.hidden = empty \|\| canvas\.isNarrow\(\);/, 'space.js hides it on a narrow canvas too');
+  // Read again as the panel opens (canvas.js's onMenu), and after each change.
+  assert.match(canvasJs, /onMenu\?\.\(open\);/);
+  assert.match(space, /onMenu: \(open\) => \{ if \(open\) refreshLayouts\(\); else closeLayoutForm\(\); \},/);
+  assert.match(space, /`\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts/);
+  // Rows: shared first under Shared, then your own; a press loads; the ... only on what you may change, named for the layout,
+  // the vertical ellipsis, through openHostMenu() with Replace with this layout, Rename and Delete (confirmed in the menu).
+  const render = space.slice(space.indexOf('function renderLayouts('), space.indexOf('function closeLayoutForm('));
+  assert.ok(render.indexOf('<div class="layout-group-label">Shared</div>') < render.indexOf('mine.map('), 'Shared first, then your own');
+  assert.match(render, /No saved layouts yet\./);
+  assert.match(space, /const mayChangeLayout = \(shared\) => !guestToken && \(!shared \|\| layoutList\.canShare\);/, 'a guest changes nothing; shared ones only with the right');
+  assert.match(space, /aria-label="More for \$\{escapeHtml\(l\.name\)\}"[^\n]*fa-ellipsis-vertical/);
+  assert.match(space, /canvas\.loadLayout\(layout\);/);
+  const menuFn = space.slice(space.indexOf('function openLayoutMenu('), space.indexOf('async function replaceLayout('));
+  assert.match(menuFn, /openHostMenu\(trigger, \[/);
+  for (const label of ['Replace with this layout', 'Rename', 'Delete']) assert.ok(menuFn.includes(`label: '${label}'`), `the ... offers ${label}`);
+  assert.match(menuFn, /openConfirmMenu\(trigger, \{\n\s*label: 'Delete', confirm: `Delete \$\{layout\.name\}\?`, armed: true/);
+  assert.ok(!/host\.menu\.show/.test(menuFn), 'the host\'s own menu, not a module\'s');
+  // A guest never saves; a taken name offers Replace it; the server's refusals are shown as it says them.
+  assert.match(space, /const canSave = Boolean\(layoutList\.spaceId\) && !guestToken;/);
+  assert.match(space, /showLayoutError\(layoutFormError, err\.message, err\.status === 409 \? err\.id : null\);/);
+  assert.match(space, /b\.textContent = 'Replace it';/);
+  // Keys: Escape closes a form, not the panel; Up and Down move between the rows.
+  const keys = space.slice(space.indexOf("layoutsSection.addEventListener('keydown'"), space.indexOf("layoutRows.addEventListener('click'"));
+  assert.match(keys, /event\.key === 'Escape' && event\.target\.closest\('\.layout-form, \.layout-rename'\)\) \{\n\s*event\.stopPropagation\(\);/);
+  assert.match(keys, /\{ ArrowDown: at \+ 1, ArrowUp: at - 1, Home: 0, End: all\.length - 1 \}/);
+  // The look: Arrange's, from theme tokens.
+  assert.match(css, /\.module-chooser-layouts \{[^}]*border-top: 1px solid var\(--border\);/);
+  assert.match(css, /\.module-chooser-layouts\[hidden\]/);
+  // An aside has no layouts.
+  assert.match(space, /const layoutSpaceId = \(\) => \(currentSpace && !currentSpace\.isAside \? currentSpace\.id : null\);/);
+});
+
 test('the top bar\'s space segment and the Spaces slot wear the top bar\'s link look (core-link), and nothing restyles them on a wider screen', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');

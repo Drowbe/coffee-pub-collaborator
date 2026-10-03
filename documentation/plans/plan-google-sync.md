@@ -2,7 +2,7 @@
 
 **Audience:** whoever builds the sync, and the author who needs to supply the Google credentials.
 
-**Status:** Designed, not started. The approach was decided with the author (one way, each person connects their own account). Building it needs a Google Cloud OAuth client, which only the author can create; without one nothing here can run against Google.
+**Status:** Superseded 2026-10-03 by [plan-google-calendar](plan-google-calendar.md), approved for GitHub #42; kept for the record, build from that plan. Before that: designed, not started. The approach was decided with the author (one way, each person connects their own account). Building it needs a Google Cloud OAuth client, which only the author can create; without one nothing here can run against Google.
 
 ## Decided
 

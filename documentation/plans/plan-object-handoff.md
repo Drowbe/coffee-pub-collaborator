@@ -5,7 +5,7 @@ experience-design builds the modules' mapping, the SDK helpers, Chat's import pr
 content-manager documents.
 
 **Status:** approved by Thomas, 2026-10-03, with every open question of the draft answered as recommended (decisions 8 to
-19); steps 1-5 built 2026-10-03 and steps 6-8 on 2026-10-04, the rest not built. From two GitHub issues that share one question: what each module accepts,
+19); steps 1-5 built 2026-10-03 and steps 6-9 on 2026-10-04. From two GitHub issues that share one question: what each module accepts,
 in which shape, and how content maps into its fields.
 
 - #182, the import from another AI. Thomas: "our prompt needs to include instructions for ANYTHING we support
@@ -577,6 +577,34 @@ Nothing stored or linked breaks:
    is kept".
 9. **experience-design: Send to...** The message-to-object rules, the menu, last used, pictures (upload then
    request), several objects, private messages. **server-development** adds the upload sweep in the same step.
+   *Built 2026-10-04.* `messageObjects`, `sendChoices`, `requestOutcome` and `outcomesWords` in `public/chat-input.js`,
+   the menu entry in `public/space.js`, `show(id)` in `public/canvas.js`, and Chat's own day reader `chatDay` (stricter than
+   `host.util.parseWhen`, which is unchanged: date-like words only, never quoted lines, not "today" or "tonight"). Server:
+   `GET /api/spaces/:id/action/:requestId` (how a request went, only to its asker, for 10 minutes), a `local` action
+   asked through Chat's `/action` expiring after 60 seconds unclaimed (`expiresAt`, status `expired`; `/command` still
+   waits), `doneAt`, and the upload sweep on `actionsDropped` in `server/environment.js` (only the asker's own upload in
+   the request's place, not named in the module's data, noted in the activity list). The keep route returns `id`.
+   Where it differs from the text above:
+   - Entries read "<module> as <what>" ("Research as an image"), not "Add to <module> as <what>"; several objects read
+     "Planner (3)" with "2 flights, 1 stay; 1 left out".
+   - Words with a day are also offered as an event: to the Calendar (it takes `"text"`), and to the Planner as an event,
+     since the Planner's `takes` has no `"text"`. Sent to the To-do, the day is the task's due date.
+   - A closed form module shows "Open Polls first" and sends nothing; an opened form brings Polls forward (on a phone it
+     replaces Chat in view). The note line's sentences are shared with Keep and Keep ticked.
+   - The message-to-object cases are in `tools/check-chat-page.mjs`, not `check-one-input.mjs`.
+   - A form is followed for up to 70 seconds ("Waiting for <module> to open it.", then "Opened in <module>." or "<module>
+     isn't open."), past the 60 in which it can be claimed. Several polls: only the first opens, the note names the rest.
+   - The private warning is on each entry's hint; `#chat-note` is a polite live region; "<module> is adding it." while
+     under way; a refused picture's upload is deleted unless it is already a photo there or in use.
+   - Server, after QA: Chat's `/action`, `/command` and keep route share a limit of 60 requests a minute per person
+     (429 "too many requests in a minute, slow down"), and `complete` refuses an expired request unless claimed in time.
+   Checked by `tools/check-chat-page.mjs` (48 tests) and `tools/check-object-handoff.mjs` (22 checks); verified live in
+   Chromium by the builder at 1280 and 390 pixels, with the QA fixes for the day reader, the due date, late forms,
+   several polls, the private hint and the live region's markup; checked by tool or read as code only: deleting a
+   refused picture's upload, "That picture can't be sent to ...", "is adding it" and Adding, the server's limit and
+   `complete`'s refusal. Guests, and a picture received over a real call, are read as code only; no screen
+   reader was used. The contract is in [api-modules](../api/api-modules.md) and [Chat](../userguides/userguide-chat.md), "Send a
+   message to a module".
 10. **quality-assurance:** every step as below. **content-manager:** [api-modules](../api/api-modules.md) (`takes`,
     `object`, the actions list), [api-module-sdk](../api/api-module-sdk.md) (`host.util.plain`,
     `host.util.localWhen`), the format in [architecture-modules](../architecture/architecture-modules.md), the Chat,

@@ -198,6 +198,27 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   moduleData.on('change', (c) => noteActivity(c.module, `${c.deleted ? 'deleted' : 'saved'} ${c.key}`, c.by, c.scopeKey));
   moduleBus.on('event', (e) => noteActivity(e.module, `published the event ${e.name}`, e.by, e.scopeKey));
   moduleBus.on('action', (a) => noteActivity(a.from, `asked ${a.provider} to ${a.action}`, a.by, a.scopeKey));
+  // The upload sweep (plan-object-handoff.md, "Send to...", pictures): Chat uploads a picture into the target module's
+  // uploads, then asks for the action with the file's id. A request that went without being carried out (seven days
+  // unclaimed, or pushed out by the cap) takes its picture with it, only when the file is in the request's own place,
+  // was uploaded by the person who asked, and the module's data there does not name it (some other request used it).
+  moduleBus.on('actionsDropped', (list) => {
+    for (const a of list) {
+      const ids = Object.values(a.input || {})
+        .filter((v) => v && typeof v === 'object' && v.kind === 'image' && typeof v.details?.upload === 'string')
+        .map((v) => v.details.upload);
+      for (const fid of ids) {
+        try {
+          const meta = moduleUploads.meta(a.provider, a.scopeKey, fid);
+          if (!meta || meta.by !== a.by) continue;
+          if (JSON.stringify(moduleData.list(a.provider, a.scopeKey)).includes(fid)) continue;
+          if (moduleUploads.remove(a.provider, a.scopeKey, fid)) noteActivity(a.provider, `removed a picture sent to it that was never added (${meta.name || fid})`, a.by, a.scopeKey);
+        } catch {
+          // a place that no longer reads: the file stays, as any upload does
+        }
+      }
+    }
+  });
   moduleSettings.on('change', (c) => {
     if (c.scope === 'person') return;
     const where = c.scope === 'space' ? ` for ${store.spaceById(c.spaceId)?.name || store.word('space', { a: true })}` : '';

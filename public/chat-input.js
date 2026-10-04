@@ -202,7 +202,7 @@ export function placeOrder(x, y) {
 // included) and that this person may use; a module with no `takes` by the older rule (keeperFor). An action that names
 // the kind comes before one that takes any object ("*"), and the older typed keeper sits between them. `needs: ["date"]`
 // leaves an action out for an object with no day. `last` (an action id) is the person's last choice for this kind, first.
-// Each is { id, action, label, module, moduleName, local, legacy, named, field }.
+// Each is { id, action, label, as, module, moduleName, local, legacy, named, field }; `as` is the words after "as" ("a flight").
 export function keepTargets(actions, summary, { last = '', objectWord = '' } = {}) {
   const list = (Array.isArray(actions) ? actions : []).filter((a) => a && a.action && a.may !== false);
   const kind = (summary && summary.kind) || '';
@@ -218,13 +218,13 @@ export function keepTargets(actions, summary, { last = '', objectWord = '' } = {
     const named = kind ? entries.find((e) => Array.isArray(e.kinds) && e.kinds.includes(kind)) : null;
     const as = String((named || entries[0]).as || '').replace('{kind}', kind ? withArticle(kind) : objectWord).trim();
     const name = a.moduleName || a.module;
-    out.push({ id: a.action, action: a, field, module: a.module, moduleName: name, local: Boolean(a.local), legacy: false, named: Boolean(named), label: as ? `Add to ${name} as ${as}` : `Add to ${name}`, rank: placeRank({ named: Boolean(named), local: Boolean(a.local) }), span: namedKindCount(a), note: a.takes.some((e) => Array.isArray(e && e.kinds) && e.kinds.includes('note')), i });
+    out.push({ id: a.action, action: a, field, module: a.module, moduleName: name, local: Boolean(a.local), legacy: false, named: Boolean(named), as, label: as ? `Add to ${name} as ${as}` : `Add to ${name}`, rank: placeRank({ named: Boolean(named), local: Boolean(a.local) }), span: namedKindCount(a), note: a.takes.some((e) => Array.isArray(e && e.kinds) && e.kinds.includes('note')), i });
   });
   const old = findKeepers(list.filter((a) => !Array.isArray(a.takes)));
   const keeper = keeperFor(summary, old);
   if (keeper) {
     const name = keeper.moduleName || keeper.module;
-    out.push({ id: keeper.action, action: keeper, field: '', module: keeper.module, moduleName: name, local: Boolean(keeper.local), legacy: true, named: keeper === old.suggestion, label: `Add to ${name}`, rank: placeRank({ legacy: true, typed: keeper === old.suggestion }), span: 0, note: false, i: list.indexOf(keeper) });
+    out.push({ id: keeper.action, action: keeper, field: '', module: keeper.module, moduleName: name, local: Boolean(keeper.local), legacy: true, named: keeper === old.suggestion, as: '', label: `Add to ${name}`, rank: placeRank({ legacy: true, typed: keeper === old.suggestion }), span: 0, note: false, i: list.indexOf(keeper) });
   }
   out.sort(placeOrder);
   const at = last ? out.findIndex((t) => t.id === last) : -1;
@@ -355,6 +355,245 @@ export function detailsLine(summary) {
   }
   parts.push(s(d.reference, 60));
   return oneLine(parts.filter(Boolean).join(' · '), 200);
+}
+
+// --- Send to... (plan-object-handoff.md, "Send to...") ---------------------------------------------------------------
+
+// The day a chat message names, or '' (plan-object-handoff.md, "What each message is"). Stricter than the SDK's
+// parseWhen, which reads what someone typed into a date field: in a chat message an ordinary word must not become a day
+// ("I sat down", "Wed like pizza", "mon ami", "version 1/2", "paid 12/10"). Read, outside quoted lines:
+// - 2026-11-14;
+// - a month's name with a day: "nov 14", "14 November", "Nov. 14th, 2027";
+// - m/d only when it reads as a date: "on 12/10", or with a time ("12/10 at 7pm", "12/10 19:00");
+// - a weekday's whole name ("Friday", "next Friday"), or its short form after on, next or this ("on sat");
+// - tomorrow.
+// A day already passed this year (with no year given) is next year's. `now` is for the checks.
+const MONTHS = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+const MONTH_WORD = '(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)';
+const WEEKDAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+const WEEKDAY_SHORT = '(sun|mon|tues?|wed|thu(?:rs?)?|fri|sat)';
+export function chatDay(text, now) {
+  const base = now instanceof Date ? now : new Date();
+  const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const today = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+  const day = (m, d, y) => {
+    if (!(m >= 0 && m < 12) || !(d >= 1 && d <= 31)) return '';
+    const year = y || base.getFullYear();
+    let date = new Date(year, m, d);
+    if (date.getMonth() !== m) return '';
+    if (!y && date < today) date = new Date(year + 1, m, d);
+    return ymd(date);
+  };
+  const t = ` ${String(text || '').split('\n').filter((l) => !/^\s*>/.test(l)).join(' ').replace(/\s+/g, ' ').toLowerCase()} `;
+  let m = /[\s(](\d{4})-(\d{2})-(\d{2})(?![\d-])/.exec(t);
+  if (m) {
+    const out = day(Number(m[2]) - 1, Number(m[3]), Number(m[1]));
+    if (out) return out;
+  }
+  const year = (v) => (v ? Number(v) : 0);
+  m = new RegExp(`[\\s(]${MONTH_WORD}\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?![\\d/:])(?:,?\\s+(\\d{4})(?!\\d))?`).exec(t);
+  if (m) {
+    const out = day(MONTHS.indexOf(m[1].slice(0, 3)), Number(m[2]), year(m[3]));
+    if (out) return out;
+  }
+  m = new RegExp(`[\\s(](\\d{1,2})(?:st|nd|rd|th)?\\s+${MONTH_WORD}\\b(?:,?\\s+(\\d{4})(?!\\d))?`).exec(t);
+  if (m) {
+    const out = day(MONTHS.indexOf(m[2].slice(0, 3)), Number(m[1]), year(m[3]));
+    if (out) return out;
+  }
+  const TIME = '(?:at\\s+\\d{1,2}(?::\\d{2})?(?:\\s*[ap]m)?|\\d{1,2}(?::\\d{2})?\\s*[ap]m|\\d{1,2}:\\d{2})';
+  const MD = '(\\d{1,2})/(\\d{1,2})(?:/(\\d{2}|\\d{4}))?';
+  m = new RegExp(`\\son\\s+${MD}(?![\\d/])`).exec(t) || new RegExp(`[\\s(]${MD}(?![\\d/]),?\\s+${TIME}\\b`).exec(t);
+  if (m) {
+    const y = m[3] ? (m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3])) : 0;
+    const out = day(Number(m[1]) - 1, Number(m[2]), y);
+    if (out) return out;
+  }
+  m = new RegExp(`[\\s(](?:(on|next|this)\\s+)?(${WEEKDAYS.join('|')})\\b`).exec(t)
+    || new RegExp(`\\s(on|next|this)\\s+${WEEKDAY_SHORT}\\.?(?![a-z])`).exec(t);
+  if (m) {
+    const want = WEEKDAYS.findIndex((w) => w.startsWith(m[2].slice(0, 3)));
+    let ahead = (want - base.getDay() + 7) % 7;
+    if (m[1] === 'next') ahead = ahead === 0 ? 7 : ahead + (want > base.getDay() ? 7 : 0);
+    else if (ahead === 0 && m[1] !== 'this') ahead = 7;
+    return ymd(new Date(base.getFullYear(), base.getMonth(), base.getDate() + ahead));
+  }
+  if (/\stomorrow\b/.test(t)) return ymd(new Date(base.getFullYear(), base.getMonth(), base.getDate() + 1));
+  return '';
+}
+
+// What a chat message is, as objects in the format, in the order they are offered (plan-object-handoff.md, "What each
+// message is"). Answers a list of groups { what, objects, named? }:
+// - `what` is the kind of message, for "last used": 'picture', 'link', 'text' or 'objects';
+// - `named`: only places that name the object's kind take this group (a link to a keeper of links; a message with a day
+//   as an event, to a place that takes events and not words, such as the Planner).
+// A picture is { kind: 'image', title, details: { name } } (its upload is added when it is sent); an AI answer with
+// objects is those objects; any other message is its words with no kind: the title its first line (a quote skipped),
+// the content the whole text, the first link with its preview, and the day chatDay finds. Pure, for the checks.
+export function messageObjects(entry, { plain, now } = {}) {
+  if (!entry || typeof entry !== 'object') return [];
+  if (entry.blob) {
+    const name = oneLine(entry.name, 120) || 'picture';
+    return [{ what: 'picture', objects: [{ kind: 'image', title: name, details: { name } }] }];
+  }
+  const summaries = entry.kind === 'ai' && Array.isArray(entry.summaries) ? entry.summaries.filter((o) => o && typeof o === 'object' && o.title) : [];
+  if (summaries.length) return [{ what: 'objects', objects: summaries }];
+  const text = String(entry.kind === 'command' ? entry.text || '' : stripSummaryMarkers(entry.text)).trim();
+  if (!text) return [];
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  const first = lines.find((l) => !l.startsWith('>')) || lines[0];
+  const title = plainTitle(first, plain).slice(0, 80) || oneLine(first, 80);
+  const words = { title, content: text.slice(0, 6000) };
+  const groups = [];
+  const preview = !entry.kind && entry.preview && linkUrl(entry.preview.url) ? entry.preview : null;
+  const url = preview ? preview.url : entry.kind ? '' : findLink(text);
+  if (url) {
+    const linkTitle = oneLine((preview && preview.title) || siteName(url) || url, 120);
+    words.links = [{ title: linkTitle, url }];
+    groups.push({ what: 'link', named: true, objects: [{ kind: 'link', title: linkTitle, ...(preview && preview.description ? { content: String(preview.description).slice(0, 500) } : {}), links: [{ title: linkTitle, url }] }] });
+  }
+  const day = chatDay(text, now);
+  if (day) words.date = day;
+  groups.push({ what: 'text', objects: [words] });
+  if (words.date) groups.push({ what: 'text', named: true, objects: [{ ...words, kind: 'event' }] });
+  return groups;
+}
+
+// The entries of Send to...: one per place, best first, each { id, what, module, moduleName, local, as, label, hint,
+// sends: [{ summary, target }], left, more? }. One object reads "Research as an image"; several read "Planner (5)", with the kinds
+// in the hint ("3 flights, 2 stays") and what that place cannot take ("1 task left out"). A place is listed once, for the
+// first group it takes; a form on the person's own page (Polls' draft) comes last, and opens only the first of several
+// (`more`: how many it leaves for their own Keep). `last` (an action id) is the person's
+// last choice for this kind of message: first, and its hint says so. Pure, for the checks.
+export function sendChoices(actions, groups, { last = '', objectWord = '', one = 'object', many = 'objects' } = {}) {
+  const seen = new Set();
+  const out = [];
+  for (const g of Array.isArray(groups) ? groups : []) {
+    const objects = Array.isArray(g.objects) ? g.objects : [];
+    if (objects.length === 1) {
+      const summary = objects[0];
+      for (const t of keepTargets(actions, summary, { objectWord })) {
+        if (seen.has(t.id) || (g.named && !t.named)) continue;
+        seen.add(t.id);
+        out.push({ id: t.id, what: g.what, module: t.module, moduleName: t.moduleName, local: t.local, as: t.as, label: t.as ? `${t.moduleName} as ${t.as}` : t.moduleName, hint: '', sends: [{ summary, target: t }], left: 0 });
+      }
+      continue;
+    }
+    const byPlace = new Map();
+    let order = 0;
+    objects.forEach((summary) => {
+      keepTargets(actions, summary, { objectWord }).forEach((t, rank) => {
+        if (g.named && !t.named) return;
+        if (!byPlace.has(t.id)) byPlace.set(t.id, { t, sends: [], best: 0, at: order++ });
+        const p = byPlace.get(t.id);
+        p.sends.push({ summary, target: t });
+        if (rank === 0) p.best += 1;
+      });
+    });
+    const places = [...byPlace.values()].filter((p) => !seen.has(p.t.id))
+      .sort((x, y) => y.best - x.best || y.sends.length - x.sends.length || x.at - y.at);
+    for (const p of places) {
+      seen.add(p.t.id);
+      const n = p.sends.length;
+      const left = objects.length - n;
+      const counts = new Map();
+      for (const s of p.sends) counts.set(s.summary.kind || '', (counts.get(s.summary.kind || '') || 0) + 1);
+      const kinds = [...counts].map(([k, c]) => `${c} ${k ? kindWord(k, c) : c === 1 ? one : many}`).join(', ');
+      // A form opens one object at a time (each would replace the last): only the first, and the hint says so.
+      if (p.t.local && n > 1) {
+        const as = p.sends[0].target.as;
+        const hint = [`Opens the first of ${n}`, left ? `${left} left out` : ''].filter(Boolean).join('; ');
+        out.push({ id: p.t.id, what: g.what, module: p.t.module, moduleName: p.t.moduleName, local: true, as, label: as ? `${p.t.moduleName} as ${as}` : p.t.moduleName, hint, sends: p.sends.slice(0, 1), left, more: n - 1 });
+        continue;
+      }
+      const hint = [n > 1 ? kinds : '', left ? `${left} left out` : ''].filter(Boolean).join('; ');
+      const as = n === 1 ? p.sends[0].target.as : '';
+      out.push({ id: p.t.id, what: g.what, module: p.t.module, moduleName: p.t.moduleName, local: p.t.local, as, label: n > 1 ? `${p.t.moduleName} (${n})` : as ? `${p.t.moduleName} as ${as}` : p.t.moduleName, hint, sends: p.sends, left });
+    }
+  }
+  const forms = out.filter((c) => c.local);
+  const list = [...out.filter((c) => !c.local), ...forms];
+  const at = last ? list.findIndex((c) => c.id === last) : -1;
+  if (at > -1) {
+    const [c] = list.splice(at, 1);
+    list.unshift({ ...c, hint: [c.hint, 'Last used'].filter(Boolean).join('; '), lastUsed: true });
+  }
+  return list;
+}
+
+// A sentence from a module's one line: a capital first, a full stop last.
+const sentence = (s) => {
+  const t = oneLine(s, 300);
+  if (!t) return '';
+  return `${t.charAt(0).toUpperCase()}${t.slice(1)}${/[.!?]$/.test(t) ? '' : '.'}`;
+};
+
+// How one request went, in Chat's words, from GET /api/spaces/:id/action/:requestId (`status`: null when it could not
+// be read, a guest's). `result`:
+// - 'kept' (done), 'opened' (a form on the person's own page), 'failed' (with the module's `error`), 'sent' (it went;
+//   how is not known);
+// - 'queued' (waiting for the module to be open), 'adding' (a page has it now);
+// - for a form: 'starting' (not opened yet; still followed), 'closed' (it expired: the module is not open).
+// Pure, for the checks.
+export function requestOutcome(status, { moduleName = '', as = '', local = false } = {}) {
+  const m = moduleName || 'It';
+  if (!status || !status.status) return { result: 'sent', text: `Sent to ${m}.` };
+  if (status.status === 'done') {
+    const note = sentence(status.note);
+    if (status.ok) {
+      const text = local ? `Opened in ${m}.` : `Added to ${m}${as ? ` as ${as}` : ''}.`;
+      return { result: local ? 'opened' : 'kept', text: [text, note].filter(Boolean).join(' '), note };
+    }
+    const why = oneLine(status.error, 300);
+    return { result: 'failed', text: why ? `${m} couldn't add that: ${why}${/[.!?]$/.test(why) ? '' : '.'}` : `${m} couldn't add that.`, error: why };
+  }
+  if (local) {
+    if (status.status === 'claimed') return { result: 'opened', text: `Opened in ${m}.` };
+    if (status.status === 'pending') return { result: 'starting', text: `Waiting for ${m} to open it.` };
+    return { result: 'closed', text: `${m} isn't open.` };
+  }
+  if (status.status === 'expired') return { result: 'failed', text: `${m} couldn't add that.` };
+  if (status.status === 'claimed') return { result: 'adding', text: `${m} is adding it.` };
+  return { result: 'queued', text: `Waiting: it is added when ${m} is next open.` };
+}
+
+// Several requests' outcomes in one note: "Added 3 to Planner. 2 waiting: they are added when Planner is next open."
+// Each is { result, text, note, moduleName }; `moduleName` names the one place they all went to, if they did.
+export function outcomesWords(outcomes, { moduleName = '' } = {}) {
+  const list = Array.isArray(outcomes) ? outcomes.filter(Boolean) : [];
+  if (list.length === 1) return list[0].text;
+  const of = (r) => list.filter((o) => o.result === r);
+  const byModule = (r) => {
+    const counts = new Map();
+    for (const o of of(r)) counts.set(o.moduleName || moduleName || 'it', (counts.get(o.moduleName || moduleName || 'it') || 0) + 1);
+    return [...counts];
+  };
+  const parts = [];
+  const done = [...of('kept'), ...of('sent')];
+  if (done.length) parts.push(`${of('kept').length ? 'Added' : 'Sent'} ${done.length}${moduleName ? ` to ${moduleName}` : ''}.`);
+  parts.push(...new Set(list.map((o) => o.note).filter(Boolean)));
+  for (const [m, n] of byModule('opened')) parts.push(n === 1 ? `Opened in ${m}.` : `Opened ${n} in ${m}.`);
+  for (const [m, n] of byModule('adding')) parts.push(`${m} is adding ${n === 1 ? 'it' : n}.`);
+  for (const [m, n] of byModule('starting')) parts.push(`Waiting for ${m} to open ${n === 1 ? 'it' : 'them'}.`);
+  for (const [m, n] of byModule('queued')) parts.push(`${n} waiting: ${n === 1 ? 'it is' : 'they are'} added when ${m} is next open.`);
+  const failed = of('failed');
+  if (failed.length) parts.push(`${failed.length} couldn't be added. ${failed[0].text}`);
+  for (const [m] of byModule('closed')) parts.push(`${m} isn't open.`);
+  return parts.join(' ') || list.map((o) => o.text).join(' ');
+}
+
+// Whether a picture sent to a module was refused, so its upload is taken back off: refused, unless the module says the
+// file is in use there ("that picture is already a photo here"). Pure, for the checks.
+export function pictureRefused(outcome) {
+  return Boolean(outcome && outcome.result === 'failed' && !/already a photo|in use/i.test(String(outcome.error || '')));
+}
+
+// What Send to... adds for a message's words with a day: the day as `due`, for a place that takes one on its own (To-do's
+// createTask), since a day on words with no kind is not a due date to the module. Pure, for the checks.
+export function wordsExtra(target, summary) {
+  const input = (target && !target.legacy && target.action && target.action.input) || {};
+  if (!summary || summary.kind || !isDay(summary.date) || !Object.hasOwn(input, 'due')) return {};
+  return { due: summary.date };
 }
 
 // A title as plain text on one line (Markdown read, never shown raw), with the SDK's helper when the page has it.
@@ -600,7 +839,7 @@ export function keptNoticeTakes(entry, data, from) {
   return Boolean(cleanKept(data.kept));
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // (the wider Send button leaves a narrow chat a narrow field). A command's own hint is left alone.
@@ -633,11 +872,18 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     return s && !s.isAside ? s.id : null;
   }
 
+  // Chat's one line of news (#chat-note, a polite live region: a screen reader reads it out). Shown with its words a
+  // moment after it appears, so a reader hears words that arrive in a region it already knows.
+  let noteSeq = 0;
   function setNote(text) {
     const el = note();
     if (!el) return;
-    el.textContent = text || '';
-    el.hidden = !text;
+    const seq = ++noteSeq;
+    if (!text) { el.textContent = ''; el.hidden = true; return; }
+    if (!el.hidden) { el.textContent = text; return; }
+    el.textContent = '';
+    el.hidden = false;
+    setTimeout(() => { if (seq === noteSeq) el.textContent = text; }, 60);
   }
 
   function commandList() {
@@ -970,24 +1216,48 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     }
     // Send to the place shown, once: Keep does nothing while it is on its way, and once kept. A place that opens a form
     // on the person's own page (a local action) says so, and may be opened again.
-    async function send(t) {
+    // Answers null when nothing went (the note says why), else { outcome }: a promise of how it went (followRequest),
+    // which also sets the row and, unless `quiet` (Keep ticked says it once for all), Chat's note.
+    async function send(t, { quiet = false } = {}) {
       if (state || !t) return null;
       state = 'busy';
       drawPlace();
-      const out = await keepOne(current(), question, t);
+      const sent = await requestKeep(current(), question, t);
+      if (sent.error) {
+        state = '';
+        drawPlace();
+        setNote(sent.error);
+        return null;
+      }
+      // A form still opening keeps the row busy; how it ended is said when it has.
+      const onLate = (late) => { settle(t, late); setNote(late.text); };
+      const outcome = followRequest(sent.id, t, { onLate }).then((o) => {
+        settle(t, o);
+        if (!quiet) setNote(o.text);
+        return o;
+      });
+      return { outcome };
+    }
+    // The row once its request is known: kept (or sent, for a guest), waiting, opened in a form, or back to Keep.
+    function settle(t, o) {
+      if (o.result === 'starting') return; // still 'busy': followRequest says how it ends
+      const out = { kept: 'kept', sent: 'kept', queued: 'queued', adding: 'queued', opened: 'opened' }[o.result] || '';
       state = out === 'kept' || out === 'queued' ? out : '';
       opened = out === 'opened' ? t.moduleName : opened;
-      if (out === 'kept' || out === 'queued') keep.classList.add(out);
-      const words = { kept: ['Kept', `Kept in ${t.moduleName}`], queued: ['Waiting', `Waiting for ${t.moduleName}`], opened: [`Opened in ${t.moduleName}`, `Opened in ${t.moduleName}`] }[out];
+      if (state) keep.classList.add(state);
+      const words = {
+        kept: o.result === 'sent' ? ['Sent', `Sent to ${t.moduleName}`] : ['Kept', `Kept in ${t.moduleName}`],
+        queued: o.result === 'adding' ? ['Adding', `${t.moduleName} is adding it`] : ['Waiting', `Waiting for ${t.moduleName}`],
+        opened: [`Opened in ${t.moduleName}`, `Opened in ${t.moduleName}`],
+      }[out];
       if (words) {
         keep.textContent = words[0];
         keep.setAttribute('aria-label', words[1]);
       }
-      if (out === 'queued') keep.title = `Waiting: it is kept when ${t.moduleName} is next open`;
+      if (o.result === 'queued') keep.title = `Waiting: it is added when ${t.moduleName} is next open`;
       if (out) view.moved = false; // the person saw where it went
       drawPlace();
       if (out && onKept) onKept(keep);
-      return out;
     }
     async function keepNow() {
       if (state) return;
@@ -998,7 +1268,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
         view.moved = false; // said, and shown on the row
         return;
       }
-      await send(shown);
+      const going = await send(shown);
+      if (going) await going.outcome;
     }
     keep.addEventListener('click', async (e) => {
       e.preventDefault();
@@ -1081,20 +1352,198 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     }
   }
 
-  // Keep one object in a place from keepTargets: the object itself to a module that takes it, the older flat fields to
-  // one that declares no `takes`. A view (`local`) runs only on the person's own open module, as a command does, and
-  // opens its form there: it is 'opened', never kept. Answers 'kept', 'queued', 'opened', or null when nothing was sent.
-  async function keepOne(summary, question, target) {
-    if (!target) { setNote('Nothing here can keep that yet.'); return null; }
-    if (target.local && !canvas.isOpen(target.module)) { setNote(`${target.moduleName} isn't open.`); return null; }
+  // Ask a place from keepTargets to keep one object: the object itself to a module that takes it, the older flat fields
+  // to one that declares no `takes`. A view (`local`) runs only on the person's own open module, as a command does, and
+  // opens its form there; it is never asked for while that module is closed (the request would only expire). Answers
+  // { id } (the request's id), or { error } with the sentence to show.
+  async function requestKeep(summary, question, target, extra = {}) {
+    if (!target) return { error: 'Nothing here can keep that yet.' };
+    if (target.local && !canvas.isOpen(target.module)) return { error: `${target.moduleName} isn't open.` };
     try {
-      const out = await api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/action`, { action: target.id, input: keepTargetInput(target, summary, question) });
-      if (target.local) return 'opened';
-      return out.status === 'queued' ? 'queued' : 'kept';
+      const out = await api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/action`, { action: target.id, input: { ...keepTargetInput(target, summary, question), ...extra } });
+      return { id: out && out.id };
     } catch (err) {
-      setNote(err.message || 'Could not keep that.');
-      return null;
+      return { error: sentence(err.message) || 'Could not keep that.' };
     }
+  }
+
+  const sleep = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+  const guest = () => (typeof isGuest === 'function' ? Boolean(isGuest()) : !(getMe() && getMe().key));
+  // How a request went (GET /api/spaces/:id/action/:requestId): asked every half second for about five seconds, until it
+  // is done or has expired. The bus answers `pending` at first even for a module that is open and takes it at once, so
+  // only what it says after that counts. A guest's is never read (guests share one sender). A form that opened is
+  // brought forward (on a phone, it replaces Chat in view). A form not opened yet ('starting') is still followed, more
+  // slowly, until it opens or its request expires; `onLate` hears how it ended (else Chat's note says it).
+  // Answers requestOutcome's { result, text, note, error, moduleName }.
+  async function followRequest(requestId, target, { as = target.as, onLate = null } = {}) {
+    const id = spaceId();
+    const read = async () => {
+      try {
+        return await api('GET', `/api/spaces/${encodeURIComponent(id)}/action/${encodeURIComponent(requestId)}`);
+      } catch {
+        return null;
+      }
+    };
+    const outcomeOf = (status) => ({ ...requestOutcome(status, { moduleName: target.moduleName, as, local: target.local }), moduleName: target.moduleName });
+    let status = null;
+    if (id && requestId && !guest()) {
+      for (let i = 0; i < 10; i += 1) {
+        await sleep(500);
+        status = await read();
+        if (!status || status.status === 'done' || status.status === 'expired') break;
+      }
+    }
+    const outcome = outcomeOf(status);
+    if (outcome.result === 'opened') bringForward(target.module);
+    if (outcome.result === 'starting') followLate(read, outcomeOf, target, onLate);
+    return outcome;
+  }
+  // A form's request may still be taken until it expires, a minute after it was asked (the bus's openOnly): asked every
+  // two seconds until it is opened, done or expired (at most 70 seconds). Unreadable, or still waiting then, reads as
+  // "isn't open".
+  async function followLate(read, outcomeOf, target, onLate) {
+    const until = Date.now() + 70000;
+    let status = null;
+    while (Date.now() < until) {
+      await sleep(2000);
+      status = await read();
+      if (!status || status.status !== 'pending') break;
+    }
+    let late = outcomeOf(status);
+    if (late.result === 'starting' || late.result === 'sent') late = outcomeOf({ status: 'expired' });
+    if (late.result === 'opened') bringForward(target.module);
+    if (typeof onLate === 'function') onLate(late);
+    else setNote(late.text);
+  }
+  // A module's form just opened on this page: show that module, as its tab or switch does (canvas.show).
+  function bringForward(moduleId) {
+    if (moduleId && typeof canvas.show === 'function') canvas.show(moduleId);
+  }
+
+  // --- Send to... (plan-object-handoff.md, "Send to...") ---
+  // The last place chosen for each kind of message (text, link, picture, objects), in this browser.
+  const sendKey = (what) => `chat-send-place:${what}`;
+  const lastSend = (what) => { try { return localStorage.getItem(sendKey(what)) || ''; } catch { return ''; } };
+  const rememberSend = (what, id) => { try { localStorage.setItem(sendKey(what), id); } catch { /* not remembered */ } };
+  const objectNouns = () => ({ one: word('object'), many: word('object', { many: true }) });
+
+  // What a message is, and where it can go, from the actions held now. Only a message held in a space's chat: an aside
+  // has none, and an import's preview has its own Keep.
+  function sendPlan(entry) {
+    if (!spaceId() || !entry || !entry.chat || !canvas) return null;
+    const text = globalThis.hostText || {};
+    const groups = messageObjects(entry, { plain: text.plain });
+    if (!groups.length) return null;
+    const what = groups[0].what;
+    const choices = sendChoices(lastActions, groups, { last: lastSend(what), objectWord: word('object', { a: true }), ...objectNouns() });
+    return choices.length ? { what, choices } : null;
+  }
+
+  // A picture's bytes as a JPEG of its first frame, for a module that takes only JPEG, PNG or WebP (a GIF).
+  async function asJpeg(blob) {
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement('canvas');
+    c.width = bmp.width;
+    c.height = bmp.height;
+    const g = c.getContext('2d');
+    g.fillStyle = 'white'; // a JPEG has no see-through parts: what was see-through reads as paper, not black
+    g.fillRect(0, 0, c.width, c.height);
+    g.drawImage(bmp, 0, 0);
+    bmp.close();
+    const out = await new Promise((resolve) => { c.toBlob(resolve, 'image/jpeg', 0.9); });
+    if (!out) throw new Error('That picture could not be read.');
+    return out;
+  }
+
+  // A picture (decision 15): uploaded into the place's own uploads, as this person, in this space; then the action names
+  // the file. A request that fails takes its upload back off; one that never runs is swept by the server.
+  async function sendPicture(entry, choice) {
+    const { summary, target } = choice.sends[0];
+    const sorry = `That picture can't be sent to ${target.moduleName}.`;
+    const fail = (text) => ({ result: 'failed', text, moduleName: target.moduleName });
+    if (!(entry.blob instanceof Blob)) return fail('That picture is no longer here.');
+    const id = spaceId();
+    let blob = entry.blob;
+    let name = summary.details.name;
+    try {
+      if (!/^image\/(jpeg|png|webp)$/.test(blob.type)) {
+        blob = await asJpeg(blob);
+        name = `${name.replace(/\.[^.]+$/, '') || 'picture'}.jpg`;
+      }
+      const where = new URLSearchParams({ scope: 'space', space: id, name });
+      const up = await api('POST', `/api/modules/${encodeURIComponent(target.module)}/uploads?${where}`, blob, blob.type);
+      const fileId = up && up.file && up.file.id;
+      if (!fileId) return fail(sorry);
+      const drop = () => api('DELETE', `/api/modules/${encodeURIComponent(target.module)}/uploads/${encodeURIComponent(fileId)}?${new URLSearchParams({ scope: 'space', space: id })}`).catch(() => {});
+      const sent = await requestKeep({ kind: 'image', title: name, details: { upload: fileId, name } }, '', target);
+      if (sent.error) {
+        drop();
+        return fail(sorry);
+      }
+      const outcome = await followRequest(sent.id, target);
+      if (pictureRefused(outcome)) drop();
+      return outcome;
+    } catch {
+      return fail(sorry);
+    }
+  }
+
+  // One entry of Send to... chosen: sent at once (decision 14), then one note says how it went.
+  async function sendChoice(entry, plan, choice) {
+    if (choice.local && !canvas.isOpen(choice.module)) { setNote(`${choice.moduleName} isn't open.`); return; }
+    rememberSend(plan.what, choice.id);
+    setNote(`Sending to ${choice.moduleName}...`);
+    let outcomes = [];
+    const first = choice.sends[0].target;
+    const keeper = linkKeeper(lastActions);
+    if (plan.what === 'picture') {
+      outcomes = [await sendPicture(entry, choice)];
+    } else if (choice.what === 'link' && typeof keepStoredLink === 'function' && entry.stored && entry.preview && keeper
+      && keeper.module === choice.module && first.action && first.action.name === 'saveLink') {
+      // A message's own link goes through the link's Keep, so its "Kept by" mark is set as today.
+      try {
+        const out = await keepStoredLink(entry);
+        if (out && out.status === 'kept') outcomes = [{ result: 'kept', text: `Already kept by ${(out.message && out.message.kept && out.message.kept.who) || 'someone'}.` }];
+        else outcomes = [out && out.id ? await followRequest(out.id, first) : { ...requestOutcome(null, { moduleName: first.moduleName }), moduleName: first.moduleName }];
+      } catch (err) {
+        outcomes = [{ result: 'failed', text: err.message || `${first.moduleName} couldn't add that.` }];
+      }
+    } else {
+      // The asker's question goes with a public AI answer's objects, as its Keep sends it.
+      const question = entry.kind === 'ai' && entry.visibility === 'public' && entry.question ? entry.question.text : '';
+      const waits = [];
+      for (const s of choice.sends) {
+        const sent = await requestKeep(s.summary, question, s.target, plan.what === 'objects' ? {} : wordsExtra(s.target, s.summary));
+        waits.push(sent.error ? { result: 'failed', text: sent.error, moduleName: s.target.moduleName } : followRequest(sent.id, s.target));
+      }
+      outcomes = await Promise.all(waits);
+    }
+    const more = !choice.more ? '' : choice.more === 1 ? ' The other one: use its own Keep.' : ` The other ${choice.more}: use each one's own Keep.`;
+    // A form still opening: the note says how it ended once it has (followRequest's onLate is not given here).
+    setNote(`${outcomesWords(outcomes, { moduleName: choice.moduleName })}${more}`);
+  }
+
+  // Send to... on a message's menu: the places from a fresh list of actions, opened from the same button. A private
+  // message is its author's only (decision 18): the menu says the space will see it.
+  async function sendTo(entry, trigger) {
+    await refreshActions();
+    const plan = sendPlan(entry);
+    if (!plan) { setNote('Nothing here can take that now.'); return; }
+    const items = [];
+    // On every entry's own hint, so the keyboard and a screen reader reach it with the entry.
+    const seen = entry.visibility === 'private' ? `Everyone in this ${word('space')} will see it` : '';
+    for (const c of plan.choices) {
+      const m = canvas.list().find((x) => x.id === c.module);
+      const closed = c.local && !canvas.isOpen(c.module);
+      items.push({
+        icon: m && /^[a-z0-9-]{1,40}$/.test(m.icon || '') ? m.icon : 'share',
+        tint: canvas.colorOf ? canvas.colorOf(c.module) : null,
+        label: c.label,
+        hint: [closed ? `Open ${c.moduleName} first` : c.hint, seen].filter(Boolean).join('; '),
+        onPick: () => sendChoice(entry, plan, c),
+      });
+    }
+    if (trigger && trigger.isConnected) openMenu(trigger, items);
   }
 
   async function askAbout({ question, refs } = {}) {
@@ -1329,7 +1778,14 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
       const what = keepCountWords(split.going.map((p) => ({ kind: p.kind, moduleName: p.target.moduleName })), objectWords());
       if (!window.confirm(`${movedWords}Keep ${what}?${leftOut ? ` ${leftOut}` : ''}`)) { refresh(); return; }
       keepTicked.disabled = true;
-      for (const p of split.going) await p.r.view.send(p.target);
+      // One after another, as before; then how they all went, in one note.
+      const waits = [];
+      for (const p of split.going) {
+        const going = await p.r.view.send(p.target, { quiet: true });
+        if (going) waits.push(going.outcome);
+      }
+      const outcomes = await Promise.all(waits);
+      if (outcomes.length) setNote(outcomesWords(outcomes));
       keepTicked.disabled = false;
       refresh();
     });
@@ -1544,5 +2000,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     hidePicker,
     hideImport: () => setImportOpen(false),
     askAbout,
+    // Send to... (plan-object-handoff.md): whether a message's menu offers it, from the actions held now; and the menu.
+    canSendTo: (entry) => Boolean(sendPlan(entry)),
+    sendTo,
   };
 }

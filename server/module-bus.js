@@ -21,7 +21,19 @@ const LIMITS = {
   actionAgeMs: 7 * 24 * 60 * 60 * 1000,
   claimMs: 60 * 1000, // a claimed request nobody completed can be claimed again after this
   dataBytes: 2000,
+  // A request that is only for a page already open (Chat's Keep and Send to... asking a `local` action, such as a poll
+  // form) is handed out for this long, then never: it does not wait for the next time the module is opened.
+  openOnlyMs: 60 * 1000,
+  // How long after a request finished the person who asked can still read how it went (GET /api/spaces/:id/action/:id).
+  resultMs: 10 * 60 * 1000,
 };
+
+// Whether a request with a time limit (`expiresAt`) has passed it without being carried out: no page may take it now. A
+// page that claimed it in time and is still within the claim's minute may still finish it.
+function expired(a, now) {
+  if (!a.expiresAt || a.status === 'done' || now <= a.expiresAt) return false;
+  return !(a.status === 'claimed' && now - a.claimedAt <= LIMITS.claimMs);
+}
 
 class ModuleBus extends EventEmitter {
   constructor(modulesDir) {
@@ -44,10 +56,26 @@ class ModuleBus extends EventEmitter {
     fs.renameSync(tmp, this.file);
   }
 
+  // Old events and requests go. A request that goes without having been carried out is announced ('actionsDropped'),
+  // so what it left behind (a picture uploaded for it) can be removed with it; an expired one goes once its result
+  // window is over.
   prune() {
     const now = Date.now();
     this.state.events = this.state.events.filter((e) => now - e.at < LIMITS.eventAgeMs).slice(-LIMITS.events);
-    this.state.actions = this.state.actions.filter((a) => now - a.at < LIMITS.actionAgeMs).slice(-LIMITS.actions);
+    const before = this.state.actions;
+    this.state.actions = before
+      .filter((a) => now - a.at < LIMITS.actionAgeMs && !(expired(a, now) && now - a.expiresAt > LIMITS.resultMs))
+      .slice(-LIMITS.actions);
+    if (this.state.actions.length === before.length) return [];
+    const kept = new Set(this.state.actions);
+    return before.filter((a) => !kept.has(a) && a.status !== 'done');
+  }
+
+  // prune(), save, then say which requests went without being carried out.
+  pruneAndSave() {
+    const dropped = this.prune();
+    this.save();
+    if (dropped.length) this.emit('actionsDropped', dropped);
   }
 
   // --- events ---------------------------------------------------------------
@@ -57,8 +85,7 @@ class ModuleBus extends EventEmitter {
     if (text.length > LIMITS.dataBytes) return null;
     const event = { id: ++this.state.seq, at: Date.now(), module, name, ref: ref || null, data: text ? JSON.parse(text) : null, scopeKey, by };
     this.state.events.push(event);
-    this.prune();
-    this.save();
+    this.pruneAndSave();
     this.emit('event', event);
     return event;
   }
@@ -78,11 +105,12 @@ class ModuleBus extends EventEmitter {
   // `space`: for a request from an environment page about one of the provider's own objects in a space, that space.
   // The request still waits in `scopeKey` (where the asking and providing pages are), but only someone who may change
   // the module in that space may take it (plan-calendar-destination, decision 21).
-  request({ from, provider, action, input, scopeKey, by, local, space }) {
-    const request = { id: ++this.state.seq, at: Date.now(), from, provider, action, input, scopeKey, by, ...(local ? { local: true } : {}), ...(space ? { space } : {}), status: 'pending', claimedAt: 0, result: null };
+  // `openOnly`: the request is for a page already open, and is handed out for LIMITS.openOnlyMs only (`expiresAt`).
+  request({ from, provider, action, input, scopeKey, by, local, space, openOnly }) {
+    const at = Date.now();
+    const request = { id: ++this.state.seq, at, from, provider, action, input, scopeKey, by, ...(local ? { local: true } : {}), ...(space ? { space } : {}), ...(openOnly ? { expiresAt: at + LIMITS.openOnlyMs } : {}), status: 'pending', claimedAt: 0, result: null };
     this.state.actions.push(request);
-    this.prune();
-    this.save();
+    this.pruneAndSave();
     this.emit('action', request);
     return request;
   }
@@ -94,15 +122,20 @@ class ModuleBus extends EventEmitter {
   // Requests waiting for the provider in a scope (or claimed too long ago to be still going).
   pending(provider, scopeKey) {
     const now = Date.now();
-    return this.state.actions.filter((a) => a.provider === provider && a.scopeKey === scopeKey
+    return this.state.actions.filter((a) => a.provider === provider && a.scopeKey === scopeKey && !expired(a, now)
       && (a.status === 'pending' || (a.status === 'claimed' && now - a.claimedAt > LIMITS.claimMs)));
+  }
+
+  // How a request is going, in the bus's words, with 'expired' for one that passed its time limit unclaimed.
+  statusOf(a) {
+    return expired(a, Date.now()) ? 'expired' : a.status;
   }
 
   // One page takes a request; the others that saw it too are told no. Returns the request or null.
   claim(id, provider, scopeKey) {
     const a = this.actionById(id);
     const now = Date.now();
-    if (!a || a.provider !== provider || a.scopeKey !== scopeKey) return null;
+    if (!a || a.provider !== provider || a.scopeKey !== scopeKey || expired(a, now)) return null;
     if (!(a.status === 'pending' || (a.status === 'claimed' && now - a.claimedAt > LIMITS.claimMs))) return null;
     a.status = 'claimed';
     a.claimedAt = now;
@@ -112,8 +145,10 @@ class ModuleBus extends EventEmitter {
 
   complete(id, provider, scopeKey, result) {
     const a = this.actionById(id);
-    if (!a || a.provider !== provider || a.scopeKey !== scopeKey || a.status === 'done') return null;
+    // Past its time limit, only a page that claimed it in time (and is within the claim's minute) may finish it.
+    if (!a || a.provider !== provider || a.scopeKey !== scopeKey || a.status === 'done' || expired(a, Date.now())) return null;
     a.status = 'done';
+    a.doneAt = Date.now();
     a.result = result;
     this.save();
     this.emit('actionDone', a);

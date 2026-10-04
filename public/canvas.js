@@ -1741,6 +1741,19 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     update();
     return opened.has(id);
   };
+  // The same for any module (Chat's Send to... and Keep, after a module's form opened on this page): open it if it is
+  // closed, else bring it forward the way its tab or switch does (on a phone, it becomes the view shown; floating, it
+  // comes to the front; in a window of its own, that window is focused). Never closes anything.
+  const api_show = (id) => {
+    if (builtins.has(id)) return api_showBuiltin(id);
+    const m = available.find((x) => x.id === id);
+    if (!m) return false;
+    if (!opened.has(id)) openModule(m);
+    else if (opened.get(id).mode === 'window') opened.get(id).win?.focus?.();
+    else setView(id);
+    update();
+    return opened.has(id);
+  };
 
   return {
     refresh,
@@ -1803,6 +1816,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     },
     openBuiltin: api_openBuiltin,
     showBuiltin: api_showBuiltin,
+    show: api_show,
     closeBuiltin,
     builtinOpen: (id) => opened.has(id),
     // The window a built-in module is popped out into, or null (the page's idle-hide needs that document's own canvas).

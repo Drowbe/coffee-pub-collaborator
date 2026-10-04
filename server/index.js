@@ -16,7 +16,7 @@ const { fillManifest } = require('./modules');
 const templates = require('./templates');
 const { ModuleLinks } = require('./module-links');
 const { Backgrounds } = require('./backgrounds');
-const { ModuleBus } = require('./module-bus');
+const { ModuleBus, BUS_LIMITS } = require('./module-bus');
 const { ChatHistory } = require('./chat-history');
 const { LayoutError, cleanLayout } = require('./layouts');
 const { ModuleLimits } = require('./module-limits');
@@ -4268,6 +4268,7 @@ app.post('/api/spaces/:id/chat/:messageId/keep', (req, res) => {
   }
   if (message.kept) return res.json({ status: 'kept', message: chatHistory.shown(space.id, message) });
   if (chatPostLimited(me || `guest:${space.id}`)) return res.status(429).json({ error: 'too many messages, slow down' });
+  if (chatRequestLimited(who, space)) return res.status(429).json({ error: CHAT_REQUESTS_REFUSAL });
   const p = message.preview;
   let input;
   try {
@@ -4288,7 +4289,7 @@ app.post('/api/spaces/:id/chat/:messageId/keep', (req, res) => {
   const out = chatHistory.setKept(space.id, message.id, { by: me || 'guest', who: who.user ? who.user.displayName : word('guest', { cap: true }), at: Date.now() });
   if (!out) return res.status(404).json({ error: 'no such message' });
   if (out.changed && out.message.visibility !== 'private') tellChat(space.id, { type: 'chat-kept', id: out.message.id, kept: out.message.kept });
-  res.json({ status: request.status, message: out.message });
+  res.json({ id: request.id, status: request.status, message: out.message });
 });
 
 // --- Chat /ai and commands (plan-one-input, #58) ----------------------------------------------------------------
@@ -4396,6 +4397,15 @@ app.get('/api/spaces/:id/objects/check', (req, res) => {
   res.json({ available: !why, why });
 });
 
+// How many requests one person may ask for from Chat (Keep, Keep ticked, Send to..., a command), together, in a minute:
+// the same 60 a module may ask for through the bus (MODULE_LIMITS.action), counted once across every module, so Keep
+// ticked on a 50-object import fits and one person cannot push everyone's waiting requests past the bus's cap. Guests
+// of a space share one count, as they share one sender. The limiter is the modules' own (module-limits.js) under a key
+// no module id can take; it is not noted in the activity list, which is about modules.
+const CHAT_REQUESTS = '#chat';
+const chatRequestLimited = (who, space) => !moduleLimits.take(CHAT_REQUESTS, who.user ? who.user.key : `guest:${space.id}`, 'action').ok;
+const CHAT_REQUESTS_REFUSAL = 'too many requests in a minute, slow down';
+
 // Chat routes `/<name> <text>` to the module that registered that command. The module must be placed in the
 // space; whether it is open is the page's to check. Two modules with the same name: `module` picks one.
 app.post('/api/spaces/:id/command', (req, res) => {
@@ -4428,6 +4438,7 @@ app.post('/api/spaces/:id/command', (req, res) => {
     if (!err.status) throw err;
     return res.status(err.status).json({ error: err.message });
   }
+  if (chatRequestLimited(who, space)) return res.status(429).json({ error: CHAT_REQUESTS_REFUSAL });
   const request = moduleBus.request({
     from: chosen.module,
     provider: chosen.module,
@@ -4514,6 +4525,7 @@ app.post('/api/spaces/:id/action', (req, res) => {
     if (!err.status) throw err;
     return res.status(err.status).json({ error: err.message });
   }
+  if (chatRequestLimited(who, space)) return res.status(429).json({ error: CHAT_REQUESTS_REFUSAL });
   const request = moduleBus.request({
     from: providerId,
     provider: providerId,
@@ -4522,8 +4534,43 @@ app.post('/api/spaces/:id/action', (req, res) => {
     scopeKey: provider.scopeKey,
     by: who.user?.key || 'guest',
     local: def.local,
+    // A view (Polls' draftPoll) opens a form on the person's own open page; Chat sends it only when the module is open,
+    // so it is handed out for a minute and never waits for the module's next opening (BUS_LIMITS.openOnlyMs).
+    openOnly: Boolean(def.local),
   });
   res.json({ id: request.id, status: request.status });
+});
+
+// How a request this person made in this space went (plan-object-handoff.md, step 9: Chat's note after Keep and Send
+// to...), read as the module SDK's wait does: ask again every half second or so for a few seconds. Only the person who
+// asked reads it; anyone else, and a request from another place, is "no such request". A guest's requests all carry the
+// same sender, so a guest is refused rather than shown another guest's. Only the outcome comes back (never the input or
+// the module's other data): `ok`, the module's `error` sentence and its `data.note`, each one line of at most 300
+// characters, for BUS_LIMITS.resultMs after it finished.
+const ACTION_NOTE_MAX = 300;
+const oneLineNote = (v) => (typeof v === 'string' ? v.replace(/[\p{Cc}\p{Cf}]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, ACTION_NOTE_MAX) : '');
+app.get('/api/spaces/:id/action/:requestId', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chatRead');
+  if (!found) return;
+  const { who, space } = found;
+  if (!who.user) return res.status(403).json({ error: `${word('guest', { many: true, cap: true })} can't see how a request went` });
+  if (!/^[1-9][0-9]{0,15}$/.test(req.params.requestId)) return res.status(400).json({ error: 'a request id is a whole number' });
+  const request = moduleBus.actionById(Number(req.params.requestId));
+  const now = Date.now();
+  if (!request || request.by !== who.user.key || request.scopeKey !== scopeKeyOf('space', { spaceId: space.id })
+    || (request.status === 'done' && now - (request.doneAt || request.at) > BUS_LIMITS.resultMs)) {
+    return res.status(404).json({ error: 'no such request' });
+  }
+  const status = moduleBus.statusOf(request);
+  const out = { id: request.id, status };
+  if (status === 'done') {
+    out.ok = Boolean(request.result?.ok);
+    const error = oneLineNote(request.result?.error);
+    if (!out.ok && error) out.error = error;
+    const note = oneLineNote(request.result?.data?.note);
+    if (note) out.note = note;
+  }
+  res.json(out);
 });
 
 // --- a module's page reading every space the viewer belongs to ---------------
@@ -5696,7 +5743,7 @@ app.get('/api/bus/actions/status', busRoute((who, req) => {
   const at = busPlace(who, from, busScope(req.query.scope), req.query.space, 'read');
   const request = moduleBus.actionById(Number(req.query.id));
   if (!request || request.from !== from || request.scopeKey !== at.scopeKey) throw refError(404, 'no such request');
-  return { status: request.status, result: request.result };
+  return { status: moduleBus.statusOf(request), result: request.result };
 }));
 
 // --- what modules have been doing ------------------------------------------------------------

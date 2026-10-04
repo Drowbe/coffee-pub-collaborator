@@ -7,7 +7,9 @@
  * (Research's is in check-research.mjs). On a throwaway server with stand-in modules (none of this
  * repository's): `takes` and `may` on GET /api/spaces/:id/actions, an action's permission, the `object` input refused or
  * kept through POST /api/spaces/:id/action and /api/bus/actions/request, the copied instructions following the enabled
- * modules, and a request already waiting in bus.json from before still running.
+ * modules, and a request already waiting in bus.json from before still running. Step 9's server side: how a request went
+ * (GET /api/spaces/:id/action/:requestId) for the person who asked only, a local request from Keep and Send to... handed
+ * out for a minute only, and the upload sweep for a picture whose request never ran.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -248,6 +250,59 @@ await test('Polls: a closed poll offers only the actions it can fill (title, not
   assert.equal(pollFills(null, true), false);
 });
 
+// --- the bus on its own (step 9: how a request went, open-only requests, the upload sweep) ---------------------------
+
+const { ModuleBus, BUS_LIMITS } = require('../server/module-bus.js');
+
+await test('bus: an open-only request is handed out for a minute, then never; it reads as expired, then goes', () => {
+  const bus = new ModuleBus(fs.mkdtempSync(path.join(base, 'bus-')));
+  const r = bus.request({ from: 'p', provider: 'p', action: 'draftPoll', input: {}, scopeKey: 'space:abcd', by: 'u1', local: true, openOnly: true });
+  assert.equal(r.expiresAt - r.at, BUS_LIMITS.openOnlyMs);
+  assert.equal(bus.statusOf(r), 'pending');
+  assert.equal(bus.pending('p', 'space:abcd').length, 1);
+  r.expiresAt = Date.now() - 1;
+  assert.equal(bus.statusOf(r), 'expired');
+  assert.equal(bus.pending('p', 'space:abcd').length, 0, 'not handed out after its minute');
+  assert.equal(bus.claim(r.id, 'p', 'space:abcd'), null, 'nor claimed');
+  const plain = bus.request({ from: 'p', provider: 'p', action: 'addPoll', input: {}, scopeKey: 'space:abcd', by: 'u1', local: true });
+  assert.equal('expiresAt' in plain, false, 'a command\'s request still waits for the module to be opened');
+  plain.at = Date.now() - 6 * 24 * 3600 * 1000;
+  assert.equal(bus.pending('p', 'space:abcd').length, 1);
+  // Claimed in time, a page still finishes it after the minute.
+  const late = bus.request({ from: 'p', provider: 'p', action: 'draftPoll', input: {}, scopeKey: 'space:abcd', by: 'u1', local: true, openOnly: true });
+  assert.equal(bus.complete(r.id, 'p', 'space:abcd', { ok: true }), null, 'nor finished, unclaimed past its minute');
+  assert.equal(bus.statusOf(r), 'expired');
+  assert.ok(bus.claim(late.id, 'p', 'space:abcd'));
+  late.expiresAt = Date.now() - 1;
+  assert.equal(bus.statusOf(late), 'claimed');
+  assert.ok(bus.complete(late.id, 'p', 'space:abcd', { ok: true }));
+  assert.equal(bus.statusOf(late), 'done');
+  assert.ok(late.doneAt >= late.at, 'when it finished is kept');
+  // Past its result window an expired request is dropped, and said to have gone without being carried out.
+  const dropped = [];
+  bus.on('actionsDropped', (list) => dropped.push(...list.map((a) => a.id)));
+  r.expiresAt = Date.now() - BUS_LIMITS.resultMs - 1;
+  bus.request({ from: 'p', provider: 'p', action: 'addPoll', input: {}, scopeKey: 'space:abcd', by: 'u1', local: true });
+  assert.equal(bus.actionById(r.id), null);
+  assert.deepEqual(dropped, [r.id], 'a finished request is not announced');
+});
+
+await test('bus: a request dropped after seven days unclaimed is announced; a finished one is not', () => {
+  const bus = new ModuleBus(fs.mkdtempSync(path.join(base, 'bus-')));
+  const dropped = [];
+  bus.on('actionsDropped', (list) => dropped.push(...list.map((a) => a.id)));
+  const waiting = bus.request({ from: 'n', provider: 'n', action: 'savePhoto', input: {}, scopeKey: 'space:abcd', by: 'u1' });
+  const ran = bus.request({ from: 'n', provider: 'n', action: 'savePhoto', input: {}, scopeKey: 'space:abcd', by: 'u1' });
+  bus.claim(ran.id, 'n', 'space:abcd');
+  bus.complete(ran.id, 'n', 'space:abcd', { ok: false, error: 'no' });
+  waiting.at = Date.now() - BUS_LIMITS.actionAgeMs - 1;
+  ran.at = Date.now() - BUS_LIMITS.actionAgeMs - 1;
+  bus.publish({ module: 'n', name: 'x', scopeKey: 'space:abcd', by: 'u1' });
+  assert.equal(bus.actionById(waiting.id), null);
+  assert.equal(bus.actionById(ran.id), null);
+  assert.deepEqual(dropped, [waiting.id]);
+});
+
 // --- a real server ------------------------------------------------------------------------------------------------
 
 function writeModule(id, name, extra) {
@@ -427,6 +482,75 @@ try {
     assert.equal(r.status, 200, r.text);
   });
 
+  await test('live: the person who asked reads how it went, and nobody else; only ok, error and note come back', async () => {
+    const status = (token, id, space = S, q = '') => call('GET', `/api/spaces/${space}/action/${id}${q}`, { token });
+    const finish = (id, result) => call('POST', '/api/bus/actions/complete', { token: admin, body: { module: 'stand-days', id, scope: 'space', space: S, result } });
+    let r = await send(pat, 'stand-days:createEvent', { object: { kind: 'event', title: 'Concert', details: { starts: '2026-11-15T20:00' } } });
+    assert.equal(r.status, 200, r.text);
+    const id = r.json.id;
+    r = await status(pat, id);
+    assert.deepEqual([r.status, r.json], [200, { id, status: 'pending' }]);
+    assert.equal((await call('POST', '/api/bus/actions/claim', { token: admin, body: { module: 'stand-days', id, scope: 'space', space: S } })).json.ok, true);
+    assert.deepEqual((await status(pat, id)).json, { id, status: 'claimed' });
+    const note = `Dated 2027-03-01, outside the plan: it is under Not on a day yet.\n\u0007${'x'.repeat(400)}`;
+    assert.equal((await finish(id, { ok: true, data: { note, results: ['someone else\'s'] }, ref: { module: 'stand-days', kind: 'event', id: 'e1', scope: 'space', space: S } })).json.ok, true);
+    r = await status(pat, id);
+    assert.equal(r.status, 200, r.text);
+    assert.deepEqual(Object.keys(r.json), ['id', 'status', 'ok', 'note'], 'nothing but the outcome');
+    assert.equal(r.json.ok, true);
+    assert.equal(r.json.note.length, 300, 'a note is cut to 300 characters');
+    assert.ok(r.json.note.startsWith('Dated 2027-03-01, outside the plan: it is under Not on a day yet. x'), 'one line');
+    // A refusal: the module's sentence; an empty one leaves error out.
+    r = await send(pat, 'stand-days:createEvent', { object: { title: 'Pack', content: 'x' } });
+    const failed = r.json.id;
+    await call('POST', '/api/bus/actions/claim', { token: admin, body: { module: 'stand-days', id: failed, scope: 'space', space: S } });
+    await finish(failed, { ok: false, error: 'that needs a day to go on the calendar' });
+    assert.deepEqual((await status(pat, failed)).json, { id: failed, status: 'done', ok: false, error: 'that needs a day to go on the calendar' });
+    // Nobody else, not even an owner, and not from another place; a guest is refused outright.
+    assert.deepEqual([(await status(admin, id)).status, (await status(admin, id)).json], [404, { error: 'no such request' }], 'an owner reads only their own');
+    const other = (await call('POST', '/api/spaces', { token: admin, body: { name: 'Elsewhere', members: [made.json.user.key] } })).json.space.id;
+    assert.deepEqual((await status(pat, id, other)).json, { error: 'no such request' }, 'asked from another space');
+    assert.equal((await status(pat, id, other)).status, 404);
+    assert.deepEqual([(await status(pat, 99999)).status, (await status(pat, 99999)).json], [404, { error: 'no such request' }]);
+    for (const bad of ['abc', '0', '-1', '1.5', '12345678901234567']) {
+      r = await status(pat, bad);
+      assert.deepEqual([r.status, r.json], [400, { error: 'a request id is a whole number' }], bad);
+    }
+    r = await call('GET', `/api/spaces/${S}/action/${id}`);
+    assert.equal(r.status, 401, 'signed out');
+    const link = await call('POST', `/api/spaces/${S}/guest-link`, { token: admin, body: {} });
+    assert.equal(link.status, 200, link.text);
+    r = await status(undefined, id, S, `?guest=${encodeURIComponent(link.json.space.guestToken)}`);
+    assert.deepEqual([r.status, r.json], [403, { error: 'Guests can\'t see how a request went' }]);
+    // A request the person made through a module (the bus) in this space is theirs too.
+    r = await call('POST', '/api/bus/actions/request', { token: pat, body: { from: 'stand-asker', action: 'stand-days:createEvent', input: { title: 'Dinner' }, scope: 'space', space: S } });
+    assert.deepEqual((await status(pat, r.json.id)).json, { id: r.json.id, status: 'pending' });
+  });
+
+  await test('live: Keep and Send to... asking a local action: handed out at once, with its minute (its end is below)', async () => {
+    let r = await send(admin, 'stand-polls:draftPoll', { object: { kind: 'poll', title: 'Lunch?', details: { options: ['Yes', 'No'] } } });
+    assert.equal(r.status, 200, r.text);
+    const kept = (await pending('stand-polls')).find((a) => a.id === r.json.id);
+    assert.ok(kept, 'handed out at once');
+    assert.deepEqual((await call('GET', `/api/spaces/${S}/action/${r.json.id}`, { token: admin })).json, { id: r.json.id, status: 'pending' });
+  });
+
+  await test('live: one person asks Chat for at most 60 requests a minute, every module together; a refusal does not count', async () => {
+    const lee = await call('POST', '/api/users', { token: admin, body: { login: 'lee', displayName: 'Lee', role: 'member', password: 'memberpass1234' } });
+    assert.equal(lee.status, 201, lee.text);
+    assert.equal((await call('PATCH', `/api/spaces/${S}`, { token: admin, body: { members: [made.json.user.key, lee.json.user.key] } })).status, 200);
+    const leeToken = await signIn('lee', 'memberpass1234');
+    let r = await send(leeToken, 'stand-days:createEvent', { object: 'not one' });
+    assert.equal(r.status, 400, 'a refused input is not counted');
+    for (let i = 0; i < 60; i += 1) {
+      r = await send(leeToken, i % 2 ? 'stand-days:createEvent' : 'stand-tasks:createTask', { title: `Thing ${i}` });
+      assert.equal(r.status, 200, `request ${i + 1}: ${r.text}`);
+    }
+    r = await send(leeToken, 'stand-plans:acceptSuggestion', { title: 'One more' });
+    assert.deepEqual([r.status, r.json], [429, { error: 'too many requests in a minute, slow down' }], 'the 61st, to yet another module');
+    assert.equal((await send(pat, 'stand-days:createEvent', { title: 'Someone else' })).status, 200, 'counted per person');
+  });
+
   await test('live: a module asking through the bus is held to the same takes', async () => {
     const ask = (input) => call('POST', '/api/bus/actions/request', { token: pat, body: { from: 'stand-asker', action: 'stand-days:createEvent', input, scope: 'space', space: S } });
     let r = await ask({ object: { kind: 'flight', title: 'SW', details: { number: '1' } } });
@@ -496,6 +620,60 @@ try {
     assert.equal(claimed.json.ok, true, claimed.text);
     const done = await call('POST', '/api/bus/actions/complete', { token: again, body: { module: 'stand-plans', id: old.id, scope: 'space', space: S, result: { ok: true } } });
     assert.equal(done.json.ok, true, done.text);
+  });
+
+  await test('live: after its minute a local request is not handed out and reads expired; a finished one is read for ten minutes; a picture never added goes', async () => {
+    await server.stop();
+    const file = path.join(dataDir, 'modules', 'bus.json');
+    const bus = JSON.parse(fs.readFileSync(file, 'utf8'));
+    const poll = bus.actions.find((a) => a.action === 'draftPoll' && a.expiresAt && a.status === 'pending');
+    assert.ok(poll, 'the request above carries its minute');
+    poll.expiresAt = Date.now() - 1000;
+    const patKey = made.json.user.key;
+    const old = (id, extra) => ({ id, at: Date.now() - 8 * 24 * 3600 * 1000, from: 'stand-notes', provider: 'stand-notes', action: 'savePhoto', scopeKey: `space:${S}`, by: patKey, status: 'pending', claimedAt: 0, result: null, ...extra });
+    const picture = (fid) => ({ object: { icon: 'note', title: 'beach.jpg', kind: 'image', details: { upload: fid, name: 'beach.jpg' } } });
+    const [mine, theirs, used] = ['c', 'd', 'e'].map((ch) => ch.repeat(24));
+    const uploads = path.join(dataDir, 'modules', 'stand-notes', 'uploads', `space-${S}`);
+    fs.mkdirSync(uploads, { recursive: true });
+    for (const [fid, by] of [[mine, patKey], [theirs, 'someoneelse'], [used, patKey]]) {
+      fs.writeFileSync(path.join(uploads, `${fid}.bin`), 'x');
+      fs.writeFileSync(path.join(uploads, `${fid}.json`), JSON.stringify({ id: fid, name: 'beach.jpg', type: 'image/jpeg', size: 1, by, at: new Date().toISOString(), thumb: false }));
+    }
+    const dataFile = path.join(dataDir, 'modules', 'stand-notes', 'data', `space-${S}.json`);
+    fs.mkdirSync(path.dirname(dataFile), { recursive: true });
+    fs.writeFileSync(dataFile, JSON.stringify({ 'photo:1': { value: { file: used }, version: 1, updatedAt: new Date().toISOString(), by: patKey } }));
+    let seq = bus.seq;
+    bus.actions.push(old(++seq, { input: picture(mine) }), old(++seq, { input: picture(theirs) }), old(++seq, { input: picture(used) }));
+    const finishedLongAgo = { ...old(++seq, { input: { title: 'Dinner' } }), at: Date.now() - 3600000, status: 'done', doneAt: Date.now() - BUS_LIMITS.resultMs - 1000, result: { ok: true } };
+    const finishedNow = { ...finishedLongAgo, id: ++seq, doneAt: Date.now() - 60000, result: { ok: true, data: { note: 'Kept.' } } };
+    const finishedBefore = { ...finishedLongAgo, id: ++seq, at: Date.now() - 60000, doneAt: undefined };
+    bus.actions.push(finishedLongAgo, finishedNow, finishedBefore);
+    bus.seq = seq;
+    fs.writeFileSync(file, JSON.stringify(bus));
+    server = await startServer();
+    ({ call, signIn } = server);
+    const owner = await signIn('admin', 'testpass1234');
+    const pat2 = await signIn('pat', 'memberpass1234');
+    const polls = (await call('GET', `/api/bus/actions/pending?module=stand-polls&scope=space&space=${S}`, { token: owner })).json.actions;
+    assert.ok(!polls.some((a) => a.id === poll.id), 'not handed out after its minute');
+    const claimed = await call('POST', '/api/bus/actions/claim', { token: owner, body: { module: 'stand-polls', id: poll.id, scope: 'space', space: S } });
+    assert.equal(claimed.json.ok, false, 'nor claimed');
+    assert.deepEqual((await call('GET', `/api/spaces/${S}/action/${poll.id}`, { token: owner })).json, { id: poll.id, status: 'expired' });
+    const completed = await call('POST', '/api/bus/actions/complete', { token: owner, body: { module: 'stand-polls', id: poll.id, scope: 'space', space: S, result: { ok: true } } });
+    assert.deepEqual([completed.status, completed.json], [200, { ok: false }], 'nor completed by a page that never claimed it');
+    assert.deepEqual((await call('GET', `/api/spaces/${S}/action/${poll.id}`, { token: owner })).json, { id: poll.id, status: 'expired' }, 'still expired');
+    const status = (id) => call('GET', `/api/spaces/${S}/action/${id}`, { token: pat2 });
+    assert.deepEqual([(await status(finishedLongAgo.id)).status, (await status(finishedLongAgo.id)).json], [404, { error: 'no such request' }], 'finished more than ten minutes ago');
+    assert.deepEqual((await status(finishedNow.id)).json, { id: finishedNow.id, status: 'done', ok: true, note: 'Kept.' });
+    assert.deepEqual((await status(finishedBefore.id)).json, { id: finishedBefore.id, status: 'done', ok: true }, 'finished before doneAt was kept: read by when it was asked');
+    // The next request prunes: the week-old picture requests go, and with them only the picture nobody else uploaded or used.
+    const r = await call('POST', `/api/spaces/${S}/action`, { token: pat2, body: { action: 'stand-days:createEvent', input: { title: 'Lunch' } } });
+    assert.equal(r.status, 200, r.text);
+    assert.equal(fs.existsSync(path.join(uploads, `${mine}.bin`)) || fs.existsSync(path.join(uploads, `${mine}.json`)), false, 'the picture of a request that never ran is removed');
+    assert.ok(fs.existsSync(path.join(uploads, `${theirs}.json`)), 'a file someone else uploaded stays');
+    assert.ok(fs.existsSync(path.join(uploads, `${used}.json`)), 'a file the module\'s data names stays');
+    const after = JSON.parse(fs.readFileSync(file, 'utf8')).actions.map((a) => a.id);
+    assert.ok(!after.includes(seq - 3) && !after.includes(seq - 4) && !after.includes(seq - 5), 'the week-old requests are gone');
   });
 } finally {
   if (server) await server.stop();

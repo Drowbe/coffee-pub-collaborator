@@ -68,6 +68,36 @@ straight from the other site.
 see **Keep** only if you may add to Research, which by default leaves out guests. A private message keeps its box for
 you alone.
 
+## Send a message to a module
+
+Any message in a space's chat can be sent to a module that can take it: a picture to Research, a message to the To-do as a task, a link to Research, an AI answer's objects to the Planner.
+
+1. Open the message's **⋮** menu and choose **Send to...**. It is there only when something on in this space can take that message, and only places you may add to are listed.
+2. Choose a place. It is sent at once, and the line under the box says how it went.
+
+What the places look like:
+
+- **One thing:** "<module> as <what>", such as **Research as an image**, **To-do as a task**, **Research as a link** or **Polls as a poll**.
+- **A day in the message:** also **Calendar as an event** and **Planner as an event**, and **To-do as a task** gets that day as its due date. Without a day, the Calendar and the Planner aren't offered. Chat reads a day only from words that are clearly a date, and never from quoted lines (those starting with `>`): "on Friday", "next Friday", "Friday", "Nov 14", "14 November", "on 12/10", "12/10 at 7pm", "2026-11-14", "tomorrow". It ignores "today" and "tonight", and a short weekday such as "sat" unless it follows "on", "next" or "this". A date already past this year means next year's.
+- **An AI answer with several objects:** one entry per module with how many it takes, such as **Planner (3)**, and a hint like "2 flights, 1 stay; 1 left out" for what that module can't take. Polls opens one form at a time, so for several polls its entry opens the first ("Opens the first of 3") and the note adds "The other 2: use each one's own Keep."
+- The place you last used for that kind of message (a picture, a link, words, an AI answer's objects) comes first, marked **Last used**, in this browser.
+- On a private message, each entry's hint says "Everyone in this <space> will see it": sending puts what it says where the space can see it.
+- A module that opens a form (Polls) must be open: its entry says "Open Polls first", and choosing it sends nothing ("Polls isn't open."). When the form opens, Polls is brought forward, and on a phone it replaces Chat in view. Nothing is saved until you choose **Start poll**.
+
+What the line under the box says:
+
+- "Added to Research as a note." with anything the module adds, such as the Planner's note about a date outside the plan;
+- "Research is adding it." while it is under way (a **Keep** button reads **Adding**);
+- "Waiting for Polls to open it." while a form is on its way, then "Opened in Polls." (and Polls is brought forward) or "Polls isn't open." Chat keeps watching for up to 70 seconds;
+- "Waiting: it is added when To-do is next open." when the module isn't open anywhere;
+- "Research couldn't add that: <the reason>.";
+- "Sent to <module>." when how it went can't be read (for a guest, say).
+
+**Keep** and **Keep ticked** in an AI answer or the import preview use the same words. The line is read out by screen readers. You can ask for up to 60 things a minute from Chat (sends, keeps and commands together); past that, "too many requests in a minute, slow down".
+
+**Pictures.** A picture is sent into the module's own pictures (Research's, for this space) first, as you, and then added. A GIF, or any picture that isn't a JPEG, PNG or WebP, is sent as a JPEG of its first frame. Pictures in a call aren't kept, so **Send to...** is offered for a picture only while your page still holds it: not after a refresh, and not for a picture sent before you joined. A picture that can't be sent reads "That picture can't be sent to Research." If the module refuses it, the uploaded picture is removed again, unless it is already a photo there; if the module is never opened within seven days, it is removed then.
+
+
 ## Clear messages
 
 Chat's menu (the **⋮** in its header) reads **Save the chat**, **Clear…** and, for moderators, owners and the admin,

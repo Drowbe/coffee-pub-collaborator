@@ -2,7 +2,8 @@
 /*
  * check-research.mjs -- run the Research module's model (modules/research/src/research-lib.js) on its own, with the SDK's geo helpers
  * and a small in-memory stand-in for the SDK's store: items and their checking, tags, what quick add makes of what was typed,
- * filtering, the answer pieces of an AI reply, and saving, removing and the actions other modules ask.
+ * filtering, the answer pieces of an AI reply, and saving, removing and the actions other modules ask, with an object handed
+ * in (plan-object-handoff.md, step 6: saveNote, saveLink and savePhoto).
  */
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
@@ -13,13 +14,17 @@ win.parent = win;
 new Function('window', 'document', sdk)(win, { createElement: (tag) => ({ tag }) }); // ready() adds the SDK's shared styles: a <style> stand-in
 const geo = win.createHost({ call: async () => ({}), root: { appendChild() {} }, rootElement: {} }).host.util.geo;
 
-const names = ['KINDS', 'cleanItem', 'itemValue', 'textOf', 'parseTags', 'cleanTags', 'cleanUrl', 'readEntry', 'filterItems', 'tagCounts', 'fitSize', 'captionOf', 'noteIcon', 'createResearch'];
+const names = ['KINDS', 'cleanItem', 'itemValue', 'textOf', 'parseTags', 'cleanTags', 'cleanUrl', 'readEntry', 'filterItems', 'tagCounts', 'fitSize', 'captionOf', 'noteIcon', 'createResearch', 'objectNote', 'objectLink', 'objectDay'];
+// The SDK's own text helpers (host.util.plain, localWhen and detailLines), which an object handed in is mapped with.
+const { plain, localWhen, detailLines } = win.hostText;
+const util = { plain, localWhen, detailLines };
 const lib = new Function('geo', `${fs.readFileSync(new URL('../modules/research/src/research-lib.js', import.meta.url), 'utf8')}\nreturn { ${names.join(', ')} };`)(geo);
 
 function fakeHost() {
   const data = new Map();
   const handlers = {};
   const removedFiles = [];
+  const files = []; // this place's uploads: { id, hasThumb }
   const links = [];
   let n = 0;
   const host = {
@@ -35,12 +40,15 @@ function fakeHost() {
       delete: async (key) => { data.delete(key); },
     },
     on: () => () => {},
-    util: { id: () => `id${(n += 1)}` },
+    util: { id: () => `id${(n += 1)}`, ...util },
     objects: { make: (kind, id) => ({ module: 'research', kind, id, scope: 'space', space: 'r' }), setLinks: async (from, to) => { links.push([from.id, to.length]); } },
-    uploads: { remove: async (id) => { removedFiles.push(id); } },
+    uploads: {
+      remove: async (id) => { removedFiles.push(id); },
+      list: async () => files.map((f) => ({ ...f })),
+    },
     actions: { provide: (h) => Object.assign(handlers, h) },
   };
-  return { host, data, handlers, removedFiles, links };
+  return { host, data, handlers, removedFiles, links, files };
 }
 let n = 0;
 const test = async (name, fn) => { await fn(); n += 1; };
@@ -162,6 +170,106 @@ await test('the store: save, edit with versions, remove (and the picture), and w
   const before = f.links.length;
   await f.handlers.saveNote({ title: 'Private', ref: { module: 'places', kind: 'place', id: 'p' } });
   assert.equal(f.links.length, before);
+});
+
+// --- objects handed in (plan-object-handoff.md, step 6) ----------------------------------------------------------------
+
+// Thomas's Southwest flight (#182) as the bus hands it over (server/object-format.js's cleanHandoff).
+const SOUTHWEST = { kind: 'flight', icon: 'plane', title: 'Southwest **2483**', content: 'Booked with **points**.', date: '2026-11-13', basis: 'imported', tags: ['Trip', 'trip', 'two words'], details: { airline: 'Southwest', number: '2483', from: { code: 'MDW', name: 'Chicago Midway' }, to: { code: 'SJC' }, departs: '2026-11-14T12:50', minutes: 275, reference: 'ABC123' }, links: [{ title: 'Booking', url: 'https://southwest.com/b' }] };
+
+await test('objectNote: a note of any object, its details as lines, Markdown kept in the body, the title plain', () => {
+  const note = lib.objectNote(SOUTHWEST, util);
+  assert.equal(note.kind, 'note');
+  assert.equal(note.title, 'Southwest 2483', 'the title is plain text');
+  assert.equal(note.body, 'Booked with **points**.\n\nAirline: Southwest\nNumber: 2483\nFrom: Chicago Midway (MDW)\nTo: SJC\nDeparts: 2026-11-14 12:50\nLength: 4 h 35 min\nReference: ABC123\n\nLinks:\n- Booking: https://southwest.com/b\nExternal source', 'nothing is lost; the body keeps its Markdown');
+  assert.equal(note.icon, 'plane', 'the kind\'s icon kept');
+  assert.equal(note.date, '2026-11-14', 'the details\' day wins over the object\'s own');
+  assert.deepEqual(note.tags, ['trip', 'twowords']);
+  assert.equal(note.point, null);
+  // A message's words: the first line is the title, so the body is the rest; one line has no body.
+  assert.deepEqual(lib.objectNote({ title: 'Dinner Friday', content: 'Dinner Friday\nat **the** pier' }, util).body, 'at **the** pier');
+  assert.equal(lib.objectNote({ title: 'Dinner Friday at 7', content: 'Dinner Friday at 7' }, util).body, '');
+  assert.equal(lib.objectNote({ title: 'Dinner', content: 'Dinner', date: '2026-02-30' }, util).date, '', 'no real day: none');
+  // A place: with a position, the note's; a name alone, a line.
+  const placed = lib.objectNote({ kind: 'sight', title: 'Belem', content: 'Tower', place: { name: 'Belem Tower', lat: 38.6916, lng: -9.216 } }, util);
+  assert.deepEqual(placed.point, { lat: 38.6916, lng: -9.216, name: 'Belem Tower' });
+  assert.equal(placed.icon, 'landmark');
+  assert.equal(lib.objectNote({ kind: 'note', title: 'Cafe', content: 'Good', place: { name: 'Rua Augusta' } }, util).body, 'Good\n\nPlace: Rua Augusta');
+  // A long object keeps its tail (the links and "External source") within 8000.
+  const long = lib.objectNote({ ...SOUTHWEST, content: 'x'.repeat(9000) }, util);
+  assert.equal(long.body.length <= 8000, true);
+  assert.ok(long.body.endsWith('External source'));
+  assert.equal(lib.objectDay({ kind: 'task', title: 'T', details: { due: '09:00' }, date: '2026-11-12' }, util), '2026-11-12', 'a time alone takes the object\'s own day');
+});
+
+await test('objectLink: the address given, else the object\'s first link; the excerpt from the object without its own address', () => {
+  const link = lib.objectLink({ kind: 'link', title: 'Time Out **Lisbon**', content: 'The *best* pastel de nata.', links: [{ title: 'Time Out', url: 'https://timeout.com/lisbon' }, { title: 'Map', url: 'https://maps.example/x' }] }, util, {});
+  assert.equal(link.url, 'https://timeout.com/lisbon');
+  assert.equal(link.title, 'Time Out Lisbon');
+  assert.equal(link.excerpt, 'The *best* pastel de nata.\n\nLinks:\n- Map: https://maps.example/x', 'its own address is not repeated');
+  const given = lib.objectLink({ title: 'From chat', content: 'see this' }, util, { url: 'https://example.org/a', title: 'Example', excerpt: 'A page' });
+  assert.deepEqual([given.url, given.title, given.excerpt], ['https://example.org/a', 'Example', 'A page'], 'what the flat fields give wins');
+  assert.equal(lib.objectLink({ title: 'No link', content: 'x' }, util, {}), null);
+  assert.equal(lib.objectLink({ title: 'Bad', content: 'x', links: [{ url: 'javascript:alert(1)' }] }, util, {}), null);
+});
+
+await test('saveNote, saveLink and savePhoto with an object; the flat fields as before', async () => {
+  const f = fakeHost();
+  const r = lib.createResearch(f.host, { scope: 'space' });
+  f.host.on = (ev, fn) => fn;
+  let thumbs = 0;
+  let readied = 0;
+  r.provide('u1', { ready: async () => { readied += 1; }, makeThumb: async (id) => { thumbs += 1; f.files.find((x) => x.id === id).hasThumb = true; } });
+  const note = await f.handlers.saveNote({ title: 'Southwest 2483', object: SOUTHWEST, ref: { module: 'places', kind: 'place', id: 'p' } }, { by: 'u2' });
+  const kept = r.get(note.ref.id);
+  assert.equal(kept.title, 'Southwest 2483');
+  assert.ok(kept.body.startsWith('Booked with **points**.\n\nAirline: Southwest'));
+  assert.equal(kept.icon, 'plane');
+  assert.equal(kept.date, '2026-11-14');
+  assert.equal(kept.by, 'u2');
+  assert.equal(f.links.at(-1)[1], 1, 'linked to the object it came with');
+  const words = await f.handlers.saveNote({ title: 'Dinner Friday', object: { title: 'Dinner Friday', content: 'Dinner Friday\nat 7' } });
+  assert.equal(r.get(words.ref.id).body, 'at 7');
+  await assert.rejects(f.handlers.saveNote({ object: { title: '  ', content: 'x' } }), /title/);
+  const link = await f.handlers.saveLink({ url: 'https://timeout.com/lisbon', object: { kind: 'link', title: 'Time Out', content: 'Nata', tags: ['food'], links: [{ title: 'Time Out', url: 'https://timeout.com/lisbon' }] } }, { by: 'u2' });
+  assert.deepEqual([r.get(link.ref.id).url, r.get(link.ref.id).title, r.get(link.ref.id).excerpt, r.get(link.ref.id).tags], ['https://timeout.com/lisbon', 'Time Out', 'Nata', ['food']]);
+  await assert.rejects(f.handlers.saveLink({ url: 'ftp://x', object: { title: 'x', content: 'y' } }), /web address/);
+  // A picture: in this place's uploads, not a photo yet; its thumbnail made here, its caption the picture's name.
+  const FILE2 = 'b'.repeat(24);
+  f.files.push({ id: FILE2, hasThumb: false });
+  const photo = await f.handlers.savePhoto({ object: { kind: 'image', title: 'From chat', date: '2026-11-14', details: { upload: FILE2, name: 'IMG_2041.jpg' } } }, { by: 'u2' });
+  const p = r.get(photo.ref.id);
+  assert.deepEqual([p.kind, p.title, p.file, p.by, p.date], ['photo', 'IMG 2041', { id: FILE2, hasThumb: true }, 'u2', '2026-11-14']);
+  assert.equal(thumbs, 1);
+  assert.ok(readied >= 1, 'the place\'s items are loaded before it looks for the picture');
+  await assert.rejects(f.handlers.savePhoto({ object: { kind: 'image', title: 'x', details: { upload: FILE2 } } }), /already a photo/);
+  await assert.rejects(f.handlers.savePhoto({ object: { kind: 'image', title: 'x', details: { upload: 'c'.repeat(24) } } }), /not here any more/);
+  await assert.rejects(f.handlers.savePhoto({ object: { kind: 'note', title: 'x', details: { upload: FILE2 } } }), /not a picture/);
+  await assert.rejects(f.handlers.savePhoto({ object: { kind: 'image', title: 'x', details: { upload: '../x' } } }), /not a picture/);
+  // Someone else's file: its thumbnail cannot be made here, so the photo shows the picture itself.
+  const FILE3 = 'd'.repeat(24);
+  f.files.push({ id: FILE3, hasThumb: false });
+  const r2 = lib.createResearch(f.host, { scope: 'space' });
+  r2.provide('u1', { makeThumb: async () => { throw Object.assign(new Error('only the person who added it can do that'), { status: 403 }); } });
+  const plainPhoto = await f.handlers.savePhoto({ object: { kind: 'image', title: 'beach', details: { upload: FILE3 } } });
+  assert.deepEqual(r2.get(plainPhoto.ref.id).file, { id: FILE3, hasThumb: false });
+  assert.equal(r2.get(plainPhoto.ref.id).title, 'beach', 'no name: the object\'s title');
+  // Not this person's file: makeThumb says false, asks nothing, and the photo shows the picture; one with a thumbnail keeps it.
+  const FILE4 = 'e'.repeat(24);
+  const FILE5 = 'f'.repeat(24);
+  f.files.push({ id: FILE4, hasThumb: false, by: 'u9' }, { id: FILE5, hasThumb: true, by: 'u9' });
+  const asked = [];
+  const r3 = lib.createResearch(f.host, { scope: 'space' });
+  r3.provide('u1', { makeThumb: async (id, file) => { asked.push(id); return file.by === 'u1'; } });
+  const notMine = await f.handlers.savePhoto({ object: { kind: 'image', title: 'theirs', details: { upload: FILE4 } } });
+  assert.deepEqual(r3.get(notMine.ref.id).file, { id: FILE4, hasThumb: false });
+  const hadOne = await f.handlers.savePhoto({ object: { kind: 'image', title: 'had one', details: { upload: FILE5 } } });
+  assert.deepEqual(r3.get(hadOne.ref.id).file, { id: FILE5, hasThumb: true });
+  assert.deepEqual(asked, [FILE4], 'a file with a thumbnail is not given another');
+  // The page's own makeThumb: it skips a file that is not the person's unless they are an owner, and reads the picture upright.
+  const page = fs.readFileSync(new URL('../modules/research/src/research.js', import.meta.url), 'utf8');
+  assert.match(page, /if \(!file \|\| \(file\.by !== me && role !== 'owner' && role !== 'admin'\)\) return false;/);
+  assert.match(page, /createImageBitmap\(await got\.blob\(\), \{ imageOrientation: 'from-image' \}\)/);
 });
 
 console.log(`check-research: OK (${n} checks)`);

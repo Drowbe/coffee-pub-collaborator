@@ -885,7 +885,23 @@
     });
   }
   if (inSpace) {
-    stores.space.provide(me); // other modules' requests to save a note or a link go to the space's research
+    // Other modules' requests to save a note, a link or a picture go to the space's research. A picture sent from elsewhere
+    // gets its thumbnail here, made from the file as uploaded (savePhoto).
+    stores.space.provide(me, {
+      ready: () => ensureLoaded('space'),
+      makeThumb: async (fileId, file) => {
+        // Only the person who added the file, or an owner, may give it a thumbnail: anyone else leaves it, asking nothing.
+        const role = info.user && info.user.role;
+        if (!file || (file.by !== me && role !== 'owner' && role !== 'admin')) return false;
+        const address = await host.uploads.url(fileId, { scope: 'space' });
+        const got = await fetch(address, { credentials: 'same-origin' });
+        if (!got.ok) return false;
+        const bitmap = await createImageBitmap(await got.blob(), { imageOrientation: 'from-image' });
+        const thumb = await jpegOf(bitmap, 400, 0.8);
+        if (bitmap.close) bitmap.close();
+        await host.uploads.thumb(fileId, thumb, { scope: 'space' });
+      },
+    });
     stores.space.onCompose((text) => openEditor(null, readEntry(text) || { kind: 'note' }));
   }
   if (host.objects && host.objects.onOpen) {

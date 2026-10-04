@@ -157,6 +157,7 @@
       const ol = /^\s*\d+[.)]\s+(.+)$/.exec(line);
       const ul = !ol && /^\s*[-*]\s+(.+)$/.exec(line);
       if (ol || ul) {
+        flushPara(); // the lines before a list come before it ("Links:" then its list)
         const tag = ol ? 'ol' : 'ul';
         if (!list || list.tag !== tag) { flushList(); list = { tag, items: [] }; }
         list.items.push((ol || ul)[1]);
@@ -306,6 +307,56 @@
       date = d ? realDay(d[1], d[2], d[3]) : null;
     }
     return date || time ? { date, time } : null;
+  }
+
+  // An object's `details` as "Label: value" lines, for the fields a module has no place of its own for (plan-object-handoff.md,
+  // "Nothing is lost": "Cabin: 4B" in the notes). The words are the Planner's (travel-lib-object.js). `kind` words a car's
+  // ends as its pick-up and drop-off; `skip` lists the fields the module used. A date and time reads "2026-11-14 12:50", a
+  // length "2 h 30 min", a place "Chicago Midway (MDW)", a flag "yes" or "no"; a picture's file id is never shown.
+  const DETAIL_WORDS = {
+    airline: 'Airline', operator: 'Operator', company: 'Company', number: 'Number', from: 'From', to: 'To', departs: 'Departs',
+    arrives: 'Arrives', minutes: 'Length', terminal: 'Terminal', gate: 'Gate', seat: 'Seat', class: 'Class', reference: 'Reference',
+    platform: 'Platform', carriage: 'Coach', cabin: 'Cabin', address: 'Address', checkIn: 'Check in', checkOut: 'Check out',
+    roomType: 'Room', guests: 'People', starts: 'Starts', ends: 'Ends', partySize: 'Party size', name: 'Booking name',
+    tickets: 'Tickets', allDay: 'All day', due: 'Due', options: 'Options', closes: 'Closes', multiple: 'More than one answer',
+  };
+  // A car's places are where it is picked up and dropped off; its times, as the Planner's car form words them, Pick-up time.
+  const CAR_DETAIL_WORDS = { from: 'Pick up', to: 'Drop off', departs: 'Pick-up time', arrives: 'Drop-off time' };
+  function detailLines(details, o) {
+    if (!details || typeof details !== 'object' || Array.isArray(details)) return [];
+    const skip = new Set(o && Array.isArray(o.skip) ? o.skip : []);
+    const kind = o && typeof o.kind === 'string' ? o.kind : '';
+    const own = (name) => Object.prototype.hasOwnProperty.call(DETAIL_WORDS, name);
+    const label = (name) => {
+      if (kind === 'car' && Object.prototype.hasOwnProperty.call(CAR_DETAIL_WORDS, name)) return CAR_DETAIL_WORDS[name];
+      if (own(name)) return DETAIL_WORDS[name];
+      const words = name.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
+      return words.charAt(0).toUpperCase() + words.slice(1);
+    };
+    const shown = (name, v) => {
+      if (typeof v === 'boolean') return v ? 'yes' : 'no';
+      if (name === 'minutes' && Number.isInteger(v) && v > 0) {
+        const h = Math.floor(v / 60);
+        const m = v % 60;
+        return h ? (m ? `${h} h ${m} min` : `${h} h`) : `${m} min`;
+      }
+      if (typeof v === 'number') return Number.isFinite(v) ? String(v) : '';
+      if (typeof v === 'string') return /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(v) ? v.slice(0, 16).replace('T', ' ') : v;
+      if (Array.isArray(v)) return v.filter((x) => typeof x === 'string').join(', ');
+      if (v && typeof v === 'object') {
+        const code = typeof v.code === 'string' ? v.code : '';
+        const place = typeof v.name === 'string' ? v.name : '';
+        return place && code ? `${place} (${code})` : place || code;
+      }
+      return '';
+    };
+    const lines = [];
+    for (const [name, v] of Object.entries(details).slice(0, 40)) {
+      if (name === 'upload' || skip.has(name) || !/^[a-zA-Z]{1,24}$/.test(name)) continue;
+      const text = plainText(shown(name, v), { line: true }).slice(0, 300);
+      if (text) lines.push(`${label(name)}: ${text}`);
+    }
+    return lines;
   }
 
   const UI_CSS = `
@@ -796,6 +847,10 @@
       // { date: '2026-11-14', time: '12:50' }; localWhen('15:25', '2026-11-14') takes the object's own date for a time alone.
       // The clock time stays as written: a zone or offset is dropped, never converted. Null when it says neither.
       localWhen,
+      // An object's details as "Label: value" lines (see detailLines above), for the fields a module has no place for:
+      // detailLines({ cabin: '4B', minutes: 150 }) is ['Cabin: 4B', 'Length: 2 h 30 min']. { skip: ['due'] } leaves out
+      // the fields already used; { kind: 'car' } words a car's ends as Pick up and Drop off.
+      detailLines,
       // A new id for something a module stores: short, and unlikely to repeat.
       id: () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
       // A pointer's identity as one string, for keeping and comparing them.
@@ -2019,10 +2074,10 @@
     global.createHost = createHost;
   }
 
-  // `esc`, `markdown`, `plain` and `localWhen` need no per-module env, so the call page (which loads this file directly for the modules
+  // `esc`, `markdown`, `plain`, `localWhen` and `detailLines` need no per-module env, so the call page (which loads this file directly for the modules
   // it hosts in the page, not as a module itself) can use the very same rendering Chat and every module share,
   // rather than a second copy. See host.util.markdown above for what this covers.
-  global.hostText = { esc, markdown, plain: plainText, localWhen };
+  global.hostText = { esc, markdown, plain: plainText, localWhen, detailLines };
   // The currency list likewise, for Manage's Currency (a page, not a module): the same choices a module's currencySelect makes.
   global.hostCurrency = { fill: fillCurrencySelect, name: currencyName, common: COMMON_CURRENCIES.slice() };
   // The view switch likewise, for the host's own pages: the toolbar a module's switch is drawn in (module-host.js),

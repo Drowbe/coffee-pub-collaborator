@@ -1,7 +1,7 @@
 {
   "id": "research",
   "name": "Research",
-  "version": "0.2.34",
+  "version": "0.3.0",
   "icon": "book-open",
   "color": "blue",
   "description": "What a group finds out while it plans: notes, links with the part that mattered, photos with a caption. Tagged, searchable, linkable from anywhere, and questioned or summarised by the AI the {owner} chose.",
@@ -147,8 +147,12 @@
           "tags": "string?",
           "icon": "string?",
           "kind": "string?",
-          "ref": "ref?"
-        }
+          "ref": "ref?",
+          "object": "object?"
+        },
+        "takes": [
+          { "kinds": ["note", "*", "text"], "as": "a note" }
+        ]
       },
       {
         "name": "saveLink",
@@ -157,8 +161,22 @@
           "url": "text",
           "title": "string?",
           "excerpt": "text?",
-          "ref": "ref?"
-        }
+          "ref": "ref?",
+          "object": "object?"
+        },
+        "takes": [
+          { "kinds": ["link"], "as": "a link" }
+        ]
+      },
+      {
+        "name": "savePhoto",
+        "label": "Save this picture to research",
+        "input": {
+          "object": "object"
+        },
+        "takes": [
+          { "kinds": ["image"], "as": "an image" }
+        ]
       },
       {
         "name": "addNote",

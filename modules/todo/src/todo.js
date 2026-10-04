@@ -15,6 +15,8 @@
   const $ = (id) => root.getElementById(id);
   const { esc, ymd, parseYmd, objectKey, id: newId } = host.util;
 
+  /*__LIB__*/
+
   let info;
   try {
     info = await host.ready();
@@ -92,7 +94,9 @@
     const base = baseType(type);
     const has = (f) => Object.keys(event.data || {}).includes(f);
     return base === 'date' ? has('date') : base === 'string' || base === 'text' ? has('summary') : base === 'ref';
-  }) && Object.values(a.input).some((t) => !t.endsWith('?'));
+  }) && Object.values(a.input).some((t) => !t.endsWith('?'))
+    // An action that says it needs a date (the Calendar's, whose date may come inside an object instead) gets one only from the event.
+    && (!(a.needs || []).includes('date') || Object.keys(event.data || {}).includes('date'));
   const outcomesFor = (event) => [
     ...OUTCOMES.filter((o) => o.needs.every((f) => Object.keys(event.data || {}).includes(f))),
     ...askable.filter((a) => fillable(a, event)).map((a) => ({ id: 'ask:' + a.action, label: a.moduleName + ': ' + a.label })),
@@ -101,8 +105,9 @@
     const data = e.data || {};
     const input = {};
     for (const [field, type] of Object.entries(a.input)) {
-      if (type.endsWith('?')) continue;
       const base = baseType(type);
+      // An optional date the action says it needs is filled too (the Calendar's, which may also come inside an object).
+      if (type.endsWith('?') && !(base === 'date' && data.date && (a.needs || []).includes('date'))) continue;
       if (base === 'date') input[field] = String(data.date || '');
       else if (base === 'string' || base === 'text') input[field] = String(data.summary || '');
       else if (base === 'ref') input[field] = e.ref;
@@ -861,9 +866,14 @@
   // What other modules may ask of this one. A task made this way links to the object it came from.
   if (host.actions && host.actions.provide) {
     host.actions.provide({
+      // With `object` (plan-object-handoff.md): a task made of it (taskFromObject in todo-lib.js), due on a task's day.
+      // `due` given on its own is the due date whatever the object says.
       createTask: async (input, meta) => {
+        const made = input.object && typeof input.object === 'object' ? taskFromObject(input.object, host.util) : null;
+        const title = (made && made.title) || String(input.title || '').trim();
+        if (!title) throw new Error('a task needs a title');
         const t = {
-          id: newId(), title: input.title, notes: input.notes || '', due: null, remind: false, done: false, doneAt: null,
+          id: newId(), title, notes: made ? made.notes : input.notes || '', due: input.due || (made && made.due) || null, remind: false, done: false, doneAt: null,
           createdAt: Date.now(), by: (meta && meta.by) || 'someone', links: input.ref && linkable(input.ref) ? [input.ref] : [], autoDone: false,
         };
         await put(null, t);

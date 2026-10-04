@@ -1105,6 +1105,26 @@ test('host.util.localWhen: a local day and time from a when, the clock as writte
   assert.equal(localWhen(`${'1'.repeat(1e5)}:00`), null, 'a long text is read only as far as a when can be');
 });
 
+test('host.util.markdown: the lines before a list are drawn before it, not after', () => {
+  assert.equal(sdkText.markdown('Body\n\nLinks:\n- A: https://a.example\nExternal source'), '<p>Body</p><p>Links:</p><ul><li>A: <a href="https://a.example" target="_blank" rel="noopener">https://a.example</a></li></ul><p>External source</p>');
+  assert.equal(sdkText.markdown('- one\n- two'), '<ul><li>one</li><li>two</li></ul>');
+  assert.equal(sdkText.markdown('Para\n- a\nAfter'), '<p>Para</p><ul><li>a</li></ul><p>After</p>');
+  assert.equal(sdkText.markdown('Pick:\n1. this\n2. that'), '<p>Pick:</p><ol><li>this</li><li>that</li></ol>');
+});
+
+test('host.util.detailLines:details as "Label: value" lines, in the Planner\'s words (plan-object-handoff.md, step 6)', () => {
+  const { detailLines } = sdkText;
+  assert.deepEqual(detailLines({ cabin: '4B', minutes: 150, departs: '2026-11-14T12:50', from: { code: 'MDW', name: 'Chicago Midway' }, to: { code: 'SJC' }, allDay: true, options: ['Faro', 'Lagos'], guests: 2 }),
+    ['Cabin: 4B', 'Length: 2 h 30 min', 'Departs: 2026-11-14 12:50', 'From: Chicago Midway (MDW)', 'To: SJC', 'All day: yes', 'Options: Faro, Lagos', 'People: 2']);
+  assert.deepEqual(detailLines({ from: { name: 'Lisbon airport' }, to: 'Faro', departs: '2026-11-14T09:00', arrives: '2026-11-20T10:00' }, { kind: 'car' }), ['Pick up: Lisbon airport', 'Drop off: Faro', 'Pick-up time: 2026-11-14 09:00', 'Drop-off time: 2026-11-20 10:00'], 'a car\'s places and its times');
+  assert.deepEqual(detailLines({ due: '2026-11-14T09:00', address: '**Rua** 1' }, { skip: ['due'] }), ['Address: Rua 1'], 'skip, and plain text');
+  assert.deepEqual(detailLines({ upload: 'a'.repeat(24), name: 'beach.jpg' }), ['Booking name: beach.jpg'], 'a picture\'s file id is never shown');
+  assert.deepEqual(detailLines({ boatName: 'Tejo', minutes: 45 }), ['Boat name: Tejo', 'Length: 45 min'], 'a field it has no word for: its name in words');
+  for (const none of [null, undefined, 'x', ['a'], 7]) assert.deepEqual(detailLines(none), [], String(none));
+  assert.deepEqual(detailLines({ seat: '', gate: null, '<b>': 'x', number: Infinity }), [], 'empty values and odd names are left out');
+  assert.equal(detailLines({ address: 'x'.repeat(1000) })[0].length, 'Address: '.length + 300, 'a line is at most 300 characters of value');
+});
+
 // --- an object handed in (plan-object-handoff.md, step 5) ---------------------------------------------------------------
 
 const util = { plain, localWhen };

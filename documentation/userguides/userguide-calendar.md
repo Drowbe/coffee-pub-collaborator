@@ -118,6 +118,10 @@ To hide a kind of marker:
 
 A switch appears once the Calendar has shown a marker of that kind, and each is on to begin with. The switches on the environment's calendar are not remembered after you leave the page. Markers never go into your calendar app's feed, and the Calendar sends no reminders for them; the To-do and Polls keep their own.
 
+## Events other modules add
+
+Another module can ask the Calendar to add an event, made from an object (from Calendar 1.23.0): an event with a start time becomes a timed event, ending at its end time or after its length (an end time with no day of its own that comes before the start is the next day's, so 22:00 to 01:00 runs past midnight), and anything else is an all-day event on its day. Its title and a short plain description come with it, with anything else it carries as lines such as "Address: 1 Main St". Flights, stays, meals and visits are not added this way: they reach the Calendar through the Planner (see "Events from a plan"). Something without a day is refused: "that needs a day to go on the calendar". A start time is read in the time zone of the browser whose Calendar adds the event, so a 7:00 PM start added from a browser set to another zone lands at a different time. See [api-modules](../api/api-modules.md), "The Calendar's createEvent".
+
 ## Limits
 
 An event belongs to one day; an end time later that day is fine, but events that run across midnight are not shown on more than one day. There is no way yet to skip one occurrence of a repeating event or change just that one. Times show in each person's own time zone.

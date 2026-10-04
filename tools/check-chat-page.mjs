@@ -498,7 +498,14 @@ test('Keep: a keeper whose takes names the kind gets the object whole; an older 
   assert.equal(objectInputOf(planner, { title: 'T', kind: 'task' }), '', 'a kind it does not take');
   assert.equal(objectInputOf(research, { title: 'T', kind: 'note' }), research.takes ? 'object' : '', 'Research declares no takes yet: the flat fields');
   assert.equal(objectInputOf({ name: 'acceptSuggestion', input: { title: 'string', kind: 'string?' } }, flight), '', 'an older Planner: the flat fields, details as lines');
-  assert.match(chat, /const field = objectInputOf\(placer, summary\);\n\s*const input = field \? objectKeepInput\(placer, field, summary\)/);
+  assert.match(chat, /const field = objectInputOf\(placer, summary\);\n(?:\s*\/\/.*\n)?\s*const input = field \? objectKeepInput\(placer, field, summary, placer\.name === 'acceptSuggestion' \? '' : question\)/);
+  // An AI answer kept to the note keeper as an object keeps its question, as the flat fields did (Research 0.3.0 takes "*").
+  const noteKeeper = { name: 'saveNote', input: { title: 'string', body: 'text?', object: 'object?' }, takes: [{ kinds: ['note', '*', 'text'], as: 'a note' }] };
+  assert.equal(objectKeepInput(noteKeeper, 'object', { title: 'Lisbon', content: 'A city.' }, 'Where next?').object.content, 'A city.\n\nAsked: Where next?');
+  assert.equal(objectKeepInput(noteKeeper, 'object', { title: 'Flight', kind: 'flight', details: { number: '1' } }, 'Which?').object.content, 'Asked: Which?', 'details alone: the question is the content');
+  assert.equal(objectKeepInput(noteKeeper, 'object', { title: 'X', content: 'y', basis: 'imported' }, 'Which?').object.content, 'y', 'never for an import');
+  assert.equal(objectKeepInput(noteKeeper, 'object', { title: 'X', content: 'y' }, '').object.content, 'y');
+  assert.ok(objectKeepInput(noteKeeper, 'object', { title: 'X', content: 'z'.repeat(6000) }, 'Q?').object.content.length <= 6000, 'within the format\'s 6000');
 });
 
 console.log(`check-chat-page: OK (${n} tests)`);

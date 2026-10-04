@@ -474,6 +474,24 @@ test('commands must name a local action that takes text, and cannot be ai', () =
   refuse([{ name: 'r', action: 'addNote' }], [{ name: 'addNote', local: true, input: { title: 'string' } }], /must accept/);
 });
 
+// `needs` means two things: with a `ref` input, what the object pointed at must have; on any action, what the request
+// must carry (the Calendar's createEvent needs ["date"]). Kept either way, with or without a `ref` input or `takes`.
+test('needs: kept on an action with no ref input, with or without takes; unknown words dropped', () => {
+  const both = { page: { entry: 'page.html' }, canvas: { entry: 'canvas.html' } };
+  const make = (provides) => cleanManifest({ ...base(), scope: ['environment', 'space'], surfaces: both, actions: { provides } }, files).actions.provides;
+  const [flat, taking, pointing, odd] = make([
+    { name: 'flat', input: { title: 'string', date: 'date?' }, needs: ['date'] },
+    { name: 'taking', input: { title: 'string?', date: 'date?', object: 'object?' }, needs: ['date', 'date'], takes: [{ kinds: ['event', '*', 'text'], as: 'an event' }] },
+    { name: 'pointing', input: { ref: 'ref' }, needs: ['place'] },
+    { name: 'odd', input: { title: 'string' }, needs: ['colour', 7] },
+  ]);
+  assert.deepEqual(flat.needs, ['date'], 'no ref input: kept');
+  assert.deepEqual(taking.needs, ['date'], 'beside takes: kept once');
+  assert.deepEqual(pointing.needs, ['place']);
+  assert.equal('needs' in odd, false, 'nothing it knows: none');
+  assert.deepEqual(make(make([{ name: 'flat', input: { title: 'string', date: 'date?' }, needs: ['date'] }]))[0].needs, ['date'], 'cleaned again on start: the same');
+});
+
 // plan-object-handoff.md, step 2: an action declares the objects it takes, with an `object` input. Stand-in manifests,
 // no module of this repository's.
 test('takes: kinds from the catalogue, "*" with except, "text", "as", a permission of its own; an object input with it', () => {
@@ -590,7 +608,7 @@ test('To-do\'s tasks and Polls\' polls are markers on a calendar, read from the 
   assert.deepEqual(poll.dated, { form: 'instant', title: 'question', start: 'closesAt' }, 'a poll is a timed marker: its question at closesAt (milliseconds)');
   assert.equal(poll.summary.done, 'closed', 'a poll closed by hand (closed: true) has no marker; one closed by its time stays');
   const todoJs = fs.readFileSync(path.join(ROOT, 'modules/todo/src/todo.js'), 'utf8');
-  assert.match(todoJs, /title: input\.title, notes: input\.notes \|\| '', due: null, remind: false, done: false/, 'To-do stores title, due and done');
+  assert.match(todoJs, /id: newId\(\), title, notes: made \? made\.notes : input\.notes \|\| '', due: input\.due \|\| \(made && made\.due\) \|\| null, remind: false, done: false/, 'To-do stores title, due (a day, YYYY-MM-DD) and done');
   const pollsJs = fs.readFileSync(path.join(ROOT, 'modules/polls/src/polls.js'), 'utf8');
   assert.match(pollsJs, /closed: closing, closesAt: closing \? x\.p\.closesAt : null/, 'Polls stores closed and closesAt; closing by hand sets closed');
   assert.match(pollsJs, /const p = \{\n\s+id: newId\(\),\n\s+question,/, 'and the question as question');

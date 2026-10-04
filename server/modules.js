@@ -493,8 +493,12 @@ function cleanBus(rawEvents, rawActions, id, permissionKeys = []) {
     if (!takes && objectFields.length) throw new ModuleError(`module.json: action "${name}" input "${objectFields[0]}" is an object, so the action needs "takes"`);
     // `local`: a view, carried out only by the requesting person's own open page of the module and needing only read access
     // (showing something on a map), not something done for the room.
-    // `needs`: what the item a `ref` input points at must have on its card for this action to make sense of it (a
-    // position, a date, text), so a drop menu leaves it out for an item without -- "Show on the map" for a task, say.
+    // `needs` has two meanings, both read by the asking side, never by the bus. With a `ref` input: what the object it
+    // points at must have on its card for this action to make sense of it (a position, a date, text), so a drop menu
+    // leaves it out for an object without -- "Show on the map" for a task, say. On any action, with or without a `ref`
+    // input: what the request itself must carry, so a module offers the action only when it can fill that in -- the
+    // Calendar's createEvent needs ["date"], and To-do's rules and Polls offer it only when they have a day to give.
+    // Kept as declared either way; the bus does not refuse a request that leaves an optional field out.
     const needs = [...new Set((Array.isArray(p.needs) ? p.needs : []).filter((f) => ['place', 'date', 'text', 'subtitle'].includes(f)))];
     actions.provides.push({ name, label: String(p.label ?? '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 60) || name, input, ...(p.local === true ? { local: true } : {}), ...(needs.length ? { needs } : {}), ...(takes ? { takes } : {}) });
   }

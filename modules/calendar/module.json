@@ -1,7 +1,7 @@
 {
   "id": "calendar",
   "name": "Calendar",
-  "version": "1.22.1",
+  "version": "1.23.0",
   "icon": "calendar-days",
   "color": "red",
   "description": "Sessions and events for the whole {environment} and for each {space}, with reminders.",
@@ -111,9 +111,14 @@
         "label": "Add it to the calendar",
         "input": {
           "title": "string",
-          "date": "date",
-          "ref": "ref?"
-        }
+          "date": "date?",
+          "ref": "ref?",
+          "object": "object?"
+        },
+        "needs": ["date"],
+        "takes": [
+          { "kinds": ["event", "*", "text"], "except": ["flight", "train", "bus", "ferry", "car", "hotel", "restaurant", "cafe", "bar", "sight", "museum", "tour", "show"], "as": "an event" }
+        ]
       },
       {
         "name": "addEvent",

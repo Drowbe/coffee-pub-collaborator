@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 /*
  * check-object-handoff.mjs -- object handoff (documentation/plans/plan-object-handoff.md, GitHub #182 and #181), steps 2
- * and 3. On their own: which `takes` entry takes which kind, the bus's `object` input as the format's checker keeps it,
- * and the prompt's kinds for different sets of enabled modules. On a throwaway server with stand-in modules (none of this
+ * and 3, and the bundled modules' side of steps 6 and 7. On their own: which `takes` entry takes which kind, the bus's
+ * `object` input as the format's checker keeps it, the prompt's kinds for different sets of enabled modules, what the bundled
+ * Research, To-do, Calendar and Polls declare, and how To-do, the Calendar and Polls map an object into their own fields
+ * (Research's is in check-research.mjs). On a throwaway server with stand-in modules (none of this
  * repository's): `takes` and `may` on GET /api/spaces/:id/actions, an action's permission, the `object` input refused or
  * kept through POST /api/spaces/:id/action and /api/bus/actions/request, the copied instructions following the enabled
  * modules, and a request already waiting in bus.json from before still running.
@@ -123,6 +125,129 @@ await test('the copied instructions for different sets of modules: each kind wit
   assert.ok(travelOnly.includes('- hotel (any stay: hotel, rental, hostel): address, checkIn, checkOut, roomType, guests, reference'));
 });
 
+// --- the bundled modules (plan-object-handoff.md, steps 6 and 7) -------------------------------------------------------
+
+const { cleanManifest, readZip } = require('../server/modules.js');
+const bundled = async (id) => {
+  const built = buildModule(path.join(ROOT, 'modules', id));
+  return cleanManifest(built.manifest, new Set((await readZip(built.zip)).keys()));
+};
+const providesOf = (m, name) => m.actions.provides.find((a) => a.name === name);
+
+await test('the bundled Research, To-do, Calendar and Polls declare what they take, and install', async () => {
+  const research = await bundled('research');
+  assert.deepEqual(providesOf(research, 'saveNote').takes, [{ kinds: ['note', '*', 'text'], as: 'a note' }]);
+  assert.equal(providesOf(research, 'saveNote').input.object, 'object?', 'the flat fields still work');
+  assert.deepEqual(providesOf(research, 'saveLink').takes, [{ kinds: ['link'], as: 'a link' }]);
+  assert.equal(providesOf(research, 'saveLink').input.url, 'text', 'Chat\'s link keeper is found by its url, as before');
+  assert.deepEqual(providesOf(research, 'savePhoto'), { name: 'savePhoto', label: 'Save this picture to research', input: { object: 'object' }, takes: [{ kinds: ['image'], as: 'an image' }] });
+  const todo = await bundled('todo');
+  assert.deepEqual(providesOf(todo, 'createTask').takes, [{ kinds: ['task', '*', 'text'], as: 'a task' }]);
+  assert.deepEqual(providesOf(todo, 'createTask').input, { title: 'string', notes: 'text?', ref: 'ref?', due: 'date?', object: 'object?' });
+  const calendar = await bundled('calendar');
+  assert.deepEqual(providesOf(calendar, 'createEvent').takes, [{ kinds: ['event', '*', 'text'], except: TRAVEL_KINDS.slice(), as: 'an event' }], 'events by name, and any other object or words, never a travel kind');
+  assert.deepEqual(providesOf(calendar, 'createEvent').input, { title: 'string', date: 'date?', ref: 'ref?', object: 'object?' });
+  assert.deepEqual(providesOf(calendar, 'createEvent').needs, ['date'], 'it needs a day: a module filling it in fills the date');
+  const polls = await bundled('polls');
+  assert.deepEqual(providesOf(polls, 'draftPoll'), { name: 'draftPoll', label: 'Draft a poll from it', input: { object: 'object' }, local: true, takes: [{ kinds: ['poll', 'text'], as: 'a poll', permission: 'create' }] });
+  for (const kind of TRAVEL_KINDS) assert.equal(takersOf(providesOf(calendar, 'createEvent').takes, kind).length, 0, kind);
+  for (const kind of ['event', 'task', 'poll', 'note', 'link', undefined]) assert.equal(takersOf(providesOf(calendar, 'createEvent').takes, kind).length, 1, String(kind));
+  assert.equal(takersOf(providesOf(research, 'saveNote').takes, 'image').length, 0, 'a picture is only for savePhoto');
+  // With every bundled module on, the prompt lists every kind; the Planner off, still every kind but the travel ones.
+  const every = await Promise.all(['travel', 'research', 'todo', 'calendar', 'polls', 'places', 'maps', 'stream', 'assistant'].map(bundled));
+  assert.deepEqual(kindsTaken(every), KINDS);
+  assert.deepEqual(kindsTaken(every.filter((m) => m.id !== 'travel')), ['event', 'task', 'poll', 'note', 'link']);
+  assert.deepEqual(kindsTaken([todo]), ['task']);
+});
+
+// The modules' own mapping, run on their own with the SDK's helpers, as their pages run it.
+const sdkWin = { addEventListener() {}, location: { search: '' } };
+sdkWin.parent = sdkWin;
+new Function('window', 'document', fs.readFileSync(path.join(ROOT, 'public/sdk/host.js'), 'utf8'))(sdkWin, { createElement: (tag) => ({ tag }) });
+const util = { ...sdkWin.hostText, time: (hhmm) => `at:${hhmm}` };
+const modSrc = (id, file) => fs.readFileSync(path.join(ROOT, 'modules', id, 'src', file), 'utf8');
+const { taskFromObject } = new Function(`${modSrc('todo', 'todo-lib.js')}\nreturn { taskFromObject };`)();
+const { eventFromObject } = new Function('ymd', 'parseYmd', `${modSrc('calendar', 'calendar-lib.js')}\nreturn { eventFromObject };`)(() => '', (s) => new Date(s));
+const { pollFromObject, pollFills } = new Function(`${modSrc('polls', 'polls-lib.js')}\nreturn { pollFromObject, pollFills };`)();
+const LINKS = [{ title: 'Ticket', url: 'https://example.org/t' }];
+
+await test('To-do: a task due on its day, a time in the notes; any other object a task named after it, with no due date', () => {
+  assert.deepEqual(taskFromObject({ kind: 'task', title: 'Book **the** ferry', content: 'Before *Friday*.', details: { due: '2026-11-12T09:30' }, date: '2026-11-10', links: LINKS, basis: 'imported' }, util),
+    { title: 'Book the ferry', notes: 'Before Friday.\n\nDue at at:09:30\n\nLinks:\n- Ticket: https://example.org/t\nExternal source', due: '2026-11-12' }, 'the details\' day wins; plain text');
+  assert.equal(taskFromObject({ kind: 'task', title: 'Pack', content: 'x', date: '2026-11-10' }, util).due, '2026-11-10', 'no due: the object\'s own day');
+  assert.deepEqual(taskFromObject({ kind: 'task', title: 'Pack', details: { due: '18:00' } }, util), { title: 'Pack', notes: 'Due: 18:00', due: null }, 'a time and no day: a line');
+  assert.equal(taskFromObject({ kind: 'task', title: 'Pack', details: { due: '18:00' }, date: '2026-11-10' }, util).due, '2026-11-10', 'a time alone takes the object\'s day');
+  const flight = taskFromObject({ kind: 'flight', title: 'Southwest 2483', date: '2026-11-14', details: { airline: 'Southwest', departs: '2026-11-14T12:50', seat: '12A' } }, util);
+  assert.deepEqual(flight, { title: 'Southwest 2483', notes: 'Airline: Southwest\nDeparts: 2026-11-14 12:50\nSeat: 12A', due: null }, 'another kind: no due date, its details as lines');
+  assert.deepEqual(taskFromObject({ title: 'Call the inn', content: 'Call the inn\nabout late check-in' }, util), { title: 'Call the inn', notes: 'about late check-in', due: null }, 'a message\'s words: the title is its first line');
+  assert.deepEqual(taskFromObject({ title: 'Buy sunscreen', content: 'Buy sunscreen', place: { name: 'Pharmacy' } }, util), { title: 'Buy sunscreen', notes: 'Place: Pharmacy', due: null });
+  const long = taskFromObject({ title: 'T', content: 'y'.repeat(3000), links: LINKS, basis: 'imported' }, util);
+  assert.ok(long.notes.length <= 1000 && long.notes.endsWith('External source'), 'within To-do\'s 1000, the tail kept');
+  assert.equal(taskFromObject({ title: 'y'.repeat(300), content: 'c' }, util).title.length, 200);
+});
+
+await test('Calendar: an event from starts to ends, or starts plus minutes; a day alone all day; anything else all day on its day', () => {
+  const at = (s) => new Date(s).toISOString();
+  assert.deepEqual(eventFromObject({ kind: 'event', title: 'Fado **night**', content: 'Bring *cash*.', details: { starts: '2026-11-15T20:00', ends: '2026-11-15T23:30', address: 'Rua 1' }, links: LINKS }, util),
+    { title: 'Fado night', allDay: false, start: at('2026-11-15T20:00'), end: at('2026-11-15T23:30'), desc: 'Bring cash.\n\nAddress: Rua 1\n\nLinks:\n- Ticket: https://example.org/t' });
+  assert.equal(eventFromObject({ kind: 'event', title: 'Tour', details: { starts: '2026-11-15T10:00', minutes: 90 } }, util).end, at('2026-11-15T11:30'), 'starts plus minutes');
+  assert.deepEqual(eventFromObject({ kind: 'event', title: 'Festival', details: { starts: '2026-11-15', ends: '2026-11-17' } }, util), { title: 'Festival', allDay: true, start: '2026-11-15', end: '2026-11-17', desc: '' }, 'days alone: all day, the end its last day');
+  assert.deepEqual(eventFromObject({ kind: 'event', title: 'Market', details: { starts: '2026-11-15T09:00', allDay: true } }, util), { title: 'Market', allDay: true, start: '2026-11-15', end: null, desc: '' }, 'allDay wins over a time');
+  assert.equal(eventFromObject({ kind: 'event', title: 'Dinner', details: { starts: '19:00' }, date: '2026-11-15' }, util).start, at('2026-11-15T19:00'), 'a time alone on the object\'s day');
+  assert.equal(eventFromObject({ kind: 'event', title: 'Dinner', details: { starts: '19:00' } }, util), null, 'no day: not on the calendar');
+  assert.equal(eventFromObject({ kind: 'event', title: 'Late', details: { starts: '2026-11-15T22:00', ends: '2026-11-15T21:00' } }, util).desc, 'Ends: 2026-11-15 21:00', 'an end before the start is a line');
+  assert.deepEqual(eventFromObject({ kind: 'task', title: 'Pay deposit', details: { due: '2026-11-12T17:00' } }, util), { title: 'Pay deposit', allDay: true, start: '2026-11-12', end: null, desc: 'Due at at:17:00' }, 'a task: all day on its due day');
+  assert.deepEqual(eventFromObject({ kind: 'poll', title: 'Where to eat?', date: '2026-11-14', details: { options: ['Pier', 'Inn'] } }, util), { title: 'Where to eat?', allDay: true, start: '2026-11-14', end: null, desc: 'Options: Pier, Inn' });
+  assert.deepEqual(eventFromObject({ title: 'Dinner Friday', content: 'Dinner Friday\nat the pier', date: '2026-11-13' }, util), { title: 'Dinner Friday', allDay: true, start: '2026-11-13', end: null, desc: 'at the pier' }, 'a message\'s words');
+  assert.equal(eventFromObject({ title: 'Someday', content: 'x' }, util), null);
+  assert.equal(eventFromObject({ title: 'Someday', content: 'x' }, util, '2026-11-20').start, '2026-11-20', 'the request\'s own date when the object has none');
+  assert.equal(eventFromObject({ title: 'Dated', content: 'x', date: '2026-11-19' }, util, '2026-11-20').start, '2026-11-19', 'the object\'s own day first');
+  assert.ok(eventFromObject({ kind: 'note', title: 'N', content: 'z'.repeat(900), date: '2026-11-14', basis: 'imported' }, util).desc.length <= 600);
+  // Past midnight: an end with no day of its own that is not after the start is the next day's.
+  assert.deepEqual(eventFromObject({ kind: 'event', title: 'Late show', details: { starts: '22:00', ends: '01:00' }, date: '2026-11-18' }, util),
+    { title: 'Late show', allDay: false, start: at('2026-11-18T22:00'), end: at('2026-11-19T01:00'), desc: '' });
+  assert.equal(eventFromObject({ kind: 'event', title: 'Late', details: { starts: '2026-11-18T22:00', ends: '01:00' } }, util).end, at('2026-11-19T01:00'), 'a start with its day, an end time alone');
+  assert.equal(eventFromObject({ kind: 'event', title: 'Same', details: { starts: '22:00', ends: '22:00' }, date: '2026-11-18' }, util).end, at('2026-11-19T22:00'), 'an end time equal to the start: a day later');
+  assert.equal(eventFromObject({ kind: 'event', title: 'Dated', details: { starts: '2026-11-18T22:00', ends: '2026-11-18T01:00' } }, util).end, null, 'an end with its own day before the start is not moved');
+  assert.equal(eventFromObject({ kind: 'event', title: 'Dated', details: { starts: '2026-11-31T22:00', ends: '01:00' } }, util), null, 'an impossible day: no event');
+  assert.equal(eventFromObject({ kind: 'event', title: 'Month end', details: { starts: '23:30', ends: '00:15' }, date: '2026-11-30' }, util).end, at('2026-12-01T00:15'), 'across a month');
+});
+
+await test('Polls: the form filled from a poll or a message\'s words; nothing saved', () => {
+  assert.deepEqual(pollFromObject({ kind: 'poll', title: 'Where **to**?', details: { options: ['Faro', 'Lagos', 'faro'], closes: '2026-11-12T18:00', multiple: true } }, util), { title: 'Where to?', options: ['Faro', 'Lagos'], closes: '2026-11-12T18:00', multi: true });
+  assert.deepEqual(pollFromObject({ kind: 'poll', title: 'Lunch?', details: { closes: '18:00' }, date: '2026-11-12' }, util), { title: 'Lunch?', options: [], closes: '2026-11-12T18:00', multi: false }, 'a time alone on its day');
+  assert.equal(pollFromObject({ kind: 'poll', title: 'Lunch?', details: { closes: '2026-11-12' } }, util).closes, '2026-11-12T12:00', 'a day alone: noon, as /v');
+  assert.equal(pollFromObject({ title: 'Lunch Friday?', content: 'Lunch Friday?', date: '2026-11-13' }, util).closes, '2026-11-13T12:00', 'a message\'s day: noon');
+  assert.equal(pollFromObject({ kind: 'poll', title: 'Lunch?', details: { closes: '18:00' } }, util).closes, '', 'a time and no day: none');
+  assert.deepEqual(pollFromObject({ title: 'Where to eat?', content: 'Where to eat?\n- Pier\n- **Inn**\n- Pier' }, util).options, ['Pier', 'Inn'], 'a message\'s short lines are its options');
+  assert.deepEqual(pollFromObject({ title: 'Plans', content: 'Plans\nWe could go to the beach or stay in.' }, util).options, [], 'one line is no choice');
+  assert.deepEqual(pollFromObject({ title: 'Q', content: `Q\n${'x'.repeat(120)}\ny` }, util).options, [], 'a paragraph is not an option');
+  assert.equal(pollFromObject({ title: 'Q', content: Array.from({ length: 15 }, (_, i) => `- ${i}`).join('\n') }, util).options.length, 10);
+  assert.deepEqual(pollFromObject({ kind: 'poll', title: 'Q', details: { options: [] } }, util).options, [], 'none');
+  assert.deepEqual(pollFromObject({ kind: 'poll', title: 'Q', details: { options: ['Only'] } }, util).options, [], 'one is no choice');
+  const fifty = Array.from({ length: 50 }, (_, i) => `Option ${i + 1}`);
+  assert.deepEqual(pollFromObject({ kind: 'poll', title: 'Q', details: { options: fifty } }, util).options, fifty.slice(0, 10), 'fifty: the first ten');
+  assert.deepEqual(pollFromObject({ kind: 'poll', title: 'Q', details: { options: ['Faro', 'FARO', 'faro', 'Lagos', 'lagos '] } }, util).options, ['Faro', 'Lagos'], 'duplicates that differ only in case: the first');
+  assert.deepEqual(pollFromObject({ kind: 'poll', title: 'Q', details: { options: ['Faro', 'FARO'] } }, util).options, [], 'only one once duplicates go');
+});
+
+await test('Polls: a closed poll offers only the actions it can fill (title, notes, date, a pointer to it)', () => {
+  const calendarLike = { input: { title: 'string', date: 'date?', ref: 'ref?', object: 'object?' }, needs: ['date'] };
+  assert.equal(pollFills(calendarLike, true), true);
+  assert.equal(pollFills(calendarLike, false), false, 'it needs a date the winner does not have');
+  assert.equal(pollFills({ input: { title: 'string', notes: 'text?', ref: 'ref?' } }, false), true, 'a task');
+  assert.equal(pollFills({ input: { url: 'text', title: 'string?', excerpt: 'text?', ref: 'ref?' } }, true), false, 'a link needs its address');
+  assert.equal(pollFills({ input: { title: 'string', date: 'date' } }, false), false, 'a required date with none');
+  assert.equal(pollFills({ input: { title: 'string', date: 'date' } }, true), true);
+  assert.equal(pollFills({ input: { title: 'string', poll: 'ref:polls:poll' } }, false), false, 'a pointer under another name is not filled');
+  assert.equal(pollFills({ input: { title: 'string', ref: 'ref:polls:poll' } }, false), true);
+  assert.equal(pollFills({ input: { title: 'string', ref: 'ref:todo:task' } }, false), false, 'a pointer to another kind');
+  assert.equal(pollFills({ input: { title: 'string', kind: 'string' } }, true), false);
+  assert.equal(pollFills({ input: { text: 'string' } }, true), false, 'no title');
+  assert.equal(pollFills({ input: { object: 'object' } }, true), false);
+  assert.equal(pollFills(null, true), false);
+});
+
 // --- a real server ------------------------------------------------------------------------------------------------
 
 function writeModule(id, name, extra) {
@@ -141,7 +266,7 @@ function writeModule(id, name, extra) {
 const writes = { permissions: [{ key: 'view', label: 'See it', default: { member: true, moderator: true, guest: true } }, { key: 'edit', label: 'Change it', default: { member: true, moderator: true, guest: false } }], access: { read: 'view', write: 'edit' } };
 const zips = [
   writeModule('stand-days', 'Days', { ...writes, actions: { provides: [
-    { name: 'createEvent', label: 'Add an event', input: { title: 'string?', date: 'date?', object: 'object?' }, takes: [{ kinds: ['*', 'text'], except: TRAVEL_KINDS.slice(), as: 'an event' }] },
+    { name: 'createEvent', label: 'Add an event', input: { title: 'string?', date: 'date?', at: 'datetime?', object: 'object?' }, needs: ['date'], takes: [{ kinds: ['*', 'text'], except: TRAVEL_KINDS.slice(), as: 'an event' }] },
   ] } }),
   writeModule('stand-plans', 'Plans', { ...writes, actions: { provides: [
     { name: 'acceptSuggestion', label: 'Add it to the trip', input: { title: 'string', kind: 'string?', content: 'text?', place: 'string?', date: 'date?', object: 'object?' }, takes: planner.actions.provides[0].takes },
@@ -307,6 +432,25 @@ try {
     r = await ask({ object: { kind: 'task', title: 'Pack', details: { due: '2026-11-12' } } });
     assert.equal(r.status, 200, r.text);
     assert.deepEqual((await pending('stand-days')).find((a) => a.id === r.json.id).input, { object: { icon: 'note', title: 'Pack', kind: 'task', details: { due: '2026-11-12' } } });
+  });
+
+  await test('live: a date on the bus must be a day that exists; needs ["date"] with no ref input is kept', async () => {
+    const ask = (input) => call('POST', '/api/bus/actions/request', { token: pat, body: { from: 'stand-asker', action: 'stand-days:createEvent', input, scope: 'space', space: S } });
+    for (const date of ['2026-02-31', '2026-02-29', '2026-04-31', '2026-13-01', '2026-00-10', '2026-01-00']) {
+      const r = await ask({ title: 'Dinner', date });
+      assert.deepEqual([r.status, r.json], [400, { error: 'date must be a date' }], date);
+    }
+    for (const at of ['2026-02-31T10:00', '2026-02-30T10:00:00Z', 'not a time']) {
+      const r = await ask({ title: 'Dinner', at });
+      assert.deepEqual([r.status, r.json], [400, { error: 'at must be a date and time' }], at);
+    }
+    let r = await ask({ title: 'Dinner', date: '2028-02-29', at: '2028-02-29T19:30:00Z' });
+    assert.equal(r.status, 200, r.text);
+    assert.deepEqual((await pending('stand-days')).find((a) => a.id === r.json.id).input, { title: 'Dinner', date: '2028-02-29', at: '2028-02-29T19:30:00.000Z' }, 'a leap day is a day');
+    r = await ask({ title: 'Dinner' });
+    assert.equal(r.status, 200, 'needs is for the asking side: the bus does not refuse a request without the optional date');
+    const listed = await call('GET', `/api/bus/actions?from=stand-asker&scope=space&space=${S}`, { token: pat });
+    assert.deepEqual(listed.json.actions.find((a) => a.action === 'stand-days:createEvent').needs, ['date']);
   });
 
   await test('live: the copied instructions list what the enabled modules take; the schema is the whole catalogue', async () => {

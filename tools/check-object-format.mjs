@@ -609,6 +609,27 @@ test('old files, pastes and stored AI answers read exactly as before details', (
   assert.equal(buildPrompt('ask', [], 'Why?', KINDS).prompt, before.prompts.summaryRuleEveryKind);
 });
 
+test('a booking keeps its travel kind rather than "event" when both are listed', () => {
+  const sentence = (kinds) => `For a booking or a stop on a trip, use its own kind (${kinds}) rather than "event", even when it happens at a set time; use "event" only for anything else on a day, such as an appointment or a party.`;
+  const rule = (kinds) => objectRule({ fence: 'objects', noun: 'object', max: 50, kinds });
+  // Every kind: all 13 travel kinds, in KINDS order, right after the kind line, in both prompts.
+  const every = rule(KINDS);
+  const all = sentence('flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, tour or show');
+  assert.ok(every.includes(`Leave it out only when none fits.\n${all}\n`), 'directly after the kind line');
+  assert.ok(instructions('object', { kinds: KINDS }).includes(all));
+  assert.ok(buildPrompt('ask', [], 'Why?', KINDS).prompt.includes(all));
+  // Only the travel kinds listed, joined as the kind line joins them, whatever order they are given in.
+  assert.ok(rule(['event', 'tour', 'hotel', 'task']).includes(sentence('hotel or tour')));
+  assert.ok(rule(['museum', 'event']).includes(sentence('museum')));
+  assert.ok(rule(['flight', 'train', 'event']).includes(sentence('flight or train')));
+  // Absent with no event, or no travel kind.
+  for (const kinds of [TRAVEL_KINDS, ['flight', 'task'], ['event', 'task', 'note'], ['event'], [], KINDS.filter((k) => k !== 'event')]) {
+    assert.ok(!rule(kinds).includes('For a booking or a stop on a trip'), kinds.join(','));
+  }
+  assert.ok(!instructions('object').includes('For a booking or a stop on a trip'), 'the default, travel kinds only');
+  assert.ok(!buildPrompt('ask', [], 'Why?').prompt.includes('For a booking or a stop on a trip'));
+});
+
 test('crafted text cannot stall a read: 120 KB in any field reads in under 100 ms', () => {
   const big = 120000;
   const crafted = {

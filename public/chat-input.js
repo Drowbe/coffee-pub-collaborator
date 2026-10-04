@@ -174,7 +174,8 @@ const withArticle = (kind) => `${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}`;
 
 // How many kinds an action's `takes` names ("*" and "text" are not kinds). Of several actions that name an object's
 // kind, the one naming the fewest is the specialist and comes first: a note goes to Research before the Planner, an event
-// to the Calendar, a flight to the Planner. Thomas may change this rule; it is only this and `placeOrder`.
+// to the Calendar (unless it reads as travel, eventLooksLikeTravel: then the Planner), a flight to the Planner. Thomas may
+// change this rule; it is only this, `eventLooksLikeTravel` and `placeOrder`.
 export function namedKindCount(action) {
   const kinds = new Set();
   for (const e of Array.isArray(action && action.takes) ? action.takes : []) {
@@ -184,8 +185,9 @@ export function namedKindCount(action) {
 }
 // The order of two places: by rank (0 names the kind, 1 the older typed keeper, 2 takes any object, 3 the older note
 // keeper, 4 a form on the person's own page that does not name the kind, such as Polls' draft for words with no kind),
-// then, among those naming the kind, the specialist; among those taking any object, the note keeper (its `takes` names
-// `note`), then the fewest named kinds; then the server's order.
+// then, among those naming the kind, for an event that reads as travel the one naming travel kinds (`trip`), then the
+// specialist; among those taking any object, the note keeper (its `takes` names `note`), then the fewest named kinds;
+// then the server's order.
 export function placeRank({ named, legacy, typed, local }) {
   if (legacy) return typed ? 1 : 3;
   if (named) return 0;
@@ -193,10 +195,32 @@ export function placeRank({ named, legacy, typed, local }) {
 }
 export function placeOrder(x, y) {
   return x.rank - y.rank
+    || (x.rank === 0 ? Number(Boolean(y.trip)) - Number(Boolean(x.trip)) : 0)
     || (x.rank === 2 ? Number(y.note) - Number(x.note) : 0)
     || (x.rank === 0 || x.rank === 2 ? x.span - y.span : 0)
     || x.i - y.i;
 }
+
+// Whether an `event` reads as travel (a tour, a transfer, a flight an AI called an event), so its default place is the one
+// that names travel kinds (the Planner) rather than the Calendar; `trip` in placeOrder. Only the default changes: the
+// Calendar stays in the menu. The rule is a travel word in the title, as a whole word (Unicode-aware, so "Détours" and
+// "Trainée" don't count). Only the title: the server keeps no travel details on an event (starts, ends, allDay and
+// address; DETAILS.event in server/object-format.js). "Coach" and "transfer" count only when they read as a trip
+// ("Coach to Oxford", "Airport transfer", "Transfer to the hotel"), not "Bank transfer" or "Meet the coach". Kept small
+// so Thomas can change it here.
+const TRAVEL_WORDS = new RegExp('(?<![\\p{L}\\p{N}])(?:' + [
+  'tours?', 'excursions?', 'shuttles?', 'flights?', 'trains?', 'ferry', 'ferries', 'cruises?', 'bus', 'buses',
+  'taxis?', 'boat trips?', 'day trips?', 'road trips?', 'rental cars?', 'car rentals?', 'car hire',
+  'airport (?:pickup|pick-up|drop-off)', 'coach(?:es)? (?:to|from|trip|ride)', '(?:airport|hotel|station|port) transfers?',
+  'transfers? (?:to|from)',
+].join('|').replace(/ /g, '\\s+') + ')(?![\\p{L}\\p{N}])', 'iu');
+export function eventLooksLikeTravel(summary) {
+  if (!summary || summary.kind !== 'event') return false;
+  return typeof summary.title === 'string' && TRAVEL_WORDS.test(summary.title);
+}
+// Whether an action names a travel kind (other than `event`): the place a travel-like event goes first.
+const namesTravel = (action) => (Array.isArray(action && action.takes) ? action.takes : [])
+  .some((e) => Array.isArray(e && e.kinds) && e.kinds.some((k) => TRAVEL_KINDS.includes(k)));
 
 // The places an object can be kept, best first: every action whose `takes` covers its kind (the server's rule, `except`
 // included) and that this person may use; a module with no `takes` by the older rule (keeperFor). An action that names
@@ -207,6 +231,7 @@ export function keepTargets(actions, summary, { last = '', objectWord = '' } = {
   const list = (Array.isArray(actions) ? actions : []).filter((a) => a && a.action && a.may !== false);
   const kind = (summary && summary.kind) || '';
   const day = hasDay(summary);
+  const travelEvent = eventLooksLikeTravel(summary);
   const out = [];
   list.forEach((a, i) => {
     if (!Array.isArray(a.takes)) return;
@@ -218,7 +243,7 @@ export function keepTargets(actions, summary, { last = '', objectWord = '' } = {
     const named = kind ? entries.find((e) => Array.isArray(e.kinds) && e.kinds.includes(kind)) : null;
     const as = String((named || entries[0]).as || '').replace('{kind}', kind ? withArticle(kind) : objectWord).trim();
     const name = a.moduleName || a.module;
-    out.push({ id: a.action, action: a, field, module: a.module, moduleName: name, local: Boolean(a.local), legacy: false, named: Boolean(named), as, label: as ? `Add to ${name} as ${as}` : `Add to ${name}`, rank: placeRank({ named: Boolean(named), local: Boolean(a.local) }), span: namedKindCount(a), note: a.takes.some((e) => Array.isArray(e && e.kinds) && e.kinds.includes('note')), i });
+    out.push({ id: a.action, action: a, field, module: a.module, moduleName: name, local: Boolean(a.local), legacy: false, named: Boolean(named), as, label: as ? `Add to ${name} as ${as}` : `Add to ${name}`, rank: placeRank({ named: Boolean(named), local: Boolean(a.local) }), span: namedKindCount(a), trip: travelEvent && namesTravel(a), note: a.takes.some((e) => Array.isArray(e && e.kinds) && e.kinds.includes('note')), i });
   });
   const old = findKeepers(list.filter((a) => !Array.isArray(a.takes)));
   const keeper = keeperFor(summary, old);
@@ -229,7 +254,7 @@ export function keepTargets(actions, summary, { last = '', objectWord = '' } = {
   out.sort(placeOrder);
   const at = last ? out.findIndex((t) => t.id === last) : -1;
   if (at > 0) out.unshift(...out.splice(at, 1));
-  return out.map(({ rank, span, note, i, ...t }) => t);
+  return out.map(({ rank, span, note, trip, i, ...t }) => t);
 }
 
 // The place a drawn object shows and is sent to. `chosen` is fixed when the object is first drawn with somewhere to go

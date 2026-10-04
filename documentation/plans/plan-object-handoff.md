@@ -5,7 +5,7 @@ experience-design builds the modules' mapping, the SDK helpers, Chat's import pr
 content-manager documents.
 
 **Status:** approved by Thomas, 2026-10-03, with every open question of the draft answered as recommended (decisions 8 to
-19); steps 1-5 built 2026-10-03 and steps 6-7 on 2026-10-04, the rest not built. From two GitHub issues that share one question: what each module accepts,
+19); steps 1-5 built 2026-10-03 and steps 6-8 on 2026-10-04, the rest not built. From two GitHub issues that share one question: what each module accepts,
 in which shape, and how content maps into its fields.
 
 - #182, the import from another AI. Thomas: "our prompt needs to include instructions for ANYTHING we support
@@ -540,10 +540,41 @@ Nothing stored or linked breaks:
    - Polls also takes a message's short lines as options when the object has no `details.options`, and drops the
      object's `content` otherwise.
    Checked by `tools/check-object-handoff.mjs` (14 checks) and `tools/check-modules.mjs`; To-do, the Calendar and the
-   Polls form verified live in Chromium by the builder. Nothing in Chat sends to these three yet; that is step 9. The
+   Polls form verified live in Chromium by the builder. Chat's Keep reaches these three from step 8. The
    contract is in [api-modules](../api/api-modules.md), "What the bundled modules take".
 8. **experience-design: the import preview.** Details line, per-object target and menu, missing dates, Keep ticked by
    `takes`.
+   *Built 2026-10-04.* In `public/chat-input.js` (`keepTargets`, `keepTargetInput`, `detailsLine`, `needsDay`,
+   `keepCountWords`, `drawObject`); `GET /api/spaces/:id/actions` now returns `needs`. As planned: the plain title and
+   details line, "in <module>" after Keep with a menu of "Add to <module> as <a kind>" when there are several places,
+   the last choice per kind remembered in the browser and marked "Last used", "No day" with a date field for a kind
+   that has a day, "Same day for all" (shown with two or more undated objects, never overwriting a day the person
+   picked), and Keep ticked keeping each object in its own place, its confirm naming the counts and places plus "N can't
+   be kept here.". Beyond the text above:
+   - An AI answer's objects use the same places; there, choosing from the menu keeps the object at once (decision 16).
+   - Keep itself now follows `takes` everywhere, not only in the preview: any action whose `takes` covers the kind,
+     honouring `except`, `may`, required inputs (a `title` from the object, a `url` from its first link) and
+     `needs: ["date"]`. So notes and events go to the Planner with Research off. A module without `takes` keeps the
+     old rule (`keeperFor`). A closed `local` module gives "<module> isn't open." This brings forward part of step 9's
+     targeting for objects, not for a message's own words.
+   - The order: last used, then an action naming the kind, the one naming the fewest kinds first (the specialist: a
+     note to Research before the Planner, an event with a day to the Calendar, a flight to the Planner, whatever the
+     install order), then the older typed keeper, then `"*"`/`"text"`, then the older note keeper; other ties in the
+     server's order. Among "any object" places the note keeper comes first, so an object with no kind and a link with no
+     address go to Research, and a form (Polls' draft) is never the default unless it names the kind (`placeRank`,
+     `placeOrder`). *Open:* the specialist rule, Thomas to confirm.
+   - Each row keeps the place it shows (`settlePlace`): "Last used" applies only when it is first drawn, and a row moves
+     only when its place stops being allowed, which a single Keep and Keep ticked's confirm say.
+   - Keep ticked leaves out a place that opens a form (Polls, one at a time with its own Keep), a closed `local`
+     module, and an object nothing can keep, and says so in the confirm. A `local` Keep reads "Opened in <module>" and
+     can be pressed again; Keep runs one at a time and stays off once kept or waiting.
+   - The day is asked only where something here could keep the object with one; its words focus the field.
+   - A kept or waiting row: its place is plain text, its day field off (Same day for all skips it), its Keep off.
+     "Keep ticked (n)" counts only rows it would send; the preview refreshes the module list first.
+   Checked by `tools/check-chat-page.mjs` and `tools/check-object-handoff.mjs`; verified live in Chromium by the
+   builder, the rework included; the focus after a pick in an AI answer's menu is read as code only. The rules are in
+   [api-modules](../api/api-modules.md), "Chat's Keep", and [Chat](../userguides/userguide-chat.md), "Where an object
+   is kept".
 9. **experience-design: Send to...** The message-to-object rules, the menu, last used, pictures (upload then
    request), several objects, private messages. **server-development** adds the upload sweep in the same step.
 10. **quality-assurance:** every step as below. **content-manager:** [api-modules](../api/api-modules.md) (`takes`,

@@ -2,11 +2,11 @@
 // Chat never names a module; commands and Keep actions come from the space APIs.
 
 const OBJECT_MIME = 'application/x-host-object';
-const KIND_PLURAL = {
-  flight: 'flights', train: 'trains', bus: 'buses', ferry: 'ferries', car: 'cars',
-  hotel: 'hotels', restaurant: 'restaurants', cafe: 'cafes', bar: 'bars',
-  sight: 'sights', museum: 'museums', tour: 'tours', show: 'shows', note: 'notes',
+// A kind as a person counts it, one and many: a `hotel` is any stay (plan-object-handoff.md, "Kinds and their details").
+const KIND_WORDS = {
+  bus: ['bus', 'buses'], ferry: ['ferry', 'ferries'], hotel: ['stay', 'stays'],
 };
+const kindWord = (kind, n) => (KIND_WORDS[kind] ? KIND_WORDS[kind][n === 1 ? 0 : 1] : n === 1 ? kind : `${kind}s`);
 
 function oneLine(s, n) {
   return String(s || '').replace(/\s+/g, ' ').trim().slice(0, n);
@@ -80,12 +80,13 @@ export function suggestionInput(summary) {
   };
 }
 
-// The kinds the typed keeper (acceptSuggestion) gets until actions declare what they take (plan-object-handoff.md):
-// a copy of TRAVEL_KINDS in server/object-format.js, held equal by tools/check-chat-page.mjs. Every other kind (note,
-// link, event, task, poll) goes to the note keeper, as before those kinds existed.
+// The kinds an older typed keeper (acceptSuggestion with no `takes`) gets (plan-object-handoff.md, "Migration"): a copy
+// of TRAVEL_KINDS in server/object-format.js, held equal by tools/check-chat-page.mjs. Every other kind goes to an older
+// note keeper. A module that declares `takes` is found by it instead (keepTargets).
 export const TRAVEL_KINDS = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show'];
 
-// Which keeper an object goes to: the typed one for a travel kind when there is one, else the note keeper.
+// Which older keeper (one with no `takes`) an object goes to: the typed one for a travel kind when there is one, else
+// the note keeper.
 export function keeperFor(summary, { note, suggestion } = {}) {
   return (summary && TRAVEL_KINDS.includes(summary.kind) && suggestion) ? suggestion : note;
 }
@@ -127,10 +128,240 @@ export function objectKeepInput(action, field, summary, question) {
   return { ...(action.input && action.input.title ? { title: object.title } : {}), [field]: object };
 }
 
+// The older keepers, found by name, for a module that declares no `takes` (plan-object-handoff.md, "What modules declare").
 function findKeepers(actions) {
   const note = actions.find((a) => a.name === 'saveNote' && a.input && a.input.title && a.input.body);
   const suggestion = actions.find((a) => a.name === 'acceptSuggestion' && a.input && a.input.title && a.input.kind);
   return { note, suggestion };
+}
+
+// --- Where an object can be kept (plan-object-handoff.md, "The import preview in Chat") ----------------------------------
+
+// The kinds that happen on a day: journeys, stays, stops, events and tasks. One of these with no day asks for one.
+export const DAY_KINDS = [...TRAVEL_KINDS, 'event', 'task'];
+const DAY_FIELDS = ['departs', 'checkIn', 'starts', 'due'];
+const isDay = (v) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+
+// Whether an object has a day: its `date`, or a date in its details (when it leaves, checks in, starts or is due).
+export function hasDay(summary) {
+  if (!summary) return false;
+  if (isDay(summary.date)) return true;
+  const d = summary.details && typeof summary.details === 'object' ? summary.details : {};
+  return DAY_FIELDS.some((f) => typeof d[f] === 'string' && /^\d{4}-\d{2}-\d{2}/.test(d[f]));
+}
+
+// Whether the preview asks for a day: a kind that has one, and none given.
+export function needsDay(summary) {
+  return Boolean(summary && DAY_KINDS.includes(summary.kind) && !hasDay(summary));
+}
+
+const objectFieldOf = (action) => {
+  const entry = Object.entries((action && action.input) || {}).find(([, type]) => String(type).replace(/\?$/, '') === 'object');
+  return entry ? entry[0] : '';
+};
+const firstUrl = (summary) => ((summary && Array.isArray(summary.links) ? summary.links : []).map((l) => l && l.url).find(Boolean) || '');
+
+// Whether Keep can fill an action's other required fields from the object: a title always, an address from its first link.
+function fillable(action, field, summary) {
+  return Object.entries(action.input || {}).every(([name, type]) => {
+    if (name === field || String(type).endsWith('?') || name === 'title') return true;
+    return name === 'url' && Boolean(firstUrl(summary));
+  });
+}
+
+// "a flight", "an event": a kind with its article.
+const withArticle = (kind) => `${/^[aeiou]/.test(kind) ? 'an' : 'a'} ${kind}`;
+
+// How many kinds an action's `takes` names ("*" and "text" are not kinds). Of several actions that name an object's
+// kind, the one naming the fewest is the specialist and comes first: a note goes to Research before the Planner, an event
+// to the Calendar, a flight to the Planner. Thomas may change this rule; it is only this and `placeOrder`.
+export function namedKindCount(action) {
+  const kinds = new Set();
+  for (const e of Array.isArray(action && action.takes) ? action.takes : []) {
+    for (const k of Array.isArray(e && e.kinds) ? e.kinds : []) if (k !== '*' && k !== 'text') kinds.add(k);
+  }
+  return kinds.size;
+}
+// The order of two places: by rank (0 names the kind, 1 the older typed keeper, 2 takes any object, 3 the older note
+// keeper, 4 a form on the person's own page that does not name the kind, such as Polls' draft for words with no kind),
+// then, among those naming the kind, the specialist; among those taking any object, the note keeper (its `takes` names
+// `note`), then the fewest named kinds; then the server's order.
+export function placeRank({ named, legacy, typed, local }) {
+  if (legacy) return typed ? 1 : 3;
+  if (named) return 0;
+  return local ? 4 : 2;
+}
+export function placeOrder(x, y) {
+  return x.rank - y.rank
+    || (x.rank === 2 ? Number(y.note) - Number(x.note) : 0)
+    || (x.rank === 0 || x.rank === 2 ? x.span - y.span : 0)
+    || x.i - y.i;
+}
+
+// The places an object can be kept, best first: every action whose `takes` covers its kind (the server's rule, `except`
+// included) and that this person may use; a module with no `takes` by the older rule (keeperFor). An action that names
+// the kind comes before one that takes any object ("*"), and the older typed keeper sits between them. `needs: ["date"]`
+// leaves an action out for an object with no day. `last` (an action id) is the person's last choice for this kind, first.
+// Each is { id, action, label, module, moduleName, local, legacy, named, field }.
+export function keepTargets(actions, summary, { last = '', objectWord = '' } = {}) {
+  const list = (Array.isArray(actions) ? actions : []).filter((a) => a && a.action && a.may !== false);
+  const kind = (summary && summary.kind) || '';
+  const day = hasDay(summary);
+  const out = [];
+  list.forEach((a, i) => {
+    if (!Array.isArray(a.takes)) return;
+    const entries = a.takes.filter((e) => e && e.may !== false && takesKind([e], kind || undefined));
+    if (!entries.length) return;
+    const field = objectFieldOf(a);
+    if (!field || !fillable(a, field, summary)) return;
+    if (Array.isArray(a.needs) && a.needs.includes('date') && !day) return;
+    const named = kind ? entries.find((e) => Array.isArray(e.kinds) && e.kinds.includes(kind)) : null;
+    const as = String((named || entries[0]).as || '').replace('{kind}', kind ? withArticle(kind) : objectWord).trim();
+    const name = a.moduleName || a.module;
+    out.push({ id: a.action, action: a, field, module: a.module, moduleName: name, local: Boolean(a.local), legacy: false, named: Boolean(named), label: as ? `Add to ${name} as ${as}` : `Add to ${name}`, rank: placeRank({ named: Boolean(named), local: Boolean(a.local) }), span: namedKindCount(a), note: a.takes.some((e) => Array.isArray(e && e.kinds) && e.kinds.includes('note')), i });
+  });
+  const old = findKeepers(list.filter((a) => !Array.isArray(a.takes)));
+  const keeper = keeperFor(summary, old);
+  if (keeper) {
+    const name = keeper.moduleName || keeper.module;
+    out.push({ id: keeper.action, action: keeper, field: '', module: keeper.module, moduleName: name, local: Boolean(keeper.local), legacy: true, named: keeper === old.suggestion, label: `Add to ${name}`, rank: placeRank({ legacy: true, typed: keeper === old.suggestion }), span: 0, note: false, i: list.indexOf(keeper) });
+  }
+  out.sort(placeOrder);
+  const at = last ? out.findIndex((t) => t.id === last) : -1;
+  if (at > 0) out.unshift(...out.splice(at, 1));
+  return out.map(({ rank, span, note, i, ...t }) => t);
+}
+
+// The place a drawn object shows and is sent to. `chosen` is fixed when the object is first drawn with somewhere to go
+// (the person's last choice for the kind, else the best), and then only by the person; a fresh list of actions never moves
+// it, unless that place is no longer allowed, when it falls back to the best one left and says so (`moved`).
+// Answers { target, chosen, moved }.
+export function settlePlace(targets, chosen) {
+  const list = Array.isArray(targets) ? targets : [];
+  if (!list.length) return { target: null, chosen: chosen || '', moved: false };
+  const kept = chosen ? list.find((t) => t.id === chosen) : null;
+  if (kept) return { target: kept, chosen, moved: false };
+  return { target: list[0], chosen: list[0].id, moved: Boolean(chosen) };
+}
+
+// Keep ticked: which ticked rows go, and which are left out and why. A row is { kind, target, open } (`open`: whether a
+// local place's module is open). A place that opens a form on the person's own page (a local action, Polls' draft) is
+// never sent in a batch, since each would replace the last; it is kept with its own Keep.
+export function splitTicked(rows) {
+  const going = [];
+  const nowhere = [];
+  const forms = [];
+  const closed = [];
+  for (const r of Array.isArray(rows) ? rows : []) {
+    if (!r.target) nowhere.push(r);
+    else if (r.target.local && !r.open) closed.push(r);
+    else if (r.target.local) forms.push(r);
+    else going.push(r);
+  }
+  return { going, nowhere, forms, closed };
+}
+
+// The confirm's second part, what Keep ticked leaves out: "2 polls need Polls open." "1 poll opens a form in Polls: use
+// its own Keep." "1 can't be kept here."
+export function leftOutWords({ nowhere = [], forms = [], closed = [] } = {}, { one = 'object', many = 'objects' } = {}) {
+  const counted = (list) => {
+    const kinds = new Set(list.map((r) => r.kind || ''));
+    const n = list.length;
+    const k = kinds.size === 1 ? [...kinds][0] : '';
+    return `${n} ${k ? kindWord(k, n) : n === 1 ? one : many}`;
+  };
+  const byModule = (list) => {
+    const m = new Map();
+    for (const r of list) { const name = r.target.moduleName; if (!m.has(name)) m.set(name, []); m.get(name).push(r); }
+    return [...m];
+  };
+  const parts = [];
+  for (const [name, list] of byModule(closed)) parts.push(`${counted(list)} ${list.length === 1 ? 'needs' : 'need'} ${name} open.`);
+  for (const [name, list] of byModule(forms)) parts.push(`${counted(list)} ${list.length === 1 ? 'opens a form' : 'open a form each'} in ${name}: use ${list.length === 1 ? 'its' : 'each one\'s'} own Keep.`);
+  if (nowhere.length) parts.push(`${nowhere.length} can't be kept here.`);
+  return parts.join(' ');
+}
+
+// What Keep sends a target: the object itself to one that takes it, else the older flat fields. The question goes with it
+// as "Asked: ..." to a note (a target that takes the object as any object, or as a note), not to one that maps its fields.
+export function keepTargetInput(target, summary, question) {
+  if (target.legacy) return target.action.name === 'acceptSuggestion' ? suggestionInput(summary) : keepInput(summary, question);
+  const asNote = !target.named || !summary.kind || summary.kind === 'note';
+  const input = objectKeepInput(target.action, target.field, summary, asNote ? question : '');
+  const url = firstUrl(summary);
+  if (target.action.input && Object.hasOwn(target.action.input, 'url') && url) input.url = url;
+  return input;
+}
+
+// Whether any action here can keep an object at all, for showing Bring in.
+export function canKeepAny(actions) {
+  const list = (Array.isArray(actions) ? actions : []).filter((a) => a && a.may !== false);
+  if (list.some((a) => Array.isArray(a.takes) && a.takes.some((e) => e && e.may !== false) && objectFieldOf(a))) return true;
+  const old = findKeepers(list.filter((a) => !Array.isArray(a.takes)));
+  return Boolean(old.note || old.suggestion);
+}
+
+// The confirm's words for Keep ticked: "3 flights and 2 stays in Planner, 1 task in To-do". `many` is an object with no
+// kind ({ one, many }: the environment's word for object).
+export function keepCountWords(picks, { one = 'object', many = 'objects' } = {}) {
+  const byPlace = new Map();
+  for (const { kind, moduleName } of Array.isArray(picks) ? picks : []) {
+    if (!byPlace.has(moduleName)) byPlace.set(moduleName, new Map());
+    const counts = byPlace.get(moduleName);
+    counts.set(kind || '', (counts.get(kind || '') || 0) + 1);
+  }
+  const and = (parts) => (parts.length < 2 ? parts.join('') : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`);
+  return [...byPlace].map(([place, counts]) => `${and([...counts].map(([k, n]) => `${n} ${k ? kindWord(k, n) : n === 1 ? one : many}`))} in ${place}`).join(', ');
+}
+
+// An object's details in one line under its title (plan-object-handoff.md, "The import preview in Chat"):
+// "Southwest 1234 · MDW 12:50 → SJC 15:25 · ABC123". A time on the object's own day shows as the time alone.
+export function detailsLine(summary) {
+  const d = summary && summary.details && typeof summary.details === 'object' && !Array.isArray(summary.details) ? summary.details : null;
+  if (!d) return '';
+  const day = summary.date || '';
+  const s = (v, n = 80) => (typeof v === 'string' || typeof v === 'number' ? oneLine(String(v), n) : '');
+  const when = (v) => {
+    const m = /^(\d{4}-\d{2}-\d{2})?T?(\d{2}:\d{2})?$/.exec(s(v));
+    if (!m || (!m[1] && !m[2])) return '';
+    if (m[1] && m[2]) return m[1] === day ? m[2] : `${m[1]} ${m[2]}`;
+    return m[1] || m[2];
+  };
+  const point = (p) => (p && typeof p === 'object' ? s(p.code, 5) || s(p.name, 60) : s(p, 60));
+  const end = (p, t) => [point(p), when(t)].filter(Boolean).join(' ');
+  const span = (a, b) => [when(a), when(b)].filter(Boolean).join('–');
+  const parts = [];
+  const kind = summary.kind;
+  if (['flight', 'train', 'bus', 'ferry', 'car'].includes(kind)) {
+    parts.push([s(d.airline || d.operator || d.company, 60), s(d.number, 20)].filter(Boolean).join(' '));
+    const from = end(d.from, d.departs);
+    const to = end(d.to, d.arrives);
+    parts.push(from && to ? `${from} → ${to}` : from || (to ? `→ ${to}` : ''));
+  } else if (kind === 'hotel') {
+    parts.push(when(d.checkIn) && `Check in ${when(d.checkIn)}`, when(d.checkOut) && `Check out ${when(d.checkOut)}`);
+    if (Number.isInteger(d.guests)) parts.push(`${d.guests} ${d.guests === 1 ? 'guest' : 'guests'}`);
+  } else if (kind === 'task') {
+    parts.push(when(d.due) && `Due ${when(d.due)}`);
+  } else if (kind === 'poll') {
+    const options = Array.isArray(d.options) ? d.options.filter((o) => typeof o === 'string') : [];
+    parts.push(options.slice(0, 4).map((o) => oneLine(o, 40)).join(' / ') + (options.length > 4 ? ' / …' : ''));
+    parts.push(when(d.closes) && `Closes ${when(d.closes)}`);
+  } else {
+    parts.push(span(d.starts, d.ends));
+    if (d.allDay === true) parts.push('All day');
+    if (Number.isInteger(d.partySize)) parts.push(`${d.partySize} ${d.partySize === 1 ? 'person' : 'people'}`);
+    if (Number.isInteger(d.tickets)) parts.push(`${d.tickets} ${d.tickets === 1 ? 'ticket' : 'tickets'}`);
+    parts.push(s(d.address, 80));
+  }
+  parts.push(s(d.reference, 60));
+  return oneLine(parts.filter(Boolean).join(' · '), 200);
+}
+
+// A title as plain text on one line (Markdown read, never shown raw), with the SDK's helper when the page has it.
+export function plainTitle(title, plain) {
+  const read = typeof plain === 'function' ? plain : (globalThis.hostText && globalThis.hostText.plain);
+  const text = typeof read === 'function' ? read(String(title || ''), { line: true }) : String(title || '');
+  return oneLine(text, 120);
 }
 
 // An AI answer as the pieces to draw, in order: { text } and { summary: index }.
@@ -369,7 +600,7 @@ export function keptNoticeTakes(entry, data, from) {
   return Boolean(cleanKept(data.kept));
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeChatInput, renderMarkup, frameMessage, addStored }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // (the wider Send button leaves a narrow chat a narrow field). A command's own hint is left alone.
@@ -555,13 +786,33 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     await refreshImport();
   }
 
-  function objectPreview(summary, question, onKept) {
+  // The last place the person chose to keep each kind of object, in this browser (plan-object-handoff.md, "Its
+  // destination"); "text" for an object with no kind.
+  const placeKey = (kind) => `chat-keep-place:${kind || 'text'}`;
+  const lastPlace = (kind) => { try { return localStorage.getItem(placeKey(kind)) || ''; } catch { return ''; } };
+  const rememberPlace = (kind, id) => { try { localStorage.setItem(placeKey(kind), id); } catch { /* not remembered */ } };
+  // Every object drawn with a Keep, so a fresh list of actions redraws where each would go.
+  const drawnObjects = new Set();
+
+  // An object drawn with its details line, its Keep and where Keep puts it. In the import preview (`pick: 'choose'`,
+  // `askDay`) the menu beside Keep chooses the place, for Keep and Keep ticked, and an object of a kind that has a day
+  // and none given asks for one; in an AI answer the menu keeps it there at once (plan-object-handoff.md, decision 16).
+  // Answers { el, keepBtn, current, target, needsDay, setDay, send, isKept, moved }.
+  function drawObject(summary, question, { onKept, pick = 'send', askDay = false, fresh = true } = {}) {
     const el = document.createElement('article');
     el.className = 'chat-object';
     if (summary.kind) el.dataset.kind = summary.kind;
+    const titleText = plainTitle(summary.title) || 'Untitled';
     const title = document.createElement('h3');
-    title.textContent = oneLine(summary.title, 120) || 'Untitled';
+    title.textContent = titleText;
     el.appendChild(title);
+    const details = detailsLine(summary);
+    if (details) {
+      const line = document.createElement('p');
+      line.className = 'chat-object-details';
+      line.textContent = details;
+      el.appendChild(line);
+    }
     const content = String((summary && summary.content) || '').trim();
     if (content) {
       const body = document.createElement('div');
@@ -593,16 +844,196 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
       basis.textContent = 'From another AI: check it before you rely on it';
       el.appendChild(basis);
     }
+
+    // A missing day (decision 10): optional; filled, it is sent as the object's date. Asked only when some place here
+    // could keep the object once it has a day.
+    const asksDay = askDay && needsDay(summary);
+    let dayInput = null;
+    let dayRow = null;
+    let dayFromAll = false;
+    let dayChanged = () => {};
+    if (asksDay) {
+      dayRow = document.createElement('p');
+      dayRow.className = 'chat-object-day';
+      const words = document.createElement('span');
+      words.textContent = 'No day';
+      dayInput = document.createElement('input');
+      dayInput.type = 'date';
+      dayInput.setAttribute('aria-label', `Day for ${titleText}`);
+      dayChanged = () => {
+        words.textContent = dayInput.value ? 'Day' : 'No day';
+        drawPlace();
+      };
+      dayInput.addEventListener('input', () => { dayFromAll = false; dayChanged(); });
+      dayInput.addEventListener('change', () => { dayFromAll = false; dayChanged(); });
+      // The row of an import is a label for its checkbox: the day's words must not tick or untick it.
+      dayRow.addEventListener('click', (e) => {
+        if (e.target === dayInput) return;
+        e.preventDefault();
+        dayInput.focus();
+      });
+      dayRow.append(words, dayInput);
+      el.appendChild(dayRow);
+    }
+    const current = () => (dayInput && /^\d{4}-\d{2}-\d{2}$/.test(dayInput.value) ? { ...summary, date: dayInput.value } : summary);
+
+    const row = document.createElement('div');
+    row.className = 'chat-object-keeprow';
     const keep = document.createElement('button');
     keep.type = 'button';
     keep.className = 'msg-btn chat-object-keep';
     keep.textContent = 'Keep';
-    keep.addEventListener('click', async () => {
-      await keepOne(summary, question, keep);
-      if (onKept) onKept(keep);
+    const where = document.createElement('span');
+    where.className = 'chat-object-place';
+    row.append(keep, where);
+    el.appendChild(row);
+
+    // The place shown is the place sent to (settlePlace): fixed on the first draw from a fresh list of actions (`fresh`:
+    // an import refreshes it first; an AI answer drawn from history waits for the refresh it asks for), then changed only
+    // by the person, or when it is no longer allowed (`moved`, shown and said before anything is sent). Once kept or
+    // waiting, the place is plain words and the day is fixed.
+    let chosen = '';
+    let targets = [];
+    let shown = null;
+    let state = ''; // '', 'busy', 'kept', 'queued'
+    let opened = ''; // the module whose form this last opened, while the place is unchanged
+    const view = { el, keepBtn: keep, current, needsDay: false, moved: false, fresh };
+    const target = () => shown;
+    const done = () => state === 'kept' || state === 'queued';
+    function drawPlace() {
+      if (!done()) {
+        targets = keepTargets(lastActions, current(), { last: chosen ? '' : lastPlace(summary.kind), objectWord: word('object', { a: true }) });
+        const settled = settlePlace(targets, chosen);
+        if (settled.moved) view.moved = true;
+        if (view.fresh) chosen = settled.chosen;
+        shown = settled.target;
+      }
+      const t = shown;
+      if (dayRow) {
+        const couldKeep = Boolean(t) || keepTargets(lastActions, { ...summary, date: '2000-01-01' }).length > 0;
+        dayRow.hidden = !couldKeep;
+        view.needsDay = couldKeep && !done();
+        dayInput.disabled = done();
+      }
+      where.replaceChildren();
+      // Kept, waiting or on its way, Keep stays focusable but does nothing (aria-disabled); with no place it is off.
+      keep.disabled = !t;
+      if (state) keep.setAttribute('aria-disabled', 'true');
+      else keep.removeAttribute('aria-disabled');
+      row.hidden = !t && pick === 'send';
+      if (!t) {
+        where.textContent = 'Nothing here can keep this';
+        return;
+      }
+      if (!state) keep.setAttribute('aria-label', opened ? `Opened in ${opened}` : `Keep in ${t.moduleName}`);
+      if (targets.length < 2 || done()) {
+        where.textContent = `in ${t.moduleName}`;
+        return;
+      }
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'msg-btn chat-object-place-btn';
+      btn.setAttribute('aria-haspopup', 'menu');
+      btn.setAttribute('aria-label', `Keep in ${t.moduleName}: choose another place`);
+      btn.title = 'Choose where';
+      const label = document.createElement('span');
+      label.textContent = `in ${t.moduleName}`;
+      const caret = document.createElement('i');
+      caret.className = 'fa-solid fa-caret-down fa-fw';
+      caret.setAttribute('aria-hidden', 'true');
+      btn.append(label, caret);
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (state) return;
+        const last = lastPlace(summary.kind);
+        openMenu(btn, targets.map((x) => ({
+          label: x.label,
+          ...(pick === 'choose' ? { checked: x.id === shown.id } : {}),
+          hint: x.local && !canvas.isOpen(x.module) ? `Open ${x.moduleName} first` : x.id === last ? 'Last used' : '',
+          onPick: async () => {
+            if (state) return;
+            chosen = x.id;
+            if (opened) { opened = ''; keep.textContent = 'Keep'; }
+            rememberPlace(summary.kind, x.id);
+            drawPlace();
+            refocus();
+            if (pick === 'send') { await keepNow(); refocus(); }
+          },
+        })));
+      });
+      where.appendChild(btn);
+    }
+    // Focus on this object's place button, or its Keep when it has no menu (a redraw replaces the button).
+    function refocus() {
+      (where.querySelector('button') || keep).focus();
+    }
+    // Send to the place shown, once: Keep does nothing while it is on its way, and once kept. A place that opens a form
+    // on the person's own page (a local action) says so, and may be opened again.
+    async function send(t) {
+      if (state || !t) return null;
+      state = 'busy';
+      drawPlace();
+      const out = await keepOne(current(), question, t);
+      state = out === 'kept' || out === 'queued' ? out : '';
+      opened = out === 'opened' ? t.moduleName : opened;
+      if (out === 'kept' || out === 'queued') keep.classList.add(out);
+      const words = { kept: ['Kept', `Kept in ${t.moduleName}`], queued: ['Waiting', `Waiting for ${t.moduleName}`], opened: [`Opened in ${t.moduleName}`, `Opened in ${t.moduleName}`] }[out];
+      if (words) {
+        keep.textContent = words[0];
+        keep.setAttribute('aria-label', words[1]);
+      }
+      if (out === 'queued') keep.title = `Waiting: it is kept when ${t.moduleName} is next open`;
+      if (out) view.moved = false; // the person saw where it went
+      drawPlace();
+      if (out && onKept) onKept(keep);
+      return out;
+    }
+    async function keepNow() {
+      if (state) return;
+      const before = shown;
+      await refreshActions();
+      if (!shown || !before || shown.id !== before.id) {
+        setNote(shown ? `${before ? before.moduleName : 'That place'} can't take this now. It goes in ${shown.moduleName}: press Keep again.` : 'Nothing here can keep that now.');
+        view.moved = false; // said, and shown on the row
+        return;
+      }
+      await send(shown);
+    }
+    keep.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const focused = document.activeElement === keep;
+      await keepNow();
+      if (focused) refocus();
     });
-    el.appendChild(keep);
-    return el;
+    Object.assign(view, {
+      target: () => target(),
+      send,
+      redraw: drawPlace,
+      isKept: done,
+      // "Same day for all": fills this one when it is empty, or when that field filled it before.
+      setDay(day) {
+        if (!dayInput || done() || (dayInput.value && !dayFromAll)) return;
+        dayInput.value = day;
+        dayFromAll = Boolean(day);
+        dayChanged();
+      },
+    });
+    drawPlace();
+    drawnObjects.add(view);
+    return view;
+  }
+
+  function objectPreview(summary, question) {
+    const view = drawObject(summary, question, { fresh: false });
+    soonRefresh();
+    return view.el;
+  }
+  // AI answers drawn from history ask once for a fresh list of actions; their places are fixed from it.
+  let refreshing = null;
+  function soonRefresh() {
+    refreshing ||= new Promise((resolve) => { setTimeout(resolve, 0); }).then(() => refreshActions()).finally(() => { refreshing = null; });
+    return refreshing;
   }
 
   // How a command's message looks: its module's icon and colour, looked up when drawn (never stored), so a module's
@@ -644,25 +1075,25 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     } catch {
       lastActions = [];
     }
+    // Where each drawn object would go follows the new list; one no longer on the page is forgotten.
+    for (const v of drawnObjects) {
+      if (v.el.isConnected) { v.seen = true; v.fresh = true; v.redraw(); } else if (v.seen) drawnObjects.delete(v);
+    }
   }
 
-  async function keepOne(summary, question, btn) {
-    await refreshActions();
-    const placer = keeperFor(summary, findKeepers(lastActions));
-    if (!placer) { setNote('Nothing here can keep that yet.'); return; }
-    // A keeper that takes this kind gets the object itself; an older one the flat fields, the details as lines of text.
-    const field = objectInputOf(placer, summary);
-    // The question goes with it where it went before, to the note keeper, not the typed one.
-    const input = field ? objectKeepInput(placer, field, summary, placer.name === 'acceptSuggestion' ? '' : question)
-      : placer.name === 'acceptSuggestion' ? suggestionInput(summary) : keepInput(summary, question);
+  // Keep one object in a place from keepTargets: the object itself to a module that takes it, the older flat fields to
+  // one that declares no `takes`. A view (`local`) runs only on the person's own open module, as a command does, and
+  // opens its form there: it is 'opened', never kept. Answers 'kept', 'queued', 'opened', or null when nothing was sent.
+  async function keepOne(summary, question, target) {
+    if (!target) { setNote('Nothing here can keep that yet.'); return null; }
+    if (target.local && !canvas.isOpen(target.module)) { setNote(`${target.moduleName} isn't open.`); return null; }
     try {
-      const out = await api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/action`, { action: placer.action, input });
-      if (btn) {
-        btn.classList.add(out.status === 'queued' ? 'queued' : 'kept');
-        if (out.status === 'queued') btn.title = `Waiting: it is kept when that ${word('module')} is next open`;
-      }
+      const out = await api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/action`, { action: target.id, input: keepTargetInput(target, summary, question) });
+      if (target.local) return 'opened';
+      return out.status === 'queued' ? 'queued' : 'kept';
     } catch (err) {
       setNote(err.message || 'Could not keep that.');
+      return null;
     }
   }
 
@@ -815,17 +1246,15 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     }
   }
 
-  function isKept(btn) {
-    return Boolean(btn && (btn.classList.contains('kept') || btn.classList.contains('queued')));
-  }
-
-  function showImport(result) {
+  async function showImport(result) {
     const objects = (result && result.objects) || [];
     const dropped = droppedLine(result && result.dropped, result && result.over);
     if (!objects.length) {
       setImportWhy(dropped || 'Nothing in that could be read.');
       return;
     }
+    // The places come from the modules on now, not those on when the page was loaded.
+    await refreshActions();
     setImportOpen(false);
     setImportWhy('');
     const body = document.createElement('div');
@@ -838,13 +1267,16 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
       box.type = 'checkbox';
       box.checked = true;
       box.setAttribute('aria-label', 'Keep this one');
-      const preview = objectPreview({ ...obj, basis: 'imported' }, '', (btn) => {
-        if (isKept(btn)) box.disabled = true;
-        refresh();
+      const view = drawObject({ ...obj, basis: 'imported' }, '', {
+        pick: 'choose',
+        askDay: true,
+        onKept: () => {
+          if (view.isKept()) box.disabled = true;
+          refresh();
+        },
       });
-      const keepBtn = preview.querySelector('.chat-object-keep');
-      row.append(box, preview);
-      rows.push({ box, keepBtn, obj });
+      row.append(box, view.el);
+      rows.push({ box, view });
       body.appendChild(row);
     }
     const foot = document.createElement('div');
@@ -852,36 +1284,56 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     const keepTicked = document.createElement('button');
     keepTicked.type = 'button';
     keepTicked.className = 'btn btn-primary btn-small';
+    // One day for every object still without one (decision 10).
+    const undated = rows.filter((r) => r.view.needsDay);
+    let sameDay = null;
+    if (undated.length > 1) {
+      sameDay = document.createElement('label');
+      sameDay.className = 'chat-import-sameday';
+      const field = document.createElement('input');
+      field.type = 'date';
+      field.addEventListener('change', () => { for (const r of rows) if (r.view.needsDay) r.view.setDay(field.value); });
+      sameDay.append('Same day for all', field);
+    }
     const droppedEl = document.createElement('p');
     droppedEl.className = 'chat-import-dropped';
     droppedEl.textContent = dropped;
-    const ticked = () => rows.filter((r) => r.box.checked && !isKept(r.keepBtn));
+    // Ticked and not yet kept. Each goes to the place its row shows (settlePlace), never another.
+    const ticked = () => rows.filter((r) => r.box.checked && !r.view.isKept());
+    const pickOf = (r) => {
+      const target = r.view.target();
+      return { r, obj: r.view.current(), kind: r.view.current().kind, target, open: Boolean(target && target.local && canvas.isOpen(target.module)) };
+    };
+    // The count is what Keep ticked would send: not a form, a closed module or an object with nowhere to go.
     const refresh = () => {
-      keepTicked.textContent = `Keep ticked (${ticked().length})`;
+      keepTicked.textContent = `Keep ticked (${splitTicked(ticked().map(pickOf)).going.length})`;
     };
     refresh();
     body.addEventListener('change', refresh);
+    const objectWords = () => ({ one: word('object'), many: word('object', { many: true }) });
+    // Keep ticked keeps each ticked object in its own place; the confirm names them ("Keep 3 flights and 2 stays in
+    // Planner, 1 task in To-do?") and what is left out: a place that opens a form (one at a time, with its own Keep), one
+    // whose module is closed, and an object nothing here can keep. A place no longer allowed has moved on its row, and the
+    // confirm says so first.
     keepTicked.addEventListener('click', async () => {
-      const left = ticked();
-      if (!left.length) return;
-      const counts = new Map();
-      const keepers = findKeepers(lastActions);
-      for (const r of left) {
-        const k = keepers.suggestion && keeperFor(r.obj, keepers) === keepers.suggestion ? r.obj.kind : 'note';
-        counts.set(k, (counts.get(k) || 0) + 1);
-      }
-      const what = [...counts].map(([k, n]) => `${n} ${n === 1 ? k : (KIND_PLURAL[k] || `${k}s`)}`).join(' and ');
-      if (!window.confirm(`Keep ${what}?`)) return;
-      keepTicked.disabled = true;
+      if (!ticked().length) return;
+      // A row's moved mark stays until it is reported here (or kept on its own), however long ago its place moved.
       await refreshActions();
-      for (const r of left) {
-        await keepOne({ ...r.obj, basis: 'imported' }, '', r.keepBtn);
-        if (isKept(r.keepBtn)) r.box.disabled = true;
-      }
+      const movedRows = ticked().filter((r) => r.view.moved);
+      const moved = movedRows.length;
+      for (const r of movedRows) r.view.moved = false;
+      const split = splitTicked(ticked().map(pickOf));
+      const leftOut = leftOutWords(split, objectWords());
+      const movedWords = moved ? `${moved} ${moved === 1 ? 'has' : 'have'} a new place: the one before is no longer allowed. ` : '';
+      if (!split.going.length) { setNote(`${movedWords}${leftOut || 'Nothing here can keep those yet.'}`.trim()); refresh(); return; }
+      const what = keepCountWords(split.going.map((p) => ({ kind: p.kind, moduleName: p.target.moduleName })), objectWords());
+      if (!window.confirm(`${movedWords}Keep ${what}?${leftOut ? ` ${leftOut}` : ''}`)) { refresh(); return; }
+      keepTicked.disabled = true;
+      for (const p of split.going) await p.r.view.send(p.target);
       keepTicked.disabled = false;
       refresh();
     });
-    foot.append(keepTicked, droppedEl);
+    foot.append(...[keepTicked, sameDay, droppedEl].filter(Boolean));
     body.appendChild(foot);
     const entry = {
       who: 'Imported',
@@ -924,7 +1376,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
         : await postCheck(input, 'application/octet-stream');
       pendingImport = null;
       importBtn().hidden = true;
-      showImport(result);
+      await showImport(result);
     } catch (err) {
       setImportWhy(err.message || 'That could not be read.');
       setImportOpen(true);
@@ -933,11 +1385,10 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
 
   async function refreshImport() {
     await refreshActions();
-    const { note, suggestion } = findKeepers(lastActions);
     let ok = false;
     try {
       const id = spaceId();
-      if (id && getMe() && (note || suggestion)) {
+      if (id && getMe() && canKeepAny(lastActions)) {
         const avail = await api('GET', `/api/spaces/${encodeURIComponent(id)}/objects/check`);
         ok = Boolean(avail.available);
       }

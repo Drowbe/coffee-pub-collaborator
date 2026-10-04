@@ -4074,6 +4074,7 @@ const chatInput = attachChatInput({
   renderMarkup,
   frameMessage,
   addStored: (m, opts) => addStoredMessage(m, opts),
+  openMenu: openHostMenu,
 });
 askInChat = (input) => chatInput.askAbout(input);
 $('chat-form').addEventListener('submit', async (event) => {

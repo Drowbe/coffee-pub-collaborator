@@ -4004,7 +4004,7 @@ span.message-vis {
   margin-top: 8px;
 }
 
-.chat-import-row input {
+.chat-import-row > input {
   margin-top: 14px;
   accent-color: var(--accent);
 }
@@ -4094,6 +4094,83 @@ span.message-vis {
 
 .message .chat-object-keep {
   display: inline-flex;
+}
+
+/* An object's details in one line under its title (plan-object-handoff.md): the flight, the times, the reference. */
+.message .chat-object-details {
+  margin: 0 0 6px;
+  color: var(--text);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* Keep and where it keeps: "Keep  in Planner ▾", the place a menu of the other places when there are several. */
+.message .chat-object-keeprow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 4px;
+}
+
+.message .chat-object-keeprow[hidden] {
+  display: none;
+}
+
+.message .chat-object-place {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.message .chat-object-place-btn {
+  gap: 2px;
+  font-size: 12px;
+}
+
+.message .chat-object-keep.kept,
+.message .chat-object-keep.queued {
+  color: var(--accent);
+}
+
+/* Kept or waiting, Keep stays focusable but does nothing (aria-disabled): it reads as done, not as dimmed. */
+.message .chat-object-keep.kept[aria-disabled="true"],
+.message .chat-object-keep.queued[aria-disabled="true"] {
+  opacity: 1;
+  cursor: default;
+}
+
+/* A kind that has a day and none given: "No day" and a date field, optional (decision 10). */
+.message .chat-object-day,
+.chat-import-sameday {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.chat-import-sameday {
+  margin: 0;
+}
+
+.message .chat-object-day input,
+.chat-import-sameday input {
+  min-width: 0;
+  max-width: 100%;
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  color-scheme: dark;
+}
+
+/* The field's own calendar button follows the mode that shows, as the tints above do. */
+:root[data-theme-mode="light"] :is(.message .chat-object-day input, .chat-import-sameday input),
+:root[data-mode-shown="light"]:not([data-theme-mode="dark"]) :is(.message .chat-object-day input, .chat-import-sameday input) {
+  color-scheme: light;
 }
 
 /* A link in a chat message (plan-chat-links.md): under the text, a box with the picture, the title as the link, the

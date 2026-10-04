@@ -354,6 +354,8 @@ try {
     assert.deepEqual(mine['stand-polls:noteVote'].takes, [{ kinds: ['poll'], as: 'a poll', permission: 'create', may: false }, { kinds: ['text'], as: 'a note', may: true }], 'one entry refused, one not; "as" with a control character keeps single spaces');
     assert.equal(mine['stand-polls:noteVote'].may, true, 'some entry may be used');
     assert.equal('takes' in mine['stand-polls:addPoll'], false, 'an action without takes says none');
+    assert.deepEqual(mine['stand-days:createEvent'].needs, ['date'], 'needs, as the bus list says it: Keep leaves out an action needing a day the object lacks');
+    assert.equal('needs' in mine['stand-polls:addPoll'], false, 'an action without needs says none');
     assert.equal(mine['stand-days:createEvent'].may, true);
     assert.equal(mine['stand-polls:draftPoll'].may, false, 'a member without Votes\' create');
     assert.equal(mine['stand-polls:addPoll'].may, true, 'a local action without takes: read is enough, as before');

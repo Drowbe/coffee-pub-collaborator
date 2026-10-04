@@ -38,7 +38,7 @@ To show an answer to everyone, make it public (see "Private and public" below). 
 Each answer has:
 
 - **Copy**, which copies its text.
-- **Keep**, on each object the answer holds (a hotel, a sight, a note). An object that is plainly a flight, a hotel, a sight and so on is kept in the Planner as that kind, with its own fields filled in (the airline, the times, the seat, the booking reference; see [Planner](userguide-planner.md), "What other modules bring"); anything else goes to Research as a note. If that module isn't open, the button shows it is waiting and the object arrives when someone next opens it.
+- **Keep**, on each object the answer holds (a hotel, a sight, a note), followed by where it goes: "in Planner", "in Research". Each object shows its title as plain text and, under it, a line of its details ("Southwest 1234 · MDW 12:50 → SJC 15:25 · ABC123"). When more than one module can keep it, "in <module>" is a menu: choosing **Add to <module> as <a kind>** keeps the object there at once. See "Where an object is kept" below. The button then reads **Kept**, or **Waiting** if that module isn't open (the object arrives when someone next opens it), and can't be pressed again. For Polls it reads **Opened in Polls**, since it only opens a form, and you can press it again.
 
 To ask about something you already have, drag it onto Chat while `/ai` is in the box; the line under the box says how many objects the question will use. Research's **Research this** and a drop menu's **Ask the assistant** do the same for one object.
 
@@ -99,11 +99,18 @@ Each module has a colour, and it shows in three places: on the messages its comm
 
 You can research in another AI and bring what it finds into Collaborator as objects. This uses none of the environment's AI.
 
-1. Open the formatting menu and choose **Bring in research**. It shows only to people who may use `/ai` here (the same rule as "Ask the AI", with or without an AI service set up), and only where something can keep it (the Planner, or a module that keeps notes such as Research).
+1. Open the formatting menu and choose **Bring in research**. It shows only to people who may use `/ai` here (the same rule as "Ask the AI", with or without an AI service set up), and only where some module on in the space can keep an object (the Planner, Research, the To-do and so on).
 2. Choose **Copy instructions for another AI**, paste them into the other AI, then ask your question.
 3. Paste its whole answer into **Paste the whole answer here** and choose **Preview**, or choose **Choose a file** and pick its `.objects.json` file.
-4. A preview marked **Brought in** lists each object with a tick. Untick any you don't want.
-5. Choose **Keep ticked** and confirm.
+4. A preview marked **Brought in** lists each object with a tick, its title, a line of its details and **Keep in <module>**. Untick any you don't want.
+5. To send an object somewhere else, open the "in <module>" menu beside its **Keep** and choose **Add to <module> as <a kind>**. This only chooses the place; nothing is kept yet.
+6. A flight, train, bus, ferry, car, stay, meal, visit, event or task with no day shows **No day** and a date field, when something here could keep it with a day. Click **No day** or the field and fill it in, or leave it empty to keep the object with no day. With more than one such object, **Same day for all** at the bottom fills every empty one; it never changes a day you picked yourself.
+7. Choose **Keep ticked** and confirm. Each ticked object goes to the place its row shows, and the confirm names them: "Keep 3 flights and 2 stays in Planner, 1 task in To-do?". It also says what it leaves out:
+   - a poll, which opens a form: "2 polls open a form each in Polls: use each one's own Keep.";
+   - one whose module must be open and isn't: "2 polls need Polls open.";
+   - one nothing here can keep: "1 can't be kept here."
+
+   You can also keep one object at a time with its own **Keep**.
 
 Pasting an answer straight into the Chat box works too: when it holds objects, **Bring in N objects** appears beside Send and opens the same preview.
 
@@ -116,6 +123,25 @@ What the instructions ask the other AI for:
 
 Instructions copied since 2026-09-30 still work, but copy them again to get these. With every bundled module on, they name every kind: flights, trains, buses, ferries, cars, stays, restaurants, cafes, bars, sights, museums, tours, shows, events, tasks, polls, notes and links. Each kind is named only while a module that takes it is on (tasks with the To-do, polls with Polls, and so on).
 
-Where the details go when you keep an object: the Planner fills a flight, a stay, a meal or a visit's own fields from them, and puts anything it has no field for into Notes as a line such as "Cabin: 4B". Everything else (an event, a task, a poll, a note or a link) becomes a note in Research, with the details as lines after its text ("Starts: 2026-11-14 19:00"), and its tags, day and place on the map kept; see [Research](userguide-research.md), "Links from Chat". Keeping a task in the To-do, an event in the Calendar or a poll in Polls comes with **Send to...**.
+### Where an object is kept
+
+**Keep**, in an AI answer and in the **Brought in** preview, offers every module on in this space that can take that kind of object and that you may add to. A module that only takes an object with a day, such as the Calendar, is left out for one without a day. The first choice is:
+
+1. the place you last chose for that kind of object, in this browser (marked **Last used** in the menu);
+2. otherwise, a module that takes that kind by name. When several do, the most specialised comes first, the one that takes the fewest kinds: a note goes to Research before the Planner, an event with a day to the Calendar, a flight to the Planner, a task to the To-do, a poll to Polls, a link to Research. This rule may still change;
+3. otherwise, a module that takes any object: Research first, as a note, so an object with no kind, or a link with no address, goes to Research. A module that only opens a form, such as Polls, is never the first choice for a kind it doesn't name.
+
+With Research off, notes and events still go to the Planner.
+
+**Each object keeps the place it shows.** The place is settled when the object is first drawn, and then only you change it, from its menu. If that place stops being allowed (a module turned off, say), the object moves to the next one: its own **Keep** then says "Planner can't take this now. It goes in Research: press Keep again.", and **Keep ticked**'s confirm starts "2 have a new place: the one before is no longer allowed."
+
+Keep runs one at a time. Once an object is **Kept** or **Waiting**, its button stays off, its place shows as plain words with no menu, and its day field is off (**Same day for all** skips it). **Keep ticked (n)** counts only the objects it would send. The preview uses the modules on in the space when it is drawn.
+
+What each module does with it:
+
+- **Planner:** fills a flight, a stay, a meal or a visit's own fields, and puts anything it has no field for into Notes as a line such as "Cabin: 4B"; see [Planner](userguide-planner.md), "What other modules bring".
+- **Research:** a note, with the details as lines after its text ("Starts: 2026-11-14 19:00"), and its tags, day and place on the map kept; a link is saved as a link. See [Research](userguide-research.md), "Links from Chat".
+- **To-do:** a task, due on its day; **Calendar:** an event on its day, timed when it has a start time.
+- **Polls:** opens the New poll form filled in, on your own open Polls; nothing is saved until you choose **Start poll**. If Polls isn't open, Keep says "Polls isn't open." and the menu shows "Open Polls first".
 
 An answer or file written from instructions copied before 2026-09-30 is in an older format and is refused, with nothing brought in: "that answer is in an older format: copy the instructions again and ask the AI for a new answer" (or "... for a new file"). Copy the instructions again, give them to the AI and ask it for a new answer. Pasted into the Chat box, such an answer offers no **Bring in** button. The limits (50 objects at a time, 256 KB, the "External source" line) are in [Assistant](userguide-assistant.md), "Bring in research from another AI".

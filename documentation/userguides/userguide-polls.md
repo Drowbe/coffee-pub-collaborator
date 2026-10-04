@@ -61,9 +61,9 @@ In a space, three icons in the Polls' titlebar, before the module's own buttons 
 
 When the Calendar is on, a poll with a closing time shows on the Calendar at that time, as a marker with the Polls icon and colour: "Closes 6:00 PM: Where for dinner?". After the closing time it stays, dimmed, as "Closed 6:00 PM: Where for dinner?". A poll closed by hand, and a poll with no closing time, has no marker; reopening a poll clears its closing time. The marker is not a Calendar event and is not copied there. Click it to open the poll here. Anyone who can see the poll can see its marker; the Calendar's **Polls closing** switch hides them all. See [Calendar](userguide-calendar.md), "Tasks due and polls closing".
 
-## For module authors
+## A poll from Chat
 
-From Polls 1.14.0, the action **Draft a poll from it** (`draftPoll`) takes a poll, or a message's words, and opens the New poll form on the person's own open Polls, filled in: the question from its title, the options from the poll's options or from the message's short lines ("Where to eat?" then "- Pizza" and "- Sushi"), the closing time, and **More than one answer**. Nothing is saved until the person chooses **Start poll**. Only people who may start polls can use it. Nothing in Chat offers it yet; **Send to...** on a chat message will. The details are in [api-modules](../api/api-modules.md), "Polls' draftPoll".
+A poll in an AI answer, or in research brought in from another AI, has **Keep** "in Polls" in Chat (see [Chat](userguide-chat.md), "Where an object is kept"). Keep opens the New poll form in your own open Polls, filled in: the question, the options (from the poll, or from the short lines of a message, such as "Where to eat?" then "- Pizza" and "- Sushi"), the closing time and **More than one answer**. Nothing is saved until you choose **Start poll**. Polls must be open first, or Keep says "Polls isn't open."; only people who may start polls are offered it. For module authors, the action is **Draft a poll from it** (`draftPoll`); see [api-modules](../api/api-modules.md), "Polls' draftPoll".
 
 ## Where it shows
 

@@ -27,7 +27,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -425,7 +425,8 @@ test('links: the box wears the keeper\'s tint on its left edge and icon only, th
 test('an AI answer\'s Keep reads kept: the bus always answers pending, even when the module takes it at once', () => {
   const src = read('public/chat-input.js');
   const keep = src.slice(src.indexOf('async function keepOne('), src.indexOf('async function askAbout('));
-  assert.match(keep, /btn\.classList\.add\(out\.status === 'queued' \? 'queued' : 'kept'\);/);
+  assert.match(keep, /return out\.status === 'queued' \? 'queued' : 'kept';/);
+  assert.match(keep, /if \(target\.local\) return 'opened';/, 'a form opened on the person\'s page is never "kept"');
   assert.ok(!/'pending'/.test(keep), 'pending is not a waiting state here');
 });
 
@@ -446,7 +447,7 @@ test('links: the page finds a message\'s link by the server\'s rule, and a live 
 
 // --- Object handoff (plan-object-handoff.md, step 1) ---------------------------------------------------------------
 
-test('Keep: only a travel kind goes to the typed keeper; note, link, event, task and poll stay with the note keeper', () => {
+test('Keep, an older module with no takes: only a travel kind goes to the typed keeper; every other kind to the note keeper', () => {
   const { TRAVEL_KINDS: serverKinds, KINDS } = createRequire(import.meta.url)('../server/object-format.js');
   assert.deepEqual(TRAVEL_KINDS, serverKinds, 'the page\'s copy matches server/object-format.js');
   const keepers = { note: { name: 'saveNote' }, suggestion: { name: 'acceptSuggestion' } };
@@ -456,9 +457,8 @@ test('Keep: only a travel kind goes to the typed keeper; note, link, event, task
   assert.equal(keeperFor({ title: 'T', kind: 'flight' }, { note: keepers.note }), keepers.note, 'no typed keeper: the note keeper');
   assert.equal(keeperFor({ title: 'T', kind: 'note' }, { suggestion: keepers.suggestion }), undefined, 'no note keeper: nothing');
   assert.equal(keeperFor(null, keepers), keepers.note);
-  // Keep and Keep ticked both choose through keeperFor.
-  assert.match(chat, /const placer = keeperFor\(summary, findKeepers\(lastActions\)\);/);
-  assert.match(chat, /keeperFor\(r\.obj, keepers\) === keepers\.suggestion \? r\.obj\.kind : 'note'/);
+  // keeperFor is the older rule only: keepTargets uses it for the modules that declare no takes.
+  assert.match(fnBody(chat, 'export function keepTargets('), /const old = findKeepers\(list\.filter\(\(a\) => !Array\.isArray\(a\.takes\)\)\);\n\s*const keeper = keeperFor\(summary, old\);/);
   assert.ok(!/summary\.kind && suggestion/.test(chat), 'no keeper chosen by any kind at all');
 });
 
@@ -498,7 +498,6 @@ test('Keep: a keeper whose takes names the kind gets the object whole; an older 
   assert.equal(objectInputOf(planner, { title: 'T', kind: 'task' }), '', 'a kind it does not take');
   assert.equal(objectInputOf(research, { title: 'T', kind: 'note' }), research.takes ? 'object' : '', 'Research declares no takes yet: the flat fields');
   assert.equal(objectInputOf({ name: 'acceptSuggestion', input: { title: 'string', kind: 'string?' } }, flight), '', 'an older Planner: the flat fields, details as lines');
-  assert.match(chat, /const field = objectInputOf\(placer, summary\);\n(?:\s*\/\/.*\n)?\s*const input = field \? objectKeepInput\(placer, field, summary, placer\.name === 'acceptSuggestion' \? '' : question\)/);
   // An AI answer kept to the note keeper as an object keeps its question, as the flat fields did (Research 0.3.0 takes "*").
   const noteKeeper = { name: 'saveNote', input: { title: 'string', body: 'text?', object: 'object?' }, takes: [{ kinds: ['note', '*', 'text'], as: 'a note' }] };
   assert.equal(objectKeepInput(noteKeeper, 'object', { title: 'Lisbon', content: 'A city.' }, 'Where next?').object.content, 'A city.\n\nAsked: Where next?');
@@ -506,6 +505,286 @@ test('Keep: a keeper whose takes names the kind gets the object whole; an older 
   assert.equal(objectKeepInput(noteKeeper, 'object', { title: 'X', content: 'y', basis: 'imported' }, 'Which?').object.content, 'y', 'never for an import');
   assert.equal(objectKeepInput(noteKeeper, 'object', { title: 'X', content: 'y' }, '').object.content, 'y');
   assert.ok(objectKeepInput(noteKeeper, 'object', { title: 'X', content: 'z'.repeat(6000) }, 'Q?').object.content.length <= 6000, 'within the format\'s 6000');
+});
+
+// --- Object handoff, step 8: the import preview (plan-object-handoff.md, "The import preview in Chat") -----------------
+
+// GET /api/spaces/:id/actions as the server answers it, from the bundled modules' own module.json: each action with its
+// takes (each entry's `may`), and `may`. `opts.off` leaves modules out; `opts.refuse` names entries' permissions not held.
+const bundledActions = (ids, { refuse = [], needs = false } = {}) => {
+  const names = { travel: 'Planner', research: 'Research', todo: 'To-do', calendar: 'Calendar', polls: 'Polls' };
+  const out = [];
+  for (const id of ids) {
+    const m = JSON.parse(read(`modules/${id}/module.json`));
+    for (const a of m.actions.provides) {
+      const takes = a.takes ? a.takes.map((e) => ({ ...e, may: !e.permission || !refuse.includes(e.permission) })) : undefined;
+      out.push({ action: `${id}:${a.name}`, module: id, moduleName: names[id], name: a.name, label: a.label, input: a.input, local: Boolean(a.local),
+        ...(takes ? { takes } : {}), ...(needs && a.needs ? { needs: a.needs } : {}), may: !takes || takes.some((e) => e.may) });
+    }
+  }
+  return out;
+};
+const places = (actions, obj, o) => keepTargets(actions, obj, o).map((t) => `${t.id} ${t.label}`);
+
+test('Keep goes by takes: with Research off, a note and an event go to the Planner (the reported "Nothing here can keep that yet")', () => {
+  const planner = bundledActions(['travel']);
+  assert.deepEqual(places(planner, { title: 'N', kind: 'note' }), ['travel:acceptSuggestion Add to Planner as a note']);
+  assert.deepEqual(places(planner, { title: 'E', kind: 'event', date: '2026-11-14' }), ['travel:acceptSuggestion Add to Planner as an event']);
+  assert.deepEqual(places(planner, { title: 'F', kind: 'flight' }), ['travel:acceptSuggestion Add to Planner as a flight']);
+  assert.deepEqual(places(planner, { title: 'H', kind: 'hotel' }), ['travel:acceptSuggestion Add to Planner as a stay']);
+  for (const kind of ['task', 'poll', 'link', undefined]) assert.deepEqual(places(planner, { title: 'X', kind }), [], `the Planner does not take ${kind}`);
+  assert.ok(canKeepAny(planner), 'Bring in shows with the Planner alone');
+});
+
+test('Keep goes by takes: Research alone takes every kind as a note, and a link with an address as a link', () => {
+  const research = bundledActions(['research']);
+  assert.deepEqual(places(research, { title: 'F', kind: 'flight' }), ['research:saveNote Add to Research as a note']);
+  assert.deepEqual(places(research, { title: 'X' }), ['research:saveNote Add to Research as a note'], 'no kind');
+  assert.deepEqual(places(research, { title: 'L', kind: 'link', links: [{ title: 'a', url: 'https://a.example' }] }), ['research:saveLink Add to Research as a link', 'research:saveNote Add to Research as a note']);
+  assert.deepEqual(places(research, { title: 'L', kind: 'link' }), ['research:saveNote Add to Research as a note'], 'no address: not the link keeper, which needs url');
+  assert.deepEqual(places(research, { title: 'P', kind: 'image', details: { upload: 'x' } }), ['research:savePhoto Add to Research as an image'], 'a picture only where it is named ("*" never covers it)');
+});
+
+test('Keep goes by takes: with both on, the module naming the kind comes before one taking any object', () => {
+  const both = bundledActions(['research', 'travel']);
+  assert.deepEqual(places(both, { title: 'F', kind: 'flight' }), ['travel:acceptSuggestion Add to Planner as a flight', 'research:saveNote Add to Research as a note']);
+  assert.deepEqual(places(both, { title: 'N', kind: 'note' }), ['research:saveNote Add to Research as a note', 'travel:acceptSuggestion Add to Planner as a note'], 'both name a note: the specialist first');
+  assert.deepEqual(places(bundledActions(['travel', 'research']), { title: 'N', kind: 'note' }), places(both, { title: 'N', kind: 'note' }), 'whatever the install order');
+  const all = bundledActions(['research', 'travel', 'todo', 'calendar', 'polls'], { needs: true });
+  assert.equal(keepTargets(all, { title: 'T', kind: 'task' })[0].id, 'todo:createTask');
+  assert.equal(keepTargets(all, { title: 'P', kind: 'poll' })[0].id, 'polls:draftPoll');
+  assert.ok(keepTargets(all, { title: 'P', kind: 'poll' })[0].local, 'Polls opens its own form: a local action');
+  assert.ok(!keepTargets(all, { title: 'F', kind: 'flight', date: '2026-11-14' }).some((t) => t.module === 'calendar'), 'the Calendar never takes a travel kind (except)');
+  assert.ok(!keepTargets(all, { title: 'E', kind: 'event' }).some((t) => t.module === 'calendar'), 'needs date: no Calendar for an undated event');
+  assert.ok(keepTargets(all, { title: 'E', kind: 'event', date: '2026-11-14' }).some((t) => t.module === 'calendar'), 'with a day it may go to the Calendar');
+  assert.ok(keepTargets(all, { title: 'E', kind: 'event', details: { starts: '2026-11-14T19:00' } }).some((t) => t.module === 'calendar'), 'a details day counts');
+  // The person's last choice for the kind comes first.
+  assert.equal(keepTargets(both, { title: 'F', kind: 'flight' }, { last: 'research:saveNote' })[0].id, 'research:saveNote');
+  assert.equal(keepTargets(both, { title: 'F', kind: 'flight' }, { last: 'gone:action' })[0].id, 'travel:acceptSuggestion', 'a choice no longer here is ignored');
+  // Only what this person may use: Polls' create permission, and an action they may not write to.
+  assert.ok(!keepTargets(bundledActions(['polls'], { refuse: ['create'] }), { title: 'P', kind: 'poll' }).length);
+  assert.ok(!keepTargets(both.map((a) => ({ ...a, may: false })), { title: 'F', kind: 'flight' }).length);
+  assert.ok(!canKeepAny([]), 'nothing to keep with: no Bring in');
+});
+
+test('Keep: a module with no takes keeps the older rule, after one that names the kind', () => {
+  const oldPlanner = { action: 'travel:acceptSuggestion', module: 'travel', moduleName: 'Planner', name: 'acceptSuggestion', input: { title: 'string', kind: 'string?', content: 'text?' }, may: true };
+  const oldResearch = { action: 'research:saveNote', module: 'research', moduleName: 'Research', name: 'saveNote', input: { title: 'string', body: 'text?' }, may: true };
+  assert.deepEqual(places([oldResearch, oldPlanner], { title: 'F', kind: 'flight' }), ['travel:acceptSuggestion Add to Planner']);
+  assert.deepEqual(places([oldResearch, oldPlanner], { title: 'E', kind: 'event' }), ['research:saveNote Add to Research']);
+  assert.ok(canKeepAny([oldResearch]));
+  const mixed = [...bundledActions(['research']), oldPlanner];
+  assert.deepEqual(places(mixed, { title: 'F', kind: 'flight' }), ['travel:acceptSuggestion Add to Planner', 'research:saveNote Add to Research as a note'], 'the older typed keeper before "*"');
+  const flight = { title: 'F', kind: 'flight', details: { number: '1' }, basis: 'imported' };
+  assert.deepEqual(keepTargetInput(keepTargets([oldPlanner], flight)[0], flight, ''), suggestionInput(flight), 'the flat fields, as before');
+  assert.deepEqual(keepTargetInput(keepTargets([oldResearch], flight)[0], flight, 'Q'), keepInput(flight, 'Q'));
+});
+
+test('Keep: what each place is sent; the question goes to a note, never to a module mapping the fields', () => {
+  const all = bundledActions(['research', 'travel', 'todo', 'calendar', 'polls']);
+  const pick = (obj, id) => keepTargets(all, obj).find((t) => t.id === id);
+  const flight = { title: 'Southwest 1', kind: 'flight', details: { number: '1' } };
+  assert.equal(keepTargetInput(pick(flight, 'travel:acceptSuggestion'), flight, 'Which?').object.content, undefined, 'the Planner maps a flight');
+  assert.equal(keepTargetInput(pick(flight, 'research:saveNote'), flight, 'Which?').object.content, 'Asked: Which?', 'Research keeps it as a note');
+  const link = { title: 'Site', kind: 'link', links: [{ title: 'Site', url: 'https://a.example/x' }] };
+  const input = keepTargetInput(pick(link, 'research:saveLink'), link, '');
+  assert.equal(input.url, 'https://a.example/x', 'a link keeper\'s url, from the first link');
+  assert.equal(input.object.kind, 'link');
+  const poll = { title: 'Where?', kind: 'poll', details: { options: ['A', 'B'] } };
+  assert.deepEqual(Object.keys(keepTargetInput(pick(poll, 'polls:draftPoll'), poll, '')), ['object'], 'Polls takes the object alone');
+});
+
+test('Keep ticked: the confirm counts each kind by its own word and names each place', () => {
+  const words = { one: 'object', many: 'objects' };
+  assert.equal(keepCountWords([...Array(3)].map(() => ({ kind: 'event', moduleName: 'Planner' })), words), '3 events in Planner', 'events are not "notes"');
+  assert.equal(keepCountWords([
+    { kind: 'flight', moduleName: 'Planner' }, { kind: 'hotel', moduleName: 'Planner' }, { kind: 'flight', moduleName: 'Planner' },
+    { kind: 'flight', moduleName: 'Planner' }, { kind: 'hotel', moduleName: 'Planner' }, { kind: 'task', moduleName: 'To-do' },
+  ], words), '3 flights and 2 stays in Planner, 1 task in To-do');
+  assert.equal(keepCountWords([{ kind: 'bus', moduleName: 'Planner' }, { kind: 'bus', moduleName: 'Planner' }, { kind: '', moduleName: 'Research' }], { one: 'note', many: 'notes' }), '2 buses in Planner, 1 note in Research');
+  assert.equal(keepCountWords([{ kind: 'ferry', moduleName: 'P' }, { kind: 'note', moduleName: 'P' }, { kind: 'show', moduleName: 'P' }], words), '1 ferry, 1 note and 1 show in P');
+});
+
+test('the preview: a details line under the title, the title as plain text, and a day asked for where one is missing', () => {
+  const sw = { kind: 'flight', title: 'Southwest **2483**', date: '2026-11-14', details: { airline: 'Southwest', number: '1234', from: { code: 'MDW', name: 'Chicago Midway' }, to: { code: 'SJC' }, departs: '2026-11-14T12:50', arrives: '2026-11-14T15:25', reference: 'ABC123' } };
+  assert.equal(detailsLine(sw), 'Southwest 1234 · MDW 12:50 → SJC 15:25 · ABC123');
+  assert.equal(detailsLine({ ...sw, date: undefined }), 'Southwest 1234 · MDW 2026-11-14 12:50 → SJC 2026-11-14 15:25 · ABC123', 'another day: the date shown');
+  assert.equal(detailsLine({ kind: 'hotel', date: '2026-11-14', details: { checkIn: '2026-11-14T15:00', checkOut: '2026-11-16T11:00', guests: 2 } }), 'Check in 15:00 · Check out 2026-11-16 11:00 · 2 guests');
+  assert.equal(detailsLine({ kind: 'restaurant', details: { starts: '19:30', partySize: 4, reference: 'R9' } }), '19:30 · 4 people · R9');
+  assert.equal(detailsLine({ kind: 'task', details: { due: '2026-11-20' } }), 'Due 2026-11-20');
+  assert.equal(detailsLine({ kind: 'poll', details: { options: ['A', 'B'], closes: '2026-11-01T18:00' } }), 'A / B · Closes 2026-11-01 18:00');
+  assert.equal(detailsLine({ kind: 'note', title: 'x' }), '');
+  // The title read as plain text, with the SDK's own helper (host.util.plain), never shown as raw Markdown.
+  const win = { addEventListener() {}, location: { search: '' } };
+  win.parent = win;
+  new Function('window', 'document', read('public/sdk/host.js'))(win, { createElement: (tag) => ({ tag }) });
+  assert.equal(plainTitle('Southwest **2483**', win.hostText.plain), 'Southwest 2483');
+  assert.equal(plainTitle('[Casa](https://c.example) *nice*', win.hostText.plain).startsWith('Casa'), true);
+  assert.match(fnBody(chat.replace(/^  /gm, ''), 'function drawObject('), /title\.textContent = titleText;/);
+  assert.match(chat, /const titleText = plainTitle\(summary\.title\) \|\| 'Untitled';/);
+  // A day: journeys, stays, stops, events and tasks; not notes, links or polls.
+  assert.deepEqual(DAY_KINDS, [...TRAVEL_KINDS, 'event', 'task']);
+  assert.ok(needsDay({ kind: 'flight', title: 'F' }));
+  assert.ok(needsDay({ kind: 'flight', title: 'F', details: { departs: '12:50' } }), 'a time alone is no day');
+  assert.ok(!needsDay({ kind: 'flight', title: 'F', details: { departs: '2026-11-14T12:50' } }), 'a details day');
+  assert.ok(!needsDay({ kind: 'task', title: 'T', date: '2026-11-14' }));
+  for (const kind of ['note', 'link', 'poll', undefined]) assert.ok(!needsDay({ kind, title: 'X' }), String(kind));
+  assert.ok(hasDay({ details: { checkIn: '2026-11-14' } }) && !hasDay({ date: '14 Nov' }));
+  // The day field is the preview's only (askDay), filled it is the object's date, and "Same day for all" fills every
+  // empty one, never one the person set.
+  const draw = fnBody(chat.replace(/^  /gm, ''), 'function drawObject(');
+  assert.match(draw, /const asksDay = askDay && needsDay\(summary\);/);
+  assert.match(draw, /const current = \(\) => \(dayInput && \/\^\\d\{4\}-\\d\{2\}-\\d\{2\}\$\/\.test\(dayInput\.value\) \? \{ \.\.\.summary, date: dayInput\.value \} : summary\);/);
+  assert.match(draw, /if \(!dayInput \|\| done\(\) \|\| \(dayInput\.value && !dayFromAll\)\) return;/);
+  assert.match(chat, /sameDay\.append\('Same day for all', field\);/);
+  assert.match(chat, /words\.textContent = 'No day';/);
+  // Keep and Keep ticked both send through the row's own send, to the place the row shows.
+  assert.match(chat, /for \(const p of split\.going\) await p\.r\.view\.send\(p\.target\);/);
+  assert.match(chat, /const out = await keepOne\(current\(\), question, t\);/);
+  assert.match(chat, /if \(id && getMe\(\) && canKeepAny\(lastActions\)\) \{/, 'Bring in shows when anything here can keep');
+  // The row's checkbox styles reach only the checkbox, not the day field inside the object.
+  assert.match(css, /\.chat-import-row > input \{/);
+  assert.ok(!/\.chat-import-row input \{/.test(css));
+});
+
+// --- Object handoff, step 8 after QA: the place shown is the place sent; forms one at a time ------------------------------
+
+test('the default place: the specialist (fewest named kinds) first, not the install order', () => {
+  for (const order of [['travel', 'research', 'todo', 'calendar', 'polls'], ['polls', 'calendar', 'todo', 'research', 'travel']]) {
+    const all = bundledActions(order, { needs: true });
+    const first = (obj) => keepTargets(all, obj)[0].id;
+    assert.equal(first({ title: 'N', kind: 'note' }), 'research:saveNote', order.join());
+    assert.equal(first({ title: 'E', kind: 'event', date: '2026-11-14' }), 'calendar:createEvent', order.join());
+    assert.equal(first({ title: 'F', kind: 'flight' }), 'travel:acceptSuggestion', order.join());
+    assert.equal(first({ title: 'T', kind: 'task' }), 'todo:createTask');
+    assert.equal(first({ title: 'P', kind: 'poll' }), 'polls:draftPoll');
+    assert.equal(first({ title: 'L', kind: 'link', links: [{ url: 'https://a.example' }] }), 'research:saveLink');
+  }
+  assert.equal(namedKindCount({ takes: [{ kinds: ['note', '*', 'text'] }] }), 1);
+  assert.equal(namedKindCount({ takes: [{ kinds: ['flight', 'train'] }, { kinds: ['note', 'flight'] }] }), 3);
+  assert.ok(placeOrder({ rank: 0, span: 1, i: 9 }, { rank: 0, span: 15, i: 0 }) < 0, 'the specialist');
+  assert.ok(placeOrder({ rank: 2, note: true, span: 1, i: 9 }, { rank: 2, note: false, span: 0, i: 0 }) < 0, 'among "*" places, the note keeper first');
+  assert.ok(placeOrder({ rank: 2, note: false, span: 1, i: 9 }, { rank: 2, note: false, span: 15, i: 0 }) < 0, 'then the fewest named kinds');
+  assert.ok(placeOrder({ rank: 2, note: false, span: 1, i: 9 }, { rank: 2, note: false, span: 1, i: 0 }) > 0, 'then the server\'s order');
+});
+
+test('the place shown is the place sent: fixed on first draw, never moved by a later "last used" or a refresh', () => {
+  const both = bundledActions(['research', 'travel']);
+  const note = { title: 'N', kind: 'note' };
+  // First drawn with "last used" = the Planner: the row shows and keeps the Planner.
+  let t = keepTargets(both, note, { last: 'travel:acceptSuggestion' });
+  let s1 = settlePlace(t, '');
+  assert.equal(s1.target.id, 'travel:acceptSuggestion');
+  // Another row's choice changes "last used" to Research; this row is redrawn (a refresh) without last used.
+  t = keepTargets(both, note);
+  const s2 = settlePlace(t, s1.chosen);
+  assert.deepEqual([s2.target.id, s2.moved], ['travel:acceptSuggestion', false], 'not moved by the other row');
+  // The Planner is turned off: the row falls back, and says it moved.
+  const s3 = settlePlace(keepTargets(bundledActions(['research']), note), s2.chosen);
+  assert.deepEqual([s3.target.id, s3.moved], ['research:saveNote', true]);
+  assert.deepEqual(settlePlace([], 'x'), { target: null, chosen: 'x', moved: false });
+  // In the page: the label, the menu's tick and what is sent all come from the one settled place.
+  const draw = fnBody(chat.replace(/^  /gm, ''), 'function drawObject(');
+  assert.match(draw, /targets = keepTargets\(lastActions, current\(\), \{ last: chosen \? '' : lastPlace\(summary\.kind\)/, 'last used only before a place is fixed');
+  assert.match(draw, /const settled = settlePlace\(targets, chosen\);\n\s*if \(settled\.moved\) view\.moved = true;\n\s*if \(view\.fresh\) chosen = settled\.chosen;\n\s*shown = settled\.target;/);
+  assert.match(draw, /label\.textContent = `in \$\{t\.moduleName\}`;/);
+  assert.match(draw, /const t = shown;/);
+  assert.match(draw, /const target = \(\) => shown;/);
+  assert.match(draw, /checked: x\.id === shown\.id/);
+  // A single Keep whose place moved on refresh sends nothing and says where it now goes.
+  assert.match(draw, /await refreshActions\(\);\n\s*if \(!shown \|\| !before \|\| shown\.id !== before\.id\) \{/);
+  // Keep ticked says a moved place before the confirm.
+  assert.match(chat, /if \(!window\.confirm\(`\$\{movedWords\}Keep \$\{what\}\?/);
+});
+
+test('Keep ticked: a form opens one at a time, a closed module is left out, and what cannot be kept is counted', () => {
+  const all = bundledActions(['research', 'travel', 'todo', 'calendar', 'polls']);
+  const row = (obj, open) => ({ kind: obj.kind, target: keepTargets(all, obj)[0] || null, open });
+  const poll = { title: 'P', kind: 'poll', details: { options: ['A', 'B'] } };
+  const split = splitTicked([row(poll, true), row(poll, true), row({ title: 'F', kind: 'flight' }, false), { kind: 'task', target: null }]);
+  assert.deepEqual([split.going.length, split.forms.length, split.closed.length, split.nowhere.length], [1, 2, 0, 1], 'polls never go in a batch');
+  assert.equal(leftOutWords(split, { one: 'object', many: 'objects' }), "2 polls open a form each in Polls: use each one's own Keep. 1 can't be kept here.");
+  const closed = splitTicked([row(poll, false), row(poll, false)]);
+  assert.equal(leftOutWords(closed), '2 polls need Polls open.');
+  assert.equal(leftOutWords(splitTicked([row(poll, false)])), '1 poll needs Polls open.');
+  const nowhere = splitTicked([{ kind: 'task', target: null }, { kind: 'poll', target: null }]);
+  assert.equal(leftOutWords(nowhere), "2 can't be kept here.");
+  assert.equal(leftOutWords(splitTicked([row(poll, true)])), '1 poll opens a form in Polls: use its own Keep.');
+  // In the page: the left-out words go in the confirm, or alone in the note when nothing goes.
+  assert.match(chat, /const leftOut = leftOutWords\(split, objectWords\(\)\);/);
+  assert.match(chat, /if \(!split\.going\.length\) \{ setNote\(/);
+  // The confirm's count of what can't be kept is no longer filtered away: ticked() keeps rows with nowhere to go.
+  assert.match(chat, /const ticked = \(\) => rows\.filter\(\(r\) => r\.box\.checked && !r\.view\.isKept\(\)\);/);
+});
+
+test('Keep: once at a time, a kept button stays off, a form is "Opened in", and the names follow the words', () => {
+  const draw = fnBody(chat.replace(/^  /gm, ''), 'function drawObject(');
+  assert.match(draw, /if \(state \|\| !t\) return null;\n\s*state = 'busy';\n\s*drawPlace\(\);/, 'does nothing while on its way');
+  assert.match(draw, /if \(state\) keep\.setAttribute\('aria-disabled', 'true'\);/, 'busy, kept or waiting: focusable but inactive');
+  assert.match(draw, /async function keepNow\(\) \{\n\s*if \(state\) return;/);
+  assert.match(draw, /opened: \[`Opened in \$\{t\.moduleName\}`, `Opened in \$\{t\.moduleName\}`\]/);
+  assert.match(draw, /kept: \['Kept', `Kept in \$\{t\.moduleName\}`\], queued: \['Waiting', `Waiting for \$\{t\.moduleName\}`\]/);
+  assert.match(draw, /keep\.setAttribute\('aria-label', words\[1\]\);/);
+  assert.match(draw, /if \(!state\) keep\.setAttribute\('aria-label', opened \? `Opened in \$\{opened\}` : `Keep in \$\{t\.moduleName\}`\);/, 'the name follows "Opened in" after a redraw');
+  assert.match(draw, /btn\.setAttribute\('aria-label', `Keep in \$\{t\.moduleName\}: choose another place`\);/);
+  assert.ok(!/Kept in \$\{t\.moduleName\}\. Choose where/.test(chat));
+  // Focus after a pick: the new place button, in an AI answer too.
+  assert.match(draw, /refocus\(\);\n\s*if \(pick === 'send'\) \{ await keepNow\(\); refocus\(\); \}/, 'focus back after the send redraws');
+  assert.match(draw, /function refocus\(\) \{\n\s*\(where\.querySelector\('button'\) \|\| keep\)\.focus\(\);/);
+  // The day's words never tick or untick the row; a day is asked only where some place could keep it.
+  assert.match(draw, /dayRow\.addEventListener\('click', \(e\) => \{\n\s*if \(e\.target === dayInput\) return;\n\s*e\.preventDefault\(\);/);
+  assert.match(draw, /dayRow\.hidden = !couldKeep;/);
+});
+
+// --- Object handoff, step 8, last QA round --------------------------------------------------------------------------------
+
+test('the preview places objects from the modules on now: an import refreshes first, an AI answer fixes its place from a refresh', () => {
+  const show = fnBody(chat.replace(/^  /gm, ''), 'async function showImport(');
+  assert.ok(show.indexOf('await refreshActions();') > -1 && show.indexOf('await refreshActions();') < show.indexOf('drawObject('), 'refreshed before the first row is drawn');
+  assert.match(chat, /await showImport\(result\);/);
+  assert.match(chat, /const view = drawObject\(summary, question, \{ fresh: false \}\);\n\s*soonRefresh\(\);/, 'an AI answer asks for a fresh list');
+  assert.match(chat, /if \(v\.el\.isConnected\) \{ v\.seen = true; v\.fresh = true; v\.redraw\(\); \}/);
+  assert.match(fnBody(chat.replace(/^  /gm, ''), 'function drawObject('), /if \(view\.fresh\) chosen = settled\.chosen;/, 'a place is fixed only from a fresh list');
+});
+
+test('a kept row: its place is plain words, its day is off, and nothing it shows can change', () => {
+  const draw = fnBody(chat.replace(/^  /gm, ''), 'function drawObject(');
+  assert.match(draw, /if \(!done\(\)\) \{\n\s*targets = keepTargets\(/, 'a kept row is not redrawn with new places');
+  assert.match(draw, /if \(targets\.length < 2 \|\| done\(\)\) \{\n\s*where\.textContent = `in \$\{t\.moduleName\}`;/, 'no menu once kept');
+  assert.match(draw, /dayInput\.disabled = done\(\);/);
+  assert.match(draw, /onPick: async \(\) => \{\n\s*if \(state\) return;/, 'a menu left open does nothing once kept');
+  assert.match(draw, /if \(opened\) \{ opened = ''; keep\.textContent = 'Keep'; \}/, '"Opened in" until another place is chosen');
+  assert.match(css, /\.message \.chat-object-keep\.kept\[aria-disabled="true"\],\n\.message \.chat-object-keep\.queued\[aria-disabled="true"\] \{\n\s*opacity: 1;/);
+});
+
+test('Keep ticked: a moved row is reported however long ago it moved, and the count is what would go', () => {
+  const show = fnBody(chat.replace(/^  /gm, ''), 'async function showImport(');
+  assert.ok(!/for \(const r of rows\) r\.view\.moved = false;/.test(show), 'the moved marks are not cleared before the refresh');
+  assert.match(show, /const movedRows = ticked\(\)\.filter\(\(r\) => r\.view\.moved\);\n\s*const moved = movedRows\.length;\n\s*for \(const r of movedRows\) r\.view\.moved = false;/, 'cleared once reported');
+  assert.match(show, /keepTicked\.textContent = `Keep ticked \(\$\{splitTicked\(ticked\(\)\.map\(pickOf\)\)\.going\.length\}\)`;/);
+  // Two polls with Polls open and one flight: the button says 1.
+  const all = bundledActions(['research', 'travel', 'todo', 'calendar', 'polls']);
+  const r = (obj, open) => ({ kind: obj.kind, target: keepTargets(all, obj)[0], open });
+  const poll = { title: 'P', kind: 'poll', details: { options: ['A', 'B'] } };
+  assert.equal(splitTicked([r(poll, true), r(poll, false), r({ title: 'F', kind: 'flight' })]).going.length, 1);
+});
+
+test('the default place for an object no module names: never a form, the note keeper first, in either install order', () => {
+  for (const order of [['travel', 'research', 'todo', 'calendar', 'polls'], ['polls', 'calendar', 'todo', 'research', 'travel']]) {
+    const all = bundledActions(order, { needs: true });
+    assert.equal(keepTargets(all, { title: 'X', content: 'words' })[0].id, 'research:saveNote', `no kind, ${order.join()}`);
+    assert.equal(keepTargets(all, { title: 'L', kind: 'link' })[0].id, 'research:saveNote', `a link with no address, ${order.join()}`);
+    assert.equal(keepTargets(all, { title: 'X', date: '2026-11-14' })[0].id, 'research:saveNote', 'a dated object with no kind');
+    assert.equal(keepTargets(all, { title: 'X' }).at(-1).id, 'polls:draftPoll', 'the poll form last for words with no kind');
+    assert.equal(keepTargets(all, { title: 'P', kind: 'poll' })[0].id, 'polls:draftPoll', 'it names a poll: first');
+    // Without Research: To-do and the Calendar each name one kind, so the server's order decides; never the poll form.
+    const noResearch = bundledActions(order.filter((m) => m !== 'research'), { needs: true });
+    assert.equal(keepTargets(noResearch, { title: 'X', date: '2026-11-14' })[0].id, order.indexOf('todo') < order.indexOf('calendar') ? 'todo:createTask' : 'calendar:createEvent', order.join());
+    assert.notEqual(keepTargets(noResearch, { title: 'X' })[0].id, 'polls:draftPoll', order.join());
+  }
+  assert.equal(placeRank({ named: false, local: true }), 4);
+  assert.equal(placeRank({ named: true, local: true }), 0);
+  assert.equal(placeRank({ legacy: true, typed: true }), 1);
 });
 
 console.log(`check-chat-page: OK (${n} tests)`);

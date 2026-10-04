@@ -84,7 +84,7 @@ Objects with no time come first in a day, in the order you put them; objects wit
 - An added object keeps up with the one it points at. A new title shows on the plan, and when that object moves to another day, it moves with it, provided it was on the object's old day. To keep it where it is, open it and tick **Keep on this day**. Dragging it to a day other than its object's day ticks that for you; dragging it back to the object's day clears it. When the object is deleted, it leaves the plan too.
 - Drag an object from another module onto a day to put it on that day.
 - Another module can ask Planner to add something: a closed poll's winner can go onto the plan as a stop.
-- An object kept from an AI answer in Chat that is marked as a flight, a train, a bus, a ferry, a car, a hotel, a restaurant, a cafe, a bar, a sight, a museum, a tour or a show is kept here as that proper kind of object, on the day and at the time it names, not just a plain note. That holds for `/ai` answers and for research brought in from another AI (see [Chat](userguide-chat.md)). The booking's own fields are filled in from what the AI wrote:
+- An object kept from an AI answer in Chat that is marked as a flight, a train, a bus, a ferry, a car, a hotel, a restaurant, a cafe, a bar, a sight, a museum, a tour or a show is kept here by default as that proper kind of object, on the day and at the time it names, not just a plain note. That holds for `/ai` answers and for research brought in from another AI (see [Chat](userguide-chat.md)). The booking's own fields are filled in from what the AI wrote:
   - a flight, train, bus or ferry: the airline or operator, the number, where it leaves from and arrives at (a flight's airports with their codes), the departure, the arrival as on the ticket (**Arrival on the ticket**), the length, the terminal and gate, platform and coach, seat, class and booking reference;
   - a car: the rental company, pick-up and drop-off, the pick-up time and, from the drop-off time, the length;
   - a stay: check-in and check-out (days and times), room type, guests, address and booking reference;
@@ -92,6 +92,7 @@ Objects with no time come first in a day, in the order you put them; objects wit
   - a sight, museum, tour or show: the time, the length, address, tickets and booking reference.
 
   Anything that has no field of its own goes into **Notes**, after the text, as a line such as "Cabin: 4B". So does an arrival more than 7 days after the departure or more than a day before it ("Arrives: …"). Titles and fields lose any Markdown or HTML; the notes keep their formatting. The links follow, and research brought in ends with the line "External source". An object dated more than 60 days from the rest of the plan goes under **Not on a day yet** (see above).
+- Events and notes can be kept here too: choose **Add to Planner as an event** (or **as a note**) from the menu beside **Keep** in Chat, They come here by default only when no more specialised module takes them (Research for a note, the Calendar for an event with a day). An event becomes a stop at its time; a note, a note. See [Chat](userguide-chat.md), "Where an object is kept".
 - An object's **Notes** hold up to 8000 characters.
 - Objects other modules link to a stop show under it.
 

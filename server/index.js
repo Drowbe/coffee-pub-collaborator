@@ -4472,6 +4472,8 @@ app.get('/api/spaces/:id/actions', (req, res) => {
         label: a.label,
         input: a.input,
         local: Boolean(a.local),
+        // What a request must carry (the Calendar's createEvent needs ["date"]), as GET /api/bus/actions says it.
+        ...(a.needs ? { needs: a.needs } : {}),
         // What objects it takes (plan-object-handoff.md, "What modules declare"), when it says, each entry with whether
         // this caller holds its permission.
         ...(a.takes ? { takes: takesFor(manifest, a, perms) } : {}),

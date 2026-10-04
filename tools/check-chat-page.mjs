@@ -30,7 +30,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -684,6 +684,31 @@ test('the default place: the specialist (fewest named kinds) first, not the inst
   assert.ok(placeOrder({ rank: 2, note: true, span: 1, i: 9 }, { rank: 2, note: false, span: 0, i: 0 }) < 0, 'among "*" places, the note keeper first');
   assert.ok(placeOrder({ rank: 2, note: false, span: 1, i: 9 }, { rank: 2, note: false, span: 15, i: 0 }) < 0, 'then the fewest named kinds');
   assert.ok(placeOrder({ rank: 2, note: false, span: 1, i: 9 }, { rank: 2, note: false, span: 1, i: 0 }) > 0, 'then the server\'s order');
+});
+
+test('the default place: a travel kind, or an event that reads as travel, goes to the Planner in Keep and Send to... (Thomas)', () => {
+  for (const order of [['travel', 'research', 'todo', 'calendar', 'polls'], ['polls', 'calendar', 'todo', 'research', 'travel']]) {
+    const all = bundledActions(order, { needs: true });
+    const keep = (obj) => keepTargets(all, obj)[0].id;
+    const send = (obj) => sendChoices(all, [{ what: 'one', objects: [obj] }])[0].id;
+    const both = (obj, id, why) => { assert.equal(keep(obj), id, `Keep: ${why}, ${order.join()}`); assert.equal(send(obj), id, `Send to...: ${why}, ${order.join()}`); };
+    for (const kind of TRAVEL_KINDS) both({ title: 'X', kind, date: '2026-11-14' }, 'travel:acceptSuggestion', kind);
+    both({ title: 'Flight', kind: 'flight', date: '2026-11-14' }, 'travel:acceptSuggestion', 'flight');
+    both({ title: 'Tour', kind: 'tour', date: '2026-11-14' }, 'travel:acceptSuggestion', 'tour');
+    both({ title: 'Walking tour of Alfama', kind: 'event', date: '2026-11-14' }, 'travel:acceptSuggestion', 'an event that reads as a tour');
+    both({ title: 'Dentist', kind: 'event', date: '2026-11-14' }, 'calendar:createEvent', 'a plain event');
+    both({ title: 'N', kind: 'note' }, 'research:saveNote', 'a note');
+    assert.ok(keepTargets(all, { title: 'Walking tour of Alfama', kind: 'event', date: '2026-11-14' }).some((t) => t.id === 'calendar:createEvent'), 'the Calendar is still in the menu');
+  }
+  // On what the server keeps of an event (cleanObject): the title and starts, ends, allDay, address; no travel details.
+  const { cleanObject } = createRequire(import.meta.url)('../server/object-format.js');
+  const ev = (title) => eventLooksLikeTravel(cleanObject({ kind: 'event', title, place: { name: 'Belém' }, details: { starts: '2026-11-14T09:00', departs: '2026-11-14T09:00', airline: 'TAP', reference: 'AB12' } }, { imported: true }));
+  assert.deepEqual(Object.keys(cleanObject({ kind: 'event', title: 'X', details: { departs: '2026-11-14T09:00', airline: 'TAP', starts: '2026-11-14T09:00' } }, { imported: true }).details), ['starts'], 'the server keeps no travel details on an event');
+  for (const title of ['Airport transfer', 'Hotel transfer', 'Transfer to the hotel', 'Shuttle to the hotel', 'Day cruise', 'Pick up rental car', 'Excursion to Sintra', 'Tours of the old town', 'Ferry to Capri', 'Walking tour of Alfama',
+    'Bus to Lisbon', 'Coach to Oxford', 'Taxi to airport', 'Airport pickup', 'Boat trip', 'Flight to Lisbon']) assert.ok(ev(title), title);
+  for (const title of ['Dentist', 'Team training', 'Tourism board meeting', 'Concert', 'Trainee review', 'Bank transfer due', 'Wire transfer', 'Détours', 'Trainée review', 'Training session', 'Meet the coach', 'Detour via Porto']) assert.ok(!ev(title), title);
+  assert.ok(!eventLooksLikeTravel({ kind: 'task', title: 'Book the tour' }), 'only an event');
+  assert.ok(placeOrder({ rank: 0, trip: true, span: 14, i: 9 }, { rank: 0, trip: false, span: 1, i: 0 }) < 0, 'trip before the specialist');
 });
 
 test('the place shown is the place sent: fixed on first draw, never moved by a later "last used" or a refresh', () => {

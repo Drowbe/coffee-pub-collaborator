@@ -562,7 +562,11 @@ Nothing stored or linked breaks:
      install order), then the older typed keeper, then `"*"`/`"text"`, then the older note keeper; other ties in the
      server's order. Among "any object" places the note keeper comes first, so an object with no kind and a link with no
      address go to Research, and a form (Polls' draft) is never the default unless it names the kind (`placeRank`,
-     `placeOrder`). *Open:* the specialist rule, Thomas to confirm.
+     `placeOrder`). *Confirmed by Thomas, 2026-10-04:* the specialist rule, with one exception: an event that reads as
+     travel (`eventLooksLikeTravel`: a travel word in its title only, since the server keeps no travel details on an
+     event; "coach" and "transfer" count only when they read as a trip, so "Bank transfer due" stays with the Calendar)
+     defaults to the Planner; the Calendar stays in the menu. The prompt now
+     tells the AI to use a booking's own kind rather than "event" when both are listed (`objectRule`).
    - Each row keeps the place it shows (`settlePlace`): "Last used" applies only when it is first drawn, and a row moves
      only when its place stops being allowed, which a single Keep and Keep ticked's confirm say.
    - Keep ticked leaves out a place that opens a form (Polls, one at a time with its own Keep), a closed `local`

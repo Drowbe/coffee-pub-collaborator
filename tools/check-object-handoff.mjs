@@ -107,8 +107,9 @@ await test('the copied instructions for different sets of modules: each kind wit
   }
   const before = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools/fixtures/object-format/before-details.json'), 'utf8'));
   assert.equal(every, before.prompts.instructionsEveryKind);
-  // The size the plan expects: about 1,500 characters over the instructions before details (1,895 with "Testname").
-  assert.ok(every.length - 1895 < 1800, `the full instructions are ${every.length} characters`);
+  // The size the plan expects: about 1,500 characters over the instructions before details (1,895 with "Testname"),
+  // plus room for the travel-kind sentence (a booking keeps its own kind rather than "event") Thomas asked for on 2026-10-04.
+  assert.ok(every.length - 1895 < 2100, `the full instructions are ${every.length} characters, ${2100 - (every.length - 1895)} under the budget of 2100 over the 1,895 before details`);
   const travelOnly = instructions('object');
   // To-do off: no task line, no task in the kinds.
   const noTodo = instructions('object', { kinds: kindsTaken([planner, calendar, research, polls]) });

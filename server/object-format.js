@@ -375,6 +375,11 @@ function objectRule({ fence, noun, max, withProvenance, kinds = TRAVEL_KINDS }) 
     `One ${noun} per thing.${travel ? ` A whole itinerary is one ${noun} for each flight, train, stay, meal, visit and event, in the order they happen; a return flight is its own ${noun}.` : ''} Never fold several into one ${noun}'s text.`,
   ];
   if (listed.length) lines.push(`Set "kind" to what the ${noun} is: ${listWords(listed)}. Leave it out only when none fits.`);
+  // A booking at a set time is still its travel kind, so it lands in the trip's plan rather than the calendar.
+  const travelListed = listed.filter((k) => TRAVEL_KINDS.includes(k));
+  if (travelListed.length && listed.includes('event')) {
+    lines.push(`For a booking or a stop on a trip, use its own kind (${listWords(travelListed)}) rather than "event", even when it happens at a set time; use "event" only for anything else on a day, such as an appointment or a party.`);
+  }
   const missing = withProvenance
     ? 'If something happens on a day you were not told, leave its date out and say in your answer which dates you still need.'
     : 'If something happens on a day you were not told, ask me for the date before you write the block; if I do not know, leave the date out.';

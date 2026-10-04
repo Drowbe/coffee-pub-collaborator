@@ -2354,8 +2354,9 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
     const items = [
       { icon: 'copy', label: 'Copy', onPick: () => copyEntry(entry) },
       { icon: 'reply', label: 'Reply', onPick: () => replyToEntry(entry) },
-      { icon: 'share', label: 'Send to...', onPick: () => {} },
     ];
+    // Send to... (plan-object-handoff.md): only where something here can take what the message is.
+    if (entry?.chat && chatInput.canSendTo(entry)) items.push({ icon: 'share', label: 'Send to...', onPick: () => chatInput.sendTo(entry, more) });
     if (!entry?.chat || canDeleteChatEntry(entry)) {
       items.push({ icon: 'trash', label: 'Delete', danger: true, onPick: () => deleteMessage(el, entry) });
     }
@@ -2548,16 +2549,22 @@ function paintLinkBox(entry) {
 // Keep (decision 4): the server saves the stored link into the keeper as this person and marks the message kept at
 // once (its bus request may still wait for the keeper to be open), so this page reads "Kept by" from its answer, and
 // everyone else hears it from the server (chat-kept).
+// Answers the server's answer; throws its refusal. Send to... on the message keeps its link the same way.
+async function keepStoredLink(entry) {
+  if (!currentSpace || !chatIdOk(entry.id)) throw new Error('That link can no longer be kept.');
+  const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
+  const out = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/keep${q}`);
+  const kept = cleanKept(out?.message?.kept);
+  if (kept) entry.kept = kept;
+  paintLinkBox(entry);
+  return out;
+}
 async function keepLink(entry, btn) {
   if (!currentSpace || !chatIdOk(entry.id)) return;
   btn.disabled = true;
   try {
-    const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-    const out = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/keep${q}`);
-    const kept = cleanKept(out?.message?.kept);
-    if (kept) entry.kept = kept;
-    else btn.disabled = false;
-    paintLinkBox(entry);
+    await keepStoredLink(entry);
+    if (!entry.kept) btn.disabled = false;
   } catch (err) {
     btn.disabled = false;
     setStatus(err.message || 'Could not keep that.', true);
@@ -4069,6 +4076,8 @@ const chatInput = attachChatInput({
   word,
   getSpace: () => currentSpace,
   getMe: () => me,
+  isGuest: () => !me?.key || me.role === 'guest' || Boolean(guestToken),
+  keepStoredLink,
   canvas,
   resizeChatInput,
   renderMarkup,

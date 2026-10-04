@@ -445,12 +445,17 @@ try {
   const asked = pending.at(-1);
   assert.equal(asked.name, 'saveLink');
   assert.equal(asked.by, 'Sam', 'asked as the person who kept it');
+  assert.equal(kept.json.id, asked.id, 'Keep answers the request\'s id');
+  const keptStatus = await call('GET', `/api/spaces/${S}/action/${kept.json.id}`, { cookie: sam });
+  assert.deepEqual([keptStatus.status, keptStatus.json], [200, { id: asked.id, status: 'pending' }], 'the person who kept it reads how it is going');
+  assert.equal((await call('GET', `/api/spaces/${S}/action/${kept.json.id}`, { cookie: pat })).status, 404, 'nobody else does');
   assert.deepEqual(asked.input, { url: 'http://page.example.com/hotel', title: 'Hotel Example, Lisbon', excerpt: 'A quiet hotel by the river.' }, 'built from the stored message');
   await settle();
   assert.deepEqual(told('chat-kept'), [{ type: 'chat-kept', id: linked.id, kept: kept.json.message.kept }], 'the call is told');
   const twice = await keep(pat, linked.id);
   assert.equal(twice.status, 200);
   assert.equal(twice.json.status, 'kept', 'already kept');
+  assert.equal('id' in twice.json, false, 'nothing asked, so no request id');
   assert.deepEqual(twice.json.message.kept, kept.json.message.kept, 'by the first person still');
   assert.equal((await pendingOf()).length, queuedBefore + 1, 'and nothing asked again');
   await settle();

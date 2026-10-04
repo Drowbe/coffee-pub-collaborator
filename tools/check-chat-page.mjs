@@ -14,6 +14,9 @@
  *   Links (plan-chat-links.md, #158, step 4): the preview and Keep as the page holds them, the two notices' sender rule,
  *           the picture only ever from the image route, Keep only with `may`, the box's tint on its edge and icon.
  *
+ *   Send to... (plan-object-handoff.md, step 9): what a message is, the places that take it, the words for how a request
+ *           went, the menu entry and a picture uploaded first.
+ *
  *   node tools/check-chat-page.mjs
  */
 import assert from 'node:assert/strict';
@@ -27,7 +30,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -398,7 +401,7 @@ test('links: storedEntry keeps preview and kept; the page asks for the preview, 
   assert.match(box, /if \(!chatLinkKeeper\?\.may \|\| !entry\.stored/, 'Keep only with may');
   assert.match(box, /`Kept by \$\{entry\.kept\.who\}`/);
   assert.ok(!/Waiting/.test(box), 'no lasting waiting line: the server marks it kept at once');
-  const keep = space.slice(space.indexOf('async function keepLink('), space.indexOf('async function askLinkPreview('));
+  const keep = space.slice(space.indexOf('async function keepStoredLink('), space.indexOf('async function askLinkPreview('));
   assert.match(keep, /\/chat\/\$\{entry\.id\}\/keep\$\{q\}`/);
   assert.match(keep, /const kept = cleanKept\(out\?\.message\?\.kept\);\n\s*if \(kept\) entry\.kept = kept;/, '"Kept by" from the answer');
   assert.ok(!/publishChat/.test(keep), 'chat-kept is the server\'s only');
@@ -422,12 +425,27 @@ test('links: the box wears the keeper\'s tint on its left edge and icon only, th
   }
 });
 
-test('an AI answer\'s Keep reads kept: the bus always answers pending, even when the module takes it at once', () => {
+test('Keep reads how its request went: the bus answers pending at first, so the result route decides (step 9)', () => {
   const src = read('public/chat-input.js');
-  const keep = src.slice(src.indexOf('async function keepOne('), src.indexOf('async function askAbout('));
-  assert.match(keep, /return out\.status === 'queued' \? 'queued' : 'kept';/);
-  assert.match(keep, /if \(target\.local\) return 'opened';/, 'a form opened on the person\'s page is never "kept"');
-  assert.ok(!/'pending'/.test(keep), 'pending is not a waiting state here');
+  const keep = src.slice(src.indexOf('async function requestKeep('), src.indexOf('const sendKey = '));
+  assert.ok(!/'queued'/.test(keep.slice(0, keep.indexOf('const sleep'))), 'the POST\'s status is never read as waiting');
+  assert.match(keep, /if \(target\.local && !canvas\.isOpen\(target\.module\)\) return \{ error: `\$\{target\.moduleName\} isn't open\.` \};/, 'a form is never asked for while its module is closed');
+  assert.match(keep, /api\('GET', `\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/action\/\$\{encodeURIComponent\(requestId\)\}`\)/);
+  assert.match(keep, /for \(let i = 0; i < 10; i \+= 1\) \{\n\s*await sleep\(500\);/, 'about every half second, for about five seconds');
+  assert.match(keep, /if \(!status \|\| status\.status === 'done' \|\| status\.status === 'expired'\) break;/);
+  // A form not opened yet is still followed until it opens or expires (the bus hands it out for a minute), then said.
+  assert.match(keep, /if \(outcome\.result === 'starting'\) followLate\(read, outcomeOf, target, onLate\);/);
+  const late = keep.slice(keep.indexOf('async function followLate('));
+  assert.match(late, /const until = Date\.now\(\) \+ 70000;/);
+  assert.match(late, /await sleep\(2000\);\n\s*status = await read\(\);\n\s*if \(!status \|\| status\.status !== 'pending'\) break;/);
+  assert.match(late, /if \(late\.result === 'starting' \|\| late\.result === 'sent'\) late = outcomeOf\(\{ status: 'expired' \}\);/, 'expired, or never told: "isn\'t open"');
+  assert.match(late, /if \(late\.result === 'opened'\) bringForward\(target\.module\);/, 'a late form is brought forward too');
+  assert.match(late, /else setNote\(late\.text\);/);
+  assert.match(keep, /if \(id && requestId && !guest\(\)\) \{/, 'never for a guest');
+  assert.match(keep, /if \(outcome\.result === 'opened'\) bringForward\(target\.module\);/, 'a form that opened is brought forward');
+  assert.match(keep, /canvas\.show\(moduleId\)/);
+  assert.match(read('public/canvas.js'), /show: api_show,/, 'the canvas shows a module as its tab does');
+  assert.match(fnBody(read('public/canvas.js').replace(/^  /gm, ''), 'const api_show = (id) => {'), /else setView\(id\);/);
 });
 
 test('links: the page finds a message\'s link by the server\'s rule, and a live chat notice keeps only that address', () => {
@@ -639,8 +657,8 @@ test('the preview: a details line under the title, the title as plain text, and 
   assert.match(chat, /sameDay\.append\('Same day for all', field\);/);
   assert.match(chat, /words\.textContent = 'No day';/);
   // Keep and Keep ticked both send through the row's own send, to the place the row shows.
-  assert.match(chat, /for \(const p of split\.going\) await p\.r\.view\.send\(p\.target\);/);
-  assert.match(chat, /const out = await keepOne\(current\(\), question, t\);/);
+  assert.match(chat, /for \(const p of split\.going\) \{\n\s*const going = await p\.r\.view\.send\(p\.target, \{ quiet: true \}\);/);
+  assert.match(chat, /const sent = await requestKeep\(current\(\), question, t\);/);
   assert.match(chat, /if \(id && getMe\(\) && canKeepAny\(lastActions\)\) \{/, 'Bring in shows when anything here can keep');
   // The row's checkbox styles reach only the checkbox, not the day field inside the object.
   assert.match(css, /\.chat-import-row > input \{/);
@@ -723,7 +741,9 @@ test('Keep: once at a time, a kept button stays off, a form is "Opened in", and 
   assert.match(draw, /if \(state\) keep\.setAttribute\('aria-disabled', 'true'\);/, 'busy, kept or waiting: focusable but inactive');
   assert.match(draw, /async function keepNow\(\) \{\n\s*if \(state\) return;/);
   assert.match(draw, /opened: \[`Opened in \$\{t\.moduleName\}`, `Opened in \$\{t\.moduleName\}`\]/);
-  assert.match(draw, /kept: \['Kept', `Kept in \$\{t\.moduleName\}`\], queued: \['Waiting', `Waiting for \$\{t\.moduleName\}`\]/);
+  assert.match(draw, /kept: o\.result === 'sent' \? \['Sent', `Sent to \$\{t\.moduleName\}`\] : \['Kept', `Kept in \$\{t\.moduleName\}`\],\n\s*queued: o\.result === 'adding' \? \['Adding', `\$\{t\.moduleName\} is adding it`\] : \['Waiting', `Waiting for \$\{t\.moduleName\}`\],/);
+  assert.match(draw, /if \(o\.result === 'starting'\) return; \/\/ still 'busy'/, 'a form still opening keeps the row busy');
+  assert.match(draw, /const onLate = \(late\) => \{ settle\(t, late\); setNote\(late\.text\); \};/);
   assert.match(draw, /keep\.setAttribute\('aria-label', words\[1\]\);/);
   assert.match(draw, /if \(!state\) keep\.setAttribute\('aria-label', opened \? `Opened in \$\{opened\}` : `Keep in \$\{t\.moduleName\}`\);/, 'the name follows "Opened in" after a redraw');
   assert.match(draw, /btn\.setAttribute\('aria-label', `Keep in \$\{t\.moduleName\}: choose another place`\);/);
@@ -785,6 +805,151 @@ test('the default place for an object no module names: never a form, the note ke
   assert.equal(placeRank({ named: false, local: true }), 4);
   assert.equal(placeRank({ named: true, local: true }), 0);
   assert.equal(placeRank({ legacy: true, typed: true }), 1);
+});
+
+// --- Object handoff, step 9: Send to... ----------------------------------------------------------------------------------
+
+const NOW = new Date(2026, 9, 4, 12, 0); // a Sunday
+const plainOf = (() => {
+  const win = { addEventListener() {}, location: { search: '' } };
+  win.parent = win;
+  new Function('window', 'document', read('public/sdk/host.js'))(win, { createElement: (tag) => ({ tag }) });
+  return win.hostText.plain;
+})();
+const objectsOf = (entry) => messageObjects(entry, { plain: plainOf, now: NOW });
+const sendLabels = (actions, entry, o) => sendChoices(actions, objectsOf(entry), o).map((c) => c.label);
+
+test('Send to...: a day in a chat message is read strictly, so ordinary words never become days (QA)', () => {
+  for (const t of ['The sun is hot', 'I sat down', 'Wed like pizza', 'mon ami', 'version 1/2', 'paid 12/10', '> on friday\nnothing here', 'a 3/4 cup', 'at 7pm', 'Thu is a word too', 'may I come', 'sep 31']) {
+    assert.equal(chatDay(t, NOW), '', t);
+  }
+  const days = {
+    'Buy milk on Friday': '2026-10-09', 'see you sunday': '2026-10-11', 'this sunday': '2026-10-04', 'dinner on sat': '2026-10-10',
+    'next fri': '2026-10-16', 'nov 14': '2026-11-14', '14 November': '2026-11-14', 'Nov. 14th, 2027': '2027-11-14', 'march 3rd': '2027-03-03',
+    'on 12/10': '2026-12-10', '12/10 at 7pm': '2026-12-10', '12/10 19:00': '2026-12-10', 'Ski on 2027-06-01': '2027-06-01', 'tomorrow lunch': '2026-10-05',
+  };
+  for (const [t, d] of Object.entries(days)) assert.equal(chatDay(t, NOW), d, t);
+  assert.ok(!/parseWhen/.test(fnBody(chat, 'export function messageObjects(')), 'not the SDK\'s field reader');
+  assert.ok(!/parseWhen/.test(read('public/sdk/host.js').slice(read('public/sdk/host.js').indexOf('global.hostText ='), read('public/sdk/host.js').indexOf('global.hostText =') + 120)), 'host.util.parseWhen unchanged, not on hostText');
+  for (const t of ['The sun is hot', 'I sat down', 'paid 12/10']) {
+    const all = bundledActions(['research', 'travel', 'todo', 'calendar', 'polls'], { needs: true });
+    assert.ok(!sendLabels(all, { chat: true, text: t }).some((l) => /Calendar|Planner/.test(l)), `${t}: no Calendar, no Planner`);
+  }
+});
+
+test('Send to...: what a message is (a picture, a link, words with a day, an AI answer\'s objects, a command\'s words)', () => {
+  const pic = objectsOf({ chat: true, blob: {}, name: 'beach.gif' });
+  assert.deepEqual(pic, [{ what: 'picture', objects: [{ kind: 'image', title: 'beach.gif', details: { name: 'beach.gif' } }] }]);
+  const text = objectsOf({ chat: true, text: '> Pat: earlier\nBook the **ferry** on oct 12\nsecond line' });
+  assert.equal(text.length, 2);
+  assert.deepEqual(text[0].objects[0], { title: 'Book the ferry on oct 12', content: '> Pat: earlier\nBook the **ferry** on oct 12\nsecond line', date: '2026-10-12' }, 'the first line not quoted, as plain text; the whole text; the day found');
+  assert.deepEqual({ what: text[1].what, named: text[1].named, kind: text[1].objects[0].kind }, { what: 'text', named: true, kind: 'event' }, 'with a day it may also go as an event');
+  assert.equal(objectsOf({ chat: true, text: 'just words' }).length, 1, 'no day: words only');
+  const link = objectsOf({ chat: true, text: 'Look https://a.example/hotel', preview: { url: 'https://a.example/hotel', at: 1, title: 'The Hotel', description: 'Ocean view' } });
+  assert.equal(link[0].what, 'link');
+  assert.deepEqual(link[0].objects[0], { kind: 'link', title: 'The Hotel', content: 'Ocean view', links: [{ title: 'The Hotel', url: 'https://a.example/hotel' }] });
+  assert.deepEqual(link[1].objects[0].links, [{ title: 'The Hotel', url: 'https://a.example/hotel' }], 'the words carry the link too');
+  assert.equal(objectsOf({ chat: true, text: 'no preview https://b.example/x' })[0].objects[0].links[0].url, 'https://b.example/x', 'the link by the server\'s rule');
+  const ai = objectsOf({ chat: true, kind: 'ai', text: 'Here {{summary:0}}', summaries: [{ title: 'F', kind: 'flight' }, { title: 'S', kind: 'hotel' }] });
+  assert.deepEqual(ai, [{ what: 'objects', objects: [{ title: 'F', kind: 'flight' }, { title: 'S', kind: 'hotel' }] }]);
+  assert.equal(objectsOf({ chat: true, kind: 'ai', text: 'Plain answer {{summary:0}}' })[0].objects[0].content, 'Plain answer', 'an answer without objects is its words');
+  assert.equal(objectsOf({ chat: true, kind: 'command', command: 'ai', text: 'where to eat' })[0].objects[0].title, 'where to eat', 'a command echo is the words after it');
+  assert.deepEqual(objectsOf({ chat: true, text: '   ' }), []);
+});
+
+test('Send to...: only the places that can take it, labelled "<module> as <what>", a form last and one at a time', () => {
+  const all = bundledActions(['research', 'travel', 'todo', 'calendar', 'polls'], { needs: true });
+  assert.deepEqual(sendLabels(all, { chat: true, blob: {}, name: 'p.png' }), ['Research as an image'], 'a picture goes to Research as an image');
+  assert.deepEqual(sendLabels(all, { chat: true, text: 'buy sunscreen' }), ['Research as a note', 'To-do as a task', 'Polls as a poll'], 'no day: no Calendar, no Planner');
+  assert.deepEqual(sendLabels(all, { chat: true, text: 'dinner at Rosa oct 12' }), ['Research as a note', 'To-do as a task', 'Calendar as an event', 'Planner as an event', 'Polls as a poll'], 'with a day: the Calendar, and the Planner as an event');
+  assert.deepEqual(sendLabels(all, { chat: true, text: 'see https://a.example/x', preview: { url: 'https://a.example/x' } }).slice(0, 2), ['Research as a link', 'Research as a note'], 'a link first, then the words');
+  const flights = { chat: true, kind: 'ai', text: '', summaries: [{ title: 'F1', kind: 'flight' }, { title: 'F2', kind: 'flight' }, { title: 'S', kind: 'hotel' }, { title: 'T', kind: 'task' }] };
+  const many = sendChoices(all, objectsOf(flights), { one: 'object', many: 'objects' });
+  assert.equal(many[0].label, 'Planner (3)');
+  assert.equal(many[0].hint, '2 flights, 1 stay; 1 left out');
+  assert.equal(many[0].sends.length, 3);
+  assert.ok(many.some((c) => c.label === 'To-do (4)'), 'To-do takes any object');
+  assert.ok(!many.some((c) => /Calendar/.test(c.label)), 'undated: no Calendar');
+  // Two polls: a form opens one object at a time, so the entry opens the first and says so.
+  const polls = sendChoices(all, objectsOf({ chat: true, kind: 'ai', text: '', summaries: [{ title: 'A?', kind: 'poll' }, { title: 'B?', kind: 'poll' }] }));
+  const form = polls.find((c) => c.module === 'polls');
+  assert.deepEqual([form.label, form.hint, form.sends.length, form.more], ['Polls as a poll', 'Opens the first of 2', 1, 1]);
+  assert.equal(polls.at(-1).module, 'polls', 'forms last');
+  const last = sendChoices(all, objectsOf({ chat: true, text: 'buy sunscreen' }), { last: 'todo:createTask' });
+  assert.equal(last[0].id, 'todo:createTask');
+  assert.equal(last[0].hint, 'Last used');
+  assert.deepEqual(sendLabels(bundledActions(['polls'], { refuse: ['create'] }), { chat: true, text: 'x' }), [], 'without the permission: nothing, so no Send to...');
+  assert.deepEqual(sendLabels(all.map((a) => ({ ...a, may: false })), { chat: true, text: 'x' }), []);
+});
+
+test('Send to...: words with a day go to To-do with that day as due; nothing else gets one', () => {
+  const all = bundledActions(['research', 'todo', 'calendar'], { needs: true });
+  const words = objectsOf({ chat: true, text: 'Buy milk on Friday' })[0].objects[0];
+  const at = (id) => keepTargets(all, words).find((t) => t.id === id);
+  assert.deepEqual(wordsExtra(at('todo:createTask'), words), { due: '2026-10-09' });
+  assert.deepEqual(wordsExtra(at('research:saveNote'), words), {}, 'Research takes no due');
+  assert.deepEqual(wordsExtra(at('todo:createTask'), { ...words, date: undefined }), {});
+  assert.deepEqual(wordsExtra(at('todo:createTask'), { ...words, kind: 'task' }), {}, 'an object of a kind: the module maps it');
+  const choice = chat.slice(chat.indexOf('async function sendChoice('), chat.indexOf('async function sendTo('));
+  assert.match(choice, /requestKeep\(s\.summary, question, s\.target, plan\.what === 'objects' \? \{\} : wordsExtra\(s\.target, s\.summary\)\)/);
+  assert.match(chat, /input: \{ \.\.\.keepTargetInput\(target, summary, question\), \.\.\.extra \}/);
+});
+
+test('Send to...: what Chat says once a request is known (the result route), alone and for several', () => {
+  const p = { moduleName: 'Planner', as: 'a flight' };
+  assert.deepEqual(requestOutcome({ status: 'done', ok: true, note: 'it is past the plan\'s 60 days, so it is under Not on a day yet' }, p), { result: 'kept', text: 'Added to Planner as a flight. It is past the plan\'s 60 days, so it is under Not on a day yet.', note: 'It is past the plan\'s 60 days, so it is under Not on a day yet.' });
+  assert.deepEqual(requestOutcome({ status: 'done', ok: false, error: 'that needs a day to go on the calendar' }, { moduleName: 'Calendar' }), { result: 'failed', text: 'Calendar couldn\'t add that: that needs a day to go on the calendar.', error: 'that needs a day to go on the calendar' });
+  assert.equal(requestOutcome({ status: 'done', ok: false }, { moduleName: 'Calendar' }).text, 'Calendar couldn\'t add that.');
+  assert.deepEqual(requestOutcome({ status: 'pending' }, p), { result: 'queued', text: 'Waiting: it is added when Planner is next open.' });
+  assert.deepEqual(requestOutcome({ status: 'claimed' }, p), { result: 'adding', text: 'Planner is adding it.' }, 'a page has it: not "next open"');
+  assert.deepEqual(requestOutcome({ status: 'pending' }, { moduleName: 'Polls', local: true }), { result: 'starting', text: 'Waiting for Polls to open it.' }, 'a form not opened yet is still followed');
+  assert.deepEqual(requestOutcome({ status: 'expired' }, { moduleName: 'Polls', local: true }), { result: 'closed', text: 'Polls isn\'t open.' });
+  assert.equal(requestOutcome({ status: 'claimed' }, { moduleName: 'Polls', local: true }).result, 'opened');
+  assert.equal(requestOutcome({ status: 'done', ok: true }, { moduleName: 'Polls', local: true }).text, 'Opened in Polls.');
+  assert.equal(requestOutcome(null, p).text, 'Sent to Planner.', 'a guest, or a result that could not be read');
+  const o = (status, extra) => ({ ...requestOutcome(status, p), moduleName: 'Planner', ...extra });
+  assert.equal(outcomesWords([o({ status: 'done', ok: true }), o({ status: 'done', ok: true }), o({ status: 'pending' })], { moduleName: 'Planner' }), 'Added 2 to Planner. 1 waiting: it is added when Planner is next open.');
+  assert.equal(outcomesWords([o({ status: 'done', ok: true })]), 'Added to Planner as a flight.', 'one: its own words');
+  // Opened forms are counted (QA): two opened, and opened beside closed.
+  const f = (status) => ({ ...requestOutcome(status, { moduleName: 'Polls', local: true }), moduleName: 'Polls' });
+  assert.equal(outcomesWords([f({ status: 'done', ok: true }), f({ status: 'done', ok: true })]), 'Opened 2 in Polls.');
+  assert.equal(outcomesWords([f({ status: 'done', ok: true }), f({ status: 'expired' })]), 'Opened in Polls. Polls isn\'t open.');
+  assert.equal(outcomesWords([o({ status: 'claimed' }), o({ status: 'claimed' })]), 'Planner is adding 2.');
+  assert.ok(outcomesWords([o({ status: 'done', ok: true }), f({ status: 'pending' })]).endsWith('Waiting for Polls to open it.'));
+});
+
+test('Send to...: the menu entry, a picture uploaded first and taken back off when refused, plain errors', () => {
+  const frame = fnBody(space, 'function frameMessage(');
+  assert.ok(!/label: 'Send to\.\.\.', onPick: \(\) => \{\}/.test(frame), 'no empty entry');
+  assert.match(frame, /if \(entry\?\.chat && chatInput\.canSendTo\(entry\)\) items\.push\(\{ icon: 'share', label: 'Send to\.\.\.', onPick: \(\) => chatInput\.sendTo\(entry, more\) \}\);/);
+  const body = chat.slice(chat.indexOf('async function sendPicture('), chat.indexOf('async function sendChoice('));
+  assert.match(body, /api\('POST', `\/api\/modules\/\$\{encodeURIComponent\(target\.module\)\}\/uploads\?\$\{where\}`, blob, blob\.type\)/);
+  assert.match(body, /new URLSearchParams\(\{ scope: 'space', space: id, name \}\)/);
+  assert.match(body, /requestKeep\(\{ kind: 'image', title: name, details: \{ upload: fileId, name \} \}, '', target\)/, 'the bytes never go on the bus: the file\'s id does');
+  assert.match(body, /if \(!\/\^image\\\/\(jpeg\|png\|webp\)\$\/\.test\(blob\.type\)\)/, 'a GIF is redrawn as a JPEG first');
+  assert.match(body, /if \(pictureRefused\(outcome\)\) drop\(\);/, 'refused: the upload goes');
+  assert.match(body, /const sorry = `That picture can't be sent to \$\{target\.moduleName\}\.`;/);
+  assert.ok(!/err\.message/.test(body), 'no raw error from the upload in the note');
+  assert.ok(pictureRefused({ result: 'failed', error: 'that picture is not here any more' }));
+  assert.ok(!pictureRefused({ result: 'failed', error: 'that picture is already a photo here' }), 'already a photo: it is in use');
+  assert.ok(!pictureRefused({ result: 'kept' }) && !pictureRefused({ result: 'queued' }));
+  assert.match(chat, /return \{ error: sentence\(err\.message\) \|\| 'Could not keep that\.' \};/, 'a refusal reads as a sentence');
+  const choice = chat.slice(chat.indexOf('async function sendChoice('), chat.indexOf('async function sendTo('));
+  assert.match(choice, /const out = await keepStoredLink\(entry\);/, 'a message\'s own link goes through its Keep ("Kept by")');
+  assert.match(choice, /if \(choice\.local && !canvas\.isOpen\(choice\.module\)\) \{ setNote\(`\$\{choice\.moduleName\} isn't open\.`\); return; \}/, 'a closed form is never queued');
+  assert.match(choice, /The other \$\{choice\.more\}: use each one's own Keep\./);
+  assert.match(choice, /choice\.more === 1 \? ' The other one: use its own Keep\.'/);
+  assert.match(space, /isGuest: \(\) => !me\?\.key \|\| me\.role === 'guest' \|\| Boolean\(guestToken\),/);
+});
+
+test('Send to...: the private warning is on each entry\'s hint, and Chat\'s note is read out (QA)', () => {
+  const to = chat.slice(chat.indexOf('async function sendTo('), chat.indexOf('canSendTo: (entry) =>'));
+  assert.ok(!/disabled: true/.test(to), 'no row the keyboard skips');
+  assert.match(to, /const seen = entry\.visibility === 'private' \? `Everyone in this \$\{word\('space'\)\} will see it` : '';/);
+  assert.match(to, /hint: \[closed \? `Open \$\{c\.moduleName\} first` : c\.hint, seen\]\.filter\(Boolean\)\.join\('; '\),/);
+  assert.match(read('public/space.html'), /<p class="chat-note" id="chat-note" role="status" aria-live="polite" hidden><\/p>/);
+  const set = fnBody(chat.replace(/^  /gm, ''), 'function setNote(');
+  assert.match(set, /setTimeout\(\(\) => \{ if \(seq === noteSeq\) el\.textContent = text; \}, 60\);/, 'words set after the region shows, the latest only');
 });
 
 console.log(`check-chat-page: OK (${n} tests)`);

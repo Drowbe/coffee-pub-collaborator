@@ -1019,9 +1019,11 @@ const prefs = loadPrefs();
 // Decided once the click that wrote it is over, since that click may be the one closing the panel; never both, so a screen
 // reader hears it once.
 let layoutAnnouncer = null;
+let noteUnderFavorites = false; // a load from the space bar's favorites: its note shows under them too (renderFavorites)
 function layoutNote(text) {
   const t = text || '';
   arrangeSection.querySelector('#modules-menu-note').textContent = t;
+  if (noteUnderFavorites && t) showFavoritesNote(t);
   setTimeout(() => {
     const list = moduleChooser.querySelector('#modules-menu');
     const menuOpen = Boolean(list) && !list.hidden && !list.classList.contains('subnav-modules') && arrangeSection.isConnected;
@@ -1200,19 +1202,23 @@ syncSnapBar();
 // --- the Layout panel's Layouts section (plan-saved-layouts.md, step 3; the markup is at the top of this file) ---------
 // The saved layouts of the space you are in: GET /api/spaces/:id/layouts answers { mine, shared, defaultLayout,
 // canShare, canSetDefault }. A press on a row loads it (canvas.loadLayout) and the panel stays open. The ... on a row
-// (only on a layout you may change: your own, or a shared one for owners, the admin and the space's moderators) offers
+// offers, on a layout you may change (your own, or a shared one for owners, the admin and the space's moderators),
 // Replace with this layout, Rename and Delete through the host's own menu (openHostMenu). Save this layout opens a form
 // in the section: a name and, for those who may share, a switch for everyone in the space. A guest loads shared layouts
 // only. The server keeps the limits (10 of your own and 10 shared in a space, names up to 40 characters, each name once
 // in its list) and says what it refuses; its sentence is shown as it is. Keys: Up and Down move between the rows, Enter
 // or Space loads, Escape closes a form (else the panel, canvas.js).
+// Favorites (plan-favorite-layouts.md, steps 2 and 3): GET also answers `favorites`, this person's layout ids in the
+// order they were favorited ([] for a guest). Everyone signed in gets a ... on every row, its first entry Favorite or
+// Unfavorite (PUT or DELETE .../:layoutId/favorite); a favorite's row shows a small heart, and the favorites are buttons
+// in the space bar after the Layout button (renderFavorites, further down).
 const layoutRows = layoutsSection.querySelector('#layout-rows');
 const layoutSaveButton = layoutsSection.querySelector('#layout-save');
 const layoutForm = layoutsSection.querySelector('#layout-form');
 const layoutName = layoutsSection.querySelector('#layout-name');
 const layoutShared = layoutsSection.querySelector('#layout-shared');
 const layoutFormError = layoutsSection.querySelector('#layout-form-error');
-let layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false };
+let layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
 let layoutAsk = 0; // the latest request for the list; an older answer arriving late is dropped
 const layoutSpaceId = () => (currentSpace && !currentSpace.isAside ? currentSpace.id : null); // an aside has no layouts
 const layoutUrl = (id, layoutId = '') => `/api/spaces/${encodeURIComponent(id)}/layouts${layoutId ? `/${encodeURIComponent(layoutId)}` : ''}${guestToken ? `?guest=${encodeURIComponent(guestToken)}` : ''}`;
@@ -1229,31 +1235,40 @@ const mayChangeLayout = (shared) => !guestToken && (!shared || layoutList.canSha
 // Making a shared layout the space's default is the owners' and the admin's, as Opens with is (decision 4).
 const maySetDefault = (shared) => !guestToken && shared && layoutList.canSetDefault;
 const findLayout = (id) => layoutList.shared.find((l) => l.id === id) || layoutList.mine.find((l) => l.id === id) || null;
+// Favorites are each signed-in person's own; a guest keeps none (decision 4).
+const mayFavorite = () => !guestToken && Boolean(me?.key) && me.role !== 'guest';
+const isFavorite = (id) => layoutList.favorites.includes(id);
+// The favorites that are in the list, in the order they were favorited.
+const favoriteLayouts = () => layoutList.favorites.map(findLayout).filter(Boolean);
+// At most this many per person per space (Thomas, 2026-10-04; the server answers 409 on one more). At the limit the
+// menu's Favorite is off, with this as its hint; Unfavorite always works.
+const FAVORITE_LIMIT = 3;
+const favoriteLimitText = () => `You can have ${FAVORITE_LIMIT} favorite layouts. Unfavorite one first.`;
 
 // Reads the list again (the panel opening, after a change) and draws it. `focus`: what takes the keyboard after.
 async function refreshLayouts({ focus = null } = {}) {
   const id = layoutSpaceId();
   const ask = ++layoutAsk;
   if (!id) {
-    layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false };
+    layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
     renderLayouts();
     return;
   }
   try {
     const got = await layoutRequest('GET', layoutUrl(id));
     if (ask !== layoutAsk || layoutSpaceId() !== id) return;
-    layoutList = { spaceId: id, mine: got.mine || [], shared: got.shared || [], defaultLayout: got.defaultLayout || null, canShare: Boolean(got.canShare), canSetDefault: Boolean(got.canSetDefault) };
+    layoutList = { spaceId: id, mine: got.mine || [], shared: got.shared || [], defaultLayout: got.defaultLayout || null, favorites: Array.isArray(got.favorites) ? got.favorites : [], canShare: Boolean(got.canShare), canSetDefault: Boolean(got.canSetDefault) };
   } catch {
     if (ask !== layoutAsk) return;
-    layoutList = { spaceId: id, mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false };
+    layoutList = { spaceId: id, mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
   }
   renderLayouts({ focus });
 }
 
 const layoutRowHtml = (l, shared) => `
   <div class="layout-row" data-layout-row="${escapeHtml(l.id)}">
-    <button class="module-chooser-action layout-load" type="button" data-layout="${escapeHtml(l.id)}"><i class="fa-solid fa-${shared ? 'user-group' : 'object-group'} fa-fw" aria-hidden="true"></i><span class="layout-name">${escapeHtml(l.name)}</span>${l.id === layoutList.defaultLayout ? '<span class="layout-default">Default</span>' : ''}</button>
-    ${mayChangeLayout(shared) || maySetDefault(shared) ? `<button class="msg-btn layout-more" type="button" data-layout-more="${escapeHtml(l.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="More for ${escapeHtml(l.name)}" title="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>` : ''}
+    <button class="module-chooser-action layout-load" type="button" data-layout="${escapeHtml(l.id)}"><i class="fa-solid fa-${shared ? 'user-group' : 'object-group'} fa-fw" aria-hidden="true"></i><span class="layout-name">${escapeHtml(l.name)}</span>${isFavorite(l.id) ? '<i class="fa-solid fa-heart fa-fw layout-favorite-mark" aria-hidden="true"></i><span class="visually-hidden">, favorite</span>' : ''}${l.id === layoutList.defaultLayout ? '<span class="layout-default">Default</span>' : ''}</button>
+    ${mayFavorite() || mayChangeLayout(shared) || maySetDefault(shared) ? `<button class="msg-btn layout-more" type="button" data-layout-more="${escapeHtml(l.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="More for ${escapeHtml(l.name)}" title="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>` : ''}
   </div>`;
 
 // Draws the rows (and the empty line), shows Save this layout to those who may save, and hides the whole section where
@@ -1272,6 +1287,7 @@ function renderLayouts({ focus = null } = {}) {
   if (!shared.length && !mine.length && canSave) html = '<p class="module-chooser-note layout-empty">No saved layouts yet.</p>';
   layoutRows.innerHTML = html;
   if (focus) (typeof focus === 'string' ? layoutsSection.querySelector(focus) : focus)?.focus();
+  renderFavorites(); // the space bar's favorites, from the same list
 }
 
 // A layout with nothing open has nothing to save; said here rather than with the server's API sentence.
@@ -1364,14 +1380,24 @@ layoutRows.addEventListener('click', (event) => {
   if (more) openLayoutMenu(more, more.dataset.layoutMore);
 });
 
-// A row's ...: Replace with this layout, Rename, Delete (asked once, in the menu's own confirm row).
-// For an owner on a shared layout, also Make default or Stop using as default (decision 4).
+// A row's ...: Favorite or Unfavorite first, for everyone signed in (plan-favorite-layouts.md; Favorite is off, with
+// the limit's sentence as its hint, at FAVORITE_LIMIT favorites); then, for an owner on a
+// shared layout, Make default or Stop using as default (decision 4); then, on a layout you may change, Replace with this
+// layout, Rename, Delete (asked once, in the menu's own confirm row). A divider between each run.
 function openLayoutMenu(trigger, layoutId) {
   const layout = findLayout(layoutId);
   if (!layout) return;
   const shared = layoutList.shared.includes(layout);
   const entries = [];
+  if (mayFavorite()) {
+    entries.push(isFavorite(layoutId)
+      ? { icon: 'heart', label: 'Unfavorite', onPick: () => setFavorite(layout, false) }
+      : favoriteLayouts().length >= FAVORITE_LIMIT
+        ? { icon: 'heart', regular: true, label: 'Favorite', disabled: true, hint: favoriteLimitText() }
+        : { icon: 'heart', regular: true, label: 'Favorite', onPick: () => setFavorite(layout, true) });
+  }
   if (maySetDefault(shared)) {
+    if (entries.length) entries.push({ divider: true });
     entries.push(layoutList.defaultLayout === layoutId
       ? { icon: 'star', regular: true, label: 'Stop using as default', onPick: () => setDefaultLayout(null, layout) }
       : { icon: 'star', label: 'Make default', onPick: () => setDefaultLayout(layoutId, layout) });
@@ -1392,6 +1418,25 @@ function openLayoutMenu(trigger, layoutId) {
       },
     }) },
   ]);
+}
+
+// Favorite (`on`) or Unfavorite: PUT or DELETE /api/spaces/:id/layouts/:layoutId/favorite, which answers this person's
+// favorites. The list is drawn again with the keyboard back on the row, and the panel's note says what changed. A layout
+// gone meanwhile (404) or any refusal: the server's sentence, and the list read again.
+async function setFavorite(layout, on) {
+  const id = layoutSpaceId();
+  if (!id) return;
+  const row = `[data-layout="${CSS.escape(layout.id)}"]`;
+  try {
+    const { favorites } = await layoutRequest(on ? 'PUT' : 'DELETE', `/api/spaces/${encodeURIComponent(id)}/layouts/${encodeURIComponent(layout.id)}/favorite`);
+    if (layoutSpaceId() !== id || layoutList.spaceId !== id) return;
+    layoutList.favorites = Array.isArray(favorites) ? favorites : [];
+    layoutNote(on ? `${layout.name} is a favorite.` : `${layout.name} is no longer a favorite.`);
+    renderLayouts({ focus: row });
+  } catch (err) {
+    layoutNote(err.message || 'That did not work. Try again.');
+    await refreshLayouts({ focus: err.status === 404 ? '.layout-load' : row });
+  }
 }
 
 // Makes a shared layout the space's default, or stops (`layoutId` null): PATCH /api/spaces/:id, which also sets the
@@ -1465,6 +1510,127 @@ function startRename(layoutId) {
   input.focus();
   input.select();
 }
+
+// --- the favorite layouts in the space bar (plan-favorite-layouts.md, step 3) ----------------------------------------
+// One group after the Layout button, in the left zone: a button per favorite in the order they were favorited, a heart
+// and the name (cut past about 16 characters), and a press loads it as a row in the panel does (canvas.loadLayout). No
+// "current" state; at most FAVORITE_LIMIT (3). Drawn from layoutList (renderLayouts calls renderFavorites): on entering a space, as the
+// panel opens and after each change there; never pushed live, so a stale button still loads the copy the page has.
+// Hidden for a guest, in an aside, with no favorites, on a narrow canvas and at 640 px and below (decision 10).
+// When the bar is tight (fitFavorites, the left zone's `fit`, given way before Online's): every name shortens down to
+// about 6 characters, then favorites leave from the last one back; those are still in the Layout panel by their hearts.
+// A load that leaves something out says so under the group for 6 seconds (#layout-favorites-note, seen) and to
+// #layout-announce (heard, layoutNote).
+const layoutFavorites = document.createElement('div');
+layoutFavorites.id = 'layout-favorites';
+layoutFavorites.className = 'layout-favorites';
+layoutFavorites.setAttribute('role', 'group');
+layoutFavorites.setAttribute('aria-label', 'Favorite layouts');
+const favoritesNote = document.createElement('p');
+favoritesNote.id = 'layout-favorites-note';
+favoritesNote.className = 'layout-favorites-note';
+favoritesNote.setAttribute('aria-hidden', 'true'); // heard through #layout-announce, once
+favoritesNote.hidden = true;
+layoutFavorites.appendChild(favoritesNote);
+let favoritesNoteTimer = 0;
+function showFavoritesNote(text) {
+  clearTimeout(favoritesNoteTimer);
+  favoritesNote.textContent = text;
+  favoritesNote.hidden = !text;
+  if (text) favoritesNoteTimer = setTimeout(() => showFavoritesNote(''), 6000);
+}
+const FAVORITE_NAME_MOST = 16; // characters, before the name is cut short
+const FAVORITE_NAME_LEAST = 6; // characters, the shortest a name gets before a favorite leaves the bar
+const favoritesWanted = () => mayFavorite() && Boolean(layoutList.spaceId) && layoutList.spaceId === layoutSpaceId()
+  && favoriteLayouts().length > 0 && !canvas.isNarrow() && !phoneWidth();
+let favoritesDrawn = ''; // what the buttons show now, so an unchanged list keeps its buttons (and the keyboard on one)
+function renderFavorites() {
+  const list = mayFavorite() && layoutList.spaceId === layoutSpaceId() ? favoriteLayouts() : [];
+  const key = JSON.stringify(list.map((l) => [l.id, l.name]));
+  if (key !== favoritesDrawn) {
+    favoritesDrawn = key;
+    const doc = layoutFavorites.ownerDocument;
+    const had = doc.activeElement?.closest?.('[data-layout-favorite]');
+    const hadId = had && layoutFavorites.contains(had) ? had.dataset.layoutFavorite : null;
+    const buttons = list.map((l) => {
+      const b = doc.createElement('button');
+      b.type = 'button';
+      b.className = 'btn btn-small layout-favorite';
+      b.dataset.layoutFavorite = l.id;
+      b.title = `Load ${l.name}`;
+      b.setAttribute('aria-label', l.name);
+      b.innerHTML = `<i class="fa-solid fa-heart fa-fw" aria-hidden="true"></i><span class="layout-favorite-name">${escapeHtml(l.name)}</span>`;
+      return b;
+    });
+    layoutFavorites.replaceChildren(...buttons, favoritesNote);
+    if (hadId) (layoutFavorites.querySelector(`[data-layout-favorite="${CSS.escape(hadId)}"]`) || moduleChooser.querySelector('#modules-toggle'))?.focus();
+  }
+  nav.draw('secondary');
+}
+// The width the bar gives the group (nav-bar.js, while it measures with nothing shrunk): every name at full length (up
+// to about 16 characters) while they all fit; only when they do not, every name shortens evenly to the widest that fits,
+// down to the least; then only the first favorites that fit at the least (nav.labelsThatFit).
+function fitFavorites(avail) {
+  const doc = layoutFavorites.ownerDocument;
+  const buttons = [...layoutFavorites.querySelectorAll(':scope > .layout-favorite')];
+  const focused = doc.activeElement && layoutFavorites.contains(doc.activeElement) ? doc.activeElement : null;
+  layoutFavorites.classList.remove('layout-favorites-none');
+  for (const b of buttons) b.classList.remove('layout-favorite-out');
+  layoutFavorites.style.removeProperty('--layout-favorite-name');
+  if (!buttons.length || !layoutFavorites.getClientRects().length) return;
+  const view = doc.defaultView;
+  const w = (el) => el.getBoundingClientRect().width;
+  // A character's width is the names' own font's "0" (CSS's ch), measured in place, so a theme's font is followed.
+  const probe = doc.createElement('span');
+  probe.className = 'layout-favorite-name layout-favorite-probe';
+  probe.textContent = '0'.repeat(10);
+  buttons[0].appendChild(probe);
+  const ch = w(probe) / 10;
+  probe.remove();
+  const most = FAVORITE_NAME_MOST * ch;
+  layoutFavorites.style.setProperty('--layout-favorite-name', `${most}px`);
+  const items = buttons.map((b) => {
+    const label = w(b.querySelector('.layout-favorite-name'));
+    return { chrome: w(b) - label, label };
+  });
+  const gap = parseFloat(view.getComputedStyle(layoutFavorites).columnGap) || 0;
+  // A pixel spare: the bar counts the left zone in whole pixels (rounded up) when it decides what folds.
+  const { count, cap } = nav.labelsThatFit({ avail: Math.floor(avail) - 1, gap, items, least: FAVORITE_NAME_LEAST * ch, most });
+  layoutFavorites.style.setProperty('--layout-favorite-name', `${cap}px`);
+  buttons.forEach((b, i) => b.classList.toggle('layout-favorite-out', i >= count));
+  layoutFavorites.classList.toggle('layout-favorites-none', count === 0);
+  // The button with the keyboard left the bar: the keyboard goes to the Layout button, where the rest are.
+  if (focused && focused.closest('.layout-favorite-out')) moduleChooser.querySelector('#modules-toggle')?.focus();
+}
+// A press loads it, one click, no confirm; the keyboard stays on the button. The load's note shows under the group.
+layoutFavorites.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-layout-favorite]');
+  if (!button) return;
+  const layout = findLayout(button.dataset.layoutFavorite);
+  if (!layout) return;
+  showFavoritesNote('');
+  noteUnderFavorites = true;
+  try {
+    canvas.loadLayout(layout);
+  } finally {
+    noteUnderFavorites = false;
+  }
+  syncSnapBar();
+  button.focus();
+});
+// Right of the Layout button, in its group: no divider between them. It never folds into the "...".
+nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted });
+// The canvas crossing the narrow line hides or shows the group (the bar is drawn again; its `visible` reads it).
+let favoritesNarrow = null;
+if (typeof ResizeObserver === 'function') {
+  new ResizeObserver(() => {
+    const narrow = canvas.isNarrow();
+    if (narrow === favoritesNarrow) return;
+    favoritesNarrow = narrow;
+    nav.draw('secondary');
+  }).observe($('canvas'));
+}
+// --- end the favorite layouts ---
 // A toast about a space module opens it on the canvas; an environment module opens over the call.
 document.addEventListener('app:notification', (event) => {
   const n = event.detail;

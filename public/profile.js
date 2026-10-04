@@ -521,12 +521,13 @@ function renderFeed(editing) {
   const section = $('section-feed');
   section.hidden = editing || !feed || !(feed.allowed || feed.on);
   if (section.hidden) return;
-  $('feed-hint').textContent = `Add your events from ${environmentName || `this ${word('environment')}`} to Google Calendar, Apple Calendar or Outlook. Anyone with the address can see them, so keep it private.`;
+  const place = environmentName || `this ${word('environment')}`;
+  $('feed-hint').textContent = `Add your events from ${place} to Google Calendar, Apple Calendar or Outlook. Anyone with the address can see them, so keep it private.`;
   const state = $('feed-state');
   state.hidden = !feed.on;
   state.textContent = !feed.on ? ''
     : feed.allowed ? `On, made ${dayOf(feed.made)}. ${lastRead(feed.readAt)}`
-      : `Calendar feeds are off in this ${word('environment')} for now, so the address does not work. ${lastRead(feed.readAt)}`;
+      : `Private addresses are off in ${place} for now, so this address does not work. ${lastRead(feed.readAt)}`;
   $('feed-made').hidden = !(feed.on && feedUrl);
   $('feed-url').textContent = feedUrl;
   $('feed-make').hidden = feed.on || !feed.allowed;
@@ -540,11 +541,41 @@ async function loadFeed() {
     try { feedsAllowed = (await api('GET', '/api/settings')).settings?.calendarFeeds === true; } catch { feedsAllowed = false; }
     return;
   }
-  try { feed = await api('GET', '/api/me/feed'); } catch { feed = null; }
+  const seq = ++feedSeq;
+  try {
+    const got = await api('GET', '/api/me/feed');
+    if (seq !== feedSeq) return false;
+    // The address shown once is shown only while it is still the one in use (not turned off or replaced elsewhere).
+    if (feedUrl && !(got.on && feed && got.made === feed.made)) feedUrl = '';
+    feed = got;
+    return true;
+  } catch {
+    return false; // a later read that fails keeps what was shown; a first one shows no section, as before
+  }
 }
+// As Other calendars below: the owner's switch (Private addresses) is flipped on Calendar's Configure page, in another tab
+// or in this one and then Back, so read again whenever the page shows again; one read at a time, and an answer older
+// than what is shown (a read or a change made here came since) is dropped.
+let feedSeq = 0;
+let feedReading = false;
+function refreshFeed() {
+  if (editingKey || !feed || feedReading || document.visibilityState !== 'visible') return;
+  feedReading = true;
+  loadFeed().then((fresh) => {
+    if (!fresh) return;
+    const section = $('section-feed');
+    const had = section.contains(document.activeElement) ? document.activeElement : null;
+    renderFeed(false);
+    // Focus on a button this answer hid goes to the section's first button still shown.
+    if (had && had.closest('[hidden]')) section.querySelector('.row button:not([hidden])')?.focus();
+  }).finally(() => { feedReading = false; });
+}
+document.addEventListener('visibilitychange', refreshFeed);
+window.addEventListener('pageshow', (event) => { if (event.persisted) refreshFeed(); });
 
 async function makeFeed() {
   const made = await api('POST', '/api/me/feed', {});
+  feedSeq += 1; // a read in flight is older than this
   feedUrl = made.url;
   feed = { ...feed, on: true, made: made.made, readAt: null };
   render();
@@ -563,6 +594,7 @@ $('feed-off').addEventListener('click', () => run(async () => {
   if (!window.confirm('Turn off your calendar feed? The address stops working, and your calendar app stops getting new events.')) return;
   await api('DELETE', '/api/me/feed');
   feedUrl = '';
+  feed = { ...feed, on: false }; // until the read below says more
   await loadFeed();
   render();
   sayField($('feed-status'), 'calendar feed turned off');
@@ -583,6 +615,72 @@ $('feed-row-off').addEventListener('click', () => run(async () => {
 // the server says why they can't be used here (`why`: the switch, or the module to approve, turn on, update or install).
 // When it can't be used it always says why: never just its title.
 const MAX_EXTERNAL = 5;
+let externalSeq = 0; // counts reads and changes made here: an answer whose number is no longer the latest is older than what is shown
+let externalReading = false; // a read on coming back to the page is in flight
+const externalRows = new Map(); // calendar id -> its row's parts, kept across draws so focus and a row's status stay
+const rowReading = new Set(); // calendars whose Refresh is running
+
+// Why something failed, in plain words: the server's own sentence when it sent one, never the browser's ("Failed to fetch").
+function failure(err) {
+  if (err && err.serverSaid) return err.message;
+  if (err && err.status) return `the server answered ${err.status}`;
+  if (!err || err instanceof TypeError) return 'the server didn\'t answer';
+  return err.message;
+}
+
+// One calendar's row, made once; externalFill() writes what it says.
+function externalRow(id) {
+  const row = document.createElement('li');
+  row.className = 'external-row';
+  row.dataset.id = id;
+  const what = document.createElement('div');
+  what.className = 'external-what';
+  const name = document.createElement('strong');
+  const host = document.createElement('span');
+  host.className = 'hint';
+  const state = document.createElement('span');
+  what.append(name, host, state);
+  const actions = document.createElement('div');
+  actions.className = 'row external-actions';
+  const remove = document.createElement('button');
+  remove.type = 'button';
+  remove.className = 'btn btn-small btn-danger';
+  remove.dataset.remove = id;
+  remove.textContent = 'Remove';
+  actions.append(remove);
+  const status = document.createElement('span');
+  status.className = 'status external-row-status';
+  status.setAttribute('role', 'status');
+  row.append(what, actions, status);
+  return { row, name, host, state, actions, refresh: null, remove, status };
+}
+// Writes a row's words, touching only what changed.
+function externalFill(parts, c) {
+  const put = (el, prop, value) => { if (el[prop] !== value) el[prop] = value; };
+  put(parts.name, 'textContent', c.name);
+  put(parts.host, 'textContent', c.host || 'address unreadable');
+  put(parts.state, 'className', c.error ? 'external-state error' : 'external-state hint');
+  put(parts.state, 'textContent', c.error || (c.readAt ? `Read ${timeAgo(c.readAt)}` : 'Not read yet'));
+  parts.remove.setAttribute('aria-label', `Remove ${c.name}`);
+  if (external.allowed && !parts.refresh) {
+    const refresh = document.createElement('button');
+    refresh.type = 'button';
+    refresh.className = 'btn btn-small';
+    refresh.dataset.refresh = c.id;
+    refresh.textContent = 'Refresh';
+    parts.actions.insertBefore(refresh, parts.remove);
+    parts.refresh = refresh;
+  } else if (!external.allowed && parts.refresh) {
+    const had = document.activeElement === parts.refresh;
+    parts.refresh.remove();
+    parts.refresh = null;
+    if (had) parts.remove.focus();
+  }
+  if (parts.refresh) {
+    parts.refresh.setAttribute('aria-label', `Refresh ${c.name}`);
+    put(parts.refresh, 'disabled', rowReading.has(c.id));
+  }
+}
 
 function renderExternal(editing) {
   const section = $('section-external');
@@ -596,55 +694,51 @@ function renderExternal(editing) {
     : [external.why || `Other calendars are off in ${place} for now.`, calendars.length ? 'Until then their events do not show. You can still remove them.' : ''].filter(Boolean).join(' ');
   const list = $('external-list');
   list.hidden = !calendars.length;
-  list.innerHTML = '';
-  for (const c of calendars) {
-    const row = document.createElement('li');
-    row.className = 'external-row';
-    row.dataset.id = c.id;
-    const what = document.createElement('div');
-    what.className = 'external-what';
-    const name = document.createElement('strong');
-    name.textContent = c.name;
-    const host = document.createElement('span');
-    host.className = 'hint';
-    host.textContent = c.host || 'address unreadable';
-    const state = document.createElement('span');
-    state.className = c.error ? 'external-state error' : 'external-state hint';
-    state.textContent = c.error || (c.readAt ? `Read ${timeAgo(c.readAt)}` : 'Not read yet');
-    what.append(name, host, state);
-    const actions = document.createElement('div');
-    actions.className = 'row external-actions';
-    if (external.allowed) {
-      const refresh = document.createElement('button');
-      refresh.type = 'button';
-      refresh.className = 'btn btn-small';
-      refresh.dataset.refresh = c.id;
-      refresh.textContent = 'Refresh';
-      refresh.setAttribute('aria-label', `Refresh ${c.name}`);
-      actions.append(refresh);
-    }
-    const remove = document.createElement('button');
-    remove.type = 'button';
-    remove.className = 'btn btn-small btn-danger';
-    remove.dataset.remove = c.id;
-    remove.textContent = 'Remove';
-    remove.setAttribute('aria-label', `Remove ${c.name}`);
-    actions.append(remove);
-    const status = document.createElement('span');
-    status.className = 'status external-row-status';
-    status.setAttribute('role', 'status');
-    row.append(what, actions, status);
-    list.append(row);
+  // Each calendar keeps its row: only what changed is written, and a row moves only when its place changed.
+  const gone = new Set(externalRows.keys());
+  calendars.forEach((c, i) => {
+    gone.delete(c.id);
+    if (!externalRows.has(c.id)) externalRows.set(c.id, externalRow(c.id));
+    const parts = externalRows.get(c.id);
+    externalFill(parts, c);
+    if (list.children[i] !== parts.row) list.insertBefore(parts.row, list.children[i] || null);
+  });
+  for (const id of gone) {
+    externalRows.get(id).row.remove();
+    externalRows.delete(id);
   }
   const full = calendars.length >= MAX_EXTERNAL;
   $('external-add').hidden = !external.allowed || (full && !externalBusy);
   $('external-full').hidden = !external.allowed || !full;
 }
 
+// The server's answer decides (`allowed`, as its routes check it). One that could not be read says so in the section
+// rather than hiding it; on a later read, what was shown stays. Answers whether it took the answer: not when a newer
+// read or a change made here came since, so an older answer never replaces a newer one.
 async function loadExternal() {
-  if (editingKey) return;
-  try { external = await api('GET', '/api/me/external-calendars'); } catch { external = null; }
+  if (editingKey) return false;
+  const seq = ++externalSeq;
+  try {
+    const got = await api('GET', '/api/me/external-calendars');
+    if (seq !== externalSeq) return false;
+    external = got;
+    return true;
+  } catch (err) {
+    if (external || seq !== externalSeq) return false;
+    external = { allowed: false, why: `Your other calendars could not be loaded (${failure(err)}). Reload the page to try again.`, calendars: [] };
+    return true;
+  }
 }
+// Approving the module or turning the switch on happens in Manage, in another tab or in this one and then Back (which
+// can bring the page back as it was). Read again whenever the page shows again, so it never keeps the first answer;
+// one read at a time.
+function refreshExternal() {
+  if (editingKey || !external || externalBusy || externalReading || document.visibilityState !== 'visible') return;
+  externalReading = true;
+  loadExternal().then((fresh) => { if (fresh) renderExternal(false); }).finally(() => { externalReading = false; });
+}
+document.addEventListener('visibilitychange', refreshExternal);
+window.addEventListener('pageshow', (event) => { if (event.persisted) refreshExternal(); });
 
 // Add: the server reads the address first (up to 15 seconds) and keeps it only when it could be read.
 function externalBusyState(on) {
@@ -669,6 +763,7 @@ $('external-add').addEventListener('submit', (e) => {
   run(async () => {
     try {
       const { calendar } = await api('POST', '/api/me/external-calendars', { name: $('external-name').value.trim(), url });
+      externalSeq += 1; // a read in flight is older than this
       external.calendars = [...external.calendars.filter((c) => c.id !== calendar.id), calendar];
       $('external-name').value = '';
       $('external-url').value = '';
@@ -679,12 +774,12 @@ $('external-add').addEventListener('submit', (e) => {
     } catch (err) {
       externalBusyState(false);
       renderExternal(false);
-      throw err;
+      throw err; // said by run(), in plain words
     }
   }, status);
 });
 // A calendar's own status line, on its row.
-const rowStatus = (id) => $('external-list').querySelector(`.external-row[data-id="${CSS.escape(id)}"] .external-row-status`);
+const rowStatus = (id) => externalRows.get(id)?.status;
 $('external-list').addEventListener('click', (e) => {
   const refresh = e.target.closest('[data-refresh]');
   const remove = e.target.closest('[data-remove]');
@@ -695,28 +790,35 @@ $('external-list').addEventListener('click', (e) => {
   if (!calendar) return;
   const status = rowStatus(id);
   if (refresh) {
+    rowReading.add(id);
     refresh.disabled = true;
     status.classList.remove('error');
     status.textContent = 'Reading…';
-    // Whatever comes back is said on this calendar's own row (looked up again: the list may have been drawn anew),
+    // Whatever comes back is said on this calendar's own row (looked up again: it may have been removed meanwhile),
     // never in the section's line under Add: a 429 (read less than a minute ago) included.
     api('POST', `/api/me/external-calendars/${encodeURIComponent(id)}/refresh`, {}).then((got) => {
+      rowReading.delete(id);
+      externalSeq += 1; // a read in flight is older than this
+      // Focus back on Refresh when it was there (a disabled button can drop it to the page).
+      const wasHere = [externalRows.get(id)?.refresh, document.body, null].includes(document.activeElement);
       external.calendars = external.calendars.map((c) => (c.id === id ? got.calendar : c));
       renderExternal(false);
-      $('external-list').querySelector(`[data-refresh="${CSS.escape(id)}"]`)?.focus();
+      if (wasHere) externalRows.get(id)?.refresh?.focus();
       const said = rowStatus(id);
       if (said) sayField(said, got.calendar.error ? 'could not be read' : 'read now', Boolean(got.calendar.error));
     }, (err) => {
-      const again = $('external-list').querySelector(`[data-refresh="${CSS.escape(id)}"]`);
+      rowReading.delete(id);
+      const again = externalRows.get(id)?.refresh;
       if (again) again.disabled = false;
       const said = rowStatus(id);
-      if (said) sayField(said, err.message, true);
+      if (said) sayField(said, failure(err), true);
     });
     return;
   }
   run(async () => {
     if (!window.confirm(`Remove ${calendar.name}? Its events stop showing, and its address is deleted here.`)) return;
     await api('DELETE', `/api/me/external-calendars/${encodeURIComponent(id)}`);
+    externalSeq += 1; // a read in flight is older than this
     external.calendars = external.calendars.filter((c) => c.id !== id);
     renderExternal(false);
     sayField($('external-status'), `${calendar.name} removed`);
@@ -773,7 +875,7 @@ async function run(fn, statusEl) {
   try {
     await fn();
   } catch (err) {
-    sayField(statusEl, err.message, true);
+    sayField(statusEl, failure(err), true);
   }
 }
 

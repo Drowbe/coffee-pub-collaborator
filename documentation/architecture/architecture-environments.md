@@ -22,9 +22,12 @@ that turn a change into an activity-log line, starts that environment's own `Mod
 (for the default environment only) makes or resets the server's admin from `ADMIN_LOGIN` and `ADMIN_PASSWORD` (see "Roles" below). It returns a plain object
 with one property per service. Nothing here is a Proxy -- these are the real instances.
 
-Two things it does **not** build, because they are the host's, not any one environment's: the LiveKit
-`RoomServiceClient` (one call service, shared -- see "Call names" below) and the Font Awesome Pro
-override (`DATA_DIR/fontawesome-pro/`, a host-level admin asset the migration never moves).
+Three things it does **not** build, because they are the host's, not any one environment's: the LiveKit
+`RoomServiceClient` (one call service, shared -- see "Call names" below), the Font Awesome Pro
+override (`DATA_DIR/fontawesome-pro/`, a host-level admin asset the migration never moves), and the flight
+schedule (`DATA_DIR/flight-schedule.json`, built once in `server/index.js`, learned from every environment's saved
+flights and in no environment's export or backup; see "Flight lookup" in
+[architecture-modules](architecture-modules.md)).
 
 `flushEnvironment(env)` writes the four things under the seam that only debounce rather than writing
 synchronously on every change (`chatHistory`, `ai`, `geocodeCache`, the activity log). Called on process exit
@@ -431,7 +434,8 @@ rename), `migrateIfNeeded()` refuses to start until told which environment the d
 > one start to move it to that environment, then remove it.
 
 With `MIGRATE_ENVIRONMENT_SLUG` set, everything at the root except `host.json`, `fontawesome-pro`,
-`environments`, `environments-deleted` and `pre-names-host` moves to `DATA_DIR/environments/<slug>/`, and the
+`environments`, `environments-deleted`, `pre-names-host` and `flight-schedule.json` (the flight schedule is the
+host's, so what the single install learned stays shared) moves to `DATA_DIR/environments/<slug>/`, and the
 environment is added to the registry. The old name, `MIGRATE_TENANT_SLUG`, is no longer read (0.4.0): set, it
 moves nothing, and each start logs "MIGRATE_TENANT_SLUG is no longer read: use MIGRATE_ENVIRONMENT_SLUG instead."
 
@@ -520,6 +524,7 @@ one. The old `/api/host/tenants...` paths are gone and answer 404; there is no a
 | `POST /api/host/environments/:slug/backup` | the environment's folder as a zip (`Content-Disposition` `<slug>-backup.zip`); 404 `no such environment` |
 | `POST /api/host/environments/:slug/restore` | see "Refused environments", Restore |
 | `DELETE /api/host/environments/:slug/owners/:login/mfa` | `{ ok: true }`; 404 `no such environment` or `no owner with that login there` |
+| `GET` and `DELETE /api/host/flight-schedule[?number=]` | The flight schedule every environment shares: its counts, forgetting one number, or clearing it all. The answers and refusals are in [api-modules](../api/api-modules.md), "Flight lookup" |
 | `POST /api/host/billing` `{ slug, plan, event }` | `{ environment }` (was `{ tenant }`); no session, a signature: 401 `bad signature`, 404 when `BILLING_SECRET` is not set |
 
 ## Refused environments
@@ -589,7 +594,7 @@ null included, is refused with "verbs: The <verb> verb must be text." (leaving t
 default), and an unknown key with "verbs: there is no verb called "<key>"; the verbs are enter, layout.". Travel sets none. `icons.home` and `moduleIcons` must be plain solid Font Awesome Free icons.
 `modules` lists module ids, bundled or built in, and must include `chat`. `settings` takes only `language`,
 `clock`, `currency`, `loginText`, `allowRegistration`, `mfaRequired`, `maxQuality`, `allowScreenShare`,
-`allowAsides`, `allowPrivate`, `allowReactions`, `showCalendar`, `showMap` (booleans: the top bar's destinations; Travel sets both, from version 4), `calendarFeeds` (a boolean: people's calendar feeds), `activeThemeId` and `themeMode`. `spaceDefaults.profile` is
+`allowAsides`, `allowPrivate`, `allowReactions`, `showCalendar`, `showMap` (booleans: the top bar's destinations; Travel sets both, from version 4), `calendarFeeds`, `otherCalendars` and `publishedCalendar` (booleans: Calendar sharing's switches, [plan-space-calendars](../plans/plan-space-calendars.md); Travel sets the first two, from version 5), `activeThemeId` and `themeMode`. `spaceDefaults.profile` is
 `roleplaying`, `participants` or `characters`. `spaceDefaults.opensWith` is up to 20 module ids, bundled or built in,
 none twice, in the order a new space opens them (plan-planner-phases; nothing opens from it until that plan's step 6).
 `phases` is up to 12 `{ id, label, main? }`: `id` as a module id and unique, `label` 1 to 40 characters, `main: true`

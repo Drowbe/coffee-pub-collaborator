@@ -1307,6 +1307,19 @@
       used: (key) => call('geocode.used', { key }),
     },
 
+    // Lookups asked of the server (for a module whose manifest declares `"lookups": ["flight"]`):
+    //   flight(number, date)        -> { flights: [{ object, line, sameWeekday, lastSeen }] }, empty when nothing is known;
+    //                                  throws with the server's error ("bad number", "bad date", or the limit's sentence)
+    //   airport(code)               -> { code, name, city, tz }, or null when there is no such airport
+    //   available('flight')         -> true or false (false when the environment turned the suggestions off, or on any failure)
+    //   remember('flight', object)  a saved flight, in the objects format, taught to the server's schedule; never throws
+    lookup: {
+      flight: (number, date) => call('lookup.flight', { number, date }),
+      airport: (code) => call('lookup.airport', { code }),
+      available: (kind) => call('lookup.available', { kind: kind || 'flight' }).then((r) => r === true, () => false),
+      remember: (kind, object) => call('lookup.remember', { kind: kind || 'flight', object }).then(() => undefined, () => undefined),
+    },
+
     // A page's title, description and image, read by the server for a link someone is adding. Answers
     // { enabled, title, description, image }. `enabled` is false until the module's link previews setting is on.
     preview: {

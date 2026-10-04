@@ -1,6 +1,7 @@
-import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName, refreshDestinations } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
+import { wireFlightSchedule } from '/flight-schedule.js';
 import '/slot-paste.js'; // paste a picture into any image slot
 import { renderOffer, switchQuestion } from '/template-offer.js';
 import { fileText } from '/file-text.js';
@@ -636,69 +637,23 @@ $('save-features').addEventListener('click', () => saveSettings({
 }, $('features-status')));
 $('save-login').addEventListener('click', () => saveSettings({ loginText: $('set-login-text').value, mfaRequired: $('set-mfa-required').checked }, $('login-status')));
 
-// --- the top bar's destinations ---------------------------------------------------------------------
-// Show Calendar and Show Map (plan-calendar-destination.md, plan-map-destination.md): switches saved as they are flipped.
-// One that cannot show for anyone (its module off, no map file) is off and disabled, its hint saying why instead
-// (GET /api/settings' topBarReasons, one sentence each). Read again whenever the Modules tab changes something.
-let topBarReady = false;
-const TOP_BAR = [
-  { key: 'showCalendar', id: 'calendar', input: 'set-show-calendar', hint: 'show-calendar-hint' },
-  { key: 'showMap', id: 'map', input: 'set-show-map', hint: 'show-map-hint' },
-];
-const topBarHints = {};
-function renderTopBar(settings) {
-  const reasons = (settings && settings.topBarReasons) || {};
-  for (const t of TOP_BAR) {
-    const input = $(t.input);
-    const hint = $(t.hint);
-    if (!input || !hint) continue;
-    if (!(t.hint in topBarHints)) topBarHints[t.hint] = hint.textContent;
-    const why = typeof reasons[t.id] === 'string' && reasons[t.id] ? reasons[t.id] : '';
-    input.checked = !why && settings[t.key] === true;
-    input.disabled = Boolean(why);
-    input.closest('label').classList.toggle('disabled', Boolean(why));
-    hint.textContent = why || topBarHints[t.hint];
-  }
+// --- where Calendar sharing went -------------------------------------------------------------------------------------
+// Calendar sharing's switches, and Show in the top bar, moved into each module's own configuration
+// (plan-space-calendars.md, section 4, decision 11). For one release, one line on this tab says where: the module that
+// takes part in calendar sharing (GET /api/modules' `sharing`, a bundled one first), hidden while none is installed.
+// Drawn again whenever the Modules tab's list is read.
+function renderSharingPointer() {
+  const box = $('calendar-sharing-pointer');
+  const sharing = installedModules.filter((m) => m.sharing === true);
+  const m = sharing.find((x) => x.source === 'bundled') || sharing[0];
+  box.hidden = !m;
+  if (!m) return;
+  const line = $('calendar-sharing-line');
+  const link = document.createElement('a');
+  link.href = `/module-config.html?id=${encodeURIComponent(m.id)}`;
+  link.textContent = `${shownName(m)}'s configuration`;
+  line.replaceChildren('Calendar sharing is set in ', link, '.');
 }
-async function refreshTopBar() {
-  try {
-    renderTopBar((await api('GET', '/api/settings')).settings);
-  } catch {
-    // keeps what it shows
-  }
-}
-for (const t of TOP_BAR) {
-  $(t.input).addEventListener('change', async (event) => {
-    const input = event.target;
-    try {
-      const answer = await api('PATCH', '/api/settings', { [t.key]: input.checked });
-      if (answer && answer.settings) renderTopBar(answer.settings);
-      refreshDestinations(); // the bar's entry comes or goes on this page too
-      say($('top-bar-status'), 'saved');
-    } catch (err) {
-      input.checked = !input.checked;
-      say($('top-bar-status'), err.message, true);
-    }
-  });
-}
-
-// --- calendar feeds ----------------------------------------------------------------------------------
-// Whether people may make a private address for their calendar app on Profile (plan-google-calendar.md, decision 4).
-// Saved as it is flipped; turning it off stops every address at once without deleting it.
-function renderCalendarFeeds(settings) {
-  $('set-calendar-feeds').checked = settings?.calendarFeeds === true;
-}
-$('set-calendar-feeds').addEventListener('change', async (event) => {
-  const input = event.target;
-  try {
-    const answer = await api('PATCH', '/api/settings', { calendarFeeds: input.checked });
-    if (answer && answer.settings) renderCalendarFeeds(answer.settings);
-    say($('calendar-feeds-status'), 'saved');
-  } catch (err) {
-    input.checked = !input.checked;
-    say($('calendar-feeds-status'), err.message, true);
-  }
-});
 
 // --- theme -------------------------------------------------------------------
 // A chooser (Strong Coffee, the default, + every saved theme) and a
@@ -1125,11 +1080,11 @@ const shownNameOf = (id) => shownName(installedModules.find((m) => m.id === id) 
 
 async function loadModules() {
   const data = await api('GET', '/api/modules');
-  if (topBarReady) refreshTopBar(); // a module on or off may change what the top bar can show
   installedModules = data.modules;
   builtinModules = data.builtin || [];
   bundledModules = data.bundled || [];
   renderModules();
+  renderSharingPointer();
   renderModuleNames();
   renderTemplateNote();
   loadActivity();
@@ -1462,7 +1417,10 @@ async function loadAi() {
 let moduleFilter = 'all';
 const hasUpdate = (id) => bundledModules.some((b) => b.id === id && b.update);
 // A module can be configured when it has settings the admin chooses for the server (what Module Configuration shows).
-const isConfigurable = (m) => !m.outdated && !m.needsUpdate?.length && (m.settings || []).some((d) => d.scope === 'environment');
+// A module has a configuration page when it has environment settings, takes part in calendar sharing (GET /api/modules'
+// `sharing`), or its page is a top bar destination's main part (Show in the top bar): plan-space-calendars.md, section 4.
+const isDestinationMain = (m) => (m.surfaces?.destination || []).some((p) => p && p.part === 'main');
+const isConfigurable = (m) => !m.outdated && !m.needsUpdate?.length && ((m.settings || []).some((d) => d.scope === 'environment') || m.sharing === true || isDestinationMain(m));
 const moduleMatches = (m) => moduleFilter === 'updates' ? hasUpdate(m.id) : moduleFilter === 'configurable' ? isConfigurable(m) : true;
 function syncModuleFilters() {
   const updates = installedModules.filter((m) => hasUpdate(m.id)).length;
@@ -2223,6 +2181,9 @@ $('env-delete-cancel').addEventListener('click', async () => {
   } catch (err) { say($('env-status'), err.message, true); }
 });
 
+// The flight schedule (plan-flight-lookup.md, step 5), on the Modules tab of a single install only.
+const flightSchedule = wireFlightSchedule('/api/flight-schedule');
+
 async function init() {
   renderTopbar();
   renderPageBar({ name: 'Manage', icon: 'gear', controls: [$('subtabs')] }); // the tabs in the page bar (plan-two-zone-nav.md)
@@ -2265,9 +2226,6 @@ async function init() {
     $('set-allow-asides').checked = settings.allowAsides !== false;
     $('set-allow-private').checked = settings.allowPrivate !== false;
     $('set-allow-reactions').checked = settings.allowReactions !== false;
-    renderTopBar(settings);
-    topBarReady = true;
-    renderCalendarFeeds(settings);
     $('set-login-text').value = settings.loginText;
     $('set-mfa-required').checked = Boolean(settings.mfaRequired);
     $('set-allow-registration').checked = Boolean(settings.allowRegistration);
@@ -2280,6 +2238,7 @@ async function init() {
     await loadUsers();
     await loadEnvironment();
     await loadTemplate();
+    if (!environment.hosted) await flightSchedule.load(); // a hosted server's is the host console's: no section here
     if (firstHash && !TABS.includes(firstHash) && !OLD_TABS[firstHash]) selectTab(firstHash); // a section drawn just now
     setInterval(refreshLive, 5000);
   } catch (err) {

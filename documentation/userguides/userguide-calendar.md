@@ -10,9 +10,23 @@ The Calendar keeps sessions and events. There is one for the whole environment, 
 2. To use it in spaces, tick **Available in every space** on its card, or switch it on per space on the space's own page.
 3. On the Roles tab, under **Module: Calendar**, choose who can **See the calendar** and who can **Add and change events**. By default everyone can see it, members and moderators can edit, and guests can see but not edit.
 
+## Calendar sharing (owner)
+
+Whether people may take the Calendar's events into their own calendar app, and bring their own calendars in, is set on the Calendar's configuration page. Owners and the admin can do this; anyone else who opens the page sees "Only owners can change this."
+
+1. Open Manage on the **Modules** tab and choose **Module Configuration** on the Calendar's card. (The Environment tab also links here: "Calendar sharing is set in Calendar's configuration.")
+2. Under **Calendar sharing**, flip the switches you want. Each saves as you flip it.
+   - **Private addresses**: "Lets each person add this environment's events to their own calendar app with a private address." Off, every address stops working, without being deleted. See "In your own calendar app" below.
+   - **Other calendars and busy times**: "Lets each person see their own calendars beside these events, only to them, and share when they are busy with a space's members, never what they are doing." Off, those calendars are hidden, without being deleted. See "Your other calendars" below. Sharing busy times is not built yet.
+3. Under **Top bar**, **Show in the top bar** puts Calendar in everyone's top bar; see "Top bar" in [Manage](userguide-environment-settings.md).
+
+Both switches are off in a new environment, except that an environment made from the Travel template (version 5 or later) starts with **Private addresses** and **Other calendars and busy times** on. In an environment where an owner never set **Other calendars and busy times**, it follows **Private addresses**, as the single **Calendar feeds** switch did before, so nothing changes until you set it.
+
+A switch that waits for an update to the Calendar is shown off and greyed, its line reading "Approve Calendar's update in Manage > Modules first.", with **Go to Modules** after it, to approve the update there. While the Calendar itself is off, the section says "Calendar is off, so none of these work until it is on." Names in these lines are the ones your environment uses.
+
 ## Calendar in the top bar
 
-When an owner turns on **Show Calendar** (see [Manage](userguide-environment-settings.md), "Top bar"), **Calendar** sits in the top bar, after the environment's name, with the Calendar's icon and the name your environment gives it. It puts the Calendar and the To-do on one page: your events and tasks from the whole environment and every space you are in. On a phone it is in the menu, after your spaces.
+When an owner turns on **Show in the top bar** on the Calendar's configuration page (see [Manage](userguide-environment-settings.md), "Top bar"), **Calendar** sits in the top bar, after the environment's name, with the Calendar's icon and the name your environment gives it. It puts the Calendar and the To-do on one page: your events and tasks from the whole environment and every space you are in. On a phone it is in the menu, after your spaces.
 
 1. Click **Calendar** in the top bar. If you are in a space, it opens over the space: you are marked Away on the call until you go back, and **Back to <space>** returns you. Otherwise it is a page of its own.
 2. In the bar under the top bar, choose **Month**, **Week** or **Day**. **Day** is one column of hours with the all-day events above.
@@ -86,13 +100,13 @@ Set **Remind people** on an event to send a notification when it starts, 15 minu
 
 ## In your own calendar app
 
-If the owner has turned on **Calendar feeds**, you can see these events in Google Calendar, Apple Calendar or
+If the owner has turned on **Private addresses** (see "Calendar sharing (owner)" above), you can see these events in Google Calendar, Apple Calendar or
 Outlook through a private address made on your profile. See "Your calendar in a calendar app" in
 [Accounts, roles and permissions](userguide-accounts.md).
 
 ## Your other calendars
 
-Events from your own other calendars (added on your profile; see "Your other calendars in Collaborator" in
+While the owner has **Other calendars and busy times** on, events from your own other calendars (added on your profile; see "Your other calendars in Collaborator" in
 [Accounts, roles and permissions](userguide-accounts.md)) show on the Calendar's own page and on Calendar in the top
 bar, for you alone. They look muted and italic, with a coloured edge and a tag naming the calendar; on a phone's month
 they are hollow dots. Opening one says "From your <name> calendar. Only you see this." and it can't be changed. Each

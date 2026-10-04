@@ -288,6 +288,10 @@ const DEFAULT_SETTINGS = {
   // events they can read with their own calendar app. Off by default; off, every address answers 404 without being
   // deleted.
   calendarFeeds: false,
+  // The environment's published calendar (plan-space-calendars.md, decision 8): one address with every space's events,
+  // for anyone an owner gives it to. Off by default. (settings.otherCalendars is deliberately not here: absent, it reads
+  // as calendarFeeds; see otherCalendarsOn.)
+  publishedCalendar: false,
   // Language, time and money: how the server and every module show them. The clock is 12-hour by default; the
   // currency is the one amounts are shown in unless a trip says otherwise; only English is available so far.
   language: 'en',
@@ -878,6 +882,14 @@ class Store {
     return this.data.settings;
   }
 
+  // Whether people may bring in their other calendars and share busy times (plan-space-calendars.md, decision 7).
+  // settings.otherCalendars absent reads as calendarFeeds, the one switch that allowed other calendars before, so an
+  // environment that allowed them still does with nothing rewritten; once an owner sets it, it is its own.
+  otherCalendarsOn() {
+    const s = this.data.settings;
+    return typeof s.otherCalendars === 'boolean' ? s.otherCalendars : s.calendarFeeds === true;
+  }
+
   iconIds() {
     return (this.data.settings.icons || []).map((i) => i.id);
   }
@@ -1099,6 +1111,14 @@ class Store {
     if (patch.calendarFeeds !== undefined) {
       if (typeof patch.calendarFeeds !== 'boolean') throw new StoreError('calendarFeeds is true or false');
       s.calendarFeeds = patch.calendarFeeds;
+    }
+    if (patch.otherCalendars !== undefined) {
+      if (typeof patch.otherCalendars !== 'boolean') throw new StoreError('otherCalendars is true or false');
+      s.otherCalendars = patch.otherCalendars;
+    }
+    if (patch.publishedCalendar !== undefined) {
+      if (typeof patch.publishedCalendar !== 'boolean') throw new StoreError('publishedCalendar is true or false');
+      s.publishedCalendar = patch.publishedCalendar;
     }
     if (patch.language !== undefined) s.language = LANGUAGES.includes(patch.language) ? patch.language : DEFAULT_SETTINGS.language;
     if (patch.clock !== undefined) s.clock = String(patch.clock) === '24' ? '24' : '12';

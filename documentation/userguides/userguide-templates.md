@@ -16,7 +16,9 @@ The Travel template sets an environment up for planning trips together:
 - The Planner is shown as **Itinerary**.
 - The Itinerary (Planner), Places, Maps, Research and the Calendar are turned on, with the chat and the call, in
   every trip. Home base keeps only the chat, the call and the Calendar, as the Lobby always does.
-- **Calendar** and **Maps** are in the top bar (Manage, "Top bar"), from version 4 of the template. Like its other settings, this is set once, when the environment is made; an environment made from an earlier version, or switched to Travel later, turns them on in Manage.
+- **Calendar** and **Maps** are in the top bar (**Show in the top bar** on each module's configuration page; see "Top bar" in [Manage](userguide-environment-settings.md)), from version 4 of the template.
+- **Private addresses** and **Other calendars and busy times** are on (Calendar sharing, on the Calendar's configuration page; see [Calendar](userguide-calendar.md)), from version 5 of the template.
+- Like its other settings, these are set once, when the environment is made; an environment made from an earlier version, or switched to Travel later, turns them on on those configuration pages.
 - The home icon is a rolling suitcase.
 - A new trip starts with the **Participants** picture profile. The Lobby keeps its own profile.
 - A trip goes through six phases: **Planning**, **Booking**, **Buffer**, **Pre-trip**, **Trip** (the main one) and

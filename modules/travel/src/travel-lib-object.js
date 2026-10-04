@@ -174,3 +174,79 @@
     fields.notes = (notes + suffix).trim();
     return fields;
   }
+
+  // --- the flight lookup (plan-flight-lookup.md) ------------------------------------------------------------------------
+
+  // A flight number as the server cleans it ("wn2483" is "WN 2483"): an airline code (two letters or digits with a letter, or
+  // three letters) and 1 to 4 digits with an optional letter, spaces ignored. Null for anything else, so the form can say so
+  // before asking.
+  function flightNumberOf(raw) {
+    if (typeof raw !== 'string' || raw.length > 40) return null;
+    const m = /^(?:([A-Z0-9]{2})|([A-Z]{3}))(\d{1,4}[A-Z]?)$/.exec(raw.replace(/\s+/g, '').toUpperCase());
+    if (!m) return null;
+    const airline = m[1] || m[2];
+    return /[A-Z]/.test(airline) ? `${airline} ${m[3]}` : null;
+  }
+
+  // The flight number a flight is saved with: the cleaned form ("wn2483" is "WN 2483", decision 5), or the number as typed when
+  // it does not clean ("Southwest 2483"). Any other way of travelling keeps its number as typed.
+  const numberToSave = (mode, raw) => (mode === 'flight' && typeof raw === 'string' && flightNumberOf(raw)) || raw;
+
+  // A saved flight's schedule part in the objects format, for host.lookup.remember: only what the server's schedule keeps (the
+  // airline as typed, the number, both airport codes, the departure, the arrival on the ticket, the flight time and the
+  // terminal), with a fixed title the server needs and does not keep. Not the airport names (the server takes them from its
+  // airport list), the seat, class, reference, cost, who paid, the people, the notes, the gate or the plan's own title. Null
+  // for anything that is not a flight with a number.
+  function flightObject(item) {
+    if (!item || item.kind !== 'journey' || item.mode !== 'flight' || !flightNumberOf(item.number || '')) return null;
+    const number = flightNumberOf(item.number);
+    const details = { number };
+    if (item.operator) details.airline = item.operator;
+    const point = (code) => ({ code: String(code).trim().toUpperCase() });
+    if (item.fromCode) details.from = point(item.fromCode);
+    if (item.toCode) details.to = point(item.toCode);
+    if (item.date && item.time) details.departs = `${item.date}T${item.time}`;
+    if (typeof item.arrives === 'string' && item.arrives.length === 16) details.arrives = item.arrives;
+    if (Number.isInteger(item.minutes) && item.minutes > 0) details.minutes = item.minutes;
+    if (item.terminal) details.terminal = item.terminal;
+    return { kind: 'flight', title: `Flight ${number}`, ...(item.date ? { date: item.date } : {}), details };
+  }
+
+  // What a found flight fills in the flight form (decision 4), from objectFields' answer for its object: the departure day and
+  // time, the flight time, the arrival on the ticket, the airline, the number, both airports and the terminal. A value the
+  // schedule does not know is left out, so the form keeps its own. The title is the caller's (only when the form has none);
+  // the seat, class, reference, cost, people, notes and the gate are never in it.
+  const LOOKUP_FILLS = ['date', 'time', 'minutes', 'arrives', 'operator', 'number', 'fromCode', 'from', 'toCode', 'to', 'terminal'];
+  function lookupFill(fields) {
+    const out = {};
+    for (const k of LOOKUP_FILLS) {
+      const v = fields && fields[k];
+      if (v !== null && v !== undefined && v !== '') out[k] = v;
+    }
+    return out;
+  }
+
+  // What a second lookup does to the form (and the first, with `before` empty). `got` is lookupFill's answer, plus the title when
+  // the leg has one to offer; `before` is what the last lookup put in the form, by field; `now` is what the form holds. Each
+  // value the answer has is put in (decision 4), the title only when the form's is empty or still the earlier lookup's. A field
+  // an earlier lookup filled that this answer lacks (a terminal) is emptied, but only while it still holds what the lookup put
+  // there: a value the person typed or changed is never touched. Answers { set, filled }: the values to put in ('' empties
+  // one), and what the lookup has now filled, for the next time.
+  function lookupApply(got, before, now) {
+    const was = before || {};
+    const form = now || {};
+    const same = (k) => k in was && String(form[k] ?? '') === String(was[k]);
+    const set = {};
+    for (const k of new Set([...Object.keys(got || {}), ...Object.keys(was)])) {
+      const v = got && got[k];
+      const has = v !== null && v !== undefined && v !== '';
+      if (k === 'title') {
+        if (has && (!String(form.title ?? '').trim() || same(k))) set.title = v;
+        else if (!has && same(k)) set.title = '';
+      } else if (has) set[k] = v;
+      else if (same(k)) set[k] = '';
+    }
+    const filled = {};
+    for (const [k, v] of Object.entries(set)) if (v !== '') filled[k] = v;
+    return { set, filled };
+  }

@@ -16,7 +16,8 @@
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
 // (the icon a toggle shows while it is on: full screen's compress). A secondary left-zone tool may also give `fit(avail)`:
 // the fold (below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
-// (Online, who is here: its names become the count, then portraits drop, then it shows only the short count). `register()` returns the element drawn, which lives
+// (Online, who is here: its names become the count, then portraits drop, then it shows only the short count); one that says `fitFirst` (the favorite layouts) gives way
+// before the others do. `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
 // The pure parts (the bands, the sort, the visibility rule, the cleaning of a module's registration, the phone's fold
@@ -471,6 +472,34 @@ export function foldSteps(list) {
 export function fitWidth({ width, gap = 0, left = 0, right = 0 }) {
   return width - gap - left - right;
 }
+// A row of labelled buttons that gives way (the space bar's favorite layouts, plan-favorite-layouts.md, decision 13):
+// every label shows at full length (up to `most`) while all of them fit; only when they do not, every label shortens
+// evenly to the widest that fits, down to `least` px, and only then do the buttons leave from the last one back. `items` are the
+// buttons in order, each { chrome, label }: its width less its label's, and its label's width (already no wider than
+// `most`); `gap` is the space between two buttons. Gives { count, cap }: how many of the first buttons show and the
+// widest a label may be, the most that fits in `avail`. Pure, for check-nav.
+export function labelsThatFit({ avail, gap = 0, items = [], least = 0, most = Infinity }) {
+  const limit = Number.isFinite(avail) ? avail : Infinity;
+  const total = (k, cap) => {
+    let w = gap * Math.max(0, k - 1);
+    for (let i = 0; i < k; i += 1) w += items[i].chrome + Math.min(items[i].label, cap);
+    return w;
+  };
+  const fits = (k, cap) => total(k, cap) <= limit + 0.5;
+  let count = items.length;
+  while (count > 0 && !fits(count, least)) count -= 1;
+  if (!count) return { count: 0, cap: least };
+  const widest = Math.max(least, ...items.slice(0, count).map((it) => Math.min(it.label, most)));
+  if (fits(count, widest)) return { count, cap: most };
+  let lo = least;
+  let hi = widest;
+  for (let i = 0; i < 24 && hi - lo > 0.25; i += 1) {
+    const mid = (lo + hi) / 2;
+    if (fits(count, mid)) lo = mid; else hi = mid;
+  }
+  return { count, cap: Math.floor(lo) };
+}
+
 // How many of those steps to fold for the bar to fit. `width` is the bar's inner width, `gap` the gap between its two
 // zones, `left` the left zone's width once its fitting tool has shrunk (its box: its max-width is its column's), `right`
 // the right zone's natural width with nothing folded, `more` what the "..." adds to the right zone once it shows, and
@@ -681,12 +710,20 @@ function fitSecondary() {
       // A left tool that can give way (`fit`, the space bar's Online) is told what it may take, and gives it before
       // anything here folds: what the rest of the left zone and the right zone at its full width leave (fitWidth).
       const gap = px(cs.columnGap);
+      // A tool that says `fitFirst` (the favorite layouts) gives way before the others (Online): it is measured with them
+      // at their least (fit(0)), they then take what it leaves, and it is fitted once more to what they took (a least
+      // is not always the width a tool settles at), so the left zone never runs past its column because of it.
       const fitting = b.zones.left ? [...tools.values()].filter((t) => t.bar === 'secondary' && t.zone === 'left' && typeof t.fit === 'function' && els.has(t.id) && shownEl(els.get(t.id))) : [];
-      for (const t of fitting) {
+      fitting.sort((a, c) => Number(Boolean(c.fitFirst)) - Number(Boolean(a.fitFirst)));
+      const fitOne = (t) => {
         const rest = naturalWidth(b.zones.left, els.get(t.id), { margins: false });
         const avail = fitWidth({ width, gap, left: rest.w + (rest.n ? rest.gap : 0), right: r.w });
         try { t.fit(avail); } catch { /* a tool that cannot measure keeps its size */ }
-      }
+      };
+      const first = fitting.length > 1 ? fitting.filter((t) => t.fitFirst) : [];
+      if (first.length) for (const t of fitting) { if (!t.fitFirst) { try { t.fit(0); } catch { /* keeps its size */ } } }
+      for (const t of fitting) fitOne(t);
+      for (const t of first) fitOne(t);
       // The left zone as it is now (its box, not its negative margin), rounded up: a cut is counted in whole pixels.
       const leftWidth = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
       const k = foldCount({ width, gap, left: leftWidth, right: r.w, more: moreWidth, steps: stepWidths });
@@ -788,5 +825,5 @@ async function openFoldMenu() {
   openHostMenu(fold.more, [...tabItems, ...(tabItems.length && items.length ? [{ divider: true }] : []), ...items]);
 }
 
-export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, isShown, phoneZones, phoneTabs, phoneFold, TAB_MIN, foldSteps, foldCount, fitWidth, cleanModuleTools, bandOf, BANDS };
+export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, draw, has, arrange, isVisible, isShown, phoneZones, phoneTabs, phoneFold, TAB_MIN, foldSteps, foldCount, fitWidth, labelsThatFit, cleanModuleTools, bandOf, BANDS };
 export default nav;

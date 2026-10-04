@@ -18,6 +18,9 @@
  *     sealed at rest and in no answer; one person's events and calendars never in another's answer; a module without
  *     the approved hook refused; a guest gets none; five at most, no duplicates; Refresh, once a minute, and the
  *     stream's `external` event; Remove; the switch off; read again after a restart; deleting the person.
+ *   - Calendar sharing (plan-space-calendars.md, step 1): the switch is settings.otherCalendars, read as calendarFeeds
+ *     until an owner sets it and nothing rewritten; once set, it alone allows them, and `why` names where to turn it on;
+ *     `sharing` and `sharingReasons` in GET /api/modules before the hook, while it waits for approval, and after.
  *   - The move to a hosted install (secretsToHostKey): the sealed address is sealed again with the host's key and
  *     still read.
  *   - The pages (step 6), read as code: Profile's Other calendars section (each id its script looks up, the routes, the
@@ -41,6 +44,7 @@ const { readCalendar, CalendarFileError } = require('../server/ics-read.js');
 const { ExternalCalendars } = require('../server/external-calendars.js');
 const auth = require('../server/auth.js');
 const { buildModule } = require('../server/module-build.js');
+const { productName } = require('../server/product-name.js');
 
 let n = 0;
 let failed = 0;
@@ -356,7 +360,7 @@ async function startServer(dataDir, extraEnv = {}) {
   const stop = () => new Promise((resolve) => { if (child.exitCode !== null || child.signalCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });
   return { call, stream, signIn, stop, output: () => out };
 }
-function moduleZip(id, hooks, version = '1.0.0') {
+function moduleZip(id, hooks, version = '1.0.0', extra = {}) {
   const src = fs.mkdtempSync(path.join(base, `module-${id}-`));
   fs.mkdirSync(path.join(src, 'src'));
   fs.writeFileSync(path.join(src, 'module.json'), JSON.stringify({
@@ -365,6 +369,7 @@ function moduleZip(id, hooks, version = '1.0.0') {
     permissions: [{ key: 'view', label: 'See it', default: { member: true, moderator: true, guest: true } }],
     access: { read: 'view' },
     hooks,
+    ...extra,
   }));
   fs.writeFileSync(path.join(src, 'src', `${id}.html`), '<!DOCTYPE html><html><head><style>/*__CSS__*/</style></head><body><script>/*__JS__*/</script></body></html>');
   fs.writeFileSync(path.join(src, 'src', `${id}.css`), '');
@@ -423,10 +428,14 @@ try {
   const why = async (cookie) => (await list(cookie)).why;
   await test('server: off until the switch is on and an enabled module asks with the approved hook; until then it says why', async () => {
     const env = (await call('GET', '/api/settings', { cookie: admin })).json.settings.environmentName;
-    assert.deepEqual(await list(aliceC), { allowed: false, why: `Calendar feeds are off in ${env}. Your owner needs to turn on Calendar feeds in Manage > Environment, under Calendar apps.`, calendars: [] });
-    assert.equal(await why(admin), `Calendar feeds are off in ${env}. Turn on Calendar feeds in Manage > Environment, under Calendar apps.`, 'an owner is told to do it');
+    // Never set: it follows Calendar feeds, but the switch to name is Other calendars, in Calendar's configuration (the
+    // one that ships here, as nothing is installed yet); Manage's Calendar apps panel is gone (plan-space-calendars.md, step 2).
+    assert.equal('otherCalendars' in JSON.parse(fs.readFileSync(path.join(dataDir, 'app.json'), 'utf8')).settings, false, 'never set');
+    // Calendar isn't installed yet, so its configuration doesn't exist: the install is named first, then the switch.
+    assert.deepEqual(await list(aliceC), { allowed: false, why: `Your owner needs to install Calendar and approve its ${HOOK} in Manage > Modules. Other calendars are off in ${env}. Your owner needs to turn on Other calendars and busy times in Manage > Modules, in Calendar's configuration.`, calendars: [] });
+    assert.equal(await why(admin), `Install Calendar and approve its ${HOOK} in Manage > Modules. Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in Calendar's configuration.`, 'an owner is told to do it');
     const off = await add(aliceC, aliceAddress);
-    assert.deepEqual([off.status, off.json], [403, { error: 'Calendar feeds are off in this environment.' }]);
+    assert.deepEqual([off.status, off.json], [403, { error: 'Other calendars are off in this environment.' }]);
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: true } })).status, 200);
     const none = await add(aliceC, aliceAddress);
     assert.deepEqual([none.status, none.json], [403, { error: 'No module here shows other calendars.' }]);
@@ -443,10 +452,14 @@ try {
     assert.equal(first.status, 201, first.text);
     assert.equal((await call('PATCH', '/api/modules/ext-cal', { cookie: admin, body: { enabled: true } })).status, 200);
     assert.equal((await list(aliceC)).allowed, false, 'on, but its version does not ask for the hook');
+    // Calendar sharing in GET /api/modules (plan-space-calendars.md, step 1): no hook, no part in it.
+    const sharingOf = async () => { const m = (await call('GET', '/api/modules', { cookie: admin })).json.modules.find((x) => x.id === 'ext-cal'); return [m.sharing, m.sharingReasons]; };
+    assert.deepEqual(await sharingOf(), [false, null]);
     const update = await call('POST', '/api/modules', { cookie: admin, raw: moduleZip('ext-cal', { external: true }, '1.1.0') });
     assert.equal(update.status, 201, update.text);
     assert.deepEqual([update.json.module.version, update.json.module.enabled, update.json.module.pending.hooks], ['1.1.0', false, ['external']], 'the update waits for approval');
     assert.deepEqual(await list(aliceC), { allowed: false, why: `Your owner needs to approve ext-cal's ${HOOK} in Manage > Modules.`, calendars: [] });
+    assert.deepEqual(await sharingOf(), [true, { otherCalendars: { hooks: ['external'], reason: 'Approve ext-cal\'s update in Manage > Modules first.' } }], 'the switch waits on the hook');
     assert.equal(await why(admin), `Approve ext-cal's ${HOOK} in Manage > Modules.`);
     const approved = await call('PATCH', '/api/modules/ext-cal', { cookie: admin, body: { enabled: true } });
     assert.equal(approved.status, 200, approved.text);
@@ -454,6 +467,12 @@ try {
     const registry = JSON.parse(fs.readFileSync(path.join(dataDir, 'modules', 'registry.json'), 'utf8')).modules['ext-cal'];
     assert.ok(registry.approved.hooks.includes('external'), 'the approval is stored with the update');
     assert.deepEqual(await list(aliceC), { allowed: true, why: null, calendars: [] }, 'allowed once the update is approved');
+    assert.deepEqual(await sharingOf(), [true, { otherCalendars: null }], 'approved: nothing waits');
+    // plan-space-calendars.md, decision 7: with Calendar feeds on and otherCalendars never set, other calendars are
+    // allowed as before, read so rather than written.
+    const settingsAt = () => JSON.parse(fs.readFileSync(path.join(dataDir, 'app.json'), 'utf8')).settings;
+    assert.equal('otherCalendars' in settingsAt(), false, 'nothing rewritten');
+    assert.equal((await call('GET', '/api/settings', { cookie: admin })).json.settings.otherCalendars, true);
     // Approved but switched off: it says to turn it on.
     assert.equal((await call('PATCH', '/api/modules/ext-cal', { cookie: admin, body: { enabled: false } })).status, 200);
     assert.equal(await why(aliceC), 'Your owner needs to turn on ext-cal in Manage > Modules.');
@@ -618,13 +637,32 @@ try {
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: false } })).status, 200);
     assert.deepEqual((await events(aliceC)).json, { calendars: [], events: [] });
     assert.equal((await list(aliceC)).allowed, false);
-    assert.match((await list(aliceC)).why, /^Calendar feeds are off in .+\. Your owner needs to turn on Calendar feeds in Manage > Environment, under Calendar apps\.$/);
+    assert.match((await list(aliceC)).why, /^Other calendars are off in .+\. Your owner needs to turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration\.$/, 'never set, off with Calendar feeds: the installed module is named');
     assert.equal((await add(aliceC, 'https://cal.example.com/extra-9.ics')).status, 403);
     const extra3 = (await list(aliceC)).calendars.find((c) => c.name === 'Extra 3');
     assert.equal((await call('POST', `/api/me/external-calendars/${extra3.id}/refresh`, { cookie: aliceC })).status, 403);
     assert.equal((await call('DELETE', `/api/me/external-calendars/${extra3.id}`, { cookie: aliceC })).status, 204);
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: true } })).status, 200);
     assert.ok((await events(aliceC)).json.events.length > 0);
+  });
+
+  // plan-space-calendars.md, step 1: once an owner sets otherCalendars, it alone governs other calendars; Calendar feeds
+  // (the addresses out) no longer does.
+  await test('server: otherCalendars set off with Calendar feeds on: none answered or added, and it says where to turn it on; set on with feeds off: back', async () => {
+    const env = (await call('GET', '/api/settings', { cookie: admin })).json.settings.environmentName;
+    assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { otherCalendars: false } })).status, 200);
+    assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'app.json'), 'utf8')).settings.calendarFeeds, true);
+    assert.deepEqual((await events(aliceC)).json, { calendars: [], events: [] });
+    assert.deepEqual([(await list(aliceC)).allowed, (await list(aliceC)).why], [false, `Other calendars are off in ${env}. Your owner needs to turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`]);
+    assert.equal(await why(admin), `Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`);
+    const refused = await add(aliceC, 'https://cal.example.com/extra-9.ics');
+    assert.deepEqual([refused.status, refused.json], [403, { error: 'Other calendars are off in this environment.' }]);
+    const one = (await list(aliceC)).calendars[0];
+    assert.equal((await call('POST', `/api/me/external-calendars/${one.id}/refresh`, { cookie: aliceC })).status, 403);
+    assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: false, otherCalendars: true } })).status, 200);
+    assert.deepEqual([(await list(aliceC)).allowed, (await list(aliceC)).why], [true, null], 'Calendar feeds off no longer turns them off');
+    assert.ok((await events(aliceC)).json.events.length > 0);
+    assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: true } })).status, 200);
   });
 
   await test('server: after a restart the events are read again, from the sealed address', async () => {
@@ -708,6 +746,93 @@ try {
     await server.stop();
     server = null;
   });
+
+  // GitHub #179: a module with the hook that is on in the registry but can't run is not told to be turned on; the real
+  // reason is named, in the words Manage already uses for it.
+  await test('server: on but unable to run: something it requires is off, it is outdated, or a newer copy ships here', async () => {
+    const dir = path.join(base, 'cannot-run');
+    server = await startServer(dir);
+    let owner = await server.signIn('admin', 'testpass1234');
+    const regFile = path.join(dir, 'modules', 'registry.json');
+    const editRegistry = (fn) => { const r = JSON.parse(fs.readFileSync(regFile, 'utf8')); fn(r.modules); fs.writeFileSync(regFile, JSON.stringify(r, null, 2)); };
+    const makeOutdated = (id, version) => {
+      const file = path.join(dir, 'modules', id, 'versions', version, 'module.json');
+      const m = JSON.parse(fs.readFileSync(file, 'utf8'));
+      // An old name a stored manifest may still hold (a permission default keyed by the old member role): it can't run.
+      fs.writeFileSync(file, JSON.stringify({ ...m, permissions: m.permissions.map((p) => ({ ...p, default: { ...p.default, user: true } })) }));
+    };
+    const restart = async () => { await server.stop(); server = await startServer(dir); owner = await server.signIn('admin', 'testpass1234'); };
+    const whyHere = async () => (await server.call('GET', '/api/me/external-calendars', { cookie: owner })).json;
+    assert.equal((await server.call('PATCH', '/api/settings', { cookie: owner, body: { otherCalendars: true } })).status, 200);
+    for (const [id, zip] of [['helper', moduleZip('helper', {})], ['needs-cal', moduleZip('needs-cal', { external: true }, '1.0.0', { requires: ['helper'] })]]) {
+      const up = await server.call('POST', '/api/modules', { cookie: owner, raw: zip });
+      assert.equal(up.status, 201, up.text);
+      const on = await server.call('PATCH', `/api/modules/${id}`, { cookie: owner, body: { enabled: true } });
+      assert.equal(on.status, 200, on.text);
+    }
+    assert.deepEqual(await whyHere(), { allowed: true, why: null, calendars: [] });
+    // What it requires is off while it stays on in the registry (as when that one went off by itself).
+    await server.stop();
+    editRegistry((m) => { m.helper.enabled = false; });
+    await restart();
+    assert.equal(JSON.parse(fs.readFileSync(regFile, 'utf8')).modules['needs-cal'].enabled, true, 'still on in the registry');
+    assert.deepEqual(await whyHere(), { allowed: false, why: 'needs-cal needs helper installed and turned on first. Turn on helper in Manage > Modules.', calendars: [] });
+    // What it requires can't run until its author updates it.
+    await server.stop();
+    editRegistry((m) => { m.helper.enabled = true; });
+    makeOutdated('helper', '1.0.0');
+    await restart();
+    assert.equal((await whyHere()).why, 'needs-cal needs helper, which needs an update from its author.');
+    // Itself outdated, with no newer copy here: only its author can fix it.
+    await server.stop();
+    makeOutdated('needs-cal', '1.0.0');
+    await restart();
+    assert.equal((await whyHere()).why, `needs-cal was built for an older version of ${productName()} and needs an update from its author.`);
+    // A Calendar on in the registry but outdated, while a newer one ships here: the update is named, not "turn on".
+    assert.equal((await server.call('DELETE', '/api/modules/needs-cal?keepData=0', { cookie: owner })).status, 200);
+    const cal = await server.call('POST', '/api/modules', { cookie: owner, raw: moduleZip('calendar', { external: true }, '0.0.1') });
+    assert.equal(cal.status, 201, cal.text);
+    assert.equal((await server.call('PATCH', '/api/modules/calendar', { cookie: owner, body: { enabled: true } })).status, 200);
+    await server.stop();
+    makeOutdated('calendar', '0.0.1');
+    await restart();
+    const BUNDLED = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules', 'calendar', 'module.json'), 'utf8'));
+    // (Named as the installed one is shown: the stand-in's own name is its id.)
+    assert.equal((await whyHere()).why, `Update calendar to ${BUNDLED.version} and approve its "See each person's own other calendars" in Manage > Modules.`);
+    await server.stop();
+    server = null;
+  });
+
+  // GitHub #179: with the switch off and a step it waits on (an install, an update or an approval: until then the
+  // switch's page doesn't exist or the switch is disabled), that step is named first, then the switch.
+  await test('server: the switch off while the module waits on an update or an approval: that step first, then the switch', async () => {
+    const dir = path.join(base, 'switch-and-step');
+    server = await startServer(dir);
+    const owner = await server.signIn('admin', 'testpass1234');
+    const whyHere = async () => (await server.call('GET', '/api/me/external-calendars', { cookie: owner })).json;
+    const env = (await server.call('GET', '/api/settings', { cookie: owner })).json.settings.environmentName;
+    const HOOK_LABEL = '"See each person\'s own other calendars"';
+    assert.equal((await server.call('PATCH', '/api/settings', { cookie: owner, body: { otherCalendars: false } })).status, 200);
+    // Calendar installed in a version from before the hook: the update first (named as the one that ships here shows).
+    const BUNDLED = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules', 'calendar', 'module.json'), 'utf8'));
+    const old = await server.call('POST', '/api/modules', { cookie: owner, raw: moduleZip('calendar', {}, '0.0.1') });
+    assert.equal(old.status, 201, old.text);
+    assert.deepEqual(await whyHere(), { allowed: false, why: `Update Calendar to ${BUNDLED.version} and approve its ${HOOK_LABEL} in Manage > Modules. Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in Calendar's configuration.`, calendars: [] });
+    assert.equal((await server.call('DELETE', '/api/modules/calendar?keepData=0', { cookie: owner })).status, 200);
+    // Its update waits for approval: the approval first.
+    const first = await server.call('POST', '/api/modules', { cookie: owner, raw: moduleZip('ext-cal', {}, '1.0.0') });
+    assert.equal(first.status, 201, first.text);
+    assert.equal((await server.call('PATCH', '/api/modules/ext-cal', { cookie: owner, body: { enabled: true } })).status, 200);
+    const update = await server.call('POST', '/api/modules', { cookie: owner, raw: moduleZip('ext-cal', { external: true }, '1.1.0') });
+    assert.equal(update.status, 201, update.text);
+    assert.deepEqual(update.json.module.pending.hooks, ['external']);
+    assert.deepEqual(await whyHere(), { allowed: false, why: `Approve ext-cal's ${HOOK_LABEL} in Manage > Modules. Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`, calendars: [] });
+    // Approved: only the switch is left.
+    assert.equal((await server.call('PATCH', '/api/modules/ext-cal', { cookie: owner, body: { enabled: true } })).status, 200);
+    assert.equal((await whyHere()).why, `Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`);
+    await server.stop();
+    server = null;
+  });
 } catch (err) {
   failed += 1;
   console.error(`FAIL the server run\n${err.stack || err}${server ? `\n${server.output().slice(-3000)}` : ''}`);
@@ -734,9 +859,10 @@ await test('pages: Profile\'s Other calendars section, wired to the routes; the 
   assert.match(render, /\$\('external-off'\)\.hidden = external\.allowed;/, 'the reason shows whenever it is not allowed');
   assert.match(render, /\$\('external-off'\)\.textContent = external\.allowed \? ''\s*: \[external\.why \|\| `Other calendars are off in \$\{place\} for now\.`/, 'the server\'s reason, else a plain one: never empty');
   assert.match(render, /\$\('external-add'\)\.hidden = !external\.allowed/, 'no form unless allowed');
-  // The Calendar feed section says plainly that Google reads a subscribed address on its own schedule.
+  // The Calendar feed section says how long Google takes, in the plan's words (plan-space-calendars.md, section 4).
   const feed = html.slice(html.indexOf('id="section-feed"'), html.indexOf('id="section-external"'));
-  assert.match(feed, /<p class="hint" id="feed-timing">Google Calendar reads the address on its own schedule, often every 8 to 24 hours, so new events, changes and deletions show there later\. Apple Calendar is usually quicker\.<\/p>/, 'the feed section says how often Google reads it');
+  assert.match(feed, /<p class="hint" id="feed-timing">Google can take 8 to 24 hours to show a change\.<\/p>/, 'the feed section says how long Google takes, as the plan words it');
+  assert.doesNotMatch(feed, /once a day|every 8 to 24 hours/, 'no other wording of it');
   assert.ok(!/<p class="hint" id="feed-timing" hidden/.test(feed), 'always shown with the section');
   for (const [method, route] of [['GET', "'/api/me/external-calendars'"], ['POST', "'/api/me/external-calendars'"], ['POST', '`/api/me/external-calendars/${encodeURIComponent(id)}/refresh`'], ['DELETE', '`/api/me/external-calendars/${encodeURIComponent(id)}`']]) {
     assert.ok(js.includes(`api('${method}', ${route}`), `profile.js: ${method} ${route}`);
@@ -748,9 +874,183 @@ await test('pages: Profile\'s Other calendars section, wired to the routes; the 
   const refreshAt = js.indexOf("api('POST', `/api/me/external-calendars/${encodeURIComponent(id)}/refresh`");
   const refreshCode = js.slice(refreshAt, js.indexOf('return;', refreshAt));
   const onFail = refreshCode.slice(refreshCode.indexOf('(err) => {'));
-  assert.ok(onFail.includes('const said = rowStatus(id);') && onFail.includes('sayField(said, err.message, true)'), 'a failed Refresh (a 429 too) is said on its own row');
+  assert.ok(onFail.includes('const said = rowStatus(id);') && onFail.includes('sayField(said, failure(err), true)'), 'a failed Refresh (a 429 too) is said on its own row');
   assert.doesNotMatch(refreshCode, /external-status/, 'never in the section\'s line under Add');
   assert.match(read('public/admin.js'), /m\.hooks\.external \? \['<li><strong>See each person\\'s own other calendars<\/strong> <span class="hint">only to them<\/span><\/li>'\]/, 'the admin approves the hook by name');
+});
+
+// Profile's section run as code with a stand-in page and server (GitHub #179, step 0): the form follows the server's
+// `allowed` and is read again when the page shows again (approved in Manage in another tab, or here and then Back), and
+// whenever it can't be used it says why, a failed read included.
+await test('pages: Profile\'s Other calendars follows the server: approved elsewhere, the form shows on coming back; never hidden without a reason', async () => {
+  const js = fs.readFileSync(path.join(ROOT, 'public/profile.js'), 'utf8');
+  const from = js.indexOf('const MAX_EXTERNAL');
+  const endLine = "window.addEventListener('pageshow'";
+  const code = js.slice(from, js.indexOf('\n', js.indexOf(endLine, from)));
+  assert.ok(from > 0 && js.indexOf(endLine, from) > from, 'profile.js reads Other calendars again on pageshow');
+  const el = () => ({ hidden: false, textContent: '', innerHTML: '', className: '', dataset: {}, children: [], append() {}, setAttribute() {}, querySelector: () => null });
+  const els = new Map();
+  const $ = (id) => { if (!els.has(id)) els.set(id, el()); return els.get(id); };
+  const on = {};
+  const document = { visibilityState: 'visible', createElement: el, addEventListener: (type, fn) => { on[type] = fn; } };
+  const window = { addEventListener: (type, fn) => { on[type] = fn; } };
+  let answer = null;
+  let reads = 0;
+  const api = async (method, route) => {
+    assert.deepEqual([method, route], ['GET', '/api/me/external-calendars']);
+    reads += 1;
+    if (answer instanceof Error) throw answer;
+    return structuredClone(answer);
+  };
+  const page = new Function('$', 'api', 'document', 'window', 'word', 'timeAgo', 'environmentName', 'editingKey',
+    `let external = null; let externalBusy = false;\n${code}\nreturn { renderExternal, loadExternal };`)($, api, document, window, (w) => w, () => 'just now', 'Keep', null);
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  const shown = () => ({ section: !$('section-external').hidden, off: $('external-off').hidden ? null : $('external-off').textContent, form: !$('external-add').hidden });
+  const WAIT = 'Approve Calendar\'s "See each person\'s own other calendars" in Manage > Modules.';
+
+  answer = { allowed: false, why: WAIT, calendars: [] };
+  await page.loadExternal();
+  page.renderExternal(false);
+  assert.deepEqual(shown(), { section: true, off: WAIT, form: false }, 'waiting for approval: the reason, no form');
+  answer = { allowed: true, why: null, calendars: [] }; // approved in Manage, in another tab
+  document.visibilityState = 'hidden';
+  on.visibilitychange();
+  await settle();
+  assert.equal(reads, 1, 'not read while the page is hidden');
+  document.visibilityState = 'visible';
+  on.visibilitychange();
+  await settle();
+  assert.deepEqual([reads, shown()], [2, { section: true, off: null, form: true }], 'back on the page: read again, and the form shows');
+  answer = { allowed: false, why: 'Your owner needs to turn on Calendar in Manage > Modules.', calendars: [] };
+  on.pageshow({ persisted: false });
+  await settle();
+  assert.equal(reads, 2, 'a fresh load reads it once, in init');
+  on.pageshow({ persisted: true }); // this tab went to Manage and came Back, the page as it was
+  await settle();
+  assert.deepEqual([reads, shown()], [3, { section: true, off: 'Your owner needs to turn on Calendar in Manage > Modules.', form: false }], 'brought back by Back: read again');
+  answer = new Error('Server error');
+  on.visibilitychange();
+  await settle();
+  assert.equal(shown().off, 'Your owner needs to turn on Calendar in Manage > Modules.', 'a later read that fails keeps what was shown');
+  answer = { allowed: false, why: null, calendars: [] };
+  await page.loadExternal();
+  page.renderExternal(false);
+  assert.equal(shown().section, false, 'nothing here could ever show them (no module asks for them): no section, as the plan says');
+  page.renderExternal(true);
+  assert.equal(shown().section, false, 'an owner editing someone else sees none');
+
+  // A first read that fails: said in the section, never just hidden.
+  const failed = new Function('$', 'api', 'document', 'window', 'word', 'timeAgo', 'environmentName', 'editingKey',
+    `let external = null; let externalBusy = false;\n${code}\nreturn { renderExternal, loadExternal };`)($, async () => { throw new Error('Server error'); }, document, window, (w) => w, () => 'just now', 'Keep', null);
+  await failed.loadExternal();
+  failed.renderExternal(false);
+  assert.deepEqual(shown(), { section: true, off: 'Your other calendars could not be loaded (Server error). Reload the page to try again.', form: false });
+  // The browser's own words for a network failure ("Failed to fetch") are never shown; the server's sentence is.
+  const firstFails = async (err) => {
+    const p = new Function('$', 'api', 'document', 'window', 'word', 'timeAgo', 'environmentName', 'editingKey',
+      `let external = null; let externalBusy = false;\n${code}\nreturn { renderExternal, loadExternal };`)($, async () => { throw err; }, document, window, (w) => w, () => 'just now', 'Keep', null);
+    await p.loadExternal();
+    p.renderExternal(false);
+    return shown().off;
+  };
+  assert.equal(await firstFails(new TypeError('Failed to fetch')), 'Your other calendars could not be loaded (the server didn\'t answer). Reload the page to try again.');
+  assert.equal(await firstFails(Object.assign(new Error('Other calendars are off in this Keep.'), { status: 403, serverSaid: true })), 'Your other calendars could not be loaded (Other calendars are off in this Keep.). Reload the page to try again.');
+  assert.equal(await firstFails(Object.assign(new Error('HTTP 502'), { status: 502, serverSaid: false })), 'Your other calendars could not be loaded (the server answered 502). Reload the page to try again.');
+});
+
+// Coming back to the page (QA of #179 steps 0 to 2): one read at a time, an older answer never replaces a newer one, and
+// the list is not drawn anew: each calendar keeps its row, so focus and a row's running status stay.
+await test('pages: Profile\'s Other calendars reads once at a time, drops older answers and keeps its rows', async () => {
+  const js = fs.readFileSync(path.join(ROOT, 'public/profile.js'), 'utf8');
+  const from = js.indexOf('const MAX_EXTERNAL');
+  const code = js.slice(from, js.indexOf('\n', js.indexOf("window.addEventListener('pageshow'", from)));
+  const document = { visibilityState: 'visible', activeElement: null, body: {} };
+  class El {
+    constructor() { Object.assign(this, { children: [], parent: null, hidden: false, textContent: '', className: '', dataset: {}, attrs: {}, disabled: false, inserts: 0 }); }
+    setAttribute(k, v) { this.attrs[k] = v; }
+    append(...nodes) { for (const n of nodes) this.insertBefore(n, null); }
+    insertBefore(n, ref) {
+      if (n.parent) n.remove();
+      this.children.splice(ref ? this.children.indexOf(ref) : this.children.length, 0, n);
+      n.parent = this;
+      this.inserts += 1;
+    }
+    remove() { if (this.parent) { this.parent.children.splice(this.parent.children.indexOf(this), 1); this.parent = null; } }
+    focus() { document.activeElement = this; }
+  }
+  document.createElement = () => new El();
+  const els = new Map();
+  const $ = (id) => { if (!els.has(id)) els.set(id, new El()); return els.get(id); };
+  const on = {};
+  document.addEventListener = (type, fn) => { on[type] = fn; };
+  const window = { addEventListener: (type, fn) => { on[type] = fn; } };
+  const waiting = []; // reads not answered yet: { answer(value) }
+  let reads = 0;
+  const api = (method, route) => {
+    assert.deepEqual([method, route], ['GET', '/api/me/external-calendars']);
+    reads += 1;
+    return new Promise((resolve) => waiting.push({ answer: (v) => resolve(structuredClone(v)) }));
+  };
+  const page = new Function('$', 'api', 'document', 'window', 'word', 'timeAgo', 'environmentName', 'editingKey',
+    `let external = null; let externalBusy = false;\n${code}\nreturn { renderExternal, loadExternal, shown: () => external };`)($, api, document, window, (w) => w, (iso) => `at ${iso}`, 'Keep', null);
+  const settle = () => new Promise((r) => setTimeout(r, 0));
+  const list = $('external-list');
+  const rowOf = (id) => list.children.find((r) => r.dataset.id === id);
+  const stateOf = (id) => rowOf(id).children[0].children[2].textContent;
+  const cal = (id, readAt) => ({ id, name: `Cal ${id}`, host: 'calendar.example', readAt, error: null });
+
+  const first = page.loadExternal();
+  waiting.shift().answer({ allowed: true, why: null, calendars: [cal('a', '1'), cal('b', '1')] });
+  await first;
+  page.renderExternal(false);
+  const [rowA, rowB] = list.children;
+  assert.deepEqual([rowA.dataset.id, rowB.dataset.id], ['a', 'b']);
+  const statusA = rowA.children[2];
+  statusA.textContent = 'Reading…'; // a Refresh running on a
+  const refreshB = rowB.children[1].children[0];
+  assert.equal(refreshB.dataset.refresh, 'b');
+  refreshB.focus();
+  const inserts = list.inserts;
+
+  // Several times back on the page while a read is out: still one read.
+  on.visibilitychange();
+  on.visibilitychange();
+  on.pageshow({ persisted: true });
+  assert.equal(reads, 2, 'one read at a time');
+  waiting.shift().answer({ allowed: true, why: null, calendars: [cal('a', '1'), cal('b', '1')] });
+  await settle();
+  assert.ok(list.children[0] === rowA && list.children[1] === rowB && list.inserts === inserts, 'nothing changed: the same rows, not moved');
+  assert.equal(statusA.textContent, 'Reading…', 'a row\'s running status stays');
+  assert.ok(document.activeElement === refreshB && refreshB.parent && rowB.parent === list, 'focus stays on its button');
+
+  // Something changed: only that is written, and a new calendar gets a row of its own.
+  on.visibilitychange();
+  waiting.shift().answer({ allowed: true, why: null, calendars: [cal('a', '1'), cal('b', '2'), cal('c', null)] });
+  await settle();
+  assert.ok(list.children[0] === rowA && list.children[1] === rowB, 'the rows already there are kept');
+  assert.deepEqual([stateOf('b'), stateOf('c'), list.children.length], ['Read at 2', 'Not read yet', 3]);
+  assert.equal(document.activeElement, refreshB);
+
+  // Two reads out at once (the first one on loading, and another): the older answer, arriving last, is dropped.
+  const older = page.loadExternal();
+  const newer = page.loadExternal();
+  const [slow, fast] = [waiting.shift(), waiting.shift()];
+  fast.answer({ allowed: true, why: null, calendars: [cal('a', '3')] });
+  assert.equal(await newer, true);
+  slow.answer({ allowed: true, why: null, calendars: [cal('a', '1'), cal('b', '1'), cal('c', null)] });
+  assert.equal(await older, false, 'an older answer is not taken');
+  assert.deepEqual(page.shown().calendars.map((c) => c.id), ['a']);
+  page.renderExternal(false);
+  assert.deepEqual([list.children.length, list.children[0] === rowA, rowB.parent, stateOf('a')], [1, true, null, 'Read at 3'], 'gone rows removed, the rest kept');
+
+  // Turned off elsewhere: Refresh goes, focus on it moves to the row's Remove.
+  rowA.children[1].children[0].focus();
+  on.visibilitychange();
+  waiting.shift().answer({ allowed: false, why: 'Other calendars are off in Keep for now.', calendars: [cal('a', '3')] });
+  await settle();
+  assert.deepEqual([rowA.children[1].children.length, document.activeElement === rowA.children[1].children[0], document.activeElement.dataset.remove], [1, true, 'a']);
+  // A change made here (Add, Refresh, Remove) also makes a read in flight older.
+  assert.equal((js.match(/externalSeq \+= 1; \/\/ a read in flight is older than this/g) || []).length, 3, 'Add, Refresh and Remove each count as newer');
 });
 
 await test('pages: the SDK, the stream on the host page, the Calendar and the destination\'s filter', () => {

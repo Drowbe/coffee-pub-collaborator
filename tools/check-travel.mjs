@@ -13,7 +13,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' +
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'phaseLine', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives'];
+const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'phaseLine', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 // The SDK's own text and time helpers (host.util.plain and host.util.localWhen in public/sdk/host.js), which the plan is given.
 const sdkText = (() => {
@@ -1223,8 +1223,8 @@ test('a relative arrival: kept while there is no day, dated on one', () => {
   assert.equal(lib.cleanItem({ ...kept, arrives: '06:30+0' }).arrives, '06:30');
   // The editor: an undated journey's kept arrival is dated on the day picked, and one moved off its days is kept relative.
   const js = read('travel.js');
-  assert.ok(js.includes('arrival.value = datedArrives(day, ed.arrivesKept);'));
-  assert.ok(js.includes('ed.arrivesKept = relativeArrives(ed.dayWas, arrival.value);'));
+  assert.ok(js.includes('arrival.value = datedArrives(day, ed[l.kept]);'));
+  assert.ok(js.includes('ed[l.kept] = relativeArrives(was, arrival.value);'));
   assert.ok(js.includes(': v.date ? datedArrives(v.date, v.arrives) :'));
 });
 
@@ -1430,6 +1430,144 @@ test('the page: the ticket\'s arrival field, and objects dated outside the plan 
   const accept = manifest.actions.provides.find((a) => a.name === 'acceptSuggestion');
   assert.equal(accept.input.object, 'object?', 'older callers still send the flat fields');
   assert.deepEqual(accept.takes.flatMap((e) => e.kinds).sort(), ['bar', 'bus', 'cafe', 'car', 'event', 'ferry', 'flight', 'hotel', 'museum', 'note', 'restaurant', 'show', 'sight', 'tour', 'train']);
+});
+
+
+// --- the flight lookup (plan-flight-lookup.md, steps 6 to 8) -------------------------------------------------------------
+
+test('the flight lookup: a number cleans as the server cleans it', () => {
+  for (const [raw, want] of [['wn 2483', 'WN 2483'], ['WN2483', 'WN 2483'], ['U2 8123', 'U2 8123'], ['ba117', 'BA 117'], ['AAL 100A', 'AAL 100A']]) assert.equal(lib.flightNumberOf(raw), want, raw);
+  for (const raw of ['2483', 'Southwest 2483', 'WN 24835', '22 100', '', 'x'.repeat(41)]) assert.equal(lib.flightNumberOf(raw), null, raw);
+  assert.equal(lib.flightNumberOf(null), null);
+});
+
+test('the flight lookup: a saved flight sends its schedule part and nothing else', () => {
+  const saved = lib.cleanItem({ ...lib.objectFields(SOUTHWEST, util), id: 'sw', number: 'wn2483', title: 'Ana and Ben fly to San Jose', notes: 'Ana pays', cost: 312, paidBy: 'ana', owners: ['ana', 'ben'] });
+  const o = lib.flightObject(saved);
+  assert.deepEqual(o, { kind: 'flight', title: 'Flight WN 2483', date: '2026-11-14', details: { number: 'WN 2483', airline: 'Southwest', from: { code: 'MDW' }, to: { code: 'SJC' }, departs: '2026-11-14T12:50', arrives: '2026-11-14T15:25', minutes: 275, terminal: '1' } });
+  const sent = JSON.stringify(o);
+  for (const never of ['12A', 'B12', 'ABC123', 'Wanna Get Away', 'Ana', 'ana', '312', 'points', 'Chicago Midway', 'San Jose']) assert.equal(sent.includes(never), false, `${never} is not sent`);
+  // Not a flight, or no number that cleans: nothing to send.
+  assert.equal(lib.flightObject({ ...saved, mode: 'train' }), null);
+  assert.equal(lib.flightObject({ ...saved, number: '2483' }), null);
+  assert.equal(lib.flightObject(lib.cleanItem({ id: 's', kind: 'stop', title: 'Museum' })), null);
+  // Without a day it has no departure to send (the server keeps nothing then).
+  assert.equal(lib.flightObject({ ...saved, date: null }).details.departs, undefined);
+});
+
+test('the flight lookup: a found flight fills the schedule fields only', () => {
+  // As the server answers a lookup of WN 2483 on a later week (plan-flight-lookup.md, "The server").
+  const found = { kind: 'flight', title: 'Flight to San Jose', date: '2026-11-21', details: { airline: 'Southwest Airlines', number: 'WN 2483', from: { code: 'MDW', name: 'Chicago Midway' }, to: { code: 'SJC', name: 'San Jose' }, departs: '2026-11-21T12:50', arrives: '2026-11-21T15:25', minutes: 275, terminal: '1' } };
+  const got = lib.lookupFill(lib.objectFields(found, util));
+  assert.deepEqual(got, { date: '2026-11-21', time: '12:50', minutes: 275, arrives: '2026-11-21T15:25', operator: 'Southwest Airlines', number: 'WN 2483', fromCode: 'MDW', from: 'Chicago Midway', toCode: 'SJC', to: 'San Jose', terminal: '1' });
+  for (const never of ['title', 'seat', 'travelClass', 'confirm', 'cost', 'paidBy', 'owners', 'notes', 'gate']) assert.equal(never in got, false, `${never} is not filled`);
+  // A schedule with no terminal or airline leaves the form's own.
+  const bare = lib.lookupFill(lib.objectFields({ ...found, details: { ...found.details, terminal: undefined, airline: undefined } }, util));
+  assert.equal('terminal' in bare, false);
+  assert.equal('operator' in bare, false);
+  // Overnight: the ticket's arrival lands the next day.
+  const late = lib.lookupFill(lib.objectFields({ ...found, details: { ...found.details, departs: '2026-11-21T23:10', arrives: '2026-11-22T06:05' } }, util));
+  assert.equal(late.arrives, '2026-11-22T06:05');
+});
+
+test('the page: the lookup rows, their words, and remembering on Save', () => {
+  const html = read('travel.html');
+  const js = read('travel.js');
+  for (const pre of ['f-', 'f-back-']) {
+    for (const part of ['lookup', 'lookup-number', 'lookup-date', 'lookup-find', 'lookup-msg', 'lookup-list']) assert.ok(html.includes(`id="${pre}${part}"`), `${pre}${part}`);
+    assert.ok(html.includes(`<div class="lookup" id="${pre}lookup" data-types="flight" role="group" aria-labelledby="${pre}lookup-title" hidden>`), `${pre}lookup is a flight's only, hidden until offered`);
+    assert.ok(html.includes(`<p class="hint lookup-msg" id="${pre}lookup-msg" role="status" aria-live="polite"></p>`), 'its message is read out');
+  }
+  assert.ok(html.indexOf('id="f-lookup"') > html.indexOf('id="tpl-editor2"') && html.indexOf('id="f-lookup"') < html.indexOf('id="f-title"', html.indexOf('id="tpl-editor2"')), 'the row is at the top of the flight form');
+  assert.ok(html.indexOf('id="f-back-lookup"') > html.indexOf('id="f-return"'), 'the return leg has its own row');
+  assert.ok(html.includes('placeholder="WN 2483"') && html.includes('>Flight number<') && html.includes('>Day it leaves<') && html.includes('>Find</button>'));
+  assert.ok(html.includes('id="tpl-lookup-choice"'));
+  for (const words of ['Enter the airline code and number, like WN 2483.', 'Choose the day it leaves.', 'saved here yet. Fill it in, and it will be suggested next time.', "Flight lookup isn't working right now. Fill it in by hand.", 'Filled in from a flight saved here before. Check it against your booking.', 'Which one?', 'flies on this day of the week', 'last seen ']) assert.ok(html.includes(words) || js.includes(words), words);
+  assert.ok(js.includes('rememberFlights(fields, back);'), 'Save remembers both legs');
+  assert.ok(js.includes("host.lookup.available('flight')"), 'the row follows the setting');
+  assert.ok(js.includes('host.lookup.airport(code)'), 'a typed code fills its name');
+  const css = read('travel-lib-editor.css');
+  assert.ok(css.includes('.editor-card .lookup.on-type { display: flex; }'), 'the row shows only for a flight');
+  assert.equal(/#[0-9a-f]{3,8}\b|rgb\(/i.test(css.slice(css.indexOf('/* the flight lookup'))), false, 'its colours are the theme\'s');
+});
+
+test('the flight lookup (QA M9): only what the server keeps is sent, and the comment says so', () => {
+  const o = lib.flightObject(lib.cleanItem({ id: 'k', kind: 'journey', mode: 'flight', title: 'Home', date: '2026-11-14', time: '07:00', number: 'WN 2484', fromCode: 'sjc', toCode: 'MDW', from: 'My airport', to: 'Midway, near home', operator: 'Southwest' }));
+  assert.deepEqual(o.details.from, { code: 'SJC' });
+  assert.deepEqual(o.details.to, { code: 'MDW' });
+  assert.equal(JSON.stringify(o).includes('near home'), false, 'typed airport names stay on the page');
+  assert.equal(o.details.airline, 'Southwest', 'the airline as typed is kept by the server, so it is sent');
+  assert.equal(read('travel-lib-object.js').includes('Nothing else leaves the page'), false);
+});
+
+test('the flight lookup (QA M6): a flight number is saved cleaned, anything else as typed', () => {
+  assert.equal(lib.numberToSave('flight', 'wn 2483'), 'WN 2483');
+  assert.equal(lib.numberToSave('flight', 'ba117'), 'BA 117');
+  assert.equal(lib.numberToSave('flight', 'Southwest 2483'), 'Southwest 2483', 'one that does not clean is kept as typed');
+  assert.equal(lib.numberToSave('flight', ''), '');
+  assert.equal(lib.numberToSave('train', 'ice 123'), 'ice 123', 'a train keeps its number as typed');
+  const js = read('travel.js');
+  assert.ok(js.includes('fields.number = numberToSave(fields.mode, fields.number);'), 'the outbound');
+  assert.ok(js.includes("number: numberToSave(out.mode, get('f-back-number')),"), 'the return');
+});
+
+test('the flight lookup (QA M5): a second lookup replaces what the first filled, and never what the person typed', () => {
+  const first = { date: '2026-11-14', time: '12:50', minutes: 275, arrives: '2026-11-14T15:25', operator: 'Southwest Airlines', number: 'WN 2483', fromCode: 'MDW', from: 'Chicago Midway', toCode: 'SJC', to: 'San Jose', terminal: '1', title: 'Flight to San Jose' };
+  const a = lib.lookupApply(first, {}, { title: '', terminal: '', number: 'wn2483' });
+  assert.deepEqual(a.set, first, 'the first fills everything, the empty title too');
+  assert.deepEqual(a.filled, first);
+  // The second answer has no terminal and another title: the lookup's own terminal is emptied and its title replaced.
+  const second = { ...first, number: 'WN 1999', toCode: 'OAK', to: 'Oakland', title: 'Flight to Oakland' };
+  delete second.terminal;
+  const b = lib.lookupApply(second, a.filled, { ...first });
+  assert.equal(b.set.title, 'Flight to Oakland');
+  assert.equal(b.set.terminal, '');
+  assert.equal('terminal' in b.filled, false);
+  assert.equal(b.filled.toCode, 'OAK');
+  // The person typed over the title and the terminal after the first lookup: both are left as they are.
+  const c = lib.lookupApply(second, a.filled, { ...first, title: 'Ana flies home', terminal: 'B' });
+  assert.equal('title' in c.set, false, 'a typed title is kept');
+  assert.equal('terminal' in c.set, false, 'a typed terminal is kept');
+  assert.equal('title' in c.filled, false);
+  // A title typed before any lookup is never replaced.
+  assert.equal('title' in lib.lookupApply(first, {}, { title: 'Our flight' }).set, false);
+  // A lookup with no title to offer (the return leg) leaves the earlier one's.
+  const { title, ...noTitle } = second;
+  assert.equal('title' in lib.lookupApply(noTitle, {}, { title: 'Flight to San Jose' }).set, false);
+  const js = read('travel.js');
+  assert.ok(js.includes('const { set, filled } = lookupApply(got, ed.lookupFilled[leg], now);'));
+});
+
+test('the flight lookup (QA S2): the return leg has its own arrival on the ticket, stored as the outbound\'s', () => {
+  const html = read('travel.html');
+  const js = read('travel.js');
+  assert.ok(html.includes('<div class="editor-row" data-types="flight train ferry bus"><label>Arrival on the ticket<input id="f-back-arrival" name="backArrives" type="datetime-local"></label></div>'));
+  assert.ok(html.indexOf('id="f-back-arrival"') > html.indexOf('id="f-return"'), 'inside the return leg');
+  assert.ok(js.includes("arrives: get('f-back-arrival') || (shown('f-back-arrival') && state.editing && state.editing.backArrivesKept) || null,"), 'stored as arrives, as the outbound\'s');
+  assert.ok(js.includes("if (back && back.arrives && !arrivalFits(back.date, back.time, back.arrives)) return fail(\"The return's arrival on the ticket can be at most 7 days after it leaves, and at most a day before.\");"), 'the same 7-day and 1-day limit');
+  assert.ok(js.includes("arrival: 'f-back-arrival', kept: 'backArrivesKept', was: 'backDayWas'"), 'the lookup fills it, and it follows the return\'s day');
+  assert.ok(js.includes("e.target.id === 'f-back-date' ? 'back'"), 'a change of the return\'s day moves it');
+  // WN 2484 as the lookup answers it: SJC 07:00 to MDW 13:05 local, 245 minutes in the air. The return keeps the ticket's arrival.
+  const found = { kind: 'flight', title: 'Flight to Chicago', date: '2026-11-21', details: { airline: 'Southwest Airlines', number: 'WN 2484', from: { code: 'SJC', name: 'San Jose' }, to: { code: 'MDW', name: 'Chicago Midway' }, departs: '2026-11-21T07:00', arrives: '2026-11-21T13:05', minutes: 245 } };
+  const got = lib.lookupFill(lib.objectFields(found, util));
+  assert.equal(got.arrives, '2026-11-21T13:05');
+  const out = lib.cleanItem({ id: 'o', kind: 'journey', mode: 'flight', title: 'Flight to San Jose', date: '2026-11-14', time: '12:50', minutes: 275, arrives: '2026-11-14T15:25' });
+  const back = lib.cleanItem({ id: 'r', kind: 'journey', mode: 'flight', title: 'Flight to Chicago', legOf: 'o', date: got.date, time: got.time, minutes: got.minutes, arrives: got.arrives, number: got.number, fromCode: got.fromCode, toCode: got.toCode });
+  assert.equal(back.arrives, '2026-11-21T13:05', 'a return keeps its arrival as the outbound does');
+  assert.equal(back.legOf, 'o');
+  assert.deepEqual(lib.arrivalOf(back), { day: '2026-11-21', time: '13:05', days: 0, ticket: true }, 'its card shows 13:05, not 07:00 plus the flight time');
+  assert.ok(out.arrives);
+  // The same limit as the outbound: 8 days after is too late, a day before (across the date line) is fine.
+  assert.equal(lib.arrivalFits('2026-11-21', '07:00', '2026-11-29T13:05'), false);
+  assert.equal(lib.arrivalFits('2026-11-21', '07:00', '2026-11-20T13:05'), true);
+  // An older return, saved before it had the field, still cleans the same.
+  assert.equal(lib.cleanItem({ id: 'r', kind: 'journey', mode: 'flight', title: 'Flight to Chicago', legOf: 'o', date: '2026-11-21', time: '07:00', minutes: 245 }).arrives, null);
+});
+
+test('the flight lookup (QA M7): a four-letter ICAO code is looked up and shows as its IATA code', () => {
+  const js = read('travel.js');
+  assert.ok(js.includes('const icao = /^[A-Z0-9]{4}$/.test(code);'));
+  assert.ok(js.includes('if (icao && /^[A-Z]{3}$/.test(airport.code || \'\')) codeInput.value = airport.code;'));
 });
 
 console.log(`check-travel: OK (${n} checks)`);

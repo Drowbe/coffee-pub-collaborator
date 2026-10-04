@@ -6,6 +6,7 @@ import { wireRegionCut } from '/region-cut.js';
 import { mountEnrolment, mountDisable } from '/mfa-enrol.js';
 import { renderOffer, switchQuestion } from '/template-offer.js';
 import { initTemplates } from '/host-templates.js';
+import { wireFlightSchedule } from '/flight-schedule.js';
 
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -53,7 +54,10 @@ async function load() {
   renderPlans();
   await loadAiServices();
   await loadShared();
+  await flightSchedule.load();
 }
+// The flight schedule every environment shares (plan-flight-lookup.md, step 5), on the Host tab.
+const flightSchedule = wireFlightSchedule('/api/host/flight-schedule');
 
 // --- the managed AI services: one row per company ---------------------------------------------------------------
 // GET /api/host/ai lists every company with whether it is offered (a key, or an address for Other, and a model); a row

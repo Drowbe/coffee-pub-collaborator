@@ -144,23 +144,29 @@ work the same way; see "Set a picture" in [Participant and Character Images](use
 
 ## Your calendar in a calendar app
 
-When an owner has turned on **Calendar feeds** (Manage, "Calendar apps"), members and owners can add the events
+When an owner has turned on **Private addresses** (on the Calendar's configuration page; see "Calendar sharing (owner)"
+in [Calendar](userguide-calendar.md)), members and owners can add the events
 they can see to Google Calendar, Apple Calendar or Outlook through a private address. It is one way: changes in
 the calendar app don't come back.
 
-1. Open your profile. **Calendar feed** is after **Call Settings**. It shows when feeds are on and there are events
+1. Open your profile. **Calendar feed** is after **Call Settings**. It shows when private addresses are on and there are events
    you can see, or while you still have an address.
 2. Choose **Make an address**. The address is shown once, with **Copy**. Anyone with the address can see your
    events, so keep it private.
 3. Add it to your calendar app:
-   - Google Calendar: choose **Other calendars**, then **From URL**, and paste it. Google Calendar reads the address on
-     its own schedule, often every 8 to 24 hours, so new events, changes and deletions show there later. Apple
-     Calendar is usually quicker.
+   - Google Calendar: choose **Other calendars**, then **From URL**, and paste it. The section says "Google can take 8
+     to 24 hours to show a change.": Google reads the address on its own schedule, so new events, changes and
+     deletions show there later. Apple Calendar is usually quicker.
    - Apple Calendar on a Mac: **File**, then **New Calendar Subscription**. On an iPhone: **Settings**, **Calendar**,
      **Accounts**, **Add Account**, **Other**, **Add Subscribed Calendar**.
 
 Afterwards the section reads "On, made <date>. Last read <time ago>." (the time can lag by up to an hour).
 **New address** replaces it, so the old one stops working; **Turn off** stops it. Both ask first.
+
+If an owner turns **Private addresses** off while you have an address, the section reads "Private addresses are off in
+<environment> for now, so this address does not work." with when it was last read. The address is kept, and works again
+when the owner turns the switch back on. The section reads its state again whenever you come back to the page, so a
+change an owner makes (in another tab, or in this one before going back) shows without a reload.
 
 The feed holds the environment's events and those of the spaces you belong to, as you may see them each time it is
 read; events more than 90 days past are left out. Repeating events repeat, a Planner object with a date appears
@@ -172,8 +178,8 @@ shows "Calendar feed · on/off · last read … · Turn off". You never see anyo
 ## Your other calendars in Collaborator
 
 The other way round: show events from your own Google, Apple or other calendar in the Calendar, for you alone. It is
-in your profile under **Calendar feed**, as **Other calendars**, while the owner has **Calendar feeds** on and the
-Calendar can show them. Members and owners have it; guests don't.
+in your profile under **Calendar feed**, as **Other calendars**, while the owner has **Other calendars and busy
+times** on (on the Calendar's configuration page) and the Calendar can show them. Members and owners have it; guests don't.
 
 1. Find your calendar's private address. In Google Calendar: open **Settings**, pick the calendar, choose
    **Integrate calendar**, and copy the **Secret address in iCal format**. A `webcal://` address works too.
@@ -185,9 +191,22 @@ You can add up to five. Each row shows its name, its host and "Read <time ago>" 
 **Refresh** (once a minute; sooner, the row says to try again in a minute) and **Remove** (which asks first). A calendar too complex to read is refused with "The calendar is too complex to read." The address is never shown again. They are read
 again every 30 minutes.
 
-When other calendars can't be used, the section says why: **Calendar feeds** are off, or the Calendar needs to be
-approved, turned on, updated or installed in Manage > **Modules**. An owner is told to do it; anyone else is told
-their owner needs to. Calendars you already added stay listed with **Remove**.
+When other calendars can't be used, the section says why, and what to do:
+
+- **Other calendars and busy times** is off: "Other calendars are off in <environment>.", then where to turn it on
+  (Manage > **Modules**, in the Calendar's configuration).
+- The Calendar needs to be approved, turned on, updated or installed in Manage > **Modules**. When it needs to be
+  installed, updated or approved and the switch is also off, the section names that step first, then the switch,
+  since the switch can't be turned on until the step is done.
+- The Calendar can't run: it was built for an older version of Collaborator and needs an update (from a newer copy on
+  this server, or from its author), or a module it needs is off or needs an update itself.
+
+An owner is told to do it; anyone else is told their owner needs to. Calendars you already added stay listed with
+**Remove**. If your calendars can't be loaded at all, the section says "Your other calendars could not be loaded", with the reason (such as "the server didn't answer"), and asks you to reload the page.
+
+The section reads its state again whenever you come back to the page, so after an owner approves or turns on the
+Calendar in Manage (in another tab, or in this one before going back), the form appears without a reload. Your
+calendars keep their rows, and the button you were on keeps its place, while it does.
 
 ## Light or dark
 

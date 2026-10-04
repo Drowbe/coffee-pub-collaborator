@@ -3,7 +3,7 @@
 **Audience:** Thomas decides; server-development builds the airport list, the saved schedule and the route,
 experience-design builds the SDK call and the Planner's form, quality-assurance checks it, content-manager documents it.
 
-**Status:** Approved by Thomas, 2026-10-04, after two rounds of answers (decisions below). Nothing built. From GitHub
+**Status:** Approved by Thomas, 2026-10-04, after two rounds of answers (decisions below). Built 2026-10-04, steps 1 to 8, and documented (step 9); see "Built" below. From GitHub
 issue #188. Thomas,
 2026-10-04: "Would it be possible to use fetch or something to pull flight info? Like enter a flight number and get flight
 details (with a choose date) if possible?" The issue adds: fill in "airline, airports, scheduled times, terminal and gate
@@ -381,6 +381,26 @@ The words a person reads:
 | Nothing known | "No flight WN 2483 saved here yet. Fill it in, and it will be suggested next time." |
 | Too many at once | the existing `limitMessage()`, with the template's word for module |
 | The server failed | "Flight lookup isn't working right now. Fill it in by hand." |
+
+## Built
+
+**Built 2026-10-04,** steps 1 to 8, as the contract above, with the Planner at 0.13.2 (was 0.12.0; 0.13.1 was the build, 0.13.2 the fixes from quality-assurance's notes, below). Documented (step 9) in [api-module-sdk](../api/api-module-sdk.md) ("Flight lookup"), [api-modules](../api/api-modules.md) (the manifest's `lookups`, "Flight lookup"), [architecture-modules](../architecture/architecture-modules.md) ("Flight lookup"), [architecture-environments](../architecture/architecture-environments.md) (the host's file, the migration, the host route), [userguide-planner](../userguides/userguide-planner.md) ("Look up a flight", the setting, and the line pointing to **Bring in research** for a flight nobody has saved yet), [userguide-modules](../userguides/userguide-modules.md) ("The flight schedule", for the admin page and the host console), [userguide-getting-started](../userguides/userguide-getting-started.md) (not in an environment's backup), the README's credits and the CHANGELOG.
+
+- **Where the build differs from the contract,** for the record:
+  - `findFlights({ number, date, schedule })` takes no `airports`; it reads `server/airports.js` itself.
+  - `airport(code)` and `GET .../flight-lookup?code=` take an ICAO code (`KMDW`) as well as an IATA code. The Planner only sends three-letter codes.
+  - The `code` lookup counts against the module's `search` limit, like a flight lookup. The call with no number, date or code (whether the lookup is offered) counts against nothing.
+  - `POST .../remember` answers 429 over the module's `write` limit, and the module's usual access refusals, besides 204.
+  - The return leg's row is headed **Look up the return flight**. It fills the return's day, time, flight time, number, both airports and, since 0.13.2, the return's own **Arrival on the ticket** (`f-back-arrival`, with the outbound's limit and its own refusal, "The return's arrival on the ticket can be at most 7 days after it leaves, and at most a day before."); the return has no airline or terminal field to fill.
+  - The Planner remembers a saved flight only while the lookup is offered (the setting on), so with it off nothing is sent at all, not only nothing kept. What it sends holds the airport codes without their typed names.
+  - The setting is one choice for the whole environment: if any installed module that declares the lookup has `suggestFlights` off, the environment neither suggests nor keeps flights through any module.
+  - A second lookup replaces what an earlier lookup filled, and empties a lookup-filled terminal when the new schedule has none; it never touches what the person typed (`lookupApply()` in `travel-lib-object.js`). The stored number is the cleaned form, and one that doesn't clean is stored as typed (`numberToSave()`). A four-letter ICAO code fills the name and the code box then shows the IATA code.
+  - The schedule keeps a save only if it departs no more than 400 days ahead and no more than 3 years back; when the file is read, a `lastSeen` too far ahead is clamped and one too old is dropped. An older save only adds its weekday. A file that is not a schedule is moved aside as `flight-schedule.json.bad-<time>` (mode 600); one over 40 MB is read-only until **Clear all** replaces it, and a failed replacement answers 500 "The flight schedule could not be cleared; the server log says why.". The not-found sentence for forgetting a number reads "No flight BA 117 is saved on this server." (the number as shown).
+  - While it asks, the row says "Looking...".
+  - `tools/build-airports.mjs` pins one commit of mwgg/Airports and checks its SHA-256; `--from <dir>` builds from a downloaded copy. The list has 7,918 airports.
+  - The admin's section on a single install is on Manage's **Modules** tab; on a hosted server, on the host console's **Host** tab.
+- **A gap older than this work, now closed:** the return leg had no **Arrival on the ticket**, so a return across time zones showed the right flight time but the wrong arrival. It was recorded in known-issues and is fixed in Planner 0.13.2.
+- **Verified:** live by the builders in Chromium, on a single-environment and a hosted install, the fixes included. Checked by tool: `tools/check-flight-lookup.mjs` (37 checks, added to `npm run check`) and `tools/check-travel.mjs` (92 checks). Not checked: Firefox, Safari, a real screen reader, and how often real lookups find anything. Quality-assurance, 2026-10-04: passed with notes; the notes are the fixes listed above, and the builders verified them live in Chromium, the server's by `check-flight-lookup`.
 
 ## Left to build, in order
 

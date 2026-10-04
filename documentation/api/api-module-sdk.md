@@ -138,7 +138,7 @@ const { calendars, events } = await host.external.events({ from: '2026-10-01', t
 host.on('external', () => { /* a calendar was read again: ask again */ });
 ```
 
-They are read only, and only for the person looking: never store them, show them in a space, or send them anywhere. A guest, a keyed page, or an environment with calendar feeds off gets none. The Calendar draws them muted, with a tag naming the calendar. On the Calendar destination the page's state also carries `externalOff`, the ids of the other calendars the filter has off.
+They are read only, and only for the person looking: never store them, show them in a space, or send them anywhere. A guest, a keyed page, or an environment with other calendars off (`settings.otherCalendars`, which follows `calendarFeeds` until set; see [api-modules](api-modules.md), "Calendar feeds") gets none. The Calendar draws them muted, with a tag naming the calendar. On the Calendar destination the page's state also carries `externalOff`, the ids of the other calendars the filter has off.
 
 ### Objects: pointing at another module's objects
 
@@ -336,6 +336,23 @@ await host.geocode.used(results[0].key);     // the person picked it: the server
 ```
 
 The server looks in the places it has saved first, and asks the service the owner chose only when fewer than five match; the answers are saved if the owner allows it. Searches count against the module's rate limit.
+
+### Flight lookup
+
+A module whose manifest declares `"lookups": ["flight"]` (see [api-modules](api-modules.md), "Flight lookup") may ask the server for flights it has learned from flights saved before on this server, and for an airport by its code. Nothing outside the server is asked. The Planner uses it for **Look up a flight**.
+
+```js
+const on = await host.lookup.available('flight');               // true or false
+const { flights } = await host.lookup.flight('WN 2483', '2026-11-14');
+// flights: [{ object, line, sameWeekday, lastSeen }], best first; [] when nothing is known
+const airport = await host.lookup.airport('MDW');               // { code, name, city, tz } or null
+host.lookup.remember('flight', savedFlight);                    // a saved flight, in the objects format
+```
+
+- `available('flight')` answers `false` when the environment turned the module's suggestions off (the Planner's **Suggest flights from earlier trips**), for any other kind, and on any failure. It never throws.
+- `flight(number, date)` answers `{ flights }`. Each `object` is a flight in the objects format, ready for the module's own form; `line` reads like "MDW 12:50 to SJC 15:25"; `sameWeekday` is true when it was seen flying on that day of the week; `lastSeen` is a month, `YYYY-MM`. It throws with the server's error: `bad number`, `bad date` (an empty number or date throws these without asking), or the rate limit's sentence (`status` 429). With the suggestions off it answers `{ flights: [] }`.
+- `airport(code)` answers `null` for an empty code or one the airport list doesn't have. It works with the suggestions off. Other failures, such as the rate limit, throw.
+- `remember('flight', object)` teaches the server's schedule a flight the person saved. Send only the schedule part (the server drops anything else). It never throws and answers nothing; whether anything was kept is not said.
 
 ### Asking in Chat
 

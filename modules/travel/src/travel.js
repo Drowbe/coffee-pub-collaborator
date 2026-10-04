@@ -52,6 +52,7 @@
     deleteArmed: null,
     expanded: new Set(), // item ids whose card's "More" is open
     markerTypes: [],
+    flightLookup: false, // the server offers the flight lookup here (host.lookup.available)
     hideEmpty: (() => { try { return localStorage.getItem('planner-hide-empty') === '1'; } catch (err) { return false; } })(), // per person, off by default
   };
   const nameOf = (key) => (state.people.find((p) => p.key === key) || {}).name || 'Someone';
@@ -1460,6 +1461,7 @@
     // The ticket's own arrival says it already.
     if ($('f-arrives') && $('f-arrival') && $('f-arrival').value) $('f-arrives').hidden = true;
     arrivalInto('f-back-arrives', 'f-back-time', 'f-back-hours', 'f-back-minutes');
+    if ($('f-back-arrives') && $('f-back-arrival') && $('f-back-arrival').value) $('f-back-arrives').hidden = true;
   }
   function arrivalInto(outId, timeId, hoursId, minutesId) {
     const out = $(outId);
@@ -1525,6 +1527,7 @@
     for (const [name, id] of [['date', 'f-date-label'], ['time', 'f-time-label'], ['length', 'f-minutes-label'], ['operator', 'f-operator-label'], ['number', 'f-number-label'], ['from', 'f-from-label'], ['to', 'f-to-label'], ['time', 'f-back-time-label'], ['length', 'f-back-minutes-label'], ['number', 'f-back-number-label'], ['from', 'f-back-from-label'], ['to', 'f-back-to-label']]) if ($(id)) $(id).textContent = labels[name];
     roundTripShown();
     showArrival();
+    if (key === 'flight') seedLookup('out');
     for (const b of $('form').querySelectorAll('.tile')) b.classList.toggle('on', b.dataset.type === tile);
     $('f-title').placeholder = key === 'block' ? markerType(tile.slice(6)).label : key === 'lane' ? markerType(tile.slice(5)).label : TITLES[tile] || '';
   }
@@ -1620,6 +1623,9 @@
       for (const b of $('f-travelMode').querySelectorAll('.mode')) b.classList.toggle('on', b.dataset.mode === v.travelMode);
       setLength('f-travelHours', 'f-travelMinutes', v.travelMinutes);
       openReturn(item);
+      showLookups();
+      seedLookup('out');
+      seedLookup('back');
       showArrival();
       $('f-by').textContent = item && item.by ? `Added by ${item.by}` : '';
     }
@@ -1704,6 +1710,7 @@
     ed.backId = back ? back.id : null;
     ed.backVersion = back ? plan.versionOf(back.id) : null;
     ed.removeReturn = false;
+    ed.backArrivesKept = null;
     placeOptions($('f-back-date'));
     $('f-roundtrip').checked = Boolean(back);
     if (back) {
@@ -1712,7 +1719,12 @@
       $('f-back-time').value = back.time || '';
       setLength('f-back-hours', 'f-back-minutes', back.minutes);
       for (const f of ['number', 'fromCode', 'toCode', 'from', 'to', 'seat']) setVal(`f-back-${f}`, back[f]);
+      // The return's arrival on the ticket, as the outbound's: one kept relative to its day shows once it has one.
+      const ticket = back.arrives ? (back.arrives.length === 16 ? back.arrives : back.date ? datedArrives(back.date, back.arrives) : '') : '';
+      setVal('f-back-arrival', ticket);
+      ed.backArrivesKept = back.arrives && !ticket ? back.arrives : null;
     }
+    ed.backDayWas = parsePlace($('f-back-date').value).date; // a change of the return's day moves its arrival along
     const extra = item ? plan.extraReturns(item.id) : [];
     hide($('f-extra'), !extra.length);
     roundTripShown();
@@ -1733,7 +1745,9 @@
         const { date } = parsePlace($('f-date').value);
         const last = days[days.length - 1];
         $('f-back-date').value = placeValue({ date: date && last && date > last ? date : last || date });
+        ed.backDayWas = parsePlace($('f-back-date').value).date;
       }
+      seedLookup('back');
       return roundTripShown();
     }
     if (!ed.backId) return roundTripShown();
@@ -1760,7 +1774,8 @@
       ...placeFields(parsePlace($('f-back-date').value)),
       time: $('f-back-time').value || null,
       minutes: lengthOf('f-back-hours', 'f-back-minutes'),
-      number: get('f-back-number'),
+      arrives: get('f-back-arrival') || (shown('f-back-arrival') && state.editing && state.editing.backArrivesKept) || null,
+      number: numberToSave(out.mode, get('f-back-number')),
       seat: get('f-back-seat'),
       fromCode: get('f-back-fromCode'),
       toCode: get('f-back-toCode'),
@@ -1775,6 +1790,176 @@
   const changes = (item, patch) => JSON.stringify(cleanItem({ ...item, ...patch, id: item.id })) !== JSON.stringify(item);
   const closeEditor = () => { $('editor').hidden = true; $('editor').replaceChildren(); state.editing = null; };
   root.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (!$('editor').hidden) closeEditor(); else closeMenu(); } });
+
+  // --- the flight lookup (plan-flight-lookup.md) -----------------------------------------------------------------------
+  // A row at the top of a flight (and one in its return leg): a number, a day and Find. The server answers from the flights
+  // saved on it before; one found fills the form at once, several give a list to choose from. Shown only while the server offers
+  // it (host.lookup.available: the environment's Suggest flights from earlier trips setting).
+  const LEGS = {
+    out: { pre: 'f-', date: 'f-date', time: 'f-time', hours: 'f-hours', minutes: 'f-minutes', number: 'f-number', fromCode: 'f-fromCode', from: 'f-from', toCode: 'f-toCode', to: 'f-to', operator: 'f-operator', terminal: 'f-terminal', arrival: 'f-arrival', title: 'f-title', kept: 'arrivesKept', was: 'dayWas' },
+    back: { pre: 'f-back-', date: 'f-back-date', time: 'f-back-time', hours: 'f-back-hours', minutes: 'f-back-minutes', number: 'f-back-number', fromCode: 'f-back-fromCode', from: 'f-back-from', toCode: 'f-back-toCode', to: 'f-back-to', arrival: 'f-back-arrival', kept: 'backArrivesKept', was: 'backDayWas' },
+  };
+  const lookupEl = (leg, part) => $(`${LEGS[leg].pre}lookup${part ? `-${part}` : ''}`);
+  const legOfLookup = (el) => { const row = el && el.closest('.lookup'); return row ? (row.id === 'f-back-lookup' ? 'back' : 'out') : null; };
+  // Show or hide both rows as the server offers the lookup or not.
+  function showLookups() {
+    for (const leg of Object.keys(LEGS)) { const row = lookupEl(leg); if (row) row.hidden = !state.flightLookup; }
+  }
+  // The row starts from the form's own number and day, when it has them and the row is still empty.
+  function seedLookup(leg) {
+    const l = LEGS[leg];
+    const number = lookupEl(leg, 'number');
+    const date = lookupEl(leg, 'date');
+    if (!number || !date || !$(l.number) || !$(l.date)) return;
+    if (!number.value) number.value = $(l.number).value.trim();
+    if (!date.value) date.value = parsePlace($(l.date).value).date || '';
+  }
+  function lookupSay(leg, text, bad) {
+    const msg = lookupEl(leg, 'msg');
+    if (!msg) return;
+    msg.textContent = text || '';
+    msg.classList.toggle('bad', Boolean(bad));
+  }
+  function closeLookupList(leg) {
+    const list = lookupEl(leg, 'list');
+    if (!list) return;
+    list.hidden = true;
+    list.querySelector('.lookup-choices').replaceChildren();
+  }
+  // Whether the server offers the lookup here (the environment's setting), asked at the start and on a change of settings.
+  function checkFlightLookup() {
+    if (!canEdit || !host.lookup) return;
+    host.lookup.available('flight').then((on) => { state.flightLookup = on; showLookups(); });
+  }
+  const lookupFound = {}; // the flights the last Find answered, by leg: { out: [...], back: [...] }
+  // "flies on this day of the week", or the month it was last seen ("last seen Oct 2026").
+  function lookupWhen(entry) {
+    if (entry.sameWeekday) return 'flies on this day of the week';
+    const m = /^(\d{4})-(\d{2})/.exec(String(entry.lastSeen || ''));
+    return m ? `last seen ${new Date(+m[1], +m[2] - 1, 1).toLocaleDateString([], { month: 'short', year: 'numeric' })}` : '';
+  }
+  async function findFlight(leg) {
+    const numberInput = lookupEl(leg, 'number');
+    const dateInput = lookupEl(leg, 'date');
+    const find = lookupEl(leg, 'find');
+    if (!numberInput || !state.editing || find.disabled) return;
+    closeLookupList(leg);
+    const number = flightNumberOf(numberInput.value);
+    if (!number) { lookupSay(leg, 'Enter the airline code and number, like WN 2483.', true); return numberInput.focus(); }
+    if (!dateInput.value) { lookupSay(leg, 'Choose the day it leaves.', true); return dateInput.focus(); }
+    find.disabled = true;
+    lookupEl(leg).setAttribute('aria-busy', 'true');
+    lookupSay(leg, 'Looking...');
+    let flights;
+    try {
+      flights = ((await host.lookup.flight(number, dateInput.value)) || {}).flights || [];
+    } catch (err) {
+      const said = err && err.message;
+      if (said === 'bad number') lookupSay(leg, 'Enter the airline code and number, like WN 2483.', true);
+      else if (said === 'bad date') lookupSay(leg, 'Choose the day it leaves.', true);
+      else if (err && err.status === 429) lookupSay(leg, said, true); // the server's own sentence, with the template's word for module
+      else lookupSay(leg, "Flight lookup isn't working right now. Fill it in by hand.", true);
+      return;
+    } finally {
+      if (find.isConnected) { find.disabled = false; lookupEl(leg).removeAttribute('aria-busy'); }
+    }
+    if (!find.isConnected) return; // the editor closed meanwhile
+    if (!flights.length) return lookupSay(leg, `No flight ${number} saved here yet. Fill it in, and it will be suggested next time.`);
+    if (flights.length === 1) return fillFromLookup(leg, flights[0]);
+    lookupSay(leg, '');
+    lookupFound[leg] = flights;
+    const list = lookupEl(leg, 'list');
+    const ul = list.querySelector('.lookup-choices');
+    ul.replaceChildren(...flights.map((f, i) => {
+      const li = clone('tpl-lookup-choice');
+      fill(li, { line: f.line || '', when: lookupWhen(f) });
+      const b = li.querySelector('button');
+      b.dataset.index = String(i);
+      b.setAttribute('aria-label', [f.line, lookupWhen(f)].filter(Boolean).join(', ')); // read as one sentence, not "15:25flies"
+      return li;
+    }));
+    list.hidden = false;
+    const first = ul.querySelector('button');
+    if (first) first.focus();
+  }
+  // Fill the leg from a found flight: the schedule's fields only (decision 4), the title only when it is empty. Nothing is saved
+  // until Save.
+  function fillFromLookup(leg, entry) {
+    const ed = state.editing;
+    if (!ed || !entry || !entry.object) return;
+    let fields;
+    try { fields = objectFields(entry.object, host.util); } catch (err) { return lookupSay(leg, "Flight lookup isn't working right now. Fill it in by hand.", true); }
+    const got = lookupFill(fields);
+    if (got.arrives && got.arrives.length !== 16) delete got.arrives; // the server always dates it; anything else is left out
+    const l = LEGS[leg];
+    if (leg === 'out' && fields.title) got.title = fields.title; // the return's title follows its own placeholder
+    // What the form holds now, by lookupFill's names, so a value an earlier lookup filled can be told from one the person typed.
+    const KEYS = ['number', 'fromCode', 'from', 'toCode', 'to', 'operator', 'terminal', 'title'];
+    const now = { date: parsePlace($(l.date).value).date || '', time: $(l.time).value, minutes: lengthOf(l.hours, l.minutes) ?? '', arrives: $(l.arrival).value };
+    for (const f of KEYS) if (l[f]) now[f] = $(l[f]).value;
+    ed.lookupFilled = ed.lookupFilled || {};
+    const { set, filled } = lookupApply(got, ed.lookupFilled[leg], now);
+    ed.lookupFilled[leg] = filled;
+    if (set.date) {
+      setPlaceMenu($(l.date), { date: set.date });
+      if (leg === 'out') { checkoutMin(); syncPhaseField(); }
+    }
+    if (set.date || set.arrives !== undefined) { ed[l.was] = parsePlace($(l.date).value).date; ed[l.kept] = null; }
+    if (set.time !== undefined) $(l.time).value = set.time;
+    if (set.minutes !== undefined) setLength(l.hours, l.minutes, set.minutes || null);
+    if (set.arrives !== undefined) $(l.arrival).value = set.arrives;
+    for (const f of KEYS) if (l[f] && set[f] !== undefined) setVal(l[f], set[f]);
+    showArrival();
+    if ($('f-back-title')) $('f-back-title').placeholder = backTitle();
+    closeLookupList(leg);
+    lookupSay(leg, 'Filled in from a flight saved here before. Check it against your booking.');
+  }
+  // After a flight is saved, its schedule part (and its return's) goes to the server's schedule. Never in the way of a save.
+  function rememberFlights(...legs) {
+    if (!state.flightLookup || !host.lookup) return;
+    for (const leg of legs) {
+      const object = flightObject(leg);
+      if (object) host.lookup.remember('flight', object);
+    }
+  }
+  // A typed airport code fills its name, when the name is empty and the code is in the server's airport list (on leaving the
+  // code). Works with the suggestions off: it uses only the airport list.
+  const CODE_NAMES = { 'f-fromCode': 'f-from', 'f-toCode': 'f-to', 'f-back-fromCode': 'f-back-from', 'f-back-toCode': 'f-back-to' };
+  // A four-letter ICAO code ("KMDW") is looked up even with a name, and once found shows as its IATA code ("MDW"), the code the
+  // cards, the lookup and the schedule use.
+  async function airportName(codeInput) {
+    const nameInput = $(CODE_NAMES[codeInput.id]);
+    const code = codeInput.value.trim().toUpperCase();
+    const icao = /^[A-Z0-9]{4}$/.test(code);
+    if (!nameInput || !(icao || /^[A-Z]{3}$/.test(code)) || (!icao && nameInput.value.trim()) || !host.lookup || !state.editing || state.editing.tile !== 'flight') return;
+    let airport = null;
+    try { airport = await host.lookup.airport(code); } catch (err) { return; }
+    // Still the same code once the answer comes.
+    if (!airport || !nameInput.isConnected || codeInput.value.trim().toUpperCase() !== code) return;
+    if (icao && /^[A-Z]{3}$/.test(airport.code || '')) codeInput.value = airport.code;
+    if (airport.name && !nameInput.value.trim()) nameInput.value = airport.name;
+    if ($('f-back-title')) $('f-back-title').placeholder = backTitle();
+  }
+  $('editor').addEventListener('focusout', (e) => { if (CODE_NAMES[e.target.id]) airportName(e.target); });
+  // Find, a choice in the list, and Enter in the row's inputs (which would otherwise save the form).
+  $('editor').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    const leg = legOfLookup(b);
+    if (!b || !leg) return;
+    if (b.id === `${LEGS[leg].pre}lookup-find`) return findFlight(leg);
+    if (b.classList.contains('lookup-choice')) {
+      const entry = (lookupFound[leg] || [])[Number(b.dataset.index)];
+      fillFromLookup(leg, entry);
+      lookupEl(leg, 'find').focus();
+    }
+  });
+  $('editor').addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+    const leg = legOfLookup(e.target);
+    if (!leg) return;
+    e.preventDefault();
+    findFlight(leg);
+  });
 
   async function saveEditor() {
     const ed = state.editing;
@@ -1851,6 +2036,7 @@
         fields = { ...common, ...t, time: shown('f-time') ? $('f-time').value || null : t.kind === 'stay' && item ? item.time : null, minutes: ['block:meet-up', 'block:leave-by'].includes(ed.tile) || ed.tile.startsWith('lane:') ? null : lengthOf('f-hours', 'f-minutes') };
         if (t.kind === 'journey') {
           for (const f of ['operator', 'number', 'from', 'to', 'pickup', 'dropoff', 'terminal', 'platform', 'carriage', 'seat', 'travelClass']) fields[f] = get(`f-${f}`);
+          fields.number = numberToSave(fields.mode, fields.number); // "wn 2483" is kept as "WN 2483"
           fields.fromCode = get('f-fromCode');
           fields.toCode = get('f-toCode');
           fields.gate = get('f-gate');
@@ -1879,6 +2065,7 @@
       }
       const round = fields.kind === 'journey' && roundTripOn();
       const back = round ? returnFields(fields) : null;
+      if (back && back.arrives && !arrivalFits(back.date, back.time, back.arrives)) return fail("The return's arrival on the ticket can be at most 7 days after it leaves, and at most a day before.");
       if (item) {
         // Each leg that changed is written with its own version; a conflict is shown on that leg. Someone changed it since this
         // editor opened (the change has already arrived): do not write over it.
@@ -1905,6 +2092,7 @@
       } else {
         await plan.addItem(fields);
       }
+      rememberFlights(fields, back);
       closeEditor();
     } catch (err) {
       fail(err.message);
@@ -1918,30 +2106,33 @@
   $('editor').addEventListener('submit', (e) => { e.preventDefault(); saveEditor(); });
   // A journey's arrival follows its departure and length as they are typed; a stay's checkout follows its check-in day.
   $('editor').addEventListener('input', (e) => {
-    if (['f-time', 'f-hours', 'f-minutes', 'f-arrival', 'f-back-time', 'f-back-hours', 'f-back-minutes'].includes(e.target.id)) showArrival();
+    if (['f-time', 'f-hours', 'f-minutes', 'f-arrival', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-arrival'].includes(e.target.id)) showArrival();
     if (['f-title', 'f-back-to', 'f-back-toCode'].includes(e.target.id) && $('f-back-title')) $('f-back-title').placeholder = backTitle();
   });
   $('editor').addEventListener('change', (e) => {
-    if (e.target.id === 'f-date') {
-      checkoutMin();
-      // Another departure day: the ticket's arrival moves by as many days, as a move on the plan does. Off its days, it is kept
-      // relative to the day it left; given a day again, it is dated on that one.
-      const ed = state.editing;
+    if (e.target.id === 'f-date') checkoutMin();
+    // Another departure day, for either leg: the ticket's arrival moves by as many days, as a move on the plan does. Off its days,
+    // it is kept relative to the day it left; given a day again, it is dated on that one.
+    const leg = e.target.id === 'f-date' ? 'out' : e.target.id === 'f-back-date' ? 'back' : null;
+    const ed = state.editing;
+    if (leg && ed) {
+      const l = LEGS[leg];
       const day = parsePlace(e.target.value).date;
-      const arrival = $('f-arrival');
-      if (ed && arrival) {
-        if (arrival.value.length === 16 && ed.dayWas && day && day !== ed.dayWas) {
-          arrival.value = shiftArrives(arrival.value, Math.round((parseYmd(day) - parseYmd(ed.dayWas)) / (24 * 60 * 60 * 1000)));
-        } else if (arrival.value.length === 16 && ed.dayWas && !day) {
-          ed.arrivesKept = relativeArrives(ed.dayWas, arrival.value);
+      const arrival = $(l.arrival);
+      if (arrival) {
+        const was = ed[l.was];
+        if (arrival.value.length === 16 && was && day && day !== was) {
+          arrival.value = shiftArrives(arrival.value, Math.round((parseYmd(day) - parseYmd(was)) / (24 * 60 * 60 * 1000)));
+        } else if (arrival.value.length === 16 && was && !day) {
+          ed[l.kept] = relativeArrives(was, arrival.value);
           arrival.value = '';
-        } else if (!arrival.value && ed.arrivesKept && day) {
-          arrival.value = datedArrives(day, ed.arrivesKept);
-          ed.arrivesKept = null;
+        } else if (!arrival.value && ed[l.kept] && day) {
+          arrival.value = datedArrives(day, ed[l.kept]);
+          ed[l.kept] = null;
         }
         showArrival();
       }
-      if (ed) ed.dayWas = day;
+      ed[l.was] = day;
     }
     if (e.target.id === 'f-roundtrip') roundTripSwitched(e.target);
   });
@@ -2135,7 +2326,8 @@
     await plan.load();
     state.people = await host.people().catch(() => []);
     try { useMarkerTypes(await host.settings.get()); } catch (err) { useMarkerTypes(null); }
-    host.settings.onChange((v) => { useMarkerTypes(v); if (state.loaded) redraw(); });
+    host.settings.onChange((v) => { useMarkerTypes(v); if (state.loaded) redraw(); checkFlightLookup(); });
+    checkFlightLookup();
     state.loaded = true;
     // Warm the icons the page draws, so the first draw is not empty.
     await Promise.all([...new Set([...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')].map((n) => n.dataset.icon)).concat(Object.values(CAT_ICON), Object.values(BADGES), Object.values(LEG_ICONS), ['link-slash'], [...root.querySelectorAll('[data-icon]')].map((n) => n.dataset.icon)))].filter(Boolean).map(wantIcon));

@@ -1,7 +1,7 @@
 {
   "id": "todo",
   "name": "To-do",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "icon": "list-check",
   "color": "green",
   "description": "A shared to-do list for the whole {environment} and for each {space}, with due dates and reminders.",
@@ -74,8 +74,13 @@
         "input": {
           "title": "string",
           "notes": "text?",
-          "ref": "ref?"
-        }
+          "ref": "ref?",
+          "due": "date?",
+          "object": "object?"
+        },
+        "takes": [
+          { "kinds": ["task", "*", "text"], "as": "a task" }
+        ]
       },
       {
         "name": "linkTask",

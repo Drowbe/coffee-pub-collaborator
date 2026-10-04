@@ -1090,9 +1090,11 @@
     clearTimeout(noteTimer);
     noteTimer = setTimeout(() => { $('note').hidden = true; }, 4000);
   }
-  async function createEventOn(title, date, ref) {
+  // An all-day event on `date`; `fields` (eventFromObject) gives its own times and description instead.
+  async function createEventOn(title, date, ref, fields) {
     const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const ev = { id, title: String(title).slice(0, 120), allDay: true, start: date, end: null, desc: '', remind: null, repeat: null, by: info.user.name };
+    const when = fields ? { allDay: fields.allDay, start: fields.start, end: fields.end || null, desc: fields.desc || '' } : { allDay: true, start: date, end: null, desc: '' };
+    const ev = { id, title: String(title).slice(0, 120), ...when, remind: null, repeat: null, by: info.user.name };
     const saved = await host.storage.set('event:' + id, ev, {});
     remember('here', { key: 'event:' + id, value: ev, version: saved.version });
     const made = host.objects.make('event', id);
@@ -1150,8 +1152,16 @@
   // The Agenda leaves them to the calendar beside it, so one page does each once.
   if (host.actions && host.actions.provide && part !== 'panel') {
     host.actions.provide({
+      // With `object` (plan-object-handoff.md): an event made of it (eventFromObject in calendar-lib.js), timed when it says
+      // a time. Either way it needs a day: the object's, else `date`.
       createEvent: async (input) => {
         if (!canEdit) throw new Error('this person cannot add events here');
+        if (input.object && typeof input.object === 'object') {
+          const made = eventFromObject(input.object, host.util, input.date);
+          if (!made) throw new Error('that needs a day to go on the calendar');
+          return createEventOn(made.title || input.title, made.allDay ? made.start : null, input.ref, made);
+        }
+        if (!input.date) throw new Error('that needs a day to go on the calendar');
         return createEventOn(input.title, input.date, input.ref);
       },
       addEvent: async (input) => {

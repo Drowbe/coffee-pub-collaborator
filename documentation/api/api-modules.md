@@ -54,6 +54,8 @@ A module zip holds a `module.json` at its root (or inside one wrapping folder). 
   A kind may also declare `holds` (a stored pointer the server keeps true), `dated` (which may name a `repeat` field, `{ every, until }` in the Calendar's shape), `feed: true` (offered to people's calendar feeds; needs `dated`; refused otherwise with `module.json: refs "<kind>" feed needs "dated"`, and anything but a boolean with `... feed must be true or false`), `marker: true` (shown on a calendar as a marker that links back to the object; see "Calendar markers" below), `mirror` (`out` or `in`) and `create` (a dated twin the server keeps in step); the fields, their limits and what the server does are in [api-module-sdk](api-module-sdk.md), "Keeping links true". A bad one refuses the install (400) with a sentence naming it, such as `module.json: refs "<kind>" holds.onDelete must be "remove" or "mark"` or `module.json: refs "<kind>" mirror "in" needs create`.
 - `events.publishes` lists up to 10 events the module says (`name`, an optional `kind` of its refs the event concerns, a `label`, and an optional `data` mapping up to six fields the event carries to types, as an action's input does); `events.subscribes` lists up to 20 events it wants to hear, as `"*"` or `"module:name"`, approved by an owner.
 - `actions.provides` lists up to 10 actions the module carries out: a `name`, a `label`, an optional `local: true` (a view, such as showing something on a map: only the requesting person's own open page of the module carries it out, and it needs only read access, not the right to change things) and an `input` mapping up to 10 fields to `string`, `text`, `date`, `datetime`, `boolean`, `number`, `ref` or `object` (a trailing `?` for optional); a field's type may also be `ref:module:kind`, a pointer to one kind of object, which Collaborator enforces. An `object` field is a whole object in the objects format, and goes with `takes` (below); an event's `data` may not use it. `actions.uses` lists up to 20 it wants to ask for, as `"*"` or `"module:name"`, approved by an owner.
+  - The bus checks each input against its type. A `date` must be `YYYY-MM-DD` and a `datetime` a date and time, and either must name a day that exists: `2026-02-31` is refused with 400 `<field> must be a date` (or `<field> must be a date and time`), the same sentence as any other bad value.
+  - `needs` (optional, on an entry in `actions.provides`) lists any of `place`, `date`, `text` and `subtitle`. It has two meanings, both read by the asking side and never enforced by the bus. On an action with a `ref` input, it is what the object pointed at must have on its summary, so a drop menu leaves the action out for an object without it ("Show on the map" for a task with no position). On any action, it is what the request itself must carry, so a module offers the action only when it can fill that in: the Calendar's `createEvent` has an optional `date` and `needs: ["date"]`, and To-do's rules and Polls offer it only when they have a day to give. It is kept as declared on any action; a request that leaves out an optional field it names is not refused.
 - `takes` (optional, on an entry in `actions.provides`) says which objects the action accepts ([plan-object-handoff](../plans/plan-object-handoff.md)). It is a list of 1 to 10 entries, each `{ kinds, except?, as, permission? }`:
   - `kinds`: kinds from the objects format's catalogue (see [The objects format](#the-objects-format), `image` included), `"*"` for any object, or `"text"` for an ordinary message's words, which travel as an object with no kind. `"*"` covers every catalogue kind and an object with no kind, but never `image`, which an entry takes only by naming it. `"text"` covers only an object with no kind. Duplicates are dropped.
   - `except` (only beside `"*"`): catalogue kinds `"*"` leaves out, such as the 13 travel kinds for a module that should take events and tasks but not flights. `image` can't be listed, since `"*"` never covers it.
@@ -406,7 +408,7 @@ An object is one JSON object. Any other field is ignored; HTML tags and control 
 
 An object with a `title` and kept details needs no `content` (a flight is described by its details); an object with neither `content` nor a kept detail is dropped as `it has no content`.
 
-**Chat's Keep.** Keep still chooses its keeper as before: a travel kind goes to the typed keeper (an action named `acceptSuggestion` taking a `title` and a `kind`) and every other kind to the note keeper (`saveNote`), until **Send to...** (plan step 9). What it sends depends on the keeper (`objectInputOf` in `public/chat-input.js`, the same rule as the server's `takersOf`): a keeper whose `takes` covers the object's kind gets the object itself in its `object` input, details and all, plus `title` when the action also asks for one; a keeper with no `takes` for that kind gets the older flat fields, with the details as "Label: value" lines after the content ("Airline: Southwest"), so nothing is lost. Today the Planner takes the travel kinds this way (see [The Planner's acceptSuggestion](#the-planners-acceptsuggestion)); Research declares no `takes` yet, so an `event` or a `note` reaches it as flat fields.
+**Chat's Keep.** Keep still chooses its keeper as before: a travel kind goes to the typed keeper (an action named `acceptSuggestion` taking a `title` and a `kind`) and every other kind to the note keeper (`saveNote`), until **Send to...** (plan step 9). What it sends depends on the keeper (`objectInputOf` in `public/chat-input.js`, the same rule as the server's `takersOf`): a keeper whose `takes` covers the object's kind gets the object itself in its `object` input, details and all, plus `title` when the action also asks for one; a keeper with no `takes` for that kind gets the older flat fields, with the details as "Label: value" lines after the content ("Airline: Southwest"), so nothing is lost. With the bundled modules every kept object goes the first way: the Planner's `acceptSuggestion` takes the travel kinds, and Research's `saveNote` takes any kind (see [What the bundled modules take](#what-the-bundled-modules-take)). For an `/ai` answer kept to the note keeper, Keep adds the question to the end of the object's `content` as "Asked: <question>" (before the details lines the module adds) (never for an import, and never to the typed keeper), so a note keeps it as it did with the flat fields.
 
 An object read by `POST /api/modules/:id/objects/check` always comes back with `basis: "imported"` and never with `sources`, whatever it carried. The Assistant's own answers go through the same checker (`cleanSummary` in `server/ai.js`), keep their `basis` (`general`, `items` or `both`, never `imported`) and `sources`.
 
@@ -459,7 +461,7 @@ An object read by `POST /api/modules/:id/objects/check` always comes back with `
 
 The copied instructions also offer a `<something>.objects.json` file holding `{"format":"objects","formatVersion":1,"objects":[...]}`. The example object is Thomas's Southwest flight (MDW to SJC, 12:50 to 15:25) when `flight` is listed, else a plain object.
 
-**Which kinds are listed.** Only the kinds the environment's enabled modules name in their actions' `takes`, in the catalogue's order (`kindsTaken` in `server/object-format.js`). `"*"` and `"text"` name no kind, and `image` is never listed. While any enabled module still offers the older typed keeper (an action named `acceptSuggestion` taking a `title` and a `kind`, with no `takes`), the 13 travel kinds are listed too, as before. With no kind listed, the instructions have no kind line and no details lines. With every kind listed the copied instructions are about 3,600 characters. With the bundled modules today, the kinds listed are the Planner's 15 (the 13 travel kinds, `event` and `note`), about 3,500 characters; the travel fallback applies only to an older Planner or another module offering `acceptSuggestion` without `takes`. `schema` is always the whole catalogue.
+**Which kinds are listed.** Only the kinds the environment's enabled modules name in their actions' `takes`, in the catalogue's order (`kindsTaken` in `server/object-format.js`). `"*"` and `"text"` name no kind, and `image` is never listed. While any enabled module still offers the older typed keeper (an action named `acceptSuggestion` taking a `title` and a `kind`, with no `takes`), the 13 travel kinds are listed too, as before. With no kind listed, the instructions have no kind line and no details lines. With every kind listed the copied instructions are about 3,600 characters. With the bundled modules today every kind is listed (the Planner's travel kinds and `event` and `note`, To-do's `task`, the Calendar's `event`, Polls' `poll`, Research's `note` and `link`), about 3,600 characters; the travel fallback applies only to an older Planner or another module offering `acceptSuggestion` without `takes`. `schema` is always the whole catalogue.
 
 ### Handing an object to a module
 
@@ -478,9 +480,25 @@ The object's kind must be one some entry of the action's `takes` covers, and whe
 
 The field name in the first four sentences is the action's own (`object` in the examples). A request body over 64 KB answers 413 `that request is over 64 KB`. A request queued before `takes` existed, with no `object` field, runs as before.
 
+### What the bundled modules take
+
+Five bundled modules declare `takes`. Chat's **Keep** uses the first two today; the others are reached by any page or module that requests the action with an `object`, and by **Send to...** once it is built (plan step 9).
+
+| Module (version) | Action | `kinds` | `except` | `as` | `permission` | Other |
+|---|---|---|---|---|---|---|
+| Planner (0.12.0) | `acceptSuggestion` | `flight`, `train`, `bus`, `ferry`, `car` / `hotel` / `restaurant`, `cafe`, `bar`, `sight`, `museum`, `tour`, `show`, `event` / `note` (four entries) | | `{kind}` / `a stay` / `{kind}` / `a note` | | |
+| Research (0.3.0) | `saveNote` | `note`, `"*"`, `"text"` | | `a note` | | |
+| Research (0.3.0) | `saveLink` | `link` | | `a link` | | `url` still required |
+| Research (0.3.0) | `savePhoto` | `image` | | `an image` | | new |
+| To-do (1.14.0) | `createTask` | `task`, `"*"`, `"text"` | | `a task` | | |
+| Calendar (1.23.0) | `createEvent` | `event`, `"*"`, `"text"` | the 13 travel kinds | `an event` | | `needs: ["date"]` |
+| Polls (1.14.0) | `draftPoll` | `poll`, `"text"` | | `a poll` | `create` | new, `local` |
+
+Each module maps an object the same way where it can: the title made plain (`host.util.plain`), each `when` read with `host.util.localWhen`, and every details field it has no place for written as a "Label: value" line (`host.util.detailLines`, the Planner's words), then a `Place: <name>` line when the place has no field of its own, `Links:` with one `- title: address` line each, and `External source` when `basis` is `imported`, cut to the field's limit with that tail kept. For an object with no kind (a message's words), a first line of `content` that repeats the title is dropped.
+
 ### The Planner's acceptSuggestion
 
-The Planner (`travel`, from 0.12.0) is the first bundled module to declare `takes`. Its `acceptSuggestion` action takes:
+The Planner (`travel`, from 0.12.0) was the first bundled module to declare `takes`. Its `acceptSuggestion` action takes:
 
 | Input | Type | Notes |
 |---|---|---|
@@ -522,3 +540,52 @@ No entry names a permission, so anyone who may write to the Planner may use each
 - **Placement.** On its day, which stretches the plan as adding by hand does. A day that would make the plan longer than 60 days puts the object under "Not on a day yet" with `Dated <YYYY-MM-DD>, outside the plan` as the first line of its notes. On a day the plan can show, a `checkOut`, or a dated `arrives`, that would make it longer than 60 days (whether or not the trip has dates) is cleared and kept as a notes line instead, `Check out: YYYY-MM-DD[ HH:MM]` or `Arrives: YYYY-MM-DD HH:MM`, with `checkOutTime` cleared too; the object stays on its day and the plan is not stretched to it. An object dropped on the Planner itself (its drop menu's "Put it on <day>", for a dragged object that carries `details`) goes to the drop's day or joint, whatever its own.
 - **The answer.** `{ ref }`, a pointer to the new plan object. When something needs saying, the result also carries `data: { note }`, which the Planner's own page shows too: `<title> is dated <day>, outside the plan's 60 days, so it is under Not on a day yet.`, or `<title>: its check-out, <day>, is outside the plan's 60 days, so it is in its notes.` (`its arrival` for a journey). Several are joined with a space.
 - **The flat form** (no `object`) works as before, with the title made plain and the same 60-day rule. Requests queued before 0.12.0 run unchanged.
+
+### Research's saveNote, saveLink and savePhoto
+
+From Research 0.3.0 (`objectNote`, `objectLink` and `savePhoto` in `modules/research/src/research-lib.js`). Each saves into the space's Research, credited to the person who asked.
+
+**`saveNote`**: `title` `string`, `body` `text?`, `tags` `string?`, `icon` `string?`, `kind` `string?`, `ref` `ref?`, `object` `object?`. With `object`, the flat fields but `ref` are ignored and the note is made of the object:
+
+- the title, plain, up to 120 characters; refused with `a note needs a title` when empty;
+- the body: the content as written (Research draws a note's body as Markdown), then the details lines, `Place: <name>` when the place has no position, the links and `External source`; at most 8000 characters;
+- the icon: the object's `icon` when it is one of Research's note icons, else the travel kind's own icon (a plane for a `flight`, a hotel for a `hotel` and so on), else the sticky note;
+- the tags; the day: the date of `details.starts`, `departs`, `checkIn` or `due`, the first that reads, else the object's `date`; and the position, when `place` has `lat` and `lng` in range.
+
+**`saveLink`**: `url` `text`, `title` `string?`, `excerpt` `text?`, `ref` `ref?`, `object` `object?`. `url` stays required (Chat's link keeper finds the action by it). With `object`, the address is `url`, else the object's first link; the title is `title`, else the object's; the excerpt is `excerpt` (plain, up to 2000 characters), else the object's words as for a note, up to 2000, without a links line for the link's own address; the tags, the day and the position as for a note. Refused with `that is not a web address` when there is no `http` or `https` address.
+
+**`savePhoto`** (new): `object` `object`, of kind `image` with `details.upload` naming a file the sending page has already uploaded to Research's own uploads for this space (`POST /api/modules/research/uploads?scope=space&space=<id>`). Research checks the file and saves a photo: the caption is `details.name` without its extension, with `_` and `-` as spaces ("IMG_2041.jpg" is "IMG 2041"), else the object's title, else "Photo"; the tags and the day as for a note. A thumbnail the file already has is reused. Otherwise the page that carries the request out makes a 400-pixel one, but only when that page is the uploader's, an owner's or an admin's, since the server lets only them put one (`PUT /api/modules/:id/uploads/:fid/thumb` answers 403 `only the person who added it can do that`). On anyone else's page it is quietly skipped: the photo is still saved and its card shows the whole picture. Refusals: `that is not a picture` (not an `image`, or no file id), `that picture is not here any more`, `that picture is already a photo here`.
+
+All three answer `{ ref }`, a pointer to the new note, link or photo. Without `object`, `saveNote` and `saveLink` work as before.
+
+### To-do's createTask
+
+From To-do 1.14.0 (`taskFromObject` in `modules/todo/src/todo-lib.js`). Input: `title` `string`, `notes` `text?`, `ref` `ref?`, `due` `date?` (new), `object` `object?` (new).
+
+- **The title** is the object's, plain, up to 200 characters, else `title`; refused with `a task needs a title` when both are empty.
+- **The due date.** `due`, when given, wins. Else, for a `task`, the date of `details.due` (a time alone takes the object's `date`), or the object's `date` when `details.due` is not given; a time on `due` becomes the notes line `Due at <time>` in the environment's clock, since a task keeps a day only. Any other kind gets no due date.
+- **The notes** are plain text: the content, then the details lines (without `due` when it was used), the place, the links and `External source`, at most 1000 characters.
+- Without `object`, it works as before, now with `due`. The answer is `{ ref }`, and the task links to `ref` as before.
+
+To-do's rules (what a task does when a linked object reports) honour `needs`: an action that needs a date, such as the Calendar's `createEvent`, is offered only for a result that carries one, and is given it.
+
+### The Calendar's createEvent
+
+From Calendar 1.23.0 (`eventFromObject` in `modules/calendar/src/calendar-lib.js`). Input: `title` `string`, `date` `date?` (was required), `ref` `ref?`, `object` `object?` (new); `needs: ["date"]`, so a drop menu or a rule offers it only for something with a date. Its one `takes` entry leaves out the travel kinds, which reach the Calendar through the Planner.
+
+- **The day** is the object's own: for an `event`, the date of `details.starts`; for a `task`, the date of `details.due`; else the object's `date`; else the request's `date`. With none it is refused: `that needs a day to go on the calendar` (a request with neither `object` nor `date` too).
+- **An event with a time** in `details.starts` is a timed event, ending at `details.ends` when that is later, else after `details.minutes` (up to 7 days). An `ends` that is a time with no day of its own and isn't after the start is the next day's, so 22:00 to 01:00 runs past midnight. The local time is read in the time zone of the browser whose Calendar carries the request out, since the Calendar stores an instant. `allDay: true` makes it all day.
+- **Anything else is all day** on its day; an `event` whose `ends` is a later day spans to it. A task's time on `due` becomes `Due at <time>` in the description.
+- **The title** is the object's, plain, up to 120 characters, else `title`. **The description** is plain: the content, the details lines it has no field for, the place, the links and `External source`, at most 600 characters.
+- Refused with `this person cannot add events here` for someone who may not add events. The answer is `{ ref }`.
+
+### Polls' draftPoll
+
+New in Polls 1.14.0 (`pollFromObject` in `modules/polls/src/polls-lib.js`). `local`, input `object` `object`, `takes` `poll` and `"text"` as `a poll` with the `create` permission, so only people who may start polls have it. It opens the New poll form, filled in, on the person's own open Polls, and saves nothing: the poll exists once they choose **Start poll**. Refused with `this person cannot start a poll here`. It answers `{}`.
+
+- **The question** is the title, plain, up to 200 characters.
+- **The options** are `details.options` (each up to 100 characters, at most 10, duplicates and the question itself left out). With fewer than two, the content's lines are the options when there are at least two and every one is 100 characters or less, with list marks (`-`, `*`, `+`, `•`, `1.`, `1)`) taken off. A message's words become a poll this way: "Where to eat?" then "- Pizza" and "- Sushi".
+- **The closing time** is `details.closes` (a time alone on the object's `date`), else the object's `date`; a day with no time closes at 12:00, as `/v` reads a typed day. A time already past is left empty, and the setting's default applies.
+- **More than one answer** when `details.multiple` is `true`. The object's `content` is otherwise not used.
+
+A finished poll offers another module's action only when it can fill it (`pollFills` in `polls-lib.js`): the action must take a `title`, and every required input must be one Polls fills, `title` and `notes` (a `string` or `text`: the question and its winner, and the question), `date` (only when the winning option has a date, which it is given) and `ref` (`ref` or `ref:polls:poll`, the poll). An action with `needs: ["date"]`, such as the Calendar's **Add it to the calendar**, is offered only when the winning option has a date.

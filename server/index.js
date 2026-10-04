@@ -5574,6 +5574,15 @@ function takerOf(who, manifest, def, spaceId) {
   };
 }
 
+// Whether text that starts with YYYY-MM-DD names a day that exists: Date rolls 2026-02-31 over to March 3, so the
+// day is checked by hand. Text that doesn't start that way is left to the caller's own check.
+function realDay(text) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(text);
+  if (!m) return true;
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  return mo >= 1 && mo <= 12 && d >= 1 && new Date(Date.UTC(y, mo - 1, d)).getUTCDate() === d;
+}
+
 // Check an action's input against what the module said it takes; only those fields come out. An `object` field is cleaned
 // by the objects format's checker (plan-object-handoff.md, "The bus's object type"); its kind must be one the action's
 // `takes` (`taker`, from takerOf) takes, with that entry's permission when it names one.
@@ -5593,11 +5602,11 @@ function busInput(who, shape, input, taker) {
       out[field] = v.replace(/\p{Cc}/gu, ' ').trim().slice(0, base === 'string' ? 200 : 8000);
       if (!out[field] && !optional) throw refError(400, `${field} is needed`);
     } else if (base === 'date') {
-      if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v) || Number.isNaN(new Date(`${v}T00:00:00Z`).getTime())) throw refError(400, `${field} must be a date`);
+      if (typeof v !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(v) || !realDay(v)) throw refError(400, `${field} must be a date`);
       out[field] = v;
     } else if (base === 'datetime') {
       const d = new Date(v);
-      if (typeof v !== 'string' || Number.isNaN(d.getTime())) throw refError(400, `${field} must be a date and time`);
+      if (typeof v !== 'string' || Number.isNaN(d.getTime()) || !realDay(v)) throw refError(400, `${field} must be a date and time`);
       out[field] = d.toISOString();
     } else if (base === 'boolean') {
       if (typeof v !== 'boolean') throw refError(400, `${field} must be true or false`);

@@ -181,6 +181,77 @@
   // A caption from a file name: "IMG_2041.jpg" -> "IMG 2041".
   const captionOf = (name) => geo.oneLine(String(name || '').replace(/\.[A-Za-z0-9]{1,5}$/, '').replace(/[_-]+/g, ' '), 120);
 
+  // --- an object handed in (plan-object-handoff.md, "Mapping into each module") -------------------------------------------
+  // An object of the objects format { title, kind?, icon?, content?, details?, date?, tags?, place?, links?, basis? } as what
+  // Research keeps: what an import, an AI's answer or a chat message hands saveNote, saveLink or savePhoto as `object`.
+  // `util` is host.util's { plain, localWhen, detailLines }. A note's body and a link's excerpt are drawn as Markdown, so they
+  // keep the content as written; the title is plain. Research has no field for any details, so each is a "Label: value" line
+  // after the content (nothing is lost); then the place when it has no position, the links, and "External source" for an import.
+  const OBJECT_DAY_FIELDS = ['starts', 'departs', 'checkIn', 'due'];
+  const objectLine = (util, v, n) => geo.oneLine(util.plain(typeof v === 'string' ? v : '', { line: true }), n);
+  // A place with a position on the map, or null (a name alone is a line in the body).
+  function objectPoint(place) {
+    if (!place || typeof place !== 'object') return null;
+    const lat = Number(place.lat);
+    const lng = Number(place.lng);
+    if (place.lat === undefined || place.lng === undefined || !geo.inRange(lat, lng)) return null;
+    const name = geo.oneLine(place.name, 120);
+    return { lat: geo.round6(lat), lng: geo.round6(lng), ...(name ? { name } : {}) };
+  }
+  // Its day: a details date first (when it starts, leaves, checks in or is due), else its own `date`; '' when it has none.
+  function objectDay(object, util) {
+    const o = object && typeof object === 'object' ? object : {};
+    const details = o.details && typeof o.details === 'object' && !Array.isArray(o.details) ? o.details : {};
+    for (const name of OBJECT_DAY_FIELDS) {
+      if (typeof details[name] !== 'string') continue;
+      const w = util.localWhen(details[name], isDay(o.date) ? o.date : null);
+      if (w && w.date && isDay(w.date)) return w.date;
+    }
+    return isDay(o.date) ? o.date : '';
+  }
+  // The title and the text: the content (a message's words lose their first line, which is the title), the details lines, the
+  // place, then the links (leaving out `skipUrl`, a link's own address) and "External source", cut to `max` with the tail kept.
+  function objectWords(object, util, { max = 8000, skipUrl = '' } = {}) {
+    const o = object && typeof object === 'object' ? object : {};
+    const title = objectLine(util, o.title, 120);
+    let content = typeof o.content === 'string' ? o.content.replace(/\r\n?/g, '\n').trim() : '';
+    if (!o.kind && content) {
+      const lines = content.split('\n');
+      if (objectLine(util, lines[0], 120) === title) content = lines.slice(1).join('\n').trim();
+    }
+    const point = objectPoint(o.place);
+    const rest = util.detailLines(o.details, { kind: o.kind });
+    const placeName = o.place && typeof o.place === 'object' && !point ? geo.oneLine(o.place.name, 120) : '';
+    if (placeName) rest.push(`Place: ${placeName}`);
+    const extras = [];
+    const links = (Array.isArray(o.links) ? o.links : []).map((l) => ({ url: cleanUrl(l && l.url), title: objectLine(util, l && l.title, 100) })).filter((l) => l.url && l.url !== skipUrl);
+    if (links.length) {
+      extras.push('Links:');
+      for (const l of links) extras.push(`- ${l.title || l.url}: ${l.url}`);
+    }
+    if (o.basis === 'imported') extras.push('External source');
+    const suffix = extras.length ? `\n\n${extras.join('\n')}` : '';
+    let text = [content, rest.join('\n')].filter(Boolean).join('\n\n');
+    if (text.length + suffix.length > max) text = `${text.slice(0, Math.max(0, max - suffix.length - 1))}…`;
+    return { title, text: (text + suffix).trim(), point };
+  }
+  // A note made of an object (saveNote): its kind and icon kept as the note's type, its tags, day and position.
+  function objectNote(object, util) {
+    const o = object && typeof object === 'object' ? object : {};
+    const { title, text, point } = objectWords(o, util, { max: 8000 });
+    return { kind: 'note', title, body: text, tags: cleanTags(o.tags), icon: noteIcon(o.icon, o.kind), date: objectDay(o, util), point };
+  }
+  // A link made of an object (saveLink): the address given, else the object's first link; the title and excerpt given, else
+  // the object's. Null with no address.
+  function objectLink(object, util, given) {
+    const o = object && typeof object === 'object' ? object : {};
+    const g = given || {};
+    const url = cleanUrl(g.url) || (Array.isArray(o.links) ? o.links.map((l) => cleanUrl(l && l.url)).find(Boolean) : null) || null;
+    if (!url) return null;
+    const { title, text, point } = objectWords(o, util, { max: 2000, skipUrl: url });
+    return { kind: 'link', url, title: geo.oneLine(g.title, 120) || title, excerpt: g.excerpt ? plainText(g.excerpt, 2000) : text, tags: cleanTags(o.tags), date: objectDay(o, util), point };
+  }
+
   // The items of one scope ('space' or 'person'), kept live, and what other modules may ask of them. `host` is the SDK.
   function createResearch(host, opts) {
     const scope = (opts && opts.scope) || 'space';
@@ -239,29 +310,72 @@
     let composeFromText = null;
     function onCompose(fn) { composeFromText = fn; }
 
-    function provide(me) {
+    // `opts`: { ready, makeThumb } from the page. ready() loads this scope's items first (savePhoto checks a picture is not a
+    // photo already); makeThumb(fileId, file) makes and puts a picture's thumbnail, or answers false when this person may not
+    // (only the person who added a file, or an owner, may give it one); then, or if it fails, the photo shows the picture itself.
+    // A file that already has a thumbnail keeps it.
+    function provide(me, opts) {
       if (!host.actions || !host.actions.provide) return;
+      const o = opts || {};
       // Who asked: the person behind the request (a Keep in Chat or Assistant), else this page's own person.
       const byOf = (ctx) => (ctx && ctx.by) || me || '';
       const link = (item, ref) => { if (ref && scope !== 'person') host.objects.setLinks(refOf(item.kind, item.id), [ref]).catch(() => {}); };
       host.actions.provide({
         // tags is a plain comma- or space-separated string, as the field in the dialog reads it, so any module (or Assistant,
-        // keeping an answer) can offer tags without knowing this module's shape.
+        // keeping an answer) can offer tags without knowing this module's shape. With `object` (any kind, or a message's
+        // words), the note is made of the object instead (objectNote).
         saveNote: async (input, ctx) => {
           const i = input || {};
+          if (i.object && typeof i.object === 'object') {
+            const fields = objectNote(i.object, host.util);
+            if (!fields.title) throw new Error('a note needs a title');
+            const item = await save({ ...fields, by: byOf(ctx) });
+            link(item, i.ref);
+            return { ref: refOf('note', item.id) };
+          }
           const title = geo.oneLine(i.title, 120);
           if (!title) throw new Error('a note needs a title');
           const item = await save({ kind: 'note', title, body: plainText(i.body, 8000), tags: parseTags(i.tags), date: '', icon: noteIcon(i.icon, i.kind), by: byOf(ctx) });
           link(item, i.ref);
           return { ref: refOf('note', item.id) };
         },
+        // With `object` (a link), its title, words, tags and day fill what the flat fields leave out.
         saveLink: async (input, ctx) => {
           const i = input || {};
+          if (i.object && typeof i.object === 'object') {
+            const fields = objectLink(i.object, host.util, i);
+            if (!fields) throw new Error('that is not a web address');
+            const item = await save({ ...fields, by: byOf(ctx) });
+            link(item, i.ref);
+            return { ref: refOf('link', item.id) };
+          }
           const url = cleanUrl(i.url);
           if (!url) throw new Error('that is not a web address');
           const item = await save({ kind: 'link', url, title: geo.oneLine(i.title, 120), excerpt: plainText(i.excerpt, 2000), tags: [], date: '', by: byOf(ctx) });
           link(item, i.ref);
           return { ref: refOf('link', item.id) };
+        },
+        // A picture someone sent (Chat's Send to...): the page that sent it uploaded it to this module's own uploads for this
+        // place, and `object.details.upload` names the file. It must be there and not a photo already; its thumbnail is made
+        // here, and its caption is the picture's name (details.name), else the object's title.
+        savePhoto: async (input, ctx) => {
+          const obj = input && input.object && typeof input.object === 'object' ? input.object : {};
+          const details = obj.details && typeof obj.details === 'object' ? obj.details : {};
+          const fileId = typeof details.upload === 'string' && /^[a-f0-9]{24}$/.test(details.upload) ? details.upload : '';
+          if (obj.kind !== 'image' || !fileId) throw new Error('that is not a picture');
+          if (o.ready) await o.ready();
+          const files = await host.uploads.list(at);
+          const file = (Array.isArray(files) ? files : []).find((f) => f && f.id === fileId);
+          if (!file) throw new Error('that picture is not here any more');
+          if (list().some((it) => it.kind === 'photo' && it.file && it.file.id === fileId)) throw new Error('that picture is already a photo here');
+          let hasThumb = file.hasThumb === true;
+          // makeThumb answers false when this page's person may not give the file one (not theirs): the photo shows the picture.
+          if (!hasThumb && o.makeThumb) {
+            try { hasThumb = (await o.makeThumb(fileId, file)) !== false; } catch (err) { hasThumb = false; }
+          }
+          const title = captionOf(details.name) || objectLine(host.util, obj.title, 120) || 'Photo';
+          const item = await save({ kind: 'photo', title, file: { id: fileId, hasThumb }, tags: cleanTags(obj.tags), date: objectDay(obj, host.util), by: byOf(ctx) });
+          return { ref: refOf('photo', item.id) };
         },
         addNote: async (input) => {
           if (!composeFromText) throw new Error('Research is not open');

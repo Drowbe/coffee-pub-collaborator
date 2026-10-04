@@ -49,7 +49,7 @@ Drag an object from another module (an event on the Calendar, say) onto an optio
 
 ## After a poll closes
 
-Closing a poll (or its closing time passing) tells the other modules that were set up to listen, with a one-line result such as "Where to stay: Hotel Nova" (or who tied, or that nobody voted), so a task that follows the poll can tick itself off and keep the result in its notes. A closed poll also offers a button for each thing another module can do with it, such as **Add a task** from the To-do module, which creates a task named for the poll and its winner, linked to the poll. These buttons come from whatever modules you have installed; there is nothing to set up in Polls.
+Closing a poll (or its closing time passing) tells the other modules that were set up to listen, with a one-line result such as "Where to stay: Hotel Nova" (or who tied, or that nobody voted), so a task that follows the poll can tick itself off and keep the result in its notes. A closed poll also offers a button for each thing another module can do with it, such as **Add a task** from the To-do module, which creates a task named for the poll and its winner, linked to the poll. These buttons come from whatever modules you have installed; there is nothing to set up in Polls. **Add it to the calendar** shows only when the winning option has a date (see "Give an option a date"), and puts the poll on the Calendar on that day.
 
 ## Close it
 
@@ -60,6 +60,10 @@ In a space, three icons in the Polls' titlebar, before the module's own buttons 
 ## On the Calendar
 
 When the Calendar is on, a poll with a closing time shows on the Calendar at that time, as a marker with the Polls icon and colour: "Closes 6:00 PM: Where for dinner?". After the closing time it stays, dimmed, as "Closed 6:00 PM: Where for dinner?". A poll closed by hand, and a poll with no closing time, has no marker; reopening a poll clears its closing time. The marker is not a Calendar event and is not copied there. Click it to open the poll here. Anyone who can see the poll can see its marker; the Calendar's **Polls closing** switch hides them all. See [Calendar](userguide-calendar.md), "Tasks due and polls closing".
+
+## For module authors
+
+From Polls 1.14.0, the action **Draft a poll from it** (`draftPoll`) takes a poll, or a message's words, and opens the New poll form on the person's own open Polls, filled in: the question from its title, the options from the poll's options or from the message's short lines ("Where to eat?" then "- Pizza" and "- Sushi"), the closing time, and **More than one answer**. Nothing is saved until the person chooses **Start poll**. Only people who may start polls can use it. Nothing in Chat offers it yet; **Send to...** on a chat message will. The details are in [api-modules](../api/api-modules.md), "Polls' draftPoll".
 
 ## Where it shows
 

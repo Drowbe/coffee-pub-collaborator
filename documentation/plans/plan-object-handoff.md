@@ -5,7 +5,7 @@ experience-design builds the modules' mapping, the SDK helpers, Chat's import pr
 content-manager documents.
 
 **Status:** approved by Thomas, 2026-10-03, with every open question of the draft answered as recommended (decisions 8 to
-19); steps 1-5 built 2026-10-03, the rest not built. From two GitHub issues that share one question: what each module accepts,
+19); steps 1-5 built 2026-10-03 and steps 6-7 on 2026-10-04, the rest not built. From two GitHub issues that share one question: what each module accepts,
 in which shape, and how content maps into its fields.
 
 - #182, the import from another AI. Thomas: "our prompt needs to include instructions for ANYTHING we support
@@ -515,8 +515,33 @@ Nothing stored or linked breaks:
    checks, including the fixes after QA) and `tools/check-chat-page.mjs`; the editor read as code only, not verified in a browser. The contract is in
    [api-modules](../api/api-modules.md), "The Planner's acceptSuggestion".
 6. **experience-design: Research.** `takes` on `saveNote` and `saveLink`, `savePhoto`, version bump.
+   *Built 2026-10-04, Research 0.3.0.* `objectNote`, `objectLink` and `savePhoto` in `research-lib.js`; the shared
+   "Label: value" lines are a new SDK helper, `host.util.detailLines`, in the Planner's words. `saveNote` takes `note`,
+   `"*"` and `"text"`; the kind (or the icon) picks the note's icon, and the tags, the day (a details day first) and a
+   position are kept. `saveLink` takes only `link`, not "any message whose first link is set" (that is Send to...'s to
+   decide), and keeps `url` required, since Chat's link keeper finds the action by it; the object fills what the flat
+   fields leave out. `savePhoto` captions the photo with the file name. Its thumbnail is made by whichever Research page
+   carries the request out, and the server lets only the uploader (or an owner) put one, so on another person's page the
+   thumbnail is refused and the card shows the whole picture. Chat's **Keep** now sends Research the whole object, and
+   adds an `/ai` answer's question as an "Asked:" line, as the flat fields did. `host.util.markdown` now draws the lines
+   before a list above it. Checked by `tools/check-research.mjs`, `tools/check-travel.mjs` (`detailLines`, the markdown
+   fix) and `tools/check-chat-page.mjs`; verified live in Chromium by the builder (Research). The contract is in
+   [api-modules](../api/api-modules.md), "Research's saveNote, saveLink and savePhoto".
 7. **experience-design: To-do, Calendar and Polls.** `createTask` with `due` and `object`; `createEvent` with `object`
    and times; Polls' `draftPoll`; one bump each.
+   *Built 2026-10-04: To-do 1.14.0, Calendar 1.23.0, Polls 1.14.0.* `taskFromObject` (`todo-lib.js`),
+   `eventFromObject` (`calendar-lib.js`) and `pollFromObject` (`polls-lib.js`). Where it differs from the text above:
+   - The Calendar has one `takes` entry, `event`, `"*"` and `"text"` with the 13 travel kinds in `except`, and an
+     undated object is refused when the request runs ("that needs a day to go on the calendar"), not left out of a menu.
+     It adds `needs: ["date"]` to `createEvent`, which To-do's rules and Polls' buttons now honour: a closed poll's **Add
+     it to the calendar** shows only when the winning option has a date, and is given it.
+   - The day: for To-do a flat `due` wins over the object's day; for the Calendar the object's day wins over the flat
+     `date`.
+   - Polls also takes a message's short lines as options when the object has no `details.options`, and drops the
+     object's `content` otherwise.
+   Checked by `tools/check-object-handoff.mjs` (14 checks) and `tools/check-modules.mjs`; To-do, the Calendar and the
+   Polls form verified live in Chromium by the builder. Nothing in Chat sends to these three yet; that is step 9. The
+   contract is in [api-modules](../api/api-modules.md), "What the bundled modules take".
 8. **experience-design: the import preview.** Details line, per-object target and menu, missing dates, Keep ticked by
    `takes`.
 9. **experience-design: Send to...** The message-to-object rules, the menu, last used, pictures (upload then

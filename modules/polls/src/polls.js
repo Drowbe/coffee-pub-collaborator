@@ -22,6 +22,8 @@
   const $ = (id) => root.getElementById(id);
   const { esc, objectKey, id: newId } = host.util;
 
+  /*__LIB__*/
+
   let info;
   try {
     info = await host.ready();
@@ -278,7 +280,7 @@
       ${p.addable && votable && p.options.length < MAX_OPTIONS ? `<div class="addopt"><input type="text" maxlength="100" placeholder="Suggest another option" data-addtext="${esc(x.key)}" aria-label="Suggest another option"><button class="btn btn-small" type="button" data-addopt="${esc(x.key)}">Add</button></div>` : ''}
       ${x.scope === 'spaces' && !closed ? `<div class="meta">Vote in that ${esc(word('space'))}.</div>` : ''}
       ${backlinksHtml(x)}
-      ${closed && x.scope === 'own' && offered.length ? `<div class="actions">${offered.map((a) => `<button class="btn btn-small" type="button" data-action="${esc(x.key)}|${esc(a.action)}" title="${esc(a.moduleName)}">${esc(a.label)}</button>`).join('')}</div>` : ''}
+      ${closed && x.scope === 'own' && offeredFor(x).length ? `<div class="actions">${offeredFor(x).map((a) => `<button class="btn btn-small" type="button" data-action="${esc(x.key)}|${esc(a.action)}" title="${esc(a.moduleName)}">${esc(a.label)}</button>`).join('')}</div>` : ''}
     </article>`;
   }
 
@@ -334,7 +336,7 @@
     if (text) setTimeout(() => { $('note').hidden = true; }, 5000);
   }
 
-  // What other modules can do for a finished poll (whatever they offer that takes a title), offered as
+  // What other modules can do for a finished poll (whatever they offer that takes a title; offeredFor keeps those it can fill), offered as
   // buttons named by the action, so nothing here knows which modules there are.
   let offered = [];
   async function loadActions() {
@@ -345,13 +347,17 @@
       offered = [];
     }
   }
+  // Only what this poll can fill (pollFills in polls-lib.js): an action that needs a date (the Calendar's) only when the winning
+  // option stands for a day, which it is given; never one that requires something a poll does not have (a link's address).
+  const offeredFor = (x) => offered.filter((a) => pollFills(a, Boolean(pickOf(x).date)));
   async function runAction(key, action) {
     const x = polls.get(key);
-    const a = offered.find((o) => o.action === action);
+    const a = offeredFor(x).find((o) => o.action === action);
     if (!x || !a) return;
     const { winner } = winnerOf(x);
     const input = { title: winner ? `${x.p.question}: ${winner}` : x.p.question };
     if (a.input.notes) input.notes = x.p.question;
+    if (a.input.date && pickOf(x).date) input.date = pickOf(x).date;
     if (a.input.ref) input.ref = host.objects.make('poll', x.id, x.scope === 'spaces' ? { space: x.spaceId } : undefined);
     try {
       await host.actions.request(action, input);
@@ -533,17 +539,21 @@
   }
 
   const closesPicker = host.ui.datePicker($('f-closes'), { clearable: true });
+  // `prefill`: a quick add's { title, date?, time? }, or a draft's { title, options, closes, multi } (pollFromObject).
   function openEditor(prefill) {
     showError('');
     $('f-question').value = '';
     $('f-options').innerHTML = '';
-    addOptionField();
-    addOptionField();
-    $('f-multi').checked = false;
+    const given = prefill && Array.isArray(prefill.options) ? prefill.options.slice(0, MAX_OPTIONS) : [];
+    for (let i = 0; i < Math.max(2, given.length); i += 1) {
+      const field = addOptionField();
+      if (given[i]) field.value = given[i];
+    }
+    $('f-multi').checked = Boolean(prefill && prefill.multi);
     $('f-addable').checked = Boolean(prefs.addableByDefault);
     // A quick add fills the question, and the closing time when a day was typed (12:00 unless a time was).
     $('f-question').value = (prefill && prefill.title) || '';
-    const closes = prefill && prefill.date ? prefill.date + 'T' + (prefill.time || '12:00') : '';
+    const closes = prefill && prefill.closes ? prefill.closes : prefill && prefill.date ? prefill.date + 'T' + (prefill.time || '12:00') : '';
     $('f-closes').value = closes && new Date(closes).getTime() > Date.now() ? closes : '';
     if (!$('f-closes').value && prefs.closeAfterDays > 0) {
       const d = new Date(Date.now() + prefs.closeAfterDays * 24 * 60 * 60 * 1000);
@@ -738,6 +748,13 @@
   }
   if (host.actions && host.actions.provide) {
     host.actions.provide({
+      // A poll or a message's words from Chat's Send to... (plan-object-handoff.md): the form, filled in; nothing is saved
+      // until the person starts it.
+      draftPoll: async (input) => {
+        if (!canCreate) throw new Error('this person cannot start a poll here');
+        openEditor(pollFromObject(input.object, host.util));
+        return {};
+      },
       addPoll: async (input) => {
         if (!canCreate) throw new Error('this person cannot start a poll here');
         const parsed = input.text && host.util.parseWhen ? host.util.parseWhen(input.text) : { title: input.text || '' };

@@ -1,7 +1,7 @@
 {
   "id": "polls",
   "name": "Polls",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "icon": "square-poll-vertical",
   "color": "purple",
   "description": "Quick polls and votes for the whole {environment} and for each {space}, with live results.",
@@ -112,6 +112,17 @@
   },
   "actions": {
     "provides": [
+      {
+        "name": "draftPoll",
+        "label": "Draft a poll from it",
+        "local": true,
+        "input": {
+          "object": "object"
+        },
+        "takes": [
+          { "kinds": ["poll", "text"], "as": "a poll", "permission": "create" }
+        ]
+      },
       {
         "name": "addPoll",
         "label": "Start a poll",

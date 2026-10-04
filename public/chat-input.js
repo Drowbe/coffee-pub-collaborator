@@ -111,11 +111,18 @@ export function objectInputOf(action, summary) {
 }
 
 // What Keep sends a keeper that takes the object: the object as the format has it (its details too), which the bus checks
-// again and the module maps into its own fields; and the title, for an action that also asks for one on its own.
-export function objectKeepInput(action, field, summary) {
+// again and the module maps into its own fields; and the title, for an action that also asks for one on its own. An AI
+// answer's question ends its content as "Asked: ...", as keepInput writes it for a keeper of flat fields (never for an import).
+export function objectKeepInput(action, field, summary, question) {
   const object = { title: oneLine(summary.title, 120) || 'Untitled' };
   for (const key of ['kind', 'icon', 'content', 'details', 'date', 'tags', 'place', 'links', 'basis']) {
     if (summary[key] !== undefined && summary[key] !== null && summary[key] !== '') object[key] = summary[key];
+  }
+  const asked = summary.basis === 'imported' ? '' : oneLine(question, 1000);
+  if (asked) {
+    const content = String(object.content || '').trim();
+    const line = `Asked: ${asked}`;
+    object.content = [content.length + line.length + 2 > 6000 ? `${content.slice(0, Math.max(0, 6000 - line.length - 3))}…` : content, line].filter(Boolean).join('\n\n');
   }
   return { ...(action.input && action.input.title ? { title: object.title } : {}), [field]: object };
 }
@@ -645,7 +652,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, canvas, resizeC
     if (!placer) { setNote('Nothing here can keep that yet.'); return; }
     // A keeper that takes this kind gets the object itself; an older one the flat fields, the details as lines of text.
     const field = objectInputOf(placer, summary);
-    const input = field ? objectKeepInput(placer, field, summary)
+    // The question goes with it where it went before, to the note keeper, not the typed one.
+    const input = field ? objectKeepInput(placer, field, summary, placer.name === 'acceptSuggestion' ? '' : question)
       : placer.name === 'acceptSuggestion' ? suggestionInput(summary) : keepInput(summary, question);
     try {
       const out = await api('POST', `/api/spaces/${encodeURIComponent(spaceId())}/action`, { action: placer.action, input });

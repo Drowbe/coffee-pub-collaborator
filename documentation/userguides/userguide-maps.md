@@ -39,7 +39,7 @@ Nothing is sent to any service you did not choose: the map comes from your file,
 
 ## Map in the top bar
 
-When an owner turns on **Show Map** (see [Manage](userguide-environment-settings.md), "Top bar"), **Maps** sits in the top bar, after **Calendar**, with the Maps icon and the name your environment gives it. It puts the map and the list of [Places](userguide-places.md) on one page, across the whole environment and every space you are in. On a phone it is in the menu, after your spaces. It shows only while Maps is on, a map file is set (see "Set it up" above), and you may see Maps for the whole environment. Guests never see it.
+When an owner turns on **Show in the top bar** on Maps' configuration page (see [Manage](userguide-environment-settings.md), "Top bar"), **Maps** sits in the top bar, after **Calendar**, with the Maps icon and the name your environment gives it. It puts the map and the list of [Places](userguide-places.md) on one page, across the whole environment and every space you are in. On a phone it is in the menu, after your spaces. It shows only while Maps is on, a map file is set (see "Set it up" above), and you may see Maps for the whole environment. Guests never see it.
 
 1. Click **Maps** in the top bar. If you are in a space, it opens over the space: you are marked Away on the call until you go back, and **Back to <space>** returns you.
 2. Click **Trips** (your environment's word for spaces) on the left of the bar under the top bar to choose whose places show: **Mine**, then the environment's own places by the environment's name, then each of your spaces. The button says how many are on, such as "Trips (3 of 5)".

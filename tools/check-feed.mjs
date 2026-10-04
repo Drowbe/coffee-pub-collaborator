@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /*
- * check-feed.mjs -- a person's calendar feed (documentation/plans/plan-google-calendar.md, Part 1, step 1).
+ * check-feed.mjs -- a person's calendar feed (documentation/plans/plan-google-calendar.md, Part 1, step 1), and Calendar
+ * sharing's switches (documentation/plans/plan-space-calendars.md, step 1).
  *   - server/ics.js on its own: every line ends in CRLF and is at most 75 octets, folded never inside a UTF-8
  *     character, text escaped, and the whole checked against RFC 5545's rules (components nest, each event has its
  *     UID, DTSTAMP and DTSTART, a TZID has its VTIMEZONE, an UNTIL has DTSTART's type); an all-day event of three days
@@ -15,8 +16,13 @@
  *     from a space where the module is off, nor without read); a Planner-like object once, as its twin; a kind
  *     without "feed" never; events long past left out; the link back; ETag and 304; 429 past 30 a minute; a guest
  *     cannot make one.
+ *   - Calendar sharing's switches (plan-space-calendars step 1): otherCalendars and publishedCalendar off with nothing
+ *     set, true or false only, owners only; otherCalendars reads as calendarFeeds until set, with nothing rewritten, and
+ *     is its own once set; `sharing` and `sharingReasons` in GET /api/modules for a kind offered, none offered, a newer
+ *     bundled version asking for the `external` hook, and the bundled Calendar before and after its approval.
  *   - The bundled Calendar's own events in the feed, a repeat as its RRULE (step 2).
- *   - The pages (step 3), read as code: Profile's section and the owner's row, Manage's switch and the user list, each
+ *   - The pages (step 3), read as code: Profile's section and the owner's row, the switch (on Calendar's Configure page
+ *     since plan-space-calendars step 2, with Manage's pointer) and the user list, each
  *     id the scripts look up on the page, the server's routes, and the address kept no longer than the page.
  *   - A server with BASE_DOMAIN and two environments: one environment's address is 404 at the other.
  * No network beyond localhost, no LiveKit.
@@ -238,7 +244,7 @@ await test('manifest: "feed" only on a dated kind and only true or false; "dated
 });
 
 // --- the pages (step 3) ------------------------------------------------------------------------------------------------
-// Profile's section and the owner's row, Manage's switch and the user list: every id the scripts look up is on the page,
+// Profile's section and the owner's row, the switch on Calendar's Configure page, Manage's pointer and the user list: every id the scripts look up is on the page,
 // the routes are the server's, and the address is never put anywhere it would outlive the page.
 await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage\'s switch, wired to the server\'s routes', () => {
   const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
@@ -260,11 +266,44 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.doesNotMatch(profileJs, /(localStorage|sessionStorage|history\.(push|replace)State)[^\n]*feedUrl/, 'the address is not kept beyond the page');
   const adminHtml = read('public/admin.html');
   const adminJs = read('public/admin.js');
-  assert.match(adminHtml, /<input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Calendar feeds<\/label>/, 'Manage has the Calendar feeds switch');
-  assert.ok(ids(adminHtml).has('calendar-feeds-hint') && ids(adminHtml).has('calendar-feeds-status'));
-  assert.ok(adminJs.includes("api('PATCH', '/api/settings', { calendarFeeds: input.checked })"), 'the switch saves calendarFeeds as it is flipped');
+  // The switch moved to Calendar's Configure page, with its id (plan-space-calendars.md, section 4); Manage keeps a pointer.
+  const configHtml = read('public/module-config.html');
+  const configJs = read('public/module-config.js');
+  assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses<\/label>/, 'the Configure page has the Private addresses switch');
+  assert.ok(ids(configHtml).has('calendar-feeds-hint') && ids(configHtml).has('calendar-feeds-status'));
+  assert.ok(!ids(adminHtml).has('set-calendar-feeds') && !ids(adminHtml).has('calendar-feeds-settings'), 'Manage no longer has the switch or its panel');
+  assert.ok(ids(adminHtml).has('calendar-sharing-pointer') && adminJs.includes("'Calendar sharing is set in '"), 'Manage says where it went');
+  assert.match(configJs, /\{ key: 'calendarFeeds', input: 'set-calendar-feeds', hint: 'calendar-feeds-hint' \}/, 'the switch saves calendarFeeds');
+  assert.ok(configJs.includes("api('PATCH', '/api/settings', { [key]: input.checked })"), 'each switch saves as it is flipped');
   assert.ok(adminJs.includes('api(\'DELETE\', `/api/users/${user.key}/feed`)'), 'the user list turns someone\'s feed off');
   assert.match(adminHtml, /data-feed hidden/, 'the user card marks a feed, hidden until there is one');
+});
+
+// QA of #179 steps 0 to 2: a member opening Calendar's Configure page is told why rather than sent round sign-in for
+// ever; owners get the link to Modules with a switch's reason; step 2 promises nothing steps 3 and 4 have not built; and
+// Profile's Calendar feed names the switch and follows it when the page shows again.
+await test('pages: the Configure page stops for a member, links owners to Modules, and shows only what is built', () => {
+  const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
+  const configHtml = read('public/module-config.html');
+  const configJs = read('public/module-config.js');
+  const onFail = configJs.slice(configJs.indexOf("data = await api('GET', '/api/modules');"), configJs.indexOf('const m = data'));
+  assert.match(onFail, /if \(err\.status === 401\) location\.href = `\/login\?next=/, 'only a 401 goes to sign-in');
+  assert.match(onFail, /err\.status === 403 \? `Only \$\{word\('owner', \{ many: true \}\)\} can change this\.`/, 'a 403 says who can');
+  assert.equal((configJs.match(/location\.href = `\/login/g) || []).length, 1, 'no other way to sign-in');
+  assert.match(configHtml, /<p class="hint" id="cfg-denied" role="status" hidden><\/p>/);
+  assert.match(configJs, /api\('GET', '\/api\/me'\)\.then\(\(r\) => hasOwnerRights\(r\.user\)\)/, 'owners and the admin get the link to Modules');
+  assert.match(configJs, /typeof why === 'string' \? why : why\?\.reason \|\| ''/, 'whatever reason the server sends is drawn');
+  assert.match(configJs, /\{ key: 'publishedCalendar', input: 'set-published-calendar', hint: 'published-calendar-hint', later: true \}/, 'the Published calendar waits for step 4');
+  assert.match(configJs, /const shown = s\.key in reasons && !s\.later;/);
+  assert.match(configHtml, /<label class="check" hidden><input id="set-published-calendar"/, 'and starts hidden');
+  assert.doesNotMatch(configHtml, /or one \{space\}'s/, 'no space addresses promised before step 3');
+  const profileJs = read('public/profile.js');
+  assert.doesNotMatch(profileJs, /Calendar feeds are off/);
+  assert.match(profileJs, /`Private addresses are off in \$\{place\} for now, so this address does not work\./, 'the feed names the switch');
+  assert.match(profileJs, /document\.addEventListener\('visibilitychange', refreshFeed\);/, 'the feed is read again when the page shows again');
+  assert.match(profileJs, /if \(event\.persisted\) refreshFeed\(\);/);
+  assert.match(profileJs, /if \(editingKey \|\| !feed \|\| feedReading \|\| document\.visibilityState !== 'visible'\) return;/, 'one read at a time');
+  assert.match(profileJs, /if \(seq !== feedSeq\) return false;/, 'an older answer is dropped');
 });
 
 // --- a real server -----------------------------------------------------------------------------------------------------
@@ -309,6 +348,8 @@ function appCopy(name) {
     kind: 'note', name: 'Note', key: 'note:{id}', summary: { title: 'title', when: 'start' },
     dated: { title: 'title', start: 'start' },
   }] });
+  // Takes no part in calendar sharing until a newer version that asks for the `external` hook ships beside it.
+  writeModule(mods, 'feed-later', {}, { scope: ['environment'] });
   return root;
 }
 async function startServer(root, extraEnv = {}) {
@@ -393,6 +434,20 @@ try {
     assert.deepEqual([r.status, r.text, String(r.headers['content-type']).split(';')[0], r.headers.location], [404, NOT_HERE, 'text/plain', undefined], why);
   };
 
+  // plan-space-calendars.md, step 1: Calendar sharing's other two switches, off in a single install with nothing set.
+  const storedSettings = () => JSON.parse(fs.readFileSync(path.join(single.root, 'data', 'app.json'), 'utf8')).settings;
+  await test('server: otherCalendars and publishedCalendar read off with nothing set, take only true or false, and only from owners', async () => {
+    const got = (await call('GET', '/api/settings', { cookie: admin })).json.settings;
+    assert.deepEqual([got.calendarFeeds, got.otherCalendars, got.publishedCalendar], [false, false, false]);
+    assert.equal('otherCalendars' in storedSettings(), false, 'nothing written for otherCalendars');
+    for (const key of ['otherCalendars', 'publishedCalendar']) {
+      const bad = await call('PATCH', '/api/settings', { cookie: admin, body: { [key]: 'yes' } });
+      assert.deepEqual([bad.status, bad.json], [400, { error: `${key} is true or false` }], key);
+      assert.equal((await call('PATCH', '/api/settings', { cookie: aliceC, body: { [key]: true } })).status, 403, `a member cannot turn on ${key}`);
+    }
+    assert.equal('otherCalendars' in storedSettings(), false, 'a refused change writes nothing');
+  });
+
   await test('server: the setting is off by default, refused when not true or false, and a feed is not allowed until it is on and a kind is offered', async () => {
     assert.equal((await call('GET', '/api/settings', { cookie: admin })).json.settings.calendarFeeds, false);
     const bad = await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: 'yes' } });
@@ -412,6 +467,55 @@ try {
     // A guest has no account, so no feed.
     assert.equal((await call('GET', `/api/me/feed?guest=${guestToken}`)).status, 401);
     assert.equal((await call('POST', `/api/me/feed?guest=${guestToken}`, { body: {} })).status, 401);
+  });
+
+  await test('server: otherCalendars follows calendarFeeds until an owner sets it, then is its own; publishedCalendar is its own', async () => {
+    let got = (await call('GET', '/api/settings', { cookie: admin })).json.settings;
+    assert.deepEqual([got.calendarFeeds, got.otherCalendars], [true, true], 'an environment that allowed other calendars still does');
+    assert.equal('otherCalendars' in storedSettings(), false, 'read, not rewritten');
+    const off = await call('PATCH', '/api/settings', { cookie: admin, body: { otherCalendars: false } });
+    assert.equal(off.status, 200, off.text);
+    assert.deepEqual([off.json.settings.calendarFeeds, off.json.settings.otherCalendars], [true, false]);
+    assert.equal(storedSettings().otherCalendars, false);
+    assert.equal((await call('GET', '/api/me/feed', { cookie: aliceC })).json.allowed, true, 'the addresses do not hang on it');
+    await setting(false);
+    await setting(true);
+    got = (await call('GET', '/api/settings', { cookie: admin })).json.settings;
+    assert.equal(got.otherCalendars, false, 'once set, Calendar feeds no longer moves it');
+    assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { otherCalendars: true } })).json.settings.otherCalendars, true);
+    for (const value of [true, false]) {
+      const r = await call('PATCH', '/api/settings', { cookie: admin, body: { publishedCalendar: value } });
+      assert.deepEqual([r.status, r.json.settings.publishedCalendar, r.json.settings.calendarFeeds, r.json.settings.otherCalendars], [200, value, true, true]);
+      assert.equal(storedSettings().publishedCalendar, value);
+    }
+  });
+
+  // `sharing` and `sharingReasons` in GET /api/modules: what Calendar's Configure page draws its section from.
+  const moduleRow = async (id) => (await call('GET', '/api/modules', { cookie: admin })).json.modules.find((m) => m.id === id);
+  await test('server: a module offering a kind to the addresses takes part in calendar sharing; one that does not, not', async () => {
+    const dates = await moduleRow('feed-dates');
+    assert.deepEqual([dates.sharing, dates.sharingReasons], [true, { calendarFeeds: null, publishedCalendar: null }]);
+    for (const id of ['feed-plans', 'feed-quiet']) {
+      const m = await moduleRow(id);
+      assert.deepEqual([m.sharing, m.sharingReasons], [false, null], `${id}: no kind offered`);
+    }
+    assert.equal((await call('GET', '/api/modules', { cookie: aliceC })).status, 403, 'owners only');
+  });
+
+  await test('server: a newer bundled version asking for the external hook makes the running one take part, waiting for its update', async () => {
+    { const r = await call('POST', '/api/modules/bundled/feed-later/install', { cookie: admin, body: {} }); assert.equal(r.status, 201, r.text); }
+    let m = await moduleRow('feed-later');
+    assert.deepEqual([m.version, m.sharing, m.sharingReasons], ['1.0.0', false, null]);
+    const file = path.join(single.root, 'modules', 'feed-later', 'module.json');
+    const was = fs.readFileSync(file, 'utf8');
+    fs.writeFileSync(file, JSON.stringify({ ...JSON.parse(was), version: '1.1.0', hooks: { external: true } }));
+    try {
+      m = await moduleRow('feed-later');
+      assert.deepEqual([m.version, m.sharing, m.sharingReasons], ['1.0.0', true, { otherCalendars: { hooks: ['external'], reason: 'Approve feed-later\'s update in Manage > Modules first.' } }]);
+    } finally {
+      fs.writeFileSync(file, was);
+    }
+    assert.equal((await call('DELETE', '/api/modules/feed-later?keepData=0', { cookie: admin })).status, 200);
   });
 
   // The events, written as the admin.
@@ -561,7 +665,11 @@ try {
   await test('server: the bundled Calendar\'s events are in the feed, with their repeat', async () => {
     for (const id of ['feed-dates', 'feed-plans']) assert.equal((await call('PATCH', `/api/modules/${id}`, { cookie: admin, body: { enabled: false } })).status, 200, id);
     { const r = await call('POST', '/api/modules/bundled/calendar/install', { cookie: admin, body: {} }); assert.ok([201, 409].includes(r.status), r.text); }
+    // Calendar takes part in every switch; its `external` hook waits for approval until it is turned on.
+    const waiting = await moduleRow('calendar');
+    assert.deepEqual([waiting.sharing, waiting.sharingReasons], [true, { calendarFeeds: null, publishedCalendar: null, otherCalendars: { hooks: ['external'], reason: 'Approve Calendar\'s update in Manage > Modules first.' } }]);
     assert.equal((await call('PATCH', '/api/modules/calendar', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
+    assert.deepEqual((await moduleRow('calendar')).sharingReasons, { calendarFeeds: null, publishedCalendar: null, otherCalendars: null }, 'approved: nothing waits');
     await put('calendar', 'event:c1', { title: 'Weekly game', start: `${Y}-03-04T23:00:00.000Z`, end: `${Y}-03-05T02:00:00.000Z`, allDay: false, desc: 'Bring dice.', remind: null, repeat: { every: 'week', until: `${Y}-06-30` }, by: 'admin' }, spaceA);
     const url = (await call('POST', '/api/me/feed', { cookie: carolC, body: {} })).json.url;
     const r = await read(url);

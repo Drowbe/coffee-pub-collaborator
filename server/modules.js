@@ -583,6 +583,20 @@ function cleanRegionSource(raw, settings) {
   return { folder: raw.folder, address: raw.address };
 }
 
+// The lookups a module asks the server for (documentation/plans/plan-flight-lookup.md): `"lookups": ["flight"]`, or none.
+// The one kind today is `flight`: GET /api/modules/:id/flight-lookup and POST .../flight-lookup/remember (index.js).
+const LOOKUP_KINDS = ['flight'];
+function cleanLookups(raw) {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw)) throw new ModuleError(`module.json: lookups must be a list; the lookups are ${LOOKUP_KINDS.join(', ')}`);
+  const out = [];
+  for (const k of raw.slice(0, 10)) {
+    if (!LOOKUP_KINDS.includes(k)) throw new ModuleError(`module.json: lookups: "${typeof k === 'string' ? k.slice(0, 40) : k}" is not a lookup; the lookups are ${LOOKUP_KINDS.join(', ')}`);
+    if (!out.includes(k)) out.push(k);
+  }
+  return out;
+}
+
 function cleanGeocoder(raw, settings) {
   if (!raw || typeof raw !== 'object') return null;
   const known = (k, type) => typeof k === 'string' && settings.some((d) => d.key === k && (!type || d.type === type));
@@ -821,6 +835,7 @@ function cleanManifest(raw, files) {
   const geocoder = cleanGeocoder(raw.geocoder, settings);
   const regionSource = cleanRegionSource(raw.regionSource, settings);
   const uploads = cleanUploads(raw.uploads);
+  const lookups = cleanLookups(raw.lookups);
 
   // The modules this one cannot work without: the one place a manifest names another module (at run time every module still
   // reaches another only through the generic conduits). It cannot be turned on until they are on.
@@ -838,7 +853,7 @@ function cleanManifest(raw, files) {
     ? { auto: raw.install.auto === true, settingsFrom: raw.install.settingsFrom === 'environment' ? 'environment' : null }
     : null;
 
-  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, install };
+  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, lookups, install };
 }
 
 // --- the registry ---------------------------------------------------------
@@ -1005,6 +1020,7 @@ class ModuleManager {
       try { manifest.geocoder = cleanGeocoder(manifest.geocoder, manifest.settings); } catch { manifest.geocoder = null; }
       try { manifest.regionSource = cleanRegionSource(manifest.regionSource, manifest.settings); } catch { manifest.regionSource = null; }
       try { manifest.uploads = cleanUploads(manifest.uploads); } catch { manifest.uploads = null; }
+      try { manifest.lookups = cleanLookups(manifest.lookups); } catch { manifest.lookups = []; }
       if (hasPlaceholders(manifest)) this.withPlaceholders.add(manifest);
       this.manifests.set(cacheKey, manifest);
     }

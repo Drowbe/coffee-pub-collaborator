@@ -177,7 +177,10 @@ A host admin does this from the host console's **Environments** tab. Each enviro
 **Backup** and **Restore backup**.
 
 To back one up, click **Backup** on its card. The browser saves the whole environment as a zip named
-`<slug>-<date>.zip`: every setting, account, space, picture and module's data.
+`<slug>-<date>.zip`: every setting, account, space, picture and module's data. The flight schedule the
+Planner's lookup learns is the host's, shared by every environment, so it is not in the zip; it lives in
+`flight-schedule.json` beside `host.json`, and the console's **Host** tab can forget a flight or clear it
+(see "The flight schedule" in [Modules](userguide-modules.md)).
 
 To restore one from a backup:
 

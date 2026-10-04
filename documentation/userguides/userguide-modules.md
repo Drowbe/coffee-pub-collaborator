@@ -62,7 +62,7 @@ keeps them.
 
 ## Settings
 
-A module can offer settings. There are three kinds. **Environment** settings, for everyone, are chosen by an owner on the module's own page: choose **Module Configuration** on its card on the Modules tab. A module with no environment settings shows the button greyed out, with "No settings" beside it. **Space** settings, for one space, are chosen by an owner (on the **Modules** tab of the space's own page, under the module list) or by a member ticked as a moderator in that space (from the sliders-with-gears button on the space's card on the spaces page). **Your own** settings, how a module behaves for you, are on your profile page under Module settings. Every setting has a default, so nothing needs setting. A change to the environment's or a space's settings shows in the Modules tab's recent activity.
+A module can offer settings. There are three kinds. **Environment** settings, for everyone, are chosen by an owner on the module's own page: choose **Module Configuration** on its card on the Modules tab. The same page also holds switches Collaborator draws for some modules, above the module's own settings: **Calendar sharing** for a module that offers its events to calendar apps or shows people's other calendars (the Calendar; see "Calendar sharing (owner)" in [Calendar](userguide-calendar.md)), and **Top bar**, with **Show in the top bar**, for a module that is a page of its own in the top bar (the Calendar and Maps; see "Top bar" in [Manage](userguide-environment-settings.md)). A module with none of these shows the button greyed out, with "No settings." beside it. **Space** settings, for one space, are chosen by an owner (on the **Modules** tab of the space's own page, under the module list) or by a member ticked as a moderator in that space (from the sliders-with-gears button on the space's card on the spaces page). **Your own** settings, how a module behaves for you, are on your profile page under Module settings. Every setting has a default, so nothing needs setting. A change to the environment's or a space's settings shows in the Modules tab's recent activity.
 
 ## Who can use it
 
@@ -78,7 +78,7 @@ Upload a newer version of the same module and it replaces the active one. Collab
 
 ## Filters
 
-At the top of the Modules tab, **All**, **Updates available** and **Configurable** choose which modules are listed. Updates available shows only the modules with a newer version waiting; Configurable shows only the modules that have settings you can choose for the environment (the ones with an enabled **Module Configuration** button). Each chip shows how many modules it holds.
+At the top of the Modules tab, **All**, **Updates available** and **Configurable** choose which modules are listed. Updates available shows only the modules with a newer version waiting; Configurable shows only the modules with an enabled **Module Configuration** button: settings you can choose for the environment, Calendar sharing, or Show in the top bar. Each chip shows how many modules it holds.
 
 ## Recent activity
 
@@ -97,3 +97,28 @@ Some modules can ask an AI to summarise, answer a question, or write a card from
 - **Monthly allowance:** a number of tokens for the month, or 0 for no limit. The panel shows how many were used this month, in how many calls and for which tasks.
 - **Who may use it:** the Roles tab has **Use AI in modules** under AI. It is off for every role until you tick it, owners always may, and guests never can (the tick is greyed out for them).
 - **Per space:** on a space's settings, in its **Modules** tab under **AI**, **Turn AI off in this space** stops it there whatever the roles say.
+
+## The flight schedule
+
+The Planner's **Look up a flight** fills a flight from the same flight number saved before on this server (see "Look up a flight" in [Planner](userguide-planner.md)). The server learns those flights from the trips people save. It keeps the airline, the airports, the times and the terminal, never who flew. The **Flight schedule** section shows how much it has learned and lets you forget a flight or clear it all.
+
+Where it is:
+
+- **On a single server,** on the Manage page's **Modules** tab, for owners and the admin.
+- **On a server with environments,** the schedule is shared by every environment, so it is on the host console's **Host** tab, for host admins only. An environment's owner has no section and can't clear it. To keep one environment's flights out, its owner turns off the Planner's **Suggest flights from earlier trips**.
+
+The section says "This server has learned N flights from saved trips."
+
+To forget one flight:
+
+1. Under **Flight number**, enter it, such as WN 2483.
+2. Choose **Forget a flight**. It says "Forgot WN 2483." If the server has no such flight it says "No flight WN 2483 is saved on this server.", and a number that can't be one gets "That is not a flight number; enter the airline code and number, like WN 2483."
+
+To forget them all:
+
+1. Choose **Clear all**. It is greyed out while nothing has been learned.
+2. Confirm "Clear all learned flights? Lookups will find nothing until people save flights again." It says how many it cleared, such as "Cleared 12 flights."
+
+Lookups then find nothing until people save those flights again. An environment's backup or copy never includes the schedule.
+
+If the schedule's file on the server was damaged, the server moves it aside at its next start and starts with an empty schedule. If the file is far larger than it should be (over 40 MB), the server leaves it as it is and keeps nothing new until you choose **Clear all**, which replaces it; if that fails, the section says "The flight schedule could not be cleared; the server log says why."

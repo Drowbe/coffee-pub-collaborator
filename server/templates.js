@@ -85,6 +85,8 @@ const SETTINGS = {
   showCalendar: bool,
   showMap: bool,
   calendarFeeds: bool,
+  otherCalendars: bool,
+  publishedCalendar: bool,
   activeThemeId: (v) => v === null || BUILTIN_THEME_IDS.includes(v),
   themeMode: (v) => v === 'light' || v === 'dark',
 };

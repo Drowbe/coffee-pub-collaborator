@@ -1,7 +1,7 @@
 {
   "id": "travel",
   "name": "Planner",
-  "version": "0.12.0",
+  "version": "0.13.2",
   "icon": "suitcase-rolling",
   "color": "teal",
   "description": "Plan together: a day-by-day itinerary that draws in the events, tasks and polls your {space} already has.",
@@ -48,6 +48,9 @@
     "read": "view",
     "write": "edit"
   },
+  "lookups": [
+    "flight"
+  ],
   "events": {
     "subscribes": [
       "*"
@@ -230,6 +233,14 @@
           "color": "#f59e0b"
         }
       ]
+    },
+    {
+      "key": "suggestFlights",
+      "label": "Suggest flights from earlier trips",
+      "type": "boolean",
+      "scope": "environment",
+      "default": true,
+      "help": "Fill a flight from the same flight number saved before on this server. Flights saved here also help others; turn this off to keep them out."
     }
   ]
 }

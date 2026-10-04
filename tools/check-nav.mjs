@@ -21,7 +21,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nav-check-'));
 const copy = path.join(tmp, 'nav-bar.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/nav-bar.js'), copy);
-const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, phoneTabs, phoneFold, TAB_MIN, isShown, foldSteps, foldCount, fitWidth, register, nav: navApi } = await import(pathToFileURL(copy).href);
+const { arrange, isVisible, cleanModuleTools, bandOf, BANDS, DEFAULT_ORDER, phoneZones, phoneTabs, phoneFold, TAB_MIN, isShown, foldSteps, foldCount, fitWidth, labelsThatFit, register, nav: navApi } = await import(pathToFileURL(copy).href);
 // Who is here (Online, the space bar's left zone) gives way before the bar folds; its fitting and its reading of the call are pure.
 const peopleCopy = path.join(tmp, 'space-people.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/space-people.js'), peopleCopy);
@@ -531,7 +531,7 @@ test('the default layout (plan-saved-layouts.md, step 4): Make default in a shar
   // Only on a shared row, only for those the server says may set it (canSetDefault), never a guest.
   assert.match(space, /const maySetDefault = \(shared\) => !guestToken && shared && layoutList\.canSetDefault;/);
   assert.match(space, /canSetDefault: Boolean\(got\.canSetDefault\)/, 'read from GET .../layouts');
-  assert.match(space, /\$\{mayChangeLayout\(shared\) \|\| maySetDefault\(shared\) \? `<button/, 'the ... shows for one who may only set the default');
+  assert.match(space, /\$\{mayFavorite\(\) \|\| mayChangeLayout\(shared\) \|\| maySetDefault\(shared\) \? `<button/, 'the ... shows for one who may only set the default (and for anyone signed in, to favorite)');
   assert.match(space, /\$\{l\.id === layoutList\.defaultLayout \? '<span class="layout-default">Default<\/span>' : ''\}/, 'the default row is marked Default');
   const menuFn = space.slice(space.indexOf('function openLayoutMenu('), space.indexOf('async function setDefaultLayout('));
   assert.match(menuFn, /if \(maySetDefault\(shared\)\) \{/);
@@ -555,6 +555,125 @@ test('the default layout (plan-saved-layouts.md, step 4): Make default in a shar
   assert.match(settings, /`Opens with the layout \$\{layout\.name\}`/);
   assert.match(settings, /api\('PATCH', `\/api\/spaces\/\$\{space\.id\}`, \{ defaultLayout: null \}\)/);
   assert.match(settings, /space = \(await api\('PATCH', `\/api\/spaces\/\$\{space\.id\}`, \{ opensWith: send \}\)\)\.space;\n\s*say\(\$\('opens-with-status'\), 'saved'\);\n\s*syncDefaultLayout\(\);/);
+});
+
+test('favorite layouts, step 2 (plan-favorite-layouts.md): a ... on every row for anyone signed in, Favorite or Unfavorite first with its heart, the row\'s heart, the notes; a guest gets none', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  // Who: anyone signed in; never a guest (no guest link, no guest role).
+  assert.match(space, /const mayFavorite = \(\) => !guestToken && Boolean\(me\?\.key\) && me\.role !== 'guest';/);
+  // The list carries this person's favorites from GET .../layouts, [] when it has none.
+  assert.match(space, /favorites: Array\.isArray\(got\.favorites\) \? got\.favorites : \[\]/);
+  assert.equal((space.match(/defaultLayout: null, favorites: \[\], canShare: false, canSetDefault: false \};/g) || []).length, 3, 'every empty list has no favorites');
+  // The row: the ... for anyone who may favorite; a favorite's heart after the name, hidden from a screen reader, which
+  // hears ", favorite" in the row's name instead.
+  const row = space.slice(space.indexOf('const layoutRowHtml = '), space.indexOf('function renderLayouts('));
+  assert.match(row, /\$\{mayFavorite\(\) \|\| mayChangeLayout\(shared\) \|\| maySetDefault\(shared\) \? `<button class="msg-btn layout-more"/);
+  assert.match(row, /\$\{isFavorite\(l\.id\) \? '<i class="fa-solid fa-heart fa-fw layout-favorite-mark" aria-hidden="true"><\/i><span class="visually-hidden">, favorite<\/span>' : ''\}/);
+  assert.ok(row.indexOf('layout-favorite-mark') > row.indexOf('class="layout-name"') && row.indexOf('layout-favorite-mark') < row.indexOf('layout-default'), 'after the name, before Default');
+  assert.match(css, /\.layout-favorite-mark \{[^}]*color: var\(--accent\);/);
+  // The menu: Favorite (outline heart) or Unfavorite (filled heart) first, a divider before Make default.
+  const menuFn = space.slice(space.indexOf('function openLayoutMenu('), space.indexOf('async function setFavorite('));
+  assert.match(menuFn, /if \(mayFavorite\(\)\) \{\n\s*entries\.push\(isFavorite\(layoutId\)\n\s*\? \{ icon: 'heart', label: 'Unfavorite', onPick: \(\) => setFavorite\(layout, false\) \}\n\s*: favoriteLayouts\(\)\.length >= FAVORITE_LIMIT\n\s*\? \{ icon: 'heart', regular: true, label: 'Favorite', disabled: true, hint: favoriteLimitText\(\) \}\n\s*: \{ icon: 'heart', regular: true, label: 'Favorite', onPick: \(\) => setFavorite\(layout, true\) \}\);/, 'Unfavorite always; Favorite off, with the limit as its hint, at 3');
+  // The limit (decision 12, Thomas 2026-10-04): 3, in the server's own words (its 409 says the same).
+  assert.match(space, /const FAVORITE_LIMIT = 3;/);
+  assert.match(space, /const favoriteLimitText = \(\) => `You can have \$\{FAVORITE_LIMIT\} favorite layouts\. Unfavorite one first\.`;/);
+  assert.ok(menuFn.indexOf("label: 'Favorite'") < menuFn.indexOf("label: 'Make default'"), 'Favorite comes first');
+  assert.match(menuFn, /if \(maySetDefault\(shared\)\) \{\n\s*if \(entries\.length\) entries\.push\(\{ divider: true \}\);/, 'a divider after it when Make default follows');
+  assert.match(menuFn, /if \(entries\.length\) entries\.push\(\{ divider: true \}\);\n\s*openHostMenu\(trigger, \[/, 'and when Replace, Rename and Delete follow');
+  assert.match(menuFn, /if \(!mayChangeLayout\(shared\)\) \{ openHostMenu\(trigger, entries\); return; \}/, "a member's ... on a shared layout holds Favorite only");
+  // The request, its words, the list again with the keyboard back on the row; a refusal reads the list again.
+  const setFn = space.slice(space.indexOf('async function setFavorite('), space.indexOf('async function setDefaultLayout('));
+  assert.match(setFn, /layoutRequest\(on \? 'PUT' : 'DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts\/\$\{encodeURIComponent\(layout\.id\)\}\/favorite`\)/);
+  assert.match(setFn, /layoutNote\(on \? `\$\{layout\.name\} is a favorite\.` : `\$\{layout\.name\} is no longer a favorite\.`\);/);
+  assert.match(setFn, /renderLayouts\(\{ focus: row \}\);/);
+  assert.match(setFn, /await refreshLayouts\(\{ focus: err\.status === 404 \? '\.layout-load' : row \}\);/, 'a layout gone (404): the list again');
+  assert.ok(!/host\.menu\.show/.test(menuFn), 'the host\'s own menu');
+});
+
+test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layout-favorites after Layout, its buttons, loading, the note, giving way first, and where it is hidden', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  // Registered in the left zone, Layout's group, right after it (order 2); never folds; gives way before Online.
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted \}\);/);
+  const tools = [
+    { id: 'module-chooser', group: 'modules', order: 1, seq: 1 },
+    { id: 'join-call', group: 'call', groupOrder: 1.5, order: 1, seq: 2 },
+    { id: 'who-here', group: 'people', groupOrder: 2, order: 1, seq: 3 },
+    { id: 'layout-favorites', group: 'modules', order: 2, seq: 9 },
+  ];
+  assert.deepEqual(arrange(tools).flat().map((t) => t.id), ['module-chooser', 'layout-favorites', 'join-call', 'who-here'], 'Layout, the favorites, Join, Online');
+  assert.equal(arrange(tools)[0].length, 2, 'one group with Layout: no divider between them');
+  // The group: its id, a labelled group, the note under it (seen; heard through #layout-announce, so hidden from a reader).
+  assert.match(space, /layoutFavorites\.id = 'layout-favorites';/);
+  assert.match(space, /layoutFavorites\.setAttribute\('role', 'group'\);\nlayoutFavorites\.setAttribute\('aria-label', 'Favorite layouts'\);/);
+  assert.match(space, /favoritesNote\.id = 'layout-favorites-note';/);
+  assert.match(space, /favoritesNote\.setAttribute\('aria-hidden', 'true'\);/);
+  // Hidden for a guest, in an aside (no layoutSpaceId), with none, on a narrow canvas and at 640 px and below.
+  assert.match(space, /const favoritesWanted = \(\) => mayFavorite\(\) && Boolean\(layoutList\.spaceId\) && layoutList\.spaceId === layoutSpaceId\(\)\n\s*&& favoriteLayouts\(\)\.length > 0 && !canvas\.isNarrow\(\) && !phoneWidth\(\);/);
+  assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.subnav #layout-favorites \{\n\s*display: none;/);
+  assert.match(space, /new ResizeObserver\(\(\) => \{\n\s*const narrow = canvas\.isNarrow\(\);[\s\S]*?nav\.draw\('secondary'\);[\s\S]*?\}\)\.observe\(\$\('canvas'\)\);/, 'drawn again as the canvas crosses the narrow line');
+  // One button per favorite, in the order favorited: a heart and the name; "Load <name>"; the full name for a reader.
+  assert.match(space, /const favoriteLayouts = \(\) => layoutList\.favorites\.map\(findLayout\)\.filter\(Boolean\);/);
+  const render = space.slice(space.indexOf('function renderFavorites('), space.indexOf('function fitFavorites('));
+  assert.match(render, /b\.className = 'btn btn-small layout-favorite';\n\s*b\.dataset\.layoutFavorite = l\.id;\n\s*b\.title = `Load \$\{l\.name\}`;\n\s*b\.setAttribute\('aria-label', l\.name\);/);
+  assert.match(render, /<i class="fa-solid fa-heart fa-fw" aria-hidden="true"><\/i><span class="layout-favorite-name">\$\{escapeHtml\(l\.name\)\}<\/span>/);
+  assert.match(render, /nav\.draw\('secondary'\);/);
+  assert.match(space, /renderFavorites\(\); \/\/ the space bar's favorites, from the same list/, 'drawn whenever the panel\'s list is');
+  // About 16 characters, down to about 6.
+  assert.match(space, /const FAVORITE_NAME_MOST = 16;/);
+  assert.match(space, /const FAVORITE_NAME_LEAST = 6;/);
+  assert.match(css, /\.layout-favorite-name \{[^}]*max-width: var\(--layout-favorite-name, 16ch\);[^}]*text-overflow: ellipsis;/);
+  assert.match(css, /\.layout-favorites > \.layout-favorite-out \{\n\s*display: none;/);
+  // A press loads it through canvas.loadLayout, the keyboard stays; its note goes under the group for 6 seconds.
+  const press = space.slice(space.indexOf("layoutFavorites.addEventListener('click'"), space.indexOf("nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites'"));
+  assert.match(press, /noteUnderFavorites = true;\n\s*try \{\n\s*canvas\.loadLayout\(layout\);\n\s*\} finally \{\n\s*noteUnderFavorites = false;\n\s*\}\n\s*syncSnapBar\(\);\n\s*button\.focus\(\);/);
+  assert.match(space, /if \(noteUnderFavorites && t\) showFavoritesNote\(t\);/, 'layoutNote also puts it under the favorites (and #layout-announce as before)');
+  assert.match(space, /favoritesNoteTimer = setTimeout\(\(\) => showFavoritesNote\(''\), 6000\);/);
+  assert.match(css, /\.layout-favorites-note \{[^}]*background: var\(--bg-section\);/);
+  // The fit: measured, then nav.labelsThatFit; the keyboard on a button that leaves goes to the Layout button.
+  const fit = space.slice(space.indexOf('function fitFavorites('), space.indexOf("layoutFavorites.addEventListener('click'"));
+  assert.match(fit, /nav\.labelsThatFit\(\{ avail: Math\.floor\(avail\) - 1, gap, items, least: FAVORITE_NAME_LEAST \* ch, most \}\)/);
+  assert.match(fit, /b\.classList\.toggle\('layout-favorite-out', i >= count\)/);
+  assert.match(fit, /focused\.closest\('\.layout-favorite-out'\)\) moduleChooser\.querySelector\('#modules-toggle'\)\?\.focus\(\);/);
+  // nav-bar.js: a `fitFirst` tool is fitted first, with the others at their least (fit(0)), so Online gives way after it.
+  const fitSec = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
+  assert.match(fitSec, /fitting\.sort\(\(a, c\) => Number\(Boolean\(c\.fitFirst\)\) - Number\(Boolean\(a\.fitFirst\)\)\);/);
+  assert.match(fitSec, /if \(first\.length\) for \(const t of fitting\) \{ if \(!t\.fitFirst\) \{ try \{ t\.fit\(0\); \}/, 'the others at their least first');
+  assert.match(fitSec, /for \(const t of fitting\) fitOne\(t\);\n\s*for \(const t of first\) fitOne\(t\);/, 'then each in turn, then the first again to what the others took');
+  assert.ok(fitSec.indexOf('t.fit(0)') < fitSec.indexOf('for (const t of fitting) fitOne(t);') && fitSec.indexOf('for (const t of first) fitOne(t);') < fitSec.indexOf('const leftWidth'));
+  // labelsThatFit: names shorten first, then the last buttons leave; the first ones favorited stay.
+  const items = [{ chrome: 30, label: 100 }, { chrome: 30, label: 100 }, { chrome: 30, label: 20 }];
+  assert.deepEqual(labelsThatFit({ avail: 1000, gap: 4, items, least: 48, most: 128 }), { count: 3, cap: 128 }, 'all fit: nothing cut');
+  const at = (cap) => 90 + 8 + 2 * cap + 20;
+  assert.deepEqual(labelsThatFit({ avail: at(70), gap: 4, items, least: 48, most: 128 }), { count: 3, cap: 70 }, 'the names shorten');
+  assert.deepEqual(labelsThatFit({ avail: at(48), gap: 4, items, least: 48, most: 128 }), { count: 3, cap: 48 }, 'down to the least');
+  assert.deepEqual(labelsThatFit({ avail: at(48) - 1, gap: 4, items, least: 48, most: 128 }).count, 2, 'then the last one leaves');
+  assert.deepEqual(labelsThatFit({ avail: 60 + 4 + 2 * 60, gap: 4, items, least: 48, most: 128 }), { count: 2, cap: 60 }, 'the rest may lengthen again');
+  assert.deepEqual(labelsThatFit({ avail: 77, gap: 4, items, least: 48, most: 128 }), { count: 0, cap: 48 }, 'none fit');
+  // Decision 13 (Thomas, 2026-10-04): names at full length unless out of space in the bar; then evenly shorter before one leaves.
+  // Three favorites as the bar measures them (a 42 px heart and padding; names of 116, 82 and 116 px, 16 characters
+  // being 116 px; 6 characters 43 px).
+  const three = [{ chrome: 42, label: 116 }, { chrome: 42, label: 82 }, { chrome: 42, label: 116 }];
+  const full = 3 * 42 + 116 + 82 + 116 + 2 * 4;
+  const fit3 = (avail) => labelsThatFit({ avail, gap: 4, items: three, least: 43, most: 116 });
+  assert.deepEqual(fit3(1036), { count: 3, cap: 116 }, '3 favorites with plenty of width: all at full length');
+  assert.deepEqual(fit3(full), { count: 3, cap: 116 }, 'exactly wide enough for all three: still full length');
+  const tight = fit3(full - 30);
+  assert.equal(tight.count, 3, 'tight: all three stay');
+  assert.ok(tight.cap < 116 && tight.cap >= 100, 'tight: the names shorten, to the widest that fits');
+  assert.ok(3 * 42 + 8 + 2 * Math.min(116, tight.cap) + Math.min(82, tight.cap) <= full - 30, 'and that fits');
+  for (let avail = 3 * 42 + 8 + 3 * 43; avail <= full; avail += 1) {
+    assert.equal(fit3(avail).count, 3, `at ${avail} px the names shorten; no favorite leaves`);
+  }
+  assert.equal(fit3(3 * 42 + 8 + 3 * 43 - 1).count, 2, 'past the least, the last one leaves');
+  assert.deepEqual(labelsThatFit({ avail: 1036, gap: 4, items: [{ chrome: 42, label: 60 }], least: 43, most: 116 }), { count: 1, cap: 116 }, 'one short name: as it is');
+  assert.equal(labelsThatFit({ avail: -20, items }).count, 0);
+  assert.equal(labelsThatFit({ avail: 50, items: [] }).count, 0);
+  // Its look: the Layout button's size, the heart in the accent.
+  assert.match(css, /\.layout-favorite \{[^}]*height: 22px;/);
+  assert.match(css, /\.layout-favorite i \{\n\s*color: var\(--accent\);/);
 });
 
 test('the top bar\'s space segment and the Spaces slot wear the top bar\'s link look (core-link), and nothing restyles them on a wider screen', () => {
@@ -1430,8 +1549,8 @@ test('destinations: brand.js registers them from GET /api/destinations, wider on
   assert.match(brand, /presentSpace = id \|\| null;\n  markDestinations\(\);/, 'entering or leaving a space marks them again');
   assert.match(brand, /loadDestinations\(\{ wide: \(\) => wide\(\) && signedIn\(\), inMenuOnly \}\);/);
   assert.match(load, /for \(const id of destinationIds\) nav\.unregister\(id\);/, 'asked again, the old entries go first');
-  assert.match(brand, /export function refreshDestinations\(\)/, 'Manage can ask again');
-  assert.match(fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8'), /refreshDestinations\(\); \/\/ the bar's entry comes or goes/, 'Manage asks again after a Top bar switch');
+  assert.match(brand, /export function refreshDestinations\(\)/, 'a page can ask again');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/module-config.js'), 'utf8'), /refreshDestinations\(\); \/\/ the bar's entry comes or goes/, 'a module\'s configuration asks again after its Show in the top bar switch');
   assert.match(load, /window\.location\.pathname\.toLowerCase\(\)/, '/CALENDAR is current too');
   // A guest's bar and the host console return before the menu's entries are registered, so they have no entry.
   const sys = brand.slice(brand.indexOf('function registerSystemTools('), brand.indexOf('loadDestinations({'));

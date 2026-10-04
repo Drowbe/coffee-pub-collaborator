@@ -3,7 +3,13 @@
 // environment, DATA_DIR/layouts.json (so the environment's export and the host console's backup, which zip the whole
 // data folder, carry it):
 //
-//   { "spaces": { "<space id>": { "shared": [layout], "people": { "<user key>": [layout] } } } }
+//   { "spaces": { "<space id>": { "shared": [layout], "people": { "<user key>": [layout] },
+//                                  "favorites": { "<user key>": [layout id] } } } }
+//
+// favorites (documentation/plans/plan-favorite-layouts.md, step 1): each person's own favorites in a space, layout ids
+// in the order they were favorited. Only a layout the person can see can be one, each id once, and at most
+// LAYOUT_LIMITS.favorites of them (Thomas, 2026-10-04, replacing "no limit"). A longer stored list reads as its first
+// visible ones, and the file is trimmed at its next write. remove() and forgetPerson() keep it clean; the key is left out of a space's entry while nobody there has a favorite.
 //
 // A layout is { id, name, by, at, modules: [{ id, mode, dockW?, box?, snap? }], snap?: { all, pitch } }. cleanLayout()
 // is the one shape check, pure; the Layouts class keeps the lists, their limits and the clean-up when a space or a
@@ -26,6 +32,7 @@ const LAYOUT_LIMITS = Object.freeze({
   dockWMax: 2000,
   pitchMin: 50, // the snap grid's pitch in pixels, as the canvas's SNAP_PITCH
   pitchMax: 320,
+  favorites: 3, // favorite layouts per person per space
 });
 // A module id: the same rule as a space's opensWith (server/store.js).
 const MODULE_ID = /^[a-z][a-z0-9-]{0,31}$/;
@@ -152,7 +159,22 @@ class Layouts {
         if (kept.length) people[key] = kept;
       }
       const shared = storedList(entry.shared);
-      if (shared.length || Object.keys(people).length) this.spaces[spaceId] = { shared, people };
+      // A file from before favorites has no key: it reads as none. Ids that are not text, or listed twice, are dropped.
+      // Ids of a layout that person cannot see (gone, dropped above as malformed, or hand-edited in) are dropped too,
+      // so a space whose favorites name nothing left keeps no entry. Past the limit, the first ones favorited are kept.
+      const sharedIds = new Set(shared.map((l) => l.id));
+      const favorites = {};
+      for (const [key, list] of Object.entries(isObject(entry.favorites) ? entry.favorites : {})) {
+        const own = new Set((people[key] || []).map((l) => l.id));
+        const ids = Array.isArray(list)
+          ? [...new Set(list.filter((id) => typeof id === 'string' && id && (sharedIds.has(id) || own.has(id))))]
+          : [];
+        ids.splice(LAYOUT_LIMITS.favorites);
+        if (ids.length) favorites[key] = ids;
+      }
+      if (shared.length || Object.keys(people).length || Object.keys(favorites).length) {
+        this.spaces[spaceId] = { shared, people, ...(Object.keys(favorites).length ? { favorites } : {}) };
+      }
     }
   }
 
@@ -188,7 +210,11 @@ class Layouts {
     const entry = this.spaces[spaceId];
     if (!entry) return;
     for (const [key, list] of Object.entries(entry.people)) if (!list.length) delete entry.people[key];
-    if (!entry.shared.length && !Object.keys(entry.people).length) delete this.spaces[spaceId];
+    if (entry.favorites) {
+      for (const [key, list] of Object.entries(entry.favorites)) if (!list.length) delete entry.favorites[key];
+      if (!Object.keys(entry.favorites).length) delete entry.favorites;
+    }
+    if (!entry.shared.length && !Object.keys(entry.people).length && !entry.favorites) delete this.spaces[spaceId];
   }
 
   // { mine, shared } in a space: `userKey` null (a guest) has none of their own.
@@ -197,6 +223,40 @@ class Layouts {
       mine: userKey ? this.listOf(spaceId, userKey).map(copy) : [],
       shared: this.listOf(spaceId, null).map(copy),
     };
+  }
+
+  // `userKey`'s favorites in a space: the ids, in the order favorited, of those that still exist and that they can
+  // see, at most LAYOUT_LIMITS.favorites (the first ones). A guest (`userKey` null) has none.
+  favorites(spaceId, userKey) {
+    if (!userKey) return [];
+    const stored = this.spaces[spaceId]?.favorites?.[userKey] || [];
+    return stored.filter((id) => this.find(spaceId, id, userKey)).slice(0, LAYOUT_LIMITS.favorites);
+  }
+
+  // Makes a layout `userKey` can see one of their favorites (`on`), appended at the end, or stops it being one.
+  // Doing what is already so changes nothing. A change writes back the visible list (as favorites()) with it, so ids
+  // they cannot see, or past the limit, are dropped. Returns their favorites (as favorites()), or null when they cannot
+  // see that layout. Throws a LayoutError (409) when they already have LAYOUT_LIMITS.favorites and this is not one.
+  setFavorite(spaceId, layoutId, userKey, on) {
+    this.mustWrite();
+    if (!userKey || !this.find(spaceId, layoutId, userKey)) return null;
+    const entry = this.spaces[spaceId];
+    const visible = this.favorites(spaceId, userKey);
+    const has = visible.includes(layoutId);
+    if (on && !has) {
+      if (visible.length >= LAYOUT_LIMITS.favorites) {
+        throw new LayoutError(`You can have ${LAYOUT_LIMITS.favorites} favorite layouts. Unfavorite one first.`, 409);
+      }
+      entry.favorites = entry.favorites || {};
+      entry.favorites[userKey] = [...visible, layoutId];
+    } else if (!on && has) {
+      entry.favorites[userKey] = visible.filter((id) => id !== layoutId);
+      this.tidy(spaceId);
+    } else {
+      return visible;
+    }
+    this.save();
+    return this.favorites(spaceId, userKey);
   }
 
   // A layout by id that `userKey` can see in a space: the shared one, else their own. { layout, shared } or null.
@@ -256,7 +316,8 @@ class Layouts {
     return copy(layout);
   }
 
-  // Deletes a layout `userKey` can see. true when there was one.
+  // Deletes a layout `userKey` can see, and takes it out of every person's favorites in the space. true when there
+  // was one.
   remove(spaceId, layoutId, userKey) {
     this.mustWrite();
     const found = this.find(spaceId, layoutId, userKey);
@@ -264,6 +325,8 @@ class Layouts {
     const owner = found.shared ? null : userKey;
     const list = this.listOf(spaceId, owner);
     list.splice(list.findIndex((l) => l.id === layoutId), 1);
+    const favorites = this.spaces[spaceId].favorites || {};
+    for (const key of Object.keys(favorites)) favorites[key] = favorites[key].filter((id) => id !== layoutId);
     this.tidy(spaceId);
     this.save();
     return true;
@@ -276,13 +339,16 @@ class Layouts {
     this.save();
   }
 
-  // A removed person takes their own layouts in every space. Shared layouts they saved stay: they are the space's.
+  // A removed person takes their own layouts and their favorites in every space. Shared layouts they saved stay: they
+  // are the space's.
   forgetPerson(userKey) {
     if (this.unreadable) return;
     let changed = false;
     for (const spaceId of Object.keys(this.spaces)) {
-      if (this.spaces[spaceId].people[userKey]) {
-        delete this.spaces[spaceId].people[userKey];
+      const entry = this.spaces[spaceId];
+      if (entry.people[userKey] || entry.favorites?.[userKey]) {
+        delete entry.people[userKey];
+        if (entry.favorites) delete entry.favorites[userKey];
         this.tidy(spaceId);
         changed = true;
       }

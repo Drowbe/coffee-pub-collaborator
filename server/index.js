@@ -22,6 +22,8 @@ const { LayoutError, cleanLayout } = require('./layouts');
 const { ModuleLimits } = require('./module-limits');
 const { ModuleSettings, SettingError } = require('./module-settings');
 const { GeocodeCache, askService, keyOf: keyOfPlace, ENOUGH } = require('./geocode');
+const { FlightSchedule, FlightLookupError, findFlights, parseNumber: parseFlightNumber } = require('./flight-lookup');
+const airportList = require('./airports');
 const { RegionCutJobs, RegionCutError } = require('./region-cut');
 const { pmtilesZoomRange } = require('./pmtiles-header');
 const { ModuleUploads } = require('./module-uploads');
@@ -299,7 +301,7 @@ function migrateIfNeeded() {
   if (fs.existsSync(dest)) throw new Error(`${dest} already exists; migration already ran`);
   fs.mkdirSync(dest, { recursive: true });
   for (const entry of fs.readdirSync(DATA_DIR)) {
-    if (['host.json', 'fontawesome-pro', 'environments', 'environments-deleted', 'pre-names-host'].includes(entry)) continue;
+    if (['host.json', 'fontawesome-pro', 'environments', 'environments-deleted', 'pre-names-host', 'flight-schedule.json'].includes(entry)) continue; // the flight schedule is the host's
     fs.renameSync(path.join(DATA_DIR, entry), path.join(dest, entry));
   }
   hostRegistry.addEnvironment({ slug, name: slug, plan: { modules: 'all' } });
@@ -382,6 +384,12 @@ function ownersFromServerAdmin(dir) {
   console.log(`The install's admin (${moved.map((u) => `"${u.login}"`).join(', ')}) is now the "${path.basename(dir)}" environment's owner; the server's admin is the host admin.`);
 }
 migrateIfNeeded();
+
+// The flight schedule (documentation/plans/plan-flight-lookup.md): one for the whole server, learned from the flights people
+// save in the Planner, in the root DATA_DIR -- beside host.json on a hosted install, never inside an environment's folder;
+// beside the environment's own files on a single install. Built once, here, and written out at shutdown.
+const flightSchedule = new FlightSchedule(DATA_DIR);
+process.on('exit', () => flightSchedule.flush());
 
 // On a first start with BASE_DOMAIN where a shared folder (documentation/plans/plan-environments.md, "Shared files:
 // the host's map") does not exist yet: if exactly one environment has files in its own, pre-shared folder for
@@ -2282,6 +2290,10 @@ hostRouter.get('/api/host/settings', requireHostAdmin, (_req, res) => {
     modules: [...BUILTIN_MODULES, ...bundledModules(BUNDLED_DIR)].map((m) => ({ id: m.id, name: m.name || m.id, icon: m.icon || null })),
   });
 });
+// The flight schedule, shared by every environment (documentation/plans/plan-flight-lookup.md): its counts, forgetting one
+// number (?number=WN2483), or clearing it all. The handlers are with the flight lookup's own routes, below.
+hostRouter.get('/api/host/flight-schedule', requireHostAdmin, flightScheduleCounts);
+hostRouter.delete('/api/host/flight-schedule', requireHostAdmin, flightScheduleClear);
 // The plan catalog (plan-environments.md, "Phase 5"): the console's Plans panel edits a plan's name and its five caps;
 // PUT replaces the whole catalog (the same shape GET's own `plans` field is), free always kept present regardless
 // of what is sent.
@@ -3719,7 +3731,31 @@ function bundledList() {
     };
   });
 }
-app.get('/api/modules', requireOwner, (_req, res) => res.json({ modules: modules.list(), builtin: BUILTIN_MODULES.map((b) => builtinView(b)), bundled: bundledList(), limits: { zipBytes: MODULE_LIMITS.zipBytes } }));
+// Calendar sharing (plan-space-calendars.md, section 4): a module takes part when it offers a dated kind to the addresses
+// ("feed": true) or asks for the `external` or `busy` hook, in its running version or in a newer one that ships here
+// and waits to be updated. `sharingReasons` names each switch it takes part in -- `calendarFeeds` and
+// `publishedCalendar` with a feed kind, `otherCalendars` with either hook -- as null when it can be used, else
+// { hooks: [the hooks it waits on], reason: one sentence }. Nothing here names a module. Only owners and admins read it
+// (GET /api/modules is owner-only) and they can approve, so the reason tells them to.
+const SHARING_HOOKS = ['external', 'busy'];
+function sharingOf(view, bundledById = new Map(bundledModules(BUNDLED_DIR).map((b) => [b.id, b]))) {
+  const feed = (view.refs?.produces || []).some((p) => p.feed && p.dated);
+  const running = SHARING_HOOKS.filter((h) => view.hooks?.[h]);
+  const bundled = view.source === 'bundled' ? bundledById.get(view.id) : null;
+  const coming = bundled && compareVersions(bundled.version, view.version) > 0 && !(view.versions || []).includes(bundled.version) ? SHARING_HOOKS.filter((h) => bundled.hooks?.[h] && !running.includes(h)) : [];
+  if (!feed && !running.length && !coming.length) return { sharing: false, sharingReasons: null };
+  const reasons = {};
+  if (feed) Object.assign(reasons, { calendarFeeds: null, publishedCalendar: null });
+  if (running.length || coming.length) {
+    const waits = [...running.filter((h) => (view.pending?.hooks || []).includes(h)), ...coming];
+    reasons.otherCalendars = waits.length ? { hooks: waits, reason: `Approve ${view.displayName || view.name}'s update in Manage > ${word('module', { many: true, cap: true })} first.` } : null;
+  }
+  return { sharing: true, sharingReasons: reasons };
+}
+app.get('/api/modules', requireOwner, (_req, res) => {
+  const bundledById = new Map(bundledModules(BUNDLED_DIR).map((b) => [b.id, b]));
+  res.json({ modules: modules.list().map((m) => ({ ...m, ...sharingOf(m, bundledById) })), builtin: BUILTIN_MODULES.map((b) => builtinView(b)), bundled: bundledList(), limits: { zipBytes: MODULE_LIMITS.zipBytes } });
+});
 app.post('/api/modules/bundled/:id/install', requireOwner, async (req, res) => {
   const id = req.params.id;
   const bundled = bundledModules(BUNDLED_DIR).find((m) => m.id === id);
@@ -3931,10 +3967,13 @@ function sendLayoutError(err, res) {
 app.get('/api/spaces/:id/layouts', (req, res) => {
   const found = layoutSpaceFor(req, res);
   if (!found) return;
-  const { mine, shared } = store.layouts.list(found.space.id, found.who.user ? found.who.user.key : null);
+  const me = found.who.user ? found.who.user.key : null;
+  const { mine, shared } = store.layouts.list(found.space.id, me);
   // defaultLayout: the id of the shared layout this space opens with on a first visit, or null (store.defaultLayoutOf).
   const fallback = store.defaultLayoutOf(found.space.id);
-  res.json({ mine, shared, defaultLayout: fallback ? fallback.id : null, canShare: found.canShare, canSetDefault: found.canSetDefault });
+  // favorites: this person's favorite layouts' ids, in the order favorited (plan-favorite-layouts.md); [] for a guest.
+  const favorites = store.layouts.favorites(found.space.id, me);
+  res.json({ mine, shared, defaultLayout: fallback ? fallback.id : null, favorites, canShare: found.canShare, canSetDefault: found.canSetDefault });
 });
 
 app.post('/api/spaces/:id/layouts', (req, res) => {
@@ -3990,6 +4029,27 @@ app.delete('/api/spaces/:id/layouts/:layoutId', (req, res) => {
     sendLayoutError(err, res);
   }
 });
+
+// Favorite layouts (documentation/plans/plan-favorite-layouts.md, step 1): each signed-in person's own, per space, of
+// any layout they can see (their own or a shared one). PUT makes one a favorite, at the end; DELETE stops it being one.
+// Both answer { favorites } and doing what is already so is a 200 that changes nothing. A PUT past LAYOUT_LIMITS.favorites
+// (3) is a 409 from store.layouts.setFavorite, answered by sendLayoutError.
+function layoutFavorite(on) {
+  return (req, res) => {
+    const found = layoutSpaceFor(req, res);
+    if (!found) return;
+    if (!found.who.user) return res.status(403).json({ error: `${word('guest', { many: true, cap: true })} can load shared layouts but not keep favorites.` });
+    try {
+      const favorites = store.layouts.setFavorite(found.space.id, req.params.layoutId, found.who.user.key, on);
+      if (!favorites) return res.status(404).json({ error: 'There is no such layout here.' });
+      res.json({ favorites });
+    } catch (err) {
+      sendLayoutError(err, res);
+    }
+  };
+}
+app.put('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(true));
+app.delete('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(false));
 
 // --- chat history --------------------------------------------------------------------------------
 // Chat travels live over LiveKit; the sender also posts the text here so someone who joins later reads what
@@ -4776,16 +4836,17 @@ app.get('/feed/:file', (req, res) => {
 // A person pastes a private calendar address (up to five); it is sealed with the secrets key, never answered again, and
 // read through the private-address guard (server/link-preview.js) on adding, on Refresh and every 30 minutes, into
 // memory only (server/external-calendars.js). A module sees the person's own events only through the admin-approved
-// `external` hook. Nothing here names a provider or a module. The same switch as the address out allows it.
+// `external` hook. Nothing here names a provider or a module. settings.otherCalendars allows it (store.otherCalendarsOn:
+// calendarFeeds, the address out's switch, until an owner sets it; plan-space-calendars.md, decision 7).
 const externalModules = () => modules.enabledAll().filter(({ manifest }) => manifest.hooks.external);
-const externalAllowed = () => store.settings.calendarFeeds === true && externalModules().length > 0;
+const externalAllowed = () => store.otherCalendarsOn() && externalModules().length > 0;
 function refuseExternal(res) {
-  if (store.settings.calendarFeeds !== true) return void res.status(403).json({ error: `Calendar feeds are off in this ${word('environment')}.` });
+  if (!store.otherCalendarsOn()) return void res.status(403).json({ error: `Other calendars are off in this ${word('environment')}.` });
   if (!externalModules().length) return void res.status(403).json({ error: `No ${word('module')} here shows other calendars.` });
   return false;
 }
-// Why Profile's Other calendars section can't be used, in plain words naming what to do and where: the switch, else the
-// module that would show them (installed but waiting for approval or off, installed in a version without the hook, or
+// Why Profile's Other calendars section can't be used, in plain words naming what to do and where: a step the switch
+// waits on first (install, update or approve), then the switch, else the module that would show them (installed but waiting for approval or off, installed in a version without the hook, or
 // shipped here and not installed). null when it can be used, or when nothing here could ever show them.
 const EXTERNAL_HOOK_LABEL = 'See each person\'s own other calendars';
 function externalWhy(user) {
@@ -4794,27 +4855,62 @@ function externalWhy(user) {
   const manage = (tab) => `Manage > ${tab}`;
   const modulesTab = manage(word('module', { many: true, cap: true }));
   const ask = (doThis, where) => (own ? `${doThis[0].toUpperCase()}${doThis.slice(1)} in ${where}.` : `Your ${word('owner')} needs to ${doThis} in ${where}.`);
-  if (store.settings.calendarFeeds !== true) {
-    const where = `${manage(word('environment', { cap: true }))}, under Calendar apps`;
-    return `Calendar feeds are off in ${store.settings.environmentName || `this ${word('environment')}`}. ${ask('turn on Calendar feeds', where)}`;
+  // The module's part, as { text, step }: `step` when it is a step the switch waits on (install, update or approve:
+  // until then Calendar's configuration doesn't exist or its switch is disabled), so it is named first.
+  const step = (text) => ({ text, step: true });
+  const plain = (text) => ({ text, step: false });
+  const moduleWhy = () => {
+    // An installed module whose running version asks for the hook: it can't run (outdated, or something it requires is
+    // outdated or off), it waits for approval, or it is switched off. Turning it on only helps in the last case.
+    for (const id of Object.keys(modules.registry.modules)) {
+      const entry = modules.registry.modules[id];
+      const manifest = modules.manifestOf(id, entry.version);
+      if (!manifest?.hooks?.external) continue;
+      const name = modules.shownName(manifest);
+      if (manifest.outdated) {
+        // A newer copy that ships here fixes it; else only its author can (the sentence Manage's card and PATCH use).
+        const fixed = bundledModules(BUNDLED_DIR).find((b) => b.id === id && b.hooks?.external && compareVersions(b.version, entry.version) > 0);
+        if (fixed) return step(ask(`update ${name} to ${fixed.version} and approve its "${EXTERNAL_HOOK_LABEL}"`, modulesTab));
+        return plain(`${name} was built for an older version of ${PRODUCT_NAME} and needs an update from its author.`);
+      }
+      const waiting = modules.needsUpdateFor(manifest);
+      if (waiting.length) return plain(`${name} needs ${waiting.map((r) => modules.missingName(r)).join(' and ')}, which ${waiting.length === 1 ? 'needs an update from its author' : 'need an update from their authors'}.`);
+      if (modules.pendingFor(entry, manifest).hooks.includes('external')) return step(ask(`approve ${name}'s "${EXTERNAL_HOOK_LABEL}"`, modulesTab));
+      if (!entry.enabled) return plain(ask(`turn on ${name}`, modulesTab));
+      const missing = modules.missingFor(manifest);
+      if (missing.length) {
+        const names = missing.map((r) => modules.missingName(r)).join(' and ');
+        // The AI service is not on the Modules tab, so only modules get a place to go.
+        const fact = `${name} needs ${names} installed and turned on first.`;
+        return plain(missing.includes('ai') ? fact : `${fact} ${ask(`turn on ${names}`, modulesTab)}`);
+      }
+      return plain(ask(`turn on ${name}`, modulesTab));
+    }
+    // One that ships with this server asks for it: installed in an older version without it, or not installed.
+    for (const bundled of bundledModules(BUNDLED_DIR)) {
+      if (!bundled.hooks?.external || !moduleAllowedByPlan(bundled.id)) continue;
+      const name = store.moduleDisplay(bundled.id).name || bundled.name;
+      if (modules.isInstalled(bundled.id)) return step(ask(`update ${name} to ${bundled.version} and approve its "${EXTERNAL_HOOK_LABEL}"`, modulesTab));
+      return step(ask(`install ${name} and approve its "${EXTERNAL_HOOK_LABEL}"`, modulesTab));
+    }
+    return null;
+  };
+  const blocker = moduleWhy();
+  if (!store.otherCalendarsOn()) {
+    // Never set (it follows calendarFeeds) or set to false: either way the switch is in the Calendar's Configure page
+    // (plan-space-calendars.md, decisions 6 and 7). Named as this environment shows the module that would show them:
+    // the running one, else an installed one, else one that ships here.
+    const here = store.settings.environmentName || `this ${word('environment')}`;
+    const installed = Object.keys(modules.registry.modules).map((id) => modules.manifestOf(id, modules.registry.modules[id].version)).find((m) => m?.hooks?.external);
+    const bundled = installed ? null : bundledModules(BUNDLED_DIR).find((b) => b.hooks?.external && moduleAllowedByPlan(b.id));
+    const name = externalModules()[0] ? modules.shownName(externalModules()[0].manifest)
+      : installed ? modules.shownName(installed)
+        : bundled ? (store.moduleDisplay(bundled.id).name || bundled.name) : null;
+    const where = `${modulesTab}, in ${name ? `${name}'s` : `the ${word('module')}'s`} configuration`;
+    const off = `Other calendars are off in ${here}. ${ask('turn on Other calendars and busy times', where)}`;
+    return blocker?.step ? `${blocker.text} ${off}` : off;
   }
-  // An installed module whose running version asks for the hook: waiting for approval, or switched off.
-  for (const id of Object.keys(modules.registry.modules)) {
-    const entry = modules.registry.modules[id];
-    const manifest = modules.manifestOf(id, entry.version);
-    if (!manifest?.hooks?.external) continue;
-    const name = modules.shownName(manifest);
-    if (modules.pendingFor(entry, manifest).hooks.includes('external')) return ask(`approve ${name}'s "${EXTERNAL_HOOK_LABEL}"`, modulesTab);
-    return ask(`turn on ${name}`, modulesTab);
-  }
-  // One that ships with this server asks for it: installed in an older version without it, or not installed.
-  for (const bundled of bundledModules(BUNDLED_DIR)) {
-    if (!bundled.hooks?.external || !moduleAllowedByPlan(bundled.id)) continue;
-    const name = store.moduleDisplay(bundled.id).name || bundled.name;
-    if (modules.isInstalled(bundled.id)) return ask(`update ${name} to ${bundled.version} and approve its "${EXTERNAL_HOOK_LABEL}"`, modulesTab);
-    return ask(`install ${name} and approve its "${EXTERNAL_HOOK_LABEL}"`, modulesTab);
-  }
-  return null;
+  return blocker ? blocker.text : null;
 }
 // A pasted address as it is read: webcal: is https:, http: is refused. Answers { url } or { error }.
 function externalAddress(raw) {
@@ -4917,7 +5013,7 @@ app.get('/api/modules/:id/external-events', (req, res) => {
   const to = externalWhen(req.query.to);
   if (Number.isNaN(from) || Number.isNaN(to)) return res.status(400).json({ error: 'from and to are dates, such as 2026-10-01.' });
   if (from !== null && to !== null && to < from) return res.status(400).json({ error: 'to comes after from.' });
-  if (!who.user || store.settings.calendarFeeds !== true) return res.json({ calendars: [], events: [] });
+  if (!who.user || !store.otherCalendarsOn()) return res.json({ calendars: [], events: [] });
   externalCalendars.noteSeen(who.user.key);
   externalCalendars.readMissing(who.user.key);
   res.json(externalCalendars.eventsFor(who.user.key, { from, to }));
@@ -6239,6 +6335,88 @@ app.post('/api/modules/:id/geocode/purge', requireOwner, (req, res) => {
   const days = Number(req.body?.olderThanDays);
   res.json({ removed: geocodeCache.purge(found.manifest.id, what, Number.isFinite(days) && days > 0 ? days : 0), ...geocodeCache.stats(found.manifest.id) });
 });
+// --- flight lookup, from the server -----------------------------------------------------------------------------------------
+// A module that declares `"lookups": ["flight"]` in its manifest (the Planner) may look a flight number up in the schedule this
+// server has learned from saved flights, look an airport up by its code, and teach the schedule a saved flight. One schedule for
+// the whole server (flightSchedule, above; documentation/plans/plan-flight-lookup.md). The module's `write` access: in the
+// Planner, `edit` -- members and moderators by default, never a guest. An environment with a `suggestFlights` setting off
+// ("Suggest flights from earlier trips") neither suggests nor contributes; the airport list still answers.
+function flightLookupAccess(req, res) {
+  const ctx = moduleAccess(req, res, 'write');
+  if (!ctx) return null;
+  if (!ctx.manifest.lookups || !ctx.manifest.lookups.includes('flight')) { res.status(404).json({ error: `This ${word('module')} has no flight lookup.` }); return null; }
+  return ctx;
+}
+// Whether this environment suggests flights and adds to the schedule. The choice is the environment's, not one module's: off
+// when any module installed here (on or off) that declares the flight lookup has its `suggestFlights` setting off, so turning
+// the Planner's setting off also stops every other module's lookups. On when none has it off, including when none declares it.
+function flightSuggestionsOn() {
+  for (const { id, version } of modules.list()) {
+    const manifest = modules.manifestOf(id, version);
+    if (!manifest || !(manifest.lookups || []).includes('flight')) continue;
+    if (!(manifest.settings || []).some((d) => d.key === 'suggestFlights')) continue;
+    if (moduleSettings.values(manifest, 'environment', {}).suggestFlights !== true) return false;
+  }
+  return true;
+}
+app.get('/api/modules/:id/flight-lookup', async (req, res) => {
+  const ctx = flightLookupAccess(req, res);
+  if (!ctx) return;
+  const on = flightSuggestionsOn();
+  // An airport by its code: the airport list only, so it answers with the setting off too.
+  if (req.query.code !== undefined) {
+    if (overLimit(ctx.manifest.id, ctx.by, 'search')) return res.status(429).json({ error: limitMessage() });
+    const a = typeof req.query.code === 'string' ? airportList.airport(req.query.code.trim()) : null;
+    if (!a) return res.status(404).json({ error: 'There is no airport with that code.' });
+    return res.json({ airport: { code: a.code, name: airportList.displayName(a), city: a.city || '', tz: a.tz || '' } });
+  }
+  // Neither a number nor a code: whether the page should offer the lookup at all.
+  if (req.query.number === undefined && req.query.date === undefined) return res.json({ available: on });
+  if (overLimit(ctx.manifest.id, ctx.by, 'search')) return res.status(429).json({ error: limitMessage() });
+  try {
+    // With the setting off the number and date are still checked, so the page's messages are the same; the schedule is not read.
+    const flights = await findFlights({ number: req.query.number, date: req.query.date, schedule: on ? flightSchedule : null });
+    res.json({ flights: on ? flights : [] });
+  } catch (err) {
+    if (err instanceof FlightLookupError) return res.status(400).json({ error: err.message });
+    console.error('The flight lookup failed:', err.message);
+    res.status(500).json({ error: 'server error' });
+  }
+});
+// A flight someone saved, in the objects format ({ object }): the schedule keeps its schedule part only (flight-lookup.js says
+// what, and what never). 204 whether or not anything was kept, so a person never sees a failure from it.
+app.post('/api/modules/:id/flight-lookup/remember', (req, res) => {
+  const ctx = flightLookupAccess(req, res);
+  if (!ctx) return;
+  if (overLimit(ctx.manifest.id, ctx.by, 'write')) return res.status(429).json({ error: limitMessage() });
+  if (flightSuggestionsOn()) {
+    try { flightSchedule.remember(req.body?.object); } catch (err) { console.error('Remembering a flight failed:', err.message); }
+  }
+  res.status(204).end();
+});
+// For the admin: how many flights the schedule knows, forgetting one number, or clearing it all. On a hosted server the schedule
+// is every environment's, so these are the host console's (/api/host/flight-schedule); on a single install, the owner's
+// (/api/flight-schedule). Each answers 404 on the other kind of install.
+function flightScheduleCounts(_req, res) { res.json(flightSchedule.stats()); }
+function flightScheduleClear(req, res) {
+  if (req.query.number === undefined) {
+    const removed = flightSchedule.clear();
+    if (removed === null) return res.status(500).json({ error: 'The flight schedule could not be cleared; the server log says why.' });
+    return res.json({ removed, ...flightSchedule.stats() });
+  }
+  const number = typeof req.query.number === 'string' ? parseFlightNumber(req.query.number) : null;
+  if (!number) return res.status(400).json({ error: 'That is not a flight number; enter the airline code and number, like WN 2483.' });
+  if (!flightSchedule.forget(number.key)) return res.status(404).json({ error: `No flight ${number.shown} is saved on this server.` });
+  res.json({ removed: 1, ...flightSchedule.stats() });
+}
+const hostedFlightSchedule = (_req, res, next) => (hostRegistry ? res.status(404).json({ error: `On a hosted server the flight schedule is shared by every ${word('environment')}, so only the host console can see or clear it.` }) : next());
+app.get('/api/flight-schedule', hostedFlightSchedule, requireOwner, flightScheduleCounts);
+app.delete('/api/flight-schedule', hostedFlightSchedule, requireOwner, flightScheduleClear);
+// (The host console's two, /api/host/flight-schedule, are registered with the rest of the host's routes, above.)
+// Reached here only off the host console: a single install has none, and an environment's address is not it.
+const noHostFlightSchedule = (_req, res) => res.status(404).json({ error: hostRegistry ? 'The flight schedule is cleared from the host console.' : 'This server has no host console; its flight schedule is at /api/flight-schedule.' });
+app.get('/api/host/flight-schedule', noHostFlightSchedule);
+app.delete('/api/host/flight-schedule', noHostFlightSchedule);
 // --- cutting a region out of a larger PMTiles file, from the server -----------------------------------------------------------
 // A module that declares `regionSource` (see server/region-cut.js and documentation/plans/plan-map-region-download.md) offers
 // "Add a region" in its Module Configuration: cut a piece of a world file into one of its own file folders. Admin only, since
@@ -6913,7 +7091,7 @@ app.get('/api/modules/stream', (req, res) => {
   // naming the modules with the approved `external` hook, which ask again for what they show.
   if (who.user) externalCalendars.noteSeen(who.user.key);
   const onExternal = listenIn(env, ({ userKey }) => {
-    if (!who.user || userKey !== who.user.key || store.settings.calendarFeeds !== true) return;
+    if (!who.user || userKey !== who.user.key || !store.otherCalendarsOn()) return;
     const hearing = externalModules().map(({ manifest }) => manifest.id);
     if (hearing.length) res.write(`event: external\ndata: ${JSON.stringify({ modules: hearing })}\n\n`);
   });
@@ -7018,9 +7196,11 @@ app.get('/api/currencies', requireUser, (_req, res) => res.json({ currencies: cu
 // `spaceDefaults`: what a new space starts with ({ profile?, opensWith? }, or null for the built-in default).
 // `ownVerbs` and `templateVerbs` (addendum 4): the same for the verbs beside branding()'s resolved `verbs`.
 // `showCalendar` and `showMap`: the top bar's Calendar and Map (plan-calendar-destination.md, plan-map-destination.md),
-// off unless an owner or a template turned them on. `topBarReasons`: { calendar, map }, why each cannot show whatever
+// off unless an owner or a template turned them on. `calendarFeeds`, `otherCalendars` and `publishedCalendar`: Calendar
+// sharing's three switches (plan-space-calendars.md, decision 7); `otherCalendars` as it reads (store.otherCalendarsOn:
+// calendarFeeds until an owner sets it). `topBarReasons`: { calendar, map }, why each cannot show whatever
 // its switch (one sentence), or null.
-const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null, showCalendar: store.settings.showCalendar === true, showMap: store.settings.showMap === true, calendarFeeds: store.settings.calendarFeeds === true, topBarReasons: destinationReasons() });
+const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null, showCalendar: store.settings.showCalendar === true, showMap: store.settings.showMap === true, calendarFeeds: store.settings.calendarFeeds === true, otherCalendars: store.otherCalendarsOn(), publishedCalendar: store.settings.publishedCalendar === true, topBarReasons: destinationReasons() });
 app.get('/api/settings', requireOwner, (_req, res) => res.json({ settings: ownerSettings(), streamKey: store.streamKey }));
 // `template` ("none" for none) switches the environment's template (the switching addendum): taken out of the body
 // before the settings; an unknown one refuses the whole change. With it, the answer also carries `template` and `offer`.

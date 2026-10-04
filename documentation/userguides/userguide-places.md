@@ -31,7 +31,7 @@ At the top, **Mine**, **This space** and the environment's name (for example **C
 
 ## Places beside Map in the top bar
 
-When an owner turns on **Show Map**, Places is the list on the right of Map in the top bar (see [Maps](userguide-maps.md), "Map in the top bar"). It lists, in one list, your own places, the environment's and each space's that **Trips** (your environment's word for spaces) has on. Each place says where it is kept: the person icon and **Mine**, the globe and the environment's name, or the space's icon and name. The search field in the bar above filters the list; with a name typed, **Search for new places** at the foot of the list (or Enter) asks the place search, and **Save** on a result opens the dialog with it filled in. With nothing on in **Trips** the list says "Pick at least one in Trips."; with nothing there, "No places here yet."
+When an owner turns on **Show in the top bar** on Maps' configuration page, Places is the list on the right of Map in the top bar (see [Maps](userguide-maps.md), "Map in the top bar"). It lists, in one list, your own places, the environment's and each space's that **Trips** (your environment's word for spaces) has on. Each place says where it is kept: the person icon and **Mine**, the globe and the environment's name, or the space's icon and name. The search field in the bar above filters the list; with a name typed, **Search for new places** at the foot of the list (or Enter) asks the place search, and **Save** on a result opens the dialog with it filled in. With nothing on in **Trips** the list says "Pick at least one in Trips."; with nothing there, "No places here yet."
 
 To add a place there:
 

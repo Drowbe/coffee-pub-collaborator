@@ -222,6 +222,23 @@
         </div>
       </div>
       <div id="modules-list" class="stack"></div>
+      <!-- The flight schedule (plan-flight-lookup.md, step 5), on a single install only: on a hosted server it is the host console's. Drawn by /flight-schedule.js on /api/flight-schedule. -->
+      <section class="panel flight-schedule" id="flight-schedule-section" hidden>
+        <div class="section-head">
+          <h2>Flight schedule</h2>
+          <span class="status" id="flight-schedule-status" role="status" aria-live="polite"></span>
+        </div>
+        <p id="flight-schedule-count">This server has learned 0 flights from saved trips.</p>
+        <p class="hint">Flights people save in their trips teach this server when each flight number usually flies, so a later lookup can fill it in. It keeps the airline, the airports, the times and the terminal, never who flew.</p>
+        <form class="flight-forget" id="flight-forget-form" autocomplete="off">
+          <label class="field-label" for="flight-forget-number">Flight number</label>
+          <div class="row">
+            <input id="flight-forget-number" type="text" maxlength="20" placeholder="WN 2483" autocapitalize="characters" spellcheck="false">
+            <button class="btn" type="submit">Forget a flight</button>
+          </div>
+        </form>
+        <div class="row danger-row"><button class="btn btn-small btn-danger" id="flight-clear" type="button">Clear all</button></div>
+      </section>
     </section>
 
     <section class="tab-stack" id="tab-about" hidden>
@@ -422,29 +439,10 @@
       </div>
       </div>
 
-      <!-- The top bar's destinations (plan-calendar-destination.md, plan-map-destination.md): each a switch, saved at once,
-           off and disabled with the reason when it cannot show for anyone (GET /api/settings' topBarReasons). -->
-      <div class="panel" id="top-bar-panel">
-      <h2>Top bar</h2>
-      <div class="checks top-bar-checks">
-        <label class="check"><input id="set-show-calendar" type="checkbox" class="switch" role="switch" aria-describedby="show-calendar-hint"> Show Calendar</label>
-        <p class="hint" id="show-calendar-hint" data-fill>Adds Calendar to the top bar: events and tasks from every {space} in one place.</p>
-        <label class="check"><input id="set-show-map" type="checkbox" class="switch" role="switch" aria-describedby="show-map-hint"> Show Map</label>
-        <p class="hint" id="show-map-hint" data-fill>Adds Map to the top bar: places from every {space} on one map.</p>
-      </div>
-      <span class="status" id="top-bar-status"></span>
-      </div>
-
-      <!-- Calendar feeds (plan-google-calendar.md, decision 4): whether people may make a private address for their
-           calendar app on Profile. A switch saved at once; off stops every address without deleting it. -->
-      <div class="panel" id="calendar-feeds-settings">
-      <h2>Calendar apps</h2>
-      <div class="checks">
-        <label class="check"><input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Calendar feeds</label>
-        <p class="hint" id="calendar-feeds-hint" data-fill>Lets people add this {environment}'s events to their own calendar app with a private address.</p>
-      </div>
-      <span class="status" id="calendar-feeds-status"></span>
-      </div>
+      <!-- Calendar sharing and Show in the top bar moved into each module's own configuration (plan-space-calendars.md,
+           section 4, decision 11). For one release, this line says where, naming the module that takes part in calendar
+           sharing (GET /api/modules' `sharing`); hidden while none is installed. -->
+      <div class="panel moved-note" id="calendar-sharing-pointer" hidden><p id="calendar-sharing-line"></p></div>
 
       <div class="panel">
       <h2>Sign-in page</h2>

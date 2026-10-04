@@ -60,6 +60,8 @@ to right:
   the keyboard, Tab moves through it, the arrow keys move between switches (and move the slider), and Space or
   Enter flips a switch or presses a button. On a phone there is no **Layout** button: the modules are tabs along
   the bottom.
+- **Your favorite layouts**, right after **Layout**: a button for each layout you have made a favorite, with a heart
+  and its name. Press one to load that layout (see "Favorite layouts" below).
 - **Join the call**, with a green phone, while you are not on the call: one press shows the Conference if it is hidden and joins. It is gone while you are on the call. In an aside it joins the aside's call. On a phone it is a **Join** tab in the tab bar.
 - **Online**, after them: who is here, as small square pictures of the people in the space, you first, up to four, then
   "+2" for the rest, and who they are in a few words: "Just you", "You and Alex", "You, Alex and Sam" or "You and 4
@@ -69,11 +71,12 @@ to right:
 - The space's tools, at the right: **Full screen**, **Pop out**,
   **Pull participants back** or **Rejoin call** during an aside, a module's own tools, and **Leave space** last.
 
-When the window is too narrow for everything, Online first says how many instead of who ("5 in this space"),
+When the window is too narrow for everything, your favorite layouts give way first: their names get shorter, then
+the last one leaves the bar (they are still in **Layout ▾**, marked with a heart). Then Online says how many instead of who ("5 in this space"),
 then shows fewer pictures, then only an icon and the count ("5 here"). Then the tools
 fold into a **…** button (**More**) just before **Leave space**: **Pop out** first, then **Full screen**, a
 module's own tools, **Rejoin call** and **Pull participants back**. Click **…** to use them. **Leave space**,
-**…** and **Layout** never fold.
+**…** and **Layout** never fold, and neither do your favorite layouts.
 
 On a phone, in a window 640 pixels wide or narrower, and in a popped-out window that narrow, the space bar is a
 row of tabs at the bottom of the page. Left to right:
@@ -178,7 +181,8 @@ this window, snapped ones settle on the grid, and docked modules the window has 
 module in the layout isn't on in this space, it is left out and the panel says so. The loaded layout becomes the
 one this space remembers for you.
 
-The **⋮** beside a layout you may change offers **Replace with this layout** (it then holds the canvas as it is now),
+Every layout has a **⋮** for anyone signed in. It starts with **Favorite** or **Unfavorite** (see "Favorite layouts"
+below). On a layout you may change it also offers **Replace with this layout** (it then holds the canvas as it is now),
 **Rename** and **Delete**, which asks first. Anyone may save their own layouts, up to 10 in a space; owners, the
 admin and the space's moderators may save, change and delete the shared ones, up to 10; guests may only load shared
 ones. Names are up to 40 characters. With none saved, the section reads "No saved layouts yet." There are no
@@ -188,6 +192,36 @@ layouts on a phone or in an aside.
 **Stop using as default** to stop. The default is marked "Default". Someone entering the space for the first time
 gets it, with its places; a guest gets it on every visit. After that, each person's own remembered layout wins.
 See "Opens with" in [Spaces](userguide-spaces.md).
+
+### Favorite layouts
+
+Make the layouts you use most a favorite, and they appear as buttons in the space bar, right of **Layout**, so one
+press loads them without opening the panel. Anyone signed in can keep favorites, of their own layouts and of the
+space's shared ones. Your favorites are yours alone, kept for each space, and follow you to another computer.
+Guests can't keep favorites.
+
+To make a layout a favorite:
+
+1. Open **Layout ▾**.
+2. Under **Layouts**, press the **⋮** beside the layout.
+3. Choose **Favorite**. The panel says "<name> is a favorite.", and a small heart shows after the layout's name.
+
+It now has a button in the space bar, with a heart and its name, and the tooltip "Load <name>". Press it to load
+the layout, the same as pressing its name in the panel. If a module in the layout isn't on in this space, a short
+note under the favorites says so for a few seconds.
+
+To stop, choose **Unfavorite** in the same **⋮**. The panel says "<name> is no longer a favorite."
+
+You can have up to 3 favorites in each space. With 3, **Favorite** on any other layout is greyed out and says "You
+can have 3 favorite layouts. Unfavorite one first." Choose **Unfavorite** on one of your favorites, then favorite the
+new one. **Unfavorite** always works.
+
+The buttons are in the order you made them favorites. Names show in full whenever there is room; only a name longer
+than about 16 characters is cut short. In a window 1280 pixels wide or wider, all 3 show in full. When the space bar
+has no room for them all, the names get shorter evenly (at about 900 pixels, for example), and only when they can't
+get any shorter does the last one leave the bar; your first favorites stay. The ones that left are still in **Layout ▾**, marked by their hearts. Deleting a layout takes it out of
+everyone's favorites. There are no favorite buttons on a phone, in a window 640 pixels wide or narrower, in an
+aside, or when the canvas is narrow.
 
 ## When the window is too narrow for another column
 

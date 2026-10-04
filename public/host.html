@@ -87,6 +87,23 @@
           <div class="row"><button class="btn" type="submit">Add a host admin</button></div>
         </form>
       </section>
+      <!-- The flight schedule (plan-flight-lookup.md, step 5): one for the whole host, learned from every environment's saved flights; drawn by /flight-schedule.js on /api/host/flight-schedule. -->
+      <section class="panel flight-schedule" id="flight-schedule-section" hidden>
+        <div class="section-head">
+          <h2>Flight schedule</h2>
+          <span class="status" id="flight-schedule-status" role="status" aria-live="polite"></span>
+        </div>
+        <p id="flight-schedule-count">This server has learned 0 flights from saved trips.</p>
+        <p class="hint">Flights people save in their trips teach this server when each flight number usually flies, so a later lookup can fill it in. It keeps the airline, the airports, the times and the terminal, never who flew.</p>
+        <form class="flight-forget" id="flight-forget-form" autocomplete="off">
+          <label class="field-label" for="flight-forget-number">Flight number</label>
+          <div class="row">
+            <input id="flight-forget-number" type="text" maxlength="20" placeholder="WN 2483" autocapitalize="characters" spellcheck="false">
+            <button class="btn" type="submit">Forget a flight</button>
+          </div>
+        </form>
+        <div class="row danger-row"><button class="btn btn-small btn-danger" id="flight-clear" type="button">Clear all</button></div>
+      </section>
 
       </section>
 

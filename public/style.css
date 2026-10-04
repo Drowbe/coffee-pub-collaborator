@@ -2063,6 +2063,103 @@ input.switch:disabled {
   padding-top: 2px;
 }
 
+/* A favorite's row (plan-favorite-layouts.md): a small heart after its name, as the Default mark sits after it. */
+.layout-favorite-mark {
+  flex: none;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+/* The favorite layouts in the space bar, right of the Layout button (space.js, renderFavorites): the Layout button's
+   size, a heart and the name, cut at about 16 characters. When the bar is tight fitFavorites() shortens every name
+   (--layout-favorite-name, down to about 6 characters), then takes favorites out from the last one back
+   (.layout-favorite-out). With none left in the bar the group also gives back the left zone's gap (10px, .subnav
+   .nav-left) it would leave before it. */
+.layout-favorites {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.layout-favorites[hidden] {
+  display: none;
+}
+
+.layout-favorites.layout-favorites-none {
+  margin-left: -10px;
+}
+
+.layout-favorite {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  font-size: 12px;
+}
+
+.layout-favorite i {
+  color: var(--accent);
+}
+
+.layout-favorites > .layout-favorite-out {
+  display: none;
+}
+
+.layout-favorite:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.layout-favorite-name {
+  display: inline-block;
+  max-width: var(--layout-favorite-name, 16ch);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The width of one character in the names' font, measured by fitFavorites() and never seen. */
+.layout-favorite-probe {
+  position: absolute;
+  visibility: hidden;
+  max-width: none;
+}
+
+/* A load from the favorites that left something out says so here, under them, for 6 seconds (a screen reader hears it
+   from #layout-announce). The Layout panel's surface. */
+.layout-favorites-note {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: var(--z-menu);
+  width: max-content;
+  max-width: min(320px, calc(100vw - 16px));
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg-section);
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: normal;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
+  pointer-events: none;
+}
+
+.layout-favorites-note[hidden] {
+  display: none;
+}
+
+/* No favorites on a phone or a narrow pop-out (decision 10); space.js hides the group there too. */
+@media (max-width: 640px) {
+  .subnav #layout-favorites {
+    display: none;
+  }
+}
+
 /* Save this layout's form, and a row's Rename in its place: Name, the share switch, the server's refusal, Save and Cancel. */
 .layout-form {
   display: flex;
@@ -7660,6 +7757,13 @@ body.chat-window {
 .shared-address .btn { flex: none; }
 .shared-address .hint { margin: 2px 0 0; }
 
+/* The admin's Flight schedule section (host console and admin page): the count, a flight number with its Forget button
+   on one line (the field takes the room, the button keeps its width; on a narrow screen the button goes under the
+   field), then Clear all below a rule. */
+.flight-forget { display: grid; gap: 4px; margin: 12px 0 4px; max-width: 420px; }
+.flight-forget input { flex: 1 1 160px; min-width: 0; }
+.flight-forget .btn { flex: none; }
+
 /* A masked password field with its Show/Hide button (brand.js wires any button[data-reveal]). */
 .reveal-row { flex-wrap: nowrap; }
 .reveal-row input { flex: 1; min-width: 0; }
@@ -8147,13 +8251,27 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   .slot-pick-wrap .slot-hint.say { visibility: visible; opacity: 1; }
 }
 
-/* Manage's Top bar section: each destination's switch with its line under it, Show Map below Show Calendar. */
-.checks.top-bar-checks {
+/* A list of switches, each with its line under it (Module Configuration's Calendar sharing and Top bar sections). A
+   switch that can't be used is dimmed; the line under it, which then says why, keeps its full colour. */
+.checks.switch-list {
   display: grid;
   justify-items: start;
   gap: 2px;
 }
 
-.top-bar-checks .hint {
+.switch-list .hint {
   margin: 0 0 10px 30px;
 }
+
+.switch-list label.check.disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Module Configuration's sections the host draws above the module's own settings. */
+.host-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.host-section h3 { margin: 0; font-size: 15px; }
+.host-section > .hint { margin: 0; }
+
+/* Manage's one line saying where a setting moved, in place of the panel it had. */
+.moved-note p { margin: 0; color: var(--text-dim); font-size: 13px; }

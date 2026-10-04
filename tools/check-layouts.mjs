@@ -5,8 +5,12 @@
  * when a space or a person is removed, and the four routes under /api/spaces/:id/layouts with their codes for an
  * owner, a moderator, a member, someone not in the space, a guest and nobody signed in. Step 4: a space's
  * defaultLayout (owners only), kept in step with its opensWith both ways, cleared when its layout is deleted, carried by
- * GET /api/modules/for-space, and nothing stored before it changed. The shape check and the file run in-process; the
- * routes run against a throwaway server.
+ * GET /api/modules/for-space, and nothing stored before it changed. Favorite layouts, step 1
+ * (documentation/plans/plan-favorite-layouts.md, GitHub #190): each person's own per space, in the order favorited, of
+ * the layouts they can see, with no limit of their own; the clean-up when a layout or a person is removed; a file
+ * without favorites; and GET's favorites with PUT and DELETE .../favorite. Steps 2 and 3's page parts: public/space.js
+ * asks those routes, keeps their answer, and a guest never asks. The shape check, the file and the page parts run
+ * in-process; the routes run against a throwaway server.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -179,6 +183,161 @@ const refused = (input, pattern, label, options) => {
   assert.equal(fs.readFileSync(path.join(dir3, 'layouts.json'), 'utf8'), '{ not json', 'left exactly as it was');
   n += 1;
   for (const d of [dir, dir2, dir3]) fs.rmSync(d, { recursive: true, force: true });
+}
+
+// --- favorites in the file (plan-favorite-layouts.md, step 1) ------------------------------------------------------
+
+{
+  const dir = tmp('favorites');
+  const file = path.join(dir, 'layouts.json');
+  const layouts = new Layouts(dir);
+  const g = cleanLayout(good()).layout;
+  const shared = Array.from({ length: 10 }, (_, i) => layouts.add('s1', 'mod', { ...g, name: `Shared ${i}`, shared: true }));
+  const patOwn = Array.from({ length: 10 }, (_, i) => layouts.add('s1', 'pat', { ...g, name: `Pat ${i}` }));
+  const samOwn = layouts.add('s1', 'sam', { ...g, name: 'Sam' });
+  const before = fs.readFileSync(file, 'utf8');
+  assert.ok(!('favorites' in readJson(file).spaces.s1), 'no favorites key while nobody has one');
+  assert.deepEqual(layouts.favorites('s1', 'pat'), []);
+  assert.deepEqual(layouts.favorites('s1', null), [], 'a guest has none');
+
+  // Own and shared, in the order favorited; repeats change nothing; each person's are separate.
+  assert.deepEqual(layouts.setFavorite('s1', shared[3].id, 'pat', true), [shared[3].id]);
+  assert.deepEqual(layouts.setFavorite('s1', patOwn[0].id, 'pat', true), [shared[3].id, patOwn[0].id]);
+  assert.deepEqual(layouts.setFavorite('s1', shared[0].id, 'pat', true), [shared[3].id, patOwn[0].id, shared[0].id], 'appended, not sorted');
+  const once = fs.readFileSync(file, 'utf8');
+  assert.deepEqual(layouts.setFavorite('s1', shared[3].id, 'pat', true), [shared[3].id, patOwn[0].id, shared[0].id], 'a repeat favorite changes nothing');
+  assert.equal(fs.readFileSync(file, 'utf8'), once, 'and writes nothing');
+  assert.deepEqual(layouts.setFavorite('s1', shared[1].id, 'pat', false), [shared[3].id, patOwn[0].id, shared[0].id], 'unfavoriting one that is not a favorite changes nothing');
+  assert.deepEqual(layouts.setFavorite('s1', shared[3].id, 'sam', true), [shared[3].id], "sam's are his own");
+  assert.deepEqual(layouts.favorites('s1', 'pat'), [shared[3].id, patOwn[0].id, shared[0].id], "sam's favorite does not touch pat's");
+  assert.deepEqual(layouts.setFavorite('s1', patOwn[0].id, 'pat', false), [shared[3].id, shared[0].id], 'unfavorite keeps the order of the rest');
+  assert.deepEqual(layouts.setFavorite('s1', patOwn[0].id, 'pat', true), [shared[3].id, shared[0].id, patOwn[0].id], 'favoriting again puts it at the end');
+
+  // Only a layout this person can see: not another person's own, not an unknown id, not one in another space.
+  assert.equal(layouts.setFavorite('s1', samOwn.id, 'pat', true), null, "another person's own");
+  assert.equal(layouts.setFavorite('s1', 'lnosuch', 'pat', true), null, 'an unknown id');
+  assert.equal(layouts.setFavorite('s2', shared[0].id, 'pat', true), null, 'a layout of another space');
+  assert.equal(layouts.setFavorite('s1', shared[0].id, null, true), null, 'a guest');
+
+  // At most LAYOUT_LIMITS.favorites (3, Thomas 2026-10-04): a 4th is a 409 that changes nothing; a repeat of one of
+  // the 3 is fine; unfavoriting one makes room again.
+  assert.equal(LAYOUT_LIMITS.favorites, 3, 'the limit is 3');
+  const full = fs.readFileSync(file, 'utf8');
+  const limitError = (err) => err instanceof LayoutError && err.status === 409 && err.message === 'You can have 3 favorite layouts. Unfavorite one first.';
+  assert.throws(() => layouts.setFavorite('s1', shared[5].id, 'pat', true), limitError, 'a 4th favorite is refused');
+  assert.throws(() => layouts.setFavorite('s1', patOwn[1].id, 'pat', true), limitError, 'own or shared alike');
+  assert.equal(fs.readFileSync(file, 'utf8'), full, 'and writes nothing');
+  assert.deepEqual(layouts.setFavorite('s1', shared[0].id, 'pat', true), [shared[3].id, shared[0].id, patOwn[0].id], 'a repeat at the limit changes nothing');
+  assert.deepEqual(layouts.setFavorite('s1', shared[0].id, 'pat', false), [shared[3].id, patOwn[0].id]);
+  assert.deepEqual(layouts.setFavorite('s1', shared[5].id, 'pat', true), [shared[3].id, patOwn[0].id, shared[5].id], 'unfavorite, then another fits');
+  const all = readJson(file).spaces.s1.favorites.pat;
+  assert.deepEqual(all, [shared[3].id, patOwn[0].id, shared[5].id], 'the file holds the 3');
+  assert.deepEqual(new Layouts(dir).favorites('s1', 'pat'), layouts.favorites('s1', 'pat'), 'read back as written');
+
+  // Deleting a layout takes it out of every person's favorites; a removed person takes their favorites.
+  layouts.remove('s1', shared[3].id, 'mod');
+  assert.ok(!layouts.favorites('s1', 'pat').includes(shared[3].id), "gone from pat's");
+  assert.ok(!readJson(file).spaces.s1.favorites.sam, "sam's list was only that one, so it is dropped");
+  layouts.remove('s1', patOwn[0].id, 'pat');
+  assert.deepEqual(readJson(file).spaces.s1.favorites.pat, [shared[5].id], "pat's own layout deleted: gone from pat's favorites");
+  layouts.setFavorite('s1', shared[4].id, 'sam', true);
+  layouts.forgetPerson('pat');
+  assert.deepEqual(Object.keys(readJson(file).spaces.s1.favorites), ['sam'], "pat's favorites are gone, sam's stay");
+  layouts.forgetPerson('sam');
+  assert.ok(!('favorites' in readJson(file).spaces.s1), 'an empty favorites is dropped');
+  n += 1;
+
+  // A file from before favorites reads and writes as before; stored ids that are junk, repeated, or of a layout that
+  // is gone are not read back as favorites.
+  const dir2 = tmp('favorites-old');
+  fs.writeFileSync(path.join(dir2, 'layouts.json'), before);
+  const old = new Layouts(dir2);
+  assert.equal(old.list('s1', 'pat').mine.length, 10, 'its layouts read as before');
+  assert.equal(old.list('s1', 'pat').shared.length, 10);
+  assert.deepEqual(old.favorites('s1', 'pat'), [], 'no favorites key reads as none');
+  old.add('s1', 'sam', { ...g, name: 'Later' });
+  assert.ok(!('favorites' in readJson(path.join(dir2, 'layouts.json')).spaces.s1), 'and writing adds no key');
+  const raw = readJson(path.join(dir2, 'layouts.json'));
+  raw.spaces.s1.favorites = { pat: [shared[0].id, 7, shared[0].id, 'lgone12', patOwn[1].id], sam: 'junk', ann: [] };
+  fs.writeFileSync(path.join(dir2, 'layouts.json'), JSON.stringify(raw));
+  const odd = new Layouts(dir2);
+  assert.deepEqual(odd.favorites('s1', 'pat'), [shared[0].id, patOwn[1].id], 'junk and repeats dropped, a gone layout not shown');
+  assert.deepEqual(odd.favorites('s1', 'sam'), []);
+  // Tidied on load: ids of a gone layout, or of a layout that person cannot see, are not kept.
+  assert.deepEqual(odd.spaces.s1.favorites, { pat: [shared[0].id, patOwn[1].id] }, 'only ids pat can see are kept');
+  n += 1;
+
+  // A space entry holding only favorites that name nothing left is dropped on load; one naming a malformed layout too.
+  const dir3 = tmp('favorites-orphan');
+  fs.writeFileSync(path.join(dir3, 'layouts.json'), JSON.stringify({ spaces: {
+    s9: { shared: [], people: {}, favorites: { pat: ['lgone12'] } },
+    s8: { shared: [{ id: 'lbroken', name: 7, modules: [] }], people: {}, favorites: { pat: ['lbroken'] } },
+  } }));
+  const orphan = new Layouts(dir3);
+  assert.deepEqual(orphan.spaces, {}, 'a space left with only favorites of no layout is dropped on load');
+  n += 1;
+
+  // setFavorite writes back only the ids the person can see, plus the change: hand-edited ids leave the file.
+  const dir4 = tmp('favorites-hand');
+  const hand = readJson(path.join(dir2, 'layouts.json'));
+  hand.spaces.s1.favorites = { pat: [shared[0].id] };
+  fs.writeFileSync(path.join(dir4, 'layouts.json'), JSON.stringify(hand));
+  const edited = new Layouts(dir4);
+  edited.spaces.s1.favorites.pat.push('lhand01', samOwn.id); // as if the constructor had let them through
+  assert.deepEqual(edited.setFavorite('s1', patOwn[2].id, 'pat', true), [shared[0].id, patOwn[2].id]);
+  assert.deepEqual(readJson(path.join(dir4, 'layouts.json')).spaces.s1.favorites.pat, [shared[0].id, patOwn[2].id], 'a favorite writes back the visible list');
+  edited.spaces.s1.favorites.pat.push('lhand01');
+  assert.deepEqual(edited.setFavorite('s1', shared[0].id, 'pat', false), [patOwn[2].id]);
+  assert.deepEqual(readJson(path.join(dir4, 'layouts.json')).spaces.s1.favorites.pat, [patOwn[2].id], 'an unfavorite writes back the visible list');
+  edited.spaces.s1.favorites.pat.push('lhand01');
+  edited.setFavorite('s1', patOwn[2].id, 'pat', false);
+  assert.ok(!('favorites' in readJson(path.join(dir4, 'layouts.json')).spaces.s1), 'none left visible: the key is dropped');
+  n += 1;
+
+  // A stored list longer than the limit (from before it, or hand-edited) reads as its first 3 visible ones, in order,
+  // errors nowhere, and leaves the file at the next write.
+  const dir5 = tmp('favorites-long');
+  const long = JSON.parse(before);
+  const tooMany = ['lgone12', shared[6].id, patOwn[2].id, shared[1].id, shared[8].id, patOwn[7].id];
+  long.spaces.s1.favorites = { pat: tooMany };
+  fs.writeFileSync(path.join(dir5, 'layouts.json'), JSON.stringify(long));
+  const trimmed = new Layouts(dir5);
+  const firstThree = [shared[6].id, patOwn[2].id, shared[1].id];
+  assert.deepEqual(trimmed.favorites('s1', 'pat'), firstThree, 'the first 3 visible, in the order favorited');
+  assert.deepEqual(trimmed.list('s1', 'pat').mine.length, 10, 'its layouts read as before');
+  assert.deepEqual(readJson(path.join(dir5, 'layouts.json')).spaces.s1.favorites.pat, tooMany, 'reading changes nothing in the file');
+  trimmed.add('s1', 'sam', { ...g, name: 'Later' });
+  assert.deepEqual(readJson(path.join(dir5, 'layouts.json')).spaces.s1.favorites.pat, firstThree, 'trimmed to 3 at the next write');
+  trimmed.spaces.s1.favorites.pat.push(shared[9].id); // as if the constructor had let a 4th through
+  assert.deepEqual(trimmed.favorites('s1', 'pat'), firstThree, 'favorites() never answers more than 3');
+  assert.throws(() => trimmed.setFavorite('s1', shared[2].id, 'pat', true), limitError, 'and a new one is still refused');
+  assert.deepEqual(trimmed.setFavorite('s1', patOwn[2].id, 'pat', false), [shared[6].id, shared[1].id], 'an unfavorite writes back at most 3');
+  assert.deepEqual(readJson(path.join(dir5, 'layouts.json')).spaces.s1.favorites.pat, [shared[6].id, shared[1].id]);
+  n += 1;
+  for (const d of [dir, dir2, dir3, dir4, dir5]) fs.rmSync(d, { recursive: true, force: true });
+}
+
+// --- favorites on the page (plan-favorite-layouts.md, steps 2 and 3): the page asks the routes the server has --------
+
+{
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const server = fs.readFileSync(path.join(ROOT, 'server/index.js'), 'utf8');
+  // The server's two routes, and the page's request to them: PUT to favorite, DELETE to stop, no body.
+  assert.match(server, /app\.put\('\/api\/spaces\/:id\/layouts\/:layoutId\/favorite', layoutFavorite\(true\)\);/);
+  assert.match(server, /app\.delete\('\/api\/spaces\/:id\/layouts\/:layoutId\/favorite', layoutFavorite\(false\)\);/);
+  const setFn = space.slice(space.indexOf('async function setFavorite('), space.indexOf('async function setDefaultLayout('));
+  assert.match(setFn, /layoutRequest\(on \? 'PUT' : 'DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts\/\$\{encodeURIComponent\(layout\.id\)\}\/favorite`\)/, 'no body, no guest query');
+  // It keeps what the answer says ({ favorites }) and GET's `favorites`, which the server answers for everyone.
+  assert.match(setFn, /const \{ favorites \} = await layoutRequest\(/);
+  assert.match(setFn, /layoutList\.favorites = Array\.isArray\(favorites\) \? favorites : \[\];/);
+  assert.match(server, /res\.json\(\{ mine, shared, defaultLayout: [^}]*favorites, canShare: found\.canShare, canSetDefault: found\.canSetDefault \}\);/);
+  assert.match(space, /favorites: Array\.isArray\(got\.favorites\) \? got\.favorites : \[\]/);
+  // A guest never asks: no ... entry, no bar (the server's 403 is the backstop).
+  assert.match(space, /const mayFavorite = \(\) => !guestToken && Boolean\(me\?\.key\) && me\.role !== 'guest';/);
+  assert.match(space, /const favoritesWanted = \(\) => mayFavorite\(\) &&/);
+  // The bar's buttons load the page's own copy, as a row in the panel does.
+  assert.match(space, /const layout = findLayout\(button\.dataset\.layoutFavorite\);/);
+  n += 1;
 }
 
 // --- the store: removeSpace and removeUser take their layouts ---------------------------------------------------
@@ -362,10 +521,10 @@ try {
 
   // Who may read.
   const empty = await expect('member reads', 200, 'GET', L, { cookie: pat });
-  assert.deepEqual(empty.json, { mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false });
-  assert.deepEqual((await expect('moderator reads', 200, 'GET', L, { cookie: sam })).json, { mine: [], shared: [], defaultLayout: null, canShare: true, canSetDefault: false });
-  assert.deepEqual((await expect('owner reads', 200, 'GET', L, { cookie: owner })).json, { mine: [], shared: [], defaultLayout: null, canShare: true, canSetDefault: true });
-  assert.deepEqual((await expect('guest reads', 200, 'GET', `${L}${asGuest}`)).json, { mine: [], shared: [], defaultLayout: null, canShare: false, canSetDefault: false });
+  assert.deepEqual(empty.json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false });
+  assert.deepEqual((await expect('moderator reads', 200, 'GET', L, { cookie: sam })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: false });
+  assert.deepEqual((await expect('owner reads', 200, 'GET', L, { cookie: owner })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: true });
+  assert.deepEqual((await expect('guest reads', 200, 'GET', `${L}${asGuest}`)).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false });
   await expect('nobody signed in', 401, 'GET', L);
   await expect('a member of another space', 403, 'GET', L, { cookie: out });
   await expect('no such space', 404, 'GET', '/api/spaces/nosuchsp/layouts', { cookie: pat });
@@ -435,7 +594,71 @@ try {
   for (let i = 1; i < 10; i += 1) await expect(`shared #${i + 1}`, 201, 'POST', L, { cookie: owner, body: { ...good(), name: `Shared ${i}`, shared: true } });
   const fullShared = await expect('the eleventh shared', 409, 'POST', L, { cookie: sam, body: { ...good(), name: 'Eleventh', shared: true } });
   assert.equal(fullShared.json.error, 'This space has 10 shared layouts. Delete one first.');
-  await expect('sam may still save his own', 201, 'POST', L, { cookie: sam, body: { ...good(), name: 'Mine' } });
+  const samMine = (await expect('sam may still save his own', 201, 'POST', L, { cookie: sam, body: { ...good(), name: 'Mine' } })).json.layout;
+  n += 1;
+
+  // Favorites (plan-favorite-layouts.md, step 1): each person's own, of the layouts they can see, in the order favorited.
+  const seen = (await call('GET', L, { cookie: pat })).json;
+  const patIds = seen.mine.map((l) => l.id);
+  const sharedIds = seen.shared.map((l) => l.id);
+  assert.equal(patIds.length + sharedIds.length, 20, 'pat sees 20 layouts');
+  const fav = (id) => `${L}/${id}/favorite`;
+  let r = await expect('favorite a shared layout', 200, 'PUT', fav(sharedIds[2]), { cookie: pat });
+  assert.deepEqual(r.json, { favorites: [sharedIds[2]] });
+  r = await expect('favorite own', 200, 'PUT', fav(patIds[0]), { cookie: pat });
+  assert.deepEqual(r.json.favorites, [sharedIds[2], patIds[0]], 'appended');
+  r = await expect('favorite again', 200, 'PUT', fav(sharedIds[2]), { cookie: pat });
+  assert.deepEqual(r.json.favorites, [sharedIds[2], patIds[0]], 'a repeat changes nothing');
+  r = await expect('unfavorite one that is not', 200, 'DELETE', fav(sharedIds[5]), { cookie: pat });
+  assert.deepEqual(r.json.favorites, [sharedIds[2], patIds[0]], 'unfavoriting one that is not a favorite changes nothing');
+  r = await expect('unfavorite own', 200, 'DELETE', fav(patIds[0]), { cookie: pat });
+  assert.deepEqual(r.json.favorites, [sharedIds[2]]);
+  r = await expect('unfavorite again', 200, 'DELETE', fav(patIds[0]), { cookie: pat });
+  assert.deepEqual(r.json.favorites, [sharedIds[2]]);
+  assert.deepEqual((await call('GET', L, { cookie: pat })).json.favorites, [sharedIds[2]], 'GET carries them');
+  r = await expect('sam favorites a shared one', 200, 'PUT', fav(sharedIds[0]), { cookie: sam });
+  assert.deepEqual(r.json.favorites, [sharedIds[0]], "sam's are separate");
+  await expect('sam favorites his own', 200, 'PUT', fav(samMine.id), { cookie: sam });
+  assert.deepEqual((await call('GET', L, { cookie: pat })).json.favorites, [sharedIds[2]], "pat's are untouched by sam's");
+  assert.deepEqual((await call('GET', L, { cookie: owner })).json.favorites, [], 'the owner has none');
+  assert.deepEqual((await call('GET', `${L}${asGuest}`)).json.favorites, [], 'a guest reads []');
+
+  // Refusals: a guest 403, someone not in the space 403, nobody signed in 401; a layout this person cannot see 404.
+  const guestFav = await expect('guest favorites', 403, 'PUT', `${fav(sharedIds[0])}${asGuest}`);
+  assert.equal(guestFav.json.error, 'Guests can load shared layouts but not keep favorites.');
+  await expect('guest unfavorites', 403, 'DELETE', `${fav(sharedIds[0])}${asGuest}`);
+  await expect('outsider favorites', 403, 'PUT', fav(sharedIds[0]), { cookie: out });
+  await expect('nobody signed in', 401, 'PUT', fav(sharedIds[0]));
+  const notThere = await expect("another person's own", 404, 'PUT', fav(samMine.id), { cookie: pat });
+  assert.equal(notThere.json.error, 'There is no such layout here.');
+  await expect("another person's own, unfavorite", 404, 'DELETE', fav(samMine.id), { cookie: pat });
+  await expect('an unknown layout', 404, 'PUT', fav('lnosuch'), { cookie: pat });
+  await expect('no such space', 404, 'PUT', `/api/spaces/nosuchsp/layouts/${sharedIds[0]}/favorite`, { cookie: pat });
+  assert.deepEqual((await call('GET', L, { cookie: pat })).json.favorites, [sharedIds[2]], 'refusals changed nothing');
+
+  // At most 3 (LAYOUT_LIMITS.favorites): the 4th PUT is a 409 with its sentence and changes nothing; a repeat PUT of one
+  // of the 3 stays 200; DELETE then PUT works again.
+  for (const id of [patIds[3], sharedIds[0]]) await expect('favorite up to 3', 200, 'PUT', fav(id), { cookie: pat });
+  const fourth = await expect('a 4th favorite', 409, 'PUT', fav(sharedIds[6]), { cookie: pat });
+  assert.deepEqual(fourth.json, { error: 'You can have 3 favorite layouts. Unfavorite one first.' });
+  await expect('a 4th, own', 409, 'PUT', fav(patIds[7]), { cookie: pat });
+  r = await expect('repeat at the limit', 200, 'PUT', fav(patIds[3]), { cookie: pat });
+  assert.deepEqual(r.json.favorites, [sharedIds[2], patIds[3], sharedIds[0]], 'a repeat changes nothing');
+  await expect('unfavorite one at the limit', 200, 'DELETE', fav(patIds[3]), { cookie: pat });
+  r = await expect('then favorite another', 200, 'PUT', fav(sharedIds[6]), { cookie: pat });
+  const order = [sharedIds[2], sharedIds[0], sharedIds[6]];
+  assert.deepEqual(r.json.favorites, order, 'DELETE then PUT works again, appended');
+  const stored = readJson(path.join(dataDir, 'layouts.json')).spaces[S].favorites;
+  assert.deepEqual(stored[patUser.key], order, 'kept in layouts.json under favorites, by user key');
+  assert.deepEqual(stored[samUser.key], [sharedIds[0], samMine.id]);
+
+  // Deleting a shared layout takes it out of everyone's favorites.
+  await expect('delete a shared favorite', 204, 'DELETE', `${L}/${sharedIds[0]}`, { cookie: owner });
+  assert.deepEqual((await call('GET', L, { cookie: pat })).json.favorites, order.filter((id) => id !== sharedIds[0]), "gone from pat's");
+  assert.deepEqual((await call('GET', L, { cookie: sam })).json.favorites, [samMine.id], "gone from sam's");
+  assert.ok(!readJson(path.join(dataDir, 'layouts.json')).spaces[S].favorites[samUser.key].includes(sharedIds[0]), 'and from the file');
+  await expect('a deleted layout', 404, 'PUT', fav(sharedIds[0]), { cookie: pat });
+  await expect('replace the shared one deleted', 201, 'POST', L, { cookie: owner, body: { ...good(), name: 'Shared again', shared: true } });
   n += 1;
 
   // Kept across a restart, in DATA_DIR/layouts.json.
@@ -446,6 +669,23 @@ try {
   await startServer();
   const pat2 = await login('pat', 'memberpass1234');
   assert.equal((await call('GET', L, { cookie: pat2 })).json.mine.length, 10, 'read back after a restart');
+  assert.deepEqual((await call('GET', L, { cookie: pat2 })).json.favorites, order.filter((id) => id !== sharedIds[0]), 'favorites read back after a restart');
+
+  // A stored list longer than 3 (from before the limit): GET answers its first 3 visible, the next write trims it.
+  await stopServer();
+  const visibleNow = [...file.spaces[S].people[patUser.key], ...file.spaces[S].shared].map((l) => l.id);
+  const longList = ['lgone12', ...visibleNow.slice(0, 6)];
+  file.spaces[S].favorites[patUser.key] = longList;
+  fs.writeFileSync(path.join(dataDir, 'layouts.json'), JSON.stringify(file));
+  await startServer();
+  const pat3 = await login('pat', 'memberpass1234');
+  assert.deepEqual((await expect('GET with a long stored list', 200, 'GET', L, { cookie: pat3 })).json.favorites, visibleNow.slice(0, 3), 'the first 3 visible');
+  await expect('a 4th, over a long stored list', 409, 'PUT', fav(visibleNow[5]), { cookie: pat3 });
+  r = await expect('unfavorite one of the 3', 200, 'DELETE', fav(visibleNow[1]), { cookie: pat3 });
+  assert.deepEqual(r.json.favorites, [visibleNow[0], visibleNow[2]]);
+  assert.deepEqual(readJson(path.join(dataDir, 'layouts.json')).spaces[S].favorites[patUser.key], [visibleNow[0], visibleNow[2]], 'the file is trimmed at that write');
+  r = await expect('and favorite it again', 200, 'PUT', fav(visibleNow[1]), { cookie: pat3 });
+  assert.deepEqual(r.json.favorites, [visibleNow[0], visibleNow[2], visibleNow[1]]);
   n += 1;
 
   // The default layout (step 4), in a space of its own: owners only, Opens with in step both ways, cleared by a delete.
@@ -529,6 +769,7 @@ try {
   await expect('remove Camp', 200, 'DELETE', C, { cookie: owner2 });
   await expect('remove pat', 200, 'DELETE', `/api/users/${patUser.key}`, { cookie: owner2 });
   assert.ok(!readJson(path.join(dataDir, 'layouts.json')).spaces[S].people[patUser.key], "pat's layouts are gone");
+  assert.deepEqual(Object.keys(readJson(path.join(dataDir, 'layouts.json')).spaces[S].favorites), [samUser.key], "pat's favorites are gone, sam's stay");
   assert.equal(readJson(path.join(dataDir, 'layouts.json')).spaces[S].shared.length, 10, 'the shared ones stay');
   await expect('remove the space', 200, 'DELETE', `/api/spaces/${S}`, { cookie: owner2 });
   assert.deepEqual(readJson(path.join(dataDir, 'layouts.json')), { spaces: {} }, "the space's layouts are gone");

@@ -58,4 +58,5 @@ If the idea of AI-assisted development keeps you up at night or just isn't your 
 
 Proprietary: Collaborator is commercial software, not open source; all rights reserved (the license terms are coming, #72). It is built on [LiveKit](https://livekit.io) (Apache-2.0), Font Awesome Free (icons CC BY 4.0,
 fonts SIL OFL 1.1, code MIT), MediaPipe through LiveKit's track processors, Express and Node.js. The
-Manage page's About tab carries the full credits.
+airport list the flight lookup uses (`server/airports.json`) is built from [mwgg/Airports](https://github.com/mwgg/Airports)
+(MIT; its notice is `server/airports-LICENSE`). The Manage page's About tab carries the full credits.

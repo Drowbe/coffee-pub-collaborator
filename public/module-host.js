@@ -1034,6 +1034,35 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     async 'geocode.used'({ key }) {
       return api('POST', url('/geocode/use', scopeOf()), { key: String(key ?? '') });
     },
+    // Lookups answered by the server (a module that declares `"lookups": ["flight"]`): a flight from the schedule this server
+    // learned from saved flights, an airport by its code, and teaching it a saved flight. Only `flight` exists today.
+    async 'lookup.flight'({ number, date }) {
+      const n = String(number ?? '').trim().slice(0, 40);
+      const d = String(date ?? '').trim().slice(0, 40);
+      // Left empty, the route would answer whether the lookup is offered instead: the route's own errors.
+      if (!n) throw Object.assign(new Error('bad number'), { status: 400 });
+      if (!d) throw Object.assign(new Error('bad date'), { status: 400 });
+      return api('GET', url('/flight-lookup', scopeOf(), { number: n, date: d }));
+    },
+    async 'lookup.airport'({ code }) {
+      const c = String(code ?? '').trim().slice(0, 8);
+      if (!c) return null;
+      try {
+        return (await api('GET', url('/flight-lookup', scopeOf(), { code: c }))).airport || null;
+      } catch (err) {
+        if (err.status === 404) return null;
+        throw err;
+      }
+    },
+    async 'lookup.available'({ kind }) {
+      if (kind !== 'flight') return false;
+      return (await api('GET', url('/flight-lookup', scopeOf()))).available === true;
+    },
+    async 'lookup.remember'({ kind, object }) {
+      if (kind !== 'flight' || !object || typeof object !== 'object') return null;
+      await api('POST', url('/flight-lookup/remember', scopeOf()), { object });
+      return null;
+    },
     // A page's title, description and image, read by the server (a module with a linkPreviews setting).
     async 'preview.link'({ url: page }) {
       return api('POST', url('/link-preview', scopeOf()), { url: String(page ?? '').slice(0, 500) });

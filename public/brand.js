@@ -391,7 +391,7 @@ async function loadDestinations({ wide, inMenuOnly }) {
   }
   markDestinations();
 }
-// The bar's destinations again, once they may have changed (Manage's Show Calendar, Show Map).
+// The bar's destinations again, once they may have changed (Show in the top bar, on a module's configuration page).
 export function refreshDestinations() {
   if (destinationVisibility) return loadDestinations(destinationVisibility);
   return Promise.resolve();

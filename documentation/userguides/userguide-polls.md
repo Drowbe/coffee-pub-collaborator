@@ -31,6 +31,8 @@ Or choose **New poll** in the bar along the bottom of Polls. Give the question a
 - **Closes**, to have the poll close itself at a set time.
 - **Tell people about it**, to send everyone who can see the poll a notification.
 
+The form opens in a window over the whole page (the whole screen on a phone), with **Start poll** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". See [Modules](userguide-modules.md), "Add and edit forms".
+
 ## Vote
 
 Choose an option to vote for it. In a one-choice poll, choosing another option moves your vote, and choosing the same one again takes it back. In a many-choice poll each option is a switch. Results update live for everyone, with a bar and a count for each option and the names of the people who voted for it, so votes are not secret.

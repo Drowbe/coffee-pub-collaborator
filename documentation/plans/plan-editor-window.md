@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides how a module's Add and Edit forms open and how the Planner's form asks what kind of thing is being added; and the sessions that build it: experience-design (`public/sdk/host.js`, `public/module-host.js`, `public/canvas.js`, `public/style.css`, and each module's page), server-development (the checks in `tools/`). No server change.
 
-**Status:** approved by Thomas, 2026-10-04, taking the draft's suggested answer to all fifteen questions (decisions 1 to 15); nothing built. From GitHub #192 (`priority: now`), Thomas: "when we add or edit, we seem to stuff those screens into the module area. Why? That is a horrible experience and is easily ruined by having to scroll the edit/add window within the module window." The issue's direction: a module asks for its Add and Edit form to open large and centered over the canvas, full screen on a phone, sized to the form rather than the module, for all six modules. It also takes in GitHub #193, Thomas about the Planner's **Add to the plan**: "this is a horrible experience. It takes up so much space. Is there a better way to do this? like a filter input/dropdown combo that still shows the color and icons we will use?" That is Part 2.
+**Status:** approved by Thomas, 2026-10-04, taking the draft's suggested answer to all fifteen questions (decisions 1 to 15). Steps 1 to 8 built 2026-10-04 (the editor window in the SDK, the checks, and all six modules: To-do 1.15.2, Calendar 1.24.2, Polls 1.15.1, Research 0.4.2, Places 0.10.1, the Planner 0.14.2); steps 9 to 12 not built. See "Built" at the end. From GitHub #192 (`priority: now`), Thomas: "when we add or edit, we seem to stuff those screens into the module area. Why? That is a horrible experience and is easily ruined by having to scroll the edit/add window within the module window." The issue's direction: a module asks for its Add and Edit form to open large and centered over the canvas, full screen on a phone, sized to the form rather than the module, for all six modules. It also takes in GitHub #193, Thomas about the Planner's **Add to the plan**: "this is a horrible experience. It takes up so much space. Is there a better way to do this? like a filter input/dropdown combo that still shows the color and icons we will use?" That is Part 2.
 
 ## Why the forms are squeezed
 
@@ -242,14 +242,14 @@ kind.focus();
 
 ## Left to build, in order
 
-1. **The editor window in the SDK** (experience-design). `host.ui.editor` as above, in a module in the page and on a module's own page; its styles in `/sdk/host.css`; the popovers' move into an open editor (`datePicker`, `menu.show`, `actions.pick`); the `moved` event from `moveModule()` in `public/canvas.js`. No module uses it yet.
-2. **The checks** (server-development). In `tools/check-module-window.mjs`: a bundled module's `#editor` is a `<dialog>` with `sdk-editor` once its module is migrated (a list in the check, growing with steps 3 to 8), and no module stylesheet keeps an `.editor` rule with `position: absolute; inset: 0`. The SDK's `host.ui.editor` sizes and its thrown sentence, sliced out of `public/sdk/host.js` and run, as `check-module-host` does for pointers.
-3. **To-do 1.15.0** (experience-design). The migration and its `isDirty`; the open form's drop target removed.
-4. **Calendar 1.24.0** (experience-design).
-5. **Polls 1.15.0** (experience-design).
-6. **Research 0.4.0** (experience-design), with `CONTRACT.md`.
-7. **Places 0.10.0** (experience-design), with `CONTRACT.md`.
-8. **The Planner 0.14.0** (experience-design): the editor window, `large`, with `CONTRACT.md` and `design/editor.html`.
+1. **The editor window in the SDK** (experience-design). `host.ui.editor` as above, in a module in the page and on a module's own page; its styles in `/sdk/host.css`; the popovers' move into an open editor (`datePicker`, `menu.show`, `actions.pick`); the `moved` event from `moveModule()` in `public/canvas.js`. No module uses it yet. Built 2026-10-04.
+2. **The checks** (server-development). In `tools/check-module-window.mjs`: a bundled module's `#editor` is a `<dialog>` with `sdk-editor` once its module is migrated (a list in the check, growing with steps 3 to 8), and no module stylesheet keeps an `.editor` rule with `position: absolute; inset: 0`. The SDK's `host.ui.editor` sizes and its thrown sentence, sliced out of `public/sdk/host.js` and run, as `check-module-host` does for pointers. Built 2026-10-04.
+3. **To-do 1.15.0** (experience-design). The migration and its `isDirty`; the open form's drop target removed. Built 2026-10-04.
+4. **Calendar 1.24.0** (experience-design). Built 2026-10-04.
+5. **Polls 1.15.0** (experience-design). Built 2026-10-04.
+6. **Research 0.4.0** (experience-design), with `CONTRACT.md`. Built 2026-10-04.
+7. **Places 0.10.0** (experience-design), with `CONTRACT.md`. Built 2026-10-04.
+8. **The Planner 0.14.0** (experience-design): the editor window, `large`, with `CONTRACT.md` and `design/editor.html`. Built 2026-10-04.
 9. **The kind picker in the SDK** (experience-design): `host.ui.kindPicker`; a check of its filtering and its recent list (server-development, sliced out and run, in `check-module-window.mjs` or its own file).
 10. **The Planner 0.15.0 with the kind picker** (experience-design): the tiles replaced, one Markers group with Where deciding `block` or `lane`; `tools/check-travel.mjs` (server-development) for that mapping, run on `travel-lib.js` if the mapping lives there.
 11. **A module in a sandboxed frame** (experience-design): the lift in `public/module-host.js`, `public/canvas.js` and `public/module.js`; the bridge's `editor.lift`.
@@ -265,6 +265,23 @@ Steps 3 to 8 depend only on step 1 and may go in any order. Steps 9 and 10 can f
 - **Steps 9 and 10.** The Planner's own page: the field is one row; typing "fl" leaves Flight; Recent after two adds; each marker type once; Where with a marker chosen lists days and joints, and a save at a joint stores `lane`, on a day `block` (read back from the plan); the day's "..." and the + still open the right kind; the keys of the combobox pattern; a screen reader (VoiceOver or NVDA) reads the field, the active option and its group. Phone width: the list as a sheet.
 - **Step 11.** To-do switched to run in a frame by the admin: the frame lifts, the page behind is inert, the form is large, focus returns to the action bar's **New todo**, a phone width gives the sheet.
 - **Not checkable here:** the call with an editor open (its keys and mute), a recall countdown arriving under an open editor, and anything in a popped-out call. Firefox and Safari need a person with those browsers; `::backdrop`'s tint in an older Safari will show the plain backdrop.
+
+## Built
+
+Steps 1 to 8, 2026-10-04, as the contract above says, with these notes on where the code goes beyond it or differs:
+
+- **`editor.cancel()`**, not in the contract: the handle has a fourth method, what a module's own **Cancel** button calls. It takes the same way out as Escape and the close button (the question when `isDirty()` says true, else `onClose('cancel')`), so Cancel never skips the question and never clicks the SDK's own button. `tools/check-module-window.mjs` requires it of every migrated module (`editor.cancel()` in the module's script, no `querySelector('.sdk-editor-close')`).
+- **Focus timing.** The contract says focus goes to `returnTo` on close; the code resolves `returnTo` and moves focus **a microtask after `onClose`** (`Promise.resolve().then(restoreFocus)` in the dialog's `close` handler). A module that redraws its list after a save queues that redraw as a microtask too, so the row searched for is in the redrawn list, not the one being replaced. Each module gives `returnTo` as a function that finds the saved row by its id (To-do and Calendar `[data-open=<key>]`, Research `.rcard[data-id]`, Places `.place-row[data-id]`, the Planner the row's menu button or the day's "...") and falls back to the button that opened the form.
+- **Escape on the key.** The contract has Escape as the dialog's `cancel` event. The SDK handles the key itself inside the dialog (and still prevents `cancel`): a browser fires `cancel` only while the page has a fresh user activation, which Escape does not give, so a second Escape (Keep editing) would have closed the dialog over the question.
+- **`host.actions.pick`** has no anchor, so inside an editor it goes into the module's topmost open editor whenever it has one, and puts focus back in the dialog when dismissed.
+- **Versions** went up one minor and then a patch or two (To-do 1.15.2, Calendar 1.24.2, Research 0.4.2, the Planner 0.14.2; Polls 1.15.1 and Places 0.10.1) for the fixes from quality-assurance's two rounds. Maps 0.8.2 is in the set for the icon fix below.
+- **A read-only form** takes no input at all: To-do, Calendar and Research disable every field, the date pickers and Research's type buttons (`host.ui.datePicker` follows a disabled field, its button disabled with it and `open()` doing nothing; `refresh()` after toggling `disabled`), `isDirty` is false for it, focus starts on the window itself (`focus: $('editor')`), and Escape or the corner Close just closes.
+- **The Planner after saving a new object:** focus lands on the object (`focusAfterRedraw` in `travel.js`: for two seconds after the save, each redraw focuses the new row's menu button on a day, or its **Edit** button in a list, unless the person has moved focus elsewhere).
+- **A defect fixed on the way:** in Research, Places, the Planner and Maps, `hydrate()` started a new scan per pending icon, so a form opened while its icons loaded scanned itself 2^n times and could freeze the page. Pending icons are waited for together, once; the check fails the old shape.
+- **Read-only forms** (To-do, Calendar, Research, Places) hide the whole button row, not only Save; the corner Close and Escape are the way out. The contract did not say.
+- **Verified by quality-assurance:** QA's first round failed on a freeze and Cancel; the retest passed with notes, and those are fixed.
+- **Research and Places:** the row's button reads **Cancel** (it read **Close**), since the window has a Close of its own.
+- **Verified:** by the builders live in headless Chromium at 1280 and 390 px, each module on its own page and on a space's canvas docked and floating, and by `check-module-window` and `check-travel`. Not checked: a real call, Firefox, Safari, a screen reader.
 
 ## What is not decided
 

@@ -108,9 +108,10 @@ body { margin: 0; overflow: hidden; }
 /* .menu is the card's own "..." trigger button (the menu itself is host.menu.show, drawn by the SDK). */
 .rcard .menu { position: static; min-width: 0; box-shadow: none; }
 .rs-body { position: relative; }
-.editor { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding: 12px; overflow: auto; background: color-mix(in srgb, var(--bg) 70%, transparent); }
-.editor-card { width: 100%; max-width: 560px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-section); border: 1px solid var(--border); border-radius: 12px; }
-.editor-card h3 { margin: 0; font-size: 17px; }
+/* #editor is a <dialog> the SDK draws as the editor window (host.ui.editor): the box, its padding, the backdrop and the
+   sticky button row (.sdk-editor-actions) are the SDK's; the form only lays out its fields. */
+.editor-card { display: flex; flex-direction: column; gap: 10px; }
+.editor-card h3 { margin: 0; padding-right: 32px; font-size: 17px; }
 .editor-card label { display: flex; flex-direction: column; gap: 3px; color: var(--text-dim); font-size: 12px; }
 .editor-card input:not([type="checkbox"]), .editor-card textarea { width: 100%; }
 .editor-card label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
@@ -173,5 +174,5 @@ body { margin: 0; overflow: hidden; }
 .upload .step[data-error] { color: var(--danger); }
 /* Ask is a panel over the pane (the whole pane on a phone) */
 .rs.narrow .rs-chip { height: 28px; font-size: 12px; }
-.rs.narrow .editor { padding: 8px; }
-.rs.narrow .editor-card input, .rs.narrow .editor-card textarea { font-size: 16px; }
+/* the editor window is a sheet on a phone (the window's width, not the module's): 16 px fields, so iOS does not zoom */
+@media (max-width: 640px) { .editor-card input, .editor-card textarea { font-size: 16px; } }

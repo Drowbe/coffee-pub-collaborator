@@ -21,7 +21,7 @@
   <div id="chips" class="chips">            All, then one chip per category with its count; the shown one has .on
   <main id="body" class="body">             the groups, or a state
   <div id="item-menu" class="menu">         the place menu (hidden)
-  <div id="editor" class="editor">          the dialog for one place (hidden)
+  <dialog id="editor" class="sdk-editor">   the editor window for one place (host.ui.editor; closed until opened)
 ```
 
 ## The list
@@ -36,7 +36,9 @@ A popover the script places under the button that opened it. Entries: `edit` (it
 
 ## The dialog (`#editor`)
 
-For someone who may edit: `form#form.editor-card` with `f-title`, `f-category`, `f-address`, `f-point` (a paste field: "38.6916, -9.2160", a `geo:` link or a map link with `?ll=`, `@lat,lng` or `#map=zoom/lat/lng`; the result shows in `#f-point-note`, "Coordinates found." or "No coordinates in that."), `f-notes`, `#f-owners` (a `label.check` per person of the room), `#f-links-out` with `a#f-open-in-maps`, `#f-used-by` (hidden when nothing points at the place) with `.links` of the `.link` pills, `#f-by` (who last changed it), `#f-error`, and `#f-save`, `#f-cancel` ("Close"), `#f-delete` (only when editing). The dialog for **a new place** has the title "Add a place" and no `#f-used-by`, `#f-delete` or `#f-links-out`.
+A `<dialog class="sdk-editor">` the script opens through `host.ui.editor` (size `medium`): the editor window, drawn over everything in the browser's top layer (beside the map, over the whole destination page) and sized to the form, a full-screen sheet on a phone, never clipped by the module's box. The SDK adds the close button in its corner, traps focus, and on Escape or Close asks "Discard your changes?" (**Keep editing**, **Discard**) when a field differs from what the form opened with (`state.editing.opened`, a snapshot of the fields; a read-only place never asks). **Cancel** in the button row (`.editor-buttons.sdk-editor-actions`, stuck to the dialog's bottom so Save is always in view) goes the same way (`editor.cancel()`); a read-only form hides the row, so the corner Close is the only one. A save or a delete closes at once. Focus returns to the place's row after an edit, else to what had it before.
+
+For someone who may edit: `form#form.editor-card` with `f-title`, `f-category`, `f-address`, `f-point` (a paste field: "38.6916, -9.2160", a `geo:` link or a map link with `?ll=`, `@lat,lng` or `#map=zoom/lat/lng`; the result shows in `#f-point-note`, "Coordinates found." or "No coordinates in that."), `f-notes`, `#f-owners` (a `label.check` per person of the room), `#f-links-out` with `a#f-open-in-maps`, `#f-used-by` (hidden when nothing points at the place) with `.links` of the `.link` pills, `#f-by` (who last changed it), `#f-error`, and `#f-save`, `#f-cancel` ("Cancel"), `#f-delete` (only when editing). The dialog for **a new place** has the title "Add a place" and no `#f-used-by`, `#f-delete` or `#f-links-out`.
 
 For someone who may not edit: the same card with `tpl-readonly` in place of the fields (a `dl` of category, address, position, whose, then the notes), no Save or Delete.
 

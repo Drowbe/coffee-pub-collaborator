@@ -917,6 +917,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (mode === 'dock') openModuleDocked(m, reuse); else openModuleFloating(m, reuse);
     old.remove();
     if (titleText) opened.get(id).el.querySelector('[data-title]').textContent = titleText;
+    // The move took the module's box out of the page and back, which drops an open editor window (a modal <dialog>,
+    // host.ui.editor) out of the top layer: the module's SDK shows it again on this event.
+    opened.get(id).mount?.deliver('moved', { mode });
   }
 
   // --- built-in modules (the conference and the chat) ---------------------------

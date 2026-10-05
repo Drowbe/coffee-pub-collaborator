@@ -39,8 +39,9 @@
   <main id="body" class="rs-body"></main>
 
 
-  <!-- an object, in a dialog. One form for all four kinds: the script sets data-kind on .editor-card and the CSS shows the rows that kind uses. -->
-  <div id="editor" class="editor" hidden>
+  <!-- an object, in the editor window (host.ui.editor: a modal dialog over everything, never clipped by the module's box).
+       One form for all four kinds: the script sets data-kind on .editor-card and the CSS shows the rows that kind uses. -->
+  <dialog id="editor" class="sdk-editor">
     <form id="form" class="editor-card" data-kind="note">
       <h3 id="editor-title">Note</h3>
       <div class="link-identity" data-kinds="note link answer">
@@ -63,14 +64,14 @@
       <div class="asked" data-kinds="answer" id="f-asked" hidden><div class="hint">Asked</div><p data-slot="asked"></p><div class="hint">From</div><div class="links" data-slot="sources"></div></div>
       <p class="hint" id="f-by"></p>
       <p class="error" id="f-error" hidden></p>
-      <div class="editor-buttons">
+      <div class="editor-buttons sdk-editor-actions">
         <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Close</button>
+        <button class="btn" type="button" id="f-cancel">Cancel</button>
         <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Remove</button>
       </div>
     </form>
-  </div>
+  </dialog>
 </div>
 <p id="msg" class="hint msg">Loading...</p>
 

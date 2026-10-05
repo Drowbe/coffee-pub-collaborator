@@ -536,6 +536,175 @@
     }
   }
 
+  // The editor window (host.ui.editor): a module's Add or Edit form as a modal <dialog>, drawn in the browser's top layer
+  // above every module and the header, sized to the form rather than the module, a full-screen sheet on a phone. Its
+  // styles are in /sdk/host.css (.sdk-editor); see documentation/plans/plan-editor-window.md. The two sizes, by name;
+  // check-module-window.mjs reads them and the sentence thrown for a wrong element.
+  const EDITOR_SIZES = { medium: 560, large: 880 };
+  const EDITOR_NEEDS = 'host.ui.editor needs a <dialog> element';
+  const EDITOR_FIELD = 'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
+  let editorSeq = 0;
+  // deps: { root, rootElement, icon(name) -> Promise<svg>, opened: Map<dialog, { reopen }> } from the module's host.
+  function createEditor(dialog, o, deps) {
+    if (!dialog || dialog.nodeType !== 1 || String(dialog.tagName).toUpperCase() !== 'DIALOG') throw new Error(EDITOR_NEEDS);
+    const options = o || {};
+    const size = EDITOR_SIZES[options.size] ? options.size : 'medium';
+    const doc = dialog.ownerDocument;
+    dialog.classList.add('sdk-editor', `sdk-editor-${size}`);
+    dialog.classList.remove(size === 'large' ? 'sdk-editor-medium' : 'sdk-editor-large');
+    if (!dialog.hasAttribute('tabindex')) dialog.tabIndex = -1;
+    let returnTo = null; // what to focus on close: an element, or a function giving one
+    let before = null; // what had focus before open()
+    let lastFocus = null; // the last focused element inside, for reopening after a move
+    let reason = ''; // why it is closing: 'done' (close()) or 'cancel'; '' when the browser closed it by itself
+    let asking = null; // the "Discard your changes?" row while it shows: { row, focus }
+    const active = () => (deps.root && deps.root.activeElement) || doc.activeElement || null;
+    const visible = (el) => el === dialog || el.getClientRects().length > 0;
+    // The close button, in a zero-height sticky block so it stays in the top right corner while the form scrolls. Made
+    // again when missing: a module may replace the dialog's content on each open (the Planner clones a template into it).
+    const corner = () => {
+      if (dialog.querySelector(':scope > .sdk-editor-corner')) return;
+      const c = doc.createElement('div');
+      c.className = 'sdk-editor-corner';
+      const b = doc.createElement('button');
+      b.type = 'button';
+      b.className = 'sdk-editor-close';
+      b.setAttribute('aria-label', 'Close');
+      b.title = 'Close';
+      b.innerHTML = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path fill="currentColor" d="M3.05 1.64 8 6.59l4.95-4.95 1.41 1.41L9.41 8l4.95 4.95-1.41 1.41L8 9.41l-4.95 4.95-1.41-1.41L6.59 8 1.64 3.05z"/></svg>';
+      deps.icon('xmark').then((svg) => { if (svg) b.innerHTML = svg; }, () => {});
+      b.addEventListener('click', () => requestClose());
+      c.appendChild(b);
+      dialog.prepend(c);
+    };
+    // A screen reader's name for the dialog: its first heading, unless the module named it.
+    const label = () => {
+      if (dialog.hasAttribute('aria-label') || dialog.hasAttribute('aria-labelledby')) return;
+      const h = dialog.querySelector('h1, h2, h3, h4');
+      if (!h) return;
+      if (!h.id) h.id = `sdk-editor-title-${++editorSeq}`;
+      dialog.setAttribute('aria-labelledby', h.id);
+    };
+    const focusIn = (el) => {
+      const own = (f) => !f.closest('.sdk-editor-corner, .sdk-editor-discard');
+      const target = el && el.nodeType === 1 && dialog.contains(el) && visible(el) ? el
+        : [...dialog.querySelectorAll(EDITOR_FIELD)].find((f) => own(f) && visible(f)) || dialog;
+      try { target.focus(); } catch (err) { /* not focusable */ }
+    };
+    const ask = () => {
+      const row = doc.createElement('div');
+      row.className = 'sdk-editor-discard';
+      row.setAttribute('role', 'alertdialog');
+      const text = doc.createElement('span');
+      text.className = 'sdk-editor-discard-text';
+      text.id = `sdk-editor-discard-${++editorSeq}`;
+      text.textContent = 'Discard your changes?';
+      row.setAttribute('aria-labelledby', text.id);
+      const keep = doc.createElement('button');
+      keep.type = 'button';
+      keep.className = 'btn';
+      keep.dataset.editor = 'keep';
+      keep.textContent = 'Keep editing';
+      keep.addEventListener('click', () => keepEditing());
+      const discard = doc.createElement('button');
+      discard.type = 'button';
+      discard.className = 'btn btn-danger';
+      discard.dataset.editor = 'discard';
+      discard.textContent = 'Discard';
+      discard.addEventListener('click', () => finish('cancel'));
+      row.append(text, keep, discard);
+      asking = { row, focus: active() };
+      dialog.appendChild(row);
+      keep.focus();
+    };
+    const keepEditing = () => {
+      const a = asking;
+      asking = null;
+      if (!a) return;
+      a.row.remove();
+      if (a.focus && a.focus.isConnected && dialog.contains(a.focus)) a.focus.focus(); else focusIn();
+    };
+    const finish = (why) => {
+      reason = why;
+      if (asking) { asking.row.remove(); asking = null; }
+      if (dialog.open) dialog.close();
+    };
+    // Escape or the close button: the question first when the module says something would be lost.
+    const requestClose = () => {
+      if (asking) return keepEditing();
+      let dirty = false;
+      try { dirty = typeof options.isDirty === 'function' && Boolean(options.isDirty()); } catch (err) { console.error(err); }
+      if (dirty) ask(); else finish('cancel');
+    };
+    const restoreFocus = () => {
+      let want = null;
+      try { want = typeof returnTo === 'function' ? returnTo() : returnTo; } catch (err) { want = null; }
+      const usable = (el) => el && el.nodeType === 1 && el.isConnected && typeof el.focus === 'function' && !dialog.contains(el);
+      let target = usable(want) ? want : usable(before) && before !== doc.body ? before : deps.rootElement;
+      if (!target) return;
+      if (target === deps.rootElement && !target.hasAttribute('tabindex')) target.tabIndex = -1;
+      try { target.focus(); } catch (err) { /* not focusable */ }
+    };
+    // Escape is handled here, on the key, rather than left to the dialog's own cancel: a browser fires cancel only while
+    // the page has a fresh user activation, and Escape itself gives none, so a second Escape (Keep editing) would close
+    // the dialog over the question and lose what was typed. Stopped here so neither the module's nor the page's listeners
+    // see it; a list open inside (a menu, the date picker) stopped it already and closed only itself.
+    dialog.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      requestClose();
+    });
+    dialog.addEventListener('cancel', (e) => {
+      e.preventDefault();
+      requestClose();
+    });
+    dialog.addEventListener('focusin', (e) => { lastFocus = e.target; });
+    dialog.addEventListener('close', () => {
+      deps.opened.delete(dialog);
+      if (asking) { asking.row.remove(); asking = null; }
+      const why = reason === 'done' ? 'done' : 'cancel';
+      reason = '';
+      if (typeof options.onClose === 'function') {
+        try { options.onClose(why); } catch (err) { console.error(err); }
+      }
+      // A microtask later: a module that redraws its list after a save queues that redraw as a microtask too, and
+      // `returnTo` must look for the new row (or the opener) in the redrawn list, not the one being replaced.
+      Promise.resolve().then(restoreFocus);
+    });
+    // After the host moved the module's box (docked to floating or back), the dialog is out of the top layer: show it
+    // modal again, with the same focus.
+    const reopen = () => {
+      if (!dialog.hasAttribute('open') || !dialog.isConnected) return;
+      const f = lastFocus;
+      dialog.removeAttribute('open');
+      try { dialog.showModal(); } catch (err) { console.error(err); return; }
+      if (f && f.isConnected && dialog.contains(f)) { try { f.focus(); } catch (err) { focusIn(); } } else focusIn();
+    };
+    const api = {
+      open(a) {
+        const arg = a || {};
+        if (arg.returnTo !== undefined) returnTo = arg.returnTo;
+        corner();
+        label();
+        if (!dialog.open) {
+          before = active();
+          reason = '';
+          dialog.showModal();
+          deps.opened.set(dialog, { reopen });
+        }
+        focusIn(arg.focus);
+      },
+      close() { finish('done'); },
+      // The module's own Cancel button: the same way out as Escape and the corner Close, so it asks "Discard your
+      // changes?" when isDirty() says so, and closes with 'cancel' otherwise.
+      cancel() { requestClose(); },
+      get isOpen() { return Boolean(dialog.open); },
+      element: dialog,
+    };
+    return api;
+  }
+
   // env: { call(method, params) -> Promise, root, rootElement, elementAt({x, y}), localPoint(clientX, clientY),
   // applyTheme(theme) }.
   // Returns { host, emit }: `emit` is how the host pushes an event to the module.
@@ -703,6 +872,20 @@
     return menuIconWait.get(key);
   }
 
+  // The editor windows (host.ui.editor) this module has open, in the order they opened: dialog -> { reopen }.
+  const openEditors = new Map();
+  // The open editor window a control is in (an anchor inside it), else this module's topmost open one, else null. A
+  // popover opened from inside an editor goes into that dialog, so it is in the top layer with it rather than inert
+  // under it, and is placed against the window rather than the module's box.
+  function editorAt(el) {
+    const own = el && typeof el.closest === 'function' ? el.closest('dialog.sdk-editor[open]') : null;
+    if (own) return own;
+    let top = null;
+    for (const d of openEditors.keys()) if (d.open) top = d;
+    return top;
+  }
+  const editorDeps = { root: env.root, rootElement: env.rootElement, icon: (name) => menuIcon(name), opened: openEditors };
+
   // Only one host.menu is ever open at once (per module): { id, cleanup }.
   let openMenu = null;
   function closeMenu() {
@@ -778,15 +961,18 @@
       menu.appendChild(b);
       rows.push(b);
     }
-    (env.root === document ? document.body : env.root).appendChild(menu);
+    // Inside an open editor window (host.ui.editor) the menu goes into the dialog and is clamped to the window.
+    const editor = editorAt(anchor);
+    (editor || (env.root === document ? document.body : env.root)).appendChild(menu);
     // Positioned like host.actions.pick's own menu and the date picker's popover: clamped inside the
     // module's own root, by a point (a drop's own coordinates) or under an element (a "..." button),
     // flipped above it when there is no room below.
-    const box = env.rootElement.getBoundingClientRect();
-    const w = env.rootElement.clientWidth || 400;
-    const h = env.rootElement.clientHeight || 400;
-    let x = (at && at.x) || 0;
-    let y = (at && at.y) || 0;
+    const modBox = env.rootElement.getBoundingClientRect();
+    const box = editor ? { left: 0, top: 0 } : modBox;
+    const w = editor ? window.innerWidth : env.rootElement.clientWidth || 400;
+    const h = editor ? window.innerHeight : env.rootElement.clientHeight || 400;
+    let x = ((at && at.x) || 0) + (editor ? modBox.left : 0);
+    let y = ((at && at.y) || 0) + (editor ? modBox.top : 0);
     if (anchor && anchor.getBoundingClientRect) {
       const r = anchor.getBoundingClientRect();
       x = r.left - box.left;
@@ -797,7 +983,8 @@
     y = Math.max(4, Math.min(y, h - menu.offsetHeight - 4));
     menu.style.left = `${box.left + x}px`;
     menu.style.top = `${box.top + y}px`;
-    const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); closeMenu(); } };
+    // Escape closes only the menu: stopped and prevented, so an editor window around it does not close too.
+    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); } };
     const onOutside = (e) => { if (!menu.contains(e.target) && e.target !== anchor) closeMenu(); };
     document.addEventListener('keydown', onKey, true);
     env.root.addEventListener('pointerdown', onOutside, true);
@@ -1037,10 +1224,15 @@
         showDow();
         let pop = null;
         const close = () => { if (pop) pop.remove(); pop = null; document.removeEventListener('keydown', key, true); env.root.removeEventListener('pointerdown', away, true); };
-        const key = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+        // Escape closes only the picker: stopped and prevented, so an editor window around it does not close too.
+        const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
         const away = (e) => { if (pop && !pop.contains(e.target) && !wrap.contains(e.target)) close(); };
+        // A disabled field (a read-only form) has no picker: the button is disabled with it and open() does nothing.
+        const syncDisabled = () => { btn.disabled = Boolean(input.disabled); };
+        syncDisabled();
         const open = () => {
           if (pop) return close();
+          if (input.disabled) return;
           const seed = dayOf() || u.ymd(new Date());
           let month = new Date(u.parseYmd(seed).getFullYear(), u.parseYmd(seed).getMonth(), 1);
           pop = document.createElement('div');
@@ -1078,19 +1270,37 @@
             draw();
           });
           draw();
-          (env.root === document ? document.body : env.root).appendChild(pop);
+          // Inside an open editor window (host.ui.editor) the popover goes into the dialog and is kept inside the window.
+          const editor = editorAt(input);
+          (editor || (env.root === document ? document.body : env.root)).appendChild(pop);
           // Under the field, by the page's coordinates, kept on screen.
           const r = input.getBoundingClientRect();
-          const box = env.rootElement.getBoundingClientRect();
-          const w = env.rootElement.clientWidth || 400;
-          pop.style.top = r.bottom + 4 + 'px';
-          pop.style.left = box.left + Math.max(8, Math.min(r.left - box.left, w - 252 - 8)) + 'px';
+          const box = editor ? { left: 0, top: 0 } : env.rootElement.getBoundingClientRect();
+          const w = editor ? window.innerWidth : env.rootElement.clientWidth || 400;
+          let top = r.bottom + 4;
+          if (editor && top + pop.offsetHeight > window.innerHeight - 4) top = Math.max(4, r.top - pop.offsetHeight - 4);
+          pop.style.top = top + 'px';
+          pop.style.left = box.left + Math.max(editor ? 4 : 8, Math.min(r.left - box.left, w - 252 - (editor ? 4 : 8))) + 'px';
           document.addEventListener('keydown', key, true);
           env.root.addEventListener('pointerdown', away, true);
         };
         btn.addEventListener('click', open);
-        return { close, refresh: () => { close(); showDow(); }, destroy: () => { close(); hint.remove(); wrap.parentNode.insertBefore(input, wrap); wrap.remove(); } };
+        return { close, refresh: () => { close(); showDow(); syncDisabled(); }, destroy: () => { close(); hint.remove(); wrap.parentNode.insertBefore(input, wrap); wrap.remove(); } };
       },
+      // An editor window: the module's Add or Edit form, a <dialog> in its root, shown modal over everything (the top
+      // layer: above every module and the header, never clipped by the module's box), 560 px wide ('medium', the default)
+      // or 880 px ('large'), a full-screen sheet on a phone. The SDK adds a Close button in its corner; Escape or Close
+      // asks "Discard your changes?" when `isDirty()` says true. A click outside does nothing. The dialog scrolls; a
+      // button row marked `sdk-editor-actions` sticks to its bottom. The module's own popovers (host.menu.show, the date
+      // picker, host.actions.pick) open inside it. Styles in /sdk/host.css.
+      //   editor(dialog, { size, isDirty, onClose }) -> { open({ focus, returnTo }), close(), cancel(), isOpen, element }
+      //   close(): after a save, at once. cancel(): the module's own Cancel button; asks "Discard your changes?" first
+      //   when isDirty() says so. onClose(reason): 'cancel' (Escape, Close, Cancel, Discard) or 'done' (close()).
+      //   open() a second time only moves focus.
+      //   returnTo: an element, or a function giving one, focused on close (a microtask after onClose, so a list the
+      //   module redraws then is the one searched; else what had focus before, else the module).
+      // Anything but a <dialog> throws "host.ui.editor needs a <dialog> element".
+      editor: (dialogEl, o) => createEditor(dialogEl, o, editorDeps),
       // A currency choice in a <select> the module already has: "Common" then "All currencies" by name, from the codes the
       // server takes (host.locale().currencies), with the current value kept and selected even when the server would not
       // take it now. currencySelect(select, { value, empty, onChange }): `empty` true adds a first "" choice labelled
@@ -1784,8 +1994,12 @@
         const menu = document.createElement('div');
         menu.className = 'sdk-menu';
         menu.setAttribute('role', 'menu');
-        const done = (v) => { menu.remove(); document.removeEventListener('keydown', key, true); env.root.removeEventListener('pointerdown', away, true); resolve(remember(v)); };
-        const key = (e) => { if (e.key === 'Escape') done(null); };
+        // Inside this module's open editor window (host.ui.editor) when it has one: the menu goes into the dialog (see
+        // below), and focus goes back to the dialog when the menu is dismissed, so it is not left on the page's body.
+        const editor = editorAt(null);
+        const done = (v) => { menu.remove(); document.removeEventListener('keydown', key, true); env.root.removeEventListener('pointerdown', away, true); if (editor && editor.open && !editor.contains(env.root.activeElement)) { try { editor.focus(); } catch (err) { /* not focusable */ } } resolve(remember(v)); };
+        // Escape dismisses only the menu: stopped and prevented, so an editor window around it does not close too.
+        const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); done(null); } };
         const away = (e) => { if (!menu.contains(e.target)) done(null); };
         for (const item of list) {
           const b = document.createElement('button');
@@ -1806,13 +2020,17 @@
           b.addEventListener('click', () => done(item));
           menu.appendChild(b);
         }
-        // Inside the module's own root (a shadow root in the page), placed by the page's coordinates.
-        (env.root === document ? document.body : env.root).appendChild(menu);
-        const box = rootEl.getBoundingClientRect();
-        const w = rootEl.clientWidth || 400;
-        const h = rootEl.clientHeight || 400;
-        menu.style.left = box.left + Math.max(4, Math.min(((at && at.x) || 0), w - menu.offsetWidth - 4)) + 'px';
-        menu.style.top = box.top + Math.max(4, Math.min(((at && at.y) || 0), h - menu.offsetHeight - 4)) + 'px';
+        // Inside the module's own root (a shadow root in the page), placed by the page's coordinates; inside this
+        // module's open editor window when it has one, clamped to the window.
+        (editor || (env.root === document ? document.body : env.root)).appendChild(menu);
+        const modBox = rootEl.getBoundingClientRect();
+        const box = editor ? { left: 0, top: 0 } : modBox;
+        const w = editor ? window.innerWidth : rootEl.clientWidth || 400;
+        const h = editor ? window.innerHeight : rootEl.clientHeight || 400;
+        const ax = ((at && at.x) || 0) + (editor ? modBox.left : 0);
+        const ay = ((at && at.y) || 0) + (editor ? modBox.top : 0);
+        menu.style.left = box.left + Math.max(4, Math.min(ax, w - menu.offsetWidth - 4)) + 'px';
+        menu.style.top = box.top + Math.max(4, Math.min(ay, h - menu.offsetHeight - 4)) + 'px';
         document.addEventListener('keydown', key, true);
         env.root.addEventListener('pointerdown', away, true);
         const first = menu.querySelector('button');
@@ -2000,7 +2218,8 @@
     // Events: 'bar' ({ id }) when an action bar button is clicked, 'header' ({ id }) for a titlebar icon,
     // 'toolbar' ({ id, value?, x? }) for a toolbar item (x: a button's left edge across the module, for a menu under it), 'nav' ({ id }) for one of the module's nav-bar tools,
     // 'change' ({ key, value, version, deleted, scope, spaceId, by })
-    // whenever stored data changes, 'markers' when another module's marker objects changed (host.objects.markers), 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme).
+    // whenever stored data changes, 'markers' when another module's marker objects changed (host.objects.markers), 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme),
+    // 'moved' ({ mode }) after the host moved the module between docked and floating (the SDK reopens an open editor window itself).
     on(event, fn) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event).add(fn);
@@ -2020,6 +2239,9 @@
   };
   // Kept current even before a part asks, so onState starts from the latest.
   host.on('destination', (state) => { destinationState = state; });
+  // A move between docked and floating takes the module's box out of the page and back, which drops an open editor
+  // window out of the top layer: show it modal again.
+  host.on('moved', () => { for (const e of openEditors.values()) e.reopen(); });
 
   // The hard break (plan-names step 7): refs became objects. A module that still reaches for the old names is told
   // which to use, instead of failing later on an undefined. Not enumerable, so nothing that walks the SDK trips on them.

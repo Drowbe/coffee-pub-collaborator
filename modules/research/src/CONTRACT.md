@@ -36,6 +36,8 @@ One field, "Write a note, or paste a link", with a + button and a camera button 
 
 ## The editor (a dialog)
 
+`#editor` is a `<dialog class="sdk-editor">` the script opens through `host.ui.editor` (size `medium`): the editor window, drawn over everything in the browser's top layer and sized to the form, a full-screen sheet on a phone, never clipped by the module's box. The SDK adds the close button in its corner, traps focus, and on Escape or Close asks "Discard your changes?" (**Keep editing**, **Discard**) when a field differs from what the form opened with (`state.editing.opened`, a snapshot of the fields; words the link preview filled in are not counted). **Cancel** in the button row (`.editor-buttons.sdk-editor-actions`, stuck to the dialog's bottom so Save is always in view) goes the same way (`editor.cancel()`); a read-only form hides the row, so the corner Close is the only one. A save or a removal closes at once. Focus returns to the object's card after an edit, else to what had it before.
+
 A note: title, body, tags (a field that suggests the tags already used), an optional place (paste coordinates or a map link, as Places) and date. A link: the address, a title, the excerpt (what to remember from the page), tags. A photo: the caption, tags, whether to keep the position. All show who added it and when. A person may edit and remove their own; in This space, anyone with the edit right may edit, and only the adder or an owner removes a photo.
 
 ## Tags

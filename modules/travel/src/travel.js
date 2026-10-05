@@ -41,11 +41,13 @@
   const state = {
     view: 'days',
     loaded: false,
+    focusAfterRedraw: null, // { id, until }: a new object just saved; each redraw until then focuses its row's menu
     people: [], // [{ key, name }] of this space
     links: new Map(), // plan item id -> summaries of what other modules link to it
     tripLinks: [], // summaries of what other modules link to the trip itself
     conflicts: new Map(), // item id -> { patch }: my edit that met someone else's change
-    editing: null, // { mode: 'item' | 'trip', id, kind, day }
+    editing: null, // { mode: 'item' | 'trip', id, kind, day, opened }: the form that is open, and what it held when it opened
+    editingFrom: null, // where focus goes when the form closes: { el, id, date }
     menuFor: null, // item id
     currentDay: null, // the day in view (where a quick add goes)
     hosted: Boolean(host.bar), // the host draws the add bar, so the days' own add rows step aside
@@ -85,12 +87,16 @@
     if (!iconWait.has(name)) iconWait.set(name, host.ui.icon(name).then((svg) => { iconSvg.set(name, svg); return svg; }).catch(() => { iconSvg.set(name, ''); return ''; }));
     return iconWait.get(name);
   }
+  // Icons not here yet are waited for once per scan, together: a scan per pending icon would attach a scan to every
+  // other pending icon too, and a form opened while its icons still load would scan itself 2^n times.
   function hydrate(scope) {
+    const pending = new Set();
     for (const el of scope.querySelectorAll('[data-icon]')) {
       const name = el.dataset.icon;
       if (!name || el.dataset.shown === name) continue;
-      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else wantIcon(name).then(() => hydrate(scope));
+      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else pending.add(name);
     }
+    if (pending.size) Promise.all([...pending].map(wantIcon)).then(() => hydrate(scope));
   }
   const setIcon = (node, name) => { if (node) { node.dataset.icon = name || ''; delete node.dataset.shown; node.textContent = ''; } };
   // A note drawn with the same markdown as chat and research. Links open in a new window.
@@ -590,7 +596,7 @@
   function openAddMenu(button, place, { gap } = {}) {
     const onLine = place.after !== undefined;
     const items = [];
-    const withTile = (tile) => { openEditor('item', null, place); applyType(tile); };
+    const withTile = (tile) => { openEditor('item', null, place, button); applyType(tile); editorOpened(); };
     const add = (tile, label, icon) => items.push({ id: tile, label, icon, onClick: () => withTile(tile) });
     for (const t of JOURNEY_TILES) add(t, `Add a ${KICKERS[t].toLowerCase()}`, BADGES[t]);
     items.push({ separator: true });
@@ -1018,7 +1024,24 @@
       markCurrent(today ? today.dataset.day : null);
     }
     loadLinks().catch(() => {});
+    refocusNewRow();
   }
+  // After a new object is saved, the plan redraws more than once (the save, then the change echo a moment later), and each
+  // redraw replaces the row that had focus. For a short while after the save, every redraw puts focus back on the new
+  // row's menu, unless the person has moved it somewhere that still exists.
+  function refocusNewRow() {
+    const want = state.focusAfterRedraw;
+    if (!want) return;
+    if (Date.now() > want.until) { state.focusAfterRedraw = null; return; }
+    if ($('editor').open) return; // the form is still open (the save's own redraw): its close comes first
+    const inside = root.activeElement;
+    if (inside && inside.isConnected && !inside.closest('.row')) return; // moved to something else in here: leave it
+    const btn = objectControl(want.id);
+    if (btn) { try { btn.focus(); } catch (err) { /* not focusable */ } }
+  }
+  // The control that stands for an object on the page: its row's menu on a day, or its Edit button in a list (undated,
+  // the Decisions and Bookings views).
+  const objectControl = (id) => root.querySelector(`.row[data-id="${CSS.escape(id)}"] [data-action="move-menu"]`) || root.querySelector(`[data-action="edit-item"][data-id="${CSS.escape(id)}"]`);
   let queued = false;
   const redraw = () => { if (queued) return; queued = true; Promise.resolve().then(() => { queued = false; render(); }); };
 
@@ -1566,11 +1589,45 @@
   }
   const chosenMode = () => { const on = $('f-travelMode') && $('f-travelMode').querySelector('.mode.on'); return on ? on.dataset.mode : null; };
 
-  // `place` for a new item: `{ date }` a day, `{ after }` a joint on the line; none is the head of the line.
-  function openEditor(mode, item, place) {
+  // The form opens as the SDK's editor window (host.ui.editor): over everything, sized to the form (large for an item, medium
+  // for the plan), a sheet on a phone. What the form held when it opened, as text, so Escape, Close and Cancel ask "Discard
+  // your changes?" only after something changed. Every field in the form, the kind chosen and the way of getting there.
+  const formSnapshot = () => {
+    const form = $('form');
+    const ed = state.editing;
+    if (!form || !ed) return '';
+    const fields = [...form.querySelectorAll('input, select, textarea')].map((el, i) => `${el.id || el.name || i}=${el.type === 'checkbox' ? el.checked : el.value}`);
+    return `${ed.tile}|${chosenMode()}|${fields.join('\n')}`;
+  };
+  const editorOpened = () => { if (state.editing) state.editing.opened = formSnapshot(); };
+  const editorDirty = () => Boolean(state.editing && state.editing.opened !== undefined && formSnapshot() !== state.editing.opened);
+  // Where focus goes when the form closes: the control that opened it, or, once a save redrew the plan, the menu button of the
+  // object it edited or added, or the "..." of the day it was added to. Nothing found leaves it to the SDK (what had focus before).
+  const editorReturn = () => {
+    const ed = state.editingFrom;
+    if (!ed) return null;
+    if (ed.el && ed.el.isConnected) return ed.el;
+    if (ed.id) { const row = objectControl(ed.id); if (row) return row; }
+    if (ed.date) { const day = root.querySelector(`.day2[data-day="${CSS.escape(ed.date)}"] [data-action="day-menu"]`); if (day) return day; }
+    return null;
+  };
+  const editor = host.ui.editor($('editor'), {
+    size: 'large',
+    isDirty: editorDirty,
+    // The SDK asks `returnTo` after this, so where focus goes (state.editingFrom) is kept until the next open.
+    onClose: () => { $('editor').replaceChildren(); state.editing = null; },
+  });
+
+  // `place` for a new item: `{ date }` a day, `{ after }` a joint on the line; none is the head of the line. `from` is the control
+  // that opened the form (focus goes back to it on close).
+  function openEditor(mode, item, place, from) {
     if (!canEdit) return;
     const isLink = Boolean(item && item.kind === 'link');
     state.editing = { mode, id: item ? item.id : null, place: place || null, version: item ? plan.versionOf(item.id) : null, tile: 'sight', isLink };
+    state.editingFrom = { el: from || null, id: item ? item.id : null, date: place && place.date ? place.date : null };
+    // The plan's own form is the medium window; an item's the large one (the SDK sets the size once, so it is switched here).
+    $('editor').classList.toggle('sdk-editor-large', mode !== 'trip');
+    $('editor').classList.toggle('sdk-editor-medium', mode === 'trip');
     $('editor').replaceChildren(clone(mode === 'trip' ? 'tpl-editor-trip' : 'tpl-editor2'));
     $('f-error').hidden = true;
     if (mode === 'trip') {
@@ -1630,8 +1687,8 @@
       $('f-by').textContent = item && item.by ? `Added by ${item.by}` : '';
     }
     hydrate($('editor'));
-    $('editor').hidden = false;
-    $('f-title').focus();
+    editorOpened();
+    editor.open({ focus: $('f-title'), returnTo: editorReturn });
   }
   // One row per phase. The main phase's dates are the plan's own start and end; the others are stored on the phase.
   function fillTripPhases(trip) {
@@ -1678,11 +1735,12 @@
   }
 
   // Either leg of a round trip opens the one editor with both legs; the outbound's fields are the main ones.
-  const openItemEditor = (id) => {
+  const openItemEditor = (id, from) => {
     const item = plan.list().find((i) => i.id === id);
     if (!item) return;
-    openEditor('item', plan.outboundFor(item) || item);
+    openEditor('item', plan.outboundFor(item) || item, null, from);
     if (state.editing) state.editing.openedId = id;
+    if (state.editingFrom) state.editingFrom.id = id;
   };
 
   // --- a round trip in the editor ---
@@ -1788,8 +1846,12 @@
   }
   // Whether a patch would change what is stored for an item.
   const changes = (item, patch) => JSON.stringify(cleanItem({ ...item, ...patch, id: item.id })) !== JSON.stringify(item);
-  const closeEditor = () => { $('editor').hidden = true; $('editor').replaceChildren(); state.editing = null; };
-  root.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (!$('editor').hidden) closeEditor(); else closeMenu(); } });
+  // After Save or Delete: closes at once, nothing asked (the SDK's close event clears the form). Cancel goes the way the SDK's
+  // own Close does (editor.cancel), so it asks "Discard your changes?" after typing. Escape inside the window is the SDK's;
+  // here it closes the menu.
+  const closeEditor = () => editor.close();
+  const cancelEditor = () => editor.cancel();
+  root.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
 
   // --- the flight lookup (plan-flight-lookup.md) -----------------------------------------------------------------------
   // A row at the top of a flight (and one in its return leg): a number, a day and Find. The server answers from the flights
@@ -2087,10 +2149,11 @@
         else if (round) await plan.addItem({ ...back, legOf: item.id });
         else if (ed.backId && ed.removeReturn) await plan.removeItem(ed.backId);
         if (conflicted) { closeEditor(); return redraw(); }
-      } else if (round) {
-        await plan.addRoundTrip(fields, back);
       } else {
-        await plan.addItem(fields);
+        // A new object: focus goes to its row once the plan redraws (the bar's button that opened the form is the host's,
+        // and may be drawn again by then).
+        const added = round ? (await plan.addRoundTrip(fields, back)).out : await plan.addItem(fields);
+        if (state.editingFrom && added && added.id) { state.editingFrom.id = added.id; state.focusAfterRedraw = { id: added.id, until: Date.now() + 2000 }; }
       }
       rememberFlights(fields, back);
       closeEditor();
@@ -2165,7 +2228,7 @@
   $('editor').addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.id === 'f-cancel') return closeEditor();
+    if (b.id === 'f-cancel') return cancelEditor();
     if (b.classList.contains('tile')) return applyType(b.dataset.type);
     if (b.classList.contains('mode')) {
       const was = b.classList.contains('on');
@@ -2212,9 +2275,9 @@
       const ref = item && item.ref ? item.ref : b.dataset.ref ? JSON.parse(b.dataset.ref) : null;
       if (ref) host.objects.open(ref).catch((err) => note(err.message));
     } else if (action === 'edit-item') {
-      openItemEditor(b.dataset.id);
+      openItemEditor(b.dataset.id, b);
     } else if (action === 'edit-leg' && li) {
-      openItemEditor(li.dataset.id);
+      openItemEditor(li.dataset.id, b);
     } else if (action === 'day-menu') {
       const dayEl = b.closest('.day2');
       if (dayEl) openAddMenu(b, { date: dayEl.dataset.day });
@@ -2234,7 +2297,7 @@
       hide(edge.querySelector('.edge-form'), true);
       hide(edge.querySelector('[data-action="edge-open"]'), false);
     } else if (action === 'edit-trip') {
-      openEditor('trip');
+      openEditor('trip', null, null, b);
     } else if (action === 'use-theirs' && li) {
       state.conflicts.delete(li.dataset.id);
       redraw();
@@ -2264,7 +2327,7 @@
     if (!form) return;
     e.preventDefault();
     if (!canEdit) return;
-    openEditor('item', null, { date: form.dataset.day });
+    openEditor('item', null, { date: form.dataset.day }, form.querySelector('button'));
   });
 
   // --- what other modules may ask, and the first load ---------------------------------------------------------
@@ -2314,6 +2377,7 @@
     openEditor('item', null, { date: day });
     if ($('f-title')) $('f-title').value = parsed.title || text;
     if (parsed.time && $('f-time')) $('f-time').value = parsed.time;
+    editorOpened();
   });
   plan.subscribe(() => { if (state.loaded) redraw(); });
   // What the plan points at can change or go where it lives without telling this page, so look again now and then and when the

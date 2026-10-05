@@ -259,3 +259,170 @@ select:focus {
   border-radius: 10px;
   padding: 14px;
 }
+
+/* editor:start -- the editor window: a module's Add or Edit form as a modal <dialog> (host.ui.editor), drawn in the
+   browser's top layer above every module and the header, sized to the form (560 px, or 880 px with .sdk-editor-large;
+   tools/check-module-window.mjs holds these to the SDK's EDITOR_SIZES), a full-screen sheet at 640 px and below. The
+   dialog itself scrolls: the module's button row marked .sdk-editor-actions sticks to its bottom so Save is always in
+   view, and the SDK's close button sits in a zero-height sticky block (.sdk-editor-corner) so it stays in the top right
+   corner. The "Discard your changes?" row (.sdk-editor-discard) sticks to the bottom over the button row while it shows.
+   Colours from the tokens; the backdrop is the same tint the modules' own overlays used. */
+.sdk-editor {
+  --sdk-editor-pad: 16px;
+  --sdk-editor-top: 40px;
+  box-sizing: border-box;
+  width: min(560px, 100vw - 32px);
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 0 var(--sdk-editor-pad);
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-section);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.sdk-editor-large {
+  width: min(880px, 100vw - 32px);
+}
+
+.sdk-editor::backdrop {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.sdk-editor:focus {
+  outline: none;
+}
+
+/* The corner is the dialog's top strip (its top padding, in effect), stuck to the top while the form scrolls under it;
+   the close button hangs from it, and the strip is as tall as the button so a scrolled form passes under the strip,
+   never beside the button. Sticky at 0 with no top padding on the dialog, so browsers that measure the sticky offset
+   from the content box and those that use the padding box agree. */
+.sdk-editor-corner {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: var(--sdk-editor-top);
+  background: var(--bg-section);
+}
+
+.sdk-editor-close {
+  position: absolute;
+  top: 4px;
+  right: calc(8px - var(--sdk-editor-pad));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--bg-section);
+  color: var(--text-dim);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sdk-editor-close:hover {
+  background: color-mix(in srgb, var(--text) 10%, var(--bg-section));
+  color: var(--text);
+}
+
+.sdk-editor-close:focus-visible {
+  color: var(--text);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.sdk-editor-close svg,
+.sdk-editor-close i {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  fill: currentColor;
+}
+
+.sdk-editor-actions,
+.sdk-editor-discard {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 0 var(--sdk-editor-pad);
+  border-top: 1px solid var(--border);
+  background: var(--bg-section);
+}
+
+.sdk-editor-discard {
+  z-index: 2;
+  margin-top: 8px;
+}
+
+.sdk-editor-discard-text {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .sdk-editor {
+    --sdk-editor-pad: 12px;
+    --sdk-editor-top: calc(48px + env(safe-area-inset-top, 0px));
+    position: fixed;
+    top: 0;
+    bottom: auto;
+    left: 0;
+    right: auto;
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding-left: calc(12px + env(safe-area-inset-left, 0px));
+    padding-right: calc(12px + env(safe-area-inset-right, 0px));
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .sdk-editor::backdrop {
+    background: var(--bg);
+  }
+
+  .sdk-editor-close {
+    top: calc(2px + env(safe-area-inset-top, 0px));
+    width: 44px;
+    height: 44px;
+  }
+
+  .sdk-editor-actions,
+  .sdk-editor-discard {
+    --action-btn-h: 44px;
+    min-height: 44px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .sdk-editor-actions .btn,
+  .sdk-editor-discard .btn {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sdk-editor[open],
+  .sdk-editor[open]::backdrop {
+    animation: sdk-editor-in 0.15s ease-out;
+  }
+
+  @keyframes sdk-editor-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+/* editor:end */

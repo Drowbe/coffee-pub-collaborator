@@ -102,12 +102,16 @@
     if (!iconWait.has(name)) iconWait.set(name, host.ui.icon(name).then((svg) => { iconSvg.set(name, svg); return svg; }).catch(() => { iconSvg.set(name, ''); return ''; }));
     return iconWait.get(name);
   }
+  // Icons not here yet are waited for once per scan, together: a scan per pending icon would attach a scan to every
+  // other pending icon too, and a form opened while its icons still load would scan itself 2^n times.
   function hydrate(scope) {
+    const pending = new Set();
     for (const el of scope.querySelectorAll('[data-icon]')) {
       const name = el.dataset.icon;
       if (!name || el.dataset.shown === name) continue;
-      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else wantIcon(name).then(() => hydrate(scope));
+      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else pending.add(name);
     }
+    if (pending.size) Promise.all([...pending].map(wantIcon)).then(() => hydrate(scope));
   }
   const setIcon = (node, name) => { if (node) { node.dataset.icon = name || ''; delete node.dataset.shown; node.textContent = ''; } };
   const say = (text) => { const n = $('note'); n.textContent = text || ''; n.hidden = !text; };
@@ -484,6 +488,12 @@
 
   const editorError = (text) => { $('f-error').textContent = text; $('f-error').hidden = !text; };
   const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
+  // The dialog is the editor window (host.ui.editor): over everything (beside the map, over the whole destination page),
+  // sized to the form, a sheet on a phone. What the form held when it opened is kept as text (state.editing.opened), so
+  // Escape and Close ask "Discard your changes?" only after something changed; a read-only place never asks.
+  const formSnapshot = () => JSON.stringify([$('f-where').value, $('f-title').value, $('f-category').value, $('f-address').value, $('f-point').value, $('f-notes').value, ownersChosen()]);
+  const formDirty = () => Boolean(state.editing && state.editing.opened !== undefined && state.editing.opened !== formSnapshot());
+  const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { state.editing = null; } });
 
   // Show a place in the dialog: a new one (`id` null, `seed` its start), or an existing one in the store `where`.
   function openEditor(where, id, seed) {
@@ -527,16 +537,23 @@
     hide($('f-save'), !editable);
     hide($('f-delete'), !id || !editable);
     $('f-delete').textContent = 'Delete';
-    $('f-cancel').textContent = editable ? 'Close' : 'Close';
+    // Read-only: no Cancel; the window's own Close in the corner is the one Close. The row goes when nothing in it shows.
+    hide($('f-cancel'), !editable);
+    hide($('f-cancel').parentElement, [...$('f-cancel').parentElement.querySelectorAll('button')].every((b) => b.hidden));
     state.armed = null;
-    hide($('editor'), false);
     hydrate($('editor'));
-    if (editable) $(!id && asPart ? 'f-where' : 'f-title').focus();
-    else $('f-cancel').focus();
+    if (editable) state.editing.opened = formSnapshot();
+    // Focus goes back to the place's row after a save (found again by its id, since render() redraws the list), else to
+    // whatever had it before.
+    editor.open({
+      focus: editable ? $(!id && asPart ? 'f-where' : 'f-title') : null,
+      returnTo: id ? () => root.querySelector(`.place-row[data-where="${CSS.escape(w)}"][data-id="${CSS.escape(id)}"]`) : null,
+    });
   }
+  // After a save or a delete, or when the view changes: closes at once, nothing asked.
   function closeEditor() {
-    hide($('editor'), true);
     state.editing = null;
+    editor.close();
   }
 
   // Someone else changed the place that is open: say so, and offer their version or keeping mine.
@@ -622,7 +639,8 @@
       $('f-save').disabled = false;
     }
   });
-  $('f-cancel').addEventListener('click', closeEditor);
+  // Cancel goes the way the SDK's own Close does (editor.cancel), so it asks "Discard your changes?" after typing.
+  $('f-cancel').addEventListener('click', () => editor.cancel());
   $('f-delete').addEventListener('click', async () => {
     const e = state.editing;
     if (!e || !e.id) return;
@@ -697,9 +715,10 @@
       },
     });
   }
+  // Escape in the editor window is the SDK's (host.ui.editor asks about unsaved changes); here it closes the search results.
   root.addEventListener('keydown', (ev) => {
     if (ev.key === 'Escape') {
-      if (!$('editor').hidden) closeEditor(); else if (!$('found').hidden) closeFound();
+      if (!$('found').hidden) closeFound();
     } else if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('place-row')) {
       ev.target.click();
     }

@@ -124,10 +124,10 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .menu .danger { color: var(--danger); }
 .menu select { flex: 1; min-width: 0; }
 
-/* the item and trip editor: a dialog over the page */
-.editor { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding: 12px; overflow: auto; background: color-mix(in srgb, var(--bg) 70%, transparent); }
-.editor-card { width: 100%; max-width: 520px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-section); border: 1px solid var(--border); border-radius: 12px; }
-.editor-card h3 { margin: 0; }
+/* the item and trip editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">),
+   which draws the window, its padding, its close button and its backdrop; the form is a plain column in it */
+.editor-card { display: flex; flex-direction: column; gap: 10px; }
+.editor-card h3 { margin: 0; padding-right: 36px; }
 .editor-card label { display: flex; flex-direction: column; gap: 3px; color: var(--text-dim); font-size: 12px; }
 .editor-card label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 14px; }
 .editor-card input:not([type="checkbox"]), .editor-card select, .editor-card textarea { width: 100%; }

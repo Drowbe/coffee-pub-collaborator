@@ -105,12 +105,60 @@ the SDK.
 ## The action menu
 
 A menu of independent actions with their own handlers -- a row's "...", a right-click, the + on a joint --
-is `host.menu.show({ id, items, at, anchor })`, drawn inside the module's own frame. See
+is `host.menu.show({ id, items, at, anchor })`, drawn inside the module's own frame (the one exception: opened
+from inside an open editor window, below, it is drawn inside that dialog, so it is in the top layer with it). See
 [api-module-sdk](../api/api-module-sdk.md) ("An action menu") for the shape. The host's own overflow menus
 (above) are the same idea applied to the host's own chrome, where a module cannot reach to draw one itself;
 they share no code with `host.menu.show` (different documents, in general -- a sandboxed module frame and
 the space or module page around it), only the same visual language and the same "showing the same id again
 closes it" rule.
+
+## The editor window
+
+A module's Add or Edit form is the one thing a module draws that is bigger than its window. It is a `<dialog>`
+in the module's own root, shown modal through `host.ui.editor` (`createEditor` in `public/sdk/host.js`, its
+styles in `/sdk/host.css` between `editor:start` and `editor:end`). A modal dialog is drawn in the browser's
+top layer, above every module, the floating layer and the header, and no `overflow`, `z-index` or container
+clips it, even from inside a shadow root; so the form is sized to itself (560 px, or 880 px for the Planner's
+object form) rather than to a 240 px column, and is a full-screen sheet at 640 px and below. The dialog stays
+in the module's tree, so the module's styles, the base stylesheet and the theme tokens still reach it. The
+reasons and the options weighed are in [plan-editor-window](../plans/plan-editor-window.md); the contract a
+module sees is in [api-module-sdk](../api/api-module-sdk.md), "An editor window".
+
+What the SDK owns, so no module writes it twice: the close button in a sticky corner strip, the sticky button row
+(`sdk-editor-actions`), Escape (handled on the key and stopped there, so the module's and the page's listeners
+never see it; the dialog's own `cancel` event is prevented because a browser fires it only with a fresh user
+activation, and a second Escape would otherwise close the dialog over the question), the "Discard your changes?"
+row when the module's `isDirty()` says so, the backdrop that ignores clicks, the accessible name
+(`aria-labelledby` the first heading) and focus on close. Focus is restored a microtask after `onClose`, because
+a module that redraws its list after a save queues that redraw as a microtask too, and the row to return to is
+in the redrawn list.
+
+Three things follow from the dialog being modal, and are accepted (plan decisions 2, 4 and 9): the page behind
+is inert, so the call's buttons cannot be clicked (its keys on `document` still work, since the dialog's keys
+bubble to it; the SDK stops only Escape); nothing can be dropped on the module while its form is open (To-do's
+drop onto the open form went, its link search stays); and the host's own overlays show under the backdrop.
+
+**Popovers inside it.** `showMenu`, the date picker and `host.actions.pick` in `public/sdk/host.js` ask
+`editorAt(anchor)`: the open `dialog.sdk-editor` the anchor is in, else the module's topmost open editor (`pick`
+has no anchor and always takes the latter), else none. Inside an editor they append to the dialog instead of the
+module's root, so they are in the top layer with it rather than inert under it, and clamp to the window less 4 px
+rather than to the module's box. Each one's Escape is prevented and stopped, so it closes only itself.
+
+**Moving.** `moveModule()` (below) takes the module's container out of the page and back, which drops an open
+modal dialog out of the top layer. After the move the canvas delivers the event `moved` (`{ mode }`) and the SDK
+reopens every editor the module has open (`openEditors`, dialog to `{ reopen }`): it removes the `open` attribute,
+calls `showModal()` again and puts focus back on the last focused element inside.
+
+**In a sandboxed frame** the top layer is the frame's own, so the same call shows the dialog modal inside the
+frame, clipped to the module's window as before; lifting the frame over the canvas is step 11 of the plan, not
+built. No bundled module runs in a frame.
+
+`tools/check-module-window.mjs` holds the six migrated modules to the shape (a `<dialog id="editor" class="sdk-editor">`,
+no `.editor { position: absolute; inset: 0 }` overlay, Cancel through `editor.cancel()`, nothing reading
+`$('editor').hidden`, icons waited for together), and runs the SDK's `EDITOR_SIZES`, its handle and its thrown
+sentence sliced out of `host.js`, with `/sdk/host.css`'s widths held to the same numbers and its colours to the
+tokens.
 
 ## Reuse across dock and float
 
@@ -118,7 +166,8 @@ Switching a docked module to floating (or back) does not rebuild it: `moveModule
 `public/canvas.js` pulls the frame (or in-page container), the action bar, the toolbar and the
 titlebar's custom-icons span out of the old chrome and moves those same DOM nodes into the new chrome,
 so whatever the module is holding onto (a conversation, a draft, a scroll position) survives the switch.
-Only the class that lays each one out changes. A window is a real new page, so that still goes through
+Only the class that lays each one out changes, and the module is told with the `moved` event (the SDK
+uses it to reopen an editor window, above). A window is a real new page, so that still goes through
 `closeModule` + `popOut` instead -- a frame cannot move between windows without reloading.
 
 This is why the toolbar and action bar are real elements the host hands into `mountModule` (not markup the
@@ -157,8 +206,14 @@ with `ellipsis-vertical` must carry `sdk-more`; the call's own More is exempt), 
   `tabs` for a fixed set of choices. Worth a `type: 'search'` (or a `host.ui.*` helper wrapping one) once a
   second module wants it, rather than guessing its shape from one.
 
+- **The editor window in a sandboxed frame.** Step 11 of [plan-editor-window](../plans/plan-editor-window.md):
+  the frame lifted over the canvas (`module-editor-lifted`, a backdrop, the rest of the page `inert`) through an
+  `editor.lift` message on the bridge. Until then an uploaded module's form shows inside its frame.
+- **The Planner's kind picker** (`host.ui.kindPicker`, steps 9 and 10 of the same plan): the 31 kind tiles as
+  one filterable field.
+
 Every module's own "..." menu that was a flat list of actions is on `host.menu.show` now (Places, Research,
-Travel's gap-add, Polls). What is deliberately still native: Travel's item menu (`#item-menu`) and Places'
-and Research's edit dialogs are real forms with selects and fields, not a list of independent actions --
-forcing those onto `host.menu.show` would be a regression, not a retrofit, since it only draws a flat
-list of `{ label, icon, onClick }` rows.
+Travel's gap-add, Polls). What is deliberately still native: Travel's item menu (`#item-menu`); and every
+module's edit form is a real form with selects and fields, not a list of independent actions, so it is an editor
+window (above), never a menu -- forcing those onto `host.menu.show` would be a regression, not a retrofit, since
+it only draws a flat list of `{ label, icon, onClick }` rows.

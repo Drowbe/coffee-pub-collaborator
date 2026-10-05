@@ -1,8 +1,8 @@
 /*
  * The Travel item editor for the card family: a type picker (a grid of tiles, one per kind of thing, each in its own colour
- * family) and the fields that kind needs, in groups. Same dialog as before (#editor > form#form.editor-card). It moves into
+ * family) and the fields that kind needs, in groups. Inside the SDK's editor window (dialog#editor.sdk-editor > form#form.editor-card). It moves into
  * src/ (travel-lib-editor.css) when the script uses it. Colours are the theme's; the tiles derive theirs from the accent as the
- * cards do (--turn), so an editor tile and its card match. Narrow means .app.narrow.
+ * cards do (--turn), so an editor tile and its card match. A phone layout keys on the window's width, not the module's.
  */
 .tile { --turn: 0; --tone: color-mix(in srgb, var(--accent) 65%, var(--text)); }
 @supports (color: oklch(from red l c h)) { .tile { --tone: oklch(from var(--accent) l calc(c * 0.95) calc(h + var(--turn))); } }

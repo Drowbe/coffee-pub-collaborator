@@ -24,7 +24,7 @@
   <div id="filters" class="filters" hidden></div>
   <main id="body" class="body"></main>
 
-  <div id="editor" class="editor" hidden>
+  <dialog id="editor" class="sdk-editor">
     <form id="form" class="editor-card">
       <h3 id="editor-title">New event</h3>
       <label id="f-where-wrap" hidden>Where<select id="f-where"></select></label>
@@ -61,14 +61,14 @@
       <p class="hint" id="f-remind-hint"></p>
       <div class="links-wrap" id="f-links-wrap" hidden><span class="lbl">Linked from</span><div class="links" id="f-links"></div></div>
       <p class="error" id="f-error" hidden></p>
-      <div class="row buttons">
+      <div class="row buttons sdk-editor-actions">
         <button class="btn btn-primary" type="button" id="f-save">Save</button>
         <button class="btn" type="button" id="f-cancel">Cancel</button>
         <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
       </div>
     </form>
-  </div>
+  </dialog>
 </div>
 <p id="note" class="hint note" hidden></p>
 <p id="msg" class="hint msg">Loading...</p>

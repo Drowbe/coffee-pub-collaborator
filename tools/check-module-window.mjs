@@ -141,6 +141,33 @@ for (const id of EDITOR_MIGRATED) {
     for (const need of ["'Discard your changes?'", "'Keep editing'", "'Discard'", "'Close'"]) {
       if (!words.includes(need)) problems.push(`public/sdk/host.js: the editor window must say ${need}`);
     }
+    // In a sandboxed frame (step 11 of the plan): the frame boot hands the SDK `lift`, the editor asks for the lift before
+    // showModal() and for it to be put back when the last open editor closes, and shows it again after a move.
+    if (!sdk.includes("lift: (open, size) => call('editor.lift', { open: Boolean(open), size }),")) problems.push("public/sdk/host.js: the frame boot must pass lift: (open, size) => call('editor.lift', { open: Boolean(open), size })");
+    if (!sdk.includes('lift: env.lift')) problems.push('public/sdk/host.js: editorDeps must carry lift: env.lift');
+    if (!/lift\(true\);\n\s+dialog\.showModal\(\);/.test(words)) problems.push('public/sdk/host.js: open() must ask for the lift (lift(true)) before showModal()');
+    if (!/deps\.opened\.delete\(dialog\);\n\s+lift\(false\);/.test(words)) problems.push("public/sdk/host.js: the dialog's close must put the frame back (lift(false)) once the editor is out of `opened`");
+    if (!/\[\.\.\.deps\.opened\.keys\(\)\]\.some\(\(d\) => d !== dialog && d\.open\)/.test(words)) problems.push('public/sdk/host.js: lift(false) must wait for the last open editor in the module');
+    if (!/try \{ dialog\.showModal\(\); \} catch \(err\) \{ console\.error\(err\); return; \}\n\s+lift\(true\);/.test(words)) problems.push('public/sdk/host.js: reopen() after a move must ask for the lift again');
+    // The lifted frame is the window: the dialog fills it (.sdk-editor-lifted), set once the host says it lifted.
+    if (!/dialog\.classList\.toggle\('sdk-editor-lifted', did === true && dialog\.open\)/.test(words)) problems.push("public/sdk/host.js: the editor must mark the dialog sdk-editor-lifted when the host answers that it lifted the frame");
+    if (!/\.sdk-editor\.sdk-editor-lifted\s*\{[^}]*width: 100vw;[^}]*height: 100dvh;/.test(block ? block[0] : '')) problems.push('public/sdk/host.css: .sdk-editor.sdk-editor-lifted must fill the frame (width: 100vw; height: 100dvh)');
+    // The host's side of the lift, in public/style.css between "lift:start" and "lift:end": the frame exactly the
+    // editor's width (the SDK's sizes), the phone sheet, the tokens.
+    const pageCss = read('public/style.css');
+    const lift = /\/\* lift:start[\s\S]*?\/\* lift:end \*\//.exec(pageCss);
+    if (!lift) problems.push('public/style.css: the lifted frame\'s rules must sit between "lift:start" and "lift:end"');
+    else {
+      const medium = /iframe\.module-editor-lifted\s*\{[^}]*?width:\s*min\((\d+)px,\s*100vw - 32px\)/.exec(lift[0]);
+      const large = /iframe\.module-editor-lifted\.module-editor-lifted-large\s*\{[^}]*?width:\s*min\((\d+)px,\s*100vw - 32px\)/.exec(lift[0]);
+      if (!medium || Number(medium[1]) !== EDITOR_SIZES.medium) problems.push(`public/style.css: iframe.module-editor-lifted must be width: min(${EDITOR_SIZES.medium}px, 100vw - 32px)`);
+      if (!large || Number(large[1]) !== EDITOR_SIZES.large) problems.push(`public/style.css: iframe.module-editor-lifted.module-editor-lifted-large must be width: min(${EDITOR_SIZES.large}px, 100vw - 32px)`);
+      for (const need of ['.module-editor-backdrop', 'position: fixed', 'z-index: var(--z-menu)', '@media (max-width: 640px)', 'height: 100dvh', 'prefers-reduced-motion', 'color-mix(in srgb, var(--bg) 70%, transparent)']) {
+        if (!lift[0].includes(need)) problems.push(`public/style.css: the lifted frame's rules must include "${need}"`);
+      }
+      if (/inset\s*:\s*0/.test(lift[0])) problems.push('public/style.css: the lifted frame must not use inset: 0 (top: 0 with height: 100dvh on a phone; see architecture-canvas.md)');
+      for (const m of lift[0].matchAll(/#[0-9a-f]{3,8}\b|\brgba?\((?!0,\s*0,\s*0)/gi)) problems.push(`public/style.css: the lifted frame's rules use a fixed colour "${m[0]}"; use the theme tokens`);
+    }
   }
 }
 
@@ -300,4 +327,4 @@ if (problems.length) {
   console.error(`check-module-window: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`check-module-window: OK (${files.length} files, the "..." icon; the editor window: ${EDITOR_MIGRATED.length} module(s) migrated, Cancel through editor.cancel(), icons waited for together, the SDK's sizes, handle and thrown sentence; the kind picker's filtering, recent list and markup)`);
+console.log(`check-module-window: OK (${files.length} files, the "..." icon; the editor window: ${EDITOR_MIGRATED.length} module(s) migrated, Cancel through editor.cancel(), icons waited for together, the SDK's sizes, handle and thrown sentence, the lift of a sandboxed frame; the kind picker's filtering, recent list and markup)`);

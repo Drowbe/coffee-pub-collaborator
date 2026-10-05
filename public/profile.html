@@ -20,6 +20,7 @@
   <main class="admin">
     <nav class="subtabs" id="subtabs">
       <button class="subtab active" data-tab="profile" type="button">Profile</button>
+      <button class="subtab" data-tab="calendars" type="button" hidden>Calendars</button>
       <button class="subtab" data-tab="spaces" type="button" data-fill>{Spaces}</button>
     </nav>
 
@@ -73,15 +74,6 @@
             <button class="btn btn-small" id="link-new" type="button">Create</button>
             <button class="btn btn-small btn-danger" id="link-off" type="button">Turn off</button>
           </span>
-        </div>
-
-        <!-- An owner looking at someone's profile: whether they have a calendar feed, never its address
-             (plan-google-calendar.md). Shown while the environment allows feeds or while they still have one. -->
-        <div class="row" id="feed-row" hidden>
-          <span class="field-label">Calendar feed</span>
-          <span class="pill" id="feed-row-state">off</span>
-          <span class="hint" id="feed-row-read"></span>
-          <button class="btn btn-small btn-danger" id="feed-row-off" type="button" hidden>Turn off</button>
         </div>
 
         <div class="row danger-row" id="danger-row" hidden>
@@ -172,43 +164,24 @@
         </div>
       </section>
 
-      <!-- Calendar feed (plan-google-calendar.md, Part 1): a private address a calendar app reads to show the events
-           this person can see. Your own profile only, and only when the environment allows feeds or you still have one.
-           The address is answered once, when it is made, and shown only until the page is left. -->
-      <section class="panel" id="section-feed" hidden>
-        <h2>Calendar feed</h2>
-        <p class="hint" id="feed-hint"></p>
-        <p class="hint" id="feed-state" hidden></p>
-        <p class="hint" id="feed-timing">Google can take 8 to 24 hours to show a change.</p>
-        <div class="feed-made" id="feed-made" hidden>
-          <div class="row">
-            <code class="key link" id="feed-url"></code>
-            <button class="btn btn-small" id="feed-copy" type="button">Copy</button>
-          </div>
-          <p class="hint"><strong>Copy it now. It will not be shown again.</strong></p>
-          <h3>Google Calendar</h3>
-          <ol class="hint feed-steps">
-            <li>In Google Calendar, choose Other calendars, then From URL.</li>
-            <li>Paste the address.</li>
-          </ol>
-          <h3>Apple Calendar</h3>
-          <ol class="hint feed-steps">
-            <li>On a Mac, choose File, then New Calendar Subscription. On an iPhone, go to Settings, Calendar, Accounts, Add Account, Other, Add Subscribed Calendar.</li>
-            <li>Paste the address.</li>
-          </ol>
-        </div>
-        <div class="row">
-          <button class="btn btn-primary btn-small" id="feed-make" type="button" hidden>Make an address</button>
-          <button class="btn btn-small" id="feed-new" type="button" hidden>New address</button>
-          <button class="btn btn-small btn-danger" id="feed-off" type="button" hidden>Turn off</button>
-          <span class="status" id="feed-status" role="status"></span>
-        </div>
+      <section class="panel" id="section-module-settings" hidden>
+        <h2 data-fill>{Module} settings</h2>
+        <p class="hint" data-fill>How each {module} behaves for you.</p>
+        <div id="module-settings"></div>
       </section>
+    </section>
 
-      <!-- Your other calendars (plan-google-calendar.md, Part 2): their events show in the calendar, only to you. Each is
-           added by its private address, which is never shown again: a row shows its name and the address's host only. -->
+    <!-- Calendars (plan-space-calendars.md, section 4): everything about a person's calendars in one place. Your own
+         profile: shown when the Calendar is on and an owner has turned on a switch, or while you still hold an address
+         or an other calendar. An owner opening someone's profile sees each address on or off, with Turn off, never the
+         address. Every section that cannot be used says why, in place. -->
+    <section class="tab-stack" id="tab-calendars" hidden>
+      <p class="hint calendars-intro" id="calendars-intro">Calendars coming in are only for you. Addresses going out let your calendar app show events from here.</p>
+
+      <!-- 1. Your other calendars (plan-google-calendar.md, Part 2): their events show in the calendar, only to you. Each
+           is added by its private address, which is never shown again: a row shows its name and the address's host only. -->
       <section class="panel" id="section-external" hidden>
-        <h2>Other calendars</h2>
+        <h2>Your calendars, coming in</h2>
         <p class="hint" id="external-hint"></p>
         <p class="hint" id="external-off" hidden></p>
         <ul class="external-list" id="external-list" hidden></ul>
@@ -227,17 +200,83 @@
         <p class="hint" id="external-full" hidden>You have added five calendars, the most there can be. Remove one to add another.</p>
       </section>
 
-      <section class="panel" id="section-module-settings" hidden>
-        <h2 data-fill>{Module} settings</h2>
-        <p class="hint" data-fill>How each {module} behaves for you.</p>
-        <div id="module-settings"></div>
+      <!-- 2. Addresses going out (plan-google-calendar.md, Part 1; plan-space-calendars.md, section 1): private addresses a
+           calendar app reads. Everything first (every event this person can see), then one row per space they are in.
+           The server keeps only a hash, so an address is answered once, when it is made, and shown (in its row, in
+           #feed-made) only until the page is left. -->
+      <section class="panel" id="section-feed" hidden>
+        <h2>Addresses, going out</h2>
+        <p class="hint" id="feed-hint"></p>
+        <p class="hint" id="feed-why" hidden></p>
+        <ul class="address-list" id="address-list">
+          <li class="address-row" id="feed-row">
+            <div class="address-what">
+              <i class="fa-solid fa-layer-group fa-fw address-icon" aria-hidden="true"></i>
+              <strong class="address-name">Everything</strong>
+              <span class="pill" id="feed-row-state">off</span>
+              <span class="hint" id="feed-row-read"></span>
+            </div>
+            <p class="hint address-hint" id="feed-everything-hint"></p>
+            <p class="hint address-reason" id="feed-state" hidden></p>
+            <div class="row address-actions">
+              <button class="btn btn-primary btn-small" id="feed-make" type="button" aria-label="Make an address for everything" hidden>Make an address</button>
+              <button class="btn btn-small" id="feed-new" type="button" aria-label="New address for everything" hidden>New address</button>
+              <button class="btn btn-small btn-danger" id="feed-off" type="button" aria-label="Turn off the address for everything" hidden>Turn off</button>
+              <button class="btn btn-small btn-danger" id="feed-row-off" type="button" aria-label="Turn off the address for everything" hidden>Turn off</button>
+              <span class="status" id="feed-status" role="status"></span>
+            </div>
+          </li>
+        </ul>
+        <!-- The address just made, moved into its row by profile.js: one at a time, since the server answers it once. -->
+        <div class="feed-made" id="feed-made" hidden>
+          <div class="row">
+            <code class="key link" id="feed-url"></code>
+            <button class="btn btn-small" id="feed-copy" type="button">Copy</button>
+          </div>
+          <p class="hint"><strong>Copy it now. It will not be shown again.</strong></p>
+          <h3>Google Calendar</h3>
+          <ol class="hint feed-steps">
+            <li>In Google Calendar, choose Other calendars, then From URL.</li>
+            <li>Paste the address.</li>
+          </ol>
+          <h3>Apple Calendar</h3>
+          <ol class="hint feed-steps">
+            <li>On a Mac, choose File, then New Calendar Subscription. On an iPhone, go to Settings, Calendar, Accounts, Add Account, Other, Add Subscribed Calendar.</li>
+            <li>Paste the address.</li>
+          </ol>
+          <p class="hint" id="feed-timing">Google can take 8 to 24 hours to show a change.</p>
+        </div>
       </section>
+
+      <!-- 3. Busy times in your spaces (plan-space-calendars.md, section 3): built in step 7, with the busy hook. One row
+           per space the person is in where the Calendar is on, with their other calendars to tick. -->
     </section>
 
     <section class="tab-stack" id="tab-spaces" hidden>
       <div id="space-sections"></div>
     </section>
   </main>
+
+  <!-- One space's address row (plan-space-calendars.md, section 1): its icon and name, on or off, Last read, the reason it
+       can't be used, and its buttons. The address just made is #feed-made, moved into the row. -->
+  <template id="address-row-template">
+    <li class="address-row" data-space>
+      <div class="address-what">
+        <i class="fa-solid fa-fw address-icon" aria-hidden="true"></i>
+        <strong class="address-name"></strong>
+        <span class="pill" data-state>off</span>
+        <span class="hint" data-read></span>
+      </div>
+      <p class="hint address-hint" data-hint hidden></p>
+      <p class="hint address-reason" data-reason hidden></p>
+      <div class="row address-actions">
+        <button class="btn btn-primary btn-small" type="button" data-action="make" hidden>Make an address</button>
+        <button class="btn btn-small" type="button" data-action="new" hidden>New address</button>
+        <button class="btn btn-small btn-danger" type="button" data-action="off" hidden>Turn off</button>
+        <span class="status" data-status role="status"></span>
+      </div>
+    </li>
+  </template>
 
   <template id="space-section-template">
     <section class="panel space-section" data-slot-group>

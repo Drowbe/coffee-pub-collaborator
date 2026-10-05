@@ -432,8 +432,8 @@ try {
     // one that ships here, as nothing is installed yet); Manage's Calendar apps panel is gone (plan-space-calendars.md, step 2).
     assert.equal('otherCalendars' in JSON.parse(fs.readFileSync(path.join(dataDir, 'app.json'), 'utf8')).settings, false, 'never set');
     // Calendar isn't installed yet, so its configuration doesn't exist: the install is named first, then the switch.
-    assert.deepEqual(await list(aliceC), { allowed: false, why: `Your owner needs to install Calendar and approve its ${HOOK} in Manage > Modules. Other calendars are off in ${env}. Your owner needs to turn on Other calendars and busy times in Manage > Modules, in Calendar's configuration.`, calendars: [] });
-    assert.equal(await why(admin), `Install Calendar and approve its ${HOOK} in Manage > Modules. Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in Calendar's configuration.`, 'an owner is told to do it');
+    assert.deepEqual(await list(aliceC), { allowed: false, why: `Your owner needs to install Calendar and approve its ${HOOK} in Manage > Modules. Owners have not turned on other calendars in ${env}.`, calendars: [] });
+    assert.equal(await why(admin), `Install Calendar and approve its ${HOOK} in Manage > Modules. Owners have not turned on other calendars in ${env}. Turn it on in Calendar's configuration.`, 'an owner is told to do it, and where');
     const off = await add(aliceC, aliceAddress);
     assert.deepEqual([off.status, off.json], [403, { error: 'Other calendars are off in this environment.' }]);
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: true } })).status, 200);
@@ -637,7 +637,7 @@ try {
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: false } })).status, 200);
     assert.deepEqual((await events(aliceC)).json, { calendars: [], events: [] });
     assert.equal((await list(aliceC)).allowed, false);
-    assert.match((await list(aliceC)).why, /^Other calendars are off in .+\. Your owner needs to turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration\.$/, 'never set, off with Calendar feeds: the installed module is named');
+    assert.match((await list(aliceC)).why, /^Owners have not turned on other calendars in .+\.$/, 'never set, off with Calendar feeds: a member reads only that');
     assert.equal((await add(aliceC, 'https://cal.example.com/extra-9.ics')).status, 403);
     const extra3 = (await list(aliceC)).calendars.find((c) => c.name === 'Extra 3');
     assert.equal((await call('POST', `/api/me/external-calendars/${extra3.id}/refresh`, { cookie: aliceC })).status, 403);
@@ -653,8 +653,8 @@ try {
     assert.equal((await call('PATCH', '/api/settings', { cookie: admin, body: { otherCalendars: false } })).status, 200);
     assert.equal(JSON.parse(fs.readFileSync(path.join(dataDir, 'app.json'), 'utf8')).settings.calendarFeeds, true);
     assert.deepEqual((await events(aliceC)).json, { calendars: [], events: [] });
-    assert.deepEqual([(await list(aliceC)).allowed, (await list(aliceC)).why], [false, `Other calendars are off in ${env}. Your owner needs to turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`]);
-    assert.equal(await why(admin), `Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`);
+    assert.deepEqual([(await list(aliceC)).allowed, (await list(aliceC)).why], [false, `Owners have not turned on other calendars in ${env}.`]);
+    assert.equal(await why(admin), `Owners have not turned on other calendars in ${env}. Turn it on in ext-cal's configuration.`, 'an owner is told where: the running module is named');
     const refused = await add(aliceC, 'https://cal.example.com/extra-9.ics');
     assert.deepEqual([refused.status, refused.json], [403, { error: 'Other calendars are off in this environment.' }]);
     const one = (await list(aliceC)).calendars[0];
@@ -817,7 +817,7 @@ try {
     const BUNDLED = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules', 'calendar', 'module.json'), 'utf8'));
     const old = await server.call('POST', '/api/modules', { cookie: owner, raw: moduleZip('calendar', {}, '0.0.1') });
     assert.equal(old.status, 201, old.text);
-    assert.deepEqual(await whyHere(), { allowed: false, why: `Update Calendar to ${BUNDLED.version} and approve its ${HOOK_LABEL} in Manage > Modules. Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in Calendar's configuration.`, calendars: [] });
+    assert.deepEqual(await whyHere(), { allowed: false, why: `Update Calendar to ${BUNDLED.version} and approve its ${HOOK_LABEL} in Manage > Modules. Owners have not turned on other calendars in ${env}. Turn it on in Calendar's configuration.`, calendars: [] });
     assert.equal((await server.call('DELETE', '/api/modules/calendar?keepData=0', { cookie: owner })).status, 200);
     // Its update waits for approval: the approval first.
     const first = await server.call('POST', '/api/modules', { cookie: owner, raw: moduleZip('ext-cal', {}, '1.0.0') });
@@ -826,10 +826,10 @@ try {
     const update = await server.call('POST', '/api/modules', { cookie: owner, raw: moduleZip('ext-cal', { external: true }, '1.1.0') });
     assert.equal(update.status, 201, update.text);
     assert.deepEqual(update.json.module.pending.hooks, ['external']);
-    assert.deepEqual(await whyHere(), { allowed: false, why: `Approve ext-cal's ${HOOK_LABEL} in Manage > Modules. Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`, calendars: [] });
+    assert.deepEqual(await whyHere(), { allowed: false, why: `Approve ext-cal's ${HOOK_LABEL} in Manage > Modules. Owners have not turned on other calendars in ${env}. Turn it on in ext-cal's configuration.`, calendars: [] });
     // Approved: only the switch is left.
     assert.equal((await server.call('PATCH', '/api/modules/ext-cal', { cookie: owner, body: { enabled: true } })).status, 200);
-    assert.equal((await whyHere()).why, `Other calendars are off in ${env}. Turn on Other calendars and busy times in Manage > Modules, in ext-cal's configuration.`);
+    assert.equal((await whyHere()).why, `Owners have not turned on other calendars in ${env}. Turn it on in ext-cal's configuration.`);
     await server.stop();
     server = null;
   });
@@ -850,8 +850,8 @@ await test('pages: Profile\'s Other calendars section, wired to the routes; the 
   for (const id of ['section-external', 'external-list', 'external-add', 'external-name', 'external-url', 'external-add-btn', 'external-status', 'external-full', 'external-off']) assert.ok(looked.includes(id), `profile.js looks up #${id}`);
   const onPage = ids(html);
   for (const id of looked) assert.ok(onPage.has(id), `public/profile.html has #${id}`);
-  assert.match(html, /<section class="[^"]+" id="section-external" hidden>\s*<h2>Other calendars<\/h2>/, 'called Other calendars, hidden until the server allows it');
-  assert.ok(html.indexOf('id="section-feed"') < html.indexOf('id="section-external"'), 'under Calendar feed');
+  assert.match(html, /<section class="[^"]+" id="section-external" hidden>\s*<h2>Your calendars, coming in<\/h2>/, 'called Your calendars, coming in (plan-space-calendars.md, section 4), hidden until the server allows it');
+  assert.ok(html.indexOf('id="tab-calendars"') < html.indexOf('id="section-external"') && html.indexOf('id="section-external"') < html.indexOf('id="section-feed"'), 'first on the Calendars tab, above Addresses, going out');
   assert.ok(html.includes('Secret address in iCal format'), 'the how-to names Google\'s Secret address in iCal format');
   // Never its title alone: shown while the server says why it can't be used, and that reason drawn in #external-off.
   const render = js.slice(js.indexOf('function renderExternal('), js.indexOf('async function loadExternal('));
@@ -860,10 +860,11 @@ await test('pages: Profile\'s Other calendars section, wired to the routes; the 
   assert.match(render, /\$\('external-off'\)\.textContent = external\.allowed \? ''\s*: \[external\.why \|\| `Other calendars are off in \$\{place\} for now\.`/, 'the server\'s reason, else a plain one: never empty');
   assert.match(render, /\$\('external-add'\)\.hidden = !external\.allowed/, 'no form unless allowed');
   // The Calendar feed section says how long Google takes, in the plan's words (plan-space-calendars.md, section 4).
-  const feed = html.slice(html.indexOf('id="section-feed"'), html.indexOf('id="section-external"'));
-  assert.match(feed, /<p class="hint" id="feed-timing">Google can take 8 to 24 hours to show a change\.<\/p>/, 'the feed section says how long Google takes, as the plan words it');
+  const feed = html.slice(html.indexOf('id="section-feed"'), html.indexOf('id="tab-spaces"'));
+  const made = feed.slice(feed.indexOf('id="feed-made"'), feed.indexOf('</div>', feed.lastIndexOf('id="feed-timing"')));
+  assert.match(made, /<p class="hint" id="feed-timing">Google can take 8 to 24 hours to show a change\.<\/p>\s*$/, 'the steps for the address just made end with how long Google takes, as the plan words it');
   assert.doesNotMatch(feed, /once a day|every 8 to 24 hours/, 'no other wording of it');
-  assert.ok(!/<p class="hint" id="feed-timing" hidden/.test(feed), 'always shown with the section');
+  assert.ok(!/<p class="hint" id="feed-timing" hidden/.test(feed), 'shown whenever the address is');
   for (const [method, route] of [['GET', "'/api/me/external-calendars'"], ['POST', "'/api/me/external-calendars'"], ['POST', '`/api/me/external-calendars/${encodeURIComponent(id)}/refresh`'], ['DELETE', '`/api/me/external-calendars/${encodeURIComponent(id)}`']]) {
     assert.ok(js.includes(`api('${method}', ${route}`), `profile.js: ${method} ${route}`);
   }

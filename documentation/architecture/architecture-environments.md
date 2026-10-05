@@ -29,6 +29,8 @@ schedule (`DATA_DIR/flight-schedule.json`, built once in `server/index.js`, lear
 flights and in no environment's export or backup; see "Flight lookup" in
 [architecture-modules](architecture-modules.md)).
 
+Calendar addresses are an example of data that is each environment's own ([plan-space-calendars](../plans/plan-space-calendars.md)): a person's everything address (`user.calendarFeed`), their address for one space (`user.spaces[<space id>].calendarFeed`) and the published calendar's (`settings.publishedCalendarFeed`) are hashes in that environment's `app.json`, as is a space's `publishCalendar: false`, and `GET /feed/<token>.ics` looks a hash up only in the environment the request reached (`findFeed()` in `server/index.js`, through the Proxy), so one environment's address is a plain 404 at another, on a single and a hosted install alike; the reads-per-minute count is keyed by the environment's slug and the hash. See "Calendar feeds" in [architecture-modules](architecture-modules.md).
+
 `flushEnvironment(env)` writes the four things under the seam that only debounce rather than writing
 synchronously on every change (`chatHistory`, `ai`, `geocodeCache`, the activity log). Called on process exit
 (every built environment) and before a backup or a restore (that one environment, so nothing recent is missing

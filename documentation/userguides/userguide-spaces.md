@@ -145,7 +145,8 @@ arrows on each row reorder the roster; the Lobby is always first.
 A space's page has two tabs:
 
 - **Space**: its name, description and picture, its **Profile**, a **Launch link** with its icon, and
-  whether guests are allowed. **Delete space** follows those, and **Opens with** comes last.
+  whether guests are allowed. **Delete space** follows those, then **Opens with**, and, while an owner has the
+  published calendar on, a **Calendar** section last.
 - **Members**: who belongs to the space, the invite tools, and the guest link. Toggling a member saves
   straight away.
 
@@ -156,6 +157,12 @@ offers Character images only. It decides which sections appear on each member's 
 **Launch link** is an optional address for the space's tabletop, wiki or playlist. When set, it shows
 as a button next to Enter and in the call's toolbar, with the icon you pick. The icons come from the
 **Icons** list on the Template tab of the Manage page.
+
+**Calendar** holds one switch, **In the published calendar**, on by default: "Owners can publish one calendar with
+every space's events, for anyone they give its address to. Turn this off to leave this space out of it." It saves
+as you flip it, shows only while the published calendar is on (see "The published calendar (owner)" in
+[Calendar](userguide-calendar.md)), and never for the Lobby, which is never in it. The section is named after the
+Calendar as your environment shows it.
 
 Space pictures are square; anything else is cropped to the middle. Click the picture to choose a
 file, or paste a picture you have copied; see "Set a picture" in

@@ -544,7 +544,9 @@
   const EDITOR_NEEDS = 'host.ui.editor needs a <dialog> element';
   const EDITOR_FIELD = 'input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
   let editorSeq = 0;
-  // deps: { root, rootElement, icon(name) -> Promise<svg>, opened: Map<dialog, { reopen }> } from the module's host.
+  // deps: { root, rootElement, icon(name) -> Promise<svg>, opened: Map<dialog, { reopen }>, lift(open, size) } from the
+  // module's host. `lift` is there only in a sandboxed frame: a <dialog>'s top layer is the frame's own, so the frame
+  // itself is lifted over the canvas (the host's `editor.lift`) while an editor is open, and put back when the last closes.
   function createEditor(dialog, o, deps) {
     if (!dialog || dialog.nodeType !== 1 || String(dialog.tagName).toUpperCase() !== 'DIALOG') throw new Error(EDITOR_NEEDS);
     const options = o || {};
@@ -560,6 +562,64 @@
     let asking = null; // the "Discard your changes?" row while it shows: { row, focus }
     const active = () => (deps.root && deps.root.activeElement) || doc.activeElement || null;
     const visible = (el) => el === dialog || el.getClientRects().length > 0;
+    // In a frame: lift the frame over the canvas once the editor is shown, put it back after the last one closes. The
+    // call is not waited for. When the host says it lifted the frame ({ lifted: true, phone }; a window of its own, or a
+    // frame the person is not in, says false), the frame is the window, exactly the editor's size, and the dialog fills
+    // it (.sdk-editor-lifted, data-lift "window" or "phone" by the page's width, not the frame's).
+    let liftedNow = false; // the host said it lifted the frame for this editor
+    let sizer = null; // a ResizeObserver on the dialog's content while lifted, so the frame follows the form's height
+    let watcher = null; // a MutationObserver while open: the dialog taken out of the page closes the editor's lift
+    // The dialog's content height, for the frame to be no taller than the form needs (the dialog scrolls past that).
+    const contentHeight = () => Math.ceil([...dialog.children].reduce((h, c) => h + c.getBoundingClientRect().height, 0) + 2);
+    const unlifted = () => {
+      liftedNow = false;
+      dialog.classList.remove('sdk-editor-lifted');
+      delete dialog.dataset.lift;
+      if (sizer) { sizer.disconnect(); sizer = null; }
+    };
+    // `retry`: asked again once, a second later, when the host refuses (it refuses for a second after putting a lift back
+    // itself, and Keep editing can come inside that second).
+    const lift = (open, retry) => {
+      if (typeof deps.lift !== 'function') return;
+      if (!open && deps.opened && [...deps.opened.keys()].some((d) => d !== dialog && d.open)) return;
+      if (!open) unlifted();
+      try {
+        Promise.resolve(deps.lift(open, size, open ? contentHeight() : undefined)).then((r) => {
+          if (!open) return;
+          const did = Boolean(r && r.lifted === true) && dialog.open;
+          liftedNow = did;
+          dialog.classList.toggle('sdk-editor-lifted', did);
+          if (did) dialog.dataset.lift = r.phone ? 'phone' : 'window'; else delete dialog.dataset.lift;
+          if (did && !sizer && typeof ResizeObserver === 'function') {
+            let last = contentHeight();
+            sizer = new ResizeObserver(() => {
+              if (!liftedNow || !dialog.open) return;
+              const h = contentHeight();
+              if (Math.abs(h - last) < 4) return;
+              last = h;
+              Promise.resolve(deps.lift(true, size, h)).catch(() => {});
+            });
+            for (const c of dialog.children) sizer.observe(c);
+          }
+          if (!did && sizer) { sizer.disconnect(); sizer = null; }
+          if (!did && retry && dialog.open) setTimeout(() => { if (dialog.open && !liftedNow) lift(true); }, 1100);
+        }, () => {});
+      } catch (err) { /* no host to ask */ }
+    };
+    // The host put the lift back itself (its Close, Escape on the page, a click on the backdrop): close as Escape does,
+    // which asks "Discard your changes?" when something would be lost. Keep editing lifts the frame again.
+    const dismiss = () => { unlifted(); if (dialog.open) requestClose(); };
+    const watch = () => {
+      if (watcher || typeof MutationObserver !== 'function' || !deps.root || !deps.root.nodeType) return;
+      watcher = new MutationObserver(() => {
+        if (dialog.isConnected) return;
+        unwatch();
+        deps.opened.delete(dialog);
+        lift(false);
+      });
+      watcher.observe(deps.root, { childList: true, subtree: true });
+    };
+    const unwatch = () => { if (watcher) { watcher.disconnect(); watcher = null; } };
     // The close button, in a zero-height sticky block so it stays in the top right corner while the form scrolls. Made
     // again when missing: a module may replace the dialog's content on each open (the Planner clones a template into it).
     const corner = () => {
@@ -623,6 +683,7 @@
       if (!a) return;
       a.row.remove();
       if (a.focus && a.focus.isConnected && dialog.contains(a.focus)) a.focus.focus(); else focusIn();
+      if (!liftedNow && dialog.open) lift(true, true);
     };
     const finish = (why) => {
       reason = why;
@@ -661,7 +722,9 @@
     });
     dialog.addEventListener('focusin', (e) => { lastFocus = e.target; });
     dialog.addEventListener('close', () => {
+      unwatch();
       deps.opened.delete(dialog);
+      lift(false);
       if (asking) { asking.row.remove(); asking = null; }
       const why = reason === 'done' ? 'done' : 'cancel';
       reason = '';
@@ -679,6 +742,8 @@
       const f = lastFocus;
       dialog.removeAttribute('open');
       try { dialog.showModal(); } catch (err) { console.error(err); return; }
+      deps.opened.set(dialog, { reopen, dismiss });
+      lift(true);
       if (f && f.isConnected && dialog.contains(f)) { try { f.focus(); } catch (err) { focusIn(); } } else focusIn();
     };
     const api = {
@@ -690,8 +755,10 @@
         if (!dialog.open) {
           before = active();
           reason = '';
-          dialog.showModal();
-          deps.opened.set(dialog, { reopen });
+          dialog.showModal(); // throws for a dialog that is not in the page: then nothing is lifted
+          deps.opened.set(dialog, { reopen, dismiss });
+          watch();
+          lift(true);
         }
         focusIn(arg.focus);
       },
@@ -1213,7 +1280,7 @@
     for (const d of openEditors.keys()) if (d.open) top = d;
     return top;
   }
-  const editorDeps = { root: env.root, rootElement: env.rootElement, icon: (name) => menuIcon(name), opened: openEditors, editorAt, get moduleId() { return (info && info.module && info.module.id) || ''; } };
+  const editorDeps = { root: env.root, rootElement: env.rootElement, icon: (name) => menuIcon(name), opened: openEditors, editorAt, lift: env.lift, get moduleId() { return (info && info.module && info.module.id) || ''; } };
 
   // Only one host.menu is ever open at once (per module): { id, cleanup }.
   let openMenu = null;
@@ -2585,6 +2652,10 @@
   // A move between docked and floating takes the module's box out of the page and back, which drops an open editor
   // window out of the top layer: show it modal again.
   host.on('moved', () => { for (const e of openEditors.values()) e.reopen(); });
+  // The host put a lifted frame back itself: the topmost open editor closes as Escape does.
+  host.on('editordismiss', () => { const top = [...openEditors.entries()].filter(([d]) => d.open).pop(); if (top) top[1].dismiss(); });
+  // The viewport crossed the phone line while lifted: the dialog's rules follow.
+  host.on('editorlift', (d) => { for (const dlg of openEditors.keys()) if (dlg.classList.contains('sdk-editor-lifted')) dlg.dataset.lift = d && d.phone ? 'phone' : 'window'; });
 
   // The hard break (plan-names step 7): refs became objects. A module that still reaches for the old names is told
   // which to use, instead of failing later on an undefined. Not enumerable, so nothing that walks the SDK trips on them.
@@ -2602,10 +2673,12 @@
     // In a sandboxed frame: talk to the page that hosts it.
     const pending = new Map();
     let seq = 0;
+    // The host puts a secret in this frame's address and in every message it sends; every call carries it back.
+    const secret = new URLSearchParams(global.location.search).get('tk');
     const call = (method, params) => new Promise((resolve, reject) => {
       const id = ++seq;
       pending.set(id, { resolve, reject });
-      global.parent.postMessage({ host: 1, id, method, params }, '*');
+      global.parent.postMessage({ host: 1, tk: secret, id, method, params }, '*');
       setTimeout(() => {
         if (!pending.delete(id)) return;
         reject(new Error('the host did not answer'));
@@ -2623,10 +2696,11 @@
       rootElement: document.documentElement,
       elementAt: (pt) => document.elementFromPoint(pt.x, pt.y),
       applyTheme,
+      // An editor window's top layer is this frame's own, so the host lifts the whole frame over the canvas while one
+      // is open (plan-editor-window.md, "A module in a sandboxed frame").
+      lift: (open, size, height) => call('editor.lift', { open: Boolean(open), size, height }),
     });
     global.host = built.host;
-    // The host puts a secret in this frame's address and in every message it sends.
-    const secret = new URLSearchParams(global.location.search).get('tk');
     global.addEventListener('message', (e) => {
       const m = e.data;
       if (!m || m.host !== 1 || m.tk !== secret) return;

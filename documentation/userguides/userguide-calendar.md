@@ -16,13 +16,28 @@ Whether people may take the Calendar's events into their own calendar app, and b
 
 1. Open Manage on the **Modules** tab and choose **Module Configuration** on the Calendar's card. (The Environment tab also links here: "Calendar sharing is set in Calendar's configuration.")
 2. Under **Calendar sharing**, flip the switches you want. Each saves as you flip it.
-   - **Private addresses**: "Lets each person add this environment's events to their own calendar app with a private address." Off, every address stops working, without being deleted. See "In your own calendar app" below.
+   - **Private addresses**: "Lets each person add this environment's events, or one space's, to their own calendar app with a private address." Off, every address stops working, without being deleted. See "In your own calendar app" below.
    - **Other calendars and busy times**: "Lets each person see their own calendars beside these events, only to them, and share when they are busy with a space's members, never what they are doing." Off, those calendars are hidden, without being deleted. See "Your other calendars" below. Sharing busy times is not built yet.
+   - **Published calendar**: "One address with every space's events, for anyone you give it to." See "The published calendar (owner)" below.
 3. Under **Top bar**, **Show in the top bar** puts Calendar in everyone's top bar; see "Top bar" in [Manage](userguide-environment-settings.md).
 
-Both switches are off in a new environment, except that an environment made from the Travel template (version 5 or later) starts with **Private addresses** and **Other calendars and busy times** on. In an environment where an owner never set **Other calendars and busy times**, it follows **Private addresses**, as the single **Calendar feeds** switch did before, so nothing changes until you set it.
+All three switches are off in a new environment, except that an environment made from the Travel template (version 5 or later) starts with **Private addresses** and **Other calendars and busy times** on. In an environment where an owner never set **Other calendars and busy times**, it follows **Private addresses**, as the single **Calendar feeds** switch did before, so nothing changes until you set it.
 
 A switch that waits for an update to the Calendar is shown off and greyed, its line reading "Approve Calendar's update in Manage > Modules first.", with **Go to Modules** after it, to approve the update there. While the Calendar itself is off, the section says "Calendar is off, so none of these work until it is on." Names in these lines are the ones your environment uses.
+
+## The published calendar (owner)
+
+One address with every space's events, for anyone you give it to: a page for the whole environment, outside sign-in. Anyone with the address can read every event in it, without signing in, so hand it out as you choose. Owners and the admin set it up on the Calendar's configuration page; members never see it on their profile.
+
+1. Under **Calendar sharing**, switch on **Published calendar**. The line under the switches reads "No address yet."
+2. Choose **Make an address**. The address is shown once, with **Copy**, and the warning: "Copy it now. It will not be shown again. Give it to whoever should have it; anyone with the address can read every event in it, without signing in. Google can take 8 to 24 hours to show a change."
+3. Give it to whoever should have it. They add it to Google Calendar (**Other calendars**, **From URL**) or Apple Calendar (**File**, **New Calendar Subscription**) as a private address is added; see "Your calendar in a calendar app" in [Accounts, roles and permissions](userguide-accounts.md).
+
+Afterwards the line reads "Made <date>. Last read <time ago>." (or "Not read yet."). **New address** replaces it, so the old one stops working for everyone who has it; **Turn off** stops it. Both ask first. Turning the **Published calendar** switch off stops the address at once too, and hides this part of the page; the address is kept and works again when the switch goes back on.
+
+It holds the environment's own events and the events of every space where the Calendar is on, in the calendar app under the environment's name, each event's description naming its space. The Lobby is never in it, and asides hold no modules. Never anyone's other calendars. While the Calendar itself is off, the address answers an empty calendar.
+
+**Leaving a space out.** Every space is in it unless an owner leaves it out: on the space's own page (Manage > **Spaces**, then the space), the **Space** tab has a **Calendar** section with **In the published calendar**, on by default and saved as you flip it. The section shows only while the published calendar is on, and never for the Lobby. See "Add and set up a space" in [Spaces](userguide-spaces.md).
 
 ## Calendar in the top bar
 
@@ -49,6 +64,8 @@ The environment's calendar also shows the events of every space you belong to th
 ## A space's calendar
 
 In a space, switch on **Calendar** in **Layout**, in the space bar under the header. It opens as a column beside the video and the chat: a month on top and that month's events listed beneath it. The header buttons switch it to floating over the canvas or open it in a window of its own. It shows that space's events, and the environment's events beside them marked **environment**. The environment's events are read-only in a space; change them on the environment's calendar.
+
+To see this space's events alone in your own calendar app, make an address for the space on your profile's **Calendars** tab; see "Your calendar in a calendar app" in [Accounts, roles and permissions](userguide-accounts.md).
 
 ## Settings
 
@@ -103,8 +120,8 @@ Set **Remind people** on an event to send a notification when it starts, 15 minu
 ## In your own calendar app
 
 If the owner has turned on **Private addresses** (see "Calendar sharing (owner)" above), you can see these events in Google Calendar, Apple Calendar or
-Outlook through a private address made on your profile. See "Your calendar in a calendar app" in
-[Accounts, roles and permissions](userguide-accounts.md).
+Outlook through a private address made on your profile's **Calendars** tab: an **Everything** address with every event you can see, or an address for one space with that space's events alone, as a calendar named after the space. See "Your calendar in a calendar app" in
+[Accounts, roles and permissions](userguide-accounts.md). An owner can also publish one calendar with every space's events for anyone to read; see "The published calendar (owner)" above.
 
 ## Your other calendars
 

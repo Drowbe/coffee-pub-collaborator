@@ -24,7 +24,18 @@
  *   - The pages (step 3), read as code: Profile's section and the owner's row, the switch (on Calendar's Configure page
  *     since plan-space-calendars step 2, with Manage's pointer) and the user list, each
  *     id the scripts look up on the page, the server's routes, and the address kept no longer than the page.
- *   - A server with BASE_DOMAIN and two environments: one environment's address is 404 at the other.
+ *   - Space addresses (plan-space-calendars step 3): GET /api/me/calendars in one answer; an address made once, kept
+ *     as its hash, holding that one space's events under the space's name with the personal address untouched; none
+ *     for a guest, a non-member or an owner who is not a member; 404 while the module is off or unreadable there, with
+ *     the switch off (the member's and the owner's reasons), after New address, Turn off, an owner's Turn off, removal
+ *     from the space (either route), the space's deletion and the person's; the token gone from app.json each time.
+ *   - The published calendar (step 4): made by owners while its switch is on, 403 off, members never; every space's
+ *     events and the environment's with nobody's rights, named after the environment; a space left out
+ *     (publishCalendar false, true or false only, never the Lobby) or with the module off; 404 with the switch off,
+ *     after New address, after Turn off and while no module offering events is on; its state in GET /api/settings,
+ *     never its hash.
+ *   - A server with BASE_DOMAIN and two environments: one environment's address (personal, space or published) is 404
+ *     at the other.
  * No network beyond localhost, no LiveKit.
  */
 import fs from 'node:fs';
@@ -254,16 +265,40 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   const profileJs = read('public/profile.js');
   const onProfile = ids(profileHtml);
   const feedIds = looked(profileJs, /^(section-)?feed/);
-  for (const id of ['section-feed', 'feed-make', 'feed-new', 'feed-off', 'feed-url', 'feed-copy', 'feed-row', 'feed-row-off']) assert.ok(feedIds.includes(id), `profile.js looks up #${id}`);
+  for (const id of ['section-feed', 'feed-make', 'feed-new', 'feed-off', 'feed-url', 'feed-copy', 'feed-row', 'feed-row-off', 'feed-why', 'feed-made']) assert.ok(feedIds.includes(id), `profile.js looks up #${id}`);
   for (const id of feedIds) assert.ok(onProfile.has(id), `public/profile.html has #${id}`);
-  assert.match(profileHtml, /<section class="[^"]+" id="section-feed" hidden>\s*<h2>Calendar feed<\/h2>/, 'the section is called Calendar feed and starts hidden');
-  assert.ok(profileHtml.indexOf('id="section-call"') < profileHtml.indexOf('id="section-feed"'), 'after Call Settings');
+  // Step 5 of plan-space-calendars.md: the section is Addresses, going out, on the Calendars tab, after Your calendars,
+  // coming in; Everything first, then one row per space from the template.
+  assert.match(profileHtml, /<section class="[^"]+" id="section-feed" hidden>\s*<h2>Addresses, going out<\/h2>/, 'the section is called Addresses, going out and starts hidden');
+  const calendarsTab = profileHtml.slice(profileHtml.indexOf('id="tab-calendars"'), profileHtml.indexOf('id="tab-spaces"'));
+  assert.ok(calendarsTab.includes('id="section-external"') && calendarsTab.includes('id="section-feed"'), 'both sections are on the Calendars tab');
+  assert.ok(calendarsTab.indexOf('id="section-external"') < calendarsTab.indexOf('id="section-feed"'), 'coming in, then going out');
+  assert.match(profileHtml, /<button class="subtab" data-tab="calendars" type="button" hidden>Calendars<\/button>/, 'the tab is Calendars, hidden until there is something to show');
+  assert.match(calendarsTab, /<li class="address-row" id="feed-row">[\s\S]*?<strong class="address-name">Everything<\/strong>\s*<span class="pill" id="feed-row-state">/, 'Everything is the first row, with the owner\'s pill');
+  assert.match(profileHtml, /<template id="address-row-template">\s*<li class="address-row" data-space>/, 'a space row comes from the template');
   assert.ok(profileHtml.includes('Copy it now. It will not be shown again.'), 'the address is said to be shown once');
   assert.ok(profileHtml.includes('From URL'), 'the Google steps name From URL');
-  for (const [method, route] of [['GET', "'/api/me/feed'"], ['POST', "'/api/me/feed'"], ['DELETE', "'/api/me/feed'"], ['DELETE', '`/api/users/${user.key}/feed`']]) {
+  for (const [method, route] of [['GET', "'/api/me/calendars'"], ['DELETE', '`/api/users/${user.key}/feed`'], ['DELETE', '`/api/users/${user.key}/spaces/${encodeURIComponent(spaceId)}/feed`']]) {
     assert.ok(profileJs.includes(`api('${method}', ${route}`), `profile.js: ${method} ${route}`);
   }
+  assert.ok(profileJs.includes("api('POST', spaceId ? `/api/me/spaces/${encodeURIComponent(spaceId)}/feed` : '/api/me/feed', {})"), 'one make for Everything and a space');
+  assert.ok(profileJs.includes("api('DELETE', spaceId ? `/api/me/spaces/${encodeURIComponent(spaceId)}/feed` : '/api/me/feed')"), 'one Turn off for both');
+  assert.doesNotMatch(profileJs, /api\('GET', '\/api\/me\/feed'\)/, 'the tab is read in one (GET /api/me/calendars)');
   assert.doesNotMatch(profileJs, /(localStorage|sessionStorage|history\.(push|replace)State)[^\n]*feedUrl/, 'the address is not kept beyond the page');
+  // The reasons are drawn in place (never a hidden section), and an owner's "Turn it on in <Module>'s configuration." links the module's Configure page.
+  assert.match(profileJs, /a\.href = `\/module-config\.html\?id=\$\{encodeURIComponent\(module\.id\)\}`;/, 'the reason links the Configure page');
+  assert.match(profileJs, /\$\('feed-why'\)\.hidden = !whyAll;/);
+  assert.match(profileJs, /parts\.reason\.hidden = !why;/);
+  // QA of step 5: a kept address that does not work always names its cause (the row's reason, else the section's), never
+  // a sentence starting with a space; an owner's Turn off keeps focus in the row; Everything's buttons name the row.
+  assert.match(profileJs, /const cause = address\.reason \|\| whyAll;/);
+  assert.match(profileJs, /\(cause \? `\$\{cause\} This address does not work for now\.` : 'This address does not work for now\.'\)/);
+  assert.doesNotMatch(profileJs, /`\$\{address\.reason\} This address/, 'never an empty reason in front');
+  assert.match(profileJs, /function focusAfterTurnOff\(row\)/);
+  assert.equal((profileJs.match(/focusAfterTurnOff\(/g) || []).length, 3, 'called after both owner Turn offs');
+  assert.ok(profileHtml.includes('id="feed-make" type="button" aria-label="Make an address for everything"') && profileHtml.includes('id="feed-row-off" type="button" aria-label="Turn off the address for everything"'));
+  assert.match(profileJs, /\$\('calendars-intro'\)\.hidden = editing;/, 'the intro is not shown to an owner reading someone\'s');
+  assert.match(profileJs, /if \(!external\.allowed\) linkConfigure\(\$\('external-off'\), external\.why \|\| ''\);/, 'Other calendars links the module\'s configuration as the rows do');
   const adminHtml = read('public/admin.html');
   const adminJs = read('public/admin.js');
   // The switch moved to Calendar's Configure page, with its id (plan-space-calendars.md, section 4); Manage keeps a pointer.
@@ -274,15 +309,29 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.ok(!ids(adminHtml).has('set-calendar-feeds') && !ids(adminHtml).has('calendar-feeds-settings'), 'Manage no longer has the switch or its panel');
   assert.ok(ids(adminHtml).has('calendar-sharing-pointer') && adminJs.includes("'Calendar sharing is set in '"), 'Manage says where it went');
   assert.match(configJs, /\{ key: 'calendarFeeds', input: 'set-calendar-feeds', hint: 'calendar-feeds-hint' \}/, 'the switch saves calendarFeeds');
+  // The published calendar (step 4 and 5): its switch shown, its address made, replaced and turned off on the page.
+  assert.match(configJs, /\{ key: 'publishedCalendar', input: 'set-published-calendar', hint: 'published-calendar-hint' \}/, 'the Published calendar switch is shown (no `later`)');
+  for (const id of ['published-calendar', 'published-state', 'published-made', 'published-url', 'published-copy', 'published-make', 'published-new', 'published-off', 'published-status']) assert.ok(ids(configHtml).has(id), `module-config.html has #${id}`);
+  assert.ok(configJs.includes("api('POST', '/api/settings/published-calendar', {})") && configJs.includes("api('DELETE', '/api/settings/published-calendar')"), 'wired to the routes');
+  assert.doesNotMatch(configJs, /(localStorage|sessionStorage)[^\n]*publishedUrl/, 'the address is not kept beyond the page');
+  assert.ok(configJs.includes("if (!on) { publishedUrl = ''; $('published-url').textContent = ''; $('published-made').hidden = true; return; }"), 'no address left on the page once the switch is off');
+  assert.ok(configHtml.includes("or one {space}'s,"), 'the Private addresses line names a space\'s address again');
+  // The space's settings: In the published calendar, shown only while publishing is on.
+  const spaceHtml = read('public/space-settings.html');
+  const spaceJs = read('public/space-settings.js');
+  assert.match(spaceHtml, /<div class="[^"]+" id="section-calendar" hidden>[\s\S]*?<input type="checkbox" id="e-publish-calendar"> In the published calendar<\/label>/);
+  assert.ok(spaceJs.includes("{ publishCalendar: event.target.checked }"), 'saves publishCalendar');
+  assert.ok(spaceJs.includes("$('section-calendar').hidden = settings.publishedCalendar !== true || !onHere;"), 'the space section needs the module on here too');
   assert.ok(configJs.includes("api('PATCH', '/api/settings', { [key]: input.checked })"), 'each switch saves as it is flipped');
   assert.ok(adminJs.includes('api(\'DELETE\', `/api/users/${user.key}/feed`)'), 'the user list turns someone\'s feed off');
   assert.match(adminHtml, /data-feed hidden/, 'the user card marks a feed, hidden until there is one');
 });
 
 // QA of #179 steps 0 to 2: a member opening Calendar's Configure page is told why rather than sent round sign-in for
-// ever; owners get the link to Modules with a switch's reason; step 2 promises nothing steps 3 and 4 have not built; and
-// Profile's Calendar feed names the switch and follows it when the page shows again.
-await test('pages: the Configure page stops for a member, links owners to Modules, and shows only what is built', () => {
+// ever; owners get the link to Modules with a switch's reason; and Profile's Calendar feed names the switch and follows
+// it when the page shows again. (Steps 3 and 4 built the space addresses and the published calendar on the server, so
+// the page may now promise both; step 5 draws them.)
+await test('pages: the Configure page stops for a member and links owners to Modules', () => {
   const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
   const configHtml = read('public/module-config.html');
   const configJs = read('public/module-config.js');
@@ -293,10 +342,6 @@ await test('pages: the Configure page stops for a member, links owners to Module
   assert.match(configHtml, /<p class="hint" id="cfg-denied" role="status" hidden><\/p>/);
   assert.match(configJs, /api\('GET', '\/api\/me'\)\.then\(\(r\) => hasOwnerRights\(r\.user\)\)/, 'owners and the admin get the link to Modules');
   assert.match(configJs, /typeof why === 'string' \? why : why\?\.reason \|\| ''/, 'whatever reason the server sends is drawn');
-  assert.match(configJs, /\{ key: 'publishedCalendar', input: 'set-published-calendar', hint: 'published-calendar-hint', later: true \}/, 'the Published calendar waits for step 4');
-  assert.match(configJs, /const shown = s\.key in reasons && !s\.later;/);
-  assert.match(configHtml, /<label class="check" hidden><input id="set-published-calendar"/, 'and starts hidden');
-  assert.doesNotMatch(configHtml, /or one \{space\}'s/, 'no space addresses promised before step 3');
   const profileJs = read('public/profile.js');
   assert.doesNotMatch(profileJs, /Calendar feeds are off/);
   assert.match(profileJs, /`Private addresses are off in \$\{place\} for now, so this address does not work\./, 'the feed names the switch');
@@ -683,9 +728,278 @@ try {
     for (const id of ['feed-dates', 'feed-plans']) assert.equal((await call('PATCH', `/api/modules/${id}`, { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200, id);
   });
 
-  await test('server: deleting the person stops their address', async () => {
+  // --- space addresses (plan-space-calendars.md, section 1, step 3) ---------------------------------------------------
+  // State here: calendarFeeds on, feed-dates and feed-plans on in every space, the bundled Calendar installed but off;
+  // alice and carol in A, bob in B; alice holds a personal address (aliceUrl).
+  const stored = () => JSON.parse(fs.readFileSync(path.join(single.root, 'data', 'app.json'), 'utf8'));
+  const envName = (await call('GET', '/api/settings', { cookie: admin })).json.settings.environmentName;
+  const calendars = async (cookie) => { const r = await call('GET', '/api/me/calendars', { cookie }); assert.equal(r.status, 200, r.text); return r.json; };
+  const rowOf = (tab, id) => tab.spaces.find((s) => s.id === id);
+  const spaceTitles = async (url) => { const r = await read(url); assert.equal(r.status, 200, r.text); return rfcEvents(r.text).map((e) => text(e, 'SUMMARY')).sort(); };
+  let aliceA = null;
+
+  await test('space addresses: GET /api/me/calendars answers the tab in one: switches, reasons, the module, the personal address, one row per space the person is in', async () => {
+    const tab = await calendars(aliceC);
+    assert.deepEqual(tab.switches, { addresses: true, otherCalendars: true });
+    assert.equal(tab.reasons.addresses, null);
+    assert.equal(typeof tab.reasons.otherCalendars, 'string', 'no enabled module asks for the external hook: a reason');
+    assert.deepEqual(tab.module, { id: 'feed-dates', name: 'feed-dates', on: true });
+    assert.deepEqual(tab.everything, { allowed: true, reason: null, on: true, made: tab.everything.made, readAt: tab.everything.readAt });
+    assert.ok(tab.everything.made && tab.everything.readAt);
+    assert.deepEqual(tab.spaces.map((s) => s.id), [spaceA], 'only the spaces she is in, never the Lobby');
+    const row = rowOf(tab, spaceA);
+    assert.deepEqual([row.name, typeof row.icon, row.svg.startsWith('<svg')], ['Keep, East', 'string', true]);
+    assert.deepEqual(row.address, { allowed: true, reason: null, on: false, made: null, readAt: null });
+    assert.deepEqual(['allowed', 'calendars'], Object.keys(tab.external).sort());
+    assert.deepEqual((await calendars(bobC)).spaces.map((s) => s.id), [spaceB]);
+    assert.deepEqual((await calendars(admin)).spaces, [], 'an owner who is in no space has no row');
+    assert.equal((await call('GET', `/api/me/calendars?guest=${guestToken}`)).status, 401, 'a guest has no account, so no tab');
+  });
+
+  await test('space addresses: made once, kept only as its hash, holding that one space\'s events under its name, with the personal address untouched', async () => {
+    const made = await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} });
+    assert.equal(made.status, 201, made.text);
+    assert.match(made.json.url, /^http:\/\/localhost:\d+\/feed\/[A-Za-z0-9_-]{43}\.ics$/);
+    assert.ok(!Number.isNaN(Date.parse(made.json.made)));
+    aliceA = made.json.url;
+    const token = /\/feed\/(.+)\.ics$/.exec(aliceA)[1];
+    const raw = fs.readFileSync(path.join(single.root, 'data', 'app.json'), 'utf8');
+    assert.ok(!raw.includes(token), 'no token in app.json');
+    const entry = stored().users.find((u) => u.key === alice).spaces[spaceA].calendarFeed;
+    assert.deepEqual([Object.keys(entry).sort(), entry.hash], [['hash', 'made', 'readAt'], hashOf(aliceA)]);
+    assert.notEqual(entry.hash, hashOf(aliceUrl), 'its own token, beside the personal one');
+    const r = await read(aliceA);
+    assert.equal(r.status, 200, r.text);
+    assert.equal(r.headers['content-type'], 'text/calendar; charset=utf-8');
+    assert.ok(r.text.includes('X-WR-CALNAME:Keep\\, East\r\n'), 'named after the space');
+    const events = rfcEvents(r.text);
+    assert.deepEqual(events.map((e) => text(e, 'SUMMARY')).sort(), ['Dinner at the inn', 'Rent in A', 'Session in A'], 'A\'s only: not the environment\'s, not B\'s, not the quiet note');
+    const session = events.find((e) => text(e, 'SUMMARY') === 'Session in A');
+    assert.equal(text(session, 'UID'), `event-a1-${spaceA}@localhost`, 'the UID the personal address gives it');
+    assert.equal(text(session, 'DESCRIPTION'), prop(session, 'URL').value, 'the description omits the space\'s name: only the link, since the event has no description of its own');
+    const rent = events.find((e) => text(e, 'SUMMARY') === 'Rent in A');
+    assert.ok(!text(rent, 'DESCRIPTION').includes('Keep, East'));
+    const row = rowOf(await calendars(aliceC), spaceA);
+    assert.deepEqual([row.address.allowed, row.address.on, row.address.made, Boolean(row.address.readAt)], [true, true, made.json.made, true], 'on, with Last read');
+    assert.ok(!JSON.stringify(row).includes(token) && !JSON.stringify(row).includes(hashOf(aliceA)), 'not shown again');
+    assert.deepEqual(await spaceTitles(aliceUrl), ['Dinner at the inn', 'Market day, all; welcome', 'Rent in A', 'Session in A', 'Something new'], 'the personal address still holds everything');
+    const again = await read(aliceA, { 'if-none-match': r.headers.etag });
+    assert.equal(again.status, 304);
+  });
+
+  await test('space addresses: none for a guest, for someone not in the space, or for an owner who is not a member', async () => {
+    assert.equal((await call('POST', `/api/me/spaces/${spaceA}/feed?guest=${guestToken}`, { body: {} })).status, 401);
+    const bob = await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: bobC, body: {} });
+    assert.deepEqual([bob.status, bob.json], [403, { error: 'You are not in this space.' }]);
+    const owner = await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: admin, body: {} });
+    assert.deepEqual([owner.status, owner.json], [403, { error: 'You are not in this space.' }], 'managing a space is not being in it');
+    assert.equal((await call('POST', '/api/me/spaces/nowhere1/feed', { cookie: aliceC, body: {} })).status, 404);
+    assert.equal((await call('POST', '/api/me/spaces/lobby/feed', { cookie: aliceC, body: {} })).status, 404, 'the Lobby is not a space one is a member of');
+  });
+
+  await test('space addresses: 404 while the module is off in that space or the person cannot read it there, with the row saying why', async () => {
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: false, spaces: [spaceB] } })).status, 200);
+    await notHere(aliceA, 'the module off in A');
+    let row = rowOf(await calendars(aliceC), spaceA);
+    assert.deepEqual([row.address.allowed, row.address.reason, row.address.on], [false, 'feed-dates is off in this space.', true], 'the address is kept, not deleted');
+    const refused = await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} });
+    assert.deepEqual([refused.status, refused.json.error], [403, 'feed-dates is off in this space.']);
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
+    assert.equal((await read(aliceA)).status, 200, 'on again: the same address works');
+    assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.feed-dates.view': false } })).status, 200);
+    await notHere(aliceA, 'no read in A');
+    row = rowOf(await calendars(aliceC), spaceA);
+    assert.deepEqual([row.address.allowed, row.address.reason], [false, 'feed-dates is off in this space.']);
+    assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.feed-dates.view': true } })).status, 200);
+    assert.equal((await read(aliceA)).status, 200);
+  });
+
+  await test('space addresses: 404 with the switch off, and the reasons a member and an owner read', async () => {
+    await setting(false);
+    await notHere(aliceA, 'the switch off');
+    const member = await calendars(aliceC);
+    assert.deepEqual([member.switches.addresses, member.reasons.addresses], [false, `Owners have not turned on private addresses in ${envName}.`]);
+    assert.deepEqual([member.everything.allowed, member.everything.reason, member.everything.on], [false, member.reasons.addresses, true]);
+    assert.deepEqual([rowOf(member, spaceA).address.allowed, rowOf(member, spaceA).address.reason], [false, member.reasons.addresses]);
+    const owner = await calendars(admin);
+    assert.equal(owner.reasons.addresses, `Owners have not turned on private addresses in ${envName}. Turn it on in feed-dates's configuration.`);
+    const refused = await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} });
+    assert.deepEqual([refused.status, refused.json.error], [403, member.reasons.addresses]);
+    assert.equal((await call('DELETE', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC })).status, 204, 'Turn off is still offered');
+    await setting(true);
+    await notHere(aliceA, 'turned off while the switch was off: gone for good');
+    assert.equal(rowOf(await calendars(aliceC), spaceA).address.on, false);
+    aliceA = (await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} })).json.url;
+    assert.equal((await read(aliceA)).status, 200);
+  });
+
+  await test('space addresses: New address stops the old one; Turn off stops it; an owner\'s Turn off stops it and never shows it', async () => {
+    const old = aliceA;
+    const fresh = await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} });
+    assert.equal(fresh.status, 201);
+    await notHere(old, 'the old address after New address');
+    assert.equal((await read(fresh.json.url)).status, 200);
+    assert.equal((await read(aliceUrl)).status, 200, 'the personal address is not touched');
+    const off = await call('DELETE', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC });
+    assert.deepEqual([off.status, off.text], [204, '']);
+    await notHere(fresh.json.url, 'after Turn off');
+    assert.equal('calendarFeed' in stored().users.find((u) => u.key === alice).spaces[spaceA], false, 'deleted, not kept');
+    assert.equal((await call('DELETE', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC })).status, 204, 'turning off nothing is fine');
+    // The owner's view and Turn off.
+    const again = (await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} })).json.url;
+    const seen = await call('GET', `/api/users/${alice}`, { cookie: admin });
+    assert.deepEqual(Object.keys(seen.json.user.spaces[spaceA].calendarFeed).sort(), ['made', 'on', 'readAt']);
+    assert.equal(seen.json.user.spaces[spaceA].calendarFeed.on, true);
+    for (const r of [seen, await call('GET', '/api/users', { cookie: admin }), await call('GET', '/api/me', { cookie: aliceC }), await call('GET', '/api/me/calendars', { cookie: aliceC })]) {
+      assert.ok(!r.text.includes(/\/feed\/(.+)\.ics$/.exec(again)[1]) && !r.text.includes(hashOf(again)), 'neither the token nor its hash in any answer');
+    }
+    assert.equal((await call('DELETE', `/api/users/${alice}/spaces/${spaceA}/feed`, { cookie: carolC })).status, 403, 'a member cannot');
+    assert.equal((await call('DELETE', `/api/users/nobody1/spaces/${spaceA}/feed`, { cookie: admin })).status, 404);
+    assert.equal((await call('DELETE', `/api/users/${alice}/spaces/${spaceA}/feed`, { cookie: admin })).status, 204);
+    await notHere(again, 'after an owner turns it off');
+    assert.equal((await call('GET', `/api/users/${alice}`, { cookie: admin })).json.user.spaces[spaceA].calendarFeed.on, false);
+    aliceA = (await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} })).json.url;
+  });
+
+  await test('space addresses: removing someone from the space, or taking them off its member list, deletes their token; deleting the space deletes every token for it', async () => {
+    assert.equal((await call('DELETE', `/api/spaces/${spaceA}/members/${alice}`, { cookie: admin })).status, 200);
+    await notHere(aliceA, 'after removal');
+    const entry = stored().users.find((u) => u.key === alice).spaces[spaceA];
+    assert.ok(entry && !('calendarFeed' in entry), 'the token is gone from app.json; her pictures and ticks there stay');
+    assert.equal(rowOf(await calendars(aliceC), spaceA), undefined, 'no row for a space she is not in');
+    assert.equal((await call('PATCH', `/api/spaces/${spaceA}`, { cookie: admin, body: { members: [alice, carol] } })).status, 200);
+    aliceA = (await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} })).json.url;
+    assert.equal((await read(aliceA)).status, 200);
+    assert.equal((await call('PATCH', `/api/spaces/${spaceA}`, { cookie: admin, body: { members: [carol] } })).status, 200, 'taken off the member list');
+    await notHere(aliceA, 'after the member list changed');
+    assert.equal('calendarFeed' in stored().users.find((u) => u.key === alice).spaces[spaceA], false);
+    assert.equal((await call('PATCH', `/api/spaces/${spaceA}`, { cookie: admin, body: { members: [alice, carol] } })).status, 200);
+    // A space of its own, deleted.
+    const spaceC = (await call('POST', '/api/spaces', { cookie: admin, body: { name: 'Gone soon', members: [alice] } })).json.space.id;
+    const c = (await call('POST', `/api/me/spaces/${spaceC}/feed`, { cookie: aliceC, body: {} })).json.url;
+    assert.equal((await read(c)).status, 200);
+    assert.equal((await call('DELETE', `/api/spaces/${spaceC}`, { cookie: admin })).status, 200);
+    await notHere(c, 'after the space is deleted');
+    assert.equal(stored().users.find((u) => u.key === alice).spaces[spaceC]?.calendarFeed, undefined);
+    assert.equal((await read(aliceUrl)).status, 200, 'the personal address is not touched by any of it');
+    aliceA = (await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} })).json.url;
+  });
+
+  // --- the published calendar (plan-space-calendars.md, section 2, step 4) ------------------------------------------
+  const published = () => call('GET', '/api/settings', { cookie: admin }).then((r) => r.json.settings.publishedCalendarFeed);
+  const publish = (value) => call('PATCH', '/api/settings', { cookie: admin, body: { publishedCalendar: value } }).then((r) => { assert.equal(r.status, 200, r.text); });
+  let pubUrl = null;
+  await test('published calendar: owners and the admin make it while its switch is on; 403 while off; members never', async () => {
+    assert.deepEqual(await published(), { on: false, made: null, readAt: null });
+    const off = await call('POST', '/api/settings/published-calendar', { cookie: admin, body: {} });
+    assert.deepEqual([off.status, off.json], [403, { error: 'The published calendar is off in this environment.' }]);
+    await publish(true);
+    assert.equal((await call('POST', '/api/settings/published-calendar', { cookie: aliceC, body: {} })).status, 403, 'owners only');
+    assert.equal((await call('DELETE', '/api/settings/published-calendar', { cookie: aliceC })).status, 403);
+    const made = await call('POST', '/api/settings/published-calendar', { cookie: admin, body: {} });
+    assert.equal(made.status, 201, made.text);
+    assert.match(made.json.url, /^http:\/\/localhost:\d+\/feed\/[A-Za-z0-9_-]{43}\.ics$/);
+    pubUrl = made.json.url;
+    const token = /\/feed\/(.+)\.ics$/.exec(pubUrl)[1];
+    const raw = fs.readFileSync(path.join(single.root, 'data', 'app.json'), 'utf8');
+    assert.ok(!raw.includes(token), 'no token in app.json');
+    const kept = stored().settings.publishedCalendarFeed;
+    assert.deepEqual([Object.keys(kept).sort(), kept.hash], [['hash', 'made', 'readAt'], hashOf(pubUrl)]);
+    const state = await call('GET', '/api/settings', { cookie: admin });
+    assert.deepEqual(state.json.settings.publishedCalendarFeed, { on: true, made: made.json.made, readAt: null });
+    assert.ok(!state.text.includes(token) && !state.text.includes(kept.hash), 'never the token or its hash');
+    assert.ok(!(await call('GET', '/api/me/calendars', { cookie: aliceC })).text.includes('published'), 'not shown to members on Profile');
+  });
+
+  await test('published calendar: every space\'s events and the environment\'s, named after the environment, each event naming its space, with nobody\'s rights involved', async () => {
+    const r = await read(pubUrl);
+    assert.equal(r.status, 200, r.text);
+    assert.ok(r.text.includes(`X-WR-CALNAME:${ics.escapeText(envName)}\r\n`));
+    const events = rfcEvents(r.text);
+    assert.deepEqual(events.map((e) => text(e, 'SUMMARY')).sort(), ['Dinner at the inn', 'Market day, all; welcome', 'Rent in A', 'Session in A', 'Session in B', 'Something new'], 'A\'s and B\'s, not the quiet note, not one long past');
+    const byTitle = Object.fromEntries(events.map((e) => [text(e, 'SUMMARY'), e]));
+    assert.equal(text(byTitle['Session in B'], 'DESCRIPTION').split('\n')[0], 'Tower');
+    assert.equal(text(byTitle['Market day, all; welcome'], 'DESCRIPTION').split('\n')[0], envName);
+    assert.equal(text(byTitle['Session in B'], 'UID'), `event-b1-${spaceB}@localhost`);
+    assert.ok(!r.text.includes('busy') && !r.text.includes('BUSY'), 'no busy block');
+    assert.ok((await published()).readAt, 'Last read');
+    assert.equal((await read(pubUrl, { 'if-none-match': r.headers.etag })).status, 304);
+    // No person's rights: members losing read changes nothing here.
+    assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.feed-dates.view': false } })).status, 200);
+    assert.equal(rfcEvents((await read(pubUrl)).text).length, 6);
+    assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.feed-dates.view': true } })).status, 200);
+    // Nor does the private addresses switch.
+    await setting(false);
+    assert.equal((await read(pubUrl)).status, 200, 'its own switch, not the private addresses\'');
+    await notHere(aliceA, 'while the space address is off');
+    await setting(true);
+  });
+
+  await test('published calendar: a space left out (publishCalendar false) is not in it; the module off in a space, the same', async () => {
+    const bad = await call('PATCH', `/api/spaces/${spaceB}`, { cookie: admin, body: { publishCalendar: 'yes' } });
+    assert.deepEqual([bad.status, bad.json], [400, { error: 'publishCalendar is true or false' }]);
+    const lobby = await call('PATCH', '/api/spaces/lobby', { cookie: admin, body: { publishCalendar: false } });
+    assert.deepEqual([lobby.status, lobby.json], [400, { error: 'the Lobby is never in the published calendar' }], 'the Lobby is never in it, so it takes no switch');
+    assert.equal('publishCalendar' in stored().spaces.find((r) => r.id === 'lobby'), false);
+    const out = await call('PATCH', `/api/spaces/${spaceB}`, { cookie: admin, body: { publishCalendar: false } });
+    assert.equal(out.status, 200, out.text);
+    assert.equal(out.json.space.publishCalendar, false);
+    assert.equal((await call('GET', `/api/spaces/${spaceB}`, { cookie: admin })).json.space.publishCalendar, false);
+    assert.equal(stored().spaces.find((r) => r.id === spaceB).publishCalendar, false);
+    assert.ok(!rfcEvents((await read(pubUrl)).text).some((e) => text(e, 'SUMMARY') === 'Session in B'), 'B left out');
+    assert.ok(rfcEvents((await read(pubUrl)).text).some((e) => text(e, 'SUMMARY') === 'Session in A'), 'A still in');
+    assert.equal((await call('PATCH', `/api/spaces/${spaceB}`, { cookie: aliceC, body: { publishCalendar: true } })).status, 403, 'owners only');
+    const back = await call('PATCH', `/api/spaces/${spaceB}`, { cookie: admin, body: { publishCalendar: true } });
+    assert.equal('publishCalendar' in back.json.space, false, 'in it again: stored as nothing');
+    assert.equal('publishCalendar' in stored().spaces.find((r) => r.id === spaceB), false);
+    assert.ok(rfcEvents((await read(pubUrl)).text).some((e) => text(e, 'SUMMARY') === 'Session in B'));
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: false, spaces: [spaceA] } })).status, 200);
+    assert.ok(!rfcEvents((await read(pubUrl)).text).some((e) => text(e, 'SUMMARY') === 'Session in B'), 'the module off in B');
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
+  });
+
+  await test('published calendar: 404 with its switch off, after New address (the old one) and after Turn off', async () => {
+    await publish(false);
+    await notHere(pubUrl, 'the switch off');
+    assert.equal((await published()).on, true, 'the switch deletes nothing');
+    await publish(true);
+    assert.equal((await read(pubUrl)).status, 200);
+    const fresh = await call('POST', '/api/settings/published-calendar', { cookie: admin, body: {} });
+    assert.equal(fresh.status, 201);
+    await notHere(pubUrl, 'the old address after New address');
+    assert.equal((await read(fresh.json.url)).status, 200);
+    const off = await call('DELETE', '/api/settings/published-calendar', { cookie: admin });
+    assert.deepEqual([off.status, off.text], [204, '']);
+    await notHere(fresh.json.url, 'after Turn off');
+    assert.deepEqual(await published(), { on: false, made: null, readAt: null });
+    assert.equal('publishedCalendarFeed' in stored().settings, false);
+    assert.equal((await read(aliceUrl)).status, 200);
+    assert.equal((await read(aliceA)).status, 200, 'the other addresses are not touched');
+    await publish(false);
+  });
+
+  // Section 2's revocation: turning the Calendar off stops the published address at once (a space address already
+  // does; the personal address stays as it is, as before).
+  await test('published calendar: 404 while no module offering events is on; on again, the same address works', async () => {
+    await publish(true);
+    const again = await call('POST', '/api/settings/published-calendar', { cookie: admin, body: {} });
+    assert.equal(again.status, 201, again.text);
+    assert.equal((await read(again.json.url)).status, 200);
+    for (const id of ['feed-dates', 'feed-plans']) assert.equal((await call('PATCH', `/api/modules/${id}`, { cookie: admin, body: { enabled: false } })).status, 200, id);
+    await notHere(again.json.url, 'the modules off');
+    assert.equal((await published()).on, true, 'turning the module off deletes nothing');
+    assert.equal((await read(aliceUrl)).status, 200, 'the personal address stays as it is');
+    for (const id of ['feed-dates', 'feed-plans']) assert.equal((await call('PATCH', `/api/modules/${id}`, { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200, id);
+    assert.equal((await read(again.json.url)).status, 200, 'on again: the same address');
+    assert.equal((await call('DELETE', '/api/settings/published-calendar', { cookie: admin })).status, 204);
+    await publish(false);
+  });
+
+  await test('server: deleting the person stops their addresses, the personal one and the space one', async () => {
+    assert.equal((await read(aliceA)).status, 200);
     assert.equal((await call('DELETE', `/api/users/${alice}`, { cookie: admin })).status, 200);
     await notHere(aliceUrl, 'after the person is deleted');
+    await notHere(aliceA, 'and their space address with them');
   });
 
   // --- BASE_DOMAIN: one environment's address is 404 at another --------------------------------------------------------
@@ -718,6 +1032,22 @@ try {
     assert.ok(home.text.includes('@acme.localhost\r\n'), 'the UID names the environment\'s host');
     const away = await at('beta');
     assert.deepEqual([away.status, away.text], [404, NOT_HERE]);
+    // A space address and the published calendar belong to their environment too.
+    const space = await hosted.call('POST', '/api/spaces', { host: 'acme', cookie: owners.acme, body: { name: 'Acme trip', members: [(await hosted.call('GET', '/api/me', { host: 'acme', cookie: owners.acme })).json.user.key] } });
+    assert.equal(space.status, 200, space.text);
+    assert.equal((await hosted.call('PUT', `/api/modules/feed-dates/data/event:t1?scope=space&space=${space.json.space.id}`, { host: 'acme', cookie: owners.acme, body: { value: { title: 'On the trip', start: `${Y}-05-06`, allDay: true } } })).status, 200);
+    const mine = await hosted.call('POST', `/api/me/spaces/${space.json.space.id}/feed`, { host: 'acme', cookie: owners.acme, body: {} });
+    assert.equal(mine.status, 201, mine.text);
+    const atMine = (slug) => hosted.call('GET', feedPath(mine.json.url), { host: slug });
+    assert.deepEqual(rfcEvents((await atMine('acme')).text).map((e) => text(e, 'SUMMARY')), ['On the trip']);
+    assert.ok((await atMine('acme')).text.includes('X-WR-CALNAME:Acme trip\r\n'));
+    assert.equal((await atMine('beta')).status, 404);
+    assert.equal((await hosted.call('PATCH', '/api/settings', { host: 'acme', cookie: owners.acme, body: { publishedCalendar: true } })).status, 200);
+    const pub = await hosted.call('POST', '/api/settings/published-calendar', { host: 'acme', cookie: owners.acme, body: {} });
+    assert.equal(pub.status, 201, pub.text);
+    const atPub = (slug) => hosted.call('GET', feedPath(pub.json.url), { host: slug });
+    assert.deepEqual(rfcEvents((await atPub('acme')).text).map((e) => text(e, 'SUMMARY')).sort(), ['In acme', 'On the trip']);
+    assert.equal((await atPub('beta')).status, 404);
   });
 } finally {
   for (const s of servers) await s.stop();

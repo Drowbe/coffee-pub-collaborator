@@ -165,15 +165,48 @@ modal dialog out of the top layer. After the move the canvas delivers the event 
 reopens every editor the module has open (`openEditors`, dialog to `{ reopen }`): it removes the `open` attribute,
 calls `showModal()` again and puts focus back on the last focused element inside.
 
-**In a sandboxed frame** the top layer is the frame's own, so the same call shows the dialog modal inside the
-frame, clipped to the module's window as before; lifting the frame over the canvas is step 11 of the plan, not
-built. No bundled module runs in a frame.
+**In a sandboxed frame** the top layer is the frame's own, so a modal dialog there would be clipped to the
+module's window. The same `host.ui.editor` call therefore lifts the whole frame (step 11 of the plan; no bundled
+module runs in a frame, so this is for uploaded modules). The SDK's `createEditor` gets a `lift(open, size)`
+dependency only in a frame (`env.lift` from the frame boot, sending `editor.lift` `{ open, size }` over the
+bridge); `open()` and `reopen()` ask for the lift just before `showModal()`, without waiting, and the dialog's
+`close` asks for it to be put back only when no other editor of the module is open. When the host answers `true`
+the dialog gets `sdk-editor-lifted` (`/sdk/host.css`): `position: fixed`, the frame's full width and height, no
+border, radius or shadow, its backdrop the plain `--bg`, so the frame is the window and the dialog fills it.
+
+The host's side is `liftFrame()` and `releaseLift()` in `mountModule()` (`public/module-host.js`). `editor.lift`
+answers `false` for a module in the page (`pageMode`) and for a mount made with `lift: false` (`public/module.js`
+in a window of its own, where the frame fills the window already); otherwise it lifts and answers `true`. The lift
+gives the frame `module-editor-lifted` (`module-editor-lifted-large` for `large`), inserts `div.module-editor-backdrop`
+before it, and makes the rest of the page `inert` the way a modal dialog does it: walking from the frame up to
+`<body>`, every sibling of the frame and of each ancestor that is not already inert (the header, the canvas's
+other modules, the floating layer, this module's own bar and toolbar), remembering which so the release
+un-inerts exactly those. The release removes the class and the backdrop, and puts focus back on what had it before
+only when focus is on nothing (it stays in the frame throughout otherwise). Lifting again (a second editor, or
+the same one after a move) rebuilds the inert set and keeps the one backdrop. The release runs on the frame's
+`load` (the module started over: no editor is open in it), in the mount's `destroy()`, and through the mount's
+`lift(false)`, which `moveModule()` in `public/canvas.js` calls before moving a module between docked and
+floating, since the move takes the backdrop away with the old chrome and the SDK reopens the editor (and asks for
+the lift again) on `moved`. The canvas also hears `onLift(open, size)` and brings a floating module's box to the
+front while it is lifted, so no other floating module draws over it.
+
+The styles are in `public/style.css` between `lift:start` and `lift:end`: the backdrop fixed over the viewport,
+`color-mix(in srgb, var(--bg) 70%, transparent)`, and the frame fixed and centered, `width: min(560px, 100vw - 32px)`
+(880 px for `large`) by `calc(100dvh - 48px)`, the theme's border and background, both at `--z-menu` (above the
+floating layer, so a docked module's lift clears the floating modules, and under the pages opened over the call);
+at 640 px and below the frame is a full-screen sheet (`top: 0` with `height: 100dvh`, never `inset: 0`) over a
+solid `--bg`; a short fade unless `prefers-reduced-motion`. The frame is exactly the editor's size, not wider
+with the module showing behind, so nothing of the module is drawn at the lifted size but the form.
 
 `tools/check-module-window.mjs` holds the six migrated modules to the shape (a `<dialog id="editor" class="sdk-editor">`,
 no `.editor { position: absolute; inset: 0 }` overlay, Cancel through `editor.cancel()`, nothing reading
 `$('editor').hidden`, icons waited for together), and runs the SDK's `EDITOR_SIZES`, its handle and its thrown
 sentence sliced out of `host.js`, with `/sdk/host.css`'s widths held to the same numbers and its colours to the
-tokens.
+tokens. It also holds the lift: the frame boot's `lift`, the asks around `showModal()` and `close`, `sdk-editor-lifted`
+filling the frame, and `style.css`'s lift block (the two widths equal to `EDITOR_SIZES`, the backdrop, the phone
+sheet without `inset: 0`, no fixed colours). `tools/check-module-host.mjs` runs `liftFrame()` and `releaseLift()`
+sliced out of `module-host.js` on a stand-in page: the classes, one backdrop, exactly the right elements inert and
+un-inert again, what was inert before staying so, and `canvas.js` and `module.js` doing their parts.
 
 ## Reuse across dock and float
 
@@ -220,10 +253,6 @@ with `ellipsis-vertical` must carry `sdk-more`; the call's own More is exempt), 
   drawn in the page, not the toolbar -- `host.toolbar.set` has no item type for a text input yet, only
   `tabs` for a fixed set of choices. Worth a `type: 'search'` (or a `host.ui.*` helper wrapping one) once a
   second module wants it, rather than guessing its shape from one.
-
-- **The editor window in a sandboxed frame.** Step 11 of [plan-editor-window](../plans/plan-editor-window.md):
-  the frame lifted over the canvas (`module-editor-lifted`, a backdrop, the rest of the page `inert`) through an
-  `editor.lift` message on the bridge. Until then an uploaded module's form shows inside its frame.
 
 Every module's own "..." menu that was a flat list of actions is on `host.menu.show` now (Places, Research,
 Travel's gap-add, Polls). What is deliberately still native: Travel's item menu (`#item-menu`); and every

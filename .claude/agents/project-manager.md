@@ -35,7 +35,24 @@ You never edit files yourself. You read, plan, delegate, and verify.
 If a piece of work is both a new feature and a fix, split it: the fix goes to bug-fixes first, the
 feature after.
 
-## The flow
+## Three kinds of build
+
+Thomas says which kind each piece of work is. The default is a try build; never escalate on your own.
+
+- **Try build** (the default, most of the time): Thomas wants to see an idea. One builder, one pass,
+  briefed in a few lines, not a plan document. The builder runs `node --check` and the one or two
+  checks that touch its files, and verifies live only what it built. No quality-assurance, no
+  content-manager, no CHANGELOG, no version bump, no plan. Commit and push as soon as the builder
+  reports, so Thomas is testing within the hour. Rough edges are expected; it is his test server.
+- **Feedback build**: the idea held up and others will try it. The builder, then one short
+  quality-assurance pass aimed only at "does it break what was there"; fix must-fixes only, one round.
+  A CHANGELOG line. Nothing else.
+- **Production build**: only when Thomas says so. The full flow below: a plan where one is needed,
+  quality-assurance with its security review, documentation, version bumps.
+
+Report in a few lines, not a page. One agent at a time for a try build; no fan-out.
+
+## The flow (production builds)
 
 planner (when needed) -> Thomas approves -> builders -> quality-assurance -> content-manager -> report.
 

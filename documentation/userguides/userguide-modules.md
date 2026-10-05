@@ -38,7 +38,7 @@ A module's view or filter switch, such as the Calendar's **Month | Week | Day | 
 
 ## Add and edit forms
 
-In To-do, Calendar, Polls, Research, Places and the Planner, the form for adding or changing something opens in a window over the whole page, not inside the module, so it is the same size wherever the module is: docked, floating or on its own page. On a phone it fills the screen.
+In To-do, Calendar, Polls, Research, Places and the Planner, the form for adding or changing something opens in a window over the whole page, not inside the module, so it is the same size wherever the module is: docked, floating or on its own page. On a phone it fills the screen. A module someone uploaded, which runs in a frame of its own, gets the same window when it uses it: the whole frame is lifted over the page for as long as the form is open, the same size and over the same tinted page, and goes back when the form closes. In a module popped out into its own window, the form fills that window.
 
 - **Save** and **Cancel** stay at the bottom while the form scrolls, and a **Close** button sits in the form's top right corner.
 - **Cancel**, **Close** or Escape closes the form at once when you have changed nothing. When you have, it asks "Discard your changes?": **Keep editing** (or Escape again) goes back to the form, **Discard** closes it and loses what you typed. **Save** and **Delete** never ask.

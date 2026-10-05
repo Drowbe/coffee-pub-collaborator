@@ -44,7 +44,11 @@ decide those.
 - A changed module gets a version bump.
 - Be exact about verification: "verified live", "checked by a tool" and "read as code only" are
   different claims.
-- Commit each finished piece of work once it has passed QA and has its documentation, by explicit
+- Work comes in three kinds, and Thomas names the kind: a **try build** (the default; one builder, one
+  pass, its own checks, pushed at once, no QA, docs, CHANGELOG or version bump), a **feedback build**
+  (one short QA pass for regressions, must-fixes only, a CHANGELOG line) and a **production build**
+  (the full flow: plan, QA, docs, version bumps). Never treat a try build as production.
+- For a production build, commit each finished piece of work once it has passed QA and has its documentation, by explicit
   paths and with its CHANGELOG entry, so Thomas can pull the image and test it. Don't push or publish
   the wiki unless Thomas asks.
 

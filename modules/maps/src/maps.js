@@ -84,12 +84,16 @@
     if (!iconWait.has(name)) iconWait.set(name, host.ui.icon(name).then((svg) => { iconSvg.set(name, svg); return svg; }).catch(() => { iconSvg.set(name, ''); return ''; }));
     return iconWait.get(name);
   }
+  // Icons not here yet are waited for once per scan, together: a scan per pending icon would attach a scan to every
+  // other pending icon too, and a form opened while its icons still load would scan itself 2^n times.
   function hydrate(scope) {
+    const pending = new Set();
     for (const el of scope.querySelectorAll('[data-icon]')) {
       const name = el.dataset.icon;
       if (!name || el.dataset.shown === name) continue;
-      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else wantIcon(name).then(() => hydrate(scope));
+      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else pending.add(name);
     }
+    if (pending.size) Promise.all([...pending].map(wantIcon)).then(() => hydrate(scope));
   }
   const setIcon = (node, name) => { if (node) { node.dataset.icon = name || ''; delete node.dataset.shown; node.textContent = ''; } };
   const say = (text) => { const n = $('note'); n.textContent = text || ''; n.hidden = !text; };

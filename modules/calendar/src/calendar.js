@@ -722,6 +722,40 @@
     host.ui.datePicker($('f-until'), { range: span, clearable: true }),
   ];
 
+  // The form opens in the SDK's editor window (host.ui.editor): a modal <dialog> over everything, sized to the form, a
+  // sheet on a phone; the date pickers open inside it. Escape and its Close button ask "Discard your changes?" when the
+  // form differs from what it opened with (isDirty), and so does Cancel (editor.cancel); Save and Delete close it at once. On close, focus goes back
+  // to the event's chip or row (found again by its key, since render() redraws) or the Add event button.
+  let opened = ''; // what the form held when it opened, as formState() gives it
+  const formState = () => JSON.stringify({
+    where: $('f-where-wrap').hidden ? '' : $('f-where').value,
+    title: $('f-title').value,
+    allDay: $('f-allday').checked,
+    date: $('f-date').value,
+    time: $('f-time').value,
+    endDate: $('f-end-date').value,
+    end: $('f-end').value,
+    repeat: $('f-repeat').value,
+    until: $('f-until').value,
+    desc: $('f-desc').value,
+    remind: $('f-remind').value,
+  });
+  let lastKey = null; // the key of the event the form was opened on, or saved as: where focus returns
+  const returnTo = () => {
+    const row = lastKey ? root.querySelector(`[data-open="${CSS.escape(lastKey)}"]`) : null;
+    if (row) return row;
+    return !$('add').hidden && $('add').getClientRects().length ? $('add') : null;
+  };
+  const editor = host.ui.editor($('editor'), {
+    size: 'medium',
+    isDirty: () => Boolean(editing) && !editing.readOnly && formState() !== opened, // a read-only form has nothing to lose
+    onClose: () => {
+      pickers.forEach((p) => p.close());
+      backlinksFor = null;
+      editing = null;
+    },
+  });
+
   // --- what links to an event, and being opened from a link -----------------------
   // Other modules (a to-do, say) can point at an event. The host tells this module what points at it
   // (host.objects.linksTo), only what the viewer may see, and a link to an event can ask for it to be
@@ -831,22 +865,24 @@
     $('f-save').hidden = readOnly;
     $('f-delete').hidden = readOnly || !x;
     $('f-delete').textContent = 'Delete';
-    $('f-cancel').textContent = readOnly ? 'Close' : 'Cancel';
+    // Read-only (an event from elsewhere): no button row; the window's own Close in the corner is the one way out.
+    $('f-cancel').hidden = readOnly;
+    $('f-cancel').parentElement.hidden = readOnly;
     syncForm();
     remindHint();
     if (outside) $('f-remind-hint').textContent = '';
     pickers.forEach((p) => p.refresh());
     showBacklinks(x || null);
-    $('editor').hidden = false;
-    $(readOnly ? 'f-cancel' : x || inSpace ? 'f-title' : 'f-where').focus();
+    lastKey = x ? x.key : null;
+    opened = formState();
+    // Read-only: focus the window itself (nothing in it takes input); the corner Close is next on Tab.
+    editor.open({ focus: readOnly ? $('editor') : $(x || inSpace ? 'f-title' : 'f-where'), returnTo });
   }
   function closeEditor() {
-    pickers.forEach((p) => p.close());
-    backlinksFor = null;
-    $('editor').hidden = true;
-    editing = null;
+    editor.close();
   }
-  $('f-cancel').addEventListener('click', closeEditor);
+  // Cancel goes the way the SDK's own Close does (editor.cancel), so it asks "Discard your changes?" after typing.
+  $('f-cancel').addEventListener('click', () => editor.cancel());
   // A reminder is a schedule the host runs for us: at the right time it sends the
   // notification, and for a repeating event the host schedules the next one itself,
   // so reminders keep coming while this page is closed. It stops if the event
@@ -925,6 +961,7 @@
     try {
       const saved = await host.storage.set('event:' + id, ev, { ...(editing.id ? { version: editing.version } : {}), ...where });
       remember(target.scope, { key: 'event:' + id, value: ev, version: saved.version }, target.spaceId);
+      lastKey = keyOf(target.scope, id, target.spaceId);
       let reminderFailed = false;
       try { await applyReminder(id, ev, where); } catch (err) { reminderFailed = true; }
       render();
@@ -1207,10 +1244,7 @@
       e.target.click();
       const again = root.querySelector(`.day[data-day="${k}"]`);
       if (again) again.focus();
-      return;
     }
-    if (e.key !== 'Escape') return;
-    if (!$('editor').hidden) closeEditor();
   });
 
   // A frame can report no width while it is still being laid out, so wait for a real

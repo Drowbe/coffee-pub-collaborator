@@ -32,8 +32,9 @@
   <!-- the results of a search, over the foot of the pane while there are some (the script fills it from the tpl-found-* templates) -->
   <div id="found" class="found" role="listbox" aria-label="Search results" hidden></div>
 
-  <!-- a place, in a dialog: a form for someone who may edit, read-only for anyone else (the script fills #f-* and shows .readonly instead) -->
-  <div id="editor" class="editor" hidden>
+  <!-- a place, in the editor window (host.ui.editor: a modal dialog over everything, never clipped by the module's box): a form for
+       someone who may edit, read-only for anyone else (the script fills #f-* and shows .readonly instead) -->
+  <dialog id="editor" class="sdk-editor">
     <form id="form" class="editor-card">
       <h3 id="editor-title">Add a place</h3>
       <!-- as the Map destination's panel: where a new place goes, picked every time (an existing one shows where it is) -->
@@ -56,14 +57,14 @@
       <div class="used-by" id="f-used-by" hidden><div class="used-by-title">Used by</div><div class="links" id="f-used-by-links"></div></div>
       <p class="hint" id="f-by"></p>
       <p class="error" id="f-error" hidden></p>
-      <div class="editor-buttons">
+      <div class="editor-buttons sdk-editor-actions">
         <button class="btn btn-primary" type="submit" id="f-save">Save</button>
-        <button class="btn" type="button" id="f-cancel">Close</button>
+        <button class="btn" type="button" id="f-cancel">Cancel</button>
         <span class="grow"></span>
         <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
       </div>
     </form>
-  </div>
+  </dialog>
 </div>
 <p id="msg" class="hint msg">Loading...</p>
 

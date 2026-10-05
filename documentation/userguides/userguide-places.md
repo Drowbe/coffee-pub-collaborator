@@ -22,6 +22,7 @@ The Places module keeps the places your space cares about: where you are staying
 - With a search chosen, a name you type looks for the place: results appear over the foot of the module, and **Save** (or Enter on a row) saves one with its name, address and position. Coordinates or a map link in what you type still open the dialog instead.
 - Press the plus with nothing typed, or **Add a place** on an empty page, for the blank dialog.
 - In the dialog, give the place a name and choose its category (things to do, food, stay, travel or other). Add an address if you have one. **Position** takes coordinates or a map link (a `geo:` link, or one with `?ll=`, `@lat,lng` or `#map=zoom/lat/lng`); it says "Coordinates found." when it could read them, and an empty field means no position. Tick the people it belongs to under **Whose is it**.
+- The dialog opens in a window over the whole page (the whole screen on a phone; beside Map in the top bar, over the whole page too), with **Save** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". See [Modules](userguide-modules.md), "Add and edit forms".
 
 Another module can also add a place for you: a trip's stop can offer to save itself as a place.
 
@@ -39,7 +40,7 @@ To add a place there:
 2. In the dialog, choose **Where** it goes: **Mine**, the environment's own places (if you may change places for the whole environment), or a space where you may add places. It starts empty every time, its prompt naming only what you may choose, and **Save** says "Pick where it goes first." until you choose. The category chips count what the filter and the search leave.
 3. Fill in the rest as below, and choose **Save**.
 
-A place already saved stays where it is; **Where** shows it and can't be changed. A place you may only read opens read-only, with **Where** showing its place, greyed, and says why, such as "Only people who can add places in <space> can change this." The place menu copies a place: **Save to mine** on a shared place, and **Share to <space>** for each space where you may add places on one of yours; the original stays where it was. Click a place with a position to show it on the map; one with no position opens its dialog. On a phone, picking a place with a position switches to the **Maps** tab, and the map's callout has **Show in list** to come back.
+A place already saved stays where it is; **Where** shows it and can't be changed. A place you may only read opens read-only, with no **Save** or **Cancel** (close it with the corner **Close** or Escape), with **Where** showing its place, greyed, and says why, such as "Only people who can add places in <space> can change this." The place menu copies a place: **Save to mine** on a shared place, and **Share to <space>** for each space where you may add places on one of yours; the original stays where it was. Click a place with a position to show it on the map; one with no position opens its dialog. On a phone, picking a place with a position switches to the **Maps** tab, and the map's callout has **Show in list** to come back.
 
 ## Find and open a place
 

@@ -539,6 +539,22 @@
   }
 
   const closesPicker = host.ui.datePicker($('f-closes'), { clearable: true });
+  // The form opens as the editor window (host.ui.editor): over everything, sized to the form, a sheet on a phone. What
+  // the form held when it opened, as text, so Escape and Close can ask "Discard your changes?" only after something changed.
+  let opened = null;
+  const formSnapshot = () => JSON.stringify({
+    question: $('f-question').value,
+    options: [...$('f-options').children].map((r) => [r.querySelector('.o-text').value, r.querySelector('.o-desc').value, r.querySelector('.o-date').value]),
+    multi: $('f-multi').checked,
+    addable: $('f-addable').checked,
+    closes: $('f-closes').value,
+    notify: $('f-notify').checked,
+  });
+  const editor = host.ui.editor($('editor'), {
+    size: 'medium',
+    isDirty: () => opened !== null && formSnapshot() !== opened,
+    onClose: () => { opened = null; },
+  });
   // `prefill`: a quick add's { title, date?, time? }, or a draft's { title, options, closes, multi } (pollFromObject).
   function openEditor(prefill) {
     showError('');
@@ -561,14 +577,18 @@
     }
     closesPicker.refresh();
     $('f-notify').checked = false;
-    $('editor').hidden = false;
-    $('f-question').focus();
+    opened = formSnapshot();
+    // Focus goes back to the header's New poll when it is shown; from the action bar or Chat, to whatever had it.
+    editor.open({ focus: $('f-question'), returnTo: () => (!$('add').hidden && !$('add').classList.contains('hosted') ? $('add') : null) });
   }
+  // After Start poll: closes at once, nothing asked.
   function closeEditor() {
-    $('editor').hidden = true;
+    opened = null;
+    editor.close();
   }
+  // Cancel goes the way the SDK's own Close does (editor.cancel), so it asks "Discard your changes?" after typing.
   $('f-more').addEventListener('click', () => addOptionField().focus());
-  $('f-cancel').addEventListener('click', closeEditor);
+  $('f-cancel').addEventListener('click', () => editor.cancel());
 
   async function save() {
     showError('');
@@ -763,7 +783,6 @@
       },
     });
   }
-  root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('editor').hidden) closeEditor(); });
   // A poll with a closing time closes on its own: redraw now and then to show it.
   // Stopped once this module is closed (in the page, its elements go and the timer would draw into nothing).
   const redraw = setInterval(() => { if (!$('app')) return void clearInterval(redraw); render(); announceIfDue(); }, 30000);

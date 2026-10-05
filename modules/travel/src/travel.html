@@ -43,8 +43,9 @@
   </div>
   <main id="body" class="body"></main>
 
-  <!-- the editor: a dialog over the page. The script puts a clone of tpl-editor2 (an item) or tpl-editor-trip (the trip) in it -->
-  <div id="editor" class="editor" hidden></div>
+  <!-- the editor: the SDK's editor window (host.ui.editor), a modal dialog over everything. The script puts a clone of
+       tpl-editor2 (an item) or tpl-editor-trip (the trip) in it on each open -->
+  <dialog id="editor" class="sdk-editor"></dialog>
 
   <!-- the item menu: a popover the script positions under the button that opened it -->
   <div id="item-menu" class="menu" role="menu" hidden>
@@ -165,7 +166,7 @@
     <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="8000"></textarea></label>
     <p class="hint" id="f-by"></p>
     <p class="error" id="f-error" hidden></p>
-    <div class="editor-buttons"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button></div>
+    <div class="editor-buttons sdk-editor-actions"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button></div>
   </form></template>
 <template id="tpl-editor2"><form class="editor-card" id="form">
     <h3 id="editor-title">Add to the plan</h3>
@@ -220,7 +221,7 @@
     <div><div class="hint">Whose is it</div><div class="editor-people" id="f-owners"></div></div>
     <p class="hint" id="f-by"></p>
     <p class="error" id="f-error" hidden></p>
-    <div class="editor-buttons"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button><span class="grow"></span><button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button></div>
+    <div class="editor-buttons sdk-editor-actions"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button><span class="grow"></span><button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button></div>
   </form></template>
 <!-- a flight the lookup found, one of several: its line, then when it flies -->
 <template id="tpl-lookup-choice"><li><button class="lookup-choice" type="button"><b data-slot="line"></b><span data-slot="when"></span></button></li></template>

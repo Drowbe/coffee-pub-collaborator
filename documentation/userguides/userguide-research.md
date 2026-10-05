@@ -20,6 +20,7 @@ The Research module keeps what a group finds out while it plans: a note, a link 
 - **Add a photo** adds photos: on a phone it offers the camera or the photo library. Several photos queue one row each. The page shrinks each picture to about 2000 pixels and makes a small thumbnail before it uploads, so large phone photos are fine.
 - **A photo's position.** If a photo carries the place it was taken, Research asks whether to keep it. It is left out unless you choose **Keep it**, so a shared photo cannot give away a home address by accident. A photo taken on a known day shows on that day.
 - In the dialog, give the object a title, add tags (words separated by commas; the ones already used are suggested), and for a note or a link an optional place (coordinates or a map link) and date.
+- The dialog opens in a window over the whole page (the whole screen on a phone), with **Save** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?" (what a link preview filled in does not count as your typing). See [Modules](userguide-modules.md), "Add and edit forms". Something you may only read opens with no buttons and its fields greyed; **Close** or Escape just closes it.
 
 ## Mine and this space
 

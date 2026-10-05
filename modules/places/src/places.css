@@ -64,10 +64,11 @@ body { margin: 0; overflow: hidden; }
 .link b { color: var(--accent); font-weight: 600; }
 .link.gone { opacity: 0.6; font-style: italic; }
 
-/* ---- the place: a dialog over the module (read-only for a viewer, a form for an editor) ---- */
-.editor { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding: 12px; overflow: auto; background: color-mix(in srgb, var(--bg) 70%, transparent); }
-.editor-card { width: 100%; max-width: 520px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-section); border: 1px solid var(--border); border-radius: 12px; }
-.editor-card h3 { margin: 0; font-size: 17px; }
+/* ---- the place: the editor window (read-only for a viewer, a form for an editor). #editor is a <dialog> the SDK draws
+   (host.ui.editor): the box, its padding, the backdrop and the sticky button row (.sdk-editor-actions) are the SDK's;
+   the form only lays out its fields. ---- */
+.editor-card { display: flex; flex-direction: column; gap: 10px; }
+.editor-card h3 { margin: 0; padding-right: 32px; font-size: 17px; }
 .editor-card label { display: flex; flex-direction: column; gap: 3px; color: var(--text-dim); font-size: 12px; }
 .editor-card input:not([type="checkbox"]), .editor-card select, .editor-card textarea { width: 100%; }
 .editor-card input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; accent-color: var(--accent); }
@@ -101,8 +102,8 @@ body { margin: 0; overflow: hidden; }
 .app.narrow .filter { flex: 1 1 100%; max-width: none; margin-left: 0; order: 3; }
 .app.narrow .filter input { font-size: 16px; }
 .app.narrow .chip { height: 32px; }
-.app.narrow .editor { padding: 8px; }
-.app.narrow .editor-card input, .app.narrow .editor-card textarea, .app.narrow .editor-card select { font-size: 16px; }
+/* the editor window is a sheet on a phone (the window's width, not the module's): 16 px fields, so iOS does not zoom */
+@media (max-width: 640px) { .editor-card input, .editor-card textarea, .editor-card select { font-size: 16px; } }
 
 /* ---- whose places (mine, this space, everyone): host.ui.viewSwitch draws the switch itself in the toolbar ---- */
 .view-note { display: flex; align-items: center; gap: 6px; margin: -2px 0 0; color: var(--text-dim); font-size: 12px; }

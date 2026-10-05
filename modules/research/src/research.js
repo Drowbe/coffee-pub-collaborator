@@ -82,12 +82,16 @@
     if (!iconWait.has(name)) iconWait.set(name, host.ui.icon(name).then((svg) => { iconSvg.set(name, svg); return svg; }).catch(() => { iconSvg.set(name, ''); return ''; }));
     return iconWait.get(name);
   }
+  // Icons not here yet are waited for once per scan, together: a scan per pending icon would attach a scan to every
+  // other pending icon too, and a form opened while its icons still load would scan itself 2^n times.
   function hydrate(scope) {
+    const pending = new Set();
     for (const el of scope.querySelectorAll('[data-icon]')) {
       const name = el.dataset.icon;
       if (!name || el.dataset.shown === name) continue;
-      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else wantIcon(name).then(() => hydrate(scope));
+      if (iconSvg.has(name)) { el.innerHTML = iconSvg.get(name); el.dataset.shown = name; } else pending.add(name);
     }
+    if (pending.size) Promise.all([...pending].map(wantIcon)).then(() => hydrate(scope));
   }
   const setIcon = (node, name) => { if (node) { node.dataset.icon = name || ''; delete node.dataset.shown; node.textContent = ''; } };
   const say = (text, ms) => { const n = $('note'); n.textContent = text || ''; n.hidden = !text; if (text && ms) setTimeout(() => { if (n.textContent === text) say(''); }, ms); };
@@ -454,6 +458,12 @@
   // --- the dialog for one object --------------------------------------------------------------------------------------
 
   const editorError = (text) => { $('f-error').textContent = text; $('f-error').hidden = !text; };
+  // The dialog is the editor window (host.ui.editor): over everything, sized to the form, a sheet on a phone. What the
+  // form held when it opened is kept as text (state.editing.opened), so Escape and Close ask "Discard your changes?"
+  // only after something changed; words the link preview filled in are not the person's changes.
+  const formSnapshot = () => JSON.stringify([$('f-title').value, $('f-caption').value, $('f-url').value, $('f-body').value, $('f-excerpt').value, $('f-tags').value, $('f-point').value, $('f-date').value, state.editing ? state.editing.icon : '']);
+  const formDirty = () => Boolean(state.editing && state.editing.opened !== undefined && state.editing.opened !== formSnapshot());
+  const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { state.editing = null; } });
   function paintIconChoices() {
     const icon = state.editing && state.editing.kind === 'note' ? noteIcon(state.editing.icon) : '';
     for (const b of $('f-icons').querySelectorAll('[data-action="pick-icon"]')) {
@@ -463,7 +473,8 @@
     }
   }
   const dropConflict = () => { for (const n of $('form').querySelectorAll('.conflict-bar')) n.remove(); if (state.editing) state.editing.conflict = null; };
-  const setFormEditable = (yes) => { for (const f of $('form').querySelectorAll('input, textarea, select, .format-bar button')) f.disabled = !yes; };
+  // Every control in the form, the type buttons and Suggest tags too: a read-only view takes no input.
+  const setFormEditable = (yes) => { for (const f of $('form').querySelectorAll('input, textarea, select, .format-bar button, #f-icons button, [data-action="suggest-tags"]')) f.disabled = !yes; };
   // The same marks chat writes: **bold**, *italic*, `code`, and "- " at the start of a line.
   function wrapSelection(el, marker) {
     const start = el.selectionStart;
@@ -546,8 +557,10 @@
       if (!got || got.enabled === false) return clearPreview();
       const title = String(got.title || '').trim();
       const description = String(got.description || '').trim();
+      const clean = !formDirty();
       if (title && !geo.oneLine($('f-title').value, 120)) $('f-title').value = title;
       if (description && !$('f-excerpt').value.trim()) $('f-excerpt').value = description;
+      if (clean && state.editing.opened !== undefined) state.editing.opened = formSnapshot();
       $('f-url-note').textContent = (title || description) ? 'Read from the page.' : '';
       const image = cleanUrl(got.image, 2000) || '';
       if (image) e.image = image;
@@ -605,16 +618,25 @@
     hide($('form').querySelector('[data-action="suggest-tags"]'), !(state.ai && canEdit && id && kind !== 'photo'));
     hide($('f-delete'), !id || !cur || !mayRemove(cur));
     $('f-delete').textContent = 'Remove';
+    // Read-only: no Cancel; the window's own Close in the corner is the one Close. The row goes when nothing in it shows.
+    hide($('f-cancel'), !canEdit);
+    hide($('f-cancel').parentElement, [...$('f-cancel').parentElement.querySelectorAll('button')].every((b) => b.hidden));
     state.armed = null;
-    hide($('editor'), false);
     hydrate($('editor'));
-    if (canEdit) (kind === 'photo' ? $('f-caption') : kind === 'link' && !id ? $('f-url') : $('f-title')).focus();
+    if (canEdit) state.editing.opened = formSnapshot();
+    // Focus goes back to the object's card after a save (found again by its id, since render() redraws the list), else
+    // to whatever had it before.
+    editor.open({
+      focus: canEdit ? (kind === 'photo' ? $('f-caption') : kind === 'link' && !id ? $('f-url') : $('f-title')) : $('editor'), // read-only: the window itself
+      returnTo: id ? () => root.querySelector(`.rcard[data-id="${CSS.escape(id)}"]`) : null,
+    });
     if (kind === 'link' && it.image && state.previews) {
       host.preview.image(it.image).then((u) => { if (state.editing && state.editing.image === it.image && u) showShot(u); }).catch(() => {});
     }
     if (kind === 'link' && it.url) pullPreview();
   }
-  function closeEditor() { hide($('editor'), true); state.editing = null; }
+  // After a save or a removal, or when the view changes: closes at once, nothing asked.
+  function closeEditor() { state.editing = null; editor.close(); }
 
   // Someone else changed the object that is open: say so, and offer their version or keeping mine.
   function checkConflict() {
@@ -686,7 +708,8 @@
       $('f-save').disabled = false;
     }
   });
-  $('f-cancel').addEventListener('click', closeEditor);
+  // Cancel goes the way the SDK's own Close does (editor.cancel), so it asks "Discard your changes?" after typing.
+  $('f-cancel').addEventListener('click', () => editor.cancel());
   $('f-delete').addEventListener('click', async () => {
     const e = state.editing;
     if (!e || !e.id) return;
@@ -828,12 +851,9 @@
       return it ? { kind: it.kind, id: it.id, label: it.title, ...(view === 'my' ? { scope: 'person' } : {}) } : null;
     });
   }
+  // Escape in the editor window is the SDK's (host.ui.editor asks about unsaved changes).
   root.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Escape') {
-      if (!$('editor').hidden) closeEditor();
-    } else if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('rcard')) {
-      ev.target.click();
-    }
+    if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('rcard')) ev.target.click();
   });
 
   // --- adding: the bottom bar, and what other modules and pointers ask ---------------------------------------------

@@ -1,8 +1,8 @@
 /*
  * The Travel item editor for the card family: a type picker (a grid of tiles, one per kind of thing, each in its own colour
- * family) and the fields that kind needs, in groups. Same dialog as before (#editor > form#form.editor-card). It moves into
- * src/ (travel-lib-editor.css) when the script uses it. Colours are the theme's; the tiles derive theirs from the accent as the
- * cards do (--turn), so an editor tile and its card match. Narrow means .app.narrow.
+ * family) and the fields that kind needs, in groups: the form (#editor > form#form.editor-card) inside the SDK's editor window
+ * (host.ui.editor), so a phone layout keys on the window's width, not the module's. Colours are the theme's; the tiles derive
+ * theirs from the accent as the cards do (--turn), so an editor tile and its card match.
  */
 .tile { --turn: 0; --tone: color-mix(in srgb, var(--accent) 65%, var(--text)); }
 @supports (color: oklch(from red l c h)) { .tile { --tone: oklch(from var(--accent) l calc(c * 0.95) calc(h + var(--turn))); } }
@@ -66,7 +66,10 @@
 .editor-card .lookup-choice span { color: var(--text-dim); font-size: 12px; }
 /* only for a flight (its data-types), and only while shown: [hidden] wins over this */
 .editor-card .lookup.on-type { display: flex; }
-/* a phone or a narrow module: the number and the day share a line, Find goes under them */
-.app.narrow .editor-card .lookup-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
-.app.narrow .editor-card .lookup-row .btn { grid-column: 1 / -1; }
-.app.narrow .editor-card .lookup-row input { font-size: 16px; }
+/* a phone (the editor window is a sheet there, so the window's width, not the module's): the number and the day share a
+   line, Find goes under them */
+@media (max-width: 640px) {
+  .editor-card .lookup-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .editor-card .lookup-row .btn { grid-column: 1 / -1; }
+  .editor-card .lookup-row input { font-size: 16px; }
+}

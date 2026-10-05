@@ -36,6 +36,17 @@ The zip can be up to 10 MB. Collaborator refuses a zip that holds files it does 
 
 A module's view or filter switch, such as the Calendar's **Month | Week | Day | Agenda** or the To-do's **Open | Done | All**, shows an icon beside each word. When the module is too narrow for the words, it shows the icons only: hover over one to see its word, and a screen reader reads it.
 
+## Add and edit forms
+
+In To-do, Calendar, Polls, Research, Places and the Planner, the form for adding or changing something opens in a window over the whole page, not inside the module, so it is the same size wherever the module is: docked, floating or on its own page. On a phone it fills the screen.
+
+- **Save** and **Cancel** stay at the bottom while the form scrolls, and a **Close** button sits in the form's top right corner.
+- **Cancel**, **Close** or Escape closes the form at once when you have changed nothing. When you have, it asks "Discard your changes?": **Keep editing** (or Escape again) goes back to the form, **Discard** closes it and loses what you typed. **Save** and **Delete** never ask.
+- A click outside the form does nothing, and the page behind it waits until the form closes. In a call, the keyboard shortcuts still work: M to mute, your mute and camera keys, push to talk.
+- A date picker or a menu opened from the form opens inside it; Escape closes only that.
+- When the form closes you are back where you were: on the thing you saved, or on the button that opened the form.
+- Something you may only read opens with no **Save** or **Cancel** and takes no typing: its fields are greyed, and the corner **Close** or Escape just closes it.
+
 ## Turn a module on in spaces
 
 A module that opens on a space's canvas is off in every space until you turn it on. Either tick **Available in every space** on its card here, or open a space's own page from the Spaces tab, go to its **Modules** tab (it appears when there are modules to set) and switch the module on. The Modules section of a space only lists modules that are enabled.

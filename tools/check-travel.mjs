@@ -1570,4 +1570,20 @@ test('the flight lookup (QA M7): a four-letter ICAO code is looked up and shows 
   assert.ok(js.includes('if (icao && /^[A-Z]{3}$/.test(airport.code || \'\')) codeInput.value = airport.code;'));
 });
 
+// The editor window (plan-editor-window.md, step 8): the form opens through host.ui.editor, large for an item and medium for the
+// plan, asks "Discard your changes?" from Cancel as from Escape and Close, and the module keeps no overlay or Escape handler of its own.
+test('the editor window: the form is the SDK\'s dialog, sized to what it edits, and Cancel asks as Close does', () => {
+  const html = read('travel.html');
+  const js = read('travel.js');
+  const css = read('travel.css');
+  assert.ok(html.includes('<dialog id="editor" class="sdk-editor"></dialog>'), 'the editor is the SDK\'s dialog, filled on each open');
+  assert.equal((html.match(/<div class="editor-buttons sdk-editor-actions">/g) || []).length, 2, 'both forms\' button rows stick to the bottom');
+  assert.ok(js.includes("const editor = host.ui.editor($('editor'), {") && js.includes("size: 'large',"), 'opened through host.ui.editor, large');
+  assert.ok(js.includes("$('editor').classList.toggle('sdk-editor-large', mode !== 'trip');"), 'the plan\'s own form is medium');
+  assert.ok(js.includes('isDirty: editorDirty,') && js.includes("editor.open({ focus: $('f-title'), returnTo: editorReturn });"), 'the question after typing; focus goes back');
+  assert.ok(js.includes("if (b.id === 'f-cancel') return cancelEditor();"), 'Cancel asks as Close does');
+  assert.equal(js.includes("$('editor').hidden"), false, 'nothing reads the old hidden flag');
+  assert.equal(/\.editor\s*\{[^}]*position:\s*absolute/.test(css), false, 'no overlay of the module\'s own');
+});
+
 console.log(`check-travel: OK (${n} checks)`);

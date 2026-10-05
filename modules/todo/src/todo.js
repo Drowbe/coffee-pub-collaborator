@@ -424,6 +424,39 @@
   $('f-due').addEventListener('change', syncForm);
   const duePicker = host.ui.datePicker($('f-due'), { clearable: true });
 
+  // The form opens in the SDK's editor window (host.ui.editor): a modal <dialog> over everything, sized to the form, a
+  // sheet on a phone. Escape and its Close button ask "Discard your changes?" when the form differs from what it opened
+  // with (isDirty), and so does Cancel (editor.cancel); Save and Delete close it at once. On close, focus goes back to the task's row (found again by
+  // its key, since render() redraws the list) or the New todo button.
+  let opened = ''; // what the form held when it opened, as formState() gives it
+  const formState = () => JSON.stringify({
+    where: $('f-where-wrap').hidden ? '' : $('f-where').value,
+    title: $('f-title').value,
+    notes: $('f-notes').value,
+    due: $('f-due').value,
+    remind: $('f-remind').checked,
+    done: $('f-done').checked,
+    links: editingLinks.map((r) => objectKey(r)),
+    rules: editingRules,
+  });
+  let lastKey = null; // the key of the task the form was opened on, or saved as: where focus returns
+  const returnTo = () => {
+    const row = lastKey ? root.querySelector(`[data-open="${CSS.escape(lastKey)}"]`) : null;
+    if (row) return row;
+    for (const id of ['new-todo', 'add']) if (!$(id).hidden && $(id).getClientRects().length) return $(id);
+    return null;
+  };
+  const editor = host.ui.editor($('editor'), {
+    size: 'medium',
+    isDirty: () => Boolean(editing) && !editing.readOnly && formState() !== opened, // a read-only form has nothing to lose
+    onClose: () => {
+      duePicker.close();
+      editing = null;
+      editingLinks = [];
+      editingRules = {};
+    },
+  });
+
   // --- where a task goes ------------------------------------------------------------
   // On the environment page (and as the panel) a new task asks where it goes, every time: the environment's own list,
   // for people who may change it, then each space where the viewer may add tasks. It starts empty whatever was picked
@@ -459,7 +492,7 @@
     if (!x && !canAdd()) return;
     const readOnly = x ? !writable(x) : false;
     const t = x ? x.t : { title: (prefill && prefill.title) || '', notes: '', due: (prefill && prefill.date) || null, remind: false, done: false };
-    editing = x ? { key: x.key, id: x.id, version: x.version } : { key: null, id: null, version: null };
+    editing = x ? { key: x.key, id: x.id, version: x.version, readOnly } : { key: null, id: null, version: null, readOnly: false };
     fillWhere(x);
     // Read only in a place where the viewer may not change tasks: say why (on the environment page, where it can differ).
     const why = readOnly && !inSpace && x ? `Only people who can add tasks in ${placeName(x.scope, x.spaceId)} can change this.` : '';
@@ -484,18 +517,21 @@
     $('f-done').checked = Boolean(t.done);
     $('f-by').textContent = x && t.by ? `Added by ${t.by}` : '';
     for (const id of ['f-title', 'f-notes', 'f-due', 'f-remind', 'f-done']) $(id).disabled = readOnly;
+    duePicker.refresh(); // its Pick a date follows the field: disabled with it
     $('f-save').hidden = readOnly;
     $('f-delete').hidden = readOnly || !x;
     $('f-delete').textContent = 'Delete';
-    $('f-cancel').textContent = readOnly ? 'Close' : 'Cancel';
+    // Read-only (a task from elsewhere): no button row; the window's own Close in the corner is the one way out.
+    $('f-cancel').hidden = readOnly;
+    $('f-cancel').parentElement.hidden = readOnly;
     syncForm();
-    $('editor').hidden = false;
-    $(readOnly ? 'f-cancel' : x || inSpace ? 'f-title' : 'f-where').focus();
+    lastKey = x ? x.key : null;
+    opened = formState();
+    // Read-only: focus the window itself (nothing in it takes input); the corner Close is next on Tab.
+    editor.open({ focus: readOnly ? $('editor') : $(x || inSpace ? 'f-title' : 'f-where'), returnTo });
   }
   function closeEditor() {
-    $('editor').hidden = true;
-    editing = null;
-    editingLinks = [];
+    editor.close();
   }
 
   // The task's rules with the older per-task settings folded in: those meant "tick, and keep the result" for
@@ -577,10 +613,12 @@
     if (!b) return;
     const ref = JSON.parse($('f-link-results').dataset.found || '[]').find((r) => objectKey(r) === b.dataset.link);
     if (ref) addEditorLink(ref);
-    b.remove();
+    b.remove(); // the focused button goes with it: focus the search field, not the page
+    $('f-link-search').focus();
   });
 
-  $('f-cancel').addEventListener('click', closeEditor);
+  // Cancel goes the way the SDK's own Close does (editor.cancel), so it asks "Discard your changes?" after typing.
+  $('f-cancel').addEventListener('click', () => editor.cancel());
   async function save() {
     if (!editing) return;
     showError('');
@@ -607,6 +645,7 @@
     $('f-save').disabled = true;
     try {
       const saved = await put(current, t, target);
+      lastKey = current ? current.key : keyOf(target.scope, t.id, target.spaceId);
       let reminderFailed = false;
       try { await applyReminder(t, saved.where); } catch (err) { reminderFailed = true; }
       render();
@@ -684,10 +723,10 @@
   // Something dropped here from another module (a drag the host brokers between panes on the same page): what can be
   // done with it is the shared decision (host.objects.dropMenu). This module's own offers: link it to the task under
   // the pointer, or start a task from it (linked to it when it is an object, titled and dated from it when it is a summary
-  // carried by the drag, an answer say). Dropped on the open editor's link field, it is linked there and nothing is asked.
+  // carried by the drag, an answer say). Nothing can be dropped into the open form: the page is inert under the editor
+  // window; its link search stays (plan-editor-window.md, decision 9).
   const clearDrop = () => {
     for (const r of root.querySelectorAll('.task.drop')) r.classList.remove('drop');
-    $('editor').classList.remove('drop');
   };
   const taskAt = (pt) => {
     const el = host.objects.elementAt(pt);
@@ -698,11 +737,7 @@
     host.objects.dropTarget({
       over: (pt, ref, dragged) => {
         clearDrop();
-        if (!(ref || dragged.summary) || !canAdd()) return;
-        if (!$('editor').hidden) {
-          if (ref && linkable(ref) && !$('f-link-search').hidden) $('editor').classList.add('drop');
-          return;
-        }
+        if (!(ref || dragged.summary) || !canAdd() || editor.isOpen) return;
         const row = taskAt(pt);
         if (row) row.classList.add('drop');
       },
@@ -710,10 +745,7 @@
       drop: async (ref, pt, dragged) => {
         clearDrop();
         if (!(ref || dragged.summary) || !canAdd()) return host.objects.trace(`drop ignored: ${canAdd() ? 'nothing valid was dropped' : 'cannot edit'}`);
-        if (!$('editor').hidden) {
-          if (ref && linkable(ref) && !$('f-link-search').hidden) addEditorLink(ref);
-          return;
-        }
+        if (editor.isOpen) return host.objects.trace('drop ignored: the editor window is open');
         const row = taskAt(pt);
         const x = row && tasks.get(row.dataset.task);
         try {
@@ -763,7 +795,6 @@
       startNew();
     });
   }
-  root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('editor').hidden) closeEditor(); });
 
   // As the panel: the page's filter says whose tasks show (host.destination.onState); the panel sets nothing.
   let pickedSpaces = null;

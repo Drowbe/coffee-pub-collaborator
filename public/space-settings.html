@@ -76,6 +76,15 @@
         <p class="hint" id="opens-with-unset" hidden></p>
         <span class="status" id="opens-with-status" role="status"></span>
       </div>
+
+      <!-- The published calendar (plan-space-calendars.md, section 2): every space is in it unless an owner leaves it out.
+           Shown only while publishing is on (settings.publishedCalendar); never for the Lobby, which is never in it. -->
+      <div class="panel" id="section-calendar" hidden>
+        <h2 id="calendar-heading">Calendar</h2>
+        <p class="hint" id="calendar-hint" data-fill>{Owners} can publish one calendar with every {space}'s events, for anyone they give its address to. Turn this off to leave this {space} out of it.</p>
+        <label class="check"><input type="checkbox" id="e-publish-calendar"> In the published calendar</label>
+        <span class="status" id="publish-calendar-status" role="status"></span>
+      </div>
     </section>
 
     <section class="tab-stack" id="tab-members" hidden>

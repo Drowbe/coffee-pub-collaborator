@@ -624,6 +624,8 @@ class Store {
     let seededThemes = false;
     // A copy, never DEFAULT_SETTINGS' own array, which every store shares.
     data.settings.themes = Array.isArray(data.settings.themes) ? [...data.settings.themes] : [];
+    // The published calendar's address (plan-space-calendars.md, section 2): only a hash with its dates, or nothing.
+    if (data.settings.publishedCalendarFeed !== undefined && !cleanCalendarFeed(data.settings.publishedCalendarFeed)) delete data.settings.publishedCalendarFeed;
     if (!data.settings.builtinThemesSeeded) {
       for (const builtin of BUILTIN_THEMES) {
         if (!data.settings.themes.some((t) => t.id === builtin.id)) data.settings.themes.push(structuredClone(builtin));
@@ -729,6 +731,8 @@ class Store {
       ...(cleanLayoutId(r.defaultLayout) ? { defaultLayout: r.defaultLayout } : {}),
       // AI turned off in this space, whatever a role may do (updateSpace); absent while AI is allowed here.
       ...(r.aiOff === true ? { aiOff: true } : {}),
+      // Left out of the environment's published calendar (plan-space-calendars.md, section 2); absent means in it.
+      ...(r.publishCalendar === false ? { publishCalendar: false } : {}),
     };
   }
 
@@ -790,6 +794,9 @@ class Store {
           images: spaceImages,
           useDefaultImages: typeof r.useDefaultImages === 'boolean' ? r.useDefaultImages : Object.keys(spaceImages).length === 0,
           permissions: cleanSpacePermissions(r.permissions),
+          // Their address for this one space (plan-space-calendars.md, section 1): the SHA-256 of its token, never the
+          // token; left off while they have none.
+          ...(cleanCalendarFeed(r.calendarFeed) ? { calendarFeed: cleanCalendarFeed(r.calendarFeed) } : {}),
         };
       }
     }
@@ -1717,6 +1724,14 @@ class Store {
       draft.members = [...new Set(patch.members.filter((k) => typeof k === 'string' && this.userByKey(k)))];
     }
     if (patch.aiOff !== undefined) draft.aiOff = patch.aiOff === true; // this space does not use AI, whatever a role may do
+    // In the published calendar (plan-space-calendars.md, section 2): true is the default and is stored as nothing. The
+    // Lobby is never in it (it has no members of its own), so it takes no switch.
+    if (patch.publishCalendar !== undefined) {
+      if (typeof patch.publishCalendar !== 'boolean') throw new StoreError('publishCalendar is true or false');
+      if (id === LOBBY) throw new StoreError('the Lobby is never in the published calendar');
+      if (patch.publishCalendar) delete draft.publishCalendar;
+      else draft.publishCalendar = false;
+    }
     if (patch.profile !== undefined) {
       if (!SPACE_PROFILES.includes(patch.profile)) throw new StoreError('profile must be roleplaying, participants or characters');
       draft.profile = patch.profile;
@@ -1769,6 +1784,9 @@ class Store {
     Object.assign(space, draft);
     if (!('opensWith' in draft)) delete space.opensWith;
     if (!('defaultLayout' in draft)) delete space.defaultLayout;
+    if (!('publishCalendar' in draft)) delete space.publishCalendar;
+    // Someone taken off the member list loses their address for this space, as removeMember does.
+    for (const u of this.data.users) if (!space.members.includes(u.key)) this.dropSpaceCalendarFeed(u, id);
     this.save();
     return this.spaceById(id);
   }
@@ -1801,6 +1819,8 @@ class Store {
     const space = this.data.spaces.find((r) => r.id === id);
     if (!space) throw new StoreError(`no such ${this.word('space')}`, 404);
     this.data.spaces = this.data.spaces.filter((r) => r.id !== id);
+    // Every address for this space goes with it (plan-space-calendars.md, section 1).
+    for (const u of this.data.users) this.dropSpaceCalendarFeed(u, id);
     this.save();
     this.layouts.forgetSpace(id);
     this.removeSpaceImage(id);
@@ -2034,8 +2054,90 @@ class Store {
     if (!space || space.id === LOBBY) throw new StoreError(`no such ${this.word('space')}`, 404);
     if (!space.members.includes(key)) throw new StoreError(`not in that ${this.word('space')}`, 404);
     space.members = space.members.filter((k) => k !== key);
+    // Their address for this space ends with their membership; their pictures and ticks there stay.
+    const user = this.userByKey(key);
+    if (user) this.dropSpaceCalendarFeed(user, spaceId);
     this.save();
     return this.spaceById(spaceId);
+  }
+
+  // --- space addresses (plan-space-calendars.md, section 1) --------------------------------------------------------
+  // One token per person per space, kept as user.spaces[<space id>].calendarFeed { hash, made, readAt }, the same shape
+  // as the personal address. Nothing here checks who may hold one: the routes do, at each read.
+
+  // Deletes the address without saving; the caller saves. True when there was one.
+  dropSpaceCalendarFeed(user, spaceId) {
+    const entry = user?.spaces?.[spaceId];
+    if (!entry?.calendarFeed) return false;
+    delete entry.calendarFeed;
+    return true;
+  }
+
+  // The person and the space whose address hashes to `hash`: { user, spaceId }, or null.
+  spaceFeedByHash(hash) {
+    if (typeof hash !== 'string' || !/^[0-9a-f]{64}$/.test(hash)) return null;
+    for (const user of this.data.users) {
+      for (const [spaceId, entry] of Object.entries(user.spaces || {})) {
+        if (entry?.calendarFeed?.hash === hash) return { user, spaceId };
+      }
+    }
+    return null;
+  }
+
+  // A new address for this person in this space, replacing any old one (the caller made the token and gives its hash),
+  // or none (null).
+  setSpaceCalendarFeed(key, spaceId, hash) {
+    const user = this.userByKey(key);
+    if (!user) throw new StoreError('no such user', 404);
+    if (hash === null) {
+      if (!this.dropSpaceCalendarFeed(user, spaceId)) return null;
+      this.save();
+      return null;
+    }
+    if (!/^[0-9a-f]{64}$/.test(String(hash))) throw new StoreError('a feed is kept by its hash');
+    const space = this.spaceById(spaceId);
+    if (!space || space.isLobby) throw new StoreError(`no such ${this.word('space')}`, 404);
+    const entry = this.spaceEntry(user, spaceId);
+    entry.calendarFeed = { hash, made: new Date().toISOString(), readAt: null };
+    this.save();
+    return entry.calendarFeed;
+  }
+
+  // A read of a space address: kept at most once an hour, as the personal one is.
+  noteSpaceCalendarFeedRead(key, spaceId, now = Date.now()) {
+    const feed = this.userByKey(key)?.spaces?.[spaceId]?.calendarFeed;
+    if (!feed) return;
+    if (feed.readAt && now - Date.parse(feed.readAt) < 60 * 60 * 1000) return;
+    feed.readAt = new Date(now).toISOString();
+    this.save();
+  }
+
+  // --- the published calendar (plan-space-calendars.md, section 2) ------------------------------------------------
+  // One address for the environment, settings.publishedCalendarFeed { hash, made, readAt }, made by owners and the admin.
+
+  get publishedCalendarFeed() {
+    return cleanCalendarFeed(this.data.settings.publishedCalendarFeed);
+  }
+
+  setPublishedCalendarFeed(hash) {
+    if (hash === null) {
+      if (!this.data.settings.publishedCalendarFeed) return null;
+      delete this.data.settings.publishedCalendarFeed;
+      this.save();
+      return null;
+    }
+    if (!/^[0-9a-f]{64}$/.test(String(hash))) throw new StoreError('a feed is kept by its hash');
+    this.data.settings.publishedCalendarFeed = { hash, made: new Date().toISOString(), readAt: null };
+    this.save();
+    return this.data.settings.publishedCalendarFeed;
+  }
+
+  notePublishedCalendarRead(now = Date.now()) {
+    const feed = this.data.settings.publishedCalendarFeed;
+    if (!feed) return;
+    if (feed.readAt && now - Date.parse(feed.readAt) < 60 * 60 * 1000) return;
+    feed.readAt = new Date(now).toISOString();
+    this.save();
   }
 
   imageBucket(user, spaceId) {

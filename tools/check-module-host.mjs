@@ -482,5 +482,72 @@ await (async (name, fn) => {
   assert.ok(sdk.includes("markers: (o) => call('objects.markers', { from: o && o.from, to: o && o.to }),"), 'the SDK passes from and to');
 });
 
+// The lift (plan-editor-window.md, step 11): an editor window in a sandboxed frame asks the host (editor.lift) to lift
+// the frame over the canvas. module-host.js answers it for a frame only (false in the page and in a window of its own),
+// gives the frame the class, puts a backdrop before it, makes everything else inert the way a modal <dialog> does, and
+// puts all of it back on close, when the frame loads another document, and when the mount is destroyed; canvas.js puts
+// it back before moving a module; module.js asks for none in a popped-out window.
+test('editor.lift: lifts a frame over the page, makes the rest inert and puts it all back', () => {
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  const at = src.indexOf("async 'editor.lift'(");
+  assert.ok(at > 0, "module-host.js answers 'editor.lift'");
+  const handler = src.slice(at, src.indexOf('\n    },', at));
+  assert.ok(handler.includes('if (pageMode || !lift) return false;'), 'a module in the page, or a mount with lift: false, is answered false');
+  assert.ok(src.includes("frame.addEventListener('load', () => releaseLift());"), 'the frame loading another document puts it back');
+  assert.ok(/destroy\(\) \{\n\s+if \(!pageMode\) releaseLift\(\);/.test(src), 'destroy() puts it back');
+  assert.ok(src.includes('lift = true, onLift = null }) {'), 'mountModule takes lift and onLift');
+  // The lift itself, run on a stand-in page: body > [header, main > [section > [bar, frame], other]].
+  const start = src.indexOf('  let lifted = null;');
+  const end = src.indexOf('\n  }\n', src.indexOf('function liftFrame(', start)) + 4;
+  assert.ok(start > 0 && end > start, 'module-host.js has liftFrame and releaseLift');
+  const el = (tag, cls = '') => {
+    const e = { tag, classes: new Set(cls.split(' ').filter(Boolean)), children: [], parentNode: null, inert: false, focused: 0 };
+    e.classList = { add: (...c) => c.forEach((x) => e.classes.add(x)), remove: (...c) => c.forEach((x) => e.classes.delete(x)), toggle: (c, on) => (on ? e.classes.add(c) : e.classes.delete(c)), contains: (c) => e.classes.has(c) };
+    e.append = (...cs) => cs.forEach((c) => { c.parentNode = e; e.children.push(c); });
+    e.insertBefore = (c, ref) => { c.parentNode = e; e.children.splice(e.children.indexOf(ref), 0, c); };
+    e.remove = () => { if (e.parentNode) e.parentNode.children = e.parentNode.children.filter((x) => x !== e); e.parentNode = null; };
+    e.focus = () => { e.focused += 1; doc.activeElement = e; };
+    Object.defineProperty(e, 'isConnected', { get: () => { let x = e; while (x.parentNode) x = x.parentNode; return x === doc.body; } });
+    Object.defineProperty(e, 'className', { get: () => [...e.classes].join(' '), set: (v) => { e.classes = new Set(String(v).split(/\s+/).filter(Boolean)); } });
+    return e;
+  };
+  const doc = { body: el('body'), activeElement: null, createElement: (tag) => el(tag) };
+  const [header, main, section, bar, frame, other, floater] = ['header', 'main', 'section', 'div', 'iframe', 'section', 'div'].map((t) => el(t));
+  frame.ownerDocument = doc;
+  doc.body.append(header, main, floater);
+  main.append(section, other);
+  section.append(bar, frame);
+  doc.activeElement = frame;
+  const lifts = [];
+  const { liftFrame, releaseLift } = new Function('frame', 'onLift', `${src.slice(start, end)}\nreturn { liftFrame, releaseLift };`)(frame, (open, size) => lifts.push([open, size]));
+  releaseLift();
+  assert.deepEqual(lifts, [], 'putting back what was never lifted does nothing');
+  liftFrame(true, 'large');
+  assert.ok(frame.classes.has('module-editor-lifted') && frame.classes.has('module-editor-lifted-large'), 'the frame gets the classes');
+  const backdrop = section.children[section.children.indexOf(frame) - 1];
+  assert.ok(backdrop && backdrop.classes.has('module-editor-backdrop'), 'div.module-editor-backdrop goes right before the frame');
+  assert.deepEqual([header, floater, other, bar].map((x) => x.inert), [true, true, true, true], 'the header, the other modules, the floating layer and the module\'s own bar are inert');
+  assert.deepEqual([main, section, frame, backdrop].map((x) => x.inert), [false, false, false, false], 'the frame and its ancestors are not');
+  assert.deepEqual(lifts, [[true, 'large']], 'onLift hears the lift');
+  liftFrame(true, 'medium');
+  assert.ok(!frame.classes.has('module-editor-lifted-large'), 'lifting again sets the size asked');
+  assert.equal(section.children.filter((x) => x.classes.has('module-editor-backdrop')).length, 1, 'one backdrop, not two');
+  liftFrame(false);
+  assert.ok(!frame.classes.has('module-editor-lifted') && !backdrop.parentNode, 'put back: the classes and the backdrop go');
+  assert.deepEqual([header, floater, other, bar].map((x) => x.inert), [false, false, false, false], 'nothing is inert any more');
+  assert.equal(lifts.at(-1)[0], false, 'onLift hears it');
+  assert.equal(frame.focused, 0, 'focus is left where it is');
+  // Something already inert before the lift stays inert after it.
+  other.inert = true;
+  liftFrame(true, 'medium');
+  releaseLift();
+  assert.equal(other.inert, true, 'what was inert before the lift stays so');
+  const canvas = fs.readFileSync(new URL('../public/canvas.js', import.meta.url), 'utf8');
+  assert.ok(/function moveModule\(id, mode\) \{[\s\S]*?mod\.mount\?\.lift\?\.\(false\);[\s\S]*?opened\.delete\(id\);/.test(canvas), 'canvas.js puts the frame back before moving a module');
+  assert.ok(canvas.includes('onLift: (open) => {'), 'canvas.js hears the lift (to bring a floating box to the front)');
+  const page = fs.readFileSync(new URL('../public/module.js', import.meta.url), 'utf8');
+  assert.ok(page.includes('lift: !popout,'), 'module.js asks for no lift in a window of its own');
+});
+
 if (failed) process.exit(1);
 console.log(`check-module-host: OK (${n} groups)`);

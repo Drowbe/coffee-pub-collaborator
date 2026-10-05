@@ -192,6 +192,7 @@ $('space-modules').addEventListener('change', async (event) => {
     loadOpensWith(); // the modules Opens with lists follow what is on here
     // The module's own settings for this space appear (or go) with it.
     renderModuleSettings($('module-settings'), { scope: 'space', space: spaceId }).then(() => { $('section-module-settings').hidden = $('module-settings').hidden; syncModulesTab(); });
+    loadCalendarSection(); // the Calendar section follows the Calendar being on here
   } catch (err) {
     box.checked = !box.checked;
     say($('space-modules-status'), err.message, true);
@@ -339,6 +340,35 @@ $('e-ai-off').addEventListener('change', async (event) => {
   }
 });
 
+// The space's place in the published calendar (plan-space-calendars.md, section 2): the section shows only while an
+// owner has turned publishing on, named after the module whose events it carries; the switch saves as it is flipped.
+async function loadCalendarSection() {
+  if (space.isLobby) return;
+  try {
+    const [settings, mods] = await Promise.all([
+      api('GET', '/api/settings').then((r) => r.settings || {}),
+      api('GET', '/api/modules').then((r) => r.modules || []).catch(() => []),
+    ]);
+    const m = mods.find((x) => x.sharing === true && x.sharingReasons && 'publishedCalendar' in x.sharingReasons);
+    $('calendar-heading').textContent = m ? (m.displayName || m.name) : 'Calendar';
+    // Only while the module is on here: a space without it has nothing in the published calendar to leave out.
+    const onHere = Boolean(m && m.enabled && (m.allSpaces || (m.spaces || []).includes(space.id)));
+    $('section-calendar').hidden = settings.publishedCalendar !== true || !onHere;
+    $('e-publish-calendar').checked = space.publishCalendar !== false;
+  } catch {
+    $('section-calendar').hidden = true;
+  }
+}
+$('e-publish-calendar').addEventListener('change', async (event) => {
+  try {
+    space = (await api('PATCH', `/api/spaces/${space.id}`, { publishCalendar: event.target.checked })).space;
+    say($('publish-calendar-status'), 'saved');
+  } catch (err) {
+    event.target.checked = space.publishCalendar !== false;
+    say($('publish-calendar-status'), err.message, true);
+  }
+});
+
 $('e-allow-guests').addEventListener('change', async (event) => {
   try {
     space = (await api('PATCH', `/api/spaces/${space.id}`, { allowGuests: event.target.checked })).space;
@@ -448,6 +478,7 @@ async function init() {
     await loadSpaceModules();
     syncModulesTab();
     loadOpensWith();
+    loadCalendarSection();
     // The AI switch is for a server that has an AI service set up.
     api('GET', '/api/ai').then((d) => { $('section-ai').hidden = !d.ai || d.ai.active.provider === 'none'; syncModulesTab(); }).catch(() => {});
     renderModuleSettings($('module-settings'), { scope: 'space', space: spaceId }).then(() => { $('section-module-settings').hidden = $('module-settings').hidden; syncModulesTab(); });

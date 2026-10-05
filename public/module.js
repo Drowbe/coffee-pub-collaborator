@@ -93,6 +93,8 @@ async function start() {
     module: { id: mod.id, version: mod.version, scope: mod.scope },
     ...(inPage ? { container: frame } : { frame }),
     bar: $('module-bar'),
+    // A window of its own is the module: its frame fills the window, so an editor window needs no lift (editor.lift).
+    lift: !popout,
     header: popout ? $('module-titlebar-custom') : null,
     toolbar: $('module-toolbar'),
     scope,

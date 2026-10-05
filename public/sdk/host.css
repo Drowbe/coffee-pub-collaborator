@@ -371,8 +371,11 @@ select:focus {
   font-weight: 600;
 }
 
+/* A phone (the page 640 px wide or less): a full-screen sheet. The same rules serve a dialog in a lifted frame when the
+   host says the page is a phone (data-lift="phone"), and not by the frame's own width: a lifted frame is the editor's
+   width, which is under 640 px, so the media query alone would make every lifted editor a phone sheet. */
 @media (max-width: 640px) {
-  .sdk-editor {
+  .sdk-editor:not(.sdk-editor-lifted) {
     --sdk-editor-pad: 12px;
     --sdk-editor-top: calc(48px + env(safe-area-inset-top, 0px));
     position: fixed;
@@ -391,27 +394,72 @@ select:focus {
     box-shadow: none;
   }
 
-  .sdk-editor::backdrop {
+  .sdk-editor:not(.sdk-editor-lifted)::backdrop {
     background: var(--bg);
   }
 
-  .sdk-editor-close {
+  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-close {
     top: calc(2px + env(safe-area-inset-top, 0px));
     width: 44px;
     height: 44px;
   }
 
-  .sdk-editor-actions,
-  .sdk-editor-discard {
+  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-actions,
+  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-discard {
     --action-btn-h: 44px;
     min-height: 44px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 
-  .sdk-editor-actions .btn,
-  .sdk-editor-discard .btn {
+  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-actions .btn,
+  .sdk-editor:not(.sdk-editor-lifted) .sdk-editor-discard .btn {
     min-height: 44px;
   }
+}
+
+/* In a sandboxed frame the host lifts the frame itself over the canvas, exactly the editor's size (module-host.js,
+   editor.lift), and the frame is the window: the dialog fills it, whatever its size, with no backdrop showing. The
+   frame's border and corners stand in for the dialog's. */
+.sdk-editor.sdk-editor-lifted {
+  position: fixed;
+  top: 0;
+  bottom: auto;
+  left: 0;
+  right: auto;
+  width: 100vw;
+  height: 100dvh;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.sdk-editor.sdk-editor-lifted::backdrop {
+  background: var(--bg);
+}
+
+/* ... and on a phone, the sheet's touch sizes (the frame carries the safe areas). */
+.sdk-editor.sdk-editor-lifted[data-lift="phone"] {
+  --sdk-editor-pad: 12px;
+  --sdk-editor-top: 48px;
+}
+
+.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-close {
+  top: 2px;
+  width: 44px;
+  height: 44px;
+}
+
+.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-actions,
+.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-discard {
+  --action-btn-h: 44px;
+  min-height: 44px;
+}
+
+.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-actions .btn,
+.sdk-editor.sdk-editor-lifted[data-lift="phone"] .sdk-editor-discard .btn {
+  min-height: 44px;
 }
 
 @media (prefers-reduced-motion: no-preference) {

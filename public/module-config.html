@@ -34,14 +34,31 @@
         <p class="hint" id="sharing-off" hidden></p>
         <div class="checks switch-list">
           <label class="check"><input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses</label>
-          <p class="hint" id="calendar-feeds-hint" data-fill>Lets each person add this {environment}'s events to their own calendar app with a private address.</p>
+          <p class="hint" id="calendar-feeds-hint" data-fill>Lets each person add this {environment}'s events, or one {space}'s, to their own calendar app with a private address.</p>
           <label class="check"><input id="set-other-calendars" type="checkbox" class="switch" role="switch" aria-describedby="other-calendars-hint"> Other calendars and busy times</label>
           <p class="hint" id="other-calendars-hint" data-fill>Lets each person see their own calendars beside these events, only to them, and share when they are busy with {a space}'s {members}, never what they are doing.</p>
-          <!-- Published calendar: hidden by module-config.js (SHARING, `later`) until step 4 builds its address. -->
-          <label class="check" hidden><input id="set-published-calendar" type="checkbox" class="switch" role="switch" aria-describedby="published-calendar-hint"> Published calendar</label>
-          <p class="hint" id="published-calendar-hint" data-fill hidden>One address with every {space}'s events, for anyone you give it to.</p>
+          <label class="check"><input id="set-published-calendar" type="checkbox" class="switch" role="switch" aria-describedby="published-calendar-hint"> Published calendar</label>
+          <p class="hint" id="published-calendar-hint" data-fill>One address with every {space}'s events, for anyone you give it to.</p>
         </div>
         <span class="status" id="calendar-feeds-status" role="status"></span>
+        <!-- The published calendar's one address (plan-space-calendars.md, section 2), shown while its switch is on: made,
+             replaced and turned off here; answered once by the server, shown until the page is left. -->
+        <div class="published-calendar" id="published-calendar" hidden>
+          <p class="hint" id="published-state"></p>
+          <div class="feed-made" id="published-made" hidden>
+            <div class="row">
+              <code class="key link" id="published-url"></code>
+              <button class="btn btn-small" id="published-copy" type="button">Copy</button>
+            </div>
+            <p class="hint"><strong>Copy it now. It will not be shown again.</strong> Give it to whoever should have it; anyone with the address can read every event in it, without signing in. Google can take 8 to 24 hours to show a change.</p>
+          </div>
+          <div class="row">
+            <button class="btn btn-primary btn-small" id="published-make" type="button" hidden>Make an address</button>
+            <button class="btn btn-small" id="published-new" type="button" hidden>New address</button>
+            <button class="btn btn-small btn-danger" id="published-off" type="button" hidden>Turn off</button>
+            <span class="status" id="published-status" role="status"></span>
+          </div>
+        </div>
       </div>
       <!-- For a module whose page is a top bar destination's main part (surfaces.destination): Show in the top bar,
            moved here from Manage (decision 11). Off and disabled with the reason when it cannot show for anyone

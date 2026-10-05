@@ -28,10 +28,25 @@ const DESTINATIONS = [
 const SHARING = [
   { key: 'calendarFeeds', input: 'set-calendar-feeds', hint: 'calendar-feeds-hint' },
   { key: 'otherCalendars', input: 'set-other-calendars', hint: 'other-calendars-hint' },
-  // Not shown until step 4 of plan-space-calendars.md builds the published calendar's address: until then the switch
-  // would turn on nothing. The setting and the server's handling of it stay; drop `later` to show it.
-  { key: 'publishedCalendar', input: 'set-published-calendar', hint: 'published-calendar-hint', later: true },
+  { key: 'publishedCalendar', input: 'set-published-calendar', hint: 'published-calendar-hint' },
 ];
+
+// "3 hours ago", "yesterday", or a date for anything older than a week; as Profile's addresses say it.
+function timeAgo(iso) {
+  const then = Date.parse(iso);
+  if (!Number.isFinite(then)) return '';
+  const minutes = Math.round((Date.now() - then) / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'yesterday';
+  if (days < 7) return `${days} days ago`;
+  return `on ${dayOf(iso)}`;
+}
+const dayOf = (iso) => new Date(iso).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+const lastRead = (readAt) => (readAt ? `Last read ${timeAgo(readAt)}.` : 'Not read yet.');
 
 // Why a read failed, in plain words: the server's own sentence when it sent one, never the browser's ("Failed to fetch").
 function failure(err) {
@@ -106,6 +121,7 @@ async function wireHostSections(m, name) {
   const mains = DESTINATIONS.filter((d) => (m.surfaces?.destination || []).some((p) => p && p.id === d.id && p.part === 'main'));
   if (!sharing && !mains.length) return false;
   let settings;
+  let publishedUrl = ''; // the published calendar's address just made: answered once, kept only until the page is left
   let approver = false; // owners and the admin approve a module's update, so its reason links them to Modules
   try {
     [settings, approver] = await Promise.all([
@@ -146,13 +162,30 @@ async function wireHostSections(m, name) {
     const reasons = m.sharingReasons || {};
     for (const s of SHARING) {
       const input = $(s.input);
-      const shown = s.key in reasons && !s.later; // a module takes part in the switches it has a use for
+      const shown = s.key in reasons; // a module takes part in the switches it has a use for
       input.closest('label').hidden = !shown;
       $(s.hint).hidden = !shown;
       // Whatever the server says: { reason } as it answers now, or a plain sentence.
       const why = reasons[s.key];
       if (shown) drawSwitch(input, $(s.hint), settings[s.key] === true, typeof why === 'string' ? why : why?.reason || '', approver);
     }
+    drawPublished();
+  };
+  // The published calendar's address (section 2): shown while its switch is on and the module takes part. One address,
+  // answered once when made; its state is settings.publishedCalendarFeed { on, made, readAt }.
+  const drawPublished = () => {
+    const reasons = m.sharingReasons || {};
+    const box = $('published-calendar');
+    const on = 'publishedCalendar' in reasons && settings.publishedCalendar === true && !reasons.publishedCalendar;
+    box.hidden = !on;
+    if (!on) { publishedUrl = ''; $('published-url').textContent = ''; $('published-made').hidden = true; return; } // nothing shows an address while the box is hidden
+    const address = settings.publishedCalendarFeed || { on: false };
+    $('published-state').textContent = address.on ? `Made ${dayOf(address.made)}. ${lastRead(address.readAt)}` : 'No address yet.';
+    $('published-made').hidden = !(address.on && publishedUrl);
+    $('published-url').textContent = address.on ? publishedUrl : '';
+    $('published-make').hidden = address.on;
+    $('published-new').hidden = !address.on;
+    $('published-off').hidden = !address.on;
   };
   const drawTopBar = () => {
     const reasons = settings.topBarReasons || {};
@@ -172,6 +205,34 @@ async function wireHostSections(m, name) {
       $('sharing-off').textContent = `${name} is off, so none of these work until it is on.`;
     }
     for (const s of SHARING) $(s.input).addEventListener('change', (event) => save(event.target, s.key, $('calendar-feeds-status')));
+    const makePublished = async () => {
+      const made = await api('POST', '/api/settings/published-calendar', {});
+      publishedUrl = made.url;
+      settings = { ...settings, publishedCalendarFeed: { on: true, made: made.made, readAt: null } };
+      drawPublished();
+      $('published-copy').focus();
+    };
+    const publishedStatus = $('published-status');
+    $('published-make').addEventListener('click', async () => {
+      try { await makePublished(); say(publishedStatus, 'address made'); } catch (err) { say(publishedStatus, failure(err), true); }
+    });
+    $('published-new').addEventListener('click', async () => {
+      if (!window.confirm('Make a new address? The old address stops working for everyone who has it.')) return;
+      try { await makePublished(); say(publishedStatus, 'new address made'); } catch (err) { say(publishedStatus, failure(err), true); }
+    });
+    $('published-off').addEventListener('click', async () => {
+      if (!window.confirm('Turn off the published calendar\'s address? It stops working for everyone who has it.')) return;
+      try {
+        await api('DELETE', '/api/settings/published-calendar');
+        publishedUrl = '';
+        settings = { ...settings, publishedCalendarFeed: { on: false, made: null, readAt: null } };
+        drawPublished();
+        say(publishedStatus, 'address turned off');
+      } catch (err) { say(publishedStatus, failure(err), true); }
+    });
+    $('published-copy').addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(publishedUrl); say(publishedStatus, 'copied'); } catch { window.prompt('Copy this:', publishedUrl); }
+    });
   }
   if (mains.length) {
     $('cfg-top-bar').hidden = false;

@@ -18,8 +18,11 @@ let mfaOffered = true; // the server offers two-step sign-in at all (ENABLE_MFA)
 let mfaBypass = false; // the server's admin lockout bypass applies to the signed-in person: no code asked, own reset offered
 let spacesById = new Map(); // every real space (not the Lobby), for the per-space sections below
 let environmentName = ''; // the environment's own name, for the calendar feed's hint
-let feed = null; // your own calendar feed, from GET /api/me/feed: { allowed, on, made, readAt }
+// Your own Calendars tab's addresses, from GET /api/me/calendars (plan-space-calendars.md, section 4): { switches, reasons,
+// module, everything: { allowed, reason, on, made, readAt }, spaces: [{ id, name, icon, address: { ... } }], external }.
+let feed = null;
 let feedUrl = ''; // the address just made: answered once by the server, kept only until the page is left
+let feedUrlFor = ''; // whose it is: 'everything', or a space's id
 let feedsAllowed = false; // an owner editing someone: whether the environment allows calendar feeds (settings.calendarFeeds)
 let external = null; // your own other calendars, from GET /api/me/external-calendars: { allowed, calendars: [{ id, name, host, readAt, error }] }
 let externalBusy = false; // a calendar is being read for Add (up to 15 seconds)
@@ -203,6 +206,7 @@ function render() {
 
   renderFeed(editing);
   renderExternal(editing);
+  renderCalendarsTab();
 
   $('danger-row').hidden = !editing;
   if (editing) {
@@ -506,47 +510,173 @@ const dayOf = (iso) => new Date(iso).toLocaleDateString(undefined, { year: 'nume
 const readWhen = (readAt) => (readAt ? `last read ${timeAgo(readAt)}` : 'not read yet');
 const lastRead = (readAt) => { const t = readWhen(readAt); return `${t[0].toUpperCase()}${t.slice(1)}.`; };
 
-function renderFeed(editing) {
-  // Someone else's, for an owner: on or off and when it was last read, with Turn off.
-  const theirs = user.calendarFeed || { on: false };
-  $('feed-row').hidden = !editing || !(feedsAllowed || theirs.on);
-  if (editing) {
-    $('feed-row-state').textContent = theirs.on ? 'on' : 'off';
-    $('feed-row-state').classList.toggle('on', theirs.on);
-    $('feed-row-read').textContent = theirs.on ? readWhen(theirs.readAt) : '';
-    $('feed-row-off').hidden = !theirs.on;
-  }
+// A reason the server sends, as a line: when it ends "Turn it on in <Module>'s configuration." (an owner's), the module's
+// name is the link to its Configure page, where the switch is.
+function reasonInto(el, reason, module = feed && feed.module) {
+  el.textContent = '';
+  if (!reason) return;
+  const tail = module ? `Turn it on in ${module.name}'s configuration.` : '';
+  if (!tail || !reason.endsWith(tail)) { el.textContent = reason; return; }
+  const a = document.createElement('a');
+  a.href = `/module-config.html?id=${encodeURIComponent(module.id)}`;
+  a.textContent = module.name;
+  el.append(reason.slice(0, -tail.length), 'Turn it on in ', a, "'s configuration.");
+}
 
-  // Your own: shown when you may make one, or while you still have one.
+// One address's row (Everything, or a space's): the pill, Last read, its hint, its reason and its buttons. `address` is
+// { allowed, reason, on, made, readAt }; `parts` names the row's elements; `editing` is an owner looking at someone's.
+function fillAddress(parts, address, { editing, hint = '', place, whyAll = '' }) {
+  const { on, allowed } = address;
+  parts.state.textContent = on ? 'on' : 'off';
+  parts.state.classList.toggle('on', on);
+  parts.read.textContent = on ? `Made ${dayOf(address.made)}. ${lastRead(address.readAt)}` : '';
+  parts.row.classList.toggle('disabled', !editing && !allowed && !on);
+  if (parts.hint) {
+    parts.hint.textContent = editing ? '' : hint;
+    parts.hint.hidden = editing || !hint;
+  }
+  // Why it can't be used, in place. An address kept while the switch is off says so, with Turn off still offered; one
+  // kept for another reason (the module off) names that reason, the row's own or the section's, never none. A row that is
+  // off says its own reason unless the section's line above already says it for every row.
+  const cause = address.reason || whyAll;
+  const why = editing || allowed ? ''
+    : on && !feed.switches.addresses ? `Private addresses are off in ${place} for now, so this address does not work.`
+      : on ? (cause ? `${cause} This address does not work for now.` : 'This address does not work for now.') : whyAll ? '' : address.reason || '';
+  reasonInto(parts.reason, why);
+  parts.reason.hidden = !why;
+  parts.make.hidden = editing || on || !allowed;
+  parts.renew.hidden = editing || !on || !allowed;
+  parts.off.hidden = editing || !on;
+  if (parts.ownerOff) parts.ownerOff.hidden = !editing || !on;
+}
+
+const everythingParts = () => ({
+  row: $('feed-row'), state: $('feed-row-state'), read: $('feed-row-read'), hint: $('feed-everything-hint'), reason: $('feed-state'),
+  make: $('feed-make'), renew: $('feed-new'), off: $('feed-off'), ownerOff: $('feed-row-off'), status: $('feed-status'),
+});
+const spaceParts = (row) => ({
+  row, state: row.querySelector('[data-state]'), read: row.querySelector('[data-read]'), hint: row.querySelector('[data-hint]'), reason: row.querySelector('[data-reason]'),
+  make: row.querySelector('[data-action="make"]'), renew: row.querySelector('[data-action="new"]'), off: row.querySelector('[data-action="off"]'), ownerOff: row.querySelector('[data-action="owner-off"]'), status: row.querySelector('[data-status]'),
+});
+const ICON_ID = /^[a-z0-9-]{1,40}$/;
+function buildAddressRow(spaceId) {
+  const row = $('address-row-template').content.firstElementChild.cloneNode(true);
+  row.dataset.space = spaceId;
+  // An owner's Turn off, beside the person's own buttons (shown by fillAddress).
+  const ownerOff = document.createElement('button');
+  ownerOff.type = 'button';
+  ownerOff.className = 'btn btn-small btn-danger';
+  ownerOff.dataset.action = 'owner-off';
+  ownerOff.textContent = 'Turn off';
+  ownerOff.hidden = true;
+  row.querySelector('.address-actions').insertBefore(ownerOff, row.querySelector('[data-status]'));
+  return row;
+}
+
+// The space rows, in the order the server (or, for an owner editing someone, their spaces) gives them. Each keeps its
+// row across draws, so focus and a row's status stay.
+function renderAddressRows(rows, editing, place, whyAll = '') {
+  const list = $('address-list');
+  const keep = new Set();
+  rows.forEach(({ id, name, icon, address, hint }, i) => {
+    keep.add(id);
+    let row = list.querySelector(`[data-space="${CSS.escape(id)}"]`);
+    if (!row) row = buildAddressRow(id);
+    if (list.children[i + 1] !== row) list.insertBefore(row, list.children[i + 1] || null);
+    row.querySelector('.address-name').textContent = name;
+    const iconEl = row.querySelector('.address-icon');
+    iconEl.className = `fa-solid fa-${ICON_ID.test(icon || '') ? icon : 'message'} fa-fw address-icon`;
+    const parts = spaceParts(row);
+    parts.make.setAttribute('aria-label', `Make an address for ${name}`);
+    parts.renew.setAttribute('aria-label', `New address for ${name}`);
+    parts.off.setAttribute('aria-label', `Turn off the address for ${name}`);
+    parts.ownerOff.setAttribute('aria-label', `Turn off the address for ${name}`);
+    fillAddress(parts, address, { editing, hint, place, whyAll });
+  });
+  for (const row of [...list.querySelectorAll('[data-space]')]) if (!keep.has(row.dataset.space)) row.remove();
+}
+
+// The row the address just made belongs to, holding #feed-made. Nothing shows the address but this box.
+function placeFeedMade(on) {
+  const box = $('feed-made');
+  box.hidden = !on;
+  $('feed-url').textContent = on ? feedUrl : '';
+  if (!on) return;
+  const row = feedUrlFor === 'everything' ? $('feed-row') : $('address-list').querySelector(`[data-space="${CSS.escape(feedUrlFor)}"]`);
+  if (row && box.parentElement !== row) row.appendChild(box);
+}
+
+function renderFeed(editing) {
   const section = $('section-feed');
-  section.hidden = editing || !feed || !(feed.allowed || feed.on);
-  if (section.hidden) return;
   const place = environmentName || `this ${word('environment')}`;
-  $('feed-hint').textContent = `Add your events from ${place} to Google Calendar, Apple Calendar or Outlook. Anyone with the address can see them, so keep it private.`;
-  const state = $('feed-state');
-  state.hidden = !feed.on;
-  state.textContent = !feed.on ? ''
-    : feed.allowed ? `On, made ${dayOf(feed.made)}. ${lastRead(feed.readAt)}`
-      : `Private addresses are off in ${place} for now, so this address does not work. ${lastRead(feed.readAt)}`;
-  $('feed-made').hidden = !(feed.on && feedUrl);
-  $('feed-url').textContent = feedUrl;
-  $('feed-make').hidden = feed.on || !feed.allowed;
-  $('feed-new').hidden = !feed.on || !feed.allowed;
-  $('feed-off').hidden = !feed.on;
+  $('calendars-intro').hidden = editing; // written to the person themselves
+  if (editing) {
+    // Someone else's, for an owner: each address on or off and when it was last read, with Turn off. Never the address.
+    const theirs = user.calendarFeed || { on: false, made: null, readAt: null };
+    const spaces = Object.entries(user.spaces || {}).filter(([id]) => spacesById.has(id)).map(([id, s]) => ({ id, name: spacesById.get(id).name, icon: spacesById.get(id).linkIcon && spacesById.get(id).linkIcon !== 'link' ? spacesById.get(id).linkIcon : 'message', address: s.calendarFeed || { on: false } }));
+    const holds = theirs.on || spaces.some((s) => s.address.on);
+    section.hidden = !(feedsAllowed || holds);
+    if (section.hidden) return;
+    $('feed-hint').textContent = `${user.displayName}'s private addresses: whether each is on and when their calendar app last read it. You can turn one off; they can make a new one.`;
+    $('feed-why').hidden = true;
+    fillAddress(everythingParts(), { ...theirs, allowed: feedsAllowed }, { editing, place });
+    renderAddressRows(spaces, editing, place);
+    placeFeedMade(false);
+    return;
+  }
+  // Your own: shown when you may make one, while you still have one, or while the server says why you can't.
+  const { everything, spaces, reasons } = feed || {};
+  const holds = Boolean(feed) && (everything.on || spaces.some((s) => s.address.on));
+  section.hidden = !feed || !(everything.allowed || spaces.some((s) => s.address.allowed) || holds || reasons.addresses);
+  if (section.hidden) return;
+  $('feed-hint').textContent = `Add events from ${place} to Google Calendar, Apple Calendar or Outlook. Anyone with an address can see its events, so keep each private.`;
+  // The environment's reason once, above the rows, when it stops every address; a kept address still says so on its row.
+  const whyAll = !everything.allowed && everything.reason && spaces.every((s) => !s.address.allowed) ? everything.reason : '';
+  reasonInto($('feed-why'), whyAll);
+  $('feed-why').hidden = !whyAll;
+  const everythingHint = spaces.length
+    ? `Every event you can see in ${place}: its own and those of your ${word('space', { many: true })}, in one calendar.`
+    : `Every event you can see in ${place}, in one calendar.`;
+  fillAddress(everythingParts(), everything, { editing, hint: everythingHint, place, whyAll });
+  renderAddressRows(spaces.map((s) => ({
+    ...s,
+    hint: everything.on && s.address.allowed ? `Your everything address already holds this ${word('space')}, so you only need one of them.` : s.address.allowed ? `${s.name}'s events only, as their own calendar.` : '',
+  })), editing, place, whyAll);
+  placeFeedMade(Boolean(feedUrl) && (feedUrlFor === 'everything' ? everything.on : spaces.some((s) => s.id === feedUrlFor && s.address.on)));
+}
+
+// Whether the Calendars tab is offered: the Calendar is on and an owner has turned on a switch (or you are an owner, who
+// is told where to), or you still hold an address or an other calendar. An owner editing someone: while the environment
+// allows addresses or they hold one. Not a guest's, who has no Profile.
+function calendarsTabShown() {
+  if (editingKey) return !$('section-feed').hidden;
+  if (!feed) return Boolean(external && (external.calendars.length || external.allowed));
+  const holds = feed.everything.on || feed.spaces.some((s) => s.address.on) || Boolean(external && external.calendars.length);
+  const on = feed.module?.on && (feed.switches.addresses || feed.switches.otherCalendars || hasOwnerRights(user));
+  return Boolean(holds || on);
+}
+function renderCalendarsTab() {
+  const shown = calendarsTabShown();
+  document.querySelector('[data-tab="calendars"]').hidden = !shown;
+  if (!shown && !$('tab-calendars').hidden) selectTab('profile');
 }
 
 async function loadFeed() {
   if (editingKey) {
-    // Whether the environment allows feeds decides if an owner sees the row for someone without one.
+    // Whether the environment allows feeds decides if an owner sees the rows for someone without one.
     try { feedsAllowed = (await api('GET', '/api/settings')).settings?.calendarFeeds === true; } catch { feedsAllowed = false; }
     return;
   }
   const seq = ++feedSeq;
   try {
-    const got = await api('GET', '/api/me/feed');
+    const got = await api('GET', '/api/me/calendars');
     if (seq !== feedSeq) return false;
     // The address shown once is shown only while it is still the one in use (not turned off or replaced elsewhere).
-    if (feedUrl && !(got.on && feed && got.made === feed.made)) feedUrl = '';
+    if (feedUrl) {
+      const was = feedUrlFor === 'everything' ? feed?.everything : feed?.spaces.find((s) => s.id === feedUrlFor)?.address;
+      const now = feedUrlFor === 'everything' ? got.everything : got.spaces.find((s) => s.id === feedUrlFor)?.address;
+      if (!(now && now.on && was && now.made === was.made)) { feedUrl = ''; feedUrlFor = ''; }
+    }
     feed = got;
     return true;
   } catch {
@@ -566,20 +696,34 @@ function refreshFeed() {
     const section = $('section-feed');
     const had = section.contains(document.activeElement) ? document.activeElement : null;
     renderFeed(false);
-    // Focus on a button this answer hid goes to the section's first button still shown.
-    if (had && had.closest('[hidden]')) section.querySelector('.row button:not([hidden])')?.focus();
+    renderCalendarsTab();
+    // Focus on a button this answer hid goes to its row's first button still shown, else the section's.
+    if (had && had.closest('[hidden]')) (had.closest('.address-row')?.querySelector('.row button:not([hidden])') || section.querySelector('.row button:not([hidden])'))?.focus();
   }).finally(() => { feedReading = false; });
 }
 document.addEventListener('visibilitychange', refreshFeed);
 window.addEventListener('pageshow', (event) => { if (event.persisted) refreshFeed(); });
 
-async function makeFeed() {
-  const made = await api('POST', '/api/me/feed', {});
+// Makes an address (Everything, or a space's), replacing any old one: the server answers it once.
+async function makeFeed(spaceId = '') {
+  const made = await api('POST', spaceId ? `/api/me/spaces/${encodeURIComponent(spaceId)}/feed` : '/api/me/feed', {});
   feedSeq += 1; // a read in flight is older than this
   feedUrl = made.url;
-  feed = { ...feed, on: true, made: made.made, readAt: null };
+  feedUrlFor = spaceId || 'everything';
+  const fresh = { on: true, made: made.made, readAt: null };
+  if (spaceId) feed = { ...feed, spaces: feed.spaces.map((s) => (s.id === spaceId ? { ...s, address: { ...s.address, ...fresh } } : s)) };
+  else feed = { ...feed, everything: { ...feed.everything, ...fresh } };
   render();
   $('feed-copy').focus();
+}
+async function turnOffFeed(spaceId = '') {
+  await api('DELETE', spaceId ? `/api/me/spaces/${encodeURIComponent(spaceId)}/feed` : '/api/me/feed');
+  if (feedUrlFor === (spaceId || 'everything')) { feedUrl = ''; feedUrlFor = ''; }
+  const gone = { on: false, made: null, readAt: null };
+  if (spaceId) feed = { ...feed, spaces: feed.spaces.map((s) => (s.id === spaceId ? { ...s, address: { ...s.address, ...gone } } : s)) };
+  else feed = { ...feed, everything: { ...feed.everything, ...gone } };
+  await loadFeed(); // the switch may have moved meanwhile
+  render();
 }
 $('feed-make').addEventListener('click', () => run(async () => {
   await makeFeed();
@@ -591,22 +735,57 @@ $('feed-new').addEventListener('click', () => run(async () => {
   sayField($('feed-status'), 'new address made');
 }, $('feed-status')));
 $('feed-off').addEventListener('click', () => run(async () => {
-  if (!window.confirm('Turn off your calendar feed? The address stops working, and your calendar app stops getting new events.')) return;
-  await api('DELETE', '/api/me/feed');
-  feedUrl = '';
-  feed = { ...feed, on: false }; // until the read below says more
-  await loadFeed();
-  render();
-  sayField($('feed-status'), 'calendar feed turned off');
+  if (!window.confirm('Turn off your everything address? It stops working, and your calendar app stops getting new events.')) return;
+  await turnOffFeed();
+  sayField($('feed-status'), 'address turned off');
 }, $('feed-status')));
 $('feed-copy').addEventListener('click', () => copy(feedUrl, $('feed-status')));
+// An owner turning off someone's everything address.
 $('feed-row-off').addEventListener('click', () => run(async () => {
-  if (!window.confirm(`Turn off ${user.displayName}'s calendar feed? Their address stops working. They can make a new one.`)) return;
+  if (!window.confirm(`Turn off ${user.displayName}'s everything address? It stops working. They can make a new one.`)) return;
   await api('DELETE', `/api/users/${user.key}/feed`);
   await reload();
   render();
-  sayField($('account-status'), 'calendar feed turned off');
-}, $('account-status')));
+  sayField($('feed-status'), 'address turned off');
+  focusAfterTurnOff($('feed-row'));
+}, $('feed-status')));
+// Focus after Turn off hid the button it was on: the row's next shown button, else the row itself (focusable by script).
+function focusAfterTurnOff(row) {
+  const next = row.querySelector('.row button:not([hidden])');
+  if (next) { next.focus(); return; }
+  row.tabIndex = -1;
+  row.focus();
+}
+// A space's row: the person's own buttons, or an owner's Turn off.
+$('address-list').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-action]');
+  const row = button?.closest('[data-space]');
+  if (!button || !row) return;
+  const spaceId = row.dataset.space;
+  const name = row.querySelector('.address-name').textContent;
+  const status = row.querySelector('[data-status]');
+  run(async () => {
+    if (button.dataset.action === 'make') {
+      await makeFeed(spaceId);
+      sayField(row.querySelector('[data-status]'), 'address made');
+    } else if (button.dataset.action === 'new') {
+      if (!window.confirm(`Make a new address for ${name}? The old address stops working. Add the new one in Google again.`)) return;
+      await makeFeed(spaceId);
+      sayField(row.querySelector('[data-status]'), 'new address made');
+    } else if (button.dataset.action === 'off') {
+      if (!window.confirm(`Turn off your address for ${name}? It stops working, and your calendar app stops getting new events.`)) return;
+      await turnOffFeed(spaceId);
+      sayField(row.querySelector('[data-status]'), 'address turned off');
+    } else if (button.dataset.action === 'owner-off' && editingKey) {
+      if (!window.confirm(`Turn off ${user.displayName}'s address for ${name}? It stops working. They can make a new one.`)) return;
+      await api('DELETE', `/api/users/${user.key}/spaces/${encodeURIComponent(spaceId)}/feed`);
+      await reload();
+      render();
+      sayField(row.querySelector('[data-status]'), 'address turned off');
+      focusAfterTurnOff(row);
+    }
+  }, status);
+});
 
 // --- other calendars (plan-google-calendar.md, Part 2) ----------------------
 // Your own calendars elsewhere (Google's, say), added by their private address: their events show in the calendar, read
@@ -628,6 +807,16 @@ function failure(err) {
   return err.message;
 }
 
+// An owner's reason ends "Turn it on in <Module>'s configuration." (plan-space-calendars.md, section 4): the module's name
+// becomes the link to its Configure page, as the address rows draw it (reasonInto). Only once the addresses are known.
+function linkConfigure(el, why) {
+  const module = typeof feed !== 'undefined' && feed ? feed.module : null;
+  const tail = module ? `Turn it on in ${module.name}'s configuration.` : '';
+  if (!tail || !why.endsWith(tail)) return;
+  const rest = el.textContent.slice(why.length);
+  reasonInto(el, why, module);
+  if (rest) el.append(rest);
+}
 // One calendar's row, made once; externalFill() writes what it says.
 function externalRow(id) {
   const row = document.createElement('li');
@@ -688,10 +877,11 @@ function renderExternal(editing) {
   section.hidden = editing || !external || !(external.allowed || calendars.length || external.why);
   if (section.hidden) return;
   const place = environmentName || `this ${word('environment')}`;
-  $('external-hint').textContent = `See the events of your own calendars, such as Google Calendar, beside the ones in ${place}. Only you see them.`;
+  $('external-hint').textContent = `Their events show in your Calendar, only to you. In ${word('space', { a: true })}, you can share when you are busy, never what you are doing.`;
   $('external-off').hidden = external.allowed;
   $('external-off').textContent = external.allowed ? ''
     : [external.why || `Other calendars are off in ${place} for now.`, calendars.length ? 'Until then their events do not show. You can still remove them.' : ''].filter(Boolean).join(' ');
+  if (!external.allowed) linkConfigure($('external-off'), external.why || '');
   const list = $('external-list');
   list.hidden = !calendars.length;
   // Each calendar keeps its row: only what changed is written, and a row moves only when its place changed.
@@ -953,14 +1143,26 @@ $('delete-btn').addEventListener('click', () => run(async () => {
   location.href = '/admin';
 }));
 
-// Profile / Spaces tabs, remembered in the address -- same pattern as
-// admin.html's tabs. #rooms, the old name, still opens Spaces.
+// Profile / Calendars / Spaces tabs, remembered in the address -- same pattern as admin.html's tabs. #rooms, the old
+// name, still opens Spaces. #calendars&space=<id> (the Calendar's menu in a space, plan-space-calendars.md decision 10)
+// opens Calendars on that space's row.
 function selectTab(name) {
-  const tab = name === 'spaces' || name === 'rooms' ? 'spaces' : 'profile';
+  const [asked, ...rest] = String(name || '').split('&');
+  const tabOf = (name) => (name === 'spaces' || name === 'rooms' ? 'spaces' : name === 'calendars' ? 'calendars' : 'profile');
+  const wanted = tabOf(asked);
+  const tab = wanted === 'calendars' && document.querySelector('[data-tab="calendars"]').hidden ? 'profile' : wanted;
   $('tab-profile').hidden = tab !== 'profile';
+  $('tab-calendars').hidden = tab !== 'calendars';
   $('tab-spaces').hidden = tab !== 'spaces';
   for (const b of document.querySelectorAll('.subtab')) b.classList.toggle('active', b.dataset.tab === tab);
-  if (location.hash !== `#${tab}`) history.replaceState(null, '', `#${tab}`);
+  const spaceId = tab === 'calendars' ? new URLSearchParams(rest.join('&')).get('space') : null;
+  const hash = spaceId ? `#calendars&space=${encodeURIComponent(spaceId)}` : `#${tab}`;
+  if (location.hash !== hash) history.replaceState(null, '', hash);
+  if (spaceId) {
+    const row = $('address-list').querySelector(`[data-space="${CSS.escape(spaceId)}"]`);
+    row?.scrollIntoView({ block: 'center' });
+    (row?.querySelector('.row button:not([hidden])') || row)?.focus?.();
+  }
 }
 $('subtabs').addEventListener('click', (event) => {
   const b = event.target.closest('.subtab');

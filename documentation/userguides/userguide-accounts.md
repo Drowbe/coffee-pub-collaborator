@@ -142,48 +142,51 @@ To change your photo, open your profile and click the photo at the top, or paste
 (Tab to it and press Ctrl+V, Cmd+V on a Mac, or choose its **Paste** button). Your other pictures on the profile
 work the same way; see "Set a picture" in [Participant and Character Images](userguide-images.md).
 
+## The Calendars tab
+
+Your profile has a **Calendars** tab, between **Profile** and **Spaces**, with everything about your calendars in one place. It shows when the Calendar is on and an owner has turned on **Private addresses** or **Other calendars and busy times** (on the Calendar's configuration page; see "Calendar sharing (owner)" in [Calendar](userguide-calendar.md)); owners see it whenever the Calendar is on, so they can read where to turn a switch on; and anyone keeps it while they still hold an address or an other calendar. Guests have no profile. One line at the top says which way each section goes: "Calendars coming in are only for you. Addresses going out let your calendar app show events from here." Then two sections:
+
+1. **Your calendars, coming in**: your own Google, Apple or other calendars, shown in the Calendar for you alone. See "Your other calendars in Collaborator" below.
+2. **Addresses, going out**: private addresses your calendar app reads to show events from here. See "Your calendar in a calendar app" below.
+
+Sharing when you are busy with a space's members is not built yet; it will be a third section here.
+
+When something can't be used, the section says why, in place, rather than disappearing. For addresses: "Owners have not turned on private addresses in <environment>." (an owner reads "Turn it on in Calendar's configuration." after it, with **Calendar** as the link to the page), "Calendar is off in <environment>.", or "No module here has events to add to a calendar app." Other calendars have their own reasons, listed below. The names in these lines are the ones your environment uses. The tab reads its state again whenever you come back to the page, so a change an owner makes (in another tab, or in this one before going back) shows without a reload. `/profile#calendars` opens the tab; `/profile#calendars&space=<id>` opens it on that space's row.
+
 ## Your calendar in a calendar app
 
-When an owner has turned on **Private addresses** (on the Calendar's configuration page; see "Calendar sharing (owner)"
-in [Calendar](userguide-calendar.md)), members and owners can add the events
-they can see to Google Calendar, Apple Calendar or Outlook through a private address. It is one way: changes in
-the calendar app don't come back.
+When an owner has turned on **Private addresses**, members and owners can add events to Google Calendar, Apple Calendar or Outlook through a private address. It is one way: changes in the calendar app don't come back. There are two kinds of address, under **Addresses, going out** on the **Calendars** tab:
 
-1. Open your profile. **Calendar feed** is after **Call Settings**. It shows when private addresses are on and there are events
-   you can see, or while you still have an address.
-2. Choose **Make an address**. The address is shown once, with **Copy**. Anyone with the address can see your
-   events, so keep it private.
-3. Add it to your calendar app:
-   - Google Calendar: choose **Other calendars**, then **From URL**, and paste it. The section says "Google can take 8
-     to 24 hours to show a change.": Google reads the address on its own schedule, so new events, changes and
-     deletions show there later. Apple Calendar is usually quicker.
-   - Apple Calendar on a Mac: **File**, then **New Calendar Subscription**. On an iPhone: **Settings**, **Calendar**,
-     **Accounts**, **Add Account**, **Other**, **Add Subscribed Calendar**.
+- **Everything**, the first row: every event you can see in the environment, its own and those of your spaces, in one calendar.
+- One row per space you belong to, with the space's icon and name: that space's events only, as a calendar of its own named after the space, for a trip you want as its own calendar in Google. When you also have an everything address, the row says "Your everything address already holds this <space>, so you only need one of them."
 
-Afterwards the section reads "On, made <date>. Last read <time ago>." (the time can lag by up to an hour).
-**New address** replaces it, so the old one stops working; **Turn off** stops it. Both ask first.
+Each row shows **on** or **off**, and, when on, "Made <date>. Last read <time ago>." (or "Not read yet."; the time can lag by up to an hour).
 
-If an owner turns **Private addresses** off while you have an address, the section reads "Private addresses are off in
-<environment> for now, so this address does not work." with when it was last read. The address is kept, and works again
-when the owner turns the switch back on. The section reads its state again whenever you come back to the page, so a
-change an owner makes (in another tab, or in this one before going back) shows without a reload.
+1. Open your profile and choose **Calendars**. The section's line reads "Add events from <environment> to Google Calendar, Apple Calendar or Outlook. Anyone with an address can see its events, so keep each private."
+2. On the row you want, choose **Make an address**. The address is shown once, in that row, with **Copy**. Anyone with the address can see those events, so keep it private.
+3. Add it to your calendar app, following the steps under the address:
+   - Google Calendar: choose **Other calendars**, then **From URL**, and paste it. The steps end "Google can take 8 to 24 hours to show a change.": Google reads the address on its own schedule, so new events, changes and deletions show there later. Apple Calendar is usually quicker.
+   - Apple Calendar on a Mac: **File**, then **New Calendar Subscription**. On an iPhone: **Settings**, **Calendar**, **Accounts**, **Add Account**, **Other**, **Add Subscribed Calendar**.
 
-The feed holds the environment's events and those of the spaces you belong to, as you may see them each time it is
-read; events more than 90 days past are left out. Repeating events repeat, a Planner object with a date appears
-once (as its Calendar event), and each event links back to the Calendar.
+**New address** replaces an address, so the old one stops working and you add the new one in your calendar app again; **Turn off** stops it. Both ask first. The address is shown only until you leave the page; after that, **New address** is the only way to get one.
 
-**For owners:** Manage > **Users** marks who has a calendar feed, with **Turn off feed**, and a person's profile
-shows "Calendar feed · on/off · last read … · Turn off". You never see anyone's address.
+A space's row can be used only while you are a member of that space and can see its Calendar; an owner or the admin who is not a member gets no address for it. Leaving a space, or being taken out of it, ends your address for it, and so does deleting the space. When a space's Calendar is off, or you may not see it, its row says "Calendar is off in this <space>." The **Everything** row says "There are no events here you can add to a calendar app." while nothing you can see offers any.
+
+If an owner turns **Private addresses** off while you have an address, its row reads "Private addresses are off in <environment> for now, so this address does not work.", with **Turn off** still offered. The address is kept, and works again when the owner turns the switch back on. A kept address that stopped working for another reason (the Calendar off in that space, say) shows that reason followed by "This address does not work for now."
+
+An everything address holds the environment's events and those of the spaces you belong to, as you may see them each time it is read; a space's address holds that space's, as you may see them there. Events more than 90 days past are left out. Repeating events repeat, a Planner object with a date appears once (as its Calendar event), and each event links back to the Calendar.
+
+**For owners:** a person's profile has the **Calendars** tab too, showing each of their addresses on or off with "Made … Last read …" and **Turn off**: "<name>'s private addresses: whether each is on and when their calendar app last read it. You can turn one off; they can make a new one." Manage > **Users** also marks who has an everything address, with **Turn off feed**. You never see anyone's address.
 
 ## Your other calendars in Collaborator
 
 The other way round: show events from your own Google, Apple or other calendar in the Calendar, for you alone. It is
-in your profile under **Calendar feed**, as **Other calendars**, while the owner has **Other calendars and busy
-times** on (on the Calendar's configuration page) and the Calendar can show them. Members and owners have it; guests don't.
+the first section of your profile's **Calendars** tab, **Your calendars, coming in**, while the owner has **Other calendars and busy
+times** on (on the Calendar's configuration page) and the Calendar can show them. Members and owners have it; guests don't. Its line reads "Their events show in your Calendar, only to you. In a <space>, you can share when you are busy, never what you are doing." (sharing busy times is not built yet).
 
 1. Find your calendar's private address. In Google Calendar: open **Settings**, pick the calendar, choose
    **Integrate calendar**, and copy the **Secret address in iCal format**. A `webcal://` address works too.
-2. Under **Other calendars**, type a **Name** and paste the **Address**.
+2. Under **Your calendars, coming in**, type a **Name** and paste the **Address**.
 3. Add it. The address is read first, which can take up to 15 seconds; one that can't be read is refused with the
    reason.
 

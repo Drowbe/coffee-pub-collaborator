@@ -6462,6 +6462,110 @@ body.conference-window {
   background: var(--bg);
 }
 
+/* lift:start -- a sandboxed frame lifted over the canvas while its editor window is open (module-host.js, editor.lift;
+   plan-editor-window.md, "A module in a sandboxed frame"). The frame is fixed and centered, exactly the editor's width
+   (560 or 880 px, the SDK's sizes) and as tall as the form needs (--lift-h, from the module's SDK), capped at the
+   viewport less 48 px, and the dialog inside fills it (.sdk-editor-lifted in /sdk/host.css), so the frame is the
+   window; a full-screen sheet at 640 px and below, padded by the safe areas. Behind it the backdrop (the editor's tint)
+   and, as the host's own way out, a Close button in the page's top corner (top left on a phone, where the sheet's own
+   Close is at the top right). All at the menus' level: above the floating layer (a docked module's lift must clear the
+   floating modules) and under the pages opened over the call. Colours from the tokens. */
+.module-editor-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100dvh;
+  z-index: var(--z-menu);
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+iframe.module-editor-lifted {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(560px, 100vw - 32px);
+  height: min(var(--lift-h, 100dvh), 100dvh - 48px);
+  min-height: 0;
+  z-index: var(--z-menu);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+iframe.module-editor-lifted.module-editor-lifted-large {
+  width: min(880px, 100vw - 32px);
+}
+
+.module-editor-close {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: var(--z-menu);
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-section);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.module-editor-close:hover {
+  background: var(--surface-hover);
+}
+
+.module-editor-close:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  iframe.module-editor-lifted {
+    top: 0;
+    left: 0;
+    transform: none;
+    width: 100vw;
+    height: 100dvh;
+    box-sizing: border-box;
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) env(safe-area-inset-bottom, 0px) env(safe-area-inset-left, 0px);
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .module-editor-backdrop {
+    background: var(--bg);
+  }
+
+  .module-editor-close {
+    top: calc(2px + env(safe-area-inset-top, 0px));
+    right: auto;
+    left: calc(2px + env(safe-area-inset-left, 0px));
+    width: 44px;
+    height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .module-editor-backdrop,
+  iframe.module-editor-lifted {
+    animation: module-editor-lift 0.15s ease-out;
+  }
+
+  @keyframes module-editor-lift {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
+/* lift:end */
+
 .dock-resize {
   grid-row: 1 / -1;
   justify-self: start;
@@ -8275,3 +8379,29 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
 /* Manage's one line saying where a setting moved, in place of the panel it had. */
 .moved-note p { margin: 0; color: var(--text-dim); font-size: 13px; }
+
+/* calendars-tab:start -- Profile's Calendars tab (plan-space-calendars.md, section 4): one row per address (Everything,
+   then each space), its icon and name, on or off, Last read, the reason it can't be used, its buttons; the address
+   just made (#feed-made) sits inside its row. A row that can't be used is dimmed; its reason keeps its colour. */
+.calendars-intro { margin: 0; }
+.address-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.address-row { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-card, var(--bg)); }
+.address-row.disabled .address-what { opacity: 0.6; }
+.address-what { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-width: 0; }
+.address-what .address-icon { color: var(--icon, var(--text-dim)); }
+.address-what .address-name { overflow-wrap: anywhere; }
+.address-row .hint { margin: 0; white-space: normal; }
+.address-row .address-actions { margin-top: 2px; }
+.address-row .address-actions:not(:has(button:not([hidden]))) { display: none; }
+.address-row .feed-made { margin: 4px 0 0; }
+.panel .address-row .address-hint { overflow-wrap: anywhere; }
+@media (max-width: 640px) {
+  .address-what .pill { order: 1; }
+  .address-what [data-read], .address-what #feed-row-read { flex-basis: 100%; order: 2; }
+}
+/* Module Configuration's published calendar, under the Calendar sharing switches: its state, the address once, its buttons. */
+.published-calendar { display: flex; flex-direction: column; gap: 8px; margin-left: 30px; }
+.published-calendar .hint { margin: 0; }
+.published-calendar .feed-made { margin: 0; }
+@media (max-width: 640px) { .published-calendar { margin-left: 0; } }
+/* calendars-tab:end */

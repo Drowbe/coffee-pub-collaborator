@@ -1380,6 +1380,9 @@ function publicUser(req, u, opts = {}) {
       useDefaultImages: u.spaces[space.id]?.useDefaultImages !== false,
       permissions: store.spaceFlags(u.key, space.id), // the stored ticks, for the profile page
       effective: store.spacePermissions(u.key, space.id), // what they can actually do there
+      // Whether they hold an address for this space (plan-space-calendars.md, section 1), for the same people who see
+      // the personal one: never its hash.
+      ...(maySeeLink(req, u, opts) ? { calendarFeed: feedView(u.spaces[space.id]?.calendarFeed) } : {}),
     };
   }
   return {
@@ -4705,47 +4708,89 @@ app.get('/api/modules/:id/spaces-data', (req, res) => {
   res.json({ spaces, items });
 });
 
-// --- calendar feeds (documentation/plans/plan-google-calendar.md, Part 1) ---------------------------------------------
-// A person's private address that shares the events they can read with their own calendar app. The token is shown
-// once and kept only as its SHA-256 (store.setCalendarFeed); /feed/<token>.ics is looked up in the environment the
-// request reached, so one environment's address is 404 at another. Nothing here names a module: a kind offers itself
-// with "feed": true beside "dated" (cleanRefs in server/modules.js), and is read with the person's rights at each read.
+// --- calendar feeds (documentation/plans/plan-google-calendar.md, Part 1; plan-space-calendars.md, sections 1 and 2) ---
+// Three kinds of address, one route. A person's private address shares the events they can read with their own
+// calendar app; their address for one space shares that space's events only (one token per person per space); the
+// environment's published calendar is one address owners hand out, holding every space's events whoever reads it. Each
+// token is shown once and kept only as its SHA-256 (store.setCalendarFeed, setSpaceCalendarFeed,
+// setPublishedCalendarFeed); /feed/<token>.ics is looked up in the environment the request reached, so one
+// environment's address is 404 at another. Nothing here names a module: a kind offers itself with "feed": true beside
+// "dated" (cleanRefs in server/modules.js), and is read with the person's rights at each read (the published one with
+// nobody's).
 const FEED_TOKEN_RE = /^[A-Za-z0-9_-]{43}$/;
 const FEED_READS_PER_MINUTE = 30;
 const FEED_MAX_EVENTS = 2000;
 const FEED_NOT_HERE = 'There is no calendar at this address.';
+const FEED_NOTHING = 'There are no events here you can add to a calendar app.';
 const feedHash = (token) => crypto.createHash('sha256').update(token).digest('hex');
-const calendarFeedView = (u) => ({ on: Boolean(u.calendarFeed), made: u.calendarFeed?.made || null, readAt: u.calendarFeed?.readAt || null });
+const newFeedToken = () => crypto.randomBytes(32).toString('base64url');
+// What anyone but the holder sees of an address: whether there is one, when it was made and last read. Never the hash.
+const feedView = (feed) => ({ on: Boolean(feed), made: feed?.made || null, readAt: feed?.readAt || null });
+const calendarFeedView = (u) => feedView(u.calendarFeed);
+const feedKinds = (manifest) => manifest.refs.produces.filter((p) => p.feed && p.dated);
 
-// The enabled modules with a kind offered to the feed that this person may read at environment level (the spaces-data
-// rule's first test), each with those kinds.
-function feedModulesFor(who) {
-  const perms = modulePerms(who, null);
+// The enabled modules with a kind offered to the feed, each with those kinds: the ones this person may read at
+// environment level (the spaces-data rule's first test), or, with `space`, the ones on in that space that they may read
+// there.
+function feedModulesFor(who, space = null) {
+  const perms = modulePerms(who, space ? space.id : null);
   return modules.enabledAll()
-    .map((found) => ({ ...found, kinds: found.manifest.refs.produces.filter((p) => p.feed && p.dated) }))
-    .filter(({ manifest, kinds }) => kinds.length && moduleCan(manifest, perms, 'read'));
+    .map((found) => ({ ...found, kinds: feedKinds(found.manifest) }))
+    .filter(({ manifest, entry, kinds }) => kinds.length && moduleCan(manifest, perms, 'read')
+      && (!space || (manifest.scope.includes('space') && modules.isOnIn(entry.id, space.id))));
 }
 const feedAllowed = (who) => store.settings.calendarFeeds === true && feedModulesFor(who).length > 0;
 
-// Every event the person may read, as server/ics.js writes them: the environment's own where the module has that scope,
-// and each space they are a member of where it is on and readable. Long past ones are left out; at most 2000, the
-// latest kept.
-function feedEvents(req, user) {
-  const who = { user, guestSpace: null };
+// The module whose events the addresses carry, as this environment names it: the enabled one offering a kind, else an
+// installed one that is off, else one that ships here; { id, name, on }, or null when nothing here could ever offer one.
+function feedModule() {
+  const enabled = modules.enabledAll().find(({ manifest }) => feedKinds(manifest).length);
+  if (enabled) return { id: enabled.manifest.id, name: modules.shownName(enabled.manifest), on: true };
+  for (const id of Object.keys(modules.registry.modules)) {
+    const manifest = modules.manifestOf(id, modules.registry.modules[id].version);
+    if (manifest && feedKinds(manifest).length) return { id, name: modules.shownName(manifest), on: false };
+  }
+  const bundled = bundledModules(BUNDLED_DIR).find((b) => (b.refs?.produces || []).some((p) => p.feed && p.dated) && moduleAllowedByPlan(b.id));
+  return bundled ? { id: bundled.id, name: store.moduleDisplay(bundled.id).name || bundled.name, on: false } : null;
+}
+
+// Why nobody here can hold an address right now, in one sentence, or null: the switch is off (an owner is told where
+// to turn it on), the module that would offer events is off, or nothing here offers any. plan-space-calendars.md's
+// "why can't I" states.
+function addressesWhy(user) {
+  const here = store.settings.environmentName || `this ${word('environment')}`;
+  const module = feedModule();
+  if (store.settings.calendarFeeds !== true) {
+    const off = `${word('owner', { many: true, cap: true })} have not turned on private addresses in ${here}.`;
+    return hasOwnerRights(user) && module ? `${off} Turn it on in ${module.name}'s configuration.` : off;
+  }
+  if (module?.on) return null;
+  return module ? `${module.name} is off in ${here}.` : `No ${word('module')} here has events to add to a calendar app.`;
+}
+// Why this person can't hold an address for this space, or null when they can: not a member (an owner or the admin
+// who is not one gets none either), the environment's reason above, or the module off or unreadable for them there.
+function spaceAddressWhy(user, space) {
+  if (!space.members.includes(user.key)) return `You are not in this ${word('space')}.`;
+  const why = addressesWhy(user);
+  if (why) return why;
+  if (!feedModulesFor({ user, guestSpace: null }, space).length) return `${feedModule().name} is off in this ${word('space')}.`;
+  return null;
+}
+
+// Reads `sources` ([{ manifest, kinds, places: [{ scopeKey, space }] }]) as server/ics.js writes them. Long past events
+// are left out; at most 2000, the latest kept. `destinationFor(module id)`: the Calendar destination's path when the link
+// should go there, else null for the module's own page. `nameSpaces`: whether each description starts with the space's
+// (or the environment's) name.
+function readFeed(req, sources, { destinationFor, nameSpaces }) {
   const tz = ics.serverZone();
   const base = baseUrl(req);
   const host = new URL(base).hostname;
   const environmentName = store.settings.environmentName || '';
   const now = Date.now();
   const out = [];
-  for (const found of feedModulesFor(who)) {
-    const { manifest } = found;
-    const places = [
-      ...(manifest.scope.includes('environment') ? [{ scopeKey: 'environment', space: null }] : []),
-      ...readableSpacesOf(found, who).map((r) => ({ scopeKey: scopeKeyOf('space', { spaceId: r.id }), space: r })),
-    ];
-    const destination = destinationPathOf(manifest.id, destinationContext(who));
-    for (const kind of found.kinds) {
+  for (const { manifest, kinds, places } of sources) {
+    const destination = destinationFor(manifest.id);
+    for (const kind of kinds) {
       const prefix = kind.key.replace('{id}', '');
       for (const { scopeKey, space } of places) {
         for (const row of moduleData.list(manifest.id, scopeKey, prefix)) {
@@ -4761,7 +4806,7 @@ function feedEvents(req, user) {
             ...read,
             uid: `${kind.kind}-${id}-${space ? space.id : 'environment'}@${host}`,
             stamp: Date.parse(row.updatedAt),
-            description: [space ? space.name : environmentName, own, url].filter(Boolean).join('\n'),
+            description: [nameSpaces ? (space ? space.name : environmentName) : '', own, url].filter(Boolean).join('\n'),
             url,
           });
         }
@@ -4771,6 +4816,45 @@ function feedEvents(req, user) {
   const startMs = (e) => (e.allDay ? Date.parse(`${e.start}T00:00:00Z`) : e.start);
   out.sort((a, b) => startMs(a) - startMs(b) || (a.uid < b.uid ? -1 : 1));
   return { events: out.slice(-FEED_MAX_EVENTS), tz };
+}
+const spacePlace = (r) => ({ scopeKey: scopeKeyOf('space', { spaceId: r.id }), space: r });
+const environmentPlace = { scopeKey: 'environment', space: null };
+
+// The personal address: every event the person may read, the environment's own where the module has that scope, and
+// each space they are a member of where it is on and readable.
+function feedEvents(req, user) {
+  const who = { user, guestSpace: null };
+  const ctx = destinationContext(who);
+  const sources = feedModulesFor(who).map((found) => ({
+    ...found,
+    places: [...(found.manifest.scope.includes('environment') ? [environmentPlace] : []), ...readableSpacesOf(found, who).map(spacePlace)],
+  }));
+  return readFeed(req, sources, { destinationFor: (id) => destinationPathOf(id, ctx), nameSpaces: true });
+}
+// A space address: that one space's events, with the person's rights there; the description leaves the space's name
+// out, since the calendar is named after it.
+function spaceFeedEvents(req, user, space) {
+  const who = { user, guestSpace: null };
+  const ctx = destinationContext(who);
+  const sources = feedModulesFor(who, space).map((found) => ({ ...found, places: [spacePlace(space)] }));
+  return readFeed(req, sources, { destinationFor: (id) => destinationPathOf(id, ctx), nameSpaces: false });
+}
+// The published calendar: no person's rights. The environment's own events and every space's (never the Lobby, which
+// has no members of its own; asides hold no modules) where the module is on, except spaces left out
+// (space.publishCalendar === false). The link goes to the Calendar destination when it is shown.
+function publishedFeedEvents(req) {
+  const ctx = { settings: store.settings, enabled: modules.enabledAll(), canRead: (manifest) => manifest.scope.includes('environment'), hasFile: moduleHasFile };
+  const sources = modules.enabledAll()
+    .map((found) => ({ ...found, kinds: feedKinds(found.manifest) }))
+    .filter(({ kinds }) => kinds.length)
+    .map((found) => ({
+      ...found,
+      places: [
+        ...(found.manifest.scope.includes('environment') ? [environmentPlace] : []),
+        ...(found.manifest.scope.includes('space') ? store.spaces.filter((r) => !r.isLobby && r.publishCalendar !== false && modules.isOnIn(found.entry.id, r.id)).map(spacePlace) : []),
+      ],
+    }));
+  return readFeed(req, sources, { destinationFor: (id) => destinationPathOf(id, ctx), nameSpaces: true });
 }
 
 // Profile's Calendar feed section: whether the person may make an address, and theirs if they have one.
@@ -4782,8 +4866,8 @@ app.get('/api/me/feed', requireUser, (req, res) => {
 app.post('/api/me/feed', requireUser, (req, res) => {
   const user = currentUser(req);
   if (store.settings.calendarFeeds !== true) return res.status(403).json({ error: `Calendar feeds are off in this ${word('environment')}.` });
-  if (!feedAllowed({ user, guestSpace: null })) return res.status(403).json({ error: 'There are no events here you can add to a calendar app.' });
-  const token = crypto.randomBytes(32).toString('base64url');
+  if (!feedAllowed({ user, guestSpace: null })) return res.status(403).json({ error: FEED_NOTHING });
+  const token = newFeedToken();
   const feed = store.setCalendarFeed(user.key, feedHash(token));
   res.status(201).json({ url: `${baseUrl(req)}/feed/${token}.ics`, made: feed.made });
 });
@@ -4795,6 +4879,69 @@ app.delete('/api/me/feed', requireUser, (req, res) => {
 app.delete('/api/users/:key/feed', requireOwner, (req, res) => {
   if (!store.userByKey(req.params.key)) return res.status(404).json({ error: 'no such user' });
   store.setCalendarFeed(req.params.key, null);
+  res.status(204).end();
+});
+
+// Profile's Calendars tab in one answer (plan-space-calendars.md, section 4): the switches as they read, why each
+// cannot be used (null when it can), the module the addresses carry, the personal address, one row per space the
+// person is in with their address there, and their other calendars. `busy` comes with busy times (step 6 of the plan).
+app.get('/api/me/calendars', requireUser, (req, res) => {
+  const user = currentUser(req);
+  const who = { user, guestSpace: null };
+  const addressesReason = addressesWhy(user);
+  const everythingReason = addressesReason || (feedAllowed(who) ? null : FEED_NOTHING);
+  const externalOk = externalAllowed();
+  if (externalOk) {
+    externalCalendars.noteSeen(user.key);
+    externalCalendars.readMissing(user.key);
+  }
+  const spaces = store.spaces.filter((r) => !r.isLobby && r.members.includes(user.key)).map((r) => {
+    const reason = spaceAddressWhy(user, r);
+    return { ...spaceSummary(r), address: { allowed: !reason, reason, ...feedView(user.spaces?.[r.id]?.calendarFeed) } };
+  });
+  res.json({
+    switches: { addresses: store.settings.calendarFeeds === true, otherCalendars: store.otherCalendarsOn() },
+    reasons: { addresses: addressesReason, otherCalendars: externalOk ? null : externalWhy(user) },
+    module: feedModule(),
+    everything: { allowed: !everythingReason, reason: everythingReason, ...calendarFeedView(user) },
+    spaces,
+    external: { allowed: externalOk, calendars: externalCalendars.view(user.key) },
+  });
+});
+// A space address (section 1): a new one for the signed-in person in this space, replacing any old one, answered once;
+// 403 with the reason when they may not hold one (not a member, the switch off, the module off or unreadable there).
+app.post('/api/me/spaces/:id/feed', requireUser, (req, res) => {
+  const user = currentUser(req);
+  const space = store.spaceById(req.params.id);
+  if (!space || space.isLobby) return res.status(404).json({ error: `no such ${word('space')}` });
+  const why = spaceAddressWhy(user, space);
+  if (why) return res.status(403).json({ error: why });
+  const token = newFeedToken();
+  const feed = store.setSpaceCalendarFeed(user.key, space.id, feedHash(token));
+  res.status(201).json({ url: `${baseUrl(req)}/feed/${token}.ics`, made: feed.made });
+});
+// Turning one's own off: always allowed, even once the switch is off or the person has left.
+app.delete('/api/me/spaces/:id/feed', requireUser, (req, res) => {
+  store.setSpaceCalendarFeed(currentUser(req).key, req.params.id, null);
+  res.status(204).end();
+});
+// An owner (or the admin) turning someone's space address off. They never see it.
+app.delete('/api/users/:key/spaces/:id/feed', requireOwner, (req, res) => {
+  if (!store.userByKey(req.params.key)) return res.status(404).json({ error: 'no such user' });
+  store.setSpaceCalendarFeed(req.params.key, req.params.id, null);
+  res.status(204).end();
+});
+
+// The published calendar (section 2): owners and the admin make, replace and turn off its one address, while
+// settings.publishedCalendar is on. Its state is in GET /api/settings (publishedCalendarFeed { on, made, readAt }).
+app.post('/api/settings/published-calendar', requireOwner, (req, res) => {
+  if (store.settings.publishedCalendar !== true) return res.status(403).json({ error: `The published calendar is off in this ${word('environment')}.` });
+  const token = newFeedToken();
+  const feed = store.setPublishedCalendarFeed(feedHash(token));
+  res.status(201).json({ url: `${baseUrl(req)}/feed/${token}.ics`, made: feed.made });
+});
+app.delete('/api/settings/published-calendar', requireOwner, (_req, res) => {
+  store.setPublishedCalendarFeed(null);
   res.status(204).end();
 });
 
@@ -4811,20 +4958,51 @@ function feedOverLimit(key, now = Date.now()) {
   return seen.count > FEED_READS_PER_MINUTE ? Math.max(1, Math.ceil((seen.from + 60000 - now) / 1000)) : 0;
 }
 
+// Whose address a hash is, checked as it stands now: a personal address (the switch on, the person here), a space
+// address (the switch on, the person here, still a member, the module still on and readable for them there), then the
+// published calendar (its switch on, and a module offering events still on: turning the Calendar off stops it at once,
+// plan-space-calendars.md section 2). null for anything else, which answers 404 without saying which.
+function findFeed(hash) {
+  if (store.settings.calendarFeeds === true) {
+    const user = store.userByFeedHash(hash);
+    if (user) return { kind: 'personal', user };
+    const held = store.spaceFeedByHash(hash);
+    if (held) {
+      const space = store.spaceById(held.spaceId);
+      if (!space || space.isLobby || spaceAddressWhy(held.user, space)) return null;
+      return { kind: 'space', user: held.user, space };
+    }
+  }
+  if (store.settings.publishedCalendar === true && feedModule()?.on && store.publishedCalendarFeed?.hash === hash) return { kind: 'published' };
+  return null;
+}
+
 // The feed itself, no session: a plain 404 (never a page, never a redirect to sign in) for an unknown token, with the
-// setting off or the person gone; 429 past 30 reads a minute; else the calendar, with an ETag of what it holds.
+// setting off, the person gone or no longer a member; 429 past 30 reads a minute; else the calendar, with an ETag of
+// what it holds.
 app.get('/feed/:file', (req, res) => {
   const notHere = () => res.status(404).type('text/plain').send(FEED_NOT_HERE);
   const m = /^(.+)\.ics$/.exec(req.params.file);
-  if (!m || !FEED_TOKEN_RE.test(m[1]) || store.settings.calendarFeeds !== true) return notHere();
+  if (!m || !FEED_TOKEN_RE.test(m[1])) return notHere();
   const hash = feedHash(m[1]);
-  const user = store.userByFeedHash(hash);
-  if (!user) return notHere();
+  const found = findFeed(hash);
+  if (!found) return notHere();
   const wait = feedOverLimit(`${currentEnvironment().slug}|${hash}`);
   if (wait) return res.status(429).set('Retry-After', String(wait)).type('text/plain').send('This address was read too often; try again in a minute.');
-  store.noteCalendarFeedRead(user.key);
-  const { events, tz } = feedEvents(req, user);
-  const body = ics.buildCalendar({ name: store.settings.environmentName || PRODUCT_NAME, tz, events });
+  let name = store.settings.environmentName || PRODUCT_NAME;
+  let read;
+  if (found.kind === 'personal') {
+    store.noteCalendarFeedRead(found.user.key);
+    read = feedEvents(req, found.user);
+  } else if (found.kind === 'space') {
+    store.noteSpaceCalendarFeedRead(found.user.key, found.space.id);
+    read = spaceFeedEvents(req, found.user, found.space);
+    name = found.space.name;
+  } else {
+    store.notePublishedCalendarRead();
+    read = publishedFeedEvents(req);
+  }
+  const body = ics.buildCalendar({ name, tz: read.tz, events: read.events });
   const etag = `"${crypto.createHash('sha256').update(body).digest('base64url').slice(0, 32)}"`;
   res.set({ ETag: etag, 'Cache-Control': 'private, no-cache', 'X-Robots-Tag': 'noindex' });
   const asked = String(req.get('if-none-match') || '').split(',').map((t) => t.trim().replace(/^W\//, ''));
@@ -4898,17 +5076,18 @@ function externalWhy(user) {
   const blocker = moduleWhy();
   if (!store.otherCalendarsOn()) {
     // Never set (it follows calendarFeeds) or set to false: either way the switch is in the Calendar's Configure page
-    // (plan-space-calendars.md, decisions 6 and 7). Named as this environment shows the module that would show them:
-    // the running one, else an installed one, else one that ships here.
+    // (plan-space-calendars.md, decisions 6 and 7, and section 4's "why can't I" states, as addressesWhy words them). An
+    // owner is told where, naming the module that would show them as this environment shows it: the running one, else
+    // an installed one, else one that ships here; the page makes that name the link to its Configure page.
     const here = store.settings.environmentName || `this ${word('environment')}`;
     const installed = Object.keys(modules.registry.modules).map((id) => modules.manifestOf(id, modules.registry.modules[id].version)).find((m) => m?.hooks?.external);
     const bundled = installed ? null : bundledModules(BUNDLED_DIR).find((b) => b.hooks?.external && moduleAllowedByPlan(b.id));
     const name = externalModules()[0] ? modules.shownName(externalModules()[0].manifest)
       : installed ? modules.shownName(installed)
         : bundled ? (store.moduleDisplay(bundled.id).name || bundled.name) : null;
-    const where = `${modulesTab}, in ${name ? `${name}'s` : `the ${word('module')}'s`} configuration`;
-    const off = `Other calendars are off in ${here}. ${ask('turn on Other calendars and busy times', where)}`;
-    return blocker?.step ? `${blocker.text} ${off}` : off;
+    const off = `${word('owner', { many: true, cap: true })} have not turned on other calendars in ${here}.`;
+    const turnOn = own && name ? `${off} Turn it on in ${name}'s configuration.` : off;
+    return blocker?.step ? `${blocker.text} ${turnOn}` : turnOn;
   }
   return blocker ? blocker.text : null;
 }
@@ -7198,9 +7377,10 @@ app.get('/api/currencies', requireUser, (_req, res) => res.json({ currencies: cu
 // `showCalendar` and `showMap`: the top bar's Calendar and Map (plan-calendar-destination.md, plan-map-destination.md),
 // off unless an owner or a template turned them on. `calendarFeeds`, `otherCalendars` and `publishedCalendar`: Calendar
 // sharing's three switches (plan-space-calendars.md, decision 7); `otherCalendars` as it reads (store.otherCalendarsOn:
-// calendarFeeds until an owner sets it). `topBarReasons`: { calendar, map }, why each cannot show whatever
-// its switch (one sentence), or null.
-const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null, showCalendar: store.settings.showCalendar === true, showMap: store.settings.showMap === true, calendarFeeds: store.settings.calendarFeeds === true, otherCalendars: store.otherCalendarsOn(), publishedCalendar: store.settings.publishedCalendar === true, topBarReasons: destinationReasons() });
+// calendarFeeds until an owner sets it); `publishedCalendarFeed`: { on, made, readAt }, the published calendar's one
+// address as it stands (plan-space-calendars.md, section 2), never its hash. `topBarReasons`: { calendar, map }, why
+// each cannot show whatever its switch (one sentence), or null.
+const ownerSettings = () => ({ ...branding(), ownWords: store.ownWords(), ownVerbs: store.ownVerbs(), templateVerbs: store.templateVerbsView(), ownHomeIcon: store.settings.homeIcon || null, template: templateView(store, currentEnvironment()), templateWords: store.templateWordsView(), templateHomeIcon: store.templateHomeIcon || null, spaceDefaults: store.settings.spaceDefaults || null, showCalendar: store.settings.showCalendar === true, showMap: store.settings.showMap === true, calendarFeeds: store.settings.calendarFeeds === true, otherCalendars: store.otherCalendarsOn(), publishedCalendar: store.settings.publishedCalendar === true, publishedCalendarFeed: feedView(store.publishedCalendarFeed), topBarReasons: destinationReasons() });
 app.get('/api/settings', requireOwner, (_req, res) => res.json({ settings: ownerSettings(), streamKey: store.streamKey }));
 // `template` ("none" for none) switches the environment's template (the switching addendum): taken out of the body
 // before the settings; an unknown one refuses the whole change. With it, the answer also carries `template` and `offer`.

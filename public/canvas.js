@@ -809,6 +809,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         if (snapping(m.id)) { const g = snapGrid(); settleSnap(m.id, mod.el, snapCell(g, b)); remember(m.id, { layout: 'user' }); return; }
         remember(m.id, { box: place(mod.el, b), layout: 'user' });
       },
+      // A sandboxed frame lifted over the canvas for its editor window (module-host.js, editor.lift) sits in its own
+      // floating box's layer when floating: that box comes to the front so no other floating module draws over it.
+      onLift: (open) => {
+        const now = opened.get(m.id);
+        if (open && now && now.mode === 'float') front(now.el);
+      },
       ...extra,
     });
   }
@@ -913,6 +919,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     };
     const titleText = mod.el.querySelector('[data-title]')?.textContent || '';
     const old = mod.el;
+    // A sandboxed frame lifted over the canvas for its editor window goes back first: the move takes its backdrop away
+    // with the old chrome and the frame starts over in the new one, so nothing may stay inert behind it.
+    mod.mount?.lift?.(false);
     opened.delete(id);
     if (mode === 'dock') openModuleDocked(m, reuse); else openModuleFloating(m, reuse);
     old.remove();

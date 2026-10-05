@@ -26,7 +26,6 @@ body { margin: 0; overflow: hidden; }
 .rs { display: flex; flex-direction: column; height: 100%; background: var(--bg); color: var(--text); font-size: 14px; }
 .rs-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px 6px; }
 .rs-head h1 { margin: 0; font-size: 18px; }
-.rs-head .count { color: var(--text-dim); font-size: 12px; }
 .rs-tools { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 0 14px 8px; }
 .rs-search { position: relative; flex: 1; min-width: 180px; max-width: 360px; }
 .rs-search input { width: 100%; padding: 6px 10px 6px 30px; }

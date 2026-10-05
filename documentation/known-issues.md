@@ -111,3 +111,12 @@ server not reached over HTTPS, where there is no **Paste** button at all), only 
 
 Workaround: Tab to the picture box and press Ctrl+V (Cmd+V on a Mac), which keeps a copied file as it is, or click
 the box and choose the file.
+
+## The Planner's first open in a space logs three 404s
+
+The first time the Planner opens in a space, the browser's console shows three requests answered 404:
+`_cursor:events`, `_moved:plan-keys` and `_moved:phases`. They are the Planner asking whether its stored
+markers exist before it writes them, and they are expected; nothing is wrong and nothing is lost. They predate the
+kind picker (Planner 0.15.1) and are noise to ignore when reading the console.
+
+Workaround: none needed.

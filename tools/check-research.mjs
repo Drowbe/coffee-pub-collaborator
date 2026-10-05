@@ -272,4 +272,12 @@ await test('saveNote, saveLink and savePhoto with an object; the flat fields as 
   assert.match(page, /createImageBitmap\(await got\.blob\(\), \{ imageOrientation: 'from-image' \}\)/);
 });
 
+await test('the window title is the name alone, never "Research 2" (#191)', () => {
+  const page = fs.readFileSync(new URL('../modules/research/src/research.js', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('../modules/research/src/research.html', import.meta.url), 'utf8');
+  assert.match(page, /host\.setTitle\(info\.module\.name\);/, 'the titlebar gets the name as it is');
+  assert.doesNotMatch(page, /setTitle\(`|\$\{name\} \$\{n\}/, 'no count built into the title');
+  assert.doesNotMatch(html, /rs-head[^]*?data-slot="count"/, 'no count beside the name in the harness header either');
+});
+
 console.log(`check-research: OK (${n} checks)`);

@@ -555,13 +555,14 @@
   const placeValue = (place) => (place && place.after !== null && place.after !== undefined ? `j:${place.after}` : `d:${(place && place.date) || ''}`);
   const parsePlace = (value) => (String(value).startsWith('j:') ? { after: value.slice(2) } : { date: value.slice(2) || null });
   // The places an item can be, in line order (the head, day 1, the joint after it, day 2...), as a select's options. A
-  // between-days marker sees only the joints.
-  function placeOptions(select, { jointsOnly } = {}) {
+  // between-days marker's menu sees only the joints (jointsOnly); the editor with a marker chosen sees the days and the
+  // joints but not "Not on a day yet" (placedOnly), since Where decides whether it is in a day or between days.
+  function placeOptions(select, { jointsOnly, placedOnly } = {}) {
     const was = select.value;
     select.replaceChildren();
     const add = (value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; select.append(o); };
     const days = plan.days();
-    if (!jointsOnly) add('d:', 'Not on a day yet');
+    if (!jointsOnly && !placedOnly) add('d:', 'Not on a day yet');
     add('j:', jointLabel(''));
     days.forEach((d) => {
       if (!jointsOnly) add(`d:${d}`, dayShort(d));
@@ -596,7 +597,7 @@
   function openAddMenu(button, place, { gap } = {}) {
     const onLine = place.after !== undefined;
     const items = [];
-    const withTile = (tile) => { openEditor('item', null, place, button); applyType(tile); editorOpened(); };
+    const withTile = (tile) => openEditor('item', null, { ...place, tile }, button);
     const add = (tile, label, icon) => items.push({ id: tile, label, icon, onClick: () => withTile(tile) });
     for (const t of JOURNEY_TILES) add(t, `Add a ${KICKERS[t].toLowerCase()}`, BADGES[t]);
     items.push({ separator: true });
@@ -1541,7 +1542,16 @@
     const key = tile.startsWith('block:') ? 'block' : tile.startsWith('lane:') ? 'lane' : tile; // every marker shows the same fields
     for (const el of $('form').querySelectorAll('[data-types]')) el.classList.toggle('on-type', el.dataset.types.split(/\s+/).includes(key));
     $('f-title').required = key !== 'block' && key !== 'lane'; // a marker's label is optional: the type names it
-    placeOptions($('f-date'), { jointsOnly: key === 'lane' }); // a marker between days is only ever at a joint on the line
+    // A marker is one kind in the picker; Where decides whether it is in a day (block) or between days (lane), so the
+    // list has no "Not on a day yet". A marker that was unplaced goes to the first day; one whose Where says otherwise
+    // takes the tile Where says.
+    const marker = key === 'block' || key === 'lane';
+    const unplaced = $('f-date').value === 'd:';
+    // An existing marker stored with no day keeps "Not on a day yet", so its Where is not left blank.
+    const keepUnplaced = Boolean(ed.id && ed.unplaced);
+    placeOptions($('f-date'), { placedOnly: marker && !keepUnplaced });
+    if (marker && !keepUnplaced && unplaced && [...$('f-date').options].some((o) => o.value.startsWith('d:'))) $('f-date').value = [...$('f-date').options].find((o) => o.value.startsWith('d:')).value;
+    if (marker && tileAt(kindOf(tile), $('f-date').value) !== tile) return applyType(tileAt(kindOf(tile), $('f-date').value));
     const noLength = ['block:meet-up', 'block:leave-by'].includes(tile); // a moment, not a stretch of time
     const lengthLabel = $('f-minutes').closest('label');
     if (lengthLabel) lengthLabel.hidden = noLength;
@@ -1551,41 +1561,43 @@
     roundTripShown();
     showArrival();
     if (key === 'flight') seedLookup('out');
-    for (const b of $('form').querySelectorAll('.tile')) b.classList.toggle('on', b.dataset.type === tile);
+    if (kindField) kindField.set(kindOf(tile));
     $('f-title').placeholder = key === 'block' ? markerType(tile.slice(6)).label : key === 'lane' ? markerType(tile.slice(5)).label : TITLES[tile] || '';
   }
-  // The marker tiles, one for each type that is not automatic: 'Time' ones inside a day, and 'Between days' ones on the line.
-  function addBlockTiles() {
-    addTileGroup('Time', 'block');
-    addTileGroup('Between days', 'lane');
+  // The kind picker (host.ui.kindPicker in #f-types): what kind of thing it is, one row with the kind's icon in its colour,
+  // typing to filter, the kinds in groups. A kind's colour is its card's family (the accent turned by TURNS, the same
+  // expression the cards use, or the plain mix where the browser has no relative colours); a marker type's its own colour
+  // from the settings. Each marker type is one kind (`marker:<type>`); Where decides block or lane (tileAt).
+  const TONE = typeof CSS !== 'undefined' && CSS.supports && CSS.supports('color', 'oklch(from red l c h)')
+    ? (turn) => `oklch(from var(--accent) l calc(c * 0.95) calc(h + ${turn}))`
+    : () => 'color-mix(in srgb, var(--accent) 65%, var(--text))';
+  // Other words a kind is found by when typing.
+  const KIND_WORDS = { flight: ['plane', 'air', 'fly'], train: ['rail'], ferry: ['boat', 'ship'], bus: ['coach'], car: ['rental', 'drive', 'hire'], taxi: ['cab'], rideshare: ['uber', 'lyft', 'ride'], shuttle: ['van'], hotel: ['hotel', 'rental', 'hostel', 'camp', 'lodging', 'sleep'], restaurant: ['dinner', 'lunch', 'eat', 'meal', 'food'], cafe: ['coffee', 'breakfast', 'brunch'], bar: ['drinks', 'pub', 'cocktails'], sight: ['see', 'landmark', 'beach', 'shop', 'spa'], museum: ['gallery', 'exhibit'], tour: ['hike', 'walk', 'guide'], show: ['theater', 'theatre', 'concert', 'tickets', 'game'], note: ['memo', 'reminder'] };
+  const kindOption = (t, label) => ({ id: t, label: label || KICKERS[t], icon: t === 'hotel' ? 'bed' : t === 'note' ? 'note-sticky' : BADGES[t], color: TONE(TURNS[t] || 0), words: KIND_WORDS[t] });
+  function kindGroups() {
+    return [
+      { label: 'Getting there', options: JOURNEY_TILES.map((t) => kindOption(t)) },
+      { label: 'Stay', options: [kindOption('hotel', 'Stay')] },
+      { label: 'Eat and drink', options: ['restaurant', 'cafe', 'bar'].map((t) => kindOption(t)) },
+      { label: 'See and do', options: ['sight', 'museum', 'tour', 'show'].map((t) => kindOption(t)) },
+      { label: 'Markers', options: blockTypes().map((t) => ({ id: `marker:${t.id}`, label: t.label, icon: t.icon, color: t.color, words: ['marker', 'time'] })) },
+      { label: 'Other', options: [kindOption('note', 'Note')] },
+    ];
   }
-  function addTileGroup(name, prefix) {
-    const types = blockTypes();
+  let kindField = null; // the open form's picker (the form is cloned anew on each open)
+  function addKindPicker(value) {
     const box = $('f-types');
-    if (!box || !types.length) return;
-    const group = document.createElement('div');
-    group.className = 'typegroup';
-    const title = document.createElement('div');
-    title.className = 'typegroup-title';
-    title.textContent = name;
-    const tiles = document.createElement('div');
-    tiles.className = 'tiles';
-    for (const t of types) {
-      const b = document.createElement('button');
-      b.className = 'tile';
-      b.type = 'button';
-      b.dataset.type = `${prefix}:${t.id}`;
-      const ic = document.createElement('span');
-      ic.className = 'ic';
-      ic.dataset.icon = t.icon;
-      const label = document.createElement('span');
-      label.textContent = t.label;
-      b.append(ic, label);
-      b.style.setProperty('--marker', t.color);
-      tiles.append(b);
-    }
-    group.append(title, tiles);
-    box.append(group);
+    kindField = box ? host.ui.kindPicker(box, {
+      label: 'What is it',
+      groups: kindGroups(),
+      value: value || 'sight',
+      start: value ? undefined : 'recent', // a new object: the kind chosen last in this browser, else Sight
+      recent: { key: 'add', max: 4 },
+      // A kind the list no longer has (a marker type removed in the settings) comes back as its own id: the fields stay
+      // those of the stored type, which is kept on save unless the person picks another kind.
+      onChange: (id) => applyType(tileAt(id, $('f-date').value)),
+    }) : null;
+    return kindField;
   }
   const chosenMode = () => { const on = $('f-travelMode') && $('f-travelMode').querySelector('.mode.on'); return on ? on.dataset.mode : null; };
 
@@ -1615,7 +1627,7 @@
     size: 'large',
     isDirty: editorDirty,
     // The SDK asks `returnTo` after this, so where focus goes (state.editingFrom) is kept until the next open.
-    onClose: () => { $('editor').replaceChildren(); state.editing = null; },
+    onClose: () => { if (kindField) kindField.close(); kindField = null; $('editor').replaceChildren(); state.editing = null; },
   });
 
   // `place` for a new item: `{ date }` a day, `{ after }` a joint on the line; none is the head of the line. `from` is the control
@@ -1623,7 +1635,7 @@
   function openEditor(mode, item, place, from) {
     if (!canEdit) return;
     const isLink = Boolean(item && item.kind === 'link');
-    state.editing = { mode, id: item ? item.id : null, place: place || null, version: item ? plan.versionOf(item.id) : null, tile: 'sight', isLink };
+    state.editing = { mode, id: item ? item.id : null, place: place || null, version: item ? plan.versionOf(item.id) : null, tile: 'sight', isLink, unplaced: Boolean(item && item.kind === 'block' && !item.date) };
     state.editingFrom = { el: from || null, id: item ? item.id : null, date: place && place.date ? place.date : null };
     // The plan's own form is the medium window; an item's the large one (the SDK sets the size once, so it is switched here).
     $('editor').classList.toggle('sdk-editor-large', mode !== 'trip');
@@ -1643,14 +1655,21 @@
       $('f-notes').value = t.notes || '';
       $('f-by').textContent = '';
     } else {
-      addBlockTiles();
       $('editor-title').textContent = item ? 'Edit' : 'Add to the plan';
       hide($('f-types'), Boolean(item) && isLink);
       hide($('f-delete'), !item);
-      applyType(item ? tileOf(item) || 'sight' : (place && place.tile) || 'sight');
+      // The kind: an existing object's own, the one the day's "..." or a joint's + chose, else the last kind chosen in this
+      // browser (the picker remembers), else Sight. Where is set first, since it decides a marker's block or lane.
+      const preset = item ? tileOf(item) || 'sight' : place && place.tile;
+      placeOptions($('f-date'));
       setPlaceMenu($('f-date'), item ? placeOf(item) : place);
+      const picker = addKindPicker(preset ? kindOf(preset) : undefined);
+      applyType(preset || tileAt((picker && picker.value) || 'sight', $('f-date').value));
+      if (preset) setPlaceMenu($('f-date'), item ? placeOf(item) : place);
       fillPhaseSelect(item);
       $('f-date').addEventListener('change', syncPhaseField);
+      // A marker follows Where: a day stores block, a joint lane. An existing marker keeps its kind until Where changes.
+      $('f-date').addEventListener('change', () => { const ed = state.editing; if (!ed || !ed.tile) return; const want = tileAt(kindOf(ed.tile), $('f-date').value); if (want !== ed.tile) applyType(want); });
       checkoutMin();
       const v = item || {};
       setVal('f-checkout', v.checkOut);
@@ -1688,7 +1707,8 @@
     }
     hydrate($('editor'));
     editorOpened();
-    editor.open({ focus: $('f-title'), returnTo: editorReturn });
+    // A new object with no kind chosen for it starts in the kind field, so typing starts the search.
+    editor.open({ focus: mode !== 'trip' && !item && !(place && place.tile) && kindField ? kindField.input : $('f-title'), returnTo: editorReturn });
   }
   // One row per phase. The main phase's dates are the plan's own start and end; the others are stored on the phase.
   function fillTripPhases(trip) {
@@ -2154,6 +2174,8 @@
         // and may be drawn again by then).
         const added = round ? (await plan.addRoundTrip(fields, back)).out : await plan.addItem(fields);
         if (state.editingFrom && added && added.id) { state.editingFrom.id = added.id; state.focusAfterRedraw = { id: added.id, until: Date.now() + 2000 }; }
+        // The kind it was saved with is recent, also when the bar, the day's "..." or a joint's + chose it.
+        if (kindField) kindField.remember(kindOf(ed.tile));
       }
       rememberFlights(fields, back);
       closeEditor();
@@ -2229,7 +2251,6 @@
     const b = e.target.closest('button');
     if (!b) return;
     if (b.id === 'f-cancel') return cancelEditor();
-    if (b.classList.contains('tile')) return applyType(b.dataset.type);
     if (b.classList.contains('mode')) {
       const was = b.classList.contains('on');
       for (const m of $('f-travelMode').querySelectorAll('.mode')) m.classList.remove('on');
@@ -2390,7 +2411,7 @@
     await plan.load();
     state.people = await host.people().catch(() => []);
     try { useMarkerTypes(await host.settings.get()); } catch (err) { useMarkerTypes(null); }
-    host.settings.onChange((v) => { useMarkerTypes(v); if (state.loaded) redraw(); checkFlightLookup(); });
+    host.settings.onChange((v) => { useMarkerTypes(v); if (kindField) kindField.setGroups(kindGroups()); if (state.loaded) redraw(); checkFlightLookup(); });
     checkFlightLookup();
     state.loaded = true;
     // Warm the icons the page draws, so the first draw is not empty.

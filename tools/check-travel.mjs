@@ -13,7 +13,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' +
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'phaseLine', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply'];
+const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'PHASES_MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'effectiveStart', 'currentPhase', 'phaseOf', 'phaseLine', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 // The SDK's own text and time helpers (host.util.plain and host.util.localWhen in public/sdk/host.js), which the plan is given.
 const sdkText = (() => {
@@ -547,6 +547,33 @@ test('a time block is an item with a marker type and no place', () => {
   assert.equal(lib.tripBounds([b, lib.cleanItem({ id: 'j', kind: 'journey', title: 'x', date: '2026-10-04', time: '09:00' })]).start.id, 'j', 'a block is never the start of the trip');
 });
 
+test('the kind picker shows each marker type once; Where decides block (a day) or lane (a joint)', () => {
+  assert.equal(lib.kindOf('block:rest'), 'marker:rest');
+  assert.equal(lib.kindOf('lane:rest'), 'marker:rest');
+  assert.equal(lib.kindOf('flight'), 'flight');
+  assert.equal(lib.kindOf(null), null);
+  assert.equal(lib.tileAt('marker:rest', 'd:2026-10-04'), 'block:rest', 'a day stores a block');
+  assert.equal(lib.tileAt('marker:rest', 'd:'), 'block:rest', 'no day yet is still in a day');
+  assert.equal(lib.tileAt('marker:rest', 'j:2026-10-04'), 'lane:rest', 'a joint stores a lane');
+  assert.equal(lib.tileAt('marker:rest', 'j:'), 'lane:rest', 'the head of the line is a joint');
+  assert.equal(lib.tileAt('flight', 'j:'), 'flight', 'any other kind is itself wherever it is');
+  for (const t of ['free-time', 'rest', 'buffer', 'meet-up', 'leave-by', 'travel-day', 'free-day']) {
+    for (const where of ['d:2026-10-04', 'j:2026-10-04']) {
+      const tile = lib.tileAt(lib.kindOf(`block:${t}`), where);
+      assert.equal(lib.fromTile(tile).kind, where.startsWith('j:') ? 'lane' : 'block');
+      assert.equal(lib.fromTile(tile).type, t);
+      assert.equal(lib.kindOf(tile), `marker:${t}`, 'the picker shows one kind for both');
+    }
+  }
+  const page = read('travel.js');
+  assert.ok(/label: 'Markers', options: blockTypes\(\)\.map/.test(page), 'one Markers group of the types that are not automatic');
+  assert.ok(!/addTileGroup|'Between days'/.test(page), 'the Time and Between days groups are gone');
+  assert.ok(/onChange: \(id\) => applyType\(tileAt\(id, \$\('f-date'\)\.value\)\)/.test(page), 'a choice goes through tileAt with Where');
+  assert.ok(/placeOptions\(\$\('f-date'\), \{ placedOnly: marker && !keepUnplaced \}\)/.test(page), 'with a marker chosen Where lists the days and the joints, not "Not on a day yet"');
+  assert.ok(/const keepUnplaced = Boolean\(ed\.id && ed\.unplaced\);/.test(page) && /unplaced: Boolean\(item && item\.kind === 'block' && !item\.date\)/.test(page), 'an existing block stored with no day keeps "Not on a day yet", so its Where is never blank');
+  assert.ok(/if \(kindField\) kindField\.remember\(kindOf\(ed\.tile\)\);/.test(page), 'the kind a new object is saved with is recent, also when the bar, the day\'s "..." or a joint\'s + chose it');
+});
+
 test('a marker between the days follows a day and has no time', () => {
   const l = lib.cleanItem({ id: 'l', kind: 'lane', type: 'free-time', title: '', after: '2026-10-04', date: '2026-10-09', time: '10:00', minutes: 30, notes: 'n' });
   assert.equal(l.kind, 'lane');
@@ -684,15 +711,17 @@ test('taxi, ride share and shuttle are journeys with a tile and a card, and ride
   assert.ok(lib.TRAVEL_MODES.includes('rideshare') && lib.LEG_ICONS.rideshare);
 });
 
-test('the page: every journey kind has its tile and colours, lengths are hours and minutes, a stay checks out on any date', () => {
+test('the page: every journey kind has its colours and is in the kind picker, lengths are hours and minutes, a stay checks out on any date', () => {
   const html = read('travel.html');
   const cardStyles = read('travel-lib-cards.css');
-  const editor = read('travel-lib-editor.css');
-  for (const t of lib.JOURNEY_TILES) {
-    assert.ok(html.includes(`class="tile" type="button" data-type="${t}"`), `a tile for ${t}`);
-    assert.ok(cardStyles.includes(`.entry[data-type="${t}"]`), `a card colour for ${t}`);
-    assert.ok(editor.includes(`.tile[data-type="${t}"]`), `a tile colour for ${t}`);
+  const page = read('travel.js');
+  assert.ok(html.includes('<div id="f-types"></div>') && !html.includes('class="tile"'), 'the kind picker (host.ui.kindPicker) is drawn into an empty #f-types; the tiles are gone');
+  assert.ok(/host\.ui\.kindPicker\(box, \{/.test(page) && /label: 'What is it'/.test(page) && /recent: \{ key: 'add', max: 4 \}/.test(page), 'the Planner draws the kind picker with its label and a recent list');
+  for (const t of lib.TILES) {
+    assert.equal(typeof lib.TURNS[t], 'number', `a colour family (TURNS) for ${t}`);
+    assert.match(cardStyles, new RegExp(`\\.entry\\[data-type="${t}"\\] \\{ --turn: ${lib.TURNS[t]}; \\}`), `the card's colour for ${t} is the picker's`);
   }
+  for (const t of lib.JOURNEY_TILES) assert.ok(page.includes(`'Getting there', options: JOURNEY_TILES.map`), `a kind for ${t}`);
   for (const m of Object.keys(lib.LEG_ICONS)) assert.ok(html.includes(`data-mode="${m}"`), `a way-to-a-stop button for ${m}`);
   assert.ok(!/\(minutes\)|Minutes from/.test(html), 'no length is asked for in minutes alone');
   for (const id of ['f-hours', 'f-minutes', 'f-travelHours', 'f-travelMinutes']) assert.ok(html.includes(`id="${id}"`), id);
@@ -1580,7 +1609,7 @@ test('the editor window: the form is the SDK\'s dialog, sized to what it edits, 
   assert.equal((html.match(/<div class="editor-buttons sdk-editor-actions">/g) || []).length, 2, 'both forms\' button rows stick to the bottom');
   assert.ok(js.includes("const editor = host.ui.editor($('editor'), {") && js.includes("size: 'large',"), 'opened through host.ui.editor, large');
   assert.ok(js.includes("$('editor').classList.toggle('sdk-editor-large', mode !== 'trip');"), 'the plan\'s own form is medium');
-  assert.ok(js.includes('isDirty: editorDirty,') && js.includes("editor.open({ focus: $('f-title'), returnTo: editorReturn });"), 'the question after typing; focus goes back');
+  assert.ok(js.includes('isDirty: editorDirty,') && /editor\.open\(\{ focus: [^\n]*kindField\.input : \$\('f-title'\), returnTo: editorReturn \}\);/.test(js), 'the question after typing; focus starts in the kind field for a new object, else the title, and goes back on close');
   assert.ok(js.includes("if (b.id === 'f-cancel') return cancelEditor();"), 'Cancel asks as Close does');
   assert.equal(js.includes("$('editor').hidden"), false, 'nothing reads the old hidden flag');
   assert.equal(/\.editor\s*\{[^}]*position:\s*absolute/.test(css), false, 'no overlay of the module\'s own');

@@ -139,11 +139,26 @@ is inert, so the call's buttons cannot be clicked (its keys on `document` still 
 bubble to it; the SDK stops only Escape); nothing can be dropped on the module while its form is open (To-do's
 drop onto the open form went, its link search stays); and the host's own overlays show under the backdrop.
 
-**Popovers inside it.** `showMenu`, the date picker and `host.actions.pick` in `public/sdk/host.js` ask
-`editorAt(anchor)`: the open `dialog.sdk-editor` the anchor is in, else the module's topmost open editor (`pick`
-has no anchor and always takes the latter), else none. Inside an editor they append to the dialog instead of the
-module's root, so they are in the top layer with it rather than inert under it, and clamp to the window less 4 px
-rather than to the module's box. Each one's Escape is prevented and stopped, so it closes only itself.
+**Popovers inside it.** `showMenu`, the date picker, the kind picker's list and `host.actions.pick` in
+`public/sdk/host.js` ask `editorAt(anchor)`: the open `dialog.sdk-editor` the anchor is in, else the module's
+topmost open editor (`pick` has no anchor and always takes the latter), else none. Inside an editor they append
+to the dialog instead of the module's root, so they are in the top layer with it rather than inert under it, and
+clamp to the window less 4 px rather than to the module's box. Each one's Escape is prevented and stopped, so it
+closes only itself.
+
+**The kind picker.** The one field inside a form that the SDK draws whole: `host.ui.kindPicker` (`createKindPicker`
+in `public/sdk/host.js`, styles in `/sdk/host.css` between `kind:start` and `kind:end`) is the ARIA combobox
+pattern over a list of named, iconed, coloured options in groups, with typing to filter and the recent choices
+first, kept in `localStorage` under `app:kind:<moduleId>:<key>` as `host.actions.pick`'s `remember` keeps its
+under `app:pick:...`. It is in the SDK rather than the Planner because the plan names two more users (Research's
+note type, Places' category), and because the Planner's day "..." already lists the same kinds through
+`host.menu.show`. The pure parts (`kindMatches`, `kindPickerGroups`, `kindRecentAdd`) are written so
+`tools/check-module-window.mjs` can slice them out of `host.js` and run them, as it does the editor's sizes. On a
+phone the picker's sheet is a stylesheet rule on `.sdk-kind.open .sdk-kind-sheet`, not a second element, so the
+script only decides where the list is appended (the sheet on a phone, the open editor or the root otherwise).
+The contract is in [api-module-sdk](../api/api-module-sdk.md), "Choosing a kind"; the Planner's use of it, and
+how one **Markers** group maps to the stored `block` and `lane` kinds through **Where** (`kindOf` and `tileAt` in
+`modules/travel/src/travel-lib.js`), is in [plan-editor-window](../plans/plan-editor-window.md), Part 2.
 
 **Moving.** `moveModule()` (below) takes the module's container out of the page and back, which drops an open
 modal dialog out of the top layer. After the move the canvas delivers the event `moved` (`{ mode }`) and the SDK
@@ -209,8 +224,6 @@ with `ellipsis-vertical` must carry `sdk-more`; the call's own More is exempt), 
 - **The editor window in a sandboxed frame.** Step 11 of [plan-editor-window](../plans/plan-editor-window.md):
   the frame lifted over the canvas (`module-editor-lifted`, a backdrop, the rest of the page `inert`) through an
   `editor.lift` message on the bridge. Until then an uploaded module's form shows inside its frame.
-- **The Planner's kind picker** (`host.ui.kindPicker`, steps 9 and 10 of the same plan): the 31 kind tiles as
-  one filterable field.
 
 Every module's own "..." menu that was a flat list of actions is on `host.menu.show` now (Places, Research,
 Travel's gap-add, Polls). What is deliberately still native: Travel's item menu (`#item-menu`); and every

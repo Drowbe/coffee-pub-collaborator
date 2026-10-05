@@ -1,29 +1,9 @@
 /*
- * The Travel item editor for the card family: a type picker (a grid of tiles, one per kind of thing, each in its own colour
- * family) and the fields that kind needs, in groups: the form (#editor > form#form.editor-card) inside the SDK's editor window
- * (host.ui.editor), so a phone layout keys on the window's width, not the module's. Colours are the theme's; the tiles derive
- * theirs from the accent as the cards do (--turn), so an editor tile and its card match.
+ * The Travel item editor for the card family: the kind picker (the SDK's host.ui.kindPicker in #f-types, its styles in
+ * /sdk/host.css; the kinds' colours come from the script, the accent turned by TURNS in travel-lib.js as the cards are) and
+ * the fields that kind needs, in groups: the form (#editor > form#form.editor-card) inside the SDK's editor window
+ * (host.ui.editor), so a phone layout keys on the window's width, not the module's. Colours are the theme's.
  */
-.tile { --turn: 0; --tone: color-mix(in srgb, var(--accent) 65%, var(--text)); }
-@supports (color: oklch(from red l c h)) { .tile { --tone: oklch(from var(--accent) l calc(c * 0.95) calc(h + var(--turn))); } }
-.tile[data-type="flight"] { --turn: 195; } .tile[data-type="train"] { --turn: 150; } .tile[data-type="ferry"] { --turn: 120; }
-.tile[data-type="bus"] { --turn: 100; } .tile[data-type="car"] { --turn: 45; } .tile[data-type="hotel"] { --turn: 255; }
-.tile[data-type="taxi"] { --turn: 170; } .tile[data-type="rideshare"] { --turn: 220; } .tile[data-type="shuttle"] { --turn: 80; }
-.tile[data-type="restaurant"] { --turn: 0; } .tile[data-type="cafe"] { --turn: 345; } .tile[data-type="bar"] { --turn: 320; }
-.tile[data-type="sight"] { --turn: 95; } .tile[data-type="museum"] { --turn: 285; } .tile[data-type="tour"] { --turn: 65; }
-.tile[data-type="free-time"] { --turn: 140; } .tile[data-type="rest"] { --turn: 225; } .tile[data-type="buffer"] { --turn: 45; } .tile[data-type="meet-up"] { --turn: 330; } .tile[data-type="leave-by"] { --turn: 15; }
-.tile[data-type="show"] { --turn: 305; } .tile[data-type="note"] { --turn: 25; } .tile[data-type="place"] { --turn: 130; }
-
-.typeset { display: flex; flex-direction: column; gap: 6px; }
-.typegroup-title { color: var(--text-dim); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 6px; }
-.tile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px 7px; border: 1px solid color-mix(in srgb, var(--tone) 30%, var(--border)); border-radius: 12px; background: color-mix(in srgb, var(--tone) 8%, var(--bg-card)); color: var(--text); font: inherit; font-size: 11px; cursor: pointer; transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease; }
-.tile .ic { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border-radius: 50%; background: color-mix(in srgb, var(--tone) 25%, var(--bg-card)); color: var(--tone); font-size: 14px; }
-.tile:hover { transform: translateY(-1px); border-color: var(--tone); }
-.tile.on { border-color: var(--tone); background: color-mix(in srgb, var(--tone) 22%, var(--bg-card)); box-shadow: 0 0 0 2px color-mix(in srgb, var(--tone) 40%, transparent); }
-.tile.on .ic { background: var(--tone); color: var(--bg); }
-@media (prefers-reduced-motion: reduce) { .tile { transition: none; } .tile:hover { transform: none; } }
-
 /* the fields for the chosen type: a field shows only for the types in its data-types */
 .fieldgroup { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
 .fieldgroup-title { color: var(--text-dim); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }

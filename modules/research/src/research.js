@@ -222,23 +222,19 @@
     hydrate(body);
   }
 
-  function syncTitle(n) {
-    const name = info.module.name;
-    const title = n ? `${name} ${n}` : name;
+  // The name alone: no count beside it (#191), in the titlebar or the harness header.
+  function syncTitle() {
     const head = $('app').querySelector('.rs-head');
     if (host.setTitle) {
-      host.setTitle(title);
+      host.setTitle(info.module.name);
       if (head) head.hidden = true;
-    } else if (head) {
-      fill(head, { count: n ? String(n) : '' });
-      head.hidden = false;
-    }
+    } else if (head) head.hidden = false;
   }
 
   function render() {
     const all = research.list();
     const empty = state.loaded && !all.length && !state.uploads.length;
-    syncTitle(all.length);
+    syncTitle();
     for (const n of [$('kinds'), $('tag-chips'), $('app').querySelector('.rs-tools')]) hide(n, empty || !state.loaded);
     const body = $('body');
     if (!state.loaded) { body.replaceChildren(clone('tpl-state-loading')); return; }

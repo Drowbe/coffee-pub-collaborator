@@ -654,6 +654,14 @@
     if (item.type === 'beach' || item.type === 'shop' || item.type === 'spa') return 'sight';
     return item.category === 'eat' ? 'restaurant' : 'sight';
   }
+  // The colour family of each kind in the editor's kind picker: degrees the accent's hue is turned, the same numbers the
+  // cards use (`--turn` per `data-type` in travel-lib-cards.css), so the kind in the picker and its card look alike.
+  const TURNS = { flight: 195, train: 150, ferry: 120, bus: 100, car: 45, taxi: 170, rideshare: 220, shuttle: 80, hotel: 255, restaurant: 0, cafe: 345, bar: 320, sight: 95, museum: 285, tour: 65, show: 305, note: 25 };
+  // The kind picker shows each marker type once (`marker:<type>`); Where decides whether it is stored in a day (a `block:`
+  // tile) or at a joint between days (a `lane:` tile). kindOf: the picker's id for a tile; tileAt: the tile for a picker's id
+  // at a Where value (`d:<day>` or `d:` a day, `j:<day>` or `j:` a joint).
+  const kindOf = (tile) => (typeof tile === 'string' && (tile.startsWith('block:') || tile.startsWith('lane:')) ? `marker:${tile.slice(tile.indexOf(':') + 1)}` : tile);
+  const tileAt = (kind, place) => (typeof kind === 'string' && kind.startsWith('marker:') ? `${String(place || '').startsWith('j:') ? 'lane' : 'block'}:${kind.slice(7)}` : kind);
   // The fields a chosen tile decides: `kind`, `mode` or `type`, and `category`. An item that keeps its tile keeps its finer type
   // (a hike stays a hike under the Tour tile; a rental stays a rental under Stay).
   function fromTile(tile, item) {

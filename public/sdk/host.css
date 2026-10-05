@@ -426,3 +426,236 @@ select:focus {
   }
 }
 /* editor:end */
+
+/* kind:start -- the kind picker (host.ui.kindPicker): one row, --bar-control-h tall, with the chosen kind's icon on a
+   tinted chip in its colour (--kind-color, set per kind by the script), the field that names it and filters as you type,
+   and a chevron. The list (ul.sdk-kind-list, role listbox) is placed by the script: fixed under the field, inside an open
+   editor window when the field is in one, up to 360 px tall and scrolling; the groups carry their name and each kind its
+   icon in its colour. At 640 px and below the sheet (.sdk-kind-sheet, the field and the list) fills the lower part of the
+   screen while the list is open. Colours from the tokens. */
+.sdk-kind {
+  position: relative;
+  box-sizing: border-box;
+  height: var(--bar-control-h, 38px);
+}
+
+.sdk-kind-sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.sdk-kind-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  height: var(--bar-control-h, 38px);
+  padding: 0 8px 0 5px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  cursor: text;
+}
+
+.sdk-kind-field:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.sdk-kind.disabled .sdk-kind-field {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* The kind's colour: --kind-color, set inline on the chip and on each option by the script (the icon inherits it); the
+   accent until a kind has one. */
+.sdk-kind-field,
+.sdk-kind-option {
+  --kind-color: var(--accent);
+}
+
+.sdk-kind-chip,
+.sdk-kind-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--kind-color) 22%, var(--bg-card));
+  color: var(--kind-color);
+  font-size: 13px;
+  line-height: 1;
+}
+
+.sdk-kind-chip[hidden] {
+  display: none;
+}
+
+.sdk-kind-chip svg,
+.sdk-kind-icon svg {
+  width: 1em;
+  height: 1em;
+  fill: currentColor;
+}
+
+.sdk-kind .sdk-kind-input,
+.sdk-kind .sdk-kind-input:focus {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  box-shadow: none;
+  outline: none;
+}
+
+.sdk-kind-chevron {
+  flex: none;
+  display: inline-flex;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.sdk-kind.open .sdk-kind-chevron {
+  transform: rotate(180deg);
+}
+
+.sdk-kind-list {
+  position: fixed;
+  z-index: 9999;
+  box-sizing: border-box;
+  min-width: 220px;
+  max-height: 360px;
+  margin: 0;
+  padding: 4px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-card);
+  color: var(--text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+}
+
+.sdk-kind-group {
+  padding: 2px 0;
+}
+
+.sdk-kind-group + .sdk-kind-group {
+  border-top: 1px solid var(--border);
+}
+
+.sdk-kind-group-title {
+  padding: 6px 8px 3px;
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.sdk-kind-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.sdk-kind-option.active {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.sdk-kind-option[aria-selected="true"] .sdk-kind-name {
+  font-weight: 600;
+}
+
+.sdk-kind-option[aria-selected="true"] .sdk-kind-icon {
+  background: var(--kind-color);
+  color: var(--on-accent);
+}
+
+.sdk-kind-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sdk-kind-empty {
+  padding: 10px 8px;
+  color: var(--text-dim);
+}
+
+@media (max-width: 640px) {
+  .sdk-kind.open .sdk-kind-sheet {
+    position: fixed;
+    z-index: 10000;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: max(50dvh, min(100dvh, 440px));
+    padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px));
+    border-top: 1px solid var(--border);
+    border-radius: 12px 12px 0 0;
+    background: var(--bg-section);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+  }
+
+  .sdk-kind.open .sdk-kind-sheet::before {
+    content: "";
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    z-index: -1;
+    background: color-mix(in srgb, var(--bg) 60%, transparent);
+  }
+
+  .sdk-kind.open .sdk-kind-field {
+    flex: none;
+    height: 44px;
+  }
+
+  .sdk-kind.open .sdk-kind-input {
+    font-size: 16px;
+  }
+
+  .sdk-kind.open .sdk-kind-list {
+    position: static;
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    margin-top: 8px;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .sdk-kind-option {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .sdk-kind-chevron {
+    transition: transform 0.12s ease;
+  }
+}
+/* kind:end */

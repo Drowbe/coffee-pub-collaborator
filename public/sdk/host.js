@@ -705,6 +705,335 @@
     return api;
   }
 
+  // The kind picker (host.ui.kindPicker): one row that names the chosen kind of thing with its icon in its colour, a list
+  // of the kinds in groups when opened, typing to filter, recently chosen kinds first. The ARIA combobox pattern (an
+  // editable field with a listbox). Styles in /sdk/host.css (.sdk-kind); see documentation/plans/plan-editor-window.md,
+  // Part 2. These helpers are pure so tools/check-module-window.mjs can slice them out and run them.
+  const KIND_RECENT_MAX = 4;
+  const KIND_RECENT_KEEP = 12; // ids kept in this browser (more than shown, so a change of `max` has something to show)
+  // The words a kind is found by: its label and its `words`, lower-cased, without accents ("Café" is found by "cafe").
+  const kindWords = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  // Every word typed must start some word of the kind's name or its `words`.
+  function kindMatches(option, query) {
+    const parts = kindWords(query);
+    if (!parts.length) return true;
+    const words = [...kindWords(option.label), ...(Array.isArray(option.words) ? option.words : []).flatMap(kindWords)];
+    return parts.every((p) => words.some((w) => w.startsWith(p)));
+  }
+  // How well a kind matches what was typed, for the order: 0 its name is the query, 1 its name starts with it, 2 a later
+  // word of its name does, 3 only its `words` do, 4 no match.
+  function kindRank(option, query) {
+    if (!kindMatches(option, query)) return 4;
+    const q = kindWords(query).join(' ');
+    const name = kindWords(option.label).join(' ');
+    if (name === q) return 0;
+    if (name.startsWith(q)) return 1;
+    const parts = kindWords(query);
+    return parts.every((p) => kindWords(option.label).some((w) => w.startsWith(p))) ? 2 : 3;
+  }
+  // The groups the open list shows: with nothing typed, Recent first (the ids in `recent` that are in the groups, in that
+  // order, up to `max`, and not repeated in their own groups below), then every group; with a query, the kinds that match
+  // in their groups, the better matches first (a name that starts with the query before one found by its words; a group
+  // ordered by its best match), and a group with none left goes. [] when nothing matches.
+  function kindPickerGroups(groups, query, recent, max) {
+    const all = (Array.isArray(groups) ? groups : []).filter((g) => g && Array.isArray(g.options));
+    const q = String(query || '');
+    if (kindWords(q).length) {
+      return all.map((g) => {
+        const ranked = g.options.filter(Boolean).map((o, i) => ({ o, r: kindRank(o, q), i })).filter((x) => x.r < 4).sort((a, b) => a.r - b.r || a.i - b.i);
+        return { label: g.label, best: ranked.length ? ranked[0].r : 4, options: ranked.map((x) => x.o) };
+      }).filter((g) => g.options.length).map((g, i) => ({ ...g, i })).sort((a, b) => a.best - b.best || a.i - b.i).map(({ label, options }) => ({ label, options }));
+    }
+    const byId = new Map();
+    for (const g of all) for (const o of g.options) if (o && !byId.has(o.id)) byId.set(o.id, o);
+    const top = (Array.isArray(recent) ? recent : []).filter((id, i, a) => byId.has(id) && a.indexOf(id) === i).slice(0, max || KIND_RECENT_MAX);
+    if (!top.length) return all.map((g) => ({ label: g.label, options: g.options.filter(Boolean) })).filter((g) => g.options.length);
+    const shown = new Set(top);
+    return [{ label: 'Recent', recent: true, options: top.map((id) => byId.get(id)) }, ...all.map((g) => ({ label: g.label, options: g.options.filter((o) => o && !shown.has(o.id)) })).filter((g) => g.options.length)];
+  }
+  // A choice moves to the front of the recent ids, once.
+  const kindRecentAdd = (ids, id) => [id, ...(Array.isArray(ids) ? ids : []).filter((x) => x !== id)].slice(0, KIND_RECENT_KEEP);
+  const KIND_NEEDS = 'host.ui.kindPicker needs an element';
+  let kindSeq = 0;
+  // deps: { root, rootElement, icon(name) -> Promise<svg>, editorAt(el) -> dialog | null, moduleId } from the module's host.
+  function createKindPicker(el, o, deps) {
+    if (!el || el.nodeType !== 1) throw new Error(KIND_NEEDS);
+    const options = o || {};
+    const doc = el.ownerDocument;
+    const memory = options.recent && options.recent.key ? `app:kind:${deps.moduleId || ''}:${String(options.recent.key).slice(0, 120)}` : '';
+    const max = options.recent && Number(options.recent.max) > 0 ? Math.floor(Number(options.recent.max)) : KIND_RECENT_MAX;
+    const readRecent = () => { if (!memory) return []; try { const v = JSON.parse(localStorage.getItem(memory) || '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string') : []; } catch (err) { return []; } };
+    const writeRecent = (id) => { if (!memory) return; try { localStorage.setItem(memory, JSON.stringify(kindRecentAdd(readRecent(), id))); } catch (err) { /* not kept */ } };
+    let groups = [];
+    let value = null;
+    let open = false;
+    let list = null; // the ul[role=listbox] while open
+    let rows = []; // the options shown, in order: { id, option, el }
+    let active = -1; // the active row's index
+    let typed = ''; // what was typed since the list opened ('' shows every kind)
+    const seq = ++kindSeq;
+    const listId = `sdk-kind-list-${seq}`;
+    const label = typeof options.label === 'string' && options.label ? options.label : 'Kind';
+    const find = (id) => { for (const g of groups) for (const opt of g.options || []) if (opt && opt.id === id) return opt; return null; };
+    // What has focus, seen from inside the module's root (a shadow root: the document only sees its host).
+    const activeEl = () => (deps.root && deps.root.activeElement) || doc.activeElement || null;
+    const first = () => { for (const g of groups) for (const opt of g.options || []) if (opt) return opt.id; return null; };
+    // The row: the chip (the chosen kind's icon in its colour), the field, the chevron.
+    el.classList.add('sdk-kind');
+    el.replaceChildren();
+    const field = doc.createElement('div');
+    field.className = 'sdk-kind-field';
+    const chip = doc.createElement('span');
+    chip.className = 'sdk-kind-chip';
+    chip.setAttribute('aria-hidden', 'true');
+    const input = doc.createElement('input');
+    input.type = 'text';
+    input.className = 'sdk-kind-input';
+    input.setAttribute('role', 'combobox');
+    input.setAttribute('aria-autocomplete', 'list');
+    input.setAttribute('aria-expanded', 'false');
+    input.setAttribute('aria-haspopup', 'listbox');
+    input.setAttribute('aria-label', label);
+    input.autocomplete = 'off';
+    input.spellcheck = false;
+    const chevron = doc.createElement('span');
+    chevron.className = 'sdk-kind-chevron';
+    chevron.setAttribute('aria-hidden', 'true');
+    chevron.innerHTML = '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M2.3 5.3 8 11l5.7-5.7-1.4-1.4L8 8.2 3.7 3.9z"/></svg>';
+    field.append(chip, input, chevron);
+    const sheet = doc.createElement('div');
+    sheet.className = 'sdk-kind-sheet';
+    sheet.appendChild(field);
+    el.appendChild(sheet);
+    const drawIcon = (node, name) => {
+      node.replaceChildren();
+      if (!name) return;
+      deps.icon(name).then((svg) => { if (svg && node.dataset.kindIcon === name) node.innerHTML = svg; }, () => {});
+    };
+    const colour = (node, c) => { if (c) node.style.setProperty('--kind-color', String(c)); else node.style.removeProperty('--kind-color'); };
+    // The closed row shows the chosen kind: its name in the field, its icon on the chip in its colour. An id that is not in
+    // the groups (a marker type an owner removed) shows an empty field saying "Unknown kind", never another kind.
+    const showChosen = () => {
+      const opt = find(value);
+      input.value = opt ? opt.label : '';
+      input.placeholder = !opt && value ? 'Unknown kind' : '';
+      chip.dataset.kindIcon = (opt && opt.icon) || '';
+      chip.hidden = !opt || !opt.icon;
+      colour(chip, opt && opt.color);
+      drawIcon(chip, opt && opt.icon);
+    };
+    const setActive = (i, scroll) => {
+      if (rows[active]) { rows[active].el.classList.remove('active'); }
+      active = i >= 0 && i < rows.length ? i : -1;
+      if (active === -1) { input.removeAttribute('aria-activedescendant'); return; }
+      const row = rows[active];
+      row.el.classList.add('active');
+      input.setAttribute('aria-activedescendant', row.el.id);
+      if (scroll !== false && typeof row.el.scrollIntoView === 'function') row.el.scrollIntoView({ block: 'nearest' });
+    };
+    // Where the list goes: under the field (above it when it would not fit), fixed against the window. Inside an open editor
+    // window (host.ui.editor) it is appended to that dialog, so it is in the top layer with it; on a phone the stylesheet
+    // makes the sheet (.sdk-kind-sheet, holding the field and the list) fill the lower part of the screen instead.
+    const place = () => {
+      if (!list || !open) return;
+      if (phone()) { list.style.top = ''; list.style.left = ''; list.style.width = ''; list.style.maxHeight = ''; return; }
+      const r = field.getBoundingClientRect();
+      const h = Math.min(list.scrollHeight, 360);
+      const below = window.innerHeight - 4 - (r.bottom + 4);
+      const above = r.top - 8;
+      const up = below < Math.min(h, 160) && above > below;
+      const maxH = Math.max(80, Math.min(360, up ? above : below));
+      list.style.maxHeight = maxH + 'px';
+      list.style.width = Math.max(0, r.width) + 'px';
+      list.style.left = Math.max(4, Math.min(r.left, window.innerWidth - r.width - 4)) + 'px';
+      list.style.top = (up ? Math.max(4, r.top - 4 - Math.min(h, maxH)) : r.bottom + 4) + 'px';
+    };
+    const phone = () => typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 640px)').matches;
+    // The list for what is typed: the groups, each with its name and its kinds; "Nothing matches" when none do.
+    const draw = () => {
+      if (!list) return;
+      list.replaceChildren();
+      rows = [];
+      const shownGroups = kindPickerGroups(groups, typed, readRecent(), max);
+      if (!shownGroups.length) {
+        const none = doc.createElement('li');
+        none.className = 'sdk-kind-empty';
+        none.setAttribute('role', 'presentation');
+        none.textContent = 'Nothing matches';
+        list.appendChild(none);
+      }
+      shownGroups.forEach((g, gi) => {
+        const li = doc.createElement('li');
+        li.className = 'sdk-kind-group';
+        li.setAttribute('role', 'group');
+        const title = doc.createElement('div');
+        title.className = 'sdk-kind-group-title';
+        title.id = `${listId}-g${gi}`;
+        title.textContent = g.label || '';
+        li.setAttribute('aria-labelledby', title.id);
+        li.appendChild(title);
+        for (const opt of g.options) {
+          const row = doc.createElement('div');
+          row.className = 'sdk-kind-option';
+          row.setAttribute('role', 'option');
+          row.id = `${listId}-${rows.length}`;
+          row.setAttribute('aria-selected', opt.id === value ? 'true' : 'false');
+          row.dataset.id = String(opt.id);
+          colour(row, opt.color);
+          const ic = doc.createElement('span');
+          ic.className = 'sdk-kind-icon';
+          ic.setAttribute('aria-hidden', 'true');
+          ic.dataset.kindIcon = opt.icon || '';
+          drawIcon(ic, opt.icon);
+          const name = doc.createElement('span');
+          name.className = 'sdk-kind-name';
+          name.textContent = opt.label || String(opt.id);
+          row.append(ic, name);
+          const index = rows.length;
+          row.addEventListener('mousemove', () => { if (active !== index) setActive(index, false); });
+          row.addEventListener('click', (e) => { e.preventDefault(); choose(index); });
+          li.appendChild(row);
+          rows.push({ id: opt.id, option: opt, el: row });
+        }
+        list.appendChild(li);
+      });
+      // The active row: the chosen kind when it is in the list, else the first match.
+      const at = rows.findIndex((r) => r.id === value);
+      setActive(rows.length ? (typed || at === -1 ? 0 : at) : -1, false);
+      if (rows[active]) rows[active].el.scrollIntoView({ block: typed ? 'nearest' : 'center' });
+      place();
+    };
+    const away = (e) => { if (open && !el.contains(e.target) && !(list && list.contains(e.target))) close(); };
+    const key = (e) => {
+      if (e.key !== 'Escape' || !open) return;
+      // Escape closes only the list: stopped and prevented, so an editor window around it does not close too.
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+      input.focus();
+    };
+    const openList = () => {
+      if (open || input.disabled) return;
+      open = true;
+      typed = '';
+      list = doc.createElement('ul');
+      list.className = 'sdk-kind-list';
+      list.id = listId;
+      list.setAttribute('role', 'listbox');
+      list.setAttribute('aria-label', label);
+      // The list never takes focus from the field (a click on a row chooses it while the field keeps focus).
+      list.addEventListener('mousedown', (e) => e.preventDefault());
+      // On a phone the sheet holds the field and the list; elsewhere the list goes under the field, into an open editor
+      // window when the field is in one (so it is not inert under the dialog).
+      const editor = deps.editorAt(input);
+      if (phone()) sheet.appendChild(list); else (editor || (deps.root === doc ? doc.body : deps.root)).appendChild(list);
+      el.classList.add('open');
+      input.setAttribute('aria-expanded', 'true');
+      input.setAttribute('aria-controls', listId);
+      draw();
+      doc.addEventListener('keydown', key, true);
+      deps.root.addEventListener('pointerdown', away, true);
+      // The list follows the field when anything scrolls: the document, and the module's root (a scroll inside a shadow
+      // root, an editor dialog's own scrolling, never reaches the document's listener).
+      doc.addEventListener('scroll', place, true);
+      if (deps.root !== doc) deps.root.addEventListener('scroll', place, true);
+      window.addEventListener('resize', place);
+      if (phone() && activeEl() !== input) input.focus();
+    };
+    const close = () => {
+      if (!open) return;
+      open = false;
+      if (list) list.remove();
+      list = null;
+      rows = [];
+      active = -1;
+      el.classList.remove('open');
+      input.setAttribute('aria-expanded', 'false');
+      input.removeAttribute('aria-activedescendant');
+      input.removeAttribute('aria-controls');
+      doc.removeEventListener('keydown', key, true);
+      deps.root.removeEventListener('pointerdown', away, true);
+      doc.removeEventListener('scroll', place, true);
+      if (deps.root !== doc) deps.root.removeEventListener('scroll', place, true);
+      window.removeEventListener('resize', place);
+      showChosen();
+      if (activeEl() === input) input.select();
+    };
+    const choose = (i) => {
+      const row = rows[i];
+      if (!row) return close();
+      const changed = row.id !== value;
+      value = row.id;
+      writeRecent(value);
+      close();
+      if (changed && typeof options.onChange === 'function') { try { options.onChange(value); } catch (err) { console.error(err); } }
+    };
+    field.addEventListener('click', (e) => {
+      if (input.disabled) return;
+      if (e.target === input) { if (!open) { openList(); input.select(); } return; }
+      e.preventDefault();
+      if (open) close(); else { openList(); input.focus(); input.select(); }
+    });
+    input.addEventListener('input', () => {
+      if (!open) openList();
+      typed = input.value;
+      draw();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.altKey && e.key === 'ArrowDown') { e.preventDefault(); if (!open) openList(); return; }
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!open) { openList(); return; }
+        if (!rows.length) return;
+        const step = e.key === 'ArrowDown' ? 1 : -1;
+        setActive(active === -1 ? (step > 0 ? 0 : rows.length - 1) : (active + step + rows.length) % rows.length);
+        return;
+      }
+      if (open && (e.key === 'Home' || e.key === 'End') && rows.length) { e.preventDefault(); setActive(e.key === 'Home' ? 0 : rows.length - 1); return; }
+      if (e.key === 'Enter') {
+        e.preventDefault(); // never the form's submit
+        if (open) choose(active);
+        return;
+      }
+      if (e.key === 'Tab' && open) choose(active);
+    });
+    // Focus arriving selects the name, so typing starts the search; focus leaving (a click elsewhere, a Tab out) closes the
+    // list and puts the chosen name back.
+    input.addEventListener('focus', () => { if (!open) input.select(); });
+    input.addEventListener('blur', () => { setTimeout(() => { if (open && activeEl() !== input) close(); }, 0); });
+    const api = {
+      get value() { return value; },
+      // set(): chooses without onChange; an id that is not in the groups is kept and shown as "Unknown kind" (empty).
+      set(id) { value = id == null ? null : String(id); showChosen(); },
+      // setGroups(): a new list. A chosen kind the new list no longer has stays the value, shown as unknown, and is
+      // reported through onChange(value) so the module can show its fields again.
+      setGroups(next) {
+        groups = Array.isArray(next) ? next : [];
+        if (value == null) value = first();
+        showChosen();
+        if (open) draw();
+        if (value != null && !find(value) && typeof options.onChange === 'function') { try { options.onChange(value); } catch (err) { console.error(err); } }
+      },
+      // remember(id): put a kind at the front of the recent list without choosing it (a module records the kind an object
+      // was saved with when the form opened on it already chosen).
+      remember(id) { if (id != null && find(id)) writeRecent(String(id)); },
+      get disabled() { return input.disabled; },
+      set disabled(v) { input.disabled = Boolean(v); el.classList.toggle('disabled', Boolean(v)); if (v) close(); },
+      focus() { try { input.focus(); } catch (err) { /* not focusable */ } },
+      open: openList,
+      close,
+      element: el,
+      input,
+      destroy() { close(); el.classList.remove('sdk-kind', 'disabled'); el.replaceChildren(); },
+    };
+    groups = Array.isArray(options.groups) ? options.groups : [];
+    // The start: `value`, or with `start: 'recent'` the kind chosen last time in this browser when there is one; else the first.
+    const recent = options.start === 'recent' ? readRecent().find((id) => find(id)) : null;
+    value = recent || (typeof options.value === 'string' && options.value ? options.value : first());
+    showChosen();
+    return api;
+  }
+
   // env: { call(method, params) -> Promise, root, rootElement, elementAt({x, y}), localPoint(clientX, clientY),
   // applyTheme(theme) }.
   // Returns { host, emit }: `emit` is how the host pushes an event to the module.
@@ -884,7 +1213,7 @@
     for (const d of openEditors.keys()) if (d.open) top = d;
     return top;
   }
-  const editorDeps = { root: env.root, rootElement: env.rootElement, icon: (name) => menuIcon(name), opened: openEditors };
+  const editorDeps = { root: env.root, rootElement: env.rootElement, icon: (name) => menuIcon(name), opened: openEditors, editorAt, get moduleId() { return (info && info.module && info.module.id) || ''; } };
 
   // Only one host.menu is ever open at once (per module): { id, cleanup }.
   let openMenu = null;
@@ -1301,6 +1630,20 @@
       //   module redraws then is the one searched; else what had focus before, else the module).
       // Anything but a <dialog> throws "host.ui.editor needs a <dialog> element".
       editor: (dialogEl, o) => createEditor(dialogEl, o, editorDeps),
+      // A kind picker: one row (--bar-control-h tall) naming the chosen kind of thing with its icon in its colour on a chip,
+      // a chevron at its end; a click, typing, Down or Alt+Down opens the list of kinds in their groups, each with its icon
+      // and colour, recently chosen first; typing filters by name and `words` (the start of any word). The ARIA combobox
+      // pattern: Up and Down move, Home and End jump, Enter or Tab chooses, Escape closes only the list. A sheet on a phone.
+      // Inside an open editor window the list goes into the dialog. Styles in /sdk/host.css (.sdk-kind).
+      //   kindPicker(el, { label, groups: [{ label, options: [{ id, label, icon, color, words }] }], value, recent: { key, max }, onChange })
+      //   -> { value, set(id), setGroups(groups), remember(id), disabled, focus(), open(), close(), element, input, destroy() }
+      //   `color` any CSS colour (set as --kind-color). `recent` keeps the choices in this browser for this module, as
+      //   host.actions.pick's remember does; `start: 'recent'` starts on the kind chosen last in this browser when there
+      //   is one, else on `value`. set() chooses without onChange; onChange(id) fires for a person's choice of a different kind.
+      //   A `value` or set() id that is not in the groups shows an empty field saying "Unknown kind", never another kind;
+      //   setGroups() dropping the chosen kind reports it as onChange(value). remember(id) records a kind as recently used.
+      // Anything but an element throws "host.ui.kindPicker needs an element".
+      kindPicker: (el, o) => { ensureUiStyles(); return createKindPicker(el, o, editorDeps); },
       // A currency choice in a <select> the module already has: "Common" then "All currencies" by name, from the codes the
       // server takes (host.locale().currencies), with the current value kept and selected even when the server would not
       // take it now. currencySelect(select, { value, empty, onChange }): `empty` true adds a first "" choice labelled

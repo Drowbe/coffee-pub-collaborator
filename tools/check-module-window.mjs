@@ -144,8 +144,160 @@ for (const id of EDITOR_MIGRATED) {
   }
 }
 
+// The SDK's kind picker (host.ui.kindPicker; plan-editor-window.md, Part 2): its filtering, its recent list and the markup it
+// builds, sliced out of public/sdk/host.js and run on a small stand-in for the DOM; /sdk/host.css's rules between
+// "kind:start" and "kind:end".
+{
+  const sdk = read('public/sdk/host.js');
+  const start = sdk.indexOf('const KIND_RECENT_MAX');
+  const endMark = '\n    return api;\n  }\n';
+  const from = sdk.indexOf('function createKindPicker', start);
+  const end = from === -1 ? -1 : sdk.indexOf(endMark, from);
+  if (start === -1 || end === -1) problems.push('public/sdk/host.js: could not find KIND_RECENT_MAX ... createKindPicker to run');
+  else {
+    // A stand-in element: enough of the DOM for the picker to build its row and its list.
+    let seq = 0;
+    const doc = { nodeType: 9 };
+    const element = (tag) => {
+      const el = {
+        nodeType: 1, tagName: String(tag).toUpperCase(), ownerDocument: doc, children: [], attrs: {}, dataset: {}, style: { setProperty(k, v) { el.styles[k] = v; }, removeProperty(k) { delete el.styles[k]; } }, styles: {}, listeners: {}, hidden: false, textContent: '', innerHTML: '', value: '', disabled: false, uid: ++seq,
+        classList: { add: (...c) => c.forEach((x) => el.classes.add(x)), remove: (...c) => c.forEach((x) => el.classes.delete(x)), toggle: (c, on) => (on ? el.classes.add(c) : el.classes.delete(c)), contains: (c) => el.classes.has(c) }, classes: new Set(),
+        setAttribute(k, v) { el.attrs[k] = String(v); }, getAttribute(k) { return k in el.attrs ? el.attrs[k] : null; }, removeAttribute(k) { delete el.attrs[k]; }, hasAttribute(k) { return k in el.attrs; },
+        appendChild(c) { if (c.parent) c.parent.children = c.parent.children.filter((x) => x !== c); c.parent = el; el.children.push(c); return c; }, append(...cs) { cs.forEach((c) => el.appendChild(c)); }, prepend(c) { el.appendChild(c); el.children.unshift(el.children.pop()); }, replaceChildren(...cs) { el.children = []; cs.forEach((c) => el.appendChild(c)); }, remove() { if (el.parent) el.parent.children = el.parent.children.filter((x) => x !== el); el.parent = null; },
+        addEventListener(t, f) { (el.listeners[t] = el.listeners[t] || []).push(f); }, removeEventListener() {}, contains(x) { return x === el || el.children.some((c) => c.contains(x)); }, focus() { doc.activeElement = el; }, select() {}, scrollIntoView() {}, getBoundingClientRect: () => ({ left: 10, top: 10, right: 310, bottom: 48, width: 300, height: 38 }), get scrollHeight() { return 200; }, get id() { return el.attrs.id || ''; }, set id(v) { el.attrs.id = String(v); }, get className() { return [...el.classes].join(' '); }, set className(v) { el.classes = new Set(String(v).split(/\s+/).filter(Boolean)); },
+      };
+      return el;
+    };
+    doc.createElement = element;
+    doc.body = element('body');
+    const docListeners = [];
+    doc.addEventListener = (t, f, c) => docListeners.push(`${t}:${c ? 'capture' : 'bubble'}`); doc.removeEventListener = () => {};
+    const stored = new Map();
+    const fakeWindow = { innerWidth: 1280, innerHeight: 800, matchMedia: () => ({ matches: false }), addEventListener() {}, removeEventListener() {} };
+    const fakeStorage = { getItem: (k) => (stored.has(k) ? stored.get(k) : null), setItem: (k, v) => stored.set(k, String(v)) };
+    const run = new Function('window', 'localStorage', 'console', `${sdk.slice(start, end + endMark.length)}\nreturn { KIND_RECENT_MAX, kindMatches, kindRank, kindPickerGroups, kindRecentAdd, createKindPicker };`);
+    const { KIND_RECENT_MAX, kindMatches, kindRank, kindPickerGroups, kindRecentAdd, createKindPicker } = run(fakeWindow, fakeStorage, console);
+    const groups = [
+      { label: 'Getting there', options: [{ id: 'flight', label: 'Flight', icon: 'plane', color: 'red', words: ['plane', 'air'] }, { id: 'train', label: 'Train', icon: 'train' }, { id: 'bus', label: 'Bus', icon: 'bus' }] },
+      { label: 'Eat and drink', options: [{ id: 'cafe', label: 'Caf\u00e9', icon: 'mug-hot' }, { id: 'bar', label: 'Bar' }, { id: 'restaurant', label: 'Restaurant' }] },
+      { label: 'See and do', options: [{ id: 'sight', label: 'Sight', words: ['shop'] }, { id: 'show', label: 'Show' }] },
+      { label: 'Markers', options: [{ id: 'marker:free-time', label: 'Free time', icon: 'face-smile', color: '#14b8a6' }, { id: 'marker:travel-day', label: 'Travel day' }, { id: 'marker:rest', label: 'Rest' }] },
+    ];
+    const ids = (gs) => gs.map((g) => `${g.label}:${g.options.map((o) => o.id).join(',')}`).join('|');
+    const expect = (what, got, want) => { if (got !== want) problems.push(`public/sdk/host.js: the kind picker ${what}: got ${JSON.stringify(got)}, wanted ${JSON.stringify(want)}`); };
+    // Filtering: the start of any word of the name or the words, without case or accents; a group with nothing left goes.
+    expect('matches the start of a word', kindMatches({ label: 'Free time' }, 'ti'), true);
+    expect('does not match the middle of a word', kindMatches({ label: 'Flight' }, 'light'), false);
+    expect('matches the words given', kindMatches({ label: 'Flight', words: ['plane'] }, 'PLA'), true);
+    expect('matches without accents', kindMatches({ label: 'Caf\u00e9' }, 'cafe'), true);
+    expect('needs every word typed to match', kindMatches({ label: 'Travel day' }, 'tra x'), false);
+    expect('filters "tra" to Train and Travel day', ids(kindPickerGroups(groups, 'tra', [], 4)), 'Getting there:train|Markers:marker:travel-day');
+    expect('gives [] when nothing matches', kindPickerGroups(groups, 'zzz', [], 4).length, 0);
+    // Recent first, up to max, only ids in the groups, not repeated in their groups below, and only with nothing typed.
+    // The order: a name that is the query, then one that starts with it, then a later word of the name, then the words.
+    expect('ranks an exact name first', [kindRank({ label: 'Rest' }, 'rest'), kindRank({ label: 'Restaurant' }, 'rest'), kindRank({ label: 'Free time' }, 'ti'), kindRank({ label: 'Sight', words: ['shop'] }, 'sho'), kindRank({ label: 'Bar' }, 'x')].join(','), '0,1,2,3,4');
+    expect('"rest" puts Rest before Restaurant, its group first', ids(kindPickerGroups(groups, 'rest', [], 4)), 'Markers:marker:rest|Eat and drink:restaurant');
+    expect('"sho" puts Show before Sight', ids(kindPickerGroups(groups, 'sho', [], 4)), 'See and do:show,sight');
+    expect('shows every group with nothing typed and nothing recent', ids(kindPickerGroups(groups, '', [], 4)), 'Getting there:flight,train,bus|Eat and drink:cafe,bar,restaurant|See and do:sight,show|Markers:marker:free-time,marker:travel-day,marker:rest');
+    expect('puts Recent first', ids(kindPickerGroups(groups, '', ['bar', 'flight', 'gone', 'bar'], 4)), 'Recent:bar,flight|Getting there:train,bus|Eat and drink:cafe,restaurant|See and do:sight,show|Markers:marker:free-time,marker:travel-day,marker:rest');
+    expect('keeps Recent to max', kindPickerGroups(groups, '', ['bar', 'flight', 'bus', 'cafe', 'train'], 2)[0].options.length, 2);
+    expect('drops Recent while typing', ids(kindPickerGroups(groups, 'b', ['bar'], 4)), 'Getting there:bus|Eat and drink:bar');
+    expect('has 4 recent by default', KIND_RECENT_MAX, 4);
+    expect('moves a choice to the front of the recent ids, once', kindRecentAdd(['bus', 'bar', 'flight'], 'bar').join(','), 'bar,bus,flight');
+    // The thrown sentence.
+    for (const wrong of [null, undefined, {}, { nodeType: 3 }]) {
+      let thrown = '';
+      try { createKindPicker(wrong, {}, {}); } catch (err) { thrown = err.message; }
+      if (thrown !== 'host.ui.kindPicker needs an element') problems.push(`public/sdk/host.js: host.ui.kindPicker on ${JSON.stringify(wrong)} must throw "host.ui.kindPicker needs an element", not ${JSON.stringify(thrown)}`);
+    }
+    // The markup: the ARIA combobox pattern, closed and open, and the recent list kept in this browser per module.
+    const deps = { root: doc, rootElement: doc.body, icon: () => Promise.resolve(''), editorAt: () => null, moduleId: 'travel' };
+    const box = element('div');
+    const changes = [];
+    const picker = createKindPicker(box, { label: 'What is it', groups, value: 'train', recent: { key: 'add', max: 4 }, onChange: (id) => changes.push(id) }, deps);
+    const byClass = (el, c) => (el.classes && el.classes.has(c) ? [el] : []).concat(...(el.children || []).map((x) => byClass(x, c)));
+    const input = byClass(box, 'sdk-kind-input')[0];
+    const chip = byClass(box, 'sdk-kind-chip')[0];
+    if (!input || input.tagName !== 'INPUT') problems.push('public/sdk/host.js: the kind picker must draw an input.sdk-kind-input');
+    else {
+      expect('field is a combobox', input.getAttribute('role'), 'combobox');
+      expect('field lists', input.getAttribute('aria-autocomplete'), 'list');
+      expect('field starts closed', input.getAttribute('aria-expanded'), 'false');
+      expect('field is named by the label', input.getAttribute('aria-label'), 'What is it');
+      expect('field shows the chosen name', input.value, 'Train');
+      expect('field is linked to its list only while the list exists', input.getAttribute('aria-controls'), null);
+      expect('chip shows the chosen icon', chip && chip.dataset.kindIcon, 'train');
+      expect('value is the chosen id', picker.value, 'train');
+      stored.set('app:kind:travel:add', JSON.stringify(['bar', 'flight']));
+      picker.open();
+      const list0 = () => byClass(doc.body, 'sdk-kind-list')[0];
+      expect('field says it is open', input.getAttribute('aria-expanded'), 'true');
+      expect('field is linked to its list while open', input.getAttribute('aria-controls'), `${list0().attrs.id}`);
+      const list = byClass(doc.body, 'sdk-kind-list')[0];
+      if (!list) problems.push('public/sdk/host.js: the open kind picker must draw ul.sdk-kind-list in the module\'s root');
+      else {
+        expect('list is a listbox', list.getAttribute('role'), 'listbox');
+        expect('list id matches aria-controls', list.attrs.id, input.getAttribute('aria-controls'));
+        const groupsDrawn = byClass(list, 'sdk-kind-group');
+        expect('list has Recent then the groups', groupsDrawn.map((g) => byClass(g, 'sdk-kind-group-title')[0].textContent).join('|'), 'Recent|Getting there|Eat and drink|See and do|Markers');
+        expect('a group is role=group named by its title', groupsDrawn.every((g) => g.getAttribute('role') === 'group' && g.getAttribute('aria-labelledby') === byClass(g, 'sdk-kind-group-title')[0].attrs.id), true);
+        expect('the list follows a scroll of the module\'s root (capture), not only the document\'s', docListeners.includes('scroll:capture'), true);
+        const rows = byClass(list, 'sdk-kind-option');
+        expect('every kind is an option with an id', rows.every((r) => r.getAttribute('role') === 'option' && r.attrs.id && r.dataset.id), true);
+        expect('the chosen kind is selected', rows.filter((r) => r.getAttribute('aria-selected') === 'true').map((r) => r.dataset.id).join(','), 'train');
+        expect('the active option is the chosen one', input.getAttribute('aria-activedescendant'), rows.find((r) => r.dataset.id === 'train').attrs.id);
+        expect('a kind carries its colour', rows.find((r) => r.dataset.id === 'flight').styles['--kind-color'], 'red');
+        expect('a marker carries its own colour', rows.find((r) => r.dataset.id === 'marker:free-time').styles['--kind-color'], '#14b8a6');
+        // Typing filters; nothing matching says so; choosing fires onChange, closes and is remembered.
+        input.value = 'tra'; input.listeners.input[0]();
+        expect('typing "tra" leaves Train and Travel day', byClass(list, 'sdk-kind-option').map((r) => r.dataset.id).join(','), 'train,marker:travel-day');
+        input.value = 'zzz'; input.listeners.input[0]();
+        expect('nothing matching says "Nothing matches"', byClass(list, 'sdk-kind-empty').map((r) => r.textContent).join(), 'Nothing matches');
+        expect('"Nothing matches" is not an option', byClass(list, 'sdk-kind-empty')[0].getAttribute('role') !== 'option' && !input.getAttribute('aria-activedescendant'), true);
+        input.value = 'fl'; input.listeners.input[0]();
+        input.listeners.keydown[0]({ key: 'Enter', preventDefault() {} });
+        expect('Enter chooses the active match', changes.join(','), 'flight');
+        expect('choosing closes the list', input.getAttribute('aria-expanded'), 'false');
+        expect('the chosen name is back in the field', input.value, 'Flight');
+        expect('the choice is kept in this browser for the module', stored.get('app:kind:travel:add'), JSON.stringify(['flight', 'bar']));
+        picker.set('bus');
+        expect('set() chooses without onChange', `${picker.value}:${changes.length}:${input.value}`, 'bus:1:Bus');
+        expect('the chosen name is back in the field after set()', input.getAttribute('aria-controls'), null);
+        // A kind the groups do not have (a marker type an owner removed): the field empty, "Unknown kind", never another kind.
+        picker.set('marker:gone');
+        expect('set() of an unknown id clears the field and keeps the id', `${picker.value}:${input.value}:${input.placeholder}:${chip.hidden}`, 'marker:gone::Unknown kind:true');
+        picker.set('bus');
+        picker.setGroups(groups.slice(1));
+        expect('setGroups() dropping the chosen kind reports it and shows it unknown', `${changes.join(',')}:${picker.value}:${input.value}:${input.placeholder}`, 'flight,bus:bus:' + ':Unknown kind');
+        picker.remember('cafe');
+        expect('remember() records a kind without choosing it', `${stored.get('app:kind:travel:add')}:${picker.value}`, JSON.stringify(['cafe', 'flight', 'bar']) + ':bus');
+      }
+    }
+    const unknown = createKindPicker(element('div'), { groups, value: 'marker:trip-start' }, deps);
+    expect('a value not in the groups is kept and shown as unknown, not as the first kind', `${unknown.value}:${byClass(unknown.element, 'sdk-kind-input')[0].value}:${byClass(unknown.element, 'sdk-kind-input')[0].placeholder}`, 'marker:trip-start::Unknown kind');
+    expect('recent.max 0 or negative means 4', kindPickerGroups(groups, '', ['bar', 'flight', 'bus', 'cafe', 'train'], createKindPicker(element('div'), { groups, recent: { key: 'x', max: 0 } }, deps) && 0)[0].options.length, 4);
+    // A picker with start: 'recent' begins on the kind chosen last.
+    const again = createKindPicker(element('div'), { groups, value: 'bus', start: 'recent', recent: { key: 'add' } }, deps);
+    expect('starts on the kind chosen last with start: recent', again.value, 'cafe');
+    expect('starts on value without it', createKindPicker(element('div'), { groups, value: 'bus', recent: { key: 'add' } }, deps).value, 'bus');
+    // The words a person reads.
+    for (const need of ["'Nothing matches'", "'Recent'", "'Unknown kind'"]) if (!sdk.slice(start, end).includes(need)) problems.push(`public/sdk/host.js: the kind picker must say ${need}`);
+    if (!/Number\(options\.recent\.max\) > 0/.test(sdk.slice(from, end))) problems.push('public/sdk/host.js: recent.max of 0 or less must fall back to KIND_RECENT_MAX');
+    const css = read('public/sdk/host.css');
+    const block = /\/\* kind:start[\s\S]*?\/\* kind:end \*\//.exec(css);
+    if (!block) problems.push('public/sdk/host.css: the kind picker\'s rules must sit between "kind:start" and "kind:end"');
+    else {
+      for (const need of ['.sdk-kind-field', '.sdk-kind-chip', '.sdk-kind-list', '.sdk-kind-option', '.sdk-kind-group-title', '.sdk-kind-empty', 'var(--bar-control-h', 'var(--kind-color)', '@media (max-width: 640px)', 'max-height: 360px']) {
+        if (!block[0].includes(need)) problems.push(`public/sdk/host.css: the kind picker's rules must include "${need}"`);
+      }
+      for (const m of block[0].matchAll(/#[0-9a-f]{3,8}\b|\brgba?\((?!0,\s*0,\s*0)/gi)) problems.push(`public/sdk/host.css: the kind picker's rules use a fixed colour "${m[0]}"; use the theme tokens`);
+      if (!/\[aria-selected="true"\] \.sdk-kind-icon \{[^}]*color: var\(--on-accent\)/.test(block[0])) problems.push('public/sdk/host.css: the chosen kind\'s icon on its solid colour must use --on-accent (text on an accent), not --bg');
+    }
+  }
+}
+
 if (problems.length) {
   console.error(`check-module-window: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);
 }
-console.log(`check-module-window: OK (${files.length} files, the "..." icon; the editor window: ${EDITOR_MIGRATED.length} module(s) migrated, Cancel through editor.cancel(), icons waited for together, the SDK's sizes, handle and thrown sentence)`);
+console.log(`check-module-window: OK (${files.length} files, the "..." icon; the editor window: ${EDITOR_MIGRATED.length} module(s) migrated, Cancel through editor.cancel(), icons waited for together, the SDK's sizes, handle and thrown sentence; the kind picker's filtering, recent list and markup)`);

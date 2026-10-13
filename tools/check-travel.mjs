@@ -1772,6 +1772,8 @@ test('Attraction is a kind of stop beside Sight, Museum, Tour and Show (#246), a
   const order = ["category('travel', 'Travel'", "entry('hotel', 'Add a stay'", "category('eat', 'Eat and drink'", "category('see', 'See and do'", "entry('note', 'Add a note'", "category('mark', 'Mark the day'", "onLine ? 'Add between days' : 'Add at a time'"].map((n) => addMenu.indexOf(n));
   assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), 'the day menu: Travel, a stay, Eat and drink, See and do, a note, Mark the day, Add at a time');
   assert.ok(addMenu.includes("items.push({ id, label, icon, items: entries })"), 'a category is a flyout of host.menu.show');
+  assert.ok(addMenu.includes("entry(t, KICKERS[t], BADGES[t])") && addMenu.includes("tip: `Add ${/^[aeiou]/i"), 'a kind row reads short ("Flight"), its tip keeps "Add a flight"');
+  assert.ok(addMenu.includes("label: t.label, tip: `Mark the day: ") && addMenu.includes("label: t.label,\n      tip: onLine ?"), 'marker rows read short, tips keep the full wording');
   assert.ok(addMenu.includes("const EAT = ['restaurant', 'cafe', 'bar'];"));
   assert.ok(js.includes("attraction: 'Disneyland'"));
   assert.ok(js.includes("attraction: ['theme park', 'park', 'zoo', 'aquarium', 'disney', 'rides']"));

@@ -12,7 +12,8 @@
 // keyboard on its end). Whoever may not PATCH the space reads the same rows with the inputs disabled.
 //
 // Nothing saves as you go (the action bar's rule, public/action-bar.js): the edits are held in the sheet, a Save and a
-// Cancel sit in a bar locked to its bottom, Save sends ONE PATCH with the whole phases object, a click outside the
+// Cancel sit in a bar locked to its bottom, Save sends ONE PATCH with the whole phases object and, once it is kept, closes
+// the sheet (a failed save stays open with the sentence), a click outside the
 // sheet does nothing, and Escape or Cancel close it, asking "Discard changes?" first when dates were edited. A reader
 // without the right to PATCH sees Close alone.
 //
@@ -187,6 +188,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       problemOn('', '');
       if (typeof onChange === 'function') onChange(kept);
       update();
+      close(); // a kept save closes the sheet; focus goes back to its opener (the close event below)
       return true;
     },
   });

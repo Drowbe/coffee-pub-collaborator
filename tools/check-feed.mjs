@@ -321,7 +321,9 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   const spaceJs = read('public/space-settings.js');
   assert.match(spaceHtml, /<div class="[^"]+" id="section-calendar" hidden>[\s\S]*?<input type="checkbox" id="e-publish-calendar"> In the published calendar<\/label>/);
   assert.ok(spaceJs.includes("{ publishCalendar: event.target.checked }"), 'saves publishCalendar');
-  assert.ok(spaceJs.includes("$('section-calendar').hidden = settings.publishedCalendar !== true || !onHere;"), 'the space section needs the module on here too');
+  assert.ok(spaceJs.includes("$('section-calendar').hidden = settings.publishedCalendar !== true || !onHere;"), 'the space section needs the module on too');
+  assert.ok(spaceJs.includes('const onHere = Boolean(m && m.enabled);'), 'on for the whole environment: no per-space test');
+  assert.doesNotMatch(spaceJs, /allSpaces|m\.spaces/, 'space settings no longer reads the per-space availability');
   assert.ok(configJs.includes("api('PATCH', '/api/settings', { [key]: input.checked })"), 'each switch saves as it is flipped');
   assert.ok(adminJs.includes('api(\'DELETE\', `/api/users/${user.key}/feed`)'), 'the user list turns someone\'s feed off');
   assert.match(adminHtml, /data-feed hidden/, 'the user card marks a feed, hidden until there is one');

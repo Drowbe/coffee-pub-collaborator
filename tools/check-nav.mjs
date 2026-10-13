@@ -593,6 +593,14 @@ test('the default layout (plan-saved-layouts.md, step 4): Make default in a shar
   assert.match(restore, /if \(!request && spaceDefaultLayout && Array\.isArray\(spaceOpensWith\) && \(guestToken \|\| !Array\.isArray\(saved\.__open\)\)\) \{[\s\S]*?loadLayout\(spaceDefaultLayout\);\n\s*return;/);
   assert.ok(restore.indexOf('loadLayout(spaceDefaultLayout)') < restore.indexOf('whatOpens({'), 'before the module list');
   assert.match(canvasJs, /spaceDefaultLayout = answer\.defaultLayout && Array\.isArray\(answer\.defaultLayout\.modules\) \? answer\.defaultLayout : null;/, 'from GET /api/modules/for-space');
+  // Availability is gone from the pages (plan-layout-views.md, step 6): no "every space" checkbox on Manage > Modules,
+  // no per-module switches in space settings' Modules tab, and the Lobby note beside Enable.
+  const adminSrc = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
+  assert.doesNotMatch(adminSrc, /data-module-all-spaces|Available in every|allSpaces/, 'Manage > Modules has no availability checkbox');
+  assert.match(adminSrc, /m\.lobby === false \? `<span class="hint">\$\{escapeHtml\(notInLobby\(\)\)\}<\/span>`/, 'the not-in-Lobby note stays, beside Enable');
+  assert.doesNotMatch(settings, /allSpaces|\.spaces\b|off in this|on for every|data-module|switchRowHtml/, 'space settings has no availability switches');
+  assert.match(settings, /<ul class="space-module-list">/, 'the Modules tab lists what is on');
+  assert.doesNotMatch(settingsHtml, /Switch one on|marked on for every/, 'the Modules hint no longer offers a switch');
   // Space settings: the line and Stop using it; a list set by hand refreshes it from the answered space.
   assert.match(settingsHtml, /<button class="btn btn-small" id="opens-with-layout-stop" type="button">Stop using it<\/button>/);
   assert.ok(settingsHtml.indexOf('id="opens-with-layout"') < settingsHtml.indexOf('id="opens-with"'), 'above the switches');

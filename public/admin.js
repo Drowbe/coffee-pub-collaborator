@@ -634,6 +634,7 @@ $('save-features').addEventListener('click', () => saveSettings({
   allowAsides: $('set-allow-asides').checked,
   allowPrivate: $('set-allow-private').checked,
   allowReactions: $('set-allow-reactions').checked,
+  autoJoinCall: $('set-auto-join-call').checked,
 }, $('features-status')));
 $('save-login').addEventListener('click', () => saveSettings({ loginText: $('set-login-text').value, mfaRequired: $('set-mfa-required').checked }, $('login-status')));
 
@@ -2226,6 +2227,7 @@ async function init() {
     $('set-allow-asides').checked = settings.allowAsides !== false;
     $('set-allow-private').checked = settings.allowPrivate !== false;
     $('set-allow-reactions').checked = settings.allowReactions !== false;
+    $('set-auto-join-call').checked = settings.autoJoinCall === true;
     $('set-login-text').value = settings.loginText;
     $('set-mfa-required').checked = Boolean(settings.mfaRequired);
     $('set-allow-registration').checked = Boolean(settings.allowRegistration);

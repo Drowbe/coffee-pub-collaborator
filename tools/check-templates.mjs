@@ -255,7 +255,7 @@ try {
     return {
       settings: { conferenceEnabled: app.settings.conferenceEnabled, homeIcon: app.settings.homeIcon, spaceDefaults: app.settings.spaceDefaults, icons: app.settings.icons.map((i) => i.id) },
       lobby: [lobby.name, lobby.description],
-      modules: Object.fromEntries(Object.entries(registry.modules).map(([id, e]) => [id, [e.version, e.enabled, e.allSpaces]])),
+      modules: Object.fromEntries(Object.entries(registry.modules).map(([id, e]) => [id, [e.version, e.enabled]])),
     };
   };
   const travel = templates.get('travel');
@@ -271,7 +271,7 @@ try {
     assert.deepEqual(once.lobby, ['Home base', 'Everyone on every trip.']);
     assert.deepEqual([once.settings.conferenceEnabled, once.settings.homeIcon, once.settings.spaceDefaults], [true, null, { profile: 'participants', opensWith: ['travel', 'chat'] }]);
     assert.ok(once.settings.icons.includes('suitcase-rolling'), 'the home icon joins the icon list');
-    for (const id of ['travel', 'places', 'maps', 'research', 'calendar']) assert.deepEqual(once.modules[id].slice(1), [true, true], id);
+    for (const id of ['travel', 'places', 'maps', 'research', 'calendar']) assert.deepEqual(once.modules[id].slice(1), [true], id);
     assert.equal(env.modules.isInstalled('assistant'), false, 'a new install leaves the Assistant out');
     assert.equal(env.modules.enabled('maps') !== null, true, 'Maps runs (Places, which it needs, came first)');
     assert.equal(env.store.addSpace({ name: 'Lisbon' }).profile, 'participants', 'a new trip starts with the Participants profile');
@@ -291,7 +291,7 @@ try {
     const env = freshEnvironment('no-ai');
     assert.deepEqual(await templates.applyTemplate(env, travel), [{ id: 'research', why: 'Research needs the AI service installed and turned on first' }]);
     const research = env.modules.view('research');
-    assert.deepEqual([research.enabled, research.allSpaces], [false, true]);
+    assert.equal(research.enabled, false);
   });
 
   await test('a module the plan leaves out is skipped and recorded; what needs a skipped one is skipped too', async () => {
@@ -385,7 +385,7 @@ try {
     const first = await templates.applyOffer(env, travel, confirm, opts);
     const once = switchSnapshot(env);
     assert.deepEqual(first, [{ id: 'research', why: 'not in the plan' }]);
-    assert.deepEqual([once.modules.maps.slice(1), once.modules.places.slice(1)], [[true, true], [true, true]], 'Maps, with Places which it needs');
+    assert.deepEqual([once.modules.maps.slice(1), once.modules.places.slice(1)], [[true], [true]], 'Maps, with Places which it needs');
     assert.equal(once.modules.travel, undefined, 'the Planner, not ticked, is not installed');
     assert.deepEqual([once.settings.conferenceEnabled, once.settings.spaceDefaults, once.lobby[0]], [true, { profile: 'participants', opensWith: ['travel', 'chat'] }, 'Lobby'], 'the conference on, the profile taken, the Lobby left as it was');
     assert.deepEqual([env.store.settings.homeIcon, env.store.settings.words], [owned.homeIcon, owned.words], 'the owner\'s home icon and words untouched');

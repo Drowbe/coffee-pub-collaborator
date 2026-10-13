@@ -900,22 +900,6 @@ async function updateBundled(env) {
 function afterModulesChanged(env) {
   carryReplacedGrants(env);
   for (const id of Object.keys(env.modules.registry.modules)) syncStoredKeys(env, id);
-  lobbySync(env);
-}
-
-// The Lobby keeps only the modules made for it (plan-modules, "the Lobby is for being together"): any other one on in
-// the Lobby is switched off there, and only there -- it stays on in its other spaces, its data kept. Runs on every
-// start (after the bundled updates, so a new version's flag is what counts), after an install or an update, and after
-// a rollback, since any of them can change whether a module declares surfaces.canvas.lobby. A sync, not a migration
-// part: the rule can be broken again by a module update, not only once.
-function lobbySync(env) {
-  const where = env.slug ? `[${env.slug}] ` : '';
-  const lobbyName = env.store.spaceById(LOBBY)?.name || 'the Lobby';
-  for (const id of env.modules.lobbySync()) {
-    const entry = env.modules.registry.modules[id];
-    const manifest = env.modules.manifestOf(id, entry.version);
-    console.log(`${where}${env.modules.shownName(manifest)} is no longer on in ${lobbyName}; it stays on in its other ${env.store.word('space', { many: true })}.`);
-  }
 }
 
 // A module's author renamed a prefix of its stored keys (`storage.renamed: [{ from, to }]` in module.json, see
@@ -3851,11 +3835,7 @@ app.patch('/api/modules/:id', requireOwner, (req, res) => {
     const current = modules.list().find((m) => m.id === req.params.id);
     if (current && refuseModuleNotInPlan(res, current.id, current.name)) return;
   }
-  if (Array.isArray(rest.spaces) && rest.spaces.includes(LOBBY)) {
-    const entry = modules.get(req.params.id);
-    const manifest = modules.manifestOf(req.params.id, entry.version);
-    if (refusedInLobby(manifest, LOBBY)) return res.status(400).json({ error: lobbyRefusal(manifest) });
-  }
+  // `allSpaces` and `spaces` are accepted and ignored (an enabled module is on in every space).
   if (Object.keys(rest).length) modules.update(req.params.id, rest, { spaceExists: (id) => !!store.spaceById(id) });
   else modules.get(req.params.id); // 404 for a module that is not installed
   store.applyModuleDisplay(req.params.id, display);
@@ -3865,7 +3845,6 @@ app.post('/api/modules/:id/rollback', requireOwner, (req, res) => {
   const rolled = modules.rollback(req.params.id, String(req.body?.version || ''));
   // The stored keys follow the version now running (storage.renamed): a rename it does not declare is undone.
   syncStoredKeys(currentEnvironment(), req.params.id);
-  lobbySync(currentEnvironment()); // the version rolled back to may not be made for the Lobby
   res.json({ module: modules.view(req.params.id) || rolled });
 });
 app.delete('/api/modules/:id', requireOwner, (req, res) => {

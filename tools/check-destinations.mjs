@@ -376,12 +376,12 @@ try {
     assert.equal(await goes('/calendar', aliceT), '/', 'the aggregate still needs the option');
   });
 
-  await test('live: in a space, a part is there only while its module is on there and readable there', async () => {
+  await test('live: in a space, a part is there only while its module is on and readable there', async () => {
     const panels = async (space, token) => (await call('GET', `/api/destinations/calendar?space=${space}`, { token })).json.panels.map((p) => p.module.id);
-    // The To-do on in the Keep only: the Tower's view has no To-do panel.
+    // The To-do, on, is in every space; sending the old availability fields changes nothing.
     assert.equal((await call('PATCH', '/api/modules/dest-tasks', { token: admin, body: { enabled: true, allSpaces: false, spaces: [keep] } })).status, 200);
     assert.deepEqual(await panels(keep, aliceT), ['dest-dates', 'dest-tasks']);
-    assert.deepEqual(await panels(tower, aliceT), ['dest-dates']);
+    assert.deepEqual(await panels(tower, aliceT), ['dest-dates', 'dest-tasks']);
     await turn('dest-tasks', true);
     // Members may not read the To-do: the panel is left out for Alice, not for the admin.
     await role({ 'module.dest-tasks.view': false });
@@ -394,10 +394,10 @@ try {
     assert.equal(await goes(`/calendar?space=${keep}`, aliceT), '/');
     assert.equal((await call('GET', `/api/destinations/calendar?space=${keep}`, { token: admin })).status, 200);
     await role({ 'module.dest-dates.view': true });
-    // The main off in the Keep: no view there; the Tower's stays.
-    assert.equal((await call('PATCH', '/api/modules/dest-dates', { token: admin, body: { enabled: true, allSpaces: false, spaces: [tower] } })).status, 200);
+    // The main off: no view in either space.
+    assert.equal((await call('PATCH', '/api/modules/dest-dates', { token: admin, body: { enabled: false } })).status, 200);
     assert.equal((await call('GET', `/api/destinations/calendar?space=${keep}`, { token: aliceT })).status, 404);
-    assert.equal((await call('GET', `/api/destinations/calendar?space=${tower}`, { token: aliceT })).status, 200);
+    assert.equal((await call('GET', `/api/destinations/calendar?space=${tower}`, { token: aliceT })).status, 404);
     await turn('dest-dates', true);
   });
 
@@ -758,10 +758,9 @@ try {
     assert.deepEqual(await search(admin), [], 'the admin belongs to no space (the spaces-data rule)');
     assert.equal((await search(aliceT, `scope=space&space=${keep}&has=place`)).length, 55, 'has=place in one scope too');
     assert.equal((await search(aliceT, 'has=place')).length, 1, 'and in the environment\'s own');
-    // The provider off in the Tower: only the Keep's.
+    // The old availability fields change nothing: the provider is in both spaces.
     assert.equal((await call('PATCH', '/api/modules/dest-pins', { token: admin, body: { enabled: true, allSpaces: false, spaces: [keep] } })).status, 200);
-    assert.deepEqual([...new Set((await search(aliceT)).map((x) => x.ref.space))], [keep], 'not where the provider is off');
-    await turn('dest-pins', true);
+    assert.deepEqual([...new Set((await search(aliceT)).map((x) => x.ref.space))].sort(), [keep, tower].sort(), 'ignored');
     // The provider unreadable: none.
     await role({ 'module.dest-pins.view': false });
     assert.deepEqual(await search(aliceT), [], 'not where the viewer may not read the provider');

@@ -1160,9 +1160,10 @@ class ModuleManager {
       // What it requires that is installed but needs an update from its author first (not in `missing`, since turning it
       // on would not help).
       needsUpdate: this.needsUpdateFor(manifest),
-      allSpaces: Boolean(entry.allSpaces),
-      spaces: entry.spaces || [],
-      // Whether it may be on in the Lobby (surfaces.canvas.lobby); `allSpaces` leaves the Lobby out when it may not.
+      // No longer live settings: kept so an older page still reads them, fixed (the stored values are ignored).
+      allSpaces: true,
+      spaces: [],
+      // Whether it may be on in the Lobby (surfaces.canvas.lobby).
       lobby: ModuleManager.lobbyAllowed(manifest),
       versions: [...entry.versions].sort(compareVersions).reverse(),
       // The installed versions whose manifest uses an old name: kept, but never run or rolled back to.
@@ -1182,8 +1183,9 @@ class ModuleManager {
   }
 
   // --- where a module is on (plan-modules, "the Lobby is for being together") -------------------------------------
-  // The one check for "is this module on in this space": `allSpaces` or the space in `spaces`, and the Lobby only for a
-  // module whose manifest declares surfaces.canvas.lobby. `allSpaces` means every space the module may be in.
+  // The one check for "is this module on in this space": an enabled module is on in every space (plan-layout-views,
+  // "Killing Available in every space"). The stored `allSpaces` and `spaces` stay on the entry, unread. The Lobby keeps
+  // its one real rule: only a module whose manifest declares surfaces.canvas.lobby runs there.
   static lobbyAllowed(manifest) {
     return manifest?.surfaces?.canvas?.lobby === true;
   }
@@ -1191,29 +1193,13 @@ class ModuleManager {
   static onInSpace(entry, manifest, spaceId) {
     if (!entry || !manifest) return false;
     if (spaceId === LOBBY && !ModuleManager.lobbyAllowed(manifest)) return false;
-    return Boolean(entry.allSpaces) || (Array.isArray(entry.spaces) && entry.spaces.includes(spaceId));
+    return Boolean(entry.enabled);
   }
 
   // The same, by id, on its active version.
   isOnIn(id, spaceId) {
     const entry = this.registry.modules[id];
     return entry ? ModuleManager.onInSpace(entry, this.manifestOf(id, entry.version), spaceId) : false;
-  }
-
-  // Takes the Lobby out of `spaces` for every installed module whose active version isn't allowed there (its data
-  // is kept, untouched). Run after each environment build's bundled updates, so a new version that adds or drops the
-  // flag is what counts. Answers the ids it changed; `allSpaces` is never changed.
-  lobbySync() {
-    const changed = [];
-    for (const [id, entry] of Object.entries(this.registry.modules)) {
-      if (!Array.isArray(entry.spaces) || !entry.spaces.includes(LOBBY)) continue;
-      const manifest = this.manifestOf(id, entry.version);
-      if (!manifest || ModuleManager.lobbyAllowed(manifest)) continue;
-      entry.spaces = entry.spaces.filter((s) => s !== LOBBY);
-      changed.push(id);
-    }
-    if (changed.length) this.save();
-    return changed;
   }
 
   // The enabled modules that list `id` in their `requires`.
@@ -1346,7 +1332,7 @@ class ModuleManager {
   }
 
   // enabled: turning a module on records that the admin approved what its
-  // active version asks for. allSpaces / spaces: where a module with the space scope is on.
+  // active version asks for. (allSpaces / spaces are ignored: an enabled module is on in every space.)
   // Everything is checked into a draft first and applied only once all of it is accepted: a refused update
   // changes nothing, not this module and not the ones that need it (GitHub #17).
   update(id, patch, { spaceExists = () => true } = {}) {
@@ -1391,15 +1377,8 @@ class ModuleManager {
         throw new ModuleError('runMode must be "page" or "sandbox"');
       }
     }
-    if (patch.allSpaces !== undefined) {
-      if (!manifest.scope.includes('space')) throw new ModuleError(`this ${word('module')} is not used in ${word('space', { many: true })}`);
-      draft.allSpaces = Boolean(patch.allSpaces);
-    }
-    if (patch.spaces !== undefined) {
-      if (!manifest.scope.includes('space')) throw new ModuleError(`this ${word('module')} is not used in ${word('space', { many: true })}`);
-      if (!Array.isArray(patch.spaces)) throw new ModuleError('spaces must be a list');
-      draft.spaces = [...new Set(patch.spaces.filter((r) => typeof r === 'string' && spaceExists(r)))];
-    }
+    // `allSpaces` and `spaces` are accepted and ignored: an enabled module is on in every space (older pages and scripts
+    // still send them). The stored values are left as they are.
     // All accepted: apply at once.
     for (const r of switchOff) this.registry.modules[r].enabled = false;
     Object.assign(entry, draft);

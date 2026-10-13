@@ -543,7 +543,7 @@ try {
     assert.deepEqual(answer(await call(server, 'POST', `/api/spaces/${trip.id}/phases/cover`, { cookie: outsider.cookie, body: { day: d(50) } })), [403, refusal]);
     assert.deepEqual(answer(await call(server, 'POST', `/api/spaces/${trip.id}/phases/cover`, { body: { day: d(50) } })), [401, { error: 'sign in first' }]);
     assert.deepEqual(answer(await asMember('POST', '/api/spaces/nope/phases/cover', { day: d(50) })), [404, { error: 'no such trip' }]);
-    assert.equal((await asAdmin('PATCH', '/api/modules/todo', { spaces: [] })).status, 200, 'To-do off in the trip');
+    assert.equal((await asAdmin('PATCH', '/api/modules/todo', { enabled: false })).status, 200, 'To-do off');
     assert.deepEqual(answer(await asMember('POST', `/api/spaces/${trip.id}/phases/cover`, { day: d(45) })), [403, refusal], 'no module on in the space');
     assert.equal((await asAdmin('POST', `/api/spaces/${trip.id}/phases/cover`, { day: d(45) })).status, 200, 'the admin, with no module on');
     assert.equal(stored().phases.trip.end, d(45));

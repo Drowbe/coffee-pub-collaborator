@@ -1004,11 +1004,11 @@ try {
   r = await expect('change a layout\'s icon', 200, 'PUT', `${L}/${iconed.json.layout.id}`, { cookie: sam2, body: { icon: 'star' } });
   assert.equal(r.json.layout.icon, 'star');
 
-  // Turning the Calendar off in the space takes the layout away, and the person's choices stay stored for when it is back.
-  await expect('Calendar off', 200, 'PATCH', '/api/modules/calendar', { cookie: owner2, body: { allSpaces: false, spaces: [] } });
+  // Turning the Calendar off takes the layout away, and the person's choices stay stored for when it is back.
+  await expect('Calendar off', 200, 'PATCH', '/api/modules/calendar', { cookie: owner2, body: { enabled: false } });
   assert.deepEqual(await idsOf(pat3), ['workspace'], 'the Calendar layout goes with the Calendar');
   await expect('PATCH Calendar once off', 404, 'PATCH', `${SYS}/calendar`, { cookie: pat3, body: { name: 'x' } });
-  await expect('Calendar on again', 200, 'PATCH', '/api/modules/calendar', { cookie: owner2, body: { allSpaces: true } });
+  await expect('Calendar on again', 200, 'PATCH', '/api/modules/calendar', { cookie: owner2, body: { enabled: true } });
   assert.equal((await call('GET', L, { cookie: pat3 })).json.system[1].name, 'Our plans', 'and comes back as the person left it');
   n += 1;
 

@@ -662,11 +662,11 @@ try {
     assert.notEqual(changed.headers.etag, r.headers.etag);
   });
 
-  await test('server: each read uses the person\'s current rights: a module off in a space, or no read, empties it', async () => {
+  await test('server: each read uses the person\'s current rights: a module off, or no read, empties it', async () => {
     const titles = async () => rfcEvents((await read(aliceUrl)).text).map((e) => text(e, 'SUMMARY')).sort();
-    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: false, spaces: [spaceB] } })).status, 200);
-    assert.deepEqual(await titles(), ['Market day, all; welcome', 'Something new'], 'the module off in A: A\'s events go');
-    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: false } })).status, 200);
+    assert.deepEqual(await titles(), [], 'the module off: no events');
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true } })).status, 200);
     assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.feed-dates.view': false } })).status, 200);
     const r = await read(aliceUrl);
     assert.equal(r.status, 200, 'still answers, empty');
@@ -816,14 +816,14 @@ try {
     assert.equal((await call('POST', '/api/me/spaces/lobby/feed', { cookie: aliceC, body: {} })).status, 404, 'the Lobby is not a space one is a member of');
   });
 
-  await test('space addresses: 404 while the module is off in that space or the person cannot read it there, with the row saying why', async () => {
-    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: false, spaces: [spaceB] } })).status, 200);
-    await notHere(aliceA, 'the module off in A');
+  await test('space addresses: 404 while the module is off or the person cannot read it there, with the row saying why', async () => {
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: false } })).status, 200);
+    await notHere(aliceA, 'the module off');
     let row = rowOf(await calendars(aliceC), spaceA);
-    assert.deepEqual([row.address.allowed, row.address.reason, row.address.on], [false, 'feed-dates is off in this space.', true], 'the address is kept, not deleted');
+    assert.deepEqual([row.address.allowed, /^feed-dates is off in .+\.$/.test(row.address.reason), row.address.on], [false, true, true], 'the address is kept, not deleted');
     const refused = await call('POST', `/api/me/spaces/${spaceA}/feed`, { cookie: aliceC, body: {} });
-    assert.deepEqual([refused.status, refused.json.error], [403, 'feed-dates is off in this space.']);
-    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
+    assert.deepEqual([refused.status, /^feed-dates is off in .+\.$/.test(refused.json.error)], [403, true]);
+    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true } })).status, 200);
     assert.equal((await read(aliceA)).status, 200, 'on again: the same address works');
     assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.feed-dates.view': false } })).status, 200);
     await notHere(aliceA, 'no read in A');
@@ -954,7 +954,7 @@ try {
     await setting(true);
   });
 
-  await test('published calendar: a space left out (publishCalendar false) is not in it; the module off in a space, the same', async () => {
+  await test('published calendar: a space left out (publishCalendar false) is not in it', async () => {
     const bad = await call('PATCH', `/api/spaces/${spaceB}`, { cookie: admin, body: { publishCalendar: 'yes' } });
     assert.deepEqual([bad.status, bad.json], [400, { error: 'publishCalendar is true or false' }]);
     const lobby = await call('PATCH', '/api/spaces/lobby', { cookie: admin, body: { publishCalendar: false } });
@@ -972,9 +972,6 @@ try {
     assert.equal('publishCalendar' in back.json.space, false, 'in it again: stored as nothing');
     assert.equal('publishCalendar' in stored().spaces.find((r) => r.id === spaceB), false);
     assert.ok(rfcEvents((await read(pubUrl)).text).some((e) => text(e, 'SUMMARY') === 'Session in B'));
-    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: false, spaces: [spaceA] } })).status, 200);
-    assert.ok(!rfcEvents((await read(pubUrl)).text).some((e) => text(e, 'SUMMARY') === 'Session in B'), 'the module off in B');
-    assert.equal((await call('PATCH', '/api/modules/feed-dates', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
   });
 
   await test('published calendar: 404 with its switch off, after New address (the old one) and after Turn off', async () => {

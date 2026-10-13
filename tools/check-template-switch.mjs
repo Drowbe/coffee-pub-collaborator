@@ -117,9 +117,12 @@ try {
   as = (method, url, body) => call(server, '', method, url, { cookie, body });
   const lobbySentence = (name) => `${name} can't be turned on in Lobby, which is kept for chat, the call and a few modules made for it.`;
 
-  await test('on start, To-do is switched off in the Lobby only, logged, its data kept', async () => {
-    await server.waitFor('To-do is no longer on in Lobby; it stays on in its other spaces.');
-    assert.deepEqual(readJson(registryFile).modules.todo.spaces, [side]);
+  await test('on start, nothing rewrites the stored spaces; To-do is in every space but the Lobby, its data kept', async () => {
+    assert.deepEqual(readJson(registryFile).modules.todo.spaces, ['lobby', side], 'stored spaces left as they were');
+    assert.deepEqual(readJson(registryFile).modules.todo.allSpaces, false);
+    const ids = async (space) => (await as('GET', `/api/modules/for-space?space=${space}`)).json.modules.map((m) => m.id);
+    assert.ok((await ids(side)).includes('todo'), 'in the space it was set for');
+    assert.ok(!(await ids('lobby')).includes('todo'), 'not in the Lobby: it is not made for it');
     assert.ok(fs.existsSync(lobbyData), 'its Lobby data is kept');
   });
 
@@ -192,10 +195,10 @@ try {
   });
 
   await test('a module not made for the Lobby is refused there with its display name and the Lobby\'s own name', async () => {
-    assert.deepEqual(await as('PATCH', '/api/modules/todo', { spaces: ['lobby', side] }).then((r) => [r.status, r.json]), [400, { error: lobbySentence('To-do') }]);
-    assert.deepEqual(readJson(registryFile).modules.todo.spaces, [side], 'nothing changed');
+    assert.equal((await as('PATCH', '/api/modules/todo', { spaces: ['lobby', side], allSpaces: false })).status, 200, 'accepted and ignored');
+    assert.deepEqual(readJson(registryFile).modules.todo.spaces, ['lobby', side], 'nothing changed');
     assert.equal((await as('PATCH', '/api/modules/polls', { displayName: 'Votes' })).status, 200);
-    assert.deepEqual(await as('PATCH', '/api/modules/polls', { spaces: ['lobby'] }).then((r) => [r.status, r.json]), [400, { error: lobbySentence('Votes') }], 'its display name');
+    assert.equal((await as('PATCH', '/api/modules/polls', { spaces: ['lobby'] })).status, 200, 'accepted and ignored');
     assert.deepEqual(await as('GET', '/api/modules/todo/data?scope=space&space=lobby').then((r) => [r.status, r.json]), [404, { error: lobbySentence('To-do') }], 'its data there is shown nowhere');
     const page = await as('GET', '/modules/todo?space=lobby');
     assert.deepEqual([page.status, page.text], [404, lobbySentence('To-do')]);

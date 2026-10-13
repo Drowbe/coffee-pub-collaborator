@@ -357,8 +357,8 @@ function addIcons(store, template, { iconSet = false } = {}) {
 }
 
 // Installs (when needed), puts in every space and turns on the bundled modules `ids`, each after what it requires,
-// with those added. Answers what was skipped: [{ id, why }]. `allSpaces` means every space the module may be in, so
-// a module not made for the Lobby never lands there (plan-modules, "the Lobby is for being together").
+// with those added. Answers what was skipped: [{ id, why }]. An enabled module is on in every space it may be in; a
+// module not made for the Lobby never lands there (plan-modules, "the Lobby is for being together").
 async function turnOnModules(env, ids, { allowed = () => true, modulesDir = MODULES_DIR, name = (id) => id } = {}) {
   const { modules } = env;
   const manifests = new Map(bundledModules(modulesDir).map((m) => [m.id, m]));
@@ -380,7 +380,6 @@ async function turnOnModules(env, ids, { allowed = () => true, modulesDir = MODU
           const { zip } = buildModule(path.join(modulesDir, id));
           await modules.install(zip, { source: 'bundled' });
         }
-        modules.update(id, { allSpaces: true });
         modules.update(id, { enabled: true });
       } catch (err) {
         why = err.message;
@@ -443,7 +442,7 @@ function offerFor(env, template, { allowed = () => true, modulesDir = MODULES_DI
   const offered = [];
   if (changed('modules')) for (const id of withRequirements(template.modules.filter((m) => !BUILTIN_MODULE_IDS.includes(m)), manifests)) {
     const view = modules.isInstalled(id) ? modules.view(id) : null;
-    if (view && view.enabled && view.allSpaces) continue; // on in every space it may be in already
+    if (view && view.enabled) continue; // an enabled module is on in every space already
     const ok = Boolean(allowed(id));
     offered.push({ id, name: name(id), allowed: ok, ...(ok ? {} : { why: 'not in the plan' }) });
   }

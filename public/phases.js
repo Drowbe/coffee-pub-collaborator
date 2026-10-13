@@ -160,6 +160,101 @@
     return problem ? { ok: false, problem } : { ok: true, dates: next };
   }
 
+  // --- the sheet's rows (public/phase-sheet.js): one row per phase, a start and an end each ---------------------------
+  // The rows read the timeline (timelineOf); these three turn a row's edit into a new set of dates, each answering
+  // { ok: true, dates } or { ok: false, problem } with one sentence and the given dates untouched. The timeline stays
+  // contiguous: a phase's end is the day before the next dated phase starts, so an end moved moves that start (and an
+  // end set on the last dated phase starts the next phase in order the day after); a start moved moves the previous
+  // dated phase's end (its own, when it is the main phase); a phase skipped (its dates cleared) joins its neighbours.
+
+  const datedAfter = (bands, from) => { for (let j = from + 1; j < bands.length; j += 1) if (bands[j].dated) return j; return -1; };
+  const datedBefore = (bands, from) => { for (let j = from - 1; j >= 0; j -= 1) if (bands[j].dated) return j; return -1; };
+
+  // Phase `id`'s `edge` ('start' or 'end') set to `day`. Refused when the day is not a day, an end comes before its
+  // start, a start after its end (the next phase's start, or the main phase's own end), a start not after the previous
+  // dated phase's start (it keeps at least one day), the next phase would start after it ends, or the phase is the
+  // last in order and not main (it has no end).
+  function setPhaseDate(phases, dates, id, edge, day, { created } = {}) {
+    const list = cleanPhases(phases);
+    const i = list.findIndex((p) => p.id === id);
+    if (i < 0) return { ok: false, problem: `There is no phase called "${id}".` };
+    const which = edge === 'end' ? 'end' : 'start';
+    const me0 = list[i];
+    if (!isDay(day)) return { ok: false, problem: `${me0.label}'s ${which} must be a day written as YYYY-MM-DD.` };
+    const bands = timelineOf(list, dates, { created });
+    const me = bands[i];
+    if (which === 'end') {
+      if (!me.dated) return { ok: false, problem: `Set when ${me.label} starts first.` };
+      if (day < me.start) return { ok: false, problem: `${me.label} can't end before it starts, ${me.start}.` };
+      const j = datedAfter(bands, i);
+      if (j < 0) {
+        if (!me.main && i + 1 >= list.length) return { ok: false, problem: `${me.label} is the last phase, so it has no end.` };
+        const next = cleanDates(dates);
+        if (me.main) next[id] = Object.assign({}, next[id] || {}, { end: day });
+        if (i + 1 < list.length) next[list[i + 1].id] = { start: addDays(day, 1) }; // the next phase in order starts
+        const problem = problemOf(list, next, { created, moved: id });
+        return problem ? { ok: false, problem } : { ok: true, dates: next };
+      }
+      const after = addDays(day, 1);
+      if (bands[j].end && after > bands[j].end) return { ok: false, problem: `${bands[j].label} can't start after it ends, ${bands[j].end}.` };
+      if (me.main) return moveBoundary(list, dates, { id, edge: 'end' }, day, { created });
+      return moveBoundary(list, dates, { id: bands[j].id }, after, { created });
+    }
+    if (me.dated && me.end && day > me.end) return { ok: false, problem: `${me.label} can't start after it ends, ${me.end}.` };
+    const p = datedBefore(bands, i);
+    if (p >= 0 && day <= bands[p].start) return { ok: false, problem: `${me.label} must start after ${bands[p].label} starts, ${bands[p].start}.` };
+    return moveBoundary(list, dates, { id }, day, { created });
+  }
+
+  // An undated phase given dates, nothing else shifted: after the previous dated phase (the day after the main
+  // phase's end; else from `today` when the previous phase has begun, else `days` after its start), or, before a
+  // later dated phase, the `days` (at most) just before it, the previous phase keeping at least one day. The main
+  // phase gets an end too (`days` long, or the day before the next dated phase). Refused when there is no room.
+  function addDatesFor(phases, dates, id, { created, today, days = 7 } = {}) {
+    const list = cleanPhases(phases);
+    const i = list.findIndex((p) => p.id === id);
+    if (i < 0) return { ok: false, problem: `There is no phase called "${id}".` };
+    const bands = timelineOf(list, dates, { created });
+    const me = bands[i];
+    if (me.dated) return { ok: false, problem: `${me.label} has dates already.` };
+    const span = Math.max(1, Math.floor(Number(days)) || 7);
+    const day = isDay(today) ? today : null;
+    const p = datedBefore(bands, i);
+    const q = datedAfter(bands, i);
+    let start;
+    if (p < 0) {
+      if (!day) return { ok: false, problem: `Set when ${me.label} starts.` };
+      start = day;
+    } else if (q < 0) {
+      const prev = bands[p];
+      const own = prev.main && cleanDates(dates)[prev.id] ? cleanDates(dates)[prev.id].end : null;
+      if (own) start = addDays(own, 1);
+      else start = day && day > prev.start ? day : addDays(prev.start, span);
+    } else {
+      const room = daysBetween(bands[p].start, bands[q].start) - 1;
+      if (room < 1) return { ok: false, problem: `There is no room for ${me.label} between ${bands[p].label} and ${bands[q].label}.` };
+      start = addDays(bands[q].start, -Math.min(span, room));
+    }
+    const moved = moveBoundary(list, dates, { id }, start, { created });
+    if (!moved.ok || !me.main) return moved;
+    const next = moved.dates;
+    next[id] = Object.assign({}, next[id], { end: q >= 0 ? addDays(bands[q].start, -1) : addDays(start, span - 1) });
+    const problem = problemOf(list, next, { created, moved: id });
+    return problem ? { ok: false, problem } : { ok: true, dates: next };
+  }
+
+  // Phase `id`'s dates cleared: it is skipped and its neighbours join (the main phase's end stays; the next dated
+  // phase starts the day after it). The first phase can't be skipped: it starts on the day the space was made.
+  function skipPhase(phases, dates, id, { created } = {}) {
+    const list = cleanPhases(phases);
+    const i = list.findIndex((p) => p.id === id);
+    if (i < 0) return { ok: false, problem: `There is no phase called "${id}".` };
+    if (i === 0) return { ok: false, problem: `${list[0].label} is the first phase and can't be skipped.` };
+    const without = cleanDates(dates);
+    if (without[id] && without[id].end) { delete without[id].end; if (!Object.keys(without[id]).length) delete without[id]; }
+    return moveBoundary(list, without, { id }, null, { created });
+  }
+
   // The main phase's end moved later to cover `day`, every later boundary shifted by the same number of days (their
   // lengths kept). Answers { moved: true, dates } with the new dates, or { moved: false, dates } when nothing moves:
   // the day is already covered, is before the main phase, or there is no dated main phase.
@@ -203,5 +298,5 @@
     return (dated.length ? dated[dated.length - 1] : list[0]).label;
   }
 
-  return { isDay, addDays, daysBetween, dayOf, cleanPhases, cleanDates, problemOf, timelineOf, moveBoundary, coverMain, chipWords };
+  return { isDay, addDays, daysBetween, dayOf, cleanPhases, cleanDates, problemOf, timelineOf, moveBoundary, setPhaseDate, addDatesFor, skipPhase, coverMain, chipWords };
 }));

@@ -17,6 +17,10 @@ export const LAYOUT_LIMITS = Object.freeze({ personal: 10, shared: 10, name: 40,
 // left alone, never "left out".
 export const COLUMN_IDS = Object.freeze(['conference', 'chat']);
 const inColumn = (id) => COLUMN_IDS.includes(id);
+// `aliases` (composites.js's aliasesFor; plan-calendar-todo.md, step 3): a module id in a stored layout read as another
+// ({ calendar: 'dest:calendar', todo: 'dest:calendar' } while the Calendar is on in the space), or as a list of others.
+// A layout naming both parts places the composite once, where the first is named; the layout itself is never rewritten.
+const aliasOf = (id, aliases) => (aliases && Object.prototype.hasOwnProperty.call(aliases, id) ? aliases[id] : id);
 const PITCH_DEFAULT = 130;
 
 const num = (v, fallback = 0) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
@@ -33,9 +37,10 @@ const pitchOf = (p) => clamp(Math.round(num(p, PITCH_DEFAULT)), LAYOUT_LIMITS.pi
 // box in pixels in the same coordinates as `area`, `snap` whether it snaps. `area` is the canvas: { x, y, w, h }.
 // `snap` is the canvas-level { all, pitch }. A module in a window of its own is saved as the mode it had on the canvas
 // before (`was`), else docked where it can dock.
-export function layoutOf(modules, area, snap = {}) {
+export function layoutOf(modules, area, snap = {}, aliases = {}) {
   const A = { x: num(area?.x), y: num(area?.y), w: Math.max(1, num(area?.w, 1)), h: Math.max(1, num(area?.h, 1)) };
-  const list = (Array.isArray(modules) ? modules : []).filter((p) => p && typeof p.id === 'string' && p.id && !inColumn(p.id));
+  const list = (Array.isArray(modules) ? modules : []).filter((p) => p && typeof p.id === 'string' && p.id && !inColumn(p.id))
+    .map((p) => { const to = aliasOf(p.id, aliases); return typeof to === 'string' ? (to === p.id ? p : { ...p, id: to }) : null; }).filter(Boolean);
   const modeOf = (p) => {
     if (p.mode === 'dock' || p.mode === 'float') return p.mode;
     if (p.was === 'dock' || p.was === 'float') return p.was;
@@ -77,7 +82,7 @@ export function layoutOf(modules, area, snap = {}) {
 //            room, and its box the cells' box;
 //   left     the ids left out, in the layout's order;
 //   snap     the canvas-level { all, pitch }.
-export function placeLayout(layout, area, canOpen = () => true) {
+export function placeLayout(layout, area, canOpen = () => true, aliases = {}) {
   const A = { x: num(area?.x), y: num(area?.y), w: Math.max(1, num(area?.w, 1)), h: Math.max(1, num(area?.h, 1)) };
   const snap = { all: Boolean(layout?.snap?.all), pitch: pitchOf(layout?.snap?.pitch) };
   const left = [];
@@ -85,8 +90,14 @@ export function placeLayout(layout, area, canOpen = () => true) {
   const seen = new Set();
   const maxDock = Math.max(DOCK_MIN, Math.round(A.w * 0.6));
   const least = { w: Math.min(MIN_W, A.w), h: Math.min(MIN_H, A.h) };
-  for (const entry of Array.isArray(layout?.modules) ? layout.modules : []) {
-    if (!entry || typeof entry.id !== 'string' || seen.has(entry.id)) continue;
+  // Each stored entry read through the aliases: one entry per id it reads as, with the stored entry's mode and places.
+  const entries = (Array.isArray(layout?.modules) ? layout.modules : []).flatMap((entry) => {
+    if (!entry || typeof entry.id !== 'string') return [];
+    const to = aliasOf(entry.id, aliases);
+    return (Array.isArray(to) ? to : [to]).filter((id) => typeof id === 'string' && id).map((id) => (id === entry.id ? entry : { ...entry, id }));
+  });
+  for (const entry of entries) {
+    if (seen.has(entry.id)) continue;
     seen.add(entry.id);
     if (inColumn(entry.id)) continue; // the column's: accepted in an older layout, never placed, never left out
     if (!canOpen(entry.id)) { left.push(entry.id); continue; }

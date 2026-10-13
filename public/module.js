@@ -9,6 +9,7 @@
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, markModuleRead, word } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
 import { moduleTint } from '/module-tint.js';
+import { compositesOn } from '/composites.js';
 
 const $ = (id) => document.getElementById(id);
 const id = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -43,7 +44,17 @@ async function start() {
     scope = 'space';
     const q = new URLSearchParams({ space: spaceId });
     if (guestToken) q.set('guest', guestToken);
-    const found = (await api('GET', `/api/modules/for-space?${q}`)).modules.find((m) => m.id === id);
+    const list = (await api('GET', `/api/modules/for-space?${q}`)).modules;
+    const found = list.find((m) => m.id === id);
+    // A part of a composite that is on in this space (the Calendar and the To-do while the Calendar is on; composites.js,
+    // plan-calendar-todo.md step 3) has no page of its own there: its pop-out is the destination's page for the space,
+    // the same the Workspace's composite holds, the pointer in the address (#ref=) kept.
+    const composite = compositesOn(list.map((m) => m.id)).find((c) => c.parts.includes(id));
+    if (composite) {
+      q.delete('popout');
+      location.replace(`${composite.path}?${q}${location.hash}`);
+      return;
+    }
     if (found) {
       mod = { ...found, entry: found.canvas.entry };
       entry = found.canvas.entry;

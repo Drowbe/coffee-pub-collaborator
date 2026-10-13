@@ -18,10 +18,21 @@
 // the canvas asks with it and the two ids are left out of the answer, whichever list names them. The lists still
 // hold them (a phone opens them as tabs; nothing a person stored changes).
 export const COLUMN_IDS = Object.freeze(['conference', 'chat']);
-export function whatOpens({ remembered = null, own = null, environment = null, modules = [], canOpen = () => true, guest = false, column = false } = {}) {
+// `aliases` (composites.js's aliasesFor; plan-calendar-todo.md, step 3): a stored id read as another, or as a list of
+// others ({ calendar: 'dest:calendar', todo: 'dest:calendar' } while the Calendar is on in the space), each once, in the
+// first place it is named. The lists themselves are never rewritten.
+export function readAliased(list, aliases = {}) {
+  const out = [];
+  for (const id of Array.isArray(list) ? list : []) {
+    const to = aliases && Object.prototype.hasOwnProperty.call(aliases, id) ? aliases[id] : id;
+    for (const one of Array.isArray(to) ? to : [to]) if (typeof one === 'string' && one && !out.includes(one)) out.push(one);
+  }
+  return out;
+}
+export function whatOpens({ remembered = null, own = null, environment = null, modules = [], canOpen = () => true, guest = false, column = false, aliases = {} } = {}) {
   const keep = (list) => (column ? list.filter((id) => !COLUMN_IDS.includes(id)) : list);
-  if (!guest && Array.isArray(remembered)) return keep(remembered.slice());
-  const openable = (list) => keep(list.filter((id, i) => typeof id === 'string' && list.indexOf(id) === i && canOpen(id)));
+  if (!guest && Array.isArray(remembered)) return keep(readAliased(remembered, aliases));
+  const openable = (list) => keep(readAliased(list, aliases).filter((id) => canOpen(id)));
   if (Array.isArray(own)) return openable(own);
   if (Array.isArray(environment)) return openable(environment);
   return openable(guest ? ['conference', 'chat'] : ['chat', ...modules]);

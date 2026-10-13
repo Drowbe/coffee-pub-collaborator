@@ -318,7 +318,7 @@ test('a tint colours a message\'s portrait icon and left edge, and a module\'s i
   // Where: the module's titlebar on the canvas and in its own window, its line in the Layout menu's Show section.
   const canvasJs = read('public/canvas.js');
   assert.match(canvasJs, /<span class="mod-title"><i class="fa-solid fa-\$\{escapeHtml\(m\.icon\)\} fa-fw" aria-hidden="true"\$\{tintAttr\(m\.id\)\}><\/i>/);
-  assert.ok(canvasJs.includes("badge: unread[m.id] || 0, tint: colorOf(m.id) })), 'module')"), 'the Layout menu\'s Show list tints each module\'s icon');
+  assert.ok(canvasJs.includes("badge: unreadOf(m.id), tint: colorOf(m.id) })), 'module')"), 'the Layout menu\'s Show list tints each module\'s icon');
   assert.match(read('public/switch-list.js'), /data-tint="\$\{tint\}"/);
   // The popped-out page's titlebar (GitHub #229): the server's colour, else a stable pick from the id (module-tint.js).
   const moduleJs = read('public/module.js');
@@ -448,7 +448,8 @@ test('Keep reads how its request went: the bus answers pending at first, so the 
   assert.match(keep, /if \(outcome\.result === 'opened'\) bringForward\(target\.module\);/, 'a form that opened is brought forward');
   assert.match(keep, /canvas\.show\(moduleId\)/);
   assert.match(read('public/canvas.js'), /show: api_show,/, 'the canvas shows a module as its tab does');
-  assert.match(fnBody(read('public/canvas.js').replace(/^  /gm, ''), 'const api_show = (id) => {'), /else setView\(id\);/);
+  // The id read through the composites' aliases (`todo` shows the one Calendar while it is on; plan-calendar-todo.md step 3).
+  assert.match(fnBody(read('public/canvas.js').replace(/^  /gm, ''), 'const api_show = (id) => {'), /else setView\(m\.id\);/);
 });
 
 test('links: the page finds a message\'s link by the server\'s rule, and a live chat notice keeps only that address', () => {

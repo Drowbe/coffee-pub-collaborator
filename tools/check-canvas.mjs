@@ -113,6 +113,18 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       { modules: ['todo'], guest: true, column: true }, []],
     ['without the column (a phone) the lists hold them as before',
       { remembered: ['todo', 'conference', 'chat'], modules: ['todo'] }, ['todo', 'conference', 'chat']],
+    // The composite (plan-calendar-todo.md, step 3; public/composites.js): a stored `calendar` or `todo` reads as
+    // `dest:calendar` while the Calendar is on in the space, once, where the first is named; the list is not rewritten.
+    ['the composite: a remembered list naming calendar and todo opens the composite once, in the first\'s place',
+      { remembered: ['todo', 'notes', 'calendar'], modules: ['calendar', 'todo', 'notes'], aliases: { calendar: 'dest:calendar', todo: 'dest:calendar' } }, ['dest:calendar', 'notes']],
+    ['the composite: the space\'s own list naming todo opens it, when it may open here',
+      { own: ['todo', 'chat'], modules: ['calendar', 'todo'], canOpen: (id) => id !== 'todo', aliases: { calendar: 'dest:calendar', todo: 'dest:calendar' }, column: true }, ['dest:calendar']],
+    ['the composite off (the Calendar off here): a remembered dest:calendar opens the To-do\'s own list',
+      { remembered: ['dest:calendar', 'notes'], modules: ['todo', 'notes'], aliases: { 'dest:calendar': ['todo'] } }, ['todo', 'notes']],
+    ['the composite off, the To-do off too: a remembered dest:calendar opens nothing',
+      { remembered: ['dest:calendar', 'notes'], modules: ['notes'], aliases: { 'dest:calendar': [] } }, ['notes']],
+    ['nothing set with the composite: the chat, the composite in the Calendar\'s place, the rest',
+      { modules: ['calendar', 'todo', 'notes'], aliases: { calendar: 'dest:calendar', todo: 'dest:calendar' } }, ['chat', 'dest:calendar', 'notes']],
   ];
   for (const [name, input, want] of cases) {
     try {
@@ -540,12 +552,61 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const load = canvasJs.slice(canvasJs.indexOf('  function loadLayout('), canvasJs.indexOf('  const nameOfLayout'));
   if (!capture || !/layoutOf\(mods, canvasArea\(\), \{ all: snapAllOn\(\), pitch: snapPitch\(\) \}\)/.test(capture)) fail(C, 'captureLayout() must build the layout with layoutOf(), with the canvas-level snap');
   if (!/p\.waiting \? 'dock'/.test(capture)) fail(C, 'captureLayout() saves a module waiting for a column as docked');
-  if (!/placeLayout\(layout, area, canOpenHere\)/.test(load)) fail(C, 'loadLayout() must place the layout with placeLayout() and canOpenHere()');
+  if (!/placeLayout\(layout, area, canOpenHere, aliases\)/.test(load)) fail(C, 'loadLayout() must place the layout with placeLayout(), canOpenHere() and the composites\' aliases');
+  if (!/id: compositeOf\(p\.m\) \? compositeOf\(p\.m\)\.main : p\.id/.test(capture)) fail(C, 'captureLayout() saves a composite under its main module\'s id (the server\'s layout store takes module ids only)');
+  if (!/aliases,/.test(canvasJs.slice(canvasJs.indexOf('  function restore() {'), canvasJs.indexOf('  // --- saved layouts')))) fail(C, 'restore() must ask whatOpens with the composites\' aliases');
   if (!/p\.id === 'conference' && p\.kind === 'builtin' && Boolean\(p\.def\?\.inCall\?\.\(\)\)/.test(load) || !/p\.kind !== 'builtin' && !named\.has\(p\.id\) && !keepCall\(p\)\) closeModule\(p\.id\)/.test(load)) fail(C, 'loadLayout() closes what the layout does not name, never the conference or the chat (the column\'s; plan-one-bar.md step 6)');
   if (!/syncDock\(\)/.test(load) || !/snapshot\(\)/.test(load)) fail(C, 'loadLayout() fits the columns (syncDock, fitDock) and becomes the remembered layout (snapshot)');
   if (!/leftOutNote\(plan\.left/.test(load)) fail(C, 'loadLayout() says in one line what it left out');
   if (/function applyLayout\(/.test(canvasJs)) fail(C, 'applyLayout is space.js\'s window-width handler; the canvas\'s load is loadLayout()');
   if (!/\n    captureLayout,\n    loadLayout,\n/.test(canvasJs)) fail(C, 'the canvas must offer captureLayout() and loadLayout()');
+}
+
+// Composites on the Workspace (public/composites.js; plan-calendar-todo.md step 3, reused by plan-map-places.md step 3):
+// one module, `dest:calendar`, in the Calendar's place while the Calendar is on in a space, the To-do's own surface left
+// out there; a stored `calendar` or `todo` reads as the composite and is never written back; where the Calendar is off,
+// a stored `dest:calendar` reads as the To-do alone, so nobody loses their list.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'composites.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/composites.js'), copy);
+  const { COMPOSITES, compositesOn, aliasesFor, readAs, composeList, isCompositeId } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const F = 'public/composites.js';
+  const src = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  if (/\bimport\b|\bdocument\.\w|\bwindow\.\w|localStorage/.test(src)) fail(F, 'composites.js must stay pure: no imports, no DOM, no storage');
+  const cal = COMPOSITES.find((c) => c.id === 'dest:calendar');
+  if (!cal || cal.main !== 'calendar' || cal.path !== '/calendar' || [...cal.parts].join() !== 'calendar,todo') fail(F, 'dest:calendar holds /calendar, its main the Calendar, its parts the Calendar and the To-do');
+  if (!isCompositeId('dest:calendar') || isCompositeId('calendar')) fail(F, 'a composite id starts with dest:');
+  assert.deepEqual(compositesOn(['todo', 'notes']).map((c) => c.id), [], 'the composite is off where the Calendar is off, whatever the To-do does');
+  assert.deepEqual(compositesOn(['calendar']).map((c) => c.id), ['dest:calendar'], 'the composite is on where the Calendar is on, the To-do off or not');
+  assert.deepEqual(aliasesFor(['calendar', 'todo']), { calendar: 'dest:calendar', todo: 'dest:calendar' }, 'on: both parts read as the composite');
+  assert.deepEqual(aliasesFor(['todo']), { 'dest:calendar': ['todo'] }, 'off: the composite reads as the parts on');
+  assert.deepEqual(aliasesFor([]), { 'dest:calendar': [] }, 'off, nothing on: the composite reads as nothing');
+  const stored = Object.freeze(['todo', 'chat', 'calendar', 'notes']);
+  assert.deepEqual(readAs(stored, aliasesFor(['calendar', 'todo', 'notes'])), ['dest:calendar', 'chat', 'notes'], 'a stored list reads with the composite once, in the first part\'s place');
+  assert.deepEqual([...stored], ['todo', 'chat', 'calendar', 'notes'], 'and is never written back');
+  assert.deepEqual(readAs(['dest:calendar', 'notes'], aliasesFor(['todo', 'notes'])), ['todo', 'notes'], 'a stored composite reads as the To-do where the Calendar is off');
+  const list = [{ id: 'notes', name: 'Notes', icon: 'note' }, { id: 'todo', name: 'To-do', icon: 'check', color: 'green' }, { id: 'calendar', name: 'Calendar', icon: 'calendar', color: 'red', version: '1.25.0', scope: ['space'] }];
+  const shown = composeList(list);
+  assert.deepEqual(shown.map((m) => m.id), ['notes', 'dest:calendar'], 'the Show list: the composite in the Calendar\'s place, the To-do left out');
+  const c = shown[1];
+  if (c.name !== 'Calendar' || c.icon !== 'calendar' || c.color !== 'red' || !c.composite || c.composite.id !== 'dest:calendar') fail(F, 'the composite reads as the Calendar: its name, icon and colour');
+  if (!c.canvas || c.canvas.entry !== null || !c.canvas.mode.includes('dock') || !c.canvas.mode.includes('float')) fail(F, 'the composite docks and floats, and has no module entry of its own');
+  assert.deepEqual(composeList([list[0], list[1]]).map((m) => m.id), ['notes', 'todo'], 'with the Calendar off the To-do keeps its own surface');
+  // The pop-out of a part goes to the destination's page for the space (public/module.js); the canvas builds the
+  // composite's frame from the same table and never writes `calendar` or `todo` into a remembered list.
+  const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
+  if (!/compositesOn\(list\.map\(\(m\) => m\.id\)\)\.find\(\(c\) => c\.parts\.includes\(id\)\)/.test(moduleJs) || !/location\.replace\(`\$\{composite\.path\}\?\$\{q\}\$\{location\.hash\}`\)/.test(moduleJs)) fail('public/module.js', 'a part\'s pop-out (/modules/calendar?space=, /modules/todo?space=) goes to the destination\'s page for the space, the hash kept');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  if (!/available = composeList\(modules\)/.test(canvasJs) || !/aliases = aliasesFor\(modules\.map\(\(m\) => m\.id\)\)/.test(canvasJs)) fail('public/canvas.js', 'refresh() composes the Show list and the aliases from composites.js');
+  if (!/list: \(\) => modules\.slice\(\)/.test(canvasJs)) fail('public/canvas.js', 'list() stays the server\'s modules (Chat reads commands by module id)');
+  // A drag from a module on the Workspace over the composite's frame is relayed into the page inside (module-host.js),
+  // same origin only, from the parent window only; the canvas registers each composite's frame and lets it go on close.
+  const hostJs = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
+  if (!/export function registerDragRelay\(frame\)/.test(hostJs) || !/postMessage\(\{ type: 'app:objectdrag', drag \}, location\.origin\)/.test(hostJs)) fail('public/module-host.js', 'a drag over a composite frame is relayed into it as app:objectdrag, same origin');
+  if (!/if \(event\.source !== window\.parent \|\| event\.origin !== location\.origin\) return;/.test(hostJs)) fail('public/module-host.js', 'a relayed drag is taken only from the parent window, same origin');
+  if (!/const unrelay = registerDragRelay\(frame\);/.test(canvasJs) || !/destroy\(\) \{ unrelay\(\); frame\.src = 'about:blank'; \}/.test(canvasJs)) fail('public/canvas.js', 'compositeMount registers the frame for relayed drags and lets it go on close');
 }
 
 // The reaction tray (GitHub #169): with many reactions it never rises under the header. Opening it caps its height to
@@ -1152,7 +1213,8 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
   if (new Set(ids.map((id) => moduleTint(id))).size < 4) fail(F, 'the picks spread over the tints');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
-  if (!/const colorOf = \(id\) => moduleTint\(id, colors\.get\(id\) \|\| null\);/.test(canvasJs)) fail('public/canvas.js', 'a module\'s colour is moduleTint(id, the manifest\'s)');
+  // A composite (dest:calendar) carries its main module's colour (composites.js), so the one Calendar keeps the Calendar's tint.
+  if (!/const colorOf = \(id\) => \{ const c = compositeById\(id\); const base = c \? c\.main : id; return moduleTint\(base, colors\.get\(base\) \|\| null\); \};/.test(canvasJs)) fail('public/canvas.js', 'a module\'s colour is moduleTint(id, the manifest\'s); a composite\'s is its main module\'s');
   if (!/<header class="mod-header module-floating-head"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs) || !/<header class="mod-header"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs)) fail('public/canvas.js', 'the floating and the docked header carry data-tint');
   const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
   if (!/\$\('module-titlebar'\)\.dataset\.tint = tint;/.test(moduleJs)) fail('public/module.js', 'the popped-out page\'s titlebar carries data-tint');

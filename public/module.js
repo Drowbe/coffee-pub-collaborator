@@ -8,6 +8,7 @@
 // (A module page opened over a call also carries from=space&spaceName=<the space's name>, for its Back link.)
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, markModuleRead, word } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
+import { moduleTint } from '/module-tint.js';
 
 const $ = (id) => document.getElementById(id);
 const id = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -154,8 +155,13 @@ async function clearModuleData() {
 function wireTitlebar(mod) {
   $('module-titlebar').hidden = false;
   $('module-titlebar-icon').className = `fa-solid fa-${mod.icon} fa-fw`;
-  // The module's colour on its icon, as on the canvas's titlebar (plan-chat-model.md, decision 18), when the server says one.
-  if (/^(gold|blue|green|teal|purple|red|orange|pink)$/.test(mod.color || '')) $('module-titlebar-icon').dataset.tint = mod.color;
+  // The module's colour on the titlebar and its icon, as on the canvas (plan-chat-model.md, decision 18; GitHub #229):
+  // the server's, else a stable pick from the id (module-tint.js).
+  const tint = moduleTint(mod.id, mod.color || null);
+  if (tint) {
+    $('module-titlebar-icon').dataset.tint = tint;
+    $('module-titlebar').dataset.tint = tint;
+  }
   $('module-titlebar-title').textContent = mod.name;
   $('module-close').addEventListener('click', () => window.close());
   $('module-menu').addEventListener('click', (event) => {

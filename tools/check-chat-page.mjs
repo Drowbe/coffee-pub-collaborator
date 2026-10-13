@@ -320,7 +320,10 @@ test('a tint colours a message\'s portrait icon and left edge, and a module\'s i
   assert.match(canvasJs, /<span class="mod-title"><i class="fa-solid fa-\$\{escapeHtml\(m\.icon\)\} fa-fw" aria-hidden="true"\$\{tintAttr\(m\.id\)\}><\/i>/);
   assert.ok(canvasJs.includes("badge: unread[m.id] || 0, tint: colorOf(m.id) })), 'module')"), 'the Layout menu\'s Show list tints each module\'s icon');
   assert.match(read('public/switch-list.js'), /data-tint="\$\{tint\}"/);
-  assert.match(read('public/module.js'), /\$\('module-titlebar-icon'\)\.dataset\.tint = mod\.color;/);
+  // The popped-out page's titlebar (GitHub #229): the server's colour, else a stable pick from the id (module-tint.js).
+  const moduleJs = read('public/module.js');
+  assert.match(moduleJs, /const tint = moduleTint\(mod\.id, mod\.color \|\| null\);/);
+  assert.match(moduleJs, /\$\('module-titlebar-icon'\)\.dataset\.tint = tint;/);
   // On a message: a command's colour from its module, the AI gold.
   const look = fnBody(chat.replace(/^ {2}/gm, ''), 'function commandLook({ kind, command, module } = {}) {');
   assert.match(look, /if \(kind === 'ai' \|\| command === 'ai'\) return \{ icon: 'robot', tint: 'gold', label: '\/ai' \};/);

@@ -1105,6 +1105,43 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/\.side-column-splitter-v \{[^}]*width: 8px;/.test(css) || !/@media \(pointer: coarse\) \{\s*\.side-column-splitter-v \{[^}]*width: 14px;/.test(css)) fail('public/style.css', 'the splitter\'s hit area is 8px, 14px for a finger');
 }
 
+// Each module's titlebar told apart (GitHub #229, public/module-tint.js): the manifest's colour when it names a tint,
+// else a stable pick from the id, never gold (the AI's), the same every time; and the stylesheet draws it on the
+// header (docked, floating and the popped-out page's, all .mod-header) from the tint tokens, never a raw colour.
+{
+  const F = 'public/module-tint.js';
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'module-tint.mjs');
+  fs.copyFileSync(path.join(ROOT, F), copy);
+  const { TINTS, moduleTint } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  if (TINTS.join() !== 'gold,blue,green,teal,purple,red,orange,pink') fail(F, 'the eight tints, in the stylesheet\'s order');
+  for (const t of TINTS) if (moduleTint('anything', t) !== t) fail(F, `the manifest's ${t} wins`);
+  if (moduleTint('anything', 'mauve') === 'mauve' || moduleTint('anything', null) === null) fail(F, 'a colour that is not a tint, or none, falls back to a pick from the id');
+  if (moduleTint('', null) !== null || moduleTint(null) !== null) fail(F, 'no id, no tint');
+  const ids = ['assistant', 'stream', 'notes', 'weather', 'dice', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'module-with-a-long-id', 'x1', 'x2'];
+  for (const id of ids) {
+    const first = moduleTint(id);
+    if (first !== moduleTint(id)) fail(F, `${id}: the pick is stable`);
+    if (!TINTS.includes(first)) fail(F, `${id}: the pick is one of the tints (got ${first})`);
+    if (first === 'gold') fail(F, `${id}: gold is the AI's, never a module's fallback`);
+  }
+  if (new Set(ids.map((id) => moduleTint(id))).size < 4) fail(F, 'the picks spread over the tints');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  if (!/const colorOf = \(id\) => moduleTint\(id, colors\.get\(id\) \|\| null\);/.test(canvasJs)) fail('public/canvas.js', 'a module\'s colour is moduleTint(id, the manifest\'s)');
+  if (!/<header class="mod-header module-floating-head"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs) || !/<header class="mod-header"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs)) fail('public/canvas.js', 'the floating and the docked header carry data-tint');
+  const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
+  if (!/\$\('module-titlebar'\)\.dataset\.tint = tint;/.test(moduleJs)) fail('public/module.js', 'the popped-out page\'s titlebar carries data-tint');
+  const rule = /\.mod-header\[data-tint\] \{([^}]*)\}/.exec(css);
+  if (!rule) fail('public/style.css', 'a rule for .mod-header[data-tint]');
+  else {
+    if (!/box-shadow: inset 0 3px 0 var\(--tint\);/.test(rule[1])) fail('public/style.css', 'the tint is a 3px top edge (box-shadow inset 0 3px 0 var(--tint))');
+    if (!/color-mix\(in srgb, var\(--tint\) 10%, transparent\)/.test(rule[1])) fail('public/style.css', 'the wash is a 10% mix of the tint over the header\'s own background');
+    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail('public/style.css', 'the titlebar\'s accent uses the tint token, never a raw colour');
+  }
+  if (!/\.mod-header\[data-tint\] \.mod-title > i \{[^}]*color: var\(--tint\);/.test(css)) fail('public/style.css', 'the title\'s icon takes the tint');
+}
+
 if (problems.length) {
   console.error(`check-canvas: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);

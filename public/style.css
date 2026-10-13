@@ -1068,6 +1068,48 @@ body.in-space .page-scroll {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
+/* The space cards' heading row: the home word as Who's around's title reads, and Add <space> at the right for owners
+   and the admin (GitHub #233). The row takes no room of its own: the list's gap is the space under it. */
+.space-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: -6px;
+}
+
+.space-list-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.space-list-title i {
+  color: var(--accent);
+}
+
+.space-list-head .btn {
+  height: 40px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 480px) {
+  .space-list-head .btn {
+    flex: 1 1 100%; /* a phone: the button on a row of its own, full width, an easy target */
+    justify-content: center;
+  }
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;
@@ -6211,6 +6253,19 @@ body.conference-window {
   padding: 0 6px 0 10px;
   border-bottom: 1px solid var(--border);
   font-weight: 600;
+}
+
+/* Each module's titlebar told apart at a glance (GitHub #229): its tint (the manifest's colour, else a stable pick from
+   its id; module-tint.js) on a 3px top edge, a light wash over the header's own background and on its icon. The words
+   keep --text, so the pair reads in light and dark alike. Docked, floating and the popped-out page's titlebar alike. */
+.mod-header[data-tint] {
+  box-shadow: inset 0 3px 0 var(--tint);
+  background-image: linear-gradient(color-mix(in srgb, var(--tint) 10%, transparent), color-mix(in srgb, var(--tint) 10%, transparent));
+}
+
+.mod-header[data-tint] .mod-title > i {
+  color: var(--tint);
+  font-size: 15px;
 }
 
 .mod-header-tools {

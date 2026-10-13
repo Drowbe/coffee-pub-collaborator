@@ -569,7 +569,44 @@ function renderSpaces() {
     renderMembers(card.querySelector('.members'), members, r.id, Boolean(r.isAside));
   }
   for (const card of [...list.children]) if (!keep.has(card.dataset.space)) card.remove();
+  renderSpaceListHead();
 }
+
+// The row above the space cards (GitHub #233): the home word with its icon, and "Add <space>" for those who may make
+// one (owners and the admin, as the top bar's "New <space>" entry decides: hasOwnerRights). Never for a guest.
+function renderSpaceListHead() {
+  const title = $('space-list-title');
+  if (!title) return;
+  const homeIcon = document.querySelector('[data-brand="home-icon"]')?.dataset.iconId || 'couch';
+  title.innerHTML = `<i class="${escapeHtml(iconClasses(homeIcon))} fa-fw" aria-hidden="true"></i> `;
+  title.append(document.createTextNode(word('home')));
+  const button = $('home-add-space');
+  const label = `Add ${word('space', { cap: true })}`;
+  $('home-add-space-label').textContent = label;
+  button.title = label;
+  button.hidden = Boolean(guestToken) || !hasOwnerRights(me);
+}
+// Add <space>: the request Manage's Add button makes (POST /api/spaces, named "<Space> N"), then straight into the new
+// space with Set up open, so it can be named and set up at once. A failure is said where a join's is.
+async function addSpace() {
+  const button = $('home-add-space');
+  if (button.disabled) return;
+  button.disabled = true;
+  $('join-error').hidden = true;
+  try {
+    const count = presenceSpaces.filter((r) => r.mine && !r.isAside).length;
+    const { space } = await api('POST', '/api/spaces', { name: `${word('space', { cap: true })} ${count}`, description: '', members: [] });
+    await loadPresence(); // the new card, and the record join() reads the name from
+    await joinInvitedSpace(space.id);
+    if (call.state === 'connected' && currentSpace?.id === space.id) enterSetup();
+  } catch (err) {
+    $('join-error').textContent = err.message;
+    $('join-error').hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+}
+$('home-add-space')?.addEventListener('click', addSpace);
 
 // hereCount() (primary-nav.js, held by check-nav): "3 here · 2 in the call", leaving out those stepped out into an aside.
 // `isAside`: the card is an aside's, whose own people read `aside: true` and are in it.

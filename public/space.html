@@ -28,6 +28,12 @@
       <aside class="dashboard" id="dashboard" hidden></aside>
       <div class="home-main">
         <section class="whos-around" id="whos-around" hidden></section>
+        <!-- The space cards' heading (the home word), and for owners and the admin the way to add one (GitHub #233):
+             it makes the space and takes them into it with Set up open. -->
+        <div class="space-list-head" id="space-list-head">
+          <h2 class="space-list-title" id="space-list-title"></h2>
+          <button class="btn btn-primary" id="home-add-space" type="button" hidden><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> <span id="home-add-space-label"></span></button>
+        </div>
         <div class="space-list" id="spaces"></div>
       </div>
     </div>

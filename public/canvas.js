@@ -18,6 +18,7 @@ import { nav } from '/nav-bar.js';
 import { whatOpens } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { layoutOf, placeLayout, leftOutNote } from '/layouts.js';
+import { TINTS, moduleTint } from '/module-tint.js';
 import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle, tidyCells, tidyBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
@@ -105,10 +106,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   let available = [];
   // Each module's colour in this space (plan-chat-model.md, decision 18), a tint name or null, from every module the
   // server listed, the ones kept out of the Layout menu (canvas.menu false) included: Chat colours a command's
-  // messages by it.
+  // messages by it. A module whose manifest names no colour gets a stable one from its id (module-tint.js, GitHub
+  // #229), so every titlebar is told apart.
   let colors = new Map();
-  const TINTS = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
-  const colorOf = (id) => (colors.get(id) || null);
+  const colorOf = (id) => moduleTint(id, colors.get(id) || null);
   const tintAttr = (id) => (colorOf(id) ? ` data-tint="${colorOf(id)}"` : '');
   // What this space opens with, and the environment's list for a space that has none. Both null until a space is loaded.
   let spaceOpensWith = null;
@@ -844,7 +845,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     floater.className = 'module-floating';
     floater.dataset.module = m.id;
     floater.innerHTML = `
-      <header class="mod-header module-floating-head">${moduleHeader(m, 'float', supports({ modes: m.canvas.mode }, 'dock') && !isNarrow(), true, snapping(m.id))}</header>
+      <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m, 'float', supports({ modes: m.canvas.mode }, 'dock') && !isNarrow(), true, snapping(m.id))}</header>
       <div class="mod-toolbar" data-toolbar hidden></div>
       ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'module-floating-frame')}
       <div class="module-floating-bar" hidden></div>
@@ -885,7 +886,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     section.innerHTML = `
       <div class="dock-resize" title="Drag to resize"></div>
       <div class="mod-content dock-content">
-        <header class="mod-header">${moduleHeader(m, 'dock', false, true)}</header>
+        <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m, 'dock', false, true)}</header>
         <div class="mod-toolbar" data-toolbar hidden></div>
         ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'dock-frame')}
       </div>

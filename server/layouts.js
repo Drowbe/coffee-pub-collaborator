@@ -7,9 +7,14 @@
 //                                  "favorites": { "<user key>": [layout id] } } } }
 //
 // favorites (documentation/plans/plan-favorite-layouts.md, step 1): each person's own favorites in a space, layout ids
-// in the order they were favorited. Only a layout the person can see can be one, each id once, and at most
-// LAYOUT_LIMITS.favorites of them (Thomas, 2026-10-04, replacing "no limit"). A longer stored list reads as its first
-// visible ones, and the file is trimmed at its next write. remove() and forgetPerson() keep it clean; the key is left out of a space's entry while nobody there has a favorite.
+// in the order they were favorited. Only a layout the person can see can be one, each id once, and there is no limit
+// (Thomas, 2026-10-13, plan-layout-views.md decision 13: the limit of 3 was part of a legacy system). remove() and
+// forgetPerson() keep it clean; the key is left out of a space's entry while nobody there has a favorite.
+//
+// system (documentation/plans/plan-layout-views.md, step 1): the system layouts `workspace`, `calendar` and `map` are
+// never stored; server/index.js makes them per space from what is on. What is stored is each person's own choices for
+// them, per space, like favorites: "system": { "<user key>": { "<system id>": { "name"?, "icon"?, "tab"?: false } } }.
+// A user layout may carry an `icon`; one stored without reads as kind `user` with the default icon.
 //
 // A layout is { id, name, by, at, modules: [{ id, mode, dockW?, box?, snap? }], snap?: { all, pitch } }. cleanLayout()
 // is the one shape check, pure; the Layouts class keeps the lists, their limits and the clean-up when a space or a
@@ -32,12 +37,17 @@ const LAYOUT_LIMITS = Object.freeze({
   dockWMax: 2000,
   pitchMin: 50, // the snap grid's pitch in pixels, as the canvas's SNAP_PITCH
   pitchMax: 320,
-  favorites: 3, // favorite layouts per person per space
 });
+// The system layouts' stable ids (a user layout's is `l` and six characters, so they never collide) and their default
+// icons; a user layout's default icon is the Layout button's.
+const SYSTEM_IDS = Object.freeze(['workspace', 'calendar', 'map']);
+const SYSTEM_ICONS = Object.freeze({ workspace: 'columns', calendar: 'calendar-days', map: 'map-location-dot' });
+const USER_ICON = 'object-group';
+const ICON_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 // A module id: the same rule as a space's opensWith (server/store.js).
 const MODULE_ID = /^[a-z][a-z0-9-]{0,31}$/;
 const MODES = ['dock', 'float'];
-const TOP_KEYS = ['name', 'shared', 'modules', 'snap'];
+const TOP_KEYS = ['name', 'shared', 'modules', 'snap', 'icon'];
 const MODULE_KEYS = ['id', 'mode', 'dockW', 'box', 'snap'];
 const BOX_KEYS = ['x', 'y', 'w', 'h'];
 const SNAP_KEYS = ['all', 'pitch'];
@@ -52,11 +62,12 @@ function cleanName(value) {
   return typeof value === 'string' ? value.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim() : '';
 }
 
-// The one shape check, pure. `input` is what a request sends ({ name, shared?, modules, snap? }); with `partial`
-// (a PUT) any of name, modules and snap may be left out, and shared is not taken. Returns { layout } with only the
+// The one shape check, pure. `input` is what a request sends ({ name, shared?, modules, snap?, icon? }); with `partial`
+// (a PUT) any of name, modules and snap may be left out, and shared is not taken. `icons`, when given, is the list of
+// icon ids an `icon` must come from. Returns { layout } with only the
 // fields given, cleaned (numbers of pixels rounded), or { error } with one sentence saying what is wrong; anything
 // wrong refuses the whole layout.
-function cleanLayout(input, { partial = false } = {}) {
+function cleanLayout(input, { partial = false, icons = null } = {}) {
   if (!isObject(input)) return { error: `Send the layout as JSON: a name and the ${many('module')} it opens.` };
   const allowed = partial ? TOP_KEYS.filter((k) => k !== 'shared') : TOP_KEYS;
   const extra = Object.keys(input).find((k) => !allowed.includes(k));
@@ -112,6 +123,12 @@ function cleanLayout(input, { partial = false } = {}) {
     }
   }
 
+  if (input.icon !== undefined) {
+    const bad = typeof input.icon !== 'string' || !ICON_RE.test(input.icon) || (Array.isArray(icons) && !icons.includes(input.icon));
+    if (bad) return { error: 'Pick an icon from the list.' };
+    out.icon = input.icon;
+  }
+
   if (input.snap !== undefined) {
     const s = input.snap;
     const pitch = s?.pitch;
@@ -121,6 +138,54 @@ function cleanLayout(input, { partial = false } = {}) {
     out.snap = { all: s.all, pitch: Math.round(pitch) };
   }
   return { layout: out };
+}
+
+// A person's change to a system layout, pure: { name?, icon?, tab? }. `name` and `icon` null go back to the default;
+// `tab` is true or false. Returns { patch } cleaned or { error } with one sentence. Whether `tab: false` is allowed
+// for that layout (never for the Workspace) is the route's.
+function cleanSystemPatch(input, { icons = null } = {}) {
+  if (!isObject(input)) return { error: 'Send the change as JSON: a name, an icon or whether it is a tab.' };
+  const extra = Object.keys(input).find((k) => !['name', 'icon', 'tab'].includes(k));
+  if (extra) return { error: `A system layout does not take "${extra}".` };
+  const patch = {};
+  if (input.name !== undefined) {
+    if (input.name === null) patch.name = null;
+    else {
+      if (typeof input.name !== 'string') return { error: 'A layout\'s name must be text.' };
+      const name = cleanName(input.name);
+      if (!name) return { error: 'Give the layout a name.' };
+      if ([...name].length > LAYOUT_LIMITS.name) return { error: `A layout's name can be at most ${LAYOUT_LIMITS.name} characters.` };
+      patch.name = name;
+    }
+  }
+  if (input.icon !== undefined) {
+    if (input.icon === null) patch.icon = null;
+    else if (typeof input.icon !== 'string' || !ICON_RE.test(input.icon) || (Array.isArray(icons) && !icons.includes(input.icon))) return { error: 'Pick an icon from the list.' };
+    else patch.icon = input.icon;
+  }
+  if (input.tab !== undefined) {
+    if (typeof input.tab !== 'boolean') return { error: 'Say whether the layout is a tab with true or false.' };
+    patch.tab = input.tab;
+  }
+  if (!Object.keys(patch).length) return { error: 'Send a new name, an icon, or whether it is a tab.' };
+  return { patch };
+}
+
+// One person's stored choices for the system layouts, as read from the file: only what this version knows, cleaned.
+function storedSystem(raw) {
+  const out = {};
+  if (!isObject(raw)) return out;
+  for (const id of SYSTEM_IDS) {
+    const r = raw[id];
+    if (!isObject(r)) continue;
+    const kept = {};
+    const name = typeof r.name === 'string' ? cleanName(r.name) : '';
+    if (name && [...name].length <= LAYOUT_LIMITS.name) kept.name = name;
+    if (typeof r.icon === 'string' && ICON_RE.test(r.icon)) kept.icon = r.icon;
+    if (r.tab === false && id !== 'workspace') kept.tab = false;
+    if (Object.keys(kept).length) out[id] = kept;
+  }
+  return out;
 }
 
 class LayoutError extends Error {
@@ -161,7 +226,7 @@ class Layouts {
       const shared = storedList(entry.shared);
       // A file from before favorites has no key: it reads as none. Ids that are not text, or listed twice, are dropped.
       // Ids of a layout that person cannot see (gone, dropped above as malformed, or hand-edited in) are dropped too,
-      // so a space whose favorites name nothing left keeps no entry. Past the limit, the first ones favorited are kept.
+      // so a space whose favorites name nothing left keeps no entry.
       const sharedIds = new Set(shared.map((l) => l.id));
       const favorites = {};
       for (const [key, list] of Object.entries(isObject(entry.favorites) ? entry.favorites : {})) {
@@ -169,11 +234,15 @@ class Layouts {
         const ids = Array.isArray(list)
           ? [...new Set(list.filter((id) => typeof id === 'string' && id && (sharedIds.has(id) || own.has(id))))]
           : [];
-        ids.splice(LAYOUT_LIMITS.favorites);
         if (ids.length) favorites[key] = ids;
       }
-      if (shared.length || Object.keys(people).length || Object.keys(favorites).length) {
-        this.spaces[spaceId] = { shared, people, ...(Object.keys(favorites).length ? { favorites } : {}) };
+      const system = {};
+      for (const [key, record] of Object.entries(isObject(entry.system) ? entry.system : {})) {
+        const kept = storedSystem(record);
+        if (Object.keys(kept).length) system[key] = kept;
+      }
+      if (shared.length || Object.keys(people).length || Object.keys(favorites).length || Object.keys(system).length) {
+        this.spaces[spaceId] = { shared, people, ...(Object.keys(favorites).length ? { favorites } : {}), ...(Object.keys(system).length ? { system } : {}) };
       }
     }
   }
@@ -214,29 +283,64 @@ class Layouts {
       for (const [key, list] of Object.entries(entry.favorites)) if (!list.length) delete entry.favorites[key];
       if (!Object.keys(entry.favorites).length) delete entry.favorites;
     }
-    if (!entry.shared.length && !Object.keys(entry.people).length && !entry.favorites) delete this.spaces[spaceId];
+    if (entry.system) {
+      for (const [key, record] of Object.entries(entry.system)) if (!Object.keys(record).length) delete entry.system[key];
+      if (!Object.keys(entry.system).length) delete entry.system;
+    }
+    if (!entry.shared.length && !Object.keys(entry.people).length && !entry.favorites && !entry.system) delete this.spaces[spaceId];
   }
 
-  // { mine, shared } in a space: `userKey` null (a guest) has none of their own.
+  // { mine, shared } in a space: `userKey` null (a guest) has none of their own. Each is a copy with `kind: 'user'` and
+  // its `icon` (the default one when none was stored); nothing stored is changed.
   list(spaceId, userKey) {
+    const shown = (l) => ({ ...copy(l), kind: 'user', icon: typeof l.icon === 'string' && l.icon ? l.icon : USER_ICON });
     return {
-      mine: userKey ? this.listOf(spaceId, userKey).map(copy) : [],
-      shared: this.listOf(spaceId, null).map(copy),
+      mine: userKey ? this.listOf(spaceId, userKey).map(shown) : [],
+      shared: this.listOf(spaceId, null).map(shown),
     };
   }
 
-  // `userKey`'s favorites in a space: the ids, in the order favorited, of those that still exist and that they can
-  // see, at most LAYOUT_LIMITS.favorites (the first ones). A guest (`userKey` null) has none.
+  // `userKey`'s own choices for the system layouts in a space: { <system id>: { name?, icon?, tab? } }, only what they
+  // changed. A guest (`userKey` null) has none.
+  systemOf(spaceId, userKey) {
+    return userKey ? structuredClone(this.spaces[spaceId]?.system?.[userKey] || {}) : {};
+  }
+
+  // Sets or clears (`null`) a person's name or icon for one system layout, or its tab (`false` stored; `true` clears it).
+  // `patch` is cleanSystemPatch's answer; the caller has checked the id and that the Workspace keeps its tab. Returns
+  // that layout's choices after, as systemOf().
+  setSystem(spaceId, userKey, systemId, patch) {
+    this.mustWrite();
+    const now = this.systemOf(spaceId, userKey)[systemId] || {};
+    const next = { ...now };
+    for (const key of ['name', 'icon']) {
+      if (patch[key] === undefined) continue;
+      if (patch[key] === null) delete next[key]; else next[key] = patch[key];
+    }
+    if (patch.tab === false) next.tab = false;
+    else if (patch.tab === true) delete next.tab;
+    if (JSON.stringify(next) === JSON.stringify(now)) return next;
+    const entry = this.spaces[spaceId] || (this.spaces[spaceId] = { shared: [], people: {} });
+    entry.system = entry.system || {};
+    entry.system[userKey] = { ...(entry.system[userKey] || {}) };
+    if (Object.keys(next).length) entry.system[userKey][systemId] = next; else delete entry.system[userKey][systemId];
+    this.tidy(spaceId);
+    this.save();
+    return next;
+  }
+
+  // `userKey`'s favorites in a space: the ids, in the order favorited, of the saved layouts that still exist and that
+  // they can see, with no limit. The system layouts' tabs are not in this list (systemOf()). A guest (`userKey` null)
+  // has none.
   favorites(spaceId, userKey) {
     if (!userKey) return [];
     const stored = this.spaces[spaceId]?.favorites?.[userKey] || [];
-    return stored.filter((id) => this.find(spaceId, id, userKey)).slice(0, LAYOUT_LIMITS.favorites);
+    return stored.filter((id) => this.find(spaceId, id, userKey));
   }
 
   // Makes a layout `userKey` can see one of their favorites (`on`), appended at the end, or stops it being one.
   // Doing what is already so changes nothing. A change writes back the visible list (as favorites()) with it, so ids
-  // they cannot see, or past the limit, are dropped. Returns their favorites (as favorites()), or null when they cannot
-  // see that layout. Throws a LayoutError (409) when they already have LAYOUT_LIMITS.favorites and this is not one.
+  // they cannot see are dropped. Returns their favorites (as favorites()), or null when they cannot see that layout.
   setFavorite(spaceId, layoutId, userKey, on) {
     this.mustWrite();
     if (!userKey || !this.find(spaceId, layoutId, userKey)) return null;
@@ -244,9 +348,6 @@ class Layouts {
     const visible = this.favorites(spaceId, userKey);
     const has = visible.includes(layoutId);
     if (on && !has) {
-      if (visible.length >= LAYOUT_LIMITS.favorites) {
-        throw new LayoutError(`You can have ${LAYOUT_LIMITS.favorites} favorite layouts. Unfavorite one first.`, 409);
-      }
       entry.favorites = entry.favorites || {};
       entry.favorites[userKey] = [...visible, layoutId];
     } else if (!on && has) {
@@ -278,7 +379,7 @@ class Layouts {
 
   // Saves a new layout, already cleaned by cleanLayout: in the shared list when `shared`, else in `by`'s own. Throws
   // a LayoutError (409) when the name is taken in that list (with the id of the one that has it) or the list is full.
-  add(spaceId, by, { name, shared = false, modules, snap }) {
+  add(spaceId, by, { name, shared = false, modules, snap, icon }) {
     this.mustWrite();
     const owner = shared ? null : by;
     const current = this.listOf(spaceId, owner);
@@ -290,7 +391,7 @@ class Layouts {
         ? `This ${words.word('space')} has ${cap} shared layouts. Delete one first.`
         : `You have ${cap} saved layouts here. Delete one first.`, 409);
     }
-    const layout = { id: this.newId(spaceId), name, by, at: new Date().toISOString(), modules, ...(snap ? { snap } : {}) };
+    const layout = { id: this.newId(spaceId), name, by, at: new Date().toISOString(), modules, ...(snap ? { snap } : {}), ...(icon ? { icon } : {}) };
     this.listOf(spaceId, owner, true).push(layout);
     this.save();
     return copy(layout);
@@ -311,6 +412,7 @@ class Layouts {
     }
     if (patch.modules !== undefined) layout.modules = patch.modules;
     if (patch.snap !== undefined) layout.snap = patch.snap;
+    if (patch.icon !== undefined) layout.icon = patch.icon;
     layout.at = new Date().toISOString();
     this.save();
     return copy(layout);
@@ -346,9 +448,10 @@ class Layouts {
     let changed = false;
     for (const spaceId of Object.keys(this.spaces)) {
       const entry = this.spaces[spaceId];
-      if (entry.people[userKey] || entry.favorites?.[userKey]) {
+      if (entry.people[userKey] || entry.favorites?.[userKey] || entry.system?.[userKey]) {
         delete entry.people[userKey];
         if (entry.favorites) delete entry.favorites[userKey];
+        if (entry.system) delete entry.system[userKey];
         this.tidy(spaceId);
         changed = true;
       }
@@ -357,4 +460,4 @@ class Layouts {
   }
 }
 
-module.exports = { Layouts, LayoutError, cleanLayout, LAYOUT_LIMITS };
+module.exports = { Layouts, LayoutError, cleanLayout, cleanSystemPatch, LAYOUT_LIMITS, SYSTEM_IDS, SYSTEM_ICONS, USER_ICON };

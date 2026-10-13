@@ -64,6 +64,20 @@ function resolveDestination(id, { settings, enabled, canRead, hasFile = () => fa
   return { dest, main, panels: panelsOf(id, enabled).filter(({ manifest }) => canRead(manifest)) };
 }
 
+// The destination `id` as a view of one space (plan-calendar-todo.md and plan-map-places.md, step 1): the same parts,
+// but without the environment option, which governs only the aggregate page. Here `canRead` is the caller's test for
+// that space (the module on in that space, the viewer in it and holding its read permission there), and `hasFile` as
+// above (a map file is the environment's, or the host's; a space has none of its own). Answers { dest, main, panels }
+// as resolveDestination does, or null.
+function resolveDestinationInSpace(id, { enabled, canRead, hasFile = () => false }) {
+  const dest = destinationById(id);
+  if (!dest) return null;
+  const main = mainOf(id, enabled);
+  if (!main || !canRead(main.manifest)) return null;
+  if (dest.needsFile && !hasFile(main.manifest)) return null;
+  return { dest, main, panels: panelsOf(id, enabled).filter(({ manifest }) => canRead(manifest)) };
+}
+
 // Every destination shown for the viewer, in the bar's order.
 const shownDestinations = (ctx) => DESTINATIONS.map((d) => resolveDestination(d.id, ctx)).filter(Boolean);
 
@@ -86,4 +100,4 @@ function blockerOf(id, { enabled, hasFile = () => false }) {
   return null;
 }
 
-module.exports = { blockerOf, DESTINATIONS, DESTINATION_IDS, DESTINATION_PARTS, DEFAULT_PART_ORDER, destinationById, partOf, mainOf, panelsOf, resolveDestination, shownDestinations, destinationOfModule };
+module.exports = { blockerOf, DESTINATIONS, DESTINATION_IDS, DESTINATION_PARTS, DEFAULT_PART_ORDER, destinationById, partOf, mainOf, panelsOf, resolveDestination, resolveDestinationInSpace, shownDestinations, destinationOfModule };

@@ -6205,14 +6205,34 @@ app.get('/api/destinations', (req, res) => {
   });
 });
 
+// A destination as a view of one space (plan-calendar-todo.md and plan-map-places.md, step 1; `?space=<id>`): the parts
+// whose module is on in that space and readable by the viewer there, a guest with the space's token included. The
+// environment option governs only the aggregate page, so it is not asked here. Answers { shown, space } or null when
+// the space is not one the viewer is in (an aside, an unknown id or an outsider all read the same, so nothing says
+// which spaces exist), or the destination has no readable main there.
+function destinationInSpace(id, who, spaceId) {
+  if (!who || who.keyed) return null;
+  const space = store.spaceById(String(spaceId || ''));
+  if (!space) return null;
+  const inIt = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
+  if (!inIt) return null;
+  const perms = modulePerms(who, space.id);
+  const enabled = modules.enabledAll();
+  const canRead = (manifest) => {
+    const found = enabled.find((m) => m.manifest.id === manifest.id);
+    return Boolean(found) && manifest.scope.includes('space') && !refusedInLobby(manifest, space.id) && modules.isOnIn(found.entry.id, space.id) && moduleCan(manifest, perms, 'read');
+  };
+  const shown = destinations.resolveDestinationInSpace(id, { enabled, canRead, hasFile: moduleHasFile });
+  return shown ? { shown, space } : null;
+}
+const destinationSpaceRefusal = () => `That page is not available in that ${word('space')} for you.`;
+
 // One destination, for its page: its main part, its panels (in their order) and the spaces any of its parts reads, in
 // the space list's order. A part is what mountModule() takes: { part, module: { id, version, scope, name, icon },
-// entry, runMode, label }. 404 when it is not shown for this viewer.
+// entry, runMode, label }. 404 when it is not shown for this viewer. With ?space=<id>, the same destination as a view
+// of that space (destinationInSpace above): `spaces` is empty and `space` names the one it is a view of.
 app.get('/api/destinations/:id', (req, res) => {
   const who = moduleViewer(req);
-  const ctx = destinationContext(who);
-  const shown = ctx ? destinations.resolveDestination(req.params.id, ctx) : null;
-  if (!shown) return res.status(404).json({ error: 'That page is not in this top bar.' });
   const describe = ({ manifest, entry, part }) => ({
     part: part.part,
     module: { id: manifest.id, version: manifest.version, scope: manifest.scope, ...shownModule(manifest) },
@@ -6220,6 +6240,22 @@ app.get('/api/destinations/:id', (req, res) => {
     runMode: modules.runModeOf(entry),
     label: part.label || shownModule(manifest).name,
   });
+  if (req.query.space !== undefined) {
+    const found = destinationInSpace(req.params.id, who, req.query.space);
+    if (!found) return res.status(404).json({ error: destinationSpaceRefusal() });
+    const { shown, space } = found;
+    return res.json({
+      id: shown.dest.id,
+      ...shownModule(shown.main.manifest),
+      main: describe(shown.main),
+      panels: shown.panels.map(describe),
+      spaces: [],
+      space: spaceSummary(space),
+    });
+  }
+  const ctx = destinationContext(who);
+  const shown = ctx ? destinations.resolveDestination(req.params.id, ctx) : null;
+  if (!shown) return res.status(404).json({ error: 'That page is not in this top bar.' });
   const parts = [shown.main, ...shown.panels];
   const inSome = new Set(parts.flatMap((p) => readableSpacesOf(p, who).map((r) => r.id)));
   res.json({
@@ -7031,6 +7067,11 @@ app.get('/modules/:id', (req, res) => {
 // person it is shown for. Anyone else signed in goes home, and so does everyone while the page is not built yet.
 for (const dest of destinations.DESTINATIONS) {
   app.get(dest.path, (req, res) => {
+    // As a view of one space (?space=<id>): the same page, for anyone in that space the destination has a readable
+    // main for there, a guest with the space's token included; anyone else goes home as below.
+    if (req.query.space !== undefined && destinationPageReady() && destinationInSpace(dest.id, moduleViewer(req), req.query.space)) {
+      return res.sendFile(page('destination.html'));
+    }
     if (!currentUser(req)) {
       // A guest (a space's guest link, no session) goes home: back to their space by its link, or / for a dead link.
       if (req.query.guest !== undefined) {

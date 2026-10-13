@@ -8,6 +8,12 @@
 // Remembered in this browser (decision 18): the view, the filter and the panel's tab, under app.destination.<id>. On a
 // phone (640 px or less) the main part and each panel are tabs along the bottom, the view switch shows only on the
 // main part's tab, and the first view is the phone's own (Day for the calendar) until one is picked.
+//
+// As a view of one space (?space=<id>; plan-calendar-todo.md and plan-map-places.md, step 1): the same page with the
+// parts mounted at space scope (a guest with the space's token too), no space filter, no Mine and no other calendars
+// (plan-google-calendar.md's rule), the view switch and the marker kinds kept, its choices remembered under
+// app.destination.<id>.<space id>. Shown in a frame (the space page's view frame, `window.self !== window.top`) it
+// draws no top bar of its own: the space page's bar is the one bar, and holds the way back; only the page bar shows.
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word, withinSpacePage } from '/brand.js';
 import { nav } from '/nav-bar.js';
 import { mountModule, createDestination } from '/module-host.js';
@@ -18,6 +24,13 @@ const $ = (id) => document.getElementById(id);
 const destId = decodeURIComponent(location.pathname.split('/')[1] || '').toLowerCase(); // /CALENDAR is /calendar
 const phoneQuery = window.matchMedia('(max-width: 640px)');
 const onPhone = () => phoneQuery.matches;
+const params = new URLSearchParams(location.search);
+const spaceId = /^[A-Za-z0-9_-]{1,80}$/.test(params.get('space') || '') ? params.get('space') : ''; // a view of this space
+const guestToken = spaceId && params.get('guest') ? params.get('guest') : null; // a guest's link token, in a space only
+const embedded = window.self !== window.top;
+const withoutTopbar = Boolean(spaceId) && embedded; // a view in the space page's frame: its bar is the one bar
+// The guest's token on this page's own calls (the parts' calls carry it through mountModule).
+const withGuest = (url) => (guestToken ? `${url}${url.includes('?') ? '&' : '?'}guest=${encodeURIComponent(guestToken)}` : url);
 
 // What each destination's page bar holds. `views`: the view switch (none: no switch). `phoneView`: the first view on a
 // phone. `firstView(values)`: the first view on a wider screen, from the main part's own settings (the calendar's
@@ -53,7 +66,7 @@ const KINDS = {
 const kind = KINDS[destId] || { views: [] };
 
 // --- remembered in this browser ------------------------------------------------------------------
-const KEY = `app.destination.${destId}`;
+const KEY = `app.destination.${destId}${spaceId ? `.${spaceId}` : ''}`;
 function remembered() {
   try {
     const v = JSON.parse(localStorage.getItem(KEY) || '{}');
@@ -101,28 +114,35 @@ function missing(text) {
 }
 
 async function start() {
-  renderTopbar({ location: '' });
+  if (spaceId) document.body.classList.add('dest-in-space');
+  if (withoutTopbar) document.body.classList.add('dest-no-topbar');
+  else renderTopbar({ location: '' });
   await loadBranding();
-  wireOverlayBack();
-  let me;
-  try {
-    me = (await api('GET', '/api/me')).user;
-  } catch {
-    location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
-    return;
+  if (!withoutTopbar) wireOverlayBack();
+  if (!guestToken) {
+    let me;
+    try {
+      me = (await api('GET', '/api/me')).user;
+    } catch {
+      location.href = `/login?next=${encodeURIComponent(location.pathname + location.search)}`;
+      return;
+    }
+    if ($('whoami')) {
+      $('whoami').textContent = me.displayName;
+      $('whoami-img').src = `/img/${encodeURIComponent(me.key)}/profile`;
+      $('whoami-img').hidden = false;
+    }
   }
-  $('whoami').textContent = me.displayName;
-  $('whoami-img').src = `/img/${encodeURIComponent(me.key)}/profile`;
-  $('whoami-img').hidden = false;
 
   let d;
   try {
-    d = await api('GET', `/api/destinations/${encodeURIComponent(destId)}`);
+    d = await api('GET', withGuest(`/api/destinations/${encodeURIComponent(destId)}${spaceId ? `?space=${encodeURIComponent(spaceId)}` : ''}`));
   } catch (err) {
-    missing(err.status === 404 ? 'This page is not in your top bar.' : `This page could not open: ${err.message}`);
+    if (err.status === 404) missing(spaceId && err.serverSaid ? err.message : 'This page is not in your top bar.');
+    else missing(`This page could not open: ${err.message}`);
     return;
   }
-  document.title = `${document.title.split(' - ')[0]} - ${d.name}`;
+  document.title = `${document.title.split(' - ')[0]} - ${d.name}${d.space?.name ? ` - ${d.space.name}` : ''}`;
 
   // Where it starts: what this browser remembers, else the phone's own first view or the main part's choice.
   const saved = remembered();
@@ -135,14 +155,14 @@ async function start() {
     markerKinds = cleanMarkerKinds(saved.markerKinds);
     for (const id of Array.isArray(saved.markersOff) ? saved.markersOff : []) if (typeof id === 'string') markersOff.add(id);
   }
-  // Never shown over a call (?from=space in the space page's frame), where others may see the screen.
-  if (kind.external && !withinSpacePage()) await loadExternals();
+  // Never shown over a call (?from=space in the space page's frame), where others may see the screen, nor in a space.
+  if (kind.external && !spaceId && !withinSpacePage()) await loadExternals();
   if (kind.views.some((v) => v.id === saved.view)) view = saved.view;
   else if (kind.views.length && onPhone()) view = kind.phoneView;
   else if (kind.views.length) {
     let values = {};
     try {
-      values = (await api('GET', `/api/modules/${encodeURIComponent(d.main.module.id)}/settings/values?scope=environment`)).values || {};
+      values = (await api('GET', withGuest(`/api/modules/${encodeURIComponent(d.main.module.id)}/settings/values?${placeQuery()}`))).values || {};
     } catch {
       // the default view, then
     }
@@ -200,8 +220,13 @@ async function start() {
   window.addEventListener('hashchange', takeHash);
 }
 
-// The filter's choice as the shared state has it: the spaces on, and whether the environment's own are.
+// The place this page's own calls name: the space it is a view of, else the environment.
+const placeQuery = () => (spaceId ? `scope=space&space=${encodeURIComponent(spaceId)}` : 'scope=environment');
+
+// The filter's choice as the shared state has it: the spaces on, and whether the environment's own are. In a space
+// there is no choice: that one space, not the environment's own, not Mine, no other calendars; the marker kinds stay.
 function filterState() {
+  if (spaceId) return { ...(kind.mine ? { mine: false } : {}), spaces: [spaceId], space: spaceId, environment: false, ...(kind.external ? { externalOff: [] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) };
   return { ...(kind.mine ? { mine: mineOn } : {}), spaces: spaces.filter((r) => !off.has(r.id)).map((r) => r.id), environment: ownOn, ...(kind.external ? { externalOff: [...externalOff] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) };
 }
 
@@ -276,7 +301,7 @@ async function drawSearch(d) {
   const panel = (d.panels || [])[0];
   if (!panel) return;
   try {
-    const values = (await api('GET', `/api/modules/${encodeURIComponent(panel.module.id)}/settings/values?scope=environment`)).values || {};
+    const values = (await api('GET', withGuest(`/api/modules/${encodeURIComponent(panel.module.id)}/settings/values?${placeQuery()}`))).values || {};
     if (kind.searchSetUp(values)) say(kind.search.placeholder);
   } catch {
     // the filter's words, then
@@ -299,7 +324,8 @@ function mountPart(part, container, key) {
   m.mounted = mountModule({
     module: { id: part.module.id, version: part.module.version, scope: part.module.scope },
     ...(inPage ? { container: holder } : { frame: holder }),
-    scope: 'environment',
+    // A view of one space mounts its parts there (the space's own data and permissions, a guest's token carried).
+    ...(spaceId ? { scope: 'space', spaceId, guestToken } : { scope: 'environment' }),
     entry: part.entry,
     destination: { hub, part: part.part },
     onOpenRef: openRef,
@@ -346,6 +372,9 @@ function drawPageBar(d) {
     window.hostSwitch.watch(bar.querySelector('.nav-left'));
   }
 
+  // In a space there is no space filter, no Mine and no other calendars: the filter holds the marker kinds alone, and
+  // shows once the main part has named one; a destination without marker kinds has no filter there at all.
+  if (spaceId && !kind.markers) return;
   const filter = document.createElement('span');
   filter.className = 'dest-filter';
   filter.innerHTML = `
@@ -353,12 +382,12 @@ function drawPageBar(d) {
     <div class="module-chooser-list dest-filter-list" id="dest-filter-list" role="group" hidden></div>`;
   const toggle = filter.querySelector('#dest-filter-toggle');
   const list = filter.querySelector('#dest-filter-list');
-  list.setAttribute('aria-label', word('space', { many: true, cap: true }));
+  list.setAttribute('aria-label', spaceId ? 'Markers' : word('space', { many: true, cap: true }));
   const environmentName = document.querySelector('[data-brand="environmentName"]')?.textContent || word('environment', { cap: true });
   const fill = () => {
     list.innerHTML = switchListHtml([
-      ...(kind.mine ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
-      { id: OWN, icon: 'globe', name: environmentName, on: ownOn },
+      ...(kind.mine && !spaceId ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
+      ...(spaceId ? [] : [{ id: OWN, icon: 'globe', name: environmentName, on: ownOn }]),
       ...spaces.map((r) => ({ id: r.id, icon: r.icon, name: r.name, on: !off.has(r.id) })),
       ...(kind.markers ? markerKinds.map((k) => ({ id: `${MARKER}${k.id}`, icon: k.icon, name: k.label, tint: k.tint, on: !markersOff.has(k.id) })) : []),
       ...externals.map((c, i) => ({ id: `${EXTERNAL}${c.id}`, icon: 'calendar', name: c.name, note: 'only you', tint: EXTERNAL_TINTS[i % EXTERNAL_TINTS.length], on: !externalOff.has(c.id) })),
@@ -371,7 +400,7 @@ function drawPageBar(d) {
       fill();
       list.querySelector('input.switch')?.focus();
       // Calendars added or removed on Profile since the page opened: the list again, keeping the focus where it is.
-      if (kind.external && !withinSpacePage()) {
+      if (kind.external && !spaceId && !withinSpacePage()) {
         loadExternals().then(() => {
           if (list.hidden) return;
           const at = document.activeElement?.dataset?.destFilter;
@@ -391,6 +420,7 @@ function drawPageBar(d) {
       if (at) [...list.querySelectorAll('input[data-dest-filter]')].find((i) => i.dataset.destFilter === at)?.focus();
     }
     paintFilter();
+    if (spaceId) nav.draw('secondary'); // the filter shows once there is a kind to switch
   };
   wireSwitchList(list);
   list.addEventListener('change', (event) => {
@@ -423,7 +453,7 @@ function drawPageBar(d) {
   filter.addEventListener('focusout', (event) => {
     if (!list.hidden && event.relatedTarget && !filter.contains(event.relatedTarget)) open(false);
   });
-  nav.register({ id: 'dest-filter', bar: 'secondary', zone: 'left', group: 'dest-filter', groupOrder: 2, order: 2, icon: 'filter', label: word('space', { many: true, cap: true }), element: filter });
+  nav.register({ id: 'dest-filter', bar: 'secondary', zone: 'left', group: 'dest-filter', groupOrder: 2, order: 2, icon: 'filter', label: spaceId ? 'Markers' : word('space', { many: true, cap: true }), element: filter, visible: () => !spaceId || markerKinds.length > 0 });
   paintFilter();
 }
 
@@ -435,12 +465,13 @@ function paintViews() {
   }
 }
 
-// "Trips", or "Trips (3 of 5)" while some are off.
+// "Trips", or "Trips (3 of 5)" while some are off. In a space, "Markers", or "Markers · Tasks due off".
 function paintFilter() {
+  if (!$('dest-filter-label')) return;
   const total = spaces.length + 1 + (kind.mine ? 1 : 0);
   const shown = spaces.filter((r) => !off.has(r.id)).length + (ownOn ? 1 : 0) + (kind.mine && mineOn ? 1 : 0);
   const plural = word('space', { many: true, cap: true });
-  filterLabel = shown === total ? plural : `${plural} (${shown} of ${total})`;
+  filterLabel = spaceId ? 'Markers' : shown === total ? plural : `${plural} (${shown} of ${total})`;
   // The person's other calendars are counted apart, never as spaces: "Trips (2 of 3) · Other calendars (1 of 2)".
   const calendarsOn = externals.filter((c) => !externalOff.has(c.id)).length;
   if (calendarsOn < externals.length) filterLabel += ` · Other calendars (${calendarsOn} of ${externals.length})`;
@@ -538,6 +569,8 @@ function openRef(ref) {
   const q = new URLSearchParams(location.search);
   q.delete('space');
   if (ref.scope === 'space') q.set('space', ref.space);
+  // A guest's token opens only their own space's pages.
+  if (guestToken && !(ref.scope === 'space' && ref.space === spaceId)) q.delete('guest');
   location.href = `/modules/${encodeURIComponent(ref.module)}${q.toString() ? `?${q}` : ''}#ref=${encodeURIComponent(JSON.stringify(ref))}`;
   return true;
 }

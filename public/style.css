@@ -2211,18 +2211,26 @@ input.switch:disabled {
 }
 
 /* Save this layout's sheet, and Rename's (space.js, openLayoutSheet): a small <dialog> in the editor window's look
-   (host.css .sdk-editor, as the phase sheet is), its form Name, the share switch, the server's refusal, Save and Cancel. */
+   (host.css .sdk-editor, as the phase sheet is), its form Name, the share switch, the server's refusal, then the action
+   bar (action-bar:start above) locked to the bottom with Save and Cancel. */
 .layout-sheet {
   box-sizing: border-box;
   width: min(360px, 100vw - 32px);
   max-width: none;
+  max-height: calc(100dvh - 48px);
   margin: auto;
-  padding: 16px;
+  padding: 0;
+  overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-section);
   color: var(--text);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.layout-sheet[open] {
+  display: flex;
+  flex-direction: column;
 }
 
 .layout-sheet::backdrop {
@@ -2240,9 +2248,17 @@ input.switch:disabled {
 
 .layout-form {
   display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0;
+}
+
+.layout-form-body {
+  display: flex;
   flex-direction: column;
   gap: 6px;
-  padding: 4px 6px 6px;
+  padding: 16px 16px 12px;
 }
 
 .layout-field {
@@ -2292,11 +2308,6 @@ input.switch:disabled {
   font: inherit;
   cursor: pointer;
   text-decoration: underline;
-}
-
-.layout-form-buttons {
-  display: flex;
-  gap: 6px;
 }
 
 /* Only while the list is the tab bar (space.js, placeSubnav, by the width of the header's own window, so a narrow
@@ -6626,6 +6637,25 @@ body.conference-window {
   font-size: 11px;
 }
 
+/* A category (`items`): a caret at the row's end; its row keeps the hover look while its flyout is open beside it.
+   The flyout is a second .host-menu (host-menu-flyout), placed by host-menu.js. */
+.host-menu-item .host-menu-caret {
+  margin-left: auto;
+  width: auto;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.host-menu-category.open {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.host-menu-category.open .host-menu-caret,
+.host-menu-category:hover .host-menu-caret,
+.host-menu-category:focus-visible .host-menu-caret {
+  color: var(--text);
+}
+
 /* The page's own element in the menu (`element`: the Layout menu's note, the grid's size). */
 .host-menu-row {
   display: flex;
@@ -7346,9 +7376,11 @@ body.chat-window {
     display: none; /* a phone has no use for either */
   }
 
-  /* A module fills the screen: no floating it over the page or opening it in a window. */
+  /* A module fills the screen: no floating it over the page or opening it in a window (canvas.js leaves Dock, Window
+     and Pop out out of its "..."), so a composite's "...", which holds only those, is not shown. */
   body.in-space .canvas [data-mode],
-  body.in-space .canvas [data-popout] {
+  body.in-space .canvas [data-popout],
+  body.in-space .canvas .mod-more-ways {
     display: none;
   }
 
@@ -8703,6 +8735,112 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 /* phase-chip:end */
 
+/* action-bar:start -- the action bar (public/action-bar.js): the one rule for every settings or edit surface (Thomas,
+   2026-10-13). Save and Cancel in a bar locked to the bottom of the surface. The surface is a flex column
+   (.action-surface) whose content scrolls above the bar (.action-content); the bar never scrolls away. It is the page's
+   twin of the editor window's button row (host.css, .sdk-editor-actions). While something is half-edited, Cancel and
+   Escape swap the buttons for the "Discard changes?" row. At 640 px and below the buttons are 44 px tall and the bar
+   keeps clear of the safe area. Colours from the tokens only. */
+.action-surface {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.action-surface[hidden] {
+  display: none;
+}
+
+.action-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.action-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  box-sizing: border-box;
+  padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid var(--border);
+  background: var(--bg-section);
+}
+
+.action-bar-status {
+  flex: 1 1 8em;
+  min-width: 0;
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.action-bar-status:empty {
+  display: none;
+}
+
+.action-bar-buttons {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.action-bar-buttons[hidden],
+.action-bar-ask[hidden],
+.action-bar .btn[hidden] {
+  display: none;
+}
+
+.action-bar-ask {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-bar-ask-text {
+  flex: 1 1 auto;
+  font-weight: 600;
+}
+
+.action-bar .btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.action-bar.busy {
+  cursor: progress;
+}
+
+@media (max-width: 640px) {
+  .action-bar .btn {
+    min-height: 44px;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .action-bar-buttons {
+    flex: 1 1 100%;
+  }
+
+  .action-bar-buttons .btn {
+    flex: 1 1 0;
+  }
+
+  .action-bar-status {
+    flex-basis: 100%;
+  }
+}
+/* action-bar:end */
+
 /* phase-sheet:start -- the timeline sheet (public/phase-sheet.js), a <dialog> in the editor window's look (host.css
    .sdk-editor: the same surface, border, radius, shadow and backdrop; a full-screen sheet at 640 px and below). The
    bar on top: the dated bands laid end to end, each as wide as it is long (flex-grow is its days; a least width,
@@ -8717,14 +8855,26 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   max-width: none;
   max-height: calc(100dvh - 48px);
   margin: auto;
-  padding: 16px;
-  overflow: auto;
-  overscroll-behavior: contain;
+  padding: 0;
+  overflow: hidden; /* the body scrolls; the action bar stays at the bottom */
   border: 1px solid var(--border);
   border-radius: 10px;
   background: var(--bg-section);
   color: var(--text);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.phase-sheet[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.phase-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 16px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .phase-sheet::backdrop {
@@ -9187,10 +9337,14 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
     height: 100dvh;
     max-height: none;
     margin: 0;
-    padding: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px));
+    padding: env(safe-area-inset-top, 0px) env(safe-area-inset-right, 0px) 0 env(safe-area-inset-left, 0px); /* the bar keeps the bottom's */
     border: 0;
     border-radius: 0;
     box-shadow: none;
+  }
+
+  .phase-sheet-body {
+    padding: 12px;
   }
 
   .phase-sheet::backdrop {
@@ -9285,9 +9439,9 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 /* phase-sheet:end */
 
 /* space-setup:start -- Set up (plan-one-bar.md, decision 5, step 4; public/space-setup.js, space.js): the space's name
-   as an input in the switcher's place, the Done and Cancel tools in the bar, the side panel under the header on the
-   right (a full-screen sheet at 640 px and below, with its own Done and Cancel row), and the one line said after Done.
-   Colours from the tokens only. */
+   as an input in the switcher's place, the side panel under the header on the right (a full-screen sheet at 640 px and
+   below) with its Save and Cancel in the action bar locked to its bottom (action-bar:start above; the sections scroll
+   above it), and the one line said after Save. Colours from the tokens only. */
 /* The input shrinks with the switcher (which gives way before the chip), never past 5em. */
 .topbar .setup-bar-name {
   box-sizing: border-box;
@@ -9311,16 +9465,12 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   outline-offset: 0;
 }
 
-.topbar #setup-done,
-.topbar #setup-cancel {
-  flex: none;
-}
-
 .space-setup {
   position: fixed;
   top: var(--setup-top, 44px);
   right: 0;
   bottom: 0;
+  max-height: calc(100dvh - var(--setup-top, 44px)); /* never taller than what shows: the bar is always in view */
   z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
@@ -9506,15 +9656,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   display: none;
 }
 
-/* Done and Cancel are the bar's from 641px; the row is the phone's. */
-.setup-actions {
-  display: none;
-  gap: 8px;
-  padding: 10px 16px calc(10px + env(safe-area-inset-bottom, 0px));
-  border-top: 1px solid var(--border);
-  background: var(--bg-section);
-}
-
 .setup-said {
   position: fixed;
   left: 50%;
@@ -9544,19 +9685,11 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
     left: 0;
     width: 100vw;
     height: 100dvh;
+    max-height: none;
     z-index: 41; /* over the header and its menu */
     border-left: 0;
     box-shadow: none;
     padding-top: env(safe-area-inset-top, 0px);
-  }
-
-  .setup-actions {
-    display: flex;
-  }
-
-  .setup-actions .btn {
-    flex: 1 1 auto;
-    min-height: 44px;
   }
 
   .setup-field input[type="text"],

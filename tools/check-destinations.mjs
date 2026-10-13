@@ -819,6 +819,18 @@ try {
   fs.rmSync(base, { recursive: true, force: true });
 }
 
+// --- the page's layout: tabs only on a phone, the panel stacked below when it does not fit ---------------------------
+await test('layout: a frame is never a phone; a narrow page stacks the panel below, with no bottom tabs', () => {
+  const js = fs.readFileSync(path.join(ROOT, 'public/destination.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/destination.css'), 'utf8');
+  assert.match(js, /const onPhone = \(\) => !embedded && phoneQuery\.matches;/, 'tabs only on a top-level phone');
+  const stacked = css.match(/@media \(max-width: 820px\) \{([\s\S]*?)\n\}\n/);
+  assert.ok(stacked, 'a stacked layout under 820px');
+  assert.match(stacked[1], /body\.destination-page:not\(\.dest-has-tabs\)[^{]*\.dest \{\s*flex-direction: column;\s*overflow-y: auto;/, 'the page scrolls, main then panel');
+  assert.match(stacked[1], /\.dest-side \{\s*flex: none;\s*height: 460px;/, 'the stacked panel has its own height');
+  assert.ok(css.includes('@media (max-width: 640px)') && /\.dest-tabs \{\s*display: flex;/.test(css), 'the phone keeps its tabs');
+});
+
 if (failed) {
   console.error(`check-destinations: ${failed} failed, ${n} passed`);
   process.exit(1);

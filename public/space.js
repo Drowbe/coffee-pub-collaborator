@@ -4,6 +4,7 @@ import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, se
 import { anchorSegments, spaceViews, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, chipFit } from '/phase-sheet.js';
 import { createSpaceSetup } from '/space-setup.js';
+import { actionBar } from '/action-bar.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { whatOpens, conferenceAllowed, opensWithSummary, shouldAutoJoin } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
@@ -1623,9 +1624,10 @@ nav.register({ id: 'aside-rejoin', bar: 'primary', zone: 'right', group: 'aside'
 // Edit's place (plan-one-bar.md, decision 5, step 4): a `setup` tool in the top bar's right zone before the bell and your picture (step 7),
 // for owners, the admin and this space's moderators (GET /api/me: hasOwnerRights, or
 // user.spaces[<id>].permissions.moderator). Pressing it puts `body.setting-up` on, turns the space's name in the bar
-// into an input (in the switcher's place, placeSetupName below), swaps the tool for Done and Cancel and opens
-// the side panel (a full-screen sheet with its own Done and Cancel on a phone, where the bar's are in the menu). Done
-// saves in one go and leaves the mode; Cancel and Escape leave it and drop the edits. A member
+// into an input (in the switcher's place, placeSetupName below), takes the tool away and opens the side panel (a
+// full-screen sheet on a phone). The panel's Save and Cancel are an action bar locked to its bottom (action-bar.js; not
+// in the top bar): Save sends what changed in one go and leaves the mode; Cancel and Escape leave it and drop the
+// edits, asking "Discard changes?" first when something was edited; a click outside does nothing. A member
 // has no Set up; the space card's "Full settings" link on Home still opens /spaces/<id>.
 const spaceSetup = createSpaceSetup({ api, word, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout') });
 let settingUp = false;
@@ -1639,7 +1641,6 @@ setupNameInput.setAttribute('aria-label', 'Name');
 const isModeratorHere = () => Boolean(currentSpace && me?.spaces?.[currentSpace.id]?.permissions?.moderator);
 const canSetUp = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && Boolean(me) && me.role !== 'guest' && (hasOwnerRights(me) || isModeratorHere());
 const setupShown = () => canSetUp() && !settingUp;
-const setupModeShown = () => canSetUp() && settingUp;
 // While setting up, the space's name in the bar carries the input instead of the name: the switcher's place, at every
 // width (step 8: the switcher is the phone's too, so the input never moves as the window crosses 640px; updateCrumb
 // draws the switcher afresh, so this runs after each draw; the input is one element, so what was typed survives).
@@ -1688,7 +1689,7 @@ function leaveSetup() {
   const tool = nav.elementOf('setup');
   if (tool && tool.getClientRects().length) tool.focus();
 }
-// After Done: the space the server answered goes into this page's records (the name in the bar and on the card, the
+// After Save: the space the server answered goes into this page's records (the name in the bar and on the card, the
 // picture), presence is read again so everyone's copy follows, and the line says what happened.
 function setupSaved(space, said, saved = []) {
   if (space && currentSpace && space.id === currentSpace.id) {
@@ -1707,7 +1708,7 @@ function setupSaved(space, said, saved = []) {
   updateCrumb();
   saySetup(said);
 }
-// The one line after Done, read out, under the canvas's edge for a moment.
+// The one line after Save, read out, under the canvas's edge for a moment.
 const setupSaid = document.createElement('p');
 setupSaid.id = 'space-setup-said';
 setupSaid.className = 'setup-said';
@@ -1722,8 +1723,8 @@ function saySetup(text) {
   clearTimeout(setupSaidTimer);
   setupSaidTimer = setTimeout(() => { setupSaid.hidden = true; }, 8000);
 }
-// Escape anywhere on the page cancels, unless something of its own is open (the phase sheet, a menu, the Layout panel),
-// which Escape closes first; the panel's own Escape is its own (space-setup.js).
+// Escape anywhere on the page cancels (asking when something was edited), unless something of its own is open (the
+// phase sheet, a menu, the Layout panel), which Escape closes first; the panel's own Escape is its own (space-setup.js).
 document.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape' || !settingUp || event.defaultPrevented) return;
   if (event.target.closest?.('#space-setup')) return;
@@ -1732,9 +1733,6 @@ document.addEventListener('keydown', (event) => {
   spaceSetup.cancel();
 });
 nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 85, order: 1, icon: 'sliders', label: 'Set up', visible: setupShown, onClick: enterSetup });
-nav.register({ id: 'setup-done', bar: 'primary', zone: 'right', group: 'setup', order: 2, icon: 'check', label: 'Done', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.done() });
-nav.register({ id: 'setup-cancel', bar: 'primary', zone: 'right', group: 'setup', order: 3, icon: 'xmark', label: 'Cancel', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.cancel() });
-nav.elementOf('setup-done')?.classList.add('btn-primary');
 // Layout (the environment's `layout` verb): an icon button right after Set up, the same look and size (Thomas,
 // 2026-10-13: no label, no caret), that opens the Layout menu (canvas.toggleMenu; the page's shared menu). A Workspace
 // tool drawn among the bar's own (`place: 'own'`, Set up's group); never folds; not while setting up, and not on a
@@ -1930,7 +1928,9 @@ async function replaceLayout(layoutId, sheet = null) {
 }
 
 // The small sheet (a <dialog>) for Save this layout and Rename: Name, for Save the share switch (those who may share),
-// the server's refusal under them, Save and Cancel. Escape or Cancel closes it; Enter in the name saves. `onSave(name,
+// the server's refusal under them, and the action bar (action-bar.js): Save, off until the name or the switch changed,
+// and Cancel. A click outside does nothing; Escape or Cancel closes it, asking "Discard changes?" when something was
+// typed; Enter in the name saves. `onSave(name,
 // shared, sheet)` does the work and closes the sheet (sheet.close) or shows what went wrong (sheet.error, with
 // `replaceId` for a taken name: "Replace it" beside the sentence). Opened from the Layout button, which takes the
 // keyboard back when the sheet closes.
@@ -1941,11 +1941,12 @@ function openLayoutSheet({ title, name = '', share = null, onSave }) {
   dlg.setAttribute('aria-label', title);
   dlg.innerHTML = `
     <form class="layout-form" novalidate>
+      <div class="layout-form-body action-content">
       <h2 class="layout-sheet-title">${escapeHtml(title)}</h2>
       <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" id="layout-name" autocomplete="off" spellcheck="false" maxlength="40"></label>
       <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
       <p class="layout-form-error" id="layout-form-error" role="alert" hidden></p>
-      <div class="layout-form-buttons"><button class="btn btn-small btn-accent" type="submit">Save</button><button class="btn btn-small" type="button" id="layout-cancel">Cancel</button></div>
+      </div>
     </form>`;
   const form = dlg.querySelector('form');
   const input = dlg.querySelector('#layout-name');
@@ -1958,9 +1959,27 @@ function openLayoutSheet({ title, name = '', share = null, onSave }) {
   sharedSwitch.checked = Boolean(share);
   wireSwitchList(form); // Enter flips the share switch, as Space does
   const opener = nav.elementOf('modules-toggle');
+  let failed = false; // the last save was refused (sheet.error)
+  const bar = actionBar({
+    submit: true,
+    label: 'Save the layout',
+    doc,
+    ids: { save: 'layout-save', cancel: 'layout-cancel' },
+    dirty: () => input.value.trim() !== name.trim() || (share !== null && sharedSwitch.checked !== Boolean(share)),
+    onCancel: () => sheet.close(),
+    onSave: async () => {
+      const value = input.value.trim();
+      if (!value) { sheet.error('Give the layout a name.'); return false; }
+      failed = false;
+      await onSave(value, share !== null && layoutList.canShare && sharedSwitch.checked, sheet);
+      return !failed;
+    },
+  });
+  form.appendChild(bar.el);
   const sheet = {
     close: () => { if (dlg.open) dlg.close(); },
     error: (text, replaceId = null) => {
+      failed = true;
       errorEl.hidden = false;
       errorEl.textContent = text;
       if (replaceId) {
@@ -1974,17 +1993,18 @@ function openLayoutSheet({ title, name = '', share = null, onSave }) {
       input.focus();
     },
   };
-  dlg.querySelector('#layout-cancel').addEventListener('click', () => sheet.close());
-  dlg.addEventListener('click', (event) => { if (event.target === dlg) sheet.close(); }); // the backdrop
+  // No click on the backdrop closes it. Escape is Cancel, and asks first when something was typed.
+  bar.bindEscape(dlg);
+  dlg.addEventListener('cancel', (event) => { event.preventDefault(); bar.requestCancel(); });
+  form.addEventListener('input', () => bar.refresh());
+  form.addEventListener('change', () => bar.refresh());
   dlg.addEventListener('close', () => {
     dlg.remove();
     if (opener && opener.isConnected && opener.getClientRects().length) opener.focus();
   });
   form.addEventListener('submit', (event) => {
     event.preventDefault();
-    const value = input.value.trim();
-    if (!value) { sheet.error('Give the layout a name.'); return; }
-    onSave(value, share !== null && layoutList.canShare && sharedSwitch.checked, sheet);
+    bar.save();
   });
   doc.body.appendChild(dlg);
   dlg.showModal();

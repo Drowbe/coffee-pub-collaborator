@@ -11,8 +11,15 @@
 // first step, "Start the first phase on", then the ends down the list (an end set starts the next phase and puts the
 // keyboard on its end). Whoever may not PATCH the space reads the same rows with the inputs disabled.
 //
+// Nothing saves as you go (the action bar's rule, public/action-bar.js): the edits are held in the sheet, a Save and a
+// Cancel sit in a bar locked to its bottom, Save sends ONE PATCH with the whole phases object, a click outside the
+// sheet does nothing, and Escape or Cancel close it, asking "Discard changes?" first when dates were edited. A reader
+// without the right to PATCH sees Close alone.
+//
 // The pure parts (chipFit, bandShares, todayPercent, rowsOf, plainDays, dayWords) touch no document, so
 // tools/check-nav.mjs runs them in node. `rule` is the Phases object (window.Phases on a page).
+
+import { actionBar } from './action-bar.js';
 
 // The chip in the top bar gives way in three steps (decision 9): its label, then the dot alone, then nothing.
 // `avail` is the width it may take, `full` and `dot` its widths with the label and with the dot only.
@@ -101,12 +108,16 @@ const daysWord = (n) => `${n} ${n === 1 ? 'day' : 'days'}`;
 
 // --- the sheet ----------------------------------------------------------------------------------------------------
 
-const SAVE_AFTER = 400; // ms after the last committed change before the one PATCH
+// Two sets of dates are the same when every phase has the same start and end (the order of the keys does not count).
+export function sameDates(a, b) {
+  const one = (d) => JSON.stringify(Object.keys(d || {}).sort().map((id) => [id, d[id] && d[id].start || '', d[id] && d[id].end || '']));
+  return one(a) === one(b);
+}
 
 // Opens the sheet over the page. `phases` is the template's list, `dates` the space's dates, `created` the space's
 // createdAt, `today` a day, `canEdit` whether this person may PATCH, `save(dates)` the save (resolving to the dates the
 // server kept), `onChange(dates)` told after each kept save, `rule` the Phases object, `doc` the document to draw in.
-// Returns { el, close }.
+// Returns { el, close, cancel, bar }: `close` closes it at once, `cancel` as Escape does (asking when dirty).
 export function openPhaseSheet({ phases, dates, created, today, canEdit = false, save, onChange, rule, doc = document, opener = null, words = {} } = {}) {
   const R = rule || globalThis.Phases;
   const ownerWord = words.owner || 'owner';
@@ -114,14 +125,13 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
   const list = R.cleanPhases(phases);
   let kept = R.cleanDates(dates); // the dates the server has
   let draft = R.cleanDates(dates); // the dates shown, ahead of a save
-  let saveTimer = 0;
-  let saving = null;
   const fmt = (d) => dayWords(d, { today });
 
   const dlg = doc.createElement('dialog');
   dlg.className = 'phase-sheet';
   dlg.setAttribute('aria-labelledby', 'phase-sheet-title');
   dlg.innerHTML = `
+    <div class="phase-sheet-body action-content">
     <div class="phase-sheet-head">
       <h2 id="phase-sheet-title">Phases</h2>
       <p class="phase-sheet-now"></p>
@@ -141,6 +151,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     </div>
     <p class="phase-sheet-hint hint" id="phase-sheet-hint"></p>
     <p class="phase-sheet-status" role="status" aria-live="polite"></p>
+    </div>
   `;
   const bandsEl = dlg.querySelector('.phase-bands');
   const listEl = dlg.querySelector('.phase-list');
@@ -155,6 +166,31 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     : `Only ${ownerWord === 'owner' ? 'an' : 'a'} ${ownerWord} or a ${moderatorWord} can change these dates.`;
 
   const say = (text) => { statusEl.textContent = ''; statusEl.textContent = text; };
+
+  // The bar: Save sends the whole phases object once; Cancel, Escape and the X ask first when dates were edited.
+  const bar = actionBar({
+    readOnly: !canEdit,
+    label: 'Save the phases',
+    doc,
+    dirty: () => canEdit && !sameDates(draft, kept),
+    onCancel: () => close(),
+    onSave: async () => {
+      const sending = draft;
+      let result;
+      try {
+        result = await save(sending);
+      } catch (err) {
+        throw new Error(plainDays((err && err.message) || 'The dates were not saved.', fmt)); // the bar says it
+      }
+      kept = R.cleanDates(result && typeof result === 'object' ? result : sending);
+      draft = kept;
+      problemOn('', '');
+      if (typeof onChange === 'function') onChange(kept);
+      update();
+      return true;
+    },
+  });
+  dlg.appendChild(bar.el);
   const timeline = () => R.timelineOf(list, draft, { today, created });
 
   // One band and one row per phase, built once; update() fills them, so the keyboard stays where it is.
@@ -322,7 +358,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       const input = row && row.querySelector('input[data-edge="end"]');
       if (input && !input.disabled) input.focus(); else focusRow(focusNext);
     }
-    scheduleSave();
+    bar.refresh();
     return true;
   }
 
@@ -338,7 +374,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     problemOn(id, '');
     say(said(timeline()));
     update();
-    scheduleSave();
+    bar.refresh();
     return true;
   }
 
@@ -397,38 +433,14 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
   dlg.querySelector('.phase-first-go').addEventListener('click', startFirst);
   firstInput.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); startFirst(); } });
 
-  function scheduleSave() {
-    if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(flush, SAVE_AFTER);
-  }
-
-  async function flush() {
-    saveTimer = 0;
-    if (!save || saving) { if (saving) saveTimer = setTimeout(flush, 200); return; }
-    const sending = draft;
-    saving = (async () => {
-      try {
-        const result = await save(sending);
-        kept = R.cleanDates(result && typeof result === 'object' ? result : sending);
-        if (draft === sending) draft = kept;
-        if (typeof onChange === 'function') onChange(kept);
-      } catch (err) {
-        draft = kept;
-        say(plainDays((err && err.message) || 'The dates were not saved.', fmt));
-        if (dlg.isConnected) update();
-      }
-    })();
-    await saving;
-    saving = null;
-  }
-
   function close() {
     if (dlg.open) dlg.close();
   }
-  dlg.querySelector('.phase-sheet-close').addEventListener('click', close);
-  dlg.addEventListener('click', (event) => { if (event.target === dlg) close(); }); // the backdrop
-  dlg.addEventListener('close', () => { // Close, the backdrop, or Escape
-    if (saveTimer) { clearTimeout(saveTimer); saveTimer = 0; flush(); }
+  dlg.querySelector('.phase-sheet-close').addEventListener('click', () => bar.requestCancel());
+  // No click on the backdrop closes it: the person leaves by Cancel, Escape or Close, and edits are never lost by a stray click.
+  bar.bindEscape(dlg);
+  dlg.addEventListener('cancel', (event) => { event.preventDefault(); bar.requestCancel(); }); // a browser's own close request
+  dlg.addEventListener('close', () => {
     dlg.remove();
     if (opener && typeof opener.focus === 'function' && opener.isConnected) opener.focus();
   });
@@ -437,5 +449,5 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
   dlg.showModal();
   const first = !firstEl.hidden ? firstInput : dlg.querySelector('.phase-list input:not(:disabled), .phase-list button:not([hidden])') || dlg.querySelector('.phase-sheet-close');
   if (first) first.focus();
-  return { el: dlg, close };
+  return { el: dlg, close, cancel: () => bar.requestCancel(), bar };
 }

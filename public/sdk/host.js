@@ -415,6 +415,11 @@
 .sdk-menu-label { flex: 1; min-width: 0; }
 .sdk-menu-hint { flex-basis: 100%; margin-top: 1px; color: var(--text-dim); font-size: 12px; }
 .sdk-menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
+.sdk-menu-heading { padding: 6px 10px 2px; color: var(--text-dim); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+.sdk-menu-caret { flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; border-top: 1.5px solid var(--text-dim); border-right: 1.5px solid var(--text-dim); transform: rotate(45deg); }
+.sdk-menu-category .sdk-menu-label { flex: 1; }
+.sdk-menu-category.open { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.sdk-menu-category.open .sdk-menu-caret, .sdk-menu-category:hover .sdk-menu-caret, .sdk-menu-category:focus-visible .sdk-menu-caret { border-color: var(--text); }
 .sdk-more { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-dim); cursor: pointer; flex: none; box-sizing: border-box; font: inherit; line-height: 1; }
 .sdk-more:hover, .sdk-more:focus-visible { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); outline: none; }
 .sdk-more .ic, .sdk-more i, .sdk-more svg { display: block; margin: 0; }
@@ -1265,7 +1270,7 @@
   // one of them with { space: <id> }; 'person' is the viewer's own. A module in a space reaches only that space.
   const opts = (o) => ({ scope: (o && o.scope) || 'context', ...(o && o.space ? { space: String(o.space) } : {}) });
   // The names modules used before the product's rename, refused with the word to use instead (no module is translated).
-  const OLD_WORDS = { server: 'scope "environment"', room: '{ space }', rooms: 'scope "spaces"' };
+  const OLD_WORDS = { server: 'scope "environment"', boxWidth: '{ space }', rooms: 'scope "spaces"' };
   function refuseOld(o, what) {
     if (!o) return;
     const old = o.room !== undefined ? 'room' : OLD_WORDS[o.scope] ? o.scope : null;
@@ -1315,6 +1320,73 @@
     openMenu = null;
     cleanup();
   }
+  // A category's entries flying out beside its row (host.menu.show's `items`): the same rules as the page's own menu,
+  // public/menu-flyout.js, whose block between the markers this is a copy of (tools/check-host-menu.mjs keeps it so).
+  // --- menu-flyout ---
+  // A category's entries fly out beside its row, or drill in (the same menu shows them, Back first) on a phone or a narrow
+  // window (640px and below). In a module's frame the frame's own width is the module's, not the window's: there it drills
+  // in only on a touch screen, or when the module has no room for the menu and its flyout side by side.
+  const MENU_NARROW = 640;
+  function submenuStyle({ width = 0, framed = false, touch = false, boxWidth = Infinity, need = 0 } = {}) {
+    if (width > MENU_NARROW) return 'flyout';
+    if (!framed) return 'drill';
+    return touch || boxWidth < need ? 'drill' : 'flyout';
+  }
+
+  // Where a flyout goes: beside its menu (`row`: the menu's left and right, the row's top), to the right when it fits, else
+  // to the left, else on the side with more room and shifted to stay inside `view` ({ w, h }). Its first entry is level
+  // with its row (both menus have 4px of padding). Answers { x, y, side }.
+  function flyoutPlace({ row, size, view, gap = 2, margin = 4 }) {
+    const fitsRight = row.right + gap + size.w <= view.w - margin;
+    const fitsLeft = row.left - gap - size.w >= margin;
+    const side = fitsRight ? 'right' : fitsLeft ? 'left' : view.w - row.right >= row.left ? 'right' : 'left';
+    let x = side === 'right' ? row.right + gap : row.left - gap - size.w;
+    x = Math.max(margin, Math.min(x, view.w - size.w - margin));
+    const y = Math.max(margin, Math.min(row.top - 4, view.h - size.h - margin));
+    return { x, y, side };
+  }
+
+  // Whether the pointer at `p` is on its way from `from` (where it left the category's row) to the open flyout (`rect`, on
+  // `side` of the menu): inside the triangle from that point to the flyout's near edge. A row crossed on the way does not
+  // close the flyout then.
+  function inSafeZone(p, from, rect, side) {
+    if (!p || !from || !rect) return false;
+    const edge = side === 'left' ? rect.right : rect.left;
+    const b = { x: edge, y: rect.top };
+    const c = { x: edge, y: rect.bottom };
+    const s = (p1, p2, p3) => (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
+    const d1 = s(p, from, b);
+    const d2 = s(p, b, c);
+    const d3 = s(p, c, from);
+    return !((d1 < 0 || d2 < 0 || d3 < 0) && (d1 > 0 || d2 > 0 || d3 > 0));
+  }
+
+  // The row the arrow keys go to among `count` rows from `at` (-1: none has the keyboard): 1 or -1, around the ends, or
+  // 'first' and 'last' (Home, End).
+  function menuStep(count, at, step) {
+    if (!count) return -1;
+    if (step === 'first') return 0;
+    if (step === 'last') return count - 1;
+    if (at < 0) return step < 0 ? count - 1 : 0;
+    return (at + step + count) % count;
+  }
+
+  // What a key does in a menu with categories: 'next', 'prev', 'first', 'last' (move), 'open' (a category's entries),
+  // 'back' (close the flyout, or leave a drilled-in category, the keyboard back on its row), 'close' (the whole menu), or
+  // null (the key is not the menu's: Enter and Space press the row itself).
+  function menuKeyAction(key, { inFlyout = false, onCategory = false, drilled = false } = {}) {
+    if (key === 'ArrowDown') return 'next';
+    if (key === 'ArrowUp') return 'prev';
+    if (key === 'Home') return 'first';
+    if (key === 'End') return 'last';
+    if (key === 'ArrowRight') return onCategory && !inFlyout ? 'open' : null;
+    if (key === 'ArrowLeft') return inFlyout || drilled ? 'back' : null;
+    if (key === 'Escape') return inFlyout ? 'back' : 'close';
+    if (key === 'Tab') return 'close';
+    return null;
+  }
+  // --- end menu-flyout ---
+
   function showMenu({ id, items, at, anchor, className, maxWidth } = {}) {
     const reopening = openMenu && openMenu.id === id;
     closeMenu();
@@ -1326,22 +1398,103 @@
     menu.className = `sdk-menu${className ? ` ${className}` : ''}`;
     menu.setAttribute('role', 'menu');
     if (maxWidth) menu.style.maxWidth = `${maxWidth}px`;
-    const rows = [];
-    for (const item of list) {
+    let rows = [];
+    let sub = null; // { items, back, label } while a category is drilled into
+    let fly = null; // { el, rows, row, side, exit } while a category's flyout is open
+    let hoverTimer = 0;
+    const entriesOf = (item) => { const e = item && (item.items || item.submenu); const l = typeof e === 'function' ? e() : e; return Array.isArray(l) ? l.filter(Boolean) : null; };
+    const isCategory = (item) => Boolean(item && !item.disabled && (item.items || item.submenu));
+    // Inside an open editor window (host.ui.editor) the menu goes into the dialog and is clamped to the window.
+    const editor = editorAt(anchor);
+    const container = editor || (env.root === document ? document.body : env.root);
+    // The box the menu and its flyout stay in: the module's own root, or the window inside an editor.
+    const bounds = () => {
+      const modBox = env.rootElement.getBoundingClientRect();
+      return {
+        modBox,
+        box: editor ? { left: 0, top: 0 } : modBox,
+        w: editor ? window.innerWidth : env.rootElement.clientWidth || 400,
+        h: editor ? window.innerHeight : env.rootElement.clientHeight || 400,
+      };
+    };
+    let framed = false;
+    try { framed = window.parent !== window && env.root === document; } catch (err) { framed = true; }
+    const touch = typeof window.matchMedia === 'function' && window.matchMedia('(hover: none)').matches;
+    const drills = () => submenuStyle({ width: window.innerWidth, framed, touch, boxWidth: bounds().w, need: menu.offsetWidth + 180 }) === 'drill';
+
+    const closeFly = ({ refocus = false } = {}) => {
+      clearTimeout(hoverTimer);
+      if (!fly) return;
+      const { el, row } = fly;
+      fly = null;
+      el.remove();
+      row.setAttribute('aria-expanded', 'false');
+      row.classList.remove('open');
+      if (refocus) row.focus();
+    };
+    const openFly = (item, row, { focus = false } = {}) => {
+      clearTimeout(hoverTimer);
+      if (fly && fly.row === row) { if (focus && fly.rows[0]) fly.rows[0].focus(); return; }
+      closeFly();
+      const entries = entriesOf(item);
+      if (!entries || !entries.length) return;
+      const el = document.createElement('div');
+      el.className = `sdk-menu sdk-menu-flyout${className ? ` ${className}` : ''}`;
+      el.setAttribute('role', 'menu');
+      el.setAttribute('aria-label', item.label || '');
+      const flyRows = [];
+      for (const entry of entries) addEntry(el, entry, flyRows, true);
+      container.appendChild(el);
+      const { box, w, h } = bounds();
+      const m = menu.getBoundingClientRect();
+      const r = row.getBoundingClientRect();
+      const spot = flyoutPlace({ row: { left: m.left - box.left, right: m.right - box.left, top: r.top - box.top }, size: { w: el.offsetWidth, h: el.offsetHeight }, view: { w, h } });
+      el.style.left = `${box.left + spot.x}px`;
+      el.style.top = `${box.top + spot.y}px`;
+      el.dataset.side = spot.side;
+      el.addEventListener('pointerenter', () => clearTimeout(hoverTimer));
+      row.setAttribute('aria-expanded', 'true');
+      row.classList.add('open');
+      fly = { el, rows: flyRows, row, side: spot.side, exit: null };
+      if (focus && flyRows[0]) flyRows[0].focus();
+    };
+    const hover = (item, b, e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return; // a touch opens on the tap
+      if (sub || drills()) return;
+      clearTimeout(hoverTimer);
+      if (fly && fly.row === b) return;
+      const onWay = fly && inSafeZone({ x: e.clientX, y: e.clientY }, fly.exit, fly.el.getBoundingClientRect(), fly.side);
+      hoverTimer = setTimeout(() => {
+        if (!openMenu || openMenu.menu !== menu) return;
+        if (isCategory(item)) openFly(item, b); else closeFly();
+      }, onWay ? 320 : 120);
+    };
+
+    function addEntry(into, item, rowList, inFlyout) {
       if (item.separator) {
         const sep = document.createElement('div');
         sep.className = 'sdk-menu-sep';
         sep.setAttribute('role', 'separator');
-        menu.appendChild(sep);
-        continue;
+        into.appendChild(sep);
+        return;
       }
+      if (item.heading) {
+        const hd = document.createElement('div');
+        hd.className = 'sdk-menu-heading';
+        hd.setAttribute('role', 'presentation');
+        hd.textContent = item.heading;
+        into.appendChild(hd);
+        return;
+      }
+      const category = !inFlyout && isCategory(item);
       // A real link (item.href) is an <a>, not a button: a menu item that just goes somewhere keeps the
       // browser's own affordances (hover preview, middle-click a new tab, copy link address) rather than
       // faking navigation from a click handler.
-      const b = item.href ? document.createElement('a') : document.createElement('button');
-      b.className = `sdk-menu-item${item.danger ? ' danger' : ''}`;
+      const b = item.href && !category ? document.createElement('a') : document.createElement('button');
+      b.className = `sdk-menu-item${item.danger ? ' danger' : ''}${category ? ' sdk-menu-category' : ''}`;
       b.setAttribute('role', 'menuitem');
-      if (item.href) {
+      if (category) { b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); }
+      if (item.href && !category) {
         b.href = item.href;
         b.target = item.target || '_blank';
         b.rel = 'noopener';
@@ -1360,13 +1513,28 @@
       label.className = 'sdk-menu-label';
       label.textContent = item.label;
       b.appendChild(label);
-      if (item.hint) {
-        const h = document.createElement('div');
-        h.className = 'sdk-menu-hint';
-        h.textContent = item.hint;
-        b.appendChild(h);
+      if (category) {
+        const caret = document.createElement('span');
+        caret.className = 'sdk-menu-caret';
+        caret.setAttribute('aria-hidden', 'true');
+        b.appendChild(caret);
       }
-      if (!item.disabled && (item.onClick || item.href)) {
+      if (item.hint) {
+        const hn = document.createElement('div');
+        hn.className = 'sdk-menu-hint';
+        hn.textContent = item.hint;
+        b.appendChild(hn);
+      }
+      if (category) {
+        b.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          // A phone or a module with no room beside the menu drills in; else the flyout, the keyboard in it when a key
+          // pressed the row.
+          if (drills()) { sub = { items: entriesOf(item) || [], back: rows.indexOf(b), label: item.label }; draw(1); return; }
+          openFly(item, b, { focus: e.detail === 0 });
+        });
+      } else if (!item.disabled && (item.onClick || item.href)) {
         b.addEventListener('click', async () => {
           let result;
           if (item.onClick) {
@@ -1379,47 +1547,111 @@
           if (result !== false) closeMenu(); // exactly `false` means the item armed itself and changed its own row; anything else closes (a plain href item just closes, letting the click through to the link)
         });
       }
-      menu.appendChild(b);
-      rows.push(b);
+      if (!inFlyout) {
+        b.addEventListener('pointerenter', (e) => hover(item, b, e));
+        if (category) b.addEventListener('pointerleave', (e) => { if (fly && fly.row === b) fly.exit = { x: e.clientX, y: e.clientY }; });
+      }
+      into.appendChild(b);
+      if (!item.disabled) rowList.push(b);
     }
-    // Inside an open editor window (host.ui.editor) the menu goes into the dialog and is clamped to the window.
-    const editor = editorAt(anchor);
-    (editor || (env.root === document ? document.body : env.root)).appendChild(menu);
+
+    // The menu's entries: the list, or a drilled-in category's with Back and its name first. `focus`: the row (by its
+    // place among the rows) to put the keyboard on.
+    function draw(focus) {
+      closeFly();
+      menu.replaceChildren();
+      rows = [];
+      const current = sub
+        ? [{ label: 'Back', icon: 'arrow-left', back: true }, { heading: sub.label }, ...sub.items]
+        : list;
+      for (const item of current) {
+        if (item.back) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'sdk-menu-item sdk-menu-back';
+          b.setAttribute('role', 'menuitem');
+          const ic = document.createElement('span');
+          ic.className = 'sdk-menu-icon';
+          b.appendChild(ic);
+          menuIcon('arrow-left').then((svg) => { if (svg) ic.innerHTML = svg; });
+          const label = document.createElement('span');
+          label.className = 'sdk-menu-label';
+          label.textContent = 'Back';
+          b.appendChild(label);
+          b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); const at = sub.back; sub = null; draw(at); });
+          menu.appendChild(b);
+          rows.push(b);
+          continue;
+        }
+        addEntry(menu, item, rows, false);
+      }
+      placeMenu();
+      const target = rows[Math.max(0, Math.min(rows.length - 1, focus || 0))];
+      if (target) target.focus();
+    }
+
     // Positioned like host.actions.pick's own menu and the date picker's popover: clamped inside the
     // module's own root, by a point (a drop's own coordinates) or under an element (a "..." button),
     // flipped above it when there is no room below.
-    const modBox = env.rootElement.getBoundingClientRect();
-    const box = editor ? { left: 0, top: 0 } : modBox;
-    const w = editor ? window.innerWidth : env.rootElement.clientWidth || 400;
-    const h = editor ? window.innerHeight : env.rootElement.clientHeight || 400;
-    let x = ((at && at.x) || 0) + (editor ? modBox.left : 0);
-    let y = ((at && at.y) || 0) + (editor ? modBox.top : 0);
-    if (anchor && anchor.getBoundingClientRect) {
-      const r = anchor.getBoundingClientRect();
-      x = r.left - box.left;
-      y = r.bottom - box.top + 4;
-      if (y + menu.offsetHeight > h) y = r.top - box.top - menu.offsetHeight - 4;
+    function placeMenu() {
+      const { modBox, box, w, h } = bounds();
+      let x = ((at && at.x) || 0) + (editor ? modBox.left : 0);
+      let y = ((at && at.y) || 0) + (editor ? modBox.top : 0);
+      if (anchor && anchor.getBoundingClientRect) {
+        const r = anchor.getBoundingClientRect();
+        x = r.left - box.left;
+        y = r.bottom - box.top + 4;
+        if (y + menu.offsetHeight > h) y = r.top - box.top - menu.offsetHeight - 4;
+      }
+      x = Math.max(4, Math.min(x, w - menu.offsetWidth - 4));
+      y = Math.max(4, Math.min(y, h - menu.offsetHeight - 4));
+      menu.style.left = `${box.left + x}px`;
+      menu.style.top = `${box.top + y}px`;
     }
-    x = Math.max(4, Math.min(x, w - menu.offsetWidth - 4));
-    y = Math.max(4, Math.min(y, h - menu.offsetHeight - 4));
-    menu.style.left = `${box.left + x}px`;
-    menu.style.top = `${box.top + y}px`;
-    // Escape closes only the menu: stopped and prevented, so an editor window around it does not close too.
-    const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); } };
-    const onOutside = (e) => { if (!menu.contains(e.target) && e.target !== anchor) closeMenu(); };
+
+    container.appendChild(menu);
+    draw(-1);
+    // Keys: Up, Down, Home and End move in the menu or its flyout; Right (or Enter) opens a category, Left or Escape
+    // closes just its flyout (or leaves a drilled-in category); Escape closes only the menu: stopped and prevented, so
+    // an editor window around it does not close too.
+    const active = () => (env.root && env.root.activeElement) || document.activeElement;
+    const onKey = (e) => {
+      const now = active();
+      const inFlyout = Boolean(fly && fly.el.contains(now));
+      const onCategory = Boolean(now && rows.includes(now) && now.classList.contains('sdk-menu-category'));
+      const action = menuKeyAction(e.key, { inFlyout, onCategory, drilled: Boolean(sub) });
+      if (!action) return;
+      if (action === 'close') {
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeMenu(); } else closeMenu();
+        return;
+      }
+      if (!now || !(menu.contains(now) || inFlyout)) return; // the keyboard is not in the menu: the keys are not its
+      e.preventDefault();
+      e.stopPropagation();
+      if (action === 'open') { now.click(); return; }
+      if (action === 'back') {
+        if (inFlyout) closeFly({ refocus: true });
+        else if (sub) { const back = sub.back; sub = null; draw(back); }
+        return;
+      }
+      const set = inFlyout ? fly.rows : rows;
+      const next = menuStep(set.length, set.indexOf(now), action === 'next' ? 1 : action === 'prev' ? -1 : action);
+      if (set[next]) set[next].focus();
+    };
+    const onOutside = (e) => { if (!menu.contains(e.target) && !(fly && fly.el.contains(e.target)) && e.target !== anchor) closeMenu(); };
     document.addEventListener('keydown', onKey, true);
     env.root.addEventListener('pointerdown', onOutside, true);
     openMenu = {
       id,
+      menu,
       cleanup: () => {
+        closeFly();
         menu.remove();
         document.removeEventListener('keydown', onKey, true);
         env.root.removeEventListener('pointerdown', onOutside, true);
         if (anchor && anchor.focus) { try { anchor.focus(); } catch (err) { /* not focusable */ } }
       },
     };
-    const first = rows.find((b) => !b.disabled);
-    if (first) first.focus();
     return { close: closeMenu };
   }
 
@@ -2662,6 +2894,13 @@
     // it returns exactly `false`, or a promise that resolves to exactly `false`, the menu closes afterward --
     // an item that needs to arm itself first ("Really delete?") returns false and changes its own label by
     // calling show() again with the same id.
+    //
+    // An item with `items` (or `submenu`: a list of items, or a function giving one) is a category: a caret at its
+    // end, its entries in a flyout beside its row (on hover after a short wait, on a click or tap, on Right or Enter;
+    // Left or Escape closes just the flyout, the keyboard back on its row; it flips or shifts to stay inside the
+    // module). On a phone, or where the module has no room for both side by side, it drills in instead: the menu shows
+    // Back, the category's name and its entries. One level: a category's entries are plain items. { heading } is a
+    // small heading over the entries after it. Up, Down, Home and End move in either level.
     //
     // Only one of these is ever open at a time (per module): showing one closes whatever else was open
     // first. Showing the same id again while it is already open closes it instead of reopening it, so a

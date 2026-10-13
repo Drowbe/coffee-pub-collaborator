@@ -12,8 +12,10 @@
 // As a view of one space (?space=<id>; plan-calendar-todo.md and plan-map-places.md, step 1): the same page with the
 // parts mounted at space scope (a guest with the space's token too), no space filter, no Mine and no other calendars
 // (plan-google-calendar.md's rule), the view switch and the marker kinds kept, its choices remembered under
-// app.destination.<id>.<space id>. Shown in a frame (the space page's view frame, `window.self !== window.top`) it
-// draws no top bar of its own: the space page's bar is the one bar, and holds the way back; only the page bar shows.
+// app.destination.<id>.<space id>. The map in a space (plan-map-places.md, step 2) keeps a filter of whose places show:
+// This <space> (on), Mine (on) and the environment's own (off at first), under the same key. Shown in a frame (the
+// space page's view frame, `window.self !== window.top`) it draws no top bar of its own: the space page's bar is the
+// one bar, and holds the way back; only the page bar shows.
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word, withinSpacePage } from '/brand.js';
 import { nav } from '/nav-bar.js';
 import { mountModule, createDestination } from '/module-host.js';
@@ -40,7 +42,8 @@ const withGuest = (url) => (guestToken ? `${url}${url.includes('?') ? '&' : '?'}
 // plan-calendar-markers.md), after the spaces, each with its module's icon and tint. `search`: a search
 // field on the right of the page bar, its words by whether the panel's place search is set up (`searchSetUp(values)`,
 // the panel's settings). `initial`: the rest of the state the parts read. `needsWebgl`: the main part draws with WebGL,
-// and without it the panel takes the page's width (the main part shows its own notice above it).
+// and without it the panel takes the page's width (the main part shows its own notice above it). `spaceFilter`: in a
+// space the filter stays, as This <space>, Mine and the environment's own (the last off at first).
 const KINDS = {
   calendar: {
     views: [{ id: 'month', label: 'Month', icon: 'calendar-days' }, { id: 'week', label: 'Week', icon: 'calendar-week' }, { id: 'day', label: 'Day', icon: 'calendar-day' }],
@@ -61,6 +64,7 @@ const KINDS = {
     searchSetUp: (values) => Boolean(values && values.searchProvider && values.searchProvider !== 'none'),
     initial: { q: '', find: 0, selected: null },
     needsWebgl: true,
+    spaceFilter: true,
   },
 };
 const kind = KINDS[destId] || { views: [] };
@@ -86,6 +90,7 @@ function remember(patch) {
 // The environment's own list in the filter, beside the spaces (whose ids never start with a colon).
 const OWN = ':own';
 const MINE = ':mine'; // the person's own (the map's Mine)
+const HERE = ':here'; // this space's own, in a space (the map's This <space>)
 const EXTERNAL = ':external:'; // one of the person's other calendars, by its id after this
 const MARKER = ':marker:'; // a kind of marker, by its '<module>:<kind>' after this
 // Each other calendar's tint, by its place in the person's list: the same order the Calendar draws them in.
@@ -100,6 +105,10 @@ let spaces = []; // [{ id, name, icon }] in the space list's order
 const off = new Set(); // spaces the filter has off
 let ownOn = true;
 let mineOn = true;
+let hereOn = true; // in a space, with a filter there: this space's own
+// The filter in a space: This <space>, Mine and the environment's own (a guest has no Mine).
+const spaceFilter = () => Boolean(spaceId && kind.spaceFilter);
+const spaceFilterHasMine = () => spaceFilter() && !guestToken;
 let externals = []; // the person's other calendars: [{ id, name }], in their order
 const externalOff = new Set(); // other calendars the filter has off
 let markerKinds = []; // the kinds of markers the calendar has shown: [{ id, label, icon, tint }], remembered here
@@ -148,8 +157,10 @@ async function start() {
   const saved = remembered();
   spaces = (d.spaces || []).map((r) => ({ id: r.id, name: r.name, icon: r.icon }));
   for (const id of Array.isArray(saved.off) ? saved.off : []) if (typeof id === 'string') off.add(id);
-  ownOn = saved.ownOff !== true;
+  // The environment's own: on at first in the aggregate, off at first in a space (plan-map-places.md).
+  ownOn = spaceFilter() ? saved.ownOff === false : saved.ownOff !== true;
   mineOn = saved.mineOff !== true;
+  hereOn = saved.hereOff !== true;
   for (const id of Array.isArray(saved.externalOff) ? saved.externalOff : []) if (typeof id === 'string') externalOff.add(id);
   if (kind.markers) {
     markerKinds = cleanMarkerKinds(saved.markerKinds);
@@ -225,7 +236,9 @@ const placeQuery = () => (spaceId ? `scope=space&space=${encodeURIComponent(spac
 
 // The filter's choice as the shared state has it: the spaces on, and whether the environment's own are. In a space
 // there is no choice: that one space, not the environment's own, not Mine, no other calendars; the marker kinds stay.
+// The map's filter in a space (`spaceFilter`) chooses among this space, Mine and the environment's own.
 function filterState() {
+  if (spaceFilter()) return { mine: spaceFilterHasMine() && mineOn, spaces: hereOn ? [spaceId] : [], space: spaceId, environment: ownOn };
   if (spaceId) return { ...(kind.mine ? { mine: false } : {}), spaces: [spaceId], space: spaceId, environment: false, ...(kind.external ? { externalOff: [] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) };
   return { ...(kind.mine ? { mine: mineOn } : {}), spaces: spaces.filter((r) => !off.has(r.id)).map((r) => r.id), environment: ownOn, ...(kind.external ? { externalOff: [...externalOff] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) };
 }
@@ -373,8 +386,9 @@ function drawPageBar(d) {
   }
 
   // In a space there is no space filter, no Mine and no other calendars: the filter holds the marker kinds alone, and
-  // shows once the main part has named one; a destination without marker kinds has no filter there at all.
-  if (spaceId && !kind.markers) return;
+  // shows once the main part has named one; a destination without marker kinds has no filter there at all. The map's
+  // filter in a space (`spaceFilter`) is This <space>, Mine and the environment's own, named Show.
+  if (spaceId && !kind.markers && !spaceFilter()) return;
   const filter = document.createElement('span');
   filter.className = 'dest-filter';
   filter.innerHTML = `
@@ -382,10 +396,14 @@ function drawPageBar(d) {
     <div class="module-chooser-list dest-filter-list" id="dest-filter-list" role="group" hidden></div>`;
   const toggle = filter.querySelector('#dest-filter-toggle');
   const list = filter.querySelector('#dest-filter-list');
-  list.setAttribute('aria-label', spaceId ? 'Markers' : word('space', { many: true, cap: true }));
+  const filterName = spaceFilter() ? 'Show' : spaceId ? 'Markers' : word('space', { many: true, cap: true });
+  list.setAttribute('aria-label', filterName);
   const environmentName = document.querySelector('[data-brand="environmentName"]')?.textContent || word('environment', { cap: true });
   const fill = () => {
     list.innerHTML = switchListHtml([
+      ...(spaceFilter() ? [{ id: HERE, icon: d.space?.icon || 'users', name: `This ${word('space')}`, on: hereOn }] : []),
+      ...(spaceFilterHasMine() ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
+      ...(spaceFilter() ? [{ id: OWN, icon: 'globe', name: environmentName, on: ownOn }] : []),
       ...(kind.mine && !spaceId ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
       ...(spaceId ? [] : [{ id: OWN, icon: 'globe', name: environmentName, on: ownOn }]),
       ...spaces.map((r) => ({ id: r.id, icon: r.icon, name: r.name, on: !off.has(r.id) })),
@@ -429,6 +447,7 @@ function drawPageBar(d) {
     const id = input.dataset.destFilter;
     if (id === OWN) ownOn = input.checked;
     else if (id === MINE) mineOn = input.checked;
+    else if (id === HERE) hereOn = input.checked;
     else if (id.startsWith(EXTERNAL)) {
       if (input.checked) externalOff.delete(id.slice(EXTERNAL.length));
       else externalOff.add(id.slice(EXTERNAL.length));
@@ -437,7 +456,7 @@ function drawPageBar(d) {
       else markersOff.add(id.slice(MARKER.length));
     } else if (input.checked) off.delete(id);
     else off.add(id);
-    remember({ off: [...off], ownOff: !ownOn, mineOff: !mineOn, ...(kind.external ? { externalOff: [...externalOff] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) });
+    remember({ off: [...off], ownOff: !ownOn, mineOff: !mineOn, hereOff: !hereOn, ...(kind.external ? { externalOff: [...externalOff] } : {}), ...(kind.markers ? { markersOff: [...markersOff] } : {}) });
     paintFilter();
     hub.update(filterState());
   });
@@ -453,7 +472,7 @@ function drawPageBar(d) {
   filter.addEventListener('focusout', (event) => {
     if (!list.hidden && event.relatedTarget && !filter.contains(event.relatedTarget)) open(false);
   });
-  nav.register({ id: 'dest-filter', bar: 'secondary', zone: 'left', group: 'dest-filter', groupOrder: 2, order: 2, icon: 'filter', label: spaceId ? 'Markers' : word('space', { many: true, cap: true }), element: filter, visible: () => !spaceId || markerKinds.length > 0 });
+  nav.register({ id: 'dest-filter', bar: 'secondary', zone: 'left', group: 'dest-filter', groupOrder: 2, order: 2, icon: 'filter', label: filterName, element: filter, visible: () => !spaceId || spaceFilter() || markerKinds.length > 0 });
   paintFilter();
 }
 
@@ -465,13 +484,18 @@ function paintViews() {
   }
 }
 
-// "Trips", or "Trips (3 of 5)" while some are off. In a space, "Markers", or "Markers · Tasks due off".
+// "Trips", or "Trips (3 of 5)" while some are off. In a space, "Markers", or "Markers · Tasks due off"; the map's
+// filter there, "Show", or "Show (2 of 3)".
 function paintFilter() {
   if (!$('dest-filter-label')) return;
-  const total = spaces.length + 1 + (kind.mine ? 1 : 0);
-  const shown = spaces.filter((r) => !off.has(r.id)).length + (ownOn ? 1 : 0) + (kind.mine && mineOn ? 1 : 0);
-  const plural = word('space', { many: true, cap: true });
-  filterLabel = spaceId ? 'Markers' : shown === total ? plural : `${plural} (${shown} of ${total})`;
+  const inSpaceFilter = Boolean(spaceId && kind.spaceFilter); // the map's filter in a space: This <space>, Mine, the environment's own
+  const withMine = inSpaceFilter && spaceFilterHasMine();
+  const total = inSpaceFilter ? 2 + (withMine ? 1 : 0) : spaces.length + 1 + (kind.mine ? 1 : 0);
+  const shown = inSpaceFilter
+    ? (hereOn ? 1 : 0) + (ownOn ? 1 : 0) + (withMine && mineOn ? 1 : 0)
+    : spaces.filter((r) => !off.has(r.id)).length + (ownOn ? 1 : 0) + (kind.mine && mineOn ? 1 : 0);
+  const plural = inSpaceFilter ? 'Show' : word('space', { many: true, cap: true });
+  filterLabel = spaceId && !inSpaceFilter ? 'Markers' : shown === total ? plural : `${plural} (${shown} of ${total})`;
   // The person's other calendars are counted apart, never as spaces: "Trips (2 of 3) · Other calendars (1 of 2)".
   const calendarsOn = externals.filter((c) => !externalOff.has(c.id)).length;
   if (calendarsOn < externals.length) filterLabel += ` · Other calendars (${calendarsOn} of ${externals.length})`;

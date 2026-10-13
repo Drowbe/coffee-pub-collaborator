@@ -2,7 +2,9 @@
 // every summary in the space that carries a `place` (through the objects conduit), each with its own module's icon and grouped by
 // module, and it saves a new place by asking whichever module provides the `newPlace` action. On the environment's own page it
 // draws the same across the viewer's spaces, their own places and the environment's (plan-map-destination, decision 20), and
-// as the Map destination's main part it follows the page's filter, search and selection (host.destination). This page draws into the markup
+// as the Map destination's main part it follows the page's filter, search and selection (host.destination). As that part in
+// a space (/map?space=<id>; plan-map-places.md, step 2) it draws this space's pins, with Mine and the environment's own by the
+// page's filter there, and reads only what the filter has on. This page draws into the markup
 // in maps.html by cloning its templates and filling their [data-slot] and [data-icon] hooks, and toggles the state classes
 // and data attributes CONTRACT.md lists. It builds no markup from strings and sets no style (the map library positions the
 // pins). Nothing here names another module, and no request leaves the server unless the admin set a search address.
@@ -23,13 +25,14 @@
     return;
   }
   // On a space's canvas (or its pop-out): that space's places. On the environment page: every space's the viewer belongs to,
-  // with their own and the environment's. As the Map destination's main part ('main'), the same, through the page's filter.
+  // with their own and the environment's. As the Map destination's main part ('main'), the same, through the page's filter;
+  // in a space, that space's, through the page's filter there (this space, Mine, the environment's own).
   const inSpace = info.context.scope === 'space';
   if (!inSpace && info.context.scope !== 'environment') {
     $('msg').textContent = `${info.module.name} could not open here.`;
     return;
   }
-  const part = (!inSpace && info.context.destination && info.context.destination.part) || null;
+  const part = (info.context.destination && info.context.destination.part) || null;
   // The environment page on its own (no destination): a view of every place, with nothing beside it to save one in.
   const alone = !inSpace && !part;
 
@@ -49,6 +52,7 @@
     all: [], // every summary read that carries a place: this space's (or every space's), the viewer's own and the environment's
     found: [], // the ones drawn: as the destination's part, those in the page's filter; elsewhere all of them
     filter: null, // as the destination's part: { mine, environment, spaces: Set | null } from the page; null shows everything
+    read: { person: false, environment: false }, // whether Mine and the environment's own have been read (the filter may leave them unread)
     q: '', // as the destination's part: the page's search text, which dims the pins that do not match it
     settings: { maps: [], web: false }, // the map files to draw (names on this server, or one https address when `web`)
     candidates: [], // search results drawn as pins to pick from
@@ -115,9 +119,13 @@
     try {
       // This space's (on the environment page every space's the viewer belongs to, each pointer with its space), the person's
       // own (private to them) and everyone's in this environment (a guest has neither of the last, so those answer with
-      // nothing). Only summaries with a place, so a busy space's pins are all there, not the newest 50.
+      // nothing). Only summaries with a place, so a busy space's pins are all there, not the newest 50. As the destination's
+      // part, Mine and the environment's own are read only while the page's filter has them on (takeState reads them when
+      // they are turned on).
       const here = inSpace ? host.objects.search('', { has: 'place' }) : host.objects.search('', { scope: 'spaces', has: 'place' }).catch(() => []);
-      const [spaces, mine, everyone] = await Promise.all([here, host.objects.search('', { scope: 'person', has: 'place' }).catch(() => []), host.objects.search('', { scope: 'environment', has: 'place' }).catch(() => [])]);
+      const wanted = (scope) => !state.filter || state.filter[scope === 'person' ? 'mine' : 'environment'];
+      const other = (scope) => (wanted(scope) ? host.objects.search('', { scope, has: 'place' }).then((list) => { state.read[scope] = true; return list; }).catch(() => []) : Promise.resolve(state.all.filter((c) => c.ref.scope === scope)));
+      const [spaces, mine, everyone] = await Promise.all([here, other('person'), other('environment')]);
       const seen = new Set();
       state.all = [...spaces, ...mine, ...everyone].filter((c) => {
         if (!(c && c.ref && c.place && geo.inRange(Number(c.place.lat), Number(c.place.lng)) && c.title)) return false;
@@ -531,8 +539,9 @@
     });
   }
 
-  // As the destination's part the map opens where it was last left in this browser (plan-map-destination, decision 22).
-  const VIEW_KEY = 'maps-destination-view';
+  // As the destination's part the map opens where it was last left in this browser (plan-map-destination, decision 22);
+  // in a space, where that space's map was last left.
+  const VIEW_KEY = `maps-destination-view${inSpace && info.context.spaceId ? `.${info.context.spaceId}` : ''}`;
   function lastView() {
     if (!part) return null;
     try {
@@ -728,6 +737,8 @@
     if (!text && (hits.length || state.candidates.length)) { searchToken += 1; hits = []; state.searchMessage = ''; state.candidates = []; }
     applyFilter();
     if (state.started) render();
+    // Mine or the environment's own turned on for the first time: read them now.
+    if (state.started && ((state.filter.mine && !state.read.person) || (state.filter.environment && !state.read.environment))) loadFound().then(() => render());
     const find = Number(st.find) || 0;
     if (lastFind === null) lastFind = find; // what the page held when this part came: nothing asked yet
     else if (find !== lastFind) {

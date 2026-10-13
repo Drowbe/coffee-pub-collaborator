@@ -64,6 +64,8 @@ function cleanOpensWith(list) {
 // A saved layout's id as a space's defaultLayout keeps it (server/layouts.js makes `l` and six letters or digits; a
 // looser rule here so an id from a later version is not dropped). null when it is not one.
 const LAYOUT_ID = /^[a-z][a-z0-9]{1,31}$/;
+// The system layouts a space's defaultLayout may also name (server/layouts.js; Workspace is "no default layout").
+const SYSTEM_DEFAULTS = ['calendar', 'map'];
 const cleanLayoutId = (id) => (typeof id === 'string' && LAYOUT_ID.test(id) ? id : null);
 // A space's optional "launch" link (their VTT, wiki, playlist, whatever) --
 // shown as a button next to Join and in the in-call toolbar. The icon is
@@ -1775,24 +1777,30 @@ class Store {
       const list = cleanOpensWith(patch.opensWith);
       if (list) draft.opensWith = list;
       else delete draft.opensWith;
-      // Opens with changed by hand: it no longer follows a layout.
-      delete draft.defaultLayout;
+      // Opens with and the default layout are independent (plan-layout-views.md, step 5): the list is the Workspace's
+      // default content, and the default layout says which layout a first visit shows. Editing one leaves the other.
     }
-    // The default layout (plan-saved-layouts.md, decision 4): a shared layout's id, or null to stop using it. Setting
-    // it sets Opens with to that layout's modules, so everything that reads Opens with keeps working; null leaves Opens
-    // with as it is. Who may do this is the route's to decide (owners only).
+    // The first visit's layout (plan-layout-views.md, step 5): a shared layout's id, `calendar` or `map` (the system
+    // layouts, while they are on in this space), or null for Workspace with Opens with. It does not touch Opens with.
+    // Who may do this is the route's to decide (owners, the admin and this space's moderators).
     if (patch.defaultLayout !== undefined) {
       if (patch.defaultLayout === null) {
         delete draft.defaultLayout;
       } else {
-        if (typeof patch.defaultLayout !== 'string') throw new StoreError('The default layout must be a shared layout\'s id, or null to stop using one.');
-        if (patch.opensWith !== undefined) throw new StoreError('Send a default layout or Opens with, not both: the default layout sets Opens with.');
-        const layout = this.layouts.listOf(id, null).find((l) => l.id === patch.defaultLayout);
-        if (!layout) throw new StoreError(`This ${this.word('space')} has no shared layout with that id.`, 404);
-        const list = cleanOpensWith(layout.modules.map((m) => m && m.id));
-        if (list) draft.opensWith = list;
-        else delete draft.opensWith;
-        draft.defaultLayout = layout.id;
+        if (typeof patch.defaultLayout !== 'string') throw new StoreError('The default layout must be a shared layout\'s id, Calendar, Map, or null to stop using one.');
+        if (patch.defaultLayout === 'workspace') {
+          delete draft.defaultLayout; // Workspace is what no default layout means
+        } else if (patch.defaultLayout === 'calendar' || patch.defaultLayout === 'map') {
+          const word = patch.defaultLayout === 'calendar' ? 'Calendar' : 'Map';
+          if (typeof this.systemLayoutOn !== 'function' || !this.systemLayoutOn(id, patch.defaultLayout)) {
+            throw new StoreError(`${word} is not on in this ${this.word('space')}, so it can't be the first visit.`, 404);
+          }
+          draft.defaultLayout = patch.defaultLayout;
+        } else {
+          const layout = this.layouts.listOf(id, null).find((l) => l.id === patch.defaultLayout);
+          if (!layout) throw new StoreError(`This ${this.word('space')} has no shared layout with that id.`, 404);
+          draft.defaultLayout = layout.id;
+        }
       }
     }
     // The phases' dates (plan-one-bar.md, step 1): the whole set replaces what is stored; null or {} clears it. Refused,
@@ -1820,26 +1828,21 @@ class Store {
     return this.spaceById(id);
   }
 
-  // After a shared layout is replaced or deleted: a space whose default it was follows it. Replaced, Opens with becomes
-  // its modules again; gone, the default is cleared and Opens with stays as it was. Nothing changes otherwise.
+  // After a shared layout is deleted: a space whose default it was stops using it and Opens with stays as it was.
+  // (Replaced, it changes nothing here: Opens with no longer follows a layout.) A system id (calendar, map) stays.
   syncDefaultLayout(id) {
     const space = this.data.spaces.find((r) => r.id === id);
-    if (!space || !space.defaultLayout) return;
-    const layout = this.layouts.listOf(id, null).find((l) => l.id === space.defaultLayout);
-    if (!layout) {
-      delete space.defaultLayout;
-    } else {
-      const list = cleanOpensWith(layout.modules.map((m) => m && m.id));
-      if (!list || JSON.stringify(list) === JSON.stringify(space.opensWith || null)) return;
-      space.opensWith = list;
-    }
+    if (!space || !space.defaultLayout || SYSTEM_DEFAULTS.includes(space.defaultLayout)) return;
+    if (this.layouts.listOf(id, null).some((l) => l.id === space.defaultLayout)) return;
+    delete space.defaultLayout;
     this.save();
   }
 
-  // A space's default layout, whole, or null while it has none (or its id no longer finds a shared layout).
+  // A space's default layout when it is a shared one, whole, or null while it has none, it is Calendar or Map, or its
+  // id no longer finds a shared layout.
   defaultLayoutOf(id) {
     const space = this.spaceById(id);
-    if (!space || !space.defaultLayout) return null;
+    if (!space || !space.defaultLayout || SYSTEM_DEFAULTS.includes(space.defaultLayout)) return null;
     return this.layouts.find(id, space.defaultLayout, null)?.layout || null;
   }
 

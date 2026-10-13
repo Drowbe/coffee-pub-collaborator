@@ -532,6 +532,18 @@ function environmentFor(slug) {
   // A display icon may also be a built-in module's own icon (store.displayIconIds), beside the installed modules' ones.
   const installedIcons = env.store.moduleIconIds;
   env.store.moduleIconIds = () => [...installedIcons(), ...BUILTIN_MODULES.map((b) => b.icon)];
+  // Whether a system layout (calendar, map) is on in a space, whoever asks: its destination resolves there (module on in
+  // the space, map file present). A space's defaultLayout may name it only while this holds (store.updateSpace).
+  env.store.systemLayoutOn = (spaceId, id) => {
+    const dest = { calendar: 'calendar', map: 'map' }[id];
+    if (!dest) return false;
+    const enabled = env.modules.enabledAll();
+    const canRead = (manifest) => {
+      const found = enabled.find((m) => m.manifest.id === manifest.id);
+      return Boolean(found) && manifest.scope.includes('space') && !refusedInLobby(manifest, spaceId) && env.modules.isOnIn(found.entry.id, spaceId);
+    };
+    return Boolean(destinations.resolveDestinationInSpace(dest, { enabled, canRead, hasFile: (m) => envContext.run(env, () => moduleHasFile(m)) }));
+  };
   // An environment's own name (settings.environmentName). Still on the shipped sentinel default --
   // a brand new environment, or one never renamed since before this was configurable -- picks its real one up
   // right here: the default environment gets the product's own name, an environment its registry name. Runs on every
@@ -4009,6 +4021,22 @@ function systemLayoutsFor(found) {
   }
   return out;
 }
+// What a first visit to a space shows for this viewer, resolved from the stored fields so the page does not re-derive it
+// (plan-layout-views.md, step 5): { layout: 'workspace' | 'calendar' | 'map' | <shared layout id>, opensWith: [ids] | null }.
+// `layout` is the space's defaultLayout while it still resolves (a shared layout that exists; Calendar or Map while it
+// is on here for this viewer), else 'workspace'. `opensWith` is the space's own list (the Workspace's default content),
+// or null when it has none (the page then falls back to the environment's list, as before); it is sent whatever `layout` is.
+function firstVisitFor(found) {
+  const space = found.space;
+  const stored = space.defaultLayout;
+  let layout = 'workspace';
+  if (stored === 'calendar' || stored === 'map') {
+    if (systemLayoutsFor(found).some((l) => l.id === stored)) layout = stored;
+  } else if (stored && store.defaultLayoutOf(space.id)) {
+    layout = stored;
+  }
+  return { layout, opensWith: Array.isArray(space.opensWith) && space.opensWith.length ? [...space.opensWith] : null };
+}
 // The icon ids a layout may use: this environment's icon list, the modules' own icons, and the defaults.
 const layoutIconIds = () => [...new Set([...store.iconIds(), ...store.displayIconIds(), ...Object.values(SYSTEM_ICONS), 'object-group'])];
 
@@ -4021,7 +4049,7 @@ app.get('/api/spaces/:id/layouts', (req, res) => {
   const fallback = store.defaultLayoutOf(found.space.id);
   // favorites: this person's favorite layouts' ids, in the order favorited (plan-favorite-layouts.md); [] for a guest.
   const favorites = store.layouts.favorites(found.space.id, me);
-  res.json({ mine, shared, system: systemLayoutsFor(found), defaultLayout: fallback ? fallback.id : null, favorites, canShare: found.canShare, canSetDefault: found.canSetDefault });
+  res.json({ mine, shared, system: systemLayoutsFor(found), defaultLayout: fallback ? fallback.id : null, firstVisit: firstVisitFor(found), favorites, canShare: found.canShare, canSetDefault: found.canSetDefault });
 });
 
 app.post('/api/spaces/:id/layouts', (req, res) => {
@@ -7079,6 +7107,8 @@ app.get('/api/modules/for-space', (req, res) => {
     // The space's default layout, whole (as GET /api/spaces/:id/layouts lists it), or null: what a first visit opens,
     // with its places, when Opens with is the space's own list (plan-saved-layouts.md, decision 4).
     defaultLayout: store.defaultLayoutOf(space.id),
+    // What a first visit shows for this viewer, resolved (firstVisitFor): { layout, opensWith }.
+    firstVisit: firstVisitFor({ who, space }),
   });
 });
 

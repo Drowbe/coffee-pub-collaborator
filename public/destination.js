@@ -13,9 +13,9 @@
 // parts mounted at space scope (a guest with the space's token too), no space filter, no Mine and no other calendars
 // (plan-google-calendar.md's rule), the view switch and the marker kinds kept, its choices remembered under
 // app.destination.<id>.<space id>. The map in a space (plan-map-places.md, step 2) keeps a filter of whose places show:
-// This <space> (on), Mine (on) and the environment's own (off at first), under the same key. Shown in a frame (the
-// space page's view frame, `window.self !== window.top`) it draws no top bar of its own: the space page's bar is the
-// one bar, and holds the way back; only the page bar shows.
+// This <space> (on), Mine (on) and the environment's own (off at first), under the same key. Shown in a frame (a
+// composite's on the space's canvas, which the Calendar and Map layout tabs show; `window.self !== window.top`) it draws
+// no top bar of its own: the space page's bar is the one bar, and holds the way back; only the page bar shows.
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word, withinSpacePage } from '/brand.js';
 import { nav } from '/nav-bar.js';
 import { mountModule, createDestination } from '/module-host.js';
@@ -36,7 +36,7 @@ const withoutTopbar = Boolean(spaceId) && embedded; // a view in the space page'
 // In a composite's frame on a space's Workspace (canvas.js marks that frame data-composite; plan-module-titlebar-add.md):
 // the composite's titlebar holds the one "+" and its window the status bar. The parts' adds and status lines are
 // gathered here and handed up (sendChrome); the parts hide their own big add buttons, as they do under a titlebar. Not
-// on the top-level /calendar and /map, nor in the space page's view frame, where the parts keep their own.
+// on the top-level /calendar and /map, where the parts keep their own.
 const inComposite = (() => {
   try {
     return embedded && Boolean(window.frameElement && window.frameElement.hasAttribute('data-composite'));

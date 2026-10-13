@@ -476,8 +476,10 @@ const refused = (input, pattern, label, options) => {
   // A guest never asks: no ... entry, no favorite tabs (the server's 403 is the backstop).
   assert.match(space, /const mayFavorite = \(\) => !guestToken && Boolean\(me\?\.key\) && me\.role !== 'guest';/);
   assert.match(space, /favorites: mayFavorite\(\) && layoutList\.spaceId === layoutSpaceId\(\) \? layoutList\.favorites : \[\],/);
-  // The layout tabs (plan-layout-views.md, step 2) load the page's own copy, as a row in the menu does.
-  assert.match(space, /const layout = findLayout\(id\);\n\s*if \(!layout\) return;/);
+  // The layout tabs (plan-layout-views.md, steps 2 and 3) load the page's own copy, as a row in the menu does: a favorite
+  // from the saved lists, Calendar and Map from GET's `system` list (their `modules`, the composite docked).
+  assert.match(space, /const layout = tab\.kind === 'system' \? findSystemLayout\(id\) : findLayout\(id\);\n\s*if \(!layout \|\| !Array\.isArray\(layout\.modules\)\) return;/);
+  assert.match(space, /const findSystemLayout = \(id\) => layoutList\.system\.find\(\(l\) => l\.id === id\) \|\| null;/);
   assert.match(space, /system: Array\.isArray\(got\.system\) \? got\.system : \[\],/, 'GET\'s `system` list read for the tabs');
   n += 1;
 }

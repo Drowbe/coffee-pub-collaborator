@@ -1638,14 +1638,9 @@ body.in-space .subnav {
   align-items: center;
 }
 
-/* The bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5): space.js names the view being shown as
-   body.view-<id>, and wider than a phone the bar shows only for the Workspace. Below 640px it is the phone's tab bar
-   and stays in every view (decision 3). Only view-workspace exists until the other views come. */
+/* The bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5). Below 640px it is the phone's tab bar
+   and stays on every layout tab (decision 3). */
 @media (min-width: 641px) {
-  body.in-space:not(.view-workspace) .subnav {
-    display: none;
-  }
-
   /* Wider than a phone the Workspace's controls are the top bar's (nav-bar.js, setWorkspace; Thomas, 2026-10-13), so
      the row has nothing in it and is not drawn: the Workspace gets its height. It comes back by itself should a tool
      be registered on it (a divider and a folded or hidden tool do not count). */
@@ -7458,11 +7453,6 @@ body.module-page .module-status {
 
   /* The chip's phone rules (the dot and the phase's name) are with its own, at phase-chip:start. */
 
-  /* The views (Workspace, Calendar, Map) are the menu's first entries (nav-bar.js phoneZones); the current one reads so. */
-  .topbar.menu-open .links .core-link[data-view][aria-current="page"] {
-    box-shadow: inset 3px 0 0 var(--accent);
-  }
-
   .topbar.menu-open .links .whoami-caret {
     display: none;
   }
@@ -9677,25 +9667,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .work:has(> .canvas[hidden]) {
-  display: none;
-}
-
-/* A view other than the Workspace (plan-one-bar.md, step 7): its page in a frame where the canvas is, the column still
-   beside it. The canvas keeps its state under it; the frame is hidden again on the Workspace. */
-.view-frame {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: var(--bg);
-}
-
-.view-frame[hidden],
-.work:has(> .view-frame:not([hidden])) > .canvas {
-  display: none;
-}
-
-/* The space list over the space (home) hides the canvas; a view's frame goes with it. */
-.work:has(> .canvas[hidden]) > .view-frame {
   display: none;
 }
 

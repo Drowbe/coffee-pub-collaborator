@@ -234,8 +234,8 @@ export function hashPanel(hash, panelKeys = []) {
 
 // The destinations (plan-calendar-destination.md, "The bar's entry"; plan-map-destination.md): one entry per
 // destination GET /api/destinations lists for this viewer, in its order, each its main module's name and icon as this
-// environment shows them. The `bar` entry is the look a space's views take (spaceViews() below: `dest-<id>`, the core
-// links' look, a left-zone tool in the group `where`); outside a space the top bar no longer draws it (plan-one-bar.md,
+// environment shows them. The `bar` entry (`dest-<id>`, the core links' look, a left-zone tool in the
+// group `where`) is no longer drawn in the top bar: in a space Calendar and Map are layout tabs (layoutTabs() below) (plan-one-bar.md,
 // decision 6: the environment's Calendar and Map are in the profile menu, profileEntries()). On a phone an entry in the
 // menu after the Spaces slot's entries (`menu-dest-<id>`, in their group, before New <space>). `current`
 // while that page is open (`path` is the page's own). `overlay` while present in a space, so the space page opens it
@@ -250,25 +250,6 @@ export function destinationTools(list, { path = '', present = false } = {}) {
       menu: { id: `menu-dest-${d.id}`, zone: 'right', group: 'menu-where', order: 950 + i, ...shared },
     };
   });
-}
-
-// A space's views in the top bar's left zone (plan-one-bar.md, decisions 1 and 6, step 7): the Workspace first
-// (`view-workspace`, the canvas with its toolbar), then one view per destination the environment shows, as the
-// destinations' entries look (`dest-<id>`, destinationTools' `bar` entry), each opening that page for this space
-// (`/calendar?space=<id>`; until plan-calendar-todo.md and plan-map-places.md give the page its space form it is the
-// environment's page as today) over the Workspace, with the always-on column outside it and no Away set. All in the
-// group `views`, after the switcher and before the phase chip; the current one is marked `aria-current="page"`.
-// A guest gets only what the template allows: nothing yet (decision 10), so `guest` gives []. `current` is the view's
-// id ('workspace', or a destination's). Returns [{ id, view, icon, label, href?, current }].
-export function spaceViews(list, { space = '', current = 'workspace', guest = false, workspaceWord = 'Workspace' } = {}) {
-  if (guest || !space) return [];
-  const out = [{ id: 'view-workspace', view: 'workspace', icon: 'columns', label: String(workspaceWord || 'Workspace').trim().slice(0, 40) || 'Workspace', current: current === 'workspace' }];
-  const q = `?${new URLSearchParams({ space })}`;
-  for (const { bar } of destinationTools(list)) {
-    const view = bar.id.slice('dest-'.length);
-    out.push({ id: bar.id, view, icon: bar.icon, label: bar.label, href: `${bar.href}${q}`, current: current === view });
-  }
-  return out.map((v, i) => ({ ...v, zone: 'left', group: 'views', groupOrder: 12, order: 1 + i }));
 }
 
 // The layout tabs in the top bar's left zone, right after the space switcher (plan-layout-views.md, decisions 1, 2, 5,
@@ -304,15 +285,23 @@ export function layoutTabs({ system = [], favorites = [], layouts = [], current 
 
 // Which layout tabs stay in the bar when it is tight (plan-layout-views.md, decisions 11, 14 and 17): all of them while
 // they fit side by side in `avail`; else the tabs leave from the right, one at a time, into a "..." after the last one
-// shown, as many staying as fit with the "..." (`more`, its width) beside them, down to none (the Workspace is the last
-// to go). Tabs are never shortened. `widths` are the tabs' widths in order, `gap` the space between two neighbours.
-// Gives { count, more }: how many of the first tabs show, and whether the "..." shows. Pure, for check-nav.
-export function tabOverflow({ avail, gap = 0, widths = [], more = 0 } = {}) {
+// shown, as many staying as fit with the "..." (`more`, its width) beside them. The Workspace (the first tab) and the
+// tab shown now (`current`, its index; -1 for none) never leave (Thomas, 2026-10-13): they stay even where nothing
+// else fits, and the bar's other tools give way after them. Tabs are never shortened. `widths` are the tabs' widths in
+// order, `gap` the space between two neighbours. Gives { out, count, more }: the indexes of the tabs in the "...", in
+// order, how many tabs show, and whether the "..." shows. Pure, for check-nav.
+export function tabOverflow({ avail, gap = 0, widths = [], more = 0, current = -1 } = {}) {
   const limit = Number.isFinite(avail) ? avail : Infinity;
   const n = widths.length;
-  const row = (k) => widths.slice(0, k).reduce((sum, w) => sum + w, 0) + gap * Math.max(0, k - 1);
-  if (row(n) <= limit + 0.5) return { count: n, more: false };
-  let count = n - 1;
-  while (count > 0 && row(count) + gap + more > limit + 0.5) count -= 1;
-  return { count, more: true };
+  const row = (list) => list.reduce((sum, i) => sum + widths[i], 0) + gap * Math.max(0, list.length - 1);
+  const all = widths.map((_, i) => i);
+  if (row(all) <= limit + 0.5) return { out: [], count: n, more: false };
+  const pinned = (i) => i === 0 || i === current;
+  const others = all.filter((i) => !pinned(i));
+  if (!others.length) return { out: [], count: n, more: false }; // nothing that may leave
+  let keep = others.length - 1;
+  const shownWith = (k) => all.filter((i) => pinned(i) || others.slice(0, k).includes(i));
+  while (keep > 0 && row(shownWith(keep)) + gap + more > limit + 0.5) keep -= 1;
+  const out = others.slice(keep);
+  return { out, count: n - out.length, more: true };
 }

@@ -18,7 +18,7 @@
 // Layout, Full screen, Pop out, Pull participants back and every module tool. It lives in whichever bar the
 // page names with setWorkspace(): the top bar wider than a phone, where it sits nearest the middle (last in the left zone,
 // first in the right) and folds into the top bar's own "..."; the space bar where that is the phone's tab bar. 'only'
-// shows while the Workspace is the view being shown, 'every' in every view). A left-zone tool of either bar may also give `fit(avail)`:
+// shows while the Workspace tab is shown, 'every' on every layout tab). A left-zone tool of either bar may also give `fit(avail)`:
 // the fit (fitBar, below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
 // (Online, who is here: its names become the count, then portraits drop, then it shows only the short count; the top
 // bar's phase chip: its label, then its dot, then nothing); one that says `fitFirst` is fitted first, with the others at
@@ -268,8 +268,8 @@ export function setBadge(id, n) {
 }
 
 // The primary bar's zones on a phone (plan-primary-nav.md, decision 7: the logo, the anchor, the bell and the menu
-// button): the left stays, but a left tool that says `phone: 'menu'` (a space's views: Workspace, Calendar, Map;
-// plan-one-bar.md, step 8) goes into the menu, first; a right tool that says `phone: 'bar'` (the bell) stays in the
+// button): the left stays, but a left tool that says `phone: 'menu'` (none registers it now: a space's views used it
+// until they became layout tabs, plan-layout-views.md step 3) goes into the menu, first; a right tool that says `phone: 'bar'` (the bell) stays in the
 // bar, drawn in the phone's place (`bar`: #core-nav); everything else from the right goes into the menu, which is the
 // right zone's element. Each is a list of runs, each run arranged on its own. Pure, for check-nav.
 export function phoneZones(byZone) {

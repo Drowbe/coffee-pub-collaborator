@@ -61,8 +61,11 @@ const CLOSE_HTML = '<button class="msg-btn" data-close type="button" title="Clos
 // `onNote(text)`: a short line for the Layout menu's note (#modules-menu-note), '' to clear it. `onMenu(open)`: the
 // Layout menu opened (space.js reads its layouts again as it opens). `menuItems()`: the page's own entries for the
 // menu's end (the Layouts section, space.js), in the shared menu's item shape (host-menu.js). `noteEl`: the page's note
-// element, drawn as the menu's last row.
-export function createCanvas({ guestToken = null, onChatAsk = null, onNote = null, onMenu = null, menuItems = null, noteEl = null } = {}) {
+// element, drawn as the menu's last row. `frameParams()`: what a composite's page is handed besides its space (the same
+// handoff a page over the call gets: from=space and the names for its header), so a link inside it that leads on to
+// another page keeps its way back. `onCompositeLoad(frame)`: each page that loads in a composite's frame, so the page
+// can take the header links inside it (home, which must not navigate the top window away from the call).
+export function createCanvas({ guestToken = null, onChatAsk = null, onNote = null, onMenu = null, menuItems = null, noteEl = null, frameParams = null, onCompositeLoad = null } = {}) {
   // The phone's tab bar (#modules-menu, `subnav-modules` while the window is a phone's width: space.js's placeSubnav):
   // a tab per module. Wider than a phone the Layout menu (openMenu, below) is the one place to show and hide modules,
   // drawn with the page's shared menu under the top bar's Layout button (#modules-toggle, a nav tool of space.js).
@@ -771,10 +774,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const statusHtml = (m) => `<div class="mod-status" data-status role="region" aria-label="${escapeHtml(`${m.name} status`)}" hidden></div>`;
 
   // The page a composite holds: the destination as a view of this space (`/calendar?space=<id>`, `/map?space=<id>`, the
-  // same page the one bar's Calendar or Map view shows; it draws no top bar of its own in a frame), with a guest's token.
+  // page the Calendar and Map layout tabs show filling the canvas; it draws no top bar of its own in a frame), with a
+  // guest's token, or for anyone else the page's handoff (frameParams: ?from=space and the names), as the view frame had.
   const compositeSrc = (c) => {
     const q = new URLSearchParams({ space: spaceId || '' });
     if (guestToken) q.set('guest', guestToken);
+    else if (typeof frameParams === 'function') for (const [k, v] of frameParams()) if (!q.has(k)) q.set(k, v);
     return `${c.path}?${q}`;
   };
 
@@ -813,6 +818,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       if (addSlot) addSlot.set([]);
       if (statusSlot) statusSlot.set([]);
       post({ type: 'app:compositehello' });
+      if (typeof onCompositeLoad === 'function') { try { onCompositeLoad(frame); } catch { /* the page's links stay its own */ } }
     });
     // Whether the destination's page is in the frame (not the blank it starts as): a pointer that arrives before it is
     // (the composite opened for that pointer: a place card's, a task's) waits for the page's load.

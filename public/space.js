@@ -3,8 +3,9 @@ import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.e
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
 import { anchorSegments, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, chipFit } from '/phase-sheet.js';
+import { createSpaceSetup } from '/space-setup.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
-import { whatOpens, conferenceAllowed } from '/opens-with.js';
+import { whatOpens, conferenceAllowed, opensWithSummary } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
@@ -1264,7 +1265,8 @@ async function savePhases(dates) {
   updatePhaseChip();
   return space.phases || {};
 }
-phaseChip.addEventListener('click', () => {
+// The sheet, from the chip or from Set up's Phases button (`opener` takes the keyboard back when it closes).
+function openPhaseSheetFrom(opener) {
   const space = phaseSpaceRecord();
   if (!space || !phaseRule()) return;
   openPhaseSheet({
@@ -1275,12 +1277,129 @@ phaseChip.addEventListener('click', () => {
     canEdit: canEditPhases(),
     save: savePhases,
     rule: phaseRule(),
-    opener: phaseChip,
+    opener,
     words: { owner: word('owner'), moderator: word('moderator') },
   });
-});
+}
+phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
 nav.register({ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'where', order: 10.5, icon: 'circle', label: 'Phases', element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip });
 // --- end the phase chip ---
+
+// --- Set up (space-setup.js) ----------------------------------------------------------------------------
+// Edit's place (plan-one-bar.md, decision 5, step 4): a `setup` tool in the top bar's right zone before your picture,
+// for owners, the admin and this space's moderators (GET /api/me: hasOwnerRights, or
+// user.spaces[<id>].permissions.moderator). Pressing it puts `body.setting-up` on, turns the space's name in the bar
+// into an input (the breadcrumb's current segment, placeSetupName below), swaps the tool for Done and Cancel and opens
+// the side panel. Done saves in one go and leaves the mode; Cancel and Escape leave it and drop the edits. A member
+// has no Set up; the space card's "Full settings" link on Home still opens /spaces/<id>.
+const spaceSetup = createSpaceSetup({ api, word, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout') });
+let settingUp = false;
+const setupNameInput = document.createElement('input');
+setupNameInput.type = 'text';
+setupNameInput.id = 'setup-bar-name';
+setupNameInput.className = 'setup-bar-name';
+setupNameInput.maxLength = 40;
+setupNameInput.autocomplete = 'off';
+setupNameInput.setAttribute('aria-label', 'Name');
+const isModeratorHere = () => Boolean(currentSpace && me?.spaces?.[currentSpace.id]?.permissions?.moderator);
+const canSetUp = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && Boolean(me) && me.role !== 'guest' && (hasOwnerRights(me) || isModeratorHere());
+const setupShown = () => canSetUp() && !settingUp;
+const setupModeShown = () => canSetUp() && settingUp;
+// While setting up, the breadcrumb's current segment carries the input instead of the name (updateCrumb draws the
+// crumb afresh, so this runs after each draw; the input is one element, so what was typed survives a redraw).
+function placeSetupName() {
+  if (!settingUp || !hasOwnerRights(me)) return; // a moderator may not rename: the name stays words
+  const label = $('topbar-crumb')?.querySelector('.crumb-here[aria-current="location"] .crumb-label');
+  if (label) label.replaceWith(setupNameInput);
+}
+// The panel hangs under the header: its top follows the header's height (one row or two, a phone's one).
+let setupHeaderWatch = null;
+function placeSetupSide() {
+  const top = topbarEl.getBoundingClientRect().bottom;
+  spaceSetup.el.style.setProperty('--setup-top', `${Math.max(0, Math.round(top))}px`);
+}
+function enterSetup() {
+  if (!canSetUp() || settingUp) return;
+  const space = phaseSpaceRecord() || currentSpace;
+  settingUp = true;
+  document.body.classList.add('setting-up');
+  setupNameInput.value = space.name || spaceName;
+  updateCrumb(); // the name as the input, and the bar's Done and Cancel in the tool's place
+  const opened = spaceSetup.open({
+    space,
+    owner: hasOwnerRights(me),
+    moderator: isModeratorHere(),
+    phases: templatePhases.length > 0,
+    conferenceOn: features.conferenceEnabled !== false,
+    nameInput: setupNameInput,
+    openPhases: (opener) => openPhaseSheetFrom(opener),
+    onDone: setupSaved,
+    onLeave: leaveSetup,
+  });
+  if (!opened) { leaveSetup(); return; }
+  placeSetupSide();
+  if (!setupHeaderWatch && typeof ResizeObserver === 'function') {
+    setupHeaderWatch = new ResizeObserver(() => { if (settingUp) placeSetupSide(); });
+    setupHeaderWatch.observe(topbarEl);
+  }
+}
+function leaveSetup() {
+  if (!settingUp) return;
+  settingUp = false;
+  document.body.classList.remove('setting-up');
+  if (spaceSetup.isOpen()) spaceSetup.close();
+  updateCrumb(); // the name back as words, Set up back in the bar
+  const tool = nav.elementOf('setup');
+  if (tool && tool.getClientRects().length) tool.focus();
+}
+// After Done: the space the server answered goes into this page's records (the name in the bar and on the card, the
+// picture), presence is read again so everyone's copy follows, and the line says what happened.
+function setupSaved(space, said, saved = []) {
+  if (space && currentSpace && space.id === currentSpace.id) {
+    const record = presenceSpaces.find((r) => r.id === space.id);
+    if (record) Object.assign(record, space);
+    if (currentSpace !== record) Object.assign(currentSpace, space);
+    spaceName = spaceDisplayName(currentSpace);
+    renderSpaces();
+    renderSpaceLink();
+    if (saved.includes('image') || saved.includes('imageRemoved')) {
+      const img = $('spaces')?.querySelector(`[data-space="${CSS.escape(space.id)}"] .space-choice-image`);
+      if (img && !img.hidden) img.src = `/img/space/${encodeURIComponent(space.id)}?v=${Date.now()}`;
+    }
+  }
+  loadPresence();
+  updateCrumb();
+  saySetup(said);
+}
+// The one line after Done, read out, under the canvas's edge for a moment.
+const setupSaid = document.createElement('p');
+setupSaid.id = 'space-setup-said';
+setupSaid.className = 'setup-said';
+setupSaid.setAttribute('role', 'status');
+setupSaid.setAttribute('aria-live', 'polite');
+setupSaid.hidden = true;
+document.body.appendChild(setupSaid);
+let setupSaidTimer = 0;
+function saySetup(text) {
+  setupSaid.textContent = text;
+  setupSaid.hidden = false;
+  clearTimeout(setupSaidTimer);
+  setupSaidTimer = setTimeout(() => { setupSaid.hidden = true; }, 8000);
+}
+// Escape anywhere on the page cancels, unless something of its own is open (the phase sheet, a menu, the Layout panel),
+// which Escape closes first; the panel's own Escape is its own (space-setup.js).
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !settingUp || event.defaultPrevented) return;
+  if (event.target.closest?.('#space-setup')) return;
+  if (document.querySelector('dialog[open], .host-menu, .module-chooser-list:not([hidden]), .who-here-list:not([hidden])')) return;
+  event.preventDefault();
+  spaceSetup.cancel();
+});
+nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 95, order: 1, icon: 'sliders', label: 'Set up', visible: setupShown, onClick: enterSetup });
+nav.register({ id: 'setup-done', bar: 'primary', zone: 'right', group: 'setup', order: 2, icon: 'check', label: 'Done', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.done() });
+nav.register({ id: 'setup-cancel', bar: 'primary', zone: 'right', group: 'setup', order: 3, icon: 'xmark', label: 'Cancel', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.cancel() });
+nav.elementOf('setup-done')?.classList.add('btn-primary');
+// --- end Set up ---
 
 // The Layout panel's Arrange section (written at the top of this file, kept in the panel by canvas.js): Dock all (every
 // floating module docks beside the call, and the canvas-level snap goes off with it, or it would float them again), Clean
@@ -3756,6 +3875,8 @@ function updateCrumb() {
   const segs = anchorSegments({ space, viewingHome, guestSpaceName: guestToken ? guestSpaceName : '', parentName, asideWord: word('aside', { cap: true }), others });
   const iconOf = (seg) => (!currentSpace ? 'message' : currentSpace.isAside ? (seg.action ? spaceCrumbIcon(originSpace) : 'people-arrows') : spaceCrumbIcon(currentSpace));
   setTopbarLocation(segs.map((seg) => crumbSegmentHtml(seg, iconOf(seg))).join('<span class="crumb-sep" aria-hidden="true">&rsaquo;</span>'));
+  if (settingUp && !canSetUp()) spaceSetup.cancel(); // home over the space, an aside, a space left: Set up ends
+  placeSetupName(); // while setting up, the current segment is the name's input
   nav.draw('secondary');
   updatePhaseChip(); // the chip follows the breadcrumb: shown in a space, gone on home, in an aside and for a guest
 }

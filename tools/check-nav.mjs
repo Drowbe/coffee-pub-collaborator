@@ -1626,4 +1626,60 @@ test('the sheet\'s boundaries: every date a person can set, each boundary set ad
   assert.equal(plainDays('Booking must start after Planning starts, 2026-09-01.', (d) => `<${d}>`), 'Booking must start after Planning starts, <2026-09-01>.');
 });
 
+// Set up (plan-one-bar.md, decision 5, step 4; public/space-setup.js): the tools in the bar, what each role's panel
+// shows, the one PATCH of what changed, and the line said after Done.
+const setupCopy = path.join(tmp, 'space-setup.mjs');
+fs.mkdirSync(tmp, { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'public/space-setup.js'), setupCopy);
+const { setupSections, setupPatch, setupSaidWords } = await import(pathToFileURL(setupCopy).href);
+fs.rmSync(tmp, { recursive: true, force: true });
+
+test('Set up: a right-zone tool before your picture for owners, the admin and moderators; Done and Cancel in its place', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /nav\.register\(\{ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 95, order: 1, [^\n]*visible: setupShown, onClick: enterSetup \}\)/, 'before the you group (999), after the bell (90)');
+  assert.match(space, /nav\.register\(\{ id: 'setup-done', bar: 'primary', zone: 'right', group: 'setup', order: 2, [^\n]*labelled: true, visible: setupModeShown/, 'Done, a labelled button, only while setting up');
+  assert.match(space, /nav\.register\(\{ id: 'setup-cancel', bar: 'primary', zone: 'right', group: 'setup', order: 3, [^\n]*labelled: true, visible: setupModeShown/, 'Cancel too');
+  assert.match(space, /const canSetUp = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && Boolean\(me\) && me\.role !== 'guest' && \(hasOwnerRights\(me\) \|\| isModeratorHere\(\)\)/, 'owners, the admin and this space\'s moderators; never a guest, an aside or home over the space');
+  assert.match(space, /const setupShown = \(\) => canSetUp\(\) && !settingUp;/);
+  assert.match(space, /document\.body\.classList\.add\('setting-up'\)/, 'the mode is body.setting-up');
+  assert.match(space, /placeSetupName\(\); \/\/ while setting up, the current segment is the name's input/, 'the breadcrumb carries the input after every draw');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  assert.match(html, /data-edit data-overlay-link href="#" title="Full settings"/, 'the card\'s link stays, as Full settings');
+  assert.deepEqual(setupSections({ owner: true }), ['name', 'picture', 'faces', 'people', 'phases', 'opens-with', 'layout']);
+  assert.deepEqual(setupSections({ owner: true, moderator: true }), ['name', 'picture', 'faces', 'people', 'phases', 'opens-with', 'layout'], 'an owner who is also ticked moderator sees everything');
+  assert.deepEqual(setupSections({ moderator: true }), ['phases', 'opens-with', 'layout'], 'what the server lets a moderator PATCH');
+  assert.deepEqual(setupSections({}), [], 'a member has no panel');
+  const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
+  assert.ok(!/conference character/i.test(setup), 'the panel never says "conference character"');
+  assert.ok(!/switchRowHtml\([^)]*'module'\)/.test(setup), 'no module switches in the panel (decision 4)');
+});
+
+test('Set up: one PATCH of what changed; a layout picked goes alone, a list changed by hand drops the layout', () => {
+  const before = { name: 'Lisbon', profile: 'participants', opensWith: ['chat', 'todo'], defaultLayout: null };
+  assert.deepEqual(setupPatch(before, { ...before }), {});
+  assert.deepEqual(setupPatch(before, { ...before, name: '  Porto ' }), { name: 'Porto' }, 'trimmed');
+  assert.deepEqual(setupPatch(before, { ...before, name: '   ' }), {}, 'an empty name is no change');
+  assert.deepEqual(setupPatch(before, { ...before, profile: 'characters' }), { profile: 'characters' });
+  assert.deepEqual(setupPatch(before, { ...before, opensWith: ['todo', 'chat'] }), { opensWith: ['todo', 'chat'] }, 'the order counts');
+  assert.deepEqual(setupPatch(before, { ...before, opensWith: null }), { opensWith: null }, 'every switch off: not set');
+  assert.deepEqual(setupPatch(before, { ...before, opensWith: [] }), { opensWith: null }, 'an empty list is not set too');
+  assert.deepEqual(setupPatch(before, { ...before, defaultLayout: 'l1', opensWith: ['calendar'] }), { defaultLayout: 'l1' }, 'the server sets Opens with from the layout and refuses both');
+  const withLayout = { ...before, defaultLayout: 'l1' };
+  assert.deepEqual(setupPatch(withLayout, { ...withLayout, defaultLayout: null }), { defaultLayout: null }, 'the layout taken off, the list kept');
+  assert.deepEqual(setupPatch(withLayout, { ...withLayout, defaultLayout: null, opensWith: ['chat'] }), { opensWith: ['chat'] }, 'a changed list drops the layout by itself');
+  assert.deepEqual(setupPatch(withLayout, { ...withLayout }), {}, 'the same layout again is no change');
+  assert.deepEqual(setupPatch(before, { name: 'Porto' }), { name: 'Porto' }, 'fields left out of the draft are unchanged');
+  assert.deepEqual(setupPatch({ name: 'A' }, { name: 'A', profile: 'participants', opensWith: null, defaultLayout: null }), {}, 'a space with nothing set, a draft saying so');
+});
+
+test('Set up: the line after Done says what was saved and what to do next', () => {
+  assert.equal(setupSaidWords({ saved: [] }), 'Nothing changed. Press Set up to change something.');
+  assert.equal(setupSaidWords({ saved: ['name'] }), 'Saved the name. Everyone sees it now; press Set up to change more.');
+  assert.equal(setupSaidWords({ saved: ['name', 'opensWith', 'image'] }), 'Saved the name, Opens with and the picture. Everyone sees it now; press Set up to change more.');
+  assert.equal(setupSaidWords({ saved: ['image', 'imageRemoved'] }), 'Saved the picture. Everyone sees it now; press Set up to change more.', 'one field named once');
+  assert.equal(setupSaidWords({ saved: [], failed: 'name', problem: 'owners only' }), 'The name was not saved. Owners only. Change it and press Done again, or Cancel.');
+  assert.equal(setupSaidWords({ saved: ['name'], failed: 'image', problem: 'too big.' }), 'The picture was not saved. Too big. The name was saved. Change it and press Done again, or Cancel.', 'what went through before stays said');
+  assert.equal(setupSaidWords({ saved: [] }, { setUp: 'Einrichten' }), 'Nothing changed. Press Einrichten to change something.', 'the tool\'s own word');
+});
+
 console.log(`check-nav: OK (${n} tests)`);

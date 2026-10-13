@@ -33,27 +33,31 @@ const $ = (id) => (id === 'canvas' ? canvasEl : document.getElementById(id) || c
 // #recall-button etc. lookup below needs this to have already run.
 renderTopbar();
 if (new URLSearchParams(location.search).has('layout')) import('/layout-debug.js'); // a live geometry readout, see there
-// The space's own bar, a second row of the header (so it moves with the header when the app is
-// popped out): the modules to open on the left (chat, the space's modules; canvas.js fills
-// #modules-menu), and the controls for the whole app on the right, full screen and pop out,
-// which move the whole call page, not the conference.
+// The space's own bar, a second row of the header (so it moves with the header when the app is popped out). Wider
+// than a phone it is empty and not drawn (Thomas, 2026-10-13: the Workspace's controls are in the top bar; the row
+// stays in the code, hides itself with nothing in it, style.css, and comes back should a tool be registered on it);
+// on a phone it is the tab bar at the foot of the page: the modules to open (canvas.js fills #modules-menu), Join,
+// Online, Rejoin call, the "..." and Leave.
 const subnav = document.createElement('div');
 subnav.className = 'subnav';
 subnav.id = 'subnav';
 // The secondary nav is about the space, in two zones (plan-two-zone-nav.md, decisions 1, 4 and 5; see
 // architecture-navigation.md): left, the module selector and then Online, who is here (the space's name is the top bar's
-// breadcrumb, not repeated here: plan-primary-nav.md, decision 14); right, the space's actions: the canvas-level snap, full screen, pop out, pulling people back
-// from an aside, and leaving. The right zone's controls are registrations in the nav-bar registry (public/nav-bar.js),
-// made below beside the code each one drives; a module's own tools (host.nav.set) land in the same bar, after them.
+// breadcrumb, not repeated here: plan-primary-nav.md, decision 14); right, the space's actions: full screen, pop out, pulling people back
+// from an aside, and leaving. The controls are registrations in the nav-bar registry (public/nav-bar.js), made below
+// beside the code each one drives, as Workspace tools (`workspace`): the registry puts them in the top bar wider than a
+// phone (placeSubnav, nav.setWorkspace) and here on a phone; a module's own tools (host.nav.set) go with them.
 subnav.innerHTML = `
   <div class="nav-left subnav-left"></div>
   <span class="nav-right subnav-tools"></span>`;
 topbarEl.appendChild(subnav);
 nav.attach('secondary', subnav); // its tools are registered further down, once the state their `visible` reads exists
-// The space bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5): `body.view-<id>` names the view
-// being shown, and wider than a phone the stylesheet shows the bar only for the Workspace (on a phone it is the tab
-// bar, kept in every view: decision 3). The views are the one bar's (step 7, showView() by the switcher below):
-// the Workspace, and the destinations' pages over it. (setView() further down is the conference's own layout, another thing.)
+// The Workspace's tools show only for the Workspace view (plan-one-bar.md, decision 1 and step 5): `body.view-<id>`
+// names the view being shown, and wider than a phone the registry hides them for any other (workspaceShown, below; on
+// a phone the tab bar is kept in every view: decision 3). The views are the one bar's (step 7, showView() by the
+// switcher below): the Workspace, and the destinations' pages over it. (setView() further down is the conference's own
+// layout, another thing.)
+let currentView = 'workspace';
 function showSpaceView(id) {
   for (const c of [...document.body.classList]) if (c.startsWith('view-')) document.body.classList.remove(c);
   document.body.classList.add(`view-${id}`);
@@ -107,7 +111,7 @@ layoutsSection.innerHTML = `
     <div class="layout-form-buttons"><button class="btn btn-small btn-accent" type="submit">Save</button><button class="btn btn-small" type="button" id="layout-cancel">Cancel</button></div>
   </form>`;
 moduleChooser.querySelector('#modules-menu').appendChild(layoutsSection);
-nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, icon: 'object-group', label: verb('layout'), element: moduleChooser });
+nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, icon: 'object-group', label: verb('layout'), element: moduleChooser, workspace: 'only' });
 // The chooser reads the environment's layout verb (registerWordTools() below calls this once it is known). Its list is
 // named for the button; as the phone's tab bar it is the modules themselves, so it is named by the module word.
 function nameModuleChooser() {
@@ -150,6 +154,9 @@ function placeSubnav() {
     window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
   }
   placeColumnTools(); // Join the call and Online: in the side column wider than a phone, in the bar (the tab bar) below
+  // The Workspace's tools (Layout, the favorites, Full screen, Pop out, Pull participants back, a module's): in the top
+  // bar wider than a phone, in the tab bar's "..." on a phone (nav-bar.js, `workspace`).
+  nav.setWorkspace({ bar: tabs ? 'secondary' : 'primary' });
   nav.draw('secondary'); // the space bar folds again in the window it is in now (plan-phone-space-bar.md)
   if (popped) { nav.draw('primary'); return; } // the header's phone menu follows that window too
   if (tabs) document.body.appendChild(subnav);
@@ -338,7 +345,7 @@ function recallWanted() {
 }
 
 function updateRecallButton() {
-  nav.draw('secondary');
+  nav.draw(); // the tool is in the top bar wider than a phone, the tab bar's "..." on a phone
 }
 
 function resetRecallButton() {
@@ -1115,14 +1122,17 @@ const canvas = createCanvas({
 });
 window.hostModules = canvas; // for debugging and tests
 
-// The space's actions, in the secondary nav's right zone (built at the top of this file): one group in the bands
-// plan-nav.md sets out (the layout tools core, full screen and pop out secondary, the aside's two utility), and Leave
-// last on its own, a divider before it. Registered here, after the state their `visible` functions read exists.
-// On a phone (plan-phone-space-bar.md) Leave and Rejoin call stay in the tab bar (`phone: 'bar'`), Full screen and Pop
-// out are in the "..." only in a narrow popped-out window (`phone: 'popout'`), and the rest goes into the "...".
+// The space's actions, in the right zone: one group in the bands plan-nav.md sets out (full screen and pop out
+// secondary, the aside's two utility), and Leave last on its own, a divider before it. Registered here, after the
+// state their `visible` functions read exists. Full screen, Pop out and Pull participants back are Workspace tools
+// (nav-bar.js, `workspace`): wider than a phone the registry draws them in the top bar's right zone, before Set up, the
+// bell and your picture, where they fold into the top bar's "..." (Pop out, then Full screen first; Thomas, 2026-10-13),
+// the first two only on the Workspace view; on a phone (plan-phone-space-bar.md) they are the tab bar's: Leave and
+// Rejoin call stay in it (`phone: 'bar'`), Full screen and Pop out are in its "..." only in a narrow popped-out window
+// (`phone: 'popout'`), and the rest goes into the "...".
 const SPACE_TOOL = { bar: 'secondary', zone: 'right', group: 'space', groupOrder: 1 };
-nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', activeLabel: 'Exit full screen', phone: 'popout', toggleable: true, active: false, onClick: () => toggleFullscreen() });
-nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', activeLabel: 'Pop it back in', phone: 'popout', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
+nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', activeLabel: 'Exit full screen', phone: 'popout', workspace: 'only', toggleable: true, active: false, onClick: () => toggleFullscreen() });
+nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', activeLabel: 'Pop it back in', phone: 'popout', workspace: 'only', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
 // The tools whose words are the environment's: registered again (the same elements) once loadBranding() has them.
 function registerWordTools() {
   nameModuleChooser();
@@ -1130,13 +1140,14 @@ function registerWordTools() {
   arrangeSection.querySelector('#dock-all').title = `Dock every floating ${word('module')} beside the call`;
   arrangeSection.querySelector('#clean-up').title = `Tidy the floating ${word('module', { many: true })}`;
   arrangeSection.querySelector('#snap-all').closest('label').title = `Snap every floating ${word('module')} to a grid`;
-  nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
+  nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, workspace: 'every', visible: () => recallWanted(), onClick: recallParticipants });
   // Leave is in the space bar only where the bar is the phone's tab bar (plan-one-bar.md, step 5 and decision 3); wider,
   // it is the last entry of the top bar's space switcher (brand.js, through app:enter-space { action: 'leave' } below).
   nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, visible: () => phoneWidth(), onClick: () => leaveSpace() });
 }
 registerWordTools();
-nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin', icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin), onClick: () => returnFromAside() });
+// Rejoin call is the tab bar's; wider than a phone the top bar has its own (aside-rejoin, the one bar section below).
+nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin', icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin) && phoneWidth(), onClick: () => returnFromAside() });
 // On a phone the header's links are a menu (see brand.js), and the call's settings would otherwise
 // only be reachable from the Conference view's toolbar. This tool, in the menu only (its class, see style.css) and
 // only while in the call, shows the conference and opens them. It sits in the session group, ahead of the clock.
@@ -1525,6 +1536,8 @@ function openPhaseSheetFrom(opener) {
   });
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
+// Its words are the first thing the bar gives up (Thomas, 2026-10-13): the favorites are fitted first (`fitFirst`), the
+// chip takes what they leave (nav-bar.js, fitLeft), and only then does anything fold.
 nav.register({ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', groupOrder: 20, order: 1, icon: 'circle', label: 'Phases', element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip });
 // --- end the phase chip ---
 
@@ -1541,8 +1554,12 @@ nav.register({ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', g
 // column is not drawn and the tab bar stays (decision 3). A tab tapped while another view shows goes back to the
 // Workspace, where the tabs live.
 const viewFrame = document.getElementById('view-frame');
-let currentView = 'workspace';
 const oneBar = () => Boolean(currentSpace) && !viewingHome && !guestToken && me?.role !== 'guest';
+// The Workspace's tools (Layout, the favorites, Full screen, Pop out, a module's: nav-bar.js, `workspace: 'only'`) show
+// only while the Workspace is the view, and not in an aside (decision 10); on a phone the tab bar keeps them in every
+// view (decision 3). Read by the registry on every draw.
+const workspaceShown = () => phoneWidth() || (currentView === 'workspace' && !inAside());
+nav.setWorkspace({ shown: workspaceShown });
 const spaceSwitcher = document.createElement('span');
 spaceSwitcher.id = 'space-switcher'; // an element tool keeps its own id
 spaceSwitcher.className = 'space-switcher';
@@ -1602,6 +1619,7 @@ function showView(view, href = '') {
   if (view !== 'workspace' && (!href || !oneBar())) return;
   currentView = view;
   showSpaceView(view);
+  nav.draw(); // the Workspace's tools show for the Workspace alone (workspaceShown)
   if (view === 'workspace') {
     const wasView = !viewFrame.hidden;
     viewFrame.hidden = true;
@@ -2146,7 +2164,7 @@ function renderFavorites() {
     layoutFavorites.replaceChildren(...buttons, favoritesNote);
     if (hadId) (layoutFavorites.querySelector(`[data-layout-favorite="${CSS.escape(hadId)}"]`) || moduleChooser.querySelector('#modules-toggle'))?.focus();
   }
-  nav.draw('secondary');
+  nav.draw(); // the favorites are in the top bar wider than a phone
 }
 // The width the bar gives the group (nav-bar.js, while it measures with nothing shrunk): every name at full length (up
 // to about 16 characters) while they all fit; only when they do not, every name shortens evenly to the widest that fits,
@@ -2199,8 +2217,10 @@ layoutFavorites.addEventListener('click', (event) => {
   syncSnapBar();
   button.focus();
 });
-// Right of the Layout button, in its group: no divider between them. It never folds into the "...".
-nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted });
+// Right of the Layout button, in its group: no divider between them. It never folds into the "..."; a Workspace tool,
+// so it is in the top bar with Layout wider than a phone (nav-bar.js, setWorkspace), fitted first: the phase chip's
+// words give way before the favorites do (Thomas, 2026-10-13: the chip's label is the first thing to go).
+nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' });
 // The canvas crossing the narrow line hides or shows the group (the bar is drawn again; its `visible` reads it).
 let favoritesNarrow = null;
 if (typeof ResizeObserver === 'function') {
@@ -2208,7 +2228,7 @@ if (typeof ResizeObserver === 'function') {
     const narrow = canvas.isNarrow();
     if (narrow === favoritesNarrow) return;
     favoritesNarrow = narrow;
-    nav.draw('secondary');
+    nav.draw();
   }).observe($('canvas'));
 }
 // --- end the favorite layouts ---

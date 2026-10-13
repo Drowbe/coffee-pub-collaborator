@@ -18,7 +18,7 @@
 // Layout, Full screen, Pop out, Pull participants back and every module tool. It lives in whichever bar the
 // page names with setWorkspace(): the top bar wider than a phone, where it sits nearest the middle (last in the left zone,
 // first in the right) and folds into the top bar's own "..."; the space bar where that is the phone's tab bar. 'only'
-// shows while the Workspace tab is shown, 'every' on every layout tab). A left-zone tool of either bar may also give `fit(avail)`:
+// shows while the page's setWorkspace({ shown }) says so (the space page: not in an aside), 'every' always). A left-zone tool of either bar may also give `fit(avail)`:
 // the fit (fitBar, below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
 // (Online, who is here: its names become the count, then portraits drop, then it shows only the short count; the top
 // bar's phase chip: its label, then its dot, then nothing); one that says `fitFirst` is fitted first, with the others at
@@ -96,7 +96,7 @@ export function arrange(list) {
 // `<module>:<group>`, orders clamped into the module band), so a module can neither touch another's tools nor the
 // system's, nor get ahead of them. Every module tool is a Workspace tool (`workspace: 'only'`) of the right zone: it
 // goes where the page puts the Workspace's toolbar (setWorkspace: the top bar's right zone wider than a phone, the tab
-// bar's "..." on a phone), where it can fold, and shows only on the Workspace view. A module never chooses a bar
+// bar's "..." on a phone), where it can fold, and shows while the page says the Workspace's tools show. A module never chooses a bar
 // (plan-primary-nav.md, decision 10) nor the left zone (plan-two-zone-nav.md, decision 5). A tool written for an older
 // contract, with bar: 'primary', system: true or any `zone` ('left', 'middle'), is not refused; all three are ignored
 // and it lands in the right zone like any other. Throws with a status on anything else, so the module hears why.

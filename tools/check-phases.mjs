@@ -259,6 +259,18 @@ try {
     assert.equal((await asAdmin('POST', `/api/spaces/${trip.id}/phases/cover`, { day: '2026-10-09' })).status, 204, 'nothing to move without phases');
   });
 
+  await test('branding carries the template\'s phases for the chip (step 3): [] with no template, the ordered list with one', async () => {
+    assert.deepEqual((await call(server, 'GET', '/api/branding')).json.phases, [], 'no template: an empty list, not missing');
+    assert.deepEqual((await asAdmin('GET', '/api/config')).json.phases, [], 'the same through /api/config');
+    assert.equal((await asAdmin('PATCH', '/api/settings', { template: 'travel' })).status, 200);
+    const expected = TRAVEL.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}) }));
+    assert.deepEqual((await call(server, 'GET', '/api/branding')).json.phases, expected, 'the travel template\'s phases, in order, main marked, with no restart');
+    assert.deepEqual((await asAdmin('GET', '/api/config')).json.phases, expected);
+    assert.deepEqual(P.cleanPhases(expected), TRAVEL.map((p) => ({ id: p.id, label: p.label, main: p.main === true })), 'the shape the chip cleans');
+    assert.equal((await asAdmin('PATCH', '/api/settings', { template: null })).status, 200);
+    assert.deepEqual((await call(server, 'GET', '/api/branding')).json.phases, [], 'back to none when the template is dropped');
+  });
+
   // The travel template, for its phases; To-do on in the trip, for a member with write there.
   assert.equal((await asAdmin('PATCH', '/api/settings', { template: 'travel' })).status, 200);
   assert.equal((await asAdmin('POST', '/api/modules/bundled/todo/install')).status, 201);

@@ -1311,7 +1311,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
   if (!/wireSplitter\(columnEl\.querySelector\('#side-column-splitter'\), \{ which: 'width'/.test(spaceJs)) fail(F, 'the column\'s edge is wired as a splitter setting the width');
   if (!/if \(which === 'width'\) prefs\.chatWidth = clampColumnWidth\(/.test(spaceJs)) fail(F, 'the column\'s width is the chat\'s width preference (prefs.chatWidth), so a width set before the column holds');
-  if (!/--side-column-w: 320px;/.test(css) || !/height: var\(--side-column-strip-h, 168px\);/.test(css)) fail('public/style.css', 'the column\'s width and the strip\'s height come from --side-column-w and --side-column-strip-h');
+  if (!/--side-column-w: 320px;/.test(css) || !/grid-template-rows: var\(--side-column-strip-h, 168px\) auto;/.test(css)) fail('public/style.css', 'the column\'s width and the height of the strip\'s tiles (the toolbar under them) come from --side-column-w and --side-column-strip-h');
   if (!/\.side-column-splitter:hover,\s*\.side-column-splitter:focus-visible,\s*\.side-column-splitter\.dragging \{\s*background: color-mix\(in srgb, var\(--accent\)/.test(css)) fail('public/style.css', 'a splitter shows the accent on hover, focus and while dragged');
   if (!/\.side-column-splitter-v \{[^}]*width: 8px;/.test(css) || !/@media \(pointer: coarse\) \{\s*\.side-column-splitter-v \{[^}]*width: 14px;/.test(css)) fail('public/style.css', 'the splitter\'s hit area is 8px, 14px for a finger');
 }
@@ -1352,6 +1352,79 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail('public/style.css', 'the titlebar\'s accent uses the tint token, never a raw colour');
   }
   if (!/\.mod-header\[data-tint\] \.mod-title > i \{[^}]*color: var\(--tint\);/.test(css)) fail('public/style.css', 'the title\'s icon takes the tint');
+}
+
+// The call's toolbar in the always-on column (plan-one-bar.md, step 6; Thomas, 2026-10-13: "Where did all of the other
+// conference controls go?"). The column shows the whole toolbar, every control the toolbar had before the column
+// (6b5b989), as a wrapping row of at most two rows; what does not fit folds into "..." lowest data-collapse first
+// (public/call-toolbar.js), and the stylesheet hides no control there for any other reason.
+{
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  const start = html.indexOf('id="floatbar"');
+  const end = html.indexOf('id="floatbar-overflow"');
+  const bar = start >= 0 && end > start ? html.slice(start, end) : '';
+  if (!bar) fail('public/space.html', 'the call\'s toolbar (#floatbar) is missing');
+  const OLD_CONTROLS = ['mic', 'meter', 'deafen', 'cam', 'screen-share', 'layout', 'layout-glyph', 'away-toggle', 'react-toggle', 'settings-toggle', 'space-link', 'floatbar-more', 'hangup'];
+  for (const id of OLD_CONTROLS) if (!bar.includes(`id="${id}"`)) fail('public/space.html', `the call's toolbar lost #${id}`);
+  for (const g of ['mic', 'audio', 'camera', 'layout', 'more']) if (!bar.includes(`data-settings="${g}"`)) fail('public/space.html', `the call's toolbar lost its data-settings="${g}"`);
+  for (const id of ['floatbar-overflow', 'react-tray', 'settings', 'mic-select', 'gain', 'gate', 'noise', 'echo', 'agc', 'talk-mode', 'speaker-select', 'master-volume', 'test-speaker', 'cam-select', 'quality', 'mirror', 'background-mode', 'layout-pick']) {
+    if (!html.includes(`id="${id}"`)) fail('public/space.html', `the call's settings lost #${id}`);
+  }
+  const want = { mic: 10, cam: 9, deafen: 7, layout: 6, 'away-toggle': 5, 'screen-share': 4, 'react-toggle': 3, 'settings-toggle': 2, 'space-link': 1 };
+  const priorityOf = {};
+  let wrapPriority = NaN;
+  for (const line of bar.split('\n')) {
+    const wrap = line.match(/class="fbtn-wrap" data-collapse="(\d+)"/);
+    if (wrap) { wrapPriority = Number(wrap[1]); continue; }
+    if (/^\s*<\/div>/.test(line)) { wrapPriority = NaN; continue; } // the group's end
+    const id = line.match(/<button[^>]*\bid="([^"]+)"/);
+    if (!id) continue;
+    const own = line.match(/data-collapse="(\d+)"/);
+    priorityOf[id[1]] = own ? Number(own[1]) : wrapPriority; // a group's button takes the group's
+  }
+  for (const [id, n] of Object.entries(want)) {
+    const got = priorityOf[id];
+    if (got !== n) fail('public/space.html', `#${id}'s fold priority (data-collapse) is ${got}, want ${n}`);
+  }
+  // Nothing in the column's stylesheet hides a toolbar control but the fold's own [data-folded].
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = m[1].trim();
+    if (!/side-column/.test(selector) || !/floatbar|fbtn|#mic|#cam|#hangup/.test(selector)) continue;
+    if (/display\s*:\s*none/.test(m[2]) && !/\[data-folded\]/.test(selector)) fail('public/style.css', `${selector} hides call controls in the column; fold them into "..." instead`);
+  }
+  if (!/\.floatbar > \[data-folded\]\s*\{[^}]*display:\s*none/.test(css)) fail('public/style.css', 'a folded control ([data-folded]) must be hidden: .floatbar > [data-folded] { display: none }');
+  // The fold, as arithmetic: 30px buttons, 6px apart, as in the column's strip.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'call-toolbar.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/call-toolbar.js'), copy);
+  const { foldCallToolbar, wrapRows } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const W = 30;
+  const toolbar = ({ share = true, link = false, w = W } = {}) => [
+    { id: 'mic', width: w, priority: 10 }, { id: 'deafen', width: w, priority: 7 }, { id: 'cam', width: w, priority: 9 },
+    { id: 'screen-share', width: w, priority: 4, hidden: !share }, { id: 'layout', width: w, priority: 6 },
+    { id: 'away-toggle', width: w, priority: 5 }, { id: 'react-toggle', width: w, priority: 3 },
+    { id: 'settings-toggle', width: w, priority: 2 }, { id: 'space-link', width: w, priority: 1, hidden: !link },
+    { id: 'floatbar-more', width: w, priority: null, hidden: true }, { id: 'hangup', width: w, priority: null },
+  ];
+  const foldCases = [
+    ['the default 320px column (308px of row): nothing folds', { items: toolbar(), width: 308, gap: 6 }, []],
+    ['the narrowest column (220px, 208px of row): two rows, nothing folds', { items: toolbar(), width: 208, gap: 6 }, []],
+    ['a 160px row: the two least important fold, Settings first', { items: toolbar(), width: 160, gap: 6 }, ['settings-toggle', 'react-toggle']],
+    ['a 120px row: then Share your screen and Away', { items: toolbar(), width: 120, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle']],
+    ['a 90px row: the microphone, the camera, "..." and Leave stay', { items: toolbar(), width: 90, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle', 'layout', 'deafen']],
+    ['a space link shown folds first', { items: toolbar({ link: true }), width: 160, gap: 6 }, ['space-link', 'settings-toggle', 'react-toggle']],
+    ['no screen share in this browser: it takes no space in the row and never folds', { items: toolbar({ share: false }), width: 130, gap: 6 }, ['settings-toggle', 'react-toggle', 'away-toggle']],
+    ['44px buttons at the narrowest column: folds into "..."', { items: toolbar({ w: 44 }), width: 208, gap: 6 }, ['settings-toggle', 'react-toggle']],
+    ['one row asked for: more folds', { items: toolbar(), width: 308, gap: 6, rows: 1 }, ['settings-toggle', 'react-toggle']],
+    ['nothing can fit: everything that folds folds, never Leave the call', { items: toolbar(), width: 10, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle', 'layout', 'deafen', 'cam', 'mic']],
+  ];
+  for (const [name, input, wantFold] of foldCases) {
+    try { assert.deepEqual(foldCallToolbar(input), wantFold); } catch { fail('public/call-toolbar.js', `${name}: got ${JSON.stringify(foldCallToolbar(input))}, want ${JSON.stringify(wantFold)}`); }
+  }
+  for (const [widths, width, gap, rows] of [[[30, 30, 30], 102, 6, 1], [[30, 30, 30], 101, 6, 2], [[], 100, 6, 0], [[200], 100, 6, 1]]) {
+    if (wrapRows(widths, width, gap) !== rows) fail('public/call-toolbar.js', `wrapRows(${JSON.stringify(widths)}, ${width}, ${gap}) is ${wrapRows(widths, width, gap)}, want ${rows}`);
+  }
 }
 
 if (problems.length) {

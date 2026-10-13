@@ -9665,12 +9665,13 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   margin: 4px auto 0;
 }
 
-/* The strip: the conference's own element, in a .canvas of its own (as it floats), the tiles at a small size and the
-   toolbar's phone, microphone and camera only. Out of the call it takes no room (the Join row below says it), except
-   for a refusal of the join, which it keeps saying. */
+/* The strip: the conference's own element, in a .canvas of its own (as it floats): the tiles at the height the
+   splitter sets (--side-column-strip-h), and under them the whole toolbar, every control it has anywhere else, as a
+   wrapping row of at most two rows; what does not fit folds into its "..." (space.js, fitFloatbarInColumn). Out of the
+   call it takes no room (the Join row below says it), except for a refusal of the join, which it keeps saying. */
 .side-column-strip {
   flex: none;
-  height: var(--side-column-strip-h, 168px);
+  height: auto;
   position: relative;
 }
 
@@ -9739,8 +9740,13 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .side-column-strip > .canvas {
-  height: 100%;
+  height: auto;
   overflow: visible;
+  grid-template-rows: var(--side-column-strip-h, 168px) auto;
+}
+
+.side-column-strip .video-bar {
+  height: auto;
 }
 
 /* Out of the call the wrapper's bottom row (the toolbar's) would still take its height. */
@@ -9778,12 +9784,26 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .side-column-strip .floatbar {
+  flex-wrap: wrap;
+  overflow: visible;
   padding: 6px;
   gap: 6px;
 }
 
-body:not(.in-aside) .side-column-strip .floatbar > :not(:has(#mic)):not(:has(#cam)):not(#hangup) {
+/* A control folded into the toolbar's "..." (the column's fold; its own `hidden` is left alone). */
+.floatbar > [data-folded] {
   display: none;
+}
+
+/* The settings and the reactions, opened from the column's toolbar: down over the chat when there is more room below,
+   else up over the tiles; space.js caps the height to that room (placeStripPopover). */
+.side-column-strip .popover.opens-down {
+  top: calc(100% + 6px);
+  bottom: auto;
+}
+
+.side-column-strip #settings {
+  overflow-y: auto;
 }
 
 .side-column-strip .grid {
@@ -9958,7 +9978,7 @@ body.in-aside .side-column {
 
 body.in-aside .side-column-toggle,
 body.in-aside .side-column-splitter,
-body.in-aside .canvas {
+body.in-aside .work > .canvas {
   display: none;
 }
 
@@ -9966,6 +9986,12 @@ body.in-aside .side-column-strip {
   flex: 1;
   height: auto;
   min-height: 0;
+}
+
+/* The call's own .canvas in the strip stays: the tiles fill the screen over the whole toolbar. */
+body.in-aside .side-column-strip > .canvas {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 /* A phone: no column (the tabs stay, decision 3). */

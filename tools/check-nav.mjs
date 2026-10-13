@@ -29,7 +29,7 @@ const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFile
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { pageAnchor, profileEntries, profileDestinationLabel, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, layoutTabs, tabOverflow, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
+const { pageAnchor, profileEntries, profileDestinationLabel, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
 // The server's presence by membership (plan-primary-nav.md, step 3), so the pages' reading is held against the real answer.
 const { presenceView } = createRequire(import.meta.url)('../server/presence-view.js');
 fs.rmSync(tmp, { recursive: true, force: true });
@@ -664,7 +664,7 @@ test('the layout tabs (plan-layout-views.md, steps 2 and 3): after the switcher 
   assert.match(space, /const shownLayoutTab = \(\) => currentLayoutTab;/, 'the tab shown is the canvas\'s, no view over it');
   // A press: Workspace puts back the remembered arrangement; any other tab, Calendar and Map (system layouts, their
   // composite docked) as a saved favorite, holds the Workspace's memory and loads through canvas.loadLayout; the bars
-  // are drawn again (the Workspace's tools show on the Workspace alone).
+  // are drawn again (the focused module's own tools change with the layout; the Layout menu, Full screen and Pop out stay).
   const press = space.slice(space.indexOf('function pressLayoutTab('), space.indexOf("layoutTabsEl.addEventListener('click'"));
   assert.match(press, /currentLayoutTab = 'workspace';\n\s*canvas\.resumeMemory\(\);[^\n]*\n\s*markLayoutTabs\(\);\n\s*nav\.draw\(\);/);
   assert.match(press, /const layout = tab\.kind === 'system' \? findSystemLayout\(id\) : findLayout\(id\);\n\s*if \(!layout \|\| !Array\.isArray\(layout\.modules\)\) return;/, 'Calendar and Map are their system layout, loaded as a saved one is');
@@ -698,11 +698,100 @@ test('the layout tabs (plan-layout-views.md, steps 2 and 3): after the switcher 
   assert.match(space, /if \(noteUnderFavorites && t\) showFavoritesNote\(t\);/, 'a tab\'s load note under the tab (and #layout-announce as before)');
   assert.match(space, /favoritesNoteTimer = setTimeout\(\(\) => showFavoritesNote\(''\), 6000\);/);
   assert.match(css, /\.layout-favorites-note \{[^}]*position: fixed;[^}]*background: var\(--bg-section\);/);
-  // The Layout menu: the system rows first, Calendar and Map with Favorite or Unfavorite, never the Workspace.
+  // The Layout menu: the system rows first, each with a ... for anyone signed in (systemRowItems, step 4).
   const items = space.slice(space.indexOf('function layoutMenuItems() {'), space.indexOf('function layoutRowItems(layoutId) {'));
   assert.match(items, /for \(const l of layoutList\.system\) \{/);
-  assert.match(items, /more: l\.id !== 'workspace' && mayFavorite\(\) \?/);
+  assert.match(items, /more: mayFavorite\(\) \? \(\) => systemRowItems\(l\.id\) : undefined,/);
   assert.match(items, /onPick: \(\) => pressLayoutTab\(l\.id\),/);
+});
+
+test('Rename and Change icon (plan-layout-views.md, step 4): a system row\'s ... holds Favorite or Unfavorite (not the Workspace), Rename and Change icon, never Delete; a saved row\'s gains Change icon; Rename on a system layout PATCHes, an empty name its default; Change icon is a sheet on the shared action bar with a radiogroup grid', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  // The system row's ...: anyone signed in; Favorite/Unfavorite only off the Workspace; Rename and Change icon; no Delete.
+  const sysFn = space.slice(space.indexOf('function systemRowItems(systemId) {'), space.indexOf('// A layout\'s ...: Favorite or Unfavorite first'));
+  assert.match(sysFn, /if \(!l \|\| !mayFavorite\(\)\) return \[\];/, 'never for a guest');
+  assert.match(sysFn, /if \(l\.id !== 'workspace'\) \{\n\s*entries\.push\(l\.tab !== false\n\s*\? \{ icon: 'heart', label: 'Unfavorite', onPick: \(\) => setFavorite\(l, false\) \}\n\s*: \{ icon: 'heart', regular: true, label: 'Favorite', onPick: \(\) => setFavorite\(l, true\) \}\);/, 'the Workspace is never unfavorited');
+  assert.match(sysFn, /\{ icon: 'pen', label: 'Rename', onPick: \(\) => startRename\(l\.id\) \},\n\s*\{ icon: 'icons', label: 'Change icon', onPick: \(\) => startChangeIcon\(l\.id\) \},/);
+  assert.ok(!/Delete|Replace|Make default/.test(sysFn), 'a system layout is not deleted, replaced or made the default here');
+  // A saved row: Change icon after Rename, where the layout may be changed (the server refuses a member's PUT on a shared one).
+  const rowFn = space.slice(space.indexOf('function layoutRowItems(layoutId) {'), space.indexOf('async function setFavorite('));
+  assert.match(rowFn, /label: 'Rename', onPick: \(\) => startRename\(layoutId\) \},\n\s*\{ icon: 'icons', label: 'Change icon', onPick: \(\) => startChangeIcon\(layoutId\) \},\n\s*\{ icon: 'trash', label: 'Delete'/);
+  assert.ok(rowFn.indexOf("label: 'Change icon'") > rowFn.indexOf('if (!mayChangeLayout(shared)) return entries;'), 'only where the layout may be changed');
+  // The row wears its chosen icon; one never chosen keeps the shared or own look.
+  assert.match(space, /const userLayoutIcon = \(l, isShared\) => \(\/\^\[a-z0-9-\]\{1,40\}\$\/\.test\(l\.icon \|\| ''\) && l\.icon !== 'object-group' \? l\.icon : isShared \? 'user-group' : 'object-group'\);/);
+  assert.match(space, /icon: userLayoutIcon\(l, isShared\),/);
+  // Rename: the same sheet; a system layout's through PATCH .../system/:id, an empty name null (its default), with the
+  // placeholder and the line saying so; a saved layout's through PUT, a name required.
+  const rename = space.slice(space.indexOf('// Rename: the same sheet with the name filled in;'), space.indexOf('function openIconSheet('));
+  assert.match(rename, /const systemLayoutUrl = \(id, systemId\) => `\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts\/system\/\$\{encodeURIComponent\(systemId\)\}`;/);
+  assert.match(rename, /emptyName: system \? system\.defaultName \|\| '' : '',/);
+  assert.match(rename, /if \(system\) await layoutRequest\('PATCH', systemLayoutUrl\(layoutSpaceId\(\), layoutId\), \{ name: name \|\| null \}\);\n\s*else await layoutRequest\('PUT', layoutUrl\(layoutSpaceId\(\), layoutId\), \{ name \}\);/);
+  assert.match(rename, /sheet\.close\(\);\n\s*await refreshLayouts\(\);/, 'the tab and the row drawn again');
+  const sheet = space.slice(space.indexOf('function openLayoutSheet('), space.indexOf('function openSaveLayout() {'));
+  assert.match(sheet, /if \(!value && !emptyName\) \{ sheet\.error\('Give the layout a name\.'\); return false; \}/);
+  assert.match(sheet, /hint\.textContent = `Leave it empty for \$\{emptyName\}\.`;/);
+  assert.match(sheet, /input\.placeholder = emptyName;/);
+  // Change icon: a <dialog> on the shared action bar, Save off until another icon is picked, no outside close, Escape asks.
+  const icon = space.slice(space.indexOf('function openIconSheet('), space.indexOf('function startChangeIcon('));
+  assert.match(icon, /dlg\.className = 'layout-sheet layout-icon-sheet';/);
+  assert.match(icon, /const choices = layoutIconChoices\(\{ icons: getIcons\(\), system: layoutList\.system, current \}\);/, 'the set the server takes');
+  assert.match(icon, /<div class="icon-grid layout-icon-grid" id="layout-icon-grid" role="radiogroup" aria-label="Icon"><\/div>/);
+  assert.match(icon, /role="radio" aria-checked="false" tabindex="-1" data-icon-choice="\$\{escapeHtml\(c\.id\)\}" aria-label="\$\{escapeHtml\(c\.label\)\}"/, 'each icon a radio named by its words');
+  assert.match(icon, /<i class="fa-solid fa-\$\{escapeHtml\(c\.id\)\} fa-fw" aria-hidden="true"><\/i>/, 'drawn as the tabs draw an icon');
+  assert.match(icon, /b\.setAttribute\('aria-checked', on \? 'true' : 'false'\);\n\s*b\.classList\.toggle\('selected', on\);\n\s*b\.tabIndex = b === stop \? 0 : -1;/, 'the current one marked, one Tab stop');
+  assert.match(icon, /const next = gridStep\(at, event\.key, shown\.length, columns\);/);
+  assert.match(icon, /b\.hidden = !iconMatches\(c, search\.value\);/);
+  assert.match(icon, /id="layout-icon-search"/);
+  assert.match(icon, /\$\{defaultIcon \? '<button type="button" class="btn btn-small layout-icon-reset" id="layout-icon-reset">Reset to default<\/button>' : ''\}/);
+  assert.match(icon, /ids: \{ save: 'layout-icon-save', cancel: 'layout-icon-cancel' \},\n\s*dirty: \(\) => chosen !== current,/);
+  assert.match(icon, /dlg\.addEventListener\('cancel', \(event\) => \{ event\.preventDefault\(\); bar\.requestCancel\(\); \}\);/);
+  const change = space.slice(space.indexOf('function startChangeIcon('), space.indexOf('// --- the layout tabs (plan-layout-views.md'));
+  assert.match(change, /if \(system\) await layoutRequest\('PATCH', systemLayoutUrl\(layoutSpaceId\(\), layoutId\), \{ icon: icon === system\.defaultIcon \? null : icon \}\);\n\s*else await layoutRequest\('PUT', layoutUrl\(layoutSpaceId\(\), layoutId\), \{ icon \}\);/, 'the default icon saved as null, so it follows the default');
+  assert.match(change, /await refreshLayouts\(\);/);
+  // The tabs redraw on a new icon or name (their key holds both).
+  assert.match(space, /const key = JSON\.stringify\(list\.map\(\(t\) => \[t\.id, t\.icon, t\.label\]\)\);/);
+  assert.match(css, /\.layout-icon-grid \{[^}]*overflow-y: auto;/);
+  assert.match(css, /\.layout-field-hint \{[^}]*color: var\(--text-dim\);/);
+});
+
+test('layoutIconChoices(), iconMatches() and gridStep() (plan-layout-views.md, step 4): the set, the search, the arrows', () => {
+  const icons = [
+    { id: 'couch', classes: 'fa-solid fa-couch', label: 'couch' },
+    { id: 'github', classes: 'fa-brands fa-github', label: 'github' },
+    { id: 'star', classes: 'fa-regular fa-star', label: 'star' },
+    { id: 'dragon', classes: 'fa-solid fa-dragon fa-fw', label: 'Dragon' },
+    { id: 'BAD id', classes: 'fa-solid fa-BAD id' },
+    { id: 'couch', classes: 'fa-solid fa-couch', label: 'again' },
+  ];
+  const system = [
+    { id: 'workspace', icon: 'couch', defaultIcon: 'columns' },
+    { id: 'calendar', icon: 'calendar-check', defaultIcon: 'calendar-check' },
+  ];
+  const list = layoutIconChoices({ icons, system, current: 'mug-hot' });
+  assert.deepEqual(list.map((c) => c.id), ['columns', 'object-group', 'couch', 'calendar-check', 'calendar-days', 'map-location-dot', 'dragon', 'mug-hot'], 'the defaults, the environment\'s solid ones once each, then the current one');
+  assert.equal(list.find((c) => c.id === 'dragon').label, 'Dragon', 'the list\'s own label');
+  assert.equal(list.find((c) => c.id === 'map-location-dot').label, 'map location dot', 'else the id\'s words');
+  assert.ok(!list.some((c) => c.id === 'github' || c.id === 'star'), 'a brand or regular icon is not drawn as fa-solid, so not offered');
+  assert.deepEqual(layoutIconChoices().map((c) => c.id), ['columns', 'object-group', 'calendar-days', 'map-location-dot'], 'nothing read yet: the defaults');
+  assert.equal(layoutIconChoices({ current: 'Not<ok>' }).length, 4, 'a malformed current is left out');
+  assert.equal(iconMatches({ id: 'map-location-dot', label: 'map location dot' }, 'map dot'), true);
+  assert.equal(iconMatches({ id: 'map-location-dot', label: 'map location dot' }, 'MAP-loc'), true, 'the id with its hyphens too, any case');
+  assert.equal(iconMatches({ id: 'couch', label: 'couch' }, 'map'), false);
+  assert.equal(iconMatches({ id: 'couch', label: 'couch' }, '  '), true, 'an empty search shows everything');
+  // 10 icons, 4 to a row: 0 1 2 3 / 4 5 6 7 / 8 9.
+  assert.equal(gridStep(0, 'ArrowRight', 10, 4), 1);
+  assert.equal(gridStep(9, 'ArrowRight', 10, 4), 0, 'Right wraps to the first');
+  assert.equal(gridStep(0, 'ArrowLeft', 10, 4), 9, 'Left wraps to the last');
+  assert.equal(gridStep(1, 'ArrowDown', 10, 4), 5);
+  assert.equal(gridStep(6, 'ArrowDown', 10, 4), 6, 'no icon below: stays');
+  assert.equal(gridStep(5, 'ArrowUp', 10, 4), 1);
+  assert.equal(gridStep(2, 'ArrowUp', 10, 4), 2, 'the top row: stays');
+  assert.equal(gridStep(5, 'Home', 10, 4), 0);
+  assert.equal(gridStep(5, 'End', 10, 4), 9);
+  assert.equal(gridStep(5, 'Enter', 10, 4), -1, 'not an arrow');
+  assert.equal(gridStep(0, 'ArrowRight', 0, 4), -1, 'an empty grid');
+  assert.equal(gridStep(3, 'ArrowDown', 10, 0), 4, 'columns at least one');
 });
 
 test('layoutTabs() (plan-layout-views.md, step 2): Workspace first, Calendar and Map while their tab holds, then favorites in order with no limit; none for a guest or an aside', () => {
@@ -1160,7 +1249,7 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   assert.match(src, /register\(\{ bar, zone: 'right', group: 'more', groupOrder: 999, id: 'topbar-more', order: 998, fold: false, workspace: 'every', more: bar, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/);
   assert.match(src, /register\(\{ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/, 'the space bar\'s "..." as before');
   assert.match(src, /attachFold\(bar, el\);\n\s*draw\(bar\);/, 'both bars get a "..."');
-  // The space page: Layout, the favorites, Full screen and Pop out show for the Workspace alone; Pull participants back
+  // The space page: Layout, Full screen and Pop out show on every layout tab, not in an aside; Pull participants back
   // in every view; Rejoin call only where the bar is the tab bar (the top bar's aside-rejoin is the other); the view and the
   // phone's width decide where they go and whether they show.
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
@@ -1169,7 +1258,10 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   assert.match(space, /id: 'popout',[^\n]*phone: 'popout', workspace: 'only', place: 'end',/);
   assert.match(space, /id: 'recall-button', order: 51,[^\n]*labelled: true, workspace: 'every', visible: \(\) => recallWanted\(\),/);
   assert.match(space, /id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin',[^\n]*visible: \(\) => Boolean\(currentSpace && currentSpace\.isAside && currentSpace\.origin\) && phoneWidth\(\),/);
-  assert.match(space, /const workspaceShown = \(\) => phoneWidth\(\) \|\| \(currentLayoutTab === 'workspace' && !inAside\(\)\);\nnav\.setWorkspace\(\{ shown: workspaceShown \}\);/, 'the Workspace\'s tools on the Workspace tab alone (plan-layout-views.md, step 3)');
+  assert.match(space, /const workspaceShown = \(\) => phoneWidth\(\) \|\| !inAside\(\);\nnav\.setWorkspace\(\{ shown: workspaceShown \}\);/, 'the Layout menu, Full screen and Pop out on every layout tab, hidden only in an aside (plan-layout-views.md, decision 5: "the layout menu stays where it is and as it is")');
+  assert.ok(!/workspaceShown = [^\n]*currentLayoutTab/.test(space), 'which tab is shown never hides the Workspace\'s tools');
+  assert.match(space, /id: 'modules-toggle' \}\);/, 'the Layout button is still a Workspace tool');
+  assert.match(space, /visible: \(\) => !phoneWidth\(\) && !settingUp, onClick: \(event\) => canvas\.toggleMenu\(event\.currentTarget\), workspace: 'only', place: 'own', id: 'modules-toggle'/, 'its own rule does not read the tab either');
   const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
   assert.match(placeSub, /nav\.setWorkspace\(\{ bar: tabs \? 'secondary' : 'primary' \}\);/, 'placeSubnav() names the bar by the header\'s own window');
   const pressed = space.slice(space.indexOf('function pressLayoutTab('), space.indexOf("layoutTabsEl.addEventListener('click'"));

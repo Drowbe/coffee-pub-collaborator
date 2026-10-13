@@ -305,3 +305,57 @@ export function tabOverflow({ avail, gap = 0, widths = [], more = 0, current = -
   const out = others.slice(keep);
   return { out, count: n - out.length, more: true };
 }
+
+// The icons a layout may wear (plan-layout-views.md, decision 4 and "Icons", step 4): what Change icon's grid offers.
+// The defaults first (the Workspace's, the Layout button's, Calendar's and Map's as this environment shows them, from
+// GET .../layouts's `system` list), then the environment's own icon list (Manage > Theme, brand.js getIcons()), only
+// the ones drawn as `fa-solid fa-<id>` (the way the tabs and the menu draw an icon; the server takes these), then the
+// layout's current icon if it is none of those, so it is always there to be marked. Each { id, label }: the label is
+// what a screen reader hears for it (the list's own label, else the id's words). Nothing malformed, nothing twice. Pure.
+const LAYOUT_ICON_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+export function layoutIconChoices({ icons = [], system = [], current = '' } = {}) {
+  const out = new Map();
+  const add = (id, label) => {
+    if (typeof id !== 'string' || !LAYOUT_ICON_ID.test(id) || out.has(id)) return;
+    const words = typeof label === 'string' && label.trim() ? label.trim().slice(0, 40) : id.replace(/-/g, ' ');
+    out.set(id, words);
+  };
+  add('columns');
+  add('object-group');
+  for (const s of Array.isArray(system) ? system : []) if (s) { add(s.defaultIcon); add(s.icon); }
+  add('calendar-days');
+  add('map-location-dot');
+  for (const i of Array.isArray(icons) ? icons : []) {
+    if (!i || typeof i.id !== 'string') continue;
+    const tokens = String(i.classes || '').split(/\s+/).filter((t) => t && !/^fa-(fw|lg|xs|sm|2x|3x)$/.test(t));
+    if (tokens.length === 2 && tokens.includes('fa-solid') && tokens.includes(`fa-${i.id}`)) add(i.id, i.label);
+  }
+  add(current);
+  return [...out].map(([id, label]) => ({ id, label }));
+}
+
+// Whether an icon answers a search in Change icon's grid: every word typed is in its label or its id. Pure.
+export function iconMatches(choice, query) {
+  const words = String(query || '').toLowerCase().split(/\s+/).filter(Boolean);
+  if (!words.length) return true;
+  const hay = `${choice?.label || ''} ${choice?.id || ''} ${String(choice?.id || '').replace(/-/g, ' ')}`.toLowerCase();
+  return words.every((w) => hay.includes(w));
+}
+
+// Where an arrow key moves in a grid of `count` icons drawn `columns` to a row (the radiogroup's keys, as a radio
+// group's): Left and Right one step, wrapping round the ends; Up and Down a row, staying put at the top or bottom
+// edge; Home and End the first and the last. Returns the new index, or -1 for a key that is not one of these. Pure.
+export function gridStep(index, key, count, columns) {
+  if (!(count > 0)) return -1;
+  const cols = Math.max(1, Math.floor(columns) || 1);
+  const at = Math.min(Math.max(0, Math.floor(index) || 0), count - 1);
+  switch (key) {
+    case 'ArrowRight': return (at + 1) % count;
+    case 'ArrowLeft': return (at - 1 + count) % count;
+    case 'ArrowDown': return at + cols < count ? at + cols : at;
+    case 'ArrowUp': return at - cols >= 0 ? at - cols : at;
+    case 'Home': return 0;
+    case 'End': return count - 1;
+    default: return -1;
+  }
+}

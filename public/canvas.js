@@ -16,7 +16,7 @@ import { api, markModuleRead, followTheme, word } from '/brand.js';
 import { mountModule, openClearMenu, registerDragRelay, createAddSlot, createStatusSlot } from '/module-host.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu } from '/host-menu.js';
 import { nav } from '/nav-bar.js';
-import { whatOpens } from '/opens-with.js';
+import { whatOpens, readAliased, firstVisitLayout, SYSTEM_TABS } from '/opens-with.js';
 import { layoutOf, placeLayout, leftOutNote } from '/layouts.js';
 import { TINTS, moduleTint } from '/module-tint.js';
 import { MIN_W, MIN_H, SNAP_GAP, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, resettle, tidyBoxes, fillBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
@@ -111,7 +111,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const tintAttr = (id) => (colorOf(id) ? ` data-tint="${colorOf(id)}"` : '');
   // What this space opens with, and the environment's list for a space that has none. Both null until a space is loaded.
   let spaceOpensWith = null;
-  let spaceDefaultLayout = null; // the space's default layout, whole (plan-saved-layouts.md, decision 4), or null
+  let spaceDefaultLayout = null; // the space's default layout when it is a shared one, whole (plan-saved-layouts.md, decision 4), or null
+  // What a first visit opens, as the server resolved it (plan-layout-views.md, step 5): { layout, opensWith }, or null.
+  let spaceFirstVisit = null;
+  // Set by refresh() for the space just entered, used up by the restore that follows: only entering shows the first
+  // visit's layout (a press on the Workspace tab restores the Workspace alone).
+  let entering = false;
   let environmentOpensWith = null;
   let z = 40;
   let order = 0;
@@ -1451,9 +1456,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // Open what this space starts with (plan-entering.md, "What opens on entering"): a fresh request, then the
   // remembered layout (never for a guest), then the space's own list, then the environment's list, then the chat and
   // every module on here without the conference (for a guest, the conference and the chat). See opens-with.js.
+  // On entering, a first visit opens the space's first visit layout (plan-layout-views.md, step 5; firstVisitLayout):
+  // a shared layout loads into the Workspace here; for Calendar or Map the Workspace opens as above and restore()
+  // answers the tab's id ('calendar' or 'map'), which the page shows through the tab's own press once its layouts are
+  // read (the Workspace stays behind, remembered). Otherwise it answers null. A phone has no tabs: there the Calendar's
+  // or the Map's composite opens first, as the phone's first tab.
   function restore() {
     suspended = true;
     restoring = true;
+    const enteringNow = entering;
+    entering = false;
     // A pending request to open one item wins, when the module is on for this space and the request is fresh.
     const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === readId(openRequest.module)) ? openRequest : null;
     openRequest = null;
@@ -1461,16 +1473,18 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     // The column's own (plan-one-bar.md, step 6): wider than a phone the conference and the chat open in the side column,
     // whatever the lists or a layout say, and whatOpens leaves them out of what goes on the canvas.
     if (columnMode()) for (const id of builtins.keys()) if (canOpenHere(id)) api_openBuiltin(id);
-    // The space's default layout (plan-saved-layouts.md, decision 4): when what opens comes from the space's own Opens
-    // with (a first visit, or a guest) and the space has one, it opens through loadLayout, modes and places included.
-    // A person's remembered layout still wins after their first visit (plan-entering, decision 5).
-    if (!request && spaceDefaultLayout && Array.isArray(spaceOpensWith) && (guestToken || !Array.isArray(saved.__open))) {
+    const firstLayout = request ? 'workspace' : firstVisitLayout({ firstVisit: spaceFirstVisit, remembered: saved.__open, guest: Boolean(guestToken), entering: enteringNow });
+    // A shared layout as the first visit (plan-saved-layouts.md, decision 4): it opens through loadLayout, modes and
+    // places included, whether or not Opens with is set (the two are independent now). A person's remembered layout
+    // still wins after their first visit (plan-entering, decision 5).
+    if (firstLayout !== 'workspace' && !SYSTEM_TABS.includes(firstLayout) && spaceDefaultLayout && spaceDefaultLayout.id === firstLayout) {
       restoring = false;
       suspended = false;
       loadLayout(spaceDefaultLayout);
-      return;
+      return null;
     }
-    const want = request ? [request.module] : whatOpens({
+    const tab = SYSTEM_TABS.includes(firstLayout) ? firstLayout : null;
+    const opens = request ? [request.module] : whatOpens({
       remembered: saved.__open,
       own: spaceOpensWith,
       environment: environmentOpensWith,
@@ -1480,6 +1494,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       column: columnMode(),
       aliases, // a stored `calendar` or `todo` opens the composite while the Calendar is on here (composites.js)
     });
+    // A phone with Calendar or Map as the first visit: that composite first (a stored `calendar` or `maps` read as it).
+    const lead = tab && isNarrow() ? readAliased([tab === 'map' ? 'maps' : 'calendar'], aliases).filter((id) => canOpenHere(id)) : [];
+    const want = [...lead, ...opens.filter((id) => !lead.includes(id))];
     for (const id of want) {
       if (builtins.has(id)) { if (canOpenHere(id)) api_openBuiltin(id); }
       else {
@@ -1507,6 +1524,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     update();
     snapshot();
     if (request) openRef(request.ref);
+    return tab && !isNarrow() ? tab : null;
   }
 
   // --- saved layouts (plan-saved-layouts.md) ------------------------------------------------------------------------
@@ -1833,7 +1851,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     colors = new Map();
     spaceOpensWith = null;
     spaceDefaultLayout = null;
+    spaceFirstVisit = null;
     environmentOpensWith = null;
+    entering = Boolean(id);
     if (id) {
       try {
         const q = new URLSearchParams({ space: id });
@@ -1851,6 +1871,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         colors = new Map((answer.modules || []).filter((m) => TINTS.includes(m.color)).map((m) => [m.id, m.color]));
         spaceOpensWith = Array.isArray(answer.opensWith) ? answer.opensWith : null;
         spaceDefaultLayout = answer.defaultLayout && Array.isArray(answer.defaultLayout.modules) ? answer.defaultLayout : null;
+        // The first visit, as the server resolved it; from a server before it, the shared default as it opened then.
+        spaceFirstVisit = answer.firstVisit && typeof answer.firstVisit.layout === 'string'
+          ? answer.firstVisit
+          : { layout: spaceDefaultLayout && spaceOpensWith ? spaceDefaultLayout.id : 'workspace', opensWith: spaceOpensWith };
         environmentOpensWith = Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null;
         showBuiltin(answer.builtin);
       } catch {

@@ -1562,6 +1562,7 @@ function setupSaved(space, said, saved = []) {
   }
   loadPresence();
   updateCrumb();
+  if (saved.includes('defaultLayout')) refreshLayouts(); // the Layout menu's Default mark follows the first visit
   saySetup(said);
 }
 // The one line after Save, read out, under the canvas's edge for a moment.
@@ -1617,7 +1618,7 @@ nav.elementOf('modules-toggle')?.setAttribute('aria-expanded', 'false');
 // server keeps the limits (10 of your own and 10 shared in a space, names up to 40 characters, each name once in its
 // list) and says what it refuses; its sentence is shown as it is. Not drawn on a narrow canvas, in an aside, or for a
 // guest with nothing to load.
-let layoutList = { spaceId: null, mine: [], shared: [], system: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
+let layoutList = { spaceId: null, mine: [], shared: [], system: [], firstVisit: null, defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
 let layoutAsk = 0; // the latest request for the list; an older answer arriving late is dropped
 const layoutSpaceId = () => (currentSpace && !currentSpace.isAside ? currentSpace.id : null); // an aside has no layouts
 const layoutUrl = (id, layoutId = '') => `/api/spaces/${encodeURIComponent(id)}/layouts${layoutId ? `/${encodeURIComponent(layoutId)}` : ''}${guestToken ? `?guest=${encodeURIComponent(guestToken)}` : ''}`;
@@ -1645,17 +1646,17 @@ async function refreshLayouts() {
   const id = layoutSpaceId();
   const ask = ++layoutAsk;
   if (!id) {
-    layoutList = { spaceId: null, mine: [], shared: [], system: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
+    layoutList = { spaceId: null, mine: [], shared: [], system: [], firstVisit: null, defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
     renderLayouts();
     return;
   }
   try {
     const got = await layoutRequest('GET', layoutUrl(id));
     if (ask !== layoutAsk || layoutSpaceId() !== id) return;
-    layoutList = { spaceId: id, mine: got.mine || [], shared: got.shared || [], system: Array.isArray(got.system) ? got.system : [], defaultLayout: got.defaultLayout || null, favorites: Array.isArray(got.favorites) ? got.favorites : [], canShare: Boolean(got.canShare), canSetDefault: Boolean(got.canSetDefault) };
+    layoutList = { spaceId: id, mine: got.mine || [], shared: got.shared || [], system: Array.isArray(got.system) ? got.system : [], firstVisit: got.firstVisit && typeof got.firstVisit.layout === 'string' ? got.firstVisit : null, defaultLayout: got.defaultLayout || null, favorites: Array.isArray(got.favorites) ? got.favorites : [], canShare: Boolean(got.canShare), canSetDefault: Boolean(got.canSetDefault) };
   } catch {
     if (ask !== layoutAsk) return;
-    layoutList = { spaceId: id, mine: [], shared: [], system: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
+    layoutList = { spaceId: id, mine: [], shared: [], system: [], firstVisit: null, defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
   }
   renderLayouts();
 }
@@ -1692,7 +1693,7 @@ function layoutMenuItems() {
       icon: /^[a-z0-9-]{1,40}$/.test(l.icon || '') ? l.icon : 'object-group',
       label: l.name,
       mark: tabbed ? 'heart' : undefined,
-      tag: l.id === layoutList.defaultLayout ? 'Default' : undefined,
+      tag: l.id !== 'workspace' && l.id === layoutList.firstVisit?.layout ? 'Default' : undefined, // Calendar or Map as the first visit (Set up)
       onPick: () => pressLayoutTab(l.id),
       more: mayFavorite() ? () => systemRowItems(l.id) : undefined,
     });
@@ -1787,15 +1788,16 @@ async function setFavorite(layout, on) {
   }
 }
 
-// Makes a shared layout the space's default, or stops (`layoutId` null): PATCH /api/spaces/:id, which also sets the
-// space's Opens with to the layout's modules (null keeps Opens with as it is). Then the list again, for the Default mark.
+// Makes a shared layout what a first visit opens, or stops (`layoutId` null: the Workspace again): PATCH /api/spaces/:id
+// with `defaultLayout` alone. Opens with is not touched either way (plan-layout-views.md, step 5: it is the Workspace's
+// own content). Then the list again, for the Default mark.
 async function setDefaultLayout(layoutId, layout) {
   const id = layoutSpaceId();
   if (!id) return;
   try {
     const { space } = await api('PATCH', `/api/spaces/${encodeURIComponent(id)}`, { defaultLayout: layoutId });
     if (space && currentSpace?.id === space.id) Object.assign(currentSpace, { opensWith: space.opensWith ?? null, defaultLayout: space.defaultLayout ?? null });
-    layoutNote(layoutId ? `${layout.name} is what this ${word('space')} opens with now.` : `${layout.name} is no longer the default.`);
+    layoutNote(layoutId ? `A first visit opens ${layout.name} now.` : `${layout.name} is no longer the default. A first visit opens the Workspace.`);
   } catch (err) {
     layoutNote(err.message || 'That did not work. Try again.');
   }
@@ -2169,6 +2171,13 @@ function showFavoritesNote(text) {
 }
 // The layout shown now: the canvas's tab.
 const shownLayoutTab = () => currentLayoutTab;
+// A first visit that opens on Calendar or Map (canvas.restore()'s answer; plan-layout-views.md, step 5): once the space's
+// layouts are read, its tab is pressed as a person would, so the Workspace stays behind, remembered. Not when the space
+// was left meanwhile, another tab was pressed, or the tab is not there (turned off, or this person unfavorited it).
+function showFirstVisitTab(id, spaceId) {
+  if (!id || currentLayoutTab !== 'workspace' || layoutSpaceId() !== spaceId || layoutList.spaceId !== spaceId) return;
+  if (layoutTabList().some((t) => t.layout === id)) pressLayoutTab(id);
+}
 function layoutTabList() {
   return layoutTabs({
     system: layoutList.spaceId === layoutSpaceId() ? layoutList.system : [],
@@ -4447,9 +4456,10 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     canvas.updateMenu();
     // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
     // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
-    canvas.restore();
+    const firstTab = canvas.restore(); // 'calendar' or 'map' when a first visit opens on that tab (plan-layout-views.md, step 5)
     applyColumnPref(); // the always-on column, open or a rail, as this space was left
-    refreshLayouts(); // and its saved layouts
+    const enteredId = currentSpace.id;
+    refreshLayouts().then(() => showFirstVisitTab(firstTab, enteredId)); // and its saved layouts
     syncCallControl(); // who is in the call, for the conference's "Not in a call" note
     // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
     // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a

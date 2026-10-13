@@ -234,12 +234,15 @@ function renderOpensWith() {
   syncOpensWithSummary();
   syncDefaultLayout();
 }
-// The default layout (plan-saved-layouts.md, decision 4): while the space has one, the line above the switches names
-// it, with Stop using it (the switches stay as they are). Changing a switch clears it on the server, and the space it
-// answers says so.
+// The default layout (plan-saved-layouts.md, decision 4; plan-layout-views.md, step 5): while the space has one (a
+// shared layout, or Calendar or Map), the line above the switches names it, with Stop using it (the switches stay as
+// they are). The switches are the Workspace's own content and leave it as it is; Set up's First visit picks it.
+const SYSTEM_DEFAULTS = { calendar: ['calendar', 'Calendar'], map: ['maps', 'Map'] }; // its module, the word without one
 function syncDefaultLayout() {
   const id = space.defaultLayout || null;
-  const layout = opensWithOptions.defaultLayout && opensWithOptions.defaultLayout.id === id ? opensWithOptions.defaultLayout : null;
+  const system = id && SYSTEM_DEFAULTS[id];
+  const shown = system && opensWithOptions.modules.find((m) => m.id === system[0]);
+  const layout = system ? { name: shown?.name || system[1] } : opensWithOptions.defaultLayout && opensWithOptions.defaultLayout.id === id ? opensWithOptions.defaultLayout : null;
   $('opens-with-layout').hidden = !id;
   $('opens-with-layout-text').textContent = id ? (layout ? `Opens with the layout ${layout.name}` : 'Opens with a saved layout') : '';
 }
@@ -278,7 +281,7 @@ $('opens-with').addEventListener('change', (event) => {
     try {
       space = (await api('PATCH', `/api/spaces/${space.id}`, { opensWith: send })).space;
       say($('opens-with-status'), 'saved');
-      syncDefaultLayout(); // a list set by hand is no longer the layout's
+      syncDefaultLayout(); // the layout stays: Opens with and the first visit's layout are independent
     } catch (err) {
       // Back to what the server has, with the reason.
       opensWithList = Array.isArray(space.opensWith) ? [...space.opensWith] : null;

@@ -39,6 +39,22 @@ export function whatOpens({ remembered = null, own = null, environment = null, m
   return openable(guest ? ['conference', 'chat'] : ['chat', ...modules]);
 }
 
+// Which layout a visit opens on (plan-layout-views.md, step 5, "Opens with and the default layout, as one choice"):
+// 'workspace' (the Workspace with whatOpens's list), 'calendar' or 'map' (that tab, with the Workspace behind it), or a
+// shared layout's id (loaded into the Workspace). `firstVisit` is the server's resolved { layout, opensWith }
+// (GET /api/modules/for-space); Opens with is the Workspace's own content and sits beside any layout, so a layout never
+// needs a list to open, and a list never stops a layout. Only the restore on entering asks (`entering`), and only a
+// first visit: a person's remembered arrangement (`remembered`, never a guest's) wins afterwards. A guest has no tabs,
+// so Calendar or Map open the Workspace for one (the server already answers 'workspace' for a guest).
+export const SYSTEM_TABS = Object.freeze(['calendar', 'map']);
+export function firstVisitLayout({ firstVisit = null, remembered = null, guest = false, entering = true } = {}) {
+  if (!entering) return 'workspace';
+  if (!guest && Array.isArray(remembered)) return 'workspace';
+  const layout = firstVisit && typeof firstVisit.layout === 'string' && firstVisit.layout ? firstVisit.layout : 'workspace';
+  if (guest && SYSTEM_TABS.includes(layout)) return 'workspace';
+  return layout;
+}
+
 // Whether the conference may be opened: the environment's switch first, for everyone (an owner and the admin included),
 // then this person's own permission ("See and join the conference").
 export function conferenceAllowed({ conferenceEnabled = true, permitted = false } = {}) {

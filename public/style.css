@@ -9633,6 +9633,82 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   gap: 2px;
 }
 
+/* First visit (plan-layout-views.md, step 5): one choice, radios of one name; the Workspace's Opens with switches sit
+   directly under the Workspace, indented, then Calendar, Map and the shared layouts. */
+.setup-first-visit {
+  margin: 6px 0 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+.setup-first-visit-hint {
+  margin: 0 0 4px;
+}
+
+.setup-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.setup-choice:hover {
+  background: var(--surface-hover);
+}
+
+.setup-choice:has(input:checked) {
+  color: var(--accent);
+}
+
+.setup-choice:has(input:disabled) {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.setup-choice input {
+  flex: none;
+  margin: 0;
+}
+
+.setup-choice:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.setup-choice input:focus-visible {
+  outline: none; /* the row carries the ring */
+}
+
+.setup-choice-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.setup-workspace-content {
+  margin: 0 0 6px 28px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
+.setup-workspace-content .opens-with-list {
+  margin: 2px 0;
+}
+
+.setup-subheading {
+  margin: 2px 0 0;
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .setup-status {
   margin: 0;
   padding: 0 16px;
@@ -9689,8 +9765,13 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
   .setup-picture-pick,
   #setup-picture-remove,
-  #setup-phases {
+  #setup-phases,
+  .setup-choice {
     min-height: 44px;
+  }
+
+  .setup-workspace-content {
+    margin-left: 18px;
   }
 
   .topbar .setup-bar-name {

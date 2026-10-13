@@ -9469,10 +9469,20 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   display: none;
 }
 
+/* Only the refusal shows here (the message why a join did not go through), as a block the column's width, clear of
+   the handle (.side-column-toggle, 28px at the top right) so its end is never covered. */
 .side-column-strip .no-call {
   position: static;
-  padding: 0 12px;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 40px 0 12px;
   font-size: 13px;
+}
+
+.side-column-strip .no-call-error {
+  width: auto;
+  text-align: left;
 }
 
 .side-column-strip .no-call:not(:has(.no-call-error:not([hidden]))) {

@@ -33,6 +33,15 @@ export function conferenceAllowed({ conferenceEnabled = true, permitted = false 
   return conferenceEnabled !== false && Boolean(permitted);
 }
 
+// Whether entering a space joins the call by itself (GitHub #199, the environment's "join the call on entering"
+// switch, branding.autoJoinCall). Only with the switch on; never while already in the call; only for a person the Join
+// button would show to (`canJoin`: connected, the conference allowed here for them); never in an aside (an aside is the
+// call already, and a pull into one keeps the call on its own); and not for a person who left the call since they
+// entered (`left`): they stay out until they enter again. Asked once per entry, so a join never repeats.
+export function shouldAutoJoin({ setting = false, inCall = false, canJoin = false, aside = false, left = false } = {}) {
+  return setting === true && !inCall && Boolean(canJoin) && !aside && !left;
+}
+
 // What space settings says under Opens with about what a first visit opens, worked out from the stored list, never from
 // the ticks on screen: with nothing set, what opens instead (the environment's list, else the chat and the modules);
 // with a list set that holds nothing that can open now, that nothing opens; otherwise nothing ('').

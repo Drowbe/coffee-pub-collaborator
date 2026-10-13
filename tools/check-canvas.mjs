@@ -58,8 +58,24 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'opens-with.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/opens-with.js'), copy);
-  const { whatOpens, conferenceAllowed, opensWithSummary } = await import(pathToFileURL(copy).href);
+  const { whatOpens, conferenceAllowed, opensWithSummary, shouldAutoJoin } = await import(pathToFileURL(copy).href);
   fs.rmSync(tmp, { recursive: true, force: true });
+  // GitHub #199: entering joins the call by itself only with the environment's setting on, out of the call, where Join
+  // the call would show, not in an aside, and not for a person who left the call since they entered.
+  const joinBase = { setting: true, inCall: false, canJoin: true, aside: false, left: false };
+  for (const [name, input, want] of [
+    ['the setting on, out of the call, may join: joins', joinBase, true],
+    ['the setting off: as today, no join', { ...joinBase, setting: false }, false],
+    ['the setting absent: no join', { inCall: false, canJoin: true }, false],
+    ['the setting not a boolean true: no join', { ...joinBase, setting: 'true' }, false],
+    ['already in the call: no join', { ...joinBase, inCall: true }, false],
+    ['may not join (no permission, the conference off, a guest without it): no join', { ...joinBase, canJoin: false }, false],
+    ['an aside: left as it is', { ...joinBase, aside: true }, false],
+    ['left the call since entering: stays out', { ...joinBase, left: true }, false],
+    ['nothing given: no join', undefined, false],
+  ]) {
+    if (shouldAutoJoin(input) !== want) fail('public/opens-with.js', `shouldAutoJoin, ${name}: got ${shouldAutoJoin(input)}, want ${want}`);
+  }
   const everyone = () => true;
   const noConference = (id) => id !== 'conference';
   const cases = [
@@ -583,16 +599,24 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const setup = spaceJs.slice(spaceJs.indexOf('async function connectAndSetup('), spaceJs.indexOf('async function startCall('));
   if (!setup.includes('canvas.restore()')) fail('public/space.js', 'connectAndSetup() must open what the space starts with (canvas.restore())');
   if (!/async function connectAndSetup\(token, livekitUrl, \{ joinCall = false \} = \{\}\)/.test(setup)) fail('public/space.js', 'connectAndSetup() joins only when told to (joinCall, false unless so)');
-  const setupJoin = setup.slice(setup.indexOf('if (joinCall)'));
-  const setupRest = setup.slice(0, setup.indexOf('if (joinCall)'));
-  if (!setup.includes('if (joinCall)') || /startCall|joinTheCall|joinOnShow|callStarting/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call, only a pull that moves the call (if (joinCall))');
+  // GitHub #199: the one other way on is the environment's "join the call on entering" (branding.autoJoinCall), asked
+  // through autoJoinOnEntry() (shouldAutoJoin, opens-with.js) in the same line, so it is the same join (joinTheCall).
+  const JOIN_LINE = 'if (joinCall || autoJoinOnEntry()) joinTheCall();';
+  const setupJoin = setup.slice(setup.indexOf(JOIN_LINE));
+  const setupRest = setup.slice(0, setup.indexOf(JOIN_LINE));
+  if (!setup.includes(JOIN_LINE) || /startCall|joinTheCall|joinOnShow|callStarting|autoJoinOnEntry\(\)/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call by itself, only a pull that moves the call or the environment\'s setting (if (joinCall || autoJoinOnEntry()))');
+  if (!/const autoJoinOnEntry = \(\) => shouldAutoJoin\(\{ setting: features\.autoJoinCall, inCall, canJoin: joinCallWanted\(\), aside: inAside\(\), left: leftCall \}\);/.test(spaceJs)) fail('public/space.js', 'autoJoinOnEntry() asks shouldAutoJoin with the environment\'s setting, inCall, Join the call\'s own rule (joinCallWanted), the aside and leftCall');
+  if (!/autoJoinCall: branding\.autoJoinCall === true/.test(spaceJs)) fail('public/space.js', 'features.autoJoinCall is read from /api/branding, on only when true');
+  if (!/^function hangUp\(\) \{\n  if \(pipWindow\) closePopout\(\);\n  leftCall = true;/m.test(spaceJs)) fail('public/space.js', 'Hang up marks leftCall, so the setting does not join them again');
+  if (!/if \(!pull\) leftCall = false;/.test(spaceJs) || !/leftCall = false; \/\/ a fresh entry/.test(spaceJs)) fail('public/space.js', 'entering again (join() not as a pull, joinAsGuest()) clears leftCall');
   if (!/setAttributes\(\{ call: 'off' \}\)/.test(setupRest)) fail('public/space.js', 'entering a space must tell others "off"');
   if (/joinOnShow/.test(spaceJs)) fail('public/space.js', 'no joinOnShow: entering a space never joins the call');
-  if (!/async function join\(spaceId = 'lobby', \{ joinCall = false \} = \{\}\)/.test(spaceJs)) fail('public/space.js', 'join() joins the call only when told to (joinCall, false unless so)');
+  if (!/async function join\(spaceId = 'lobby', \{ joinCall = false, pull = false \} = \{\}\)/.test(spaceJs)) fail('public/space.js', 'join() joins the call only when told to (joinCall, false unless so; pull says it is not the person entering again)');
   const joinCallers = [...spaceJs.matchAll(/\bjoin\([^)]*joinCall[^)]*\)/g)].map((m) => m[0]).filter((c) => !c.startsWith('join(spaceId = '));
   const reconnect = spaceJs.slice(spaceJs.indexOf('async function reconnectTo('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('async function reconnectTo(')));
   if (joinCallers.length !== 1 || !reconnect.includes(joinCallers[0])) fail('public/space.js', `only reconnectTo() may ask join() to join the call (found ${JSON.stringify(joinCallers)})`);
   if (!/const stayOnCall = Boolean\(keepCall\) && inCall;/.test(reconnect) || reconnect.indexOf('stayOnCall =') > reconnect.indexOf('call.disconnect(')) fail('public/space.js', 'reconnectTo() keeps the call only for a pull, and only when I was on it (read before the disconnect)');
+  if (!reconnect.includes('{ joinCall: stayOnCall, pull: true }')) fail('public/space.js', 'reconnectTo() tells join() it is a pull, so a person who left the call is not joined again by the setting');
   // Which moves are pulls: in and out of an aside, never going somewhere myself (an invitation, the dashboard, a pop-out).
   const keepers = [...spaceJs.matchAll(/^.*reconnectTo\(.*\{ keepCall: true \}.*$/gm)].length;
   if (keepers !== 6) fail('public/space.js', `a pull keeps the call: the aside's pull (an owner's, a peer's), following back, the recall's countdown, pullAside and Rejoin call (found ${keepers})`);
@@ -607,11 +631,11 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const shared = spaceJs.slice(spaceJs.indexOf('function joinTheCall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function joinTheCall(')));
   const byShared = callers.filter((line) => linesOf(shared).includes(line));
   if (byClick.length !== 1 || byShared.length !== 1 || callers.length !== 2) fail('public/space.js', `startCall() is called from phoneButton() (a click in the conference) and joinTheCall() alone (found ${JSON.stringify(callers)})`);
-  // joinTheCall() shows the conference as its switch does, then joins; called by a pull's joinCall and by the space
-  // bar's Join the call, nothing else.
+  // joinTheCall() shows the conference as its switch does, then joins; called by connectAndSetup() (a pull's joinCall,
+  // or the environment's "join the call on entering", GitHub #199) and by the space bar's Join the call, nothing else.
   if (!/^function joinTheCall\(\) \{\n  if \(!canvas\.showBuiltin\('conference'\)\) return;\n  startCall\(\)/m.test(spaceJs)) fail('public/space.js', 'joinTheCall() shows the conference (canvas.showBuiltin) and then joins (startCall)');
   const sharedCallers = [...spaceJs.matchAll(/^.*\bjoinTheCall\(\).*$/gm)].map((m) => m[0].trim()).filter((line) => !line.startsWith('//') && !line.startsWith('function joinTheCall('));
-  if (sharedCallers.length !== 2 || !setupJoin.includes(sharedCallers.find((l) => /joinCall\)/.test(l)) || '\0') || !sharedCallers.some((l) => l.startsWith('joinCallButton.addEventListener('))) fail('public/space.js', `joinTheCall() is called from connectAndSetup()'s joinCall (a pull) and the space bar's Join the call alone (found ${JSON.stringify(sharedCallers)})`);
+  if (sharedCallers.length !== 2 || !setupJoin.includes(sharedCallers.find((l) => l === JOIN_LINE) || '\0') || !sharedCallers.some((l) => l.startsWith('joinCallButton.addEventListener('))) fail('public/space.js', `joinTheCall() is called from connectAndSetup() (a pull, or the setting) and the space bar's Join the call alone (found ${JSON.stringify(sharedCallers)})`);
   const confDef = spaceJs.slice(spaceJs.indexOf("id: 'conference',"), spaceJs.indexOf("$('conf-close').addEventListener"));
   if (/startCall/.test(confDef)) fail('public/space.js', 'showing the conference (its onChange) must never join the call');
 }

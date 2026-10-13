@@ -68,7 +68,7 @@ export function setupSaidWords({ saved = [], failed = null, problem = '' } = {},
 
 // `deps`: { api, word, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, doc }.
 // Returns { open(opts), close(), done(), cancel(), isOpen(), el }. `open({ space, owner, moderator, phases,
-// conferenceOn, openPhases, onDone, onLeave, nameInput })`: `space` the space's record (id, name, profile, hasImage,
+// openPhases, onDone, onLeave, nameInput })`: `space` the space's record (id, name, profile, hasImage,
 // opensWith, defaultLayout), `nameInput` the bar's input (kept in step with the panel's Name), `openPhases()` opens the
 // sheet, `onDone(space, said)` is told once the save went through (the space the server answered), `onLeave()` when
 // the mode ends either way.
@@ -178,27 +178,25 @@ export function createSpaceSetup(deps) {
     q('#setup-picture-remove').hidden = !src;
   }
 
-  // Opens with, as space-settings draws it: what can open now (the conference while it is on, the chat, the modules on
-  // here), then any saved id that cannot open now, kept and said why.
+  // Opens with, as space-settings draws it: what can open now (the chat, the modules on here), then any saved id that
+  // cannot open now, kept and said why. The conference is not a switch here: the call follows joining (GitHub #199), so
+  // a `conference` id a list still holds is kept in the stored list and not drawn.
   function choices() {
     const o = state.options;
     const shown = (id, name, icon) => ({ id, name, icon, ...(o.builtin.find((b) => b.id === id) || {}) });
     return [
-      ...(state.opts.conferenceOn !== false ? [shown('conference', 'Conference', 'video')] : []),
       shown('chat', 'Chat', 'message'),
       ...o.modules.map((m) => ({ id: m.id, name: m.name, icon: m.icon })),
     ];
   }
   function keptChoice(id) {
-    const o = state.options;
-    if (id === 'conference') return { id, name: 'Conference', icon: 'video', ...(o.builtin.find((b) => b.id === id) || {}), note: 'switched off' };
     return { id, name: id, icon: 'puzzle-piece', note: `not on in this ${word('space')}` };
   }
   function paintOpensWith() {
     const list = q('#setup-opens-with');
     const all = choices();
     const chosen = new Set(state.draft.opensWith || []);
-    const kept = (state.draft.opensWith || []).filter((id) => !all.some((c) => c.id === id)).map(keptChoice);
+    const kept = (state.draft.opensWith || []).filter((id) => id !== 'conference' && !all.some((c) => c.id === id)).map(keptChoice);
     list.innerHTML = switchListHtml([...all, ...kept].map((c) => ({ ...c, on: chosen.has(c.id) })), 'opens');
     wireSwitchList(list);
     const note = q('#setup-opens-with-note');

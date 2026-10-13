@@ -2,13 +2,14 @@
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
 import { anchorSegments, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
+import { openPhaseSheet, chipFit } from '/phase-sheet.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
 import { whatOpens, conferenceAllowed } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
-import { nav } from '/nav-bar.js';
+import { nav, fitWidth } from '/nav-bar.js';
 import { attachChatInput, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
 
@@ -275,6 +276,7 @@ async function loadPresence() {
       if (portrait) showConferencePortrait(portrait, key);
     }
     renderSpaces();
+    updatePhaseChip(); // the space's dates ride on its presence record: a change by someone else reaches the chip here
     if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: joinInvitedSpace });
     reconcileGhostTiles();
     renderGuestLink();
@@ -1173,6 +1175,112 @@ const whoHere = createWhoHere({
 });
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
 // --- end who is here ---
+
+// --- the phase chip (phase-sheet.js) --------------------------------------------------------------------
+// "● Booking · day 2 of 3 ▾" in the top bar's left zone after the breadcrumb (plan-one-bar.md, decisions 7 to 10, step
+// 3): the template's phases (branding.phases) and this space's dates (its presence record's `phases` and `createdAt`,
+// refreshed by the presence poll, and by my own save) through the one rule, public/phases.js (window.Phases). Nothing
+// but the sheet opens from it (phases only inform). No chip with no phases, for a guest, in an aside or while home is
+// shown over the space. It gives way in steps (decision 9: the label, then the dot alone, then nothing): `fit(avail)`
+// for the registry once the primary bar fits its tools (step 7); until then it measures its own room in the zone.
+const phaseChip = document.createElement('button');
+phaseChip.type = 'button';
+phaseChip.id = 'phase-chip'; // an element tool keeps its own id (the registry only names the elements it draws)
+phaseChip.className = 'phase-chip core-link';
+phaseChip.setAttribute('aria-haspopup', 'dialog');
+phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><i class="fa-solid fa-caret-down fa-fw phase-chip-caret" aria-hidden="true"></i>';
+let templatePhases = []; // the template's phases, from /api/branding, cleaned by the rule
+const phaseRule = () => window.Phases || null;
+const phaseSpaceRecord = () => (currentSpace && !currentSpace.isAside ? presenceSpaces.find((r) => r.id === currentSpace.id) || currentSpace : null);
+const phaseChipWanted = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && me?.role !== 'guest' && templatePhases.length > 0 && Boolean(phaseRule());
+// Owners, the admin and the space's moderators edit the dates (PATCH /api/spaces/:id); a member reads them.
+function canEditPhases() {
+  if (!currentSpace || inAside() || !me || guestToken || me.role === 'guest') return false;
+  return hasOwnerRights(me) || Boolean(me.spaces?.[currentSpace.id]?.permissions?.moderator);
+}
+function phaseToday() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function phaseTimeline() {
+  const R = phaseRule();
+  const space = phaseSpaceRecord();
+  if (!R || !space) return [];
+  return R.timelineOf(templatePhases, space.phases || {}, { today: phaseToday(), created: space.createdAt });
+}
+let phaseChipZoneWatch = null;
+function applyPhaseChipFit(state) {
+  phaseChip.classList.toggle('dot-only', state === 'dot');
+  phaseChip.classList.toggle('chip-gone', state === 'none');
+}
+// The width the chip may take: the bar's inner width less its other zones and the rest of its own zone (the zone sizes to
+// its content, so the bar is what bounds it), the arithmetic the registry's fitWidth() does for the space bar.
+function phaseChipWidth() {
+  const zone = phaseChip.parentElement;
+  const bar = zone && zone.parentElement;
+  if (!zone || !bar) return Infinity;
+  const px = (v) => parseFloat(v) || 0;
+  const shown = (c) => !c.hidden && getComputedStyle(c).display !== 'none';
+  const outer = (c) => { const s = getComputedStyle(c); return c.getBoundingClientRect().width + px(s.marginLeft) + px(s.marginRight); };
+  const bs = getComputedStyle(bar);
+  const width = bar.clientWidth - px(bs.paddingLeft) - px(bs.paddingRight);
+  let right = 0;
+  let zones = 0;
+  // The bar's other zones only: the space bar and the phone's menu button share the header, but they are not columns.
+  for (const c of bar.children) { if (c !== zone && !c.classList.contains('subnav') && !c.classList.contains('nav-toggle') && shown(c)) { right += outer(c); zones += 1; } }
+  const zs = getComputedStyle(zone);
+  let left = px(zs.paddingLeft) + px(zs.paddingRight) + px(zs.marginLeft) + px(zs.marginRight);
+  let n = 0;
+  for (const c of zone.children) { if (c !== phaseChip && shown(c)) { left += c.getBoundingClientRect().width; n += 1; } }
+  left += px(zs.columnGap) * n; // the gaps before the chip, its own among them
+  return fitWidth({ width, gap: px(bs.columnGap) * zones, left, right });
+}
+function fitPhaseChip(avail = phaseChipWidth()) {
+  if (!phaseChip.isConnected || phaseChip.hidden) return;
+  phaseChip.classList.remove('dot-only', 'chip-gone');
+  const full = phaseChip.getBoundingClientRect().width;
+  phaseChip.classList.add('dot-only');
+  const dot = phaseChip.getBoundingClientRect().width;
+  applyPhaseChipFit(chipFit({ avail, full, dot }));
+}
+function updatePhaseChip() {
+  const R = phaseRule();
+  const show = phaseChipWanted();
+  nav.draw('primary');
+  if (!show || !R) return;
+  const words = R.chipWords(phaseTimeline(), phaseToday());
+  phaseChip.querySelector('.phase-chip-label').textContent = words;
+  phaseChip.title = `${words}. Phases`;
+  phaseChip.setAttribute('aria-label', `${words}. Phases`);
+  const zone = phaseChip.parentElement;
+  if (zone && phaseChipZoneWatch !== zone && typeof ResizeObserver === 'function') {
+    phaseChipZoneWatch = zone;
+    new ResizeObserver(() => fitPhaseChip()).observe(zone);
+  }
+  requestAnimationFrame(() => fitPhaseChip());
+}
+async function savePhases(dates) {
+  const { space } = await api('PATCH', `/api/spaces/${encodeURIComponent(currentSpace.id)}`, { phases: dates });
+  const record = presenceSpaces.find((r) => r.id === currentSpace.id);
+  if (record) record.phases = space.phases || {};
+  if (currentSpace) currentSpace.phases = space.phases || {};
+  updatePhaseChip();
+  return space.phases || {};
+}
+phaseChip.addEventListener('click', () => {
+  const space = phaseSpaceRecord();
+  if (!space || !phaseRule()) return;
+  openPhaseSheet({
+    phases: templatePhases,
+    dates: space.phases || {},
+    created: space.createdAt,
+    today: phaseToday(),
+    canEdit: canEditPhases(),
+    save: savePhases,
+    rule: phaseRule(),
+    opener: phaseChip,
+    words: { owner: word('owner'), moderator: word('moderator') },
+  });
+});
+nav.register({ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'where', order: 10.5, icon: 'circle', label: 'Phases', element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip });
+// --- end the phase chip ---
 
 // The Layout panel's Arrange section (written at the top of this file, kept in the panel by canvas.js): Dock all (every
 // floating module docks beside the call, and the canvas-level snap goes off with it, or it would float them again), Clean
@@ -3649,6 +3757,7 @@ function updateCrumb() {
   const iconOf = (seg) => (!currentSpace ? 'message' : currentSpace.isAside ? (seg.action ? spaceCrumbIcon(originSpace) : 'people-arrows') : spaceCrumbIcon(currentSpace));
   setTopbarLocation(segs.map((seg) => crumbSegmentHtml(seg, iconOf(seg))).join('<span class="crumb-sep" aria-hidden="true">&rsaquo;</span>'));
   nav.draw('secondary');
+  updatePhaseChip(); // the chip follows the breadcrumb: shown in a space, gone on home, in an aside and for a guest
 }
 
 // `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins.
@@ -5280,6 +5389,8 @@ async function init() {
     conferenceEnabled: branding.conferenceEnabled !== false,
   };
   applyFeatureFlags();
+  // The template's phases (plan-one-bar.md, step 3) come with the branding; none, no chip.
+  templatePhases = phaseRule() ? phaseRule().cleanPhases(branding.phases) : [];
   // The topbar dropped its own version readout -- too cramped alongside
   // everything else there. It's in the title bar instead, which reads as
   // the space's real native window title once installed as an app.

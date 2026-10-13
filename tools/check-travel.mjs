@@ -1124,7 +1124,7 @@ test('the page: with phases the plan form has no date fields, and no per-phase r
   assert.ok(!html.includes('tpl-phase-row'), 'the per-phase date rows are gone');
   assert.ok(!html.includes('id="f-phases"'));
   assert.ok(html.includes('id="f-start"') && html.includes('id="f-end"'), 'First day and Last day stay for a space without phases');
-  assert.match(html, /<p class="hint" id="f-phase-note" hidden>Phase dates are set from the bar's phase chip\.<\/p>/);
+  assert.match(html, /<p class="hint" id="f-phase-note" hidden>The dates, the trip's first and last day among them, are set from the phase chip in the top bar\.<\/p>/);
   assert.match(js, /hide\(\$\('f-start'\)\.closest\('label'\), phasedPlan\);/, 'hidden with phases');
   assert.match(js, /hide\(\$\('f-phase-note'\), !phasedPlan\);/);
   assert.match(js, /if \(!plan\.phased\(\)\) \{\s*const start = \$\('f-start'\)\.value;/, 'the form\'s dates are only read without phases');

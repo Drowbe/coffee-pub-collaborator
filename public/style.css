@@ -8405,3 +8405,393 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .published-calendar .feed-made { margin: 0; }
 @media (max-width: 640px) { .published-calendar { margin-left: 0; } }
 /* calendars-tab:end */
+
+/* phase-chip:start -- the phase chip in the top bar's left zone after the breadcrumb (plan-one-bar.md, decisions 7 to
+   10, step 3; space.js): a dot and the words ("● Booking · day 2 of 3 ▾") in the bar's link look, a button that opens
+   the timeline sheet. It gives way in steps (space.js fitPhaseChip): the label goes (.dot-only), then the whole chip
+   (.chip-gone). The dot never stands alone for meaning: the words stay its name. */
+.topbar .phase-chip {
+  flex: none;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.topbar .phase-chip[aria-expanded="true"],
+.topbar .phase-chip:hover {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+.topbar .phase-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.phase-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.phase-chip-caret {
+  font-size: 11px;
+}
+
+.topbar .phase-chip.dot-only .phase-chip-label {
+  display: none;
+}
+
+.topbar .phase-chip.chip-gone {
+  display: none;
+}
+/* phase-chip:end */
+
+/* phase-sheet:start -- the timeline sheet (public/phase-sheet.js), a <dialog> in the editor window's look (host.css
+   .sdk-editor: the same surface, border, radius, shadow and backdrop; a full-screen sheet at 640 px and below). The
+   bands sit in a row that scrolls sideways (each at least its least width, BAND_MIN in phase-sheet.js), the "today"
+   line over them, and the boundary buttons under the junctions in two alternating rows; on a phone the buttons stack.
+   Colours from the tokens only; the current band carries the word "now" as well as its outline. */
+.phase-sheet {
+  box-sizing: border-box;
+  width: min(760px, 100vw - 32px);
+  max-width: none;
+  max-height: calc(100dvh - 48px);
+  margin: auto;
+  padding: 16px;
+  overflow: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-section);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.phase-sheet::backdrop {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.phase-sheet:focus {
+  outline: none;
+}
+
+.phase-sheet-head {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding-right: 40px;
+}
+
+.phase-sheet-head h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.phase-sheet-now {
+  flex: 1 1 auto;
+  margin: 0;
+  color: var(--text-dim);
+}
+
+.phase-sheet-close {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.phase-sheet-close:hover {
+  background: color-mix(in srgb, var(--text) 10%, var(--bg-section));
+  color: var(--text);
+}
+
+.phase-sheet-close:focus-visible {
+  color: var(--text);
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.phase-sheet-scroll {
+  margin: 12px 0 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.phase-row {
+  min-width: max-content;
+}
+
+/* The bands' track and the boundaries share a margin so the first and last boundary pills (centred on the row's edges)
+   have room; --at on a pill and on the today line is measured from the track's left. */
+.phase-track {
+  position: relative;
+  margin: 0 56px;
+  padding-top: 18px;
+}
+
+.phase-bands {
+  display: flex;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg-input);
+}
+
+.phase-band {
+  box-sizing: border-box;
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  padding: 0 8px;
+  overflow: hidden;
+  border-right: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.phase-band:last-child {
+  border-right: 0;
+}
+
+.phase-band.main {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.phase-band.current {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.phase-band-label,
+.phase-band-span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.phase-band-label {
+  font-weight: 600;
+}
+
+.phase-band-span {
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.phase-band-now {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.phase-today {
+  position: absolute;
+  top: 16px;
+  bottom: 0;
+  left: var(--at);
+  border-left: 2px dashed var(--text);
+  pointer-events: none;
+}
+
+.phase-today-word {
+  position: absolute;
+  top: -16px;
+  left: -1px;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Today on the row's first day: the word hangs to the right of the line, so a scrolling track never cuts it off. */
+.phase-today.at-start .phase-today-word {
+  left: 2px;
+  transform: none;
+}
+
+.phase-boundaries {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 56px;
+  padding: 80px 0 0;
+  list-style: none;
+}
+
+/* A set boundary is a pill under its junction (the date; its name is the tooltip and what a screen reader says), on
+   one of two rows; an add button ("Set when Booking starts") flows after them. */
+.phase-boundary {
+  position: relative;
+  white-space: nowrap;
+}
+
+.phase-boundary.set {
+  position: absolute;
+  top: 8px;
+  left: var(--at);
+  transform: translateX(-50%);
+}
+
+.phase-boundary.set[data-row="1"] {
+  top: 44px;
+}
+
+.phase-boundary.set:focus-within {
+  z-index: 3;
+}
+
+.phase-boundary.set .phase-boundary-label {
+  display: none;
+}
+
+.phase-boundary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.phase-boundary-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+}
+
+.phase-boundary .phase-boundary-day {
+  font-weight: 600;
+}
+
+.phase-boundary .phase-date {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 2;
+  margin-top: 4px;
+}
+
+.phase-sheet-undated,
+.phase-sheet-hint {
+  margin: 8px 0 0;
+}
+
+.phase-sheet-status {
+  min-height: 1.4em;
+  margin: 8px 0 0;
+  font-weight: 600;
+}
+
+.phase-sheet-status:empty {
+  margin: 0;
+  min-height: 0;
+}
+
+@media (max-width: 640px) {
+  .phase-sheet {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    padding: calc(12px + env(safe-area-inset-top, 0px)) calc(12px + env(safe-area-inset-right, 0px)) calc(12px + env(safe-area-inset-bottom, 0px)) calc(12px + env(safe-area-inset-left, 0px));
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .phase-sheet::backdrop {
+    background: var(--bg);
+  }
+
+  .phase-sheet-close {
+    top: 0;
+    right: 0;
+    width: 44px;
+    height: 44px;
+  }
+
+  .phase-sheet-head {
+    padding-right: 48px;
+  }
+
+  /* The bands still scroll sideways, in their own track; the boundaries stack under them, full width, each a row
+     a thumb can tap, its name shown. */
+  .phase-sheet-scroll {
+    overflow: visible;
+  }
+
+  .phase-row {
+    min-width: 0;
+  }
+
+  .phase-track {
+    margin: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .phase-boundaries {
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+
+  .phase-boundary.set,
+  .phase-boundary.set[data-row="1"] {
+    position: relative;
+    top: auto;
+    left: auto;
+    transform: none;
+  }
+
+  .phase-boundary.set .phase-boundary-label {
+    display: inline;
+  }
+
+  .phase-boundary-btn,
+  .phase-boundary-text {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: space-between;
+    min-height: 44px;
+  }
+
+  .phase-boundary .phase-date {
+    position: static;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 44px;
+    margin-top: 4px;
+  }
+}
+/* phase-sheet:end */

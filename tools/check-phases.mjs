@@ -115,6 +115,30 @@ await test('moveBoundary: a start or the main end, refused with the sentence and
   assert.deepEqual(dates, { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' } }, 'the given dates are not touched');
 });
 
+await test('moveBoundary keeps the timeline contiguous: the main end and the next dated start are one boundary', () => {
+  const dates = { trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  // The main end moved: the next dated phase starts the day after, later or earlier.
+  assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'trip', edge: 'end' }, '2026-10-12', { created: CREATED }).dates, { trip: { start: '2026-10-01', end: '2026-10-12' }, 'post-trip': { start: '2026-10-13' } });
+  assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'trip', edge: 'end' }, '2026-10-03', { created: CREATED }).dates, { trip: { start: '2026-10-01', end: '2026-10-03' }, 'post-trip': { start: '2026-10-04' } });
+  // The next dated start moved: the main phase ends the day before.
+  assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'post-trip' }, '2026-10-20', { created: CREATED }).dates, { trip: { start: '2026-10-01', end: '2026-10-19' }, 'post-trip': { start: '2026-10-20' } });
+  // Moved onto the main phase's first day: the end would come before the start, refused.
+  assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'post-trip' }, '2026-10-01', { created: CREATED }), { ok: false, problem: 'Trip can\'t end before it starts, 2026-10-01.' });
+  // A later phase dated for the first time: the main end follows it too (the moved side wins).
+  assert.deepEqual(P.moveBoundary(TRAVEL, { trip: { start: '2026-10-01', end: '2026-10-07' } }, { id: 'post-trip' }, '2026-10-20', { created: CREATED }).dates, { trip: { start: '2026-10-01', end: '2026-10-19' }, 'post-trip': { start: '2026-10-20' } });
+  // An earlier boundary moved: the shared boundary stays as it is.
+  assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'booking' }, '2026-09-10', { created: CREATED }).dates, { booking: { start: '2026-09-10' }, ...dates });
+  // The phase after the main one cleared: the next dated phase after it takes the shared boundary.
+  const three = { trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  const twoMain = [{ id: 'go', label: 'Go', main: true }, { id: 'rest', label: 'Rest' }, { id: 'after', label: 'After' }];
+  const cleared = P.moveBoundary(twoMain, { go: { end: '2026-10-07' }, rest: { start: '2026-10-08' }, after: { start: '2026-10-20' } }, { id: 'rest' }, null, { created: CREATED });
+  assert.deepEqual(cleared, { ok: true, dates: { go: { end: '2026-10-07' }, after: { start: '2026-10-08' } } });
+  // Without a main end the next start is the only boundary and moves on its own.
+  const noEnd = { trip: { start: '2026-10-01' }, 'post-trip': { start: '2026-10-08' } };
+  assert.deepEqual(P.moveBoundary(TRAVEL, noEnd, { id: 'post-trip' }, '2026-10-20', { created: CREATED }).dates, { trip: { start: '2026-10-01' }, 'post-trip': { start: '2026-10-20' } });
+  for (const d of [three, noEnd]) assert.equal(P.problemOf(TRAVEL, d, { created: CREATED }), null);
+});
+
 await test('coverMain: the main end later, later boundaries shifted by the same days, earlier ones never moved', () => {
   const dates = { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
   const r = P.coverMain(TRAVEL, dates, '2026-10-10', { created: CREATED });

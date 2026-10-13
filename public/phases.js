@@ -130,14 +130,32 @@
   // One boundary moved: `boundary` is { id } for where that phase starts, or { id, edge: 'end' } for the main phase's
   // end; `day` the new day, or null to clear it. Answers { ok: true, dates } with the new dates, or { ok: false,
   // problem } with the sentence, the dates untouched.
+  //
+  // The timeline has no gaps (decision 7): when the main phase has an end and a dated phase comes after it, the two are
+  // one boundary, and the side that was moved carries the other with it (the main end moved: the next dated phase
+  // starts the day after; that phase's start moved: the main phase ends the day before). Anything else that moved
+  // (another boundary, a boundary cleared) leaves the main end where it is and brings the next dated start to it. The
+  // server holds only the order of boundaries (problemOf); this is the editor's rule, so a sheet that moves through it
+  // never stores a gap.
   function moveBoundary(phases, dates, boundary, day, { created } = {}) {
     const id = boundary && typeof boundary === 'object' ? boundary.id : boundary;
     const edge = boundary && typeof boundary === 'object' && boundary.edge === 'end' ? 'end' : 'start';
+    const list = cleanPhases(phases);
     const next = cleanDates(dates);
     const span = Object.assign({}, next[id] || {});
     if (day === null || day === undefined || day === '') delete span[edge];
     else span[edge] = day;
     if (Object.keys(span).length) next[id] = span; else delete next[id];
+    const mainAt = list.findIndex((p) => p.main);
+    const main = mainAt >= 0 ? list[mainAt] : null;
+    if (main && next[main.id] && isDay(next[main.id].end)) {
+      const after = list.slice(mainAt + 1).find((p) => next[p.id] && isDay(next[p.id].start)) || null;
+      if (after && after.id === id && edge === 'start') {
+        next[main.id] = Object.assign({}, next[main.id], { end: addDays(next[after.id].start, -1) });
+      } else if (after) {
+        next[after.id] = Object.assign({}, next[after.id], { start: addDays(next[main.id].end, 1) });
+      }
+    }
     const problem = problemOf(phases, next, { created, moved: id });
     return problem ? { ok: false, problem } : { ok: true, dates: next };
   }

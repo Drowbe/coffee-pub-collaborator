@@ -1557,4 +1557,73 @@ test('destinations: brand.js registers them from GET /api/destinations, wider on
   assert.match(sys, /if \(guest \|\| hostConsole\) return;/);
 });
 
+// The phase chip and its sheet (plan-one-bar.md, decisions 7 to 10, step 3): the chip's three steps of giving way, the
+// bands' widths, the today line, the boundaries the sheet offers and the sentences a person reads.
+const sheetCopy = path.join(tmp, 'phase-sheet.mjs');
+fs.mkdirSync(tmp, { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), sheetCopy);
+const { chipFit, bandWidths, todayOffset, boundariesOf, plainDays, BAND_MIN } = await import(pathToFileURL(sheetCopy).href);
+const Phases = createRequire(import.meta.url)('../public/phases.js');
+fs.rmSync(tmp, { recursive: true, force: true });
+const TRAVEL = [{ id: 'planning', label: 'Planning' }, { id: 'booking', label: 'Booking' }, { id: 'buffer', label: 'Buffer' }, { id: 'pre-trip', label: 'Pre-trip' }, { id: 'trip', label: 'Trip', main: true }, { id: 'post-trip', label: 'Post-trip' }];
+const CREATED = '2026-09-01T12:00:00.000Z';
+
+test('the phase chip: a left-zone element tool after the anchor, dialog on press, gives way label, dot, gone', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /nav\.register\(\{ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'where', order: 10\.5, [^\n]*element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip \}\)/, 'in the group `where`, between the anchor (10) and its status (11), with fit');
+  assert.match(space, /phaseChip\.setAttribute\('aria-haspopup', 'dialog'\)/);
+  assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && templatePhases\.length > 0/, 'no chip with no phases, for a guest, in an aside, or with home over the space');
+  assert.match(space, /updatePhaseChip\(\); \/\/ the space's dates ride on its presence record/, 'redrawn from the presence poll');
+  assert.equal(chipFit({ avail: 200, full: 150, dot: 40 }), 'full');
+  assert.equal(chipFit({ avail: 100, full: 150, dot: 40 }), 'dot');
+  assert.equal(chipFit({ avail: 30, full: 150, dot: 40 }), 'none');
+  assert.equal(chipFit({ avail: Infinity, full: 150, dot: 40 }), 'full');
+});
+
+test('the sheet\'s bands: a least width a one-day phase keeps, twelve phases wider than the row, the today line in its band', () => {
+  const today = '2026-10-02';
+  const bands = Phases.timelineOf(TRAVEL, { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-01' }, 'post-trip': { start: '2026-10-02' } }, { today, created: CREATED });
+  const widths = bandWidths(bands, { today, rule: Phases });
+  assert.equal(widths[4].days, 1, 'a one-day main phase');
+  assert.equal(widths[4].width, BAND_MIN, 'keeps the least width');
+  assert.deepEqual(widths.filter((w) => !w.width).map((w) => w.id), ['buffer', 'pre-trip'], 'an undated phase has no width');
+  assert.ok(widths[1].width > widths[0].width && widths[0].width >= BAND_MIN, 'the longer band (Booking, 21 days) is wider than Planning (9)');
+  const at = todayOffset(bands, widths, today, { rule: Phases });
+  const before = widths.slice(0, 5).reduce((n, w) => n + w.width, 0);
+  assert.ok(at > before && at < before + widths[5].width, 'today falls in Post-trip\'s band');
+  assert.equal(todayOffset(bands, widths, '2026-08-01', { rule: Phases }), null, 'before the timeline: no line');
+  const twelve = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, label: `P${i}`, main: i === 6 }));
+  const dates = Object.fromEntries(twelve.slice(1).map((p, i) => [p.id, { start: Phases.addDays('2026-09-02', i) }]));
+  const w12 = bandWidths(Phases.timelineOf(twelve, dates, { today, created: CREATED }), { today, rule: Phases });
+  assert.ok(w12.every((w) => w.width >= BAND_MIN) && w12.reduce((n, w) => n + w.width, 0) > 12 * BAND_MIN - 1, 'twelve one-day bands: each its least width, the row wider than it');
+});
+
+test('the sheet\'s boundaries: every date a person can set, each boundary set adding the next band, the main end last', () => {
+  const today = '2026-09-12';
+  const of = (dates) => boundariesOf(Phases.timelineOf(TRAVEL, dates, { today, created: CREATED }), { today, rule: Phases }).map((b) => [b.kind, b.id, b.edge, b.label, b.day]);
+  // Nothing dated: the first phase from the created day, and the next phase to set.
+  assert.deepEqual(of({}), [['set', 'planning', 'start', 'Planning starts', '2026-09-01'], ['add', 'booking', 'start', 'Set when Booking starts', '2026-09-12']]);
+  // The main phase dated, nothing after it: its end is a boundary of its own, then the phase after it.
+  assert.deepEqual(of({ trip: { start: '2026-10-01', end: '2026-10-07' } }), [
+    ['set', 'planning', 'start', 'Planning starts', '2026-09-01'],
+    ['add', 'booking', 'start', 'Set when Booking starts', '2026-09-02'],
+    ['add', 'buffer', 'start', 'Set when Buffer starts', '2026-09-02'],
+    ['add', 'pre-trip', 'start', 'Set when Pre-trip starts', '2026-09-02'],
+    ['set', 'trip', 'start', 'Trip starts', '2026-10-01'],
+    ['set', 'trip', 'end', 'Trip ends', '2026-10-07'],
+    ['add', 'post-trip', 'start', 'Set when Post-trip starts', '2026-10-08'],
+  ]);
+  // The main phase without an end and nothing after it: "Set when Trip ends" offers today or its start, whichever is later.
+  assert.deepEqual(of({ trip: { start: '2026-10-01' } }).slice(-2), [['add', 'trip', 'end', 'Set when Trip ends', '2026-10-01'], ['add', 'post-trip', 'start', 'Set when Post-trip starts', '2026-10-02']]);
+  // A dated phase after the main one: the main end is that phase's start, so no end boundary of its own.
+  const all = of({ booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } });
+  assert.ok(!all.some((b) => b[2] === 'end'), 'no separate end');
+  assert.deepEqual(all.filter((b) => b[0] === 'set').map((b) => b[1]), ['planning', 'booking', 'trip', 'post-trip']);
+  assert.deepEqual(all.filter((b) => b[0] === 'add').map((b) => b[1]), ['buffer', 'pre-trip'], 'the skipped phases may still be dated; nothing after the last');
+  // No phases, no boundaries; no created day and nothing dated: Set the start.
+  assert.deepEqual(boundariesOf([], { today, rule: Phases }), []);
+  assert.deepEqual(boundariesOf(Phases.timelineOf(TRAVEL, {}, { today }), { today, rule: Phases }).map((b) => [b.kind, b.id, b.label]), [['add', 'planning', 'Set the start']]);
+  assert.equal(plainDays('Booking must start after Planning starts, 2026-09-01.', (d) => `<${d}>`), 'Booking must start after Planning starts, <2026-09-01>.');
+});
+
 console.log(`check-nav: OK (${n} tests)`);

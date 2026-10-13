@@ -6626,6 +6626,25 @@ body.conference-window {
   font-size: 11px;
 }
 
+/* A category (`items`): a caret at the row's end; its row keeps the hover look while its flyout is open beside it.
+   The flyout is a second .host-menu (host-menu-flyout), placed by host-menu.js. */
+.host-menu-item .host-menu-caret {
+  margin-left: auto;
+  width: auto;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.host-menu-category.open {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+.host-menu-category.open .host-menu-caret,
+.host-menu-category:hover .host-menu-caret,
+.host-menu-category:focus-visible .host-menu-caret {
+  color: var(--text);
+}
+
 /* The page's own element in the menu (`element`: the Layout menu's note, the grid's size). */
 .host-menu-row {
   display: flex;
@@ -7346,9 +7365,11 @@ body.chat-window {
     display: none; /* a phone has no use for either */
   }
 
-  /* A module fills the screen: no floating it over the page or opening it in a window. */
+  /* A module fills the screen: no floating it over the page or opening it in a window (canvas.js leaves Dock, Window
+     and Pop out out of its "..."), so a composite's "...", which holds only those, is not shown. */
   body.in-space .canvas [data-mode],
-  body.in-space .canvas [data-popout] {
+  body.in-space .canvas [data-popout],
+  body.in-space .canvas .mod-more-ways {
     display: none;
   }
 

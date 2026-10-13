@@ -689,9 +689,10 @@ export function openConfirmMenu(trigger, { label, confirm, hint, icon = 'trash',
   open(armed);
 }
 
-// The titlebar "..." on an installed module (not the conference or the chat).
-export function openClearMenu(trigger, onClear) {
-  openConfirmMenu(trigger, { label: 'Clear', confirm: 'Clear everything and start again?', onConfirm: onClear });
+// The titlebar "..." on an installed module (not the conference or the chat). `armed`: Clear was already picked from the
+// canvas's longer "..." (canvas.js, moduleMenuItems), so it asks straight away.
+export function openClearMenu(trigger, onClear, { armed = false } = {}) {
+  openConfirmMenu(trigger, { label: 'Clear', confirm: 'Clear everything and start again?', onConfirm: onClear, armed });
 }
 
 // Splits a cleaned item list into what a header/bar/toolbar row shows directly and what collapses into

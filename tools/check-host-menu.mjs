@@ -1,0 +1,182 @@
+#!/usr/bin/env node
+/*
+ * check-host-menu.mjs -- a menu's categories and their flyouts (Thomas, 2026-10-13), and the module titlebar's "...".
+ *
+ * public/menu-flyout.js holds the pure rules: whether a category flies out or drills in, where its flyout goes, whether
+ * the pointer is on its way to it, and what a key does. The page's shared menu (public/host-menu.js) imports them; the
+ * SDK's host.menu.show (public/sdk/host.js) carries a copy of the block between the markers. This fails when:
+ *   - a rule gives the wrong answer for one of the cases below;
+ *   - the SDK's copy is not word for word the same as menu-flyout.js's block, or does not give the same answers;
+ *   - either menu stops drawing a category as a flyout (aria-haspopup, aria-expanded, a role="menu" flyout) or stops
+ *     using the rules;
+ *   - a module's titlebar draws Dock, Window or Pop out again, or its "..." stops offering them (canvas.js).
+ */
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import vm from 'node:vm';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n');
+import os from 'node:os';
+// Copied to a .mjs so Node reads it as the module it is (the package has no "type").
+const copy = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'check-host-menu-')), 'menu-flyout.mjs');
+fs.copyFileSync(path.join(ROOT, 'public/menu-flyout.js'), copy);
+const rules = await import(pathToFileURL(copy).href);
+fs.rmSync(path.dirname(copy), { recursive: true, force: true });
+
+let passed = 0;
+const failures = [];
+function test(name, fn) {
+  try { fn(); passed += 1; } catch (err) { failures.push(`${name}: ${err.message}`); }
+}
+
+// The block between the markers, each line's indent taken off.
+const START = '// --- menu-flyout ---';
+const END = '// --- end menu-flyout ---';
+function block(text) {
+  const a = text.indexOf(START);
+  const b = text.indexOf(END);
+  if (a < 0 || b < a) return null;
+  return text.slice(a, b + END.length).split('\n').map((l) => l.replace(/^\s+/, '')).join('\n');
+}
+const ownBlock = block(read('public/menu-flyout.js'));
+const sdkSrc = read('public/sdk/host.js');
+const sdkBlock = block(sdkSrc);
+// The SDK's copy, run on its own, for the same answers.
+// Its answers come from another realm: copied into this one so they compare as plain values.
+const sdkRaw = sdkBlock ? vm.runInNewContext(`${sdkBlock}\n({ MENU_NARROW, submenuStyle, flyoutPlace, inSafeZone, menuStep, menuKeyAction })`) : null;
+const sdkRules = sdkRaw && Object.fromEntries(Object.entries(sdkRaw).map(([k, v]) => [k, typeof v === 'function' ? (...a) => { const out = v(...a); return out && typeof out === 'object' ? JSON.parse(JSON.stringify(out)) : out; } : v]));
+
+for (const [who, r] of [['menu-flyout.js', rules], ['the SDK\'s copy', sdkRules]]) {
+  test(`${who}: flyout or drill`, () => {
+    assert.ok(r, 'the block is there');
+    const { submenuStyle } = r;
+    assert.equal(r.MENU_NARROW, 640);
+    assert.equal(submenuStyle({ width: 1280 }), 'flyout', 'a wide window: flyout');
+    assert.equal(submenuStyle({ width: 641 }), 'flyout');
+    assert.equal(submenuStyle({ width: 640 }), 'drill', '640px and below drills in');
+    assert.equal(submenuStyle({ width: 390 }), 'drill', 'a phone drills in');
+    assert.equal(submenuStyle({}), 'drill', 'no width known: the safe way');
+    // A module's frame is the module's width, not the window's.
+    assert.equal(submenuStyle({ width: 460, framed: true, boxWidth: 460, need: 420 }), 'flyout', 'a docked module wide enough: flyout');
+    assert.equal(submenuStyle({ width: 360, framed: true, boxWidth: 360, need: 420 }), 'drill', 'too narrow for both: drill');
+    assert.equal(submenuStyle({ width: 460, framed: true, touch: true, boxWidth: 460, need: 420 }), 'drill', 'a touch screen: drill');
+    assert.equal(submenuStyle({ width: 900, framed: true, touch: true }), 'flyout', 'a wide frame flies out, touch or not');
+  });
+
+  test(`${who}: where the flyout goes`, () => {
+    const { flyoutPlace } = r;
+    const view = { w: 1280, h: 800 };
+    const size = { w: 200, h: 240 };
+    assert.deepEqual(flyoutPlace({ row: { left: 100, right: 320, top: 150 }, size, view }), { x: 322, y: 146, side: 'right' }, 'it fits on the right: beside it, level with its row');
+    assert.deepEqual(flyoutPlace({ row: { left: 1000, right: 1220, top: 150 }, size, view }), { x: 798, y: 146, side: 'left' }, 'near the right edge: flipped to the left');
+    assert.deepEqual(flyoutPlace({ row: { left: 100, right: 320, top: 700 }, size, view }), { x: 322, y: 556, side: 'right' }, 'near the bottom: shifted up to stay on screen');
+    assert.deepEqual(flyoutPlace({ row: { left: 100, right: 320, top: 2 }, size, view }), { x: 322, y: 4, side: 'right' }, 'at the top: kept inside');
+    // Fits on neither side: the wider side, shifted to stay inside (over the menu).
+    assert.deepEqual(flyoutPlace({ row: { left: 60, right: 300, top: 50 }, size: { w: 200, h: 100 }, view: { w: 400, h: 400 } }), { x: 196, y: 46, side: 'right' });
+    assert.deepEqual(flyoutPlace({ row: { left: 120, right: 360, top: 50 }, size: { w: 200, h: 100 }, view: { w: 400, h: 400 } }), { x: 4, y: 46, side: 'left' });
+  });
+
+  test(`${who}: the pointer on its way to the flyout`, () => {
+    const { inSafeZone } = r;
+    const rect = { left: 322, right: 522, top: 146, bottom: 386 };
+    const from = { x: 300, y: 160 };
+    assert.equal(inSafeZone({ x: 310, y: 180 }, from, rect, 'right'), true, 'down and toward it: on its way');
+    assert.equal(inSafeZone({ x: 310, y: 158 }, from, rect, 'right'), true, 'straight toward it');
+    assert.equal(inSafeZone({ x: 250, y: 190 }, from, rect, 'right'), false, 'back into the menu: not');
+    assert.equal(inSafeZone({ x: 302, y: 400 }, from, rect, 'right'), false, 'straight down: not');
+    const left = { left: 98, right: 298, top: 146, bottom: 386 };
+    assert.equal(inSafeZone({ x: 310, y: 200 }, { x: 320, y: 160 }, left, 'left'), true, 'a flyout on the left');
+    assert.equal(inSafeZone({ x: 310, y: 200 }, null, rect, 'right'), false, 'no exit point: not');
+  });
+
+  test(`${who}: the arrow keys`, () => {
+    const { menuStep } = r;
+    assert.equal(menuStep(5, 0, 1), 1);
+    assert.equal(menuStep(5, 4, 1), 0, 'Down at the end: the first');
+    assert.equal(menuStep(5, 0, -1), 4, 'Up at the start: the last');
+    assert.equal(menuStep(5, -1, 1), 0, 'none had the keyboard: Down, the first');
+    assert.equal(menuStep(5, -1, -1), 4, 'none had the keyboard: Up, the last');
+    assert.equal(menuStep(5, 2, 'first'), 0);
+    assert.equal(menuStep(5, 2, 'last'), 4);
+    assert.equal(menuStep(0, 0, 1), -1, 'no rows');
+  });
+
+  test(`${who}: what a key does`, () => {
+    const { menuKeyAction } = r;
+    assert.equal(menuKeyAction('ArrowDown'), 'next');
+    assert.equal(menuKeyAction('ArrowUp', { inFlyout: true }), 'prev', 'Up and Down in the flyout too');
+    assert.equal(menuKeyAction('Home'), 'first');
+    assert.equal(menuKeyAction('End', { inFlyout: true }), 'last');
+    assert.equal(menuKeyAction('ArrowRight', { onCategory: true }), 'open', 'Right on a category opens it');
+    assert.equal(menuKeyAction('ArrowRight'), null, 'Right on a plain row: not the menu\'s (a row\'s "...")');
+    assert.equal(menuKeyAction('ArrowRight', { inFlyout: true, onCategory: true }), null);
+    assert.equal(menuKeyAction('ArrowLeft', { inFlyout: true }), 'back', 'Left closes just the flyout');
+    assert.equal(menuKeyAction('ArrowLeft', { drilled: true }), 'back', 'Left leaves a drilled-in category');
+    assert.equal(menuKeyAction('ArrowLeft'), null);
+    assert.equal(menuKeyAction('Escape', { inFlyout: true }), 'back', 'Escape closes just the flyout');
+    assert.equal(menuKeyAction('Escape'), 'close', 'Escape in the menu closes it');
+    assert.equal(menuKeyAction('Tab', { inFlyout: true }), 'close');
+    assert.equal(menuKeyAction('Enter', { onCategory: true }), null, 'Enter presses the row itself');
+  });
+}
+
+test('the SDK carries the same rules, word for word', () => {
+  assert.ok(ownBlock, 'public/menu-flyout.js has the block between its markers');
+  assert.ok(sdkBlock, 'public/sdk/host.js has the block between its markers');
+  assert.equal(sdkBlock, ownBlock);
+});
+
+test('the page\'s shared menu: categories fly out, or drill in on a phone', () => {
+  const src = read('public/host-menu.js');
+  assert.match(src, /import \{ submenuStyle, flyoutPlace, inSafeZone, menuStep, menuKeyAction \} from '\/menu-flyout\.js';/);
+  assert.match(src, /b\.setAttribute\('aria-haspopup', 'menu'\);\n\s*b\.setAttribute\('aria-expanded', 'false'\);/, 'a category says it opens a menu, and whether it is open');
+  assert.match(src, /el\.className = 'host-menu host-menu-flyout';\n\s*el\.setAttribute\('role', 'menu'\);/, 'the flyout is a menu');
+  assert.ok(src.includes("submenuStyle({ width: view.innerWidth }) === 'drill'"), 'the window\'s width decides');
+  assert.ok(src.includes('flyoutPlace({ row: { left: m.left, right: m.right, top: r.top }'), 'placed by the rule');
+  assert.ok(src.includes('inSafeZone({ x: event.clientX, y: event.clientY }, fly.exit'), 'a row crossed on the way waits');
+  assert.ok(src.includes("menuKeyAction(e.key, { inFlyout, onCategory, drilled: Boolean(sub && sub.label) })"));
+  assert.ok(src.includes("sub = { items: entriesOf(item) || [], back: rows.indexOf(b), label: item.label }"), 'a phone drills in with Back');
+  const css = read('public/style.css');
+  assert.match(css, /\.host-menu-item \.host-menu-caret \{[^}]*color: var\(--text-dim\);/, 'the caret, from the tokens');
+  assert.match(css, /\.host-menu-category\.open \{[^}]*var\(--accent\)/);
+});
+
+test('host.menu.show: categories fly out in a module too', () => {
+  const show = sdkSrc.slice(sdkSrc.indexOf('  function showMenu('), sdkSrc.indexOf('  const host = {\n'));
+  assert.match(show, /b\.setAttribute\('aria-haspopup', 'menu'\); b\.setAttribute\('aria-expanded', 'false'\);/);
+  assert.ok(show.includes("el.className = `sdk-menu sdk-menu-flyout${className ? ` ${className}` : ''}`;\n      el.setAttribute('role', 'menu');"), 'the flyout is a menu');
+  assert.ok(show.includes("submenuStyle({ width: window.innerWidth, framed, touch, boxWidth: bounds().w, need: menu.offsetWidth + 180 }) === 'drill'"));
+  assert.ok(show.includes('flyoutPlace({ row:'));
+  assert.ok(show.includes('inSafeZone({ x: e.clientX, y: e.clientY }, fly.exit'));
+  assert.ok(show.includes("menuKeyAction(e.key, { inFlyout, onCategory, drilled: Boolean(sub) })"));
+  assert.ok(show.includes("{ label: 'Back', icon: 'arrow-left', back: true }, { heading: sub.label }"), 'drilled in: Back and the category\'s name');
+  assert.match(sdkSrc, /\.sdk-menu-caret \{[^}]*var\(--text-dim\)/, 'the caret, from the tokens');
+  assert.ok(sdkSrc.includes('// An item with `items` (or `submenu`'), 'the contract says so');
+});
+
+test('a module\'s titlebar: Dock, Window and Pop out are in its "..."', () => {
+  const src = read('public/canvas.js');
+  assert.ok(!/data-popout|data-mode="(float|dock)"/.test(src), 'no Dock, Window or Pop out button in a titlebar');
+  const header = src.slice(src.indexOf('  const moduleHeader = '), src.indexOf('  // The page a composite holds'));
+  assert.ok(header.includes('${snapHtml({ mode, snap })}${compositeOf(m) ? MORE_HTML.replace'), 'every module, a composite too, has a "..."');
+  assert.ok(header.includes('${CLOSE_HTML}</span>`'), 'Close last');
+  const ways = src.slice(src.indexOf('  function wayItems(mod) {'), src.indexOf('  // Everything this module holds in this space.'));
+  assert.ok(ways.includes("if (!mod || isNarrow()) return [];"), 'none on a phone');
+  assert.ok(ways.includes("label: 'Open as a window', tip: 'Float over the call', onPick: () => setMode(mod.id, 'float')"));
+  assert.ok(ways.includes("label: 'Dock as a panel', tip: 'Dock beside the video', hint: why || undefined, disabled: Boolean(why), onPick: () => setMode(mod.id, 'dock')"));
+  assert.ok(ways.includes("label: 'Pop out', tip: 'Open in its own window', onPick: () => popOut(mod.id)"));
+  assert.ok(ways.includes("own.length && ways.length ? [...own, { divider: true }, ...ways]"), 'after the module\'s own entries, below a line');
+  assert.ok(ways.includes('openClearMenu(trigger, () => clearModuleData(opened.get(id) || mod), { armed: true })'), 'Clear still asks first');
+  assert.ok(src.includes('openHostMenu(trigger, () => moduleMenuItems(mod.id, trigger));'), 'on the shared menu');
+  assert.ok(read('public/host-menu.js').includes('if (item.tip) b.title = item.tip;'), 'the old tooltips, on the entries');
+});
+
+if (failures.length) {
+  console.error(`check-host-menu: ${failures.length} failed`);
+  for (const f of failures) console.error(`  - ${f}`);
+  process.exit(1);
+}
+console.log(`check-host-menu: OK (${passed} checks)`);

@@ -65,14 +65,12 @@ export function setJoinModules(spaceId, ids) {
 
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-// The buttons at the end of every module's header: switch between docked and
-// floating, open in a window, close.
-const toolsHtml = ({ mode, canDock, canFloat, closable = true, snap = false, canWindow = true }) => `
-  ${mode === 'float' ? `<button class="msg-btn${snap ? ' on' : ''}" data-snap type="button" title="Snap to a grid" aria-label="Snap to a grid" aria-pressed="${snap ? 'true' : 'false'}"><i class="fa-solid fa-border-all fa-fw" aria-hidden="true"></i></button>` : ''}
-  ${mode !== 'float' && canFloat ? '<button class="msg-btn" data-mode="float" type="button" title="Float over the call" aria-label="Float over the call"><i class="fa-regular fa-window-restore fa-fw" aria-hidden="true"></i></button>' : ''}
-  ${mode !== 'dock' && canDock ? '<button class="msg-btn" data-mode="dock" type="button" title="Dock beside the video" aria-label="Dock beside the video"><i class="fa-solid fa-table-columns fa-fw" aria-hidden="true"></i></button>' : ''}
-  ${mode !== 'window' && canWindow ? '<button class="msg-btn" data-popout type="button" title="Open in its own window" aria-label="Open in its own window"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>' : ''}
-  ${closable ? '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>' : ''}`;
+// The buttons at the end of a module's header: the snap switch while it floats, the "..." (an installed module's: its
+// own Clear, then Dock as a panel or Open as a window, and Pop out; Thomas, 2026-10-13: those two left the titlebar for
+// the "..."), and Close.
+const snapHtml = ({ mode, snap = false }) => (mode === 'float' ? `<button class="msg-btn${snap ? ' on' : ''}" data-snap type="button" title="Snap to a grid" aria-label="Snap to a grid" aria-pressed="${snap ? 'true' : 'false'}"><i class="fa-solid fa-border-all fa-fw" aria-hidden="true"></i></button>` : '');
+const MORE_HTML = '<button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>';
+const CLOSE_HTML = '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>';
 
 // `onNote(text)`: a short line for the Layout menu's note (#modules-menu-note), '' to clear it. `onMenu(open)`: the
 // Layout menu opened (space.js reads its layouts again as it opens). `menuItems()`: the page's own entries for the
@@ -620,18 +618,18 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     tellWaiting(started);
     return started;
   }
-  // A floating module's Dock button: unavailable while it waits, and while the columns are full (so a press never stores
-  // a dock it cannot show). The conference and the chat always have a column, so theirs always works.
-  function paintDockButtons() {
+  // Why a floating module's Dock as a panel (its "..." menu) is unavailable, or '': while it waits, and while the columns
+  // are full (so a pick never stores a dock it cannot show).
+  function dockBlocked(p) {
+    if (p.waiting) return 'Docks when the window is wide enough';
     const full = !isNarrow() && [...opened.values()].filter(wantsColumn).length >= dockLimit(canvasWidth());
+    return full ? 'The window is too narrow for another column' : '';
+  }
+  // A waiting module's box says so (data-waiting).
+  function paintDockButtons() {
     for (const p of opened.values()) {
       if (p.kind !== 'module' || p.mode !== 'float' || !p.el) continue;
       p.el.toggleAttribute('data-waiting', Boolean(p.waiting));
-      const b = p.el.querySelector('[data-mode="dock"]');
-      if (!b) continue;
-      const off = Boolean(p.waiting) || full;
-      if (off) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
-      b.title = p.waiting ? 'Docks when the window is wide enough' : full ? 'The window is too narrow for another column' : 'Dock beside the video';
     }
   }
   // A waiting module dragged or resized by the person floats for good.
@@ -797,10 +795,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // --- installed modules -------------------------------------------------------
 
-  // A composite has no More menu of its own (Clear everything is each part's, in the page it holds).
-  const moduleHeader = (m, mode, canDock, canFloat, snap = false) => `
+  // The titlebar: icon, name, the module's own tools, the snap switch while floating, "...", Close. A composite's "..."
+  // has only the ways to show it (Clear everything is each part's, in the page it holds), so on a phone, where those
+  // are not offered, it is not shown (.mod-more-ways).
+  const moduleHeader = (m, mode, snap = false) => `
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span>${compositeOf(m) ? '' : '<button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>'}${toolsHtml({ mode, canDock, canFloat, snap })}</span>`;
+    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span>${snapHtml({ mode, snap })}${compositeOf(m) ? MORE_HTML.replace('class="sdk-more"', 'class="sdk-more mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
 
   // The page a composite holds: the destination as a view of this space (`/calendar?space=<id>`, `/map?space=<id>`, the
   // same page the one bar's Calendar or Map view shows; it draws no top bar of its own in a frame), with a guest's token.
@@ -905,7 +905,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     floater.className = 'module-floating';
     floater.dataset.module = m.id;
     floater.innerHTML = `
-      <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m, 'float', supports({ modes: m.canvas.mode }, 'dock') && !isNarrow(), true, snapping(m.id))}</header>
+      <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m, 'float', snapping(m.id))}</header>
       <div class="mod-toolbar" data-toolbar hidden></div>
       ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'module-floating-frame')}
       <div class="module-floating-bar" hidden></div>
@@ -946,7 +946,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     section.innerHTML = `
       <div class="dock-resize" title="Drag to resize"></div>
       <div class="mod-content dock-content">
-        <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m, 'dock', false, true)}</header>
+        <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m, 'dock')}</header>
         <div class="mod-toolbar" data-toolbar hidden></div>
         ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'dock-frame')}
       </div>
@@ -1081,26 +1081,18 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     return wrap;
   }
 
-  // Add (or refresh) the mode buttons in the module's own header.
+  // Add (or refresh) the snap switch in the module's own header. The conference and the chat have no Dock, Window or
+  // Pop out: wider than a phone they live in the column (they never dock on the canvas, float only while lifted for a
+  // screen share, and never leave for a window of their own), and on a phone they are tabs.
   function decorateBuiltin(mod) {
     const tools = mod.el.querySelector('.chat-tools, .conference-tools');
     if (!tools) return;
-    tools.querySelectorAll('[data-mode], [data-popout]').forEach((b) => b.remove());
     const holder = tools.ownerDocument.createElement('span');
     tools.querySelectorAll('[data-snap]').forEach((b) => b.remove());
-    // In the column a built-in module has no mode buttons: it never docks on the canvas, floats only while lifted for a
-    // screen share (and then only its snap switch), and never leaves for a window of its own.
     if (inColumn(mod)) return;
-    const lifted = Boolean(mod.lifted) || columnMode();
-    holder.innerHTML = toolsHtml({ mode: mod.mode, canDock: !lifted, canFloat: mod.modes.includes('float') && !lifted, closable: false, snap: snapping(mod.id), canWindow: !lifted });
+    holder.innerHTML = snapHtml({ mode: mod.mode, snap: snapping(mod.id) });
     const close = tools.querySelector('#chat-close, [data-module-close]');
     for (const b of [...holder.children]) tools.insertBefore(b, close);
-    for (const b of tools.querySelectorAll('[data-mode], [data-popout]')) {
-      b.onclick = (event) => {
-        event.stopPropagation();
-        setMode(mod.id, b.dataset.mode || 'window');
-      };
-    }
     for (const b of tools.querySelectorAll('[data-snap]')) {
       b.onclick = (event) => {
         event.stopPropagation();
@@ -1337,16 +1329,38 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   function wireHeader(el, mod) {
     el.querySelector('[data-close]').addEventListener('click', () => closeModule(mod.id));
-    el.querySelector('[data-popout]').addEventListener('click', () => popOut(mod.id));
-    el.querySelector('[data-mode]')?.addEventListener('click', (event) => {
-      if (event.currentTarget.getAttribute('aria-disabled') === 'true') return; // the window has no room for another column
-      setMode(mod.id, event.currentTarget.dataset.mode);
-    });
     el.querySelector('[data-snap]')?.addEventListener('click', () => setSnap(mod.id, !snapping(mod.id)));
     el.querySelector('[data-module-menu]')?.addEventListener('click', (event) => {
       event.stopPropagation();
-      openClearMenu(event.currentTarget, () => clearModuleData(mod));
+      const trigger = event.currentTarget;
+      openHostMenu(trigger, () => moduleMenuItems(mod.id, trigger));
     });
+  }
+
+  // The ways to show a module, at the end of its "..." (Thomas, 2026-10-13: Panel Mode and Window Mode): Dock as a panel
+  // while it floats (unavailable, and why, while it waits or the columns are full), Open as a window while docked, and
+  // Pop out (a window of its own). None on a phone, where each module is a tab.
+  function wayItems(mod) {
+    if (!mod || isNarrow()) return [];
+    const ways = [];
+    if (mod.mode === 'dock' && supports(mod, 'float')) {
+      ways.push({ icon: 'window-restore', regular: true, label: 'Open as a window', tip: 'Float over the call', onPick: () => setMode(mod.id, 'float') });
+    }
+    if (mod.mode === 'float' && supports(mod, 'dock')) {
+      const why = dockBlocked(mod);
+      ways.push({ icon: 'fa-solid fa-table-columns', label: 'Dock as a panel', tip: 'Dock beside the video', hint: why || undefined, disabled: Boolean(why), onPick: () => setMode(mod.id, 'dock') });
+    }
+    ways.push({ icon: 'up-right-from-square', label: 'Pop out', tip: 'Open in its own window', onPick: () => popOut(mod.id) });
+    return ways;
+  }
+  // An installed module's "...": Clear (it asks first), then the ways to show it after a line. A composite's has only the
+  // ways (Clear everything is each part's, in the page it holds).
+  function moduleMenuItems(id, trigger) {
+    const mod = opened.get(id);
+    if (!mod) return [];
+    const own = compositeOf(mod.m) ? [] : [{ icon: 'trash', label: 'Clear', danger: true, onPick: () => openClearMenu(trigger, () => clearModuleData(opened.get(id) || mod), { armed: true }) }];
+    const ways = wayItems(mod);
+    return own.length && ways.length ? [...own, { divider: true }, ...ways] : [...own, ...ways];
   }
 
   // Everything this module holds in this space. The conference and the chat are not modules, so they never get this.

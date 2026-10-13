@@ -593,38 +593,36 @@
   // The "..." on a day and the + on a joint: everything that can be added there, the same kinds the editor's tiles offer,
   // each opening the editor at that place with the kind chosen; then the markers (a time block on a day, a between-days
   // marker on the line, added at once). A hidden-days badge also offers to show the days. The type-to-add row and the
-  // host's bar are the fast path; this is the plain one.
+  // host's bar are the fast path; this is the plain one. Grouped (Thomas, 2026-10-13): Travel, Eat and drink, See and
+  // do, Mark the day and Add at a time are categories whose entries fly out beside them (host.menu.show's `items`; on a
+  // phone they drill in); a stay and a note are picked straight away.
   function openAddMenu(button, place, { gap } = {}) {
     const onLine = place.after !== undefined;
     const items = [];
     const withTile = (tile) => openEditor('item', null, { ...place, tile }, button);
-    const add = (tile, label, icon) => items.push({ id: tile, label, icon, onClick: () => withTile(tile) });
-    const addKind = (t) => add(t, `Add ${/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'} ${KICKERS[t].toLowerCase()}`, BADGES[t]); // "an attraction"
-    for (const t of JOURNEY_TILES) addKind(t);
+    const entry = (tile, label, icon) => ({ id: tile, label, icon, onClick: () => withTile(tile) });
+    const kindEntry = (t) => entry(t, `Add ${/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'} ${KICKERS[t].toLowerCase()}`, BADGES[t]); // "an attraction"
+    const category = (id, label, icon, entries) => { if (entries.length) items.push({ id, label, icon, items: entries }); };
+    const EAT = ['restaurant', 'cafe', 'bar'];
+    category('travel', 'Travel', 'plane', JOURNEY_TILES.map(kindEntry));
+    items.push(entry('hotel', 'Add a stay', 'bed'));
+    category('eat', 'Eat and drink', 'utensils', STOP_TILES.filter((t) => EAT.includes(t)).map(kindEntry));
+    category('see', 'See and do', 'binoculars', STOP_TILES.filter((t) => !EAT.includes(t)).map(kindEntry));
+    items.push(entry('note', 'Add a note', 'note-sticky'));
     items.push({ separator: true });
-    add('hotel', 'Add a stay', 'bed');
-    items.push({ separator: true });
-    for (const t of STOP_TILES) addKind(t);
-    items.push({ separator: true });
-    add('note', 'Add a note', 'note-sticky');
     // On a day, a marker with no time marks the whole day (a tag in its header), added at once; the timed ones below open the editor.
     if (!onLine) {
-      items.push({ separator: true });
-      for (const t of blockTypes()) {
-        items.push({ id: `mark:${t.id}`, label: `Mark the day: ${t.label.toLowerCase()}`, icon: t.icon, iconColor: t.color || undefined, onClick: () => attempt(() => plan.addItem({ kind: 'block', type: t.id, title: t.label, date: place.date, time: null, minutes: null })) });
-      }
-      items.push({ separator: true });
+      category('mark', 'Mark the day', 'calendar-day', blockTypes().map((t) => ({ id: `mark:${t.id}`, label: `Mark the day: ${t.label.toLowerCase()}`, icon: t.icon, iconColor: t.color || undefined, onClick: () => attempt(() => plan.addItem({ kind: 'block', type: t.id, title: t.label, date: place.date, time: null, minutes: null })) })));
     }
-    for (const t of blockTypes()) {
-      items.push({
-        id: `${onLine ? 'lane' : 'block'}:${t.id}`,
-        label: onLine ? `Add ${t.label.toLowerCase()}` : `Add ${t.label.toLowerCase()} at a time`,
-        icon: t.icon,
-        iconColor: t.color || undefined,
-        onClick: () => (onLine ? attempt(() => plan.addItem({ kind: 'lane', type: t.id, title: t.label, after: place.after })) : withTile(`block:${t.id}`)),
-      });
-    }
+    category(onLine ? 'lane' : 'block', onLine ? 'Add between days' : 'Add at a time', onLine ? 'arrows-left-right' : 'clock', blockTypes().map((t) => ({
+      id: `${onLine ? 'lane' : 'block'}:${t.id}`,
+      label: onLine ? `Add ${t.label.toLowerCase()}` : `Add ${t.label.toLowerCase()} at a time`,
+      icon: t.icon,
+      iconColor: t.color || undefined,
+      onClick: () => (onLine ? attempt(() => plan.addItem({ kind: 'lane', type: t.id, title: t.label, after: place.after })) : withTile(`block:${t.id}`)),
+    })));
     if (gap) {
+      items.push({ separator: true });
       items.push({
         id: 'show-days',
         label: 'Show these days',

@@ -16,6 +16,8 @@ const words = require('./words');
 const { Layouts } = require('./layouts');
 const { LEGACY_ENVIRONMENT_RECORD } = require('./migrate-names');
 const { DEFAULT_REACTION_LIST, DEFAULT_ICON_LIST, OLD_DEFAULT_REACTIONS, OLD_DEFAULT_ICONS, sameList } = require('./default-lists');
+// The phase timeline rule, the one copy the pages use too (plan-one-bar.md, step 1).
+const phaseRule = require('../public/phases.js');
 
 // Image slots. Participant: what the video box shows when the camera is
 // off, plus optional overlays drawn on top while they talk, are muted, are
@@ -733,6 +735,9 @@ class Store {
       ...(r.aiOff === true ? { aiOff: true } : {}),
       // Left out of the environment's published calendar (plan-space-calendars.md, section 2); absent means in it.
       ...(r.publishCalendar === false ? { publishCalendar: false } : {}),
+      // The template's phases' dates on this space, { <id>: { start?, end? } } (plan-one-bar.md, step 1; the rule is
+      // public/phases.js); absent while none is set. Kept as stored: the rule's refusals are updateSpace's.
+      ...(Object.keys(phaseRule.cleanDates(r.phases)).length ? { phases: phaseRule.cleanDates(r.phases) } : {}),
     };
   }
 
@@ -1627,6 +1632,8 @@ class Store {
       members: r.id === LOBBY ? everyone : r.members.filter((k) => everyone.includes(k)),
       isLobby: r.id === LOBBY,
       hasImage: !!this.spaceImagePath(r.id),
+      // The phases' dates, always an object here ({} while none is set) so every reader of a space can count on it.
+      phases: r.phases ? { ...r.phases } : {},
     }));
   }
 
@@ -1781,10 +1788,25 @@ class Store {
         draft.defaultLayout = layout.id;
       }
     }
+    // The phases' dates (plan-one-bar.md, step 1): the whole set replaces what is stored; null or {} clears it. Refused,
+    // with public/phases.js's sentence, when a date is not after the previous boundary or not before the next, names
+    // a phase the template does not have, or sets an end on a phase that is not main.
+    if (patch.phases !== undefined) {
+      if (patch.phases === null) {
+        delete draft.phases;
+      } else {
+        const problem = phaseRule.problemOf(Array.isArray(this.templatePhases) ? this.templatePhases : [], patch.phases, { created: draft.createdAt });
+        if (problem) throw new StoreError(problem);
+        const dates = phaseRule.cleanDates(patch.phases);
+        if (Object.keys(dates).length) draft.phases = dates;
+        else delete draft.phases;
+      }
+    }
     Object.assign(space, draft);
     if (!('opensWith' in draft)) delete space.opensWith;
     if (!('defaultLayout' in draft)) delete space.defaultLayout;
     if (!('publishCalendar' in draft)) delete space.publishCalendar;
+    if (!('phases' in draft)) delete space.phases;
     // Someone taken off the member list loses their address for this space, as removeMember does.
     for (const u of this.data.users) if (!space.members.includes(u.key)) this.dropSpaceCalendarFeed(u, id);
     this.save();

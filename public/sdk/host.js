@@ -1847,8 +1847,10 @@
     // load the icon font). Read stored data across them with storage.list(prefix, { scope: 'spaces' }),
     // which returns each item with its `spaceId`; 'change' events for those spaces carry `spaceId` too.
     spaces: () => call('spaces'),
-    // The space this module is open in: { id, name, createdAt }, or null on an environment page or a keyed page.
-    // Answered from the hello, so it is there once host.ready() has resolved.
+    // The space this module is open in: { id, name, createdAt, phases }, or null on an environment page or a keyed page.
+    // `phases` is the dates set on the space's timeline, { <id>: { start?, end? } } ({} while none; the template's phases
+    // themselves are host.phases(), the rule public/phases.js). Answered from the hello, so it is there once host.ready()
+    // has resolved.
     space: () => (info && info.space) || null,
     // The environment's template's phases, [{ id, label, main? }], or [] when it has none. Live: a template edit
     // is in the next hello. Answered from the hello, so it is there once host.ready() has resolved.

@@ -44,6 +44,8 @@ const { ModuleData } = require('./module-data');
 const { ModuleHooks } = require('./module-hooks');
 const themeCssLib = require('./theme-css');
 const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText, UNNAMED_ENVIRONMENT, MAX_EXTERNAL_CALENDARS } = require('./store');
+// The phase timeline rule (plan-one-bar.md, step 1), the one copy the pages use too.
+const phaseRule = require('../public/phases.js');
 const auth = require('./auth');
 const { buildEnvironment, flushEnvironment } = require('./environment');
 const { HostRegistry, HostError, cleanSlug } = require('./host-registry');
@@ -3518,8 +3520,39 @@ app.get('/api/spaces/:id', requireOwner, (req, res) => {
   if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
   res.json({ space });
 });
-app.patch('/api/spaces/:id', requireOwner, (req, res) => {
-  res.json({ space: store.updateSpace(req.params.id, req.body || {}) });
+// Owners and the admin change anything; a member ticked as this space's moderator may send `phases` (the dates on
+// the timeline, plan-one-bar.md step 1) and nothing else: any other field in a moderator's body is "owners only".
+app.patch('/api/spaces/:id', requireUser, (req, res) => {
+  const body = req.body || {};
+  if (!isOwner(req)) {
+    const space = store.spaceById(req.params.id);
+    if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
+    const me = currentUser(req);
+    const moderates = space.members.includes(me.key) && Boolean(store.spaceFlags(me.key, space.id).moderator);
+    const onlyPhases = Object.keys(body).every((k) => k === 'phases');
+    if (!moderates || !onlyPhases) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
+  }
+  res.json({ space: store.updateSpace(req.params.id, body) });
+});
+// The main phase's end moved later to cover `day` (YYYY-MM-DD), every later boundary shifted by the same number of
+// days (public/phases.js coverMain; plan-one-bar.md step 1), for anyone who can write in a module that is on in this
+// space (an owner always). 200 with the new `phases`; 204 when nothing moved (the day is covered already, is before
+// the main phase, or there is no dated main phase).
+app.post('/api/spaces/:id/phases/cover', (req, res) => {
+  const who = moduleViewer(req);
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' });
+  const space = store.spaceById(req.params.id);
+  if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
+  const day = req.body?.day;
+  if (!phaseRule.isDay(day)) return res.status(400).json({ error: 'Send the day to cover as YYYY-MM-DD.' });
+  const perms = modulePerms(who, space.id);
+  const mayWrite = (who.user && hasOwnerRights(who.user)) || modules.enabledAll().some(({ manifest, entry }) => manifest.scope.includes('space')
+    && ModuleManager.onInSpace(entry, manifest, space.id) && moduleSpaceAccess(entry, who, space) && moduleCan(manifest, perms, 'write'));
+  if (!mayWrite) return res.status(403).json({ error: `Only someone who can write in ${word('module', { a: true })} that is on in this ${word('space')} can move its dates.` });
+  const phases = Array.isArray(store.templatePhases) ? store.templatePhases : [];
+  const result = phaseRule.coverMain(phases, space.phases, day, { created: space.createdAt });
+  if (!result.moved) return res.status(204).end();
+  res.json({ phases: store.updateSpace(space.id, { phases: result.dates }).phases });
 });
 app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   store.removeSpace(req.params.id);
@@ -6933,8 +6966,9 @@ app.get('/api/modules/:id/context', (req, res) => {
     // `currencies`: the codes the server takes (as GET /api/currencies), for a module's currency picker.
     // `words`: every level's and role's words in this environment, as branding()'s (server/words.js), for host.locale().words.
     locale: { language: store.settings.language || 'en', clock: store.settings.clock === '24' ? '24' : '12', currency: store.settings.currency || 'USD', currencies: currencyCodes(store.settings.currency), words: store.resolvedWords() },
-    // The space this read is in, or null outside one. `phases` is the template's, live, or [] when there is none.
-    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt } : null,
+    // The space this read is in, or null outside one; its `phases` are the dates set on it ({} while none; plan-one-bar.md
+    // step 1). The top-level `phases` is the template's, live, or [] when there is none.
+    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases } : null,
     phases: phases.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}) })),
   });
 });

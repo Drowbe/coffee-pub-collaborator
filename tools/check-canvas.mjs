@@ -1051,6 +1051,60 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
 }
 
+// The column's splitters (plan-one-bar.md step 6, Thomas's feedback): the column's inner edge resizes it between
+// 220px and half the window, reusing the chat's width preference; on the call a second splitter sets the strip's
+// height. Both are separators with a vertical or horizontal orientation and a value; the keyboard moves by 16px, Shift
+// by 64px, Home and End to the ends, Shift+Enter back to the default, and any other key is left alone (never trapped).
+{
+  const F = 'public/space.js';
+  const spaceJs = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  for (const [id, orient, name] of [['side-column-splitter', 'vertical', 'Resize the chat column'], ['side-column-strip-splitter', 'horizontal', 'Resize the call']]) {
+    const at = html.indexOf(`id="${id}"`);
+    const tag = at < 0 ? '' : html.slice(html.lastIndexOf('<', at), html.indexOf('>', at) + 1);
+    if (!tag) fail('public/space.html', `the column needs its splitter #${id}`);
+    else if (!tag.includes('role="separator"') || !tag.includes(`aria-orientation="${orient}"`) || !tag.includes('tabindex="0"') || !tag.includes(`aria-label="${name}"`)) fail('public/space.html', `#${id} is a focusable ${orient} separator named "${name}"`);
+  }
+  const start = spaceJs.indexOf('const COLUMN_MIN = 220;');
+  const src = start < 0 ? '' : spaceJs.slice(start, spaceJs.indexOf('const columnWin = ', start));
+  if (!/function clampColumnWidth\(/.test(src) || !/function clampStripHeight\(/.test(src) || !/function splitterKey\(/.test(src)) fail(F, 'the column\'s splitters need clampColumnWidth(), clampStripHeight() and splitterKey() after COLUMN_MIN');
+  else {
+    const { clampColumnWidth, clampStripHeight, splitterKey } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey };`)();
+    const cases = [
+      ['a width inside the range holds', clampColumnWidth(320, 1280), 320],
+      ['the least width is 220px', clampColumnWidth(10, 1280), 220],
+      ['the most is half the window', clampColumnWidth(900, 1280), 640],
+      ['a window too narrow for half still gives the least', clampColumnWidth(300, 300), 220],
+      ['a width that is not a number gives the least', clampColumnWidth(undefined, 1280), 220],
+      ['the strip\'s least height is 100px', clampStripHeight(10, 800), 100],
+      ['the strip takes at most 60% of the column', clampStripHeight(700, 800), 480],
+      ['the strip\'s height inside the range holds', clampStripHeight(168, 800), 168],
+    ];
+    const lim = { min: 220, max: 640, def: 320, grow: 'ArrowRight', shrink: 'ArrowLeft' };
+    cases.push(
+      ['Right widens by 16', splitterKey({ key: 'ArrowRight', shift: false }, 320, lim), 336],
+      ['Left narrows by 16', splitterKey({ key: 'ArrowLeft', shift: false }, 320, lim), 304],
+      ['Shift+Right widens by 64', splitterKey({ key: 'ArrowRight', shift: true }, 320, lim), 384],
+      ['Shift+Left narrows by 64', splitterKey({ key: 'ArrowLeft', shift: true }, 320, lim), 256],
+      ['Left at the least stays', splitterKey({ key: 'ArrowLeft', shift: true }, 230, lim), 220],
+      ['Right at the most stays', splitterKey({ key: 'ArrowRight', shift: false }, 636, lim), 640],
+      ['Home is the least', splitterKey({ key: 'Home', shift: false }, 320, lim), 220],
+      ['End is the most', splitterKey({ key: 'End', shift: false }, 320, lim), 640],
+      ['Shift+Enter is the default', splitterKey({ key: 'Enter', shift: true }, 500, lim), 320],
+      ['Enter alone is not the splitter\'s', splitterKey({ key: 'Enter', shift: false }, 500, lim), null],
+      ['Tab is not the splitter\'s (focus moves on)', splitterKey({ key: 'Tab', shift: false }, 320, lim), null],
+      ['Up is not the vertical splitter\'s', splitterKey({ key: 'ArrowUp', shift: false }, 320, lim), null],
+      ['Down grows the strip', splitterKey({ key: 'ArrowDown', shift: false }, 168, { min: 100, max: 480, def: 168, grow: 'ArrowDown', shrink: 'ArrowUp' }), 184],
+    );
+    for (const [label, got, want] of cases) if (got !== want) fail(F, `${label}: got ${got}, wanted ${want}`);
+  }
+  if (!/wireSplitter\(columnEl\.querySelector\('#side-column-splitter'\), \{ which: 'width'/.test(spaceJs)) fail(F, 'the column\'s edge is wired as a splitter setting the width');
+  if (!/if \(which === 'width'\) prefs\.chatWidth = clampColumnWidth\(/.test(spaceJs)) fail(F, 'the column\'s width is the chat\'s width preference (prefs.chatWidth), so a width set before the column holds');
+  if (!/--side-column-w: 320px;/.test(css) || !/height: var\(--side-column-strip-h, 168px\);/.test(css)) fail('public/style.css', 'the column\'s width and the strip\'s height come from --side-column-w and --side-column-strip-h');
+  if (!/\.side-column-splitter:hover,\s*\.side-column-splitter:focus-visible,\s*\.side-column-splitter\.dragging \{\s*background: color-mix\(in srgb, var\(--accent\)/.test(css)) fail('public/style.css', 'a splitter shows the accent on hover, focus and while dragged');
+  if (!/\.side-column-splitter-v \{[^}]*width: 8px;/.test(css) || !/@media \(pointer: coarse\) \{\s*\.side-column-splitter-v \{[^}]*width: 14px;/.test(css)) fail('public/style.css', 'the splitter\'s hit area is 8px, 14px for a finger');
+}
+
 if (problems.length) {
   console.error(`check-canvas: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);

@@ -1028,7 +1028,7 @@ const DEFAULT_PREFS = {
   layout: 'grid', order: [], pinned: null, follow: true,
   micId: '', camId: '', gain: 100, gate: 0, noise: true, echo: true, agc: true, ptt: false,
   quality: 720, mirror: true, background: 'none', volumes: {}, popout: null, deafened: false,
-  chatWidth: 320, speakerId: '', masterVolume: 100,
+  chatWidth: 320, stripHeight: 168, speakerId: '', masterVolume: 100, // chatWidth is the column's width too (the splitter)
   pttKey: 'Space', muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE',
 };
 // Call preferences (layout, devices, volumes, keys). brand.js moves the key they had before the Names plan on load.
@@ -1233,7 +1233,96 @@ function syncColumn() {
   whoHere.el.hidden = !online;
   if (online) whoHere.fit(Math.max(0, columnEl.querySelector('.side-column-online').clientWidth));
   columnEl.classList.toggle('in-call', inCall);
+  applyColumnSizes();
   syncRail();
+}
+
+// The column's sizes (the splitters, #side-column-splitter and #side-column-strip-splitter in space.html): its width,
+// the chat's own preference from before the column (prefs.chatWidth, so a width a person had set holds), between
+// COLUMN_MIN and half the window; and on the call the strip's height (prefs.stripHeight), between STRIP_MIN and most of
+// the column, the chat keeping the rest. Dragged by pointer or touch; with the keyboard the arrows move by a step,
+// Shift by a bigger one, Home and End to the least and the most, double-click or Shift+Enter back to the default.
+// Both are remembered per person. Collapsed, the rail is 44px whatever the width, and opening returns to it.
+const COLUMN_MIN = 220;
+const COLUMN_MAX_SHARE = 0.5; // of the window
+const STRIP_MIN = 100;
+const STRIP_MAX_SHARE = 0.6; // of the column
+const SPLIT_STEP = 16;
+const SPLIT_BIG_STEP = 64;
+const clampSplit = (v, min, max) => Math.min(Math.max(Math.round(Number(v) || 0), min), Math.max(min, max));
+function clampColumnWidth(w, windowWidth) { return clampSplit(w, COLUMN_MIN, Math.round(windowWidth * COLUMN_MAX_SHARE)); }
+function clampStripHeight(h, columnHeight) { return clampSplit(h, STRIP_MIN, Math.round(columnHeight * STRIP_MAX_SHARE)); }
+// A key on a splitter: the new value, or null when the key is not the splitter's (so it goes on, never trapped).
+// `grow` and `shrink` are the arrow names for the axis (Right and Left for the column's edge, Down and Up for the strip's).
+function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
+  if (key === grow || key === shrink) return clampSplit(now + (key === grow ? 1 : -1) * (shift ? SPLIT_BIG_STEP : SPLIT_STEP), min, max);
+  if (key === 'Home') return min;
+  if (key === 'End') return Math.max(min, max);
+  if (key === 'Enter' && shift) return clampSplit(def, min, max);
+  return null;
+}
+const columnWin = () => columnEl.ownerDocument.defaultView || window;
+const columnMaxWidth = () => Math.round(columnWin().innerWidth * COLUMN_MAX_SHARE);
+const columnMaxStrip = () => Math.round((columnEl.clientHeight || columnWin().innerHeight) * STRIP_MAX_SHARE);
+// The sizes onto the column, clamped to the window it is in now (resized, popped out).
+function applyColumnSizes() {
+  if (!columnEl) return;
+  const w = clampColumnWidth(prefs.chatWidth, columnWin().innerWidth);
+  columnEl.style.setProperty('--side-column-w', `${w}px`);
+  const v = columnEl.querySelector('#side-column-splitter');
+  v.setAttribute('aria-valuemin', String(COLUMN_MIN));
+  v.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, columnMaxWidth())));
+  v.setAttribute('aria-valuenow', String(w));
+  v.setAttribute('aria-valuetext', `${w} pixels wide`);
+  const h = clampStripHeight(prefs.stripHeight, columnEl.clientHeight || columnWin().innerHeight);
+  columnEl.style.setProperty('--side-column-strip-h', `${h}px`);
+  const s = columnEl.querySelector('#side-column-strip-splitter');
+  s.setAttribute('aria-valuemin', String(STRIP_MIN));
+  s.setAttribute('aria-valuemax', String(Math.max(STRIP_MIN, columnMaxStrip())));
+  s.setAttribute('aria-valuenow', String(h));
+  s.setAttribute('aria-valuetext', `${h} pixels tall`);
+}
+let columnSizeFrame = 0;
+function setColumnSize(which, value, { remember = true } = {}) {
+  if (which === 'width') prefs.chatWidth = clampColumnWidth(value, columnWin().innerWidth);
+  else prefs.stripHeight = clampStripHeight(value, columnEl.clientHeight || columnWin().innerHeight);
+  if (remember) savePrefs();
+  applyColumnSizes();
+  if (!columnSizeFrame) columnSizeFrame = columnWin().requestAnimationFrame(() => { columnSizeFrame = 0; applyLayout(); }); // the canvas and the tiles follow, once a frame
+}
+// One splitter: `axis` 'x' or 'y', `which` the size it sets; the drag works from the pointer's travel since it began.
+function wireSplitter(el, { which, axis, def, min, max, grow, shrink }) {
+  let drag = null;
+  const start = () => (which === 'width' ? prefs.chatWidth : prefs.stripHeight);
+  el.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    event.preventDefault();
+    drag = { at: axis === 'x' ? event.clientX : event.clientY, from: start() };
+    el.classList.add('dragging');
+    columnEl.parentElement?.classList.add('resizing-column');
+    el.setPointerCapture?.(event.pointerId);
+  });
+  el.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    const travel = (axis === 'x' ? event.clientX : event.clientY) - drag.at;
+    setColumnSize(which, drag.from + travel, { remember: false });
+  });
+  const stop = () => {
+    if (!drag) return;
+    drag = null;
+    el.classList.remove('dragging');
+    columnEl.parentElement?.classList.remove('resizing-column');
+    savePrefs();
+  };
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointercancel', stop);
+  el.addEventListener('dblclick', () => setColumnSize(which, def));
+  el.addEventListener('keydown', (event) => {
+    const next = splitterKey({ key: event.key, shift: event.shiftKey }, start(), { min, max: max(), def, grow, shrink });
+    if (next === null) return; // Tab, Escape and the rest go on
+    event.preventDefault();
+    setColumnSize(which, next);
+  });
 }
 const columnKey = (id) => `app.column.${id}`;
 const columnCollapsed = () => Boolean(columnEl?.classList.contains('collapsed'));
@@ -1304,6 +1393,9 @@ if (columnEl) {
     setColumnCollapsed(false);
     if (canvas.builtinOpen('chat')) $('chat-input')?.focus();
   });
+  wireSplitter(columnEl.querySelector('#side-column-splitter'), { which: 'width', axis: 'x', def: DEFAULT_PREFS.chatWidth, min: COLUMN_MIN, max: columnMaxWidth, grow: 'ArrowRight', shrink: 'ArrowLeft' });
+  wireSplitter(columnEl.querySelector('#side-column-strip-splitter'), { which: 'strip', axis: 'y', def: DEFAULT_PREFS.stripHeight, min: STRIP_MIN, max: columnMaxStrip, grow: 'ArrowDown', shrink: 'ArrowUp' });
+  applyColumnSizes();
 }
 placeColumnTools(); // now that the two exist
 // --- end the always-on column ---

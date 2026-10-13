@@ -13,7 +13,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' +
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply'];
+const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 // The phase timeline rule (public/phases.js), which the SDK gives a module as host.util.phaseTimeline (plan-one-bar.md step 2).
 const Phases = new Function('module', fs.readFileSync(new URL('../public/phases.js', import.meta.url), 'utf8') + '\nreturn module.exports;')({ exports: {} });
@@ -739,7 +739,7 @@ test('the page: every journey kind has its colours and is in the kind picker, le
   for (const m of Object.keys(lib.LEG_ICONS)) assert.ok(html.includes(`data-mode="${m}"`), `a way-to-a-stop button for ${m}`);
   assert.ok(!/\(minutes\)|Minutes from/.test(html), 'no length is asked for in minutes alone');
   for (const id of ['f-hours', 'f-minutes', 'f-travelHours', 'f-travelMinutes']) assert.ok(html.includes(`id="${id}"`), id);
-  assert.match(html, /id="f-checkout" name="checkOut" type="date"/, 'a checkout is a date, not a list of the trip\'s days');
+  assert.match(html, /<label>Check out<select id="f-checkout" name="checkOut"><\/select><\/label>\s*<label>Check-out time<input id="f-checkOutTime" name="checkOutTime" type="time"><\/label>/, 'check-out is a list of days and a time, laid out as check-in is (#245)');
   assert.ok(html.includes('<span class="side">Departs</span>') && html.includes('<span class="side">Arrives</span>'), 'a flight card says which end departs and which arrives');
 });
 
@@ -1311,11 +1311,12 @@ test('a relative arrival: kept while there is no day, dated on one', () => {
   assert.equal(lib.cleanItem({ ...kept, date: '2026-11-30' }).arrives, '2026-12-01T06:30', 'given a day, dated again');
   for (const bad of ['06:30+8', '06:30-2', '06:30+', '25:00', '06:30+1x']) assert.equal(lib.cleanItem({ ...kept, arrives: bad }).arrives, null, bad);
   assert.equal(lib.cleanItem({ ...kept, arrives: '06:30+0' }).arrives, '06:30');
-  // The editor: an undated journey's kept arrival is dated on the day picked, and one moved off its days is kept relative.
+  // The editor: an undated journey's relative arrival is dated on the day picked, and one moved off its days is kept relative
+  // in the hidden field (and shown as "The next day" in the list).
   const js = read('travel.js');
-  assert.ok(js.includes('arrival.value = datedArrives(day, ed[l.kept]);'));
-  assert.ok(js.includes('ed[l.kept] = relativeArrives(was, arrival.value);'));
-  assert.ok(js.includes(': v.date ? datedArrives(v.date, v.arrives) :'));
+  assert.ok(js.includes('arrival.value = datedArrives(day, arrival.value);'));
+  assert.ok(js.includes("arrival.value = relativeArrives(was, arrival.value) || '';"));
+  assert.ok(js.includes("v.arrives.length === 16 || !v.date ? v.arrives : datedArrives(v.date, v.arrives)"));
 });
 
 test('a ticket\'s arrival is at most 7 days after it leaves and at most a day before; else a notes line', () => {
@@ -1510,7 +1511,7 @@ await handedIn();
 test('the page: the ticket\'s arrival field, and objects dated outside the plan under Not on a day yet', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.ok(html.includes('<div class="editor-row" data-types="flight train ferry bus"><label>Arrival on the ticket<input id="f-arrival" name="arrives" type="datetime-local"></label></div>'));
+  assert.ok(html.includes('<div class="editor-row" data-types="flight train ferry bus"><label>Arrival day<select id="f-arrival-day" name="arrivesDay"></select></label><label>Arrival time<input id="f-arrival-time" name="arrivesTime" type="time"></label><input id="f-arrival" name="arrives" type="hidden"></div>'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
   assert.ok(html.includes('<label data-types="flight train ferry bus">Seat<input id="f-seat"'), 'a bus or ferry seat survives an edit');
   assert.ok(html.includes('<label data-types="flight train">Class<select id="f-travelClass"'), 'a train class survives an edit');
   assert.ok(js.includes("fields.arrives = get('f-arrival')"));
@@ -1631,11 +1632,11 @@ test('the flight lookup (QA M5): a second lookup replaces what the first filled,
 test('the flight lookup (QA S2): the return leg has its own arrival on the ticket, stored as the outbound\'s', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.ok(html.includes('<div class="editor-row" data-types="flight train ferry bus"><label>Arrival on the ticket<input id="f-back-arrival" name="backArrives" type="datetime-local"></label></div>'));
+  assert.ok(html.includes('<div class="editor-row" data-types="flight train ferry bus"><label>Arrival day<select id="f-back-arrival-day" name="backArrivesDay"></select></label><label>Arrival time<input id="f-back-arrival-time" name="backArrivesTime" type="time"></label><input id="f-back-arrival" name="backArrives" type="hidden"></div>'));
   assert.ok(html.indexOf('id="f-back-arrival"') > html.indexOf('id="f-return"'), 'inside the return leg');
-  assert.ok(js.includes("arrives: get('f-back-arrival') || (shown('f-back-arrival') && state.editing && state.editing.backArrivesKept) || null,"), 'stored as arrives, as the outbound\'s');
+  assert.ok(js.includes("arrives: get('f-back-arrival') || null,"), 'stored as arrives, as the outbound\'s');
   assert.ok(js.includes("if (back && back.arrives && !arrivalFits(back.date, back.time, back.arrives)) return fail(\"The return's arrival on the ticket can be at most 7 days after it leaves, and at most a day before.\");"), 'the same 7-day and 1-day limit');
-  assert.ok(js.includes("arrival: 'f-back-arrival', kept: 'backArrivesKept', was: 'backDayWas'"), 'the lookup fills it, and it follows the return\'s day');
+  assert.ok(js.includes("arrival: 'f-back-arrival', arrivalDay: 'f-back-arrival-day', arrivalTime: 'f-back-arrival-time', was: 'backDayWas'"), 'the lookup fills it, and it follows the return\'s day');
   assert.ok(js.includes("e.target.id === 'f-back-date' ? 'back'"), 'a change of the return\'s day moves it');
   // WN 2484 as the lookup answers it: SJC 07:00 to MDW 13:05 local, 245 minutes in the air. The return keeps the ticket's arrival.
   const found = { kind: 'flight', title: 'Flight to Chicago', date: '2026-11-21', details: { airline: 'Southwest Airlines', number: 'WN 2484', from: { code: 'SJC', name: 'San Jose' }, to: { code: 'MDW', name: 'Chicago Midway' }, departs: '2026-11-21T07:00', arrives: '2026-11-21T13:05', minutes: 245 } };
@@ -1674,6 +1675,103 @@ test('the editor window: the form is the SDK\'s dialog, sized to what it edits, 
   assert.ok(js.includes("if (b.id === 'f-cancel') return cancelEditor();"), 'Cancel asks as Close does');
   assert.equal(js.includes("$('editor').hidden"), false, 'nothing reads the old hidden flag');
   assert.equal(/\.editor\s*\{[^}]*position:\s*absolute/.test(css), false, 'no overlay of the module\'s own');
+});
+
+// --- the Planner's forms (#241, #242, #245, #246) ---------------------------------------------------------------------
+
+test('a flight\'s arrival is a day and a time (#241), the same day as the departure until one is chosen (#242)', () => {
+  // The days offered: the departure day first, then up to 7 days after, then the day before; as offsets with no day.
+  assert.deepEqual(lib.arrivalDays('2026-10-03').map((d) => d.value), ['2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09', '2026-10-10', '2026-10-02']);
+  assert.deepEqual(lib.arrivalDays(null).map((d) => d.value), ['0', '1', '2', '3', '4', '5', '6', '7', '-1']);
+  assert.deepEqual(lib.arrivalDays('2026-10-03').map((d) => d.n), [0, 1, 2, 3, 4, 5, 6, 7, -1]);
+  // Nothing stored: the departure day (or the same day) and no time; the day follows the departure.
+  assert.deepEqual(lib.arrivalParts('2026-10-03', ''), { day: '2026-10-03', time: '' });
+  assert.deepEqual(lib.arrivalParts('2026-10-04', null), { day: '2026-10-04', time: '' });
+  assert.deepEqual(lib.arrivalParts(null, ''), { day: '0', time: '' });
+  // A dated arrival shows its own day; a relative one its day from the departure, or the offset with no day.
+  assert.deepEqual(lib.arrivalParts('2026-10-03', '2026-10-04T06:30'), { day: '2026-10-04', time: '06:30' });
+  assert.deepEqual(lib.arrivalParts('2026-10-03', '06:30+1'), { day: '2026-10-04', time: '06:30' });
+  assert.deepEqual(lib.arrivalParts(null, '06:30+1'), { day: '1', time: '06:30' });
+  assert.deepEqual(lib.arrivalParts(null, '23:10-1'), { day: '-1', time: '23:10' });
+  assert.deepEqual(lib.arrivalParts(null, '15:25'), { day: '0', time: '15:25' });
+  // Back to what is stored: a day and a time, or an offset and a time; no time is no arrival.
+  assert.equal(lib.arrivalJoin('2026-10-04', '06:30'), '2026-10-04T06:30');
+  assert.equal(lib.arrivalJoin('2026-10-04', ''), '');
+  assert.equal(lib.arrivalJoin('0', '15:25'), '15:25');
+  assert.equal(lib.arrivalJoin('1', '06:30'), '06:30+1');
+  assert.equal(lib.arrivalJoin('-1', '23:10'), '23:10-1');
+  assert.equal(lib.arrivalJoin('9', '06:30'), '', 'past the limit is nothing');
+  assert.equal(lib.arrivalJoin('x', '06:30'), '');
+  for (const d of lib.arrivalDays('2026-10-03')) assert.equal(lib.arrivalJoin(d.value, '12:00'), `${d.value}T12:00`);
+  for (const d of lib.arrivalDays(null)) assert.equal(lib.arrivalParts(null, lib.arrivalJoin(d.value, '12:00')).day, d.value, `offset ${d.value} round-trips`);
+  // Every day offered fits the ticket's limit, once the departure day is known.
+  for (const d of lib.arrivalDays('2026-10-03')) assert.ok(lib.arrivalFits('2026-10-03', null, `${d.value}T12:00`), d.value);
+  // The page: the two fields feed the hidden one, both legs, and a change of day rebuilds the list.
+  const js = read('travel.js');
+  assert.ok(js.includes("if (['f-arrival-day', 'f-arrival-time'].includes(e.target.id)) arrivalFieldsInto('out');"));
+  assert.ok(js.includes("if (['f-back-arrival-day', 'f-back-arrival-time'].includes(e.target.id)) arrivalFieldsInto('back');"));
+  assert.ok(js.includes("arrivalDay: 'f-arrival-day', arrivalTime: 'f-arrival-time'"));
+  assert.ok(js.includes('arrivalFieldsFrom(leg);\n        showArrival();'), 'a change of the departure day redraws the arrival around it');
+  assert.ok(!js.includes('arrivesKept') && !js.includes('datetime-local'), 'no arrival is kept aside any more: the hidden field holds the relative one');
+  const html = read('travel.html');
+  assert.ok(html.indexOf('id="f-arrival-day"') < html.indexOf('id="f-arrival-time"') && html.indexOf('id="f-time"') < html.indexOf('id="f-arrival-day"'), 'day then time, as the departure row');
+});
+
+test('a day that follows another until one is chosen: the arrival day and the check-out (#242, #245)', () => {
+  assert.equal(lib.followDay('2026-10-03', undefined, 0), '2026-10-03', 'a flight arrives the day it leaves');
+  assert.equal(lib.followDay('2026-10-03', null, 1), '2026-10-04', 'a stay checks out the day after');
+  assert.equal(lib.followDay('2026-10-05', undefined, 1), '2026-10-06', 'and follows the check-in');
+  assert.equal(lib.followDay('2026-10-03', '2026-10-07', 1), '2026-10-07', 'a chosen day is never written over');
+  assert.equal(lib.followDay('2026-10-09', '2026-10-07', 1), '2026-10-07', 'not when the check-in moves either');
+  assert.equal(lib.followDay('2026-10-03', '', 1), '', 'a chosen "none" stays none');
+  assert.equal(lib.followDay(null, undefined, 1), '', 'nothing to follow');
+  assert.equal(lib.followDay(null, '2026-10-07', 1), '2026-10-07');
+  // The check-out days: the day after check-in and on, as many as a plan can be long; none without a check-in.
+  const days = lib.checkoutDays('2026-10-03');
+  assert.equal(days.length, 60);
+  assert.deepEqual(days[0], { value: '2026-10-04', n: 1 });
+  assert.deepEqual(days[59], { value: '2026-12-02', n: 60 });
+  assert.deepEqual(lib.checkoutDays(null), []);
+  assert.deepEqual(lib.checkoutDays(''), []);
+  // The page: the check-out follows the check-in day until the person picks one; a pick (an empty one too) is kept.
+  const js = read('travel.js');
+  assert.ok(js.includes("setVal('f-checkout', followDay(date, ed.checkOut, 1));"));
+  assert.ok(js.includes("if (e.target.id === 'f-checkout' && state.editing) state.editing.checkOut = e.target.value;"));
+  assert.ok(js.includes("if (e.target.id === 'f-date') checkoutOptions();"));
+  assert.ok(js.includes("checkOut: item && item.kind === 'stay' ? item.checkOut || '' : undefined"), 'an existing stay keeps its own check-out, or its none');
+  assert.ok(!js.includes('checkoutMin'), 'the old min on a date input is gone');
+  assert.ok(js.includes("`${dayShort(value)} · ${n} night${n === 1 ? '' : 's'}`"), 'each day says how many nights');
+});
+
+test('Attraction is a kind of stop beside Sight, Museum, Tour and Show (#246), and stored kinds keep working', () => {
+  assert.ok(lib.STOP_TYPES.includes('attraction') && lib.STOP_TILES.includes('attraction') && lib.TILES.includes('attraction'));
+  assert.deepEqual(lib.STOP_TILES, ['restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show']);
+  const it = (o) => lib.cleanItem({ id: 'x', title: 't', ...o });
+  assert.equal(it({ kind: 'stop', type: 'attraction' }).type, 'attraction');
+  assert.equal(lib.tileOf(it({ kind: 'stop', type: 'attraction' })), 'attraction');
+  assert.deepEqual(lib.fromTile('attraction'), { kind: 'stop', type: 'attraction', category: 'do' });
+  const c = lib.cardOf(it({ kind: 'stop', type: 'attraction' }));
+  assert.deepEqual(c, { template: 'activity', family: 'attraction', kicker: 'Attraction', badge: 'wand-magic-sparkles' });
+  assert.equal(typeof lib.TURNS.attraction, 'number');
+  assert.ok(Object.values(lib.TURNS).filter((t) => t === lib.TURNS.attraction).length === 1, 'a colour family of its own');
+  assert.match(read('travel-lib-cards.css'), /\.entry\[data-type="attraction"\] \{ --turn: 240; \}/);
+  // The kinds before it are as they were, so what is stored still reads the same.
+  for (const t of ['sight', 'museum', 'tour', 'show']) {
+    assert.equal(lib.tileOf(it({ kind: 'stop', type: t })), t);
+    assert.equal(lib.cardOf(it({ kind: 'stop', type: t })).kicker, lib.KICKERS[t]);
+  }
+  assert.equal(lib.cardOf(it({ kind: 'stop', type: 'show' })).template, 'show');
+  // The page: in the kind picker's See and do group, the day's add menu (STOP_TILES), a placeholder, words to find it by, and
+  // every field a sight has.
+  const js = read('travel.js');
+  const html = read('travel.html');
+  assert.ok(js.includes("{ label: 'See and do', options: ['sight', 'museum', 'attraction', 'tour', 'show'].map((t) => kindOption(t)) },"));
+  assert.ok(js.includes('for (const t of STOP_TILES) addKind(t);') && js.includes("/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'"), 'the day menu offers "Add an attraction"');
+  assert.ok(js.includes("attraction: 'Disneyland'"));
+  assert.ok(js.includes("attraction: ['theme park', 'park', 'zoo', 'aquarium', 'disney', 'rides']"));
+  assert.ok(!/data-types="[^"]*\bsight\b(?![^"]*\battraction\b)[^"]*"/.test(html), 'every field a sight has, an attraction has');
+  assert.equal((html.match(/sight museum attraction tour show/g) || []).length, 8);
+  assert.ok(fs.existsSync(new URL('../node_modules/@fortawesome/fontawesome-free/svgs/solid/wand-magic-sparkles.svg', import.meta.url)), 'its icon is in the set');
 });
 
 console.log(`check-travel: OK (${n} checks)`);

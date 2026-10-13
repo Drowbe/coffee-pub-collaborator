@@ -599,11 +599,12 @@
     const items = [];
     const withTile = (tile) => openEditor('item', null, { ...place, tile }, button);
     const add = (tile, label, icon) => items.push({ id: tile, label, icon, onClick: () => withTile(tile) });
-    for (const t of JOURNEY_TILES) add(t, `Add a ${KICKERS[t].toLowerCase()}`, BADGES[t]);
+    const addKind = (t) => add(t, `Add ${/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'} ${KICKERS[t].toLowerCase()}`, BADGES[t]); // "an attraction"
+    for (const t of JOURNEY_TILES) addKind(t);
     items.push({ separator: true });
     add('hotel', 'Add a stay', 'bed');
     items.push({ separator: true });
-    for (const t of STOP_TILES) add(t, `Add a ${KICKERS[t].toLowerCase()}`, BADGES[t]);
+    for (const t of STOP_TILES) addKind(t);
     items.push({ separator: true });
     add('note', 'Add a note', 'note-sticky');
     // On a day, a marker with no time marks the whole day (a tag in its header), added at once; the timed ones below open the editor.
@@ -1467,14 +1468,39 @@
   // --- the editor ---------------------------------------------------------------------------------------------
 
   // A placeholder for the title of each kind of thing.
-  const TITLES = { flight: 'Flight to Lisbon', train: 'Train to Porto', ferry: 'Ferry to the island', bus: 'Bus to the airport', car: 'Rental car', taxi: 'Taxi to the hotel', rideshare: 'Ride to the airport', shuttle: 'Shuttle to the airport', hotel: 'Hotel Avenida', restaurant: 'Dinner at Cervejaria Ramiro', cafe: 'Coffee at the pier', bar: 'Drinks at the rooftop', sight: 'Belem Tower', museum: 'The tile museum', tour: 'Walking tour', show: 'Fado night', note: 'Remember to...' };
-  // The earliest a stay can check out: the day after it checks in (the editor's day), or any day while it has none. A date of its
-  // own rather than a list of the trip's days, so a stay can check out after the trip's last day, and it follows the check-in.
-  function checkoutMin() {
-    const input = $('f-checkout');
-    if (!input) return;
+  const TITLES = { flight: 'Flight to Lisbon', train: 'Train to Porto', ferry: 'Ferry to the island', bus: 'Bus to the airport', car: 'Rental car', taxi: 'Taxi to the hotel', rideshare: 'Ride to the airport', shuttle: 'Shuttle to the airport', hotel: 'Hotel Avenida', restaurant: 'Dinner at Cervejaria Ramiro', cafe: 'Coffee at the pier', bar: 'Drinks at the rooftop', sight: 'Belem Tower', museum: 'The tile museum', attraction: 'Disneyland', tour: 'Walking tour', show: 'Fado night', note: 'Remember to...' };
+  const option = (value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; };
+  // The days a stay can check out, a list like the check-in's (#245): the day after it checks in and on, as many as a plan can be
+  // long (checkoutDays; a stored day past that is added), so a stay can check out after the trip's last day. Until a check-out is
+  // chosen (state.editing.checkOut, set by the person or an existing stay) it is the day after the check-in and follows it
+  // (followDay); a chosen one is never written over. With no check-in day there is nothing to choose from.
+  function checkoutOptions() {
+    const select = $('f-checkout');
+    const ed = state.editing;
+    if (!select || !ed) return;
     const { date } = parsePlace($('f-date').value);
-    input.min = date ? ymd(new Date(parseYmd(date).getFullYear(), parseYmd(date).getMonth(), parseYmd(date).getDate() + 1)) : '';
+    const days = checkoutDays(date);
+    select.replaceChildren(option('', days.length ? 'Not set' : 'Choose the check-in day first'), ...days.map(({ value, n }) => option(value, `${dayShort(value)} · ${n} night${n === 1 ? '' : 's'}`)));
+    setVal('f-checkout', followDay(date, ed.checkOut, 1));
+  }
+  // A journey's arrival on the ticket is shown as a day and a time, laid out as the departure is (#241): the day one of
+  // arrivalDays around the leg's day (the same day first, the way it stays until a day is chosen: #242), and f-arrival, hidden,
+  // holds what is stored (dated on a day, relative to the day it leaves while it has none).
+  const arrivalDayLabel = (value, n) => (isYmd(value) ? `${dayShort(value)}${n ? ` (${laterText(n)})` : ''}` : n === 0 ? 'Same day' : laterText(n).replace(/^the/, 'The'));
+  function arrivalFieldsFrom(leg) {
+    const l = LEGS[leg];
+    const daySel = $(l.arrivalDay);
+    if (!daySel || !$(l.arrivalTime) || !$(l.arrival)) return;
+    const base = parsePlace($(l.date).value).date;
+    const parts = arrivalParts(base, $(l.arrival).value);
+    daySel.replaceChildren(...arrivalDays(base).map(({ value, n }) => option(value, arrivalDayLabel(value, n))));
+    setVal(l.arrivalDay, parts.day);
+    $(l.arrivalTime).value = parts.time;
+  }
+  function arrivalFieldsInto(leg) {
+    const l = LEGS[leg];
+    if (!$(l.arrivalDay) || !$(l.arrivalTime) || !$(l.arrival)) return;
+    $(l.arrival).value = arrivalJoin($(l.arrivalDay).value, $(l.arrivalTime).value);
   }
   // A length in the editor is hours and minutes side by side; stored, it stays whole minutes.
   const setLength = (hoursId, minutesId, total) => { const p = splitMinutes(total); $(hoursId).value = p.hours ?? ''; $(minutesId).value = p.minutes ?? ''; };
@@ -1574,14 +1600,14 @@
     ? (turn) => `oklch(from var(--accent) l calc(c * 0.95) calc(h + ${turn}))`
     : () => 'color-mix(in srgb, var(--accent) 65%, var(--text))';
   // Other words a kind is found by when typing.
-  const KIND_WORDS = { flight: ['plane', 'air', 'fly'], train: ['rail'], ferry: ['boat', 'ship'], bus: ['coach'], car: ['rental', 'drive', 'hire'], taxi: ['cab'], rideshare: ['uber', 'lyft', 'ride'], shuttle: ['van'], hotel: ['hotel', 'rental', 'hostel', 'camp', 'lodging', 'sleep'], restaurant: ['dinner', 'lunch', 'eat', 'meal', 'food'], cafe: ['coffee', 'breakfast', 'brunch'], bar: ['drinks', 'pub', 'cocktails'], sight: ['see', 'landmark', 'beach', 'shop', 'spa'], museum: ['gallery', 'exhibit'], tour: ['hike', 'walk', 'guide'], show: ['theater', 'theatre', 'concert', 'tickets', 'game'], note: ['memo', 'reminder'] };
+  const KIND_WORDS = { flight: ['plane', 'air', 'fly'], train: ['rail'], ferry: ['boat', 'ship'], bus: ['coach'], car: ['rental', 'drive', 'hire'], taxi: ['cab'], rideshare: ['uber', 'lyft', 'ride'], shuttle: ['van'], hotel: ['hotel', 'rental', 'hostel', 'camp', 'lodging', 'sleep'], restaurant: ['dinner', 'lunch', 'eat', 'meal', 'food'], cafe: ['coffee', 'breakfast', 'brunch'], bar: ['drinks', 'pub', 'cocktails'], sight: ['see', 'landmark', 'beach', 'shop', 'spa'], museum: ['gallery', 'exhibit'], attraction: ['theme park', 'park', 'zoo', 'aquarium', 'disney', 'rides'], tour: ['hike', 'walk', 'guide'], show: ['theater', 'theatre', 'concert', 'tickets', 'game'], note: ['memo', 'reminder'] };
   const kindOption = (t, label) => ({ id: t, label: label || KICKERS[t], icon: t === 'hotel' ? 'bed' : t === 'note' ? 'note-sticky' : BADGES[t], color: TONE(TURNS[t] || 0), words: KIND_WORDS[t] });
   function kindGroups() {
     return [
       { label: 'Getting there', options: JOURNEY_TILES.map((t) => kindOption(t)) },
       { label: 'Stay', options: [kindOption('hotel', 'Stay')] },
       { label: 'Eat and drink', options: ['restaurant', 'cafe', 'bar'].map((t) => kindOption(t)) },
-      { label: 'See and do', options: ['sight', 'museum', 'tour', 'show'].map((t) => kindOption(t)) },
+      { label: 'See and do', options: ['sight', 'museum', 'attraction', 'tour', 'show'].map((t) => kindOption(t)) },
       { label: 'Markers', options: blockTypes().map((t) => ({ id: `marker:${t.id}`, label: t.label, icon: t.icon, color: t.color, words: ['marker', 'time'] })) },
       { label: 'Other', options: [kindOption('note', 'Note')] },
     ];
@@ -1637,7 +1663,7 @@
   function openEditor(mode, item, place, from) {
     if (!canEdit) return;
     const isLink = Boolean(item && item.kind === 'link');
-    state.editing = { mode, id: item ? item.id : null, place: place || null, version: item ? plan.versionOf(item.id) : null, tile: 'sight', isLink, unplaced: Boolean(item && item.kind === 'block' && !item.date) };
+    state.editing = { mode, id: item ? item.id : null, place: place || null, version: item ? plan.versionOf(item.id) : null, tile: 'sight', isLink, unplaced: Boolean(item && item.kind === 'block' && !item.date), checkOut: item && item.kind === 'stay' ? item.checkOut || '' : undefined };
     state.editingFrom = { el: from || null, id: item ? item.id : null, date: place && place.date ? place.date : null };
     // The plan's own form is the medium window; an item's the large one (the SDK sets the size once, so it is switched here).
     $('editor').classList.toggle('sdk-editor-large', mode !== 'trip');
@@ -1676,17 +1702,14 @@
       $('f-date').addEventListener('change', syncPhaseField);
       // A marker follows Where: a day stores block, a joint lane. An existing marker keeps its kind until Where changes.
       $('f-date').addEventListener('change', () => { const ed = state.editing; if (!ed || !ed.tile) return; const want = tileAt(kindOf(ed.tile), $('f-date').value); if (want !== ed.tile) applyType(want); });
-      checkoutMin();
+      checkoutOptions();
       const v = item || {};
-      setVal('f-checkout', v.checkOut);
       setVal('f-checkOutTime', v.checkOutTime);
       $('f-time').value = v.time || '';
       setLength('f-hours', 'f-minutes', v.minutes);
-      // The arrival as on the ticket. One kept relative to its day ("06:30+1", the journey has no day) shows once it has one,
-      // and is kept as it is until then.
-      const ticket = v.arrives ? (v.arrives.length === 16 ? v.arrives : v.date ? datedArrives(v.date, v.arrives) : '') : '';
-      setVal('f-arrival', ticket);
-      state.editing.arrivesKept = v.arrives && !ticket ? v.arrives : null;
+      // The arrival as on the ticket: dated on its day, else relative to the day it leaves ("06:30+1", "The next day" in the list).
+      setVal('f-arrival', v.arrives ? (v.arrives.length === 16 || !v.date ? v.arrives : datedArrives(v.date, v.arrives)) : '');
+      arrivalFieldsFrom('out');
       state.editing.dayWas = parsePlace($('f-date').value).date; // a change of day moves the ticket's arrival along
       hide($('f-pinned-row'), !isLink);
       if ($('f-pinned')) $('f-pinned').checked = Boolean(v.pinned);
@@ -1774,7 +1797,6 @@
     ed.backId = back ? back.id : null;
     ed.backVersion = back ? plan.versionOf(back.id) : null;
     ed.removeReturn = false;
-    ed.backArrivesKept = null;
     placeOptions($('f-back-date'));
     $('f-roundtrip').checked = Boolean(back);
     if (back) {
@@ -1783,11 +1805,10 @@
       $('f-back-time').value = back.time || '';
       setLength('f-back-hours', 'f-back-minutes', back.minutes);
       for (const f of ['number', 'fromCode', 'toCode', 'from', 'to', 'seat']) setVal(`f-back-${f}`, back[f]);
-      // The return's arrival on the ticket, as the outbound's: one kept relative to its day shows once it has one.
-      const ticket = back.arrives ? (back.arrives.length === 16 ? back.arrives : back.date ? datedArrives(back.date, back.arrives) : '') : '';
-      setVal('f-back-arrival', ticket);
-      ed.backArrivesKept = back.arrives && !ticket ? back.arrives : null;
+      // The return's arrival on the ticket, as the outbound's.
+      setVal('f-back-arrival', back.arrives ? (back.arrives.length === 16 || !back.date ? back.arrives : datedArrives(back.date, back.arrives)) : '');
     }
+    arrivalFieldsFrom('back');
     ed.backDayWas = parsePlace($('f-back-date').value).date; // a change of the return's day moves its arrival along
     const extra = item ? plan.extraReturns(item.id) : [];
     hide($('f-extra'), !extra.length);
@@ -1810,6 +1831,7 @@
         const last = days[days.length - 1];
         $('f-back-date').value = placeValue({ date: date && last && date > last ? date : last || date });
         ed.backDayWas = parsePlace($('f-back-date').value).date;
+        arrivalFieldsFrom('back');
       }
       seedLookup('back');
       return roundTripShown();
@@ -1838,7 +1860,7 @@
       ...placeFields(parsePlace($('f-back-date').value)),
       time: $('f-back-time').value || null,
       minutes: lengthOf('f-back-hours', 'f-back-minutes'),
-      arrives: get('f-back-arrival') || (shown('f-back-arrival') && state.editing && state.editing.backArrivesKept) || null,
+      arrives: get('f-back-arrival') || null,
       number: numberToSave(out.mode, get('f-back-number')),
       seat: get('f-back-seat'),
       fromCode: get('f-back-fromCode'),
@@ -1864,8 +1886,8 @@
   // saved on it before; one found fills the form at once, several give a list to choose from. Shown only while the server offers
   // it (host.lookup.available: the environment's Suggest flights from earlier trips setting).
   const LEGS = {
-    out: { pre: 'f-', date: 'f-date', time: 'f-time', hours: 'f-hours', minutes: 'f-minutes', number: 'f-number', fromCode: 'f-fromCode', from: 'f-from', toCode: 'f-toCode', to: 'f-to', operator: 'f-operator', terminal: 'f-terminal', arrival: 'f-arrival', title: 'f-title', kept: 'arrivesKept', was: 'dayWas' },
-    back: { pre: 'f-back-', date: 'f-back-date', time: 'f-back-time', hours: 'f-back-hours', minutes: 'f-back-minutes', number: 'f-back-number', fromCode: 'f-back-fromCode', from: 'f-back-from', toCode: 'f-back-toCode', to: 'f-back-to', arrival: 'f-back-arrival', kept: 'backArrivesKept', was: 'backDayWas' },
+    out: { pre: 'f-', date: 'f-date', time: 'f-time', hours: 'f-hours', minutes: 'f-minutes', number: 'f-number', fromCode: 'f-fromCode', from: 'f-from', toCode: 'f-toCode', to: 'f-to', operator: 'f-operator', terminal: 'f-terminal', arrival: 'f-arrival', arrivalDay: 'f-arrival-day', arrivalTime: 'f-arrival-time', title: 'f-title', was: 'dayWas' },
+    back: { pre: 'f-back-', date: 'f-back-date', time: 'f-back-time', hours: 'f-back-hours', minutes: 'f-back-minutes', number: 'f-back-number', fromCode: 'f-back-fromCode', from: 'f-back-from', toCode: 'f-back-toCode', to: 'f-back-to', arrival: 'f-back-arrival', arrivalDay: 'f-back-arrival-day', arrivalTime: 'f-back-arrival-time', was: 'backDayWas' },
   };
   const lookupEl = (leg, part) => $(`${LEGS[leg].pre}lookup${part ? `-${part}` : ''}`);
   const legOfLookup = (el) => { const row = el && el.closest('.lookup'); return row ? (row.id === 'f-back-lookup' ? 'back' : 'out') : null; };
@@ -1970,12 +1992,13 @@
     ed.lookupFilled[leg] = filled;
     if (set.date) {
       setPlaceMenu($(l.date), { date: set.date });
-      if (leg === 'out') { checkoutMin(); syncPhaseField(); }
+      if (leg === 'out') { checkoutOptions(); syncPhaseField(); }
     }
-    if (set.date || set.arrives !== undefined) { ed[l.was] = parsePlace($(l.date).value).date; ed[l.kept] = null; }
+    if (set.date || set.arrives !== undefined) ed[l.was] = parsePlace($(l.date).value).date;
     if (set.time !== undefined) $(l.time).value = set.time;
     if (set.minutes !== undefined) setLength(l.hours, l.minutes, set.minutes || null);
     if (set.arrives !== undefined) $(l.arrival).value = set.arrives;
+    arrivalFieldsFrom(leg);
     for (const f of KEYS) if (l[f] && set[f] !== undefined) setVal(l[f], set[f]);
     showArrival();
     if ($('f-back-title')) $('f-back-title').placeholder = backTitle();
@@ -2088,7 +2111,7 @@
           fields.toCode = get('f-toCode');
           fields.gate = get('f-gate');
           fields.confirm = get('f-confirm');
-          fields.arrives = get('f-arrival') || (shown('f-arrival') && ed.arrivesKept) || null;
+          fields.arrives = get('f-arrival') || null;
           if (fields.arrives && !arrivalFits(fields.date, fields.time, fields.arrives)) return fail('The arrival on the ticket can be at most 7 days after it leaves, and at most a day before.');
           // The editor always saves the main leg as a first leg (a return whose outbound is gone becomes a one-way journey).
           fields.legOf = null;
@@ -2156,13 +2179,18 @@
   $('editor').addEventListener('submit', (e) => { e.preventDefault(); saveEditor(); });
   // A journey's arrival follows its departure and length as they are typed; a stay's checkout follows its check-in day.
   $('editor').addEventListener('input', (e) => {
-    if (['f-time', 'f-hours', 'f-minutes', 'f-arrival', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-arrival'].includes(e.target.id)) showArrival();
+    if (['f-arrival-day', 'f-arrival-time'].includes(e.target.id)) arrivalFieldsInto('out');
+    if (['f-back-arrival-day', 'f-back-arrival-time'].includes(e.target.id)) arrivalFieldsInto('back');
+    if (['f-time', 'f-hours', 'f-minutes', 'f-arrival-day', 'f-arrival-time', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-arrival-day', 'f-back-arrival-time'].includes(e.target.id)) showArrival();
     if (['f-title', 'f-back-to', 'f-back-toCode'].includes(e.target.id) && $('f-back-title')) $('f-back-title').placeholder = backTitle();
   });
   $('editor').addEventListener('change', (e) => {
-    if (e.target.id === 'f-date') checkoutMin();
-    // Another departure day, for either leg: the ticket's arrival moves by as many days, as a move on the plan does. Off its days,
-    // it is kept relative to the day it left; given a day again, it is dated on that one.
+    // The check-out a person picks is theirs (an empty one too); until then it follows the check-in day.
+    if (e.target.id === 'f-checkout' && state.editing) state.editing.checkOut = e.target.value;
+    if (e.target.id === 'f-date') checkoutOptions();
+    // Another departure day, for either leg: the ticket's arrival moves by as many days, as a move on the plan does (an arrival
+    // not yet chosen stays the same day as the departure). Off its days, it is kept relative to the day it left ("The next day");
+    // given a day again, it is dated on that one.
     const leg = e.target.id === 'f-date' ? 'out' : e.target.id === 'f-back-date' ? 'back' : null;
     const ed = state.editing;
     if (leg && ed) {
@@ -2174,12 +2202,11 @@
         if (arrival.value.length === 16 && was && day && day !== was) {
           arrival.value = shiftArrives(arrival.value, Math.round((parseYmd(day) - parseYmd(was)) / (24 * 60 * 60 * 1000)));
         } else if (arrival.value.length === 16 && was && !day) {
-          ed[l.kept] = relativeArrives(was, arrival.value);
-          arrival.value = '';
-        } else if (!arrival.value && ed[l.kept] && day) {
-          arrival.value = datedArrives(day, ed[l.kept]);
-          ed[l.kept] = null;
+          arrival.value = relativeArrives(was, arrival.value) || '';
+        } else if (arrival.value && arrival.value.length !== 16 && day) {
+          arrival.value = datedArrives(day, arrival.value);
         }
+        arrivalFieldsFrom(leg);
         showArrival();
       }
       ed[l.was] = day;

@@ -282,15 +282,19 @@ export function phoneZones(byZone) {
 
 // The top bar wider than a phone (plan-one-bar.md, step 7, Thomas 2026-10-13: the space bar's controls in the top bar):
 // the Workspace's tools (`workspace`, and the bar's own "...", which folds them) sit nearest the middle of the bar,
-// after the bar's own in the left zone (Layout and the favorites after the views and the chip) and before them in the
-// right (Full screen, Pop out, Pull participants back, a module's tools and the "..." before Rejoin call, Set up, the
-// bell and your picture). Each a run of its own, so a module's orders never interleave with the bar's; a divider
-// separates the two runs when both show something. Pure, for check-nav.
+// after the bar's own in the left zone and before them in the right (Pull participants back, a module's tools and the
+// "..." before Set up, the bell and your picture). Each a run of its own, so a module's orders never interleave with
+// the bar's; a divider separates two runs when both show something. A Workspace tool may name a `place` in the right
+// zone instead (Thomas, 2026-10-13, the one bar's feedback): 'own' puts it among the bar's own tools, by its group and
+// order (Layout and the favorite layouts, in Set up's group); 'end' puts it in a last run after them (Full screen and
+// Pop out, right of your picture). On a phone the Workspace's tools are the tab bar's and `place` is not read. Pure, for check-nav.
 export function wideZones(byZone) {
-  const inner = (t) => Boolean(t.workspace);
+  const inner = (t) => Boolean(t.workspace) && t.place !== 'own' && t.place !== 'end';
+  const own = (t) => !t.workspace || t.place === 'own';
+  const end = (t) => Boolean(t.workspace) && t.place === 'end';
   return {
-    left: [byZone.left.filter((t) => !inner(t)), byZone.left.filter(inner)],
-    right: [byZone.right.filter(inner), byZone.right.filter((t) => !inner(t))],
+    left: [byZone.left.filter((t) => !t.workspace), byZone.left.filter((t) => Boolean(t.workspace))],
+    right: [byZone.right.filter(inner), byZone.right.filter(own), byZone.right.filter(end)],
     bar: [],
   };
 }
@@ -718,8 +722,9 @@ function naturalWidth(zone, skip, { margins = true } = {}) {
   const gap = px(zs.columnGap);
   let w = px(zs.paddingLeft) + px(zs.paddingRight) + (margins ? px(zs.marginLeft) + px(zs.marginRight) : 0) + px(zs.borderLeftWidth) + px(zs.borderRightWidth);
   let n = 0;
+  const skipped = Array.isArray(skip) ? skip : [skip];
   for (const c of zone.children) {
-    if (c === skip || !shownEl(c)) continue;
+    if (skipped.includes(c) || !shownEl(c)) continue;
     w += c.getBoundingClientRect().width;
     n += 1;
   }
@@ -789,6 +794,26 @@ function fitLeft(bar, { width, gap, right }) {
   for (const t of first) fitOne(t);
 }
 
+// A right-zone tool that can give way (`fit`: the top bar's favorite layouts, beside Layout; Thomas, 2026-10-13): fitted
+// before the left zone is, to what the rest of the right zone and the left zone at its least (every left fitting tool at
+// fit(0): the chip's words go before a favorite does) leave it; the left zone then takes what the right zone leaves.
+// Never folds: with no room it shows nothing (its fit's own doing), and the favorites are still in the Layout menu.
+function fitRight(bar, { width, gap, more }) {
+  const b = bars[bar];
+  if (!b || !b.zones.right) return;
+  const fitting = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'right' && typeof t.fit === 'function' && els.has(t.id) && !els.get(t.id).hidden);
+  if (!fitting.length) return;
+  for (const t of tools.values()) {
+    if (t.bar !== bar || t.zone !== 'left' || typeof t.fit !== 'function' || !els.has(t.id) || els.get(t.id).hidden) continue;
+    try { t.fit(0); } catch { /* keeps its size */ }
+  }
+  const left = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
+  for (const t of fitting) {
+    const rest = naturalWidth(b.zones.right, [els.get(t.id), more]);
+    try { t.fit(fitWidth({ width, gap, left, right: rest.w + (rest.n ? rest.gap : 0) })); } catch { /* keeps its size */ }
+  }
+}
+
 // Fit a bar to its width (plan-one-bar.md, step 7: one fit for both bars). Its left-zone tools that can give way
 // (the top bar's favorites and phase chip: the chip's label, then its dot, then nothing; the space bar's Online) shrink
 // to what the rest of the bar leaves (fitLeft), then its right zone folds into its "..." (foldCount: in the top bar only
@@ -830,6 +855,9 @@ function fitBar(bar) {
   } else {
     el.classList.add('nav-measuring');
     if (width > 0 && shownEl(el)) {
+      const gap = px(cs.columnGap);
+      // A right tool that can give way (the top bar's favorites) shrinks first, to what the rest leaves it (fitRight).
+      fitRight(bar, { width, gap, more: fold.more });
       // What may fold: the right zone's tools of this bar, in drawing order; in the top bar only the Workspace's.
       const list = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'right' && els.has(t.id) && (bar === 'secondary' || t.workspace));
       const inOrder = [...right.children].map((c) => c.dataset && c.dataset.navTool).filter(Boolean).map((id) => tools.get(id)).filter((t) => t && list.includes(t));
@@ -837,9 +865,8 @@ function fitBar(bar) {
       const r = naturalWidth(right, fold.more);
       const stepWidths = steps.map((s) => s.reduce((sum, id) => sum + els.get(id).getBoundingClientRect().width + r.gap, 0));
       const moreWidth = px(view.getComputedStyle(fold.more).width) + r.gap;
-      // A left tool that can give way (`fit`: the chip, the favorites, Online) is told what it may take, and gives it
+      // A left tool that can give way (`fit`: the chip, Online) is told what it may take, and gives it
       // before anything here folds (fitLeft).
-      const gap = px(cs.columnGap);
       fitLeft(bar, { width, gap, right: r.w });
       // The left zone as it is now (its box, not its negative margin), rounded up: a cut is counted in whole pixels.
       const leftWidth = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;

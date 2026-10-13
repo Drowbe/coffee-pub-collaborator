@@ -455,96 +455,107 @@ test('Online gets the width the rest of the left zone and the right zone leave, 
   assert.match(src, /scheduleFit\(bar\); \/\/ the fit after the pick says where the keyboard goes/, 'a pick from either "..." fits its own bar');
 });
 
-test('the Layout panel (plan-layout-menu.md): Show, rewritten on every change, then Arrange with Dock all, Clean up, the snap switch and the grid size; none of them in the space bar', () => {
+test('the Layout menu (plan-layout-menu.md; Thomas, 2026-10-13): the page\'s shared menu under an icon button beside Set up, with Show as switches that keep it open, Arrange as Panel Mode and Window Mode, Snap to grid and Clean up in Window Mode only, the note last; nothing of it in the bars', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const menuJs = fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  // Not registered with the bar any more, so the right zone and its fold no longer hold them.
-  for (const id of ['dock-all', 'snap-all', 'snap-size', 'clean-up']) assert.ok(!new RegExp(`nav\\.register\\([^\\n]*id: '${id}'`).test(space), `${id} is not a space bar tool`);
-  assert.ok(!/nav\.setActive\('snap-all'/.test(space), 'syncSnapBar() drives the panel\'s switch, not the bar');
-  // The Arrange section, in the panel, in order, with its own heading and labelled group; the ids kept.
-  const arrange = space.slice(space.indexOf("arrangeSection.innerHTML = `"), space.indexOf('</div>`;', space.indexOf("arrangeSection.innerHTML = `")));
-  assert.match(arrange, /<div class="nav-menu-heading module-chooser-heading" id="modules-menu-arrange">Arrange<\/div>\n\s*<div class="module-chooser-section" role="group" aria-labelledby="modules-menu-arrange">/);
-  const at = (needle) => arrange.indexOf(needle);
-  for (const needle of ['id="dock-all"', 'id="clean-up"', 'id="snap-all"', 'id="snap-size"']) assert.ok(at(needle) > 0, `${needle} is in Arrange`);
-  assert.ok(at('id="dock-all"') < at('id="clean-up"') && at('id="clean-up"') < at('id="snap-all"') && at('id="snap-all"') < at('id="snap-size"'), 'Dock all, Clean up, the snap switch, then the grid size');
-  assert.match(arrange, /<input type="checkbox" class="switch" role="switch" id="snap-all">/, 'the snap switch is a real switch');
-  assert.match(arrange, /<label class="module-chooser-range" id="snap-size-row" hidden><span class="switch-name">Grid size<\/span><input type="range" id="snap-size"><\/label>/, 'the grid size is labelled, hidden until snap is on');
-  assert.match(space, /moduleChooser\.querySelector\('#modules-menu'\)\.appendChild\(arrangeSection\);/, 'Arrange is inside the panel');
-  // syncSnapBar() runs the switch and shows the slider only while snap is on; the controls call the canvas.
-  const sync = space.slice(space.indexOf('function syncSnapBar()'), space.indexOf('\nsyncSnapBar();\n', space.indexOf('function syncSnapBar()')));
-  assert.match(sync, /snapAllSwitch\.checked = on;/);
-  assert.match(sync, /querySelector\('#snap-size-row'\)\.hidden = !on;/);
-  assert.match(sync, /querySelector\('#dock-all'\)\.addEventListener\('click', \(\) => \{ canvas\.dockAll\(\); syncSnapBar\(\); \}\);/);
-  assert.match(sync, /querySelector\('#clean-up'\)\.addEventListener\('click', \(\) => \{ canvas\.cleanUp\(\); \}\);/);
-  assert.match(sync, /snapAllSwitch\.addEventListener\('change', \(\) => \{ canvas\.snapAll\(snapAllSwitch\.checked\); syncSnapBar\(\); \}\);/);
-  assert.match(sync, /wireSwitchList\(arrangeSection\);/, 'Enter flips the snap switch');
-  // update() rewrites only the Show section; Arrange is kept, put back after a phone's tabs, and not drawn on a narrow canvas.
-  const update = canvasJs.slice(canvasJs.indexOf('  function update() {'), canvasJs.indexOf('  function bindDoc(doc) {'));
-  assert.ok(!/menu\.innerHTML = (?!'')/.test(update), 'update() never rewrites the whole panel on a wide canvas');
-  assert.match(update, /if \(arrangeEl\.parentNode !== menu\) menu\.appendChild\(arrangeEl\);\n\s*arrangeEl\.hidden = isNarrow\(\);/);
-  assert.match(update, /wireSwitchList\(show\);/, 'Up and Down move between the Show switches only');
-  assert.match(canvasJs, /const arrangeEl = menu \? menu\.querySelector\('\.module-chooser-arrange'\) : null;/);
-  // Escape anywhere in the panel closes it and gives the keyboard back to the button.
-  assert.match(canvasJs, /menu\?\.addEventListener\('keydown', \(event\) => \{\n\s*if \(event\.key !== 'Escape' \|\| inline\(\) \|\| menu\.hidden\) return;\n\s*event\.stopPropagation\(\);\n\s*setMenuOpen\(false, \{ focus: true \}\);/);
-  // The 560 px rule no longer names them.
-  const narrow = css.slice(css.indexOf('@media (max-width: 560px) {\n  .subnav #fullscreen-toggle'));
-  assert.ok(!/#dock-all|#snap-all|#snap-size/.test(narrow.slice(0, narrow.indexOf('}'))), 'the 560 px rule hides none of the Arrange controls');
+  // Not registered with the bars: the modes, the snap switch and Clean up are the menu's.
+  for (const id of ['dock-all', 'snap-all', 'snap-size', 'clean-up']) assert.ok(!new RegExp(`nav\\.register\\([^\\n]*id: '${id}'`).test(space), `${id} is not a bar tool`);
+  // The button: a nav tool in Set up's group, right after it, an icon alone (no label, no caret), the same look as Set up
+  // (the registry draws both as icon-link buttons); a menu button for a screen reader; never folds; not on a phone.
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, order: 4, fold: false, icon: 'object-group', label: verb\('layout'\), visible: \(\) => !phoneWidth\(\) && !settingUp, onClick: \(event\) => canvas\.toggleMenu\(event\.currentTarget\), workspace: 'only', place: 'own', id: 'modules-toggle' \}\);/);
+  assert.match(space, /nav\.elementOf\('modules-toggle'\)\?\.setAttribute\('aria-haspopup', 'menu'\);/);
+  assert.ok(!/labelled: true[^\n]*id: 'modules-toggle'|id: 'modules-toggle'[^\n]*labelled: true/.test(space), 'an icon alone, as Set up is');
+  assert.ok(!/module-chooser-toggle|module-chooser-label|fa-caret-down[^\n]*modules-toggle/.test(space), 'the old button with its label and caret is gone');
+  // The menu is the shared one (host-menu.js), drawn from the canvas's items: Show, then Arrange, then the page's
+  // (the Layouts section), then the note.
+  assert.match(canvasJs, /import \{ openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu \} from '\/host-menu\.js';/);
+  assert.match(canvasJs, /openHostMenu\(trigger, layoutMenuItems\);/);
+  const items = canvasJs.slice(canvasJs.indexOf('  function layoutMenuItems() {'), canvasJs.indexOf('  let menuTrigger = null;'));
+  assert.ok(items.indexOf("{ heading: 'Show' }") < items.indexOf("{ heading: 'Arrange' }") && items.indexOf("{ heading: 'Arrange' }") < items.indexOf('const extra = typeof menuItems') && items.indexOf('const extra') < items.indexOf('if (noteEl) items.push({ element: noteEl });'), 'Show, Arrange, the page\'s entries, the note');
+  // Show: a switch per module (toggle items, the shared switch look), on while the module is shown, flipping it.
+  assert.match(items, /items\.push\(\{ toggle: true, checked: shown\(m\.id\), icon: m\.icon, tint: colorOf\(m\.id\), label: m\.name, badge: unreadOf\(m\.id\), onPick: \(\) => flipShown\(m\.id\) \}\);/);
+  // Arrange (not on a narrow canvas): Panel Mode and Window Mode as a set (radio items, the chosen one checked, the
+  // menu kept open), then in Window Mode only Snap to grid (a switch), the grid's size while it is on, and Clean up.
+  assert.match(items, /if \(!isNarrow\(\)\) \{\n\s*const windowMode = arrangeMode\(\) === 'window';/);
+  assert.match(items, /\{ radio: true, checked: !windowMode, keepOpen: true, icon: 'fa-solid fa-table-columns', label: 'Panel Mode', onPick: \(\) => setArrangeMode\('panel'\) \}/);
+  assert.match(items, /\{ radio: true, checked: windowMode, keepOpen: true, icon: 'window-restore', label: 'Window Mode', onPick: \(\) => setArrangeMode\('window'\) \}/);
+  const windowOnly = items.slice(items.indexOf('if (windowMode) {'), items.indexOf('const extra = typeof menuItems'));
+  assert.match(windowOnly, /\{ toggle: true, checked: snapAllOn\(\), icon: 'border-all', label: 'Snap to grid', onPick: \(\) => setSnapAll\(!snapAllOn\(\)\) \}/);
+  assert.match(windowOnly, /if \(snapAllOn\(\)\) \{[\s\S]*?items\.push\(\{ element: snapSizeRow \}\);/);
+  assert.match(windowOnly, /\{ icon: 'fa-solid fa-broom', label: 'Clean up', onPick: \(\) => cleanUp\(\) \}/);
+  assert.ok(!/Dock all|Snap to a grid/.test(items), 'Dock all is Panel Mode now, Snap to a grid reads Snap to grid');
+  // The modes: remembered per person per space (__mode; Panel Mode where nothing is stored), Panel Mode docks everything
+  // (dockAll), Window Mode floats what can float, new modules follow the mode, a loaded layout sets it.
+  assert.match(canvasJs, /const arrangeMode = \(\) => \(saved\.__mode === 'window' \? 'window' : 'panel'\);/);
+  const setMode = canvasJs.slice(canvasJs.indexOf('  function setArrangeMode(mode) {'), canvasJs.indexOf('  function dockAll() {'));
+  assert.match(setMode, /saved\.__mode = want;\n\s*persist\(\);\n\s*if \(want === 'panel'\) \{ dockAll\(\); return; \}/);
+  assert.match(setMode, /for \(const p of columns\) setMode\(p\.id, 'float'\);/);
+  assert.match(setMode, /tidyBoxes\(live\.map/, 'a module with no place of its own is tidied around the rest');
+  assert.match(canvasJs, /if \(arrangeMode\(\) === 'window'\) return supports\(p, 'float'\) \? 'float' : 'dock';/, 'preferredMode follows the mode');
+  assert.match(canvasJs, /if \(plan\.modules\.length\) saved\.__mode = plan\.modules\.every\(\(want\) => want\.mode === 'float'\) \? 'window' : 'panel';/, 'loadLayout sets the mode from the layout');
+  // Snap to grid moves nothing between docked and floating (the mode does that): on, every floating module to its
+  // nearest free cells; off, free again.
+  const snapAll = canvasJs.slice(canvasJs.indexOf('  function setSnapAll(on) {'), canvasJs.indexOf('  // --- the arrange mode'));
+  assert.ok(!/setMode\(/.test(snapAll), 'setSnapAll() never docks or floats a module');
+  assert.match(snapAll, /applySnapLayout\(mods\);/);
+  // host-menu.js: the item kinds the Layout menu needs, in the one shared component.
+  for (const needle of ['item.toggle', 'item.radio', 'item.keepOpen', 'item.heading', 'item.element', 'item.more', "'menuitemcheckbox'", "'menuitemradio'", 'export function refreshHostMenu()', 'export function hostMenuOpen(trigger)']) assert.ok(menuJs.includes(needle), `host-menu.js has ${needle}`);
+  assert.match(menuJs, /if \(item\.keepOpen \|\| item\.toggle\) \{/, 'a switch or a keepOpen item leaves the menu open and draws it again');
+  // The switch look is the Show list's own (input.switch), in the menu's ink.
+  assert.match(css, /\.host-menu-switch \{[\s\S]*?radial-gradient\(circle at 6px 50%, color-mix\(in srgb, var\(--switch-ink\) 70%, transparent\) 4px, transparent 4\.5px\)/);
+  assert.match(css, /\.host-menu-item\[aria-checked="true"\] \.host-menu-switch \{[\s\S]*?var\(--accent\);/);
+  assert.match(css, /\.host-menu \{\n\s*--switch-ink: var\(--text\);/);
+  // The old panel is gone: no section rules, no hand-rolled list under the button.
+  for (const cls of ['.module-chooser-arrange', '.module-chooser-show', '.module-chooser-section', '.module-chooser-action', '.module-chooser-layouts', '.module-chooser-toggle']) assert.ok(!css.includes(cls), `${cls} is gone from the stylesheet`);
+  assert.ok(!/setMenuOpen|positionMenu/.test(canvasJs), 'canvas.js draws no menu of its own');
+  // The note: the page's element, the menu's last row, still role="status" (check-canvas holds the rest).
+  assert.match(space, /noteEl: menuNote,/);
+  assert.match(space, /menuItems: \(\) => layoutMenuItems\(\),/);
 });
 
-test('the Layout panel\'s Layouts section (plan-saved-layouts.md, step 3): after Arrange, its own ids, kept by canvas.js and never rewritten by update(), hidden on a narrow canvas; rows, a ... through openHostMenu(), the Save form and its keys', () => {
+test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the shared menu): entries that load and keep the menu open, a ... with Favorite, Make default, Replace, Rename and Delete, Save this layout in a small sheet; read again as the menu opens; hidden on a narrow canvas', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  // The section: its id, a labelled group, the heading's id, in the panel after Arrange.
-  assert.match(space, /layoutsSection\.id = 'modules-menu-layouts';/);
-  assert.match(space, /layoutsSection\.setAttribute\('role', 'group'\);\nlayoutsSection\.setAttribute\('aria-labelledby', 'modules-menu-layouts-heading'\);/);
-  assert.match(space, /<div class="nav-menu-heading module-chooser-heading" id="modules-menu-layouts-heading">Layouts<\/div>/);
-  const arrangeAt = space.indexOf("moduleChooser.querySelector('#modules-menu').appendChild(arrangeSection);");
-  const layoutsAt = space.indexOf("moduleChooser.querySelector('#modules-menu').appendChild(layoutsSection);");
-  assert.ok(arrangeAt > 0 && layoutsAt > arrangeAt, 'Layouts is put in the panel after Arrange');
-  // The form: Name, the share switch (a real switch, its words from the space word), Save and Cancel; Save this layout.
-  const markup = space.slice(space.indexOf('layoutsSection.innerHTML = `'), layoutsAt);
-  for (const needle of ['id="layout-rows"', '<span>Save this layout</span>', 'id="layout-form"', '<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="switch" role="switch" id="layout-shared">', 'type="submit">Save</button>', 'id="layout-cancel">Cancel</button>']) {
-    assert.ok(markup.includes(needle), `the section has ${needle}`);
-  }
-  assert.match(space, /querySelector\('#layout-shared-label'\)\.textContent = `For everyone in this \$\{word\('space'\)\}`;/, 'the switch names the space by the environment\'s word');
-  // canvas.js keeps it in the panel, last, and hides it on a narrow canvas (and while space.js has nothing to show);
-  // update() never writes into it.
-  assert.match(canvasJs, /const layoutsEl = menu \? menu\.querySelector\('\.module-chooser-layouts'\) : null;/);
-  const update = canvasJs.slice(canvasJs.indexOf('  function update() {'), canvasJs.indexOf('  function bindDoc(doc) {'));
-  assert.match(update, /if \(el !== arrangeEl && el !== layoutsEl\) el\.remove\(\);/, 'the Show section\'s first build leaves Layouts alone');
-  assert.match(update, /layoutsEl\.hidden = isNarrow\(\) \|\| layoutsEl\.dataset\.empty === 'true';/, 'hidden on a narrow canvas');
-  assert.ok(!/layoutsEl\.innerHTML|layoutsEl\.replaceChildren/.test(update), 'update() never rewrites Layouts');
-  assert.match(space, /layoutsSection\.hidden = empty \|\| canvas\.isNarrow\(\);/, 'space.js hides it on a narrow canvas too');
-  // Read again as the panel opens (canvas.js's onMenu), and after each change.
-  assert.match(canvasJs, /onMenu\?\.\(open\);/);
-  assert.match(space, /onMenu: \(open\) => \{ if \(open\) refreshLayouts\(\); else closeLayoutForm\(\); \},/);
-  assert.match(space, /`\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts/);
-  // Rows: shared first under Shared, then your own; a press loads; the ... only on what you may change, named for the layout,
-  // the vertical ellipsis, through openHostMenu() with Replace with this layout, Rename and Delete (confirmed in the menu).
-  const render = space.slice(space.indexOf('function renderLayouts('), space.indexOf('function closeLayoutForm('));
-  assert.ok(render.indexOf('<div class="layout-group-label">Shared</div>') < render.indexOf('mine.map('), 'Shared first, then your own');
-  assert.match(render, /No saved layouts yet\./);
+  const items = space.slice(space.indexOf('function layoutMenuItems() {'), space.indexOf('function layoutRowItems(layoutId) {'));
+  // Nothing where there is nothing to load or save, or on a narrow canvas; shared first, then your own; Default marked;
+  // a favorite's heart; a press loads it and keeps the menu open; the ... for those who may do something with it.
+  assert.match(items, /const canSave = Boolean\(layoutList\.spaceId\) && !guestToken;/);
+  assert.match(items, /if \(empty \|\| canvas\.isNarrow\(\)\) return \[\];/);
+  assert.match(items, /const items = \[\{ heading: 'Layouts' \}\];\n\s*for \(const l of shared\) items\.push\(entry\(l, true\)\);\n\s*for \(const l of mine\) items\.push\(entry\(l, false\)\);/);
+  assert.match(items, /tag: l\.id === layoutList\.defaultLayout \? 'Default' : undefined,/);
+  assert.match(items, /mark: isFavorite\(l\.id\) \? 'heart' : undefined,/);
+  assert.match(items, /keepOpen: true,\n\s*onPick: \(\) => \{ canvas\.loadLayout\(l\); \},/);
+  assert.match(items, /more: mayFavorite\(\) \|\| mayChangeLayout\(isShared\) \|\| maySetDefault\(isShared\) \? \(\) => layoutRowItems\(l\.id\) : undefined,/);
+  assert.match(items, /No saved layouts yet\./);
+  assert.match(items, /if \(canSave\) items\.push\(\{ icon: 'plus', label: 'Save this layout', onPick: \(\) => openSaveLayout\(\) \}\);/);
   assert.match(space, /const mayChangeLayout = \(shared\) => !guestToken && \(!shared \|\| layoutList\.canShare\);/, 'a guest changes nothing; shared ones only with the right');
-  assert.match(space, /aria-label="More for \$\{escapeHtml\(l\.name\)\}"[^\n]*fa-ellipsis-vertical/);
-  assert.match(space, /canvas\.loadLayout\(layout\);/);
-  const menuFn = space.slice(space.indexOf('function openLayoutMenu('), space.indexOf('async function replaceLayout('));
-  assert.match(menuFn, /openHostMenu\(trigger, \[/);
+  // The ...: Replace with this layout, Rename, Delete (confirmed in the menu's own confirm row, under the Layout button).
+  const menuFn = space.slice(space.indexOf('function layoutRowItems(layoutId) {'), space.indexOf('async function setFavorite('));
   for (const label of ['Replace with this layout', 'Rename', 'Delete']) assert.ok(menuFn.includes(`label: '${label}'`), `the ... offers ${label}`);
-  assert.match(menuFn, /openConfirmMenu\(trigger, \{\n\s*label: 'Delete', confirm: `Delete \$\{layout\.name\}\?`, armed: true/);
+  assert.match(menuFn, /openConfirmMenu\(trigger\(\), \{\n\s*label: 'Delete', confirm: `Delete \$\{layout\.name\}\?`, armed: true/);
   assert.ok(!/host\.menu\.show/.test(menuFn), 'the host\'s own menu, not a module\'s');
-  // A guest never saves; a taken name offers Replace it; the server's refusals are shown as it says them.
-  assert.match(space, /const canSave = Boolean\(layoutList\.spaceId\) && !guestToken;/);
-  assert.match(space, /showLayoutError\(layoutFormError, err\.message, err\.status === 409 \? err\.id : null\);/);
-  assert.match(space, /b\.textContent = 'Replace it';/);
-  // Keys: Escape closes a form, not the panel; Up and Down move between the rows.
-  const keys = space.slice(space.indexOf("layoutsSection.addEventListener('keydown'"), space.indexOf("layoutRows.addEventListener('click'"));
-  assert.match(keys, /event\.key === 'Escape' && event\.target\.closest\('\.layout-form, \.layout-rename'\)\) \{\n\s*event\.stopPropagation\(\);/);
-  assert.match(keys, /\{ ArrowDown: at \+ 1, ArrowUp: at - 1, Home: 0, End: all\.length - 1 \}/);
-  // The look: Arrange's, from theme tokens.
-  assert.match(css, /\.module-chooser-layouts \{[^}]*border-top: 1px solid var\(--border\);/);
-  assert.match(css, /\.module-chooser-layouts\[hidden\]/);
+  // Read again as the menu opens (canvas.js's onMenu), drawn again while it is open, and after each change.
+  assert.match(space, /onMenu: \(open\) => \{ if \(open\) refreshLayouts\(\); \},/);
+  assert.match(space, /function renderLayouts\(\) \{\n\s*renderFavorites\(\);[^\n]*\n\s*canvas\.refreshMenu\(\);/);
+  assert.match(space, /`\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts/);
+  // The sheet: a <dialog> with Name, the share switch (a real switch, its words from the space word), the refusal,
+  // Save and Cancel; Save this layout and Rename open it; a taken name offers Replace it; the server's refusals are
+  // shown as it says them; a guest never saves.
+  const sheet = space.slice(space.indexOf('function openLayoutSheet('), space.indexOf('function openSaveLayout() {'));
+  assert.match(sheet, /dlg\.className = 'layout-sheet';/);
+  for (const needle of ['<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="switch" role="switch" id="layout-shared">', 'type="submit">Save</button>', 'id="layout-cancel">Cancel</button>']) assert.ok(sheet.includes(needle), `the sheet has ${needle}`);
+  assert.match(sheet, /querySelector\('#layout-shared-label'\)\.textContent = `For everyone in this \$\{word\('space'\)\}`;/);
+  assert.match(sheet, /b\.textContent = 'Replace it';/);
+  assert.match(sheet, /dlg\.showModal\(\);/);
+  assert.match(space, /sheet\.error\(err\.message, err\.status === 409 \? err\.id : null\);/);
+  assert.match(space, /title: 'Save this layout',\n\s*share: layoutList\.canShare \? false : null,/);
+  assert.match(space, /title: 'Rename',\n\s*name: layout\.name,/);
+  // The look: the menu's own for the entries; the sheet from the tokens.
+  assert.match(css, /\.layout-sheet \{[^}]*background: var\(--bg-section\);/);
+  assert.match(css, /\.host-menu-tag \{/);
+  assert.match(css, /\.host-menu-mark \{[^}]*color: var\(--accent\);/);
   // An aside has no layouts.
   assert.match(space, /const layoutSpaceId = \(\) => \(currentSpace && !currentSpace\.isAside \? currentSpace\.id : null\);/);
 });
@@ -557,9 +568,9 @@ test('the default layout (plan-saved-layouts.md, step 4): Make default in a shar
   // Only on a shared row, only for those the server says may set it (canSetDefault), never a guest.
   assert.match(space, /const maySetDefault = \(shared\) => !guestToken && shared && layoutList\.canSetDefault;/);
   assert.match(space, /canSetDefault: Boolean\(got\.canSetDefault\)/, 'read from GET .../layouts');
-  assert.match(space, /\$\{mayFavorite\(\) \|\| mayChangeLayout\(shared\) \|\| maySetDefault\(shared\) \? `<button/, 'the ... shows for one who may only set the default (and for anyone signed in, to favorite)');
-  assert.match(space, /\$\{l\.id === layoutList\.defaultLayout \? '<span class="layout-default">Default<\/span>' : ''\}/, 'the default row is marked Default');
-  const menuFn = space.slice(space.indexOf('function openLayoutMenu('), space.indexOf('async function setDefaultLayout('));
+  assert.match(space, /more: mayFavorite\(\) \|\| mayChangeLayout\(isShared\) \|\| maySetDefault\(isShared\) \? \(\) => layoutRowItems\(l\.id\) : undefined,/, 'the ... shows for one who may only set the default (and for anyone signed in, to favorite)');
+  assert.match(space, /tag: l\.id === layoutList\.defaultLayout \? 'Default' : undefined,/, 'the default entry is marked Default');
+  const menuFn = space.slice(space.indexOf('function layoutRowItems(layoutId) {'), space.indexOf('async function setDefaultLayout('));
   assert.match(menuFn, /if \(maySetDefault\(shared\)\) \{/);
   assert.match(menuFn, /layoutList\.defaultLayout === layoutId\n\s*\? \{ icon: 'star', regular: true, label: 'Stop using as default', onPick: \(\) => setDefaultLayout\(null, layout\) \}\n\s*: \{ icon: 'star', label: 'Make default', onPick: \(\) => setDefaultLayout\(layoutId, layout\) \}\);/);
   const setFn = space.slice(space.indexOf('async function setDefaultLayout('), space.indexOf('async function replaceLayout('));
@@ -593,52 +604,53 @@ test('favorite layouts, step 2 (plan-favorite-layouts.md): a ... on every row fo
   assert.equal((space.match(/defaultLayout: null, favorites: \[\], canShare: false, canSetDefault: false \};/g) || []).length, 3, 'every empty list has no favorites');
   // The row: the ... for anyone who may favorite; a favorite's heart after the name, hidden from a screen reader, which
   // hears ", favorite" in the row's name instead.
-  const row = space.slice(space.indexOf('const layoutRowHtml = '), space.indexOf('function renderLayouts('));
-  assert.match(row, /\$\{mayFavorite\(\) \|\| mayChangeLayout\(shared\) \|\| maySetDefault\(shared\) \? `<button class="msg-btn layout-more"/);
-  assert.match(row, /\$\{isFavorite\(l\.id\) \? '<i class="fa-solid fa-heart fa-fw layout-favorite-mark" aria-hidden="true"><\/i><span class="visually-hidden">, favorite<\/span>' : ''\}/);
-  assert.ok(row.indexOf('layout-favorite-mark') > row.indexOf('class="layout-name"') && row.indexOf('layout-favorite-mark') < row.indexOf('layout-default'), 'after the name, before Default');
-  assert.match(css, /\.layout-favorite-mark \{[^}]*color: var\(--accent\);/);
+  const row = space.slice(space.indexOf('function layoutMenuItems() {'), space.indexOf('function layoutRowItems(layoutId) {'));
+  assert.match(row, /more: mayFavorite\(\) \|\| mayChangeLayout\(isShared\) \|\| maySetDefault\(isShared\) \? \(\) => layoutRowItems\(l\.id\) : undefined,/);
+  assert.match(row, /mark: isFavorite\(l\.id\) \? 'heart' : undefined,/);
+  assert.ok(row.indexOf("mark: isFavorite") > row.indexOf('label: l.name') && row.indexOf("mark: isFavorite") < row.indexOf('tag: l.id'), 'after the name, before Default');
+  assert.match(css, /\.host-menu-mark \{[^}]*color: var\(--accent\);/);
   // The menu: Favorite (outline heart) or Unfavorite (filled heart) first, a divider before Make default.
-  const menuFn = space.slice(space.indexOf('function openLayoutMenu('), space.indexOf('async function setFavorite('));
+  const menuFn = space.slice(space.indexOf('function layoutRowItems(layoutId) {'), space.indexOf('async function setFavorite('));
   assert.match(menuFn, /if \(mayFavorite\(\)\) \{\n\s*entries\.push\(isFavorite\(layoutId\)\n\s*\? \{ icon: 'heart', label: 'Unfavorite', onPick: \(\) => setFavorite\(layout, false\) \}\n\s*: favoriteLayouts\(\)\.length >= FAVORITE_LIMIT\n\s*\? \{ icon: 'heart', regular: true, label: 'Favorite', disabled: true, hint: favoriteLimitText\(\) \}\n\s*: \{ icon: 'heart', regular: true, label: 'Favorite', onPick: \(\) => setFavorite\(layout, true\) \}\);/, 'Unfavorite always; Favorite off, with the limit as its hint, at 3');
   // The limit (decision 12, Thomas 2026-10-04): 3, in the server's own words (its 409 says the same).
   assert.match(space, /const FAVORITE_LIMIT = 3;/);
   assert.match(space, /const favoriteLimitText = \(\) => `You can have \$\{FAVORITE_LIMIT\} favorite layouts\. Unfavorite one first\.`;/);
   assert.ok(menuFn.indexOf("label: 'Favorite'") < menuFn.indexOf("label: 'Make default'"), 'Favorite comes first');
   assert.match(menuFn, /if \(maySetDefault\(shared\)\) \{\n\s*if \(entries\.length\) entries\.push\(\{ divider: true \}\);/, 'a divider after it when Make default follows');
-  assert.match(menuFn, /if \(entries\.length\) entries\.push\(\{ divider: true \}\);\n\s*openHostMenu\(trigger, \[/, 'and when Replace, Rename and Delete follow');
-  assert.match(menuFn, /if \(!mayChangeLayout\(shared\)\) \{ openHostMenu\(trigger, entries\); return; \}/, "a member's ... on a shared layout holds Favorite only");
+  assert.match(menuFn, /if \(entries\.length\) entries\.push\(\{ divider: true \}\);\n\s*return \[/, 'and when Replace, Rename and Delete follow');
+  assert.match(menuFn, /if \(!mayChangeLayout\(shared\)\) return entries;/, "a member's ... on a shared layout holds Favorite only");
   // The request, its words, the list again with the keyboard back on the row; a refusal reads the list again.
   const setFn = space.slice(space.indexOf('async function setFavorite('), space.indexOf('async function setDefaultLayout('));
   assert.match(setFn, /layoutRequest\(on \? 'PUT' : 'DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts\/\$\{encodeURIComponent\(layout\.id\)\}\/favorite`\)/);
   assert.match(setFn, /layoutNote\(on \? `\$\{layout\.name\} is a favorite\.` : `\$\{layout\.name\} is no longer a favorite\.`\);/);
-  assert.match(setFn, /renderLayouts\(\{ focus: row \}\);/);
-  assert.match(setFn, /await refreshLayouts\(\{ focus: err\.status === 404 \? '\.layout-load' : row \}\);/, 'a layout gone (404): the list again');
+  assert.match(setFn, /renderLayouts\(\);/);
+  assert.match(setFn, /await refreshLayouts\(\);/, 'a layout gone (404): the list again');
   assert.ok(!/host\.menu\.show/.test(menuFn), 'the host\'s own menu');
 });
 
-test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layout-favorites after Layout, its buttons, loading, the note, giving way first, and where it is hidden', () => {
+test('favorite layouts, step 3 (plan-favorite-layouts.md): the top bar\'s layout-favorites right after Layout, its buttons, loading, the note, giving way first, and where it is hidden', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
-  // Registered in the left zone, Layout's group, right after it (order 2); never folds; gives way before Online.
-  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' \}\);/);
+  // Registered in the right zone among the bar's own (place 'own'), Set up's group, right after Layout (order 5);
+  // never folds; gives way before the chip's words do (fitRight).
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, id: 'layout-favorites', order: 5, fold: false, place: 'own', icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' \}\);/);
   assert.ok(!/id: 'phase-chip',[^\n]*fitFirst/.test(space), 'the chip is not fitted first: its words are the first thing the top bar gives up (Thomas, 2026-10-13), before the favorites and before anything folds');
   const tools = [
-    { id: 'module-chooser', group: 'modules', order: 1, seq: 1 },
-    { id: 'join-call', group: 'call', groupOrder: 1.5, order: 1, seq: 2 },
-    { id: 'who-here', group: 'people', groupOrder: 2, order: 1, seq: 3 },
-    { id: 'layout-favorites', group: 'modules', order: 2, seq: 9 },
+    { id: 'setup', group: 'setup', groupOrder: 85, order: 1, seq: 1 },
+    { id: 'notifications-bell', group: 'notices', groupOrder: 90, order: 90, seq: 2 },
+    { id: 'modules-toggle', group: 'setup', order: 4, seq: 3 },
+    { id: 'layout-favorites', group: 'setup', order: 5, seq: 9 },
   ];
-  assert.deepEqual(arrange(tools).flat().map((t) => t.id), ['module-chooser', 'layout-favorites', 'join-call', 'who-here'], 'Layout, the favorites, Join, Online');
-  assert.equal(arrange(tools)[0].length, 2, 'one group with Layout: no divider between them');
+  assert.deepEqual(arrange(tools).flat().map((t) => t.id), ['setup', 'modules-toggle', 'layout-favorites', 'notifications-bell'], 'Set up, Layout, the favorites, the bell');
+  assert.equal(arrange(tools)[0].length, 3, 'one group with Set up and Layout: no divider between them');
   // The group: its id, a labelled group, the note under it (seen; heard through #layout-announce, so hidden from a reader).
   assert.match(space, /layoutFavorites\.id = 'layout-favorites';/);
   assert.match(space, /layoutFavorites\.setAttribute\('role', 'group'\);\nlayoutFavorites\.setAttribute\('aria-label', 'Favorite layouts'\);/);
   assert.match(space, /favoritesNote\.id = 'layout-favorites-note';/);
   assert.match(space, /favoritesNote\.setAttribute\('aria-hidden', 'true'\);/);
   // Hidden for a guest, in an aside (no layoutSpaceId), with none, on a narrow canvas and at 640 px and below.
-  assert.match(space, /const favoritesWanted = \(\) => mayFavorite\(\) && Boolean\(layoutList\.spaceId\) && layoutList\.spaceId === layoutSpaceId\(\)\n\s*&& favoriteLayouts\(\)\.length > 0 && !canvas\.isNarrow\(\) && !phoneWidth\(\);/);
+  assert.match(space, /const favoritesWanted = \(\) => mayFavorite\(\) && Boolean\(layoutList\.spaceId\) && layoutList\.spaceId === layoutSpaceId\(\)\n\s*&& favoriteLayouts\(\)\.length > 0 && !canvas\.isNarrow\(\) && !phoneWidth\(\) && !settingUp;/);
   assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.subnav #layout-favorites \{\n\s*display: none;/);
   assert.match(space, /new ResizeObserver\(\(\) => \{\n\s*const narrow = canvas\.isNarrow\(\);[\s\S]*?nav\.draw\(\);[\s\S]*?\}\)\.observe\(\$\('canvas'\)\);/, 'drawn again as the canvas crosses the narrow line (both bars: the favorites are in the top bar wider than a phone)');
   // One button per favorite, in the order favorited: a heart and the name; "Load <name>"; the full name for a reader.
@@ -647,15 +659,15 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layo
   assert.match(render, /b\.className = 'btn btn-small layout-favorite';\n\s*b\.dataset\.layoutFavorite = l\.id;\n\s*b\.title = `Load \$\{l\.name\}`;\n\s*b\.setAttribute\('aria-label', l\.name\);/);
   assert.match(render, /<i class="fa-solid fa-heart fa-fw" aria-hidden="true"><\/i><span class="layout-favorite-name">\$\{escapeHtml\(l\.name\)\}<\/span>/);
   assert.match(render, /nav\.draw\(\);/, 'both bars: the favorites are in the top bar wider than a phone');
-  assert.match(space, /renderFavorites\(\); \/\/ the space bar's favorites, from the same list/, 'drawn whenever the panel\'s list is');
+  assert.match(space, /renderFavorites\(\); \/\/ the top bar's favorites, from the same list/, 'drawn whenever the menu\'s list is');
   // About 16 characters, down to about 6.
   assert.match(space, /const FAVORITE_NAME_MOST = 16;/);
   assert.match(space, /const FAVORITE_NAME_LEAST = 6;/);
   assert.match(css, /\.layout-favorite-name \{[^}]*max-width: var\(--layout-favorite-name, 16ch\);[^}]*text-overflow: ellipsis;/);
   assert.match(css, /\.layout-favorites > \.layout-favorite-out \{\n\s*display: none;/);
   // A press loads it through canvas.loadLayout, the keyboard stays; its note goes under the group for 6 seconds.
-  const press = space.slice(space.indexOf("layoutFavorites.addEventListener('click'"), space.indexOf("nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites'"));
-  assert.match(press, /noteUnderFavorites = true;\n\s*try \{\n\s*canvas\.loadLayout\(layout\);\n\s*\} finally \{\n\s*noteUnderFavorites = false;\n\s*\}\n\s*syncSnapBar\(\);\n\s*button\.focus\(\);/);
+  const press = space.slice(space.indexOf("layoutFavorites.addEventListener('click'"), space.indexOf("nav.register({ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, id: 'layout-favorites'"));
+  assert.match(press, /noteUnderFavorites = true;\n\s*try \{\n\s*canvas\.loadLayout\(layout\);\n\s*\} finally \{\n\s*noteUnderFavorites = false;\n\s*\}\n\s*button\.focus\(\);/);
   assert.match(space, /if \(noteUnderFavorites && t\) showFavoritesNote\(t\);/, 'layoutNote also puts it under the favorites (and #layout-announce as before)');
   assert.match(space, /favoritesNoteTimer = setTimeout\(\(\) => showFavoritesNote\(''\), 6000\);/);
   assert.match(css, /\.layout-favorites-note \{[^}]*background: var\(--bg-section\);/);
@@ -663,13 +675,14 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layo
   const fit = space.slice(space.indexOf('function fitFavorites('), space.indexOf("layoutFavorites.addEventListener('click'"));
   assert.match(fit, /nav\.labelsThatFit\(\{ avail: Math\.floor\(avail\) - 1, gap, items, least: FAVORITE_NAME_LEAST \* ch, most \}\)/);
   assert.match(fit, /b\.classList\.toggle\('layout-favorite-out', i >= count\)/);
-  assert.match(fit, /focused\.closest\('\.layout-favorite-out'\)\) moduleChooser\.querySelector\('#modules-toggle'\)\?\.focus\(\);/);
-  // nav-bar.js: a `fitFirst` tool (the favorites) is fitted first, with the others (the chip) at their least (fit(0)), so they give way before it.
-  const fitSec = src.slice(src.indexOf('function fitLeft('), src.indexOf('function fitBar('));
-  assert.match(fitSec, /fitting\.sort\(\(a, c\) => Number\(Boolean\(c\.fitFirst\)\) - Number\(Boolean\(a\.fitFirst\)\)\);/);
-  assert.match(fitSec, /if \(first\.length\) for \(const t of fitting\) \{ if \(!t\.fitFirst\) \{ try \{ t\.fit\(0\); \}/, 'the others at their least first');
-  assert.match(fitSec, /for \(const t of fitting\) fitOne\(t\);\n\s*for \(const t of first\) fitOne\(t\);/, 'then each in turn, then the first again to what the others took');
-  assert.ok(fitSec.indexOf('t.fit(0)') < fitSec.indexOf('for (const t of fitting) fitOne(t);') && src.indexOf('function fitLeft(') < src.indexOf('const leftWidth'));
+  assert.match(fit, /focused\.closest\('\.layout-favorite-out'\)\) nav\.elementOf\('modules-toggle'\)\?\.focus\(\);/);
+  // nav-bar.js: a right-zone tool with a fit (the favorites) is fitted first (fitRight), with the left zone's fitting
+  // tools (the chip) at their least (fit(0)), so they give way before it; then the left zone takes what is left.
+  const fitR = src.slice(src.indexOf('function fitRight('), src.indexOf('function fitBar('));
+  assert.match(fitR, /try \{ t\.fit\(0\); \} catch/, 'the left zone at its least first');
+  assert.match(fitR, /const rest = naturalWidth\(b\.zones\.right, \[els\.get\(t\.id\), more\]\);\n\s*try \{ t\.fit\(fitWidth\(\{ width, gap, left, right: rest\.w \+ \(rest\.n \? rest\.gap : 0\) \}\)\); \}/);
+  const fitB = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
+  assert.ok(fitB.indexOf('fitRight(bar, { width, gap, more: fold.more });') < fitB.indexOf('const r = naturalWidth(right, fold.more);') && fitB.indexOf('const r = naturalWidth(right, fold.more);') < fitB.indexOf('fitLeft(bar, { width, gap, right: r.w });'), 'the right zone shrinks, is measured, then the left zone fits to it');
   // labelsThatFit: names shorten first, then the last buttons leave; the first ones favorited stay.
   const items = [{ chrome: 30, label: 100 }, { chrome: 30, label: 100 }, { chrome: 30, label: 20 }];
   assert.deepEqual(labelsThatFit({ avail: 1000, gap: 4, items, least: 48, most: 128 }), { count: 3, cap: 128 }, 'all fit: nothing cut');
@@ -728,14 +741,15 @@ test('the space bar in two zones: Layout (the module chooser), then Online, on t
   assert.ok(!/subnav-middle|nav-middle/.test(space), 'the space bar\'s markup has no middle');
   assert.match(space, /<div class="nav-left subnav-left"><\/div>\n  <span class="nav-right subnav-tools"><\/span>/);
   assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1,/);
-  // The chooser reads Layout (the environment's layout verb) with its own icon (not the snap switch's border-all, the dock
-  // columns or the conference's view grid), and its panel opens with a Show heading.
-  assert.match(space, /id: 'module-chooser', order: 1, icon: 'object-group', label: verb\('layout'\),/);
-  assert.match(space, /module-chooser-toggle" id="modules-toggle"[^\n]*fa-object-group[^\n]*module-chooser-label/);
-  assert.ok(!/module-chooser-toggle[^\n]*(puzzle-piece|border-all)/.test(space), 'the chooser\'s icon is its own');
-  assert.match(space, /function nameModuleChooser\(\) \{\n  const name = verb\('layout'\);/);
+  // The chooser is the phone's tab bar, named by the module word; the Layout button (the environment's layout verb,
+  // its own icon: not the snap switch's border-all, the dock columns or the conference's view grid) is the top bar's,
+  // and its menu opens with a Show heading.
+  assert.match(space, /id: 'module-chooser', order: 1, fold: false, icon: 'object-group', label: word\('module', \{ many: true, cap: true \}\), element: moduleChooser, visible: \(\) => phoneWidth\(\), workspace: 'only' \}\);/);
+  assert.match(space, /icon: 'object-group', label: verb\('layout'\),[^\n]*id: 'modules-toggle'/);
+  assert.ok(!/id: 'modules-toggle'[^\n]*(puzzle-piece|border-all)|(puzzle-piece|border-all)[^\n]*id: 'modules-toggle'/.test(space), 'the Layout button\'s icon is its own');
+  assert.match(space, /function nameModuleChooser\(\) \{\n  moduleChooser\.querySelector\('#modules-menu'\)\.setAttribute\('aria-label', word\('module', \{ many: true, cap: true \}\)\);/);
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
-  assert.match(canvasJs, /show\.innerHTML = '<div class="nav-menu-heading module-chooser-heading" id="modules-menu-show">Show<\/div>'\n\s*\+ '<div class="module-chooser-section" role="group" aria-labelledby="modules-menu-show">'/);
+  assert.match(canvasJs, /const items = \[\{ heading: 'Show' \}\];/);
   assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false,[^\n]*fit: whoHere\.fit,/, 'Online after Modules, never folding, with fit');
   // In drawing order, Modules then Online, two groups (a divider between).
   const left = arrange([{ id: 'who-here', group: 'people', groupOrder: 2, order: 1, seq: 1 }, { id: 'module-chooser', group: 'modules', order: 1, seq: 2 }]);
@@ -778,7 +792,7 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label">Join<span class="join-call-more"> the call<\/span><\/span>';/);
   assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted \}\);/);
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /\n\.module-chooser-toggle,\n\.join-call \{/, 'the Layout button\'s size');
+  assert.match(css, /\n\.join-call \{/, 'its own size rule');
   assert.match(css, /\n\.join-call\[hidden\] \{\s*display: none;/, 'hidden means hidden, whatever its display');
   const own = [...css.matchAll(/([^{}]*\.join-call[^{}]*)\{([^{}]*)\}/g)].map((m) => m[2]).join('');
   assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(own), 'its rules use theme tokens only');
@@ -1025,17 +1039,21 @@ test('Leave in the switcher (plan-one-bar.md, step 5): the top bar draws it last
 test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace tools go where setWorkspace() puts them, sit nearest the middle, show on the Workspace view, fold into the top bar\'s "..."; the empty second row is not drawn', () => {
   const { wideZones, setWorkspace, get } = navApi;
   assert.equal(typeof setWorkspace, 'function');
-  // wideZones: in the top bar the Workspace tools are the last run of the left zone and the first of the right.
+  // wideZones: in the top bar the Workspace tools are the last run of the left zone and the first of the right; a
+  // Workspace tool with a `place` sits among the bar's own ('own': Layout and the favorites, in Set up's group) or
+  // in a last run after them ('end': Full screen and Pop out, right of your picture; Thomas, 2026-10-13).
   const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
   const byZone = {
-    left: [t('module-chooser', 'left', { group: 'modules', order: 1, workspace: 'only' }), t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('view-workspace', 'left', { group: 'views', groupOrder: 12, order: 1 }), t('phase-chip', 'left', { group: 'phase', groupOrder: 20, order: 1 }), t('layout-favorites', 'left', { group: 'modules', order: 2, workspace: 'only' })],
-    right: [t('setup', 'right', { group: 'setup', groupOrder: 85, order: 1 }), t('notifications-bell', 'right', { group: 'notices', groupOrder: 90, order: 90 }), t('fullscreen-toggle', 'right', { group: 'space', groupOrder: 1, order: 11, workspace: 'only' }), t('todo:mine', 'right', { group: 'todo:own', groupOrder: 500, order: 500, workspace: 'only' }), t('topbar-more', 'right', { group: 'more', groupOrder: 999, order: 998, workspace: 'every', more: 'primary' }), t('whoami-link', 'right', { group: 'you', groupOrder: 999, order: 999 }), t('recall-button', 'right', { group: 'space', groupOrder: 1, order: 51, workspace: 'every' })],
+    left: [t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('view-workspace', 'left', { group: 'views', groupOrder: 12, order: 1 }), t('phase-chip', 'left', { group: 'phase', groupOrder: 20, order: 1 })],
+    right: [t('setup', 'right', { group: 'setup', groupOrder: 85, order: 1 }), t('notifications-bell', 'right', { group: 'notices', groupOrder: 90, order: 90 }), t('fullscreen-toggle', 'right', { group: 'space', groupOrder: 1, order: 11, workspace: 'only', place: 'end' }), t('todo:mine', 'right', { group: 'todo:own', groupOrder: 500, order: 500, workspace: 'only' }), t('topbar-more', 'right', { group: 'more', groupOrder: 999, order: 998, workspace: 'every', more: 'primary' }), t('whoami-link', 'right', { group: 'you', groupOrder: 999, order: 999 }), t('recall-button', 'right', { group: 'space', groupOrder: 1, order: 51, workspace: 'every' }), t('modules-toggle', 'right', { group: 'setup', groupOrder: 85, order: 4, workspace: 'only', place: 'own' }), t('layout-favorites', 'right', { group: 'setup', groupOrder: 85, order: 5, workspace: 'only', place: 'own' }), t('popout', 'right', { group: 'space', groupOrder: 1, order: 12, workspace: 'only', place: 'end' })],
   };
   const w = wideZones(byZone);
-  assert.deepEqual(w.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'view-workspace', 'phase-chip'], ['module-chooser', 'layout-favorites']], 'the left zone: the bar\'s own, then Layout and the favorites');
-  assert.deepEqual(w.right.map((run) => run.map((x) => x.id)), [['fullscreen-toggle', 'todo:mine', 'topbar-more', 'recall-button'], ['setup', 'notifications-bell', 'whoami-link']], 'the right zone: the Workspace\'s tools and the "..." first, then Set up, the bell and you');
+  assert.deepEqual(w.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'view-workspace', 'phase-chip'], []], 'the left zone: the bar\'s own, then the Workspace\'s (none now)');
+  assert.deepEqual(w.right.map((run) => run.map((x) => x.id)), [['todo:mine', 'topbar-more', 'recall-button'], ['setup', 'notifications-bell', 'whoami-link', 'modules-toggle', 'layout-favorites'], ['fullscreen-toggle', 'popout']], 'the right zone: the Workspace\'s tools and the "..." first, then the bar\'s own with Layout and the favorites, then Full screen and Pop out');
   assert.deepEqual(w.bar, [], 'nothing in the phone\'s place');
-  assert.deepEqual(ids(arrange(w.right[0])), [['fullscreen-toggle', 'recall-button'], ['todo:mine'], ['topbar-more']], 'within the run: the space\'s group, a module\'s groups, then the "..."');
+  assert.deepEqual(ids(arrange(w.right[0])), [['recall-button'], ['todo:mine'], ['topbar-more']], 'within the run: the space\'s group, a module\'s groups, then the "..."');
+  assert.deepEqual(ids(arrange(w.right[1])), [['setup', 'modules-toggle', 'layout-favorites'], ['notifications-bell'], ['whoami-link']], 'the bar\'s own run: Set up, Layout and the favorites together, the bell, you');
+  assert.deepEqual(ids(arrange(w.right[2])), [['fullscreen-toggle', 'popout']], 'the last run: Full screen, then Pop out');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(src, /const wide = !fold && bar === 'primary';\n\s*const runs = fold \? phoneZones\(byZone\) : wide \? wideZones\(byZone\) : \{ left: \[byZone\.left\], right: \[byZone\.right\], bar: \[\] \};/, 'the top bar wider than a phone draws wideZones(); the space bar and the phone as before');
   assert.match(src, /flattenRuns\(list, doc, \{ divide: wide \}\)/, 'a divider between the two runs, in the top bar only');
@@ -1072,9 +1090,9 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   // in every view; Rejoin call only where the bar is the tab bar (the top bar's aside-rejoin is the other); the view and the
   // phone's width decide where they go and whether they show.
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  assert.match(space, /id: 'module-chooser', order: 1, icon: 'object-group', label: verb\('layout'\), element: moduleChooser, workspace: 'only' \}\);/);
-  assert.match(space, /id: 'fullscreen-toggle',[^\n]*phone: 'popout', workspace: 'only',/);
-  assert.match(space, /id: 'popout',[^\n]*phone: 'popout', workspace: 'only',/);
+  assert.match(space, /id: 'module-chooser', order: 1, fold: false, icon: 'object-group', label: word\('module', \{ many: true, cap: true \}\), element: moduleChooser, visible: \(\) => phoneWidth\(\), workspace: 'only' \}\);/);
+  assert.match(space, /id: 'fullscreen-toggle',[^\n]*phone: 'popout', workspace: 'only', place: 'end',/);
+  assert.match(space, /id: 'popout',[^\n]*phone: 'popout', workspace: 'only', place: 'end',/);
   assert.match(space, /id: 'recall-button', order: 51,[^\n]*labelled: true, workspace: 'every', visible: \(\) => recallWanted\(\),/);
   assert.match(space, /id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin',[^\n]*visible: \(\) => Boolean\(currentSpace && currentSpace\.isAside && currentSpace\.origin\) && phoneWidth\(\),/);
   assert.match(space, /const workspaceShown = \(\) => phoneWidth\(\) \|\| \(currentView === 'workspace' && !inAside\(\)\);\nnav\.setWorkspace\(\{ shown: workspaceShown \}\);/);
@@ -1091,7 +1109,7 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   assert.ok(css.indexOf('@media (min-width: 641px)') < css.indexOf('body.in-space .subnav:not(:has(> .nav-left'), 'wider than a phone only');
   assert.match(css, /\.subnav \.nav-folded,\n\.topbar > \.nav-right > \.nav-folded \{\n\s*display: none !important;/);
   assert.match(css, /\.topbar > \.nav-right > \.sdk-more \{\n\s*width: 30px;\n\s*height: 30px;/);
-  assert.match(css, /\.topbar:has\(> \.nav-left > \.module-chooser > \.module-chooser-list:not\(\[hidden\]\), > \.nav-left > \.layout-favorites > \.layout-favorites-note:not\(\[hidden\]\)\) > \.nav-left \{\n\s*overflow: visible;/);
+  assert.match(css, /\.topbar:has\(> \.nav-right > \.layout-favorites > \.layout-favorites-note:not\(\[hidden\]\)\) \{\n\s*z-index: var\(--z-menu\);/);
 });
 
 // One presence answer, as GET /api/presence gives it to `viewer` (decision 6, step 3). Bo, Cy and Di are in the

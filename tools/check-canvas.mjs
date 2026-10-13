@@ -381,13 +381,70 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const again = tidyCells(gg, [...got].map(([id, cell]) => ({ id, cell })));
     if (JSON.stringify([...again]) !== JSON.stringify([...got])) fail('public/snap-grid.js', `${label}: a second Clean up moved something: ${JSON.stringify([...again])}`);
   }
-  // canvas.js runs it from cleanUp(), floating modules only, in this window, snapped ones by the grid's resettle.
+  // canvas.js runs cleanUp() in Window Mode (Thomas, 2026-10-13): floating modules only, in this window, every one
+  // tiled to fill the Workspace by fillBoxes (whole cells with the grid on), remembered as a drag is.
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const clean = canvasJs.slice(canvasJs.indexOf('  function cleanUp() {'), canvasJs.indexOf('  // The grid\'s size, from the space bar\'s slider'));
   if (!/floaterOf\(p\) && floaterOf\(p\)\.ownerDocument === doc/.test(clean)) fail('public/canvas.js', 'cleanUp() must take only the floating modules in the canvas\'s window');
-  if (!/tidyCells\(g, snapped\.map\(\(p\) => \(\{ id: p\.id, cell: snapCell\(g, currentBox\(floaterOf\(p\)\)\) \}\)\)\)/.test(clean) || !/tidyBoxes\(free\.map/.test(clean)) fail('public/canvas.js', 'cleanUp() must place snapped modules by tidyCells, in their own cells, and free ones by tidyBoxes');
-  if (!/remember\(p\.id, \{ box: currentBox\(floater\), layout: 'user' \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() must remember the tidy places as a drag does');
+  if (!/fillBoxes\(mods\.map\(\(p\) => \(\{ id: p\.id, box: cellOf\(p\) \}\)\), \{ x: 0, y: 0, w: g\.cols, h: g\.rows \}, \{ least: \{ w: least\.cols, h: least\.rows \}, integer: true \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() with the grid on must fill the grid in whole cells (fillBoxes, integer, the least span)');
+  if (!/fillBoxes\(mods\.map\(\(p\) => \(\{ id: p\.id, box: currentBox\(floaterOf\(p\)\) \}\)\), \{ x: g\.x, y: g\.y, w: g\.w, h: g\.h \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() with the grid off must fill the whole canvas (fillBoxes over the canvas\'s box)');
+  if (!/remember\(p\.id, \{ layout: 'user' \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() must remember the places as a drag does');
   if (!/\n    cleanUp,\n/.test(canvasJs)) fail('public/canvas.js', 'the canvas must offer cleanUp()');
+}
+
+// Clean up in Window Mode (public/snap-grid.js's fillBoxes; Thomas, 2026-10-13): every floating module tiled to fill
+// the whole Workspace, none on another, no gap, none below its least size while the Workspace holds them all, each
+// keeping its side (a module left of another stays left of it, one above stays above), a bigger one staying bigger;
+// in whole cells with the grid on. Pure, and the same answer for the same input.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-fill-'));
+  const copy = path.join(tmp, 'snap-grid.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), copy);
+  const { MIN_W, MIN_H, fillBoxes, gridFor, leastSpan } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const F = 'public/snap-grid.js';
+  const area = { x: 0, y: 44, w: 1000, h: 700 };
+  let seed = 11;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const overlaps = (a, b) => a.x < b.x + b.w - 0.01 && b.x < a.x + a.w - 0.01 && a.y < b.y + b.h - 0.01 && b.y < a.y + a.h - 0.01;
+  const covers = (tiles, A) => Math.abs(tiles.reduce((sum, t) => sum + t.w * t.h, 0) - A.w * A.h) < 0.5
+    && tiles.every((t) => t.x >= A.x - 0.01 && t.y >= A.y - 0.01 && t.x + t.w <= A.x + A.w + 0.01 && t.y + t.h <= A.y + A.h + 0.01);
+  for (let n = 1; n <= 8; n += 1) {
+    for (let round = 0; round < 6; round += 1) {
+      const items = Array.from({ length: n }, (_, i) => ({ id: `m${i}`, box: { x: Math.floor(rnd() * 700), y: 44 + Math.floor(rnd() * 400), w: 240 + Math.floor(rnd() * 400), h: 160 + Math.floor(rnd() * 400) } }));
+      const got = fillBoxes(items, area);
+      const tiles = [...got.values()];
+      if (got.size !== n) fail(F, `fillBoxes: ${n} modules, ${got.size} tiles`);
+      if (!covers(tiles, area)) fail(F, `fillBoxes: ${n} modules do not fill the 1000x700 workspace: ${JSON.stringify(tiles)}`);
+      if (tiles.some((a, i) => tiles.some((b, j) => i !== j && overlaps(a, b)))) fail(F, `fillBoxes: ${n} modules overlap: ${JSON.stringify(tiles)}`);
+      for (const [id, t] of got) if (t.w < MIN_W - 0.01 || t.h < MIN_H - 0.01) fail(F, `fillBoxes: ${id} of ${n} is below its least size (${Math.round(t.w)}x${Math.round(t.h)})`);
+      if (JSON.stringify([...fillBoxes(items, area)]) !== JSON.stringify([...got])) fail(F, 'fillBoxes must be pure');
+    }
+  }
+  // Sides are kept: two modules side by side stay so, the left one left; one above another stays above. A bigger one
+  // stays bigger.
+  const pair = fillBoxes([{ id: 'left', box: { x: 10, y: 60, w: 300, h: 300 } }, { id: 'right', box: { x: 600, y: 60, w: 300, h: 300 } }], { x: 0, y: 0, w: 1400, h: 500 });
+  if (!(pair.get('left').x < pair.get('right').x && pair.get('left').y === pair.get('right').y)) fail(F, `fillBoxes: two side by side must stay side by side, the left one left: ${JSON.stringify([...pair])}`);
+  const stack = fillBoxes([{ id: 'top', box: { x: 10, y: 60, w: 300, h: 200 } }, { id: 'bottom', box: { x: 10, y: 400, w: 300, h: 200 } }], { x: 0, y: 0, w: 600, h: 900 });
+  if (!(stack.get('top').y < stack.get('bottom').y && stack.get('top').x === stack.get('bottom').x)) fail(F, `fillBoxes: one above another must stay so: ${JSON.stringify([...stack])}`);
+  const sized = fillBoxes([{ id: 'big', box: { x: 0, y: 0, w: 600, h: 500 } }, { id: 'small', box: { x: 700, y: 0, w: 260, h: 200 } }], { x: 0, y: 0, w: 1400, h: 500 });
+  if (!(sized.get('big').w > sized.get('small').w)) fail(F, `fillBoxes: the bigger module must stay bigger: ${JSON.stringify([...sized])}`);
+  // With the grid on: whole cells, the grid filled, none below the least span (a 1000x700 canvas at 130 holds 9 at 2x2).
+  const g = gridFor({ left: 0, top: 44, width: 1000, height: 700 }, 130);
+  const least = leastSpan(g);
+  for (let n = 1; n <= 8; n += 1) {
+    const items = Array.from({ length: n }, (_, i) => ({ id: `m${i}`, box: { x: i % 3, y: Math.floor(i / 3) * 2, w: 2, h: 2 } }));
+    const got = fillBoxes(items, { x: 0, y: 0, w: g.cols, h: g.rows }, { least: { w: least.cols, h: least.rows }, integer: true });
+    const tiles = [...got.values()];
+    if (!tiles.every((t) => [t.x, t.y, t.w, t.h].every(Number.isInteger))) fail(F, `fillBoxes on the grid: ${n} modules must get whole cells: ${JSON.stringify(tiles)}`);
+    if (!covers(tiles, { x: 0, y: 0, w: g.cols, h: g.rows })) fail(F, `fillBoxes on the grid: ${n} modules do not fill it: ${JSON.stringify(tiles)}`);
+    if (tiles.some((a, i) => tiles.some((b, j) => i !== j && overlaps(a, b)))) fail(F, `fillBoxes on the grid: ${n} modules overlap: ${JSON.stringify(tiles)}`);
+    for (const t of tiles) if (t.w < least.cols || t.h < least.rows) fail(F, `fillBoxes on the grid: ${n} modules, one below its least span: ${JSON.stringify(t)}`);
+  }
+  // Nothing to place; a workspace too small for them all still gives every module a tile inside it.
+  if (fillBoxes([], area).size !== 0) fail(F, 'fillBoxes with nothing gives nothing');
+  const tight = fillBoxes(Array.from({ length: 4 }, (_, i) => ({ id: `t${i}`, box: { x: i * 10, y: 0, w: 240, h: 160 } })), { x: 0, y: 0, w: 300, h: 200 });
+  if (tight.size !== 4 || !covers([...tight.values()], { x: 0, y: 0, w: 300, h: 200 })) fail(F, `fillBoxes: four in a 300x200 workspace still share it: ${JSON.stringify([...tight])}`);
 }
 
 // The docked limit (public/snap-grid.js's dockLimit and fitDock; plan-docked-limit.md, GitHub #156): a window holds the
@@ -791,10 +848,17 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if ((setUp.match(/placeSubnav\(\)/g) || []).length < 2) fail('public/space.js', 'popping out and back must re-place the space bar for the window it is now in (placeSubnav())');
   // On a narrow canvas a switch on a module open but hidden behind the view shows it, never closes it (switching the
   // conference off hangs up).
-  const click = canvasJs.slice(canvasJs.indexOf("menu?.addEventListener('click'"), canvasJs.indexOf('// The modules on for this space and this viewer'));
+  const click = canvasJs.slice(canvasJs.indexOf('  function flipShown(id'), canvasJs.indexOf('  function layoutMenuItems() {'));
   if (!/hiddenByView\(id\)\) setView\(id\)/.test(click)) fail('public/canvas.js', 'a switch on a module hidden behind the narrow canvas\'s view must show it (setView), not close it');
-  if (!/on: shown\(def\.id\)/.test(canvasJs)) fail('public/canvas.js', 'a switch reads off while its module is hidden behind the narrow canvas\'s view');
-  if (/aria-haspopup="true"[^>]*id="modules-toggle"|id="modules-toggle"[^>]*aria-haspopup/.test(spaceJs)) fail('public/space.js', '#modules-toggle opens a group of switches, not a menu: aria-expanded and aria-controls, no aria-haspopup');
+  if (!/checked: shown\(def\.id\)/.test(canvasJs)) fail('public/canvas.js', 'a switch reads off while its module is hidden behind the narrow canvas\'s view');
+  // The Layout button opens the page's shared menu (Thomas, 2026-10-13): an icon button beside Set up that says so.
+  if (!/id: 'modules-toggle' \}\);\nnav\.elementOf\('modules-toggle'\)\?\.setAttribute\('aria-haspopup', 'menu'\);/.test(spaceJs)) fail('public/space.js', '#modules-toggle is a nav tool beside Set up that opens a menu (aria-haspopup="menu")');
+  if (!/onClick: \(event\) => canvas\.toggleMenu\(event\.currentTarget\)/.test(spaceJs)) fail('public/space.js', 'the Layout button opens the canvas\'s menu (canvas.toggleMenu)');
+  if (!/openHostMenu\(trigger, layoutMenuItems\);/.test(canvasJs)) fail('public/canvas.js', 'the Layout menu is the page\'s shared menu (host-menu.js openHostMenu), drawn from layoutMenuItems()');
+  for (const needle of ["{ heading: 'Show' }", "{ heading: 'Arrange' }", "label: 'Panel Mode'", "label: 'Window Mode'", "label: 'Snap to grid'", "label: 'Clean up'"]) if (!canvasJs.includes(needle)) fail('public/canvas.js', `the Layout menu has ${needle}`);
+  const arrangeItems = canvasJs.slice(canvasJs.indexOf("{ heading: 'Arrange' }"), canvasJs.indexOf("const extra = typeof menuItems"));
+  if (!/if \(windowMode\) \{[\s\S]*label: 'Snap to grid'[\s\S]*label: 'Clean up'[\s\S]*\}/.test(arrangeItems)) fail('public/canvas.js', 'Snap to grid and Clean up are offered in Window Mode only');
+  if (!/const arrangeMode = \(\) => \(saved\.__mode === 'window' \? 'window' : 'panel'\);/.test(canvasJs)) fail('public/canvas.js', 'the arrange mode is remembered with the space\'s layout (__mode), Panel Mode unless said otherwise');
   if (/guest-mic-note/.test(spaceHtml + spaceJs)) fail('public/space.html', 'entering never joins the call, so the guest form must not say the browser will ask for the microphone');
 }
 

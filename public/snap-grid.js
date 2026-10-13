@@ -370,6 +370,77 @@ export function tidyBoxes(boxes, area, taken = []) {
   return out;
 }
 
+// --- Clean up in Window Mode: fill the workspace (Thomas, 2026-10-13, the one bar's feedback) ---------------------------
+// Every floating module tiled to fill `area` ({ x, y, w, h }) whole: no overlap, no gap, nothing wasted. A tree of
+// splits: a group is cut in two along the rect's longer side, the modules on each side by where they are now (left to
+// right for a cut across, top to bottom for a cut down, so nothing changes sides), the cut where the two sides' weights
+// (each module's area now) come nearest to half, so a bigger module stays bigger; then each side the same way. A side
+// never gets less than its modules need at their least size (`least`, { w, h }: as many columns of that width as its
+// count needs in the rows the height holds); when neither way of cutting leaves both sides room, they share the rect by
+// weight anyway (the workspace is too small for them all). `integer: true` cuts on whole units (the grid's cells: pass
+// the grid's columns and rows as the area and leastSpan() as the least). `items` is [{ id, box: { x, y, w, h } }]; the
+// answer a Map of id -> { x, y, w, h }, the tiles. Pure; tools/check-canvas.mjs runs it.
+export function fillBoxes(items, area, { least = { w: MIN_W, h: MIN_H }, integer = false } = {}) {
+  const A = { x: Number(area?.x) || 0, y: Number(area?.y) || 0, w: Math.max(1, Number(area?.w) || 1), h: Math.max(1, Number(area?.h) || 1) };
+  const L = { w: Math.max(1, Number(least?.w) || 1), h: Math.max(1, Number(least?.h) || 1) };
+  const list = (Array.isArray(items) ? items : []).filter((it) => it && it.id != null).map((it, i) => {
+    const b = it.box || {};
+    const w = Math.max(1, Number(b.w) || 1);
+    const h = Math.max(1, Number(b.h) || 1);
+    return { id: it.id, i, cx: (Number(b.x) || 0) + w / 2, cy: (Number(b.y) || 0) + h / 2, weight: w * h };
+  });
+  const out = new Map();
+  if (!list.length) return out;
+  const round = (v) => (integer ? Math.round(v) : v);
+  // The least width (or height) `n` modules need in a rect `across` tall (or wide): the columns their count needs in
+  // the rows the height holds, at the least size.
+  const need = (n, across, along, acrossLeast) => Math.ceil(n / Math.max(1, Math.floor(across / acrossLeast))) * along;
+  // Cut `group` in `rect` along `axis` ('x': side by side; 'y': one above the other), or null when a side would be short.
+  const cut = (group, rect, axis, force) => {
+    const sorted = [...group].sort((a, b) => (axis === 'x' ? a.cx - b.cx : a.cy - b.cy) || a.i - b.i);
+    const total = sorted.reduce((s, m) => s + m.weight, 0);
+    const span = axis === 'x' ? rect.w : rect.h;
+    const other = axis === 'x' ? rect.h : rect.w;
+    // Every place to cut the run, nearest to half the weight first; the first that leaves both sides their room wins.
+    const places = [];
+    let acc = 0;
+    for (let k = 1; k < sorted.length; k += 1) {
+      acc += sorted[k - 1].weight;
+      places.push({ k, share: acc / total, off: Math.abs(acc / total - 0.5) });
+    }
+    places.sort((p, q) => p.off - q.off || p.k - q.k);
+    const minOf = (n) => (axis === 'x' ? need(n, other, L.w, L.h) : need(n, other, L.h, L.w));
+    let chosen = null;
+    for (const p of places) {
+      const minFirst = minOf(p.k);
+      const minSecond = minOf(sorted.length - p.k);
+      if (minFirst + minSecond <= span) { chosen = { ...p, at: Math.max(minFirst, Math.min(span - minSecond, round(span * p.share))) }; break; }
+    }
+    if (!chosen) {
+      if (!force) return null;
+      chosen = { ...places[0], at: round(span * places[0].share) };
+    }
+    const at = Math.max(integer ? 1 : 0, Math.min(span - (integer ? 1 : 0), chosen.at));
+    if (at <= 0 || at >= span) return null;
+    const first = sorted.slice(0, chosen.k);
+    const second = sorted.slice(chosen.k);
+    const a = axis === 'x' ? { ...rect, w: at } : { ...rect, h: at };
+    const b = axis === 'x' ? { x: rect.x + at, y: rect.y, w: rect.w - at, h: rect.h } : { x: rect.x, y: rect.y + at, w: rect.w, h: rect.h - at };
+    return [[first, a], [second, b]];
+  };
+  const fill = (group, rect) => {
+    if (group.length === 1) { out.set(group[0].id, { x: rect.x, y: rect.y, w: rect.w, h: rect.h }); return; }
+    // The longer side first, counted in least sizes, so a wide rect is cut across and a tall one down.
+    const first = rect.w / L.w >= rect.h / L.h ? 'x' : 'y';
+    const second = first === 'x' ? 'y' : 'x';
+    const parts = cut(group, rect, first, false) || cut(group, rect, second, false) || cut(group, rect, first, true) || cut(group, rect, second, true);
+    if (!parts) { for (const m of group) out.set(m.id, { x: rect.x, y: rect.y, w: rect.w, h: rect.h }); return; } // no room to cut at all
+    for (const [part, r] of parts) fill(part, r);
+  };
+  fill(list, A);
+  return out;
+}
+
 // --- Docked columns: how many fit (plan-docked-limit.md, "The rule") -------------------------------------------------
 // A docked module is a column of the canvas's grid. One column is flexible (the conference when it is docked, else the
 // first) and keeps at least FLEX_MIN; every other column keeps at least DOCK_MIN. At NARROW and below there are no columns: one

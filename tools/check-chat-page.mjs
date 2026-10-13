@@ -255,7 +255,9 @@ test('Clear… in the ⋮ menu: after Save the chat, before Delete the chat; nev
   assert.match(notice, /if \(from \|\| scope !== 'everyone' \|\| by === me\?\.key\) return;/, "only the server's notice adds the line");
   assert.ok(!/addEntry|chatLog\.push|unread \+=/.test(notice), 'the line is not stored and not counted');
   // Tints in the host menu come from the tokens.
-  assert.match(read('public/host-menu.js'), /if \(\/\^\(gold\|blue\|green\|teal\|purple\|red\|orange\|pink\)\$\/\.test\(item\.tint \|\| ''\)\) i\.dataset\.tint = item\.tint;/);
+  const menuJs = read('public/host-menu.js');
+  assert.match(menuJs, /const TINT = \/\^\(gold\|blue\|green\|teal\|purple\|red\|orange\|pink\)\$\/;/);
+  assert.match(menuJs, /if \(TINT\.test\(tint \|\| ''\)\) i\.dataset\.tint = tint;/);
 });
 
 // --- step 3: the filter's pure parts (its markup is in check-switches.mjs) -------------------------------------------
@@ -318,7 +320,7 @@ test('a tint colours a message\'s portrait icon and left edge, and a module\'s i
   // Where: the module's titlebar on the canvas and in its own window, its line in the Layout menu's Show section.
   const canvasJs = read('public/canvas.js');
   assert.match(canvasJs, /<span class="mod-title"><i class="fa-solid fa-\$\{escapeHtml\(m\.icon\)\} fa-fw" aria-hidden="true"\$\{tintAttr\(m\.id\)\}><\/i>/);
-  assert.ok(canvasJs.includes("badge: unreadOf(m.id), tint: colorOf(m.id) })), 'module')"), 'the Layout menu\'s Show list tints each module\'s icon');
+  assert.ok(canvasJs.includes("icon: m.icon, tint: colorOf(m.id), label: m.name, badge: unreadOf(m.id)"), 'the Layout menu\'s Show list tints each module\'s icon');
   assert.match(read('public/switch-list.js'), /data-tint="\$\{tint\}"/);
   // The popped-out page's titlebar (GitHub #229): the server's colour, else a stable pick from the id (module-tint.js).
   const moduleJs = read('public/module.js');

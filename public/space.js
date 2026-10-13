@@ -63,62 +63,23 @@ function showSpaceView(id) {
   document.body.classList.add(`view-${id}`);
 }
 showSpaceView('workspace');
-// The module chooser, first in the space bar: one button, Layout (the environment's `layout` verb), that opens a panel
-// (plan-layout-menu.md) in two sections. Show: a switch per module (the conference, the chat and the space's modules),
-// each showing or hiding its module on the canvas (canvas.js writes it, with switch-list.js). Arrange: Dock all, Clean up,
-// the canvas-level snap switch and, while it is on, the grid's size; written once here, wired further down (by
-// syncSnapBar()), and kept in place by canvas.js. Its last line, #modules-menu-note, is a short note canvas.js writes
-// (onNote): a module that waits for a column because the window is too narrow, or how many Dock all could dock
-// (plan-docked-limit.md). Empty, it takes no room; it stays in the page so a screen reader hears it as it changes. On a phone the same #modules-menu is the tab bar instead, the button is
-// not drawn, and Arrange is not shown.
-const arrangeSection = document.createElement('div');
-arrangeSection.className = 'module-chooser-arrange';
-arrangeSection.innerHTML = `
-  <div class="nav-menu-heading module-chooser-heading" id="modules-menu-arrange">Arrange</div>
-  <div class="module-chooser-section" role="group" aria-labelledby="modules-menu-arrange">
-    <button class="module-chooser-action" id="dock-all" type="button"><i class="fa-solid fa-table-columns fa-fw" aria-hidden="true"></i><span>Dock all</span></button>
-    <button class="module-chooser-action" id="clean-up" type="button"><i class="fa-solid fa-broom fa-fw" aria-hidden="true"></i><span>Clean up</span></button>
-    <label class="switch-row"><input type="checkbox" class="switch" role="switch" id="snap-all"><i class="fa-solid fa-border-all fa-fw" aria-hidden="true"></i><span class="switch-name">Snap to a grid</span></label>
-    <label class="module-chooser-range" id="snap-size-row" hidden><span class="switch-name">Grid size</span><input type="range" id="snap-size"></label>
-  </div>
-  <p class="module-chooser-note" id="modules-menu-note" role="status"></p>`;
+// The Layout menu (plan-layout-menu.md; Thomas, 2026-10-13: the page's shared menu, host-menu.js, not a panel of its
+// own): one icon button, Layout (the environment's `layout` verb), beside Set up in the top bar wider than a phone,
+// registered with Set up further down. canvas.js draws the menu from its items (Show, Arrange) and the Layouts section
+// here (layoutMenuItems, further down), with this note as its last row: a short line canvas.js writes (onNote): a
+// module that waits for a column because the window is too narrow, or how many Panel Mode could dock
+// (plan-docked-limit.md). Empty, it takes no room; it stays in the page so a screen reader hears it as it changes.
+// On a phone #modules-menu is the tab bar instead (canvas.js fills it; registered after placeSubnav() below, which
+// decides phone or wide), the button is not drawn, and there is no menu.
+const noteHolder = document.createElement('div');
+noteHolder.innerHTML = '<p class="module-chooser-note" id="modules-menu-note" role="status"></p>';
+const menuNote = noteHolder.firstElementChild;
 const moduleChooser = document.createElement('span');
 moduleChooser.className = 'module-chooser';
-moduleChooser.innerHTML = `
-  <button class="btn btn-small module-chooser-toggle" id="modules-toggle" type="button" aria-expanded="false" aria-controls="modules-menu"><i class="fa-solid fa-object-group fa-fw" aria-hidden="true"></i> <span class="module-chooser-label"></span> <i class="fa-solid fa-caret-down fa-fw" aria-hidden="true"></i><span class="badge" hidden></span></button>
-  <div class="module-chooser-list" id="modules-menu" role="group" hidden></div>`;
-moduleChooser.querySelector('#modules-menu').appendChild(arrangeSection);
-// The panel's third section, Layouts (plan-saved-layouts.md, "The Layout panel"): the saved layouts, shared first, then
-// your own, each a row that loads it in one press, with a ... for those you may change; then Save this layout, which
-// opens a small form in place. Written here, filled by renderLayouts() (further down) from the server each time the
-// panel opens and after each change, and kept in the panel by canvas.js, never rewritten by its update(). Not drawn on a
-// narrow canvas, nor in an aside, nor for a guest with no shared layouts to load (data-empty).
-const layoutsSection = document.createElement('div');
-layoutsSection.className = 'module-chooser-layouts';
-layoutsSection.id = 'modules-menu-layouts';
-layoutsSection.setAttribute('role', 'group');
-layoutsSection.setAttribute('aria-labelledby', 'modules-menu-layouts-heading');
-layoutsSection.dataset.empty = 'true';
-layoutsSection.hidden = true;
-layoutsSection.innerHTML = `
-  <div class="nav-menu-heading module-chooser-heading" id="modules-menu-layouts-heading">Layouts</div>
-  <div class="module-chooser-section layout-rows" id="layout-rows"></div>
-  <button class="module-chooser-action" id="layout-save" type="button"><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i><span>Save this layout</span></button>
-  <form class="layout-form" id="layout-form" hidden novalidate>
-    <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" id="layout-name" autocomplete="off" spellcheck="false"></label>
-    <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
-    <p class="layout-form-error" id="layout-form-error" role="alert" hidden></p>
-    <div class="layout-form-buttons"><button class="btn btn-small btn-accent" type="submit">Save</button><button class="btn btn-small" type="button" id="layout-cancel">Cancel</button></div>
-  </form>`;
-moduleChooser.querySelector('#modules-menu').appendChild(layoutsSection);
-nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, icon: 'object-group', label: verb('layout'), element: moduleChooser, workspace: 'only' });
-// The chooser reads the environment's layout verb (registerWordTools() below calls this once it is known). Its list is
-// named for the button; as the phone's tab bar it is the modules themselves, so it is named by the module word.
+moduleChooser.innerHTML = '<div class="module-chooser-list" id="modules-menu" role="group" hidden></div>';
+// The tab bar is named by the module word (registerWordTools() below calls this once it is known).
 function nameModuleChooser() {
-  const name = verb('layout');
-  const list = moduleChooser.querySelector('#modules-menu');
-  moduleChooser.querySelector('.module-chooser-label').textContent = name;
-  list.setAttribute('aria-label', list.classList.contains('subnav-modules') ? word('module', { many: true, cap: true }) : name);
+  moduleChooser.querySelector('#modules-menu').setAttribute('aria-label', word('module', { many: true, cap: true }));
 }
 nameModuleChooser();
 // On a phone the space bar is a tab bar at the bottom of the page, in the flow after the canvas, so
@@ -150,7 +111,6 @@ function placeSubnav() {
     if (tabs) list.removeAttribute('role'); else list.setAttribute('role', 'group');
     nameModuleChooser();
     list.hidden = !tabs;
-    moduleChooser.querySelector('#modules-toggle').setAttribute('aria-expanded', 'false');
     window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
   }
   placeColumnTools(); // Join the call and Online: in the side column wider than a phone, in the bar (the tab bar) below
@@ -165,6 +125,8 @@ function placeSubnav() {
 // Set further down, once Join the call and Online exist (the column section); nothing to place before that.
 let placeColumnTools = () => {};
 placeSubnav();
+// The phone's tab bar: the Workspace's, first in the tab bar's left zone, only where the window is a phone's width.
+nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, fold: false, icon: 'object-group', label: word('module', { many: true, cap: true }), element: moduleChooser, visible: () => phoneWidth(), workspace: 'only' });
 // Only this page loads your profile, Manage and a module's page as an overlay over a running call instead of a real
 // navigation (see openOverlay() below): the shared header asks first (app:open-profile, app:open-page, see the
 // listeners by openOverlay()).
@@ -1081,20 +1043,19 @@ const DEFAULT_PREFS = {
 // Call preferences (layout, devices, volumes, keys). brand.js moves the key they had before the Names plan on load.
 const PREFS_KEY = 'app.call';
 const prefs = loadPrefs();
-// The Layout panel's note (canvas.js's onNote): written in the panel, where it is seen. A note from docking with the panel
-// closed (Join the call, a titlebar's Dock, a module's own window coming back, the snap switch) would sit unheard in a
-// hidden panel, so then the same sentence goes to a visually hidden status region of the page's own, outside the panel.
-// Decided once the click that wrote it is over, since that click may be the one closing the panel; never both, so a screen
+// The Layout menu's note (canvas.js's onNote): written in the menu's last row, where it is seen. A note from docking with
+// the menu closed (Join the call, a titlebar's Dock, a module's own window coming back) would sit unheard out of the
+// page, so then the same sentence goes to a visually hidden status region of the page's own, outside the menu.
+// Decided once the click that wrote it is over, since that click may be the one closing the menu; never both, so a screen
 // reader hears it once.
 let layoutAnnouncer = null;
 let noteUnderFavorites = false; // a load from the space bar's favorites: its note shows under them too (renderFavorites)
 function layoutNote(text) {
   const t = text || '';
-  arrangeSection.querySelector('#modules-menu-note').textContent = t;
+  menuNote.textContent = t;
   if (noteUnderFavorites && t) showFavoritesNote(t);
   setTimeout(() => {
-    const list = moduleChooser.querySelector('#modules-menu');
-    const menuOpen = Boolean(list) && !list.hidden && !list.classList.contains('subnav-modules') && arrangeSection.isConnected;
+    const menuOpen = canvas.menuOpen();
     const doc = moduleChooser.ownerDocument;
     if (!layoutAnnouncer || layoutAnnouncer.ownerDocument !== doc) {
       layoutAnnouncer?.remove();
@@ -1112,8 +1073,10 @@ let askInChat = null;
 const canvas = createCanvas({
   guestToken,
   onNote: (text) => layoutNote(text),
-  // The Layouts section is read again each time the panel opens; a form left open closes with it.
-  onMenu: (open) => { if (open) refreshLayouts(); else closeLayoutForm(); },
+  // The Layouts section is read again each time the menu opens, and drawn from layoutMenuItems() with the note last.
+  onMenu: (open) => { if (open) refreshLayouts(); },
+  menuItems: () => layoutMenuItems(),
+  noteEl: menuNote,
   onChatAsk: (input) => {
     if (!askInChat) return Promise.reject(Object.assign(new Error('Chat is not ready.'), { status: 400 }));
     toggleChat(true);
@@ -1125,21 +1088,21 @@ window.hostModules = canvas; // for debugging and tests
 // The space's actions, in the right zone: one group in the bands plan-nav.md sets out (full screen and pop out
 // secondary, the aside's two utility), and Leave last on its own, a divider before it. Registered here, after the
 // state their `visible` functions read exists. Full screen, Pop out and Pull participants back are Workspace tools
-// (nav-bar.js, `workspace`): wider than a phone the registry draws them in the top bar's right zone, before Set up, the
-// bell and your picture, where they fold into the top bar's "..." (Pop out, then Full screen first; Thomas, 2026-10-13),
+// (nav-bar.js, `workspace`): wider than a phone the registry draws them in the top bar's right zone, Full screen and
+// Pop out last of all, right of your picture (`place: 'end'`; Thomas, 2026-10-13: as in his drawing), Pull
+// participants back before Set up; they fold into the top bar's "..." (Pop out, then Full screen first),
 // the first two only on the Workspace view; on a phone (plan-phone-space-bar.md) they are the tab bar's: Leave and
 // Rejoin call stay in it (`phone: 'bar'`), Full screen and Pop out are in its "..." only in a narrow popped-out window
 // (`phone: 'popout'`), and the rest goes into the "...".
 const SPACE_TOOL = { bar: 'secondary', zone: 'right', group: 'space', groupOrder: 1 };
-nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', activeLabel: 'Exit full screen', phone: 'popout', workspace: 'only', toggleable: true, active: false, onClick: () => toggleFullscreen() });
-nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', activeLabel: 'Pop it back in', phone: 'popout', workspace: 'only', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
+nav.register({ ...SPACE_TOOL, id: 'fullscreen-toggle', order: 11, icon: 'expand', activeIcon: 'compress', label: 'Full screen', title: 'Full screen (F)', activeLabel: 'Exit full screen', phone: 'popout', workspace: 'only', place: 'end', toggleable: true, active: false, onClick: () => toggleFullscreen() });
+nav.register({ ...SPACE_TOOL, id: 'popout', order: 12, icon: 'up-right-from-square', activeIcon: 'window-restore', label: 'Pop out into its own window', activeLabel: 'Pop it back in', phone: 'popout', workspace: 'only', place: 'end', toggleable: true, active: false, onClick: () => (pipWindow ? closePopout() : openPopout()) });
 // The tools whose words are the environment's: registered again (the same elements) once loadBranding() has them.
 function registerWordTools() {
   nameModuleChooser();
-  // The Layout panel's Arrange controls: their tooltips name the environment's module word.
-  arrangeSection.querySelector('#dock-all').title = `Dock every floating ${word('module')} beside the call`;
-  arrangeSection.querySelector('#clean-up').title = `Tidy the floating ${word('module', { many: true })}`;
-  arrangeSection.querySelector('#snap-all').closest('label').title = `Snap every floating ${word('module')} to a grid`;
+  if (nav.get('module-chooser')) nav.register({ ...nav.get('module-chooser'), label: word('module', { many: true, cap: true }) });
+  // The Layout button reads the environment's layout verb (registered with Set up, further down).
+  if (nav.get('modules-toggle')) nav.register({ ...nav.get('modules-toggle'), label: verb('layout') });
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, workspace: 'every', visible: () => recallWanted(), onClick: recallParticipants });
   // Leave is in the space bar only where the bar is the phone's tab bar (plan-one-bar.md, step 5 and decision 3); wider,
   // it is the last entry of the top bar's space switcher (brand.js, through app:enter-space { action: 'leave' } below).
@@ -1771,58 +1734,34 @@ nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', group
 nav.register({ id: 'setup-done', bar: 'primary', zone: 'right', group: 'setup', order: 2, icon: 'check', label: 'Done', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.done() });
 nav.register({ id: 'setup-cancel', bar: 'primary', zone: 'right', group: 'setup', order: 3, icon: 'xmark', label: 'Cancel', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.cancel() });
 nav.elementOf('setup-done')?.classList.add('btn-primary');
+// Layout (the environment's `layout` verb): an icon button right after Set up, the same look and size (Thomas,
+// 2026-10-13: no label, no caret), that opens the Layout menu (canvas.toggleMenu; the page's shared menu). A Workspace
+// tool drawn among the bar's own (`place: 'own'`, Set up's group); never folds; not while setting up, and not on a
+// phone, where the tab bar is the list. The favorite layouts follow it (further down, order 5).
+nav.register({ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, order: 4, fold: false, icon: 'object-group', label: verb('layout'), visible: () => !phoneWidth() && !settingUp, onClick: (event) => canvas.toggleMenu(event.currentTarget), workspace: 'only', place: 'own', id: 'modules-toggle' });
+nav.elementOf('modules-toggle')?.setAttribute('aria-haspopup', 'menu');
+nav.elementOf('modules-toggle')?.setAttribute('aria-expanded', 'false');
 // --- end Set up ---
 
-// The Layout panel's Arrange section (written at the top of this file, kept in the panel by canvas.js): Dock all (every
-// floating module docks beside the call, and the canvas-level snap goes off with it, or it would float them again), Clean
-// up (every floating module onto the canvas and apart), and the canvas-level snap: one switch that makes every floating
-// module, now and later, snap to a grid over the canvas, and, while it is on, a slider for the grid's size (the grid shows
-// while the slider moves). Each module's own switch on its titlebar still works on its own; this one sets them all.
-// Remembered with the space's layout. Pressing one leaves the panel open. Held by reference: on a phone the section is
-// out of the page.
-const snapAllSwitch = arrangeSection.querySelector('#snap-all');
-const snapSize = arrangeSection.querySelector('#snap-size');
-function syncSnapBar() {
-  const on = canvas.snapAllOn();
-  const range = canvas.snapPitchRange();
-  snapAllSwitch.checked = on;
-  arrangeSection.querySelector('#snap-size-row').hidden = !on;
-  snapSize.min = String(range.min); snapSize.max = String(range.max); snapSize.step = String(range.step);
-  snapSize.value = String(canvas.snapPitch());
-}
-arrangeSection.querySelector('#dock-all').addEventListener('click', () => { canvas.dockAll(); syncSnapBar(); });
-arrangeSection.querySelector('#clean-up').addEventListener('click', () => { canvas.cleanUp(); });
-snapAllSwitch.addEventListener('change', () => { canvas.snapAll(snapAllSwitch.checked); syncSnapBar(); });
-wireSwitchList(arrangeSection); // Enter flips the switch, as Space does
-snapSize.addEventListener('input', () => canvas.setSnapPitch(Number(snapSize.value), { preview: true }));
-snapSize.addEventListener('change', () => canvas.setSnapPitch(Number(snapSize.value)));
-syncSnapBar();
-
-// --- the Layout panel's Layouts section (plan-saved-layouts.md, step 3; the markup is at the top of this file) ---------
+// --- the Layout menu's Layouts section (plan-saved-layouts.md, step 3; Thomas, 2026-10-13: in the shared menu) --------
 // The saved layouts of the space you are in: GET /api/spaces/:id/layouts answers { mine, shared, defaultLayout,
-// canShare, canSetDefault }. A press on a row loads it (canvas.loadLayout) and the panel stays open. The ... on a row
-// offers, on a layout you may change (your own, or a shared one for owners, the admin and the space's moderators),
-// Replace with this layout, Rename and Delete through the host's own menu (openHostMenu). Save this layout opens a form
-// in the section: a name and, for those who may share, a switch for everyone in the space. A guest loads shared layouts
-// only. The server keeps the limits (10 of your own and 10 shared in a space, names up to 40 characters, each name once
-// in its list) and says what it refuses; its sentence is shown as it is. Keys: Up and Down move between the rows, Enter
-// or Space loads, Escape closes a form (else the panel, canvas.js).
-// Favorites (plan-favorite-layouts.md, steps 2 and 3): GET also answers `favorites`, this person's layout ids in the
-// order they were favorited ([] for a guest). Everyone signed in gets a ... on every row, its first entry Favorite or
-// Unfavorite (PUT or DELETE .../:layoutId/favorite); a favorite's row shows a small heart, and the favorites are buttons
-// in the space bar after the Layout button (renderFavorites, further down).
-const layoutRows = layoutsSection.querySelector('#layout-rows');
-const layoutSaveButton = layoutsSection.querySelector('#layout-save');
-const layoutForm = layoutsSection.querySelector('#layout-form');
-const layoutName = layoutsSection.querySelector('#layout-name');
-const layoutShared = layoutsSection.querySelector('#layout-shared');
-const layoutFormError = layoutsSection.querySelector('#layout-form-error');
+// canShare, canSetDefault, favorites }. The section's entries (layoutMenuItems, drawn by canvas.js at the end of the
+// Layout menu): a heading, the shared layouts, then your own, each an entry that loads it (canvas.loadLayout) and
+// leaves the menu open, with a ... that offers, for everyone signed in, Favorite or Unfavorite (plan-favorite-layouts.md,
+// steps 2 and 3); for an owner on a shared layout, Make default or Stop using as default (decision 4); and on a layout
+// you may change (your own, or a shared one for owners, the admin and the space's moderators), Replace with this layout,
+// Rename and Delete (asked once, in the menu's own confirm row). A favorite's entry shows a small heart, the default
+// one the word Default. Then Save this layout, which opens a small sheet (openLayoutSheet): a name and, for those who
+// may share, a switch for everyone in the space; Rename opens the same sheet. A guest loads shared layouts only. The
+// server keeps the limits (10 of your own and 10 shared in a space, names up to 40 characters, each name once in its
+// list) and says what it refuses; its sentence is shown as it is. Not drawn on a narrow canvas, in an aside, or for a
+// guest with nothing to load.
 let layoutList = { spaceId: null, mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
 let layoutAsk = 0; // the latest request for the list; an older answer arriving late is dropped
 const layoutSpaceId = () => (currentSpace && !currentSpace.isAside ? currentSpace.id : null); // an aside has no layouts
 const layoutUrl = (id, layoutId = '') => `/api/spaces/${encodeURIComponent(id)}/layouts${layoutId ? `/${encodeURIComponent(layoutId)}` : ''}${guestToken ? `?guest=${encodeURIComponent(guestToken)}` : ''}`;
 // A request that keeps the server's whole answer on a refusal: a taken name answers 409 with the id of the layout that
-// has it, so the form can offer to replace that one.
+// has it, so the sheet can offer to replace that one.
 async function layoutRequest(method, url, body) {
   const res = await fetch(url, { method, headers: body ? { 'content-type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined });
   let data = {};
@@ -1844,8 +1783,9 @@ const favoriteLayouts = () => layoutList.favorites.map(findLayout).filter(Boolea
 const FAVORITE_LIMIT = 3;
 const favoriteLimitText = () => `You can have ${FAVORITE_LIMIT} favorite layouts. Unfavorite one first.`;
 
-// Reads the list again (the panel opening, after a change) and draws it. `focus`: what takes the keyboard after.
-async function refreshLayouts({ focus = null } = {}) {
+// Reads the list again (the menu opening, after a change) and draws it: the menu's section (while it is open) and the
+// favorites in the top bar.
+async function refreshLayouts() {
   const id = layoutSpaceId();
   const ask = ++layoutAsk;
   if (!id) {
@@ -1861,132 +1801,46 @@ async function refreshLayouts({ focus = null } = {}) {
     if (ask !== layoutAsk) return;
     layoutList = { spaceId: id, mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false };
   }
-  renderLayouts({ focus });
+  renderLayouts();
+}
+function renderLayouts() {
+  renderFavorites(); // the top bar's favorites, from the same list
+  canvas.refreshMenu(); // and the menu's Layouts section, while it is open
 }
 
-const layoutRowHtml = (l, shared) => `
-  <div class="layout-row" data-layout-row="${escapeHtml(l.id)}">
-    <button class="module-chooser-action layout-load" type="button" data-layout="${escapeHtml(l.id)}"><i class="fa-solid fa-${shared ? 'user-group' : 'object-group'} fa-fw" aria-hidden="true"></i><span class="layout-name">${escapeHtml(l.name)}</span>${isFavorite(l.id) ? '<i class="fa-solid fa-heart fa-fw layout-favorite-mark" aria-hidden="true"></i><span class="visually-hidden">, favorite</span>' : ''}${l.id === layoutList.defaultLayout ? '<span class="layout-default">Default</span>' : ''}</button>
-    ${mayFavorite() || mayChangeLayout(shared) || maySetDefault(shared) ? `<button class="msg-btn layout-more" type="button" data-layout-more="${escapeHtml(l.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="More for ${escapeHtml(l.name)}" title="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>` : ''}
-  </div>`;
-
-// Draws the rows (and the empty line), shows Save this layout to those who may save, and hides the whole section where
-// there is nothing to load or save (an aside; a guest with no shared layouts).
-function renderLayouts({ focus = null } = {}) {
+// The Layouts section's entries, in the shared menu's item shape (host-menu.js): what canvas.js draws after Arrange.
+// Nothing where there is nothing to load or save (an aside; a guest with no shared layouts) or on a narrow canvas.
+function layoutMenuItems() {
   const { mine, shared } = layoutList;
   const canSave = Boolean(layoutList.spaceId) && !guestToken;
   const empty = !layoutList.spaceId || (!canSave && !shared.length);
-  layoutsSection.dataset.empty = String(empty);
-  layoutsSection.hidden = empty || canvas.isNarrow();
-  layoutSaveButton.hidden = !canSave || !layoutForm.hidden;
-  layoutsSection.querySelector('#layout-shared-label').textContent = `For everyone in this ${word('space')}`;
-  let html = '';
-  if (shared.length) html += `<div class="layout-group-label">Shared</div>${shared.map((l) => layoutRowHtml(l, true)).join('')}`;
-  if (mine.length) html += `${shared.length ? '<div class="layout-group-gap" aria-hidden="true"></div>' : ''}${mine.map((l) => layoutRowHtml(l, false)).join('')}`;
-  if (!shared.length && !mine.length && canSave) html = '<p class="module-chooser-note layout-empty">No saved layouts yet.</p>';
-  layoutRows.innerHTML = html;
-  if (focus) (typeof focus === 'string' ? layoutsSection.querySelector(focus) : focus)?.focus();
-  renderFavorites(); // the space bar's favorites, from the same list
+  if (empty || canvas.isNarrow()) return [];
+  const entry = (l, isShared) => ({
+    icon: isShared ? 'user-group' : 'object-group',
+    label: l.name,
+    mark: isFavorite(l.id) ? 'heart' : undefined,
+    tag: l.id === layoutList.defaultLayout ? 'Default' : undefined,
+    keepOpen: true,
+    onPick: () => { canvas.loadLayout(l); },
+    more: mayFavorite() || mayChangeLayout(isShared) || maySetDefault(isShared) ? () => layoutRowItems(l.id) : undefined,
+  });
+  const items = [{ heading: 'Layouts' }];
+  for (const l of shared) items.push(entry(l, true));
+  for (const l of mine) items.push(entry(l, false));
+  if (!shared.length && !mine.length && canSave) items.push({ label: 'No saved layouts yet.', disabled: true });
+  if (canSave) items.push({ icon: 'plus', label: 'Save this layout', onPick: () => openSaveLayout() });
+  return items;
 }
 
-// A layout with nothing open has nothing to save; said here rather than with the server's API sentence.
-const nothingOpen = () => `Open ${word('module', { a: true })} first, then save the layout.`;
-
-// The open form (Save, or a row's Rename) back to its button or row.
-function closeLayoutForm({ focus = false } = {}) {
-  layoutForm.hidden = true;
-  layoutForm.dataset.replace = '';
-  layoutFormError.hidden = true;
-  layoutFormError.textContent = '';
-  layoutSaveButton.hidden = !layoutList.spaceId || Boolean(guestToken);
-  const renaming = layoutRows.querySelector('.layout-rename');
-  if (renaming) renderLayouts({ focus: focus ? `[data-layout="${CSS.escape(renaming.dataset.layoutId)}"]` : null });
-  else if (focus) layoutSaveButton.focus();
-}
-function showLayoutError(el, text, replaceId = null) {
-  el.hidden = false;
-  el.textContent = text;
-  if (replaceId) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'layout-replace-it';
-    b.textContent = 'Replace it';
-    b.addEventListener('click', () => replaceLayout(replaceId, { fromForm: true }));
-    el.append(' ', b);
-  }
-}
-
-layoutSaveButton.addEventListener('click', () => {
-  closeLayoutForm();
-  layoutForm.hidden = false;
-  layoutSaveButton.hidden = true;
-  layoutName.value = '';
-  layoutShared.checked = false;
-  layoutsSection.querySelector('#layout-shared-row').hidden = !layoutList.canShare;
-  layoutName.focus();
-});
-layoutsSection.querySelector('#layout-cancel').addEventListener('click', () => closeLayoutForm({ focus: true }));
-wireSwitchList(layoutForm); // Enter flips the share switch, as Space does
-layoutForm.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  const id = layoutSpaceId();
-  const name = layoutName.value.trim();
-  if (!id) return;
-  if (!name) { showLayoutError(layoutFormError, 'Give the layout a name.'); layoutName.focus(); return; }
-  const shared = layoutList.canShare && layoutShared.checked;
-  const captured = canvas.captureLayout();
-  if (!captured.modules.length) { showLayoutError(layoutFormError, nothingOpen()); layoutName.focus(); return; }
-  try {
-    const { layout } = await layoutRequest('POST', layoutUrl(id), { name, shared, ...captured });
-    closeLayoutForm();
-    layoutNote(`Saved ${layout.name}.`);
-    await refreshLayouts({ focus: `[data-layout="${CSS.escape(layout.id)}"]` });
-  } catch (err) {
-    showLayoutError(layoutFormError, err.message, err.status === 409 ? err.id : null);
-    layoutName.focus();
-  }
-});
-// Escape closes a form back to its button or row, not the panel; Enter in the name saves (the form's submit).
-layoutsSection.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && event.target.closest('.layout-form, .layout-rename')) {
-    event.stopPropagation();
-    event.preventDefault();
-    closeLayoutForm({ focus: true });
-    return;
-  }
-  // Up and Down (and Home and End) move between the rows' load buttons.
-  const row = event.target.closest?.('.layout-load');
-  if (!row) return;
-  const all = [...layoutRows.querySelectorAll('.layout-load')];
-  const at = all.indexOf(row);
-  const to = { ArrowDown: at + 1, ArrowUp: at - 1, Home: 0, End: all.length - 1 }[event.key];
-  if (to === undefined) return;
-  event.preventDefault();
-  all[Math.max(0, Math.min(all.length - 1, to))]?.focus();
-});
-
-layoutRows.addEventListener('click', (event) => {
-  const load = event.target.closest('[data-layout]');
-  if (load) {
-    const layout = findLayout(load.dataset.layout);
-    if (!layout) return;
-    canvas.loadLayout(layout);
-    syncSnapBar();
-    layoutsSection.querySelector(`[data-layout="${CSS.escape(layout.id)}"]`)?.focus(); // the keyboard stays on the row
-    return;
-  }
-  const more = event.target.closest('[data-layout-more]');
-  if (more) openLayoutMenu(more, more.dataset.layoutMore);
-});
-
-// A row's ...: Favorite or Unfavorite first, for everyone signed in (plan-favorite-layouts.md; Favorite is off, with
-// the limit's sentence as its hint, at FAVORITE_LIMIT favorites); then, for an owner on a
-// shared layout, Make default or Stop using as default (decision 4); then, on a layout you may change, Replace with this
-// layout, Rename, Delete (asked once, in the menu's own confirm row). A divider between each run.
-function openLayoutMenu(trigger, layoutId) {
+// A layout's ...: Favorite or Unfavorite first, for everyone signed in (plan-favorite-layouts.md; Favorite is off, with
+// the limit's sentence as its hint, at FAVORITE_LIMIT favorites); then, for an owner on a shared layout, Make default or
+// Stop using as default (decision 4); then, on a layout you may change, Replace with this layout, Rename, Delete (asked
+// once, in the menu's own confirm row under the Layout button). A divider between each run.
+function layoutRowItems(layoutId) {
   const layout = findLayout(layoutId);
-  if (!layout) return;
+  if (!layout) return [];
   const shared = layoutList.shared.includes(layout);
+  const trigger = () => nav.elementOf('modules-toggle');
   const entries = [];
   if (mayFavorite()) {
     entries.push(isFavorite(layoutId)
@@ -2001,40 +1855,38 @@ function openLayoutMenu(trigger, layoutId) {
       ? { icon: 'star', regular: true, label: 'Stop using as default', onPick: () => setDefaultLayout(null, layout) }
       : { icon: 'star', label: 'Make default', onPick: () => setDefaultLayout(layoutId, layout) });
   }
-  if (!mayChangeLayout(shared)) { openHostMenu(trigger, entries); return; }
+  if (!mayChangeLayout(shared)) return entries;
   if (entries.length) entries.push({ divider: true });
-  openHostMenu(trigger, [
+  return [
     ...entries,
     { icon: 'arrows-rotate', label: 'Replace with this layout', onPick: () => replaceLayout(layoutId) },
     { icon: 'pen', label: 'Rename', onPick: () => startRename(layoutId) },
-    { icon: 'trash', label: 'Delete', danger: true, onPick: () => openConfirmMenu(trigger, {
+    { icon: 'trash', label: 'Delete', danger: true, onPick: () => openConfirmMenu(trigger(), {
       label: 'Delete', confirm: `Delete ${layout.name}?`, armed: true, fail: 'It could not be deleted.',
       onConfirm: async () => {
         await layoutRequest('DELETE', layoutUrl(layoutSpaceId(), layoutId));
         layoutNote(`Deleted ${layout.name}.`);
-        await refreshLayouts({ focus: '.layout-load' });
-        if (!layoutRows.querySelector('.layout-load')) layoutSaveButton.focus();
+        await refreshLayouts();
       },
     }) },
-  ]);
+  ];
 }
 
 // Favorite (`on`) or Unfavorite: PUT or DELETE /api/spaces/:id/layouts/:layoutId/favorite, which answers this person's
-// favorites. The list is drawn again with the keyboard back on the row, and the panel's note says what changed. A layout
-// gone meanwhile (404) or any refusal: the server's sentence, and the list read again.
+// favorites. The list is drawn again, and the menu's note says what changed. A layout gone meanwhile (404) or any
+// refusal: the server's sentence, and the list read again.
 async function setFavorite(layout, on) {
   const id = layoutSpaceId();
   if (!id) return;
-  const row = `[data-layout="${CSS.escape(layout.id)}"]`;
   try {
     const { favorites } = await layoutRequest(on ? 'PUT' : 'DELETE', `/api/spaces/${encodeURIComponent(id)}/layouts/${encodeURIComponent(layout.id)}/favorite`);
     if (layoutSpaceId() !== id || layoutList.spaceId !== id) return;
     layoutList.favorites = Array.isArray(favorites) ? favorites : [];
     layoutNote(on ? `${layout.name} is a favorite.` : `${layout.name} is no longer a favorite.`);
-    renderLayouts({ focus: row });
+    renderLayouts();
   } catch (err) {
     layoutNote(err.message || 'That did not work. Try again.');
-    await refreshLayouts({ focus: err.status === 404 ? '.layout-load' : row });
+    await refreshLayouts();
   }
 }
 
@@ -2050,74 +1902,144 @@ async function setDefaultLayout(layoutId, layout) {
   } catch (err) {
     layoutNote(err.message || 'That did not work. Try again.');
   }
-  await refreshLayouts({ focus: `[data-layout="${CSS.escape(layout.id)}"]` });
+  await refreshLayouts();
 }
 
-// Replaces a layout's modules and places with the canvas as it is now. From the Save form, its "Replace it" (a taken name).
-async function replaceLayout(layoutId, { fromForm = false } = {}) {
+// A layout with nothing open has nothing to save; said here rather than with the server's API sentence.
+const nothingOpen = () => `Open ${word('module', { a: true })} first, then save the layout.`;
+
+// Replaces a layout's modules and places with the canvas as it is now. From the Save sheet, its "Replace it" (a taken
+// name): `sheet` is that sheet, which shows the refusal and closes on success.
+async function replaceLayout(layoutId, sheet = null) {
   const id = layoutSpaceId();
   if (!id) return;
   const captured = canvas.captureLayout();
   if (!captured.modules.length) {
-    if (fromForm) showLayoutError(layoutFormError, nothingOpen());
-    else layoutNote(nothingOpen());
+    if (sheet) sheet.error(nothingOpen()); else layoutNote(nothingOpen());
     return;
   }
   try {
     const { layout } = await layoutRequest('PUT', layoutUrl(id, layoutId), captured);
-    if (fromForm) closeLayoutForm();
+    if (sheet) sheet.close();
     layoutNote(`${layout.name} now holds this layout.`);
-    await refreshLayouts({ focus: `[data-layout="${CSS.escape(layout.id)}"]` });
+    await refreshLayouts();
   } catch (err) {
-    if (fromForm) showLayoutError(layoutFormError, err.message);
-    else layoutNote(err.message);
+    if (sheet) sheet.error(err.message); else layoutNote(err.message);
   }
 }
 
-// Rename: the row becomes the same Name field, in place; Enter saves, Escape puts the row back.
-function startRename(layoutId) {
-  const layout = findLayout(layoutId);
-  const row = layoutRows.querySelector(`[data-layout-row="${CSS.escape(layoutId)}"]`);
-  if (!layout || !row) return;
-  closeLayoutForm();
-  const form = document.createElement('form');
-  form.className = 'layout-form layout-rename';
-  form.noValidate = true;
-  form.dataset.layoutId = layoutId;
-  form.innerHTML = `
-    <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" autocomplete="off" spellcheck="false"></label>
-    <p class="layout-form-error" role="alert" hidden></p>
-    <div class="layout-form-buttons"><button class="btn btn-small btn-accent" type="submit">Save</button><button class="btn btn-small" type="button" data-cancel>Cancel</button></div>`;
-  const input = form.querySelector('input');
-  const error = form.querySelector('.layout-form-error');
-  input.value = layout.name;
-  form.querySelector('[data-cancel]').addEventListener('click', () => closeLayoutForm({ focus: true }));
-  form.addEventListener('submit', async (event) => {
-    event.preventDefault();
-    const name = input.value.trim();
-    if (!name) { showLayoutError(error, 'Give the layout a name.'); input.focus(); return; }
-    if (name === layout.name) { closeLayoutForm({ focus: true }); return; }
-    try {
-      await layoutRequest('PUT', layoutUrl(layoutSpaceId(), layoutId), { name });
-      await refreshLayouts({ focus: `[data-layout="${CSS.escape(layoutId)}"]` });
-    } catch (err) {
-      showLayoutError(error, err.message);
+// The small sheet (a <dialog>) for Save this layout and Rename: Name, for Save the share switch (those who may share),
+// the server's refusal under them, Save and Cancel. Escape or Cancel closes it; Enter in the name saves. `onSave(name,
+// shared, sheet)` does the work and closes the sheet (sheet.close) or shows what went wrong (sheet.error, with
+// `replaceId` for a taken name: "Replace it" beside the sentence). Opened from the Layout button, which takes the
+// keyboard back when the sheet closes.
+function openLayoutSheet({ title, name = '', share = null, onSave }) {
+  const doc = canvasDoc();
+  const dlg = doc.createElement('dialog');
+  dlg.className = 'layout-sheet';
+  dlg.setAttribute('aria-label', title);
+  dlg.innerHTML = `
+    <form class="layout-form" novalidate>
+      <h2 class="layout-sheet-title">${escapeHtml(title)}</h2>
+      <label class="layout-field"><span class="layout-field-label">Name</span><input type="text" id="layout-name" autocomplete="off" spellcheck="false" maxlength="40"></label>
+      <label class="switch-row" id="layout-shared-row" hidden><input type="checkbox" class="switch" role="switch" id="layout-shared"><i class="fa-solid fa-user-group fa-fw" aria-hidden="true"></i><span class="switch-name" id="layout-shared-label"></span></label>
+      <p class="layout-form-error" id="layout-form-error" role="alert" hidden></p>
+      <div class="layout-form-buttons"><button class="btn btn-small btn-accent" type="submit">Save</button><button class="btn btn-small" type="button" id="layout-cancel">Cancel</button></div>
+    </form>`;
+  const form = dlg.querySelector('form');
+  const input = dlg.querySelector('#layout-name');
+  const sharedRow = dlg.querySelector('#layout-shared-row');
+  const sharedSwitch = dlg.querySelector('#layout-shared');
+  const errorEl = dlg.querySelector('#layout-form-error');
+  dlg.querySelector('#layout-shared-label').textContent = `For everyone in this ${word('space')}`;
+  input.value = name;
+  sharedRow.hidden = share === null;
+  sharedSwitch.checked = Boolean(share);
+  wireSwitchList(form); // Enter flips the share switch, as Space does
+  const opener = nav.elementOf('modules-toggle');
+  const sheet = {
+    close: () => { if (dlg.open) dlg.close(); },
+    error: (text, replaceId = null) => {
+      errorEl.hidden = false;
+      errorEl.textContent = text;
+      if (replaceId) {
+        const b = doc.createElement('button');
+        b.type = 'button';
+        b.className = 'layout-replace-it';
+        b.textContent = 'Replace it';
+        b.addEventListener('click', () => replaceLayout(replaceId, sheet));
+        errorEl.append(' ', b);
+      }
       input.focus();
-    }
+    },
+  };
+  dlg.querySelector('#layout-cancel').addEventListener('click', () => sheet.close());
+  dlg.addEventListener('click', (event) => { if (event.target === dlg) sheet.close(); }); // the backdrop
+  dlg.addEventListener('close', () => {
+    dlg.remove();
+    if (opener && opener.isConnected && opener.getClientRects().length) opener.focus();
   });
-  row.replaceWith(form);
+  form.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const value = input.value.trim();
+    if (!value) { sheet.error('Give the layout a name.'); return; }
+    onSave(value, share !== null && layoutList.canShare && sharedSwitch.checked, sheet);
+  });
+  doc.body.appendChild(dlg);
+  dlg.showModal();
   input.focus();
   input.select();
+  return sheet;
+}
+function openSaveLayout() {
+  const id = layoutSpaceId();
+  if (!id) return;
+  openLayoutSheet({
+    title: 'Save this layout',
+    share: layoutList.canShare ? false : null,
+    onSave: async (name, shared, sheet) => {
+      const captured = canvas.captureLayout();
+      if (!captured.modules.length) { sheet.error(nothingOpen()); return; }
+      try {
+        const { layout } = await layoutRequest('POST', layoutUrl(id), { name, shared, ...captured });
+        sheet.close();
+        layoutNote(`Saved ${layout.name}.`);
+        await refreshLayouts();
+      } catch (err) {
+        sheet.error(err.message, err.status === 409 ? err.id : null);
+      }
+    },
+  });
+}
+// Rename: the same sheet with the name filled in; Enter saves, Escape leaves it as it was.
+function startRename(layoutId) {
+  const layout = findLayout(layoutId);
+  if (!layout) return;
+  openLayoutSheet({
+    title: 'Rename',
+    name: layout.name,
+    onSave: async (name, _shared, sheet) => {
+      if (name === layout.name) { sheet.close(); return; }
+      try {
+        await layoutRequest('PUT', layoutUrl(layoutSpaceId(), layoutId), { name });
+        sheet.close();
+        await refreshLayouts();
+      } catch (err) {
+        sheet.error(err.message);
+      }
+    },
+  });
 }
 
 // --- the favorite layouts in the space bar (plan-favorite-layouts.md, step 3) ----------------------------------------
-// One group after the Layout button, in the left zone: a button per favorite in the order they were favorited, a heart
-// and the name (cut past about 16 characters), and a press loads it as a row in the panel does (canvas.loadLayout). No
+// Right after the Layout button, in the top bar's right zone: a button per favorite in the order they were favorited, a heart
+// and the name (cut past about 16 characters), and a press loads it as an entry in the menu does (canvas.loadLayout). No
 // "current" state; at most FAVORITE_LIMIT (3). Drawn from layoutList (renderLayouts calls renderFavorites): on entering a space, as the
-// panel opens and after each change there; never pushed live, so a stale button still loads the copy the page has.
-// Hidden for a guest, in an aside, with no favorites, on a narrow canvas and at 640 px and below (decision 10).
-// When the bar is tight (fitFavorites, the left zone's `fit`, given way before Online's): every name shortens down to
-// about 6 characters, then favorites leave from the last one back; those are still in the Layout panel by their hearts.
+// menu opens and after each change there; never pushed live, so a stale button still loads the copy the page has.
+// Hidden for a guest, in an aside, with no favorites, on a narrow canvas, at 640 px and below (decision 10) and while
+// setting up. When the bar is tight (fitFavorites, a right-zone `fit`, nav-bar.js's fitRight: the chip's words give way
+// first): every name shortens down to about 6 characters, then favorites leave from the last one back; those are still
+// in the Layout menu by their hearts.
 // A load that leaves something out says so under the group for 6 seconds (#layout-favorites-note, seen) and to
 // #layout-announce (heard, layoutNote).
 const layoutFavorites = document.createElement('div');
@@ -2141,7 +2063,7 @@ function showFavoritesNote(text) {
 const FAVORITE_NAME_MOST = 16; // characters, before the name is cut short
 const FAVORITE_NAME_LEAST = 6; // characters, the shortest a name gets before a favorite leaves the bar
 const favoritesWanted = () => mayFavorite() && Boolean(layoutList.spaceId) && layoutList.spaceId === layoutSpaceId()
-  && favoriteLayouts().length > 0 && !canvas.isNarrow() && !phoneWidth();
+  && favoriteLayouts().length > 0 && !canvas.isNarrow() && !phoneWidth() && !settingUp;
 let favoritesDrawn = ''; // what the buttons show now, so an unchanged list keeps its buttons (and the keyboard on one)
 function renderFavorites() {
   const list = mayFavorite() && layoutList.spaceId === layoutSpaceId() ? favoriteLayouts() : [];
@@ -2162,7 +2084,7 @@ function renderFavorites() {
       return b;
     });
     layoutFavorites.replaceChildren(...buttons, favoritesNote);
-    if (hadId) (layoutFavorites.querySelector(`[data-layout-favorite="${CSS.escape(hadId)}"]`) || moduleChooser.querySelector('#modules-toggle'))?.focus();
+    if (hadId) (layoutFavorites.querySelector(`[data-layout-favorite="${CSS.escape(hadId)}"]`) || nav.elementOf('modules-toggle'))?.focus();
   }
   nav.draw(); // the favorites are in the top bar wider than a phone
 }
@@ -2199,7 +2121,7 @@ function fitFavorites(avail) {
   buttons.forEach((b, i) => b.classList.toggle('layout-favorite-out', i >= count));
   layoutFavorites.classList.toggle('layout-favorites-none', count === 0);
   // The button with the keyboard left the bar: the keyboard goes to the Layout button, where the rest are.
-  if (focused && focused.closest('.layout-favorite-out')) moduleChooser.querySelector('#modules-toggle')?.focus();
+  if (focused && focused.closest('.layout-favorite-out')) nav.elementOf('modules-toggle')?.focus();
 }
 // A press loads it, one click, no confirm; the keyboard stays on the button. The load's note shows under the group.
 layoutFavorites.addEventListener('click', (event) => {
@@ -2214,13 +2136,13 @@ layoutFavorites.addEventListener('click', (event) => {
   } finally {
     noteUnderFavorites = false;
   }
-  syncSnapBar();
   button.focus();
 });
-// Right of the Layout button, in its group: no divider between them. It never folds into the "..."; a Workspace tool,
-// so it is in the top bar with Layout wider than a phone (nav-bar.js, setWorkspace), fitted first: the phase chip's
-// words give way before the favorites do (Thomas, 2026-10-13: the chip's label is the first thing to go).
-nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' });
+// Right of the Layout button, in its group (Set up's): no divider between them. It never folds into the "..."; a
+// Workspace tool drawn among the bar's own (`place: 'own'`), so it is in the top bar with Layout wider than a phone
+// (nav-bar.js, setWorkspace), fitted before the left zone is (fitRight): the phase chip's words give way before the
+// favorites do (Thomas, 2026-10-13: the chip's label is the first thing to go).
+nav.register({ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, id: 'layout-favorites', order: 5, fold: false, place: 'own', icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' });
 // The canvas crossing the narrow line hides or shows the group (the bar is drawn again; its `visible` reads it).
 let favoritesNarrow = null;
 if (typeof ResizeObserver === 'function') {
@@ -4368,7 +4290,6 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
     canvas.restore();
     applyColumnPref(); // the always-on column, open or a rail, as this space was left
-    syncSnapBar(); // and this space's canvas-level snap
     refreshLayouts(); // and its saved layouts
     syncCallControl(); // who is in the call, for the conference's "Not in a call" note
     // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the

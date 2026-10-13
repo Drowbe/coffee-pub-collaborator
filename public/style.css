@@ -1792,9 +1792,9 @@ body.in-space .subnav {
   text-align: center;
 }
 
-/* The Workspace's tools in the top bar (Layout and the favorites after the chip, Full screen and Pop out before Set
-   up): the top bar's own items never shrink; a divider between them and the bar's own tools. Wider than a phone only:
-   on a phone the right zone is the menu. */
+/* The Workspace's tools in the top bar (a module's tools and the "..." before Set up; Layout and the favorites with Set
+   up; Full screen and Pop out right of your picture): the top bar's own items never shrink; a divider between the runs.
+   Wider than a phone only: on a phone the right zone is the menu. */
 @media (min-width: 641px) {
   .topbar > .nav-right > * {
     flex: none;
@@ -1805,10 +1805,10 @@ body.in-space .subnav {
   }
 }
 
-/* The Layout panel and the favorites' note hang below the top bar's left zone, which is otherwise cut at its edge
-   (.topbar > .nav-left, overflow: hidden): while one is open the zone lets it out. */
-.topbar:has(> .nav-left > .module-chooser > .module-chooser-list:not([hidden]), > .nav-left > .layout-favorites > .layout-favorites-note:not([hidden])) > .nav-left {
-  overflow: visible;
+/* The favorites' note hangs below the top bar's right zone: while it shows, the header rises to the menus' level so a
+   module cannot draw over it. */
+.topbar:has(> .nav-right > .layout-favorites > .layout-favorites-note:not([hidden])) {
+  z-index: var(--z-menu);
 }
 
 .subnav .nav-left > *,
@@ -2022,8 +2022,7 @@ input.switch:disabled {
   white-space: nowrap;
 }
 
-.switch-row .badge,
-.module-chooser-toggle .badge {
+.switch-row .badge {
   margin-left: auto;
   min-width: 16px;
   height: 16px;
@@ -2037,15 +2036,20 @@ input.switch:disabled {
   text-align: center;
 }
 
-/* The space bar's module chooser: one button after the space's name, its list of switches under it, open while you
-   flip several. On a phone the list is the tab bar (.subnav-modules) and the button is not drawn. */
+/* The phone's tab bar's holder (space.js, #modules-menu inside it; canvas.js fills the tabs): drawn only where the
+   window is a phone's width (the registry hides it wider, where the Layout menu is the list). */
 .module-chooser {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
 
-.module-chooser-toggle,
+.module-chooser[hidden] {
+  display: none;
+}
+
+/* The space bar's Join the call (space.js, GitHub #165): a small button, the accent look (.btn-accent) of the
+   conference's own Join the call; the registry hides it while in the call. */
 .join-call {
   display: inline-flex;
   align-items: center;
@@ -2055,8 +2059,6 @@ input.switch:disabled {
   font-size: 12px;
 }
 
-/* The space bar's Join the call (space.js, GitHub #165): the Layout button's size, the accent look (.btn-accent) of the
-   conference's own Join the call; the registry hides it while in the call. */
 .join-call[hidden] {
   display: none;
 }
@@ -2064,14 +2066,6 @@ input.switch:disabled {
 .join-call:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-}
-
-.module-chooser-toggle[aria-expanded="true"] {
-  border-color: var(--accent);
-}
-
-.module-chooser-toggle .badge[hidden] {
-  display: none;
 }
 
 .module-chooser-list {
@@ -2098,53 +2092,6 @@ input.switch:disabled {
   display: none;
 }
 
-/* The Layout panel's sections (plan-layout-menu.md): Show, then Arrange, each a heading (the header's .nav-menu-heading
-   look, lined up with the rows' text) over its own group. */
-.module-chooser-show,
-.module-chooser-arrange,
-.module-chooser-section {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.module-chooser-arrange {
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid var(--border);
-}
-
-.module-chooser-arrange[hidden],
-.module-chooser-range[hidden] {
-  display: none;
-}
-
-.module-chooser-list .module-chooser-heading {
-  padding: 4px 6px 2px;
-}
-
-/* Dock all and Clean up: a row like a switch's, an icon and the word, no switch. */
-.module-chooser-action {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 5px 6px;
-  border: 0;
-  border-radius: 6px;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 13px;
-  text-align: left;
-  cursor: pointer;
-}
-
-.module-chooser-action:hover,
-.module-chooser-action:focus-visible {
-  background: var(--surface-hover);
-}
-
 /* Read by a screen reader, not shown (the Layout note's status region outside the panel, space.js's layoutNote). */
 .visually-hidden {
   position: absolute;
@@ -2158,8 +2105,9 @@ input.switch:disabled {
   border: 0;
 }
 
-/* The panel's note (plan-docked-limit.md): one short line at the end of Arrange. Empty, it takes no room, but stays in
-   the page so its role="status" is heard as it changes. */
+/* The Layout menu's note (plan-docked-limit.md): one short line, the menu's last row (space.js's #modules-menu-note,
+   drawn by host-menu.js as an element row). Empty, it takes no room, but stays in the page so its role="status" is
+   heard as it changes. */
 .module-chooser-note {
   margin: 0;
   padding: 4px 6px 2px;
@@ -2173,106 +2121,10 @@ input.switch:disabled {
   padding: 0;
 }
 
-/* The grid's size, under the snap switch while it is on. */
-.module-chooser-range {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 6px;
-  color: var(--text);
-  font-size: 13px;
-}
-
-.module-chooser-range input[type="range"] {
-  flex: 1;
-  min-width: 90px;
-  accent-color: var(--accent);
-}
-
-/* The panel's third section, Layouts (plan-saved-layouts.md): Arrange's look, a row per saved layout (a press loads it)
-   with its ... beside it, then Save this layout and the small form it opens. Not drawn on a narrow canvas (canvas.js),
-   in an aside, or for a guest with nothing to load (space.js). */
-.module-chooser-layouts {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid var(--border);
-}
-
-.module-chooser-layouts[hidden],
-.module-chooser-layouts .module-chooser-action[hidden],
-.layout-form[hidden],
-.layout-form-error[hidden] {
-  display: none;
-}
-
-.layout-group-label {
-  padding: 4px 6px 0;
-  color: var(--text-dim);
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.layout-group-gap {
-  height: 4px;
-}
-
-.layout-row {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-
-.layout-row .layout-load {
-  flex: 1;
-  min-width: 0;
-}
-
-.layout-name {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.layout-default {
-  margin-left: auto;
-  padding: 0 6px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  color: var(--text-dim);
-  font-size: 11px;
-  line-height: 16px;
-}
-
-.layout-more {
-  flex: none;
-}
-
-.layout-more:focus-visible,
-.layout-replace-it:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.layout-empty {
-  padding-top: 2px;
-}
-
-/* A favorite's row (plan-favorite-layouts.md): a small heart after its name, as the Default mark sits after it. */
-.layout-favorite-mark {
-  flex: none;
-  color: var(--accent);
-  font-size: 11px;
-}
-
-/* The favorite layouts in the space bar, right of the Layout button (space.js, renderFavorites): the Layout button's
-   size, a heart and the name, cut at about 16 characters. When the bar is tight fitFavorites() shortens every name
+/* The favorite layouts in the top bar's right zone, right of the Layout button (space.js, renderFavorites): a small
+   button, a heart and the name, cut at about 16 characters. When the bar is tight fitFavorites() shortens every name
    (--layout-favorite-name, down to about 6 characters), then takes favorites out from the last one back
-   (.layout-favorite-out). With none left in the bar the group also gives back the left zone's gap (10px, .subnav
-   .nav-left) it would leave before it. */
+   (.layout-favorite-out). With none left in the bar the group also gives back the zone's gap it would leave before it. */
 .layout-favorites {
   position: relative;
   display: inline-flex;
@@ -2326,11 +2178,11 @@ input.switch:disabled {
 }
 
 /* A load from the favorites that left something out says so here, under them, for 6 seconds (a screen reader hears it
-   from #layout-announce). The Layout panel's surface. */
+   from #layout-announce). The shared menu's surface, hung from the group's right edge (the group is at the bar's right). */
 .layout-favorites-note {
   position: absolute;
   top: calc(100% + 6px);
-  left: 0;
+  right: 0;
   z-index: var(--z-menu);
   width: max-content;
   max-width: min(320px, calc(100vw - 16px));
@@ -2358,7 +2210,34 @@ input.switch:disabled {
   }
 }
 
-/* Save this layout's form, and a row's Rename in its place: Name, the share switch, the server's refusal, Save and Cancel. */
+/* Save this layout's sheet, and Rename's (space.js, openLayoutSheet): a small <dialog> in the editor window's look
+   (host.css .sdk-editor, as the phase sheet is), its form Name, the share switch, the server's refusal, Save and Cancel. */
+.layout-sheet {
+  box-sizing: border-box;
+  width: min(360px, 100vw - 32px);
+  max-width: none;
+  margin: auto;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-section);
+  color: var(--text);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+}
+
+.layout-sheet::backdrop {
+  background: color-mix(in srgb, var(--bg) 70%, transparent);
+}
+
+.layout-sheet:focus {
+  outline: none;
+}
+
+.layout-sheet-title {
+  margin: 0 0 4px;
+  font-size: 15px;
+}
+
 .layout-form {
   display: flex;
   flex-direction: column;
@@ -2424,10 +2303,6 @@ input.switch:disabled {
    pop-out gets its tabs): no button, and the tab bar lays out the tabs as before. */
 body.in-space .module-chooser:has(> .subnav-modules) {
   display: contents;
-}
-
-body.in-space .module-chooser:has(> .subnav-modules) > .module-chooser-toggle {
-  display: none;
 }
 
 /* The bar is a second row of the header; the gap between rows would add height to the first. */
@@ -6664,6 +6539,121 @@ body.conference-window {
 .host-menu-item.danger { color: var(--danger); }
 .host-menu-item.danger:hover,
 .host-menu-item.danger:focus-visible { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+
+/* A section's heading in the menu (the Layout menu's Show, Arrange, Layouts): the phone menu's heading look. */
+.host-menu-heading {
+  padding: 6px 10px 2px;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* A switch item (`toggle`): the same switch as the Show list's and Open with's (input.switch, above), drawn as a span
+   before the icon, on while the item is checked. The menu's ink for the track. */
+.host-menu {
+  --switch-ink: var(--text);
+}
+
+.host-menu-switch {
+  flex: none;
+  width: 22px;
+  height: 12px;
+  border-radius: 6px;
+  background:
+    radial-gradient(circle at 6px 50%, color-mix(in srgb, var(--switch-ink) 70%, transparent) 4px, transparent 4.5px),
+    color-mix(in srgb, var(--switch-ink) 22%, transparent);
+}
+
+.host-menu-item[aria-checked="true"] .host-menu-switch {
+  background:
+    radial-gradient(circle at 16px 50%, var(--on-accent) 4px, transparent 4.5px),
+    var(--accent);
+}
+
+/* A row with its own "..." (`more`: a saved layout's Favorite, Rename, Delete): the entry takes the width, the "..."
+   after it, the row's own look on hover. */
+.host-menu-pair {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.host-menu-pair > .host-menu-item {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.host-menu-more {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  cursor: pointer;
+}
+
+.host-menu-more:hover,
+.host-menu-more:focus-visible {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+  outline: none;
+}
+
+/* A small word after an entry's label (Default) and a small accent icon (a favorite's heart). */
+.host-menu-tag {
+  flex: none;
+  padding: 0 6px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.host-menu-mark {
+  flex: none;
+  width: auto;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+/* The page's own element in the menu (`element`: the Layout menu's note, the grid's size). */
+.host-menu-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.host-menu-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 10px;
+  color: var(--text);
+  font-size: 13px;
+}
+
+.host-menu-range input[type="range"] {
+  flex: 1;
+  min-width: 90px;
+  accent-color: var(--accent);
+}
+
+.host-menu .module-chooser-note {
+  padding: 4px 10px 2px;
+}
+
+.host-menu .module-chooser-note:empty {
+  padding: 0;
+}
 
 .dock-frame {
   flex: 1;

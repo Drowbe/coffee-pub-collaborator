@@ -280,8 +280,8 @@
     if (typed) items.push({ text: `\u201c${typed.slice(0, 24)}\u201d`, chip: true, quiet: true });
     host.status.set(items).catch(() => {});
   }
-  // Add a place is the "+" in the titlebar. On its own page it opens the dialog; the field at the top of the list is the old
-  // bar's quick-add (a name is searched for, coordinates or a link open the dialog filled in).
+  // Add a place is the "+" in the titlebar. On its own page it opens the dialog; the field at the top of the list is the
+  // typed add (a name is searched for, coordinates or a link open the dialog filled in).
   if (host.add) host.on('add', (e) => { if (e.id === 'place' && canAdd()) { closeFound(); openEditor(null, null); } });
 
   function render() {
@@ -776,7 +776,7 @@
     }
   });
 
-  // --- adding: the bottom bar, and what other modules and pointers ask ----------------------------------------------
+  // --- adding: the titlebar's "+", and what other modules and pointers ask ------------------------------------------
 
   // --- find a place (only when the admin set a search address) -----------------------------------------------------
 
@@ -902,7 +902,7 @@
     }
   });
 
-  // What was typed to add a place (the field, or the old bar's): a name, with a search address set, looks for the place; anything
+  // What was typed to add a place (the field): a name, with a search address set, looks for the place; anything
   // with coordinates or a link (or no search) opens the dialog filled in.
   function quickAdd(text) {
     if (!canEdit) return;
@@ -913,17 +913,13 @@
     closeFound();
     openEditor(null, null, entry);
   }
-  // On its own page the "+" is in the titlebar and the typed add is the field at the top of the list; where the host draws no
-  // titlebar "+" (its answer is false: a popped-out page for now) the host's bottom bar keeps the quick-add, as it did.
-  // Beside the map there is no bar: the page's search field and Add a place at the top of the list do these.
+  // On its own the "+" is in the titlebar (a window's, popped out too, or the page bar on the module's own page) and the
+  // typed add is the field at the top of the list. Beside the map the page's search field and Add a place at the top of the
+  // list do these.
   if (!asPart) {
-    const titlebar = host.add ? Boolean(await host.add.set(canEdit ? [ADD_PLACE] : []).catch(() => false)) : false;
-    hide($('quick'), !(titlebar && canEdit));
+    if (host.add) host.add.set(canEdit ? [ADD_PLACE] : []).catch(() => {});
+    hide($('quick'), !canEdit);
     $('quick').addEventListener('submit', (e) => { e.preventDefault(); const t = $('quick-text'); const v = t.value; t.value = ''; quickAdd(v); });
-    if (!titlebar && host.bar) {
-      host.bar.set(canEdit ? [{ id: 'add', type: 'quickadd', label: 'Add a place', placeholder: 'Add a place: name, or paste coordinates or a map link' }] : []).catch(() => {});
-      host.on('bar', (e) => { if (e.id === 'add') quickAdd(e.value); });
-    }
   }
 
   // What other modules may ask of this page, for the person who asked (a view, so only their own page does it): look for a

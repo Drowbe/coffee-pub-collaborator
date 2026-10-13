@@ -8,9 +8,12 @@
  *   - the status items are not cleaned (4 at most, one end item and last, 60 characters), the same items are not seen as
  *     the same, or the last item before the end one is not cut first;
  *   - the read-out speaks on the first draw, before 1.5 s of quiet, a quiet item, or the same text twice;
- *   - the fallback breaks: no titlebar answers false, and host.bar.set still draws the old bottom bar;
- *   - the chrome stops giving the "+" a slot and the status bar a labelled region, or moveModule rebuilds them instead
- *     of moving them.
+ *   - no titlebar does not answer false;
+ *   - host.bar.set (kept for modules written for the old bar) stops folding its buttons into the "+" (the primary first,
+ *     a quick-add a leaf sending an empty value, host.add.set's list winning), or the old bar comes back anywhere;
+ *   - a bundled module calls host.bar.set (step 6: every one of them draws the "+");
+ *   - the chrome stops giving the "+" a slot and the status bar a labelled region (a window, popped out and the module's
+ *     own page), or moveModule rebuilds them instead of moving them.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -186,20 +189,53 @@ const canvas = read('public/canvas.js');
 const sdk = read('public/sdk/host.js');
 const css = read('public/style.css');
 const sdkCss = read('public/sdk/host.css');
+const moduleJs = read('public/module.js');
+const moduleHtml = read('public/module.html');
 
-test('the fallback: no titlebar or status place answers false; host.bar.set still draws the old bottom bar', () => {
+test('the old bar folded into the "+": each button a leaf, the primary first, a quick-add a leaf with no text', () => {
+  const { entries, quick } = R.foldBarItems([
+    { id: 'link', label: 'Add a link', icon: 'link' },
+    { id: 'add', label: 'Add a note', icon: 'note-sticky', primary: true },
+    { id: 'find', type: 'quickadd', placeholder: 'Search, or paste a link' },
+    { id: 'go', type: 'quickadd', label: 'Add a place', icon: 'magnifying-glass' },
+    { id: 'more', label: 'Export', overflow: true, iconOnly: true },
+    { id: '', label: 'no id' },
+    { id: 'x', label: '' },
+  ]);
+  assert.deepEqual(entries, [
+    { id: 'add', label: 'Add a note', disabled: false, icon: 'note-sticky' },
+    { id: 'link', label: 'Add a link', disabled: false, icon: 'link' },
+    { id: 'find', label: 'Search, or paste a link', disabled: false, icon: 'plus' },
+    { id: 'go', label: 'Add a place', disabled: false, icon: 'magnifying-glass' },
+    { id: 'more', label: 'Export', disabled: false },
+  ], 'the primary first, the rest in order; a quick-add named by its label, else its placeholder');
+  assert.deepEqual([...quick], ['find', 'go'], 'the quick-adds, whose pick sends an empty value');
+  assert.equal(R.foldBarItems([{ id: 'q', type: 'quickadd' }]).entries[0].label, 'Add', 'a quick-add with no words reads Add');
+  assert.equal(R.foldBarItems(Array.from({ length: 14 }, (_, i) => ({ id: `b${i}`, label: `B${i}` }))).entries.length, 10, '10 at most, as the bar took');
+  assert.deepEqual(R.foldBarItems(null).entries, []);
+  // One button folds to one leaf: the "+" runs it at once, named by it.
+  assert.equal(R.addPlan(R.cleanAddEntries(R.foldBarItems([{ id: 'add', label: 'New todo', icon: 'plus', primary: true }]).entries)).kind, 'direct');
+});
+
+test('the host: no old bar; bar.set folds into the "+", add.set\'s list wins, a fold pick sends the bar event', () => {
   assert.match(host, /async 'add\.set'\(\{ entries \}\) \{\s*\n\s*if \(!add\) return false;/);
   assert.match(host, /async 'status\.set'\(\{ items \}\) \{\s*\n\s*if \(!status\) return false;/);
   assert.match(host, /if \(key === statusLast\) return true;/, 'the same items draw nothing');
-  assert.match(host, /async 'bar\.set'\(\{ items \}\) \{[\s\S]{0,1200}drawModuleBar\(\);/, 'bar.set still draws the action bar');
+  assert.match(host, /async 'bar\.set'\(\{ items \}\) \{\s*\n\s*\(\{ entries: barFold, quick: barQuick \} = foldBarItems\(items\)\);\s*\n\s*drawAddSlot\(\);\s*\n\s*return true;/, 'bar.set folds and answers true');
+  assert.match(host, /const drawAddSlot = \(\) => \{ if \(addSlot\) addSlot\.set\(addOwn !== null \? addOwn : barFold\); \};/, 'add.set\'s list wins over the fold');
+  assert.match(host, /if \(event === 'add' && folding\(\)\) send\('bar', barQuick\.has\(data\.id\) \? \{ id: data\.id, value: '' \} : \{ id: data\.id \}\);/, 'a fold pick is the old bar event');
+  for (const gone of ['drawModuleBar', 'barObserver', 'onBar', 'quick-add-go']) assert.ok(!host.includes(gone), `module-host.js: ${gone} is gone`);
+  for (const [rel, code] of [['public/canvas.js', canvas], ['public/module.js', moduleJs], ['public/module.html', moduleHtml], ['public/style.css', css], ['public/sdk/host.css', sdkCss]]) {
+    assert.ok(!/dock-bar|module-floating-bar|has-bar|id="module-bar"|\$\('module-bar'\)/.test(code), `${rel}: the old bar is gone`);
+  }
   assert.match(sdk, /add: \{\s*\n\s*set: \(entries\) => call\('add\.set', \{ entries \}\),/);
   assert.match(sdk, /status: \{\s*\n\s*set: \(items\) => call\('status\.set', \{ items \}\),/);
-  assert.match(sdk, /bar: \{[\s\S]{0,400}set: \(items\) => call\('bar\.set', \{ items \}\),/, 'host.bar.set stays');
+  assert.match(sdk, /folds the buttons into\n\s*\/\/ the titlebar's "\+"/, 'the SDK\'s contract says bar.set folds into the "+"');
   assert.match(sdk, /'add' \(\{ id \}\)/, 'the add event is in the contract');
 });
 
 test('the "+" and the status bar as drawn: names, the shared menu, the live node, focus back to the "+"', () => {
-  assert.match(host, /import \{ cleanAddEntries, addPlan, addMenuItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer \} from '\/module-chrome\.js';/);
+  assert.match(host, /import \{ cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer \} from '\/module-chrome\.js';/);
   assert.match(host, /openHostMenu\(addButton, \(\) => addMenuItems\(addEntries, \(id\) => send\('add', \{ id \}\)\)\)/, 'several: the shared menu');
   assert.match(host, /if \(now\.kind === 'direct'\) \{ if \(!now\.leaf\.disabled\) send\('add', \{ id: now\.leaf\.id \}\); return; \}/, 'one: at once');
   assert.match(host, /addButton\.setAttribute\('aria-label', label\);/);
@@ -221,14 +257,41 @@ test('the chrome: a "+" slot before "...", a labelled status region, moved (not 
   const floating = canvas.slice(canvas.indexOf('  function openModuleFloating('), canvas.indexOf('  function openModuleDocked('));
   const docked = canvas.slice(canvas.indexOf('  function openModuleDocked('), canvas.indexOf('  function moveModule('));
   const move = canvas.slice(canvas.indexOf('  function moveModule('), canvas.indexOf('  // --- built-in modules'));
-  assert.ok(floating.includes('${statusHtml(m)}\n      <div class="module-floating-bar" hidden></div>'), 'floating: under the content, above the old bar');
-  assert.ok(docked.includes("${statusHtml(m)}\n      </div>\n      <div class=\"mod-bar dock-bar\" hidden></div>"), 'docked: the last thing in the module\'s own column');
+  assert.ok(floating.includes("${statusHtml(m)}\n      <span class=\"module-floating-grip\""), 'floating: under the content, the last thing in the window');
+  assert.ok(docked.includes('${statusHtml(m)}\n      </div>`;'), 'docked: the last thing in the module\'s own column');
   for (const [name, code] of [['floating', floating], ['docked', docked]]) {
     assert.ok(/if \(reuse\.add\) \w+\.querySelector\('\[data-header-add\]'\)\.replaceWith\(reuse\.add\);/.test(code), `${name}: the "+" moved in`);
     assert.ok(/if \(reuse\.status\) \w+\.querySelector\('\[data-status\]'\)\.replaceWith\(reuse\.status\);/.test(code), `${name}: the status bar moved in`);
   }
   assert.ok(move.includes("add: mod.el.querySelector('[data-header-add]'),") && move.includes("status: mod.el.querySelector('[data-status]'),"), 'moveModule carries both');
   assert.ok(canvas.includes("add: mod.el.querySelector('[data-header-add]'),\n      status: mod.el.querySelector('[data-status]'),\n      onOpenRef"), 'the mount gets both');
+});
+
+test('popped out and on the module\'s own page: the "+" and the status bar (step 5)', () => {
+  assert.match(moduleHtml, /<span class="titlebar-custom" id="module-titlebar-custom"><\/span>\s*\n\s*<span class="titlebar-add" id="module-titlebar-add" hidden><\/span>\s*\n\s*<button class="sdk-more" id="module-menu"/, 'popped out: icon, name, tools, "+", "...", close');
+  assert.match(moduleHtml, /<div class="mod-status module-status" id="module-status" role="region" aria-label="Status" hidden><\/div>/, 'a labelled status region under the module');
+  assert.match(moduleJs, /const add = popout \? \$\('module-titlebar-add'\) : pageAddSlot\(mod\);/, 'the titlebar popped out, the page bar on the own page');
+  assert.match(moduleJs, /status\.setAttribute\('aria-label', `\$\{mod\.name\} status`\);/);
+  assert.match(moduleJs, /nav\.register\(\{ id: 'page-bar-add', bar: 'secondary', zone: 'right',[^}]*fold: false, element: slot \}\);/, 'the page bar\'s "+" through the nav registry, never folded');
+  assert.ok(/\n    add,\n    status,\n/.test(moduleJs), 'the mount gets both');
+  assert.match(css, /body\.module-page \.module-status \{[^}]*height: calc\(var\(--status-bar-h\) \+ env\(safe-area-inset-bottom, 0px\)\);[^}]*padding-bottom: env\(safe-area-inset-bottom, 0px\);/, 'clear of the home indicator');
+  assert.match(css, /body\.module-popout \.module-titlebar \.mod-add,\s*\n\s*body\.module-popout \.module-titlebar \.msg-btn,\s*\n\s*\.page-bar-add \.mod-add \{[^}]*width: 44px;/, '44 px on a phone');
+});
+
+test('no bundled module calls host.bar.set (every one draws the "+")', () => {
+  const dir = path.join(ROOT, 'modules');
+  const callers = [];
+  for (const id of fs.readdirSync(dir).sort()) {
+    const src = path.join(dir, id, 'src');
+    if (!fs.existsSync(src)) continue;
+    for (const file of fs.readdirSync(src).sort()) {
+      if (!/\.(js|mjs|html)$/.test(file)) continue;
+      const text = read(`modules/${id}/src/${file}`).replace(/\/\*[\s\S]*?\*\/|(^|[^:])\/\/.*$/gm, '$1');
+      if (/\bbar\s*\.\s*set\s*\(|\bcall\(\s*['"]bar\.set['"]|\.on\(\s*['"]bar['"]/.test(text)) callers.push(`modules/${id}/src/${file}`);
+    }
+  }
+  assert.deepEqual(callers, [], 'host.bar.set is for modules written for the old bar; a bundled module uses host.add.set');
+  assert.match(sdk, /bar: \{\s*\n\s*set: \(items\) => call\('bar\.set', \{ items \}\),/, 'host.bar.set stays in the SDK');
 });
 
 test('the styles: --status-bar-h 24px in both sheets, one line, tokens only', () => {

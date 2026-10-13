@@ -651,9 +651,9 @@
     });
   }
 
-  // Adding and searching. The "+" in the window's titlebar (host.add.set) holds "Add a place on the map" (click the map) and
-  // "Add a place" (Places' dialog, empty), and the map's search is a field over the top of the map. Where the host draws no
-  // titlebar "+" (its answer is false: a popped-out page for now) the host's bottom bar keeps both, as it did. As the
+  // Adding and searching. The "+" in the window's titlebar (host.add.set; popped out too, or the page bar on the module's own
+  // page) holds "Add a place on the map" (click the map) and "Add a place" (Places' dialog, empty), and the map's search is a
+  // field over the top of the map. Where the host draws no "+" (its answer is false) the + on the map stays. As the
   // destination's map in a Workspace's Map (a composite), the + on the map is the composite's "+" instead (host.add.set
   // answers true there; on the /map page it answers false, and the + on the map stays) and the page owns the search.
   let addHosted = false;
@@ -666,9 +666,9 @@
     return list;
   }
   function setBar() {
-    hide($('ctrl-add'), !(part && state.adder && !addHosted));
-    // The search field: only where the titlebar "+" is drawn (else the bar's field is), and only where it can do something.
-    const field = !part && addHosted && Boolean(state.searcher || state.adder || alone);
+    hide($('ctrl-add'), !(state.adder && !addHosted));
+    // The search field: the module's own (as a part the page's field searches), and only where it can do something.
+    const field = !part && Boolean(state.searcher || state.adder || alone);
     hide($('map-search'), !field);
     $('results').classList.toggle('under-search', field);
     if (host.add && (part || addHosted)) {
@@ -679,11 +679,6 @@
         host.add.set(list).catch(() => {});
       }
     }
-    if (!host.bar || part || addHosted) return;
-    const items = [];
-    if (state.searcher || state.adder || alone) items.push({ id: 'find', type: 'quickadd', icon: 'magnifying-glass', label: 'Search', placeholder: state.searcher ? 'Search, or paste coordinates or a link' : 'Paste coordinates or a link' });
-    if (state.adder) items.push({ id: 'add', icon: 'plus', iconOnly: true, label: 'Add a place: click the map' });
-    host.bar.set(items).catch(() => {});
   }
   if (host.add) {
     host.on('add', (e) => {
@@ -701,7 +696,7 @@
     const items = state.adding ? [{ text: 'Click the map to add a place' }] : found ? [{ text: `${found} found` }, { text: shown }] : [{ text: shown }];
     host.status.set(items).catch(() => {});
   }
-  // What was typed in the field, or in the host bar's: a pasted position or map link goes there (or starts a place there);
+  // What was typed in the field: a pasted position or map link goes there (or starts a place there);
   // a name is searched for.
   function runFind(raw) {
     const text = String(raw || '').trim();
@@ -712,13 +707,6 @@
     say(alone ? 'Paste coordinates or a map link to go there.' : `${noSearch()} Paste coordinates or a map link, or click the map.`);
   }
   $('map-search').addEventListener('submit', (e) => { e.preventDefault(); runFind($('map-find').value); });
-  // As the destination's part there is no bar: the page's search field and the + on the map do these.
-  if (host.bar && !part) {
-    host.on('bar', (e) => {
-      if (e.id === 'add') { if (state.adder) setAdding(!state.adding); return; }
-      if (e.id === 'find') runFind(e.value);
-    });
-  }
 
   // Show an object on the map for the person who asked (a view: only their own page does it). The request waits for the page to
   // have started, and the object must be one that has a place.

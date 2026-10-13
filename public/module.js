@@ -10,6 +10,7 @@ import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, markMo
 import { mountModule, openClearMenu } from '/module-host.js';
 import { moduleTint } from '/module-tint.js';
 import { compositesOn, compositesToAsk } from '/composites.js';
+import { nav } from '/nav-bar.js';
 
 const $ = (id) => document.getElementById(id);
 const id = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -93,6 +94,12 @@ async function start() {
     frame = holder;
   }
   frame.hidden = false;
+  // The "+" (host.add.set) and the status bar (host.status.set; plan-module-titlebar-add.md, step 5). Popped out, the
+  // "+" is in the window's own titlebar; on the module's own page it is a tool of the page bar's right zone (the nav
+  // registry), the same button. The status bar is the last thing on the page, under the module, above the safe area.
+  const status = $('module-status');
+  status.setAttribute('aria-label', `${mod.name} status`);
+  const add = popout ? $('module-titlebar-add') : pageAddSlot(mod);
   // Showing an item in the module that owns it, from a module's own page: go to that module's page,
   // which is given the pointer in the address (#ref=...) and passes it to the module.
   const refHash = (ref) => `#ref=${encodeURIComponent(JSON.stringify(ref))}`;
@@ -112,11 +119,12 @@ async function start() {
     onOpenRef: openRef,
     module: { id: mod.id, version: mod.version, scope: mod.scope },
     ...(inPage ? { container: frame } : { frame }),
-    bar: $('module-bar'),
     // A window of its own is the module: its frame fills the window, so an editor window needs no lift (editor.lift).
     lift: !popout,
     header: popout ? $('module-titlebar-custom') : null,
     toolbar: $('module-toolbar'),
+    add,
+    status,
     scope,
     spaceId,
     guestToken,
@@ -167,6 +175,20 @@ async function clearModuleData() {
     if (tz) q.set('tz', tz);
   } catch { /* the server falls back */ }
   await api('DELETE', `/api/modules/${encodeURIComponent(id)}/data?${q}`);
+}
+
+// The "+" on a module's own page: an empty slot registered into the page bar's right zone (renderPageBar's bar, through
+// the nav registry), never folded into the bar's "..."; module-host.js draws the button in it (createAddSlot) and hides
+// the slot while the module has no adds. In the module's colour, as on its titlebar.
+function pageAddSlot(mod) {
+  const slot = document.createElement('span');
+  slot.className = 'titlebar-add page-bar-add';
+  slot.id = 'page-bar-add';
+  slot.hidden = true;
+  const tint = moduleTint(mod.id, mod.color || null);
+  if (tint) slot.dataset.tint = tint;
+  nav.register({ id: 'page-bar-add', bar: 'secondary', zone: 'right', group: 'page-add', groupOrder: 990, order: 990, fold: false, element: slot });
+  return slot;
 }
 
 // The window's own titlebar: close, and (while the space page that opened it is still there) the

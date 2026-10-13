@@ -7,7 +7,7 @@
 import { api, accessKeyHeaders, word, words, withinSpacePage } from '/brand.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
-import { cleanAddEntries, addPlan, addMenuItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer } from '/module-chrome.js';
+import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer } from '/module-chrome.js';
 
 // The design tokens a module's frame receives (see design-theme.md).
 const THEME_TOKENS = [
@@ -645,7 +645,7 @@ if (window.parent !== window) {
   });
 }
 
-// The host-drawn "..." dropdown for whatever a header, action bar or toolbar row didn't have room for is the page's
+// The host-drawn "..." dropdown for whatever a header or toolbar row didn't have room for is the page's
 // shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
 export { openHostMenu, closeHostMenu };
 
@@ -696,7 +696,7 @@ export function openClearMenu(trigger, onClear, { armed = false } = {}) {
   openConfirmMenu(trigger, { label: 'Clear', confirm: 'Clear everything and start again?', onConfirm: onClear, armed });
 }
 
-// Splits a cleaned item list into what a header/bar/toolbar row shows directly and what collapses into
+// Splits a cleaned item list into what a header or toolbar row shows directly and what collapses into
 // its "..." (an item marked `overflow: true`, or whatever doesn't fit in `max` slots including the "...").
 // Leftovers come off the left of `shown`, so the rightmost (the primary, when there is one) stays.
 function splitOverflow(items, max) {
@@ -926,7 +926,7 @@ export function createStatusSlot(status) {
 // and `onStatus(items)`, for a destination's part only: its "+" entries and status items, cleaned, for the page to hand
 // on (a composite's frame); host.add.set and host.status.set answer true then. Returns
 // { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, lift = true, onLift = null }) {
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, lift = true, onLift = null }) {
   const base = `/api/modules/${encodeURIComponent(module.id)}`;
   let contextInfo = null;
   // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
@@ -971,106 +971,20 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
 
   // The nav-bar tools this mount registered (their namespaced ids), so destroy() takes exactly those out.
   const navIds = new Set();
-  let barItems = [];
-  let barObserver = null;
-  let fittingBar = false;
-
-  function drawBarItem(item) {
-    if (item.input) {
-      const form = document.createElement('form');
-      form.className = 'quick-add';
-      const field = document.createElement('input');
-      field.type = 'text';
-      field.maxLength = 200;
-      field.placeholder = item.placeholder;
-      field.setAttribute('aria-label', item.placeholder || 'Quick add');
-      const go = document.createElement('button');
-      go.type = 'submit';
-      go.className = 'action-btn primary quick-add-go';
-      go.setAttribute('aria-label', item.label || 'Add');
-      go.title = item.label || 'Add';
-      go.disabled = item.disabled;
-      const plus = document.createElement('i');
-      plus.className = `fa-solid fa-${item.icon || 'circle-plus'} fa-fw`;
-      plus.setAttribute('aria-hidden', 'true');
-      go.appendChild(plus);
-      form.append(field, go);
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        send('bar', { id: item.id, value: field.value.trim() });
-        field.value = '';
-      });
-      bar.appendChild(form);
-      return;
-    }
-    const b = document.createElement('button');
-    b.type = 'button';
-    // An icon is the button (the shared .action-btn, the same size and icon as the call's controls). The words stay as
-    // the tooltip and as the line in "...". A button with no icon is a worded .btn.
-    const iconOnly = Boolean(item.icon);
-    b.className = iconOnly ? `action-btn${item.primary ? ' primary' : ''}` : `btn${item.primary ? ' btn-primary' : ''}`;
-    b.disabled = item.disabled;
-    if (iconOnly) { b.title = item.label; b.setAttribute('aria-label', item.label); }
-    if (item.icon) {
-      const i = document.createElement('i');
-      i.className = `fa-solid fa-${item.icon} fa-fw`;
-      i.setAttribute('aria-hidden', 'true');
-      b.append(i);
-    }
-    if (!iconOnly) b.append(item.label);
-    b.addEventListener('click', () => send('bar', { id: item.id }));
-    bar.appendChild(b);
-  }
-
-  function drawBarMore(hidden) {
-    const more = drawMoreButton(document, 'bar-more', () => openHostMenu(more, hidden.map((item) => ({ ...item, onPick: () => send('bar', { id: item.id }) }))));
-    bar.appendChild(more);
-  }
-
-  // Primary on the far right; secondaries to its left. As the bar shrinks, leftovers come off the left into "...".
-  function drawModuleBar() {
-    if (!bar || fittingBar) return;
-    fittingBar = true;
-    try {
-      const quickadds = barItems.filter((i) => i.input);
-      const forced = barItems.filter((i) => !i.input && i.overflow);
-      const primaries = barItems.filter((i) => !i.input && !i.overflow && i.primary);
-      const secondaries = barItems.filter((i) => !i.input && !i.overflow && !i.primary);
-      const hidden = [...forced];
-      const visible = [...secondaries];
-      const paint = () => {
-        bar.textContent = '';
-        for (const item of quickadds) drawBarItem(item);
-        if (hidden.length) drawBarMore(hidden);
-        for (const item of visible) drawBarItem(item);
-        for (const item of primaries) drawBarItem(item);
-      };
-      paint();
-      if (!bar.clientWidth) return;
-      // The bar packs to the right, so a button that does not fit sticks out of the left. scrollWidth
-      // does not count that. Measure the buttons against the bar instead, and fold them left to right.
-      const spills = () => {
-        const edge = bar.getBoundingClientRect();
-        return [...bar.children].some((child) => {
-          if (child.hidden) return false;
-          const box = child.getBoundingClientRect();
-          return box.left < edge.left - 1 || box.right > edge.right + 1;
-        });
-      };
-      let guard = 0;
-      while ((visible.length || primaries.length) && spills() && guard < 20) {
-        hidden.push(visible.length ? visible.shift() : primaries.shift());
-        paint();
-        guard += 1;
-      }
-    } finally {
-      fittingBar = false;
-    }
-  }
 
   // The "+" in the titlebar (host.add.set) and the status bar (host.status.set), drawn in the slots the chrome gives
-  // (createAddSlot and createStatusSlot, above).
-  const addSlot = add ? createAddSlot(add, (event, data) => send(event, data)) : null;
+  // (createAddSlot and createStatusSlot, above). The old action bar (host.bar.set, kept for modules written for it) is
+  // drawn nowhere: its buttons fold into this same "+" (foldBarItems), until the module calls host.add.set, whose list wins.
+  // While the "+" holds the fold, a pick goes back as the old 'bar' event ({ id }; a quick-add's { id, value: '' }).
+  let addOwn = null; // what host.add.set sent (null: never called)
+  let barFold = []; // host.bar.set's buttons as "+" leaves
+  let barQuick = new Set(); // which of them were quick-adds
+  const folding = () => addOwn === null && barFold.length > 0;
+  const addSlot = add ? createAddSlot(add, (event, data) => {
+    if (event === 'add' && folding()) send('bar', barQuick.has(data.id) ? { id: data.id, value: '' } : { id: data.id });
+    else send(event, data);
+  }) : null;
+  const drawAddSlot = () => { if (addSlot) addSlot.set(addOwn !== null ? addOwn : barFold); };
   const statusSlot = status ? createStatusSlot(status) : null;
 
   // Events for the module before its page has said hello wait until it has.
@@ -1389,41 +1303,26 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (!destination) throw Object.assign(new Error('this is not part of a destination'), { status: 400 });
       return destination.hub.fromPart(destination.part, patch);
     },
-    // The module's action bar: the host draws the buttons into `bar` and sends
-    // clicks back as a 'bar' event.
+    // The old action bar (host.bar.set), kept for modules written for it: nothing is drawn along the bottom any more.
+    // Its buttons fold into the "+" as plain leaves (the primary first, the rest in order; a quick-add is a leaf that
+    // sends an empty value), and a pick sends the 'bar' event it always sent. A module that calls host.add.set gets that
+    // list instead. Answers true, as it always did.
     async 'bar.set'({ items }) {
-      barItems = (Array.isArray(items) ? items : []).slice(0, 10).map((i) => ({
-        id: String(i?.id ?? '').slice(0, 40),
-        label: String(i?.label ?? '').slice(0, 30),
-        icon: /^[a-z0-9-]{1,40}$/.test(i?.icon || '') ? i.icon : '',
-        primary: Boolean(i?.primary),
-        disabled: Boolean(i?.disabled),
-        // An item can be a quick-add: a text field with a small + button. What is typed comes back with the click.
-        input: i?.type === 'quickadd',
-        iconOnly: Boolean(i?.iconOnly),
-        placeholder: String(i?.placeholder ?? '').slice(0, 60),
-        overflow: Boolean(i?.overflow) && i?.type !== 'quickadd',
-      })).filter((i) => i.id && (i.label || i.input));
-      if (bar) {
-        bar.hidden = barItems.length === 0;
-        if (!barObserver) {
-          barObserver = new ResizeObserver(() => drawModuleBar());
-          barObserver.observe(bar);
-        }
-        drawModuleBar();
-      }
-      if (onBar) onBar(barItems.length > 0);
+      ({ entries: barFold, quick: barQuick } = foldBarItems(items));
+      drawAddSlot();
       return true;
     },
-    // The "+" in the titlebar (host.add.set). False where there is no titlebar to put it in (a destination's part, a
-    // module's own page): the module keeps its own add buttons in the page there. An empty list takes the "+" away (a
-    // module sends one for a person who may not add: what "may add" means is the module's own permission).
+    // The "+" in the titlebar (host.add.set): the window's titlebar, or the page bar on a module's own page. False where
+    // there is none (a destination's part, a dashboard widget): the module keeps its own add buttons in the page there. An
+    // empty list takes the "+" away (a module sends one for a person who may not add: what "may add" means is the
+    // module's own permission).
     async 'add.set'({ entries }) {
       if (!add) return false;
-      addSlot.set(entries);
+      addOwn = Array.isArray(entries) ? entries : [];
+      drawAddSlot();
       return true;
     },
-    // The status bar (host.status.set). False where there is none (a destination's part, a module's own page).
+    // The status bar (host.status.set). False where there is none (a destination's part, a dashboard widget).
     async 'status.set'({ items }) {
       if (!status) return false;
       return statusSlot.set(items);
@@ -2001,7 +1900,6 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (ptrDrag && ptrDrag.source === mine) ptrEnd();
       for (const id of navIds) navBar.unregister(id); // its nav tools go with it
       navIds.clear();
-      if (barObserver) { barObserver.disconnect(); barObserver = null; }
       if (statusSlot) statusSlot.destroy();
       if (addSlot) addSlot.destroy();
       leaveStream();

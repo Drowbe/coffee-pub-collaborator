@@ -893,17 +893,17 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const unreadOf = (id) => { const c = compositeById(id); return c ? c.parts.reduce((sum, p) => sum + (unread[p] || 0), 0) : unread[id] || 0; };
   const markRead = (id) => { const c = compositeById(id); for (const one of c ? c.parts : [id]) markModuleRead(one); };
 
-  // onBar and onResize are wired the same way regardless of which mode a module opened in, and read
+  // onToolbar and onResize are wired the same way regardless of which mode a module opened in, and read
   // the module's *current* element and mode rather than the one it was mounted with (`mod.el`, `mod.mode`):
   // that is what lets moveModule, below, hand a mount that started in one mode on to the other without
-  // remounting it. has-bar only styles the docked layout; onResize only remembers a size while floating.
-  function mountFor(mod, frame, bar, extra = {}) {
+  // remounting it. onResize only remembers a size while floating. A module has no bar along the bottom
+  // (plan-module-titlebar-add.md): its adds are the titlebar's "+", and host.bar.set folds into it.
+  function mountFor(mod, frame, extra = {}) {
     const m = mod.m;
     if (compositeOf(m)) return compositeMount(mod, frame);
     return mountModule({
       module: { id: m.id, version: m.version, scope: m.scope },
       ...(frame.tagName === 'IFRAME' ? { frame } : { container: frame }),
-      bar,
       header: mod.el.querySelector('[data-header-custom]'),
       toolbar: mod.el.querySelector('[data-toolbar]'),
       add: mod.el.querySelector('[data-header-add]'),
@@ -917,7 +917,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       guestToken,
       entry: m.canvas.entry,
       onTitle: (title) => { mod.el.querySelector('[data-title]').textContent = title || m.name; },
-      onBar: (has) => mod.el.classList.toggle('has-bar', has),
       onToolbar: (has) => mod.el.classList.toggle('has-toolbar', has),
       onResize: ({ width, height } = {}) => {
         if (mod.mode !== 'float') return;
@@ -937,7 +936,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     });
   }
 
-  // `reuse` (from moveModule) carries a frame/container, bar, toolbar, header-buttons span, "+" slot and status bar already
+  // `reuse` (from moveModule) carries a frame/container, toolbar, header-buttons span, "+" slot and status bar already
   // mounted in the other mode's chrome: they are moved into the new chrome instead of built fresh, so the
   // module inside keeps running and keeps whatever it was holding (a conversation, a draft, ...) rather
   // than being torn down and started over. Only the class that lays each one out changes.
@@ -951,7 +950,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       <div class="mod-toolbar" data-toolbar hidden></div>
       ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'module-floating-frame')}
       ${statusHtml(m)}
-      <div class="module-floating-bar" hidden></div>
       <span class="module-floating-grip" title="Drag to resize"></span>`;
     layerFor(doc).appendChild(floater);
     const index = [...opened.values()].filter((p) => p.mode === 'float').length;
@@ -968,15 +966,13 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (reuse) {
       reuse.frame.className = reuse.frame.classList.contains('module-root') ? 'module-root module-floating-frame' : 'module-floating-frame';
       floater.querySelector('.frame-slot').replaceWith(reuse.frame);
-      reuse.bar.className = 'module-floating-bar';
-      floater.querySelector('.module-floating-bar').replaceWith(reuse.bar);
       floater.querySelector('[data-header-custom]').replaceWith(reuse.headerCustom);
       floater.querySelector('[data-toolbar]').replaceWith(reuse.toolbar);
       if (reuse.add) floater.querySelector('[data-header-add]').replaceWith(reuse.add);
       if (reuse.status) floater.querySelector('[data-status]').replaceWith(reuse.status);
       mod.mount = reuse.mount;
     } else {
-      mod.mount = mountFor(mod, floater.querySelector('iframe, .module-root'), floater.querySelector('.module-floating-bar'));
+      mod.mount = mountFor(mod, floater.querySelector('iframe, .module-root'));
     }
     opened.set(m.id, mod);
     wireFloating(m.id, floater, floater.querySelector('.module-floating-head'), floater.querySelector('.module-floating-grip'));
@@ -995,8 +991,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         <div class="mod-toolbar" data-toolbar hidden></div>
         ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'dock-frame')}
         ${statusHtml(m)}
-      </div>
-      <div class="mod-bar dock-bar" hidden></div>`;
+      </div>`;
     canvas.appendChild(section);
     const mod = {
       id: m.id, kind: 'module', mode: 'dock', m, el: section, modes: m.canvas.mode, order: ++order,
@@ -1006,19 +1001,16 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (reuse) {
       reuse.frame.className = reuse.frame.classList.contains('module-root') ? 'module-root dock-frame' : 'dock-frame';
       section.querySelector('.frame-slot').replaceWith(reuse.frame);
-      reuse.bar.className = 'mod-bar dock-bar';
-      section.querySelector('.dock-bar').replaceWith(reuse.bar);
       section.querySelector('[data-header-custom]').replaceWith(reuse.headerCustom);
       section.querySelector('[data-toolbar]').replaceWith(reuse.toolbar);
       if (reuse.add) section.querySelector('[data-header-add]').replaceWith(reuse.add);
       if (reuse.status) section.querySelector('[data-status]').replaceWith(reuse.status);
       mod.mount = reuse.mount;
-      // The bar's own onBar callback only fires on the next change; a bar or toolbar already showing needs this now.
-      section.classList.toggle('has-bar', !reuse.bar.hidden);
+      // The toolbar's own onToolbar callback only fires on the next change; a toolbar already showing needs this now.
       section.classList.toggle('has-toolbar', !reuse.toolbar.hidden);
     } else {
-      // With a bar the module's content stops above the shared bottom row; without one it fills the column.
-      mod.mount = mountFor(mod, section.querySelector('iframe, .module-root'), section.querySelector('.dock-bar'));
+      // The module's content fills the column, its status bar the last thing in it.
+      mod.mount = mountFor(mod, section.querySelector('iframe, .module-root'));
     }
     opened.set(m.id, mod);
     syncDock();
@@ -1028,7 +1020,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   }
 
   // Switch an installed module between docked and floating without the module inside noticing: pull its frame
-  // (or in-page container), its action bar, toolbar, header buttons, "+" and status bar out of the old chrome and into the
+  // (or in-page container), its toolbar, header buttons, "+" and status bar out of the old chrome and into the
   // new one, then drop the emptied-out old chrome. Leaving for a window is a real new page, so that keeps
   // going through closeModule + popOut instead (see setMode).
   function moveModule(id, mode) {
@@ -1036,7 +1028,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const m = mod.m;
     const reuse = {
       frame: mod.el.querySelector('iframe, .module-root'),
-      bar: mod.el.querySelector('.dock-bar, .module-floating-bar'),
       headerCustom: mod.el.querySelector('[data-header-custom]'),
       toolbar: mod.el.querySelector('[data-toolbar]'),
       add: mod.el.querySelector('[data-header-add]'),

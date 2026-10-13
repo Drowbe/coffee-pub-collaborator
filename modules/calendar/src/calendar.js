@@ -1047,35 +1047,23 @@
   }
   $('add').addEventListener('click', startNew);
   // Typed text goes through Chat `/c` (addEvent): parseWhen, then this same editor, nothing saved until Save.
-  // Add event is the "+" in the titlebar (host.add.set, one action: it runs at once), or the composite's "+" as the
-  // destination's calendar in a Workspace's Calendar. Where there is no "+" (popped out, the module's own page, a phone)
-  // the old bottom bar holds it; the header button stays for a host with neither, and as a destination's part on the
-  // /calendar page. The Agenda adds nothing. Who may add is known once the spaces are in.
+  // Add event is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
+  // page bar on the module's own page; or the composite's "+" as the destination's calendar in a Workspace's Calendar.
+  // Where the host draws none (its answer is false: a destination's part on the /calendar page) the header button stays.
+  // The Agenda adds nothing. Who may add is known once the spaces are in.
   const ADD_EVENT = { id: 'event', label: 'Add event', icon: 'calendar-plus' };
   let addHosted = false;
-  let barHosted = false;
   function showAdd() {
     $('add').hidden = part === 'panel' || !canAdd();
     if (addHosted) host.add.set(canAdd() ? [ADD_EVENT] : []).catch(() => {});
-    if (barHosted) host.bar.set(canAdd() ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => {});
   }
   const unhost = () => { $('add').classList.remove('hosted'); };
-  const legacyBar = () => {
-    if (!host.bar || part) return unhost();
-    barHosted = true;
-    host.bar.set(canAdd() ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => { barHosted = false; unhost(); });
-  };
   if (part !== 'panel') {
     $('add').classList.add('hosted'); // until the host says where Add event is
-    if (host.add) host.add.set(canAdd() ? [ADD_EVENT] : []).then((drawn) => { if (drawn) addHosted = true; else legacyBar(); }, legacyBar);
-    else legacyBar();
-    if (host.add) host.on('add', (e) => { if (e.id === ADD_EVENT.id && canAdd()) startNew(); });
-  }
-  if (host.bar && !part) {
-    host.on('bar', (e) => {
-      if (e.id !== 'add' || !canAdd()) return;
-      startNew();
-    });
+    if (host.add) {
+      host.add.set(canAdd() ? [ADD_EVENT] : []).then((drawn) => { if (drawn) addHosted = true; else unhost(); }, unhost);
+      host.on('add', (e) => { if (e.id === ADD_EVENT.id && canAdd()) startNew(); });
+    } else unhost();
   }
 
   // The status line at the foot of the window: the period shown and how many events are in it ("Oct 2026 · 14 events"),

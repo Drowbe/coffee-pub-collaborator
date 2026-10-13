@@ -2,15 +2,17 @@
 /*
  * check-buttons.mjs -- the action button is defined once.
  *
- * The square icon button of the bottom row (the call's controls, the chat's Send, a module's action bar, a module's own
- * bottom buttons) is .action-btn: its size is --action-btn-h and its icon --action-icon-ratio of that. The app's own page
+ * The square icon button of the bottom row (the call's controls, the chat's Send, a module's own bottom buttons) is
+ * .action-btn: its size is --action-btn-h and its icon --action-icon-ratio of that. The app's own page
  * (public/style.css) and a module's page (public/sdk/host.css, which the server adds to every module page) each carry the
  * rules, between the markers action-btn:start and action-btn:end, and they must be word for word the same, with the same
  * two tokens. This fails when:
  *   - the two copies differ, or either is missing, or the tokens differ (the size, or the icon's share of it);
- *   - public/style.css sizes the call controls, the Send or the action bar's buttons outside the shared rules (a smaller
- *     button sets --action-btn-h, nothing else);
- *   - the call controls, the chat's Send or the host-drawn action bar stop using .action-btn;
+ *   - public/style.css sizes the call controls or the Send outside the shared rules (a smaller button sets
+ *     --action-btn-h, nothing else);
+ *   - the call controls or the chat's Send stop using .action-btn;
+ *   - the host draws a module action bar again (plan-module-titlebar-add.md, step 6: there is none; host.bar.set folds
+ *     its buttons into the titlebar's "+", whose button is the "..."'s .sdk-more, not an .action-btn);
  *   - a bundled module's CSS sizes .action-btn, sets the two tokens, or keeps its own copy (a button sized to the bottom
  *     row's 38px).
  */
@@ -116,7 +118,7 @@ for (const rel of ['public/style.css', 'public/sdk/host.css']) {
   }
 }
 
-// 3. The markup and the host's action bar use it.
+// 3. The markup uses it; the host draws no module action bar (its buttons are the titlebar "+"'s leaves).
 const space = read('public/space.html');
 for (const m of space.matchAll(/<button\b[^>]*class="([^"]*(?<![\w-])fbtn(?![\w-])[^"]*)"[^>]*>/g)) {
   const id = (/\bid="([^"]+)"/.exec(m[0]) || [])[1] || '?';
@@ -125,8 +127,13 @@ for (const m of space.matchAll(/<button\b[^>]*class="([^"]*(?<![\w-])fbtn(?![\w-
 const send = /<form id="chat-form">[\s\S]*?<button\b[^>]*type="submit"[^>]*>/.exec(space);
 if (!send || !/class="[^"]*\baction-btn\b[^"]*\bprimary\b/.test(send[0])) fail('public/space.html: the chat\'s Send must be an .action-btn.primary');
 const host = read('public/module-host.js');
-if (!/className = 'action-btn primary quick-add-go'/.test(host)) fail('public/module-host.js: a quick-add\'s + must be an .action-btn.primary');
-if (!/iconOnly \? `action-btn\$\{item\.primary \? ' primary' : ''\}`/.test(host)) fail('public/module-host.js: an action-bar button with an icon must be an .action-btn');
+if (/drawModuleBar|quick-add-go|className = 'quick-add'/.test(host)) fail('public/module-host.js: the host draws a module action bar again; host.bar.set folds into the titlebar\'s "+" (plan-module-titlebar-add.md)');
+if (!/async 'bar\.set'\(\{ items \}\) \{[\s\S]{0,1400}drawAddSlot\(\);/.test(host)) fail('public/module-host.js: host.bar.set must fold its buttons into the "+" (drawAddSlot)');
+if (!/addButton\.className = 'sdk-more mod-add';/.test(host)) fail('public/module-host.js: the titlebar\'s "+" has the "..."\'s look (.sdk-more), not an action button');
+for (const rel of ['public/style.css', 'public/sdk/host.css']) {
+  const text = rel === 'public/style.css' ? style : sdk;
+  for (const r of rules(text)) if (/\.(dock-bar|module-floating-bar|module-bar)\b/.test(r.selector)) fail(`${rel}: "${r.selector}" styles the old module action bar, which is gone`);
+}
 
 // 4. Modules use the SDK's button; they do not size it or keep a copy of it.
 const BUTTON = /(^|[\s>+~,(])(button|\.btn|\.action-btn)\b/;

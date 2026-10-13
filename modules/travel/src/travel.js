@@ -50,7 +50,7 @@
     editingFrom: null, // where focus goes when the form closes: { el, id, date }
     menuFor: null, // item id
     currentDay: null, // the day in view (where a quick add goes)
-    hosted: Boolean(host.bar), // the host draws the add bar, so the days' own add rows step aside
+    hosted: Boolean(host.add), // the host draws the titlebar's "+", so the days' own add rows step aside
     deleteArmed: null,
     expanded: new Set(), // item ids whose card's "More" is open
     markerTypes: [],
@@ -484,7 +484,7 @@
     const add = el.querySelector('.add-row');
     add.dataset.day = day;
     add.setAttribute('aria-label', `Add to ${dayShort(day)}`);
-    // With the host's bar the days' add rows hide: the bar is the quick way to add.
+    // With the host's "+" the days' add rows hide: the "+" is the quick way to add.
     add.classList.toggle('hosted', state.hosted);
     if (!canEdit) add.remove();
     // What other modules hold on this day that the plan could take in.
@@ -593,7 +593,7 @@
   // The "..." on a day and the + on a joint: everything that can be added there, the same kinds the editor's tiles offer,
   // each opening the editor at that place with the kind chosen; then the markers (a time block on a day, a between-days
   // marker on the line, added at once). A hidden-days badge also offers to show the days. The type-to-add row and the
-  // host's bar are the fast path; this is the plain one. Grouped (Thomas, 2026-10-13): Travel, Eat and drink, See and
+  // titlebar's "+" are the fast path; this is the plain one. Grouped (Thomas, 2026-10-13): Travel, Eat and drink, See and
   // do, Mark the day and Add at a time are categories whose entries fly out beside them (host.menu.show's `items`; on a
   // phone they drill in); a stay and a note are picked straight away.
   // What can be added to a day or a joint, in the day menu's order and short row wording: Travel, a stay, Eat and drink, See and
@@ -2385,7 +2385,7 @@
 
   // --- what other modules may ask, and the first load ---------------------------------------------------------
 
-  // The shared bar: icon buttons, Add plan on the right. Typing is `/p` in Chat.
+  // The titlebar's "+" adds to the selected day. Typing is `/p` in Chat.
   const defaultDay = () => {
     const days = plan.days();
     const today = ymd(new Date());
@@ -2396,29 +2396,13 @@
     const day = defaultDay();
     openEditor('item', null, day ? { date: day, tile } : { tile });
   };
-  // The "+" in the titlebar: the day menu's kinds, adding to the selected day (addFromBar). Where the host has no "+" (popped out,
-  // a phone, a destination's part) the old bottom bar keeps the same adds, so no one loses them.
+  // The "+" in the titlebar: the day menu's kinds, adding to the selected day (addFromBar): a window's, popped out too, or the
+  // page bar on the module's own page. Where the host draws none (its answer is false) the days' own add rows come back.
   const addTiles = new Set(addKinds().flatMap((k) => (k.items ? k.items.map((r) => r.id) : [k.id])));
-  const legacyBar = () => {
-    if (!host.bar) return;
-    host.bar.set(canEdit ? [
-      { id: 'add', label: 'Add plan', icon: 'plus', primary: true },
-      { id: 'flight', icon: 'plane', iconOnly: true, label: 'Flight' },
-      { id: 'hotel', icon: 'bed', iconOnly: true, label: 'Hotel' },
-      { id: 'restaurant', icon: 'utensils', iconOnly: true, label: 'Restaurant' },
-      { id: 'note', icon: 'note-sticky', iconOnly: true, label: 'Note' },
-    ] : []).catch(() => { state.hosted = false; redraw(); });
-  };
+  const unhost = () => { if (!state.hosted) return; state.hosted = false; redraw(); };
   if (host.add) {
-    host.add.set(canEdit ? addKinds().map(({ tip, ...k }) => (k.items ? { ...k, items: k.items.map(({ tip: t, ...r }) => r) } : k)) : []).then((drawn) => { if (!drawn) legacyBar(); }, legacyBar);
+    host.add.set(canEdit ? addKinds().map(({ tip, ...k }) => (k.items ? { ...k, items: k.items.map(({ tip: t, ...r }) => r) } : k)) : []).then((drawn) => { if (!drawn) unhost(); }, unhost);
     host.on('add', (e) => { if (canEdit && addTiles.has(e.id)) addFromBar(e.id); });
-  } else legacyBar();
-  if (host.bar) {
-    host.on('bar', (e) => {
-      if (!canEdit) return;
-      if (e.id === 'add') return addFromBar();
-      if (e.id === 'flight' || e.id === 'hotel' || e.id === 'restaurant' || e.id === 'note') return addFromBar(e.id);
-    });
   }
 
   // The pane's width, not the window's: a bundled module runs in the page, so a media query would follow the window. The

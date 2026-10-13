@@ -49,7 +49,7 @@
      public/sdk/host.css has the same token. */
   --status-bar-h: 24px;
   /* The height of every control in the shared bottom row (the call toolbar's buttons, the chat's input and
-     Send, each module's quick-add), so they line up whatever cell they are in. */
+     Send), so they line up whatever cell they are in. */
   --bar-control-h: 38px;
   /* The shared bottom row itself: one line of those controls, with the padding around them and the bar's top
      border. A second toolbar uses this same height and sits in the column above, so it does not make this row taller. */
@@ -946,7 +946,7 @@ body.host-console .grow {
 }
 
 /* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
-   chat's Send, a module's action bar, a module's own bottom buttons). Its size is --action-btn-h and its icon
+   chat's Send, a module's own bottom buttons). Its size is --action-btn-h and its icon
    --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
    rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
    so and keeps a module from sizing the button itself. */
@@ -5881,7 +5881,7 @@ input[type="color"] {
   display: none;
 }
 
-/* A docked module on a narrow window is laid out as the chat is: it fills the canvas, its action bar under it. */
+/* A docked module on a narrow window is laid out as the chat is: it fills the canvas. */
 .canvas.narrow.module-open {
   grid-template-rows: minmax(0, 1fr) calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)) auto;
 }
@@ -5894,14 +5894,10 @@ input[type="color"] {
   grid-row: 1;
 }
 
-.canvas.narrow.module-open .module-docked .dock-bar {
-  grid-row: 2;
-}
-
 /* The module being shown has no bottom bar (its "+" is in its titlebar and its status line is the last thing in its column):
-   the row that held the bar goes, so no blank strip sits under it. A module that still draws a bar keeps the row; so do the
-   conference and the chat, which are not this module. */
-.canvas.narrow.module-open:has(.module-docked > .mod-content:not(.narrow-hidden)):not(:has(.module-docked > .dock-bar:not([hidden], .narrow-hidden))) {
+   the shared bottom row goes, so no blank strip sits under it. The conference and the chat, which are not this module,
+   keep it. */
+.canvas.narrow.module-open:has(.module-docked > .mod-content:not(.narrow-hidden)) {
   grid-template-rows: minmax(0, 1fr) 0 auto;
 }
 
@@ -6211,7 +6207,7 @@ body.conference-window {
 
 /* Docked modules: a column of the space's grid, beside the video and the chat. */
 .module-docked > .mod-content {
-  grid-row: 1 / -1; /* fills the whole column unless the module has an action bar */
+  grid-row: 1 / -1; /* fills the whole column: a module has no bar in the shared bottom row */
   display: flex;
   flex-direction: column;
   background: color-mix(in srgb, var(--bg) 96%, transparent); /* the same as the chat's content */
@@ -6468,14 +6464,6 @@ body.conference-window {
 .sdk-more i {
   width: 1em;
   text-align: center;
-}
-/* In an action bar the "..." is as big as the action buttons beside it, with the same icon size. */
-.dock-bar .sdk-more,
-.module-floating-bar .sdk-more,
-.module-bar .sdk-more {
-  width: var(--action-btn-h);
-  height: var(--action-btn-h);
-  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
 }
 
 /* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
@@ -6855,102 +6843,6 @@ body.module-popout .topbar {
   display: none;
 }
 
-/* A module's action bar. Docked, it is a cell in the space's shared bottom row,
-   lined up with the video toolbar and the chat box; elsewhere it is a strip
-   under the module. */
-.module-docked.has-bar > .mod-content {
-  grid-row: 1;
-}
-
-.dock-bar {
-  grid-row: 2;
-  z-index: 1;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--shade); /* the same as the video toolbar's cell beside it */
-  border-left: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-}
-
-.module-floating-bar,
-.module-bar {
-  display: flex;
-  flex: none;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--shade);
-  border-top: 1px solid var(--border);
-}
-
-/* Same rule as the conference bar: buttons keep their size, and what does not fit overflows so the
-   host can move it into "..." (scrollWidth vs clientWidth). Nothing paints outside the module. */
-.dock-bar,
-.module-floating-bar,
-.module-bar {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.dock-bar > .btn,
-.module-floating-bar > .btn,
-.module-bar > .btn {
-  flex: none;
-}
-
-.module-floating-bar[hidden],
-.module-bar[hidden],
-.dock-bar[hidden] {
-  display: none;
-}
-
-/* A module's quick-add: a text field with a small + button, filling the module's bar (docked bar, panel bar, page bar). It sits at the bottom, lined up with the chat box. */
-.dock-bar:has(.quick-add),
-.module-floating-bar:has(.quick-add),
-.module-bar:has(.quick-add) {
-  align-items: flex-end;
-}
-
-.quick-add {
-  display: flex;
-  flex: 1;
-  align-items: flex-end;
-  gap: 6px;
-  min-width: 0;
-  margin: 0;
-}
-
-.quick-add input {
-  flex: 1;
-  min-width: 0;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-}
-
-.quick-add input::placeholder {
-  color: var(--text-dim);
-}
-
-.quick-add input {
-  box-sizing: border-box;
-  height: var(--bar-control-h);
-}
-
-/* a quick-add with buttons beside it (a module sets more than one bar item): the field takes the room, and an icon-only button is as tall as the field is */
-.dock-bar:has(.quick-add),
-.module-floating-bar:has(.quick-add),
-.module-bar:has(.quick-add) {
-  gap: 6px;
-}
-
 body.module-page .module-canvas {
   flex-direction: column;
 }
@@ -7179,6 +7071,12 @@ body.chat-window {
   outline-offset: -2px;
 }
 
+/* The tools group as tall as the titlebar, so the "+" can be (44px wide, the titlebar's 42px tall). */
+.canvas.narrow .module-docked .mod-header-tools {
+  align-self: stretch;
+  align-items: center; /* the "..." keeps its 28px, centred; the "+" and Close stretch */
+}
+
 .canvas.narrow .module-docked .titlebar-add {
   align-self: stretch;
   align-items: stretch;
@@ -7187,6 +7085,43 @@ body.chat-window {
 .canvas.narrow .module-docked .mod-add {
   width: 44px;
   height: auto;
+}
+
+/* A module on its own page or popped out (public/module.html): the "+" is in the page bar's right zone, or in the
+   window's own titlebar; the status bar is the last thing on the page, so it keeps clear of the home indicator. */
+.page-bar-add[data-tint] .mod-add {
+  color: var(--tint);
+}
+
+body.module-page .module-status {
+  height: calc(var(--status-bar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 640px) {
+  /* Touch sizes: 44px wide, as tall as the bar or titlebar it sits in. */
+  body.module-popout .module-titlebar .mod-header-tools {
+    align-self: stretch;
+    align-items: center; /* the "..." keeps its 28px, centred; the "+" and Close stretch */
+  }
+
+  body.module-popout .module-titlebar .titlebar-add,
+  .page-bar-add {
+    align-self: stretch;
+    align-items: stretch;
+  }
+
+  body.module-popout .module-titlebar .msg-btn {
+    align-self: stretch;
+  }
+
+  body.module-popout .module-titlebar .mod-add,
+  body.module-popout .module-titlebar .msg-btn,
+  .page-bar-add .mod-add {
+    width: 44px;
+    min-width: 44px;
+    height: auto;
+  }
 }
 
 .mod-status {

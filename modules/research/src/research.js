@@ -872,39 +872,23 @@
     if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('rcard')) ev.target.click();
   });
 
-  // --- adding: the bottom bar, and what other modules and pointers ask ---------------------------------------------
+  // --- adding: the titlebar's "+", and what other modules and pointers ask ------------------------------------------
 
-  // The "+" in the titlebar holds the three adds. Where the host has no "+" (popped out, a phone, a destination's part) the
-  // old bottom bar keeps them, so no one loses an add. The empty state's own buttons stay: they add to an empty page.
+  // The "+" in the titlebar holds the three adds: a window's, popped out too, or the page bar on the module's own page.
+  // The empty state's own buttons stay: they add to an empty page.
   const addNote = () => openEditor(null, { kind: 'note' });
   const addLink = () => openEditor(null, { kind: 'link' });
-  const legacyBar = () => {
-    if (!host.bar) return;
-    host.bar.set(canEdit ? [
-      { id: 'add', label: 'Add a note', icon: 'note-sticky', primary: true },
-      { id: 'link', label: 'Add a link', icon: 'link' },
-      { id: 'photo', label: 'Add a photo', icon: 'camera' },
-    ] : []).catch(() => {});
-  };
   if (host.add) {
     host.add.set(canEdit ? [
       { id: 'note', label: 'Note', icon: 'note-sticky' },
       { id: 'link', label: 'Link', icon: 'link' },
       { id: 'photo', label: 'Photo', icon: 'camera' },
-    ] : []).then((drawn) => { if (!drawn) legacyBar(); }, legacyBar);
+    ] : []).catch(() => {});
     host.on('add', (e) => {
       if (!canEdit) return;
       if (e.id === 'photo') return choosePhotos();
       if (e.id === 'link') return addLink();
       if (e.id === 'note') return addNote();
-    });
-  } else legacyBar();
-  if (host.bar) {
-    host.on('bar', (e) => {
-      if (!canEdit) return;
-      if (e.id === 'photo') return choosePhotos();
-      if (e.id === 'link') return addLink();
-      if (e.id === 'add') addNote();
     });
   }
   // Something from another module dropped on the pane: what can be done with it is the shared decision

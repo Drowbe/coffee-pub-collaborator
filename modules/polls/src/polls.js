@@ -774,24 +774,15 @@
     });
   }
   $('add').addEventListener('click', () => openEditor());
-  // New poll is the "+" in the titlebar (host.add.set, one action: it runs at once). Where there is no "+" (popped out,
-  // the module's own page, a phone) the old bottom bar holds it; the header button stays only when there is neither.
-  // Typing is `/v` in Chat, which opens the same form.
-  const legacyBar = () => {
-    if (!host.bar) return void $('add').classList.remove('hosted');
-    host.bar.set(canCreate ? [{ id: 'add', label: 'New poll', icon: 'square-poll-horizontal', primary: true }] : []).catch(() => $('add').classList.remove('hosted'));
-  };
+  // New poll is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
+  // page bar on the module's own page. The header button stays only where the host draws none. Typing is `/v` in Chat,
+  // which opens the same form.
+  const unhost = () => $('add').classList.remove('hosted');
   $('add').classList.add('hosted'); // until the host says where New poll is
   if (host.add) {
-    host.add.set(canCreate ? [{ id: 'poll', label: 'New poll', icon: 'square-poll-horizontal' }] : []).then((drawn) => { if (!drawn) legacyBar(); }, legacyBar);
+    host.add.set(canCreate ? [{ id: 'poll', label: 'New poll', icon: 'square-poll-horizontal' }] : []).then((drawn) => { if (!drawn) unhost(); }, unhost);
     host.on('add', (e) => { if (e.id === 'poll' && canCreate) openEditor(); });
-  } else legacyBar();
-  if (host.bar) {
-    host.on('bar', (e) => {
-      if (e.id !== 'add' || !canCreate) return;
-      openEditor();
-    });
-  }
+  } else unhost();
   if (host.actions && host.actions.provide) {
     host.actions.provide({
       // A poll or a message's words from Chat's Send to... (plan-object-handoff.md): the form, filled in; nothing is saved

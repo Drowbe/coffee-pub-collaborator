@@ -355,17 +355,13 @@ try {
     assert.equal((await markers(aliceC, `scope=space&space=${spaceA}&${OCT}`, 'no-such-module')).status, 404);
   });
 
-  await test('server: the person\'s current rights: without read, or with the module off in the space, no markers', async () => {
+  await test('server: the person\'s current rights: without read, or with the module off, no markers', async () => {
     assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.mk-polls.view': false } })).status, 200);
     assert.deepEqual(titles(await markers(aliceC, `scope=space&space=${spaceA}&${OCT}`)), ['Pack the bags']);
     assert.equal((await call('PATCH', '/api/roles/member', { cookie: admin, body: { 'module.mk-polls.view': true } })).status, 200);
-    assert.equal((await call('PATCH', '/api/modules/mk-tasks', { cookie: admin, body: { enabled: true, allSpaces: false, spaces: [spaceB] } })).status, 200);
-    assert.deepEqual(titles(await markers(aliceC, OCT)), ['Where for dinner?', 'Everyone\'s task'], 'tasks off in A');
-    assert.equal((await call('PATCH', '/api/modules/mk-tasks', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
-    // The consumer itself off in the space: nothing read there through it.
-    assert.equal((await call('PATCH', '/api/modules/mk-calendar', { cookie: admin, body: { enabled: true, allSpaces: false, spaces: [spaceB] } })).status, 200);
-    assert.deepEqual(titles(await markers(aliceC, OCT)), ['Everyone\'s task']);
-    assert.equal((await call('PATCH', '/api/modules/mk-calendar', { cookie: admin, body: { enabled: true, allSpaces: true } })).status, 200);
+    assert.equal((await call('PATCH', '/api/modules/mk-tasks', { cookie: admin, body: { enabled: false } })).status, 200);
+    assert.deepEqual(titles(await markers(aliceC, OCT)), ['Where for dinner?'], 'tasks off');
+    assert.equal((await call('PATCH', '/api/modules/mk-tasks', { cookie: admin, body: { enabled: true } })).status, 200);
     assert.deepEqual(titles(await markers(aliceC, OCT)), ['Pack the bags', 'Where for dinner?', 'Everyone\'s task']);
   });
 

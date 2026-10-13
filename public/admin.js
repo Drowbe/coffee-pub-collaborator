@@ -1140,10 +1140,10 @@ function moduleCard(m) {
       <p class="hint"><strong>${m.runMode === 'page' ? 'Runs in the page' : 'Runs sandboxed'}</strong>${m.source === 'bundled' ? ', ships with this server' : ', uploaded'}. ${m.runMode === 'page' ? `It can read and change anything on the page, including what you can see and do. Only allow that for ${escapeHtml(word('module', { a: true }))} you trust.` : `It is walled off in its own frame and can only reach the host through its approved permissions. ${escapeHtml(word('module', { a: true, cap: true }))} in a frame cannot take part in drag and drop between ${escapeHtml(word('module', { many: true }))}.`}</p>
       ${m.source === 'bundled' || m.outdated || hostOnlyHidden() ? '' : `<button class="btn" data-module-runmode="${m.runMode === 'page' ? 'sandbox' : 'page'}" type="button">${m.runMode === 'page' ? 'Switch back to sandboxed' : 'Run in the page...'}</button>`}
     </div>
-    ${m.scope.includes('space') && !m.outdated ? `<label class="check"><input type="checkbox" data-module-all-spaces ${m.allSpaces ? 'checked' : ''}> Available in every ${escapeHtml(word('space'))}${m.lobby === false ? ` <span class="hint">${escapeHtml(notInLobby())}</span>` : ''}</label>` : ''}
     <div class="row">
       ${m.outdated || m.needsUpdate?.length ? '' : isConfigurable(m) ? `<a class="btn" href="/module-config.html?id=${encodeURIComponent(m.id)}" title="Change what ${escapeHtml(shownName(m))} does in this ${escapeHtml(word('environment'))}"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> ${escapeHtml(word('module', { cap: true }))} Configuration</a>` : `<button class="btn" type="button" disabled title="${escapeHtml(shownName(m))} has no settings"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i> ${escapeHtml(word('module', { cap: true }))} Configuration</button><span class="hint">No settings.</span>`}
       ${m.outdated ? '' : `<button class="btn ${m.enabled ? '' : 'btn-primary'}" data-module-action="toggle" type="button" ${!m.enabled && (m.missing?.length || m.needsUpdate?.length) ? 'disabled' : ''}>${m.enabled ? 'Disable' : m.needsApproval ? 'Approve and enable' : 'Enable'}</button>`}
+      ${m.scope.includes('space') && !m.outdated && m.lobby === false ? `<span class="hint">${escapeHtml(notInLobby())}</span>` : ''}
       ${!m.outdated && !m.enabled && m.missing?.length ? `<span class="hint">Needs ${m.missing.map(needsText).join(', and ')} first.</span>` : ''}
       ${!m.outdated && m.needsUpdate?.length ? `<span class="hint">Needs ${m.needsUpdate.map(nameOf).join(' and ')}, which ${m.needsUpdate.length === 1 ? 'needs' : 'need'} an update from ${m.needsUpdate.length === 1 ? 'its author' : 'their authors'}.</span>` : ''}
       ${several ? `<select data-module-version aria-label="Version">${m.versions.map((v) => `<option value="${escapeHtml(v)}"${v === m.version ? ' selected' : ''}${staleVersions.has(v) && v !== m.version ? ' disabled' : ''}>${escapeHtml(v)}${v === m.version ? ' (current)' : ''}${staleVersions.has(v) ? ' (needs an update)' : ''}</option>`).join('')}</select><button class="btn" data-module-action="rollback" type="button" disabled>Switch to this version</button>` : ''}
@@ -1209,7 +1209,7 @@ function displayEditor(m) {
       <span class="status" data-display-status aria-live="polite"></span>
     </div>`;
 }
-// The Lobby's own name here ("Home base" under the travel template), and the hint beside "every space" for a module
+// The Lobby's own name here ("Home base" under the travel template), and the hint beside Enable for a module
 // not made for it (plan-modules, "the Lobby is for being together": the server keeps it out of the Lobby).
 const lobbyName = () => spaces.find((sp) => sp.isLobby)?.name || 'the Lobby';
 const notInLobby = () => `(not in ${lobbyName()})`;
@@ -1588,15 +1588,6 @@ $('modules-list').addEventListener('change', async (event) => {
     const m = installedModules.find((x) => x.id === card.dataset.id);
     card.querySelector('[data-module-action="rollback"]').disabled = event.target.value === m.version;
     return;
-  }
-  if (!event.target.matches('[data-module-all-spaces]')) return;
-  const id = event.target.closest('.module-card').dataset.id;
-  try {
-    await api('PATCH', `/api/modules/${id}`, { allSpaces: event.target.checked });
-    await loadModules();
-    await loadRoles(); // a module's permissions join the Roles grid when it is on
-  } catch (err) {
-    say($('modules-status'), err.message, true);
   }
 });
 

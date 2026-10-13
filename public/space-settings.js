@@ -3,7 +3,7 @@
 // the list. Admin only.
 import { renderModuleSettings } from '/module-settings.js';
 import { opensWithSummary } from '/opens-with.js';
-import { switchListHtml, switchRowHtml, wireSwitchList } from '/switch-list.js';
+import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, spaceCrumbIcon, hasOwnerRights, word } from '/brand.js';
 import '/slot-paste.js'; // paste a picture into any image slot
 
@@ -161,8 +161,9 @@ $('members').addEventListener('change', async (event) => {
   }
 });
 
-// The space's modules: the installed, enabled modules that have a space panel, each a switch (switch-list.js), on
-// when the module is on here (or for every space, which is read-only here).
+// The space's modules: the installed, enabled modules that have a space panel, each with its icon and name. An enabled
+// module is available in every space (plan-layout-views.md, step 6), so there is nothing to switch here; its own
+// settings for this space are in the panel below.
 let spaceModules = [];
 async function loadSpaceModules() {
   try {
@@ -172,36 +173,14 @@ async function loadSpaceModules() {
     spaceModules = [];
   }
   $('section-modules').hidden = spaceModules.length === 0;
-  $('space-modules').innerHTML = (space.isLobby ? `<p class="hint">${escapeHtml(space.name)} keeps only chat, the call and ${escapeHtml(word('module', { many: true }))} made for it.</p>` : '') + spaceModules.map((m) => {
-    const everywhere = m.allSpaces;
-    const on = everywhere || m.spaces.includes(space.id);
-    return switchRowHtml({ id: m.id, icon: m.displayIcon || m.icon, name: m.displayName || m.name, on, disabled: everywhere, note: everywhere ? `on for every ${word('space')}` : '' }, 'module');
-  }).join('');
-  wireSwitchList($('space-modules'));
+  const icon = (m) => { const i = m.displayIcon || m.icon || ''; return /^[a-z0-9-]{1,40}$/.test(i) ? i : 'puzzle-piece'; };
+  $('space-modules').innerHTML = (space.isLobby ? `<p class="hint">${escapeHtml(space.name)} keeps only chat, the call and ${escapeHtml(word('module', { many: true }))} made for it.</p>` : '')
+    + `<ul class="space-module-list">${spaceModules.map((m) => `<li><i class="fa-solid fa-${icon(m)} fa-fw" aria-hidden="true"></i> <span>${escapeHtml(m.displayName || m.name)}</span></li>`).join('')}</ul>`;
 }
-$('space-modules').addEventListener('change', async (event) => {
-  const box = event.target;
-  const m = spaceModules.find((x) => x.id === box.dataset.module);
-  if (!m) return;
-  const spaces = new Set(m.spaces);
-  if (box.checked) spaces.add(space.id); else spaces.delete(space.id);
-  try {
-    const { module } = await api('PATCH', `/api/modules/${m.id}`, { spaces: [...spaces] });
-    m.spaces = module.spaces;
-    say($('space-modules-status'), 'saved');
-    loadOpensWith(); // the modules Opens with lists follow what is on here
-    // The module's own settings for this space appear (or go) with it.
-    renderModuleSettings($('module-settings'), { scope: 'space', space: spaceId }).then(() => { $('section-module-settings').hidden = $('module-settings').hidden; syncModulesTab(); });
-    loadCalendarSection(); // the Calendar section follows the Calendar being on here
-  } catch (err) {
-    box.checked = !box.checked;
-    say($('space-modules-status'), err.message, true);
-  }
-});
 
 // Opens with: what a first visit to this space opens (plan-entering.md). The conference, the chat and the modules on
 // in this space, each with a switch (switch-list.js), in that order; they save in the order shown (no reordering). An id
-// already saved that cannot open now (a module off in this space or not installed, the conference switched off) is
+// already saved that cannot open now (a module turned off or not installed, the conference switched off) is
 // listed after them, on, with a note saying why, so the owner sees it is kept (turning it back on restores it) and
 // switch it off. Every switch off, those too, saves null: "not set".
 // `opensWithList` is the list as the owner last left it (null for not set); each change sends the whole of it, one save
@@ -244,7 +223,6 @@ function keptChoice(id) {
   if (!m) return { id, name: id, icon: 'puzzle-piece', note: 'not installed' };
   const shown = { id, name: m.displayName || m.name, icon: m.displayIcon || m.icon };
   if (!m.enabled) return { ...shown, note: 'turned off' };
-  if (!m.allSpaces && !(m.spaces || []).includes(space.id)) return { ...shown, note: `off in this ${word('space')}` };
   return { ...shown, note: `can't open on the ${word('canvas')}` };
 }
 function renderOpensWith() {
@@ -256,12 +234,15 @@ function renderOpensWith() {
   syncOpensWithSummary();
   syncDefaultLayout();
 }
-// The default layout (plan-saved-layouts.md, decision 4): while the space has one, the line above the switches names
-// it, with Stop using it (the switches stay as they are). Changing a switch clears it on the server, and the space it
-// answers says so.
+// The default layout (plan-saved-layouts.md, decision 4; plan-layout-views.md, step 5): while the space has one (a
+// shared layout, or Calendar or Map), the line above the switches names it, with Stop using it (the switches stay as
+// they are). The switches are the Workspace's own content and leave it as it is; Set up's First visit picks it.
+const SYSTEM_DEFAULTS = { calendar: ['calendar', 'Calendar'], map: ['maps', 'Map'] }; // its module, the word without one
 function syncDefaultLayout() {
   const id = space.defaultLayout || null;
-  const layout = opensWithOptions.defaultLayout && opensWithOptions.defaultLayout.id === id ? opensWithOptions.defaultLayout : null;
+  const system = id && SYSTEM_DEFAULTS[id];
+  const shown = system && opensWithOptions.modules.find((m) => m.id === system[0]);
+  const layout = system ? { name: shown?.name || system[1] } : opensWithOptions.defaultLayout && opensWithOptions.defaultLayout.id === id ? opensWithOptions.defaultLayout : null;
   $('opens-with-layout').hidden = !id;
   $('opens-with-layout-text').textContent = id ? (layout ? `Opens with the layout ${layout.name}` : 'Opens with a saved layout') : '';
 }
@@ -300,7 +281,7 @@ $('opens-with').addEventListener('change', (event) => {
     try {
       space = (await api('PATCH', `/api/spaces/${space.id}`, { opensWith: send })).space;
       say($('opens-with-status'), 'saved');
-      syncDefaultLayout(); // a list set by hand is no longer the layout's
+      syncDefaultLayout(); // the layout stays: Opens with and the first visit's layout are independent
     } catch (err) {
       // Back to what the server has, with the reason.
       opensWithList = Array.isArray(space.opensWith) ? [...space.opensWith] : null;
@@ -349,8 +330,8 @@ async function loadCalendarSection() {
     ]);
     const m = mods.find((x) => x.sharing === true && x.sharingReasons && 'publishedCalendar' in x.sharingReasons);
     $('calendar-heading').textContent = m ? (m.displayName || m.name) : 'Calendar';
-    // Only while the module is on here: a space without it has nothing in the published calendar to leave out.
-    const onHere = Boolean(m && m.enabled && (m.allSpaces || (m.spaces || []).includes(space.id)));
+    // Only while the module is on: a space without it has nothing in the published calendar to leave out.
+    const onHere = Boolean(m && m.enabled);
     $('section-calendar').hidden = settings.publishedCalendar !== true || !onHere;
     $('e-publish-calendar').checked = space.publishCalendar !== false;
   } catch {

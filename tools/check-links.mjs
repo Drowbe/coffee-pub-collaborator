@@ -338,7 +338,7 @@ try {
   }
   assert.equal((await as('PATCH', '/api/modules/sync-out', { enabled: true, allSpaces: true })).status, 200);
   assert.equal((await as('PATCH', '/api/modules/sync-in', { enabled: true, allSpaces: true })).status, 200);
-  assert.equal((await as('PATCH', '/api/modules/sync-off', { enabled: true })).status, 200);
+  // sync-off stays installed and off: a module is in every space once enabled, so off is the only way to be off in one.
 
   const putOut = (id, value, tz) => as('PUT', `/api/modules/sync-out/data/note:${id}?scope=space&space=${space}`, { value, ...(tz ? { tz } : {}) });
   const getOut = async (id) => (await as('GET', `/api/modules/sync-out/data/note:${id}?scope=space&space=${space}`)).json.item;

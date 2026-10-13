@@ -58,7 +58,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'opens-with.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/opens-with.js'), copy);
-  const { whatOpens, conferenceAllowed, opensWithSummary, shouldAutoJoin } = await import(pathToFileURL(copy).href);
+  const { whatOpens, conferenceAllowed, opensWithSummary, shouldAutoJoin, firstVisitLayout, SYSTEM_TABS } = await import(pathToFileURL(copy).href);
   fs.rmSync(tmp, { recursive: true, force: true });
   // GitHub #199: entering joins the call by itself only with the environment's setting on, out of the call, where Join
   // the call would show, not in an aside, and not for a person who left the call since they entered.
@@ -161,6 +161,33 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       fail('public/opens-with.js', `${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
     }
   }
+  // The first visit's layout (plan-layout-views.md, step 5): the server's resolved firstVisit.layout on entering, for a
+  // first visit (or a guest); a remembered arrangement wins after; a guest has no Calendar or Map tab. Opens with sits
+  // beside a layout (no layout needs a list, a list never stops a layout), and whatOpens still answers the list.
+  const fv = (layout, opensWith = null) => ({ layout, opensWith });
+  const firstCases = [
+    ['nothing resolved: the Workspace', firstVisitLayout({}), 'workspace'],
+    ['an old answer with no firstVisit: the Workspace', firstVisitLayout({ firstVisit: null }), 'workspace'],
+    ['the Workspace with a list', firstVisitLayout({ firstVisit: fv('workspace', ['chat', 'todo']) }), 'workspace'],
+    ['Calendar on a first visit', firstVisitLayout({ firstVisit: fv('calendar') }), 'calendar'],
+    ['Map on a first visit, a list beside it', firstVisitLayout({ firstVisit: fv('map', ['notes']) }), 'map'],
+    ['a shared layout with no Opens with set: it opens all the same', firstVisitLayout({ firstVisit: fv('labc123') }), 'labc123'],
+    ['a shared layout with Opens with set too (an old space with both)', firstVisitLayout({ firstVisit: fv('labc123', ['todo']) }), 'labc123'],
+    ['remembered: the Workspace as remembered, whatever the first visit says', firstVisitLayout({ firstVisit: fv('calendar'), remembered: ['todo'] }), 'workspace'],
+    ['remembered empty is still remembered', firstVisitLayout({ firstVisit: fv('labc123'), remembered: [] }), 'workspace'],
+    ['not entering (the Workspace tab pressed): the Workspace', firstVisitLayout({ firstVisit: fv('map'), entering: false }), 'workspace'],
+    ['a guest: a shared layout every time', firstVisitLayout({ firstVisit: fv('labc123'), remembered: ['todo'], guest: true }), 'labc123'],
+    ['a guest: no Calendar tab', firstVisitLayout({ firstVisit: fv('calendar'), guest: true }), 'workspace'],
+    ['the tabs a first visit may open', [...SYSTEM_TABS], ['calendar', 'map']],
+    ['Opens with beside a layout is still the Workspace\'s list', whatOpens({ own: ['chat', 'todo'], modules: ['todo'] }), ['chat', 'todo']],
+  ];
+  for (const [name, got, want] of firstCases) {
+    try {
+      assert.deepEqual(got, want);
+    } catch {
+      fail('public/opens-with.js', `firstVisitLayout, ${name}: got ${JSON.stringify(got)}, want ${JSON.stringify(want)}`);
+    }
+  }
   const emptySentence = opensWithSummary({ list: ['gone'], modules: ['todo'], canOpen: (id) => id !== 'gone', nameOf: () => 'To-do' });
   if (/To-do|Chat/.test(emptySentence)) fail('public/opens-with.js', `a list with nothing openable must not name what would open without it (got "${emptySentence}")`);
   const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
@@ -175,6 +202,11 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // the column, whatever the lists say, and asks whatOpens with `column` so neither goes on the canvas.
   if (!/if \(columnMode\(\)\) for \(const id of builtins\.keys\(\)\) if \(canOpenHere\(id\)\) api_openBuiltin\(id\);/.test(restore)) fail('public/canvas.js', 'restore() opens the conference and the chat in the side column (column mode) before anything else');
   if (!/whatOpens\(\{[^}]*column: columnMode\(\)/s.test(restore)) fail('public/canvas.js', 'restore() must ask whatOpens with column: columnMode()');
+  // The first visit's layout (plan-layout-views.md, step 5): restore() asks firstVisitLayout, and no longer asks for Opens
+  // with to be set before a layout opens; a phone opens Calendar's or Map's composite first.
+  if (!/firstVisitLayout\(\{ firstVisit: spaceFirstVisit, remembered: saved\.__open, guest: Boolean\(guestToken\), entering: enteringNow \}\)/.test(restore)) fail('public/canvas.js', 'restore() must ask firstVisitLayout (opens-with.js) for the first visit\'s layout');
+  if (/spaceDefaultLayout && Array\.isArray\(spaceOpensWith\)/.test(restore)) fail('public/canvas.js', 'a layout as the first visit must not need Opens with to be set');
+  if (!/const lead = tab && isNarrow\(\) \? readAliased\(\[tab === 'map' \? 'maps' : 'calendar'\], aliases\)/.test(restore)) fail('public/canvas.js', 'on a phone, Calendar or Map as the first visit opens its composite first');
   if (!/const builtinList = columnMode\(\) \? \[\] :/.test(canvasJs)) fail('public/canvas.js', 'the Show list leaves the conference and the chat out in column mode');
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
   for (const id of ['side-column', 'side-column-toggle', 'side-column-strip', 'side-column-chat', 'side-column-rail', 'work']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the always-on column needs #${id}`);

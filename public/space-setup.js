@@ -2,9 +2,11 @@
 // Edit page. The bar's Set up tool puts `body.setting-up` on, the space's name becomes an input in the bar, and this
 // side panel opens, with Save and Cancel in an action bar locked to its bottom (public/action-bar.js; the sections
 // scroll above it, a click outside does nothing, Escape asks "Discard changes?" when something was edited): the name, the picture, the faces in the call, the people (a
-// link to the full settings' Members tab for now), Phases (the timeline sheet of step 3), Opens with and the layout a
-// first visit opens. An owner and the admin see all of it; a moderator sees Phases, Opens with and the layout (the
-// server lets a moderator PATCH exactly `phases`, `opensWith` and `defaultLayout`); a member has no Set up. No module
+// link to the full settings' Members tab for now), Phases (the timeline sheet of step 3), and First visit: one choice of
+// what a first visit opens (plan-layout-views.md, step 5), the Workspace with its Opens with switches under it (always
+// editable: they are the Workspace's own content), Calendar or Map while they are on here, or a shared layout. An owner
+// and the admin see all of it; a moderator sees Phases and First visit (the server lets a moderator PATCH exactly
+// `phases`, `opensWith` and `defaultLayout`); a member has no Set up. No module
 // switches here (decision 4: they stay in the Workspace's toolbar). Save sends what changed in one go with the requests
 // space-settings.js uses (PATCH /api/spaces/:id, PUT and DELETE /api/spaces/:id/image) and leaves the mode; Cancel and
 // Escape leave it and drop the edits. The dates are the phase sheet's own, with its own Save.
@@ -13,9 +15,9 @@
 // node; the page hands it what it needs (createSpaceSetup's `deps`).
 import { actionBar } from './action-bar.js';
 
-// What the panel shows, by rights: everything for an owner (or the admin), the moderator's three, nothing for anyone else.
-export const OWNER_SECTIONS = Object.freeze(['name', 'picture', 'faces', 'people', 'phases', 'opens-with', 'layout']);
-export const MODERATOR_SECTIONS = Object.freeze(['phases', 'opens-with', 'layout']);
+// What the panel shows, by rights: everything for an owner (or the admin), the moderator's two, nothing for anyone else.
+export const OWNER_SECTIONS = Object.freeze(['name', 'picture', 'faces', 'people', 'phases', 'first-visit']);
+export const MODERATOR_SECTIONS = Object.freeze(['phases', 'first-visit']);
 export function setupSections({ owner = false, moderator = false } = {}) {
   if (owner) return [...OWNER_SECTIONS];
   if (moderator) return [...MODERATOR_SECTIONS];
@@ -29,31 +31,28 @@ const sameList = (a, b) => {
 const listOrNull = (v) => (Array.isArray(v) && v.length ? v.filter((id) => typeof id === 'string') : null);
 
 // The PATCH body for what changed between `before` (the space as it was) and `after` (the panel's draft), each
-// { name, profile, opensWith, defaultLayout }. A name is trimmed, and an empty one is no change. A layout picked
-// (a non-null id) is sent alone: the server sets Opens with from it, and refuses the two together. With no layout
-// picked, a changed Opens with goes as it is (the server drops the layout with it), and a layout taken off goes as
-// `defaultLayout: null` only when Opens with did not change (else the list already did it). {} when nothing changed.
+// { name, profile, opensWith, defaultLayout }. A name is trimmed, and an empty one is no change. The first visit's
+// layout and Opens with are independent (plan-layout-views.md, step 5): each goes only when it changed, never one for
+// the other. `defaultLayout` is 'calendar', 'map' or a shared layout's id; the Workspace (null, or 'workspace') goes
+// as null. {} when nothing changed.
+const layoutOrNull = (v) => (typeof v === 'string' && v && v !== 'workspace' ? v : null);
 export function setupPatch(before = {}, after = {}) {
   const patch = {};
   const name = typeof after.name === 'string' ? after.name.trim() : '';
   if (name && name !== (before.name || '')) patch.name = name;
   if (after.profile !== undefined && after.profile !== (before.profile || 'participants')) patch.profile = after.profile;
-  const wasLayout = before.defaultLayout || null;
-  const nowLayout = after.defaultLayout === undefined ? wasLayout : after.defaultLayout || null;
-  if (nowLayout && nowLayout !== wasLayout) {
-    patch.defaultLayout = nowLayout;
-    return patch;
-  }
+  const wasLayout = layoutOrNull(before.defaultLayout);
+  const nowLayout = after.defaultLayout === undefined ? wasLayout : layoutOrNull(after.defaultLayout);
+  if (nowLayout !== wasLayout) patch.defaultLayout = nowLayout;
   const wasList = listOrNull(before.opensWith);
   const nowList = after.opensWith === undefined ? wasList : listOrNull(after.opensWith);
   if (!sameList(wasList, nowList)) patch.opensWith = nowList;
-  else if (!nowLayout && wasLayout) patch.defaultLayout = null;
   return patch;
 }
 
 // The line a person reads after Save: what was saved, in words, and what to do next. `saved` is the fields that went
 // through (the PATCH's keys, and 'image' or 'imageRemoved'); `failed` a field that did not with the server's sentence.
-const FIELD_WORDS = { name: 'the name', profile: 'the faces in the call', opensWith: 'Opens with', defaultLayout: 'the layout', image: 'the picture', imageRemoved: 'the picture' };
+const FIELD_WORDS = { name: 'the name', profile: 'the faces in the call', opensWith: 'Opens with', defaultLayout: 'the first visit', image: 'the picture', imageRemoved: 'the picture' };
 export function setupSaidWords({ saved = [], failed = null, problem = '' } = {}, { setUp = 'Set up' } = {}) {
   const names = [...new Set(saved.map((f) => FIELD_WORDS[f] || f))];
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}` : names[0] || '';
@@ -124,16 +123,23 @@ export function createSpaceSetup(deps) {
         ? '<button type="button" class="btn btn-small" id="setup-phases" aria-haspopup="dialog"><i class="fa-solid fa-timeline fa-fw" aria-hidden="true"></i> Set the dates</button><p class="hint">When each phase starts. The dates have their own Save in the sheet.</p>'
         : '<p class="hint">This template has no phases.</p>'));
     }
-    if (has('opens-with')) {
-      parts.push(sectionHtml('opens-with', 'Opens with', `
-        <div class="opens-with-list setup-opens-with" id="setup-opens-with" role="group" aria-label="Opens with"></div>
-        <p class="hint" id="setup-opens-with-note" hidden></p>
-        <p class="hint">What opens the first time someone enters. After that, each person's own layout is remembered.</p>`));
-    }
-    if (has('layout')) {
-      parts.push(sectionHtml('layout', 'Layout', `
-        <label class="setup-field"><span class="visually-hidden">Layout a first visit opens</span><select id="setup-layout"><option value="">None</option></select></label>
-        <p class="hint" id="setup-layout-note">A shared layout a first visit opens, with its ${escapeHtml(word('module', { many: true }))} in their places. Picking one sets Opens with.</p>`));
+    // First visit (plan-layout-views.md, step 5): one choice, radios of one name. The Workspace first, with its Opens
+    // with switches directly under it (always editable, whichever is picked: they are what the Workspace holds), then
+    // Calendar and Map while they are on here, then the shared layouts by name (paintLayouts).
+    if (has('first-visit')) {
+      parts.push(`<section class="setup-section" data-section="first-visit"><h3 class="setup-heading" id="setup-first-visit-heading">First visit</h3>
+        <p class="hint setup-first-visit-hint" id="setup-first-visit-hint">What someone sees the first time they enter this ${escapeHtml(word('space'))}. After that, each person's own arrangement is remembered.</p>
+        <fieldset class="setup-first-visit" id="setup-first-visit" aria-labelledby="setup-first-visit-heading" aria-describedby="setup-first-visit-hint">
+          <label class="setup-choice"><input type="radio" name="setup-first-visit" value="workspace" id="setup-first-workspace"><i class="fa-solid fa-columns fa-fw" aria-hidden="true" id="setup-workspace-icon"></i><span class="setup-choice-name" id="setup-workspace-name">Workspace</span></label>
+          <div class="setup-workspace-content">
+            <p class="setup-subheading" id="setup-opens-with-label">Opens with</p>
+            <div class="opens-with-list setup-opens-with" id="setup-opens-with" role="group" aria-labelledby="setup-opens-with-label" aria-describedby="setup-opens-with-hint"></div>
+            <p class="hint" id="setup-opens-with-note" hidden></p>
+            <p class="hint" id="setup-opens-with-hint">What the Workspace starts with, whichever is picked.</p>
+          </div>
+          <div class="setup-first-layouts" id="setup-first-visit-layouts"></div>
+        </fieldset>
+        <p class="hint" id="setup-layout-note" hidden></p></section>`);
     }
     const fullSettings = has('name') ? `<a class="setup-link setup-full" data-overlay-link href="/spaces/${encodeURIComponent(space.id)}"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i> Full settings</a>` : '';
     el.innerHTML = `
@@ -168,7 +174,7 @@ export function createSpaceSetup(deps) {
     const profile = q('#setup-profile');
     if (profile) profile.value = draft.profile;
     paintPicture();
-    if (q('#setup-layout')) paintLayouts();
+    if (q('#setup-first-visit')) paintLayouts();
     if (q('#setup-opens-with')) paintOpensWith();
     if (opts.nameInput) opts.nameInput.value = draft.name;
   }
@@ -218,14 +224,31 @@ export function createSpaceSetup(deps) {
     note.textContent = text;
     note.hidden = !text;
   }
+  // The choices after the Workspace: Calendar and Map while the layouts payload's `system` lists them, then the shared
+  // layouts by name, each with its icon. The one checked is the draft's; one no longer listed reads as the Workspace.
+  const iconOk = (icon) => /^[a-z0-9-]{1,40}$/.test(icon || '');
+  function layoutChoices() {
+    const { system, shared } = state.layouts;
+    return [
+      ...system.filter((l) => l.id === 'calendar' || l.id === 'map').map((l) => ({ id: l.id, name: l.name, icon: iconOk(l.icon) ? l.icon : 'object-group' })),
+      ...shared.map((l) => ({ id: l.id, name: l.name, icon: iconOk(l.icon) && l.icon !== 'object-group' ? l.icon : 'user-group' })),
+    ];
+  }
   function paintLayouts() {
-    const select = q('#setup-layout');
     const { layouts, draft } = state;
-    select.innerHTML = '<option value="">None</option>' + layouts.shared.map((l) => `<option value="${escapeHtml(l.id)}">${escapeHtml(l.name)}</option>`).join('');
-    select.value = draft.defaultLayout && layouts.shared.some((l) => l.id === draft.defaultLayout) ? draft.defaultLayout : '';
-    select.disabled = !layouts.canSetDefault;
+    const workspace = layouts.system.find((l) => l.id === 'workspace');
+    q('#setup-workspace-name').textContent = workspace && workspace.name ? workspace.name : 'Workspace';
+    if (workspace && iconOk(workspace.icon)) q('#setup-workspace-icon').className = `fa-solid fa-${workspace.icon} fa-fw`;
+    const choices = layoutChoices();
+    q('#setup-first-visit-layouts').innerHTML = choices.map((c) => `<label class="setup-choice"><input type="radio" name="setup-first-visit" value="${escapeHtml(c.id)}"><i class="fa-solid fa-${escapeHtml(c.icon)} fa-fw" aria-hidden="true"></i><span class="setup-choice-name">${escapeHtml(c.name)}</span></label>`).join('');
+    const picked = choices.some((c) => c.id === draft.defaultLayout) ? draft.defaultLayout : 'workspace';
+    for (const r of el.querySelectorAll('input[name="setup-first-visit"]')) {
+      r.checked = r.value === picked;
+      r.disabled = !layouts.canSetDefault;
+    }
     const note = q('#setup-layout-note');
-    if (!layouts.shared.length) note.textContent = `No shared layouts yet. Save one from the ${typeof deps.layoutVerb === 'function' ? deps.layoutVerb() : 'Layout'} menu, shared with everyone, and it can open here.`;
+    note.textContent = layouts.shared.length ? '' : `A shared layout can be picked too: save one from the ${typeof deps.layoutVerb === 'function' ? deps.layoutVerb() : 'Layout'} menu, for everyone in this ${word('space')}.`;
+    note.hidden = !note.textContent;
   }
 
   function wire() {
@@ -255,20 +278,13 @@ export function createSpaceSetup(deps) {
     if (list) list.addEventListener('change', (event) => {
       if (event.target.type !== 'checkbox') return;
       const ticked = [...list.querySelectorAll('input:checked')].map((i) => i.dataset.opens);
-      state.draft.opensWith = ticked.length ? ticked : null;
-      // A list set by hand is no longer a layout's.
-      if (state.draft.defaultLayout) { state.draft.defaultLayout = null; const sel = q('#setup-layout'); if (sel) sel.value = ''; }
+      state.draft.opensWith = ticked.length ? ticked : null; // the first visit's choice stays as it is
       paintOpensWith();
     });
-    const layout = q('#setup-layout');
-    if (layout) layout.addEventListener('change', () => {
-      state.draft.defaultLayout = layout.value || null;
-      const picked = state.layouts.shared.find((l) => l.id === layout.value);
-      if (picked) {
-        state.draft.opensWith = picked.modules.map((m) => m && m.id).filter((id) => typeof id === 'string');
-        if (!state.draft.opensWith.length) state.draft.opensWith = null;
-      }
-      if (q('#setup-opens-with')) paintOpensWith();
+    const firstVisit = q('#setup-first-visit');
+    if (firstVisit) firstVisit.addEventListener('change', (event) => {
+      if (event.target.name !== 'setup-first-visit' || !event.target.checked) return;
+      state.draft.defaultLayout = event.target.value === 'workspace' ? null : event.target.value; // Opens with stays as it is
     });
   }
   // Any edit in the panel: Save follows what changed (once, here; the panel is drawn again on each open). Escape is Cancel.
@@ -292,21 +308,30 @@ export function createSpaceSetup(deps) {
 
   async function loadOptions() {
     const { space } = state;
+    const asks = state.sections.includes('first-visit');
     const [answer, layouts] = await Promise.all([
-      state.sections.includes('opens-with') ? api('GET', `/api/modules/for-space?space=${encodeURIComponent(space.id)}`).catch(() => ({})) : Promise.resolve({}),
-      state.sections.includes('layout') ? api('GET', `/api/spaces/${encodeURIComponent(space.id)}/layouts`).catch(() => ({})) : Promise.resolve({}),
+      asks ? api('GET', `/api/modules/for-space?space=${encodeURIComponent(space.id)}`).catch(() => ({})) : Promise.resolve({}),
+      asks ? api('GET', `/api/spaces/${encodeURIComponent(space.id)}/layouts`).catch(() => ({})) : Promise.resolve({}),
     ]);
     state.options = {
       modules: (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false),
       builtin: answer.builtin || [],
       environment: Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null,
     };
-    // The server's own view of the list is the freshest: the presence record may lag a save by someone else.
-    if (answer.opensWith !== undefined) state.draft.opensWith = listOrNull(answer.opensWith);
-    if (answer.defaultLayout !== undefined) state.draft.defaultLayout = answer.defaultLayout ? answer.defaultLayout.id : null;
-    state.layouts = { shared: Array.isArray(layouts.shared) ? layouts.shared : [], canSetDefault: layouts.canSetDefault !== false };
-    state.before.opensWith = state.draft.opensWith ? [...state.draft.opensWith] : null;
-    state.before.defaultLayout = state.draft.defaultLayout;
+    // The server's own view is the freshest: the presence record may lag a save by someone else. What was not touched
+    // while it was asked is set from it; the first visit as the server resolved it (a layout no longer there reads as
+    // the Workspace, and stays stored until another is picked).
+    if (answer.opensWith !== undefined && sameList(listOrNull(state.draft.opensWith), listOrNull(state.before.opensWith))) {
+      state.draft.opensWith = listOrNull(answer.opensWith);
+      state.before.opensWith = state.draft.opensWith ? [...state.draft.opensWith] : null;
+    }
+    const fv = layouts.firstVisit || answer.firstVisit;
+    const served = fv && typeof fv.layout === 'string' ? layoutOrNull(fv.layout) : answer.defaultLayout !== undefined ? (answer.defaultLayout ? answer.defaultLayout.id : null) : undefined;
+    if (served !== undefined && layoutOrNull(state.draft.defaultLayout) === layoutOrNull(state.before.defaultLayout)) {
+      state.draft.defaultLayout = served;
+      state.before.defaultLayout = served;
+    }
+    state.layouts = { system: Array.isArray(layouts.system) ? layouts.system : [], shared: Array.isArray(layouts.shared) ? layouts.shared : [], canSetDefault: layouts.canSetDefault !== false };
   }
 
   function open(opts) {
@@ -316,7 +341,7 @@ export function createSpaceSetup(deps) {
     if (!sections.length) return false;
     // 'roleplaying' is the older name of the participants' pictures (server/store.js), so it reads as that here.
     const before = { name: space.name || '', profile: space.profile === 'characters' ? 'characters' : 'participants', opensWith: listOrNull(space.opensWith), defaultLayout: space.defaultLayout || null };
-    state = { space, sections, opts, before, draft: { ...before, opensWith: before.opensWith ? [...before.opensWith] : null }, options: { modules: [], builtin: [], environment: null }, layouts: { shared: [], canSetDefault: true }, image: { file: null, url: '', remove: false }, saving: false };
+    state = { space, sections, opts, before, draft: { ...before, opensWith: before.opensWith ? [...before.opensWith] : null }, options: { modules: [], builtin: [], environment: null }, layouts: { system: [], shared: [], canSetDefault: true }, image: { file: null, url: '', remove: false }, saving: false };
     el.dataset.who = opts.owner ? 'owner' : 'moderator';
     draw();
     // The bar's input and the panel's Name are one name: typed in either, the other follows.
@@ -326,9 +351,9 @@ export function createSpaceSetup(deps) {
     }
     el.hidden = false;
     if (!el.isConnected) doc.body.appendChild(el);
-    const first = el.querySelector('#setup-name, #setup-phases, #setup-opens-with input, select, button');
+    const first = el.querySelector('#setup-name, #setup-phases, #setup-first-visit input:checked, #setup-opens-with input, select, button');
     if (first) first.focus();
-    loadOptions().then(() => { if (state && state.space === space) { if (q('#setup-opens-with')) paintOpensWith(); if (q('#setup-layout')) paintLayouts(); state.bar.refresh(); } });
+    loadOptions().then(() => { if (state && state.space === space) { if (q('#setup-opens-with')) paintOpensWith(); if (q('#setup-first-visit')) paintLayouts(); state.bar.refresh(); } });
     return true;
   }
 
@@ -368,7 +393,7 @@ export function createSpaceSetup(deps) {
         } catch (err) {
           const failed = Object.keys(patch)[0];
           say(setupSaidWords({ saved, failed, problem: err.message }));
-          const field = failed === 'name' ? q('#setup-name') : failed === 'profile' ? q('#setup-profile') : failed === 'defaultLayout' ? q('#setup-layout') : q('#setup-opens-with input');
+          const field = failed === 'name' ? q('#setup-name') : failed === 'profile' ? q('#setup-profile') : failed === 'defaultLayout' ? q('#setup-first-visit input:checked') : q('#setup-opens-with input');
           if (field) field.focus();
           return false;
         }

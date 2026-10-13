@@ -210,8 +210,6 @@ test('a refused module update changes nothing, including the modules that need i
     const refused = [
       [{ enabled: false, force: true, runMode: 'nowhere' }, /runMode must be "page" or "sandbox"/],
       [{ enabled: false, force: true, runMode: 'page' }, /accepting the risk/],
-      [{ enabled: false, force: true, allSpaces: true, spaces: 'not a list' }, /spaces must be a list/],
-      [{ enabled: false, force: true, runMode: 'sandbox', spaces: 7 }, /spaces must be a list/],
       [{ enabled: false }, /needs base; turn it off too\?/],
     ];
     for (const [patch, message] of refused) {
@@ -220,11 +218,12 @@ test('a refused module update changes nothing, including the modules that need i
       assert.equal(fs.readFileSync(file, 'utf8'), before, `refused ${JSON.stringify(patch)} left the registry as it was, on disk`);
     }
     // A valid update still applies all of it, dependents included.
-    const view = mm.update('base', { enabled: false, force: true, runMode: 'sandbox', allSpaces: true, spaces: ['s2', 'gone', 's2'] }, { spaceExists: (s) => s !== 'gone' });
-    assert.deepEqual([view.enabled, view.runMode, view.allSpaces, view.spaces], [false, 'sandbox', true, ['s2']]);
+    // allSpaces and spaces are accepted and ignored (any value, even a bad one): the stored ones stay as they were.
+    const view = mm.update('base', { enabled: false, force: true, runMode: 'sandbox', allSpaces: true, spaces: 'not a list' });
+    assert.deepEqual([view.enabled, view.runMode, view.allSpaces, view.spaces], [false, 'sandbox', true, []], 'the view fixes them');
     assert.equal(mm.registry.modules.child.enabled, false, 'what needs it went off with it');
     const disk = JSON.parse(fs.readFileSync(file, 'utf8')).modules;
-    assert.deepEqual([disk.base.enabled, disk.base.runMode, disk.base.allSpaces, disk.base.spaces, disk.child.enabled], [false, 'sandbox', true, ['s2'], false]);
+    assert.deepEqual([disk.base.enabled, disk.base.runMode, disk.base.allSpaces, disk.base.spaces, disk.child.enabled], [false, 'sandbox', false, ['s1'], false], 'stored values untouched');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -443,16 +442,21 @@ test('the Lobby: surfaces.canvas.lobby is checked, the one check keeps other mod
     fs.writeFileSync(lobbyData, '{"task:a":{"value":1}}');
     const mm = new ModuleManager(dir);
     const on = (id) => ['lobby', 's1', 's2'].filter((sp) => mm.isOnIn(id, sp));
-    assert.deepEqual(on('tasks'), ['s1'], 'on in s1, and never in the Lobby though its spaces still name it');
-    assert.deepEqual(on('every'), ['s1', 's2'], '"every space" leaves the Lobby out');
-    assert.deepEqual(on('dates'), ['lobby', 's1', 's2'], 'a module made for the Lobby is in it with every space');
+    assert.deepEqual(on('tasks'), ['s1', 's2'], 'an enabled module is in every space, whatever allSpaces and spaces stored');
+    assert.deepEqual(on('every'), ['s1', 's2'], 'the Lobby stays out for a module not made for it');
+    assert.deepEqual(on('dates'), ['lobby', 's1', 's2'], 'a module made for the Lobby is in it too');
+    assert.equal(mm.isOnIn('offmod', 's1'), false);
     assert.equal(mm.view('tasks').lobby, false);
     assert.equal(mm.view('dates').lobby, true);
-    assert.deepEqual(mm.lobbySync(), ['tasks']);
+    assert.deepEqual([mm.view('tasks').allSpaces, mm.view('tasks').spaces], [true, []], 'the view no longer shows the stored settings');
+    assert.equal(typeof mm.lobbySync, 'undefined', 'nothing rewrites the stored lists');
     const disk = JSON.parse(fs.readFileSync(file, 'utf8')).modules;
-    assert.deepEqual([disk.tasks.spaces, disk.tasks.allSpaces, disk.every.allSpaces, disk.dates.allSpaces], [['s1'], false, true, true], 'the Lobby taken out, allSpaces never changed');
+    assert.deepEqual([disk.tasks.spaces, disk.tasks.allSpaces], [['lobby', 's1'], false], 'stored fields kept, unread');
     assert.equal(fs.readFileSync(lobbyData, 'utf8'), '{"task:a":{"value":1}}', 'its Lobby data kept, untouched');
-    assert.deepEqual(mm.lobbySync(), [], 'nothing more the second time');
+    mm.update('tasks', { allSpaces: false, spaces: [] });
+    assert.deepEqual(on('tasks'), ['s1', 's2'], 'a patch sending them changes nothing');
+    mm.update('tasks', { enabled: false });
+    assert.deepEqual(on('tasks'), [], 'a disabled module is nowhere');
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }

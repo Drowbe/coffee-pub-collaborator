@@ -491,15 +491,19 @@ try {
     assert.deepEqual([r.status, r.json.space.opensWith], [200, ['todo', 'calendar']], r.text);
     assert.deepEqual(stored().opensWith, ['todo', 'calendar']);
     assert.deepEqual(answer(await asModerator('PATCH', url, { opensWith: 'todo' })), [400, { error: 'Opens with must be a list of modules.' }], 'the store\'s own rule');
-    // A shared layout, made by the moderator (they may), then set as the default: Opens with follows it.
+    // A shared layout, made by the moderator (they may), then set as the default: Opens with does not follow it (plan-layout-views.md, step 5).
     const made = await asModerator('POST', `${url}/layouts`, { name: 'Planning', shared: true, modules: [{ id: 'conference', mode: 'dock' }, { id: 'todo', mode: 'dock', dockW: 360 }] });
     assert.equal(made.status, 201, made.text);
     const layout = made.json.layout;
     const set = await asModerator('PATCH', url, { defaultLayout: layout.id });
-    assert.deepEqual([set.status, set.json.space.defaultLayout, set.json.space.opensWith], [200, layout.id, ['conference', 'todo']], set.text);
-    assert.deepEqual([stored().defaultLayout, stored().opensWith], [layout.id, ['conference', 'todo']]);
+    assert.deepEqual([set.status, set.json.space.defaultLayout, set.json.space.opensWith], [200, layout.id, ['todo', 'calendar']], set.text);
+    assert.deepEqual([stored().defaultLayout, stored().opensWith], [layout.id, ['todo', 'calendar']]);
     assert.deepEqual(answer(await asModerator('PATCH', url, { defaultLayout: 'lnope00' })), [404, { error: 'This trip has no shared layout with that id.' }]);
-    assert.deepEqual(answer(await asModerator('PATCH', url, { defaultLayout: layout.id, opensWith: ['todo'] })), [400, { error: 'Send a default layout or Opens with, not both: the default layout sets Opens with.' }]);
+    const bothSet = await asModerator('PATCH', url, { defaultLayout: layout.id, opensWith: ['conference', 'todo'] });
+    assert.deepEqual([bothSet.status, bothSet.json.space.defaultLayout, bothSet.json.space.opensWith], [200, layout.id, ['conference', 'todo']], 'both at once are fine: independent fields');
+    const listOnly = await asModerator('PATCH', url, { opensWith: ['todo', 'calendar'] });
+    assert.deepEqual([listOnly.json.space.defaultLayout, listOnly.json.space.opensWith], [layout.id, ['todo', 'calendar']], 'changing Opens with keeps the default layout');
+    await asModerator('PATCH', url, { opensWith: ['conference', 'todo'] });
     assert.deepEqual((await asModerator('PATCH', url, { defaultLayout: null })).json.space.defaultLayout, undefined, 'null stops using it');
     assert.equal('defaultLayout' in stored(), false);
     assert.deepEqual(stored().opensWith, ['conference', 'todo'], 'Opens with stays');
@@ -543,7 +547,7 @@ try {
     assert.deepEqual(answer(await call(server, 'POST', `/api/spaces/${trip.id}/phases/cover`, { cookie: outsider.cookie, body: { day: d(50) } })), [403, refusal]);
     assert.deepEqual(answer(await call(server, 'POST', `/api/spaces/${trip.id}/phases/cover`, { body: { day: d(50) } })), [401, { error: 'sign in first' }]);
     assert.deepEqual(answer(await asMember('POST', '/api/spaces/nope/phases/cover', { day: d(50) })), [404, { error: 'no such trip' }]);
-    assert.equal((await asAdmin('PATCH', '/api/modules/todo', { spaces: [] })).status, 200, 'To-do off in the trip');
+    assert.equal((await asAdmin('PATCH', '/api/modules/todo', { enabled: false })).status, 200, 'To-do off');
     assert.deepEqual(answer(await asMember('POST', `/api/spaces/${trip.id}/phases/cover`, { day: d(45) })), [403, refusal], 'no module on in the space');
     assert.equal((await asAdmin('POST', `/api/spaces/${trip.id}/phases/cover`, { day: d(45) })).status, 200, 'the admin, with no module on');
     assert.equal(stored().phases.trip.end, d(45));

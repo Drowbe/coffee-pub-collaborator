@@ -1441,7 +1441,6 @@ try {
       [{ displayName: 'x'.repeat(41) }, 'A display name can be at most 40 characters.'],
       [{ displayName: 7 }, "A display name must be text, or null to use the module's own name."],
       [{ displayIcon: 'no-such-icon' }, "There is no icon called no-such-icon in this environment's icons."],
-      [{ displayName: 'Changed', spaces: 'lobby' }, 'spaces must be a list'],
     ];
     const registryFile = path.join(single, 'modules', 'registry.json');
     const appBefore = fs.readFileSync(path.join(single, 'app.json'), 'utf8');

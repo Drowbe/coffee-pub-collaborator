@@ -1387,6 +1387,15 @@
   }
   // --- end menu-flyout ---
 
+  // A menu row's accessible name when it is not its label: `ariaLabel`, else a `tip` that holds the label (its full
+  // wording, "Add a flight" for "Flight"), so what is heard still has the word on screen. Null: the row's own words.
+  function menuItemName(item) {
+    const label = String(item.label || '').trim();
+    if (item.ariaLabel) return String(item.ariaLabel);
+    const tip = String(item.tip || '').trim();
+    return tip && label && tip !== label && tip.toLowerCase().includes(label.toLowerCase()) ? tip : null;
+  }
+
   function showMenu({ id, items, at, anchor, className, maxWidth } = {}) {
     const reopening = openMenu && openMenu.id === id;
     closeMenu();
@@ -1513,6 +1522,11 @@
       label.className = 'sdk-menu-label';
       label.textContent = item.label;
       b.appendChild(label);
+      // `tip`: the tooltip; and the accessible name when it is the label's full wording ("Flight" heard as "Add a
+      // flight"), or `ariaLabel` when given. The same rule as the page's menu (host-menu.js).
+      if (item.tip) b.title = item.tip;
+      const spoken = menuItemName(item);
+      if (spoken) b.setAttribute('aria-label', spoken);
       if (category) {
         const caret = document.createElement('span');
         caret.className = 'sdk-menu-caret';
@@ -2908,7 +2922,9 @@
     // nothing more to say afterward (see host.actions.pick for that).
     //
     // show({ id, items, at, anchor, className, maxWidth }): items are [{ id?, label, icon?, iconColor?,
-    // regular?, hint?, disabled?, danger?, separator?, href?, target?, onClick? }] (separator: true
+    // regular?, hint?, tip?, ariaLabel?, disabled?, danger?, separator?, href?, target?, onClick? }] (`tip` is the
+    // row's tooltip and, when it holds the label ("Add a flight" for "Flight"), what a screen reader hears; `ariaLabel`
+    // names the row for a screen reader outright; separator: true
     // ignores every other field and draws a divider; iconColor is a CSS color for that item's own icon,
     // for a fixed set of kinds people tell apart by color elsewhere in the module -- most menus don't need
     // it). An item that just goes somewhere gives `href` instead of `onClick` -- a real link (target

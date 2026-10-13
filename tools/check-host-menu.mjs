@@ -9,7 +9,10 @@
  *   - the SDK's copy is not word for word the same as menu-flyout.js's block, or does not give the same answers;
  *   - either menu stops drawing a category as a flyout (aria-haspopup, aria-expanded, a role="menu" flyout) or stops
  *     using the rules;
- *   - a module's titlebar draws Dock, Window or Pop out again, or its "..." stops offering them (canvas.js).
+ *   - a module's titlebar draws Dock, Window or Pop out again, or its "..." stops offering them (canvas.js);
+ *   - a menu row's "..." (`more`) stops flying out beside its row (a drill-in with Back only at 640px and below);
+ *   - either menu stops honouring `tip`, or a row whose tip is its full wording ("Add a flight" for "Flight") is not
+ *     heard by it.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -172,6 +175,53 @@ test('a module\'s titlebar: Dock, Window and Pop out are in its "..."', () => {
   assert.ok(ways.includes('openClearMenu(trigger, () => clearModuleData(opened.get(id) || mod), { armed: true })'), 'Clear still asks first');
   assert.ok(src.includes('openHostMenu(trigger, () => moduleMenuItems(mod.id, trigger));'), 'on the shared menu');
   assert.ok(read('public/host-menu.js').includes('if (item.tip) b.title = item.tip;'), 'the old tooltips, on the entries');
+});
+
+test('the page\'s shared menu: a row\'s "..." (`more`) flies out beside it, the menu open behind it; on a phone it drills in', () => {
+  const src = read('public/host-menu.js');
+  const pair = src.slice(src.indexOf('if (item.more && !item.disabled && moreOf) {'), src.indexOf('  // Draw the entries'));
+  assert.ok(pair, 'the "..." is drawn');
+  assert.ok(pair.includes("more.setAttribute('aria-haspopup', 'menu');") && pair.includes("more.setAttribute('aria-expanded', 'false');"), 'it says it opens a menu, and whether it is open');
+  assert.ok(pair.includes("const moreItem = { label: item.label || '', items: item.more };"), 'its entries are a category\'s: one code path');
+  assert.ok(pair.includes('openFly(moreItem, more, { focus: event.detail === 0 });'), 'a click or a key opens the flyout (the keyboard in it after a key)');
+  assert.ok(pair.includes('if (drills()) {') && pair.includes('sub = { items: entries, back: rows.indexOf(b), label: item.label };'), 'a phone or a narrow window drills in, Back and the row\'s name first');
+  assert.ok(pair.includes("more.addEventListener('pointerenter', (event) => hover(moreItem, more, event));"), 'hover opens it after the short wait');
+  assert.ok(pair.includes('fly.exit = { x: event.clientX, y: event.clientY }'), 'the way to the flyout is safe');
+  assert.ok(!/sub = \{ items: entries, back: rows\.indexOf\(b\) \};/.test(src), 'the old drill-in that replaced the menu on a wide screen is gone');
+  assert.ok(src.includes('if (b && menu.moreOf && [...menu.moreOf.values()].includes(b)) return b;'), 'Right on the "..." opens it, as on a category; Left and Escape close just the flyout');
+  const css = read('public/style.css');
+  assert.match(css, /\.host-menu-more:hover,\n\.host-menu-more:focus-visible,\n\.host-menu-more\.open \{[^}]*var\(--accent\)/, 'the "..." keeps its look while its flyout is open');
+  // The only user, the Layout menu's saved layouts (space.js), hands its entries over unchanged.
+  assert.ok(read('public/space.js').includes('more: mayFavorite() || mayChangeLayout(isShared) || maySetDefault(isShared) ? () => layoutRowItems(l.id) : undefined,'));
+});
+
+// A menu row's accessible name (Thomas, 2026-10-13: the Planner's short rows, "Flight", carry "Add a flight" as `tip`).
+const nameFn = (src, marker) => {
+  const at = src.indexOf(marker);
+  assert.ok(at >= 0, `${marker} is there`);
+  const indent = marker.match(/^ */)[0];
+  const end = src.indexOf(`\n${indent}}\n`, at);
+  const body = src.slice(at, end + indent.length + 2).replace(/^\s*export /, '');
+  return vm.runInNewContext(`${body}\nmenuItemName`);
+};
+for (const [who, src, marker] of [['the page\'s menu', read('public/host-menu.js'), 'export function menuItemName('], ['host.menu.show', read('public/sdk/host.js'), '  function menuItemName(']]) {
+  test(`${who}: a row is heard by its full wording`, () => {
+    const name = nameFn(src, marker);
+    assert.equal(name({ label: 'Flight', tip: 'Add a flight' }), 'Add a flight', 'the tip that holds the label names it');
+    assert.equal(name({ label: 'Free time', tip: 'Add free time at a time' }), 'Add free time at a time');
+    assert.equal(name({ label: 'Rest', tip: 'Mark the day: rest' }), 'Mark the day: rest');
+    assert.equal(name({ label: 'Open as a window', tip: 'Float over the call' }), null, 'a tip that does not hold the label stays a tooltip: what is heard keeps the word on screen');
+    assert.equal(name({ label: 'Delete' }), null, 'no tip: the row\'s own words');
+    assert.equal(name({ label: 'Delete', tip: 'Delete' }), null);
+    assert.equal(name({ label: 'Flight', ariaLabel: 'Add a flight to day 3' }), 'Add a flight to day 3', 'ariaLabel outright');
+  });
+}
+test('both menus put the tip and the name on the row', () => {
+  const page = read('public/host-menu.js');
+  assert.ok(page.includes("if (item.tip) b.title = item.tip;\n    const spoken = menuItemName(item);\n    if (spoken) b.setAttribute('aria-label', spoken);"));
+  const show = sdkSrc.slice(sdkSrc.indexOf('  function showMenu('), sdkSrc.indexOf('  const host = {\n'));
+  assert.ok(show.includes("if (item.tip) b.title = item.tip;\n      const spoken = menuItemName(item);\n      if (spoken) b.setAttribute('aria-label', spoken);"), 'host.menu.show honours `tip` and the name');
+  assert.ok(sdkSrc.includes('regular?, hint?, tip?, ariaLabel?, disabled?'), 'the contract says so');
 });
 
 if (failures.length) {

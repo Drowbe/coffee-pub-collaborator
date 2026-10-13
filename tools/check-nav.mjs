@@ -462,9 +462,10 @@ test('the Layout menu (plan-layout-menu.md; Thomas, 2026-10-13): the page\'s sha
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   // Not registered with the bars: the modes, the snap switch and Clean up are the menu's.
   for (const id of ['dock-all', 'snap-all', 'snap-size', 'clean-up']) assert.ok(!new RegExp(`nav\\.register\\([^\\n]*id: '${id}'`).test(space), `${id} is not a bar tool`);
-  // The button: a nav tool in Set up's group, right after it, an icon alone (no label, no caret), the same look as Set up
-  // (the registry draws both as icon-link buttons); a menu button for a screen reader; never folds; not on a phone.
-  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, order: 4, fold: false, icon: 'object-group', label: verb\('layout'\), visible: \(\) => !phoneWidth\(\) && !settingUp, onClick: \(event\) => canvas\.toggleMenu\(event\.currentTarget\), workspace: 'only', place: 'own', id: 'modules-toggle' \}\);/);
+  // The button: a nav tool in the bell's group, right before it (Thomas, 2026-10-13: "the layout button should be next to
+  // the notification bell"), an icon alone (no label, no caret), the same look as Set up (the registry draws both as
+  // icon-link buttons); a menu button for a screen reader; never folds; not on a phone.
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'right', group: 'notices', groupOrder: 90, order: 89, fold: false, icon: 'object-group', label: verb\('layout'\), visible: \(\) => !phoneWidth\(\) && !settingUp, onClick: \(event\) => canvas\.toggleMenu\(event\.currentTarget\), workspace: 'only', place: 'own', id: 'modules-toggle' \}\);/);
   assert.match(space, /nav\.elementOf\('modules-toggle'\)\?\.setAttribute\('aria-haspopup', 'menu'\);/);
   assert.ok(!/labelled: true[^\n]*id: 'modules-toggle'|id: 'modules-toggle'[^\n]*labelled: true/.test(space), 'an icon alone, as Set up is');
   assert.ok(!/module-chooser-toggle|module-chooser-label|fa-caret-down[^\n]*modules-toggle/.test(space), 'the old button with its label and caret is gone');
@@ -628,22 +629,26 @@ test('favorite layouts, step 2 (plan-favorite-layouts.md): a ... on every row fo
   assert.ok(!/host\.menu\.show/.test(menuFn), 'the host\'s own menu');
 });
 
-test('favorite layouts, step 3 (plan-favorite-layouts.md): the top bar\'s layout-favorites right after Layout, its buttons, loading, the note, giving way first, and where it is hidden', () => {
+test('favorite layouts, step 3 (plan-favorite-layouts.md): the top bar\'s layout-favorites right before Layout, growing out to the left, its buttons, loading, the note, giving way first, and where it is hidden', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
-  // Registered in the right zone among the bar's own (place 'own'), Set up's group, right after Layout (order 5);
-  // never folds; gives way before the chip's words do (fitRight).
-  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, id: 'layout-favorites', order: 5, fold: false, place: 'own', icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' \}\);/);
-  assert.ok(!/id: 'phase-chip',[^\n]*fitFirst/.test(space), 'the chip is not fitted first: its words are the first thing the top bar gives up (Thomas, 2026-10-13), before the favorites and before anything folds');
+  // Registered in the right zone among the bar's own (place 'own'), the bell's group, right before Layout (order 88);
+  // never folds; gives way before anything else does, the chip's words included (fitRight; Thomas, 2026-10-13).
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'right', group: 'notices', groupOrder: 90, id: 'layout-favorites', order: 88, fold: false, place: 'own', icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' \}\);/);
+  assert.ok(!/id: 'phase-chip',[^\n]*fitFirst/.test(space), 'the chip is not fitted first: the favorites give way before it (Thomas, 2026-10-13: favorites yield before anything else)');
   const tools = [
-    { id: 'setup', group: 'setup', groupOrder: 85, order: 1, seq: 1 },
     { id: 'notifications-bell', group: 'notices', groupOrder: 90, order: 90, seq: 2 },
-    { id: 'modules-toggle', group: 'setup', order: 4, seq: 3 },
-    { id: 'layout-favorites', group: 'setup', order: 5, seq: 9 },
+    { id: 'whoami-link', group: 'you', groupOrder: 999, order: 999, seq: 4 },
+    { id: 'modules-toggle', group: 'notices', groupOrder: 90, order: 89, seq: 3 },
+    { id: 'layout-favorites', group: 'notices', groupOrder: 90, order: 88, seq: 9 },
   ];
-  assert.deepEqual(arrange(tools).flat().map((t) => t.id), ['setup', 'modules-toggle', 'layout-favorites', 'notifications-bell'], 'Set up, Layout, the favorites, the bell');
-  assert.equal(arrange(tools)[0].length, 3, 'one group with Set up and Layout: no divider between them');
+  assert.deepEqual(arrange(tools).flat().map((t) => t.id), ['layout-favorites', 'modules-toggle', 'notifications-bell', 'whoami-link'], 'the favorites, Layout, the bell, you');
+  assert.equal(arrange(tools)[0].length, 3, 'one group with the favorites, Layout and the bell: no divider between them');
+  // Anchored at Layout, growing out to the left: the first favorite next to Layout (the page has them last to first),
+  // and the farthest leaves first.
+  assert.match(space, /layoutFavorites\.replaceChildren\(\.\.\.buttons\.reverse\(\), favoritesNote\);/);
+  assert.match(space, /const buttons = \[\.\.\.layoutFavorites\.querySelectorAll\(':scope > \.layout-favorite'\)\]\.reverse\(\);/);
   // The group: its id, a labelled group, the note under it (seen; heard through #layout-announce, so hidden from a reader).
   assert.match(space, /layoutFavorites\.id = 'layout-favorites';/);
   assert.match(space, /layoutFavorites\.setAttribute\('role', 'group'\);\nlayoutFavorites\.setAttribute\('aria-label', 'Favorite layouts'\);/);
@@ -666,7 +671,7 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the top bar\'s layout
   assert.match(css, /\.layout-favorite-name \{[^}]*max-width: var\(--layout-favorite-name, 16ch\);[^}]*text-overflow: ellipsis;/);
   assert.match(css, /\.layout-favorites > \.layout-favorite-out \{\n\s*display: none;/);
   // A press loads it through canvas.loadLayout, the keyboard stays; its note goes under the group for 6 seconds.
-  const press = space.slice(space.indexOf("layoutFavorites.addEventListener('click'"), space.indexOf("nav.register({ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, id: 'layout-favorites'"));
+  const press = space.slice(space.indexOf("layoutFavorites.addEventListener('click'"), space.indexOf("nav.register({ bar: 'secondary', zone: 'right', group: 'notices', groupOrder: 90, id: 'layout-favorites'"));
   assert.match(press, /noteUnderFavorites = true;\n\s*try \{\n\s*canvas\.loadLayout\(layout\);\n\s*\} finally \{\n\s*noteUnderFavorites = false;\n\s*\}\n\s*button\.focus\(\);/);
   assert.match(space, /if \(noteUnderFavorites && t\) showFavoritesNote\(t\);/, 'layoutNote also puts it under the favorites (and #layout-announce as before)');
   assert.match(space, /favoritesNoteTimer = setTimeout\(\(\) => showFavoritesNote\(''\), 6000\);/);
@@ -677,9 +682,11 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the top bar\'s layout
   assert.match(fit, /b\.classList\.toggle\('layout-favorite-out', i >= count\)/);
   assert.match(fit, /focused\.closest\('\.layout-favorite-out'\)\) nav\.elementOf\('modules-toggle'\)\?\.focus\(\);/);
   // nav-bar.js: a right-zone tool with a fit (the favorites) is fitted first (fitRight), with the left zone's fitting
-  // tools (the chip) at their least (fit(0)), so they give way before it; then the left zone takes what is left.
+  // tools (the chip) at their fullest (fit(Infinity)), so the favorites give way before they do; then the left zone
+  // takes what is left (Thomas, 2026-10-13: favorites yield before anything else).
   const fitR = src.slice(src.indexOf('function fitRight('), src.indexOf('function fitBar('));
-  assert.match(fitR, /try \{ t\.fit\(0\); \} catch/, 'the left zone at its least first');
+  assert.match(fitR, /try \{ t\.fit\(Infinity\); \} catch/, 'the left zone at its fullest first');
+  assert.ok(!/t\.fit\(0\)/.test(fitR), 'not at its least: the chip\'s words no longer go before a favorite');
   assert.match(fitR, /const rest = naturalWidth\(b\.zones\.right, \[els\.get\(t\.id\), more\]\);\n\s*try \{ t\.fit\(fitWidth\(\{ width, gap, left, right: rest\.w \+ \(rest\.n \? rest\.gap : 0\) \}\)\); \}/);
   const fitB = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
   assert.ok(fitB.indexOf('fitRight(bar, { width, gap, more: fold.more });') < fitB.indexOf('const r = naturalWidth(right, fold.more);') && fitB.indexOf('const r = naturalWidth(right, fold.more);') < fitB.indexOf('fitLeft(bar, { width, gap, right: r.w });'), 'the right zone shrinks, is measured, then the left zone fits to it');
@@ -1040,20 +1047,31 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   const { wideZones, setWorkspace, get } = navApi;
   assert.equal(typeof setWorkspace, 'function');
   // wideZones: in the top bar the Workspace tools are the last run of the left zone and the first of the right; a
-  // Workspace tool with a `place` sits among the bar's own ('own': Layout and the favorites, in Set up's group) or
-  // in a last run after them ('end': Full screen and Pop out, right of your picture; Thomas, 2026-10-13).
+  // Workspace tool with a `place` sits among the bar's own ('own': the favorites and Layout, in the bell's group) or
+  // in a last run after them ('end': Full screen and Pop out, right of your picture; Thomas, 2026-10-13), and so may one
+  // of the bar's own (Set up, first in that run: "Settings should go right before the window controls").
   const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
   const byZone = {
     left: [t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('view-workspace', 'left', { group: 'views', groupOrder: 12, order: 1 }), t('phase-chip', 'left', { group: 'phase', groupOrder: 20, order: 1 })],
-    right: [t('setup', 'right', { group: 'setup', groupOrder: 85, order: 1 }), t('notifications-bell', 'right', { group: 'notices', groupOrder: 90, order: 90 }), t('fullscreen-toggle', 'right', { group: 'space', groupOrder: 1, order: 11, workspace: 'only', place: 'end' }), t('todo:mine', 'right', { group: 'todo:own', groupOrder: 500, order: 500, workspace: 'only' }), t('topbar-more', 'right', { group: 'more', groupOrder: 999, order: 998, workspace: 'every', more: 'primary' }), t('whoami-link', 'right', { group: 'you', groupOrder: 999, order: 999 }), t('recall-button', 'right', { group: 'space', groupOrder: 1, order: 51, workspace: 'every' }), t('modules-toggle', 'right', { group: 'setup', groupOrder: 85, order: 4, workspace: 'only', place: 'own' }), t('layout-favorites', 'right', { group: 'setup', groupOrder: 85, order: 5, workspace: 'only', place: 'own' }), t('popout', 'right', { group: 'space', groupOrder: 1, order: 12, workspace: 'only', place: 'end' })],
+    right: [t('setup', 'right', { group: 'space', groupOrder: 85, order: 1, place: 'end' }), t('notifications-bell', 'right', { group: 'notices', groupOrder: 90, order: 90 }), t('fullscreen-toggle', 'right', { group: 'space', groupOrder: 1, order: 11, workspace: 'only', place: 'end' }), t('todo:mine', 'right', { group: 'todo:own', groupOrder: 500, order: 500, workspace: 'only' }), t('topbar-more', 'right', { group: 'more', groupOrder: 999, order: 998, workspace: 'every', more: 'primary' }), t('whoami-link', 'right', { group: 'you', groupOrder: 999, order: 999 }), t('recall-button', 'right', { group: 'space', groupOrder: 1, order: 51, workspace: 'every' }), t('modules-toggle', 'right', { group: 'notices', groupOrder: 90, order: 89, workspace: 'only', place: 'own' }), t('layout-favorites', 'right', { group: 'notices', groupOrder: 90, order: 88, workspace: 'only', place: 'own' }), t('popout', 'right', { group: 'space', groupOrder: 1, order: 12, workspace: 'only', place: 'end' })],
   };
   const w = wideZones(byZone);
   assert.deepEqual(w.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'view-workspace', 'phase-chip'], []], 'the left zone: the bar\'s own, then the Workspace\'s (none now)');
-  assert.deepEqual(w.right.map((run) => run.map((x) => x.id)), [['todo:mine', 'topbar-more', 'recall-button'], ['setup', 'notifications-bell', 'whoami-link', 'modules-toggle', 'layout-favorites'], ['fullscreen-toggle', 'popout']], 'the right zone: the Workspace\'s tools and the "..." first, then the bar\'s own with Layout and the favorites, then Full screen and Pop out');
+  assert.deepEqual(w.right.map((run) => run.map((x) => x.id)), [['todo:mine', 'topbar-more', 'recall-button'], ['notifications-bell', 'whoami-link', 'modules-toggle', 'layout-favorites'], ['setup', 'fullscreen-toggle', 'popout']], 'the right zone: the Workspace\'s tools and the "..." first, then the bar\'s own with the favorites and Layout, then Set up, Full screen and Pop out');
   assert.deepEqual(w.bar, [], 'nothing in the phone\'s place');
   assert.deepEqual(ids(arrange(w.right[0])), [['recall-button'], ['todo:mine'], ['topbar-more']], 'within the run: the space\'s group, a module\'s groups, then the "..."');
-  assert.deepEqual(ids(arrange(w.right[1])), [['setup', 'modules-toggle', 'layout-favorites'], ['notifications-bell'], ['whoami-link']], 'the bar\'s own run: Set up, Layout and the favorites together, the bell, you');
-  assert.deepEqual(ids(arrange(w.right[2])), [['fullscreen-toggle', 'popout']], 'the last run: Full screen, then Pop out');
+  assert.deepEqual(ids(arrange(w.right[1])), [['layout-favorites', 'modules-toggle', 'notifications-bell'], ['whoami-link']], 'the bar\'s own run: the favorites, Layout and the bell together (no divider), then you (Thomas, 2026-10-13)');
+  assert.deepEqual(ids(arrange(w.right[2])), [['setup', 'fullscreen-toggle', 'popout']], 'the last run, one group: Set up, Full screen, then Pop out');
+  // The whole right end as drawn, left to right.
+  assert.deepEqual(w.right.flatMap((run) => arrange(run).flat()).map((x) => x.id).slice(3), ['layout-favorites', 'modules-toggle', 'notifications-bell', 'whoami-link', 'setup', 'fullscreen-toggle', 'popout'], 'the favorites, Layout, the bell, you, Set up, Full screen, Pop out');
+  // On a phone `place` is not read: Set up keeps its place, before the bell and you (these test tools name no `phone`).
+  const ph = navApi.phoneZones({ left: [], right: byZone.right.filter((x) => !x.workspace) });
+  assert.deepEqual(ph.right[1].length ? arrange(ph.right[1]).flat().map((x) => x.id) : [], ['setup', 'notifications-bell', 'whoami-link'], 'the phone\'s order: Set up, the bell, you, as before');
+  // One small equal gap between the right end's controls, from a layout token (style.css).
+  const cssW = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(cssW, /--topbar-gap: 4px;/);
+  assert.match(cssW, /@media \(min-width: 641px\) \{\n\s*\.topbar > \.nav-right \{\n\s*gap: var\(--topbar-gap\);/);
+  assert.match(cssW, /\.layout-favorites \{[^}]*gap: var\(--topbar-gap\);/);
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(src, /const wide = !fold && bar === 'primary';\n\s*const runs = fold \? phoneZones\(byZone\) : wide \? wideZones\(byZone\) : \{ left: \[byZone\.left\], right: \[byZone\.right\], bar: \[\] \};/, 'the top bar wider than a phone draws wideZones(); the space bar and the phone as before');
   assert.match(src, /flattenRuns\(list, doc, \{ divide: wide \}\)/, 'a divider between the two runs, in the top bar only');
@@ -1808,9 +1826,9 @@ fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-
 const { setupSections, setupPatch, setupSaidWords } = await import(pathToFileURL(setupCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
-test('Set up: a right-zone tool before your picture for owners, the admin and moderators; Save and Cancel are the panel\'s action bar, not the top bar\'s', () => {
+test('Set up: a right-zone tool after your picture, before the window controls, for owners, the admin and moderators; Save and Cancel are the panel\'s action bar, not the top bar\'s', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  assert.match(space, /nav\.register\(\{ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 85, order: 1, [^\n]*visible: setupShown, onClick: enterSetup \}\)/, 'before the bell (90) and the you group (999): Set up, the bell, your picture (plan-one-bar.md, step 7)');
+  assert.match(space, /nav\.register\(\{ id: 'setup', bar: 'primary', zone: 'right', group: 'space', groupOrder: 85, order: 1, place: 'end', [^\n]*visible: setupShown, onClick: enterSetup \}\)/, 'wider than a phone in the last run, first of the window controls\' group (Thomas, 2026-10-13: "Settings should go right before the window controls"); on a phone still before the bell (90) and the you group (999)');
   assert.ok(!/id: 'setup-done'|id: 'setup-cancel'/.test(space), 'Done and Cancel left the top bar: the panel\'s action bar has Save and Cancel (Thomas, 2026-10-13)');
   assert.match(space, /const canSetUp = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && Boolean\(me\) && me\.role !== 'guest' && \(hasOwnerRights\(me\) \|\| isModeratorHere\(\)\)/, 'owners, the admin and this space\'s moderators; never a guest, an aside or home over the space');
   assert.match(space, /const setupShown = \(\) => canSetUp\(\) && !settingUp;/);

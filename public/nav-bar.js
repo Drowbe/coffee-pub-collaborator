@@ -283,15 +283,16 @@ export function phoneZones(byZone) {
 // The top bar wider than a phone (plan-one-bar.md, step 7, Thomas 2026-10-13: the space bar's controls in the top bar):
 // the Workspace's tools (`workspace`, and the bar's own "...", which folds them) sit nearest the middle of the bar,
 // after the bar's own in the left zone and before them in the right (Pull participants back, a module's tools and the
-// "..." before Set up, the bell and your picture). Each a run of its own, so a module's orders never interleave with
+// "..." before the favorites, Layout, the bell and your picture). Each a run of its own, so a module's orders never interleave with
 // the bar's; a divider separates two runs when both show something. A Workspace tool may name a `place` in the right
 // zone instead (Thomas, 2026-10-13, the one bar's feedback): 'own' puts it among the bar's own tools, by its group and
-// order (Layout and the favorite layouts, in Set up's group); 'end' puts it in a last run after them (Full screen and
-// Pop out, right of your picture). On a phone the Workspace's tools are the tab bar's and `place` is not read. Pure, for check-nav.
+// order (the favorite layouts and Layout, in the bell's group); 'end' puts it in a last run after them, and so may one
+// of the bar's own (Set up, then Full screen and Pop out, right of your picture: one group, no divider between them).
+// On a phone the Workspace's tools are the tab bar's and `place` is not read. Pure, for check-nav.
 export function wideZones(byZone) {
   const inner = (t) => Boolean(t.workspace) && t.place !== 'own' && t.place !== 'end';
-  const own = (t) => !t.workspace || t.place === 'own';
-  const end = (t) => Boolean(t.workspace) && t.place === 'end';
+  const own = (t) => (!t.workspace && t.place !== 'end') || (Boolean(t.workspace) && t.place === 'own');
+  const end = (t) => t.place === 'end';
   return {
     left: [byZone.left.filter((t) => !t.workspace), byZone.left.filter((t) => Boolean(t.workspace))],
     right: [byZone.right.filter(inner), byZone.right.filter(own), byZone.right.filter(end)],
@@ -515,7 +516,7 @@ function place(container, list) {
 
 // A bar never lets its zones run into each other: when they do not fit, the right zone's tools fold into a "..."
 // (More) and come back as the bar widens. The space bar's "..." (#subnav-more) sits just before Leave; the top bar's
-// (#topbar-more) after the Workspace's tools, before Set up, the bell and your picture, and in the top bar only the
+// (#topbar-more) after the Workspace's tools, before the favorites, Layout, the bell and your picture, and in the top bar only the
 // Workspace's tools (`workspace`) fold: the bar's own never do. Which fold first is by band, each band from its
 // end: the secondary tools (Pop out, then Full screen), then a module's own, then the core ones (the snap switch with
 // its grid slider, then Dock all), then the utility ones (Rejoin call, then Pull participants back). Leave (the last
@@ -794,10 +795,11 @@ function fitLeft(bar, { width, gap, right }) {
   for (const t of first) fitOne(t);
 }
 
-// A right-zone tool that can give way (`fit`: the top bar's favorite layouts, beside Layout; Thomas, 2026-10-13): fitted
-// before the left zone is, to what the rest of the right zone and the left zone at its least (every left fitting tool at
-// fit(0): the chip's words go before a favorite does) leave it; the left zone then takes what the right zone leaves.
-// Never folds: with no room it shows nothing (its fit's own doing), and the favorites are still in the Layout menu.
+// A right-zone tool that can give way (`fit`: the top bar's favorite layouts, left of Layout; Thomas, 2026-10-13): fitted
+// before the left zone is, to what the rest of the right zone and the left zone at its fullest (every left fitting tool
+// at fit(Infinity): the favorites give way before anything else, the chip's words included) leave it; the left zone
+// then takes what the right zone leaves. Never folds: with no room it shows nothing (its fit's own doing), and the
+// favorites are still in the Layout menu.
 function fitRight(bar, { width, gap, more }) {
   const b = bars[bar];
   if (!b || !b.zones.right) return;
@@ -805,7 +807,7 @@ function fitRight(bar, { width, gap, more }) {
   if (!fitting.length) return;
   for (const t of tools.values()) {
     if (t.bar !== bar || t.zone !== 'left' || typeof t.fit !== 'function' || !els.has(t.id) || els.get(t.id).hidden) continue;
-    try { t.fit(0); } catch { /* keeps its size */ }
+    try { t.fit(Infinity); } catch { /* keeps its size */ }
   }
   const left = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
   for (const t of fitting) {

@@ -27,7 +27,11 @@ import { composeList, aliasesFor, compositeById, compositesToAsk } from '/compos
 // spaces, and is the starting point for a space with nothing saved yet.
 const STORE_KEY = 'app.canvas';
 const storeKey = (spaceId) => `${STORE_KEY}.${spaceId}`;
-const HEAD_H = 42; // the shared module header height (--module-header-h in style.css)
+// The shared module header height (--module-header-h in style.css: 34px, 42px on a phone), read where it is used.
+const headH = () => {
+  const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--module-header-h'));
+  return Number.isFinite(h) && h > 0 ? h : 34;
+};
 // A fixed column's least width (DOCK_MIN), the flexible column's (FLEX_MIN) and the narrow line (NARROW) are snap-grid.js's,
 // beside fitDock(), the rule for how many columns a window holds (plan-docked-limit.md).
 
@@ -888,7 +892,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         if (mod.mode !== 'float') return;
         const b = currentBox(mod.el);
         if (Number.isFinite(width)) b.w = width;
-        if (Number.isFinite(height)) b.h = height + HEAD_H;
+        if (Number.isFinite(height)) b.h = height + headH();
         if (snapping(m.id)) { const g = snapGrid(); settleSnap(m.id, mod.el, snapCell(g, b)); remember(m.id, { layout: 'user' }); return; }
         remember(m.id, { box: place(mod.el, b), layout: 'user' });
       },
@@ -923,7 +927,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const win = canvasWin();
     place(floater, saved[m.id]?.box || {
       w: m.canvas.width,
-      h: m.canvas.height + HEAD_H,
+      h: m.canvas.height + headH(),
       x: win.innerWidth - m.canvas.width - 24 - index * 28,
       y: 70 + index * 28,
     });
@@ -1333,7 +1337,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const q = new URLSearchParams({ space: spaceId, popout: '1' });
     if (guestToken) q.set('guest', guestToken);
     const width = Math.max(320, Math.min(m.canvas.width, screen.availWidth));
-    const height = Math.max(240, Math.min(m.canvas.height + HEAD_H, screen.availHeight));
+    const height = Math.max(240, Math.min(m.canvas.height + headH(), screen.availHeight));
     // A composite's own window is the destination's page for this space, whole (its own bar, no titlebar of the canvas's).
     const url = compositeOf(m) ? compositeSrc(compositeOf(m)) : `/modules/${encodeURIComponent(m.id)}?${q}`;
     const win = window.open(url, `app-module-${m.id}`, `popup,width=${width},height=${height}`);

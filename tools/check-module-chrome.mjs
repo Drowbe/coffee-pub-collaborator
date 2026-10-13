@@ -244,6 +244,40 @@ test('the styles: --status-bar-h 24px in both sheets, one line, tokens only', ()
   assert.ok(!/#[0-9a-f]{3,6}\b/i.test(block) && !/rgba?\(/.test(block), 'tokens only');
 });
 
+test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding above or below, its buttons 28px (Thomas, 2026-10-13: "too much top and bottom padding")', () => {
+  const css = read('public/style.css');
+  assert.match(css, /--module-header-h: var\(--module-header-phone-h, 34px\);/, 'the one token: 34px wider than a phone');
+  assert.match(css, /@media \(max-width: 640px\) \{\n\s*:root \{\n\s*--module-header-phone-h: 42px;/, 'a phone keeps its 42px touch height');
+  assert.equal((css.match(/--module-header-phone-h:/g) || []).length, 1, 'set in one place');
+  const rule = (sel) => { const m = css.match(new RegExp(`(^|\\n)${sel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} \\{([^}]*)\\}`)); return m ? m[2] : null; };
+  const head = rule('.mod-header');
+  assert.ok(head, '.mod-header is there');
+  assert.match(head, /height: var\(--module-header-h\);/);
+  assert.match(head, /padding: 0 6px 0 10px;/, 'no padding above or below: the height is the token\'s alone');
+  assert.match(rule('.chat header'), /height: var\(--module-header-h\);[\s\S]*padding: 0 8px 0 12px;/, 'the chat\'s header lines up with it');
+  // Nothing in a titlebar may be taller than the 28px buttons (the "...", the "+", Close): 3px above and below.
+  assert.match(rule('.sdk-more'), /height: 28px;/);
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1].trim();
+    if (!/\.mod-header|\.module-floating-head|\.module-titlebar/.test(sel) || /\.canvas\.narrow/.test(sel)) continue;
+    for (const decl of m[2].split(';')) {
+      const d = decl.match(/^\s*(min-height|padding(?:-top|-bottom)?|margin(?:-top|-bottom)?)\s*:\s*(.+)$/);
+      if (!d) continue;
+      if (d[1] === 'min-height') assert.fail(`${sel} sets a min-height (${d[2].trim()}): the titlebar is the token's height`);
+      if (/^padding$|^margin$/.test(d[1])) {
+        const v = d[2].trim().split(/\s+/);
+        const [top, bottom] = [v[0], v[2] ?? v[0]];
+        assert.ok(/^0(px)?$/.test(top) && /^0(px)?$/.test(bottom), `${sel} pads the titlebar above or below (${d[1]}: ${d[2].trim()})`);
+      }
+      else assert.ok(/^0(px)?$/.test(d[2].trim()), `${sel} sets ${d[1]}: ${d[2].trim()}`);
+    }
+  }
+  // canvas.js reads the token (a floating window's height is its content's plus the titlebar's), never a fixed 42.
+  const canvas = read('public/canvas.js');
+  assert.ok(!/HEAD_H = 42/.test(canvas), 'no fixed titlebar height');
+  assert.ok(canvas.includes("getPropertyValue('--module-header-h')"), 'the token, read where it is used');
+});
+
 if (failures.length) {
   console.error(`check-module-chrome: ${failures.length} failed`);
   for (const f of failures) console.error(`  - ${f}`);

@@ -23,7 +23,11 @@ const confEl = document.getElementById('conference');
 const topbarEl = document.getElementById('topbar');
 // The chat can be in a window of its own, away from the canvas, so it is searched too.
 const chatEl = document.getElementById('chat');
-const $ = (id) => (id === 'canvas' ? canvasEl : document.getElementById(id) || canvasEl.querySelector(`#${id}`) || confEl.querySelector(`#${id}`) || topbarEl.querySelector(`#${id}`) || chatEl.querySelector(`#${id}`));
+// The work area (plan-one-bar.md, step 6): the always-on column (#side-column: the call as a strip of tiles or Join the
+// call, Online, the chat) beside the canvas. It pops out as one with the canvas, so it is searched too.
+const workEl = document.getElementById('work');
+const columnEl = document.getElementById('side-column');
+const $ = (id) => (id === 'canvas' ? canvasEl : document.getElementById(id) || canvasEl.querySelector(`#${id}`) || confEl.querySelector(`#${id}`) || topbarEl.querySelector(`#${id}`) || chatEl.querySelector(`#${id}`) || workEl.querySelector(`#${id}`));
 // Before anything else touches a header element -- the header itself is
 // built here, not left static in space.html, so every #topbar-crumb,
 // #recall-button etc. lookup below needs this to have already run.
@@ -145,11 +149,14 @@ function placeSubnav() {
     moduleChooser.querySelector('#modules-toggle').setAttribute('aria-expanded', 'false');
     window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
   }
+  placeColumnTools(); // Join the call and Online: in the side column wider than a phone, in the bar (the tab bar) below
   nav.draw('secondary'); // the space bar folds again in the window it is in now (plan-phone-space-bar.md)
   if (popped) { nav.draw('primary'); return; } // the header's phone menu follows that window too
   if (tabs) document.body.appendChild(subnav);
   else topbarEl.appendChild(subnav);
 }
+// Set further down, once Join the call and Online exist (the column section); nothing to place before that.
+let placeColumnTools = () => {};
 placeSubnav();
 // Only this page loads your profile, Manage and a module's page as an overlay over a running call instead of a real
 // navigation (see openOverlay() below): the shared header asks first (app:open-profile, app:open-page, see the
@@ -999,6 +1006,7 @@ function screenTileFor(participant) {
   tiles.set(key, tile);
   $('grid').appendChild(tile);
   applyLayout();
+  syncShareLift(); // a share lifts the conference out of the column (plan-one-bar.md, step 6)
   return tile;
 }
 function removeScreenTile(identity) {
@@ -1011,6 +1019,7 @@ function removeScreenTile(identity) {
   tile.remove();
   tiles.delete(key);
   applyLayout();
+  syncShareLift(); // the last share ending puts the conference back in the column
 }
 
 // --- layouts and ordering -----------------------------------------------------
@@ -1109,6 +1118,7 @@ function syncCallControl() {
   syncWhoIsInCall();
   whoHere.refresh(); // who is here, in the space bar (space-people.js)
   nav.draw('secondary'); // Join the call shows only out of the call
+  syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
 // The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
 // is not off (what /api/presence reports as inCall), with their picture in this space, else their first letter.
@@ -1187,6 +1197,116 @@ const whoHere = createWhoHere({
 });
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
 // --- end who is here ---
+
+// --- the always-on column (plan-one-bar.md, decision 2 and step 6) ---------------------------------------------
+// Wider than a phone, #side-column (space.html) beside the canvas holds the call and the chat in every view: the
+// conference as a strip of tiles while on the call (canvas.js puts it in .side-column-strip, in its `column` mode),
+// else nothing there; under it Join the call (out of the call) and Online, the space bar's own elements, taken out of
+// the registry and placed here; then the chat (in .side-column-chat). A handle collapses the column to a 44px rail
+// (the faces on the call and the chat's unread count), remembered per space (localStorage `app.column.<space>`); it
+// never closes. At 640px and below the column is not drawn and the two tools go back to the tab bar (decision 3). In
+// an aside the column is the whole screen (decision 10, style.css). A screen share lifts the conference into the
+// Workspace as a floating module and back (syncShareLift).
+const columnTools = ['join-call', 'who-here'].map((id) => nav.get(id)); // the registrations above, to put back
+let columnToolsIn = null; // 'column' or 'bar', where the two are now
+placeColumnTools = () => {
+  const toColumn = Boolean(columnEl) && !phoneWidth();
+  const where = toColumn ? 'column' : 'bar';
+  if (where !== columnToolsIn) {
+    columnToolsIn = where;
+    if (toColumn) {
+      for (const t of columnTools) nav.unregister(t.id);
+      columnEl.querySelector('.side-column-call').appendChild(joinCallButton);
+      columnEl.querySelector('.side-column-online').appendChild(whoHere.el);
+    } else {
+      for (const t of columnTools) if (!nav.has(t.id)) nav.register(t);
+    }
+  }
+  syncColumn();
+};
+// What the column shows now: Join the call out of the call, Online while connected (fitted to the row's width, as the
+// bar fits it), and the rail.
+function syncColumn() {
+  if (!columnEl || columnToolsIn !== 'column') return;
+  joinCallButton.hidden = !joinCallWanted();
+  const online = Boolean(currentSpace) && call.state === 'connected';
+  whoHere.el.hidden = !online;
+  if (online) whoHere.fit(Math.max(0, columnEl.querySelector('.side-column-online').clientWidth));
+  columnEl.classList.toggle('in-call', inCall);
+  syncRail();
+}
+const columnKey = (id) => `app.column.${id}`;
+const columnCollapsed = () => Boolean(columnEl?.classList.contains('collapsed'));
+function setColumnCollapsed(on, { remember = true } = {}) {
+  if (!columnEl) return;
+  columnEl.classList.toggle('collapsed', on);
+  const b = columnEl.querySelector('#side-column-toggle');
+  b.setAttribute('aria-expanded', String(!on));
+  b.title = on ? 'Expand' : 'Collapse';
+  b.setAttribute('aria-label', on ? 'Show the call and chat' : 'Collapse the call and chat');
+  b.querySelector('i').className = `fa-solid fa-angles-${on ? 'right' : 'left'} fa-fw`;
+  if (!on && unread) { unread = 0; canvas.setBuiltinUnread('chat', 0); } // opened: the chat is read
+  const id = layoutSpaceId();
+  if (remember && id) {
+    try { localStorage.setItem(columnKey(id), JSON.stringify({ collapsed: on })); } catch { /* private mode: not remembered */ }
+  }
+  syncRail();
+  applyLayout();
+}
+// On entering a space: as it was left in this browser; an aside starts open and remembers nothing.
+function applyColumnPref() {
+  const id = layoutSpaceId();
+  let on = false;
+  if (id) {
+    try { on = Boolean(JSON.parse(localStorage.getItem(columnKey(id)) || 'null')?.collapsed); } catch { on = false; }
+  }
+  setColumnCollapsed(on, { remember: false });
+}
+// The rail: the chat's unread count (its button opens the column into the chat) and a face per person on the call.
+function syncRail() {
+  if (!columnEl || !document.body.classList.contains('in-space')) return;
+  const badge = columnEl.querySelector('#side-column-rail-unread');
+  badge.hidden = unread === 0;
+  badge.textContent = unread > 9 ? '9+' : String(unread);
+  const btn = columnEl.querySelector('#side-column-rail-chat');
+  const said = unread ? `Chat, ${unread} unread` : 'Chat';
+  btn.setAttribute('aria-label', said);
+  btn.title = said;
+  const faces = columnEl.querySelector('#side-column-rail-faces');
+  const people = [...tiles.values()].filter((t) => !t.classList.contains('tile-screen'));
+  const key = people.map((t) => `${t.dataset.identity}:${t.querySelector('.placeholder')?.getAttribute('src') || ''}`).join('|');
+  if (faces.dataset.key === key) return;
+  faces.dataset.key = key;
+  faces.replaceChildren(...people.map((t) => {
+    const face = faces.ownerDocument.createElement('span');
+    face.className = 'side-column-rail-face';
+    face.title = t.querySelector('.name')?.textContent || '';
+    const src = t.querySelector('.placeholder')?.getAttribute('src');
+    if (src) {
+      const img = faces.ownerDocument.createElement('img');
+      img.src = src;
+      img.alt = face.title;
+      face.appendChild(img);
+    } else face.textContent = (face.title || '?').charAt(0).toUpperCase();
+    return face;
+  }));
+}
+// A screen share (anyone's: a screen tile in the grid) lifts the conference out of the column, floating over the
+// Workspace; the last share ending puts it back. Only in column mode (canvas.js says no elsewhere).
+function syncShareLift() {
+  if (!canvas.columnMode()) return;
+  const sharing = [...tiles.values()].some((t) => t.classList.contains('tile-screen'));
+  if (sharing !== canvas.lifted('conference')) canvas.liftBuiltin('conference', sharing);
+}
+if (columnEl) {
+  columnEl.querySelector('#side-column-toggle').addEventListener('click', () => setColumnCollapsed(!columnCollapsed()));
+  columnEl.querySelector('#side-column-rail-chat').addEventListener('click', () => {
+    setColumnCollapsed(false);
+    if (canvas.builtinOpen('chat')) $('chat-input')?.focus();
+  });
+}
+placeColumnTools(); // now that the two exist
+// --- end the always-on column ---
 
 // --- the phase chip (phase-sheet.js) --------------------------------------------------------------------
 // "● Booking · day 2 of 3 ▾" in the top bar's left zone after the breadcrumb (plan-one-bar.md, decisions 7 to 10, step
@@ -1989,7 +2109,10 @@ function applyLayout() {
   const portrait = grid.clientHeight > grid.clientWidth;
   grid.classList.toggle('portrait', portrait);
   const canvasEl = $('canvas');
-  canvasEl.classList.toggle('narrow', canvasEl.clientWidth <= 640); // the same line as the tab bar (max-width: 640px) and snap-grid.js's NARROW
+  // The same line as the tab bar (max-width: 640px) and snap-grid.js's NARROW: the window's width, since the side
+  // column takes part of a wide window (canvas.js's isNarrow measures the same).
+  canvasEl.classList.toggle('narrow', (canvasEl.ownerDocument.defaultView || window).innerWidth <= 640);
+  syncColumn(); // Join the call, Online and the rail follow the call
   // The sizes follow the conference itself, wherever it is (docked beside the chat, floating,
   // or in a window of its own), not the whole canvas.
   const host = confEl.closest('.canvas') || canvasEl;
@@ -3097,7 +3220,13 @@ function addEntry(entry, own = false) {
     unread += 1;
     entry.counted = true; // so a clear can take it off the number again (dropChatEntries)
     canvas.setBuiltinUnread('chat', unread);
+  } else if (canvas.columnMode() && columnCollapsed() && !own && entry.visibility !== 'private') {
+    // The chat in the column behind the collapsed rail is not read either: the rail shows the number.
+    unread += 1;
+    entry.counted = true;
+    canvas.setBuiltinUnread('chat', unread);
   }
+  syncRail();
 }
 
 // A private message the server just stored and returned (a command's echo, an /ai question and its answer), or a
@@ -3292,6 +3421,8 @@ canvas.registerBuiltin({
   flex: true,
   modes: ['dock', 'float', 'window'],
   wrap: 'canvas conference-canvas', // out of the canvas's grid it needs a .canvas of its own
+  slot: '#side-column-strip', // its place in the always-on column: the strip of tiles (plan-one-bar.md, step 6)
+  onShow: () => { if (columnCollapsed()) setColumnCollapsed(false); }, // brought into view: the rail opens
   windowClass: 'conference-window',
   windowSize: { w: 640, h: 420 },
   floatSize: { w: 560, h: 380 },
@@ -3339,6 +3470,8 @@ canvas.registerBuiltin({
   el: $('chat'),
   onShown: showBuiltinName,
   allowed: () => canDo('chatRead'),
+  slot: '#side-column-chat', // its place in the always-on column, under the call (plan-one-bar.md, step 6)
+  onShow: () => { if (columnCollapsed()) setColumnCollapsed(false); }, // brought into view: the rail opens
   width: prefs.chatWidth,
   onWidth: (w) => { prefs.chatWidth = w; savePrefs(); },
   onChange: ({ open, mode, moving }) => {
@@ -3356,7 +3489,7 @@ canvas.registerBuiltin({
 });
 
 function toggleChat(open = !canvas.builtinOpen('chat')) {
-  if (open) canvas.openBuiltin('chat');
+  if (open) { canvas.openBuiltin('chat'); if (canvas.columnMode()) setColumnCollapsed(false); }
   else canvas.closeBuiltin('chat');
 }
 
@@ -3869,6 +4002,7 @@ function crumbSegmentHtml(seg, icon) {
 function updateCrumb() {
   const connected = call.state === 'connected' && currentSpace;
   setPresentSpace(connected ? (currentSpace.isAside ? currentSpace.origin || null : currentSpace.id) : null);
+  document.body.classList.toggle('in-aside', Boolean(connected) && inAside()); // an aside's column is the whole screen (style.css)
   // What the anchor shows is anchorSegments() (primary-nav.js, held by check-nav): the space's breadcrumb, nothing while
   // home is shown over it, or a guest link's space before the guest enters.
   let space = null;
@@ -3979,6 +4113,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
     // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
     canvas.restore();
+    applyColumnPref(); // the always-on column, open or a rail, as this space was left
     syncSnapBar(); // and this space's canvas-level snap
     refreshLayouts(); // and its saved layouts
     syncCallControl(); // who is in the call, for the conference's "Not in a call" note
@@ -4124,6 +4259,7 @@ async function stopCall() {
   closeSettings();
   setStatus(`in ${spaceName}`);
   syncCallControl();
+  syncShareLift(); // the tiles are gone: a lifted conference goes back into the column
   canvas.updateMenu(); // and loses it
 }
 
@@ -4872,7 +5008,7 @@ function onKey(event) {
   if (key === 'm') toggleMic();
   else if (key === 'v') toggleCam();
   else if (key === 'd') toggleDeafen();
-  else if (key === 'c') toggleChat();
+  else if (key === 'c') { if (canvas.columnMode() && canvas.builtinOpen('chat')) setColumnCollapsed(!columnCollapsed()); else toggleChat(); } // the column never closes: C collapses it and opens it
   else if (key === 'l') cycleView();
   else if (key === 'r') toggleTray();
   else if (key === 's' && !$('screen-share').hidden) toggleScreenShare();
@@ -5049,7 +5185,7 @@ function setUpPopoutWindow(win) {
   // The whole app moves: the header too, so everything works from where you are. Moving a
   // node adopts it into the new document, video and audio and all.
   win.document.body.appendChild(topbarEl);
-  win.document.body.appendChild($('canvas'));
+  win.document.body.appendChild(workEl); // the canvas and the always-on column beside it, as one
   placeSubnav(); // phone or wide by this window's width now: the tab bar, or the chooser's button and list
   canvas.popped(); // the modules open again in this window
   $('away').hidden = false;
@@ -5086,7 +5222,7 @@ function setUpPopoutWindow(win) {
   setTimeout(applyLayout, 50);
   win.addEventListener('pagehide', () => {
     document.body.prepend(topbarEl);
-    document.body.appendChild($('canvas'));
+    document.body.appendChild(workEl);
     placeSubnav(); // and by this window's again
     canvas.popped(); // and back in this one
     $('away').hidden = true;

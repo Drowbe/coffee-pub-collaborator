@@ -65,11 +65,11 @@ const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', 
 
 // The buttons at the end of every module's header: switch between docked and
 // floating, open in a window, close.
-const toolsHtml = ({ mode, canDock, canFloat, closable = true, snap = false }) => `
+const toolsHtml = ({ mode, canDock, canFloat, closable = true, snap = false, canWindow = true }) => `
   ${mode === 'float' ? `<button class="msg-btn${snap ? ' on' : ''}" data-snap type="button" title="Snap to a grid" aria-label="Snap to a grid" aria-pressed="${snap ? 'true' : 'false'}"><i class="fa-solid fa-border-all fa-fw" aria-hidden="true"></i></button>` : ''}
   ${mode !== 'float' && canFloat ? '<button class="msg-btn" data-mode="float" type="button" title="Float over the call" aria-label="Float over the call"><i class="fa-regular fa-window-restore fa-fw" aria-hidden="true"></i></button>' : ''}
   ${mode !== 'dock' && canDock ? '<button class="msg-btn" data-mode="dock" type="button" title="Dock beside the video" aria-label="Dock beside the video"><i class="fa-solid fa-table-columns fa-fw" aria-hidden="true"></i></button>' : ''}
-  ${mode !== 'window' ? '<button class="msg-btn" data-popout type="button" title="Open in its own window" aria-label="Open in its own window"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>' : ''}
+  ${mode !== 'window' && canWindow ? '<button class="msg-btn" data-popout type="button" title="Open in its own window" aria-label="Open in its own window"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>' : ''}
   ${closable ? '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>' : ''}`;
 
 // `onNote(text)`: a short line for the Layout panel's note (#modules-menu-note), '' to clear it. `onMenu(open)`: the
@@ -86,6 +86,14 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // The Layouts section after it (space.js writes and refreshes it; plan-saved-layouts.md), kept the same way.
   const layoutsEl = menu ? menu.querySelector('.module-chooser-layouts') : null;
   const canvas = document.getElementById('canvas');
+  // The always-on column beside the canvas (plan-one-bar.md, step 6; #side-column in space.html): wider than a phone
+  // the conference and the chat live in it, in the mode `column`, not as columns of the grid, not in the Show list, not
+  // in a saved layout. At 640px and below (isNarrow) there is no column and they are the phone's tabs, as before. A
+  // page without the element (a module's own page) has no column mode at all.
+  const column = document.getElementById('side-column');
+  const columnMode = () => Boolean(column) && !isNarrow();
+  const inColumn = (p) => p.mode === 'column';
+  const onCanvas = () => [...opened.values()].some((p) => !inColumn(p)); // whether anything is open on the canvas itself
   let saved = loadSaved(null);
   // Nothing is remembered until a join has restored the space's modules, and not while the space is
   // being torn down: closing every module on the way out must not become the layout.
@@ -138,10 +146,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   const supports = (p, mode) => (p.modes || ['dock', 'float']).includes(mode);
 
-  // A narrow canvas has no room for a column.
+  // A narrow canvas has no room for a column. The line is the window's width (the same line as the space bar's tab
+  // bar, max-width: 640px): the side column takes part of a wide window, so the canvas's own width would say narrow
+  // where the window is not.
   function isNarrow() {
-    const w = canvas.clientWidth;
-    return w > 0 ? w <= NARROW : canvas.classList.contains('narrow'); // the same line as the space bar's tab bar
+    const w = column ? canvasWin().innerWidth : canvas.clientWidth;
+    return w > 0 ? w <= NARROW : canvas.classList.contains('narrow');
   }
 
   // `holdStore`: the grid-size slider's preview changes the layout on every step but writes it once, when let go.
@@ -163,7 +173,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   let restoring = false;
   function snapshot() {
     if (suspended || !spaceId || keepLayout) return;
-    saved.__open = [...opened.values()].sort((a, b) => a.order - b.order).map((p) => p.id);
+    const ids = [...opened.values()].sort((a, b) => a.order - b.order).map((p) => p.id);
+    // In column mode the conference and the chat are not the canvas's to remember: the list keeps whichever of the two
+    // it held before (a phone reads it as its tabs), the chat when nothing was remembered yet (whatOpens's default).
+    const prev = Array.isArray(saved.__open) ? saved.__open : guestToken ? ['conference', 'chat'] : ['chat'];
+    const kept = (id) => prev.includes(id);
+    saved.__open = columnMode() ? ids.filter((id) => { const p = opened.get(id); return !(inColumn(p) || p.lifted) || kept(id); }) : ids;
     persist();
   }
 
@@ -378,7 +393,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     }
     if (isNarrow()) { update(); return { docked: 0, waiting: 0 }; }
     // The conference and the chat first (they always have a column), then the others in the order they opened.
-    const tried = [...opened.values()].filter((p) => p.mode === 'float' && !p.waiting && supports(p, 'dock'))
+    const tried = [...opened.values()].filter((p) => p.mode === 'float' && !p.waiting && !p.lifted && supports(p, 'dock'))
       .sort((a, b) => (a.kind === 'builtin' ? 0 : 1) - (b.kind === 'builtin' ? 0 : 1) || byOrder(a, b)).map((p) => p.id);
     hush += 1;
     try {
@@ -629,7 +644,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     syncView();
     for (const p of opened.values()) p.el.classList?.remove('is-flex');
     for (const p of docked) for (const el of p.parts()) el.style.gridColumn = '';
-    if (canvasEmpty) canvasEmpty.hidden = opened.size > 0;
+    if (canvasEmpty) canvasEmpty.hidden = onCanvas();
     paintDockButtons();
     if (isNarrow() || !docked.length) {
       canvas.style.removeProperty('--canvas-cols');
@@ -942,7 +957,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // its owner (the conference: a call) is told not to start or stop anything.
   function openBuiltinIn(def, mode, opts = {}) {
     if (def.allowed && !def.allowed()) return false;
-    if (mode !== 'dock' && def.modes && !def.modes.includes(mode)) mode = 'dock';
+    if (mode === 'column' && !columnMode()) mode = 'dock'; // no column on a phone
+    if (mode !== 'dock' && mode !== 'column' && def.modes && !def.modes.includes(mode)) mode = 'dock';
     if (mode === 'window') return openBuiltinWindow(def, opts);
     const doc = canvasDoc();
     const el = def.el;
@@ -952,7 +968,14 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       onWidth: def.onWidth,
       parts: () => [...el.children],
     };
-    if (mode === 'dock') {
+    if (mode === 'column') {
+      // Its place in the side column (def.slot), wrapped as it is when floating (the conference brings its own .canvas).
+      const slot = column.querySelector(def.slot) || column;
+      mod.columnEl = wrapFor(def, el, doc);
+      slot.appendChild(mod.columnEl);
+      el.hidden = false;
+      mod.parts = () => [];
+    } else if (mode === 'dock') {
       canvas.appendChild(el);
       el.hidden = false;
       const handle = el.querySelector('.chat-resize');
@@ -1004,7 +1027,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     tools.querySelectorAll('[data-mode], [data-popout]').forEach((b) => b.remove());
     const holder = tools.ownerDocument.createElement('span');
     tools.querySelectorAll('[data-snap]').forEach((b) => b.remove());
-    holder.innerHTML = toolsHtml({ mode: mod.mode, canDock: true, canFloat: mod.modes.includes('float'), closable: false, snap: snapping(mod.id) });
+    // In the column a built-in module has no mode buttons: it never docks on the canvas, floats only while lifted for a
+    // screen share (and then only its snap switch), and never leaves for a window of its own.
+    if (inColumn(mod)) return;
+    const lifted = Boolean(mod.lifted) || columnMode();
+    holder.innerHTML = toolsHtml({ mode: mod.mode, canDock: !lifted, canFloat: mod.modes.includes('float') && !lifted, closable: false, snap: snapping(mod.id), canWindow: !lifted });
     const close = tools.querySelector('#chat-close, [data-module-close]');
     for (const b of [...holder.children]) tools.insertBefore(b, close);
     for (const b of tools.querySelectorAll('[data-mode], [data-popout]')) {
@@ -1069,7 +1096,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         def.el.hidden = true;
         def.el.classList.remove('is-flex');
         opened.delete(def.id);
-        const back = saved[def.id]?.mode === 'float' && supports(mod, 'float') && !isNarrow() ? 'float' : 'dock';
+        const back = columnMode() ? 'column' : saved[def.id]?.mode === 'float' && supports(mod, 'float') && !isNarrow() ? 'float' : 'dock';
         if (!openBuiltinIn(def, back, { moving: true })) {
           syncDock();
           def.onChange?.({ open: false, mode: 'window' });
@@ -1088,6 +1115,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     opened.delete(id);
     if (mod.floatEl) mod.floatEl.remove();
     canvas.appendChild(def.el); // home again, before a window goes and takes it along
+    if (mod.columnEl && mod.columnEl !== def.el) mod.columnEl.remove(); // the column's wrap, now empty
     def.el.hidden = true;
     def.el.classList.remove('is-flex');
     for (const el of def.el.children) el.style.gridColumn = '';
@@ -1202,6 +1230,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (mod.waiting && mode === 'float') { settleWaiting(id); update(); return; }
     if (mod.mode === mode) return;
     if (mod.kind === 'builtin') {
+      if (inColumn(mod) || mod.lifted) return; // the column's: only a screen share moves it (liftBuiltin)
       const def = mod.def;
       const before = mod.mode;
       closeBuiltin(id, { moving: true });
@@ -1286,9 +1315,68 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     }
     bindDoc(doc);
     for (const { m, mode } of again) openModule(m, isNarrow() ? undefined : mode);
+    placeBuiltins(); // the column, or the phone's tabs, by this window's width
     suspended = false;
     syncDock();
     update(); // the tab or switch for the view shown in this window's width
+  }
+
+  // The conference and the chat go where this window's width puts them (plan-one-bar.md, step 6): the side column
+  // wider than a phone, the canvas (the phone's tabs) at 640px and below. Called as the window crosses the line and
+  // after a pop-out. A lift for a screen share ends on the way to a phone. Only moving, never opening or closing:
+  // the call keeps running, and nothing is remembered while it happens.
+  function placeBuiltins() {
+    if (!column) return;
+    const want = columnMode();
+    const was = suspended;
+    suspended = true;
+    try {
+      if (want) {
+        // Into the column: the two are always on there. One the phone had open moves; one it had closed opens (the
+        // chat quietly, without taking the keyboard; the conference as its switch would, so it says "Not in a call").
+        for (const def of builtins.values()) {
+          const p = opened.get(def.id);
+          if (p && p.mode === 'dock') { closeBuiltin(def.id, { moving: true }); openBuiltinIn(def, 'column', { moving: true }); }
+          else if (!p && canOpenHere(def.id)) openBuiltinIn(def, 'column', { moving: def.id === 'chat' });
+        }
+      } else {
+        // Onto the canvas (the phone's tabs): only what the phone would have had open, the remembered list's (the
+        // chat alone when nothing is remembered yet, as whatOpens's default; the conference too for a guest), and the
+        // conference while on the call, since closing it would hang up. The rest closes, as it was on the phone.
+        const prev = Array.isArray(saved.__open) ? saved.__open : guestToken ? ['conference', 'chat'] : ['chat'];
+        for (const p of [...opened.values()]) {
+          if (p.kind !== 'builtin' || !(inColumn(p) || p.lifted)) continue;
+          const keep = prev.includes(p.id) || Boolean(p.def.inCall?.());
+          closeBuiltin(p.id, { moving: keep });
+          if (keep) openBuiltinIn(p.def, 'dock', { moving: true });
+        }
+      }
+    } finally {
+      suspended = was;
+    }
+    snapshot();
+  }
+
+  // A screen share lifts the conference out of the column into the Workspace as a floating module, and back when it
+  // stops (plan-one-bar.md, step 6). Floating as the conference floats today, in the floating layer, its call untouched
+  // (moving); the mode is not remembered, so it is the column's again on the next visit. Answers whether it is lifted.
+  function liftBuiltin(id, on) {
+    const mod = opened.get(id);
+    if (!mod || mod.kind !== 'builtin' || !columnMode()) return false;
+    if (on && inColumn(mod) && supports(mod, 'float')) {
+      closeBuiltin(id, { moving: true });
+      if (!openBuiltinIn(mod.def, 'float', { moving: true })) { openBuiltinIn(mod.def, 'column', { moving: true }); return false; }
+      const now = opened.get(id);
+      now.lifted = true;
+      decorateBuiltin(now);
+      return true;
+    }
+    if (!on && mod.lifted) {
+      closeBuiltin(id, { moving: true });
+      openBuiltinIn(mod.def, 'column', { moving: true });
+      return false;
+    }
+    return Boolean(mod.lifted);
   }
 
   // Whether this person may open a module here: the conference and the chat by their own rule, any other by being on
@@ -1311,6 +1399,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === openRequest.module) ? openRequest : null;
     openRequest = null;
     keepLayout = Boolean(request);
+    // The column's own (plan-one-bar.md, step 6): wider than a phone the conference and the chat open in the side column,
+    // whatever the lists or a layout say, and whatOpens leaves them out of what goes on the canvas.
+    if (columnMode()) for (const id of builtins.keys()) if (canOpenHere(id)) api_openBuiltin(id);
     // The space's default layout (plan-saved-layouts.md, decision 4): when what opens comes from the space's own Opens
     // with (a first visit, or a guest) and the space has one, it opens through loadLayout, modes and places included.
     // A person's remembered layout still wins after their first visit (plan-entering, decision 5).
@@ -1327,6 +1418,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       modules: available.map((m) => m.id),
       canOpen: canOpenHere,
       guest: Boolean(guestToken),
+      column: columnMode(),
     });
     for (const id of want) {
       if (builtins.has(id)) { if (canOpenHere(id)) api_openBuiltin(id); }
@@ -1407,7 +1499,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     suspended = true;
     restoring = true;
     try {
-      for (const p of [...opened.values()]) if (!named.has(p.id) && !keepCall(p)) closeModule(p.id);
+      // The conference and the chat are the column's (plan-one-bar.md, step 6): a layout neither names nor closes them.
+      for (const p of [...opened.values()]) if (p.kind !== 'builtin' && !named.has(p.id) && !keepCall(p)) closeModule(p.id);
       // The canvas-level snap as saved; what it floated before is not this layout's.
       saved.__snap = { ...(saved.__snap || {}), all: plan.snap.all, pitch: plan.snap.pitch, before: {} };
       const g = gridFor({ left: area.x, top: area.y, width: area.w, height: area.h }, plan.snap.pitch);
@@ -1490,9 +1583,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     }
     snapshot();
     paintDockButtons();
-    if (canvasEmpty) canvasEmpty.hidden = opened.size > 0;
+    if (canvasEmpty) canvasEmpty.hidden = onCanvas();
     if (!menu) return;
-    const builtinList = [...builtins.values()].sort((a, b) => a.order - b.order).filter((def) => !def.allowed || def.allowed());
+    // The conference and the chat are in the Show list only where they are the canvas's (a phone's tabs, a page with
+    // no side column); in column mode they are always on (plan-one-bar.md, decision 2).
+    const builtinList = columnMode() ? [] : [...builtins.values()].sort((a, b) => a.order - b.order).filter((def) => !def.allowed || def.allowed());
     // A switch always reads the module's name (the environment's name for it), open or not, in the call or not.
     if (!inline()) {
       // The space bar's chooser: a list of switches under its button (switch-list.js), on while the module is shown.
@@ -1586,8 +1681,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       }
       hush += 1; // the columns fit again, quietly: the change is in front of the person
       try { syncDock(); } finally { hush -= 1; }
-      // Crossing the narrow line changes which module shows, so the tabs and switches say so.
-      if (isNarrow() !== lastNarrow) { lastNarrow = isNarrow(); update(); }
+      // Crossing the narrow line changes which module shows, so the tabs and switches say so; and the conference and
+      // the chat move between the side column and the canvas.
+      if (isNarrow() !== lastNarrow) { lastNarrow = isNarrow(); placeBuiltins(); update(); }
       if (menu && !inline() && !menu.hidden) positionMenu();
     });
   }
@@ -1736,6 +1832,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (!def) return false;
     if (opened.has(id)) return true;
     if (!restoring) keepLayout = false;
+    if (columnMode()) return openBuiltinIn(def, 'column'); // the column's, whatever was remembered
     if (isNarrow()) view = id;
     const canFloat = !def.modes || def.modes.includes('float');
     // With the canvas-level snap on, a module that can float opens floating (and snapped), whatever it was last time.
@@ -1750,6 +1847,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (!opened.has(id)) api_openBuiltin(id);
     else if (opened.get(id).mode === 'window') opened.get(id).win?.focus?.();
     else setView(id);
+    if (opened.has(id) && inColumn(opened.get(id))) builtins.get(id).onShow?.(); // the column's: its owner brings it into view (the rail opens)
     update();
     return opened.has(id);
   };
@@ -1831,6 +1929,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     show: api_show,
     closeBuiltin,
     builtinOpen: (id) => opened.has(id),
+    // The always-on column (plan-one-bar.md, step 6): whether the conference and the chat are in it now, and a screen
+    // share's lift of the conference into the Workspace and back.
+    columnMode,
+    liftBuiltin,
+    lifted: (id) => Boolean(opened.get(id)?.lifted),
     // The window a built-in module is popped out into, or null (the page's idle-hide needs that document's own canvas).
     builtinWindow: (id) => { const p = opened.get(id); return p && p.mode === 'window' && p.win && !p.win.closed ? p.win : null; },
     builtinMode: (id) => opened.get(id)?.mode || null,

@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const { Layouts, LayoutError, cleanLayout, LAYOUT_LIMITS } = require('../server/layouts.js');
+import { pathToFileURL } from 'node:url';
 const { Store } = require('../server/store.js');
 
 let n = 0;
@@ -44,6 +45,27 @@ const refused = (input, pattern, label, options) => {
   assert.match(out.error, /^[^\n]+\.$/, `${label}: one sentence`);
   n += 1;
 };
+
+// --- the conference and the chat in a layout (plan-one-bar.md, step 6) ------------------------------------------
+// They live in the always-on column, so the page's layoutOf() never saves them and placeLayout() leaves them alone;
+// the server keeps accepting them in a stored layout (an older one, or one a phone saved), so nothing stored breaks.
+{
+  const dir = tmp('column');
+  fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), path.join(dir, 'snap-grid.mjs'));
+  const src = fs.readFileSync(path.join(ROOT, 'public/layouts.js'), 'utf8');
+  fs.writeFileSync(path.join(dir, 'layouts.mjs'), src.replace("from '/snap-grid.js'", "from './snap-grid.mjs'"));
+  const { layoutOf, placeLayout, COLUMN_IDS } = await import(pathToFileURL(path.join(dir, 'layouts.mjs')).href);
+  fs.rmSync(dir, { recursive: true, force: true });
+  assert.deepEqual([...COLUMN_IDS], ['conference', 'chat'], 'the column holds the conference and the chat');
+  const area = { x: 0, y: 0, w: 1200, h: 800 };
+  const saved = layoutOf([{ id: 'conference', mode: 'dock', order: -1, flex: true }, { id: 'chat', mode: 'dock', order: 0, width: 320 }, { id: 'calendar', mode: 'dock', order: 1, width: 360 }], area);
+  assert.deepEqual(saved.modules.map((m) => m.id), ['calendar'], 'layoutOf() leaves the two out');
+  const placed = placeLayout(good(), area);
+  assert.deepEqual(placed.modules.map((m) => m.id), ['calendar'], 'placeLayout() places neither');
+  assert.deepEqual(placed.left, [], 'and names neither as left out');
+  assert.ok(cleanLayout(good()).layout, 'the server still accepts a layout naming them');
+  n += 1;
+}
 
 // --- cleanLayout: the shape -------------------------------------------------------------------------------------
 

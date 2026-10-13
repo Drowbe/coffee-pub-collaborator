@@ -79,6 +79,27 @@
        stacking a second bar of ours on top of it. -->
   <iframe class="page-overlay" id="page-overlay-frame" title="Page" hidden></iframe>
 
+  <!-- The work area: the always-on column (the call and the chat, plan-one-bar.md step 6) beside the canvas. The whole
+       of it pops out as one. At 640px and below the column is not drawn: the phone keeps its tabs. -->
+  <div class="work" id="work">
+  <aside class="side-column" id="side-column" aria-label="Call and chat">
+    <!-- The handle: collapses the column to a rail and back. space.js remembers it per space. -->
+    <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" title="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
+    <!-- The conference, as a strip of tiles while on the call (canvas.js puts it here). -->
+    <div class="side-column-strip" id="side-column-strip"></div>
+    <!-- Join the call (out of the call) and Online: the space bar's own elements, placed here wider than a phone. -->
+    <div class="side-column-bar">
+      <div class="side-column-call" id="side-column-call"></div>
+      <div class="side-column-online" id="side-column-online"></div>
+    </div>
+    <!-- The chat (canvas.js puts #chat here). -->
+    <div class="side-column-chat" id="side-column-chat"></div>
+    <!-- Collapsed: the faces on the call and the chat's unread count. -->
+    <div class="side-column-rail" id="side-column-rail">
+      <button class="side-column-rail-chat" id="side-column-rail-chat" type="button" title="Chat" aria-label="Chat"><i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="badge" id="side-column-rail-unread" hidden></span></button>
+      <div class="side-column-rail-faces" id="side-column-rail-faces"></div>
+    </div>
+  </aside>
   <!-- Everything in the call lives inside the canvas so it can pop out as one. -->
   <main class="canvas" id="canvas" hidden>
     <!-- Each module owns a column of the space's grid: a content area over
@@ -336,12 +357,13 @@
       </div>
     </aside>
 
-    <!-- Shown when nothing is open on the canvas: no conference, no chat, no module. -->
+    <!-- Shown when nothing is open on the canvas (on a phone: no conference, no chat, no module). -->
     <div class="canvas-empty" id="canvas-empty" hidden>
-      <p data-fill>Nothing is open. Open the conference, the chat or {a module} from the {space} bar.</p>
+      <p data-fill>Nothing is open. Open {a module} from the {space} bar.</p>
     </div>
 
   </main>
+  </div>
 
   <!-- @livekit/track-processors (background blur) imports these two by bare
        package name; there's no bundler here to resolve that, so this maps

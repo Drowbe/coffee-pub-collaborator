@@ -12,6 +12,11 @@ import { MIN_W, MIN_H, DOCK_MIN, gridFor, cellBox, resettle } from '/snap-grid.j
 
 // The server's limits (server/layouts.js, LAYOUT_LIMITS), so the page says what the server would refuse before asking.
 export const LAYOUT_LIMITS = Object.freeze({ personal: 10, shared: 10, name: 40, modules: 20, dockWMin: 160, dockWMax: 2000, pitchMin: 50, pitchMax: 320 });
+// The conference and the chat live in the always-on column (plan-one-bar.md, step 6), not on the canvas: a layout
+// neither saves nor places them. A layout saved before (or by a phone) may still name them; they are accepted and
+// left alone, never "left out".
+export const COLUMN_IDS = Object.freeze(['conference', 'chat']);
+const inColumn = (id) => COLUMN_IDS.includes(id);
 const PITCH_DEFAULT = 130;
 
 const num = (v, fallback = 0) => (Number.isFinite(Number(v)) ? Number(v) : fallback);
@@ -30,7 +35,7 @@ const pitchOf = (p) => clamp(Math.round(num(p, PITCH_DEFAULT)), LAYOUT_LIMITS.pi
 // before (`was`), else docked where it can dock.
 export function layoutOf(modules, area, snap = {}) {
   const A = { x: num(area?.x), y: num(area?.y), w: Math.max(1, num(area?.w, 1)), h: Math.max(1, num(area?.h, 1)) };
-  const list = (Array.isArray(modules) ? modules : []).filter((p) => p && typeof p.id === 'string' && p.id);
+  const list = (Array.isArray(modules) ? modules : []).filter((p) => p && typeof p.id === 'string' && p.id && !inColumn(p.id));
   const modeOf = (p) => {
     if (p.mode === 'dock' || p.mode === 'float') return p.mode;
     if (p.was === 'dock' || p.was === 'float') return p.was;
@@ -83,6 +88,7 @@ export function placeLayout(layout, area, canOpen = () => true) {
   for (const entry of Array.isArray(layout?.modules) ? layout.modules : []) {
     if (!entry || typeof entry.id !== 'string' || seen.has(entry.id)) continue;
     seen.add(entry.id);
+    if (inColumn(entry.id)) continue; // the column's: accepted in an older layout, never placed, never left out
     if (!canOpen(entry.id)) { left.push(entry.id); continue; }
     const mode = entry.mode === 'float' ? 'float' : 'dock';
     const placed = { id: entry.id, mode, snap: mode === 'float' && (snap.all || Boolean(entry.snap)) };

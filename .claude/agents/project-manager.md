@@ -42,7 +42,9 @@ Thomas says which kind each piece of work is. The default is a try build; never 
 - **Try build** (the default, most of the time): Thomas wants to see an idea. One builder, one pass,
   briefed in a few lines, not a plan document. The builder runs `node --check` and the one or two
   checks that touch its files, and verifies live only what it built. No quality-assurance, no
-  content-manager, no CHANGELOG, no version bump, no plan. Commit and push as soon as the builder
+  content-manager, no CHANGELOG, no plan. The one version bump: the builder bumps the patch
+  version of any module it changes (`node tools/check-module-versions.mjs --update`), nothing else, and
+  checks that `node tools/check-module-versions.mjs` prints OK. Commit and push as soon as the builder
   reports, so Thomas is testing within the hour. Rough edges are expected; it is his test server.
 - **Feedback build**: the idea held up and others will try it. The builder, then one short
   quality-assurance pass aimed only at "does it break what was there"; fix must-fixes only, one round.
@@ -51,6 +53,16 @@ Thomas says which kind each piece of work is. The default is a try build; never 
   quality-assurance with its security review, documentation, version bumps.
 
 Report in a few lines, not a page. One agent at a time for a try build; no fan-out.
+
+## Which model
+
+By default, set no model on an agent call. The builders (bug-fixes, content-manager,
+experience-design, server-development) are `model: inherit` and run on the session's own model.
+Small, well-specified jobs run on the smaller model (`sonnet`): a form fix, a one-line server change,
+a rename, a version bump, a documentation edit. Pass the larger model (`opus`) only for risky or hard
+work: layout and canvas changes that touch `space.js`, `canvas.js` or `nav-bar.js`, a data migration,
+security-sensitive work, and planning. Pass `fable` only when Thomas asks. Say in your report which
+model each agent ran on, in a few words.
 
 ## The flow (production builds)
 

@@ -13,6 +13,7 @@ import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
+import { foldCallToolbar } from '/call-toolbar.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
 // window, which takes the whole canvas with it).
@@ -2288,6 +2289,7 @@ function applyLayout() {
     el.classList.toggle('compact', cw < 460);
     el.classList.toggle('tiny', cw < 300 || ch < 220);
   }
+  if (floatbarInColumn()) fitFloatbar(); // the buttons' size may have changed with those two: fitted again at it
   const ordered = [...grid.querySelectorAll('.tile')];
   let rest = grid.querySelector('.rest');
   if (prefs.layout === 'spotlight' && ordered.length > 1) {
@@ -3528,6 +3530,7 @@ const TRAY_GAP = 8;
 function fitTray() {
   const tray = $('react-tray');
   if (!tray || tray.hidden) return;
+  if (placeStripPopover(tray)) return; // in the column: up or down, where there is more room
   const doc = tray.ownerDocument;
   const header = doc.getElementById('topbar');
   const top = header && header.getClientRects().length ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
@@ -3535,6 +3538,28 @@ function fitTray() {
   tray.style.maxHeight = `${Math.max(64, height)}px`; // never less than one row
 }
 window.addEventListener('resize', fitTray);
+// In the always-on column the toolbar is near the top of the window, so its popovers (a control's settings, the
+// reactions) open down over the chat when there is more room below than above, else up over the tiles as anywhere
+// else; either way capped to that room and scrolled inside. Elsewhere it does nothing and says so (false).
+const POPOVER_GAP = 8;
+function placeStripPopover(el) {
+  if (!el) return false;
+  if (!el.closest('.side-column-strip')) {
+    if (el.classList.contains('opens-down')) { el.classList.remove('opens-down'); el.style.maxHeight = ''; }
+    return false;
+  }
+  const doc = el.ownerDocument;
+  const view = doc.defaultView || window;
+  const bar = $('video-bar').getBoundingClientRect();
+  const header = doc.getElementById('topbar');
+  const top = header && header.getClientRects().length ? Math.max(0, header.getBoundingClientRect().bottom) : 0;
+  const above = Math.floor(bar.top - top - 10 - POPOVER_GAP);
+  const below = Math.floor(view.innerHeight - bar.bottom - 6 - POPOVER_GAP);
+  const down = below > above;
+  el.classList.toggle('opens-down', down);
+  el.style.maxHeight = `${Math.max(64, down ? below : above)}px`;
+  return true;
+}
 
 // The settings popover shows one focused group at a time: mic, audio
 // (speaker + volume), camera, layout, or "more" (everything else -- guests,
@@ -3557,6 +3582,7 @@ function openSettings(group) {
   for (const b of confEl.querySelectorAll('[data-settings]')) b.classList.remove('on');
   if (trigger) trigger.classList.add('on');
   toggleTray(false);
+  placeStripPopover($('settings')); // in the column: up or down, where there is more room
 }
 
 // A built-in module's own header, with the name and icon this environment shows it by (canvas.js hands them over once the
@@ -4944,13 +4970,27 @@ const FLOATBAR_ALL = [...$('floatbar').children];
 const FLOATBAR_COLLAPSE_ORDER = FLOATBAR_ALL.filter((el) => el.dataset.collapse).sort(
   (a, b) => Number(a.dataset.collapse) - Number(b.dataset.collapse)
 );
+// In the always-on column the toolbar is the whole toolbar too (plan-one-bar.md, step 6): a wrapping row of at most
+// two rows under the tiles; what still does not fit folds into "..." (lowest data-collapse first, call-toolbar.js),
+// which opens on the shared menu (openFoldedMenu). The folded ones are marked data-folded (style.css hides them), so
+// a control hidden for its own reason (no screen share here) keeps its own `hidden`.
+const FLOATBAR_ROWS_IN_COLUMN = 2;
+const floatbarInColumn = () => Boolean(confEl.closest('.side-column-strip'));
 function fitFloatbar() {
   const bar = $('floatbar');
   // Put everything back in its original spot first -- simplest way to get a
   // stable, correctly-ordered result every time rather than tracking where
   // each collapsed item needs to be spliced back in.
-  for (const item of FLOATBAR_ALL) bar.appendChild(item);
+  for (const item of FLOATBAR_ALL) { bar.appendChild(item); delete item.dataset.folded; }
   $('floatbar-more').hidden = true;
+  if (floatbarInColumn()) $('floatbar-more').setAttribute('aria-haspopup', 'menu'); // the column's "..." opens a menu
+  else $('floatbar-more').removeAttribute('aria-haspopup');
+  if (floatbarInColumn()) {
+    $('floatbar-overflow').hidden = true;
+    fitFloatbarInColumn(bar);
+    fitChatChrome();
+    return;
+  }
   for (const item of FLOATBAR_COLLAPSE_ORDER) {
     if (bar.scrollWidth <= bar.clientWidth) break;
     if (item.hidden) continue; // already hidden by its own logic (no room link, say) -- moving it won't help
@@ -4958,6 +4998,39 @@ function fitFloatbar() {
     $('floatbar-more').hidden = false;
   }
   fitChatChrome();
+}
+
+function fitFloatbarInColumn(bar) {
+  const more = $('floatbar-more');
+  if (!bar.clientWidth) return; // not drawn (out of the call, the column collapsed): fitted again when it shows
+  const style = getComputedStyle(bar);
+  const width = bar.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+  const gap = parseFloat(style.columnGap) || 0;
+  more.hidden = false; // measured with the rest, then hidden again unless something folds
+  const items = FLOATBAR_ALL.map((el) => ({
+    id: el.id || el.querySelector('.fbtn')?.id,
+    el,
+    width: el.getBoundingClientRect().width,
+    priority: el.dataset.collapse === undefined ? null : Number(el.dataset.collapse),
+    hidden: el.id === 'floatbar-more' ? false : el.hidden,
+  }));
+  const folded = foldCallToolbar({ items, width, gap, rows: FLOATBAR_ROWS_IN_COLUMN, more: 'floatbar-more' });
+  for (const it of items) if (folded.includes(it.id)) it.el.dataset.folded = '1';
+  more.hidden = folded.length === 0;
+}
+// The column's "..." on the shared menu: each folded control in the toolbar's order, by its own tooltip, and its
+// settings caret as an entry of its own. A pick clicks the control itself, so it does just what it does on the toolbar.
+function openFoldedMenu(trigger) {
+  const entries = [];
+  for (const el of FLOATBAR_ALL) {
+    if (!el.dataset.folded || el.hidden) continue;
+    const btn = el.matches('button') ? el : el.querySelector('.fbtn');
+    if (!btn || btn.hidden) continue;
+    entries.push({ icon: rowIcon(btn), label: btn.getAttribute('aria-label') || btn.title, onPick: () => btn.click() });
+    const caret = el.querySelector('.fbtn-caret');
+    if (caret) entries.push({ icon: 'sliders', label: caret.getAttribute('aria-label') || caret.title, onPick: () => caret.click() });
+  }
+  openHostMenu(trigger, entries);
 }
 
 // The same fold as the conference bar, for a row of icon buttons in the chat: lowest data-collapse
@@ -5043,6 +5116,7 @@ $('floatbar-overflow').addEventListener('click', (event) => {
 });
 $('floatbar-more').addEventListener('click', (event) => {
   event.stopPropagation();
+  if (floatbarInColumn()) { openFoldedMenu($('floatbar-more')); return; } // the column's: the shared menu
   $('floatbar-overflow').hidden = !$('floatbar-overflow').hidden;
 });
 document.addEventListener('click', (event) => {

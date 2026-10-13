@@ -24,10 +24,11 @@ const MAX_LINK_URL = 500;
 const MAX_SOURCES = 12;
 
 const BASES = ['general', 'items', 'both'];
-// The kinds (plan-object-handoff.md, "Kinds and their details"). TRAVEL_KINDS are the 13 from before the plan; the prompt
-// lists them when no enabled module declares `takes` (kindsTaken). KINDS is every kind an AI or an import may
-// write. HANDOFF_KINDS pass only between pages (cleanObject's `handoff`), never from an AI or an import.
-const TRAVEL_KINDS = Object.freeze(['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show']);
+// The kinds (plan-object-handoff.md, "Kinds and their details"). TRAVEL_KINDS are the 13 from before the plan plus
+// attraction (a theme park, a zoo: #246, a stop like a sight); the prompt lists them when no enabled module declares
+// `takes` (kindsTaken). KINDS is every kind an AI or an import may write. HANDOFF_KINDS pass only between pages
+// (cleanObject's `handoff`), never from an AI or an import.
+const TRAVEL_KINDS = Object.freeze(['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show']);
 const KINDS = [...TRAVEL_KINDS, 'event', 'task', 'poll', 'note', 'link'];
 const HANDOFF_KINDS = Object.freeze(['image']);
 
@@ -55,6 +56,7 @@ const DETAILS = deepFreeze({
   bar: { ...STOP_DETAILS, partySize: 'count:99', name: 'text:60', reference: 'text:60' },
   sight: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
   museum: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
+  attraction: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
   tour: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
   show: { ...STOP_DETAILS, tickets: 'count:999', reference: 'text:60' },
   event: { starts: 'when', ends: 'when', allDay: 'flag', address: 'text:200' },

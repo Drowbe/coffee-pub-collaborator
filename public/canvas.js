@@ -19,7 +19,7 @@ import { nav } from '/nav-bar.js';
 import { whatOpens } from '/opens-with.js';
 import { layoutOf, placeLayout, leftOutNote } from '/layouts.js';
 import { TINTS, moduleTint } from '/module-tint.js';
-import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, resettle, tidyBoxes, fillBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
+import { MIN_W, MIN_H, SNAP_GAP, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, resettle, tidyBoxes, fillBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
 import { composeList, aliasesFor, compositeById, compositesToAsk } from '/composites.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
@@ -202,8 +202,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // --- floating: place, drag, resize ----------------------------------------
 
   function clampBox(box, win) {
-    const maxW = Math.max(MIN_W, win.innerWidth - 16);
-    const maxH = Math.max(MIN_H, win.innerHeight - 16);
+    const maxW = Math.max(MIN_W, win.innerWidth - SNAP_GAP); // the grid's gutter: a module spanning every cell still fits
+    const maxH = Math.max(MIN_H, win.innerHeight - SNAP_GAP);
     const w = Math.min(Math.max(box.w, MIN_W), maxW);
     const h = Math.min(Math.max(box.h, MIN_H), maxH);
     const x = Math.min(Math.max(box.x, 0), Math.max(0, win.innerWidth - w));
@@ -230,7 +230,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // remembered is its cells (`cell`: col, row, cols, rows), so it keeps its place in the grid when the window
   // changes size. Turning the grid on keeps a place the user dragged or resized (`layout: 'user'`, or a saved box
   // that does not sit on another). Windows still on a default spot are tiled so they do not stack. The grid is as many cells of about SNAP_CELL as the canvas fits (never fewer than one), gutter
-  // SNAP_GAP, drawn (`.snap-grid`) only while a snapped module is being dragged. Docked and window are untouched.
+  // SNAP_GAP, drawn (`.snap-grid`) only while a snapped module is being dragged. The grid sits half a gutter in from the
+  // canvas's edges, so a window at the edge is a whole gutter from it, the same as from the next window. Docked and
+  // window are untouched.
   // The grid's pitch (a cell's width; a cell is 0.77 as tall) is the canvas's: the space bar's slider sets it, remembered with
   // the space's layout (`__snap.pitch`), beside the canvas-level switch (`__snap.all`) that snaps every floating module, now and later.
   const SNAP_PITCH = { min: 50, max: 320, step: 10, default: 130 };
@@ -241,7 +243,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const win = canvasWin();
     const r = canvas.getBoundingClientRect();
     const s = r.width > 0 && r.height > 0 ? r : { left: 0, top: 0, width: win.innerWidth, height: win.innerHeight };
-    return gridFor(s, snapPitch());
+    const half = SNAP_GAP / 2;
+    return gridFor({ left: s.left + half, top: s.top + half, width: Math.max(1, s.width - SNAP_GAP), height: Math.max(1, s.height - SNAP_GAP) }, snapPitch());
   }
   // The grid's arithmetic (cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle) is in snap-grid.js.
   // Put a snapped module in its cells (its remembered ones, or the ones nearest its box) and remember both. `placed` is the
@@ -378,7 +381,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const live = fresh.map((p) => opened.get(p.id)).filter((p) => p && floaterOf(p) && floaterOf(p).ownerDocument === doc);
     if (live.length) {
       const g = snapGrid();
-      const area = { x: g.x + TIDY_GAP, y: g.y + TIDY_GAP, w: g.w - 2 * TIDY_GAP, h: g.h - 2 * TIDY_GAP };
+      const area = { x: g.x + TIDY_GAP / 2, y: g.y + TIDY_GAP / 2, w: g.w - TIDY_GAP, h: g.h - TIDY_GAP }; // the grid is already half a gutter in: a gutter from the edge
       const taken = [...opened.values()].filter((p) => !live.includes(p) && floaterOf(p) && floaterOf(p).ownerDocument === doc).map((p) => currentBox(floaterOf(p)));
       const boxes = tidyBoxes(live.map((p) => ({ id: p.id, box: currentBox(floaterOf(p)) })), area, taken);
       for (const p of live) remember(p.id, { box: place(floaterOf(p), boxes.get(p.id)), layout: 'user' });
@@ -415,8 +418,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // Clean up (the Layout menu, Window Mode; Thomas, 2026-10-13): every floating module on this canvas, in this window,
   // tiled to fill the whole Workspace, none on another, no room wasted (snap-grid.js's fillBoxes: a bigger window stays
   // bigger, each keeps its side, none below its least size while the Workspace holds them all). With the grid on the
-  // tiles are whole cells of the grid; off, a small gutter (TIDY_GAP) keeps them apart. Docked modules and modules in
-  // their own window are left alone. Remembered as a drag is (`layout: 'user'`). Answers how many were placed.
+  // tiles are whole cells of the grid; off, a small gutter (TIDY_GAP) keeps them apart and from the Workspace's edges.
+  // Docked modules and modules in their own window are left alone. Remembered as a drag is (`layout: 'user'`). Answers
+  // how many were placed.
   function cleanUp() {
     if (isNarrow()) return 0;
     const doc = canvasDoc();
@@ -435,8 +439,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       }
       return mods.length;
     }
-    const tiles = fillBoxes(mods.map((p) => ({ id: p.id, box: currentBox(floaterOf(p)) })), { x: g.x, y: g.y, w: g.w, h: g.h });
+    // The grid's box is already half a gutter in from the canvas; each tile gives up the other half on every side, so a
+    // window is a gutter from the next and from the edge. A tile is at least a module's smallest size plus the gutter,
+    // so the smallest window still leaves it (place() would otherwise grow the window back over the gap).
     const half = TIDY_GAP / 2;
+    const tiles = fillBoxes(mods.map((p) => ({ id: p.id, box: currentBox(floaterOf(p)) })), { x: g.x, y: g.y, w: g.w, h: g.h }, { least: { w: MIN_W + TIDY_GAP, h: MIN_H + TIDY_GAP } });
     for (const p of mods) {
       const t = tiles.get(p.id);
       const floater = floaterOf(p);
@@ -570,7 +577,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (saved[mod.id]?.box || snapping(mod.id)) return;
     const doc = canvasDoc();
     const g = snapGrid();
-    const area = { x: g.x + TIDY_GAP, y: g.y + TIDY_GAP, w: g.w - 2 * TIDY_GAP, h: g.h - 2 * TIDY_GAP };
+    const area = { x: g.x + TIDY_GAP / 2, y: g.y + TIDY_GAP / 2, w: g.w - TIDY_GAP, h: g.h - TIDY_GAP };
     const taken = [...opened.values()].filter((p) => p !== mod && floaterOf(p) && floaterOf(p).ownerDocument === doc).map((p) => currentBox(floaterOf(p)));
     const box = tidyBoxes([{ id: mod.id, box: currentBox(mod.el) }], area, taken).get(mod.id);
     if (box) place(mod.el, box);

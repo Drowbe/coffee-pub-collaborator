@@ -74,7 +74,7 @@ body { margin: 0; overflow: hidden; }
 .aicard[data-kind="bus"] { --turn: 100; } .aicard[data-kind="car"] { --turn: 45; } .aicard[data-kind="hotel"] { --turn: 255; }
 .aicard[data-kind="restaurant"] { --turn: 0; } .aicard[data-kind="cafe"] { --turn: 345; } .aicard[data-kind="bar"] { --turn: 320; }
 .aicard[data-kind="sight"] { --turn: 95; } .aicard[data-kind="museum"] { --turn: 285; } .aicard[data-kind="tour"] { --turn: 65; }
-.aicard[data-kind="show"] { --turn: 305; }
+.aicard[data-kind="show"] { --turn: 305; } .aicard[data-kind="attraction"] { --turn: 240; }
 
 /* Send all to plan: a row under a reply that has more than one card. */
 .send-all { display: flex; align-items: center; gap: 8px; margin-top: 2px; }

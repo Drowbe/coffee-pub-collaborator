@@ -301,7 +301,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'snap-grid.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), copy);
-  const { MIN_W, MIN_H, tidyBoxes, tidyCells, gridFor, cellBox, resettle, cellsOverlap, leastSpan } = await import(pathToFileURL(copy).href);
+  const { MIN_W, MIN_H, TIDY_GAP, tidyBoxes, tidyCells, gridFor, cellBox, resettle, cellsOverlap, leastSpan } = await import(pathToFileURL(copy).href);
   fs.rmSync(tmp, { recursive: true, force: true });
   const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
   const inside = (b, A) => b.x >= A.x && b.y >= A.y && b.x + b.w <= A.x + A.w && b.y + b.h <= A.y + A.h;
@@ -353,7 +353,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // Snap off and on alike: every size from a phone-wide canvas to a wide one, six modules piled up, all on it and apart.
   for (const [w, h] of [[700, 500], [900, 640], [1280, 640], [1920, 1000]]) {
     const A = { x: 8, y: 8, w: w - 16, h: h - 16 };
-    check(`six piled on ${w}x${h}`, Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, box: { x: 40 + i * 5, y: 40, w: 420, h: 320 } })), A, { apart: 6 <= Math.floor(A.w / (MIN_W + 8)) * Math.floor(A.h / (MIN_H + 8)) });
+    check(`six piled on ${w}x${h}`, Array.from({ length: 6 }, (_, i) => ({ id: `p${i}`, box: { x: 40 + i * 5, y: 40, w: 420, h: 320 } })), A, { apart: 6 <= Math.floor(A.w / (MIN_W + TIDY_GAP)) * Math.floor(A.h / (MIN_H + TIDY_GAP)) });
   }
   // Clean up with the grid on (tidyCells; QA's repro): a small Chat and three modules a third of the grid wide and its full
   // height, two dragged onto the third. Where the grid holds all of them (12 columns) every one keeps its cells;
@@ -387,7 +387,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const clean = canvasJs.slice(canvasJs.indexOf('  function cleanUp() {'), canvasJs.indexOf('  // The grid\'s size, from the space bar\'s slider'));
   if (!/floaterOf\(p\) && floaterOf\(p\)\.ownerDocument === doc/.test(clean)) fail('public/canvas.js', 'cleanUp() must take only the floating modules in the canvas\'s window');
   if (!/fillBoxes\(mods\.map\(\(p\) => \(\{ id: p\.id, box: cellOf\(p\) \}\)\), \{ x: 0, y: 0, w: g\.cols, h: g\.rows \}, \{ least: \{ w: least\.cols, h: least\.rows \}, integer: true \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() with the grid on must fill the grid in whole cells (fillBoxes, integer, the least span)');
-  if (!/fillBoxes\(mods\.map\(\(p\) => \(\{ id: p\.id, box: currentBox\(floaterOf\(p\)\) \}\)\), \{ x: g\.x, y: g\.y, w: g\.w, h: g\.h \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() with the grid off must fill the whole canvas (fillBoxes over the canvas\'s box)');
+  if (!/fillBoxes\(mods\.map\(\(p\) => \(\{ id: p\.id, box: currentBox\(floaterOf\(p\)\) \}\)\), \{ x: g\.x, y: g\.y, w: g\.w, h: g\.h \}, \{ least: \{ w: MIN_W \+ TIDY_GAP, h: MIN_H \+ TIDY_GAP \} \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() with the grid off must fill the whole grid box (fillBoxes over it, each tile at least the smallest size plus the gutter)');
   if (!/remember\(p\.id, \{ layout: 'user' \}\)/.test(clean)) fail('public/canvas.js', 'cleanUp() must remember the places as a drag does');
   if (!/\n    cleanUp,\n/.test(canvasJs)) fail('public/canvas.js', 'the canvas must offer cleanUp()');
 }
@@ -445,6 +445,38 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (fillBoxes([], area).size !== 0) fail(F, 'fillBoxes with nothing gives nothing');
   const tight = fillBoxes(Array.from({ length: 4 }, (_, i) => ({ id: `t${i}`, box: { x: i * 10, y: 0, w: 240, h: 160 } })), { x: 0, y: 0, w: 300, h: 200 });
   if (tight.size !== 4 || !covers([...tight.values()], { x: 0, y: 0, w: 300, h: 200 })) fail(F, `fillBoxes: four in a 300x200 workspace still share it: ${JSON.stringify([...tight])}`);
+}
+
+// How windows sit in Window Mode (Thomas, 2026-10-13): a tight 4px gap between them, snapped or not, and the same gap at
+// the Workspace's edges (the grid sits half a gutter in; a cell's box is inset half a gutter on each side); the window's
+// shadow is a hairline, not a drop; a lifted column keeps a modest one; no coloured top edge on a titlebar.
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-gap-'));
+  const copy = path.join(tmp, 'snap-grid.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), copy);
+  const { SNAP_GAP, TIDY_GAP, gridFor, cellBox, leastSpan } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const F = 'public/snap-grid.js';
+  if (SNAP_GAP !== 4) fail(F, `SNAP_GAP is 4 (got ${SNAP_GAP})`);
+  if (TIDY_GAP !== 4) fail(F, `TIDY_GAP is 4 (got ${TIDY_GAP})`);
+  const g = gridFor({ left: 2, top: 46, width: 996, height: 696 }, 130); // a 1000x700 canvas at (0, 44), half a gutter in, as canvas.js's snapGrid makes it
+  const a = cellBox(g, { col: 0, row: 0, cols: 1, rows: 1 });
+  const b = cellBox(g, { col: 1, row: 0, cols: 1, rows: 1 });
+  if (Math.abs(b.x - (a.x + a.w) - SNAP_GAP) > 0.01) fail(F, `two cells side by side are a gutter apart (${b.x - (a.x + a.w)})`);
+  if (Math.abs(a.x - 0 - SNAP_GAP) > 0.01 || Math.abs(a.y - 44 - SNAP_GAP) > 0.01) fail(F, `the first cell is a gutter from the Workspace's edges (${a.x}, ${a.y - 44})`);
+  const all = cellBox(g, { col: 0, row: 0, cols: g.cols, rows: g.rows });
+  if (Math.abs(all.x + all.w - (1000 - SNAP_GAP)) > 0.01 || Math.abs(all.y + all.h - (744 - SNAP_GAP)) > 0.01) fail(F, 'a module spanning every cell ends a gutter from the far edges');
+  const l = leastSpan(g);
+  const least = cellBox(g, { col: 0, row: 0, cols: l.cols, rows: l.rows });
+  if (least.w < 240 || least.h < 160) fail(F, `the least span still holds a module's smallest size (${Math.round(least.w)}x${Math.round(least.h)})`);
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  if (!/win\.innerWidth - SNAP_GAP\)/.test(canvasJs) || !/win\.innerHeight - SNAP_GAP\)/.test(canvasJs)) fail('public/canvas.js', 'clampBox keeps SNAP_GAP clear of the window\'s edges');
+  if (!/const half = SNAP_GAP \/ 2;\n\s*return gridFor\(\{ left: s\.left \+ half, top: s\.top \+ half, width: Math\.max\(1, s\.width - SNAP_GAP\), height: Math\.max\(1, s\.height - SNAP_GAP\) \}, snapPitch\(\)\);/.test(canvasJs)) fail('public/canvas.js', 'snapGrid() lays the grid half a gutter in from the canvas\'s edges');
+  if ((canvasJs.match(/\{ x: g\.x \+ TIDY_GAP \/ 2, y: g\.y \+ TIDY_GAP \/ 2, w: g\.w - TIDY_GAP, h: g\.h - TIDY_GAP \}/g) || []).length !== 2) fail('public/canvas.js', 'floatAll() and placeWaiting() tidy within half a gutter of the grid (a gutter from the edge)');
+  const floating = /\.module-floating \{([^}]*)\}/.exec(css);
+  if (!floating || !/box-shadow: 0 1px 3px color-mix\(in srgb, black 18%, transparent\);/.test(floating[1])) fail('public/style.css', 'a floating window\'s shadow is a hairline (0 1px 3px, black at 18%)');
+  if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px color-mix\(in srgb, black 25%, transparent\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, black at 25%)');
+  if (/inset 0 3px 0 var\(--tint\)/.test(css)) fail('public/style.css', 'no 3px tint edge anywhere');
 }
 
 // The docked limit (public/snap-grid.js's dockLimit and fitDock; plan-docked-limit.md, GitHub #156): a window holds the
@@ -1279,7 +1311,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
   if (!/wireSplitter\(columnEl\.querySelector\('#side-column-splitter'\), \{ which: 'width'/.test(spaceJs)) fail(F, 'the column\'s edge is wired as a splitter setting the width');
   if (!/if \(which === 'width'\) prefs\.chatWidth = clampColumnWidth\(/.test(spaceJs)) fail(F, 'the column\'s width is the chat\'s width preference (prefs.chatWidth), so a width set before the column holds');
-  if (!/--side-column-w: 320px;/.test(css) || !/height: var\(--side-column-strip-h, 168px\);/.test(css)) fail('public/style.css', 'the column\'s width and the strip\'s height come from --side-column-w and --side-column-strip-h');
+  if (!/--side-column-w: 320px;/.test(css) || !/grid-template-rows: var\(--side-column-strip-h, 168px\) auto;/.test(css)) fail('public/style.css', 'the column\'s width and the height of the strip\'s tiles (the toolbar under them) come from --side-column-w and --side-column-strip-h');
   if (!/\.side-column-splitter:hover,\s*\.side-column-splitter:focus-visible,\s*\.side-column-splitter\.dragging \{\s*background: color-mix\(in srgb, var\(--accent\)/.test(css)) fail('public/style.css', 'a splitter shows the accent on hover, focus and while dragged');
   if (!/\.side-column-splitter-v \{[^}]*width: 8px;/.test(css) || !/@media \(pointer: coarse\) \{\s*\.side-column-splitter-v \{[^}]*width: 14px;/.test(css)) fail('public/style.css', 'the splitter\'s hit area is 8px, 14px for a finger');
 }
@@ -1315,11 +1347,84 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const rule = /\.mod-header\[data-tint\] \{([^}]*)\}/.exec(css);
   if (!rule) fail('public/style.css', 'a rule for .mod-header[data-tint]');
   else {
-    if (!/box-shadow: inset 0 3px 0 var\(--tint\);/.test(rule[1])) fail('public/style.css', 'the tint is a 3px top edge (box-shadow inset 0 3px 0 var(--tint))');
+    if (/box-shadow/.test(rule[1])) fail('public/style.css', 'no coloured top edge on the titlebar (Thomas, 2026-10-13): the tint is the wash and the icon only');
     if (!/color-mix\(in srgb, var\(--tint\) 10%, transparent\)/.test(rule[1])) fail('public/style.css', 'the wash is a 10% mix of the tint over the header\'s own background');
     if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail('public/style.css', 'the titlebar\'s accent uses the tint token, never a raw colour');
   }
   if (!/\.mod-header\[data-tint\] \.mod-title > i \{[^}]*color: var\(--tint\);/.test(css)) fail('public/style.css', 'the title\'s icon takes the tint');
+}
+
+// The call's toolbar in the always-on column (plan-one-bar.md, step 6; Thomas, 2026-10-13: "Where did all of the other
+// conference controls go?"). The column shows the whole toolbar, every control the toolbar had before the column
+// (6b5b989), as a wrapping row of at most two rows; what does not fit folds into "..." lowest data-collapse first
+// (public/call-toolbar.js), and the stylesheet hides no control there for any other reason.
+{
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  const start = html.indexOf('id="floatbar"');
+  const end = html.indexOf('id="floatbar-overflow"');
+  const bar = start >= 0 && end > start ? html.slice(start, end) : '';
+  if (!bar) fail('public/space.html', 'the call\'s toolbar (#floatbar) is missing');
+  const OLD_CONTROLS = ['mic', 'meter', 'deafen', 'cam', 'screen-share', 'layout', 'layout-glyph', 'away-toggle', 'react-toggle', 'settings-toggle', 'space-link', 'floatbar-more', 'hangup'];
+  for (const id of OLD_CONTROLS) if (!bar.includes(`id="${id}"`)) fail('public/space.html', `the call's toolbar lost #${id}`);
+  for (const g of ['mic', 'audio', 'camera', 'layout', 'more']) if (!bar.includes(`data-settings="${g}"`)) fail('public/space.html', `the call's toolbar lost its data-settings="${g}"`);
+  for (const id of ['floatbar-overflow', 'react-tray', 'settings', 'mic-select', 'gain', 'gate', 'noise', 'echo', 'agc', 'talk-mode', 'speaker-select', 'master-volume', 'test-speaker', 'cam-select', 'quality', 'mirror', 'background-mode', 'layout-pick']) {
+    if (!html.includes(`id="${id}"`)) fail('public/space.html', `the call's settings lost #${id}`);
+  }
+  const want = { mic: 10, cam: 9, deafen: 7, layout: 6, 'away-toggle': 5, 'screen-share': 4, 'react-toggle': 3, 'settings-toggle': 2, 'space-link': 1 };
+  const priorityOf = {};
+  let wrapPriority = NaN;
+  for (const line of bar.split('\n')) {
+    const wrap = line.match(/class="fbtn-wrap" data-collapse="(\d+)"/);
+    if (wrap) { wrapPriority = Number(wrap[1]); continue; }
+    if (/^\s*<\/div>/.test(line)) { wrapPriority = NaN; continue; } // the group's end
+    const id = line.match(/<button[^>]*\bid="([^"]+)"/);
+    if (!id) continue;
+    const own = line.match(/data-collapse="(\d+)"/);
+    priorityOf[id[1]] = own ? Number(own[1]) : wrapPriority; // a group's button takes the group's
+  }
+  for (const [id, n] of Object.entries(want)) {
+    const got = priorityOf[id];
+    if (got !== n) fail('public/space.html', `#${id}'s fold priority (data-collapse) is ${got}, want ${n}`);
+  }
+  // Nothing in the column's stylesheet hides a toolbar control but the fold's own [data-folded].
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const selector = m[1].trim();
+    if (!/side-column/.test(selector) || !/floatbar|fbtn|#mic|#cam|#hangup/.test(selector)) continue;
+    if (/display\s*:\s*none/.test(m[2]) && !/\[data-folded\]/.test(selector)) fail('public/style.css', `${selector} hides call controls in the column; fold them into "..." instead`);
+  }
+  if (!/\.floatbar > \[data-folded\]\s*\{[^}]*display:\s*none/.test(css)) fail('public/style.css', 'a folded control ([data-folded]) must be hidden: .floatbar > [data-folded] { display: none }');
+  // The fold, as arithmetic: 30px buttons, 6px apart, as in the column's strip.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'call-toolbar.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/call-toolbar.js'), copy);
+  const { foldCallToolbar, wrapRows } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const W = 30;
+  const toolbar = ({ share = true, link = false, w = W } = {}) => [
+    { id: 'mic', width: w, priority: 10 }, { id: 'deafen', width: w, priority: 7 }, { id: 'cam', width: w, priority: 9 },
+    { id: 'screen-share', width: w, priority: 4, hidden: !share }, { id: 'layout', width: w, priority: 6 },
+    { id: 'away-toggle', width: w, priority: 5 }, { id: 'react-toggle', width: w, priority: 3 },
+    { id: 'settings-toggle', width: w, priority: 2 }, { id: 'space-link', width: w, priority: 1, hidden: !link },
+    { id: 'floatbar-more', width: w, priority: null, hidden: true }, { id: 'hangup', width: w, priority: null },
+  ];
+  const foldCases = [
+    ['the default 320px column (308px of row): nothing folds', { items: toolbar(), width: 308, gap: 6 }, []],
+    ['the narrowest column (220px, 208px of row): two rows, nothing folds', { items: toolbar(), width: 208, gap: 6 }, []],
+    ['a 160px row: the two least important fold, Settings first', { items: toolbar(), width: 160, gap: 6 }, ['settings-toggle', 'react-toggle']],
+    ['a 120px row: then Share your screen and Away', { items: toolbar(), width: 120, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle']],
+    ['a 90px row: the microphone, the camera, "..." and Leave stay', { items: toolbar(), width: 90, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle', 'layout', 'deafen']],
+    ['a space link shown folds first', { items: toolbar({ link: true }), width: 160, gap: 6 }, ['space-link', 'settings-toggle', 'react-toggle']],
+    ['no screen share in this browser: it takes no space in the row and never folds', { items: toolbar({ share: false }), width: 130, gap: 6 }, ['settings-toggle', 'react-toggle', 'away-toggle']],
+    ['44px buttons at the narrowest column: folds into "..."', { items: toolbar({ w: 44 }), width: 208, gap: 6 }, ['settings-toggle', 'react-toggle']],
+    ['one row asked for: more folds', { items: toolbar(), width: 308, gap: 6, rows: 1 }, ['settings-toggle', 'react-toggle']],
+    ['nothing can fit: everything that folds folds, never Leave the call', { items: toolbar(), width: 10, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle', 'layout', 'deafen', 'cam', 'mic']],
+  ];
+  for (const [name, input, wantFold] of foldCases) {
+    try { assert.deepEqual(foldCallToolbar(input), wantFold); } catch { fail('public/call-toolbar.js', `${name}: got ${JSON.stringify(foldCallToolbar(input))}, want ${JSON.stringify(wantFold)}`); }
+  }
+  for (const [widths, width, gap, rows] of [[[30, 30, 30], 102, 6, 1], [[30, 30, 30], 101, 6, 2], [[], 100, 6, 0], [[200], 100, 6, 1]]) {
+    if (wrapRows(widths, width, gap) !== rows) fail('public/call-toolbar.js', `wrapRows(${JSON.stringify(widths)}, ${width}, ${gap}) is ${wrapRows(widths, width, gap)}, want ${rows}`);
+  }
 }
 
 if (problems.length) {

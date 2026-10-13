@@ -1717,7 +1717,7 @@ test('destinations: brand.js registers them from GET /api/destinations, wider on
 const sheetCopy = path.join(tmp, 'phase-sheet.mjs');
 fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), sheetCopy);
-const { chipFit, bandWidths, todayOffset, boundariesOf, plainDays, BAND_MIN } = await import(pathToFileURL(sheetCopy).href);
+const { chipFit, bandShares, todayPercent, rowsOf, plainDays, tintOf, TINTS } = await import(pathToFileURL(sheetCopy).href);
 const Phases = createRequire(import.meta.url)('../public/phases.js');
 fs.rmSync(tmp, { recursive: true, force: true });
 const TRAVEL = [{ id: 'planning', label: 'Planning' }, { id: 'booking', label: 'Booking' }, { id: 'buffer', label: 'Buffer' }, { id: 'pre-trip', label: 'Pre-trip' }, { id: 'trip', label: 'Trip', main: true }, { id: 'post-trip', label: 'Post-trip' }];
@@ -1737,50 +1737,65 @@ test('the phase chip: a left-zone element tool after the anchor, dialog on press
   assert.equal(chipFit({ avail: Infinity, full: 150, dot: 40 }), 'full');
 });
 
-test('the sheet\'s bands: a least width a one-day phase keeps, twelve phases wider than the row, the today line in its band', () => {
+test('the sheet\'s bar: each band\'s share is its days, an open-ended one runs past today, an undated one has none, the today line in its band', () => {
   const today = '2026-10-02';
   const bands = Phases.timelineOf(TRAVEL, { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-01' }, 'post-trip': { start: '2026-10-02' } }, { today, created: CREATED });
-  const widths = bandWidths(bands, { today, rule: Phases });
-  assert.equal(widths[4].days, 1, 'a one-day main phase');
-  assert.equal(widths[4].width, BAND_MIN, 'keeps the least width');
-  assert.deepEqual(widths.filter((w) => !w.width).map((w) => w.id), ['buffer', 'pre-trip'], 'an undated phase has no width');
-  assert.ok(widths[1].width > widths[0].width && widths[0].width >= BAND_MIN, 'the longer band (Booking, 21 days) is wider than Planning (9)');
-  const at = todayOffset(bands, widths, today, { rule: Phases });
-  const before = widths.slice(0, 5).reduce((n, w) => n + w.width, 0);
-  assert.ok(at > before && at < before + widths[5].width, 'today falls in Post-trip\'s band');
-  assert.equal(todayOffset(bands, widths, '2026-08-01', { rule: Phases }), null, 'before the timeline: no line');
-  const twelve = Array.from({ length: 12 }, (_, i) => ({ id: `p${i}`, label: `P${i}`, main: i === 6 }));
-  const dates = Object.fromEntries(twelve.slice(1).map((p, i) => [p.id, { start: Phases.addDays('2026-09-02', i) }]));
-  const w12 = bandWidths(Phases.timelineOf(twelve, dates, { today, created: CREATED }), { today, rule: Phases });
-  assert.ok(w12.every((w) => w.width >= BAND_MIN) && w12.reduce((n, w) => n + w.width, 0) > 12 * BAND_MIN - 1, 'twelve one-day bands: each its least width, the row wider than it');
+  const shares = bandShares(bands, { today, rule: Phases });
+  assert.deepEqual(shares.map((s) => [s.id, s.days, s.grow]), [['planning', 9, 9], ['booking', 21, 21], ['buffer', 0, 0], ['pre-trip', 0, 0], ['trip', 1, 1], ['post-trip', 15, 15]], 'Post-trip, open-ended from today, runs two weeks past it');
+  assert.equal(todayPercent(bands[5], shares[5].days, today, { rule: Phases }), (0.5 / 15) * 100, 'today is Post-trip\'s first day');
+  assert.equal(todayPercent(bands[1], shares[1].days, today, { rule: Phases }), null, 'not in Booking');
+  assert.equal(todayPercent(bands[2], 0, today, { rule: Phases }), null, 'never in an undated band');
+  assert.equal(todayPercent(bands[1], shares[1].days, '2026-09-20', { rule: Phases }), 50, 'the middle of Booking');
+  assert.deepEqual(bandShares([], { today, rule: Phases }), []);
+  assert.deepEqual([0, 7, 8, 9].map(tintOf), [TINTS[0], TINTS[7], TINTS[0], TINTS[1]], 'eight tints, round again');
 });
 
-test('the sheet\'s boundaries: every date a person can set, each boundary set adding the next band, the main end last', () => {
+test('the sheet\'s rows: one per phase in order, dates, length, what may be edited or skipped, the pickers\' bounds', () => {
   const today = '2026-09-12';
-  const of = (dates) => boundariesOf(Phases.timelineOf(TRAVEL, dates, { today, created: CREATED }), { today, rule: Phases }).map((b) => [b.kind, b.id, b.edge, b.label, b.day]);
-  // Nothing dated: the first phase from the created day, and the next phase to set.
-  assert.deepEqual(of({}), [['set', 'planning', 'start', 'Planning starts', '2026-09-01'], ['add', 'booking', 'start', 'Set when Booking starts', '2026-09-12']]);
-  // The main phase dated, nothing after it: its end is a boundary of its own, then the phase after it.
-  assert.deepEqual(of({ trip: { start: '2026-10-01', end: '2026-10-07' } }), [
-    ['set', 'planning', 'start', 'Planning starts', '2026-09-01'],
-    ['add', 'booking', 'start', 'Set when Booking starts', '2026-09-02'],
-    ['add', 'buffer', 'start', 'Set when Buffer starts', '2026-09-02'],
-    ['add', 'pre-trip', 'start', 'Set when Pre-trip starts', '2026-09-02'],
-    ['set', 'trip', 'start', 'Trip starts', '2026-10-01'],
-    ['set', 'trip', 'end', 'Trip ends', '2026-10-07'],
-    ['add', 'post-trip', 'start', 'Set when Post-trip starts', '2026-10-08'],
+  const of = (dates) => rowsOf(Phases.timelineOf(TRAVEL, dates, { today, created: CREATED }), { rule: Phases });
+  const full = of({ booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } });
+  assert.deepEqual(full.map((r) => [r.id, r.dated, r.start, r.end, r.days, r.open, r.current, r.main]), [
+    ['planning', true, '2026-09-01', '2026-09-09', 9, false, false, false],
+    ['booking', true, '2026-09-10', '2026-09-30', 21, false, true, false],
+    ['buffer', false, null, null, null, false, false, false],
+    ['pre-trip', false, null, null, null, false, false, false],
+    ['trip', true, '2026-10-01', '2026-10-07', 7, false, false, true],
+    ['post-trip', true, '2026-10-08', null, null, true, false, false],
   ]);
-  // The main phase without an end and nothing after it: "Set when Trip ends" offers today or its start, whichever is later.
-  assert.deepEqual(of({ trip: { start: '2026-10-01' } }).slice(-2), [['add', 'trip', 'end', 'Set when Trip ends', '2026-10-01'], ['add', 'post-trip', 'start', 'Set when Post-trip starts', '2026-10-02']]);
-  // A dated phase after the main one: the main end is that phase's start, so no end boundary of its own.
-  const all = of({ booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } });
-  assert.ok(!all.some((b) => b[2] === 'end'), 'no separate end');
-  assert.deepEqual(all.filter((b) => b[0] === 'set').map((b) => b[1]), ['planning', 'booking', 'trip', 'post-trip']);
-  assert.deepEqual(all.filter((b) => b[0] === 'add').map((b) => b[1]), ['buffer', 'pre-trip'], 'the skipped phases may still be dated; nothing after the last');
-  // No phases, no boundaries; no created day and nothing dated: Set the start.
-  assert.deepEqual(boundariesOf([], { today, rule: Phases }), []);
-  assert.deepEqual(boundariesOf(Phases.timelineOf(TRAVEL, {}, { today }), { today, rule: Phases }).map((b) => [b.kind, b.id, b.label]), [['add', 'planning', 'Set the start']]);
+  assert.deepEqual(full.map((r) => [r.endEditable, r.canSkip]), [[true, false], [true, true], [false, false], [false, false], [true, true], [false, true]], 'the last phase has no end of its own; the first is never skipped; an undated row has neither');
+  assert.deepEqual([full[1].minStart, full[1].maxStart, full[1].minEnd], ['2026-09-02', '2026-09-30', '2026-09-10'], 'Booking: after Planning\'s first day, not after its own end; its end not before its start');
+  assert.deepEqual([full[0].minStart, full[4].minStart, full[5].maxStart], [null, '2026-09-11', null], 'the first start is free; Trip starts after Booking\'s first day (the skipped phases between do not count); an open end has no bound');
+  // Nothing dated: the first phase from the created day, open-ended, its end editable; the rest undated.
+  const none = of({});
+  assert.deepEqual(none.map((r) => [r.dated, r.open, r.endEditable]), [[true, true, true], [false, false, false], [false, false, false], [false, false, false], [false, false, false], [false, false, false]]);
+  // The main phase last in order keeps its end editable.
+  const mainLast = rowsOf(Phases.timelineOf([{ id: 'plan', label: 'Plan' }, { id: 'go', label: 'Go', main: true }], { go: { start: '2026-10-01' } }, { today, created: CREATED }), { rule: Phases });
+  assert.deepEqual(mainLast.map((r) => [r.id, r.endEditable, r.open]), [['plan', true, false], ['go', true, true]]);
+  assert.deepEqual(rowsOf([], { rule: Phases }), []);
   assert.equal(plainDays('Booking must start after Planning starts, 2026-09-01.', (d) => `<${d}>`), 'Booking must start after Planning starts, <2026-09-01>.');
+});
+
+test('the sheet: one row per phase with native date inputs, Skip and Add dates, the first step, the rule\'s three edits, Escape and the opener', () => {
+  const sheet = fs.readFileSync(path.join(ROOT, 'public/phase-sheet.js'), 'utf8');
+  assert.match(sheet, /R\.setPhaseDate\(list, draft, id, edge, day, \{ created \}\)/, 'every date edit goes through the rule');
+  assert.match(sheet, /R\.skipPhase\(list, draft, id, \{ created \}\)/);
+  assert.match(sheet, /R\.addDatesFor\(list, draft, id, \{ created, today \}\)/);
+  assert.match(sheet, /<input type="date" class="phase-date" data-edge="start">/);
+  assert.match(sheet, /<input type="date" class="phase-date" data-edge="end">/);
+  assert.match(sheet, /class="btn btn-small phase-skip">Skip</);
+  assert.match(sheet, /Add dates</);
+  assert.match(sheet, /Not scheduled/);
+  assert.match(sheet, /Start the first phase on/);
+  assert.match(sheet, /role="status" aria-live="polite"/, 'a refusal is read out');
+  assert.match(sheet, /if \(j >= 0 && !before\[j\]\.dated\) focusNext = after\[j\]\.id;/, 'an end that dates the next phase puts the keyboard on its end');
+  assert.match(sheet, /start\.disabled = !canEdit \|\| !r\.dated;/, 'read-only: the same rows, disabled');
+  assert.match(sheet, /if \(opener && typeof opener\.focus === 'function' && opener\.isConnected\) opener\.focus\(\);/, 'focus goes back to the chip');
+  assert.ok(!/Set when \$\{/.test(sheet), 'no "Set when X starts" buttons');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  const block = css.slice(css.indexOf('/* phase-sheet:start'), css.indexOf('/* phase-sheet:end */'));
+  assert.ok(!/#[0-9a-f]{3,6}\b/i.test(block.replace(/rgba\(0, 0, 0, 0\.45\)/g, '')), 'tokens only (the shadow\'s black aside)');
+  assert.match(block, /grid-template-areas: "name name" "start end" "days tools" "problem problem";/, 'on a phone the rows stack: the name, then start and end side by side');
+  assert.match(block, /min-height: 44px;/);
 });
 
 // Set up (plan-one-bar.md, decision 5, step 4; public/space-setup.js): the tools in the bar, what each role's panel

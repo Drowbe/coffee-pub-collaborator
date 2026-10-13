@@ -140,6 +140,163 @@ await test('moveBoundary keeps the timeline contiguous: the main end and the nex
   for (const d of [three, noEnd]) assert.equal(P.problemOf(TRAVEL, d, { created: CREATED }), null);
 });
 
+// The sheet's rows (public/phase-sheet.js): setPhaseDate, addDatesFor and skipPhase, each pure, each keeping the
+// timeline contiguous and refusing with one sentence.
+const c0 = P.dayOf(CREATED); // 2026-09-01, the first phase's own start when it has none
+const setDate = (dates, id, edge, day) => P.setPhaseDate(TRAVEL, dates, id, edge, day, { created: CREATED });
+const contiguous = (dates) => {
+  assert.equal(P.problemOf(TRAVEL, dates, { created: CREATED }), null, 'the server takes it');
+  const bands = P.timelineOf(TRAVEL, dates, { created: CREATED }).filter((b) => b.dated);
+  for (let i = 1; i < bands.length; i += 1) assert.equal(bands[i].start, P.addDays(bands[i - 1].end, 1), `${bands[i].label} starts the day after ${bands[i - 1].label} ends`);
+};
+
+await test('setPhaseDate: an end moved moves the next dated start to the day after; the main end the same way', () => {
+  const dates = { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  // Planning's end (Sep 9) moved to Sep 14: Booking starts Sep 15.
+  let r = setDate(dates, 'planning', 'end', '2026-09-14');
+  assert.deepEqual(r, { ok: true, dates: { ...dates, booking: { start: '2026-09-15' } } });
+  contiguous(r.dates);
+  // Booking's end (Sep 30) moved earlier to Sep 20: Trip starts Sep 21, its end stays.
+  r = setDate(dates, 'booking', 'end', '2026-09-20');
+  assert.deepEqual(r.dates, { ...dates, trip: { start: '2026-09-21', end: '2026-10-07' } });
+  contiguous(r.dates);
+  // Trip's end (main) moved to Oct 12: Post-trip starts Oct 13.
+  r = setDate(dates, 'trip', 'end', '2026-10-12');
+  assert.deepEqual(r.dates, { ...dates, trip: { start: '2026-10-01', end: '2026-10-12' }, 'post-trip': { start: '2026-10-13' } });
+  contiguous(r.dates);
+  // Skipped phases between stay skipped: Booking's end moved with Buffer and Pre-trip undated moves Trip, not them.
+  assert.deepEqual(Object.keys(setDate(dates, 'booking', 'end', '2026-09-25').dates).sort(), ['booking', 'post-trip', 'trip']);
+  assert.deepEqual(dates, { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } }, 'the given dates are not touched');
+});
+
+await test('setPhaseDate: a start moved moves the previous dated end to the day before; the first start is its own', () => {
+  const dates = { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  // Booking starts Sep 12: Planning ends Sep 11 (derived; nothing else stored).
+  let r = setDate(dates, 'booking', 'start', '2026-09-12');
+  assert.deepEqual(r.dates, { ...dates, booking: { start: '2026-09-12' } });
+  assert.equal(P.timelineOf(TRAVEL, r.dates, { created: CREATED })[0].end, '2026-09-11');
+  // Post-trip starts Oct 10: Trip (main, the previous dated phase) ends Oct 9.
+  r = setDate(dates, 'post-trip', 'start', '2026-10-10');
+  assert.deepEqual(r.dates, { ...dates, trip: { start: '2026-10-01', end: '2026-10-09' }, 'post-trip': { start: '2026-10-10' } });
+  contiguous(r.dates);
+  // The first phase's start is its own: set to Aug 20, before the created day; nothing else moves.
+  r = setDate(dates, 'planning', 'start', '2026-08-20');
+  assert.deepEqual(r.dates, { planning: { start: '2026-08-20' }, ...dates });
+  contiguous(r.dates);
+  assert.equal(P.timelineOf(TRAVEL, {}, { created: CREATED })[0].start, c0, 'with none of its own it starts on the created day');
+});
+
+await test('setPhaseDate: the refusals, each one sentence and nothing changed', () => {
+  const dates = { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  const refused = (id, edge, day, problem) => assert.deepEqual(setDate(dates, id, edge, day), { ok: false, problem }, `${id} ${edge} ${day}`);
+  refused('booking', 'end', '2026-09-09', 'Booking can\'t end before it starts, 2026-09-10.');
+  refused('trip', 'end', '2026-09-30', 'Trip can\'t end before it starts, 2026-10-01.');
+  refused('booking', 'start', '2026-10-01', 'Booking can\'t start after it ends, 2026-09-30.');
+  refused('trip', 'start', '2026-10-08', 'Trip can\'t start after it ends, 2026-10-07.');
+  refused('booking', 'start', '2026-09-01', 'Booking must start after Planning starts, 2026-09-01.');
+  refused('booking', 'start', '2026-08-20', 'Booking must start after Planning starts, 2026-09-01.');
+  // An end that would push the next phase past its own end.
+  refused('booking', 'end', '2026-10-07', 'Trip can\'t start after it ends, 2026-10-07.');
+  refused('planning', 'end', '2026-09-30', 'Booking can\'t start after it ends, 2026-09-30.');
+  refused('post-trip', 'end', '2026-10-20', 'Post-trip is the last phase, so it has no end.');
+  refused('buffer', 'end', '2026-09-20', 'Set when Buffer starts first.');
+  refused('booking', 'end', 'soon', 'Booking\'s end must be a day written as YYYY-MM-DD.');
+  refused('nope', 'start', '2026-09-20', 'There is no phase called "nope".');
+  assert.equal(setDate(dates, 'trip', 'end', '2026-10-01').ok, true, 'a one-day main phase');
+  assert.equal(setDate(dates, 'booking', 'end', '2026-09-10').ok, true, 'a one-day phase');
+});
+
+await test('setPhaseDate: an end on the last dated phase starts the next phase in order; all six Travel phases dated in one pass', () => {
+  // From nothing: Planning starts on the created day; its end starts Booking the day after, and so on down the list.
+  let dates = {};
+  dates = setDate(dates, 'planning', 'end', '2026-09-10').dates;
+  assert.deepEqual(dates, { booking: { start: '2026-09-11' } });
+  dates = setDate(dates, 'booking', 'end', '2026-09-20').dates;
+  dates = setDate(dates, 'buffer', 'end', '2026-09-25').dates;
+  dates = setDate(dates, 'pre-trip', 'end', '2026-09-30').dates;
+  assert.deepEqual(dates, { booking: { start: '2026-09-11' }, buffer: { start: '2026-09-21' }, 'pre-trip': { start: '2026-09-26' }, trip: { start: '2026-10-01' } });
+  dates = setDate(dates, 'trip', 'end', '2026-10-07').dates;
+  assert.deepEqual(dates.trip, { start: '2026-10-01', end: '2026-10-07' });
+  assert.deepEqual(dates['post-trip'], { start: '2026-10-08' }, 'the main end set starts Post-trip too');
+  contiguous(dates);
+  const bands = P.timelineOf(TRAVEL, dates, { created: CREATED, today: '2026-10-03' });
+  assert.deepEqual(bands.map(band), [
+    ['planning', c0, '2026-09-10', true, false], ['booking', '2026-09-11', '2026-09-20', true, false], ['buffer', '2026-09-21', '2026-09-25', true, false],
+    ['pre-trip', '2026-09-26', '2026-09-30', true, false], ['trip', '2026-10-01', '2026-10-07', true, true], ['post-trip', '2026-10-08', null, true, false],
+  ]);
+  assert.equal(P.chipWords(bands, '2026-10-03'), 'Trip · day 3 of 7');
+  // The main end moved later afterwards keeps Post-trip on it, and coverMain still works on the result.
+  const later = setDate(dates, 'trip', 'end', '2026-10-09').dates;
+  assert.deepEqual(later['post-trip'], { start: '2026-10-10' });
+  assert.deepEqual(P.coverMain(TRAVEL, later, '2026-10-15', { created: CREATED }).dates['post-trip'], { start: '2026-10-16' });
+  // The first start set first, then the ends: the same.
+  let own = setDate({}, 'planning', 'start', '2026-09-05').dates;
+  own = setDate(own, 'planning', 'end', '2026-09-10').dates;
+  assert.deepEqual(own, { planning: { start: '2026-09-05' }, booking: { start: '2026-09-11' } });
+  // An undated phase given a start directly is dated from it (the rule holds the order).
+  assert.deepEqual(setDate({ trip: { start: '2026-10-01', end: '2026-10-07' } }, 'booking', 'start', '2026-09-20').dates, { booking: { start: '2026-09-20' }, trip: { start: '2026-10-01', end: '2026-10-07' } });
+  assert.equal(setDate({ trip: { start: '2026-10-01', end: '2026-10-07' } }, 'booking', 'start', '2026-10-01').ok, false);
+});
+
+await test('skipPhase: the dates cleared, the neighbours joined, the first phase never', () => {
+  const dates = { booking: { start: '2026-09-10' }, buffer: { start: '2026-09-20' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  let r = P.skipPhase(TRAVEL, dates, 'buffer', { created: CREATED });
+  assert.deepEqual(r, { ok: true, dates: { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } } });
+  assert.equal(P.timelineOf(TRAVEL, r.dates, { created: CREATED })[1].end, '2026-09-30', 'Booking now runs to the day before Trip');
+  contiguous(r.dates);
+  // The main phase skipped: its end goes too; Buffer runs to the day before Post-trip.
+  r = P.skipPhase(TRAVEL, dates, 'trip', { created: CREATED });
+  assert.deepEqual(r.dates, { booking: { start: '2026-09-10' }, buffer: { start: '2026-09-20' }, 'post-trip': { start: '2026-10-08' } });
+  assert.equal(P.timelineOf(TRAVEL, r.dates, { created: CREATED })[2].end, '2026-10-07');
+  contiguous(r.dates);
+  // The phase after the main one skipped: the main end stays, and the next dated phase after it starts the day after.
+  const six = { ...dates, 'post-trip': { start: '2026-10-08' } };
+  const twoAfter = [{ id: 'go', label: 'Go', main: true }, { id: 'rest', label: 'Rest' }, { id: 'after', label: 'After' }];
+  assert.deepEqual(P.skipPhase(twoAfter, { go: { end: '2026-10-07' }, rest: { start: '2026-10-08' }, after: { start: '2026-10-20' } }, 'rest', { created: CREATED }).dates, { go: { end: '2026-10-07' }, after: { start: '2026-10-08' } });
+  assert.deepEqual(P.skipPhase(TRAVEL, six, 'post-trip', { created: CREATED }).dates.trip, { start: '2026-10-01', end: '2026-10-07' }, 'the last phase skipped: the main end stays');
+  assert.deepEqual(P.skipPhase(TRAVEL, dates, 'planning', { created: CREATED }), { ok: false, problem: 'Planning is the first phase and can\'t be skipped.' });
+  assert.deepEqual(P.skipPhase(TRAVEL, dates, 'pre-trip', { created: CREATED }), { ok: true, dates }, 'already skipped: nothing changes');
+  assert.deepEqual(P.skipPhase(TRAVEL, dates, 'nope', { created: CREATED }).ok, false);
+});
+
+await test('addDatesFor: a skipped phase given dates, nothing else shifted', () => {
+  const dates = { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  const add = (d, id, extra) => P.addDatesFor(TRAVEL, d, id, { created: CREATED, today: '2026-10-13', ...extra });
+  // Before a later dated phase: the seven days just before Trip; Booking keeps the rest.
+  let r = add(dates, 'buffer');
+  assert.deepEqual(r, { ok: true, dates: { ...dates, buffer: { start: '2026-09-24' } } });
+  assert.deepEqual(P.timelineOf(TRAVEL, r.dates, { created: CREATED }).slice(1, 3).map(band), [['booking', '2026-09-10', '2026-09-23', true, false], ['buffer', '2026-09-24', '2026-09-30', true, false]]);
+  contiguous(r.dates);
+  assert.equal(add(dates, 'buffer', { days: 3 }).dates.buffer.start, '2026-09-28', 'a length of its own');
+  // The previous phase keeps at least one day: Booking Sep 10, Trip Oct 1 leaves 20 days; with Trip on Sep 12, 1 day.
+  assert.equal(add({ booking: { start: '2026-09-10' }, trip: { start: '2026-09-12', end: '2026-09-20' } }, 'buffer').dates.buffer.start, '2026-09-11');
+  assert.deepEqual(add({ booking: { start: '2026-09-10' }, trip: { start: '2026-09-11', end: '2026-09-20' } }, 'buffer'), { ok: false, problem: 'There are no free days for Buffer between Booking and Trip.' });
+  // After the main phase's end, nothing dated after it: the day after the end, open-ended.
+  r = add({ trip: { start: '2026-10-01', end: '2026-10-07' } }, 'post-trip');
+  assert.deepEqual(r.dates['post-trip'], { start: '2026-10-08' });
+  contiguous(r.dates);
+  // After an open-ended phase that has begun: from today; one not begun: a week after it starts.
+  assert.deepEqual(add({}, 'booking').dates, { booking: { start: '2026-10-13' } }, 'Planning began on the created day: Booking from today');
+  assert.deepEqual(add({ planning: { start: '2026-11-01' } }, 'booking').dates.booking, { start: '2026-11-08' });
+  assert.deepEqual(add({}, 'booking', { today: null }).dates.booking, { start: '2026-09-08' }, 'no today: a week after');
+  // The main phase: an end too, a week long, or up to the next dated phase.
+  r = add({ booking: { start: '2026-09-10' } }, 'trip');
+  assert.deepEqual(r.dates.trip, { start: '2026-10-13', end: '2026-10-19' });
+  contiguous(r.dates);
+  r = add({ booking: { start: '2026-09-10' }, 'post-trip': { start: '2026-10-08' } }, 'trip');
+  assert.deepEqual(r.dates.trip, { start: '2026-10-01', end: '2026-10-07' });
+  contiguous(r.dates);
+  // Right after the main phase when a later phase is dated: the main end gives way (it is the previous phase's end).
+  const main = { trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  const three = [{ id: 'go', label: 'Go', main: true }, { id: 'rest', label: 'Rest' }, { id: 'after', label: 'After' }];
+  r = P.addDatesFor(three, { go: { end: '2026-10-07' }, after: { start: '2026-10-08' } }, 'rest', { created: CREATED, today: '2026-10-13' });
+  assert.deepEqual(r.dates, { go: { end: '2026-09-30' }, rest: { start: '2026-10-01' }, after: { start: '2026-10-08' } });
+  assert.equal(P.problemOf(three, r.dates, { created: CREATED }), null);
+  assert.deepEqual(add(main, 'trip'), { ok: false, problem: 'Trip has dates already.' });
+  assert.deepEqual(add(dates, 'buffer', { days: 'lots' }).dates.buffer.start, '2026-09-24', 'an odd length is a week');
+  assert.equal(add(dates, 'nope').ok, false);
+});
+
 await test('coverMain: the main end later, later boundaries shifted by the same days, earlier ones never moved', () => {
   const dates = { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
   const r = P.coverMain(TRAVEL, dates, '2026-10-10', { created: CREATED });

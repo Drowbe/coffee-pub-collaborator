@@ -381,8 +381,8 @@ const BAD = {
   upload: ['../etc/passwd', 'ABCDEF0123456789ABCDEF01', '0123', 7],
 };
 
-test('the catalogue: 18 kinds, image for handoffs only, every field typed', () => {
-  assert.deepEqual(TRAVEL_KINDS, ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show']);
+test('the catalogue: 19 kinds, image for handoffs only, every field typed', () => {
+  assert.deepEqual(TRAVEL_KINDS, ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show']);
   assert.deepEqual(KINDS, [...TRAVEL_KINDS, 'event', 'task', 'poll', 'note', 'link']);
   assert.deepEqual(HANDOFF_KINDS, ['image']);
   assert.deepEqual(Object.keys(DETAILS), [...KINDS, ...HANDOFF_KINDS]);
@@ -395,7 +395,7 @@ test('the catalogue: 18 kinds, image for handoffs only, every field typed', () =
     car: 'company from to departs arrives class reference',
     hotel: 'address checkIn checkOut roomType guests reference',
     restaurant: `${stop} partySize name reference`, cafe: `${stop} partySize name reference`, bar: `${stop} partySize name reference`,
-    sight: `${stop} tickets reference`, museum: `${stop} tickets reference`, tour: `${stop} tickets reference`, show: `${stop} tickets reference`,
+    sight: `${stop} tickets reference`, museum: `${stop} tickets reference`, attraction: `${stop} tickets reference`, tour: `${stop} tickets reference`, show: `${stop} tickets reference`,
     event: 'starts ends allDay address', task: 'due', poll: 'options closes multiple', note: '', link: '', image: 'upload name',
   };
   for (const [kind, fields] of Object.entries(want)) assert.deepEqual(Object.keys(DETAILS[kind]), fields.split(' ').filter(Boolean), kind);
@@ -612,9 +612,9 @@ test('old files, pastes and stored AI answers read exactly as before details', (
 test('a booking keeps its travel kind rather than "event" when both are listed', () => {
   const sentence = (kinds) => `For a booking or a stop on a trip, use its own kind (${kinds}) rather than "event", even when it happens at a set time; use "event" only for anything else on a day, such as an appointment or a party.`;
   const rule = (kinds) => objectRule({ fence: 'objects', noun: 'object', max: 50, kinds });
-  // Every kind: all 13 travel kinds, in KINDS order, right after the kind line, in both prompts.
+  // Every kind: all 14 travel kinds, in KINDS order, right after the kind line, in both prompts.
   const every = rule(KINDS);
-  const all = sentence('flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, tour or show');
+  const all = sentence('flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, attraction, tour or show');
   assert.ok(every.includes(`Leave it out only when none fits.\n${all}\n`), 'directly after the kind line');
   assert.ok(instructions('object', { kinds: KINDS }).includes(all));
   assert.ok(buildPrompt('ask', [], 'Why?', KINDS).prompt.includes(all));

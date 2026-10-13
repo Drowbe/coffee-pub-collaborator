@@ -6035,7 +6035,7 @@ body.conference-window {
   background: var(--bg-section);
   border: 1px solid var(--border);
   border-radius: 10px;
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 1px 3px color-mix(in srgb, black 18%, transparent); /* a panel on the page, not a card floating above it (Thomas, 2026-10-13) */
   overflow: hidden;
   pointer-events: auto;
 }
@@ -6194,10 +6194,10 @@ body.conference-window {
 }
 
 /* Each module's titlebar told apart at a glance (GitHub #229): its tint (the manifest's colour, else a stable pick from
-   its id; module-tint.js) on a 3px top edge, a light wash over the header's own background and on its icon. The words
-   keep --text, so the pair reads in light and dark alike. Docked, floating and the popped-out page's titlebar alike. */
+   its id; module-tint.js) as a light wash over the header's own background and on its icon; no coloured top edge
+   (Thomas, 2026-10-13: it distracted). The words keep --text, so the pair reads in light and dark alike. Docked,
+   floating, the phone's tab and the popped-out page's titlebar alike. */
 .mod-header[data-tint] {
-  box-shadow: inset 0 3px 0 var(--tint);
   background-image: linear-gradient(color-mix(in srgb, var(--tint) 10%, transparent), color-mix(in srgb, var(--tint) 10%, transparent));
 }
 
@@ -7933,7 +7933,7 @@ body.chat-window {
 .reorderable button, .reorderable a, .reorderable input { cursor: pointer; }
 .canvas.reordering, .canvas.reordering * { cursor: grabbing !important; user-select: none; }
 .canvas.reordering iframe { pointer-events: none; }
-.module-lifted { position: relative; z-index: 3; box-shadow: 0 0 0 2px var(--accent), 0 12px 32px color-mix(in srgb, black 40%, transparent); }
+.module-lifted { position: relative; z-index: 3; box-shadow: 0 0 0 2px var(--accent), 0 4px 12px color-mix(in srgb, black 25%, transparent); }
 
 /* a list setting (Planner's marker types): a row each with a colour, an icon, a label and tools */
 .list-rows { list-style: none; margin: 6px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -8705,9 +8705,12 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
 /* phase-sheet:start -- the timeline sheet (public/phase-sheet.js), a <dialog> in the editor window's look (host.css
    .sdk-editor: the same surface, border, radius, shadow and backdrop; a full-screen sheet at 640 px and below). The
-   bands sit in a row that scrolls sideways (each at least its least width, BAND_MIN in phase-sheet.js), the "today"
-   line over them, and the boundary buttons under the junctions in two alternating rows; on a phone the buttons stack.
-   Colours from the tokens only; the current band carries the word "now" as well as its outline. */
+   bar on top: the dated bands laid end to end, each as wide as it is long (flex-grow is its days; a least width,
+   BAND_MIN in phase-sheet.js, keeps a short one readable; more bands than fit scroll sideways), each in its own tint
+   (a thick top edge and a light wash of --tint; never the tint alone: the name is on every band and "now" on the
+   current one), an undated phase a small dashed stub, the "today" line in the band today falls in. Under it one row
+   per phase: name, Start, End, length, Skip; an undated row reads Not scheduled with Add dates. A row and its band
+   light together on hover or focus. On a phone the rows stack (name, then start and end side by side) at 44 px. */
 .phase-sheet {
   box-sizing: border-box;
   width: min(760px, 100vw - 32px);
@@ -8781,58 +8784,81 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   outline-offset: 1px;
 }
 
-.phase-sheet-scroll {
-  margin: 12px 0 4px;
+/* --- the bar --- */
+.phase-strip {
+  margin: 14px 0 4px;
+  padding-top: 20px; /* room for the word "Today" above the line */
   overflow-x: auto;
   overscroll-behavior-x: contain;
 }
 
-.phase-row {
-  min-width: max-content;
-}
-
-/* The bands' track and the boundaries share a margin so the first and last boundary pills (centred on the row's edges)
-   have room; --at on a pill and on the today line is measured from the track's left. */
-.phase-track {
-  position: relative;
-  margin: 0 56px;
-  padding-top: 18px;
-}
-
 .phase-bands {
   display: flex;
-  height: 56px;
+  align-items: stretch;
+  gap: 2px;
+  height: 58px;
+  min-width: max-content;
+  width: 100%;
   margin: 0;
   padding: 0;
   list-style: none;
-  overflow: hidden;
-  border-radius: 8px;
-  background: var(--bg-input);
 }
 
 .phase-band {
+  position: relative;
   box-sizing: border-box;
   display: flex;
-  flex: none;
+  flex: 0 1 0px;
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
-  padding: 0 8px;
+  gap: 1px;
+  min-width: 56px; /* BAND_MIN */
+  padding: 4px 8px 2px;
   overflow: hidden;
-  border-right: 1px solid var(--border);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border-top: 4px solid var(--tint, var(--accent));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--tint, var(--accent)) 16%, var(--bg-input));
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.phase-band:first-child {
+  border-top-left-radius: 8px;
+  border-bottom-left-radius: 8px;
 }
 
 .phase-band:last-child {
-  border-right: 0;
+  border-top-right-radius: 8px;
+  border-bottom-right-radius: 8px;
 }
 
-.phase-band.main {
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
+.phase-band.off {
+  flex: none;
+  min-width: 14px;
+  width: 14px;
+  padding: 0;
+  border: 1px dashed var(--text-dim);
+  border-radius: 4px;
+  background: none;
+  cursor: pointer;
+}
+
+
+.phase-band.main .phase-band-label {
+  font-weight: 700;
 }
 
 .phase-band.current {
   box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.phase-band.lit:not(.off) {
+  background: color-mix(in srgb, var(--tint, var(--accent)) 32%, var(--bg-input));
+}
+
+.phase-band.lit.off {
+  border-style: solid;
+  border-color: var(--text);
 }
 
 .phase-band-label,
@@ -8843,24 +8869,26 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .phase-band-label {
+  font-size: 13px;
   font-weight: 600;
 }
 
 .phase-band-span {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
 }
 
 .phase-band-now {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 10px;
+  font-weight: 700;
   color: var(--accent);
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .phase-today {
   position: absolute;
-  top: 16px;
+  top: 0;
   bottom: 0;
   left: var(--at);
   border-left: 2px dashed var(--text);
@@ -8869,89 +8897,267 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 
 .phase-today-word {
   position: absolute;
-  top: -16px;
+  top: -22px;
   left: -1px;
   transform: translateX(-50%);
   font-size: 11px;
   font-weight: 600;
   white-space: nowrap;
+  color: var(--text);
 }
 
-/* Today on the row's first day: the word hangs to the right of the line, so a scrolling track never cuts it off. */
 .phase-today.at-start .phase-today-word {
   left: 2px;
   transform: none;
 }
 
-.phase-boundaries {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0 56px;
-  padding: 80px 0 0;
-  list-style: none;
+.phase-today.at-end .phase-today-word {
+  left: auto;
+  right: 2px;
+  transform: none;
 }
 
-/* A set boundary is a pill under its junction (the date; its name is the tooltip and what a screen reader says), on
-   one of two rows; an add button ("Set when Booking starts") flows after them. */
-.phase-boundary {
-  position: relative;
-  white-space: nowrap;
+/* The band is padded so the word sits above the strip, not clipped: the strip's top padding is its room. */
+.phase-band {
+  overflow: visible;
 }
 
-.phase-boundary.set {
-  position: absolute;
-  top: 8px;
-  left: var(--at);
-  transform: translateX(-50%);
+.phase-band .phase-band-label,
+.phase-band .phase-band-span {
+  display: block;
+  max-width: 100%;
 }
 
-.phase-boundary.set[data-row="1"] {
-  top: 44px;
-}
-
-.phase-boundary.set:focus-within {
-  z-index: 3;
-}
-
-.phase-boundary.set .phase-boundary-label {
+/* The stub shows nothing: its name is its tooltip and its row's; the band is for seeing. */
+.phase-band.off .phase-band-label,
+.phase-band.off .phase-band-span,
+.phase-band.off .phase-band-now,
+.phase-band.off .phase-today {
   display: none;
 }
 
-.phase-boundary-btn {
-  display: inline-flex;
+/* --- the first step --- */
+.phase-first {
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 6px;
-  min-height: 30px;
-}
-
-.phase-boundary-text {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 0 8px;
+  gap: 8px 10px;
+  margin: 12px 0 4px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-input);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-section));
 }
 
-.phase-boundary .phase-boundary-day {
+.phase-first-label {
   font-weight: 600;
 }
 
-.phase-boundary .phase-date {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 2;
-  margin-top: 4px;
+/* --- the rows --- */
+.phase-rows {
+  margin-top: 12px;
 }
 
-.phase-sheet-undated,
+.phase-rows-head,
+.phase-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) auto auto minmax(76px, auto) auto;
+  grid-template-areas: "name start end days tools" "problem problem problem problem problem";
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.phase-rows-head {
+  padding: 0 8px 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.phase-rows-head > span:nth-child(2),
+.phase-rows-head > span:nth-child(3) {
+  min-width: 150px;
+}
+
+.phase-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.phase-row {
+  min-height: 44px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.phase-row:first-child {
+  border-top: 0;
+}
+
+.phase-row.lit {
+  background: color-mix(in srgb, var(--tint, var(--accent)) 10%, transparent);
+}
+
+.phase-row:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.phase-row-name {
+  grid-area: name;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.phase-swatch {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--tint, var(--accent));
+}
+
+.phase-row-label {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+.phase-row.off .phase-row-label {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.phase-tag {
+  flex: none;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.phase-tag-now {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.phase-tag-main {
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.phase-row-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.phase-row-start {
+  grid-area: start;
+}
+
+.phase-row-end {
+  grid-area: end;
+}
+
+.phase-row-word {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.phase-sheet .phase-date {
+  box-sizing: border-box;
+  width: 150px;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.phase-sheet .phase-date:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 0;
+}
+
+.phase-sheet .phase-date:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.phase-sheet .phase-date::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.phase-row-days {
+  grid-area: days;
+  font-size: 13px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.phase-row-tools {
+  grid-area: tools;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.phase-row-off {
+  grid-area: start / start / tools / tools;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 34px;
+}
+
+.phase-row-off-word {
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.phase-row.off .phase-row-start,
+.phase-row.off .phase-row-end,
+.phase-row.off .phase-row-days,
+.phase-row.off .phase-row-tools {
+  display: none;
+}
+
+.phase-row-problem {
+  grid-area: problem;
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--danger-text);
+}
+
+.phase-row.has-problem .phase-date {
+  border-color: var(--danger);
+}
+
 .phase-sheet-hint {
-  margin: 8px 0 0;
+  margin: 10px 0 0;
 }
 
 .phase-sheet-status {
@@ -8963,6 +9169,13 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .phase-sheet-status:empty {
   margin: 0;
   min-height: 0;
+}
+
+/* Read-only: the rows are the same, the inputs disabled, no buttons. */
+.phase-sheet.read-only .phase-rows-head > span:last-child,
+.phase-sheet.read-only .phase-row-tools,
+.phase-sheet.read-only .phase-add {
+  display: none;
 }
 
 @media (max-width: 640px) {
@@ -8995,56 +9208,78 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
     padding-right: 48px;
   }
 
-  /* The bands still scroll sideways, in their own track; the boundaries stack under them, full width, each a row
-     a thumb can tap, its name shown. */
-  .phase-sheet-scroll {
-    overflow: visible;
+  .phase-bands {
+    height: 52px;
   }
 
+  .phase-band {
+    padding: 3px 5px 2px;
+  }
+
+  .phase-band-label {
+    font-size: 12px;
+  }
+
+  .phase-band-span {
+    display: none !important; /* the dates are in the rows; the bar keeps the names */
+  }
+
+  .phase-rows-head {
+    display: none;
+  }
+
+  /* Each row a card: the name on top, then Start and End side by side, the length and Skip under them. */
   .phase-row {
-    min-width: 0;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "name name" "start end" "days tools" "problem problem";
+    gap: 8px 10px;
+    padding: 10px 4px;
   }
 
-  .phase-track {
-    margin: 0;
-    overflow-x: auto;
-    overscroll-behavior-x: contain;
-  }
-
-  .phase-boundaries {
+  .phase-row-field {
     flex-direction: column;
-    gap: 8px;
-    margin: 12px 0 0;
-    padding: 0;
+    align-items: stretch;
+    gap: 4px;
   }
 
-  .phase-boundary.set,
-  .phase-boundary.set[data-row="1"] {
-    position: relative;
-    top: auto;
-    left: auto;
-    transform: none;
+  .phase-row-word {
+    position: static;
+    width: auto;
+    height: auto;
+    margin: 0;
+    overflow: visible;
+    clip: auto;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
-  .phase-boundary.set .phase-boundary-label {
-    display: inline;
-  }
-
-  .phase-boundary-btn,
-  .phase-boundary-text {
+  .phase-sheet .phase-date,
+  .phase-first .phase-date {
     width: 100%;
-    box-sizing: border-box;
+    min-height: 44px;
+    font-size: 16px; /* no zoom on a phone */
+  }
+
+  .phase-row-tools .btn,
+  .phase-row-off .btn,
+  .phase-first .btn {
+    min-height: 44px;
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
+  .phase-row-off {
+    grid-area: start / start / tools / tools;
     justify-content: space-between;
     min-height: 44px;
   }
 
-  .phase-boundary .phase-date {
-    position: static;
-    display: block;
-    width: 100%;
-    box-sizing: border-box;
-    min-height: 44px;
-    margin-top: 4px;
+  .phase-first {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 /* phase-sheet:end */
@@ -9430,12 +9665,13 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   margin: 4px auto 0;
 }
 
-/* The strip: the conference's own element, in a .canvas of its own (as it floats), the tiles at a small size and the
-   toolbar's phone, microphone and camera only. Out of the call it takes no room (the Join row below says it), except
-   for a refusal of the join, which it keeps saying. */
+/* The strip: the conference's own element, in a .canvas of its own (as it floats): the tiles at the height the
+   splitter sets (--side-column-strip-h), and under them the whole toolbar, every control it has anywhere else, as a
+   wrapping row of at most two rows; what does not fit folds into its "..." (space.js, fitFloatbarInColumn). Out of the
+   call it takes no room (the Join row below says it), except for a refusal of the join, which it keeps saying. */
 .side-column-strip {
   flex: none;
-  height: var(--side-column-strip-h, 168px);
+  height: auto;
   position: relative;
 }
 
@@ -9504,8 +9740,13 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .side-column-strip > .canvas {
-  height: 100%;
+  height: auto;
   overflow: visible;
+  grid-template-rows: var(--side-column-strip-h, 168px) auto;
+}
+
+.side-column-strip .video-bar {
+  height: auto;
 }
 
 /* Out of the call the wrapper's bottom row (the toolbar's) would still take its height. */
@@ -9543,12 +9784,26 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .side-column-strip .floatbar {
+  flex-wrap: wrap;
+  overflow: visible;
   padding: 6px;
   gap: 6px;
 }
 
-body:not(.in-aside) .side-column-strip .floatbar > :not(:has(#mic)):not(:has(#cam)):not(#hangup) {
+/* A control folded into the toolbar's "..." (the column's fold; its own `hidden` is left alone). */
+.floatbar > [data-folded] {
   display: none;
+}
+
+/* The settings and the reactions, opened from the column's toolbar: down over the chat when there is more room below,
+   else up over the tiles; space.js caps the height to that room (placeStripPopover). */
+.side-column-strip .popover.opens-down {
+  top: calc(100% + 6px);
+  bottom: auto;
+}
+
+.side-column-strip #settings {
+  overflow-y: auto;
 }
 
 .side-column-strip .grid {
@@ -9723,7 +9978,7 @@ body.in-aside .side-column {
 
 body.in-aside .side-column-toggle,
 body.in-aside .side-column-splitter,
-body.in-aside .canvas {
+body.in-aside .work > .canvas {
   display: none;
 }
 
@@ -9731,6 +9986,12 @@ body.in-aside .side-column-strip {
   flex: 1;
   height: auto;
   min-height: 0;
+}
+
+/* The call's own .canvas in the strip stays: the tiles fill the screen over the whole toolbar. */
+body.in-aside .side-column-strip > .canvas {
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
 }
 
 /* A phone: no column (the tabs stay, decision 3). */

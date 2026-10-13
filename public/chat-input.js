@@ -83,7 +83,7 @@ export function suggestionInput(summary) {
 // The kinds an older typed keeper (acceptSuggestion with no `takes`) gets (plan-object-handoff.md, "Migration"): a copy
 // of TRAVEL_KINDS in server/object-format.js, held equal by tools/check-chat-page.mjs. Every other kind goes to an older
 // note keeper. A module that declares `takes` is found by it instead (keepTargets).
-export const TRAVEL_KINDS = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show'];
+export const TRAVEL_KINDS = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show'];
 
 // Which older keeper (one with no `takes`) an object goes to: the typed one for a travel kind when there is one, else
 // the note keeper.

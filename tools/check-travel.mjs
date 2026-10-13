@@ -1279,7 +1279,7 @@ test('fromObject: each kind\'s details in the plan\'s own fields, and what has n
   const dinner = at({ kind: 'restaurant', title: 'Ramiro', details: { starts: '2026-10-02T20:00', ends: '2026-10-02T22:15', address: 'Av. Almirante Reis', partySize: 4, name: 'Thomas', reference: 'T4' } });
   assert.deepEqual([dinner.kind, dinner.type, dinner.category, dinner.time, dinner.minutes, dinner.address, dinner.partySize, dinner.reservationName, dinner.confirm], ['stop', 'restaurant', 'eat', '20:00', 135, 'Av. Almirante Reis', 4, 'Thomas', 'T4']);
   for (const kind of ['cafe', 'bar']) assert.equal(at({ kind, title: 'x', details: { partySize: 2 } }).partySize, 2, kind);
-  for (const kind of ['sight', 'museum', 'tour', 'show']) {
+  for (const kind of ['sight', 'museum', 'attraction', 'tour', 'show']) {
     const visit = at({ kind, title: 'x', details: { starts: '10:00', minutes: 90, tickets: 3, reference: 'V1', address: 'Here' }, date: '2026-10-03' });
     assert.deepEqual([visit.type, visit.category, visit.date, visit.time, visit.minutes, visit.admissionCount, visit.confirm, visit.address], [kind, 'do', '2026-10-03', '10:00', 90, 3, 'V1', 'Here'], kind);
   }
@@ -1520,7 +1520,7 @@ test('the page: the ticket\'s arrival field, and objects dated outside the plan 
   const manifest = JSON.parse(fs.readFileSync(new URL('../modules/travel/module.json', import.meta.url), 'utf8'));
   const accept = manifest.actions.provides.find((a) => a.name === 'acceptSuggestion');
   assert.equal(accept.input.object, 'object?', 'older callers still send the flat fields');
-  assert.deepEqual(accept.takes.flatMap((e) => e.kinds).sort(), ['bar', 'bus', 'cafe', 'car', 'event', 'ferry', 'flight', 'hotel', 'museum', 'note', 'restaurant', 'show', 'sight', 'tour', 'train']);
+  assert.deepEqual(accept.takes.flatMap((e) => e.kinds).sort(), ['attraction', 'bar', 'bus', 'cafe', 'car', 'event', 'ferry', 'flight', 'hotel', 'museum', 'note', 'restaurant', 'show', 'sight', 'tour', 'train']);
 });
 
 

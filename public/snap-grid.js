@@ -4,7 +4,7 @@
 
 export const MIN_W = 240; // a floating module's smallest size
 export const MIN_H = 160;
-export const SNAP_GAP = 16; // the same 16px canvas.js's clampBox keeps clear of the window's edges, so a module spanning every cell still fits the grid
+export const SNAP_GAP = 4; // the gutter between snapped windows (Thomas, 2026-10-13: tight, the borders still read); canvas.js's snapGrid keeps half of it at the Workspace's edges, so a window at the edge sits a gutter from it, and clampBox keeps the same gap clear of the window's edges, so a module spanning every cell still fits
 
 // The grid over a canvas of `rect` (left, top, width, height) at `pitch` px a cell (a cell is 0.77 as tall): as many
 // cells as fit, never fewer than one.
@@ -291,7 +291,7 @@ function keepOrShrink(g, items, wants, least) {
 // by the same share; then all at the smallest size. Only when even that cannot fit them all do they share: cascaded,
 // each still inside the area. `boxes` is [{ id, box: { x, y, w, h } }]; `taken` boxes (a snapped module, say) are left
 // where they are and kept clear of. The answer is a Map of id -> box. No DOM; tools/check-canvas.mjs runs it.
-export const TIDY_GAP = 8;
+export const TIDY_GAP = 4; // the gap kept between windows with the grid off, and from the Workspace's edges (the same as SNAP_GAP)
 
 // Overlapping, or closer than the gap kept between modules.
 const boxesOverlap = (a, b) => a.x < b.x + b.w + TIDY_GAP && b.x < a.x + a.w + TIDY_GAP && a.y < b.y + b.h + TIDY_GAP && b.y < a.y + a.h + TIDY_GAP;

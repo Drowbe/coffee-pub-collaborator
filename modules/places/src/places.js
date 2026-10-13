@@ -280,8 +280,7 @@
     if (typed) items.push({ text: `\u201c${typed.slice(0, 24)}\u201d`, chip: true, quiet: true });
     host.status.set(items).catch(() => {});
   }
-  // Add a place is the "+" in the titlebar. On its own page it opens the dialog; the field at the top of the list is the
-  // typed add (a name is searched for, coordinates or a link open the dialog filled in).
+  // Add a place is the "+" in the titlebar: it opens the dialog (its Position field takes pasted coordinates or a map link).
   if (host.add) host.on('add', (e) => { if (e.id === 'place' && canAdd()) { closeFound(); openEditor(null, null); } });
 
   function render() {
@@ -833,7 +832,6 @@
     };
     look();
   }
-  const find = (query) => showFound(query, searchFor(query));
   async function showFound(query, promise) {
     const mine = ++searchToken;
     searching(query);
@@ -902,25 +900,9 @@
     }
   });
 
-  // What was typed to add a place (the field): a name, with a search address set, looks for the place; anything
-  // with coordinates or a link (or no search) opens the dialog filled in.
-  function quickAdd(text) {
-    if (!canEdit) return;
-    const value = String(text || '').trim();
-    if (!value) return openEditor(null, null);
-    const entry = readEntry(value);
-    if (entry.find && state.search) return void find(entry.title);
-    closeFound();
-    openEditor(null, null, entry);
-  }
-  // On its own the "+" is in the titlebar (a window's, popped out too, or the page bar on the module's own page) and the
-  // typed add is the field at the top of the list. Beside the map the page's search field and Add a place at the top of the
-  // list do these.
-  if (!asPart) {
-    if (host.add) host.add.set(canEdit ? [ADD_PLACE] : []).catch(() => {});
-    hide($('quick'), !canEdit);
-    $('quick').addEventListener('submit', (e) => { e.preventDefault(); const t = $('quick-text'); const v = t.value; t.value = ''; quickAdd(v); });
-  }
+  // On its own the "+" is in the titlebar (a window's, popped out too, or the page bar on the module's own page): it opens
+  // the dialog. Beside the map the page's search field and Add a place at the top of the list do this.
+  if (!asPart && host.add) host.add.set(canEdit ? [ADD_PLACE] : []).catch(() => {});
 
   // What other modules may ask of this page, for the person who asked (a view, so only their own page does it): look for a
   // place by name, and open the dialog for a new one where a map was clicked.

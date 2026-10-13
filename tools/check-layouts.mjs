@@ -96,6 +96,14 @@ const refused = (input, pattern, label, options) => {
   assert.deepEqual(placeLayout(oldMap, area, () => true, {}).modules.map((m) => m.id), ['places', 'travel', 'maps'], 'with no map file Maps and Places place as themselves');
   assert.deepEqual(placeLayout({ modules: [{ id: 'dest:map', mode: 'dock' }] }, area, () => true, { 'dest:map': ['maps', 'places'] }).modules.map((m) => m.id), ['maps', 'places'], 'a stored dest:map places Maps and Places where there is no map file');
   assert.deepEqual(layoutOf([{ id: 'maps', mode: 'dock', order: 1, width: 360 }, { id: 'places', mode: 'dock', order: 2, width: 300 }], area, {}, mapOn).modules.map((m) => m.id), ['dest:map'], 'layoutOf() through the aliases saves the Map once');
+  // A module's own snap (Thomas, 2026-10-13: the canvas-level switch is the only one): an older stored layout with one
+  // still places, the field ignored; the server still accepts it; the page never saves it.
+  const oldSnap = { name: 'Old', modules: [{ id: 'todo', mode: 'float', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.5 }, snap: true }], snap: { all: false, pitch: 130 } };
+  assert.ok(cleanLayout(oldSnap).layout, 'the server still accepts a module\'s own snap');
+  const oldPlaced = placeLayout(oldSnap, area);
+  assert.deepEqual(oldPlaced.modules.map((m) => [m.id, m.snap, Boolean(m.cell)]), [['todo', false, false]], 'a module\'s own stored snap is ignored');
+  assert.ok(placeLayout({ ...oldSnap, snap: { all: true, pitch: 130 } }, area).modules[0].cell, 'the canvas-level snap still snaps it');
+  assert.ok(!('snap' in layoutOf([{ id: 'todo', mode: 'float', order: 1, box: { x: 10, y: 10, w: 300, h: 300 }, snap: true }], area).modules[0]), 'layoutOf() never saves a module\'s own snap');
   n += 1;
 }
 

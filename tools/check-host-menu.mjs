@@ -164,13 +164,13 @@ test('a module\'s titlebar: Dock, Window and Pop out are in its "..."', () => {
   const src = read('public/canvas.js');
   assert.ok(!/data-popout|data-mode="(float|dock)"/.test(src), 'no Dock, Window or Pop out button in a titlebar');
   const header = src.slice(src.indexOf('  const moduleHeader = '), src.indexOf('  // The page a composite holds'));
-  assert.ok(header.includes('${snapHtml({ mode, snap })}${compositeOf(m) ? MORE_HTML.replace'), 'every module, a composite too, has a "..."');
+  assert.ok(header.includes('<span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace'), 'every module, a composite too, has a "..."');
   assert.ok(header.includes('${CLOSE_HTML}</span>`'), 'Close last');
   const ways = src.slice(src.indexOf('  function wayItems(mod) {'), src.indexOf('  // Everything this module holds in this space.'));
   assert.ok(ways.includes("if (!mod || isNarrow()) return [];"), 'none on a phone');
   assert.ok(ways.includes("label: 'Open as a window', tip: 'Float over the call', onPick: () => setMode(mod.id, 'float')"));
   assert.ok(ways.includes("label: 'Dock as a panel', tip: 'Dock beside the video', hint: why || undefined, disabled: Boolean(why), onPick: () => setMode(mod.id, 'dock')"));
-  assert.ok(ways.includes("label: 'Pop out', tip: 'Open in its own window', onPick: () => popOut(mod.id)"));
+  assert.ok(ways.includes("label: 'Open in its own window', tip: 'Pop out of this page', onPick: () => popOut(mod.id)"));
   assert.ok(ways.includes("own.length && ways.length ? [...own, { divider: true }, ...ways]"), 'after the module\'s own entries, below a line');
   assert.ok(ways.includes('openClearMenu(trigger, () => clearModuleData(opened.get(id) || mod), { armed: true })'), 'Clear still asks first');
   assert.ok(src.includes('openHostMenu(trigger, () => moduleMenuItems(mod.id, trigger));'), 'on the shared menu');

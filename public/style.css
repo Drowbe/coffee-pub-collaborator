@@ -1207,7 +1207,7 @@ body.in-space .page-scroll {
 
 .space-choice-actions {
   grid-area: join;
-  position: relative; /* the Open with box sits above the whole row (below) */
+  position: relative;
   display: flex;
   flex-wrap: wrap; /* the other buttons go to a second line before the main button's word is cut */
   align-items: center;
@@ -1978,7 +1978,7 @@ input.switch:checked {
 }
 
 /* The same switch as a checkbox (<input type="checkbox" class="switch" role="switch">), for a list of choices off the
-   space bar (Open with on the space list, Opens with in space settings): the page's text colour for its ink. */
+   space bar (Opens with in space settings): the page's text colour for its ink. */
 input.switch {
   --switch-ink: var(--text);
   appearance: none;
@@ -1995,7 +1995,7 @@ input.switch:focus-visible {
 }
 
 /* One row of a switch list (switch-list.js): the switch, the module's icon and name, a note, a count. The same rows in the
-   space bar's module chooser, Open with on the space list and Opens with in space settings. */
+   space bar's module chooser and Opens with in space settings. */
 label.switch-row {
   display: flex;
   flex-direction: row;
@@ -2676,12 +2676,6 @@ button.whoami:focus-visible {
   background: transparent;
 }
 
-.image-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-
 .preview {
   width: 160px;
   height: 160px;
@@ -2700,18 +2694,6 @@ button.whoami:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.panel label.file-btn,
-.fields label.file-btn,
-.file-btn {
-  display: inline-block;
-  text-align: center;
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: 14px;
-  color: var(--text);
-  cursor: pointer;
 }
 
 /* --- admin ----------------------------------------------------------------- */
@@ -3768,12 +3750,6 @@ a.crumb-here:hover {
   cursor: not-allowed;
 }
 
-.chat-hint {
-  margin: 0;
-  padding: 0 12px 6px;
-  font-size: 11px;
-}
-
 .chat .messages {
   flex: 1;
   min-height: 0;
@@ -3924,11 +3900,6 @@ span.message-vis {
   padding: 6px 8px 8px;
 }
 
-.message-body.is-deleted {
-  color: var(--text-dim);
-  font-style: italic;
-}
-
 .message .actions {
   position: absolute;
   right: 2px;
@@ -3976,24 +3947,6 @@ span.message-vis {
   color: var(--accent);
   font-size: 11px;
   font-weight: 600;
-}
-
-/* Short marks on a message (private now; others later). White-on-colour, little rounded corners. */
-.msg-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  color: var(--on-accent);
-  background: var(--accent);
-}
-
-.msg-badge-private {
-  background: var(--accent);
-  color: var(--on-accent);
 }
 
 .message.own .who {
@@ -4237,14 +4190,6 @@ span.message-vis {
   font-size: 0.85em;
 }
 
-.message.private-ai .who .msg-badge {
-  margin-left: auto;
-}
-
-.message.private-ai .msg-badge-shared {
-  color: var(--accent);
-}
-
 .message.private-ai .actions {
   position: static;
   display: none;
@@ -4255,11 +4200,6 @@ span.message-vis {
 .message.private-ai:hover .actions,
 .message.private-ai:focus-within .actions {
   display: flex;
-}
-
-.message.private-ai:hover .who .msg-badge,
-.message.private-ai:focus-within .who .msg-badge {
-  margin-left: 0;
 }
 
 .message.private-ai .msg-btn.kept,
@@ -5683,10 +5623,6 @@ html.has-background .panel.login {
   resize: vertical;
 }
 
-.borders-row .field-label {
-  min-width: 130px;
-}
-
 .check input[type="number"] {
   width: 64px;
   background: var(--bg-input);
@@ -6422,10 +6358,6 @@ body.conference-window {
   color: var(--on-accent);
 }
 
-.tb-btn.tb-more {
-  margin-left: auto;
-}
-
 /* The shared "..." button (same rules as .sdk-more in public/sdk/host.js): icon centered. */
 .sdk-more {
   display: inline-flex;
@@ -6576,7 +6508,7 @@ body.conference-window {
   letter-spacing: 0.04em;
 }
 
-/* A switch item (`toggle`): the same switch as the Show list's and Open with's (input.switch, above), drawn as a span
+/* A switch item (`toggle`): the same switch as the Show list's and Opens with's (input.switch, above), drawn as a span
    before the icon, on while the item is checked. The menu's ink for the track. */
 .host-menu {
   --switch-ink: var(--text);
@@ -6929,39 +6861,9 @@ body.chat-window {
   font-weight: 600;
 }
 
-/* "Open with": a person's own choice of what a space opens with, from its tile on the space list. */
 .space-choice {
   position: relative;
 }
-
-.join-with {
-  position: absolute;
-  right: 12px;
-  bottom: 64px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 200px;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg-section);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-}
-
-/* Inside the buttons' row: above all of it, so it never covers the main button when the smaller ones wrap beneath. */
-.space-choice-actions > .join-with {
-  right: 0;
-  bottom: calc(100% + 8px);
-}
-
-.join-with-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 
 /* A module built for an older version of the product: it can't run until its author updates it. */
 .module-outdated {
@@ -8007,7 +7909,6 @@ body.module-page .module-status {
 .ai-services { display: grid; gap: 12px; margin-top: 8px; }
 .ai-service { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card, var(--bg)); }
 .ai-service-head { display: flex; align-items: center; gap: 10px; }
-.ai-service-address { display: flex; flex-direction: column; gap: 4px; }
 .shared-files { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
 .shared-files li { margin: 2px 0; }
 .files-table { width: 100%; border-collapse: collapse; margin: 6px 0; }
@@ -8696,9 +8597,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .host-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
 .host-section h3 { margin: 0; font-size: 15px; }
 .host-section > .hint { margin: 0; }
-
-/* Manage's one line saying where a setting moved, in place of the panel it had. */
-.moved-note p { margin: 0; color: var(--text-dim); font-size: 13px; }
 
 /* calendars-tab:start -- Profile's Calendars tab (plan-space-calendars.md, section 4): one row per address (Everything,
    then each space), its icon and name, on or off, Last read, the reason it can't be used, its buttons; the address

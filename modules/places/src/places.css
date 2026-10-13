@@ -21,10 +21,6 @@ body { margin: 0; overflow: hidden; }
 .filter { position: relative; flex: 1; min-width: 180px; max-width: 360px; margin-left: auto; }
 .filter input { width: 100%; padding: 6px 10px 6px 30px; }
 .filter > .ic { position: absolute; left: 10px; top: 9px; color: var(--text-dim); }
-.quick-add-field { display: flex; align-items: center; gap: 8px; }
-.quick-add-field > .ic { color: var(--text-dim); }
-.quick-add-field input { flex: 1; min-width: 0; padding: 6px 10px; }
-.app.narrow .quick-add-field input { font-size: 16px; }
 .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip { display: inline-flex; align-items: center; gap: 5px; padding: 0 10px; height: 26px; border: 1px solid var(--border); border-radius: 999px; background: var(--bg-card); color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
 .chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }

@@ -3,7 +3,7 @@ import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
 import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode, toggleThemeMode, useDefaultMode, themeMode as modeNow } from '/theme-mode.js';
-import { profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools, pageAnchor } from '/primary-nav.js';
+import { profileEntries, profileDestinationLabel, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools, pageAnchor } from '/primary-nav.js';
 
 // The words a person reads for each level and role (public/words.js), for every page that already imports from here.
 export { word, words, fill, applyWords, setWords, verb, verbs, setVerbs } from '/words.js';
@@ -572,7 +572,7 @@ function signOut() {
 }
 
 // The profile menu under your picture, on a wider screen, by role (decisions 4 and 17; profileEntries() in
-// primary-nav.js): View profile, Dark mode, the environment's Calendar and Map (plan-one-bar.md, decision 6), Manage
+// primary-nav.js): View profile, Dark mode, the environment's Global Calendar and Global Map (plan-one-bar.md, decision 6), Manage
 // for owners and the admin, Host console for the host admin's stand-in on a hosted server, Install as an app only
 // while the browser offers it (never a guest), Sign out last.
 function accountMenuItems() {
@@ -580,7 +580,7 @@ function accountMenuItems() {
   return [
     { icon: 'user', label: 'View profile', onPick: viewProfile },
     ...(has.has('theme') ? [{ icon: 'moon', label: 'Dark mode', checked: modeNow() === 'dark', onPick: toggleThemeMode }] : []),
-    ...destinationList.filter((d) => has.has(`dest-${d.id}`)).map((d) => ({ icon: d.icon, label: d.name, onPick: () => openDestination(d.href) })),
+    ...destinationList.filter((d) => has.has(`dest-${d.id}`)).map((d) => ({ icon: d.icon, label: profileDestinationLabel(d.id, d.name), onPick: () => openDestination(d.href) })),
     ...(has.has('manage') ? [{ icon: 'gear', label: 'Manage', onPick: () => openManage() }] : []),
     ...(has.has('host-console') ? [{ icon: 'server', label: 'Host console', onPick: openHostConsole }] : []),
     ...(installPromptEvent && !installBarred ? [{ icon: 'download', label: 'Install as an app', onPick: installFromPrompt }] : []),

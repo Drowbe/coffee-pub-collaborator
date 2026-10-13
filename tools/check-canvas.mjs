@@ -593,7 +593,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (older.modules.map((m) => m.id).join() !== 'todo' || older.left.length) fail(F, `placeLayout() accepts the conference and the chat in an older layout and leaves them alone: ${JSON.stringify(older)}`);
   for (const m of layout.modules.filter((x) => x.mode === 'float')) {
     if (!m.box || !['x', 'y', 'w', 'h'].every((k) => m.box[k] >= 0 && m.box[k] <= 1) || m.box.w === 0 || m.box.h === 0) fail(F, `${m.id}: a floating box is fractions of the canvas from 0 to 1: ${JSON.stringify(m.box)}`);
-    if (typeof m.snap !== 'boolean') fail(F, `${m.id}: a floating module says whether it snaps`);
+    if ('snap' in m) fail(F, `${m.id}: a module's own snap is never saved (the canvas-level switch is the only one)`);
   }
   if (JSON.stringify(layout.snap) !== JSON.stringify({ all: false, pitch: 130 })) fail(F, 'layoutOf() keeps the canvas-level snap');
   if (layoutOf(Array.from({ length: 30 }, (_, i) => ({ id: `m${i}`, mode: 'dock', order: i })), area).modules.length !== LAYOUT_LIMITS.modules) fail(F, `a layout holds at most ${LAYOUT_LIMITS.modules} modules`);
@@ -605,10 +605,13 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!near(back.calendar.box, mods[0].box)) fail(F, `placeLayout() at the same size must give back the same box: ${JSON.stringify(back.calendar.box)}`);
   if (back.travel.dockW !== 420 || back.notes.dockW !== DOCK_MIN) fail(F, 'placeLayout() keeps the docked widths, clamped as clampDock() does');
   if (same.left.length) fail(F, 'nothing is left out when everything may open');
-  // At half the width (and a smaller window), every box is on the canvas and at least the smallest size, and the snapped
-  // ones sit in grid cells, none on another.
+  // An older layout with a module's own `snap` and the canvas-level switch off: read without error, nothing snaps.
+  const olderSnap = { ...layout, modules: layout.modules.map((m) => (m.mode === 'float' ? { ...m, snap: m.id !== 'calendar' } : m)) };
+  if (placeLayout(olderSnap, area).modules.some((m) => m.snap || m.cell)) fail(F, 'a module\'s own stored snap is ignored: with the canvas-level snap off nothing snaps');
+  // At half the width (and a smaller window), every box is on the canvas and at least the smallest size, and with the
+  // canvas-level snap on the floating ones sit in grid cells, none on another.
   for (const small of [{ x: 0, y: 77, w: 800, h: 600 }, { x: 0, y: 60, w: 1000, h: 700 }, { x: 0, y: 77, w: 1920, h: 923 }]) {
-    const got = placeLayout(layout, small);
+    const got = placeLayout({ ...olderSnap, snap: { all: true, pitch: 130 } }, small);
     const label = `at ${small.w}x${small.h}`;
     for (const m of got.modules.filter((x) => x.box)) {
       const b = m.box;
@@ -616,8 +619,8 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       if (!m.cell && (b.w < MIN_W || b.h < MIN_H)) fail(F, `${label}: ${m.id} is under the smallest size: ${JSON.stringify(b)}`);
     }
     const snapped = got.modules.filter((m) => m.snap);
-    if (snapped.length !== 2 || snapped.some((m) => !m.cell)) fail(F, `${label}: the snapped modules get grid cells`);
-    else if (cellsOverlap(snapped[0].cell, snapped[1].cell)) fail(F, `${label}: snapped modules overlap: ${JSON.stringify(snapped.map((m) => m.cell))}`);
+    if (snapped.length !== 3 || snapped.some((m) => !m.cell)) fail(F, `${label}: the snapped modules get grid cells`);
+    else snapped.forEach((a, i) => snapped.forEach((b, j) => { if (i < j && cellsOverlap(a.cell, b.cell)) fail(F, `${label}: snapped modules overlap: ${JSON.stringify(snapped.map((m) => m.cell))}`); }));
     const g = gridFor({ left: small.x, top: small.y, width: small.w, height: small.h }, 130);
     for (const m of snapped) if (m.cell && (m.cell.col + m.cell.cols > g.cols || m.cell.row + m.cell.rows > g.rows)) fail(F, `${label}: ${m.id} is off the grid`);
     for (const m of got.modules.filter((x) => x.dockW)) if (m.dockW < DOCK_MIN || m.dockW > Math.max(DOCK_MIN, Math.round(small.w * 0.6))) fail(F, `${label}: ${m.id}'s width ${m.dockW} is not clamped as clampDock() does`);
@@ -1020,7 +1023,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     assert.equal(me.attributes.awayMessage, 'back in five', 'and the message, trimmed, in "awayMessage"');
     assert.equal(me.attributes.call, 'on', 'going away leaves the "call" attribute as it was');
     assert.ok(me.sent.every((a) => !('call' in a)), 'away never sends the "call" key');
-    assert.deepEqual(me.data.at(-1), ['away', { type: 'away', on: true, message: '  back in five  ' }], 'the old "away" message is still sent, for a page on the build before');
+    assert.ok(!(me.data || []).some(([topic]) => topic === 'away'), 'the old "away" message (kept for one release) is no longer sent');
     assert.equal(me.isCameraEnabled, false, 'going away turns the camera off');
     said = '';
     await away.toggleCam();
@@ -1148,7 +1151,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const old = { identity: 'old', isLocal: false, attributes: { call: 'on' } };
     fire('ParticipantConnected', old);
     fire('DataReceived', JSON.stringify({ type: 'away', on: true, message: 'old build' }), old, undefined, 'away');
-    assert.equal(overlays.get('old'), 'away: old build', 'the old "away" message is still read');
+    assert.notEqual(overlays.get('old'), 'away: old build', 'the old "away" message (kept for one release) is no longer read');
   } catch (err) {
     fail('public/space.js', `a tile must show away from the "away" attributes, for late joiners and changes alike: ${err.message}`);
   }

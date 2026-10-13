@@ -2,11 +2,12 @@
 // placing a layout on a canvas, apart from the page so tools/check-canvas.mjs can run it. No DOM in here; canvas.js
 // measures the canvas and its modules (captureLayout) and opens and moves them (loadLayout).
 //
-// A layout is { modules: [{ id, mode, dockW?, box?, snap? }], snap: { all, pitch } }, the shape server/layouts.js
+// A layout is { modules: [{ id, mode, dockW?, box? }], snap: { all, pitch } }, the shape server/layouts.js
 // keeps: modules in column order (docked first, in their columns' order, then floating, in the order they were opened),
 // a docked module's width in pixels (none for the flexible column, the conference when docked: its size is what the
 // others leave it), a floating module's box as fractions of the canvas (0 to 1, so it scales to another window), and
-// the canvas-level snap switch with the grid's pitch in pixels.
+// the canvas-level snap switch with the grid's pitch in pixels. A module's own `snap`, which an older version saved, is
+// read without error and ignored: the canvas-level switch is the only one (Thomas, 2026-10-13).
 
 import { MIN_W, MIN_H, DOCK_MIN, gridFor, cellBox, resettle } from '/snap-grid.js';
 
@@ -31,11 +32,11 @@ const frac = (v) => Math.round(clamp(v, 0, 1) * 10000) / 10000;
 const pitchOf = (p) => clamp(Math.round(num(p, PITCH_DEFAULT)), LAYOUT_LIMITS.pitchMin, LAYOUT_LIMITS.pitchMax);
 
 // The layout a canvas makes. `modules` is every open module, as canvas.js reads them:
-//   { id, mode: 'dock' | 'float' | 'window', order, was?, canDock?, flex?, width?, box?, snap? }
+//   { id, mode: 'dock' | 'float' | 'window', order, was?, canDock?, flex?, width?, box? }
 // `mode` what it is now (a module waiting for a column is 'dock': it wants one), `order` its place in the column order
 // (and, floating, the order it was opened), `was` its remembered mode (for one in a window of its own), `canDock`
 // whether it can be a column, `flex` the flexible column, `width` its own docked width in pixels, `box` a floating
-// box in pixels in the same coordinates as `area`, `snap` whether it snaps. `area` is the canvas: { x, y, w, h }.
+// box in pixels in the same coordinates as `area`. `area` is the canvas: { x, y, w, h }.
 // `snap` is the canvas-level { all, pitch }. A module in a window of its own is saved as the mode it had on the canvas
 // before (`was`), else docked where it can dock.
 export function layoutOf(modules, area, snap = {}, aliases = {}) {
@@ -67,7 +68,6 @@ export function layoutOf(modules, area, snap = {}, aliases = {}) {
       const h = clamp(num(b.h) / A.h, 0.0001, 1);
       entry.box = { x: frac((num(b.x) - A.x) / A.w), y: frac((num(b.y) - A.y) / A.h), w: Math.max(0.0001, frac(w)), h: Math.max(0.0001, frac(h)) };
     }
-    entry.snap = Boolean(p.snap);
     out.push(entry);
   }
   return { modules: out.slice(0, LAYOUT_LIMITS.modules), snap: { all: Boolean(snap?.all), pitch: pitchOf(snap?.pitch) } };
@@ -78,7 +78,7 @@ export function layoutOf(modules, area, snap = {}, aliases = {}) {
 // is not changed, so it comes back whole when the module is on again. The answer:
 //   modules  [{ id, mode, dockW?, box?, cell?, snap }] in the layout's order: a docked width clamped as the canvas's
 //            clampDock() does (DOCK_MIN to 60% of the canvas), a floating box in pixels, scaled from the fractions, at
-//            least MIN_W by MIN_H and inside the area; a snapped one (its own switch, or the canvas-level one) with the
+//            least MIN_W by MIN_H and inside the area; with the canvas-level snap on, each floating one with the
 //            grid cells it settles in at the saved pitch, by snap-grid.js's resettle(), none on another where there is
 //            room, and its box the cells' box;
 //   left     the ids left out, in the layout's order;
@@ -103,7 +103,7 @@ export function placeLayout(layout, area, canOpen = () => true, aliases = {}) {
     if (inColumn(entry.id)) continue; // the column's: accepted in an older layout, never placed, never left out
     if (!canOpen(entry.id)) { left.push(entry.id); continue; }
     const mode = entry.mode === 'float' ? 'float' : 'dock';
-    const placed = { id: entry.id, mode, snap: mode === 'float' && (snap.all || Boolean(entry.snap)) };
+    const placed = { id: entry.id, mode, snap: mode === 'float' && snap.all };
     if (mode === 'dock' && entry.dockW !== undefined) placed.dockW = clamp(Math.round(num(entry.dockW, DOCK_MIN)), DOCK_MIN, maxDock);
     if (mode === 'float' && entry.box) {
       const b = entry.box;

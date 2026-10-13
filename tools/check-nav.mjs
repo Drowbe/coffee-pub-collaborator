@@ -29,7 +29,7 @@ const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFile
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { SLOTS, pageAnchor, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, spaceViews, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
+const { pageAnchor, profileEntries, profileDestinationLabel, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, spaceViews, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
 // The server's presence by membership (plan-primary-nav.md, step 3), so the pages' reading is held against the real answer.
 const { presenceView } = createRequire(import.meta.url)('../server/presence-view.js');
 fs.rmSync(tmp, { recursive: true, force: true });
@@ -501,6 +501,11 @@ test('the Layout menu (plan-layout-menu.md; Thomas, 2026-10-13): the page\'s sha
   const snapAll = canvasJs.slice(canvasJs.indexOf('  function setSnapAll(on) {'), canvasJs.indexOf('  // --- the arrange mode'));
   assert.ok(!/setMode\(/.test(snapAll), 'setSnapAll() never docks or floats a module');
   assert.match(snapAll, /applySnapLayout\(mods\);/);
+  // The Layout menu's switch is the only one (Thomas, 2026-10-13): no snap button on a module's titlebar, no setSnap,
+  // and a module's own stored `snap` is ignored and never written.
+  assert.ok(!/data-snap|function setSnap\(|function paintSnap\(/.test(canvasJs), 'a module window has no snap switch of its own');
+  assert.match(canvasJs, /const snapping = \(\) => snapAllOn\(\);/, 'snapping is the space-wide switch alone');
+  assert.ok(!/remember\([^)]*\bsnap:/.test(canvasJs) && !/before: \{\}/.test(canvasJs), 'a module\'s own snap and __snap.before are never written');
   // host-menu.js: the item kinds the Layout menu needs, in the one shared component.
   for (const needle of ['item.toggle', 'item.radio', 'item.keepOpen', 'item.heading', 'item.element', 'item.more', "'menuitemcheckbox'", "'menuitemradio'", 'export function refreshHostMenu()', 'export function hostMenuOpen(trigger)']) assert.ok(menuJs.includes(needle), `host-menu.js has ${needle}`);
   assert.match(menuJs, /if \(item\.keepOpen \|\| item\.toggle\) \{/, 'a switch or a keepOpen item leaves the menu open and draws it again');
@@ -912,7 +917,8 @@ test('nothing around the space bar\'s lists cuts them off: no overflow but visib
 });
 
 test('the top bar\'s slots, left to right: logo, environment, the destinations, Spaces, the anchor, then online people, the bell and the profile', () => {
-  assert.deepEqual(SLOTS, ['logo', 'environment', 'destinations', 'home', 'anchor', 'people', 'notifications', 'profile']);
+  // The order is the registrations' in brand.js (primary-nav.js's SLOTS list, read by nothing else, is gone). No Modules
+  // slot: Thomas removed it on 2026-10-02 (a module page is reached from its tile on home, or at /modules/<id>).
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   const reg = (id) => {
     const m = brand.match(new RegExp(`nav\\.register\\(\\{ id: '${id}', bar: 'primary', zone: '(\\w+)'[^\\n]*?order: (\\d+)`));
@@ -933,7 +939,6 @@ test('the top bar\'s slots, left to right: logo, environment, the destinations, 
 });
 
 test('no Modules slot in the top bar (Thomas, 2026-10-02): no modules-nav, no module page entries in the phone menu, no Modules menu or its counts', () => {
-  assert.ok(!SLOTS.includes('modules'), 'SLOTS has no Modules slot');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.ok(!/modules-nav|moduleMenuItems|openModulePage|modulePages|loadModuleNav|refreshModuleNav|module-nav-loaded/.test(brand), 'brand.js draws no Modules slot, menu or count');
   assert.ok(!/id: `page-\$\{/.test(brand), 'no page-<id> entries in the phone menu');
@@ -963,6 +968,15 @@ test('gone from the top bar: the clock, the lock or luggage icon beside the logo
   assert.match(space, /anchorSegments\(/, 'the space page draws the breadcrumb with anchorSegments (crumbSegments inside)');
 });
 
+test('the profile menu names the environment\'s pages Global Calendar and Global Map; ids and routes unchanged', () => {
+  assert.equal(profileDestinationLabel('calendar', 'Calendar'), 'Global Calendar');
+  assert.equal(profileDestinationLabel('map', 'Maps'), 'Global Map');
+  assert.equal(profileDestinationLabel('map', 'Map'), 'Global Map');
+  assert.equal(profileDestinationLabel('calendar', 'Itinerary'), 'Global Itinerary', 'a template\'s name kept');
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.match(brand, /label: profileDestinationLabel\(d\.id, d\.name\), onPick: \(\) => openDestination\(d\.href\)/);
+});
+
 test('the profile menu by role: owners get Manage; the single install\'s admin Manage only; the host admin\'s stand-in Manage and Host console; members and moderators nothing more; Install only while offered; no menu for a guest', () => {
   const base = ['profile', 'theme'];
   assert.deepEqual(profileEntries({ role: 'member' }), [...base, 'sign-out']);
@@ -987,7 +1001,7 @@ test('the profile menu by role: owners get Manage; the single install\'s admin M
   const menu = brand.slice(brand.indexOf('function accountMenuItems('), brand.indexOf('\n}\n', brand.indexOf('function accountMenuItems(')));
   assert.match(menu, /new Set\(profileFor\(\)\)/, 'the menu under your picture follows profileEntries');
   assert.match(menu, /label: 'Dark mode', checked: modeNow\(\) === 'dark'/, 'Dark mode is a checkbox entry');
-  assert.match(menu, /\.\.\.destinationList\.filter\(\(d\) => has\.has\(`dest-\$\{d\.id\}`\)\)\.map\(\(d\) => \(\{ icon: d\.icon, label: d\.name, onPick: \(\) => openDestination\(d\.href\) \}\)\)/, 'Calendar and Map after Dark mode, each what the server lists');
+  assert.match(menu, /\.\.\.destinationList\.filter\(\(d\) => has\.has\(`dest-\$\{d\.id\}`\)\)\.map\(\(d\) => \(\{ icon: d\.icon, label: profileDestinationLabel\(d\.id, d\.name\), onPick: \(\) => openDestination\(d\.href\) \}\)\)/, 'Global Calendar and Global Map after Dark mode, each what the server lists');
   assert.ok(menu.indexOf('destinationList.filter') < menu.indexOf("has.has('manage')"), 'before Manage');
   assert.match(brand, /destinations: destinationList\.map\(\(d\) => d\.id\)/, 'profileFor passes the destinations');
   assert.match(brand, /function openDestination\(href\) \{\n\s*openPage\(keepingQuery\(href\), 'destination'\);/, 'opened as a page: over the space while present, else the page itself');

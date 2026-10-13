@@ -252,7 +252,7 @@ test('the "+" and the status bar as drawn: names, the shared menu, the live node
 
 test('the chrome: a "+" slot before "...", a labelled status region, moved (not rebuilt) between docked and floating', () => {
   const header = canvas.slice(canvas.indexOf('  const moduleHeader = '), canvas.indexOf('  // The page a composite holds'));
-  assert.ok(header.includes('<span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${snapHtml'), 'icon, name, tools, "+", then the host\'s buttons');
+  assert.ok(header.includes('<span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML'), 'icon, name, tools, "+", then the host\'s buttons (no snap switch: the Layout menu\'s Snap to grid is the one)');
   assert.match(canvas, /const statusHtml = \(m\) => `<div class="mod-status" data-status role="region" aria-label="\$\{escapeHtml\(`\$\{m\.name\} status`\)\}" hidden><\/div>`;/);
   const floating = canvas.slice(canvas.indexOf('  function openModuleFloating('), canvas.indexOf('  function openModuleDocked('));
   const docked = canvas.slice(canvas.indexOf('  function openModuleDocked('), canvas.indexOf('  function moveModule('));

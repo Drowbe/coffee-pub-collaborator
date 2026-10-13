@@ -50,29 +50,11 @@ function loadSaved(spaceId) {
   return rest;
 }
 
-// The modules this person had open in a space (ids, in order), or null when nothing is remembered yet. The space
-// list's "Open with" choice reads and writes this.
-export function joinModules(spaceId) {
-  const open = loadSaved(spaceId).__open;
-  return Array.isArray(open) ? open : null;
-}
-
-export function setJoinModules(spaceId, ids) {
-  const saved = loadSaved(spaceId);
-  saved.__open = ids;
-  try {
-    localStorage.setItem(storeKey(spaceId), JSON.stringify(saved));
-  } catch {
-    // private mode: nothing is remembered
-  }
-}
-
 const escapeHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-// The buttons at the end of a module's header: the snap switch while it floats, the "..." (an installed module's: its
-// own Clear, then Dock as a panel or Open as a window, and Pop out; Thomas, 2026-10-13: those two left the titlebar for
-// the "..."), and Close.
-const snapHtml = ({ mode, snap = false }) => (mode === 'float' ? `<button class="msg-btn${snap ? ' on' : ''}" data-snap type="button" title="Snap to a grid" aria-label="Snap to a grid" aria-pressed="${snap ? 'true' : 'false'}"><i class="fa-solid fa-border-all fa-fw" aria-hidden="true"></i></button>` : '');
+// The buttons at the end of a module's header: the "..." (an installed module's: its own Clear, then Dock as a panel or
+// Open as a window, and Open in its own window; Thomas, 2026-10-13: those left the titlebar for the "..."), and Close.
+// A module has no snap switch of its own: the Layout menu's Snap to grid is the one (Thomas, 2026-10-13).
 const MORE_HTML = '<button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>';
 const CLOSE_HTML = '<button class="msg-btn" data-close type="button" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>';
 
@@ -237,10 +219,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // window are untouched.
   // The grid's pitch (a cell's width; a cell is 0.77 as tall) is the canvas's: the space bar's slider sets it, remembered with
   // the space's layout (`__snap.pitch`), beside the canvas-level switch (`__snap.all`) that snaps every floating module, now and later.
+  // That switch is the only one: a module's own `snap` (stored by an older version, per module and in saved layouts) is
+  // read without error and ignored, and never written (Thomas, 2026-10-13).
   const SNAP_PITCH = { min: 50, max: 320, step: 10, default: 130 };
   const snapPitch = () => { const p = Number(saved.__snap?.pitch); return p >= SNAP_PITCH.min && p <= SNAP_PITCH.max ? p : SNAP_PITCH.default; };
   const snapAllOn = () => Boolean(saved.__snap?.all);
-  const snapping = (id) => snapAllOn() || Boolean(saved[id]?.snap);
+  const snapping = () => snapAllOn();
   function snapGrid() {
     const win = canvasWin();
     const r = canvas.getBoundingClientRect();
@@ -268,8 +252,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     }
     return taken;
   }
-  // Snap a group: each module goes to the cells nearest where it is now, at about its size. One module alone (its own
-  // titlebar switch) takes the free cells nearest it, clear of the snapped modules outside the group; a group (Snap to
+  // Snap a group: each module goes to the cells nearest where it is now, at about its size. One module alone (one
+  // opening or floating while the grid is on) takes the free cells nearest it, clear of the snapped modules outside the group; a group (Snap to
   // grid in the Layout menu: every floating module) is settled together (snap-grid.js's resettle: none on another
   // where the grid has room, all a little smaller together where it has not). Nothing is tiled or moved further than
   // it must be: the grid going on keeps every window about where it was (Thomas, 2026-10-13).
@@ -288,12 +272,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     for (const p of live) {
       settleSnap(p.id, floaterOf(p), cells.get(p.id));
       remember(p.id, { layout: 'user' });
-    }
-  }
-  function paintSnap(mod, on) {
-    for (const b of [mod.el, floaterOf(mod)].flatMap((el) => [...(el?.querySelectorAll?.('[data-snap]') || [])])) {
-      b.classList.toggle('on', Boolean(on));
-      b.setAttribute('aria-pressed', on ? 'true' : 'false');
     }
   }
   // A module opening while the grid is on: back to the cells the user left it in, or the next free spot.
@@ -328,31 +306,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const hideGrid = (layer) => layer.classList.remove('snapping');
   // The box a module floats in (an installed module's is its own element; a built-in module's is around it).
   const floaterOf = (mod) => (mod.kind === 'builtin' ? mod.floatEl : mod.mode === 'float' ? mod.el : null);
-  function setSnap(id, on) {
-    const mod = opened.get(id);
-    const floater = mod && floaterOf(mod);
-    if (!floater) return;
-    remember(id, { snap: Boolean(on) });
-    if (on) applySnapLayout([mod]);
-    paintSnap(mod, on);
-  }
   // The Layout menu's Snap to grid (Window Mode only; Thomas, 2026-10-13): on, every floating module, now and later,
-  // sits in the grid's cells, each at the free cells nearest where it is (applySnapLayout), its own titlebar switch
-  // following; dragged, it jumps from cell to cell, resized, it grows a cell at a time. Off, every floating module is
+  // sits in the grid's cells, each at the free cells nearest where it is (applySnapLayout); dragged, it jumps from cell to cell, resized, it grows a cell at a time. Off, every floating module is
   // free again where it is. Nothing docks or floats because of it: which modules float is the arrange mode's
   // (setArrangeMode). Remembered with the space's layout (`__snap.all`); an older `__snap.before` is not read.
   function setSnapAll(on) {
-    const snap = saved.__snap || {};
-    saved.__snap = { ...snap, all: Boolean(on), before: {} };
+    saved.__snap = { ...(saved.__snap || {}), all: Boolean(on) };
     persist();
     const mods = [...opened.values()].filter((p) => floaterOf(p));
-    if (on) {
-      for (const p of mods) remember(p.id, { snap: true });
-      applySnapLayout(mods);
-      for (const p of mods) paintSnap(p, true);
-      return;
-    }
-    for (const p of mods) setSnap(p.id, false);
+    if (on) applySnapLayout(mods);
   }
   // --- the arrange mode (Thomas, 2026-10-13: Panel Mode and Window Mode) --------------------------------------------
   // How the Workspace holds its modules, chosen in the Layout menu and remembered per person per space (`__mode`):
@@ -388,12 +350,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       const boxes = tidyBoxes(live.map((p) => ({ id: p.id, box: currentBox(floaterOf(p)) })), area, taken);
       for (const p of live) remember(p.id, { box: place(floaterOf(p), boxes.get(p.id)), layout: 'user' });
     }
-    if (snapAllOn()) {
-      const mods = [...opened.values()].filter((p) => floaterOf(p));
-      for (const p of mods) remember(p.id, { snap: true });
-      applySnapLayout(mods);
-      for (const p of mods) paintSnap(p, true);
-    }
+    if (snapAllOn()) applySnapLayout([...opened.values()].filter((p) => floaterOf(p)));
     update();
   }
   // Panel Mode's dock (the Layout menu's Panel Mode): every floating module that can be a column goes back beside the
@@ -436,8 +393,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       for (const p of mods) {
         const t = tiles.get(p.id);
         settleSnap(p.id, floaterOf(p), { col: t.x, row: t.y, cols: t.w, rows: t.h });
-        remember(p.id, { snap: true, layout: 'user' });
-        paintSnap(p, true);
+        remember(p.id, { layout: 'user' });
       }
       return mods.length;
     }
@@ -800,12 +756,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // --- installed modules -------------------------------------------------------
 
   // The titlebar: icon, name, the module's own tools, the "+" (host.add.set; hidden until the module gives it actions),
-  // the snap switch while floating, "...", Close. A composite's "..."
-  // has only the ways to show it (Clear everything is each part's, in the page it holds), so on a phone, where those
+  // "...", Close. A composite's "..." has only the ways to show it (Clear everything is each part's, in the page it holds), so on a phone, where those
   // are not offered, it is not shown (.mod-more-ways).
-  const moduleHeader = (m, mode, snap = false) => `
+  const moduleHeader = (m) => `
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${snapHtml({ mode, snap })}${compositeOf(m) ? MORE_HTML.replace('class="sdk-more"', 'class="sdk-more mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
+    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${compositeOf(m) ? MORE_HTML.replace('class="sdk-more"', 'class="sdk-more mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
 
   // The status bar at the bottom of the module's own window or column (host.status.set; module-host.js fills it), a
   // labelled region hidden until the module sets something.
@@ -946,7 +901,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     floater.className = 'module-floating';
     floater.dataset.module = m.id;
     floater.innerHTML = `
-      <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m, 'float', snapping(m.id))}</header>
+      <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m)}</header>
       <div class="mod-toolbar" data-toolbar hidden></div>
       ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'module-floating-frame')}
       ${statusHtml(m)}
@@ -987,7 +942,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     section.innerHTML = `
       <div class="dock-resize" title="Drag to resize"></div>
       <div class="mod-content dock-content">
-        <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m, 'dock')}</header>
+        <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m)}</header>
         <div class="mod-toolbar" data-toolbar hidden></div>
         ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'dock-frame')}
         ${statusHtml(m)}
@@ -1106,7 +1061,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     }
     opened.set(def.id, mod);
     syncDock();
-    decorateBuiltin(mod);
     def.onChange?.({ open: true, mode, moving: opts.moving });
     update();
     return true;
@@ -1120,26 +1074,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     wrap.className = def.wrap;
     wrap.appendChild(el);
     return wrap;
-  }
-
-  // Add (or refresh) the snap switch in the module's own header. The conference and the chat have no Dock, Window or
-  // Pop out: wider than a phone they live in the column (they never dock on the canvas, float only while lifted for a
-  // screen share, and never leave for a window of their own), and on a phone they are tabs.
-  function decorateBuiltin(mod) {
-    const tools = mod.el.querySelector('.chat-tools, .conference-tools');
-    if (!tools) return;
-    const holder = tools.ownerDocument.createElement('span');
-    tools.querySelectorAll('[data-snap]').forEach((b) => b.remove());
-    if (inColumn(mod)) return;
-    holder.innerHTML = snapHtml({ mode: mod.mode, snap: snapping(mod.id) });
-    const close = tools.querySelector('#chat-close, [data-module-close]');
-    for (const b of [...holder.children]) tools.insertBefore(b, close);
-    for (const b of tools.querySelectorAll('[data-snap]')) {
-      b.onclick = (event) => {
-        event.stopPropagation();
-        setSnap(mod.id, !snapping(mod.id));
-      };
-    }
   }
 
   function openBuiltinWindow(def, opts = {}) {
@@ -1160,7 +1094,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       }
       win.document.body.appendChild(grid);
       def.el.hidden = false;
-      decorateBuiltin(mod);
       def.onWindow?.(win);
       // Popups the chat opens (emoji, formatting help) close on a click elsewhere.
       win.document.addEventListener('click', (e) => {
@@ -1370,7 +1303,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   function wireHeader(el, mod) {
     el.querySelector('[data-close]').addEventListener('click', () => closeModule(mod.id));
-    el.querySelector('[data-snap]')?.addEventListener('click', () => setSnap(mod.id, !snapping(mod.id)));
     el.querySelector('[data-module-menu]')?.addEventListener('click', (event) => {
       event.stopPropagation();
       const trigger = event.currentTarget;
@@ -1380,7 +1312,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // The ways to show a module, at the end of its "..." (Thomas, 2026-10-13: Panel Mode and Window Mode): Dock as a panel
   // while it floats (unavailable, and why, while it waits or the columns are full), Open as a window while docked, and
-  // Pop out (a window of its own). None on a phone, where each module is a tab.
+  // Open in its own window (pop out). None on a phone, where each module is a tab.
   function wayItems(mod) {
     if (!mod || isNarrow()) return [];
     const ways = [];
@@ -1391,7 +1323,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       const why = dockBlocked(mod);
       ways.push({ icon: 'fa-solid fa-table-columns', label: 'Dock as a panel', tip: 'Dock beside the video', hint: why || undefined, disabled: Boolean(why), onPick: () => setMode(mod.id, 'dock') });
     }
-    ways.push({ icon: 'up-right-from-square', label: 'Pop out', tip: 'Open in its own window', onPick: () => popOut(mod.id) });
+    ways.push({ icon: 'up-right-from-square', label: 'Open in its own window', tip: 'Pop out of this page', onPick: () => popOut(mod.id) });
     return ways;
   }
   // An installed module's "...": Clear (it asks first), then the ways to show it after a line. A composite's has only the
@@ -1486,7 +1418,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       if (!openBuiltinIn(mod.def, 'float', { moving: true })) { openBuiltinIn(mod.def, 'column', { moving: true }); return false; }
       const now = opened.get(id);
       now.lifted = true;
-      decorateBuiltin(now);
       return true;
     }
     if (!on && mod.lifted) {
@@ -1598,7 +1529,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         flex: Boolean(p.def?.flex),
         width: p.width ?? rec.dockW,
         box: !narrow && floater && p.mode === 'float' ? currentBox(floater) : rec.box,
-        snap: snapAllOn() || Boolean(rec.snap),
       };
     });
     return layoutOf(mods, canvasArea(), { all: snapAllOn(), pitch: snapPitch() });
@@ -1623,8 +1553,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     try {
       // The conference and the chat are the column's (plan-one-bar.md, step 6): a layout neither names nor closes them.
       for (const p of [...opened.values()]) if (p.kind !== 'builtin' && !named.has(p.id) && !keepCall(p)) closeModule(p.id);
-      // The canvas-level snap as saved; what it floated before is not this layout's.
-      saved.__snap = { ...(saved.__snap || {}), all: plan.snap.all, pitch: plan.snap.pitch, before: {} };
+      // The canvas-level snap as saved (a module's own `snap` in an older layout is ignored).
+      saved.__snap = { ...(saved.__snap || {}), all: plan.snap.all, pitch: plan.snap.pitch };
       const g = gridFor({ left: area.x, top: area.y, width: area.w, height: area.h }, plan.snap.pitch);
       for (const want of plan.modules) {
         const def = builtins.get(want.id);
@@ -1632,7 +1562,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         const p = def ? { modes: def.modes || ['dock', 'float'] } : { modes: m.canvas.mode };
         const mode = supports(p, want.mode) ? want.mode : supports(p, 'dock') ? 'dock' : 'float';
         // The records first, so whatever opens now opens where the layout says.
-        const rec = { mode, snap: mode === 'float' && want.snap };
+        const rec = { mode };
         if (want.dockW) rec.dockW = want.dockW;
         if (want.box) {
           Object.assign(rec, { box: want.box, layout: 'user' });
@@ -1660,7 +1590,6 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         if (floater && mod.mode === 'float') {
           if (want.cell) settleSnap(want.id, floater, want.cell, { keepPlaced: true });
           else if (want.box) remember(want.id, { box: place(floater, want.box) });
-          paintSnap(mod, snapping(want.id));
           front(floater);
         }
       }

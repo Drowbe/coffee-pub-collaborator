@@ -3,12 +3,6 @@
 // bell's count and words, and the breadcrumb's segments. brand.js and space.js draw them; nothing here touches a
 // document, so tools/check-nav.mjs runs them in node.
 
-// The bar's slots, left to right (plan-two-zone-nav.md). The branding (the logo and the environment), then the left
-// zone: the destinations (Calendar, Map), Spaces and the anchor; then the right zone: online people (a later step), the
-// bell and the profile. No Modules slot: Thomas removed it on 2026-10-02 (most module pages are not destinations; a
-// module page is reached from its tile on home, or at /modules/<id>).
-export const SLOTS = ['logo', 'environment', 'destinations', 'home', 'anchor', 'people', 'notifications', 'profile'];
-
 // The profile menu's entries, in order, as a pure function of the account, the install and the browser's offer
 // (decisions 4 and 17):
 //   - every account: View profile, the light or dark switch, Install as an app while the browser offers it, Sign out last;
@@ -30,6 +24,16 @@ export function profileEntries({ role, hostAdmin = false, hosted = false, instal
   if (installOffered) out.push('install');
   out.push('sign-out');
   return out;
+}
+
+// An environment page's entry in the profile menu (Thomas, 2026-10-13): Global Calendar and Global Map, so they read apart
+// from a space's own Calendar and Map. A name a template gave it keeps that name after the word Global.
+const PROFILE_DEST_DEFAULTS = { calendar: ['Calendar', 'Global Calendar'], map: ['Map', 'Global Map'] };
+export function profileDestinationLabel(id, name = '') {
+  const shown = String(name || '').trim();
+  const known = PROFILE_DEST_DEFAULTS[id];
+  if (known && (!shown || shown === known[0] || shown === `${known[0]}s`)) return known[1];
+  return `Global ${shown || id}`;
 }
 
 // Who sees the module update count on the bell: those who can act on it (decision 9), owners and the admin.

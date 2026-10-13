@@ -5,8 +5,8 @@ import { anchorSegments, spaceViews, pageOpens, isHere, hereCount, asidePlacehol
 import { openPhaseSheet, chipFit } from '/phase-sheet.js';
 import { createSpaceSetup } from '/space-setup.js';
 import { actionBar } from '/action-bar.js';
-import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
-import { whatOpens, conferenceAllowed, opensWithSummary, shouldAutoJoin } from '/opens-with.js';
+import { createCanvas } from '/canvas.js';
+import { conferenceAllowed, opensWithSummary, shouldAutoJoin } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
@@ -514,7 +514,6 @@ function renderSpaces() {
     const popoutLabel = `${action} in a pop-out window`;
     if (popout.title !== popoutLabel) { popout.title = popoutLabel; popout.setAttribute('aria-label', popoutLabel); }
     if (enter.title !== enterLabel) enter.title = enterLabel; // the whole label, wherever a narrow card cuts it short
-    card.querySelector('[data-join-with]').hidden = Boolean(r.isAside);
     const edit = card.querySelector('[data-edit]');
     edit.hidden = r.isAside || !hasOwnerRights(me);
     edit.href = `/spaces/${encodeURIComponent(r.id)}`;
@@ -674,81 +673,7 @@ async function joinInPopout(spaceId) {
   else await join(spaceId);
   if (call.state !== 'connected') closePopout(); // it failed; don't leave an empty window
 }
-// "Open with": what this person's own layout for a space opens with, remembered for that space (see joinModules in
-// canvas.js). The list is the chat and the space's modules; with nothing remembered, the switches on are what
-// entering would open (the space's "Opens with", else the environment's, else the chat and the modules; opens-with.js).
-const spaceModuleList = new Map(); // space id -> the modules on for it and what it opens with, fetched once
-const canIn = (spaceId, permission) => hasOwnerRights(me) || !!(me?.spaces?.[spaceId]?.effective || me?.permissions || {})[permission];
-
-async function toggleJoinWith(card, spaceId) {
-  const open = card.querySelector('.join-with');
-  closeJoinWith();
-  if (open) return;
-  const button = card.querySelector('[data-join-with]');
-  const pop = document.createElement('div');
-  pop.className = 'join-with';
-  pop.id = `open-with-${spaceId}`;
-  pop.setAttribute('role', 'group');
-  pop.setAttribute('aria-label', 'Open with');
-  pop.innerHTML = `<strong>Open with</strong><div class="join-with-list"></div><p class="hint">Remembered for this ${escapeHtml(word('space'))}.</p>`;
-  // In the buttons' row, after the buttons (the same place in the tab order), shown above the whole row.
-  (card.querySelector('.space-choice-actions') || card).appendChild(pop);
-  button.setAttribute('aria-expanded', 'true');
-  button.setAttribute('aria-controls', pop.id);
-  if (!spaceModuleList.has(spaceId)) {
-    try {
-      const { modules, builtin, opensWith, spaceDefaultsOpensWith } = await api('GET', `/api/modules/for-space?space=${encodeURIComponent(spaceId)}`);
-      spaceModuleList.set(spaceId, { modules: (modules || []).filter((m) => !m.canvas || m.canvas.menu !== false), builtin: builtin || [], opensWith: opensWith ?? null, environment: spaceDefaultsOpensWith ?? null });
-    } catch {
-      spaceModuleList.set(spaceId, { modules: [], builtin: [], opensWith: null, environment: null });
-    }
-  }
-  if (!pop.isConnected) return; // closed while it loaded
-  // The chat as this environment shows it (its display name and icon, else its own).
-  const { modules: onHere, builtin, opensWith, environment } = spaceModuleList.get(spaceId);
-  const shownBuiltin = (id, name, icon) => ({ id, name, icon, ...builtin.find((b) => b.id === id) });
-  // No Conference switch: the call follows joining (GitHub #199); a remembered `conference` id is left alone.
-  const choices = [
-    ...(canIn(spaceId, 'chatRead') ? [shownBuiltin('chat', 'Chat', 'message')] : []),
-    ...onHere.map((m) => ({ id: m.id, name: m.name, icon: m.icon })),
-  ];
-  const chosen = new Set(whatOpens({
-    remembered: joinModules(spaceId),
-    own: opensWith,
-    environment,
-    modules: onHere.map((m) => m.id),
-    canOpen: (id) => choices.some((c) => c.id === id),
-  }));
-  const list = pop.querySelector('.join-with-list');
-  list.innerHTML = switchListHtml(choices.map((c) => ({ ...c, on: chosen.has(c.id) })), 'join-module');
-  wireSwitchList(list);
-  list.addEventListener('change', () => {
-    setJoinModules(spaceId, [...list.querySelectorAll('input:checked')].map((i) => i.dataset.joinModule));
-  });
-  // From the keyboard: straight into the list, and Escape goes back to the button.
-  if (document.activeElement === button) list.querySelector('input')?.focus();
-  pop.addEventListener('keydown', (event) => {
-    if (event.key !== 'Escape') return;
-    event.stopPropagation();
-    closeJoinWith();
-    button.focus();
-  });
-}
-function closeJoinWith() {
-  for (const pop of document.querySelectorAll('.join-with')) pop.remove();
-  for (const b of document.querySelectorAll('[data-join-with][aria-expanded="true"]')) b.setAttribute('aria-expanded', 'false');
-}
-document.addEventListener('click', (event) => {
-  if (!event.target.closest('.join-with, [data-join-with]')) closeJoinWith();
-});
-
 $('spaces').addEventListener('click', (event) => {
-  const withBtn = event.target.closest('[data-join-with]');
-  if (withBtn) {
-    const card = withBtn.closest('.space-choice');
-    toggleJoinWith(card, card.dataset.space);
-    return;
-  }
   const popout = event.target.closest('[data-join-popout]');
   if (popout) {
     joinInPopout(popout.closest('.space-choice').dataset.space);
@@ -3947,8 +3872,6 @@ call
     try {
       const data = JSON.parse(decoder.decode(payload));
       if (topic === 'reaction' && participant && data.type === 'reaction') showReaction(participant.identity, data.id);
-      // A page still on the build before the "away" attribute (showAway) says it only this way. Kept for one release.
-      else if (topic === 'away' && participant && data.type === 'away') updateAwayOverlay(participant.identity, !!data.on, data.message);
       else if (topic === 'chat' && data.type === 'chat' && chatIdOk(data.id)) {
         if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
         addEntry(storedEntry({ id: data.id, who: data.who || participant?.name || 'someone', by: data.by || '', text: data.text || '', at: data.at, preview: noticePreview(data) }), false); // only the address its own text has
@@ -5822,12 +5745,6 @@ async function sendAway(on, message = '') {
   updateAwayOverlay(call.localParticipant?.identity, on, message);
   if (call.state !== 'connected') return;
   await syncAwayAttributes();
-  // The "away" message too, for a page still on the build before the attribute. Kept for one release.
-  try {
-    await call.localParticipant.publishData(encoder.encode(JSON.stringify({ type: 'away', on, message })), { reliable: true, topic: 'away' });
-  } catch (err) {
-    // best-effort: not worth surfacing to the person who just wants their profile
-  }
 }
 
 // Away means away: nobody should be hearing or seeing you while your tile

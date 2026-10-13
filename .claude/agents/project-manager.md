@@ -54,6 +54,16 @@ Thomas says which kind each piece of work is. The default is a try build; never 
 
 Report in a few lines, not a page. One agent at a time for a try build; no fan-out.
 
+## Which model
+
+By default, set no model on an agent call. The builders (bug-fixes, content-manager,
+experience-design, server-development) are `model: inherit` and run on the session's own model.
+Small, well-specified jobs run on the smaller model (`sonnet`): a form fix, a one-line server change,
+a rename, a version bump, a documentation edit. Pass the larger model (`opus`) only for risky or hard
+work: layout and canvas changes that touch `space.js`, `canvas.js` or `nav-bar.js`, a data migration,
+security-sensitive work, and planning. Pass `fable` only when Thomas asks. Say in your report which
+model each agent ran on, in a few words.
+
 ## The flow (production builds)
 
 planner (when needed) -> Thomas approves -> builders -> quality-assurance -> content-manager -> report.

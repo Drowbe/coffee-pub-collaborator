@@ -48,6 +48,8 @@ decide those.
   pass, its own checks, pushed at once, no QA, docs or CHANGELOG; if it changes a module it still bumps that module's patch version, nothing else), a **feedback build**
   (one short QA pass for regressions, must-fixes only, a CHANGELOG line) and a **production build**
   (the full flow: plan, QA, docs, version bumps). Never treat a try build as production.
+- The project manager picks the smaller model for small jobs and a larger one only for risky work (layout and
+  canvas, migrations, security, planning); see `.claude/agents/project-manager.md`.
 - For a production build, commit each finished piece of work once it has passed QA and has its documentation, by explicit
   paths and with its CHANGELOG entry, so Thomas can pull the image and test it. Don't push or publish
   the wiki unless Thomas asks.

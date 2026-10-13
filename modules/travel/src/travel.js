@@ -395,13 +395,13 @@
     const rows = [];
     const dateText = (d) => parseYmd(d).toLocaleDateString([], { weekday: 'short', day: 'numeric' });
     const itemOf = (id) => plan.list().find((i) => i.id === id);
-    const phases = templatePhases();
-    const created = createdDay(spaceOf());
-    // With phases, planning starts on the first phase and ends at the close of the phase just before the main one.
-    // With none, both stay on the first and last day of the plan. The booked start and end are unchanged.
-    const mainAt = phases.findIndex((p) => p.main);
-    const planningStart = phases.length ? effectiveStart(phases, plan.trip, 0, created) : days[0];
-    const planningEnd = phases.length ? (mainAt > 0 ? phaseSpan(phases[mainAt - 1], plan.trip).end : null) : days[days.length - 1];
+    const bands = plan.bands();
+    // With phases, planning starts on the first phase's band and ends at the close of the last dated band before the
+    // main one. With none, both stay on the first and last day of the plan. The booked start and end are unchanged.
+    const mainAt = bands.findIndex((b) => b.main);
+    const beforeMain = bands.slice(0, mainAt > 0 ? mainAt : 0).filter((b) => b.dated);
+    const planningStart = bands.length ? (bands[0].dated ? bands[0].start : null) : days[0];
+    const planningEnd = bands.length ? (beforeMain.length ? beforeMain[beforeMain.length - 1].end : null) : days[days.length - 1];
     if (position === 'before') {
       if (planningStart && day === planningStart) rows.push(buildMarker('planning-start', dateText(day), 'the plan begins'));
       if (bounds && bounds.start.day === day) rows.push(buildMarker('trip-start', tt(bounds.start.time), describe(itemOf(bounds.start.id) || {})));
@@ -655,9 +655,11 @@
     if (!(count >= 1)) return;
     if (count > left) { note(left > 0 ? `A plan can be at most ${MAX_DAYS} days long, so at most ${left} more can be added.` : `A plan can be at most ${MAX_DAYS} days long.`); return; }
     const shift = (day, n) => { const d = parseYmd(day); return ymd(new Date(d.getFullYear(), d.getMonth(), d.getDate() + n)); };
-    if (!trip || !trip.start) { note('Set the first day before adding days.'); return; }
+    if (!trip || !trip.start) { note(plan.phased() ? 'Set when the trip starts first.' : 'Set the first day before adding days.'); return; }
     const start = where === 'before' ? shift(trip.start, -count) : trip.start;
     const end = where === 'after' ? shift(trip.end || trip.start, count) : trip.end || trip.start;
+    // With phases the main phase's end moves through the host (only "after": its start is the timeline's).
+    if (plan.phased()) { attempt(async () => { await plan.coverDay(end); scrolled = true; }); return; }
     attempt(async () => { await plan.saveTrip({ ...trip, start, end }); scrolled = true; });
   }
 
@@ -672,15 +674,14 @@
     // Empty days can be hidden, unless every day is empty (then there would be nothing to show).
     const hiding = state.hideEmpty && empties.size > 0 && empties.size < days.length;
     $('app').classList.toggle('hide-empty', hiding);
-    const phases = templatePhases();
     const heads = new Map();
-    phases.forEach((p) => {
-      const start = phaseSpan(p, plan.trip).start;
-      if (!start || !days.includes(start)) return;
-      if (!heads.has(start)) heads.set(start, []);
-      heads.get(start).push(p);
+    plan.bands().forEach((b) => {
+      if (!b.dated || !days.includes(b.start)) return;
+      if (!heads.has(b.start)) heads.set(b.start, []);
+      heads.get(b.start).push(b);
     });
-    if (canEdit) wrap.append(buildEdge('before'));
+    // With phases the first day is the timeline's (the main phase's start), so days are only added after.
+    if (canEdit && !plan.phased()) wrap.append(buildEdge('before'));
     // One badge for each run of hidden days, standing in for them on the line.
     const runs = new Map(); // first hidden day of a run -> the days in it
     if (hiding) {
@@ -909,18 +910,17 @@
   function buildUndated() {
     const items = undatedItems();
     if (!items.length) return null;
-    const phases = templatePhases();
+    const bands = plan.bands();
     const today = ymd(new Date());
-    const created = createdDay(spaceOf());
     const box = clone('tpl-undated');
-    if (!phases.length) {
+    if (!bands.length) {
       const ul = document.createElement('ul');
       ul.className = 'decisions';
       for (const item of items) undatedRow(ul, item);
       box.append(ul);
     } else {
-      for (const p of phases) {
-        const mine = items.filter((item) => phaseOf(item, phases, plan.trip, today, created) === p.id);
+      for (const p of bands) {
+        const mine = items.filter((item) => phaseOf(item, bands, today) === p.id);
         if (!mine.length) continue;
         const group = clone('tpl-undated-group');
         fill(group, { label: p.label });
@@ -937,7 +937,9 @@
     const head = $('trip');
     const days = plan.days();
     const tripName = planName(trip, spaceOf()) || 'Trip';
-    fill(head, { title: tripName, phase: phaseLine(templatePhases(), trip, ymd(new Date()), createdDay(spaceOf())) });
+    // The phase line is the chip's words (host.util.phaseWords, the one rule), empty without phases.
+    const bands = plan.bands();
+    fill(head, { title: tripName, phase: bands.length && host.util.phaseWords ? host.util.phaseWords(bands, ymd(new Date())) : '' });
     if (host.setTitle) {
       host.setTitle(tripName);
       hide(slot(head, 'title'), true);
@@ -1650,7 +1652,11 @@
       $('f-destination').value = t.destination || '';
       $('f-start').value = t.start || '';
       $('f-end').value = t.end || '';
-      fillTripPhases(t);
+      // With phases the dates are the space's timeline (plan-one-bar.md step 2): no date fields, one line says where.
+      const phasedPlan = plan.phased();
+      hide($('f-start').closest('label'), phasedPlan);
+      hide($('f-end').closest('label'), phasedPlan);
+      hide($('f-phase-note'), !phasedPlan);
       host.ui.currencySelect($('f-currency'), { value: t.currency || '', empty: true }); // "" is the server's currency
       $('f-notes').value = t.notes || '';
       $('f-by').textContent = '';
@@ -1710,32 +1716,12 @@
     // A new object with no kind chosen for it starts in the kind field, so typing starts the search.
     editor.open({ focus: mode !== 'trip' && !item && !(place && place.tile) && kindField ? kindField.input : $('f-title'), returnTo: editorReturn });
   }
-  // One row per phase. The main phase's dates are the plan's own start and end; the others are stored on the phase.
-  function fillTripPhases(trip) {
-    const box = $('f-phases');
-    const phases = templatePhases();
-    if (!box) return;
-    box.replaceChildren();
-    const show = phases.length > 0;
-    hide($('f-start').closest('label'), show);
-    hide($('f-end').closest('label'), show);
-    if (!show) return;
-    for (const p of phases) {
-      const row = clone('tpl-phase-row');
-      row.dataset.phase = p.id;
-      fill(row, { label: p.label });
-      const span = phaseSpan(p, trip);
-      row.querySelector('[data-phase-start]').value = span.start || '';
-      row.querySelector('[data-phase-end]').value = span.end || '';
-      box.append(row);
-    }
-  }
   function fillPhaseSelect(item) {
     const select = $('f-phase');
     if (!select) return;
     const phases = templatePhases();
     select.replaceChildren();
-    const cur = currentPhase(phases, plan.trip, ymd(new Date()), createdDay(spaceOf()));
+    const cur = currentBand(plan.bands(), ymd(new Date()));
     for (const p of phases) {
       const o = document.createElement('option');
       o.value = p.id;
@@ -2051,30 +2037,9 @@
     $('f-save').disabled = true;
     try {
       if (ed.mode === 'trip') {
-        const phases = templatePhases();
         const patch = { title: $('f-title').value.trim(), destination: $('f-destination').value.trim(), currency: $('f-currency').value.trim(), notes: $('f-notes').value.trim() };
-        if (phases.length && $('f-phases')) {
-          const map = {};
-          let start = null;
-          let end = null;
-          for (const row of $('f-phases').querySelectorAll('[data-phase]')) {
-            const phase = phases.find((p) => p.id === row.dataset.phase);
-            const s = row.querySelector('[data-phase-start]').value;
-            const e = row.querySelector('[data-phase-end]').value;
-            const label = phase ? phase.label : row.dataset.phase;
-            if (s && e && e < s) return fail(`${label}: the last day is before the first.`);
-            if (phase && phase.main) {
-              if (e && !s) return fail(`${label}: the last day needs a first day.`);
-              start = s || null;
-              end = e || null;
-            } else if (s || e) {
-              map[row.dataset.phase] = { ...(s ? { start: s } : {}), ...(e ? { end: e } : {}) };
-            }
-          }
-          patch.start = start;
-          patch.end = end || start;
-          patch.phases = map;
-        } else {
+        // With phases the dates are the space's timeline, not the form's (the plan leaves them out of the write).
+        if (!plan.phased()) {
           const start = $('f-start').value;
           const end = $('f-end').value;
           if (end && !start) return fail('The last day needs a first day.');

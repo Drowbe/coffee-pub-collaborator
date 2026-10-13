@@ -3,8 +3,10 @@
 // (the calendar itself, `main`, and the Agenda beside it, `panel`). On the environment page (and as a part) it holds
 // the environment's events and shows the events of every space the viewer belongs to, each marked with its space's
 // icon, editable where the viewer may add events in that space (`write` from host.spaces()); a new event there asks
-// where it goes, every time. In a space it holds that space's events and shows the environment's beside them. The
-// SDK (window.host) is injected by the host.
+// where it goes, every time. In a space it holds that space's events and shows the environment's beside them. As a
+// part of the destination in a space (/calendar?space=<id>; plan-calendar-todo.md) it holds that space's events alone:
+// nothing is asked about where an event goes, reminders and markers are that space's, and the environment's events
+// are neither fetched nor shown. The SDK (window.host) is injected by the host.
 (async function () {
   'use strict';
 
@@ -28,6 +30,8 @@
   // A part of the Calendar destination: 'main' (the calendar) or 'panel' (the Agenda); null on every other surface.
   // As a part it draws no view switch or filter of its own: the page's bar does those (host.destination).
   const part = (info.context.destination && info.context.destination.part) || null;
+  // The environment's events beside a space's: on the space's canvas and its own page, never as a part in a space.
+  const showsEnvironment = inSpace && !part;
   // The person's own choice of the view to open on (Settings > Module settings).
   let prefs = {};
   try { prefs = await host.settings.get(); } catch (err) { prefs = {}; }
@@ -149,7 +153,7 @@
       }
     }
     for (const item of await host.storage.list('event:')) remember('here', item);
-    if (inSpace) {
+    if (showsEnvironment) {
       try {
         for (const item of await host.storage.list('event:', { scope: 'environment' })) remember('environment', item);
       } catch (err) {
@@ -167,6 +171,7 @@
   }
   host.on('change', (e) => {
     if (!e.key.startsWith('event:')) return;
+    if (e.scope === 'environment' && inSpace && !showsEnvironment) return; // not shown here: a part in a space
     const scope = e.scope === 'spaces' ? 'spaces' : e.scope === 'environment' && inSpace ? 'environment' : 'here';
     const id = e.key.slice(6);
     if (e.deleted) events.delete(keyOf(scope, id, e.spaceId));
@@ -358,8 +363,8 @@
     if (view === 'week') { const s0 = weekStart(); return { from: s0, to: addDays(s0, 7) }; }
     return { from: new Date(cursor.getFullYear(), cursor.getMonth(), 1), to: new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1) };
   }
-  // The destination's filter left nothing on.
-  const nothingPicked = () => Boolean(part) && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id)) && ![...externalCalendars.keys()].some((id) => !hiddenExternal.has(id));
+  // The destination's filter left nothing on (in a space there is no such filter: its one place is always shown).
+  const nothingPicked = () => Boolean(part) && !inSpace && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id)) && ![...externalCalendars.keys()].some((id) => !hiddenExternal.has(id));
   const pickOne = () => `Pick at least one in ${word('space', { many: true, cap: true })}.`;
 
   function render() {
@@ -1080,7 +1085,9 @@
       for (const id of spaceInfo.keys()) if (!on.has(id)) hiddenSpaces.add(id);
       pickedSpaces = on;
     }
-    hideOwn = st.environment === false;
+    // The page's filter says whether the environment's own events show; in a space the page has no such choice (its
+    // state says `environment: false` for the aggregate's sake) and this place's own events always show.
+    hideOwn = !inSpace && st.environment === false;
     if (Array.isArray(st.externalOff)) {
       hiddenExternal.clear();
       for (const id of st.externalOff) hiddenExternal.add(String(id));

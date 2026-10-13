@@ -60,42 +60,24 @@
     }
 
     const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []) || [];
-    const spaceOf = () => (typeof host.space === 'function' ? host.space() : null);
-
-    // An old trip (no `v: 2`) keeps its dates and, when the first phase is not the main one, that phase starts on the
-    // day the space was created. Once per space (PHASES_MOVED_KEY). A 409 means someone else wrote it; the load that
-    // follows reads their copy. Objects are not rewritten. Someone who cannot edit writes nothing and reads the same
-    // dates from the defaults (the first phase begins on the created day when it has no start of its own).
-    async function movePhases() {
-      try {
-        if (await host.storage.get(PHASES_MOVED_KEY)) return;
-        const t = await host.storage.get(TRIP_KEY);
-        if (t && t.value && t.value.v !== 2) {
-          const phases = templatePhases();
-          const first = Array.isArray(phases) ? phases[0] : null;
-          const main = Array.isArray(phases) ? phases.find((p) => p && p.main) : null;
-          const next = cleanTrip(t.value);
-          if (first && first.id && (!main || first.id !== main.id)) {
-            const day = createdDay(spaceOf());
-            if (day && !(next.phases[first.id] && next.phases[first.id].start)) {
-              next.phases = { ...next.phases, [first.id]: { ...(next.phases[first.id] || {}), start: day } };
-            }
-          }
-          try {
-            await host.storage.set(TRIP_KEY, next, { version: t.version });
-          } catch (err) {
-            if (!err || err.status !== 409) throw err;
-          }
-        }
-        await host.storage.set(PHASES_MOVED_KEY, { at: new Date().toISOString() }, { version: 0 });
-      } catch (err) {
-        // not allowed to write here, or it failed part way: tried again on the next load; nothing is lost meanwhile
-      }
-    }
+    // The space's phase timeline (plan-one-bar.md step 2), [] without phases or on a host without the rule.
+    const bands = () => {
+      if (!templatePhases().length || !host.util || typeof host.util.phaseTimeline !== 'function') return [];
+      try { return host.util.phaseTimeline({ today: ymd(new Date()) }) || []; } catch (err) { return []; }
+    };
+    const phased = () => templatePhases().length > 0;
+    // The trip as the plan shows it: with phases, its first and last day are the main band's (null while the main
+    // phase has no start) and never the stored ones; a space with dated phases has a trip even before anything is
+    // stored. Without phases, the stored trip as it is.
+    const withDates = (t) => {
+      if (!phased()) return t;
+      const span = tripSpan(null, bands());
+      if (!t && !span.start) return null;
+      return { ...(t || cleanTrip({})), start: span.start, end: span.end };
+    };
 
     async function load() {
       await moveOldKeys();
-      await movePhases();
       const t = await host.storage.get(TRIP_KEY);
       remember(TRIP_KEY, t ? t.value : null, t ? t.version : null);
       items.clear();
@@ -158,7 +140,7 @@
     // The items on the line, in the order they are on it: by joint (the head first, then the day each follows), then by hand order.
     const onLine = () => sortLine(list().filter((i) => jointOf(i) !== null).map((i) => ({ ...i, after: jointOf(i) })));
     const atJoint = (after) => onLine().filter((i) => i.after === after);
-    const days = () => planDays(trip, list().map((i) => ({ ...i, date: dayOf(i) })));
+    const days = () => planDays(withDates(trip), list().map((i) => ({ ...i, date: dayOf(i) })));
     const byDay = () => itemsByDay(sortable(), days(), dayOf);
     const nextOrder = (date) => {
       const same = sortable().filter((i) => !i.time && i.date === date);
@@ -166,17 +148,34 @@
     };
     const nextJointOrder = (after) => jointOrder(atJoint(after), null, null);
 
+    // With phases, the dates are the space's: `start` and `end` are left out of what is written (an old trip's are
+    // dropped here), and any stored `phases` goes with them (cleanTrip never keeps it).
     async function saveTrip(patch) {
-      const next = cleanTrip({ ...(trip || {}), ...patch, by: host.user.name });
+      const clean = cleanTrip({ ...(trip || {}), ...patch, by: host.user.name });
+      const { start: _s, end: _e, ...rest } = clean;
+      const next = phased() ? rest : clean;
       const saved = await host.storage.set(TRIP_KEY, next, tripVersion === null ? {} : { version: tripVersion });
       remember(TRIP_KEY, next, saved.version);
       changed();
-      return trip;
+      return withDates(trip);
+    }
+
+    // The main phase's end moved later to cover `day` through the host (host.phasesCover, the cover route): only the
+    // end moves, and every later boundary with it. Nothing without phases, or on a host without the call.
+    async function coverDay(day) {
+      if (!phased() || typeof host.phasesCover !== 'function') return null;
+      const result = await host.phasesCover(day);
+      changed();
+      return result;
     }
 
     async function stretchFor(item) {
-      const span = coverTrip(trip, coverDaysOf(item), item, templatePhases());
-      if (span && span.start) await saveTrip({ start: span.start, end: span.end });
+      const current = withDates(trip);
+      const span = coverTrip(current, coverDaysOf(item), item, templatePhases());
+      if (span && span.start) {
+        // With phases only the main phase's end may move (the sheet sets its start); without, the plan's own dates grow.
+        if (phased()) { if (span.end > current.end) await coverDay(span.end); } else await saveTrip({ start: span.start, end: span.end });
+      }
       // No trip yet, or a phase that is not the main one: the object is kept, and nothing is left off the day list.
       const missed = span && span.outside;
       if (!missed || !missed.length) return;
@@ -454,8 +453,8 @@
     }
 
     return {
-      refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, onSaid, saveTrip, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, nudgeItem, addLink, fromSuggestion, fromObject,
-      get trip() { return trip; },
+      refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, onSaid, saveTrip, coverDay, bands, phased, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, nudgeItem, addLink, fromSuggestion, fromObject,
+      get trip() { return withDates(trip); },
       get suggestions() { return suggested; },
       versionOf: (id) => (items.get(id) || {}).version,
       subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); },

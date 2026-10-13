@@ -83,7 +83,6 @@
 <template id="tpl-phase-head"><div class="phase-head" data-phase=""><h2 data-slot="label"></h2></div></template>
 <template id="tpl-undated"><section class="undated" id="undated"><h2>Not on a day yet</h2></section></template>
 <template id="tpl-undated-group"><div class="undated-group"><h3 data-slot="label"></h3><ul class="decisions"></ul></div></template>
-<template id="tpl-phase-row"><div class="phase-dates" data-phase=""><span data-slot="label"></span><label>Start<input type="date" data-phase-start></label><label>End<input type="date" data-phase-end></label></div></template>
 
 <!-- ============================ the card family (see CONTRACT.md, "The card family") ============================
      A day is a header and an ol.timeline of rows. A row is li.row.entry[data-type][data-id][data-kind] holding .when (the time),
@@ -156,7 +155,8 @@
 <template id="tpl-editor-trip"><form class="editor-card" id="form">
     <h3 id="editor-title">The plan</h3>
     <label>Name<input id="f-title" name="title" type="text" maxlength="120"></label>
-    <div id="f-phases"></div>
+    <!-- with phases the dates are the space's timeline (plan-one-bar.md step 2): First day and Last day hide, this line shows -->
+    <p class="hint" id="f-phase-note" hidden>The dates, the trip's first and last day among them, are set from the phase chip in the top bar.</p>
     <div class="editor-row">
       <label>Where<input id="f-destination" name="destination" type="text" maxlength="80"></label>
       <label>First day<input id="f-start" name="start" type="date"></label>

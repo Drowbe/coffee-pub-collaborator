@@ -44,6 +44,8 @@ const { ModuleData } = require('./module-data');
 const { ModuleHooks } = require('./module-hooks');
 const themeCssLib = require('./theme-css');
 const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText, UNNAMED_ENVIRONMENT, MAX_EXTERNAL_CALENDARS } = require('./store');
+// The phase timeline rule (plan-one-bar.md, step 1), the one copy the pages use too.
+const phaseRule = require('../public/phases.js');
 const auth = require('./auth');
 const { buildEnvironment, flushEnvironment } = require('./environment');
 const { HostRegistry, HostError, cleanSlug } = require('./host-registry');
@@ -1446,7 +1448,9 @@ function watchTheme(change) {
 
 function branding() {
   const s = store.settings;
-  return { environmentName: s.environmentName, productName: PRODUCT_NAME, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), verbs: store.resolvedVerbs(), homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
+  // The template's ordered phases, for the phase chip (plan-one-bar.md, step 3); [] with no template or none in it.
+  const phases = (Array.isArray(store.templatePhases) ? store.templatePhases : []).map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}) }));
+  return { environmentName: s.environmentName, productName: PRODUCT_NAME, hosted: Boolean(BASE_DOMAIN), words: store.resolvedWords(), verbs: store.resolvedVerbs(), phases, homeIcon: store.homeIcon, loginText: s.loginText, language: s.language || 'en', clock: s.clock === '24' ? '24' : '12', currency: s.currency || 'USD', allowRegistration: Boolean(s.allowRegistration), mfaOffered, mfaRequired: Boolean(s.mfaRequired), maxQuality: s.maxQuality || 720, allowScreenShare: s.allowScreenShare !== false, allowAsides: s.allowAsides !== false, allowPrivate: s.allowPrivate !== false, allowReactions: s.allowReactions !== false, conferenceEnabled: s.conferenceEnabled !== false, activeThemeId: s.activeThemeId || null, themeMode: environmentThemeMode(), themeVersion: environmentThemeVersion(), hasIcon: !!store.iconPath(), hasBackground: !!store.siteImagePath('background'), version: VERSION, border: s.border, borderColor: s.borderColor, borderWidth: s.borderWidth || 6, mutedBorder: s.mutedBorder !== false, mutedColor: s.mutedColor || '#b8503f', plate: Boolean(s.plate), plateLayout: s.plateLayout || 'lower-left', plateColor: s.plateColor || '#000000', plateTextColor: s.plateTextColor || '#f1e6d8', plateFontSize: s.plateFontSize || 16, plateOpacity: s.plateOpacity ?? 60, plateTextCase: s.plateTextCase || 'default', charBorder: Boolean(s.charBorder), charBorderColor: s.charBorderColor || '#6fae6b', charMutedBorder: Boolean(s.charMutedBorder), charMutedColor: s.charMutedColor || '#b8503f', charBorderWidth: s.charBorderWidth || 6, pictureBackground: Boolean(s.pictureBackground), pictureColor: s.pictureColor || '#1a1410', pictureScale: s.pictureScale || 100, offlineDim: s.offlineDim ?? 0, offlineTint: s.offlineTint || '#000000', offlineTintOpacity: s.offlineTintOpacity ?? 0, asideDim: s.asideDim ?? 0, asideTint: s.asideTint || '#000000', asideTintOpacity: s.asideTintOpacity ?? 0, privateDim: s.privateDim ?? 0, privateTint: s.privateTint || '#000000', privateTintOpacity: s.privateTintOpacity ?? 0, reactions: Array.isArray(s.reactions) ? s.reactions : [], icons: Array.isArray(s.icons) ? s.icons : [], guestImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.guestImagePath(slot)])), defaultImages: Object.fromEntries(PARTICIPANT_SLOTS.map((slot) => [slot, !!store.defaultImagePath(slot)])) };
 }
 
 function initials(name) {
@@ -3518,8 +3522,43 @@ app.get('/api/spaces/:id', requireOwner, (req, res) => {
   if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
   res.json({ space });
 });
-app.patch('/api/spaces/:id', requireOwner, (req, res) => {
-  res.json({ space: store.updateSpace(req.params.id, req.body || {}) });
+// Owners and the admin change anything; a member ticked as this space's moderator may send `phases` (the dates on
+// the timeline, plan-one-bar.md step 1), `opensWith` and `defaultLayout` (Set up, step 4) and nothing else: any
+// other field in a moderator's body is "owners only". The values go through store.updateSpace's rules, the same as
+// an owner's. Whether the page may offer Set up comes from /api/me: hasOwnerRights, or
+// user.spaces[<id>].permissions.moderator.
+const MODERATOR_SPACE_FIELDS = ['phases', 'opensWith', 'defaultLayout'];
+app.patch('/api/spaces/:id', requireUser, (req, res) => {
+  const body = req.body || {};
+  if (!isOwner(req)) {
+    const space = store.spaceById(req.params.id);
+    if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
+    const me = currentUser(req);
+    const moderates = space.members.includes(me.key) && Boolean(store.spaceFlags(me.key, space.id).moderator);
+    const onlyTheirs = Object.keys(body).every((k) => MODERATOR_SPACE_FIELDS.includes(k));
+    if (!moderates || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
+  }
+  res.json({ space: store.updateSpace(req.params.id, body) });
+});
+// The main phase's end moved later to cover `day` (YYYY-MM-DD), every later boundary shifted by the same number of
+// days (public/phases.js coverMain; plan-one-bar.md step 1), for anyone who can write in a module that is on in this
+// space (an owner always). 200 with the new `phases`; 204 when nothing moved (the day is covered already, is before
+// the main phase, or there is no dated main phase).
+app.post('/api/spaces/:id/phases/cover', (req, res) => {
+  const who = moduleViewer(req);
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' });
+  const space = store.spaceById(req.params.id);
+  if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
+  const day = req.body?.day;
+  if (!phaseRule.isDay(day)) return res.status(400).json({ error: 'Send the day to cover as YYYY-MM-DD.' });
+  const perms = modulePerms(who, space.id);
+  const mayWrite = (who.user && hasOwnerRights(who.user)) || modules.enabledAll().some(({ manifest, entry }) => manifest.scope.includes('space')
+    && ModuleManager.onInSpace(entry, manifest, space.id) && moduleSpaceAccess(entry, who, space) && moduleCan(manifest, perms, 'write'));
+  if (!mayWrite) return res.status(403).json({ error: `Only someone who can write in ${word('module', { a: true })} that is on in this ${word('space')} can move its dates.` });
+  const phases = Array.isArray(store.templatePhases) ? store.templatePhases : [];
+  const result = phaseRule.coverMain(phases, space.phases, day, { created: space.createdAt });
+  if (!result.moved) return res.status(204).end();
+  res.json({ phases: store.updateSpace(space.id, { phases: result.dates }).phases });
 });
 app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   store.removeSpace(req.params.id);
@@ -3958,7 +3997,9 @@ function layoutSpaceFor(req, res) {
   const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
   if (!allowed) return void res.status(403).json({ error: `You are not in that ${word('space')}.` });
   const canShare = Boolean(who.user) && (hasOwnerRights(who.user) || Boolean(store.spaceFlags(who.user.key, space.id).moderator));
-  return { who, space, canShare, canSetDefault: Boolean(who.user) && hasOwnerRights(who.user) };
+  // canSetDefault: who may PATCH the space's defaultLayout -- owners, the admin and, since Set up (plan-one-bar.md
+  // step 4), this space's moderators: the same people who share layouts.
+  return { who, space, canShare, canSetDefault: canShare };
 }
 const sharedLayoutRefusal = () => `Only ${word('owner', { many: true })}, the ${word('admin')} and this ${word('space')}'s ${word('moderator', { many: true })} can change shared layouts.`;
 const guestLayoutRefusal = () => `${word('guest', { many: true, cap: true })} can load shared layouts but not save or change them.`;
@@ -6164,14 +6205,34 @@ app.get('/api/destinations', (req, res) => {
   });
 });
 
+// A destination as a view of one space (plan-calendar-todo.md and plan-map-places.md, step 1; `?space=<id>`): the parts
+// whose module is on in that space and readable by the viewer there, a guest with the space's token included. The
+// environment option governs only the aggregate page, so it is not asked here. Answers { shown, space } or null when
+// the space is not one the viewer is in (an aside, an unknown id or an outsider all read the same, so nothing says
+// which spaces exist), or the destination has no readable main there.
+function destinationInSpace(id, who, spaceId) {
+  if (!who || who.keyed) return null;
+  const space = store.spaceById(String(spaceId || ''));
+  if (!space) return null;
+  const inIt = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
+  if (!inIt) return null;
+  const perms = modulePerms(who, space.id);
+  const enabled = modules.enabledAll();
+  const canRead = (manifest) => {
+    const found = enabled.find((m) => m.manifest.id === manifest.id);
+    return Boolean(found) && manifest.scope.includes('space') && !refusedInLobby(manifest, space.id) && modules.isOnIn(found.entry.id, space.id) && moduleCan(manifest, perms, 'read');
+  };
+  const shown = destinations.resolveDestinationInSpace(id, { enabled, canRead, hasFile: moduleHasFile });
+  return shown ? { shown, space } : null;
+}
+const destinationSpaceRefusal = () => `That page is not available in that ${word('space')} for you.`;
+
 // One destination, for its page: its main part, its panels (in their order) and the spaces any of its parts reads, in
 // the space list's order. A part is what mountModule() takes: { part, module: { id, version, scope, name, icon },
-// entry, runMode, label }. 404 when it is not shown for this viewer.
+// entry, runMode, label }. 404 when it is not shown for this viewer. With ?space=<id>, the same destination as a view
+// of that space (destinationInSpace above): `spaces` is empty and `space` names the one it is a view of.
 app.get('/api/destinations/:id', (req, res) => {
   const who = moduleViewer(req);
-  const ctx = destinationContext(who);
-  const shown = ctx ? destinations.resolveDestination(req.params.id, ctx) : null;
-  if (!shown) return res.status(404).json({ error: 'That page is not in this top bar.' });
   const describe = ({ manifest, entry, part }) => ({
     part: part.part,
     module: { id: manifest.id, version: manifest.version, scope: manifest.scope, ...shownModule(manifest) },
@@ -6179,6 +6240,22 @@ app.get('/api/destinations/:id', (req, res) => {
     runMode: modules.runModeOf(entry),
     label: part.label || shownModule(manifest).name,
   });
+  if (req.query.space !== undefined) {
+    const found = destinationInSpace(req.params.id, who, req.query.space);
+    if (!found) return res.status(404).json({ error: destinationSpaceRefusal() });
+    const { shown, space } = found;
+    return res.json({
+      id: shown.dest.id,
+      ...shownModule(shown.main.manifest),
+      main: describe(shown.main),
+      panels: shown.panels.map(describe),
+      spaces: [],
+      space: spaceSummary(space),
+    });
+  }
+  const ctx = destinationContext(who);
+  const shown = ctx ? destinations.resolveDestination(req.params.id, ctx) : null;
+  if (!shown) return res.status(404).json({ error: 'That page is not in this top bar.' });
   const parts = [shown.main, ...shown.panels];
   const inSome = new Set(parts.flatMap((p) => readableSpacesOf(p, who).map((r) => r.id)));
   res.json({
@@ -6933,8 +7010,9 @@ app.get('/api/modules/:id/context', (req, res) => {
     // `currencies`: the codes the server takes (as GET /api/currencies), for a module's currency picker.
     // `words`: every level's and role's words in this environment, as branding()'s (server/words.js), for host.locale().words.
     locale: { language: store.settings.language || 'en', clock: store.settings.clock === '24' ? '24' : '12', currency: store.settings.currency || 'USD', currencies: currencyCodes(store.settings.currency), words: store.resolvedWords() },
-    // The space this read is in, or null outside one. `phases` is the template's, live, or [] when there is none.
-    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt } : null,
+    // The space this read is in, or null outside one; its `phases` are the dates set on it ({} while none; plan-one-bar.md
+    // step 1). The top-level `phases` is the template's, live, or [] when there is none.
+    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases } : null,
     phases: phases.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}) })),
   });
 });
@@ -6989,6 +7067,11 @@ app.get('/modules/:id', (req, res) => {
 // person it is shown for. Anyone else signed in goes home, and so does everyone while the page is not built yet.
 for (const dest of destinations.DESTINATIONS) {
   app.get(dest.path, (req, res) => {
+    // As a view of one space (?space=<id>): the same page, for anyone in that space the destination has a readable
+    // main for there, a guest with the space's token included; anyone else goes home as below.
+    if (req.query.space !== undefined && destinationPageReady() && destinationInSpace(dest.id, moduleViewer(req), req.query.space)) {
+      return res.sendFile(page('destination.html'));
+    }
     if (!currentUser(req)) {
       // A guest (a space's guest link, no session) goes home: back to their space by its link, or / for a dead link.
       if (req.query.guest !== undefined) {

@@ -23,6 +23,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const require = createRequire(import.meta.url);
 const { Layouts, LayoutError, cleanLayout, LAYOUT_LIMITS } = require('../server/layouts.js');
+import { pathToFileURL } from 'node:url';
 const { Store } = require('../server/store.js');
 
 let n = 0;
@@ -44,6 +45,27 @@ const refused = (input, pattern, label, options) => {
   assert.match(out.error, /^[^\n]+\.$/, `${label}: one sentence`);
   n += 1;
 };
+
+// --- the conference and the chat in a layout (plan-one-bar.md, step 6) ------------------------------------------
+// They live in the always-on column, so the page's layoutOf() never saves them and placeLayout() leaves them alone;
+// the server keeps accepting them in a stored layout (an older one, or one a phone saved), so nothing stored breaks.
+{
+  const dir = tmp('column');
+  fs.copyFileSync(path.join(ROOT, 'public/snap-grid.js'), path.join(dir, 'snap-grid.mjs'));
+  const src = fs.readFileSync(path.join(ROOT, 'public/layouts.js'), 'utf8');
+  fs.writeFileSync(path.join(dir, 'layouts.mjs'), src.replace("from '/snap-grid.js'", "from './snap-grid.mjs'"));
+  const { layoutOf, placeLayout, COLUMN_IDS } = await import(pathToFileURL(path.join(dir, 'layouts.mjs')).href);
+  fs.rmSync(dir, { recursive: true, force: true });
+  assert.deepEqual([...COLUMN_IDS], ['conference', 'chat'], 'the column holds the conference and the chat');
+  const area = { x: 0, y: 0, w: 1200, h: 800 };
+  const saved = layoutOf([{ id: 'conference', mode: 'dock', order: -1, flex: true }, { id: 'chat', mode: 'dock', order: 0, width: 320 }, { id: 'calendar', mode: 'dock', order: 1, width: 360 }], area);
+  assert.deepEqual(saved.modules.map((m) => m.id), ['calendar'], 'layoutOf() leaves the two out');
+  const placed = placeLayout(good(), area);
+  assert.deepEqual(placed.modules.map((m) => m.id), ['calendar'], 'placeLayout() places neither');
+  assert.deepEqual(placed.left, [], 'and names neither as left out');
+  assert.ok(cleanLayout(good()).layout, 'the server still accepts a layout naming them');
+  n += 1;
+}
 
 // --- cleanLayout: the shape -------------------------------------------------------------------------------------
 
@@ -522,7 +544,7 @@ try {
   // Who may read.
   const empty = await expect('member reads', 200, 'GET', L, { cookie: pat });
   assert.deepEqual(empty.json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false });
-  assert.deepEqual((await expect('moderator reads', 200, 'GET', L, { cookie: sam })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: false });
+  assert.deepEqual((await expect('moderator reads', 200, 'GET', L, { cookie: sam })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: true }, 'a moderator may set the default (plan-one-bar.md step 4)');
   assert.deepEqual((await expect('owner reads', 200, 'GET', L, { cookie: owner })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: true });
   assert.deepEqual((await expect('guest reads', 200, 'GET', `${L}${asGuest}`)).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false });
   await expect('nobody signed in', 401, 'GET', L);
@@ -702,13 +724,17 @@ try {
   assert.equal((await forSpace(pat2)).defaultLayout, null, 'for-space: null while none is set');
   assert.equal((await call('GET', `${C}/layouts`, { cookie: pat2 })).json.defaultLayout, null);
 
-  // Owners only: a moderator, a member and a guest are refused, and nothing changes.
-  for (const [label, cookie] of [['moderator', sam2], ['member', pat2]]) {
-    const r = await call('PATCH', C, { cookie, body: { defaultLayout: night.id } });
-    assert.equal(r.status, 403, `${label} sets the default: ${r.text}`);
-  }
+  // Owners, the admin and the space's moderators (plan-one-bar.md step 4): a member and a guest are refused, and
+  // nothing changes. The moderator's set is undone so the owner's below starts from none.
+  const memberSets = await call('PATCH', C, { cookie: pat2, body: { defaultLayout: night.id } });
+  assert.equal(memberSets.status, 403, `member sets the default: ${memberSets.text}`);
   assert.equal((await call('PATCH', C, { body: { defaultLayout: night.id } })).status, 401, 'nobody signed in');
   assert.equal((await call('GET', `${C}/layouts`, { cookie: owner2 })).json.defaultLayout, null, 'refusals changed nothing');
+  await expect('moderator sets the default', 200, 'PATCH', C, { cookie: sam2, body: { defaultLayout: night.id } });
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: pat2 })).json.defaultLayout, night.id, 'a moderator set it');
+  await expect('moderator stops using it', 200, 'PATCH', C, { cookie: sam2, body: { defaultLayout: null } });
+  await expect('moderator clears Opens with', 200, 'PATCH', C, { cookie: sam2, body: { opensWith: null } });
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: owner2 })).json.defaultLayout, null);
   await expect("a person's own layout", 404, 'PATCH', C, { cookie: owner2, body: { defaultLayout: ownCamp.id } });
   await expect('no such layout', 404, 'PATCH', C, { cookie: owner2, body: { defaultLayout: 'lnosuch' } });
   await expect('not an id', 400, 'PATCH', C, { cookie: owner2, body: { defaultLayout: 12 } });

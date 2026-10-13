@@ -59,7 +59,7 @@
           <a class="btn btn-small" data-link target="_blank" rel="noopener" href="#" title="Open this {space}'s link" data-fill hidden><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></a>
           <button class="btn btn-accent btn-small" data-join-popout type="button" title="{enter} in a pop-out window" aria-label="{enter} in a pop-out window" data-fill><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
           <button class="btn btn-small" data-join-with type="button" title="Choose what opens" aria-label="Choose what opens" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i></button>
-          <a class="btn btn-small" data-edit data-overlay-link href="#" title="{Space} settings" data-fill hidden><i class="fa-solid fa-pen fa-fw" aria-hidden="true"></i></a>
+          <a class="btn btn-small" data-edit data-overlay-link href="#" title="Full settings" aria-label="Full settings" hidden><i class="fa-solid fa-pen fa-fw" aria-hidden="true"></i></a>
           <a class="btn btn-small" data-module-settings data-overlay-link href="#" title="{Module} settings" data-fill hidden><i class="fa-solid fa-gears fa-fw" aria-hidden="true"></i></a>
         </span>
       </div>
@@ -79,6 +79,30 @@
        stacking a second bar of ours on top of it. -->
   <iframe class="page-overlay" id="page-overlay-frame" title="Page" hidden></iframe>
 
+  <!-- The work area: the always-on column (the call and the chat, plan-one-bar.md step 6) beside the canvas. The whole
+       of it pops out as one. At 640px and below the column is not drawn: the phone keeps its tabs. -->
+  <div class="work" id="work">
+  <aside class="side-column" id="side-column" aria-label="Call and chat">
+    <!-- The handle: collapses the column to a rail and back. space.js remembers it per space. -->
+    <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" title="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
+    <!-- The conference, as a strip of tiles while on the call (canvas.js puts it here). -->
+    <div class="side-column-strip" id="side-column-strip"></div>
+    <!-- Join the call (out of the call) and Online: the space bar's own elements, placed here wider than a phone. -->
+    <div class="side-column-bar">
+      <div class="side-column-call" id="side-column-call"></div>
+      <div class="side-column-online" id="side-column-online"></div>
+    </div>
+    <!-- The chat (canvas.js puts #chat here). -->
+    <div class="side-column-chat" id="side-column-chat"></div>
+    <!-- Collapsed: the faces on the call and the chat's unread count. -->
+    <div class="side-column-rail" id="side-column-rail">
+      <button class="side-column-rail-chat" id="side-column-rail-chat" type="button" title="Chat" aria-label="Chat"><i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="badge" id="side-column-rail-unread" hidden></span></button>
+      <div class="side-column-rail-faces" id="side-column-rail-faces"></div>
+    </div>
+  </aside>
+  <!-- A view other than the Workspace (Calendar, Map: the one bar's views, plan-one-bar.md step 7): the page in a frame
+       beside the column, in the canvas's place; the column stays outside it and no Away is set. -->
+  <iframe class="view-frame" id="view-frame" title="View" hidden></iframe>
   <!-- Everything in the call lives inside the canvas so it can pop out as one. -->
   <main class="canvas" id="canvas" hidden>
     <!-- Each module owns a column of the space's grid: a content area over
@@ -336,18 +360,20 @@
       </div>
     </aside>
 
-    <!-- Shown when nothing is open on the canvas: no conference, no chat, no module. -->
+    <!-- Shown when nothing is open on the canvas (on a phone: no conference, no chat, no module). -->
     <div class="canvas-empty" id="canvas-empty" hidden>
-      <p data-fill>Nothing is open. Open the conference, the chat or {a module} from the {space} bar.</p>
+      <p data-fill>Nothing is open. Open {a module} from the {space} bar.</p>
     </div>
 
   </main>
+  </div>
 
   <!-- @livekit/track-processors (background blur) imports these two by bare
        package name; there's no bundler here to resolve that, so this maps
        them to the same self-hosted files everything else already uses. Its
        exact text is pinned by a CSP hash above -- change one, change both. -->
   <script type="importmap">{"imports":{"livekit-client":"/lib/livekit-client.esm.mjs","@mediapipe/tasks-vision":"/lib/tasks-vision.mjs"}}</script>
+  <script src="/phases.js"></script>
   <script src="/sdk/host.js" data-host-sdk></script>
   <script type="module" src="/space.js"></script>
 </body>

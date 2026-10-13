@@ -1,9 +1,11 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
-import { anchorSegments, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
+import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, destinationsNow, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme } from '/brand.js';
+import { anchorSegments, spaceViews, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
+import { openPhaseSheet, chipFit } from '/phase-sheet.js';
+import { createSpaceSetup } from '/space-setup.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
-import { whatOpens, conferenceAllowed } from '/opens-with.js';
+import { whatOpens, conferenceAllowed, opensWithSummary } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
@@ -21,7 +23,11 @@ const confEl = document.getElementById('conference');
 const topbarEl = document.getElementById('topbar');
 // The chat can be in a window of its own, away from the canvas, so it is searched too.
 const chatEl = document.getElementById('chat');
-const $ = (id) => (id === 'canvas' ? canvasEl : document.getElementById(id) || canvasEl.querySelector(`#${id}`) || confEl.querySelector(`#${id}`) || topbarEl.querySelector(`#${id}`) || chatEl.querySelector(`#${id}`));
+// The work area (plan-one-bar.md, step 6): the always-on column (#side-column: the call as a strip of tiles or Join the
+// call, Online, the chat) beside the canvas. It pops out as one with the canvas, so it is searched too.
+const workEl = document.getElementById('work');
+const columnEl = document.getElementById('side-column');
+const $ = (id) => (id === 'canvas' ? canvasEl : document.getElementById(id) || canvasEl.querySelector(`#${id}`) || confEl.querySelector(`#${id}`) || topbarEl.querySelector(`#${id}`) || chatEl.querySelector(`#${id}`) || workEl.querySelector(`#${id}`));
 // Before anything else touches a header element -- the header itself is
 // built here, not left static in space.html, so every #topbar-crumb,
 // #recall-button etc. lookup below needs this to have already run.
@@ -44,6 +50,15 @@ subnav.innerHTML = `
   <span class="nav-right subnav-tools"></span>`;
 topbarEl.appendChild(subnav);
 nav.attach('secondary', subnav); // its tools are registered further down, once the state their `visible` reads exists
+// The space bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5): `body.view-<id>` names the view
+// being shown, and wider than a phone the stylesheet shows the bar only for the Workspace (on a phone it is the tab
+// bar, kept in every view: decision 3). The views are the one bar's (step 7, showView() by the switcher below):
+// the Workspace, and the destinations' pages over it. (setView() further down is the conference's own layout, another thing.)
+function showSpaceView(id) {
+  for (const c of [...document.body.classList]) if (c.startsWith('view-')) document.body.classList.remove(c);
+  document.body.classList.add(`view-${id}`);
+}
+showSpaceView('workspace');
 // The module chooser, first in the space bar: one button, Layout (the environment's `layout` verb), that opens a panel
 // (plan-layout-menu.md) in two sections. Show: a switch per module (the conference, the chat and the space's modules),
 // each showing or hiding its module on the canvas (canvas.js writes it, with switch-list.js). Arrange: Dock all, Clean up,
@@ -134,11 +149,14 @@ function placeSubnav() {
     moduleChooser.querySelector('#modules-toggle').setAttribute('aria-expanded', 'false');
     window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
   }
+  placeColumnTools(); // Join the call and Online: in the side column wider than a phone, in the bar (the tab bar) below
   nav.draw('secondary'); // the space bar folds again in the window it is in now (plan-phone-space-bar.md)
   if (popped) { nav.draw('primary'); return; } // the header's phone menu follows that window too
   if (tabs) document.body.appendChild(subnav);
   else topbarEl.appendChild(subnav);
 }
+// Set further down, once Join the call and Online exist (the column section); nothing to place before that.
+let placeColumnTools = () => {};
 placeSubnav();
 // Only this page loads your profile, Manage and a module's page as an overlay over a running call instead of a real
 // navigation (see openOverlay() below): the shared header asks first (app:open-profile, app:open-page, see the
@@ -275,6 +293,7 @@ async function loadPresence() {
       if (portrait) showConferencePortrait(portrait, key);
     }
     renderSpaces();
+    updatePhaseChip(); // the space's dates ride on its presence record: a change by someone else reaches the chip here
     if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: joinInvitedSpace });
     reconcileGhostTiles();
     renderGuestLink();
@@ -987,6 +1006,7 @@ function screenTileFor(participant) {
   tiles.set(key, tile);
   $('grid').appendChild(tile);
   applyLayout();
+  syncShareLift(); // a share lifts the conference out of the column (plan-one-bar.md, step 6)
   return tile;
 }
 function removeScreenTile(identity) {
@@ -999,6 +1019,7 @@ function removeScreenTile(identity) {
   tile.remove();
   tiles.delete(key);
   applyLayout();
+  syncShareLift(); // the last share ending puts the conference back in the column
 }
 
 // --- layouts and ordering -----------------------------------------------------
@@ -1070,7 +1091,9 @@ function registerWordTools() {
   arrangeSection.querySelector('#clean-up').title = `Tidy the floating ${word('module', { many: true })}`;
   arrangeSection.querySelector('#snap-all').closest('label').title = `Snap every floating ${word('module')} to a grid`;
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
-  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
+  // Leave is in the space bar only where the bar is the phone's tab bar (plan-one-bar.md, step 5 and decision 3); wider,
+  // it is the last entry of the top bar's space switcher (brand.js, through app:enter-space { action: 'leave' } below).
+  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, visible: () => phoneWidth(), onClick: () => leaveSpace() });
 }
 registerWordTools();
 nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin', icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin), onClick: () => returnFromAside() });
@@ -1095,6 +1118,7 @@ function syncCallControl() {
   syncWhoIsInCall();
   whoHere.refresh(); // who is here, in the space bar (space-people.js)
   nav.draw('secondary'); // Join the call shows only out of the call
+  syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
 // The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
 // is not off (what /api/presence reports as inCall), with their picture in this space, else their first letter.
@@ -1173,6 +1197,427 @@ const whoHere = createWhoHere({
 });
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
 // --- end who is here ---
+
+// --- the always-on column (plan-one-bar.md, decision 2 and step 6) ---------------------------------------------
+// Wider than a phone, #side-column (space.html) beside the canvas holds the call and the chat in every view: the
+// conference as a strip of tiles while on the call (canvas.js puts it in .side-column-strip, in its `column` mode),
+// else nothing there; under it Join the call (out of the call) and Online, the space bar's own elements, taken out of
+// the registry and placed here; then the chat (in .side-column-chat). A handle collapses the column to a 44px rail
+// (the faces on the call and the chat's unread count), remembered per space (localStorage `app.column.<space>`); it
+// never closes. At 640px and below the column is not drawn and the two tools go back to the tab bar (decision 3). In
+// an aside the column is the whole screen (decision 10, style.css). A screen share lifts the conference into the
+// Workspace as a floating module and back (syncShareLift).
+const columnTools = ['join-call', 'who-here'].map((id) => nav.get(id)); // the registrations above, to put back
+let columnToolsIn = null; // 'column' or 'bar', where the two are now
+placeColumnTools = () => {
+  const toColumn = Boolean(columnEl) && !phoneWidth();
+  const where = toColumn ? 'column' : 'bar';
+  if (where !== columnToolsIn) {
+    columnToolsIn = where;
+    if (toColumn) {
+      for (const t of columnTools) nav.unregister(t.id);
+      columnEl.querySelector('.side-column-call').appendChild(joinCallButton);
+      columnEl.querySelector('.side-column-online').appendChild(whoHere.el);
+    } else {
+      for (const t of columnTools) if (!nav.has(t.id)) nav.register(t);
+    }
+  }
+  syncColumn();
+};
+// What the column shows now: Join the call out of the call, Online while connected (fitted to the row's width, as the
+// bar fits it), and the rail.
+function syncColumn() {
+  if (!columnEl || columnToolsIn !== 'column') return;
+  joinCallButton.hidden = !joinCallWanted();
+  const online = Boolean(currentSpace) && call.state === 'connected';
+  whoHere.el.hidden = !online;
+  if (online) whoHere.fit(Math.max(0, columnEl.querySelector('.side-column-online').clientWidth));
+  columnEl.classList.toggle('in-call', inCall);
+  syncRail();
+}
+const columnKey = (id) => `app.column.${id}`;
+const columnCollapsed = () => Boolean(columnEl?.classList.contains('collapsed'));
+function setColumnCollapsed(on, { remember = true } = {}) {
+  if (!columnEl) return;
+  columnEl.classList.toggle('collapsed', on);
+  const b = columnEl.querySelector('#side-column-toggle');
+  b.setAttribute('aria-expanded', String(!on));
+  b.title = on ? 'Expand' : 'Collapse';
+  b.setAttribute('aria-label', on ? 'Show the call and chat' : 'Collapse the call and chat');
+  b.querySelector('i').className = `fa-solid fa-angles-${on ? 'right' : 'left'} fa-fw`;
+  if (!on && unread) { unread = 0; canvas.setBuiltinUnread('chat', 0); } // opened: the chat is read
+  const id = layoutSpaceId();
+  if (remember && id) {
+    try { localStorage.setItem(columnKey(id), JSON.stringify({ collapsed: on })); } catch { /* private mode: not remembered */ }
+  }
+  syncRail();
+  applyLayout();
+}
+// On entering a space: as it was left in this browser; an aside starts open and remembers nothing.
+function applyColumnPref() {
+  const id = layoutSpaceId();
+  let on = false;
+  if (id) {
+    try { on = Boolean(JSON.parse(localStorage.getItem(columnKey(id)) || 'null')?.collapsed); } catch { on = false; }
+  }
+  setColumnCollapsed(on, { remember: false });
+}
+// The rail: the chat's unread count (its button opens the column into the chat) and a face per person on the call.
+function syncRail() {
+  if (!columnEl || !document.body.classList.contains('in-space')) return;
+  const badge = columnEl.querySelector('#side-column-rail-unread');
+  badge.hidden = unread === 0;
+  badge.textContent = unread > 9 ? '9+' : String(unread);
+  const btn = columnEl.querySelector('#side-column-rail-chat');
+  const said = unread ? `Chat, ${unread} unread` : 'Chat';
+  btn.setAttribute('aria-label', said);
+  btn.title = said;
+  const faces = columnEl.querySelector('#side-column-rail-faces');
+  const people = [...tiles.values()].filter((t) => !t.classList.contains('tile-screen'));
+  const key = people.map((t) => `${t.dataset.identity}:${t.querySelector('.placeholder')?.getAttribute('src') || ''}`).join('|');
+  if (faces.dataset.key === key) return;
+  faces.dataset.key = key;
+  faces.replaceChildren(...people.map((t) => {
+    const face = faces.ownerDocument.createElement('span');
+    face.className = 'side-column-rail-face';
+    face.title = t.querySelector('.name')?.textContent || '';
+    const src = t.querySelector('.placeholder')?.getAttribute('src');
+    if (src) {
+      const img = faces.ownerDocument.createElement('img');
+      img.src = src;
+      img.alt = face.title;
+      face.appendChild(img);
+    } else face.textContent = (face.title || '?').charAt(0).toUpperCase();
+    return face;
+  }));
+}
+// A screen share (anyone's: a screen tile in the grid) lifts the conference out of the column, floating over the
+// Workspace; the last share ending puts it back. Only in column mode (canvas.js says no elsewhere).
+function syncShareLift() {
+  if (!canvas.columnMode()) return;
+  const sharing = [...tiles.values()].some((t) => t.classList.contains('tile-screen'));
+  if (sharing !== canvas.lifted('conference')) canvas.liftBuiltin('conference', sharing);
+}
+if (columnEl) {
+  columnEl.querySelector('#side-column-toggle').addEventListener('click', () => setColumnCollapsed(!columnCollapsed()));
+  columnEl.querySelector('#side-column-rail-chat').addEventListener('click', () => {
+    setColumnCollapsed(false);
+    if (canvas.builtinOpen('chat')) $('chat-input')?.focus();
+  });
+}
+placeColumnTools(); // now that the two exist
+// --- end the always-on column ---
+
+// --- the phase chip (phase-sheet.js) --------------------------------------------------------------------
+// "● Booking · day 2 of 3 ▾" in the top bar's left zone after the breadcrumb (plan-one-bar.md, decisions 7 to 10, step
+// 3): the template's phases (branding.phases) and this space's dates (its presence record's `phases` and `createdAt`,
+// refreshed by the presence poll, and by my own save) through the one rule, public/phases.js (window.Phases). Nothing
+// but the sheet opens from it (phases only inform). No chip with no phases, for a guest, in an aside or while home is
+// shown over the space. It gives way in steps (decision 9: the label, then the dot alone, then nothing): `fit(avail)`,
+// called by the registry's fit of the top bar (fitBar in nav-bar.js) with the width the rest of the bar leaves it. On a
+// phone (step 8) it is the dot and the phase's name alone (`.phase-chip-short`, the stylesheet picks it at 640px and
+// below); the whole words stay its name for a screen reader.
+const phaseChip = document.createElement('button');
+phaseChip.type = 'button';
+phaseChip.id = 'phase-chip'; // an element tool keeps its own id (the registry only names the elements it draws)
+phaseChip.className = 'phase-chip core-link';
+phaseChip.setAttribute('aria-haspopup', 'dialog');
+phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span><i class="fa-solid fa-caret-down fa-fw phase-chip-caret" aria-hidden="true"></i>';
+let templatePhases = []; // the template's phases, from /api/branding, cleaned by the rule
+const phaseRule = () => window.Phases || null;
+const phaseSpaceRecord = () => (currentSpace && !currentSpace.isAside ? presenceSpaces.find((r) => r.id === currentSpace.id) || currentSpace : null);
+const phaseChipWanted = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && me?.role !== 'guest' && templatePhases.length > 0 && Boolean(phaseRule());
+// Owners, the admin and the space's moderators edit the dates (PATCH /api/spaces/:id); a member reads them.
+function canEditPhases() {
+  if (!currentSpace || inAside() || !me || guestToken || me.role === 'guest') return false;
+  return hasOwnerRights(me) || Boolean(me.spaces?.[currentSpace.id]?.permissions?.moderator);
+}
+function phaseToday() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+function phaseTimeline() {
+  const R = phaseRule();
+  const space = phaseSpaceRecord();
+  if (!R || !space) return [];
+  return R.timelineOf(templatePhases, space.phases || {}, { today: phaseToday(), created: space.createdAt });
+}
+function applyPhaseChipFit(state) {
+  phaseChip.classList.toggle('dot-only', state === 'dot');
+  phaseChip.classList.toggle('chip-gone', state === 'none');
+}
+function fitPhaseChip(avail = Infinity) {
+  if (!phaseChip.isConnected || phaseChip.hidden) return;
+  phaseChip.classList.remove('dot-only', 'chip-gone');
+  const full = phaseChip.getBoundingClientRect().width;
+  phaseChip.classList.add('dot-only');
+  const dot = phaseChip.getBoundingClientRect().width;
+  applyPhaseChipFit(chipFit({ avail, full, dot }));
+}
+function updatePhaseChip() {
+  const R = phaseRule();
+  const show = phaseChipWanted();
+  nav.draw('primary');
+  if (!show || !R) return;
+  const words = R.chipWords(phaseTimeline(), phaseToday());
+  phaseChip.querySelector('.phase-chip-label').textContent = words;
+  phaseChip.querySelector('.phase-chip-short').textContent = words.split(' · ')[0]; // the phase's name alone, for a phone
+  phaseChip.title = `${words}. Phases`;
+  phaseChip.setAttribute('aria-label', `${words}. Phases`);
+  nav.draw('primary'); // the words changed: the bar fits the chip again (fitBar)
+}
+async function savePhases(dates) {
+  const { space } = await api('PATCH', `/api/spaces/${encodeURIComponent(currentSpace.id)}`, { phases: dates });
+  const record = presenceSpaces.find((r) => r.id === currentSpace.id);
+  if (record) record.phases = space.phases || {};
+  if (currentSpace) currentSpace.phases = space.phases || {};
+  updatePhaseChip();
+  return space.phases || {};
+}
+// The sheet, from the chip or from Set up's Phases button (`opener` takes the keyboard back when it closes).
+function openPhaseSheetFrom(opener) {
+  const space = phaseSpaceRecord();
+  if (!space || !phaseRule()) return;
+  openPhaseSheet({
+    phases: templatePhases,
+    dates: space.phases || {},
+    created: space.createdAt,
+    today: phaseToday(),
+    canEdit: canEditPhases(),
+    save: savePhases,
+    rule: phaseRule(),
+    opener,
+    words: { owner: word('owner'), moderator: word('moderator') },
+  });
+}
+phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
+nav.register({ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', groupOrder: 20, order: 1, icon: 'circle', label: 'Phases', element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip });
+// --- end the phase chip ---
+
+// --- the one bar: the switcher and the views (plan-one-bar.md, decisions 1, 6, 9 and 10, step 7) ---------------------
+// In a space the top bar's left zone is the space's name with the switcher's caret as one control (`space-switcher`,
+// in the breadcrumb's place: the breadcrumb is not drawn beside it wider than a phone, and the Spaces slot leaves the
+// bar, setInSpace), then the views (`view-workspace`, then `dest-<id>` for each destination the environment shows,
+// as the destinations' entries looked: spaceViews() in primary-nav.js), then the phase chip. A view other than the
+// Workspace opens its page for this space (`/calendar?space=<id>`) in a frame beside the always-on column, in the
+// canvas's place, and sets no Away: it is a view of the same space. A guest's bar is the name alone (the breadcrumb)
+// and no views yet; an aside's is the switcher, Rejoin call (the right zone) and your picture. On a phone (step 8) the
+// one row is the switcher (the breadcrumb is not drawn beside it at any width), the chip as a dot and the phase's name,
+// the bell and the menu; the views are the menu's first entries (`phone: 'menu'`, phoneZones in nav-bar.js); the
+// column is not drawn and the tab bar stays (decision 3). A tab tapped while another view shows goes back to the
+// Workspace, where the tabs live.
+const viewFrame = document.getElementById('view-frame');
+let currentView = 'workspace';
+const oneBar = () => Boolean(currentSpace) && !viewingHome && !guestToken && me?.role !== 'guest';
+const spaceSwitcher = document.createElement('span');
+spaceSwitcher.id = 'space-switcher'; // an element tool keeps its own id
+spaceSwitcher.className = 'space-switcher';
+const spaceSwitcherButton = document.createElement('button');
+spaceSwitcherButton.type = 'button';
+spaceSwitcherButton.className = 'core-link space-switcher-button';
+spaceSwitcherButton.setAttribute('aria-haspopup', 'menu');
+spaceSwitcherButton.setAttribute('aria-expanded', 'false');
+spaceSwitcherButton.innerHTML = '<i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="crumb-label"></span><i class="fa-solid fa-caret-down fa-fw space-switcher-caret" aria-hidden="true"></i>';
+spaceSwitcherButton.addEventListener('click', () => openSpaceSwitcher(spaceSwitcherButton));
+spaceSwitcher.appendChild(spaceSwitcherButton);
+nav.register({ id: 'space-switcher', bar: 'primary', zone: 'left', group: 'where', order: 9.5, icon: 'caret-down', label: 'Switch', element: spaceSwitcher, visible: () => oneBar() });
+// The switcher reads as the segment the breadcrumb shows last: the space's name and icon, or an aside's own words.
+function paintSpaceSwitcher(seg, icon) {
+  if (!spaceSwitcherButton.isConnected) spaceSwitcher.replaceChildren(spaceSwitcherButton); // the name's input went with Set up
+  const label = seg ? seg.label : '';
+  const i = spaceSwitcherButton.querySelector('i:first-child');
+  i.className = `${icon.includes(' ') ? icon : `fa-solid fa-${icon}`} fa-fw`;
+  spaceSwitcherButton.querySelector('.crumb-label').textContent = label;
+  const text = `${label}. Switch ${word('space')}`;
+  spaceSwitcherButton.title = text;
+  spaceSwitcherButton.setAttribute('aria-label', text);
+}
+// The views, drawn again when the space or the environment's destinations change (app:destinations, brand.js).
+const viewIds = new Set();
+let viewsFor = ''; // the space the views were drawn for
+function drawViews() {
+  for (const id of viewIds) nav.unregister(id);
+  viewIds.clear();
+  viewsFor = currentSpace && !currentSpace.isAside ? currentSpace.id : '';
+  const list = destinationsNow().map((d) => ({ id: d.id, name: d.name, icon: d.icon, href: d.href }));
+  for (const v of spaceViews(list, { space: viewsFor, current: currentView, guest: Boolean(guestToken) || me?.role === 'guest' })) {
+    const { current, view, href, ...tool } = v;
+    const el = nav.register({ ...tool, bar: 'primary', href, phone: 'menu', visible: () => oneBar() && !inAside(), onClick: (event) => { event.preventDefault(); showView(view, href); } });
+    viewIds.add(tool.id);
+    if (!el) continue;
+    el.dataset.destination = href || view; // the destinations' look: never shrinks, its icon only from 641 to 820px (style.css)
+    el.dataset.view = view;
+    el.title = tool.label;
+    if (current) el.setAttribute('aria-current', 'page');
+    else el.removeAttribute('aria-current');
+  }
+}
+function markViews() {
+  for (const id of viewIds) {
+    const el = nav.elementOf(id);
+    if (!el) continue;
+    if (el.dataset.view === currentView) el.setAttribute('aria-current', 'page');
+    else el.removeAttribute('aria-current');
+  }
+}
+document.addEventListener('app:destinations', () => drawViews());
+// Show a view: the Workspace (the canvas, its toolbar back), or a destination's page for this space in the frame
+// beside the column. No Away: the call goes on in the column. The page gets the same handoff a page over the call
+// gets (its Back goes to the Workspace, closeProfileOverlay below).
+function showView(view, href = '') {
+  if (view !== 'workspace' && (!href || !oneBar())) return;
+  currentView = view;
+  showSpaceView(view);
+  if (view === 'workspace') {
+    const wasView = !viewFrame.hidden;
+    viewFrame.hidden = true;
+    if (viewFrame.getAttribute('src')) viewFrame.src = 'about:blank';
+    if (wasView && !viewingHome) canvas.showFloating(true);
+  } else {
+    viewFrame.src = `${href}${href.includes('?') ? '&' : '?'}${overlayParams()}`;
+    viewFrame.hidden = false;
+    canvas.showFloating(false); // a floating module lives beside the canvas, not over a view
+  }
+  markViews();
+}
+// On a phone the tab bar stays under every view (decision 3): a tab, Join the call or Online tapped while another view
+// shows goes back to the Workspace first, where the tabs show their module.
+subnav.addEventListener('click', (event) => {
+  if (currentView === 'workspace' || !phoneWidth()) return;
+  if (event.target.closest('.modules-menu-item, #join-call, .who-here')) showView('workspace');
+});
+// The same links in the header of a view's page (they target the top window): home in this page.
+viewFrame.addEventListener('load', () => {
+  let doc = null;
+  try {
+    doc = viewFrame.contentDocument;
+  } catch {
+    return; // not our own page
+  }
+  doc?.addEventListener('click', (event) => {
+    if (event.target.closest?.(HOME_LINKS)) goHome(event);
+  });
+});
+// An aside's bar (decision 10): Rejoin call beside your picture; the space bar (the Workspace's toolbar) is not drawn
+// there (style.css), so the tool is here too. The phone keeps it in the tab bar.
+nav.register({ id: 'aside-rejoin', bar: 'primary', zone: 'right', group: 'aside', groupOrder: 80, order: 1, icon: 'circle-left', label: 'Rejoin call', labelled: true, visible: () => oneBar() && inAside() && Boolean(currentSpace.origin) && !phoneWidth(), onClick: () => returnFromAside() });
+// --- end the one bar ---
+
+// --- Set up (space-setup.js) ----------------------------------------------------------------------------
+// Edit's place (plan-one-bar.md, decision 5, step 4): a `setup` tool in the top bar's right zone before the bell and your picture (step 7),
+// for owners, the admin and this space's moderators (GET /api/me: hasOwnerRights, or
+// user.spaces[<id>].permissions.moderator). Pressing it puts `body.setting-up` on, turns the space's name in the bar
+// into an input (in the switcher's place, placeSetupName below), swaps the tool for Done and Cancel and opens
+// the side panel (a full-screen sheet with its own Done and Cancel on a phone, where the bar's are in the menu). Done
+// saves in one go and leaves the mode; Cancel and Escape leave it and drop the edits. A member
+// has no Set up; the space card's "Full settings" link on Home still opens /spaces/<id>.
+const spaceSetup = createSpaceSetup({ api, word, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout') });
+let settingUp = false;
+const setupNameInput = document.createElement('input');
+setupNameInput.type = 'text';
+setupNameInput.id = 'setup-bar-name';
+setupNameInput.className = 'setup-bar-name';
+setupNameInput.maxLength = 40;
+setupNameInput.autocomplete = 'off';
+setupNameInput.setAttribute('aria-label', 'Name');
+const isModeratorHere = () => Boolean(currentSpace && me?.spaces?.[currentSpace.id]?.permissions?.moderator);
+const canSetUp = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && Boolean(me) && me.role !== 'guest' && (hasOwnerRights(me) || isModeratorHere());
+const setupShown = () => canSetUp() && !settingUp;
+const setupModeShown = () => canSetUp() && settingUp;
+// While setting up, the space's name in the bar carries the input instead of the name: the switcher's place, at every
+// width (step 8: the switcher is the phone's too, so the input never moves as the window crosses 640px; updateCrumb
+// draws the switcher afresh, so this runs after each draw; the input is one element, so what was typed survives).
+function placeSetupName() {
+  if (!settingUp || !hasOwnerRights(me)) return; // a moderator may not rename: the name stays words
+  if (nav.isVisible(nav.get('space-switcher'))) {
+    spaceSwitcher.replaceChildren(setupNameInput);
+  }
+}
+// The panel hangs under the header: its top follows the header's height (one row or two, a phone's one).
+let setupHeaderWatch = null;
+function placeSetupSide() {
+  const top = topbarEl.getBoundingClientRect().bottom;
+  spaceSetup.el.style.setProperty('--setup-top', `${Math.max(0, Math.round(top))}px`);
+}
+function enterSetup() {
+  if (!canSetUp() || settingUp) return;
+  const space = phaseSpaceRecord() || currentSpace;
+  settingUp = true;
+  document.body.classList.add('setting-up');
+  setupNameInput.value = space.name || spaceName;
+  updateCrumb(); // the name as the input, and the bar's Done and Cancel in the tool's place
+  const opened = spaceSetup.open({
+    space,
+    owner: hasOwnerRights(me),
+    moderator: isModeratorHere(),
+    phases: templatePhases.length > 0,
+    conferenceOn: features.conferenceEnabled !== false,
+    nameInput: setupNameInput,
+    openPhases: (opener) => openPhaseSheetFrom(opener),
+    onDone: setupSaved,
+    onLeave: leaveSetup,
+  });
+  if (!opened) { leaveSetup(); return; }
+  placeSetupSide();
+  if (!setupHeaderWatch && typeof ResizeObserver === 'function') {
+    setupHeaderWatch = new ResizeObserver(() => { if (settingUp) placeSetupSide(); });
+    setupHeaderWatch.observe(topbarEl);
+  }
+}
+function leaveSetup() {
+  if (!settingUp) return;
+  settingUp = false;
+  document.body.classList.remove('setting-up');
+  if (spaceSetup.isOpen()) spaceSetup.close();
+  updateCrumb(); // the name back as words, Set up back in the bar
+  const tool = nav.elementOf('setup');
+  if (tool && tool.getClientRects().length) tool.focus();
+}
+// After Done: the space the server answered goes into this page's records (the name in the bar and on the card, the
+// picture), presence is read again so everyone's copy follows, and the line says what happened.
+function setupSaved(space, said, saved = []) {
+  if (space && currentSpace && space.id === currentSpace.id) {
+    const record = presenceSpaces.find((r) => r.id === space.id);
+    if (record) Object.assign(record, space);
+    if (currentSpace !== record) Object.assign(currentSpace, space);
+    spaceName = spaceDisplayName(currentSpace);
+    renderSpaces();
+    renderSpaceLink();
+    if (saved.includes('image') || saved.includes('imageRemoved')) {
+      const img = $('spaces')?.querySelector(`[data-space="${CSS.escape(space.id)}"] .space-choice-image`);
+      if (img && !img.hidden) img.src = `/img/space/${encodeURIComponent(space.id)}?v=${Date.now()}`;
+    }
+  }
+  loadPresence();
+  updateCrumb();
+  saySetup(said);
+}
+// The one line after Done, read out, under the canvas's edge for a moment.
+const setupSaid = document.createElement('p');
+setupSaid.id = 'space-setup-said';
+setupSaid.className = 'setup-said';
+setupSaid.setAttribute('role', 'status');
+setupSaid.setAttribute('aria-live', 'polite');
+setupSaid.hidden = true;
+document.body.appendChild(setupSaid);
+let setupSaidTimer = 0;
+function saySetup(text) {
+  setupSaid.textContent = text;
+  setupSaid.hidden = false;
+  clearTimeout(setupSaidTimer);
+  setupSaidTimer = setTimeout(() => { setupSaid.hidden = true; }, 8000);
+}
+// Escape anywhere on the page cancels, unless something of its own is open (the phase sheet, a menu, the Layout panel),
+// which Escape closes first; the panel's own Escape is its own (space-setup.js).
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || !settingUp || event.defaultPrevented) return;
+  if (event.target.closest?.('#space-setup')) return;
+  if (document.querySelector('dialog[open], .host-menu, .module-chooser-list:not([hidden]), .who-here-list:not([hidden])')) return;
+  event.preventDefault();
+  spaceSetup.cancel();
+});
+nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 85, order: 1, icon: 'sliders', label: 'Set up', visible: setupShown, onClick: enterSetup });
+nav.register({ id: 'setup-done', bar: 'primary', zone: 'right', group: 'setup', order: 2, icon: 'check', label: 'Done', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.done() });
+nav.register({ id: 'setup-cancel', bar: 'primary', zone: 'right', group: 'setup', order: 3, icon: 'xmark', label: 'Cancel', labelled: true, visible: setupModeShown, onClick: () => spaceSetup.cancel() });
+nav.elementOf('setup-done')?.classList.add('btn-primary');
+// --- end Set up ---
 
 // The Layout panel's Arrange section (written at the top of this file, kept in the panel by canvas.js): Dock all (every
 // floating module docks beside the call, and the canvas-level snap goes off with it, or it would float them again), Clean
@@ -1751,7 +2196,10 @@ function applyLayout() {
   const portrait = grid.clientHeight > grid.clientWidth;
   grid.classList.toggle('portrait', portrait);
   const canvasEl = $('canvas');
-  canvasEl.classList.toggle('narrow', canvasEl.clientWidth <= 640); // the same line as the tab bar (max-width: 640px) and snap-grid.js's NARROW
+  // The same line as the tab bar (max-width: 640px) and snap-grid.js's NARROW: the window's width, since the side
+  // column takes part of a wide window (canvas.js's isNarrow measures the same).
+  canvasEl.classList.toggle('narrow', (canvasEl.ownerDocument.defaultView || window).innerWidth <= 640);
+  syncColumn(); // Join the call, Online and the rail follow the call
   // The sizes follow the conference itself, wherever it is (docked beside the chat, floating,
   // or in a window of its own), not the whole canvas.
   const host = confEl.closest('.canvas') || canvasEl;
@@ -2859,7 +3307,13 @@ function addEntry(entry, own = false) {
     unread += 1;
     entry.counted = true; // so a clear can take it off the number again (dropChatEntries)
     canvas.setBuiltinUnread('chat', unread);
+  } else if (canvas.columnMode() && columnCollapsed() && !own && entry.visibility !== 'private') {
+    // The chat in the column behind the collapsed rail is not read either: the rail shows the number.
+    unread += 1;
+    entry.counted = true;
+    canvas.setBuiltinUnread('chat', unread);
   }
+  syncRail();
 }
 
 // A private message the server just stored and returned (a command's echo, an /ai question and its answer), or a
@@ -3054,6 +3508,8 @@ canvas.registerBuiltin({
   flex: true,
   modes: ['dock', 'float', 'window'],
   wrap: 'canvas conference-canvas', // out of the canvas's grid it needs a .canvas of its own
+  slot: '#side-column-strip', // its place in the always-on column: the strip of tiles (plan-one-bar.md, step 6)
+  onShow: () => { if (columnCollapsed()) setColumnCollapsed(false); }, // brought into view: the rail opens
   windowClass: 'conference-window',
   windowSize: { w: 640, h: 420 },
   floatSize: { w: 560, h: 380 },
@@ -3101,6 +3557,8 @@ canvas.registerBuiltin({
   el: $('chat'),
   onShown: showBuiltinName,
   allowed: () => canDo('chatRead'),
+  slot: '#side-column-chat', // its place in the always-on column, under the call (plan-one-bar.md, step 6)
+  onShow: () => { if (columnCollapsed()) setColumnCollapsed(false); }, // brought into view: the rail opens
   width: prefs.chatWidth,
   onWidth: (w) => { prefs.chatWidth = w; savePrefs(); },
   onChange: ({ open, mode, moving }) => {
@@ -3118,7 +3576,7 @@ canvas.registerBuiltin({
 });
 
 function toggleChat(open = !canvas.builtinOpen('chat')) {
-  if (open) canvas.openBuiltin('chat');
+  if (open) { canvas.openBuiltin('chat'); if (canvas.columnMode()) setColumnCollapsed(false); }
   else canvas.closeBuiltin('chat');
 }
 
@@ -3437,6 +3895,7 @@ call
     setStatus('left the call');
     forgetSpace();
     currentSpace = null;
+    showView('workspace'); // the view's page was the space's
     canvas.refresh(null);
     refreshLayouts(); // no space, no layouts
     document.body.classList.remove('in-space');
@@ -3631,6 +4090,7 @@ function crumbSegmentHtml(seg, icon) {
 function updateCrumb() {
   const connected = call.state === 'connected' && currentSpace;
   setPresentSpace(connected ? (currentSpace.isAside ? currentSpace.origin || null : currentSpace.id) : null);
+  document.body.classList.toggle('in-aside', Boolean(connected) && inAside()); // an aside's column is the whole screen (style.css)
   // What the anchor shows is anchorSegments() (primary-nav.js, held by check-nav): the space's breadcrumb, nothing while
   // home is shown over it, or a guest link's space before the guest enters.
   let space = null;
@@ -3648,12 +4108,21 @@ function updateCrumb() {
   const segs = anchorSegments({ space, viewingHome, guestSpaceName: guestToken ? guestSpaceName : '', parentName, asideWord: word('aside', { cap: true }), others });
   const iconOf = (seg) => (!currentSpace ? 'message' : currentSpace.isAside ? (seg.action ? spaceCrumbIcon(originSpace) : 'people-arrows') : spaceCrumbIcon(currentSpace));
   setTopbarLocation(segs.map((seg) => crumbSegmentHtml(seg, iconOf(seg))).join('<span class="crumb-sep" aria-hidden="true">&rsaquo;</span>'));
+  // The one bar (step 7): the switcher reads the last segment, and the views are this space's; the Spaces slot leaves.
+  const last = segs[segs.length - 1] || null;
+  paintSpaceSwitcher(last, last ? iconOf(last) : 'message');
+  if ((currentSpace && !currentSpace.isAside ? currentSpace.id : '') !== viewsFor) drawViews();
+  setInSpace(oneBar());
+  if (settingUp && !canSetUp()) spaceSetup.cancel(); // home over the space, an aside, a space left: Set up ends
+  placeSetupName(); // while setting up, the current segment is the name's input
   nav.draw('secondary');
+  updatePhaseChip(); // the chip follows the breadcrumb: shown in a space, gone on home, in an aside and for a guest
 }
 
 // `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins.
 async function join(spaceId = 'lobby', { joinCall = false } = {}) {
   viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
+  showView('workspace'); // and its Workspace, never the last space's view
   $('join-error').hidden = true;
   for (const b of document.querySelectorAll('[data-join]')) b.disabled = true;
   try {
@@ -3738,6 +4207,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
     // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
     canvas.restore();
+    applyColumnPref(); // the always-on column, open or a rail, as this space was left
     syncSnapBar(); // and this space's canvas-level snap
     refreshLayouts(); // and its saved layouts
     syncCallControl(); // who is in the call, for the conference's "Not in a call" note
@@ -3883,6 +4353,7 @@ async function stopCall() {
   closeSettings();
   setStatus(`in ${spaceName}`);
   syncCallControl();
+  syncShareLift(); // the tiles are gone: a lifted conference goes back into the column
   canvas.updateMenu(); // and loses it
 }
 
@@ -4631,7 +5102,7 @@ function onKey(event) {
   if (key === 'm') toggleMic();
   else if (key === 'v') toggleCam();
   else if (key === 'd') toggleDeafen();
-  else if (key === 'c') toggleChat();
+  else if (key === 'c') { if (canvas.columnMode() && canvas.builtinOpen('chat')) setColumnCollapsed(!columnCollapsed()); else toggleChat(); } // the column never closes: C collapses it and opens it
   else if (key === 'l') cycleView();
   else if (key === 'r') toggleTray();
   else if (key === 's' && !$('screen-share').hidden) toggleScreenShare();
@@ -4808,7 +5279,7 @@ function setUpPopoutWindow(win) {
   // The whole app moves: the header too, so everything works from where you are. Moving a
   // node adopts it into the new document, video and audio and all.
   win.document.body.appendChild(topbarEl);
-  win.document.body.appendChild($('canvas'));
+  win.document.body.appendChild(workEl); // the canvas and the always-on column beside it, as one
   placeSubnav(); // phone or wide by this window's width now: the tab bar, or the chooser's button and list
   canvas.popped(); // the modules open again in this window
   $('away').hidden = false;
@@ -4830,7 +5301,7 @@ function setUpPopoutWindow(win) {
   // first, then do their thing on the page.
   win.document.addEventListener('click', (event) => {
     const link = event.target.closest('#topbar a[href]');
-    if (!link) return;
+    if (!link || link.dataset.view) return; // a view's entry shows its view where the canvas is (showView)
     event.preventDefault();
     const href = link.getAttribute('href');
     closePopout();
@@ -4845,7 +5316,7 @@ function setUpPopoutWindow(win) {
   setTimeout(applyLayout, 50);
   win.addEventListener('pagehide', () => {
     document.body.prepend(topbarEl);
-    document.body.appendChild($('canvas'));
+    document.body.appendChild(workEl);
     placeSubnav(); // and by this window's again
     canvas.popped(); // and back in this one
     $('away').hidden = true;
@@ -4909,17 +5380,21 @@ $('bring-back').addEventListener('click', closePopout);
 // this page stacking a second bar of its own on top of it. Everyone else at
 // the call sees your own tile marked "Away" while you're in there; you
 // don't, since you already know.
-function openOverlay(path) {
+// What a page over the call (and a view's page, showView) is handed: the space's name for its Back, and the
+// environment's name and logo, already known here, so the overlay's own header renders right on its very first
+// paint instead of flashing the generic default. See the matching read in renderTopbar() (brand.js).
+function overlayParams() {
   const params = new URLSearchParams({ from: 'space', spaceName });
-  // Already known here -- handing them off lets the overlay's own header
-  // render correctly on its very first paint instead of flashing the
-  // generic default. See the matching read in renderTopbar() (brand.js).
   const environmentName = document.querySelector('[data-brand="environmentName"]')?.textContent;
   if (environmentName) params.set('environmentName', environmentName);
   const homeIconEl = document.querySelector('[data-brand="home-icon"]');
   const homeIcon = homeIconEl?.dataset.iconId;
   if (homeIcon) params.set('homeIcon', homeIcon);
   if (document.querySelector('.topbar .brand-logo img:not([hidden])')) params.set('hasIcon', '1'); // the logo box shows the uploaded logo
+  return params;
+}
+function openOverlay(path) {
+  const params = overlayParams();
   // The query goes before any #section (Manage's #modules or #add-space), so the page reads both.
   const [where, section] = String(path).split('#');
   $('page-overlay-frame').src = `${where}${where.includes('?') ? '&' : '?'}${params}${section ? `#${section}` : ''}`;
@@ -4934,7 +5409,12 @@ function closeOverlay() {
   if (!viewingHome) setAway(false);
   refreshNotices(); // the page over the call may have read them (its bell): the counts here follow
 }
-window.closeProfileOverlay = closeOverlay; // called directly by the (same-origin) iframe
+// Called directly by the (same-origin) iframe's Back: a page over the call closes; a view's page (its Back, the
+// same button) goes back to the Workspace.
+window.closeProfileOverlay = () => {
+  if (!$('page-overlay-frame').hidden) closeOverlay();
+  else if (!viewFrame.hidden) showView('workspace');
+};
 // The account menu's View profile (brand.js): over the page, not a navigation, from the popped-out window too.
 document.addEventListener('app:open-profile', (event) => {
   event.preventDefault();
@@ -4966,6 +5446,12 @@ document.addEventListener('app:enter-space', (event) => {
   event.preventDefault();
   if (!$('page-overlay-frame').hidden) closeOverlay();
   const connected = call.state === 'connected' && currentSpace;
+  // The switcher's last entry, Leave (plan-one-bar.md, step 5): what the space bar's Leave button does (on a phone it
+  // is still there, in the tab bar). Present nowhere, there is nothing to leave.
+  if (action === 'leave') {
+    if (connected) leaveSpace();
+    return;
+  }
   // In an aside, the parent is marked "You are here": picking it does what Rejoin call does (and the breadcrumb's parent
   // segment), bringing everyone back, never leaving the others behind in the aside.
   if (connected && currentSpace.isAside && currentSpace.origin === id) returnFromAside();
@@ -5035,7 +5521,7 @@ function returnToCanvas() {
   $('join').hidden = true;
   $('guest-join').hidden = true;
   $('canvas').hidden = false;
-  canvas.showFloating(true);
+  canvas.showFloating(currentView === 'workspace'); // a floating module lives beside the canvas, not over a view
   document.body.classList.add('in-space');
   viewingHome = false;
   updateCrumb();
@@ -5280,6 +5766,8 @@ async function init() {
     conferenceEnabled: branding.conferenceEnabled !== false,
   };
   applyFeatureFlags();
+  // The template's phases (plan-one-bar.md, step 3) come with the branding; none, no chip.
+  templatePhases = phaseRule() ? phaseRule().cleanPhases(branding.phases) : [];
   // The topbar dropped its own version readout -- too cramped alongside
   // everything else there. It's in the title bar instead, which reads as
   // the space's real native window title once installed as an app.

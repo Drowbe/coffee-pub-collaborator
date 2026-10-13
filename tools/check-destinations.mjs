@@ -28,6 +28,10 @@
  *   - a place written into a space (scope=space) only by a member with edit there;
  *   - /modules/<id> leading to /map while it is shown, not with ?space=, not with the option off; the tile's href (#panel=);
  *   - Travel's template giving showMap: true.
+ * And a destination as a view of one space (plan-calendar-todo.md and plan-map-places.md, step 1):
+ *   - GET /api/destinations/:id?space=<id> and the page with ?space=: the parts whose module is on in that space and
+ *     readable by the viewer there (a guest with the space's token included), `spaces` empty and `space` named,
+ *     whatever the option says; 404 (one sentence) for anyone not in it and for an unknown id; the map's file still needed.
  * The server runs from a throwaway copy of the app whose public/ links to the real one's files, with or without a
  * stand-in destination.html, so the check does not depend on whether that page is built yet. No network beyond
  * localhost, no LiveKit.
@@ -154,6 +158,21 @@ const base = fs.mkdtempSync(path.join(os.tmpdir(), 'check-destinations-'));
     assert.ok(destinations.resolveDestination('calendar', ctx({ showCalendar: true }, () => false)), 'the calendar needs no file');
     assert.deepEqual(destinations.shownDestinations(ctx({ showCalendar: true, showMap: true }, () => true)).map((x) => x.dest.id), ['calendar', 'map'], 'Map after Calendar');
     assert.equal(destinations.destinationOfModule('pins', ctx({ showMap: true }, () => true)).dest.path, '/map');
+  });
+
+  // plan-calendar-todo.md and plan-map-places.md, step 1: as a view of one space the option is not asked; `canRead` is
+  // the caller's test for that space; a map still needs its file.
+  await test('rules: in a space, the option is not asked, the parts are the ones readable there, a map still needs its file', () => {
+    const mapMain = { id: 'map', part: 'main', entry: 'p.html' };
+    const enabled = [mod('cal', [main, panel(1)]), mod('todo', [panel(2)]), mod('globe', [mapMain]), mod('pins', [{ id: 'map', part: 'panel', entry: 'p.html' }])];
+    const d = destinations.resolveDestinationInSpace('calendar', { enabled, canRead: all });
+    assert.deepEqual([d.dest.path, d.main.manifest.id, d.panels.map((p) => p.manifest.id)], ['/calendar', 'cal', ['cal', 'todo']]);
+    assert.deepEqual(destinations.resolveDestinationInSpace('calendar', { enabled, canRead: (m) => m.id !== 'todo' }).panels.map((p) => p.manifest.id), ['cal'], 'a panel not readable there is left out');
+    assert.equal(destinations.resolveDestinationInSpace('calendar', { enabled, canRead: (m) => m.id !== 'cal' }), null, 'no readable main there: nothing');
+    assert.equal(destinations.resolveDestinationInSpace('agenda', { enabled, canRead: all }), null);
+    assert.equal(destinations.resolveDestinationInSpace('map', { enabled, canRead: all }), null, 'no file');
+    assert.equal(destinations.resolveDestinationInSpace('map', { enabled, canRead: all, hasFile: () => true }).main.manifest.id, 'globe');
+    assert.equal(destinations.resolveDestination('calendar', { settings: {}, enabled, canRead: all }), null, 'the aggregate still asks the option');
   });
 
   await test('rules: what stands in a destination\'s way, whatever its option', () => {
@@ -317,6 +336,69 @@ try {
     const settings = (await call('GET', '/api/settings', { token: admin })).json.settings;
     assert.equal(settings.showMap, false, 'Show Map off by default');
     assert.deepEqual(settings.topBarReasons, { calendar: null, map: 'Turn on dest-globe on the Modules tab first.' });
+  });
+
+  // plan-calendar-todo.md and plan-map-places.md, step 1: the destination as a view of one space (?space=<id>), with the
+  // option still off: the parts on in that space and readable by the viewer there, `spaces` empty, 404 for anyone not
+  // in it (one sentence for an outsider and an unknown id alike, so nothing says which spaces exist).
+  await test('live: in a space, with the option off: the parts readable there, spaces empty, 404 for anyone not in it', async () => {
+    const inSpace = (space, token) => call('GET', `/api/destinations/calendar?space=${space}`, { token });
+    const r = await inSpace(keep, aliceT);
+    assert.equal(r.status, 200, r.text);
+    assert.deepEqual([r.json.id, r.json.name, r.json.main.module.id, r.json.main.part, r.json.panels.map((p) => [p.module.id, p.label])], ['calendar', 'dest-dates', 'dest-dates', 'main', [['dest-dates', 'Agenda'], ['dest-tasks', 'To-do']]]);
+    assert.deepEqual(r.json.spaces, [], 'no spaces to filter in a space');
+    assert.deepEqual([r.json.space.id, r.json.space.name, typeof r.json.space.svg], [keep, 'Keep', 'string'], 'the space it is a view of');
+    assert.equal((await inSpace(tower, aliceT)).status, 200, 'Alice is in the Tower too');
+    const refusal = 'That page is not available in that space for you.';
+    const bob = await inSpace(tower, bobT);
+    assert.deepEqual([bob.status, bob.json.error], [404, refusal], 'Bob is not in the Tower');
+    assert.equal((await inSpace(keep, bobT)).status, 200);
+    assert.equal((await inSpace(keep, carolT)).status, 404, 'Carol is in no space');
+    const unknown = await inSpace('no-such-space', aliceT);
+    assert.deepEqual([unknown.status, unknown.json.error], [404, refusal], 'an unknown id reads as a space one is not in');
+    assert.equal((await inSpace(keep, admin)).status, 200, 'the admin, who may enter any space');
+    assert.equal((await call('GET', `/api/destinations/calendar?space=${keep}`)).status, 404, 'nobody signed in');
+    // A guest, by the space's link token: that space only.
+    const g = await call('GET', `/api/destinations/calendar?space=${keep}&guest=${encodeURIComponent(guest)}`);
+    assert.equal(g.status, 200, g.text);
+    assert.deepEqual([g.json.main.module.id, g.json.panels.map((p) => p.module.id), g.json.spaces], ['dest-dates', ['dest-dates', 'dest-tasks'], []]);
+    assert.equal((await call('GET', `/api/destinations/calendar?space=${tower}&guest=${encodeURIComponent(guest)}`)).status, 404, 'not another space');
+    assert.equal((await call('GET', `/api/destinations/map?space=${keep}`, { token: aliceT })).status, 404, 'no map there yet');
+    // The page: served on the same rule; a guest's link without a space goes home as before.
+    const page = await call('GET', `/calendar?space=${keep}`, { token: aliceT });
+    assert.deepEqual([page.status, page.text], [200, STAND_IN]);
+    assert.deepEqual([(await call('GET', `/calendar?space=${keep}&guest=${encodeURIComponent(guest)}`)).status], [200], 'a guest, in their space');
+    assert.equal(await goes(`/calendar?space=${tower}&guest=${encodeURIComponent(guest)}`), `/guest/${encodeURIComponent(guest)}`, 'a guest, another space: home');
+    assert.equal(await goes(`/calendar?guest=${encodeURIComponent(guest)}`), `/guest/${encodeURIComponent(guest)}`, 'a guest with no space: home, as before');
+    assert.equal(await goes(`/calendar?space=${tower}`, bobT), '/', 'not in it: home');
+    assert.equal(await goes(`/calendar?space=${keep}`), `/login?next=${encodeURIComponent(`/calendar?space=${keep}`)}`, 'nobody signed in signs in first');
+    assert.equal(await goes(`/map?space=${keep}`, aliceT), '/', 'no map there yet');
+    assert.equal(await goes('/calendar', aliceT), '/', 'the aggregate still needs the option');
+  });
+
+  await test('live: in a space, a part is there only while its module is on there and readable there', async () => {
+    const panels = async (space, token) => (await call('GET', `/api/destinations/calendar?space=${space}`, { token })).json.panels.map((p) => p.module.id);
+    // The To-do on in the Keep only: the Tower's view has no To-do panel.
+    assert.equal((await call('PATCH', '/api/modules/dest-tasks', { token: admin, body: { enabled: true, allSpaces: false, spaces: [keep] } })).status, 200);
+    assert.deepEqual(await panels(keep, aliceT), ['dest-dates', 'dest-tasks']);
+    assert.deepEqual(await panels(tower, aliceT), ['dest-dates']);
+    await turn('dest-tasks', true);
+    // Members may not read the To-do: the panel is left out for Alice, not for the admin.
+    await role({ 'module.dest-tasks.view': false });
+    assert.deepEqual(await panels(keep, aliceT), ['dest-dates']);
+    assert.deepEqual(await panels(keep, admin), ['dest-dates', 'dest-tasks']);
+    await role({ 'module.dest-tasks.view': true });
+    // Members may not read the main: no view for Alice; the admin still has it.
+    await role({ 'module.dest-dates.view': false });
+    assert.equal((await call('GET', `/api/destinations/calendar?space=${keep}`, { token: aliceT })).status, 404);
+    assert.equal(await goes(`/calendar?space=${keep}`, aliceT), '/');
+    assert.equal((await call('GET', `/api/destinations/calendar?space=${keep}`, { token: admin })).status, 200);
+    await role({ 'module.dest-dates.view': true });
+    // The main off in the Keep: no view there; the Tower's stays.
+    assert.equal((await call('PATCH', '/api/modules/dest-dates', { token: admin, body: { enabled: true, allSpaces: false, spaces: [tower] } })).status, 200);
+    assert.equal((await call('GET', `/api/destinations/calendar?space=${keep}`, { token: aliceT })).status, 404);
+    assert.equal((await call('GET', `/api/destinations/calendar?space=${tower}`, { token: aliceT })).status, 200);
+    await turn('dest-dates', true);
   });
 
   await test('live: only an owner turns Show Calendar on', async () => {
@@ -554,6 +636,13 @@ try {
     assert.deepEqual(r.json.spaces.map((x) => x.id), [keep, tower]);
     const page = await call('GET', '/map', { token: aliceT });
     assert.deepEqual([page.status, page.text], [200, STAND_IN]);
+    // As a view of one space: the same file condition (the environment's, or the host's, map file; a space has none).
+    const inKeep = await call('GET', `/api/destinations/map?space=${keep}`, { token: aliceT });
+    assert.equal(inKeep.status, 200, inKeep.text);
+    assert.deepEqual([inKeep.json.main.module.id, inKeep.json.panels.map((p) => p.module.id), inKeep.json.spaces, inKeep.json.space.id], ['dest-globe', ['dest-pins'], [], keep]);
+    assert.equal((await call('GET', `/map?space=${keep}`, { token: aliceT })).text, STAND_IN);
+    assert.equal((await call('GET', `/api/destinations/map?space=${keep}&guest=${encodeURIComponent(guest)}`)).status, 200, 'a guest in the Keep');
+    assert.equal((await call('GET', `/api/destinations/map?space=${tower}`, { token: bobT })).status, 404);
     await setOption(true);
     assert.deepEqual(await shown(aliceT), ['calendar', 'map'], 'Map after Calendar');
     await setOption(false);
@@ -687,6 +776,11 @@ try {
     await setMap(false);
     assert.deepEqual(await shown(aliceT), []);
     assert.equal(await goes('/map', aliceT), '/');
+    assert.equal((await call('GET', `/api/destinations/map?space=${keep}`, { token: aliceT })).status, 200, 'the view of a space does not ask the option');
+    fs.renameSync(mapFile, `${mapFile}.away`);
+    assert.equal((await call('GET', `/api/destinations/map?space=${keep}`, { token: aliceT })).status, 404, 'but still needs the file');
+    assert.equal(await goes(`/map?space=${keep}`, aliceT), '/');
+    fs.renameSync(`${mapFile}.away`, mapFile);
     assert.equal(await goes('/modules/dest-globe', aliceT), 200);
     assert.equal(await goes('/modules/dest-pins', aliceT), 200);
     assert.equal((await hrefs(aliceT))['dest-pins'], '/modules/dest-pins');

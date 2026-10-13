@@ -1072,17 +1072,18 @@ await test('pages: the SDK, the stream on the host page, the Calendar and the de
   assert.match(dest, /api\('GET', '\/api\/me\/external-calendars'\)/, 'the destination\'s filter lists them');
   assert.match(dest, /externalOff: \[\.\.\.externalOff\]/, 'and hands the parts the ones it has off');
   assert.match(cal, /Array\.isArray\(st\.externalOff\)/, 'which the Calendar takes');
-  assert.match(dest, /if \(kind\.external && !withinSpacePage\(\)\) await loadExternals\(\);/, 'and lists none over a call');
+  assert.match(dest, /if \(kind\.external && !spaceId && !withinSpacePage\(\)\) await loadExternals\(\);/, 'and lists none over a call, nor as a view of one space (plan-calendar-todo.md, step 1)');
   // Over a call the module's page is redirected to /calendar without its ?from=space, so the space page's overlay frame
-  // is recognised by its id too.
-  assert.match(read('public/brand.js'), /window\.frameElement && window\.frameElement\.id === 'page-overlay-frame'/, 'the overlay frame counts as within a space');
+  // is recognised by its id too, and so is the frame a view of the space shows the page in (plan-one-bar.md, step 7).
+  assert.match(read('public/brand.js'), /window\.frameElement && \['page-overlay-frame', 'view-frame'\]\.includes\(window\.frameElement\.id\)/, 'the overlay frame and the view frame count as within a space');
   assert.match(read('public/space.html'), /<iframe[^>]* id="page-overlay-frame"/, 'and that is the space page\'s overlay frame');
+  assert.match(read('public/space.html'), /<iframe[^>]* id="view-frame"/, 'and that its view frame');
   // The filter's label counts them apart from the spaces.
   const paint = dest.slice(dest.indexOf('function paintFilter()'), dest.indexOf('\n}\n', dest.indexOf('function paintFilter()')) + 3);
-  const label = (spaceList, offSpaces, calendars, offCalendars) => {
+  const label = (spaceList, offSpaces, calendars, offCalendars, spaceId = '') => {
     const el = { textContent: '', title: '', setAttribute() {} };
-    new Function('spaces', 'off', 'ownOn', 'kind', 'mineOn', 'externals', 'externalOff', 'word', '$', `let filterLabel;\n${paint}\npaintFilter();\nreturn filterLabel;`)(
-      spaceList, new Set(offSpaces), true, {}, true, calendars, new Set(offCalendars), () => 'Trips', () => el);
+    new Function('spaces', 'off', 'ownOn', 'kind', 'mineOn', 'externals', 'externalOff', 'word', '$', 'spaceId', `let filterLabel;\n${paint}\npaintFilter();\nreturn filterLabel;`)(
+      spaceList, new Set(offSpaces), true, {}, true, calendars, new Set(offCalendars), () => 'Trips', () => el, spaceId);
     return el.textContent;
   };
   const two = [{ id: 'a' }, { id: 'b' }];
@@ -1090,6 +1091,7 @@ await test('pages: the SDK, the stream on the host page, the Calendar and the de
   assert.equal(label(two, ['a'], two, ['b']), 'Trips (2 of 3) · Other calendars (1 of 2)');
   assert.equal(label(two, [], two, ['a', 'b']), 'Trips · Other calendars (0 of 2)');
   assert.equal(label(two, ['a'], [], []), 'Trips (2 of 3)', 'other calendars never count as spaces');
+  assert.equal(label([], [], [], [], 'keep01'), 'Markers', 'as a view of one space the filter holds the marker kinds alone (plan-calendar-todo.md, step 1)');
 });
 
 await test('fetch: the whole read is given up after 15 seconds, even while bytes keep arriving', async () => {

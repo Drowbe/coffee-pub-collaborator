@@ -1,0 +1,134 @@
+name: Project done from closed issues
+
+# When an issue is closed, move its card on the project board to the "Done" Status option. Run by hand from the
+# Actions tab (or POST repos/{owner}/{repo}/actions/workflows/project-done.yml/dispatches with ref=main), it also
+# sweeps the board: every card of this repository's closed issues that is not in Done is moved there.
+# A reopened issue is left where it is; put it back on the board by giving it a `priority: ...` label.
+#
+# Setup is the same as project-priority.yml (secret PROJECT_TOKEN, variables PROJECT_OWNER, PROJECT_NUMBER and the
+# optional PROJECT_FIELD). Without them the run ends green with a notice.
+
+on:
+  issues:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  issues: read
+
+concurrency:
+  group: project-done
+  cancel-in-progress: false
+
+jobs:
+  done:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v9
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+          PROJECT_FIELD: ${{ vars.PROJECT_FIELD }}
+        with:
+          script: |
+            const norm = (s) => String(s || '').trim().toLowerCase();
+            const token = process.env.PROJECT_TOKEN;
+            const owner = (process.env.PROJECT_OWNER || '').trim();
+            const numberText = (process.env.PROJECT_NUMBER || '').trim();
+            const fieldName = (process.env.PROJECT_FIELD || '').trim() || 'Status';
+            if (!token || !owner || !numberText) {
+              core.notice('The project board is not set up for this repository, so no card was moved.');
+              return;
+            }
+            const number = Number(numberText);
+            if (!Number.isInteger(number) || number < 1) {
+              core.setFailed(`PROJECT_NUMBER must be a whole number, but it is "${numberText}".`);
+              return;
+            }
+
+            const board = getOctokit(token);
+            const found = await board.graphql(
+              `query($owner: String!, $number: Int!) {
+                user(login: $owner) {
+                  projectV2(number: $number) {
+                    id
+                    title
+                    fields(first: 100) {
+                      nodes { ... on ProjectV2SingleSelectField { id name options { id name } } }
+                    }
+                  }
+                }
+              }`,
+              { owner, number }
+            );
+            const project = found?.user?.projectV2;
+            if (!project) {
+              core.setFailed(`Project ${number} of user ${owner} was not found, or PROJECT_TOKEN cannot see it.`);
+              return;
+            }
+            const field = (project.fields?.nodes || []).find((f) => f && f.options && norm(f.name) === norm(fieldName));
+            const done = field?.options.find((o) => norm(o.name) === 'done');
+            if (!field || !done) {
+              core.setFailed(`Project "${project.title}" has no single-select field "${fieldName}" with a "Done" option.`);
+              return;
+            }
+
+            const setDone = (itemId) => board.graphql(
+              `mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+                updateProjectV2ItemFieldValue(
+                  input: { projectId: $project, itemId: $item, fieldId: $field, value: { singleSelectOptionId: $option } }
+                ) { projectV2Item { id } }
+              }`,
+              { project: project.id, item: itemId, field: field.id, option: done.id }
+            );
+
+            if (context.eventName === 'issues') {
+              // Adding an issue that is already on the board returns its existing card.
+              const issue = context.payload.issue;
+              const added = await board.graphql(
+                `mutation($project: ID!, $content: ID!) {
+                  addProjectV2ItemById(input: { projectId: $project, contentId: $content }) { item { id } }
+                }`,
+                { project: project.id, content: issue.node_id }
+              );
+              await setDone(added.addProjectV2ItemById.item.id);
+              core.notice(`Issue #${issue.number} moved to "Done" on "${project.title}".`);
+              return;
+            }
+
+            // Sweep: this repository's closed issues whose card is not in Done.
+            let moved = 0;
+            let cursor = null;
+            for (;;) {
+              const page = await board.graphql(
+                `query($project: ID!, $after: String, $field: String!) {
+                  node(id: $project) {
+                    ... on ProjectV2 {
+                      items(first: 100, after: $after) {
+                        pageInfo { hasNextPage endCursor }
+                        nodes {
+                          id
+                          status: fieldValueByName(name: $field) { ... on ProjectV2ItemFieldSingleSelectValue { name } }
+                          content { ... on Issue { number state repository { nameWithOwner } } }
+                        }
+                      }
+                    }
+                  }
+                }`,
+                { project: project.id, after: cursor, field: field.name }
+              );
+              const items = page.node.items;
+              for (const item of items.nodes) {
+                const c = item.content;
+                if (!c || !c.number || c.state !== 'CLOSED') continue;
+                if (norm(c.repository?.nameWithOwner) !== norm(`${context.repo.owner}/${context.repo.repo}`)) continue;
+                if (norm(item.status?.name) === 'done') continue;
+                await setDone(item.id);
+                moved += 1;
+                core.notice(`Issue #${c.number} moved to "Done".`);
+              }
+              if (!items.pageInfo.hasNextPage) break;
+              cursor = items.pageInfo.endCursor;
+            }
+            core.notice(`${moved} card(s) moved to "Done" on "${project.title}".`);

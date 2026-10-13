@@ -14,9 +14,14 @@
 // `canOpen(id)` says whether this person may open a module here (the conference by conferenceAllowed() below, the chat
 // by its permission; any other id by being on in the space for them). `modules` is the ids on in the space for
 // this person, in the Modules menu's order.
-export function whatOpens({ remembered = null, own = null, environment = null, modules = [], canOpen = () => true, guest = false } = {}) {
-  if (!guest && Array.isArray(remembered)) return remembered.slice();
-  const openable = (list) => list.filter((id, i) => typeof id === 'string' && list.indexOf(id) === i && canOpen(id));
+// `column`: the always-on column holds the conference and the chat (plan-one-bar.md, step 6), so wider than a phone
+// the canvas asks with it and the two ids are left out of the answer, whichever list names them. The lists still
+// hold them (a phone opens them as tabs; nothing a person stored changes).
+export const COLUMN_IDS = Object.freeze(['conference', 'chat']);
+export function whatOpens({ remembered = null, own = null, environment = null, modules = [], canOpen = () => true, guest = false, column = false } = {}) {
+  const keep = (list) => (column ? list.filter((id) => !COLUMN_IDS.includes(id)) : list);
+  if (!guest && Array.isArray(remembered)) return keep(remembered.slice());
+  const openable = (list) => keep(list.filter((id, i) => typeof id === 'string' && list.indexOf(id) === i && canOpen(id)));
   if (Array.isArray(own)) return openable(own);
   if (Array.isArray(environment)) return openable(environment);
   return openable(guest ? ['conference', 'chat'] : ['chat', ...modules]);

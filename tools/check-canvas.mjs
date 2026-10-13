@@ -85,6 +85,18 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       { own: ['gone'], environment: ['chat'], canOpen: (id) => id !== 'gone' }, []],
     ['a repeat opens once',
       { own: ['chat', 'chat', 'todo'] }, ['chat', 'todo']],
+    // The always-on column (plan-one-bar.md, step 6): asked with `column`, the conference and the chat are left out of
+    // what goes on the canvas, whichever list names them; the lists themselves keep them (a phone's tabs).
+    ['the column: the remembered layout without the conference and the chat',
+      { remembered: ['todo', 'conference', 'chat'], modules: ['todo'], column: true }, ['todo']],
+    ['the column: the space\'s own list without them',
+      { own: ['chat', 'notes', 'conference'], modules: ['notes'], column: true }, ['notes']],
+    ['the column: nothing set gives the modules alone',
+      { modules: ['todo', 'notes'], column: true }, ['todo', 'notes']],
+    ['the column, a guest: nothing on the canvas',
+      { modules: ['todo'], guest: true, column: true }, []],
+    ['without the column (a phone) the lists hold them as before',
+      { remembered: ['todo', 'conference', 'chat'], modules: ['todo'] }, ['todo', 'conference', 'chat']],
   ];
   for (const [name, input, want] of cases) {
     try {
@@ -131,6 +143,15 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const restore = canvasJs.slice(canvasJs.indexOf('function restore()'), canvasJs.indexOf('// --- the toolbar button'));
   if (!/whatOpens\(\{[^}]*guest: Boolean\(guestToken\)/s.test(restore)) fail('public/canvas.js', 'restore() must ask whatOpens (opens-with.js) for what to open, with whether this is a guest');
   if (/opened\.has\('conference'\)\) view = 'conference'/.test(restore)) fail('public/canvas.js', 'restore() must start a phone on the first module opened, not always the call');
+  // The always-on column (plan-one-bar.md, step 6): wider than a phone restore() opens the conference and the chat in
+  // the column, whatever the lists say, and asks whatOpens with `column` so neither goes on the canvas.
+  if (!/if \(columnMode\(\)\) for \(const id of builtins\.keys\(\)\) if \(canOpenHere\(id\)\) api_openBuiltin\(id\);/.test(restore)) fail('public/canvas.js', 'restore() opens the conference and the chat in the side column (column mode) before anything else');
+  if (!/whatOpens\(\{[^}]*column: columnMode\(\)/s.test(restore)) fail('public/canvas.js', 'restore() must ask whatOpens with column: columnMode()');
+  if (!/const builtinList = columnMode\(\) \? \[\] :/.test(canvasJs)) fail('public/canvas.js', 'the Show list leaves the conference and the chat out in column mode');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  for (const id of ['side-column', 'side-column-toggle', 'side-column-strip', 'side-column-chat', 'side-column-rail', 'work']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the always-on column needs #${id}`);
+  if (!/<div class="work" id="work">\s*<aside class="side-column" id="side-column"[\s\S]*<main class="canvas" id="canvas" hidden>/.test(html)) fail('public/space.html', '#side-column sits before #canvas inside #work');
+  if (!/aria-expanded="true"/.test(html.slice(html.indexOf('id="side-column-toggle"') - 200, html.indexOf('id="side-column-toggle"') + 200))) fail('public/space.html', 'the column\'s handle is a button that says whether the column is open (aria-expanded)');
 }
 
 // The snap grid's size (public/snap-grid.js; canvas.js's setSnapPitch): shrinking the grid re-settles snapped modules into the
@@ -444,10 +465,15 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const layout = layoutOf(mods, area, { all: false, pitch: 130 });
   if (JSON.stringify(mods) !== input) fail(F, 'layoutOf() must not change its input');
   const ids = layout.modules.map((m) => m.id);
-  if (JSON.stringify(ids) !== JSON.stringify(['conference', 'chat', 'travel', 'notes', 'todo', 'polls', 'calendar'])) fail(F, `layoutOf(): docked first in column order (a window saved as its old mode), then floating in the order opened, not ${JSON.stringify(ids)}`);
+  // The conference and the chat are the always-on column's (plan-one-bar.md, step 6): never saved.
+  if (JSON.stringify(ids) !== JSON.stringify(['travel', 'notes', 'todo', 'polls', 'calendar'])) fail(F, `layoutOf(): docked first in column order (a window saved as its old mode), then floating in the order opened, without the conference and the chat, not ${JSON.stringify(ids)}`);
   const by = Object.fromEntries(layout.modules.map((m) => [m.id, m]));
-  if ('dockW' in by.conference) fail(F, 'the flexible column is saved without a width');
-  if (by.chat.dockW !== 320 || by.travel.dockW !== 420 || by.notes.dockW !== LAYOUT_LIMITS.dockWMin) fail(F, `docked widths are pixels, within the server's 160 to 2000: ${JSON.stringify(layout.modules)}`);
+  if (by.travel.dockW !== 420 || by.notes.dockW !== LAYOUT_LIMITS.dockWMin) fail(F, `docked widths are pixels, within the server's 160 to 2000: ${JSON.stringify(layout.modules)}`);
+  const flexFirst = layoutOf([{ id: 'map', mode: 'dock', order: 1, flex: true, width: 600 }, { id: 'todo', mode: 'dock', order: 2, width: 300 }], area);
+  if ('dockW' in flexFirst.modules[0] || flexFirst.modules[1].dockW !== 300) fail(F, 'the flexible column is saved without a width');
+  // An older layout (or a phone's) naming the two: accepted, placed nowhere, never "left out".
+  const older = placeLayout({ modules: [{ id: 'conference', mode: 'dock' }, { id: 'chat', mode: 'float', box: { x: 0.7, y: 0.1, w: 0.25, h: 0.5 } }, { id: 'todo', mode: 'dock', dockW: 300 }], snap: { all: false, pitch: 130 } }, area);
+  if (older.modules.map((m) => m.id).join() !== 'todo' || older.left.length) fail(F, `placeLayout() accepts the conference and the chat in an older layout and leaves them alone: ${JSON.stringify(older)}`);
   for (const m of layout.modules.filter((x) => x.mode === 'float')) {
     if (!m.box || !['x', 'y', 'w', 'h'].every((k) => m.box[k] >= 0 && m.box[k] <= 1) || m.box.w === 0 || m.box.h === 0) fail(F, `${m.id}: a floating box is fractions of the canvas from 0 to 1: ${JSON.stringify(m.box)}`);
     if (typeof m.snap !== 'boolean') fail(F, `${m.id}: a floating module says whether it snaps`);
@@ -460,7 +486,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const back = Object.fromEntries(same.modules.map((m) => [m.id, m]));
   const near = (a, b) => ['x', 'y', 'w', 'h'].every((k) => Math.abs(a[k] - b[k]) <= 1);
   if (!near(back.calendar.box, mods[0].box)) fail(F, `placeLayout() at the same size must give back the same box: ${JSON.stringify(back.calendar.box)}`);
-  if (back.chat.dockW !== 320 || back.conference.dockW !== undefined) fail(F, 'placeLayout() keeps the docked widths, none for the flexible column');
+  if (back.travel.dockW !== 420 || back.notes.dockW !== DOCK_MIN) fail(F, 'placeLayout() keeps the docked widths, clamped as clampDock() does');
   if (same.left.length) fail(F, 'nothing is left out when everything may open');
   // At half the width (and a smaller window), every box is on the canvas and at least the smallest size, and the snapped
   // ones sit in grid cells, none on another.
@@ -499,7 +525,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!capture || !/layoutOf\(mods, canvasArea\(\), \{ all: snapAllOn\(\), pitch: snapPitch\(\) \}\)/.test(capture)) fail(C, 'captureLayout() must build the layout with layoutOf(), with the canvas-level snap');
   if (!/p\.waiting \? 'dock'/.test(capture)) fail(C, 'captureLayout() saves a module waiting for a column as docked');
   if (!/placeLayout\(layout, area, canOpenHere\)/.test(load)) fail(C, 'loadLayout() must place the layout with placeLayout() and canOpenHere()');
-  if (!/p\.id === 'conference' && p\.kind === 'builtin' && Boolean\(p\.def\?\.inCall\?\.\(\)\)/.test(load) || !/!named\.has\(p\.id\) && !keepCall\(p\)\) closeModule\(p\.id\)/.test(load)) fail(C, 'loadLayout() closes what the layout does not name, except the conference while on the call');
+  if (!/p\.id === 'conference' && p\.kind === 'builtin' && Boolean\(p\.def\?\.inCall\?\.\(\)\)/.test(load) || !/p\.kind !== 'builtin' && !named\.has\(p\.id\) && !keepCall\(p\)\) closeModule\(p\.id\)/.test(load)) fail(C, 'loadLayout() closes what the layout does not name, never the conference or the chat (the column\'s; plan-one-bar.md step 6)');
   if (!/syncDock\(\)/.test(load) || !/snapshot\(\)/.test(load)) fail(C, 'loadLayout() fits the columns (syncDock, fitDock) and becomes the remembered layout (snapshot)');
   if (!/leftOutNote\(plan\.left/.test(load)) fail(C, 'loadLayout() says in one line what it left out');
   if (/function applyLayout\(/.test(canvasJs)) fail(C, 'applyLayout is space.js\'s window-width handler; the canvas\'s load is loadLayout()');
@@ -919,7 +945,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // The pop-out: every remote video attached there (now or later) is kept live, and the watch goes on popping back in.
   if ((attach.match(/prepend\(video\);\n\s*keepPoppedVideoLive\(track, video\);/g) || []).length !== 2) fail('public/space.js', 'attachTrack() must keep each video it adds (camera and screen) live in the pop-out (keepPoppedVideoLive(track, video) after the prepend)');
   const setUp = fn('function setUpPopoutWindow(');
-  if (!/appendChild\(\$\('canvas'\)\);[\s\S]*keepPoppedVideosLive\(\);/.test(setUp)) fail('public/space.js', 'popping out must keep the moved videos live (keepPoppedVideosLive())');
+  if (!/appendChild\(workEl\);[\s\S]*keepPoppedVideosLive\(\);/.test(setUp)) fail('public/space.js', 'popping out must move the work area (the canvas and the side column, workEl) and keep the moved videos live (keepPoppedVideosLive())');
   if (!/pipWindow = null;\n\s*dropPoppedWatches\(\);/.test(setUp)) fail('public/space.js', 'popping back in must drop the pop-out watches (dropPoppedWatches())');
   try {
     const src = `${fn('function keepPoppedVideoLive(')}${fn('function dropPoppedWatches(')}`;

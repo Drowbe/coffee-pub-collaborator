@@ -1032,8 +1032,22 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (guestToken) p.set('guest', guestToken);
       return (await api('GET', `/api/objects/search?${p}`)).summaries;
     },
+    // Each space with its `createdAt` and `phases` (the dates on its timeline) from the spaces list when the viewer may
+    // read it, so a module's environment page can run host.util.phaseTimeline for each (plan-one-bar.md step 2).
     async spaces() {
-      return (await api('GET', url('/spaces-data', 'spaces', { info: 1 }))).spaces;
+      const list = (await api('GET', url('/spaces-data', 'spaces', { info: 1 }))).spaces;
+      let records = [];
+      try { records = (await api('GET', '/api/spaces')).spaces || []; } catch (err) { records = []; }
+      const byId = new Map(records.map((r) => [r.id, r]));
+      return list.map((r) => { const full = byId.get(r.id); return full ? { ...r, createdAt: full.createdAt, phases: full.phases || {} } : r; });
+    },
+    // The main phase's end moved later to cover a day (POST /api/spaces/:id/phases/cover, plan-one-bar.md step 2): the
+    // space's new phases, or null when nothing moved (the server answers 204).
+    async 'phases.cover'({ day }) {
+      if (scope !== 'space' || !spaceId) throw Object.assign(new Error(`only in ${word('space', { a: true })}`), { status: 400 });
+      const guest = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
+      const answer = await api('POST', `/api/spaces/${encodeURIComponent(spaceId)}/phases/cover${guest}`, { day });
+      return answer && answer.phases && typeof answer.phases === 'object' ? { phases: answer.phases } : null;
     },
     // The address of a file an owner placed for this module (see the server's module files), in this module's place.
     async 'files.url'({ name }) {

@@ -181,8 +181,12 @@ try {
     const asMember = (method, url, body) => call(server, '', method, url, { cookie: member, body });
     assert.deepEqual(await asMember('PATCH', `/api/spaces/${side}`, { opensWith: ['chat'] }).then((x) => [x.status, x.json]), [403, { error: 'owners only' }], 'a member');
     assert.equal((await as('PATCH', `/api/users/${key}/spaces/${side}`, { permissions: { moderator: true } })).status, 200);
-    assert.deepEqual(await asMember('PATCH', `/api/spaces/${side}`, { opensWith: ['chat'] }).then((x) => [x.status, x.json]), [403, { error: 'owners only' }], 'a member who moderates the space');
-    assert.equal('opensWith' in stored(), false, 'nothing changed');
+    // A member who moderates the space may set Opens with (plan-one-bar.md step 4), nothing else.
+    assert.equal((await asMember('PATCH', `/api/spaces/${side}`, { opensWith: ['chat'] })).status, 200, 'a member who moderates the space');
+    assert.deepEqual(stored().opensWith, ['chat']);
+    assert.equal((await asMember('PATCH', `/api/spaces/${side}`, { opensWith: null })).status, 200);
+    assert.equal('opensWith' in stored(), false, 'cleared again');
+    assert.deepEqual(await asMember('PATCH', `/api/spaces/${side}`, { name: 'Side 2' }).then((x) => [x.status, x.json]), [403, { error: 'owners only' }], 'the name is still the owners\'');
     assert.deepEqual((await asMember('GET', '/api/modules/for-space?space=lobby')).json.opensWith, ['todo', 'conference', 'not-installed', 'chat'], 'a member reads it');
     assert.equal((await as('DELETE', `/api/users/${key}`)).status, 200);
   });
@@ -207,7 +211,7 @@ try {
     const sideSpace = (await as('GET', '/api/spaces')).json.spaces.find((s) => s.id === side);
     const inSpace = await as('GET', `/api/modules/calendar/context?scope=space&space=${side}`);
     assert.equal(inSpace.status, 200, inSpace.text);
-    assert.deepEqual(inSpace.json.space, { id: side, name: 'Side', createdAt: sideSpace.createdAt });
+    assert.deepEqual(inSpace.json.space, { id: side, name: 'Side', createdAt: sideSpace.createdAt, phases: {} });
     assert.deepEqual(inSpace.json.phases, []);
   });
 
@@ -412,7 +416,7 @@ try {
     assert.equal(crossing.status, 200, crossing.text);
     const inSpace = await asOwner('GET', `/api/modules/travel/context?scope=space&space=${crossing.json.space.id}`);
     assert.equal(inSpace.status, 200, inSpace.text);
-    assert.deepEqual(inSpace.json.space, { id: crossing.json.space.id, name: 'Crossing', createdAt: crossing.json.space.createdAt });
+    assert.deepEqual(inSpace.json.space, { id: crossing.json.space.id, name: 'Crossing', createdAt: crossing.json.space.createdAt, phases: {} });
     assert.deepEqual(inSpace.json.phases, [{ id: 'planning', label: 'Planning' }, { id: 'sailing', label: 'Sailing', main: true }], 'a phase edit is on the next read');
     const tab = (await asOwner('GET', '/api/environment/template')).json;
     assert.deepEqual([tab.template.version, tab.template.appliedVersion, tab.template.offerOpen, tab.offer.modules.map((m) => m.id)], [2, 1, true, ['calendar']]);

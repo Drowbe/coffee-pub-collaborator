@@ -215,11 +215,11 @@ async function start() {
   parts.push(mountPart(d.main, $('dest-main'), 'main'));
   for (const p of d.panels || []) {
     const wrap = document.createElement('div');
-    wrap.className = 'dest-panel-part';
+    wrap.className = 'dest-side-part';
     wrap.id = `dest-${keyOf(p).replace(':', '-')}`;
     wrap.setAttribute('role', 'region');
     wrap.setAttribute('aria-label', p.label);
-    $('dest-panel-body').appendChild(wrap);
+    $('dest-side-body').appendChild(wrap);
     parts.push(mountPart(p, wrap, keyOf(p)));
   }
   layout();
@@ -513,8 +513,8 @@ function paintFilter() {
 function drawPanelSwitch(d) {
   const panels = d.panels || [];
   if (panels.length < 2) return;
-  $('dest-panel-head').hidden = false;
-  const tabs = $('dest-panel-tabs');
+  $('dest-side-head').hidden = false;
+  const tabs = $('dest-side-tabs');
   // The shared view switch, each panel with its module's icon (as the phone's tabs have): icons only while the panel is too narrow.
   for (const p of panels) {
     const b = document.createElement('button');
@@ -523,7 +523,7 @@ function drawPanelSwitch(d) {
     window.hostSwitch.fill(b, { id: p.module.id, label: p.label, icon: /^[a-z0-9-]{1,40}$/.test(p.module.icon || '') ? p.module.icon : 'puzzle-piece' });
     tabs.appendChild(b);
   }
-  window.hostSwitch.watch($('dest-panel-head'));
+  window.hostSwitch.watch($('dest-side-head'));
   tabs.addEventListener('click', (event) => {
     const b = event.target.closest('[data-panel]');
     if (!b || b.dataset.panel === panel) return;
@@ -561,10 +561,10 @@ function layout() {
   document.body.classList.toggle('dest-has-tabs', phone && hasTabs);
   const showing = phone ? tab : null;
   $('dest-main').hidden = phone && showing !== 'main';
-  $('dest-panel').hidden = !panels.length || (phone && showing === 'main');
+  $('dest-side').hidden = !panels.length || (phone && showing === 'main');
   for (const p of panels) p.wrap.hidden = phone ? p.key !== showing : p.key !== panel;
-  $('dest-panel-head').hidden = phone || panels.length < 2;
-  for (const b of document.querySelectorAll('#dest-panel-tabs [data-panel]')) {
+  $('dest-side-head').hidden = phone || panels.length < 2;
+  for (const b of document.querySelectorAll('#dest-side-tabs [data-panel]')) {
     const on = b.dataset.panel === panel;
     b.classList.toggle('on', on);
     b.setAttribute('aria-pressed', String(on));

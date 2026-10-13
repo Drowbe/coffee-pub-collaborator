@@ -827,7 +827,7 @@ await test('layout: a frame is never a phone; a narrow page stacks the panel bel
   const stacked = css.match(/@media \(max-width: 820px\) \{([\s\S]*?)\n\}\n/);
   assert.ok(stacked, 'a stacked layout under 820px');
   assert.match(stacked[1], /body\.destination-page:not\(\.dest-has-tabs\)[^{]*\.dest \{\s*flex-direction: column;\s*overflow-y: auto;/, 'the page scrolls, main then panel');
-  assert.match(stacked[1], /\.dest-panel \{\s*flex: none;\s*height: 460px;/, 'the stacked panel has its own height');
+  assert.match(stacked[1], /\.dest-side \{\s*flex: none;\s*height: 460px;/, 'the stacked panel has its own height');
   assert.ok(css.includes('@media (max-width: 640px)') && /\.dest-tabs \{\s*display: flex;/.test(css), 'the phone keeps its tabs');
 });
 

@@ -1,7 +1,7 @@
 {
   "id": "travel",
   "name": "Planner",
-  "version": "0.15.2",
+  "version": "0.15.3",
   "icon": "suitcase-rolling",
   "color": "teal",
   "description": "Plan together: a day-by-day itinerary that draws in the events, tasks and polls your {space} already has.",
@@ -90,7 +90,7 @@
         "takes": [
           { "kinds": ["flight", "train", "bus", "ferry", "car"], "as": "{kind}" },
           { "kinds": ["hotel"], "as": "a stay" },
-          { "kinds": ["restaurant", "cafe", "bar", "sight", "museum", "tour", "show", "event"], "as": "{kind}" },
+          { "kinds": ["restaurant", "cafe", "bar", "sight", "museum", "attraction", "tour", "show", "event"], "as": "{kind}" },
           { "kinds": ["note"], "as": "a note" }
         ]
       },

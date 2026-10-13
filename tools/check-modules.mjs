@@ -498,7 +498,7 @@ test('takes: kinds from the catalogue, "*" with except, "text", "as", a permissi
   const both = { page: { entry: 'page.html' }, canvas: { entry: 'canvas.html' } };
   const perms = [{ key: 'create', label: 'Create', default: { member: false } }];
   const make = (provides) => cleanManifest({ ...base(), scope: ['environment', 'space'], surfaces: both, permissions: perms, actions: { provides } }, files);
-  const travel = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show'];
+  const travel = ['flight', 'train', 'bus', 'ferry', 'car', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show'];
   const ok = make([
     { name: 'createEvent', label: 'Add an event', input: { title: 'string', date: 'date?', object: 'object?' }, takes: [{ kinds: ['*', 'text', '*'], except: travel, as: 'an event' }, { kinds: ['event'], as: 'an event' }] },
     { name: 'savePhoto', label: 'Keep a photo', input: { object: 'object' }, takes: [{ kinds: ['image'], as: 'an image' }] },

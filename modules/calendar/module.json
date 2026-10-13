@@ -1,7 +1,7 @@
 {
   "id": "calendar",
   "name": "Calendar",
-  "version": "1.24.3",
+  "version": "1.24.4",
   "icon": "calendar-days",
   "color": "red",
   "description": "Sessions and events for the whole {environment} and for each {space}, with reminders.",
@@ -117,7 +117,7 @@
         },
         "needs": ["date"],
         "takes": [
-          { "kinds": ["event", "*", "text"], "except": ["flight", "train", "bus", "ferry", "car", "hotel", "restaurant", "cafe", "bar", "sight", "museum", "tour", "show"], "as": "an event" }
+          { "kinds": ["event", "*", "text"], "except": ["flight", "train", "bus", "ferry", "car", "hotel", "restaurant", "cafe", "bar", "sight", "museum", "attraction", "tour", "show"], "as": "an event" }
         ]
       },
       {

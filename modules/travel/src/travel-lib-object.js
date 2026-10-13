@@ -15,7 +15,7 @@
   const CAR_WORDS = { from: 'Pick up', to: 'Drop off', departs: 'Pick up', arrives: 'Drop off' };
   const OBJECT_JOURNEYS = ['flight', 'train', 'bus', 'ferry'];
   const OBJECT_MEALS = ['restaurant', 'cafe', 'bar'];
-  const OBJECT_VISITS = ['sight', 'museum', 'tour', 'show'];
+  const OBJECT_VISITS = ['sight', 'museum', 'attraction', 'tour', 'show'];
   const MAX_NOTES = 8000;
 
   // Whole minutes from one local day and time to another, read as wall-clock times in one place (no zone): a car's pick-up to

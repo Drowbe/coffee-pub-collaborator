@@ -277,7 +277,7 @@ await test('tags and citations', async () => {
 
 await test('the /ai rule lists the kinds it is given, and the travel kinds when given none', async () => {
   const travel = buildPrompt('ask', [], 'Why?').prompt;
-  assert.match(travel, /Set "kind" to what the object is: flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, tour or show\./);
+  assert.match(travel, /Set "kind" to what the object is: flight, train, bus, ferry, car, hotel, restaurant, cafe, bar, sight, museum, attraction, tour or show\./);
   assert.ok(!/- task: due/.test(travel));
   const tasks = buildPrompt('ask', [], 'Why?', ['task', 'note']).prompt;
   assert.match(tasks, /Set "kind" to what the object is: task or note\./);

@@ -209,7 +209,7 @@
   // An undated phase given dates, nothing else shifted: after the previous dated phase (the day after the main
   // phase's end; else from `today` when the previous phase has begun, else `days` after its start), or, before a
   // later dated phase, the `days` (at most) just before it, the previous phase keeping at least one day. The main
-  // phase gets an end too (`days` long, or the day before the next dated phase). Refused when there is no room.
+  // phase gets an end too (`days` long, or the day before the next dated phase). Refused when there are no free days.
   function addDatesFor(phases, dates, id, { created, today, days = 7 } = {}) {
     const list = cleanPhases(phases);
     const i = list.findIndex((p) => p.id === id);
@@ -231,9 +231,9 @@
       if (own) start = addDays(own, 1);
       else start = day && day > prev.start ? day : addDays(prev.start, span);
     } else {
-      const room = daysBetween(bands[p].start, bands[q].start) - 1;
-      if (room < 1) return { ok: false, problem: `There is no room for ${me.label} between ${bands[p].label} and ${bands[q].label}.` };
-      start = addDays(bands[q].start, -Math.min(span, room));
+      const freeDays = daysBetween(bands[p].start, bands[q].start) - 1;
+      if (freeDays < 1) return { ok: false, problem: `There are no free days for ${me.label} between ${bands[p].label} and ${bands[q].label}.` };
+      start = addDays(bands[q].start, -Math.min(span, freeDays));
     }
     const moved = moveBoundary(list, dates, { id }, start, { created });
     if (!moved.ok || !me.main) return moved;

@@ -270,7 +270,7 @@ await test('addDatesFor: a skipped phase given dates, nothing else shifted', () 
   assert.equal(add(dates, 'buffer', { days: 3 }).dates.buffer.start, '2026-09-28', 'a length of its own');
   // The previous phase keeps at least one day: Booking Sep 10, Trip Oct 1 leaves 20 days; with Trip on Sep 12, 1 day.
   assert.equal(add({ booking: { start: '2026-09-10' }, trip: { start: '2026-09-12', end: '2026-09-20' } }, 'buffer').dates.buffer.start, '2026-09-11');
-  assert.deepEqual(add({ booking: { start: '2026-09-10' }, trip: { start: '2026-09-11', end: '2026-09-20' } }, 'buffer'), { ok: false, problem: 'There is no room for Buffer between Booking and Trip.' });
+  assert.deepEqual(add({ booking: { start: '2026-09-10' }, trip: { start: '2026-09-11', end: '2026-09-20' } }, 'buffer'), { ok: false, problem: 'There are no free days for Buffer between Booking and Trip.' });
   // After the main phase's end, nothing dated after it: the day after the end, open-ended.
   r = add({ trip: { start: '2026-10-01', end: '2026-10-07' } }, 'post-trip');
   assert.deepEqual(r.dates['post-trip'], { start: '2026-10-08' });

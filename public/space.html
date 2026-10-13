@@ -28,6 +28,12 @@
       <aside class="dashboard" id="dashboard" hidden></aside>
       <div class="home-main">
         <section class="whos-around" id="whos-around" hidden></section>
+        <!-- The space cards' heading (the home word), and for owners and the admin the way to add one (GitHub #233):
+             it makes the space and takes them into it with Set up open. -->
+        <div class="space-list-head" id="space-list-head">
+          <h2 class="space-list-title" id="space-list-title"></h2>
+          <button class="btn btn-primary" id="home-add-space" type="button" hidden><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> <span id="home-add-space-label"></span></button>
+        </div>
         <div class="space-list" id="spaces"></div>
       </div>
     </div>
@@ -87,6 +93,8 @@
     <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" title="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
     <!-- The conference, as a strip of tiles while on the call (canvas.js puts it here). -->
     <div class="side-column-strip" id="side-column-strip"></div>
+    <!-- The split between the call's strip and the chat: dragged, or Up and Down with the keyboard. Shown on the call. -->
+    <div class="side-column-splitter side-column-splitter-h" id="side-column-strip-splitter" role="separator" aria-orientation="horizontal" aria-label="Resize the call" tabindex="0" title="Drag to resize"></div>
     <!-- Join the call (out of the call) and Online: the space bar's own elements, placed here wider than a phone. -->
     <div class="side-column-bar">
       <div class="side-column-call" id="side-column-call"></div>
@@ -99,6 +107,10 @@
       <button class="side-column-rail-chat" id="side-column-rail-chat" type="button" title="Chat" aria-label="Chat"><i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="badge" id="side-column-rail-unread" hidden></span></button>
       <div class="side-column-rail-faces" id="side-column-rail-faces"></div>
     </div>
+    <!-- The column's inner edge: dragged to make the column wider or narrower, or Left and Right with the keyboard
+         (Shift for more, Home and End for the least and the most, double-click or Shift+Enter for the default).
+         space.js remembers the width per person (the chat's width preference). -->
+    <div class="side-column-splitter side-column-splitter-v" id="side-column-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the chat column" tabindex="0" title="Drag to resize"></div>
   </aside>
   <!-- A view other than the Workspace (Calendar, Map: the one bar's views, plan-one-bar.md step 7): the page in a frame
        beside the column, in the canvas's place; the column stays outside it and no Away is set. -->

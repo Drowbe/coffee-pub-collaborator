@@ -5,7 +5,7 @@ import { anchorSegments, spaceViews, pageOpens, isHere, hereCount, asidePlacehol
 import { openPhaseSheet, chipFit } from '/phase-sheet.js';
 import { createSpaceSetup } from '/space-setup.js';
 import { createCanvas, joinModules, setJoinModules } from '/canvas.js';
-import { whatOpens, conferenceAllowed, opensWithSummary } from '/opens-with.js';
+import { whatOpens, conferenceAllowed, opensWithSummary, shouldAutoJoin } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
@@ -189,6 +189,9 @@ const rememberedSpace = () => { try { return sessionStorage.getItem(REMEMBERED_S
 // for the chat and the modules, and only sends and receives audio and video while the
 // conference module is open. Others see the difference through the "call" attribute.
 let inCall = false;
+// Left the call since entering (Hang up, the conference closed): the environment's "join the call on entering" does
+// not join them again until they enter a space again (GitHub #199). A pull keeps it; join() clears it.
+let leftCall = false;
 // Away (setAway, below): declared up here because what you hear (hearingOff) is set from page load on.
 let isAway = false;
 let awayRestoreMic = false;
@@ -202,7 +205,7 @@ let activeSpace = LOBBY;
 let ownerOnline = false; // whether that's actually backed by an owner (or the admin) online right now
 // Server-wide call feature toggles (Manage > Settings) -- these defaults
 // hold until init() replaces them with whatever /api/branding actually says.
-let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true, conferenceEnabled: true };
+let features = { maxQuality: 720, allowScreenShare: true, allowAsides: true, allowPrivate: true, allowReactions: true, conferenceEnabled: true, autoJoinCall: false };
 
 // A guest link (/guest/<token>): no account, just a name and this space. The
 // token both identifies which space's guest link this is and, appended to
@@ -569,7 +572,44 @@ function renderSpaces() {
     renderMembers(card.querySelector('.members'), members, r.id, Boolean(r.isAside));
   }
   for (const card of [...list.children]) if (!keep.has(card.dataset.space)) card.remove();
+  renderSpaceListHead();
 }
+
+// The row above the space cards (GitHub #233): the home word with its icon, and "Add <space>" for those who may make
+// one (owners and the admin, as the top bar's "New <space>" entry decides: hasOwnerRights). Never for a guest.
+function renderSpaceListHead() {
+  const title = $('space-list-title');
+  if (!title) return;
+  const homeIcon = document.querySelector('[data-brand="home-icon"]')?.dataset.iconId || 'couch';
+  title.innerHTML = `<i class="${escapeHtml(iconClasses(homeIcon))} fa-fw" aria-hidden="true"></i> `;
+  title.append(document.createTextNode(word('home')));
+  const button = $('home-add-space');
+  const label = `Add ${word('space', { cap: true })}`;
+  $('home-add-space-label').textContent = label;
+  button.title = label;
+  button.hidden = Boolean(guestToken) || !hasOwnerRights(me);
+}
+// Add <space>: the request Manage's Add button makes (POST /api/spaces, named "<Space> N"), then straight into the new
+// space with Set up open, so it can be named and set up at once. A failure is said where a join's is.
+async function addSpace() {
+  const button = $('home-add-space');
+  if (button.disabled) return;
+  button.disabled = true;
+  $('join-error').hidden = true;
+  try {
+    const count = presenceSpaces.filter((r) => r.mine && !r.isAside).length;
+    const { space } = await api('POST', '/api/spaces', { name: `${word('space', { cap: true })} ${count}`, description: '', members: [] });
+    await loadPresence(); // the new card, and the record join() reads the name from
+    await joinInvitedSpace(space.id);
+    if (call.state === 'connected' && currentSpace?.id === space.id) enterSetup();
+  } catch (err) {
+    $('join-error').textContent = err.message;
+    $('join-error').hidden = false;
+  } finally {
+    button.disabled = false;
+  }
+}
+$('home-add-space')?.addEventListener('click', addSpace);
 
 // hereCount() (primary-nav.js, held by check-nav): "3 here · 2 in the call", leaving out those stepped out into an aside.
 // `isAside`: the card is an aside's, whose own people read `aside: true` and are in it.
@@ -664,7 +704,7 @@ async function joinInPopout(spaceId) {
   if (call.state !== 'connected') closePopout(); // it failed; don't leave an empty window
 }
 // "Open with": what this person's own layout for a space opens with, remembered for that space (see joinModules in
-// canvas.js). The list is the conference, the chat and the space's modules; with nothing remembered, the switches on are what
+// canvas.js). The list is the chat and the space's modules; with nothing remembered, the switches on are what
 // entering would open (the space's "Opens with", else the environment's, else the chat and the modules; opens-with.js).
 const spaceModuleList = new Map(); // space id -> the modules on for it and what it opens with, fetched once
 const canIn = (spaceId, permission) => hasOwnerRights(me) || !!(me?.spaces?.[spaceId]?.effective || me?.permissions || {})[permission];
@@ -693,11 +733,11 @@ async function toggleJoinWith(card, spaceId) {
     }
   }
   if (!pop.isConnected) return; // closed while it loaded
-  // The conference and the chat as this environment shows them (their display names and icons, else their own).
+  // The chat as this environment shows it (its display name and icon, else its own).
   const { modules: onHere, builtin, opensWith, environment } = spaceModuleList.get(spaceId);
   const shownBuiltin = (id, name, icon) => ({ id, name, icon, ...builtin.find((b) => b.id === id) });
+  // No Conference switch: the call follows joining (GitHub #199); a remembered `conference` id is left alone.
   const choices = [
-    ...(conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canIn(spaceId, 'conference') }) ? [shownBuiltin('conference', 'Conference', 'video')] : []),
     ...(canIn(spaceId, 'chatRead') ? [shownBuiltin('chat', 'Chat', 'message')] : []),
     ...onHere.map((m) => ({ id: m.id, name: m.name, icon: m.icon })),
   ];
@@ -1028,7 +1068,7 @@ const DEFAULT_PREFS = {
   layout: 'grid', order: [], pinned: null, follow: true,
   micId: '', camId: '', gain: 100, gate: 0, noise: true, echo: true, agc: true, ptt: false,
   quality: 720, mirror: true, background: 'none', volumes: {}, popout: null, deafened: false,
-  chatWidth: 320, speakerId: '', masterVolume: 100,
+  chatWidth: 320, stripHeight: 168, speakerId: '', masterVolume: 100, // chatWidth is the column's width too (the splitter)
   pttKey: 'Space', muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE',
 };
 // Call preferences (layout, devices, volumes, keys). brand.js moves the key they had before the Names plan on load.
@@ -1176,6 +1216,11 @@ joinCallButton.addEventListener('click', () => joinTheCall());
 const joinCallWanted = () => Boolean(currentSpace) && call.state === 'connected' && !inCall
   && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
 nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted });
+// Entering joins by itself where the environment says so (GitHub #199, branding.autoJoinCall): the rule is
+// shouldAutoJoin (opens-with.js, held by check-canvas), asked once by connectAndSetup() on each entry, and it joins only
+// where Join the call would show (joinCallWanted), never in an aside, and not for a person who left the call since they
+// entered. The join is the same press as Join the call (joinTheCall), so the microphone, Away and a refusal behave alike.
+const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, inCall, canJoin: joinCallWanted(), aside: inAside(), left: leftCall });
 // --- end Join the call ---
 
 // --- who is here (space-people.js) ------------------------------------------------------------------
@@ -1233,7 +1278,96 @@ function syncColumn() {
   whoHere.el.hidden = !online;
   if (online) whoHere.fit(Math.max(0, columnEl.querySelector('.side-column-online').clientWidth));
   columnEl.classList.toggle('in-call', inCall);
+  applyColumnSizes();
   syncRail();
+}
+
+// The column's sizes (the splitters, #side-column-splitter and #side-column-strip-splitter in space.html): its width,
+// the chat's own preference from before the column (prefs.chatWidth, so a width a person had set holds), between
+// COLUMN_MIN and half the window; and on the call the strip's height (prefs.stripHeight), between STRIP_MIN and most of
+// the column, the chat keeping the rest. Dragged by pointer or touch; with the keyboard the arrows move by a step,
+// Shift by a bigger one, Home and End to the least and the most, double-click or Shift+Enter back to the default.
+// Both are remembered per person. Collapsed, the rail is 44px whatever the width, and opening returns to it.
+const COLUMN_MIN = 220;
+const COLUMN_MAX_SHARE = 0.5; // of the window
+const STRIP_MIN = 100;
+const STRIP_MAX_SHARE = 0.6; // of the column
+const SPLIT_STEP = 16;
+const SPLIT_BIG_STEP = 64;
+const clampSplit = (v, min, max) => Math.min(Math.max(Math.round(Number(v) || 0), min), Math.max(min, max));
+function clampColumnWidth(w, windowWidth) { return clampSplit(w, COLUMN_MIN, Math.round(windowWidth * COLUMN_MAX_SHARE)); }
+function clampStripHeight(h, columnHeight) { return clampSplit(h, STRIP_MIN, Math.round(columnHeight * STRIP_MAX_SHARE)); }
+// A key on a splitter: the new value, or null when the key is not the splitter's (so it goes on, never trapped).
+// `grow` and `shrink` are the arrow names for the axis (Right and Left for the column's edge, Down and Up for the strip's).
+function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
+  if (key === grow || key === shrink) return clampSplit(now + (key === grow ? 1 : -1) * (shift ? SPLIT_BIG_STEP : SPLIT_STEP), min, max);
+  if (key === 'Home') return min;
+  if (key === 'End') return Math.max(min, max);
+  if (key === 'Enter' && shift) return clampSplit(def, min, max);
+  return null;
+}
+const columnWin = () => columnEl.ownerDocument.defaultView || window;
+const columnMaxWidth = () => Math.round(columnWin().innerWidth * COLUMN_MAX_SHARE);
+const columnMaxStrip = () => Math.round((columnEl.clientHeight || columnWin().innerHeight) * STRIP_MAX_SHARE);
+// The sizes onto the column, clamped to the window it is in now (resized, popped out).
+function applyColumnSizes() {
+  if (!columnEl) return;
+  const w = clampColumnWidth(prefs.chatWidth, columnWin().innerWidth);
+  columnEl.style.setProperty('--side-column-w', `${w}px`);
+  const v = columnEl.querySelector('#side-column-splitter');
+  v.setAttribute('aria-valuemin', String(COLUMN_MIN));
+  v.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, columnMaxWidth())));
+  v.setAttribute('aria-valuenow', String(w));
+  v.setAttribute('aria-valuetext', `${w} pixels wide`);
+  const h = clampStripHeight(prefs.stripHeight, columnEl.clientHeight || columnWin().innerHeight);
+  columnEl.style.setProperty('--side-column-strip-h', `${h}px`);
+  const s = columnEl.querySelector('#side-column-strip-splitter');
+  s.setAttribute('aria-valuemin', String(STRIP_MIN));
+  s.setAttribute('aria-valuemax', String(Math.max(STRIP_MIN, columnMaxStrip())));
+  s.setAttribute('aria-valuenow', String(h));
+  s.setAttribute('aria-valuetext', `${h} pixels tall`);
+}
+let columnSizeFrame = 0;
+function setColumnSize(which, value, { remember = true } = {}) {
+  if (which === 'width') prefs.chatWidth = clampColumnWidth(value, columnWin().innerWidth);
+  else prefs.stripHeight = clampStripHeight(value, columnEl.clientHeight || columnWin().innerHeight);
+  if (remember) savePrefs();
+  applyColumnSizes();
+  if (!columnSizeFrame) columnSizeFrame = columnWin().requestAnimationFrame(() => { columnSizeFrame = 0; applyLayout(); }); // the canvas and the tiles follow, once a frame
+}
+// One splitter: `axis` 'x' or 'y', `which` the size it sets; the drag works from the pointer's travel since it began.
+function wireSplitter(el, { which, axis, def, min, max, grow, shrink }) {
+  let drag = null;
+  const start = () => (which === 'width' ? prefs.chatWidth : prefs.stripHeight);
+  el.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    event.preventDefault();
+    drag = { at: axis === 'x' ? event.clientX : event.clientY, from: start() };
+    el.classList.add('dragging');
+    columnEl.parentElement?.classList.add('resizing-column');
+    el.setPointerCapture?.(event.pointerId);
+  });
+  el.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    const travel = (axis === 'x' ? event.clientX : event.clientY) - drag.at;
+    setColumnSize(which, drag.from + travel, { remember: false });
+  });
+  const stop = () => {
+    if (!drag) return;
+    drag = null;
+    el.classList.remove('dragging');
+    columnEl.parentElement?.classList.remove('resizing-column');
+    savePrefs();
+  };
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointercancel', stop);
+  el.addEventListener('dblclick', () => setColumnSize(which, def));
+  el.addEventListener('keydown', (event) => {
+    const next = splitterKey({ key: event.key, shift: event.shiftKey }, start(), { min, max: max(), def, grow, shrink });
+    if (next === null) return; // Tab, Escape and the rest go on
+    event.preventDefault();
+    setColumnSize(which, next);
+  });
 }
 const columnKey = (id) => `app.column.${id}`;
 const columnCollapsed = () => Boolean(columnEl?.classList.contains('collapsed'));
@@ -1304,6 +1438,9 @@ if (columnEl) {
     setColumnCollapsed(false);
     if (canvas.builtinOpen('chat')) $('chat-input')?.focus();
   });
+  wireSplitter(columnEl.querySelector('#side-column-splitter'), { which: 'width', axis: 'x', def: DEFAULT_PREFS.chatWidth, min: COLUMN_MIN, max: columnMaxWidth, grow: 'ArrowRight', shrink: 'ArrowLeft' });
+  wireSplitter(columnEl.querySelector('#side-column-strip-splitter'), { which: 'strip', axis: 'y', def: DEFAULT_PREFS.stripHeight, min: STRIP_MIN, max: columnMaxStrip, grow: 'ArrowDown', shrink: 'ArrowUp' });
+  applyColumnSizes();
 }
 placeColumnTools(); // now that the two exist
 // --- end the always-on column ---
@@ -1548,7 +1685,6 @@ function enterSetup() {
     owner: hasOwnerRights(me),
     moderator: isModeratorHere(),
     phases: templatePhases.length > 0,
-    conferenceOn: features.conferenceEnabled !== false,
     nameInput: setupNameInput,
     openPhases: (opener) => openPhaseSheetFrom(opener),
     onDone: setupSaved,
@@ -3536,7 +3672,7 @@ canvas.registerBuiltin({
     $('canvas').classList.toggle('conference-open', open && mode === 'dock'); // the narrow layout keys off this
     if (!moving) {
       if (open) { if (!inCall) setNoCall(true); syncWhoIsInCall(); } // shown (entering or switched on): out of the call until a click joins
-      else { stopCall(); setNoCall(false); } // switched off: hang up (nothing to do out of the call); it starts fresh next time
+      else { if (inCall) leftCall = true; stopCall(); setNoCall(false); } // switched off: hang up (nothing to do out of the call); it starts fresh next time
     }
     updateCrumb();
     setTimeout(applyLayout, 0); // once the module is in place
@@ -3997,7 +4133,7 @@ async function reconnectTo(spaceId, statusText, { keepCall = false } = {}) {
   const stayOnCall = Boolean(keepCall) && inCall; // read before the disconnect, which ends the call here
   if (statusText) setStatus(statusText);
   await call.disconnect().catch(() => {});
-  await join(spaceId, { joinCall: stayOnCall });
+  await join(spaceId, { joinCall: stayOnCall, pull: true });
 }
 
 // Admin only: pick who to pull into a private space with me -- click a
@@ -4119,8 +4255,11 @@ function updateCrumb() {
   updatePhaseChip(); // the chip follows the breadcrumb: shown in a space, gone on home, in an aside and for a guest
 }
 
-// `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins.
-async function join(spaceId = 'lobby', { joinCall = false } = {}) {
+// `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins by itself, unless the
+// environment's "join the call on entering" is on (autoJoinOnEntry, in connectAndSetup). `pull`: this is a pull, not
+// the person entering again, so having left the call still counts (leftCall stays).
+async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) {
+  if (!pull) leftCall = false; // entering again: a person who left the call may be joined again
   viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
   showView('workspace'); // and its Workspace, never the last space's view
   $('join-error').hidden = true;
@@ -4158,6 +4297,7 @@ async function join(spaceId = 'lobby', { joinCall = false } = {}) {
 // account -- everything past "connect" is identical to a real member's join.
 async function joinAsGuest(token, livekitUrl, joinedId, joinedName) {
   $('guest-join-error').hidden = true;
+  leftCall = false; // a fresh entry
   try {
     setStatus('connecting...');
     spaceName = joinedName;
@@ -4213,8 +4353,9 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
     syncCallControl(); // who is in the call, for the conference's "Not in a call" note
     // A pull while I was on the call (reconnectTo): straight onto this one, with the conference showing, through the
     // join check and the microphone rules a click goes through. Not awaited: the space is entered either way, and a
-    // refusal is said in the "Not in a call" note as for a click.
-    if (joinCall) joinTheCall();
+    // refusal is said in the "Not in a call" note as for a click. The environment's "join the call on entering"
+    // (GitHub #199, autoJoinOnEntry) joins the same way, once per entry; blocked or refused, the Join row stays.
+    if (joinCall || autoJoinOnEntry()) joinTheCall();
 }
 
 // Start the conference: tiles for everyone in it, their media, and my own microphone.
@@ -4364,6 +4505,7 @@ async function stopCall() {
 // in with the call, as before.
 function hangUp() {
   if (pipWindow) closePopout();
+  leftCall = true; // their own choice: not joined again until they enter again (GitHub #199)
   stopCall();
   setNoCall(true);
 }
@@ -5764,6 +5906,7 @@ async function init() {
     allowPrivate: branding.allowPrivate !== false,
     allowReactions: branding.allowReactions !== false,
     conferenceEnabled: branding.conferenceEnabled !== false,
+    autoJoinCall: branding.autoJoinCall === true, // entering a space joins the call (GitHub #199); off unless the owner turned it on
   };
   applyFeatureFlags();
   // The template's phases (plan-one-bar.md, step 3) come with the branding; none, no chip.

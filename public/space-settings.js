@@ -208,7 +208,6 @@ $('space-modules').addEventListener('change', async (event) => {
 // at a time, so a slow answer never brings back an older list.
 let opensWithOptions = { modules: [], builtin: [], environment: null, installed: [], defaultLayout: null };
 let opensWithList = null;
-let conferenceOn = true;
 let opensWithSaving = Promise.resolve();
 let opensWithPending = 0;
 async function loadOpensWith() {
@@ -231,17 +230,16 @@ async function loadOpensWith() {
   renderOpensWith();
 }
 const builtinShown = (id, name, icon) => ({ id, name, icon, ...opensWithOptions.builtin.find((b) => b.id === id) });
-// What can open now, in the order shown.
+// What can open now, in the order shown. The conference is not a switch here: the call follows joining (GitHub #199),
+// so a `conference` id a saved list still holds is kept in the stored list and not drawn.
 function opensWithChoices() {
   return [
-    ...(conferenceOn ? [builtinShown('conference', 'Conference', 'video')] : []),
     builtinShown('chat', 'Chat', 'message'),
     ...opensWithOptions.modules.map((m) => ({ id: m.id, name: m.name, icon: m.icon })),
   ];
 }
 // A saved id that cannot open now, as the owner reads it: its name and icon where they are known, and why.
 function keptChoice(id) {
-  if (id === 'conference') return { ...builtinShown('conference', 'Conference', 'video'), note: 'switched off' };
   const m = opensWithOptions.installed.find((x) => x.id === id);
   if (!m) return { id, name: id, icon: 'puzzle-piece', note: 'not installed' };
   const shown = { id, name: m.displayName || m.name, icon: m.displayIcon || m.icon };
@@ -252,7 +250,7 @@ function keptChoice(id) {
 function renderOpensWith() {
   const choices = opensWithChoices();
   const chosen = new Set(opensWithList || []);
-  const kept = (opensWithList || []).filter((id) => !choices.some((c) => c.id === id)).map(keptChoice);
+  const kept = (opensWithList || []).filter((id) => id !== 'conference' && !choices.some((c) => c.id === id)).map(keptChoice);
   $('opens-with').innerHTML = switchListHtml([...choices, ...kept].map((c) => ({ ...c, on: chosen.has(c.id) })), 'opens');
   wireSwitchList($('opens-with'));
   syncOpensWithSummary();
@@ -461,7 +459,6 @@ async function init() {
   renderTopbar({ adminHref: '/admin#spaces' });
   renderPageBar({ manage: '/admin#spaces', controls: [$('subtabs')] }); // named once the space has loaded (renderCrumb)
   const branding = await loadBranding();
-  conferenceOn = branding.conferenceEnabled !== false;
   wireOverlayBack();
   buildIconGrid();
   try {

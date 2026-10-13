@@ -280,6 +280,9 @@ const DEFAULT_SETTINGS = {
   // The video and voice conference. Off, nobody (an admin included) has the "See and join the conference" permission, so joins carry
   // no media and the space page shows no conference; chat, presence and the modules carry on.
   conferenceEnabled: true,
+  // Join the call on entering a space (GitHub #199): off by default, so entering a space never joins the call unless an
+  // owner turns this on. The page reads it from branding() as `autoJoinCall`.
+  autoJoinCall: false,
   // The top bar's Calendar destination (plan-calendar-destination.md, decision 12): off until an owner turns it on (or a
   // template does, as Travel's does when an environment is made from it).
   showCalendar: false,
@@ -1118,6 +1121,10 @@ class Store {
     if (patch.allowPrivate !== undefined) s.allowPrivate = Boolean(patch.allowPrivate);
     if (patch.allowReactions !== undefined) s.allowReactions = Boolean(patch.allowReactions);
     if (patch.conferenceEnabled !== undefined) s.conferenceEnabled = Boolean(patch.conferenceEnabled);
+    if (patch.autoJoinCall !== undefined) {
+      if (typeof patch.autoJoinCall !== 'boolean') throw new StoreError('autoJoinCall is true or false');
+      s.autoJoinCall = patch.autoJoinCall;
+    }
     if (patch.showCalendar !== undefined) s.showCalendar = Boolean(patch.showCalendar);
     if (patch.showMap !== undefined) s.showMap = Boolean(patch.showMap);
     if (patch.calendarFeeds !== undefined) {

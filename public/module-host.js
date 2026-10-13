@@ -522,6 +522,7 @@ function ptrEnd() {
   clearTimeout(ptrDrag.timer);
   ptrDrag.ghost.remove();
   if (ptrDrag.over) ptrDrag.over.send('objectdrag', { type: 'leave' });
+  if (ptrDrag.relay) relayPost(ptrDrag.relay, { type: 'leave' }); // a composite frame it was over
   ptrDrag = null;
 }
 
@@ -567,7 +568,8 @@ function ptrMove(x, y) {
   if (hit) {
     ptrDrag.over = hit.target;
     hit.target.send('objectdrag', { type: 'over', x: hit.x, y: hit.y, ...dragged() });
-  }
+    relayPtr('leave', px, py); // a composite frame it was over before hears the leave
+  } else relayPtr('over', px, py);
 }
 
 function ptrDrop(x, y) {
@@ -579,8 +581,67 @@ function ptrDrop(x, y) {
   const hit = ptrTarget(px, py);
   trace(hit ? `host: released over ${hit.target.module.id} at ${hit.x},${hit.y}: dropping` : `host: released at page ${Math.round(px)},${Math.round(py)}, over no module frame`);
   if (hit) hit.target.send('objectdrag', { type: 'drop', x: hit.x, y: hit.y, ...dragged() });
+  else relayPtr('drop', px, py);
   ptrDrag.over = null; // the drop already ended it for the target
   ptrEnd();
+}
+
+// A drag relayed into a composite's frame (canvas.js, plan-calendar-todo.md step 3): the app's own page shown in a
+// frame on the Workspace (`/calendar?space=<id>`) holds module parts of its own, mounted by that page's host. A drag
+// from a module on the Workspace over that frame is handed to the page inside as a message (`app:objectdrag`, same
+// origin, over, leave and drop in the frame's coordinates); the page's host takes it below (relayIn) and treats it as
+// a drag from outside: the part under the pointer gets objectdrag as it would from a module beside it. A drag the other
+// way (from a part inside out onto a module on the Workspace) is not relayed.
+const relays = new Set(); // the composite frames on this page
+export function registerDragRelay(frame) {
+  relays.add(frame);
+  return () => relays.delete(frame);
+}
+function relayUnder(px, py) {
+  for (const frame of relays) {
+    if (!frame.isConnected || frame.ownerDocument !== ptrDrag.doc) continue;
+    const r = frame.getBoundingClientRect();
+    if (px >= r.left && px < r.right && py >= r.top && py < r.bottom) return { frame, x: Math.round(px - r.left), y: Math.round(py - r.top) };
+  }
+  return null;
+}
+function relayPost(frame, drag) {
+  try { frame.contentWindow?.postMessage({ type: 'app:objectdrag', drag }, location.origin); } catch { /* the page is not there */ }
+}
+// Over, leave or drop at a page point over no module frame: the composite frame under it, if any, hears it.
+function relayPtr(type, px, py) {
+  const hit = type === 'leave' ? null : relayUnder(px, py);
+  if (ptrDrag.relay && (!hit || hit.frame !== ptrDrag.relay)) {
+    relayPost(ptrDrag.relay, { type: 'leave' });
+    ptrDrag.relay = null;
+  }
+  if (!hit) return;
+  ptrDrag.relay = type === 'drop' ? null : hit.frame;
+  relayPost(hit.frame, { type, x: hit.x, y: hit.y, ...dragged() });
+}
+// Inside the frame: the drag from the page outside, handed to the part under the point as objectdrag.
+let relayOver = null;
+function relayIn(drag) {
+  const hit = drag.type === 'leave' ? null : [...mounted].find((t) => {
+    const r = t.frame.getBoundingClientRect();
+    return drag.x >= r.left && drag.x < r.right && drag.y >= r.top && drag.y < r.bottom;
+  });
+  if (relayOver && relayOver !== hit) relayOver.send('objectdrag', { type: 'leave' });
+  relayOver = hit && drag.type !== 'drop' ? hit : null;
+  if (!hit) return;
+  const r = hit.frame.getBoundingClientRect();
+  const ref = REF_SHAPE(drag.ref) ? cleanPointer(drag.ref) : null;
+  const summary = drag.summary ? cleanSummary(drag.summary) : null;
+  if (!ref && !summary) return;
+  hit.send('objectdrag', { type: drag.type, x: Math.round(drag.x - r.left), y: Math.round(drag.y - r.top), ref, summary });
+}
+if (window.parent !== window) {
+  window.addEventListener('message', (event) => {
+    if (event.source !== window.parent || event.origin !== location.origin) return;
+    const d = event.data;
+    if (!d || d.type !== 'app:objectdrag' || !d.drag || !['over', 'leave', 'drop'].includes(d.drag.type)) return;
+    relayIn({ type: d.drag.type, x: Number(d.drag.x) || 0, y: Number(d.drag.y) || 0, ref: d.drag.ref || null, summary: d.drag.summary || null });
+  });
 }
 
 // The host-drawn "..." dropdown for whatever a header, action bar or toolbar row didn't have room for is the page's

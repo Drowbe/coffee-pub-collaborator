@@ -8,6 +8,8 @@
 // (A module page opened over a call also carries from=space&spaceName=<the space's name>, for its Back link.)
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, markModuleRead, word } from '/brand.js';
 import { mountModule, openClearMenu } from '/module-host.js';
+import { moduleTint } from '/module-tint.js';
+import { compositesOn, compositesToAsk } from '/composites.js';
 
 const $ = (id) => document.getElementById(id);
 const id = decodeURIComponent(location.pathname.split('/')[2] || '');
@@ -42,7 +44,25 @@ async function start() {
     scope = 'space';
     const q = new URLSearchParams({ space: spaceId });
     if (guestToken) q.set('guest', guestToken);
-    const found = (await api('GET', `/api/modules/for-space?${q}`)).modules.find((m) => m.id === id);
+    const list = (await api('GET', `/api/modules/for-space?${q}`)).modules;
+    const found = list.find((m) => m.id === id);
+    // A part of a composite that is on in this space (the Calendar and the To-do while the Calendar is on; Maps and
+    // Places while the space's Map is shown; composites.js, plan-calendar-todo.md and plan-map-places.md step 3) has no
+    // page of its own there: its pop-out is the destination's page for the space, the same the Workspace's composite
+    // holds, the pointer in the address (#ref=) kept. A composite that asks (the Map needs a map file) is on only where
+    // its destination answers for the space, as the canvas asks; refused, the part keeps its own page here.
+    const ids = list.map((m) => m.id);
+    const shown = [];
+    for (const c of compositesToAsk(ids)) {
+      if (!c.parts.includes(id)) continue;
+      try { await api('GET', `/api/destinations/${encodeURIComponent(c.dest)}?${q}`); shown.push(c.dest); } catch { /* not shown here */ }
+    }
+    const composite = compositesOn(ids, shown).find((c) => c.parts.includes(id));
+    if (composite) {
+      q.delete('popout');
+      location.replace(`${composite.path}?${q}${location.hash}`);
+      return;
+    }
     if (found) {
       mod = { ...found, entry: found.canvas.entry };
       entry = found.canvas.entry;
@@ -154,8 +174,13 @@ async function clearModuleData() {
 function wireTitlebar(mod) {
   $('module-titlebar').hidden = false;
   $('module-titlebar-icon').className = `fa-solid fa-${mod.icon} fa-fw`;
-  // The module's colour on its icon, as on the canvas's titlebar (plan-chat-model.md, decision 18), when the server says one.
-  if (/^(gold|blue|green|teal|purple|red|orange|pink)$/.test(mod.color || '')) $('module-titlebar-icon').dataset.tint = mod.color;
+  // The module's colour on the titlebar and its icon, as on the canvas (plan-chat-model.md, decision 18; GitHub #229):
+  // the server's, else a stable pick from the id (module-tint.js).
+  const tint = moduleTint(mod.id, mod.color || null);
+  if (tint) {
+    $('module-titlebar-icon').dataset.tint = tint;
+    $('module-titlebar').dataset.tint = tint;
+  }
   $('module-titlebar-title').textContent = mod.name;
   $('module-close').addEventListener('click', () => window.close());
   $('module-menu').addEventListener('click', (event) => {

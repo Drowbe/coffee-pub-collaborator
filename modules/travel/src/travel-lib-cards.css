@@ -24,6 +24,7 @@
 .entry[data-type="bar"] { --turn: 320; }
 .entry[data-type="sight"] { --turn: 95; }
 .entry[data-type="museum"] { --turn: 285; }
+.entry[data-type="attraction"] { --turn: 240; }
 .entry[data-type="tour"] { --turn: 65; }
 .entry[data-type="show"] { --turn: 305; }
 .entry[data-type="note"] { --turn: 25; }

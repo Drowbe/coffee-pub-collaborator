@@ -5,6 +5,8 @@
 // and sets no style (the item menu is placed under the button that opened it). Nothing here names another module.
 // As the Map destination's list (plan-map-destination) it lists Mine, the environment's own and each chosen space's places
 // in one list, following the page's filter and search (host.destination), and a new place asks where it goes, every time.
+// As that list in a space (/map?space=<id>; plan-map-places.md, step 2) it lists this space's, Mine and the environment's
+// own by the page's filter there, reads a store only once the filter has it on, and Where offers the same three.
 (async () => {
   'use strict';
 
@@ -28,9 +30,10 @@
     $('msg').textContent = `${info.module.name} could not open here.`;
     return;
   }
-  // The Map destination's list: Mine, everyone's and the viewer's spaces' places together, beside the map. The page draws
-  // the filter and the search; this draws no header, view switch or bar of its own.
-  const asPart = !inSpace && Boolean(info.context.destination && info.context.destination.part);
+  // The Map destination's list: Mine, everyone's and the viewer's spaces' places together, beside the map (in a space,
+  // this space's, Mine and everyone's). The page draws the filter and the search; this draws no header, view switch or
+  // bar of its own.
+  const asPart = Boolean(info.context.destination && info.context.destination.part);
 
   const geo = host.util.geo;
   /*__LIB__*/
@@ -122,11 +125,12 @@
   const rowKey = (w, id) => `${w}/${id}`;
   // Who may change the places in a store. On the module's own pages, as before: this module's edit permission here. Beside
   // the map: Mine and everyone's by the edit permission at the environment (Mine needs a signed-in person), a space's where
-  // host.spaces() says `write` there.
+  // host.spaces() says `write` there; in a space, this space's and everyone's by the edit permission here, as its canvas has it.
   function writable(w) {
     if (!asPart) return canEdit;
     if (w === 'my') return personal && canEdit;
     if (w === 'global') return canEdit;
+    if (w === 'space') return inSpace && canEdit;
     if (w.startsWith('in:')) { const r = spaceInfo.get(w.slice(3)); return Boolean(r && r.write === true); }
     return false;
   }
@@ -134,20 +138,24 @@
   // destination's filter names them (decision 19); "Everyone" only where the name is not known.
   const everyoneName = () => (info.context.environment && info.context.environment.name) || 'Everyone';
   const whereName = (w) => (w === 'my' ? 'Mine' : w === 'global' ? everyoneName() : w === 'space' ? `This ${word('space')}` : (spaceInfo.get(w.slice(3)) || {}).name || word('space', { cap: true }));
-  // Where a new place may go, beside the map: Mine, everyone's, then each space where the viewer may add places.
+  // Where a new place may go, beside the map: Mine, everyone's, then each space where the viewer may add places; in a
+  // space, this space first, then Mine and everyone's.
   function whereOptions() {
     const out = [];
+    if (inSpace && writable('space')) out.push({ w: 'space', label: whereName('space') });
     if (writable('my')) out.push({ w: 'my', label: 'Mine' });
     if (writable('global')) out.push({ w: 'global', label: everyoneName() });
     for (const r of spaceInfo.values()) if (r.write === true) out.push({ w: `in:${r.id}`, label: r.name });
     return out;
   }
   const canAdd = () => (asPart ? whereOptions().length > 0 : canEdit);
-  // The stores shown: the view's on the module's own pages; beside the map, those the page's filter has on.
+  // The stores shown: the view's on the module's own pages; beside the map, those the page's filter has on (in a space,
+  // this space's among them).
   function shownWheres() {
     if (!asPart) return [view];
     const f = state.dest;
     const out = [];
+    if (inSpace && (!f || !f.spaces || f.spaces.has(String(info.context.spaceId)))) out.push('space');
     if (personal && (!f || f.mine)) out.push('my');
     if (!f || f.environment) out.push('global');
     for (const id of spaceInfo.keys()) if (!f || !f.spaces || f.spaces.has(id)) out.push(`in:${id}`);
@@ -246,10 +254,10 @@
     fill($('app').querySelector('.head'), { count: all.length ? String(all.length) : '' });
     const body = $('body');
     if (!state.loaded) { body.replaceChildren(clone('tpl-state-loading')); return; }
-    // Beside the map, with nothing on in the page's filter.
+    // Beside the map, with nothing on in the page's filter (named Show in a space, with the space word's plural elsewhere).
     if (asPart && !shownWheres().length) {
       const none = clone('tpl-state-none');
-      fill(none, { text: `Pick at least one in ${word('space', { many: true, cap: true })}.` });
+      fill(none, { text: `Pick at least one in ${inSpace ? 'Show' : word('space', { many: true, cap: true })}.` });
       body.replaceChildren(none);
       hide($('chips'), true);
       return;
@@ -365,12 +373,14 @@
   function openMenu(w, id, button) {
     const p = placeAt(w, id);
     if (!p) return;
-    const canShare = canEdit && personal && inSpace && (view === 'my' || view === 'space'); // copy between mine and this space: the original stays where it is
+    const canShare = !asPart && canEdit && personal && inSpace && (view === 'my' || view === 'space'); // copy between mine and this space: the original stays where it is
     const items = [
       { id: 'edit', label: writable(w) ? 'Edit' : 'View', icon: 'pen', onClick: () => openEditor(w, id) },
     ];
-    // Beside the map the copies name where they go: a shared place to Mine, one of Mine to a space the viewer may add to.
+    // Beside the map the copies name where they go: a shared place to Mine, one of Mine to a space the viewer may add to
+    // (in a space, to this space).
     if (asPart && w !== 'my' && writable('my')) items.push({ id: 'share', label: 'Save to mine', icon: 'share-nodes', onClick: () => copyTo('my', p, 'Saved to your places.') });
+    if (asPart && w === 'my' && inSpace && writable('space')) items.push({ id: 'share-space', label: `Share to this ${word('space')}`, icon: 'share-nodes', onClick: () => copyTo('space', p, `Shared to this ${word('space')}.`) });
     if (asPart && w === 'my' && personal) {
       for (const r of [...spaceInfo.values()].filter((s) => s.write === true).slice(0, 8)) {
         items.push({ id: `share-${r.id}`, label: `Share to ${r.name}`, icon: 'share-nodes', onClick: () => copyTo(`in:${r.id}`, p, `Shared to ${r.name}.`) });
@@ -426,6 +436,7 @@
   // shows or was picked last; Save says to pick first. A place that exists stays where it is: Where shows it, unchangeable.
   // The prompt names what is offered: "Pick a <space>, or Mine", "Pick a <space>", or "Pick where it goes" for Mine alone.
   const pickWhere = () => {
+    if (inSpace) return 'Pick where it goes';
     const offered = whereOptions();
     const mine = offered.some((o) => o.w === 'my');
     const others = offered.some((o) => o.w !== 'my');
@@ -509,7 +520,7 @@
     $('editor-title').textContent = id ? (editable ? 'Change this place' : shown.title) : 'Add a place';
     fillWhere(w, editable);
     // Read only where the viewer may not change places: beside the map, say why (it differs from one place to the next).
-    const why = asPart && id && !editable ? `Only people who can add places ${w === 'global' ? `for everyone in this ${word('environment')}` : `in ${whereName(w)}`} can change this.` : '';
+    const why = asPart && id && !editable ? `Only people who can add places ${w === 'global' ? `for everyone in this ${word('environment')}` : w === 'space' ? `in this ${word('space')}` : `in ${whereName(w)}`} can change this.` : '';
     $('f-readonly').textContent = why;
     hide($('f-readonly'), !why);
     for (const el of FIELD_WRAPPERS()) el.hidden = !editable;
@@ -967,6 +978,8 @@
       state.selected = w ? rowKey(w, ref.id) : '';
     }
     if (!state.loaded) return;
+    // A store the filter has just turned on and that has not been read yet (in a space, everyone's starts off): read it.
+    for (const w of shownWheres()) if (stores[w] && !loadedStores.has(w)) ensureLoaded(w).then(() => { render(); loadLinks().catch(() => {}); }).catch(() => {});
     render();
     if (picked) markSelected(true);
     loadLinks().catch(() => {});
@@ -992,7 +1005,10 @@
   $('app').hidden = false;
   render();
   try {
-    if (asPart) {
+    if (asPart && inSpace) {
+      // This space's and Mine now; everyone's once the page's filter has it on (takeState), or now if it already does.
+      await Promise.all([ensureLoaded('space'), personal ? ensureLoaded('my').catch(() => {}) : null, shownWheres().includes('global') ? ensureLoaded('global').catch(() => {}) : null]);
+    } else if (asPart) {
       await Promise.all([personal ? ensureLoaded('my') : null, ensureLoaded('global').catch(() => {}), loadSpaces().catch(() => {})]);
     } else await ensureLoaded(view);
     state.people = await host.people().catch(() => []);

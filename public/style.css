@@ -1068,6 +1068,48 @@ body.in-space .page-scroll {
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
 }
 
+/* The space cards' heading row: the home word as Who's around's title reads, and Add <space> at the right for owners
+   and the admin (GitHub #233). The row takes no room of its own: the list's gap is the space under it. */
+.space-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-bottom: -6px;
+}
+
+.space-list-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.space-list-title i {
+  color: var(--accent);
+}
+
+.space-list-head .btn {
+  height: 40px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 480px) {
+  .space-list-head .btn {
+    flex: 1 1 100%; /* a phone: the button on a row of its own, full width, an easy target */
+    justify-content: center;
+  }
+}
+
 .dashboard {
   display: flex;
   flex-direction: column;
@@ -6213,6 +6255,19 @@ body.conference-window {
   font-weight: 600;
 }
 
+/* Each module's titlebar told apart at a glance (GitHub #229): its tint (the manifest's colour, else a stable pick from
+   its id; module-tint.js) on a 3px top edge, a light wash over the header's own background and on its icon. The words
+   keep --text, so the pair reads in light and dark alike. Docked, floating and the popped-out page's titlebar alike. */
+.mod-header[data-tint] {
+  box-shadow: inset 0 3px 0 var(--tint);
+  background-image: linear-gradient(color-mix(in srgb, var(--tint) 10%, transparent), color-mix(in srgb, var(--tint) 10%, transparent));
+}
+
+.mod-header[data-tint] .mod-title > i {
+  color: var(--tint);
+  font-size: 15px;
+}
+
 .mod-header-tools {
   display: inline-flex;
   gap: 2px;
@@ -9327,8 +9382,68 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
    for a refusal of the join, which it keeps saying. */
 .side-column-strip {
   flex: none;
-  height: 168px;
+  height: var(--side-column-strip-h, 168px);
   position: relative;
+}
+
+/* The splitters: the column's inner edge (dragged, or Left and Right) and, on the call, the line between the strip and
+   the chat (dragged, or Up and Down). A hit area of 8px, wider for a finger; the accent shows on hover and focus. */
+.side-column-splitter {
+  touch-action: none;
+  user-select: none;
+  z-index: 9; /* over the strip's tiles and the chat */
+  background: transparent;
+  transition: background-color 0.12s;
+}
+
+.side-column-splitter:hover,
+.side-column-splitter:focus-visible,
+.side-column-splitter.dragging {
+  background: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+.side-column-splitter:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.side-column-splitter-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: -4px;
+  width: 8px;
+  cursor: col-resize;
+}
+
+.side-column-splitter-h {
+  display: none;
+  position: relative;
+  flex: none;
+  height: 8px;
+  margin: -4px 0;
+  cursor: row-resize;
+}
+
+.side-column.in-call .side-column-splitter-h {
+  display: block;
+}
+
+@media (pointer: coarse) {
+  .side-column-splitter-v {
+    right: -7px;
+    width: 14px;
+  }
+
+  .side-column-splitter-h {
+    height: 14px;
+    margin: -7px 0;
+  }
+}
+
+/* While a splitter is dragged, the frames under the pointer must not swallow it. */
+.work.resizing-column iframe {
+  pointer-events: none;
 }
 
 .side-column-strip:has(.module-video.call-off) {
@@ -9354,10 +9469,20 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   display: none;
 }
 
+/* Only the refusal shows here (the message why a join did not go through), as a block the column's width, clear of
+   the handle (.side-column-toggle, 28px at the top right) so its end is never covered. */
 .side-column-strip .no-call {
   position: static;
-  padding: 0 12px;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 6px 40px 0 12px;
   font-size: 13px;
+}
+
+.side-column-strip .no-call-error {
+  width: auto;
+  text-align: left;
 }
 
 .side-column-strip .no-call:not(:has(.no-call-error:not([hidden]))) {
@@ -9544,6 +9669,7 @@ body.in-aside .side-column {
 }
 
 body.in-aside .side-column-toggle,
+body.in-aside .side-column-splitter,
 body.in-aside .canvas {
   display: none;
 }

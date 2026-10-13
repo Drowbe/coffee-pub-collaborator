@@ -22,7 +22,7 @@
   // a stop and a stay a `type`, and any item may say how you get to it (`travelMode`, `travelMinutes`: the leg from the
   // item before), which a person sets now and a routing service could fill later.
   const MODES = ['flight', 'train', 'bus', 'ferry', 'car', 'taxi', 'rideshare', 'shuttle', 'other'];
-  const STOP_TYPES = ['restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show', 'hike', 'beach', 'shop', 'spa', 'other'];
+  const STOP_TYPES = ['restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show', 'hike', 'beach', 'shop', 'spa', 'other'];
   const STAY_TYPES = ['hotel', 'rental', 'hostel', 'camp', 'other'];
   const TRAVEL_MODES = ['walk', 'drive', 'transit', 'bike', 'taxi', 'rideshare', 'none'];
   const MAX_DAYS = 60;
@@ -72,6 +72,35 @@
   }
   // An arrival as a notes line ("Arrives: 2026-11-14 15:25"), for one that cannot be the ticket's.
   const arrivesLine = (arrives) => `Arrives: ${String(arrives).replace('T', ' ')}`;
+
+  // --- the editor's days that follow another day (#241, #242, #245) --------------------------------------------------
+  // A day that follows another until the person chooses one: a flight's arrival day is its departure day, a stay's check-out
+  // the day after its check-in. `chosen` is what the person set (null or undefined while they have not; '' is a chosen "none"),
+  // `base` the day it follows, `n` days later. No base and nothing chosen: ''.
+  const followDay = (base, chosen, n) => (chosen !== null && chosen !== undefined ? chosen : isYmd(base) ? daysLater(base, n) : '');
+  // The arrival days the editor offers for a journey, the same day as the departure first, then up to 7 days after, then the day
+  // before (across the date line): the days a ticket's arrival can be (arrivalFits). On a day, each is a date; with no day, each is
+  // how many days later ('0', '1', '-1'), the way the arrival is kept then.
+  const ARRIVAL_OFFSETS = [0, 1, 2, 3, 4, 5, 6, 7, -1];
+  const arrivalDays = (base) => ARRIVAL_OFFSETS.map((n) => ({ value: isYmd(base) ? daysLater(base, n) : String(n), n }));
+  // A ticket's arrival as the editor shows it, a day (one of arrivalDays) and a time, from how it is stored. Nothing stored is the
+  // departure day (or '0', the same day) with no time.
+  function arrivalParts(base, arrives) {
+    const m = RELATIVE_ARRIVAL.exec(typeof arrives === 'string' ? arrives : '');
+    if (m) { const n = m[2] ? Number(m[2] + m[3]) : 0; return { day: isYmd(base) ? daysLater(base, n) : String(n), time: m[1] }; }
+    if (typeof arrives === 'string' && arrives.length === 16) return { day: arrives.slice(0, 10), time: arrives.slice(11) };
+    return { day: isYmd(base) ? base : '0', time: '' };
+  }
+  // And back: what is stored for the day and time the editor shows. No time is no arrival.
+  function arrivalJoin(day, time) {
+    if (!isTime(time)) return '';
+    if (isYmd(day)) return `${day}T${time}`;
+    const n = Number(day);
+    if (!Number.isInteger(n)) return '';
+    return ticketWhen(`${time}${n > 0 ? `+${n}` : n < 0 ? `${n}` : ''}`) || '';
+  }
+  // The days a stay can check out, the day after it checks in and on, as many as a plan can be long. None without a check-in day.
+  const checkoutDays = (base) => (isYmd(base) ? Array.from({ length: MAX_DAYS }, (_, i) => ({ value: daysLater(base, i + 1), n: i + 1 })) : []);
   // A small whole number, 1 to max, or null.
   const count = (n, max) => (Number.isFinite(n) && n >= 1 ? Math.min(Math.round(n), max) : null);
   // A code such as an airport (IATA, 3 letters) or a gate: letters and digits, upper case, or ''.
@@ -595,9 +624,10 @@
   // --- what an item is, for its card and its editor ---------------------------------------------------------------
   // The editor's tiles, one per kind of thing, and the card's colour family and silhouette for each. A card's family is what
   // the stylesheet colours by (`data-type` on the row), so the kinds without a colour of their own borrow one.
-  const TILES = ['flight', 'train', 'ferry', 'bus', 'car', 'taxi', 'rideshare', 'shuttle', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show', 'note'];
+  const TILES = ['flight', 'train', 'ferry', 'bus', 'car', 'taxi', 'rideshare', 'shuttle', 'hotel', 'restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show', 'note'];
   const JOURNEY_TILES = ['flight', 'train', 'ferry', 'bus', 'car', 'taxi', 'rideshare', 'shuttle'];
-  const STOP_TILES = ['restaurant', 'cafe', 'bar', 'sight', 'museum', 'tour', 'show'];
+  // An attraction (a theme park, a zoo: #246) is a stop like a sight, with the activity card.
+  const STOP_TILES = ['restaurant', 'cafe', 'bar', 'sight', 'museum', 'attraction', 'tour', 'show'];
   // The tile an item shows under in the editor. A link (another module's object) has none.
   function tileOf(item) {
     if (!item) return 'sight';
@@ -614,7 +644,7 @@
   }
   // The colour family of each kind in the editor's kind picker: degrees the accent's hue is turned, the same numbers the
   // cards use (`--turn` per `data-type` in travel-lib-cards.css), so the kind in the picker and its card look alike.
-  const TURNS = { flight: 195, train: 150, ferry: 120, bus: 100, car: 45, taxi: 170, rideshare: 220, shuttle: 80, hotel: 255, restaurant: 0, cafe: 345, bar: 320, sight: 95, museum: 285, tour: 65, show: 305, note: 25 };
+  const TURNS = { flight: 195, train: 150, ferry: 120, bus: 100, car: 45, taxi: 170, rideshare: 220, shuttle: 80, hotel: 255, restaurant: 0, cafe: 345, bar: 320, sight: 95, museum: 285, attraction: 240, tour: 65, show: 305, note: 25 };
   // The kind picker shows each marker type once (`marker:<type>`); Where decides whether it is stored in a day (a `block:`
   // tile) or at a joint between days (a `lane:` tile). kindOf: the picker's id for a tile; tileAt: the tile for a picker's id
   // at a Where value (`d:<day>` or `d:` a day, `j:<day>` or `j:` a joint).
@@ -633,8 +663,8 @@
   }
   // How an item is drawn: its card's template, the colour family on its row, the kicker and the badge icon. A link is drawn
   // from the summary of the object it points at (`summary`, as host.objects.resolve gave it).
-  const KICKERS = { flight: 'Flight', train: 'Train', ferry: 'Ferry', bus: 'Bus', car: 'Rental car', taxi: 'Taxi', rideshare: 'Ride share', shuttle: 'Shuttle', restaurant: 'Restaurant', cafe: 'Café', bar: 'Bar', sight: 'Sight', museum: 'Museum', tour: 'Tour', hike: 'Hike', beach: 'Beach', shop: 'Shop', spa: 'Spa', show: 'Show', other: 'Stop' };
-  const BADGES = { flight: 'plane', train: 'train', ferry: 'ship', bus: 'bus', car: 'car', taxi: 'taxi', rideshare: 'car-side', shuttle: 'van-shuttle', restaurant: 'utensils', cafe: 'mug-hot', bar: 'martini-glass', sight: 'monument', museum: 'building-columns', tour: 'person-hiking', hike: 'person-hiking', beach: 'umbrella-beach', shop: 'bag-shopping', spa: 'spa', show: 'masks-theater', other: 'location-dot' };
+  const KICKERS = { flight: 'Flight', train: 'Train', ferry: 'Ferry', bus: 'Bus', car: 'Rental car', taxi: 'Taxi', rideshare: 'Ride share', shuttle: 'Shuttle', restaurant: 'Restaurant', cafe: 'Café', bar: 'Bar', sight: 'Sight', museum: 'Museum', attraction: 'Attraction', tour: 'Tour', hike: 'Hike', beach: 'Beach', shop: 'Shop', spa: 'Spa', show: 'Show', other: 'Stop' };
+  const BADGES = { flight: 'plane', train: 'train', ferry: 'ship', bus: 'bus', car: 'car', taxi: 'taxi', rideshare: 'car-side', shuttle: 'van-shuttle', restaurant: 'utensils', cafe: 'mug-hot', bar: 'martini-glass', sight: 'monument', museum: 'building-columns', attraction: 'wand-magic-sparkles', tour: 'person-hiking', hike: 'person-hiking', beach: 'umbrella-beach', shop: 'bag-shopping', spa: 'spa', show: 'masks-theater', other: 'location-dot' };
   const STAY_KICKERS = { hotel: 'Hotel', rental: 'Rental', hostel: 'Hostel', camp: 'Camp', other: 'Stay' };
   function cardOf(item, summary) {
     if (item.kind === 'link') return { template: summary && !summary.error && summary.kind === 'place' ? 'place' : 'link', family: summary && !summary.error && summary.kind === 'place' ? 'place' : 'link', kicker: '', badge: '' };

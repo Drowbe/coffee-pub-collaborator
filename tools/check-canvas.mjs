@@ -58,8 +58,24 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'opens-with.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/opens-with.js'), copy);
-  const { whatOpens, conferenceAllowed, opensWithSummary } = await import(pathToFileURL(copy).href);
+  const { whatOpens, conferenceAllowed, opensWithSummary, shouldAutoJoin } = await import(pathToFileURL(copy).href);
   fs.rmSync(tmp, { recursive: true, force: true });
+  // GitHub #199: entering joins the call by itself only with the environment's setting on, out of the call, where Join
+  // the call would show, not in an aside, and not for a person who left the call since they entered.
+  const joinBase = { setting: true, inCall: false, canJoin: true, aside: false, left: false };
+  for (const [name, input, want] of [
+    ['the setting on, out of the call, may join: joins', joinBase, true],
+    ['the setting off: as today, no join', { ...joinBase, setting: false }, false],
+    ['the setting absent: no join', { inCall: false, canJoin: true }, false],
+    ['the setting not a boolean true: no join', { ...joinBase, setting: 'true' }, false],
+    ['already in the call: no join', { ...joinBase, inCall: true }, false],
+    ['may not join (no permission, the conference off, a guest without it): no join', { ...joinBase, canJoin: false }, false],
+    ['an aside: left as it is', { ...joinBase, aside: true }, false],
+    ['left the call since entering: stays out', { ...joinBase, left: true }, false],
+    ['nothing given: no join', undefined, false],
+  ]) {
+    if (shouldAutoJoin(input) !== want) fail('public/opens-with.js', `shouldAutoJoin, ${name}: got ${shouldAutoJoin(input)}, want ${want}`);
+  }
   const everyone = () => true;
   const noConference = (id) => id !== 'conference';
   const cases = [
@@ -97,6 +113,18 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       { modules: ['todo'], guest: true, column: true }, []],
     ['without the column (a phone) the lists hold them as before',
       { remembered: ['todo', 'conference', 'chat'], modules: ['todo'] }, ['todo', 'conference', 'chat']],
+    // The composite (plan-calendar-todo.md, step 3; public/composites.js): a stored `calendar` or `todo` reads as
+    // `dest:calendar` while the Calendar is on in the space, once, where the first is named; the list is not rewritten.
+    ['the composite: a remembered list naming calendar and todo opens the composite once, in the first\'s place',
+      { remembered: ['todo', 'notes', 'calendar'], modules: ['calendar', 'todo', 'notes'], aliases: { calendar: 'dest:calendar', todo: 'dest:calendar' } }, ['dest:calendar', 'notes']],
+    ['the composite: the space\'s own list naming todo opens it, when it may open here',
+      { own: ['todo', 'chat'], modules: ['calendar', 'todo'], canOpen: (id) => id !== 'todo', aliases: { calendar: 'dest:calendar', todo: 'dest:calendar' }, column: true }, ['dest:calendar']],
+    ['the composite off (the Calendar off here): a remembered dest:calendar opens the To-do\'s own list',
+      { remembered: ['dest:calendar', 'notes'], modules: ['todo', 'notes'], aliases: { 'dest:calendar': ['todo'] } }, ['todo', 'notes']],
+    ['the composite off, the To-do off too: a remembered dest:calendar opens nothing',
+      { remembered: ['dest:calendar', 'notes'], modules: ['notes'], aliases: { 'dest:calendar': [] } }, ['notes']],
+    ['nothing set with the composite: the chat, the composite in the Calendar\'s place, the rest',
+      { modules: ['calendar', 'todo', 'notes'], aliases: { calendar: 'dest:calendar', todo: 'dest:calendar' } }, ['chat', 'dest:calendar', 'notes']],
   ];
   for (const [name, input, want] of cases) {
     try {
@@ -524,12 +552,90 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const load = canvasJs.slice(canvasJs.indexOf('  function loadLayout('), canvasJs.indexOf('  const nameOfLayout'));
   if (!capture || !/layoutOf\(mods, canvasArea\(\), \{ all: snapAllOn\(\), pitch: snapPitch\(\) \}\)/.test(capture)) fail(C, 'captureLayout() must build the layout with layoutOf(), with the canvas-level snap');
   if (!/p\.waiting \? 'dock'/.test(capture)) fail(C, 'captureLayout() saves a module waiting for a column as docked');
-  if (!/placeLayout\(layout, area, canOpenHere\)/.test(load)) fail(C, 'loadLayout() must place the layout with placeLayout() and canOpenHere()');
+  if (!/placeLayout\(layout, area, canOpenHere, aliases\)/.test(load)) fail(C, 'loadLayout() must place the layout with placeLayout(), canOpenHere() and the composites\' aliases');
+  if (!/id: compositeOf\(p\.m\) \? compositeOf\(p\.m\)\.main : p\.id/.test(capture)) fail(C, 'captureLayout() saves a composite under its main module\'s id (the server\'s layout store takes module ids only)');
+  if (!/aliases,/.test(canvasJs.slice(canvasJs.indexOf('  function restore() {'), canvasJs.indexOf('  // --- saved layouts')))) fail(C, 'restore() must ask whatOpens with the composites\' aliases');
   if (!/p\.id === 'conference' && p\.kind === 'builtin' && Boolean\(p\.def\?\.inCall\?\.\(\)\)/.test(load) || !/p\.kind !== 'builtin' && !named\.has\(p\.id\) && !keepCall\(p\)\) closeModule\(p\.id\)/.test(load)) fail(C, 'loadLayout() closes what the layout does not name, never the conference or the chat (the column\'s; plan-one-bar.md step 6)');
   if (!/syncDock\(\)/.test(load) || !/snapshot\(\)/.test(load)) fail(C, 'loadLayout() fits the columns (syncDock, fitDock) and becomes the remembered layout (snapshot)');
   if (!/leftOutNote\(plan\.left/.test(load)) fail(C, 'loadLayout() says in one line what it left out');
   if (/function applyLayout\(/.test(canvasJs)) fail(C, 'applyLayout is space.js\'s window-width handler; the canvas\'s load is loadLayout()');
   if (!/\n    captureLayout,\n    loadLayout,\n/.test(canvasJs)) fail(C, 'the canvas must offer captureLayout() and loadLayout()');
+}
+
+// Composites on the Workspace (public/composites.js; plan-calendar-todo.md step 3, reused by plan-map-places.md step 3):
+// one module, `dest:calendar`, in the Calendar's place while the Calendar is on in a space, the To-do's own surface left
+// out there; a stored `calendar` or `todo` reads as the composite and is never written back; where the Calendar is off,
+// a stored `dest:calendar` reads as the To-do alone, so nobody loses their list. The Map (`dest:map`) the same, in
+// Maps' place, Places left out, while the space's Map is shown (Maps on there and a map file).
+{
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'composites.mjs');
+  fs.copyFileSync(path.join(ROOT, 'public/composites.js'), copy);
+  const { COMPOSITES, compositesOn, compositesToAsk, aliasesFor, readAs, composeList, isCompositeId } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  const F = 'public/composites.js';
+  const src = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  if (/\bimport\b|\bdocument\.\w|\bwindow\.\w|localStorage/.test(src)) fail(F, 'composites.js must stay pure: no imports, no DOM, no storage');
+  const cal = COMPOSITES.find((c) => c.id === 'dest:calendar');
+  if (!cal || cal.main !== 'calendar' || cal.path !== '/calendar' || [...cal.parts].join() !== 'calendar,todo') fail(F, 'dest:calendar holds /calendar, its main the Calendar, its parts the Calendar and the To-do');
+  if (!isCompositeId('dest:calendar') || isCompositeId('calendar')) fail(F, 'a composite id starts with dest:');
+  assert.deepEqual(compositesOn(['todo', 'notes']).map((c) => c.id), [], 'the composite is off where the Calendar is off, whatever the To-do does');
+  assert.deepEqual(compositesOn(['calendar']).map((c) => c.id), ['dest:calendar'], 'the composite is on where the Calendar is on, the To-do off or not');
+  assert.deepEqual(aliasesFor(['calendar', 'todo']), { calendar: 'dest:calendar', todo: 'dest:calendar', 'dest:map': [] }, 'on: both parts read as the composite');
+  assert.deepEqual(aliasesFor(['todo']), { 'dest:calendar': ['todo'], 'dest:map': [] }, 'off: the composite reads as the parts on');
+  assert.deepEqual(aliasesFor([]), { 'dest:calendar': [], 'dest:map': [] }, 'off, nothing on: the composite reads as nothing');
+  // The Map (plan-map-places.md step 3): the same table row, `dest:map` for `/map`, its main Maps, its parts Maps and
+  // Places; Maps on in the space is not enough, the page asks the destination for the space first (a map file,
+  // server/destinations.js `needsFile`) and the composite is on only where it answered (`shown`). Refused, Maps and
+  // Places keep their own surfaces and a stored `dest:map` reads as whichever of them is on.
+  const map = COMPOSITES.find((c) => c.id === 'dest:map');
+  if (!map || map.main !== 'maps' || map.path !== '/map' || map.dest !== 'map' || [...map.parts].join() !== 'maps,places' || map.ask !== true) fail(F, 'dest:map holds /map, its main Maps, its parts Maps and Places, and asks the destination first');
+  assert.deepEqual(compositesToAsk(['maps', 'places', 'calendar']).map((c) => c.id), ['dest:map'], 'compositesToAsk: the Map, while Maps is on; never the Calendar');
+  assert.deepEqual(compositesToAsk(['places']).map((c) => c.id), [], 'nothing to ask with Maps off');
+  assert.deepEqual(compositesOn(['maps', 'places']).map((c) => c.id), [], 'the Map is off where the destination was not asked or refused (no map file)');
+  assert.deepEqual(compositesOn(['maps', 'places'], ['map']).map((c) => c.id), ['dest:map'], 'and on where it answered for the space');
+  assert.deepEqual(compositesOn(['places'], ['map']).map((c) => c.id), [], 'never with Maps off, whatever answered');
+  assert.deepEqual(compositesOn(['calendar', 'maps'], ['map']).map((c) => c.id), ['dest:calendar', 'dest:map'], 'both on together');
+  assert.deepEqual(aliasesFor(['maps', 'places'], ['map']), { 'dest:calendar': [], maps: 'dest:map', places: 'dest:map' }, 'the Map on: Maps and Places read as it');
+  assert.deepEqual(aliasesFor(['maps', 'places']), { 'dest:calendar': [], 'dest:map': ['maps', 'places'] }, 'the Map off (no map file): a stored dest:map reads as Maps and Places as they are');
+  assert.deepEqual(readAs(Object.freeze(['places', 'travel', 'maps']), aliasesFor(['maps', 'places', 'travel'], ['map'])), ['dest:map', 'travel'], 'a stored list naming places and maps reads as one Map, where the first is named');
+  assert.deepEqual(readAs(['dest:map', 'travel'], aliasesFor(['maps', 'places', 'travel'])), ['maps', 'places', 'travel'], 'a stored dest:map reads as Maps and Places where there is no map file');
+  const mapList = [{ id: 'travel', name: 'Planner', icon: 'route' }, { id: 'places', name: 'Places', icon: 'location-dot' }, { id: 'maps', name: 'Maps', icon: 'map-location-dot', color: 'pink', version: '0.9.0', scope: ['environment', 'space'] }];
+  const mapShown = composeList(mapList, ['map']);
+  assert.deepEqual(mapShown.map((m) => m.id), ['travel', 'dest:map'], 'the Show list: one Map in Maps\' place, Places left out');
+  if (mapShown[1].name !== 'Maps' || mapShown[1].icon !== 'map-location-dot' || mapShown[1].color !== 'pink' || mapShown[1].composite?.path !== '/map') fail(F, 'the Map composite reads as Maps: its name, icon and colour, its page /map');
+  assert.deepEqual(composeList(mapList).map((m) => m.id), ['travel', 'places', 'maps'], 'with no map file the Show list keeps Maps and Places as they are');
+  const stored = Object.freeze(['todo', 'chat', 'calendar', 'notes']);
+  assert.deepEqual(readAs(stored, aliasesFor(['calendar', 'todo', 'notes'])), ['dest:calendar', 'chat', 'notes'], 'a stored list reads with the composite once, in the first part\'s place');
+  assert.deepEqual([...stored], ['todo', 'chat', 'calendar', 'notes'], 'and is never written back');
+  assert.deepEqual(readAs(['dest:calendar', 'notes'], aliasesFor(['todo', 'notes'])), ['todo', 'notes'], 'a stored composite reads as the To-do where the Calendar is off');
+  const list = [{ id: 'notes', name: 'Notes', icon: 'note' }, { id: 'todo', name: 'To-do', icon: 'check', color: 'green' }, { id: 'calendar', name: 'Calendar', icon: 'calendar', color: 'red', version: '1.25.0', scope: ['space'] }];
+  const shown = composeList(list);
+  assert.deepEqual(shown.map((m) => m.id), ['notes', 'dest:calendar'], 'the Show list: the composite in the Calendar\'s place, the To-do left out');
+  const c = shown[1];
+  if (c.name !== 'Calendar' || c.icon !== 'calendar' || c.color !== 'red' || !c.composite || c.composite.id !== 'dest:calendar') fail(F, 'the composite reads as the Calendar: its name, icon and colour');
+  if (!c.canvas || c.canvas.entry !== null || !c.canvas.mode.includes('dock') || !c.canvas.mode.includes('float')) fail(F, 'the composite docks and floats, and has no module entry of its own');
+  assert.deepEqual(composeList([list[0], list[1]]).map((m) => m.id), ['notes', 'todo'], 'with the Calendar off the To-do keeps its own surface');
+  // The pop-out of a part goes to the destination's page for the space (public/module.js); the canvas builds the
+  // composite's frame from the same table and never writes `calendar` or `todo` into a remembered list.
+  const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
+  if (!/compositesOn\(ids, shown\)\.find\(\(c\) => c\.parts\.includes\(id\)\)/.test(moduleJs) || !/location\.replace\(`\$\{composite\.path\}\?\$\{q\}\$\{location\.hash\}`\)/.test(moduleJs)) fail('public/module.js', 'a part\'s pop-out (/modules/calendar?space=, /modules/todo?space=, /modules/maps?space=, /modules/places?space=) goes to the destination\'s page for the space, the hash kept');
+  // The Map's pop-out asks the destination for the space first (a 404 keeps the part's own page), as the canvas does.
+  if (!/for \(const c of compositesToAsk\(ids\)\)/.test(moduleJs) || !/await api\('GET', `\/api\/destinations\/\$\{encodeURIComponent\(c\.dest\)\}\?\$\{q\}`\); shown\.push\(c\.dest\);/.test(moduleJs)) fail('public/module.js', 'a part of a composite that asks (Maps, Places) redirects only where GET /api/destinations/map?space= answers');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  if (!/available = composeList\(modules, shown\)/.test(canvasJs) || !/aliases = aliasesFor\(modules\.map\(\(m\) => m\.id\), shown\)/.test(canvasJs)) fail('public/canvas.js', 'refresh() composes the Show list and the aliases from composites.js, with the destinations that answered');
+  if (!/const shown = await askDestinations\(id, modules\);/.test(canvasJs) || !/compositesToAsk\(list\.map\(\(m\) => m\.id\)\)/.test(canvasJs) || !/await api\('GET', `\/api\/destinations\/\$\{encodeURIComponent\(c\.dest\)\}\?\$\{q\}`\);/.test(canvasJs)) fail('public/canvas.js', 'refresh() asks GET /api/destinations/<dest>?space= for each composite that asks (the Map) before composing');
+  if (!/if \(spaceId !== id\) return; \/\/ another space was entered/.test(canvasJs)) fail('public/canvas.js', 'refresh() drops its answer when another space was entered meanwhile');
+  if (!/list: \(\) => modules\.slice\(\)/.test(canvasJs)) fail('public/canvas.js', 'list() stays the server\'s modules (Chat reads commands by module id)');
+  // A drag from a module on the Workspace over the composite's frame is relayed into the page inside (module-host.js),
+  // same origin only, from the parent window only; the canvas registers each composite's frame and lets it go on close.
+  const hostJs = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
+  if (!/export function registerDragRelay\(frame\)/.test(hostJs) || !/postMessage\(\{ type: 'app:objectdrag', drag \}, location\.origin\)/.test(hostJs)) fail('public/module-host.js', 'a drag over a composite frame is relayed into it as app:objectdrag, same origin');
+  if (!/if \(event\.source !== window\.parent \|\| event\.origin !== location\.origin\) return;/.test(hostJs)) fail('public/module-host.js', 'a relayed drag is taken only from the parent window, same origin');
+  if (!/const unrelay = registerDragRelay\(frame\);/.test(canvasJs) || !/destroy\(\) \{ unrelay\(\); waiting = null; frame\.src = 'about:blank'; \}/.test(canvasJs)) fail('public/canvas.js', 'compositeMount registers the frame for relayed drags and lets it go on close');
+  // A pointer delivered before the destination's page is in the frame (the composite opened for a place card, a task)
+  // waits for the frame's load, then goes in as #ref=; one delivered after goes in at once.
+  if (!/frame\.addEventListener\('load', \(\) => \{ if \(waiting && loaded\(\)\) \{ show\(waiting\); waiting = null; \} \}\);/.test(canvasJs) || !/if \(loaded\(\)\) show\(data\.ref\); else waiting = data\.ref;/.test(canvasJs)) fail('public/canvas.js', 'compositeMount holds a pointer until the composite\'s page has loaded');
 }
 
 // The reaction tray (GitHub #169): with many reactions it never rises under the header. Opening it caps its height to
@@ -583,16 +689,24 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const setup = spaceJs.slice(spaceJs.indexOf('async function connectAndSetup('), spaceJs.indexOf('async function startCall('));
   if (!setup.includes('canvas.restore()')) fail('public/space.js', 'connectAndSetup() must open what the space starts with (canvas.restore())');
   if (!/async function connectAndSetup\(token, livekitUrl, \{ joinCall = false \} = \{\}\)/.test(setup)) fail('public/space.js', 'connectAndSetup() joins only when told to (joinCall, false unless so)');
-  const setupJoin = setup.slice(setup.indexOf('if (joinCall)'));
-  const setupRest = setup.slice(0, setup.indexOf('if (joinCall)'));
-  if (!setup.includes('if (joinCall)') || /startCall|joinTheCall|joinOnShow|callStarting/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call, only a pull that moves the call (if (joinCall))');
+  // GitHub #199: the one other way on is the environment's "join the call on entering" (branding.autoJoinCall), asked
+  // through autoJoinOnEntry() (shouldAutoJoin, opens-with.js) in the same line, so it is the same join (joinTheCall).
+  const JOIN_LINE = 'if (joinCall || autoJoinOnEntry()) joinTheCall();';
+  const setupJoin = setup.slice(setup.indexOf(JOIN_LINE));
+  const setupRest = setup.slice(0, setup.indexOf(JOIN_LINE));
+  if (!setup.includes(JOIN_LINE) || /startCall|joinTheCall|joinOnShow|callStarting|autoJoinOnEntry\(\)/.test(setupRest)) fail('public/space.js', 'entering a space (connectAndSetup) must never join the call by itself, only a pull that moves the call or the environment\'s setting (if (joinCall || autoJoinOnEntry()))');
+  if (!/const autoJoinOnEntry = \(\) => shouldAutoJoin\(\{ setting: features\.autoJoinCall, inCall, canJoin: joinCallWanted\(\), aside: inAside\(\), left: leftCall \}\);/.test(spaceJs)) fail('public/space.js', 'autoJoinOnEntry() asks shouldAutoJoin with the environment\'s setting, inCall, Join the call\'s own rule (joinCallWanted), the aside and leftCall');
+  if (!/autoJoinCall: branding\.autoJoinCall === true/.test(spaceJs)) fail('public/space.js', 'features.autoJoinCall is read from /api/branding, on only when true');
+  if (!/^function hangUp\(\) \{\n  if \(pipWindow\) closePopout\(\);\n  leftCall = true;/m.test(spaceJs)) fail('public/space.js', 'Hang up marks leftCall, so the setting does not join them again');
+  if (!/if \(!pull\) leftCall = false;/.test(spaceJs) || !/leftCall = false; \/\/ a fresh entry/.test(spaceJs)) fail('public/space.js', 'entering again (join() not as a pull, joinAsGuest()) clears leftCall');
   if (!/setAttributes\(\{ call: 'off' \}\)/.test(setupRest)) fail('public/space.js', 'entering a space must tell others "off"');
   if (/joinOnShow/.test(spaceJs)) fail('public/space.js', 'no joinOnShow: entering a space never joins the call');
-  if (!/async function join\(spaceId = 'lobby', \{ joinCall = false \} = \{\}\)/.test(spaceJs)) fail('public/space.js', 'join() joins the call only when told to (joinCall, false unless so)');
+  if (!/async function join\(spaceId = 'lobby', \{ joinCall = false, pull = false \} = \{\}\)/.test(spaceJs)) fail('public/space.js', 'join() joins the call only when told to (joinCall, false unless so; pull says it is not the person entering again)');
   const joinCallers = [...spaceJs.matchAll(/\bjoin\([^)]*joinCall[^)]*\)/g)].map((m) => m[0]).filter((c) => !c.startsWith('join(spaceId = '));
   const reconnect = spaceJs.slice(spaceJs.indexOf('async function reconnectTo('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('async function reconnectTo(')));
   if (joinCallers.length !== 1 || !reconnect.includes(joinCallers[0])) fail('public/space.js', `only reconnectTo() may ask join() to join the call (found ${JSON.stringify(joinCallers)})`);
   if (!/const stayOnCall = Boolean\(keepCall\) && inCall;/.test(reconnect) || reconnect.indexOf('stayOnCall =') > reconnect.indexOf('call.disconnect(')) fail('public/space.js', 'reconnectTo() keeps the call only for a pull, and only when I was on it (read before the disconnect)');
+  if (!reconnect.includes('{ joinCall: stayOnCall, pull: true }')) fail('public/space.js', 'reconnectTo() tells join() it is a pull, so a person who left the call is not joined again by the setting');
   // Which moves are pulls: in and out of an aside, never going somewhere myself (an invitation, the dashboard, a pop-out).
   const keepers = [...spaceJs.matchAll(/^.*reconnectTo\(.*\{ keepCall: true \}.*$/gm)].length;
   if (keepers !== 6) fail('public/space.js', `a pull keeps the call: the aside's pull (an owner's, a peer's), following back, the recall's countdown, pullAside and Rejoin call (found ${keepers})`);
@@ -607,11 +721,11 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const shared = spaceJs.slice(spaceJs.indexOf('function joinTheCall('), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function joinTheCall(')));
   const byShared = callers.filter((line) => linesOf(shared).includes(line));
   if (byClick.length !== 1 || byShared.length !== 1 || callers.length !== 2) fail('public/space.js', `startCall() is called from phoneButton() (a click in the conference) and joinTheCall() alone (found ${JSON.stringify(callers)})`);
-  // joinTheCall() shows the conference as its switch does, then joins; called by a pull's joinCall and by the space
-  // bar's Join the call, nothing else.
+  // joinTheCall() shows the conference as its switch does, then joins; called by connectAndSetup() (a pull's joinCall,
+  // or the environment's "join the call on entering", GitHub #199) and by the space bar's Join the call, nothing else.
   if (!/^function joinTheCall\(\) \{\n  if \(!canvas\.showBuiltin\('conference'\)\) return;\n  startCall\(\)/m.test(spaceJs)) fail('public/space.js', 'joinTheCall() shows the conference (canvas.showBuiltin) and then joins (startCall)');
   const sharedCallers = [...spaceJs.matchAll(/^.*\bjoinTheCall\(\).*$/gm)].map((m) => m[0].trim()).filter((line) => !line.startsWith('//') && !line.startsWith('function joinTheCall('));
-  if (sharedCallers.length !== 2 || !setupJoin.includes(sharedCallers.find((l) => /joinCall\)/.test(l)) || '\0') || !sharedCallers.some((l) => l.startsWith('joinCallButton.addEventListener('))) fail('public/space.js', `joinTheCall() is called from connectAndSetup()'s joinCall (a pull) and the space bar's Join the call alone (found ${JSON.stringify(sharedCallers)})`);
+  if (sharedCallers.length !== 2 || !setupJoin.includes(sharedCallers.find((l) => l === JOIN_LINE) || '\0') || !sharedCallers.some((l) => l.startsWith('joinCallButton.addEventListener('))) fail('public/space.js', `joinTheCall() is called from connectAndSetup() (a pull, or the setting) and the space bar's Join the call alone (found ${JSON.stringify(sharedCallers)})`);
   const confDef = spaceJs.slice(spaceJs.indexOf("id: 'conference',"), spaceJs.indexOf("$('conf-close').addEventListener"));
   if (/startCall/.test(confDef)) fail('public/space.js', 'showing the conference (its onChange) must never join the call');
 }
@@ -1049,6 +1163,98 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       if (!local.has(m[1]) && !shared.has(m[1])) fail(C, `${s[1]}() reads ${m[1]}.${m[2]}() but nothing it can see declares ${m[1]}`);
     }
   }
+}
+
+// The column's splitters (plan-one-bar.md step 6, Thomas's feedback): the column's inner edge resizes it between
+// 220px and half the window, reusing the chat's width preference; on the call a second splitter sets the strip's
+// height. Both are separators with a vertical or horizontal orientation and a value; the keyboard moves by 16px, Shift
+// by 64px, Home and End to the ends, Shift+Enter back to the default, and any other key is left alone (never trapped).
+{
+  const F = 'public/space.js';
+  const spaceJs = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  for (const [id, orient, name] of [['side-column-splitter', 'vertical', 'Resize the chat column'], ['side-column-strip-splitter', 'horizontal', 'Resize the call']]) {
+    const at = html.indexOf(`id="${id}"`);
+    const tag = at < 0 ? '' : html.slice(html.lastIndexOf('<', at), html.indexOf('>', at) + 1);
+    if (!tag) fail('public/space.html', `the column needs its splitter #${id}`);
+    else if (!tag.includes('role="separator"') || !tag.includes(`aria-orientation="${orient}"`) || !tag.includes('tabindex="0"') || !tag.includes(`aria-label="${name}"`)) fail('public/space.html', `#${id} is a focusable ${orient} separator named "${name}"`);
+  }
+  const start = spaceJs.indexOf('const COLUMN_MIN = 220;');
+  const src = start < 0 ? '' : spaceJs.slice(start, spaceJs.indexOf('const columnWin = ', start));
+  if (!/function clampColumnWidth\(/.test(src) || !/function clampStripHeight\(/.test(src) || !/function splitterKey\(/.test(src)) fail(F, 'the column\'s splitters need clampColumnWidth(), clampStripHeight() and splitterKey() after COLUMN_MIN');
+  else {
+    const { clampColumnWidth, clampStripHeight, splitterKey } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey };`)();
+    const cases = [
+      ['a width inside the range holds', clampColumnWidth(320, 1280), 320],
+      ['the least width is 220px', clampColumnWidth(10, 1280), 220],
+      ['the most is half the window', clampColumnWidth(900, 1280), 640],
+      ['a window too narrow for half still gives the least', clampColumnWidth(300, 300), 220],
+      ['a width that is not a number gives the least', clampColumnWidth(undefined, 1280), 220],
+      ['the strip\'s least height is 100px', clampStripHeight(10, 800), 100],
+      ['the strip takes at most 60% of the column', clampStripHeight(700, 800), 480],
+      ['the strip\'s height inside the range holds', clampStripHeight(168, 800), 168],
+    ];
+    const lim = { min: 220, max: 640, def: 320, grow: 'ArrowRight', shrink: 'ArrowLeft' };
+    cases.push(
+      ['Right widens by 16', splitterKey({ key: 'ArrowRight', shift: false }, 320, lim), 336],
+      ['Left narrows by 16', splitterKey({ key: 'ArrowLeft', shift: false }, 320, lim), 304],
+      ['Shift+Right widens by 64', splitterKey({ key: 'ArrowRight', shift: true }, 320, lim), 384],
+      ['Shift+Left narrows by 64', splitterKey({ key: 'ArrowLeft', shift: true }, 320, lim), 256],
+      ['Left at the least stays', splitterKey({ key: 'ArrowLeft', shift: true }, 230, lim), 220],
+      ['Right at the most stays', splitterKey({ key: 'ArrowRight', shift: false }, 636, lim), 640],
+      ['Home is the least', splitterKey({ key: 'Home', shift: false }, 320, lim), 220],
+      ['End is the most', splitterKey({ key: 'End', shift: false }, 320, lim), 640],
+      ['Shift+Enter is the default', splitterKey({ key: 'Enter', shift: true }, 500, lim), 320],
+      ['Enter alone is not the splitter\'s', splitterKey({ key: 'Enter', shift: false }, 500, lim), null],
+      ['Tab is not the splitter\'s (focus moves on)', splitterKey({ key: 'Tab', shift: false }, 320, lim), null],
+      ['Up is not the vertical splitter\'s', splitterKey({ key: 'ArrowUp', shift: false }, 320, lim), null],
+      ['Down grows the strip', splitterKey({ key: 'ArrowDown', shift: false }, 168, { min: 100, max: 480, def: 168, grow: 'ArrowDown', shrink: 'ArrowUp' }), 184],
+    );
+    for (const [label, got, want] of cases) if (got !== want) fail(F, `${label}: got ${got}, wanted ${want}`);
+  }
+  if (!/wireSplitter\(columnEl\.querySelector\('#side-column-splitter'\), \{ which: 'width'/.test(spaceJs)) fail(F, 'the column\'s edge is wired as a splitter setting the width');
+  if (!/if \(which === 'width'\) prefs\.chatWidth = clampColumnWidth\(/.test(spaceJs)) fail(F, 'the column\'s width is the chat\'s width preference (prefs.chatWidth), so a width set before the column holds');
+  if (!/--side-column-w: 320px;/.test(css) || !/height: var\(--side-column-strip-h, 168px\);/.test(css)) fail('public/style.css', 'the column\'s width and the strip\'s height come from --side-column-w and --side-column-strip-h');
+  if (!/\.side-column-splitter:hover,\s*\.side-column-splitter:focus-visible,\s*\.side-column-splitter\.dragging \{\s*background: color-mix\(in srgb, var\(--accent\)/.test(css)) fail('public/style.css', 'a splitter shows the accent on hover, focus and while dragged');
+  if (!/\.side-column-splitter-v \{[^}]*width: 8px;/.test(css) || !/@media \(pointer: coarse\) \{\s*\.side-column-splitter-v \{[^}]*width: 14px;/.test(css)) fail('public/style.css', 'the splitter\'s hit area is 8px, 14px for a finger');
+}
+
+// Each module's titlebar told apart (GitHub #229, public/module-tint.js): the manifest's colour when it names a tint,
+// else a stable pick from the id, never gold (the AI's), the same every time; and the stylesheet draws it on the
+// header (docked, floating and the popped-out page's, all .mod-header) from the tint tokens, never a raw colour.
+{
+  const F = 'public/module-tint.js';
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
+  const copy = path.join(tmp, 'module-tint.mjs');
+  fs.copyFileSync(path.join(ROOT, F), copy);
+  const { TINTS, moduleTint } = await import(pathToFileURL(copy).href);
+  fs.rmSync(tmp, { recursive: true, force: true });
+  if (TINTS.join() !== 'gold,blue,green,teal,purple,red,orange,pink') fail(F, 'the eight tints, in the stylesheet\'s order');
+  for (const t of TINTS) if (moduleTint('anything', t) !== t) fail(F, `the manifest's ${t} wins`);
+  if (moduleTint('anything', 'mauve') === 'mauve' || moduleTint('anything', null) === null) fail(F, 'a colour that is not a tint, or none, falls back to a pick from the id');
+  if (moduleTint('', null) !== null || moduleTint(null) !== null) fail(F, 'no id, no tint');
+  const ids = ['assistant', 'stream', 'notes', 'weather', 'dice', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'module-with-a-long-id', 'x1', 'x2'];
+  for (const id of ids) {
+    const first = moduleTint(id);
+    if (first !== moduleTint(id)) fail(F, `${id}: the pick is stable`);
+    if (!TINTS.includes(first)) fail(F, `${id}: the pick is one of the tints (got ${first})`);
+    if (first === 'gold') fail(F, `${id}: gold is the AI's, never a module's fallback`);
+  }
+  if (new Set(ids.map((id) => moduleTint(id))).size < 4) fail(F, 'the picks spread over the tints');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  // A composite (dest:calendar) carries its main module's colour (composites.js), so the one Calendar keeps the Calendar's tint.
+  if (!/const colorOf = \(id\) => \{ const c = compositeById\(id\); const base = c \? c\.main : id; return moduleTint\(base, colors\.get\(base\) \|\| null\); \};/.test(canvasJs)) fail('public/canvas.js', 'a module\'s colour is moduleTint(id, the manifest\'s); a composite\'s is its main module\'s');
+  if (!/<header class="mod-header module-floating-head"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs) || !/<header class="mod-header"\$\{tintAttr\(m\.id\)\}>/.test(canvasJs)) fail('public/canvas.js', 'the floating and the docked header carry data-tint');
+  const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
+  if (!/\$\('module-titlebar'\)\.dataset\.tint = tint;/.test(moduleJs)) fail('public/module.js', 'the popped-out page\'s titlebar carries data-tint');
+  const rule = /\.mod-header\[data-tint\] \{([^}]*)\}/.exec(css);
+  if (!rule) fail('public/style.css', 'a rule for .mod-header[data-tint]');
+  else {
+    if (!/box-shadow: inset 0 3px 0 var\(--tint\);/.test(rule[1])) fail('public/style.css', 'the tint is a 3px top edge (box-shadow inset 0 3px 0 var(--tint))');
+    if (!/color-mix\(in srgb, var\(--tint\) 10%, transparent\)/.test(rule[1])) fail('public/style.css', 'the wash is a 10% mix of the tint over the header\'s own background');
+    if (/#[0-9a-f]{3,8}\b|rgba?\(/i.test(rule[1])) fail('public/style.css', 'the titlebar\'s accent uses the tint token, never a raw colour');
+  }
+  if (!/\.mod-header\[data-tint\] \.mod-title > i \{[^}]*color: var\(--tint\);/.test(css)) fail('public/style.css', 'the title\'s icon takes the tint');
 }
 
 if (problems.length) {

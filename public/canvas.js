@@ -13,12 +13,14 @@
 // See documentation/architecture/architecture-canvas.md.
 
 import { api, markModuleRead, followTheme, word } from '/brand.js';
-import { mountModule, openClearMenu } from '/module-host.js';
+import { mountModule, openClearMenu, registerDragRelay } from '/module-host.js';
 import { nav } from '/nav-bar.js';
 import { whatOpens } from '/opens-with.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { layoutOf, placeLayout, leftOutNote } from '/layouts.js';
+import { TINTS, moduleTint } from '/module-tint.js';
 import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle, tidyCells, tidyBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
+import { composeList, aliasesFor, compositeById, compositesToAsk } from '/composites.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
 // and each module's mode and sizes. `app.canvas` alone is what earlier versions kept for all
@@ -102,13 +104,25 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const builtins = new Map(); // id -> the built-in module's definition (the conference and the chat)
   const canvasEmpty = document.getElementById('canvas-empty');
   let spaceId = null;
+  // The modules on in this space for this person, as the server lists them (`modules`: Chat reads commands and names
+  // by module id from it), and what the Workspace offers (`available`): the same list with each composite that is on
+  // in its main module's place and the composite's other parts left out (composites.js; plan-calendar-todo.md,
+  // step 3; plan-map-places.md, step 3). A composite (`dest:calendar`, `dest:map`) is one column or floating box
+  // holding the destination's page at space scope in a frame; it opens, moves and closes as an installed module does,
+  // under its own id.
+  let modules = [];
   let available = [];
+  // How a stored id reads here (composites.js's aliasesFor): a composite's part as the composite while it is on, a
+  // composite as its parts that are on while it is off. opens-with.js and layouts.js read lists through the same map.
+  let aliases = {};
+  const readId = (id) => { const to = aliases[id]; return typeof to === 'string' ? to : Array.isArray(to) ? to[0] || id : id; };
+  const compositeOf = (m) => (m && m.composite) || null;
   // Each module's colour in this space (plan-chat-model.md, decision 18), a tint name or null, from every module the
   // server listed, the ones kept out of the Layout menu (canvas.menu false) included: Chat colours a command's
-  // messages by it.
+  // messages by it. A module whose manifest names no colour gets a stable one from its id (module-tint.js, GitHub
+  // #229), so every titlebar is told apart. A composite carries its main module's.
   let colors = new Map();
-  const TINTS = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
-  const colorOf = (id) => (colors.get(id) || null);
+  const colorOf = (id) => { const c = compositeById(id); const base = c ? c.main : id; return moduleTint(base, colors.get(base) || null); };
   const tintAttr = (id) => (colorOf(id) ? ` data-tint="${colorOf(id)}"` : '');
   // What this space opens with, and the environment's list for a space that has none. Both null until a space is loaded.
   let spaceOpensWith = null;
@@ -784,14 +798,61 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // --- installed modules -------------------------------------------------------
 
+  // A composite has no More menu of its own (Clear everything is each part's, in the page it holds).
   const moduleHeader = (m, mode, canDock, canFloat, snap = false) => `
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>${toolsHtml({ mode, canDock, canFloat, snap })}</span>`;
+    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span>${compositeOf(m) ? '' : '<button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>'}${toolsHtml({ mode, canDock, canFloat, snap })}</span>`;
 
-  // An installed module's place on the canvas: a frame for a sandboxed module, an element of its own for one that runs in the page.
+  // The page a composite holds: the destination as a view of this space (`/calendar?space=<id>`, `/map?space=<id>`, the
+  // same page the one bar's Calendar or Map view shows; it draws no top bar of its own in a frame), with a guest's token.
+  const compositeSrc = (c) => {
+    const q = new URLSearchParams({ space: spaceId || '' });
+    if (guestToken) q.set('guest', guestToken);
+    return `${c.path}?${q}`;
+  };
+
+  // An installed module's place on the canvas: a frame for a sandboxed module, an element of its own for one that runs in
+  // the page, the app's own page (not sandboxed: it is this site's) for a composite.
   const holder = (m, cls) => (m.runMode === 'page'
     ? `<div class="module-root ${cls}" data-module-root="${escapeHtml(m.id)}"></div>`
-    : `<iframe class="${cls}" title="${escapeHtml(m.name)}"></iframe>`);
+    : compositeOf(m)
+      ? `<iframe class="${cls} composite-frame" title="${escapeHtml(m.name)}" src="${escapeHtml(compositeSrc(compositeOf(m)))}"></iframe>`
+      : `<iframe class="${cls}" title="${escapeHtml(m.name)}"></iframe>`);
+
+  // What stands in for a composite's mount: nothing runs through the SDK here (the parts inside the page have their own
+  // host); a pointer to open (openRef) goes to the page as #ref=, which it already takes (destination.js, takeHash).
+  function compositeMount(mod, frame) {
+    // A drag from a module on the Workspace over the frame reaches the parts inside (module-host.js, registerDragRelay).
+    const unrelay = registerDragRelay(frame);
+    const c = compositeOf(mod.m);
+    // Whether the destination's page is in the frame (not the blank it starts as): a pointer that arrives before it is
+    // (the composite opened for that pointer: a place card's, a task's) waits for the page's load.
+    const loaded = () => { try { return Boolean(frame.contentWindow) && frame.contentWindow.location.pathname === c.path; } catch { return false; } };
+    let waiting = null;
+    const show = (ref) => {
+      try {
+        const win = frame.contentWindow;
+        const hash = `ref=${encodeURIComponent(JSON.stringify(ref))}`;
+        if (win.location.hash === `#${hash}`) win.location.hash = ''; // the same pointer again still fires hashchange
+        win.location.hash = hash;
+      } catch { /* the page is not there; the pointer is dropped */ }
+    };
+    frame.addEventListener('load', () => { if (waiting && loaded()) { show(waiting); waiting = null; } });
+    return {
+      destroy() { unrelay(); waiting = null; frame.src = 'about:blank'; },
+      deliver(event, data) {
+        if (event !== 'objectopen' || !data?.ref) return;
+        if (loaded()) show(data.ref); else waiting = data.ref;
+      },
+      send() {},
+      lift() {},
+      beginDragForTest() {},
+      ptrForTest() {},
+    };
+  }
+  // Unread notifications: a composite's are its parts'.
+  const unreadOf = (id) => { const c = compositeById(id); return c ? c.parts.reduce((sum, p) => sum + (unread[p] || 0), 0) : unread[id] || 0; };
+  const markRead = (id) => { const c = compositeById(id); for (const one of c ? c.parts : [id]) markModuleRead(one); };
 
   // onBar and onResize are wired the same way regardless of which mode a module opened in, and read
   // the module's *current* element and mode rather than the one it was mounted with (`mod.el`, `mod.mode`):
@@ -799,6 +860,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // remounting it. has-bar only styles the docked layout; onResize only remembers a size while floating.
   function mountFor(mod, frame, bar, extra = {}) {
     const m = mod.m;
+    if (compositeOf(m)) return compositeMount(mod, frame);
     return mountModule({
       module: { id: m.id, version: m.version, scope: m.scope },
       ...(frame.tagName === 'IFRAME' ? { frame } : { container: frame }),
@@ -807,7 +869,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       toolbar: mod.el.querySelector('[data-toolbar]'),
       onOpenRef: openRef,
       // A request for an action waits for the page of the module that carries it: open that module if it is on here.
-      onOpenModule: (id) => { const target = available.find((x) => x.id === id); if (target && !opened.has(id)) openModule(target); },
+      onOpenModule: (id) => { const target = available.find((x) => x.id === readId(id)); if (target && !opened.has(target.id)) openModule(target); },
       onChatAsk,
       scope: 'space',
       spaceId,
@@ -844,7 +906,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     floater.className = 'module-floating';
     floater.dataset.module = m.id;
     floater.innerHTML = `
-      <header class="mod-header module-floating-head">${moduleHeader(m, 'float', supports({ modes: m.canvas.mode }, 'dock') && !isNarrow(), true, snapping(m.id))}</header>
+      <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m, 'float', supports({ modes: m.canvas.mode }, 'dock') && !isNarrow(), true, snapping(m.id))}</header>
       <div class="mod-toolbar" data-toolbar hidden></div>
       ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'module-floating-frame')}
       <div class="module-floating-bar" hidden></div>
@@ -885,7 +947,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     section.innerHTML = `
       <div class="dock-resize" title="Drag to resize"></div>
       <div class="mod-content dock-content">
-        <header class="mod-header">${moduleHeader(m, 'dock', false, true)}</header>
+        <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m, 'dock', false, true)}</header>
         <div class="mod-toolbar" data-toolbar hidden></div>
         ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'dock-frame')}
       </div>
@@ -1165,7 +1227,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     }
     view = id;
     syncView();
-    if (mod.kind === 'module') markModuleRead(id);
+    if (mod.kind === 'module') markRead(id);
     update();
   }
 
@@ -1188,14 +1250,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       placeWaiting(mod);
       tellWaiting([m.id]);
     } else if (mode === 'dock') openModuleDocked(m); else openModuleFloating(m);
-    markModuleRead(m.id);
+    markRead(m.id);
     update();
   }
 
-  // Show an item in the module that owns it, here: open its module (if it is on in this space) and hand it
-  // the pointer, which its own code turns into showing the item. the host knows nothing about the item.
+  // Show an item in the module that owns it, here: open its module (if it is on in this space; the composite where the
+  // module is one of its parts) and hand it the pointer, which its own code turns into showing the item. the host
+  // knows nothing about the item.
   function openRef(ref) {
-    const m = available.find((x) => x.id === ref.module);
+    const m = available.find((x) => x.id === readId(ref.module));
     if (!m) return false;
     if (!opened.has(m.id)) openModule(m);
     const mod = opened.get(m.id);
@@ -1252,7 +1315,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     }
     moveModule(id, mode);
     syncDock(); // a column given up may let a waiting module dock
-    markModuleRead(m.id);
+    markRead(m.id);
     update();
   }
 
@@ -1266,7 +1329,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (guestToken) q.set('guest', guestToken);
     const width = Math.max(320, Math.min(m.canvas.width, screen.availWidth));
     const height = Math.max(240, Math.min(m.canvas.height + HEAD_H, screen.availHeight));
-    const win = window.open(`/modules/${encodeURIComponent(m.id)}?${q}`, `app-module-${m.id}`, `popup,width=${width},height=${height}`);
+    // A composite's own window is the destination's page for this space, whole (its own bar, no titlebar of the canvas's).
+    const url = compositeOf(m) ? compositeSrc(compositeOf(m)) : `/modules/${encodeURIComponent(m.id)}?${q}`;
+    const win = window.open(url, `app-module-${m.id}`, `popup,width=${width},height=${height}`);
     if (!win) return;
     windows.set(m.id, win);
     if (mod) closeModule(m.id);
@@ -1386,7 +1451,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       const def = builtins.get(id);
       return !def.allowed || def.allowed();
     }
-    return available.some((m) => m.id === id);
+    return available.some((m) => m.id === readId(id));
   }
 
   // Open what this space starts with (plan-entering.md, "What opens on entering"): a fresh request, then the
@@ -1396,7 +1461,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     suspended = true;
     restoring = true;
     // A pending request to open one item wins, when the module is on for this space and the request is fresh.
-    const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === openRequest.module) ? openRequest : null;
+    const request = openRequest && Date.now() - openRequest.at < 20000 && available.some((x) => x.id === readId(openRequest.module)) ? openRequest : null;
     openRequest = null;
     keepLayout = Boolean(request);
     // The column's own (plan-one-bar.md, step 6): wider than a phone the conference and the chat open in the side column,
@@ -1419,11 +1484,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       canOpen: canOpenHere,
       guest: Boolean(guestToken),
       column: columnMode(),
+      aliases, // a stored `calendar` or `todo` opens the composite while the Calendar is on here (composites.js)
     });
     for (const id of want) {
       if (builtins.has(id)) { if (canOpenHere(id)) api_openBuiltin(id); }
       else {
-        const m = available.find((x) => x.id === id);
+        const m = available.find((x) => x.id === readId(id));
         if (m) openModule(m);
       }
     }
@@ -1461,6 +1527,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // floating boxes as fractions of the canvas, and the canvas-level snap. A module waiting for a column is saved docked
   // (the layout is the intent; each window fits it on load); one in a window of its own as the mode it had before. On a
   // narrow canvas, where everything shows docked one at a time, each module's remembered mode and box are what is saved.
+  // A composite is saved under its main module's id (`calendar` for `dest:calendar`): the server's layout store takes
+  // module ids only (server/layouts.js, MODULE_ID), and a stored `calendar` reads back as the composite (placeLayout
+  // through the aliases) wherever the Calendar is on, as the To-do's own column where it is not.
   function captureLayout() {
     const narrow = isNarrow();
     const mods = [...opened.values()].map((p) => {
@@ -1468,7 +1537,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       const floater = floaterOf(p);
       const mode = narrow ? (rec.mode === 'float' && supports(p, 'float') ? 'float' : 'dock') : p.waiting ? 'dock' : p.mode;
       return {
-        id: p.id,
+        id: compositeOf(p.m) ? compositeOf(p.m).main : p.id,
         mode,
         was: rec.mode,
         order: p.order,
@@ -1493,7 +1562,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (!spaceId || !layout || !Array.isArray(layout.modules)) return { left: [], waiting: [] };
     const narrow = isNarrow();
     const area = canvasArea();
-    const plan = placeLayout(layout, area, canOpenHere);
+    const plan = placeLayout(layout, area, canOpenHere, aliases); // a stored `calendar` or `todo` places the composite
     const named = new Set(plan.modules.map((p) => p.id));
     const keepCall = (p) => p.id === 'conference' && p.kind === 'builtin' && Boolean(p.def?.inCall?.());
     suspended = true;
@@ -1574,7 +1643,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // The one place to show and hide modules: the chat first, then the space's modules.
   function update() {
-    const total = available.reduce((sum, m) => sum + (unread[m.id] || 0), 0)
+    const total = available.reduce((sum, m) => sum + unreadOf(m.id), 0)
       + [...builtins.keys()].reduce((sum, id) => sum + (opened.has(id) ? 0 : builtinUnread[id] || 0), 0);
     const badge = toggle?.querySelector('.badge');
     if (badge) {
@@ -1621,7 +1690,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       show.innerHTML = '<div class="nav-menu-heading module-chooser-heading" id="modules-menu-show">Show</div>'
         + '<div class="module-chooser-section" role="group" aria-labelledby="modules-menu-show">'
         + switchListHtml(builtinList.map((def) => ({ id: def.id, icon: def.icon, name: def.name, on: shown(def.id), badge: builtinUnread[def.id] || 0 })), 'builtin')
-        + switchListHtml(available.map((m) => ({ id: m.id, icon: m.icon, name: m.name, on: shown(m.id), badge: unread[m.id] || 0, tint: colorOf(m.id) })), 'module')
+        + switchListHtml(available.map((m) => ({ id: m.id, icon: m.icon, name: m.name, on: shown(m.id), badge: unreadOf(m.id), tint: colorOf(m.id) })), 'module')
         + '</div>';
       if (key) {
         const [kind, id] = key.split(/:(.*)/s);
@@ -1652,7 +1721,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       b.className = 'modules-menu-item';
       b.dataset.module = m.id;
       b.classList.toggle('on', isNarrow() && opened.has(m.id) ? view === m.id : opened.has(m.id));
-      const n = unread[m.id] || 0;
+      const n = unreadOf(m.id);
       b.innerHTML = `<i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i><span>${escapeHtml(m.name)}</span>${n ? `<span class="badge">${n > 9 ? '9+' : n}</span>` : ''}`;
       menu.appendChild(b);
     }
@@ -1781,6 +1850,22 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     setMenuOpen(false, { focus: true });
   });
 
+  // The destinations a composite asks about (composites.js, compositesToAsk: the Map, whose main being on in the space
+  // is not enough), each asked once for this space; answers the dest ids shown here for this person. A refusal (404:
+  // no map file, or not readable there) or a failed request leaves the composite off, the parts as they are.
+  async function askDestinations(id, list) {
+    const shown = [];
+    await Promise.all(compositesToAsk(list.map((m) => m.id)).map(async (c) => {
+      const q = new URLSearchParams({ space: id });
+      if (guestToken) q.set('guest', guestToken);
+      try {
+        await api('GET', `/api/destinations/${encodeURIComponent(c.dest)}?${q}`);
+        shown.push(c.dest);
+      } catch { /* not shown here */ }
+    }));
+    return shown;
+  }
+
   // The modules on for this space and this viewer, or none (null = not in a space).
   async function refresh(id) {
     suspended = true;
@@ -1788,7 +1873,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     note('');
     spaceId = id;
     saved = loadSaved(id);
+    modules = [];
     available = [];
+    aliases = {};
     colors = new Map();
     spaceOpensWith = null;
     spaceDefaultLayout = null;
@@ -1798,7 +1885,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         const q = new URLSearchParams({ space: id });
         if (guestToken) q.set('guest', guestToken);
         const answer = await api('GET', `/api/modules/for-space?${q}`);
-        available = (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false);
+        modules = (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false);
+        // A composite that asks (the Map: Maps on here is not enough, the space's Map needs a map file; plan-map-places.md
+        // step 3) is on only where its destination answers for this space. The same question the one bar's view and the
+        // pop-out ask; a 404 keeps the parts as they are.
+        const shown = await askDestinations(id, modules);
+        if (spaceId !== id) return; // another space was entered while this one was asked about
+        // The composite in its main's place while that is on here; its other parts leave the Show list (composites.js).
+        available = composeList(modules, shown);
+        aliases = aliasesFor(modules.map((m) => m.id), shown);
         colors = new Map((answer.modules || []).filter((m) => TINTS.includes(m.color)).map((m) => [m.id, m.color]));
         spaceOpensWith = Array.isArray(answer.opensWith) ? answer.opensWith : null;
         spaceDefaultLayout = answer.defaultLayout && Array.isArray(answer.defaultLayout.modules) ? answer.defaultLayout : null;
@@ -1856,13 +1951,13 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // comes to the front; in a window of its own, that window is focused). Never closes anything.
   const api_show = (id) => {
     if (builtins.has(id)) return api_showBuiltin(id);
-    const m = available.find((x) => x.id === id);
+    const m = available.find((x) => x.id === readId(id));
     if (!m) return false;
-    if (!opened.has(id)) openModule(m);
-    else if (opened.get(id).mode === 'window') opened.get(id).win?.focus?.();
-    else setView(id);
+    if (!opened.has(m.id)) openModule(m);
+    else if (opened.get(m.id).mode === 'window') opened.get(m.id).win?.focus?.();
+    else setView(m.id);
     update();
-    return opened.has(id);
+    return opened.has(m.id);
   };
 
   return {
@@ -1899,24 +1994,27 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     loadLayout,
     // Whether the canvas is narrow (640 px and below): the Layout panel's Layouts section is not drawn then.
     isNarrow,
-    // `mode` (a module's own window asking to come back as a column or floating) is remembered.
+    // `mode` (a module's own window asking to come back as a column or floating) is remembered. A module id that reads
+    // as the composite here (`todo` while the Calendar is on) opens the composite.
     open: (id, mode) => {
-      const m = available.find((x) => x.id === id);
+      const m = available.find((x) => x.id === readId(id));
       if (!m) return;
-      if (mode) remember(id, { mode });
+      if (mode) remember(m.id, { mode });
       openModule(m, mode);
     },
     // Whether the module supports a mode (the window's titlebar offers only what works).
     supportsMode: (id, mode) => {
-      const m = available.find((x) => x.id === id);
+      const m = available.find((x) => x.id === readId(id));
       return Boolean(m) && supports({ modes: m.canvas.mode }, mode);
     },
-    close: closeModule,
-    isOpen: (id) => opened.has(id),
-    modeOf: (id) => opened.get(id)?.mode || null,
+    close: (id) => closeModule(readId(id)),
+    isOpen: (id) => opened.has(readId(id)),
+    modeOf: (id) => opened.get(readId(id))?.mode || null,
     setMode,
     popOut,
-    list: () => available.slice(),
+    // The modules on here as the server lists them (Chat reads commands, names and colours by module id), not the
+    // Show list's composed one.
+    list: () => modules.slice(),
     colorOf,
     // The built-in modules: the conference and the chat register their element and how to be told about changes.
     registerBuiltin(def) {
@@ -1940,7 +2038,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     // A notification's toast asks the call to open the module on the canvas.
     handleNotification(n) {
       if (n.scope !== 'space' || n.spaceId !== spaceId) return false;
-      const m = available.find((x) => x.id === n.module);
+      const m = available.find((x) => x.id === readId(n.module));
       if (!m) return false;
       openModule(m);
       return true;

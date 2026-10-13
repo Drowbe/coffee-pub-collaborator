@@ -493,6 +493,25 @@ try {
     assert.equal('otherCalendars' in storedSettings(), false, 'a refused change writes nothing');
   });
 
+  // GitHub #199: autoJoinCall, the environment's "join the call on entering a space" switch. Off by default, true or
+  // false only, owners only, and carried by /api/branding (what the space page reads) as well as GET /api/settings.
+  await test('server: autoJoinCall reads off by default, takes only true or false, is carried by /api/branding, and is set by owners', async () => {
+    assert.equal((await call('GET', '/api/branding')).json.autoJoinCall, false, 'off with nothing set');
+    assert.equal((await call('GET', '/api/settings', { cookie: admin })).json.settings.autoJoinCall, false);
+    const bad = await call('PATCH', '/api/settings', { cookie: admin, body: { autoJoinCall: 'yes' } });
+    assert.deepEqual([bad.status, bad.json], [400, { error: 'autoJoinCall is true or false' }]);
+    assert.equal((await call('PATCH', '/api/settings', { cookie: aliceC, body: { autoJoinCall: true } })).status, 403, 'a member cannot turn it on');
+    assert.equal((await call('GET', '/api/branding')).json.autoJoinCall, false, 'a refused change changes nothing');
+    const on = await call('PATCH', '/api/settings', { cookie: admin, body: { autoJoinCall: true } });
+    assert.deepEqual([on.status, on.json.settings.autoJoinCall, storedSettings().autoJoinCall], [200, true, true]);
+    assert.equal((await call('GET', '/api/branding')).json.autoJoinCall, true, 'carried by /api/branding');
+    const off = await call('PATCH', '/api/settings', { cookie: admin, body: { autoJoinCall: false } });
+    assert.deepEqual([off.status, off.json.settings.autoJoinCall, (await call('GET', '/api/branding')).json.autoJoinCall], [200, false, false]);
+    const adminJs = fs.readFileSync(path.join(ROOT, 'public', 'admin.js'), 'utf8');
+    assert.ok(adminJs.includes("autoJoinCall: $('set-auto-join-call').checked"), 'Manage > Call features saves the switch');
+    assert.ok(adminJs.includes("$('set-auto-join-call').checked = settings.autoJoinCall === true"), 'and draws it from the settings');
+  });
+
   await test('server: the setting is off by default, refused when not true or false, and a feed is not allowed until it is on and a kind is offered', async () => {
     assert.equal((await call('GET', '/api/settings', { cookie: admin })).json.settings.calendarFeeds, false);
     const bad = await call('PATCH', '/api/settings', { cookie: admin, body: { calendarFeeds: 'yes' } });

@@ -18,10 +18,22 @@
 // the canvas asks with it and the two ids are left out of the answer, whichever list names them. The lists still
 // hold them (a phone opens them as tabs; nothing a person stored changes).
 export const COLUMN_IDS = Object.freeze(['conference', 'chat']);
-export function whatOpens({ remembered = null, own = null, environment = null, modules = [], canOpen = () => true, guest = false, column = false } = {}) {
+// `aliases` (composites.js's aliasesFor; plan-calendar-todo.md and plan-map-places.md, step 3): a stored id read as
+// another, or as a list of others ({ calendar: 'dest:calendar', todo: 'dest:calendar' } while the Calendar is on in the
+// space; { maps: 'dest:map', places: 'dest:map' } while the space's Map is shown), each once, in the first place it is
+// named. The lists themselves are never rewritten.
+export function readAliased(list, aliases = {}) {
+  const out = [];
+  for (const id of Array.isArray(list) ? list : []) {
+    const to = aliases && Object.prototype.hasOwnProperty.call(aliases, id) ? aliases[id] : id;
+    for (const one of Array.isArray(to) ? to : [to]) if (typeof one === 'string' && one && !out.includes(one)) out.push(one);
+  }
+  return out;
+}
+export function whatOpens({ remembered = null, own = null, environment = null, modules = [], canOpen = () => true, guest = false, column = false, aliases = {} } = {}) {
   const keep = (list) => (column ? list.filter((id) => !COLUMN_IDS.includes(id)) : list);
-  if (!guest && Array.isArray(remembered)) return keep(remembered.slice());
-  const openable = (list) => keep(list.filter((id, i) => typeof id === 'string' && list.indexOf(id) === i && canOpen(id)));
+  if (!guest && Array.isArray(remembered)) return keep(readAliased(remembered, aliases));
+  const openable = (list) => keep(readAliased(list, aliases).filter((id) => canOpen(id)));
   if (Array.isArray(own)) return openable(own);
   if (Array.isArray(environment)) return openable(environment);
   return openable(guest ? ['conference', 'chat'] : ['chat', ...modules]);
@@ -31,6 +43,15 @@ export function whatOpens({ remembered = null, own = null, environment = null, m
 // then this person's own permission ("See and join the conference").
 export function conferenceAllowed({ conferenceEnabled = true, permitted = false } = {}) {
   return conferenceEnabled !== false && Boolean(permitted);
+}
+
+// Whether entering a space joins the call by itself (GitHub #199, the environment's "join the call on entering"
+// switch, branding.autoJoinCall). Only with the switch on; never while already in the call; only for a person the Join
+// button would show to (`canJoin`: connected, the conference allowed here for them); never in an aside (an aside is the
+// call already, and a pull into one keeps the call on its own); and not for a person who left the call since they
+// entered (`left`): they stay out until they enter again. Asked once per entry, so a join never repeats.
+export function shouldAutoJoin({ setting = false, inCall = false, canJoin = false, aside = false, left = false } = {}) {
+  return setting === true && !inCall && Boolean(canJoin) && !aside && !left;
 }
 
 // What space settings says under Opens with about what a first visit opens, worked out from the stored list, never from

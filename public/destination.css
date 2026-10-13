@@ -181,28 +181,49 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
 }
 
 /* Without WebGL (a map part, destination.js): the main part is a strip with its notice, the panel takes the width. */
-@media (min-width: 641px) {
-  body.dest-no-webgl .dest {
-    flex-direction: column;
-  }
+body.dest-no-webgl:not(.dest-has-tabs) .dest {
+  flex-direction: column;
+}
 
-  body.dest-no-webgl .dest-main {
-    flex: none;
-    height: 190px;
-    border-bottom: 1px solid var(--border);
-  }
+body.dest-no-webgl:not(.dest-has-tabs) .dest-main {
+  flex: none;
+  height: 190px;
+  border-bottom: 1px solid var(--border);
+}
 
-  body.dest-no-webgl .dest-panel {
-    flex: 1;
-    max-width: none;
-    min-width: 0;
-    border-left: 0;
-  }
+body.dest-no-webgl:not(.dest-has-tabs) .dest-panel {
+  flex: 1;
+  max-width: none;
+  min-width: 0;
+  border-left: 0;
 }
 
 /* The phone's tabs: only on a phone (destination.js shows them). */
 .dest-tabs {
   display: none;
+}
+
+/* Too narrow for the panel beside the main part (in a docked column, a narrow window, or a phone's page): the panel is
+   stacked below it, the page scrolling; the panel keeps its own switch. No bottom tabs (only a phone has them). */
+@media (max-width: 820px) {
+  body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest {
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest-main {
+    flex: none;
+    height: clamp(340px, 62dvh, 640px);
+  }
+
+  body.destination-page:not(.dest-has-tabs) .dest-panel {
+    flex: none;
+    height: 460px;
+    min-width: 0;
+    max-width: none;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+  }
 }
 
 @media (max-width: 640px) {

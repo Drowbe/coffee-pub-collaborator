@@ -6,7 +6,7 @@
 // destinations, never modules: a module takes part by declaring a part (surfaces.destination).
 //
 // Remembered in this browser (decision 18): the view, the filter and the panel's tab, under app.destination.<id>. On a
-// phone (640 px or less) the main part and each panel are tabs along the bottom, the view switch shows only on the
+// phone (640 px or less, not in a frame) the main part and each panel are tabs along the bottom, the view switch shows only on the
 // main part's tab, and the first view is the phone's own (Day for the calendar) until one is picked.
 //
 // As a view of one space (?space=<id>; plan-calendar-todo.md and plan-map-places.md, step 1): the same page with the
@@ -25,11 +25,13 @@ import { hashPanel } from '/primary-nav.js';
 const $ = (id) => document.getElementById(id);
 const destId = decodeURIComponent(location.pathname.split('/')[1] || '').toLowerCase(); // /CALENDAR is /calendar
 const phoneQuery = window.matchMedia('(max-width: 640px)');
-const onPhone = () => phoneQuery.matches;
 const params = new URLSearchParams(location.search);
 const spaceId = /^[A-Za-z0-9_-]{1,80}$/.test(params.get('space') || '') ? params.get('space') : ''; // a view of this space
 const guestToken = spaceId && params.get('guest') ? params.get('guest') : null; // a guest's link token, in a space only
 const embedded = window.self !== window.top;
+// A phone is the page opened on its own at 640 px or less. In a frame (a docked column, a narrow window) it is narrow, not a
+// phone: the panel stacks below the main part (destination.css), with no tabs.
+const onPhone = () => !embedded && phoneQuery.matches;
 const withoutTopbar = Boolean(spaceId) && embedded; // a view in the space page's frame: its bar is the one bar
 // The guest's token on this page's own calls (the parts' calls carry it through mountModule).
 const withGuest = (url) => (guestToken ? `${url}${url.includes('?') ? '&' : '?'}guest=${encodeURIComponent(guestToken)}` : url);

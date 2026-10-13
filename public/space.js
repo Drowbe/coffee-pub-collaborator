@@ -1314,13 +1314,15 @@ placeColumnTools(); // now that the two exist
 // refreshed by the presence poll, and by my own save) through the one rule, public/phases.js (window.Phases). Nothing
 // but the sheet opens from it (phases only inform). No chip with no phases, for a guest, in an aside or while home is
 // shown over the space. It gives way in steps (decision 9: the label, then the dot alone, then nothing): `fit(avail)`,
-// called by the registry's fit of the top bar (fitBar in nav-bar.js) with the width the rest of the bar leaves it.
+// called by the registry's fit of the top bar (fitBar in nav-bar.js) with the width the rest of the bar leaves it. On a
+// phone (step 8) it is the dot and the phase's name alone (`.phase-chip-short`, the stylesheet picks it at 640px and
+// below); the whole words stay its name for a screen reader.
 const phaseChip = document.createElement('button');
 phaseChip.type = 'button';
 phaseChip.id = 'phase-chip'; // an element tool keeps its own id (the registry only names the elements it draws)
 phaseChip.className = 'phase-chip core-link';
 phaseChip.setAttribute('aria-haspopup', 'dialog');
-phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><i class="fa-solid fa-caret-down fa-fw phase-chip-caret" aria-hidden="true"></i>';
+phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span><i class="fa-solid fa-caret-down fa-fw phase-chip-caret" aria-hidden="true"></i>';
 let templatePhases = []; // the template's phases, from /api/branding, cleaned by the rule
 const phaseRule = () => window.Phases || null;
 const phaseSpaceRecord = () => (currentSpace && !currentSpace.isAside ? presenceSpaces.find((r) => r.id === currentSpace.id) || currentSpace : null);
@@ -1356,6 +1358,7 @@ function updatePhaseChip() {
   if (!show || !R) return;
   const words = R.chipWords(phaseTimeline(), phaseToday());
   phaseChip.querySelector('.phase-chip-label').textContent = words;
+  phaseChip.querySelector('.phase-chip-short').textContent = words.split(' · ')[0]; // the phase's name alone, for a phone
   phaseChip.title = `${words}. Phases`;
   phaseChip.setAttribute('aria-label', `${words}. Phases`);
   nav.draw('primary'); // the words changed: the bar fits the chip again (fitBar)
@@ -1395,8 +1398,11 @@ nav.register({ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', g
 // as the destinations' entries looked: spaceViews() in primary-nav.js), then the phase chip. A view other than the
 // Workspace opens its page for this space (`/calendar?space=<id>`) in a frame beside the always-on column, in the
 // canvas's place, and sets no Away: it is a view of the same space. A guest's bar is the name alone (the breadcrumb)
-// and no views yet; an aside's is the switcher, Rejoin call (the right zone) and your picture. On a phone nothing of
-// this is drawn: the breadcrumb and the tab bar stay (decision 3; the phone's one row is step 8).
+// and no views yet; an aside's is the switcher, Rejoin call (the right zone) and your picture. On a phone (step 8) the
+// one row is the switcher (the breadcrumb is not drawn beside it at any width), the chip as a dot and the phase's name,
+// the bell and the menu; the views are the menu's first entries (`phone: 'menu'`, phoneZones in nav-bar.js); the
+// column is not drawn and the tab bar stays (decision 3). A tab tapped while another view shows goes back to the
+// Workspace, where the tabs live.
 const viewFrame = document.getElementById('view-frame');
 let currentView = 'workspace';
 const oneBar = () => Boolean(currentSpace) && !viewingHome && !guestToken && me?.role !== 'guest';
@@ -1411,7 +1417,7 @@ spaceSwitcherButton.setAttribute('aria-expanded', 'false');
 spaceSwitcherButton.innerHTML = '<i class="fa-solid fa-message fa-fw" aria-hidden="true"></i><span class="crumb-label"></span><i class="fa-solid fa-caret-down fa-fw space-switcher-caret" aria-hidden="true"></i>';
 spaceSwitcherButton.addEventListener('click', () => openSpaceSwitcher(spaceSwitcherButton));
 spaceSwitcher.appendChild(spaceSwitcherButton);
-nav.register({ id: 'space-switcher', bar: 'primary', zone: 'left', group: 'where', order: 9.5, icon: 'caret-down', label: 'Switch', element: spaceSwitcher, visible: () => oneBar() && !phoneWidth() });
+nav.register({ id: 'space-switcher', bar: 'primary', zone: 'left', group: 'where', order: 9.5, icon: 'caret-down', label: 'Switch', element: spaceSwitcher, visible: () => oneBar() });
 // The switcher reads as the segment the breadcrumb shows last: the space's name and icon, or an aside's own words.
 function paintSpaceSwitcher(seg, icon) {
   if (!spaceSwitcherButton.isConnected) spaceSwitcher.replaceChildren(spaceSwitcherButton); // the name's input went with Set up
@@ -1433,7 +1439,7 @@ function drawViews() {
   const list = destinationsNow().map((d) => ({ id: d.id, name: d.name, icon: d.icon, href: d.href }));
   for (const v of spaceViews(list, { space: viewsFor, current: currentView, guest: Boolean(guestToken) || me?.role === 'guest' })) {
     const { current, view, href, ...tool } = v;
-    const el = nav.register({ ...tool, bar: 'primary', href, visible: () => oneBar() && !inAside() && !phoneWidth(), onClick: (event) => { event.preventDefault(); showView(view, href); } });
+    const el = nav.register({ ...tool, bar: 'primary', href, phone: 'menu', visible: () => oneBar() && !inAside(), onClick: (event) => { event.preventDefault(); showView(view, href); } });
     viewIds.add(tool.id);
     if (!el) continue;
     el.dataset.destination = href || view; // the destinations' look: never shrinks, its icon only from 641 to 820px (style.css)
@@ -1471,6 +1477,12 @@ function showView(view, href = '') {
   }
   markViews();
 }
+// On a phone the tab bar stays under every view (decision 3): a tab, Join the call or Online tapped while another view
+// shows goes back to the Workspace first, where the tabs show their module.
+subnav.addEventListener('click', (event) => {
+  if (currentView === 'workspace' || !phoneWidth()) return;
+  if (event.target.closest('.modules-menu-item, #join-call, .who-here')) showView('workspace');
+});
 // The same links in the header of a view's page (they target the top window): home in this page.
 viewFrame.addEventListener('load', () => {
   let doc = null;
@@ -1492,8 +1504,9 @@ nav.register({ id: 'aside-rejoin', bar: 'primary', zone: 'right', group: 'aside'
 // Edit's place (plan-one-bar.md, decision 5, step 4): a `setup` tool in the top bar's right zone before the bell and your picture (step 7),
 // for owners, the admin and this space's moderators (GET /api/me: hasOwnerRights, or
 // user.spaces[<id>].permissions.moderator). Pressing it puts `body.setting-up` on, turns the space's name in the bar
-// into an input (the breadcrumb's current segment, placeSetupName below), swaps the tool for Done and Cancel and opens
-// the side panel. Done saves in one go and leaves the mode; Cancel and Escape leave it and drop the edits. A member
+// into an input (in the switcher's place, placeSetupName below), swaps the tool for Done and Cancel and opens
+// the side panel (a full-screen sheet with its own Done and Cancel on a phone, where the bar's are in the menu). Done
+// saves in one go and leaves the mode; Cancel and Escape leave it and drop the edits. A member
 // has no Set up; the space card's "Full settings" link on Home still opens /spaces/<id>.
 const spaceSetup = createSpaceSetup({ api, word, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout') });
 let settingUp = false;
@@ -1508,17 +1521,14 @@ const isModeratorHere = () => Boolean(currentSpace && me?.spaces?.[currentSpace.
 const canSetUp = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && Boolean(me) && me.role !== 'guest' && (hasOwnerRights(me) || isModeratorHere());
 const setupShown = () => canSetUp() && !settingUp;
 const setupModeShown = () => canSetUp() && settingUp;
-// While setting up, the space's name in the bar carries the input instead of the name: the switcher's place wider
-// than a phone (step 7), the breadcrumb's current segment on a phone (updateCrumb draws both afresh, so this runs
-// after each draw; the input is one element, so what was typed survives a redraw).
+// While setting up, the space's name in the bar carries the input instead of the name: the switcher's place, at every
+// width (step 8: the switcher is the phone's too, so the input never moves as the window crosses 640px; updateCrumb
+// draws the switcher afresh, so this runs after each draw; the input is one element, so what was typed survives).
 function placeSetupName() {
   if (!settingUp || !hasOwnerRights(me)) return; // a moderator may not rename: the name stays words
   if (nav.isVisible(nav.get('space-switcher'))) {
     spaceSwitcher.replaceChildren(setupNameInput);
-    return;
   }
-  const label = $('topbar-crumb')?.querySelector('.crumb-here[aria-current="location"] .crumb-label');
-  if (label) label.replaceWith(setupNameInput);
 }
 // The panel hangs under the header: its top follows the header's height (one row or two, a phone's one).
 let setupHeaderWatch = null;

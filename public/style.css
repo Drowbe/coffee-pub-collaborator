@@ -507,9 +507,9 @@ a:hover {
 }
 
 /* In a space the one bar (plan-one-bar.md, decision 1, step 7): the space's name with the switcher's caret as one
-   control, in the breadcrumb's place (the breadcrumb itself is not drawn beside it; on a phone it stays, as today),
-   then the views (Workspace, Calendar, Map: the destinations' look), then the phase chip. A long name is cut with an
-   ellipsis before the views give way. */
+   control, in the breadcrumb's place (the breadcrumb itself is not drawn beside it, at any width: on a phone the
+   switcher is the row's name too, step 8), then the views (Workspace, Calendar, Map: the destinations' look), then the
+   phase chip. A long name is cut with an ellipsis before the views give way. */
 .topbar > .nav-left > .space-switcher {
   flex: 0 1 auto;
   min-width: 6em;
@@ -552,11 +552,11 @@ a:hover {
   flex: 1 1 auto;
 }
 
-@media (min-width: 641px) {
-  .topbar > .nav-left > .space-switcher:not([hidden]) ~ .crumb {
-    display: none;
-  }
+.topbar > .nav-left > .space-switcher:not([hidden]) ~ .crumb {
+  display: none;
+}
 
+@media (min-width: 641px) {
   /* An aside's bar is the switcher, Rejoin call and your picture (decision 10): no Workspace toolbar there. */
   body.in-space.in-aside .subnav {
     display: none;
@@ -7346,6 +7346,32 @@ body.chat-window {
     color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
   }
 
+  /* In a space the switcher is the row's name (plan-one-bar.md, step 8): the anchor's look, a 44px touch target, cut
+     with an ellipsis before the chip gives way. */
+  .topbar > .nav-left > .space-switcher {
+    flex: 0 1 auto;
+    min-width: 5em;
+  }
+
+  .topbar .space-switcher-button {
+    height: auto;
+    min-height: 44px;
+    padding: 0 4px;
+    color: inherit;
+    font-size: inherit;
+  }
+
+  .topbar .space-switcher-button i:first-child {
+    color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+  }
+
+  /* The chip's phone rules (the dot and the phase's name) are with its own, at phase-chip:start. */
+
+  /* The views (Workspace, Calendar, Map) are the menu's first entries (nav-bar.js phoneZones); the current one reads so. */
+  .topbar.menu-open .links .core-link[data-view][aria-current="page"] {
+    box-shadow: inset 3px 0 0 var(--accent);
+  }
+
   .topbar.menu-open .links .whoami-caret {
     display: none;
   }
@@ -8538,8 +8564,34 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   display: none;
 }
 
+/* The phase's name alone, for a phone (below). */
+.topbar .phase-chip .phase-chip-short {
+  display: none;
+}
+
 .topbar .phase-chip.chip-gone {
   display: none;
+}
+
+/* On a phone (plan-one-bar.md, step 8) the chip is the dot and the phase's name alone (space.js fills
+   .phase-chip-short; the whole words stay its name), never past 6em so the space's name keeps its room, a 44px target.
+   Nothing fits it there (nav-bar.js fitBar makes it whole), so it is never left as a dot or gone from a wider window. */
+@media (max-width: 640px) {
+  .topbar .phase-chip {
+    min-height: 44px;
+  }
+
+  .topbar .phase-chip .phase-chip-label {
+    display: none;
+  }
+
+  .topbar .phase-chip .phase-chip-short {
+    display: inline-block;
+    max-width: 6em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 /* phase-chip:end */
 
@@ -8890,15 +8942,10 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 /* phase-sheet:end */
 
 /* space-setup:start -- Set up (plan-one-bar.md, decision 5, step 4; public/space-setup.js, space.js): the space's name
-   as an input in the breadcrumb, the Done and Cancel tools in the bar, the side panel under the header on the right
-   (a full-screen sheet at 640 px and below, with its own Done and Cancel row), and the one line said after Done.
+   as an input in the switcher's place, the Done and Cancel tools in the bar, the side panel under the header on the
+   right (a full-screen sheet at 640 px and below, with its own Done and Cancel row), and the one line said after Done.
    Colours from the tokens only. */
-/* The input shrinks with the breadcrumb (the crumb is cut at 22em and gives way before the chip), never past 5em. */
-.topbar .crumb .crumb-here:has(> .setup-bar-name) {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-
+/* The input shrinks with the switcher (which gives way before the chip), never past 5em. */
 .topbar .setup-bar-name {
   box-sizing: border-box;
   flex: 1 1 14em;

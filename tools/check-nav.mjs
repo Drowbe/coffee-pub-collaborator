@@ -196,13 +196,29 @@ test('on a phone the primary bar folds: the left stays, the bell stays (phone: \
   const z = phoneZones(byZone);
   assert.deepEqual(z.left.map((run) => run.map((x) => x.id)), [['spaces-slot', 'topbar-crumb']], 'the left zone stays (Spaces hides itself there)');
   assert.deepEqual(z.bar.map((run) => run.map((x) => x.id)), [['notifications-bell']], 'only the bell stays in the bar, in the phone\'s place (#core-nav)');
-  assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [['menu-home', 'whoami-link', 'account-profile']], 'everything else from the right, without the bell, in the menu');
+  assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [[], ['menu-home', 'whoami-link', 'account-profile']], 'everything else from the right, without the bell, in the menu (the first run, a left tool that says phone: \'menu\', is empty here)');
   assert.ok(!('middle' in z), 'no middle zone (plan-two-zone-nav.md)');
+  // plan-one-bar.md, step 8: in a space the views (left-zone tools that say phone: 'menu') are the menu's first entries,
+  // their own run ahead of the right zone's; the switcher and the chip stay in the row.
+  const inSpace = {
+    left: [t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('topbar-crumb', 'left', { group: 'where', order: 10 }), t('view-workspace', 'left', { group: 'views', groupOrder: 12, order: 1, phone: 'menu' }), t('dest-calendar', 'left', { group: 'views', groupOrder: 12, order: 2, phone: 'menu' }), t('phase-chip', 'left', { group: 'phase', groupOrder: 20, order: 1 })],
+    right: [t('menu-environment', 'right', { group: 'menu-where', groupOrder: 1, order: 1 }), t('notifications-bell', 'right', { order: 90, phone: 'bar' }), t('whoami-link', 'right', { group: 'you', order: 999 })],
+  };
+  const s = phoneZones(inSpace);
+  assert.deepEqual(s.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'topbar-crumb', 'phase-chip']], 'the row: the switcher (the stylesheet hides the breadcrumb beside it) and the chip');
+  assert.deepEqual(s.bar.map((run) => run.map((x) => x.id)), [['notifications-bell']], 'the bell');
+  assert.deepEqual(s.right.map((run) => run.map((x) => x.id)), [['view-workspace', 'dest-calendar'], ['menu-environment', 'whoami-link']], 'the views first, then the menu\'s own entries');
+  assert.deepEqual(phoneZones(inSpace), s, 'the same answer for the same input');
   const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(navSrc, /place: el\.querySelector\(':scope > \.nav-middle'\)/, 'the top bar\'s #core-nav is where the phone\'s bell is drawn');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.match(brand, /id: 'notifications-bell'[^\n]*phone: 'bar'/, 'the bell says phone: \'bar\'');
   for (const id of ['spaces-slot']) assert.match(brand, new RegExp(`id: '${id}'[^\\n]*visible: \\(\\) => wide\\(\\) && signedIn\\(\\) && !inSpace`), `${id} leaves the bar on a phone, and in a space (the switcher takes its place)`);
+  assert.match(brand, /for \(const \[t, visible\] of \[\[menu, \(\) => inMenuOnly\(\) && !inSpace\]\]\)/, 'the environment\'s Calendar and Map leave the phone menu in a space: the views are its entries (step 8)');
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /nav\.register\(\{ \.\.\.tool, bar: 'primary', href, phone: 'menu', visible: \(\) => oneBar\(\) && !inAside\(\), onClick: \(event\) => \{ event\.preventDefault\(\); showView\(view, href\); \}/, 'a view says phone: \'menu\' and shows the view, never navigates');
+  assert.match(navSrc, /right: \[byZone\.left\.filter\(toMenu\), byZone\.right\.filter\(\(t\) => !stays\(t\)\)\]/, 'the menu\'s first run is the left zone\'s phone: \'menu\' tools');
+  assert.match(navSrc, /if \(view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) \{\n\s*for \(const t of tools\.values\(\)\) \{\n[^\n]*\n\s*try \{ t\.fit\(Infinity\); \}/, 'on a phone every fitting tool of the top bar is whole again (the chip is never left gone)');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.ok(!/keepOnPhone/.test(src), 'keepOnPhone is gone: nothing stays in the bar on a phone');
 });
@@ -432,7 +448,7 @@ test('Online gets the width the rest of the left zone and the right zone leave, 
   assert.match(fit, /foldCount\(\{ width, gap, left: leftWidth, right: r\.w, more: moreWidth, steps: stepWidths \}\)/);
   const bar = src.slice(src.indexOf('function fitBar('), src.indexOf('function fitSecondary('));
   assert.match(bar, /if \(bar === 'secondary'\) \{ fitSecondary\(\); return; \}/, 'the space bar folds as before');
-  assert.match(bar, /if \(view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) return;/, 'the top bar\'s one row on a phone is step 8');
+  assert.match(bar, /if \(view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) \{\n[\s\S]*?\n\s*return;\n\s*\}/, 'the top bar\'s one row on a phone fits nothing (step 8: each fitting tool is made whole and the row is the stylesheet\'s)');
   assert.match(bar, /fitLeft\(bar, \{ width, gap: px\(cs\.columnGap\), right: r\.w \}\);/, 'the top bar\'s chip is given what the rest leaves');
   assert.match(src, /scheduleFit\(bar\);\n\}/, 'every draw fits its bar');
   assert.match(src, /const scheduleFold = \(\) => scheduleFit\('secondary'\);/);
@@ -1586,7 +1602,7 @@ test('destinations: brand.js registers them from GET /api/destinations, wider on
   assert.match(load, /fetch\('\/api\/destinations'\)/);
   assert.match(load, /destinationTools\(list/);
   assert.match(load, /for \(const \{ menu \} of destinationTools\(list/, 'the phone menu\'s entries only: the bar\'s are the profile menu\'s and a space\'s views (plan-one-bar.md, step 7)');
-  assert.match(load, /\[\[menu, inMenuOnly\]\]/);
+  assert.match(load, /\[\[menu, \(\) => inMenuOnly\(\) && !inSpace\]\]/, 'the phone menu\'s entry, not in a space (there the view is the entry: step 8)');
   assert.ok(!/\[\[inBar, wide\]/.test(load), 'no left-zone entry outside a space');
   assert.match(load, /new CustomEvent\('app:destinations', \{ detail: \{ destinations: destinationList \} \}\)/, 'the space page hears the list');
   assert.match(brand, /export const destinationsNow = \(\) => destinationList;/);
@@ -1748,13 +1764,13 @@ test('the one bar: the switcher in the Spaces slot\'s place, the views after it,
   assert.equal(spaceViews(list, { space: 'a b' })[1].href, '/calendar?space=a+b', 'the id goes in the query as it is');
   assert.equal(spaceViews(list, { space: 'keep', workspaceWord: 'Table' })[0].label, 'Table');
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  assert.match(space, /nav\.register\(\{ id: 'space-switcher', bar: 'primary', zone: 'left', group: 'where', order: 9\.5, [^\n]*element: spaceSwitcher, visible: \(\) => oneBar\(\) && !phoneWidth\(\) \}\)/, 'the switcher after the Spaces slot (9), before the breadcrumb (10), wider than a phone');
+  assert.match(space, /nav\.register\(\{ id: 'space-switcher', bar: 'primary', zone: 'left', group: 'where', order: 9\.5, [^\n]*element: spaceSwitcher, visible: \(\) => oneBar\(\) \}\)/, 'the switcher after the Spaces slot (9), before the breadcrumb (10), at every width (step 8: the phone\'s row too)');
   assert.match(space, /const oneBar = \(\) => Boolean\(currentSpace\) && !viewingHome && !guestToken && me\?\.role !== 'guest';/, 'in a space, not home over it, never a guest');
   assert.match(space, /spaceSwitcherButton\.setAttribute\('aria-haspopup', 'menu'\)/);
   assert.match(space, /spaceSwitcherButton\.addEventListener\('click', \(\) => openSpaceSwitcher\(spaceSwitcherButton\)\)/, 'one control: the name and the caret open the switcher');
   assert.match(space, /const text = `\$\{label\}\. Switch \$\{word\('space'\)\}`;/, 'named for a screen reader');
   assert.match(space, /setInSpace\(oneBar\(\)\);/, 'the Spaces slot leaves the bar');
-  assert.match(space, /visible: \(\) => oneBar\(\) && !inAside\(\) && !phoneWidth\(\), onClick: \(event\) => \{ event\.preventDefault\(\); showView\(view, href\); \}/, 'a view\'s entry shows the view, never navigates');
+  assert.match(space, /phone: 'menu', visible: \(\) => oneBar\(\) && !inAside\(\), onClick: \(event\) => \{ event\.preventDefault\(\); showView\(view, href\); \}/, 'a view\'s entry shows the view, never navigates; on a phone it is in the menu');
   assert.match(space, /document\.addEventListener\('app:destinations', \(\) => drawViews\(\)\);/);
   const show = space.slice(space.indexOf('function showView('), space.indexOf('// The same links in the header of a view'));
   assert.ok(!/setAway/.test(show), 'a view of the same space sets no Away');
@@ -1768,7 +1784,11 @@ test('the one bar: the switcher in the Spaces slot\'s place, the views after it,
   assert.match(html, /<\/aside>\n[\s\S]*?<iframe class="view-frame" id="view-frame" title="View" hidden><\/iframe>\n[\s\S]*?<main class="canvas" id="canvas" hidden>/, 'the view frame between the column and the canvas: the column stays outside it');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\.view-frame\[hidden\],\n\.work:has\(> \.view-frame:not\(\[hidden\]\)\) > \.canvas \{\n\s*display: none;/, 'the canvas gives its place to the view');
-  assert.match(css, /@media \(min-width: 641px\) \{\n\s*\.topbar > \.nav-left > \.space-switcher:not\(\[hidden\]\) ~ \.crumb \{\n\s*display: none;/, 'the breadcrumb is not drawn beside the switcher (it stays on a phone)');
+  assert.match(css, /\n\.topbar > \.nav-left > \.space-switcher:not\(\[hidden\]\) ~ \.crumb \{\n\s*display: none;/, 'the breadcrumb is not drawn beside the switcher, at any width (step 8)');
+  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.topbar \.space-switcher-button \{\n\s*height: auto;\n\s*min-height: 44px;/, 'on a phone the switcher is the row\'s name, a 44px target');
+  assert.match(css, /\.topbar \.phase-chip \.phase-chip-short \{\n\s*display: inline-block;\n\s*max-width: 6em;/, 'on a phone the chip reads the phase\'s name alone, cut at 6em');
+  assert.match(space, /phaseChip\.querySelector\('\.phase-chip-short'\)\.textContent = words\.split\(' · '\)\[0\];/, 'the short words are the phase\'s name');
+  assert.ok(!/\.crumb-here:has\(> \.setup-bar-name\)/.test(css) && !/crumb-here\[aria-current="location"\] \.crumb-label/.test(space), 'Set up\'s input has one place, the switcher, at every width (nothing left in the breadcrumb)');
   assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no Workspace toolbar in an aside');
   assert.match(css, /\.topbar\.nav-measuring > \.nav-left \{\n\s*max-width: none;\n\s*width: max-content;/, 'the top bar is measured at its full width as the space bar is');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');

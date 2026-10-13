@@ -389,7 +389,8 @@ async function loadDestinations({ wide, inMenuOnly }) {
   destinationIds.clear();
   destinationEls.clear();
   for (const { menu } of destinationTools(list, { path: window.location.pathname.toLowerCase() })) {
-    for (const [t, visible] of [[menu, inMenuOnly]]) {
+    // In a space the view (space.js, the menu's first entries on a phone) is the one entry: not two Calendars in one menu.
+    for (const [t, visible] of [[menu, () => inMenuOnly() && !inSpace]]) {
       const { current, overlay, href, ...tool } = t;
       const el = nav.register({ ...tool, bar: 'primary', href: keepingQuery(href), visible, onClick: () => markDestinations() });
       destinationIds.add(tool.id);

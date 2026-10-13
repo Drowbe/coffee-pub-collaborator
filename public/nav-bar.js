@@ -233,15 +233,17 @@ export function setBadge(id, n) {
 }
 
 // The primary bar's zones on a phone (plan-primary-nav.md, decision 7: the logo, the anchor, the bell and the menu
-// button): the left stays; a right tool that says `phone: 'bar'` (the bell) stays in the bar, drawn in the phone's
-// place (`bar`: #core-nav); everything else from the right goes into the menu, which is the right zone's element. Each
-// is a list of runs, each run arranged on its own. Pure, for check-nav.
+// button): the left stays, but a left tool that says `phone: 'menu'` (a space's views: Workspace, Calendar, Map;
+// plan-one-bar.md, step 8) goes into the menu, first; a right tool that says `phone: 'bar'` (the bell) stays in the
+// bar, drawn in the phone's place (`bar`: #core-nav); everything else from the right goes into the menu, which is the
+// right zone's element. Each is a list of runs, each run arranged on its own. Pure, for check-nav.
 export function phoneZones(byZone) {
   const stays = (t) => t.phone === 'bar';
+  const toMenu = (t) => t.phone === 'menu';
   return {
-    left: [byZone.left],
+    left: [byZone.left.filter((t) => !toMenu(t))],
     bar: [byZone.right.filter(stays)],
-    right: [byZone.right.filter((t) => !stays(t))],
+    right: [byZone.left.filter(toMenu), byZone.right.filter((t) => !stays(t))],
   };
 }
 
@@ -692,11 +694,12 @@ function fitPhone(b, el, width) {
 // `fitFirst` (the favorite layouts) gives way before the others (Online): it is measured with them at their least
 // (fit(0)), they then take what it leaves, and it is fitted once more to what they took (a least is not always the
 // width a tool settles at), so the left zone never runs past its column because of it. `right` is the right zone's
-// natural width (nothing folded), `gap` the gap between the two zones.
+// natural width (nothing folded), `gap` the gap between the two zones. A tool is fitted unless its `visible` hid it
+// (`hidden`): what its own fit did to its display (the chip gone) never keeps it from being fitted again as the bar widens.
 function fitLeft(bar, { width, gap, right }) {
   const b = bars[bar];
   if (!b || !b.zones.left) return;
-  const fitting = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'left' && typeof t.fit === 'function' && els.has(t.id) && shownEl(els.get(t.id)));
+  const fitting = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'left' && typeof t.fit === 'function' && els.has(t.id) && !els.get(t.id).hidden);
   fitting.sort((a, c) => Number(Boolean(c.fitFirst)) - Number(Boolean(a.fitFirst)));
   const fitOne = (t) => {
     const rest = naturalWidth(b.zones.left, els.get(t.id), { margins: false });
@@ -711,8 +714,9 @@ function fitLeft(bar, { width, gap, right }) {
 
 // Fit a bar to its width (plan-one-bar.md, step 7: one fit for both bars). The top bar: its left-zone tools that can
 // give way (the phase chip: its label, then its dot, then nothing) shrink to what the rest of the bar leaves; nothing
-// folds there, and on a phone its one row is its own (step 8). The space bar: its fitting tools (Online, the favorites)
-// give way, then its right zone folds into the "..." (foldCount), and on a phone it is the tab bar (fitPhone).
+// folds there, and on a phone its one row is its own (step 8: each fitting tool is whole again, the stylesheet gives
+// the chip its short words there). The space bar: its fitting tools (Online, the favorites) give way, then its right
+// zone folds into the "..." (foldCount), and on a phone it is the tab bar (fitPhone).
 function fitBar(bar) {
   if (bar === 'secondary') { fitSecondary(); return; }
   const b = bars[bar];
@@ -721,7 +725,13 @@ function fitBar(bar) {
   const view = el.ownerDocument.defaultView;
   if (!view) return;
   watchFit(bar, view);
-  if (view.matchMedia('(max-width: 640px)').matches) return;
+  if (view.matchMedia('(max-width: 640px)').matches) {
+    for (const t of tools.values()) {
+      if (t.bar !== bar || t.zone !== 'left' || typeof t.fit !== 'function' || !els.has(t.id)) continue;
+      try { t.fit(Infinity); } catch { /* keeps its size */ }
+    }
+    return;
+  }
   const cs = view.getComputedStyle(el);
   const width = el.clientWidth - px(cs.paddingLeft) - px(cs.paddingRight);
   if (width <= 0 || !shownEl(el)) return;

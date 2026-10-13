@@ -5898,6 +5898,13 @@ input[type="color"] {
   grid-row: 2;
 }
 
+/* The module being shown has no bottom bar (its "+" is in its titlebar and its status line is the last thing in its column):
+   the row that held the bar goes, so no blank strip sits under it. A module that still draws a bar keeps the row; so do the
+   conference and the chat, which are not this module. */
+.canvas.narrow.module-open:has(.module-docked > .mod-content:not(.narrow-hidden)):not(:has(.module-docked > .dock-bar:not([hidden], .narrow-hidden))) {
+  grid-template-rows: minmax(0, 1fr) 0 auto;
+}
+
 .canvas.narrow.module-open .dock-resize {
   display: none;
 }

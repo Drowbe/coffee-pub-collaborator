@@ -46,7 +46,7 @@ For someone who may not edit: the same card with `tpl-readonly` in place of the 
 
 ## Adding
 
-The host's bottom bar quick-add (`host.bar.set` with a `quickadd` item, placeholder "Add a place: name, or paste coordinates or a map link"): a name creates a place with that title and opens the dialog to fill in the rest; coordinates or a map link in the text also set the position. `data-action=add-place` in the empty state does the same as an empty submit: it opens the dialog. Another module can ask for a place through the `addPlace` action; that creates one without opening anything.
+On its own, "Add a place" is the titlebar "+" (`host.add.set`, one action: it opens the dialog) and the quick-add is `form#quick` at the top of the list (hidden where the host's bar holds it instead; the status line says how many places show, whose, and the filter). Where the host draws no titlebar "+" (a popped-out page, for now) the host's bottom bar quick-add (`host.bar.set` with a `quickadd` item, placeholder "Add a place: name, or paste coordinates or a map link"): a name creates a place with that title and opens the dialog to fill in the rest; coordinates or a map link in the text also set the position. `data-action=add-place` in the empty state does the same as an empty submit: it opens the dialog. Another module can ask for a place through the `addPlace` action; that creates one without opening anything.
 
 ## States
 

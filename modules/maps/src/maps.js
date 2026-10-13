@@ -324,8 +324,8 @@
     if (!state.adder) return;
     state.draft = { lat, lng };
     drawDraft();
-    setAdding(false);
     state.candidates = [];
+    setAdding(false);
     if (state.map) state.map.easeTo({ center: [lng, lat], zoom: Math.max(state.map.getZoom(), 14), duration: 500 });
     const before = state.all.length;
     const a = o || {};
@@ -354,7 +354,7 @@
     const list = $('results');
     list.replaceChildren();
     // As the destination's part the results are listed in the panel beside the map; the map draws only their pins.
-    if (part) { list.hidden = true; return; }
+    if (part) { list.hidden = true; syncStatus(); return; }
     if (state.searchMessage) {
       const li = document.createElement('li');
       li.className = 'note';
@@ -371,6 +371,7 @@
     });
     list.hidden = !list.children.length;
     hydrate(root);
+    syncStatus();
   }
   async function search(text) {
     const q = String(text || '').trim();
@@ -404,6 +405,7 @@
     if (!h) return;
     hits = [];
     state.searchMessage = '';
+    $('map-find').value = '';
     drawResults();
     if (state.adder) draftAt(h.lat, h.lng, { title: h.title, address: h.sub, origin: h.key });
     else if (state.map) state.map.easeTo({ center: [h.lng, h.lat], zoom: 15 });
@@ -468,7 +470,7 @@
   };
 
   async function startMap() {
-    if (state.map) { state.map.remove(); state.map = null; state.mapReady = false; clearPins(); }
+    if (state.map) { state.map.remove(); state.map = null; state.mapReady = false; clearPins(); setBar(); }
     const wanted = state.settings.maps;
     const app = $('app');
     if (!wanted.length) {
@@ -509,6 +511,7 @@
     const map = new maplibregl.Map({ container: $('map'), style: style(), attributionControl: false, renderWorldCopies: false, dragRotate: false, pitchWithRotate: false, maxZoom: 19, center: [header.centerLon, header.centerLat], zoom: 2, fadeDuration: 150 });
     map.touchZoomRotate.disableRotation();
     state.map = map;
+    setBar();
     map.getCanvas().setAttribute('aria-label', 'Map');
     credit(metadata);
     map.on('click', (e) => {
@@ -615,6 +618,7 @@
   });
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (e.target === $('map-find') && !hits.length && !state.searchMessage && $('map-find').value) { $('map-find').value = ''; return; }
     if (state.adding) setAdding(false); else if (hits.length || state.searchMessage) { hits = []; state.searchMessage = ''; state.candidates = []; drawPins(); drawResults(); } else if (state.selected) select(null);
   });
 
@@ -647,47 +651,72 @@
     });
   }
 
-  // The host's bottom bar is the map's search: type a place, or paste coordinates or a map link (Enter). A second button
-  // starts adding a place by clicking the map. Only where something can be done with it.
-  // As the destination's map in a Workspace's Map (a composite), the + on the map is the composite's "+" instead
-  // (host.add.set answers true there; on the /map page it answers false, and the + on the map stays).
+  // Adding and searching. The "+" in the window's titlebar (host.add.set) holds "Add a place on the map" (click the map) and
+  // "Add a place" (Places' dialog, empty), and the map's search is a field over the top of the map. Where the host draws no
+  // titlebar "+" (its answer is false: a popped-out page for now) the host's bottom bar keeps both, as it did. As the
+  // destination's map in a Workspace's Map (a composite), the + on the map is the composite's "+" instead (host.add.set
+  // answers true there; on the /map page it answers false, and the + on the map stays) and the page owns the search.
   let addHosted = false;
   let addAsked = '';
+  function addEntries() {
+    if (!state.adder) return [];
+    // Clicking the map needs a map (none while the map file is missing or the device cannot draw it).
+    const list = state.map ? [{ id: 'place', label: 'Add a place on the map', icon: 'map-pin' }] : [];
+    if (!part) list.push({ id: 'new', label: 'Add a place', icon: 'location-dot' });
+    return list;
+  }
   function setBar() {
     hide($('ctrl-add'), !(part && state.adder && !addHosted));
-    if (part && host.add) {
-      const want = state.adder ? 'place' : '';
-      if (want !== addAsked) {
-        addAsked = want;
-        host.add.set(want ? [{ id: 'place', label: 'Add a place on the map', icon: 'map-pin' }] : []).catch(() => {});
+    // The search field: only where the titlebar "+" is drawn (else the bar's field is), and only where it can do something.
+    const field = !part && addHosted && Boolean(state.searcher || state.adder || alone);
+    hide($('map-search'), !field);
+    $('results').classList.toggle('under-search', field);
+    if (host.add && (part || addHosted)) {
+      const list = addEntries();
+      const key = list.map((x) => x.id).join();
+      if (key !== addAsked) {
+        addAsked = key;
+        host.add.set(list).catch(() => {});
       }
     }
-    if (!host.bar || part) return;
+    if (!host.bar || part || addHosted) return;
     const items = [];
     if (state.searcher || state.adder || alone) items.push({ id: 'find', type: 'quickadd', icon: 'magnifying-glass', label: 'Search', placeholder: state.searcher ? 'Search, or paste coordinates or a link' : 'Paste coordinates or a link' });
     if (state.adder) items.push({ id: 'add', icon: 'plus', iconOnly: true, label: 'Add a place: click the map' });
     host.bar.set(items).catch(() => {});
   }
-  if (part && host.add) host.on('add', (e) => { if (e.id === 'place' && state.adder) setAdding(!state.adding); });
-  // As the destination's map in a composite, the status line under it: how many places the map shows, or what to do
-  // while adding one. (The list beside it says which place is selected.)
-  function syncStatus() {
-    if (!part || !host.status || !state.started) return;
-    const n = state.found.length;
-    const text = state.adding ? 'Click the map to add a place' : n ? `${n} ${n === 1 ? 'place' : 'places'} shown` : 'No places shown';
-    host.status.set([{ text }]).catch(() => {});
+  if (host.add) {
+    host.on('add', (e) => {
+      if (e.id === 'place') { if (state.adder) setAdding(!state.adding); return; }
+      if (e.id === 'new' && state.adder && !part) host.actions.request(state.adder.action, {}).catch((err) => say('It could not be started: ' + ((err && err.message) || err)));
+    });
   }
+  // The status line under the map: how many places it shows, how many a search found, or what to do while adding one.
+  // (Beside a composite's map, the list says which place is selected.)
+  function syncStatus() {
+    if (!host.status || !state.started) return;
+    const n = state.found.length;
+    const found = state.candidates.length;
+    const shown = n ? `${n} ${n === 1 ? 'place' : 'places'} shown` : 'No places shown';
+    const items = state.adding ? [{ text: 'Click the map to add a place' }] : found ? [{ text: `${found} found` }, { text: shown }] : [{ text: shown }];
+    host.status.set(items).catch(() => {});
+  }
+  // What was typed in the field, or in the host bar's: a pasted position or map link goes there (or starts a place there);
+  // a name is searched for.
+  function runFind(raw) {
+    const text = String(raw || '').trim();
+    if (!text) return;
+    const p = parsePoint(text);
+    if (p) { if (state.adder) draftAt(p.lat, p.lng); else if (state.map) state.map.easeTo({ center: [p.lng, p.lat], zoom: 15 }); return; }
+    if (state.searcher) { search(text); return; }
+    say(alone ? 'Paste coordinates or a map link to go there.' : `${noSearch()} Paste coordinates or a map link, or click the map.`);
+  }
+  $('map-search').addEventListener('submit', (e) => { e.preventDefault(); runFind($('map-find').value); });
   // As the destination's part there is no bar: the page's search field and the + on the map do these.
   if (host.bar && !part) {
     host.on('bar', (e) => {
       if (e.id === 'add') { if (state.adder) setAdding(!state.adding); return; }
-      if (e.id !== 'find') return;
-      const text = String(e.value || '').trim();
-      if (!text) return;
-      const p = parsePoint(text);
-      if (p) { if (state.adder) draftAt(p.lat, p.lng); else if (state.map) state.map.easeTo({ center: [p.lng, p.lat], zoom: 15 }); return; }
-      if (state.searcher) { search(text); return; }
-      say(alone ? 'Paste coordinates or a map link to go there.' : `${noSearch()} Paste coordinates or a map link, or click the map.`);
+      if (e.id === 'find') runFind(e.value);
     });
   }
 
@@ -783,8 +812,8 @@
     for (const name of new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(['location-dot', 'map-location-dot', 'link']))) if (name) wantIcon(name);
     applySettings((await host.settings.get()) || {});
     await Promise.all([loadFound(), findAdder()]);
-    // Whether a composite's "+" holds the add (an empty list asks, and shows nothing yet).
-    if (part && host.add) addHosted = Boolean(await host.add.set([]).catch(() => false));
+    // Whether a "+" in a titlebar holds the add (an empty list asks, and shows nothing yet).
+    if (host.add) addHosted = Boolean(await host.add.set([]).catch(() => false));
     setBar();
     $('msg').hidden = true;
     $('app').hidden = false;

@@ -29,7 +29,7 @@
     <div id="state" class="state">                 replaces the map (see States)
 ```
 
-There is no search field, add button, list or panel over the map. **The host's bottom bar is the map's toolbar** (`host.bar.set`): a quick-add field with a magnifying-glass button (`id: find`; placeholder "Search for a place, or paste coordinates or a map link", or only "Paste coordinates or a map link" when no search is set up), then a square **+** button (`id: add`, `iconOnly`, tooltip "Add a place: click the map"). The list of places is the Places module.
+There is no list or panel over the map. Where the host draws the titlebar "+" (`host.add.set` answers true) the map's toolbar is that **+** ("Add a place on the map", a toggle, and "Add a place", which asks Places for its empty dialog) and `form#map-search` (`role=search`, `input#map-find`: Enter searches, a pasted position or map link goes there; `.results.under-search` lists what it found just under it), a field over the top left of the map; the status line says how many places show, how many a search found, or "Click the map to add a place". Where the host answers false (a popped-out page, for now) **the host's bottom bar is the map's toolbar** (`host.bar.set`): a quick-add field with a magnifying-glass button (`id: find`; placeholder "Search for a place, or paste coordinates or a map link", or only "Paste coordinates or a map link" when no search is set up), then a square **+** button (`id: add`, `iconOnly`, tooltip "Add a place: click the map"). The list of places is the Places module.
 
 ## Wide and narrow
 

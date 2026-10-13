@@ -34,6 +34,8 @@
   /* The action button's size and its icon's share of it, the same as the page's own (public/style.css). */
   --action-btn-h: 38px;
   --action-icon-ratio: calc(20 / 38);
+  /* The host's status bar under the module (host.status.set), the same as the page's own (public/style.css). */
+  --status-bar-h: 24px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   font-size: 14px;
 }

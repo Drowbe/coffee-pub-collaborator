@@ -208,6 +208,7 @@
     renderCallout();
     hydrate(root);
     drawPins();
+    syncStatus();
   }
 
   // Follow the pane's width (the stylesheet keys its narrow layout on `.app.narrow`). A frame can report none while it is still
@@ -314,6 +315,7 @@
     state.adding = Boolean(on) && Boolean(state.adder) && Boolean(state.map);
     $('map').classList.toggle('adding', state.adding);
     hide($('banner'), !state.adding);
+    syncStatus();
   }
 
   // A pin where a place would go, and Places' own dialog for it: the map asks the module that keeps places to open its dialog
@@ -647,13 +649,33 @@
 
   // The host's bottom bar is the map's search: type a place, or paste coordinates or a map link (Enter). A second button
   // starts adding a place by clicking the map. Only where something can be done with it.
+  // As the destination's map in a Workspace's Map (a composite), the + on the map is the composite's "+" instead
+  // (host.add.set answers true there; on the /map page it answers false, and the + on the map stays).
+  let addHosted = false;
+  let addAsked = '';
   function setBar() {
-    hide($('ctrl-add'), !(part && state.adder));
+    hide($('ctrl-add'), !(part && state.adder && !addHosted));
+    if (part && host.add) {
+      const want = state.adder ? 'place' : '';
+      if (want !== addAsked) {
+        addAsked = want;
+        host.add.set(want ? [{ id: 'place', label: 'Add a place on the map', icon: 'map-pin' }] : []).catch(() => {});
+      }
+    }
     if (!host.bar || part) return;
     const items = [];
     if (state.searcher || state.adder || alone) items.push({ id: 'find', type: 'quickadd', icon: 'magnifying-glass', label: 'Search', placeholder: state.searcher ? 'Search, or paste coordinates or a link' : 'Paste coordinates or a link' });
     if (state.adder) items.push({ id: 'add', icon: 'plus', iconOnly: true, label: 'Add a place: click the map' });
     host.bar.set(items).catch(() => {});
+  }
+  if (part && host.add) host.on('add', (e) => { if (e.id === 'place' && state.adder) setAdding(!state.adding); });
+  // As the destination's map in a composite, the status line under it: how many places the map shows, or what to do
+  // while adding one. (The list beside it says which place is selected.)
+  function syncStatus() {
+    if (!part || !host.status || !state.started) return;
+    const n = state.found.length;
+    const text = state.adding ? 'Click the map to add a place' : n ? `${n} ${n === 1 ? 'place' : 'places'} shown` : 'No places shown';
+    host.status.set([{ text }]).catch(() => {});
   }
   // As the destination's part there is no bar: the page's search field and the + on the map do these.
   if (host.bar && !part) {
@@ -761,6 +783,8 @@
     for (const name of new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(['location-dot', 'map-location-dot', 'link']))) if (name) wantIcon(name);
     applySettings((await host.settings.get()) || {});
     await Promise.all([loadFound(), findAdder()]);
+    // Whether a composite's "+" holds the add (an empty list asks, and shows nothing yet).
+    if (part && host.add) addHosted = Boolean(await host.add.set([]).catch(() => false));
     setBar();
     $('msg').hidden = true;
     $('app').hidden = false;

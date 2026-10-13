@@ -339,6 +339,7 @@
   }
 
   function render() {
+    syncStatus();
     if (part) return renderByDue();
     const own = [...tasks.values()].filter((x) => x.scope === 'own');
     const openCount = own.filter((x) => !x.t.done).length;
@@ -775,27 +776,60 @@
   $('add').addEventListener('click', startNew);
   $('new-todo').addEventListener('click', startNew);
   // Typed text goes through Chat `/t` (addTask): parseWhen, then this same editor, nothing saved until Save.
-  // The host draws New todo in the module's action bar when docked; the in-page button stays for a host without one,
-  // and as the panel, whose page has no action bar (Add task at its top). Who may add is known once the spaces are in.
+  // Add task is the "+" in the titlebar (host.add.set, one action: it runs at once), or the composite's "+" as the panel
+  // in a Workspace's Calendar. Where there is no "+" (popped out, the module's own page, a phone) the old bottom bar
+  // holds it; the in-page buttons stay for a host with neither, and as the panel on the /calendar page (Add task at its
+  // top). Who may add is known once the spaces are in.
+  const ADD_TASK = { id: 'task', label: 'Add task', icon: 'square-plus' };
+  let addHosted = false;
   let barHosted = false;
   function showAdd() {
     $('add').hidden = !canAdd();
     $('new-form').hidden = Boolean(part) || !canAdd();
-    if (barHosted) host.bar.set(canAdd() ? [{ id: 'add', label: 'New todo', icon: 'square-plus', primary: true }] : []).catch(() => {});
+    if (addHosted) host.add.set(canAdd() ? [ADD_TASK] : []).catch(() => {});
+    if (barHosted) host.bar.set(canAdd() ? [{ id: 'add', label: 'Add task', icon: 'square-plus', primary: true }] : []).catch(() => {});
   }
-  if (host.bar && !part) {
+  const unhost = () => {
+    $('add').classList.remove('hosted');
+    $('new-form').classList.remove('hosted');
+  };
+  const legacyBar = () => {
+    if (!host.bar || part) return unhost();
     barHosted = true;
-    $('add').classList.add('hosted');
-    $('new-form').classList.add('hosted');
-    host.bar.set(canEdit ? [{ id: 'add', label: 'New todo', icon: 'square-plus', primary: true }] : []).catch(() => {
-      barHosted = false;
-      $('add').classList.remove('hosted');
-      $('new-form').classList.remove('hosted');
-    });
+    host.bar.set(canAdd() ? [{ id: 'add', label: 'Add task', icon: 'square-plus', primary: true }] : []).catch(() => { barHosted = false; unhost(); });
+  };
+  // Until the host says where Add task is.
+  $('add').classList.add('hosted');
+  $('new-form').classList.add('hosted');
+  if (host.add) {
+    host.add.set(canAdd() ? [ADD_TASK] : []).then((drawn) => { if (drawn) addHosted = true; else legacyBar(); }, legacyBar);
+    host.on('add', (e) => { if (e.id === ADD_TASK.id && canAdd()) startNew(); });
+  } else legacyBar();
+  if (host.bar && !part) {
     host.on('bar', (e) => {
       if (e.id !== 'add' || !canAdd()) return;
       startNew();
     });
+  }
+
+  // The status line at the foot of the window: what is open, due today and overdue among the tasks shown ("5 open · 2 due
+  // today · 1 overdue"), and a chip when Done or All is shown. Hidden while there are no tasks. As the panel in a
+  // Workspace's Calendar, the composite's status bar shows it beside the calendar's.
+  const SHOW_WORDS = { done: 'Showing done', all: 'Showing all' };
+  function syncStatus() {
+    if (!host.status) return;
+    const shown = [...tasks.values()].filter((x) => (x.scope === 'own' ? !(part && hideOwn) : !hiddenSpaces.has(x.spaceId)));
+    const items = [];
+    if ($('app') && !$('app').hidden && shown.length) { // once loaded
+      const open = shown.filter((x) => !x.t.done);
+      const today = open.filter((x) => dueGroup(x.t) === 'today').length;
+      const late = open.filter((x) => dueGroup(x.t) === 'late').length;
+      items.push({ text: open.length ? `${open.length} open` : 'Nothing open' });
+      if (today) items.push({ text: `${today} due today` });
+      if (late) items.push({ text: `${late} overdue` });
+      if (SHOW_WORDS[show]) items.push({ text: SHOW_WORDS[show], chip: true });
+    }
+    host.status.set(items).catch(() => {});
   }
 
   // As the panel: the page's filter says whose tasks show (host.destination.onState); the panel sets nothing.

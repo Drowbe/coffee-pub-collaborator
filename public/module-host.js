@@ -777,15 +777,156 @@ function watchLifts(doc) {
   }
 }
 
+// The "+" in a titlebar (host.add.set): one button in `add` (the titlebar's slot, moved with the window between docked
+// and floating, never rebuilt), which runs the module's one add action at once or opens the shared menu of them,
+// categories as flyouts. A pick goes to `send('add', { id })`. See public/module-chrome.js for the rules. mountModule draws
+// a module's with it; canvas.js draws a composite's with it, from the adds its page hands up (destination.js).
+// Returns { set(entries), destroy() }.
+export function createAddSlot(add, send) {
+  let addEntries = [];
+  let addButton = null;
+  function drawAdd() {
+    if (!add) return;
+    const plan = addPlan(addEntries);
+    if (plan.kind === 'none') {
+      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
+      add.hidden = true;
+      return;
+    }
+    const doc = add.ownerDocument;
+    if (!addButton) {
+      addButton = doc.createElement('button');
+      addButton.type = 'button';
+      addButton.className = 'sdk-more mod-add';
+      const i = doc.createElement('i');
+      i.className = 'fa-solid fa-plus fa-fw';
+      i.setAttribute('aria-hidden', 'true');
+      addButton.appendChild(i);
+      addButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const now = addPlan(addEntries);
+        if (now.kind === 'direct') { if (!now.leaf.disabled) send('add', { id: now.leaf.id }); return; }
+        if (now.kind === 'menu') openHostMenu(addButton, () => addMenuItems(addEntries, (id) => send('add', { id })));
+      });
+      add.appendChild(addButton);
+    }
+    const label = plan.kind === 'direct' ? plan.leaf.label : plan.label;
+    addButton.title = label;
+    addButton.setAttribute('aria-label', label);
+    if (plan.kind === 'menu') {
+      addButton.setAttribute('aria-haspopup', 'menu');
+      if (!addButton.hasAttribute('aria-expanded')) addButton.setAttribute('aria-expanded', 'false');
+      addButton.disabled = false;
+    } else {
+      addButton.removeAttribute('aria-haspopup');
+      addButton.removeAttribute('aria-expanded');
+      addButton.disabled = plan.leaf.disabled;
+    }
+    add.hidden = false;
+  }
+  return {
+    set(entries) {
+      addEntries = cleanAddEntries(entries);
+      drawAdd();
+    },
+    destroy() {
+      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
+    },
+  };
+}
+
+// The status bar (host.status.set): a slim read-only line at the bottom of a module's own window or column, hidden
+// while nothing is set. Its items and a visually hidden polite live node are drawn into `status` (a labelled region the
+// chrome gives, moved with the window like the "+"); the same items again draw nothing, and the live node hears the
+// non-quiet text only after it has been still for a moment (createAnnouncer). Used by mountModule, and by canvas.js
+// for a composite. Returns { set(items) (true, as status.set answers), destroy() }.
+export function createStatusSlot(status) {
+  let statusLast = null;
+  let statusList = null;
+  let statusLive = null;
+  let announcer = null;
+  let statusObserver = null;
+  // One line: when the items are wider than the bar, the last before the end item is cut first (statusFit).
+  function fitStatus() {
+    if (!statusList || status.hidden) return;
+    const els = [...statusList.querySelectorAll('.mod-status-item')];
+    for (const el of els) el.style.maxWidth = '';
+    const over = statusList.scrollWidth - statusList.clientWidth;
+    if (over <= 0) return;
+    const fit = statusFit(els.map((el) => ({ w: el.getBoundingClientRect().width, end: el.classList.contains('end') })), over);
+    els.forEach((el, at) => { if (fit[at] !== null) el.style.maxWidth = `${fit[at]}px`; });
+  }
+  function drawStatus(clean) {
+    const doc = status.ownerDocument;
+    const win = doc.defaultView || window;
+    if (!statusList) {
+      statusList = doc.createElement('span');
+      statusList.className = 'mod-status-items';
+      statusLive = doc.createElement('span');
+      statusLive.className = 'visually-hidden';
+      statusLive.setAttribute('aria-live', 'polite');
+      status.append(statusList, statusLive);
+      announcer = createAnnouncer({ write: (t) => { statusLive.textContent = t; }, setTimer: (fn, ms) => win.setTimeout(fn, ms), clearTimer: (t) => win.clearTimeout(t) });
+      statusObserver = new win.ResizeObserver(() => fitStatus());
+      statusObserver.observe(status);
+    }
+    statusList.textContent = '';
+    clean.forEach((item, at) => {
+      if (at > 0 && !item.end) {
+        const dot = doc.createElement('span');
+        dot.className = 'mod-status-sep';
+        dot.setAttribute('aria-hidden', 'true');
+        dot.textContent = '·';
+        statusList.appendChild(dot);
+      }
+      const el = doc.createElement('span');
+      el.className = `mod-status-item${item.chip ? ' chip' : ''}${item.end ? ' end' : ''}`;
+      el.title = item.title;
+      if (item.quiet) el.setAttribute('aria-hidden', 'true');
+      if (item.icon) {
+        const i = doc.createElement('i');
+        i.className = `fa-solid fa-${item.icon} fa-fw`;
+        i.setAttribute('aria-hidden', 'true');
+        el.appendChild(i);
+      }
+      const t = doc.createElement('span');
+      t.className = 'mod-status-text';
+      t.textContent = item.text;
+      el.appendChild(t);
+      statusList.appendChild(el);
+    });
+    status.title = statusTitle(clean);
+    status.hidden = clean.length === 0;
+    fitStatus();
+    announcer.update(statusSpoken(clean));
+  }
+  return {
+    set(items) {
+      const clean = cleanStatusItems(items);
+      const key = statusKey(clean);
+      if (key === statusLast) return true;
+      statusLast = key;
+      drawStatus(clean);
+      return true;
+    },
+    destroy() {
+      if (announcer) announcer.stop();
+      if (statusObserver) { statusObserver.disconnect(); statusObserver = null; }
+    },
+  };
+}
+
 // Mounts one module: into an empty <iframe> (`frame`; sandboxed, with only the SDK to reach the page), or,
 // for a module that runs in the page, into an empty element (`container`), where it lives in a shadow
 // root of its own, beside the page's own elements, with the page's power (see the run modes in
 // documentation/architecture/architecture-modules.md).
 //
 // `scope` is 'environment' (the module's own page) or 'space' (on a space's canvas, with `spaceId`). `destination`
-// is { hub, part } for a destination's part: `hub` from createDestination(), `part` 'main' or 'panel'. Returns
+// is { hub, part } for a destination's part: `hub` from createDestination(), `part` 'main' or 'panel'. `onAdd(entries)`
+// and `onStatus(items)`, for a destination's part only: its "+" entries and status items, cleaned, for the page to hand
+// on (a composite's frame); host.add.set and host.status.set answer true then. Returns
 // { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, lift = true, onLift = null }) {
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, lift = true, onLift = null }) {
   const base = `/api/modules/${encodeURIComponent(module.id)}`;
   let contextInfo = null;
   // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
@@ -927,114 +1068,10 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     }
   }
 
-  // The "+" in the titlebar (host.add.set): one button in `add` (the titlebar's slot, moved with the window between
-  // docked and floating, never rebuilt), which runs the module's one add action at once or opens the shared menu of
-  // them, categories as flyouts. A pick is the 'add' event { id }. See public/module-chrome.js for the rules.
-  let addEntries = [];
-  let addButton = null;
-  function drawAdd() {
-    if (!add) return;
-    const plan = addPlan(addEntries);
-    if (plan.kind === 'none') {
-      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
-      add.hidden = true;
-      return;
-    }
-    const doc = add.ownerDocument;
-    if (!addButton) {
-      addButton = doc.createElement('button');
-      addButton.type = 'button';
-      addButton.className = 'sdk-more mod-add';
-      const i = doc.createElement('i');
-      i.className = 'fa-solid fa-plus fa-fw';
-      i.setAttribute('aria-hidden', 'true');
-      addButton.appendChild(i);
-      addButton.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const now = addPlan(addEntries);
-        if (now.kind === 'direct') { if (!now.leaf.disabled) send('add', { id: now.leaf.id }); return; }
-        if (now.kind === 'menu') openHostMenu(addButton, () => addMenuItems(addEntries, (id) => send('add', { id })));
-      });
-      add.appendChild(addButton);
-    }
-    const label = plan.kind === 'direct' ? plan.leaf.label : plan.label;
-    addButton.title = label;
-    addButton.setAttribute('aria-label', label);
-    if (plan.kind === 'menu') {
-      addButton.setAttribute('aria-haspopup', 'menu');
-      if (!addButton.hasAttribute('aria-expanded')) addButton.setAttribute('aria-expanded', 'false');
-      addButton.disabled = false;
-    } else {
-      addButton.removeAttribute('aria-haspopup');
-      addButton.removeAttribute('aria-expanded');
-      addButton.disabled = plan.leaf.disabled;
-    }
-    add.hidden = false;
-  }
-
-  // The status bar (host.status.set): a slim read-only line at the bottom of the module's own window or column, hidden
-  // while the module sets nothing. Its items and a visually hidden polite live node are drawn into `status` (a labelled
-  // region the chrome gives, moved with the window like the "+"); the same items again draw nothing, and the live
-  // node hears the non-quiet text only after it has been still for a moment (createAnnouncer).
-  let statusLast = null;
-  let statusList = null;
-  let statusLive = null;
-  let announcer = null;
-  let statusObserver = null;
-  // One line: when the items are wider than the bar, the last before the end item is cut first (statusFit).
-  function fitStatus() {
-    if (!statusList || status.hidden) return;
-    const els = [...statusList.querySelectorAll('.mod-status-item')];
-    for (const el of els) el.style.maxWidth = '';
-    const over = statusList.scrollWidth - statusList.clientWidth;
-    if (over <= 0) return;
-    const fit = statusFit(els.map((el) => ({ w: el.getBoundingClientRect().width, end: el.classList.contains('end') })), over);
-    els.forEach((el, at) => { if (fit[at] !== null) el.style.maxWidth = `${fit[at]}px`; });
-  }
-  function drawStatus(clean) {
-    const doc = status.ownerDocument;
-    const win = doc.defaultView || window;
-    if (!statusList) {
-      statusList = doc.createElement('span');
-      statusList.className = 'mod-status-items';
-      statusLive = doc.createElement('span');
-      statusLive.className = 'visually-hidden';
-      statusLive.setAttribute('aria-live', 'polite');
-      status.append(statusList, statusLive);
-      announcer = createAnnouncer({ write: (t) => { statusLive.textContent = t; }, setTimer: (fn, ms) => win.setTimeout(fn, ms), clearTimer: (t) => win.clearTimeout(t) });
-      statusObserver = new win.ResizeObserver(() => fitStatus());
-      statusObserver.observe(status);
-    }
-    statusList.textContent = '';
-    clean.forEach((item, at) => {
-      if (at > 0 && !item.end) {
-        const dot = doc.createElement('span');
-        dot.className = 'mod-status-sep';
-        dot.setAttribute('aria-hidden', 'true');
-        dot.textContent = '·';
-        statusList.appendChild(dot);
-      }
-      const el = doc.createElement('span');
-      el.className = `mod-status-item${item.chip ? ' chip' : ''}${item.end ? ' end' : ''}`;
-      el.title = item.title;
-      if (item.quiet) el.setAttribute('aria-hidden', 'true');
-      if (item.icon) {
-        const i = doc.createElement('i');
-        i.className = `fa-solid fa-${item.icon} fa-fw`;
-        i.setAttribute('aria-hidden', 'true');
-        el.appendChild(i);
-      }
-      const t = doc.createElement('span');
-      t.className = 'mod-status-text';
-      t.textContent = item.text;
-      el.appendChild(t);
-      statusList.appendChild(el);
-    });
-    status.title = statusTitle(clean);
-    status.hidden = clean.length === 0;
-    fitStatus();
-    announcer.update(statusSpoken(clean));
-  }
+  // The "+" in the titlebar (host.add.set) and the status bar (host.status.set), drawn in the slots the chrome gives
+  // (createAddSlot and createStatusSlot, above).
+  const addSlot = add ? createAddSlot(add, (event, data) => send(event, data)) : null;
+  const statusSlot = status ? createStatusSlot(status) : null;
 
   // Events for the module before its page has said hello wait until it has.
   let ready = false;
@@ -1383,19 +1420,13 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // module sends one for a person who may not add: what "may add" means is the module's own permission).
     async 'add.set'({ entries }) {
       if (!add) return false;
-      addEntries = cleanAddEntries(entries);
-      drawAdd();
+      addSlot.set(entries);
       return true;
     },
     // The status bar (host.status.set). False where there is none (a destination's part, a module's own page).
     async 'status.set'({ items }) {
       if (!status) return false;
-      const clean = cleanStatusItems(items);
-      const key = statusKey(clean);
-      if (key === statusLast) return true;
-      statusLast = key;
-      drawStatus(clean);
-      return true;
+      return statusSlot.set(items);
     },
     // Icon buttons in the module's titlebar, before the host's own buttons and set off by a pipe. Only a
     // host with a titlebar (a module on the canvas, or in its own window) has room for them: the answer says which,
@@ -1699,6 +1730,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       return watchMedia(params);
     },
   };
+  // A destination's part in a composite's frame (destination.js, `onAdd` and `onStatus`): it has no titlebar of its own,
+  // but its page hands its adds and its status up to the composite's titlebar and status bar on the Workspace, so they are
+  // drawn after all (true), and the part hides its own add buttons as it does under a titlebar. A pick comes back as the
+  // 'add' event, through deliver.
+  if (destination && onAdd) handlers['add.set'] = async ({ entries }) => { onAdd(cleanAddEntries(entries)); return true; };
+  if (destination && onStatus) handlers['status.set'] = async ({ items }) => { onStatus(cleanStatusItems(items)); return true; };
 
   // Each frame has its own secret, handed to it in its address. Messages to the frame carry it, and
   // the SDK ignores any that do not, so another frame that can reach this one cannot pose as the host.
@@ -1965,9 +2002,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       for (const id of navIds) navBar.unregister(id); // its nav tools go with it
       navIds.clear();
       if (barObserver) { barObserver.disconnect(); barObserver = null; }
-      if (announcer) announcer.stop();
-      if (statusObserver) { statusObserver.disconnect(); statusObserver = null; }
-      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
+      if (statusSlot) statusSlot.destroy();
+      if (addSlot) addSlot.destroy();
       leaveStream();
       leaveDestination();
       if (pageMode) container.shadowRoot?.replaceChildren();

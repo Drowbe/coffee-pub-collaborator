@@ -245,11 +245,37 @@
     return el;
   };
 
+  // Beside the map in a Workspace's Map (a composite): Add a place is the composite's "+" (host.add.set answers true there;
+  // on the /map page it answers false, and Add a place stays at the top of the list), and the status line names the
+  // selected place and its kind ("Blue Door · Food"). The empty state's own button stays: it adds to an empty list.
+  let addHosted = false;
+  let addAsked = null;
+  function syncChrome() {
+    if (!asPart) return;
+    if (host.add) {
+      const want = state.loaded && canAdd() ? 'place' : '';
+      if (want !== addAsked) {
+        addAsked = want;
+        host.add.set(want ? [{ id: 'place', label: 'Add a place', icon: 'location-dot' }] : []).then((drawn) => {
+          if (Boolean(drawn) === addHosted) return;
+          addHosted = Boolean(drawn);
+          hide($('part-head'), !state.loaded || !canAdd() || addHosted);
+        }).catch(() => {});
+      }
+    }
+    if (host.status && state.loaded) {
+      const sel = state.selected ? entries().find((x) => rowKey(x.w, x.p.id) === state.selected) : null;
+      host.status.set(sel ? [{ text: sel.p.title }, { text: CAT_LABEL[sel.p.category] || CAT_LABEL.other }] : []).catch(() => {});
+    }
+  }
+  if (asPart && host.add) host.on('add', (e) => { if (e.id === 'place' && canAdd()) openEditor(null, null); });
+
   function render() {
+    syncChrome();
     const all = entries().map((x) => x.p);
     const empty = state.loaded && !all.length;
     hide($('app').querySelector('.head'), empty || asPart);
-    hide($('part-head'), !asPart || !state.loaded || !canAdd());
+    hide($('part-head'), !asPart || !state.loaded || !canAdd() || addHosted);
     hide($('chips'), empty || !state.loaded);
     fill($('app').querySelector('.head'), { count: all.length ? String(all.length) : '' });
     const body = $('body');
@@ -342,6 +368,7 @@
       if (on) found = el;
     }
     if (found && scroll) found.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    syncChrome();
   }
   // Select a place from the list: the page tells the map, which flies to it.
   let told = null; // the selection last told to the page or heard from it (an object key, '' for none)

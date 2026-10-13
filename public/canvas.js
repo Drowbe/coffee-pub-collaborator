@@ -13,7 +13,7 @@
 // See documentation/architecture/architecture-canvas.md.
 
 import { api, markModuleRead, followTheme, word } from '/brand.js';
-import { mountModule, openClearMenu, registerDragRelay } from '/module-host.js';
+import { mountModule, openClearMenu, registerDragRelay, createAddSlot, createStatusSlot } from '/module-host.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu } from '/host-menu.js';
 import { nav } from '/nav-bar.js';
 import { whatOpens } from '/opens-with.js';
@@ -824,15 +824,37 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const holder = (m, cls) => (m.runMode === 'page'
     ? `<div class="module-root ${cls}" data-module-root="${escapeHtml(m.id)}"></div>`
     : compositeOf(m)
-      ? `<iframe class="${cls} composite-frame" title="${escapeHtml(m.name)}" src="${escapeHtml(compositeSrc(compositeOf(m)))}"></iframe>`
+      ? `<iframe class="${cls} composite-frame" data-composite title="${escapeHtml(m.name)}" src="${escapeHtml(compositeSrc(compositeOf(m)))}"></iframe>`
       : `<iframe class="${cls}" title="${escapeHtml(m.name)}"></iframe>`);
 
   // What stands in for a composite's mount: nothing runs through the SDK here (the parts inside the page have their own
   // host); a pointer to open (openRef) goes to the page as #ref=, which it already takes (destination.js, takeHash).
+  // The page (marked by the frame's data-composite) hands up its parts' adds and status lines ('app:compositechrome'):
+  // they are drawn in this titlebar's one "+" and this window's status bar, and a pick goes back to the page
+  // ('app:compositeadd'), which runs that part's own add. Each new page in the frame is asked for them ('app:compositehello').
   function compositeMount(mod, frame) {
     // A drag from a module on the Workspace over the frame reaches the parts inside (module-host.js, registerDragRelay).
     const unrelay = registerDragRelay(frame);
     const c = compositeOf(mod.m);
+    const hostWin = frame.ownerDocument.defaultView || window;
+    const post = (data) => { try { frame.contentWindow?.postMessage(data, hostWin.location.origin); } catch { /* the page is not there */ } };
+    const addEl = mod.el.querySelector('[data-header-add]');
+    const statusEl = mod.el.querySelector('[data-status]');
+    const addSlot = addEl ? createAddSlot(addEl, (event, data) => { if (event === 'add' && data?.id) post({ type: 'app:compositeadd', id: data.id }); }) : null;
+    const statusSlot = statusEl ? createStatusSlot(statusEl) : null;
+    const onChrome = (event) => {
+      if (event.source !== frame.contentWindow || event.origin !== hostWin.location.origin) return;
+      const d = event.data;
+      if (!d || d.type !== 'app:compositechrome') return;
+      if (addSlot && Array.isArray(d.add)) addSlot.set(d.add);
+      if (statusSlot && Array.isArray(d.status)) statusSlot.set(d.status);
+    };
+    hostWin.addEventListener('message', onChrome);
+    frame.addEventListener('load', () => {
+      if (addSlot) addSlot.set([]);
+      if (statusSlot) statusSlot.set([]);
+      post({ type: 'app:compositehello' });
+    });
     // Whether the destination's page is in the frame (not the blank it starts as): a pointer that arrives before it is
     // (the composite opened for that pointer: a place card's, a task's) waits for the page's load.
     const loaded = () => { try { return Boolean(frame.contentWindow) && frame.contentWindow.location.pathname === c.path; } catch { return false; } };
@@ -846,7 +868,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       } catch { /* the page is not there; the pointer is dropped */ }
     };
     frame.addEventListener('load', () => { if (waiting && loaded()) { show(waiting); waiting = null; } });
-    return {
+    const mount = {
       destroy() { unrelay(); waiting = null; frame.src = 'about:blank'; },
       deliver(event, data) {
         if (event !== 'objectopen' || !data?.ref) return;
@@ -857,6 +879,15 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       beginDragForTest() {},
       ptrForTest() {},
     };
+    // Closing lets the "+", the status bar and the page's messages go too.
+    const close = mount.destroy;
+    mount.destroy = () => {
+      hostWin.removeEventListener('message', onChrome);
+      if (addSlot) addSlot.destroy();
+      if (statusSlot) statusSlot.destroy();
+      close();
+    };
+    return mount;
   }
   // Unread notifications: a composite's are its parts'.
   const unreadOf = (id) => { const c = compositeById(id); return c ? c.parts.reduce((sum, p) => sum + (unread[p] || 0), 0) : unread[id] || 0; };

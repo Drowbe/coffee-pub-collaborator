@@ -399,6 +399,7 @@
     }
     askExternal(false);
     askMarkers(false);
+    syncStatus();
   }
 
   // The Agenda (the destination's panel): the events of the period the calendar shows, from the selected day on.
@@ -1046,21 +1047,60 @@
   }
   $('add').addEventListener('click', startNew);
   // Typed text goes through Chat `/c` (addEvent): parseWhen, then this same editor, nothing saved until Save.
-  // The host draws Add event in the module's action bar when docked; the header button stays for a host without one,
-  // and as a destination's part, whose page has no action bar. Who may add is known once the spaces are in.
+  // Add event is the "+" in the titlebar (host.add.set, one action: it runs at once), or the composite's "+" as the
+  // destination's calendar in a Workspace's Calendar. Where there is no "+" (popped out, the module's own page, a phone)
+  // the old bottom bar holds it; the header button stays for a host with neither, and as a destination's part on the
+  // /calendar page. The Agenda adds nothing. Who may add is known once the spaces are in.
+  const ADD_EVENT = { id: 'event', label: 'Add event', icon: 'calendar-plus' };
+  let addHosted = false;
   let barHosted = false;
   function showAdd() {
     $('add').hidden = part === 'panel' || !canAdd();
+    if (addHosted) host.add.set(canAdd() ? [ADD_EVENT] : []).catch(() => {});
     if (barHosted) host.bar.set(canAdd() ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => {});
   }
-  if (host.bar && !part) {
+  const unhost = () => { $('add').classList.remove('hosted'); };
+  const legacyBar = () => {
+    if (!host.bar || part) return unhost();
     barHosted = true;
-    $('add').classList.add('hosted');
-    host.bar.set(canEdit ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => { barHosted = false; $('add').classList.remove('hosted'); });
+    host.bar.set(canAdd() ? [{ id: 'add', label: 'Add event', icon: 'calendar-plus', primary: true }] : []).catch(() => { barHosted = false; unhost(); });
+  };
+  if (part !== 'panel') {
+    $('add').classList.add('hosted'); // until the host says where Add event is
+    if (host.add) host.add.set(canAdd() ? [ADD_EVENT] : []).then((drawn) => { if (drawn) addHosted = true; else legacyBar(); }, legacyBar);
+    else legacyBar();
+    if (host.add) host.on('add', (e) => { if (e.id === ADD_EVENT.id && canAdd()) startNew(); });
+  }
+  if (host.bar && !part) {
     host.on('bar', (e) => {
       if (e.id !== 'add' || !canAdd()) return;
       startNew();
     });
+  }
+
+  // The status line at the foot of the window: the period shown and how many events are in it ("Oct 2026 · 14 events"),
+  // and a chip when kinds of markers are hidden. As the destination's calendar the composite's status bar shows it.
+  // The Agenda says nothing (the calendar beside it does).
+  function syncStatus() {
+    if (!host.status || part === 'panel') return;
+    const items = [];
+    if (loaded || events.size) {
+      let range;
+      let count;
+      if (view === 'list') {
+        const from = startOfDay(new Date());
+        range = 'Next 90 days';
+        count = inRange(from, addDays(from, 90)).filter((o) => !isMarker(o.x)).length;
+      } else {
+        const p = period();
+        range = view === 'week' ? weekTitle() : view === 'day' ? anchor.toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : cursor.toLocaleDateString([], { month: 'short', year: 'numeric' });
+        count = nothingPicked() ? 0 : inRange(p.from, p.to).filter((o) => !isMarker(o.x)).length;
+      }
+      items.push({ text: range }, { text: count ? `${count} ${count === 1 ? 'event' : 'events'}` : 'No events' });
+      const hiddenKinds = [...markerKinds.values()].filter((k) => hiddenMarkers.has(k.id)).length;
+      if (hiddenKinds) items.push({ text: `${hiddenKinds} ${hiddenKinds === 1 ? 'kind' : 'kinds'} hidden`, chip: true, title: 'Kinds of markers hidden in Show' });
+    }
+    host.status.set(items).catch(() => {});
   }
 
   // --- as a part of the Calendar destination -------------------------------------------

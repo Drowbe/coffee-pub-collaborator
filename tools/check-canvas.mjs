@@ -1116,6 +1116,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       RoomEvent: new Proxy({}, { get: (_t, name) => name }),
       decoder: new TextDecoder(), presenceUsers: new Map(), word: () => 'Aside', reconcileGhostTiles: noop, removeParticipant: noop,
       setTimeout: noop, spaceDisplayName: (r) => r.name, renderSpaceLink: noop, applyPermissions: noop, updateRecallButton: noop, updateCrumb: noop,
+      phoneWidth: () => true, // the bar's Rejoin call shows where the bar is the phone's tab bar; wider, the top bar's aside-rejoin is the one
     };
     const names = Object.keys(stubs);
     const page = new Function(...names, `const call = arguments[${names.length}];

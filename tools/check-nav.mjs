@@ -170,11 +170,12 @@ test('href: a path on this server or an https address, nothing else', () => {
   assert.throws(() => cleanModuleTools('m', [{ id: 'a', icon: 'x', label: 'x', href: 'http://example.org/' }]), /href/);
 });
 
-test('a module never places a tool in the top bar: bar: \'primary\' and system: true are ignored, not refused, and the tool lands in the space bar', () => {
+test('a module never chooses a bar: bar: \'primary\' and system: true are ignored, not refused; the tool is a Workspace tool of the right zone (the registry puts it where the page put the Workspace\'s toolbar)', () => {
   const tool = { id: 'a', icon: 'x', label: 'x', bar: 'primary', system: true };
   const [t] = cleanModuleTools('m', [tool]);
-  assert.equal(t.bar, 'secondary', 'placed in the space bar like any other tool');
+  assert.equal(t.bar, 'secondary', 'placed like any other tool');
   assert.equal(t.zone, 'right');
+  assert.equal(t.workspace, 'only', 'a Workspace tool: shown on the Workspace view, in the top bar wider than a phone');
   assert.ok(!('system' in t), 'system is not carried');
   const [u] = cleanModuleTools('m', [{ ...tool, zone: 'middle' }], { allowPrimary: true });
   assert.equal(u.bar, 'secondary', 'even with the old option passed, nothing reaches the top bar');
@@ -218,7 +219,7 @@ test('on a phone the primary bar folds: the left stays, the bell stays (phone: \
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.match(space, /nav\.register\(\{ \.\.\.tool, bar: 'primary', href, phone: 'menu', visible: \(\) => oneBar\(\) && !inAside\(\), onClick: \(event\) => \{ event\.preventDefault\(\); showView\(view, href\); \}/, 'a view says phone: \'menu\' and shows the view, never navigates');
   assert.match(navSrc, /right: \[byZone\.left\.filter\(toMenu\), byZone\.right\.filter\(\(t\) => !stays\(t\)\)\]/, 'the menu\'s first run is the left zone\'s phone: \'menu\' tools');
-  assert.match(navSrc, /if \(view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) \{\n\s*for \(const t of tools\.values\(\)\) \{\n[^\n]*\n\s*try \{ t\.fit\(Infinity\); \}/, 'on a phone every fitting tool of the top bar is whole again (the chip is never left gone)');
+  assert.match(navSrc, /if \(phoneNow && bar === 'primary'\) \{\n\s*for \(const t of tools\.values\(\)\) \{\n[^\n]*\n\s*try \{ t\.fit\(Infinity\); \}/, 'on a phone every fitting tool of the top bar is whole again (the chip is never left gone)');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.ok(!/keepOnPhone/.test(src), 'keepOnPhone is gone: nothing stays in the bar on a phone');
 });
@@ -315,7 +316,7 @@ test('the space bar\'s "..." uses the shared menu, shows a toggle\'s state and c
   assert.match(menu, /label: relabelled \? t\.activeLabel : t\.label/, 'a toggle on with its own words reads them ("Pop it back in")');
   assert.match(menu, /onPick: \(\) => \{\s*fold\.picked = c;\s*c\.click\(\);/);
   // After a pick the keyboard goes to the tool, else the "..." while it shows, else the left zone (the module chooser).
-  const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
+  const fit = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
   assert.match(fit, /\[focusable\(picked\), fold\.more\.hidden \? null : fold\.more, inLeft\(\)\]/);
   // The "..." had the keyboard and hides (the bar grew): to a tool it held, else the left zone; never <body>.
   assert.match(fit, /wasFocused === fold\.more && fold\.more\.hidden/);
@@ -374,12 +375,12 @@ test('the phone\'s fold of the space bar\'s right zone: every tool but Leave and
   assert.deepEqual(phoneFold([{ ...m, seq: 1 }]), ['todo:a'], 'so a module tool always goes into the "..." on a phone');
 });
 
-test('the phone\'s tab bar is drawn: fitSecondary() folds on a phone too, the stylesheet\'s tab width is TAB_MIN, Rejoin and the "..." are tabs, Join no longer narrows the tabs', () => {
+test('the phone\'s tab bar is drawn: fitBar() folds on a phone too, the stylesheet\'s tab width is TAB_MIN, Rejoin and the "..." are tabs, Join no longer narrows the tabs', () => {
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
-  const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
-  assert.ok(!/if \(!phoneNow/.test(fit), 'fitSecondary() no longer skips a phone');
+  const fit = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
+  assert.ok(!/if \(!phoneNow/.test(fit), 'fitBar() no longer skips a phone');
   assert.match(fit, /if \(phoneNow\) \{\n\s*if \(width > 0 && shownEl\(el\)\) \(\{ ids, tabs \} = fitPhone\(b, el, width\)\);/);
-  const phone = src.slice(src.indexOf('function fitPhone('), src.indexOf('function fitSecondary('));
+  const phone = src.slice(src.indexOf('function fitPhone('), src.indexOf('function fitBar('));
   assert.match(phone, /phoneFold\(shown, \{ popped: /);
   assert.match(phone, /phoneTabs\(\{/);
   assert.match(phone, /t\.fit\(width\)/, 'Online draws its short count again in the window it is in (the narrow pop-out\'s full words, #160)');
@@ -442,16 +443,16 @@ test('Online gets the width the rest of the left zone and the right zone leave, 
   assert.match(left, /t\.bar === bar && t\.zone === 'left' && typeof t\.fit === 'function'/, 'a left-zone tool that can shrink, of the bar being fitted');
   assert.match(left, /const rest = naturalWidth\(b\.zones\.left, els\.get\(t\.id\), \{ margins: false \}\);/);
   assert.match(left, /fitWidth\(\{ width, gap, left: rest\.w \+ \(rest\.n \? rest\.gap : 0\), right \}\)/);
-  const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
-  assert.match(fit, /fitLeft\('secondary', \{ width, gap, right: r\.w \}\);/, 'Online is given the width the right zone at its full width leaves');
-  assert.ok(fit.indexOf("fitLeft('secondary'") < fit.indexOf('const leftWidth'), 'the left zone is measured after it has shrunk');
+  const fit = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
+  assert.match(fit, /fitLeft\(bar, \{ width, gap, right: r\.w \}\);/, 'Online (and the top bar\'s chip and favorites) is given the width the right zone at its full width leaves');
+  assert.ok(fit.indexOf('fitLeft(bar') < fit.indexOf('const leftWidth'), 'the left zone is measured after it has shrunk');
   assert.match(fit, /foldCount\(\{ width, gap, left: leftWidth, right: r\.w, more: moreWidth, steps: stepWidths \}\)/);
-  const bar = src.slice(src.indexOf('function fitBar('), src.indexOf('function fitSecondary('));
-  assert.match(bar, /if \(bar === 'secondary'\) \{ fitSecondary\(\); return; \}/, 'the space bar folds as before');
-  assert.match(bar, /if \(view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) \{\n[\s\S]*?\n\s*return;\n\s*\}/, 'the top bar\'s one row on a phone fits nothing (step 8: each fitting tool is made whole and the row is the stylesheet\'s)');
-  assert.match(bar, /fitLeft\(bar, \{ width, gap: px\(cs\.columnGap\), right: r\.w \}\);/, 'the top bar\'s chip is given what the rest leaves');
+  const bar = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
+  assert.ok(!/fitSecondary/.test(src), 'one fit for both bars: fitSecondary() is gone');
+  assert.match(bar, /const list = \[\.\.\.tools\.values\(\)\]\.filter\(\(t\) => t\.bar === bar && t\.zone === 'right' && els\.has\(t\.id\) && \(bar === 'secondary' \|\| t\.workspace\)\);/, 'the space bar folds its right zone as before; in the top bar only the Workspace\'s tools fold');
+  assert.match(bar, /if \(phoneNow && bar === 'primary'\) \{\n[\s\S]*?\n\s*return;\n\s*\}/, 'the top bar\'s one row on a phone fits nothing (step 8: each fitting tool is made whole and the row is the stylesheet\'s)');
   assert.match(src, /scheduleFit\(bar\);\n\}/, 'every draw fits its bar');
-  assert.match(src, /const scheduleFold = \(\) => scheduleFit\('secondary'\);/);
+  assert.match(src, /scheduleFit\(bar\); \/\/ the fit after the pick says where the keyboard goes/, 'a pick from either "..." fits its own bar');
 });
 
 test('the Layout panel (plan-layout-menu.md): Show, rewritten on every change, then Arrange with Dock all, Clean up, the snap switch and the grid size; none of them in the space bar', () => {
@@ -621,7 +622,8 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layo
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   // Registered in the left zone, Layout's group, right after it (order 2); never folds; gives way before Online.
-  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted \}\);/);
+  assert.match(space, /nav\.register\(\{ bar: 'secondary', zone: 'left', group: 'modules', id: 'layout-favorites', order: 2, fold: false, fitFirst: true, icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' \}\);/);
+  assert.ok(!/id: 'phase-chip',[^\n]*fitFirst/.test(space), 'the chip is not fitted first: its words are the first thing the top bar gives up (Thomas, 2026-10-13), before the favorites and before anything folds');
   const tools = [
     { id: 'module-chooser', group: 'modules', order: 1, seq: 1 },
     { id: 'join-call', group: 'call', groupOrder: 1.5, order: 1, seq: 2 },
@@ -638,13 +640,13 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layo
   // Hidden for a guest, in an aside (no layoutSpaceId), with none, on a narrow canvas and at 640 px and below.
   assert.match(space, /const favoritesWanted = \(\) => mayFavorite\(\) && Boolean\(layoutList\.spaceId\) && layoutList\.spaceId === layoutSpaceId\(\)\n\s*&& favoriteLayouts\(\)\.length > 0 && !canvas\.isNarrow\(\) && !phoneWidth\(\);/);
   assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.subnav #layout-favorites \{\n\s*display: none;/);
-  assert.match(space, /new ResizeObserver\(\(\) => \{\n\s*const narrow = canvas\.isNarrow\(\);[\s\S]*?nav\.draw\('secondary'\);[\s\S]*?\}\)\.observe\(\$\('canvas'\)\);/, 'drawn again as the canvas crosses the narrow line');
+  assert.match(space, /new ResizeObserver\(\(\) => \{\n\s*const narrow = canvas\.isNarrow\(\);[\s\S]*?nav\.draw\(\);[\s\S]*?\}\)\.observe\(\$\('canvas'\)\);/, 'drawn again as the canvas crosses the narrow line (both bars: the favorites are in the top bar wider than a phone)');
   // One button per favorite, in the order favorited: a heart and the name; "Load <name>"; the full name for a reader.
   assert.match(space, /const favoriteLayouts = \(\) => layoutList\.favorites\.map\(findLayout\)\.filter\(Boolean\);/);
   const render = space.slice(space.indexOf('function renderFavorites('), space.indexOf('function fitFavorites('));
   assert.match(render, /b\.className = 'btn btn-small layout-favorite';\n\s*b\.dataset\.layoutFavorite = l\.id;\n\s*b\.title = `Load \$\{l\.name\}`;\n\s*b\.setAttribute\('aria-label', l\.name\);/);
   assert.match(render, /<i class="fa-solid fa-heart fa-fw" aria-hidden="true"><\/i><span class="layout-favorite-name">\$\{escapeHtml\(l\.name\)\}<\/span>/);
-  assert.match(render, /nav\.draw\('secondary'\);/);
+  assert.match(render, /nav\.draw\(\);/, 'both bars: the favorites are in the top bar wider than a phone');
   assert.match(space, /renderFavorites\(\); \/\/ the space bar's favorites, from the same list/, 'drawn whenever the panel\'s list is');
   // About 16 characters, down to about 6.
   assert.match(space, /const FAVORITE_NAME_MOST = 16;/);
@@ -662,7 +664,7 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layo
   assert.match(fit, /nav\.labelsThatFit\(\{ avail: Math\.floor\(avail\) - 1, gap, items, least: FAVORITE_NAME_LEAST \* ch, most \}\)/);
   assert.match(fit, /b\.classList\.toggle\('layout-favorite-out', i >= count\)/);
   assert.match(fit, /focused\.closest\('\.layout-favorite-out'\)\) moduleChooser\.querySelector\('#modules-toggle'\)\?\.focus\(\);/);
-  // nav-bar.js: a `fitFirst` tool is fitted first, with the others at their least (fit(0)), so Online gives way after it.
+  // nav-bar.js: a `fitFirst` tool (the favorites) is fitted first, with the others (the chip) at their least (fit(0)), so they give way before it.
   const fitSec = src.slice(src.indexOf('function fitLeft('), src.indexOf('function fitBar('));
   assert.match(fitSec, /fitting\.sort\(\(a, c\) => Number\(Boolean\(c\.fitFirst\)\) - Number\(Boolean\(a\.fitFirst\)\)\);/);
   assert.match(fitSec, /if \(first\.length\) for \(const t of fitting\) \{ if \(!t\.fitFirst\) \{ try \{ t\.fit\(0\); \}/, 'the others at their least first');
@@ -1018,6 +1020,78 @@ test('Leave in the switcher (plan-one-bar.md, step 5): the top bar draws it last
   assert.match(space, /^showSpaceView\('workspace'\);$/m, 'the Workspace is the view the page starts on');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /@media \(min-width: 641px\) \{\n\s*body\.in-space:not\(\.view-workspace\) \.subnav \{\n\s*display: none;/, 'wider than a phone the bar shows only for the Workspace');
+});
+
+test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace tools go where setWorkspace() puts them, sit nearest the middle, show on the Workspace view, fold into the top bar\'s "..."; the empty second row is not drawn', () => {
+  const { wideZones, setWorkspace, get } = navApi;
+  assert.equal(typeof setWorkspace, 'function');
+  // wideZones: in the top bar the Workspace tools are the last run of the left zone and the first of the right.
+  const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
+  const byZone = {
+    left: [t('module-chooser', 'left', { group: 'modules', order: 1, workspace: 'only' }), t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('view-workspace', 'left', { group: 'views', groupOrder: 12, order: 1 }), t('phase-chip', 'left', { group: 'phase', groupOrder: 20, order: 1 }), t('layout-favorites', 'left', { group: 'modules', order: 2, workspace: 'only' })],
+    right: [t('setup', 'right', { group: 'setup', groupOrder: 85, order: 1 }), t('notifications-bell', 'right', { group: 'notices', groupOrder: 90, order: 90 }), t('fullscreen-toggle', 'right', { group: 'space', groupOrder: 1, order: 11, workspace: 'only' }), t('todo:mine', 'right', { group: 'todo:own', groupOrder: 500, order: 500, workspace: 'only' }), t('topbar-more', 'right', { group: 'more', groupOrder: 999, order: 998, workspace: 'every', more: 'primary' }), t('whoami-link', 'right', { group: 'you', groupOrder: 999, order: 999 }), t('recall-button', 'right', { group: 'space', groupOrder: 1, order: 51, workspace: 'every' })],
+  };
+  const w = wideZones(byZone);
+  assert.deepEqual(w.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'view-workspace', 'phase-chip'], ['module-chooser', 'layout-favorites']], 'the left zone: the bar\'s own, then Layout and the favorites');
+  assert.deepEqual(w.right.map((run) => run.map((x) => x.id)), [['fullscreen-toggle', 'todo:mine', 'topbar-more', 'recall-button'], ['setup', 'notifications-bell', 'whoami-link']], 'the right zone: the Workspace\'s tools and the "..." first, then Set up, the bell and you');
+  assert.deepEqual(w.bar, [], 'nothing in the phone\'s place');
+  assert.deepEqual(ids(arrange(w.right[0])), [['fullscreen-toggle', 'recall-button'], ['todo:mine'], ['topbar-more']], 'within the run: the space\'s group, a module\'s groups, then the "..."');
+  const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  assert.match(src, /const wide = !fold && bar === 'primary';\n\s*const runs = fold \? phoneZones\(byZone\) : wide \? wideZones\(byZone\) : \{ left: \[byZone\.left\], right: \[byZone\.right\], bar: \[\] \};/, 'the top bar wider than a phone draws wideZones(); the space bar and the phone as before');
+  assert.match(src, /flattenRuns\(list, doc, \{ divide: wide \}\)/, 'a divider between the two runs, in the top bar only');
+  // setWorkspace: a Workspace tool registered on either bar goes to the bar named; the "..." stays its bar's own.
+  register({ id: 'ws-test-a', bar: 'secondary', zone: 'right', icon: 'x', label: 'x', workspace: 'only', order: 11 });
+  register({ id: 'ws-test-b', bar: 'secondary', zone: 'left', icon: 'x', label: 'x', workspace: 'every', order: 1 });
+  register({ id: 'ws-test-c', bar: 'secondary', zone: 'right', icon: 'x', label: 'x', order: 52 });
+  assert.equal(get('ws-test-a').bar, 'secondary', 'until the page says otherwise, the space bar');
+  setWorkspace({ bar: 'primary' });
+  assert.equal(get('ws-test-a').bar, 'primary');
+  assert.equal(get('ws-test-b').bar, 'primary');
+  assert.equal(get('ws-test-c').bar, 'secondary', 'a tool that is not the Workspace\'s stays');
+  register({ id: 'ws-test-d', bar: 'secondary', zone: 'right', icon: 'x', label: 'x', workspace: 'only' });
+  assert.equal(get('ws-test-d').bar, 'primary', 'registered later, with the space bar named: still the top bar');
+  register({ id: 'ws-test-a', bar: 'secondary', zone: 'right', icon: 'x', label: 'x', workspace: 'only', order: 11 });
+  assert.equal(get('ws-test-a').bar, 'primary', 'registered again (the words loaded): still the top bar');
+  setWorkspace({ bar: 'secondary' });
+  assert.equal(get('ws-test-a').bar, 'secondary', 'back to the space bar on a phone');
+  assert.throws(() => setWorkspace({ bar: 'middle' }), /primary or secondary/);
+  for (const id of ['ws-test-a', 'ws-test-b', 'ws-test-c', 'ws-test-d']) navApi.unregister(id);
+  assert.match(src, /if \(isWorkspaceTool\(rec\)\) rec\.bar = workspace\.bar;/, 'register() puts a Workspace tool where the page put the toolbar');
+  assert.match(src, /const isWorkspaceTool = \(t\) => Boolean\(t\.workspace\) && !t\.more;/, 'the bars\' own "..." never moves');
+  assert.match(src, /if \(prev && prev\.bar !== rec\.bar\) draw\(prev\.bar\);/, 'the bar a tool left is drawn again');
+  // The view rule: a 'only' tool is hidden while the Workspace is not the view (shown may be a function, read on each draw).
+  assert.match(src, /if \(t\.workspace === 'only' && !onView\) want = true;/);
+  assert.match(src, /const workspaceShown = \(\) => \{\n\s*if \(typeof workspace\.shown !== 'function'\) return Boolean\(workspace\.shown\);/);
+  assert.match(src, /if \(el\.hidden !== want\) el\.hidden = want;/, 'written only when it changes, so the hidden watch never loops');
+  // The top bar's own "...": #topbar-more, last of the Workspace run, never folds, never moves.
+  assert.match(src, /more\.id = bar === 'secondary' \? 'subnav-more' : 'topbar-more';/);
+  assert.match(src, /register\(\{ bar, zone: 'right', group: 'more', groupOrder: 999, id: 'topbar-more', order: 998, fold: false, workspace: 'every', more: bar, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/);
+  assert.match(src, /register\(\{ bar, zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: \(\) => fold\.showMore \}\);/, 'the space bar\'s "..." as before');
+  assert.match(src, /attachFold\(bar, el\);\n\s*draw\(bar\);/, 'both bars get a "..."');
+  // The space page: Layout, the favorites, Full screen and Pop out show for the Workspace alone; Pull participants back
+  // in every view; Rejoin call only where the bar is the tab bar (the top bar's aside-rejoin is the other); the view and the
+  // phone's width decide where they go and whether they show.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /id: 'module-chooser', order: 1, icon: 'object-group', label: verb\('layout'\), element: moduleChooser, workspace: 'only' \}\);/);
+  assert.match(space, /id: 'fullscreen-toggle',[^\n]*phone: 'popout', workspace: 'only',/);
+  assert.match(space, /id: 'popout',[^\n]*phone: 'popout', workspace: 'only',/);
+  assert.match(space, /id: 'recall-button', order: 51,[^\n]*labelled: true, workspace: 'every', visible: \(\) => recallWanted\(\),/);
+  assert.match(space, /id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin',[^\n]*visible: \(\) => Boolean\(currentSpace && currentSpace\.isAside && currentSpace\.origin\) && phoneWidth\(\),/);
+  assert.match(space, /const workspaceShown = \(\) => phoneWidth\(\) \|\| \(currentView === 'workspace' && !inAside\(\)\);\nnav\.setWorkspace\(\{ shown: workspaceShown \}\);/);
+  const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
+  assert.match(placeSub, /nav\.setWorkspace\(\{ bar: tabs \? 'secondary' : 'primary' \}\);/, 'placeSubnav() names the bar by the header\'s own window');
+  const show = space.slice(space.indexOf('function showView(view'), space.indexOf('function showView(view') + 400);
+  assert.match(show, /showSpaceView\(view\);\n\s*nav\.draw\(\);/, 'a view change draws the bars again');
+  assert.match(space, /function updateRecallButton\(\) \{\n\s*nav\.draw\(\);/, 'Pull participants back is drawn in whichever bar it is in');
+  assert.ok(!/nav\.setWorkspace/.test(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8')), 'only the space page moves the Workspace\'s tools');
+  // The stylesheet: the empty second row is not drawn wider than a phone; the top bar's fold and "..." are styled; the
+  // Layout panel may hang out of the top bar's clipped left zone.
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, /body\.in-space \.subnav:not\(:has\(> \.nav-left > :not\(\[hidden\], \[data-nav-divider\], \.nav-folded\)\)\):not\(:has\(> \.nav-right > :not\(\[hidden\], \[data-nav-divider\], \.nav-folded\)\)\) \{\n\s*display: none;/, 'the second row hides itself with nothing in it');
+  assert.ok(css.indexOf('@media (min-width: 641px)') < css.indexOf('body.in-space .subnav:not(:has(> .nav-left'), 'wider than a phone only');
+  assert.match(css, /\.subnav \.nav-folded,\n\.topbar > \.nav-right > \.nav-folded \{\n\s*display: none !important;/);
+  assert.match(css, /\.topbar > \.nav-right > \.sdk-more \{\n\s*width: 30px;\n\s*height: 30px;/);
+  assert.match(css, /\.topbar:has\(> \.nav-left > \.module-chooser > \.module-chooser-list:not\(\[hidden\]\), > \.nav-left > \.layout-favorites > \.layout-favorites-note:not\(\[hidden\]\)\) > \.nav-left \{\n\s*overflow: visible;/);
 });
 
 // One presence answer, as GET /api/presence gives it to `viewer` (decision 6, step 3). Bo, Cy and Di are in the

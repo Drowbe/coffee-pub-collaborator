@@ -1456,10 +1456,11 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     },
     // The module's tools in the nav bars (host.nav.set): registered under the module's own namespace in the shared
     // registry (public/nav-bar.js), drawn while this mount lives (the module open on this space's canvas) and taken out when it is
-    // destroyed. The set replaces the last one. Every tool goes in the space bar: a module never places one in the top
-    // bar (plan-primary-nav.md, decision 10), and a tool that still says bar: 'primary' or system: true is placed like
-    // any other; see cleanModuleTools for every rule. Resolves false when there is no space bar here (a module's own
-    // page), and then nothing is drawn.
+    // destroyed. The set replaces the last one. Every tool is a Workspace tool: the registry puts it where the page put
+    // the Workspace's toolbar (the top bar's right zone wider than a phone, the tab bar's "..." on a phone; nav-bar.js
+    // setWorkspace), and a module never chooses (plan-primary-nav.md, decision 10): a tool that still says bar:
+    // 'primary' or system: true is placed like any other; see cleanModuleTools for every rule. Resolves false when there
+    // is no space bar here (a module's own page), and then nothing is drawn.
     async 'nav.set'({ tools }) {
       const clean = navBar.cleanModuleTools(module.id, tools);
       const wanted = new Set(clean.map((t) => t.id));

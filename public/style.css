@@ -1630,6 +1630,13 @@ body.in-space .subnav {
   body.in-space:not(.view-workspace) .subnav {
     display: none;
   }
+
+  /* Wider than a phone the Workspace's controls are the top bar's (nav-bar.js, setWorkspace; Thomas, 2026-10-13), so
+     the row has nothing in it and is not drawn: the Workspace gets its height. It comes back by itself should a tool
+     be registered on it (a divider and a folded or hidden tool do not count). */
+  body.in-space .subnav:not(:has(> .nav-left > :not([hidden], [data-nav-divider], .nav-folded))):not(:has(> .nav-right > :not([hidden], [data-nav-divider], .nav-folded))) {
+    display: none;
+  }
 }
 
 .subnav .nav-left {
@@ -1742,10 +1749,66 @@ body.in-space .subnav {
   }
 }
 
-/* The bar never lets its zones run into each other (nav-bar.js, "the space bar's ..."): Online gives way first (its
-   fit), then what does not fit folds into the "..." before Leave (.nav-folded). The zones' own items keep their size. */
-.subnav .nav-folded {
+/* A bar never lets its zones run into each other (nav-bar.js, "the bars' ..."): what can give way does (Online, the
+   favorites, the phase chip: their fit), then what does not fit folds into the bar's "..." (.nav-folded: the space
+   bar's before Leave, the top bar's after the Workspace's tools). The zones' own items keep their size. */
+.subnav .nav-folded,
+.topbar > .nav-right > .nav-folded {
   display: none !important;
+}
+
+/* The top bar's "..." (#topbar-more, nav-bar.js): a header icon button, shown only while something is folded. */
+.topbar > .nav-right > .sdk-more {
+  width: 30px;
+  height: 30px;
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+}
+
+.topbar > .nav-right > .sdk-more:hover,
+.topbar > .nav-right > .sdk-more:focus-visible,
+.topbar > .nav-right > .sdk-more[aria-expanded="true"] {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+.topbar > .nav-right > .sdk-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.topbar > .nav-right > .sdk-more .badge {
+  position: absolute;
+  top: -3px;
+  right: -2px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+/* The Workspace's tools in the top bar (Layout and the favorites after the chip, Full screen and Pop out before Set
+   up): the top bar's own items never shrink; a divider between them and the bar's own tools. Wider than a phone only:
+   on a phone the right zone is the menu. */
+@media (min-width: 641px) {
+  .topbar > .nav-right > * {
+    flex: none;
+  }
+
+  .topbar > .nav-right > .nav-divider {
+    height: 18px;
+  }
+}
+
+/* The Layout panel and the favorites' note hang below the top bar's left zone, which is otherwise cut at its edge
+   (.topbar > .nav-left, overflow: hidden): while one is open the zone lets it out. */
+.topbar:has(> .nav-left > .module-chooser > .module-chooser-list:not([hidden]), > .nav-left > .layout-favorites > .layout-favorites-note:not([hidden])) > .nav-left {
+  overflow: visible;
 }
 
 .subnav .nav-left > *,

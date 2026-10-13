@@ -545,7 +545,7 @@ test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the 
   // shown as it says them; a guest never saves.
   const sheet = space.slice(space.indexOf('function openLayoutSheet('), space.indexOf('function openSaveLayout() {'));
   assert.match(sheet, /dlg\.className = 'layout-sheet';/);
-  for (const needle of ['<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="switch" role="switch" id="layout-shared">', 'type="submit">Save</button>', 'id="layout-cancel">Cancel</button>']) assert.ok(sheet.includes(needle), `the sheet has ${needle}`);
+  for (const needle of ['<span class="layout-field-label">Name</span>', 'id="layout-name"', '<input type="checkbox" class="switch" role="switch" id="layout-shared">', "submit: true,", "ids: { save: 'layout-save', cancel: 'layout-cancel' },"]) assert.ok(sheet.includes(needle), `the sheet has ${needle}`);
   assert.match(sheet, /querySelector\('#layout-shared-label'\)\.textContent = `For everyone in this \$\{word\('space'\)\}`;/);
   assert.match(sheet, /b\.textContent = 'Replace it';/);
   assert.match(sheet, /dlg\.showModal\(\);/);
@@ -1717,6 +1717,7 @@ test('destinations: brand.js registers them from GET /api/destinations, wider on
 const sheetCopy = path.join(tmp, 'phase-sheet.mjs');
 fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), sheetCopy);
+fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the sheet imports it
 const { chipFit, bandShares, todayPercent, rowsOf, plainDays, tintOf, TINTS } = await import(pathToFileURL(sheetCopy).href);
 const Phases = createRequire(import.meta.url)('../public/phases.js');
 fs.rmSync(tmp, { recursive: true, force: true });
@@ -1803,14 +1804,14 @@ test('the sheet: one row per phase with native date inputs, Skip and Add dates, 
 const setupCopy = path.join(tmp, 'space-setup.mjs');
 fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/space-setup.js'), setupCopy);
+fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the panel imports it
 const { setupSections, setupPatch, setupSaidWords } = await import(pathToFileURL(setupCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
-test('Set up: a right-zone tool before your picture for owners, the admin and moderators; Done and Cancel in its place', () => {
+test('Set up: a right-zone tool before your picture for owners, the admin and moderators; Save and Cancel are the panel\'s action bar, not the top bar\'s', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.match(space, /nav\.register\(\{ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 85, order: 1, [^\n]*visible: setupShown, onClick: enterSetup \}\)/, 'before the bell (90) and the you group (999): Set up, the bell, your picture (plan-one-bar.md, step 7)');
-  assert.match(space, /nav\.register\(\{ id: 'setup-done', bar: 'primary', zone: 'right', group: 'setup', order: 2, [^\n]*labelled: true, visible: setupModeShown/, 'Done, a labelled button, only while setting up');
-  assert.match(space, /nav\.register\(\{ id: 'setup-cancel', bar: 'primary', zone: 'right', group: 'setup', order: 3, [^\n]*labelled: true, visible: setupModeShown/, 'Cancel too');
+  assert.ok(!/id: 'setup-done'|id: 'setup-cancel'/.test(space), 'Done and Cancel left the top bar: the panel\'s action bar has Save and Cancel (Thomas, 2026-10-13)');
   assert.match(space, /const canSetUp = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && Boolean\(me\) && me\.role !== 'guest' && \(hasOwnerRights\(me\) \|\| isModeratorHere\(\)\)/, 'owners, the admin and this space\'s moderators; never a guest, an aside or home over the space');
   assert.match(space, /const setupShown = \(\) => canSetUp\(\) && !settingUp;/);
   assert.match(space, /document\.body\.classList\.add\('setting-up'\)/, 'the mode is body.setting-up');
@@ -1849,8 +1850,8 @@ test('Set up: the line after Done says what was saved and what to do next', () =
   assert.equal(setupSaidWords({ saved: ['name'] }), 'Saved the name. Everyone sees it now; press Set up to change more.');
   assert.equal(setupSaidWords({ saved: ['name', 'opensWith', 'image'] }), 'Saved the name, Opens with and the picture. Everyone sees it now; press Set up to change more.');
   assert.equal(setupSaidWords({ saved: ['image', 'imageRemoved'] }), 'Saved the picture. Everyone sees it now; press Set up to change more.', 'one field named once');
-  assert.equal(setupSaidWords({ saved: [], failed: 'name', problem: 'owners only' }), 'The name was not saved. Owners only. Change it and press Done again, or Cancel.');
-  assert.equal(setupSaidWords({ saved: ['name'], failed: 'image', problem: 'too big.' }), 'The picture was not saved. Too big. The name was saved. Change it and press Done again, or Cancel.', 'what went through before stays said');
+  assert.equal(setupSaidWords({ saved: [], failed: 'name', problem: 'owners only' }), 'The name was not saved. Owners only. Change it and press Save again, or Cancel.');
+  assert.equal(setupSaidWords({ saved: ['name'], failed: 'image', problem: 'too big.' }), 'The picture was not saved. Too big. The name was saved. Change it and press Save again, or Cancel.', 'what went through before stays said');
   assert.equal(setupSaidWords({ saved: [] }, { setUp: 'Einrichten' }), 'Nothing changed. Press Einrichten to change something.', 'the tool\'s own word');
 });
 

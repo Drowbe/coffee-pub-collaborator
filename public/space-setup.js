@@ -1,15 +1,17 @@
 // Set up (documentation/plans/plan-one-bar.md, decision 5, step 4): a mode on the space's own screen in place of the
-// Edit page. The bar's Set up tool puts `body.setting-up` on, the space's name becomes an input in the bar, the tool
-// gives way to Done and Cancel, and this side panel opens: the name, the picture, the faces in the call, the people (a
+// Edit page. The bar's Set up tool puts `body.setting-up` on, the space's name becomes an input in the bar, and this
+// side panel opens, with Save and Cancel in an action bar locked to its bottom (public/action-bar.js; the sections
+// scroll above it, a click outside does nothing, Escape asks "Discard changes?" when something was edited): the name, the picture, the faces in the call, the people (a
 // link to the full settings' Members tab for now), Phases (the timeline sheet of step 3), Opens with and the layout a
 // first visit opens. An owner and the admin see all of it; a moderator sees Phases, Opens with and the layout (the
 // server lets a moderator PATCH exactly `phases`, `opensWith` and `defaultLayout`); a member has no Set up. No module
-// switches here (decision 4: they stay in the Workspace's toolbar). Done saves what changed in one go with the requests
+// switches here (decision 4: they stay in the Workspace's toolbar). Save sends what changed in one go with the requests
 // space-settings.js uses (PATCH /api/spaces/:id, PUT and DELETE /api/spaces/:id/image) and leaves the mode; Cancel and
-// Escape leave it and drop the edits. The dates in the phase sheet save as they are set, as the chip's sheet does.
+// Escape leave it and drop the edits. The dates are the phase sheet's own, with its own Save.
 //
 // The pure parts (setupSections, setupPatch, setupSaidWords) touch no document, so tools/check-nav.mjs runs them in
-// node; this file imports nothing, the page hands it what it needs (createSpaceSetup's `deps`).
+// node; the page hands it what it needs (createSpaceSetup's `deps`).
+import { actionBar } from './action-bar.js';
 
 // What the panel shows, by rights: everything for an owner (or the admin), the moderator's three, nothing for anyone else.
 export const OWNER_SECTIONS = Object.freeze(['name', 'picture', 'faces', 'people', 'phases', 'opens-with', 'layout']);
@@ -49,7 +51,7 @@ export function setupPatch(before = {}, after = {}) {
   return patch;
 }
 
-// The line a person reads after Done: what was saved, in words, and what to do next. `saved` is the fields that went
+// The line a person reads after Save: what was saved, in words, and what to do next. `saved` is the fields that went
 // through (the PATCH's keys, and 'image' or 'imageRemoved'); `failed` a field that did not with the server's sentence.
 const FIELD_WORDS = { name: 'the name', profile: 'the faces in the call', opensWith: 'Opens with', defaultLayout: 'the layout', image: 'the picture', imageRemoved: 'the picture' };
 export function setupSaidWords({ saved = [], failed = null, problem = '' } = {}, { setUp = 'Set up' } = {}) {
@@ -58,7 +60,7 @@ export function setupSaidWords({ saved = [], failed = null, problem = '' } = {},
   if (failed) {
     const what = FIELD_WORDS[failed] || failed;
     const why = problem ? ` ${problem[0].toUpperCase()}${problem.slice(1).replace(/\.?$/, '.')}` : '';
-    return `${what[0].toUpperCase()}${what.slice(1)} was not saved.${why}${names.length ? ` ${list[0].toUpperCase()}${list.slice(1)} ${names.length > 1 ? 'were' : 'was'} saved.` : ''} Change it and press Done again, or Cancel.`;
+    return `${what[0].toUpperCase()}${what.slice(1)} was not saved.${why}${names.length ? ` ${list[0].toUpperCase()}${list.slice(1)} ${names.length > 1 ? 'were' : 'was'} saved.` : ''} Change it and press Save again, or Cancel.`;
   }
   if (!names.length) return `Nothing changed. Press ${setUp} to change something.`;
   return `Saved ${list}. Everyone sees it now; press ${setUp} to change more.`;
@@ -80,7 +82,7 @@ export function createSpaceSetup(deps) {
   const doc = deps.doc || document;
   const el = doc.createElement('aside');
   el.id = 'space-setup';
-  el.className = 'space-setup';
+  el.className = 'space-setup action-surface';
   el.setAttribute('role', 'dialog');
   el.setAttribute('aria-labelledby', 'space-setup-title');
   el.hidden = true;
@@ -119,7 +121,7 @@ export function createSpaceSetup(deps) {
     }
     if (has('phases')) {
       parts.push(sectionHtml('phases', 'Phases', state.opts.phases
-        ? '<button type="button" class="btn btn-small" id="setup-phases" aria-haspopup="dialog"><i class="fa-solid fa-timeline fa-fw" aria-hidden="true"></i> Set the dates</button><p class="hint">When each phase starts. The dates save as you set them.</p>'
+        ? '<button type="button" class="btn btn-small" id="setup-phases" aria-haspopup="dialog"><i class="fa-solid fa-timeline fa-fw" aria-hidden="true"></i> Set the dates</button><p class="hint">When each phase starts. The dates have their own Save in the sheet.</p>'
         : '<p class="hint">This template has no phases.</p>'));
     }
     if (has('opens-with')) {
@@ -140,11 +142,17 @@ export function createSpaceSetup(deps) {
         <p class="setup-which" id="space-setup-which"></p>
       </div>
       <div class="setup-body">${parts.join('')}${fullSettings}</div>
-      <p class="setup-status status" id="space-setup-status" role="status" aria-live="polite"></p>
-      <div class="setup-actions">
-        <button type="button" class="btn btn-small btn-primary" id="setup-row-done">Done</button>
-        <button type="button" class="btn btn-small" id="setup-row-cancel">Cancel</button>
-      </div>`;
+      <p class="setup-status status" id="space-setup-status" role="status" aria-live="polite"></p>`;
+    el.querySelector('.setup-body').classList.add('action-content');
+    state.bar = actionBar({
+      label: 'Save the set up',
+      doc,
+      ids: { save: 'setup-save', cancel: 'setup-cancel-button' },
+      dirty: isDirty,
+      onSave: () => done(),
+      onCancel: () => close(),
+    });
+    el.appendChild(state.bar.el);
     el.querySelector('#space-setup-which').textContent = space.name;
     fillFields();
     wire();
@@ -262,15 +270,24 @@ export function createSpaceSetup(deps) {
       }
       if (q('#setup-opens-with')) paintOpensWith();
     });
-    q('#setup-row-done').addEventListener('click', () => done());
-    q('#setup-row-cancel').addEventListener('click', () => cancel());
-    el.addEventListener('keydown', onKey);
   }
-  function onKey(event) {
-    if (event.key !== 'Escape') return;
+  // Any edit in the panel: Save follows what changed (once, here; the panel is drawn again on each open). Escape is Cancel.
+  el.addEventListener('input', () => state && state.bar.refresh());
+  el.addEventListener('change', () => state && state.bar.refresh());
+  el.addEventListener('click', () => state && state.bar.refresh()); // Remove picture and the like
+  el.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || event.defaultPrevented || !state) return;
     event.preventDefault();
     event.stopPropagation();
-    cancel();
+    state.bar.requestCancel();
+  });
+
+  // Whether something would be lost on Cancel: the PATCH has something in it, or a picture was chosen or removed.
+  function isDirty() {
+    if (!state) return false;
+    const { space, draft, before, image, opts } = state;
+    const name = opts.nameInput && state.sections.includes('name') ? opts.nameInput.value : draft.name;
+    return Object.keys(setupPatch(before, { ...draft, name })).length > 0 || Boolean(image.file) || Boolean(image.remove && space.hasImage);
   }
 
   async function loadOptions() {
@@ -304,14 +321,14 @@ export function createSpaceSetup(deps) {
     draw();
     // The bar's input and the panel's Name are one name: typed in either, the other follows.
     if (opts.nameInput && sections.includes('name')) {
-      state.onBarName = () => { if (!state) return; state.draft.name = opts.nameInput.value; const f = q('#setup-name'); if (f && f.value !== opts.nameInput.value) f.value = opts.nameInput.value; };
+      state.onBarName = () => { if (!state) return; state.draft.name = opts.nameInput.value; state.bar.refresh(); const f = q('#setup-name'); if (f && f.value !== opts.nameInput.value) f.value = opts.nameInput.value; };
       opts.nameInput.addEventListener('input', state.onBarName);
     }
     el.hidden = false;
     if (!el.isConnected) doc.body.appendChild(el);
     const first = el.querySelector('#setup-name, #setup-phases, #setup-opens-with input, select, button');
     if (first) first.focus();
-    loadOptions().then(() => { if (state && state.space === space) { if (q('#setup-opens-with')) paintOpensWith(); if (q('#setup-layout')) paintLayouts(); } });
+    loadOptions().then(() => { if (state && state.space === space) { if (q('#setup-opens-with')) paintOpensWith(); if (q('#setup-layout')) paintLayouts(); state.bar.refresh(); } });
     return true;
   }
 
@@ -326,15 +343,16 @@ export function createSpaceSetup(deps) {
     if (typeof opts.onLeave === 'function') opts.onLeave();
   }
 
+  // Cancel, as Escape does: asks "Discard changes?" first when something was edited.
   function cancel() {
     if (!state || state.saving) return;
-    close();
+    state.bar.requestCancel();
   }
 
   // One save: the PATCH for what changed, then the picture. A refusal keeps the panel open with the sentence and the
   // keyboard on the field; what went through before it stays saved.
   async function done() {
-    if (!state || state.saving) return;
+    if (!state || state.saving) return false;
     const { space, draft, before, image, opts } = state;
     if (opts.nameInput && state.sections.includes('name')) draft.name = opts.nameInput.value;
     const patch = setupPatch(before, draft);
@@ -352,7 +370,7 @@ export function createSpaceSetup(deps) {
           say(setupSaidWords({ saved, failed, problem: err.message }));
           const field = failed === 'name' ? q('#setup-name') : failed === 'profile' ? q('#setup-profile') : failed === 'defaultLayout' ? q('#setup-layout') : q('#setup-opens-with input');
           if (field) field.focus();
-          return;
+          return false;
         }
       }
       if (image.file) {
@@ -362,7 +380,7 @@ export function createSpaceSetup(deps) {
         } catch (err) {
           say(setupSaidWords({ saved, failed: 'image', problem: err.message }));
           q('.setup-picture-pick input')?.focus();
-          return;
+          return false;
         }
       } else if (image.remove && space.hasImage) {
         try {
@@ -371,7 +389,7 @@ export function createSpaceSetup(deps) {
         } catch (err) {
           say(setupSaidWords({ saved, failed: 'imageRemoved', problem: err.message }));
           q('.setup-picture-pick input')?.focus();
-          return;
+          return false;
         }
       }
     } finally {
@@ -381,6 +399,7 @@ export function createSpaceSetup(deps) {
     const onDone = opts.onDone;
     close();
     if (typeof onDone === 'function') onDone(answered, said, saved);
+    return true;
   }
 
   return { el, open, close, done, cancel, isOpen: () => Boolean(state) };

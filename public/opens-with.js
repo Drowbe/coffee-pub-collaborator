@@ -18,9 +18,10 @@
 // the canvas asks with it and the two ids are left out of the answer, whichever list names them. The lists still
 // hold them (a phone opens them as tabs; nothing a person stored changes).
 export const COLUMN_IDS = Object.freeze(['conference', 'chat']);
-// `aliases` (composites.js's aliasesFor; plan-calendar-todo.md, step 3): a stored id read as another, or as a list of
-// others ({ calendar: 'dest:calendar', todo: 'dest:calendar' } while the Calendar is on in the space), each once, in the
-// first place it is named. The lists themselves are never rewritten.
+// `aliases` (composites.js's aliasesFor; plan-calendar-todo.md and plan-map-places.md, step 3): a stored id read as
+// another, or as a list of others ({ calendar: 'dest:calendar', todo: 'dest:calendar' } while the Calendar is on in the
+// space; { maps: 'dest:map', places: 'dest:map' } while the space's Map is shown), each once, in the first place it is
+// named. The lists themselves are never rewritten.
 export function readAliased(list, aliases = {}) {
   const out = [];
   for (const id of Array.isArray(list) ? list : []) {

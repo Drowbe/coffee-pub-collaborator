@@ -20,7 +20,7 @@ import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { layoutOf, placeLayout, leftOutNote } from '/layouts.js';
 import { TINTS, moduleTint } from '/module-tint.js';
 import { MIN_W, MIN_H, gridFor, cellBox, snapCell, leastSpan, clampCell, nearestFree, nextFree, tileFresh, resettle, tidyCells, tidyBoxes, TIDY_GAP, DOCK_MIN, FLEX_MIN, NARROW, dockLimit, fitDock } from '/snap-grid.js';
-import { composeList, aliasesFor, compositeById } from '/composites.js';
+import { composeList, aliasesFor, compositeById, compositesToAsk } from '/composites.js';
 
 // What each space remembers (`app.canvas.<space>`; brand.js moves the old `app.panels` keys): the modules open when the person last used it,
 // and each module's mode and sizes. `app.canvas` alone is what earlier versions kept for all
@@ -107,8 +107,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // The modules on in this space for this person, as the server lists them (`modules`: Chat reads commands and names
   // by module id from it), and what the Workspace offers (`available`): the same list with each composite that is on
   // in its main module's place and the composite's other parts left out (composites.js; plan-calendar-todo.md,
-  // step 3). A composite (`dest:calendar`) is one column or floating box holding the destination's page at space
-  // scope in a frame; it opens, moves and closes as an installed module does, under its own id.
+  // step 3; plan-map-places.md, step 3). A composite (`dest:calendar`, `dest:map`) is one column or floating box
+  // holding the destination's page at space scope in a frame; it opens, moves and closes as an installed module does,
+  // under its own id.
   let modules = [];
   let available = [];
   // How a stored id reads here (composites.js's aliasesFor): a composite's part as the composite while it is on, a
@@ -802,8 +803,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
     <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span>${compositeOf(m) ? '' : '<button class="sdk-more" data-module-menu type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>'}${toolsHtml({ mode, canDock, canFloat, snap })}</span>`;
 
-  // The page a composite holds: the destination as a view of this space (`/calendar?space=<id>`, the same page the one
-  // bar's Calendar view shows; it draws no top bar of its own in a frame), with a guest's token.
+  // The page a composite holds: the destination as a view of this space (`/calendar?space=<id>`, `/map?space=<id>`, the
+  // same page the one bar's Calendar or Map view shows; it draws no top bar of its own in a frame), with a guest's token.
   const compositeSrc = (c) => {
     const q = new URLSearchParams({ space: spaceId || '' });
     if (guestToken) q.set('guest', guestToken);
@@ -823,17 +824,25 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   function compositeMount(mod, frame) {
     // A drag from a module on the Workspace over the frame reaches the parts inside (module-host.js, registerDragRelay).
     const unrelay = registerDragRelay(frame);
+    const c = compositeOf(mod.m);
+    // Whether the destination's page is in the frame (not the blank it starts as): a pointer that arrives before it is
+    // (the composite opened for that pointer: a place card's, a task's) waits for the page's load.
+    const loaded = () => { try { return Boolean(frame.contentWindow) && frame.contentWindow.location.pathname === c.path; } catch { return false; } };
+    let waiting = null;
+    const show = (ref) => {
+      try {
+        const win = frame.contentWindow;
+        const hash = `ref=${encodeURIComponent(JSON.stringify(ref))}`;
+        if (win.location.hash === `#${hash}`) win.location.hash = ''; // the same pointer again still fires hashchange
+        win.location.hash = hash;
+      } catch { /* the page is not there; the pointer is dropped */ }
+    };
+    frame.addEventListener('load', () => { if (waiting && loaded()) { show(waiting); waiting = null; } });
     return {
-      destroy() { unrelay(); frame.src = 'about:blank'; },
+      destroy() { unrelay(); waiting = null; frame.src = 'about:blank'; },
       deliver(event, data) {
         if (event !== 'objectopen' || !data?.ref) return;
-        try {
-          const win = frame.contentWindow;
-          if (!win) return;
-          const hash = `ref=${encodeURIComponent(JSON.stringify(data.ref))}`;
-          if (win.location.hash === `#${hash}`) win.location.hash = ''; // the same pointer again still fires hashchange
-          win.location.hash = hash;
-        } catch { /* the page is not there yet; the pointer is dropped */ }
+        if (loaded()) show(data.ref); else waiting = data.ref;
       },
       send() {},
       lift() {},
@@ -1841,6 +1850,22 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     setMenuOpen(false, { focus: true });
   });
 
+  // The destinations a composite asks about (composites.js, compositesToAsk: the Map, whose main being on in the space
+  // is not enough), each asked once for this space; answers the dest ids shown here for this person. A refusal (404:
+  // no map file, or not readable there) or a failed request leaves the composite off, the parts as they are.
+  async function askDestinations(id, list) {
+    const shown = [];
+    await Promise.all(compositesToAsk(list.map((m) => m.id)).map(async (c) => {
+      const q = new URLSearchParams({ space: id });
+      if (guestToken) q.set('guest', guestToken);
+      try {
+        await api('GET', `/api/destinations/${encodeURIComponent(c.dest)}?${q}`);
+        shown.push(c.dest);
+      } catch { /* not shown here */ }
+    }));
+    return shown;
+  }
+
   // The modules on for this space and this viewer, or none (null = not in a space).
   async function refresh(id) {
     suspended = true;
@@ -1861,9 +1886,14 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         if (guestToken) q.set('guest', guestToken);
         const answer = await api('GET', `/api/modules/for-space?${q}`);
         modules = (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false);
+        // A composite that asks (the Map: Maps on here is not enough, the space's Map needs a map file; plan-map-places.md
+        // step 3) is on only where its destination answers for this space. The same question the one bar's view and the
+        // pop-out ask; a 404 keeps the parts as they are.
+        const shown = await askDestinations(id, modules);
+        if (spaceId !== id) return; // another space was entered while this one was asked about
         // The composite in its main's place while that is on here; its other parts leave the Show list (composites.js).
-        available = composeList(modules);
-        aliases = aliasesFor(modules.map((m) => m.id));
+        available = composeList(modules, shown);
+        aliases = aliasesFor(modules.map((m) => m.id), shown);
         colors = new Map((answer.modules || []).filter((m) => TINTS.includes(m.color)).map((m) => [m.id, m.color]));
         spaceOpensWith = Array.isArray(answer.opensWith) ? answer.opensWith : null;
         spaceDefaultLayout = answer.defaultLayout && Array.isArray(answer.defaultLayout.modules) ? answer.defaultLayout : null;

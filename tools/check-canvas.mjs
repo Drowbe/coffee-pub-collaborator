@@ -565,12 +565,13 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
 // Composites on the Workspace (public/composites.js; plan-calendar-todo.md step 3, reused by plan-map-places.md step 3):
 // one module, `dest:calendar`, in the Calendar's place while the Calendar is on in a space, the To-do's own surface left
 // out there; a stored `calendar` or `todo` reads as the composite and is never written back; where the Calendar is off,
-// a stored `dest:calendar` reads as the To-do alone, so nobody loses their list.
+// a stored `dest:calendar` reads as the To-do alone, so nobody loses their list. The Map (`dest:map`) the same, in
+// Maps' place, Places left out, while the space's Map is shown (Maps on there and a map file).
 {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'composites.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/composites.js'), copy);
-  const { COMPOSITES, compositesOn, aliasesFor, readAs, composeList, isCompositeId } = await import(pathToFileURL(copy).href);
+  const { COMPOSITES, compositesOn, compositesToAsk, aliasesFor, readAs, composeList, isCompositeId } = await import(pathToFileURL(copy).href);
   fs.rmSync(tmp, { recursive: true, force: true });
   const F = 'public/composites.js';
   const src = fs.readFileSync(path.join(ROOT, F), 'utf8');
@@ -580,9 +581,30 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!isCompositeId('dest:calendar') || isCompositeId('calendar')) fail(F, 'a composite id starts with dest:');
   assert.deepEqual(compositesOn(['todo', 'notes']).map((c) => c.id), [], 'the composite is off where the Calendar is off, whatever the To-do does');
   assert.deepEqual(compositesOn(['calendar']).map((c) => c.id), ['dest:calendar'], 'the composite is on where the Calendar is on, the To-do off or not');
-  assert.deepEqual(aliasesFor(['calendar', 'todo']), { calendar: 'dest:calendar', todo: 'dest:calendar' }, 'on: both parts read as the composite');
-  assert.deepEqual(aliasesFor(['todo']), { 'dest:calendar': ['todo'] }, 'off: the composite reads as the parts on');
-  assert.deepEqual(aliasesFor([]), { 'dest:calendar': [] }, 'off, nothing on: the composite reads as nothing');
+  assert.deepEqual(aliasesFor(['calendar', 'todo']), { calendar: 'dest:calendar', todo: 'dest:calendar', 'dest:map': [] }, 'on: both parts read as the composite');
+  assert.deepEqual(aliasesFor(['todo']), { 'dest:calendar': ['todo'], 'dest:map': [] }, 'off: the composite reads as the parts on');
+  assert.deepEqual(aliasesFor([]), { 'dest:calendar': [], 'dest:map': [] }, 'off, nothing on: the composite reads as nothing');
+  // The Map (plan-map-places.md step 3): the same table row, `dest:map` for `/map`, its main Maps, its parts Maps and
+  // Places; Maps on in the space is not enough, the page asks the destination for the space first (a map file,
+  // server/destinations.js `needsFile`) and the composite is on only where it answered (`shown`). Refused, Maps and
+  // Places keep their own surfaces and a stored `dest:map` reads as whichever of them is on.
+  const map = COMPOSITES.find((c) => c.id === 'dest:map');
+  if (!map || map.main !== 'maps' || map.path !== '/map' || map.dest !== 'map' || [...map.parts].join() !== 'maps,places' || map.ask !== true) fail(F, 'dest:map holds /map, its main Maps, its parts Maps and Places, and asks the destination first');
+  assert.deepEqual(compositesToAsk(['maps', 'places', 'calendar']).map((c) => c.id), ['dest:map'], 'compositesToAsk: the Map, while Maps is on; never the Calendar');
+  assert.deepEqual(compositesToAsk(['places']).map((c) => c.id), [], 'nothing to ask with Maps off');
+  assert.deepEqual(compositesOn(['maps', 'places']).map((c) => c.id), [], 'the Map is off where the destination was not asked or refused (no map file)');
+  assert.deepEqual(compositesOn(['maps', 'places'], ['map']).map((c) => c.id), ['dest:map'], 'and on where it answered for the space');
+  assert.deepEqual(compositesOn(['places'], ['map']).map((c) => c.id), [], 'never with Maps off, whatever answered');
+  assert.deepEqual(compositesOn(['calendar', 'maps'], ['map']).map((c) => c.id), ['dest:calendar', 'dest:map'], 'both on together');
+  assert.deepEqual(aliasesFor(['maps', 'places'], ['map']), { 'dest:calendar': [], maps: 'dest:map', places: 'dest:map' }, 'the Map on: Maps and Places read as it');
+  assert.deepEqual(aliasesFor(['maps', 'places']), { 'dest:calendar': [], 'dest:map': ['maps', 'places'] }, 'the Map off (no map file): a stored dest:map reads as Maps and Places as they are');
+  assert.deepEqual(readAs(Object.freeze(['places', 'travel', 'maps']), aliasesFor(['maps', 'places', 'travel'], ['map'])), ['dest:map', 'travel'], 'a stored list naming places and maps reads as one Map, where the first is named');
+  assert.deepEqual(readAs(['dest:map', 'travel'], aliasesFor(['maps', 'places', 'travel'])), ['maps', 'places', 'travel'], 'a stored dest:map reads as Maps and Places where there is no map file');
+  const mapList = [{ id: 'travel', name: 'Planner', icon: 'route' }, { id: 'places', name: 'Places', icon: 'location-dot' }, { id: 'maps', name: 'Maps', icon: 'map-location-dot', color: 'pink', version: '0.9.0', scope: ['environment', 'space'] }];
+  const mapShown = composeList(mapList, ['map']);
+  assert.deepEqual(mapShown.map((m) => m.id), ['travel', 'dest:map'], 'the Show list: one Map in Maps\' place, Places left out');
+  if (mapShown[1].name !== 'Maps' || mapShown[1].icon !== 'map-location-dot' || mapShown[1].color !== 'pink' || mapShown[1].composite?.path !== '/map') fail(F, 'the Map composite reads as Maps: its name, icon and colour, its page /map');
+  assert.deepEqual(composeList(mapList).map((m) => m.id), ['travel', 'places', 'maps'], 'with no map file the Show list keeps Maps and Places as they are');
   const stored = Object.freeze(['todo', 'chat', 'calendar', 'notes']);
   assert.deepEqual(readAs(stored, aliasesFor(['calendar', 'todo', 'notes'])), ['dest:calendar', 'chat', 'notes'], 'a stored list reads with the composite once, in the first part\'s place');
   assert.deepEqual([...stored], ['todo', 'chat', 'calendar', 'notes'], 'and is never written back');
@@ -597,16 +619,23 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // The pop-out of a part goes to the destination's page for the space (public/module.js); the canvas builds the
   // composite's frame from the same table and never writes `calendar` or `todo` into a remembered list.
   const moduleJs = fs.readFileSync(path.join(ROOT, 'public/module.js'), 'utf8');
-  if (!/compositesOn\(list\.map\(\(m\) => m\.id\)\)\.find\(\(c\) => c\.parts\.includes\(id\)\)/.test(moduleJs) || !/location\.replace\(`\$\{composite\.path\}\?\$\{q\}\$\{location\.hash\}`\)/.test(moduleJs)) fail('public/module.js', 'a part\'s pop-out (/modules/calendar?space=, /modules/todo?space=) goes to the destination\'s page for the space, the hash kept');
+  if (!/compositesOn\(ids, shown\)\.find\(\(c\) => c\.parts\.includes\(id\)\)/.test(moduleJs) || !/location\.replace\(`\$\{composite\.path\}\?\$\{q\}\$\{location\.hash\}`\)/.test(moduleJs)) fail('public/module.js', 'a part\'s pop-out (/modules/calendar?space=, /modules/todo?space=, /modules/maps?space=, /modules/places?space=) goes to the destination\'s page for the space, the hash kept');
+  // The Map's pop-out asks the destination for the space first (a 404 keeps the part's own page), as the canvas does.
+  if (!/for \(const c of compositesToAsk\(ids\)\)/.test(moduleJs) || !/await api\('GET', `\/api\/destinations\/\$\{encodeURIComponent\(c\.dest\)\}\?\$\{q\}`\); shown\.push\(c\.dest\);/.test(moduleJs)) fail('public/module.js', 'a part of a composite that asks (Maps, Places) redirects only where GET /api/destinations/map?space= answers');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
-  if (!/available = composeList\(modules\)/.test(canvasJs) || !/aliases = aliasesFor\(modules\.map\(\(m\) => m\.id\)\)/.test(canvasJs)) fail('public/canvas.js', 'refresh() composes the Show list and the aliases from composites.js');
+  if (!/available = composeList\(modules, shown\)/.test(canvasJs) || !/aliases = aliasesFor\(modules\.map\(\(m\) => m\.id\), shown\)/.test(canvasJs)) fail('public/canvas.js', 'refresh() composes the Show list and the aliases from composites.js, with the destinations that answered');
+  if (!/const shown = await askDestinations\(id, modules\);/.test(canvasJs) || !/compositesToAsk\(list\.map\(\(m\) => m\.id\)\)/.test(canvasJs) || !/await api\('GET', `\/api\/destinations\/\$\{encodeURIComponent\(c\.dest\)\}\?\$\{q\}`\);/.test(canvasJs)) fail('public/canvas.js', 'refresh() asks GET /api/destinations/<dest>?space= for each composite that asks (the Map) before composing');
+  if (!/if \(spaceId !== id\) return; \/\/ another space was entered/.test(canvasJs)) fail('public/canvas.js', 'refresh() drops its answer when another space was entered meanwhile');
   if (!/list: \(\) => modules\.slice\(\)/.test(canvasJs)) fail('public/canvas.js', 'list() stays the server\'s modules (Chat reads commands by module id)');
   // A drag from a module on the Workspace over the composite's frame is relayed into the page inside (module-host.js),
   // same origin only, from the parent window only; the canvas registers each composite's frame and lets it go on close.
   const hostJs = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
   if (!/export function registerDragRelay\(frame\)/.test(hostJs) || !/postMessage\(\{ type: 'app:objectdrag', drag \}, location\.origin\)/.test(hostJs)) fail('public/module-host.js', 'a drag over a composite frame is relayed into it as app:objectdrag, same origin');
   if (!/if \(event\.source !== window\.parent \|\| event\.origin !== location\.origin\) return;/.test(hostJs)) fail('public/module-host.js', 'a relayed drag is taken only from the parent window, same origin');
-  if (!/const unrelay = registerDragRelay\(frame\);/.test(canvasJs) || !/destroy\(\) \{ unrelay\(\); frame\.src = 'about:blank'; \}/.test(canvasJs)) fail('public/canvas.js', 'compositeMount registers the frame for relayed drags and lets it go on close');
+  if (!/const unrelay = registerDragRelay\(frame\);/.test(canvasJs) || !/destroy\(\) \{ unrelay\(\); waiting = null; frame\.src = 'about:blank'; \}/.test(canvasJs)) fail('public/canvas.js', 'compositeMount registers the frame for relayed drags and lets it go on close');
+  // A pointer delivered before the destination's page is in the frame (the composite opened for a place card, a task)
+  // waits for the frame's load, then goes in as #ref=; one delivered after goes in at once.
+  if (!/frame\.addEventListener\('load', \(\) => \{ if \(waiting && loaded\(\)\) \{ show\(waiting\); waiting = null; \} \}\);/.test(canvasJs) || !/if \(loaded\(\)\) show\(data\.ref\); else waiting = data\.ref;/.test(canvasJs)) fail('public/canvas.js', 'compositeMount holds a pointer until the composite\'s page has loaded');
 }
 
 // The reaction tray (GitHub #169): with many reactions it never rises under the header. Opening it caps its height to

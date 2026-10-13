@@ -85,6 +85,17 @@ const refused = (input, pattern, label, options) => {
   const saved2 = layoutOf([{ id: 'calendar', mode: 'dock', order: 1, width: 360 }, { id: 'todo', mode: 'float', order: 2, box: { x: 10, y: 10, w: 300, h: 300 } }], area, {}, on);
   assert.deepEqual(saved2.modules.map((m) => m.id), ['dest:calendar'], 'layoutOf() through the aliases saves the composite once');
   assert.ok(!cleanLayout({ modules: [{ id: 'dest:calendar', mode: 'dock' }], snap: { all: false, pitch: 130 } }).layout, 'the server\'s store takes module ids only, so the page saves a composite under its main\'s id');
+  // The Map (plan-map-places.md, step 3): a stored `maps` or `places` places `dest:map` once while the space's Map is
+  // shown; with no map file (no aliases for them) each places as itself, and a stored `dest:map` places both.
+  const mapOn = { maps: 'dest:map', places: 'dest:map' };
+  const oldMap = { modules: [{ id: 'places', mode: 'dock', dockW: 300 }, { id: 'travel', mode: 'dock', dockW: 360 }, { id: 'maps', mode: 'float', box: { x: 0.1, y: 0.1, w: 0.4, h: 0.5 } }], snap: { all: false, pitch: 130 } };
+  const beforeMap = JSON.stringify(oldMap);
+  const readMap = placeLayout(oldMap, area, () => true, mapOn);
+  assert.deepEqual(readMap.modules.map((m) => [m.id, m.mode]), [['dest:map', 'dock'], ['travel', 'dock']], 'placeLayout() reads places and maps as one Map, where the first is named, with its mode');
+  assert.equal(JSON.stringify(oldMap), beforeMap, 'the stored layout is not rewritten');
+  assert.deepEqual(placeLayout(oldMap, area, () => true, {}).modules.map((m) => m.id), ['places', 'travel', 'maps'], 'with no map file Maps and Places place as themselves');
+  assert.deepEqual(placeLayout({ modules: [{ id: 'dest:map', mode: 'dock' }] }, area, () => true, { 'dest:map': ['maps', 'places'] }).modules.map((m) => m.id), ['maps', 'places'], 'a stored dest:map places Maps and Places where there is no map file');
+  assert.deepEqual(layoutOf([{ id: 'maps', mode: 'dock', order: 1, width: 360 }, { id: 'places', mode: 'dock', order: 2, width: 300 }], area, {}, mapOn).modules.map((m) => m.id), ['dest:map'], 'layoutOf() through the aliases saves the Map once');
   n += 1;
 }
 

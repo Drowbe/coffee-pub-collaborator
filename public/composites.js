@@ -1,37 +1,53 @@
 // Composites on the Workspace (plan-calendar-todo.md step 3; plan-map-places.md step 3 reuses it): one module on the
-// canvas that holds a destination's page at space scope (`/calendar?space=<id>` in a frame), in place of the modules
-// whose parts the page draws. The person sees one Calendar; the modules behind it keep their ids, their data and
-// everything stored under them.
+// canvas that holds a destination's page at space scope (`/calendar?space=<id>` or `/map?space=<id>` in a frame), in
+// place of the modules whose parts the page draws. The person sees one Calendar, one Map; the modules behind it keep
+// their ids, their data and everything stored under them.
 //
 // Pure: no document, no storage, no imports, so tools/check-canvas.mjs runs it in node. canvas.js reads the table;
 // opens-with.js and layouts.js take the `aliases` map this file builds and read a stored list through it, so a
-// remembered list, an Opens with or a saved layout naming `calendar` or `todo` opens the composite, and nothing stored
-// is rewritten.
+// remembered list, an Opens with or a saved layout naming `calendar`, `todo`, `maps` or `places` opens the composite,
+// and nothing stored is rewritten.
 //
-// A composite: { id, dest, path, main, parts, width, height }. `main` is the module whose name, icon and tint the
+// A composite: { id, dest, path, main, parts, width, height, ask? }. `main` is the module whose name, icon and tint the
 // composite shows and whose being on in a space turns the composite on; `parts` are the module ids it stands in for
 // there (the main included). While the main is off in a space the other parts keep their own canvas surfaces.
+// `ask`: the main being on is not enough; the page asks the destination for the space first (GET
+// /api/destinations/<dest>?space=<id>: the Map needs a map file, server/destinations.js `needsFile`), and the composite
+// is on only where that answered. The callers below take the dest ids that answered as `shown`.
 export const COMPOSITES = Object.freeze([
   Object.freeze({ id: 'dest:calendar', dest: 'calendar', path: '/calendar', main: 'calendar', parts: Object.freeze(['calendar', 'todo']), width: 760, height: 600 }),
+  Object.freeze({ id: 'dest:map', dest: 'map', path: '/map', main: 'maps', parts: Object.freeze(['maps', 'places']), width: 760, height: 600, ask: true }),
 ]);
 
 export const isCompositeId = (id) => typeof id === 'string' && id.startsWith('dest:');
 export const compositeById = (id) => COMPOSITES.find((c) => c.id === id) || null;
 
-// The composites on, given the ids of the modules on in a space for this person: each whose main is among them.
-export function compositesOn(ids) {
+// The composites the page must ask the destination about before they are on, given the ids of the modules on in a
+// space: each with `ask` whose main is among them. The caller asks GET /api/destinations/<dest>?space=<id> for each
+// and hands the ids that answered to compositesOn, aliasesFor and composeList as `shown`.
+export function compositesToAsk(ids) {
   const on = new Set(Array.isArray(ids) ? ids : []);
-  return COMPOSITES.filter((c) => on.has(c.main));
+  return COMPOSITES.filter((c) => c.ask && on.has(c.main));
+}
+
+// The composites on, given the ids of the modules on in a space for this person: each whose main is among them, and,
+// for one that asks, whose destination is among `shown` (the dest ids that answered for the space).
+export function compositesOn(ids, shown = []) {
+  const on = new Set(Array.isArray(ids) ? ids : []);
+  const answered = new Set(Array.isArray(shown) ? shown : []);
+  return COMPOSITES.filter((c) => on.has(c.main) && (!c.ask || answered.has(c.dest)));
 }
 
 // The aliases a stored list is read through, given the ids on in a space: each part of a composite that is on reads
 // as the composite; a composite that is off reads as whichever of its parts are on (so a remembered `dest:calendar`
-// still opens the To-do's own list where the Calendar went off). { <stored id>: <id> | [<ids>] }.
-export function aliasesFor(ids) {
+// still opens the To-do's own list where the Calendar went off, and a remembered `dest:map` opens Maps and Places as
+// they are where there is no map file). { <stored id>: <id> | [<ids>] }.
+export function aliasesFor(ids, shown = []) {
   const on = new Set(Array.isArray(ids) ? ids : []);
+  const live = new Set(compositesOn(ids, shown).map((c) => c.id));
   const aliases = {};
   for (const c of COMPOSITES) {
-    if (on.has(c.main)) for (const part of c.parts) aliases[part] = c.id;
+    if (live.has(c.id)) for (const part of c.parts) aliases[part] = c.id;
     else aliases[c.id] = c.parts.filter((part) => on.has(part));
   }
   return aliases;
@@ -51,9 +67,9 @@ export function readAs(list, aliases = {}) {
 // The Show list's modules: the server's list with each composite that is on in the main's place and its other parts
 // left out. A composite's entry reads like a module's for the canvas ({ id, name, icon, color, canvas, composite }),
 // its name, icon and colour the main's as this environment shows it.
-export function composeList(modules) {
+export function composeList(modules, shown = []) {
   const list = Array.isArray(modules) ? modules.filter((m) => m && typeof m.id === 'string') : [];
-  const on = compositesOn(list.map((m) => m.id));
+  const on = compositesOn(list.map((m) => m.id), shown);
   const hidden = new Set(on.flatMap((c) => c.parts));
   const out = [];
   for (const m of list) {

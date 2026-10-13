@@ -3523,7 +3523,11 @@ app.get('/api/spaces/:id', requireOwner, (req, res) => {
   res.json({ space });
 });
 // Owners and the admin change anything; a member ticked as this space's moderator may send `phases` (the dates on
-// the timeline, plan-one-bar.md step 1) and nothing else: any other field in a moderator's body is "owners only".
+// the timeline, plan-one-bar.md step 1), `opensWith` and `defaultLayout` (Set up, step 4) and nothing else: any
+// other field in a moderator's body is "owners only". The values go through store.updateSpace's rules, the same as
+// an owner's. Whether the page may offer Set up comes from /api/me: hasOwnerRights, or
+// user.spaces[<id>].permissions.moderator.
+const MODERATOR_SPACE_FIELDS = ['phases', 'opensWith', 'defaultLayout'];
 app.patch('/api/spaces/:id', requireUser, (req, res) => {
   const body = req.body || {};
   if (!isOwner(req)) {
@@ -3531,8 +3535,8 @@ app.patch('/api/spaces/:id', requireUser, (req, res) => {
     if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
     const me = currentUser(req);
     const moderates = space.members.includes(me.key) && Boolean(store.spaceFlags(me.key, space.id).moderator);
-    const onlyPhases = Object.keys(body).every((k) => k === 'phases');
-    if (!moderates || !onlyPhases) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
+    const onlyTheirs = Object.keys(body).every((k) => MODERATOR_SPACE_FIELDS.includes(k));
+    if (!moderates || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
   }
   res.json({ space: store.updateSpace(req.params.id, body) });
 });
@@ -3993,7 +3997,9 @@ function layoutSpaceFor(req, res) {
   const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
   if (!allowed) return void res.status(403).json({ error: `You are not in that ${word('space')}.` });
   const canShare = Boolean(who.user) && (hasOwnerRights(who.user) || Boolean(store.spaceFlags(who.user.key, space.id).moderator));
-  return { who, space, canShare, canSetDefault: Boolean(who.user) && hasOwnerRights(who.user) };
+  // canSetDefault: who may PATCH the space's defaultLayout -- owners, the admin and, since Set up (plan-one-bar.md
+  // step 4), this space's moderators: the same people who share layouts.
+  return { who, space, canShare, canSetDefault: canShare };
 }
 const sharedLayoutRefusal = () => `Only ${word('owner', { many: true })}, the ${word('admin')} and this ${word('space')}'s ${word('moderator', { many: true })} can change shared layouts.`;
 const guestLayoutRefusal = () => `${word('guest', { many: true, cap: true })} can load shared layouts but not save or change them.`;

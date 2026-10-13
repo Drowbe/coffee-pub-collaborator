@@ -522,7 +522,7 @@ try {
   // Who may read.
   const empty = await expect('member reads', 200, 'GET', L, { cookie: pat });
   assert.deepEqual(empty.json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false });
-  assert.deepEqual((await expect('moderator reads', 200, 'GET', L, { cookie: sam })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: false });
+  assert.deepEqual((await expect('moderator reads', 200, 'GET', L, { cookie: sam })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: true }, 'a moderator may set the default (plan-one-bar.md step 4)');
   assert.deepEqual((await expect('owner reads', 200, 'GET', L, { cookie: owner })).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: true, canSetDefault: true });
   assert.deepEqual((await expect('guest reads', 200, 'GET', `${L}${asGuest}`)).json, { mine: [], shared: [], defaultLayout: null, favorites: [], canShare: false, canSetDefault: false });
   await expect('nobody signed in', 401, 'GET', L);
@@ -702,13 +702,17 @@ try {
   assert.equal((await forSpace(pat2)).defaultLayout, null, 'for-space: null while none is set');
   assert.equal((await call('GET', `${C}/layouts`, { cookie: pat2 })).json.defaultLayout, null);
 
-  // Owners only: a moderator, a member and a guest are refused, and nothing changes.
-  for (const [label, cookie] of [['moderator', sam2], ['member', pat2]]) {
-    const r = await call('PATCH', C, { cookie, body: { defaultLayout: night.id } });
-    assert.equal(r.status, 403, `${label} sets the default: ${r.text}`);
-  }
+  // Owners, the admin and the space's moderators (plan-one-bar.md step 4): a member and a guest are refused, and
+  // nothing changes. The moderator's set is undone so the owner's below starts from none.
+  const memberSets = await call('PATCH', C, { cookie: pat2, body: { defaultLayout: night.id } });
+  assert.equal(memberSets.status, 403, `member sets the default: ${memberSets.text}`);
   assert.equal((await call('PATCH', C, { body: { defaultLayout: night.id } })).status, 401, 'nobody signed in');
   assert.equal((await call('GET', `${C}/layouts`, { cookie: owner2 })).json.defaultLayout, null, 'refusals changed nothing');
+  await expect('moderator sets the default', 200, 'PATCH', C, { cookie: sam2, body: { defaultLayout: night.id } });
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: pat2 })).json.defaultLayout, night.id, 'a moderator set it');
+  await expect('moderator stops using it', 200, 'PATCH', C, { cookie: sam2, body: { defaultLayout: null } });
+  await expect('moderator clears Opens with', 200, 'PATCH', C, { cookie: sam2, body: { opensWith: null } });
+  assert.equal((await call('GET', `${C}/layouts`, { cookie: owner2 })).json.defaultLayout, null);
   await expect("a person's own layout", 404, 'PATCH', C, { cookie: owner2, body: { defaultLayout: ownCamp.id } });
   await expect('no such layout', 404, 'PATCH', C, { cookie: owner2, body: { defaultLayout: 'lnosuch' } });
   await expect('not an id', 400, 'PATCH', C, { cookie: owner2, body: { defaultLayout: 12 } });

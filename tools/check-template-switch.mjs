@@ -181,8 +181,12 @@ try {
     const asMember = (method, url, body) => call(server, '', method, url, { cookie: member, body });
     assert.deepEqual(await asMember('PATCH', `/api/spaces/${side}`, { opensWith: ['chat'] }).then((x) => [x.status, x.json]), [403, { error: 'owners only' }], 'a member');
     assert.equal((await as('PATCH', `/api/users/${key}/spaces/${side}`, { permissions: { moderator: true } })).status, 200);
-    assert.deepEqual(await asMember('PATCH', `/api/spaces/${side}`, { opensWith: ['chat'] }).then((x) => [x.status, x.json]), [403, { error: 'owners only' }], 'a member who moderates the space');
-    assert.equal('opensWith' in stored(), false, 'nothing changed');
+    // A member who moderates the space may set Opens with (plan-one-bar.md step 4), nothing else.
+    assert.equal((await asMember('PATCH', `/api/spaces/${side}`, { opensWith: ['chat'] })).status, 200, 'a member who moderates the space');
+    assert.deepEqual(stored().opensWith, ['chat']);
+    assert.equal((await asMember('PATCH', `/api/spaces/${side}`, { opensWith: null })).status, 200);
+    assert.equal('opensWith' in stored(), false, 'cleared again');
+    assert.deepEqual(await asMember('PATCH', `/api/spaces/${side}`, { name: 'Side 2' }).then((x) => [x.status, x.json]), [403, { error: 'owners only' }], 'the name is still the owners\'');
     assert.deepEqual((await asMember('GET', '/api/modules/for-space?space=lobby')).json.opensWith, ['todo', 'conference', 'not-installed', 'chat'], 'a member reads it');
     assert.equal((await as('DELETE', `/api/users/${key}`)).status, 200);
   });

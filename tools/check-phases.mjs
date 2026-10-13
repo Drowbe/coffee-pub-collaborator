@@ -4,7 +4,8 @@
  * public/phases.js run in node (contiguity refusals, a skipped undated phase, coverMain shifting later boundaries by
  * the same days and never moving an earlier one, chipWords before, during and after the main phase, no phases at
  * all), then the routes on a throwaway server (PORT=0, DATA_DIR under the system tmpdir, stopped by its pid): a space
- * carries `phases`, PATCH /api/spaces/:id { phases } for the admin and a moderator, refused for a member, each refusal
+ * carries `phases`, PATCH /api/spaces/:id { phases } for the admin and a moderator (and, for Set up, step 4, a
+ * moderator's `opensWith` and `defaultLayout` and nothing else), refused for a member, each refusal
  * with its sentence, POST /api/spaces/:id/phases/cover for a member who can write in a module on in the space, and
  * the stored key.
  */
@@ -325,6 +326,42 @@ try {
     assert.deepEqual(answer(await asModerator('PATCH', '/api/spaces/nope', { phases: moved })), [404, { error: 'no such trip' }]);
     assert.equal(stored().name, 'Lisbon');
     assert.deepEqual(stored().phases, moved);
+  });
+
+  await test('PATCH opensWith and defaultLayout (Set up, step 4): a moderator may, with the same rules as an owner; nothing else; a member may not', async () => {
+    const url = `/api/spaces/${trip.id}`;
+    const r = await asModerator('PATCH', url, { opensWith: ['todo', 'calendar'] });
+    assert.deepEqual([r.status, r.json.space.opensWith], [200, ['todo', 'calendar']], r.text);
+    assert.deepEqual(stored().opensWith, ['todo', 'calendar']);
+    assert.deepEqual(answer(await asModerator('PATCH', url, { opensWith: 'todo' })), [400, { error: 'Opens with must be a list of modules.' }], 'the store\'s own rule');
+    // A shared layout, made by the moderator (they may), then set as the default: Opens with follows it.
+    const made = await asModerator('POST', `${url}/layouts`, { name: 'Planning', shared: true, modules: [{ id: 'conference', mode: 'dock' }, { id: 'todo', mode: 'dock', dockW: 360 }] });
+    assert.equal(made.status, 201, made.text);
+    const layout = made.json.layout;
+    const set = await asModerator('PATCH', url, { defaultLayout: layout.id });
+    assert.deepEqual([set.status, set.json.space.defaultLayout, set.json.space.opensWith], [200, layout.id, ['conference', 'todo']], set.text);
+    assert.deepEqual([stored().defaultLayout, stored().opensWith], [layout.id, ['conference', 'todo']]);
+    assert.deepEqual(answer(await asModerator('PATCH', url, { defaultLayout: 'lnope00' })), [404, { error: 'This trip has no shared layout with that id.' }]);
+    assert.deepEqual(answer(await asModerator('PATCH', url, { defaultLayout: layout.id, opensWith: ['todo'] })), [400, { error: 'Send a default layout or Opens with, not both: the default layout sets Opens with.' }]);
+    assert.deepEqual((await asModerator('PATCH', url, { defaultLayout: null })).json.space.defaultLayout, undefined, 'null stops using it');
+    assert.equal('defaultLayout' in stored(), false);
+    assert.deepEqual(stored().opensWith, ['conference', 'todo'], 'Opens with stays');
+    // Together with phases, fine; anything else beside them, or alone, is the owners'.
+    const both = await asModerator('PATCH', url, { phases: stored().phases, opensWith: ['todo'] });
+    assert.deepEqual([both.status, both.json.space.opensWith], [200, ['todo']], both.text);
+    for (const body of [{ name: 'Porto' }, { name: 'Porto', opensWith: ['todo'] }, { description: 'x', defaultLayout: layout.id }, { allowGuests: true }, { profile: 'characters' }, { members: [mo.key] }]) {
+      assert.deepEqual(answer(await asModerator('PATCH', url, body)), [403, ownersOnly], JSON.stringify(body));
+    }
+    assert.deepEqual(answer(await asMember('PATCH', url, { opensWith: ['todo'] })), [403, ownersOnly], 'a member: Opens with');
+    assert.deepEqual(answer(await asMember('PATCH', url, { defaultLayout: layout.id })), [403, ownersOnly], 'a member: the default layout');
+    assert.deepEqual(answer(await call(server, 'PATCH', url, { cookie: outsider.cookie, body: { opensWith: ['todo'] } })), [403, ownersOnly], 'someone not in the space');
+    assert.deepEqual([stored().name, stored().opensWith, 'defaultLayout' in stored()], ['Lisbon', ['todo'], false], 'the refusals changed nothing');
+    // The admin, unchanged: anything at once.
+    const own = await asAdmin('PATCH', url, { description: 'May', opensWith: null });
+    assert.deepEqual([own.status, own.json.space.description, own.json.space.opensWith], [200, 'May', undefined], own.text);
+    // What tells the page the caller's rights: /api/me's user.spaces[<id>].permissions.moderator (and hasOwnerRights for the rest).
+    assert.equal((await asModerator('GET', '/api/me')).json.user.spaces[trip.id].permissions.moderator, true);
+    assert.equal(Boolean((await asMember('GET', '/api/me')).json.user.spaces[trip.id].permissions.moderator), false);
   });
 
   await test('the module context\'s space carries phases, for a member too', async () => {

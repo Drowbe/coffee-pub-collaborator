@@ -33,8 +33,8 @@ decide those.
 - Read the plan in `documentation/plans/` and the matching architecture or API document before
   changing something they cover. The plan is the contract; if the code must differ, say so.
 - Keep existing element ids, routes, API field names and stored keys unless the task is to change
-  them. Nothing a person has stored or linked should break. The renaming plan (see Names) is the
-  sanctioned exception, and it carries a data migration.
+  them. Nothing a person has stored or linked should break. When a rename is ever needed, it ships
+  with a data migration, as the 0.4.0 renaming did (see Names).
 - Configuration goes in environment variables, never in code. A single-environment install (no
   `BASE_DOMAIN`) must keep behaving exactly as before.
 - Colors come from the theme tokens (`documentation/designsystem/design-theme.md`). Reuse the SDK's
@@ -58,9 +58,13 @@ decide those.
 
 Thomas's names. The level or role name and the code name are the same word and never change: code,
 routes, API fields and stored keys use them. Only the word a person reads can change, per
-environment template. The code doesn't match yet; a renaming plan with a data migration is coming.
-Until then, new code uses these names, and nobody argues for keeping the old ones. Never use room,
-table, stage, pane, tenant or item for these things, in code or in words.
+environment template. The renaming is done (shipped in 0.4.0, `documentation/plans/plan-names.md`).
+The only old words left are deliberate, and `node tools/check-names.mjs` and its allow-list
+(`tools/check-names-allow.json`) fence them: LiveKit's own API term, old links and routes kept so
+nothing a person saved breaks, the migration that reads old stored keys, and comments that explain
+those. New code and new words use the new names, and nobody argues for the old ones; `check-names`
+fails on any new use. Never use room, table, stage, pane, tenant or item for these things, in code
+or in words.
 
 Identifiers (file formats and their markers, fenced blocks, stored keys, cookies, environment variables) are
 named by kind, never by the product. The product's name comes only from `PRODUCT_NAME`; the brand, Coffee Pub,

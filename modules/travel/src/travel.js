@@ -596,20 +596,29 @@
   // host's bar are the fast path; this is the plain one. Grouped (Thomas, 2026-10-13): Travel, Eat and drink, See and
   // do, Mark the day and Add at a time are categories whose entries fly out beside them (host.menu.show's `items`; on a
   // phone they drill in); a stay and a note are picked straight away.
+  // What can be added to a day or a joint, in the day menu's order and short row wording: Travel, a stay, Eat and drink, See and
+  // do, a note. One list for the day menu and the titlebar "+" (no markers here: they stay in the day menu). A category has
+  // `items`; a row's `tip` keeps the full wording ("Add a flight").
+  function addKinds() {
+    // A row in a category is short (the category says the rest): "Flight"; its `tip` keeps the full wording, "Add a flight".
+    const kindRow = (t) => ({ id: t, label: KICKERS[t], icon: BADGES[t], tip: `Add ${/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'} ${KICKERS[t].toLowerCase()}` }); // "an attraction"
+    const kinds = [];
+    const category = (id, label, icon, tiles) => { if (tiles.length) kinds.push({ id, label, icon, items: tiles.map(kindRow) }); };
+    const EAT = ['restaurant', 'cafe', 'bar'];
+    category('travel', 'Travel', 'plane', JOURNEY_TILES);
+    kinds.push({ id: 'hotel', label: 'Add a stay', icon: 'bed' });
+    category('eat', 'Eat and drink', 'utensils', STOP_TILES.filter((t) => EAT.includes(t)));
+    category('see', 'See and do', 'binoculars', STOP_TILES.filter((t) => !EAT.includes(t)));
+    kinds.push({ id: 'note', label: 'Add a note', icon: 'note-sticky' });
+    return kinds;
+  }
   function openAddMenu(button, place, { gap } = {}) {
     const onLine = place.after !== undefined;
     const items = [];
     const withTile = (tile) => openEditor('item', null, { ...place, tile }, button);
-    const entry = (tile, label, icon) => ({ id: tile, label, icon, onClick: () => withTile(tile) });
-    // A row in a category is short (the category says the rest): "Flight"; its `tip` keeps the full wording, "Add a flight".
-    const kindEntry = (t) => ({ ...entry(t, KICKERS[t], BADGES[t]), tip: `Add ${/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'} ${KICKERS[t].toLowerCase()}` }); // "an attraction"
-    const category = (id, label, icon, entries) => { if (entries.length) items.push({ id, label, icon, items: entries }); };
-    const EAT = ['restaurant', 'cafe', 'bar'];
-    category('travel', 'Travel', 'plane', JOURNEY_TILES.map(kindEntry));
-    items.push(entry('hotel', 'Add a stay', 'bed'));
-    category('eat', 'Eat and drink', 'utensils', STOP_TILES.filter((t) => EAT.includes(t)).map(kindEntry));
-    category('see', 'See and do', 'binoculars', STOP_TILES.filter((t) => !EAT.includes(t)).map(kindEntry));
-    items.push(entry('note', 'Add a note', 'note-sticky'));
+    for (const k of addKinds()) {
+      items.push(k.items ? { ...k, items: k.items.map((r) => ({ ...r, onClick: () => withTile(r.id) })) } : { ...k, onClick: () => withTile(k.id) });
+    }
     items.push({ separator: true });
     // On a day, a marker with no time marks the whole day (a tag in its header), added at once; the timed ones below open the editor.
     if (!onLine) {
@@ -981,6 +990,37 @@
     }
     void days;
     syncHeader();
+    syncStatus();
+  }
+
+  // The status line at the foot of the window: the day in view ("Day 6 of 26 · Wed 14 Oct · 3 stops") on Days, a count on the other
+  // views. Short, read-only; none until the plan has loaded.
+  function syncStatus() {
+    if (!host.status) return;
+    const items = [];
+    if (state.loaded) {
+      if (state.view === 'days') {
+        const days = plan.days();
+        const day = days.includes(state.currentDay) ? state.currentDay : null;
+        if (day) {
+          const own = entriesFor(day, days, plan.byDay()).filter((e) => (!e.span || e.span === 'start') && e.item.kind !== 'block');
+          const spent = own.reduce((sum, e) => sum + (Number(e.item.cost) > 0 ? Number(e.item.cost) : 0), 0);
+          items.push({ text: `Day ${days.indexOf(day) + 1} of ${days.length} · ${dayShort(day)}` });
+          items.push({ text: own.length ? words(own.length, 'stop', 'stops') : 'Nothing planned' });
+          if (spent) items.push({ text: money(spent) });
+        }
+      } else if (state.view === 'decisions') {
+        const n = openDecisions().length;
+        if (n) items.push({ text: `${n} open` });
+      } else if (state.view === 'bookings') {
+        const list = bookings(plan.list());
+        if (list.length) items.push({ text: `${list.filter((i) => i.confirm).length} of ${list.length} booked` });
+      } else if (state.view === 'money') {
+        const costs = costItems(plan.list());
+        if (costs.length) items.push({ text: `Total ${money(balances(costs, state.people.map((p) => p.key)).total)}` }, { text: words(costs.length, 'cost', 'costs') });
+      }
+    }
+    host.status.set(items).catch(() => {});
   }
 
   function keepInputs() { return {}; }
@@ -1050,7 +1090,7 @@
   const redraw = () => { if (queued) return; queued = true; Promise.resolve().then(() => { queued = false; render(); }); };
 
   function markCurrent(day) {
-    if (day) state.currentDay = day;
+    if (day) { state.currentDay = day; syncStatus(); }
     for (const c of root.querySelectorAll('.daychip')) c.classList.toggle('current', c.dataset.day === day);
     for (const d of root.querySelectorAll('.day2[data-day]')) d.classList.toggle('current', Boolean(day) && d.dataset.day === day);
     // keep the chosen chip in view inside the strip (the strip alone scrolls, never the page)
@@ -2356,7 +2396,11 @@
     const day = defaultDay();
     openEditor('item', null, day ? { date: day, tile } : { tile });
   };
-  if (host.bar) {
+  // The "+" in the titlebar: the day menu's kinds, adding to the selected day (addFromBar). Where the host has no "+" (popped out,
+  // a phone, a destination's part) the old bottom bar keeps the same adds, so no one loses them.
+  const addTiles = new Set(addKinds().flatMap((k) => (k.items ? k.items.map((r) => r.id) : [k.id])));
+  const legacyBar = () => {
+    if (!host.bar) return;
     host.bar.set(canEdit ? [
       { id: 'add', label: 'Add plan', icon: 'plus', primary: true },
       { id: 'flight', icon: 'plane', iconOnly: true, label: 'Flight' },
@@ -2364,6 +2408,12 @@
       { id: 'restaurant', icon: 'utensils', iconOnly: true, label: 'Restaurant' },
       { id: 'note', icon: 'note-sticky', iconOnly: true, label: 'Note' },
     ] : []).catch(() => { state.hosted = false; redraw(); });
+  };
+  if (host.add) {
+    host.add.set(canEdit ? addKinds().map(({ tip, ...k }) => (k.items ? { ...k, items: k.items.map(({ tip: t, ...r }) => r) } : k)) : []).then((drawn) => { if (!drawn) legacyBar(); }, legacyBar);
+    host.on('add', (e) => { if (canEdit && addTiles.has(e.id)) addFromBar(e.id); });
+  } else legacyBar();
+  if (host.bar) {
     host.on('bar', (e) => {
       if (!canEdit) return;
       if (e.id === 'add') return addFromBar();

@@ -231,7 +231,27 @@
     } else if (head) head.hidden = false;
   }
 
+  // The status line at the foot of the window: how many are shown, and what narrows them. Quiet words, none while empty.
+  const KIND_WORDS = { note: 'Notes', link: 'Links', photo: 'Photos', answer: 'Answers' };
+  function syncStatus() {
+    if (!host.status) return;
+    const items = [];
+    const all = state.loaded ? research.list() : [];
+    if (all.length) {
+      const n = visible().length;
+      items.push({ text: n === all.length ? `${n} ${word('object', { many: n !== 1 })}` : `${n} of ${all.length}` });
+      if (state.kind) items.push({ text: KIND_WORDS[state.kind] || state.kind, chip: true });
+      if (state.tags.length) items.push({ text: `Tag: ${state.tags.join(', ')}`.slice(0, 60), chip: true });
+      if (state.filter.trim()) items.push({ text: `"${state.filter.trim()}"`.slice(0, 60), chip: true });
+    }
+    if (state.uploads.length) items.splice(1, 0, { text: `Adding ${state.uploads.length} ${state.uploads.length === 1 ? 'photo' : 'photos'}`, quiet: true });
+    host.status.set(items.slice(0, 4)).catch(() => {});
+  }
   function render() {
+    renderPage();
+    syncStatus();
+  }
+  function renderPage() {
     const all = research.list();
     const empty = state.loaded && !all.length && !state.uploads.length;
     syncTitle();
@@ -854,18 +874,37 @@
 
   // --- adding: the bottom bar, and what other modules and pointers ask ---------------------------------------------
 
-  if (host.bar) {
+  // The "+" in the titlebar holds the three adds. Where the host has no "+" (popped out, a phone, a destination's part) the
+  // old bottom bar keeps them, so no one loses an add. The empty state's own buttons stay: they add to an empty page.
+  const addNote = () => openEditor(null, { kind: 'note' });
+  const addLink = () => openEditor(null, { kind: 'link' });
+  const legacyBar = () => {
+    if (!host.bar) return;
     host.bar.set(canEdit ? [
       { id: 'add', label: 'Add a note', icon: 'note-sticky', primary: true },
       { id: 'link', label: 'Add a link', icon: 'link' },
       { id: 'photo', label: 'Add a photo', icon: 'camera' },
     ] : []).catch(() => {});
+  };
+  if (host.add) {
+    host.add.set(canEdit ? [
+      { id: 'note', label: 'Note', icon: 'note-sticky' },
+      { id: 'link', label: 'Link', icon: 'link' },
+      { id: 'photo', label: 'Photo', icon: 'camera' },
+    ] : []).then((drawn) => { if (!drawn) legacyBar(); }, legacyBar);
+    host.on('add', (e) => {
+      if (!canEdit) return;
+      if (e.id === 'photo') return choosePhotos();
+      if (e.id === 'link') return addLink();
+      if (e.id === 'note') return addNote();
+    });
+  } else legacyBar();
+  if (host.bar) {
     host.on('bar', (e) => {
       if (!canEdit) return;
       if (e.id === 'photo') return choosePhotos();
-      if (e.id === 'link') return openEditor(null, { kind: 'link' });
-      if (e.id !== 'add') return;
-      openEditor(null, { kind: 'note' });
+      if (e.id === 'link') return addLink();
+      if (e.id === 'add') addNote();
     });
   }
   // Something from another module dropped on the pane: what can be done with it is the shared decision

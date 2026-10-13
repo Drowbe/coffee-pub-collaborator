@@ -1766,13 +1766,15 @@ test('Attraction is a kind of stop beside Sight, Museum, Tour and Show (#246), a
   const js = read('travel.js');
   const html = read('travel.html');
   assert.ok(js.includes("{ label: 'See and do', options: ['sight', 'museum', 'attraction', 'tour', 'show'].map((t) => kindOption(t)) },"));
-  assert.ok(js.includes("category('see', 'See and do', 'binoculars', STOP_TILES.filter((t) => !EAT.includes(t)).map(kindEntry));") && js.includes("/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'"), 'the day menu offers "Add an attraction", under See and do');
+  assert.ok(js.includes("category('see', 'See and do', 'binoculars', STOP_TILES.filter((t) => !EAT.includes(t)));") && js.includes("/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'"), 'the day menu offers "Add an attraction", under See and do');
   // The day menu's categories (Thomas, 2026-10-13), in order, each a flyout of host.menu.show (`items`).
-  const addMenu = js.slice(js.indexOf('function openAddMenu('), js.indexOf('function buildEdge('));
-  const order = ["category('travel', 'Travel'", "entry('hotel', 'Add a stay'", "category('eat', 'Eat and drink'", "category('see', 'See and do'", "entry('note', 'Add a note'", "category('mark', 'Mark the day'", "onLine ? 'Add between days' : 'Add at a time'"].map((n) => addMenu.indexOf(n));
+  // One builder (addKinds) feeds the day menu and the titlebar "+"; the day menu adds the markers after it.
+  const addMenu = js.slice(js.indexOf('function addKinds('), js.indexOf('function buildEdge('));
+  const order = ["category('travel', 'Travel'", "id: 'hotel', label: 'Add a stay'", "category('eat', 'Eat and drink'", "category('see', 'See and do'", "id: 'note', label: 'Add a note'", "category('mark', 'Mark the day'", "onLine ? 'Add between days' : 'Add at a time'"].map((n) => addMenu.indexOf(n));
   assert.ok(order.every((at, i) => at > 0 && (i === 0 || at > order[i - 1])), 'the day menu: Travel, a stay, Eat and drink, See and do, a note, Mark the day, Add at a time');
-  assert.ok(addMenu.includes("items.push({ id, label, icon, items: entries })"), 'a category is a flyout of host.menu.show');
-  assert.ok(addMenu.includes("entry(t, KICKERS[t], BADGES[t])") && addMenu.includes("tip: `Add ${/^[aeiou]/i"), 'a kind row reads short ("Flight"), its tip keeps "Add a flight"');
+  assert.ok(addMenu.includes("kinds.push({ id, label, icon, items: tiles.map(kindRow) })"), 'a category is a flyout of host.menu.show');
+  assert.ok(addMenu.includes("label: KICKERS[t], icon: BADGES[t]") && addMenu.includes("tip: `Add ${/^[aeiou]/i"), 'a kind row reads short ("Flight"), its tip keeps "Add a flight"');
+  assert.ok(js.includes('host.add.set(canEdit ? addKinds()') && !/markers?/.test(js.slice(js.indexOf('function addKinds('), js.indexOf('function openAddMenu('))), 'the titlebar + uses the same kinds, no markers');
   assert.ok(addMenu.includes("label: t.label, tip: `Mark the day: ") && addMenu.includes("label: t.label,\n      tip: onLine ?"), 'marker rows read short, tips keep the full wording');
   assert.ok(addMenu.includes("const EAT = ['restaurant', 'cafe', 'bar'];"));
   assert.ok(js.includes("attraction: 'Disneyland'"));

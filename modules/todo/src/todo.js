@@ -2,7 +2,9 @@
 // space's canvas (docked or floating), a window of its own, and the Calendar destination's panel. Each place has its
 // own list. On the environment page (and as the panel) the viewer's spaces' lists are shown too, each with its
 // space's icon, and editable where the viewer may change tasks in that space (`write` from host.spaces()); a new task
-// there asks where it goes, every time. The SDK (window.host) is injected by the host.
+// there asks where it goes, every time. As the panel in a space (/calendar?space=<id>; plan-calendar-todo.md) it holds
+// that space's list alone: nothing is asked about where a task goes, and its reminders are that space's. The SDK
+// (window.host) is injected by the host.
 (async function () {
   'use strict';
 
@@ -317,7 +319,7 @@
     const shown = [...tasks.values()].filter((x) => (x.scope === 'own' ? !hideOwn : !hiddenSpaces.has(x.spaceId)));
     const openCount = shown.filter((x) => !x.t.done).length;
     filterSwitch.set(show, FILTERS.map((f) => (f.id === 'open' && openCount ? { ...f, label: `Open (${openCount})` } : f)));
-    if (hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id))) {
+    if (!inSpace && hideOwn && ![...spaceInfo.keys()].some((id) => !hiddenSpaces.has(id))) {
       $('body').innerHTML = `<p class="empty">Pick at least one in ${esc(word('space', { many: true, cap: true }))}.</p>`;
       return;
     }
@@ -806,7 +808,9 @@
       hiddenSpaces.clear();
       for (const id of spaceInfo.keys()) if (!pickedSpaces.has(id)) hiddenSpaces.add(id);
     }
-    hideOwn = st.environment === false;
+    // In a space the page has no filter of places (its state says `environment: false` for the aggregate's sake):
+    // this space's own list always shows.
+    hideOwn = !inSpace && st.environment === false;
     if (loaded) render();
   }
   if (part && host.destination) host.destination.onState(takeState);

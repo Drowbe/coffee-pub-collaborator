@@ -12,15 +12,19 @@ export const SLOTS = ['logo', 'environment', 'destinations', 'home', 'anchor', '
 // The profile menu's entries, in order, as a pure function of the account, the install and the browser's offer
 // (decisions 4 and 17):
 //   - every account: View profile, the light or dark switch, Install as an app while the browser offers it, Sign out last;
+//   - every account: the environment's destinations (Calendar, Map: `dest-<id>` for each of `destinations`, the ids
+//     GET /api/destinations lists), after the light or dark switch (plan-one-bar.md, decision 6: parked here for now,
+//     out of the top bar, whose Calendar and Map are a space's views);
 //   - an owner: Manage;
 //   - the admin on a single install (not hosted): Manage only, which holds the server's settings there;
 //   - the host admin's stand-in on a hosted server: Manage and Host console;
 //   - a member (a moderator is a member with rights in a space): nothing more.
 // No account, or a guest: no menu at all.
-export function profileEntries({ role, hostAdmin = false, hosted = false, installOffered = false, themeSwitch = true } = {}) {
+export function profileEntries({ role, hostAdmin = false, hosted = false, installOffered = false, themeSwitch = true, destinations = [] } = {}) {
   if (!role || role === 'guest') return [];
   const out = ['profile'];
   if (themeSwitch) out.push('theme');
+  for (const id of Array.isArray(destinations) ? destinations : []) if (typeof id === 'string' && /^[a-z][a-z0-9-]{1,31}$/.test(id)) out.push(`dest-${id}`);
   if (role === 'owner' || role === 'admin') out.push('manage');
   if (role === 'admin' && hosted && hostAdmin) out.push('host-console');
   if (installOffered) out.push('install');
@@ -136,7 +140,7 @@ export function switchPick(present, id) {
 // page present nowhere, where nothing is lost; anything else (Manage, a new space, the updates line) over the page.
 export function pageOpens({ kind = '', present = false } = {}) {
   if (kind === 'host-console') return 'new-tab';
-  if (kind === 'module' && !present) return 'page';
+  if ((kind === 'module' || kind === 'destination') && !present) return 'page';
   return 'overlay';
 }
 
@@ -224,13 +228,14 @@ export function hashPanel(hash, panelKeys = []) {
   return { key, found: true, rest: bits.join('&') };
 }
 
-// The top bar's destinations (plan-calendar-destination.md, "The bar's entry"; plan-map-destination.md): one entry per
+// The destinations (plan-calendar-destination.md, "The bar's entry"; plan-map-destination.md): one entry per
 // destination GET /api/destinations lists for this viewer, in its order, each its main module's name and icon as this
-// environment shows them. On a wider screen it is a left-zone tool (`dest-<id>`, the core links' look) in the group
-// `where`, ahead of the Spaces slot (plan-two-zone-nav.md: orders 1 to 8, then Spaces, the anchor and the status line);
-// on a phone an entry in the menu after the Spaces slot's entries (`menu-dest-<id>`, in their group, before New <space>). `current`
+// environment shows them. The `bar` entry is the look a space's views take (spaceViews() below: `dest-<id>`, the core
+// links' look, a left-zone tool in the group `where`); outside a space the top bar no longer draws it (plan-one-bar.md,
+// decision 6: the environment's Calendar and Map are in the profile menu, profileEntries()). On a phone an entry in the
+// menu after the Spaces slot's entries (`menu-dest-<id>`, in their group, before New <space>). `current`
 // while that page is open (`path` is the page's own). `overlay` while present in a space, so the space page opens it
-// over the space as a view (data-overlay-link, Away while on the call). Anything malformed in the list is left out.
+// over the space as a page (data-overlay-link, Away while on the call). Anything malformed in the list is left out.
 export function destinationTools(list, { path = '', present = false } = {}) {
   const ok = (d) => d && /^[a-z][a-z0-9-]{1,31}$/.test(d.id || '') && typeof d.name === 'string' && d.name.trim()
     && typeof d.href === 'string' && /^\/[a-z][a-z0-9-]*$/.test(d.href);
@@ -241,4 +246,23 @@ export function destinationTools(list, { path = '', present = false } = {}) {
       menu: { id: `menu-dest-${d.id}`, zone: 'right', group: 'menu-where', order: 950 + i, ...shared },
     };
   });
+}
+
+// A space's views in the top bar's left zone (plan-one-bar.md, decisions 1 and 6, step 7): the Workspace first
+// (`view-workspace`, the canvas with its toolbar), then one view per destination the environment shows, as the
+// destinations' entries look (`dest-<id>`, destinationTools' `bar` entry), each opening that page for this space
+// (`/calendar?space=<id>`; until plan-calendar-todo.md and plan-map-places.md give the page its space form it is the
+// environment's page as today) over the Workspace, with the always-on column outside it and no Away set. All in the
+// group `views`, after the switcher and before the phase chip; the current one is marked `aria-current="page"`.
+// A guest gets only what the template allows: nothing yet (decision 10), so `guest` gives []. `current` is the view's
+// id ('workspace', or a destination's). Returns [{ id, view, icon, label, href?, current }].
+export function spaceViews(list, { space = '', current = 'workspace', guest = false, workspaceWord = 'Workspace' } = {}) {
+  if (guest || !space) return [];
+  const out = [{ id: 'view-workspace', view: 'workspace', icon: 'table-columns', label: String(workspaceWord || 'Workspace').trim().slice(0, 40) || 'Workspace', current: current === 'workspace' }];
+  const q = `?${new URLSearchParams({ space })}`;
+  for (const { bar } of destinationTools(list)) {
+    const view = bar.id.slice('dest-'.length);
+    out.push({ id: bar.id, view, icon: bar.icon, label: bar.label, href: `${bar.href}${q}`, current: current === view });
+  }
+  return out.map((v, i) => ({ ...v, zone: 'left', group: 'views', groupOrder: 12, order: 1 + i }));
 }

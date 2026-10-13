@@ -1074,9 +1074,10 @@ await test('pages: the SDK, the stream on the host page, the Calendar and the de
   assert.match(cal, /Array\.isArray\(st\.externalOff\)/, 'which the Calendar takes');
   assert.match(dest, /if \(kind\.external && !withinSpacePage\(\)\) await loadExternals\(\);/, 'and lists none over a call');
   // Over a call the module's page is redirected to /calendar without its ?from=space, so the space page's overlay frame
-  // is recognised by its id too.
-  assert.match(read('public/brand.js'), /window\.frameElement && window\.frameElement\.id === 'page-overlay-frame'/, 'the overlay frame counts as within a space');
+  // is recognised by its id too, and so is the frame a view of the space shows the page in (plan-one-bar.md, step 7).
+  assert.match(read('public/brand.js'), /window\.frameElement && \['page-overlay-frame', 'view-frame'\]\.includes\(window\.frameElement\.id\)/, 'the overlay frame and the view frame count as within a space');
   assert.match(read('public/space.html'), /<iframe[^>]* id="page-overlay-frame"/, 'and that is the space page\'s overlay frame');
+  assert.match(read('public/space.html'), /<iframe[^>]* id="view-frame"/, 'and that its view frame');
   // The filter's label counts them apart from the spaces.
   const paint = dest.slice(dest.indexOf('function paintFilter()'), dest.indexOf('\n}\n', dest.indexOf('function paintFilter()')) + 3);
   const label = (spaceList, offSpaces, calendars, offCalendars) => {

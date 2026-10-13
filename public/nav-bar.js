@@ -14,9 +14,10 @@
 // "..." reads while it is on: Pop out's "Pop it back in"),
 // `element` (an element the registry places and orders but does not draw: the snap slider, the clock, your picture),
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
-// (the icon a toggle shows while it is on: full screen's compress). A secondary left-zone tool may also give `fit(avail)`:
-// the fold (below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
-// (Online, who is here: its names become the count, then portraits drop, then it shows only the short count); one that says `fitFirst` (the favorite layouts) gives way
+// (the icon a toggle shows while it is on: full screen's compress). A left-zone tool of either bar may also give `fit(avail)`:
+// the fit (fitBar, below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
+// (Online, who is here: its names become the count, then portraits drop, then it shows only the short count; the top
+// bar's phase chip: its label, then its dot, then nothing); one that says `fitFirst` (the favorite layouts) gives way
 // before the others do. `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
@@ -266,7 +267,7 @@ export function draw(bar) {
   }
   const runs = fold ? phoneZones(byZone) : { left: [byZone.left], right: [byZone.right], bar: [] };
   for (const [z, list] of Object.entries(runs)) if (targets[z]) place(targets[z], list.flatMap((run) => flatten(run, doc)));
-  if (bar === 'secondary') scheduleFold();
+  scheduleFit(bar);
 }
 
 // --- drawing -------------------------------------------------------------------------------------
@@ -577,44 +578,51 @@ function attachFold(el) {
   register({ bar: 'secondary', zone: 'right', group: 'leave', id: 'subnav-more', order: 998, fold: false, icon: 'ellipsis-vertical', label: 'More', element: more, visible: () => fold.showMore });
 }
 
-// On the next frame, once whatever changed has been laid out; any number of calls in one frame fold once.
-function scheduleFold() {
-  const el = fold.el;
-  if (!el) return;
-  const view = el.ownerDocument.defaultView;
+// Each bar is fitted on the next frame, once whatever changed has been laid out; any number of calls in one frame
+// fit once (fitBar: the space bar's fold and its Online, the top bar's phase chip). `fits` keeps each bar's pending
+// frame and the window it watches.
+const fits = { primary: { frame: 0, frameView: null, view: null, observer: null }, secondary: { frame: 0, frameView: null, view: null, observer: null } };
+function scheduleFit(bar) {
+  const b = bars[bar];
+  const f = fits[bar];
+  if (!b || !f) return;
+  const view = b.el.ownerDocument.defaultView;
   if (!view) return;
   // A frame asked of another window (the pop-out, closing with the bar's frame still pending) never comes: ask again here.
-  if (fold.frame && fold.frameView !== view) {
-    try { fold.frameView.cancelAnimationFrame(fold.frame); } catch { /* that window is gone */ }
-    fold.frame = 0;
+  if (f.frame && f.frameView !== view) {
+    try { f.frameView.cancelAnimationFrame(f.frame); } catch { /* that window is gone */ }
+    f.frame = 0;
   }
-  if (fold.frame) return;
-  fold.frameView = view;
-  fold.frame = view.requestAnimationFrame(() => {
-    fold.frame = 0;
-    fitSecondary();
+  if (f.frame) return;
+  f.frameView = view;
+  f.frame = view.requestAnimationFrame(() => {
+    f.frame = 0;
+    fitBar(bar);
   });
 }
+const scheduleFold = () => scheduleFit('secondary');
 
-// Watch what can change the width the bar has to work with, in whichever window it is in now (the header moves to a popped-out
-// window): the bar's width, and the left zone's content (the words loading, Online's people coming and going).
-function watchFold(view) {
-  if (fold.view === view) return;
-  if (fold.observer) fold.observer.disconnect();
-  fold.view = view;
-  fold.observer = null;
+// Watch what can change the width a bar has to work with, in whichever window it is in now (the header moves to a popped-out
+// window): the bar's width, and the left zone's content (the words loading, Online's people coming and going, the chip's words).
+function watchFit(bar, view) {
+  const b = bars[bar];
+  const f = fits[bar];
+  if (!b || !f || f.view === view) return;
+  if (f.observer) f.observer.disconnect();
+  f.view = view;
+  f.observer = null;
+  const again = () => scheduleFit(bar);
   if (typeof view.ResizeObserver === 'function') {
-    fold.observer = new view.ResizeObserver(() => scheduleFold());
-    fold.observer.observe(fold.el);
-    const b = bars.secondary;
-    if (b && b.zones.left) fold.observer.observe(b.zones.left);
+    f.observer = new view.ResizeObserver(again);
+    f.observer.observe(b.el);
+    if (b.zones.left) f.observer.observe(b.zones.left);
   }
-  view.addEventListener('resize', scheduleFold);
-  view.matchMedia('(max-width: 640px)').addEventListener('change', scheduleFold);
+  view.addEventListener('resize', again);
+  view.matchMedia('(max-width: 640px)').addEventListener('change', again);
   const fonts = view.document.fonts;
   if (fonts && typeof fonts.addEventListener === 'function') {
-    fonts.addEventListener('loadingdone', scheduleFold);
-    fonts.ready.then(scheduleFold, () => {});
+    fonts.addEventListener('loadingdone', again);
+    fonts.ready.then(again, () => {});
   }
 }
 
@@ -679,13 +687,57 @@ function fitPhone(b, el, width) {
   return { ids, tabs };
 }
 
+// A bar's left-zone tools that can give way (`fit`): each is told what it may take, and gives it before anything
+// folds: what the rest of the left zone and the right zone at its full width leave (fitWidth). A tool that says
+// `fitFirst` (the favorite layouts) gives way before the others (Online): it is measured with them at their least
+// (fit(0)), they then take what it leaves, and it is fitted once more to what they took (a least is not always the
+// width a tool settles at), so the left zone never runs past its column because of it. `right` is the right zone's
+// natural width (nothing folded), `gap` the gap between the two zones.
+function fitLeft(bar, { width, gap, right }) {
+  const b = bars[bar];
+  if (!b || !b.zones.left) return;
+  const fitting = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'left' && typeof t.fit === 'function' && els.has(t.id) && shownEl(els.get(t.id)));
+  fitting.sort((a, c) => Number(Boolean(c.fitFirst)) - Number(Boolean(a.fitFirst)));
+  const fitOne = (t) => {
+    const rest = naturalWidth(b.zones.left, els.get(t.id), { margins: false });
+    const avail = fitWidth({ width, gap, left: rest.w + (rest.n ? rest.gap : 0), right });
+    try { t.fit(avail); } catch { /* a tool that cannot measure keeps its size */ }
+  };
+  const first = fitting.length > 1 ? fitting.filter((t) => t.fitFirst) : [];
+  if (first.length) for (const t of fitting) { if (!t.fitFirst) { try { t.fit(0); } catch { /* keeps its size */ } } }
+  for (const t of fitting) fitOne(t);
+  for (const t of first) fitOne(t);
+}
+
+// Fit a bar to its width (plan-one-bar.md, step 7: one fit for both bars). The top bar: its left-zone tools that can
+// give way (the phase chip: its label, then its dot, then nothing) shrink to what the rest of the bar leaves; nothing
+// folds there, and on a phone its one row is its own (step 8). The space bar: its fitting tools (Online, the favorites)
+// give way, then its right zone folds into the "..." (foldCount), and on a phone it is the tab bar (fitPhone).
+function fitBar(bar) {
+  if (bar === 'secondary') { fitSecondary(); return; }
+  const b = bars[bar];
+  if (!b || !b.zones.left || !b.zones.right) return;
+  const el = b.el;
+  const view = el.ownerDocument.defaultView;
+  if (!view) return;
+  watchFit(bar, view);
+  if (view.matchMedia('(max-width: 640px)').matches) return;
+  const cs = view.getComputedStyle(el);
+  const width = el.clientWidth - px(cs.paddingLeft) - px(cs.paddingRight);
+  if (width <= 0 || !shownEl(el)) return;
+  el.classList.add('nav-measuring');
+  const r = naturalWidth(b.zones.right, null);
+  fitLeft(bar, { width, gap: px(cs.columnGap), right: r.w });
+  el.classList.remove('nav-measuring');
+}
+
 function fitSecondary() {
   const b = bars.secondary;
   const el = fold.el;
   if (!b || !el || !fold.more) return;
   const doc = el.ownerDocument;
   const view = doc.defaultView;
-  watchFold(view);
+  watchFit('secondary', view);
   const right = b.zones.right;
   if (!right) return;
   const wasFocused = el.contains(doc.activeElement) ? doc.activeElement : null;
@@ -708,22 +760,9 @@ function fitSecondary() {
       const stepWidths = steps.map((s) => s.reduce((sum, id) => sum + els.get(id).getBoundingClientRect().width + r.gap, 0));
       const moreWidth = px(view.getComputedStyle(fold.more).width) + r.gap;
       // A left tool that can give way (`fit`, the space bar's Online) is told what it may take, and gives it before
-      // anything here folds: what the rest of the left zone and the right zone at its full width leave (fitWidth).
+      // anything here folds (fitLeft).
       const gap = px(cs.columnGap);
-      // A tool that says `fitFirst` (the favorite layouts) gives way before the others (Online): it is measured with them
-      // at their least (fit(0)), they then take what it leaves, and it is fitted once more to what they took (a least
-      // is not always the width a tool settles at), so the left zone never runs past its column because of it.
-      const fitting = b.zones.left ? [...tools.values()].filter((t) => t.bar === 'secondary' && t.zone === 'left' && typeof t.fit === 'function' && els.has(t.id) && shownEl(els.get(t.id))) : [];
-      fitting.sort((a, c) => Number(Boolean(c.fitFirst)) - Number(Boolean(a.fitFirst)));
-      const fitOne = (t) => {
-        const rest = naturalWidth(b.zones.left, els.get(t.id), { margins: false });
-        const avail = fitWidth({ width, gap, left: rest.w + (rest.n ? rest.gap : 0), right: r.w });
-        try { t.fit(avail); } catch { /* a tool that cannot measure keeps its size */ }
-      };
-      const first = fitting.length > 1 ? fitting.filter((t) => t.fitFirst) : [];
-      if (first.length) for (const t of fitting) { if (!t.fitFirst) { try { t.fit(0); } catch { /* keeps its size */ } } }
-      for (const t of fitting) fitOne(t);
-      for (const t of first) fitOne(t);
+      fitLeft('secondary', { width, gap, right: r.w });
       // The left zone as it is now (its box, not its negative margin), rounded up: a cut is counted in whole pixels.
       const leftWidth = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
       const k = foldCount({ width, gap, left: leftWidth, right: r.w, more: moreWidth, steps: stepWidths });
@@ -817,7 +856,7 @@ async function openFoldMenu() {
       onPick: () => {
         fold.picked = c;
         c.click();
-        scheduleFold(); // the fit after the pick says where the keyboard goes (fitSecondary)
+        scheduleFold(); // the fit after the pick says where the keyboard goes (fitBar)
       },
     });
   }

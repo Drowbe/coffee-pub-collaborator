@@ -152,6 +152,7 @@ const byId = (id) => document.getElementById(id) || headerEl?.querySelector(`#${
 let account;
 let updatesWaiting = 0; // module updates available, for owners and the admin (GET /api/modules)
 let presentSpace = null; // the space this page is present in (an aside's parent in an aside); the space page says so
+let inSpace = false; // the space page showing a space (plan-one-bar.md, step 7): its one bar has the switcher in the Spaces slot's place
 let bar = { adminHref: '/admin', withThemeSwitch: true, guest: false, hostConsole: false };
 
 // A page opened over a call (?from=space, Profile or Manage in the space page's frame): the same origin underneath.
@@ -161,7 +162,7 @@ export const overCall = () => new URLSearchParams(window.location.search).get('f
 // /calendar). Same origin, so the frame's element can be read; anywhere else it is null.
 export const withinSpacePage = () => {
   if (overCall()) return true;
-  try { return Boolean(window.frameElement && window.frameElement.id === 'page-overlay-frame'); } catch { return false; }
+  try { return Boolean(window.frameElement && ['page-overlay-frame', 'view-frame'].includes(window.frameElement.id)); } catch { return false; }
 };
 const keptQuery = () => (new URLSearchParams(window.location.search).get('from') === 'space' ? window.location.search : '');
 // A path with a page opened over a call's query kept (?from=space...), so the next page keeps its way back.
@@ -178,6 +179,12 @@ export function setPresentSpace(id) {
   markDestinations();
 }
 window.appPresentSpace = () => presentSpace;
+// The space page says when it shows a space (not home over it): then the top bar's left zone is the space's name with
+// the switcher's caret (space.js's `space-switcher`), and the Spaces slot leaves the bar until home shows again.
+export function setInSpace(on) {
+  inSpace = Boolean(on);
+  nav.draw('primary');
+}
 function presentSpaceNow() {
   if (overCall()) {
     try {
@@ -286,7 +293,7 @@ function registerSystemTools(header) {
     caret.title = `Switch ${word('space')}`;
     caret.setAttribute('aria-label', caret.title);
     caret.addEventListener('click', () => openSwitcher(caret));
-    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() });
+    nav.register({ id: 'spaces-slot', bar: 'primary', zone: 'left', group: 'where', groupOrder: 1, order: 9, element: slot, visible: () => wide() && signedIn() && !inSpace });
   }
   // The anchor: where you are, after the Spaces slot (setTopbarLocation; the space page's breadcrumb). On a phone only
   // its last segment shows (style.css).
@@ -357,13 +364,17 @@ function registerSystemTools(header) {
   nav.register({ id: 'account-sign-out', bar: 'primary', zone: 'right', group: 'you', order: 999, icon: 'right-from-bracket', label: 'Sign out', visible: inMenu, onClick: signOut });
 }
 
-// The top bar's destinations (Calendar, Map; plan-calendar-destination.md): a left-zone entry each, from GET
-// /api/destinations, and on a phone an entry in the menu after the Spaces slot's (destinationTools() in primary-nav.js).
-// While this page is present in a space they carry data-overlay-link, so the space page opens them over the space as a
-// view (Away while on the call); a page already over a call keeps its way back (keepingQuery).
+// The destinations (Calendar, Map; plan-calendar-destination.md): from GET /api/destinations, on a phone an entry each in
+// the menu after the Spaces slot's (destinationTools() in primary-nav.js); wider, an entry each in the profile menu
+// (accountMenuItems, plan-one-bar.md decision 6), and in a space the views of the one bar (space.js, spaceViews(); it
+// hears of the list through `app:destinations`, or asks destinationsNow()). While this page is present in a space the
+// menu's entries carry data-overlay-link, so the space page opens them over the space as a page (Away while on the
+// call); a page already over a call keeps its way back (keepingQuery).
 const destinationEls = new Set();
 const destinationIds = new Set();
 let destinationVisibility = null;
+let destinationList = []; // what the server lists, as it came
+export const destinationsNow = () => destinationList;
 async function loadDestinations({ wide, inMenuOnly }) {
   destinationVisibility = { wide, inMenuOnly };
   let list = [];
@@ -377,19 +388,21 @@ async function loadDestinations({ wide, inMenuOnly }) {
   for (const id of destinationIds) nav.unregister(id);
   destinationIds.clear();
   destinationEls.clear();
-  for (const { bar: inBar, menu } of destinationTools(list, { path: window.location.pathname.toLowerCase() })) {
-    for (const [t, visible] of [[inBar, wide], [menu, inMenuOnly]]) {
+  for (const { menu } of destinationTools(list, { path: window.location.pathname.toLowerCase() })) {
+    for (const [t, visible] of [[menu, inMenuOnly]]) {
       const { current, overlay, href, ...tool } = t;
       const el = nav.register({ ...tool, bar: 'primary', href: keepingQuery(href), visible, onClick: () => markDestinations() });
       destinationIds.add(tool.id);
       if (!el) continue;
       el.dataset.destination = href;
-      el.title = tool.label; // the tooltip where the entry is its icon only (641-820px, style.css)
+      el.title = tool.label;
       if (current) el.setAttribute('aria-current', 'page');
       destinationEls.add(el);
     }
   }
+  destinationList = destinationTools(list).map((d) => ({ id: d.bar.id.slice('dest-'.length), name: d.bar.label, icon: d.bar.icon, href: d.bar.href }));
   markDestinations();
+  document.dispatchEvent(new CustomEvent('app:destinations', { detail: { destinations: destinationList } }));
 }
 // The bar's destinations again, once they may have changed (Show in the top bar, on a module's configuration page).
 export function refreshDestinations() {
@@ -400,12 +413,17 @@ function markDestinations() {
   const over = Boolean(presentSpaceNow()) && !overCall();
   for (const el of destinationEls) el.toggleAttribute('data-overlay-link', over);
 }
+// The environment's Calendar or Map from the profile menu: over the space while present in one (as Manage opens),
+// else the page itself (pageOpens: 'page' for a destination present nowhere).
+function openDestination(href) {
+  openPage(keepingQuery(href), 'destination');
+}
 
 // The profile menu's entries for whoever is looking (primary-nav.js's profileEntries, a pure function of the role, the
 // install and the browser's offer).
 function profileFor() {
   if (!account) return account === null ? [] : ['profile', ...(bar.withThemeSwitch ? ['theme'] : []), 'sign-out'];
-  return profileEntries({ role: account.role, hostAdmin: account.hostAdmin, hosted: account.hosted, installOffered: Boolean(installPromptEvent) && !installBarred, themeSwitch: bar.withThemeSwitch });
+  return profileEntries({ role: account.role, hostAdmin: account.hostAdmin, hosted: account.hosted, installOffered: Boolean(installPromptEvent) && !installBarred, themeSwitch: bar.withThemeSwitch, destinations: destinationList.map((d) => d.id) });
 }
 
 // A page to open: the space page takes it (app:open-page) and opens it over the call, so the call keeps running;
@@ -450,7 +468,7 @@ async function presenceNow() {
   }
 }
 const hereHint = (e) => [e.here ? 'You are here' : '', e.count ? `${e.count} here` : ''].filter(Boolean).join(' · ');
-async function openSwitcher(trigger) {
+export async function openSwitcher(trigger) {
   const data = await presenceNow();
   const entries = switcherEntries({ spaces: data?.spaces, users: data?.users, present: presentSpaceNow() });
   const leave = entries.find((e) => e.leave);
@@ -553,13 +571,15 @@ function signOut() {
 }
 
 // The profile menu under your picture, on a wider screen, by role (decisions 4 and 17; profileEntries() in
-// primary-nav.js): View profile, Dark mode, Manage for owners and the admin, Host console for the host admin's
-// stand-in on a hosted server, Install as an app only while the browser offers it (never a guest), Sign out last.
+// primary-nav.js): View profile, Dark mode, the environment's Calendar and Map (plan-one-bar.md, decision 6), Manage
+// for owners and the admin, Host console for the host admin's stand-in on a hosted server, Install as an app only
+// while the browser offers it (never a guest), Sign out last.
 function accountMenuItems() {
   const has = new Set(profileFor());
   return [
     { icon: 'user', label: 'View profile', onPick: viewProfile },
     ...(has.has('theme') ? [{ icon: 'moon', label: 'Dark mode', checked: modeNow() === 'dark', onPick: toggleThemeMode }] : []),
+    ...destinationList.filter((d) => has.has(`dest-${d.id}`)).map((d) => ({ icon: d.icon, label: d.name, onPick: () => openDestination(d.href) })),
     ...(has.has('manage') ? [{ icon: 'gear', label: 'Manage', onPick: () => openManage() }] : []),
     ...(has.has('host-console') ? [{ icon: 'server', label: 'Host console', onPick: openHostConsole }] : []),
     ...(installPromptEvent && !installBarred ? [{ icon: 'download', label: 'Install as an app', onPick: installFromPrompt }] : []),

@@ -29,7 +29,7 @@ const { facesThatFit, peopleIn, hereWords, MAX_FACES } = await import(pathToFile
 // The primary nav's pure parts (plan-primary-nav.md, step 2): the profile menu by role, the switcher, the bell, the breadcrumb.
 const primaryCopy = path.join(tmp, 'primary-nav.mjs');
 fs.copyFileSync(path.join(ROOT, 'public/primary-nav.js'), primaryCopy);
-const { SLOTS, pageAnchor, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
+const { SLOTS, pageAnchor, profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, crumbSegments, anchorSegments, pageOpens, isHere, steppedOut, hereCount, asidePlaceholder, whereWords, offStream, destinationTools, spaceViews, tileRefTarget, tileHeading, hashPanel } = await import(pathToFileURL(primaryCopy).href);
 // The server's presence by membership (plan-primary-nav.md, step 3), so the pages' reading is held against the real answer.
 const { presenceView } = createRequire(import.meta.url)('../server/presence-view.js');
 fs.rmSync(tmp, { recursive: true, force: true });
@@ -202,7 +202,7 @@ test('on a phone the primary bar folds: the left stays, the bell stays (phone: \
   assert.match(navSrc, /place: el\.querySelector\(':scope > \.nav-middle'\)/, 'the top bar\'s #core-nav is where the phone\'s bell is drawn');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.match(brand, /id: 'notifications-bell'[^\n]*phone: 'bar'/, 'the bell says phone: \'bar\'');
-  for (const id of ['spaces-slot']) assert.match(brand, new RegExp(`id: '${id}'[^\\n]*visible: \\(\\) => wide\\(\\) && signedIn\\(\\)`), `${id} leaves the bar on a phone`);
+  for (const id of ['spaces-slot']) assert.match(brand, new RegExp(`id: '${id}'[^\\n]*visible: \\(\\) => wide\\(\\) && signedIn\\(\\) && !inSpace`), `${id} leaves the bar on a phone, and in a space (the switcher takes its place)`);
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.ok(!/keepOnPhone/.test(src), 'keepOnPhone is gone: nothing stays in the bar on a phone');
 });
@@ -387,8 +387,8 @@ test('the phone\'s tab bar is drawn: fitSecondary() folds on a phone too, the st
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
   assert.match(placeSub, /nav\.draw\('secondary'\);/);
-  const schedule = src.slice(src.indexOf('function scheduleFold()'), src.indexOf('function watchFold('));
-  assert.match(schedule, /if \(fold\.frame && fold\.frameView !== view\) \{/);
+  const schedule = src.slice(src.indexOf('function scheduleFit(bar)'), src.indexOf('function watchFit('));
+  assert.match(schedule, /if \(f\.frame && f\.frameView !== view\) \{/);
 });
 
 test('who is here drops portraits, then shows only its count, before the bar folds anything', () => {
@@ -421,12 +421,21 @@ test('Online gets the width the rest of the left zone and the right zone leave, 
   assert.equal(facesThatFit({ avail: fitWidth({ width: 641, gap: 12, left: 140, right: 420 }), count: 9, ...sizes }), 0, 'the count alone');
   // The fold gives it that width, measured from the rest of the left zone (the tool itself left out, a gap before it).
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  // The fitting of a bar's left zone is one function for both bars (fitLeft, plan-one-bar.md step 7: fitBar(bar)).
+  const left = src.slice(src.indexOf('function fitLeft('), src.indexOf('function fitBar('));
+  assert.match(left, /t\.bar === bar && t\.zone === 'left' && typeof t\.fit === 'function'/, 'a left-zone tool that can shrink, of the bar being fitted');
+  assert.match(left, /const rest = naturalWidth\(b\.zones\.left, els\.get\(t\.id\), \{ margins: false \}\);/);
+  assert.match(left, /fitWidth\(\{ width, gap, left: rest\.w \+ \(rest\.n \? rest\.gap : 0\), right \}\)/);
   const fit = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
-  assert.match(fit, /t\.zone === 'left' && typeof t\.fit === 'function'/, 'a left-zone tool that can shrink');
-  assert.match(fit, /const rest = naturalWidth\(b\.zones\.left, els\.get\(t\.id\), \{ margins: false \}\);/);
-  assert.match(fit, /fitWidth\(\{ width, gap, left: rest\.w \+ \(rest\.n \? rest\.gap : 0\), right: r\.w \}\)/);
-  assert.ok(fit.indexOf('t.fit(avail)') < fit.indexOf('const leftWidth'), 'the left zone is measured after it has shrunk');
+  assert.match(fit, /fitLeft\('secondary', \{ width, gap, right: r\.w \}\);/, 'Online is given the width the right zone at its full width leaves');
+  assert.ok(fit.indexOf("fitLeft('secondary'") < fit.indexOf('const leftWidth'), 'the left zone is measured after it has shrunk');
   assert.match(fit, /foldCount\(\{ width, gap, left: leftWidth, right: r\.w, more: moreWidth, steps: stepWidths \}\)/);
+  const bar = src.slice(src.indexOf('function fitBar('), src.indexOf('function fitSecondary('));
+  assert.match(bar, /if \(bar === 'secondary'\) \{ fitSecondary\(\); return; \}/, 'the space bar folds as before');
+  assert.match(bar, /if \(view\.matchMedia\('\(max-width: 640px\)'\)\.matches\) return;/, 'the top bar\'s one row on a phone is step 8');
+  assert.match(bar, /fitLeft\(bar, \{ width, gap: px\(cs\.columnGap\), right: r\.w \}\);/, 'the top bar\'s chip is given what the rest leaves');
+  assert.match(src, /scheduleFit\(bar\);\n\}/, 'every draw fits its bar');
+  assert.match(src, /const scheduleFold = \(\) => scheduleFit\('secondary'\);/);
 });
 
 test('the Layout panel (plan-layout-menu.md): Show, rewritten on every change, then Arrange with Dock all, Clean up, the snap switch and the grid size; none of them in the space bar', () => {
@@ -638,11 +647,11 @@ test('favorite layouts, step 3 (plan-favorite-layouts.md): the space bar\'s layo
   assert.match(fit, /b\.classList\.toggle\('layout-favorite-out', i >= count\)/);
   assert.match(fit, /focused\.closest\('\.layout-favorite-out'\)\) moduleChooser\.querySelector\('#modules-toggle'\)\?\.focus\(\);/);
   // nav-bar.js: a `fitFirst` tool is fitted first, with the others at their least (fit(0)), so Online gives way after it.
-  const fitSec = src.slice(src.indexOf('function fitSecondary('), src.indexOf('function paintMoreBadge('));
+  const fitSec = src.slice(src.indexOf('function fitLeft('), src.indexOf('function fitBar('));
   assert.match(fitSec, /fitting\.sort\(\(a, c\) => Number\(Boolean\(c\.fitFirst\)\) - Number\(Boolean\(a\.fitFirst\)\)\);/);
   assert.match(fitSec, /if \(first\.length\) for \(const t of fitting\) \{ if \(!t\.fitFirst\) \{ try \{ t\.fit\(0\); \}/, 'the others at their least first');
   assert.match(fitSec, /for \(const t of fitting\) fitOne\(t\);\n\s*for \(const t of first\) fitOne\(t\);/, 'then each in turn, then the first again to what the others took');
-  assert.ok(fitSec.indexOf('t.fit(0)') < fitSec.indexOf('for (const t of fitting) fitOne(t);') && fitSec.indexOf('for (const t of first) fitOne(t);') < fitSec.indexOf('const leftWidth'));
+  assert.ok(fitSec.indexOf('t.fit(0)') < fitSec.indexOf('for (const t of fitting) fitOne(t);') && src.indexOf('function fitLeft(') < src.indexOf('const leftWidth'));
   // labelsThatFit: names shorten first, then the last buttons leave; the first ones favorited stay.
   const items = [{ chrome: 30, label: 100 }, { chrome: 30, label: 100 }, { chrome: 30, label: 20 }];
   assert.deepEqual(labelsThatFit({ avail: 1000, gap: 4, items, least: 48, most: 128 }), { count: 3, cap: 128 }, 'all fit: nothing cut');
@@ -928,12 +937,23 @@ test('the profile menu by role: owners get Manage; the single install\'s admin M
   assert.deepEqual(profileEntries({ role: 'member', themeSwitch: false }), ['profile', 'sign-out']);
   assert.deepEqual(profileEntries({ role: 'guest', installOffered: true }), [], 'a guest: no menu, no install');
   assert.deepEqual(profileEntries({}), []);
+  // plan-one-bar.md, decision 6: the environment's Calendar and Map, between Dark mode and Manage, for every account.
+  assert.deepEqual(profileEntries({ role: 'member', destinations: ['calendar', 'map'] }), [...base, 'dest-calendar', 'dest-map', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'owner', destinations: ['calendar'] }), [...base, 'dest-calendar', 'manage', 'sign-out']);
+  assert.deepEqual(profileEntries({ role: 'member', themeSwitch: false, destinations: ['map', 'x y', ''] }), ['profile', 'dest-map', 'sign-out'], 'a malformed id is left out');
+  assert.deepEqual(profileEntries({ role: 'guest', destinations: ['calendar'] }), [], 'never a guest');
   assert.equal(seesUpdates('owner') && seesUpdates('admin'), true);
   assert.equal(seesUpdates('member') || seesUpdates('guest') || seesUpdates(undefined), false);
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   const menu = brand.slice(brand.indexOf('function accountMenuItems('), brand.indexOf('\n}\n', brand.indexOf('function accountMenuItems(')));
   assert.match(menu, /new Set\(profileFor\(\)\)/, 'the menu under your picture follows profileEntries');
   assert.match(menu, /label: 'Dark mode', checked: modeNow\(\) === 'dark'/, 'Dark mode is a checkbox entry');
+  assert.match(menu, /\.\.\.destinationList\.filter\(\(d\) => has\.has\(`dest-\$\{d\.id\}`\)\)\.map\(\(d\) => \(\{ icon: d\.icon, label: d\.name, onPick: \(\) => openDestination\(d\.href\) \}\)\)/, 'Calendar and Map after Dark mode, each what the server lists');
+  assert.ok(menu.indexOf('destinationList.filter') < menu.indexOf("has.has('manage')"), 'before Manage');
+  assert.match(brand, /destinations: destinationList\.map\(\(d\) => d\.id\)/, 'profileFor passes the destinations');
+  assert.match(brand, /function openDestination\(href\) \{\n\s*openPage\(keepingQuery\(href\), 'destination'\);/, 'opened as a page: over the space while present, else the page itself');
+  assert.equal(pageOpens({ kind: 'destination', present: false }), 'page');
+  assert.equal(pageOpens({ kind: 'destination', present: true }), 'overlay');
 });
 
 test('the host console\'s address, from an environment\'s own; none on a single install', () => {
@@ -979,7 +999,7 @@ test('Leave in the switcher (plan-one-bar.md, step 5): the top bar draws it last
   assert.match(handler, /if \(action === 'leave'\) \{\n\s*if \(connected\) leaveSpace\(\);\n\s*return;\n\s*\}/, 'the space page leaves on it, as its Leave button did');
   assert.match(space, /id: 'leave-space', order: 999, phone: 'bar',[^\n]*visible: \(\) => phoneWidth\(\),/, 'the bar\'s Leave shows only where the bar is the phone\'s tab bar');
   assert.match(space, /function showSpaceView\(id\) \{[\s\S]*?document\.body\.classList\.add\(`view-\$\{id\}`\);/);
-  assert.match(space, /^showSpaceView\('workspace'\);$/m, 'the Workspace is the view until step 7');
+  assert.match(space, /^showSpaceView\('workspace'\);$/m, 'the Workspace is the view the page starts on');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /@media \(min-width: 641px\) \{\n\s*body\.in-space:not\(\.view-workspace\) \.subnav \{\n\s*display: none;/, 'wider than a phone the bar shows only for the Workspace');
 });
@@ -1408,7 +1428,7 @@ test('a panel tile\'s heading: /calendar#panel=<id> survives home and the overla
 
   // The space page's overlay puts its ?from=space… before the hash.
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  const ov = space.slice(space.indexOf('function openOverlay(path) {'), space.indexOf('\n}\n', space.indexOf('function openOverlay(path) {'))) + '\n}';
+  const ov = space.slice(space.indexOf('function overlayParams() {'), space.indexOf('\n}\n', space.indexOf('function openOverlay(path) {'))) + '\n}';
   const frame = { hidden: true, src: '' };
   new Function('$', 'document', 'spaceName', 'setAway', `${ov}\nopenOverlay('/calendar#panel=todo');`)(() => frame, { querySelector: () => null }, 'Paris', () => {});
   assert.equal(frame.src, '/calendar?from=space&spaceName=Paris#panel=todo', 'over the space: the query, then the hash');
@@ -1565,7 +1585,11 @@ test('destinations: brand.js registers them from GET /api/destinations, wider on
   const load = brand.slice(brand.indexOf('async function loadDestinations('), brand.indexOf('\n}\n', brand.indexOf('function markDestinations(')));
   assert.match(load, /fetch\('\/api\/destinations'\)/);
   assert.match(load, /destinationTools\(list/);
-  assert.match(load, /\[\[inBar, wide\], \[menu, inMenuOnly\]\]/);
+  assert.match(load, /for \(const \{ menu \} of destinationTools\(list/, 'the phone menu\'s entries only: the bar\'s are the profile menu\'s and a space\'s views (plan-one-bar.md, step 7)');
+  assert.match(load, /\[\[menu, inMenuOnly\]\]/);
+  assert.ok(!/\[\[inBar, wide\]/.test(load), 'no left-zone entry outside a space');
+  assert.match(load, /new CustomEvent\('app:destinations', \{ detail: \{ destinations: destinationList \} \}\)/, 'the space page hears the list');
+  assert.match(brand, /export const destinationsNow = \(\) => destinationList;/);
   assert.match(load, /setAttribute\('aria-current', 'page'\)/);
   assert.match(load, /toggleAttribute\('data-overlay-link', over\)/);
   assert.match(load, /const over = Boolean\(presentSpaceNow\(\)\) && !overCall\(\);/);
@@ -1593,7 +1617,9 @@ const CREATED = '2026-09-01T12:00:00.000Z';
 
 test('the phase chip: a left-zone element tool after the anchor, dialog on press, gives way label, dot, gone', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  assert.match(space, /nav\.register\(\{ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'where', order: 10\.5, [^\n]*element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip \}\)/, 'in the group `where`, between the anchor (10) and its status (11), with fit');
+  assert.match(space, /nav\.register\(\{ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', groupOrder: 20, order: 1, [^\n]*element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip \}\)/, 'its own group after the views (12), with fit (the registry\'s fitBar gives it its width)');
+  assert.ok(!/phaseChipWidth|phaseChipZoneWatch/.test(space), 'the chip no longer measures its own room: fitBar does');
+  assert.match(space, /function fitPhaseChip\(avail = Infinity\)/);
   assert.match(space, /phaseChip\.setAttribute\('aria-haspopup', 'dialog'\)/);
   assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && templatePhases\.length > 0/, 'no chip with no phases, for a guest, in an aside, or with home over the space');
   assert.match(space, /updatePhaseChip\(\); \/\/ the space's dates ride on its presence record/, 'redrawn from the presence poll');
@@ -1659,7 +1685,7 @@ fs.rmSync(tmp, { recursive: true, force: true });
 
 test('Set up: a right-zone tool before your picture for owners, the admin and moderators; Done and Cancel in its place', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  assert.match(space, /nav\.register\(\{ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 95, order: 1, [^\n]*visible: setupShown, onClick: enterSetup \}\)/, 'before the you group (999), after the bell (90)');
+  assert.match(space, /nav\.register\(\{ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 85, order: 1, [^\n]*visible: setupShown, onClick: enterSetup \}\)/, 'before the bell (90) and the you group (999): Set up, the bell, your picture (plan-one-bar.md, step 7)');
   assert.match(space, /nav\.register\(\{ id: 'setup-done', bar: 'primary', zone: 'right', group: 'setup', order: 2, [^\n]*labelled: true, visible: setupModeShown/, 'Done, a labelled button, only while setting up');
   assert.match(space, /nav\.register\(\{ id: 'setup-cancel', bar: 'primary', zone: 'right', group: 'setup', order: 3, [^\n]*labelled: true, visible: setupModeShown/, 'Cancel too');
   assert.match(space, /const canSetUp = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && Boolean\(me\) && me\.role !== 'guest' && \(hasOwnerRights\(me\) \|\| isModeratorHere\(\)\)/, 'owners, the admin and this space\'s moderators; never a guest, an aside or home over the space');
@@ -1703,6 +1729,52 @@ test('Set up: the line after Done says what was saved and what to do next', () =
   assert.equal(setupSaidWords({ saved: [], failed: 'name', problem: 'owners only' }), 'The name was not saved. Owners only. Change it and press Done again, or Cancel.');
   assert.equal(setupSaidWords({ saved: ['name'], failed: 'image', problem: 'too big.' }), 'The picture was not saved. Too big. The name was saved. Change it and press Done again, or Cancel.', 'what went through before stays said');
   assert.equal(setupSaidWords({ saved: [] }, { setUp: 'Einrichten' }), 'Nothing changed. Press Einrichten to change something.', 'the tool\'s own word');
+});
+
+// The one bar (plan-one-bar.md, decisions 1, 6, 9 and 10, step 7): in a space the top bar's left zone is the space's
+// name with the switcher's caret as one control, the views (the Workspace, then the destinations as views of this
+// space), then the chip; the right zone Set up, the bell and your picture. The environment's Calendar and Map are in
+// the profile menu. A guest's bar is the name alone; an aside's the switcher, Rejoin call and your picture.
+test('the one bar: the switcher in the Spaces slot\'s place, the views after it, a view over the Workspace with no Away', () => {
+  const list = [{ id: 'calendar', name: 'Calendar', icon: 'calendar-days', href: '/calendar' }, { id: 'map', name: 'Maps', icon: 'map', href: '/map' }];
+  const v = spaceViews(list, { space: 'keep' });
+  assert.deepEqual(v.map((x) => [x.id, x.view, x.label, x.href || null, x.current]), [['view-workspace', 'workspace', 'Workspace', null, true], ['dest-calendar', 'calendar', 'Calendar', '/calendar?space=keep', false], ['dest-map', 'map', 'Maps', '/map?space=keep', false]]);
+  assert.ok(v.every((x) => x.zone === 'left' && x.group === 'views' && x.groupOrder === 12), 'one group, after the switcher (where, 1) and before the chip (phase, 20)');
+  assert.deepEqual(v.map((x) => x.order), [1, 2, 3]);
+  assert.deepEqual(spaceViews(list, { space: 'keep', current: 'map' }).map((x) => x.current), [false, false, true]);
+  assert.deepEqual(spaceViews(list, { space: 'keep', guest: true }), [], 'a guest: no views yet (decision 10)');
+  assert.deepEqual(spaceViews(list, { space: '' }), [], 'no space, no views');
+  assert.equal(spaceViews([], { space: 'a b' })[0].id, 'view-workspace', 'the Workspace alone with no destinations');
+  assert.equal(spaceViews(list, { space: 'a b' })[1].href, '/calendar?space=a+b', 'the id goes in the query as it is');
+  assert.equal(spaceViews(list, { space: 'keep', workspaceWord: 'Table' })[0].label, 'Table');
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /nav\.register\(\{ id: 'space-switcher', bar: 'primary', zone: 'left', group: 'where', order: 9\.5, [^\n]*element: spaceSwitcher, visible: \(\) => oneBar\(\) && !phoneWidth\(\) \}\)/, 'the switcher after the Spaces slot (9), before the breadcrumb (10), wider than a phone');
+  assert.match(space, /const oneBar = \(\) => Boolean\(currentSpace\) && !viewingHome && !guestToken && me\?\.role !== 'guest';/, 'in a space, not home over it, never a guest');
+  assert.match(space, /spaceSwitcherButton\.setAttribute\('aria-haspopup', 'menu'\)/);
+  assert.match(space, /spaceSwitcherButton\.addEventListener\('click', \(\) => openSpaceSwitcher\(spaceSwitcherButton\)\)/, 'one control: the name and the caret open the switcher');
+  assert.match(space, /const text = `\$\{label\}\. Switch \$\{word\('space'\)\}`;/, 'named for a screen reader');
+  assert.match(space, /setInSpace\(oneBar\(\)\);/, 'the Spaces slot leaves the bar');
+  assert.match(space, /visible: \(\) => oneBar\(\) && !inAside\(\) && !phoneWidth\(\), onClick: \(event\) => \{ event\.preventDefault\(\); showView\(view, href\); \}/, 'a view\'s entry shows the view, never navigates');
+  assert.match(space, /document\.addEventListener\('app:destinations', \(\) => drawViews\(\)\);/);
+  const show = space.slice(space.indexOf('function showView('), space.indexOf('// The same links in the header of a view'));
+  assert.ok(!/setAway/.test(show), 'a view of the same space sets no Away');
+  assert.match(show, /viewFrame\.src = `\$\{href\}\$\{href\.includes\('\?'\) \? '&' : '\?'\}\$\{overlayParams\(\)\}`;/, 'the page in the view frame, with the handoff a page over the call gets');
+  assert.match(show, /canvas\.showFloating\(false\);/, 'no floating module over a view');
+  assert.match(space, /showView\('workspace'\); \/\/ and its Workspace, never the last space's view/, 'entering a space shows the Workspace');
+  assert.match(space, /window\.closeProfileOverlay = \(\) => \{\n\s*if \(!\$\('page-overlay-frame'\)\.hidden\) closeOverlay\(\);\n\s*else if \(!viewFrame\.hidden\) showView\('workspace'\);/, 'a view\'s Back goes to the Workspace');
+  assert.match(space, /nav\.register\(\{ id: 'aside-rejoin', bar: 'primary', zone: 'right', group: 'aside', groupOrder: 80, order: 1, [^\n]*labelled: true, visible: \(\) => oneBar\(\) && inAside\(\) && Boolean\(currentSpace\.origin\) && !phoneWidth\(\), onClick: \(\) => returnFromAside\(\) \}\)/, 'an aside\'s bar: Rejoin call before Set up (85), the bell (90) and you');
+  assert.match(space, /if \(nav\.isVisible\(nav\.get\('space-switcher'\)\)\) \{\n\s*spaceSwitcher\.replaceChildren\(setupNameInput\);/, 'Set up\'s name input takes the switcher\'s place');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  assert.match(html, /<\/aside>\n[\s\S]*?<iframe class="view-frame" id="view-frame" title="View" hidden><\/iframe>\n[\s\S]*?<main class="canvas" id="canvas" hidden>/, 'the view frame between the column and the canvas: the column stays outside it');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, /\.view-frame\[hidden\],\n\.work:has\(> \.view-frame:not\(\[hidden\]\)\) > \.canvas \{\n\s*display: none;/, 'the canvas gives its place to the view');
+  assert.match(css, /@media \(min-width: 641px\) \{\n\s*\.topbar > \.nav-left > \.space-switcher:not\(\[hidden\]\) ~ \.crumb \{\n\s*display: none;/, 'the breadcrumb is not drawn beside the switcher (it stays on a phone)');
+  assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no Workspace toolbar in an aside');
+  assert.match(css, /\.topbar\.nav-measuring > \.nav-left \{\n\s*max-width: none;\n\s*width: max-content;/, 'the top bar is measured at its full width as the space bar is');
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  assert.match(brand, /export function setInSpace\(on\) \{\n\s*inSpace = Boolean\(on\);\n\s*nav\.draw\('primary'\);/);
+  assert.match(brand, /export async function openSwitcher\(trigger\)/, 'the switcher\'s menu is the one the Spaces slot opens');
+  assert.match(brand, /\['page-overlay-frame', 'view-frame'\]\.includes\(window\.frameElement\.id\)/, 'a page in the view frame is within the space page (no other calendars shown over a call)');
 });
 
 console.log(`check-nav: OK (${n} tests)`);

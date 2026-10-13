@@ -489,6 +489,80 @@ a:hover {
   flex: none;
 }
 
+/* A view's entry the registry draws as a button (the Workspace) wears the link look, not the browser's button. */
+.topbar > .nav-left > button.core-link {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.topbar > .nav-left > button.core-link[aria-current="page"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.topbar > .nav-left > button.core-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* In a space the one bar (plan-one-bar.md, decision 1, step 7): the space's name with the switcher's caret as one
+   control, in the breadcrumb's place (the breadcrumb itself is not drawn beside it; on a phone it stays, as today),
+   then the views (Workspace, Calendar, Map: the destinations' look), then the phase chip. A long name is cut with an
+   ellipsis before the views give way. */
+.topbar > .nav-left > .space-switcher {
+  flex: 0 1 auto;
+  min-width: 6em;
+  display: inline-flex;
+  align-items: center;
+}
+
+.topbar .space-switcher-button {
+  max-width: 100%;
+  min-width: 0;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.topbar .space-switcher-button .crumb-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.topbar .space-switcher-button[aria-expanded="true"] {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
+}
+
+.topbar .space-switcher-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.topbar .space-switcher-caret {
+  font-size: 11px;
+}
+
+/* While setting up, the name is an input in the switcher's place (space.js placeSetupName). */
+.topbar > .nav-left > .space-switcher:has(> .setup-bar-name) {
+  flex: 1 1 auto;
+}
+
+@media (min-width: 641px) {
+  .topbar > .nav-left > .space-switcher:not([hidden]) ~ .crumb {
+    display: none;
+  }
+
+  /* An aside's bar is the switcher, Rejoin call and your picture (decision 10): no Workspace toolbar there. */
+  body.in-space.in-aside .subnav {
+    display: none;
+  }
+}
+
 .topbar .brand-home .brand-name {
   min-width: 0;
   overflow: hidden;
@@ -1653,6 +1727,16 @@ body.in-space .subnav {
 /* Measured at its full length, whatever room it has now (nav-bar.js). */
 .subnav.nav-measuring .nav-left {
   width: max-content;
+}
+
+/* The top bar the same way while nav-bar.js fits its chip (fitBar): nothing in its left zone shrinks for a moment. */
+.topbar.nav-measuring > .nav-left {
+  max-width: none;
+  width: max-content;
+}
+
+.topbar.nav-measuring > .nav-left > * {
+  flex: none;
 }
 
 /* A tool's word under its icon (nav-bar.js, `short`: Rejoin call's "Rejoin", the "..."'s "More"): only where the space
@@ -9123,6 +9207,25 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .work:has(> .canvas[hidden]) {
+  display: none;
+}
+
+/* A view other than the Workspace (plan-one-bar.md, step 7): its page in a frame where the canvas is, the column still
+   beside it. The canvas keeps its state under it; the frame is hidden again on the Workspace. */
+.view-frame {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: var(--bg);
+}
+
+.view-frame[hidden],
+.work:has(> .view-frame:not([hidden])) > .canvas {
+  display: none;
+}
+
+/* The space list over the space (home) hides the canvas; a view's frame goes with it. */
+.work:has(> .canvas[hidden]) > .view-frame {
   display: none;
 }
 

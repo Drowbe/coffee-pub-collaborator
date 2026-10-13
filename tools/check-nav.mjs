@@ -1634,7 +1634,7 @@ const CREATED = '2026-09-01T12:00:00.000Z';
 test('the phase chip: a left-zone element tool after the anchor, dialog on press, gives way label, dot, gone', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.match(space, /nav\.register\(\{ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', groupOrder: 20, order: 1, [^\n]*element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip \}\)/, 'its own group after the views (12), with fit (the registry\'s fitBar gives it its width)');
-  assert.ok(!/phaseChipWidth|phaseChipZoneWatch/.test(space), 'the chip no longer measures its own room: fitBar does');
+  assert.ok(!/phaseChipWidth|phaseChipZoneWatch/.test(space), 'the chip no longer measures its own width: fitBar does');
   assert.match(space, /function fitPhaseChip\(avail = Infinity\)/);
   assert.match(space, /phaseChip\.setAttribute\('aria-haspopup', 'dialog'\)/);
   assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && templatePhases\.length > 0/, 'no chip with no phases, for a guest, in an aside, or with home over the space');

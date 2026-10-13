@@ -258,7 +258,7 @@ export function destinationTools(list, { path = '', present = false } = {}) {
 // id ('workspace', or a destination's). Returns [{ id, view, icon, label, href?, current }].
 export function spaceViews(list, { space = '', current = 'workspace', guest = false, workspaceWord = 'Workspace' } = {}) {
   if (guest || !space) return [];
-  const out = [{ id: 'view-workspace', view: 'workspace', icon: 'table-columns', label: String(workspaceWord || 'Workspace').trim().slice(0, 40) || 'Workspace', current: current === 'workspace' }];
+  const out = [{ id: 'view-workspace', view: 'workspace', icon: 'columns', label: String(workspaceWord || 'Workspace').trim().slice(0, 40) || 'Workspace', current: current === 'workspace' }];
   const q = `?${new URLSearchParams({ space })}`;
   for (const { bar } of destinationTools(list)) {
     const view = bar.id.slice('dest-'.length);

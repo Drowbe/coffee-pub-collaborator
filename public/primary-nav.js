@@ -270,3 +270,49 @@ export function spaceViews(list, { space = '', current = 'workspace', guest = fa
   }
   return out.map((v, i) => ({ ...v, zone: 'left', group: 'views', groupOrder: 12, order: 1 + i }));
 }
+
+// The layout tabs in the top bar's left zone, right after the space switcher (plan-layout-views.md, decisions 1, 2, 5,
+// 13 and 17, step 2): every view is a layout. The Workspace first, always (it can be renamed, never left out); then
+// the system layouts Calendar and Map while the server lists them for this space and the person keeps their tab
+// (`tab` not false); then the person's favorite saved layouts in the order they were favorited, with no limit. `system`
+// is GET /api/spaces/:id/layouts's `system` list, `favorites` its favorite ids, `layouts` its shared and own layouts
+// (a favorite not among them is left out). A guest and an aside have none (decision: no tabs there); neither does a
+// page outside a space. `current` is the id of the layout shown. Returns [{ id: 'layout-tab-<layout id>', layout, kind,
+// icon, label, current }]; the ids are the tabs' element ids.
+const TAB_ICON = /^[a-z0-9-]{1,40}$/;
+const SYSTEM_TAB_DEFAULTS = { workspace: ['Workspace', 'columns'], calendar: ['Calendar', 'calendar-days'], map: ['Map', 'map-location-dot'] };
+export function layoutTabs({ system = [], favorites = [], layouts = [], current = 'workspace', guest = false, aside = false, space = '' } = {}) {
+  if (guest || aside || !space) return [];
+  const name = (s, fallback) => String((s && s.name) || '').trim().slice(0, 40) || fallback;
+  const icon = (s, fallback) => (s && TAB_ICON.test(s.icon || '') ? s.icon : fallback);
+  const list = Array.isArray(system) ? system.filter((s) => s && SYSTEM_TAB_DEFAULTS[s.id]) : [];
+  const ws = list.find((s) => s.id === 'workspace') || null;
+  const out = [{ layout: 'workspace', kind: 'system', icon: icon(ws, 'columns'), label: name(ws, 'Workspace') }];
+  for (const s of list) {
+    if (s.id === 'workspace' || s.tab === false || out.some((t) => t.layout === s.id)) continue;
+    const [word, glyph] = SYSTEM_TAB_DEFAULTS[s.id];
+    out.push({ layout: s.id, kind: 'system', icon: icon(s, glyph), label: name(s, word) });
+  }
+  const known = Array.isArray(layouts) ? layouts.filter((l) => l && typeof l.id === 'string') : [];
+  for (const id of Array.isArray(favorites) ? favorites : []) {
+    const l = known.find((x) => x.id === id);
+    if (!l || SYSTEM_TAB_DEFAULTS[id] || out.some((t) => t.layout === id)) continue;
+    out.push({ layout: id, kind: 'user', icon: icon(l, 'object-group'), label: name(l, 'Layout') });
+  }
+  return out.map((t) => ({ id: `layout-tab-${t.layout}`, ...t, current: t.layout === current }));
+}
+
+// Which layout tabs stay in the bar when it is tight (plan-layout-views.md, decisions 11, 14 and 17): all of them while
+// they fit side by side in `avail`; else the tabs leave from the right, one at a time, into a "..." after the last one
+// shown, as many staying as fit with the "..." (`more`, its width) beside them, down to none (the Workspace is the last
+// to go). Tabs are never shortened. `widths` are the tabs' widths in order, `gap` the space between two neighbours.
+// Gives { count, more }: how many of the first tabs show, and whether the "..." shows. Pure, for check-nav.
+export function tabOverflow({ avail, gap = 0, widths = [], more = 0 } = {}) {
+  const limit = Number.isFinite(avail) ? avail : Infinity;
+  const n = widths.length;
+  const row = (k) => widths.slice(0, k).reduce((sum, w) => sum + w, 0) + gap * Math.max(0, k - 1);
+  if (row(n) <= limit + 0.5) return { count: n, more: false };
+  let count = n - 1;
+  while (count > 0 && row(count) + gap + more > limit + 0.5) count -= 1;
+  return { count, more: true };
+}

@@ -1824,9 +1824,9 @@ body.in-space .subnav {
   }
 }
 
-/* The favorites' note hangs below the top bar's right zone: while it shows, the header rises to the menus' level so a
-   module cannot draw over it. */
-.topbar:has(> .nav-right > .layout-favorites > .layout-favorites-note:not([hidden])) {
+/* The layout tabs' note hangs below the tab pressed: while it shows, the header rises to the menus' level so a module
+   cannot draw over it. */
+.topbar:has(> .nav-left > .layout-tabs > .layout-favorites-note:not([hidden])) {
   z-index: var(--z-menu);
 }
 
@@ -2140,69 +2140,56 @@ input.switch:disabled {
   padding: 0;
 }
 
-/* The favorite layouts in the top bar's right zone, left of the Layout button and growing out to the left from it
-   (space.js, renderFavorites: the first favorite next to Layout): a small button, a heart and the name, cut at about 16
-   characters. When the bar is tight fitFavorites() shortens every name (--layout-favorite-name, down to about 6
-   characters), then takes favorites out from the farthest one in (.layout-favorite-out), before anything else in the
-   bar gives way. With none left in the bar the group also gives back the zone's gap it would leave before Layout. */
-.layout-favorites {
-  position: relative;
+/* The layout tabs (plan-layout-views.md, step 2): in the top bar's left zone right after the space switcher, each a
+   layout's icon and name in the look the Workspace view had (.core-link, the current one marked), never shortened.
+   When the bar is tight fitLayoutTabs() (space.js) takes tabs out from the right (.layout-tab-out) and shows the "..."
+   after the last one left; the "..." wears the current mark while the tab shown is in it. Not on a phone. */
+.topbar > .nav-left > .layout-tabs {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--topbar-gap);
+  gap: 2px;
 }
 
-.layout-favorites[hidden] {
+.topbar > .nav-left > .layout-tabs[hidden],
+.layout-tabs > .layout-tab-out,
+.layout-tabs > .layout-tabs-more[hidden] {
   display: none;
 }
 
-.layout-favorites.layout-favorites-none {
-  margin-right: calc(-1 * var(--topbar-gap)); /* the zone's gap it would leave before Layout */
+.layout-tabs > button.core-link {
+  flex: none;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-.layout-favorite {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px;
-  font-size: 12px;
+.layout-tabs > button.core-link[aria-current="page"],
+.layout-tabs > .layout-tabs-more.layout-tabs-more-current {
+  color: var(--header-text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-.layout-favorite i {
-  color: var(--accent);
+.layout-tabs > .layout-tabs-more[aria-expanded="true"] {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
 }
 
-.layout-favorites > .layout-favorite-out {
-  display: none;
-}
-
-.layout-favorite:focus-visible {
+.layout-tabs > button.core-link:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
-.layout-favorite-name {
-  display: inline-block;
-  max-width: var(--layout-favorite-name, 16ch);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.layout-tabs > .layout-tabs-more {
+  padding: 0 8px;
 }
 
-/* The width of one character in the names' font, measured by fitFavorites() and never seen. */
-.layout-favorite-probe {
-  position: absolute;
-  visibility: hidden;
-  max-width: none;
-}
-
-/* A load from the favorites that left something out says so here, under them, for 6 seconds (a screen reader hears it
-   from #layout-announce). The shared menu's surface, hung from the group's right edge (the group is at the bar's right). */
+/* A load from a tab that left something out says so here, under the tab, for 6 seconds (a screen reader hears it from
+   #layout-announce). The shared menu's surface, fixed under the tab (the left zone clips what hangs out of it). */
 .layout-favorites-note {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
   z-index: var(--z-menu);
   width: max-content;
   max-width: min(320px, calc(100vw - 16px));
@@ -2213,6 +2200,7 @@ input.switch:disabled {
   background: var(--bg-section);
   color: var(--text);
   font-size: 12px;
+  font-weight: 400;
   line-height: 1.4;
   white-space: normal;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
@@ -2223,9 +2211,9 @@ input.switch:disabled {
   display: none;
 }
 
-/* No favorites on a phone or a narrow pop-out (decision 10); space.js hides the group there too. */
+/* No layout tabs on a phone or a narrow pop-out (space.js hides the group there too). */
 @media (max-width: 640px) {
-  .subnav #layout-favorites {
+  .topbar > .nav-left > .layout-tabs {
     display: none;
   }
 }

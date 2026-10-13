@@ -152,8 +152,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // `holdStore`: the grid-size slider's preview changes the layout on every step but writes it once, when let go.
   let holdStore = false;
+  // Only the Workspace remembers (plan-layout-views.md, decision 15): while another layout tab is shown (holdMemory),
+  // nothing is written to the browser, and `held` keeps the Workspace's arrangement as it was, for resumeMemory to put
+  // back. { space, saved }: the space it belongs to and a copy of what was remembered.
+  let held = null;
   function persist() {
-    if (!spaceId || holdStore) return; // an aside remembers nothing
+    if (!spaceId || holdStore || held) return; // an aside remembers nothing; another tab than the Workspace neither
     try {
       localStorage.setItem(storeKey(spaceId), JSON.stringify(saved));
     } catch {
@@ -1620,6 +1624,27 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     note(lines.filter(Boolean).join(' '));
     return { left: plan.left, waiting };
   }
+  // The layout tabs (plan-layout-views.md, step 2): a press on a tab other than the Workspace holds the Workspace's
+  // memory (a copy of what is remembered, and nothing written while held), so the layout it loads, and any change made
+  // on it, never becomes the Workspace's. Back on the Workspace (resumeMemory) the modules that tab opened close and the
+  // Workspace's own open again as remembered, exactly as entering the space opens them (restore). A space left or
+  // entered drops the hold (refresh): the copy is that space's, and what is stored was never overwritten.
+  function holdMemory() {
+    if (held || !spaceId) return;
+    held = { space: spaceId, saved: structuredClone(saved) };
+  }
+  function resumeMemory() {
+    if (!held) return false;
+    const back = held.space === spaceId ? held.saved : null;
+    held = null;
+    if (!back) return false;
+    const keepCall = (p) => p.id === 'conference' && p.kind === 'builtin' && Boolean(p.def?.inCall?.());
+    suspended = true;
+    for (const p of [...opened.values()]) if (p.kind !== 'builtin' && !keepCall(p)) closeModule(p.id);
+    saved = back;
+    restore();
+    return true;
+  }
   // A module's name for the load's note, open or not, installed here or not (one left out has only its id).
   const nameOfLayout = (id) => builtins.get(id)?.name || available.find((x) => x.id === id)?.name || id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' ');
 
@@ -1791,6 +1816,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // The modules on for this space and this viewer, or none (null = not in a space).
   async function refresh(id) {
     suspended = true;
+    held = null; // a hold is the space left's; its stored arrangement was never overwritten
     closeAllModules();
     note('');
     spaceId = id;
@@ -1921,6 +1947,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     // Saved layouts (plan-saved-layouts.md): the canvas as a layout to save, and a saved layout put on the canvas.
     captureLayout,
     loadLayout,
+    // The layout tabs: only the Workspace remembers. Hold its memory while another tab shows; put it back on the Workspace.
+    holdMemory,
+    resumeMemory,
+    holdingMemory: () => Boolean(held),
     // Whether the canvas is narrow (640 px and below): the Layout panel's Layouts section is not drawn then.
     isNarrow,
     // `mode` (a module's own window asking to come back as a column or floating) is remembered. A module id that reads

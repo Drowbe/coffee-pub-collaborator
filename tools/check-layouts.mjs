@@ -468,15 +468,17 @@ const refused = (input, pattern, label, options) => {
   const setFn = space.slice(space.indexOf('async function setFavorite('), space.indexOf('async function setDefaultLayout('));
   assert.match(setFn, /layoutRequest\(on \? 'PUT' : 'DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(id\)\}\/layouts\/\$\{encodeURIComponent\(layout\.id\)\}\/favorite`\)/, 'no body, no guest query');
   // It keeps what the answer says ({ favorites }) and GET's `favorites`, which the server answers for everyone.
-  assert.match(setFn, /const \{ favorites \} = await layoutRequest\(/);
+  assert.match(setFn, /const \{ favorites, layout: answered \} = await layoutRequest\(/);
+  assert.match(setFn, /if \(system\) system\.tab = answered && typeof answered\.tab === 'boolean' \? answered\.tab : on;/, 'Calendar and Map: the answer says whether their tab shows (plan-layout-views.md, step 2)');
   assert.match(setFn, /layoutList\.favorites = Array\.isArray\(favorites\) \? favorites : \[\];/);
   assert.match(server, /res\.json\(\{ mine, shared, system: systemLayoutsFor\(found\), defaultLayout: [^}]*favorites, canShare: found\.canShare, canSetDefault: found\.canSetDefault \}\);/);
   assert.match(space, /favorites: Array\.isArray\(got\.favorites\) \? got\.favorites : \[\]/);
-  // A guest never asks: no ... entry, no bar (the server's 403 is the backstop).
+  // A guest never asks: no ... entry, no favorite tabs (the server's 403 is the backstop).
   assert.match(space, /const mayFavorite = \(\) => !guestToken && Boolean\(me\?\.key\) && me\.role !== 'guest';/);
-  assert.match(space, /const favoritesWanted = \(\) => mayFavorite\(\) &&/);
-  // The bar's buttons load the page's own copy, as a row in the panel does.
-  assert.match(space, /const layout = findLayout\(button\.dataset\.layoutFavorite\);/);
+  assert.match(space, /favorites: mayFavorite\(\) && layoutList\.spaceId === layoutSpaceId\(\) \? layoutList\.favorites : \[\],/);
+  // The layout tabs (plan-layout-views.md, step 2) load the page's own copy, as a row in the menu does.
+  assert.match(space, /const layout = findLayout\(id\);\n\s*if \(!layout\) return;/);
+  assert.match(space, /system: Array\.isArray\(got\.system\) \? got\.system : \[\],/, 'GET\'s `system` list read for the tabs');
   n += 1;
 }
 

@@ -42,9 +42,10 @@ export function hostConsoleUrl({ protocol = 'https:', hostname = '', port = '' }
 
 // The space switcher (decision 15): the spaces the viewer belongs to, in the space list's order, never an aside. Each
 // says whether you are present there and how many are. `present` is the space you are present in (an aside's parent
-// when you are in an aside), or null.
+// when you are in an aside), or null. Present somewhere in the list, the last entry is Leave for that space
+// (plan-one-bar.md, step 5: `{ id, leave: true }`; the top bar's menu draws it last, and the space page leaves on a pick).
 export function switcherEntries({ spaces = [], users = [], present = null } = {}) {
-  return spaces
+  const out = spaces
     .filter((s) => s && s.mine && !s.isAside)
     .map((s) => ({
       id: s.id,
@@ -52,6 +53,8 @@ export function switcherEntries({ spaces = [], users = [], present = null } = {}
       here: s.id === present,
       count: users.filter((u) => isHere(u, s.id)).length,
     }));
+  if (present && out.some((e) => e.here)) out.push({ id: present, leave: true });
+  return out;
 }
 
 // Where a person is, as GET /api/presence tells this viewer (decision 6, step 3). `space` is a place the viewer

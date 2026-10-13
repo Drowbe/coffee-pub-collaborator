@@ -1507,6 +1507,15 @@ body.in-space .subnav {
   align-items: center;
 }
 
+/* The bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5): space.js names the view being shown as
+   body.view-<id>, and wider than a phone the bar shows only for the Workspace. Below 640px it is the phone's tab bar
+   and stays in every view (decision 3). Only view-workspace exists until the other views come. */
+@media (min-width: 641px) {
+  body.in-space:not(.view-workspace) .subnav {
+    display: none;
+  }
+}
+
 .subnav .nav-left {
   display: flex;
   align-items: center;

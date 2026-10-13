@@ -954,11 +954,34 @@ test('the space switcher: your spaces in the list\'s order, never an aside, a ma
   assert.deepEqual(switcherEntries({ spaces, users, present: 'disney' }), [
     { id: 'lobby', name: 'Lobby', here: false, count: 1 },
     { id: 'disney', name: 'Disneyland', here: true, count: 2 },
-  ]);
+    { id: 'disney', leave: true },
+  ], 'present in Disneyland: Leave for it last (plan-one-bar.md, step 5)');
+  assert.deepEqual(switcherEntries({ spaces, users, present: null }).map((e) => e.id), ['lobby', 'disney'], 'present nowhere: no Leave');
+  assert.deepEqual(switcherEntries({ spaces, users, present: 'paris' }).map((e) => e.id), ['lobby', 'disney'], 'present in a space not in the list: no Leave');
   assert.deepEqual(switcherEntries({}), []);
   assert.equal(switchPick(null, 'disney'), 'enter', 'present nowhere: enter');
   assert.equal(switchPick('disney', 'disney'), 'back', 'present there: back to it');
   assert.equal(switchPick('lobby', 'disney'), 'enter', 'present elsewhere: enter, until the visit view');
+});
+
+test('Leave in the switcher (plan-one-bar.md, step 5): the top bar draws it last, the phone menu leaves it out, the space page leaves on it; the bar\'s Leave only where it is the tab bar; the Workspace toolbar\'s view class', () => {
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const switcher = brand.slice(brand.indexOf('async function openSwitcher('), brand.indexOf('let menuSpaceIds'));
+  assert.match(switcher, /const leave = entries\.find\(\(e\) => e\.leave\);/);
+  assert.match(switcher, /entries\.filter\(\(e\) => !e\.leave\)\.map\(/, 'the Leave entry is not drawn as a space');
+  const lines = switcher.split('\n').filter((l) => l.includes('items.push'));
+  assert.match(lines[lines.length - 1], /if \(leave\) items\.push\([^\n]*icon: 'right-from-bracket', label: `Leave \$\{word\('space'\)\}`, onPick: \(\) => pickSpace\(leave\.id, 'leave'\)/, 'Leave <space> is the last entry, after New <space>');
+  assert.match(brand, /async function refreshMenuSpaces\(\) \{[\s\S]*?switcherEntries\([^\n]*\)\.filter\(\(e\) => !e\.leave\);/, 'the phone menu lists no Leave (decision 3: the tab bar keeps it)');
+  assert.match(brand, /function pickSpace\(id, action = switchPick\(presentSpaceNow\(\), id\)\)/);
+  assert.match(brand, /if \(!unhandled \|\| action === 'leave'\) return;/, 'with no space page to take it, Leave goes nowhere');
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const handler = space.slice(space.indexOf("document.addEventListener('app:enter-space'"), space.indexOf('window.appApplyCallPrefs'));
+  assert.match(handler, /if \(action === 'leave'\) \{\n\s*if \(connected\) leaveSpace\(\);\n\s*return;\n\s*\}/, 'the space page leaves on it, as its Leave button did');
+  assert.match(space, /id: 'leave-space', order: 999, phone: 'bar',[^\n]*visible: \(\) => phoneWidth\(\),/, 'the bar\'s Leave shows only where the bar is the phone\'s tab bar');
+  assert.match(space, /function showSpaceView\(id\) \{[\s\S]*?document\.body\.classList\.add\(`view-\$\{id\}`\);/);
+  assert.match(space, /^showSpaceView\('workspace'\);$/m, 'the Workspace is the view until step 7');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  assert.match(css, /@media \(min-width: 641px\) \{\n\s*body\.in-space:not\(\.view-workspace\) \.subnav \{\n\s*display: none;/, 'wider than a phone the bar shows only for the Workspace');
 });
 
 // One presence answer, as GET /api/presence gives it to `viewer` (decision 6, step 3). Bo, Cy and Di are in the
@@ -998,7 +1021,7 @@ test('presence by membership: those stepped out into an aside are not here, in t
   const hallPeople = ['al', 'bo', 'cy', 'di'].map(p.user);
   assert.equal(hereCount(hallPeople, 'hall'), '2 here · 1 in the call', 'Al and Di here, Al on the call; Bo and Cy left out');
   assert.equal(hereCount([p.user('bo')], 'hall'), 'Nobody here');
-  assert.deepEqual(switcherEntries({ spaces: p.spaces, users: p.users, present: 'hall' }).map((e) => [e.id, e.count]), [['hall', 2]], 'the switcher: only the Hall, 2 here');
+  assert.deepEqual(switcherEntries({ spaces: p.spaces, users: p.users, present: 'hall' }).filter((e) => !e.leave).map((e) => [e.id, e.count]), [['hall', 2]], 'the switcher: only the Hall, 2 here');
   // An aside's own people (an owner sees the aside itself) are in it, not stepped out of it.
   const o = presenceAnswer({ key: 'zz', owner: true });
   assert.equal(o.user('bo').space, 'aside-1');

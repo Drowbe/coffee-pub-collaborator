@@ -46,6 +46,15 @@ subnav.innerHTML = `
   <span class="nav-right subnav-tools"></span>`;
 topbarEl.appendChild(subnav);
 nav.attach('secondary', subnav); // its tools are registered further down, once the state their `visible` reads exists
+// The space bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5): `body.view-<id>` names the view
+// being shown, and wider than a phone the stylesheet shows the bar only for the Workspace (on a phone it is the tab
+// bar, kept in every view: decision 3). Only the Workspace exists until step 7 brings the other views, so it is
+// always `view-workspace` for now. (setView() further down is the conference's own layout, another thing.)
+function showSpaceView(id) {
+  for (const c of [...document.body.classList]) if (c.startsWith('view-')) document.body.classList.remove(c);
+  document.body.classList.add(`view-${id}`);
+}
+showSpaceView('workspace');
 // The module chooser, first in the space bar: one button, Layout (the environment's `layout` verb), that opens a panel
 // (plan-layout-menu.md) in two sections. Show: a switch per module (the conference, the chat and the space's modules),
 // each showing or hiding its module on the canvas (canvas.js writes it, with switch-list.js). Arrange: Dock all, Clean up,
@@ -1073,7 +1082,9 @@ function registerWordTools() {
   arrangeSection.querySelector('#clean-up').title = `Tidy the floating ${word('module', { many: true })}`;
   arrangeSection.querySelector('#snap-all').closest('label').title = `Snap every floating ${word('module')} to a grid`;
   nav.register({ ...SPACE_TOOL, id: 'recall-button', order: 51, icon: 'people-arrows', label: 'Pull participants back', title: `Give everyone in a Private Conversation from this ${word('space')} a 10 second warning, then pull them back`, labelled: true, visible: () => recallWanted(), onClick: recallParticipants });
-  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, onClick: () => leaveSpace() });
+  // Leave is in the space bar only where the bar is the phone's tab bar (plan-one-bar.md, step 5 and decision 3); wider,
+  // it is the last entry of the top bar's space switcher (brand.js, through app:enter-space { action: 'leave' } below).
+  nav.register({ bar: 'secondary', zone: 'right', group: 'leave', groupOrder: 999, id: 'leave-space', order: 999, phone: 'bar', icon: 'right-from-bracket', label: `Leave ${word('space')}`, visible: () => phoneWidth(), onClick: () => leaveSpace() });
 }
 registerWordTools();
 nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short: 'Rejoin', icon: 'circle-left', label: 'Rejoin call', visible: () => Boolean(currentSpace && currentSpace.isAside && currentSpace.origin), onClick: () => returnFromAside() });
@@ -5196,6 +5207,12 @@ document.addEventListener('app:enter-space', (event) => {
   event.preventDefault();
   if (!$('page-overlay-frame').hidden) closeOverlay();
   const connected = call.state === 'connected' && currentSpace;
+  // The switcher's last entry, Leave (plan-one-bar.md, step 5): what the space bar's Leave button does (on a phone it
+  // is still there, in the tab bar). Present nowhere, there is nothing to leave.
+  if (action === 'leave') {
+    if (connected) leaveSpace();
+    return;
+  }
   // In an aside, the parent is marked "You are here": picking it does what Rejoin call does (and the breadcrumb's parent
   // segment), bringing everyone back, never leaving the others behind in the aside.
   if (connected && currentSpace.isAside && currentSpace.origin === id) returnFromAside();

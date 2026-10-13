@@ -439,7 +439,8 @@ function openHostConsole() {
 }
 
 // The space switcher (decision 15): the spaces you belong to, a mark and "You are here" on the one you are present in,
-// "N here" when anyone is, then "+ New <space>" for owners and the admin.
+// "N here" when anyone is, then "+ New <space>" for owners and the admin, and last, while present in one, Leave <space>
+// (plan-one-bar.md, step 5: the entry switcherEntries() marks `leave`; the space page does what its Leave button did).
 async function presenceNow() {
   try {
     const res = await fetch('/api/presence');
@@ -452,17 +453,20 @@ const hereHint = (e) => [e.here ? 'You are here' : '', e.count ? `${e.count} her
 async function openSwitcher(trigger) {
   const data = await presenceNow();
   const entries = switcherEntries({ spaces: data?.spaces, users: data?.users, present: presentSpaceNow() });
-  const items = entries.map((e) => ({ icon: e.here ? 'location-dot' : 'door-open', label: e.name, hint: hereHint(e), onPick: () => pickSpace(e.id) }));
+  const leave = entries.find((e) => e.leave);
+  const items = entries.filter((e) => !e.leave).map((e) => ({ icon: e.here ? 'location-dot' : 'door-open', label: e.name, hint: hereHint(e), onPick: () => pickSpace(e.id) }));
   if (!data) items.push({ label: "Couldn't load the list. Try again.", disabled: true });
   if (seesUpdates(account?.role)) items.push(...(items.length ? [{ divider: true }] : []), { icon: 'plus', label: `New ${word('space')}`, onPick: newSpace });
+  if (leave) items.push(...(items.length ? [{ divider: true }] : []), { icon: 'right-from-bracket', label: `Leave ${word('space')}`, onPick: () => pickSpace(leave.id, 'leave') });
   openHostMenu(trigger, items);
 }
-// The switcher's entries in the phone menu, asked again each time the menu opens.
+// The switcher's entries in the phone menu, asked again each time the menu opens. Not Leave: on a phone the space
+// bar is the tab bar and keeps its Leave (plan-one-bar.md, decision 3).
 let menuSpaceIds = new Set();
 async function refreshMenuSpaces() {
   const data = await presenceNow();
   if (!data) return;
-  const entries = switcherEntries({ spaces: data.spaces, users: data.users, present: presentSpaceNow() });
+  const entries = switcherEntries({ spaces: data.spaces, users: data.users, present: presentSpaceNow() }).filter((e) => !e.leave);
   const keep = new Set(entries.map((e) => `menu-space-${e.id}`));
   for (const id of menuSpaceIds) if (!keep.has(id)) nav.unregister(id);
   menuSpaceIds = keep;
@@ -472,9 +476,9 @@ async function refreshMenuSpaces() {
   });
 }
 // A pick: the space page enters it or goes back to it (app:enter-space, the space page underneath when this page is
-// over a call); any other page goes to the space page, which enters it.
-function pickSpace(id) {
-  const action = switchPick(presentSpaceNow(), id);
+// over a call); any other page goes to the space page, which enters it. `action: 'leave'` (the switcher's last entry)
+// is the space page's alone: it leaves, as its Leave button did; with no space page to take it, nothing happens.
+function pickSpace(id, action = switchPick(presentSpaceNow(), id)) {
   let doc = document;
   if (overCall()) {
     try {
@@ -485,7 +489,7 @@ function pickSpace(id) {
   }
   const view = doc.defaultView || window;
   const unhandled = doc.dispatchEvent(new view.CustomEvent('app:enter-space', { detail: { id, action }, cancelable: true }));
-  if (!unhandled) return;
+  if (!unhandled || action === 'leave') return;
   let win = window;
   try {
     if (window.top.location.origin === window.location.origin) win = window.top;

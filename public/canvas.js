@@ -27,7 +27,11 @@ import { composeList, aliasesFor, compositeById, compositesToAsk } from '/compos
 // spaces, and is the starting point for a space with nothing saved yet.
 const STORE_KEY = 'app.canvas';
 const storeKey = (spaceId) => `${STORE_KEY}.${spaceId}`;
-const HEAD_H = 42; // the shared module header height (--module-header-h in style.css)
+// The shared module header height (--module-header-h in style.css: 34px, 42px on a phone), read where it is used.
+const headH = () => {
+  const h = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--module-header-h'));
+  return Number.isFinite(h) && h > 0 ? h : 34;
+};
 // A fixed column's least width (DOCK_MIN), the flexible column's (FLEX_MIN) and the narrow line (NARROW) are snap-grid.js's,
 // beside fitDock(), the rule for how many columns a window holds (plan-docked-limit.md).
 
@@ -795,12 +799,17 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
 
   // --- installed modules -------------------------------------------------------
 
-  // The titlebar: icon, name, the module's own tools, the snap switch while floating, "...", Close. A composite's "..."
+  // The titlebar: icon, name, the module's own tools, the "+" (host.add.set; hidden until the module gives it actions),
+  // the snap switch while floating, "...", Close. A composite's "..."
   // has only the ways to show it (Clear everything is each part's, in the page it holds), so on a phone, where those
   // are not offered, it is not shown (.mod-more-ways).
   const moduleHeader = (m, mode, snap = false) => `
     <span class="mod-title"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"${tintAttr(m.id)}></i> <span data-title>${escapeHtml(m.name)}</span></span>
-    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span>${snapHtml({ mode, snap })}${compositeOf(m) ? MORE_HTML.replace('class="sdk-more"', 'class="sdk-more mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
+    <span class="mod-header-tools"><span class="titlebar-custom" data-header-custom></span><span class="titlebar-add" data-header-add hidden></span>${snapHtml({ mode, snap })}${compositeOf(m) ? MORE_HTML.replace('class="sdk-more"', 'class="sdk-more mod-more-ways"') : MORE_HTML}${CLOSE_HTML}</span>`;
+
+  // The status bar at the bottom of the module's own window or column (host.status.set; module-host.js fills it), a
+  // labelled region hidden until the module sets something.
+  const statusHtml = (m) => `<div class="mod-status" data-status role="region" aria-label="${escapeHtml(`${m.name} status`)}" hidden></div>`;
 
   // The page a composite holds: the destination as a view of this space (`/calendar?space=<id>`, `/map?space=<id>`, the
   // same page the one bar's Calendar or Map view shows; it draws no top bar of its own in a frame), with a guest's token.
@@ -866,6 +875,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       bar,
       header: mod.el.querySelector('[data-header-custom]'),
       toolbar: mod.el.querySelector('[data-toolbar]'),
+      add: mod.el.querySelector('[data-header-add]'),
+      status: mod.el.querySelector('[data-status]'),
       onOpenRef: openRef,
       // A request for an action waits for the page of the module that carries it: open that module if it is on here.
       onOpenModule: (id) => { const target = available.find((x) => x.id === readId(id)); if (target && !opened.has(target.id)) openModule(target); },
@@ -881,7 +892,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         if (mod.mode !== 'float') return;
         const b = currentBox(mod.el);
         if (Number.isFinite(width)) b.w = width;
-        if (Number.isFinite(height)) b.h = height + HEAD_H;
+        if (Number.isFinite(height)) b.h = height + headH();
         if (snapping(m.id)) { const g = snapGrid(); settleSnap(m.id, mod.el, snapCell(g, b)); remember(m.id, { layout: 'user' }); return; }
         remember(m.id, { box: place(mod.el, b), layout: 'user' });
       },
@@ -895,7 +906,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     });
   }
 
-  // `reuse` (from moveModule) carries a frame/container, bar, toolbar and header-buttons span already
+  // `reuse` (from moveModule) carries a frame/container, bar, toolbar, header-buttons span, "+" slot and status bar already
   // mounted in the other mode's chrome: they are moved into the new chrome instead of built fresh, so the
   // module inside keeps running and keeps whatever it was holding (a conversation, a draft, ...) rather
   // than being torn down and started over. Only the class that lays each one out changes.
@@ -908,6 +919,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       <header class="mod-header module-floating-head"${tintAttr(m.id)}>${moduleHeader(m, 'float', snapping(m.id))}</header>
       <div class="mod-toolbar" data-toolbar hidden></div>
       ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'module-floating-frame')}
+      ${statusHtml(m)}
       <div class="module-floating-bar" hidden></div>
       <span class="module-floating-grip" title="Drag to resize"></span>`;
     layerFor(doc).appendChild(floater);
@@ -915,7 +927,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const win = canvasWin();
     place(floater, saved[m.id]?.box || {
       w: m.canvas.width,
-      h: m.canvas.height + HEAD_H,
+      h: m.canvas.height + headH(),
       x: win.innerWidth - m.canvas.width - 24 - index * 28,
       y: 70 + index * 28,
     });
@@ -929,6 +941,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       floater.querySelector('.module-floating-bar').replaceWith(reuse.bar);
       floater.querySelector('[data-header-custom]').replaceWith(reuse.headerCustom);
       floater.querySelector('[data-toolbar]').replaceWith(reuse.toolbar);
+      if (reuse.add) floater.querySelector('[data-header-add]').replaceWith(reuse.add);
+      if (reuse.status) floater.querySelector('[data-status]').replaceWith(reuse.status);
       mod.mount = reuse.mount;
     } else {
       mod.mount = mountFor(mod, floater.querySelector('iframe, .module-root'), floater.querySelector('.module-floating-bar'));
@@ -949,6 +963,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
         <header class="mod-header"${tintAttr(m.id)}>${moduleHeader(m, 'dock')}</header>
         <div class="mod-toolbar" data-toolbar hidden></div>
         ${reuse ? '<div class="reuse-slot frame-slot"></div>' : holder(m, 'dock-frame')}
+        ${statusHtml(m)}
       </div>
       <div class="mod-bar dock-bar" hidden></div>`;
     canvas.appendChild(section);
@@ -964,6 +979,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       section.querySelector('.dock-bar').replaceWith(reuse.bar);
       section.querySelector('[data-header-custom]').replaceWith(reuse.headerCustom);
       section.querySelector('[data-toolbar]').replaceWith(reuse.toolbar);
+      if (reuse.add) section.querySelector('[data-header-add]').replaceWith(reuse.add);
+      if (reuse.status) section.querySelector('[data-status]').replaceWith(reuse.status);
       mod.mount = reuse.mount;
       // The bar's own onBar callback only fires on the next change; a bar or toolbar already showing needs this now.
       section.classList.toggle('has-bar', !reuse.bar.hidden);
@@ -980,7 +997,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   }
 
   // Switch an installed module between docked and floating without the module inside noticing: pull its frame
-  // (or in-page container), its action bar, toolbar and header buttons out of the old chrome and into the
+  // (or in-page container), its action bar, toolbar, header buttons, "+" and status bar out of the old chrome and into the
   // new one, then drop the emptied-out old chrome. Leaving for a window is a real new page, so that keeps
   // going through closeModule + popOut instead (see setMode).
   function moveModule(id, mode) {
@@ -991,6 +1008,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       bar: mod.el.querySelector('.dock-bar, .module-floating-bar'),
       headerCustom: mod.el.querySelector('[data-header-custom]'),
       toolbar: mod.el.querySelector('[data-toolbar]'),
+      add: mod.el.querySelector('[data-header-add]'),
+      status: mod.el.querySelector('[data-status]'),
       mount: mod.mount,
     };
     const titleText = mod.el.querySelector('[data-title]')?.textContent || '';
@@ -1318,7 +1337,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const q = new URLSearchParams({ space: spaceId, popout: '1' });
     if (guestToken) q.set('guest', guestToken);
     const width = Math.max(320, Math.min(m.canvas.width, screen.availWidth));
-    const height = Math.max(240, Math.min(m.canvas.height + HEAD_H, screen.availHeight));
+    const height = Math.max(240, Math.min(m.canvas.height + headH(), screen.availHeight));
     // A composite's own window is the destination's page for this space, whole (its own bar, no titlebar of the canvas's).
     const url = compositeOf(m) ? compositeSrc(compositeOf(m)) : `/modules/${encodeURIComponent(m.id)}?${q}`;
     const win = window.open(url, `app-module-${m.id}`, `popup,width=${width},height=${height}`);

@@ -1387,6 +1387,15 @@
   }
   // --- end menu-flyout ---
 
+  // A menu row's accessible name when it is not its label: `ariaLabel`, else a `tip` that holds the label (its full
+  // wording, "Add a flight" for "Flight"), so what is heard still has the word on screen. Null: the row's own words.
+  function menuItemName(item) {
+    const label = String(item.label || '').trim();
+    if (item.ariaLabel) return String(item.ariaLabel);
+    const tip = String(item.tip || '').trim();
+    return tip && label && tip !== label && tip.toLowerCase().includes(label.toLowerCase()) ? tip : null;
+  }
+
   function showMenu({ id, items, at, anchor, className, maxWidth } = {}) {
     const reopening = openMenu && openMenu.id === id;
     closeMenu();
@@ -1513,6 +1522,11 @@
       label.className = 'sdk-menu-label';
       label.textContent = item.label;
       b.appendChild(label);
+      // `tip`: the tooltip; and the accessible name when it is the label's full wording ("Flight" heard as "Add a
+      // flight"), or `ariaLabel` when given. The same rule as the page's menu (host-menu.js).
+      if (item.tip) b.title = item.tip;
+      const spoken = menuItemName(item);
+      if (spoken) b.setAttribute('aria-label', spoken);
       if (category) {
         const caret = document.createElement('span');
         caret.className = 'sdk-menu-caret';
@@ -2826,6 +2840,30 @@
       set: (items) => call('bar.set', { items }),
     },
 
+    // The "+" in the module's titlebar, after its own icons and before "...": the module's add actions.
+    // set(entries), where an entry is a leaf { id, label, icon?, tint?, hint?, disabled? }, a category
+    // { label, icon?, items: [leaf, ...] } (one level) or { divider: true }. Labels up to 40 characters; at most 8
+    // top-level entries, 12 per category and 40 leaves (the host drops the rest); a category with one leaf is that leaf.
+    // Exactly one leaf: the "+" runs it at once, its label the tooltip ("Add event"). More: the "+" ("Add") opens the
+    // host's menu, a category's leaves in a flyout beside it (a drill-in on a phone). A pick arrives as the 'add' event
+    // { id }. An empty list takes the "+" away: send one for a person who may not add. Resolves true when the host drew
+    // it, false where there is no titlebar (a destination's part, the module's own page): keep your own add there.
+    // Detect it with `if (host.add)`.
+    add: {
+      set: (entries) => call('add.set', { entries }),
+    },
+
+    // The status bar: one slim read-only line at the bottom of the module's window, for counts and what is selected.
+    // set(items), up to 4 of { text, icon?, chip?, title?, quiet?, end? }: `text` up to 60 characters; `chip` draws it
+    // as a small pill (a filter); `title` its tooltip (else its text); `quiet` keeps it out of what a screen reader
+    // hears (a ticking time); `end` puts it at the right end (one). Nothing in it is a button. The host reads the
+    // non-quiet text out politely once it has been still a moment, and draws nothing for the same items again, so call
+    // it on every render. set([]) hides it. Resolves true when drawn, false where there is none (a destination's part,
+    // the module's own page). Detect it with `if (host.status)`.
+    status: {
+      set: (items) => call('status.set', { items }),
+    },
+
     // Icon buttons in the module's titlebar, ahead of the host's own buttons and set off by a pipe:
     // set([{ id, icon, title, on, regular, disabled, overflow }]), where `icon` is a Font Awesome name (solid, or
     // regular with `regular: true`) and `on` marks the current choice. A click arrives as the 'header'
@@ -2884,7 +2922,9 @@
     // nothing more to say afterward (see host.actions.pick for that).
     //
     // show({ id, items, at, anchor, className, maxWidth }): items are [{ id?, label, icon?, iconColor?,
-    // regular?, hint?, disabled?, danger?, separator?, href?, target?, onClick? }] (separator: true
+    // regular?, hint?, tip?, ariaLabel?, disabled?, danger?, separator?, href?, target?, onClick? }] (`tip` is the
+    // row's tooltip and, when it holds the label ("Add a flight" for "Flight"), what a screen reader hears; `ariaLabel`
+    // names the row for a screen reader outright; separator: true
     // ignores every other field and draws a divider; iconColor is a CSS color for that item's own icon,
     // for a fixed set of kinds people tell apart by color elsewhere in the module -- most menus don't need
     // it). An item that just goes somewhere gives `href` instead of `onClick` -- a real link (target
@@ -2916,7 +2956,7 @@
     resize: (size) => call('resize', size),
     setTitle: (title) => call('setTitle', { title }),
 
-    // Events: 'bar' ({ id }) when an action bar button is clicked, 'header' ({ id }) for a titlebar icon,
+    // Events: 'bar' ({ id }) when an action bar button is clicked, 'add' ({ id }) for one of the "+"'s actions, 'header' ({ id }) for a titlebar icon,
     // 'toolbar' ({ id, value?, x? }) for a toolbar item (x: a button's left edge across the module, for a menu under it), 'nav' ({ id }) for one of the module's nav-bar tools,
     // 'change' ({ key, value, version, deleted, scope, spaceId, by })
     // whenever stored data changes, 'markers' when another module's marker objects changed (host.objects.markers), 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme),

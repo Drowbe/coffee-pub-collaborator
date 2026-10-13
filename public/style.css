@@ -41,8 +41,13 @@
   --shade: color-mix(in srgb, var(--bg) 85%, var(--border) 15%);
   /* Layout: the one height every module header strip has, so headers in
      neighbouring columns line up. Nothing else sets a module header height
-     (tools/check-canvas.mjs enforces it). */
-  --module-header-h: 42px;
+     (tools/check-canvas.mjs enforces it). 34px wider than a phone: the 28px titlebar buttons with 3px above and below
+     (Thomas, 2026-10-13: the tinted titlebars read as too tall at 42px); 42px on a phone, as before, for the touch
+     height (--module-header-phone-h, set at 640px and below further down). canvas.js reads it (headH). */
+  --module-header-h: var(--module-header-phone-h, 34px);
+  /* The status bar at the bottom of a module's own window or column (host.status.set): one slim, fixed line.
+     public/sdk/host.css has the same token. */
+  --status-bar-h: 24px;
   /* The height of every control in the shared bottom row (the call toolbar's buttons, the chat's input and
      Send, each module's quick-add), so they line up whatever cell they are in. */
   --bar-control-h: 38px;
@@ -56,6 +61,9 @@
   --action-icon-ratio: calc(20 / 38);
   /* The one height a module's optional toolbar row (under the titlebar) has, wherever it appears. */
   --toolbar-h: 34px;
+  /* The one small gap between the top bar's right-end controls (the favorites, Layout, the bell, your picture, Set up,
+     Full screen, Pop out) and around a divider there; a layout token, no theme sets it. */
+  --topbar-gap: 4px;
   /* Stacking: a menu or list opened from the page's own chrome draws above every module (the floating layer is 25)
      and under a page opened over the call (the overlay is 30). The header holds the space bar and is its own layer
      (20), so it rises to this while one of its lists is open. */
@@ -91,6 +99,13 @@
   font-size: 14px;
   color: var(--text);
   background: var(--bg);
+}
+
+/* A module's titlebar on a phone keeps its 42px touch height (--module-header-h above). */
+@media (max-width: 640px) {
+  :root {
+    --module-header-phone-h: 42px;
+  }
 }
 
 /* The tints in the light mode: darker, so an icon and a message's edge read on a light page. On whichever mode shows:
@@ -1792,10 +1807,14 @@ body.in-space .subnav {
   text-align: center;
 }
 
-/* The Workspace's tools in the top bar (a module's tools and the "..." before Set up; Layout and the favorites with Set
-   up; Full screen and Pop out right of your picture): the top bar's own items never shrink; a divider between the runs.
-   Wider than a phone only: on a phone the right zone is the menu. */
+/* The Workspace's tools in the top bar (a module's tools and the "..." first; the favorites and Layout with the bell;
+   Set up, Full screen and Pop out right of your picture): the top bar's own items never shrink, one small gap
+   (--topbar-gap) between them, a divider between the groups. Wider than a phone only: on a phone the right zone is the menu. */
 @media (min-width: 641px) {
+  .topbar > .nav-right {
+    gap: var(--topbar-gap);
+  }
+
   .topbar > .nav-right > * {
     flex: none;
   }
@@ -2121,15 +2140,16 @@ input.switch:disabled {
   padding: 0;
 }
 
-/* The favorite layouts in the top bar's right zone, right of the Layout button (space.js, renderFavorites): a small
-   button, a heart and the name, cut at about 16 characters. When the bar is tight fitFavorites() shortens every name
-   (--layout-favorite-name, down to about 6 characters), then takes favorites out from the last one back
-   (.layout-favorite-out). With none left in the bar the group also gives back the zone's gap it would leave before it. */
+/* The favorite layouts in the top bar's right zone, left of the Layout button and growing out to the left from it
+   (space.js, renderFavorites: the first favorite next to Layout): a small button, a heart and the name, cut at about 16
+   characters. When the bar is tight fitFavorites() shortens every name (--layout-favorite-name, down to about 6
+   characters), then takes favorites out from the farthest one in (.layout-favorite-out), before anything else in the
+   bar gives way. With none left in the bar the group also gives back the zone's gap it would leave before Layout. */
 .layout-favorites {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: var(--topbar-gap);
 }
 
 .layout-favorites[hidden] {
@@ -2137,7 +2157,7 @@ input.switch:disabled {
 }
 
 .layout-favorites.layout-favorites-none {
-  margin-left: -10px;
+  margin-right: calc(-1 * var(--topbar-gap)); /* the zone's gap it would leave before Layout */
 }
 
 .layout-favorite {
@@ -6613,7 +6633,8 @@ body.conference-window {
 }
 
 .host-menu-more:hover,
-.host-menu-more:focus-visible {
+.host-menu-more:focus-visible,
+.host-menu-more.open {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
   color: var(--text);
   outline: none;
@@ -7122,6 +7143,104 @@ body.chat-window {
   margin: 0 6px;
   background: var(--border);
 }
+
+/* mod-chrome:start -- a module window's "+" (host.add.set) and its status bar (host.status.set); module-host.js draws
+   them, canvas.js gives their places (plan-module-titlebar-add.md). The "+" has the "..."'s look in the module's tint;
+   it runs the one add action, or opens the shared menu of them. The status bar is one read-only line, --status-bar-h
+   tall, in --text-dim at 12 px over the window's own background; the last item before the end one is cut first. */
+.titlebar-add {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+}
+
+.titlebar-add[hidden] {
+  display: none;
+}
+
+.mod-header[data-tint] .mod-add {
+  color: var(--tint);
+}
+
+.mod-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.mod-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.canvas.narrow .module-docked .titlebar-add {
+  align-self: stretch;
+  align-items: stretch;
+}
+
+.canvas.narrow .module-docked .mod-add {
+  width: 44px;
+  height: auto;
+}
+
+.mod-status {
+  display: flex;
+  align-items: center;
+  flex: none;
+  box-sizing: border-box;
+  height: var(--status-bar-h);
+  min-width: 0;
+  padding: 0 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.mod-status[hidden] {
+  display: none;
+}
+
+.mod-status-items {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mod-status-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex: none; /* module-host.js cuts the last before the end item first (a max-width), then the one before it */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.mod-status-item.end {
+  margin-left: auto;
+}
+
+.mod-status-item.chip {
+  padding: 2px 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.mod-status-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mod-status-sep {
+  flex: none;
+}
+/* mod-chrome:end */
 
 /* A module that runs in the page: an element of its own, holding a shadow root the module fills. */
 .module-root {

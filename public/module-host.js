@@ -6,7 +6,8 @@
 
 import { api, accessKeyHeaders, word, words, withinSpacePage } from '/brand.js';
 import { nav as navBar } from '/nav-bar.js';
-import { openHostMenu, closeHostMenu } from '/host-menu.js';
+import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
+import { cleanAddEntries, addPlan, addMenuItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer } from '/module-chrome.js';
 
 // The design tokens a module's frame receives (see design-theme.md).
 const THEME_TOKENS = [
@@ -784,7 +785,7 @@ function watchLifts(doc) {
 // `scope` is 'environment' (the module's own page) or 'space' (on a space's canvas, with `spaceId`). `destination`
 // is { hub, part } for a destination's part: `hub` from createDestination(), `part` 'main' or 'panel'. Returns
 // { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, lift = true, onLift = null }) {
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, lift = true, onLift = null }) {
   const base = `/api/modules/${encodeURIComponent(module.id)}`;
   let contextInfo = null;
   // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
@@ -924,6 +925,115 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     } finally {
       fittingBar = false;
     }
+  }
+
+  // The "+" in the titlebar (host.add.set): one button in `add` (the titlebar's slot, moved with the window between
+  // docked and floating, never rebuilt), which runs the module's one add action at once or opens the shared menu of
+  // them, categories as flyouts. A pick is the 'add' event { id }. See public/module-chrome.js for the rules.
+  let addEntries = [];
+  let addButton = null;
+  function drawAdd() {
+    if (!add) return;
+    const plan = addPlan(addEntries);
+    if (plan.kind === 'none') {
+      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
+      add.hidden = true;
+      return;
+    }
+    const doc = add.ownerDocument;
+    if (!addButton) {
+      addButton = doc.createElement('button');
+      addButton.type = 'button';
+      addButton.className = 'sdk-more mod-add';
+      const i = doc.createElement('i');
+      i.className = 'fa-solid fa-plus fa-fw';
+      i.setAttribute('aria-hidden', 'true');
+      addButton.appendChild(i);
+      addButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const now = addPlan(addEntries);
+        if (now.kind === 'direct') { if (!now.leaf.disabled) send('add', { id: now.leaf.id }); return; }
+        if (now.kind === 'menu') openHostMenu(addButton, () => addMenuItems(addEntries, (id) => send('add', { id })));
+      });
+      add.appendChild(addButton);
+    }
+    const label = plan.kind === 'direct' ? plan.leaf.label : plan.label;
+    addButton.title = label;
+    addButton.setAttribute('aria-label', label);
+    if (plan.kind === 'menu') {
+      addButton.setAttribute('aria-haspopup', 'menu');
+      if (!addButton.hasAttribute('aria-expanded')) addButton.setAttribute('aria-expanded', 'false');
+      addButton.disabled = false;
+    } else {
+      addButton.removeAttribute('aria-haspopup');
+      addButton.removeAttribute('aria-expanded');
+      addButton.disabled = plan.leaf.disabled;
+    }
+    add.hidden = false;
+  }
+
+  // The status bar (host.status.set): a slim read-only line at the bottom of the module's own window or column, hidden
+  // while the module sets nothing. Its items and a visually hidden polite live node are drawn into `status` (a labelled
+  // region the chrome gives, moved with the window like the "+"); the same items again draw nothing, and the live
+  // node hears the non-quiet text only after it has been still for a moment (createAnnouncer).
+  let statusLast = null;
+  let statusList = null;
+  let statusLive = null;
+  let announcer = null;
+  let statusObserver = null;
+  // One line: when the items are wider than the bar, the last before the end item is cut first (statusFit).
+  function fitStatus() {
+    if (!statusList || status.hidden) return;
+    const els = [...statusList.querySelectorAll('.mod-status-item')];
+    for (const el of els) el.style.maxWidth = '';
+    const over = statusList.scrollWidth - statusList.clientWidth;
+    if (over <= 0) return;
+    const fit = statusFit(els.map((el) => ({ w: el.getBoundingClientRect().width, end: el.classList.contains('end') })), over);
+    els.forEach((el, at) => { if (fit[at] !== null) el.style.maxWidth = `${fit[at]}px`; });
+  }
+  function drawStatus(clean) {
+    const doc = status.ownerDocument;
+    const win = doc.defaultView || window;
+    if (!statusList) {
+      statusList = doc.createElement('span');
+      statusList.className = 'mod-status-items';
+      statusLive = doc.createElement('span');
+      statusLive.className = 'visually-hidden';
+      statusLive.setAttribute('aria-live', 'polite');
+      status.append(statusList, statusLive);
+      announcer = createAnnouncer({ write: (t) => { statusLive.textContent = t; }, setTimer: (fn, ms) => win.setTimeout(fn, ms), clearTimer: (t) => win.clearTimeout(t) });
+      statusObserver = new win.ResizeObserver(() => fitStatus());
+      statusObserver.observe(status);
+    }
+    statusList.textContent = '';
+    clean.forEach((item, at) => {
+      if (at > 0 && !item.end) {
+        const dot = doc.createElement('span');
+        dot.className = 'mod-status-sep';
+        dot.setAttribute('aria-hidden', 'true');
+        dot.textContent = '·';
+        statusList.appendChild(dot);
+      }
+      const el = doc.createElement('span');
+      el.className = `mod-status-item${item.chip ? ' chip' : ''}${item.end ? ' end' : ''}`;
+      el.title = item.title;
+      if (item.quiet) el.setAttribute('aria-hidden', 'true');
+      if (item.icon) {
+        const i = doc.createElement('i');
+        i.className = `fa-solid fa-${item.icon} fa-fw`;
+        i.setAttribute('aria-hidden', 'true');
+        el.appendChild(i);
+      }
+      const t = doc.createElement('span');
+      t.className = 'mod-status-text';
+      t.textContent = item.text;
+      el.appendChild(t);
+      statusList.appendChild(el);
+    });
+    status.title = statusTitle(clean);
+    status.hidden = clean.length === 0;
+    fitStatus();
+    announcer.update(statusSpoken(clean));
   }
 
   // Events for the module before its page has said hello wait until it has.
@@ -1268,6 +1378,25 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (onBar) onBar(barItems.length > 0);
       return true;
     },
+    // The "+" in the titlebar (host.add.set). False where there is no titlebar to put it in (a destination's part, a
+    // module's own page): the module keeps its own add buttons in the page there. An empty list takes the "+" away (a
+    // module sends one for a person who may not add: what "may add" means is the module's own permission).
+    async 'add.set'({ entries }) {
+      if (!add) return false;
+      addEntries = cleanAddEntries(entries);
+      drawAdd();
+      return true;
+    },
+    // The status bar (host.status.set). False where there is none (a destination's part, a module's own page).
+    async 'status.set'({ items }) {
+      if (!status) return false;
+      const clean = cleanStatusItems(items);
+      const key = statusKey(clean);
+      if (key === statusLast) return true;
+      statusLast = key;
+      drawStatus(clean);
+      return true;
+    },
     // Icon buttons in the module's titlebar, before the host's own buttons and set off by a pipe. Only a
     // host with a titlebar (a module on the canvas, or in its own window) has room for them: the answer says which,
     // so a module can keep its own controls in the page when it is not.
@@ -1605,9 +1734,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   // straight to its SDK.
   let sdkEmit = null;
   function send(event, data) {
-    // The host control the module is answering (a bar button, a toolbar item, a header icon, a nav tool): where focus
-    // goes back to when the editor window this opens is put back (liftFrame).
-    if (!pageMode && (event === 'bar' || event === 'toolbar' || event === 'header' || event === 'nav')) opener = { el: frame.ownerDocument.activeElement, at: Date.now() };
+    // The host control the module is answering (a bar button, a toolbar item, a header icon, a nav tool, the "+"): where
+    // focus goes back to when the editor window this opens is put back (liftFrame).
+    if (!pageMode && (event === 'bar' || event === 'toolbar' || event === 'header' || event === 'nav' || event === 'add')) opener = { el: frame.ownerDocument.activeElement, at: Date.now() };
     if (pageMode) {
       if (sdkEmit) sdkEmit(event, data);
       return;
@@ -1668,8 +1797,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
 
   // The lift (editor.lift; plan-editor-window.md, "A module in a sandboxed frame"). The host owns it: a frame is lifted
   // only while the person is in it (it is the document's active element) and it is on screen, never within a second of
-  // the host having dismissed its last lift, and the host always has a way out (its own Close on the backdrop, Escape,
-  // a click on the backdrop) that puts the page back and tells the module to close its editor (`editordismiss`).
+  // the host having dismissed its last lift, and the host always has a way out (its own Close on the backdrop, Escape)
+  // that tells the module to close its editor (`editordismiss`; it asks first when something is half-edited) and puts
+  // the page back. A click on the backdrop does nothing (Thomas, 2026-10-13: a click outside an edit window never closes it).
   // Lifted: the frame gets the class module-editor-lifted (position: fixed, centered, the editor's width, --lift-h tall;
   // module-editor-lifted-large for a large editor; a full-screen sheet on a phone), div.module-editor-backdrop goes
   // before it and button.module-editor-close after it, and everything else on the page is made inert the way a modal
@@ -1681,7 +1811,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   // button) when one did, else it is left where it is.
   let lifted = null; // the lift record from liftRecords while lifted
   let dismissedAt = 0; // when the host last dismissed this frame's lift
-  let opener = null; // { el, at }: the host control whose event the module heard last (the bar, toolbar, header, nav)
+  let opener = null; // { el, at }: the host control whose event the module heard last (the bar, toolbar, header, nav, add)
   const liftPhone = () => (frame.ownerDocument.defaultView || window).innerWidth <= 640;
   const liftVisible = () => frame.isConnected && frame.getClientRects().length > 0 && (typeof frame.checkVisibility !== 'function' || frame.checkVisibility({ visibilityProperty: true }));
   function releaseLift() {
@@ -1704,7 +1834,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     if (onLift) onLift(false);
   }
   // The host's way out: the page back, the module told to close its editor, focus in the frame so Escape keeps working there.
-  // `byPerson`: the host's Close, Escape or a click on the backdrop; a lift refused for the next second. Not when the
+  // `byPerson`: the host's Close or Escape; a lift refused for the next second. Not when the
   // frame left the screen (a phone showing another view), which a real open may follow at once.
   function dismissLift(byPerson = true) {
     if (!lifted) return;
@@ -1722,7 +1852,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (Date.now() - dismissedAt < 1000) return false; // the host just put it back
       const backdrop = doc.createElement('div');
       backdrop.className = 'module-editor-backdrop';
-      backdrop.addEventListener('click', (e) => { if (e.target === backdrop) dismissLift(); });
+      // No click handler: a click outside the editor window leaves it open (only its Cancel, its X, the host's Close
+      // and Escape close it, and they ask when something is half-edited).
       const close = doc.createElement('button');
       close.type = 'button';
       close.className = 'module-editor-close';
@@ -1834,6 +1965,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       for (const id of navIds) navBar.unregister(id); // its nav tools go with it
       navIds.clear();
       if (barObserver) { barObserver.disconnect(); barObserver = null; }
+      if (announcer) announcer.stop();
+      if (statusObserver) { statusObserver.disconnect(); statusObserver = null; }
+      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
       leaveStream();
       leaveDestination();
       if (pageMode) container.shadowRoot?.replaceChildren();

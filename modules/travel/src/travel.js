@@ -601,7 +601,8 @@
     const items = [];
     const withTile = (tile) => openEditor('item', null, { ...place, tile }, button);
     const entry = (tile, label, icon) => ({ id: tile, label, icon, onClick: () => withTile(tile) });
-    const kindEntry = (t) => entry(t, `Add ${/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'} ${KICKERS[t].toLowerCase()}`, BADGES[t]); // "an attraction"
+    // A row in a category is short (the category says the rest): "Flight"; its `tip` keeps the full wording, "Add a flight".
+    const kindEntry = (t) => ({ ...entry(t, KICKERS[t], BADGES[t]), tip: `Add ${/^[aeiou]/i.test(KICKERS[t]) ? 'an' : 'a'} ${KICKERS[t].toLowerCase()}` }); // "an attraction"
     const category = (id, label, icon, entries) => { if (entries.length) items.push({ id, label, icon, items: entries }); };
     const EAT = ['restaurant', 'cafe', 'bar'];
     category('travel', 'Travel', 'plane', JOURNEY_TILES.map(kindEntry));
@@ -612,11 +613,12 @@
     items.push({ separator: true });
     // On a day, a marker with no time marks the whole day (a tag in its header), added at once; the timed ones below open the editor.
     if (!onLine) {
-      category('mark', 'Mark the day', 'calendar-day', blockTypes().map((t) => ({ id: `mark:${t.id}`, label: `Mark the day: ${t.label.toLowerCase()}`, icon: t.icon, iconColor: t.color || undefined, onClick: () => attempt(() => plan.addItem({ kind: 'block', type: t.id, title: t.label, date: place.date, time: null, minutes: null })) })));
+      category('mark', 'Mark the day', 'calendar-day', blockTypes().map((t) => ({ id: `mark:${t.id}`, label: t.label, tip: `Mark the day: ${t.label.toLowerCase()}`, icon: t.icon, iconColor: t.color || undefined, onClick: () => attempt(() => plan.addItem({ kind: 'block', type: t.id, title: t.label, date: place.date, time: null, minutes: null })) })));
     }
     category(onLine ? 'lane' : 'block', onLine ? 'Add between days' : 'Add at a time', onLine ? 'arrows-left-right' : 'clock', blockTypes().map((t) => ({
       id: `${onLine ? 'lane' : 'block'}:${t.id}`,
-      label: onLine ? `Add ${t.label.toLowerCase()}` : `Add ${t.label.toLowerCase()} at a time`,
+      label: t.label,
+      tip: onLine ? `Add ${t.label.toLowerCase()} between days` : `Add ${t.label.toLowerCase()} at a time`,
       icon: t.icon,
       iconColor: t.color || undefined,
       onClick: () => (onLine ? attempt(() => plan.addItem({ kind: 'lane', type: t.id, title: t.label, after: place.after })) : withTile(`block:${t.id}`)),

@@ -98,6 +98,7 @@ test('the phase sheet: one PATCH from Save, edits held until then, no Close-and-
   assert.ok(!/dlg\.addEventListener\('click'/.test(code), 'no click handler on the dialog (the backdrop)');
   assert.match(code, /dlg\.addEventListener\('cancel', \(event\) => \{ event\.preventDefault\(\); bar\.requestCancel\(\); \}\);/, 'the browser\'s own close request asks too');
   assert.match(code, /phase-sheet-close'\)\.addEventListener\('click', \(\) => bar\.requestCancel\(\)\)/, 'the X asks too');
+  assert.match(code, /update\(\);\s*\n\s*close\(\);[^\n]*\n\s*return true;/, 'a kept save closes the sheet');
   const close = between(code, "dlg.addEventListener('close'");
   assert.ok(!/save\(/.test(close.slice(0, 200)), 'closing saves nothing');
 });
@@ -134,11 +135,22 @@ test('the sweep: every script in public/ that opens a modal dialog or closes one
   for (const f of files('public').filter((x) => x.endsWith('.js') && !EXCEPTIONS.has(x))) {
     const text = read(f);
     const opens = /\.showModal\(\)/.test(text);
-    const backdrop = /event\.target === (dlg|dialog)\b/.test(text);
+    const backdrop = /\b(e|event|ev)\.target === (dlg|dialog|backdrop)\b/.test(text) || /backdrop\.addEventListener\('(click|pointerdown|mousedown)'/.test(text);
     if ((opens || backdrop) && !/from '(\.|\/)\/?action-bar\.js'/.test(text)) offenders.push(`${f}: opens a dialog without the shared action bar (public/action-bar.js)`);
     if (backdrop) offenders.push(`${f}: closes a dialog on a click outside it`);
   }
   assert.deepEqual(offenders, [], offenders.join('\n'));
+});
+
+test('the lifted editor window (a module in a frame): a click on the host\'s backdrop does nothing; Escape and Close ask', () => {
+  const host = read('public/module-host.js');
+  const lift = between(host, '  function liftFrame(open, size, height) {', '  // No same-origin');
+  assert.match(lift, /backdrop\.className = 'module-editor-backdrop';/);
+  assert.ok(!/backdrop\.addEventListener\(/.test(lift), 'no handler on the backdrop: a click outside leaves the window open');
+  assert.match(lift, /close\.addEventListener\('click', \(\) => dismissLift\(\)\);/, 'the host\'s Close still closes it');
+  assert.match(host, /if \(e\.key !== 'Escape'\) return;[\s\S]{0,300}top\.dismiss\(\);/, 'Escape still closes it');
+  assert.match(host, /send\('editordismiss', \{\}\);/, 'through the module\'s editor, which asks when something is half-edited');
+  assert.match(read('public/sdk/host.js'), /host\.on\('editordismiss', \(\) => \{ const top = \[\.\.\.openEditors\.entries\(\)\]\.filter\(\(\[d\]\) => d\.open\)\.pop\(\); if \(top\) top\[1\]\.dismiss\(\); \}\);/);
 });
 
 test('the model stays: the editor window asks "Discard your changes?" and sticks its button row to the bottom', () => {

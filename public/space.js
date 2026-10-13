@@ -1732,12 +1732,16 @@ document.addEventListener('keydown', (event) => {
   event.preventDefault();
   spaceSetup.cancel();
 });
-nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'setup', groupOrder: 85, order: 1, icon: 'sliders', label: 'Set up', visible: setupShown, onClick: enterSetup });
-// Layout (the environment's `layout` verb): an icon button right after Set up, the same look and size (Thomas,
-// 2026-10-13: no label, no caret), that opens the Layout menu (canvas.toggleMenu; the page's shared menu). A Workspace
-// tool drawn among the bar's own (`place: 'own'`, Set up's group); never folds; not while setting up, and not on a
-// phone, where the tab bar is the list. The favorite layouts follow it (further down, order 5).
-nav.register({ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, order: 4, fold: false, icon: 'object-group', label: verb('layout'), visible: () => !phoneWidth() && !settingUp, onClick: (event) => canvas.toggleMenu(event.currentTarget), workspace: 'only', place: 'own', id: 'modules-toggle' });
+// Set up, wider than a phone, sits after your picture and before the window controls (`place: 'end'`, in their group
+// 'space', so no divider between them; Thomas, 2026-10-13: "Settings should go right before the window controls"). On a
+// phone `place` is not read and it keeps its place in the menu (groupOrder 85, before the bell's 90 and you 999).
+nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'space', groupOrder: 85, order: 1, place: 'end', icon: 'sliders', label: 'Set up', visible: setupShown, onClick: enterSetup });
+// Layout (the environment's `layout` verb): an icon button right next to the bell, the same look and size as Set up
+// (Thomas, 2026-10-13: no label, no caret; "the layout button should be next to the notification bell"), that opens the
+// Layout menu (canvas.toggleMenu; the page's shared menu). A Workspace tool drawn among the bar's own (`place: 'own'`,
+// in the bell's group, so no divider between them); never folds; not while setting up, and not on a phone, where the
+// tab bar is the list. The favorite layouts sit left of it (further down, order 88) and grow out to the left.
+nav.register({ bar: 'secondary', zone: 'right', group: 'notices', groupOrder: 90, order: 89, fold: false, icon: 'object-group', label: verb('layout'), visible: () => !phoneWidth() && !settingUp, onClick: (event) => canvas.toggleMenu(event.currentTarget), workspace: 'only', place: 'own', id: 'modules-toggle' });
 nav.elementOf('modules-toggle')?.setAttribute('aria-haspopup', 'menu');
 nav.elementOf('modules-toggle')?.setAttribute('aria-expanded', 'false');
 // --- end Set up ---
@@ -2053,14 +2057,14 @@ function startRename(layoutId) {
 }
 
 // --- the favorite layouts in the space bar (plan-favorite-layouts.md, step 3) ----------------------------------------
-// Right after the Layout button, in the top bar's right zone: a button per favorite in the order they were favorited, a heart
+// Right before the Layout button, in the top bar's right zone: a button per favorite in the order they were favorited, a heart
 // and the name (cut past about 16 characters), and a press loads it as an entry in the menu does (canvas.loadLayout). No
 // "current" state; at most FAVORITE_LIMIT (3). Drawn from layoutList (renderLayouts calls renderFavorites): on entering a space, as the
 // menu opens and after each change there; never pushed live, so a stale button still loads the copy the page has.
 // Hidden for a guest, in an aside, with no favorites, on a narrow canvas, at 640 px and below (decision 10) and while
-// setting up. When the bar is tight (fitFavorites, a right-zone `fit`, nav-bar.js's fitRight: the chip's words give way
-// first): every name shortens down to about 6 characters, then favorites leave from the last one back; those are still
-// in the Layout menu by their hearts.
+// setting up. When the bar is tight (fitFavorites, a right-zone `fit`, nav-bar.js's fitRight: the favorites give way
+// first, before the chip's words): every name shortens down to about 6 characters, then favorites leave from the one
+// farthest from Layout in; those are still in the Layout menu by their hearts.
 // A load that leaves something out says so under the group for 6 seconds (#layout-favorites-note, seen) and to
 // #layout-announce (heard, layoutNote).
 const layoutFavorites = document.createElement('div');
@@ -2104,7 +2108,9 @@ function renderFavorites() {
       b.innerHTML = `<i class="fa-solid fa-heart fa-fw" aria-hidden="true"></i><span class="layout-favorite-name">${escapeHtml(l.name)}</span>`;
       return b;
     });
-    layoutFavorites.replaceChildren(...buttons, favoritesNote);
+    // Anchored at Layout and growing out to the left: the first favorite is the one next to Layout, so the buttons are
+    // in the page (and the keyboard's order) last to first, left to right.
+    layoutFavorites.replaceChildren(...buttons.reverse(), favoritesNote);
     if (hadId) (layoutFavorites.querySelector(`[data-layout-favorite="${CSS.escape(hadId)}"]`) || nav.elementOf('modules-toggle'))?.focus();
   }
   nav.draw(); // the favorites are in the top bar wider than a phone
@@ -2114,7 +2120,8 @@ function renderFavorites() {
 // down to the least; then only the first favorites that fit at the least (nav.labelsThatFit).
 function fitFavorites(avail) {
   const doc = layoutFavorites.ownerDocument;
-  const buttons = [...layoutFavorites.querySelectorAll(':scope > .layout-favorite')];
+  // Nearest Layout first (the page has them last to first, see renderFavorites): the farthest leaves first.
+  const buttons = [...layoutFavorites.querySelectorAll(':scope > .layout-favorite')].reverse();
   const focused = doc.activeElement && layoutFavorites.contains(doc.activeElement) ? doc.activeElement : null;
   layoutFavorites.classList.remove('layout-favorites-none');
   for (const b of buttons) b.classList.remove('layout-favorite-out');
@@ -2159,11 +2166,11 @@ layoutFavorites.addEventListener('click', (event) => {
   }
   button.focus();
 });
-// Right of the Layout button, in its group (Set up's): no divider between them. It never folds into the "..."; a
-// Workspace tool drawn among the bar's own (`place: 'own'`), so it is in the top bar with Layout wider than a phone
-// (nav-bar.js, setWorkspace), fitted before the left zone is (fitRight): the phase chip's words give way before the
-// favorites do (Thomas, 2026-10-13: the chip's label is the first thing to go).
-nav.register({ bar: 'secondary', zone: 'right', group: 'setup', groupOrder: 85, id: 'layout-favorites', order: 5, fold: false, place: 'own', icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' });
+// Left of the Layout button, in its group (the bell's): no divider between them, so the group grows out to the left from
+// Layout. It never folds into the "..."; a Workspace tool drawn among the bar's own (`place: 'own'`), so it is in the top
+// bar with Layout wider than a phone (nav-bar.js, setWorkspace), fitted before the left zone is (fitRight): the
+// favorites shorten, then leave, before anything else gives way, the phase chip's words included (Thomas, 2026-10-13).
+nav.register({ bar: 'secondary', zone: 'right', group: 'notices', groupOrder: 90, id: 'layout-favorites', order: 88, fold: false, place: 'own', icon: 'heart', label: 'Favorite layouts', element: layoutFavorites, fit: fitFavorites, visible: favoritesWanted, workspace: 'only' });
 // The canvas crossing the narrow line hides or shows the group (the bar is drawn again; its `visible` reads it).
 let favoritesNarrow = null;
 if (typeof ResizeObserver === 'function') {

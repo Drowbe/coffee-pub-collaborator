@@ -7,19 +7,22 @@
 //
 // Keyboard: the first item takes focus when it opens, the arrow keys (and Home, End) move between the items, Enter
 // or Space picks, Escape or Tab closes, and Escape (or a pick) puts focus back on the button that opened it. Right
-// moves from a row to its "..." (`more`), Left back; Enter on the "..." opens that row's own entries in the same menu,
-// with Back first.
+// moves from a row to its "..." (`more`), Left back; Right or Enter on the "..." opens that row's own entries in a
+// flyout beside it, as a category's, and Left or Escape closes just that flyout.
 //
-// An item is { label, icon?, regular?, tint?, hint?, danger?, disabled?, checked?, toggle?, radio?, keepOpen?, badge?,
-// tag?, mark?, more?, onPick }. `checked` (true or false) makes it a checkbox item that says whether it is on (a tool
+// An item is { label, icon?, regular?, tint?, hint?, tip?, ariaLabel?, danger?, disabled?, checked?, toggle?, radio?,
+// keepOpen?, badge?, tag?, mark?, more?, onPick }. `checked` (true or false) makes it a checkbox item that says whether it is on (a tool
 // that toggles, folded into the space bar's "..."); with `toggle: true` it is drawn as a switch instead (the same switch
 // as the Show list's) and the menu stays open as it flips, so several can be flipped in a row; with `radio: true` it is
 // one of a set, a check on the one chosen. `keepOpen: true` keeps the menu open after a pick and draws it again (the
 // items given as a function are asked again, so what the pick changed shows). `badge` is a count shown after its
 // label; `tag` a small word after it (Default); `mark` a small accent icon after it (a favorite's heart). `icon` is a
 // Font Awesome name, or a whole class list (a module's own icon); `tint` colours it, one of the eight tint names (a
-// module's colour, gold for the AI), as a message's icon is. `more` (a list of items, or a function giving one) puts a
-// "..." at the row's end whose entries replace the menu's, with Back first.
+// module's colour, gold for the AI), as a message's icon is. `tip` is the row's tooltip and, when it holds the label,
+// its accessible name (a short row, "Flight", is heard as "Add a flight"); `ariaLabel` names it outright. `more` (a list of items, or a function
+// giving one) puts a "..." at the row's end whose entries fly out beside it while the menu stays open, as a category's
+// do (Thomas, 2026-10-13: "a flyout, not close the current and open a new context window"): the same flyout, the same
+// keys, and on a phone or a narrow window the same drill-in with Back first.
 // `items` (or `submenu`; a list of items, or a function giving one) makes the row a category: a caret at its end, its
 // entries in a flyout beside the row (on hover after a short wait, on a click or tap, on Right or Enter; Left or Escape
 // closes just the flyout, the keyboard back on its row; it flips to the other side or shifts to stay on screen). On a
@@ -79,6 +82,15 @@ const entriesOf = (item) => {
   return Array.isArray(list) ? list.filter(Boolean) : null;
 };
 const isCategory = (item) => Boolean(item && !item.disabled && (item.items || item.submenu));
+// A row's accessible name when it is not its label: `ariaLabel`, else a `tip` that holds the label (its full wording,
+// "Add a flight" for "Flight"), so what is heard still has the word on screen. Null: the row's own words. The SDK's
+// host.menu.show has the same rule (public/sdk/host.js, menuItemName).
+export function menuItemName(item) {
+  const label = String(item.label || item.title || '').trim();
+  if (item.ariaLabel) return String(item.ariaLabel);
+  const tip = String(item.tip || '').trim();
+  return tip && label && tip !== label && tip.toLowerCase().includes(label.toLowerCase()) ? tip : null;
+}
 
 // Opens the menu under `trigger`, or closes it when it is already open from that same trigger.
 export function openHostMenu(trigger, items) {
@@ -215,6 +227,8 @@ export function openHostMenu(trigger, items) {
       b.classList.add('host-menu-category');
     }
     if (item.tip) b.title = item.tip;
+    const spoken = menuItemName(item);
+    if (spoken) b.setAttribute('aria-label', spoken);
     b.tabIndex = -1;
     b.disabled = Boolean(item.disabled);
     if (checkable && item.toggle) {
@@ -292,17 +306,26 @@ export function openHostMenu(trigger, items) {
       more.setAttribute('role', 'menuitem');
       more.setAttribute('aria-haspopup', 'menu');
       more.setAttribute('aria-label', `More for ${item.label || ''}`);
+      more.setAttribute('aria-expanded', 'false');
       more.title = 'More';
       more.tabIndex = -1;
       more.appendChild(iconEl(doc, 'ellipsis-vertical', false, null));
+      // The row's own entries are a category's (one code path): a flyout beside the "...", or drilled into on a phone.
+      const moreItem = { label: item.label || '', items: item.more };
       more.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        const entries = typeof item.more === 'function' ? item.more() : item.more;
-        if (!entries || !entries.length) return;
-        sub = { items: entries, back: rows.indexOf(b) };
-        draw({ focus: 1 });
+        if (drills()) {
+          const entries = entriesOf(moreItem);
+          if (!entries || !entries.length) return;
+          sub = { items: entries, back: rows.indexOf(b), label: item.label };
+          draw({ focus: 1 });
+          return;
+        }
+        openFly(moreItem, more, { focus: event.detail === 0 });
       });
+      more.addEventListener('pointerenter', (event) => hover(moreItem, more, event));
+      more.addEventListener('pointerleave', (event) => { if (fly && fly.row === more) fly.exit = { x: event.clientX, y: event.clientY }; });
       moreOf.set(b, more);
       row.append(b, more);
       into.appendChild(row);
@@ -340,6 +363,7 @@ export function openHostMenu(trigger, items) {
     if (list[next]) list[next].focus();
   };
   const categoryOf = (b) => {
+    if (b && menu.moreOf && [...menu.moreOf.values()].includes(b)) return b; // a row's "...": its entries fly out too
     if (!b || !rows.includes(b)) return null;
     return b.classList.contains('host-menu-category') ? b : null;
   };

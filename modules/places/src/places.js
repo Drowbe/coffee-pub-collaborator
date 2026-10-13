@@ -245,11 +245,50 @@
     return el;
   };
 
+  // Beside the map in a Workspace's Map (a composite): Add a place is the composite's "+" (host.add.set answers true there;
+  // on the /map page it answers false, and Add a place stays at the top of the list), and the status line names the
+  // selected place and its kind ("Blue Door · Food"). The empty state's own button stays: it adds to an empty list.
+  const ADD_PLACE = { id: 'place', label: 'Add a place', icon: 'location-dot' };
+  let addHosted = false;
+  let addAsked = null;
+  function syncChrome() {
+    if (asPart && host.add) {
+      const want = state.loaded && canAdd() ? 'place' : '';
+      if (want !== addAsked) {
+        addAsked = want;
+        host.add.set(want ? [ADD_PLACE] : []).then((drawn) => {
+          if (Boolean(drawn) === addHosted) return;
+          addHosted = Boolean(drawn);
+          hide($('part-head'), !state.loaded || !canAdd() || addHosted);
+        }).catch(() => {});
+      }
+    }
+    if (!host.status || !state.loaded) return;
+    if (asPart) {
+      const sel = state.selected ? entries().find((x) => rowKey(x.w, x.p.id) === state.selected) : null;
+      host.status.set(sel ? [{ text: sel.p.title }, { text: CAT_LABEL[sel.p.category] || CAT_LABEL.other }] : []).catch(() => {});
+      return;
+    }
+    // On its own: how many places are listed (of how many, while a filter or a kind narrows them), whose they are, and
+    // the filter. The count is quiet while someone types in the filter, so a screen reader does not read every key.
+    const total = entries().length;
+    const shown = visible().filter((x) => !state.cat || x.p.category === state.cat).length;
+    const typed = state.filter.trim();
+    const items = [{ text: shown === total ? `${total} ${total === 1 ? 'place' : 'places'}` : `${shown} of ${total} places`, quiet: Boolean(typed) }];
+    if (Object.values(allowed).filter(Boolean).length > 1) items.push({ text: whereName(view), chip: true });
+    if (state.cat) items.push({ text: CAT_LABEL[state.cat] || state.cat, chip: true });
+    if (typed) items.push({ text: `\u201c${typed.slice(0, 24)}\u201d`, chip: true, quiet: true });
+    host.status.set(items).catch(() => {});
+  }
+  // Add a place is the "+" in the titlebar: it opens the dialog (its Position field takes pasted coordinates or a map link).
+  if (host.add) host.on('add', (e) => { if (e.id === 'place' && canAdd()) { closeFound(); openEditor(null, null); } });
+
   function render() {
+    syncChrome();
     const all = entries().map((x) => x.p);
     const empty = state.loaded && !all.length;
     hide($('app').querySelector('.head'), empty || asPart);
-    hide($('part-head'), !asPart || !state.loaded || !canAdd());
+    hide($('part-head'), !asPart || !state.loaded || !canAdd() || addHosted);
     hide($('chips'), empty || !state.loaded);
     fill($('app').querySelector('.head'), { count: all.length ? String(all.length) : '' });
     const body = $('body');
@@ -342,6 +381,7 @@
       if (on) found = el;
     }
     if (found && scroll) found.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    syncChrome();
   }
   // Select a place from the list: the page tells the map, which flies to it.
   let told = null; // the selection last told to the page or heard from it (an object key, '' for none)
@@ -735,7 +775,7 @@
     }
   });
 
-  // --- adding: the bottom bar, and what other modules and pointers ask ----------------------------------------------
+  // --- adding: the titlebar's "+", and what other modules and pointers ask ------------------------------------------
 
   // --- find a place (only when the admin set a search address) -----------------------------------------------------
 
@@ -792,7 +832,6 @@
     };
     look();
   }
-  const find = (query) => showFound(query, searchFor(query));
   async function showFound(query, promise) {
     const mine = ++searchToken;
     searching(query);
@@ -861,19 +900,9 @@
     }
   });
 
-  // Beside the map there is no bar: the page's search field and Add a place at the top of the list do these.
-  if (host.bar && !asPart) {
-    host.bar.set(canEdit ? [{ id: 'add', type: 'quickadd', label: 'Add a place', placeholder: 'Add a place: name, or paste coordinates or a map link' }] : []).catch(() => {});
-    host.on('bar', (e) => {
-      if (e.id !== 'add' || !canEdit) return;
-      if (!e.value) return openEditor(null, null);
-      const entry = readEntry(e.value);
-      // A name, with a search address set, looks for the place; anything with coordinates or a link (or no search) opens the dialog.
-      if (entry.find && state.search) return void find(entry.title);
-      closeFound();
-      openEditor(null, null, entry);
-    });
-  }
+  // On its own the "+" is in the titlebar (a window's, popped out too, or the page bar on the module's own page): it opens
+  // the dialog. Beside the map the page's search field and Add a place at the top of the list do this.
+  if (!asPart && host.add) host.add.set(canEdit ? [ADD_PLACE] : []).catch(() => {});
 
   // What other modules may ask of this page, for the person who asked (a view, so only their own page does it): look for a
   // place by name, and open the dialog for a new one where a map was clicked.

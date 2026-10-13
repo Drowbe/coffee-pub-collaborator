@@ -18,7 +18,7 @@ const { ModuleLinks } = require('./module-links');
 const { Backgrounds } = require('./backgrounds');
 const { ModuleBus, BUS_LIMITS } = require('./module-bus');
 const { ChatHistory } = require('./chat-history');
-const { LayoutError, cleanLayout } = require('./layouts');
+const { LayoutError, cleanLayout, cleanSystemPatch, SYSTEM_IDS, SYSTEM_ICONS } = require('./layouts');
 const { ModuleLimits } = require('./module-limits');
 const { ModuleSettings, SettingError } = require('./module-settings');
 const { GeocodeCache, askService, keyOf: keyOfPlace, ENOUGH } = require('./geocode');
@@ -4008,6 +4008,31 @@ function sendLayoutError(err, res) {
   throw err;
 }
 
+// The system layouts (documentation/plans/plan-layout-views.md, step 1): never stored, made per space from what is on,
+// in the order Workspace, Calendar, Map. Workspace is always there. Calendar is there while the Calendar destination
+// answers in this space for this person (its module on in the space and readable); Map likewise while Maps is on and
+// the map-file rule holds (destinationInSpace, the same rule the destination page uses). Each carries this person's
+// own name, icon and tab choices (store.layouts.systemOf), else its defaults. A guest has none.
+//   { id, kind: 'system', name, icon, tab, defaultName, defaultIcon, modules }
+function systemLayoutsFor(found) {
+  if (!found.who.user) return [];
+  const mine = store.layouts.systemOf(found.space.id, found.who.user.key);
+  const make = (id, defaultName, defaultIcon, modulesOf) => {
+    const own = mine[id] || {};
+    return { id, kind: 'system', name: own.name || defaultName, icon: own.icon || defaultIcon, tab: id === 'workspace' ? true : own.tab !== false, defaultName, defaultIcon, modules: modulesOf };
+  };
+  const out = [make('workspace', 'Workspace', SYSTEM_ICONS.workspace, [])];
+  for (const [id, dest, moduleId] of [['calendar', 'calendar', 'calendar'], ['map', 'map', 'maps']]) {
+    const shown = destinationInSpace(dest, found.who, found.space.id);
+    if (!shown) continue;
+    const main = shownModule(shown.shown.main.manifest);
+    out.push(make(id, main.name, main.icon || SYSTEM_ICONS[id], [{ id: moduleId, mode: 'dock' }]));
+  }
+  return out;
+}
+// The icon ids a layout may use: this environment's icon list, the modules' own icons, and the defaults.
+const layoutIconIds = () => [...new Set([...store.iconIds(), ...store.displayIconIds(), ...Object.values(SYSTEM_ICONS), 'object-group'])];
+
 app.get('/api/spaces/:id/layouts', (req, res) => {
   const found = layoutSpaceFor(req, res);
   if (!found) return;
@@ -4017,14 +4042,14 @@ app.get('/api/spaces/:id/layouts', (req, res) => {
   const fallback = store.defaultLayoutOf(found.space.id);
   // favorites: this person's favorite layouts' ids, in the order favorited (plan-favorite-layouts.md); [] for a guest.
   const favorites = store.layouts.favorites(found.space.id, me);
-  res.json({ mine, shared, defaultLayout: fallback ? fallback.id : null, favorites, canShare: found.canShare, canSetDefault: found.canSetDefault });
+  res.json({ mine, shared, system: systemLayoutsFor(found), defaultLayout: fallback ? fallback.id : null, favorites, canShare: found.canShare, canSetDefault: found.canSetDefault });
 });
 
 app.post('/api/spaces/:id/layouts', (req, res) => {
   const found = layoutSpaceFor(req, res);
   if (!found) return;
   if (!found.who.user) return res.status(403).json({ error: guestLayoutRefusal() });
-  const { layout, error } = cleanLayout(req.body);
+  const { layout, error } = cleanLayout(req.body, { icons: layoutIconIds() });
   if (error) return res.status(400).json({ error });
   if (layout.shared && !found.canShare) return res.status(403).json({ error: sharedLayoutRefusal() });
   try {
@@ -4034,16 +4059,20 @@ app.post('/api/spaces/:id/layouts', (req, res) => {
   }
 });
 
+// The name a person sees for a system layout, for a refusal's sentence (its default word when it is not on here).
+const systemNameOf = (found, id) => systemLayoutsFor(found).find((l) => l.id === id)?.name || { workspace: 'Workspace', calendar: 'Calendar', map: 'Map' }[id];
+
 // Rename (name), or replace with the current canvas (modules, snap): any of the three.
 app.put('/api/spaces/:id/layouts/:layoutId', (req, res) => {
   const found = layoutSpaceFor(req, res);
   if (!found) return;
   if (!found.who.user) return res.status(403).json({ error: guestLayoutRefusal() });
   const me = found.who.user.key;
+  if (SYSTEM_IDS.includes(req.params.layoutId)) return res.status(400).json({ error: `${systemNameOf(found, req.params.layoutId)} can't be replaced.` });
   const there = store.layouts.find(found.space.id, req.params.layoutId, me);
   if (!there) return res.status(404).json({ error: 'There is no such layout here.' });
   if (there.shared && !found.canShare) return res.status(403).json({ error: sharedLayoutRefusal() });
-  const { layout: patch, error } = cleanLayout(req.body, { partial: true });
+  const { layout: patch, error } = cleanLayout(req.body, { partial: true, icons: layoutIconIds() });
   if (error) return res.status(400).json({ error });
   if (!Object.keys(patch).length) return res.status(400).json({ error: `Send a new name, or the ${word('module', { many: true })} and snap to replace the layout with.` });
   try {
@@ -4061,6 +4090,7 @@ app.delete('/api/spaces/:id/layouts/:layoutId', (req, res) => {
   if (!found) return;
   if (!found.who.user) return res.status(403).json({ error: guestLayoutRefusal() });
   const me = found.who.user.key;
+  if (SYSTEM_IDS.includes(req.params.layoutId)) return res.status(400).json({ error: `${systemNameOf(found, req.params.layoutId)} can't be deleted.` });
   const there = store.layouts.find(found.space.id, req.params.layoutId, me);
   if (!there) return res.status(404).json({ error: 'There is no such layout here.' });
   if (there.shared && !found.canShare) return res.status(403).json({ error: sharedLayoutRefusal() });
@@ -4074,15 +4104,48 @@ app.delete('/api/spaces/:id/layouts/:layoutId', (req, res) => {
   }
 });
 
+// A person's own name, icon and tab for a system layout in a space (plan-layout-views.md, step 1): { name?, icon?, tab? },
+// name and icon null going back to the default. 200 { layout } (the system layout as GET lists it); 400 for a bad name or
+// icon, or tab false on the Workspace; 403 for a guest; 404 for an id that is not on in this space.
+app.patch('/api/spaces/:id/layouts/system/:systemId', (req, res) => {
+  const found = layoutSpaceFor(req, res);
+  if (!found) return;
+  if (!found.who.user) return res.status(403).json({ error: guestLayoutRefusal() });
+  const id = req.params.systemId;
+  if (!systemLayoutsFor(found).some((l) => l.id === id)) return res.status(404).json({ error: 'There is no such layout here.' });
+  const { patch, error } = cleanSystemPatch(req.body, { icons: layoutIconIds() });
+  if (error) return res.status(400).json({ error });
+  if (patch.tab === false && id === 'workspace') return res.status(400).json({ error: 'The Workspace is always shown.' });
+  try {
+    store.layouts.setSystem(found.space.id, found.who.user.key, id, patch);
+    res.json({ layout: systemLayoutsFor(found).find((l) => l.id === id) });
+  } catch (err) {
+    sendLayoutError(err, res);
+  }
+});
+
 // Favorite layouts (documentation/plans/plan-favorite-layouts.md, step 1): each signed-in person's own, per space, of
 // any layout they can see (their own or a shared one). PUT makes one a favorite, at the end; DELETE stops it being one.
-// Both answer { favorites } and doing what is already so is a 200 that changes nothing. A PUT past LAYOUT_LIMITS.favorites
-// (3) is a 409 from store.layouts.setFavorite, answered by sendLayoutError.
+// Both answer { favorites } and doing what is already so is a 200 that changes nothing. There is no limit on how many
+// (plan-layout-views.md, decision 13). The ids `calendar` and `map` are the system layouts: PUT/DELETE set their tab
+// (404 while not on in this space) and answer { favorites, layout } with the system layout; `workspace` always has its
+// tab: DELETE is a 400 "The Workspace is always shown.", PUT a 200 that changes nothing.
 function layoutFavorite(on) {
   return (req, res) => {
     const found = layoutSpaceFor(req, res);
     if (!found) return;
     if (!found.who.user) return res.status(403).json({ error: `${word('guest', { many: true, cap: true })} can load shared layouts but not keep favorites.` });
+    if (SYSTEM_IDS.includes(req.params.layoutId)) {
+      const id = req.params.layoutId;
+      if (!systemLayoutsFor(found).some((l) => l.id === id)) return res.status(404).json({ error: 'There is no such layout here.' });
+      if (id === 'workspace' && !on) return res.status(400).json({ error: 'The Workspace is always shown.' });
+      try {
+        if (id !== 'workspace') store.layouts.setSystem(found.space.id, found.who.user.key, id, { tab: on });
+        return res.json({ favorites: store.layouts.favorites(found.space.id, found.who.user.key), layout: systemLayoutsFor(found).find((l) => l.id === id) });
+      } catch (err) {
+        return sendLayoutError(err, res);
+      }
+    }
     try {
       const favorites = store.layouts.setFavorite(found.space.id, req.params.layoutId, found.who.user.key, on);
       if (!favorites) return res.status(404).json({ error: 'There is no such layout here.' });

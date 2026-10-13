@@ -231,7 +231,27 @@
     } else if (head) head.hidden = false;
   }
 
+  // The status line at the foot of the window: how many are shown, and what narrows them. Quiet words, none while empty.
+  const KIND_WORDS = { note: 'Notes', link: 'Links', photo: 'Photos', answer: 'Answers' };
+  function syncStatus() {
+    if (!host.status) return;
+    const items = [];
+    const all = state.loaded ? research.list() : [];
+    if (all.length) {
+      const n = visible().length;
+      items.push({ text: n === all.length ? `${n} ${word('object', { many: n !== 1 })}` : `${n} of ${all.length}` });
+      if (state.kind) items.push({ text: KIND_WORDS[state.kind] || state.kind, chip: true });
+      if (state.tags.length) items.push({ text: `Tag: ${state.tags.join(', ')}`.slice(0, 60), chip: true });
+      if (state.filter.trim()) items.push({ text: `"${state.filter.trim()}"`.slice(0, 60), chip: true });
+    }
+    if (state.uploads.length) items.splice(1, 0, { text: `Adding ${state.uploads.length} ${state.uploads.length === 1 ? 'photo' : 'photos'}`, quiet: true });
+    host.status.set(items.slice(0, 4)).catch(() => {});
+  }
   function render() {
+    renderPage();
+    syncStatus();
+  }
+  function renderPage() {
     const all = research.list();
     const empty = state.loaded && !all.length && !state.uploads.length;
     syncTitle();
@@ -852,20 +872,23 @@
     if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('rcard')) ev.target.click();
   });
 
-  // --- adding: the bottom bar, and what other modules and pointers ask ---------------------------------------------
+  // --- adding: the titlebar's "+", and what other modules and pointers ask ------------------------------------------
 
-  if (host.bar) {
-    host.bar.set(canEdit ? [
-      { id: 'add', label: 'Add a note', icon: 'note-sticky', primary: true },
-      { id: 'link', label: 'Add a link', icon: 'link' },
-      { id: 'photo', label: 'Add a photo', icon: 'camera' },
+  // The "+" in the titlebar holds the three adds: a window's, popped out too, or the page bar on the module's own page.
+  // The empty state's own buttons stay: they add to an empty page.
+  const addNote = () => openEditor(null, { kind: 'note' });
+  const addLink = () => openEditor(null, { kind: 'link' });
+  if (host.add) {
+    host.add.set(canEdit ? [
+      { id: 'note', label: 'Note', icon: 'note-sticky' },
+      { id: 'link', label: 'Link', icon: 'link' },
+      { id: 'photo', label: 'Photo', icon: 'camera' },
     ] : []).catch(() => {});
-    host.on('bar', (e) => {
+    host.on('add', (e) => {
       if (!canEdit) return;
       if (e.id === 'photo') return choosePhotos();
-      if (e.id === 'link') return openEditor(null, { kind: 'link' });
-      if (e.id !== 'add') return;
-      openEditor(null, { kind: 'note' });
+      if (e.id === 'link') return addLink();
+      if (e.id === 'note') return addNote();
     });
   }
   // Something from another module dropped on the pane: what can be done with it is the shared decision

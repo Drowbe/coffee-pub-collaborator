@@ -115,7 +115,7 @@ a {
 }
 
 /* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
-   chat's Send, a module's action bar, a module's own bottom buttons). Its size is --action-btn-h and its icon
+   chat's Send, a module's own bottom buttons). Its size is --action-btn-h and its icon
    --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
    rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
    so and keeps a module from sizing the button itself. */

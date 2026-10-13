@@ -3,7 +3,7 @@ import { openHostMenu, closeHostMenu } from '/host-menu.js';
 import { mountEnvironmentBanner } from '/environment-banner.js';
 import { word, setWords, setVerbs } from '/words.js';
 import { themeSwitch, setEnvironmentMode, setAccountMode, themeChanged, watchThemeWithoutStream, forgetThemeMode, toggleThemeMode, useDefaultMode, themeMode as modeNow } from '/theme-mode.js';
-import { profileEntries, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools, pageAnchor } from '/primary-nav.js';
+import { profileEntries, profileDestinationLabel, seesUpdates, hostConsoleUrl, switcherEntries, switchPick, bellState, destinationTools, pageAnchor } from '/primary-nav.js';
 
 // The words a person reads for each level and role (public/words.js), for every page that already imports from here.
 export { word, words, fill, applyWords, setWords, verb, verbs, setVerbs } from '/words.js';
@@ -159,10 +159,13 @@ let bar = { adminHref: '/admin', withThemeSwitch: true, guest: false, hostConsol
 export const overCall = () => new URLSearchParams(window.location.search).get('from') === 'space' && window.parent !== window;
 // Shown within a space's page in any way: opened over a call (?from=space), or in the space page's overlay frame even
 // where a redirect dropped that query (a module's page leading on to its destination, such as /modules/calendar to
-// /calendar). Same origin, so the frame's element can be read; anywhere else it is null.
+// /calendar), or in a composite's frame on the canvas (canvas.js marks it data-composite: the Calendar and Map tabs
+// show their page there, plan-layout-views.md step 3), whatever page a link inside it led on to. Same origin, so the
+// frame's element can be read; anywhere else it is null.
+const inSpaceFrame = (frame) => Boolean(frame && (frame.id === 'page-overlay-frame' || frame.hasAttribute('data-composite')));
 export const withinSpacePage = () => {
   if (overCall()) return true;
-  try { return Boolean(window.frameElement && ['page-overlay-frame', 'view-frame'].includes(window.frameElement.id)); } catch { return false; }
+  try { return inSpaceFrame(window.frameElement); } catch { return false; }
 };
 const keptQuery = () => (new URLSearchParams(window.location.search).get('from') === 'space' ? window.location.search : '');
 // A path with a page opened over a call's query kept (?from=space...), so the next page keeps its way back.
@@ -366,8 +369,8 @@ function registerSystemTools(header) {
 
 // The destinations (Calendar, Map; plan-calendar-destination.md): from GET /api/destinations, on a phone an entry each in
 // the menu after the Spaces slot's (destinationTools() in primary-nav.js); wider, an entry each in the profile menu
-// (accountMenuItems, plan-one-bar.md decision 6), and in a space the views of the one bar (space.js, spaceViews(); it
-// hears of the list through `app:destinations`, or asks destinationsNow()). While this page is present in a space the
+// (accountMenuItems, plan-one-bar.md decision 6). In a space Calendar and Map are layout tabs (space.js, layoutTabs()),
+// which show their composite on the canvas; the space page may still ask destinationsNow() or hear `app:destinations`. While this page is present in a space the
 // menu's entries carry data-overlay-link, so the space page opens them over the space as a page (Away while on the
 // call); a page already over a call keeps its way back (keepingQuery).
 const destinationEls = new Set();
@@ -572,7 +575,7 @@ function signOut() {
 }
 
 // The profile menu under your picture, on a wider screen, by role (decisions 4 and 17; profileEntries() in
-// primary-nav.js): View profile, Dark mode, the environment's Calendar and Map (plan-one-bar.md, decision 6), Manage
+// primary-nav.js): View profile, Dark mode, the environment's Global Calendar and Global Map (plan-one-bar.md, decision 6), Manage
 // for owners and the admin, Host console for the host admin's stand-in on a hosted server, Install as an app only
 // while the browser offers it (never a guest), Sign out last.
 function accountMenuItems() {
@@ -580,7 +583,7 @@ function accountMenuItems() {
   return [
     { icon: 'user', label: 'View profile', onPick: viewProfile },
     ...(has.has('theme') ? [{ icon: 'moon', label: 'Dark mode', checked: modeNow() === 'dark', onPick: toggleThemeMode }] : []),
-    ...destinationList.filter((d) => has.has(`dest-${d.id}`)).map((d) => ({ icon: d.icon, label: d.name, onPick: () => openDestination(d.href) })),
+    ...destinationList.filter((d) => has.has(`dest-${d.id}`)).map((d) => ({ icon: d.icon, label: profileDestinationLabel(d.id, d.name), onPick: () => openDestination(d.href) })),
     ...(has.has('manage') ? [{ icon: 'gear', label: 'Manage', onPick: () => openManage() }] : []),
     ...(has.has('host-console') ? [{ icon: 'server', label: 'Host console', onPick: openHostConsole }] : []),
     ...(installPromptEvent && !installBarred ? [{ icon: 'download', label: 'Install as an app', onPick: installFromPrompt }] : []),

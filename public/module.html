@@ -23,6 +23,7 @@
     <span class="mod-title"><i class="fa-solid fa-fw" id="module-titlebar-icon" aria-hidden="true"></i> <span id="module-titlebar-title"></span></span>
     <span class="mod-header-tools">
       <span class="titlebar-custom" id="module-titlebar-custom"></span>
+      <span class="titlebar-add" id="module-titlebar-add" hidden></span>
       <button class="sdk-more" id="module-menu" type="button" title="More" aria-label="More" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
       <button class="msg-btn" id="module-back-float" type="button" title="Float over the call" aria-label="Float over the call" hidden><i class="fa-regular fa-window-restore fa-fw" aria-hidden="true"></i></button>
       <button class="msg-btn" id="module-back-dock" type="button" title="Dock beside the call" aria-label="Dock beside the call" hidden><i class="fa-solid fa-table-columns fa-fw" aria-hidden="true"></i></button>
@@ -33,10 +34,10 @@
   <div class="mod-toolbar" id="module-toolbar" hidden></div>
 
   <!-- A module's own page: the module runs in a sandboxed frame (see
-       module-host.js) and fills everything under the header. -->
+       module-host.js) and fills everything under the header, over its status bar (host.status.set). -->
   <main class="module-canvas">
     <iframe class="module-frame" id="module-frame" title="{Module}" data-fill hidden></iframe>
-    <div class="module-bar" id="module-bar" hidden></div>
+    <div class="mod-status module-status" id="module-status" role="region" aria-label="Status" hidden></div>
     <p class="hint module-missing" id="module-missing" data-fill hidden>That {module} is not available.</p>
   </main>
 

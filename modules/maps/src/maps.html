@@ -20,7 +20,9 @@
 <div id="app" class="app" hidden>
   <div class="map-area">
     <div id="map" class="map"></div>
-    <!-- what a search found: over the foot of the map, above the bar (the search itself is the host bar's field) -->
+    <!-- the search: a field over the top of the map where the host draws the titlebar "+" (Enter searches; a pasted position or map link goes there) -->
+    <form class="map-search" id="map-search" role="search" hidden><span class="ic" data-icon="magnifying-glass"></span><input id="map-find" type="search" maxlength="200" autocomplete="off" aria-label="Search the map" placeholder="Search, or paste coordinates or a link"></form>
+    <!-- what a search found: under the search field (over the foot of the map when the host bar holds the search) -->
     <ul class="results" id="results" hidden></ul>
     <div class="maplibregl-ctrl-top-right" id="ctrl-zoom"></div>
     <!-- as the Map destination's main part (no bar of the host's): add a place by clicking the map -->

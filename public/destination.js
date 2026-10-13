@@ -13,9 +13,9 @@
 // parts mounted at space scope (a guest with the space's token too), no space filter, no Mine and no other calendars
 // (plan-google-calendar.md's rule), the view switch and the marker kinds kept, its choices remembered under
 // app.destination.<id>.<space id>. The map in a space (plan-map-places.md, step 2) keeps a filter of whose places show:
-// This <space> (on), Mine (on) and the environment's own (off at first), under the same key. Shown in a frame (the
-// space page's view frame, `window.self !== window.top`) it draws no top bar of its own: the space page's bar is the
-// one bar, and holds the way back; only the page bar shows.
+// This <space> (on), Mine (on) and the environment's own (off at first), under the same key. Shown in a frame (a
+// composite's on the space's canvas, which the Calendar and Map layout tabs show; `window.self !== window.top`) it draws
+// no top bar of its own: the space page's bar is the one bar, and holds the way back; only the page bar shows.
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word, withinSpacePage } from '/brand.js';
 import { nav } from '/nav-bar.js';
 import { mountModule, createDestination } from '/module-host.js';
@@ -33,6 +33,17 @@ const embedded = window.self !== window.top;
 // phone: the panel stacks below the main part (destination.css), with no tabs.
 const onPhone = () => !embedded && phoneQuery.matches;
 const withoutTopbar = Boolean(spaceId) && embedded; // a view in the space page's frame: its bar is the one bar
+// In a composite's frame on a space's Workspace (canvas.js marks that frame data-composite; plan-module-titlebar-add.md):
+// the composite's titlebar holds the one "+" and its window the status bar. The parts' adds and status lines are
+// gathered here and handed up (sendChrome); the parts hide their own big add buttons, as they do under a titlebar. Not
+// on the top-level /calendar and /map, where the parts keep their own.
+const inComposite = (() => {
+  try {
+    return embedded && Boolean(window.frameElement && window.frameElement.hasAttribute('data-composite'));
+  } catch {
+    return false;
+  }
+})();
 // The guest's token on this page's own calls (the parts' calls carry it through mountModule).
 const withGuest = (url) => (guestToken ? `${url}${url.includes('?') ? '&' : '?'}guest=${encodeURIComponent(guestToken)}` : url);
 
@@ -99,7 +110,7 @@ const MARKER = ':marker:'; // a kind of marker, by its '<module>:<kind>' after t
 const EXTERNAL_TINTS = ['blue', 'teal', 'purple', 'green', 'orange'];
 
 let hub = null;
-let parts = []; // { part, key, holder, wrap, mounted }
+let parts = []; // { part, key, holder, wrap, mounted, adds, status }
 let tab = 'main'; // on a phone: 'main', or a panel's key
 let panel = ''; // on a wider screen: the panel shown
 let view = '';
@@ -335,7 +346,7 @@ function mountPart(part, container, key) {
     holder.title = part.label || part.module.name;
   }
   container.appendChild(holder);
-  const m = { part, key, holder, wrap: container, mounted: null };
+  const m = { part, key, holder, wrap: container, mounted: null, adds: [], status: [] };
   m.mounted = mountModule({
     module: { id: part.module.id, version: part.module.version, scope: part.module.scope },
     ...(inPage ? { container: holder } : { frame: holder }),
@@ -343,6 +354,8 @@ function mountPart(part, container, key) {
     ...(spaceId ? { scope: 'space', spaceId, guestToken } : { scope: 'environment' }),
     entry: part.entry,
     destination: { hub, part: part.part },
+    // In a composite's frame: the part's "+" entries and status, for the composite's titlebar and status bar.
+    ...(inComposite ? { onAdd: (entries) => { m.adds = entries; sendChrome(); }, onStatus: (items) => { m.status = items; sendChrome(); } } : {}),
     onOpenRef: openRef,
     // A part asking to be shown at a place in itself (host.page.open): it already is its own page.
     onOpenPage: (hash) => {
@@ -574,6 +587,61 @@ function layout() {
     else b.removeAttribute('aria-current');
   }
   nav.draw('secondary'); // the view switch shows on the main part's tab only, on a phone
+  sendChrome(); // the status line follows the panel shown
+}
+
+// --- in a composite's frame: the one "+" and the status line, handed up to the Workspace --------------------------------
+// The "+": each part's entries in the parts' order (the main, then the panels), their ids as "<part's place>.<id>" so a
+// pick finds its part; a part with more than one entry, beside another with some, is a category named by the part (its
+// flyout). One leaf in all: the composite's "+" runs it at once. The status: the main part's items, then the panel's
+// shown (the window's status bar keeps the first four).
+function chromeAdds() {
+  const giving = parts.map((p, at) => ({ p, at })).filter(({ p }) => p.adds.some((e) => !e.divider));
+  const out = [];
+  for (const { p, at } of giving) {
+    const leaf = (e) => ({ ...e, id: `${at}.${e.id}` });
+    const own = p.adds.map((e) => (e.divider ? e : e.items ? { ...e, items: e.items.map(leaf) } : leaf(e)));
+    const real = own.filter((e) => !e.divider);
+    if (giving.length > 1 && (real.length > 1 || real[0].items)) {
+      const items = real.flatMap((e) => e.items || [e]);
+      out.push({ label: p.part.label || p.part.module.name, ...(/^[a-z0-9-]{1,40}$/.test(p.part.module.icon || '') ? { icon: p.part.module.icon } : {}), items });
+    } else out.push(...own);
+  }
+  return out;
+}
+function chromeStatus() {
+  const main = parts.find((p) => p.key === 'main');
+  const side = parts.find((p) => p.key !== 'main' && p.key === panel);
+  return [...(main ? main.status : []), ...(side ? side.status : [])];
+}
+let chromeQueued = false;
+function sendChrome() {
+  if (!inComposite || chromeQueued) return;
+  chromeQueued = true;
+  queueMicrotask(() => {
+    chromeQueued = false;
+    try {
+      window.parent.postMessage({ type: 'app:compositechrome', add: chromeAdds(), status: chromeStatus() }, location.origin);
+    } catch {
+      // the Workspace is gone
+    }
+  });
+}
+// From the Workspace: a pick in the composite's "+" (that part's own add, as its button in the page would; the part is
+// shown first, so its editor opens in view), or a new frame asking for what to draw.
+if (inComposite) {
+  window.addEventListener('message', (event) => {
+    if (event.source !== window.parent || event.origin !== location.origin) return;
+    const d = event.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.type === 'app:compositehello') return sendChrome();
+    if (d.type !== 'app:compositeadd' || typeof d.id !== 'string') return;
+    const dot = d.id.indexOf('.');
+    const p = parts[Number(d.id.slice(0, dot))];
+    if (dot < 1 || !p || !p.mounted) return;
+    show(p.key);
+    p.mounted.deliver('add', { id: d.id.slice(dot + 1) });
+  });
 }
 
 // Bring a part into view (its tab on a phone, its panel on a wider screen).

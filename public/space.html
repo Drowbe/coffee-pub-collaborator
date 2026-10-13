@@ -64,7 +64,6 @@
         <span class="space-choice-tools">
           <a class="btn btn-small" data-link target="_blank" rel="noopener" href="#" title="Open this {space}'s link" data-fill hidden><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></a>
           <button class="btn btn-accent btn-small" data-join-popout type="button" title="{enter} in a pop-out window" aria-label="{enter} in a pop-out window" data-fill><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
-          <button class="btn btn-small" data-join-with type="button" title="Choose what opens" aria-label="Choose what opens" aria-haspopup="true" aria-expanded="false"><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"></i></button>
           <a class="btn btn-small" data-edit data-overlay-link href="#" title="Full settings" aria-label="Full settings" hidden><i class="fa-solid fa-pen fa-fw" aria-hidden="true"></i></a>
           <a class="btn btn-small" data-module-settings data-overlay-link href="#" title="{Module} settings" data-fill hidden><i class="fa-solid fa-gears fa-fw" aria-hidden="true"></i></a>
         </span>
@@ -112,9 +111,6 @@
          space.js remembers the width per person (the chat's width preference). -->
     <div class="side-column-splitter side-column-splitter-v" id="side-column-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the chat column" tabindex="0" title="Drag to resize"></div>
   </aside>
-  <!-- A view other than the Workspace (Calendar, Map: the one bar's views, plan-one-bar.md step 7): the page in a frame
-       beside the column, in the canvas's place; the column stays outside it and no Away is set. -->
-  <iframe class="view-frame" id="view-frame" title="View" hidden></iframe>
   <!-- Everything in the call lives inside the canvas so it can pop out as one. -->
   <main class="canvas" id="canvas" hidden>
     <!-- Each module owns a column of the space's grid: a content area over
@@ -212,8 +208,8 @@
         </div>
         <button class="fbtn action-btn" id="screen-share" type="button" title="Share your screen (S)" data-collapse="4" hidden><span class="glyph"><i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i></span></button>
         <div class="fbtn-wrap" data-collapse="6">
-          <button class="fbtn action-btn" id="layout" type="button" title="Layout (L): grid, strip or spotlight"><span class="glyph"><i class="fa-solid fa-table-cells-large fa-fw" id="layout-glyph" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="layout" title="Layout settings" aria-label="Layout settings"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
+          <button class="fbtn action-btn" id="layout" type="button" title="Tiles (L)" aria-label="Tiles"><span class="glyph"><i class="fa-solid fa-table-cells-large fa-fw" id="layout-glyph" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="layout" title="Tiles settings" aria-label="Tiles settings"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
         </div>
         <button class="fbtn action-btn" id="away-toggle" type="button" title="Away: pauses your mic and camera, mutes what you hear, and lets everyone know" data-collapse="5"><span class="glyph"><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></span></button>
       <button class="fbtn action-btn" id="react-toggle" type="button" title="Reactions (R, or keys 1 to 6)" data-collapse="3"><span class="glyph"><i class="fa-solid fa-face-smile fa-fw" aria-hidden="true"></i></span></button>
@@ -264,8 +260,8 @@
           <p class="hint">Blur or a custom image fetch a small ML model the first time you turn either on.</p>
         </div>
         <div class="settings-group" data-group="layout">
-          <h3>Layout</h3>
-          <div class="layout-pick" id="layout-pick" role="group" aria-label="Layout">
+          <h3>Tiles</h3>
+          <div class="layout-pick" id="layout-pick" role="group" aria-label="Tiles">
             <button type="button" data-view="grid"><i class="fa-solid fa-table-cells-large fa-fw" aria-hidden="true"></i> Grid</button>
             <button type="button" data-view="strip" title="Strip: one row or column"><i class="fa-solid fa-grip fa-fw" aria-hidden="true"></i> Strip</button>
             <button type="button" data-view="focus" title="Focus: one big tile, pinned or picked by hand"><i class="fa-regular fa-square fa-fw" aria-hidden="true"></i> Focus</button>

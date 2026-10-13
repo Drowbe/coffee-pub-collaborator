@@ -28,6 +28,13 @@ body { margin: 0; overflow: hidden; }
 .result small { display: block; color: var(--text-dim); font-size: 12px; }
 .results .note { padding: 8px 10px; color: var(--text-dim); font-size: 12px; }
 
+/* the search field over the top of the map (the host bar's field when the titlebar + is not drawn); the zoom is across from it */
+.map-search { position: absolute; z-index: 5; top: 10px; left: 10px; width: min(340px, calc(100% - 66px)); height: 32px; margin: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-section); color: var(--text-dim); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); }
+.map-search:focus-within { border-color: var(--accent); color: var(--text); }
+.map-search input, .map-search input:focus { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--text); font: inherit; font-size: 14px; outline: none; }
+.map-search input::placeholder { color: var(--text-dim); }
+.results.under-search { top: 48px; bottom: auto; max-height: calc(100% - 60px); }
+
 /* the notice under the tools: adding a place, a warning */
 .banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 999px; background: var(--bg-section); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: 13px; }
 .banner .btn { padding: 2px 10px; font-size: 12px; }
@@ -116,6 +123,10 @@ body { margin: 0; overflow: hidden; }
 .app.narrow .maplibregl-ctrl-group button { width: 40px; height: 40px; }
 
 .app.narrow .maplibregl-ctrl-top-right { top: 10px; }
+
+.app.narrow .map-search { width: min(420px, calc(100% - 70px)); height: 40px; }
+.app.narrow .map-search input, .app.narrow .map-search input:focus { font-size: 16px; }
+.app.narrow .results.under-search { top: 56px; max-height: calc(100% - 68px); }
 
 .app.narrow .maplibregl-ctrl-bottom-right { bottom: 4px; right: 8px; z-index: 6; }
 

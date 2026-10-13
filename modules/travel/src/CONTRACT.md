@@ -103,9 +103,11 @@ The script toggles, the stylesheet draws; no coordinates, no inline styles.
 - Exactly one target has a `data-drop` at a time; the script removes it from the last one when the pointer moves or the drag ends.
 - An empty day is a target too: `.day.drop-target` and its `.day-empty`.
 
-## The add row and the host's bar
+## The add row, the titlebar "+" and the status line
 
-The way to add is the host's bottom bar, the same quick-add the To-do, Polls and Calendar have (`host.bar.set` with a `quickadd` item). When the host has a bar, every day's `form.add-row` gets the class `hosted` (the stylesheet hides it). When `bar.set` is refused, or a host has no bar, `hosted` is removed and each day keeps its own row. Text typed in the bar becomes a stop on the **current day**: the day named in the text if it finds one inside the trip, else the day whose chip is `.current` (the one in view), else today if it is on the trip, else the first day. An empty submit opens the editor; with no trip yet it opens the trip form.
+The way to add is the titlebar's "+" (`host.add.set`): the same kinds as a day's add menu (Travel, Add a stay, Eat and drink, See and do, Add a note), each opening the editor for the **current day**: the day whose chip is `.current` (the one in view), else today if it is on the trip, else the first day. It is in a window's titlebar, popped out too, and in the page bar on the module's own page. While the host draws it, every day's `form.add-row` gets the class `hosted` (the stylesheet hides it); where the host draws none (`host.add.set` answers false), `hosted` is removed and each day keeps its own row. Travel no longer calls `host.bar.set` (a host folds an older module's bar into the "+"). Typing a stop is `/p` in Chat.
+
+The status line at the window's foot (`host.status.set`) says the day in view on Days ("Day 6 of 26 · Wed 14 Oct", the stops, what they cost), and a count on the other views.
 
 ## The Decisions view
 

@@ -1074,10 +1074,15 @@ await test('pages: the SDK, the stream on the host page, the Calendar and the de
   assert.match(cal, /Array\.isArray\(st\.externalOff\)/, 'which the Calendar takes');
   assert.match(dest, /if \(kind\.external && !spaceId && !withinSpacePage\(\)\) await loadExternals\(\);/, 'and lists none over a call, nor as a view of one space (plan-calendar-todo.md, step 1)');
   // Over a call the module's page is redirected to /calendar without its ?from=space, so the space page's overlay frame
-  // is recognised by its id too, and so is the frame a view of the space shows the page in (plan-one-bar.md, step 7).
-  assert.match(read('public/brand.js'), /window\.frameElement && \['page-overlay-frame', 'view-frame'\]\.includes\(window\.frameElement\.id\)/, 'the overlay frame and the view frame count as within a space');
+  // is recognised by its id too, and so is a composite's frame on the canvas, where the Calendar and Map layout tabs
+  // show the page, whatever page a link inside it led on to (plan-layout-views.md, step 3: the view frame is gone).
+  const brandJs = read('public/brand.js');
+  assert.match(brandJs, /const inSpaceFrame = \(frame\) => Boolean\(frame && \(frame\.id === 'page-overlay-frame' \|\| frame\.hasAttribute\('data-composite'\)\)\);/, 'the overlay frame and a composite\'s frame count as within a space');
+  assert.match(brandJs, /export const withinSpacePage = \(\) => \{\n\s*if \(overCall\(\)\) return true;\n\s*try \{ return inSpaceFrame\(window\.frameElement\); \} catch \{ return false; \}/);
+  assert.ok(!/view-frame/.test(brandJs), 'no view frame left to count');
   assert.match(read('public/space.html'), /<iframe[^>]* id="page-overlay-frame"/, 'and that is the space page\'s overlay frame');
-  assert.match(read('public/space.html'), /<iframe[^>]* id="view-frame"/, 'and that its view frame');
+  assert.ok(!/id="view-frame"/.test(read('public/space.html')), 'the space page has no view frame any more');
+  assert.match(read('public/canvas.js'), /<iframe class="\$\{cls\} composite-frame" data-composite /, 'and the composite\'s frame is marked data-composite');
   // The filter's label counts them apart from the spaces.
   const paint = dest.slice(dest.indexOf('function paintFilter()'), dest.indexOf('\n}\n', dest.indexOf('function paintFilter()')) + 3);
   const label = (spaceList, offSpaces, calendars, offCalendars, spaceId = '') => {

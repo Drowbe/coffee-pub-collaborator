@@ -307,7 +307,7 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.match(configHtml, /<input id="set-calendar-feeds" type="checkbox" class="switch" role="switch" aria-describedby="calendar-feeds-hint"> Private addresses<\/label>/, 'the Configure page has the Private addresses switch');
   assert.ok(ids(configHtml).has('calendar-feeds-hint') && ids(configHtml).has('calendar-feeds-status'));
   assert.ok(!ids(adminHtml).has('set-calendar-feeds') && !ids(adminHtml).has('calendar-feeds-settings'), 'Manage no longer has the switch or its panel');
-  assert.ok(ids(adminHtml).has('calendar-sharing-pointer') && adminJs.includes("'Calendar sharing is set in '"), 'Manage says where it went');
+  assert.ok(!ids(adminHtml).has('calendar-sharing-pointer') && !adminJs.includes('renderSharingPointer'), 'Manage\'s one-release pointer to where it went is gone');
   assert.match(configJs, /\{ key: 'calendarFeeds', input: 'set-calendar-feeds', hint: 'calendar-feeds-hint' \}/, 'the switch saves calendarFeeds');
   // The published calendar (step 4 and 5): its switch shown, its address made, replaced and turned off on the page.
   assert.match(configJs, /\{ key: 'publishedCalendar', input: 'set-published-calendar', hint: 'published-calendar-hint' \}/, 'the Published calendar switch is shown (no `later`)');

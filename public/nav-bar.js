@@ -15,14 +15,16 @@
 // `element` (an element the registry places and orders but does not draw: the snap slider, the clock, your picture),
 // `labelled` (drawn as a small text button with its icon, not an icon alone: Pull participants back) and `activeIcon`
 // (the icon a toggle shows while it is on: full screen's compress), and `workspace` (a tool of the Workspace's toolbar:
-// Layout, the favorites, Full screen, Pop out, Pull participants back and every module tool. It lives in whichever bar the
+// Layout, Full screen, Pop out, Pull participants back and every module tool. It lives in whichever bar the
 // page names with setWorkspace(): the top bar wider than a phone, where it sits nearest the middle (last in the left zone,
 // first in the right) and folds into the top bar's own "..."; the space bar where that is the phone's tab bar. 'only'
-// shows while the Workspace is the view being shown, 'every' in every view). A left-zone tool of either bar may also give `fit(avail)`:
+// shows while the Workspace tab is shown, 'every' on every layout tab). A left-zone tool of either bar may also give `fit(avail)`:
 // the fit (fitBar, below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
 // (Online, who is here: its names become the count, then portraits drop, then it shows only the short count; the top
-// bar's phase chip: its label, then its dot, then nothing); one that says `fitFirst` (the favorite layouts) is fitted
-// first, with the others at their least, so they (the chip) give way before it does. `register()` returns the element drawn, which lives
+// bar's phase chip: its label, then its dot, then nothing); one that says `fitFirst` is fitted first, with the others at
+// their least, so they give way before it does; one that says `yieldFirst` (the layout tabs, plan-layout-views.md
+// decision 17) is fitted first with the others at their fullest, so it gives way before they do (the tabs go into
+// their "..." before the phase chip's words). `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
 // The pure parts (the bands, the sort, the visibility rule, the cleaning of a module's registration, the phone's fold
@@ -266,8 +268,8 @@ export function setBadge(id, n) {
 }
 
 // The primary bar's zones on a phone (plan-primary-nav.md, decision 7: the logo, the anchor, the bell and the menu
-// button): the left stays, but a left tool that says `phone: 'menu'` (a space's views: Workspace, Calendar, Map;
-// plan-one-bar.md, step 8) goes into the menu, first; a right tool that says `phone: 'bar'` (the bell) stays in the
+// button): the left stays, but a left tool that says `phone: 'menu'` (none registers it now: a space's views used it
+// until they became layout tabs, plan-layout-views.md step 3) goes into the menu, first; a right tool that says `phone: 'bar'` (the bell) stays in the
 // bar, drawn in the phone's place (`bar`: #core-nav); everything else from the right goes into the menu, which is the
 // right zone's element. Each is a list of runs, each run arranged on its own. Pure, for check-nav.
 export function phoneZones(byZone) {
@@ -283,10 +285,10 @@ export function phoneZones(byZone) {
 // The top bar wider than a phone (plan-one-bar.md, step 7, Thomas 2026-10-13: the space bar's controls in the top bar):
 // the Workspace's tools (`workspace`, and the bar's own "...", which folds them) sit nearest the middle of the bar,
 // after the bar's own in the left zone and before them in the right (Pull participants back, a module's tools and the
-// "..." before the favorites, Layout, the bell and your picture). Each a run of its own, so a module's orders never interleave with
+// "..." before Layout, the bell and your picture). Each a run of its own, so a module's orders never interleave with
 // the bar's; a divider separates two runs when both show something. A Workspace tool may name a `place` in the right
 // zone instead (Thomas, 2026-10-13, the one bar's feedback): 'own' puts it among the bar's own tools, by its group and
-// order (the favorite layouts and Layout, in the bell's group); 'end' puts it in a last run after them, and so may one
+// order (Layout, in the bell's group); 'end' puts it in a last run after them, and so may one
 // of the bar's own (Set up, then Full screen and Pop out, right of your picture: one group, no divider between them).
 // On a phone the Workspace's tools are the tab bar's and `place` is not read. Pure, for check-nav.
 export function wideZones(byZone) {
@@ -516,12 +518,12 @@ function place(container, list) {
 
 // A bar never lets its zones run into each other: when they do not fit, the right zone's tools fold into a "..."
 // (More) and come back as the bar widens. The space bar's "..." (#subnav-more) sits just before Leave; the top bar's
-// (#topbar-more) after the Workspace's tools, before the favorites, Layout, the bell and your picture, and in the top bar only the
+// (#topbar-more) after the Workspace's tools, before Layout, the bell and your picture, and in the top bar only the
 // Workspace's tools (`workspace`) fold: the bar's own never do. Which fold first is by band, each band from its
 // end: the secondary tools (Pop out, then Full screen), then a module's own, then the core ones (the snap switch with
 // its grid slider, then Dock all), then the utility ones (Rejoin call, then Pull participants back). Leave (the last
 // band) never folds, a tool that says `fold: false` never does, and nothing in the left zone does: a tool there that can
-// shrink (`fit`: Online, the favorites, the phase chip) gives way first, before anything here folds. An `element` tool with no
+// shrink (`fit`: Online, the layout tabs, the phase chip) gives way first, before anything here folds. An `element` tool with no
 // click of its own (the grid slider) folds with the tool before it, the one it belongs to. On a phone the space bar is the
 // tab bar and folds its own way (phoneFold() and phoneTabs() below, plan-phone-space-bar.md); the top bar's row folds nothing there.
 //
@@ -554,34 +556,6 @@ export function foldSteps(list) {
 export function fitWidth({ width, gap = 0, left = 0, right = 0 }) {
   return width - gap - left - right;
 }
-// A row of labelled buttons that gives way (the space bar's favorite layouts, plan-favorite-layouts.md, decision 13):
-// every label shows at full length (up to `most`) while all of them fit; only when they do not, every label shortens
-// evenly to the widest that fits, down to `least` px, and only then do the buttons leave from the last one back. `items` are the
-// buttons in order, each { chrome, label }: its width less its label's, and its label's width (already no wider than
-// `most`); `gap` is the space between two buttons. Gives { count, cap }: how many of the first buttons show and the
-// widest a label may be, the most that fits in `avail`. Pure, for check-nav.
-export function labelsThatFit({ avail, gap = 0, items = [], least = 0, most = Infinity }) {
-  const limit = Number.isFinite(avail) ? avail : Infinity;
-  const total = (k, cap) => {
-    let w = gap * Math.max(0, k - 1);
-    for (let i = 0; i < k; i += 1) w += items[i].chrome + Math.min(items[i].label, cap);
-    return w;
-  };
-  const fits = (k, cap) => total(k, cap) <= limit + 0.5;
-  let count = items.length;
-  while (count > 0 && !fits(count, least)) count -= 1;
-  if (!count) return { count: 0, cap: least };
-  const widest = Math.max(least, ...items.slice(0, count).map((it) => Math.min(it.label, most)));
-  if (fits(count, widest)) return { count, cap: most };
-  let lo = least;
-  let hi = widest;
-  for (let i = 0; i < 24 && hi - lo > 0.25; i += 1) {
-    const mid = (lo + hi) / 2;
-    if (fits(count, mid)) lo = mid; else hi = mid;
-  }
-  return { count, cap: Math.floor(lo) };
-}
-
 // How many of those steps to fold for the bar to fit. `width` is the bar's inner width, `gap` the gap between its two
 // zones, `left` the left zone's width once its fitting tool has shrunk (its box: its max-width is its column's), `right`
 // the right zone's natural width with nothing folded, `more` what the "..." adds to the right zone once it shows, and
@@ -774,16 +748,20 @@ function fitPhone(b, el, width) {
 
 // A bar's left-zone tools that can give way (`fit`): each is told what it may take, and gives it before anything
 // folds: what the rest of the left zone and the right zone at its full width leave (fitWidth). A tool that says
-// `fitFirst` (the favorite layouts) is fitted first, with the others (the phase chip) at their least (fit(0)), so they
-// give way before it does; they then take what it leaves, and it is fitted once more to what they took (a
-// least is not always the width a tool settles at), so the left zone never runs past its column because of it. `right` is the right zone's
+// `yieldFirst` (the layout tabs) is fitted first, with the others (the phase chip) at their fullest (fit(Infinity)),
+// so it gives way before they do: its tabs go into its "..." first, and the chip takes what is left after that. A tool
+// that says `fitFirst` is fitted first, with the others at their least (fit(0)), so they give way before it does; they
+// then take what it leaves, and it is fitted once more to what they took (a least is not always the width a tool
+// settles at), so the left zone never runs past its column because of it. `right` is the right zone's
 // natural width (nothing folded), `gap` the gap between the two zones. A tool is fitted unless its `visible` hid it
 // (`hidden`): what its own fit did to its display (the chip gone) never keeps it from being fitted again as the bar widens.
 function fitLeft(bar, { width, gap, right }) {
   const b = bars[bar];
   if (!b || !b.zones.left) return;
   const fitting = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'left' && typeof t.fit === 'function' && els.has(t.id) && !els.get(t.id).hidden);
-  fitting.sort((a, c) => Number(Boolean(c.fitFirst)) - Number(Boolean(a.fitFirst)));
+  fitting.sort((a, c) => Number(Boolean(c.yieldFirst)) - Number(Boolean(a.yieldFirst)) || Number(Boolean(c.fitFirst)) - Number(Boolean(a.fitFirst)));
+  // The tools that give way first are measured against the rest at their fullest.
+  if (fitting.some((t) => t.yieldFirst)) for (const t of fitting) { if (!t.yieldFirst) { try { t.fit(Infinity); } catch { /* keeps its size */ } } }
   const fitOne = (t) => {
     const rest = naturalWidth(b.zones.left, els.get(t.id), { margins: false });
     const avail = fitWidth({ width, gap, left: rest.w + (rest.n ? rest.gap : 0), right });
@@ -795,29 +773,9 @@ function fitLeft(bar, { width, gap, right }) {
   for (const t of first) fitOne(t);
 }
 
-// A right-zone tool that can give way (`fit`: the top bar's favorite layouts, left of Layout; Thomas, 2026-10-13): fitted
-// before the left zone is, to what the rest of the right zone and the left zone at its fullest (every left fitting tool
-// at fit(Infinity): the favorites give way before anything else, the chip's words included) leave it; the left zone
-// then takes what the right zone leaves. Never folds: with no room it shows nothing (its fit's own doing), and the
-// favorites are still in the Layout menu.
-function fitRight(bar, { width, gap, more }) {
-  const b = bars[bar];
-  if (!b || !b.zones.right) return;
-  const fitting = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'right' && typeof t.fit === 'function' && els.has(t.id) && !els.get(t.id).hidden);
-  if (!fitting.length) return;
-  for (const t of tools.values()) {
-    if (t.bar !== bar || t.zone !== 'left' || typeof t.fit !== 'function' || !els.has(t.id) || els.get(t.id).hidden) continue;
-    try { t.fit(Infinity); } catch { /* keeps its size */ }
-  }
-  const left = b.zones.left ? Math.ceil(naturalWidth(b.zones.left, null, { margins: false }).w) : 0;
-  for (const t of fitting) {
-    const rest = naturalWidth(b.zones.right, [els.get(t.id), more]);
-    try { t.fit(fitWidth({ width, gap, left, right: rest.w + (rest.n ? rest.gap : 0) })); } catch { /* keeps its size */ }
-  }
-}
-
 // Fit a bar to its width (plan-one-bar.md, step 7: one fit for both bars). Its left-zone tools that can give way
-// (the top bar's favorites and phase chip: the chip's label, then its dot, then nothing; the space bar's Online) shrink
+// (the top bar's layout tabs and phase chip: the tabs into their "...", then the chip's label, then its dot, then
+// nothing; the space bar's Online) shrink
 // to what the rest of the bar leaves (fitLeft), then its right zone folds into its "..." (foldCount: in the top bar only
 // the Workspace's tools, see foldSteps). On a phone the space bar is the tab bar (fitPhone), and the top bar's one row
 // is its own (step 8: each fitting tool is whole again, the stylesheet gives the chip its short words there; nothing folds).
@@ -858,8 +816,6 @@ function fitBar(bar) {
     el.classList.add('nav-measuring');
     if (width > 0 && shownEl(el)) {
       const gap = px(cs.columnGap);
-      // A right tool that can give way (the top bar's favorites) shrinks first, to what the rest leaves it (fitRight).
-      fitRight(bar, { width, gap, more: fold.more });
       // What may fold: the right zone's tools of this bar, in drawing order; in the top bar only the Workspace's.
       const list = [...tools.values()].filter((t) => t.bar === bar && t.zone === 'right' && els.has(t.id) && (bar === 'secondary' || t.workspace));
       const inOrder = [...right.children].map((c) => c.dataset && c.dataset.navTool).filter(Boolean).map((id) => tools.get(id)).filter((t) => t && list.includes(t));
@@ -974,5 +930,5 @@ async function openFoldMenu(bar) {
   openHostMenu(fold.more, [...tabItems, ...(tabItems.length && items.length ? [{ divider: true }] : []), ...items]);
 }
 
-export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, setWorkspace, draw, has, arrange, isVisible, isShown, phoneZones, wideZones, phoneTabs, phoneFold, TAB_MIN, foldSteps, foldCount, fitWidth, labelsThatFit, cleanModuleTools, bandOf, BANDS };
+export const nav = { attach, register, unregister, unregisterAll, get, elementOf, setActive, setBadge, setWorkspace, draw, has, arrange, isVisible, isShown, phoneZones, wideZones, phoneTabs, phoneFold, TAB_MIN, foldSteps, foldCount, fitWidth, cleanModuleTools, bandOf, BANDS };
 export default nav;

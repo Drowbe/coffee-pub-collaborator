@@ -49,7 +49,7 @@
      public/sdk/host.css has the same token. */
   --status-bar-h: 24px;
   /* The height of every control in the shared bottom row (the call toolbar's buttons, the chat's input and
-     Send, each module's quick-add), so they line up whatever cell they are in. */
+     Send), so they line up whatever cell they are in. */
   --bar-control-h: 38px;
   /* The shared bottom row itself: one line of those controls, with the padding around them and the bar's top
      border. A second toolbar uses this same height and sits in the column above, so it does not make this row taller. */
@@ -946,7 +946,7 @@ body.host-console .grow {
 }
 
 /* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
-   chat's Send, a module's action bar, a module's own bottom buttons). Its size is --action-btn-h and its icon
+   chat's Send, a module's own bottom buttons). Its size is --action-btn-h and its icon
    --action-icon-ratio of that; a smaller button sets --action-btn-h only. Add .primary for the accent look. These
    rules are word for word the same in public/style.css and public/sdk/host.css; tools/check-buttons.mjs keeps them
    so and keeps a module from sizing the button itself. */
@@ -1207,7 +1207,7 @@ body.in-space .page-scroll {
 
 .space-choice-actions {
   grid-area: join;
-  position: relative; /* the Open with box sits above the whole row (below) */
+  position: relative;
   display: flex;
   flex-wrap: wrap; /* the other buttons go to a second line before the main button's word is cut */
   align-items: center;
@@ -1638,14 +1638,9 @@ body.in-space .subnav {
   align-items: center;
 }
 
-/* The bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5): space.js names the view being shown as
-   body.view-<id>, and wider than a phone the bar shows only for the Workspace. Below 640px it is the phone's tab bar
-   and stays in every view (decision 3). Only view-workspace exists until the other views come. */
+/* The bar is the Workspace's toolbar (plan-one-bar.md, decision 1 and step 5). Below 640px it is the phone's tab bar
+   and stays on every layout tab (decision 3). */
 @media (min-width: 641px) {
-  body.in-space:not(.view-workspace) .subnav {
-    display: none;
-  }
-
   /* Wider than a phone the Workspace's controls are the top bar's (nav-bar.js, setWorkspace; Thomas, 2026-10-13), so
      the row has nothing in it and is not drawn: the Workspace gets its height. It comes back by itself should a tool
      be registered on it (a divider and a folded or hidden tool do not count). */
@@ -1824,9 +1819,9 @@ body.in-space .subnav {
   }
 }
 
-/* The favorites' note hangs below the top bar's right zone: while it shows, the header rises to the menus' level so a
-   module cannot draw over it. */
-.topbar:has(> .nav-right > .layout-favorites > .layout-favorites-note:not([hidden])) {
+/* The layout tabs' note hangs below the tab pressed: while it shows, the header rises to the menus' level so a module
+   cannot draw over it. */
+.topbar:has(> .nav-left > .layout-tabs > .layout-favorites-note:not([hidden])) {
   z-index: var(--z-menu);
 }
 
@@ -1978,7 +1973,7 @@ input.switch:checked {
 }
 
 /* The same switch as a checkbox (<input type="checkbox" class="switch" role="switch">), for a list of choices off the
-   space bar (Open with on the space list, Opens with in space settings): the page's text colour for its ink. */
+   space bar (Opens with in space settings): the page's text colour for its ink. */
 input.switch {
   --switch-ink: var(--text);
   appearance: none;
@@ -1995,7 +1990,7 @@ input.switch:focus-visible {
 }
 
 /* One row of a switch list (switch-list.js): the switch, the module's icon and name, a note, a count. The same rows in the
-   space bar's module chooser, Open with on the space list and Opens with in space settings. */
+   space bar's module chooser and Opens with in space settings. */
 label.switch-row {
   display: flex;
   flex-direction: row;
@@ -2140,69 +2135,56 @@ input.switch:disabled {
   padding: 0;
 }
 
-/* The favorite layouts in the top bar's right zone, left of the Layout button and growing out to the left from it
-   (space.js, renderFavorites: the first favorite next to Layout): a small button, a heart and the name, cut at about 16
-   characters. When the bar is tight fitFavorites() shortens every name (--layout-favorite-name, down to about 6
-   characters), then takes favorites out from the farthest one in (.layout-favorite-out), before anything else in the
-   bar gives way. With none left in the bar the group also gives back the zone's gap it would leave before Layout. */
-.layout-favorites {
-  position: relative;
+/* The layout tabs (plan-layout-views.md, step 2): in the top bar's left zone right after the space switcher, each a
+   layout's icon and name in the look the Workspace view had (.core-link, the current one marked), never shortened.
+   When the bar is tight fitLayoutTabs() (space.js) takes tabs out from the right (.layout-tab-out) and shows the "..."
+   after the last one left; the "..." wears the current mark while the tab shown is in it. Not on a phone. */
+.topbar > .nav-left > .layout-tabs {
+  flex: none;
   display: inline-flex;
   align-items: center;
-  gap: var(--topbar-gap);
+  gap: 2px;
 }
 
-.layout-favorites[hidden] {
+.topbar > .nav-left > .layout-tabs[hidden],
+.layout-tabs > .layout-tab-out,
+.layout-tabs > .layout-tabs-more[hidden] {
   display: none;
 }
 
-.layout-favorites.layout-favorites-none {
-  margin-right: calc(-1 * var(--topbar-gap)); /* the zone's gap it would leave before Layout */
+.layout-tabs > button.core-link {
+  flex: none;
+  border: 0;
+  background: none;
+  font-family: inherit;
+  cursor: pointer;
 }
 
-.layout-favorite {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  height: 22px;
-  padding: 0 8px;
-  font-size: 12px;
+.layout-tabs > button.core-link[aria-current="page"],
+.layout-tabs > .layout-tabs-more.layout-tabs-more-current {
+  color: var(--header-text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
-.layout-favorite i {
-  color: var(--accent);
+.layout-tabs > .layout-tabs-more[aria-expanded="true"] {
+  color: var(--icon-hover);
+  background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
 }
 
-.layout-favorites > .layout-favorite-out {
-  display: none;
-}
-
-.layout-favorite:focus-visible {
+.layout-tabs > button.core-link:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 1px;
 }
 
-.layout-favorite-name {
-  display: inline-block;
-  max-width: var(--layout-favorite-name, 16ch);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.layout-tabs > .layout-tabs-more {
+  padding: 0 8px;
 }
 
-/* The width of one character in the names' font, measured by fitFavorites() and never seen. */
-.layout-favorite-probe {
-  position: absolute;
-  visibility: hidden;
-  max-width: none;
-}
-
-/* A load from the favorites that left something out says so here, under them, for 6 seconds (a screen reader hears it
-   from #layout-announce). The shared menu's surface, hung from the group's right edge (the group is at the bar's right). */
+/* A load from a tab that left something out says so here, under the tab, for 6 seconds (a screen reader hears it from
+   #layout-announce). The shared menu's surface, fixed under the tab (the left zone clips what hangs out of it). */
 .layout-favorites-note {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
+  position: fixed;
   z-index: var(--z-menu);
   width: max-content;
   max-width: min(320px, calc(100vw - 16px));
@@ -2213,6 +2195,7 @@ input.switch:disabled {
   background: var(--bg-section);
   color: var(--text);
   font-size: 12px;
+  font-weight: 400;
   line-height: 1.4;
   white-space: normal;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
@@ -2223,9 +2206,9 @@ input.switch:disabled {
   display: none;
 }
 
-/* No favorites on a phone or a narrow pop-out (decision 10); space.js hides the group there too. */
+/* No layout tabs on a phone or a narrow pop-out (space.js hides the group there too). */
 @media (max-width: 640px) {
-  .subnav #layout-favorites {
+  .topbar > .nav-left > .layout-tabs {
     display: none;
   }
 }
@@ -2676,12 +2659,6 @@ button.whoami:focus-visible {
   background: transparent;
 }
 
-.image-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-}
-
 .preview {
   width: 160px;
   height: 160px;
@@ -2700,18 +2677,6 @@ button.whoami:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 8px;
-}
-
-.panel label.file-btn,
-.fields label.file-btn,
-.file-btn {
-  display: inline-block;
-  text-align: center;
-  text-transform: none;
-  letter-spacing: normal;
-  font-size: 14px;
-  color: var(--text);
-  cursor: pointer;
 }
 
 /* --- admin ----------------------------------------------------------------- */
@@ -3768,12 +3733,6 @@ a.crumb-here:hover {
   cursor: not-allowed;
 }
 
-.chat-hint {
-  margin: 0;
-  padding: 0 12px 6px;
-  font-size: 11px;
-}
-
 .chat .messages {
   flex: 1;
   min-height: 0;
@@ -3924,11 +3883,6 @@ span.message-vis {
   padding: 6px 8px 8px;
 }
 
-.message-body.is-deleted {
-  color: var(--text-dim);
-  font-style: italic;
-}
-
 .message .actions {
   position: absolute;
   right: 2px;
@@ -3976,24 +3930,6 @@ span.message-vis {
   color: var(--accent);
   font-size: 11px;
   font-weight: 600;
-}
-
-/* Short marks on a message (private now; others later). White-on-colour, little rounded corners. */
-.msg-badge {
-  display: inline-block;
-  padding: 1px 6px;
-  border-radius: 4px;
-  font-size: 10px;
-  font-weight: 700;
-  line-height: 1.4;
-  letter-spacing: 0.02em;
-  color: var(--on-accent);
-  background: var(--accent);
-}
-
-.msg-badge-private {
-  background: var(--accent);
-  color: var(--on-accent);
 }
 
 .message.own .who {
@@ -4237,14 +4173,6 @@ span.message-vis {
   font-size: 0.85em;
 }
 
-.message.private-ai .who .msg-badge {
-  margin-left: auto;
-}
-
-.message.private-ai .msg-badge-shared {
-  color: var(--accent);
-}
-
 .message.private-ai .actions {
   position: static;
   display: none;
@@ -4255,11 +4183,6 @@ span.message-vis {
 .message.private-ai:hover .actions,
 .message.private-ai:focus-within .actions {
   display: flex;
-}
-
-.message.private-ai:hover .who .msg-badge,
-.message.private-ai:focus-within .who .msg-badge {
-  margin-left: 0;
 }
 
 .message.private-ai .msg-btn.kept,
@@ -5683,10 +5606,6 @@ html.has-background .panel.login {
   resize: vertical;
 }
 
-.borders-row .field-label {
-  min-width: 130px;
-}
-
 .check input[type="number"] {
   width: 64px;
   background: var(--bg-input);
@@ -5881,7 +5800,7 @@ input[type="color"] {
   display: none;
 }
 
-/* A docked module on a narrow window is laid out as the chat is: it fills the canvas, its action bar under it. */
+/* A docked module on a narrow window is laid out as the chat is: it fills the canvas. */
 .canvas.narrow.module-open {
   grid-template-rows: minmax(0, 1fr) calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)) auto;
 }
@@ -5894,8 +5813,11 @@ input[type="color"] {
   grid-row: 1;
 }
 
-.canvas.narrow.module-open .module-docked .dock-bar {
-  grid-row: 2;
+/* The module being shown has no bottom bar (its "+" is in its titlebar and its status line is the last thing in its column):
+   the shared bottom row goes, so no blank strip sits under it. The conference and the chat, which are not this module,
+   keep it. */
+.canvas.narrow.module-open:has(.module-docked > .mod-content:not(.narrow-hidden)) {
+  grid-template-rows: minmax(0, 1fr) 0 auto;
 }
 
 .canvas.narrow.module-open .dock-resize {
@@ -6204,7 +6126,7 @@ body.conference-window {
 
 /* Docked modules: a column of the space's grid, beside the video and the chat. */
 .module-docked > .mod-content {
-  grid-row: 1 / -1; /* fills the whole column unless the module has an action bar */
+  grid-row: 1 / -1; /* fills the whole column: a module has no bar in the shared bottom row */
   display: flex;
   flex-direction: column;
   background: color-mix(in srgb, var(--bg) 96%, transparent); /* the same as the chat's content */
@@ -6419,10 +6341,6 @@ body.conference-window {
   color: var(--on-accent);
 }
 
-.tb-btn.tb-more {
-  margin-left: auto;
-}
-
 /* The shared "..." button (same rules as .sdk-more in public/sdk/host.js): icon centered. */
 .sdk-more {
   display: inline-flex;
@@ -6461,14 +6379,6 @@ body.conference-window {
 .sdk-more i {
   width: 1em;
   text-align: center;
-}
-/* In an action bar the "..." is as big as the action buttons beside it, with the same icon size. */
-.dock-bar .sdk-more,
-.module-floating-bar .sdk-more,
-.module-bar .sdk-more {
-  width: var(--action-btn-h);
-  height: var(--action-btn-h);
-  font-size: calc(var(--action-btn-h) * var(--action-icon-ratio));
 }
 
 /* The page's shared menu (public/host-menu.js): the host-drawn "..." for a header, action bar or toolbar row
@@ -6581,7 +6491,7 @@ body.conference-window {
   letter-spacing: 0.04em;
 }
 
-/* A switch item (`toggle`): the same switch as the Show list's and Open with's (input.switch, above), drawn as a span
+/* A switch item (`toggle`): the same switch as the Show list's and Opens with's (input.switch, above), drawn as a span
    before the icon, on while the item is checked. The menu's ink for the track. */
 .host-menu {
   --switch-ink: var(--text);
@@ -6848,102 +6758,6 @@ body.module-popout .topbar {
   display: none;
 }
 
-/* A module's action bar. Docked, it is a cell in the space's shared bottom row,
-   lined up with the video toolbar and the chat box; elsewhere it is a strip
-   under the module. */
-.module-docked.has-bar > .mod-content {
-  grid-row: 1;
-}
-
-.dock-bar {
-  grid-row: 2;
-  z-index: 1;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--shade); /* the same as the video toolbar's cell beside it */
-  border-left: 1px solid var(--border);
-  border-top: 1px solid var(--border);
-}
-
-.module-floating-bar,
-.module-bar {
-  display: flex;
-  flex: none;
-  justify-content: flex-end;
-  flex-wrap: nowrap;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--shade);
-  border-top: 1px solid var(--border);
-}
-
-/* Same rule as the conference bar: buttons keep their size, and what does not fit overflows so the
-   host can move it into "..." (scrollWidth vs clientWidth). Nothing paints outside the module. */
-.dock-bar,
-.module-floating-bar,
-.module-bar {
-  min-width: 0;
-  overflow: hidden;
-}
-
-.dock-bar > .btn,
-.module-floating-bar > .btn,
-.module-bar > .btn {
-  flex: none;
-}
-
-.module-floating-bar[hidden],
-.module-bar[hidden],
-.dock-bar[hidden] {
-  display: none;
-}
-
-/* A module's quick-add: a text field with a small + button, filling the module's bar (docked bar, panel bar, page bar). It sits at the bottom, lined up with the chat box. */
-.dock-bar:has(.quick-add),
-.module-floating-bar:has(.quick-add),
-.module-bar:has(.quick-add) {
-  align-items: flex-end;
-}
-
-.quick-add {
-  display: flex;
-  flex: 1;
-  align-items: flex-end;
-  gap: 6px;
-  min-width: 0;
-  margin: 0;
-}
-
-.quick-add input {
-  flex: 1;
-  min-width: 0;
-  padding: 7px 9px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg-input);
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-}
-
-.quick-add input::placeholder {
-  color: var(--text-dim);
-}
-
-.quick-add input {
-  box-sizing: border-box;
-  height: var(--bar-control-h);
-}
-
-/* a quick-add with buttons beside it (a module sets more than one bar item): the field takes the room, and an icon-only button is as tall as the field is */
-.dock-bar:has(.quick-add),
-.module-floating-bar:has(.quick-add),
-.module-bar:has(.quick-add) {
-  gap: 6px;
-}
-
 body.module-page .module-canvas {
   flex-direction: column;
 }
@@ -7030,39 +6844,9 @@ body.chat-window {
   font-weight: 600;
 }
 
-/* "Open with": a person's own choice of what a space opens with, from its tile on the space list. */
 .space-choice {
   position: relative;
 }
-
-.join-with {
-  position: absolute;
-  right: 12px;
-  bottom: 64px;
-  z-index: 10;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-width: 200px;
-  padding: 12px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--bg-section);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.5);
-}
-
-/* Inside the buttons' row: above all of it, so it never covers the main button when the smaller ones wrap beneath. */
-.space-choice-actions > .join-with {
-  right: 0;
-  bottom: calc(100% + 8px);
-}
-
-.join-with-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 
 /* A module built for an older version of the product: it can't run until its author updates it. */
 .module-outdated {
@@ -7172,6 +6956,12 @@ body.chat-window {
   outline-offset: -2px;
 }
 
+/* The tools group as tall as the titlebar, so the "+" can be (44px wide, the titlebar's 42px tall). */
+.canvas.narrow .module-docked .mod-header-tools {
+  align-self: stretch;
+  align-items: center; /* the "..." keeps its 28px, centred; the "+" and Close stretch */
+}
+
 .canvas.narrow .module-docked .titlebar-add {
   align-self: stretch;
   align-items: stretch;
@@ -7180,6 +6970,43 @@ body.chat-window {
 .canvas.narrow .module-docked .mod-add {
   width: 44px;
   height: auto;
+}
+
+/* A module on its own page or popped out (public/module.html): the "+" is in the page bar's right zone, or in the
+   window's own titlebar; the status bar is the last thing on the page, so it keeps clear of the home indicator. */
+.page-bar-add[data-tint] .mod-add {
+  color: var(--tint);
+}
+
+body.module-page .module-status {
+  height: calc(var(--status-bar-h) + env(safe-area-inset-bottom, 0px));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (max-width: 640px) {
+  /* Touch sizes: 44px wide, as tall as the bar or titlebar it sits in. */
+  body.module-popout .module-titlebar .mod-header-tools {
+    align-self: stretch;
+    align-items: center; /* the "..." keeps its 28px, centred; the "+" and Close stretch */
+  }
+
+  body.module-popout .module-titlebar .titlebar-add,
+  .page-bar-add {
+    align-self: stretch;
+    align-items: stretch;
+  }
+
+  body.module-popout .module-titlebar .msg-btn {
+    align-self: stretch;
+  }
+
+  body.module-popout .module-titlebar .mod-add,
+  body.module-popout .module-titlebar .msg-btn,
+  .page-bar-add .mod-add {
+    width: 44px;
+    min-width: 44px;
+    height: auto;
+  }
 }
 
 .mod-status {
@@ -7626,11 +7453,6 @@ body.chat-window {
 
   /* The chip's phone rules (the dot and the phase's name) are with its own, at phase-chip:start. */
 
-  /* The views (Workspace, Calendar, Map) are the menu's first entries (nav-bar.js phoneZones); the current one reads so. */
-  .topbar.menu-open .links .core-link[data-view][aria-current="page"] {
-    box-shadow: inset 3px 0 0 var(--accent);
-  }
-
   .topbar.menu-open .links .whoami-caret {
     display: none;
   }
@@ -8065,7 +7887,6 @@ body.chat-window {
 .ai-services { display: grid; gap: 12px; margin-top: 8px; }
 .ai-service { display: flex; flex-direction: column; gap: 10px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-card, var(--bg)); }
 .ai-service-head { display: flex; align-items: center; gap: 10px; }
-.ai-service-address { display: flex; flex-direction: column; gap: 4px; }
 .shared-files { margin: 6px 0 0; padding-left: 18px; font-size: 13px; }
 .shared-files li { margin: 2px 0; }
 .files-table { width: 100%; border-collapse: collapse; margin: 6px 0; }
@@ -8754,9 +8575,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 .host-section { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
 .host-section h3 { margin: 0; font-size: 15px; }
 .host-section > .hint { margin: 0; }
-
-/* Manage's one line saying where a setting moved, in place of the panel it had. */
-.moved-note p { margin: 0; color: var(--text-dim); font-size: 13px; }
 
 /* calendars-tab:start -- Profile's Calendars tab (plan-space-calendars.md, section 4): one row per address (Everything,
    then each space), its icon and name, on or off, Last read, the reason it can't be used, its buttons; the address
@@ -9849,25 +9667,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .work:has(> .canvas[hidden]) {
-  display: none;
-}
-
-/* A view other than the Workspace (plan-one-bar.md, step 7): its page in a frame where the canvas is, the column still
-   beside it. The canvas keeps its state under it; the frame is hidden again on the Workspace. */
-.view-frame {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: var(--bg);
-}
-
-.view-frame[hidden],
-.work:has(> .view-frame:not([hidden])) > .canvas {
-  display: none;
-}
-
-/* The space list over the space (home) hides the canvas; a view's frame goes with it. */
-.work:has(> .canvas[hidden]) > .view-frame {
   display: none;
 }
 

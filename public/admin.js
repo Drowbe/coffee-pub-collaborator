@@ -638,24 +638,6 @@ $('save-features').addEventListener('click', () => saveSettings({
 }, $('features-status')));
 $('save-login').addEventListener('click', () => saveSettings({ loginText: $('set-login-text').value, mfaRequired: $('set-mfa-required').checked }, $('login-status')));
 
-// --- where Calendar sharing went -------------------------------------------------------------------------------------
-// Calendar sharing's switches, and Show in the top bar, moved into each module's own configuration
-// (plan-space-calendars.md, section 4, decision 11). For one release, one line on this tab says where: the module that
-// takes part in calendar sharing (GET /api/modules' `sharing`, a bundled one first), hidden while none is installed.
-// Drawn again whenever the Modules tab's list is read.
-function renderSharingPointer() {
-  const box = $('calendar-sharing-pointer');
-  const sharing = installedModules.filter((m) => m.sharing === true);
-  const m = sharing.find((x) => x.source === 'bundled') || sharing[0];
-  box.hidden = !m;
-  if (!m) return;
-  const line = $('calendar-sharing-line');
-  const link = document.createElement('a');
-  link.href = `/module-config.html?id=${encodeURIComponent(m.id)}`;
-  link.textContent = `${shownName(m)}'s configuration`;
-  line.replaceChildren('Calendar sharing is set in ', link, '.');
-}
-
 // --- theme -------------------------------------------------------------------
 // A chooser (Strong Coffee, the default, + every saved theme) and a
 // Light/Dark switch, plus the same seven color inputs, used to create/edit
@@ -1085,7 +1067,6 @@ async function loadModules() {
   builtinModules = data.builtin || [];
   bundledModules = data.bundled || [];
   renderModules();
-  renderSharingPointer();
   renderModuleNames();
   renderTemplateNote();
   loadActivity();

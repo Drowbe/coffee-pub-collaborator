@@ -7,7 +7,7 @@
 import { api, accessKeyHeaders, word, words, withinSpacePage } from '/brand.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
-import { cleanAddEntries, addPlan, addMenuItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer } from '/module-chrome.js';
+import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer } from '/module-chrome.js';
 
 // The design tokens a module's frame receives (see design-theme.md).
 const THEME_TOKENS = [
@@ -645,7 +645,7 @@ if (window.parent !== window) {
   });
 }
 
-// The host-drawn "..." dropdown for whatever a header, action bar or toolbar row didn't have room for is the page's
+// The host-drawn "..." dropdown for whatever a header or toolbar row didn't have room for is the page's
 // shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
 export { openHostMenu, closeHostMenu };
 
@@ -696,7 +696,7 @@ export function openClearMenu(trigger, onClear, { armed = false } = {}) {
   openConfirmMenu(trigger, { label: 'Clear', confirm: 'Clear everything and start again?', onConfirm: onClear, armed });
 }
 
-// Splits a cleaned item list into what a header/bar/toolbar row shows directly and what collapses into
+// Splits a cleaned item list into what a header or toolbar row shows directly and what collapses into
 // its "..." (an item marked `overflow: true`, or whatever doesn't fit in `max` slots including the "...").
 // Leftovers come off the left of `shown`, so the rightmost (the primary, when there is one) stays.
 function splitOverflow(items, max) {
@@ -777,159 +777,12 @@ function watchLifts(doc) {
   }
 }
 
-// Mounts one module: into an empty <iframe> (`frame`; sandboxed, with only the SDK to reach the page), or,
-// for a module that runs in the page, into an empty element (`container`), where it lives in a shadow
-// root of its own, beside the page's own elements, with the page's power (see the run modes in
-// documentation/architecture/architecture-modules.md).
-//
-// `scope` is 'environment' (the module's own page) or 'space' (on a space's canvas, with `spaceId`). `destination`
-// is { hub, part } for a destination's part: `hub` from createDestination(), `part` 'main' or 'panel'. Returns
-// { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, bar = null, onBar, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, lift = true, onLift = null }) {
-  const base = `/api/modules/${encodeURIComponent(module.id)}`;
-  let contextInfo = null;
-  // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
-  // session. `keyed` is { path, subject, query }; the page's own api() already carries the key.
-  if (destination && (!destination.hub || !DESTINATION_PARTS.includes(destination.part))) throw new Error('a destination\'s part is "main" or "panel"');
-
-  // `sc` is a scope name ('space' meaning the space this frame is in) or a place from scopeOf ({ scope, space }).
-  const q = (sc) => {
-    const place = typeof sc === 'string' ? { scope: sc, space: sc === 'space' ? spaceId : null } : sc;
-    const p = new URLSearchParams();
-    if (place.scope === 'space') { p.set('scope', 'space'); p.set('space', place.space); } else if (place.scope === 'spaces' || place.scope === 'person') p.set('scope', place.scope); else p.set('scope', 'environment');
-    if (guestToken) p.set('guest', guestToken);
-    return p;
-  };
-  // The person's own other calendars (plan-google-calendar.md, Part 2) are shown only on a module's own page and on a
-  // destination, never within a space, whatever the mount's scope says: not on a space's canvas, not in a window popped
-  // out of one, not on a page opened over a call (?from=space), and never on a keyed page. Elsewhere the module is
-  // answered none and never hears the 'external' event.
-  const externalHere = externalAllowedHere({ scope, keyed: Boolean(keyed), overCall: withinSpacePage(), search: location.search });
-  // 'context' means wherever this frame is showing; a module on a space's canvas may also ask for 'environment', and a
-  // module's environment page for one of the viewer's spaces ({ space }). See placeOf.
-  const scopeOf = (requested, space) => placeOf(requested, space, { scope, spaceId, moduleScopes: module.scope });
-  const url = (path, sc, extra = {}) => {
-    const p = q(sc);
-    for (const [k, v] of Object.entries(extra)) if (v !== undefined && v !== null && v !== '') p.set(k, v);
-    return `${base}${path}?${p}`;
-  };
-
-  // The place this module is in, for the bus routes: on a space's canvas it is in that space, a page in the environment.
-  const busPlaceBody = () => (scope === 'space' ? { scope: 'space', space: spaceId } : { scope: 'environment' });
-  const busGuest = () => (guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '');
-  const busQuery = (extra) => {
-    const p = new URLSearchParams({ ...extra, ...busPlaceBody() });
-    if (guestToken) p.set('guest', guestToken);
-    return p;
-  };
-
-  // This module, as the drag brokering sees it (its `send` is defined below).
-  const pageMode = Boolean(container);
-  // `frame` in the drag brokering below is whichever element holds the module: its frame, or its container.
-  const mine = { frame: pageMode ? container : frame, module, send: (event, data) => send(event, data) };
-
-  // The nav-bar tools this mount registered (their namespaced ids), so destroy() takes exactly those out.
-  const navIds = new Set();
-  let barItems = [];
-  let barObserver = null;
-  let fittingBar = false;
-
-  function drawBarItem(item) {
-    if (item.input) {
-      const form = document.createElement('form');
-      form.className = 'quick-add';
-      const field = document.createElement('input');
-      field.type = 'text';
-      field.maxLength = 200;
-      field.placeholder = item.placeholder;
-      field.setAttribute('aria-label', item.placeholder || 'Quick add');
-      const go = document.createElement('button');
-      go.type = 'submit';
-      go.className = 'action-btn primary quick-add-go';
-      go.setAttribute('aria-label', item.label || 'Add');
-      go.title = item.label || 'Add';
-      go.disabled = item.disabled;
-      const plus = document.createElement('i');
-      plus.className = `fa-solid fa-${item.icon || 'circle-plus'} fa-fw`;
-      plus.setAttribute('aria-hidden', 'true');
-      go.appendChild(plus);
-      form.append(field, go);
-      form.addEventListener('submit', (e) => {
-        e.preventDefault();
-        send('bar', { id: item.id, value: field.value.trim() });
-        field.value = '';
-      });
-      bar.appendChild(form);
-      return;
-    }
-    const b = document.createElement('button');
-    b.type = 'button';
-    // An icon is the button (the shared .action-btn, the same size and icon as the call's controls). The words stay as
-    // the tooltip and as the line in "...". A button with no icon is a worded .btn.
-    const iconOnly = Boolean(item.icon);
-    b.className = iconOnly ? `action-btn${item.primary ? ' primary' : ''}` : `btn${item.primary ? ' btn-primary' : ''}`;
-    b.disabled = item.disabled;
-    if (iconOnly) { b.title = item.label; b.setAttribute('aria-label', item.label); }
-    if (item.icon) {
-      const i = document.createElement('i');
-      i.className = `fa-solid fa-${item.icon} fa-fw`;
-      i.setAttribute('aria-hidden', 'true');
-      b.append(i);
-    }
-    if (!iconOnly) b.append(item.label);
-    b.addEventListener('click', () => send('bar', { id: item.id }));
-    bar.appendChild(b);
-  }
-
-  function drawBarMore(hidden) {
-    const more = drawMoreButton(document, 'bar-more', () => openHostMenu(more, hidden.map((item) => ({ ...item, onPick: () => send('bar', { id: item.id }) }))));
-    bar.appendChild(more);
-  }
-
-  // Primary on the far right; secondaries to its left. As the bar shrinks, leftovers come off the left into "...".
-  function drawModuleBar() {
-    if (!bar || fittingBar) return;
-    fittingBar = true;
-    try {
-      const quickadds = barItems.filter((i) => i.input);
-      const forced = barItems.filter((i) => !i.input && i.overflow);
-      const primaries = barItems.filter((i) => !i.input && !i.overflow && i.primary);
-      const secondaries = barItems.filter((i) => !i.input && !i.overflow && !i.primary);
-      const hidden = [...forced];
-      const visible = [...secondaries];
-      const paint = () => {
-        bar.textContent = '';
-        for (const item of quickadds) drawBarItem(item);
-        if (hidden.length) drawBarMore(hidden);
-        for (const item of visible) drawBarItem(item);
-        for (const item of primaries) drawBarItem(item);
-      };
-      paint();
-      if (!bar.clientWidth) return;
-      // The bar packs to the right, so a button that does not fit sticks out of the left. scrollWidth
-      // does not count that. Measure the buttons against the bar instead, and fold them left to right.
-      const spills = () => {
-        const edge = bar.getBoundingClientRect();
-        return [...bar.children].some((child) => {
-          if (child.hidden) return false;
-          const box = child.getBoundingClientRect();
-          return box.left < edge.left - 1 || box.right > edge.right + 1;
-        });
-      };
-      let guard = 0;
-      while ((visible.length || primaries.length) && spills() && guard < 20) {
-        hidden.push(visible.length ? visible.shift() : primaries.shift());
-        paint();
-        guard += 1;
-      }
-    } finally {
-      fittingBar = false;
-    }
-  }
-
-  // The "+" in the titlebar (host.add.set): one button in `add` (the titlebar's slot, moved with the window between
-  // docked and floating, never rebuilt), which runs the module's one add action at once or opens the shared menu of
-  // them, categories as flyouts. A pick is the 'add' event { id }. See public/module-chrome.js for the rules.
+// The "+" in a titlebar (host.add.set): one button in `add` (the titlebar's slot, moved with the window between docked
+// and floating, never rebuilt), which runs the module's one add action at once or opens the shared menu of them,
+// categories as flyouts. A pick goes to `send('add', { id })`. See public/module-chrome.js for the rules. mountModule draws
+// a module's with it; canvas.js draws a composite's with it, from the adds its page hands up (destination.js).
+// Returns { set(entries), destroy() }.
+export function createAddSlot(add, send) {
   let addEntries = [];
   let addButton = null;
   function drawAdd() {
@@ -971,11 +824,23 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     }
     add.hidden = false;
   }
+  return {
+    set(entries) {
+      addEntries = cleanAddEntries(entries);
+      drawAdd();
+    },
+    destroy() {
+      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
+    },
+  };
+}
 
-  // The status bar (host.status.set): a slim read-only line at the bottom of the module's own window or column, hidden
-  // while the module sets nothing. Its items and a visually hidden polite live node are drawn into `status` (a labelled
-  // region the chrome gives, moved with the window like the "+"); the same items again draw nothing, and the live
-  // node hears the non-quiet text only after it has been still for a moment (createAnnouncer).
+// The status bar (host.status.set): a slim read-only line at the bottom of a module's own window or column, hidden
+// while nothing is set. Its items and a visually hidden polite live node are drawn into `status` (a labelled region the
+// chrome gives, moved with the window like the "+"); the same items again draw nothing, and the live node hears the
+// non-quiet text only after it has been still for a moment (createAnnouncer). Used by mountModule, and by canvas.js
+// for a composite. Returns { set(items) (true, as status.set answers), destroy() }.
+export function createStatusSlot(status) {
   let statusLast = null;
   let statusList = null;
   let statusLive = null;
@@ -1035,6 +900,92 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     fitStatus();
     announcer.update(statusSpoken(clean));
   }
+  return {
+    set(items) {
+      const clean = cleanStatusItems(items);
+      const key = statusKey(clean);
+      if (key === statusLast) return true;
+      statusLast = key;
+      drawStatus(clean);
+      return true;
+    },
+    destroy() {
+      if (announcer) announcer.stop();
+      if (statusObserver) { statusObserver.disconnect(); statusObserver = null; }
+    },
+  };
+}
+
+// Mounts one module: into an empty <iframe> (`frame`; sandboxed, with only the SDK to reach the page), or,
+// for a module that runs in the page, into an empty element (`container`), where it lives in a shadow
+// root of its own, beside the page's own elements, with the page's power (see the run modes in
+// documentation/architecture/architecture-modules.md).
+//
+// `scope` is 'environment' (the module's own page) or 'space' (on a space's canvas, with `spaceId`). `destination`
+// is { hub, part } for a destination's part: `hub` from createDestination(), `part` 'main' or 'panel'. `onAdd(entries)`
+// and `onStatus(items)`, for a destination's part only: its "+" entries and status items, cleaned, for the page to hand
+// on (a composite's frame); host.add.set and host.status.set answer true then. Returns
+// { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, lift = true, onLift = null }) {
+  const base = `/api/modules/${encodeURIComponent(module.id)}`;
+  let contextInfo = null;
+  // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
+  // session. `keyed` is { path, subject, query }; the page's own api() already carries the key.
+  if (destination && (!destination.hub || !DESTINATION_PARTS.includes(destination.part))) throw new Error('a destination\'s part is "main" or "panel"');
+
+  // `sc` is a scope name ('space' meaning the space this frame is in) or a place from scopeOf ({ scope, space }).
+  const q = (sc) => {
+    const place = typeof sc === 'string' ? { scope: sc, space: sc === 'space' ? spaceId : null } : sc;
+    const p = new URLSearchParams();
+    if (place.scope === 'space') { p.set('scope', 'space'); p.set('space', place.space); } else if (place.scope === 'spaces' || place.scope === 'person') p.set('scope', place.scope); else p.set('scope', 'environment');
+    if (guestToken) p.set('guest', guestToken);
+    return p;
+  };
+  // The person's own other calendars (plan-google-calendar.md, Part 2) are shown only on a module's own page and on a
+  // destination, never within a space, whatever the mount's scope says: not on a space's canvas, not in a window popped
+  // out of one, not on a page opened over a call (?from=space), and never on a keyed page. Elsewhere the module is
+  // answered none and never hears the 'external' event.
+  const externalHere = externalAllowedHere({ scope, keyed: Boolean(keyed), overCall: withinSpacePage(), search: location.search });
+  // 'context' means wherever this frame is showing; a module on a space's canvas may also ask for 'environment', and a
+  // module's environment page for one of the viewer's spaces ({ space }). See placeOf.
+  const scopeOf = (requested, space) => placeOf(requested, space, { scope, spaceId, moduleScopes: module.scope });
+  const url = (path, sc, extra = {}) => {
+    const p = q(sc);
+    for (const [k, v] of Object.entries(extra)) if (v !== undefined && v !== null && v !== '') p.set(k, v);
+    return `${base}${path}?${p}`;
+  };
+
+  // The place this module is in, for the bus routes: on a space's canvas it is in that space, a page in the environment.
+  const busPlaceBody = () => (scope === 'space' ? { scope: 'space', space: spaceId } : { scope: 'environment' });
+  const busGuest = () => (guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '');
+  const busQuery = (extra) => {
+    const p = new URLSearchParams({ ...extra, ...busPlaceBody() });
+    if (guestToken) p.set('guest', guestToken);
+    return p;
+  };
+
+  // This module, as the drag brokering sees it (its `send` is defined below).
+  const pageMode = Boolean(container);
+  // `frame` in the drag brokering below is whichever element holds the module: its frame, or its container.
+  const mine = { frame: pageMode ? container : frame, module, send: (event, data) => send(event, data) };
+
+  // The nav-bar tools this mount registered (their namespaced ids), so destroy() takes exactly those out.
+  const navIds = new Set();
+
+  // The "+" in the titlebar (host.add.set) and the status bar (host.status.set), drawn in the slots the chrome gives
+  // (createAddSlot and createStatusSlot, above). The old action bar (host.bar.set, kept for modules written for it) is
+  // drawn nowhere: its buttons fold into this same "+" (foldBarItems), until the module calls host.add.set, whose list wins.
+  // While the "+" holds the fold, a pick goes back as the old 'bar' event ({ id }; a quick-add's { id, value: '' }).
+  let addOwn = null; // what host.add.set sent (null: never called)
+  let barFold = []; // host.bar.set's buttons as "+" leaves
+  let barQuick = new Set(); // which of them were quick-adds
+  const folding = () => addOwn === null && barFold.length > 0;
+  const addSlot = add ? createAddSlot(add, (event, data) => {
+    if (event === 'add' && folding()) send('bar', barQuick.has(data.id) ? { id: data.id, value: '' } : { id: data.id });
+    else send(event, data);
+  }) : null;
+  const drawAddSlot = () => { if (addSlot) addSlot.set(addOwn !== null ? addOwn : barFold); };
+  const statusSlot = status ? createStatusSlot(status) : null;
 
   // Events for the module before its page has said hello wait until it has.
   let ready = false;
@@ -1352,50 +1303,29 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (!destination) throw Object.assign(new Error('this is not part of a destination'), { status: 400 });
       return destination.hub.fromPart(destination.part, patch);
     },
-    // The module's action bar: the host draws the buttons into `bar` and sends
-    // clicks back as a 'bar' event.
+    // The old action bar (host.bar.set), kept for modules written for it: nothing is drawn along the bottom any more.
+    // Its buttons fold into the "+" as plain leaves (the primary first, the rest in order; a quick-add is a leaf that
+    // sends an empty value), and a pick sends the 'bar' event it always sent. A module that calls host.add.set gets that
+    // list instead. Answers true, as it always did.
     async 'bar.set'({ items }) {
-      barItems = (Array.isArray(items) ? items : []).slice(0, 10).map((i) => ({
-        id: String(i?.id ?? '').slice(0, 40),
-        label: String(i?.label ?? '').slice(0, 30),
-        icon: /^[a-z0-9-]{1,40}$/.test(i?.icon || '') ? i.icon : '',
-        primary: Boolean(i?.primary),
-        disabled: Boolean(i?.disabled),
-        // An item can be a quick-add: a text field with a small + button. What is typed comes back with the click.
-        input: i?.type === 'quickadd',
-        iconOnly: Boolean(i?.iconOnly),
-        placeholder: String(i?.placeholder ?? '').slice(0, 60),
-        overflow: Boolean(i?.overflow) && i?.type !== 'quickadd',
-      })).filter((i) => i.id && (i.label || i.input));
-      if (bar) {
-        bar.hidden = barItems.length === 0;
-        if (!barObserver) {
-          barObserver = new ResizeObserver(() => drawModuleBar());
-          barObserver.observe(bar);
-        }
-        drawModuleBar();
-      }
-      if (onBar) onBar(barItems.length > 0);
+      ({ entries: barFold, quick: barQuick } = foldBarItems(items));
+      drawAddSlot();
       return true;
     },
-    // The "+" in the titlebar (host.add.set). False where there is no titlebar to put it in (a destination's part, a
-    // module's own page): the module keeps its own add buttons in the page there. An empty list takes the "+" away (a
-    // module sends one for a person who may not add: what "may add" means is the module's own permission).
+    // The "+" in the titlebar (host.add.set): the window's titlebar, or the page bar on a module's own page. False where
+    // there is none (a destination's part, a dashboard widget): the module keeps its own add buttons in the page there. An
+    // empty list takes the "+" away (a module sends one for a person who may not add: what "may add" means is the
+    // module's own permission).
     async 'add.set'({ entries }) {
       if (!add) return false;
-      addEntries = cleanAddEntries(entries);
-      drawAdd();
+      addOwn = Array.isArray(entries) ? entries : [];
+      drawAddSlot();
       return true;
     },
-    // The status bar (host.status.set). False where there is none (a destination's part, a module's own page).
+    // The status bar (host.status.set). False where there is none (a destination's part, a dashboard widget).
     async 'status.set'({ items }) {
       if (!status) return false;
-      const clean = cleanStatusItems(items);
-      const key = statusKey(clean);
-      if (key === statusLast) return true;
-      statusLast = key;
-      drawStatus(clean);
-      return true;
+      return statusSlot.set(items);
     },
     // Icon buttons in the module's titlebar, before the host's own buttons and set off by a pipe. Only a
     // host with a titlebar (a module on the canvas, or in its own window) has room for them: the answer says which,
@@ -1699,6 +1629,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       return watchMedia(params);
     },
   };
+  // A destination's part in a composite's frame (destination.js, `onAdd` and `onStatus`): it has no titlebar of its own,
+  // but its page hands its adds and its status up to the composite's titlebar and status bar on the Workspace, so they are
+  // drawn after all (true), and the part hides its own add buttons as it does under a titlebar. A pick comes back as the
+  // 'add' event, through deliver.
+  if (destination && onAdd) handlers['add.set'] = async ({ entries }) => { onAdd(cleanAddEntries(entries)); return true; };
+  if (destination && onStatus) handlers['status.set'] = async ({ items }) => { onStatus(cleanStatusItems(items)); return true; };
 
   // Each frame has its own secret, handed to it in its address. Messages to the frame carry it, and
   // the SDK ignores any that do not, so another frame that can reach this one cannot pose as the host.
@@ -1964,10 +1900,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (ptrDrag && ptrDrag.source === mine) ptrEnd();
       for (const id of navIds) navBar.unregister(id); // its nav tools go with it
       navIds.clear();
-      if (barObserver) { barObserver.disconnect(); barObserver = null; }
-      if (announcer) announcer.stop();
-      if (statusObserver) { statusObserver.disconnect(); statusObserver = null; }
-      if (addButton && hostMenuOpen(addButton)) closeHostMenu();
+      if (statusSlot) statusSlot.destroy();
+      if (addSlot) addSlot.destroy();
       leaveStream();
       leaveDestination();
       if (pageMode) container.shadowRoot?.replaceChildren();

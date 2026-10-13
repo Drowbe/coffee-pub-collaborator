@@ -327,6 +327,24 @@
     }
     askBacklinks();
     $('body').innerHTML = html || `<p class="empty">${show === 'closed' ? 'No closed polls.' : 'No open polls.'}${canCreate && show !== 'closed' ? ' Start one to get a vote going.' : ''}</p>`;
+    syncStatus();
+  }
+
+  // The status line at the foot of the window: the open polls shown, and how many of this place's still wait for this
+  // person's vote ("2 open polls · 1 waiting for your vote"); a chip when Closed or All is shown. Hidden while there are none.
+  const SHOW_WORDS = { closed: 'Showing closed', all: 'Showing all' };
+  function syncStatus() {
+    if (!host.status) return;
+    const shown = [...polls.values()].filter((x) => x.scope === 'own' || !hiddenSpaces.has(x.spaceId));
+    const items = [];
+    if (shown.length) {
+      const open = shown.filter((x) => !isClosed(x.p));
+      const waiting = canVote ? open.filter((x) => x.scope === 'own' && !tally(x).mine.length).length : 0;
+      items.push({ text: open.length ? `${open.length} open ${open.length === 1 ? 'poll' : 'polls'}` : 'No open polls' });
+      if (waiting) items.push({ text: `${waiting} waiting for your vote` });
+      if (SHOW_WORDS[show]) items.push({ text: SHOW_WORDS[show], chip: true });
+    }
+    host.status.set(items).catch(() => {});
   }
 
   function showNote(text, ok) {
@@ -756,16 +774,15 @@
     });
   }
   $('add').addEventListener('click', () => openEditor());
-  // The host draws New poll in the module's action bar; the header button stays only when there is no bar.
-  // Typing is `/v` in Chat, which opens the same form.
-  if (host.bar) {
-    $('add').classList.add('hosted');
-    host.bar.set(canCreate ? [{ id: 'add', label: 'New poll', icon: 'square-poll-horizontal', primary: true }] : []).catch(() => $('add').classList.remove('hosted'));
-    host.on('bar', (e) => {
-      if (e.id !== 'add' || !canCreate) return;
-      openEditor();
-    });
-  }
+  // New poll is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
+  // page bar on the module's own page. The header button stays only where the host draws none. Typing is `/v` in Chat,
+  // which opens the same form.
+  const unhost = () => $('add').classList.remove('hosted');
+  $('add').classList.add('hosted'); // until the host says where New poll is
+  if (host.add) {
+    host.add.set(canCreate ? [{ id: 'poll', label: 'New poll', icon: 'square-poll-horizontal' }] : []).then((drawn) => { if (!drawn) unhost(); }, unhost);
+    host.on('add', (e) => { if (e.id === 'poll' && canCreate) openEditor(); });
+  } else unhost();
   if (host.actions && host.actions.provide) {
     host.actions.provide({
       // A poll or a message's words from Chat's Send to... (plan-object-handoff.md): the form, filled in; nothing is saved

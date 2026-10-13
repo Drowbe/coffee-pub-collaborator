@@ -63,6 +63,24 @@ export function cleanAddEntries(entries) {
   return out;
 }
 
+// The old action bar (host.bar.set), folded into the "+": each button a plain leaf, the primary ones first and the rest in
+// their order (10 at most, as the bar took). A quick-add item is a leaf too (its label, else its placeholder, else "Add";
+// icon `plus` unless it gave one); `quick` lists their ids, whose pick sends { id, value: '' }. `overflow` and `iconOnly`
+// mean nothing in a menu and are dropped. Returns { entries, quick }; entries go through cleanAddEntries as any others.
+export function foldBarItems(items) {
+  const clean = (Array.isArray(items) ? items : []).slice(0, 10).map((i) => {
+    const quick = i?.type === 'quickadd';
+    const icon = ICON.test(i?.icon || '') ? i.icon : quick ? 'plus' : '';
+    const label = str(i?.label, ADD_LIMITS.label) || (quick ? str(i?.placeholder, ADD_LIMITS.label) || 'Add' : '');
+    return { id: str(i?.id, 40), label, icon, primary: Boolean(i?.primary), disabled: Boolean(i?.disabled), quick };
+  }).filter((i) => i.id && i.label);
+  const ordered = [...clean.filter((i) => i.primary), ...clean.filter((i) => !i.primary)];
+  return {
+    entries: ordered.map(({ id, label, icon, disabled }) => ({ id, label, disabled, ...(icon ? { icon } : {}) })),
+    quick: new Set(ordered.filter((i) => i.quick).map((i) => i.id)),
+  };
+}
+
 // What the "+" does with cleaned entries: { kind: 'none' } (no "+"), { kind: 'direct', leaf } (exactly one leaf and no
 // category: it runs at once, its label the tooltip and the accessible name) or { kind: 'menu', label: 'Add' }.
 export function addPlan(clean) {

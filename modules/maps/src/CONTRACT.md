@@ -29,7 +29,7 @@
     <div id="state" class="state">                 replaces the map (see States)
 ```
 
-There is no search field, add button, list or panel over the map. **The host's bottom bar is the map's toolbar** (`host.bar.set`): a quick-add field with a magnifying-glass button (`id: find`; placeholder "Search for a place, or paste coordinates or a map link", or only "Paste coordinates or a map link" when no search is set up), then a square **+** button (`id: add`, `iconOnly`, tooltip "Add a place: click the map"). The list of places is the Places module.
+There is no list or panel over the map. Where the host draws the titlebar "+" (`host.add.set` answers true) the map's toolbar is that **+** ("Add a place on the map", a toggle, and "Add a place", which asks Places for its empty dialog) and `form#map-search` (`role=search`, `input#map-find`: Enter searches, a pasted position or map link goes there; `.results.under-search` lists what it found just under it), a field over the top left of the map; the status line says how many places show, how many a search found, or "Click the map to add a place". The "+" is in the window's titlebar wherever the module has a window (docked, floating, popped out) and in the page bar on its own page. Where the host answers false the square **+** on the map (`#ctrl-add`, tooltip "Add a place: click the map") turns on adding instead. The list of places is the Places module.
 
 ## Wide and narrow
 
@@ -48,13 +48,13 @@ The map fills the pane in both. The frame is narrow under 720 px (the script set
 
 ## Search (only when a search address is set)
 
-The bar's field (Enter, or the magnifying-glass button) searches through Places. `ul.results#results` holds `li > button.result` (each with `[data-slot=title]` and `small[data-slot=sub]`) or a `.note` ("No results", "Search is not available right now"); the same results are drawn as `.pin.candidate` on the map. Picking a result (click) starts a place there: Places opens its own dialog with the spot filled in. Escape clears the results.
+The field (Enter) searches through Places. `ul.results#results` holds `li > button.result` (each with `[data-slot=title]` and `small[data-slot=sub]`) or a `.note` ("No results", "Search is not available right now"); the same results are drawn as `.pin.candidate` on the map. Picking a result (click) starts a place there: Places opens its own dialog with the spot filled in. Escape clears the results.
 
 ## Adding a place
 
 Three ways, all ending at Places' own dialog with the position filled in:
-1. **The bar's + button** turns on adding: `.map.adding` (a crosshair cursor) and `#banner`. A click on the map puts the `.draft` pin there. `data-action=cancel` in the banner (or Escape) leaves adding.
-2. **The bar's field**: a coordinate pair ("38.7075, -9.1364") or a map link puts a draft pin there.
+1. **The "+"'s "Add a place on the map"** (or the + on the map) turns on adding: `.map.adding` (a crosshair cursor) and `#banner`. A click on the map puts the `.draft` pin there. `data-action=cancel` in the banner (or Escape) leaves adding.
+2. **The field**: a coordinate pair ("38.7075, -9.1364") or a map link puts a draft pin there.
 3. **A search result** (above).
 
 Nothing here edits or deletes a place, and pins are not draggable.
@@ -97,7 +97,7 @@ No sprite or icon font is needed. Labels use one Latin glyph set at first (see t
 ## Once search and saving move to Places (see plan-places-views.md)
 
 Maps becomes a view of places and a gesture to choose a point. What stays: the pins, clusters, the map file, the credit, `add-place` (click the map to choose a point), `open-in-maps` and `copy-coords` on a selected place. What changes in the design (the scripts follow when Server Development builds the actions):
-- **`#search`** keeps its place on the map, but its results come from Places (an action that returns a few results), so they are the same as the ones Places shows when its bar searches. A result is drawn as a **candidate pin** (`.pin.candidate`: dashed outline, surface fill, no count); picking one (`data-action=save-found` in its callout) asks Places to save it.
+- **`#search`** keeps its place on the map, but its results come from Places (an action that returns a few results), so they are the same as the ones Places shows when its quick-add searches. A result is drawn as a **candidate pin** (`.pin.candidate`: dashed outline, surface fill, no count); picking one (`data-action=save-found` in its callout) asks Places to save it.
 - **Saving** is Places' dialog: after a click on the map the map asks Places to add a place at that point (the `addPlace` action with the position) and Places opens its own dialog. The map's `#editor` goes away, with `f-title`, `f-notes` and `#f-where`; the draft pin stays until Places has saved or the person cancels.
 - **No list panel.** Maps requires Places, so Places is the list (decided by the author). `#panel`, its rows, groups and the phone sheet go away; the map shows pins, and an object from another module opens in its own module. Selecting a pin shows its callout on the map.
 - **A pin from mine** (the person scope) has `data-scope="person"`, which draws the small person mark on it.
@@ -113,7 +113,7 @@ Maps has the `environment` scope and declares `surfaces.destination` `{ id: 'map
 - **The selection** (`selected`): either part may set it. A pin clicked here sets it; one set by the panel is selected here (the map flies to it), read again first when it is new.
 - There is no host bar: `#ctrl-add` (top left, `.maplibregl-ctrl-top-left`) holds the **+** "Add a place: click the map", shown when something offers `newPlace`. The map's last view is kept in this browser (`maps-destination-view`).
 
-**The environment page on its own** (`/modules/maps`, when the Map destination is not shown) draws the same pins with no filter, no panel and no adding (the actions it would ask are carried out by a Places page that is not open there); its bar field takes pasted coordinates or a map link to go there.
+**The environment page on its own** (`/modules/maps`, when the Map destination is not shown) draws the same pins with no filter, no panel and no adding (the actions it would ask are carried out by a Places page that is not open there); its search field takes pasted coordinates or a map link to go there.
 
 ## Not decided yet
 

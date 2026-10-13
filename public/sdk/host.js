@@ -2826,17 +2826,14 @@
       return destinationApi;
     },
 
-    // The module's action bar: buttons the host draws along the bottom of the
-    // module (in the space's bottom row when docked, lined up with the video
-    // toolbar and the chat box). set([{ id, label, icon, primary, disabled, overflow }]);
-    // a click arrives as the 'bar' event with the button's id. Give an icon: the bar draws that
-    // alone, and the label is the tooltip and the line in "...". The primary button sits on
-    // the far right; the rest sit to its left. As the bar shrinks, leftover buttons come
-    // off the left into a host-drawn "...". An item marked `overflow: true` always goes there.
+    // The old action bar, kept so a module written for it still works: use host.add (the "+") instead. Nothing is
+    // drawn along the bottom of a module any more. set([{ id, label, icon, primary, disabled }]) folds the buttons into
+    // the titlebar's "+" as plain entries (the primary first, the rest in order; `label` is the entry's words, `icon`
+    // its icon), and a pick still arrives as the 'bar' event { id }. An item { id, type: 'quickadd', placeholder,
+    // label } becomes an entry too; its 'bar' event carries { id, value: '' } (there is no field to type in), so open
+    // an empty form for it. `overflow` and `iconOnly` are ignored. A module that calls host.add.set gets only that list.
+    // Resolves true.
     bar: {
-      // An item { id, type: 'quickadd', placeholder, label } is a text field with a small + button instead; the
-      // 'bar' event then carries { id, value }, the text typed (empty if none). A quickadd item is never
-      // pushed into the "..." -- it is exempt from the overflow count.
       set: (items) => call('bar.set', { items }),
     },
 
@@ -2847,7 +2844,8 @@
     // Exactly one leaf: the "+" runs it at once, its label the tooltip ("Add event"). More: the "+" ("Add") opens the
     // host's menu, a category's leaves in a flyout beside it (a drill-in on a phone). A pick arrives as the 'add' event
     // { id }. An empty list takes the "+" away: send one for a person who may not add. Resolves true when the host drew
-    // it, false where there is no titlebar (a destination's part, the module's own page): keep your own add there.
+    // it (a window's titlebar, popped out too, or the page bar on the module's own page), false where there is none (a
+    // destination's part, a dashboard widget): keep your own add there.
     // Detect it with `if (host.add)`.
     add: {
       set: (entries) => call('add.set', { entries }),
@@ -2858,8 +2856,8 @@
     // as a small pill (a filter); `title` its tooltip (else its text); `quiet` keeps it out of what a screen reader
     // hears (a ticking time); `end` puts it at the right end (one). Nothing in it is a button. The host reads the
     // non-quiet text out politely once it has been still a moment, and draws nothing for the same items again, so call
-    // it on every render. set([]) hides it. Resolves true when drawn, false where there is none (a destination's part,
-    // the module's own page). Detect it with `if (host.status)`.
+    // it on every render. set([]) hides it. Resolves true when drawn (a window, popped out too, or the module's own
+    // page), false where there is none (a destination's part, a dashboard widget). Detect it with `if (host.status)`.
     status: {
       set: (items) => call('status.set', { items }),
     },

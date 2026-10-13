@@ -3,12 +3,6 @@
 // bell's count and words, and the breadcrumb's segments. brand.js and space.js draw them; nothing here touches a
 // document, so tools/check-nav.mjs runs them in node.
 
-// The bar's slots, left to right (plan-two-zone-nav.md). The branding (the logo and the environment), then the left
-// zone: the destinations (Calendar, Map), Spaces and the anchor; then the right zone: online people (a later step), the
-// bell and the profile. No Modules slot: Thomas removed it on 2026-10-02 (most module pages are not destinations; a
-// module page is reached from its tile on home, or at /modules/<id>).
-export const SLOTS = ['logo', 'environment', 'destinations', 'home', 'anchor', 'people', 'notifications', 'profile'];
-
 // The profile menu's entries, in order, as a pure function of the account, the install and the browser's offer
 // (decisions 4 and 17):
 //   - every account: View profile, the light or dark switch, Install as an app while the browser offers it, Sign out last;
@@ -30,6 +24,16 @@ export function profileEntries({ role, hostAdmin = false, hosted = false, instal
   if (installOffered) out.push('install');
   out.push('sign-out');
   return out;
+}
+
+// An environment page's entry in the profile menu (Thomas, 2026-10-13): Global Calendar and Global Map, so they read apart
+// from a space's own Calendar and Map. A name a template gave it keeps that name after the word Global.
+const PROFILE_DEST_DEFAULTS = { calendar: ['Calendar', 'Global Calendar'], map: ['Map', 'Global Map'] };
+export function profileDestinationLabel(id, name = '') {
+  const shown = String(name || '').trim();
+  const known = PROFILE_DEST_DEFAULTS[id];
+  if (known && (!shown || shown === known[0] || shown === `${known[0]}s`)) return known[1];
+  return `Global ${shown || id}`;
 }
 
 // Who sees the module update count on the bell: those who can act on it (decision 9), owners and the admin.
@@ -230,8 +234,8 @@ export function hashPanel(hash, panelKeys = []) {
 
 // The destinations (plan-calendar-destination.md, "The bar's entry"; plan-map-destination.md): one entry per
 // destination GET /api/destinations lists for this viewer, in its order, each its main module's name and icon as this
-// environment shows them. The `bar` entry is the look a space's views take (spaceViews() below: `dest-<id>`, the core
-// links' look, a left-zone tool in the group `where`); outside a space the top bar no longer draws it (plan-one-bar.md,
+// environment shows them. The `bar` entry (`dest-<id>`, the core links' look, a left-zone tool in the
+// group `where`) is no longer drawn in the top bar: in a space Calendar and Map are layout tabs (layoutTabs() below) (plan-one-bar.md,
 // decision 6: the environment's Calendar and Map are in the profile menu, profileEntries()). On a phone an entry in the
 // menu after the Spaces slot's entries (`menu-dest-<id>`, in their group, before New <space>). `current`
 // while that page is open (`path` is the page's own). `overlay` while present in a space, so the space page opens it
@@ -248,21 +252,56 @@ export function destinationTools(list, { path = '', present = false } = {}) {
   });
 }
 
-// A space's views in the top bar's left zone (plan-one-bar.md, decisions 1 and 6, step 7): the Workspace first
-// (`view-workspace`, the canvas with its toolbar), then one view per destination the environment shows, as the
-// destinations' entries look (`dest-<id>`, destinationTools' `bar` entry), each opening that page for this space
-// (`/calendar?space=<id>`; until plan-calendar-todo.md and plan-map-places.md give the page its space form it is the
-// environment's page as today) over the Workspace, with the always-on column outside it and no Away set. All in the
-// group `views`, after the switcher and before the phase chip; the current one is marked `aria-current="page"`.
-// A guest gets only what the template allows: nothing yet (decision 10), so `guest` gives []. `current` is the view's
-// id ('workspace', or a destination's). Returns [{ id, view, icon, label, href?, current }].
-export function spaceViews(list, { space = '', current = 'workspace', guest = false, workspaceWord = 'Workspace' } = {}) {
-  if (guest || !space) return [];
-  const out = [{ id: 'view-workspace', view: 'workspace', icon: 'columns', label: String(workspaceWord || 'Workspace').trim().slice(0, 40) || 'Workspace', current: current === 'workspace' }];
-  const q = `?${new URLSearchParams({ space })}`;
-  for (const { bar } of destinationTools(list)) {
-    const view = bar.id.slice('dest-'.length);
-    out.push({ id: bar.id, view, icon: bar.icon, label: bar.label, href: `${bar.href}${q}`, current: current === view });
+// The layout tabs in the top bar's left zone, right after the space switcher (plan-layout-views.md, decisions 1, 2, 5,
+// 13 and 17, step 2): every view is a layout. The Workspace first, always (it can be renamed, never left out); then
+// the system layouts Calendar and Map while the server lists them for this space and the person keeps their tab
+// (`tab` not false); then the person's favorite saved layouts in the order they were favorited, with no limit. `system`
+// is GET /api/spaces/:id/layouts's `system` list, `favorites` its favorite ids, `layouts` its shared and own layouts
+// (a favorite not among them is left out). A guest and an aside have none (decision: no tabs there); neither does a
+// page outside a space. `current` is the id of the layout shown. Returns [{ id: 'layout-tab-<layout id>', layout, kind,
+// icon, label, current }]; the ids are the tabs' element ids.
+const TAB_ICON = /^[a-z0-9-]{1,40}$/;
+const SYSTEM_TAB_DEFAULTS = { workspace: ['Workspace', 'columns'], calendar: ['Calendar', 'calendar-days'], map: ['Map', 'map-location-dot'] };
+export function layoutTabs({ system = [], favorites = [], layouts = [], current = 'workspace', guest = false, aside = false, space = '' } = {}) {
+  if (guest || aside || !space) return [];
+  const name = (s, fallback) => String((s && s.name) || '').trim().slice(0, 40) || fallback;
+  const icon = (s, fallback) => (s && TAB_ICON.test(s.icon || '') ? s.icon : fallback);
+  const list = Array.isArray(system) ? system.filter((s) => s && SYSTEM_TAB_DEFAULTS[s.id]) : [];
+  const ws = list.find((s) => s.id === 'workspace') || null;
+  const out = [{ layout: 'workspace', kind: 'system', icon: icon(ws, 'columns'), label: name(ws, 'Workspace') }];
+  for (const s of list) {
+    if (s.id === 'workspace' || s.tab === false || out.some((t) => t.layout === s.id)) continue;
+    const [word, glyph] = SYSTEM_TAB_DEFAULTS[s.id];
+    out.push({ layout: s.id, kind: 'system', icon: icon(s, glyph), label: name(s, word) });
   }
-  return out.map((v, i) => ({ ...v, zone: 'left', group: 'views', groupOrder: 12, order: 1 + i }));
+  const known = Array.isArray(layouts) ? layouts.filter((l) => l && typeof l.id === 'string') : [];
+  for (const id of Array.isArray(favorites) ? favorites : []) {
+    const l = known.find((x) => x.id === id);
+    if (!l || SYSTEM_TAB_DEFAULTS[id] || out.some((t) => t.layout === id)) continue;
+    out.push({ layout: id, kind: 'user', icon: icon(l, 'object-group'), label: name(l, 'Layout') });
+  }
+  return out.map((t) => ({ id: `layout-tab-${t.layout}`, ...t, current: t.layout === current }));
+}
+
+// Which layout tabs stay in the bar when it is tight (plan-layout-views.md, decisions 11, 14 and 17): all of them while
+// they fit side by side in `avail`; else the tabs leave from the right, one at a time, into a "..." after the last one
+// shown, as many staying as fit with the "..." (`more`, its width) beside them. The Workspace (the first tab) and the
+// tab shown now (`current`, its index; -1 for none) never leave (Thomas, 2026-10-13): they stay even where nothing
+// else fits, and the bar's other tools give way after them. Tabs are never shortened. `widths` are the tabs' widths in
+// order, `gap` the space between two neighbours. Gives { out, count, more }: the indexes of the tabs in the "...", in
+// order, how many tabs show, and whether the "..." shows. Pure, for check-nav.
+export function tabOverflow({ avail, gap = 0, widths = [], more = 0, current = -1 } = {}) {
+  const limit = Number.isFinite(avail) ? avail : Infinity;
+  const n = widths.length;
+  const row = (list) => list.reduce((sum, i) => sum + widths[i], 0) + gap * Math.max(0, list.length - 1);
+  const all = widths.map((_, i) => i);
+  if (row(all) <= limit + 0.5) return { out: [], count: n, more: false };
+  const pinned = (i) => i === 0 || i === current;
+  const others = all.filter((i) => !pinned(i));
+  if (!others.length) return { out: [], count: n, more: false }; // nothing that may leave
+  let keep = others.length - 1;
+  const shownWith = (k) => all.filter((i) => pinned(i) || others.slice(0, k).includes(i));
+  while (keep > 0 && row(shownWith(keep)) + gap + more > limit + 0.5) keep -= 1;
+  const out = others.slice(keep);
+  return { out, count: n - out.length, more: true };
 }

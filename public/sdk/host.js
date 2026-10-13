@@ -21,6 +21,31 @@
   // The drag data type a pointer to a module's object travels under (see host.objects).
   const OBJECT_MIME = 'application/x-host-object';
 
+  // The phase timeline rule, public/phases.js, as `Phases` (plan-one-bar.md, step 2): the one copy the server runs
+  // too, loaded from the server this SDK came from, once per window (a frame's own, or the page that hosts modules in
+  // it). host.ready() waits for it; host.util.phaseTimeline says so when it could not be loaded.
+  let phaseRuleLoading = null;
+  function loadPhaseRule() {
+    if (global.Phases) return Promise.resolve();
+    if (phaseRuleLoading) return phaseRuleLoading;
+    phaseRuleLoading = new Promise((resolve) => {
+      try {
+        const s = document.createElement('script');
+        s.src = new URL('/phases.js', global.location.href).href;
+        s.onload = () => resolve();
+        s.onerror = () => resolve();
+        (document.head || document.documentElement).appendChild(s);
+      } catch (err) {
+        resolve();
+      }
+    });
+    return phaseRuleLoading;
+  }
+  const phaseRule = () => {
+    if (!global.Phases) throw new Error('the phase rule (phases.js) did not load');
+    return global.Phases;
+  };
+
   // A pointer checked for shape, or null. Says nothing about whether the viewer may see the object.
   function cleanRef(ref) {
     const ok = ref && typeof ref.module === 'string' && typeof ref.kind === 'string' && typeof ref.id === 'string'
@@ -1226,7 +1251,7 @@
   const locale = () => (info && info.locale) || { language: 'en', clock: '12', currency: 'USD', words: DEFAULT_WORDS };
   // A destination's part: the page's shared state, as the hello gave it and each 'destination' event since.
   let destinationState = null;
-  const readyPromise = call('hello').then((result) => {
+  const readyPromise = Promise.all([call('hello'), loadPhaseRule()]).then(([result]) => {
     info = result;
     if (result && result.destinationState && typeof result.destinationState === 'object') destinationState = result.destinationState;
     if (env.applyTheme) env.applyTheme(result.theme);
@@ -1479,6 +1504,21 @@
       },
       // Dates as "2026-09-24" (a local day): text from a Date, and back.
       ymd: (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
+      // The phase timeline of the space this module is in (public/phases.js timelineOf, the rule the server runs; see
+      // plan-one-bar.md): one band per template phase in order, [{ id, label, main, start, end, dated, current }],
+      // from host.phases() and host.space().phases, the first phase starting on the day the space was created. `o`
+      // may give `dates` and `created` (another space's, on an environment page: what host.spaces() lists) and
+      // `today` (a day; today by default). [] with no phases. Throws when the rule did not load.
+      phaseTimeline: (o) => {
+        const rule = phaseRule();
+        const here = (info && info.space) || null;
+        const dates = o && o.dates !== undefined ? o.dates : (here && here.phases) || {};
+        const created = o && o.created !== undefined ? o.created : here ? here.createdAt : null;
+        return rule.timelineOf(host.phases(), dates, { today: (o && o.today) || host.util.ymd(new Date()), created });
+      },
+      // The words for a timeline on a day (chipWords, the bar's chip and the Planner's phase line): "Booking · day 2
+      // of 3", "Planning · 12 days to go", or the label alone. '' with no bands.
+      phaseWords: (bands, today) => phaseRule().chipWords(bands, today || host.util.ymd(new Date())),
       // Pull a date and a time out of what someone typed, and leave the rest as the title:
       // "meet with bob sep 29 at 7pm" gives { title: "meet with bob", date: "2026-09-29", time: "19:00" }. Understands
       // today, tomorrow, weekdays ("fri", "next fri"), "sep 29" and "29 sep", "9/29" and "2026-09-29"; times as
@@ -1855,6 +1895,16 @@
     // The environment's template's phases, [{ id, label, main? }], or [] when it has none. Live: a template edit
     // is in the next hello. Answered from the hello, so it is there once host.ready() has resolved.
     phases: () => (info && Array.isArray(info.phases) ? info.phases : []),
+    // The main phase's end moved later to cover `day` (YYYY-MM-DD), every later boundary shifted with it (POST
+    // /api/spaces/:id/phases/cover; plan-one-bar.md step 2), for anyone with write in a module on in this space.
+    // Resolves with the space's new phases, or null when nothing moved (the day is covered already, is before the
+    // main phase, or the main phase has no start). host.space().phases is kept current.
+    phasesCover: async (day) => {
+      const result = await call('phases.cover', { day });
+      const phases = result && result.phases && typeof result.phases === 'object' ? result.phases : null;
+      if (phases && info && info.space) info.space.phases = phases;
+      return phases;
+    },
 
     // Files an admin placed for this module (a `file` setting names one). `url(name)` is the address to read it from,
     // range requests included, for a module running in the page (a frame cannot fetch).

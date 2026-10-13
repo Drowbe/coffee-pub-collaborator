@@ -23,16 +23,36 @@
 
   const MAX_TRIPS = 3;
   const MAX_TODAY = 3;
-  const trips = new Map(); // space id -> trip
+  const trips = new Map(); // space id -> trip, its start and end from the space's timeline when the template has phases
+  const bandsOf = new Map(); // space id -> the space's phase timeline ([] without phases)
   const planned = new Map(); // space id -> Map(id -> the plan's items)
-  const spaces = new Map(); // space id -> { id, name, icon, svg }
+  const spaces = new Map(); // space id -> { id, name, icon, svg, createdAt, phases }
+
+  // A space's phase timeline (host.util.phaseTimeline, plan-one-bar.md step 2), [] without phases.
+  const timelineOf = (r, today) => {
+    const phases = typeof host.phases === 'function' ? host.phases() : [];
+    if (!phases.length || !host.util || typeof host.util.phaseTimeline !== 'function') return [];
+    try { return host.util.phaseTimeline({ dates: (r && r.phases) || {}, created: r ? r.createdAt : null, today }) || []; } catch (err) { return []; }
+  };
 
   async function load() {
     trips.clear();
+    bandsOf.clear();
     planned.clear();
+    const today = ymd(new Date());
     try {
       for (const r of await host.spaces()) spaces.set(r.id, r);
-      for (const it of await host.storage.list(TRIP_KEY, { scope: 'spaces' })) if (it.value) trips.set(it.spaceId, cleanTrip(it.value));
+      const storedTrips = new Map();
+      for (const it of await host.storage.list(TRIP_KEY, { scope: 'spaces' })) if (it.value) storedTrips.set(it.spaceId, cleanTrip(it.value));
+      // With phases a space's trip is its main phase's band, stored plan or not; without, the stored trip's own dates.
+      for (const [id, r] of spaces) {
+        const bands = timelineOf(r, today);
+        bandsOf.set(id, bands);
+        const t = storedTrips.get(id) || null;
+        if (!bands.length) { if (t) trips.set(id, t); continue; }
+        const span = tripSpan(t, bands);
+        if (t || span.start) trips.set(id, { ...(t || cleanTrip({})), ...span });
+      }
       // A space whose Planner has not been opened since the rename still has its items under the old keys: both are read, the
       // new key winning (see PLAN_PREFIX).
       const stored = [...await host.storage.list(OLD_PLAN_PREFIX, { scope: 'spaces' }), ...await host.storage.list(PLAN_PREFIX, { scope: 'spaces' })];
@@ -64,14 +84,15 @@
     $('msg').hidden = list.length > 0;
     $('msg').textContent = 'No trips planned.';
     $('list').hidden = list.length === 0;
-    const phases = typeof host.phases === 'function' ? host.phases() : [];
     $('list').innerHTML = list.map(([spaceId, t]) => {
       const r = spaces.get(spaceId);
       const on = daysUntil(t, today) <= 0;
       const todays = on ? sortDay([...(planned.get(spaceId) || new Map()).values()].filter((i) => i.date === today)).slice(0, MAX_TODAY) : [];
       const range = t.end && t.end !== t.start ? `${parseYmd(t.start).toLocaleDateString([], { month: 'short', day: 'numeric' })} - ${parseYmd(t.end).toLocaleDateString([], { month: 'short', day: 'numeric' })}` : parseYmd(t.start).toLocaleDateString([], { month: 'short', day: 'numeric' });
       const name = planName(t, r || null) || t.destination || 'Trip';
-      const when = phaseLine(phases, t, today, createdDay(r || null)) || whenText(t, today);
+      // The phase line is the chip's words (host.util.phaseWords); without phases, how far off the trip is.
+      const bands = bandsOf.get(spaceId) || [];
+      const when = (bands.length && host.util.phaseWords ? host.util.phaseWords(bands, today) : '') || whenText(t, today);
       return `<div class="trip">
         <button type="button" class="item" data-trip="${esc(spaceId)}" title="${esc(name)}${r ? ' - ' + esc(r.name) : ''}">
           <span class="ri"${r ? ` title="${esc(r.name)}"` : ''}>${r && r.svg ? r.svg : ''}</span><span class="stack"><span class="what">${esc(name)}</span><span class="sub">${esc(range)}</span></span><span class="when${on ? ' on' : ''}">${esc(when)}</span><span class="go">${goIcon}</span></button>

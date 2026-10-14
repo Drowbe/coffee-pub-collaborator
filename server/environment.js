@@ -21,6 +21,7 @@ const { ModuleManager } = require('./modules');
 const { ModuleData } = require('./module-data');
 const { ModuleHooks } = require('./module-hooks');
 const { ChatHistory } = require('./chat-history');
+const { Attention } = require('./attention');
 const { ModuleLinks } = require('./module-links');
 const { ModuleBus } = require('./module-bus');
 const { ModuleSettings } = require('./module-settings');
@@ -143,6 +144,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   // retried after a failure, and never two at once. Only a message's first five minutes count, so older ones are dropped.
   const chatPreviewsAsked = new Map();
 
+  const attention = new Attention(dataDir);
   const moduleLinks = new ModuleLinks(modules.dir);
   const moduleBus = new ModuleBus(modules.dir);
   const moduleSettings = new ModuleSettings(modules.dir);
@@ -229,7 +231,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
 
   return {
     slug, dataDir,
-    store, modules, moduleData, moduleHooks, chatHistory, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
+    store, modules, moduleData, moduleHooks, chatHistory, attention, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
     geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatPosts, chatPreviewsAsked, iconSvgs,
     moduleActivity, noteActivity, saveActivity, externalCalendars,
   };

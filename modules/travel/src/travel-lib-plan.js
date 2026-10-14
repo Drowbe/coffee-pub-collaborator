@@ -219,14 +219,14 @@
     }
 
     // An object handed in from elsewhere (an import, an AI's answer, another module's idea): on its day when the plan can show
-    // that day. A day past the plan's MAX_DAYS would show nowhere, so it goes under "Not on a day yet" with "Dated <day>,
+    // that day. A day past the plan's MAX_DAYS would show nowhere, so it goes under "Unscheduled" with "Dated <day>,
     // outside the plan" in its notes (plan-object-handoff.md, decision 12). What the person should know is said through
     // onSaid (the page's note) and comes back with the result.
     async function addHandedIn(fields) {
       const said = [];
       let next = fields;
       if (next.date && !fitsPlan(days(), next.date)) {
-        said.push(`${next.title} is dated ${next.date}, outside the plan's ${MAX_DAYS} days, so it is under Not on a day yet.`);
+        said.push(`${next.title} is dated ${next.date}, outside the plan's ${MAX_DAYS} days, so it is under Unscheduled.`);
         next = { ...next, date: null, after: null, arrives: relativeArrives(next.date, next.arrives), notes: [`Dated ${next.date}, outside the plan`, next.notes].filter(Boolean).join('\n\n') };
       }
       // On its day, its check-out or its ticket's arrival must fit too, else the plan would grow to 60 days of nothing (with no
@@ -263,7 +263,7 @@
 
     // A journey moved to another day (dragged, "Move to...", earlier or later) takes its ticket's dated arrival along, the same
     // number of days later or earlier, unless the change says its own arrival (the editor does). Moved off its days (onto the
-    // line, under "Not on a day yet"), the arrival is kept relative to the day it left ("06:30+1"), and cleanItem dates it
+    // line, under "Unscheduled"), the arrival is kept relative to the day it left ("06:30+1"), and cleanItem dates it
     // again on whatever day it is put back on.
     const withArrival = (item, patch) => {
       if (!patch || patch.arrives !== undefined || !Object.prototype.hasOwnProperty.call(patch, 'date')) return patch;
@@ -313,7 +313,7 @@
     async function addRoundTrip(outFields, backFields) {
       if (outFields.mode === 'car') throw new Error('A rental car cannot be a round trip.');
       const out = await addItem({ ...outFields, kind: 'journey', legOf: null });
-      const back = await addItem({ ...backFields, kind: 'journey', mode: out.mode, legOf: out.id, confirm: '', cost: null, paidBy: '' });
+      const back = await addItem({ ...backFields, kind: 'journey', mode: out.mode, legOf: out.id, confirm: '', cost: null, estimate: null, paidBy: '' });
       return { out, back };
     }
     const returnFor = (id) => returnOf(list(), id);
@@ -334,7 +334,7 @@
         for (const leg of legsOf(all, out.id)) await removeItem(leg.id);
         return removeItem(out.id);
       }
-      if (id === out.id) await updateItem(back.id, { legOf: null, confirm: out.confirm, cost: out.cost, paidBy: out.paidBy });
+      if (id === out.id) await updateItem(back.id, { legOf: null, confirm: out.confirm, cost: out.cost, estimate: out.estimate, paidBy: out.paidBy });
       return removeItem(id);
     }
 
@@ -399,7 +399,7 @@
     }
     // What "Clear this day" would do: { changes, moved, kept } (see clearDay).
     const previewClear = (day) => clearDay(onDays(), day);
-    // The day's objects taken off it and kept, with no day: under "Not on a day yet". Nothing is deleted.
+    // The day's objects taken off it and kept, with no day: under "Unscheduled". Nothing is deleted.
     async function clearDayOf(day) {
       const r = clearDay(onDays(), day);
       await applyChanges(r.changes);

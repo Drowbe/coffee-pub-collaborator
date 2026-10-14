@@ -183,6 +183,16 @@ test('bookings are stays and journeys by date and time', () => {
   assert.deepEqual(lib.bookings(list).map((i) => i.id), ['j1', 'j2', 's']);
 });
 
+test('a booking has an actual (cost) and an estimate: cents, a cap, either, both or neither; the money maths use the actual only', () => {
+  const both = it('b', { cost: 80, estimate: 70.456, paidBy: 'a' });
+  assert.deepEqual([both.cost, both.estimate], [80, 70.46]);
+  assert.deepEqual([it('e', { estimate: 12 }).cost, it('e', { estimate: 12 }).estimate], [null, 12]);
+  assert.deepEqual([it('n', {}).cost, it('n', {}).estimate], [null, null]);
+  assert.deepEqual([it('x', { estimate: 5e9 }).estimate, it('y', { estimate: -1 }).estimate, it('z', { estimate: '9' }).estimate], [1e9, null, null]);
+  assert.equal(lib.costItems([both, it('e', { estimate: 12, paidBy: 'a' })]).length, 1, 'an estimate alone is not a cost in the Money view');
+  assert.equal(lib.balances([it('e', { estimate: 12, paidBy: 'a' }), both], ['a', 'b']).total, 80, 'who-paid counts the actual only');
+});
+
 test('balances share a cost among its owners (or everyone) and settle in the fewest payments', () => {
   const people = ['a', 'b', 'c'];
   const dinner = it('d', { cost: 90, paidBy: 'a' }); // shared by all three: 30 each
@@ -679,8 +689,8 @@ test('the kind picker shows each marker type once; Where decides block (a day) o
   assert.ok(/label: 'Markers', options: blockTypes\(\)\.map/.test(page), 'one Markers group of the types that are not automatic');
   assert.ok(!/addTileGroup|label: 'Between days', options/.test(page), 'the Time and Between days groups of the kind picker are gone (a menu of spots between days is another thing)');
   assert.ok(/onChange: \(id\) => applyType\(tileAt\(id, \$\('f-date'\)\.value\)\)/.test(page), 'a choice goes through tileAt with Where');
-  assert.ok(/placeOptions\(\$\('f-date'\), \{ placedOnly: marker && !keepUnplaced \}\)/.test(page), 'with a marker chosen Where lists the days and the joints, not "Not on a day yet"');
-  assert.ok(/const keepUnplaced = Boolean\(ed\.id && ed\.unplaced\);/.test(page) && /unplaced: Boolean\(item && item\.kind === 'block' && !item\.date\)/.test(page), 'an existing block stored with no day keeps "Not on a day yet", so its Where is never blank');
+  assert.ok(/placeOptions\(\$\('f-date'\), \{ placedOnly: marker && !keepUnplaced \}\)/.test(page), 'with a marker chosen Where lists the days and the joints, not "Unscheduled"');
+  assert.ok(/const keepUnplaced = Boolean\(ed\.id && ed\.unplaced\);/.test(page) && /unplaced: Boolean\(item && item\.kind === 'block' && !item\.date\)/.test(page), 'an existing block stored with no day keeps "Unscheduled", so its Where is never blank');
   assert.ok(/if \(kindField\) kindField\.remember\(kindOf\(ed\.tile\)\);/.test(page), 'the kind a new object is saved with is recent, also when the bar, the day\'s "..." or a joint\'s + chose it');
 });
 
@@ -800,7 +810,7 @@ test('Bookings and Money follow the environment\'s clock (#15)', () => {
   const day = parseYmd('2026-10-03').toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
   assert.equal(pageHelpers('12').dayTime(flight), `${day} 9:40 AM`);
   assert.equal(pageHelpers('24').dayTime(flight), `${day} 09:40`);
-  assert.equal(pageHelpers('12').dayTime({ ...flight, date: null, time: '16:40' }), 'no day yet 4:40 PM');
+  assert.equal(pageHelpers('12').dayTime({ ...flight, date: null, time: '16:40' }), 'unscheduled 4:40 PM');
   // No stored time goes on the page as it is stored: Decisions' card times too.
   assert.ok(!/w\.time \? ' ' \+ w\.time/.test(read('travel.js')), 'Decisions shows a card\'s time on the clock');
 });
@@ -1398,7 +1408,7 @@ test('fromObject: Thomas\'s Southwest flight fills every flight field, the ticke
   assert.equal(item.notes, 'Booked with **points**.\n\n- Wanna Get Away\n\nExternal source', 'the notes keep their Markdown, which the plan draws');
   assert.deepEqual(lib.arrivalOf(item), { day: '2026-11-14', time: '15:25', days: 0, ticket: true });
   assert.equal(pageHelpers('12').arriveText(item), '3:25 PM', 'shown as on the ticket, not 12:50 plus 4 h 35 min');
-  // Without a day: the times stay, the flight is under "Not on a day yet".
+  // Without a day: the times stay, the flight is under "Unscheduled".
   const undated = lib.cleanItem({ ...lib.objectFields({ ...SOUTHWEST, date: undefined, details: { ...SOUTHWEST.details, departs: '12:50', arrives: '15:25' } }, util), id: 'u' });
   assert.equal(undated.date, null);
   assert.equal(undated.time, '12:50');
@@ -1544,7 +1554,7 @@ const handedIn = async () => {
   assert.deepEqual(heard, [], 'nothing to say');
   n += 1;
 
-  // 90 days out: under "Not on a day yet", its day in its notes, and the person told (decision 12).
+  // 90 days out: under "Unscheduled", its day in its notes, and the person told (decision 12).
   const far = await f.provided.acceptSuggestion({ title: 'x', object: { kind: 'hotel', title: 'Ski lodge', content: 'Two **nights**', details: { checkIn: '2027-02-12T15:00', checkOut: '2027-02-14T10:00' } } });
   const lodge = plan.list().find((i) => i.title === 'Ski lodge');
   assert.equal(lodge.date, null);
@@ -1552,8 +1562,8 @@ const handedIn = async () => {
   assert.equal(lodge.notes.split('\n')[0], 'Dated 2027-02-12, outside the plan');
   assert.ok(lodge.notes.includes('Two **nights**'));
   assert.deepEqual(plan.days(), ['2026-11-14', '2026-11-15', '2026-11-16', '2026-11-17'], 'the plan did not grow to its check-out');
-  // No day and no place on the line is what the page lists under "Not on a day yet" (undatedItems in travel.js).
-  assert.match(far.data.note, /^Ski lodge is dated 2027-02-12, outside the plan's 60 days, so it is under Not on a day yet\.$/);
+  // No day and no place on the line is what the page lists under "Unscheduled" (undatedItems in travel.js).
+  assert.match(far.data.note, /^Ski lodge is dated 2027-02-12, outside the plan's 60 days, so it is under Unscheduled\.$/);
   assert.deepEqual(heard, [far.data.note]);
   // The older flat fields go the same way.
   await f.provided.acceptSuggestion({ title: 'Far dinner', kind: 'restaurant', date: '2027-03-01' });
@@ -1633,8 +1643,8 @@ const handedIn = async () => {
   await plan4.updateItem(sw().id, { date: '2026-11-19', arrives: '2026-11-19T16:00' });
   assert.equal(sw().arrives, '2026-11-19T16:00', 'a change that says its own arrival (the editor) keeps it');
   await plan4.moveTo(sw().id, null, 0);
-  assert.deepEqual([sw().date, sw().arrives], [null, '16:00'], 'to Not on a day yet: kept relative to the day it left');
-  // QA: a round trip through the line or "Not on a day yet" keeps the arrival's offset from its departure.
+  assert.deepEqual([sw().date, sw().arrives], [null, '16:00'], 'to Unscheduled: kept relative to the day it left');
+  // QA: a round trip through the line or "Unscheduled" keeps the arrival's offset from its departure.
   await plan4.moveTo(red.id, '2026-11-12', 0);
   await plan4.moveToJoint(red.id, '', 0);
   const onLine = plan4.list().find((i) => i.id === red.id);
@@ -1648,12 +1658,12 @@ const handedIn = async () => {
   const later = plan4.list().find((i) => i.id === red.id);
   assert.deepEqual([later.arrives, later.notes], ['2026-11-21T06:30', ''], 'more than 7 days on: no notes line, still the next morning');
   await plan4.moveTo(sw().id, '2026-11-11', 0);
-  assert.equal(sw().arrives, '2026-11-11T16:00', 'from Not on a day yet, the same');
+  assert.equal(sw().arrives, '2026-11-11T16:00', 'from Unscheduled, the same');
   assert.equal(lib.objectFields(SOUTHWEST, util, { date: '2026-11-16' }).arrives, '2026-11-16T15:25', 'the Planner\'s own drop onto another day');
   assert.equal(lib.shiftArrives('15:25', 3), '15:25', 'a time alone follows its day already');
   // The Planner's own drop at a joint on the line: relative too.
   assert.equal(lib.objectFields({ kind: 'flight', title: 'Red-eye', details: { departs: '2026-11-12T23:00', arrives: '2026-11-13T06:30' } }, util, { after: '' }).arrives, '06:30+1');
-  // Over a far day: under "Not on a day yet" with the offset kept.
+  // Over a far day: under "Unscheduled" with the offset kept.
   const farFlight = await m.provided.acceptSuggestion({ title: 'x', object: { kind: 'flight', title: 'Far red-eye', details: { departs: '2027-06-01T23:00', arrives: '2027-06-02T06:30' } } });
   assert.ok(farFlight.data.note);
   assert.deepEqual(['date', 'arrives'].map((k) => plan4.list().find((i) => i.title === 'Far red-eye')[k]), [null, '06:30+1']);
@@ -1661,7 +1671,7 @@ const handedIn = async () => {
 };
 await handedIn();
 
-test('the page: the ticket\'s arrival field, and objects dated outside the plan under Not on a day yet', () => {
+test('the page: the ticket\'s arrival field, and objects dated outside the plan under Unscheduled', () => {
   const html = read('travel.html');
   const js = read('travel.js');
   assert.ok(html.includes('<div class="editor-row" data-types="flight train ferry bus"><label>Arrival day<select id="f-arrival-day" name="arrivesDay"></select></label><label>Arrival time<input id="f-arrival-time" name="arrivesTime" type="time"></label><input id="f-arrival" name="arrives" type="hidden"></div>'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
@@ -1669,7 +1679,7 @@ test('the page: the ticket\'s arrival field, and objects dated outside the plan 
   assert.ok(html.includes('<label data-types="flight train">Class<select id="f-travelClass"'), 'a train class survives an edit');
   assert.ok(js.includes("fields.arrives = get('f-arrival')"));
   assert.ok(js.includes('plan.onSaid((text) => note(text));'));
-  assert.ok(js.includes('(!i.date || !shownDays.has(i.date))'), 'one saved before, dated past the plan, shows under Not on a day yet');
+  assert.ok(js.includes('(!i.date || !shownDays.has(i.date))'), 'one saved before, dated past the plan, shows under Unscheduled');
   const manifest = JSON.parse(fs.readFileSync(new URL('../modules/travel/module.json', import.meta.url), 'utf8'));
   const accept = manifest.actions.provides.find((a) => a.name === 'acceptSuggestion');
   assert.equal(accept.input.object, 'object?', 'older callers still send the flat fields');
@@ -2076,7 +2086,7 @@ test('choosing a day: a date field, a grouped list through host.menu.show, Move 
   assert.ok(html.includes('data-slot="earlier-label">Move up') && html.includes('data-slot="later-label">Move down'), 'Move up / Move down by default');
   assert.ok(js.includes("'30 minutes earlier'") && js.includes("'30 minutes later'") && js.includes('It stays on the same day.'), 'a timed object moves by half an hour, and the tooltip says it stays on its day');
   assert.ok(js.includes('function dayMenuItems(') && js.includes("{ id: 'pick-date', label: 'Pick a date…'"), 'the list ends with Pick a date');
-  assert.ok(js.includes("const name = jointsOnly ? 'Between days' : 'Unscheduled';") && js.includes("none: 'Not on a day yet'"), 'Unscheduled holds no day and the spots between days; stored values are unchanged');
+  assert.ok(js.includes("const name = jointsOnly ? 'Between days' : 'Unscheduled';") && js.includes("none: 'Unscheduled'"), 'Unscheduled holds no day and the spots between days; stored values are unchanged');
   assert.ok(js.includes('const DAY_NEST = 8;') && js.includes('items.push({ id: `group-${g.key}`, label: g.label, hint: g.range'), 'more than 8 days: a flyout per phase (the SDK menu\'s category), else a heading per phase');
   assert.ok(js.includes("host.menu.show({ id: `${id}-list`, anchor: listBtn"), 'Pick from the list uses the SDK menu');
   assert.ok(js.includes('input.min = b.min;') && js.includes('return { min: held && held < days[0] ? held : days[0]'), 'bounded by the timeline, never refusing the day it holds');

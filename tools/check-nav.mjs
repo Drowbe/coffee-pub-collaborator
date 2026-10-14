@@ -2084,10 +2084,12 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(css, /\.status-strip \.status-fact \{[^}]*border: 1px solid var\(--border\);[^}]*background: color-mix\(in srgb, var\(--header-text\) 8%, transparent\);/, 'a chip is filled, in the neutral border (no coloured border)');
   assert.match(css, /\.status-fact-fill \{[^}]*width: var\(--fact-progress, 0%\);[^}]*background: color-mix\(in srgb, var\(--accent\) 32%, transparent\);/, 'progress is a fill of the accent');
   assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-facts \{\n\s*display: none;/, 'the facts are gone at 760px, with the names in the bands');
-  assert.ok(css.indexOf('.status-strip .status-facts {\n    display: none;') < css.indexOf('@media (max-width: 760px) {\n  .status-strip .status-band-box'), 'the facts give way before the names');
+  assert.ok(css.indexOf('.status-strip .status-facts {\n    display: none;') < css.indexOf('@media (max-width: 760px) {\n  .status-strip .status-band-name'), 'the facts give way before the names');
   assert.ok(css.indexOf('.status-facts {') > css.indexOf('.status-togo {'), 'the slot after the days to go');
   assert.match(track, /statusTrack\.classList\.toggle\('lead', outside === 'lead'\);\n\s*statusTrack\.classList\.toggle\('trail', outside === 'trail'\);/, 'today before the first phase or after the last: the pin at that end');
-  assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-band-box \{\n\s*display: none;/, 'the names in the bands go before the bar');
+  assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-band-name \{\n\s*display: none;/, 'the names in the bands go before the bar, the icons stay');
+  assert.match(css, /\.topbar > \.status-strip \.status-band-box \{\n\s*display: none;/, 'on a phone\'s 2px line neither name nor icon');
+  assert.match(space, /icon\.className = `fa-solid fa-\$\{phaseIcons\[b\.id\]\} status-band-icon`;[\s\S]*box\.appendChild\(icon\);[\s\S]*box\.appendChild\(name\);[\s\S]*seg\.title = b\.label;/, 'a band\'s icon is its own item before the name, with the full name as the tooltip');
   assert.match(css, /\.status-band-box \{\n\s*position: absolute;\n\s*inset: 0;\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'a name too long for its band drops out whole');
   assert.match(css, /\.status-strip \.phase-chip \.phase-chip-label \{\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'the sentence\'s later clauses drop whole');
   assert.match(css, /\.status-strip \.phase-chip \.story-lead \{\n\s*flex: 0 1 auto;\n\s*min-width: 0;\n\s*overflow: hidden;\n\s*text-overflow: ellipsis;/, 'the first clause is cut last, with an ellipsis');
@@ -2210,11 +2212,9 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.match(space, /placeSetupName\(\); \/\/ while setting up, the current segment is the name's input/, 'the breadcrumb carries the input after every draw');
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
   // Step 6: the card's two links are one Set up link to /?setup=<id>, for whoever may set up (owners, the admin, moderators).
-  assert.match(html, /<a class="btn btn-small" data-edit href="#" title="Set up" aria-label="Set up" hidden><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"><\/i><\/a>/, 'the card\'s one link, Set up');
+  assert.ok(!/data-edit/.test(html) && !/data-edit/.test(space), 'the card has no Set up button (Thomas, 2026-10-14); Set up is the top bar tool inside the space, or /?setup=<id>');
   assert.ok(!/data-module-settings|title="Full settings"/.test(html), 'the moderators\' sliders link and Full settings are gone');
-  assert.match(space, /edit\.hidden = r\.isAside \|\| !\(hasOwnerRights\(me\) \|\| me\?\.spaces\?\.\[r\.id\]\?\.permissions\?\.moderator\);\n\s*edit\.href = `\/\?setup=\$\{encodeURIComponent\(r\.id\)\}`;/);
   assert.ok(!/module-settings\?space=|`\/spaces\/\$\{/.test(space), 'space.js links to neither old page');
-  assert.match(space, /const id = link\.closest\('\[data-space\]'\)\?\.dataset\.space;\n\s*if \(!id\) return;\n\s*event\.preventDefault\(\);\n\s*openSetupFor\(id\);/, 'a press on the card enters the space and opens Set up without a reload');
   assert.deepEqual(setupTabs({ owner: true }), ['space', 'members', 'phases', 'opens-with', 'modules']);
   assert.deepEqual(setupTabs({ owner: true, moderator: true }), ['space', 'members', 'phases', 'opens-with', 'modules'], 'an owner who is also ticked moderator sees everything');
   assert.deepEqual(setupTabs({ moderator: true }), ['phases', 'opens-with', 'modules'], 'what the server lets a moderator PATCH (phases, opensWith, defaultLayout), and the module settings');
@@ -2560,7 +2560,7 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/, 'Join the call');
   assert.match(space, /phaseChip\.className = 'phase-chip nav-text';/, 'the phase chip');
   assert.match(space, /name\.className = 'status-band-name nav-text';/, 'a band\'s name');
-  assert.match(space, /n\.className = 'status-togo-n nav-text';/, 'the days to go');
+  assert.match(space, /statusToGo\.className = 'status-togo nav-text';/, 'the countdown chip\'s words');
   assert.equal(space.split("dayOfMonth.className = 'status-today-day nav-text';").length - 1, 2, 'the pin\'s day, in and outside the bar');
   assert.match(people, /<button class="who-here-toggle nav-text" id="who-here-toggle"/, 'Who is here');
   assert.match(brand, /whoami\.className = 'whoami nav-text';/, 'your name');
@@ -2570,7 +2570,7 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   // No rule on those elements sets a size or weight of its own (the phone's tab bar, inside body.in-space .subnav, and
   // the phone menu's rows are not the bar; the portraits' letters, the caption and icons are not words of the nav).
   const own = /^(font-size|font-weight|font)\s*:/;
-  const subject = /(\.core-link|\.nav-text|\.space-switcher-button|\.who-here-toggle|\.who-here-count|button\.whoami|\.whoami\b(?![-\w])|\.join-call|\.phase-chip|\.story-part|\.story-lead|\.status-band|\.status-togo-n|\.status-today|\.page-bar-name|\.page-bar \.subtab|\.crumb-here|\.crumb-label|\.topbar-status)\s*$/;
+  const subject = /(\.core-link|\.nav-text|\.space-switcher-button|\.who-here-toggle|\.who-here-count|button\.whoami|\.whoami\b(?![-\w])|\.join-call|\.phase-chip|\.story-part|\.story-lead|\.status-band|\.status-togo|\.status-today|\.page-bar-name|\.page-bar \.subtab|\.crumb-here|\.crumb-label|\.topbar-status)\s*$/;
   const skip = /menu-open|body\.in-space (\.subnav|\.who-here)|\.status-band-name > i|\.status-band-box/;
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     for (const sel of m[1].split(',').map((s) => s.trim().replace(/^\/\*[\s\S]*?\*\/\s*/, ''))) {

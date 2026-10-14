@@ -518,11 +518,6 @@ function renderSpaces() {
     if (r.isAside) { card.removeAttribute('role'); card.removeAttribute('tabindex'); card.removeAttribute('aria-label'); }
     else { card.setAttribute('role', 'button'); card.tabIndex = 0; card.setAttribute('aria-label', spaceDisplayName(r)); }
     if (enter.title !== enterLabel) enter.title = enterLabel; // the whole label, wherever a narrow card cuts it short
-    // Set up (plan-setup-panel.md, step 6): one link for whoever may set this space up (owners, the admin, its
-    // moderators), to /?setup=<id>; on this page a press enters the space and opens the panel without a reload.
-    const edit = card.querySelector('[data-edit]');
-    edit.hidden = r.isAside || !(hasOwnerRights(me) || me?.spaces?.[r.id]?.permissions?.moderator);
-    edit.href = `/?setup=${encodeURIComponent(r.id)}`;
     const link = card.querySelector('[data-link]');
     link.hidden = !r.link;
     if (r.link) {
@@ -1669,7 +1664,7 @@ placeColumnTools(); // now that the two exist
 
 // --- the status strip: the phase chip and its track (phase-sheet.js) ----------------------------------------------
 // The space's status, one line (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps 1 and 2): the
-// chip, "● Booking starts tomorrow · Trip in 35 days" (the story sentence, Phases.storyParts; no caret, it opens the
+// chip, "● Booking starts tomorrow" (the story sentence, Phases.storyParts; no caret, it opens the
 // sheet, not a menu) and, beside it, the journey bar: the phases end to end, each band named (and its icon, when the
 // template gives one) where it fits, the past pale, today's filled with the accent, the ones to come outlined, the
 // main phase drawn heavier, a pin at today with the day of the month, and the days to go at its end. Then the facts
@@ -1707,8 +1702,8 @@ const statusTrack = document.createElement('span');
 statusTrack.className = 'status-track';
 statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it
 const statusToGo = document.createElement('span');
-statusToGo.className = 'status-togo';
-statusToGo.setAttribute('aria-hidden', 'true'); // the sentence says it too
+statusToGo.className = 'status-togo nav-text'; // the nav text, as every word in the bars
+statusToGo.setAttribute('aria-hidden', 'true'); // the chip's story carries the phase; this is the countdown to it
 statusToGo.hidden = true;
 // The facts modules report (host.facts, plan-space-story-strip.md step 5): up to three chips after the days to go, each a
 // button opening a small menu. Not a live region: a fact that changes is not read out (the plan's accessibility rule);
@@ -1775,21 +1770,25 @@ function drawStatusTrack(bands, today) {
     else if (b.end && today > b.end) seg.classList.add('past');
     if (b.main) seg.classList.add('main');
     const at = todayPercent(b, shares[i].days, today, { rule: R });
-    // The name sits in a box that drops it to a hidden second line when the band is too narrow (style.css); in
+    // The icon and the name sit in a box that drops the name, then the icon, to a hidden line when the band is too narrow (style.css); in
     // today's band it keeps to the side the pin is not on.
     const box = doc.createElement('span');
     box.className = 'status-band-box';
     if (at !== null && at < 50) box.classList.add('end');
     const name = doc.createElement('span');
     name.className = 'status-band-name nav-text'; // the nav text; its colour is the band's (style.css)
+    name.append(b.label);
+    // The icon is its own item beside the name: a band too narrow for the name drops the name to the hidden second
+    // line and keeps the icon; one too narrow for both loses the icon too. The full name stays in the tooltip.
     if (phaseIcons[b.id]) {
       const icon = doc.createElement('i');
-      icon.className = `fa-solid fa-${phaseIcons[b.id]}`;
-      name.appendChild(icon);
+      icon.className = `fa-solid fa-${phaseIcons[b.id]} status-band-icon`;
+      icon.setAttribute('aria-hidden', 'true');
+      box.appendChild(icon);
     }
-    name.append(b.label);
     box.appendChild(name);
     seg.appendChild(box);
+    seg.title = b.label;
     if (at !== null) {
       const mark = doc.createElement('span');
       mark.className = 'status-today'; // inside the band: takes its colour
@@ -1821,13 +1820,19 @@ function drawStatusTrack(bands, today) {
   const togo = R.countdown(bands, today);
   statusToGo.hidden = !togo;
   if (togo) {
-    const n = doc.createElement('span');
-    n.className = 'status-togo-n nav-text';
-    n.textContent = String(togo.days);
+    // "2 days to Trip": the number large and bold, the rest beside it; "Trip starts today" has no number.
     const rest = doc.createElement('span');
     rest.className = 'status-togo-words';
-    rest.textContent = togo.words.slice(String(togo.days).length + 1); // "days to Trip", "days left"
-    statusToGo.replaceChildren(n, rest);
+    if (togo.days > 0) {
+      const n = doc.createElement('b');
+      n.className = 'status-togo-days';
+      n.textContent = String(togo.days);
+      rest.textContent = togo.words.slice(String(togo.days).length + 1); // "days to Trip"
+      statusToGo.replaceChildren(n, rest);
+    } else {
+      rest.textContent = togo.words;
+      statusToGo.replaceChildren(rest);
+    }
   } else statusToGo.replaceChildren();
 }
 // The chip's words: the sentence's clauses, each after the first its own span with its " · ", so a narrow strip drops
@@ -2321,16 +2326,6 @@ function setupDeleted(space) {
   else loadPresence();
   saySetup(`Deleted ${space.name || word('space')}.`);
 }
-// The space card's Set up link on Home (`[data-edit]`, to /?setup=<id>): here it enters the space and opens the panel
-// without reloading the page (a reload would end a call). A press meant for a new tab or window keeps the link's own.
-document.addEventListener('click', (event) => {
-  const link = event.target.closest?.('[data-edit]');
-  if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const id = link.closest('[data-space]')?.dataset.space;
-  if (!id) return;
-  event.preventDefault();
-  openSetupFor(id);
-});
 // The one line after Save, read out, under the canvas's edge for a moment.
 const setupSaid = document.createElement('p');
 setupSaid.id = 'space-setup-said';

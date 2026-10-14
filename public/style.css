@@ -680,8 +680,7 @@ a:hover {
    a size or weight of its own. `.btn.nav-text` outweighs the button's own type (.btn, .btn-small come later) and keeps
    the button's colours. Anything else wears the bar's link colour at rest; what is current (the tab shown, the chip's
    phase, today's band, the page's name) says --header-text in its own rule. The exceptions, each for a reason: the
-   environment's name (the wordmark, larger: Thomas, 2026-10-14, "for now"), the "days to <phase>" caption under the
-   countdown (small, a caption), and the phone's menu rows and tab bar (a menu list and an icon over a word, not the bar). */
+   environment's name (the wordmark, larger: Thomas, 2026-10-14, "for now"), the countdown's number (a quarter larger, bold), and the phone's menu rows and tab bar (a menu list and an icon over a word, not the bar). */
 .nav-text,
 .btn.nav-text,
 .core-link {
@@ -1502,7 +1501,7 @@ body.in-space .page-scroll {
   padding: 0 16px;
 }
 
-/* The smaller buttons (link, pop-out, choose, settings) stay together: when the main button's word needs the room they
+/* The smaller buttons (link, pop-out, choose) stay together: when the main button's word needs the room they
    move to a line of their own as one group. */
 .space-choice-tools {
   display: flex;
@@ -1510,6 +1509,8 @@ body.in-space .page-scroll {
   align-items: center;
   gap: 8px;
 }
+
+.space-choice-tools:not(:has(> :not([hidden]))) { display: none; } /* no link on the card: no empty group to take a gap */
 
 .space-choice-actions .join-label {
   min-width: 0;
@@ -9258,8 +9259,12 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   white-space: nowrap;
 }
 
-.status-band-name > i {
-  font-size: 10px;
+.status-band-icon {
+  flex: none;
+  align-self: center;
+  margin-right: 5px;
+  font-size: 11px;
+  color: inherit;
 }
 
 /* The pin at today: a disc larger than the bar, filled with its phase's colour (a fill, no coloured ring), a ring of
@@ -9288,16 +9293,23 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   color: inherit;
 }
 
-/* The days to go: the number in the nav text (.nav-text, space.js), the words under it small (a caption: the one
-   small type in the strip, on purpose). */
+/* The countdown (space.js; Thomas, 2026-10-14): one chip, the number large and bold with its words ("days to Trip",
+   or "Trip starts today") beside it on one baseline. The words are the nav text (.nav-text, space.js); the number the
+   nav size a quarter larger, bold. Filled with the accent in the theme's tokens, inside the neutral border, the height
+   and rhythm of the facts' chips (28px). Gone on a phone's slim line. */
 .status-togo {
-  display: flex;
+  display: inline-flex;
   flex: none;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
+  align-items: baseline;
+  gap: 5px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--header-text);
-  line-height: 1.1;
+  line-height: 26px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -9306,13 +9318,15 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   display: none;
 }
 
-.status-togo-n {
-  color: inherit;
+.status-togo-days {
+  font-size: calc(var(--nav-font-size) * 1.25);
+  font-weight: 800;
+  line-height: 26px;
 }
 
 .status-togo-words {
-  font-size: 10px;
-  color: color-mix(in srgb, var(--header-text) 70%, transparent);
+  color: inherit;
+  line-height: 26px;
 }
 
 /* The facts (space.js, host.facts; plan-space-story-strip.md, step 5): up to three chips after the days to go, each a
@@ -9473,8 +9487,12 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 
 /* Narrow: the names in the bands go first (the bar keeps its colours, the pin and the days to go). */
 @media (max-width: 760px) {
-  .status-strip .status-band-box {
+  .status-strip .status-band-name {
     display: none;
+  }
+
+  .status-strip .status-band-icon {
+    margin-right: 0;
   }
 }
 
@@ -9547,6 +9565,10 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   }
 
   /* A 2px line has no room for a border: the band is the colour itself, paler behind today and ahead of it. */
+  .topbar > .status-strip .status-band-box {
+    display: none;
+  }
+
   .topbar > .status-strip .status-band {
     border: 0;
     border-radius: 0;
@@ -10090,6 +10112,11 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   height: 10px;
   border-radius: 3px;
   background: var(--tint, var(--accent));
+}
+
+.phase-row-icon {
+  flex: none;
+  color: var(--text-dim);
 }
 
 .phase-row-label {

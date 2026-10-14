@@ -1,7 +1,7 @@
 {
   "id": "travel",
   "name": "Planner",
-  "version": "0.15.17",
+  "version": "0.15.19",
   "icon": "suitcase-rolling",
   "color": "teal",
   "description": "Plan together: a day-by-day itinerary that draws in the events, tasks and polls your {space} already has.",
@@ -144,7 +144,10 @@
           "title": "title",
           "subtitle": "place",
           "when": "date",
-          "done": "done"
+          "done": "done",
+          "amount": "cost",
+          "paidBy": "paidBy",
+          "sharedBy": "owners"
         }
       }
     ],

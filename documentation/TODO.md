@@ -42,7 +42,7 @@ The one-bar work, in main. Each plan has its own status line.
 - **The Set up panel** ([plan-setup-panel](plans/plan-setup-panel.md)): all eight steps built.
 - **The status strip** ([plan-space-status-strip](plans/plan-space-status-strip.md)): steps 1 to 4 built (the journey bar, the attention store, the count and its list, Polls reporting), and since 2026-10-14 one countdown chip ("35 days to Trip"). Step 5, space items, is not built.
 - **The story strip** ([plan-space-story-strip](plans/plan-space-story-strip.md)): steps 1 to 7 built (no caret, the sentence, the 44 px bar, the facts, the Planner's money, the budget target). Choosing what shows, weather and usual temperatures (steps 8 to 10) are not built.
-- **Budget** ([plan-budget-module](plans/plan-budget-module.md)): steps 1, 2 and 4 built 2026-10-14 (the target's rules, the Budget module 0.1.0 with its burndown, Set up's field for moderators). Step 3 (the Planner hands costs to Budget) and step 5 (the travel template turns Budget on) are not built; until step 3 a space with both modules can show two money facts on the strip, and Budget's summary `amount` waits on the server's `SUMMARY_FIELDS`.
+- **Budget** ([plan-budget-module](plans/plan-budget-module.md)): steps 1, 2 and 4 built 2026-10-14 (the target's rules, the Budget module 0.1.0 with its burndown, Set up's field for moderators). Step 3 (revised 2026-10-14: Budget pulls the Planner's costs in, the Planner keeps them) and step 5 (the travel template turns Budget on) are not built; until step 3 a space with both modules can show two money facts on the strip, and Budget's summary `amount` waits on the server's `SUMMARY_FIELDS`.
 - **The call column, 2026-10-14:** **Start call** in the chat's view row, Pop out in the call's titlebar, a round call toolbar, the call's time (#37), phone docking (#268) and guests in Home's chat (#289) are built. See the CHANGELOG.
 - **Layout views** ([plan-layout-views](plans/plan-layout-views.md)): steps 1 to 6 built. Its Phase 2 (owner-set tabs, reordering) is for later issues.
 - **Calendar and To-do, Map and Places as one** ([plan-calendar-todo](plans/plan-calendar-todo.md), [plan-map-places](plans/plan-map-places.md)): steps 1 to 3 built; the entries arrive as the Calendar and Map layout tabs and Global Calendar and Global Map.
@@ -187,7 +187,7 @@ The open issues labelled `priority: now` or `priority: next`:
 
 ## Modules
 
-- **Budget step 3: the Planner hands costs to Budget** ([plan-budget-module](plans/plan-budget-module.md)). The Planner drops `cost`, `paidBy` and its Money view and asks Budget's `addCost`; the server's `SUMMARY_FIELDS` gains `amount` so a booking can show its cost. Until then the Planner keeps its own costs and reports its own `spent`. Step 5, the travel template turning Budget on, comes with it.
+- **Budget step 3: Budget pulls the Planner's costs in** ([plan-budget-module](plans/plan-budget-module.md), revised 2026-10-14). The Planner keeps its cost fields; with Budget on, Budget reads the bookings' costs (the summary field `amount`, added to the server's `SUMMARY_FIELDS`) and the Planner's own Money view and chip give way. Nothing is deleted on enabling or disabling. Until then the Planner keeps its own costs and reports its own `spent`. Step 5, the travel template turning Budget on, comes with it.
 - **Planner modes** (#307): travel, design and project modes for the Planner. Not planned yet; Budget is built to stay independent of them.
 - #34 Updating a module from an address, not only a zip.
 - #35 A module's own activity on its card.

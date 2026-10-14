@@ -2024,14 +2024,15 @@ test('the sheet: one row per phase with native date inputs, Skip and Add dates, 
   assert.match(block, /min-height: 44px;/);
 });
 
-// Set up (plan-one-bar.md, decision 5, step 4; plan-setup-panel.md, steps 1 to 3; public/space-setup.js): the tool in
-// the bar (pressed while open), the tabs each role sees, the fragment that picks one, the dirty dots, the one PATCH of
-// what changed, the field a refusal is about, and the line said after Save.
+// Set up (plan-one-bar.md, decision 5, step 4; plan-setup-panel.md, steps 1 to 6; public/space-setup.js): the tool in
+// the bar (pressed while open), the tabs each role sees, the fragment that picks one, the address that opens it, the
+// dirty dots, the one PATCH of what changed, the field a refusal is about, and the line said after Save.
 const setupCopy = path.join(tmp, 'space-setup.mjs');
 fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/space-setup.js'), setupCopy);
 fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the panel imports it
-const { setupTabs, pickTab, setupPatch, dirtyTabs, problemField, setupSaidWords, MODERATOR_FIELDS } = await import(pathToFileURL(setupCopy).href);
+fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), path.join(tmp, 'phase-sheet.js')); // and the sheet's row helpers
+const { setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, problemField, setupSaidWords, MODERATOR_FIELDS, tabOfField } = await import(pathToFileURL(setupCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 test('Set up: a right-zone tool after your picture, before the window controls, for owners, the admin and moderators; Save and Cancel are the panel\'s action bar, not the top bar\'s', () => {
@@ -2042,26 +2043,56 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.match(space, /const setupShown = \(\) => canSetUp\(\);/, 'the tool stays while the panel is open');
   assert.match(space, /nav\.setActive\('setup', true\);/, 'and shows pressed');
   assert.match(space, /settingUp = false;\n\s*document\.body\.classList\.remove\('setting-up'\);\n\s*nav\.setActive\('setup', false\);/, 'not pressed once it closes');
-  assert.match(space, /tab: location\.hash,/, 'the address fragment picks the tab');
+  assert.match(space, /function enterSetup\(\{ tab = location\.hash \} = \{\}\) \{/, 'the address fragment picks the tab, unless an address opening Set up asked for one');
+  assert.match(space, /    tab,\n\s*nameInput: setupNameInput,/);
   assert.match(space, /onTab: setupTabInAddress,/, 'and follows it while open');
   assert.match(space, /document\.body\.classList\.add\('setting-up'\)/, 'the mode is body.setting-up');
   assert.match(space, /placeSetupName\(\); \/\/ while setting up, the current segment is the name's input/, 'the breadcrumb carries the input after every draw');
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
-  assert.match(html, /data-edit data-overlay-link href="#" title="Full settings"/, 'the card\'s link stays, as Full settings');
-  assert.deepEqual(setupTabs({ owner: true }), ['space', 'members', 'phases', 'opens-with']);
-  assert.deepEqual(setupTabs({ owner: true, moderator: true }), ['space', 'members', 'phases', 'opens-with'], 'an owner who is also ticked moderator sees everything');
-  assert.deepEqual(setupTabs({ moderator: true }), ['phases', 'opens-with'], 'what the server lets a moderator PATCH (phases, opensWith, defaultLayout)');
-  assert.deepEqual(setupTabs({ owner: true, phases: false }), ['space', 'members', 'opens-with'], 'no phases in the template: no Phases tab');
-  assert.deepEqual(setupTabs({ moderator: true, phases: false }), ['opens-with']);
+  // Step 6: the card's two links are one Set up link to /?setup=<id>, for whoever may set up (owners, the admin, moderators).
+  assert.match(html, /<a class="btn btn-small" data-edit href="#" title="Set up" aria-label="Set up" hidden><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"><\/i><\/a>/, 'the card\'s one link, Set up');
+  assert.ok(!/data-module-settings|title="Full settings"/.test(html), 'the moderators\' sliders link and Full settings are gone');
+  assert.match(space, /edit\.hidden = r\.isAside \|\| !\(hasOwnerRights\(me\) \|\| me\?\.spaces\?\.\[r\.id\]\?\.permissions\?\.moderator\);\n\s*edit\.href = `\/\?setup=\$\{encodeURIComponent\(r\.id\)\}`;/);
+  assert.ok(!/module-settings\?space=|`\/spaces\/\$\{/.test(space), 'space.js links to neither old page');
+  assert.match(space, /const id = link\.closest\('\[data-space\]'\)\?\.dataset\.space;\n\s*if \(!id\) return;\n\s*event\.preventDefault\(\);\n\s*openSetupFor\(id\);/, 'a press on the card enters the space and opens Set up without a reload');
+  assert.deepEqual(setupTabs({ owner: true }), ['space', 'members', 'phases', 'opens-with', 'modules']);
+  assert.deepEqual(setupTabs({ owner: true, moderator: true }), ['space', 'members', 'phases', 'opens-with', 'modules'], 'an owner who is also ticked moderator sees everything');
+  assert.deepEqual(setupTabs({ moderator: true }), ['phases', 'opens-with', 'modules'], 'what the server lets a moderator PATCH (phases, opensWith, defaultLayout), and the module settings');
+  assert.deepEqual(setupTabs({ owner: true, phases: false }), ['space', 'members', 'opens-with', 'modules'], 'no phases in the template: no Phases tab');
+  assert.deepEqual(setupTabs({ moderator: true, phases: false }), ['opens-with', 'modules']);
+  assert.deepEqual(setupTabs({ moderator: true, modules: false }), ['phases', 'opens-with'], 'no module settings for a moderator: no modules tab');
   assert.deepEqual(setupTabs({}), [], 'a member has no panel');
+  assert.equal(tabOfField('aiOff'), 'modules');
+  assert.equal(tabOfField('module:todo'), 'modules', 'a module\'s settings live on the modules tab');
+  assert.equal(tabOfField('phases'), 'phases');
   assert.deepEqual([...MODERATOR_FIELDS], ['phases', 'opensWith', 'defaultLayout'], 'the server\'s MODERATOR_SPACE_FIELDS');
   const owner = setupTabs({ owner: true });
   assert.equal(pickTab(owner, '#members'), 'members', 'the fragment picks the tab');
   assert.equal(pickTab(owner, 'opens-with'), 'opens-with');
-  assert.equal(pickTab(owner, '#modules'), 'space', 'a tab not there yet: the first tab');
+  assert.equal(pickTab(owner, '#modules'), 'modules', 'the old page\'s #modules lands on the modules tab');
+  assert.equal(pickTab(owner, '#space'), 'space', 'and #space on the space tab');
+  assert.equal(pickTab(setupTabs({ owner: true, modules: false }), '#modules'), 'space', 'a tab left out: the first tab');
   assert.equal(pickTab(owner, '#join=abcd'), 'space', 'an unknown fragment: the first tab, never an error');
   assert.equal(pickTab(owner, ''), 'space');
   assert.equal(pickTab(setupTabs({ moderator: true }), '#members'), 'phases', 'a tab the person may not see: their first');
+  // Opening by address (step 6): /?setup=<id>#<tab>.
+  assert.deepEqual(setupAddress('?setup=abcd1234', '#members'), { id: 'abcd1234', tab: 'members' });
+  assert.deepEqual(setupAddress('?setup=lobby', ''), { id: 'lobby', tab: '' });
+  assert.deepEqual(setupAddress('?from=space&setup=abcd1234', '#nonsense'), { id: 'abcd1234', tab: 'nonsense' }, 'an unknown fragment is pickTab\'s to fall back from');
+  assert.equal(setupAddress('', '#members'), null, 'no ?setup: nothing to open');
+  assert.equal(setupAddress('?setup=', ''), null);
+  assert.equal(setupAddress('?setup=../x', ''), null, 'only an id');
+  assert.equal(pickTab(owner, `#${setupAddress('?setup=abcd1234', '#nonsense').tab}`), 'space', 'an unknown fragment: the first tab');
+  const initFn = space.slice(space.indexOf('async function init() {'));
+  assert.match(initFn, /const setupAsked = setupAddress\(location\.search, location\.hash\);[\s\S]*?if \(setupAsked\) \{\n\s*const rest = new URLSearchParams\(location\.search\);\n\s*rest\.delete\('setup'\);[^\n]*\n[^\n]*\n\s*openSetupFor\(setupAsked\.id, setupAsked\.tab\);\n\s*\} else if \(invited\) \{/, 'the address opens it once; a reload does not, and the remembered space is not entered instead');
+  const openFor = space.slice(space.indexOf('async function openSetupFor('), space.indexOf('// After Save:'));
+  assert.match(openFor, /await joinInvitedSpace\(id\);\n\s*if \(call\.state === 'connected' && currentSpace\?\.id === id && canSetUp\(\)\) enterSetup\(\{ tab: hash \}\);/, 'enters the space (not the call); the panel only for whoever may set up');
+  assert.match(space, /else if \(action === 'setup'\) openSetupFor\(id, event\.detail\.tab \|\| ''\);/, 'Manage over a call asks the space page underneath');
+  const adminJs = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
+  assert.match(adminJs, /const setupHref = \(id\) => `\/\?setup=\$\{encodeURIComponent\(id\)\}`;/);
+  assert.match(adminJs, /row\.querySelector\('\[data-action="edit"\]'\)\.href = setupHref\(space\.id\);/, 'Manage\'s Edit link');
+  assert.match(adminJs, /openSetup\(space\.id\); \/\/ into the new space with Set up open/, 'and its jump after making a space');
+  assert.ok(!/`\/spaces\/\$\{/.test(adminJs), 'Manage no longer links to the old page');
   const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
   // The tab row and the panels: role="tablist", a tab per id with aria-controls, the dot and its words for a reader.
   assert.match(setup, /class="setup-tabs" id="setup-tabs" role="tablist"/);
@@ -2070,7 +2101,8 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.match(setup, /<span class="setup-tab-dot" aria-hidden="true" hidden><\/span><span class="visually-hidden setup-tab-unsaved"><\/span>/);
   assert.match(setup, /textContent = on \? ', unsaved changes' : '';/, 'the dot is said to a screen reader');
   assert.match(setup, /ArrowRight: at \+ 1, ArrowLeft: at - 1, Home: 0, End: all\.length - 1/, 'the arrows move between tabs');
-  assert.match(setup, /space: word\('space', \{ cap: true \}\), members: membersWord\(true\)/, 'tab labels in the environment\'s words');
+  assert.match(setup, /space: word\('space', \{ cap: true \}\), members: membersWord\(true\), phases: 'Phases', 'opens-with': 'First visit', modules: modulesWord\(true\)/, 'tab labels in the environment\'s words');
+  assert.ok(!/setup-full|Full settings/.test(setup), 'the panel\'s Full settings link is gone (step 6)');
   assert.match(setup, /discardWords: 'Discard your changes\?',/, 'Escape and Cancel ask host.ui.editor\'s question');
   // The space tab (step 2) and the members tab (step 3).
   for (const id of ['setup-picture-file', 'setup-name', 'setup-description', 'setup-profile', 'setup-link', 'setup-link-icon', 'setup-publish-calendar', 'setup-delete', 'setup-delete-confirm', 'setup-members', 'setup-allow-guests', 'setup-make-invite', 'setup-guest-link-on', 'setup-guest-link-new', 'setup-guest-link-off', 'setup-guest-link-copy']) {
@@ -2088,7 +2120,27 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.match(space, /onLinks: \(\) => loadPresence\(\)\.then\(\(\) => renderGuestLink\(\)\),/, 'and the in-space controls follow the panel');
   assert.match(space, /function setupDeleted\(space\) \{\n\s*forgetSpace\(\);\n\s*if \(call\.state !== 'disconnected'\) call\.disconnect\(\);/, 'after Delete: Home, and a reload does not try it');
   assert.ok(!/conference character/i.test(setup), 'the panel never says "conference character"');
-  assert.ok(!/switchRowHtml\([^)]*'module'\)/.test(setup), 'no module switches in the panel (decision 4)');
+  assert.ok(!/switchRowHtml\([^)]*'module'\)|data-module-switch|\{ spaces \}/.test(setup), 'no module switches: availability per space was removed (an enabled module is on in every space)');
+  // Phases inline (step 4): the sheet's rows, every edit through the rule, a draft in the one PATCH.
+  for (const id of ['setup-phase-list', 'setup-phase-first', 'setup-phase-first-day', 'setup-phase-first-go', 'setup-phases-status', 'setup-opens-with-layout', 'setup-opens-with-layout-stop', 'setup-module-list', 'setup-ai-off', 'setup-module-settings']) {
+    assert.match(setup, new RegExp(`id="${id}"`), `the panel has #${id}`);
+  }
+  assert.match(setup, /state\.rule\.setPhaseDate\(state\.phaseList, state\.draft\.phases, id, edge, day, \{ created \}\)/);
+  assert.match(setup, /state\.rule\.skipPhase\(state\.phaseList, state\.draft\.phases, id,/);
+  assert.match(setup, /state\.rule\.addDatesFor\(state\.phaseList, state\.draft\.phases, id,/);
+  assert.match(setup, /const rows = rowsOf\(bands, \{ rule: R \}\);/, 'the sheet\'s rows');
+  assert.match(setup, /state\.draft\.phases = answer\.dates;/, 'an edit kept is the draft, sent by Save');
+  assert.match(space, /phases: templatePhases, \/\/ drawn inline/);
+  assert.match(space, /phaseChip\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/, 'the chip\'s sheet is unchanged');
+  // First visit complete: the kept ids said why (the old page's notes), and Stop using it for a default layout, a draft.
+  assert.match(setup, /if \(!m\) return \{ id, name: id, icon: 'puzzle-piece', note: 'not installed' \};/);
+  assert.match(setup, /if \(!m\.enabled\) return \{ \.\.\.shown, note: 'turned off' \};/);
+  assert.match(setup, /note: `can't open on the \$\{word\('canvas'\)\}`/);
+  assert.match(setup, /`Opens with the layout \$\{known\.name\}`/);
+  assert.match(setup, /function stopUsingLayout\(\) \{\n\s*state\.draft\.defaultLayout = null;/, 'Stop using it is a draft, as every field is');
+  // The modules tab (step 5): what is on, Turn AI off (an owner's space field), the module settings in the draft mode.
+  assert.match(setup, /if \(!state\.owner\) dropTab\('modules'\);/, 'a moderator with no module settings has no modules tab');
+  assert.match(setup, /aiSection\.hidden = !ai \|\| !ai\.active \|\| ai\.active\.provider === 'none';/, 'Turn AI off only with an AI service');
   // First visit (plan-layout-views.md, step 5): one choice, radios of one name in a fieldset named by the heading; the
   // Workspace first with the Opens with switches directly under it, then Calendar and Map from the layouts' `system`
   // list, then the shared layouts; no select, no "Picking one sets Opens with".
@@ -2104,7 +2156,8 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\.setup-first-visit \{[^}]*border: 0;/);
   assert.match(css, /\.setup-choice:has\(input:focus-visible\) \{[^}]*outline: 2px solid var\(--accent\);/, 'the keyboard ring on the row');
-  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?#setup-phases,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
+  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.space-setup \.phase-row-tools \.btn,\n\s*\.space-setup \.phase-row-off \.btn,\n\s*\.space-setup \.phase-first \.btn,\n\s*#setup-opens-with-layout-stop,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
+  assert.match(css, /\.space-setup \.phase-row \{\n\s*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);\n\s*grid-template-areas: "name name" "start end" "days tools" "problem problem";/, 'the rows as cards in the narrow panel');
 });
 
 test('Set up: one PATCH of what changed; the first visit\'s layout and Opens with are independent, each sent only when it changed', () => {
@@ -2152,6 +2205,20 @@ test('Set up: the new fields go in the one PATCH only when changed; the dots nam
   assert.equal(problemField({ linkIcon: 'x', link: 'https://x' }, 'unknown link icon'), 'linkIcon', 'the icon before the link');
   assert.equal(problemField({ name: 'P', defaultLayout: 'map' }, 'Map is not on in this space, so it can\'t be the first visit.'), 'defaultLayout');
   assert.equal(problemField({ name: 'P', members: [] }, 'owners only'), 'name', 'no field named: the first');
+  // Step 4: the phase dates, whole, only when a start or end changed; step 5: Turn AI off and the module settings.
+  const dated = { ...before, phases: { arrive: { start: '2026-10-01' }, stay: { start: '2026-10-05', end: '2026-10-09' } } };
+  assert.deepEqual(setupPatch(dated, { ...dated, phases: { stay: { end: '2026-10-09', start: '2026-10-05' }, arrive: { start: '2026-10-01' } } }), {}, 'the order of the keys is no change');
+  assert.deepEqual(setupPatch(dated, { ...dated, phases: { arrive: { start: '2026-10-02' }, stay: { start: '2026-10-05', end: '2026-10-09' } } }), { phases: { arrive: { start: '2026-10-02' }, stay: { start: '2026-10-05', end: '2026-10-09' } } }, 'one date moved: the whole set goes');
+  assert.deepEqual(setupPatch(before, { ...before, phases: {} }), {}, 'none before, none now');
+  assert.deepEqual(setupPatch(before, { ...before, aiOff: true }), { aiOff: true });
+  assert.deepEqual(setupPatch({ ...before, aiOff: true }, { ...before, aiOff: true }), {});
+  assert.deepEqual([...dirtyTabs({ phases: {} })], ['phases']);
+  assert.deepEqual([...dirtyTabs({ aiOff: true })], ['modules']);
+  assert.deepEqual([...dirtyTabs({}, { modules: true })], ['modules'], 'a module\'s settings changed: the modules tab\'s dot');
+  assert.equal(problemField({ name: 'P', aiOff: true }, 'AI is turned off'), 'aiOff');
+  assert.equal(problemField({ name: 'P', phases: {} }, 'Stay must start after Arrive starts, 2026-10-01.'), 'phases');
+  assert.equal(setupSaidWords({ saved: ['phases', 'module:todo'] }, { words: { 'module:todo': 'the To-do settings' } }), 'Saved the phase dates and the To-do settings. Everyone sees it now; press Set up to change more.');
+  assert.equal(setupSaidWords({ saved: ['name'], failed: 'module:maps', problem: 'Map files: there is no file called x' }, { words: { 'module:maps': 'the Maps settings' } }), 'The Maps settings were not saved. Map files: there is no file called x. The name was saved. Change it and press Save again, or Cancel.', 'a module refused after the space saved');
 });
 
 test('Set up: the line after Save says what was saved and what to do next', () => {

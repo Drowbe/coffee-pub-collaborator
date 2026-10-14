@@ -287,7 +287,7 @@ export function createSpaceSetup(deps) {
   // first step, "Start the first phase on". The dates are a draft: they go in Save's PATCH.
   function phasesTabHtml() {
     const rows = state.phaseList.map((p, i) => `
-          <li class="phase-row" data-id="${esc(p.id)}" data-tint="${tintOf(i)}">
+          <li class="phase-row" data-id="${esc(p.id)}" data-tint="${state.rule && state.rule.tintOf ? state.rule.tintOf(i) : tintOf(i)}">
             <div class="phase-row-name">
               <span class="phase-swatch" aria-hidden="true"></span>
               <span class="phase-row-label">${esc(p.label)}</span>
@@ -663,6 +663,8 @@ export function createSpaceSetup(deps) {
     const created = state.space.createdAt;
     return phaseAnswer(id, state.rule.setPhaseDate(state.phaseList, state.draft.phases, id, edge, day, { created }), (bands) => {
       const me = bands.find((b) => b.id === id);
+      if (edge === 'end' && !me.end) return `${me.label} has no end now.`;
+      if (edge === 'end' && !bands.some((b, k) => k > bands.indexOf(me) && b.dated)) return `${me.label} runs ${fmtDay(me.start)} to ${fmtDay(me.end)}.`;
       return `${me.label} ${edge === 'end' ? 'ends' : 'starts'} ${fmtDay(edge === 'end' ? me.end : me.start)}.`;
     });
   }
@@ -686,7 +688,12 @@ export function createSpaceSetup(deps) {
     };
     const tryKeep = ({ typing = false } = {}) => {
       const v = input.value;
-      if (!state.rule.isDay(v)) { if (!typing) paintPhases(); return; }
+      if (!state.rule.isDay(v)) {
+        // An emptied end gives the end up (open-ended again), on leaving or Enter only, as the sheet does.
+        if (!typing && v === '' && input.dataset.edge === 'end' && current() !== '') phaseSet(input.dataset.id, 'end', '');
+        else if (!typing) paintPhases();
+        return;
+      }
       if (typing && Number(v.slice(0, 4)) < 1000) return;
       if (v === current()) return;
       phaseSet(input.dataset.id, input.dataset.edge, v);

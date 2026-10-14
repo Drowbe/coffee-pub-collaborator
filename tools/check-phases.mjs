@@ -80,8 +80,12 @@ await test('problemOf: the refusals, each one sentence', () => {
   assert.equal(problem({}), null);
   assert.equal(problem({ booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } }), null);
   assert.equal(problem({ nope: { start: '2026-09-10' } }), 'There is no phase called "nope".');
-  assert.equal(problem({ booking: { start: '2026-09-10', end: '2026-09-20' } }), 'Only Trip, the main phase, has an end.');
-  assert.equal(P.problemOf([{ id: 'a', label: 'A' }], { a: { end: '2026-09-20' } }, { created: CREATED }), 'No phase here has an end.');
+  assert.equal(problem({ booking: { start: '2026-09-10', end: '2026-09-20' } }), 'Only Trip, the main phase, and the last phase have an end.');
+  assert.equal(P.problemOf([{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }], { a: { end: '2026-09-20' } }, { created: CREATED }), 'Only the last phase has an end.');
+  assert.equal(P.problemOf([{ id: 'a', label: 'A' }], { a: { end: '2026-09-20' } }, { created: CREATED }), null, 'the only phase is the last one: it may have an end');
+  // The last phase may have an end of its own, after its start, and nothing may follow it.
+  assert.equal(problem({ trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08', end: '2026-10-25' } }), null, 'Post-trip given an end');
+  assert.equal(problem({ trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08', end: '2026-10-07' } }), 'Post-trip can\'t end before it starts, 2026-10-08.');
   assert.equal(problem({ booking: { start: '10/09/2026' } }), 'Booking\'s start must be a day written as YYYY-MM-DD.');
   assert.equal(problem({ trip: { start: '2026-10-01', end: '2026-02-30' } }), 'Trip\'s end must be a day written as YYYY-MM-DD.');
   assert.equal(problem({ booking: { begins: '2026-09-10' } }), 'Booking\'s dates are start and end.');
@@ -110,7 +114,7 @@ await test('moveBoundary: a start or the main end, refused with the sentence and
   assert.deepEqual(P.moveBoundary(TRAVEL, dates, 'booking', '2026-10-01', { created: CREATED }), { ok: false, problem: 'Booking must start before Trip starts, 2026-10-01.' });
   assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'booking' }, P.dayOf(CREATED), { created: CREATED }), { ok: false, problem: `Booking must start after Planning starts, ${P.dayOf(CREATED)}.` });
   assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'trip', edge: 'end' }, '2026-10-20', { created: CREATED }).dates.trip, { start: '2026-10-01', end: '2026-10-20' });
-  assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'booking', edge: 'end' }, '2026-09-20', { created: CREATED }), { ok: false, problem: 'Only Trip, the main phase, has an end.' });
+  assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'booking', edge: 'end' }, '2026-09-20', { created: CREATED }), { ok: false, problem: 'Only Trip, the main phase, and the last phase have an end.' });
   assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'booking' }, null, { created: CREATED }).dates, { trip: { start: '2026-10-01', end: '2026-10-07' } }, 'cleared');
   assert.deepEqual(P.moveBoundary(TRAVEL, dates, { id: 'trip', edge: 'end' }, null, { created: CREATED }).dates.trip, { start: '2026-10-01' });
   assert.deepEqual(dates, { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' } }, 'the given dates are not touched');
@@ -198,12 +202,51 @@ await test('setPhaseDate: the refusals, each one sentence and nothing changed', 
   // An end that would push the next phase past its own end.
   refused('booking', 'end', '2026-10-07', 'Trip can\'t start after it ends, 2026-10-07.');
   refused('planning', 'end', '2026-09-30', 'Booking can\'t start after it ends, 2026-09-30.');
-  refused('post-trip', 'end', '2026-10-20', 'Post-trip is the last phase, so it has no end.');
+  refused('post-trip', 'end', '2026-10-07', 'Post-trip can\'t end before it starts, 2026-10-08.');
+  refused('booking', 'end', null, 'Booking ends the day before the next phase starts.');
   refused('buffer', 'end', '2026-09-20', 'Set when Buffer starts first.');
   refused('booking', 'end', 'soon', 'Booking\'s end must be a day written as YYYY-MM-DD.');
   refused('nope', 'start', '2026-09-20', 'There is no phase called "nope".');
   assert.equal(setDate(dates, 'trip', 'end', '2026-10-01').ok, true, 'a one-day main phase');
   assert.equal(setDate(dates, 'booking', 'end', '2026-09-10').ok, true, 'a one-day phase');
+});
+
+await test('setPhaseDate: the last phase takes an end of its own, and gives it up again; the timeline stays contiguous', () => {
+  const dates = { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } };
+  const ended = setDate(dates, 'post-trip', 'end', '2026-10-25');
+  assert.deepEqual(ended, { ok: true, dates: { ...dates, 'post-trip': { start: '2026-10-08', end: '2026-10-25' } } });
+  contiguous(ended.dates);
+  const bands = P.timelineOf(TRAVEL, ended.dates, { created: CREATED, today: '2026-10-12' });
+  assert.deepEqual(bands.map(band).filter((b) => b[3]).pop(), ['post-trip', '2026-10-08', '2026-10-25', true, true], 'Post-trip now runs to its end');
+  assert.equal(P.setPhaseDate(TRAVEL, ended.dates, 'post-trip', 'end', '2026-10-08', { created: CREATED }).ok, true, 'a one-day last phase');
+  // The main end moved later moves Post-trip's start, its own end kept; moved past it, refused.
+  assert.deepEqual(setDate(ended.dates, 'trip', 'end', '2026-10-09').dates['post-trip'], { start: '2026-10-10', end: '2026-10-25' });
+  assert.deepEqual(setDate(ended.dates, 'trip', 'end', '2026-10-25'), { ok: false, problem: 'Post-trip can\'t start after it ends, 2026-10-25.' });
+  // The start of the last phase may not pass its end.
+  assert.deepEqual(setDate(ended.dates, 'post-trip', 'start', '2026-10-26'), { ok: false, problem: 'Post-trip can\'t start after it ends, 2026-10-25.' });
+  // Cleared: back to open-ended, nothing else touched; clearing an open one changes nothing.
+  const cleared = P.setPhaseDate(TRAVEL, ended.dates, 'post-trip', 'end', '', { created: CREATED });
+  assert.deepEqual(cleared, { ok: true, dates });
+  assert.deepEqual(P.setPhaseDate(TRAVEL, ended.dates, 'post-trip', 'end', null, { created: CREATED }), cleared);
+  assert.deepEqual(P.setPhaseDate(TRAVEL, dates, 'post-trip', 'end', '', { created: CREATED }), { ok: true, dates });
+  // The main phase's end clears too (open-ended again), Post-trip's start staying.
+  assert.deepEqual(P.setPhaseDate(TRAVEL, dates, 'trip', 'end', '', { created: CREATED }).dates, { booking: { start: '2026-09-10' }, trip: { start: '2026-10-01' }, 'post-trip': { start: '2026-10-08' } });
+  // A last phase that is main keeps working, and a last phase with no start of its own can't take an end first.
+  const mainLast = [{ id: 'plan', label: 'Plan' }, { id: 'go', label: 'Go', main: true }];
+  assert.deepEqual(P.setPhaseDate(mainLast, { go: { start: '2026-10-01' } }, 'go', 'end', '2026-10-05', { created: CREATED }).dates, { go: { start: '2026-10-01', end: '2026-10-05' } });
+  assert.deepEqual(setDate({ trip: { start: '2026-10-01', end: '2026-10-07' } }, 'post-trip', 'end', '2026-10-25'), { ok: false, problem: 'Set when Post-trip starts first.' });
+  // The server's rule (problemOf) takes the same dates.
+  assert.equal(P.problemOf(TRAVEL, ended.dates, { created: CREATED }), null);
+  // Skipping the ended last phase drops its end with its start.
+  const { 'post-trip': _gone, ...without } = dates;
+  assert.deepEqual(P.skipPhase(TRAVEL, ended.dates, 'post-trip', { created: CREATED }), { ok: true, dates: without });
+});
+
+await test('the phases\' colours: one name per place in the template, on every band', () => {
+  assert.deepEqual(P.TINTS, ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']);
+  assert.deepEqual([0, 7, 8, -1].map(P.tintOf), ['blue', 'red', 'blue', 'red']);
+  const bands = P.timelineOf(TRAVEL, { trip: { start: '2026-10-01' } }, { created: CREATED });
+  assert.deepEqual(bands.map((b) => b.tint), ['blue', 'green', 'teal', 'purple', 'orange', 'pink'], 'dated or not, a phase keeps its colour');
 });
 
 await test('setPhaseDate: an end on the last dated phase starts the next phase in order; all six Travel phases dated in one pass', () => {
@@ -356,6 +399,13 @@ await test('storyWords: where we are, what is next and how far to the main phase
   assert.equal(story('2026-10-16'), 'Post-trip · back 2 days');
   assert.equal(story('2026-10-15'), 'Post-trip · back 1 day');
   assert.equal(story('2026-10-20', { trip: { start: '2026-10-05', end: '2026-10-14' } }), 'Trip · back 6 days', 'after the last dated phase: nothing current');
+  // The last phase given an end: inside it, the day it ends, and once it is over everything is finished.
+  const ended = { ...dates, 'post-trip': { start: '2026-10-15', end: '2026-10-25' } };
+  assert.equal(story('2026-10-20', ended), 'Post-trip · back 6 days', 'inside an ended last phase: as when it is open-ended');
+  assert.equal(story('2026-10-25', ended), 'Post-trip · back 11 days', 'its last day');
+  assert.equal(story('2026-10-26', ended), 'Trip finished', 'past the last phase\'s end: the main phase\'s name');
+  assert.equal(story('2026-11-30', { 'post-trip': { start: '2026-10-15', end: '2026-10-25' } }, TRAVEL.filter((p) => !p.main)), 'Post-trip finished', 'no main phase: the last phase\'s');
+  assert.equal(P.chipWords(P.timelineOf(TRAVEL, ended, { today: '2026-10-26', created: CREATED }), '2026-10-26'), 'Trip finished', 'the chip says the same');
   // Before the first phase, and in a gap.
   assert.equal(story('2026-08-20', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts in 12 days · Trip in 46 days', 'before the first phase');
   assert.equal(story('2026-08-31', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts tomorrow · Trip in 35 days');
@@ -503,7 +553,7 @@ try {
     assert.deepEqual((await asAdmin('GET', `/api/spaces/${trip.id}`)).json.space.phases, dates);
     const refused = [
       [{ nope: { start: d(10) } }, 'There is no phase called "nope".'],
-      [{ booking: { start: d(10), end: d(20) } }, 'Only Trip, the main phase, has an end.'],
+      [{ booking: { start: d(10), end: d(20) } }, 'Only Trip, the main phase, and the last phase have an end.'],
       [{ booking: { start: d(10) }, buffer: { start: d(10) } }, `Buffer must start after Booking starts, ${d(10)}.`],
       [{ booking: { start: d(10) }, trip: { start: d(5) } }, `Trip must start after Booking starts, ${d(10)}.`],
       [{ booking: { start: d(-5) } }, `Booking must start after Planning starts, ${c}.`],
@@ -524,6 +574,12 @@ try {
     assert.deepEqual([less.status, less.json.space.phases], [200, { trip: { start: d(30), end: d(36) } }]);
     assert.deepEqual((await asAdmin('PATCH', `/api/spaces/${trip.id}`, { phases: null })).json.space.phases, {});
     assert.equal('phases' in stored(), false, 'cleared, no key stored');
+    // The last phase may be given an end, and kept; one before its start is refused.
+    const endedLast = { ...dates, 'post-trip': { start: d(37), end: d(45) } };
+    const kept = await asAdmin('PATCH', `/api/spaces/${trip.id}`, { phases: endedLast });
+    assert.deepEqual([kept.status, kept.json.space.phases], [200, endedLast], kept.text);
+    assert.deepEqual(stored().phases, endedLast);
+    assert.deepEqual(answer(await asAdmin('PATCH', `/api/spaces/${trip.id}`, { phases: { ...dates, 'post-trip': { start: d(37), end: d(36) } } })), [400, { error: `Post-trip can't end before it starts, ${d(37)}.` }]);
     assert.equal((await asAdmin('PATCH', `/api/spaces/${trip.id}`, { phases: dates })).status, 200);
   });
 

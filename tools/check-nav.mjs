@@ -2020,7 +2020,22 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(css, /\.status-band-box \{\n\s*position: absolute;\n\s*inset: 0;\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'a name too long for its band drops out whole');
   assert.match(css, /\.status-strip \.phase-chip \.phase-chip-label \{\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'the sentence\'s later clauses drop whole');
   assert.match(css, /\.status-strip \.phase-chip \.story-lead \{\n\s*flex: 0 1 auto;\n\s*min-width: 0;\n\s*overflow: hidden;\n\s*text-overflow: ellipsis;/, 'the first clause is cut last, with an ellipsis');
-  assert.match(css, /\.status-band\.current \{\n\s*background: var\(--accent\);[^}]*color: var\(--on-accent\);/, 'today\'s band filled with the accent, its name on-accent');
+  // The phases' colours (Thomas: "we have all these colors in the phase tool but none of them show in the bar"): every band
+  // wears its own phase's tint as ONE 3px border along its top, as the sheet's do; today's fill, the pin and the chip's dot
+  // take the same tint; nothing generic (the accent) is left on the bands.
+  assert.match(track, /seg\.dataset\.tint = b\.tint;/, 'each band carries its phase\'s tint, from the timeline (Phases.tintOf), the sheet\'s own');
+  assert.match(track, /mark\.dataset\.tint = \(outside === 'lead' \? dated\[0\] : dated\[dated\.length - 1\]\)\.tint;/, 'the pin outside the bar takes the tint of the band it stands beside');
+  assert.match(space, /const here = bands\.find\(\(b\) => b\.current\) \|\| [^\n]*\n\s*const dot = phaseChip\.querySelector\('\.phase-dot'\);\n\s*if \(here\) dot\.dataset\.tint = here\.tint;/, 'the chip\'s dot takes the tint of the phase today is in');
+  assert.match(css, /\.status-band \{\n\s*position: relative;\n\s*box-sizing: border-box;\n\s*flex-basis: 0;\n\s*min-width: 4px;\n\s*border-top: 3px solid var\(--tint, var\(--accent\)\);/, 'a single 3px border along the top, in the phase\'s tint');
+  assert.match(css, /\.status-band\.current \{\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 42%, var\(--header-bg\)\);\n\s*color: var\(--header-text\);/, 'today\'s band filled from its own tint, its name in the header\'s text');
+  assert.match(css, /\.status-band\.past \{\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 20%, transparent\);/, 'past bands pale, from their own tint');
+  const bandCss = [...css.matchAll(/\n\.status-band[^{]*\{[^}]*\}/g)].map((m) => m[0]).join('');
+  assert.ok(!/box-shadow|var\(--border\)|var\(--on-accent\)/.test(bandCss), 'no generic outline or accent fill left on the bands');
+  assert.match(css, /\.status-today \{[^}]*border: 2px solid var\(--tint, var\(--accent\)\);/, 'the pin ringed in its phase\'s tint');
+  assert.match(css, /\.phase-dot \{[^}]*background: var\(--tint, var\(--accent\)\);/, 'the chip\'s dot in the tint');
+  assert.match(css, /\.topbar > \.status-strip \.status-band \{\n\s*border-top: 0;/, 'on a phone the 2px line is the colour, without a border');
+  assert.deepEqual(Phases.TINTS, TINTS, 'the sheet and the rule share one list of tints');
+  assert.deepEqual(Phases.timelineOf(TRAVEL, {}, { created: CREATED }).map((b, i) => b.tint === tintOf(i)), [true, true, true, true, true, true], 'every band\'s tint is the sheet\'s tintOf');
   const stripCss = css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
   assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(stripCss), 'theme tokens only in the strip');
   assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no strip row in an aside');
@@ -2051,7 +2066,7 @@ test('the sheet\'s rows: one per phase in order, dates, length, what may be edit
     ['trip', true, '2026-10-01', '2026-10-07', 7, false, false, true],
     ['post-trip', true, '2026-10-08', null, null, true, false, false],
   ]);
-  assert.deepEqual(full.map((r) => [r.endEditable, r.canSkip]), [[true, false], [true, true], [false, false], [false, false], [true, true], [false, true]], 'the last phase has no end of its own; the first is never skipped; an undated row has neither');
+  assert.deepEqual(full.map((r) => [r.endEditable, r.canSkip]), [[true, false], [true, true], [false, false], [false, false], [true, true], [true, true]], 'every dated phase takes an end, the last one too; the first is never skipped; an undated row has neither');
   assert.deepEqual([full[1].minStart, full[1].maxStart, full[1].minEnd], ['2026-09-02', '2026-09-30', '2026-09-10'], 'Booking: after Planning\'s first day, not after its own end; its end not before its start');
   assert.deepEqual([full[0].minStart, full[4].minStart, full[5].maxStart], [null, '2026-09-11', null], 'the first start is free; Trip starts after Booking\'s first day (the skipped phases between do not count); an open end has no bound');
   // Nothing dated: the first phase from the created day, open-ended, its end editable; the rest undated.
@@ -2078,6 +2093,10 @@ test('the sheet: one row per phase with native date inputs, Skip and Add dates, 
   assert.match(sheet, /role="status" aria-live="polite"/, 'a refusal is read out');
   assert.match(sheet, /if \(j >= 0 && !before\[j\]\.dated\) focusNext = after\[j\]\.id;/, 'an end that dates the next phase puts the keyboard on its end');
   assert.match(sheet, /start\.disabled = !canEdit \|\| !r\.dated;/, 'read-only: the same rows, disabled');
+  assert.match(sheet, /if \(!typing && v === '' && input\.dataset\.edge === 'end' && current\(\) !== ''\) commit\(input\.dataset\.id, 'end', ''\);/, 'an emptied end is given up, on leaving or Enter');
+  assert.match(sheet, /end\.disabled = !canEdit \|\| !r\.endEditable;/);
+  assert.match(sheet, /\? `\$\{me\.label\} runs \$\{fmt\(me\.start\)\} to \$\{fmt\(me\.end\)\}\.`/, 'the last phase ended: "Post-trip runs Oct 20 to Oct 25."');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8'), /phaseSet\(input\.dataset\.id, 'end', ''\)/, 'Set up\'s rows give an end up the same way');
   assert.match(sheet, /if \(opener && typeof opener\.focus === 'function' && opener\.isConnected\) opener\.focus\(\);/, 'focus goes back to the chip');
   assert.ok(!/Set when \$\{/.test(sheet), 'no "Set when X starts" buttons');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');

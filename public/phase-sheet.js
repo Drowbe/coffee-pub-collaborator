@@ -25,7 +25,9 @@ import { actionBar } from './action-bar.js';
 
 export const BAND_MIN = 56; // the least width of a dated band, in px (a one-day phase keeps it; 12 phases scroll sideways)
 const OPEN_DAYS_PAST_TODAY = 14; // how far an open-ended band is drawn past today
-// The bands' tints, by position: eight named tokens (design-theme.md, "Tints"), round again after the eighth.
+// The bands' tints, by position: eight named tokens (design-theme.md, "Tints"), round again after the eighth. The
+// same list is Phases.TINTS / Phases.tintOf (public/phases.js), which gives every band its `tint`: the sheet, Set up's
+// rows, the status strip and a module's host.util.phaseTimeline all read that one (tools/check-nav.mjs holds the two equal).
 export const TINTS = ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red'];
 export const tintOf = (i) => TINTS[((i % TINTS.length) + TINTS.length) % TINTS.length];
 
@@ -54,8 +56,8 @@ export function todayPercent(band, days, today, { rule } = {}) {
 }
 
 // The rows, one per band in order: { id, label, main, current, dated, start, end, days, open, endEditable, canSkip,
-// minStart, maxStart, minEnd }. `days` is the length (null when open-ended); `endEditable` is false for the last phase
-// in order unless it is main (it has no end of its own); the first phase keeps its dates (`canSkip` false); the
+// minStart, maxStart, minEnd }. `days` is the length (null when open-ended); `endEditable` is true for any dated phase (an end on a phase that has a
+// phase after it moves that phase's start; the last phase's, and the main phase's, are their own); the first phase keeps its dates (`canSkip` false); the
 // bounds are what the date pickers grey out: a start after the previous dated phase's start and not after its own
 // end, an end not before its start.
 export function rowsOf(bands, { rule } = {}) {
@@ -74,7 +76,7 @@ export function rowsOf(bands, { rule } = {}) {
       end: dated ? b.end || null : null,
       days: dated && b.end ? R.daysBetween(b.start, b.end) + 1 : null,
       open: dated && !b.end,
-      endEditable: dated && (Boolean(b.main) || i < list.length - 1),
+      endEditable: dated,
       canSkip: dated && i > 0,
       minStart: prev ? R.addDays(prev.start, 1) : null,
       maxStart: dated && b.end ? b.end : null,
@@ -194,7 +196,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     const band = doc.createElement('li');
     band.className = 'phase-band';
     band.dataset.id = p.id;
-    band.dataset.tint = tintOf(i);
+    band.dataset.tint = R.tintOf ? R.tintOf(i) : tintOf(i);
     band.innerHTML = '<span class="phase-band-label"></span><span class="phase-band-span"></span><span class="phase-band-now" hidden>now</span><span class="phase-today" hidden><span class="phase-today-word">Today</span></span>';
     band.addEventListener('click', () => focusRow(p.id));
     band.addEventListener('mouseenter', () => lit(p.id, true));
@@ -205,7 +207,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     const row = doc.createElement('li');
     row.className = 'phase-row';
     row.dataset.id = p.id;
-    row.dataset.tint = tintOf(i);
+    row.dataset.tint = R.tintOf ? R.tintOf(i) : tintOf(i);
     row.innerHTML = `
       <div class="phase-row-name">
         <span class="phase-swatch" aria-hidden="true"></span>
@@ -334,7 +336,10 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     const after = timeline();
     const i = list.findIndex((p) => p.id === id);
     const me = after[i];
-    const parts = [`${me.label} ${edge === 'end' ? 'ends' : 'starts'} ${fmt(edge === 'end' ? me.end : me.start)}.`];
+    const last = !after.some((b, k) => k > i && b.dated);
+    const parts = [edge === 'end' && !me.end ? `${me.label} has no end now.`
+      : edge === 'end' && last ? `${me.label} runs ${fmt(me.start)} to ${fmt(me.end)}.`
+        : `${me.label} ${edge === 'end' ? 'ends' : 'starts'} ${fmt(edge === 'end' ? me.end : me.start)}.`];
     let focusNext = null;
     if (edge === 'end') {
       const j = after.findIndex((b, k) => k > i && b.dated);
@@ -400,7 +405,12 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     };
     const tryCommit = ({ typing = false } = {}) => {
       const v = input.value;
-      if (!R.isDay(v)) { if (!typing) update(); return; }
+      if (!R.isDay(v)) {
+        // An emptied end gives the end up (open-ended again); on leaving or Enter only, as a half-typed day reads empty too.
+        if (!typing && v === '' && input.dataset.edge === 'end' && current() !== '') commit(input.dataset.id, 'end', '');
+        else if (!typing) update();
+        return;
+      }
       if (typing && yearOf(v) < 1000) return;
       if (v === current()) return;
       commit(input.dataset.id, input.dataset.edge, v);

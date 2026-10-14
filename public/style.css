@@ -9041,7 +9041,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--tint, var(--accent)); /* the colour of the phase today is in (data-tint, space.js) */
 }
 
 /* The sentence: the first clause keeps its line and is cut with an ellipsis; each later clause is all or nothing,
@@ -9106,30 +9106,32 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   left: calc(100% - 14px);
 }
 
+/* Each band wears its phase's colour (data-tint, the sheet's own: Phases.tintOf) as ONE border along its top, 3px, as
+   the sheet's bands do. Ahead of today: the border and a faint wash; behind it: paler; today's: the border and a fill
+   of its own colour under the header's text. */
 .status-band {
   position: relative;
+  box-sizing: border-box;
   flex-basis: 0;
   min-width: 4px;
+  border-top: 3px solid var(--tint, var(--accent));
   border-radius: 6px;
-  box-shadow: inset 0 0 0 1px var(--border);
+  background: color-mix(in srgb, var(--tint, var(--accent)) 8%, transparent);
   color: color-mix(in srgb, var(--header-text) 75%, transparent);
 }
 
 .status-band.main {
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 60%, var(--border));
   color: var(--header-text);
   font-weight: 700;
 }
 
 .status-band.past {
-  background: color-mix(in srgb, var(--accent) 22%, transparent);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--tint, var(--accent)) 20%, transparent);
 }
 
 .status-band.current {
-  background: var(--accent);
-  box-shadow: none;
-  color: var(--on-accent);
+  background: color-mix(in srgb, var(--tint, var(--accent)) 42%, var(--header-bg));
+  color: var(--header-text);
   font-weight: 700;
 }
 
@@ -9172,7 +9174,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   font-size: 10px;
 }
 
-/* The pin at today: a disc larger than the bar, ringed in the accent, with the day of the month. */
+/* The pin at today: a disc larger than the bar, ringed in its phase's colour, with the day of the month. */
 .status-today {
   position: absolute;
   z-index: 1;
@@ -9184,7 +9186,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   width: 28px;
   height: 28px;
   margin: -14px 0 0 -14px;
-  border: 2px solid var(--accent);
+  border: 2px solid var(--tint, var(--accent));
   border-radius: 50%;
   background: var(--header-bg);
   box-shadow: 0 0 0 2px var(--header-bg);
@@ -9365,8 +9367,19 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
     left: calc(100% - 1px);
   }
 
+  /* A 2px line has no room for a border: the band is the colour itself, paler behind today and ahead of it. */
   .topbar > .status-strip .status-band {
+    border-top: 0;
     border-radius: 0;
+    background: color-mix(in srgb, var(--tint, var(--accent)) 60%, transparent);
+  }
+
+  .topbar > .status-strip .status-band.past {
+    background: color-mix(in srgb, var(--tint, var(--accent)) 35%, transparent);
+  }
+
+  .topbar > .status-strip .status-band.current {
+    background: var(--tint, var(--accent));
   }
 
   .topbar > .status-strip .status-today {

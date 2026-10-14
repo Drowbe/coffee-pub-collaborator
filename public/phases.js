@@ -2,8 +2,9 @@
 // ([{ id, label, main? }], in order) and a space's dates ({ <id>: { start?, end? } }, days as YYYY-MM-DD) make one
 // contiguous timeline: a boundary is the first day of the next phase, and the phase before it ends the day before. The
 // first phase starts on the day the space was created when it has no start of its own. Only the main phase has an
-// end; every other dated phase ends where the next dated one starts, and the last dated phase is open-ended unless it
-// is main. A phase with no dates has zero width and is skipped. Nothing here touches a document, so the server
+// end, and so does the last phase in order (Post-trip may be given an end day, or left open-ended); every other dated
+// phase ends where the next dated one starts, and the last dated phase is open-ended unless it has an end of its own.
+// A phase with no dates has zero width and is skipped. Nothing here touches a document, so the server
 // (server/store.js) and tools/check-phases.mjs run it in node, and the pages run it in the browser as `Phases`.
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -12,6 +13,11 @@
   const DAY_MS = 24 * 60 * 60 * 1000;
   const YMD = /^(\d{4})-(\d{2})-(\d{2})$/;
   const PHASE_ID = /^[a-z][a-z0-9-]*$/;
+  // The one colour a phase has everywhere it is drawn (the sheet's bands and rows, Set up's rows, the status strip's
+  // bars, pin and dot, and any module reading host.util.phaseTimeline): its place in the template's list picks one of
+  // the eight theme tints by name (design-theme.md, "Tints"), round again after the eighth. Templates carry no colour.
+  const TINTS = ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red'];
+  const tintOf = (i) => TINTS[((i % TINTS.length) + TINTS.length) % TINTS.length];
 
   const pad = (n) => String(n).padStart(2, '0');
   // A day, written as YYYY-MM-DD, that is a real calendar day.
@@ -55,6 +61,10 @@
     return out;
   }
 
+  // Which phases hold an end of their own: the main phase, and the last phase in order. (Any other phase ends the day
+  // before the next dated one starts, so its end is that start moved.)
+  const ownEnd = (list, i) => Boolean(list[i]) && (list[i].main || i === list.length - 1);
+
   // Each phase's own start, with the first phase's falling back to the created day. Null when it has none.
   const startOf = (phases, dates, i, created) => (dates[phases[i].id] && dates[phases[i].id].start) || (i === 0 ? created : null);
 
@@ -75,7 +85,7 @@
         const v = span[key];
         if (v !== undefined && v !== null && v !== '' && !isDay(v)) return `${phase.label}'s ${key} must be a day written as YYYY-MM-DD.`;
       }
-      if (isDay(span.end) && !phase.main) return main ? `Only ${main.label}, the main phase, has an end.` : 'No phase here has an end.';
+      if (isDay(span.end) && !ownEnd(list, list.indexOf(phase))) return main ? `Only ${main.label}, the main phase, and the last phase have an end.` : 'Only the last phase has an end.';
     }
     const clean = cleanDates(dates);
     const createdDay = dayOf(created);
@@ -83,7 +93,7 @@
     const dated = [];
     list.forEach((phase, i) => {
       const start = startOf(list, clean, i, createdDay);
-      const end = phase.main && clean[phase.id] && clean[phase.id].end ? clean[phase.id].end : null;
+      const end = ownEnd(list, i) && clean[phase.id] && clean[phase.id].end ? clean[phase.id].end : null;
       if (end && !start) return;
       if (start) dated.push({ phase, start, end });
     });
@@ -105,8 +115,8 @@
     return null;
   }
 
-  // The bands, one per phase in order: { id, label, main, start, end, dated, current }. `start` and `end` are days
-  // (inclusive); `end` is null for an open-ended band; both null and `dated` false for a phase with no dates (zero
+  // The bands, one per phase in order: { id, label, main, tint, start, end, dated, current }.
+  // `tint` is the phase's colour name (tintOf). `start` and `end` are days (inclusive); `end` is null for an open-ended band; both null and `dated` false for a phase with no dates (zero
   // width). `current` is the one band `today` falls in, when a day is given.
   function timelineOf(phases, dates, { today, created } = {}) {
     const list = cleanPhases(phases);
@@ -116,14 +126,15 @@
     const starts = list.map((p, i) => startOf(list, clean, i, createdDay));
     return list.map((phase, i) => {
       const start = starts[i];
-      if (!start) return { id: phase.id, label: phase.label, main: phase.main, start: null, end: null, dated: false, current: false };
+      const tint = tintOf(i);
+      if (!start) return { id: phase.id, label: phase.label, main: phase.main, tint, start: null, end: null, dated: false, current: false };
       let next = null;
       for (let j = i + 1; j < list.length && !next; j += 1) if (starts[j] && starts[j] > start) next = starts[j];
       let end = next ? addDays(next, -1) : null;
-      const own = phase.main && clean[phase.id] ? clean[phase.id].end : null;
+      const own = ownEnd(list, i) && clean[phase.id] ? clean[phase.id].end : null;
       if (own && own >= start && (!end || own < end)) end = own;
       const current = Boolean(day) && day >= start && (!end || day <= end);
-      return { id: phase.id, label: phase.label, main: phase.main, start, end, dated: true, current };
+      return { id: phase.id, label: phase.label, main: phase.main, tint, start, end, dated: true, current };
     });
   }
 
@@ -172,14 +183,19 @@
 
   // Phase `id`'s `edge` ('start' or 'end') set to `day`. Refused when the day is not a day, an end comes before its
   // start, a start after its end (the next phase's start, or the main phase's own end), a start not after the previous
-  // dated phase's start (it keeps at least one day), the next phase would start after it ends, or the phase is the
-  // last in order and not main (it has no end).
+  // dated phase's start (it keeps at least one day), or the next phase would start after it ends. `day` null (or '')
+  // on an end clears it: the main phase or the last phase in order goes back to open-ended (or to the day before the
+  // next phase starts); any other phase's end is the next phase's start, so it can't be cleared on its own.
   function setPhaseDate(phases, dates, id, edge, day, { created } = {}) {
     const list = cleanPhases(phases);
     const i = list.findIndex((p) => p.id === id);
     if (i < 0) return { ok: false, problem: `There is no phase called "${id}".` };
     const which = edge === 'end' ? 'end' : 'start';
     const me0 = list[i];
+    if (which === 'end' && (day === null || day === undefined || day === '')) {
+      if (!ownEnd(list, i)) return { ok: false, problem: `${me0.label} ends the day before the next phase starts.` };
+      return moveBoundary(list, dates, { id, edge: 'end' }, null, { created });
+    }
     if (!isDay(day)) return { ok: false, problem: `${me0.label}'s ${which} must be a day written as YYYY-MM-DD.` };
     const bands = timelineOf(list, dates, { created });
     const me = bands[i];
@@ -188,16 +204,15 @@
       if (day < me.start) return { ok: false, problem: `${me.label} can't end before it starts, ${me.start}.` };
       const j = datedAfter(bands, i);
       if (j < 0) {
-        if (!me.main && i + 1 >= list.length) return { ok: false, problem: `${me.label} is the last phase, so it has no end.` };
         const next = cleanDates(dates);
-        if (me.main) next[id] = Object.assign({}, next[id] || {}, { end: day });
+        if (ownEnd(list, i)) next[id] = Object.assign({}, next[id] || {}, { end: day });
         if (i + 1 < list.length) next[list[i + 1].id] = { start: addDays(day, 1) }; // the next phase in order starts
         const problem = problemOf(list, next, { created, moved: id });
         return problem ? { ok: false, problem } : { ok: true, dates: next };
       }
       const after = addDays(day, 1);
       if (bands[j].end && after > bands[j].end) return { ok: false, problem: `${bands[j].label} can't start after it ends, ${bands[j].end}.` };
-      if (me.main) return moveBoundary(list, dates, { id, edge: 'end' }, day, { created });
+      if (ownEnd(list, i)) return moveBoundary(list, dates, { id, edge: 'end' }, day, { created });
       return moveBoundary(list, dates, { id: bands[j].id }, after, { created });
     }
     if (me.dated && me.end && day > me.end) return { ok: false, problem: `${me.label} can't start after it ends, ${me.end}.` };
@@ -295,7 +310,19 @@
       return `${next.label} · ${n} ${n === 1 ? 'day' : 'days'} to go`;
     }
     const dated = list.filter((b) => b.dated);
+    const over = finishedWord(list, day);
+    if (over) return over;
     return (dated.length ? dated[dated.length - 1] : list[0]).label;
+  }
+  // Once the last phase has an end (it isn't the main one) and `day` is past it, everything is over: "Trip finished",
+  // the main phase's name (else the last phase's), or '' when it isn't so.
+  function finishedWord(list, day) {
+    if (!day) return '';
+    const dated = list.filter((b) => b.dated);
+    const last = dated[dated.length - 1];
+    if (!last || last.main || !last.end || day <= last.end) return '';
+    const main = dated.find((b) => b.main);
+    return `${(main || last).label} finished`;
   }
 
   // --- the status strip's story (plan-space-story-strip.md, step 1) -------------------------------------------------
@@ -306,6 +333,7 @@
   //   before the first phase, or in a gap           "Planning starts in 12 days · Trip in 52 days"
   //   inside the main phase                         "Trip · day 3 of 10", "Trip · last day" ("Trip · day 3" with no end)
   //   after the main phase                          "Post-trip · back 2 days" ("Trip · back 9 days" once nothing is current)
+//   after the last phase, when it has an end      "Trip finished" (the main phase's name, else the last phase's)
   //   no main phase                                 "Build · day 4 of 12 · Launch in 9 days" (the next phase only)
   // With no day, or nothing dated, chipWords' words. [] with no phases.
   const inDays = (n) => (n === 1 ? 'tomorrow' : `in ${n} days`);
@@ -323,6 +351,8 @@
       if (day === current.end) return [current.label, 'last day'];
       return [current.label, `day ${daysBetween(current.start, day) + 1} of ${daysBetween(current.start, current.end) + 1}`];
     }
+    const over = !current && !next ? finishedWord(list, day) : '';
+    if (over) return [over];
     const parts = [];
     const toNext = next ? daysBetween(day, next.start) : null;
     if (next && (!current || toNext === 1)) {
@@ -362,5 +392,5 @@
     return null;
   }
 
-  return { isDay, addDays, daysBetween, dayOf, cleanPhases, cleanDates, problemOf, timelineOf, moveBoundary, setPhaseDate, addDatesFor, skipPhase, coverMain, chipWords, storyParts, storyWords, countdown };
+  return { TINTS, tintOf, isDay, addDays, daysBetween, dayOf, cleanPhases, cleanDates, problemOf, timelineOf, moveBoundary, setPhaseDate, addDatesFor, skipPhase, coverMain, chipWords, storyParts, storyWords, countdown };
 }));

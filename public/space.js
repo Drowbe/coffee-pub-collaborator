@@ -1704,7 +1704,7 @@ function phaseTimeline() {
 // month. The days to go after it (Phases.countdown). Drawn again only when a date or the day changes.
 function drawStatusTrack(bands, today) {
   const R = phaseRule();
-  const key = JSON.stringify([today, bands.map((b) => [b.id, b.start, b.end, phaseIcons[b.id] || ''])]);
+  const key = JSON.stringify([today, bands.map((b) => [b.id, b.start, b.end, b.tint, phaseIcons[b.id] || ''])]);
   if (statusTrack.dataset.drawn === key) return;
   statusTrack.dataset.drawn = key;
   const doc = statusTrack.ownerDocument;
@@ -1714,6 +1714,7 @@ function drawStatusTrack(bands, today) {
     if (!b.dated) return;
     const seg = doc.createElement('span');
     seg.className = 'status-band';
+    seg.dataset.tint = b.tint; // the phase's own colour (Phases.tintOf), as in the sheet: one border, one tint
     seg.style.flexGrow = String(shares[i].grow);
     if (b.current) seg.classList.add('current');
     else if (b.end && today > b.end) seg.classList.add('past');
@@ -1736,7 +1737,7 @@ function drawStatusTrack(bands, today) {
     seg.appendChild(box);
     if (at !== null) {
       const mark = doc.createElement('span');
-      mark.className = 'status-today';
+      mark.className = 'status-today'; // inside the band: takes its colour
       mark.style.left = `${at}%`;
       const dayOfMonth = doc.createElement('span');
       dayOfMonth.className = 'status-today-day';
@@ -1754,6 +1755,7 @@ function drawStatusTrack(bands, today) {
   if (outside) {
     const mark = doc.createElement('span');
     mark.className = 'status-today';
+    mark.dataset.tint = (outside === 'lead' ? dated[0] : dated[dated.length - 1]).tint; // the band it stands beside
     const dayOfMonth = doc.createElement('span');
     dayOfMonth.className = 'status-today-day';
     dayOfMonth.textContent = String(Number(today.slice(8, 10)));
@@ -1867,6 +1869,11 @@ function updatePhaseChip() {
     phaseChip.title = `${words}. Phases`;
     phaseChip.setAttribute('aria-label', `${words}. Phases`);
   }
+  // The dot takes the colour of the phase today is in (before the first, the first; past the last, the last).
+  const datedNow = bands.filter((b) => b.dated);
+  const here = bands.find((b) => b.current) || datedNow.filter((b) => b.start <= today).pop() || datedNow[0] || null;
+  const dot = phaseChip.querySelector('.phase-dot');
+  if (here) dot.dataset.tint = here.tint; else delete dot.dataset.tint;
   drawStatusTrack(bands, today);
 }
 async function savePhases(dates) {

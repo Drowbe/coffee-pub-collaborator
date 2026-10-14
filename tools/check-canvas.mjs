@@ -1375,6 +1375,51 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/\.side-column-splitter-v \{[^}]*width: 8px;/.test(css) || !/@media \(pointer: coarse\) \{\s*\.side-column-splitter-v \{[^}]*width: 14px;/.test(css)) fail('public/style.css', 'the splitter\'s hit area is 8px, 14px for a finger');
 }
 
+// Home's three columns (plan-home-lobby.md, step 3): [Chat] [Spaces] [Modules] across the page's width. The chat column
+// on the left, full height under the top bar, resizable (the space column's limits and keys) and remembered in this
+// browser (prefs.homeChatWidth, 360px); the spaces in the middle, Who's around above the cards; the Modules (#dashboard,
+// the tiles, headed with the module word) on the right, under the cards below 1200px; one column at 760px and below.
+// The one #chat shows there pointed at Home's chat (the hidden `lobby` record) while Home shows with no space entered.
+{
+  const F = 'public/space.js';
+  const spaceJs = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  const H = 'public/space.html';
+  const home = html.slice(html.indexOf('<div class="home" id="home">'), html.indexOf('<!-- A guest link'));
+  if (!home) fail(H, 'Home needs its columns in <div class="home" id="home">');
+  const order = ['id="home-chat"', 'id="home-chat-slot"', 'id="home-chat-splitter"', 'class="home-main"', 'id="whos-around"', 'id="space-list-title"', 'id="home-add-space"', 'id="spaces"', 'id="join-error"', 'id="home-modules"', 'id="home-modules-title"', 'id="dashboard"'];
+  const at = order.map((a) => home.indexOf(a));
+  if (at.some((i) => i < 0)) fail(H, `Home keeps every id, in its column: missing ${order.filter((_, i) => at[i] < 0).join(', ')}`);
+  else if (at.some((i, n) => n && i < at[n - 1])) fail(H, 'Home reads Chat (its slot and splitter), then the spaces (Who\'s around, the heading row, the cards), then the Modules (their heading, #dashboard)');
+  if (!/<aside class="home-chat" id="home-chat" aria-label="Chat" hidden>/.test(home)) fail(H, 'the chat column is an aside named Chat, hidden until space.js shows it');
+  const split = home.slice(home.lastIndexOf('<', home.indexOf('id="home-chat-splitter"')), home.indexOf('>', home.indexOf('id="home-chat-splitter"')) + 1);
+  if (!split.includes('role="separator"') || !split.includes('aria-orientation="vertical"') || !split.includes('tabindex="0"') || !split.includes('aria-label="Resize the chat column"') || !split.includes('side-column-splitter-v')) fail(H, '#home-chat-splitter is a focusable vertical separator named "Resize the chat column", drawn as the space column\'s');
+  if (/>\s*Tools\s*</.test(home)) fail(H, 'the right-hand column is Modules, never Tools (decision 11)');
+  // The page's width: no 1180px cap on Home.
+  if (!/\.page-scroll > #join \{\s*max-width: none;/.test(css)) fail('public/style.css', 'Home uses the page\'s whole width (.page-scroll > #join { max-width: none })');
+  if (!/\.home \{\s*--home-chat-w: 360px;\s*--home-modules-w: 320px;[^}]*grid-template-columns: var\(--home-chat-w\) minmax\(0, 1fr\) var\(--home-modules-w\);\s*grid-template-areas: "chat main modules";/.test(css)) fail('public/style.css', 'Home is three columns: Chat (360px), the spaces, the Modules (320px)');
+  if (!/\.home-chat \{\s*grid-area: chat;\s*position: sticky;\s*top: 0;\s*height: var\(--home-h\);/.test(css)) fail('public/style.css', 'the chat column is the page\'s full height under the top bar, staying put');
+  if (!/@media \(max-width: 1200px\) \{\s*\.home \{\s*grid-template-columns: var\(--home-chat-w\) minmax\(0, 1fr\);\s*grid-template-areas: "chat main" "chat modules";/.test(css)) fail('public/style.css', 'below 1200px the Modules go under the space cards');
+  if (!/@media \(max-width: 760px\) \{\s*\.home,[^{]*\{\s*grid-template-columns: minmax\(0, 1fr\);\s*grid-template-areas: "main" "chat" "modules";/.test(css)) fail('public/style.css', 'at 760px and below Home is one column, the spaces first');
+  if (!/\.home-modules:has\(> \.dashboard\[hidden\]\) \{\s*display: none;/.test(css)) fail('public/style.css', 'no tiles, no Modules column');
+  if (!/\.home-main \.space-list \{\s*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, max\(260px, calc\(\(100% - 18px\) \/ 2\)\)\), 1fr\)\);/.test(css)) fail('public/style.css', 'the space cards are two wide where they fit, never more');
+  // The width: its own preference, the space column's limits and keys.
+  if (!/homeChatWidth: 360,/.test(spaceJs)) fail(F, 'Home\'s chat column is 360px by default (DEFAULT_PREFS.homeChatWidth)');
+  if (!/prefs\.homeChatWidth = clampColumnWidth\(value, window\.innerWidth\);/.test(spaceJs)) fail(F, 'Home\'s chat width is held between COLUMN_MIN and half the window (clampColumnWidth)');
+  const wire = spaceJs.slice(spaceJs.indexOf('function wireHomeChatSplitter('), spaceJs.indexOf('// --- end Home\'s chat column ---'));
+  if (!/splitterKey\(\{ key: event\.key, shift: event\.shiftKey \}, now\(\), \{ min: COLUMN_MIN, max, def: DEFAULT_PREFS\.homeChatWidth, grow: 'ArrowRight', shrink: 'ArrowLeft' \}\)/.test(wire) || !/if \(next === null\) return;/.test(wire)) fail(F, 'Home\'s splitter takes the space column\'s keys (splitterKey), and leaves every other key alone');
+  if (!/wireHomeChatSplitter\(\$\('home-chat-splitter'\)\);/.test(spaceJs)) fail(F, 'the splitter is wired');
+  // Home's chat: the one #chat, the `lobby` record's, while Home shows with no space entered; never for a guest.
+  if (!/const HOME_CHAT = 'lobby';/.test(spaceJs)) fail(F, 'Home\'s chat is the hidden Lobby record\'s (decision 6)');
+  if (!/const chatSpace = \(\) => homeChatSpace \|\| currentSpace;/.test(spaceJs) || !/getSpace: \(\) => chatSpace\(\),/.test(spaceJs)) fail(F, 'the chat reads its space from chatSpace(): Home\'s while it shows on Home, else the space\'s');
+  const wanted = spaceJs.slice(spaceJs.indexOf('function homeChatWanted() {'), spaceJs.indexOf('function syncHomeChat() {'));
+  for (const [re, why] of [[/!guestToken/, 'never on a guest link'], [/me\.role !== 'guest'/, 'never for a guest'], [/!currentSpace/, 'only with no space entered (Home over a space is step 4)'], [/canDo\('chatRead'\)/, 'only for whoever may read chat'], [/!homeChatEntering/, 'not while a space is being entered']]) if (!re.test(wanted)) fail(F, `Home's chat shows ${why}`);
+  if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(spaceJs)) fail(F, 'Home\'s chat is the one #chat, moved, never a copy');
+  if (!/new EventSource\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`\)/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
+  if (!/homeChatEntering = true;[^\n]*\n\s*hideHomeChat\(\);/.test(spaceJs.slice(spaceJs.indexOf('async function join('), spaceJs.indexOf('async function joinAsGuest(')))) fail(F, 'entering a space takes the chat out of Home\'s column first');
+  if (!/word\('module', \{ many: true, cap: true \}\)/.test(spaceJs.slice(spaceJs.indexOf('function renderSpaceListHead('), spaceJs.indexOf('async function addSpace(')))) fail(F, 'the Modules column is headed with the module word (the template\'s, else Modules)');
+}
+
 // The call pops out again, and has a place (Thomas, 2026-10-14): a visible Pop out on the call's toolbar (the same button
 // brings it back) with Call position on its caret (top or bottom of the column, a floating window, its own window), the
 // same in Chat's "..."; its own window is the conference's element moved into a window (canvas.popBuiltin), so the call

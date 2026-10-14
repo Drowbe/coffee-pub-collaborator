@@ -145,6 +145,10 @@ const presenceUsers = new Map(); // key -> { displayName, borderColor, online, s
 let presenceSpaces = []; // the spaces, with `mine` for the ones I may join
 let currentSpace = null; // the space I am in, once joined
 let viewingHome = false; // the space list shown while still connected (showSpaceList); the breadcrumb is empty then
+// Home's chat (plan-home-lobby.md, step 3): the Lobby's record (the hidden `lobby` space, Home's backing, decision 6)
+// while the one #chat shows in Home's column, else null. The chat reads its space from chatSpace(), never currentSpace.
+let homeChatSpace = null;
+const chatSpace = () => homeChatSpace || currentSpace;
 let guestSpaceName = ''; // a guest link's space, named in the top bar's anchor before the guest enters
 // Reloading the page keeps you in your space: the space is remembered for this tab (not across tabs or restarts) and rejoined when the
 // page starts again. It is forgotten when you leave or are removed, but not when the page itself is going away.
@@ -540,6 +544,7 @@ function renderSpaces() {
   }
   for (const card of [...list.children]) if (!keep.has(card.dataset.space)) card.remove();
   renderSpaceListHead();
+  syncHomeChat(); // Home's chat column, with no space entered (plan-home-lobby.md, step 3)
 }
 
 // The row above the space cards (GitHub #233): the home word with its icon, and "Add <space>" for those who may make
@@ -555,6 +560,12 @@ function renderSpaceListHead() {
   $('home-add-space-label').textContent = label;
   button.title = label;
   button.hidden = Boolean(guestToken) || !hasOwnerRights(me);
+  // The Modules column's heading (plan-home-lobby.md, decision 11): the module word, the template's when it sets one.
+  const modules = $('home-modules-title');
+  if (modules) {
+    modules.innerHTML = '<i class="fa-solid fa-puzzle-piece fa-fw" aria-hidden="true"></i> ';
+    modules.append(document.createTextNode(word('module', { many: true, cap: true })));
+  }
 }
 // Add <space>: the request Manage's Add button makes (POST /api/spaces, named "<Space> N"), then straight into the new
 // space with Set up open, so it can be named and set up at once. A failure is said where a join's is.
@@ -964,6 +975,7 @@ const DEFAULT_PREFS = {
   micId: '', camId: '', gain: 100, gate: 0, noise: true, echo: true, agc: true, ptt: false,
   quality: 720, mirror: true, background: 'none', volumes: {}, popout: null, deafened: false,
   chatWidth: 320, stripHeight: 168, speakerId: '', masterVolume: 100, // chatWidth is the column's width too (the splitter)
+  homeChatWidth: 360, // Home's chat column (plan-home-lobby.md, step 3), its own width
   // Where the call sits in the column (Call position): its 'top' or 'bottom'; callFloat, floating over the Workspace
   // instead (from the column's side it goes back to). Its own window is never remembered (a window opens only from a
   // click). callTiles: 'auto' (slim in a short window), 'shown' or 'slim'.
@@ -3133,10 +3145,10 @@ function storedEntry(m, { local = false } = {}) {
 // Tell the server what was just said, so the space's history has it. Returns the stored message, or null when it
 // could not be kept (an aside, or the server did not answer).
 async function postChatMessage(text) {
-  if (!currentSpace || currentSpace.isAside) return null;
+  if (!chatSpace() || chatSpace().isAside) return null;
   const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
   try {
-    const { message } = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat${q}`, { text, name: me?.displayName || call.localParticipant?.name });
+    const { message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat${q}`, { text, name: me?.displayName || call.localParticipant?.name });
     return message || null;
   } catch {
     return null;
@@ -3179,9 +3191,9 @@ function dropSharedChat() {
 }
 // An owner, or a member marked moderator in this space.
 function canModerateChat() {
-  if (!currentSpace || currentSpace.isAside || !me || me.role === 'guest') return false;
+  if (!chatSpace() || chatSpace().isAside || !me || me.role === 'guest') return false;
   if (hasOwnerRights(me)) return true;
-  return Boolean(me.spaces?.[currentSpace.id]?.permissions?.moderator);
+  return Boolean(me.spaces?.[chatSpace().id]?.permissions?.moderator);
 }
 // Who sees a message is the author's to change, both ways, on any stored message (plan-chat-model.md, decisions 3 and
 // 9). Pictures are never stored and a guest's command echo stays on their page, so neither is a button; guests share
@@ -3223,7 +3235,7 @@ function dropChatEntries(gone) {
 }
 // Whether this person may clear at all: signed in, not a guest, in a space (an aside keeps no chat).
 function canClearChat() {
-  return Boolean(me?.key && me.role !== 'guest' && !guestToken && currentSpace && !currentSpace.isAside);
+  return Boolean(me?.key && me.role !== 'guest' && !guestToken && chatSpace() && !chatSpace().isAside);
 }
 // How a type reads: its line in Clear… (name, icon, colour) and the word in its sentences ("the AI messages").
 // A module reads as its shown name; one this space no longer has reads as its command ("/t").
@@ -3244,7 +3256,7 @@ async function clearChatMessages({ type, module }, scope) {
   if (!canClearChat()) return;
   const q = new URLSearchParams({ type, scope });
   if (type === 'module') q.set('module', module);
-  await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/messages?${q}`);
+  await api('DELETE', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat/messages?${q}`);
   const by = me.key;
   const gone = chatLog.filter((e) => (ofClearType(e, type, module) && inClearScope(e, scope, by)) || clearTakesPicture(e, { type, scope, by }));
   const ids = gone.filter((e) => e.stored && e.visibility !== 'private' && chatIdOk(e.id)).map((e) => e.id);
@@ -3295,7 +3307,7 @@ function confirmClearChat(button, choice, moderator) {
 // Someone else's clear of everyone's adds one line, not stored and not counted (decision 9), once.
 const heardClears = new Map();
 function applyClearNotice(data, participant) {
-  if (!canDo('chatRead') || !currentSpace || currentSpace.isAside) return;
+  if (!canDo('chatRead') || !chatSpace() || chatSpace().isAside) return;
   const by = typeof data.by === 'string' ? data.by : '';
   const from = participant?.identity || '';
   if (!by || (from && from !== by)) return; // a page speaks only for itself
@@ -3341,6 +3353,7 @@ async function renderChatHistory(spaceId) {
     // An old copy kept in this browser: public, and not a button (the server may not have it).
     history = loadChatHistory(spaceId).map((m) => ({ ...storedEntry(m), stored: false }));
   }
+  if (chatSpace()?.id !== spaceId) return; // the chat moved on while this loaded (Home's chat, then a space, or back)
   const cleared = Math.max(chatClearedAt(spaceId), serverCleared);
   history = history.filter((e) => new Date(e.at).getTime() > cleared);
   // Anything live that arrived while this was loading is already there, so the history goes above it.
@@ -3595,8 +3608,8 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
 }
 
 async function deleteMessage(el, entry) {
-  if (!currentSpace) return;
-  const space = `/api/spaces/${encodeURIComponent(currentSpace.id)}`;
+  if (!chatSpace()) return;
+  const space = `/api/spaces/${encodeURIComponent(chatSpace().id)}`;
   if (entry?.chat) {
     if (!canDeleteChatEntry(entry)) return;
     if (!entry.blob) {
@@ -3627,9 +3640,9 @@ function applyDeleteNotice(data, participant) {
 // Make a stored message public or private (plan-chat-model.md, decision 9). True when the server took it. The others
 // in the call hear it from the server (chat-visibility) and from this page, the same notice, as with a delete.
 async function setMessageVisibility(entry, visibility) {
-  if (!currentSpace || !entry?.stored || !chatIdOk(entry.id)) return false;
+  if (!chatSpace() || !entry?.stored || !chatIdOk(entry.id)) return false;
   try {
-    const { message } = await api('PATCH', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}`, { visibility });
+    const { message } = await api('PATCH', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat/${entry.id}`, { visibility });
     entry.visibility = message?.visibility === 'private' ? 'private' : 'public';
     if (message?.question && entry.kind === 'ai') entry.question = { who: String(message.question.who || ''), text: String(message.question.text || '') };
     publishChat(entry.visibility === 'public'
@@ -3646,7 +3659,7 @@ async function setMessageVisibility(entry, visibility) {
 // public: drawn where its time places it, and it counts as unread while Chat is closed (decision 10). Made private:
 // gone from this page. Only its author may change it, so a notice from anyone else is ignored.
 function applyVisibilityNotice(data, participant) {
-  if (!chatIdOk(data.id) || !canDo('chatRead') || !currentSpace || currentSpace.isAside) return;
+  if (!chatIdOk(data.id) || !canDo('chatRead') || !chatSpace() || chatSpace().isAside) return;
   const from = participant?.identity || '';
   const have = chatLog.find((e) => e.id === data.id);
   if (data.visibility === 'private') {
@@ -3679,7 +3692,7 @@ async function loadLinkKeeper(spaceId) {
   try {
     const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
     const { actions } = await api('GET', `/api/spaces/${encodeURIComponent(spaceId)}/actions${q}`);
-    if (!currentSpace || currentSpace.id !== spaceId) return;
+    if (!chatSpace() || chatSpace().id !== spaceId) return;
     chatLinkKeeper = linkKeeper(actions);
   } catch {
     chatLinkKeeper = null;
@@ -3693,7 +3706,7 @@ function linkKeeperLook(moduleId) {
 }
 function linkBox(entry) {
   const p = entry.preview;
-  if (!p || !p.url || !currentSpace || currentSpace.isAside) return null;
+  if (!p || !p.url || !chatSpace() || chatSpace().isAside) return null;
   const moduleId = p.module || chatLinkKeeper?.module || '';
   if (!moduleId) return null; // no keeper here (decision 9)
   const read = Boolean(p.at);
@@ -3709,7 +3722,7 @@ function linkBox(entry) {
     img.alt = '';
     img.loading = 'lazy';
     const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-    img.src = `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/image${q}`; // never the page's own address
+    img.src = `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat/${entry.id}/image${q}`; // never the page's own address
     img.addEventListener('error', () => img.remove()); // left out, not shown broken
     box.appendChild(img);
   }
@@ -3777,16 +3790,16 @@ function paintLinkBox(entry) {
 // everyone else hears it from the server (chat-kept).
 // Answers the server's answer; throws its refusal. Send to... on the message keeps its link the same way.
 async function keepStoredLink(entry) {
-  if (!currentSpace || !chatIdOk(entry.id)) throw new Error('That link can no longer be kept.');
+  if (!chatSpace() || !chatIdOk(entry.id)) throw new Error('That link can no longer be kept.');
   const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
-  const out = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/keep${q}`);
+  const out = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat/${entry.id}/keep${q}`);
   const kept = cleanKept(out?.message?.kept);
   if (kept) entry.kept = kept;
   paintLinkBox(entry);
   return out;
 }
 async function keepLink(entry, btn) {
-  if (!currentSpace || !chatIdOk(entry.id)) return;
+  if (!chatSpace() || !chatIdOk(entry.id)) return;
   btn.disabled = true;
   try {
     await keepStoredLink(entry);
@@ -3801,7 +3814,7 @@ async function keepLink(entry, btn) {
 async function askLinkPreview(entry) {
   let message = null;
   try {
-    ({ message } = await api('POST', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat/${entry.id}/preview`));
+    ({ message } = await api('POST', `/api/spaces/${encodeURIComponent(chatSpace().id)}/chat/${entry.id}/preview`));
   } catch {
     message = null;
   }
@@ -3816,7 +3829,7 @@ async function askLinkPreview(entry) {
 // chat-preview (from the server, or the message's author's page) and chat-kept (the server's only): the first copy
 // only, and a page's notice speaks only for its own messages (previewNoticeTakes, keptNoticeTakes in chat-input.js).
 function applyLinkNotice(data, participant) {
-  if (!canDo('chatRead') || !currentSpace || currentSpace.isAside) return;
+  if (!canDo('chatRead') || !chatSpace() || chatSpace().isAside) return;
   const from = participant?.identity || '';
   const entry = chatLog.find((e) => e.id === data.id && !e.blob);
   if (!entry) return;
@@ -3916,7 +3929,9 @@ function addEntry(entry, own = false) {
   const last = placeMessage(el);
   if (last) $('messages').scrollTop = $('messages').scrollHeight;
   chatInput.arrived(el, { own }); // the other view's mark, the Assistant's news read out (GitHub #203)
-  // The unread number counts new public messages from others, whatever the filter shows.
+  // The unread number counts new public messages from others, whatever the filter shows. Home's chat in its column is
+  // in sight, so nothing there counts (its unread on the Home link is plan-home-lobby.md's step 4).
+  if (homeChatSpace) return;
   if (!canvas.builtinOpen('chat') && !own && entry.visibility !== 'private') {
     unread += 1;
     entry.counted = true; // so a clear can take it off the number again (dropChatEntries)
@@ -3945,7 +3960,7 @@ function addMessage(message, from, own = false, by = '') {
 function saveChat() {
   if (!chatLog.length) return;
   const lines = chatLog.map((e) => `[${e.at.toLocaleTimeString()}] ${e.who}: ${e.blob ? `[picture${e.name ? ' ' + e.name : ''}]` : e.text}`);
-  saveBlob(new Blob([lines.join('\n') + '\n'], { type: 'text/plain' }), `${spaceName.replace(/[^\w-]+/g, '-').toLowerCase()}-chat-${new Date().toISOString().slice(0, 10)}.txt`);
+  saveBlob(new Blob([lines.join('\n') + '\n'], { type: 'text/plain' }), `${(homeChatSpace ? word('home') : spaceName).replace(/[^\w-]+/g, '-').toLowerCase()}-chat-${new Date().toISOString().slice(0, 10)}.txt`);
 }
 
 // Pictures: pasted, dropped or picked, shrunk to a sensible size, then sent
@@ -4200,7 +4215,9 @@ canvas.registerBuiltin({
   el: $('chat'),
   // The Discussion's word follows the environment's name for Chat, else "Discussion" (GitHub #203).
   onShown: (def) => { showBuiltinName(def); setDiscussionWordFrom(def.name); },
-  allowed: () => canDo('chatRead'),
+  // Not while it shows on Home (plan-home-lobby.md, step 3): the canvas never takes it from Home's column (crossing the
+  // phone line opens the built-ins in the side column); entering a space gives it back first.
+  allowed: () => canDo('chatRead') && !homeChatSpace,
   slot: '#side-column-chat', // its place in the always-on column, under the call (plan-one-bar.md, step 6)
   onShow: () => { if (columnCollapsed()) setColumnCollapsed(false); }, // brought into view: the rail opens
   width: prefs.chatWidth,
@@ -4777,6 +4794,8 @@ function updateCrumb() {
 async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) {
   if (!pull) leftCall = false; // entering again: a person who left the call may be joined again
   viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
+  homeChatEntering = true; // the chat leaves Home's column at once: the space's history fills it (connectAndSetup)
+  hideHomeChat();
   currentLayoutTab = 'workspace'; // entering a space opens on the Workspace tab (plan-layout-views.md), never the last space's
   $('join-error').hidden = true;
   for (const b of document.querySelectorAll('[data-join]')) b.disabled = true;
@@ -4806,6 +4825,8 @@ async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) 
     await call.disconnect().catch(() => {});
   } finally {
     for (const b of document.querySelectorAll('[data-join]')) b.disabled = false;
+    homeChatEntering = false;
+    syncHomeChat(); // in the space: nothing; refused, still on Home: Home's chat again
   }
 }
 
@@ -5328,9 +5349,10 @@ $('chat-more').addEventListener('click', (event) => {
       hint: 'Every message goes, for everyone, private ones too.',
       armed: true,
       onConfirm: async () => {
-        if (!currentSpace) return;
+        const space = chatSpace();
+        if (!space) return;
         try {
-          await api('DELETE', `/api/spaces/${encodeURIComponent(currentSpace.id)}/chat`);
+          await api('DELETE', `/api/spaces/${encodeURIComponent(space.id)}/chat`);
         } catch (err) {
           setStatus(err.message || 'Could not delete the chat.', true);
           return;
@@ -5338,8 +5360,8 @@ $('chat-more').addEventListener('click', (event) => {
         dropSharedChat();
         publishChat({ type: 'chat-clear' });
         try {
-          localStorage.removeItem(chatHistoryKey(currentSpace.id));
-          localStorage.removeItem(chatClearedKey(currentSpace.id));
+          localStorage.removeItem(chatHistoryKey(space.id));
+          localStorage.removeItem(chatClearedKey(space.id));
         } catch {
           // the server already deleted it
         }
@@ -5379,7 +5401,7 @@ const chatInput = attachChatInput({
   $,
   api,
   word,
-  getSpace: () => currentSpace,
+  getSpace: () => chatSpace(), // Home's chat while it shows on Home (plan-home-lobby.md), else the space's
   getMe: () => me,
   isGuest: () => !me?.key || me.role === 'guest' || Boolean(guestToken),
   keepStoredLink,
@@ -5390,7 +5412,7 @@ const chatInput = attachChatInput({
   addStored: (m, opts) => addStoredMessage(m, opts),
   openMenu: openHostMenu,
   // Chat in sight: open, and not behind the column's collapsed rail.
-  isShown: () => canvas.builtinOpen('chat') && !(canvas.columnMode() && columnCollapsed()),
+  isShown: () => Boolean(homeChatSpace) || (canvas.builtinOpen('chat') && !(canvas.columnMode() && columnCollapsed())),
   // The Assistant's new results count on the rail and Chat's switch too (GitHub #203).
   onAssistantNew: (n) => {
     assistantNew = n;
@@ -6274,6 +6296,142 @@ function goHome(event) {
   if (!$('page-overlay-frame').hidden) closeOverlay();
   return true;
 }
+// --- Home's chat column (plan-home-lobby.md, step 3) -----------------------------------------------------------------
+// While Home shows with no space entered (signed in, never a guest, allowed to read chat), the one #chat moves into
+// Home's left column (#home-chat-slot), pointed at Home's chat: the hidden Lobby record's (`lobby`, decision 6) history,
+// sends through the same routes, Discussion and Assistant, and what others say live from the server's stream
+// (GET /api/spaces/lobby/chat/stream, step 1), since Home holds no call. Entering a space takes it back to the canvas,
+// which places it in the space's column as before. Home over a space (present in one, decision 7) leaves the space's
+// chat where it is and draws no chat column: swapping the two there, and Home's unread on the Home link, are step 4.
+const HOME_CHAT = 'lobby';
+let homeChatEntering = false; // join() under way: the chat is the space's from its first moment
+let homeChatStream = null;
+function homeChatWanted() {
+  return Boolean($('home-chat')) && !guestToken && Boolean(me?.key) && me.role !== 'guest' && !homeChatEntering
+    && !currentSpace && call.state !== 'connected' && !$('join').hidden && !document.body.classList.contains('in-space')
+    && canDo('chatRead') && !canvas.builtinOpen('chat');
+}
+function syncHomeChat() {
+  if (homeChatWanted()) showHomeChat();
+  else hideHomeChat();
+}
+function showHomeChat() {
+  $('home-chat').hidden = false;
+  applyHomeChatWidth();
+  if (homeChatSpace) return;
+  homeChatSpace = presenceSpaces.find((r) => r.isLobby) || { id: HOME_CHAT, name: '', isLobby: true, members: [] };
+  dropSharedChat();
+  $('messages').textContent = '';
+  const chat = $('chat');
+  $('home-chat-slot').appendChild(chat);
+  chat.hidden = false;
+  $('chat-pic').hidden = true; // a picture travels over the call, and Home holds none
+  renderChatHistory(HOME_CHAT);
+  chatInput.loadThread();
+  loadLinkKeeper(HOME_CHAT);
+  openHomeChatStream();
+}
+function hideHomeChat() {
+  const column = $('home-chat');
+  if (column) column.hidden = true;
+  if (!homeChatSpace) return;
+  closeHomeChatStream();
+  homeChatSpace = null;
+  dropSharedChat();
+  $('messages').textContent = '';
+  const chat = $('chat');
+  if (!canvas.builtinOpen('chat')) {
+    $('canvas').appendChild(chat); // where a closed chat waits (canvas.js closeBuiltin)
+    chat.hidden = true;
+  }
+  chatLinkKeeper = null;
+  chatInput.loadThread();
+  applyPermissions(); // the picture button as the permissions say
+}
+function openHomeChatStream() {
+  closeHomeChatStream();
+  if (typeof EventSource !== 'function') return;
+  const source = new EventSource(`/api/spaces/${HOME_CHAT}/chat/stream`);
+  source.addEventListener('message', (event) => {
+    if (homeChatStream !== source) return;
+    let data = null;
+    try { data = JSON.parse(event.data); } catch { return; }
+    homeChatNotice(data);
+  });
+  homeChatStream = source;
+}
+function closeHomeChatStream() {
+  homeChatStream?.close();
+  homeChatStream = null;
+}
+// What the stream says, read as the call's chat notices are (RoomEvent.DataReceived) with no sender: the server's word.
+// A message of my own is drawn from the answer to my own request, as in a space.
+function homeChatNotice(data) {
+  if (!homeChatSpace || !data || typeof data.type !== 'string') return;
+  if (data.type === 'chat' && chatIdOk(data.id)) {
+    if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
+    addEntry(storedEntry(data), false);
+  } else if (data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, null);
+  else if (data.type === 'chat-visibility') applyVisibilityNotice(data, null);
+  else if (data.type === 'chat-clear-some') applyClearNotice(data, null);
+  else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, null);
+  else if (data.type === 'chat-clear') dropSharedChat();
+}
+// The column's width: dragged on its inner edge (#home-chat-splitter), or with the keyboard as the space column's edge
+// (splitterKey); between COLUMN_MIN and half the window, remembered in this browser (prefs.homeChatWidth).
+function applyHomeChatWidth() {
+  const home = $('home');
+  const handle = $('home-chat-splitter');
+  if (!home || !handle) return;
+  const w = clampColumnWidth(prefs.homeChatWidth, window.innerWidth);
+  home.style.setProperty('--home-chat-w', `${w}px`);
+  handle.setAttribute('aria-valuemin', String(COLUMN_MIN));
+  handle.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, Math.round(window.innerWidth * COLUMN_MAX_SHARE))));
+  handle.setAttribute('aria-valuenow', String(w));
+  handle.setAttribute('aria-valuetext', `${w} pixels wide`);
+}
+function setHomeChatWidth(value, { remember = true } = {}) {
+  prefs.homeChatWidth = clampColumnWidth(value, window.innerWidth);
+  if (remember) savePrefs();
+  applyHomeChatWidth();
+}
+function wireHomeChatSplitter(el) {
+  if (!el) return;
+  let drag = null;
+  const now = () => clampColumnWidth(prefs.homeChatWidth, window.innerWidth);
+  el.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0 && event.pointerType === 'mouse') return;
+    event.preventDefault();
+    drag = { at: event.clientX, from: now() };
+    el.classList.add('dragging');
+    $('home')?.classList.add('resizing-column');
+    el.setPointerCapture?.(event.pointerId);
+  });
+  el.addEventListener('pointermove', (event) => {
+    if (drag) setHomeChatWidth(drag.from + event.clientX - drag.at, { remember: false });
+  });
+  const stop = () => {
+    if (!drag) return;
+    drag = null;
+    el.classList.remove('dragging');
+    $('home')?.classList.remove('resizing-column');
+    savePrefs();
+  };
+  el.addEventListener('pointerup', stop);
+  el.addEventListener('pointercancel', stop);
+  el.addEventListener('dblclick', () => setHomeChatWidth(DEFAULT_PREFS.homeChatWidth));
+  el.addEventListener('keydown', (event) => {
+    const max = Math.round(window.innerWidth * COLUMN_MAX_SHARE);
+    const next = splitterKey({ key: event.key, shift: event.shiftKey }, now(), { min: COLUMN_MIN, max, def: DEFAULT_PREFS.homeChatWidth, grow: 'ArrowRight', shrink: 'ArrowLeft' });
+    if (next === null) return; // Tab, Escape and the rest go on
+    event.preventDefault();
+    setHomeChatWidth(next);
+  });
+}
+wireHomeChatSplitter($('home-chat-splitter'));
+window.addEventListener('resize', applyHomeChatWidth);
+// --- end Home's chat column ---
+
 const HOME_LINKS = '#spaces-link, #menu-home, .brand-home';
 document.addEventListener('click', (event) => {
   if (event.target.closest(HOME_LINKS)) goHome(event);

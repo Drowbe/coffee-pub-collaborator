@@ -62,7 +62,7 @@ test('addCost, the cost kind and the categories setting', () => {
   const cats = m.settings.find((s) => s.key === 'categories');
   assert.equal(cats.type, 'list');
   assert.deepEqual(cats.fixed, ['other']);
-  assert.deepEqual(cats.default.map((c) => c.id), ['travel', 'lodging', 'food', 'supplies', 'services', 'fees', 'other']);
+  assert.deepEqual(cats.default.map((c) => c.id), ['travel', 'lodging', 'food', 'supplies', 'services', 'fees', 'activities', 'other']);
   for (const c of cats.default) assert.ok(fs.existsSync(path.join(ROOT, 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid', `${c.icon}.svg`)), `${c.icon} is an icon`);
 });
 
@@ -74,10 +74,10 @@ test('the stylesheet uses theme tokens only: no colour of its own', () => {
 // --- the model ------------------------------------------------------------------------------------------------------
 const lib = new Function('word', `${read('modules/budget/src/budget-lib.js')}
 return { cleanAmount, readAmount, isDay, dayNum, dayOf, cleanCost, costValue, costFromRequest, DEFAULT_CATS, cleanCategories, catRow, toneOf,
-  totals, byCategory, filterCosts, sortCosts, groupCosts, balances, settleShows, burndown, burndownWords, targetView, targetToSend, stripFacts, statusWords, cutText, pulledCosts, allCosts, withheldNote };`)((key, o) => (o && o.a ? `a ${key}` : key)); // the page's `word`, a stand-in
+  totals, byCategory, filterCosts, sortCosts, groupCosts, balances, settleShows, burndown, burndownWords, targetView, targetToSend, stripFacts, statusWords, cutText, pulledCosts, allCosts, withheldNote, categoryByName };`)((key, o) => (o && o.a ? `a ${key}` : key)); // the page's `word`, a stand-in
 const {
   cleanAmount, readAmount, isDay, cleanCost, costValue, costFromRequest, DEFAULT_CATS, cleanCategories, toneOf, totals, byCategory, filterCosts, sortCosts, groupCosts,
-  balances, settleShows, burndown, burndownWords, targetView, targetToSend, stripFacts, statusWords, cutText, pulledCosts, allCosts, withheldNote,
+  balances, settleShows, burndown, burndownWords, targetView, targetToSend, stripFacts, statusWords, cutText, pulledCosts, allCosts, withheldNote, categoryByName,
 } = lib;
 const cost = (id, o) => cleanCost(id, { title: `Cost ${id}`, ...o });
 const money = (a, code = 'USD') => `${code === 'EUR' ? '€' : '$'}${Number(a).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -284,7 +284,7 @@ test('the burndown: range, steps, planned and undated costs', () => {
   assert.match(words, /from 10-05 to 10-20/);
   assert.match(words, /target is \$4,000\.00/);
   assert.match(words, /\$2,400\.00 is left/);
-  assert.match(words, /With the planned costs, \$2,100\.00 is left/);
+  assert.match(words, /Left if all planned costs are spent: \$2,100\.00/);
   assert.match(words, /1 cost has no date and is counted from the first day/);
   assert.match(burndownWords(over, say, money), /\$50\.00 over the target/);
   assert.equal(burndownWords(null, say, money), '');
@@ -352,6 +352,63 @@ test('a pulled-in cost: read-only, no category (Other), counted as paid, from it
   assert.deepEqual([bare.date, bare.paidBy, bare.sharedBy], ['', '', []]);
   assert.deepEqual(pulledCosts([booking('b3', { amount: 0 }), booking('b4', { amount: 'x' }), { title: 'no ref', amount: 5 }, null, booking('b5', { ref: { module: 'budget', kind: 'cost', id: 'c' } })], 'budget'), [], 'no amount, no ref, or its own: not pulled');
   assert.deepEqual(pulledCosts(undefined, 'budget'), []);
+});
+
+test('a pulled-in cost takes the category its source names: by name, any case, else Other', () => {
+  const kinds = { Travel: 'travel', Lodging: 'lodging', Food: 'food', Activities: 'activities', Other: 'other' };
+  for (const [words, id] of Object.entries(kinds)) assert.equal(categoryByName(DEFAULT_CATS, words), id, words);
+  assert.deepEqual(DEFAULT_CATS.map((c) => c.id).slice(-2), ['activities', 'other'], 'Activities is a default, before Other');
+  assert.equal(categoryByName(DEFAULT_CATS, 'lodging'), 'lodging', 'case-insensitive: the source\'s words come lower case');
+  assert.equal(categoryByName(DEFAULT_CATS, '  LODGING '), 'lodging');
+  assert.equal(categoryByName(DEFAULT_CATS, ''), 'other', 'no words: Other');
+  assert.equal(categoryByName(DEFAULT_CATS, 'castle'), 'other', 'not on the list: Other');
+  const rows = [booking('h', { category: 'Lodging', amount: 80 }), booking('f', { category: 'travel', amount: 300 }), booking('r', { category: 'Food', amount: 40 }), booking('s', { category: 'Activities', amount: 25 }), booking('n', { amount: 5 })];
+  const pulled = pulledCosts(rows, 'budget');
+  assert.equal(pulled[0].category, 'other', 'on its own a pulled-in cost is under Other until the list is known');
+  assert.deepEqual(allCosts([], pulled, DEFAULT_CATS).map((c) => c.category), ['lodging', 'travel', 'food', 'activities', 'other']);
+  const by = Object.fromEntries(byCategory(allCosts([], pulled, DEFAULT_CATS), DEFAULT_CATS).map((r) => [r.id, r]));
+  assert.deepEqual([by.lodging.actual, by.travel.actual, by.food.actual, by.activities.actual, by.other.actual], [80, 300, 40, 25, 5], 'counted under its category');
+  assert.equal(filterCosts(allCosts([], pulled, DEFAULT_CATS), DEFAULT_CATS, { category: 'lodging' }).length, 1);
+  assert.deepEqual(groupCosts(allCosts([], pulled, DEFAULT_CATS), DEFAULT_CATS, 'category').map((g) => g.key), ['travel', 'lodging', 'food', 'activities', 'other']);
+  // the owner removed Lodging and renamed Food: the hotel falls to Other (never lost); Food's cost follows its new name only if the words match
+  const edited = cleanCategories(DEFAULT_CATS.filter((c) => c.id !== 'lodging').map((c) => (c.id === 'food' ? { ...c, label: 'Meals' } : c)));
+  const after = allCosts([], pulled, edited);
+  assert.deepEqual(after.map((c) => c.category), ['other', 'travel', 'other', 'activities', 'other'], 'removed or renamed: Other');
+  assert.equal(totals(after).spent, 450, 'nothing is lost');
+  assert.equal(categoryByName(edited, 'Meals'), 'food', 'a source that says Meals finds the renamed one');
+  assert.deepEqual(pulledCosts(rows, 'budget')[0].categoryWord, 'Lodging');
+});
+
+test('the Planner names its categories in plain words, and the server keeps them', () => {
+  const tm = cleanManifest(JSON.parse(read('modules/travel/module.json')), new Set(['module.json', 'page.html', 'canvas.html', 'travel.html', 'widget.html', 'travel-widget.html']));
+  const plan = tm.refs.produces.find((k) => k.kind === 'plan');
+  assert.equal(plan.summary.category, 'category');
+  assert.deepEqual(plan.categoryNames, { travel: 'Travel', journey: 'Travel', stay: 'Lodging', eat: 'Food', do: 'Activities', other: 'Other' });
+  const names = DEFAULT_CATS.map((c) => c.label);
+  for (const w of new Set(Object.values(plan.categoryNames))) assert.ok(names.includes(w), `${w} is a default Budget category`);
+  const bad = JSON.parse(read('modules/travel/module.json'));
+  bad.refs.produces[1].summary.category = undefined;
+  assert.throws(() => cleanManifest(bad, new Set(['module.json', 'page.html', 'canvas.html', 'travel.html', 'widget.html', 'travel-widget.html'])), /categoryNames needs a summary.category/);
+});
+
+test('a booking with an actual is paid (its estimate only shown); with only an estimate it is planned, not spent', () => {
+  const [both, only, actual, none] = pulledCosts([booking('a', { amount: 80, planned: 70 }), booking('b', { amount: undefined, planned: 45.678 }), booking('c', { planned: undefined }), booking('d', { amount: undefined })], 'budget');
+  assert.deepEqual([both.actual, both.planned, both.estimate], [80, null, 70], 'the actual replaces the estimate in the sums; the estimate is kept to show');
+  assert.deepEqual([only.actual, only.planned, only.estimate], [null, 45.68, null], 'an estimate alone is planned');
+  assert.deepEqual([actual.actual, actual.planned, actual.estimate], [100, null, null]);
+  assert.equal(none, undefined, 'no amount and no estimate: not pulled');
+  const all = [both, only, actual];
+  const t = totals(all);
+  assert.deepEqual([t.spent, t.planned, t.expected], [180, 45.68, 225.68], 'spent counts the actuals; planned only the estimate-only booking; no double count');
+  const people = ['u1', 'u2'];
+  const paid = pulledCosts([booking('p', { amount: undefined, planned: 50, paidBy: 'u1' })], 'budget');
+  assert.equal(balances(paid, people).total, 0, 'settle up uses actual only');
+  // the burndown: the solid line takes the actual on its day; the projected line also takes the estimate; an actual replaces its estimate
+  const dated = pulledCosts([booking('x', { amount: 80, planned: 70, when: '2026-10-05' }), booking('y', { amount: undefined, planned: 40, when: '2026-10-08' }), booking('z', { amount: undefined, planned: 10, when: undefined })], 'budget');
+  const b = burndown(dated, { target: 500 });
+  assert.deepEqual(b.actual.map((p) => p.remaining), [500, 420], 'solid: only the 80 paid; the estimate beside it is not taken off again');
+  assert.deepEqual(b.expected.map((p) => p.remaining), [490, 410, 370], 'projected: the undated 10 first, the paid 80, then the 40 estimated on its day');
+  assert.deepEqual([b.endActual, b.endExpected, b.undated], [420, 370, 1]);
 });
 
 test('the same booking twice is counted once; a Budget cost that refs a booking is its own cost', () => {

@@ -1,7 +1,7 @@
 {
   "id": "budget",
   "name": "Budget",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "icon": "wallet",
   "color": "gold",
   "description": "What your {space} spends: costs planned and paid, a target, and who owes whom.",
@@ -103,6 +103,7 @@
         { "id": "supplies", "label": "Supplies", "icon": "box", "color": "#888888" },
         { "id": "services", "label": "Services", "icon": "screwdriver-wrench", "color": "#888888" },
         { "id": "fees", "label": "Fees", "icon": "receipt", "color": "#888888" },
+        { "id": "activities", "label": "Activities", "icon": "ticket", "color": "#888888" },
         { "id": "other", "label": "Other", "icon": "tag", "color": "#888888" }
       ]
     }

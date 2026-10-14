@@ -5784,6 +5784,8 @@ function refScope(who, { provider, kind, scope, space, from, skipConsumer = fals
 }
 
 // The summary of one stored object: only the fields the producer named, trimmed and typed.
+// Priced: it has an actual amount or a planned one.
+const isPriced = (summary) => summary.amount !== undefined || summary.planned !== undefined;
 function objectSummary({ manifest, produce, ref }, id, value, withText = false) {
   const text = (v) => (typeof v === 'string' ? v.slice(0, 200) : typeof v === 'number' && Number.isFinite(v) ? v : undefined);
   const field = (name) => (produce.summary[name] ? value?.[produce.summary[name]] : undefined);
@@ -5804,13 +5806,23 @@ function objectSummary({ manifest, produce, ref }, id, value, withText = false) 
   for (const name of ['allDay', 'done']) if (typeof field(name) === 'boolean') summary[name] = field(name);
   // A short label a module may give its items to group or colour them ("eat", "stay"): lower case letters, digits and dashes.
   const category = text(field('category'));
-  if (typeof category === 'string' && /^[A-Za-z0-9-]{1,20}$/.test(category)) summary.category = category.toLowerCase();
+  // A producer may give plain words for its categories (`categoryNames`, by the stored category, else by the stored kind).
+  const named = produce.categoryNames && (produce.categoryNames[category] || produce.categoryNames[value?.kind]);
+  if (named) summary.category = named;
+  else if (typeof category === 'string' && /^[A-Za-z0-9-]{1,20}$/.test(category)) summary.category = category.toLowerCase();
   // A cost (plan-budget-module.md, step 3): `amount` a positive number below 1e12, rounded to cents (the Budget module's
   // rule); `paidBy` a person's key; `sharedBy` the keys of who shares it. Anything else is left out.
   const amount = field('amount');
   if (typeof amount === 'number' && Number.isFinite(amount)) {
     const cents = Math.round(amount * 100) / 100;
     if (cents > 0 && cents < 1e12) summary.amount = cents;
+  }
+  // `planned`: what is expected before anything is paid (a booking's estimate); the same rule. A summary with `planned`
+  // and no `amount` is priced too (has=amount): see isPriced.
+  const planned = field('planned');
+  if (typeof planned === 'number' && Number.isFinite(planned)) {
+    const cents = Math.round(planned * 100) / 100;
+    if (cents > 0 && cents < 1e12) summary.planned = cents;
   }
   const paidBy = field('paidBy');
   if (typeof paidBy === 'string' && paidBy && paidBy.length <= 64) summary.paidBy = paidBy;
@@ -6017,7 +6029,7 @@ app.get('/api/objects/search', (req, res) => {
     const prefix = produce.key.replace('{id}', '');
     for (const item of moduleData.list(k.module, scopeKey, prefix)) {
       if (!item.value || !REF_ID_RE.test(item.key.slice(prefix.length))) continue;
-      if (objectSummary({ manifest: found.manifest, produce, ref: {} }, item.key.slice(prefix.length), item.value).amount !== undefined) withheld += 1;
+      if (isPriced(objectSummary({ manifest: found.manifest, produce, ref: {} }, item.key.slice(prefix.length), item.value))) withheld += 1;
     }
   };
   for (const where of places) {
@@ -6034,7 +6046,7 @@ app.get('/api/objects/search', (req, res) => {
         if (!item.value || !REF_ID_RE.test(item.key.slice(prefix.length))) continue;
         const summary = objectSummary(at, item.key.slice(prefix.length), item.value);
         if (has === 'place' && !summary.place) continue;
-        if (has === 'amount' && summary.amount === undefined) continue;
+        if (has === 'amount' && !isPriced(summary)) continue;
         if (q && !`${summary.title} ${summary.subtitle || ''}`.toLowerCase().includes(q)) continue;
         summaries.push(summary);
       }

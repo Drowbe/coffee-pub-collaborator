@@ -1,7 +1,7 @@
   // The Places module's model: no page in it, so the page and the checks can both use it. A place is one stored value
   // (`place:<id>`): { title, category, address, point?, notes, owners, by, ref?, type?, icon?, iconOwn?, color?, status? }. `point` is a
   // field of its own so the module's summary can name it (a summary's `place`); a place with only an address has none. The page
-  // defines `geo` (host.util.geo) ahead of this code, as the check does, and the build puts the bundled types library
+  // defines `geo` (host.util.geo) and `word` (host.util.word) ahead of this code, as the check does, and the build puts the bundled types library
   // (places-lib-types.json) ahead of it as `LIB_TYPES` (plan-places-library.md, Part B).
   const PLACE_PREFIX = 'place:';
   const CATEGORY_ID = /^[a-z][a-z0-9-]{0,29}$/;
@@ -172,8 +172,8 @@
     const words = (Array.isArray(value) ? value : String(value).split(/[\s,]+/)).map((w) => String(w).trim().toLowerCase()).filter(Boolean);
     if (!words.length) return null;
     const bad = words.find((w) => !['environment', 'space', 'person'].includes(w));
-    if (bad) throw new Error(`in takes environment, space or person, not "${bad.slice(0, 20)}"`);
-    if (words.includes('space') && !space) throw new Error('there is no space here to add it to');
+    if (bad) throw new Error(`in takes ${word('environment')}, ${word('space')} or person, not "${bad.slice(0, 20)}"`);
+    if (words.includes('space') && !space) throw new Error(`there is no ${word('space')} here to add it to`);
     return { everyone: words.includes('environment'), spaces: words.includes('space') ? [space] : [], mine: words.includes('person') };
   }
   // Whether going from one home to another takes the place away from people: Everyone to a space or to Mine (the

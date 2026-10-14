@@ -16,7 +16,7 @@ const geo = win.createHost({ call: async () => ({}), root: { appendChild() {} },
 
 // The bundled types library, which the module build inlines ahead of the lib as `LIB_TYPES` (server/module-build.js).
 const TYPES_FILE = JSON.parse(fs.readFileSync(new URL('../modules/places/src/places-lib-types.json', import.meta.url), 'utf8'));
-const lib = new Function('geo', 'LIB_TYPES', `${fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8')}\nreturn { cleanPlace, placeValue, placeFromRequest, createPlaces, createBookmarks, movePlace, homeFor, ticksOf, defaultTicks, ticksFromIn, narrows, marksOnly, bookmarkKey, cleanBookmark, cleanForward, markedFor, shownOnce, searchOn, readEntry, PLACE_PREFIX, CATEGORIES, DEFAULT_CATEGORIES, OLD_CATEGORIES, findCategory, TYPES, typeOf, typeFromOsm, STATUSES, TINTS, categoryColor, cssColor, lookOf, typeGroups, iconOptions };`)(geo, TYPES_FILE);
+const lib = new Function('geo', 'LIB_TYPES', 'word', `${fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8')}\nreturn { cleanPlace, placeValue, placeFromRequest, createPlaces, createBookmarks, movePlace, homeFor, ticksOf, defaultTicks, ticksFromIn, narrows, marksOnly, bookmarkKey, cleanBookmark, cleanForward, markedFor, shownOnce, searchOn, readEntry, PLACE_PREFIX, CATEGORIES, DEFAULT_CATEGORIES, OLD_CATEGORIES, findCategory, TYPES, typeOf, typeFromOsm, STATUSES, TINTS, categoryColor, cssColor, lookOf, typeGroups, iconOptions };`)(geo, TYPES_FILE, (key) => key); // `word`: the page's, a stand-in
 
 // An in-memory SDK: the store (with versions and 409s), events, ids, pointers and the actions a page provides.
 function fakeHost() {
@@ -472,7 +472,7 @@ await test('the default ticks: Everyone and this trip on a trip, Mine (with Ever
   assert.deepEqual(lib.ticksFromIn('environment space', 'trip1'), { everyone: true, spaces: ['trip1'], mine: false });
   assert.deepEqual(lib.ticksFromIn(['person'], 'trip1'), { everyone: false, spaces: [], mine: true });
   assert.deepEqual(lib.ticksFromIn('space,person', 'trip1'), { everyone: false, spaces: ['trip1'], mine: true });
-  assert.throws(() => lib.ticksFromIn('room', 'trip1'), /environment, space or person/);
+  assert.throws(() => lib.ticksFromIn('nowhere', 'trip1'), /environment, space or person/);
   assert.throws(() => lib.ticksFromIn('space', null), /no space/);
 });
 
@@ -484,7 +484,7 @@ await test('an old place shape still reads: no marks means none; a forward is no
   assert.deepEqual(marked.spaces, ['trip1', 'trip2']);
   assert.equal(lib.cleanPlace('a', { title: 'Pier', movedTo: { scope: 'environment' } }), null);
   assert.deepEqual(lib.cleanForward({ title: 'Pier', movedTo: { scope: 'space', space: 'trip1' }, notes: 'x' }), { title: 'Pier', movedTo: { scope: 'space', space: 'trip1' } });
-  assert.equal(lib.cleanForward({ title: 'Pier', movedTo: { scope: 'room' } }), null);
+  assert.equal(lib.cleanForward({ title: 'Pier', movedTo: { scope: 'nowhere' } }), null);
   assert.equal(lib.cleanForward({ title: 'Pier' }), null);
   // a change of marks only, and a change of anything else
   const p = lib.cleanPlace('a', { title: 'Pier', spaces: ['trip1'], by: 'u1' });
@@ -676,7 +676,7 @@ await test('the page: Shows in, its line, the narrowing question, the menu, shar
   assert.match(page, /if \(!ownRequest\(ctx\) \|\| !personal\) throw new Error\('only that person can share it'\);/);
   assert.match(page, /if \(asked && asked\.mine && !own\) throw new Error\('only that person can add to their own list'\);/);
   assert.equal(manifest.refs.produces[0].summary.spaces, 'spaces', 'the summary carries the marks');
-  assert.equal(manifest.version, '0.12.0');
+  assert.equal(manifest.version, '0.12.1');
 });
 
 console.log(`check-places: OK (${n} checks)`);

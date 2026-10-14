@@ -41,6 +41,9 @@
   const canEdit = host.can('edit');
   // Its heading reads its name as this environment shows it (host.info's: the display name, else its own).
   for (const el of root.querySelectorAll('[data-slot="own-name"]')) el.textContent = info.module.name;
+  // An invented world drawn from a picture (the environment's picture map): there is no real-world position, so nothing here
+  // links to a maps app, copies coordinates or talks of latitude, longitude or an address lookup. Read live: it can change.
+  const onPicture = () => Boolean(host.environment && host.environment.pictureMap);
   const personal = Boolean(info.user && info.user.key !== 'guest'); // a guest has no profile, so no personal places
   const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
   const CAT_ORDER = ['do', 'eat', 'stay', 'travel', 'other'];
@@ -64,6 +67,17 @@
       showAction = list.find((a) => a.name === 'showOnMap') || null;
     } catch (err) {
       showAction = null;
+    }
+  }
+  // A module that can pick a spot on its map for the place being added, found by what it offers (`pickPoint`); the target button
+  // beside Position shows only while there is one. Asked again each time the dialog opens: a map may have come or gone.
+  let pickAction = null;
+  async function findPickAction() {
+    try {
+      const list = await host.actions.list();
+      pickAction = list.find((a) => a.name === 'pickPoint') || null;
+    } catch (err) {
+      pickAction = null;
     }
   }
   const state = {
@@ -117,7 +131,8 @@
     if (pending.size) Promise.all([...pending].map(wantIcon)).then(() => hydrate(scope));
   }
   const setIcon = (node, name) => { if (node) { node.dataset.icon = name || ''; delete node.dataset.shown; node.textContent = ''; } };
-  const say = (text) => { const n = $('note'); n.textContent = text || ''; n.hidden = !text; };
+  // A transient confirmation or refusal is a toast (host.ui.toast), never text drawn in the module; `say('')` is a no-op.
+  const say = (text) => { if (text && host.ui && host.ui.toast) host.ui.toast(String(text)).catch(() => {}); };
   // Where a place is, for the host: a pointer's options, and the store a pointer names.
   const whereOpts = (w) => (w === 'my' ? { scope: 'person' } : w === 'global' ? { scope: 'environment' } : w.startsWith('in:') ? { space: w.slice(3) } : {});
   const placeRef = (w, id) => host.objects.make('place', id, whereOpts(w));
@@ -142,13 +157,17 @@
   // space, this space first, then Mine and everyone's.
   function whereOptions() {
     const out = [];
-    if (inSpace && writable('space')) out.push({ w: 'space', label: whereName('space') });
-    if (writable('my')) out.push({ w: 'my', label: 'Mine' });
-    if (writable('global')) out.push({ w: 'global', label: everyoneName() });
+    const open = (w) => writable(w) && (asPart || Boolean(allowed[w]));
+    if (inSpace && open('space')) out.push({ w: 'space', label: whereName('space') });
+    if (open('my')) out.push({ w: 'my', label: 'Mine' });
+    if (open('global')) out.push({ w: 'global', label: everyoneName() });
     for (const r of spaceInfo.values()) if (r.write === true) out.push({ w: `in:${r.id}`, label: r.name });
     return out;
   }
-  const canAdd = () => (asPart ? whereOptions().length > 0 : canEdit);
+  // Adding is one system everywhere (the module's pages, a pop-out, the Map's list): the same stores are offered, and a new
+  // place is added if any is writable. On the module's own pages a store is open when the viewer may edit here and the
+  // store exists for them (Mine and everyone's need a signed-in person; this space's, a space).
+  const canAdd = () => whereOptions().length > 0;
   // The stores shown: the view's on the module's own pages; beside the map, those the page's filter has on (in a space,
   // this space's among them).
   function shownWheres() {
@@ -434,8 +453,8 @@
         onClick: () => copyTo(view === 'my' ? 'space' : 'my', p, view === 'my' ? `Shared to this ${word('space')}.` : 'Saved to your places.'),
       });
     }
-    items.push({ id: 'open-in-maps', label: 'Open in my maps app', icon: 'arrow-up-right-from-square', href: openLinkFor(p) });
-    if (p.point) {
+    if (!onPicture()) items.push({ id: 'open-in-maps', label: 'Open in my maps app', icon: 'arrow-up-right-from-square', href: openLinkFor(p) });
+    if (p.point && !onPicture()) {
       items.push({
         id: 'copy-coords',
         label: 'Copy coordinates',
@@ -488,7 +507,9 @@
   function fillWhere(w, editable) {
     const wrap = $('f-where-wrap');
     const select = $('f-where');
-    const shown = asPart && (Boolean(w) || editable);
+    // A place that exists shows where it is, beside the map only; a new one asks wherever more than one store is open to the
+    // viewer. With one, there is nothing to ask: it goes there (see the submit).
+    const shown = w ? asPart : editable && whereOptions().length > 1;
     hide(wrap, !shown);
     wrap.hidden = !shown;
     if (!shown) return;
@@ -533,7 +554,7 @@
     const pt = geo.parsePoint(text);
     e.point = pt;
     e.pointOk = Boolean(pt);
-    $('f-point-note').textContent = pt ? 'Coordinates found.' : 'No coordinates in that.';
+    $('f-point-note').textContent = onPicture() ? (pt ? 'Position found.' : 'No position in that.') : (pt ? 'Coordinates found.' : 'No coordinates in that.');
   }
   $('f-point').addEventListener('input', readPoint);
 
@@ -544,19 +565,19 @@
   // Escape and Close ask "Discard your changes?" only after something changed; a read-only place never asks.
   const formSnapshot = () => JSON.stringify([$('f-where').value, $('f-title').value, $('f-category').value, $('f-address').value, $('f-point').value, $('f-notes').value, ownersChosen()]);
   const formDirty = () => Boolean(state.editing && state.editing.opened !== undefined && state.editing.opened !== formSnapshot());
-  const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { state.editing = null; } });
+  const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { if (!state.picking) state.editing = null; } });
 
   // Show a place in the dialog: a new one (`id` null, `seed` its start), or an existing one in the store `where`.
   function openEditor(where, id, seed) {
     const w = id ? where || view : null;
     const p = id ? placeAt(w, id) : null;
     if (id && !p) return;
-    if (!id && asPart && !canAdd()) return;
+    if (!id && !canAdd()) return;
     state.editing = { where: w, id: id || null, version: p ? stores[w].versionOf(id) : undefined, point: p ? p.point : (seed && seed.point) || null, pointOk: true, conflict: null, origin: (seed && seed.origin) || '' };
     dropConflict();
     for (const n of $('form').querySelectorAll('.readonly')) n.remove();
     const shown = p || { title: (seed && seed.title) || '', category: 'other', address: (seed && seed.address) || '', point: (seed && seed.point) || null, notes: (seed && seed.notes) || '', owners: [], by: '', ref: null };
-    const editable = id ? writable(w) : asPart || canEdit;
+    const editable = id ? writable(w) : true;
     $('editor-title').textContent = id ? (editable ? 'Change this place' : shown.title) : 'Add a place';
     fillWhere(w, editable);
     // Read only where the viewer may not change places: beside the map, say why (it differs from one place to the next).
@@ -578,7 +599,11 @@
       $('editor-title').after(ro);
     }
     // Where it is, and what uses it.
-    hide($('f-links-out'), !id);
+    // The target beside Position: only for a place being added or changed in the form, and only while a map can answer.
+    $('f-pick').hidden = true;
+    findPickAction().then(() => { if (state.editing && editable) $('f-pick').hidden = !pickAction; });
+    hide($('f-links-out'), !id || onPicture());
+    $('f-point').placeholder = onPicture() ? 'A position on the map (optional)' : 'Paste coordinates or a map link (optional)';
     if (id) $('f-open-in-maps').href = openLinkFor(shown);
     const used = (id && state.links.get(rowKey(w, id))) || [];
     hide($('f-used-by'), !used.length);
@@ -597,12 +622,13 @@
     // Focus goes back to the place's row after a save (found again by its id, since render() redraws the list), else to
     // whatever had it before.
     editor.open({
-      focus: editable ? $(!id && asPart ? 'f-where' : 'f-title') : null,
+      focus: editable ? $(!id && !$('f-where-wrap').hidden ? 'f-where' : 'f-title') : null,
       returnTo: id ? () => root.querySelector(`.place-row[data-where="${CSS.escape(w)}"][data-id="${CSS.escape(id)}"]`) : null,
     });
   }
   // After a save or a delete, or when the view changes: closes at once, nothing asked.
   function closeEditor() {
+    state.picking = false;
     state.editing = null;
     editor.close();
   }
@@ -644,18 +670,19 @@
   $('form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const e = state.editing;
-    if (!e || !(e.id ? writable(e.where) : asPart ? canAdd() : canEdit)) return;
-    // A new place beside the map goes where it was told to, and nowhere until then.
+    if (!e || !(e.id ? writable(e.where) : canAdd())) return;
+    // A new place goes where it was told to, and nowhere until then; with only one store open to the viewer it goes there.
     let w = e.where;
+    const onlyOne = !e.id && whereOptions().length === 1;
     if (!e.id) {
-      w = asPart ? $('f-where').value : view;
-      if (asPart && !whereOptions().some((o) => o.w === w)) return editorError('Pick where it goes first.');
+      w = onlyOne ? whereOptions()[0].w : $('f-where').value;
+      if (!whereOptions().some((o) => o.w === w)) return editorError('Pick where it goes first.');
     }
     const store = stores[w];
     const title = geo.oneLine($('f-title').value, 120);
     if (!title) return editorError('Give the place a name.');
     readPoint();
-    if (!e.pointOk) return editorError('The position is not coordinates or a map link. Leave it empty, or paste one.');
+    if (!e.pointOk) return editorError(onPicture() ? 'That is not a position. Leave it empty, or paste one.' : 'The position is not coordinates or a map link. Leave it empty, or paste one.');
     if (e.conflict) return editorError('Choose Use theirs or Keep mine first.');
     const base = e.id ? store.get(e.id) : null;
     const place = {
@@ -674,11 +701,17 @@
       const saved = await store.save(place, e.id ? e.version : undefined);
       if (e.origin) markUsed(e.origin);
       closeEditor();
-      // Beside the map a new place with a position is selected, so the map shows it.
-      if (asPart && !e.id && saved && saved.point) {
+      // The same finish wherever it was added. A toast says where it went only when that store is not
+      // the one on the list in front of the person. A new place with a position is then shown on the map: selected beside the map, or, on a
+      // space's canvas or a pop-out, shown by whatever map offers that (nothing happens when none is open).
+      if (!e.id && saved) {
         if (e.origin) closeFound();
+        // Only when the place is not on the list in front of the person (its store is switched off or is not the one shown).
         if (!shownWheres().includes(w)) say(`Saved in ${whereName(w)}, which is not shown now.`);
-        selectPlace(w, saved.id);
+        if (saved.point) {
+          if (asPart) selectPlace(w, saved.id);
+          else if (showAction && inSpace) host.actions.request(showAction.action, { ref: placeRef(w, saved.id) }).catch(() => {});
+        }
       }
     } catch (err) {
       if (err && err.status === 409) {
@@ -688,6 +721,30 @@
       } else editorError('It could not be saved: ' + ((err && err.message) || err));
     } finally {
       $('f-save').disabled = false;
+    }
+  });
+  // The target beside Position: tuck the dialog away (every field kept as it is), ask the map for a spot, and bring the dialog back
+  // when the map answers with `positionPicked` (the spot, or none when the person left the mode). A map that does not answer
+  // in time, or cannot start, gives the dialog back at once, unchanged.
+  let pickTimer = null;
+  function resumeEditor(point) {
+    clearTimeout(pickTimer);
+    if (!state.picking) return;
+    state.picking = false;
+    if (point) { $('f-point').value = geo.coordsText(point.lat, point.lng); readPoint(); }
+    editor.open({ focus: point ? $('f-point') : $('f-pick') });
+  }
+  $('f-pick').addEventListener('click', async () => {
+    if (!pickAction || !state.editing || state.picking) return;
+    state.picking = true;
+    editor.close();
+    pickTimer = setTimeout(() => resumeEditor(null), 120000);
+    try {
+      const out = await host.actions.request(pickAction.action, {}, { wait: true });
+      if (out.status !== 'done' || !out.result || !out.result.ok) throw new Error(out.status === 'done' ? 'the map could not start' : 'no map is open');
+    } catch (err) {
+      resumeEditor(null);
+      say(`The map could not be used: ${(err && err.message) || err}.`);
     }
   });
   // Cancel goes the way the SDK's own Close does (editor.cancel), so it asks "Discard your changes?" after typing.
@@ -872,17 +929,11 @@
   const markUsed = (key) => { if (key && host.geocode) host.geocode.used(key).catch(() => {}); };
   // A result saved as a place: its name, address and position (the category is left for the person to set).
   // Beside the map it opens the dialog with the result filled in, so it asks where the place goes.
-  async function saveFound(i) {
+  function saveFound(i) {
     const h = hits[i];
     if (!h || !canAdd()) return;
-    if (asPart) return openEditor(null, null, { title: h.title, address: h.sub, point: { lat: h.lat, lng: h.lng }, origin: h.key });
-    try {
-      await stores[view].save({ id: '', title: h.title, category: 'other', address: h.sub, point: { lat: h.lat, lng: h.lng }, notes: '', owners: [info.user.key], by: info.user.key, ref: null });
-      markUsed(h.key);
-      closeFound();
-    } catch (err) {
-      say('It could not be saved: ' + ((err && err.message) || err));
-    }
+    // The same dialog as every other way to add a place, so it asks where the place goes too.
+    openEditor(null, null, { title: h.title, address: h.sub, point: { lat: h.lat, lng: h.lng }, origin: h.key });
   }
   $('found').addEventListener('click', (ev) => {
     const row = ev.target.closest('.found-row');
@@ -902,10 +953,11 @@
 
   // On its own the "+" is in the titlebar (a window's, popped out too, or the page bar on the module's own page): it opens
   // the dialog. Beside the map the page's search field and Add a place at the top of the list do this.
-  if (!asPart && host.add) host.add.set(canEdit ? [ADD_PLACE] : []).catch(() => {});
 
   // What other modules may ask of this page, for the person who asked (a view, so only their own page does it): look for a
   // place by name, and open the dialog for a new one where a map was clicked.
+  // Said when someone who may not add places asks for the dialog; the Map reads it to take its add tools away quietly.
+  const REFUSED = 'you may not add places here';
   if (host.actions && host.actions.provide) {
     host.actions.provide({
       searchPlaces: async (input) => {
@@ -918,8 +970,15 @@
         if (q === state.q) { findToken += 1; showFound(q, promise); }
         return { data: { results: await promise } };
       },
+      // The map's answer to the target button: the spot clicked, or none. Asks nothing of anyone who is not picking.
+      positionPicked: async (input) => {
+        const i = input || {};
+        const ok = i.lat !== undefined && i.lat !== null && i.lng !== undefined && i.lng !== null && geo.inRange(Number(i.lat), Number(i.lng));
+        resumeEditor(ok ? { lat: geo.round6(Number(i.lat)), lng: geo.round6(Number(i.lng)) } : null);
+        return {};
+      },
       newPlace: async (input) => {
-        if (!canAdd()) throw new Error('you may not add places here');
+        if (!canAdd()) throw new Error(REFUSED);
         const i = input || {};
         const has = (x) => x !== undefined && x !== null && x !== '';
         const point = has(i.lat) && has(i.lng) && geo.inRange(Number(i.lat), Number(i.lng)) ? { lat: geo.round6(Number(i.lat)), lng: geo.round6(Number(i.lng)) } : null;
@@ -956,6 +1015,7 @@
     { id: 'space', label: `This ${word('space')}`, icon: 'users' },
     { id: 'global', label: everyoneName(), icon: 'globe' },
   ].filter((o) => allowed[o.id]);
+  if (!asPart && host.add) host.add.set(canAdd() ? [ADD_PLACE] : []).catch(() => {});
   const viewSwitch = !asPart && VIEW_OPTIONS.length > 1 ? host.ui.viewSwitch({ id: 'whose', options: VIEW_OPTIONS, value: view, onChange: showView }) : null;
   function showView(next) {
     if (!allowed[next]) next = inSpace ? 'space' : 'my';
@@ -1041,7 +1101,7 @@
       await Promise.all([personal ? ensureLoaded('my') : null, ensureLoaded('global').catch(() => {}), loadSpaces().catch(() => {})]);
     } else await ensureLoaded(view);
     state.people = await host.people().catch(() => []);
-    const useSearch = (v) => { state.search = searchOn(v); state.searchCredit = ''; if (!state.search) closeFound(); };
+    const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
     try { useSearch(await host.settings.get()); } catch (err) { useSearch(null); }
     host.settings.onChange((v) => useSearch(v));
     await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(CAT_ICON), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));

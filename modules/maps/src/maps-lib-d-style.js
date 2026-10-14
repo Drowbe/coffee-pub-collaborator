@@ -115,8 +115,9 @@
   }
 
   // What a picture map allows, from its file's header ({ minZoom, maxZoom, minLon, minLat, maxLon, maxLat }), else from the
-  // environment's own fact ({ minZoom, maxZoom }). The map zooms two levels past the file's own (the library stretches the
-  // deepest tiles), and pans only over the picture: its bounds, else the whole square (the placement rule fills it).
+  // environment's own fact ({ minZoom, maxZoom }). The map never zooms past the file's own deepest level (past it the
+  // picture only blurs), `landZoom` is where a selected place, a new pin or a fit lands (one level above the deepest, never above the
+  // shallowest), and it pans only over the picture: its bounds, else the whole square (the placement rule fills it).
   function pictureLimits(header, pm) {
     const num = (...xs) => xs.find((x) => typeof x === 'number' && Number.isFinite(x));
     const h = header || {};
@@ -131,7 +132,7 @@
       const b = [[lng(box[0]), lat(box[1])], [lng(box[2]), lat(box[3])]];
       if (b[0][0] < b[1][0] && b[0][1] < b[1][1]) bounds = b;
     }
-    return { fileMinZoom, fileMaxZoom, minZoom: fileMinZoom, maxZoom: fileMaxZoom + 2, bounds };
+    return { fileMinZoom, fileMaxZoom, minZoom: fileMinZoom, maxZoom: fileMaxZoom, landZoom: Math.max(fileMinZoom, fileMaxZoom - 1), bounds };
   }
 
   // The style of a picture map: the theme's ground (--bg-section) around the picture, and the picture's tiles over it. `o` is

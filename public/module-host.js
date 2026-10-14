@@ -4,7 +4,7 @@
 // back into the frame. Used by a module's own page (module.js), the dashboard (dashboard.js) and a
 // space's canvas (canvas.js).
 
-import { api, accessKeyHeaders, word, words, withinSpacePage } from '/brand.js';
+import { api, accessKeyHeaders, word, words, withinSpacePage, showNote } from '/brand.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
 import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer } from '/module-chrome.js';
@@ -1072,6 +1072,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (!REF_SHAPE(ref)) throw Object.assign(new Error('that is not a valid reference'), { status: 400 });
       if (!onOpenRef) throw Object.assign(new Error('nothing here can open it'), { status: 400 });
       return Boolean(await onOpenRef(cleanPointer(ref), { newTab: newTab === true }));
+    },
+    // A short note on the page that goes away by itself: for an instant confirmation ("Saved in ..."), never kept anywhere.
+    async 'ui.toast'({ text }) {
+      if (typeof text !== 'string' || !text.trim()) throw Object.assign(new Error('say something'), { status: 400 });
+      showNote(text);
+      return true;
     },
     // A Font Awesome icon as inline SVG, for a module in a sandboxed frame that cannot load the icon font.
     async 'icons.svg'({ name, style }) {

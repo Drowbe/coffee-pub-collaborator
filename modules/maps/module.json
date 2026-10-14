@@ -1,7 +1,7 @@
 {
   "id": "maps",
   "name": "Maps",
-  "version": "0.8.8",
+  "version": "0.8.9",
   "icon": "map-location-dot",
   "color": "pink",
   "description": "A map of every place your {space} has: the places you have saved and the {objects} other {modules} put somewhere. Pick a spot to save a new place.",
@@ -92,6 +92,12 @@
   },
   "actions": {
     "provides": [
+      {
+        "name": "pickPoint",
+        "label": "Pick a spot on the map",
+        "local": true,
+        "input": {}
+      },
       {
         "name": "showOnMap",
         "label": "Show on the map",

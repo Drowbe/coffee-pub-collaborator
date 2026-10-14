@@ -422,7 +422,12 @@ function drawPageBar(d) {
   const list = filter.querySelector('#dest-filter-list');
   const filterName = spaceFilter() ? 'Show' : spaceId ? 'Markers' : word('space', { many: true, cap: true });
   list.setAttribute('aria-label', filterName);
-  const environmentName = document.querySelector('[data-brand="environmentName"]')?.textContent || word('environment', { cap: true });
+  // The environment's own name, as modules and the "Saved in ..." note have it (/api/branding); the word only until that answers.
+  let environmentName = document.querySelector('[data-brand="environmentName"]')?.textContent?.trim() || word('environment', { cap: true });
+  fetch('/api/branding').then((res) => (res.ok ? res.json() : {})).then((b) => {
+    const name = typeof b.environmentName === 'string' ? b.environmentName.trim() : '';
+    if (name && name !== environmentName) { environmentName = name; fill(); }
+  }).catch(() => {});
   const fill = () => {
     list.innerHTML = switchListHtml([
       ...(spaceFilter() ? [{ id: HERE, icon: d.space?.icon || 'users', name: `This ${word('space')}`, on: hereOn }] : []),

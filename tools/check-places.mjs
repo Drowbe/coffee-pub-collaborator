@@ -172,4 +172,41 @@ await test('whether a search is set up', () => {
   assert.equal(lib.searchOn(null), false);
 });
 
+await test('one way to add a place in every context: Where, the same finish, the picture map, the refusal', () => {
+  const page = fs.readFileSync(new URL('../modules/places/src/places.js', import.meta.url), 'utf8');
+  // Where: shown for a new place whenever more than one store is open, in every context (not only beside the map).
+  assert.match(page, /const shown = w \? asPart : editable && whereOptions\(\)\.length > 1;/);
+  assert.match(page, /const open = \(w\) => writable\(w\) && \(asPart \|\| Boolean\(allowed\[w\]\)\);/);
+  assert.match(page, /const canAdd = \(\) => whereOptions\(\)\.length > 0;/);
+  // The same refusal everywhere, and one store means no question and goes there.
+  assert.match(page, /const onlyOne = !e\.id && whereOptions\(\)\.length === 1;/);
+  assert.match(page, /return editorError\('Pick where it goes first\.'\)/);
+  assert.ok(!/w = asPart \? \$\('f-where'\)\.value : view/.test(page), 'a new place never lands in the remembered view unseen');
+  assert.ok(!/stores\[view\]\.save/.test(page), 'a found place opens the dialog too');
+  assert.match(page, /host\.ui\.toast\(String\(text\)\)/, 'a note is a toast');
+  assert.doesNotMatch(page, /\$\('note'\)/, 'nothing is drawn inline as a note');
+  assert.match(page, /if \(!shownWheres\(\)\.includes\(w\)\) say\(`Saved in \$\{whereName\(w\)\}, which is not shown now\.`\);/, 'said only when the store is not shown');
+  assert.match(page, /which is not shown now\./);
+  // After saving: selected beside the map; on a canvas or pop-out shown through the show action.
+  assert.match(page, /if \(asPart\) selectPlace\(w, saved\.id\);\n\s+else if \(showAction && inSpace\) host\.actions\.request\(showAction\.action, \{ ref: placeRef\(w, saved\.id\) \}\)/);
+  // The picture map hides the maps app, the coordinates and the outside search.
+  assert.match(page, /const onPicture = \(\) => Boolean\(host\.environment && host\.environment\.pictureMap\);/);
+  assert.match(page, /if \(!onPicture\(\)\) items\.push\(\{ id: 'open-in-maps'/);
+  assert.match(page, /if \(p\.point && !onPicture\(\)\) \{/);
+  assert.match(page, /hide\(\$\('f-links-out'\), !id \|\| onPicture\(\)\)/);
+  assert.match(page, /state\.search = searchOn\(v\) && !onPicture\(\)/);
+  // The target beside Position: tucks the editor (state kept), asks a map to pick, and comes back with the spot or none.
+  const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
+  assert.match(html, /id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"/);
+  assert.match(page, /pickAction = list\.find\(\(a\) => a\.name === 'pickPoint'\)/);
+  assert.match(page, /onClose: \(\) => \{ if \(!state\.picking\) state\.editing = null; \}/);
+  assert.match(page, /\$\('f-pick'\)\.hidden = !pickAction/);
+  assert.match(page, /positionPicked: async \(input\) => \{/);
+  assert.match(page, /if \(point\) \{ \$\('f-point'\)\.value = geo\.coordsText\(point\.lat, point\.lng\); readPoint\(\); \}/);
+  assert.ok(JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8')).actions.provides.some((a) => a.name === 'positionPicked' && a.local === true));
+  // The Map reads this sentence to take its add tools away, so it must stay as it is.
+  assert.match(page, /const REFUSED = 'you may not add places here';/);
+  assert.match(page, /if \(!canAdd\(\)\) throw new Error\(REFUSED\);/);
+});
+
 console.log(`check-places: OK (${n} checks)`);

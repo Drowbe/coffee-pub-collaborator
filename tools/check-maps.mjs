@@ -85,23 +85,25 @@ test('a picture map: the theme\'s ground and one layer of picture tiles, nothing
   assert.ok(!dark.layers.some((l) => l.type === 'symbol' || l['source-layer']), 'no labels or map data layers on a picture');
 });
 
-test('a picture map zooms two levels past its file and pans only over the picture', () => {
+test('a picture map never zooms past its file, lands one level above the deepest, and pans only over the picture', () => {
   // Just inside the web map's square: MapLibre's pan limit fails on a longitude of exactly 180 (tried in a browser).
   const L = 85.051128;
   const G = 179.99999;
   const header = { minZoom: 0, maxZoom: 5, minLon: -180, minLat: -42.5, maxLon: 180, maxLat: 42.5 };
-  assert.deepEqual(lib.pictureLimits(header, null), { fileMinZoom: 0, fileMaxZoom: 5, minZoom: 0, maxZoom: 7, bounds: [[-G, -42.5], [G, 42.5]] });
+  assert.deepEqual(lib.pictureLimits(header, null), { fileMinZoom: 0, fileMaxZoom: 5, minZoom: 0, maxZoom: 5, landZoom: 4, bounds: [[-G, -42.5], [G, 42.5]] });
   assert.deepEqual(lib.pictureLimits({ minZoom: 0, maxZoom: 5, minLon: -40, minLat: -30, maxLon: 60, maxLat: 20 }).bounds, [[-40, -30], [60, 20]], 'a picture narrower than the square keeps its own box');
   // The header wins over the environment's fact; the fact fills in what the header lacks.
-  assert.equal(lib.pictureLimits(header, { minZoom: 1, maxZoom: 9 }).maxZoom, 7);
-  assert.deepEqual(lib.pictureLimits({}, { file: 'w.pmtiles', minZoom: 1, maxZoom: 4 }), { fileMinZoom: 1, fileMaxZoom: 4, minZoom: 1, maxZoom: 6, bounds: [[-G, -L], [G, L]] });
+  assert.equal(lib.pictureLimits(header, { minZoom: 1, maxZoom: 9 }).maxZoom, 5);
+  assert.deepEqual(lib.pictureLimits({}, { file: 'w.pmtiles', minZoom: 1, maxZoom: 4 }), { fileMinZoom: 1, fileMaxZoom: 4, minZoom: 1, maxZoom: 4, landZoom: 3, bounds: [[-G, -L], [G, L]] });
   // Bounds past the web map's square are held to it; bounds that are not a box give the whole square.
   assert.deepEqual(lib.pictureLimits({ minZoom: 0, maxZoom: 3, minLon: -200, minLat: -90, maxLon: 200, maxLat: 90 }).bounds, [[-G, -L], [G, L]]);
   assert.deepEqual(lib.pictureLimits({ minZoom: 0, maxZoom: 3, minLon: 10, minLat: 0, maxLon: 10, maxLat: 5 }).bounds, [[-G, -L], [G, L]]);
   assert.deepEqual(lib.pictureLimits({ minZoom: 0, maxZoom: 3, minLon: 'x', minLat: 0, maxLon: 10, maxLat: 5 }).bounds, [[-G, -L], [G, L]]);
   // A maximum below the minimum is raised to it; nothing past zoom 22.
-  assert.deepEqual([lib.pictureLimits({ minZoom: 4, maxZoom: 2 }).fileMaxZoom, lib.pictureLimits({ minZoom: 0, maxZoom: 40 }).maxZoom], [4, 24]);
-  assert.equal(lib.pictureLimits(null, null).maxZoom, 2);
+  assert.deepEqual([lib.pictureLimits({ minZoom: 4, maxZoom: 2 }).fileMaxZoom, lib.pictureLimits({ minZoom: 0, maxZoom: 40 }).maxZoom], [4, 22]);
+  // The landing zoom is never above the file's deepest and never below its shallowest.
+  assert.deepEqual([lib.pictureLimits({ minZoom: 3, maxZoom: 3 }).landZoom, lib.pictureLimits({ minZoom: 0, maxZoom: 0 }).landZoom, lib.pictureLimits({ minZoom: 2, maxZoom: 6 }).landZoom], [3, 0, 5]);
+  assert.equal(lib.pictureLimits(null, null).maxZoom, 0);
   for (const h of [header, {}, { minLon: -500, minLat: -95, maxLon: 500, maxLat: 95 }]) {
     const b = lib.pictureLimits(h).bounds.flat();
     assert.ok(Math.abs(b[0]) < 180 && Math.abs(b[2]) < 180 && Math.abs(b[1]) < 85.0511288 && Math.abs(b[3]) < 85.0511288, `inside the square: ${b}`);
@@ -117,6 +119,13 @@ test('every fixed zoom is capped at the map\'s maximum', () => {
   assert.equal(lib.capZoom(17, undefined), 17);
   assert.equal(lib.capZoom(25, null), 19);
   assert.equal(lib.capZoom('x', 7), 7);
+  // On a picture map a selected place, a draft pin and a fit are capped at the landing zoom, a remembered view at the map's maximum.
+  assert.equal(lib.capZoom(14, lib.pictureLimits({ minZoom: 0, maxZoom: 5 }).landZoom), 4);
+  const src = read('maps.js');
+  assert.match(src, /const cap = \(z\) => capZoom\(z, state\.landZoom\);/);
+  assert.match(src, /const limit = \(z\) => capZoom\(z, state\.maxZoom\);/);
+  assert.match(src, /state\.landZoom = limits\.landZoom;/);
+  assert.match(src, /zoom: limit\(Math\.max\(0, Number\(v\.zoom\)\)\)/);
   const page = read('maps.js');
   // select(), draftAt(), "Show where I am": the current zoom or a fixed one, capped.
   assert.equal((page.match(/Math\.max\(state\.map\.getZoom\(\), \d+\)/g) || []).length, (page.match(/cap\(Math\.max\(state\.map\.getZoom\(\), \d+\)\)/g) || []).length);
@@ -125,7 +134,7 @@ test('every fixed zoom is capped at the map\'s maximum', () => {
   assert.doesNotMatch(page, /maxZoom: \d/, 'a fitBounds maxZoom is capped');
   assert.equal((page.match(/zoom: cap\(15\)/g) || []).length, 3, 'a pasted position (field and page) and a search result are capped');
   assert.deepEqual(page.match(/\bzoom: \d+/g), ['zoom: 2'], 'only the world map\'s opening zoom is a bare number');
-  assert.match(page, /zoom: cap\(Math\.max\(0, Number\(v\.zoom\)\)\)/, 'a remembered view is capped too');
+  assert.match(page, /zoom: limit\(Math\.max\(0, Number\(v\.zoom\)\)\)/, 'a remembered view is capped at the maximum too');
 });
 
 test('a picture map leaves out what means nothing on an invented world, and the world map keeps its credit', () => {
@@ -170,6 +179,40 @@ test('a pin is the map library\'s marker: no rule sets the position of .pin itse
     const onPin = selectors.filter((sel) => /(^|\s|>)\.pin(?![\w-])[^\s>+~]*$/.test(sel) && !sel.includes('::'));
     if (onPin.length) assert.ok(!/(^|;)\s*(position|top|left|right|bottom|inset)\s*:/.test(m[2]), `${onPin.join(', ')} sets the position of a marker: ${m[2].trim().slice(0, 80)}`);
   }
+});
+
+test('adding follows Places: its permission decides, the phone is shown the list, one set of words', () => {
+  const page = read('maps.js');
+  const html = read('maps.html');
+  // Maps\' own edit permission no longer gates the adder; Places refuses and the tools go quietly.
+  assert.ok(!/if \(canEdit\) state\.adder/.test(page), 'the adder does not depend on Maps\' own edit permission');
+  assert.match(page, /a\.name === 'newPlace'[^\n]*a\.may !== false && !state\.refused/);
+  assert.match(page, /\/may not add\/\.test\(/);
+  assert.match(page, /state\.refused = true; state\.adder = null;/);
+  // The Places dialog is revealed on a phone, as show-in-list does.
+  assert.match(page, /if \(part && state\.phone && host\.destination\) host\.destination\.set\(\{ reveal: '[a-z]+' \}\)/);
+  // One entry, one word: "Add a place" everywhere; the hint while adding is "Click the map to place it". The menu has no second entry.
+  assert.match(page, /const ADD_PLACE = 'Add a place';/);
+  assert.match(page, /const CLICK_TO_ADD = 'Click the map to place it';/);
+  assert.match(page, /return \[\{ id: 'place', label: ADD_PLACE, icon: 'location-dot' \}\];/);
+  assert.doesNotMatch(page, /id: 'new'|Add a place on the map/, 'no second add entry, no second phrase');
+  // The + menu's one entry opens Places' dialog at once; the click-first mode is the on-map + control's and the dialog's target button's.
+  assert.match(page, /if \(e\.id === 'place' && state\.adder\) askNewPlace\(\{\}\);/);
+  assert.match(page, /else if \(a === 'add'\) \{ if \(state\.adder\) \{ if \(state\.map\) setAdding\(!state\.adding\); else askNewPlace\(\{\}\); \} \}/);
+  // pickPoint: the map's click-the-map mode for the editor's target button; the spot (or none) is told back through positionPicked.
+  assert.match(page, /pickPoint: async \(\) => \{[\s\S]*?state\.pick = true;[\s\S]*?setAdding\(true\);[\s\S]*?say\(CLICK_TO_ADD\);/);
+  assert.match(page, /if \(state\.adding && state\.pick\) \{[\s\S]*?tellPicked\(at\);/);
+  assert.match(page, /if \(state\.adding && state\.pick\) \{[\s\S]*?tellPicked\(at\);/);
+  assert.match(page, /a\.name === 'positionPicked'/);
+  assert.match(page, /e\.key === 'Escape' && state\.pick/);
+  const manifest = JSON.parse(read('../module.json'));
+  assert.ok(manifest.actions.provides.some((a) => a.name === 'pickPoint' && a.local === true), 'the manifest declares pickPoint');
+  assert.match(html, /title="Add a place" aria-label="Add a place"/);
+  assert.match(html, />Click the map to place it</);
+  // A short note is a toast, never text drawn in the module.
+  assert.match(page, /host\.ui\.toast\(String\(text\)\)/);
+  const contract = read('CONTRACT.md');
+  assert.ok(!contract.includes('`addPlace`'), 'the contract names newPlace');
 });
 
 console.log(`check-maps: OK (${n} checks)`);

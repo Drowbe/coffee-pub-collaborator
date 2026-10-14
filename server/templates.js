@@ -29,7 +29,7 @@ const ID_RE = /^[a-z][a-z0-9-]{0,31}$/;
 const FIELDS = ['id', 'name', 'description', 'version', 'words', 'verbs', 'phases', 'icons', 'moduleNames', 'moduleIcons', 'modules', 'settings', 'lobby', 'spaceDefaults', 'reactions', 'theme', 'iconSet'];
 const MAX_PHASES = 12;
 const MAX_OPENS_WITH = 20;
-const PHASE_KEYS = ['id', 'label', 'main'];
+const PHASE_KEYS = ['id', 'label', 'main', 'icon'];
 // Room for the full default reaction set (105, server/default-lists.js) and the default icon list (113).
 const MAX_REACTIONS = 120;
 const MAX_ICON_SET = 120;
@@ -217,12 +217,13 @@ function problemsOf(raw, { file = null, bundled = [], faDir = FA_FREE_SOLID } = 
       let main = false;
       raw.phases.forEach((phase, i) => {
         if (!isObject(phase)) { say(`phases[${i}] must be an object with an id and a label.`); return; }
-        for (const key of Object.keys(phase)) if (!PHASE_KEYS.includes(key)) say(`phases[${i}]: "${key}" is not a phase field; a phase takes id, label and main.`);
+        for (const key of Object.keys(phase)) if (!PHASE_KEYS.includes(key)) say(`phases[${i}]: "${key}" is not a phase field; a phase takes id, label, main and icon.`);
         if (typeof phase.id !== 'string' || !ID_RE.test(phase.id)) say(`phases[${i}]: an id is lowercase letters, digits and dashes, starting with a letter.`);
         else if (seen.has(phase.id)) say(`phases: "${phase.id}" is listed twice.`);
         else seen.add(phase.id);
         const label = typeof phase.label === 'string' ? phase.label.trim() : '';
         if (typeof phase.label !== 'string' || !label || phase.label.length > 40) say(`phases[${i}]: a label is text of 1 to 40 characters.`);
+        if (phase.icon !== undefined && !drawable(phase.icon, faDir)) say(`phases[${i}]: icon "${phase.icon}" is not a Font Awesome Free solid icon.`);
         if (phase.main !== undefined && phase.main !== true) say(`phases[${i}]: "main" is true or left out.`);
         else if (phase.main === true) {
           if (main) say('phases: only one phase can be the main one.');
@@ -255,7 +256,7 @@ function problemsOf(raw, { file = null, bundled = [], faDir = FA_FREE_SOLID } = 
 
 function cleanPhases(raw) {
   if (!Array.isArray(raw)) return [];
-  return raw.map((phase) => ({ id: phase.id, label: String(phase.label).trim(), ...(phase.main === true ? { main: true } : {}) }));
+  return raw.map((phase) => ({ id: phase.id, label: String(phase.label).trim(), ...(phase.main === true ? { main: true } : {}), ...(phase.icon ? { icon: phase.icon } : {}) }));
 }
 
 function cleanSpaceDefaults(raw) {

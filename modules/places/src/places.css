@@ -149,33 +149,41 @@ body { margin: 0; overflow: hidden; }
 /* ---- type, look and visit status ---- */
 .editor-card .field { display: flex; flex-direction: column; gap: 3px; }
 .editor-card .hint { color: var(--text-dim); font-size: 12px; }
-.look > summary { cursor: pointer; color: var(--text-dim); font-size: 12px; padding: 6px 0; }
-.look > summary:hover { color: var(--text); }
-.look-body { display: flex; flex-direction: column; gap: 10px; padding-top: 4px; }
-.status-row, .swatches { display: flex; flex-wrap: wrap; gap: 6px; }
-.status-btn, .swatch { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--radius-round); background: var(--bg-section); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
-.status-btn:hover, .swatch:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg-section)); }
-.status-btn.on, .swatch:not([data-tint]).on { background: var(--accent); color: var(--on-accent); }
-/* a tint swatch is a filled dot; the chosen one shows a check, so it is never colour alone */
-.swatch[data-tint] { width: 32px; padding: 0; background: var(--tint-blue); color: var(--bg); }
-.swatch[data-tint="blue"], .swatch[data-tint="blue"]:hover { background: var(--tint-blue); }
-.swatch[data-tint="green"], .swatch[data-tint="green"]:hover { background: var(--tint-green); }
-.swatch[data-tint="teal"], .swatch[data-tint="teal"]:hover { background: var(--tint-teal); }
-.swatch[data-tint="purple"], .swatch[data-tint="purple"]:hover { background: var(--tint-purple); }
-.swatch[data-tint="orange"], .swatch[data-tint="orange"]:hover { background: var(--tint-orange); }
-.swatch[data-tint="pink"], .swatch[data-tint="pink"]:hover { background: var(--tint-pink); }
-.swatch[data-tint="gold"], .swatch[data-tint="gold"]:hover { background: var(--tint-gold); }
-.swatch[data-tint="red"], .swatch[data-tint="red"]:hover { background: var(--tint-red); }
-.swatch[data-tint]:hover { filter: brightness(1.1); }
-.swatch[data-tint] .ic { visibility: hidden; }
-.swatch[data-tint].on .ic { visibility: visible; }
-.swatch:not([data-tint]) .ic { display: none; }
-.swatch:not([data-tint]).on .ic { display: inline-flex; }
-.swatch-label:empty { display: none; }
+.status-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.status-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 32px; padding: 0 12px; border: 0; border-radius: var(--radius-round); background: var(--bg-section); color: var(--text); font: inherit; font-size: 13px; cursor: pointer; }
+.status-btn:hover { background: color-mix(in srgb, var(--accent) 18%, var(--bg-section)); }
+.status-btn.on { background: var(--accent); color: var(--on-accent); }
+/* the one row: the type, then the icon and the colour as small buttons. A phone gives the type its own line. */
+.look-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.look-type { flex: 1 1 220px; min-width: 0; }
+.look-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; padding: 0; border: 0; border-radius: var(--radius-small); background: var(--bg-input); box-shadow: inset 0 0 0 1px var(--border); color: var(--tone, var(--text)); font-size: 16px; cursor: pointer; }
+.look-btn:hover, .look-btn[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 18%, var(--bg-input)); }
+.look-btn:focus-visible, .pick-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.look-dot { flex: none; width: 18px; height: 18px; border-radius: var(--radius-round); background: var(--tone, var(--tint-blue)); }
+/* the flyout under an icon or colour button: inside the editor window, fixed, a sheet on a phone */
+.pick-pop { position: fixed; z-index: 9999; display: flex; flex-direction: column; gap: 4px; width: 260px; max-height: 340px; padding: 6px; border: 0; border-radius: var(--radius-large); background: var(--bg-card); color: var(--text); box-shadow: 0 0 0 1px var(--border), 0 8px 24px rgba(0, 0, 0, 0.45); font-size: 13px; }
+.pick-search { flex: none; width: 100%; min-height: 34px; }
+.pick-list { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; outline: none; }
+.pick-option { display: flex; align-items: center; gap: 8px; min-height: 32px; padding: 4px 8px; border-radius: var(--radius-small); cursor: pointer; }
+.pick-option.active { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.pick-option[aria-selected="true"] { background: var(--accent); color: var(--on-accent); }
+.pick-option .ic { color: var(--text-dim); }
+.pick-option[aria-selected="true"] .ic { color: var(--on-accent); }
+.pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-sep { height: 1px; margin: 3px 4px; background: var(--border); }
+.pick-none { padding: 10px 8px; color: var(--text-dim); }
 /* the visit status on a place's row: its icon and word, a small fill */
 .visit { display: inline-flex; align-items: center; gap: 4px; padding: 0 7px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 24%, var(--bg-card)); color: var(--text); font-size: 11px; line-height: 18px; white-space: nowrap; }
 .visit .ic { color: var(--tone); }
-@media (max-width: 640px) { .status-btn, .swatch { min-height: 44px; } .swatch[data-tint] { width: 44px; } .look > summary { padding: 12px 0; } }
+@media (max-width: 640px) {
+  .status-btn { min-height: 44px; }
+  .look-type { flex-basis: 100%; }
+  .look-type { --bar-control-h: 44px; }
+  .look-btn { width: 44px; height: 44px; }
+  .pick-pop { left: 0; right: 0; bottom: 0; top: auto; width: auto; max-height: min(70dvh, 440px); padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px)); border-radius: var(--radius-large) var(--radius-large) 0 0; background: var(--bg-section); }
+  .pick-search { min-height: 44px; font-size: 16px; }
+  .pick-option { min-height: 44px; }
+}
 
 /* ---- Shows in: a tick per place it can show (everyone, this space, other spaces, Mine), and who will see it. Native
    checkboxes, each row its label, 44 px tall on a phone. ---- */

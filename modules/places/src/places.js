@@ -72,12 +72,6 @@
     const list = v && Array.isArray(v.categories) ? v.categories.filter((c) => c && typeof c.id === 'string' && typeof c.label === 'string' && c.label) : [];
     cats = list.length && list.some((c) => c.id === 'other') ? list.map((c) => ({ id: c.id, label: c.label, icon: c.icon || 'note-sticky', color: c.color || AUTO_COLOR })) : DEFAULT_CATS;
     if (state.cat && !cats.some((c) => c.id === state.cat)) state.cat = '';
-    const sel = $('f-category');
-    if (sel) {
-      const was = sel.value;
-      sel.replaceChildren(...cats.map((c) => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.label; return o; }));
-      sel.value = cats.some((c) => c.id === was) ? was : 'other';
-    }
   };
 
   // Two stores of the same kind of thing: this space's, and the person's own (private, in their profile, the same in every space).
@@ -740,54 +734,205 @@
   // The dialog is the editor window (host.ui.editor): over everything (beside the map, over the whole destination page),
   // sized to the form, a sheet on a phone. What the form held when it opened is kept as text (state.editing.opened), so
   // Escape and Close ask "Discard your changes?" only after something changed; a read-only place never asks.
-  const formSnapshot = () => JSON.stringify([[...$('f-where').querySelectorAll('input:checked')].map((i) => i.value), $('f-title').value, $('f-category').value, $('f-address').value, $('f-point').value, $('f-notes').value, ownersChosen(), state.editing ? [state.editing.type, state.editing.icon, state.editing.color, state.editing.status] : null]);
+  const formSnapshot = () => JSON.stringify([[...$('f-where').querySelectorAll('input:checked')].map((i) => i.value), $('f-title').value, $('f-address').value, $('f-point').value, $('f-notes').value, ownersChosen(), state.editing ? [state.editing.type, state.editing.category, state.editing.icon, state.editing.color, state.editing.status] : null]);
   const formDirty = () => Boolean(state.editing && state.editing.opened !== undefined && state.editing.opened !== formSnapshot());
   const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { if (!state.picking) state.editing = null; } });
 
-  // --- type, look and visit status in the form ---------------------------------------------------------------------
-  // Type: host.ui.kindPicker over the library, grouped by the owner's categories; choosing one sets the category (still changeable).
-  // Look: an icon (a second picker over the icons the library uses) and a colour (the eight tints), both optional and shown only when
-  // the person chose them; without them the place takes its type's icon and its category's colour. Visit: four toggle buttons.
-  const NO_TYPE = '_none';
-  const SAME_ICON = '_same';
+  // --- type, icon, colour and visit status in the form ------------------------------------------------------------
+  // One row. Type: host.ui.kindPicker over the library (typing in it searches the names and aliases; the owner's categories are only
+  // its group headings), and a type is always set (a place with none stored reads as Custom Location). Icon and colour: two small
+  // buttons that each open a list (flyout) below them, the icon's with a search box; the first entry resets it (to the type's icon,
+  // to the category's colour) and the current choice is marked. The place's own choice beats the type's, which beats the category's.
+  // Visit: four toggle buttons.
+  const DEFAULT_TYPE = 'custom';
   let typePicker = null;
-  let iconPicker = null;
-  const pickerGroups = () => [{ label: 'Not set', options: [{ id: NO_TYPE, label: 'No type', icon: 'tag' }] }, ...typeGroups(cats)];
-  // What the icon is without an own choice: the type's, else the category's.
-  const autoIcon = () => { const t = typeOf(state.editing && state.editing.type); return t ? t.icon : catRow($('f-category').value).icon; };
-  function iconGroups() {
+  const tintName = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const catIdOf = (t) => { const row = t && findCategory(cats, t.category); return row ? row.id : 'other'; };
+  // What the place is drawn with now, from the form's choices (the type's when none is stored: the category's).
+  const formLook = () => { const e = state.editing; return lookOf({ category: e.category, type: e.type, icon: e.icon, iconOwn: Boolean(e.icon), color: e.color }, cats); };
+  function markLook() {
     const e = state.editing;
-    const same = { id: SAME_ICON, label: typeOf(e && e.type) ? "The type's icon" : "The category's icon", icon: autoIcon(), words: ['same', 'automatic', 'default'] };
-    const list = iconOptions(cats);
-    if (e && e.icon && !list.some((o) => o.id === e.icon)) list.push({ id: e.icon, label: e.icon, words: [] });
-    return [{ label: 'Automatic', options: [same] }, { label: 'Icons', options: list.map((o) => ({ ...o, icon: o.id })) }];
+    if (!e) return;
+    const look = formLook();
+    const ib = $('f-icon');
+    tone(ib, look.color);
+    setIcon(ib.querySelector('[data-icon]'), look.icon);
+    ib.setAttribute('aria-label', `Icon, ${e.icon ? iconLabel(e.icon) : 'same as the type'}. Change it`);
+    ib.title = 'Icon';
+    const cb = $('f-color');
+    tone(cb.querySelector('.look-dot'), look.color);
+    cb.setAttribute('aria-label', `Colour, ${e.color ? tintName(e.color) : 'same as the category'}. Change it`);
+    cb.title = 'Colour';
+    hydrate($('f-look'));
   }
+  const iconLabel = (name) => { const o = iconOptions(cats).find((x) => x.id === name); return o ? o.label : String(name); };
   function buildPickers() {
     const e = state.editing;
     if (typePicker) typePicker.destroy();
-    if (iconPicker) iconPicker.destroy();
     typePicker = host.ui.kindPicker($('f-type'), {
       label: 'Type',
-      groups: pickerGroups(),
-      value: typeOf(e.type) ? e.type : NO_TYPE,
+      groups: typeGroups(cats),
+      value: typeOf(e.type) ? e.type : DEFAULT_TYPE,
       recent: { key: 'type', max: 4 },
       onChange: (id) => {
-        if (!state.editing) return;
-        state.editing.type = id === NO_TYPE ? '' : id;
-        const t = typeOf(state.editing.type);
-        if (t) { const row = findCategory(cats, t.category); $('f-category').value = row ? row.id : 'other'; state.editing.cat = ''; }
-        iconPicker.setGroups(iconGroups());
+        const x = state.editing;
+        if (!x) return;
+        x.type = id;
+        x.category = catIdOf(typeOf(id)); // the category follows the type; it is never its own field
+        x.cat = '';
+        markLook();
       },
     });
-    iconPicker = host.ui.kindPicker($('f-icon'), {
-      label: 'Icon',
-      groups: iconGroups(),
-      value: e.icon || SAME_ICON,
-      onChange: (id) => { if (state.editing) state.editing.icon = id === SAME_ICON ? '' : id; },
-    });
+    markLook();
   }
-  $('f-category').addEventListener('change', () => { if (state.editing && iconPicker) iconPicker.setGroups(iconGroups()); });
-  // The status buttons and the colour swatches are drawn once when the form opens and then only marked, so the keyboard stays where it is.
+
+  // A flyout under a button: an optional search box, then a list of choices (role listbox). Up, Down, Home, End and Enter choose,
+  // Escape closes only the flyout, Tab leaves it. It goes inside the editor window so it sits over it. entries(): [{ id, label,
+  // icon?, col?, words? }]; current(): the id marked; pick(id).
+  let openFly = null;
+  function closeFly(refocus) {
+    if (!openFly) return;
+    const f = openFly;
+    openFly = null;
+    f.pop.remove();
+    f.btn.setAttribute('aria-expanded', 'false');
+    root.removeEventListener('pointerdown', f.away, true);
+    document.removeEventListener('keydown', f.key, true);
+    window.removeEventListener('resize', f.place);
+    if (refocus) f.btn.focus();
+  }
+  function flyout(btn, { label, search, entries, current, pick }) {
+    if (openFly && openFly.btn === btn) return closeFly(true);
+    closeFly();
+    const pop = document.createElement('div');
+    pop.className = 'pick-pop';
+    pop.dataset.for = btn.id;
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', label);
+    const box = document.createElement('div');
+    box.className = 'pick-list';
+    box.id = `${btn.id}-list`;
+    box.setAttribute('role', 'listbox');
+    box.setAttribute('aria-label', label);
+    let input = null;
+    if (search) {
+      input = document.createElement('input');
+      input.type = 'search';
+      input.className = 'pick-search';
+      input.placeholder = 'Search';
+      input.autocomplete = 'off';
+      input.spellcheck = false;
+      input.setAttribute('role', 'combobox');
+      input.setAttribute('aria-expanded', 'true');
+      input.setAttribute('aria-controls', box.id);
+      input.setAttribute('aria-label', `Search ${label.toLowerCase()}`);
+      pop.appendChild(input);
+    } else {
+      box.tabIndex = 0;
+    }
+    pop.appendChild(box);
+    const all = entries();
+    const words = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+    let shown = [];
+    let active = 0;
+    const focusEl = input || box;
+    const mark = (i) => {
+      active = Math.max(0, Math.min(shown.length - 1, i));
+      shown.forEach((r, k) => r.el.classList.toggle('active', k === active));
+      const r = shown[active];
+      if (r) { focusEl.setAttribute('aria-activedescendant', r.el.id); r.el.scrollIntoView({ block: 'nearest' }); } else focusEl.removeAttribute('aria-activedescendant');
+    };
+    const choose = (i) => { const r = shown[i]; if (!r) return; closeFly(true); pick(r.entry.id); };
+    const draw = () => {
+      const q = words(input ? input.value : '');
+      const now = current();
+      box.replaceChildren();
+      shown = [];
+      const list = all.filter((en) => (en.reset && !q.length) || (!en.reset && (!q.length || q.every((w) => [...words(en.label), ...(en.words || []).flatMap(words)].some((x) => x.startsWith(w))))));
+      for (const en of list) {
+        const el = document.createElement('div');
+        el.className = 'pick-option';
+        el.id = `${btn.id}-o${shown.length}`;
+        el.setAttribute('role', 'option');
+        el.setAttribute('aria-selected', String(en.id === now));
+        if (en.col) { const d = document.createElement('span'); d.className = 'look-dot'; tone(d, en.col); el.appendChild(d); }
+        else if (en.icon) { const ic = document.createElement('span'); ic.className = 'ic'; ic.dataset.icon = en.icon; el.appendChild(ic); }
+        const t = document.createElement('span');
+        t.className = 'pick-name';
+        t.textContent = en.label;
+        el.appendChild(t);
+        if (en.id === now) { const c = document.createElement('span'); c.className = 'ic pick-check'; c.dataset.icon = 'check'; el.appendChild(c); }
+        const i = shown.length;
+        el.addEventListener('mousemove', () => { if (active !== i) mark(i); });
+        el.addEventListener('click', () => choose(i));
+        box.appendChild(el);
+        shown.push({ entry: en, el });
+        if (en.reset && list.length > 1) { const sep = document.createElement('div'); sep.className = 'pick-sep'; sep.setAttribute('role', 'presentation'); box.appendChild(sep); }
+      }
+      if (!shown.length) { const none = document.createElement('div'); none.className = 'pick-none'; none.textContent = 'Nothing matches'; box.appendChild(none); }
+      hydrate(box);
+      const at = shown.findIndex((r) => r.entry.id === now);
+      mark(q.length ? 0 : Math.max(0, at));
+    };
+    const place = () => {
+      if (window.matchMedia('(max-width: 640px)').matches) { pop.style.top = ''; pop.style.left = ''; pop.style.maxHeight = ''; return; }
+      const r = btn.getBoundingClientRect();
+      const h = Math.min(pop.offsetHeight, 340);
+      const up = window.innerHeight - r.bottom < h + 12 && r.top > window.innerHeight - r.bottom;
+      pop.style.left = `${Math.max(4, Math.min(r.left, window.innerWidth - pop.offsetWidth - 4))}px`;
+      pop.style.top = `${up ? Math.max(4, r.top - 4 - h) : r.bottom + 4}px`;
+    };
+    const key = (ev) => {
+      if (!ev.composedPath().includes(pop)) return;
+      if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); closeFly(true); }
+      else if (ev.key === 'ArrowDown') { ev.preventDefault(); mark(active + 1); }
+      else if (ev.key === 'ArrowUp') { ev.preventDefault(); mark(active - 1); }
+      else if (ev.key === 'Home' && !input) { ev.preventDefault(); mark(0); }
+      else if (ev.key === 'End' && !input) { ev.preventDefault(); mark(shown.length - 1); }
+      else if (ev.key === 'Enter' || (ev.key === ' ' && !input)) { ev.preventDefault(); ev.stopPropagation(); choose(active); }
+      else if (ev.key === 'Tab') closeFly(false);
+    };
+    const away = (ev) => { const path = ev.composedPath(); if (!path.includes(pop) && !path.includes(btn)) closeFly(false); };
+    $('editor').appendChild(pop);
+    btn.setAttribute('aria-expanded', 'true');
+    btn.setAttribute('aria-controls', box.id);
+    openFly = { pop, btn, key, away, place };
+    root.addEventListener('pointerdown', away, true);
+    document.addEventListener('keydown', key, true);
+    window.addEventListener('resize', place);
+    if (input) input.addEventListener('input', () => { draw(); place(); });
+    draw();
+    place();
+    focusEl.focus();
+  }
+  $('f-icon').addEventListener('click', () => {
+    const e = state.editing;
+    if (!e) return;
+    flyout($('f-icon'), {
+      label: 'Icon',
+      search: true,
+      entries: () => {
+        const list = iconOptions(cats);
+        if (e.icon && !list.some((o) => o.id === e.icon)) list.push({ id: e.icon, label: e.icon, words: [] });
+        const base = typeOf(e.type) || {};
+        return [{ id: '', label: 'Same as the type', icon: base.icon || catRow(e.category).icon, reset: true }, ...list.map((o) => ({ ...o, icon: o.id }))];
+      },
+      current: () => e.icon,
+      pick: (id) => { e.icon = id; markLook(); },
+    });
+  });
+  $('f-color').addEventListener('click', () => {
+    const e = state.editing;
+    if (!e) return;
+    flyout($('f-color'), {
+      label: 'Colour',
+      search: false,
+      entries: () => [{ id: '', label: 'Same as the category', col: lookOf({ category: e.category, type: e.type }, cats).color, reset: true }, ...TINTS.map((t) => ({ id: t, label: tintName(t), col: { tint: t } }))],
+      current: () => e.color,
+      pick: (id) => { e.color = id; markLook(); },
+    });
+  });
+  // The status buttons are drawn once when the form opens and then only marked, so the keyboard stays where it is.
   function drawChoices() {
     const status = $('f-status');
     status.replaceChildren(...STATUSES.map((st) => {
@@ -797,26 +942,13 @@
       slot(b, 'label').textContent = st.label;
       return b;
     }));
-    const color = $('f-color');
-    const swatch = (value, label, tint) => {
-      const b = clone('tpl-swatch');
-      b.dataset.value = value;
-      if (tint) b.dataset.tint = tint;
-      b.setAttribute('aria-label', label);
-      slot(b, 'label').textContent = tint ? '' : label;
-      return b;
-    };
-    color.replaceChildren(swatch('', "Category's colour"), ...TINTS.map((t) => swatch(t, t.charAt(0).toUpperCase() + t.slice(1), t)));
     markChoices();
-    hydrate($('f-look'));
     hydrate(status);
   }
   function markChoices() {
     const e = state.editing;
     if (!e) return;
-    for (const [box, value] of [[$('f-status'), e.status], [$('f-color'), e.color]]) {
-      for (const b of box.children) { const on = b.dataset.value === value; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    }
+    for (const b of $('f-status').children) { const on = b.dataset.value === e.status; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
   }
   $('f-status').addEventListener('click', (ev) => {
     const b = ev.target.closest('.status-btn');
@@ -824,15 +956,10 @@
     state.editing.status = state.editing.status === b.dataset.value ? '' : b.dataset.value; // pressing the one that is on clears it
     markChoices();
   });
-  $('f-color').addEventListener('click', (ev) => {
-    const b = ev.target.closest('.swatch');
-    if (!b || !state.editing) return;
-    state.editing.color = b.dataset.value;
-    markChoices();
-  });
 
   // Show a place in the dialog: a new one (`id` null, `seed` its start), or an existing one in the store `where`.
   function openEditor(where, id, seed) {
+    closeFly(false);
     const w = id ? where || view : null;
     const p = id ? placeAt(w, id) : null;
     if (id && !p) return;
@@ -840,7 +967,7 @@
     state.editing = { where: w, id: id || null, version: p ? stores[w].versionOf(id) : undefined, point: p ? p.point : (seed && seed.point) || null, pointOk: true, conflict: null, origin: (seed && seed.origin) || '' };
     dropConflict();
     for (const n of $('form').querySelectorAll('.readonly')) n.remove();
-    const shown = p || { title: (seed && seed.title) || '', category: (seed && seed.category) || 'other', type: (seed && seed.type) || '', icon: '', iconOwn: false, color: '', status: '', address: (seed && seed.address) || '', point: (seed && seed.point) || null, notes: (seed && seed.notes) || '', owners: [], by: '', ref: null };
+    const shown = p || { title: (seed && seed.title) || '', category: (seed && seed.category) || 'other', type: (seed && seed.type) || (id ? '' : DEFAULT_TYPE), icon: '', iconOwn: false, color: '', status: '', address: (seed && seed.address) || '', point: (seed && seed.point) || null, notes: (seed && seed.notes) || '', owners: [], by: '', ref: null };
     const editable = id ? writable(w) : true;
     $('editor-title').textContent = id ? (editable ? 'Change this place' : shown.title) : 'Add a place';
     // Shows in: an existing place's home, the marks the viewer can see (the others are kept, unseen) and whether it is on
@@ -863,12 +990,11 @@
     for (const el of FIELD_WRAPPERS()) el.hidden = !editable;
     if (editable) {
       $('f-title').value = shown.title;
-      $('f-category').value = catOf(shown).id;
+      state.editing.category = catOf(shown).id;
       state.editing.cat = shown.category; // kept as it was unless the person chooses another
       Object.assign(state.editing, { type: shown.type || '', icon: shown.iconOwn ? shown.icon : '', color: shown.color || '', status: shown.status || '' });
       buildPickers();
       drawChoices();
-      $('f-look').open = Boolean(state.editing.icon || state.editing.color);
       $('f-address').value = shown.address;
       $('f-point').value = shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : '';
       $('f-point-note').textContent = '';
@@ -878,7 +1004,7 @@
     } else {
       fillWhere(w, false);
       const ro = clone('tpl-readonly');
-      fill(ro, { type: (typeOf(shown.type) || {}).label || 'None', status: (statusOf(shown.status) || {}).label || 'None', category: catOf(shown).label, address: shown.address || 'None', point: shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : 'None yet', owners: shown.owners.map(nameOf).filter(Boolean).join(', ') || 'Nobody in particular', notes: shown.notes });
+      fill(ro, { type: (typeOf(shown.type) || typeOf(DEFAULT_TYPE) || {}).label || 'None', status: (statusOf(shown.status) || {}).label || 'None', address: shown.address || 'None', point: shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : 'None yet', owners: shown.owners.map(nameOf).filter(Boolean).join(', ') || 'Nobody in particular', notes: shown.notes });
       $('editor-title').after(ro);
     }
     // Where it is, and what uses it.
@@ -919,6 +1045,7 @@
   }
   // After a save or a delete, or when the view changes: closes at once, nothing asked.
   function closeEditor() {
+    closeFly(false);
     state.picking = false;
     state.editing = null;
     editor.close();
@@ -1020,7 +1147,7 @@
     const place = {
       id: e.id || '',
       title,
-      category: e.cat && $('f-category').value === catRow(e.cat).id ? e.cat : cats.some((c) => c.id === $('f-category').value) ? $('f-category').value : 'other', // a place keeps its stored id unless the person chose another
+      category: e.cat && e.category === catRow(e.cat).id ? e.cat : cats.some((c) => c.id === e.category) ? e.category : 'other', // a place keeps its stored id unless the person chose another
       address: geo.oneLine($('f-address').value, 200),
       point: e.point,
       notes: $('f-notes').value,
@@ -1329,7 +1456,7 @@
       categoryColors: async () => {
         await catsRead;
         const colors = {};
-        for (const c of cats) { const col = categoryColor(cats, c); if (col.hex) colors[c.id] = col.hex; }
+        for (const c of cats) { const col = categoryColor(cats, c); colors[c.id] = col.hex || col.tint; }
         return { data: { colors } };
       },
       // The map's answer to the target button: the spot clicked, or none. Asks nothing of anyone who is not picking.

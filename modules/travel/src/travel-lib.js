@@ -404,6 +404,22 @@
     return total > 0 ? Math.min(total, MAX_MINUTES) : null;
   }
 
+  // A length from a start and an end time of day ("HH:MM"), as the editor's End time gives it (#247). An end before the start is the
+  // next day; an end equal to the start is no length (0), which the editor refuses. Null when either is missing or not a time.
+  function lengthBetween(start, end) {
+    const ok = (t) => typeof t === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(t);
+    if (!ok(start) || !ok(end)) return null;
+    return (minutesOfDay(end) - minutesOfDay(start) + 24 * 60) % (24 * 60);
+  }
+  // The end time of day ("HH:MM") for a start and a length in minutes, and how many days later it falls (0 the same day, 1 the
+  // next). Null with no start or no length. Nothing is stored: the end is always worked out from the start and the length.
+  function endOf(start, minutes) {
+    if (typeof start !== 'string' || !/^\d\d:\d\d$/.test(start) || !Number.isFinite(minutes) || minutes <= 0) return null;
+    const m = minutesOfDay(start) + Math.round(minutes);
+    const rest = m % (24 * 60);
+    return { time: `${String(Math.floor(rest / 60)).padStart(2, '0')}:${String(rest % 60).padStart(2, '0')}`, days: Math.floor(m / (24 * 60)) };
+  }
+
   // When a timed item ends: its day (null when it has none), the time of day ("HH:MM"), and how many days after the day it starts
   // that is (0 the same day, 1 the next, -1 the day before). A journey's arrival as on its ticket (`arrives`) wins, marked
   // `ticket`; else it is worked out from the time and the length. Null with neither.

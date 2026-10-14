@@ -13,7 +13,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' +
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply', 'shiftDays', 'clearDay', 'phaseOnDay', 'stripFacts'];
+const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply', 'shiftDays', 'clearDay', 'phaseOnDay', 'stripFacts', 'lengthBetween', 'endOf'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 // The phase timeline rule (public/phases.js), which the SDK gives a module as host.util.phaseTimeline (plan-one-bar.md step 2).
 const Phases = new Function('module', fs.readFileSync(new URL('../public/phases.js', import.meta.url), 'utf8') + '\nreturn module.exports;')({ exports: {} });
@@ -1973,6 +1973,48 @@ test('the titlebar names the module as this environment shows it (Itinerary), ne
   const titles = js.match(/host\.setTitle\([^)]*\)/g) || [];
   assert.ok(titles.length > 0 && titles.every((t) => t === 'host.setTitle(info.module.name)'), `every setTitle is the module's shown name: ${titles.join(', ')}`);
   assert.ok(!/hide\(slot\(head, 'title'\), true\)/.test(js), 'the trip name stays the heading in the page');
+});
+
+// Start and end time instead of start and length (#247): the end is worked out, only the length is stored.
+test('lengthBetween and endOf turn a start and an end into a length and back, across midnight', () => {
+  assert.equal(lib.lengthBetween('08:00', '15:00'), 420, 'same day');
+  assert.equal(lib.lengthBetween('22:00', '01:30'), 210, 'an end before the start is the next day');
+  assert.equal(lib.lengthBetween('08:00', '07:59'), 24 * 60 - 1, 'just under a day');
+  assert.equal(lib.lengthBetween('08:00', '08:00'), 0, 'the same time is no length');
+  assert.equal(lib.lengthBetween('', '08:00'), null);
+  assert.equal(lib.lengthBetween('08:00', '24:00'), null, 'not a time');
+  assert.equal(lib.lengthBetween('8:00', '09:00'), null, 'the 24-hour clock the time input stores');
+  assert.deepEqual(lib.endOf('08:00', 420), { time: '15:00', days: 0 });
+  assert.deepEqual(lib.endOf('22:00', 210), { time: '01:30', days: 1 });
+  assert.deepEqual(lib.endOf('23:30', 24 * 60), { time: '23:30', days: 1 }, 'a full day ends at the same time');
+  assert.deepEqual(lib.endOf('09:00', 50 * 60), { time: '11:00', days: 2 }, 'a long length says how many days later');
+  assert.equal(lib.endOf('09:00', 0), null);
+  assert.equal(lib.endOf(null, 60), null);
+  assert.equal(lib.endOf('09:00', null), null);
+  for (const [a, b] of [['00:00', '23:59'], ['13:15', '02:45'], ['06:00', '06:01']]) assert.equal(lib.endOf(a, lib.lengthBetween(a, b)).time, b, `${a} to ${b} comes back`);
+  // the object keeps its length: arrivalOf, which Calendar and the journey card read, gives the same end
+  assert.deepEqual(lib.arrivalOf({ time: '22:00', minutes: 210 }), { day: null, time: '01:30', days: 1 });
+  assert.equal(lib.cleanItem({ id: 'x', kind: 'stop', type: 'sight', title: 'A', time: '22:00', minutes: 210 }).minutes, 210);
+});
+
+test('the editor offers Length or End time, keeps one stored length and says plainly what it refuses', () => {
+  const html = read('travel.html');
+  const js = read('travel.js');
+  for (const p of ['', 'back-']) {
+    assert.ok(html.includes(`id="f-${p}endTime" type="time" aria-label="${p ? 'Return end time' : 'End time'}"`), `${p}End time input`);
+    assert.ok(html.includes(`id="f-${p}endNote" role="status"`), `${p}end note is announced`);
+  }
+  assert.equal((html.match(/data-lenmode="length" aria-pressed="true">Length</g) || []).length, 2, 'a Length button on each');
+  assert.equal((html.match(/data-lenmode="end" aria-pressed="false">End time</g) || []).length, 2, 'an End time button on each');
+  assert.ok(!/name="endTime"|name="backEndTime"/.test(html), 'the end has no name: it is not a field of the object');
+  assert.ok(js.includes("const LENMODE_KEY = 'planner-length-mode'"), 'the choice is kept per browser');
+  assert.ok(js.includes("const SAME_END = 'Same as the start, so there is no length.'"));
+  assert.ok(js.includes("return 'The end time is the same as the start time. Pick a different end time.'"), 'an end equal to the start is refused in words');
+  assert.ok(js.includes('const endSaid = endProblem();'), 'checked before saving');
+  assert.ok(js.includes('minutes: lengthOf(\'f-hours\', \'f-minutes\')'), 'the length is what is stored');
+  assert.ok(!/minutes:\s*lengthBetween|endTime:/.test(js), 'no end is stored');
+  assert.ok(js.includes('time: spanText(item), minutes: duration') && js.includes('endText(item)].filter(Boolean).join'), 'the card and the day show start to end while End time is chosen');
+  assert.match(read('travel-lib-editor.css'), /\.editor-card \.lenmode \{[^}]*border: 1px solid var\(--border\)/, 'the switch uses theme tokens');
 });
 
 console.log(`check-travel: OK (${n} checks)`);

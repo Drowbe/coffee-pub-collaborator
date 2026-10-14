@@ -1040,10 +1040,9 @@
     // The phase line is the chip's words (host.util.phaseWords, the one rule), empty without phases.
     const bands = plan.bands();
     fill(head, { title: tripName, phase: bands.length && host.util.phaseWords ? host.util.phaseWords(bands, ymd(new Date())) : '' });
-    if (host.setTitle) {
-      host.setTitle(tripName);
-      hide(slot(head, 'title'), true);
-    }
+    // The titlebar names the module (its display name); the trip's name is the heading in the page.
+    if (host.setTitle) host.setTitle(info.module.name);
+    hide(slot(head, 'title'), false);
     let dates = '';
     if (trip && trip.start) {
       const a = parseYmd(trip.start);

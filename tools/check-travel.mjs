@@ -1860,4 +1860,11 @@ test('the day header: Add sits beside the "...", which opens Move all to... and 
   assert.ok(js.includes('if (!canEdit) hide(head.querySelector(\'.day-actions\'), true);'), 'only people who can edit see them');
 });
 
+test('the titlebar names the module as this environment shows it (Itinerary), never the trip\'s name', () => {
+  const js = read('travel.js');
+  const titles = js.match(/host\.setTitle\([^)]*\)/g) || [];
+  assert.ok(titles.length > 0 && titles.every((t) => t === 'host.setTitle(info.module.name)'), `every setTitle is the module's shown name: ${titles.join(', ')}`);
+  assert.ok(!/hide\(slot\(head, 'title'\), true\)/.test(js), 'the trip name stays the heading in the page');
+});
+
 console.log(`check-travel: OK (${n} checks)`);

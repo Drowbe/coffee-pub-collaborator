@@ -66,10 +66,29 @@ currency. Empty both to clear the target.
 
 While Budget is open, it tells the status strip how much is spent: "Spent $2,340" with no target, and "$2,340 of $4,000"
 with one, with "$1,660 left" or "over". Press it to open Budget. The strip keeps what Budget last reported for a week,
-so it stays current only while someone opens Budget now and then. See "The status strip" in [Spaces](userguide-spaces.md).
+so it stays current only while someone opens Budget now and then. In a space with the Planner too, the Planner's own **Spent** chip is hidden while Budget is on (see "Costs from other modules"). See "The status strip" in [Spaces](userguide-spaces.md).
+
+## Costs from other modules
+
+Budget also lists the costs that other modules hold in the same space. Today that is the Planner's bookings that have a
+**Cost**: a hotel, a flight, a dinner. They appear in **Costs** among your own, marked **From Planner** (the module's
+name as your environment shows it), and you cannot change them here.
+
+- **Open in <module>.** Open the row, or its menu, and choose **Open in <module>** to go to the booking and change it
+  there.
+- **Counted as paid.** A booking has one figure, so Budget counts it as paid, not as planned. It is in the totals, the
+  burndown, **Settle up** and the strip's figure like any other paid cost, with its payer and who shares it when the
+  booking names them.
+- **Other.** A booking has no Budget category, so it is listed under **Other**.
+- **Only what you may read.** You see a booking only if your role may read the module that holds it. When some costs are
+  left out for that reason, Budget says "Some costs are from a module you can't see." and the totals leave them out too.
+- **Nothing is copied.** Budget reads the bookings each time; it keeps no copy of them. A change in the Planner shows in
+  Budget within about 30 seconds, or at once when you come back to the window.
+
+**The Planner gives way.** While Budget is on in a space, the Planner's **Money** view and the **Spent** chip it put on
+the status strip are hidden, so the strip shows one figure for money, not two. Turn Budget off and they come back. The
+**Cost** and **Paid by** fields on a booking stay as they are, and nothing is deleted either way.
 
 ## Not yet
 
-The Planner still keeps its own costs, in its **Money** view (see [Planner](userguide-planner.md)); they are not Budget's
-costs, and a space that uses both has two figures for money on the strip until they are joined. A space's template does
-not turn Budget on yet: an owner installs and turns it on in Manage.
+A space's template does not turn Budget on yet: an owner installs and turns it on in Manage.

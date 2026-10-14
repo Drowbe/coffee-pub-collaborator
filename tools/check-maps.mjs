@@ -13,8 +13,8 @@ const win = { addEventListener() {}, location: { search: '' } };
 win.parent = win;
 new Function('window', 'document', sdk)(win, { createElement: (tag) => ({ tag }) }); // ready() adds the SDK's shared styles: a <style> stand-in
 const geo = win.createHost({ call: async () => ({}), root: { appendChild() {} }, rootElement: {} }).host.util.geo;
-const names = ['clusterPoints', 'boundsOf', 'rgbOf', 'mixRgb', 'buildStyle', 'buildPictureStyle', 'pictureLimits', 'capZoom', 'WORLD_MAX_ZOOM'];
-const lib = new Function('geo', `${read('maps-lib-c-geo.js')}\n${read('maps-lib-d-style.js')}\nreturn { ${names.join(', ')} };`)(geo);
+const names = ['TINTS', 'cleanColors', 'pinColor', 'cssColor', 'pinLook', 'markedFor', 'showHow', 'clusterPoints', 'boundsOf', 'rgbOf', 'mixRgb', 'buildStyle', 'buildPictureStyle', 'pictureLimits', 'capZoom', 'WORLD_MAX_ZOOM'];
+const lib = new Function('geo', `${read('maps-lib-c-geo.js')}\n${read('maps-lib-d-style.js')}\n${read('maps-lib-e-pins.js')}\nreturn { ${names.join(', ')} };`)(geo);
 
 let n = 0;
 const test = (name, fn) => { fn(); n += 1; };
@@ -225,18 +225,115 @@ test('adding follows Places: its permission decides, the phone is shown the list
   assert.ok(!contract.includes('`addPlace`'), 'the contract names newPlace');
 });
 
-test('a category the owner gave a colour in Places is drawn in that colour; without one, the hue as before', () => {
+test('a pin takes the place\'s colour, else its category\'s, else the category\'s automatic theme tint', () => {
   const page = read('maps.js');
   const css = read('maps.css');
-  assert.match(page, /const hex = cat \? state\.catColors\[cat\] : '';\n\s+if \(hex\) \{[\s\S]*?el\.style\.setProperty\('--tone', hex\);[\s\S]*?return;\n\s+\}\n\s+if \(!cat \|\| BUILT_IN_CATS\.includes\(cat\)\) return;/, 'the chosen colour first, then the stylesheet and the hash hue');
-  assert.match(page, /h = \(h \* 31 \+ ch\.charCodeAt\(0\)\) % 360;/, 'the hash hue, the same as Places');
+  const c = (category, color) => ({ ref: { scope: 'environment' }, category, ...(color ? { color } : {}) });
+  assert.deepEqual(lib.pinColor(c('food', 'red'), { food: '#112233' }), { tint: 'red' }, 'the place\'s own colour first');
+  assert.deepEqual(lib.pinColor(c('food'), { food: '#112233' }), { hex: '#112233' }, 'then the owner\'s colour for the category');
+  assert.deepEqual(lib.pinColor(c('food'), { food: 'pink' }), { tint: 'pink' }, 'Places may tell a tint name');
+  assert.deepEqual(lib.pinColor(c('food'), {}), { tint: 'blue' }, 'else the automatic tint, by the category\'s place in the list');
+  assert.deepEqual(lib.pinColor(c('stay'), {}), { tint: 'green' });
+  assert.deepEqual(lib.pinColor(c('nightlife'), {}), { tint: 'pink' });
+  assert.deepEqual(lib.pinColor(c('transport'), {}), { tint: 'red' });
+  assert.deepEqual(lib.pinColor(c('other'), {}), { tint: 'teal' }, 'round again after the eighth');
+  assert.deepEqual(lib.pinColor(c('eat'), {}), lib.pinColor(c('food'), {}), 'the old ids read as the new');
+  assert.deepEqual(lib.pinColor(c('do'), {}), lib.pinColor(c('activities'), {}));
+  assert.deepEqual(lib.pinColor(c('travel'), {}), lib.pinColor(c('transport'), {}));
+  const mine = lib.pinColor(c('my-own-kind'), {});
+  assert.ok(lib.TINTS.includes(mine.tint), 'any other id takes one of the eight');
+  assert.deepEqual(lib.pinColor(c('my-own-kind'), {}), mine, 'the same one each time');
+  assert.equal(lib.pinColor(c(''), {}), null, 'no category and no colour: the stylesheet\'s look');
+  assert.deepEqual(lib.pinColor(c('', 'gold'), {}), { tint: 'gold' });
+  assert.deepEqual(lib.pinColor(c('food', 'magenta'), {}), { tint: 'blue' }, 'a colour that is not a tint is not used');
+  assert.equal(lib.cssColor({ tint: 'teal' }), 'var(--tint-teal)');
+  const long30 = 'a'.repeat(30);
+  assert.deepEqual(lib.cleanColors({ [long30]: '#aabbcc', ['a'.repeat(31)]: '#aabbcc', food: 'blue', bad: 'blue2', x: '#ABCDEF', y: 7 }), { [long30]: '#aabbcc', food: 'blue' }, 'ids to 30 characters; a plain colour or a tint name');
+  assert.deepEqual(lib.cleanColors(null), {});
   assert.match(page, /a\.name === 'categoryColors' && a\.open === true/, 'asked of the Places in this page');
   assert.match(page, /host\.actions\.request\(action\.action, \{\}, \{ wait: true, here: true \}\)/);
-  assert.match(page, /\/\^#\[0-9a-f\]\{6\}\$\/\.test\(String\(c\)\)/, 'only plain colours are used');
+  assert.ok(!/% 360/.test(page) && !page.includes('BUILT_IN_CATS'), 'no hash hue');
   assert.match(css, /\.pin\[data-cat\]:not\(\.selected\) \{ --pin: var\(--tone\); --pin-text: var\(--tone-ink, var\(--bg\)\); \}/);
-  // The same rule as Places' tone(): a chosen colour is anything but the automatic grey.
+  assert.ok(!/--turn|oklch/.test(css), 'no turned hues in the stylesheet');
   const places = fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8'); // the colour rule moved into Places' library (0.11.0)
   assert.match(places, /const AUTO_COLOR = '#888888';/);
+  assert.match(places, /const TINTS = \['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red'\];/, 'the same eight, in the same order, as Places');
+  const order = [...places.matchAll(/\{ id: '([a-z]+)', label: '[^']+', icon: '[a-z-]+', color: AUTO_COLOR \}/g)].map((m) => m[1]);
+  assert.deepEqual(order, ['food', 'stay', 'sights', 'nature', 'activities', 'nightlife', 'shopping', 'transport', 'services', 'health', 'other'], 'Places\' default categories');
+});
+
+test('a pin has the place\'s icon and its visit badge', () => {
+  const page = read('maps.js');
+  const css = read('maps.css');
+  const html = read('maps.html');
+  const look = (s) => lib.pinLook({ module: { icon: 'location-dot' }, ...s }, {});
+  assert.equal(look({ icon: 'mug-hot' }).icon, 'mug-hot', 'the place\'s drawn icon');
+  assert.equal(look({}).icon, 'location-dot', 'else its module\'s');
+  assert.equal(lib.pinLook({}, {}).icon, 'location-dot');
+  assert.deepEqual([look({ visit: 'want' }).visitLabel, look({ visit: 'want' }).visitIcon], ['Want to go', 'bookmark']);
+  assert.deepEqual([look({ visit: 'booked' }).visitLabel, look({ visit: 'booked' }).visitIcon], ['Booked', 'calendar-check']);
+  assert.deepEqual([look({ visit: 'visited' }).visitLabel, look({ visit: 'visited' }).visitIcon], ['Visited', 'circle-check']);
+  assert.deepEqual([look({ visit: 'favorite' }).visitLabel, look({ visit: 'favorite' }).visitIcon], ['Favorite', 'star']);
+  assert.equal(look({ visit: 'maybe' }).visit, '', 'no other state');
+  const places = fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8');
+  for (const [id, label, icon] of [['want', 'Want to go', 'bookmark'], ['booked', 'Booked', 'calendar-check'], ['visited', 'Visited', 'circle-check'], ['favorite', 'Favorite', 'star']]) assert.ok(places.includes(`{ id: '${id}', label: '${label}', icon: '${icon}' }`), `${id}: the same words and icon as Places' rows`);
+  assert.match(html, /<span class="pin-badge" data-visit="">/);
+  assert.match(css, /\.pin-badge \{[^}]*border-radius: var\(--radius-round\)/);
+  assert.match(page, /pin\.setAttribute\('aria-label', `\$\{x\.title\}, \$\{x\.look\.visitLabel\}`\)/, 'the badge has words');
+  assert.match(page, /'bookmark', 'calendar-check', 'circle-check', 'star'/, 'the badge icons are fetched');
+});
+
+test('a space\'s map shows its places, the environment\'s places marked for it, and the rest softer; each place once', () => {
+  const page = read('maps.js');
+  const css = read('maps.css');
+  const s = (scope, extra = {}) => ({ ref: { scope, id: extra.id || 'p', ...(scope === 'space' ? { space: 'trip' } : {}) }, ...extra });
+  const how = (c, filter, space = 'trip') => lib.showHow(c, filter, space);
+  const all = { mine: true, environment: true, spaces: new Set(['trip']) };
+  const here = { mine: true, environment: false, spaces: new Set(['trip']) };
+  const none = { mine: true, environment: true, spaces: new Set() };
+  assert.equal(how(s('space'), here), 'full', 'the space\'s own');
+  assert.equal(how(s('environment', { spaces: ['trip'] }), here), 'full', 'Everyone\'s places marked for it come with the trip');
+  assert.equal(how(s('environment', { spaces: ['other'] }), here), '', 'the rest are not shown until the chip is on');
+  assert.equal(how(s('environment'), here), '');
+  assert.equal(how(s('environment', { spaces: ['other'] }), all), 'soft', 'the rest, drawn softer');
+  assert.equal(how(s('environment'), all), 'soft');
+  assert.equal(how(s('environment', { spaces: ['trip'] }), all), 'full', 'a marked one is never soft');
+  assert.equal(how(s('environment', { spaces: ['trip'] }), none), '', 'This trip off hides its own and the marked');
+  assert.equal(how(s('environment'), none), 'soft');
+  assert.equal(how(s('person'), { ...all, mine: false }), '');
+  assert.equal(how(s('person'), all), 'full');
+  assert.equal(how(s('environment', { spaces: ['trip'] }), null), 'full', 'no filter shows everything');
+  assert.equal(how(s('environment'), null), 'soft');
+  // on the environment page: the environment's places are as before, never soft; a space's by the spaces on
+  assert.equal(how(s('environment', { spaces: ['trip'] }), { mine: true, environment: true, spaces: new Set() }, ''), 'full');
+  assert.equal(how(s('environment'), { mine: true, environment: false, spaces: new Set() }, ''), '');
+  assert.equal(how(s('space'), { mine: true, environment: false, spaces: new Set(['other']) }, ''), '');
+  assert.equal(how(s('space'), { mine: true, environment: false, spaces: new Set(['trip']) }, ''), 'full');
+  assert.equal(lib.markedFor({ spaces: ['a', 'trip'] }, 'trip'), true);
+  assert.equal(lib.markedFor({ spaces: ['a'] }, 'trip'), false);
+  assert.equal(lib.markedFor({}, 'trip'), false);
+  // the page asks the environment for the space's marked places with `in`, and draws each pointer once
+  assert.match(page, /host\.objects\.search\('', \{ scope: 'environment', has: 'place', in: spaceId \}\)/);
+  assert.match(page, /const seen = new Set\(\);[\s\S]*?const id = summaryId\(c\);\s+if \(seen\.has\(id\)\) return false;/, 'one pin per home pointer');
+  assert.match(page, /soft: state\.how\.get\(summaryId\(c\)\) === 'soft'/);
+  assert.match(css, /\.pin\.soft:not\(\.selected\) \.pin-body \{ background: color-mix\(in srgb, var\(--pin\) 45%, transparent\); box-shadow: none; \}/, 'a softer fill, no added border');
+  assert.ok(!/\.pin\.soft[^{]*\{[^}]*border/.test(css), 'no border on a soft pin');
+  const dest = fs.readFileSync(new URL('../public/destination.js', import.meta.url), 'utf8');
+  assert.ok(dest.includes("name: `All of ${environmentName}'s places`"), 'the map\'s filter in a space has the chip');
+});
+
+test('host.objects.search passes in to the server', () => {
+  const sdkText = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  const hostText = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  assert.ok(sdkText.includes("...(o && o.in ? { in: String(o.in) } : {})"));
+  assert.ok(hostText.includes("async 'objects.search'({ q, scope: s, space, has, in: marked })"));
+  const src = hostText.slice(hostText.indexOf('function objectSearchParams('), hostText.indexOf('// --- end of the search'));
+  const placeSrc = hostText.slice(hostText.indexOf('const SPACE_ID'), hostText.indexOf("\n  return { scope: 'space', space };\n}\n") + "\n  return { scope: 'space', space };\n}\n".length);
+  const build = new Function(`${placeSrc}\n${src}\nreturn objectSearchParams;`)();
+  const p = build('maps', { q: '', scope: 'environment', has: 'place', in: 'trip1' }, { scope: 'space', spaceId: 'S1', moduleScopes: ['environment', 'space'], keyed: false });
+  assert.deepEqual([p.get('scope'), p.get('has'), p.get('in')], ['environment', 'place', 'trip1']);
+  const q = build('maps', { q: '', scope: 'environment' }, { scope: 'space', spaceId: 'S1', moduleScopes: ['environment', 'space'], keyed: false });
+  assert.equal(q.has('in'), false, 'no in unless asked');
 });
 
 console.log(`check-maps: OK (${n} checks)`);

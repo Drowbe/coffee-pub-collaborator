@@ -360,7 +360,7 @@ function placeOf(requested, space, mount) {
 // private objects, from anywhere. `scope: 'spaces'` (a module's environment page only, never a space or a keyed page)
 // asks every space the viewer belongs to at once, each pointer with its space; `has: 'place'` keeps only summaries
 // with a place (plan-map-destination, "SDK and the host"). Otherwise the place is placeOf's.
-function objectSearchParams(moduleId, { q, scope: s, space, has } = {}, mount) {
+function objectSearchParams(moduleId, { q, scope: s, space, has, in: marked } = {}, mount) {
   const fail = (message) => { throw Object.assign(new Error(message), { status: 400 }); };
   let sc;
   if (s === 'person') sc = { scope: 'person', space: null };
@@ -373,6 +373,8 @@ function objectSearchParams(moduleId, { q, scope: s, space, has } = {}, mount) {
   const p = new URLSearchParams({ from: moduleId, q: String(q || '').slice(0, 100), scope: sc.scope });
   if (sc.scope === 'space') p.set('space', sc.space);
   if (has === 'place' || has === 'amount') p.set('has', has);
+  // `in`: a space's id, with scope 'environment': the environment's objects marked for that space (the server checks the rest).
+  if (typeof marked === 'string' && marked) p.set('in', marked.slice(0, 64));
   return p;
 }
 // --- end of the search
@@ -1463,8 +1465,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     },
     // `scope: 'spaces'` (an environment page only) asks every space the viewer belongs to at once, each pointer with its
     // space; `has: 'place'` keeps only summaries with a place (plan-map-destination, "SDK and the host").
-    async 'objects.search'({ q, scope: s, space, has }) {
-      const p = objectSearchParams(module.id, { q, scope: s, space, has }, { scope, spaceId, moduleScopes: module.scope, keyed: Boolean(keyed) });
+    async 'objects.search'({ q, scope: s, space, has, in: marked }) {
+      const p = objectSearchParams(module.id, { q, scope: s, space, has, in: marked }, { scope, spaceId, moduleScopes: module.scope, keyed: Boolean(keyed) });
       if (guestToken) p.set('guest', guestToken);
       return (await api('GET', `/api/objects/search?${p}`)).summaries;
     },

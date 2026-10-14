@@ -5786,6 +5786,7 @@ function refScope(who, { provider, kind, scope, space, from, skipConsumer = fals
 // The summary of one stored object: only the fields the producer named, trimmed and typed.
 // Priced: it has an actual amount or a planned one.
 const VISIT_STATES = ['want', 'booked', 'visited', 'favorite'];
+const SUMMARY_TINTS = ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red'];
 const isPriced = (summary) => summary.amount !== undefined || summary.planned !== undefined;
 function objectSummary({ manifest, produce, ref }, id, value, withText = false) {
   const text = (v) => (typeof v === 'string' ? v.slice(0, 200) : typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -5838,6 +5839,9 @@ function objectSummary({ manifest, produce, ref }, id, value, withText = false) 
   if (typeof icon === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(icon) && iconKnown(icon)) summary.icon = icon;
   const visit = field('visit');
   if (typeof visit === 'string' && VISIT_STATES.includes(visit)) summary.visit = visit;
+  // `color`: a place's own colour, one of the eight theme tints by name (plan-places-library.md, step 4); a pin takes it before its category's.
+  const color = field('color');
+  if (typeof color === 'string' && SUMMARY_TINTS.includes(color)) summary.color = color;
   const marked = field('spaces');
   if (Array.isArray(marked)) {
     const ids = [...new Set(marked.filter((k) => typeof k === 'string' && k && k.length <= 64 && store.spaceById(k)))].slice(0, 20);
@@ -7098,7 +7102,8 @@ app.get('/api/modules/:id/geocode', async (req, res) => {
   if (overLimit(ctx.manifest.id, ctx.who.user?.key, 'search')) return res.status(429).json({ error: limitMessage() });
   const near = req.query.lat !== undefined ? { lat: Number(req.query.lat), lon: Number(req.query.lon) } : null;
   const id = ctx.manifest.id;
-  const pick = (r, source, from) => ({ key: r.key, title: r.name, sub: r.address, lat: r.lat, lng: r.lng, source, from });
+  // `osm`: the result's OpenStreetMap tag ("amenity:cafe"), so the module that saves it can pick a type (plan-places-library.md, step 4).
+  const pick = (r, source, from) => ({ key: r.key, title: r.name, sub: r.address, lat: r.lat, lng: r.lng, ...(r.category ? { osm: r.category } : {}), source, from });
   // Saved places first: enough of them and the outside service is not asked.
   const saved = setup.save ? geocodeCache.search(id, q, near, 10).map((r) => pick(r, 'server', 'Saved on this server')) : [];
   if (saved.length >= ENOUGH) return res.json({ results: saved.slice(0, 8), configured: true, credit: setup.credit });

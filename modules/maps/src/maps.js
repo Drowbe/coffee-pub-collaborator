@@ -55,6 +55,7 @@
 
   const state = {
     all: [], // every summary read that carries a place: this space's (or every space's), the viewer's own and the environment's
+    how: new Map(), // the id of each place drawn, to 'full' or 'soft'
     found: [], // the ones drawn: as the destination's part, those in the page's filter; elsewhere all of them
     filter: null, // as the destination's part: { mine, environment, spaces: Set | null } from the page; null shows everything
     read: { person: false, environment: false }, // whether Mine and the environment's own have been read (the filter may leave them unread)
@@ -147,11 +148,15 @@
       // part, Mine and the environment's own are read only while the page's filter has them on (takeState reads them when
       // they are turned on).
       const here = inSpace ? host.objects.search('', { has: 'place' }) : host.objects.search('', { scope: 'spaces', has: 'place' }).catch(() => []);
+      // In a space: the environment's places marked for it, always (whatever the filter), so the trip's map has them with its own.
+      const spaceId = inSpace ? info.context.spaceId : '';
+      const marked = spaceId ? host.objects.search('', { scope: 'environment', has: 'place', in: spaceId }).then((list) => list.map((c) => (c && c.ref && !markedFor(c, spaceId) ? { ...c, spaces: [...(Array.isArray(c.spaces) ? c.spaces : []), spaceId] } : c))).catch(() => []) : Promise.resolve([]);
       const wanted = (scope) => !state.filter || state.filter[scope === 'person' ? 'mine' : 'environment'];
       const other = (scope) => (wanted(scope) ? host.objects.search('', { scope, has: 'place' }).then((list) => { state.read[scope] = true; return list; }).catch(() => []) : Promise.resolve(state.all.filter((c) => c.ref.scope === scope)));
-      const [spaces, mine, everyone] = await Promise.all([here, other('person'), other('environment')]);
+      const [spaces, mark, mine, everyone] = await Promise.all([here, marked, other('person'), other('environment')]);
+      // Each place once, by the pointer of its home: one reached through a mark and through the environment's list is one pin.
       const seen = new Set();
-      state.all = [...spaces, ...mine, ...everyone].filter((c) => {
+      state.all = [...spaces, ...mark, ...mine, ...everyone].filter((c) => {
         if (!(c && c.ref && c.place && geo.inRange(Number(c.place.lat), Number(c.place.lng)) && c.title)) return false;
         const id = summaryId(c);
         if (seen.has(id)) return false;
@@ -163,16 +168,16 @@
     }
     applyFilter();
   }
-  // As the destination's part: only the scopes the page's filter has on (Mine, the environment's own, each space).
-  function inFilter(c) {
-    const f = state.filter;
-    if (!f) return true;
-    if (c.ref.scope === 'person') return f.mine;
-    if (c.ref.scope === 'environment') return f.environment;
-    return !f.spaces || f.spaces.has(String(c.ref.space));
-  }
+  // The places the map shows and how (pinLib's showHow): the page's filter, and in a space the marked ones with this space's own;
+  // the rest of the environment's drawn softer.
   function applyFilter() {
-    state.found = state.all.filter(inFilter);
+    state.how = new Map();
+    const spaceId = inSpace ? info.context.spaceId : '';
+    state.found = state.all.filter((c) => {
+      const how = showHow(c, state.filter, spaceId);
+      if (how) state.how.set(summaryId(c), how);
+      return Boolean(how);
+    });
   }
   // A pin the search text does not match is dimmed, not hidden: by its title and where it is.
   const dimmed = (c) => Boolean(state.q) && !`${c.title} ${c.subtitle || ''}`.toLowerCase().includes(state.q);
@@ -181,7 +186,6 @@
   // Places' category colours ({ <category id>: '#rrggbb' }, only those the owner chose), kept in this browser for a map with no
   // Places beside it; asked again whenever a Places is open in this page (findAdder), and the pins redrawn when they changed.
   const COLORS_KEY = 'maps-category-colors';
-  const cleanColors = (v) => Object.fromEntries(Object.entries(v && typeof v === 'object' ? v : {}).filter(([k, c]) => /^[a-z0-9-]{1,20}$/.test(k) && /^#[0-9a-f]{6}$/.test(String(c))).slice(0, 40));
   state.catColors = (() => { try { return cleanColors(JSON.parse(localStorage.getItem(COLORS_KEY) || '{}')); } catch (err) { return {}; } })();
   async function askColors(action) {
     try {
@@ -228,12 +232,13 @@
     if (!c) { box.replaceChildren(); hide(box, true); return; }
     const el = clone('tpl-callout');
     el.dataset.kind = kindOf(c);
-    if (c.category) { el.dataset.cat = c.category; turnCat(el, c.category); }
+    const look = pinLook(c, state.catColors);
+    if (look.color) { el.dataset.cat = c.category || 'own'; turnCat(el, look); }
     if (c.ref.scope === 'person') el.dataset.scope = 'person';
     // On a picture map a position is not somewhere on Earth: no coordinates shown (Copy coordinates still copies them) and
     // no "Open in my maps app".
     const picture = Boolean(state.picture);
-    fill(el, { title: c.title, where: c.subtitle || '', coords: picture ? '' : coordsText(c.place.lat, c.place.lng), from: `from ${moduleName(c)}${c.when ? ' \u00b7 ' + whenText(c.when) : ''}` });
+    fill(el, { title: c.title, where: c.subtitle || '', coords: picture ? '' : coordsText(c.place.lat, c.place.lng), from: `from ${moduleName(c)}${look.visitLabel ? ' \u00b7 ' + look.visitLabel : ''}${c.when ? ' \u00b7 ' + whenText(c.when) : ''}` });
     hide(el.querySelector('.callout-where'), picture && !c.subtitle);
     setIcon(el.querySelector('.callout-source [data-icon]'), (c.module && c.module.icon) || 'link');
     const inMaps = el.querySelector('[data-action="open-in-maps"]');
@@ -300,34 +305,36 @@
   let draftMarker = null;
   function clearPins() { while (markers.length) markers.pop().remove(); }
 
-  // A category's colour: the one the owner chose in Places' list, as Places tells it (catColors), used as it is, as Places
-  // does. Else the stylesheet's for the five built-in ones, and any other turns the accent by an amount taken from its id, the
-  // same amount Places uses.
-  const BUILT_IN_CATS = ['do', 'eat', 'stay', 'travel', 'other'];
-  function turnCat(el, cat) {
-    const hex = cat ? state.catColors[cat] : '';
-    if (hex) {
-      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
-      el.style.setProperty('--tone', hex);
+  // A pin's colour (pinColor): the place's own, else its category's as the owner set it in Places (catColors), else the category's
+  // automatic theme tint. A hex colour is used as it is, as Places does; a tint is the theme's, so it follows the theme.
+  function turnCat(el, look) {
+    const c = look.color;
+    if (!c) return;
+    el.style.setProperty('--tone', cssColor(c));
+    if (c.hex) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(c.hex.slice(i, i + 2), 16));
       el.style.setProperty('--tone-ink', r * 0.299 + g * 0.587 + b * 0.114 > 150 ? '#000000' : '#ffffff');
-      return;
     }
-    if (!cat || BUILT_IN_CATS.includes(cat)) return;
-    let h = 0;
-    for (const ch of String(cat)) h = (h * 31 + ch.charCodeAt(0)) % 360;
-    el.style.setProperty('--turn', String(h));
   }
 
-  function makePin(kind, id, icon, label, on, cat, scope, dim) {
+  function makePin(x, on) {
     const pin = clone('tpl-pin');
-    pin.dataset.kind = kind;
-    pin.dataset.id = id;
-    if (cat) { pin.dataset.cat = cat; turnCat(pin, cat); }
-    if (scope) pin.dataset.scope = scope;
-    if (dim) pin.classList.add('dim');
-    setIcon(pin.querySelector('[data-icon]'), icon);
-    if (label && state.map.getZoom() >= state.labelZoom) fill(pin, { label }); else pin.querySelector('.pin-label').remove();
-    if (state.selected === id) pin.classList.add('selected');
+    pin.dataset.kind = x.kind;
+    pin.dataset.id = x.id;
+    if (x.look.color) { pin.dataset.cat = x.cat || 'own'; turnCat(pin, x.look); }
+    if (x.scope) pin.dataset.scope = x.scope;
+    if (x.dim) pin.classList.add('dim');
+    if (x.soft) pin.classList.add('soft');
+    setIcon(pin.querySelector('[data-icon]'), x.look.icon);
+    // The visit status: a small badge in the pin's corner, with its words for a screen reader.
+    const badge = pin.querySelector('.pin-badge');
+    if (x.look.visit) {
+      badge.dataset.visit = x.look.visit;
+      setIcon(badge.querySelector('[data-icon]'), x.look.visitIcon);
+      pin.setAttribute('aria-label', `${x.title}, ${x.look.visitLabel}`);
+    } else badge.remove();
+    if (x.title && state.map.getZoom() >= state.labelZoom) fill(pin, { label: x.title }); else pin.querySelector('.pin-label').remove();
+    if (state.selected === x.id) pin.classList.add('selected');
     pin.addEventListener('click', (e) => { e.stopPropagation(); if (!state.adding) on(); });
     return pin;
   }
@@ -337,17 +344,18 @@
     if (!state.map || !state.mapReady) return;
     clearPins();
     const map = state.map;
-    const all = state.found.map((c) => ({ kind: kindOf(c), id: summaryId(c), lat: c.place.lat, lng: c.place.lng, title: c.title, cat: c.category || '', scope: c.ref.scope === 'person' ? 'person' : '', icon: (c.module && c.module.icon) || 'location-dot', dim: dimmed(c) }));
+    const all = state.found.map((c) => ({ kind: kindOf(c), id: summaryId(c), lat: c.place.lat, lng: c.place.lng, title: c.title, cat: c.category || '', scope: c.ref.scope === 'person' ? 'person' : '', look: pinLook(c, state.catColors), soft: state.how.get(summaryId(c)) === 'soft', dim: dimmed(c) }));
     const picked = all.filter((x) => x.id === state.selected);
     const rest = all.filter((x) => !picked.includes(x));
     for (const g of clusterPoints(rest, (lat, lng) => map.project([lng, lat]), 36)) {
       if (g.points.length === 1) {
         const x = g.points[0];
-        markers.push(new maplibregl.Marker({ element: makePin(x.kind, x.id, x.icon, x.title, () => select(x.id), x.cat, x.scope, x.dim), anchor: 'bottom' }).setLngLat([x.lng, x.lat]).addTo(map));
+        markers.push(new maplibregl.Marker({ element: makePin(x, () => select(x.id)), anchor: 'bottom' }).setLngLat([x.lng, x.lat]).addTo(map));
       } else {
         const c = clone('tpl-pin-cluster');
         fill(c, { count: g.points.length });
         if (g.points.every((x) => x.dim)) c.classList.add('dim');
+        if (g.points.every((x) => x.soft)) c.classList.add('soft');
         c.addEventListener('click', (e) => {
           e.stopPropagation();
           map.fitBounds(boundsOf(g.points), { padding: 60, maxZoom: cap(17), duration: 500 });
@@ -359,12 +367,13 @@
       const pin = clone('tpl-pin');
       pin.dataset.kind = 'place';
       pin.classList.add('candidate');
+      pin.querySelector('.pin-badge').remove();
       setIcon(pin.querySelector('[data-icon]'), 'location-dot');
       fill(pin, { label: c.title });
       pin.addEventListener('click', (e) => { e.stopPropagation(); draftAt(c.lat, c.lng, { title: c.title, address: c.sub }); });
       markers.push(new maplibregl.Marker({ element: pin, anchor: 'bottom' }).setLngLat([c.lng, c.lat]).addTo(map));
     }
-    for (const x of picked) markers.push(new maplibregl.Marker({ element: makePin(x.kind, x.id, x.icon, x.title, () => {}, x.cat, x.scope), anchor: 'bottom' }).setLngLat([x.lng, x.lat]).addTo(map));
+    for (const x of picked) markers.push(new maplibregl.Marker({ element: makePin({ ...x, dim: false }, () => {}), anchor: 'bottom' }).setLngLat([x.lng, x.lat]).addTo(map));
     hydrate(root);
   }
 
@@ -375,6 +384,7 @@
     const pin = clone('tpl-pin');
     pin.dataset.kind = 'place';
     pin.classList.add('draft');
+    pin.querySelector('.pin-badge').remove();
     setIcon(pin.querySelector('[data-icon]'), 'location-dot');
     pin.querySelector('.pin-label').remove();
     draftMarker = new maplibregl.Marker({ element: pin, anchor: 'bottom' }).setLngLat([state.draft.lng, state.draft.lat]).addTo(state.map);
@@ -1017,7 +1027,7 @@
   // --- start --------------------------------------------------------------------------------------------------------
 
   try {
-    for (const name of new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(['location-dot', 'map-location-dot', 'link']))) if (name) wantIcon(name);
+    for (const name of new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(['location-dot', 'map-location-dot', 'link', 'bookmark', 'calendar-check', 'circle-check', 'star']))) if (name) wantIcon(name);
     applySettings((await host.settings.get()) || {});
     await Promise.all([loadFound(), findAdder()]);
     // Whether a "+" in a titlebar holds the add (an empty list asks, and shows nothing yet).

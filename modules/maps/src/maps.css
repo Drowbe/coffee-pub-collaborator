@@ -64,21 +64,25 @@ body { margin: 0; overflow: hidden; }
 .pin[data-kind="object"] { --pin: var(--bg-card); --pin-text: var(--text); }
 .pin[data-kind="object"] .pin-body { border-color: var(--accent); }
 
-/* a summary's category (do, eat, stay, travel, other) gives its pin and row the same colour family as the Travel cards and the Places cards,
-   turned from the accent; a summary with no category keeps the module-based look above. */
-.pin[data-cat] { --turn: 0; --tone: color-mix(in srgb, var(--accent) 65%, var(--text)); }
-@supports (color: oklch(from red l c h)) { .pin[data-cat] { --tone: oklch(from var(--accent) l calc(c * 0.95) calc(h + var(--turn))); } }
-.pin[data-cat="do"] { --turn: 95; }
-.pin[data-cat="eat"] { --turn: 0; }
-.pin[data-cat="stay"] { --turn: 255; }
-.pin[data-cat="travel"] { --turn: 195; }
-.pin[data-cat="other"] { --turn: 25; }
+/* a place's colour (its own, its category's, or the category's automatic theme tint) fills its pin; a summary with no category and no
+   colour keeps the module-based look above. */
+.pin[data-cat] { --tone: var(--accent); } /* script sets --tone: the place's colour, its category's or the category's automatic theme tint */
 .pin[data-cat]:not(.selected) { --pin: var(--tone); --pin-text: var(--tone-ink, var(--bg)); } /* --tone-ink: set with an owner-chosen colour */
 .pin[data-cat]:not(.selected) .pin-body { border-color: var(--bg-section); }
 .pin.selected[data-cat] .pin-body { border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin.selected { z-index: 2; }
 /* a pin (or a cluster of them) the destination's search text does not match: still there, set back */
 .pin.dim { opacity: 0.35; }
+/* the environment's other places, on a space's map: a softer fill (no added border), still there to be found and added */
+.pin.soft:not(.selected) .pin-body { background: color-mix(in srgb, var(--pin) 45%, transparent); box-shadow: none; }
+.pin.soft:not(.selected) .pin-body .ic { opacity: 0.85; }
+.pin.soft:not(.selected) .pin-label { opacity: 0.8; }
+/* the visit status: a small round badge at the pin's top left (the person mark is on the right), a fill and an icon, its words in the pin's label for a screen reader */
+.pin-badge { position: absolute; left: -6px; top: -6px; z-index: 3; display: flex; align-items: center; justify-content: center; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--bg-section); color: var(--text); box-shadow: 0 1px 3px color-mix(in srgb, black 40%, transparent); pointer-events: none; }
+.pin-badge .ic { font-size: 9px; }
+.pin-badge[data-visit="booked"] { color: var(--tint-blue); }
+.pin-badge[data-visit="visited"] { color: var(--tint-green); }
+.pin-badge[data-visit="favorite"] { color: var(--tint-gold); }
 .pin.dim:hover, .pin.dim:focus-visible { opacity: 1; }
 .pin.selected .pin-body { --pin: var(--text); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin.selected { --pin-text: var(--bg); }
@@ -152,15 +156,9 @@ body { margin: 0; overflow: hidden; }
 /* ---- the callout: the selected place, over the map (the list is the Places module) ---- */
 .callout-box { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(360px, calc(100% - 20px)); pointer-events: none; }
 .callout-box > * { pointer-events: auto; }
-.callout { --turn: 0; --tone: var(--accent); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--border)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-section)), var(--bg-section) 70%); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); animation: callout-in 0.16s ease-out; }
+.callout { --tone: var(--accent); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--border)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-section)), var(--bg-section) 70%); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); animation: callout-in 0.16s ease-out; }
 .callout[data-kind="object"] { --tone: var(--text-dim); }
-.callout[data-cat] { --tone: color-mix(in srgb, var(--accent) 65%, var(--text)); }
-@supports (color: oklch(from red l c h)) { .callout[data-cat] { --tone: oklch(from var(--accent) l calc(c * 0.95) calc(h + var(--turn))); } }
-.callout[data-cat="do"] { --turn: 95; }
-.callout[data-cat="eat"] { --turn: 0; }
-.callout[data-cat="stay"] { --turn: 255; }
-.callout[data-cat="travel"] { --turn: 195; }
-.callout[data-cat="other"] { --turn: 25; }
+.callout[data-cat] { --tone: var(--accent); }
 .callout::before { content: ""; position: absolute; left: 14px; top: -1px; width: 36px; height: 4px; border-radius: 0 0 var(--radius-min) var(--radius-min); background: var(--tone); }
 .callout h3 { margin: 4px 30px 0 0; font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
 .callout-where { margin: 0; color: var(--text-dim); font-size: 13px; overflow-wrap: anywhere; }

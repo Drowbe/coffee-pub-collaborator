@@ -433,7 +433,8 @@ function drawPageBar(d) {
     list.innerHTML = switchListHtml([
       ...(spaceFilter() ? [{ id: HERE, icon: d.space?.icon || 'users', name: `This ${word('space')}`, on: hereOn }] : []),
       ...(spaceFilterHasMine() ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
-      ...(spaceFilter() ? [{ id: OWN, icon: 'globe', name: environmentName, on: ownOn }] : []),
+      // In a space the places marked for it are already in This <space>; this one adds the rest, drawn softer, to be found and added.
+      ...(spaceFilter() ? [{ id: OWN, icon: 'globe', name: `All of ${environmentName}'s places`, on: ownOn }] : []),
       ...(kind.mine && !spaceId ? [{ id: MINE, icon: 'user', name: 'Mine', on: mineOn }] : []),
       ...(spaceId ? [] : [{ id: OWN, icon: 'globe', name: environmentName, on: ownOn }]),
       ...spaces.map((r) => ({ id: r.id, icon: r.icon, name: r.name, on: !off.has(r.id) })),

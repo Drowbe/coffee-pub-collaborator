@@ -988,13 +988,16 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   };
   const left = [reg('who-here'), reg('join-call'), reg('module-chooser')].map((t, i) => ({ ...t, seq: i + 1 }));
   assert.deepEqual(ids(arrange(left)), [['module-chooser'], ['join-call'], ['who-here']], 'Layout, Join the call, Online: three groups, a divider between each');
-  // Its own button: a phone icon, the words "Join the call" (its accessible name; on a phone the tab reads "Join"),
-  // the accent look and the Layout button's size, nothing new in colour.
+  // Its own button: a phone icon, the words "Start call" or "Join call" (its accessible name, by whether a call is
+  // running; on a phone the tab reads "Start" or "Join"), the accent look and the Layout button's size, nothing new in
+  // colour. Wider than a phone it sits at the right end of the chat's Discussion | Assistant row (#chat-views).
   assert.match(space, /joinCallButton\.id = 'join-call';/);
   assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/);
-  assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Join the call'\);/);
-  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label">Join<span class="join-call-more"> the call<\/span><\/span>';/);
-  assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted \}\);/);
+  assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Start call'\);/);
+  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label"><span class="join-call-verb">Start<\/span><span class="join-call-more"> call<\/span><\/span>';/);
+  assert.match(space, /const verb = running \? 'Join' : 'Start';/, 'Join call while a call runs, Start call while none does');
+  assert.match(space, /\$\('chat-views'\)\?\.appendChild\(joinCallButton\)/, 'wider than a phone it is in the chat\'s view row');
+  assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted \}\);/);
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\n\.join-call \{/, 'its own size rule');
   assert.match(css, /\n\.join-call\[hidden\] \{\s*display: none;/, 'hidden means hidden, whatever its display');

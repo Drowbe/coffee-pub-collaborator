@@ -106,6 +106,7 @@
     <header class="side-column-call-head" id="call-head">
       <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
       <span class="chat-tools">
+        <button class="sdk-more" id="call-head-popout" type="button" title="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
         <button class="sdk-more" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
       </span>
     </header>
@@ -121,14 +122,9 @@
         <button class="fbtn action-btn" id="call-out-mic" type="button" data-for="mic" title="Microphone (M)" aria-label="Microphone"><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
         <button class="fbtn action-btn" id="call-out-deafen" type="button" data-for="deafen" title="Mute what you hear (D)" aria-label="Mute what you hear"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
         <button class="fbtn action-btn" id="call-out-cam" type="button" data-for="cam" title="Camera (V)" aria-label="Camera"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn" id="call-out-hangup" type="button" data-for="hangup" title="Leave the call" aria-label="Leave the call"><span class="glyph"><i class="fa-solid fa-phone-slash fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn" id="call-out-hangup" type="button" data-for="hangup" title="Leave the call" aria-label="Leave the call"><span class="glyph"><i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i></span></button>
         <button class="btn btn-small call-out-back" id="call-back" type="button"><i class="fa-solid fa-arrow-left fa-fw" aria-hidden="true"></i> Bring the call back</button>
       </span>
-    </div>
-    <!-- Join the call, out of the call: the space bar's own element, placed here wider than a phone. Who is here is the
-         top bar's (space.js), not the column's. -->
-    <div class="side-column-bar" id="side-column-bar">
-      <div class="side-column-call" id="side-column-call"></div>
     </div>
     <!-- The chat (canvas.js puts #chat here). -->
     <div class="side-column-chat" id="side-column-chat"></div>
@@ -155,6 +151,7 @@
       <header class="mod-header conference-head">
         <span class="mod-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" data-module-icon></i> <span data-module-name>Conference</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
         <span class="mod-header-tools conference-tools">
+          <button class="msg-btn" id="conf-popout" type="button" title="Pop out the call" aria-label="Pop out the call"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></button>
           <button class="msg-btn" id="conf-close" data-module-close type="button" title="Leave the call" aria-label="Leave the call"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
@@ -229,34 +226,27 @@
       <div class="mod-bar video-bar" id="video-bar">
       <div class="float floatbar" id="floatbar">
         <div class="fbtn-wrap" data-collapse="10">
-          <button class="fbtn action-btn" id="mic" type="button" title="Microphone (M)"><span class="meter" id="meter"></span><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="mic" title="Microphone settings" aria-label="Microphone settings"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
+          <button class="fbtn action-btn" id="mic" type="button" aria-label="Microphone" title="Microphone (M)"><span class="meter" id="meter"></span><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="mic" title="Microphone settings" aria-label="Microphone settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
         <div class="fbtn-wrap" data-collapse="7">
-          <button class="fbtn action-btn" id="deafen" type="button" title="Mute what you hear (D)"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="audio" title="Audio output settings" aria-label="Audio output settings"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
+          <button class="fbtn action-btn" id="deafen" type="button" aria-label="Mute what you hear" title="Mute what you hear (D)"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="audio" title="Audio output settings" aria-label="Audio output settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
         <div class="fbtn-wrap" data-collapse="9">
-          <button class="fbtn action-btn" id="cam" type="button" title="Camera (V)"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="camera" title="Camera settings" aria-label="Camera settings"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
+          <button class="fbtn action-btn" id="cam" type="button" aria-label="Camera" title="Camera (V)"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" type="button" data-settings="camera" title="Camera settings" aria-label="Camera settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
-        <button class="fbtn action-btn" id="screen-share" type="button" title="Share your screen (S)" data-collapse="4" hidden><span class="glyph"><i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn" id="screen-share" type="button" aria-label="Share your screen" title="Share your screen (S)" data-collapse="4" hidden><span class="glyph"><i class="fa-solid fa-desktop fa-fw" aria-hidden="true"></i></span></button>
         <div class="fbtn-wrap" data-collapse="6">
           <button class="fbtn action-btn" id="layout" type="button" title="Tiles (L)" aria-label="Tiles"><span class="glyph"><i class="fa-solid fa-table-cells-large fa-fw" id="layout-glyph" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" type="button" data-settings="layout" title="Tiles settings" aria-label="Tiles settings"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
+          <button class="fbtn-caret" type="button" data-settings="layout" title="Tiles settings" aria-label="Tiles settings"><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></button>
         </div>
-        <!-- Where the call is: Pop out (its own window; the same button brings it back) and, on the caret, Call position
-             (top or bottom of the column, a floating window, its own window). space.js, the call's place. -->
-        <div class="fbtn-wrap" id="call-place-wrap" data-collapse="8">
-          <button class="fbtn action-btn" id="call-popout" type="button" title="Pop out the call" aria-label="Pop out the call"><span class="glyph"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></span></button>
-          <button class="fbtn-caret" id="call-place" type="button" title="Call position" aria-label="Call position" aria-haspopup="menu"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
-        </div>
-        <button class="fbtn action-btn" id="away-toggle" type="button" title="Away: pauses your mic and camera, mutes what you hear, and lets everyone know" data-collapse="5"><span class="glyph"><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></span></button>
-      <button class="fbtn action-btn" id="react-toggle" type="button" title="Reactions (R, or keys 1 to 6)" data-collapse="3"><span class="glyph"><i class="fa-solid fa-face-smile fa-fw" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn" id="settings-toggle" type="button" title="Settings" data-settings="more" data-collapse="2"><span class="glyph"><i class="fa-solid fa-gear fa-fw" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn" id="space-link" type="button" title="Open this {space}'s link" data-collapse="1" data-fill hidden><span class="glyph"><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn" id="away-toggle" type="button" aria-label="Away" title="Away: pauses your mic and camera, mutes what you hear, and lets everyone know" data-collapse="5"><span class="glyph"><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></span></button>
+      <button class="fbtn action-btn" id="react-toggle" type="button" aria-label="Reactions" title="Reactions (R, or keys 1 to 6)" data-collapse="3"><span class="glyph"><i class="fa-solid fa-face-smile fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn" id="space-link" type="button" aria-label="Open this {space}'s link" title="Open this {space}'s link" data-collapse="1" data-fill hidden><span class="glyph"><i class="fa-solid fa-link fa-fw" aria-hidden="true"></i></span></button>
         <button class="fbtn action-btn" id="floatbar-more" type="button" title="More" aria-label="More" hidden><span class="glyph"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></span></button>
-        <button class="fbtn action-btn danger" id="hangup" type="button" title="Leave the call (you stay in the {space})" data-fill><span class="glyph"><i class="fa-solid fa-phone-slash fa-fw" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn danger" id="hangup" type="button" aria-label="Leave the call" title="Leave the call (you stay in the {space})" data-fill><span class="glyph"><i class="fa-solid fa-phone-slash fa-fw" aria-hidden="true"></i></span></button>
       </div>
       <div class="popover floatbar-overflow" id="floatbar-overflow" hidden></div>
 
@@ -310,9 +300,6 @@
           <p class="hint">Drag tiles to reorder them. Click a tile to spotlight it. Hover a tile for its volume.</p>
         </div>
         <div class="settings-group" data-group="more">
-          <div class="row">
-            <span class="hint" id="install-note"></span>
-          </div>
           <div id="guest-section">
             <h3 data-fill>{Guests}</h3>
             <p class="hint" data-fill>Anyone with this link can come into this {space} with just a name -- no account, no invite needed.</p>
@@ -326,12 +313,6 @@
             </div>
             <p class="status" id="guest-link-status"></p>
           </div>
-          <nav class="links" id="settings-links">
-            <a href="/profile" data-overlay-link title="Your profile">Your profile</a>
-            <a href="/admin" id="admin-link-2" data-overlay-link title="Manage" hidden>Manage</a>
-            <a href="/logout">Sign out</a>
-            <span class="version" data-brand="version"></span>
-          </nav>
         </div>
       </div>
       </div>

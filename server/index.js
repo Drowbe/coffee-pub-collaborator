@@ -236,6 +236,7 @@ const presence = proxyFor('presence');
 const invites = proxyFor('invites');
 const inviteEvents = proxyFor('inviteEvents');
 const themeEvents = proxyFor('themeEvents');
+const chatEvents = proxyFor('chatEvents');
 const iconSvgs = proxyFor('iconSvgs');
 const moduleActivity = proxyFor('moduleActivity');
 const externalCalendars = proxyFor('externalCalendars');
@@ -4235,6 +4236,31 @@ app.get('/api/spaces/:id/chat', (req, res) => {
   res.json({ messages: chatHistory.list(found.space.id, found.who.user ? found.who.user.key : null), clearedAt: chatHistory.clearedAt(found.space.id) });
 });
 
+// A server-sent stream of what happens to a space's public chat, so a page that is not in the space's call (Home's
+// chat, over the Lobby's) hears it live. Same rules as reading the chat. Each event is one default `message` whose
+// data is what tellChat sends, as { type, ... }: chat (a new public message, as stored), chat-delete, chat-clear,
+// chat-clear-some, chat-visibility, chat-preview, chat-kept. A private message is never sent. { type: 'ready' } comes
+// first, once the stream is listening, so a page reads the history after it (nothing is replayed on a reconnect).
+app.get('/api/spaces/:id/chat/stream', (req, res) => {
+  const found = chatSpaceFor(req, res, 'chatRead');
+  if (!found) return;
+  const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
+  const spaceId = found.space.id;
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders();
+  res.write('retry: 5000\n\n');
+  const onChat = listenIn(env, (id, data) => {
+    if (id === spaceId) res.write(`data: ${JSON.stringify(data)}\n\n`);
+  });
+  chatEvents.on('chat', onChat);
+  res.write(`data: ${JSON.stringify({ type: 'ready' })}\n\n`);
+  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  req.on('close', () => envContext.run(env, () => {
+    clearInterval(beat);
+    chatEvents.off('chat', onChat);
+  }));
+});
+
 // An owner, or a member ticked as moderator in this space. Guests are neither.
 function chatModerator(who, space) {
   if (!who.user) return false;
@@ -4245,6 +4271,12 @@ function chatModerator(who, space) {
 // People in the call hear about a delete at once. The stored history is what a later join reads. No call service
 // (or it does not answer) still leaves the history updated; the page sends the same notice itself.
 function tellChat(spaceId, data) {
+  // Home's chat (and any page reading GET /api/spaces/:id/chat/stream) hears the same notice without the call.
+  try {
+    chatEvents.emit('chat', spaceId, data);
+  } catch (err) {
+    console.error(`A chat stream's listener failed: ${err.stack || err.message}`);
+  }
   try {
     const payload = new TextEncoder().encode(JSON.stringify(data));
     callService.sendData(callName(spaceId), payload, DataPacket_Kind.RELIABLE, { topic: 'chat' }).catch(() => {});
@@ -4363,6 +4395,14 @@ app.post('/api/spaces/:id/chat', (req, res) => {
     text: req.body?.text,
     link: findLink(typeof req.body?.text === 'string' ? req.body.text : ''),
   });
+  // Told to the stream at once. For the Lobby the call's data channel hears it too, as the sender's own page would
+  // have sent it, so a page still in the Lobby's call (a guest link, an old page) sees what was said from Home; a page
+  // that already drew this id (the sender's own) ignores the repeat.
+  if (message) {
+    const notice = { type: 'chat', ...message };
+    if (space.id === LOBBY) tellChat(space.id, notice);
+    else chatEvents.emit('chat', space.id, notice);
+  }
   res.json({ message });
 });
 

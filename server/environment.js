@@ -134,6 +134,11 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   const themeEvents = new EventEmitter();
   themeEvents.setMaxListeners(0);
 
+  // What the server tells a space's chat (tellChat in index.js), for GET /api/spaces/:id/chat/stream: emits
+  // ('chat', spaceId, { type, ... }).
+  const chatEvents = new EventEmitter();
+  chatEvents.setMaxListeners(0);
+
   const chatHistory = new ChatHistory(dataDir);
   // Once, on the first start after the one chat store (plan-chat-model.md): the old private AI threads move in as
   // private messages, and ai-threads.json is renamed to ai-threads.moved.json. A later start does nothing.
@@ -232,7 +237,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   return {
     slug, dataDir,
     store, modules, moduleData, moduleHooks, chatHistory, attention, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
-    geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatPosts, chatPreviewsAsked, iconSvgs,
+    geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatEvents, chatPosts, chatPreviewsAsked, iconSvgs,
     moduleActivity, noteActivity, saveActivity, externalCalendars,
   };
 }

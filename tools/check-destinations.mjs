@@ -277,7 +277,7 @@ const globeZip = writeModule('dest-globe', [{ id: 'map', part: 'main', entry: 'd
 });
 const pinsZip = writeModule('dest-pins', [{ id: 'map', part: 'panel', entry: 'dest-pins.html', label: 'Places' }], {
   scope: ['environment', 'space', 'person'],
-  refs: { produces: [{ kind: 'pin', name: 'Pin', key: 'pin:{id}', summary: { title: 'title', place: 'point', amount: 'cost', planned: 'estimate', paidBy: 'payer', sharedBy: 'sharers' } }] },
+  refs: { produces: [{ kind: 'pin', name: 'Pin', key: 'pin:{id}', summary: { title: 'title', place: 'point', category: 'cat', icon: 'icon', visit: 'visit', spaces: 'marks', amount: 'cost', planned: 'estimate', paidBy: 'payer', sharedBy: 'sharers' } }] },
   // A place search, as Places has, for marking a result used.
   settings: [
     { key: 'searchProvider', label: 'Place search', type: 'choice', scope: 'environment', default: 'none', options: [{ value: 'none', label: 'None' }, { value: 'custom', label: 'Mine' }] },
@@ -865,6 +865,57 @@ try {
     const anon = await call('GET', `/api/objects/search?from=dest-globe&scope=space&space=${keep}&has=amount`);
     assert.equal(anon.status, 401, 'nobody signed in');
     for (const id of ['c-ok', 'c-big', 'c-zero', 'c-neg', 'c-text', 'c-long', 'c-none']) await call('DELETE', `/api/modules/dest-pins/data/pin:${id}?scope=space&space=${keep}`, { token: aliceT });
+  });
+
+  // plan-places-library.md, step 1: a summary may carry icon, visit and spaces, the category id may run to 30 characters,
+  // and the environment can be searched for the objects marked into one space.
+  await test('search: icon, visit, spaces and a 30-character category; in=<space> finds the environment objects marked for it', async () => {
+    const putEnv = async (id, value) => {
+      const r = await call('PUT', `/api/modules/dest-pins/data/pin:${id}?scope=environment`, { token: aliceT, body: { value: { title: `Mark ${id}`, ...value } } });
+      assert.equal(r.status, 200, r.text);
+    };
+    const long30 = 'a'.repeat(30);
+    await putEnv('m-ok', { icon: 'mug-hot', visit: 'booked', cat: 'Eat-Out', marks: [keep, tower, keep, 'nowhere', 7] });
+    await putEnv('m-bad', { icon: 'no-such-icon-at-all', visit: 'maybe', cat: 'a'.repeat(31), marks: 'all' });
+    await putEnv('m-shape', { icon: 'Mug Hot', visit: 5, cat: long30, marks: [] });
+    await putEnv('m-many', { marks: [keep] });
+    for (const v of ['want', 'booked', 'visited', 'favorite']) await putEnv(`m-${v}`, { visit: v, marks: [tower] });
+    const manyIds = [];
+    for (let i = 0; i < 22; i += 1) {
+      const r = await call('POST', '/api/spaces', { token: admin, body: { name: `Many ${i}`, members: [alice] } });
+      manyIds.push(r.json.space.id);
+    }
+    await putEnv('m-twenty', { marks: manyIds });
+    const search = async (token, query) => {
+      const res = await call('GET', `/api/objects/search?from=dest-globe&scope=environment&${query}`, { token });
+      assert.equal(res.status, 200, res.text);
+      return Object.fromEntries(res.json.summaries.map((x) => [x.ref.id, x]));
+    };
+    const all = await search(aliceT, 'q=mark%20m-');
+    assert.deepEqual([all['m-ok'].icon, all['m-ok'].visit, all['m-ok'].category, all['m-ok'].spaces], ['mug-hot', 'booked', 'eat-out', [keep, tower]], 'valid ones kept; spaces repeated, unknown or not ids dropped');
+    assert.deepEqual([all['m-bad'].icon, all['m-bad'].visit, all['m-bad'].category, all['m-bad'].spaces], [undefined, undefined, undefined, undefined], 'an unknown icon, an unknown state, a 31-character category and a non-list are dropped');
+    assert.deepEqual([all['m-shape'].icon, all['m-shape'].visit, all['m-shape'].category, all['m-shape'].spaces], [undefined, undefined, long30, undefined], 'a bad icon name and a number are dropped; 30 characters of category is kept; an empty list is left out');
+    for (const v of ['want', 'booked', 'visited', 'favorite']) assert.equal(all[`m-${v}`].visit, v, `${v} is kept`);
+    assert.equal(all['m-twenty'].spaces.length, 20, 'at most 20 spaces');
+    // Searching by space.
+    const inKeep = await search(aliceT, `in=${keep}`);
+    assert.deepEqual(Object.keys(inKeep).sort(), ['m-many', 'm-ok'], 'a member finds the objects marked into the space');
+    assert.deepEqual(Object.keys(await search(aliceT, `in=${tower}`)).sort(), ['m-booked', 'm-favorite', 'm-ok', 'm-visited', 'm-want'], 'and only that space\'s');
+    assert.deepEqual(Object.keys(await search(aliceT, `in=${keep}&q=many`)), ['m-many'], 'q still filters');
+    assert.deepEqual(Object.keys(await search(bobT, `in=${keep}`)).sort(), ['m-many', 'm-ok'], 'another member of the space finds them too');
+    const refuse = async (token, query) => {
+      const r = await call('GET', `/api/objects/search?from=dest-globe&${query}`, { token });
+      return [r.status, r.json.error];
+    };
+    assert.deepEqual(await refuse(bobT, `scope=environment&in=${tower}`), [403, 'you are not in that space'], 'someone outside the space finds none');
+    assert.deepEqual(await refuse(carolT, `scope=environment&in=${keep}`), [403, 'you are not in that space']);
+    assert.deepEqual(await refuse(aliceT, 'scope=environment&in=nowhere'), [404, 'no such space']);
+    assert.deepEqual(await refuse(aliceT, `scope=space&space=${keep}&in=${keep}`), [400, 'in works only with the environment scope']);
+    assert.deepEqual(await refuse(undefined, `scope=environment&in=${keep}&guest=${encodeURIComponent(guest)}`), [403, 'guests can only search one space'], 'a guest link has no environment objects');
+    assert.equal((await call('GET', `/api/objects/search?from=dest-globe&scope=environment&in=${keep}`)).status, 401, 'nobody signed in');
+    assert.ok(Object.keys(await search(aliceT, '')).includes('m-ok'), 'without in, the whole environment as before');
+    assert.deepEqual(Object.keys(await search(aliceT, 'in=')).includes('m-bad'), true, 'an empty in is no in');
+    for (const id of ['m-ok', 'm-bad', 'm-shape', 'm-many', 'm-want', 'm-booked', 'm-visited', 'm-favorite', 'm-twenty']) await call('DELETE', `/api/modules/dest-pins/data/pin:${id}?scope=environment`, { token: aliceT });
   });
 
   await test('map: Show Map off again: everything as before', async () => {

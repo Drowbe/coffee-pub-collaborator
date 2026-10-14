@@ -72,7 +72,17 @@ function buildModule(dir) {
   const libFile = `${manifest.id}-lib.js`;
   const isLib = (f) => f === libFile || (f.startsWith(`${manifest.id}-lib-`) && f.endsWith('.js'));
   const libNames = fs.readdirSync(path.join(dir, 'src')).filter(isLib).sort((x, y) => (x === libFile ? -1 : y === libFile ? 1 : x.localeCompare(y)));
-  const lib = libNames.map((f) => read(f.slice(0, -3), 'js')).join('\n');
+  // Plain data a library carries (src/<id>-lib-<name>.json) goes in first as `const LIB_<NAME> = <json>;` (dashes in the name
+  // become underscores), so the file stays data a check can read and the code finds it as a constant.
+  const dataLib = fs.readdirSync(path.join(dir, 'src')).filter((f) => f.startsWith(`${manifest.id}-lib-`) && f.endsWith('.json')).sort()
+    .map((f) => {
+      const name = f.slice(`${manifest.id}-lib-`.length, -5);
+      if (!/^[a-z][a-z0-9-]*$/.test(name)) throw new Error(`${f}: the name after "${manifest.id}-lib-" must be lower case letters, digits and dashes`);
+      let data;
+      try { data = JSON.parse(read(f.slice(0, -5), 'json')); } catch (err) { throw new Error(`${f} is not valid JSON: ${err.message}`); }
+      return `const LIB_${name.toUpperCase().replace(/-/g, '_')} = ${JSON.stringify(data)};`;
+    });
+  const lib = [...dataLib, ...libNames.map((f) => read(f.slice(0, -3), 'js'))].join('\n');
   // Stylesheets of a library the page carries (src/<id>-lib-*.css, in name order) come before the page's own.
   const cssLib = fs.readdirSync(path.join(dir, 'src')).filter((f) => f.startsWith(`${manifest.id}-lib-`) && f.endsWith('.css')).sort().map((f) => read(f.slice(0, -4), 'css')).join('\n');
   const build = (name) => read(name, 'html')

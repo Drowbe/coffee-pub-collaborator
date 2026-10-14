@@ -110,6 +110,13 @@ const {
   // The most a picture map file (an owner's upload of picture tiles, see "A picture map" below) may weigh, in MB. A backup
   // and a restore carry the environment's folder, so it is kept well under the restore's own limit. Not a number above 0: 100.
   MAP_IMAGE_MAX_MB = '',
+  // Guests in chat (GitHub #289): how many chat messages one guest link, and one address posting as a guest, may post
+  // in a minute (default 20); how many chat streams (GET /api/spaces/:id/chat/stream) one person may hold open, a guest
+  // counted by their guest link and address (default 5); and how many one guest link may hold open in all (default 25).
+  // Not a whole number above 0: the default.
+  GUEST_CHAT_POSTS_PER_MINUTE = '',
+  CHAT_STREAMS_PER_PERSON = '',
+  CHAT_STREAMS_PER_GUEST_LINK = '',
 } = process.env;
 // The product's own name -- configuration, never code: PRODUCT_NAME, or the default when it is unset, empty or only
 // spaces. One rule, productName() in server/product-name.js, for everything the server answers and says.
@@ -3549,7 +3556,9 @@ app.patch('/api/spaces/:id', requireUser, (req, res) => {
     const onlyTheirs = Object.keys(body).every((k) => MODERATOR_SPACE_FIELDS.includes(k));
     if (!moderates || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
   }
-  res.json({ space: answeredSpace(req, store.updateSpace(req.params.id, body)) });
+  const space = store.updateSpace(req.params.id, body);
+  chatAccessChanged(); // guests turned off, say: their chat streams end now
+  res.json({ space: answeredSpace(req, space) });
 });
 // The main phase's end moved later to cover `day` (YYYY-MM-DD), every later boundary shifted by the same number of
 // days (public/phases.js coverMain; plan-one-bar.md step 1), for anyone who can write in a module that is on in this
@@ -3577,6 +3586,7 @@ app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   chatHistory.forgetSpace(req.params.id);
   attention.forgetSpace(req.params.id);
   facts.forgetSpace(req.params.id);
+  chatAccessChanged();
   res.json({ ok: true });
 });
 app.put('/api/spaces/:id/image', requireOwner, rawImage, checkStorageCap, (req, res) => {
@@ -3606,10 +3616,12 @@ function requireCanInvite(req, res, next) {
 }
 app.post('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   const guestToken = req.body?.regenerate ? store.regenerateGuestLink(req.params.id) : store.enableGuestLink(req.params.id);
+  chatAccessChanged(); // a regenerated link's old token ends its chat streams now
   res.json({ space: answeredSpace(req, store.spaceById(req.params.id)), guestUrl: `${baseUrl(req)}/guest/${guestToken}` });
 });
 app.delete('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   store.disableGuestLink(req.params.id);
+  chatAccessChanged(); // its chat streams end now
   res.json({ space: answeredSpace(req, store.spaceById(req.params.id)) });
 });
 
@@ -4295,17 +4307,73 @@ app.delete('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(false));
 // was said (see server/chat-history.js for what is kept and for how long). Only a space has a chat: an aside is not
 // a space (plan-names step 8), so its id answers 404 here, reading or posting. Reading needs the "open and read the chat" permission, posting "send chat messages", and the person
 // must be in the space (or an owner, or a guest of that space).
-function chatSpaceFor(req, res, permission) {
+// The rule itself, apart from answering: { who, space }, or { status, error }. The chat stream asks it again while it is
+// open (chatStreamRecheck), so a guest link turned off or regenerated, a session that ended or a person taken out of
+// the space ends the stream.
+function chatAccess(req, spaceId, permission) {
   const who = moduleViewer(req);
   // The access key is for a module's keyed page, never the chat: it answers as signed out (layoutSpaceFor does the same).
-  if (!who || who.keyed) return void res.status(401).json({ error: 'sign in first' });
-  const space = store.spaceById(req.params.id);
-  if (!space) return void res.status(404).json({ error: `no such ${word('space')}` });
+  if (!who || who.keyed) {
+    // A guest token that names no space (turned off, regenerated, never was) says so, rather than "sign in first".
+    const deadLink = !who && typeof req.query.guest === 'string' && req.query.guest !== '';
+    return { status: 401, error: deadLink ? `that ${word('guest')} link is off or wrong` : 'sign in first' };
+  }
+  const space = store.spaceById(spaceId);
+  if (!space) return { status: 404, error: `no such ${word('space')}` };
   const allowed = who.user ? hasOwnerRights(who.user) || space.members.includes(who.user.key) : who.guestSpace.id === space.id;
-  if (!allowed) return void res.status(403).json({ error: `you are not in that ${word('space')}` });
+  if (!allowed) return { status: 403, error: `you are not in that ${word('space')}` };
   const perms = who.user ? store.spacePermissions(who.user.key, space.id) : store.roleSet('guest');
-  if (!perms[permission]) return void res.status(403).json({ error: 'your role cannot do that' });
+  if (!perms[permission]) return { status: 403, error: 'your role cannot do that' };
   return { who, space };
+}
+function chatSpaceFor(req, res, permission) {
+  const found = chatAccess(req, req.params.id, permission);
+  if (found.error) return void res.status(found.status).json({ error: found.error });
+  return found;
+}
+
+// --- guests in chat: the abuse limits (GitHub #289) -------------------------------------------------------------------
+// A guest has no account, and one guest link is shared by everyone it was given to, so a guest's posts are counted by
+// their guest link and by their address, each GUEST_CHAT_POSTS_PER_MINUTE a minute. Open chat streams are counted by
+// person (a guest: their guest link and address), CHAT_STREAMS_PER_PERSON at once, and by guest link,
+// CHAT_STREAMS_PER_GUEST_LINK at once. Kept per environment (the slug is in each key).
+const wholeAbove0 = (value, fallback) => {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+};
+const guestChatPostsPerMinute = wholeAbove0(GUEST_CHAT_POSTS_PER_MINUTE, 20);
+const chatStreamsPerPerson = wholeAbove0(CHAT_STREAMS_PER_PERSON, 5);
+const chatStreamsPerGuestLink = wholeAbove0(CHAT_STREAMS_PER_GUEST_LINK, 25);
+const guestChatPosts = new Map(); // key -> post times in the last minute
+const chatStreamsOpen = new Map(); // key -> streams open now
+const chatSlug = () => currentEnvironment().slug || '';
+// The seconds until one more post is allowed under every key, or 0 when it is allowed now (and then it is counted).
+function guestPostWait(keys) {
+  const now = Date.now();
+  let wait = 0;
+  const kept = keys.map((key) => {
+    const recent = (guestChatPosts.get(key) || []).filter((t) => now - t < 60000);
+    if (recent.length >= guestChatPostsPerMinute) wait = Math.max(wait, Math.ceil((recent[0] + 60000 - now) / 1000));
+    return [key, recent];
+  });
+  for (const [key, recent] of kept) {
+    if (!wait) recent.push(now);
+    if (recent.length) guestChatPosts.set(key, recent);
+    else guestChatPosts.delete(key);
+  }
+  return wait;
+}
+// Old entries go once a minute, so the map holds only who posted lately.
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, times] of guestChatPosts) if (!times.some((t) => now - t < 60000)) guestChatPosts.delete(key);
+}, 60000).unref();
+// The keys a stream counts under, each with its most: [[key, most], ...].
+function chatStreamKeys(req, who) {
+  const slug = chatSlug();
+  if (who.user) return [[`${slug}|person|${who.user.key}`, chatStreamsPerPerson]];
+  const token = req.query.guest;
+  return [[`${slug}|guest|${token}|${req.ip || 'unknown'}`, chatStreamsPerPerson], [`${slug}|link|${token}`, chatStreamsPerGuestLink]];
 }
 
 app.get('/api/spaces/:id/chat', (req, res) => {
@@ -4320,25 +4388,81 @@ app.get('/api/spaces/:id/chat', (req, res) => {
 // data is what tellChat sends, as { type, ... }: chat (a new public message, as stored), chat-delete, chat-clear,
 // chat-clear-some, chat-visibility, chat-preview, chat-kept. A private message is never sent. { type: 'ready' } comes
 // first, once the stream is listening, so a page reads the history after it (nothing is replayed on a reconnect).
+// A space's guest reads it with ?guest=<token> (GitHub #289). The access is asked again before each event, every
+// CHAT_STREAM_RECHECK_MS, and at once when a guest link changes (chatAccessChanged): once it no longer holds (the guest
+// link turned off or regenerated, the session ended, the person taken out of the space), a last { type: 'closed',
+// error } is sent and the stream ends. Too many open at once (chatStreamKeys) answers 429.
+const CHAT_STREAM_RECHECK_MS = 2000;
 app.get('/api/spaces/:id/chat/stream', (req, res) => {
   const found = chatSpaceFor(req, res, 'chatRead');
   if (!found) return;
+  const keys = chatStreamKeys(req, found.who);
+  const full = keys.find(([key, most]) => (chatStreamsOpen.get(key) || 0) >= most);
+  if (full) {
+    const said = full === keys[0]
+      ? `you have too many chat streams open (${full[1]} at most); close one and try again`
+      : `this ${word('guest')} link has too many chat streams open (${full[1]} at most); close one and try again`;
+    return res.status(429).json({ error: said });
+  }
+  for (const [key] of keys) chatStreamsOpen.set(key, (chatStreamsOpen.get(key) || 0) + 1);
   const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
   const spaceId = found.space.id;
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
   res.flushHeaders();
   res.write('retry: 5000\n\n');
+  let ended = false;
+  let beat = null;
+  let recheck = null;
   const onChat = listenIn(env, (id, data) => {
-    if (id === spaceId) res.write(`data: ${JSON.stringify(data)}\n\n`);
+    if (id !== spaceId || !stillAllowed()) return;
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
   });
-  chatEvents.on('chat', onChat);
-  res.write(`data: ${JSON.stringify({ type: 'ready' })}\n\n`);
-  const beat = setInterval(() => res.write(': ping\n\n'), 25000);
-  req.on('close', () => envContext.run(env, () => {
+  const onAccess = listenIn(env, () => stillAllowed());
+  const cleanup = () => {
+    if (ended) return;
+    ended = true;
     clearInterval(beat);
+    clearInterval(recheck);
     chatEvents.off('chat', onChat);
-  }));
+    chatEvents.off('access', onAccess);
+    for (const [key] of keys) {
+      const left = (chatStreamsOpen.get(key) || 1) - 1;
+      if (left > 0) chatStreamsOpen.set(key, left);
+      else chatStreamsOpen.delete(key);
+    }
+  };
+  // Asked in this request's environment; the cached person is dropped first, so a session that ended is seen.
+  function stillAllowed() {
+    if (ended) return false;
+    req._user = undefined;
+    const now = chatAccess(req, spaceId, 'chatRead');
+    if (!now.error && Boolean(now.who.user) === Boolean(found.who.user)) return true;
+    const error = now.error || 'sign in first';
+    try {
+      res.write(`data: ${JSON.stringify({ type: 'closed', error })}\n\n`);
+      res.end();
+    } catch {
+      // already gone
+    }
+    cleanup();
+    return false;
+  }
+  chatEvents.on('chat', onChat);
+  chatEvents.on('access', onAccess);
+  res.write(`data: ${JSON.stringify({ type: 'ready' })}\n\n`);
+  beat = setInterval(() => res.write(': ping\n\n'), 25000);
+  recheck = setInterval(() => envContext.run(env, () => stillAllowed()), CHAT_STREAM_RECHECK_MS);
+  req.on('close', () => envContext.run(env, cleanup));
 });
+// Something that changes who may read a chat happened (a guest link turned off or regenerated, a space changed or
+// deleted): every open stream in this environment asks again now rather than at its next recheck.
+function chatAccessChanged() {
+  try {
+    chatEvents.emit('access');
+  } catch (err) {
+    console.error(`A chat stream's access check failed: ${err.stack || err.message}`);
+  }
+}
 
 // An owner, or a member ticked as moderator in this space. Guests are neither.
 function chatModerator(who, space) {
@@ -4465,6 +4589,14 @@ app.post('/api/spaces/:id/chat', (req, res) => {
   if (!found) return;
   const { who, space } = found;
   const key = who.user ? who.user.key : `guest:${space.id}`;
+  if (!who.user) {
+    const slug = chatSlug();
+    const wait = guestPostWait([`${slug}|link|${req.query.guest}`, `${slug}|ip|${req.ip || 'unknown'}`]);
+    if (wait) {
+      return res.status(429).set('Retry-After', String(wait))
+        .json({ error: `${word('guest', { many: true, cap: true })} can post ${guestChatPostsPerMinute} messages a minute; try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}` });
+    }
+  }
   if (chatPostLimited(key)) return res.status(429).json({ error: 'too many messages, slow down' });
   // Always an ordinary public message: private ones are made only by the command and AI routes. Its first link
   // (plan-chat-links.md) is stored as `preview: { url }` at once; nothing is fetched here.

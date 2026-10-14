@@ -5,6 +5,8 @@
  * DATA_DIR under the temp folder. Checks: the same rules as reading the chat (signed out 401, a stranger or another
  * space's guest 403, a member, the owner and the space's guest in), a posted message arrives with its stored id, delete /
  * visibility / clear arrive, a private message never does, another space's events don't, and a reconnect works.
+ * A guest's stream ends with a last `closed` event when the guest link is regenerated (GitHub #289; more in
+ * check-guest-chat.mjs).
  * What can't be checked here: the relay of Lobby messages to the call's data channel (no LiveKit server).
  */
 import assert from 'node:assert/strict';
@@ -188,6 +190,19 @@ try {
   same((await call('GET', L, { cookie: patCookie })).json.messages.map((m) => m.text), ['while away'], 'the history has what was missed');
   const next = (await call('POST', L, { cookie: samCookie, body: { text: 'after' } })).json.message;
   await again.until((e) => e.type === 'chat' && e.id === next.id);
+
+  // --- a guest's stream ends when their guest link changes (GitHub #289) -------------------------------------------
+  // The guest's stream (opened above) is still listening: regenerating the Lobby's guest link ends it at once, with a
+  // last `closed` event, and the old token is refused from then on.
+  const ended = new Promise((resolve) => { const t = setInterval(() => { if (guest.events.some((e) => e.type === 'closed')) { clearInterval(t); resolve(true); } }, 50); setTimeout(() => { clearInterval(t); resolve(false); }, 3000); });
+  same((await call('POST', '/api/spaces/lobby/guest-link', { cookie: owner, body: { regenerate: true } })).status, 200);
+  ok(await ended, "regenerating the guest link ends the old token's stream");
+  same(guest.events.at(-1), { type: 'closed', error: 'that guest link is off or wrong' }, 'saying why');
+  const oldToken = await watch(`${L}/stream?guest=${encodeURIComponent(lobbyGuest)}`, null);
+  same([oldToken.status, JSON.parse(oldToken.text).error], [401, 'that guest link is off or wrong'], 'the old token is refused');
+  // Members' streams are untouched by it.
+  const still = (await call('POST', L, { cookie: samCookie, body: { text: 'still listening' } })).json.message;
+  await again.until((e) => e.type === 'chat' && e.id === still.id);
 
   // --- the server stops cleanly with streams open --------------------------------------------------------------
   const exited = new Promise((r) => child.once('exit', (code, sig) => r({ code, sig })));

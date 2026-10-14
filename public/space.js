@@ -3557,6 +3557,7 @@ function publishChat(data) {
 async function sendChatText(text) {
   const stored = await postChatMessage(text);
   if (stored?.id) {
+    dropChatMessage(stored.id); // a guest's stream can draw it before this answer comes back (GitHub #289): drawn as mine
     const entry = storedEntry(stored);
     // Its link's preview is asked for now (below): nothing is drawn under it until that answers.
     const asking = Boolean(entry.preview && !entry.preview.at && me?.key && me.role !== 'guest' && !guestToken);
@@ -4958,6 +4959,7 @@ call
   .on(RoomEvent.Disconnected, () => {
     viewingHome = false; // no space left to show home over
     hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
+    closeGuestChatStream();
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
     stopCallTime();
@@ -5293,6 +5295,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
       if (chatInput) chatInput.loadThread();
       loadLinkKeeper(currentSpace.id); // who keeps links here, and whether this person may (plan-chat-links.md)
     }
+    syncGuestChatStream(); // a guest in the Lobby reads its chat from the server too (GitHub #289)
     canvas.updateMenu();
     // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
     // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
@@ -6943,20 +6946,84 @@ async function catchUpHomeChat() {
   }
   const history = got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt);
   if (homeChatSpace) {
-    const have = new Set(history.map((e) => e.id));
-    const oldest = history.length ? Math.min(...history.map((e) => e.at.getTime())) : Infinity;
-    const gone = chatLog.filter((e) => e.stored && chatIdOk(e.id) && !have.has(e.id) && e.at.getTime() >= oldest);
-    if (gone.length) dropChatEntries(gone);
-    for (const entry of history) {
-      if (!chatIdOk(entry.id) || chatMessageNode(entry.id)) continue;
-      addEntry(entry, ownEntry(entry));
-    }
+    mergeChatHistory(history);
     return;
   }
   for (const e of history) {
     if (chatIdOk(e.id) && e.visibility !== 'private' && e.by !== me?.key && e.at.getTime() > homeSeenAt) homeUnreadIds.add(e.id);
   }
   paintHomeUnread();
+}
+// The history read again into the chat in sight: what it missed drawn, what was deleted meanwhile taken off.
+function mergeChatHistory(history) {
+  const have = new Set(history.map((e) => e.id));
+  const oldest = history.length ? Math.min(...history.map((e) => e.at.getTime())) : Infinity;
+  const gone = chatLog.filter((e) => e.stored && chatIdOk(e.id) && !have.has(e.id) && e.at.getTime() >= oldest);
+  if (gone.length) dropChatEntries(gone);
+  for (const entry of history) {
+    if (!chatIdOk(entry.id) || chatMessageNode(entry.id)) continue;
+    addEntry(entry, ownEntry(entry));
+  }
+}
+// --- A guest on the Lobby's guest link (GitHub #289) -----------------------------------------------------------------
+// Home's chat is the Lobby's chat, and a guest has no Home: the guest's page is in the Lobby's call, its chat in the
+// column, posting through the same route with the guest token. What is said from Home reaches the call too (the server
+// relays it), but the guest also reads the Lobby's chat stream with their token (GET /api/spaces/lobby/chat/stream?guest=),
+// read as the call's notices are (a repeat of one already drawn is ignored), so nothing depends on the call carrying it;
+// every `ready` after the first catches up from the history. The server ends it with a last `closed` once the guest
+// link is turned off or regenerated. No Assistant and no commands for a guest: those stay as they are.
+let guestChatStream = null;
+function guestStreamWanted() {
+  return Boolean(guestToken) && currentSpace?.id === LOBBY && call.state === 'connected' && canDo('chatRead');
+}
+function syncGuestChatStream() {
+  if (!guestStreamWanted()) {
+    closeGuestChatStream();
+    return;
+  }
+  if (guestChatStream || typeof EventSource !== 'function') return;
+  const source = new EventSource(`/api/spaces/${LOBBY}/chat/stream?guest=${encodeURIComponent(guestToken)}`);
+  let ready = 0;
+  source.addEventListener('message', (event) => {
+    if (guestChatStream !== source) return;
+    let data = null;
+    try { data = JSON.parse(event.data); } catch { return; }
+    if (data?.type === 'ready') {
+      ready += 1;
+      if (ready > 1) catchUpGuestChat(); // back after a drop: what was said meanwhile
+      return;
+    }
+    if (data?.type === 'closed') {
+      closeGuestChatStream(); // the guest link is off: the server will not take it back
+      return;
+    }
+    guestChatNotice(data);
+  });
+  guestChatStream = source;
+}
+function closeGuestChatStream() {
+  guestChatStream?.close();
+  guestChatStream = null;
+}
+function guestChatNotice(data) {
+  if (!data || typeof data.type !== 'string' || !guestStreamWanted()) return;
+  if (data.type === 'chat' && chatIdOk(data.id)) {
+    if (!chatMessageNode(data.id)) addEntry(storedEntry(data), false);
+  } else if (data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, null);
+  else if (data.type === 'chat-visibility') applyVisibilityNotice(data, null);
+  else if (data.type === 'chat-clear-some') applyClearNotice(data, null);
+  else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, null);
+  else if (data.type === 'chat-clear') dropSharedChat();
+}
+async function catchUpGuestChat() {
+  let got = null;
+  try {
+    got = await fetchChatHistory(LOBBY);
+  } catch {
+    return; // the next reconnect tries again
+  }
+  if (!guestStreamWanted()) return;
+  mergeChatHistory(got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt));
 }
 // The column's width: dragged on its inner edge (#home-chat-splitter), or with the keyboard as the space column's edge
 // (splitterKey); between COLUMN_MIN and the whole window, remembered in this browser (prefs.homeChatWidth). What is left

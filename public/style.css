@@ -10744,7 +10744,7 @@ h4.setup-subheading {
 }
 
 .setup-status {
-  margin: 0;
+  margin: 8px 0 0; /* clear of the last hint above it */
   padding: 0 16px;
   color: var(--danger-text);
   font-size: 13px;

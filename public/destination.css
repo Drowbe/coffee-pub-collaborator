@@ -226,6 +226,31 @@ body.dest-no-webgl:not(.dest-has-tabs) .dest-side {
   }
 }
 
+/* One scroll for the stacked parts: a part that reports its height (onResize in destination.js) is as tall as its content,
+   so the main part, then the panel (its switch and list), follow each other in the page's one scroll, with no scroll of
+   their own and no fixed split. A part that does not report (the map) keeps its set height. Not on a phone's tabs. */
+@media (max-width: 820px) {
+  body.destination-page:not(.dest-has-tabs):not(.dest-no-webgl) .dest-main.sized {
+    height: auto;
+  }
+
+  body.destination-page:not(.dest-has-tabs) .dest-side.sized {
+    flex: none;
+    height: auto;
+  }
+
+  body.destination-page:not(.dest-has-tabs) .dest-side.sized .dest-side-body,
+  body.destination-page:not(.dest-has-tabs) .dest-side.sized .dest-side-part {
+    flex: none;
+  }
+
+  body.destination-page:not(.dest-has-tabs) .sized > .dest-part-frame,
+  body.destination-page:not(.dest-has-tabs) .sized > .dest-part-root {
+    flex: none;
+    height: var(--part-h);
+  }
+}
+
 @media (max-width: 640px) {
   .dest-side {
     flex: 1;

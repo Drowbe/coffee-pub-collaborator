@@ -48,10 +48,12 @@
   /* The status bar at the bottom of a module's own window or column (host.status.set): one slim, fixed line.
      public/sdk/host.css has the same token. */
   --status-bar-h: 24px;
-  /* The space's status strip (plan-space-status-strip.md: the phase chip and its track): one fixed line, the header's
-     second row wider than a phone and a line under the top row on a phone, so it never changes the header's height as
+  /* The space's status strip (plan-space-status-strip.md: the phase chip and its track; plan-space-story-strip.md,
+     drawing B: a taller journey bar): one fixed line, the header's second row wider than a phone (--status-strip-h)
+     and a slim line under the top row on a phone (--status-strip-slim-h), so it never changes the header's height as
      its words arrive. Not the module status bar above. */
-  --status-strip-h: 28px;
+  --status-strip-h: 44px;
+  --status-strip-slim-h: 28px;
   /* The height of every control in the shared bottom row (the call toolbar's buttons, the chat's input and
      Send), so they line up whatever cell they are in. */
   --bar-control-h: 38px;
@@ -8689,18 +8691,23 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 @media (max-width: 640px) { .published-calendar { margin-left: 0; } }
 /* calendars-tab:end */
 
-/* status-strip:start -- the space's status strip (plan-space-status-strip.md, step 1; space.js, "the status strip"):
-   the phase chip ("● Booking · day 2 of 3 ▾", a button that opens the timeline sheet) and the track beside it (the
-   phases end to end, today's filled, a mark at today; a press opens the sheet too). Wider than a phone it is the space
-   bar's left zone (.subnav, the header's second row) and that row is --status-strip-h tall; on a phone it is a line of
-   the header under the top row (space.js placeSubnav moves it). One line only: the track shrinks to 48px, then drops
-   to a second line the strip does not show; the chip keeps its label. The dot never stands alone for meaning: the
-   words stay the chip's name. Colours from the theme's tokens only. */
+/* status-strip:start -- the space's status strip (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps
+   1 and 2, drawing B: a taller journey bar; space.js, "the status strip"): the phase chip ("● Booking starts tomorrow ·
+   Trip in 35 days", a button that opens the timeline sheet; no caret) and the journey bar beside it (the phases end to
+   end, each named where it fits, the past pale, today's filled with the accent, the rest outlined, the main one
+   heavier, a pin at today with the day of the month), the days to go, then the slot kept for the facts and the count.
+   Wider than a phone it is the space bar's left zone (.subnav, the header's second row) and that row is
+   --status-strip-h tall; on a phone it is a slim line of the header under the top row (space.js placeSubnav moves it),
+   --status-strip-slim-h. One line only, and things give way in this order as the line narrows: the facts' slot (it wraps
+   first, out of sight), the names in the bands (below 760px, or a band too narrow for its name), the days to go, the
+   bar (at 48px it wraps out of sight), and last the end of the sentence (its clauses drop whole, the first is cut with
+   an ellipsis). The dot never stands alone for meaning: the words stay the chip's name. Colours from the theme's
+   tokens only. */
 .status-strip {
   display: flex;
-  flex-wrap: wrap; /* the track's way out: below 48px it wraps onto a line that is cut off */
+  flex-wrap: wrap; /* the way out: what does not fit wraps onto a line that is cut off */
   align-items: center;
-  column-gap: 10px;
+  column-gap: 12px;
   box-sizing: border-box;
   height: calc(var(--status-strip-h) - 1px); /* the row's 1px top rule makes it --status-strip-h */
   min-width: 0;
@@ -8742,16 +8749,16 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   display: inline-flex;
   flex: 0 1 auto;
   align-items: center;
-  gap: 6px;
-  height: 22px;
+  gap: 7px;
+  height: 30px;
   min-width: 0;
-  padding: 0 8px;
+  padding: 0 10px 0 8px;
   border: 0;
   border-radius: 6px;
   background: none;
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+  color: var(--header-text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -8770,65 +8777,214 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 
 .phase-dot {
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
   border-radius: 50%;
   background: var(--accent);
 }
 
+/* The sentence: the first clause keeps its line and is cut with an ellipsis; each later clause is all or nothing,
+   wrapping onto a second line the label does not show. */
 .status-strip .phase-chip .phase-chip-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  min-width: 0;
+  height: 1.4em;
+  line-height: 1.4em;
+  overflow: hidden;
+}
+
+.status-strip .phase-chip .story-part {
+  flex: none;
+  white-space: pre;
+}
+
+.status-strip .phase-chip .story-lead {
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* The phase's name alone, for a phone (below). */
-.status-strip .phase-chip .phase-chip-short {
-  display: none;
+.status-strip .phase-chip .story-part:not(.story-lead) {
+  font-weight: 500;
+  color: color-mix(in srgb, currentColor 80%, transparent);
 }
 
-/* The track: a least of 48px (else it wraps out of sight), up to 320px. */
+/* The journey bar: a least of 48px (else it wraps out of sight), up to 880px. */
 .status-track {
   display: flex;
   flex: 1 1 48px;
-  gap: 2px;
+  gap: 3px;
   min-width: 48px;
-  max-width: 320px;
-  height: 6px;
+  max-width: 880px;
+  height: 24px;
   cursor: pointer;
+}
+
+/* Today before the first phase or after the last: the pin at that end, the bands kept clear of it. */
+.status-track.lead,
+.status-track.trail {
+  position: relative;
+}
+
+.status-track.lead {
+  padding-left: 32px;
+}
+
+.status-track.trail {
+  padding-right: 32px;
+}
+
+.status-track.lead > .status-today {
+  left: 14px;
+}
+
+.status-track.trail > .status-today {
+  left: calc(100% - 14px);
 }
 
 .status-band {
   position: relative;
   flex-basis: 0;
-  min-width: 3px;
-  border-radius: 3px;
+  min-width: 4px;
+  border-radius: 6px;
   box-shadow: inset 0 0 0 1px var(--border);
+  color: color-mix(in srgb, var(--header-text) 75%, transparent);
+}
+
+.status-band.main {
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 60%, var(--border));
+  color: var(--header-text);
+  font-weight: 700;
 }
 
 .status-band.past {
-  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
   box-shadow: none;
 }
 
 .status-band.current {
   background: var(--accent);
   box-shadow: none;
+  color: var(--on-accent);
+  font-weight: 700;
 }
 
+/* A band's name (and icon): beside a full-height spacer, so a name too long for its band wraps to a second line that
+   the box cuts off, rather than spilling or being cut mid-word. */
+.status-band-box {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  padding: 0 5px;
+  overflow: hidden;
+}
+
+.status-band-box::before {
+  content: "";
+  flex: none;
+  width: 0;
+  height: 100%;
+}
+
+/* Today's band keeps its name on the side the pin is not on. */
+.status-band-box.end {
+  justify-content: flex-end;
+}
+
+.status-band-name {
+  display: inline-flex;
+  flex: none;
+  align-self: center;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.status-band-name > i {
+  font-size: 10px;
+}
+
+/* The pin at today: a disc larger than the bar, ringed in the accent, with the day of the month. */
 .status-today {
   position: absolute;
-  top: -3px;
-  bottom: -3px;
-  width: 2px;
-  margin-left: -1px;
-  border-radius: 1px;
-  background: var(--header-text);
+  z-index: 1;
+  top: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  background: var(--header-bg);
+  box-shadow: 0 0 0 2px var(--header-bg);
+  color: var(--header-text);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
 }
 
-/* On a phone the strip is a line of the header under the top row (space.js placeSubnav; the space bar is the tab bar at
-   the foot): the dot and the phase's name (space.js fills .phase-chip-short; the whole words stay its name), and the
-   track a 2px line along its foot, the full width. The top row no longer has the chip. */
+/* The days to go: the number large, the words under it small. */
+.status-togo {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 0;
+  color: var(--header-text);
+  line-height: 1.1;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.status-togo[hidden] {
+  display: none;
+}
+
+.status-togo-n {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.status-togo-words {
+  font-size: 10px;
+  color: color-mix(in srgb, var(--header-text) 70%, transparent);
+}
+
+/* The slot kept for the facts and the count (plan-space-story-strip.md, steps 3 and 5). Empty for now, so it takes
+   space only where the bar still shows its names (1100px and wider); it is the last thing in the line, so it is the
+   first to wrap out of sight. */
+.status-facts {
+  flex: 0 0 0;
+  height: 100%;
+}
+
+@media (min-width: 1100px) {
+  .status-facts {
+    flex-basis: 200px;
+  }
+}
+
+/* Narrow: the names in the bands go first (the bar keeps its colours, the pin and the days to go). */
+@media (max-width: 760px) {
+  .status-strip .status-band-box {
+    display: none;
+  }
+}
+
+/* On a phone the strip is a slim line of the header under the top row (space.js placeSubnav; the space bar is the tab
+   bar at the foot): the dot and the sentence (its later clauses give way as above; the whole words stay its name), and
+   the bar a 2px line along its foot, the full width, with a small mark at today. No names, no days to go, no slot. The
+   top row no longer has the chip. */
 @media (max-width: 640px) {
   .topbar:has(> .status-strip:not([hidden])) {
     flex-wrap: wrap;
@@ -8841,7 +8997,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
     flex-wrap: nowrap;
     margin: 0 -10px;
     padding: 0 10px 2px;
-    height: var(--status-strip-h);
+    height: var(--status-strip-slim-h);
     border-top: 1px solid var(--border);
     background: var(--nav-secondary-bg);
   }
@@ -8849,18 +9005,12 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   .topbar > .status-strip .phase-chip {
     height: 100%;
     padding: 0 4px;
+    font-size: 12px;
   }
 
-  .status-strip .phase-chip .phase-chip-label {
-    display: none;
-  }
-
-  .status-strip .phase-chip .phase-chip-short {
-    display: inline-block;
-    max-width: 12em;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .topbar > .status-strip .phase-dot {
+    width: 8px;
+    height: 8px;
   }
 
   .topbar > .status-strip .status-track {
@@ -8874,6 +9024,20 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
     height: 2px;
   }
 
+  .topbar > .status-strip .status-track.lead,
+  .topbar > .status-strip .status-track.trail {
+    position: absolute;
+    padding: 0;
+  }
+
+  .topbar > .status-strip .status-track.lead > .status-today {
+    left: 1px;
+  }
+
+  .topbar > .status-strip .status-track.trail > .status-today {
+    left: calc(100% - 1px);
+  }
+
   .topbar > .status-strip .status-band {
     border-radius: 0;
   }
@@ -8881,6 +9045,19 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   .topbar > .status-strip .status-today {
     top: -2px;
     bottom: 0;
+    width: 2px;
+    height: auto;
+    margin: 0 0 0 -1px;
+    border: 0;
+    border-radius: 1px;
+    background: var(--header-text);
+    box-shadow: none;
+  }
+
+  .topbar > .status-strip .status-today-day,
+  .topbar > .status-strip .status-togo,
+  .topbar > .status-strip .status-facts {
+    display: none;
   }
 }
 /* status-strip:end */
@@ -10389,9 +10566,12 @@ h4.setup-subheading {
    wrapping row of at most two rows; what does not fit folds into its "..." (space.js, fitFloatbarInColumn). Out of the
    call it takes no room (the Join row below says it), except for a refusal of the join, which it keeps saying. */
 .side-column-strip {
-  flex: none;
+  flex: 0 1 auto; /* it gives way before the chat does: the chat keeps its share (.side-column-chat) */
+  min-height: 0;
   height: auto;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 /* The splitters: the column's inner edge (dragged, or Left and Right) and, on the call, the line between the strip and
@@ -10459,9 +10639,12 @@ h4.setup-subheading {
 }
 
 .side-column-strip > .canvas {
+  flex: 0 1 auto;
+  min-height: 0;
   height: auto;
   overflow: visible;
-  grid-template-rows: var(--side-column-strip-h, 168px) auto;
+  /* The tiles at the splitter's height, giving way first (to nothing) when the column is short; the toolbar keeps its own. */
+  grid-template-rows: minmax(0, var(--side-column-strip-h, 168px)) auto;
 }
 
 .side-column-strip .video-bar {
@@ -10564,10 +10747,15 @@ h4.setup-subheading {
 
 /* The chat, a column of its own (as it floats), its resize handle and its close gone: the column never closes. */
 .side-column-chat {
-  flex: 1;
+  flex: 1 1 0;
   min-height: 0;
   display: flex;
   flex-direction: column;
+}
+
+/* The chat's guaranteed share of the column: the call area can never take it (space.js holds the tiles to the rest). */
+body:not(.in-aside) .side-column-chat {
+  min-height: 45%;
 }
 
 .side-column-chat .chat-resize,
@@ -10719,6 +10907,123 @@ body.in-aside .side-column-strip > .canvas {
     display: none;
   }
 }
+/* The call's place (Call position, space.js): at the bottom of the column the chat comes first, then the line between
+   them, the call and the Join/Online row. */
+.side-column.call-bottom .side-column-chat {
+  order: 1;
+}
+
+.side-column.call-bottom .side-column-splitter-h {
+  order: 2;
+}
+
+.side-column.call-bottom .side-column-strip,
+.side-column.call-bottom .side-column-call-out {
+  order: 3;
+}
+
+.side-column.call-bottom .side-column-bar {
+  order: 4;
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+}
+
+/* The column's handle sits at the top right: clear of the chat's "..." when the chat is on top. */
+.side-column.call-bottom #chat-content > header {
+  padding-right: 38px;
+}
+
+/* Slim: on the call, the controls and the faces without the tiles (a short window, or the person's choice). */
+.side-column.in-call.call-slim .side-column-strip .mod-content,
+.side-column.call-slim .side-column-splitter-h,
+.side-column.call-away .side-column-splitter-h,
+.side-column.call-away .side-column-strip {
+  display: none;
+}
+
+.side-column.in-call.call-slim .side-column-strip > .canvas {
+  grid-template-rows: 0 auto;
+}
+
+.side-column.in-call.call-slim:not(.call-bottom) .side-column-strip .floatbar {
+  padding-right: 38px; /* clear of the handle */
+}
+
+/* Show or hide the video, at the end of the Join/Online row. */
+.side-column-tiles {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.side-column-tiles:hover:not(:disabled) {
+  border-color: var(--border);
+  color: var(--text);
+}
+
+.side-column-tiles:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.side-column-tiles:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.side-column-tiles[hidden] {
+  display: none;
+}
+
+/* The call out of the column (its own window, floating): a slim strip with its controls and Bring the call back. */
+.side-column-call-out {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 6px 40px 6px 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-section);
+}
+
+.side-column-call-out[hidden] {
+  display: none;
+}
+
+.side-column.call-bottom .side-column-call-out {
+  padding-right: 8px;
+  border-top: 1px solid var(--border);
+  border-bottom: 0;
+}
+
+.call-out-note {
+  flex: 1 1 100%;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.call-out-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+#call-out-mic.on,
+#call-out-deafen.on,
+#call-out-cam.on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
 /* side-column:end */
 
 /* Space settings > Modules: the modules that are on, each with its icon and name (no switch; they are on everywhere). */

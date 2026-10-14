@@ -435,7 +435,7 @@
     const tags = all.filter((e) => e.item.kind === 'block' && !e.item.time);
     const entries = all.filter((e) => !tags.includes(e));
     const head = clone('tpl-day-head');
-    if (!canEdit) hide(head.querySelector('[data-action="day-menu"]'), true);
+    if (!canEdit) hide(head.querySelector('.day-actions'), true);
     const d = parseYmd(day);
     fill(head, { daynum: String(d.getDate()), daymonth: `${d.toLocaleDateString([], { weekday: 'short' })} · ${d.toLocaleDateString([], { month: 'short' })}`, position: dayLabel(day, days).position, summary: daySummary(entries) });
     const tagBox = head.querySelector('.day-tags');
@@ -647,6 +647,96 @@
     }
     host.menu.show({ id: `add-${placeValue(place)}`, anchor: button, items });
   }
+
+  // --- the day's "..." : Move all to..., Clear this day ----------------------------------------------------------------------
+  // A day as a sentence has it: "Mon, Oct 12".
+  const dayLong = (d) => parseYmd(d).toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  // What a set of objects is called in a question: "3 stops", "3 stops and 1 marker".
+  function stopsText(ids) {
+    const all = plan.list().filter((i) => ids.includes(i.id));
+    const markers = all.filter((i) => i.kind === 'block').length;
+    const stops = all.length - markers;
+    return [words(stops, 'stop', 'stops'), words(markers, 'marker', 'markers')].filter(Boolean).join(' and ') || 'nothing';
+  }
+  function openDayMore(button, day) {
+    const clear = plan.previewClear(day);
+    host.menu.show({
+      id: `day-more-${day}`,
+      anchor: button,
+      items: [
+        { id: 'move', label: 'Move all to…', icon: 'calendar-days', hint: 'Move this day, and the days after it if you like', onClick: () => openDayDialog('move', day, button) },
+        { id: 'clear', label: 'Clear this day', icon: 'eraser', disabled: !clear.moved, hint: clear.moved ? 'Take its stops off the day and keep them' : 'Nothing on this day to take off', onClick: () => openDayDialog('clear', day, button) },
+      ],
+    });
+  }
+  const dayEditor = host.ui.editor($('day-dialog'), {
+    size: 'medium',
+    onClose: () => { if (dayPicker) dayPicker.destroy(); dayPicker = null; $('day-dialog').replaceChildren(); dayState = null; },
+  });
+  let dayPicker = null;
+  let dayState = null; // { mode: 'move' | 'clear', day }
+  // What the dialog says about the change it would make, from the same figures the change uses.
+  function daySentence() {
+    const { mode, day } = dayState;
+    if (mode === 'clear') {
+      const r = plan.previewClear(day);
+      const kept = r.kept ? ` ${words(r.kept, 'object', 'objects')} from other ${host.util.word('module', { many: true })} stay, because they follow their own date.` : '';
+      return { text: r.moved ? `Take ${stopsText(Object.keys(r.changes))} off ${dayLong(day)}? They stay in the Planner, with no date.${kept}` : `Nothing on ${dayLong(day)} to take off.${kept}`, ok: r.moved > 0 };
+    }
+    const to = $('day-to').value;
+    const rest = $('day-rest').checked;
+    if (!to || to === day) return { text: 'Pick the day to move to.', ok: false };
+    const r = plan.previewMove(day, to, rest);
+    const slides = rest && !plan.phased() && plan.trip && plan.trip.start && day === plan.days()[0];
+    if (!r.moved && !slides) return { text: rest ? `Nothing on or after ${dayLong(day)} to move.` : `Nothing on ${dayLong(day)} to move.`, ok: false };
+    const links = Object.keys(r.changes).filter((id) => (plan.list().find((i) => i.id === id) || {}).kind === 'link').length;
+    const n = Math.abs(r.delta);
+    const head = rest
+      ? `Move ${stopsText(Object.keys(r.changes))} on ${words(r.days, 'day', 'days')}, ${words(n, 'day', 'days')} ${r.delta > 0 ? 'later' : 'earlier'}.`
+      : `Move ${stopsText(Object.keys(r.changes))} to ${dayLong(to)}.`;
+    const merge = Object.values(r.changes).some((c) => plan.byDay().get(c.date) && plan.byDay().get(c.date).some((i) => !(i.id in r.changes))) ? ' Days that already have stops keep them; these go after.' : '';
+    const own = links ? ` ${words(links, 'object', 'objects')} from other ${host.util.word('module', { many: true })} move here only; each keeps its own date where it lives.` : '';
+    const trip = slides ? ' The plan\'s first and last day move too.' : '';
+    return { text: head + merge + own + trip, ok: true };
+  }
+  function openDayDialog(mode, day, from) {
+    if (!canEdit) return;
+    dayState = { mode, day, from };
+    $('day-dialog').replaceChildren(clone('tpl-day-dialog'));
+    const moving = mode === 'move';
+    hide($('day-fields'), !moving);
+    $('day-title').textContent = moving ? `Move all from ${dayLong(day)}` : `Clear ${dayLong(day)}`;
+    $('day-go').textContent = moving ? 'Move' : 'Unschedule';
+    $('day-cancel').textContent = moving ? 'Cancel' : 'Keep';
+    if (moving) {
+      $('day-to').value = day;
+      dayPicker = host.ui.datePicker($('day-to'));
+    }
+    const refresh = () => { const r = daySentence(); $('day-summary').textContent = r.text; $('day-go').disabled = !r.ok; $('day-error').hidden = true; };
+    $('day-form').addEventListener('input', refresh);
+    $('day-form').addEventListener('change', refresh);
+    refresh();
+    dayEditor.open({ focus: moving ? $('day-to') : $('day-cancel'), returnTo: () => root.querySelector(`.day2[data-day="${CSS.escape(day)}"] [data-action="day-more"]`) || from });
+  }
+  $('day-dialog').addEventListener('click', (e) => { if (e.target.closest('#day-cancel')) dayEditor.cancel(); });
+  $('day-dialog').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!dayState || !canEdit || $('day-go').disabled) return;
+    const { mode, day } = dayState;
+    const to = mode === 'move' ? $('day-to').value : '';
+    const rest = mode === 'move' && $('day-rest').checked;
+    $('day-go').disabled = true;
+    try {
+      note('');
+      if (mode === 'move') await plan.moveDays(day, to, rest); else await plan.clearDay(day);
+      dayEditor.close();
+      if (mode === 'move') { const target = $(`day-${to}`); if (target) target.scrollIntoView({ block: 'start' }); }
+    } catch (err) {
+      $('day-error').textContent = err.conflict ? 'Someone changed that first; the newer version is shown. Try again.' : err.message;
+      $('day-error').hidden = false;
+      $('day-go').disabled = false;
+    }
+  });
 
   // The button (and its small form) to add days before the first day or after the last.
   function buildEdge(where) {
@@ -2334,6 +2424,9 @@
     } else if (action === 'day-menu') {
       const dayEl = b.closest('.day2');
       if (dayEl) openAddMenu(b, { date: dayEl.dataset.day });
+    } else if (action === 'day-more') {
+      const dayEl = b.closest('.day2');
+      if (dayEl) openDayMore(b, dayEl.dataset.day);
     } else if (action === 'gap-add') {
       openAddMenu(b, { after: jointOfButton(b) }, { gap: Boolean(b.closest('.gap')) });
     } else if (action === 'toggle-empty') {

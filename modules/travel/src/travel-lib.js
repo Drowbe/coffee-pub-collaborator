@@ -315,6 +315,53 @@
     return changes;
   }
 
+  // A day's objects moved to another day (the day menu's "Move all to..."). `items` are the plan's objects with `date` set to the
+  // day each is on (an object that follows another module's object has that object's day). Not on a day: left alone.
+  // Without `rest`, the objects of `from` go to `to`. With `rest`, every day from `from` on moves by the same number of days, so
+  // the plan slides earlier or later. Objects already on a day they land on stay, and the moved ones go after them: nothing is
+  // lost. A stay's check-out moves by the same days. Returns { changes: { id: { date, order?, checkOut? } }, moved, days, delta }:
+  // how many objects, how many different days they were on, and how many days later (negative: earlier).
+  function shiftDays(items, from, to, rest) {
+    const delta = isYmd(from) && isYmd(to) ? Math.round((parseYmd(to) - parseYmd(from)) / DAY_MS) : 0;
+    const out = { changes: {}, moved: 0, days: 0, delta };
+    if (!delta) return out;
+    const dated = items.filter((i) => isYmd(i.date) && i.kind !== 'lane');
+    const picked = dated.filter((i) => (rest ? i.date >= from : i.date === from));
+    const ids = new Set(picked.map((i) => i.id));
+    const staying = dated.filter((i) => !ids.has(i.id));
+    // Moving objects land after the untimed ones already on their new day, keeping their own order among themselves.
+    const next = new Map();
+    for (const i of [...picked].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0) || (a.order || 0) - (b.order || 0))) {
+      const date = daysLater(i.date, delta);
+      const patch = { date };
+      if (i.kind === 'stay' && isYmd(i.checkOut)) patch.checkOut = daysLater(i.checkOut, delta);
+      if (!i.time) {
+        const last = next.has(date) ? next.get(date) : Math.max(0, ...staying.filter((o) => o.date === date && !o.time).map((o) => o.order || 0));
+        const hasStaying = staying.some((o) => o.date === date && !o.time);
+        if (hasStaying || next.has(date)) { patch.order = last + 1000; next.set(date, patch.order); }
+      }
+      out.changes[i.id] = patch;
+    }
+    out.moved = picked.length;
+    out.days = new Set(picked.map((i) => i.date)).size;
+    return out;
+  }
+
+  // A day's objects taken off it (the day menu's "Clear this day"): they lose their day and go under "Not on a day yet", after the
+  // ones already there. A pointer to another module's object cannot lose a day it takes from that object, so it stays (`kept`).
+  // Returns { changes: { id: { date: null, after: null, order } }, moved, kept }.
+  function clearDay(items, day) {
+    const mine = items.filter((i) => i.date === day && i.kind !== 'lane');
+    const here = mine.filter((i) => i.kind !== 'link');
+    let order = Math.max(0, ...items.filter((i) => !i.date && (i.after === null || i.after === undefined) && i.kind !== 'lane' && i.kind !== 'link').map((i) => i.order || 0));
+    const changes = {};
+    for (const i of [...here].sort((a, b) => (a.order || 0) - (b.order || 0))) {
+      order += 1000;
+      changes[i.id] = { date: null, after: null, order };
+    }
+    return { changes, moved: here.length, kept: mine.length - here.length };
+  }
+
   // Earlier and later, for the item menu (the way to move on a phone): an untimed item swaps with its neighbour;
   // a timed one moves by half an hour. Returns the changes as { id: { time | order } }, or null at the edge.
   function nudge(dayItems, item, direction) {

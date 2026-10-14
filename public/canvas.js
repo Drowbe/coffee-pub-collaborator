@@ -80,7 +80,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const column = document.getElementById('side-column');
   const columnMode = () => Boolean(column) && !isNarrow();
   const inColumn = (p) => p.mode === 'column';
-  const onCanvas = () => [...opened.values()].some((p) => !inColumn(p)); // whether anything is open on the canvas itself
+  // The column's even while it is out of it: lifted over the Workspace (a screen share, or the person floating it) or
+  // popped into a window of its own from the column (popBuiltin). Closing that window brings it back to the column.
+  const columnOwned = (p) => inColumn(p) || Boolean(p.lifted) || Boolean(p.popped);
+  const onCanvas = () => [...opened.values()].some((p) => !inColumn(p) && !p.popped); // whether anything is open on the canvas itself
   let saved = loadSaved(null);
   // Nothing is remembered until a join has restored the space's modules, and not while the space is
   // being torn down: closing every module on the way out must not become the layout.
@@ -186,7 +189,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     // it held before (a phone reads it as its tabs), the chat when nothing was remembered yet (whatOpens's default).
     const prev = Array.isArray(saved.__open) ? saved.__open : guestToken ? ['conference', 'chat'] : ['chat'];
     const kept = (id) => prev.includes(id);
-    saved.__open = columnMode() ? ids.filter((id) => { const p = opened.get(id); return !(inColumn(p) || p.lifted) || kept(id); }) : ids;
+    saved.__open = columnMode() ? ids.filter((id) => { const p = opened.get(id); return !columnOwned(p) || kept(id); }) : ids;
     persist();
   }
 
@@ -1272,7 +1275,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (mod.waiting && mode === 'float') { settleWaiting(id); update(); return; }
     if (mod.mode === mode) return;
     if (mod.kind === 'builtin') {
-      if (inColumn(mod) || mod.lifted) return; // the column's: only a screen share moves it (liftBuiltin)
+      if (columnOwned(mod)) return; // the column's: moved only by liftBuiltin (a share, Floating window) and popBuiltin
       const def = mod.def;
       const before = mod.mode;
       closeBuiltin(id, { moving: true });
@@ -1425,22 +1428,50 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // A screen share lifts the conference out of the column into the Workspace as a floating module, and back when it
   // stops (plan-one-bar.md, step 6). Floating as the conference floats today, in the floating layer, its call untouched
   // (moving); the mode is not remembered, so it is the column's again on the next visit. Answers whether it is lifted.
-  function liftBuiltin(id, on) {
+  // `why` says whose lift it is: 'share' (the default, syncShareLift) or 'person' (the call's Floating window). A share
+  // ending never puts back a call the person floated themselves; the person's own choice puts back either.
+  function liftBuiltin(id, on, why = 'share') {
     const mod = opened.get(id);
     if (!mod || mod.kind !== 'builtin' || !columnMode()) return false;
     if (on && inColumn(mod) && supports(mod, 'float')) {
       closeBuiltin(id, { moving: true });
       if (!openBuiltinIn(mod.def, 'float', { moving: true })) { openBuiltinIn(mod.def, 'column', { moving: true }); return false; }
       const now = opened.get(id);
-      now.lifted = true;
+      now.lifted = why;
       return true;
     }
-    if (!on && mod.lifted) {
+    if (on && mod.lifted && why === 'person') { mod.lifted = 'person'; return true; } // lifted by a share: now the person's
+    if (!on && mod.lifted && (why === 'person' || mod.lifted !== 'person')) {
       closeBuiltin(id, { moving: true });
       openBuiltinIn(mod.def, 'column', { moving: true });
       return false;
     }
     return Boolean(mod.lifted);
+  }
+
+  // The call's own window, from the column (the Pop out button, Call position > Its own window): the same element moved
+  // into a window of its own (openBuiltinWindow), so the call keeps its connection, nobody joins twice. Closing that
+  // window brings it back to the column (openBuiltinWindow's pagehide). Answers whether it is out in a window now.
+  function popBuiltin(id) {
+    const mod = opened.get(id);
+    if (!mod || mod.kind !== 'builtin' || !columnMode() || !mod.modes.includes('window')) return false;
+    if (mod.mode === 'window') { mod.win?.focus?.(); return true; }
+    if (!columnOwned(mod)) return false;
+    const def = mod.def;
+    closeBuiltin(id, { moving: true });
+    if (!openBuiltinWindow(def, { moving: true })) { openBuiltinIn(def, 'column', { moving: true }); return false; } // the browser refused the window
+    opened.get(id).popped = true;
+    update();
+    return true;
+  }
+
+  // Bring it back into the column, from floating (either lift) or its own window. Answers whether it moved.
+  function returnBuiltin(id) {
+    const mod = opened.get(id);
+    if (!mod || mod.kind !== 'builtin' || !columnMode() || inColumn(mod) || !columnOwned(mod)) return false;
+    closeBuiltin(id, { moving: true }); // a window is closed by the app here, so its pagehide leaves it alone
+    openBuiltinIn(mod.def, 'column', { moving: true });
+    return true;
   }
 
   // Whether this person may open a module here: the conference and the chat by their own rule, any other by being on
@@ -2021,6 +2052,11 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     columnMode,
     liftBuiltin,
     lifted: (id) => Boolean(opened.get(id)?.lifted),
+    liftedBy: (id) => opened.get(id)?.lifted || null, // 'share', 'person' or null
+    // The call's place out of the column, the person's own choice (Call position): its own window, and back.
+    popBuiltin,
+    returnBuiltin,
+    popped: (id) => Boolean(opened.get(id)?.popped),
     // The window a built-in module is popped out into, or null (the page's idle-hide needs that document's own canvas).
     builtinWindow: (id) => { const p = opened.get(id); return p && p.mode === 'window' && p.win && !p.win.closed ? p.win : null; },
     builtinMode: (id) => opened.get(id)?.mode || null,

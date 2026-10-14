@@ -34,11 +34,18 @@
 /* ---- the day ---- */
 /* overflow: clip, not hidden: it rounds the corners without making this the scroller, so the sticky day header sticks to the page */
 .day2 { background: var(--bg-section); border: 1px solid var(--border); border-radius: 16px; overflow: clip; }
-.day-head2 { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 44px 14px 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--bg-section)), var(--bg-section)); border-bottom: 1px solid var(--border); }
-.dnum { display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 6px 8px; border-radius: 12px; background: var(--accent); color: var(--bg); line-height: 1.05; }
+.day-head2 { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 10px 14px 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--bg-section)), var(--bg-section)); border-bottom: 1px solid var(--border); }
+.dnum { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 6px 8px; border-radius: 12px; background: var(--accent); color: var(--bg); line-height: 1.05; }
 .dnum b { font-size: 26px; font-weight: 700; }
 .dnum span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.9; }
+.dmeta { flex: 1 1 auto; min-width: 0; }
 .dmeta h2 { margin: 0; font-size: 16px; }
+/* Add and the "..." side by side at the end of the day's header; the "..." is in the flow here, not pinned to the corner */
+.day-actions { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.day-actions .menu-btn { position: static; }
+.day-actions .day-add { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; padding: 3px 10px; }
+.day-summary { margin: 0; color: var(--text); font-size: 14px; }
+.day-summary:empty { display: none; }
 .dmeta p { margin: 2px 0 0; color: var(--text-dim); font-size: 12px; }
 /* the whole-day markers ("Travel day"): tags under the summary, each in its marker's colour */
 .day-tags { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; }

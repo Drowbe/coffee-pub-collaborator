@@ -964,6 +964,10 @@ const DEFAULT_PREFS = {
   micId: '', camId: '', gain: 100, gate: 0, noise: true, echo: true, agc: true, ptt: false,
   quality: 720, mirror: true, background: 'none', volumes: {}, popout: null, deafened: false,
   chatWidth: 320, stripHeight: 168, speakerId: '', masterVolume: 100, // chatWidth is the column's width too (the splitter)
+  // Where the call sits in the column (Call position): its 'top' or 'bottom'; callFloat, floating over the Workspace
+  // instead (from the column's side it goes back to). Its own window is never remembered (a window opens only from a
+  // click). callTiles: 'auto' (slim in a short window), 'shown' or 'slim'.
+  callPosition: 'top', callFloat: false, callTiles: 'auto',
   pttKey: 'Space', muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE',
 };
 // Call preferences (layout, devices, volumes, keys). brand.js moves the key they had before the Names plan on load.
@@ -1188,19 +1192,40 @@ function syncColumn() {
 
 // The column's sizes (the splitters, #side-column-splitter and #side-column-strip-splitter in space.html): its width,
 // the chat's own preference from before the column (prefs.chatWidth, so a width a person had set holds), between
-// COLUMN_MIN and half the window; and on the call the strip's height (prefs.stripHeight), between STRIP_MIN and most of
-// the column, the chat keeping the rest. Dragged by pointer or touch; with the keyboard the arrows move by a step,
-// Shift by a bigger one, Home and End to the least and the most, double-click or Shift+Enter back to the default.
-// Both are remembered per person. Collapsed, the rail is 44px whatever the width, and opening returns to it.
+// COLUMN_MIN and half the window; and on the call the height of the strip's tiles (prefs.stripHeight), from STRIP_MIN
+// up to what leaves the chat its share: the whole call area (the tiles, the toolbar under them and the Join/Online row,
+// `chrome` being the last two) is at most CALL_MAX_SHARE of the column, so the chat always keeps at least 45% of it
+// (Thomas, 2026-10-14: the video must never squeeze the chat). Untouched (the default height), the call area is at most
+// CALL_DEFAULT_SHARE. In a short window (under SHORT_WINDOW high) the call starts slim, the controls and the faces
+// without the tiles, one click away (callTiles 'auto'); a column too short for even STRIP_MIN of tiles is slim too.
+// Dragged by pointer or touch; with the keyboard the arrows move by a step, Shift by a bigger one, Home and End to the
+// least and the most, double-click or Shift+Enter back to the default. Both are remembered per person. Collapsed, the
+// rail is 44px whatever the width, and opening returns to it.
 const COLUMN_MIN = 220;
 const COLUMN_MAX_SHARE = 0.5; // of the window
 const STRIP_MIN = 100;
-const STRIP_MAX_SHARE = 0.6; // of the column
+const STRIP_DEFAULT = 168; // DEFAULT_PREFS.stripHeight
+const CALL_MAX_SHARE = 0.55; // of the column: the chat keeps the other 45% or more
+const CALL_DEFAULT_SHARE = 0.4;
+const SHORT_WINDOW = 800;
 const SPLIT_STEP = 16;
 const SPLIT_BIG_STEP = 64;
 const clampSplit = (v, min, max) => Math.min(Math.max(Math.round(Number(v) || 0), min), Math.max(min, max));
 function clampColumnWidth(w, windowWidth) { return clampSplit(w, COLUMN_MIN, Math.round(windowWidth * COLUMN_MAX_SHARE)); }
-function clampStripHeight(h, columnHeight) { return clampSplit(h, STRIP_MIN, Math.round(columnHeight * STRIP_MAX_SHARE)); }
+function stripMaxHeight(columnHeight, chrome = 0) { return Math.round(columnHeight * CALL_MAX_SHARE) - Math.round(chrome); }
+function clampStripHeight(h, columnHeight, chrome = 0) { return clampSplit(h, STRIP_MIN, stripMaxHeight(columnHeight, chrome)); }
+// The tiles' height for the person's preference: the default one is held to CALL_DEFAULT_SHARE of the column.
+function stripHeightFor(h, columnHeight, chrome = 0) {
+  const want = Number(h) === STRIP_DEFAULT ? Math.min(STRIP_DEFAULT, Math.round(columnHeight * CALL_DEFAULT_SHARE) - Math.round(chrome)) : h;
+  return clampStripHeight(want, columnHeight, chrome);
+}
+// Whether the tiles show in the column: the person's choice ('shown', 'slim'), else ('auto') not in a short window; and
+// never when the column cannot give them STRIP_MIN with the chat keeping its share.
+function callTilesShown(choice, windowHeight, columnHeight, chrome = 0) {
+  if (stripMaxHeight(columnHeight, chrome) < STRIP_MIN) return false;
+  if (choice === 'shown' || choice === 'slim') return choice === 'shown';
+  return windowHeight >= SHORT_WINDOW;
+}
 // A key on a splitter: the new value, or null when the key is not the splitter's (so it goes on, never trapped).
 // `grow` and `shrink` are the arrow names for the axis (Right and Left for the column's edge, Down and Up for the strip's).
 function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
@@ -1212,8 +1237,15 @@ function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
 }
 const columnWin = () => columnEl.ownerDocument.defaultView || window;
 const columnMaxWidth = () => Math.round(columnWin().innerWidth * COLUMN_MAX_SHARE);
-const columnMaxStrip = () => Math.round((columnEl.clientHeight || columnWin().innerHeight) * STRIP_MAX_SHARE);
-// The sizes onto the column, clamped to the window it is in now (resized, popped out).
+const columnHeight = () => columnEl.clientHeight || columnWin().innerHeight;
+// The call area's height besides its tiles: the toolbar under them (while it is in the column) and the Join/Online row.
+function callChrome() {
+  const bar = $('video-bar');
+  const toolbar = bar && bar.closest('.side-column-strip') && !confEl.classList.contains('call-off') ? bar.offsetHeight : 0;
+  return toolbar + (columnEl.querySelector('.side-column-bar')?.offsetHeight || 0);
+}
+const columnMaxStrip = () => Math.max(STRIP_MIN, stripMaxHeight(columnHeight(), callChrome()));
+// The sizes onto the column, clamped to the window it is in now (resized, popped out); and where the call is in it.
 function applyColumnSizes() {
   if (!columnEl) return;
   const w = clampColumnWidth(prefs.chatWidth, columnWin().innerWidth);
@@ -1223,18 +1255,21 @@ function applyColumnSizes() {
   v.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, columnMaxWidth())));
   v.setAttribute('aria-valuenow', String(w));
   v.setAttribute('aria-valuetext', `${w} pixels wide`);
-  const h = clampStripHeight(prefs.stripHeight, columnEl.clientHeight || columnWin().innerHeight);
+  const colH = columnHeight();
+  const chrome = callChrome();
+  const h = stripHeightFor(prefs.stripHeight, colH, chrome);
   columnEl.style.setProperty('--side-column-strip-h', `${h}px`);
   const s = columnEl.querySelector('#side-column-strip-splitter');
   s.setAttribute('aria-valuemin', String(STRIP_MIN));
-  s.setAttribute('aria-valuemax', String(Math.max(STRIP_MIN, columnMaxStrip())));
+  s.setAttribute('aria-valuemax', String(columnMaxStrip()));
   s.setAttribute('aria-valuenow', String(h));
   s.setAttribute('aria-valuetext', `${h} pixels tall`);
+  syncCallPlace(colH, chrome);
 }
 let columnSizeFrame = 0;
 function setColumnSize(which, value, { remember = true } = {}) {
   if (which === 'width') prefs.chatWidth = clampColumnWidth(value, columnWin().innerWidth);
-  else prefs.stripHeight = clampStripHeight(value, columnEl.clientHeight || columnWin().innerHeight);
+  else prefs.stripHeight = clampStripHeight(value, columnHeight(), callChrome());
   if (remember) savePrefs();
   applyColumnSizes();
   if (!columnSizeFrame) columnSizeFrame = columnWin().requestAnimationFrame(() => { columnSizeFrame = 0; applyLayout(); }); // the canvas and the tiles follow, once a frame
@@ -1242,7 +1277,10 @@ function setColumnSize(which, value, { remember = true } = {}) {
 // One splitter: `axis` 'x' or 'y', `which` the size it sets; the drag works from the pointer's travel since it began.
 function wireSplitter(el, { which, axis, def, min, max, grow, shrink }) {
   let drag = null;
-  const start = () => (which === 'width' ? prefs.chatWidth : prefs.stripHeight);
+  // The strip's: from the height shown (the default one may be held lower), and with the call at the bottom of the
+  // column the line is above it, so up grows it (the drag's travel and the arrows turn round).
+  const start = () => (which === 'width' ? prefs.chatWidth : parseFloat(columnEl.style.getPropertyValue('--side-column-strip-h')) || prefs.stripHeight);
+  const flipped = () => which === 'strip' && columnEl.classList.contains('call-bottom');
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 && event.pointerType === 'mouse') return;
     event.preventDefault();
@@ -1253,7 +1291,7 @@ function wireSplitter(el, { which, axis, def, min, max, grow, shrink }) {
   });
   el.addEventListener('pointermove', (event) => {
     if (!drag) return;
-    const travel = (axis === 'x' ? event.clientX : event.clientY) - drag.at;
+    const travel = ((axis === 'x' ? event.clientX : event.clientY) - drag.at) * (flipped() ? -1 : 1);
     setColumnSize(which, drag.from + travel, { remember: false });
   });
   const stop = () => {
@@ -1267,7 +1305,8 @@ function wireSplitter(el, { which, axis, def, min, max, grow, shrink }) {
   el.addEventListener('pointercancel', stop);
   el.addEventListener('dblclick', () => setColumnSize(which, def));
   el.addEventListener('keydown', (event) => {
-    const next = splitterKey({ key: event.key, shift: event.shiftKey }, start(), { min, max: max(), def, grow, shrink });
+    const keys = flipped() ? { grow: shrink, shrink: grow } : { grow, shrink };
+    const next = splitterKey({ key: event.key, shift: event.shiftKey }, start(), { min, max: max(), def, ...keys });
     if (next === null) return; // Tab, Escape and the rest go on
     event.preventDefault();
     setColumnSize(which, next);
@@ -1339,6 +1378,151 @@ function syncShareLift() {
   const sharing = [...tiles.values()].some((t) => t.classList.contains('tile-screen'));
   if (sharing !== canvas.lifted('conference')) canvas.liftBuiltin('conference', sharing);
 }
+
+// --- the call's place (Thomas, 2026-10-14: the call pops out again, and never squeezes the chat) ---------------------
+// Call position, on the caret beside the toolbar's Pop out (#call-place) and in Chat's "...": the top of the column (the
+// default) or its bottom (the chat above the call), a floating window over the Workspace (canvas.liftBuiltin, the
+// person's own lift), or a window of its own (canvas.popBuiltin: the conference's element moved into the window, as it
+// popped out before the column, so the call keeps its connection and nobody joins twice). Top, bottom and floating are
+// remembered per person (prefs.callPosition, prefs.callFloat); its own window is not (a window opens only from a click). Out of the
+// column (its own window, floating, or lifted for a screen share) the column shows a slim strip, #call-out: the call's
+// controls and Bring the call back, and the chat has the rest; closing the call's window brings it back too (canvas.js).
+// Hang up brings it back. On a phone there is no column: Pop out moves the docked call into its window as before.
+const callOutEl = columnEl?.querySelector('#call-out') || null;
+const callAtBottom = () => prefs.callPosition === 'bottom';
+// Where the call is now: 'column', 'window', 'float' (the person's), 'share' (lifted for a screen share), 'dock' or
+// 'closed' (a phone's).
+function callWhere() {
+  const mode = canvas.builtinMode('conference');
+  if (!mode) return 'closed';
+  if (mode === 'window') return 'window';
+  const by = canvas.liftedBy('conference');
+  if (by) return by === 'person' ? 'float' : 'share';
+  return mode;
+}
+const CALL_OUT_NOTES = { window: 'The call is in its own window', float: 'The call is in a floating window', share: 'The call floats while a screen is shared' };
+function syncCallPlace(colH, chrome) {
+  const where = callWhere();
+  const outside = where === 'window' || where === 'float' || where === 'share';
+  const pop = $('call-popout');
+  if (pop) {
+    const back = outside;
+    const label = back ? 'Bring the call back' : 'Pop out the call';
+    if (pop.title !== label) {
+      pop.title = label;
+      pop.setAttribute('aria-label', label);
+      pop.querySelector('i').className = `fa-solid fa-${back ? 'arrow-left' : 'up-right-from-square'} fa-fw`;
+    }
+    pop.classList.toggle('on', back);
+    // A phone has no window to pop into (a pop-up is a new tab there): only the way back shows.
+    const wrap = $('call-place-wrap');
+    const hide = phoneWidth() && where !== 'window';
+    if (wrap && wrap.hidden !== hide) { wrap.hidden = hide; setTimeout(fitFloatbar, 0); }
+  }
+  if (!columnEl) return;
+  columnEl.classList.toggle('call-bottom', callAtBottom());
+  const away = canvas.columnMode() && outside;
+  columnEl.classList.toggle('call-away', away);
+  if (callOutEl) {
+    callOutEl.hidden = !away;
+    if (away) columnEl.querySelector('#call-out-note').textContent = CALL_OUT_NOTES[where];
+  }
+  const h = colH ?? columnHeight();
+  const c = chrome ?? callChrome();
+  const fits = stripMaxHeight(h, c) >= STRIP_MIN;
+  const tilesOn = callTilesShown(prefs.callTiles, columnWin().innerHeight, h, c);
+  columnEl.classList.toggle('call-slim', !tilesOn);
+  const t = columnEl.querySelector('#side-column-tiles');
+  if (t) {
+    t.hidden = !(inCall && where === 'column');
+    t.disabled = !fits;
+    const label = !fits ? 'The window is too short for the video' : tilesOn ? 'Hide the video' : 'Show the video';
+    if (t.title !== label) {
+      t.title = label;
+      t.setAttribute('aria-label', label);
+      t.setAttribute('aria-pressed', String(tilesOn));
+      t.querySelector('i').className = `fa-solid fa-chevron-${tilesOn ? 'up' : 'down'} fa-fw`;
+    }
+  }
+}
+function popOutCall() {
+  if (canvas.columnMode()) {
+    if (!canvas.popBuiltin('conference')) setStatus('The browser did not open the window. Allow pop-ups for this site to pop out the call.', true);
+  } else if (canvas.builtinOpen('conference')) canvas.setMode('conference', 'window');
+  syncCallPlace();
+}
+function bringCallBack() {
+  if (prefs.callFloat) { prefs.callFloat = false; savePrefs(); } // brought back from floating: the column's again
+  if (canvas.columnMode()) canvas.returnBuiltin('conference');
+  else if (canvas.builtinMode('conference') === 'window') canvas.setMode('conference', 'dock');
+  syncCallPlace();
+  applyLayout();
+}
+function setCallPosition(pos) {
+  if (pos === 'window') { popOutCall(); return; }
+  prefs.callFloat = pos === 'float';
+  if (pos !== 'float') prefs.callPosition = pos;
+  savePrefs();
+  if (pos === 'float') {
+    if (callWhere() === 'window') canvas.returnBuiltin('conference');
+    canvas.liftBuiltin('conference', true, 'person');
+  } else canvas.returnBuiltin('conference');
+  syncCallPlace();
+  applyLayout();
+}
+function toggleCallTiles() {
+  prefs.callTiles = columnEl?.classList.contains('call-slim') ? 'shown' : 'slim';
+  savePrefs();
+  applyLayout();
+}
+// The Call position entries, for the caret's menu and Chat's "...".
+function callPlaceItems() {
+  const where = callWhere();
+  const column = canvas.columnMode();
+  const items = [{ heading: 'Call position' }];
+  if (column) {
+    const inside = where === 'column';
+    const floating = where === 'float' || where === 'share' || (inside && prefs.callFloat);
+    items.push(
+      { radio: true, checked: inside && !floating && !callAtBottom(), icon: 'arrow-up', label: 'Top of the column', onPick: () => setCallPosition('top') },
+      { radio: true, checked: inside && !floating && callAtBottom(), icon: 'arrow-down', label: 'Bottom of the column', onPick: () => setCallPosition('bottom') },
+      { radio: true, checked: floating, icon: 'window-restore', regular: true, label: 'Floating window', onPick: () => setCallPosition('float') },
+    );
+  }
+  items.push({ radio: true, checked: where === 'window', icon: 'up-right-from-square', label: 'Its own window', onPick: () => setCallPosition('window') });
+  if (column && inCall && where === 'column' && !columnEl.querySelector('#side-column-tiles').disabled) {
+    items.push({ divider: true }, { checked: !columnEl.classList.contains('call-slim'), label: 'Show the video', onPick: toggleCallTiles });
+  }
+  return items;
+}
+$('call-popout')?.addEventListener('click', () => (['window', 'float', 'share'].includes(callWhere()) ? bringCallBack() : popOutCall()));
+$('call-place')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  const caret = event.currentTarget;
+  // Folded into the toolbar's "...", the menu opens from there.
+  const anchor = caret.getClientRects().length ? caret : $('floatbar-more');
+  openHostMenu(anchor, callPlaceItems);
+});
+if (callOutEl) {
+  // Each control here clicks the call's own and looks as it does (its state, its tooltip), wherever the call is.
+  for (const b of callOutEl.querySelectorAll('[data-for]')) {
+    const src = $(b.dataset.for);
+    if (!src) continue;
+    const copy = () => {
+      b.className = src.className;
+      b.title = src.title;
+      b.setAttribute('aria-label', src.getAttribute('aria-label') || src.title);
+      b.hidden = src.hidden;
+    };
+    new MutationObserver(copy).observe(src, { attributes: true, attributeFilter: ['class', 'title', 'hidden', 'aria-label'] });
+    copy();
+    b.addEventListener('click', () => src.click());
+  }
+  callOutEl.querySelector('#call-back').addEventListener('click', bringCallBack);
+}
+columnEl?.querySelector('#side-column-tiles')?.addEventListener('click', toggleCallTiles);
+// --- end the call's place ---
+
 if (columnEl) {
   columnEl.querySelector('#side-column-toggle').addEventListener('click', () => setColumnCollapsed(!columnCollapsed()));
   columnEl.querySelector('#side-column-rail-chat').addEventListener('click', () => {
@@ -1353,20 +1537,26 @@ placeColumnTools(); // now that the two exist
 // --- end the always-on column ---
 
 // --- the status strip: the phase chip and its track (phase-sheet.js) ----------------------------------------------
-// The space's status, one line (plan-space-status-strip.md, step 1): "● Booking · day 2 of 3 ▾" and, beside it, the
-// track, the phases end to end. The template's phases (branding.phases) and this space's dates (its presence record's
-// `phases` and `createdAt`, refreshed by the presence poll, and by my own save) go through the one rule,
-// public/phases.js (window.Phases). Nothing but the sheet opens from it (phases only inform): the chip, a button, and
-// the track, a press target for the mouse (the chip is the keyboard's way). Shown on every layout tab whenever the
-// space has phases; never with no phases, for a guest, in an aside or while home is shown over the space.
+// The space's status, one line (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps 1 and 2): the
+// chip, "● Booking starts tomorrow · Trip in 35 days" (the story sentence, Phases.storyParts; no caret, it opens the
+// sheet, not a menu) and, beside it, the journey bar: the phases end to end, each band named (and its icon, when the
+// template gives one) where it fits, the past pale, today's filled with the accent, the ones to come outlined, the
+// main phase drawn heavier, a pin at today with the day of the month, and the days to go at its end. Then an empty
+// slot at the right, kept for the facts and the count (steps 3 and 5, not built). The template's phases
+// (branding.phases) and this space's dates (its presence record's `phases` and `createdAt`, refreshed by the presence
+// poll, and by my own save) go through the one rule, public/phases.js (window.Phases). Nothing but the sheet opens
+// from it (phases only inform): the chip, a button, and the bar and its days to go, press targets for the mouse (the
+// chip is the keyboard's way). Shown on every layout tab whenever the space has phases; never with no phases, for a
+// guest, in an aside or while home is shown over the space.
 // Wider than a phone it is an element tool of the space bar's left zone (`phase-chip`, the `secondary` bar: that row is
-// the strip, style.css, --status-strip-h), with no `fit`: the track shrinks to its least width (48px) and then drops
-// to the next line, out of sight (style.css), and the chip keeps its label. On a phone the space bar is the tab bar at
-// the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the header as a line
-// under the top row: the dot and the phase's name alone (`.phase-chip-short`; the whole words stay its name for a
-// screen reader) and the track as a 2px line along its foot. The header moves to a popped-out window with the strip in it.
-// For a screen reader the strip is a region, "Status"; the chip's words sit in one polite status, written only when
-// the phase or the day changes, so the presence poll never makes it speak again.
+// the strip, style.css, --status-strip-h), with no `fit`. On a narrow window things give way in order (style.css): the
+// facts' slot, the names in the bands, the days to go, the bar (to its least width, 48px, then out of sight), and last
+// the end of the sentence (each clause after the first is its own span and drops whole). On a phone the space bar is
+// the tab bar at the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the
+// header as a slim line under the top row (--status-strip-slim-h): the sentence and the bar as a 2px line along its foot.
+// The header moves to a popped-out window with the strip in it. For a screen reader the strip is a region, "Status";
+// the chip's words sit in one polite status, written only when the sentence changes, so the presence poll never makes
+// it speak again; the bar is hidden from it (the words carry it).
 const statusStrip = document.createElement('div');
 statusStrip.id = 'status-strip';
 statusStrip.className = 'status-strip';
@@ -1381,13 +1571,21 @@ phaseChip.type = 'button';
 phaseChip.id = 'phase-chip'; // keeps its own id (the registry only names the elements it draws)
 phaseChip.className = 'phase-chip';
 phaseChip.setAttribute('aria-haspopup', 'dialog');
-phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span>';
+phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span>';
 const statusTrack = document.createElement('span');
 statusTrack.className = 'status-track';
 statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it
+const statusToGo = document.createElement('span');
+statusToGo.className = 'status-togo';
+statusToGo.setAttribute('aria-hidden', 'true'); // the sentence says it too
+statusToGo.hidden = true;
+const statusFacts = document.createElement('span');
+statusFacts.className = 'status-facts'; // kept for the facts and the count (plan-space-story-strip.md, steps 3 and 5)
+statusFacts.setAttribute('aria-hidden', 'true');
 statusSaid.appendChild(phaseChip);
-statusStrip.append(statusSaid, statusTrack);
+statusStrip.append(statusSaid, statusTrack, statusToGo, statusFacts);
 let templatePhases = []; // the template's phases, from /api/branding, cleaned by the rule
+let phaseIcons = {}; // phase id -> its icon, when the template gives one
 const phaseRule = () => window.Phases || null;
 const phaseSpaceRecord = () => (currentSpace && !currentSpace.isAside ? presenceSpaces.find((r) => r.id === currentSpace.id) || currentSpace : null);
 const phaseChipWanted = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && me?.role !== 'guest' && templatePhases.length > 0 && Boolean(phaseRule());
@@ -1403,12 +1601,13 @@ function phaseTimeline() {
   if (!R || !space) return [];
   return R.timelineOf(templatePhases, space.phases || {}, { today: phaseToday(), created: space.createdAt });
 }
-// The track: one segment per dated phase, as wide as its share of the timeline (bandShares, the sheet's own bar), the
-// phases before today's a pale fill, today's filled with a mark at today (todayPercent), the ones after an outline.
-// Drawn again only when a date or the day changes.
+// The bar: one band per dated phase, as wide as its share of the timeline (bandShares, the sheet's own bar), the
+// phases before today's pale, today's filled, the ones after outlined, the main one heavier; each band's name (and
+// icon) inside it, dropped by style.css when it does not fit; the pin at today (todayPercent) with the day of the
+// month. The days to go after it (Phases.countdown). Drawn again only when a date or the day changes.
 function drawStatusTrack(bands, today) {
   const R = phaseRule();
-  const key = JSON.stringify([today, bands.map((b) => [b.id, b.start, b.end])]);
+  const key = JSON.stringify([today, bands.map((b) => [b.id, b.start, b.end, phaseIcons[b.id] || ''])]);
   if (statusTrack.dataset.drawn === key) return;
   statusTrack.dataset.drawn = key;
   const doc = statusTrack.ownerDocument;
@@ -1421,16 +1620,73 @@ function drawStatusTrack(bands, today) {
     seg.style.flexGrow = String(shares[i].grow);
     if (b.current) seg.classList.add('current');
     else if (b.end && today > b.end) seg.classList.add('past');
+    if (b.main) seg.classList.add('main');
     const at = todayPercent(b, shares[i].days, today, { rule: R });
+    // The name sits in a box that drops it to a hidden second line when the band is too narrow (style.css); in
+    // today's band it keeps to the side the pin is not on.
+    const box = doc.createElement('span');
+    box.className = 'status-band-box';
+    if (at !== null && at < 50) box.classList.add('end');
+    const name = doc.createElement('span');
+    name.className = 'status-band-name';
+    if (phaseIcons[b.id]) {
+      const icon = doc.createElement('i');
+      icon.className = `fa-solid fa-${phaseIcons[b.id]}`;
+      name.appendChild(icon);
+    }
+    name.append(b.label);
+    box.appendChild(name);
+    seg.appendChild(box);
     if (at !== null) {
       const mark = doc.createElement('span');
       mark.className = 'status-today';
       mark.style.left = `${at}%`;
+      const dayOfMonth = doc.createElement('span');
+      dayOfMonth.className = 'status-today-day';
+      dayOfMonth.textContent = String(Number(today.slice(8, 10)));
+      mark.appendChild(dayOfMonth);
       seg.appendChild(mark);
     }
     segs.push(seg);
   });
+  // Today before the first phase or after the last: the pin stands at that end of the bar, the bands kept clear of it.
+  const dated = bands.filter((b) => b.dated);
+  const outside = !dated.length ? '' : today < dated[0].start ? 'lead' : (dated[dated.length - 1].end && today > dated[dated.length - 1].end ? 'trail' : '');
+  statusTrack.classList.toggle('lead', outside === 'lead');
+  statusTrack.classList.toggle('trail', outside === 'trail');
+  if (outside) {
+    const mark = doc.createElement('span');
+    mark.className = 'status-today';
+    const dayOfMonth = doc.createElement('span');
+    dayOfMonth.className = 'status-today-day';
+    dayOfMonth.textContent = String(Number(today.slice(8, 10)));
+    mark.appendChild(dayOfMonth);
+    segs.push(mark);
+  }
   statusTrack.replaceChildren(...segs);
+  const togo = R.countdown(bands, today);
+  statusToGo.hidden = !togo;
+  if (togo) {
+    const n = doc.createElement('span');
+    n.className = 'status-togo-n';
+    n.textContent = String(togo.days);
+    const rest = doc.createElement('span');
+    rest.className = 'status-togo-words';
+    rest.textContent = togo.words.slice(String(togo.days).length + 1); // "days to Trip", "days left"
+    statusToGo.replaceChildren(n, rest);
+  } else statusToGo.replaceChildren();
+}
+// The chip's words: the sentence's clauses, each after the first its own span with its " · ", so a narrow strip drops
+// them whole from the end (style.css) and the label's text is still the whole sentence.
+function writeStory(parts) {
+  const label = phaseChip.querySelector('.phase-chip-label');
+  const doc = label.ownerDocument;
+  label.replaceChildren(...parts.map((part, i) => {
+    const span = doc.createElement('span');
+    span.className = i ? 'story-part' : 'story-part story-lead';
+    span.textContent = i ? ` · ${part}` : part;
+    return span;
+  }));
 }
 function updatePhaseChip() {
   const R = phaseRule();
@@ -1440,11 +1696,11 @@ function updatePhaseChip() {
   if (!show || !R) return;
   const today = phaseToday();
   const bands = phaseTimeline();
-  const words = R.chipWords(bands, today);
-  // Written only when they change: the status is polite, and the presence poll runs this every few seconds.
+  const parts = R.storyParts(bands, today);
+  const words = parts.join(' · ');
+  // Written only when the sentence changes: the status is polite, and the presence poll runs this every few seconds.
   if (phaseChip.querySelector('.phase-chip-label').textContent !== words) {
-    phaseChip.querySelector('.phase-chip-label').textContent = words;
-    phaseChip.querySelector('.phase-chip-short').textContent = words.split(' · ')[0]; // the phase's name alone, for a phone
+    writeStory(parts);
     phaseChip.title = `${words}. Phases`;
     phaseChip.setAttribute('aria-label', `${words}. Phases`);
   }
@@ -1477,6 +1733,7 @@ function openPhaseSheetFrom(opener) {
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
 statusTrack.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
+statusToGo.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
 // The strip as a tool of the space bar's left zone, wider than a phone; no fit (the track gives way, style.css).
 const STATUS_STRIP_TOOL = { id: 'phase-chip', bar: 'secondary', zone: 'left', group: 'status', order: 1, icon: 'circle', label: 'Status', element: statusStrip, visible: phaseChipWanted };
 // Phone or wide (placeSubnav, `tabs`): wider, the registry's tool in the space bar; on a phone, out of the registry
@@ -3920,7 +4177,11 @@ canvas.registerBuiltin({
       if (open) { if (!inCall) setNoCall(true); syncWhoIsInCall(); } // shown (entering or switched on): out of the call until a click joins
       else { if (inCall) leftCall = true; stopCall(); setNoCall(false); } // switched off: hang up (nothing to do out of the call); it starts fresh next time
     }
+    // In a window of its own LiveKit must not think the videos unseen (keepPoppedVideoLive); back in the page it may.
+    if (open && mode === 'window') keepPoppedVideosLive();
+    else if (!pipWindow) dropPoppedWatches();
     updateCrumb();
+    syncCallPlace(); // Pop out or Bring the call back, and the column's strip for a call out of it
     setTimeout(applyLayout, 0); // once the module is in place
   },
 });
@@ -4698,6 +4959,8 @@ async function startCall() {
     $('cam').classList.remove('on');
     $('cam').classList.add('off');
     setStatus(haveMic ? `in ${spaceName}` : `in ${spaceName} (no microphone)`);
+    // Call position: Floating window, the person's own choice, floats it from the column as they join.
+    if (prefs.callFloat && callWhere() === 'column') canvas.liftBuiltin('conference', true, 'person');
     applyLayout();
   } finally {
     callJoining = null;
@@ -4761,6 +5024,8 @@ async function stopCall() {
 function hangUp() {
   if (pipWindow) closePopout();
   leftCall = true; // their own choice: not joined again until they enter again (GitHub #199)
+  // The call's own window or a floating call comes back to the column with it (its strip is the call's, out of it).
+  if (canvas.columnMode() && callWhere() !== 'column') canvas.returnBuiltin('conference');
   stopCall();
   setNoCall(true);
 }
@@ -5081,6 +5346,12 @@ $('chat-more').addEventListener('click', (event) => {
       },
     }) });
   }
+  // The call's place, here too (the column's "..."): Pop out or Bring the call back, and Call position as a flyout.
+  const where = callWhere();
+  const outside = ['window', 'float', 'share'].includes(where);
+  if (outside) items.push({ divider: true }, { icon: 'arrow-left', label: 'Bring the call back', onPick: bringCallBack });
+  else if (where !== 'closed' && !phoneWidth()) items.push({ divider: true }, { icon: 'up-right-from-square', label: 'Pop out the call', onPick: popOutCall });
+  if (canvas.columnMode() && where !== 'closed') items.push({ icon: 'up-down', label: 'Call position', items: () => callPlaceItems().filter((it) => !it.heading) });
   openHostMenu(button, items);
 });
 $('chat-pic').addEventListener('click', () => { $('chat-file').click(); });
@@ -5798,7 +6069,7 @@ function closePopout() {
 // picture-in-picture does) and how big it is there; popping back in drops it.
 const poppedWatches = new Set(); // { track, info }
 function keepPoppedVideoLive(track, video) {
-  if (!pipWindow || video.ownerDocument === document || typeof track?.observeElementInfo !== 'function' || !track.isAdaptiveStream) return;
+  if ((!pipWindow && !canvas.builtinWindow('conference')) || video.ownerDocument === document || typeof track?.observeElementInfo !== 'function' || !track.isAdaptiveStream) return;
   for (const w of poppedWatches) if (w.info.element === video) return;
   const info = {
     element: video,
@@ -6242,6 +6513,8 @@ async function init() {
   applyFeatureFlags();
   // The template's phases (plan-one-bar.md, step 3) come with the branding; none, no status strip.
   templatePhases = phaseRule() ? phaseRule().cleanPhases(branding.phases) : [];
+  // A phase's icon, when the template gives one (a Font Awesome Free solid name); none, no icon in its band.
+  phaseIcons = Object.fromEntries((Array.isArray(branding.phases) ? branding.phases : []).filter((p) => p && typeof p.id === 'string' && typeof p.icon === 'string' && /^[a-z0-9-]+$/.test(p.icon)).map((p) => [p.id, p.icon]));
   // The topbar dropped its own version readout -- too cramped alongside
   // everything else there. It's in the title bar instead, which reads as
   // the space's real native window title once installed as an app.

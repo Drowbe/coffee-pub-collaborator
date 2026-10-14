@@ -50,6 +50,8 @@ test('the shared piece: Save and Cancel, Save off while clean, "Saved", the disc
   assert.match(bar, /role="status" aria-live="polite"/, 'what happened is read out');
   assert.match(bar, /class="btn btn-small btn-danger action-bar-discard">Discard</);
   assert.match(bar, /Keep editing/);
+  assert.match(bar, /discardWords = DISCARD_WORDS,/, 'a surface may ask in its own words; "Discard changes?" unless it does');
+  assert.match(bar, /askText\.textContent = discardWords;/);
   assert.ok(/readOnly/.test(bar) && /closeLabel/.test(bar), 'a reader sees Close, no Save');
 });
 
@@ -113,6 +115,20 @@ test('the Set up panel: Save and Cancel are the panel\'s bar, not the top bar\'s
   assert.match(setup, /The dates have their own Save in the sheet\./);
   assert.ok(!/save as you set them/.test(setup), 'the old line is gone');
   assert.match(setup, /dirty: isDirty,/);
+  assert.match(setup, /discardWords: 'Discard your changes\?',/, 'the panel asks host.ui.editor\'s question');
+  assert.match(setup, /if \(hideDeleteConfirm\(\{ focus: true \}\)\) return;\n\s*state\.bar\.requestCancel\(\);/, 'Escape: Keep on the Delete question first, else Cancel (which asks when dirty)');
+  assert.match(space, /onClick: \(\) => \(settingUp \? spaceSetup\.cancel\(\) : enterSetup\(\)\)/, 'the pressed Set up tool is Cancel too, asking when dirty');
+  // Every field is a draft: the panel sends nothing but from Save, Delete, and the invite and guest link actions.
+  const sends = [...setup.matchAll(/api\('(PATCH|PUT|POST|DELETE)', `([^`]*)`/g)].map((m) => `${m[1]} ${m[2]}`);
+  assert.deepEqual(sends.sort(), [
+    'DELETE /api/spaces/${encodeURIComponent(space.id)}',
+    'DELETE /api/spaces/${encodeURIComponent(space.id)}/image',
+    'DELETE /api/spaces/${id}/guest-link',
+    'PATCH /api/spaces/${encodeURIComponent(space.id)}',
+    'POST /api/spaces/${id}/guest-link',
+    'PUT /api/spaces/${encodeURIComponent(space.id)}/image',
+  ].sort(), 'the requests: Save\'s PATCH and picture, Delete, the guest link');
+  assert.equal((setup.match(/api\('PATCH'/g) || []).length, 1, 'one PATCH, from Save');
   assert.match(setup, /function cancel\(\) \{\s*\n\s*if \(!state \|\| state\.saving\) return;\s*\n\s*state\.bar\.requestCancel\(\);/, 'Cancel asks when dirty');
   const outside = between(space, '// --- Set up (space-setup.js)', '// --- end Set up ---');
   assert.ok(!/pointerdown|mousedown|click-?outside/i.test(outside.replace(/\/\/[^\n]*/g, '')), 'no press outside closes the panel');

@@ -1482,15 +1482,17 @@ nav.register({ id: 'aside-rejoin', bar: 'primary', zone: 'right', group: 'aside'
 // --- end the one bar ---
 
 // --- Set up (space-setup.js) ----------------------------------------------------------------------------
-// Edit's place (plan-one-bar.md, decision 5, step 4): a `setup` tool in the top bar's right zone before the bell and your picture (step 7),
-// for owners, the admin and this space's moderators (GET /api/me: hasOwnerRights, or
-// user.spaces[<id>].permissions.moderator). Pressing it puts `body.setting-up` on, turns the space's name in the bar
-// into an input (in the switcher's place, placeSetupName below), takes the tool away and opens the side panel (a
-// full-screen sheet on a phone). The panel's Save and Cancel are an action bar locked to its bottom (action-bar.js; not
-// in the top bar): Save sends what changed in one go and leaves the mode; Cancel and Escape leave it and drop the
-// edits, asking "Discard changes?" first when something was edited; a click outside does nothing. A member
-// has no Set up; the space card's "Full settings" link on Home still opens /spaces/<id>.
-const spaceSetup = createSpaceSetup({ api, word, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout') });
+// Edit's place (plan-one-bar.md, decision 5, step 4; plan-setup-panel.md, steps 1 to 3): a `setup` tool in the top bar's
+// right zone before the bell and your picture (step 7), for owners, the admin and this space's moderators (GET /api/me:
+// hasOwnerRights, or user.spaces[<id>].permissions.moderator). Pressing it puts `body.setting-up` on, shows the tool
+// pressed, turns the space's name in the bar into an input (in the switcher's place, placeSetupName below) and opens
+// the side panel with its tabs (a full-screen sheet on a phone); pressing it again is Cancel. The address fragment
+// picks the tab (#space, #members, #phases, #opens-with) and follows it while the panel is open. The panel's Save and
+// Cancel are an action bar locked to its bottom (action-bar.js; not in the top bar): Save sends what changed, in order,
+// and leaves the mode; Cancel and Escape leave it and drop the edits, asking "Discard your changes?" first when
+// something was edited; a click outside does nothing. A member has no Set up; the space card's "Full settings" link on
+// Home still opens /spaces/<id>.
+const spaceSetup = createSpaceSetup({ api, word, verb, icons: getIcons, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout') });
 let settingUp = false;
 const setupNameInput = document.createElement('input');
 setupNameInput.type = 'text';
@@ -1501,7 +1503,14 @@ setupNameInput.autocomplete = 'off';
 setupNameInput.setAttribute('aria-label', 'Name');
 const isModeratorHere = () => Boolean(currentSpace && me?.spaces?.[currentSpace.id]?.permissions?.moderator);
 const canSetUp = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && Boolean(me) && me.role !== 'guest' && (hasOwnerRights(me) || isModeratorHere());
-const setupShown = () => canSetUp() && !settingUp;
+const setupShown = () => canSetUp(); // shown while open too, pressed (nav.setActive in enterSetup and leaveSetup)
+// The panel's tabs in the address: the fragment it opened with, and the tab shown while it is open; gone with it.
+const SETUP_TAB_HASH = /^#(space|members|phases|opens-with)$/;
+function setupTabInAddress(tab) {
+  const keep = location.pathname + location.search;
+  if (tab) history.replaceState(history.state, '', `${keep}#${tab}`);
+  else if (SETUP_TAB_HASH.test(location.hash)) history.replaceState(history.state, '', keep);
+}
 // While setting up, the space's name in the bar carries the input instead of the name: the switcher's place, at every
 // width (step 8: the switcher is the phone's too, so the input never moves as the window crosses 640px; updateCrumb
 // draws the switcher afresh, so this runs after each draw; the input is one element, so what was typed survives).
@@ -1523,15 +1532,21 @@ function enterSetup() {
   settingUp = true;
   document.body.classList.add('setting-up');
   setupNameInput.value = space.name || spaceName;
-  updateCrumb(); // the name as the input, and the bar's Done and Cancel in the tool's place
+  updateCrumb(); // the name as the input
+  nav.setActive('setup', true);
   const opened = spaceSetup.open({
     space,
     owner: hasOwnerRights(me),
     moderator: isModeratorHere(),
     phases: templatePhases.length > 0,
+    tab: location.hash,
     nameInput: setupNameInput,
     openPhases: (opener) => openPhaseSheetFrom(opener),
     onDone: setupSaved,
+    onSaved: (saved, fields) => setupSaved(saved, '', fields), // a part went through before a refusal: the page follows it
+    onDeleted: setupDeleted,
+    onLinks: () => loadPresence().then(() => renderGuestLink()), // the in-space guest link controls read the same record
+    onTab: setupTabInAddress,
     onLeave: leaveSetup,
   });
   if (!opened) { leaveSetup(); return; }
@@ -1545,6 +1560,8 @@ function leaveSetup() {
   if (!settingUp) return;
   settingUp = false;
   document.body.classList.remove('setting-up');
+  nav.setActive('setup', false);
+  setupTabInAddress(null);
   if (spaceSetup.isOpen()) spaceSetup.close();
   updateCrumb(); // the name back as words, Set up back in the bar
   const tool = nav.elementOf('setup');
@@ -1568,7 +1585,15 @@ function setupSaved(space, said, saved = []) {
   loadPresence();
   updateCrumb();
   if (saved.includes('defaultLayout')) refreshLayouts(); // the Layout menu's Default mark follows the first visit
-  saySetup(said);
+  if (said) saySetup(said);
+}
+// After Delete (the panel's own question; it does not wait for Save): the space is gone, so this page leaves it and
+// shows Home, and a reload does not try it again.
+function setupDeleted(space) {
+  forgetSpace();
+  if (call.state !== 'disconnected') call.disconnect(); // the Disconnected handler shows Home
+  else loadPresence();
+  saySetup(`Deleted ${space.name || word('space')}.`);
 }
 // The one line after Save, read out, under the canvas's edge for a moment.
 const setupSaid = document.createElement('p');
@@ -1597,7 +1622,7 @@ document.addEventListener('keydown', (event) => {
 // Set up, wider than a phone, sits after your picture and before the window controls (`place: 'end'`, in their group
 // 'space', so no divider between them; Thomas, 2026-10-13: "Settings should go right before the window controls"). On a
 // phone `place` is not read and it keeps its place in the menu (groupOrder 85, before the bell's 90 and you 999).
-nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'space', groupOrder: 85, order: 1, place: 'end', icon: 'sliders', label: 'Set up', visible: setupShown, onClick: enterSetup });
+nav.register({ id: 'setup', bar: 'primary', zone: 'right', group: 'space', groupOrder: 85, order: 1, place: 'end', icon: 'sliders', label: 'Set up', toggleable: true, active: false, visible: setupShown, onClick: () => (settingUp ? spaceSetup.cancel() : enterSetup()) });
 // Layout (the environment's `layout` verb): an icon button right next to the bell, the same look and size as Set up
 // (Thomas, 2026-10-13: no label, no caret; "the layout button should be next to the notification bell"), that opens the
 // Layout menu (canvas.toggleMenu; the page's shared menu). A Workspace tool drawn among the bar's own (`place: 'own'`,

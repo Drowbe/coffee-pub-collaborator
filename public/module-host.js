@@ -645,6 +645,46 @@ if (window.parent !== window) {
   });
 }
 
+// Asking the space's canvas to show an object (host.objects.open) from a page it holds or opened: a composite's page in
+// its frame (the parent) or a module's or composite's own window (the opener). 'app:openref' goes to that window, same
+// origin only; the canvas opens the module that owns the object and hands it the pointer, as it does for a module on it,
+// and answers 'app:openref-done' (canvas.js, answerOpenRef). Resolves true or false with its answer, or null when nothing
+// answered (not a canvas, or gone). Never a navigation: a frame on the canvas must not be led on to an app page.
+export function askCanvasToOpen(win, ref, wait = 1500) {
+  return new Promise((resolve) => {
+    if (!win || win === window || !REF_SHAPE(ref)) return resolve(null);
+    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    let timer = 0;
+    const onReply = (event) => {
+      if (event.source !== win || event.origin !== location.origin) return;
+      const d = event.data;
+      if (d && d.type === 'app:openref-done' && d.id === id) done(d.ok === true);
+    };
+    const done = (ok) => {
+      window.removeEventListener('message', onReply);
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    window.addEventListener('message', onReply);
+    timer = setTimeout(() => done(null), wait);
+    try {
+      win.postMessage({ type: 'app:openref', id, ref: cleanPointer(ref) }, location.origin);
+    } catch {
+      done(null);
+    }
+  });
+}
+// The window that opened this one, when it is this site's (a module's or composite's own window, popped out of a space's
+// canvas): null otherwise.
+export function sameSiteOpener() {
+  try {
+    const o = window.opener;
+    return o && !o.closed && o.location.origin === location.origin ? o : null;
+  } catch {
+    return null;
+  }
+}
+
 // The host-drawn "..." dropdown for whatever a header or toolbar row didn't have room for is the page's
 // shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
 export { openHostMenu, closeHostMenu };

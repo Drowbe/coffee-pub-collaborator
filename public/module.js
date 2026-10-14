@@ -7,7 +7,7 @@
 //                                          (add &guest=<token> for a guest)
 // (A module page opened over a call also carries from=space&spaceName=<the space's name>, for its Back link.)
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, markModuleRead, word } from '/brand.js';
-import { mountModule, openClearMenu } from '/module-host.js';
+import { mountModule, openClearMenu, askCanvasToOpen, sameSiteOpener } from '/module-host.js';
 import { moduleTint } from '/module-tint.js';
 import { compositesOn, compositesToAsk } from '/composites.js';
 import { nav } from '/nav-bar.js';
@@ -103,11 +103,15 @@ async function start() {
   // Showing an item in the module that owns it, from a module's own page: go to that module's page,
   // which is given the pointer in the address (#ref=...) and passes it to the module.
   const refHash = (ref) => `#ref=${encodeURIComponent(JSON.stringify(ref))}`;
-  const openRef = (ref) => {
+  // Popped out of a space's canvas: the canvas that opened this window shows it there, if it answers (askCanvasToOpen),
+  // rather than this window becoming another module's page.
+  const openRef = async (ref) => {
     if (ref.module === mod.id) {
       mounted.deliver('objectopen', { ref });
       return true;
     }
+    const opener = popout ? sameSiteOpener() : null;
+    if (opener && (await askCanvasToOpen(opener, ref)) === true) return true;
     const q = new URLSearchParams(location.search);
     q.delete('popout');
     q.delete('space');

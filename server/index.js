@@ -2647,6 +2647,7 @@ mountOldLinks(app);
 
 // Pages ----------------------------------------------------------------------
 
+// A frame guard on the app shell (frame-ancestors) was considered and left out: it could break a legitimate embedding. Decide with Thomas.
 app.get('/', (req, res) => {
   if (!currentUser(req)) return res.redirect('/login');
   res.sendFile(page('space.html'));

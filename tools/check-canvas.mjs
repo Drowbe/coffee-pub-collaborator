@@ -760,6 +760,25 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // A pointer delivered before the destination's page is in the frame (the composite opened for a place card, a task)
   // waits for the frame's load, then goes in as #ref=; one delivered after goes in at once.
   if (!/frame\.addEventListener\('load', \(\) => \{ if \(waiting && loaded\(\)\) \{ show\(waiting\); waiting = null; \} \}\);/.test(canvasJs) || !/if \(loaded\(\)\) show\(data\.ref\); else waiting = data\.ref;/.test(canvasJs)) fail('public/canvas.js', 'compositeMount holds a pointer until the composite\'s page has loaded');
+  // A link in a composite's part to another module's object (the Calendar's event linked from the Itinerary): the page in
+  // the frame asks the canvas (app:openref), which opens that module with the object and answers; the frame is never led
+  // on to the module's page (a whole app page inside the Calendar's window). A window popped out of the canvas asks the
+  // canvas that opened it first; only a page with no canvas goes to the module's page.
+  const destJs = fs.readFileSync(path.join(ROOT, 'public/destination.js'), 'utf8');
+  const destOpen = destJs.slice(destJs.indexOf('async function openRef(ref)'), destJs.indexOf('\n}\n', destJs.indexOf('async function openRef(ref)')));
+  const askAt = destOpen.indexOf('if (inComposite) return (await askCanvasToOpen(window.parent, ref)) === true;');
+  const openerAt = destOpen.indexOf('if (opener && (await askCanvasToOpen(opener, ref)) === true) return true;');
+  const goAt = destOpen.indexOf('location.href =');
+  if (!destOpen || askAt < 0 || goAt < 0 || askAt > goAt) fail('public/destination.js', 'openRef in a composite\'s frame asks the canvas and returns before any navigation');
+  if (openerAt < 0 || openerAt > goAt || !/const opener = embedded \? null : sameSiteOpener\(\);/.test(destOpen)) fail('public/destination.js', 'openRef in a window popped out of the canvas asks its opener before navigating');
+  const modOpen = moduleJs.slice(moduleJs.indexOf('const openRef = async (ref) => {'), moduleJs.indexOf('\n  };\n', moduleJs.indexOf('const openRef = async (ref) => {')));
+  if (!modOpen || !/const opener = popout \? sameSiteOpener\(\) : null;\n\s*if \(opener && \(await askCanvasToOpen\(opener, ref\)\) === true\) return true;/.test(modOpen) || modOpen.indexOf('askCanvasToOpen') > modOpen.indexOf('location.href =')) fail('public/module.js', 'a module\'s pop-out asks the canvas that opened it before becoming another module\'s page');
+  const ask = hostJs.slice(hostJs.indexOf('export function askCanvasToOpen('), hostJs.indexOf('\n}\n', hostJs.indexOf('export function askCanvasToOpen(')));
+  if (!ask || !/win\.postMessage\(\{ type: 'app:openref', id, ref: cleanPointer\(ref\) \}, location\.origin\)/.test(ask) || !/if \(event\.source !== win \|\| event\.origin !== location\.origin\) return;/.test(ask) || /location\.(href|assign|replace)/.test(ask)) fail('public/module-host.js', 'askCanvasToOpen posts app:openref same origin, takes only that window\'s answer, and never navigates');
+  if (!/if \(d && d\.type === 'app:openref'\) return answerOpenRef\(event, d\);/.test(canvasJs)) fail('public/canvas.js', 'compositeMount answers a composite page\'s app:openref (from its own frame, same origin)');
+  const answer = canvasJs.slice(canvasJs.indexOf('function answerOpenRef(event, d)'), canvasJs.indexOf('\n  }\n', canvasJs.indexOf('function answerOpenRef(event, d)')));
+  if (!answer || !/&& openRef\(r\);/.test(answer) || !/postMessage\(\{ type: 'app:openref-done', id: d\.id, ok \}, event\.origin\)/.test(answer)) fail('public/canvas.js', 'answerOpenRef shows the object with openRef and answers app:openref-done');
+  if (!/if \(!\[\.\.\.windows\.values\(\)\]\.includes\(event\.source\)\) return; \/\/ only a window this canvas popped out/.test(canvasJs)) fail('public/canvas.js', 'app:openref from another window is taken only from a window this canvas popped out');
 }
 
 // The reaction tray (GitHub #169): with many reactions it never rises under the header. Opening it caps its height to

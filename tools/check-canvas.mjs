@@ -1701,6 +1701,59 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
 }
 
+// A call control's settings caret (.fbtn-caret: Microphone settings, Camera settings, Call position, ...) sits in its
+// button's corner and never over its centre, so a click in the middle is always the main action (QA, 2026-10-14: in a
+// 500px column the 16px caret covered a 30px button's centre, and a click on the microphone opened its settings). The
+// caret box is read from the stylesheet, every rule that sizes or places it, and tried against every size the call's
+// buttons take (--action-btn-h for .fbtn, the 38px default, 34px compact, 30px tiny, 40px on a phone).
+{
+  const F = 'public/style.css';
+  const px = (body, prop) => { const m = body.match(new RegExp(`(?:^|[;\\s{])${prop}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)px`)); return m ? Number(m[1]) : null; };
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+  const caretRules = rules.filter((r) => r.selector.split(',').some((s) => /\.fbtn-caret\s*$/.test(s.trim())));
+  const base = caretRules.find((r) => r.selector === '.fbtn-caret');
+  if (!base) fail(F, '.fbtn-caret must have its own rule (its size and corner)');
+  else {
+    const box0 = { w: px(base.body, 'width'), h: px(base.body, 'height'), top: px(base.body, 'top'), right: px(base.body, 'right') };
+    if (Object.values(box0).some((v) => v === null)) fail(F, `.fbtn-caret must set width, height, top and right in px (got ${JSON.stringify(box0)})`);
+    if (box0.w > 12 || box0.h > 12) fail(F, `.fbtn-caret is at most 12px square (got ${box0.w}x${box0.h})`);
+    if (!/pointer-events\s*:\s*none/.test(base.body) && !/overflow\s*:\s*hidden/.test(base.body)) fail(F, '.fbtn-caret clips its glyph (overflow: hidden), so its hit area is its own box');
+    const boxes = [['.fbtn-caret', box0]];
+    for (const r of caretRules) {
+      if (r === base) continue;
+      const b = { w: px(r.body, 'width') ?? box0.w, h: px(r.body, 'height') ?? box0.h, top: px(r.body, 'top') ?? box0.top, right: px(r.body, 'right') ?? box0.right };
+      if (/display\s*:\s*none/.test(r.body) || ['width', 'height', 'top', 'right'].every((p) => px(r.body, p) === null)) continue;
+      boxes.push([r.selector, b]);
+    }
+    const sizes = new Set([38, 34, 30, 40]);
+    for (const r of rules) if (/\.fbtn\b/.test(r.selector)) { const v = px(r.body, '--action-btn-h'); if (v !== null) sizes.add(v); }
+    for (const [sel, b] of boxes) {
+      for (const size of sizes) {
+        const c = size / 2;
+        const left = size - b.right - b.w;
+        const covers = c >= left && c <= size - b.right && c >= b.top && c <= b.top + b.h;
+        if (covers) fail(F, `${sel}: a ${b.w}x${b.h} caret at top ${b.top}px, right ${b.right}px covers the centre of a ${size}px call button; keep it in the corner`);
+      }
+    }
+  }
+}
+
+// A screen share's lift survives a phone's width (QA, 2026-10-14): placeBuiltins() ends the lift on the way to a phone
+// and, back in the column, must ask the module (def.shareLift) and lift it again while a screen is shared (or put it back
+// when the share ended meanwhile). space.js's conference answers from its tiles (a tile-screen), as syncShareLift does.
+{
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const start = canvasJs.indexOf('function placeBuiltins()');
+  const place = canvasJs.slice(start, canvasJs.indexOf('\n  }\n', start));
+  const intoColumn = place.slice(place.indexOf('if (want)'), place.indexOf('} else {', place.indexOf('openBuiltinIn(def, \'column\'')));
+  if (!/def\.shareLift[\s\S]*liftBuiltin\(def\.id, Boolean\(def\.shareLift\(\)\)\)/.test(intoColumn)) fail('public/canvas.js', 'placeBuiltins() must lift the conference again when a screen tile exists (liftBuiltin(def.id, Boolean(def.shareLift()))) after putting it back in the column');
+  const conf = spaceJs.slice(spaceJs.indexOf("canvas.registerBuiltin({\n  id: 'conference'"), spaceJs.indexOf("canvas.registerBuiltin({\n  id: 'chat'"));
+  if (!/shareLift: \(\) => screenShared\(\)/.test(conf)) fail('public/space.js', 'the conference must answer shareLift from its screen tiles (screenShared)');
+  if (!/const screenShared = \(\) => \[\.\.\.tiles\.values\(\)\]\.some\(\(t\) => t\.classList\.contains\('tile-screen'\)\)/.test(spaceJs)) fail('public/space.js', 'screenShared() is whether a tile-screen exists');
+  if (!/const sharing = screenShared\(\);/.test(spaceJs.slice(spaceJs.indexOf('function syncShareLift()')))) fail('public/space.js', 'syncShareLift() and the canvas ask the same screenShared()');
+}
+
 if (problems.length) {
   console.error(`check-canvas: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);

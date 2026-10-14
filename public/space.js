@@ -1421,10 +1421,12 @@ function syncRail() {
   }));
 }
 // A screen share (anyone's: a screen tile in the grid) lifts the conference out of the column, floating over the
-// Workspace; the last share ending puts it back. Only in column mode (canvas.js says no elsewhere).
+// Workspace; the last share ending puts it back. Only in column mode (canvas.js says no elsewhere). The canvas asks
+// screenShared() too (the conference's shareLift) when it puts the conference back in the column after a phone's width.
+const screenShared = () => [...tiles.values()].some((t) => t.classList.contains('tile-screen'));
 function syncShareLift() {
   if (!canvas.columnMode()) return;
-  const sharing = [...tiles.values()].some((t) => t.classList.contains('tile-screen'));
+  const sharing = screenShared();
   if (sharing !== canvas.lifted('conference')) canvas.liftBuiltin('conference', sharing);
 }
 
@@ -4514,6 +4516,7 @@ canvas.registerBuiltin({
   id: 'conference',
   name: 'Conference',
   inCall: () => inCall, // the phone's tab bar marks the switch while in the call, not merely while shown
+  shareLift: () => screenShared(), // back in the column (canvas.js placeBuiltins): lifted again while a screen is shared
   icon: 'video',
   el: $('conference'),
   onShown: (def) => { showBuiltinName(def); setCallHead(def); }, // and the column's titlebar for the call

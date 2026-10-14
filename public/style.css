@@ -3655,8 +3655,13 @@ a.crumb-here:hover {
   overflow: hidden;
 }
 
-/* mic, audio, camera and layout each carry a small caret over their corner
-   that opens just that control's own settings, instead of the whole thing. */
+/* mic, audio, camera, layout and Pop out each carry a small caret in their corner
+   that opens just that control's own settings, instead of the whole thing. The
+   caret is its own small button (a 12px box, its own hit area) tucked into the
+   top right corner, so it never covers the button's centre at any size the call
+   toolbar takes (30px tiny, 34px compact, 38px, 40px on a phone): a click in the
+   middle is always the main action. tools/check-canvas.mjs keeps it so. One size
+   everywhere: no width, height, top or right for .fbtn-caret elsewhere. */
 .fbtn-wrap {
   position: relative;
   display: inline-flex;
@@ -3664,16 +3669,18 @@ a.crumb-here:hover {
 
 .fbtn-caret {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  top: 2px;
+  right: 2px;
   z-index: 2;
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   padding: 0;
   border: none;
+  border-radius: 3px;
   background: none;
+  overflow: hidden;
   color: var(--text-dim);
-  font-size: 16px;
+  font-size: 12px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -4972,13 +4979,6 @@ span.message-vis {
   .fbtn {
     --action-btn-h: 40px;
   }
-  .fbtn-caret {
-    width: 14px;
-    height: 14px;
-    font-size: 12px;
-    top: 2px;
-    right: 2px;
-  }
 }
 
 /* --- layouts: tile sizes come from fitTiles() as CSS variables --------- */
@@ -5436,11 +5436,7 @@ span.message-vis {
 }
 
 .canvas.compact .fbtn-caret {
-  width: 13px;
-  height: 13px;
-  font-size: 11px;
-  top: 2px;
-  right: 2px;
+  font-size: 11px; /* the box keeps its one size and corner (.fbtn-caret) */
 }
 
 .canvas.compact .status-float {

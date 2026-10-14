@@ -1421,6 +1421,12 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
           if (p && p.mode === 'dock') { closeBuiltin(def.id, { moving: true }); openBuiltinIn(def, 'column', { moving: true }); }
           else if (!p && canOpenHere(def.id)) openBuiltinIn(def, 'column', { moving: def.id === 'chat' });
         }
+        // A screen share still on lifts the conference out of the column again (the phone ended the lift on the way),
+        // and one that ended while away puts it back: the module's own answer (def.shareLift), as syncShareLift asks.
+        // A lift the person chose (Floating window) is theirs: liftBuiltin never puts that back for a share.
+        for (const def of builtins.values()) {
+          if (typeof def.shareLift === 'function' && opened.has(def.id)) liftBuiltin(def.id, Boolean(def.shareLift()));
+        }
       } else {
         // Onto the canvas (the phone's tabs): only what the phone would have had open, the remembered list's (the
         // chat alone when nothing is remembered yet, as whatOpens's default; the conference too for a guest), and the

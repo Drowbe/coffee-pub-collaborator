@@ -1,12 +1,112 @@
   // The Places module's model: no page in it, so the page and the checks can both use it. A place is one stored value
-  // (`place:<id>`): { title, category, address, point?, notes, owners, by, ref? }. `point` is a field of its own so the
-  // module's summary can name it (a summary's `place`); a place with only an address has none. The page defines `geo`
-  // (host.util.geo) ahead of this code, as the check does.
+  // (`place:<id>`): { title, category, address, point?, notes, owners, by, ref?, type?, icon?, iconOwn?, color?, status? }. `point` is a
+  // field of its own so the module's summary can name it (a summary's `place`); a place with only an address has none. The page
+  // defines `geo` (host.util.geo) ahead of this code, as the check does, and the build puts the bundled types library
+  // (places-lib-types.json) ahead of it as `LIB_TYPES` (plan-places-library.md, Part B).
   const PLACE_PREFIX = 'place:';
-  // The ids the environment's category list starts with (the module's `categories` setting). A place keeps whatever id it was
-  // saved with, even after the owner takes that category off the list (the page then shows it under Other).
-  const CATEGORIES = ['do', 'eat', 'stay', 'travel', 'other'];
   const CATEGORY_ID = /^[a-z][a-z0-9-]{0,29}$/;
+  const ICON_NAME = /^[a-z0-9][a-z0-9-]{0,39}$/;
+  // The grey that means "automatic colour" in the owner's list.
+  const AUTO_COLOR = '#888888';
+  // The ids the environment's category list starts with (the module's `categories` setting, same rows as the manifest's default).
+  // A place keeps whatever id it was saved with, even after the owner takes that category off the list (the page then shows it
+  // under Other).
+  const DEFAULT_CATEGORIES = [
+    { id: 'food', label: 'Food & Drink', icon: 'utensils', color: AUTO_COLOR },
+    { id: 'stay', label: 'Accommodations', icon: 'bed', color: AUTO_COLOR },
+    { id: 'sights', label: 'Sights & Culture', icon: 'landmark', color: AUTO_COLOR },
+    { id: 'nature', label: 'Nature & Outdoors', icon: 'tree', color: AUTO_COLOR },
+    { id: 'activities', label: 'Activities & Experiences', icon: 'ticket', color: AUTO_COLOR },
+    { id: 'nightlife', label: 'Entertainment & Nightlife', icon: 'masks-theater', color: AUTO_COLOR },
+    { id: 'shopping', label: 'Shopping', icon: 'bag-shopping', color: AUTO_COLOR },
+    { id: 'transport', label: 'Transportation', icon: 'train', color: AUTO_COLOR },
+    { id: 'services', label: 'Services & Essentials', icon: 'circle-info', color: AUTO_COLOR },
+    { id: 'health', label: 'Health & Wellness', icon: 'heart-pulse', color: AUTO_COLOR },
+    { id: 'other', label: 'Personal & Other', icon: 'location-dot', color: AUTO_COLOR },
+  ];
+  const CATEGORIES = DEFAULT_CATEGORIES.map((c) => c.id);
+  // The five ids a place or a request may still carry from before the library: read as the new ones (stay and other are the same).
+  // Nothing is rewritten; a list the owner already stored keeps its own ids, so a lookup tries the id itself first.
+  const OLD_CATEGORIES = { eat: 'food', do: 'activities', travel: 'transport' };
+  const NEW_FOR_OLD = Object.fromEntries(Object.entries(OLD_CATEGORIES).map(([o, n]) => [n, o]));
+  const newCategoryId = (id) => OLD_CATEGORIES[id] || id;
+  // The row of a category list for an id: the id itself, else the new or the old id it stands for. null when the list has none.
+  const findCategory = (cats, id) => (cats || []).find((c) => c.id === id) || (cats || []).find((c) => c.id === OLD_CATEGORIES[id]) || (cats || []).find((c) => c.id === NEW_FOR_OLD[id]) || null;
+
+  // The library: [{ id, label, category, icon, aliases, osm? }].
+  const TYPES = Array.isArray(LIB_TYPES) ? LIB_TYPES : [];
+  const TYPE_BY_ID = new Map(TYPES.map((t) => [t.id, t]));
+  const typeOf = (id) => TYPE_BY_ID.get(id) || null;
+  // The type an OpenStreetMap tag ("amenity:cafe", as a search result carries it) stands for, or null.
+  function typeFromOsm(tags) {
+    for (const tag of Array.isArray(tags) ? tags : [tags]) {
+      if (typeof tag !== 'string' || !tag) continue;
+      const t = TYPES.find((x) => Array.isArray(x.osm) && x.osm.includes(tag));
+      if (t) return t;
+    }
+    return null;
+  }
+
+  // Visit status: a mark on the place (not a category or a type), one at a time.
+  const STATUSES = [
+    { id: 'want', label: 'Want to go', icon: 'bookmark' },
+    { id: 'booked', label: 'Booked', icon: 'calendar-check' },
+    { id: 'visited', label: 'Visited', icon: 'circle-check' },
+    { id: 'favorite', label: 'Favorite', icon: 'star' },
+  ];
+  const statusOf = (id) => STATUSES.find((s) => s.id === id) || null;
+
+  // The eight theme tints, in the order the phases take them (public/phases.js): a category with the automatic colour takes the one
+  // at its place in the owner's list, round again after the eighth. A place's own colour is one of these names.
+  const TINTS = ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red'];
+  const isHex = (c) => /^#[0-9a-fA-F]{6}$/.test(String(c || ''));
+  const asColor = (c) => (TINTS.includes(c) ? { tint: c } : isHex(c) ? { hex: String(c).toLowerCase() } : null);
+  // The colour of a category row: the one the owner chose, else its automatic tint. { tint } or { hex }.
+  function categoryColor(cats, row) {
+    if (row && isHex(row.color) && String(row.color).toLowerCase() !== AUTO_COLOR) return { hex: String(row.color).toLowerCase() };
+    const i = (cats || []).findIndex((c) => row && c.id === row.id);
+    return { tint: TINTS[(i < 0 ? 0 : i) % TINTS.length] };
+  }
+  // Any CSS colour for a colour of the kind above.
+  const cssColor = (c) => (c.tint ? `var(--tint-${c.tint})` : c.hex);
+  // What a place is drawn with. Icon: its own (when the person chose one), else its type's, else its category's. Colour: its own, else
+  // its type's (none of the shipped types has one), else the category's chosen colour, else the category's automatic tint.
+  function lookOf(p, cats) {
+    const list = cats && cats.length ? cats : DEFAULT_CATEGORIES;
+    const row = findCategory(list, p.category) || findCategory(list, 'other') || list[list.length - 1];
+    const type = typeOf(p.type);
+    return {
+      cat: row,
+      type,
+      icon: p.iconOwn && p.icon ? p.icon : type ? type.icon : row.icon,
+      color: asColor(p.color) || (type && asColor(type.color)) || categoryColor(list, row),
+    };
+  }
+  // The groups for the Type picker (host.ui.kindPicker): one per category of the list, in its order with Other last; a type whose
+  // category is not on the list is in Other. Each option { id, label, icon, color (CSS), words (its aliases) }.
+  function typeGroups(cats) {
+    const list = cats && cats.length ? cats : DEFAULT_CATEGORIES;
+    const other = findCategory(list, 'other') || list[list.length - 1];
+    const groups = list.map((c) => ({ id: c.id, label: c.label, options: [] }));
+    for (const t of TYPES) {
+      const row = findCategory(list, t.category) || other;
+      const color = asColor(t.color) || categoryColor(list, row);
+      groups.find((g) => g.id === row.id).options.push({ id: t.id, label: t.label, icon: t.icon, color: cssColor(color), words: t.aliases });
+    }
+    const last = groups.findIndex((g) => g.id === other.id);
+    const ordered = [...groups.slice(0, last), ...groups.slice(last + 1), groups[last]];
+    return ordered.filter((g) => g.options.length).map(({ label, options }) => ({ label, options }));
+  }
+  // The icons the Icon picker offers: every icon the library and the category list use, each found by the labels and aliases of
+  // the types that use it ("beach" finds the umbrella). [{ id: <icon name>, label, words }].
+  function iconOptions(cats) {
+    const words = new Map();
+    const add = (icon, more) => { if (!words.has(icon)) words.set(icon, new Set(icon.split('-'))); for (const w of more) words.get(icon).add(w); };
+    for (const t of TYPES) add(t.icon, [t.label, ...t.aliases]);
+    for (const c of [...DEFAULT_CATEGORIES, ...(cats || [])]) add(c.icon, [c.label]);
+    for (const s of STATUSES) add(s.icon, [s.label]);
+    return [...words].map(([id, w]) => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' '), words: [...w] })).sort((a, b) => a.label.localeCompare(b.label));
+  }
 
   // A stored value as a place, or null when it is not one.
   function cleanPlace(id, v) {
@@ -27,6 +127,11 @@
       id: String(id),
       title,
       category: typeof v.category === 'string' && CATEGORY_ID.test(v.category) ? v.category : 'other',
+      type: typeof v.type === 'string' && CATEGORY_ID.test(v.type) ? v.type : '',
+      icon: typeof v.icon === 'string' && ICON_NAME.test(v.icon) ? v.icon : '',
+      iconOwn: v.iconOwn === true && typeof v.icon === 'string' && ICON_NAME.test(v.icon),
+      color: TINTS.includes(v.color) ? v.color : '',
+      status: statusOf(v.status) ? v.status : '',
       address: geo.oneLine(v.address, 200),
       point,
       notes: String(v.notes == null ? '' : v.notes).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').slice(0, 1000),
@@ -39,6 +144,11 @@
   const placeValue = (p) => ({
     title: p.title,
     category: p.category,
+    ...(p.type ? { type: p.type } : {}),
+    ...(p.icon ? { icon: p.icon } : {}),
+    ...(p.icon && p.iconOwn ? { iconOwn: true } : {}),
+    ...(p.color ? { color: p.color } : {}),
+    ...(p.status ? { status: p.status } : {}),
     address: p.address,
     ...(p.point ? { point: { lat: p.point.lat, lng: p.point.lng } } : {}),
     notes: p.notes,
@@ -60,7 +170,10 @@
       if (!geo.inRange(lat, lng)) throw new Error('the coordinates are out of range');
       point = { lat, lng };
     }
-    const p = cleanPlace('new', { title, category: i.category, address: i.address, point, notes: i.notes, owners: [], by, ref: i.ref });
+    // The old category ids are read as the new ones; a type (when it is in the library) gives the category when none is asked, and its icon.
+    const type = typeOf(i.type);
+    const category = has(i.category) ? newCategoryId(i.category) : type ? type.category : i.category;
+    const p = cleanPlace('new', { title, category, type: type ? type.id : '', icon: type ? type.icon : '', address: i.address, point, notes: i.notes, owners: [], by, ref: i.ref });
     if (!p) throw new Error('that is not a place');
     return p;
   }

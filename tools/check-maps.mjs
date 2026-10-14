@@ -235,7 +235,7 @@ test('a category the owner gave a colour in Places is drawn in that colour; with
   assert.match(page, /\/\^#\[0-9a-f\]\{6\}\$\/\.test\(String\(c\)\)/, 'only plain colours are used');
   assert.match(css, /\.pin\[data-cat\]:not\(\.selected\) \{ --pin: var\(--tone\); --pin-text: var\(--tone-ink, var\(--bg\)\); \}/);
   // The same rule as Places' tone(): a chosen colour is anything but the automatic grey.
-  const places = fs.readFileSync(new URL('../modules/places/src/places.js', import.meta.url), 'utf8');
+  const places = fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8'); // the colour rule moved into Places' library (0.11.0)
   assert.match(places, /const AUTO_COLOR = '#888888';/);
 });
 

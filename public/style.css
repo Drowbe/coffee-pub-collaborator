@@ -8776,10 +8776,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   background: var(--accent);
 }
 
-.phase-chip-caret {
-  font-size: 11px;
-}
-
 .status-strip .phase-chip .phase-chip-label {
   min-width: 0;
   overflow: hidden;

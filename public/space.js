@@ -1381,7 +1381,7 @@ phaseChip.type = 'button';
 phaseChip.id = 'phase-chip'; // keeps its own id (the registry only names the elements it draws)
 phaseChip.className = 'phase-chip';
 phaseChip.setAttribute('aria-haspopup', 'dialog');
-phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span><i class="fa-solid fa-caret-down fa-fw phase-chip-caret" aria-hidden="true"></i>';
+phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span>';
 const statusTrack = document.createElement('span');
 statusTrack.className = 'status-track';
 statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it

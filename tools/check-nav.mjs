@@ -568,11 +568,11 @@ test('the Layout menu\'s Layouts section (plan-saved-layouts.md, step 3; in the 
   assert.match(space, /const layoutSpaceId = \(\) => \(currentSpace && !currentSpace\.isAside \? currentSpace\.id : null\);/);
 });
 
-test('the default layout (plan-saved-layouts.md, step 4): Make default in a shared row\'s ..., restore() on a first visit, space settings\' line', () => {
+test('the default layout (plan-saved-layouts.md, step 4): Make default in a shared row\'s ..., restore() on a first visit, the Set up panel\'s line', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
-  const settings = fs.readFileSync(path.join(ROOT, 'public/space-settings.js'), 'utf8');
-  const settingsHtml = fs.readFileSync(path.join(ROOT, 'public/space-settings.html'), 'utf8');
+  const settings = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
+  const settingsHtml = settings; // the panel draws its markup in space-setup.js (space-settings.html is gone)
   // Only on a shared row, only for those the server says may set it (canSetDefault), never a guest.
   assert.match(space, /const maySetDefault = \(shared\) => !guestToken && shared && layoutList\.canSetDefault;/);
   assert.match(space, /canSetDefault: Boolean\(got\.canSetDefault\)/, 'read from GET .../layouts');
@@ -612,16 +612,18 @@ test('the default layout (plan-saved-layouts.md, step 4): Make default in a shar
   const adminSrc = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
   assert.doesNotMatch(adminSrc, /data-module-all-spaces|Available in every|allSpaces/, 'Manage > Modules has no availability checkbox');
   assert.match(adminSrc, /m\.lobby === false \? `<span class="hint">\$\{escapeHtml\(notInLobby\(\)\)\}<\/span>`/, 'the not-in-Lobby note stays, beside Enable');
-  assert.doesNotMatch(settings, /allSpaces|\.spaces\b|off in this|on for every|data-module|switchRowHtml/, 'space settings has no availability switches');
-  assert.match(settings, /<ul class="space-module-list">/, 'the Modules tab lists what is on');
+  assert.doesNotMatch(settings, /allSpaces|\.spaces\b|on for every|data-module|switchRowHtml/, 'the Set up panel has no availability switches ("off in this" left out: Turn AI off in this space is the panel\'s own AI switch)');
+  assert.match(settings, /<ul class="setup-module-list" id="setup-module-list">/, 'the Modules tab lists what is on');
   assert.doesNotMatch(settingsHtml, /Switch one on|marked on for every/, 'the Modules hint no longer offers a switch');
   // Space settings: the line and Stop using it; a list set by hand refreshes it from the answered space.
-  assert.match(settingsHtml, /<button class="btn btn-small" id="opens-with-layout-stop" type="button">Stop using it<\/button>/);
-  assert.ok(settingsHtml.indexOf('id="opens-with-layout"') < settingsHtml.indexOf('id="opens-with"'), 'above the switches');
-  assert.match(settings, /`Opens with the layout \$\{layout\.name\}`/);
-  assert.match(settings, /const layout = system \? \{ name: shown\?\.name \|\| system\[1\] \}/, 'Calendar or Map as the first visit is named too');
-  assert.match(settings, /api\('PATCH', `\/api\/spaces\/\$\{space\.id\}`, \{ defaultLayout: null \}\)/);
-  assert.match(settings, /space = \(await api\('PATCH', `\/api\/spaces\/\$\{space\.id\}`, \{ opensWith: send \}\)\)\.space;\n\s*say\(\$\('opens-with-status'\), 'saved'\);\n\s*syncDefaultLayout\(\);/);
+  assert.match(settingsHtml, /<button type="button" class="btn btn-small" id="setup-opens-with-layout-stop">Stop using it<\/button>/);
+  assert.ok(settingsHtml.indexOf('id="setup-opens-with-layout"') < settingsHtml.indexOf('id="setup-opens-with"'), 'above the switches');
+  assert.match(settings, /`Opens with the layout \$\{known\.name\}`/);
+  // Moved to the panel: Calendar or Map as the first visit are choices of their own, named from the layouts payload.
+  assert.match(settings, /system\.filter\(\(l\) => l\.id === 'calendar' \|\| l\.id === 'map'\)\.map\(\(l\) => \(\{ id: l\.id, name: l\.name,/, 'Calendar and Map are named choices');
+  // Changed on purpose: the page PATCHed defaultLayout and opensWith at once; the panel keeps both as drafts for Save.
+  assert.match(settings, /function stopUsingLayout\(\) \{\n\s*state\.draft\.defaultLayout = null;/, 'Stop using it is a draft change, saved with Save');
+  assert.match(settings, /state\.draft\.opensWith = ticked\.length \? ticked : null; \/\/ the first visit's choice stays as it is/, 'a list set by hand leaves the first visit alone');
 });
 
 test('favorite layouts, step 2 (plan-favorite-layouts.md): a ... on every row for anyone signed in, Favorite or Unfavorite first with its heart, the row\'s heart, the notes; a guest gets none', () => {
@@ -1808,7 +1810,7 @@ test('the anchor: nothing wider than a phone, the page\'s name as a plain label 
   assert.deepEqual(pageAnchor({ phone: true, name: ' Calendar ', icon: 'calendar-days' }), { label: 'Calendar', icon: 'calendar-days', title: 'Calendar', current: 'page' });
   assert.equal(pageAnchor({ phone: true, name: '' }), null, 'no name yet: nothing');
   const read = (f) => fs.readFileSync(path.join(ROOT, 'public', f), 'utf8');
-  for (const f of ['destination.js', 'admin.js', 'profile.js', 'space-settings.js', 'ai-config.js', 'module-config.js', 'module.js', 'module-settings-page.js', 'host.js']) {
+  for (const f of ['destination.js', 'admin.js', 'profile.js', 'space-setup.js', 'ai-config.js', 'module-config.js', 'module.js', 'host.js']) {
     const src = read(f);
     assert.ok(!/crumbLink\(/.test(src), `${f} calls no crumbLink()`);
     assert.ok(!/setTopbarLocation\(/.test(src), `${f} sets no segment`);
@@ -1844,11 +1846,11 @@ test('the page bar: one shared builder, its name first, a Manage link for owners
   assert.match(read('admin.js'), /renderPageBar\(\{ name: 'Manage', icon: 'gear', controls: \[\$\('subtabs'\)\] \}\)/);
   assert.match(read('profile.js'), /renderPageBar\(\{ name: editingKey \? '' : 'Profile', icon: 'user', manage: editingKey \? '\/admin#users' : '', controls: \[\$\('subtabs'\)\] \}\)/);
   assert.match(read('profile.js'), /if \(editingKey\) renderPageBar\(\{ name: user\.displayName/);
-  assert.match(read('space-settings.js'), /renderPageBar\(\{ manage: '\/admin#spaces', controls: \[\$\('subtabs'\)\] \}\)/);
-  assert.match(read('space-settings.js'), /renderPageBar\(\{ name: space\.name, icon: spaceCrumbIcon\(space\) \}\)/);
+  // The space-settings page bar is gone on purpose: the Set up panel opens inside the space page, under its bar, so it
+  // draws no page bar and no #subtabs of its own (its tabs are .setup-tab).
+  assert.ok(!/renderPageBar|id="subtabs"/.test(read('space-setup.js')), 'the Set up panel draws no page bar');
   assert.match(read('ai-config.js'), /renderPageBar\(\{ name: 'AI configuration'[^\n]*manage: '\/admin#modules' \}\)/);
   assert.match(read('module-config.js'), /renderPageBar\(\{ manage: '\/admin#modules' \}\)/);
-  assert.match(read('module-settings-page.js'), /renderPageBar\(\{ name: \$\('title'\)\.textContent/);
   assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: mod\.name, icon: mod\.icon \}\)/);
   assert.match(read('module.js'), /if \(!popout\) renderPageBar\(\{ name: title \|\| mod\.name, icon: mod\.icon \}\)/);
   const dest = read('destination.js');
@@ -1856,7 +1858,7 @@ test('the page bar: one shared builder, its name first, a Manage link for owners
   assert.ok(!/bar\.className = 'subnav dest-bar'/.test(dest), 'no copy of the bar in destination.js');
   assert.ok(!/renderPageBar/.test(read('host.js')), 'the host console has no page bar');
   // The tabs keep their ids; the page bar's look.
-  for (const f of ['admin.html', 'profile.html', 'space-settings.html']) assert.match(read(f), /<nav class="subtabs" id="subtabs">/, `${f} keeps #subtabs`);
+  for (const f of ['admin.html', 'profile.html']) assert.match(read(f), /<nav class="subtabs" id="subtabs">/, `${f} keeps #subtabs`);
   const css = read('style.css');
   assert.match(css, /\.subnav\.page-bar \.nav-left > \.subtabs \{\s*flex: 0 1 auto;\s*min-width: 0;/, 'the tabs give way inside the bar and scroll sideways');
   assert.match(css, /\.page-bar \.subtab\[hidden\] \{\s*display: none;/, 'a hidden tab stays hidden (space settings\' Modules)');
@@ -1926,7 +1928,8 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   // The chip keeps its id, its button, dot and words, and opens the sheet; the track opens it too.
   assert.match(space, /phaseChip\.id = 'phase-chip';/);
   assert.match(space, /phaseChip\.setAttribute\('aria-haspopup', 'dialog'\)/);
-  assert.match(space, /phaseChip\.innerHTML = '<span class="phase-dot" aria-hidden="true"><\/span><span class="phase-chip-label"><\/span><span class="phase-chip-short" aria-hidden="true"><\/span>/);
+  assert.match(space, /phaseChip\.innerHTML = '<span class="phase-dot" aria-hidden="true"><\/span><span class="phase-chip-label"><\/span><span class="phase-chip-short" aria-hidden="true"><\/span>';/, 'the chip ends with its words: no caret');
+  assert.ok(!/phase-chip-caret/.test(space + css), 'no caret class on the chip');
   assert.match(space, /phaseChip\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);\nstatusTrack\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/);
   // A region named Status; the chip's words in one polite status, written only when they change; the track hidden from
   // a screen reader (the words carry it).

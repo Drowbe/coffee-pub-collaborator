@@ -45,7 +45,11 @@
         <label>Category<select id="f-category" name="category"><option value="do">Things to do</option><option value="eat">Food</option><option value="stay">Stay</option><option value="travel">Travel</option><option value="other">Other</option></select></label>
         <label>Address<input id="f-address" name="address" type="text" maxlength="200" autocomplete="off"></label>
       </div>
-      <label>Position<input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="hint" id="f-point-note"></span></label>
+      <div class="pos-field">
+        <label>Position<input id="f-point" name="point" type="text" maxlength="200" placeholder="Paste coordinates or a map link (optional)" inputmode="decimal" autocomplete="off"><span class="hint" id="f-point-note"></span></label>
+        <!-- shown only while a map is open beside: tucks the dialog away, the map waits for a click, the dialog comes back with the spot -->
+        <button class="btn btn-icon pick-point" type="button" id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"><span class="ic" data-icon="crosshairs"></span></button>
+      </div>
       <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea></label>
       <div>
         <div class="hint">Whose is it</div>

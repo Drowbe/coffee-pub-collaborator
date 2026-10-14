@@ -145,3 +145,9 @@ body { margin: 0; overflow: hidden; }
 
 .app.narrow .found { left: 8px; right: 8px; max-height: 65%; }
 .app.narrow .found-row .btn { min-height: 36px; }
+
+/* The Position field with its target button (shown while a map is open): the button sits on the input's line. */
+.pos-field { display: flex; align-items: flex-start; gap: 8px; }
+.pos-field > label { flex: 1; min-width: 0; }
+.pos-field .pick-point { flex: none; margin-top: 1.5em; }
+.pos-field .pick-point[hidden] { display: none; }

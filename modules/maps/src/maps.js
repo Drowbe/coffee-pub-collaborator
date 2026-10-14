@@ -56,6 +56,8 @@
     q: '', // as the destination's part: the page's search text, which dims the pins that do not match it
     settings: { maps: [], web: false }, // the map files to draw (names on this server, or one https address when `web`)
     candidates: [], // search results drawn as pins to pick from
+    picked: null, // the action that takes the spot a person picked for a place (`positionPicked`), if some module provides one
+    pick: false, // a spot is being picked for a place the editor holds (`pickPoint`): the next click on the map answers it
     searcher: null, // the action that searches for a place, if some module provides one
     selected: null, // the id of the summary that is open
     adding: false,
@@ -70,6 +72,7 @@
     // map draws only the picture, and what means nothing on an invented world (where I am, my maps app, the coordinates in
     // the callout, the OpenStreetMap credit, the outside search) is left out (plan-map-image).
     picture: pictureOf(host.environment && host.environment.pictureMap),
+    landZoom: WORLD_MAX_ZOOM,
     maxZoom: WORLD_MAX_ZOOM, // the map's maximum: every fixed zoom below is capped at it (capZoom)
     labelZoom: 11, // the zoom from which a pin shows its label
     style: null, // builds the style from the theme's colours, for a theme change
@@ -78,7 +81,10 @@
   function pictureOf(pm) {
     return pm && typeof pm === 'object' && typeof pm.file === 'string' && pm.file ? pm : null;
   }
-  const cap = (z) => capZoom(z, state.maxZoom);
+  // A zoom the page asks for lands at `landZoom` at most: the map's maximum on the world map, one level above the file's deepest
+  // on a picture map. `limit` is the map's own maximum (a remembered view may be as deep as that).
+  const cap = (z) => capZoom(z, state.landZoom);
+  const limit = (z) => capZoom(z, state.maxZoom);
 
   // --- small helpers ------------------------------------------------------------------------------------------------
 
@@ -112,7 +118,8 @@
     if (pending.size) Promise.all([...pending].map(wantIcon)).then(() => hydrate(scope));
   }
   const setIcon = (node, name) => { if (node) { node.dataset.icon = name || ''; delete node.dataset.shown; node.textContent = ''; } };
-  const say = (text) => { const n = $('note'); n.textContent = text || ''; n.hidden = !text; };
+  // A transient confirmation or refusal is a toast (host.ui.toast), never text drawn in the module; `say('')` is a no-op.
+  const say = (text) => { if (text && host.ui && host.ui.toast) host.ui.toast(String(text)).catch(() => {}); };
   const whenText = (w) => {
     if (w == null || w === '') return '';
     const d = typeof w === 'number' ? new Date(w) : /^\d{4}-\d{2}-\d{2}/.test(String(w)) ? new Date(String(w).length === 10 ? String(w) + 'T00:00:00' : String(w)) : null;
@@ -175,10 +182,14 @@
       // person's own open page, so asking here would wait for a page that is not open. Its map is a view.
       if (alone) return;
       const list = await host.actions.list();
-      if (canEdit) state.adder = list.find((a) => a.name === 'newPlace' && a.input && a.input.lat && a.input.lng) || null;
+      // Who may add is Places' call, not Maps': its own page refuses someone who may not (see askNewPlace), and a listing that
+      // says `may: false` for the action takes the add tools away at once.
+      state.adder = list.find((a) => a.name === 'newPlace' && a.input && a.input.lat && a.input.lng && a.may !== false && !state.refused) || null;
       state.searcher = list.find((a) => a.name === 'searchPlaces' && a.input && a.input.q) || null;
+      state.picked = list.find((a) => a.name === 'positionPicked') || null; // where a picked spot (or none) is told
     } catch (err) {
       state.adder = null;
+      state.picked = null;
       state.searcher = null;
     }
   }
@@ -329,10 +340,12 @@
   // --- saving a new place -------------------------------------------------------------------------------------------
 
   function setAdding(on) {
-    state.adding = Boolean(on) && Boolean(state.adder) && Boolean(state.map);
+    state.adding = Boolean(on) && Boolean(state.adder || state.pick) && Boolean(state.map);
     $('map').classList.toggle('adding', state.adding);
     hide($('banner'), !state.adding);
     syncStatus();
+    // Leaving the mode (Escape, Cancel, the + again) without a click gives the editor back unchanged.
+    if (!state.adding && state.pick) { state.pick = false; tellPicked(null); }
   }
 
   // A pin where a place would go, and Places' own dialog for it: the map asks the module that keeps places to open its dialog
@@ -346,8 +359,31 @@
     if (state.map) state.map.easeTo({ center: [lng, lat], zoom: cap(Math.max(state.map.getZoom(), 14)), duration: 500 });
     const before = state.all.length;
     const a = o || {};
-    host.actions.request(state.adder.action, { lat, lng, ...(a.title ? { title: a.title } : {}), ...(a.address ? { address: a.address } : {}), ...(a.notes ? { notes: a.notes } : {}), ...(a.origin ? { origin: a.origin } : {}) }).catch((err) => { state.draft = null; drawDraft(); say('It could not be started: ' + ((err && err.message) || err)); });
+    // On a phone the parts are tabs: show the list's, where the dialog opens.
+    if (part && state.phone && host.destination) host.destination.set({ reveal: 'panel' }).catch(() => {});
+    askNewPlace({ lat, lng, ...(a.title ? { title: a.title } : {}), ...(a.address ? { address: a.address } : {}), ...(a.notes ? { notes: a.notes } : {}), ...(a.origin ? { origin: a.origin } : {}) }, () => { state.draft = null; drawDraft(); });
     waitForSummary(before).then(() => { if (state.draft && state.draft.lat === lat && state.draft.lng === lng) { state.draft = null; drawDraft(); render(); } });
+  }
+  // The spot a person clicked for the place in the editor (or none: they left the mode), told to the module that keeps places,
+  // which brings its editor back. On a phone the list's tab is shown again so the editor is seen.
+  function tellPicked(at) {
+    if (part && state.phone && host.destination) host.destination.set({ reveal: 'panel' }).catch(() => {});
+    if (!state.picked) return;
+    host.actions.request(state.picked.action, at ? { lat: at.lat, lng: at.lng } : {}).catch(() => {});
+  }
+  // Ask the module that keeps places for its dialog. If it says the person may not add places, the add tools go quietly (no
+  // message); any other failure is said.
+  function askNewPlace(input, failed) {
+    // Waits for the answer: Places' refusal comes back in it, not as a failed request.
+    const stop = (text) => {
+      if (failed) failed();
+      if (/may not add/.test(text)) { state.refused = true; state.adder = null; setAdding(false); setBar(); return; }
+      say('It could not be started: ' + text);
+    };
+    host.actions.request(state.adder.action, input, { wait: true }).then((r) => {
+      const res = r && r.result;
+      if (res && res.ok === false) stop(String(res.error || ''));
+    }).catch((err) => stop((err && err.message) || String(err)));
   }
   async function waitForSummary(before) {
     for (let i = 0; i < 30; i += 1) {
@@ -574,6 +610,7 @@
       // The picture's own zooms, two more by stretching its deepest tiles, and panning only over the picture.
       limits = pictureLimits(headers[0], picture);
       state.maxZoom = limits.maxZoom;
+      state.landZoom = limits.landZoom;
       // The whole picture is one tile at zoom 0, so the pins' labels show a few levels before its deepest zoom.
       state.labelZoom = Math.max(0, limits.fileMaxZoom - 3);
       state.style = () => buildPictureStyle(tokens(), { tiles: state.tileUrls[0], minZoom: limits.fileMinZoom, maxZoom: limits.fileMaxZoom, bounds: limits.bounds });
@@ -581,6 +618,7 @@
       Object.assign(options, { minZoom: limits.minZoom, maxZoom: limits.maxZoom, maxBounds: limits.bounds, center: [(w + e) / 2, (s + n) / 2], zoom: limits.minZoom });
     } else {
       state.maxZoom = WORLD_MAX_ZOOM;
+      state.landZoom = WORLD_MAX_ZOOM;
       state.labelZoom = 11;
       state.style = () => buildStyle(tokens(), { tiles: state.tileUrls, glyphs });
       Object.assign(options, { maxZoom: WORLD_MAX_ZOOM, center: [header.centerLon, header.centerLat], zoom: 2 });
@@ -592,6 +630,13 @@
     map.getCanvas().setAttribute('aria-label', picture ? 'Picture map' : 'Map');
     credit(metadata, Boolean(picture));
     map.on('click', (e) => {
+      if (state.adding && state.pick) {
+        const at = { lat: round6(e.lngLat.lat), lng: round6(e.lngLat.lng) };
+        state.pick = false;
+        setAdding(false);
+        tellPicked(at);
+        return;
+      }
       if (state.adding) { draftAt(round6(e.lngLat.lat), round6(e.lngLat.lng)); return; }
       if (state.selected) select(null);
     });
@@ -646,7 +691,7 @@
     if (!part) return null;
     try {
       const v = JSON.parse(localStorage.getItem(viewKey()) || 'null');
-      return v && geo.inRange(Number(v.lat), Number(v.lng)) && Number.isFinite(Number(v.zoom)) ? { center: [Number(v.lng), Number(v.lat)], zoom: cap(Math.max(0, Number(v.zoom))) } : null;
+      return v && geo.inRange(Number(v.lat), Number(v.lng)) && Number.isFinite(Number(v.zoom)) ? { center: [Number(v.lng), Number(v.lat)], zoom: limit(Math.max(0, Number(v.zoom))) } : null;
     } catch (err) {
       return null;
     }
@@ -709,11 +754,14 @@
     if (a === 'close-callout') select(null);
     else if (a === 'show-in-list' && part && host.destination) host.destination.set({ reveal: 'panel' }).catch(() => {});
     else if (a === 'cancel') setAdding(false);
-    else if (a === 'add') { if (state.adder) setAdding(!state.adding); }
+    else if (a === 'add') { if (state.adder) { if (state.map) setAdding(!state.adding); else askNewPlace({}); } }
     else if (a === 'copy-coords' && c) {
       try { await navigator.clipboard.writeText(coordsText(c.place.lat, c.place.lng)); say('Coordinates copied.'); setTimeout(() => say(''), 2000); } catch (err) { say('Copy them from the place: ' + coordsText(c.place.lat, c.place.lng)); }
     } else if (a === 'open' && c) host.objects.open(c.ref).catch(() => say(`That ${word('object')} could not be opened.`));
   });
+  // While a spot is being picked for the editor, focus may be anywhere on the page (the editor's list was the last): Escape leaves
+  // the mode wherever it is pressed.
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.pick && host.rootElement.isConnected) setAdding(false); });
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (e.target === $('map-find') && !hits.length && !state.searchMessage && $('map-find').value) { $('map-find').value = ''; return; }
@@ -750,18 +798,19 @@
   }
 
   // Adding and searching. The "+" in the window's titlebar (host.add.set; popped out too, or the page bar on the module's own
-  // page) holds "Add a place on the map" (click the map) and "Add a place" (Places' dialog, empty), and the map's search is a
+  // page) holds one entry, "Add a place" (a click on the map, then Places' dialog), and the map's search is a
   // field over the top of the map. Where the host draws no "+" (its answer is false) the + on the map stays. As the
   // destination's map in a Workspace's Map (a composite), the + on the map is the composite's "+" instead (host.add.set
   // answers true there; on the /map page it answers false, and the + on the map stays) and the page owns the search.
   let addHosted = false;
   let addAsked = '';
+  // The words, the same as Places': one "Add a place" everywhere. With a map it asks for a click first ("Click the map to place
+  // it"), then Places' dialog opens with that spot; with no map to click it opens the dialog at once.
+  const ADD_PLACE = 'Add a place';
+  const CLICK_TO_ADD = 'Click the map to place it';
   function addEntries() {
     if (!state.adder) return [];
-    // Clicking the map needs a map (none while the map file is missing or the device cannot draw it).
-    const list = state.map ? [{ id: 'place', label: 'Add a place on the map', icon: 'map-pin' }] : [];
-    if (!part) list.push({ id: 'new', label: 'Add a place', icon: 'location-dot' });
-    return list;
+    return [{ id: 'place', label: ADD_PLACE, icon: 'location-dot' }];
   }
   function setBar() {
     hide($('ctrl-add'), !(state.adder && !addHosted));
@@ -780,8 +829,9 @@
   }
   if (host.add) {
     host.on('add', (e) => {
-      if (e.id === 'place') { if (state.adder) setAdding(!state.adding); return; }
-      if (e.id === 'new' && state.adder && !part) host.actions.request(state.adder.action, {}).catch((err) => say('It could not be started: ' + ((err && err.message) || err)));
+      // One entry, "Add a place": Places' dialog at once, empty (a place need not be a pin; its Position field has a target that
+      // picks the spot on this map).
+      if (e.id === 'place' && state.adder) askNewPlace({});
     });
   }
   // The status line under the map: how many places it shows, how many a search found, or what to do while adding one.
@@ -791,7 +841,7 @@
     const n = state.found.length;
     const found = state.candidates.length;
     const shown = n ? `${n} ${n === 1 ? 'place' : 'places'} shown` : 'No places shown';
-    const items = state.adding ? [{ text: 'Click the map to add a place' }] : found ? [{ text: `${found} found` }, { text: shown }] : [{ text: shown }];
+    const items = state.adding ? [{ text: CLICK_TO_ADD }] : found ? [{ text: `${found} found` }, { text: shown }] : [{ text: shown }];
     host.status.set(items).catch(() => {});
   }
   // What was typed in the field: a pasted position or map link goes there (or starts a place there);
@@ -813,6 +863,18 @@
   const startedPromise = new Promise((r) => { startedResolve = r; });
   if (host.actions && host.actions.provide) {
     host.actions.provide({
+      // Places' editor asks for a spot on the map for the place it holds: the map goes into its click-the-map mode (the same as
+      // the + on the map) and the next click is told back through `positionPicked`; leaving the mode tells it none. Answers
+      // at once; the spot comes back as that request.
+      pickPoint: async () => {
+        await startedPromise;
+        if (!state.map || !state.mapReady) throw new Error('the map is not ready');
+        state.pick = true;
+        if (part && state.phone && host.destination) host.destination.set({ reveal: 'main' }).catch(() => {});
+        setAdding(true);
+        say(CLICK_TO_ADD);
+        return {};
+      },
       showOnMap: async (input) => {
         await startedPromise;
         const id = host.util.objectKey(input.ref);

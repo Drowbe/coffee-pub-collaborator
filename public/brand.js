@@ -917,6 +917,32 @@ function showToast(n) {
   setTimeout(dismiss, 9000);
 }
 
+// A short note that goes away by itself (a module's "Saved in ...", host.ui.toast): the notification toast's look, text only, never
+// kept in the bell. It is said aloud once (role=status) and goes after a few seconds, or when it is clicked.
+export function showNote(text) {
+  const t = String(text ?? '').replace(/\s+/g, ' ').trim().slice(0, 200);
+  if (!t) return;
+  let layer = document.getElementById('toast-layer');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.id = 'toast-layer';
+    layer.className = 'toast-layer';
+    document.body.appendChild(layer);
+  }
+  const toast = document.createElement('button');
+  toast.type = 'button';
+  toast.className = 'toast toast-note';
+  toast.setAttribute('role', 'status');
+  const body = document.createElement('span');
+  body.className = 'toast-text';
+  body.textContent = t;
+  toast.appendChild(body);
+  const dismiss = () => toast.remove();
+  toast.addEventListener('click', dismiss);
+  layer.appendChild(toast);
+  setTimeout(dismiss, 4500);
+}
+
 // A guest's page (a guest link, /guest/<token>, or a module it popped out, ?guest=): no account, so /api/me is not asked.
 const isGuestPage = () => location.pathname.startsWith('/guest/') || new URLSearchParams(location.search).has('guest');
 // GET /api/me, asked once per page and shared (the header's switch, the owner's banner): the answer, null for no

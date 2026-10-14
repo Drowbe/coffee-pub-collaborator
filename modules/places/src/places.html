@@ -42,7 +42,7 @@
       <p class="hint" id="f-readonly" hidden></p>
       <label>Name<input id="f-title" name="title" type="text" maxlength="120" required></label>
       <div class="editor-row">
-        <label>Category<select id="f-category" name="category"><option value="do">Things to do</option><option value="eat">Food</option><option value="stay">Stay</option><option value="travel">Travel</option><option value="other">Other</option></select></label>
+        <label>Category<select id="f-category" name="category"></select></label>
         <label>Address<input id="f-address" name="address" type="text" maxlength="200" autocomplete="off"></label>
       </div>
       <div class="pos-field">
@@ -77,7 +77,7 @@
 <template id="tpl-chip"><button class="chip" type="button"><span class="ic" data-icon=""></span><span data-slot="label"></span> <span class="count" data-slot="count"></span></button></template>
 <template id="tpl-group"><section class="group"><h2 class="group-title"><span class="ic" data-icon=""></span><span data-slot="title"></span></h2><div class="rows"></div></section></template>
 
-<!-- a place. The element gets data-id and data-cat (do, eat, stay, travel, other). -->
+<!-- a place. The element gets data-id and data-cat (a category id from the environment list; do, eat, stay, travel, other to start). -->
 <template id="tpl-place">
   <article class="place-row" tabindex="0">
     <span class="mark"><span class="ic" data-icon=""></span></span>

@@ -83,10 +83,14 @@ await test('geo: the link to the person\'s own maps app', () => {
 await test('a place needs a name; the point is optional and checked', () => {
   assert.equal(lib.cleanPlace('a', { title: '' }), null);
   assert.equal(lib.cleanPlace('a', null), null);
-  const bare = lib.cleanPlace('a', { title: ' Museum ', address: 'Rua 1,\n Lisboa', category: 'nope' });
+  const bare = lib.cleanPlace('a', { title: ' Museum ', address: 'Rua 1,\n Lisboa', category: 'No pe!' });
   assert.equal(bare.title, 'Museum');
   assert.equal(bare.address, 'Rua 1, Lisboa');
   assert.equal(bare.category, 'other');
+  // An id that is well formed is kept even when no category has it any more (the page shows it under Other); stored places are never rewritten.
+  assert.equal(lib.cleanPlace('a', { title: 'x', category: 'inn' }).category, 'inn');
+  assert.equal(lib.cleanPlace('a', { title: 'x', category: 5 }).category, 'other');
+  assert.deepEqual(lib.CATEGORIES, ['do', 'eat', 'stay', 'travel', 'other']);
   assert.equal(bare.point, null);
   assert.equal(lib.cleanPlace('a', { title: 'x', point: { lat: 91, lng: 2 } }).point, null);
   assert.equal(lib.cleanPlace('a', { title: 'x', point: { lat: 'no', lng: 2 } }).point, null);
@@ -204,6 +208,18 @@ await test('one way to add a place in every context: Where, the same finish, the
   assert.match(page, /positionPicked: async \(input\) => \{/);
   assert.match(page, /if \(point\) \{ \$\('f-point'\)\.value = geo\.coordsText\(point\.lat, point\.lng\); readPoint\(\); \}/);
   assert.ok(JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8')).actions.provides.some((a) => a.name === 'positionPicked' && a.local === true));
+  // The category list is the owner's (the `categories` setting): it starts as the five travel ones, Other can never be removed, and every
+  // place of the page goes through catOf, so an id that is off the list shows under Other and is not rewritten.
+  const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
+  const catDef = manifest.settings.find((d) => d.key === 'categories');
+  assert.ok(catDef && catDef.type === 'list' && catDef.scope === 'environment' && catDef.fixed.includes('other'));
+  assert.deepEqual(catDef.default.map((c) => c.id), lib.CATEGORIES);
+  assert.deepEqual(catDef.default.map((c) => c.label), ['Things to do', 'Food', 'Stay', 'Travel', 'Other']);
+  assert.ok(!/CAT_ORDER|CAT_LABEL|CAT_ICON/.test(page), 'no hard-coded category lists are left in the page');
+  assert.match(page, /const catRow = \(id\) => cats\.find\(\(c\) => c\.id === id\) \|\| cats\.find\(\(c\) => c\.id === 'other'\)/);
+  assert.match(page, /catOf\(x\.p\)\.id === c\.id/);
+  assert.match(page, /host\.settings\.onChange\(\(v\) => useSettings\(v\)\)/);
+  assert.doesNotMatch(html, /<option value="do">/, 'the editor select is filled from the list');
   // The Map reads this sentence to take its add tools away, so it must stay as it is.
   assert.match(page, /const REFUSED = 'you may not add places here';/);
   assert.match(page, /if \(!canAdd\(\)\) throw new Error\(REFUSED\);/);

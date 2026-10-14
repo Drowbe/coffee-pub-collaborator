@@ -204,7 +204,7 @@
     if (!c) { box.replaceChildren(); hide(box, true); return; }
     const el = clone('tpl-callout');
     el.dataset.kind = kindOf(c);
-    if (c.category) el.dataset.cat = c.category;
+    if (c.category) { el.dataset.cat = c.category; turnCat(el, c.category); }
     if (c.ref.scope === 'person') el.dataset.scope = 'person';
     // On a picture map a position is not somewhere on Earth: no coordinates shown (Copy coordinates still copies them) and
     // no "Open in my maps app".
@@ -274,11 +274,21 @@
   let draftMarker = null;
   function clearPins() { while (markers.length) markers.pop().remove(); }
 
+  // A category the stylesheet has no colour for (one the owner added to Places' list) turns the accent by an amount taken from its
+  // id, the same amount Places uses. Maps cannot read Places' settings, so a colour chosen there is not shown here.
+  const BUILT_IN_CATS = ['do', 'eat', 'stay', 'travel', 'other'];
+  function turnCat(el, cat) {
+    if (!cat || BUILT_IN_CATS.includes(cat)) return;
+    let h = 0;
+    for (const ch of String(cat)) h = (h * 31 + ch.charCodeAt(0)) % 360;
+    el.style.setProperty('--turn', String(h));
+  }
+
   function makePin(kind, id, icon, label, on, cat, scope, dim) {
     const pin = clone('tpl-pin');
     pin.dataset.kind = kind;
     pin.dataset.id = id;
-    if (cat) pin.dataset.cat = cat;
+    if (cat) { pin.dataset.cat = cat; turnCat(pin, cat); }
     if (scope) pin.dataset.scope = scope;
     if (dim) pin.classList.add('dim');
     setIcon(pin.querySelector('[data-icon]'), icon);

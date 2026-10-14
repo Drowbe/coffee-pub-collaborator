@@ -46,9 +46,45 @@
   const onPicture = () => Boolean(host.environment && host.environment.pictureMap);
   const personal = Boolean(info.user && info.user.key !== 'guest'); // a guest has no profile, so no personal places
   const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
-  const CAT_ORDER = ['do', 'eat', 'stay', 'travel', 'other'];
-  const CAT_LABEL = { do: 'Things to do', eat: 'Food', stay: 'Stay', travel: 'Travel', other: 'Other' };
-  const CAT_ICON = { do: 'ticket', eat: 'utensils', stay: 'bed', travel: 'plane', other: 'note-sticky' };
+  // The categories are the environment's list (the module's `categories` setting, an owner's to change in Manage), in order:
+  // [{ id, label, icon, color }]. This is what it starts as. A place keeps the id it was saved with; one whose id is not on the
+  // list is shown under Other (catOf) and is not rewritten. `other` is always on the list.
+  const DEFAULT_CATS = [
+    { id: 'do', label: 'Things to do', icon: 'ticket', color: '#888888' }, { id: 'eat', label: 'Food', icon: 'utensils', color: '#888888' },
+    { id: 'stay', label: 'Stay', icon: 'bed', color: '#888888' }, { id: 'travel', label: 'Travel', icon: 'plane', color: '#888888' },
+    { id: 'other', label: 'Other', icon: 'note-sticky', color: '#888888' },
+  ];
+  let cats = DEFAULT_CATS;
+  const catRow = (id) => cats.find((c) => c.id === id) || cats.find((c) => c.id === 'other') || DEFAULT_CATS[4];
+  const catOf = (p) => catRow(p.category);
+  // Colour: the five built-in ones turn the accent by a fixed amount (the stylesheet). Any other category turns it by an amount
+  // taken from its id, the same in Maps; a colour chosen in the list (anything but the grey that means "automatic") is used as it is.
+  const TURNS = { do: 1, eat: 1, stay: 1, travel: 1, other: 1 };
+  const AUTO_COLOR = '#888888';
+  function tone(el, c) {
+    el.style.removeProperty('--turn'); el.style.removeProperty('--tone'); el.style.removeProperty('--tone-ink');
+    const hex = String(c.color || '').toLowerCase();
+    if (/^#[0-9a-f]{6}$/.test(hex) && hex !== AUTO_COLOR) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      el.style.setProperty('--tone', hex);
+      el.style.setProperty('--tone-ink', r * 0.299 + g * 0.587 + b * 0.114 > 150 ? '#000000' : '#ffffff');
+    } else if (!TURNS[c.id]) {
+      let h = 0;
+      for (const ch of c.id) h = (h * 31 + ch.charCodeAt(0)) % 360;
+      el.style.setProperty('--turn', String(h));
+    }
+  }
+  const useCats = (v) => {
+    const list = v && Array.isArray(v.categories) ? v.categories.filter((c) => c && typeof c.id === 'string' && typeof c.label === 'string' && c.label) : [];
+    cats = list.length && list.some((c) => c.id === 'other') ? list.map((c) => ({ id: c.id, label: c.label, icon: c.icon || 'note-sticky', color: c.color || AUTO_COLOR })) : DEFAULT_CATS;
+    if (state.cat && !cats.some((c) => c.id === state.cat)) state.cat = '';
+    const sel = $('f-category');
+    if (sel) {
+      const was = sel.value;
+      sel.replaceChildren(...cats.map((c) => { const o = document.createElement('option'); o.value = c.id; o.textContent = c.label; return o; }));
+      sel.value = cats.some((c) => c.id === was) ? was : 'other';
+    }
+  };
 
   // Two stores of the same kind of thing: this space's, and the person's own (private, in their profile, the same in every space).
   // `places` is whichever the person is looking at.
@@ -240,10 +276,12 @@
     const el = clone('tpl-place');
     el.dataset.id = p.id;
     el.dataset.where = w;
-    el.dataset.cat = p.category;
+    const cat = catOf(p);
+    el.dataset.cat = cat.id;
+    tone(el, cat);
     if (asPart && state.selected === rowKey(w, p.id)) el.classList.add('selected');
     scopeMark(el, w);
-    setIcon(el.querySelector('.mark [data-icon]'), CAT_ICON[p.category]);
+    setIcon(el.querySelector('.mark [data-icon]'), cat.icon);
     fill(el, { title: p.title, address: p.address });
     hide(slot(el, 'pinned'), !p.point);
     hide(slot(el, 'nopos'), Boolean(p.point));
@@ -285,17 +323,17 @@
     if (!host.status || !state.loaded) return;
     if (asPart) {
       const sel = state.selected ? entries().find((x) => rowKey(x.w, x.p.id) === state.selected) : null;
-      host.status.set(sel ? [{ text: sel.p.title }, { text: CAT_LABEL[sel.p.category] || CAT_LABEL.other }] : []).catch(() => {});
+      host.status.set(sel ? [{ text: sel.p.title }, { text: catOf(sel.p).label }] : []).catch(() => {});
       return;
     }
     // On its own: how many places are listed (of how many, while a filter or a kind narrows them), whose they are, and
     // the filter. The count is quiet while someone types in the filter, so a screen reader does not read every key.
     const total = entries().length;
-    const shown = visible().filter((x) => !state.cat || x.p.category === state.cat).length;
+    const shown = visible().filter((x) => !state.cat || catOf(x.p).id === state.cat).length;
     const typed = state.filter.trim();
     const items = [{ text: shown === total ? `${total} ${total === 1 ? 'place' : 'places'}` : `${shown} of ${total} places`, quiet: Boolean(typed) }];
     if (Object.values(allowed).filter(Boolean).length > 1) items.push({ text: whereName(view), chip: true });
-    if (state.cat) items.push({ text: CAT_LABEL[state.cat] || state.cat, chip: true });
+    if (state.cat) items.push({ text: catRow(state.cat).label, chip: true });
     if (typed) items.push({ text: `\u201c${typed.slice(0, 24)}\u201d`, chip: true, quiet: true });
     host.status.set(items).catch(() => {});
   }
@@ -332,21 +370,22 @@
     }
     // The chips: All, then a chip per category with places, each with its count of what the search leaves.
     const searched = visible().map((x) => x.p);
-    const counts = Object.fromEntries(CAT_ORDER.map((c) => [c, searched.filter((p) => p.category === c).length]));
+    const counts = Object.fromEntries(cats.map((c) => [c.id, searched.filter((p) => catOf(p).id === c.id).length]));
     const chips = [];
     const chip = (key, icon, label, count) => {
       const c = clone('tpl-chip');
       c.dataset.cat = key;
+      if (key) tone(c, catRow(key));
       setIcon(c.querySelector('[data-icon]'), icon);
       fill(c, { label, count: String(count) });
       c.classList.toggle('on', state.cat === key);
       chips.push(c);
     };
     chip('', 'layer-group', 'All', searched.length);
-    for (const c of CAT_ORDER) if (counts[c]) chip(c, CAT_ICON[c], CAT_LABEL[c], counts[c]);
+    for (const c of cats) if (counts[c.id]) chip(c.id, c.icon, c.label, counts[c.id]);
     $('chips').replaceChildren(...chips);
     // The groups.
-    const shown = visible().filter((x) => !state.cat || x.p.category === state.cat);
+    const shown = visible().filter((x) => !state.cat || catOf(x.p).id === state.cat);
     if (!shown.length) {
       const st = clone('tpl-state-noresults');
       // Beside the map the search text is the page's: only a category chip can be cleared from here.
@@ -358,12 +397,12 @@
       return;
     }
     const groups = [];
-    for (const c of CAT_ORDER) {
-      const inCat = shown.filter((x) => x.p.category === c);
+    for (const c of cats) {
+      const inCat = shown.filter((x) => catOf(x.p).id === c.id);
       if (!inCat.length) continue;
       const g = clone('tpl-group');
-      setIcon(g.querySelector('[data-icon]'), CAT_ICON[c]);
-      fill(g, { title: CAT_LABEL[c] });
+      setIcon(g.querySelector('[data-icon]'), c.icon);
+      fill(g, { title: c.label });
       g.querySelector('.rows').replaceChildren(...inCat.map((x) => row(x.p, x.w)));
       groups.push(g);
     }
@@ -587,7 +626,8 @@
     for (const el of FIELD_WRAPPERS()) el.hidden = !editable;
     if (editable) {
       $('f-title').value = shown.title;
-      $('f-category').value = shown.category;
+      $('f-category').value = catOf(shown).id;
+      state.editing.cat = shown.category; // kept as it was unless the person chooses another
       $('f-address').value = shown.address;
       $('f-point').value = shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : '';
       $('f-point-note').textContent = '';
@@ -595,7 +635,7 @@
       fillOwners(id ? shown.owners : [info.user.key]);
     } else {
       const ro = clone('tpl-readonly');
-      fill(ro, { category: CAT_LABEL[shown.category], address: shown.address || 'None', point: shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : 'None yet', owners: shown.owners.map(nameOf).filter(Boolean).join(', ') || 'Nobody in particular', notes: shown.notes });
+      fill(ro, { category: catOf(shown).label, address: shown.address || 'None', point: shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : 'None yet', owners: shown.owners.map(nameOf).filter(Boolean).join(', ') || 'Nobody in particular', notes: shown.notes });
       $('editor-title').after(ro);
     }
     // Where it is, and what uses it.
@@ -688,7 +728,7 @@
     const place = {
       id: e.id || '',
       title,
-      category: CAT_ORDER.includes($('f-category').value) ? $('f-category').value : 'other',
+      category: e.cat && $('f-category').value === catRow(e.cat).id ? e.cat : cats.some((c) => c.id === $('f-category').value) ? $('f-category').value : 'other', // a place keeps its stored id unless the person chose another
       address: geo.oneLine($('f-address').value, 200),
       point: e.point,
       notes: $('f-notes').value,
@@ -1102,9 +1142,11 @@
     } else await ensureLoaded(view);
     state.people = await host.people().catch(() => []);
     const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
-    try { useSearch(await host.settings.get()); } catch (err) { useSearch(null); }
-    host.settings.onChange((v) => useSearch(v));
-    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(Object.values(CAT_ICON), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));
+    // The settings arrive before the first list is drawn, and again when the owner saves them (the list is redrawn).
+    const useSettings = (v) => { useSearch(v); useCats(v); if (state.loaded) { render(); hydrate(root); } };
+    try { useSettings(await host.settings.get()); } catch (err) { useSettings(null); }
+    host.settings.onChange((v) => useSettings(v));
+    await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(cats.map((c) => c.icon), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));
     findShowAction();
     state.loaded = true;
     render();

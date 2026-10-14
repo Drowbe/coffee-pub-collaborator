@@ -8,12 +8,15 @@ import { api, escapeHtml, word, accessKeyHeaders } from '/brand.js';
 // A list of things with a label, an icon and a colour each (Planner's marker types): rows to change, reorder, remove and add. The rows the
 // module says are fixed (def.fixed: ids) are always there; their label, icon and colour can change but they cannot be removed.
 // Icons are picked from a small set of Font Awesome names that suit a plan; the colour is a hex value.
-const ICONS = ['flag', 'flag-checkered', 'plane-departure', 'plane-arrival', 'plane', 'train', 'car', 'ship', 'bus', 'bed', 'utensils', 'mug-hot', 'martini-glass', 'camera', 'mountain', 'umbrella-beach', 'person-walking', 'person-hiking', 'ticket', 'bell', 'clock', 'hourglass-half', 'moon', 'sun', 'face-smile', 'heart', 'star', 'users', 'shopping-bag', 'landmark', 'music', 'circle-exclamation', 'triangle-exclamation', 'location-dot', 'suitcase', 'gift', 'wine-glass', 'spa', 'bolt'];
+const ICONS = ['flag', 'flag-checkered', 'plane-departure', 'plane-arrival', 'plane', 'train', 'car', 'ship', 'bus', 'bed', 'utensils', 'mug-hot', 'martini-glass', 'camera', 'mountain', 'umbrella-beach', 'person-walking', 'person-hiking', 'ticket', 'bell', 'clock', 'hourglass-half', 'moon', 'sun', 'face-smile', 'heart', 'star', 'users', 'shopping-bag', 'landmark', 'music', 'circle-exclamation', 'triangle-exclamation', 'location-dot', 'suitcase', 'gift', 'wine-glass', 'spa', 'bolt', 'note-sticky', 'city', 'dungeon', 'chess-rook', 'beer-mug-empty', 'skull', 'dragon', 'hat-wizard', 'compass', 'map', 'campground', 'church', 'house', 'store', 'tree', 'water', 'book', 'gem', 'shield-halved', 'fire', 'horse', 'anchor', 'monument', 'building', 'coins', 'scroll', 'khanda', 'tents'];
+// The colours a new row starts with, one after another, so rows added in a run do not all look alike.
+const NEW_COLORS = ['#4f8fdd', '#e0883a', '#4caf7a', '#b268d8', '#d9534f', '#2fb5b5', '#c9a227', '#7f8fa6'];
+const ICON_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
 const HEX = /^#[0-9a-f]{6}$/i;
 function listRow(def, r) {
   const fixed = (def.fixed || []).includes(r.id);
   const color = HEX.test(r.color || '') ? r.color : '#888888';
-  const icon = ICONS.includes(r.icon) ? r.icon : ICONS[0];
+  const icon = ICONS.includes(r.icon) || ICON_RE.test(r.icon || '') ? r.icon : ICONS[0]; // a saved icon outside the picker stays as it is
   return `<li class="list-row" data-id="${escapeHtml(r.id || '')}" data-icon="${escapeHtml(icon)}">
     <input type="color" data-f="color" value="${escapeHtml(color)}" aria-label="Colour">
     <details class="icon-pick"><summary aria-label="Icon" title="Icon"><i class="fa-solid fa-${escapeHtml(icon)} fa-fw" aria-hidden="true"></i></summary><div class="icon-grid">${ICONS.map((n) => `<button type="button" data-icon-choice="${n}" title="${n.replace(/-/g, ' ')}"><i class="fa-solid fa-${n} fa-fw" aria-hidden="true"></i></button>`).join('')}</div></details>
@@ -43,7 +46,7 @@ function wireList(el, def) {
     if (!b) return;
     const list = el.querySelector('.list-rows');
     if (b.dataset.list === 'add') {
-      list.insertAdjacentHTML('beforeend', listRow(def, { id: '', label: '', icon: 'flag', color: '#4f8fdd' }));
+      list.insertAdjacentHTML('beforeend', listRow(def, { id: '', label: '', icon: 'flag', color: NEW_COLORS[list.children.length % NEW_COLORS.length] }));
       list.lastElementChild.querySelector('[data-f="label"]').focus();
     } else if (li && b.dataset.list === 'remove') li.remove();
     else if (li && b.dataset.list === 'up' && li.previousElementSibling) li.previousElementSibling.before(li);

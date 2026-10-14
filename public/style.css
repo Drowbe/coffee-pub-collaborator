@@ -8776,10 +8776,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   background: var(--accent);
 }
 
-.phase-chip-caret {
-  font-size: 11px;
-}
-
 .status-strip .phase-chip .phase-chip-label {
   min-width: 0;
   overflow: hidden;
@@ -9969,11 +9965,6 @@ h4.setup-subheading {
   text-decoration: underline;
 }
 
-.setup-full {
-  margin-top: 12px;
-  color: var(--text-dim);
-}
-
 .setup-opens-with {
   display: flex;
   flex-direction: column;
@@ -10056,6 +10047,170 @@ h4.setup-subheading {
   font-weight: 600;
 }
 
+/* First visit: the line naming a default layout, with Stop using it. */
+.setup-opens-with-layout {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 6px 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  font-size: 14px;
+}
+
+.setup-opens-with-layout[hidden] {
+  display: none;
+}
+
+.setup-opens-with-layout-text {
+  flex: 1 1 12em;
+  min-width: 0;
+}
+
+/* Phases: the phase sheet's rows (phase-sheet:start above), inline, each a card as on a phone: the name, then Start and
+   End side by side, the length and Skip under them. */
+.setup-phases-now {
+  margin: 0 0 6px;
+  font-weight: 600;
+}
+
+.setup-phases-now:empty {
+  display: none;
+}
+
+.space-setup .phase-first {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.space-setup .phase-row {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-areas: "name name" "start end" "days tools" "problem problem";
+  gap: 6px 10px;
+  padding: 8px 2px;
+}
+
+.space-setup .phase-row-field {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+}
+
+.space-setup .phase-row-word {
+  position: static;
+  width: auto;
+  height: auto;
+  margin: 0;
+  overflow: visible;
+  clip: auto;
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.space-setup .phase-date {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.space-setup .phase-date:focus-visible {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  outline-offset: 0;
+}
+
+.space-setup .phase-date:disabled {
+  opacity: 0.6;
+}
+
+.setup-phases-status {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.setup-phases-status:empty {
+  display: none;
+}
+
+/* The modules tab: the modules on here, then each module's settings (module-settings.js, its draft mode). */
+.setup-module-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.space-setup .module-settings-card {
+  gap: 8px;
+  padding: 10px 0;
+}
+
+.module-settings-name {
+  margin: 0;
+  font-size: 15px;
+}
+
+.space-setup .module-setting > label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+}
+
+.space-setup .module-setting > label.check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.space-setup .module-setting input[type="text"],
+.space-setup .module-setting input[type="url"],
+.space-setup .module-setting input[type="number"],
+.space-setup .module-setting select {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+
+.space-setup .module-setting input:focus-visible,
+.space-setup .module-setting select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 0;
+}
+
+.space-setup .list-row {
+  flex-wrap: wrap;
+}
+
+.space-setup .files-table {
+  display: block;
+  overflow-x: auto;
+}
+
 .setup-status {
   margin: 0;
   padding: 0 16px;
@@ -10133,9 +10288,21 @@ h4.setup-subheading {
 
   .setup-picture-pick,
   #setup-picture-remove,
-  #setup-phases,
+  .space-setup .phase-row-tools .btn,
+  .space-setup .phase-row-off .btn,
+  .space-setup .phase-first .btn,
+  #setup-opens-with-layout-stop,
   .setup-choice {
     min-height: 44px;
+  }
+
+  .space-setup .phase-date,
+  .space-setup .module-setting input[type="text"],
+  .space-setup .module-setting input[type="url"],
+  .space-setup .module-setting input[type="number"],
+  .space-setup .module-setting select {
+    min-height: 44px;
+    font-size: 16px; /* a phone does not zoom */
   }
 
   .setup-workspace-content {

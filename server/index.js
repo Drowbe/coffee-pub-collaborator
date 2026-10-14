@@ -2744,10 +2744,6 @@ app.get('/profile', (req, res) => {
   res.sendFile(page('profile.html'));
 });
 app.get('/me', (_req, res) => res.redirect('/profile')); // the profile page's old address
-app.get('/module-settings', (req, res) => {
-  if (!currentUser(req)) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
-  res.sendFile(page('module-settings.html'));
-});
 
 // An admin editing someone else's profile: the same page, in edit mode --
 // see public/profile.js, which tells the two apart by the URL.
@@ -2762,15 +2758,6 @@ app.get('/admin', (req, res) => {
   if (!isOwner(req)) return res.status(403).send(`${word('owner', { many: true, cap: true })} only.`);
   res.sendFile(page('admin.html'));
 });
-
-// A space's own settings page, the same idea as a user's profile page: click it in
-// Manage > Spaces and land here instead of editing it inline in the list.
-app.get('/spaces/:id', (req, res) => {
-  if (!currentUser(req)) return res.redirect(`/login?next=/spaces/${encodeURIComponent(req.params.id)}`);
-  if (!isOwner(req)) return res.status(403).send(`${word('owner', { many: true, cap: true })} only.`);
-  res.sendFile(page('space-settings.html'));
-});
-
 
 // Images ---------------------------------------------------------------------
 

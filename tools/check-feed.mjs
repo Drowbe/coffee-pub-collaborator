@@ -316,14 +316,13 @@ await test('pages: Profile\'s Calendar feed section and the owner\'s row, Manage
   assert.doesNotMatch(configJs, /(localStorage|sessionStorage)[^\n]*publishedUrl/, 'the address is not kept beyond the page');
   assert.ok(configJs.includes("if (!on) { publishedUrl = ''; $('published-url').textContent = ''; $('published-made').hidden = true; return; }"), 'no address left on the page once the switch is off');
   assert.ok(configHtml.includes("or one {space}'s,"), 'the Private addresses line names a space\'s address again');
-  // The space's settings: In the published calendar, shown only while publishing is on.
-  const spaceHtml = read('public/space-settings.html');
-  const spaceJs = read('public/space-settings.js');
-  assert.match(spaceHtml, /<div class="[^"]+" id="section-calendar" hidden>[\s\S]*?<input type="checkbox" id="e-publish-calendar"> In the published calendar<\/label>/);
-  assert.ok(spaceJs.includes("{ publishCalendar: event.target.checked }"), 'saves publishCalendar');
-  assert.ok(spaceJs.includes("$('section-calendar').hidden = settings.publishedCalendar !== true || !onHere;"), 'the space section needs the module on too');
-  assert.ok(spaceJs.includes('const onHere = Boolean(m && m.enabled);'), 'on for the whole environment: no per-space test');
-  assert.doesNotMatch(spaceJs, /allSpaces|m\.spaces/, 'space settings no longer reads the per-space availability');
+  // The space's Set up panel: In the published calendar, shown only while publishing is on (it was space-settings.html).
+  const setupJs = read('public/space-setup.js');
+  assert.ok(setupJs.includes("sectionHtml('calendar', "), 'the panel has a calendar section');
+  assert.ok(setupJs.includes('<input type="checkbox" class="switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span>'), 'with the In the published calendar switch');
+  assert.ok(setupJs.includes("patch.publishCalendar = after.publishCalendar;"), 'saves publishCalendar');
+  assert.ok(setupJs.includes("section.hidden = settings.publishedCalendar !== true || !(m && m.enabled);"), 'the section needs publishing on and the module on (no per-space test)');
+  assert.doesNotMatch(setupJs, /allSpaces|m\.spaces/, 'Set up no longer reads the per-space availability');
   assert.ok(configJs.includes("api('PATCH', '/api/settings', { [key]: input.checked })"), 'each switch saves as it is flipped');
   assert.ok(adminJs.includes('api(\'DELETE\', `/api/users/${user.key}/feed`)'), 'the user list turns someone\'s feed off');
   assert.match(adminHtml, /data-feed hidden/, 'the user card marks a feed, hidden until there is one');

@@ -1,6 +1,7 @@
 // The forms for the settings modules declare (module.json `settings`): one card per module that has settings of
 // a scope, one control per setting, a Save on each card. Used on the Modules tab (the server's), a space's page (the
-// space's), the page a space's moderators use (module-settings.html) and the profile page (a person's own). The
+// space's), the page a space's moderators use (module-settings.html) and the profile page (a person's own); and,
+// without the cards' Saves (`draft: true`), in the Set up panel's modules tab, whose own Save sends them. The
 // server decides who may change what; this only draws what it is given.
 import { api, escapeHtml, word } from '/brand.js';
 
@@ -80,8 +81,6 @@ function control(def) {
   return `${head}<input id="${id}" type="text" data-key="${escapeHtml(def.key)}" value="${escapeHtml(def.value)}" maxlength="${def.maxLength || 100}"></label>`;
 }
 
-// Fill `container` with the settings of one scope ('environment', 'space' with { space }, or 'person'). The container is
-// left hidden when there is nothing to set.
 // Why the list of files is empty, from what the server found in the folder.
 function fileHint(def) {
   const where = def.folder ? `Looking in ${def.folder}` : `Looking in the ${word('module')}'s folder in the data folder`;
@@ -92,23 +91,47 @@ function fileHint(def) {
   return `${where}, which is empty. Copy the file in.`;
 }
 
-export async function renderModuleSettings(container, { scope, space = null, only = '', heading = true }) {
+// What a card's controls say now, by key, as the server takes them (a list's rows, the files ticked, a switch, a number).
+function readCard(card, module) {
+  const values = {};
+  for (const el of card.querySelectorAll('[data-key]')) {
+    const def = module.settings.find((d) => d.key === el.dataset.key);
+    if (!def) continue;
+    values[def.key] = def.type === 'list' ? readList(el) : def.type === 'files' ? [...el.querySelectorAll('input:checked')].map((i) => i.value) : def.type === 'boolean' ? el.checked : def.type === 'number' ? Number(el.value) : el.value;
+  }
+  return values;
+}
+
+// Fill `container` with the settings of one scope ('environment', 'space' with { space }, or 'person'). The container is
+// left hidden when there is nothing to set. Two modes:
+//   - each card with its own Save (the default: Manage's Modules tab, Profile, the old space pages), which sends its
+//     values as it is pressed;
+//   - `draft: true` (the Set up panel, plan-setup-panel.md, step 5): no Save on the cards; nothing is sent from here
+//     but deleting a file (an action, at once). The answer reports the values and what changed, so the surface's own
+//     Save sends them: { modules, changes(), saved(id), sectionOf(id) }. `changes()` is [{ id, name, values }] for each
+//     module whose values differ from what was drawn; `saved(id)` makes the values now shown the ones to compare with;
+//     `sectionOf(id)` is the module's section (its element). `onChange()` is told after any edit (and after a file is deleted).
+// The answer is null when there is nothing to set (or the person may not set it).
+export async function renderModuleSettings(container, { scope, space = null, only = '', heading = true, draft = false, onChange = null }) {
   container.hidden = true;
   let modules;
   try {
     const q = space ? `?space=${encodeURIComponent(space)}` : '';
     modules = (await api('GET', `/api/module-settings/${scope}${q}`)).modules;
   } catch {
-    return; // not something this person may set here
+    return null; // not something this person may set here
   }
   if (only) modules = modules.filter((m) => m.id === only);
-  if (!modules.length) return;
+  if (!modules.length) return null;
   container.hidden = false;
+  const headingHtml = (m) => (draft
+    ? `<h4 class="module-settings-name" id="module-settings-name-${escapeHtml(m.id)}"><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(m.name)}</h4>`
+    : `<h3><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(m.name)}</h3>`);
   container.innerHTML = modules.map((m) => `
-    <div class="module-settings-card" data-module="${escapeHtml(m.id)}">
-      ${heading ? `<h3><i class="fa-solid fa-${escapeHtml(m.icon)} fa-fw" aria-hidden="true"></i> ${escapeHtml(m.name)}</h3>` : ''}
+    <div class="module-settings-card${draft ? ' module-settings-draft' : ''}" data-module="${escapeHtml(m.id)}"${draft ? ` role="group" aria-labelledby="module-settings-name-${escapeHtml(m.id)}"` : ''}>
+      ${heading ? headingHtml(m) : ''}
       <div class="module-settings-fields">${m.settings.map((d) => `<div class="module-setting"${d.showWhen ? ` data-when-key="${escapeHtml(d.showWhen.key)}" ${d.showWhen.not !== undefined ? `data-when-not="${escapeHtml(d.showWhen.not)}"` : `data-when-value="${escapeHtml(d.showWhen.value)}"`}` : ''}>${control(d)}${d.help ? `<p class="hint">${escapeHtml(d.help)}</p>` : ''}</div>`).join('')}</div>
-      <div class="row"><button class="btn btn-primary btn-small" data-save type="button">Save</button><span class="status" data-status></span></div>
+      ${draft ? '' : '<div class="row"><button class="btn btn-primary btn-small" data-save type="button">Save</button><span class="status" data-status></span></div>'}
     </div>`).join('');
   // What the chosen option says (its own help, more than a line can hold), and the settings that only apply to a choice.
   const linkify = (text) => escapeHtml(text).replace(/https:\/\/[^\s<)]+/g, (u) => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
@@ -128,6 +151,12 @@ export async function renderModuleSettings(container, { scope, space = null, onl
     refresh(card);
     card.addEventListener('change', () => refresh(card));
   }
+  const cardOf = (id) => [...container.querySelectorAll('.module-settings-card')].find((c) => c.dataset.module === id) || null;
+  // The draft mode's baseline: what each card said when it was drawn (or last saved).
+  const baseline = new Map();
+  const remember = (id) => { const card = cardOf(id); const module = modules.find((m) => m.id === id); if (card && module) baseline.set(id, JSON.stringify(readCard(card, module))); };
+  if (draft) for (const m of modules) remember(m.id);
+  const told = () => { if (typeof onChange === 'function') onChange(); };
   container.onclick = async (event) => {
     const delBtn = event.target.closest('[data-delete-file]');
     if (delBtn) {
@@ -138,23 +167,33 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       delBtn.disabled = true;
       try {
         await api('DELETE', `/api/modules/${encodeURIComponent(module.id)}/files/${encodeURIComponent(name)}`);
-        await renderModuleSettings(container, { scope, space, only, heading });
+        if (!draft) {
+          await renderModuleSettings(container, { scope, space, only, heading });
+          return;
+        }
+        // In the draft mode the other edits stay: the file's row goes, and the baseline forgets it too, so a file that
+        // was ticked does not read as a change.
+        const row = delBtn.closest('tr');
+        const box = delBtn.closest('[data-files]');
+        if (row) row.remove();
+        if (box && !box.querySelector('tbody tr')) box.querySelector('.files-table')?.remove();
+        const was = JSON.parse(baseline.get(module.id) || '{}');
+        if (box && Array.isArray(was[box.dataset.key])) was[box.dataset.key] = was[box.dataset.key].filter((n) => n !== name);
+        baseline.set(module.id, JSON.stringify(was));
+        told();
       } catch (err) {
         delBtn.disabled = false;
         window.alert(err.message);
       }
       return;
     }
+    if (draft) { if (event.target.closest('[data-list], [data-icon-choice]')) told(); return; }
     const button = event.target.closest('[data-save]');
     if (!button) return;
     const card = button.closest('.module-settings-card');
     const status = card.querySelector('[data-status]');
     const module = modules.find((m) => m.id === card.dataset.module);
-    const values = {};
-    for (const el of card.querySelectorAll('[data-key]')) {
-      const def = module.settings.find((d) => d.key === el.dataset.key);
-      values[def.key] = def.type === 'list' ? readList(el) : def.type === 'files' ? [...el.querySelectorAll('input:checked')].map((i) => i.value) : def.type === 'boolean' ? el.checked : def.type === 'number' ? Number(el.value) : el.value;
-    }
+    const values = readCard(card, module);
     status.classList.remove('error');
     status.textContent = 'saving...';
     try {
@@ -164,5 +203,15 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       status.textContent = err.message;
       status.classList.add('error');
     }
+  };
+  if (draft) {
+    container.oninput = () => told();
+    container.onchange = () => told();
+  }
+  return {
+    modules,
+    sectionOf: cardOf,
+    changes: () => modules.filter((m) => cardOf(m.id) && JSON.stringify(readCard(cardOf(m.id), m)) !== baseline.get(m.id)).map((m) => ({ id: m.id, name: m.name, values: readCard(cardOf(m.id), m) })),
+    saved: (id) => remember(id),
   };
 }

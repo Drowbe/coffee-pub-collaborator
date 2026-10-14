@@ -192,8 +192,8 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (/To-do|Chat/.test(emptySentence)) fail('public/opens-with.js', `a list with nothing openable must not name what would open without it (got "${emptySentence}")`);
   const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   if (!/allowed: \(\) => conferenceAllowed\(\{ conferenceEnabled: features\.conferenceEnabled/.test(spaceJs)) fail('public/space.js', 'the conference module\'s allowed() must follow the environment\'s switch (conferenceAllowed), for owners too');
-  const settingsJs = fs.readFileSync(path.join(ROOT, 'public/space-settings.js'), 'utf8');
-  if (!/opensWithSummary\(\{\s*list: opensWithList/.test(settingsJs)) fail('public/space-settings.js', 'the Opens with sentence must come from the stored list (opensWithSummary with list: opensWithList)');
+  const settingsJs = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
+  if (!/opensWithSummary\(\{\s*list: state\.draft\.opensWith/.test(settingsJs)) fail('public/space-setup.js', 'the Opens with sentence must come from the list being edited (opensWithSummary with list: state.draft.opensWith)');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const restore = canvasJs.slice(canvasJs.indexOf('function restore()'), canvasJs.indexOf('// --- the toolbar button'));
   if (!/whatOpens\(\{[^}]*guest: Boolean\(guestToken\)/s.test(restore)) fail('public/canvas.js', 'restore() must ask whatOpens (opens-with.js) for what to open, with whether this is a guest');

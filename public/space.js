@@ -3,7 +3,8 @@ import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.e
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, bandShares, todayPercent } from '/phase-sheet.js';
-import { createSpaceSetup } from '/space-setup.js';
+import { createSpaceSetup, setupAddress } from '/space-setup.js';
+import { renderModuleSettings } from '/module-settings.js';
 import { actionBar } from '/action-bar.js';
 import { createCanvas } from '/canvas.js';
 import { conferenceAllowed, opensWithSummary, shouldAutoJoin } from '/opens-with.js';
@@ -512,13 +513,11 @@ function renderSpaces() {
     const popoutLabel = `${action} in a pop-out window`;
     if (popout.title !== popoutLabel) { popout.title = popoutLabel; popout.setAttribute('aria-label', popoutLabel); }
     if (enter.title !== enterLabel) enter.title = enterLabel; // the whole label, wherever a narrow card cuts it short
+    // Set up (plan-setup-panel.md, step 6): one link for whoever may set this space up (owners, the admin, its
+    // moderators), to /?setup=<id>; on this page a press enters the space and opens the panel without a reload.
     const edit = card.querySelector('[data-edit]');
-    edit.hidden = r.isAside || !hasOwnerRights(me);
-    edit.href = `/spaces/${encodeURIComponent(r.id)}`;
-    // A moderator cannot open the space's page, but changes what its modules do here.
-    const modSettings = card.querySelector('[data-module-settings]');
-    modSettings.hidden = r.isAside || hasOwnerRights(me) || !me?.spaces?.[r.id]?.permissions?.moderator;
-    modSettings.href = `/module-settings?space=${encodeURIComponent(r.id)}`;
+    edit.hidden = r.isAside || !(hasOwnerRights(me) || me?.spaces?.[r.id]?.permissions?.moderator);
+    edit.href = `/?setup=${encodeURIComponent(r.id)}`;
     const link = card.querySelector('[data-link]');
     link.hidden = !r.link;
     if (r.link) {
@@ -1382,7 +1381,7 @@ phaseChip.type = 'button';
 phaseChip.id = 'phase-chip'; // keeps its own id (the registry only names the elements it draws)
 phaseChip.className = 'phase-chip';
 phaseChip.setAttribute('aria-haspopup', 'dialog');
-phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span><i class="fa-solid fa-caret-down fa-fw phase-chip-caret" aria-hidden="true"></i>';
+phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span>';
 const statusTrack = document.createElement('span');
 statusTrack.className = 'status-track';
 statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it
@@ -1459,7 +1458,8 @@ async function savePhases(dates) {
   updatePhaseChip();
   return space.phases || {};
 }
-// The sheet, from the chip or from Set up's Phases button (`opener` takes the keyboard back when it closes).
+// The sheet, from the chip or the status track (`opener` takes the keyboard back when it closes). Set up draws the same
+// rows inline, as a draft saved with its own Save (space-setup.js); the sheet still saves as it is set.
 function openPhaseSheetFrom(opener) {
   const space = phaseSpaceRecord();
   if (!space || !phaseRule()) return;
@@ -1546,12 +1546,12 @@ nav.register({ id: 'aside-rejoin', bar: 'primary', zone: 'right', group: 'aside'
 // hasOwnerRights, or user.spaces[<id>].permissions.moderator). Pressing it puts `body.setting-up` on, shows the tool
 // pressed, turns the space's name in the bar into an input (in the switcher's place, placeSetupName below) and opens
 // the side panel with its tabs (a full-screen sheet on a phone); pressing it again is Cancel. The address fragment
-// picks the tab (#space, #members, #phases, #opens-with) and follows it while the panel is open. The panel's Save and
-// Cancel are an action bar locked to its bottom (action-bar.js; not in the top bar): Save sends what changed, in order,
-// and leaves the mode; Cancel and Escape leave it and drop the edits, asking "Discard your changes?" first when
-// something was edited; a click outside does nothing. A member has no Set up; the space card's "Full settings" link on
-// Home still opens /spaces/<id>.
-const spaceSetup = createSpaceSetup({ api, word, verb, icons: getIcons, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout') });
+// picks the tab (#space, #members, #phases, #opens-with, #modules) and follows it while the panel is open. The panel's
+// Save and Cancel are an action bar locked to its bottom (action-bar.js; not in the top bar): Save sends what changed,
+// in order, and leaves the mode; Cancel and Escape leave it and drop the edits, asking "Discard your changes?" first
+// when something was edited; a click outside does nothing. A member has no Set up. /?setup=<id>#<tab> opens it from an
+// address (openSetupFor, step 6), as do the space card's Set up link on Home and Manage's Edit link.
+const spaceSetup = createSpaceSetup({ api, word, verb, icons: getIcons, switchListHtml, wireSwitchList, opensWithSummary, escapeHtml, layoutVerb: () => verb('layout'), renderModuleSettings });
 let settingUp = false;
 const setupNameInput = document.createElement('input');
 setupNameInput.type = 'text';
@@ -1564,7 +1564,7 @@ const isModeratorHere = () => Boolean(currentSpace && me?.spaces?.[currentSpace.
 const canSetUp = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && Boolean(me) && me.role !== 'guest' && (hasOwnerRights(me) || isModeratorHere());
 const setupShown = () => canSetUp(); // shown while open too, pressed (nav.setActive in enterSetup and leaveSetup)
 // The panel's tabs in the address: the fragment it opened with, and the tab shown while it is open; gone with it.
-const SETUP_TAB_HASH = /^#(space|members|phases|opens-with)$/;
+const SETUP_TAB_HASH = /^#(space|members|phases|opens-with|modules)$/;
 function setupTabInAddress(tab) {
   const keep = location.pathname + location.search;
   if (tab) history.replaceState(history.state, '', `${keep}#${tab}`);
@@ -1585,7 +1585,8 @@ function placeSetupSide() {
   const top = topbarEl.getBoundingClientRect().bottom;
   spaceSetup.el.style.setProperty('--setup-top', `${Math.max(0, Math.round(top))}px`);
 }
-function enterSetup() {
+// `tab`: the tab asked for (an address's fragment, or /?setup=<id>#<tab>'s); the address's own fragment when not given.
+function enterSetup({ tab = location.hash } = {}) {
   if (!canSetUp() || settingUp) return;
   const space = phaseSpaceRecord() || currentSpace;
   settingUp = true;
@@ -1597,10 +1598,11 @@ function enterSetup() {
     space,
     owner: hasOwnerRights(me),
     moderator: isModeratorHere(),
-    phases: templatePhases.length > 0,
-    tab: location.hash,
+    phases: templatePhases, // drawn inline in the phases tab, a draft saved with Save (the chip's sheet is its own)
+    rule: phaseRule(),
+    today: phaseToday(),
+    tab,
     nameInput: setupNameInput,
-    openPhases: (opener) => openPhaseSheetFrom(opener),
     onDone: setupSaved,
     onSaved: (saved, fields) => setupSaved(saved, '', fields), // a part went through before a refusal: the page follows it
     onDeleted: setupDeleted,
@@ -1626,6 +1628,17 @@ function leaveSetup() {
   const tool = nav.elementOf('setup');
   if (tool && tool.getClientRects().length) tool.focus();
 }
+// Opening Set up by address (plan-setup-panel.md, step 6): /?setup=<id>#<tab>, the Home card's Set up link, Manage's
+// Edit link and its jump after making a space (app:enter-space { action: 'setup' }). Enters the space (not the call:
+// joinInvitedSpace, as an invitation does), then opens the panel on the tab asked for (pickTab: an unknown one is the
+// first tab). Someone who may not set up gets the space without the panel. Already setting this space up: the tab.
+async function openSetupFor(id, tab = '') {
+  const hash = tab ? `#${String(tab).replace(/^#/, '')}` : '';
+  if (settingUp && currentSpace?.id === id) { if (hash) spaceSetup.select(hash.slice(1)); return; }
+  await joinInvitedSpace(id);
+  if (call.state === 'connected' && currentSpace?.id === id && canSetUp()) enterSetup({ tab: hash });
+}
+
 // After Save: the space the server answered goes into this page's records (the name in the bar and on the card, the
 // picture), presence is read again so everyone's copy follows, and the line says what happened.
 function setupSaved(space, said, saved = []) {
@@ -1654,6 +1667,16 @@ function setupDeleted(space) {
   else loadPresence();
   saySetup(`Deleted ${space.name || word('space')}.`);
 }
+// The space card's Set up link on Home (`[data-edit]`, to /?setup=<id>): here it enters the space and opens the panel
+// without reloading the page (a reload would end a call). A press meant for a new tab or window keeps the link's own.
+document.addEventListener('click', (event) => {
+  const link = event.target.closest?.('[data-edit]');
+  if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const id = link.closest('[data-space]')?.dataset.space;
+  if (!id) return;
+  event.preventDefault();
+  openSetupFor(id);
+});
 // The one line after Save, read out, under the canvas's edge for a moment.
 const setupSaid = document.createElement('p');
 setupSaid.id = 'space-setup-said';
@@ -5898,6 +5921,7 @@ document.addEventListener('app:enter-space', (event) => {
   // segment), bringing everyone back, never leaving the others behind in the aside.
   if (connected && currentSpace.isAside && currentSpace.origin === id) returnFromAside();
   else if (action === 'back' && connected && currentSpace.id === id) returnToCanvas();
+  else if (action === 'setup') openSetupFor(id, event.detail.tab || '');
   else joinInvitedSpace(id);
 });
 
@@ -6278,9 +6302,18 @@ async function init() {
     location.href = '/login';
     return;
   }
-  // Following an invitation from another page: "/#join=<space>" goes straight into that space.
+  // Set up by address (plan-setup-panel.md, step 6): "/?setup=<space>#<tab>" enters that space and opens Set up on the
+  // tab. The query leaves the address at once (the fragment stays while the panel shows that tab), so a reload or Back
+  // does not open it again.
+  const setupAsked = setupAddress(location.search, location.hash);
   const invited = /^#join=([a-z0-9]{4,16})$/.exec(location.hash);
-  if (invited) {
+  if (setupAsked) {
+    const rest = new URLSearchParams(location.search);
+    rest.delete('setup');
+    history.replaceState(null, '', `${location.pathname}${rest.toString() ? `?${rest}` : ''}`);
+    openSetupFor(setupAsked.id, setupAsked.tab);
+  } else if (invited) {
+    // Following an invitation from another page: "/#join=<space>" goes straight into that space.
     history.replaceState(null, '', location.pathname + location.search);
     joinInvitedSpace(invited[1]);
   } else if (!guestToken && rememberedSpace()) {

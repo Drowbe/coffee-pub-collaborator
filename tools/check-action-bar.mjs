@@ -106,14 +106,21 @@ test('the phase sheet: one PATCH from Save, edits held until then, no Close-and-
   assert.ok(!/save\(/.test(close.slice(0, 200)), 'closing saves nothing');
 });
 
-test('the Set up panel: Save and Cancel are the panel\'s bar, not the top bar\'s; the dates have their own Save; no outside close', () => {
+test('the Set up panel: Save and Cancel are the panel\'s bar, not the top bar\'s; the dates and the module settings are drafts saved with it; no outside close', () => {
   const setup = read('public/space-setup.js');
   const space = read('public/space.js');
   assert.ok(!/id: 'setup-done'|id: 'setup-cancel'/.test(space), 'no Done or Cancel tool in the top bar');
   assert.ok(!/setup-row-done|setup-row-cancel|>Done</.test(setup), 'no Done');
   assert.match(setup, /ids: \{ save: 'setup-save', cancel: 'setup-cancel-button' \}/);
-  assert.match(setup, /The dates have their own Save in the sheet\./);
-  assert.ok(!/save as you set them/.test(setup), 'the old line is gone');
+  // The phase dates are drawn in the panel and saved with its Save (plan-setup-panel.md, step 4); the chip's sheet keeps its own.
+  assert.match(setup, /A phase with no dates is skipped\. Saved with Save\./);
+  assert.ok(!/save as you set them|The dates have their own Save in the sheet/.test(setup), 'the old lines are gone');
+  assert.ok(!/openPhases/.test(setup), 'the panel no longer opens the sheet');
+  // The module settings are drawn without their own Saves (module-settings.js, draft mode); the panel's Save sends them.
+  assert.match(setup, /deps\.renderModuleSettings\(box, \{ scope: 'space', space: space\.id, draft: true, onChange: \(\) => refresh\(\) \}\)/);
+  const ms = read('public/module-settings.js');
+  assert.match(ms, /\$\{draft \? '' : '<div class="row"><button class="btn btn-primary btn-small" data-save type="button">Save<\/button>/, 'no Save on a card in the draft mode');
+  assert.match(ms, /if \(draft\) \{ if \(event\.target\.closest\('\[data-list\], \[data-icon-choice\]'\)\) told\(\); return; \}/, 'a press in the draft mode sends nothing');
   assert.match(setup, /dirty: isDirty,/);
   assert.match(setup, /discardWords: 'Discard your changes\?',/, 'the panel asks host.ui.editor\'s question');
   assert.match(setup, /if \(hideDeleteConfirm\(\{ focus: true \}\)\) return;\n\s*state\.bar\.requestCancel\(\);/, 'Escape: Keep on the Delete question first, else Cancel (which asks when dirty)');
@@ -126,8 +133,12 @@ test('the Set up panel: Save and Cancel are the panel\'s bar, not the top bar\'s
     'DELETE /api/spaces/${id}/guest-link',
     'PATCH /api/spaces/${encodeURIComponent(space.id)}',
     'POST /api/spaces/${id}/guest-link',
+    'PUT /api/modules/${encodeURIComponent(change.id)}/settings/space',
     'PUT /api/spaces/${encodeURIComponent(space.id)}/image',
-  ].sort(), 'the requests: Save\'s PATCH and picture, Delete, the guest link');
+  ].sort(), 'the requests: Save\'s PATCH, picture and module settings, Delete, the guest link');
+  const save = between(setup, '  async function done() {', '  return { el, open');
+  assert.ok(save.indexOf("api('PATCH'") < save.indexOf("api('PUT', `/api/spaces/") && save.indexOf("api('PUT', `/api/spaces/") < save.indexOf("api('PUT', `/api/modules/"), 'in order: the space, the picture, the module settings');
+  assert.match(save, /\} catch \(err\) \{\n\s*if \(saved\.length && typeof opts\.onSaved === 'function'\) opts\.onSaved\(answered, saved\);\n\s*return refused\(saved, `module:\$\{change\.id\}`, err\.message\);/, 'a refused module stops the save and says what did save');
   assert.equal((setup.match(/api\('PATCH'/g) || []).length, 1, 'one PATCH, from Save');
   assert.match(setup, /function cancel\(\) \{\s*\n\s*if \(!state \|\| state\.saving\) return;\s*\n\s*state\.bar\.requestCancel\(\);/, 'Cancel asks when dirty');
   const outside = between(space, '// --- Set up (space-setup.js)', '// --- end Set up ---');

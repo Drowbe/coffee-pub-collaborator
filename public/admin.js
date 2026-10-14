@@ -1,4 +1,4 @@
-import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName, overCall } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import { wireFlightSchedule } from '/flight-schedule.js';
@@ -333,7 +333,7 @@ function fillSpaceRow(row, space, index) {
   const count = space.isLobby ? users.length : space.members.length;
   const who = space.isLobby ? 'Everyone' : `${count} ${word('member', { many: count !== 1 })}`;
   row.querySelector('[data-meta]').textContent = `${who} · ${PROFILE_LABELS[space.profile] || 'Roleplaying'}`;
-  row.querySelector('[data-action="edit"]').href = `/spaces/${encodeURIComponent(space.id)}`;
+  row.querySelector('[data-action="edit"]').href = setupHref(space.id);
   row.classList.toggle('lobby', space.isLobby);
   // The Lobby always sits first and isn't reorderable; among the rest, hide
   // whichever arrow would be a no-op at that end of the list.
@@ -365,7 +365,36 @@ async function saveSpaceOrder() {
   }
 }
 
+// A space is set up in its Set up panel (plan-setup-panel.md, step 6): /?setup=<id> enters it and opens the panel. Over
+// a call (this page in the space page's frame) the space page underneath does it, so the call keeps running
+// (app:enter-space { action: 'setup' }); anywhere else the whole window goes there.
+const setupHref = (id) => `/?setup=${encodeURIComponent(id)}`;
+function openSetup(id) {
+  if (overCall()) {
+    try {
+      const doc = window.parent.document;
+      const handled = !doc.dispatchEvent(new window.parent.CustomEvent('app:enter-space', { detail: { id, action: 'setup' }, cancelable: true }));
+      if (handled) return;
+    } catch {
+      // not the space page's own frame: the window goes
+    }
+  }
+  let win = window;
+  try {
+    if (window.top.location.origin === location.origin) win = window.top;
+  } catch {
+    // framed by another origin: this page goes
+  }
+  win.location.href = setupHref(id);
+}
+
 $('spaces').addEventListener('click', (event) => {
+  const edit = event.target.closest('[data-action="edit"]');
+  if (edit && !(event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)) {
+    event.preventDefault();
+    openSetup(edit.closest('.user-card').dataset.space);
+    return;
+  }
   const button = event.target.closest('[data-action="space-up"], [data-action="space-down"]');
   if (!button) return;
   const id = button.closest('.user-card').dataset.space;
@@ -380,7 +409,7 @@ $('spaces').addEventListener('click', (event) => {
 $('add-space').addEventListener('click', async () => {
   try {
     const { space } = await api('POST', '/api/spaces', { name: `${word('space', { cap: true })} ${spaces.length}`, description: '', members: [] });
-    location.href = `/spaces/${encodeURIComponent(space.id)}`; // set up members and an image right away
+    openSetup(space.id); // into the new space with Set up open: its name, members and picture right away
   } catch (err) {
     say($('spaces-status'), err.message, true);
   }

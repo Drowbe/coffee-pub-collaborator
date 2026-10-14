@@ -611,5 +611,27 @@ test('host.environment follows the picture map while the page is open', () => {
   assert.match(sdk, /get environment\(\) \{ return \{ pictureMap: \(info && info\.environment && info\.environment\.pictureMap\) \|\| null \}; \}/, 'read live, not copied once');
 });
 
+test('the phases event: the page tells every mounted module and pop-out, the SDK keeps host.space() current and adds the timeline', () => {
+  const page = fs.readFileSync(new URL('../public/space.js', import.meta.url), 'utf8');
+  assert.match(page, /window\.dispatchEvent\(new CustomEvent\('app:phases', \{ detail \}\)\)/, 'space.js tells the modules in its page');
+  assert.match(page, /phasesChannel\.postMessage\(detail\)/, 'and the pop-outs by a BroadcastChannel');
+  assert.match(page, /function updatePhaseChip\(\) \{\n  announcePhases\(\);/, 'every refresh of the strip says a change');
+  assert.match(page, /announcePhases\(\);\n\s+if \(saved\.includes\('image'\)/, 'a save from Set up says it');
+  assert.match(page, /if \(sig === phasesSaid\) return;/, 'said only when different');
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  assert.match(src, /window\.addEventListener\('app:phases', onPhasesEvent\)/, 'a mount hears the page');
+  assert.match(src, /phasesChannel\.onmessage = /, 'and the channel');
+  assert.match(src, /if \(key === toldPhases\) return;\n\s+toldPhases = key;[\s\S]*?send\('phases', /, 'told only when they differ');
+  assert.match(src, /toldPhases = answer\.space \? phasesKey/, 'the hello is what it was last told');
+  assert.match(src, /window\.removeEventListener\('app:phases', onPhasesEvent\)/, 'let go on destroy');
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  const at = sdk.indexOf("host.on('phases', (e) => {");
+  assert.ok(at > 0, 'the SDK keeps its own listener on phases');
+  const body = sdk.slice(at, sdk.indexOf('\n  });', at));
+  assert.match(body, /info\.space\.phases = e\.phases/, 'host.space().phases follows');
+  assert.match(body, /e\.timeline = host\.util\.phaseTimeline\(\)/, 'the module is given the timeline');
+  assert.ok(at < sdk.indexOf("host.on('moved'"), 'registered with the SDK\'s own, before any module can listen');
+});
+
 if (failed) process.exit(1);
 console.log(`check-module-host: OK (${n} groups)`);

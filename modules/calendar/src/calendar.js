@@ -184,25 +184,19 @@
 
   // --- phases --------------------------------------------------------------
   // A space with phases wears them: each day inside a dated phase has a soft wash of the phase's tint, and the
-  // phase's first day (and the first day a view shows) names it. The host's phase list and the space's dates come from
-  // the hello, which a later edit to the dates does not change, so the dates are asked again (host.spaces() lists each
-  // space with its dates) on focus, when the page comes back into view and every half minute; the view redraws only
-  // when the bands changed. Nothing is drawn on the environment page, in a space without phases or on a day in none.
+  // phase's first day (and the first day a view shows) names it. The host tells this page when the dates change
+  // (host.on('phases'), a save in the sheet or Set up, or someone else's), and the view redraws at once, only when the
+  // bands changed. A slow look every five minutes stays as a fallback. Nothing is drawn on the environment page, in a
+  // space without phases or on a day in none.
   let phaseBands = [];
   const bandsKey = (list) => JSON.stringify(list.map((b) => [b.id, b.label, b.tint, b.start, b.end]));
-  async function readPhases() {
+  function readPhases(timeline) {
     const here = host.space();
     if (!here || !host.phases().length || typeof host.util.phaseTimeline !== 'function') return [];
-    let dates = here.phases || {};
-    let created = here.createdAt;
-    try {
-      const mine = (await host.spaces()).find((r) => r.id === here.id);
-      if (mine && mine.phases) { dates = mine.phases; created = mine.createdAt || created; }
-    } catch (err) { /* the hello's dates stand */ }
-    try { return host.util.phaseTimeline({ dates, created }).filter((b) => b.dated); } catch (err) { return []; }
+    try { return (timeline || host.util.phaseTimeline()).filter((b) => b.dated); } catch (err) { return []; }
   }
-  async function lookAtPhases() {
-    const next = await readPhases();
+  function lookAtPhases(timeline) {
+    const next = readPhases(timeline);
     if (bandsKey(next) === bandsKey(phaseBands)) return;
     phaseBands = next;
     render();
@@ -1371,13 +1365,12 @@
   $('msg').hidden = true;
   $('app').hidden = false;
   fit();
-  phaseBands = await readPhases();
+  phaseBands = readPhases();
   render();
   loaded = true;
-  // The phases' dates can change on the page without telling this frame: look again on focus, on return to view, and now and then.
-  const phaseTimer = setInterval(() => { if (!$('app')) clearInterval(phaseTimer); else lookAtPhases(); }, 30000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden && $('app')) lookAtPhases(); });
-  window.addEventListener('focus', () => { if ($('app')) lookAtPhases(); });
+  // The host says when the phases change; a slow look now and then is the fallback.
+  host.on('phases', (e) => { if ($('app')) lookAtPhases(e && e.timeline); });
+  const phaseTimer = setInterval(() => { if (!$('app')) clearInterval(phaseTimer); else lookAtPhases(); }, 300000);
   askExternal(false);
   askMarkers(false);
   // A poll's closing time passing, or midnight making a task overdue, dims its marker without anyone asking.

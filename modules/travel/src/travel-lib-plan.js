@@ -61,26 +61,24 @@
 
     const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []) || [];
     // The space's phase timeline (plan-one-bar.md step 2), [] without phases or on a host without the rule.
-    // The space's dates come from the hello, which a later edit of them does not change, so refreshPhases asks again
-    // (host.spaces() lists each space with its dates) and, when they differ, the plan uses them from then on.
+    // The space's dates come from the hello and then from the host's 'phases' event (host.on('phases'), host.space().phases
+    // kept current), so refreshPhases reads host.util.phaseTimeline() again and, when the dates differ, the plan uses them.
     let phaseNow = null; // { dates, created } once asked and different from the hello's
     const bands = () => {
       if (!templatePhases().length || !host.util || typeof host.util.phaseTimeline !== 'function') return [];
       try { return host.util.phaseTimeline({ today: ymd(new Date()), ...(phaseNow || {}) }) || []; } catch (err) { return []; }
     };
-    async function refreshPhases() {
+    const heldNow = typeof host.space === 'function' ? host.space() : null;
+    let phaseSeen = heldNow ? JSON.stringify([heldNow.phases || {}, heldNow.createdAt || null]) : null; // the hello's dates
+    function refreshPhases() {
       const here = typeof host.space === 'function' ? host.space() : null;
-      if (!here || !templatePhases().length || typeof host.spaces !== 'function') return false;
-      try {
-        const mine = ((await host.spaces()) || []).find((r) => r.id === here.id);
-        if (!mine || !mine.phases) return false;
-        const next = { dates: mine.phases, created: mine.createdAt || here.createdAt };
-        const was = phaseNow || { dates: here.phases || {}, created: here.createdAt };
-        if (JSON.stringify(next) === JSON.stringify(was)) return false;
-        phaseNow = next;
-        changed();
-        return true;
-      } catch (err) { return false; }
+      if (!here || !templatePhases().length) return false;
+      const next = JSON.stringify([here.phases || {}, here.createdAt || null]);
+      if (next === phaseSeen) return false;
+      phaseSeen = next;
+      phaseNow = { dates: here.phases || {}, created: here.createdAt };
+      changed();
+      return true;
     }
     const phased = () => templatePhases().length > 0;
     // The trip as the plan shows it: with phases, its first and last day are the main band's (null while the main

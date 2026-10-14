@@ -544,6 +544,17 @@ test('polls ships /v as a local addPoll command', () => {
   assert.equal(raw.actions.provides.find((a) => a.name === 'addPoll')?.local, true);
 });
 
+test('calendar: phases come from host.on(\'phases\'), with a slow fallback, and no host.spaces() read', () => {
+  const js = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.js'), 'utf8');
+  assert.match(js, /host\.on\('phases', \(e\) => \{ if \(\$\('app'\)\) lookAtPhases\(e && e\.timeline\); \}\);/, 'redraws when the host says');
+  assert.match(js, /lookAtPhases\(\); \}, 300000\)/, 'a five-minute fallback');
+  assert.match(js, /loaded = true;\n  \/\/ The host says when the phases change[^\n]*\n  host\.on\('phases'/, 'subscribed in the load, not loose at the top of the file');
+  assert.ok(js.startsWith('// Calendar module.'), 'the file opens with its own header');
+  const part = js.slice(js.indexOf('let phaseBands'), js.indexOf('function phaseFor'));
+  assert.ok(!/host\.spaces\(/.test(part), 'phases do not read host.spaces()');
+  assert.ok(!/30000\)/.test(js.slice(js.indexOf("host.on('phases'"), js.indexOf("host.on('phases'") + 400)), 'no 30 s poll');
+});
+
 test('calendar: a day wears its phase (the same rule as the Planner): inside, first day, gap, open end, before', () => {
   const src = (name) => fs.readFileSync(path.join(ROOT, 'modules/calendar/src', name), 'utf8');
   const lib = new Function('ymd', 'parseYmd', `${src('calendar-lib.js')}\nreturn { phaseOnDay };`)(() => '', () => new Date());

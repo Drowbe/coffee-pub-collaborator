@@ -2994,7 +2994,10 @@
     // 'change' ({ key, value, version, deleted, scope, spaceId, by })
     // whenever stored data changes, 'markers' when another module's marker objects changed (host.objects.markers), 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme),
     // 'moved' ({ mode }) after the host moved the module between docked and floating (the SDK reopens an open editor window itself),
-    // 'environment' ({ pictureMap }) when the environment's facts changed (host.environment already answers the new ones).
+    // 'environment' ({ pictureMap }) when the environment's facts changed (host.environment already answers the new ones),
+    // 'phases' ({ phases, timeline }) when the dates on the space's timeline changed (a save in the sheet or Set up, or
+    // someone else's): `phases` is { <id>: { start?, end? } }, `timeline` the bands host.util.phaseTimeline() returns, and
+    // host.space().phases and host.util.phaseTimeline() already answer the new ones. Only in a space.
     on(event, fn) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event).add(fn);
@@ -3016,6 +3019,15 @@
   host.on('destination', (state) => { destinationState = state; });
   // A move between docked and floating takes the module's box out of the page and back, which drops an open editor
   // window out of the top layer: show it modal again.
+  // The space's phases changed (the host page read them again): keep host.space().phases and createdAt current, and add the
+  // timeline (host.util.phaseTimeline(), tints included) to what the module hears. Registered first, so it runs before the module's.
+  host.on('phases', (e) => {
+    if (info && info.space && e && e.phases) {
+      info.space.phases = e.phases;
+      if (e.created) info.space.createdAt = e.created;
+    }
+    try { e.timeline = host.util.phaseTimeline(); } catch (err) { e.timeline = []; }
+  });
   host.on('moved', () => { for (const e of openEditors.values()) e.reopen(); });
   // The host put a lifted frame back itself: the topmost open editor closes as Escape does.
   host.on('editordismiss', () => { const top = [...openEditors.entries()].filter(([d]) => d.open).pop(); if (top) top[1].dismiss(); });

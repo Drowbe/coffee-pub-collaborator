@@ -2534,8 +2534,12 @@
   plan.subscribe(() => { if (state.loaded) redraw(); });
   // What the plan points at can change or go where it lives without telling this page, so look again now and then and when the
   // page comes back into view (until the server announces it).
-  const look = () => { if (state.loaded) { plan.refreshSummaries().catch(() => {}); plan.refreshPhases(); } };
+  const look = () => { if (state.loaded) { plan.refreshSummaries().catch(() => {}); } };
+  // The host says when the phases change (host.on('phases'), host.space().phases already the new ones): redraw at once.
+  host.on('phases', () => { if (state.loaded) plan.refreshPhases(); });
+  // The summaries can change where they live without telling this page, so look now and then; the phases only as a slow fallback.
   const lookTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(lookTimer); else look(); }, 20000);
+  const phaseTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(phaseTimer); else if (state.loaded) plan.refreshPhases(); }, 300000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) look(); });
   window.addEventListener('focus', look);
   render();

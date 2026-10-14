@@ -29,6 +29,16 @@ const { plain, localWhen } = sdkText;
 let n = 0;
 const test = (name, fn) => { fn(); n += 1; };
 
+test('the Planner redraws on host.on(\'phases\'), keeps a slow fallback and does not read host.spaces() for phases', () => {
+  const main = read('travel.js');
+  assert.match(main, /host\.on\('phases', \(\) => \{ if \(state\.loaded\) plan\.refreshPhases\(\); \}\);/, 'redraws when the host says');
+  assert.match(main, /plan\.refreshPhases\(\); \}, 300000\)/, 'a five-minute fallback');
+  assert.ok(!/const look = .*refreshPhases/.test(main), 'the 20 s look no longer reads phases');
+  const lib = read('travel-lib-plan.js');
+  const part = lib.slice(lib.indexOf('function refreshPhases'), lib.indexOf('const phased = '));
+  assert.ok(!/host\.spaces/.test(part), 'refreshPhases does not use host.spaces()');
+});
+
 test('cleanItem needs a title, keeps good fields and drops bad ones', () => {
   assert.equal(lib.cleanItem({ kind: 'stop', title: '' }), null);
   const i = lib.cleanItem({ id: 'a', kind: 'stop', title: ' Museum ', date: '2026-10-03', time: '09:30', minutes: 90, category: 'nope', order: 5 });

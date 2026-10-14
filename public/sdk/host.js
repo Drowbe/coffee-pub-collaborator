@@ -2170,6 +2170,21 @@
       return phases;
     },
 
+    // The space's budget target, for a module that reads it (`"budget": true` in its module.json). `can()` resolves true when
+    // this person may change the target: the space's owner, the admin, or a moderator of this space (false for everyone
+    // else, a guest included, and outside a space). `set({ amount?, currency? })` saves it and resolves with the target the
+    // server kept (host.space().budget is current and 'space' is heard); `set(null)` clears it. The server replaces the
+    // WHOLE target with what it is sent, so a currency sent alone drops the stored amount: send the amount with it. A refusal
+    // rejects with the server's sentence.
+    budget: {
+      can: async () => (await call('budget.can')) === true,
+      set: async (target) => {
+        const kept = await call('budget.set', { budget: target === undefined ? null : target });
+        if (info && info.space) info.space.budget = kept && typeof kept === 'object' ? kept : null;
+        return kept && typeof kept === 'object' ? kept : null;
+      },
+    },
+
     // Files an admin placed for this module (a `file` setting names one). `url(name)` is the address to read it from,
     // range requests included, for a module running in the page (a frame cannot fetch).
     // `url(name, { folder })`: pass the setting's folder too when two of the module's folders could hold the same name

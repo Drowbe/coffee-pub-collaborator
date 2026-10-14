@@ -1398,6 +1398,32 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       const answer = await api('POST', `/api/spaces/${encodeURIComponent(spaceId)}/phases/cover${guest}`, { day });
       return answer && answer.phases && typeof answer.phases === 'object' ? { phases: answer.phases } : null;
     },
+    // The space's budget target (plan-budget-module.md, decision 5). Whether this person may change it: the space's owner,
+    // the admin, or a moderator of this space (the rule Set up uses: GET /api/me, hasOwnerRights or
+    // user.spaces[<id>].permissions.moderator). The server decides again on every save. False for a guest and anywhere
+    // but a space.
+    async 'budget.can'() {
+      if (scope !== 'space' || !spaceId || keyed || guestToken) return false;
+      try {
+        const me = (await api('GET', '/api/me')).user;
+        return Boolean(me) && me.role !== 'guest' && (['owner', 'admin'].includes(me.role) || Boolean(me.spaces?.[spaceId]?.permissions?.moderator));
+      } catch (err) {
+        return false;
+      }
+    },
+    // Save the target (PATCH /api/spaces/:id with only `budget`: { amount?, currency? }; a currency sent alone REPLACES the
+    // whole target, so a caller keeping an amount sends it too). Answers the target the server kept, or null when it is
+    // cleared. The module hears 'space' at once; the other modules here and the pop-outs hear it through the page's event.
+    async 'budget.set'({ budget }) {
+      if (scope !== 'space' || !spaceId || keyed) throw Object.assign(new Error(`only in ${word('space', { a: true })}`), { status: 400 });
+      const answer = await api('PATCH', `/api/spaces/${encodeURIComponent(spaceId)}`, { budget: budget === undefined ? null : budget });
+      const kept = answer && answer.space && answer.space.budget && typeof answer.space.budget === 'object' ? answer.space.budget : null;
+      const detail = { space: spaceId, budget: kept };
+      try { window.dispatchEvent(new CustomEvent('app:phases', { detail })); } catch (err) { /* no window to tell */ }
+      try { if (phasesChannel) phasesChannel.postMessage(detail); } catch (err) { /* nobody to hear */ }
+      tellSpace(kept);
+      return kept;
+    },
     // The address of a file an owner placed for this module (see the server's module files), in this module's place.
     async 'files.url'({ name, folder }) {
       const n = String(name ?? '');

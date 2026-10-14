@@ -45,7 +45,7 @@ for (const file of files) {
 // through host.ui.editor, sized to the form and never clipped by the module's box. Once a bundled module is migrated
 // (steps 3 to 8 of the plan add it here), its #editor is a <dialog class="sdk-editor"> and its stylesheet keeps no
 // overlay rule (`.editor { position: absolute; inset: 0 }`) that would draw the form inside the module's window.
-const EDITOR_MIGRATED = ['todo', 'calendar', 'travel', 'polls', 'research', 'places'];
+const EDITOR_MIGRATED = ['todo', 'calendar', 'travel', 'polls', 'research', 'places', 'budget'];
 const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
 // An icon scan that waits for each pending icon separately attaches a scan to every other pending icon too: a form opened
 // while its icons load scanned itself 2^n times and froze the Planner (#192). Pending icons are waited for together, once.

@@ -3,6 +3,10 @@
     "version": "0.1.23",
     "hash": "c473ff64b4a00b79"
   },
+  "budget": {
+    "version": "0.1.0",
+    "hash": "bd0d7bb6201acce6"
+  },
   "calendar": {
     "version": "1.24.11",
     "hash": "4534416441594ab8"

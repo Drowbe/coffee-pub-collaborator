@@ -1,0 +1,110 @@
+{
+  "id": "budget",
+  "name": "Budget",
+  "version": "0.1.0",
+  "icon": "wallet",
+  "color": "gold",
+  "description": "What your {space} spends: costs planned and paid, a target, and who owes whom.",
+  "author": "Coffee Pub",
+  "scope": [
+    "space"
+  ],
+  "budget": true,
+  "surfaces": {
+    "canvas": {
+      "entry": "canvas.html",
+      "width": 440,
+      "height": 600,
+      "mode": [
+        "dock",
+        "float"
+      ]
+    }
+  },
+  "permissions": [
+    {
+      "key": "view",
+      "label": "See the budget",
+      "default": {
+        "member": true,
+        "guest": false,
+        "moderator": true
+      }
+    },
+    {
+      "key": "edit",
+      "label": "Add and change costs",
+      "default": {
+        "member": true,
+        "guest": false,
+        "moderator": true
+      }
+    }
+  ],
+  "access": {
+    "read": "view",
+    "write": "edit"
+  },
+  "actions": {
+    "provides": [
+      {
+        "name": "addCost",
+        "label": "Add it as a cost",
+        "input": {
+          "title": "string",
+          "amount": "number?",
+          "planned": "number?",
+          "actual": "number?",
+          "category": "string?",
+          "payer": "string?",
+          "date": "date?",
+          "notes": "text?",
+          "ref": "ref?"
+        }
+      }
+    ],
+    "uses": []
+  },
+  "refs": {
+    "produces": [
+      {
+        "kind": "cost",
+        "name": "Cost",
+        "open": true,
+        "key": "cost:{id}",
+        "summary": {
+          "title": "title",
+          "category": "categoryName",
+          "when": "date",
+          "done": "done",
+          "amount": "amount"
+        }
+      }
+    ],
+    "consumes": [
+      "*"
+    ]
+  },
+  "settings": [
+    {
+      "key": "categories",
+      "label": "Categories",
+      "type": "list",
+      "scope": "environment",
+      "maxLength": 30,
+      "fixed": [
+        "other"
+      ],
+      "help": "How costs are grouped, in this order. Other is always there and holds any cost whose category is not on the list; you can rename it but not remove it. Taking a category off the list changes no cost: it just shows under Other.",
+      "default": [
+        { "id": "travel", "label": "Travel", "icon": "plane", "color": "#888888" },
+        { "id": "lodging", "label": "Lodging", "icon": "bed", "color": "#888888" },
+        { "id": "food", "label": "Food", "icon": "utensils", "color": "#888888" },
+        { "id": "supplies", "label": "Supplies", "icon": "box", "color": "#888888" },
+        { "id": "services", "label": "Services", "icon": "screwdriver-wrench", "color": "#888888" },
+        { "id": "fees", "label": "Fees", "icon": "receipt", "color": "#888888" },
+        { "id": "other", "label": "Other", "icon": "tag", "color": "#888888" }
+      ]
+    }
+  ]
+}

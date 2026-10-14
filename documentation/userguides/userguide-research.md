@@ -7,7 +7,7 @@ The Research module keeps what a group finds out while it plans: a note, a link 
 ## Set it up (owner)
 
 1. On the Modules tab, choose **Install** beside Research, then **Approve and enable**. It asks to link to other modules' objects and to use the AI hook.
-2. Tick **Available in every space**, or switch it on per space on the space's own page.
+2. Once enabled it is on in every space; there is no switch per space.
 3. On the Roles tab, under **Module: Research**, choose who can **See research**, who can **Add, change and remove research**, and who can **Remove photos other people added** to a space. By default everyone can see it, members and moderators can edit, guests can see but not edit, and only owners can remove another person's photo. Version 0.2.10 adds that last permission, so updating to it waits for an owner's approval once.
 4. **Well-known tags (optional).** Under Research's settings (**Module Configuration**), add tags with a colour each. A tag on the list wears its colour on every card; any other tag stays plain.
 5. **Suggest tags (optional).** In the dialog, this button asks the AI for tags; it appears only when the AI is set up on the Modules tab and the Roles tab lets the person use it ("Use AI in modules", off for everyone until you turn it on; a guest never can). See [Modules](userguide-modules.md). To have a whole conversation with the AI, with research as context, use `/ai` in Chat (see [Chat](userguide-chat.md)).
@@ -15,12 +15,16 @@ The Research module keeps what a group finds out while it plans: a note, a link 
 
 ## Add things
 
-- **Add a note**, **Add a link** and **Add a photo** are in the bar along the bottom; as the module narrows, the ones that don't fit go under **...**. To type instead, use `/r` in Chat while Research is open: a web address opens a link filled in, and anything else starts a note with what you typed as its title. See [Chat](userguide-chat.md), "Commands".
-- **Add a link** asks for the address first, then the title. Unless the owner turned off **Fetch link previews**, the page is read once the address is typed: an empty title or description is filled in, and the page's picture shows beside them. A link's menu has **Refresh link**, which reads the page again.
-- **Add a photo** adds photos: on a phone it offers the camera or the photo library. Several photos queue one row each. The page shrinks each picture to about 2000 pixels and makes a small thumbnail before it uploads, so large phone photos are fine.
+- The **+** in Research's titlebar holds **Note**, **Link** and **Photo**. To type instead, use `/r` in Chat while Research is open: a web address opens a link filled in, and anything else starts a note with what you typed as its title. See [Chat](userguide-chat.md), "Commands".
+- **Link** asks for the address first, then the title. Unless the owner turned off **Fetch link previews**, the page is read once the address is typed: an empty title or description is filled in, and the page's picture shows beside them. A link's menu has **Refresh link**, which reads the page again.
+- **Photo** adds photos: on a phone it offers the camera or the photo library. Several photos queue one row each. The page shrinks each picture to about 2000 pixels and makes a small thumbnail before it uploads, so large phone photos are fine.
 - **A photo's position.** If a photo carries the place it was taken, Research asks whether to keep it. It is left out unless you choose **Keep it**, so a shared photo cannot give away a home address by accident. A photo taken on a known day shows on that day.
 - In the dialog, give the object a title, add tags (words separated by commas; the ones already used are suggested), and for a note or a link an optional place (coordinates or a map link) and date.
 - The dialog opens in a window over the whole page (the whole screen on a phone), with **Save** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?" (what a link preview filled in does not count as your typing). See [Modules](userguide-modules.md), "Add and edit forms". Something you may only read opens with no buttons and its fields greyed; **Close** or Escape just closes it.
+
+## Read and edit a card
+
+Click a card to open it where it is and read all of it; click it again to close it. Enter or Space on a focused card does the same. A link or button inside the card does its own thing. To change a card, press the **pen** on it (it reads **View** when you may only read), double-click it, or press Shift and Enter on it. The edit window opens as described above.
 
 ## Mine and this space
 

@@ -7,29 +7,29 @@ The To-do module keeps a shared task list. There is one for the whole environmen
 ## Set it up (owner)
 
 1. On the Modules tab, choose **Install** beside To-do under **Available with this server**, then **Approve and enable** (when a newer version comes with a server update, choose **Update** on its card instead; see [Modules](userguide-modules.md)). It asks to add two permissions to the Roles tab and to run reminders.
-2. To use it in spaces, tick **Available in every space** on its card, or switch it on per space on the space's own page.
+2. Once enabled it is on in every space; there is no switch per space.
 3. On the Roles tab, under **Module: To-do**, choose who can **See the to-do list** and who can **Add, change and tick off tasks**. By default everyone can see it, members and moderators can edit, and guests can see but not edit.
 
 ## The environment's list
 
-On the spaces page, click the **Due soon** card's heading to open the full list. Choose **New todo** for the form with notes and a due date. When the page has no bottom bar, the **New todo** button sits at the top.
+On Home, click the **Due soon** card's heading to open the full list. Choose **New todo** at the top of the page for the form with notes and a due date.
 
 - Tick the box to mark a task done. **Open**, **Done** and **All** choose what the list shows. Open tasks are ordered by due date, with undated ones after, and done tasks are listed newest first.
 - Click a task's name to change it, or delete it. A due date shows beside the task: Today and Tomorrow in the accent color, and a date in the past in red.
 - Under the toolbar the environment's list also shows the lists of every space you belong to that has To-do on. Each is headed by its space's icon and name, and a row of your spaces shows or hides each one. You can tick off and change a space's task here if you may change tasks in that space; otherwise it opens read-only and says "Only people who can add tasks in <space> can change this."
 - A new task asks **Where** it goes: the environment's own list (if you may change tasks there) or one of the spaces where you may. It starts empty every time, and **Save** says "Pick a space first." until you choose (in your environment's word for space). A task already saved stays where it is.
 
-## To-do beside Calendar in the top bar
+## To-do beside Global Calendar
 
-When an owner turns on **Show in the top bar** on the Calendar's configuration page, the To-do is the **To-do** tab on the right of Calendar in the top bar (see [Calendar](userguide-calendar.md), "Calendar in the top bar"). It lists the open tasks from the environment and the spaces chosen under **Trips** (your environment's word for spaces), grouped **Overdue**, **Today**, **This week**, **Later** and **No date**, each with its space's icon, a tick box and its due date. **Open**, **Done** and **All** and **Add task** are at its top; ticking, changing and adding work in place, with **Where** as above. While Calendar is shown, the To-do's own page and the **Due soon** heading lead to it. On a phone it is the **To-do** tab at the bottom. Tasks with a due date also show on the calendar itself, on their due day (see "On the Calendar" below).
+When an owner turns on **Show in the top bar** on the Calendar's configuration page, the To-do is the **To-do** tab on the right of Global Calendar (see [Calendar](userguide-calendar.md), "Global Calendar"). It lists the open tasks from the environment and the spaces chosen under **Trips** (your environment's word for spaces), grouped **Overdue**, **Today**, **This week**, **Later** and **No date**, each with its space's icon, a tick box and its due date. **Open**, **Done** and **All** and **Add task** are at its top; ticking, changing and adding work in place, with **Where** as above. While Global Calendar is on, the To-do's own page and the **Due soon** heading lead to it. On a phone it is the **To-do** tab at the bottom. Tasks with a due date also show on the calendar itself, on their due day (see "On the Calendar" below).
 
-## Due soon on the dashboard
+## Due soon on Home
 
-On the spaces page, the dashboard's **Due soon** card lists tasks that are not done and are due within the next week or already overdue, soonest first (up to eight), across every space you are in and the environment's own list. Overdue ones are marked in red, and each shows its space's icon. Click a task to open it. While Calendar is in the top bar, it opens there on the **To-do** panel (the **To-do** tab on a phone) with the task's editor open; otherwise it opens in its space. The heading opens Calendar in the top bar on its **To-do** panel (the **To-do** tab on a phone) when it is shown, and Calendar then keeps that choice; otherwise it opens the full list. From inside a space these open over the space, and you are Away on the call until you go back. Ctrl-click, Cmd-click, Shift-click, a middle click or Ctrl or Cmd with Enter opens it in a new tab instead, leaving home and the call alone. Tasks with no due date are not shown. See [Spaces](userguide-spaces.md).
+On Home, the Modules column's **Due soon** card lists tasks that are not done and are due within the next week or already overdue, soonest first (up to eight), across every space you are in and the environment's own list. Overdue ones are marked in red, and each shows its space's icon. Click a task to open it. While Global Calendar is on, it opens there on the **To-do** panel (the **To-do** tab on a phone) with the task's editor open; otherwise it opens in its space. The heading opens Global Calendar on its **To-do** panel (the **To-do** tab on a phone) when it is on, and Calendar then keeps that choice; otherwise it opens the full list. From inside a space these open over the space, and you are Away on the call until you go back. Ctrl-click, Cmd-click, Shift-click, a middle click or Ctrl or Cmd with Enter opens it in a new tab instead, leaving home and the call alone. Tasks with no due date are not shown. See [Spaces](userguide-spaces.md).
 
 ## Add a task
 
-Choose **New todo** in the bar along the bottom of the To-do for a blank task form. To type it instead, use `/t` in Chat while the To-do is open: `/t book flights by sep 25` opens the form with the task "book flights", due Sep 25. A day such as "tomorrow", "fri" or "9/29" works the same way, and anything it does not understand stays in the title. Nothing is saved until you choose **Save**. See [Chat](userguide-chat.md), "Commands".
+Choose the **+** in the To-do's titlebar (**Add task**) for a blank task form. To type it instead, use `/t` in Chat while the To-do is open: `/t book flights by sep 25` opens the form with the task "book flights", due Sep 25. A day such as "tomorrow", "fri" or "9/29" works the same way, and anything it does not understand stays in the title. Nothing is saved until you choose **Save**. See [Chat](userguide-chat.md), "Commands".
 
 The form opens in a window over the whole page (the whole screen on a phone), with **Save** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". See [Modules](userguide-modules.md), "Add and edit forms". A task you may only read opens with no buttons and its fields greyed; **Close** or Escape just closes it.
 
@@ -53,7 +53,7 @@ An admin approves what the To-do may hear from other modules when enabling it (a
 
 ## In a space
 
-In a space, switch on **To-do** in **Layout**, in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own, from the buttons on its titlebar. It shows that space's list; the environment's list is on the To-do's own page.
+In a space the To-do is part of the **Calendar**: with the Calendar on, the two are one module, so the **Calendar** tab in the top bar and the **Calendar** switch in the **Layout** menu show the tasks on its **To-do** panel (see [Calendar](userguide-calendar.md), "A space's calendar"). Only when the Calendar is off does **To-do** have a switch of its own, opening as a column on the Workspace, floating over it, or in a window of its own, from the buttons on its titlebar. It shows that space's list; the environment's list is on the To-do's own page.
 
 ## On the Calendar
 
@@ -61,4 +61,4 @@ When the Calendar is on, a task with a due date shows on the Calendar on its due
 
 ## Reminders
 
-Set **Remind people at 9:00 that day** on a task with a due date to send a notification at 9:00 on that day. Everyone in that space (or everyone in the environment, for one of its tasks) who is allowed to see the list gets a toast, a count on the bell in the top bar, and a number on the **Due soon** card's heading and on To-do's switch in the space bar until they open it or the bell. A space's task set from the environment's list, or from Calendar, reminds that space's people. Ticking a task done, changing its date or deleting it cancels the reminder. A due date whose 9:00 has already passed sends no reminder.
+Set **Remind people at 9:00 that day** on a task with a due date to send a notification at 9:00 on that day. Everyone in that space (or everyone in the environment, for one of its tasks) who is allowed to see the list gets a toast, a count on the bell in the top bar, and a number on the **Due soon** card's heading and on To-do's switch in the **Layout** menu until they open it or the bell. A space's task set from the environment's list, or from Calendar, reminds that space's people. Ticking a task done, changing its date or deleting it cancels the reminder. A due date whose 9:00 has already passed sends no reminder.

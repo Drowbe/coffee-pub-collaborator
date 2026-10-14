@@ -34,11 +34,37 @@ same setup.
 3. On **Variables**, add `PROJECT_OWNER` = `Drowbe` and `PROJECT_NUMBER` = `8`, and, if the field isn't called
    Status, `PROJECT_FIELD`.
 
+## Built, 2026-10-13 and 2026-10-14
+
+The one-bar work, in main. Each plan has its own status line.
+
+- **The one bar and the always-on column** ([plan-one-bar](plans/plan-one-bar.md)): steps 1 to 8 built, with Discussion | Assistant, the call in its own titlebar and **Call position**. Left from its Verify: a real call (screen share into the Workspace, Pop out with the column), a real phone, a screen reader, Firefox and Safari (#29, #30).
+- **The Set up panel** ([plan-setup-panel](plans/plan-setup-panel.md)): all eight steps built.
+- **The status strip** ([plan-space-status-strip](plans/plan-space-status-strip.md)): steps 1 to 4 built (the journey bar, the attention store, the count and its list, Polls reporting). Step 5, space items, is not built.
+- **The story strip** ([plan-space-story-strip](plans/plan-space-story-strip.md)): steps 1 and 2 built (no caret, the sentence, the 44 px bar). Facts, the budget, choosing what shows and weather are not built.
+- **Layout views** ([plan-layout-views](plans/plan-layout-views.md)): steps 1 to 6 built. Its Phase 2 (owner-set tabs, reordering) is for later issues.
+- **Calendar and To-do, Map and Places as one** ([plan-calendar-todo](plans/plan-calendar-todo.md), [plan-map-places](plans/plan-map-places.md)): steps 1 to 3 built; the entries arrive as the Calendar and Map layout tabs and Global Calendar and Global Map.
+- **Home as three columns** ([plan-home-lobby](plans/plan-home-lobby.md)): steps 1 to 4 built. Left: the Lobby's wording and Manage's Home row (step 5), phones (step 6) and guests (#289, #290).
+- **The titlebar + and status line** ([plan-module-titlebar-add](plans/plan-module-titlebar-add.md)): steps 1 to 6 built.
+- **The picture map** ([plan-map-image](plans/plan-map-image.md)): steps 1 to 4 built. Left: its documentation (step 5) and trying it with WebGL and a large file.
+
+## Next
+
+The open issues labelled `priority: now` or `priority: next`:
+
+- #283 A phase-change event for modules (`host.on('phases')`), so the Calendar stops polling every 30 seconds and a non-member admin sees phase edits.
+- #289 Home's chat for guests: decide, then build.
+- #290 Home: finish the Lobby wording and the phone tabs.
+- #286 `/api/bus/actions` should tell each action's `may`.
+- #216 Trip Budget in the titlebar with a burndown overlay (needs the story strip's facts and budget steps).
+- #288 The call pop-out when the browser blocks the pop-up: a message and a retry, never an empty call area.
+- #29 and #30 Walk the canvas, layouts and modules in a real call, with two people (see "Verify in a real call").
+
 ## In progress
 
 - **Environment templates** ([plan-environment-templates](plans/plan-environment-templates.md)): done, except the live verification of addendum 2's steps 3a and 3b (#68). Addendum 3, editing a bundled template on the host console and Duplicate (#91), is built and its console was walked live (2026-09-30). Addendum 4, the word for entering a space, is built and verified live (2026-09-30).
   (September 25, 2026).
-- **Calendar and Map in the top bar** ([plan-calendar-destination](plans/plan-calendar-destination.md), [plan-map-destination](plans/plan-map-destination.md)): built 2026-10-02, every build step of both plans. Open for Thomas:
+- **Calendar and Map in the top bar** ([plan-calendar-destination](plans/plan-calendar-destination.md), [plan-map-destination](plans/plan-map-destination.md)): built 2026-10-02; since 2026-10-13 they are **Global Calendar** and **Global Map** in the profile menu, and the Calendar and Map are layouts in a space, every build step of both plans. Open for Thomas:
   - On a phone the **Agenda** tab has the Calendar's icon, the same as the **Calendar** tab beside it (a tab's icon is its module's).
   - Map stays hidden while Maps' map is a file at a web address: only a map file on the server (or the host's folder) counts, though the plan said a web address does too.
   - The destination page reads the Calendar's **Open on** setting by its key (`defaultView` in `KINDS` in `public/destination.js`), so the host page knows one module's setting by name.
@@ -81,8 +107,8 @@ same setup.
 - The top bar (steps 1 and 2, [plan-primary-nav](plans/plan-primary-nav.md)): the breadcrumb in a real aside ("› Disneyland › Aside: Michelle", and clicking Disneyland, or picking it in the switcher, bringing everyone back to the space's call), the switcher and Manage over a running call, **Host console** on a hosted install (only its address was checked, as a pure function), **Install as an app** in the profile menu, a module card's heading on home opening over a running call (Away, then **Back to**), and the bar with a screen reader. Verified so far by `tools/check-nav.mjs` and in headless Chromium with a stand-in LiveKit at 1280, 1024 and 390 pixels.
 - Calendar and Map in the top bar ([plan-calendar-destination](plans/plan-calendar-destination.md), [plan-map-destination](plans/plan-map-destination.md)): opening either over a running call (muted while Away, the microphone and camera held off, everything back on closing), a task dragged onto a day and an event onto the To-do, the map drawn with WebGL from real map tiles, and a place search with Photon. Verified so far by `tools/check-destinations.mjs`, `check-module-host`, `check-nav` and `check-drop`, and in headless Chromium with a stand-in LiveKit and a stand-in place search, without WebGL.
 - Presence by membership (step 3, [plan-primary-nav](plans/plan-primary-nav.md)): with three people in two spaces, an aside and a private conversation pulled from one of them, check the space cards' "N here", the switcher, Who's around, the members' tooltips and "off stream", and the placeholder tiles (named for an ordinary aside, never for a private one, also after a reload). Verified so far by `tools/check-presence.mjs` (15 checks), `tools/check-nav.mjs`, and live against the API and in headless Chromium with a stand-in LiveKit.
-- #29 Walk the call's layout, the canvas, snapping and the calls cap in a real call.
-- #30 Modules with two people on a real server.
+- #29 Walk the call's layout, the canvas and the calls cap in a real call, and the 2026-10-14 call changes: **Call position** (Top, Bottom, Left, Floating, Its own window), the pop-out with the column, a screen share lifting into the Workspace, and the 45% chat minimum.
+- #30 Modules with two people on a real server, including Home's live chat and its unread badge, going Home from a space, and the status strip's needs-action count with a second person.
 - Joining and pulls (Thomas's changes of 2026-09-30, [plan-entering](plans/plan-entering.md)): **Join the call** and the green phone with two people, **Currently on the call** and who is here following them live, the calls cap's refusal in **Not in a call**, and entering never asking for the microphone. An owner's pull into a real aside and back, and **Rejoin call**, keeping the call for those on it and not for those off it, including within the server's 15-second hold on a new call's place. Verified so far in headless Chromium with a faked LiveKit and by tools only.
 - Pulled into an aside, then **Rejoin call** (fixed 2026-10-01): the pulled person's space bar shows **Rejoin call** and the top bar's breadcrumb reads "<space> › Aside: <names>" (since 2026-10-02; it was "<space> · Aside" in the space bar), and **Rejoin call** takes them back to the space's call, still on it if they were. Verified so far in headless Chromium with a stand-in LiveKit and by `tools/check-canvas.mjs`.
 - #95 Planner phases: entering a Travel space opens the Planner and chat and joins no call.

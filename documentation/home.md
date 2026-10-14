@@ -13,13 +13,13 @@ Known defects and their workarounds are in [Known issues](known-issues.md).
 
 ## Running Collaborator
 
-- [Getting started](userguides/userguide-getting-started.md) -- running the server and signing in
-  for the first time.
-- [The call](userguides/userguide-call.md) -- joining a space, the controls, chat, reactions,
-  away, and the pop-out window.
+- [Getting started](userguides/userguide-getting-started.md) -- running the server, signing in
+  for the first time and a first look around.
+- [The call](userguides/userguide-call.md) -- joining a space, the always-on column of call and chat, the
+  controls, layouts, reactions, away, and the pop-out window.
 - [Accounts, roles and permissions](userguides/userguide-accounts.md) -- who can do what, guests,
   invites, and personal links.
-- [Spaces](userguides/userguide-spaces.md) -- the Lobby, a space's settings, members, and stepping aside.
+- [Spaces](userguides/userguide-spaces.md) -- Home, the top bar, the status strip, phases, Set up, and stepping aside.
 - [Participant and Character images](userguides/userguide-images.md) -- the pictures OBS shows for
   each player.
 - [Collaborator in OBS](userguides/userguide-obs.md) -- adding a player to OBS by hand.
@@ -27,9 +27,16 @@ Known defects and their workarounds are in [Known issues](known-issues.md).
 - [Creating themes](userguides/userguide-themes.md) -- the colours, light and dark, and sharing a theme as a file.
 - [Your environment](userguides/userguide-environments.md) -- an owner's view on a hosted server: the plan, the caps, a copy, leaving.
 - [Templates](userguides/userguide-templates.md) -- setting an environment up for one use when it is made, such as Travel.
-- [Chat](userguides/userguide-chat.md) -- one box for messages, `/ai`, module commands and bringing in research.
+- [Chat](userguides/userguide-chat.md) -- one box with Discussion and Assistant tabs: messages, `/ai`, module commands and bringing in research.
 - [Modules](userguides/userguide-modules.md) -- adding features with a module zip.
 - [Calendar](userguides/userguide-calendar.md) -- events and reminders, for the environment and for each space.
+- [To-do](userguides/userguide-todo.md) -- a shared task list, for the environment and for each space.
+- [Polls](userguides/userguide-polls.md) -- asking a group to choose.
+- [Planner](userguides/userguide-planner.md) -- planning a trip day by day, with phases (the Itinerary in the Travel template).
+- [Research](userguides/userguide-research.md) -- notes, links and photos a group finds while it plans.
+- [Places](userguides/userguide-places.md) and [Maps](userguides/userguide-maps.md) -- saved places, the map, and a
+  picture map for an invented world.
+- [Assistant](userguides/userguide-assistant.md) -- the AI behind `/ai`, and bringing in research from another AI.
 
 ## For developers
 

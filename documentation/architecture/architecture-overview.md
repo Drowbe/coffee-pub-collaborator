@@ -52,10 +52,14 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
 | `server/modules.js` | Module install and registry; see [architecture-modules](architecture-modules.md) |
 | `public/login.html` | Sign-in page |
 | `public/register.html` | Self sign-up and invite acceptance |
-| `public/space.html` | The space list and the call. Until step 5b of the Names plan these were `room.html`, `room.js`, `roomconfig.*` and `room-modules.js`; `/room.html`, `/roomconfig.html` and `/module-settings?room=` answer 301 to the new pages, keeping the query |
+| `public/space.html` | The space list (Home) and the call. Until step 5b of the Names plan these were `room.html`, `room.js`, `roomconfig.*` and `room-modules.js`; `/room.html` answers 301 to the new page, keeping the query |
 | `public/profile.html` | A player's profile: photo, call settings, default images, a section per space |
 | `public/admin.html` | The Manage page |
-| `public/space-settings.html` | A space's own settings page, at `/spaces/<id>` |
+| `public/space-setup.js` | Set up: every setting of a space in one side panel on the space's own screen (it replaced the separate settings page at `/spaces/<id>`; the old addresses redirect to it) |
+| `public/phases.js` | The phase timeline rule, run by the server and the pages |
+| `public/phase-sheet.js` | The timeline sheet behind the phase chip |
+| `public/action-bar.js` | The Save and Cancel bar every settings or edit surface has |
+| `server/attention.js` | What needs a person's action in a space, as modules reported it (`DATA_DIR/attention.json`) |
 | `public/chat-input.js` | Chat's one input: `/ai`, the command picker and routing, and bringing research in |
 | `public/canvas.js` | The space's canvas: docking, floating, snapping and popping out the conference, the chat and the modules |
 | `public/view.html` | The OBS view |
@@ -166,6 +170,8 @@ framework: the pages are plain HTML, CSS and JavaScript served as they are.
   the author to 60 (`cleanThemeText()` in `server/store.js`). `tools/check-themes.mjs` holds the round trip and the
   refusals.
 - **Chat history.** Chat travels live over LiveKit's data channel. The sender also posts the text to `POST /api/spaces/:id/chat`; the server (`server/chat-history.js`) keeps the public messages in `DATA_DIR/chat.json` (under `spaces`) and the private ones in `DATA_DIR/chat-private.json`: the last 500 public messages per space and the last 200 private ones per person per space, none older than 30 days. `GET /api/spaces/:id/chat` returns the public ones and the caller's own private ones to whoever joins ([plan-chat-model](../plans/plan-chat-model.md)). A message is private or public (`visibility`), and its author flips it with `PATCH /api/spaces/:id/chat/:messageId`; the server tells the call (`chat-visibility`), and the others' pages add or remove it. The fields and routes are in [api-modules](../api/api-modules.md), "Chat routes". Reading needs the `chatRead` permission and posting `chat`, and the caller must be a member of the space (an owner or the admin, or a guest of that space, also counts). The sender's name is the account's display name as the server knows it; a guest supplies their own. An aside has no chat (its id answers 404), pictures are live only, and one person can post 30 messages in 10 seconds. Deleting a space deletes its history. Browsers that kept history locally under the old scheme still show it when the server has none for the space.
+- **Chat stream.** A page that is not in the space's call, Home's chat over the Lobby's, hears the chat live from `GET /api/spaces/:id/chat/stream`, a server-sent stream with the same access as reading the chat. The server emits on one in-process channel (`chatEvents` in `server/index.js`): `tellChat()` sends each notice both to the call's data channel and to this channel, and a post to the Lobby is also told that way, so a page still in the Lobby's call sees what was said from Home. Each event is a notice `{ type, ... }` (`ready` first, then `chat`, `chat-delete`, `chat-clear`, `chat-clear-some`, `chat-visibility`, `chat-preview`, `chat-kept`); a private message is never sent, and nothing is replayed, so a page reads the history after `ready`. The listener is removed when the connection closes, in the environment it opened in (`envContext.run`), and a ping goes out every 25 seconds so a proxy keeps the stream open. The events and statuses are in [api-modules](../api/api-modules.md), "Chat routes"; the page side is in [architecture-canvas](architecture-canvas.md), "Home".
+- **Attention.** What needs a person's action in a space is kept per space, person and module in `DATA_DIR/attention.json` (`server/attention.js`; one file per environment, so an export or a backup carries it). A report is cleaned by one pure function (`cleanReport`: count 0 to 99, label 40, up to 20 items of a 120-character title and an optional object reference), a report older than 7 days is dropped when read and when the file is loaded, and `forgetSpace`, `forgetPerson` and `forgetModule` remove reports when their space or person is deleted, or their module is uninstalled with its data deleted. The routes are in [api-modules](../api/api-modules.md), "What needs action"; the strip that shows the sum is in [architecture-canvas](architecture-canvas.md), "The status strip".
 - **One input in Chat** ([plan-one-input](../plans/plan-one-input.md)). `public/chat-input.js` reads the box before it is sent: `/ai` goes to `POST /api/spaces/:id/ai` and the question and the reply are stored as the asker's private messages in `chat-private.json` (`ai-threads.json` is gone; its threads were moved in once, `server/chat-history.js`). A command's echo is the person's private message too (`kind: "command"`), stored by `POST /api/spaces/:id/command`. Each message is drawn with its module's colour and icon (`color` from `/api/modules/for-space`; gold for the AI), and a filter, **All | Private | Public** (`#chat-filter`, `data-filter` on `#messages`, `data-vis` on each message), hides the rest on the page only, remembered per space for the browser session (`chat-filter:<spaceId>`). Any other `/<name>` is looked up among the `commands` the space's modules declare (from `/api/modules/for-space`) and sent to `POST /api/spaces/:id/command`, which puts a `local` request on the module bus; Chat names no module in code. A module's question (Research's **Research this**) reaches Chat through `host.chat.ask`, which `public/module-host.js` hands to the page via the canvas's `onChatAsk`. Keeping an object from an answer, and bringing research in, use the space's `actions` and `objects/check` routes. The routes are in [api-modules](../api/api-modules.md), "Chat routes".
 - The server checks permissions on every request that matters (kick, mute, guest links, aside, images).
   The pages also hide controls the person cannot use, but that is convenience, not enforcement.
@@ -180,9 +186,13 @@ a person's settings in a space are `/api/me/spaces/:spaceId...` and `/api/users/
 account's list is `spaces` and an invite's `spaces`. The environment's name is `environmentName` (in the
 branding every page reads, `/api/me` and `/api/settings`, including `PATCH`). `POST /api/token` takes `space` and
 answers `call` (the call's name at LiveKit) and `spaceId`; a guest's join answers `spaceId` and `spaceName`. The
-old `/api/rooms...` paths answer 404. Saved links redirect for good (301, the rest of the query kept):
-`/rooms/:id` to `/spaces/:id`, `/img/room/:id` to `/img/space/:id`, `/img/:key/:slot?room=&roomOnly=1` to
-`?space=&spaceOnly=1`, and `/modules/:id?moduleRoom=` to `?space=` (`server/old-links.js`).
+old `/api/rooms...` paths answer 404. Saved links redirect (`server/old-links.js`). For good (301, the rest of the
+query kept): `/img/room/:id` to `/img/space/:id`, `/img/:key/:slot?room=&roomOnly=1` to `?space=&spaceOnly=1`,
+`/modules/:id?moduleRoom=` to `?space=`, and `/room.html` to `/space.html`. The pages that Set up replaced answer a
+302, and the browser keeps the address's fragment, which names Set up's tab: `/spaces/:id` and `/rooms/:id` go to
+`/?setup=<id>`, `/module-settings?space=<id>` (or `?room=<id>`) goes to `/?setup=<id>#modules`, and
+`/space-settings.html`, `/roomconfig.html`, `/module-settings.html` and `/module-settings` with no id go to `/`.
+`/?setup=<id>#<tab>` is the Set up panel's own address ([architecture-canvas](architecture-canvas.md), "Set up").
 
 Each space has one call, a LiveKit room (LiveKit's own word for a call) named from the space's id (`lobby` for the Lobby, `aside-<id>` for an
 aside, each prefixed `<slug>.` on a hosted server; see "Call names" in
@@ -235,7 +245,8 @@ call alone: no chat, no chat pictures, no modules (`inAside()` in `public/space.
   drops repeats and anything else, and keeps an id for a module that is off or not installed, so turning it back on
   restores it. It comes with the space wherever the space is answered (`GET /api/presence`, `GET /api/spaces`,
   `GET /api/status`, `POST /api/spaces`, the `PATCH` answer), and `GET /api/modules/for-space` answers it as
-  `opensWith` beside `spaceDefaultsOpensWith` and `defaultLayout` (a space's default saved layout, which sets `opensWith`; see [api-modules](../api/api-modules.md), "Saved layouts"). Asides never carry it. `PATCH /api/spaces/:id` (owner only) takes
+  `opensWith` beside `spaceDefaultsOpensWith` and `defaultLayout` (a space's default saved layout, which sets `opensWith`; see [api-modules](../api/api-modules.md), "Saved layouts"). Asides never carry it. `PATCH /api/spaces/:id` (owners, the admin and, for `opensWith`, `phases` and
+  `defaultLayout` only, the space's moderators; see [api-modules](../api/api-modules.md), "Phases on a space") takes
   `opensWith: [ids] | null`: `null`, `[]` or a list with nothing usable left clears it. Anything else that is not an
   array of strings answers 400 "Opens with must be a list of modules." and nothing in the request is saved; 401
   "sign in first", 403 "owners only", 404 "no such space". The same cleaning keeps `aiOff` (the space's **Turn AI
@@ -290,13 +301,15 @@ signaling, 7881 TCP and 7882 UDP for media, 3478 for TURN), and `collaborator`, 
 `ghcr.io/drowbe/coffee-pub-collaborator`, built by GitHub Actions. A reverse proxy terminates TLS for both
 hostnames, because browsers only allow camera access over HTTPS.
 
+`MAP_IMAGE_MAX_MB` (default 100, in `docker-compose.yml` as a commented example) is the most a picture map file may weigh, in megabytes: the upload route for a module's picture map stops at it ([api-modules](../api/api-modules.md), "Picture maps"). A value that is empty or not a positive number means 100. It is a limit on one file, not on the data folder; a restore refuses more than 500 MB in all ([plan-map-image](../plans/plan-map-image.md), decision 6).
+
 Bandwidth is the real sizing number: eight players at 720p is roughly eight times 1.5 Mbps in and about
 eight times seven times 1.5 Mbps out at the server. Player quality is capped by an owner's setting.
 
 ## Design rules
 
 - **A list is not an editor.** A list shows what exists and lets you pick one; editing happens on a page about
-  that one thing. People (`/profile/<key>`) and spaces (`/spaces/<id>`) work this way: their Manage tabs are a
+  that one thing. People (`/profile/<key>`) and spaces (Set up, `/?setup=<id>`) work this way: their Manage tabs are a
   roster of a picture, a name, a status line and a link. Keep new admin surfaces to this shape rather than growing
   an inline editor on a list; the two earlier ones scaled badly enough to need rebuilding.
 - **Picture slots.** A picture a person sets is a `.slot` holding `.slot-pick-wrap > label.slot-pick >

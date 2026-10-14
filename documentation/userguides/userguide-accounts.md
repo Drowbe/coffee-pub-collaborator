@@ -57,17 +57,17 @@ A guest has no account, for someone dropping in once. While in a call, open the 
 (the gear next to chat and reactions) and, under **Guests**, turn on that space's link. Anyone with it
 lands on a page headed "Enter <space>" that asks only for a name; **Enter** (a door) takes them into that space.
 Where the template or the owner has changed the word for entering a space, the heading and the button use that
-word instead (see "The words on two buttons" in [Manage](userguide-environment-settings.md)). A guest's first visit opens the conference and
-the chat, unless the space's **Opens with** (or the environment's list for a new space) says otherwise. Entering does
-not put a guest in the call: the conference shows **Not in a call**, and the guest joins with **Join the call** or the
-green phone, when the browser asks for the microphone (see [The call](userguide-call.md)).
+word instead (see "The words on two buttons" in [Manage](userguide-environment-settings.md)). A guest's first visit shows the chat and the call's column,
+unless the space's **First visit** setting in **Set up** says otherwise. Entering does
+not put a guest in the call: the guest joins with **Join the call**, the green phone, and the browser asks for the
+microphone then (see [The call](userguide-call.md)).
 
 Anyone in the call with the right permission can turn the link on, copy it, or turn it off. It is a
 standing door rather than single-use: it works for as many guests as show up until someone turns it
 off or generates a new one. Nothing about a guest is kept once they leave. A guest with their camera
 off shows the shared **Guest images** picture set (see
 [Manage](userguide-environment-settings.md)). A space can turn guests off entirely with **Allow
-Guests** on its own settings page, which also turns off any link already in use there.
+Guests** on the **Members** tab of its **Set up** panel (the tab carries your environment's word for members), which also turns off any link already in use there.
 
 Guests can't install Collaborator as an app. On a guest link there is no install hint, and the browser does not
 offer to install; see "Install it as an app, and pop it out" in
@@ -116,6 +116,9 @@ guest has no picture there and no profile menu.
 2. Choose what you need:
    - **View profile** opens your profile page. In a space it opens over the call, which keeps running.
    - **Dark mode** switches between light and dark (see "Light or dark" below). A tick shows while it is on.
+   - **Global Calendar** and **Global Map**, when an owner has turned them on, open the environment's own Calendar
+     and To-do, or map and Places, across your spaces (see [Spaces](userguide-spaces.md), "The profile menu"). In a space
+     they open over the call.
    - **Manage** (owners and the admin) opens the Manage page; in a space it opens over the call. See
      [Manage](userguide-environment-settings.md).
    - **Host console** (a host admin signed in to one of the environments on a hosted server) opens the host

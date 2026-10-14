@@ -3,7 +3,7 @@
 **Audience:** an owner or the admin running a Collaborator environment, working through the Manage page.
 
 Open the Manage page from the menu under your picture in the top bar: choose **Manage**. It has seven tabs, in this order: **Environment**,
-**Template**, **Theme**, **Spaces**, **Roles**, **Users** and **Modules**, plus **About**. On a phone the row of tabs scrolls sideways within itself. (Old addresses still work: `/admin#server` and `#settings` open Environment, `#rooms` opens Spaces, and `#words` and `#home-icon` open the Template tab at that section.) Manage's tabs are in the bar under the top bar. The pages reached from here (a space's settings, a person's profile, a module's configuration, the AI configuration) have **Manage** at the start of that bar, to come back. Only owners and the admin (on a hosted server, the host admin) see it; anyone else asking for it is told "Owners only."
+**Template**, **Theme**, **Spaces**, **Roles**, **Users** and **Modules**, plus **About**. On a phone the row of tabs scrolls sideways within itself. (Old addresses still work: `/admin#server` and `#settings` open Environment, `#rooms` opens Spaces, and `#words` and `#home-icon` open the Template tab at that section.) Manage's tabs are in the bar under the top bar. The pages reached from here (a person's profile, a module's configuration, the AI configuration) have **Manage** at the start of that bar, to come back. Only owners and the admin (on a hosted server, the host admin) see it; anyone else asking for it is told "Owners only."
 
 ## Environment
 
@@ -26,15 +26,15 @@ Open the Manage page from the menu under your picture in the top bar: choose **M
 
 ## Top bar
 
-Owners and the admin can add two pages to everyone's top bar, after the environment's name: **Calendar**, the Calendar and the To-do together, and **Maps**, the map and Places together. Both are off unless you turn them on; an environment made from the Travel template starts with both on.
+Owners and the admin can add two pages of their own for the whole environment: **Global Calendar**, the Calendar and the To-do together, and **Global Map**, the map and Places together. They are separate from the **Calendar** and **Map** tabs inside a single space. Both are off unless you turn them on; an environment made from the Travel template starts with both on. Where they show: in the profile menu under each person's picture (wider than a phone), or in the top bar's menu after the spaces (on a phone), under their module's name and icon after the word Global. The setting is still called **Show in the top bar**.
 
 1. Open Manage on the **Modules** tab.
-2. Choose **Module Configuration** on the Calendar's card (for Calendar) or on Maps' card (for Maps).
+2. Choose **Module Configuration** on the Calendar's card (for Global Calendar) or on Maps' card (for Global Map).
 3. Under **Top bar**, switch on **Show in the top bar**. Its line reads "Adds Calendar to the top bar: events and tasks from every space in one place." on the Calendar's page and "Adds Maps to the top bar: places from every space on one map." on Maps' page, with the names your environment gives those modules. The switch saves as you flip it.
 
 These switches used to be in a **Top bar** section on the Environment tab; they are the same settings, so what you had chosen there still holds.
 
-A switch that can't work yet is shown off and greyed, and its line says why instead: "Turn on Calendar on the Modules tab first.", "Turn on Maps on the Modules tab first.", or, for Map without a map file, "Choose a file for "Map files" in Maps' settings first." (on a hosted server, "Ask the host's admin for a file for Maps."). The names are the ones your environment gives those modules. Each page shows only to people who may see its module for the whole environment, never to guests. How they work: [Calendar](userguide-calendar.md), "Calendar in the top bar", and [Maps](userguide-maps.md), "Map in the top bar".
+A switch that can't work yet is shown off and greyed, and its line says why instead: "Turn on Calendar on the Modules tab first.", "Turn on Maps on the Modules tab first.", or, for Map without a map file or a picture map, "Choose a file for "Map files" in Maps' settings first." (on a hosted server, "Ask the host's admin for a file for Maps."). The names are the ones your environment gives those modules. Each page shows only to people who may see its module for the whole environment, never to guests. How they work: [Calendar](userguide-calendar.md), "Global Calendar", and [Maps](userguide-maps.md), "Map in a space and Global Map".
 
 ## Language, time and money
 
@@ -110,7 +110,7 @@ space list and on the guest form. It is **Enter** unless the template or you set
 
 #### The button for the canvas layout
 
-The row **Button for the canvas layout** (with your environment's word for canvas) sets the word on the space bar's **Layout** button, which shows and hides modules and arranges them on the canvas. It is **Layout** unless the template or you set another. Set it the same way: at most 20 characters, only letters, spaces, hyphens and apostrophes, then **Save**.
+The row **Button for the canvas layout** (with your environment's word for canvas) sets the word on the **Layout** button in the top bar, which shows and hides modules and arranges them on the canvas. It is **Layout** unless the template or you set another. Set it the same way: at most 20 characters, only letters, spaces, hyphens and apostrophes, then **Save**.
 
 Leave the field blank for the template's word, or **Enter** with no template. When the template gives a word, the
 row says "From the template", or "The template's: <word>" once you have set your own. **Reset** puts it back to
@@ -141,8 +141,9 @@ The tab ends with a line pointing to **Reactions** and **Icons**, which are on t
 
 ## Spaces and Users
 
-Both are rosters: a thumbnail, a name and a link to that one thing's own page. See
-[Spaces](userguide-spaces.md) and [Accounts, roles and permissions](userguide-accounts.md).
+Both are rosters: a thumbnail, a name and a link to that one thing's own page. A space's button, **Edit** with your environment's word for space (such as **Edit trip**), enters the
+space and opens its **Set up** panel; the old settings page is gone (see "Set up" in [Spaces](userguide-spaces.md)). See also
+[Accounts, roles and permissions](userguide-accounts.md).
 
 ## Roles
 
@@ -150,7 +151,10 @@ The grid of what each role can do. See [Accounts, roles and permissions](usergui
 
 ## Modules
 
-Upload and manage add-on features. See [Modules](userguide-modules.md).
+Upload and manage add-on features. See [Modules](userguide-modules.md). An enabled module is on in every space; there is no
+per-space switch. **Module Configuration** on Maps' card also holds the **Picture map**, the upload that replaces the
+world map with your own picture (see "Picture map" in [Maps](userguide-maps.md)); the largest file it takes is
+`MAP_IMAGE_MAX_MB` in the compose file, 100 megabytes unless set.
 
 ## About
 

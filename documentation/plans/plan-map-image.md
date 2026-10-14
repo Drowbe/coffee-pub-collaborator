@@ -2,7 +2,9 @@
 
 **Audience:** Thomas, who decides whether an environment may draw its own map from a picture of an invented world, how the picture gets in, and what Places and Maps do on it; the try builders (server-development for the header, the upload and the environment's fact, experience-design for Maps and Places); content-manager when a production build lands it.
 
-**Status:** approved, 2026-10-14. Drafted the same day by product-planner; Thomas answered the input, replacement, search and setting questions (decisions 3 to 6 below); the places saved before the switch and distances and units were not asked and stand as working assumptions. Nothing built. Thomas asked: "could an environment serve its own map? Like, I have an image I'd like to use as a map... is that possible?", then "I would convert it to a pmtiles". Asked what the picture is and where it belongs, he answered: an invented world (a fantasy or game map, not a real place), and one picture map per environment, not per space.
+**Status:** built in steps 1 to 4, 2026-10-14 (the tile type; the Picture map setting with its streamed upload, `MAP_IMAGE_MAX_MB` and `environment.pictureMap`; Maps drawing it; search off and Places following it). Changed from the plan: the picture map's zoom stops at the file's own highest zoom (capped at the file's own maximum). Step 5, documentation, is left, and so is a live check with WebGL, which headless Chromium here cannot draw. Places saved before a picture map keep their positions.
+
+**Status when drafted:** approved, 2026-10-14. Drafted the same day by product-planner; Thomas answered the input, replacement, search and setting questions (decisions 3 to 6 below); the places saved before the switch and distances and units were not asked and stand as working assumptions. Nothing built. Thomas asked: "could an environment serve its own map? Like, I have an image I'd like to use as a map... is that possible?", then "I would convert it to a pmtiles". Asked what the picture is and where it belongs, he answered: an invented world (a fantasy or game map, not a real place), and one picture map per environment, not per space.
 
 ## What it is today
 

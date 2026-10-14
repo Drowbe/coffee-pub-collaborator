@@ -43,7 +43,7 @@ working. The rest are derived with `color-mix`.
 | `--nav-right-text` | text in the right zone, labeled Right side text; Auto is `--header-text` |
 | `--nav-primary-bg` | the top bar's left zone (Calendar, Map, the home word and where you are, up to the right zone); Auto is `--header-bg`. Not set by a theme |
 | `--nav-primary-edge-bg` | the shared Auto of the branding area and the right zone, a whisper darker than the header: `color-mix(in srgb, var(--header-bg) 97%, black)`, opaque so the editor's colour box shows it truthfully. Not set by a theme |
-| `--nav-secondary-bg` | the second bar, in one colour: the space bar, and the page bar on every other page; Auto is a 2% black overlay on the header colour. Not set by a theme |
+| `--nav-secondary-bg` | the header's second row, in one colour: the status strip in a space, and the page bar on every other page; Auto is a 2% black overlay on the header colour. Not set by a theme |
 | `--icon` | icons in the page, chat and header; Auto is dim text on the page and a softened header text in the header |
 | `--icon-hover` | icon hover; Auto is `--accent` |
 | `--primary-hover` | Primary buttons on hover; Auto is a lighter `--accent` |
@@ -77,7 +77,7 @@ default theme and unreadable on a light one.
 
 ## Tints
 
-Eight named colours mark what a message or a module is from: a module's own colour (its manifest's `color`), and gold for the AI. They are fixed, not part of a theme, and no theme sets them; each has a dark and a light value, tested on both. On a light page the darker value is used: under the stylesheet's light set (`data-theme-mode="light"`), or the environment's light default when the person has made no choice (`data-mode-shown="light"`, set by `public/theme-mode.js`).
+Eight named colours mark what a message or a module is from: a module's own colour (its manifest's `color`), and gold for the AI. They also mark a **phase**: each phase of a space's timeline wears one, by its place in the template's list. They are fixed, not part of a theme, and no theme sets them; each has a dark and a light value, tested on both. On a light page the darker value is used: under the stylesheet's light set (`data-theme-mode="light"`), or the environment's light default when the person has made no choice (`data-mode-shown="light"`, set by `public/theme-mode.js`).
 
 | Token | Dark | Light |
 |---|---|---|
@@ -92,16 +92,38 @@ Eight named colours mark what a message or a module is from: a module's own colo
 
 `data-tint="<name>"` on an element sets `--tint` to that token. A tint colours an icon and a thin edge only (a message's 3-pixel left edge and its portrait's icon, a module's icon in its titlebar and the Layout menu); text and backgrounds keep their usual tokens. The tokens are in `public/style.css` and in `/sdk/host.css`, so a module's page has them too.
 
+**Phase colours.** A phase has no colour of its own in a template. Its place in the template's list picks one of the eight, in this order: `blue`, `green`, `teal`, `purple`, `orange`, `pink`, `gold`, `red`, and round again after the eighth (`Phases.tintOf()` in `public/phases.js`). The same phase has the same colour in the status strip, the timeline sheet, Set up's phase rows and a module that draws `host.util.phaseTimeline()`'s bands (each band's `tint` names it). A phase's colour is a fill and a dot, never a coloured border (Thomas, 2026-10-14: "no colored borders"): a band is a wash of `var(--tint)` mixed into transparent (`color-mix(in srgb, var(--tint) 22%, transparent)` ahead of today, 12% behind it, and a stronger mix of 50% with `--header-bg` for today's band) inside a neutral `--border` edge; the dot beside the phase chip is solid `var(--tint)`; and in the timeline sheet a band has a 4px top edge in the tint with a 16% wash. The colour never carries the meaning alone: every band is named, and today's band says "now".
+
+## Layout tokens of the bars
+
+Sizes and type that are not colours; no theme sets them, and they live in `:root` in `public/style.css`.
+
+| Token | Use |
+|---|---|
+| `--status-strip-h` | the space's status strip, the header's second row wider than a phone: 44px. The strip is one fixed line, so its words arriving never change the header's height |
+| `--status-strip-slim-h` | the same strip on a phone, a slim line of the header under the top row: 28px |
+| `--status-bar-h` | the status line at the foot of a module's window (`host.status.set`): 24px. `/sdk/host.css` has the same token. It is not the status strip |
+| `--nav-font-size` | the size of the nav text: 13px |
+| `--nav-font-weight` | the weight of the nav text: 600 |
+| `--nav-letter-spacing` | the nav text's letter spacing: `normal` |
+| `--nav-line-height` | the nav text's line height: `normal` |
+
+**The nav text.** One type for every word in the top bar and the status strip (Thomas, 2026-10-14: "the correct one is the Workspace, Calendar, etc."). The layout tabs and links (`.core-link`) are the reference, and every other element in the bars that carries words wears the class `.nav-text` (the space switcher, Who is here, your name, **Join the call**, the phase chip, a band's name, a page bar's name and tabs, a labelled button the registry draws). `.nav-text` and `.core-link` read the four tokens above, with the page's own font family, and take the bar's link colour at rest (`--icon`, else the header text softened); what is current, such as the tab shown, the phase chip, today's band and the page's name, says `--header-text` in its own rule. `.btn.nav-text` outweighs the button's own type and keeps the button's colours. No element restates a size or weight of its own. The exceptions are the environment's name (the wordmark, larger), the "days to <phase>" caption under the countdown (a small caption) and the phone's menu rows and tab bar. The class is for the app's own bars, not for a module.
+
 ## The action button
 
-`.action-btn` is the one square icon button of the bottom row: the call's controls, the chat's Send, a module's action bar (docked, floating, popped out and on its own page) and a module's own add buttons. It is Secondary, or Primary with `.primary`, and red for **Leave the call** (`.danger` on the call's toolbar). Two layout tokens size it; they are not colours and no theme sets them:
+`.action-btn` is the one square icon button of the bottom row: the call's controls and the chat's Send, and a module's own buttons that belong in such a row. (A module's add actions are the titlebar's **+** now, not a bar along the bottom.) It is Secondary, or Primary with `.primary`, and red for **Leave the call** (`.danger` on the call's toolbar). Two layout tokens size it; they are not colours and no theme sets them:
 
 | Token | Use |
 |---|---|
 | `--action-btn-h` | the button's width and height: `--bar-control-h` (38px) on the app's pages, 38px on a module's page; a compact call toolbar and the phone's sizes set it smaller (40, 34 or 30px) |
 | `--action-icon-ratio` | the icon's size as a share of the button, `calc(20 / 38)`: a 20px icon in a 38px button, the same share at every size |
 
-A smaller button sets `--action-btn-h` only, never the icon's size. The rules are written once in `public/style.css` and once, word for word, in `public/sdk/host.css` (between `action-btn:start` and `action-btn:end`); `tools/check-buttons.mjs` holds the two copies equal, the call controls, Send and the action bar on `.action-btn`, and the bundled modules from sizing it or setting the tokens.
+A smaller button sets `--action-btn-h` only, never the icon's size. The rules are written once in `public/style.css` and once, word for word, in `public/sdk/host.css` (between `action-btn:start` and `action-btn:end`); `tools/check-buttons.mjs` holds the two copies equal, the call controls and Send on `.action-btn`, and the bundled modules from sizing it or setting the tokens.
+
+## The action bar of a page
+
+The Save and Cancel bar of a settings or edit surface (`.action-bar`, from `actionBar()` in `public/action-bar.js`; [architecture-canvas](../architecture/architecture-canvas.md), "Set up") is locked to the bottom of its surface: `--bg-section` with a 1px `--border` line above, 12px by 16px of padding (the bottom padded by the safe-area inset), and `position: sticky; bottom: 0` so the content above it scrolls (`.action-content`, `overflow-y: auto`). Its status line ("Saved", a refusal) is `--text-dim`, 13px, semibold. **Save** is Primary and **Cancel** Secondary (small buttons); Save is disabled until something changed. The "Discard changes?" row replaces the buttons in the same place, with **Keep editing** and a danger-styled **Discard**. It uses no colour of its own. It is for the app's pages; a module's form uses the editor window's button row (`.sdk-editor-actions`), which looks the same.
 
 ## The switch
 

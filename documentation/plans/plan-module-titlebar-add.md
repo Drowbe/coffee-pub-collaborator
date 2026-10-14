@@ -3,7 +3,9 @@
 **Audience:** Thomas, who decides; experience-design and server-development, who build it (the window chrome in
 `public/module-host.js`, `public/canvas.js`, `public/module.js` and `public/sdk/host.js`, then each bundled module).
 
-**Status:** Drafted 2026-10-13 while Thomas was away, so every choice he has not made is written as an assumed
+**Status:** built, steps 1 to 6, 2026-10-13. The titlebar **+** and the status line are in every bundled module (Research, the Planner, Calendar, To-do, Polls, Places, Maps), the Calendar and Map layouts, phones and pop-outs, and the old bottom bar is gone. The assumptions under "Assumed, for Thomas to confirm" stand unless he has said otherwise.
+
+**Status when drafted:** Drafted 2026-10-13 while Thomas was away, so every choice he has not made is written as an assumed
 default under "Assumed, for Thomas to confirm". Nothing is built. The request, in Thomas's words, from a screenshot
 of Research and the Planner side by side: "We are killing all of the toolbar buttons at the bottom of each window. We
 will move the 'add' into a single icon at the top with a context menu. The toolbar at the bottom will become a slim,

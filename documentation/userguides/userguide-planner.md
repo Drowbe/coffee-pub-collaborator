@@ -2,12 +2,12 @@
 
 **Audience:** a player or game master planning a trip with the Planner module on a Collaborator server, and an owner setting it up.
 
-The Planner module plans one trip for a space, day by day. The space's Calendar events, to-dos and polls that fall on the trip's days join the plan, and the module adds what a trip needs on top: stops, stays, journeys and notes. Install and enable it first; see [Modules](userguide-modules.md).
+The Planner module plans one trip for a space, day by day. In an environment set up from the Travel template it is shown as the **Itinerary**, and its window is named for that, not for the trip. The space's Calendar events, to-dos and polls that fall on the trip's days join the plan, and the module adds what a trip needs on top: stops, stays, journeys and notes. Install and enable it first; see [Modules](userguide-modules.md).
 
 ## Set it up (owner)
 
 1. On the Modules tab, choose **Install** beside Planner under **Available with this server**, then **Approve and enable**. It asks to add two permissions to the Roles tab, to link to other modules' objects and to ask other modules to do things.
-2. Tick **Available in every space** on its card, or switch it on per space on the space's own page.
+2. Once enabled it is on in every space; there is no switch per space.
 3. On the Roles tab, under **Module: Planner**, choose who can **See the trip** and who can **Plan the trip**. By default everyone can see it, members and moderators can plan, and guests can see but not plan.
 4. Optionally, under the Planner's settings (**Module Configuration** on its card), turn off **Suggest flights from earlier trips**. It is on by default: "Fill a flight from the same flight number saved before on this server. Flights saved here also help others; turn this off to keep them out." Off, the flight form has no **Look up a flight** row, and nothing saved here is kept for others. See "Look up a flight" below.
 
@@ -15,24 +15,26 @@ The Planner module plans one trip for a space, day by day. The space's Calendar 
 
 Every space has one plan from the start; there is nothing to create. Open the Planner in a space and the plan is there, named after the space. With nothing on it yet it reads "Nothing on the plan yet. Add something below.", and anyone who can plan the trip can add to it straight away. No dates are needed.
 
-**Edit trip** (the pen) opens **The plan**: a **Name** (leave it empty to keep showing the space's name), **Where**, the **Currency** and notes. Every date is optional.
+**Edit trip** (the pen in the titlebar) opens **The plan**: a **Name** (leave it empty to keep showing the space's name), **Where**, the **Currency** and notes.
 
-- **With phases** (the environment's template lists them; Travel does): one row per phase, each with an optional **Start** and **End**. The main phase's dates (Trip, in Travel) are the trip's own first and last day.
-- **Without phases:** **First day** and **Last day**.
+- **With phases** (the environment's template lists them; Travel does), the trip's dates are the space's, not the Planner's own: the form has no date fields and says the dates are set from the phase chip. Set them in the status strip's phase sheet or on the **Phases** tab of **Set up** (see "Phases" in [Spaces](userguide-spaces.md)). The main phase's dates (Trip, in Travel) are the trip's first and last day.
+- **Without phases:** **First day** and **Last day**, both optional.
 
 The days appear once the trip has a first day or anything on it has a date: one list from top to bottom, from the earliest date to the latest, with a strip of days at the top to jump to one and each day's heading staying in view as you scroll.
 
 ## Phases
 
-When the environment's template has phases, the line under the plan's name says which phase the trip is in:
+When the environment's template has phases, the dates live on the space and every module reads the same ones: the Planner, the Calendar and the status strip (see "The status strip" and "Phases" in [Spaces](userguide-spaces.md)). The line under the plan's name says which phase the trip is in:
 
 - "Planning · 12 days to go" before the main phase, counting down to its start once that is set.
 - "Trip · day 3 of 9" during the main phase, once it has a start and an end.
 - The label alone otherwise, such as "Booking".
 
-A phase begins on its own **Start**, or else the day after the phase before it ends. The first phase begins on the day the space was created. The current phase is the last one that has begun, and the first one until then. A phase with a start on one of the plan's days is named above that day.
+Each phase has a colour. A day inside a dated phase has a soft wash of it on its heading, and the phase's name is shown beside the date on its first day. A phase with a start on one of the plan's days is also named above that day. The wash is a fill, never a coloured border.
 
-A plan made before phases keeps its dates as the trip's, and its first phase starts on the day the space was created.
+A phase begins on its own **Start**, or else the day after the phase before it ends. The first phase begins on the day the space was created. The current phase is the last one that has begun, and the first one until then.
+
+A plan made before the dates moved to the space keeps its objects. The dates it held itself are no longer read, and are dropped the next time it is saved.
 
 ## Not on a day yet
 
@@ -44,8 +46,10 @@ The same limit holds for a stay's check-out and a journey's arrival. When an obj
 
 ## Add to a day
 
-- **An empty day** reads "Nothing planned yet. Click to add." ("Tap to add." on a touch screen). Click or tap it, or press Enter on it, and it opens the same menu as the day's "..." button; what you pick opens the form with that day already filled in. Only people who can plan the trip see the invitation; anyone else sees "Nothing planned yet." A day that already has something on it does not open the menu from its blank space: add to it with its "...", the **+** between days, or **Add plan** at the bottom of the module.
-- **Add plan**, in the bar along the bottom of the module, opens the form on the day in view. Beside it, **Flight**, **Hotel**, **Restaurant** and **Note** (icons) open the form with that kind already chosen. As the module narrows, the icons that don't fit go under **...**. When the module has no bottom bar, each day has its own add row, which opens the same form on that day.
+- **The + in the titlebar** is the Planner's add button. It opens a menu: **Travel** (a flyout of the journey kinds), **Add a stay**, **Eat and drink** and **See and do** (flyouts), and **Add a note**. What you pick opens the form with that kind already chosen, on the day in view. Markers are not in this menu; they are in a day's menu (below).
+- **Each day has its own Add button**, beside its **⋮** menu in the day's heading. It opens the same menu for that day.
+- **An empty day** reads "Nothing planned yet. Click to add." ("Tap to add." on a touch screen). Click or tap it, or press Enter on it, and it opens the day's menu; what you pick opens the form with that day already filled in. Only people who can plan the trip see the invitation; anyone else sees "Nothing planned yet." A day that already has something on it does not open the menu from its blank space: add to it with its **Add**, the **+** between days, or the titlebar's **+**.
+- **A day's ⋮ menu** has **Move all to…** and **Clear this day** (see "Move or clear a whole day" below). On a day, the menu for adding also has **Mark the day** (**Travel day**, **Free day** and other types, added at once) and **Add at a time**, for the time blocks under "Markers, extra days and empty days".
 - To type instead, use `/p` in Chat while the Planner is open: `/p lunch at the pier at 1pm` opens the form with the title "lunch at the pier" at 13:00 on the day in view, and a day of the trip in what you type (`/p museum oct 3 at 2pm`) puts it on that day. Nothing is added until you save. See [Chat](userguide-chat.md), "Commands".
 - The form opens in a window over the whole page, wider than the other modules' forms so the fields have room (the whole screen on a phone), with **Save** and **Cancel** always in view at the bottom and a **Close** button in its corner; closing it after typing asks "Discard your changes?". **Edit trip** opens the same kind of window, narrower. After you save a new object, you are on it: its row's menu on a day, or its **Edit** button in a list. See [Modules](userguide-modules.md), "Add and edit forms".
 - In the form, first say what it is. **What is it**, the one field at the top, shows the chosen kind's icon in its colour and its name. Click it, press Down or just start typing, and the list opens with the kinds in groups: **Getting there** (a **Flight**, **Train**, **Ferry**, **Bus**, **Car** (a rental), **Taxi**, **Ride share** or **Shuttle**), **Stay**, **Eat and drink** (a **Restaurant**, **Café** or **Bar**), **See and do** (a **Sight**, **Museum**, **Tour** or **Show**), **Markers** (see "Markers, extra days and empty days" below) and **Other** (a **Note**). Once you have chosen something in this browser, **Recent** comes first with your last few. Typing narrows the list as you go: "fl" leaves **Flight**, and a plain word works too ("plane" finds **Flight**, "coffee" finds **Café**); when nothing fits, the list says "Nothing matches"; kinds whose name starts with what you typed come first. If a marker type an owner has since removed is what an object was saved as, the field is empty and reads "Unknown kind"; saving keeps what it was unless you choose another kind. Up and Down move through the list, Enter or Tab chooses, and Escape closes the list and leaves the form open. On a phone the list opens as a sheet over the lower half of the screen. A new object starts on the kind you chose last in this browser (**Sight** the first time), with this field focused so you can type at once; an object you open again starts on its own kind, and so does one added from a day's "..." or the **+** between days, with the cursor in **Title**. The fields you need then appear, named for what you chose:
@@ -94,14 +98,27 @@ The Planner can fill in a flight from its number when someone on this server has
 - **More on a card.** What a card's face has no room for -- the note, who is going, the booking reference, the terminal or platform, the room, the cost and who paid -- folds under it behind a **More** line. Open it and it stays open while you work.
 - **Markers between the days** are markers that live only on the line ("lunch break", "travel day"). Add one with the small **+** that appears on the line where two days meet, before the first day and after the last, or from a hidden-days badge; the same + adds anything else there too. Or, in the form, choose the type under **Markers** and a place between days under **When**: each marker type is one entry there, and **When** decides whether it goes inside a day (with a time and a length) or between days (no time), so a marker never has "Not on a day yet". It has a type, an optional label and a note, and no time. Its menu (the three dots) can change its type, move it earlier or later along the line, move it to another joint and remove it; you can also drag it by its pill. They are not in any day, so they do not count as something planned.
 - **Marker types** (their label, icon and colour) are a list in the Planner's Module Configuration on the Modules tab. The four automatic ones can be changed but not removed; time-block types can be added, changed, reordered and removed.
-- **Add days before** (above the first day) and **Add days after** (below the last) move the plan's first or last date by 1 to 30 days, the same as changing the dates under Edit trip. A plan can be at most 60 days long, and the page says so when you ask for more. The trip needs a first day first ("Set the first day before adding days."). Objects and trip markers stay where they were; the planning markers move with the new ends.
-- **The dates grow to fit.** Once the trip has a first day, when you add an object on a date outside the trip, or move one there, the trip's first or last day moves out to cover it: a date before the first day, a date after the last day, a stay's **Check out**, or the day a journey arrives. It never moves in again; take days off under **Edit trip**. This holds for the form, research brought in with **Keep** ticked, or an object kept or changed from the Assistant. An object on the line, with no day, does not move the dates, and neither does an object in a phase other than the main one.
+- **Add days before** (above the first day) and **Add days after** (below the last) move the plan's first or last date by 1 to 30 days, the same as changing the dates under Edit trip. A plan can be at most 60 days long, and the page says so when you ask for more. The trip needs a first day first ("Set the first day before adding days."; with phases, "Set when the trip starts first."). Objects and trip markers stay where they were; the planning markers move with the new ends. With phases there is no **Add days before**, since the first day is the main phase's start in the space's timeline; **Add days after** moves the main phase's end, and the phases after it move by the same number of days.
+- **The dates grow to fit.** Once the trip has a first day, when you add an object on a date outside the trip, or move one there, the trip's first or last day moves out to cover it: a date before the first day, a date after the last day, a stay's **Check out**, or the day a journey arrives. With phases only the main phase's end moves later, and the phases after it move by the same number of days. It never moves in again; take days off under **Edit trip**, or change the phase dates. This holds for the form, research brought in with **Keep** ticked, or an object kept or changed from the Assistant. An object on the line, with no day, does not move the dates, and neither does an object in a phase other than the main one.
 - The eye button in the toolbar hides days with nothing on them (a stay that covers the night counts), with a small badge on the line where a run of them was: it shows how many days are hidden, and its + adds a time block on the first of them or shows the days again. It is remembered for you in this browser and is off by default. If every day is empty, nothing is hidden.
 
 ## Move things
 
 - On a computer, drag an object by the line beside its card, or by the card itself, to another place in its day or to another day. An object with no time goes where you drop it among the day's untimed objects. An object with a time keeps it when it moves to another day, and dropped between two others on the same day it takes the end of the object before it as its time (nothing changes if that one has no time).
 - Anywhere, including a phone, open the object's menu (the three dots): **Edit**, **Earlier**, **Later** (an object with no time swaps places with its neighbour; an object with a time moves half an hour), **Move to** another day or a joint on the line, **Back to the line**, and **Delete**.
+
+## Move or clear a whole day
+
+A day's **⋮** menu has two entries for everything on the day at once. Only people who can plan the trip see them.
+
+- **Move all to…** opens a small window headed "Move all from <day>". Pick **Move to** a day. Switch on **Also move every
+  day after this one by the same amount** to shift the later days with it, keeping the gaps between them. The window says
+  what will happen before you choose **Move**, for example "Move 3 stops on 4 days, 2 days later." A day that already has
+  something keeps it; the moved stops go after. Objects from other modules move on the plan only; each keeps its own
+  date where it lives. With the later days on, moving the first day of a plan with no phases also moves the plan's first and last day.
+- **Clear this day** asks "Take 3 stops off <day>? They stay in the Planner, with no date." Choose **Unschedule** or
+  **Keep**. The stops go under **Not on a day yet** with their details; nothing is deleted. It is greyed out when the day
+  has nothing to take off. Objects from other modules stay, because they follow their own date.
 
 ## What other modules bring
 
@@ -160,6 +177,6 @@ The **Decisions** view lists what is linked to the trip and still open, grouped 
 
 Changes show up for everyone straight away. If someone changes an object while you have it open and you then save, the object shows "Someone changed this while you were editing" with **Use theirs** and **Keep mine**.
 
-## The dashboard
+## On Home
 
-The Planner has no card on the spaces page any more: the **Trips** card was removed in Planner 0.11.0. A summary of each space's plan on its card in the space list is planned ([plan-dashboard](../plans/plan-dashboard.md), phase 5).
+The Planner has no card on Home any more: the **Trips** card was removed in Planner 0.11.0. A summary of each space's plan on its card on Home is planned ([plan-dashboard](../plans/plan-dashboard.md), phase 5).

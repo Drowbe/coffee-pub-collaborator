@@ -7,14 +7,18 @@ Polls lets a group decide something together: where to go on a trip, where to st
 ## Set it up (owner)
 
 1. On the Modules tab, choose **Install** beside Polls under **Available with this server**, then **Approve and enable** (when a newer version comes with a server update, choose **Update** on its card instead; see [Modules](userguide-modules.md)). It asks to add four permissions to the Roles tab and to send notifications. Version 1.12.10 adds one of them, so updating to it waits for an owner's approval once.
-2. To use it in spaces, tick **Available in every space** on its card, or switch it on per space on the space's own page.
+2. Once enabled it is on in every space; there is no switch per space.
 3. On the Roles tab, under **Module: Polls**, choose who can **See polls and their results**, **Vote in polls** and **Start, close and delete polls**, and who can **Close and delete polls other people started**. By default members and moderators can do the first three and guests can only see; the fourth is off for everyone but owners, who can always do everything. Guests cannot vote, because every guest shares one identity and their votes would overwrite each other.
 
 The permission to start polls is enforced by the Polls page itself, not by the server, so it is a guard against a mistake rather than against someone determined. See and vote are enforced by the server.
 
-## Need your vote on the dashboard
+## Need your vote on Home
 
-On the spaces page, the dashboard's **Need your vote** card lists the open polls you have not voted in, across every space you are in and the environment's own polls, the ones closing soonest first (up to eight), each with its space's icon. Clicking one opens it in its space to vote; the heading opens all the polls. A poll disappears from the card once you vote or it closes. See [Spaces](userguide-spaces.md).
+On Home, the Modules column's **Need your vote** card lists the open polls you have not voted in, across every space you are in and the environment's own polls, the ones closing soonest first (up to eight), each with its space's icon. Clicking one opens it in its space to vote; the heading opens all the polls. A poll disappears from the card once you vote or it closes. See [Spaces](userguide-spaces.md).
+
+## Polls in the status strip
+
+In a space, the open polls you have not voted in are counted at the right end of the status strip as "N need action"; press it for the list and pick a poll to open it (see "The status strip" in [Spaces](userguide-spaces.md)). Polls reports the count while it is open in the space, and voting clears it. Someone who may not vote has no count.
 
 ## Settings
 
@@ -24,7 +28,7 @@ An admin can set, on the Modules tab, to **close new polls after** a number of d
 
 To type the question, use `/v` in Chat while Polls is open, and the New poll form opens with it filled in. A day in what you type, such as `/v where to stay by sep 29`, becomes the closing time (noon that day, or the time you typed) when it is still ahead of you. See [Chat](userguide-chat.md), "Commands".
 
-Or choose **New poll** in the bar along the bottom of Polls. Give the question and at least two options; each option can carry a short detail, such as a price, a place or a date. Then choose:
+Or choose the **+** in Polls' titlebar (**New poll**). Give the question and at least two options; each option can carry a short detail, such as a price, a place or a date. Then choose:
 
 - **Allow more than one choice** for a poll where people pick every option they like.
 - **Let people add options**, so anyone who can vote can suggest another option while the poll is open. Good for "where should we go?".
@@ -69,4 +73,4 @@ A poll in an AI answer, or in research brought in from another AI, has **Keep** 
 
 ## Where it shows
 
-On the spaces page, click the **Need your vote** card's heading for the environment's polls. Under the toolbar it also shows, read-only, the polls of every space you belong to that has Polls on, each headed by its space's icon, with a row of your spaces to show or hide each. To vote in a space's poll, open that space's Polls from a call: switch on **Polls** in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own.
+On Home, click the **Need your vote** card's heading for the environment's polls. Under the toolbar it also shows, read-only, the polls of every space you belong to that has Polls on, each headed by its space's icon, with a row of your spaces to show or hide each. To vote in a space's poll, open that space's Polls from a call: switch on **Polls** in the space bar under the header. It opens as a column beside the conference and the chat, as floating over the canvas, or in a window of its own.

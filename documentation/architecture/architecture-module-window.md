@@ -12,7 +12,7 @@ titlebar, and it never needs to know whether it is docked, floating, popped out 
 
 ```
 +----------------------------------------------------+
-| Titlebar   name                    [icons] [X]      |  host.header.set, the host's own buttons
+| Titlebar   name              [icons] [+] [...] [X]   |  host.header.set, host.add.set, the host's own buttons
 +----------------------------------------------------+
 | Toolbar    text | tabs | ===progress=== | [buttons]  |  host.toolbar.set (optional)
 +----------------------------------------------------+
@@ -20,18 +20,19 @@ titlebar, and it never needs to know whether it is docked, floating, popped out 
 |  Content                                            |  the module's frame; the drop area
 |                                                      |
 +----------------------------------------------------+
-| Action bar                   [...] [Link] [Add note] |  host.bar.set (optional)
+| Status     12 of 40 | Mine                  09:41    |  host.status.set (optional)
 +----------------------------------------------------+
 ```
 
 - **Titlebar.** Identifies the module and holds window-level actions: the host's own dock/float/window/close
   buttons, plus whatever icon buttons the module adds with `host.header.set`, ahead of the host's own and
-  set off by a pipe. Always present wherever a module is on the canvas or in a window; absent on a module's own page
+  set off by a pipe. After the module's own icons and before the host's "..." sits the **+**, the module's
+  add actions (`host.add.set`, below). Always present wherever a module is on the canvas or in a window; absent on a module's own page
   unless it is popped out (there is nothing to identify or act on when the page already says which module it
-  is).
+  is). A module's own page draws the **+** in its page bar instead.
 - **Toolbar.** Optional, under the titlebar: information, tabs or a progress bar about the module's current
   state -- a filter, a view switch, an import's progress. Not window-level (that's the titlebar) and not the
-  module's primary input (that's the action bar). Set with `host.toolbar.set`. Present everywhere the
+  module's add actions (that's the **+**). Set with `host.toolbar.set`. Present everywhere the
   titlebar is, and also on a module's own page even when it is not popped out (unlike the titlebar, a
   standalone page still has room under its own header for one). **It is not a second row of titlebar
   icons.** A view or filter switch is `type: 'tabs'`, not `type: 'button'` items repeating what the
@@ -41,46 +42,51 @@ titlebar, and it never needs to know whether it is docked, floating, popped out 
   next to an import's progress, say), not a place to relocate the titlebar's row. See "Reusable toolbar
   tools" below before building one from raw items.
 - **Content.** The module's frame or in-page root. This is the section that scrolls, and the drop target for
-  a dragged ref, either as a whole or onto specific items within it.
-- **Action bar.** Optional, along the bottom: the module's primary actions -- an Add button and the few
-  that go with it. Set with `host.bar.set`. Typing belongs in Chat, not here: a module registers a command
+  a dragged ref, either as a whole or onto specific items within it. A docked module's content fills the whole
+  column: there is no bar in the canvas's shared bottom row for a module.
+- **The add button.** Optional. The module's add actions, as one **+** in the titlebar (`host.add.set`,
+  [plan-module-titlebar-add](../plans/plan-module-titlebar-add.md)): exactly one leaf runs at once, more open the
+  host's menu (`openHostMenu`), with a category's leaves in a flyout beside its row (a drill-in on a phone). The
+  rules for cleaning the entries and for what the button does are pure functions in `public/module-chrome.js`
+  (`cleanAddEntries`, `addPlan`, `addMenuItems`), run by `tools/check-module-chrome.mjs`; `module-host.js` draws the
+  button (`createAddSlot`). Typing belongs in Chat, not here: a module registers a command
   (`commands` in `module.json`) and Chat routes the text to it ([plan-one-input](../plans/plan-one-input.md)).
-  The quick-add field item still exists, but no bundled module uses it since #58. Docked, it is a cell in the canvas's shared bottom row, lined up
-  with the call's own control strip and the chat box (see [architecture-canvas](architecture-canvas.md));
-  elsewhere it is a strip under the module. The call's own bottom control strip and the chat's input row are
-  the same idea as a module's action bar, drawn natively rather than through `bar.set` because they predate
-  it -- not a different concept with a different name.
+  The old action bar along the bottom (`host.bar.set`) is gone; the call's own bottom control strip and the chat's
+  input row are native and unchanged. A module that still calls `host.bar.set` has its buttons folded into the
+  **+** as plain leaves, so it works without a change.
+- **Status line.** Optional, one slim read-only line at the foot of the window (`--status-bar-h`, 24px; `host.status.set`),
+  for counts and what is selected. Nothing in it is a button. `module-host.js` draws it (`createStatusSlot`), fits it by
+  width (`statusFit()`: the last items give way first, the `end` item never) and reads the items that are not quiet out
+  politely once they have been still for 1.5 seconds. It is not the space's status strip, which is the header's
+  ([architecture-canvas](architecture-canvas.md), "The status strip").
 
 A module never draws its own titlebar or reimplements dock/float/close: `public/module-host.js` draws all
-four zones from what a module hands it (`header`, `toolbar`, `bar`, and the frame itself), so the same
-`bar.set`/`header.set`/`toolbar.set` calls work whether the module is docked (`public/canvas.js`), floating,
-popped into its own window (`public/module.js`, only when popped out for the titlebar; the toolbar and action
-bar are there regardless), or the module's own standalone page.
+the zones from what a module hands it (`header`, `toolbar`, `add`, `status`, and the frame itself), so the same
+`add.set`/`header.set`/`toolbar.set`/`status.set` calls work whether the module is docked (`public/canvas.js`), floating,
+popped into its own window (`public/module.js`, only when popped out for the titlebar; the toolbar and status
+line are there regardless), or the module's own standalone page. A destination's part on the destination's own page has none of
+these (the calls answer `false`); shown as a layout on a space's canvas, its adds and status are lifted into the
+composite's titlebar and status line.
 
 ## Overflow
 
-Each zone folds what it can't show into a "..." the host draws and opens (`openHostMenu` in
+Each zone that has one folds what it can't show into a "..." the host draws and opens (`openHostMenu` in
 `public/host-menu.js`, which `public/module-host.js` imports and re-exports with `closeHostMenu`) -- the host's
-own analogue of `host.menu.show`, needed because that one draws inside a module's own frame and these three are
+own analogue of `host.menu.show`, needed because that one draws inside a module's own frame and these are
 the host's chrome, outside it. The same menu serves the canvas title bars' "..." (`public/space.js`), the
-profile menu under your picture and the space switcher in the top bar (`public/brand.js`) and the space bar's "..." (`public/nav-bar.js`), see
+profile menu under your picture and the space switcher in the top bar (`public/brand.js`) and the top bar's and the tab bar's "..." (`public/nav-bar.js`), see
 [architecture-navigation](architecture-navigation.md). Only one is open at a time. It opens under its button,
 flipped above when there is no room below. Its entries are `role="menuitem"`, or `role="menuitemcheckbox"` with `aria-checked` for an entry given `checked`,
 and the button carries `aria-expanded`. From the keyboard: the first entry takes focus when it opens; Up, Down, Home and End move; Enter
 or Space picks; Escape closes and puts focus back on the button; Tab closes. An entry is
 `{ label, icon?, regular?, hint?, danger?, disabled?, checked?, badge?, onPick }`: `checked` (true or false) makes it
-a checkbox entry that shows a tick while on (a toggle folded into the space bar's "..."), and `badge` is a count
-shown after its label (9+ above nine). The "..." is drawn by
+a checkbox entry that shows a tick while on (a toggle folded into the top bar's "..."), and `badge` is a count
+shown after its label (9+ above nine). An entry with `items` (a list of plain entries) is a category: a caret at its end and its entries in a flyout beside its row (a drill-in with **Back** on a phone), which is how the titlebar's **+** shows a category. The "..." is drawn by
 `drawMoreButton`, the same look as `host.ui.moreButton` (`.sdk-more`) inside a module. In every zone it sits
 on the **left**, and leftover items come off the left, so the rightmost item stays. An item marked
 `overflow: true` always goes into the "...", for something you always want tucked away (a destructive
 action, say).
 
-- **Action bar** (`drawModuleBar`). Fitted by width, not by count. The primary item sits on the far right,
-  the other items to its left in the order given, then the "..." at the far left. A `ResizeObserver` on the
-  bar redraws it as the module is resized; while the bar overflows its width, the leftmost remaining
-  secondary moves into the "...". The primary never folds. A quick-add item is drawn first and never folds.
-  At most 10 items are taken.
 - **Titlebar and toolbar.** At most five items, by `splitOverflow(items, max)`, which both handlers call the
   same way. Only `type: 'button'` toolbar items count; a `text`, `tabs`, `progress` or `slider` item always
   shows, since it says something about the module (or is itself the control) rather than being one more
@@ -211,22 +217,22 @@ un-inert again, what was inert before staying so, and `canvas.js` and `module.js
 ## Reuse across dock and float
 
 Switching a docked module to floating (or back) does not rebuild it: `moveModule()` in
-`public/canvas.js` pulls the frame (or in-page container), the action bar, the toolbar and the
-titlebar's custom-icons span out of the old chrome and moves those same DOM nodes into the new chrome,
+`public/canvas.js` pulls the frame (or in-page container), the status line, the toolbar and the
+titlebar's custom-icons span and **+** out of the old chrome and moves those same DOM nodes into the new chrome,
 so whatever the module is holding onto (a conversation, a draft, a scroll position) survives the switch.
 Only the class that lays each one out changes, and the module is told with the `moved` event (the SDK
 uses it to reopen an editor window, above). A window is a real new page, so that still goes through
 `closeModule` + `popOut` instead -- a frame cannot move between windows without reloading.
 
-This is why the toolbar and action bar are real elements the host hands into `mountModule` (not markup the
+This is why the toolbar and status line are real elements the host hands into `mountModule` (not markup the
 module builds), the same as the titlebar's custom span: whichever zone's DOM node is not moved on a mode
-switch would otherwise lose whatever `host.toolbar.set`/`host.bar.set` last drew into it, or worse, leave
+switch would otherwise lose whatever `host.toolbar.set`/`host.status.set` last drew into it, or worse, leave
 `module-host.js`'s own reference to it pointing at a detached node.
 
 ## Rules
 
 - **The "..." is one icon, and one control.** Every "more" affordance -- the host's overflow in a titlebar, a
-  toolbar or an action bar, a card's own menu, a day's, a place's, a poll's, the call's More -- is Font Awesome's
+  toolbar, a card's own menu, a day's, a place's, a poll's, the call's More -- is Font Awesome's
   `ellipsis-vertical`, centered. Inside a module it is `host.ui.moreButton` (class `.sdk-more`, styled by the SDK);
   in the host's chrome it is `drawMoreButton`, with the same class. Not the
   horizontal `ellipsis`, and not a text glyph standing in for it. It opens `host.menu.show` (a module's own) or
@@ -245,10 +251,6 @@ with `ellipsis-vertical` must carry `sdk-more`; the call's own More is exempt), 
 - **More enforcement.** The zones themselves (a module drawing its own titlebar-like row instead of using
   `header.set`, a bespoke action list instead of `menu.show`) are not checked yet; worth adding to
   `check-module-window.mjs` once a violation shows what to match.
-- **Language, not code.** `architecture-canvas.md` still calls the call's own bottom control strip "the
-  video toolbar"/"the call toolbar" in places. It is the same idea as a module's action bar (above); the
-  wording there should catch up, without needing the call's own native implementation to actually move onto
-  `bar.set`.
 - **A toolbar search/filter tool.** Places and Research each still have their own free-text filter field
   drawn in the page, not the toolbar -- `host.toolbar.set` has no item type for a text input yet, only
   `tabs` for a fixed set of choices. Worth a `type: 'search'` (or a `host.ui.*` helper wrapping one) once a

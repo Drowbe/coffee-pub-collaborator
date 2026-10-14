@@ -2,12 +2,12 @@
 
 **Audience:** an owner setting up the AI on a Collaborator server, and anyone asking it questions or bringing in research from another AI.
 
-The AI is asked from Chat now, with `/ai`; see [Chat](userguide-chat.md), "Ask the AI". The Assistant module (0.1.21) has no window of its own and is not in the space bar. A new install leaves it out, even when its template lists it. Where it is installed, it keeps its **Use the assistant** permission, which decides who may use `/ai` and bring in research, and the AI hook; **Ask the assistant** asks in Chat. Research brought in from another AI comes in through Chat too.
+The AI is asked from Chat now, in its **Assistant** tab or with `/ai`; see [Chat](userguide-chat.md), "Ask the AI". The Assistant tab shows only your own commands and answers. The Assistant module has no window of its own and is not in the Layout menu. A new install leaves it out, even when its template lists it. Where it is installed, it keeps its **Use the assistant** permission, which decides who may use `/ai` and bring in research, and the AI hook; **Ask the assistant** asks in Chat. Research brought in from another AI comes in through Chat too.
 
 ## Set it up (owner)
 
 1. Set up the AI itself first: on the Modules tab, **AI service** (none, OpenAI, Anthropic, or another OpenAI-compatible service), a model and a key, then **Approve and enable**. See [Modules](userguide-modules.md).
-2. Optional: to limit who may use `/ai` by role, choose **Install** beside Assistant on the Modules tab, then **Approve and enable**, and tick **Available in every space** or switch it on per space.
+2. Optional: to limit who may use `/ai` by role, choose **Install** beside Assistant on the Modules tab, then **Approve and enable**. A module that is enabled is on in every space.
 3. On the Roles tab, under Module: Assistant, **Use the assistant** no longer decides who may use `/ai`: anyone signed in may, except guests, and nobody can in a space where **Turn AI off in this space** is ticked. **Use AI in modules**, under AI, governs AI inside other modules (Research's **Suggest tags**), not `/ai`.
 
 Without the Assistant installed, anyone signed in who is not a guest may use `/ai`, wherever AI is not turned off.

@@ -599,8 +599,8 @@ default), and an unknown key with "verbs: there is no verb called "<key>"; the v
 `allowAsides`, `allowPrivate`, `allowReactions`, `showCalendar`, `showMap` (booleans: the top bar's destinations; Travel sets both, from version 4), `calendarFeeds`, `otherCalendars` and `publishedCalendar` (booleans: Calendar sharing's switches, [plan-space-calendars](../plans/plan-space-calendars.md); Travel sets the first two, from version 5), `activeThemeId` and `themeMode`. `spaceDefaults.profile` is
 `roleplaying`, `participants` or `characters`. `spaceDefaults.opensWith` is up to 20 module ids, bundled or built in,
 none twice, in the order a new space opens them (plan-planner-phases; nothing opens from it until that plan's step 6).
-`phases` is up to 12 `{ id, label, main? }`: `id` as a module id and unique, `label` 1 to 40 characters, `main: true`
-on at most one; any other key is refused. The fields added by addendum 2:
+`phases` is up to 12 `{ id, label, main?, icon? }`: `id` as a module id and unique, `label` 1 to 40 characters, `main: true`
+on at most one, `icon` a Font Awesome Free solid icon that can be drawn (refused as `phases[<i>]: icon "<name>" is not a Font Awesome Free solid icon.`); any other key is refused (`phases[<i>]: "<key>" is not a phase field; a phase takes id, label, main and icon.`). A phase's icon is optional; it shows beside the phase's name in the status strip's journey bar where it fits, and in `host.phases()`. A phase has no colour in the template: the one it wears everywhere comes from its place in the list ([architecture-canvas](architecture-canvas.md), "Phases"). The fields added by addendum 2:
 
 - `version`: a whole number, 1 or more (a bundled file without one is 1). A host template's counts up on every
   edit; an imported one keeps the file's.

@@ -55,6 +55,13 @@ export function todayPercent(band, days, today, { rule } = {}) {
   return ((R.daysBetween(band.start, today) + 0.5) / Math.max(1, days)) * 100;
 }
 
+// A phase's icon before its name in a row: small, fixed width, hidden from a screen reader (the name says it); nothing
+// when the template gives the phase none. Also used by the Set up Phases tab.
+export function rowIconHtml(p) {
+  const icon = p && typeof p.icon === 'string' && /^[a-z0-9-]{1,40}$/.test(p.icon) ? p.icon : '';
+  return icon ? `<i class="fa-solid fa-${icon} fa-fw phase-row-icon" aria-hidden="true"></i>` : '';
+}
+
 // The rows, one per band in order: { id, label, main, current, dated, start, end, days, open, endEditable, canSkip,
 // minStart, maxStart, minEnd }. `days` is the length (null when open-ended); `endEditable` is true for any dated phase (an end on a phase that has a
 // phase after it moves that phase's start; the last phase's, and the main phase's, are their own); the first phase keeps its dates (`canSkip` false); the
@@ -221,7 +228,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     row.innerHTML = `
       <div class="phase-row-name">
         <span class="phase-swatch" aria-hidden="true"></span>
-        <span class="phase-row-label"></span>
+        ${rowIconHtml(p)}<span class="phase-row-label"></span>
         <span class="phase-tag phase-tag-now" hidden>now</span>
         <span class="phase-tag phase-tag-main" hidden>main</span>
       </div>

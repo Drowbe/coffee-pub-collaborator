@@ -9296,9 +9296,12 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 .status-band-icon {
   flex: none;
   align-self: center;
-  margin-right: 5px;
   font-size: 11px;
   color: inherit;
+}
+
+.status-band-icon + .status-band-name {
+  margin-left: 5px;
 }
 
 /* The pin at today: a disc larger than the bar, filled with its phase's colour (a fill, no coloured ring), a ring of
@@ -9523,10 +9526,6 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 @media (max-width: 760px) {
   .status-strip .status-band-name {
     display: none;
-  }
-
-  .status-strip .status-band-icon {
-    margin-right: 0;
   }
 }
 

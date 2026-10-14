@@ -33,7 +33,7 @@
 // budgetEntryProblem, budgetWanted) touch no
 // document, so tools/check-nav.mjs runs them in node; the page hands the panel what it needs (createSpaceSetup's `deps`).
 import { actionBar } from './action-bar.js';
-import { rowsOf, dayWords, plainDays, sameDates, tintOf } from './phase-sheet.js';
+import { rowsOf, dayWords, plainDays, sameDates, tintOf, rowIconHtml } from './phase-sheet.js';
 
 // The tabs, in the order shown, by rights.
 export const SETUP_TABS = Object.freeze(['space', 'members', 'phases', 'opens-with', 'modules']);
@@ -357,7 +357,7 @@ export function createSpaceSetup(deps) {
           <li class="phase-row" data-id="${esc(p.id)}" data-tint="${state.rule && state.rule.tintOf ? state.rule.tintOf(i) : tintOf(i)}">
             <div class="phase-row-name">
               <span class="phase-swatch" aria-hidden="true"></span>
-              <span class="phase-row-label">${esc(p.label)}</span>
+              ${rowIconHtml(p)}<span class="phase-row-label">${esc(p.label)}</span>
               <span class="phase-tag phase-tag-now" hidden>now</span>
               <span class="phase-tag phase-tag-main" hidden>main</span>
             </div>

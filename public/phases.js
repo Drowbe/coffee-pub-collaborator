@@ -45,7 +45,7 @@
   // The template's phases as given, with anything malformed left out.
   function cleanPhases(list) {
     return (Array.isArray(list) ? list : []).filter((p) => p && typeof p === 'object' && typeof p.id === 'string' && PHASE_ID.test(p.id))
-      .map((p) => ({ id: p.id, label: typeof p.label === 'string' && p.label.trim() ? p.label.trim() : p.id, main: p.main === true }));
+      .map((p) => ({ id: p.id, label: typeof p.label === 'string' && p.label.trim() ? p.label.trim() : p.id, main: p.main === true, ...(typeof p.icon === 'string' && /^[a-z0-9-]{1,40}$/.test(p.icon) ? { icon: p.icon } : {}) }));
   }
   // The stored dates, leniently: only real days under start and end, only phases with at least one of them. This is
   // the shape stored on the space; the rule's refusals are problemOf's.
@@ -329,9 +329,10 @@
   // --- the status strip's story (plan-space-story-strip.md, step 1) -------------------------------------------------
   // One sentence from the bands and `today`, in the template's phase labels only, as its clauses in reading order (the
   // strip lets the last ones give way on a narrow screen; storyWords joins them with " · "):
-  //   inside a phase, the next a day or more away   "Planning · Booking in 6 days · Trip in 41 days"
-  //   the day before a boundary                     "Booking starts tomorrow · Trip in 35 days"
-  //   before the first phase, or in a gap           "Planning starts in 12 days · Trip in 52 days"
+  //   inside a phase, the next a day or more away   "Planning · Booking in 6 days"
+  //   the day before a boundary                     "Booking starts tomorrow"
+  //   before the first phase, or in a gap           "Planning starts in 12 days"
+  // (the main phase ahead is the countdown chip's to say, not the sentence's)
   //   inside the main phase                         "Trip · day 3 of 10", "Trip · last day" ("Trip · day 3" with no end)
   //   after the main phase                          "Post-trip · back 2 days" ("Trip · back 9 days" once nothing is current)
 //   after the last phase, when it has an end      "Trip finished" (the main phase's name, else the last phase's)
@@ -363,8 +364,9 @@
       if (!main && current.end) parts.push(`day ${daysBetween(current.start, day) + 1} of ${daysBetween(current.start, current.end) + 1}`);
       if (next && next !== main) parts.push(`${next.label} ${inDays(toNext)}`);
     }
+    // The main phase ahead is not said here: the countdown chip on the strip says it (Thomas, 2026-10-14).
     if (main && main.start > day) {
-      if (main !== next || (current && toNext > 1)) parts.push(`${main.label} ${inDays(daysBetween(day, main.start))}`);
+      // nothing more
     } else if (main && main.end && day > main.end && !next) {
       const back = daysBetween(main.end, day);
       if (!parts.length) parts.push(main.label);
@@ -375,20 +377,18 @@
   }
   const storyWords = (bands, today) => storyParts(bands, today).join(' · ');
 
-  // The days to go at the end of the strip's track: { days, words } before the main phase ("35 days to Trip"), and in
-  // it when it has an end ("8 days left", counting today); null with no dated main phase, no day, or once it is over.
+  // The countdown chip at the end of the strip's track: { days, words } before the main phase ("35 days to Trip",
+  // "1 day to Trip"), and "Trip starts today" on its first day (days 0). null once it is under way or over (the
+  // sentence says "Trip · day 3 of 10"), and with no dated main phase or no day.
   function countdown(bands, today) {
     const list = Array.isArray(bands) ? bands.filter(Boolean) : [];
     const day = isDay(today) ? today : null;
     const main = list.find((b) => b.main && b.dated) || null;
     if (!day || !main) return null;
+    if (day === main.start) return { days: 0, words: `${main.label} starts today` };
     if (day < main.start) {
       const n = daysBetween(day, main.start);
       return { days: n, words: `${n} ${n === 1 ? 'day' : 'days'} to ${main.label}` };
-    }
-    if (main.end && day <= main.end) {
-      const n = daysBetween(day, main.end) + 1;
-      return { days: n, words: `${n} ${n === 1 ? 'day' : 'days'} left` };
     }
     return null;
   }

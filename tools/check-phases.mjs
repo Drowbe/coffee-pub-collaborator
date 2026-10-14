@@ -418,12 +418,12 @@ await test('storyWords: where we are, what is next and how far to the main phase
   const story = (today, d = dates, phases = TRAVEL, created = CREATED) => P.storyWords(P.timelineOf(phases, d, { today, created }), today);
   const parts = (today, d = dates) => P.storyParts(P.timelineOf(TRAVEL, d, { today, created: CREATED }), today);
   // Inside a phase, the next more than a day away: the phase, the next, the main phase.
-  assert.equal(story('2026-09-04'), 'Planning · Booking in 6 days · Trip in 31 days');
-  assert.deepEqual(parts('2026-09-04'), ['Planning', 'Booking in 6 days', 'Trip in 31 days'], 'the clauses, in reading order');
+  assert.equal(story('2026-09-04'), 'Planning · Booking in 6 days');
+  assert.deepEqual(parts('2026-09-04'), ['Planning', 'Booking in 6 days'], 'the clauses, in reading order; the main phase ahead is the countdown\'s');
   // The day before a boundary.
-  assert.equal(story('2026-09-09'), 'Booking starts tomorrow · Trip in 26 days', 'Thomas\'s "day 20 of 20"');
+  assert.equal(story('2026-09-09'), 'Booking starts tomorrow', 'Thomas\'s "day 20 of 20"');
   assert.equal(story('2026-10-04'), 'Trip starts tomorrow', 'the next is the main phase: said once');
-  assert.equal(story('2026-09-30'), 'Pre-trip · Trip in 5 days', 'the next is the main phase: not named twice');
+  assert.equal(story('2026-09-30'), 'Pre-trip', 'the main phase ahead is not in the sentence');
   // Inside the main phase, and its last day.
   assert.equal(story('2026-10-07'), 'Trip · day 3 of 10');
   assert.equal(story('2026-10-14'), 'Trip · last day', 'the last day wins over the boundary tomorrow');
@@ -440,8 +440,8 @@ await test('storyWords: where we are, what is next and how far to the main phase
   assert.equal(story('2026-11-30', { 'post-trip': { start: '2026-10-15', end: '2026-10-25' } }, TRAVEL.filter((p) => !p.main)), 'Post-trip finished', 'no main phase: the last phase\'s');
   assert.equal(P.chipWords(P.timelineOf(TRAVEL, ended, { today: '2026-10-26', created: CREATED }), '2026-10-26'), 'Trip finished', 'the chip says the same');
   // Before the first phase, and in a gap.
-  assert.equal(story('2026-08-20', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts in 12 days · Trip in 46 days', 'before the first phase');
-  assert.equal(story('2026-08-31', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts tomorrow · Trip in 35 days');
+  assert.equal(story('2026-08-20', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts in 12 days', 'before the first phase');
+  assert.equal(story('2026-08-31', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts tomorrow');
   assert.equal(story('2026-10-17', { trip: { start: '2026-10-05', end: '2026-10-14' }, 'post-trip': { start: '2026-10-20' } }), 'Post-trip starts in 3 days', 'in a gap after the main phase');
   const mainFirst = [{ id: 'go', label: 'Go', main: true }, { id: 'after', label: 'After' }];
   assert.equal(story('2026-08-25', { go: { start: '2026-09-01', end: '2026-09-03' } }, mainFirst), 'Go starts in 7 days', 'before a main phase that is first: said once');
@@ -451,7 +451,7 @@ await test('storyWords: where we are, what is next and how far to the main phase
   assert.equal(story('2026-09-12', { launch: { start: '2026-09-13' } }, BUILD), 'Launch starts tomorrow');
   assert.equal(story('2026-09-20', { launch: { start: '2026-09-13' } }, BUILD), 'Launch', 'the last, open-ended phase');
   // A one-day phase.
-  assert.equal(story('2026-09-27', { ...dates, buffer: { start: '2026-09-27' } }), 'Pre-trip starts tomorrow · Trip in 8 days', 'a one-day phase on its day: the next starts tomorrow');
+  assert.equal(story('2026-09-27', { ...dates, buffer: { start: '2026-09-27' } }), 'Pre-trip starts tomorrow', 'a one-day phase on its day: the next starts tomorrow');
   // No dates, no day, no phases.
   assert.equal(story('2026-09-04', {}), 'Planning', 'nothing dated but the first phase, open-ended');
   assert.equal(story('2026-09-04', {}, TRAVEL, null), 'Planning', 'nothing dated at all: the first phase');
@@ -460,16 +460,17 @@ await test('storyWords: where we are, what is next and how far to the main phase
   assert.deepEqual(P.storyParts([], '2026-09-04'), []);
   // Only the template's labels: a template whose main phase is "Session" reads the same way.
   const GAME = [{ id: 'prep', label: 'Prep' }, { id: 'session', label: 'Session', main: true }];
-  assert.equal(story('2026-09-04', { session: { start: '2026-09-11', end: '2026-09-11' } }, GAME), 'Prep · Session in 7 days');
+  assert.equal(story('2026-09-04', { session: { start: '2026-09-11', end: '2026-09-11' } }, GAME), 'Prep');
 });
 
-await test('countdown: days to the main phase, days left in it, nothing after it', () => {
+await test('countdown: days to the main phase, "starts today", nothing once it is under way or over', () => {
   const dates = { trip: { start: '2026-10-05', end: '2026-10-14' }, 'post-trip': { start: '2026-10-15' } };
   const togo = (today, d = dates) => P.countdown(P.timelineOf(TRAVEL, d, { today, created: CREATED }), today);
   assert.deepEqual(togo('2026-09-30'), { days: 5, words: '5 days to Trip' });
   assert.deepEqual(togo('2026-10-04'), { days: 1, words: '1 day to Trip' });
-  assert.deepEqual(togo('2026-10-05'), { days: 10, words: '10 days left' }, 'counting today');
-  assert.deepEqual(togo('2026-10-14'), { days: 1, words: '1 day left' });
+  assert.deepEqual(togo('2026-10-05'), { days: 0, words: 'Trip starts today' }, 'its first day');
+  assert.equal(togo('2026-10-06'), null, 'under way: the sentence says the day');
+  assert.equal(togo('2026-10-14'), null, 'its last day');
   assert.equal(togo('2026-10-15'), null, 'after the main phase');
   assert.equal(togo('2026-10-07', { trip: { start: '2026-10-05' } }), null, 'in a main phase with no end');
   assert.equal(togo('2026-09-30', {}), null, 'no dated main phase');
@@ -565,7 +566,7 @@ try {
     const expected = TRAVEL.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}), icon: ICONS[p.id] }));
     assert.deepEqual((await call(server, 'GET', '/api/branding')).json.phases, expected, 'the travel template\'s phases, in order, main marked, with no restart');
     assert.deepEqual((await asAdmin('GET', '/api/config')).json.phases, expected);
-    assert.deepEqual(P.cleanPhases(expected), TRAVEL.map((p) => ({ id: p.id, label: p.label, main: p.main === true })), 'the shape the chip cleans');
+    assert.deepEqual(P.cleanPhases(expected), TRAVEL.map((p) => ({ id: p.id, label: p.label, main: p.main === true, icon: ICONS[p.id] })), 'the shape the chip cleans');
     assert.equal((await asAdmin('PATCH', '/api/settings', { template: null })).status, 200);
     assert.deepEqual((await call(server, 'GET', '/api/branding')).json.phases, [], 'back to none when the template is dropped');
   });

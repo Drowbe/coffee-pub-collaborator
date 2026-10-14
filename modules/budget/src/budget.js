@@ -44,11 +44,14 @@
     payer: '',
     text: '',
     loaded: false,
+    pulled: [], // costs read from other modules' objects (never stored here); see refreshPulled
+    withheld: 0, // priced objects the server left out because this person may not read their module
     editing: null, // { id | null, version, opened, conflict }
   };
   const nameOf = (key) => (state.people.find((p) => p.key === key) || {}).name || '';
   const nameOrLeft = (key) => nameOf(key) || 'Someone who left';
-  const costs = () => [...state.costs.values()].map((x) => x.cost);
+  const ownCosts = () => [...state.costs.values()].map((x) => x.cost);
+  const costs = () => allCosts(ownCosts(), state.pulled); // Budget's own and the pulled-in ones, each counted once
   const serverCurrency = () => (host.locale() && host.locale().currency) || 'USD';
   const currencyCode = () => (state.target && state.target.currency) || serverCurrency();
   const money = (n, code) => host.util.money(n, code || currencyCode());
@@ -131,6 +134,26 @@
     render();
   }
 
+  // --- costs pulled in from other modules ---------------------------------------------------------------------------------
+  // Read from what the other modules in this space offer as priced objects (host.objects.priced: only what this person may read,
+  // and a count of what was left out). Never copied into this module's storage, so turning Budget off or on loses and doubles
+  // nothing. Asked on load, when the window is focused or shown again, and every 30 seconds.
+  let pulledSig = '';
+  async function refreshPulled() {
+    if (!host.objects || !host.objects.priced) return;
+    let answer;
+    try { answer = await host.objects.priced(); } catch (err) { return; } // keep what is shown; the next look asks again
+    const pulled = pulledCosts(answer && answer.summaries, info.module.id);
+    const withheld = answer && Number(answer.withheld) > 0 ? Number(answer.withheld) : 0;
+    const sig = JSON.stringify([pulled, withheld]);
+    if (sig === pulledSig) return;
+    pulledSig = sig;
+    state.pulled = pulled;
+    state.withheld = withheld;
+    if (state.loaded) render();
+  }
+  const openSource = (c) => host.objects.open(c.ref).catch((err) => say(err && err.message ? err.message : 'It could not be opened.'));
+
   // --- the pieces of the page ---------------------------------------------------------------------------------------------
   const fit = () => {
     const w = host.rootElement.clientWidth;
@@ -164,6 +187,7 @@
     if (state.view === 'overview') renderOverview();
     else if (state.view === 'costs') renderCosts();
     else renderSettle();
+    for (const n of root.querySelectorAll('[data-slot="withheld-note"]')) fill(n, { 'withheld-note': withheldNote(state.withheld) });
     hydrate(root);
     chrome();
   }
@@ -313,6 +337,7 @@
   function costRow(c) {
     const el = clone('tpl-cost');
     el.dataset.id = c.id;
+    if (c.pulled) el.classList.add('pulled');
     const r = catRow(state.cats, c.category);
     el.style.setProperty('--tone', toneOf(state.cats, c.category));
     setIcon(el.querySelector('.mark [data-icon]'), r.icon);
@@ -323,8 +348,9 @@
       sub,
       amount: paid || (c.planned ? money(c.planned) : 'No amount'),
       planned: c.actual ? (c.planned ? `of ${money(c.planned)} planned` : '') : c.planned ? 'planned' : '',
+      source: c.pulled ? `From ${c.source.name}` : '',
     });
-    el.querySelector('.cost-main').setAttribute('aria-label', `${c.title}, ${sub}, ${paid ? `${paid} paid` : c.planned ? `${money(c.planned)} planned` : 'no amount'}. ${canEdit ? 'Change it' : 'Open it'}`);
+    el.querySelector('.cost-main').setAttribute('aria-label', `${c.title}, ${sub}, ${paid ? `${paid} paid` : c.planned ? `${money(c.planned)} planned` : 'no amount'}.${c.pulled ? ` From ${c.source.name}. Open in ${c.source.name}` : ` ${canEdit ? 'Change it' : 'Open it'}`}`);
     return el;
   }
   function renderCosts() {
@@ -371,6 +397,13 @@
     if (!row) return;
     const id = row.dataset.id;
     const menu = e.target.closest('[data-action="menu"]');
+    const pulled = state.pulled.find((c) => c.id === id);
+    if (pulled) {
+      // a pulled-in cost is read-only here: it opens in the module that holds it
+      if (menu) host.menu.show({ id: `cost-${id}`, anchor: menu, items: [{ id: 'open', label: `Open in ${pulled.source.name}`, icon: 'arrow-up-right-from-square', onClick: () => openSource(pulled) }] });
+      else if (e.target.closest('[data-action="open"]')) openSource(pulled);
+      return;
+    }
     if (menu) { openRowMenu(id, menu); return; }
     if (e.target.closest('[data-action="open"]')) openEditor(id);
   });
@@ -624,15 +657,19 @@
       host.settings.get().catch(() => null),
       host.budget ? host.budget.can().catch(() => false) : false,
       loadCosts(),
+      refreshPulled(),
     ]);
     state.people = people;
     state.cats = cleanCategories(settings && settings.categories);
     state.canTarget = canTarget === true;
     if (host.space() && host.space().budget) state.target = host.space().budget;
     host.settings.onChange((v) => { state.cats = cleanCategories(v && v.categories); if (state.loaded) render(); });
-    await Promise.all([...new Set(['plus', 'pen', 'eye', 'trash', 'check', 'tag', 'wallet', 'layer-group', 'calendar-day', 'user', ...state.cats.map((c) => c.icon)])].map(wantIcon));
+    await Promise.all([...new Set(['plus', 'pen', 'eye', 'trash', 'check', 'tag', 'wallet', 'layer-group', 'calendar-day', 'user', 'arrow-up-right-from-square', ...state.cats.map((c) => c.icon)])].map(wantIcon));
     state.loaded = true;
     render();
+    const pullTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(pullTimer); else if (!document.hidden) refreshPulled(); }, 30000);
+    window.addEventListener('focus', refreshPulled);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshPulled(); });
     if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
   } catch (err) {
     $('app').hidden = true;

@@ -710,13 +710,15 @@
   const NEXT_ICONS = { flight: 'plane', train: 'train', bus: 'bus', ferry: 'ship', car: 'car', taxi: 'taxi', rideshare: 'car', shuttle: 'van-shuttle' };
   // Cut to `n` characters as a person counts them (code points), so an emoji is never split in half.
   const cutText = (s, n) => { const cps = [...String(s)]; return cps.length > n ? `${cps.slice(0, n - 1).join('')}…` : String(s); };
-  function stripFacts({ items = [], travellers = [], today, target = null, currency = '', money }) {
+  function stripFacts({ items = [], travellers = [], today, target = null, currency = '', money, budgetOn = false }) {
     const facts = [];
     const spent = balances(costItems(items), travellers).total;
     const goal = target && Number(target.amount) > 0 ? Number(target.amount) : 0;
     const goalCode = goal ? String(target.currency || currency || '').toUpperCase() : '';
     const sameCode = !goal || !target.currency || goalCode === String(currency || '').toUpperCase();
-    if (!goal) {
+    if (budgetOn) {
+      // Budget is on in the space: it reports the one money fact (the bookings' costs included), so this module sends none.
+    } else if (!goal) {
       facts.push({ id: 'spent', icon: 'coins', text: cutText(`Spent ${money(spent, currency)}`, 40), order: 10, budget: true });
     } else if (!sameCode) {
       facts.push({ id: 'spent', icon: 'coins', text: cutText(`${money(spent, currency)} of ${money(goal, goalCode)}`, 40), value: 'Another currency', order: 10, budget: true });

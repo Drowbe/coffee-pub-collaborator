@@ -256,6 +256,33 @@ test('stripFacts (#216): spent from costs with a payer, against the space\'s bud
   assert.ok(!/nearDay|dayWord|'tomorrow'|'today'/.test(js.slice(js.indexOf('function reportFacts('), js.indexOf("host.on('space'"))), 'the Planner words no day relative to its own today');
 });
 
+test('with Budget on the Planner steps its money aside; with it off nothing changes (plan-budget-module.md, step 3)', () => {
+  const people = ['a', 'b'];
+  const money = (n, code) => `${code || '?'} ${n}`;
+  const today = '2026-10-14';
+  const items = [it('d', { cost: 90, paidBy: 'a' }), it('s', { kind: 'journey', mode: 'flight', date: '2026-10-16', fromCode: 'SJC', toCode: 'ONT', title: 'UA 1' })];
+  const off = lib.stripFacts({ items, travellers: people, today, currency: 'USD', money });
+  assert.deepEqual(off.map((f) => f.id), ['spent', 'next'], 'Budget off: both facts, as ever');
+  assert.deepEqual(lib.stripFacts({ items, travellers: people, today, currency: 'USD', money, budgetOn: false }), off, 'budgetOn false is the same');
+  const on = lib.stripFacts({ items, travellers: people, today, currency: 'USD', money, budgetOn: true, target: { amount: 400 } });
+  assert.deepEqual(on.map((f) => f.id), ['next'], 'Budget on: no spent fact, so the strip carries one money fact (Budget\'s)');
+  assert.deepEqual(lib.stripFacts({ items: [], travellers: people, today, currency: 'USD', money, budgetOn: true }), [], 'nothing to say: an empty list replaces the old one');
+  // the costs stay on the bookings either way
+  assert.equal(lib.costItems(items).length, 1);
+  assert.equal(lib.balances(lib.costItems(items), people).total, 90);
+  const js = read('travel.js');
+  assert.match(js, /const viewsNow = \(\) => VIEWS\.filter\(\(v\) => v\.id !== 'money' \|\| !state\.budgetOn\);/, 'the Money tab is left out while Budget is on');
+  assert.match(js, /if \(state\.budgetOn && state\.view === 'money'\) state\.view = 'days';/, 'a person on Money is moved to Days when Budget comes on');
+  assert.match(js, /budgetOn: state\.budgetOn,/, 'the fact reporter knows');
+  assert.match(js, /host\.budget\.elsewhere\(\)/, 'found by the flag of another module, never by name');
+  assert.ok(!/['"`]budget['"`]\s*[,)]/.test(js.slice(js.indexOf('async function lookBudget'), js.indexOf("host.on('space', () => { reportFacts"))), 'no module is named');
+  assert.match(js, /addEventListener\('focus', lookBudget\)/, 'asked again on focus, and every 30 seconds');
+  assert.match(js, /if \(on === state\.budgetOn\) return;\s*state\.budgetOn = on;\s*if \(state\.loaded\) \{ redraw\(\); reportFacts\(\); \}/, 'toggling redraws and re-reports');
+  assert.ok(js.includes("{ id: 'money', label: 'Money', icon: 'coins' }") && js.includes('renderMoney'), 'the Money view itself is kept for Budget off');
+  const form = js.slice(js.indexOf('f-cost'), js.indexOf('f-cost') + 200);
+  assert.ok(form.length > 0, 'the booking form keeps its cost field');
+});
+
 test('a trip has an optional three-letter currency, an item an optional cost', () => {
   assert.equal(lib.cleanTrip({ start: '2026-10-01', currency: 'eur' }).currency, 'EUR');
   assert.equal(lib.cleanTrip({ start: '2026-10-01', currency: 'euros' }).currency, '');
@@ -650,7 +677,7 @@ test('the kind picker shows each marker type once; Where decides block (a day) o
   }
   const page = read('travel.js');
   assert.ok(/label: 'Markers', options: blockTypes\(\)\.map/.test(page), 'one Markers group of the types that are not automatic');
-  assert.ok(!/addTileGroup|'Between days'/.test(page), 'the Time and Between days groups are gone');
+  assert.ok(!/addTileGroup|label: 'Between days', options/.test(page), 'the Time and Between days groups of the kind picker are gone (a menu of spots between days is another thing)');
   assert.ok(/onChange: \(id\) => applyType\(tileAt\(id, \$\('f-date'\)\.value\)\)/.test(page), 'a choice goes through tileAt with Where');
   assert.ok(/placeOptions\(\$\('f-date'\), \{ placedOnly: marker && !keepUnplaced \}\)/.test(page), 'with a marker chosen Where lists the days and the joints, not "Not on a day yet"');
   assert.ok(/const keepUnplaced = Boolean\(ed\.id && ed\.unplaced\);/.test(page) && /unplaced: Boolean\(item && item\.kind === 'block' && !item\.date\)/.test(page), 'an existing block stored with no day keeps "Not on a day yet", so its Where is never blank');
@@ -808,7 +835,7 @@ test('the page: every journey kind has its colours and is in the kind picker, le
   for (const m of Object.keys(lib.LEG_ICONS)) assert.ok(html.includes(`data-mode="${m}"`), `a way-to-a-stop button for ${m}`);
   assert.ok(!/\(minutes\)|Minutes from/.test(html), 'no length is asked for in minutes alone');
   for (const id of ['f-hours', 'f-minutes', 'f-travelHours', 'f-travelMinutes']) assert.ok(html.includes(`id="${id}"`), id);
-  assert.match(html, /<label>Check out<select id="f-checkout" name="checkOut"><\/select><\/label>\s*<label>Check-out time<input id="f-checkOutTime" name="checkOutTime" type="time"><\/label>/, 'check-out is a list of days and a time, laid out as check-in is (#245)');
+  assert.match(html, /<span id="f-checkout-label">Check out<\/span><select id="f-checkout" name="checkOut" hidden><\/select>\s*<div class="when-pick"><input id="f-checkout-input" type="date"[^>]*>.*?id="f-checkout-list".*?id="f-checkout-clear"[\s\S]*?<label>Check-out time<input id="f-checkOutTime" name="checkOutTime" type="time"><\/label>/, 'check-out is a date field with the list of days behind it (the select holds the value), and a time, laid out as check-in is (#245)');
   assert.ok(html.includes('<span class="side">Departs</span>') && html.includes('<span class="side">Arrives</span>'), 'a flight card says which end departs and which arrives');
 });
 
@@ -2033,6 +2060,39 @@ test('the editor offers Length or End time, keeps one stored length and says pla
   assert.ok(!/minutes:\s*lengthBetween|endTime:/.test(js), 'no end is stored');
   assert.ok(js.includes('time: spanText(item), minutes: duration') && js.includes('endText(item)].filter(Boolean).join'), 'the card and the day show start to end while End time is chosen');
   assert.match(read('travel-lib-editor.css'), /\.editor-card \.lenmode \{[^}]*border: 1px solid var\(--border\)/, 'the switch uses theme tokens');
+});
+
+test('choosing a day: a date field, a grouped list through host.menu.show, Move to another day, Unscheduled (Thomas, 2026-10-14)', () => {
+  const html = read('travel.html');
+  const js = read('travel.js');
+  for (const id of ['f-date', 'f-back-date', 'f-checkout']) {
+    assert.ok(html.includes(`<select id="${id}"`) && /hidden><\/select>/.test(html), `${id}: the select stays as the value, hidden`);
+    for (const part of ['input', 'list', 'clear', 'phase']) assert.ok(html.includes(`id="${id}-${part}"`), `${id}-${part}`);
+    assert.ok(html.includes(`<input id="${id}-input" type="date"`), `${id} has a date field`);
+  }
+  assert.ok(html.includes('>Pick from the list</button>'), 'the list button');
+  assert.ok(!html.includes('<select id="menu-day"') && html.includes('data-action="move-to"') && html.includes('Move to another day…'), 'Move to another day opens the list; no select in the menu');
+  assert.ok(html.includes('Move to unscheduled</button>') && !/Back to the line/.test(html + js), 'Back to the line is Move to unscheduled');
+  assert.ok(html.includes('data-slot="earlier-label">Move up') && html.includes('data-slot="later-label">Move down'), 'Move up / Move down by default');
+  assert.ok(js.includes("'30 minutes earlier'") && js.includes("'30 minutes later'") && js.includes('It stays on the same day.'), 'a timed object moves by half an hour, and the tooltip says it stays on its day');
+  assert.ok(js.includes('function dayMenuItems(') && js.includes("{ id: 'pick-date', label: 'Pick a date…'"), 'the list ends with Pick a date');
+  assert.ok(js.includes("const name = jointsOnly ? 'Between days' : 'Unscheduled';") && js.includes("none: 'Not on a day yet'"), 'Unscheduled holds no day and the spots between days; stored values are unchanged');
+  assert.ok(js.includes('const DAY_NEST = 8;') && js.includes('items.push({ id: `group-${g.key}`, label: g.label, hint: g.range'), 'more than 8 days: a flyout per phase (the SDK menu\'s category), else a heading per phase');
+  assert.ok(js.includes("host.menu.show({ id: `${id}-list`, anchor: listBtn"), 'Pick from the list uses the SDK menu');
+  assert.ok(js.includes('input.min = b.min;') && js.includes('return { min: held && held < days[0] ? held : days[0]'), 'bounded by the timeline, never refusing the day it holds');
+  assert.ok(js.includes('const month = ') === false && js.includes("parseYmd(d).toLocaleDateString([], { month: 'long', year: 'numeric' })"), 'without phases: by month');
+  assert.ok(js.includes("dayField($('f-date'));") && js.includes("dayField($('f-checkout'), { checkout: true });"), 'the form sets the fields up');
+  const css = read('travel.css');
+  assert.match(css, /\.editor-card \.when-pick \.btn\.on \{ background: var\(--accent\)/, 'the chosen no-day state is a fill');
+  assert.ok(!/\.when-(pick|phase|clear|list)[^{]*\{[^}]*(#[0-9a-f]{3,8}\b|rgba?\()/i.test(css), 'tokens only');
+});
+
+test('every phase start and end is a marker of its own, and only the main phase\'s days are numbered', () => {
+  const js = read('travel.js');
+  assert.ok(js.includes('events.push({ day: back(b.start), ends: [], starts: [b] });') && js.includes('events.push({ day: b.end, ends: [b], starts: [] });'), 'one event each');
+  assert.ok(!js.includes('--ph2') && !read('travel-lib-cards.css').includes('--ph2'), 'no blended tints');
+  assert.ok(js.includes('y.ends.length - x.ends.length'), 'the ending marker comes first on a joint');
+  assert.ok(js.includes('function numberedDays(days)') && js.includes("`Day ${dayNumber(day, days)} of ${numberedDays(days).length}` : ''"), 'a day outside the main phase has no number');
 });
 
 console.log(`check-travel: OK (${n} checks)`);

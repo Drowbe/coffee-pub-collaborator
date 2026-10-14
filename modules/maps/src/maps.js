@@ -66,7 +66,19 @@
     fitted: false,
     started: false,
     saving: false,
+    // The environment's picture map ({ file, minZoom, maxZoom, tileType }), or null for the world map. While it is set the
+    // map draws only the picture, and what means nothing on an invented world (where I am, my maps app, the coordinates in
+    // the callout, the OpenStreetMap credit, the outside search) is left out (plan-map-image).
+    picture: pictureOf(host.environment && host.environment.pictureMap),
+    maxZoom: WORLD_MAX_ZOOM, // the map's maximum: every fixed zoom below is capped at it (capZoom)
+    labelZoom: 11, // the zoom from which a pin shows its label
+    style: null, // builds the style from the theme's colours, for a theme change
   };
+  const PICTURE_FOLDER = 'image-map'; // the `imageMap` setting's folder (module.json)
+  function pictureOf(pm) {
+    return pm && typeof pm === 'object' && typeof pm.file === 'string' && pm.file ? pm : null;
+  }
+  const cap = (z) => capZoom(z, state.maxZoom);
 
   // --- small helpers ------------------------------------------------------------------------------------------------
 
@@ -183,9 +195,14 @@
     el.dataset.kind = kindOf(c);
     if (c.category) el.dataset.cat = c.category;
     if (c.ref.scope === 'person') el.dataset.scope = 'person';
-    fill(el, { title: c.title, where: c.subtitle || '', coords: coordsText(c.place.lat, c.place.lng), from: `from ${moduleName(c)}${c.when ? ' \u00b7 ' + whenText(c.when) : ''}` });
+    // On a picture map a position is not somewhere on Earth: no coordinates shown (Copy coordinates still copies them) and
+    // no "Open in my maps app".
+    const picture = Boolean(state.picture);
+    fill(el, { title: c.title, where: c.subtitle || '', coords: picture ? '' : coordsText(c.place.lat, c.place.lng), from: `from ${moduleName(c)}${c.when ? ' \u00b7 ' + whenText(c.when) : ''}` });
+    hide(el.querySelector('.callout-where'), picture && !c.subtitle);
     setIcon(el.querySelector('.callout-source [data-icon]'), (c.module && c.module.icon) || 'link');
-    el.querySelector('[data-action="open-in-maps"]').href = mapsLink(c.place.lat, c.place.lng, c.title, apple);
+    const inMaps = el.querySelector('[data-action="open-in-maps"]');
+    if (picture) inMaps.remove(); else inMaps.href = mapsLink(c.place.lat, c.place.lng, c.title, apple);
     // As the destination's part on a phone, where the list is the other tab: "Show in list" asks the page to show it.
     const inList = el.querySelector('[data-action="show-in-list"]');
     if (inList) inList.hidden = !(part && state.phone);
@@ -232,7 +249,7 @@
     state.selected = id || null;
     render();
     const c = current();
-    if (c && state.map && !(o && o.still)) state.map.easeTo({ center: [c.place.lng, c.place.lat], zoom: Math.max(state.map.getZoom(), 13), duration: 500 });
+    if (c && state.map && !(o && o.still)) state.map.easeTo({ center: [c.place.lng, c.place.lat], zoom: cap(Math.max(state.map.getZoom(), 13)), duration: 500 });
     const now = c ? summaryId(c) : '';
     if (part && host.destination && !(o && o.quiet) && now !== told) {
       told = now;
@@ -254,7 +271,7 @@
     if (scope) pin.dataset.scope = scope;
     if (dim) pin.classList.add('dim');
     setIcon(pin.querySelector('[data-icon]'), icon);
-    if (label && state.map.getZoom() >= 11) fill(pin, { label }); else pin.querySelector('.pin-label').remove();
+    if (label && state.map.getZoom() >= state.labelZoom) fill(pin, { label }); else pin.querySelector('.pin-label').remove();
     if (state.selected === id) pin.classList.add('selected');
     pin.addEventListener('click', (e) => { e.stopPropagation(); if (!state.adding) on(); });
     return pin;
@@ -278,7 +295,7 @@
         if (g.points.every((x) => x.dim)) c.classList.add('dim');
         c.addEventListener('click', (e) => {
           e.stopPropagation();
-          map.fitBounds(boundsOf(g.points), { padding: 60, maxZoom: 17, duration: 500 });
+          map.fitBounds(boundsOf(g.points), { padding: 60, maxZoom: cap(17), duration: 500 });
         });
         markers.push(new maplibregl.Marker({ element: c, anchor: 'center' }).setLngLat([g.lng, g.lat]).addTo(map));
       }
@@ -326,7 +343,7 @@
     drawDraft();
     state.candidates = [];
     setAdding(false);
-    if (state.map) state.map.easeTo({ center: [lng, lat], zoom: Math.max(state.map.getZoom(), 14), duration: 500 });
+    if (state.map) state.map.easeTo({ center: [lng, lat], zoom: cap(Math.max(state.map.getZoom(), 14)), duration: 500 });
     const before = state.all.length;
     const a = o || {};
     host.actions.request(state.adder.action, { lat, lng, ...(a.title ? { title: a.title } : {}), ...(a.address ? { address: a.address } : {}), ...(a.notes ? { notes: a.notes } : {}), ...(a.origin ? { origin: a.origin } : {}) }).catch((err) => { state.draft = null; drawDraft(); say('It could not be started: ' + ((err && err.message) || err)); });
@@ -400,6 +417,24 @@
     drawPins();
     drawResults();
   }
+  // On a picture map the outside search is off (it knows only the real world): a name is looked for among the places drawn
+  // here, by title and where they are. The first match is selected; several are listed under the field to pick from.
+  const NO_SAVED_MATCH = 'No saved places match.';
+  const savedMatches = (text) => {
+    const q = String(text || '').trim().toLowerCase();
+    return q ? state.found.filter((c) => `${c.title} ${c.subtitle || ''}`.toLowerCase().includes(q)) : [];
+  };
+  function searchSaved(text) {
+    searchToken += 1;
+    state.candidates = [];
+    const list = savedMatches(text);
+    hits = list.length > 1 ? list.slice(0, 6).map((c) => ({ title: oneLine(c.title, 120), sub: oneLine(c.subtitle || moduleName(c), 160), id: summaryId(c) })) : [];
+    hit = -1;
+    state.searchMessage = list.length ? '' : NO_SAVED_MATCH;
+    drawPins();
+    drawResults();
+    if (list.length) select(summaryId(list[0]));
+  }
   function pickHit(i) {
     const h = hits[i];
     if (!h) return;
@@ -407,8 +442,9 @@
     state.searchMessage = '';
     $('map-find').value = '';
     drawResults();
-    if (state.adder) draftAt(h.lat, h.lng, { title: h.title, address: h.sub, origin: h.key });
-    else if (state.map) state.map.easeTo({ center: [h.lng, h.lat], zoom: 15 });
+    if (h.id) select(h.id); // a saved place (a picture map's search)
+    else if (state.adder) draftAt(h.lat, h.lng, { title: h.title, address: h.sub, origin: h.key });
+    else if (state.map) state.map.easeTo({ center: [h.lng, h.lat], zoom: cap(15) });
   }
   $('results').addEventListener('click', (e) => {
     const b = e.target.closest('.result');
@@ -431,23 +467,39 @@
     return t;
   };
 
-  // The credit the licence requires: always there. A credit the map file's own metadata names (its builder) is added to it.
-  function credit(metadata) {
+  // The credit the licence requires: always there on the world map. A credit the map file's own metadata names (its builder)
+  // is added to it. A picture map is not OpenStreetMap's: only the file's own credit (its artist) shows, else no credit.
+  function credit(metadata, picture) {
     const box = root.querySelector('.attribution');
     for (const extra of box.querySelectorAll('[data-extra]')) extra.remove();
+    hide(slot(box, 'osm'), picture);
+    const add = (node) => {
+      node.dataset.extra = '1';
+      if (box.querySelector('[data-extra]') || !picture) {
+        const dot = document.createElement('span');
+        dot.dataset.extra = '1';
+        dot.textContent = ' · ';
+        box.append(dot);
+      }
+      box.append(node);
+    };
     const html = metadata && typeof metadata.attribution === 'string' ? metadata.attribution : '';
-    if (!html) return;
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    for (const a of doc.querySelectorAll('a')) {
+    const doc = html ? new DOMParser().parseFromString(html, 'text/html') : null;
+    for (const a of doc ? doc.querySelectorAll('a') : []) {
       const text = (a.textContent || '').trim().slice(0, 60);
       if (!text || /openstreetmap/i.test(text)) continue;
       const href = a.getAttribute('href') || '';
       const link = document.createElement('a');
       link.textContent = text;
       if (/^https?:\/\//i.test(href)) { link.href = href; link.target = '_blank'; link.rel = 'noopener'; }
-      link.dataset.extra = '1';
-      box.append(document.createTextNode(' · '), link);
+      add(link);
     }
+    // A picture's credit may be plain words ("Drawn by ..."), with no link.
+    if (picture && doc && !box.querySelector('[data-extra]')) {
+      const text = (doc.body.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 80);
+      if (text) { const span = document.createElement('span'); span.textContent = text; add(span); }
+    }
+    hide(box, picture && !box.querySelector('[data-extra]'));
   }
 
   let protocol = null;
@@ -460,6 +512,7 @@
     for (const el of s.querySelectorAll('[data-slot="own-name"]')) el.textContent = info.module.name || el.textContent;
     const keeper = state.searcher || state.adder;
     if (keeper && keeper.moduleName) for (const el of s.querySelectorAll('[data-slot="places-name"]')) el.textContent = keeper.moduleName;
+    for (const el of s.querySelectorAll('[data-slot="maps-app"]')) hide(el, state.picture); // nobody's maps app has an invented world
     s.hidden = false;
     hydrate(s);
   }
@@ -471,8 +524,10 @@
 
   async function startMap() {
     if (state.map) { state.map.remove(); state.map = null; state.mapReady = false; clearPins(); setBar(); }
-    const wanted = state.settings.maps;
-    const app = $('app');
+    // A picture map replaces the world map for the whole environment while it is set: only its one file is read.
+    const picture = state.picture;
+    syncPicture();
+    const wanted = picture ? [picture.file] : state.settings.maps;
     if (!wanted.length) {
       showState('tpl-state-nomap'); // the same words for everyone: a module can't tell an owner apart without a permission
       render();
@@ -492,7 +547,7 @@
       fileUrls = [];
       headers = [];
       for (const name of wanted) {
-        const url = state.settings.web ? name : new URL(await host.files.url(name), location.href).href;
+        const url = state.settings.web && !picture ? name : await fileUrl(name, picture ? PICTURE_FOLDER : '');
         const archive = new pmtiles.PMTiles(url);
         protocol.add(archive);
         headers.push(await archive.getHeader());
@@ -504,16 +559,38 @@
       render();
       return;
     }
+    // A picture map's file holds picture tiles (2 PNG, 3 JPEG, 4 WebP, 5 AVIF); the server refuses anything else there.
+    if (picture && !(headers[0].tileType >= 2 && headers[0].tileType <= 5)) {
+      showError();
+      render();
+      return;
+    }
     const glyphs = `${location.origin}/maps-glyphs/{fontstack}/{range}.pbf`;
     state.tileUrls = fileUrls.map((u) => `pmtiles://${u}`);
     const header = { centerLon: headers[0].centerLon, centerLat: headers[0].centerLat, minLon: Math.min(...headers.map((h) => h.minLon)), minLat: Math.min(...headers.map((h) => h.minLat)), maxLon: Math.max(...headers.map((h) => h.maxLon)), maxLat: Math.max(...headers.map((h) => h.maxLat)) };
-    const style = () => buildStyle(tokens(), { tiles: state.tileUrls, glyphs });
-    const map = new maplibregl.Map({ container: $('map'), style: style(), attributionControl: false, renderWorldCopies: false, dragRotate: false, pitchWithRotate: false, maxZoom: 19, center: [header.centerLon, header.centerLat], zoom: 2, fadeDuration: 150 });
+    const options = { container: $('map'), attributionControl: false, renderWorldCopies: false, dragRotate: false, pitchWithRotate: false, fadeDuration: 150 };
+    let limits = null;
+    if (picture) {
+      // The picture's own zooms, two more by stretching its deepest tiles, and panning only over the picture.
+      limits = pictureLimits(headers[0], picture);
+      state.maxZoom = limits.maxZoom;
+      // The whole picture is one tile at zoom 0, so the pins' labels show a few levels before its deepest zoom.
+      state.labelZoom = Math.max(0, limits.fileMaxZoom - 3);
+      state.style = () => buildPictureStyle(tokens(), { tiles: state.tileUrls[0], minZoom: limits.fileMinZoom, maxZoom: limits.fileMaxZoom, bounds: limits.bounds });
+      const [[w, s], [e, n]] = limits.bounds;
+      Object.assign(options, { minZoom: limits.minZoom, maxZoom: limits.maxZoom, maxBounds: limits.bounds, center: [(w + e) / 2, (s + n) / 2], zoom: limits.minZoom });
+    } else {
+      state.maxZoom = WORLD_MAX_ZOOM;
+      state.labelZoom = 11;
+      state.style = () => buildStyle(tokens(), { tiles: state.tileUrls, glyphs });
+      Object.assign(options, { maxZoom: WORLD_MAX_ZOOM, center: [header.centerLon, header.centerLat], zoom: 2 });
+    }
+    const map = new maplibregl.Map({ ...options, style: state.style() });
     map.touchZoomRotate.disableRotation();
     state.map = map;
     setBar();
-    map.getCanvas().setAttribute('aria-label', 'Map');
-    credit(metadata);
+    map.getCanvas().setAttribute('aria-label', picture ? 'Picture map' : 'Map');
+    credit(metadata, Boolean(picture));
     map.on('click', (e) => {
       if (state.adding) { draftAt(round6(e.lngLat.lat), round6(e.lngLat.lng)); return; }
       if (state.selected) select(null);
@@ -526,8 +603,10 @@
       const b = boundsOf(state.found.map((c) => c.place));
       const last = lastView();
       if (last) map.jumpTo(last);
-      else if (b && (b[0][0] !== b[1][0] || b[0][1] !== b[1][1])) map.fitBounds(b, { padding: 70, maxZoom: 14, animate: false });
-      else if (b) map.jumpTo({ center: b[0], zoom: 13 });
+      // A picture map opens on the whole picture: the world the places are in.
+      else if (limits) map.fitBounds(limits.bounds, { padding: 0, animate: false });
+      else if (b && (b[0][0] !== b[1][0] || b[0][1] !== b[1][1])) map.fitBounds(b, { padding: 70, maxZoom: cap(14), animate: false });
+      else if (b) map.jumpTo({ center: b[0], zoom: cap(13) });
       else map.fitBounds([[header.minLon, header.minLat], [header.maxLon, header.maxLat]], { padding: 20, animate: false });
       render();
       const want = state.openWanted;
@@ -543,15 +622,31 @@
       if (status === 404 || status === 401 || status === 403) { failed = true; showError(); }
     });
   }
+  // The address of one of this module's files; `folder` names which of its folders (a picture map's is its own).
+  async function fileUrl(name, folder) {
+    const u = new URL(await host.files.url(name, folder ? { folder } : undefined), location.href);
+    if (folder) u.searchParams.set('folder', folder);
+    return u.href;
+  }
+  // What a picture map leaves out, or puts back for the world map: "Show where I am", and the field's words (its search
+  // looks only at saved places). The credit and the callout follow state.picture as they are drawn.
+  function syncPicture() {
+    hide(locateButton, Boolean(state.picture));
+    credit(null, Boolean(state.picture)); // the file's own credit, if any, is added once it is read
+    $('map-find').placeholder = state.picture ? 'Search saved places' : 'Search, or paste coordinates or a link';
+    $('map-find').setAttribute('aria-label', state.picture ? 'Search saved places' : 'Search the map');
+  }
 
   // As the destination's part the map opens where it was last left in this browser (plan-map-destination, decision 22);
   // in a space, where that space's map was last left.
+  // A picture map's view is kept apart, so the world map's comes back as it was when the picture is cleared.
   const VIEW_KEY = `maps-destination-view${inSpace && info.context.spaceId ? `.${info.context.spaceId}` : ''}`;
+  const viewKey = () => (state.picture ? `${VIEW_KEY}.picture` : VIEW_KEY);
   function lastView() {
     if (!part) return null;
     try {
-      const v = JSON.parse(localStorage.getItem(VIEW_KEY) || 'null');
-      return v && geo.inRange(Number(v.lat), Number(v.lng)) && Number.isFinite(Number(v.zoom)) ? { center: [Number(v.lng), Number(v.lat)], zoom: Math.min(19, Math.max(0, Number(v.zoom))) } : null;
+      const v = JSON.parse(localStorage.getItem(viewKey()) || 'null');
+      return v && geo.inRange(Number(v.lat), Number(v.lng)) && Number.isFinite(Number(v.zoom)) ? { center: [Number(v.lng), Number(v.lat)], zoom: cap(Math.max(0, Number(v.zoom))) } : null;
     } catch (err) {
       return null;
     }
@@ -563,7 +658,7 @@
     keepTimer = setTimeout(() => {
       if (!state.map) return;
       const c = state.map.getCenter();
-      try { localStorage.setItem(VIEW_KEY, JSON.stringify({ lat: round6(c.lat), lng: round6(c.lng), zoom: Math.round(state.map.getZoom() * 100) / 100 })); } catch (err) { /* not remembered */ }
+      try { localStorage.setItem(viewKey(), JSON.stringify({ lat: round6(c.lat), lng: round6(c.lng), zoom: Math.round(state.map.getZoom() * 100) / 100 })); } catch (err) { /* not remembered */ }
     }, 400);
   }
 
@@ -576,7 +671,8 @@
     }
   }
 
-  // The zoom and locate buttons.
+  // The zoom and locate buttons ("Show where I am" is left out on a picture map: nobody is on an invented world).
+  let locateButton = null;
   (function controls() {
     const group = document.createElement('div');
     group.className = 'maplibregl-ctrl maplibregl-ctrl-group';
@@ -591,13 +687,15 @@
       b.appendChild(i);
       b.addEventListener('click', fn);
       group.appendChild(b);
+      return b;
     };
     button('plus', 'Zoom in', () => state.map && state.map.zoomIn());
     button('minus', 'Zoom out', () => state.map && state.map.zoomOut());
-    button('location-crosshairs', 'Show where I am', () => {
-      if (!state.map || !navigator.geolocation) return;
-      navigator.geolocation.getCurrentPosition((pos) => state.map.easeTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: Math.max(state.map.getZoom(), 14) }), () => say('Your location is not available here.'), { timeout: 8000 });
+    locateButton = button('location-crosshairs', 'Show where I am', () => {
+      if (!state.map || !navigator.geolocation || state.picture) return;
+      navigator.geolocation.getCurrentPosition((pos) => state.map.easeTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: cap(Math.max(state.map.getZoom(), 14)) }), () => say('Your location is not available here.'), { timeout: 8000 });
     });
+    hide(locateButton, Boolean(state.picture));
     $('ctrl-zoom').appendChild(group);
   })();
 
@@ -668,7 +766,7 @@
   function setBar() {
     hide($('ctrl-add'), !(state.adder && !addHosted));
     // The search field: the module's own (as a part the page's field searches), and only where it can do something.
-    const field = !part && Boolean(state.searcher || state.adder || alone);
+    const field = !part && Boolean(state.searcher || state.adder || alone || state.picture);
     hide($('map-search'), !field);
     $('results').classList.toggle('under-search', field);
     if (host.add && (part || addHosted)) {
@@ -702,7 +800,8 @@
     const text = String(raw || '').trim();
     if (!text) return;
     const p = parsePoint(text);
-    if (p) { if (state.adder) draftAt(p.lat, p.lng); else if (state.map) state.map.easeTo({ center: [p.lng, p.lat], zoom: 15 }); return; }
+    if (p) { if (state.adder) draftAt(p.lat, p.lng); else if (state.map) state.map.easeTo({ center: [p.lng, p.lat], zoom: cap(15) }); return; }
+    if (state.picture) { searchSaved(text); return; }
     if (state.searcher) { search(text); return; }
     say(alone ? 'Paste coordinates or a map link to go there.' : `${noSearch()} Paste coordinates or a map link, or click the map.`);
   }
@@ -735,8 +834,8 @@
 
   host.on('theme', () => {
     if (!state.map || !state.mapReady) return;
-    if (!state.tileUrls) return;
-    state.map.setStyle(buildStyle(tokens(), { tiles: state.tileUrls, glyphs: `${location.origin}/maps-glyphs/{fontstack}/{range}.pbf` }));
+    if (!state.tileUrls || !state.style) return;
+    state.map.setStyle(state.style());
   });
 
   function applySettings(next) {
@@ -745,8 +844,13 @@
     const files = (Array.isArray(next.map) ? next.map : next.map ? [next.map] : []).slice(0, 20);
     const web = false; // a map at a web address is not offered in this phase (the host's files or nothing)
     const mapChanged = files.join('|') !== state.settings.maps.join('|') || web !== state.settings.web;
-    state.settings = { maps: files, web };
-    if (mapChanged && state.started) startMap();
+    // The picture map (`imageMap`): the environment's fact (host.environment.pictureMap) says whether there is one when the
+    // page opens; a change made while it is open (an upload, or the setting cleared) switches the map here and now.
+    const image = typeof next.imageMap === 'string' ? next.imageMap : '';
+    const imageChanged = state.settings.image !== undefined && image !== state.settings.image;
+    if (imageChanged) state.picture = image ? { file: image } : null;
+    state.settings = { maps: files, web, image };
+    if ((imageChanged || (mapChanged && !state.picture)) && state.started) startMap();
   }
   host.settings.onChange((s) => applySettings(s || {}));
 
@@ -782,8 +886,13 @@
     if (lastFind === null) lastFind = find; // what the page held when this part came: nothing asked yet
     else if (find !== lastFind) {
       lastFind = find;
-      if (point) { if (state.adder) draftAt(point.lat, point.lng); else if (state.map) state.map.easeTo({ center: [point.lng, point.lat], zoom: 15 }); }
-      else if (text && state.searcher) search(text);
+      if (point) { if (state.adder) draftAt(point.lat, point.lng); else if (state.map) state.map.easeTo({ center: [point.lng, point.lat], zoom: cap(15) }); }
+      else if (text && state.picture) {
+        // A picture map: the first saved place that matches (the pins that do not are already dimmed).
+        const first = savedMatches(text)[0];
+        if (first) select(summaryId(first));
+        else { say(NO_SAVED_MATCH); setTimeout(() => say(''), 3000); }
+      } else if (text && state.searcher) search(text);
     }
     const sel = st.selected && typeof st.selected === 'object' ? host.util.objectKey(st.selected) : '';
     if (sel === told) return;

@@ -103,7 +103,7 @@
     <!-- The handle: collapses the column to a rail and back. space.js remembers it per space. -->
     <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" title="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
     <!-- The call's titlebar, as the chat's: its name (the environment's name for the conference, else Call) and a "..."
-         with Pop out, Call position, Show or Hide the video, Settings and Leave the call (space.js, the call's place). -->
+         with Pop out, Call position, Settings and Leave the call (space.js, the call's place). -->
     <header class="side-column-call-head" id="call-head">
       <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span></span>
       <span class="chat-tools">
@@ -126,12 +126,10 @@
         <button class="btn btn-small call-out-back" id="call-back" type="button"><i class="fa-solid fa-arrow-left fa-fw" aria-hidden="true"></i> Bring the call back</button>
       </span>
     </div>
-    <!-- Join the call (out of the call) and Online: the space bar's own elements, placed here wider than a phone. -->
-    <div class="side-column-bar">
+    <!-- Join the call, out of the call: the space bar's own element, placed here wider than a phone. Who is here is the
+         top bar's (space.js), not the column's. -->
+    <div class="side-column-bar" id="side-column-bar">
       <div class="side-column-call" id="side-column-call"></div>
-      <div class="side-column-online" id="side-column-online"></div>
-      <!-- On the call in the column: the video tiles shown or hidden (slim: the controls and the faces only). -->
-      <button class="side-column-tiles" id="side-column-tiles" type="button" aria-pressed="true" title="Hide the video" aria-label="Hide the video" hidden><i class="fa-solid fa-chevron-up fa-fw" aria-hidden="true"></i></button>
     </div>
     <!-- The chat (canvas.js puts #chat here). -->
     <div class="side-column-chat" id="side-column-chat"></div>

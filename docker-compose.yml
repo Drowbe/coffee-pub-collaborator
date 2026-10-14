@@ -63,6 +63,7 @@ services:
       # and Lobby. Only on a fresh data folder, and only without BASE_DOMAIN (with it, the host console and the
       # sign-up pick a template for each new environment). Ignored, with a line, on data that already exists.
       # TEMPLATE: "travel"
+      # MAP_IMAGE_MAX_MB: "100"          # the most a picture map file (an invented world, as PMTiles picture tiles) may weigh, in MB
       PRODUCT_NAME: "Collaborator"
       # CONTACT_EMAIL: "you@example.com" # optional: where the product page's "ask" writes to
       # SIGNUP: "on"                     # lets anyone make a free environment from the product page; off unless set

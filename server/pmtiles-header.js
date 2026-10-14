@@ -30,4 +30,38 @@ function pmtilesZoomRange(filePath) {
   }
 }
 
-module.exports = { pmtilesZoomRange, HEADER_BYTES };
+const TILE_TYPES = ['unknown', 'mvt', 'png', 'jpeg', 'webp', 'avif'];
+
+// Everything the header says that the server needs: the zoom range, the tile type (byte 99: 0 unknown, 1 mvt = map
+// data, 2 png, 3 jpeg, 4 webp, 5 avif = a picture), the bounds in degrees (bytes 102 to 117, int32 x 1e7: min lon,
+// min lat, max lon, max lat), and where the root directory sits (to tell a file cut short). `kind` is 'vector' for
+// map data, 'picture' for raster tiles, 'unknown' for type 0 or a number this does not know. Null on anything that
+// pmtilesZoomRange() answers null for.
+function pmtilesInfo(filePath) {
+  const range = pmtilesZoomRange(filePath);
+  if (!range) return null;
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(HEADER_BYTES);
+    if (fs.readSync(fd, buf, 0, HEADER_BYTES, 0) < HEADER_BYTES) return null;
+    const tileTypeNumber = buf.readUInt8(99);
+    const tileType = TILE_TYPES[tileTypeNumber] || 'unknown';
+    const deg = (at) => buf.readInt32LE(at) / 1e7;
+    return {
+      ...range,
+      tileType,
+      tileTypeNumber,
+      kind: tileType === 'mvt' ? 'vector' : tileType === 'unknown' ? 'unknown' : 'picture',
+      bounds: { minLon: deg(102), minLat: deg(106), maxLon: deg(110), maxLat: deg(114) },
+      rootDirEnd: Number(buf.readBigUInt64LE(8) + buf.readBigUInt64LE(16)),
+      size: fs.fstatSync(fd).size,
+    };
+  } catch {
+    return null;
+  } finally {
+    if (fd !== undefined) { try { fs.closeSync(fd); } catch { /* already gone */ } }
+  }
+}
+
+module.exports = { pmtilesZoomRange, pmtilesInfo, HEADER_BYTES, TILE_TYPES };

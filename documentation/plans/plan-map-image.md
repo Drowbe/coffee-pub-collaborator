@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides whether an environment may draw its own map from a picture of an invented world, how the picture gets in, and what Places and Maps do on it; the try builders (server-development for the header, the upload and the environment's fact, experience-design for Maps and Places); content-manager when a production build lands it.
 
-**Status:** drafted 2026-10-14 by product-planner; nothing decided beyond Thomas's two answers below, nothing built. Thomas asked: "could an environment serve its own map? Like, I have an image I'd like to use as a map... is that possible?", then "I would convert it to a pmtiles". Asked what the picture is and where it belongs, he answered: an invented world (a fantasy or game map, not a real place), and one picture map per environment, not per space.
+**Status:** approved, 2026-10-14. Drafted the same day by product-planner; Thomas answered the input, replacement, search and setting questions (decisions 3 to 6 below); the places saved before the switch and distances and units were not asked and stand as working assumptions. Nothing built. Thomas asked: "could an environment serve its own map? Like, I have an image I'd like to use as a map... is that possible?", then "I would convert it to a pmtiles". Asked what the picture is and where it belongs, he answered: an invented world (a fantasy or game map, not a real place), and one picture map per environment, not per space.
 
 ## What it is today
 
@@ -24,8 +24,17 @@ Thomas, 2026-10-14.
 
 1. **It is for an invented world**, a fantasy or game map, not a real place. Nothing on it is somewhere on Earth.
 2. **One picture map per environment**, not per space. Every space in the environment shares it.
+3. **Input is option A.** The owner converts the picture to raster PMTiles (the GDAL recipe stays in this plan) and uploads it. A single-image option (C2) may come later if owners without tools ask. Option B is not built. Reason: it is what Thomas said he would do, and it adds no dependency.
+4. **The picture map replaces the world map for the whole environment while it is set.** Clearing the setting goes back to the world map. There is no switch between the two on the map. Reason: it is an invented world, so nothing on it is on Earth.
+5. **The server tells every module there is a picture map** (`environment.pictureMap`, from `host.ready()`) **and switches off the outside geocoder search.** Places' search looks only at saved places. Reason: the outside search knows only the real world.
+6. **The owner sets it in Maps' settings, beside "Map files", as `imageMap`.** The upload limit is `MAP_IMAGE_MAX_MB`, default 100. The file is stored with the environment, so backups and exports carry it. Reason: the picture is a map file and that is where map files already are; a restore refuses more than 500 MB in all.
 
-Everything else below is a proposal for Thomas to decide.
+Working assumptions, not asked (Thomas can change them):
+
+- **Places saved before the switch keep their positions and are not hidden or moved.** The setting warns the owner (see "What the invented world changes").
+- **Distances and units come later,** if ever; nothing about them is built now.
+
+Everything else below that is marked "proposed" or listed under "Assumed" is still a proposal for Thomas to confirm.
 
 ## Why it needs fake coordinates
 
@@ -38,7 +47,9 @@ MapLibre draws only Web Mercator (the projection of web maps), and PMTiles holds
 
 ## The options for getting the picture in
 
-**A. The owner makes a raster PMTiles file and uploads it (Thomas's own words: "I would convert it to a pmtiles").** Maps draws a raster file as the only layer, with no world map under it.
+Thomas chose A (decision 3). B and C1 are kept below for the record, as the options that were not taken; C2 may follow later.
+
+**A (decided). The owner makes a raster PMTiles file and uploads it (Thomas's own words: "I would convert it to a pmtiles").** Maps draws a raster file as the only layer, with no world map under it.
 
 - **The recipe** (to be printed in the Maps guide; read from the tools' documentation, not run here, since GDAL is not installed in this container): place the picture with the rule above, tile it, convert it.
   - `gdal_translate -of GTiff -a_srs EPSG:3857 -a_ullr <left> <top> <right> <bottom> world.png world.tif`
@@ -60,27 +71,29 @@ MapLibre draws only Web Mercator (the projection of web maps), and PMTiles holds
 - **C1, a pan and zoom viewer of its own with flat `{ x, y }` positions.** Simplest to picture, but Maps would need a second renderer for pins, clusters, the callout, the draft pin, the drop target and the selection, and every position would need a new field beside `lat` and `lng` in Places, summaries and the checks. Not recommended.
 - **C2, MapLibre's `image` source.** MapLibre draws one picture stretched over four corner coordinates, with the same fake-coordinate rule as A, so everything else in Maps stays as it is. The owner uploads a PNG, JPEG or WebP, no tools. The limit is the device: the whole picture is one texture, which phones cap at 4096 or 8192 pixels and which costs width x height x 4 bytes of memory (64 MB at 4096 pixels square). Good for a picture up to about 4096 pixels; anything larger needs A.
 
-**Recommendation (a suggestion, for Thomas to decide): A now, C2 later if owners without tools ask for it, B not at all for now.** A is what Thomas said he would do, it handles any size and zoom quality, it is the smallest build that works on a phone, it adds no dependency, and it fits the self-hosted, offline map files the rest of Maps already uses. C2 shares nearly all of A's code (the fake coordinates, the empty world, the hidden real-world actions), so it is a short step on top when wanted, and it serves exactly the owners B would serve for modest pictures. B costs the most and breaks the build rule for the least gain.
+**Decided: A now, C2 later if owners without tools ask for it, B not built (decision 3).** The reasoning behind it: A is what Thomas said he would do, it handles any size and zoom quality, it is the smallest build that works on a phone, it adds no dependency, and it fits the self-hosted, offline map files the rest of Maps already uses. C2 shares nearly all of A's code (the fake coordinates, the empty world, the hidden real-world actions), so it is a short step on top when wanted, and it serves exactly the owners B would serve for modest pictures. B costs the most and breaks the build rule for the least gain.
 
 ## What the invented world changes
 
-Proposals, each for Thomas to confirm.
+The first, search and existing-places bullets follow Thomas's decisions (and the working assumption for existing places); the rest are proposals for Thomas to confirm.
 
-- **The world map is not drawn.** With an environment's picture map set, Maps draws only the picture, on the theme's background colour (`--bg-section`), in every space of the environment and on the Map destination. The host's or the server's `map` files are ignored there. Clearing the picture brings the world map back.
+- **The world map is not drawn (decision 4).** With an environment's picture map set, Maps draws only the picture, on the theme's background colour (`--bg-section`), in every space of the environment and on the Map destination. The host's or the server's `map` files are ignored there. Clearing the picture brings the world map back.
 - **Pins, clusters, the callout, the draft pin, the drop, the selection and `showOnMap`** work unchanged, on fake coordinates.
 - **Zoom.** The map's `maxZoom` becomes the file's maximum zoom plus two (not 19), and the picture's bounds are the limit of panning (`maxBounds`). The fixed zooms in `maps.js` (13 on select, 14 on fit and draft, 15 on a pasted position, 17 on a cluster) are capped at the map's maximum.
 - **What makes no sense on an invented map is hidden:** "Show where I am" (geolocation), "Open in my maps app" (in Maps' callout and Places' place menu) and the OpenStreetMap credit. The credit is replaced by the file's own `attribution` metadata if it has one (the artist), else nothing. This changes CONTRACT.md's "the credit is always on the map" rule, which holds for map data from OpenStreetMap and not for a picture.
 - **Coordinates.** Copying and pasting a position keeps working (they are still `lat, lng` text, useful for passing a spot to someone), but the callout and Places' dialog do not show them as if they were real: proposed, they are left off the callout and shown in the dialog's position field only.
-- **Search searches only the environment's own places.** The outside search (Photon or the owner's own address) knows only the real world, so with a picture map it is not asked: `host.geocode.search` answers as with None, and the place cache is neither read nor filled. Typing in the Map destination's field or in Places filters the saved places (Places' own places, in every scope the viewer reads), as with None today. Enter finds among them and selects the first match on the map rather than asking outside.
-- **Existing places.** Places already saved with real positions stay where their numbers put them, which on a picture is somewhere meaningless. Proposed: nothing is moved or hidden; an owner switching an existing environment to a picture is told so on the setting ("Places saved before keep their positions, which will not mean anything on this picture.").
-- **Distances, units and routes.** None exist today, so nothing changes now. If a distance feature is ever built, on a picture map it measures in the picture's pixels (through the rule above, never with latitude and longitude) times a scale the owner gives: proposed two optional settings for later, **Map width** (a number) and **Unit** (a word: miles, leagues, days' ride). Routes on an invented world would be drawn by hand, not computed. Both are left out of this plan.
+- **Search searches only the environment's own places (decision 5).** The outside search (Photon or the owner's own address) knows only the real world, so with a picture map it is not asked: `host.geocode.search` answers as with None, and the place cache is neither read nor filled. Typing in the Map destination's field or in Places filters the saved places (Places' own places, in every scope the viewer reads), as with None today. Enter finds among them and selects the first match on the map rather than asking outside.
+- **Existing places (working assumption).** Places already saved with real positions stay where their numbers put them, which on a picture is somewhere meaningless. Nothing is moved or hidden; an owner switching an existing environment to a picture is told so on the setting ("Places saved before keep their positions, which will not mean anything on this picture.").
+- **Distances, units and routes (working assumption: later).** None exist today, so nothing changes now. If a distance feature is ever built, on a picture map it measures in the picture's pixels (through the rule above, never with latitude and longitude) times a scale the owner gives: proposed two optional settings for later, **Map width** (a number) and **Unit** (a word: miles, leagues, days' ride). Routes on an invented world would be drawn by hand, not computed. Both are left out of this plan.
 
 ## Where an owner sets it
 
-- **A new Maps setting, `imageMap`**: label "Picture map", type `file`, folder `image-map`, scope `environment`, not shared with the host, default empty, with an upload (below). Help: "A picture of an invented world, made into a PMTiles file of picture tiles. When set, the map shows only this picture, in every {space}, and place search looks only at saved places." It sits in Maps' settings on Manage's Modules tab, under **Map files**. Proposed over a switch on Manage's environment tab because the picture is a map file and that is where map files already are, and the Map destination's missing-file reason already points there.
-- **Who may set it:** the owner and the admin (the environment's module settings, as `DELETE /api/modules/:id/files/:name` already requires). Not a moderator, not a member.
+Decision 6 fixes the place (Maps' settings, beside "Map files"), the name `imageMap`, the limit variable and its default, and that the file is stored with the environment. The details below follow from it.
+
+- **A new Maps setting, `imageMap`**: label "Picture map", type `file`, folder `image-map`, scope `environment`, not shared with the host, default empty, with an upload (below). Help: "A picture of an invented world, made into a PMTiles file of picture tiles. When set, the map shows only this picture, in every {space}, and place search looks only at saved places." It sits in Maps' settings on Manage's Modules tab, under **Map files**, and not on Manage's environment tab, because the picture is a map file and that is where map files already are, and the Map destination's missing-file reason already points there.
+- **Who may set it:** the owner (decision 6), and the admin (the environment's module settings, as `DELETE /api/modules/:id/files/:name` already requires; assumed). Not a moderator, not a member.
 - **Stored:** on a single install, `DATA_DIR/modules/maps/image-map/<name>.pmtiles`; with environments, `<the environment's data folder>/modules/maps/image-map/<name>.pmtiles`. One file: a new upload replaces the old one and the setting names the new file.
-- **Upload limit:** `MAP_IMAGE_MAX_MB`, default 100. Proposed at 100 because a backup and a restore carry the environment's folder and a restore refuses more than 500 MB in all; a 16384-pixel WebP picture map is expected to be tens of MB (an estimate, not measured).
+- **Upload limit:** `MAP_IMAGE_MAX_MB`, default 100 (decided). The reason for 100: a backup and a restore carry the environment's folder and a restore refuses more than 500 MB in all; a 16384-pixel WebP picture map is expected to be tens of MB (an estimate, not measured).
 - **Unset, nothing changes.** With `imageMap` empty, single installs and hosted ones draw the `map` files exactly as today; with no `MAP_IMAGE_MAX_MB` the default applies.
 
 ## The contract
@@ -115,7 +128,7 @@ Proposals, each for Thomas to confirm.
 
 ## Left to build, in order
 
-Each step is a try build (one builder, one pass, its own checks, pushed at once), leaves the app working, and can be checked alone.
+Approved 2026-10-14, so these steps can start. Each step is a try build (one builder, one pass, its own checks, pushed at once), leaves the app working, and can be checked alone. The order is unchanged by the decisions; steps 2 and 4 are where decisions 5 and 6 land.
 
 1. **The tile type** (server-development; low risk). `pmtilesInfo()`, `kinds` in `inspectDir()`, the Picture or Map data column, and the refusal of a picture file in `map`. Fixes the "listed but not drawn" trap on its own. No module changes.
 2. **The picture map setting and its upload** (server-development; medium risk: a large streamed upload, disk, replacing a file). The `upload` declaration, `PUT /api/modules/:id/files/:folder`, `MAP_IMAGE_MAX_MB`, the `pictureMap` declaration and `environment.pictureMap`, and `imageMap` in Maps' `module.json` (Maps 0.8.7). The upload control in Module Configuration's file row (`public/module-config.js`), a file picker and a progress line, is in this step so it can be checked end to end.
@@ -145,19 +158,20 @@ C2 (a plain picture with no tiles), if Thomas wants it later, is one more step a
 
 ## Assumed, for Thomas to confirm
 
-- The picture replaces the world map in the whole environment while it is set (no switch between the two on the map).
+Already decided and no longer open: the picture replaces the world map in the whole environment (decision 4), and it is kept with the environment and travels with backups and exports (decision 6). Still assumed:
+
 - Every space in the environment uses it; a space cannot turn it off.
 - The owner and the admin set it; on a hosted install the host admin does not have to approve it.
-- It is kept in the environment's folder and travels with backups and exports.
-- Existing places keep their positions and are not hidden.
+- Existing places keep their positions and are not hidden (working assumption).
 - Copy and paste of coordinates stay; "Open in my maps app" and "Show where I am" go.
 - The fake-coordinate rule above (the longer side spans the whole Web Mercator square, 256-pixel tiles).
 
 ## What is not decided
 
-- **Which option:** A, B, C1 or C2, or A now and C2 later.
-- **Where the setting lives:** Maps' settings, or a switch on Manage's environment tab.
-- **How Places and the search learn about the picture:** a fact from the server (`environment.pictureMap`, proposed), or by hand (the owner sets Places' search to None and "Open in my maps app" stays, harmless and wrong).
-- **The upload limit** and its default, and whether the picture travels with backups.
-- **Distances and units:** later, with the two settings sketched above.
+Decided on 2026-10-14 and no longer open: the input option (A), where the setting lives, how Places and search learn about the picture, the upload limit and its default, and that the picture travels with backups.
+
+- **Whether C2 is built:** only if owners without tools ask.
+- **Places saved before the switch:** kept with a warning, as a working assumption; Thomas has not been asked.
+- **Distances and units:** later, with the two settings sketched above; Thomas has not been asked.
+- **The proposals in "What the invented world changes"** other than the ones tied to decisions 4 and 5 (hidden "Show where I am", "Open in my maps app", coordinates in the callout, the credit, the zoom caps).
 - **Several pictures** (a world map and a city map, layered or switched): not now, by decision 2.

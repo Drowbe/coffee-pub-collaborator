@@ -1025,6 +1025,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         locale: contextInfo.locale || { language: 'en', clock: '12', currency: 'USD', words: words() },
         space: contextInfo.space || null,
         phases: Array.isArray(contextInfo.phases) ? contextInfo.phases : [],
+        // Facts about the environment (host.environment): the picture map, { file, minZoom, maxZoom, tileType }, or null.
+        environment: { pictureMap: contextInfo.environment && contextInfo.environment.pictureMap && typeof contextInfo.environment.pictureMap === 'object' ? contextInfo.environment.pictureMap : null },
         theme: readTheme(),
         debug: debugOn(),
       };
@@ -1187,10 +1189,13 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       return answer && answer.phases && typeof answer.phases === 'object' ? { phases: answer.phases } : null;
     },
     // The address of a file an owner placed for this module (see the server's module files), in this module's place.
-    async 'files.url'({ name }) {
+    async 'files.url'({ name, folder }) {
       const n = String(name ?? '');
       if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(n)) throw Object.assign(new Error('no such file'), { status: 400 });
-      return url(`/files/${encodeURIComponent(n)}`, scopeOf());
+      // `folder` (optional) says which of the module's file folders, for a name two folders share (the picture map's).
+      const f = folder === undefined || folder === null ? '' : String(folder);
+      if (f && !/^[a-z0-9][a-z0-9-]{0,31}$/.test(f)) throw Object.assign(new Error('no such file'), { status: 400 });
+      return url(`/files/${encodeURIComponent(n)}`, scopeOf(), f ? { folder: f } : {});
     },
     async 'settings.get'() {
       return (await api('GET', url('/settings/values', scopeOf()))).values;

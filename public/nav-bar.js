@@ -20,10 +20,10 @@
 // first in the right) and folds into the top bar's own "..."; the space bar where that is the phone's tab bar. 'only'
 // shows while the page's setWorkspace({ shown }) says so (the space page: not in an aside), 'every' always). A left-zone tool of either bar may also give `fit(avail)`:
 // the fit (fitBar, below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
-// (Online, who is here: its names become the count, then portraits drop, then it shows only the short count; the top
+// (Who is here: its names become the count, then portraits drop, then it shows only the short count; the top
 // bar's layout tabs: into their "..."); one that says `fitFirst` is fitted first, with the others at
-// their least, so they give way before it does; one that says `yieldFirst` (the layout tabs, plan-layout-views.md
-// decision 17) is fitted first with the others at their fullest, so it gives way before they do. (The phase chip had a
+// their least, so they give way before it does; one that says `yieldFirst` (Who is here in the top bar, Thomas 2026-10-14:
+// before the layout tabs) is fitted first with the others at their fullest, so it gives way before they do. (The phase chip had a
 // fit in the top bar; it is the space bar's status strip now, plan-space-status-strip.md, and has none.) `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
@@ -748,8 +748,8 @@ function fitPhone(b, el, width) {
 
 // A bar's left-zone tools that can give way (`fit`): each is told what it may take, and gives it before anything
 // folds: what the rest of the left zone and the right zone at its full width leave (fitWidth). A tool that says
-// `yieldFirst` (the layout tabs) is fitted first, with the others (none in the top bar now) at their fullest
-// (fit(Infinity)), so it gives way before they do: its tabs go into its "..." first, and they take what is left. A tool
+// `yieldFirst` (Who is here) is fitted first, with the others (the layout tabs) at their fullest (fit(Infinity)), so it
+// gives way before they do: its names become the count and its portraits go first, and they take what is left. A tool
 // that says `fitFirst` is fitted first, with the others at their least (fit(0)), so they give way before it does; they
 // then take what it leaves, and it is fitted once more to what they took (a least is not always the width a tool
 // settles at), so the left zone never runs past its column because of it. `right` is the right zone's

@@ -112,6 +112,17 @@
   const tt = (t) => (t ? host.util.time(t) : '');
   const hm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
   const lengthText = gapText; // "8 h 15 min", "45 min"
+  // What a person last chose to give a length as, "length" or "end" (#247), kept per browser; nothing is stored on the object.
+  const LENMODE_KEY = 'planner-length-mode';
+  let lenMode = (() => { try { return localStorage.getItem(LENMODE_KEY) === 'end' ? 'end' : 'length'; } catch (err) { return 'length'; } })();
+  // "– 3:00 PM" (with " +1" past midnight) for a timed stop with a length, only while End time is the choice; else ''.
+  const endText = (item) => {
+    if (lenMode !== 'end' || !item || !item.time || !item.minutes) return '';
+    const e = endOf(item.time, item.minutes);
+    return e ? `– ${tt(e.time)}${e.days ? ` +${e.days}` : ''}` : '';
+  };
+  // "8:00 AM – 3:00 PM": the start and, while End time is the choice, the end.
+  const spanText = (item) => [tt(item.time), endText(item)].filter(Boolean).join(' ');
   // When a timed item arrives, on the environment's clock, with the day when it is not the day it leaves ("2:00 AM the next day").
   // `sep` goes between the time and the day: the narrow time column puts the day on a line of its own ("\n").
   const arriveText = (item, sep = ' ') => { const a = arrivalOf(item); return a ? [tt(a.time), laterText(a.days)].filter(Boolean).join(sep) : ''; };
@@ -189,7 +200,7 @@
       put(el, { title: `Staying at ${item.title}` });
     } else if (c.template === 'meal') {
       setIcon(el.querySelector('.badge [data-icon]'), c.badge);
-      put(el, { kicker: c.kicker, title: item.title, address: where, partySize: item.partySize ? `Table for ${item.partySize}` : '', reservationName: item.reservationName ? `under ${item.reservationName}` : '', time: tt(item.time), minutes: duration });
+      put(el, { kicker: c.kicker, title: item.title, address: where, partySize: item.partySize ? `Table for ${item.partySize}` : '', reservationName: item.reservationName ? `under ${item.reservationName}` : '', time: spanText(item), minutes: duration });
     } else if (c.template === 'activity') {
       setIcon(el.querySelector('.badge [data-icon]'), c.badge);
       put(el, { kicker: c.kicker, title: item.title, address: where, minutes: duration, admissionCount: words(item.admissionCount, 'ticket', 'tickets'), confirm: item.confirm });
@@ -302,7 +313,7 @@
     if (item.kind === 'link') { time = tt(timeOf(summary)); sub = ''; }
     else if (item.kind === 'stay') { time = span === 'end' ? tt(item.checkOutTime) : span === 'middle' ? '' : tt(item.time); sub = span === 'end' ? 'check out' : span === 'middle' ? '' : 'check in'; }
     else if (item.kind === 'journey') sub = arrivalOf(item) ? `→ ${arriveText(item, '\n')}` : '';
-    else sub = lengthText(item.minutes);
+    else sub = [lengthText(item.minutes), endText(item)].filter(Boolean).join('\n'); // the end on a line of its own: the time column is narrow
     if (line) { time = ''; sub = ''; }
     fill(row, { time, sub });
     row.querySelector('.slot').append(buildCard(entry, item.kind, summary));
@@ -1677,8 +1688,64 @@
   const lengthOf = (hoursId, minutesId) => (shown(minutesId) ? joinMinutes(num(hoursId), num(minutesId)) : null);
   // A length typed past the longest an item can have (7 days), which would otherwise be cut when stored.
   const tooLong = (hoursId, minutesId) => shown(minutesId) && (num(hoursId) || 0) * 60 + (num(minutesId) || 0) > MAX_MINUTES;
+  // ---- The length, or the end time it comes to (#247) ----
+  // Both are in the form; only the length is stored (`minutes`), the end is worked out from the start and the length.
+  const LENS = {
+    out: { time: 'f-time', hours: 'f-hours', minutes: 'f-minutes', end: 'f-endTime', note: 'f-endNote' },
+    back: { time: 'f-back-time', hours: 'f-back-hours', minutes: 'f-back-minutes', end: 'f-back-endTime', note: 'f-back-endNote' },
+  };
+  // A journey with a ticket has its own arrival day and time, so it keeps the length alone.
+  const ticketed = () => { const ed = state.editing; return Boolean(ed && ['flight', 'train', 'ferry', 'bus'].includes(ed.tile)); };
+  const endMode = () => lenMode === 'end' && !ticketed();
+  const SAME_END = 'Same as the start, so there is no length.';
+  const laterNote = (days) => (days === 1 ? '+1 (the next day)' : days > 1 ? `+${days} days` : '');
+  // The end time from the start and the length in the form.
+  function syncEnd(l) {
+    const end = $(l.end);
+    if (end.value && end.value === $(l.time).value) { $(l.note).textContent = SAME_END; return; } // zero stays as typed until it is fixed
+    const e = endOf($(l.time).value, lengthOf(l.hours, l.minutes));
+    end.value = e ? e.time : '';
+    $(l.note).textContent = e ? laterNote(e.days) : '';
+  }
+  // The length from the start and the end time typed; an end before the start is the next day.
+  function endToLength(l) {
+    const time = $(l.time).value;
+    const end = $(l.end).value;
+    const note = $(l.note);
+    if (!end) { setLength(l.hours, l.minutes, null); note.textContent = ''; return; }
+    const len = lengthBetween(time, end);
+    if (len === null) { note.textContent = time ? '' : 'Add a start time first.'; return; }
+    setLength(l.hours, l.minutes, len || null);
+    note.textContent = len === 0 ? SAME_END : laterNote(endOf(time, len).days);
+  }
+  // Show the one the person chose (the switch, the hours and minutes or the end time) and keep the end in step.
+  function applyLenMode() {
+    const on = endMode();
+    for (const l of Object.values(LENS)) {
+      const group = $(l.hours) && $(l.hours).closest('.duration');
+      if (!group) continue;
+      group.querySelector('.lenmode').hidden = ticketed();
+      group.querySelector('.hm').hidden = on;
+      group.querySelector('.endbox').hidden = !on;
+      for (const b of group.querySelectorAll('.lm')) { const sel = b.dataset.lenmode === (on ? 'end' : 'length'); b.classList.toggle('on', sel); b.setAttribute('aria-pressed', String(sel)); }
+      if (on) syncEnd(l);
+    }
+  }
+  // The sentence for an End time the form cannot take, or ''. Leg 'back' counts only for a round trip.
+  function endProblem() {
+    if (!endMode()) return '';
+    for (const l of [LENS.out, roundTripOn() ? LENS.back : null]) {
+      const group = l && $(l.hours) && $(l.hours).closest('.duration');
+      if (!group || group.hidden || !shown(l.hours)) continue;
+      const end = $(l.end).value;
+      if (end && !$(l.time).value) return 'Add a start time first, or switch to Length.';
+      if (end && end === $(l.time).value) return 'The end time is the same as the start time. Pick a different end time.';
+    }
+    return '';
+  }
   // Under a journey's departure: when it arrives, from its departure time and how long it takes.
   function showArrival() {
+    applyLenMode();
     arrivalInto('f-arrives', 'f-time', 'f-hours', 'f-minutes');
     // The ticket's own arrival says it already.
     if ($('f-arrives') && $('f-arrival') && $('f-arrival').value) $('f-arrives').hidden = true;
@@ -1751,7 +1818,7 @@
     if (marker && !keepUnplaced && unplaced && [...$('f-date').options].some((o) => o.value.startsWith('d:'))) $('f-date').value = [...$('f-date').options].find((o) => o.value.startsWith('d:')).value;
     if (marker && tileAt(kindOf(tile), $('f-date').value) !== tile) return applyType(tileAt(kindOf(tile), $('f-date').value));
     const noLength = ['block:meet-up', 'block:leave-by'].includes(tile); // a moment, not a stretch of time
-    const lengthLabel = $('f-minutes').closest('label');
+    const lengthLabel = $('f-minutes').closest('.duration');
     if (lengthLabel) lengthLabel.hidden = noLength;
     // The same fields in each kind's own words (a stay's day is its check-in, a flight's time its departure).
     const labels = { ...FIELD_DEFAULTS, ...(FIELD_WORDS[key] || {}) };
@@ -2247,6 +2314,8 @@
       }
       const item = ed.id ? plan.list().find((i) => i.id === ed.id) : null;
       if (!ed.isLink && !ed.tile.startsWith('block:') && !ed.tile.startsWith('lane:') && !$('f-title').value.trim()) return fail('Give it a title.');
+      const endSaid = endProblem();
+      if (endSaid) return fail(endSaid);
       if (tooLong('f-hours', 'f-minutes') || tooLong('f-travelHours', 'f-travelMinutes') || (roundTripOn() && tooLong('f-back-hours', 'f-back-minutes'))) return fail('A length can be at most 7 days (168 hours).');
       const common = {
         title: $('f-title').value.trim(),
@@ -2351,8 +2420,17 @@
   $('editor').addEventListener('input', (e) => {
     if (['f-arrival-day', 'f-arrival-time'].includes(e.target.id)) arrivalFieldsInto('out');
     if (['f-back-arrival-day', 'f-back-arrival-time'].includes(e.target.id)) arrivalFieldsInto('back');
+    if (Object.values(LENS).some((l) => [l.end, l.time, l.hours, l.minutes].includes(e.target.id)) && $('f-error')) $('f-error').hidden = true; // what was refused is being fixed
+    for (const l of Object.values(LENS)) if (endMode() && (e.target.id === l.end || (e.target.id === l.time && $(l.end).value))) endToLength(l);
     if (['f-time', 'f-hours', 'f-minutes', 'f-arrival-day', 'f-arrival-time', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-arrival-day', 'f-back-arrival-time'].includes(e.target.id)) showArrival();
     if (['f-title', 'f-back-to', 'f-back-toCode'].includes(e.target.id) && $('f-back-title')) $('f-back-title').placeholder = backTitle();
+  });
+  $('editor').addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('.lm');
+    if (!b) return;
+    lenMode = b.dataset.lenmode === 'end' ? 'end' : 'length';
+    try { localStorage.setItem(LENMODE_KEY, lenMode); } catch (err) { /* not remembered */ }
+    showArrival();
   });
   $('editor').addEventListener('change', (e) => {
     // The check-out a person picks is theirs (an empty one too); until then it follows the check-in day.

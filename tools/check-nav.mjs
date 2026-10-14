@@ -2126,7 +2126,7 @@ fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/space-setup.js'), setupCopy);
 fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the panel imports it
 fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), path.join(tmp, 'phase-sheet.js')); // and the sheet's row helpers
-const { setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, problemField, setupSaidWords, MODERATOR_FIELDS, tabOfField } = await import(pathToFileURL(setupCopy).href);
+const { setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, takeSaved, problemField, setupSaidWords, MODERATOR_FIELDS, tabOfField } = await import(pathToFileURL(setupCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 test('Set up: a right-zone tool after your picture, before the window controls, for owners, the admin and moderators; Save and Cancel are the panel\'s action bar, not the top bar\'s', () => {
@@ -2252,6 +2252,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.match(css, /\.setup-choice:has\(input:focus-visible\) \{[^}]*outline: 2px solid var\(--accent\);/, 'the keyboard ring on the row');
   assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.space-setup \.phase-row-tools \.btn,\n\s*\.space-setup \.phase-row-off \.btn,\n\s*\.space-setup \.phase-first \.btn,\n\s*#setup-opens-with-layout-stop,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
   assert.match(css, /\.space-setup \.phase-row \{\n\s*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);\n\s*grid-template-areas: "name name" "start end" "days tools" "problem problem";/, 'the rows as cards in the narrow panel');
+  assert.match(css, /\.setup-status \{\n\s*margin: 8px 0 0;/, 'the refusal line stands clear of the last hint');
 });
 
 test('Set up: one PATCH of what changed; the first visit\'s layout and Opens with are independent, each sent only when it changed', () => {
@@ -2308,6 +2309,22 @@ test('Set up: the new fields go in the one PATCH only when changed; the dots nam
   assert.deepEqual(setupPatch({ ...before, aiOff: true }, { ...before, aiOff: true }), {});
   assert.deepEqual([...dirtyTabs({ phases: {} })], ['phases']);
   assert.deepEqual([...dirtyTabs({ aiOff: true })], ['modules']);
+  // A partial save: the PATCH went through with a link the server normalized, then the picture was refused. The draft
+  // takes the server's answer for what the PATCH sent, so only the refused step stays dirty and the next Save does
+  // not send the link again; a full save leaves nothing dirty.
+  const typed = { ...before, link: 'https://example.com', description: 'Sun and sea', members: ['a'] };
+  const sent = setupPatch(before, typed);
+  assert.deepEqual(sent, { link: 'https://example.com', description: 'Sun and sea', members: ['a'] });
+  const answer = { ...before, link: 'https://example.com/', description: 'Sun and sea', members: ['a'] };
+  const after = takeSaved(before, typed, Object.keys(sent), answer);
+  assert.deepEqual(setupPatch(after.before, after.draft), {}, 'the normalized link is no change');
+  assert.deepEqual([...dirtyTabs(setupPatch(after.before, after.draft))], [], 'no dot after the save');
+  assert.deepEqual([...dirtyTabs(setupPatch(after.before, after.draft), { image: true })], ['space'], 'the refused picture keeps its dot');
+  assert.equal(after.draft.link, 'https://example.com/');
+  assert.notEqual(after.draft.members, answer.members, 'a copy, not the answer\'s list');
+  // A field the PATCH did not send keeps the draft's value (a moderator's draft holds no owner field to send).
+  const kept = takeSaved(before, { ...typed }, ['description'], answer);
+  assert.deepEqual(setupPatch(kept.before, kept.draft), { link: 'https://example.com', members: ['a'] }, 'only what was sent is taken');
   assert.deepEqual([...dirtyTabs({}, { modules: true })], ['modules'], 'a module\'s settings changed: the modules tab\'s dot');
   assert.equal(problemField({ name: 'P', aiOff: true }, 'AI is turned off'), 'aiOff');
   assert.equal(problemField({ name: 'P', phases: {} }, 'Stay must start after Arrive starts, 2026-10-01.'), 'phases');

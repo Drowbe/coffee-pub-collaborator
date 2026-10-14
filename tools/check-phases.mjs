@@ -14,7 +14,7 @@ import fs from 'node:fs';
 import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 
@@ -40,7 +40,7 @@ const band = (b) => [b.id, b.start, b.end, b.dated, b.current];
 
 // --- the pure rule ------------------------------------------------------------------------------------------------
 
-await test('days: real days only, arithmetic, a moment read as its local day', () => {
+await test('days: real days only, arithmetic, a moment read as its UTC day', () => {
   assert.deepEqual(['2026-02-29', '2026-13-01', '2026-2-1', 20260201, '', null].map(P.isDay), [false, false, false, false, false, false]);
   assert.deepEqual(['2024-02-29', '2026-10-13'].map(P.isDay), [true, true]);
   assert.equal(P.addDays('2026-12-30', 3), '2027-01-02');
@@ -49,6 +49,37 @@ await test('days: real days only, arithmetic, a moment read as its local day', (
   assert.equal(P.dayOf('2026-09-01'), '2026-09-01');
   assert.equal(P.dayOf(CREATED), P.dayOf(new Date(CREATED)), 'a moment, as a day');
   assert.equal(P.dayOf('nope'), null);
+  assert.equal(P.dayOf('2026-10-14T03:00:00.000Z'), '2026-10-14', 'the UTC day');
+  assert.equal(P.dayOf(new Date('2026-10-14T23:30:00.000Z')), '2026-10-14', 'a Date, the UTC day');
+});
+
+// The created day is the same for the server and every viewer, whatever the process timezone: the pure rule run in
+// node under several zones (TZ is read when the process starts, so each zone is its own process) for spaces created
+// near midnight UTC gives the same answers, and the first phase starts on the UTC day.
+await test('the created day does not depend on the timezone', () => {
+  const script = `
+    const P = require(${JSON.stringify(path.join(ROOT, 'public', 'phases.js'))});
+    const T = ${JSON.stringify(TRAVEL)};
+    const out = {};
+    for (const created of ['2026-10-14T03:00:00.000Z', '2026-10-14T07:54:00.000Z', '2026-10-14T23:30:00.000Z']) {
+      out[created] = {
+        day: P.dayOf(created),
+        dayOfDate: P.dayOf(new Date(created)),
+        first: P.timelineOf(T, {}, { created })[0].start,
+        sameDay: P.problemOf(T, { booking: { start: '2026-10-14' } }, { created }),
+        nextDay: P.problemOf(T, { booking: { start: '2026-10-15' } }, { created }),
+        add: P.addDatesFor(T, {}, 'booking', { created, today: '2026-10-14' }),
+      };
+    }
+    process.stdout.write(JSON.stringify(out));`;
+  const zones = ['UTC', 'America/Los_Angeles', 'Etc/GMT+12', 'Etc/GMT-14', 'Asia/Kolkata'];
+  const runs = zones.map((TZ) => [TZ, JSON.parse(execFileSync(process.execPath, ['-e', script], { env: { PATH: process.env.PATH, TZ }, encoding: 'utf8' }))]);
+  for (const [TZ, got] of runs) assert.deepEqual(got, runs[0][1], `${TZ} answers as UTC does`);
+  for (const at of Object.values(runs[0][1])) {
+    assert.deepEqual([at.day, at.dayOfDate, at.first], ['2026-10-14', '2026-10-14', '2026-10-14']);
+    assert.equal(at.sameDay, 'Booking must start after Planning starts, 2026-10-14.');
+    assert.equal(at.nextDay, null);
+  }
 });
 
 await test('timelineOf: the first phase starts on the created day, a boundary is the first day of the next phase, the last dated band is open-ended unless it is main', () => {
@@ -80,6 +111,8 @@ await test('problemOf: the refusals, each one sentence', () => {
   assert.equal(problem({}), null);
   assert.equal(problem({ booking: { start: '2026-09-10' }, trip: { start: '2026-10-01', end: '2026-10-07' }, 'post-trip': { start: '2026-10-08' } }), null);
   assert.equal(problem({ nope: { start: '2026-09-10' } }), 'There is no phase called "nope".');
+  assert.equal(problem(JSON.parse('{"__proto__":{"start":"2026-09-10"}}')), 'There is no phase called "__proto__".', 'an own key named like a built-in');
+  assert.equal(problem(JSON.parse('{"constructor":{"start":"2026-09-10"}}')), 'There is no phase called "constructor".');
   assert.equal(problem({ booking: { start: '2026-09-10', end: '2026-09-20' } }), 'Only Trip, the main phase, and the last phase have an end.');
   assert.equal(P.problemOf([{ id: 'a', label: 'A' }, { id: 'b', label: 'B' }], { a: { end: '2026-09-20' } }, { created: CREATED }), 'Only the last phase has an end.');
   assert.equal(P.problemOf([{ id: 'a', label: 'A' }], { a: { end: '2026-09-20' } }, { created: CREATED }), null, 'the only phase is the last one: it may have an end');
@@ -553,6 +586,7 @@ try {
     assert.deepEqual((await asAdmin('GET', `/api/spaces/${trip.id}`)).json.space.phases, dates);
     const refused = [
       [{ nope: { start: d(10) } }, 'There is no phase called "nope".'],
+      [{ ['__proto__']: { start: d(10) } }, 'There is no phase called "__proto__".'],
       [{ booking: { start: d(10), end: d(20) } }, 'Only Trip, the main phase, and the last phase have an end.'],
       [{ booking: { start: d(10) }, buffer: { start: d(10) } }, `Buffer must start after Booking starts, ${d(10)}.`],
       [{ booking: { start: d(10) }, trip: { start: d(5) } }, `Trip must start after Booking starts, ${d(10)}.`],
@@ -565,6 +599,9 @@ try {
     ];
     for (const [phases, error] of refused) assert.deepEqual(answer(await asAdmin('PATCH', `/api/spaces/${trip.id}`, { phases })), [400, { error }], JSON.stringify(phases));
     assert.deepEqual(stored().phases, dates, 'a refused set changes nothing');
+    // A body over the JSON limit is a request too large, not an image (the 413 handler's sentence for an image upload).
+    const big = await asAdmin('PATCH', `/api/spaces/${trip.id}`, { name: 'Lisbon', description: 'x'.repeat(70 * 1024) });
+    assert.deepEqual(answer(big), [413, { error: 'that request is over 64 KB' }], big.text);
     assert.equal((await asAdmin('PATCH', `/api/spaces/${trip.id}`, { name: 'Lisbon in May', phases: 'soon' })).status, 400, 'a refused set refuses the whole change');
     assert.equal(stored().name, 'Lisbon');
     // Planning given a start before the created day: allowed, there is no boundary before the first phase.

@@ -217,6 +217,11 @@ try {
   await expect('nobody signed in reports', 401, 'PUT', `${A}/polls`, { body: good });
   await expect('no such space', 404, 'GET', '/api/spaces/nope/attention', { cookie: pat });
   await expect('no such module', 404, 'PUT', `${A}/nothing`, { cookie: pat, body: good });
+  // A module kept out of the Lobby: one sentence that names no space word, since the Lobby is not one of the spaces.
+  for (const method of ['PUT', 'DELETE']) {
+    const lobby = await expect(`${method} in the Lobby`, 403, method, '/api/spaces/lobby/attention/polls', { cookie: owner, body: method === 'PUT' ? good : undefined });
+    assert.equal(lobby.json.error, 'That module is not available here for you.');
+  }
 
   // A guest has no person to keep it for: refused to read and to report.
   const g = await expect('guest reads', 403, 'GET', `${A}${asGuest}`);

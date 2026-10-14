@@ -33,9 +33,10 @@
   const addDays = (day, n) => dayAt(parseDay(day) + n * DAY_MS);
   // Whole days from `a` to `b` (negative when b is earlier).
   const daysBetween = (a, b) => Math.round((parseDay(b) - parseDay(a)) / DAY_MS);
-  // A day from a day or a moment (an ISO string or a Date), the moment read in local time. Null when it is neither.
+  // A day from a day or a moment (an ISO string or a Date), the moment read in UTC so the server and every viewer get
+  // the same day whatever their timezone. Null when it is neither.
   function dayOf(value) {
-    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+    if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : dayAt(value.getTime());
     if (typeof value !== 'string' || !value) return null;
     if (isDay(value)) return value;
     return dayOf(new Date(value));
@@ -77,7 +78,7 @@
     const main = list.find((p) => p.main) || null;
     const byId = Object.fromEntries(list.map((p) => [p.id, p]));
     for (const [id, span] of Object.entries(dates)) {
-      const phase = byId[id];
+      const phase = Object.hasOwn(byId, id) ? byId[id] : null;
       if (!phase) return `There is no phase called "${id}".`;
       if (!span || typeof span !== 'object' || Array.isArray(span)) return `${phase.label}'s dates are start and end.`;
       for (const key of Object.keys(span)) if (key !== 'start' && key !== 'end') return `${phase.label}'s dates are start and end.`;

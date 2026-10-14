@@ -41,6 +41,8 @@
       <label id="f-where-wrap" hidden>Where<select id="f-where" name="where"></select></label>
       <p class="hint" id="f-readonly" hidden></p>
       <label>Name<input id="f-title" name="title" type="text" maxlength="120" required></label>
+      <!-- what kind of place it is (host.ui.kindPicker, searched by name and by other words); it sets the category -->
+      <div class="field"><span class="hint" id="f-type-label">Type</span><div id="f-type"></div></div>
       <div class="editor-row">
         <label>Category<select id="f-category" name="category"></select></label>
         <label>Address<input id="f-address" name="address" type="text" maxlength="200" autocomplete="off"></label>
@@ -50,6 +52,14 @@
         <!-- shown only while a map is open beside: tucks the dialog away, the map waits for a click, the dialog comes back with the spot -->
         <button class="btn btn-icon pick-point" type="button" id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"><span class="ic" data-icon="crosshairs"></span></button>
       </div>
+      <div class="field"><span class="hint" id="f-status-label">Visit</span><div class="status-row" id="f-status" role="group" aria-labelledby="f-status-label"></div></div>
+      <details class="look" id="f-look">
+        <summary>Look</summary>
+        <div class="look-body">
+          <div class="field"><span class="hint" id="f-icon-label">Icon</span><div id="f-icon"></div></div>
+          <div class="field"><span class="hint" id="f-color-label">Colour</span><div class="swatches" id="f-color" role="group" aria-labelledby="f-color-label"></div></div>
+        </div>
+      </details>
       <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea></label>
       <div>
         <div class="hint">Whose is it</div>
@@ -88,6 +98,7 @@
         <span class="scope-mark" hidden><span class="ic" data-icon=""></span><span data-slot="scope"></span></span>
         <span class="pinned" data-slot="pinned"><span class="ic" data-icon="location-dot"></span> On the map</span>
         <span class="nopos" data-slot="nopos">No position yet</span>
+        <span class="visit" data-slot="visit" hidden><span class="ic" data-icon=""></span><span data-slot="word"></span></span>
         <span class="owners" data-slot="owners"></span>
         <span class="links" data-slot="links"></span>
       </div>
@@ -100,10 +111,13 @@
 <template id="tpl-found-row"><div class="found-row" role="option" tabindex="0"><span class="mark"><span class="ic" data-icon="location-dot"></span></span><div><h3 class="title" data-slot="title"></h3><p class="sub" data-slot="address"></p><p class="source" data-slot="source"></p></div><button class="btn btn-primary" type="button" data-action="save-found">Save</button></div></template>
 <template id="tpl-found-searching"><div class="found-rows"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div></div></div></template>
 <template id="tpl-found-state"><p class="found-state" data-slot="text"></p></template>
+<!-- visit status in the form: a toggle button per status (aria-pressed); a swatch per colour, filled with the tint (data-tint), with a check when chosen -->
+<template id="tpl-status-btn"><button class="status-btn" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span></button></template>
+<template id="tpl-swatch"><button class="swatch" type="button" aria-pressed="false"><span class="ic" data-icon="check"></span><span class="swatch-label" data-slot="label"></span></button></template>
 <template id="tpl-owner"><span class="owner"></span></template>
 <template id="tpl-link"><span class="link"><span class="ic" data-icon=""></span> <b data-slot="kind"></b> <span data-slot="title"></span></span></template>
 <template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="use-theirs">Use theirs</button><button class="btn" type="button" data-action="keep-mine">Keep mine</button></div></template>
-<template id="tpl-readonly"><div class="readonly"><dl><dt>Category</dt><dd data-slot="category"></dd><dt>Address</dt><dd data-slot="address"></dd><dt>Position</dt><dd data-slot="point"></dd><dt>Whose</dt><dd data-slot="owners"></dd></dl><p data-slot="notes"></p></div></template>
+<template id="tpl-readonly"><div class="readonly"><dl><dt>Type</dt><dd data-slot="type"></dd><dt>Category</dt><dd data-slot="category"></dd><dt>Visit</dt><dd data-slot="status"></dd><dt>Address</dt><dd data-slot="address"></dd><dt>Position</dt><dd data-slot="point"></dd><dt>Whose</dt><dd data-slot="owners"></dd></dl><p data-slot="notes"></p></div></template>
 
 <template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
 <template id="tpl-state-empty"><div class="state" id="state-empty"><span class="ic" data-icon="location-dot"></span><h2 data-slot="title">No places yet</h2><p data-slot="text">Save the places your group cares about: where you are staying, where to eat, what to see. Each can be found on the map and linked from a trip, an event or a task.</p><p><button class="btn btn-primary" type="button" data-action="add-place">Add a place</button></p></div></template>

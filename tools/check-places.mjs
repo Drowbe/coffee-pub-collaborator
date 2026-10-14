@@ -14,7 +14,9 @@ win.parent = win;
 new Function('window', 'document', sdk)(win, { createElement: (tag) => ({ tag }) }); // ready() adds the SDK's shared styles: a <style> stand-in
 const geo = win.createHost({ call: async () => ({}), root: { appendChild() {} }, rootElement: {} }).host.util.geo;
 
-const lib = new Function('geo', `${fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8')}\nreturn { cleanPlace, placeValue, placeFromRequest, createPlaces, searchOn, readEntry, PLACE_PREFIX, CATEGORIES };`)(geo);
+// The bundled types library, which the module build inlines ahead of the lib as `LIB_TYPES` (server/module-build.js).
+const TYPES_FILE = JSON.parse(fs.readFileSync(new URL('../modules/places/src/places-lib-types.json', import.meta.url), 'utf8'));
+const lib = new Function('geo', 'LIB_TYPES', `${fs.readFileSync(new URL('../modules/places/src/places-lib.js', import.meta.url), 'utf8')}\nreturn { cleanPlace, placeValue, placeFromRequest, createPlaces, searchOn, readEntry, PLACE_PREFIX, CATEGORIES, DEFAULT_CATEGORIES, OLD_CATEGORIES, findCategory, TYPES, typeOf, typeFromOsm, STATUSES, TINTS, categoryColor, cssColor, lookOf, typeGroups, iconOptions };`)(geo, TYPES_FILE);
 
 // An in-memory SDK: the store (with versions and 409s), events, ids, pointers and the actions a page provides.
 function fakeHost() {
@@ -90,7 +92,7 @@ await test('a place needs a name; the point is optional and checked', () => {
   // An id that is well formed is kept even when no category has it any more (the page shows it under Other); stored places are never rewritten.
   assert.equal(lib.cleanPlace('a', { title: 'x', category: 'inn' }).category, 'inn');
   assert.equal(lib.cleanPlace('a', { title: 'x', category: 5 }).category, 'other');
-  assert.deepEqual(lib.CATEGORIES, ['do', 'eat', 'stay', 'travel', 'other']);
+  assert.deepEqual(lib.CATEGORIES, ['food', 'stay', 'sights', 'nature', 'activities', 'nightlife', 'shopping', 'transport', 'services', 'health', 'other']);
   assert.equal(bare.point, null);
   assert.equal(lib.cleanPlace('a', { title: 'x', point: { lat: 91, lng: 2 } }).point, null);
   assert.equal(lib.cleanPlace('a', { title: 'x', point: { lat: 'no', lng: 2 } }).point, null);
@@ -217,27 +219,179 @@ await test('one way to add a place in every context: Where, the same finish, the
   // The owner's category colours, for the map in this page.
   const colorsAction = placesManifest.actions.provides.find((a) => a.name === 'categoryColors');
   assert.ok(colorsAction && colorsAction.local === true && colorsAction.input.page === 'string?' && colorsAction.input.pageUntil === 'number?', 'categoryColors is a local action for this page');
-  assert.match(page, /categoryColors: async \(\) => \{\n\s+await catsRead;[\s\S]*?hex !== AUTO_COLOR\) colors\[c\.id\] = hex;[\s\S]*?return \{ data: \{ colors \} \};/);
+  assert.match(page, /categoryColors: async \(\) => \{\n\s+await catsRead;[\s\S]*?col\.hex\) colors\[c\.id\] = col\.hex;[\s\S]*?return \{ data: \{ colors \} \};/);
   assert.match(page, /onClose: \(\) => \{ if \(!state\.picking\) state\.editing = null; \}/);
   assert.match(page, /\$\('f-pick'\)\.hidden = !pickAction/);
   assert.match(page, /positionPicked: async \(input\) => \{/);
   assert.match(page, /if \(point\) \{ \$\('f-point'\)\.value = geo\.coordsText\(point\.lat, point\.lng\); readPoint\(\); \}/);
   assert.ok(JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8')).actions.provides.some((a) => a.name === 'positionPicked' && a.local === true));
-  // The category list is the owner's (the `categories` setting): it starts as the five travel ones, Other can never be removed, and every
+  // The category list is the owner's (the `categories` setting): it starts as the eleven of the library, Other can never be removed, and every
   // place of the page goes through catOf, so an id that is off the list shows under Other and is not rewritten.
   const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
   const catDef = manifest.settings.find((d) => d.key === 'categories');
   assert.ok(catDef && catDef.type === 'list' && catDef.scope === 'environment' && catDef.fixed.includes('other'));
-  assert.deepEqual(catDef.default.map((c) => c.id), lib.CATEGORIES);
-  assert.deepEqual(catDef.default.map((c) => c.label), ['Things to do', 'Food', 'Stay', 'Travel', 'Other']);
+  assert.deepEqual(catDef.default, lib.DEFAULT_CATEGORIES, 'the manifest\'s default list and the page\'s are the same eleven rows');
+  assert.equal(catDef.default.length, 11);
   assert.ok(!/CAT_ORDER|CAT_LABEL|CAT_ICON/.test(page), 'no hard-coded category lists are left in the page');
-  assert.match(page, /const catRow = \(id\) => cats\.find\(\(c\) => c\.id === id\) \|\| cats\.find\(\(c\) => c\.id === 'other'\)/);
+  assert.match(page, /const catRow = \(id\) => findCategory\(cats, id\) \|\| findCategory\(cats, 'other'\)/);
   assert.match(page, /catOf\(x\.p\)\.id === c\.id/);
   assert.match(page, /host\.settings\.onChange\(\(v\) => useSettings\(v\)\)/);
   assert.doesNotMatch(html, /<option value="do">/, 'the editor select is filled from the list');
   // The Map reads this sentence to take its add tools away, so it must stay as it is.
   assert.match(page, /const REFUSED = 'you may not add places here';/);
   assert.match(page, /if \(!canAdd\(\)\) throw new Error\(REFUSED\);/);
+});
+
+await test('the types library is valid', async () => {
+  const sdkIcons = new Set(fs.readdirSync(new URL('../node_modules/@fortawesome/fontawesome-free/svgs/solid/', import.meta.url)).filter((f) => f.endsWith('.svg')).map((f) => f.slice(0, -4)));
+  const ids = new Set();
+  const catIds = new Set(lib.CATEGORIES);
+  assert.equal(TYPES_FILE.length, 153);
+  assert.ok(TYPES_FILE.length <= 300);
+  for (const t of TYPES_FILE) {
+    assert.match(t.id, /^[a-z][a-z0-9-]{0,29}$/, `${t.id}: id`);
+    assert.ok(!ids.has(t.id), `${t.id}: repeated id`);
+    ids.add(t.id);
+    assert.ok(typeof t.label === 'string' && t.label.length > 0 && t.label.length <= 30, `${t.id}: label`);
+    assert.ok(catIds.has(t.category), `${t.id}: category ${t.category} is not a default category`);
+    assert.ok(sdkIcons.has(t.icon), `${t.id}: icon ${t.icon} is not in Font Awesome Free solid`);
+    assert.ok(Array.isArray(t.aliases) && t.aliases.length <= 12, `${t.id}: aliases`);
+    assert.equal(new Set(t.aliases.map((a) => a.toLowerCase())).size, t.aliases.length, `${t.id}: repeated alias`);
+    for (const a of t.aliases) assert.ok(a && a.length <= 30 && a.toLowerCase() !== t.label.toLowerCase(), `${t.id}: alias "${a}"`);
+    if (t.osm !== undefined) for (const o of t.osm) assert.match(o, /^[a-z_]+:[a-z_]+$/, `${t.id}: osm`);
+  }
+  // every category has types, and the categories' own icons exist, with ids that fit the summary (30)
+  for (const c of lib.DEFAULT_CATEGORIES) {
+    assert.ok(sdkIcons.has(c.icon), `category ${c.id}: icon ${c.icon}`);
+    assert.ok(c.id.length <= 30 && c.label.length <= 30);
+    assert.ok(TYPES_FILE.some((t) => t.category === c.id), `${c.id} has no type`);
+  }
+  for (const s of lib.STATUSES) assert.ok(sdkIcons.has(s.icon), `status ${s.id}: icon`);
+  assert.ok(sdkIcons.has('tag') && sdkIcons.has('flag') && sdkIcons.has('check'), 'icons the page uses itself');
+  // an OpenStreetMap tag names one type at most
+  const tags = TYPES_FILE.flatMap((t) => t.osm || []);
+  assert.equal(new Set(tags).size, tags.length, 'an osm tag is on two types');
+  assert.equal(lib.typeFromOsm('amenity:cafe').id, 'cafe');
+  assert.equal(lib.typeFromOsm(['x:y', 'tourism:hotel']).id, 'hotel');
+  assert.equal(lib.typeFromOsm('nothing:here'), null);
+  // The words Thomas named find what he expects (the picker's own matching, the SDK's kindMatches)
+  const kindWords = (str) => String(str || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  const finds = (q) => lib.typeGroups(lib.DEFAULT_CATEGORIES).flatMap((g) => g.options).filter((o) => kindWords(q).every((p) => [...kindWords(o.label), ...o.words.flatMap(kindWords)].some((w) => w.startsWith(p)))).map((o) => o.id);
+  assert.ok(finds('coffee').includes('cafe'));
+  for (const q of ['subway', 'metro', 'underground']) assert.ok(finds(q).includes('subway'), q);
+  assert.ok(finds('beach').includes('beach'));
+  assert.ok(finds('cafe').includes('cafe'), 'accents are ignored');
+});
+
+await test('picker data: one group per category in the list, Other last; types of a removed category go to Other', () => {
+  const groups = lib.typeGroups(lib.DEFAULT_CATEGORIES);
+  assert.equal(groups.length, 11);
+  assert.equal(groups[0].label, 'Food & Drink');
+  assert.equal(groups[10].label, 'Personal & Other');
+  assert.equal(groups.reduce((n, g) => n + g.options.length, 0), 153);
+  assert.deepEqual(Object.keys(groups[0].options[0]).sort(), ['color', 'icon', 'id', 'label', 'words']);
+  assert.equal(groups[0].options[0].color, 'var(--tint-blue)');
+  // Shopping off the list and Other first in the owner's order: its types are in Other, which is still drawn last
+  const cats = lib.DEFAULT_CATEGORIES.filter((c) => c.id !== 'shopping');
+  const without = lib.typeGroups(cats);
+  assert.equal(without.length, 10);
+  assert.ok(!without.some((g) => g.label === 'Shopping'));
+  assert.ok(without[9].options.some((o) => o.id === 'souvenir-shop'), 'Souvenir Shop is under Other');
+  assert.equal(without[9].label, 'Personal & Other');
+  // icon options carry the words of the types that use them
+  const icons = lib.iconOptions(null);
+  const umbrella = icons.find((o) => o.id === 'umbrella-beach');
+  assert.ok(umbrella && umbrella.words.includes('Beach') && umbrella.words.includes('Resort'));
+  assert.equal(new Set(icons.map((o) => o.id)).size, icons.length);
+});
+
+await test('old category ids are read as the new ones, and a stored list is kept', () => {
+  assert.deepEqual(lib.OLD_CATEGORIES, { eat: 'food', do: 'activities', travel: 'transport' });
+  // a request with an old id lands on the new one; stay and other are the same
+  assert.equal(lib.placeFromRequest({ title: 'x', category: 'eat' }, 'u').category, 'food');
+  assert.equal(lib.placeFromRequest({ title: 'x', category: 'do' }, 'u').category, 'activities');
+  assert.equal(lib.placeFromRequest({ title: 'x', category: 'travel' }, 'u').category, 'transport');
+  assert.equal(lib.placeFromRequest({ title: 'x', category: 'stay' }, 'u').category, 'stay');
+  // a type gives the category when none is asked, and its icon
+  const t = lib.placeFromRequest({ title: 'x', type: 'cafe' }, 'u');
+  assert.deepEqual([t.type, t.category, t.icon], ['cafe', 'food', 'mug-hot']);
+  assert.equal(lib.placeFromRequest({ title: 'x', type: 'nope' }, 'u').type, '');
+  // an old stored place is not rewritten, and is found in the new list...
+  const old = lib.cleanPlace('a', { title: 'x', category: 'eat' });
+  assert.equal(old.category, 'eat');
+  assert.equal(lib.findCategory(lib.DEFAULT_CATEGORIES, 'eat').id, 'food');
+  assert.equal(lib.findCategory(lib.DEFAULT_CATEGORIES, 'do').id, 'activities');
+  assert.equal(lib.findCategory(lib.DEFAULT_CATEGORIES, 'travel').id, 'transport');
+  assert.equal(lib.findCategory(lib.DEFAULT_CATEGORIES, 'stay').id, 'stay');
+  // ...and a list stored before the library (do, eat, stay, travel, other) keeps working both ways
+  const stored = [{ id: 'do', label: 'Things to do', icon: 'ticket', color: '#888888' }, { id: 'eat', label: 'Food', icon: 'utensils', color: '#888888' }, { id: 'other', label: 'Other', icon: 'note-sticky', color: '#888888' }];
+  assert.equal(lib.findCategory(stored, 'eat').id, 'eat');
+  assert.equal(lib.findCategory(stored, 'food').id, 'eat', 'a new id finds the old row');
+  assert.equal(lib.findCategory(stored, 'sights'), null);
+  assert.equal(lib.lookOf({ title: 'x', category: 'sights' }, stored).cat.id, 'other', 'a category not on the list shows under Other');
+});
+
+await test('what a place is drawn with: place, then type, then category', () => {
+  const cats = lib.DEFAULT_CATEGORIES;
+  const base = { title: 'x', category: 'food' };
+  // no type, no choice: the category's icon and its automatic tint (the first of the eight)
+  let look = lib.lookOf(lib.cleanPlace('a', base), cats);
+  assert.deepEqual([look.icon, look.color], ['utensils', { tint: 'blue' }]);
+  // a type gives its icon; the colour stays the category's
+  look = lib.lookOf(lib.cleanPlace('a', { ...base, type: 'cafe' }), cats);
+  assert.deepEqual([look.icon, look.color], ['mug-hot', { tint: 'blue' }]);
+  // the place's own icon and colour win over both
+  look = lib.lookOf(lib.cleanPlace('a', { ...base, type: 'cafe', icon: 'star', iconOwn: true, color: 'red' }), cats);
+  assert.deepEqual([look.icon, look.color], ['star', { tint: 'red' }]);
+  // a stored icon that was not chosen is only what the summary carries: the type's still wins on the page
+  look = lib.lookOf(lib.cleanPlace('a', { ...base, type: 'cafe', icon: 'star' }), cats);
+  assert.equal(look.icon, 'mug-hot');
+  // a colour the owner chose for the category beats the automatic tint
+  const chosen = cats.map((c) => (c.id === 'food' ? { ...c, color: '#336699' } : c));
+  assert.deepEqual(lib.lookOf(lib.cleanPlace('a', base), chosen).color, { hex: '#336699' });
+  assert.deepEqual(lib.lookOf(lib.cleanPlace('a', { ...base, color: 'gold' }), chosen).color, { tint: 'gold' });
+  // the eight tints repeat down the list
+  assert.deepEqual(cats.map((c) => lib.categoryColor(cats, c).tint), ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red', 'blue', 'green', 'teal']);
+  assert.equal(lib.cssColor({ tint: 'teal' }), 'var(--tint-teal)');
+  assert.equal(lib.cssColor({ hex: '#336699' }), '#336699');
+  // the drawn icon is what the page stores, and the summary maps it
+  const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
+  const summary = manifest.refs.produces.find((r) => r.kind === 'place').summary;
+  assert.equal(summary.icon, 'icon');
+  assert.equal(summary.visit, 'status');
+  assert.equal(summary.category, 'category');
+});
+
+await test('type, icon, colour and visit status are stored and read back checked', () => {
+  const p = lib.cleanPlace('a', { title: 'x', type: 'cafe', icon: 'star', iconOwn: true, color: 'pink', status: 'booked' });
+  assert.deepEqual([p.type, p.icon, p.iconOwn, p.color, p.status], ['cafe', 'star', true, 'pink', 'booked']);
+  const v = lib.placeValue(p);
+  assert.deepEqual([v.type, v.icon, v.iconOwn, v.color, v.status], ['cafe', 'star', true, 'pink', 'booked']);
+  const bad = lib.cleanPlace('a', { title: 'x', type: 'No!', icon: 'Bad Icon', iconOwn: true, color: '#ff0000', status: 'maybe' });
+  assert.deepEqual([bad.type, bad.icon, bad.iconOwn, bad.color, bad.status], ['', '', false, '', '']);
+  const plain = lib.placeValue(lib.cleanPlace('a', { title: 'x' }));
+  for (const k of ['type', 'icon', 'iconOwn', 'color', 'status']) assert.ok(!(k in plain), `${k} is left out when empty`);
+  assert.deepEqual(lib.STATUSES.map((s) => [s.id, s.label]), [['want', 'Want to go'], ['booked', 'Booked'], ['visited', 'Visited'], ['favorite', 'Favorite']]);
+});
+
+await test('the form: the type picker, the look, the status, and the words', () => {
+  const page = fs.readFileSync(new URL('../modules/places/src/places.js', import.meta.url), 'utf8');
+  const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
+  assert.match(page, /host\.ui\.kindPicker\(\$\('f-type'\)/);
+  assert.match(page, /host\.ui\.kindPicker\(\$\('f-icon'\)/);
+  for (const id of ['f-type', 'f-icon', 'f-color', 'f-status', 'f-look', 'f-category']) assert.match(html, new RegExp(`id="${id}"`));
+  assert.match(html, /<summary>Look<\/summary>/);
+  assert.match(page, /place\.icon = lookOf\(place, cats\)\.icon;/, 'the drawn icon is stored');
+  assert.match(page, /typeFromOsm\(h\.osm \|\| h\.category\)/);
+  assert.match(page, /id: 'status',\n\s+label: 'Status'/, 'a Status submenu in the place menu');
+  const css = fs.readFileSync(new URL('../modules/places/src/places.css', import.meta.url), 'utf8');
+  assert.doesNotMatch(css, /#[0-9a-fA-F]{3,6}\b(?![^{]*\{)/);
+  const mine = css.slice(css.indexOf('/* ---- type, look and visit status ---- */'));
+  assert.doesNotMatch(mine, /#[0-9a-fA-F]{3,8}\b/, 'theme tokens only');
+  assert.doesNotMatch(mine, /border(?!-radius)[^;]*:\s*[^;]*solid/, 'selected states are fills');
+  const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
+  const help = manifest.settings.find((d) => d.key === 'categories').help;
+  assert.match(help, /removes no place and no type/);
 });
 
 console.log(`check-places: OK (${n} checks)`);

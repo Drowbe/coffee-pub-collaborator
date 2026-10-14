@@ -1188,6 +1188,10 @@ test('the space switcher: your spaces in the list\'s order, never an aside, a ma
   assert.deepEqual(switcherEntries({ spaces, users, present: null }).map((e) => e.id), ['lobby', 'disney'], 'present nowhere: no Leave');
   assert.deepEqual(switcherEntries({ spaces, users, present: 'paris' }).map((e) => e.id), ['lobby', 'disney'], 'present in a space not in the list: no Leave');
   assert.deepEqual(switcherEntries({}), []);
+  // The Lobby is Home itself (plan-home-lobby.md, step 2): its record stays, marked isLobby, and is never offered.
+  const homeBacked = spaces.map((s) => (s.id === 'lobby' ? { ...s, isLobby: true } : s));
+  assert.deepEqual(switcherEntries({ spaces: homeBacked, users, present: 'disney' }).map((e) => e.id), ['disney', 'disney'], 'never the Lobby: Disneyland and its Leave');
+  assert.deepEqual(switcherEntries({ spaces: homeBacked, users, present: 'lobby' }).map((e) => e.id), ['disney'], 'present in the Lobby (a guest link, an old page): no entry for it, no Leave');
   assert.equal(switchPick(null, 'disney'), 'enter', 'present nowhere: enter');
   assert.equal(switchPick('disney', 'disney'), 'back', 'present there: back to it');
   assert.equal(switchPick('lobby', 'disney'), 'enter', 'present elsewhere: enter, until the visit view');
@@ -1936,7 +1940,8 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   // a screen reader (the words carry it).
   assert.match(space, /statusStrip\.setAttribute\('role', 'region'\);\nstatusStrip\.setAttribute\('aria-label', 'Status'\);/);
   assert.match(space, /statusSaid\.setAttribute\('role', 'status'\);/);
-  assert.match(space, /statusSaid\.appendChild\(phaseChip\);\nstatusStrip\.append\(statusSaid, statusTrack, statusToGo, statusFacts\);/, 'the sentence, the bar, the days to go, then the slot kept for the facts and the count');
+  assert.match(space, /statusSaid\.appendChild\(phaseChip\);\n/);
+  assert.match(space, /statusStrip\.append\(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention\);/, 'the sentence, the bar, the days to go, the slot kept for the facts, then the count last');
   assert.match(space, /statusTrack\.setAttribute\('aria-hidden', 'true'\);/);
   assert.match(space, /statusToGo\.setAttribute\('aria-hidden', 'true'\);/);
   assert.match(space, /statusFacts\.setAttribute\('aria-hidden', 'true'\);/);
@@ -1949,7 +1954,8 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(space, /if \(phaseChip\.querySelector\('\.phase-chip-label'\)\.textContent !== words\) \{\n\s*writeStory\(parts\);/, 'the status changes only when the sentence changes');
   assert.match(space, /span\.className = i \? 'story-part' : 'story-part story-lead';\n\s*span\.textContent = i \? ` · \$\{part\}` : part;/, 'the clauses, their separators in their text');
   // Shown only with phases, never for a guest, in an aside, or with home over the space; redrawn from the presence poll.
-  assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && templatePhases\.length > 0/, 'no strip with no phases, for a guest, in an aside, or with home over the space');
+  assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && \(phasesWanted\(\) \|\| attentionSeen\);/, 'no strip with no phases (unless a count has arrived), for a guest, in an aside, or with home over the space');
+  assert.match(space, /const phasesWanted = \(\) => templatePhases\.length > 0 && Boolean\(phaseRule\(\)\);/, 'phases wanted: the template has some and the rule is loaded');
   assert.ok(!/phaseChipWanted = [^\n]*(currentLayoutTab|workspaceShown)/.test(space), 'on every layout tab');
   assert.match(space, /updatePhaseChip\(\); \/\/ the space's dates ride on its presence record/, 'redrawn from the presence poll');
   // The track: one segment per dated phase, its share from bandShares, today's filled, a mark at todayPercent.

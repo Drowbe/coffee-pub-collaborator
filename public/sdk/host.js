@@ -2862,6 +2862,20 @@
       set: (items) => call('status.set', { items }),
     },
 
+    // What needs this person's action in this space, shown by the host in the space's status strip as "N need action"
+    // (a button whose list opens your items). The host names no module: it adds every module's count. set({ count,
+    // label, items }): `count` a whole number from 0 to 99 (0 clears), `label` up to 40 characters ("polls to vote
+    // in"), `items` up to 20 of { title, object? } (`title` up to 120 characters; `object` an object reference from
+    // host.objects.make, which a pick opens; none, a pick opens your module). The host keeps your last report for a
+    // week, per person and space, so call it when you run and after each change; calling again with the same words
+    // changes nothing. clear() drops it. Both resolve true when kept, false where there is no space (a module's
+    // page outside a space, a dashboard widget, a guest) or this role may not write in the module; a bad shape rejects
+    // with a sentence. Detect it with `if (host.attention)`.
+    attention: {
+      set: (report) => call('attention.set', report || {}),
+      clear: () => call('attention.clear'),
+    },
+
     // Icon buttons in the module's titlebar, ahead of the host's own buttons and set off by a pipe:
     // set([{ id, icon, title, on, regular, disabled, overflow }]), where `icon` is a Font Awesome name (solid, or
     // regular with `regular: true`) and `on` marks the current choice. A click arrives as the 'header'

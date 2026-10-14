@@ -15,7 +15,7 @@ import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
-import { foldCallToolbar } from '/call-toolbar.js';
+import { foldCallToolbar, callTitle } from '/call-toolbar.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
 // window, which takes the whole canvas with it).
@@ -492,7 +492,8 @@ function renderSpaces() {
   const list = $('spaces');
   if (!list) return;
   const keep = new Set();
-  for (const r of presenceSpaces.filter((x) => x.mine)) {
+  // The Lobby is Home itself (plan-home-lobby.md, step 2): its record stays, its card is not drawn.
+  for (const r of presenceSpaces.filter((x) => x.mine && !x.isLobby)) {
     keep.add(r.id);
     let card = list.querySelector(`[data-space="${CSS.escape(r.id)}"]`);
     if (!card) {
@@ -976,10 +977,12 @@ const DEFAULT_PREFS = {
   quality: 720, mirror: true, background: 'none', volumes: {}, popout: null, deafened: false,
   chatWidth: 320, stripHeight: 168, speakerId: '', masterVolume: 100, // chatWidth is the column's width too (the splitter)
   homeChatWidth: 360, // Home's chat column (plan-home-lobby.md, step 3), its own width
-  // Where the call sits in the column (Call position): its 'top' or 'bottom'; callFloat, floating over the Workspace
-  // instead (from the column's side it goes back to). Its own window is never remembered (a window opens only from a
-  // click). callTiles: 'auto' (slim in a short window), 'shown' or 'slim'.
+  // Where the call sits in the column (Call position): its 'top', 'bottom' or 'left' (beside the chat, in a column wide
+  // enough); callFloat, floating over the Workspace instead (from the column's side it goes back to). Its own window is
+  // never remembered (a window opens only from a click). callTiles: 'auto' (slim in a short window), 'shown' or 'slim'.
+  // callSideWidth: the call's width beside the chat (Left).
   callPosition: 'top', callFloat: false, callTiles: 'auto',
+  callSideWidth: 320,
   pttKey: 'Space', muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE',
 };
 // Call preferences (layout, devices, volumes, keys). brand.js moves the key they had before the Names plan on load.
@@ -1204,7 +1207,8 @@ function syncColumn() {
 
 // The column's sizes (the splitters, #side-column-splitter and #side-column-strip-splitter in space.html): its width,
 // the chat's own preference from before the column (prefs.chatWidth, so a width a person had set holds), between
-// COLUMN_MIN and half the window; and on the call the height of the strip's tiles (prefs.stripHeight), from STRIP_MIN
+// COLUMN_MIN and the whole window (Thomas, 2026-10-14: the chat may take all of it; the Workspace then has no room, and
+// the handle folds the column away again); and on the call the height of the strip's tiles (prefs.stripHeight), from STRIP_MIN
 // up to what leaves the chat its share: the whole call area (the tiles, the toolbar under them and the Join/Online row,
 // `chrome` being the last two) is at most CALL_MAX_SHARE of the column, so the chat always keeps at least 45% of it
 // (Thomas, 2026-10-14: the video must never squeeze the chat). Untouched (the default height), the call area is at most
@@ -1214,7 +1218,7 @@ function syncColumn() {
 // least and the most, double-click or Shift+Enter back to the default. Both are remembered per person. Collapsed, the
 // rail is 44px whatever the width, and opening returns to it.
 const COLUMN_MIN = 220;
-const COLUMN_MAX_SHARE = 0.5; // of the window
+const COLUMN_MAX_SHARE = 1; // of the window: all of it
 const STRIP_MIN = 100;
 const STRIP_DEFAULT = 168; // DEFAULT_PREFS.stripHeight
 const CALL_MAX_SHARE = 0.55; // of the column: the chat keeps the other 45% or more
@@ -1238,6 +1242,18 @@ function callTilesShown(choice, windowHeight, columnHeight, chrome = 0) {
   if (choice === 'shown' || choice === 'slim') return choice === 'shown';
   return windowHeight >= SHORT_WINDOW;
 }
+// Call position Left (Thomas, 2026-10-14): the call beside the chat, the column's full height, in a column at least
+// CALL_LEFT_MIN wide; narrower, the call sits at the top until the column is wide again, the choice kept. The call's
+// width there (prefs.callSideWidth, the line between the two) is at least CALL_SIDE_MIN and leaves the chat COLUMN_MIN.
+const CALL_LEFT_MIN = 560;
+const CALL_SIDE_MIN = 240;
+// Where the call shows for the chosen position in a column this wide: 'top', 'bottom' or 'left'.
+function callPlaceFor(pos, columnWidth) {
+  if (pos === 'bottom') return 'bottom';
+  if (pos === 'left' && Number(columnWidth) >= CALL_LEFT_MIN) return 'left';
+  return 'top';
+}
+function clampCallSide(w, columnWidth) { return clampSplit(w, CALL_SIDE_MIN, Math.round(columnWidth) - COLUMN_MIN); }
 // A key on a splitter: the new value, or null when the key is not the splitter's (so it goes on, never trapped).
 // `grow` and `shrink` are the arrow names for the axis (Right and Left for the column's edge, Down and Up for the strip's).
 function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
@@ -1250,23 +1266,39 @@ function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
 const columnWin = () => columnEl.ownerDocument.defaultView || window;
 const columnMaxWidth = () => Math.round(columnWin().innerWidth * COLUMN_MAX_SHARE);
 const columnHeight = () => columnEl.clientHeight || columnWin().innerHeight;
-// The call area's height besides its tiles: the toolbar under them (while it is in the column) and the Join/Online row.
+const columnWidthNow = () => clampColumnWidth(prefs.chatWidth, columnWin().innerWidth);
+// The call area's height besides its tiles: its titlebar, the toolbar under the tiles (while it is in the column) and
+// the Join/Online row.
 function callChrome() {
   const bar = $('video-bar');
   const toolbar = bar && bar.closest('.side-column-strip') && !confEl.classList.contains('call-off') ? bar.offsetHeight : 0;
-  return toolbar + (columnEl.querySelector('.side-column-bar')?.offsetHeight || 0);
+  return toolbar + (columnEl.querySelector('.side-column-bar')?.offsetHeight || 0) + (columnEl.querySelector('#call-head')?.offsetHeight || 0);
 }
+// The call's width beside the chat (Left), held to the column it is in now.
+const callSideWidthNow = () => clampCallSide(prefs.callSideWidth, columnWidthNow());
+const callSideMax = () => Math.max(CALL_SIDE_MIN, columnWidthNow() - COLUMN_MIN);
 const columnMaxStrip = () => Math.max(STRIP_MIN, stripMaxHeight(columnHeight(), callChrome()));
 // The sizes onto the column, clamped to the window it is in now (resized, popped out); and where the call is in it.
 function applyColumnSizes() {
   if (!columnEl) return;
-  const w = clampColumnWidth(prefs.chatWidth, columnWin().innerWidth);
+  const w = columnWidthNow();
   columnEl.style.setProperty('--side-column-w', `${w}px`);
+  columnEl.classList.toggle('full', w >= columnWin().innerWidth - 8); // its edge kept inside the window
   const v = columnEl.querySelector('#side-column-splitter');
   v.setAttribute('aria-valuemin', String(COLUMN_MIN));
   v.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, columnMaxWidth())));
   v.setAttribute('aria-valuenow', String(w));
   v.setAttribute('aria-valuetext', `${w} pixels wide`);
+  // Left: the call's width beside the chat, and its line's values.
+  const side = callSideWidthNow();
+  columnEl.style.setProperty('--side-column-call-w', `${side}px`);
+  const sv = columnEl.querySelector('#side-column-call-splitter');
+  if (sv) {
+    sv.setAttribute('aria-valuemin', String(CALL_SIDE_MIN));
+    sv.setAttribute('aria-valuemax', String(callSideMax()));
+    sv.setAttribute('aria-valuenow', String(side));
+    sv.setAttribute('aria-valuetext', `The call ${side} pixels wide`);
+  }
   const colH = columnHeight();
   const chrome = callChrome();
   const h = stripHeightFor(prefs.stripHeight, colH, chrome);
@@ -1281,6 +1313,7 @@ function applyColumnSizes() {
 let columnSizeFrame = 0;
 function setColumnSize(which, value, { remember = true } = {}) {
   if (which === 'width') prefs.chatWidth = clampColumnWidth(value, columnWin().innerWidth);
+  else if (which === 'side') prefs.callSideWidth = clampCallSide(value, columnWidthNow());
   else prefs.stripHeight = clampStripHeight(value, columnHeight(), callChrome());
   if (remember) savePrefs();
   applyColumnSizes();
@@ -1291,7 +1324,12 @@ function wireSplitter(el, { which, axis, def, min, max, grow, shrink }) {
   let drag = null;
   // The strip's: from the height shown (the default one may be held lower), and with the call at the bottom of the
   // column the line is above it, so up grows it (the drag's travel and the arrows turn round).
-  const start = () => (which === 'width' ? prefs.chatWidth : parseFloat(columnEl.style.getPropertyValue('--side-column-strip-h')) || prefs.stripHeight);
+  // The column's edge and the call's line beside the chat (Left) from the widths shown, held to this window.
+  const start = () => {
+    if (which === 'width') return columnWidthNow();
+    if (which === 'side') return callSideWidthNow();
+    return parseFloat(columnEl.style.getPropertyValue('--side-column-strip-h')) || prefs.stripHeight;
+  };
   const flipped = () => which === 'strip' && columnEl.classList.contains('call-bottom');
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 && event.pointerType === 'mouse') return;
@@ -1392,16 +1430,21 @@ function syncShareLift() {
 }
 
 // --- the call's place (Thomas, 2026-10-14: the call pops out again, and never squeezes the chat) ---------------------
-// Call position, on the caret beside the toolbar's Pop out (#call-place) and in Chat's "...": the top of the column (the
-// default) or its bottom (the chat above the call), a floating window over the Workspace (canvas.liftBuiltin, the
+// Call position, on the caret beside the toolbar's Pop out (#call-place), in the call's own titlebar's "..." (#call-more)
+// and in Chat's "...": the top of the column (the default), its bottom (the chat above the call), the left of the chat
+// (beside it, the column's full height, in a column at least CALL_LEFT_MIN wide; narrower it shows at the top, the choice
+// kept, and comes back when the column is wide again), a floating window over the Workspace (canvas.liftBuiltin, the
 // person's own lift), or a window of its own (canvas.popBuiltin: the conference's element moved into the window, as it
-// popped out before the column, so the call keeps its connection and nobody joins twice). Top, bottom and floating are
+// popped out before the column, so the call keeps its connection and nobody joins twice). Top, bottom, left and floating are
 // remembered per person (prefs.callPosition, prefs.callFloat); its own window is not (a window opens only from a click). Out of the
 // column (its own window, floating, or lifted for a screen share) the column shows a slim strip, #call-out: the call's
 // controls and Bring the call back, and the chat has the rest; closing the call's window brings it back too (canvas.js).
 // Hang up brings it back. On a phone there is no column: Pop out moves the docked call into its window as before.
 const callOutEl = columnEl?.querySelector('#call-out') || null;
 const callAtBottom = () => prefs.callPosition === 'bottom';
+// Where the call shows in the column now: 'top', 'bottom' or 'left' (only open, never in an aside: the column is the
+// call there).
+const callPlaceNow = () => (columnCollapsed() || inAside() ? (callAtBottom() ? 'bottom' : 'top') : callPlaceFor(prefs.callPosition, columnWidthNow()));
 // Where the call is now: 'column', 'window', 'float' (the person's), 'share' (lifted for a screen share), 'dock' or
 // 'closed' (a phone's).
 function callWhere() {
@@ -1432,7 +1475,15 @@ function syncCallPlace(colH, chrome) {
     if (wrap && wrap.hidden !== hide) { wrap.hidden = hide; setTimeout(fitFloatbar, 0); }
   }
   if (!columnEl) return;
-  columnEl.classList.toggle('call-bottom', callAtBottom());
+  const place = callPlaceNow();
+  const left = place === 'left';
+  columnEl.classList.toggle('call-bottom', place === 'bottom');
+  columnEl.classList.toggle('call-left', left);
+  const sideLine = columnEl.querySelector('#side-column-call-splitter');
+  if (sideLine) sideLine.hidden = !left;
+  // The call's titlebar: wherever the conference is open from this column (in it, floating or in its own window).
+  const head = columnEl.querySelector('#call-head');
+  if (head) head.hidden = where === 'closed' || where === 'dock';
   const away = canvas.columnMode() && outside;
   columnEl.classList.toggle('call-away', away);
   if (callOutEl) {
@@ -1441,8 +1492,9 @@ function syncCallPlace(colH, chrome) {
   }
   const h = colH ?? columnHeight();
   const c = chrome ?? callChrome();
-  const fits = stripMaxHeight(h, c) >= STRIP_MIN;
-  const tilesOn = callTilesShown(prefs.callTiles, columnWin().innerHeight, h, c);
+  // Beside the chat the call has the column's whole height: the tiles show unless the person chose slim.
+  const fits = left ? h - c >= STRIP_MIN : stripMaxHeight(h, c) >= STRIP_MIN;
+  const tilesOn = left ? fits && prefs.callTiles !== 'slim' : callTilesShown(prefs.callTiles, columnWin().innerHeight, h, c);
   columnEl.classList.toggle('call-slim', !tilesOn);
   const t = columnEl.querySelector('#side-column-tiles');
   if (t) {
@@ -1487,7 +1539,9 @@ function toggleCallTiles() {
   savePrefs();
   applyLayout();
 }
-// The Call position entries, for the caret's menu and Chat's "...".
+// The Call position entries, for the caret's menu, the call's titlebar and Chat's "...". The position marked is the one
+// chosen: Left stays marked in a column too narrow for it (the call shows at the top meanwhile), and is offered only in
+// a column wide enough, saying why otherwise.
 function callPlaceItems() {
   const where = callWhere();
   const column = canvas.columnMode();
@@ -1495,17 +1549,48 @@ function callPlaceItems() {
   if (column) {
     const inside = where === 'column';
     const floating = where === 'float' || where === 'share' || (inside && prefs.callFloat);
+    const chosen = ['bottom', 'left'].includes(prefs.callPosition) ? prefs.callPosition : 'top';
+    const at = (pos) => inside && !floating && chosen === pos;
+    const wide = columnWidthNow() >= CALL_LEFT_MIN;
     items.push(
-      { radio: true, checked: inside && !floating && !callAtBottom(), icon: 'arrow-up', label: 'Top of the column', onPick: () => setCallPosition('top') },
-      { radio: true, checked: inside && !floating && callAtBottom(), icon: 'arrow-down', label: 'Bottom of the column', onPick: () => setCallPosition('bottom') },
+      { radio: true, checked: at('top'), icon: 'arrow-up', label: 'Top of the column', onPick: () => setCallPosition('top') },
+      { radio: true, checked: at('bottom'), icon: 'arrow-down', label: 'Bottom of the column', onPick: () => setCallPosition('bottom') },
+      { radio: true, checked: at('left'), icon: 'arrow-left', label: 'Left of the chat', hint: wide ? undefined : 'Needs a wider column', disabled: !wide, onPick: () => setCallPosition('left') },
       { radio: true, checked: floating, icon: 'window-restore', regular: true, label: 'Floating window', onPick: () => setCallPosition('float') },
     );
   }
   items.push({ radio: true, checked: where === 'window', icon: 'up-right-from-square', label: 'Its own window', onPick: () => setCallPosition('window') });
   if (column && inCall && where === 'column' && !columnEl.querySelector('#side-column-tiles').disabled) {
-    items.push({ divider: true }, { checked: !columnEl.classList.contains('call-slim'), label: 'Show the video', onPick: toggleCallTiles });
+    const shown = !columnEl.classList.contains('call-slim');
+    items.push({ divider: true }, { icon: `chevron-${shown ? 'up' : 'down'}`, label: shown ? 'Hide the video' : 'Show the video', onPick: toggleCallTiles });
   }
   return items;
+}
+// The call's titlebar's "..." (#call-more): Pop out or Bring the call back (the toolbar's Pop out does the same), Call
+// position, Show or Hide the video, then on the call its Settings (the toolbar's gear) and Leave the call (Hang up; the
+// titlebar's x before the column, which closed the call).
+function callMenuItems() {
+  const where = callWhere();
+  const items = [];
+  if (['window', 'float', 'share'].includes(where)) items.push({ icon: 'arrow-left', label: 'Bring the call back', onPick: bringCallBack });
+  else if (where !== 'closed' && !phoneWidth()) items.push({ icon: 'up-right-from-square', label: 'Pop out the call', onPick: popOutCall });
+  if (where !== 'closed') items.push({ divider: true }, ...callPlaceItems());
+  if (inCall) {
+    items.push(
+      { divider: true },
+      // After the menu has closed, so the click that picked it does not close the settings again.
+      { icon: 'gear', label: 'Settings', onPick: () => setTimeout(() => openSettings('more'), 0) },
+      { icon: 'phone-slash', label: 'Leave the call', danger: true, onPick: () => $('hangup').click() },
+    );
+  }
+  return items;
+}
+// The titlebar's name and icon: the environment's name for the conference, else Call (callTitle, call-toolbar.js).
+function setCallHead(def) {
+  const name = columnEl?.querySelector('#call-head-name');
+  if (name) name.textContent = callTitle(def.name);
+  const icon = columnEl?.querySelector('#call-head-icon');
+  if (icon && def.icon) icon.className = `fa-solid fa-${def.icon} fa-fw`;
 }
 $('call-popout')?.addEventListener('click', () => (['window', 'float', 'share'].includes(callWhere()) ? bringCallBack() : popOutCall()));
 $('call-place')?.addEventListener('click', (event) => {
@@ -1533,6 +1618,10 @@ if (callOutEl) {
   callOutEl.querySelector('#call-back').addEventListener('click', bringCallBack);
 }
 columnEl?.querySelector('#side-column-tiles')?.addEventListener('click', toggleCallTiles);
+columnEl?.querySelector('#call-more')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  openHostMenu(event.currentTarget, callMenuItems);
+});
 // --- end the call's place ---
 
 if (columnEl) {
@@ -1543,6 +1632,7 @@ if (columnEl) {
   });
   wireSplitter(columnEl.querySelector('#side-column-splitter'), { which: 'width', axis: 'x', def: DEFAULT_PREFS.chatWidth, min: COLUMN_MIN, max: columnMaxWidth, grow: 'ArrowRight', shrink: 'ArrowLeft' });
   wireSplitter(columnEl.querySelector('#side-column-strip-splitter'), { which: 'strip', axis: 'y', def: DEFAULT_PREFS.stripHeight, min: STRIP_MIN, max: columnMaxStrip, grow: 'ArrowDown', shrink: 'ArrowUp' });
+  wireSplitter(columnEl.querySelector('#side-column-call-splitter'), { which: 'side', axis: 'x', def: DEFAULT_PREFS.callSideWidth, min: CALL_SIDE_MIN, max: callSideMax, grow: 'ArrowRight', shrink: 'ArrowLeft' });
   applyColumnSizes();
 }
 placeColumnTools(); // now that the two exist
@@ -1595,12 +1685,29 @@ const statusFacts = document.createElement('span');
 statusFacts.className = 'status-facts'; // kept for the facts and the count (plan-space-story-strip.md, steps 3 and 5)
 statusFacts.setAttribute('aria-hidden', 'true');
 statusSaid.appendChild(phaseChip);
-statusStrip.append(statusSaid, statusTrack, statusToGo, statusFacts);
+// The count of what needs this person's action (host.attention, plan-space-status-strip.md step 3): at the strip's right
+// end, after the days to go, only above zero. Its own polite status, written only when the count changes; the button
+// opens the shared menu of what needs action.
+const statusAttention = document.createElement('span');
+statusAttention.className = 'status-attention';
+statusAttention.setAttribute('role', 'status');
+statusAttention.hidden = true;
+const attentionButton = document.createElement('button');
+attentionButton.type = 'button';
+attentionButton.id = 'attention-count';
+attentionButton.className = 'attention-count';
+attentionButton.setAttribute('aria-haspopup', 'menu');
+statusAttention.appendChild(attentionButton);
+statusStrip.append(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention);
+let attention = { spaceId: null, modules: [], total: 0 }; // what needs my action here, from GET /api/spaces/:id/attention
+let attentionSeen = false; // a count above zero has arrived in this space: the strip stays for the visit
 let templatePhases = []; // the template's phases, from /api/branding, cleaned by the rule
 let phaseIcons = {}; // phase id -> its icon, when the template gives one
 const phaseRule = () => window.Phases || null;
 const phaseSpaceRecord = () => (currentSpace && !currentSpace.isAside ? presenceSpaces.find((r) => r.id === currentSpace.id) || currentSpace : null);
-const phaseChipWanted = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && me?.role !== 'guest' && templatePhases.length > 0 && Boolean(phaseRule());
+const phasesWanted = () => templatePhases.length > 0 && Boolean(phaseRule());
+// The strip shows in a space with phases; in one without, once a count above zero has arrived, for the rest of the visit.
+const phaseChipWanted = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && me?.role !== 'guest' && (phasesWanted() || attentionSeen);
 // Owners, the admin and the space's moderators edit the dates (PATCH /api/spaces/:id); a member reads them.
 function canEditPhases() {
   if (!currentSpace || inAside() || !me || guestToken || me.role === 'guest') return false;
@@ -1700,12 +1807,78 @@ function writeStory(parts) {
     return span;
   }));
 }
+// --- what needs my action (host.attention): read when the space loads, when a module reports, on focus and slowly ---
+// The strip is for this space and this person; entering another space starts a new visit (the count, and whether the
+// strip stays for a space without phases).
+function followAttentionSpace() {
+  const id = currentSpace && !currentSpace.isAside && !inAside() && !guestToken && me && me.role !== 'guest' ? currentSpace.id : null;
+  if (id === attention.spaceId) return;
+  attention = { spaceId: id, modules: [], total: 0 };
+  attentionSeen = false;
+  if (id) loadAttention();
+}
+let attentionAsked = 0;
+async function loadAttention() {
+  const id = attention.spaceId;
+  if (!id) return;
+  const ticket = ++attentionAsked;
+  try {
+    const answer = await api('GET', `/api/spaces/${encodeURIComponent(id)}/attention`);
+    if (ticket !== attentionAsked || attention.spaceId !== id) return; // a newer read, or another space, took over
+    attention = { spaceId: id, modules: Array.isArray(answer.modules) ? answer.modules : [], total: Number(answer.total) || 0 };
+    if (attention.total > 0) attentionSeen = true;
+    updatePhaseChip();
+  } catch (err) {
+    // keeps the last count; the next read tries again
+  }
+}
+let attentionSoon = 0;
+function loadAttentionSoon() {
+  clearTimeout(attentionSoon);
+  attentionSoon = setTimeout(loadAttention, 250);
+}
+window.addEventListener('app:attention', (event) => { if (!event.detail?.space || event.detail.space === attention.spaceId) loadAttentionSoon(); });
+window.addEventListener('focus', loadAttentionSoon);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadAttentionSoon(); });
+setInterval(() => { if (!document.hidden) loadAttention(); }, 60000);
+// "2 need action" / "1 needs action", only above zero; written only when the count changes (the status is polite).
+function drawAttentionCount() {
+  const n = phaseChipWanted() ? attention.total : 0;
+  const words = n === 1 ? '1 needs action' : `${n} need action`;
+  statusAttention.hidden = n < 1;
+  statusStrip.classList.toggle('has-attention', n > 0);
+  statusStrip.classList.toggle('attention-only', !phasesWanted());
+  if (n > 0 && attentionButton.textContent !== words) {
+    attentionButton.textContent = words;
+    attentionButton.title = `${words}. Show the list`;
+  }
+}
+// The list: a section per module (its name), its label with the count, then its items. A pick opens the object, or the
+// module when the item has none.
+function openAttentionTarget(moduleId, object) {
+  returnToCanvas();
+  canvas.open(moduleId);
+  if (object && object.module) canvas.openRef(object);
+}
+function attentionMenuItems() {
+  const items = [];
+  for (const m of attention.modules) {
+    if (items.length) items.push({ divider: true });
+    items.push({ heading: m.name || m.module });
+    items.push({ label: `${m.count} ${m.label || (m.count === 1 ? 'needs action' : 'need action')}`, onPick: () => openAttentionTarget(m.module) });
+    for (const item of m.items || []) items.push({ label: item.title, icon: 'angle-right', onPick: () => openAttentionTarget(m.module, item.object) });
+  }
+  return items;
+}
+attentionButton.addEventListener('click', () => openHostMenu(attentionButton, attentionMenuItems));
 function updatePhaseChip() {
+  followAttentionSpace();
   const R = phaseRule();
   const show = phaseChipWanted();
   if (statusStrip.hidden === show) statusStrip.hidden = !show; // the registry writes the same when the strip is its tool
   nav.draw('secondary');
-  if (!show || !R) return;
+  drawAttentionCount();
+  if (!show || !R || !phasesWanted()) return;
   const today = phaseToday();
   const bands = phaseTimeline();
   const parts = R.storyParts(bands, today);
@@ -1902,6 +2075,13 @@ function leaveSetup() {
 // joinInvitedSpace, as an invitation does), then opens the panel on the tab asked for (pickTab: an unknown one is the
 // first tab). Someone who may not set up gets the space without the panel. Already setting this space up: the tab.
 async function openSetupFor(id, tab = '') {
+  // The Lobby has no Set up any more (plan-home-lobby.md, step 2): /?setup=lobby opens Manage at its Spaces tab, where
+  // Home's row is, for owners and the admin; anyone else stays on Home.
+  if (isHomeRecord(id)) {
+    landOnHome();
+    if (hasOwnerRights(me)) openOverlay('/admin#spaces');
+    return;
+  }
   const hash = tab ? `#${String(tab).replace(/^#/, '')}` : '';
   if (settingUp && currentSpace?.id === id) { if (hash) spaceSetup.select(hash.slice(1)); return; }
   await joinInvitedSpace(id);
@@ -3155,6 +3335,8 @@ async function postChatMessage(text) {
   }
 }
 function publishChat(data) {
+  // Home's chat over a space (plan-home-lobby.md, step 4) never goes on the space's call: the server tells Home's stream.
+  if (homeChatSpace) return;
   if (!call || call.state !== 'connected' || !call.localParticipant) return;
   call.localParticipant.publishData(encoder.encode(JSON.stringify(data)), { reliable: true, topic: 'chat' }).catch(() => {});
 }
@@ -3984,7 +4166,8 @@ async function shrinkImage(file) {
 }
 
 async function sendImage(file) {
-  if (!file || !file.type.startsWith('image/') || call.state !== 'connected' || !canDo('sendPictures')) return;
+  // Not into Home's chat (plan-home-lobby.md, step 4): a picture travels over the space's call, never Home's.
+  if (!file || !file.type.startsWith('image/') || call.state !== 'connected' || !canDo('sendPictures') || homeChatSpace) return;
   try {
     const out = await shrinkImage(file);
     const id = newChatId();
@@ -4004,7 +4187,8 @@ call.registerByteStreamHandler('chat-image', async (reader, { identity }) => {
     const blob = new Blob(chunks, { type: reader.info.mimeType || 'image/png' });
     const from = call.remoteParticipants.get(identity);
     const named = /^cid-([a-f0-9]{12})-(.*)$/.exec(reader.info.name || '');
-    addEntry({ id: named ? named[1] : '', who: from?.name || identity, by: identity, blob, name: named ? (named[2] || 'picture') : (reader.info.name || 'picture') }, false);
+    const add = () => addEntry({ id: named ? named[1] : '', who: from?.name || identity, by: identity, blob, name: named ? (named[2] || 'picture') : (reader.info.name || 'picture') }, false);
+    if (!parkSpaceChat(add)) add(); // Home's chat showing over the space: drawn when the space's chat is back
   } catch (err) {
     setStatus(`picture: ${err.message}`, true);
   }
@@ -4157,7 +4341,7 @@ canvas.registerBuiltin({
   inCall: () => inCall, // the phone's tab bar marks the switch while in the call, not merely while shown
   icon: 'video',
   el: $('conference'),
-  onShown: showBuiltinName,
+  onShown: (def) => { showBuiltinName(def); setCallHead(def); }, // and the column's titlebar for the call
   order: -1,
   flex: true,
   modes: ['dock', 'float', 'window'],
@@ -4482,9 +4666,13 @@ call
   })
   .on(RoomEvent.ChatMessage, (message, participant) => {
     if (!canDo('chatRead')) return;
+    if (parkSpaceChat(() => addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal, participant?.identity))) return;
     addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal, participant?.identity);
   })
-  .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+  .on(RoomEvent.DataReceived, function onCallData(payload, participant, _kind, topic) {
+    // The space's chat, heard while Home's chat shows over the space (plan-home-lobby.md, step 4): kept, and read in
+    // order once the space's chat is back (hideHomeChat), so nothing said in the space lands in Home's chat.
+    if (topic === 'chat' && parkSpaceChat(() => onCallData(payload, participant, _kind, topic))) return;
     try {
       const data = JSON.parse(decoder.decode(payload));
       if (topic === 'reaction' && participant && data.type === 'reaction') showReaction(participant.identity, data.id);
@@ -4556,6 +4744,7 @@ call
   })
   .on(RoomEvent.Disconnected, () => {
     viewingHome = false; // no space left to show home over
+    hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
     syncCallControl();
@@ -4638,6 +4827,7 @@ async function fillDevices() {
 // space already, that is just showing the canvas and opening the module.
 // Into a space I was invited to (or started): the one I am in is left for it.
 async function joinInvitedSpace(spaceId) {
+  if (isHomeRecord(spaceId)) return landOnHome(); // an old link or invitation to the Lobby: Home, over a space kept
   if (call.state === 'connected' && currentSpace?.id === spaceId) return returnToCanvas();
   if (call.state === 'connected') return reconnectTo(spaceId);
   return join(spaceId);
@@ -4649,6 +4839,14 @@ document.addEventListener('app:invite-accept', (event) => {
 });
 
 async function openInSpace(spaceId, moduleId, ref) {
+  // An object kept in the Lobby (the Calendar's Lobby events): its module's own page there, which keeps working
+  // (/modules/<id>?space=lobby), since the Lobby is never entered (plan-home-lobby.md, step 2).
+  if (isHomeRecord(spaceId)) {
+    const href = `/modules/${encodeURIComponent(moduleId)}?${new URLSearchParams({ space: spaceId })}${ref ? `#ref=${encodeURIComponent(JSON.stringify(ref))}` : ''}`;
+    if (currentSpace) openOverlay(href);
+    else location.href = href;
+    return;
+  }
   if (call.state === 'connected' && currentSpace?.id === spaceId) {
     returnToCanvas();
     canvas.open(moduleId);
@@ -4792,6 +4990,7 @@ function updateCrumb() {
 // environment's "join the call on entering" is on (autoJoinOnEntry, in connectAndSetup). `pull`: this is a pull, not
 // the person entering again, so having left the call still counts (leftCall stays).
 async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) {
+  if (isHomeRecord(spaceId)) return landOnHome(); // the Lobby is Home now (plan-home-lobby.md, step 2): never entered
   if (!pull) leftCall = false; // entering again: a person who left the call may be joined again
   viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
   homeChatEntering = true; // the chat leaves Home's column at once: the space's history fills it (connectAndSetup)
@@ -6269,6 +6468,7 @@ function showSpaceList() {
     $('guest-join').hidden = false;
   } else {
     $('join').hidden = false;
+    syncHomeChat(); // Home's chat in its column, the space's kept aside until Back (plan-home-lobby.md, step 4)
     loadPresence();
   }
 }
@@ -6283,6 +6483,7 @@ function returnToCanvas() {
   canvas.showFloating(true); // a floating module lives beside the canvas, shown again with it
   document.body.classList.add('in-space');
   viewingHome = false;
+  syncHomeChat(); // the space's chat back in its column, Home's put away (plan-home-lobby.md, step 4)
   updateCrumb();
   setAway(false);
 }
@@ -6301,45 +6502,118 @@ function goHome(event) {
 // Home's left column (#home-chat-slot), pointed at Home's chat: the hidden Lobby record's (`lobby`, decision 6) history,
 // sends through the same routes, Discussion and Assistant, and what others say live from the server's stream
 // (GET /api/spaces/lobby/chat/stream, step 1), since Home holds no call. Entering a space takes it back to the canvas,
-// which places it in the space's column as before. Home over a space (present in one, decision 7) leaves the space's
-// chat where it is and draws no chat column: swapping the two there, and Home's unread on the Home link, are step 4.
+// which places it in the space's column as before. Home over a space (present in one, decision 7, step 4) moves the
+// same #chat into Home's column too, the space's messages kept aside (homeChatStash) and given back, with what its call
+// said meanwhile, on Back to <space>; Home's unread count shows on the Home link while Home is out of sight.
 const HOME_CHAT = 'lobby';
+// The Lobby is Home now (plan-home-lobby.md, step 2; decision 6 keeps its record as Home's hidden backing): no card,
+// no switcher entry, no Set up, never entered by a signed-in person. Old ways in (/#join=lobby, a reload that remembers
+// it, an aside that falls back to it, an invitation to it) land on Home instead. A guest link made for it still enters
+// it as before (joinAsGuest), and everything that reads the record (OBS, tokens, Stream, Manage) is unchanged.
+function isHomeRecord(id) {
+  return !guestToken && id === LOBBY;
+}
+function landOnHome() {
+  if (rememberedSpace() === LOBBY) forgetSpace();
+  if (currentSpace && document.body.classList.contains('in-space')) {
+    showSpaceList(); // present in a space: Home over it, the call kept
+    return;
+  }
+  setStatus('', false);
+  $('join').hidden = false;
+  syncHomeChat();
+}
 let homeChatEntering = false; // join() under way: the chat is the space's from its first moment
 let homeChatStream = null;
+// Which Home's chat is wanted now: 'home' while Home shows with no space entered (as step 3 built it), 'over' while
+// Home shows over a space this page is still present in (Home over a space, decision 7: the space's call goes on
+// underneath, Away set by showSpaceList), '' otherwise. Never for a guest. Not over an aside (it has no chat), and not
+// while the space's chat is in its own window (another document: it can't be moved into Home's column).
 function homeChatWanted() {
-  return Boolean($('home-chat')) && !guestToken && Boolean(me?.key) && me.role !== 'guest' && !homeChatEntering
-    && !currentSpace && call.state !== 'connected' && !$('join').hidden && !document.body.classList.contains('in-space')
-    && canDo('chatRead') && !canvas.builtinOpen('chat');
+  const allowed = Boolean($('home-chat')) && !guestToken && Boolean(me?.key) && me.role !== 'guest' && !homeChatEntering && !$('join').hidden;
+  if (!allowed) return '';
+  if (!currentSpace && call.state !== 'connected' && !document.body.classList.contains('in-space')
+    && canDo('chatRead') && !canvas.builtinOpen('chat')) return 'home';
+  if (currentSpace && viewingHome && call.state === 'connected' && !inAside() && !pipWindow
+    && !document.body.classList.contains('in-space') && canDo('chatRead') && !canvas.builtinWindow('chat')) return 'over';
+  return '';
 }
 function syncHomeChat() {
-  if (homeChatWanted()) showHomeChat();
-  else hideHomeChat();
+  syncHomeChatStream();
+  const want = homeChatWanted();
+  const now = homeChatSpace ? (homeChatStash ? 'over' : 'home') : '';
+  if (want === now) {
+    if (want) showHomeChat(want);
+    return;
+  }
+  hideHomeChat();
+  if (want) showHomeChat(want);
 }
-function showHomeChat() {
+// Home over a space: what the space's chat had (its messages as drawn, pictures included, its log, its unread number,
+// where #chat sat), kept while Home's chat shows, given back by hideHomeChat. `parked`: what the space's call said of its
+// chat meanwhile (parkSpaceChat), read in order once the space's chat is back. Null with no space under Home's chat.
+let homeChatStash = null;
+const PARKED_MAX = 500;
+function parkSpaceChat(run) {
+  if (!homeChatStash) return false;
+  if (homeChatStash.parked.length < PARKED_MAX) homeChatStash.parked.push(run);
+  return true;
+}
+function showHomeChat(mode = 'home') {
   $('home-chat').hidden = false;
   applyHomeChatWidth();
   if (homeChatSpace) return;
-  homeChatSpace = presenceSpaces.find((r) => r.isLobby) || { id: HOME_CHAT, name: '', isLobby: true, members: [] };
-  dropSharedChat();
-  $('messages').textContent = '';
   const chat = $('chat');
+  if (mode === 'over') {
+    homeChatStash = {
+      parent: chat.parentNode, next: chat.nextSibling, hidden: chat.hidden, pic: $('chat-pic').hidden,
+      nodes: [...$('messages').childNodes], log: chatLog.splice(0), unread, keeper: chatLinkKeeper, parked: [],
+    };
+    $('messages').replaceChildren(); // the space's messages wait in the stash, as they were drawn
+    unread = 0; // the space's number waits in the stash too; Chat's mark in the space keeps it meanwhile
+  }
+  homeChatSpace = presenceSpaces.find((r) => r.isLobby) || { id: HOME_CHAT, name: '', isLobby: true, members: [] };
+  if (!homeChatStash) dropSharedChat();
+  $('messages').textContent = '';
   $('home-chat-slot').appendChild(chat);
   chat.hidden = false;
   $('chat-pic').hidden = true; // a picture travels over the call, and Home holds none
   renderChatHistory(HOME_CHAT);
   chatInput.loadThread();
   loadLinkKeeper(HOME_CHAT);
-  openHomeChatStream();
+  setHomeUnread(0); // Home is in sight: its chat is read
 }
 function hideHomeChat() {
   const column = $('home-chat');
   if (column) column.hidden = true;
   if (!homeChatSpace) return;
-  closeHomeChatStream();
+  // Read up to its newest message (the server's clock, as a catch-up's times are), else up to now.
+  const times = chatLog.map((e) => (e.at instanceof Date ? e.at.getTime() : 0)).filter((t) => t > 0);
+  homeSeenAt = times.length ? Math.max(...times) : Date.now();
   homeChatSpace = null;
+  const stash = homeChatStash;
+  homeChatStash = null;
+  const chat = $('chat');
+  if (stash) {
+    // Back to the space (Back to <space>, the switcher, leaving): its chat as it was, where it was, then what its call
+    // said meanwhile. The call never dropped (decision 7).
+    chatLog.length = 0;
+    $('messages').replaceChildren(...stash.nodes);
+    chatLog.push(...stash.log);
+    unread = stash.unread;
+    canvas.setBuiltinUnread('chat', unread);
+    if (stash.parent?.isConnected) stash.parent.insertBefore(chat, stash.next?.parentNode === stash.parent ? stash.next : null);
+    else $('canvas').appendChild(chat);
+    chat.hidden = stash.parent?.isConnected ? stash.hidden : true;
+    chatLinkKeeper = stash.keeper;
+    chatInput.loadThread();
+    applyPermissions(); // the picture button as the permissions say
+    for (const run of stash.parked) run();
+    $('messages').scrollTop = $('messages').scrollHeight;
+    return;
+  }
   dropSharedChat();
   $('messages').textContent = '';
-  const chat = $('chat');
   if (!canvas.builtinOpen('chat')) {
     $('canvas').appendChild(chat); // where a closed chat waits (canvas.js closeBuiltin)
     chat.hidden = true;
@@ -6348,14 +6622,34 @@ function hideHomeChat() {
   chatInput.loadThread();
   applyPermissions(); // the picture button as the permissions say
 }
+// Home's chat stream (GET /api/spaces/lobby/chat/stream, step 1) is open whenever this page is signed in and may read
+// chat: drawn into Home's chat while it shows, else counted for the Home link (decision 8). The browser reconnects it by
+// itself; each connection starts with `ready`, and every `ready` after the first catches up on what was missed.
+function homeStreamWanted() {
+  return !guestToken && Boolean(me?.key) && me.role !== 'guest' && (hasOwnerRights(me) || Boolean(me.permissions?.chatRead));
+}
+function syncHomeChatStream() {
+  if (homeStreamWanted()) {
+    if (!homeChatStream) openHomeChatStream();
+  } else {
+    closeHomeChatStream();
+    if (homeUnreadIds.size) setHomeUnread(0);
+  }
+}
 function openHomeChatStream() {
   closeHomeChatStream();
   if (typeof EventSource !== 'function') return;
   const source = new EventSource(`/api/spaces/${HOME_CHAT}/chat/stream`);
+  let ready = 0;
   source.addEventListener('message', (event) => {
     if (homeChatStream !== source) return;
     let data = null;
     try { data = JSON.parse(event.data); } catch { return; }
+    if (data?.type === 'ready') {
+      ready += 1;
+      if (ready > 1) catchUpHomeChat(); // back after a drop: what was said meanwhile
+      return;
+    }
     homeChatNotice(data);
   });
   homeChatStream = source;
@@ -6365,9 +6659,14 @@ function closeHomeChatStream() {
   homeChatStream = null;
 }
 // What the stream says, read as the call's chat notices are (RoomEvent.DataReceived) with no sender: the server's word.
-// A message of my own is drawn from the answer to my own request, as in a space.
+// A message of my own is drawn from the answer to my own request, as in a space. Any other type is left alone. With
+// Home's chat out of sight, a new public message from someone else counts on the Home link instead.
 function homeChatNotice(data) {
-  if (!homeChatSpace || !data || typeof data.type !== 'string') return;
+  if (!data || typeof data.type !== 'string') return;
+  if (!homeChatSpace) {
+    countHomeNotice(data);
+    return;
+  }
   if (data.type === 'chat' && chatIdOk(data.id)) {
     if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
     addEntry(storedEntry(data), false);
@@ -6377,14 +6676,87 @@ function homeChatNotice(data) {
   else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, null);
   else if (data.type === 'chat-clear') dropSharedChat();
 }
+// --- Home's unread count on the Home link (plan-home-lobby.md, decision 8, step 4) ---
+// The ids counted, so a delete, a clear or a message made private takes them off again, and a catch-up never counts one
+// twice. `homeSeenAt`: the time Home's chat was last in sight; a catch-up counts only what came after it.
+const homeUnreadIds = new Set();
+let homeSeenAt = Date.now();
+function countHomeNotice(data) {
+  const before = homeUnreadIds.size;
+  if (data.type === 'chat' && chatIdOk(data.id)) {
+    if (data.by !== me?.key && data.visibility !== 'private') homeUnreadIds.add(data.id);
+  } else if (data.type === 'chat-visibility' && chatIdOk(data.id)) {
+    if (data.visibility === 'private') homeUnreadIds.delete(data.id);
+    else if (data.message && data.message.by !== me?.key) homeUnreadIds.add(data.id);
+  } else if (data.type === 'chat-delete') homeUnreadIds.delete(data.id);
+  else if (data.type === 'chat-clear-some' && Array.isArray(data.ids)) for (const id of data.ids) homeUnreadIds.delete(id);
+  else if (data.type === 'chat-clear') homeUnreadIds.clear();
+  if (homeUnreadIds.size !== before) paintHomeUnread();
+}
+function setHomeUnread(n) {
+  if (!n) homeUnreadIds.clear();
+  paintHomeUnread();
+}
+// The count on the Home link: the logo (the Home link at every width, in a space too) and the phone menu's Home entry.
+// Theme tokens only (style.css, .home-unread); the number is read out with the link.
+function paintHomeUnread() {
+  const n = homeUnreadIds.size;
+  nav.setBadge('menu-home', n);
+  const logo = topbarEl?.querySelector('#brand-home-link .brand-logo');
+  if (!logo) return;
+  let badge = logo.querySelector('.home-unread');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'home-unread';
+    badge.id = 'home-unread';
+    badge.innerHTML = '<span class="home-unread-count" aria-hidden="true"></span><span class="visually-hidden"></span>';
+    logo.appendChild(badge);
+  }
+  badge.hidden = !n;
+  badge.querySelector('.home-unread-count').textContent = n > 9 ? '9+' : String(n);
+  badge.querySelector('.visually-hidden').textContent = n ? `, ${n} new ${n === 1 ? 'message' : 'messages'}` : '';
+}
+// Back after the stream dropped (the server restarted, the network went): the history again. Home's chat in sight gets
+// what it missed drawn and what was deleted meanwhile taken off; out of sight, what came after it was last seen counts.
+async function catchUpHomeChat() {
+  let got = null;
+  try {
+    got = await fetchChatHistory(HOME_CHAT);
+  } catch {
+    return; // the next reconnect tries again
+  }
+  const history = got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt);
+  if (homeChatSpace) {
+    const have = new Set(history.map((e) => e.id));
+    const oldest = history.length ? Math.min(...history.map((e) => e.at.getTime())) : Infinity;
+    const gone = chatLog.filter((e) => e.stored && chatIdOk(e.id) && !have.has(e.id) && e.at.getTime() >= oldest);
+    if (gone.length) dropChatEntries(gone);
+    for (const entry of history) {
+      if (!chatIdOk(entry.id) || chatMessageNode(entry.id)) continue;
+      addEntry(entry, ownEntry(entry));
+    }
+    return;
+  }
+  for (const e of history) {
+    if (chatIdOk(e.id) && e.visibility !== 'private' && e.by !== me?.key && e.at.getTime() > homeSeenAt) homeUnreadIds.add(e.id);
+  }
+  paintHomeUnread();
+}
 // The column's width: dragged on its inner edge (#home-chat-splitter), or with the keyboard as the space column's edge
-// (splitterKey); between COLUMN_MIN and half the window, remembered in this browser (prefs.homeChatWidth).
+// (splitterKey); between COLUMN_MIN and the whole window, remembered in this browser (prefs.homeChatWidth). What is left
+// beside it decides the rest (style.css): under HOME_SPARE_BESIDE the Modules go under the space cards (as below
+// 1200px), under HOME_SPARE_LEAST the chat is all there is, its edge inside the window to drag back.
+const HOME_SPARE_BESIDE = 840; // the spaces (520) and the Modules (320) side by side
+const HOME_SPARE_LEAST = 200;
 function applyHomeChatWidth() {
   const home = $('home');
   const handle = $('home-chat-splitter');
   if (!home || !handle) return;
   const w = clampColumnWidth(prefs.homeChatWidth, window.innerWidth);
   home.style.setProperty('--home-chat-w', `${w}px`);
+  const spare = window.innerWidth - w;
+  home.classList.toggle('chat-wide', spare < HOME_SPARE_BESIDE);
+  home.classList.toggle('chat-full', spare < HOME_SPARE_LEAST);
   handle.setAttribute('aria-valuemin', String(COLUMN_MIN));
   handle.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, Math.round(window.innerWidth * COLUMN_MAX_SHARE))));
   handle.setAttribute('aria-valuenow', String(w));

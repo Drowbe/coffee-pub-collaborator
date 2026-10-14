@@ -328,6 +328,7 @@
     askBacklinks();
     $('body').innerHTML = html || `<p class="empty">${show === 'closed' ? 'No closed polls.' : 'No open polls.'}${canCreate && show !== 'closed' ? ' Start one to get a vote going.' : ''}</p>`;
     syncStatus();
+    syncAttention();
   }
 
   // The status line at the foot of the window: the open polls shown, and how many of this place's still wait for this
@@ -345,6 +346,21 @@
       if (SHOW_WORDS[show]) items.push({ text: SHOW_WORDS[show], chip: true });
     }
     host.status.set(items).catch(() => {});
+  }
+
+  // What needs this person's action, for the space's status strip ("2 need action"): the open polls in this space they
+  // have not voted in, as the widget counts them. Told when Polls runs here and after each vote (every render), and only
+  // when the words change. Nothing in an environment page, or for someone who may not vote.
+  let attentionSent = null;
+  function syncAttention() {
+    if (!inSpace || !host.attention) return;
+    const waiting = canVote ? [...polls.values()].filter((x) => x.scope === 'own' && !isClosed(x.p) && !tally(x).mine.length) : [];
+    const shown = waiting.slice(0, 20);
+    const report = { count: Math.min(99, waiting.length), label: 'to vote in', items: shown.map((x) => ({ title: String(x.p.question || 'A poll').slice(0, 120), object: host.objects.make('poll', x.id) })) };
+    const key = JSON.stringify(report);
+    if (key === attentionSent) return;
+    attentionSent = key;
+    (report.count ? host.attention.set(report) : host.attention.clear()).catch(() => { attentionSent = null; });
   }
 
   function showNote(text, ok) {

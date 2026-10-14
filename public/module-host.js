@@ -987,6 +987,20 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   const drawAddSlot = () => { if (addSlot) addSlot.set(addOwn !== null ? addOwn : barFold); };
   const statusSlot = status ? createStatusSlot(status) : null;
 
+  // The attention route for this mount (host.attention): only a module in a space for a signed-in person (a guest page and
+  // a keyed page have no personal list). The page's status strip is told so it reads the count again.
+  const attentionPlace = () => (scope === 'space' && spaceId && !guestToken && !keyed ? `/api/spaces/${encodeURIComponent(spaceId)}/attention/${encodeURIComponent(module.id)}` : null);
+  async function sendAttention(method, place, body) {
+    try {
+      await api(method, place, body);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403 || err.status === 404) return false; // not in this space, or the role cannot write here
+      throw err;
+    }
+    try { window.dispatchEvent(new CustomEvent('app:attention', { detail: { space: spaceId } })); } catch { /* no window to tell */ }
+    return true;
+  }
+
   // Events for the module before its page has said hello wait until it has.
   let ready = false;
   const queued = [];
@@ -1326,6 +1340,26 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     async 'status.set'({ items }) {
       if (!status) return false;
       return statusSlot.set(items);
+    },
+    // What needs this person's action (host.attention.set / clear): kept by the server per space, person and module, and
+    // counted in the space's status strip (space.js, which hears 'app:attention' and reads it again). Only a module
+    // running in a space for a signed-in person has one; anywhere else, or when the role may not write here, false.
+    async 'attention.set'(report) {
+      const place = attentionPlace();
+      if (!place) return false;
+      const count = Number(report?.count);
+      const body = { count: Number.isInteger(count) ? Math.min(99, Math.max(0, count)) : -1 };
+      if (body.count < 0) throw Object.assign(new Error('the count must be a whole number from 0 to 99'), { status: 400 });
+      body.label = String(report?.label ?? '').slice(0, 40);
+      body.items = (Array.isArray(report?.items) ? report.items : []).slice(0, 20).map((i) => ({
+        title: String(i?.title ?? '').slice(0, 120),
+        ...(REF_SHAPE(i?.object) ? { object: cleanPointer(i.object) } : {}),
+      })).filter((i) => i.title.trim());
+      return sendAttention('PUT', place, body);
+    },
+    async 'attention.clear'() {
+      const place = attentionPlace();
+      return place ? sendAttention('DELETE', place) : false;
     },
     // Icon buttons in the module's titlebar, before the host's own buttons and set off by a pipe. Only a
     // host with a titlebar (a module on the canvas, or in its own window) has room for them: the answer says which,

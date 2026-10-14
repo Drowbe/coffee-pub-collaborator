@@ -2,7 +2,7 @@
   "id": "travel",
   "name": "Travel",
   "description": "Plan trips together: the itinerary, places, maps, research and a calendar.",
-  "version": 5,
+  "version": 6,
   "words": { "space": { "one": "trip", "many": "trips" } },
   "icons": { "home": "suitcase-rolling" },
   "moduleNames": { "travel": "Itinerary" },
@@ -11,12 +11,12 @@
   "settings": { "showCalendar": true, "showMap": true, "calendarFeeds": true, "otherCalendars": true },
   "lobby": { "name": "Home base", "description": "Everyone on every trip." },
   "phases": [
-    { "id": "planning", "label": "Planning" },
-    { "id": "booking", "label": "Booking" },
-    { "id": "buffer", "label": "Buffer" },
-    { "id": "pre-trip", "label": "Pre-trip" },
-    { "id": "trip", "label": "Trip", "main": true },
-    { "id": "post-trip", "label": "Post-trip" }
+    { "id": "planning", "icon": "clipboard-list", "label": "Planning" },
+    { "id": "booking", "icon": "ticket", "label": "Booking" },
+    { "id": "buffer", "icon": "hourglass-half", "label": "Buffer" },
+    { "id": "pre-trip", "icon": "suitcase-rolling", "label": "Pre-trip" },
+    { "id": "trip", "icon": "plane", "label": "Trip", "main": true },
+    { "id": "post-trip", "icon": "camera-retro", "label": "Post-trip" }
   ],
   "spaceDefaults": { "profile": "participants", "opensWith": ["travel", "chat"] }
 }

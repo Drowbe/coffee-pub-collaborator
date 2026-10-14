@@ -101,7 +101,11 @@ try {
     assert.deepEqual(t.modules, ['travel', 'places', 'maps', 'research', 'calendar', 'chat', 'conference']);
     assert.deepEqual([t.moduleNames.travel, t.icons.home, t.lobby.name, t.lobby.description, t.spaceDefaults.profile], ['Itinerary', 'suitcase-rolling', 'Home base', 'Everyone on every trip.', 'participants']);
     assert.deepEqual(t.spaceDefaults.opensWith, ['travel', 'chat']);
-    assert.equal(t.version, 5);
+    assert.equal(t.version, 6);
+    // Version 6: each phase has a Font Awesome Free solid icon that can be drawn (the server's own drawable() test).
+    assert.deepEqual(t.phases.map((p) => [p.id, p.icon]), [['planning', 'clipboard-list'], ['booking', 'ticket'], ['buffer', 'hourglass-half'], ['pre-trip', 'suitcase-rolling'], ['trip', 'plane'], ['post-trip', 'camera-retro']]);
+    for (const p of travelRaw.phases) assert.ok(fs.existsSync(path.join(ROOT, 'node_modules', '@fortawesome', 'fontawesome-free', 'svgs', 'solid', `${p.icon}.svg`)), `${p.id}: ${p.icon} is not a drawable icon`);
+    assert.deepEqual(templates.problemsOf(travelRaw, { file: 'travel.json', bundled }), [], 'every phase icon passes the server\'s check');
     // plan-calendar-destination.md, decision 12, and plan-map-destination.md, decision 17: Show Calendar and Show Map
     // are on for Travel (applied once, as template settings are).
     // plan-space-calendars.md, decision 7: private addresses and other calendars on for Travel too (version 5).
@@ -749,6 +753,49 @@ try {
     assert.equal(shipped.json.template.name, 'Travel');
     assert.equal(shipped.json.template.update, null);
     assert.equal((await call(server, 'out', 'GET', '/api/branding')).json.words.space.one, 'trip');
+  });
+
+  await test('travel version 6 (phase icons): never-edited copy updates silently, an edited one gets the notice once, and nothing is applied again', async () => {
+    // The shipped file as version 5 had it: no phase icons. Only the whole-template fingerprint can tell; what is applied
+    // once (modules, settings, Lobby, space defaults, reactions, icon set, theme) must be the same.
+    const shipped = templates.get('travel');
+    const old = { ...shipped, version: 5, phases: shipped.phases.map(({ icon, ...rest }) => rest) };
+    assert.equal(templates.appliedOnceFingerprint(old), templates.appliedOnceFingerprint(shipped), 'icons on phases are not an applied-once part');
+    assert.deepEqual(templates.partFingerprints(old), templates.partFingerprints(shipped));
+    assert.notEqual(templates.wholeFingerprint(old), templates.wholeFingerprint(shipped), 'but the whole template differs');
+    const base5 = { version: 5, fingerprint: templates.appliedOnceFingerprint(old), whole: templates.wholeFingerprint(old) };
+    const owner = cookieOf(await call(server, 'out', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
+    const offerOpen = async () => (await call(server, 'out', 'GET', '/api/environment/template', { cookie: owner })).json.template.offerOpen;
+    assert.equal(await offerOpen(), false, 'before');
+    // Never edited: the host recorded version 5 as its base.
+    const was = (await travelRow());
+    assert.equal(was.edited, false);
+    await restartHost(() => {
+      const data = readHost();
+      data.bundledEdits.find((r) => r.id === 'travel').base = base5;
+      fs.writeFileSync(path.join(hosted, 'host.json'), JSON.stringify(data, null, 2));
+    });
+    let row = await travelRow();
+    assert.deepEqual([row.edited, row.update, row.version], [false, null, was.version + 1], 'silent: the version rises, no notice');
+    assert.deepEqual((await call(server, 'out', 'GET', '/api/branding')).json.phases.map((p) => p.icon), ['clipboard-list', 'ticket', 'hourglass-half', 'suitcase-rolling', 'plane', 'camera-retro']);
+    const ownerAgain = cookieOf(await call(server, 'out', 'POST', '/api/login', { body: { login: 'owner', password: 'owner-password-1' } }));
+    const tab = await call(server, 'out', 'GET', '/api/environment/template', { cookie: ownerAgain });
+    assert.equal(tab.json.template.offerOpen, false, 'nothing applied once changed, so no offer to apply again');
+    // Edited: the owner of the template keeps their edit and sees the notice once.
+    const edited = await console_('PATCH', '/api/host/templates/travel', { name: 'Journeys' });
+    assert.equal(edited.json.template.edited, true);
+    await restartHost(() => {
+      const data = readHost();
+      data.bundledEdits.find((r) => r.id === 'travel').base = base5;
+      fs.writeFileSync(path.join(hosted, 'host.json'), JSON.stringify(data, null, 2));
+    });
+    row = await travelRow();
+    assert.deepEqual([row.name, row.edited, row.version, row.update], ['Journeys', true, edited.json.template.version, { shippedVersion: 6 }], 'the notice opens');
+    const mine = await console_('POST', '/api/host/templates/travel/update', { keep: 'mine' });
+    assert.deepEqual([mine.status, mine.json.template.update, mine.json.template.name], [200, null, 'Journeys'], 'once: keeping the edit closes it');
+    await restartHost();
+    assert.equal((await travelRow()).update, null, 'and it stays closed');
+    await console_('DELETE', '/api/host/templates/travel/edits');
   });
 
   await server.stop();

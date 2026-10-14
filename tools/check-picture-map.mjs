@@ -242,6 +242,15 @@ try {
     assert.deepEqual(list.find((d) => d.key === 'map').kinds, { 'art.pmtiles': 'picture', 'city.pmtiles': 'vector' });
     assert.deepEqual(list.find((d) => d.key === 'map').zooms['city.pmtiles'], { minZoom: 0, maxZoom: 14 });
     assert.deepEqual(list.find((d) => d.key === 'imageMap').kinds, { 'world.pmtiles': 'picture' });
+    // `folder` is the manifest's folder name (the full path is under `path`); `shared` is true only when the host really keeps
+    // the folder, never the manifest's "host" string (this is a single install, so the maps' own `map` setting is not shared).
+    assert.equal(list.find((d) => d.key === 'imageMap').folder, 'image-map');
+    assert.ok(path.isAbsolute(list.find((d) => d.key === 'imageMap').path) && list.find((d) => d.key === 'imageMap').path.endsWith('image-map'));
+    for (const d of list.filter((x) => x.type === 'file' || x.type === 'files')) {
+      assert.ok(!/[\\/]/.test(d.folder), `${d.key}: folder is a name`);
+      assert.ok(d.shared === undefined || d.shared === true, `${d.key}: shared is never the manifest string`);
+    }
+    assert.equal(list.find((d) => d.key === 'map').shared, undefined, 'the maps folder is not shared on a single install');
   });
 
   await test('a picture file is refused in Map files, map data in Picture map', async () => {

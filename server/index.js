@@ -7150,16 +7150,26 @@ app.put('/api/modules/:id/files/:folder', requireOwner, async (req, res) => {
       let size = 0;
       let settled = false;
       const settle = (r) => { if (!settled) { settled = true; resolve(r); } };
+      // A write stream opens its file asynchronously, so destroying it at once can leave the file created a moment
+      // AFTER the part is removed. Every failure path therefore waits for the stream's 'close' (the file is open and
+      // closed by then) before it answers, so the caller's unlink is the last thing to touch the part.
+      const settleClosed = (r) => {
+        if (settled) return;
+        settled = true;
+        if (out.closed) return resolve(r);
+        out.once('close', () => resolve(r));
+        out.destroy();
+      };
       req.on('data', (chunk) => {
         if (settled) return;
         size += chunk.length;
-        if (size > limit) { req.removeAllListeners('data'); out.destroy(); return settle({ over: true }); }
+        if (size > limit) { req.removeAllListeners('data'); return settleClosed({ over: true }); }
         if (!out.write(chunk)) { req.pause(); out.once('drain', () => req.resume()); }
       });
-      req.on('end', () => out.end(() => settle({ size })));
-      req.on('error', () => { out.destroy(); settle({ aborted: true }); });
-      req.on('close', () => { if (!req.complete) { out.destroy(); settle({ aborted: true }); } });
-      out.on('error', (err) => settle({ failed: err.message }));
+      req.on('end', () => { if (!settled) out.end(() => settle({ size })); });
+      req.on('error', () => settleClosed({ aborted: true }));
+      req.on('close', () => { if (!req.complete) settleClosed({ aborted: true }); });
+      out.on('error', (err) => settleClosed({ failed: err.message }));
     });
     if (got.over) { dropPart(); return tooBig(); }
     if (got.aborted) { dropPart(); return; }
@@ -7224,11 +7234,13 @@ const withValues = (manifest, scope, ctx) => {
   const values = moduleSettings.values(manifest, scope, ctx);
   return manifest.settings.filter((d) => d.scope === scope).map((d) => {
     const shared = settingIsShared(manifest, d);
+    const { shared: _manifestFlag, ...own } = d; // the manifest's "host" string is not an answer: `shared` below is true or absent
     return {
-      ...d,
+      ...own,
       value: shared ? sharedValue(manifest, d) : values[d.key],
       ...(shared ? { shared: true } : {}),
-      ...(d.type === 'file' || d.type === 'files' ? (({ files, ...rest }) => ({ available: files, ...rest }))(inspectModuleFiles(manifest, d.folder)) : {}),
+      // `folder` stays the manifest's folder NAME; the scan's full path goes under `path`.
+      ...(d.type === 'file' || d.type === 'files' ? (({ files, folder, ...rest }) => ({ available: files, path: folder, ...rest }))(inspectModuleFiles(manifest, d.folder)) : {}),
     };
   });
 };

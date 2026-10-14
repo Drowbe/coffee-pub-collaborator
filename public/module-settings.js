@@ -122,10 +122,10 @@ function sendFile(moduleId, folder, file, onLine) {
 
 // Why the list of files is empty, from what the server found in the folder.
 function fileHint(def) {
-  const where = def.folder ? `Looking in ${def.folder}` : `Looking in the ${word('module')}'s folder in the data folder`;
+  const where = def.path ? `Looking in ${def.path}` : `Looking in the ${word('module')}'s folder in the data folder`;
   if (def.exists === false) return `${where}, which does not exist yet. Create it and copy the file in.`;
   const skipped = def.skipped || [];
-  if ((def.available || []).length) return `The server ignored ${skipped.length} other file${skipped.length === 1 ? '' : 's'} in ${def.folder || 'the folder'}: ${skipped.map((s) => `${s.name} (${s.reason})`).join('; ')}.`;
+  if ((def.available || []).length) return `The server ignored ${skipped.length} other file${skipped.length === 1 ? '' : 's'} in ${def.path || 'the folder'}: ${skipped.map((s) => `${s.name} (${s.reason})`).join('; ')}.`;
   if (skipped.length) return `${where}, which has ${skipped.length} file${skipped.length === 1 ? '' : 's'} The server ignored: ${skipped.map((s) => `${s.name} (${s.reason})`).join('; ')}.`;
   return `${where}, which is empty. Copy the file in.`;
 }

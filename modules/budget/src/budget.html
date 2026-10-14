@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Budget</title>
+<style>
+/*__CSS__*/
+</style>
+</head>
+<body>
+<!--
+  The page and every piece of markup the script clones. The script fills a clone by hooks only:
+    [data-slot=name]   set its textContent (or hide it when there is no value)
+    [data-icon=name]   replace its content with host.ui.icon(name)
+  It sets no style of its own, except the few values a drawing needs (a bar's width, a category's colour as a custom property,
+  the chart's marks). The views are switched by host.ui.viewSwitch in the toolbar.
+-->
+<div id="app" class="app" hidden>
+  <main id="body" class="body">
+    <!-- Overview: the target, what is spent, each category, the burndown -->
+    <section id="view-overview" class="view" aria-label="Overview" hidden>
+      <div class="tile target" id="target-tile">
+        <div class="target-head">
+          <h2 class="tile-title" data-slot="target-title">Target</h2>
+          <button class="btn" type="button" id="target-edit" hidden><span class="ic" data-icon="pen"></span> <span data-slot="label">Edit target</span></button>
+        </div>
+        <p class="big" data-slot="big"></p>
+        <div class="bar" id="target-bar" role="progressbar" aria-label="Spent against the target" aria-valuemin="0" aria-valuemax="100" hidden><span class="bar-expected" id="bar-expected"></span><span class="bar-spent" id="bar-spent"></span></div>
+        <dl class="sums" id="sums"></dl>
+        <p class="hint" data-slot="target-note" hidden></p>
+      </div>
+      <div class="tile" id="cats-tile">
+        <h2 class="tile-title">By category</h2>
+        <div class="cat-rows" id="cat-rows"></div>
+      </div>
+      <div class="tile" id="burn-tile">
+        <h2 class="tile-title">Target left over time</h2>
+        <div class="chart" id="chart"></div>
+        <ul class="legend" id="legend" aria-hidden="true"></ul>
+        <p class="hint" id="burn-words"></p>
+      </div>
+    </section>
+
+    <!-- Costs: every cost, grouped by day or category -->
+    <section id="view-costs" class="view" aria-label="Costs" hidden>
+      <div class="list-tools">
+        <div class="find"><span class="ic" data-icon="magnifying-glass"></span><input id="find" type="search" maxlength="100" placeholder="Find a cost" aria-label="Find a cost" autocomplete="off"></div>
+        <div class="tool-row" role="group" aria-label="Show the costs">
+          <button class="chip-btn" type="button" id="tool-group"><span class="ic" data-icon="layer-group"></span><span data-slot="label">By day</span></button>
+          <button class="chip-btn" type="button" id="tool-sort"><span class="ic" data-icon="arrow-down-wide-short"></span><span data-slot="label">Date, earliest first</span></button>
+          <button class="chip-btn" type="button" id="tool-category"><span class="ic" data-icon="tag"></span><span data-slot="label">All categories</span></button>
+          <button class="chip-btn" type="button" id="tool-payer"><span class="ic" data-icon="user"></span><span data-slot="label">Anyone paid</span></button>
+        </div>
+      </div>
+      <div id="groups"></div>
+    </section>
+
+    <!-- Settle up: who owes whom -->
+    <section id="view-settle" class="view" aria-label="Settle up" hidden>
+      <div class="tile">
+        <h2 class="tile-title">Who owes whom</h2>
+        <div id="payments"></div>
+      </div>
+      <div class="tile">
+        <h2 class="tile-title">Each person</h2>
+        <div class="people-rows" id="people-rows"></div>
+        <p class="hint" data-slot="settle-note"></p>
+      </div>
+    </section>
+  </main>
+
+  <!-- a cost, in the editor window (host.ui.editor): a form for someone who may edit, read-only for anyone else -->
+  <dialog id="editor" class="sdk-editor">
+    <form id="form" class="editor-card" novalidate>
+      <h3 id="editor-title">Add a cost</h3>
+      <p class="hint" id="f-readonly" hidden></p>
+      <fieldset id="f-fields" class="fields">
+        <label>What is it for<input id="f-title" name="title" type="text" maxlength="120" required autocomplete="off"></label>
+        <div class="editor-row">
+          <label><span>Planned <span class="unit" data-slot="unit"></span></span><input id="f-planned" name="planned" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet"></label>
+          <label><span>Paid <span class="unit" data-slot="unit"></span></span><input id="f-actual" name="actual" type="text" inputmode="decimal" autocomplete="off" placeholder="Not yet"></label>
+        </div>
+        <div class="editor-row">
+          <label>Category<select id="f-category" name="category"></select></label>
+          <label>Date<input id="f-date" name="date" type="date"></label>
+        </div>
+        <label>Paid by<select id="f-payer" name="payer"></select></label>
+        <div>
+          <div class="hint">Shared by</div>
+          <div class="editor-people" id="f-shared" role="group" aria-label="Shared by"></div>
+          <div class="hint" id="f-shared-note">Leave everyone unticked to share it with everyone.</div>
+        </div>
+        <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="1000"></textarea></label>
+      </fieldset>
+      <p class="hint" id="f-by"></p>
+      <p class="error" id="f-error" role="alert" hidden></p>
+      <div class="editor-buttons sdk-editor-actions" id="f-actions">
+        <button class="btn btn-primary" type="submit" id="f-save">Save</button>
+        <button class="btn" type="button" id="f-cancel">Cancel</button>
+        <span class="grow"></span>
+        <button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- the target, in a window of its own: only for someone who may change it -->
+  <dialog id="target-editor" class="sdk-editor">
+    <form id="target-form" class="editor-card" novalidate>
+      <h3 id="target-editor-title">Target</h3>
+      <label>Amount<input id="t-amount" name="amount" type="text" inputmode="decimal" autocomplete="off" placeholder="No target"></label>
+      <label>Currency<select id="t-currency" name="currency"></select></label>
+      <p class="hint">Leave the amount empty to have no target. Everyone signed in sees the target and how much is spent. People who joined by a link don't.</p>
+      <p class="error" id="t-error" role="alert" hidden></p>
+      <div class="editor-buttons sdk-editor-actions">
+        <button class="btn btn-primary" type="submit" id="t-save">Save</button>
+        <button class="btn" type="button" id="t-cancel">Cancel</button>
+      </div>
+    </form>
+  </dialog>
+</div>
+<p id="msg" class="hint msg">Loading...</p>
+
+<!-- ============================ templates ============================ -->
+
+<template id="tpl-group"><section class="group"><h2 class="group-title"><span class="ic" data-icon=""></span><span data-slot="title"></span><span class="grow"></span><span class="group-total" data-slot="total"></span></h2><div class="rows"></div></section></template>
+
+<!-- a cost. The element gets data-id; --tone is set to its category's colour. -->
+<template id="tpl-cost">
+  <article class="cost-row">
+    <button class="cost-main" type="button" data-action="open">
+      <span class="mark"><span class="ic" data-icon=""></span></span>
+      <span class="main">
+        <span class="title" data-slot="title"></span>
+        <span class="sub" data-slot="sub"></span>
+      </span>
+      <span class="amounts">
+        <span class="amount" data-slot="amount"></span>
+        <span class="planned" data-slot="planned"></span>
+      </span>
+    </button>
+    <button class="row-menu sdk-more" type="button" data-action="menu" aria-label="Cost menu"><span class="ic" data-icon="ellipsis-vertical"></span></button>
+  </article>
+</template>
+
+<template id="tpl-cat-row"><div class="cat-row"><div class="cat-line"><span class="mark"><span class="ic" data-icon=""></span></span><span class="cat-name" data-slot="name"></span><span class="grow"></span><span class="cat-amount" data-slot="amount"></span></div><div class="cat-bar" aria-hidden="true"><span class="cat-plan"></span><span class="cat-paid"></span></div></div></template>
+<template id="tpl-sum"><div class="sum"><dt data-slot="label"></dt><dd data-slot="value"></dd></div></template>
+<template id="tpl-legend"><li class="key"><span class="swatch"></span><span data-slot="label"></span></li></template>
+<template id="tpl-person"><div class="person-row"><span class="avatar" data-slot="initial"></span><span class="person-name" data-slot="name"></span><span class="grow"></span><span class="person-nums"><span data-slot="paid"></span><span data-slot="share"></span></span><span class="net" data-slot="net"></span></div></template>
+<template id="tpl-payment"><p class="payment"><span class="ic" data-icon="arrow-right"></span><span data-slot="text"></span><b class="pay-amount" data-slot="amount"></b></p></template>
+<template id="tpl-check"><label class="check"><input type="checkbox"><span data-slot="name"></span></label></template>
+<template id="tpl-state"><div class="state"><span class="ic" data-icon="wallet"></span><h2 data-slot="title"></h2><p data-slot="text"></p><p><button class="btn btn-primary" type="button" data-action="add" hidden><span class="ic" data-icon="plus"></span> Add a cost</button></p></div></template>
+
+<script>
+/*__JS__*/
+</script>
+</body>
+</html>

@@ -117,7 +117,7 @@ body { margin: 0; overflow: hidden; }
 .part-head .btn { display: inline-flex; align-items: center; gap: 6px; }
 .scope-mark { display: inline-flex; align-items: center; gap: 4px; max-width: 100%; color: var(--text-dim); font-size: 11px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .scope-mark .ic svg { width: 1em; height: 1em; fill: currentColor; }
-.place-row.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 45%, transparent), 0 2px 8px color-mix(in srgb, black 12%, transparent); }
+.place-row.selected { background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 30%, var(--bg-card)), color-mix(in srgb, var(--accent) 22%, var(--bg-card))); }
 .find-more { margin: 14px 0 0; text-align: center; }
 .find-more .btn { display: inline-flex; align-items: center; gap: 6px; }
 .app.part .found { position: relative; left: auto; right: auto; bottom: auto; flex: none; max-height: 45%; box-shadow: none; }

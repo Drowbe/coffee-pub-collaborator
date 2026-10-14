@@ -2225,7 +2225,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.equal(tabOfField('aiOff'), 'modules');
   assert.equal(tabOfField('module:todo'), 'modules', 'a module\'s settings live on the modules tab');
   assert.equal(tabOfField('phases'), 'phases');
-  assert.deepEqual([...MODERATOR_FIELDS], ['phases', 'opensWith', 'defaultLayout'], 'the server\'s MODERATOR_SPACE_FIELDS');
+  assert.deepEqual([...MODERATOR_FIELDS], ['phases', 'opensWith', 'defaultLayout', 'budget'], 'the server\'s MODERATOR_SPACE_FIELDS');
   const owner = setupTabs({ owner: true });
   assert.equal(pickTab(owner, '#members'), 'members', 'the fragment picks the tab');
   assert.equal(pickTab(owner, 'opens-with'), 'opens-with');
@@ -2346,26 +2346,41 @@ test('Set up: one PATCH of what changed; the first visit\'s layout and Opens wit
   assert.deepEqual(setupPatch({ name: 'A' }, { name: 'A', profile: 'participants', opensWith: null, defaultLayout: null }), {}, 'a space with nothing set, a draft saying so');
 });
 
-test('Set up: the budget (#216) goes in the one PATCH only when it changed, as null or { amount, currency? }; on the space tab; a refusal names it', () => {
+test('Set up: the budget (#216) goes in the one PATCH only when it changed, as null, { currency } or { amount, currency? }; on the phases tab (the moderator too); a refusal names it', () => {
   const none = { name: 'Lisbon', budget: { amount: '', currency: '' } };
   assert.deepEqual(setupPatch(none, { ...none }), {}, 'none before, none now');
   assert.deepEqual(setupPatch(none, { ...none, budget: { amount: '4000', currency: '' } }), { budget: { amount: 4000 } }, 'an amount: no currency is the module\'s own');
   assert.deepEqual(setupPatch(none, { ...none, budget: { amount: '4000', currency: 'EUR' } }), { budget: { amount: 4000, currency: 'EUR' } });
   const set = { name: 'Lisbon', budget: { amount: '4000', currency: '' } };
   assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '4000.00', currency: '' } }), {}, 'the same amount written another way is no change');
-  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: 'EUR' } }), { budget: null }, 'emptied: cleared');
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: 'EUR' } }), { budget: { currency: 'EUR' } }, 'the amount emptied, a currency chosen: the currency alone, no amount');
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: '' } }), { budget: null }, 'both empty: cleared');
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '4000', currency: 'EUR' } }), { budget: { amount: 4000, currency: 'EUR' } }, 'a changed currency goes with the stored amount (a currency alone would replace the target)');
+  const onlyCurrency = { name: 'Lisbon', budget: { amount: '', currency: 'EUR' } };
+  assert.deepEqual(setupPatch(onlyCurrency, { ...onlyCurrency }), {}, 'a stored currency alone is no change');
+  assert.deepEqual(setupPatch(onlyCurrency, { ...onlyCurrency, budget: { amount: '', currency: '' } }), { budget: null }, 'and clearing it clears');
+  assert.deepEqual(setupPatch(onlyCurrency, { ...onlyCurrency, budget: { amount: '5', currency: 'EUR' } }), { budget: { amount: 5, currency: 'EUR' } });
   assert.deepEqual(setupPatch(set, { ...set, budget: { amount: 'lots', currency: '' } }), { budget: { amount: null } }, 'not a number: sent so the server says why');
   assert.deepEqual(setupPatch({ name: 'Lisbon' }, { name: 'Lisbon' }), {}, 'a draft without the field is no change');
-  assert.deepEqual([...dirtyTabs({ budget: null })], ['space'], 'the space tab\'s');
+  assert.deepEqual([...dirtyTabs({ budget: null })], ['phases'], 'the phases tab\'s');
+  assert.deepEqual([...dirtyTabs({ budget: null }, { tabs: ['phases', 'opens-with'] })], ['phases']);
+  assert.deepEqual([...dirtyTabs({ budget: null }, { tabs: ['space', 'members', 'opens-with', 'modules'] })], ['space'], 'no phases in the template: an owner\'s space tab');
+  assert.deepEqual([...dirtyTabs({ budget: null }, { tabs: ['opens-with', 'modules'] })], ['opens-with'], 'and a moderator\'s first visit tab');
+  assert.equal(tabOfField('budget'), 'phases');
+  assert.equal(tabOfField('budget', ['opens-with']), 'opens-with');
+  assert.ok(setupTabs({ moderator: true }).includes(tabOfField('budget', setupTabs({ moderator: true }))), 'a tab a moderator has');
   assert.equal(problemField({ name: 'P', budget: { amount: 0 } }, 'The budget must be an amount above zero.'), 'budget');
   assert.equal(problemField({ link: 'x', budget: { amount: 5, currency: 'QQQ' } }, 'QQQ is not a currency this server knows. Choose one from the list, such as USD.'), 'budget');
-  assert.ok(!MODERATOR_FIELDS.includes('budget'), 'not a moderator\'s field');
+  assert.ok(MODERATOR_FIELDS.includes('budget'), 'a moderator\'s field (plan-budget-module.md, decision 5)');
   assert.equal(setupSaidWords({ saved: ['budget'] }), 'Saved the budget. Everyone sees it now; press Set up to change more.');
   const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
-  assert.match(setup, /parts\.push\(sectionHtml\('budget', [^\n]*\n(?:[^\n]*\n){4}\s*<p class="hint" id="setup-budget-hint"><\/p>`, \{ hidden: true \}\)\);/, 'drawn hidden, shown once it is known a module reads it or one is set');
+  assert.match(setup, /return sectionHtml\('budget', [^\n]*\n(?:[^\n]*\n){4}\s*<p class="hint" id="setup-budget-hint"><\/p>`, \{ hidden: true \}\);/, 'drawn hidden, shown once it is known a module reads it or one is set');
   assert.match(setup, /if \(show && state\.ownerPartsIn\) section\.hidden = false;/, 'shown only after the space\'s own record (the stored budget) has come');
   assert.match(setup, /<input type="number" id="setup-budget-amount"/, 'a number field');
   assert.match(setup, /<select id="setup-budget-currency"><\/select>/, 'and the currency');
+  assert.match(setup, /id === budgetTabOf\(tabs\) && !space\.isLobby \? budgetSectionHtml\(\)/, 'drawn on the tab budgetTabOf names');
+  assert.match(setup, /else if \(!space\.isLobby\) loadModeratorParts\(space\);/, 'a moderator reads the stored target from their own answer');
+  assert.ok(!/const entry = state\.owner/.test(setup), 'a moderator\'s unreadable entry is refused too');
   const page = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.match(page, /budget: budgetReported\(\) \? budgetSource\(\) : null,/, 'the page offers it while a module here reports a fact marked budget');
   assert.match(page, /if \(settingUp && budgetReported\(\)\) spaceSetup\.offerBudget\(budgetSource\(\)\);/, 'and when the facts come after Set up opened (by address)');
@@ -2383,7 +2398,7 @@ test('Set up: a budget the field cannot read is refused before anything is sent;
   assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: '', bad: true } }), { budget: { amount: null } }, 'were it ever sent, a bad entry goes as no amount (refused by the server), never as null (which clears)');
   assert.notDeepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: '', bad: true } }), { budget: null });
   assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: '' } }), { budget: null }, 'only a truly empty field clears');
-  assert.deepEqual([...dirtyTabs(setupPatch({ name: 'L', budget: { amount: '', currency: '' } }, { name: 'L', budget: { amount: '', currency: '', bad: true } }))], ['space'], 'a bad entry is a change, so Save is offered and refuses it');
+  assert.deepEqual([...dirtyTabs(setupPatch({ name: 'L', budget: { amount: '', currency: '' } }, { name: 'L', budget: { amount: '', currency: '', bad: true } }))], ['phases'], 'a bad entry is a change, so Save is offered and refuses it');
   const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
   assert.match(setup, /const bad = Boolean\(budgetAmount\.validity && budgetAmount\.validity\.badInput\);/, 'the field\'s badInput is read on each edit');
   const done = setup.slice(setup.indexOf('async function done()'), setup.indexOf('const patch = patchNow();', setup.indexOf('async function done()')));
@@ -2399,6 +2414,9 @@ test('Set up: the Budget section shows while a module that reads the target is o
   assert.deepEqual(budgetWanted({ installed: [{ ...planner, budget: false }] }), { show: false, name: '' }, 'a module without the marker');
   assert.deepEqual(budgetWanted({ reported: { name: 'Planner' } }), { show: true, name: 'Planner' }, 'a fact marked budget');
   assert.deepEqual(budgetWanted({ stored: { amount: 4000 } }), { show: true, name: '' }, 'one is set');
+  assert.deepEqual(budgetWanted({ stored: { currency: 'EUR' } }), { show: true, name: '' }, 'a currency alone counts as set');
+  const listed = { id: 'travel', name: 'Planner', scope: ['space'], budget: true };
+  assert.deepEqual(budgetWanted({ installed: [listed] }), { show: true, name: 'Planner' }, 'a moderator\'s list (for-space) carries no enabled flag: it lists enabled modules only');
   assert.deepEqual(budgetWanted({ lobby: true, installed: [planner], stored: { amount: 1 } }), { show: false, name: '' }, 'never the Lobby');
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules/travel/module.json'), 'utf8'));
   assert.equal(manifest.budget, true, 'the Planner\'s manifest says it reads the budget');
@@ -2584,6 +2602,49 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   }
   // The one exception, by Thomas's decision: the environment's name, the wordmark.
   assert.match(css, /the one exception to it in the top bar/, 'the wordmark\'s exception said where it is set');
+});
+
+// Thomas's rule: a selected, active, on or current state is shown with a FILL (a theme token), never with an added border,
+// outline or ring ("I found ANOTHER button border. Stop adding them."). This reads every stylesheet the pages and the
+// bundled modules use and fails on a state rule that declares a border, an outline colour, or an inset or ring shadow,
+// other than: the keyboard focus ring (:focus-visible, :focus), a border colour that is the same as the rule's own
+// background (the fill covers the border, nothing shows), and the deliberate exceptions listed here, each with its reason.
+test('a selected, active, on or current state is a fill: no state rule adds a border, outline or ring', () => {
+  const files = ['public/style.css'];
+  for (const dir of ['public/sdk', ...fs.readdirSync(path.join(ROOT, 'modules')).map((m) => `modules/${m}/src`)]) {
+    const abs = path.join(ROOT, dir);
+    if (!fs.existsSync(abs)) continue;
+    for (const f of fs.readdirSync(abs)) if (f.endsWith('.css') && !/-lib-/.test(f)) files.push(`${dir}/${f}`);
+  }
+  // [selector (whole, as written), why it stays]
+  const KEEP = [
+    ['.phase-band.current', 'a band on the phase timeline is a chart mark, not a control; its fill already carries the phase colour and the hover, so the ring is the only thing left to say "now"'],
+    ['.pin.selected[data-cat] .pin-body', 'a map marker (the Maps module): a pin is drawn on the map, not a control; its ring is how a marker is picked out on a busy map'],
+    ['.pin.selected .pin-body', 'a map marker, as above'],
+    ['.pin[data-cat]:not(.selected) .pin-body', 'a map marker\'s own edge at rest, not the selected state'],
+  ];
+  const STATE = /\.(on|active|selected|current|is-active|is-on|checked|sel|today)(?![\w-])|\.[\w]+-(?:on|active|current|selected)(?![\w-])|\[aria-(?:pressed|selected|checked|current)(?:=["']?(?:true|page|step)["']?)?\]|:checked/;
+  const PROP = /^(border|border-(top|right|bottom|left)|border-(top|right|bottom|left)?-?color|outline|outline-color|box-shadow)$/;
+  const bad = [];
+  for (const rel of files) {
+    const css = fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const decls = m[2].split(';').map((d) => d.trim()).filter(Boolean).map((d) => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]);
+      const fill = decls.filter(([k]) => /^background(-color)?$/.test(k)).map(([, v]) => v);
+      for (const sel of m[1].split(',').map((x) => x.trim().replace(/\s+/g, ' '))) {
+        if (!STATE.test(sel) || /:focus(-visible|-within)?\b/.test(sel) || KEEP.some(([k]) => k === sel)) continue;
+        for (const [k, v] of decls) {
+          if (!PROP.test(k)) continue;
+          if (/^(0|none|transparent|inherit|initial|unset|currentcolor)(\s|$)/i.test(v)) continue;
+          if (k === 'box-shadow' && !/\binset\b|^0 0 0 \d/.test(v)) continue; // a drop shadow or a glow is not a ring
+          if (/color$/.test(k) && fill.includes(v)) continue; // the same colour as the fill: nothing shows
+          if (k === 'border' && fill.some((f) => v.endsWith(f))) continue;
+          bad.push(`${rel}: ${sel} { ${k}: ${v} }`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(bad, [], `show the state with a fill token, not a border, outline or ring (--selected-bg):\n  ${bad.join('\n  ')}`);
 });
 
 console.log(`check-nav: OK (${n} tests)`);

@@ -880,7 +880,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const m = mod.m;
     if (compositeOf(m)) return compositeMount(mod, frame);
     return mountModule({
-      module: { id: m.id, version: m.version, scope: m.scope },
+      module: { id: m.id, version: m.version, scope: m.scope, budget: m.budget === true },
       ...(frame.tagName === 'IFRAME' ? { frame } : { container: frame }),
       header: mod.el.querySelector('[data-header-custom]'),
       toolbar: mod.el.querySelector('[data-toolbar]'),

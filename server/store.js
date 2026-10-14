@@ -61,23 +61,33 @@ function cleanOpensWith(list) {
   const out = [...new Set(list.filter((id) => typeof id === 'string' && OPENS_WITH_ID.test(id)))].slice(0, MAX_OPENS_WITH);
   return out.length ? out : null;
 }
-// A space's budget target (plan-space-story-strip.md, decision 5; #216): { amount, currency? }, a positive amount of
-// at most 12 digits before the point, rounded to cents, and an optional three-letter currency code (absent: the
-// currency the module reporting the money uses, e.g. the Planner's trip currency). budgetOf() keeps a stored one
-// or answers null; budgetProblem() is the sentence refusing a sent one, or null when it is good.
+// A space's budget target (plan-space-story-strip.md, decision 5; #216; plan-budget-module.md, decision 7):
+// { amount?, currency? } with at least one of them: a positive amount of at most 12 digits before the point, rounded to
+// cents, and a three-letter currency code (absent: the currency the module reporting the money uses). A currency alone
+// is a space that chose its currency with no target amount. budgetOf() keeps a stored one or answers null;
+// budgetProblem() is the sentence refusing a sent one, or null when it is good. An `amount` that is sent but is not a
+// good number (null included: Set up sends that for an entry it cannot read) is refused, never read as "no amount", so
+// a bad entry never deletes a stored target.
 const BUDGET_MAX = 1e12;
 function budgetOf(v) {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const amount = Math.round(Number(v.amount) * 100) / 100;
-  if (typeof v.amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount >= BUDGET_MAX) return null;
+  const amountOk = typeof v.amount === 'number' && Number.isFinite(amount) && amount > 0 && amount < BUDGET_MAX;
   const code = typeof v.currency === 'string' ? v.currency.trim().toUpperCase() : '';
-  return /^[A-Z]{3}$/.test(code) ? { amount, currency: code } : { amount };
+  const codeOk = /^[A-Z]{3}$/.test(code);
+  if (amountOk) return codeOk ? { amount, currency: code } : { amount };
+  return codeOk ? { currency: code } : null;
 }
+const sentBudgetPart = (x) => x !== undefined && x !== null && x !== '';
 function budgetProblem(v, settingsCurrency) {
-  if (!v || typeof v !== 'object' || Array.isArray(v)) return 'The budget needs an amount, or nothing to clear it.';
-  if (typeof v.amount !== 'number' || !Number.isFinite(v.amount) || Math.round(v.amount * 100) <= 0) return 'The budget must be an amount above zero.';
-  if (Math.round(v.amount * 100) / 100 >= BUDGET_MAX) return 'The budget can be at most 12 digits.';
-  if (v.currency !== undefined && v.currency !== null && v.currency !== '') {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return 'The budget needs an amount or a currency, or nothing to clear it.';
+  const hasCurrency = sentBudgetPart(v.currency);
+  if (v.amount === undefined && !hasCurrency) return 'The budget needs an amount or a currency, or nothing to clear it.';
+  if (v.amount !== undefined) {
+    if (typeof v.amount !== 'number' || !Number.isFinite(v.amount) || Math.round(v.amount * 100) <= 0) return 'The budget must be an amount above zero.';
+    if (Math.round(v.amount * 100) / 100 >= BUDGET_MAX) return 'The budget can be at most 12 digits.';
+  }
+  if (hasCurrency) {
     const code = typeof v.currency === 'string' ? v.currency.trim().toUpperCase() : '';
     if (!/^[A-Z]{3}$/.test(code)) return 'The budget\'s currency is a three-letter code, such as USD.';
     if (!CURRENCIES.has(code) && code !== String(settingsCurrency || '').toUpperCase()) return `${code} is not a currency this server knows. Choose one from the list, such as USD.`;
@@ -766,7 +776,7 @@ class Store {
       // The template's phases' dates on this space, { <id>: { start?, end? } } (plan-one-bar.md, step 1; the rule is
       // public/phases.js); absent while none is set. Kept as stored: the rule's refusals are updateSpace's.
       ...(Object.keys(phaseRule.cleanDates(r.phases)).length ? { phases: phaseRule.cleanDates(r.phases) } : {}),
-      // The budget target (#216; budgetOf): { amount, currency? }, absent while none is set.
+      // The budget target (#216; budgetOf): { amount?, currency? }, absent while none is set.
       ...(budgetOf(r.budget) ? { budget: budgetOf(r.budget) } : {}),
     };
   }
@@ -1845,8 +1855,8 @@ class Store {
         else delete draft.phases;
       }
     }
-    // The budget target (#216): { amount, currency? }, or null to clear it. Who may send it is the route's to decide
-    // (owners and the admin; not a moderator).
+    // The budget target (#216): { amount?, currency? }, or null to clear it. Who may send it is the route's to decide
+    // (owners, the admin and that space's moderators; plan-budget-module.md, decision 5).
     if (patch.budget !== undefined) {
       if (patch.budget === null) {
         delete draft.budget;

@@ -121,7 +121,7 @@ async function start() {
   };
   const mounted = mountModule({
     onOpenRef: openRef,
-    module: { id: mod.id, version: mod.version, scope: mod.scope },
+    module: { id: mod.id, version: mod.version, scope: mod.scope, budget: mod.budget === true },
     ...(inPage ? { container: frame } : { frame }),
     // A window of its own is the module: its frame fills the window, so an editor window needs no lift (editor.lift).
     lift: !popout,

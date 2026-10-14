@@ -1443,10 +1443,11 @@ function maySeeGuestLink(user, space) {
   if (hasOwnerRights(user)) return true;
   return space.members.includes(user.key) && Boolean(store.spacePermissions(user.key, space.id).canInvite);
 }
-// The space's budget target (#216) is not a general part of the space: it reaches owners and the admin through GET
-// /api/spaces/:id (Set up's read) and their own PATCH's answer, and a module through its context (GET
-// /api/modules/:id/context, only for a signed-in person who may read that module there). Every other view of a space
-// (the presence list, GET /api/spaces, the stream's status, a guest's) leaves it out.
+// The space's budget target (#216; plan-budget-module.md, decisions 3, 5 and 6) is not a general part of the space.
+// Members read it through the module: its context (GET /api/modules/:id/context, for a signed-in person who may read
+// that module there; a guest gets null). Those who edit it (owners, the admin and that space's moderators) also read it
+// through Set up's read (GET /api/spaces/:id) and their own PATCH's answer. Every other view of a space (the presence
+// list, GET /api/spaces, the stream's status, an access key's or a guest's) leaves it out.
 function withoutBudget(space) {
   if (!space || !('budget' in space)) return space;
   const { budget: _budget, ...rest } = space;
@@ -1457,9 +1458,16 @@ function shownSpace(req, space) {
   if (!general || !general.guestToken || maySeeGuestLink(currentUser(req), general)) return general;
   return { ...general, guestToken: null };
 }
-// A space answered to the person who changed it: whole for owners and the admin, without the budget for anyone else
-// (a moderator's PATCH, a member's guest link).
-const answeredSpace = (req, space) => (hasOwnerRights(currentUser(req)) ? space : withoutBudget(space));
+// A member ticked as this space's moderator (Manage > People, the space's permissions).
+function moderates(user, space) {
+  return Boolean(user && space && space.members.includes(user.key) && store.spaceFlags(user.key, space.id).moderator);
+}
+// A space answered to the person who changed it: whole for those who edit the budget (owners, the admin, a moderator
+// of that space), without the budget for anyone else (a member's guest link).
+const answeredSpace = (req, space) => {
+  const user = currentUser(req);
+  return hasOwnerRights(user) || moderates(user, space) ? space : withoutBudget(space);
+};
 
 // The environment's default mode (Manage > Theme), and the fingerprint of its /theme.css (server/theme-css.js).
 const environmentThemeMode = () => (store.settings.themeMode === 'light' ? 'light' : 'dark');
@@ -3577,26 +3585,30 @@ app.post('/api/spaces', requireOwner, (req, res) => {
 app.post('/api/spaces/order', requireOwner, (req, res) => {
   res.json({ spaces: store.reorderSpaces((req.body || {}).order) });
 });
-app.get('/api/spaces/:id', requireOwner, (req, res) => {
+// Set up's read. Owners and the admin get the whole record; a moderator of that space gets its id and the fields a
+// moderator may change (MODERATOR_SPACE_FIELDS, the budget among them) as stored; anyone else is "owners only".
+app.get('/api/spaces/:id', requireUser, (req, res) => {
   const space = store.spaceById(req.params.id);
   if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
-  res.json({ space });
+  if (isOwner(req)) return res.json({ space });
+  if (!moderates(currentUser(req), space)) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
+  const theirs = { id: space.id };
+  for (const k of MODERATOR_SPACE_FIELDS) if (k in space) theirs[k] = space[k];
+  res.json({ space: theirs });
 });
 // Owners and the admin change anything; a member ticked as this space's moderator may send `phases` (the dates on
-// the timeline, plan-one-bar.md step 1), `opensWith` and `defaultLayout` (Set up, step 4) and nothing else: any
-// other field in a moderator's body is "owners only". The values go through store.updateSpace's rules, the same as
+// the timeline, plan-one-bar.md step 1), `opensWith` and `defaultLayout` (Set up, step 4) and `budget` (the target,
+// plan-budget-module.md, decision 5) and nothing else: any other field in a moderator's body is "owners only". The values go through store.updateSpace's rules, the same as
 // an owner's. Whether the page may offer Set up comes from /api/me: hasOwnerRights, or
 // user.spaces[<id>].permissions.moderator.
-const MODERATOR_SPACE_FIELDS = ['phases', 'opensWith', 'defaultLayout'];
+const MODERATOR_SPACE_FIELDS = ['phases', 'opensWith', 'defaultLayout', 'budget'];
 app.patch('/api/spaces/:id', requireUser, (req, res) => {
   const body = req.body || {};
   if (!isOwner(req)) {
     const space = store.spaceById(req.params.id);
     if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
-    const me = currentUser(req);
-    const moderates = space.members.includes(me.key) && Boolean(store.spaceFlags(me.key, space.id).moderator);
     const onlyTheirs = Object.keys(body).every((k) => MODERATOR_SPACE_FIELDS.includes(k));
-    if (!moderates || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
+    if (!moderates(currentUser(req), space) || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
   }
   const space = store.updateSpace(req.params.id, body);
   chatAccessChanged(); // guests turned off, say: their chat streams end now
@@ -7602,8 +7614,10 @@ app.get('/api/modules/:id/context', (req, res) => {
     locale: { language: store.settings.language || 'en', clock: store.settings.clock === '24' ? '24' : '12', currency: store.settings.currency || 'USD', currencies: currencyCodes(store.settings.currency), words: store.resolvedWords() },
     // The space this read is in, or null outside one; its `phases` are the dates set on it ({} while none; plan-one-bar.md
     // step 1). The top-level `phases` is the template's, live, or [] when there is none. `budget` is the space's budget
-    // target, { amount, currency? } (#216; set by an owner in Set up), or null while none is set; always null for a
-    // guest (moduleAccess has already refused anyone not in the space or without the module's read permission).
+    // target, { amount?, currency? } (#216; set in Set up by an owner, the admin or a moderator of the space), or null
+    // while none is set. This is how a member reads it (plan-budget-module.md, decision 3): through the module, never
+    // the general space lists. Always null for a guest (moduleAccess has already refused anyone not in the space or
+    // without the module's read permission).
     space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases, budget: (who.user && here.budget) || null } : null,
     phases: phases.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}), ...(p.icon ? { icon: p.icon } : {}) })),
     // Facts about the environment every module may need. `pictureMap`: { file, minZoom, maxZoom, tileType } while the
@@ -7622,7 +7636,7 @@ app.get('/api/modules/for-space', (req, res) => {
   res.json({
     modules: modules.enabledAll()
       .filter(({ manifest, entry }) => manifest.scope.includes('space') && manifest.surfaces.canvas && moduleSpaceAccess(entry, who, space) && moduleCan(manifest, perms, 'read'))
-      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), color: manifest.color || null, ...(manifest.description ? { description: manifest.description } : {}), version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
+      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), color: manifest.color || null, ...(manifest.description ? { description: manifest.description } : {}), version: manifest.version, budget: manifest.budget === true, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
     // The built-in modules' names and icons as this environment shows them (the canvas's Conference and Chat switches).
     builtin: BUILTIN_MODULES.map((b) => ({ id: b.id, ...shownModule(b), ...(b.description ? { description: fillWords(b.description) } : {}) })),
     // What this space opens with, or null when it has no list of its own. The environment's list is what a new space

@@ -16,6 +16,7 @@
   --accent: #c8873a;
   --on-accent: #1a1206;
   --accent-hover: color-mix(in srgb, var(--accent) 85%, white);
+  --selected-bg: color-mix(in srgb, var(--accent) 28%, transparent); /* a selected, on or current control: a fill, never a border */
   --primary-hover: var(--accent-hover);
   --secondary: color-mix(in srgb, var(--bg-section) 90%, var(--accent) 10%);
   --secondary-text: var(--text);

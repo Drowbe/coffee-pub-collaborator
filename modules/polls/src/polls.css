@@ -51,7 +51,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ri svg { width: 1em; height: 1em; fill: currentColor; }
 .spaces { display: flex; flex-wrap: wrap; gap: 6px; }
 .filter { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 12px; background: none; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; opacity: 0.6; }
-.filter.on { color: var(--text); border-color: var(--accent); opacity: 1; }
+.filter.on { color: var(--text); background: var(--selected-bg); opacity: 1; }
 
 /* the form for a new poll: #editor is a <dialog> the SDK draws as the editor window (host.ui.editor), which gives the
    box, its padding, the backdrop and the sticky button row (.sdk-editor-actions); the form only lays out its fields */

@@ -404,7 +404,7 @@ test('a tint colours a message\'s portrait icon and left edge, and a module\'s i
   // Where: the module's titlebar on the canvas and in its own window, its line in the Layout menu's Show section.
   const canvasJs = read('public/canvas.js');
   assert.match(canvasJs, /<span class="mod-title"><i class="fa-solid fa-\$\{escapeHtml\(m\.icon\)\} fa-fw" aria-hidden="true"\$\{tintAttr\(m\.id\)\}><\/i>/);
-  assert.ok(canvasJs.includes("icon: m.icon, tint: colorOf(m.id), label: m.name, badge: unreadOf(m.id)"), 'the Layout menu\'s Show list tints each module\'s icon');
+  assert.ok(canvasJs.includes("icon: m.icon, tint: colorOf(m.id), label: m.name, ...(m.description ? { hint: m.description, clamp: true } : {}), badge: unreadOf(m.id)"), 'the Layout menu\'s Show list tints each module\'s icon');
   assert.match(read('public/switch-list.js'), /data-tint="\$\{tint\}"/);
   // The popped-out page's titlebar (GitHub #229): the server's colour, else a stable pick from the id (module-tint.js).
   const moduleJs = read('public/module.js');

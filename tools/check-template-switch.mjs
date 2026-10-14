@@ -132,6 +132,11 @@ try {
     assert.deepEqual(await ids(side), ['calendar', 'polls', 'todo']);
     const lobbyModules = (await as('GET', '/api/modules/for-space?space=lobby')).json;
     assert.deepEqual(lobbyModules.builtin.map((b) => b.id), ['conference', 'chat'], 'chat and the conference are the built-ins, as before');
+    // #237: each module and built-in carries its one-line description, in the environment's words, never a made-up one.
+    assert.ok(lobbyModules.builtin.every((b) => typeof b.description === 'string' && b.description && !/[{}]/.test(b.description)), 'built-ins describe themselves, placeholders filled');
+    const sideModules = (await as('GET', `/api/modules/for-space?space=${side}`)).json.modules;
+    assert.ok(sideModules.every((m) => m.description === undefined || (typeof m.description === 'string' && m.description && !/[{}]/.test(m.description))), 'a module\'s description is its manifest\'s, filled, or absent');
+    assert.ok(sideModules.some((m) => m.description), 'at least one bundled module is described');
     assert.deepEqual([lobbyModules.opensWith, lobbyModules.spaceDefaultsOpensWith], [null, null], 'with no template, nothing is set to open');
     assert.equal((await as('GET', '/api/modules')).json.modules.find((m) => m.id === 'polls').lobby, false);
     assert.equal((await as('GET', '/api/modules')).json.modules.find((m) => m.id === 'calendar').lobby, true);

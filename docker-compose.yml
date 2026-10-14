@@ -78,6 +78,14 @@ services:
       ENABLE_MFA: "true"
       ADMIN_MFA_LOCKOUT_BYPASS: "false"
       # HOST_MFA_REQUIRED: "true"   # with environments: every host admin must use it
+      # How many reverse proxies stand in front of this container (default 1: the Nginx Proxy Manager above). The
+      # sign-in and guest limits count by the address the nearest proxy saw, so nobody can pick their own. Two proxies
+      # in a row (say Cloudflare, then Nginx Proxy Manager): 2. Reached directly, with no proxy: 0.
+      # TRUST_PROXY_HOPS: "1"
+      # Live chat streams (one per open browser tab) and guests in Home's chat: the defaults are usually right.
+      # CHAT_STREAMS_PER_PERSON: "50"     # streams one signed-in person may hold open
+      # CHAT_STREAMS_PER_GUEST_LINK: "25" # streams one guest link may hold open; one address gets 40% of it
+      # GUEST_CHAT_POSTS_PER_MINUTE: "20" # messages one guest link may post a minute; one address gets half
       PORT: "3000"
     volumes:
       - /share/appdata/coffee-pub-collaborator:/app/data # users, settings and images

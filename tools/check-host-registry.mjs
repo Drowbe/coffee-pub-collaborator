@@ -1458,7 +1458,7 @@ try {
     await as('PATCH', '/api/modules/travel', { displayIcon: 'compass' });
     const conference = await as('PATCH', '/api/modules/conference', { displayName: 'Call', displayIcon: 'video' });
     assert.deepEqual([conference.status, conference.json.module.name, conference.json.module.displayName], [200, 'Conference', 'Call'], 'a built-in module takes a display name');
-    assert.deepEqual((await as('GET', '/api/modules/for-space?space=lobby')).json.builtin.find((b) => b.id === 'conference'), { id: 'conference', name: 'Call', icon: 'video' });
+    assert.deepEqual((await as('GET', '/api/modules/for-space?space=lobby')).json.builtin.find((b) => b.id === 'conference'), { id: 'conference', name: 'Call', icon: 'video', description: 'Voice and video for the space: the tiles, the toolbar, reactions, asides and the OBS views.' });
     assert.deepEqual(await as('PATCH', '/api/modules/conference', { enabled: false }).then((r) => [r.status, r.json]), [400, { error: 'Call is built in, so only its display name and icon can be changed here.' }]);
 
     assert.equal((await as('PATCH', '/api/settings', { words: { aside: { one: 'huddle', many: 'huddles' }, space: { one: 'trip', many: 'trips' }, module: { one: 'tool', many: 'tools' } } })).status, 200);

@@ -16,6 +16,22 @@ export function callTitle(name) {
   return !n || n === 'Conference' ? 'Call' : n;
 }
 
+// The time in the call, as the titlebar shows it: mm:ss, h:mm:ss from the first hour ("12:34", "1:00:00"). Whole seconds;
+// anything not a number, or below 0, reads 0. callDuration is the same as a <time datetime>: PT12M34S.
+export function callTime(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const pad = (n) => String(n).padStart(2, '0');
+  return h ? `${h}:${pad(m)}:${pad(s % 60)}` : `${pad(m)}:${pad(s % 60)}`;
+}
+export function callDuration(seconds) {
+  const s = Math.max(0, Math.floor(Number(seconds) || 0));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return `PT${h ? `${h}H` : ''}${h || m ? `${m}M` : ''}${s % 60}S`;
+}
+
 // How many rows the given widths wrap into (a flex row with `flex-wrap: wrap`).
 export function wrapRows(widths, width, gap = 0) {
   let rows = 0;

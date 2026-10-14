@@ -853,7 +853,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   // Which moves are pulls: in and out of an aside, never going somewhere myself (an invitation, the dashboard, a pop-out).
   const keepers = [...spaceJs.matchAll(/^.*reconnectTo\(.*\{ keepCall: true \}.*$/gm)].length;
   if (keepers !== 6) fail('public/space.js', `a pull keeps the call: the aside's pull (an owner's, a peer's), following back, the recall's countdown, pullAside and Rejoin call (found ${keepers})`);
-  for (const fn of ['async function joinInvitedSpace(', 'async function openInSpace(', 'async function joinInPopout(']) {
+  for (const fn of ['async function joinInvitedSpace(', 'async function openInSpace(']) {
     const body = spaceJs.slice(spaceJs.indexOf(fn), spaceJs.indexOf('\n}\n', spaceJs.indexOf(fn)));
     if (/keepCall/.test(body)) fail('public/space.js', `${fn.replace('async function ', '').replace('(', '()')} goes somewhere myself: it never joins the call`);
   }
@@ -1468,7 +1468,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const wanted = spaceJs.slice(spaceJs.indexOf('function homeChatWanted() {'), spaceJs.indexOf('function syncHomeChat() {'));
   for (const [re, why] of [[/!guestToken/, 'never on a guest link'], [/me\.role !== 'guest'/, 'never for a guest'], [/!currentSpace/, 'only with no space entered (Home over a space is step 4)'], [/canDo\('chatRead'\)/, 'only for whoever may read chat'], [/!homeChatEntering/, 'not while a space is being entered']]) if (!re.test(wanted)) fail(F, `Home's chat shows ${why}`);
   if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(spaceJs)) fail(F, 'Home\'s chat is the one #chat, moved, never a copy');
-  if (!/new EventSource\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`\)/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
+  if (!/liveChatStream\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`, \{ onData: homeChatNotice, catchUp: catchUpHomeChat \}\)/.test(spaceJs) || !/const es = new EventSource\(url\);/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
   if (!/homeChatEntering = true;[^\n]*\n\s*hideHomeChat\(\);/.test(spaceJs.slice(spaceJs.indexOf('async function join('), spaceJs.indexOf('async function joinAsGuest(')))) fail(F, 'entering a space takes the chat out of Home\'s column first');
   if (!/word\('module', \{ many: true, cap: true \}\)/.test(spaceJs.slice(spaceJs.indexOf('function renderSpaceListHead('), spaceJs.indexOf('async function addSpace(')))) fail(F, 'the Modules column is headed with the module word (the template\'s, else Modules)');
 
@@ -1511,8 +1511,16 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/nav\.setBadge\('menu-home', n\);/.test(body('function paintHomeUnread() {')) || !/#brand-home-link \.brand-logo/.test(body('function paintHomeUnread() {'))) fail(F, 'the count shows on the Home link: the logo, and the phone menu\'s Home');
   if (!/\.topbar \.brand-logo \.home-unread \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/.test(css)) fail('public/style.css', 'the Home link\'s count is drawn in theme tokens');
   // Catch-up: every `ready` after the first (a reconnect) reads the history again; other event types are left alone.
-  const open = body('function openHomeChatStream() {');
-  if (!/if \(data\?\.type === 'ready'\) \{\s*ready \+= 1;\s*if \(ready > 1\) catchUpHomeChat\(\);/.test(open)) fail(F, 'a reconnected stream catches up on what was missed');
+  const live = body('function liveChatStream(url, { onData, catchUp }) {');
+  if (!/if \(data\?\.type === 'ready'\) \{[^}]*readies \+= 1;\s*if \(readies > 1\) catchUp\(\);/.test(live)) fail(F, 'a reconnected stream catches up on what was missed');
+  // A stream is never left silently not live (QA, #289): on `error` it is closed and opened again with a backoff (2 s,
+  // doubling, 60 s at most, a limited number of tries); a refusal (401, 403, 429) or the server's `closed` stops it, and
+  // the page says so once.
+  if (!/es\.addEventListener\('error', \(\) => \{[^}]*es\.close\(\);[^}]*again\(live\);/.test(live)) fail(F, 'a stream that errs is closed and tried again');
+  if (!/Math\.min\(60000, 2000 \* 2 \*\* \(tries - 1\)\)/.test(live) || !/if \(tries > CHAT_STREAM_TRIES\) return pause\(\);/.test(live)) fail(F, 'the tries back off from 2 s to 60 s, a limited number of times');
+  if (!/status === 401 \|\| status === 403 \|\| status === 429\) return pause\(\);/.test(live) || !/data\?\.type === 'closed'\) \{\s*pause\(\);/.test(live)) fail(F, 'a refusal or the server\'s `closed` stops the tries');
+  if (!/showNote\('Live chat is paused\. Reload the page to try again\.'\)/.test(body('function sayChatPaused() {')) || !/if \(chatPausedSaid\) return;/.test(body('function sayChatPaused() {'))) fail(F, 'the page says once that live chat is paused');
+  if (!/guestChatStream = liveChatStream\(`\/api\/spaces\/\$\{LOBBY\}\/chat\/stream\?guest=/.test(spaceJs)) fail(F, 'a guest\'s Lobby stream is kept live the same way');
   if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {'))) fail(F, 'the catch-up reads Home\'s history');
 }
 
@@ -1668,9 +1676,26 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'call-toolbar.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/call-toolbar.js'), copy);
-  const { foldCallToolbar, wrapRows, callTitle } = await import(pathToFileURL(copy).href);
+  const { foldCallToolbar, wrapRows, callTitle, callTime, callDuration } = await import(pathToFileURL(copy).href);
   for (const [name, want] of [[undefined, 'Call'], ['', 'Call'], ['Conference', 'Call'], ['  Video  call ', 'Video call'], ['Video chat', 'Video chat']]) {
     if (typeof callTitle !== 'function' || callTitle(name) !== want) fail('public/call-toolbar.js', `callTitle(${JSON.stringify(name)}) should be ${JSON.stringify(want)}`);
+  }
+  // The time in the call (GitHub #37): mm:ss, h:mm:ss from the first hour; the same as a <time> duration.
+  for (const [s, want, iso] of [[0, '00:00', 'PT0S'], [59, '00:59', 'PT59S'], [60, '01:00', 'PT1M0S'], [754, '12:34', 'PT12M34S'], [3599, '59:59', 'PT59M59S'], [3600, '1:00:00', 'PT1H0M0S'], [86400, '24:00:00', 'PT24H0M0S'], [-5, '00:00', 'PT0S']]) {
+    if (typeof callTime !== 'function' || callTime(s) !== want) fail('public/call-toolbar.js', `callTime(${s}) should be ${want}`);
+    if (typeof callDuration !== 'function' || callDuration(s) !== iso) fail('public/call-toolbar.js', `callDuration(${s}) should be ${iso}`);
+  }
+  {
+    const page = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+    const code = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+    const sheet = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+    const stamp = /<span class="call-time nav-text" data-call-time hidden>[^]*?<time aria-live="off" datetime="PT0S">00:00<\/time><\/span>/g;
+    if ((page.match(stamp) || []).length !== 2) fail('public/space.html', 'the call time (<time>, aria-live="off", nav-text, hidden) sits in the column\'s titlebar and in the conference\'s own');
+    if (!/function startCallTime\(\) \{[^}]*setInterval\(showCallTime, 1000\)/.test(code) || !/inCall = true;\n    startCallTime\(\);/.test(code)) fail('public/space.js', 'the call time starts when this person joins the call (startCallTime), ticking every second');
+    if (!/inCall = false;\n  stopCallTime\(\);/.test(code) || !/inCall = false; \/\/ the whole call is gone[^\n]*\n    stopCallTime\(\);/.test(code) || !/addEventListener\('pagehide', \(\) => \{ clearInterval\(callTimeTimer\); callTimeTimer = null; \}\);/.test(code)) fail('public/space.js', 'the call time stops on leaving and on a lost connection (stopCallTime clears the timer), and its tick on pagehide');
+    if (!/addEventListener\('pageshow', \(\) => \{\s*if \(call\.state !== 'connected'\) \{\s*if \(callTimeStart\) stopCallTime\(\);[^]*?if \(!callTimeTimer\) callTimeTimer = setInterval\(showCallTime, 1000\);/.test(code)) fail('public/space.js', 'a page brought back (pageshow) ticks again while the call is connected, and clears the time if not');
+    if (!/In the call for \$\{text\}/.test(code)) fail('public/space.js', 'the call time is the titlebar\'s tooltip ("In the call for 12:34")');
+    if (!/\.call-time \{[^}]*font-variant-numeric: tabular-nums;/.test(sheet)) fail('public/style.css', 'the call time uses tabular figures');
   }
   fs.rmSync(tmp, { recursive: true, force: true });
   const W = 30;
@@ -1699,6 +1724,110 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   for (const [widths, width, gap, rows] of [[[30, 30, 30], 102, 6, 1], [[30, 30, 30], 101, 6, 2], [[], 100, 6, 0], [[200], 100, 6, 1]]) {
     if (wrapRows(widths, width, gap) !== rows) fail('public/call-toolbar.js', `wrapRows(${JSON.stringify(widths)}, ${width}, ${gap}) is ${wrapRows(widths, width, gap)}, want ${rows}`);
   }
+}
+
+// A call control's settings caret (.fbtn-caret: Microphone settings, Camera settings, Call position, ...) sits in its
+// button's corner and never over its centre, so a click in the middle is always the main action (QA, 2026-10-14: in a
+// 500px column the 16px caret covered a 30px button's centre, and a click on the microphone opened its settings). The
+// caret box is read from the stylesheet, every rule that sizes or places it, and tried against every size the call's
+// buttons take (--action-btn-h for .fbtn, the 38px default, 34px compact, 30px tiny, 40px on a phone).
+{
+  const F = 'public/style.css';
+  const px = (body, prop) => { const m = body.match(new RegExp(`(?:^|[;\\s{])${prop}\\s*:\\s*(-?\\d+(?:\\.\\d+)?)px`)); return m ? Number(m[1]) : null; };
+  const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+  const caretRules = rules.filter((r) => r.selector.split(',').some((s) => /\.fbtn-caret\s*$/.test(s.trim())));
+  const base = caretRules.find((r) => r.selector === '.fbtn-caret');
+  if (!base) fail(F, '.fbtn-caret must have its own rule (its size and corner)');
+  else {
+    const box0 = { w: px(base.body, 'width'), h: px(base.body, 'height'), top: px(base.body, 'top'), right: px(base.body, 'right') };
+    if (Object.values(box0).some((v) => v === null)) fail(F, `.fbtn-caret must set width, height, top and right in px (got ${JSON.stringify(box0)})`);
+    if (box0.w > 12 || box0.h > 12) fail(F, `.fbtn-caret is at most 12px square (got ${box0.w}x${box0.h})`);
+    if (!/pointer-events\s*:\s*none/.test(base.body) && !/overflow\s*:\s*hidden/.test(base.body)) fail(F, '.fbtn-caret clips its glyph (overflow: hidden), so its hit area is its own box');
+    const boxes = [['.fbtn-caret', box0]];
+    for (const r of caretRules) {
+      if (r === base) continue;
+      const b = { w: px(r.body, 'width') ?? box0.w, h: px(r.body, 'height') ?? box0.h, top: px(r.body, 'top') ?? box0.top, right: px(r.body, 'right') ?? box0.right };
+      if (/display\s*:\s*none/.test(r.body) || ['width', 'height', 'top', 'right'].every((p) => px(r.body, p) === null)) continue;
+      boxes.push([r.selector, b]);
+    }
+    const sizes = new Set([38, 34, 30, 40]);
+    for (const r of rules) if (/\.fbtn\b/.test(r.selector)) { const v = px(r.body, '--action-btn-h'); if (v !== null) sizes.add(v); }
+    for (const [sel, b] of boxes) {
+      for (const size of sizes) {
+        const c = size / 2;
+        const left = size - b.right - b.w;
+        const covers = c >= left && c <= size - b.right && c >= b.top && c <= b.top + b.h;
+        if (covers) fail(F, `${sel}: a ${b.w}x${b.h} caret at top ${b.top}px, right ${b.right}px covers the centre of a ${size}px call button; keep it in the corner`);
+      }
+    }
+  }
+}
+
+// A screen share's lift survives a phone's width (QA, 2026-10-14): placeBuiltins() ends the lift on the way to a phone
+// and, back in the column, must ask the module (def.shareLift) and lift it again while a screen is shared (or put it back
+// when the share ended meanwhile). space.js's conference answers from its tiles (a tile-screen), as syncShareLift does.
+{
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const spaceJs = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const start = canvasJs.indexOf('function placeBuiltins()');
+  const place = canvasJs.slice(start, canvasJs.indexOf('\n  }\n', start));
+  const intoColumn = place.slice(place.indexOf('if (want)'), place.indexOf('} else {', place.indexOf('openBuiltinIn(def, \'column\'')));
+  if (!/def\.shareLift[\s\S]*liftBuiltin\(def\.id, Boolean\(def\.shareLift\(\)\)\)/.test(intoColumn)) fail('public/canvas.js', 'placeBuiltins() must lift the conference again when a screen tile exists (liftBuiltin(def.id, Boolean(def.shareLift()))) after putting it back in the column');
+  const conf = spaceJs.slice(spaceJs.indexOf("canvas.registerBuiltin({\n  id: 'conference'"), spaceJs.indexOf("canvas.registerBuiltin({\n  id: 'chat'"));
+  if (!/shareLift: \(\) => screenShared\(\)/.test(conf)) fail('public/space.js', 'the conference must answer shareLift from its screen tiles (screenShared)');
+  if (!/const screenShared = \(\) => \[\.\.\.tiles\.values\(\)\]\.some\(\(t\) => t\.classList\.contains\('tile-screen'\)\)/.test(spaceJs)) fail('public/space.js', 'screenShared() is whether a tile-screen exists');
+  if (!/const sharing = screenShared\(\);/.test(spaceJs.slice(spaceJs.indexOf('function syncShareLift()')))) fail('public/space.js', 'syncShareLift() and the canvas ask the same screenShared()');
+}
+
+// GitHub #268: on a phone the phone layout wins over Window Mode. Floating windows stayed over the phone's menu and its
+// tab bar when the window was narrowed: the resize only moved the conference and the chat (placeBuiltins), and the
+// floating layer (25) was above the top bar (20, its menu inside) and the tab bar (not positioned).
+{
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const C = 'public/canvas.js';
+  const S = 'public/style.css';
+  // The z-order: every rule inside an @media (max-width: 640px) block, comments out, by brace matching.
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const phoneRules = [];
+  for (let at = plain.indexOf('@media (max-width: 640px)'); at !== -1; at = plain.indexOf('@media (max-width: 640px)', at + 1)) {
+    let i = plain.indexOf('{', at) + 1;
+    const from = i;
+    for (let depth = 1; depth && i < plain.length; i += 1) depth += plain[i] === '{' ? 1 : plain[i] === '}' ? -1 : 0;
+    for (const m of plain.slice(from, i - 1).matchAll(/([^{}]+)\{([^{}]*)\}/g)) phoneRules.push({ selector: m[1].trim(), body: m[2] });
+  }
+  const wideRules = [...plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+  const zOf = (list, selector) => { const r = list.filter((x) => x.selector === selector && /z-index:/.test(x.body)).pop(); return r ? r.body.match(/z-index:\s*([^;]+)/)[1].trim() : null; };
+  const zMenu = Number((plain.match(/--z-menu:\s*(\d+)/) || [])[1]);
+  const num = (v) => (v === 'var(--z-menu)' ? zMenu : Number(v));
+  const layerPhone = num(zOf(phoneRules, '.module-layer') ?? zOf(wideRules, '.module-layer'));
+  const topbar = num(zOf(phoneRules, '.topbar') ?? zOf(wideRules, '.topbar'));
+  const tabbarRule = phoneRules.filter((r) => r.selector === 'body.in-space .subnav' && /z-index:/.test(r.body)).pop();
+  const tabbar = tabbarRule ? num(tabbarRule.body.match(/z-index:\s*([^;]+)/)[1].trim()) : NaN;
+  if (!(layerPhone < topbar)) fail(S, `on a phone the floating layer (z-index ${layerPhone}) must be under the top bar and its menu (${topbar})`);
+  if (!tabbarRule || !/position:\s*(relative|sticky|fixed|absolute)/.test(tabbarRule.body)) fail(S, 'on a phone the tab bar (body.in-space .subnav) must be positioned, with a z-index, to stack over the floating layer');
+  if (!(tabbar > layerPhone)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must be above the floating layer (${layerPhone})`);
+  if (!(tabbar < zMenu)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must stay under an editor's lift and the menus (--z-menu, ${zMenu})`);
+  if (num(zOf(phoneRules, '.module-layer:has(.module-editor-lifted)')) !== zMenu) fail(S, 'on a phone the floating layer rises to the menus\' level (var(--z-menu)) while it holds a lifted editor');
+  // Dock at a phone's width: the resize moves the floating modules (placeForWidth) before a box is fitted to the new width.
+  const bind = canvasJs.slice(canvasJs.indexOf('  function bindDoc(doc) {'), canvasJs.indexOf('  bindDoc(document);'));
+  const crossing = bind.indexOf('placeForWidth(narrow)');
+  if (crossing === -1 || crossing > bind.indexOf('for (const p of opened.values())')) fail(C, 'the resize must call placeForWidth(narrow) as it crosses the phone line, before the floating boxes are fitted to the new width');
+  if (!/if \(narrow !== lastNarrow\) \{ lastNarrow = narrow; placeBuiltins\(\); update\(\); \}/.test(bind)) fail(C, 'the resize still moves the conference and the chat (placeBuiltins) as it crosses the phone line');
+  const start = canvasJs.indexOf('  function placeForWidth(narrow) {');
+  const pfw = canvasJs.slice(start, canvasJs.indexOf('\n  }\n', start));
+  if (start === -1) fail(C, 'placeForWidth(narrow) is missing');
+  const toPhone = pfw.slice(0, pfw.indexOf('const back ='));
+  if (!/p\.mode === 'float' && supports\(p, 'dock'\)/.test(toPhone) || !/moveModule\(p\.id, 'dock'\)/.test(toPhone) || !/phoneDocked:/.test(toPhone)) fail(C, 'placeForWidth() docks every floating module that can dock at a phone\'s width, marking it phoneDocked');
+  if (!/stopWaiting\(p\)/.test(toPhone)) fail(C, 'placeForWidth() docks a module waiting for a column at a phone\'s width');
+  if (/remember\(|persist\(/.test(pfw.replace(/setArrangeMode\(arrangeMode\(\)\)/, ''))) fail(C, 'placeForWidth() remembers nothing: the phone\'s docking keeps each module\'s mode and box for a wider window');
+  // Restore when wide: in Window Mode the phone-docked ones float again (at their remembered box or cells), and an arrangement chosen on the phone is put on.
+  const toWide = pfw.slice(pfw.indexOf('const back ='));
+  if (!/arrangeMode\(\) === 'window' \? mods\.filter\(\(p\) => p\.phoneDocked && p\.mode === 'dock' && supports\(p, 'float'\)\)/.test(toWide) || !/moveModule\(p\.id, 'float'\)/.test(toWide)) fail(C, 'placeForWidth() floats the phone-docked modules again when wide, in Window Mode');
+  if (!/if \(arrangeOnWide\) \{ arrangeOnWide = false; setArrangeMode\(arrangeMode\(\)\); \}/.test(toWide)) fail(C, 'placeForWidth() puts an arrangement chosen on a phone on the canvas when wide');
+  const arrange = canvasJs.slice(canvasJs.indexOf('  function setArrangeMode(mode) {'), canvasJs.indexOf('  function dockAll() {'));
+  if (!/arrangeOnWide = isNarrow\(\);/.test(arrange)) fail(C, 'setArrangeMode() on a phone keeps the choice for when the window is wide (arrangeOnWide)');
+  const box = canvasJs.slice(canvasJs.indexOf('  function openModuleFloating(m, reuse) {'), canvasJs.indexOf('  function openModuleDocked('));
+  if (!/place\(floater, saved\[m\.id\]\?\.box \|\|/.test(box) || !/if \(snapping\(m\.id\)\) snapOntoGrid\(m\.id, floater\);/.test(box)) fail(C, 'a module floating again opens at its remembered box, or its cells while the grid is on');
 }
 
 if (problems.length) {

@@ -462,6 +462,9 @@ try {
   const [alice, bob, carol] = [await mk('alice'), await mk('bob'), await mk('carol')];
   const spaceA = (await call('POST', '/api/spaces', { cookie: admin, body: { name: 'Keep, East', members: [alice, carol] } })).json.space.id;
   const spaceB = (await call('POST', '/api/spaces', { cookie: admin, body: { name: 'Tower', members: [bob] } })).json.space.id;
+  // A creator is a member of the space they make (GitHub #239); these cases want the admin outside both.
+  await call('PATCH', `/api/spaces/${spaceA}`, { cookie: admin, body: { members: [alice, carol] } });
+  await call('PATCH', `/api/spaces/${spaceB}`, { cookie: admin, body: { members: [bob] } });
   const guestToken = (await call('POST', `/api/spaces/${spaceA}/guest-link`, { cookie: admin, body: {} })).json.space.guestToken;
   const [aliceC, bobC, carolC] = [await signIn('alice', 'memberpass1234'), await signIn('bob', 'memberpass1234'), await signIn('carol', 'memberpass1234')];
   const setting = async (value) => {

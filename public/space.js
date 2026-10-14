@@ -1,6 +1,6 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
+import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons, showNote } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, bandShares, todayPercent, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
@@ -15,7 +15,7 @@ import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
-import { foldCallToolbar, callTitle } from '/call-toolbar.js';
+import { foldCallToolbar, callTitle, callTime, callDuration } from '/call-toolbar.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
 // window, which takes the whole canvas with it).
@@ -514,9 +514,9 @@ function renderSpaces() {
     const enter = card.querySelector('[data-join]');
     card.querySelector('[data-join-icon]').className = `fa-solid fa-${back ? 'circle-left' : r.isAside ? 'phone' : 'door-open'} fa-fw`;
     card.querySelector('[data-join-label]').textContent = enterLabel;
-    const popout = card.querySelector('[data-join-popout]');
-    const popoutLabel = `${action} in a pop-out window`;
-    if (popout.title !== popoutLabel) { popout.title = popoutLabel; popout.setAttribute('aria-label', popoutLabel); }
+    // The whole card enters the space (GitHub #225): a button by role, named for the space; an aside's card stays as it was.
+    if (r.isAside) { card.removeAttribute('role'); card.removeAttribute('tabindex'); card.removeAttribute('aria-label'); }
+    else { card.setAttribute('role', 'button'); card.tabIndex = 0; card.setAttribute('aria-label', spaceDisplayName(r)); }
     if (enter.title !== enterLabel) enter.title = enterLabel; // the whole label, wherever a narrow card cuts it short
     // Set up (plan-setup-panel.md, step 6): one link for whoever may set this space up (owners, the admin, its
     // moderators), to /?setup=<id>; on this page a press enters the space and opens the panel without a reload.
@@ -671,30 +671,25 @@ function renderMembers(list, members, spaceId, isAside = false) {
 setInterval(() => {
   if (!$('join').hidden || document.body.classList.contains('in-space')) loadPresence();
 }, 5000);
-// Join a space straight into its own window, skipping the step of joining in
-// the page first and then popping out. The window opens first, synchronously
-// with the click (a popup opened after a network wait is what browsers
-// block); the canvas moves into it, and is revealed there once connected.
-async function joinInPopout(spaceId) {
-  if (!pipWindow) openPopout();
-  if (call.state === 'connected' && currentSpace?.id === spaceId) returnToCanvas();
-  else if (call.state === 'connected') await reconnectTo(spaceId);
-  else await join(spaceId);
-  if (call.state !== 'connected') closePopout(); // it failed; don't leave an empty window
-}
 $('spaces').addEventListener('click', (event) => {
-  const popout = event.target.closest('[data-join-popout]');
-  if (popout) {
-    joinInPopout(popout.closest('.space-choice').dataset.space);
-    return;
-  }
-  const button = event.target.closest('[data-join]');
-  if (!button) return;
-  const spaceId = button.dataset.join;
+  if (event.target.closest('a, button:not([data-join])')) return; // the link and Set up do their own thing
+  const card = event.target.closest('.space-choice[data-space]');
+  if (!card || (card.classList.contains('aside') && !event.target.closest('[data-join]'))) return;
+  enterFromCard(card.dataset.space);
+});
+// Enter or Space on the focused card itself (not on a control inside it) does what pressing it does.
+$('spaces').addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const card = event.target;
+  if (!card.matches?.('.space-choice[role="button"]')) return;
+  event.preventDefault();
+  enterFromCard(card.dataset.space);
+});
+function enterFromCard(spaceId) {
   if (call.state === 'connected' && currentSpace?.id === spaceId) returnToCanvas();
   else if (call.state === 'connected') reconnectTo(spaceId);
   else join(spaceId);
-});
+}
 $('guest-join').addEventListener('submit', async (event) => {
   event.preventDefault();
   $('guest-join-error').hidden = true;
@@ -1421,10 +1416,12 @@ function syncRail() {
   }));
 }
 // A screen share (anyone's: a screen tile in the grid) lifts the conference out of the column, floating over the
-// Workspace; the last share ending puts it back. Only in column mode (canvas.js says no elsewhere).
+// Workspace; the last share ending puts it back. Only in column mode (canvas.js says no elsewhere). The canvas asks
+// screenShared() too (the conference's shareLift) when it puts the conference back in the column after a phone's width.
+const screenShared = () => [...tiles.values()].some((t) => t.classList.contains('tile-screen'));
 function syncShareLift() {
   if (!canvas.columnMode()) return;
-  const sharing = [...tiles.values()].some((t) => t.classList.contains('tile-screen'));
+  const sharing = screenShared();
   if (sharing !== canvas.lifted('conference')) canvas.liftBuiltin('conference', sharing);
 }
 
@@ -1564,6 +1561,58 @@ function callMenuItems() {
   }
   return items;
 }
+// The time in the call, in the titlebar (the column's, and the conference's own when it floats or has a window): from
+// when this person joined the call (the server gives no start for the call itself; the room is made when the first
+// person enters the space, not when the call starts), every second, only while in the call. Counted from the clock, so
+// a hidden page that comes back shows the true time, and cleared on leaving and on a lost connection (pagehide only
+// stops the tick; pageshow starts it again while the call is connected).
+let callTimeStart = 0;
+let callTimeTimer = null;
+function callTimeEls() {
+  const found = [columnEl, confEl].filter(Boolean).flatMap((root) => [...root.querySelectorAll('[data-call-time]')]);
+  return found;
+}
+function showCallTime() {
+  const seconds = callTimeStart ? Math.max(0, Math.floor((Date.now() - callTimeStart) / 1000)) : 0;
+  const text = callTime(seconds);
+  for (const el of callTimeEls()) {
+    el.hidden = !callTimeStart;
+    const t = el.querySelector('time');
+    if (t.textContent !== text) { t.textContent = text; t.setAttribute('datetime', callDuration(seconds)); }
+    const head = el.closest('header');
+    if (head) head.title = callTimeStart ? `In the call for ${text}` : '';
+  }
+}
+function stopCallTime() {
+  clearInterval(callTimeTimer);
+  callTimeTimer = null;
+  callTimeStart = 0;
+  showCallTime();
+}
+function startCallTime() {
+  clearInterval(callTimeTimer);
+  callTimeStart = Date.now();
+  showCallTime();
+  callTimeTimer = setInterval(showCallTime, 1000);
+}
+// pagehide only stops the tick (the start is kept); a page the browser brings back (pageshow, from its back-forward
+// cache) ticks again while the call is still connected, and clears the time if it is not.
+addEventListener('pagehide', () => { clearInterval(callTimeTimer); callTimeTimer = null; });
+addEventListener('pageshow', () => {
+  if (call.state !== 'connected') {
+    if (callTimeStart) stopCallTime();
+    return;
+  }
+  if (!callTimeStart) callTimeStart = Date.now();
+  showCallTime();
+  if (!callTimeTimer) callTimeTimer = setInterval(showCallTime, 1000);
+});
+// A hidden page does not tick (unless the call is in a window of its own, which is seen); back, it shows the true time.
+document.addEventListener('visibilitychange', () => {
+  if (!callTimeStart) return;
+  if (document.hidden && callWhere() !== 'window') { clearInterval(callTimeTimer); callTimeTimer = null; }
+  else if (!callTimeTimer) { showCallTime(); callTimeTimer = setInterval(showCallTime, 1000); }
+});
 // The titlebar's name and icon: the environment's name for the conference, else Call (callTitle, call-toolbar.js).
 function setCallHead(def) {
   const name = columnEl?.querySelector('#call-head-name');
@@ -3520,6 +3569,7 @@ function publishChat(data) {
 async function sendChatText(text) {
   const stored = await postChatMessage(text);
   if (stored?.id) {
+    dropChatMessage(stored.id); // a guest's stream can draw it before this answer comes back (GitHub #289): drawn as mine
     const entry = storedEntry(stored);
     // Its link's preview is asked for now (below): nothing is drawn under it until that answers.
     const asking = Boolean(entry.preview && !entry.preview.at && me?.key && me.role !== 'guest' && !guestToken);
@@ -4514,6 +4564,7 @@ canvas.registerBuiltin({
   id: 'conference',
   name: 'Conference',
   inCall: () => inCall, // the phone's tab bar marks the switch while in the call, not merely while shown
+  shareLift: () => screenShared(), // back in the column (canvas.js placeBuiltins): lifted again while a screen is shared
   icon: 'video',
   el: $('conference'),
   onShown: (def) => { showBuiltinName(def); setCallHead(def); }, // and the column's titlebar for the call
@@ -4920,8 +4971,10 @@ call
   .on(RoomEvent.Disconnected, () => {
     viewingHome = false; // no space left to show home over
     hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
+    closeGuestChatStream();
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
+    stopCallTime();
     syncCallControl();
     closeMic();
     closePopout();
@@ -5254,6 +5307,7 @@ async function connectAndSetup(token, livekitUrl, { joinCall = false } = {}) {
       if (chatInput) chatInput.loadThread();
       loadLinkKeeper(currentSpace.id); // who keeps links here, and whether this person may (plan-chat-links.md)
     }
+    syncGuestChatStream(); // a guest in the Lobby reads its chat from the server too (GitHub #289)
     canvas.updateMenu();
     // A fresh request, else the remembered layout, else what this space or environment opens with, else the chat and the modules.
     // The conference among them opens in "Not in a call": entering never joins, and the microphone is asked for only on a join.
@@ -5304,6 +5358,7 @@ async function startCall() {
     }
     if (stopped()) return;
     inCall = true;
+    startCallTime();
     syncCallControl();
     setNoCall(false);
     canvas.updateMenu(); // the phone's Conference tab carries its in-call dot
@@ -5377,6 +5432,7 @@ async function stopCall() {
   setJoinProblem('');
   if (!inCall) return;
   inCall = false;
+  stopCallTime();
   if (call.state === 'connected') {
     // Away ends with the call (below), so it is cleared for everyone with it.
     await call.localParticipant.setAttributes({ call: 'off', away: 'off', awayMessage: '' }).catch(() => {});
@@ -6797,9 +6853,92 @@ function hideHomeChat() {
   chatInput.loadThread();
   applyPermissions(); // the picture button as the permissions say
 }
+// A chat stream kept live (Home's, a guest's in the Lobby). EventSource gives up for good on an answer that isn't 200
+// (a cap's 429, a 401) and nobody would know, so on any `error` the stream is closed here and opened again after 2, 4,
+// 8 ... seconds (60 at most), up to CHAT_STREAM_TRIES times in a row; a stream that reached `ready` starts the count
+// again. Each connection starts with `ready`, and every `ready` after the first catches up from the history
+// (`catchUp`). A connection that never got going is asked once more with a plain fetch to learn why: a refusal (401,
+// 403, 429), like the server's own last `closed` event, is not tried again, and the page says once that live chat is
+// paused. Answers { close() }; `onData(data)` gets every other event.
+const CHAT_STREAM_TRIES = 8;
+let chatPausedSaid = false;
+function sayChatPaused() {
+  if (chatPausedSaid) return;
+  chatPausedSaid = true;
+  showNote('Live chat is paused. Reload the page to try again.');
+}
+async function chatStreamStatus(url) {
+  const ctl = new AbortController();
+  try {
+    const res = await fetch(url, { signal: ctl.signal, headers: { accept: 'text/event-stream' }, cache: 'no-store' });
+    ctl.abort(); // a 200 is a stream: let it go at once
+    return res.status;
+  } catch {
+    return 0; // the network, or the server is not there: try again later
+  }
+}
+function liveChatStream(url, { onData, catchUp }) {
+  let source = null;
+  let timer = null;
+  let tries = 0;
+  let readies = 0;
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+    clearTimeout(timer);
+    timer = null;
+    source?.close();
+    source = null;
+  };
+  const pause = () => {
+    stop();
+    sayChatPaused();
+  };
+  const again = async (wasLive) => {
+    if (!wasLive) {
+      const status = await chatStreamStatus(url);
+      if (stopped) return;
+      if (status === 401 || status === 403 || status === 429) return pause();
+    }
+    tries += 1;
+    if (tries > CHAT_STREAM_TRIES) return pause();
+    timer = setTimeout(open, Math.min(60000, 2000 * 2 ** (tries - 1)));
+  };
+  function open() {
+    timer = null;
+    if (stopped) return;
+    const es = new EventSource(url);
+    let live = false;
+    es.addEventListener('message', (event) => {
+      if (source !== es) return;
+      let data = null;
+      try { data = JSON.parse(event.data); } catch { return; }
+      if (data?.type === 'ready') {
+        live = true;
+        tries = 0;
+        readies += 1;
+        if (readies > 1) catchUp(); // back after a drop: what was said meanwhile
+        return;
+      }
+      if (data?.type === 'closed') {
+        pause(); // the server ended it and will not take it back (a guest link turned off, a session that no longer reads)
+        return;
+      }
+      onData(data);
+    });
+    es.addEventListener('error', () => {
+      if (source !== es) return;
+      es.close();
+      source = null;
+      again(live);
+    });
+    source = es;
+  }
+  open();
+  return { close: stop };
+}
 // Home's chat stream (GET /api/spaces/lobby/chat/stream, step 1) is open whenever this page is signed in and may read
-// chat: drawn into Home's chat while it shows, else counted for the Home link (decision 8). The browser reconnects it by
-// itself; each connection starts with `ready`, and every `ready` after the first catches up on what was missed.
+// chat: drawn into Home's chat while it shows, else counted for the Home link (decision 8). Kept live by liveChatStream.
 function homeStreamWanted() {
   return !guestToken && Boolean(me?.key) && me.role !== 'guest' && (hasOwnerRights(me) || Boolean(me.permissions?.chatRead));
 }
@@ -6814,20 +6953,7 @@ function syncHomeChatStream() {
 function openHomeChatStream() {
   closeHomeChatStream();
   if (typeof EventSource !== 'function') return;
-  const source = new EventSource(`/api/spaces/${HOME_CHAT}/chat/stream`);
-  let ready = 0;
-  source.addEventListener('message', (event) => {
-    if (homeChatStream !== source) return;
-    let data = null;
-    try { data = JSON.parse(event.data); } catch { return; }
-    if (data?.type === 'ready') {
-      ready += 1;
-      if (ready > 1) catchUpHomeChat(); // back after a drop: what was said meanwhile
-      return;
-    }
-    homeChatNotice(data);
-  });
-  homeChatStream = source;
+  homeChatStream = liveChatStream(`/api/spaces/${HOME_CHAT}/chat/stream`, { onData: homeChatNotice, catchUp: catchUpHomeChat });
 }
 function closeHomeChatStream() {
   homeChatStream?.close();
@@ -6902,20 +7028,68 @@ async function catchUpHomeChat() {
   }
   const history = got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt);
   if (homeChatSpace) {
-    const have = new Set(history.map((e) => e.id));
-    const oldest = history.length ? Math.min(...history.map((e) => e.at.getTime())) : Infinity;
-    const gone = chatLog.filter((e) => e.stored && chatIdOk(e.id) && !have.has(e.id) && e.at.getTime() >= oldest);
-    if (gone.length) dropChatEntries(gone);
-    for (const entry of history) {
-      if (!chatIdOk(entry.id) || chatMessageNode(entry.id)) continue;
-      addEntry(entry, ownEntry(entry));
-    }
+    mergeChatHistory(history);
     return;
   }
   for (const e of history) {
     if (chatIdOk(e.id) && e.visibility !== 'private' && e.by !== me?.key && e.at.getTime() > homeSeenAt) homeUnreadIds.add(e.id);
   }
   paintHomeUnread();
+}
+// The history read again into the chat in sight: what it missed drawn, what was deleted meanwhile taken off.
+function mergeChatHistory(history) {
+  const have = new Set(history.map((e) => e.id));
+  const oldest = history.length ? Math.min(...history.map((e) => e.at.getTime())) : Infinity;
+  const gone = chatLog.filter((e) => e.stored && chatIdOk(e.id) && !have.has(e.id) && e.at.getTime() >= oldest);
+  if (gone.length) dropChatEntries(gone);
+  for (const entry of history) {
+    if (!chatIdOk(entry.id) || chatMessageNode(entry.id)) continue;
+    addEntry(entry, ownEntry(entry));
+  }
+}
+// --- A guest on the Lobby's guest link (GitHub #289) -----------------------------------------------------------------
+// Home's chat is the Lobby's chat, and a guest has no Home: the guest's page is in the Lobby's call, its chat in the
+// column, posting through the same route with the guest token. What is said from Home reaches the call too (the server
+// relays it), but the guest also reads the Lobby's chat stream with their token (GET /api/spaces/lobby/chat/stream?guest=),
+// read as the call's notices are (a repeat of one already drawn is ignored), so nothing depends on the call carrying it;
+// every `ready` after the first catches up from the history. The server ends it with a last `closed` once the guest
+// link is turned off or regenerated. No Assistant and no commands for a guest: those stay as they are.
+let guestChatStream = null;
+function guestStreamWanted() {
+  return Boolean(guestToken) && currentSpace?.id === LOBBY && call.state === 'connected' && canDo('chatRead');
+}
+function syncGuestChatStream() {
+  if (!guestStreamWanted()) {
+    closeGuestChatStream();
+    return;
+  }
+  if (guestChatStream || typeof EventSource !== 'function') return;
+  // Kept live by liveChatStream; the server's last `closed` (the guest link turned off) ends it for good.
+  guestChatStream = liveChatStream(`/api/spaces/${LOBBY}/chat/stream?guest=${encodeURIComponent(guestToken)}`, { onData: guestChatNotice, catchUp: catchUpGuestChat });
+}
+function closeGuestChatStream() {
+  guestChatStream?.close();
+  guestChatStream = null;
+}
+function guestChatNotice(data) {
+  if (!data || typeof data.type !== 'string' || !guestStreamWanted()) return;
+  if (data.type === 'chat' && chatIdOk(data.id)) {
+    if (!chatMessageNode(data.id)) addEntry(storedEntry(data), false);
+  } else if (data.type === 'chat-delete' && chatIdOk(data.id)) applyDeleteNotice(data, null);
+  else if (data.type === 'chat-visibility') applyVisibilityNotice(data, null);
+  else if (data.type === 'chat-clear-some') applyClearNotice(data, null);
+  else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, null);
+  else if (data.type === 'chat-clear') dropSharedChat();
+}
+async function catchUpGuestChat() {
+  let got = null;
+  try {
+    got = await fetchChatHistory(LOBBY);
+  } catch {
+    return; // the next reconnect tries again
+  }
+  if (!guestStreamWanted()) return;
+  mergeChatHistory(got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt));
 }
 // The column's width: dragged on its inner edge (#home-chat-splitter), or with the keyboard as the space column's edge
 // (splitterKey); between COLUMN_MIN and the whole window, remembered in this browser (prefs.homeChatWidth). What is left

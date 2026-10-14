@@ -315,4 +315,70 @@ test('with no ADMIN_PASSWORD, a random one is made and logged once, the first ti
   }
 });
 
+// --- the sign-in limits count the real address (TRUST_PROXY_HOPS) -------------------------------------------------------
+// A server, as behind the one proxy the default trusts: this check is that proxy, so the address it saw is the rightmost
+// X-Forwarded-For entry, and a client's own entries (different every time) go to its left. They must not be the address
+// counted: wrong sign-ins still reach 429. Then the same on a hosted server (BASE_DOMAIN, reached by X-Forwarded-Host,
+// which the trusted proxy still sets): the host console's sign-in and the product page's sign-up.
+const { spawn } = await import('node:child_process');
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+async function withServer(extraEnv, fn) {
+  const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'check-auth-server-'));
+  let out = '';
+  const child = spawn(process.execPath, [path.join(ROOT, 'server', 'index.js')], {
+    cwd: ROOT,
+    env: { PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir, LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234', ...extraEnv },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+  child.stdout.on('data', (d) => { out += d; });
+  child.stderr.on('data', (d) => { out += d; });
+  try {
+    const port = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error(`the server did not start in time:\n${out}`)), 25000);
+      const look = () => { const m = /listening on :(\d+)/.exec(out); if (m) { clearTimeout(timer); resolve(Number(m[1])); } };
+      child.stdout.on('data', look);
+      child.stderr.on('data', look);
+      child.once('exit', (code) => { clearTimeout(timer); reject(new Error(`the server stopped (${code}):\n${out}`)); });
+    });
+    await fn(`http://127.0.0.1:${port}`, () => out);
+  } finally {
+    await new Promise((resolve) => { if (child.exitCode !== null) return resolve(); child.once('exit', resolve); child.kill('SIGTERM'); });
+    fs.rmSync(dataDir, { recursive: true, force: true });
+  }
+}
+const post = async (base, url, body, headers = {}) => {
+  const res = await fetch(base + url, { method: 'POST', redirect: 'manual', headers: { 'content-type': 'application/json', accept: 'application/json', ...headers }, body: typeof body === 'string' ? body : JSON.stringify(body) });
+  const text = await res.text();
+  return { status: res.status, text, location: res.headers.get('location') };
+};
+const spoofed = (i, real = '192.0.2.10') => ({ 'x-forwarded-for': `203.0.113.${i + 1}, ${real}` });
+
+await withServer({}, async (base) => {
+  const seen = [];
+  for (let i = 0; i < 12; i += 1) seen.push((await post(base, '/api/login', { login: 'admin', password: 'wrong-password' }, spoofed(i))).status);
+  assert.deepEqual(seen, [...Array(10).fill(401), 429, 429], `wrong sign-ins with a different spoofed X-Forwarded-For each still reach 429: ${seen}`);
+  n += 1;
+  const right = await post(base, '/api/login', { login: 'admin', password: 'testpass1234' }, spoofed(20));
+  assert.equal(right.status, 429, 'and the right password is refused too while the address is held');
+  n += 1;
+  const form = await post(base, '/login', 'login=admin&password=testpass1234', { ...spoofed(21), 'content-type': 'application/x-www-form-urlencoded' });
+  assert.deepEqual([form.status, form.location], [303, '/login?error=1&login=admin'], 'the sign-in form is held for that address too');
+  n += 1;
+  const other = await post(base, '/api/login', { login: 'admin', password: 'testpass1234' }, spoofed(22, '192.0.2.11'));
+  assert.equal(other.status, 200, `another real address signs in: ${other.text}`);
+  n += 1;
+});
+
+await withServer({ BASE_DOMAIN: 'example.test', SIGNUP: 'on' }, async (base) => {
+  const host = (name) => ({ 'x-forwarded-host': name });
+  const seen = [];
+  for (let i = 0; i < 12; i += 1) seen.push((await post(base, '/api/host/login', { login: 'admin', password: 'wrong-password' }, { ...host('admin.example.test'), ...spoofed(i) })).status);
+  assert.deepEqual(seen, [...Array(10).fill(401), 429, 429], `wrong host sign-ins with a different spoofed X-Forwarded-For each still reach 429: ${seen}`);
+  n += 1;
+  const signups = [];
+  for (let i = 0; i < 7; i += 1) signups.push((await post(base, '/api/product/signup', { slug: `camp${i}`, name: 'Camp', owner: {} }, { ...host('example.test'), ...spoofed(i) })).status);
+  assert.deepEqual(signups, [400, 400, 400, 400, 400, 429, 429], `sign-ups with a different spoofed X-Forwarded-For each still reach 429: ${signups}`);
+  n += 1;
+});
+
 console.log(`check-auth: ${n} groups OK`);

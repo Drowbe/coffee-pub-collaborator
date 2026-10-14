@@ -1079,7 +1079,11 @@ export function createSpaceSetup(deps) {
     const iconOf = (m) => { const i = m.displayIcon || m.icon || ''; return iconOk(i) ? i : 'puzzle-piece'; };
     const on = (state.installed || []).filter((m) => m.enabled && Array.isArray(m.scope) && m.scope.includes('space') && (!state.space.isLobby || m.lobby === true));
     list.innerHTML = on.length
-      ? on.map((m) => `<li><i class="fa-solid fa-${esc(iconOf(m))} fa-fw" aria-hidden="true"></i> <span>${esc(m.displayName || m.name)}</span></li>`).join('')
+      ? on.map((m) => {
+        // The manifest's one line, in this environment's words as the server filled it; a module without one shows none.
+        const about = String(m.description || '').trim();
+        return `<li${about ? ` title="${esc(about)}"` : ''}><i class="fa-solid fa-${esc(iconOf(m))} fa-fw" aria-hidden="true"></i> <span class="setup-module-text"><span class="setup-module-name">${esc(m.displayName || m.name)}</span>${about ? `<span class="setup-module-about hint" id="setup-module-about-${esc(m.id)}">${esc(about)}</span>` : ''}</span></li>`;
+      }).join('')
       : `<li class="hint">None on yet.</li>`;
   }
   // The modules' own settings for this space, drawn without their Saves (module-settings.js, `draft: true`): the panel's

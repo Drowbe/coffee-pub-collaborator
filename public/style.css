@@ -3655,8 +3655,13 @@ a.crumb-here:hover {
   overflow: hidden;
 }
 
-/* mic, audio, camera and layout each carry a small caret over their corner
-   that opens just that control's own settings, instead of the whole thing. */
+/* mic, audio, camera, layout and Pop out each carry a small caret in their corner
+   that opens just that control's own settings, instead of the whole thing. The
+   caret is its own small button (a 12px box, its own hit area) tucked into the
+   top right corner, so it never covers the button's centre at any size the call
+   toolbar takes (30px tiny, 34px compact, 38px, 40px on a phone): a click in the
+   middle is always the main action. tools/check-canvas.mjs keeps it so. One size
+   everywhere: no width, height, top or right for .fbtn-caret elsewhere. */
 .fbtn-wrap {
   position: relative;
   display: inline-flex;
@@ -3664,16 +3669,18 @@ a.crumb-here:hover {
 
 .fbtn-caret {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  top: 2px;
+  right: 2px;
   z-index: 2;
-  width: 16px;
-  height: 16px;
+  width: 12px;
+  height: 12px;
   padding: 0;
   border: none;
+  border-radius: 3px;
   background: none;
+  overflow: hidden;
   color: var(--text-dim);
-  font-size: 16px;
+  font-size: 12px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -4972,13 +4979,6 @@ span.message-vis {
   .fbtn {
     --action-btn-h: 40px;
   }
-  .fbtn-caret {
-    width: 14px;
-    height: 14px;
-    font-size: 12px;
-    top: 2px;
-    right: 2px;
-  }
 }
 
 /* --- layouts: tile sizes come from fitTiles() as CSS variables --------- */
@@ -5436,11 +5436,7 @@ span.message-vis {
 }
 
 .canvas.compact .fbtn-caret {
-  width: 13px;
-  height: 13px;
-  font-size: 11px;
-  top: 2px;
-  right: 2px;
+  font-size: 11px; /* the box keeps its one size and corner (.fbtn-caret) */
 }
 
 .canvas.compact .status-float {
@@ -6325,6 +6321,20 @@ body.conference-window {
   pointer-events: none;
 }
 
+/* On a phone the top bar (20, with its menu) and the tab bar are always above the canvas (GitHub #268): the layer goes
+   under them. canvas.js docks every module that can dock as the window crosses 640px (placeForWidth), so only one that
+   can only float is left here. While one of its frames is lifted for an editor, the layer rises to the menus' level, so
+   the editor's sheet covers the page as it does from a docked module. */
+@media (max-width: 640px) {
+  .module-layer {
+    z-index: 19;
+  }
+
+  .module-layer:has(.module-editor-lifted) {
+    z-index: var(--z-menu);
+  }
+}
+
 .module-floating {
   position: absolute;
   display: flex;
@@ -6774,6 +6784,13 @@ body.conference-window {
   font-weight: 400;
 }
 
+.host-menu-hint.clamp {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
 .host-menu-item:hover,
 .host-menu-item:focus-visible {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
@@ -7194,6 +7211,18 @@ body.chat-window {
   position: relative;
 }
 
+/* The whole card enters the space (GitHub #225): a pointer, a lifted border on hover and an accent ring on keyboard focus. */
+.space-choice[role='button'] {
+  cursor: pointer;
+}
+.space-choice[role='button']:hover {
+  border-color: var(--accent);
+}
+.space-choice[role='button']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 /* A module built for an older version of the product: it can't run until its author updates it. */
 .module-outdated {
   display: flex;
@@ -7518,6 +7547,9 @@ body.module-page .module-status {
     gap: 0;
     background: var(--header-bg);
     border-top: 1px solid var(--border);
+    /* Above the floating layer (19 on a phone), level with the top bar, under an editor's lift and the menus (GitHub #268). */
+    position: relative;
+    z-index: 20;
   }
 
   body.in-space .subnav-modules {
@@ -10859,10 +10891,37 @@ h4.setup-subheading {
 }
 
 /* The modules tab: the modules on here, then each module's settings (module-settings.js, its draft mode). */
+.setup-module-list li {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.setup-module-list li > i {
+  flex: none;
+  width: 1.25em;
+  margin-top: 3px;
+  text-align: center;
+}
+
+.setup-module-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.setup-module-about {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  font-size: 12px;
+}
+
 .setup-module-list {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -11110,6 +11169,15 @@ h4.setup-subheading {
   background: color-mix(in srgb, var(--bg) 96%, transparent);
   color: var(--text);
   font-weight: 600;
+}
+
+.call-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.call-time[hidden] {
+  display: none;
 }
 
 .side-column-call-head[hidden] {

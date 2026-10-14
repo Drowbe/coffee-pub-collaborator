@@ -383,28 +383,34 @@ if ((destination.match(/hostSwitch\.fill\(/g) || []).length < 2) fail('public/de
 if ((destination.match(/hostSwitch\.watch\(/g) || []).length < 2) fail('public/destination.js: the view switch and the panel switch must be fitted with hostSwitch.watch');
 const destViews = /calendar:\s*\{\s*views:\s*\[([^\]]*)\]/.exec(destination);
 if (!destViews || (destViews[1].match(/\{[^}]*\}/g) || []).some((o) => !/icon:/.test(o))) fail('public/destination.js: every view of the Calendar destination needs an icon');
-// Chat's filter, All | Private | Public (plan-chat-model.md, "The filter"), in place of Private | Shared: the shared
-// switch's markup and fit, each segment its own icon and word, the word its aria-label, All chosen to start.
+// Chat's two views, Discussion | Assistant (GitHub #203), in place of the All | Private | Public filter: the shared
+// switch's markup and fit, as a tablist (each choice a tab, the chosen one selected and the one Tab reaches), each its
+// own icon and word, the word its aria-label, the Discussion chosen to start.
 const chatInputJs = read('public/chat-input.js');
-if (!/hostSwitch\.watch\(g\)/.test(chatInputJs)) fail('public/chat-input.js: Chat\'s All | Private | Public must be fitted with hostSwitch.watch');
+if (!/hostSwitch\.watch\(g\)/.test(chatInputJs)) fail('public/chat-input.js: Chat\'s Discussion | Assistant must be fitted with hostSwitch.watch');
 const spaceHtml = read('public/space.html');
-if (/chat-ai-share|chat-ai-private|chat-ai-shared/.test(spaceHtml + chatInputJs)) fail('public/space.html: the old Private | Shared switch (#chat-ai-share) is gone');
-if (!/<div class="mod-toolbar" id="chat-filter" hidden>\s*<span class="tb-tabs" role="group" aria-label="Show messages">/.test(spaceHtml)) fail('public/space.html: #chat-filter is one .tb-tabs row in the chat\'s toolbar, hidden until a space');
-for (const [id, icon, word, on] of [['chat-filter-all', 'comments', 'All', true], ['chat-filter-private', 'lock', 'Private', false], ['chat-filter-public', 'users', 'Public', false]]) {
+if (/chat-ai-share|chat-ai-private|chat-ai-shared|chat-filter/.test(spaceHtml + chatInputJs)) fail('public/space.html: the old switches (#chat-ai-share, the #chat-filter filter) are gone');
+if (!/<div class="mod-toolbar" id="chat-views" hidden>\s*<span class="tb-tabs" role="tablist" aria-label="Chat views">/.test(spaceHtml)) fail('public/space.html: #chat-views is one .tb-tabs tablist in the chat\'s toolbar, hidden until a space');
+for (const [id, icon, word, on] of [['chat-view-discussion', 'comments', 'Discussion', true], ['chat-view-assistant', 'wand-magic-sparkles', 'Assistant', false]]) {
   const m = new RegExp(`<button[^>]*id="${id}"[^>]*>([\\s\\S]*?)</button>`).exec(spaceHtml);
   if (!m) { fail(`public/space.html: #${id} is missing`); continue; }
   if (!new RegExp(`class="tb-tab-glyph fa-solid fa-${icon} fa-fw"`).test(m[1])) fail(`public/space.html: #${id} needs the ${icon} icon (.tb-tab-glyph)`);
   if (!new RegExp(`<span class="tb-tab-word">${word}</span>`).test(m[1])) fail(`public/space.html: #${id} needs its word, ${word} (.tb-tab-word)`);
   if (!new RegExp(`aria-label="${word}"`).test(m[0])) fail(`public/space.html: #${id} needs its word as aria-label`);
-  if (new RegExp(`class="tb-tab${on ? ' on' : ''}"`).exec(m[0]) === null || !new RegExp(`aria-pressed="${on}"`).test(m[0])) fail(`public/space.html: #${id} starts ${on ? 'chosen' : 'not chosen'}`);
+  if (!/role="tab"/.test(m[0]) || !/aria-controls="messages"/.test(m[0])) fail(`public/space.html: #${id} is a tab controlling #messages`);
+  if (new RegExp(`class="tb-tab${on ? ' on' : ''}"`).exec(m[0]) === null || !new RegExp(`aria-selected="${on}"`).test(m[0]) || !new RegExp(`tabindex="${on ? 0 : -1}"`).test(m[0])) fail(`public/space.html: #${id} starts ${on ? 'chosen' : 'not chosen'}`);
 }
-// Remembered per space for the browser session; the old key is not read.
-if (!/export const filterKey = \(spaceId\) => `chat-filter:\$\{spaceId\}`;/.test(chatInputJs) || /chat-ai-share:/.test(chatInputJs)) fail('public/chat-input.js: the filter is kept as chat-filter:<spaceId>, and chat-ai-share:<spaceId> is not read');
-if (!/sessionStorage\.setItem\(filterKey\(id\), filter\)/.test(chatInputJs) || !/readFilter\(sessionStorage\.getItem\(filterKey\(id\)\)\)/.test(chatInputJs)) fail('public/chat-input.js: the filter is remembered in sessionStorage');
-// The page only filters: #messages carries data-filter, each message data-vis, and the stylesheet hides the rest.
+if (!/<p class="visually-hidden" id="chat-view-news" role="status" aria-live="polite"><\/p>/.test(spaceHtml)) fail('public/space.html: the Assistant\'s news is read out from a polite live region');
+// Remembered per space for the browser session; the old filter's key is not read.
+if (!/export const viewKey = \(spaceId\) => `chat-view:\$\{spaceId\}`;/.test(chatInputJs) || /chat-ai-share:|filterKey/.test(chatInputJs)) fail('public/chat-input.js: the view is kept as chat-view:<spaceId>, and the old keys are not read');
+if (!/sessionStorage\.setItem\(viewKey\(id\), view\)/.test(chatInputJs) || !/readView\(sessionStorage\.getItem\(viewKey\(id\)\)\)/.test(chatInputJs)) fail('public/chat-input.js: the view is remembered in sessionStorage');
+// The tablist's keys: the arrows, Home and End, focus following the chosen tab.
+if (!/\{ ArrowRight: at \+ 1, ArrowLeft: at - 1, Home: 0, End: CHAT_VIEWS\.length - 1 \}\[e\.key\]/.test(chatInputJs) || !/setView\(CHAT_VIEWS\[\(to \+ CHAT_VIEWS\.length\) % CHAT_VIEWS\.length\], \{ focusTab: true \}\)/.test(chatInputJs)) fail('public/chat-input.js: the views\' tablist moves with the arrow keys, Home and End');
+if (!/el\.setAttribute\('aria-selected', v === view \? 'true' : 'false'\);\s*el\.tabIndex = v === view \? 0 : -1;/.test(chatInputJs)) fail('public/chat-input.js: the chosen tab is selected and the one Tab reaches');
+// The page only filters: #messages carries data-view, each line data-in, and the stylesheet hides the rest.
 const styleCss = read('public/style.css');
-if (!/#messages\[data-filter="private"\] > \.message:not\(\[data-vis="private"\]\),\s*#messages\[data-filter="public"\] > \.message:not\(\[data-vis="public"\]\) \{\s*display: none;/.test(styleCss)) fail('public/style.css: the filter hides the messages it leaves out, and only those');
-if (!/list\.dataset\.filter = filter;/.test(chatInputJs) || !/el\.dataset\.vis = state;/.test(read('public/space.js'))) fail('public/chat-input.js and space.js: #messages carries data-filter and each message data-vis');
+if (!/#messages\[data-view="discussion"\] > \[data-in="assistant"\],\s*#messages\[data-view="assistant"\] > :not\(\[data-in="assistant"\]\):not\(\[data-in="both"\]\):not\(\.chat-view-empty\) \{\s*display: none;/.test(styleCss)) fail('public/style.css: each view hides the lines it leaves out, and only those');
+if (!/list\.dataset\.view = view;/.test(chatInputJs) || !/el\.dataset\.in = viewOf\(\{ visibility: state, kind, mine \}\);/.test(read('public/space.js'))) fail('public/chat-input.js and space.js: #messages carries data-view and each message data-in');
 
 // Every bundled module's view switch: each choice has an icon. Its options are an array in the call, or a const array.
 for (const rel of moduleFiles.filter((f) => f.endsWith('.js'))) {

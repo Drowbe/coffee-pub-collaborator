@@ -1,9 +1,9 @@
 {
   "id": "assistant",
   "name": "Assistant",
-  "version": "0.1.22",
+  "version": "0.1.23",
   "icon": "wand-magic-sparkles",
-  "description": "Ask the AI from Chat with /ai. This {module} has no window of its own.",
+  "description": "Chat's Assistant view: your commands, the AI's answers and what you bring in. This {module} has no window of its own.",
   "author": "Coffee Pub",
   "scope": [
     "space"

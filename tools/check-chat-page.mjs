@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /*
  * check-chat-page.mjs -- Chat's page side of the one chat model (documentation/plans/plan-chat-model.md, steps 2, 5
- * and 6), run without a browser. The server's side is tools/check-chat-model.mjs; the filter's markup is in
+ * and 6), run without a browser. The server's side is tools/check-chat-model.mjs; the views' markup is in
  * tools/check-switches.mjs.
+ *
+ *   Discussion | Assistant (GitHub #203): which messages each view shows, where a typed line goes (a command switches
+ *           to the Assistant), the marks for new messages, the Share action.
  *
  *   step 2: Chat is drawn from the one store: no local echo, no separate AI thread, no second public post; the badge
  *           sends the PATCH; the chat-visibility notice; {{summary:N}} dropped from an ordinary message; a message
@@ -30,7 +33,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readFilter, emptyLine, filterKey, CHAT_FILTERS, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readView, emptyLine, viewKey, CHAT_VIEWS, viewOf, inView, discussionWord, routeLine, marksNew, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -121,7 +124,8 @@ test('chat-visibility beside chat-delete: made public, drawn by its time and cou
   assert.match(notice, /dropChatMessage\(data\.id\);/, 'made private: gone for everyone else');
   assert.match(notice, /addEntry\(entry, entry\.by === me\?\.key\);/, 'made public: added, as a new message from its author');
   const add = fnBody(space, 'function addEntry(entry, own = false) {');
-  assert.match(add, /placeMessage\(messageEl\(entry, own\)\)/, 'placed by its time');
+  assert.match(add, /const el = messageEl\(entry, own\);\n\s*const last = placeMessage\(el\);/, 'placed by its time');
+  assert.match(add, /chatInput\.arrived\(el, \{ own \}\);/, 'and marks the other view');
   assert.match(add, /if \(!canvas\.builtinOpen\('chat'\) && !own && entry\.visibility !== 'private'\) \{\n\s*unread \+= 1;/, 'unread counts public messages from others');
   // placeMessage: before the first message that is later, else last.
   const place = fnBody(space, 'function placeMessage(el) {');
@@ -260,21 +264,101 @@ test('Clear… in the ⋮ menu: after Save the chat, before Delete the chat; nev
   assert.match(menuJs, /if \(TINT\.test\(tint \|\| ''\)\) i\.dataset\.tint = tint;/);
 });
 
-// --- step 3: the filter's pure parts (its markup is in check-switches.mjs) -------------------------------------------
+// --- Discussion | Assistant (GitHub #203), in place of the filter (its markup is in check-switches.mjs) ---------------
 
-test('the filter: All by default, the three choices, the empty lines, the session key', () => {
-  assert.deepEqual(CHAT_FILTERS, ['all', 'private', 'public']);
-  assert.equal(readFilter(null), 'all');
-  assert.equal(readFilter('shared'), 'all', 'the old switch\'s value is not a filter');
-  assert.equal(readFilter('private'), 'private');
-  assert.equal(filterKey('abc'), 'chat-filter:abc');
-  assert.equal(emptyLine('all', []), '');
-  assert.equal(emptyLine('private', ['public']), 'No private messages here yet.');
-  assert.equal(emptyLine('public', ['private', 'private']), 'No public messages here yet.');
-  assert.equal(emptyLine('public', ['private', 'public']), '');
-  // Shown in a space to anyone who reads Chat, guests too; hidden in an aside.
-  assert.match(chat, /setFilterVisible\(Boolean\(spaceId\(\)\)\);/);
-  assert.match(space, /if \(\$\('chat-filter'\)\) \$\('chat-filter'\)\.hidden = true;/);
+test('the views: the Discussion by default, the two choices, the session key, the word', () => {
+  assert.deepEqual(CHAT_VIEWS, ['discussion', 'assistant']);
+  assert.equal(readView(null), 'discussion');
+  assert.equal(readView('all'), 'discussion', 'the old filter\'s value is not a view');
+  assert.equal(readView('private'), 'discussion');
+  assert.equal(readView('assistant'), 'assistant');
+  assert.equal(viewKey('abc'), 'chat-view:abc');
+  assert.equal(discussionWord('Chat'), 'Discussion', 'the default word');
+  assert.equal(discussionWord(''), 'Discussion');
+  assert.equal(discussionWord(' Trip  talk '), 'Trip talk', 'the environment\'s own name for Chat');
+  // Shown in a space to anyone who reads Chat, guests too; hidden in an aside, which is the Discussion alone.
+  assert.match(chat, /setViewsVisible\(Boolean\(spaceId\(\)\)\);/);
+  assert.match(space, /if \(\$\('chat-views'\)\) \$\('chat-views'\)\.hidden = true;/);
+  assert.match(chat, /view = spaceId\(\) \? readView\(next\) : 'discussion';/, 'no Assistant outside a space');
+});
+
+test('the views: which messages each shows (one store, no copies)', () => {
+  // Private: only ever its author's page holds one; the Assistant's, whatever it is.
+  for (const kind of ['', 'ai', 'command', 'own']) assert.equal(viewOf({ visibility: 'private', kind, mine: true }), 'assistant');
+  assert.equal(viewOf({ visibility: 'private', kind: 'ai', mine: false }), 'assistant', 'an import preview, a guest\'s echo');
+  // Public: everyone's conversation is the Discussion's.
+  assert.equal(viewOf({ visibility: 'public', kind: 'own', mine: true }), 'discussion', 'my own message');
+  assert.equal(viewOf({ visibility: 'public', kind: '', mine: false }), 'discussion', 'someone else\'s');
+  assert.equal(viewOf({ visibility: 'public', kind: 'ai', mine: false }), 'discussion', 'someone else\'s shared answer');
+  assert.equal(viewOf({ visibility: 'public', kind: 'command', mine: false }), 'discussion', 'someone else\'s shared command');
+  // My own shared command or answer: in the Discussion for everyone, and still in my Assistant.
+  assert.equal(viewOf({ visibility: 'public', kind: 'ai', mine: true }), 'both');
+  assert.equal(viewOf({ visibility: 'public', kind: 'command', mine: true }), 'both');
+  assert.equal(inView('both', 'discussion') && inView('both', 'assistant'), true);
+  assert.equal(inView('assistant', 'discussion'), false, 'no private message in the Discussion');
+  assert.equal(inView('discussion', 'assistant'), false, 'no conversation in the Assistant');
+  assert.equal(inView(undefined, 'discussion'), true, 'a line without a place (a divider, a notice) is the Discussion\'s');
+  assert.equal(inView(undefined, 'assistant'), false);
+  // The page: data-in from viewOf on each message, repainted with its badge; the person's own shared one reads shared.
+  const frame = fnBody(space, 'function frameMessage(');
+  assert.match(frame, /const mine = Boolean\(me\?\.key && entry\?\.by === me\.key\);/);
+  assert.match(frame, /el\.dataset\.in = viewOf\(\{ visibility: state, kind, mine \}\);\n\s*const said = el\.dataset\.in === 'both' \? 'shared' : state;/);
+  assert.match(chat, /box\.dataset\.in = 'assistant';/, 'the "not open" question is the person\'s own');
+  // The Assistant's empty line; the Discussion shows none, as before.
+  assert.equal(emptyLine('discussion', []), '');
+  assert.equal(emptyLine('assistant', ['discussion']), 'Your commands, AI answers and what you bring in show here. Only you see them.');
+  assert.equal(emptyLine('assistant', ['both']), '');
+  assert.equal(emptyLine('assistant', ['assistant', 'discussion']), '');
+});
+
+test('the views: where a typed line goes; a command switches to the Assistant and leaves the Discussion alone', () => {
+  assert.deepEqual(routeLine('/t buy milk', 'discussion'), { run: 'command', view: 'assistant', line: '/t buy milk' }, 'switches');
+  assert.deepEqual(routeLine('/t buy milk', 'assistant'), { run: 'command', view: 'assistant', line: '/t buy milk' });
+  assert.deepEqual(routeLine('  /ai where to eat  ', 'discussion'), { run: 'command', view: 'assistant', line: '/ai where to eat' });
+  assert.deepEqual(routeLine('/t', 'discussion'), { run: 'command', view: 'assistant', line: '/t' }, 'a bare command still runs (and says what it needs)');
+  assert.deepEqual(routeLine('hello all', 'discussion'), { run: 'message', view: 'discussion', line: 'hello all' });
+  assert.deepEqual(routeLine('where to eat?', 'assistant'), { run: 'ai', view: 'assistant', line: '/ai where to eat?' }, 'plain words in the Assistant ask the AI');
+  assert.deepEqual(routeLine('/', 'discussion'), { run: 'none', view: 'discussion', line: '/' }, 'a lone slash stays in the box');
+  assert.deepEqual(routeLine('/Hello there', 'assistant'), { run: 'none', view: 'assistant', line: '/Hello there' });
+  assert.deepEqual(routeLine('   ', 'assistant'), { run: 'none', view: 'assistant', line: '' });
+  assert.equal(routeLine('hi', 'nonsense').run, 'message', 'an unknown view is the Discussion');
+  // The page: the box sends by the route; a known command switches before it runs, so its echo lands in the Assistant.
+  const submit = space.slice(space.indexOf("$('chat-form').addEventListener('submit'"), space.indexOf('// Enter sends, like a normal chat'));
+  assert.match(submit, /const route = chatInput\.routeLine\(text\);\n\s*if \(route\.run === 'command' \|\| route\.run === 'ai'\) \{\n\s*if \(await chatInput\.handleSubmit\(route\.line\)\) \{/);
+  assert.match(submit, /if \(route\.run !== 'message'\) return;\n\s*\$\('chat-input'\)\.value = '';/, 'only a message is posted for everyone');
+  const run = fnBody(chat.replace(/^ {2}/gm, ''), 'async function runCommand(parsed) {');
+  assert.ok(run.indexOf("setNote(`No command /${parsed.name}`)") < run.indexOf("setView('assistant')"), 'an unknown command stays where it was typed');
+  assert.ok(run.indexOf("setView('assistant')") < run.indexOf('runAi(parsed.rest)') && run.indexOf("setView('assistant')") < run.indexOf('echo(parsed, chosen'), 'switched before it runs');
+  assert.match(fnBody(chat.replace(/^ {2}/gm, ''), 'async function askAbout({ question, refs } = {}) {'), /setView\('assistant'\);/, 'a module\'s question too');
+  // A picture is for everyone: sent from the Assistant, it shows the Discussion.
+  assert.match(fnBody(space, 'async function sendImage(file) {'), /chatInput\.setView\('discussion'\);/);
+});
+
+test('the views: the marks for what is new, the rail counts both, the news read out', () => {
+  // An AI answer while in the Discussion, or with Chat out of sight: the Assistant's dot.
+  assert.equal(marksNew('assistant', { view: 'discussion', shown: true, own: false }), 'assistant');
+  assert.equal(marksNew('assistant', { view: 'assistant', shown: false, own: false }), 'assistant');
+  assert.equal(marksNew('assistant', { view: 'assistant', shown: true, own: false }), '', 'seen as it lands');
+  assert.equal(marksNew('assistant', { view: 'discussion', shown: true, own: true }), '', 'what I typed is not news');
+  assert.equal(marksNew('both', { view: 'discussion', shown: true, own: false }), '', 'my own shared one is not news');
+  // Someone else's message while in the Assistant: the Discussion's count. Out of sight, Chat's own unread counts it.
+  assert.equal(marksNew('discussion', { view: 'assistant', shown: true, own: false }), 'discussion');
+  assert.equal(marksNew('discussion', { view: 'discussion', shown: true, own: false }), '');
+  assert.equal(marksNew('discussion', { view: 'assistant', shown: false, own: false }), '', 'the rail\'s unread has it');
+  assert.equal(marksNew('discussion', { view: 'assistant', shown: true, own: true }), '');
+  const rail = fnBody(space, 'function syncRail() {');
+  assert.match(rail, /const total = unread \+ assistantNew;/, 'the rail counts both views');
+  assert.match(space, /onAssistantNew: \(n\) => \{\n\s*assistantNew = n;\n\s*canvas\.setBuiltinUnread\('chat', unread \+ assistantNew\);\n\s*syncRail\(\);/);
+  const arrived = fnBody(chat.replace(/^ {2}/gm, ''), 'function arrived(el, { own = false } = {}) {');
+  assert.match(arrived, /announce\(/, 'the Assistant\'s news is read out');
+  assert.match(fnBody(chat.replace(/^ {2}/gm, ''), 'function announce(text) {'), /\$\('chat-view-news'\)/);
+});
+
+test('Share: the author\'s private message, made public with the PATCH the badge sends', () => {
+  const frame = fnBody(space, 'function frameMessage(');
+  assert.match(frame, /if \(canChange && state === 'private'\) \{\n\s*items\.push\(\{\n\s*icon: 'users',\n\s*label: 'Share',/);
+  assert.match(frame, /if \(!await setMessageVisibility\(entry, 'public'\)\) return;\n\s*el\.repaintVis\('public'\);/, 'repainted only once the server took it');
+  assert.ok(frame.indexOf("label: 'Share'") < frame.indexOf("label: 'Send to...'"), 'Share before Send to...');
 });
 
 // --- step 5 ---------------------------------------------------------------------------------------------------------
@@ -314,7 +398,7 @@ test('a tint colours a message\'s portrait icon and left edge, and a module\'s i
   assert.match(rule('.message[data-tint]'), /--message-tint: var\(--tint\);\s*border-left: 3px solid var\(--message-tint\);/);
   assert.match(rule('.message[data-tint] .message-portrait-icon'), /color: var\(--message-tint\);/);
   assert.match(rule('i[data-tint]'), /color: var\(--tint\);/);
-  for (const sel of ['.message[data-tint]', '.message[data-tint] .message-portrait-icon', 'i[data-tint]', '.message-command', '.message-quote', '.chat-filter-empty']) {
+  for (const sel of ['.message[data-tint]', '.message[data-tint] .message-portrait-icon', 'i[data-tint]', '.message-command', '.message-quote', '.chat-view-empty', '.chat-view-count', '.chat-view-dot', '.tb-tab.on .chat-view-count', '.tb-tab.on .chat-view-dot']) {
     assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(rule(sel)), `${sel} uses tokens only`);
   }
   // Where: the module's titlebar on the canvas and in its own window, its line in the Layout menu's Show section.

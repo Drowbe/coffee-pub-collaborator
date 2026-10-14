@@ -1,5 +1,7 @@
 # Assistant: the markup and behaviour contract (draft)
 
+**Now (GitHub #203):** the Assistant is Chat's second view, beside the Discussion, in the same box (`#chat-views` in `public/space.html`, kept by `public/chat-input.js`). It shows the person's own private messages from the one chat store: their commands, the AI's answers, what they bring in. Plain words typed there ask the AI; a command typed in the Discussion runs here. **Share** on an item makes it public: it shows in everyone's Discussion and stays here, marked shared. This module still has no window; what follows is the earlier draft for a window of its own.
+
 **Audience:** whoever writes the Assistant module's script and whoever styles it. Plan: `documentation/plans/plan-assistant-module.md`. Reference rendering: `design/assistant.html`. This file moves to `src/CONTRACT.md` when the module is scaffolded.
 
 **How it works.** The stylesheet styles elements by class and attribute; the script builds them from `<template>`s and toggles states, and never sets a style. Colours come only from the theme tokens. Text from people, and the model's own words, go in with `textContent`, never as HTML.

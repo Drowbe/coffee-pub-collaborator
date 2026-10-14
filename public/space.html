@@ -104,7 +104,7 @@
     <!-- The call's titlebar, as the chat's: its name (the environment's name for the conference, else Call) and a "..."
          with Pop out, Call position, Settings and Leave the call (space.js, the call's place). -->
     <header class="side-column-call-head" id="call-head">
-      <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span></span>
+      <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
       <span class="chat-tools">
         <button class="sdk-more" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
       </span>
@@ -153,7 +153,7 @@
     <section class="module module-video" id="conference" hidden>
       <div class="mod-content" id="video-content">
       <header class="mod-header conference-head">
-        <span class="mod-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" data-module-icon></i> <span data-module-name>Conference</span></span>
+        <span class="mod-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" data-module-icon></i> <span data-module-name>Conference</span> <span class="call-time nav-text" data-call-time hidden><span aria-hidden="true">&middot;</span> <time aria-live="off" datetime="PT0S">00:00</time></span></span>
         <span class="mod-header-tools conference-tools">
           <button class="msg-btn" id="conf-close" data-module-close type="button" title="Leave the call" aria-label="Leave the call"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>

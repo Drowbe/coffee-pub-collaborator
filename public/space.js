@@ -15,7 +15,7 @@ import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
-import { foldCallToolbar, callTitle } from '/call-toolbar.js';
+import { foldCallToolbar, callTitle, callTime, callDuration } from '/call-toolbar.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
 // window, which takes the whole canvas with it).
@@ -1561,6 +1561,46 @@ function callMenuItems() {
   }
   return items;
 }
+// The time in the call, in the titlebar (the column's, and the conference's own when it floats or has a window): from
+// when this person joined the call (the server gives no start for the call itself; the room is made when the first
+// person enters the space, not when the call starts), every second, only while in the call. Counted from the clock, so
+// a hidden page that comes back shows the true time, and cleared on leaving, on a lost connection and on pagehide.
+let callTimeStart = 0;
+let callTimeTimer = null;
+function callTimeEls() {
+  const found = [columnEl, confEl].filter(Boolean).flatMap((root) => [...root.querySelectorAll('[data-call-time]')]);
+  return found;
+}
+function showCallTime() {
+  const seconds = callTimeStart ? Math.max(0, Math.floor((Date.now() - callTimeStart) / 1000)) : 0;
+  const text = callTime(seconds);
+  for (const el of callTimeEls()) {
+    el.hidden = !callTimeStart;
+    const t = el.querySelector('time');
+    if (t.textContent !== text) { t.textContent = text; t.setAttribute('datetime', callDuration(seconds)); }
+    const head = el.closest('header');
+    if (head) head.title = callTimeStart ? `In the call for ${text}` : '';
+  }
+}
+function stopCallTime() {
+  clearInterval(callTimeTimer);
+  callTimeTimer = null;
+  callTimeStart = 0;
+  showCallTime();
+}
+function startCallTime() {
+  clearInterval(callTimeTimer);
+  callTimeStart = Date.now();
+  showCallTime();
+  callTimeTimer = setInterval(showCallTime, 1000);
+}
+addEventListener('pagehide', stopCallTime);
+// A hidden page does not tick (unless the call is in a window of its own, which is seen); back, it shows the true time.
+document.addEventListener('visibilitychange', () => {
+  if (!callTimeStart) return;
+  if (document.hidden && callWhere() !== 'window') { clearInterval(callTimeTimer); callTimeTimer = null; }
+  else if (!callTimeTimer) { showCallTime(); callTimeTimer = setInterval(showCallTime, 1000); }
+});
 // The titlebar's name and icon: the environment's name for the conference, else Call (callTitle, call-toolbar.js).
 function setCallHead(def) {
   const name = columnEl?.querySelector('#call-head-name');
@@ -4920,6 +4960,7 @@ call
     hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
+    stopCallTime();
     syncCallControl();
     closeMic();
     closePopout();
@@ -5302,6 +5343,7 @@ async function startCall() {
     }
     if (stopped()) return;
     inCall = true;
+    startCallTime();
     syncCallControl();
     setNoCall(false);
     canvas.updateMenu(); // the phone's Conference tab carries its in-call dot
@@ -5375,6 +5417,7 @@ async function stopCall() {
   setJoinProblem('');
   if (!inCall) return;
   inCall = false;
+  stopCallTime();
   if (call.state === 'connected') {
     // Away ends with the call (below), so it is cleared for everyone with it.
     await call.localParticipant.setAttributes({ call: 'off', away: 'off', awayMessage: '' }).catch(() => {});

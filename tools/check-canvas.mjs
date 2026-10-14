@@ -1668,9 +1668,25 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'call-toolbar.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/call-toolbar.js'), copy);
-  const { foldCallToolbar, wrapRows, callTitle } = await import(pathToFileURL(copy).href);
+  const { foldCallToolbar, wrapRows, callTitle, callTime, callDuration } = await import(pathToFileURL(copy).href);
   for (const [name, want] of [[undefined, 'Call'], ['', 'Call'], ['Conference', 'Call'], ['  Video  call ', 'Video call'], ['Video chat', 'Video chat']]) {
     if (typeof callTitle !== 'function' || callTitle(name) !== want) fail('public/call-toolbar.js', `callTitle(${JSON.stringify(name)}) should be ${JSON.stringify(want)}`);
+  }
+  // The time in the call (GitHub #37): mm:ss, h:mm:ss from the first hour; the same as a <time> duration.
+  for (const [s, want, iso] of [[0, '00:00', 'PT0S'], [59, '00:59', 'PT59S'], [60, '01:00', 'PT1M0S'], [754, '12:34', 'PT12M34S'], [3599, '59:59', 'PT59M59S'], [3600, '1:00:00', 'PT1H0M0S'], [86400, '24:00:00', 'PT24H0M0S'], [-5, '00:00', 'PT0S']]) {
+    if (typeof callTime !== 'function' || callTime(s) !== want) fail('public/call-toolbar.js', `callTime(${s}) should be ${want}`);
+    if (typeof callDuration !== 'function' || callDuration(s) !== iso) fail('public/call-toolbar.js', `callDuration(${s}) should be ${iso}`);
+  }
+  {
+    const page = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+    const code = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+    const sheet = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+    const stamp = /<span class="call-time nav-text" data-call-time hidden>[^]*?<time aria-live="off" datetime="PT0S">00:00<\/time><\/span>/g;
+    if ((page.match(stamp) || []).length !== 2) fail('public/space.html', 'the call time (<time>, aria-live="off", nav-text, hidden) sits in the column\'s titlebar and in the conference\'s own');
+    if (!/function startCallTime\(\) \{[^}]*setInterval\(showCallTime, 1000\)/.test(code) || !/inCall = true;\n    startCallTime\(\);/.test(code)) fail('public/space.js', 'the call time starts when this person joins the call (startCallTime), ticking every second');
+    if (!/inCall = false;\n  stopCallTime\(\);/.test(code) || !/inCall = false; \/\/ the whole call is gone[^\n]*\n    stopCallTime\(\);/.test(code) || !/addEventListener\('pagehide', stopCallTime\)/.test(code)) fail('public/space.js', 'the call time stops on leaving, on a lost connection and on pagehide (stopCallTime clears the timer)');
+    if (!/In the call for \$\{text\}/.test(code)) fail('public/space.js', 'the call time is the titlebar\'s tooltip ("In the call for 12:34")');
+    if (!/\.call-time \{[^}]*font-variant-numeric: tabular-nums;/.test(sheet)) fail('public/style.css', 'the call time uses tabular figures');
   }
   fs.rmSync(tmp, { recursive: true, force: true });
   const W = 30;

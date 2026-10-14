@@ -11171,6 +11171,15 @@ h4.setup-subheading {
   font-weight: 600;
 }
 
+.call-time {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.call-time[hidden] {
+  display: none;
+}
+
 .side-column-call-head[hidden] {
   display: none;
 }

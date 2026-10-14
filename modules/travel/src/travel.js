@@ -643,12 +643,32 @@
     select.replaceChildren();
     const add = (value, label) => { const o = document.createElement('option'); o.value = value; o.textContent = label; select.append(o); };
     const days = plan.days();
+    // With phases, any day of the space's timeline can be chosen (first phase's start to last phase's end), not only the days the
+    // plan already draws: the ones before the first drawn day come first, the ones after the last come last. Choosing one makes
+    // the plan draw it (planDays), under its own phase's tint. The phase's name follows each day.
+    const bands = plan.bands().filter((b) => b.dated);
+    const inPhase = (d) => { const p = bands.length ? phaseOnDay(bands, d) : null; return p && p.label ? ` · ${p.label}` : ''; };
+    let before = [];
+    let after = [];
+    if (!jointsOnly && bands.length) {
+      const first = bands.reduce((m, b) => (b.start < m ? b.start : m), bands[0].start);
+      const last = bands.reduce((m, b) => ((b.end || b.start) > m ? (b.end || b.start) : m), bands[0].end || bands[0].start);
+      const span = tripDays({ start: days.length && days[0] < first ? days[0] : first, end: days.length && days[days.length - 1] > last ? days[days.length - 1] : last });
+      const here = new Set(days);
+      const lo = days[0];
+      const hi = days[days.length - 1];
+      before = span.filter((d) => !here.has(d) && (!days.length || d < lo));
+      after = span.filter((d) => !here.has(d) && days.length && d > hi);
+      if (!days.length) before = span;
+    }
     if (!jointsOnly && !placedOnly) add('d:', 'Not on a day yet');
+    before.forEach((d) => add(`d:${d}`, `${dayShort(d)}${inPhase(d)}`));
     add('j:', jointLabel(''));
     days.forEach((d) => {
-      if (!jointsOnly) add(`d:${d}`, dayShort(d));
+      if (!jointsOnly) add(`d:${d}`, `${dayShort(d)}${inPhase(d)}`);
       add(`j:${d}`, jointLabel(d));
     });
+    after.forEach((d) => add(`d:${d}`, `${dayShort(d)}${inPhase(d)}`));
     select.value = [...select.options].some((o) => o.value === was) ? was : 'j:';
   }
 

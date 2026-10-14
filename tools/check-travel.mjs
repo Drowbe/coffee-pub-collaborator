@@ -1086,6 +1086,23 @@ test('a day wears its phase: the band it is in, its tint and name; nothing befor
   assert.equal(lib.phaseOnDay([{ id: 'x', label: 'X', tint: 'chartreuse', start: '2026-10-01', end: null, dated: true }], '2026-10-02').tint, null, 'an unknown tint draws no colour');
 });
 
+test('the When choice reaches the whole timeline: a note dated before the trip is drawn, in its own phase', () => {
+  const phases = [{ id: 'planning', label: 'Planning' }, { id: 'pre-trip', label: 'Pre-trip' }, { id: 'trip', label: 'Trip', main: true }, { id: 'post-trip', label: 'Post-trip' }];
+  const dates = { planning: { start: '2026-10-11' }, 'pre-trip': { start: '2026-10-15' }, trip: { start: '2026-10-16', end: '2026-10-19' }, 'post-trip': { start: '2026-10-20', end: '2026-10-22' } };
+  const bands = Phases.timelineOf(phases, dates, { today: '2026-10-14', created: '2026-09-01' });
+  const span = lib.tripSpan(null, bands);
+  const note = { id: 'n', kind: 'note', date: '2026-10-15' };
+  const days = lib.planDays({ start: span.start, end: span.end }, [note]);
+  assert.deepEqual([days[0], days[days.length - 1], days.length], ['2026-10-15', '2026-10-19', 5], 'the plan stretches to the note');
+  assert.equal(lib.phaseOnDay(bands, '2026-10-15').label, 'Pre-trip', 'and the day wears the Pre-trip tint');
+  assert.equal(lib.phaseOnDay(bands, '2026-10-21').label, 'Post-trip');
+  const main = read('travel.js');
+  const fn = main.slice(main.indexOf('function placeOptions'), main.indexOf('// The badge for a run of hidden days'));
+  assert.match(fn, /plan\.bands\(\)\.filter\(\(b\) => b\.dated\)/, 'the day list reads the timeline');
+  assert.match(fn, /before\.forEach/, 'days before the first drawn day are offered');
+  assert.match(fn, /after\.forEach/, 'and days after the last');
+});
+
 test('the Planner and the Calendar draw a phase only as a wash and a name, in theme tints', () => {
   const css = read('travel-lib-cards.css');
   for (const t of ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']) assert.match(css, new RegExp(`\\.ph-${t} \\{ --ph: var\\(--tint-${t}\\); \\}`), `${t} is the theme's tint`);

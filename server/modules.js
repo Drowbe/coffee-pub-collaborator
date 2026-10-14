@@ -870,7 +870,11 @@ function cleanManifest(raw, files) {
     ? { auto: raw.install.auto === true, settingsFrom: raw.install.settingsFrom === 'environment' ? 'environment' : null }
     : null;
 
-  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, pictureMap, lookups, install };
+  // `"budget": true`: the module reads the space's budget target (host.space().budget; #216), so Set up offers the
+  // target in every space while the module is on. Absent or anything else: false.
+  const budget = raw.budget === true;
+
+  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, pictureMap, lookups, budget, install };
 }
 
 // --- the registry ---------------------------------------------------------
@@ -1039,6 +1043,7 @@ class ModuleManager {
       try { manifest.pictureMap = cleanPictureMap(manifest.pictureMap, manifest.settings); } catch { manifest.pictureMap = null; }
       try { manifest.uploads = cleanUploads(manifest.uploads); } catch { manifest.uploads = null; }
       try { manifest.lookups = cleanLookups(manifest.lookups); } catch { manifest.lookups = []; }
+      manifest.budget = manifest.budget === true;
       if (hasPlaceholders(manifest)) this.withPlaceholders.add(manifest);
       this.manifests.set(cacheKey, manifest);
     }

@@ -686,11 +686,15 @@
   // The facts, pure: the money spent so far (costs that have a payer, as the Money view's total), against the space's
   // budget target when one is set, and the next journey or stay from today on. `target` is the space's budget, { amount,
   // currency? } or null (no currency: the trip's); `currency` the trip's (else the server's); `money(amount, code)` words an
-  // amount; `dayWord(day)` words a day ("Thu", "Oct 23"). Spent is always reported, so Set up can offer the target
-  // (the fact is marked `budget`): "Spent $0" on a new trip. A target in another currency is shown, not compared.
+  // amount. Spent is always reported, so Set up can offer the target (the fact is marked `budget`): "Spent $0" on a new
+  // trip. A target in another currency is shown, not compared. Over the target the icon is a warning (a full bar alone
+  // would look the same as exactly on it) and the words say "over". The next booking carries its day as `when`
+  // (YYYY-MM-DD) and words without a day ("SJC → ONT"): the host words the day against each viewer's own today and
+  // leaves the fact out once it has passed, so it never reads a stale "tomorrow".
   const NEXT_ICONS = { flight: 'plane', train: 'train', bus: 'bus', ferry: 'ship', car: 'car', taxi: 'taxi', rideshare: 'car', shuttle: 'van-shuttle' };
-  const cutText = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-  function stripFacts({ items = [], travellers = [], today, target = null, currency = '', money, dayWord }) {
+  // Cut to `n` characters as a person counts them (code points), so an emoji is never split in half.
+  const cutText = (s, n) => { const cps = [...String(s)]; return cps.length > n ? `${cps.slice(0, n - 1).join('')}…` : String(s); };
+  function stripFacts({ items = [], travellers = [], today, target = null, currency = '', money }) {
     const facts = [];
     const spent = balances(costItems(items), travellers).total;
     const goal = target && Number(target.amount) > 0 ? Number(target.amount) : 0;
@@ -702,7 +706,7 @@
       facts.push({ id: 'spent', icon: 'coins', text: cutText(`${money(spent, currency)} of ${money(goal, goalCode)}`, 40), value: 'Another currency', order: 10, budget: true });
     } else {
       const over = spent > goal;
-      const fact = { id: 'spent', icon: 'coins', text: cutText(`${money(spent, currency)} of ${money(goal, currency)}${over ? ' · over' : ''}`, 40), order: 10, budget: true };
+      const fact = { id: 'spent', icon: over ? 'circle-exclamation' : 'coins', text: cutText(`${money(spent, currency)} of ${money(goal, currency)}${over ? ' · over' : ''}`, 40), order: 10, budget: true };
       fact.value = cutText(over ? `${money(Math.round((spent - goal) * 100) / 100, currency)} over` : `${money(Math.round((goal - spent) * 100) / 100, currency)} left`, 24);
       fact.progress = Math.min(1, Math.round((spent / goal) * 1000) / 1000);
       facts.push(fact);
@@ -715,7 +719,7 @@
       const from = next.kind === 'journey' ? (next.fromCode || next.from || '') : '';
       const to = next.kind === 'journey' ? (next.toCode || next.to || '') : '';
       const what = from && to ? `${from} → ${to}` : next.title;
-      const fact = { id: 'next', icon: next.kind === 'stay' ? 'bed' : NEXT_ICONS[next.mode] || 'route', text: cutText(`Next: ${dayWord(next.date)} · ${what}`, 40), order: 20 };
+      const fact = { id: 'next', icon: next.kind === 'stay' ? 'bed' : NEXT_ICONS[next.mode] || 'route', text: cutText(what, 40), when: next.date, order: 20 };
       if (from && to && next.title) fact.value = cutText(next.title, 24);
       facts.push(fact);
     }

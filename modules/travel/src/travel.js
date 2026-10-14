@@ -1192,20 +1192,13 @@
   const redraw = () => { if (queued) return; queued = true; Promise.resolve().then(() => { queued = false; render(); reportFacts(); }); };
 
   // What the space's status strip shows from the Planner (host.facts; #216): the money spent, against the space's budget
-  // target when an owner set one in Set up (host.space().budget), and the next journey or stay (stripFacts, the lib).
+  // target when an owner set one in Set up (host.space().budget), and the next journey or stay with its day as `when`,
+  // which the host words for each viewer (stripFacts, the lib).
   // Reported by someone who may edit the plan, in a space, after each change; the same facts again are not sent.
   const wholeMoney = (n, code) => {
     const c = code || host.locale().currency || 'USD';
     const whole = Math.round(n) === n; // "$4,000", "$1,560.50"
     try { return new Intl.NumberFormat([], { style: 'currency', currency: c, ...(whole ? { minimumFractionDigits: 0, maximumFractionDigits: 0 } : {}) }).format(n); } catch (err) { return host.util.money(n, c); }
-  };
-  const nearDay = (day) => {
-    const today = ymd(new Date());
-    const ahead = Math.round((parseYmd(day) - parseYmd(today)) / 86400000);
-    if (ahead === 0) return 'today';
-    if (ahead === 1) return 'tomorrow';
-    const d = parseYmd(day);
-    return ahead > 0 && ahead < 7 ? d.toLocaleDateString([], { weekday: 'short' }) : d.toLocaleDateString([], { month: 'short', day: 'numeric' });
   };
   let factsSaid = '';
   function reportFacts() {
@@ -1217,7 +1210,6 @@
       target: spaceOf().budget || null,
       currency: (plan.trip || {}).currency || host.locale().currency || 'USD',
       money: wholeMoney,
-      dayWord: nearDay,
     });
     const sig = JSON.stringify(list);
     if (sig === factsSaid) return;

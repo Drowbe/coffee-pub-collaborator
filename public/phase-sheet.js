@@ -109,11 +109,18 @@ export function sameDates(a, b) {
   return one(a) === one(b);
 }
 
+// The widest window at which the strip's fact chips are hidden (style.css: `@media (max-width: 760px)` hides
+// .status-facts, and the phone's slim line has none). At that width and below, the facts are reached through the phase
+// sheet instead, so they head it. One number for both: tools/check-nav.mjs holds the stylesheet's rule to it.
+export const FACT_CHIPS_HIDDEN_AT = 760;
+// Whether the phase sheet lists the facts in a window `width` px wide: whenever the chips are hidden.
+export const factsInSheet = (width) => Number(width) <= FACT_CHIPS_HIDDEN_AT;
+
 // Opens the sheet over the page. `phases` is the template's list, `dates` the space's dates, `created` the space's
 // createdAt, `today` a day, `canEdit` whether this person may PATCH, `save(dates)` the save (resolving to the dates the
 // server kept), `onChange(dates)` told after each kept save, `rule` the Phases object, `doc` the document to draw in.
-// `facts` (a phone's sheet: the slim line has no chips) is the space's facts, [{ icon, text, value?, progress?, name,
-// open() }], listed at its head; pressing one closes the sheet and opens its module (with dates edited, it asks first).
+// `facts` (where the strip shows no chips, factsInSheet, or cannot fit them all) is the space's facts, [{ icon, text,
+// value?, progress?, name, open() }], listed at its head; pressing one closes the sheet and opens its module (with dates edited, it asks first).
 // Returns { el, close, cancel, bar }: `close` closes it at once, `cancel` as Escape does (asking when dirty).
 export function openPhaseSheet({ phases, dates, created, today, canEdit = false, save, onChange, rule, doc = document, opener = null, words = {}, facts = [] } = {}) {
   const R = rule || globalThis.Phases;

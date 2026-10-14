@@ -2,7 +2,7 @@
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
-import { openPhaseSheet, bandShares, todayPercent } from '/phase-sheet.js';
+import { openPhaseSheet, bandShares, todayPercent, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
 import { renderModuleSettings } from '/module-settings.js';
 import { actionBar } from '/action-bar.js';
@@ -1880,6 +1880,8 @@ async function loadFacts() {
     if (ticket !== factsAsked || spaceFacts.spaceId !== id) return; // a newer read, or another space, took over
     spaceFacts = { spaceId: id, modules: Array.isArray(answer.modules) ? answer.modules : [] };
     drawFacts();
+    // Set up opened before the facts arrived (by address, say): it offers the budget now, keeping what was typed.
+    if (settingUp && budgetReported()) spaceSetup.offerBudget(budgetSource());
   } catch (err) {
     // keeps the last facts; the next read tries again
   }
@@ -1893,14 +1895,26 @@ window.addEventListener('app:facts', (event) => { if (!event.detail?.space || ev
 window.addEventListener('focus', loadFactsSoon);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) loadFactsSoon(); });
 setInterval(() => { if (!document.hidden) loadFacts(); }, 60000);
+// A module's facts as this viewer reads them today (Phases.factsToday): a fact's `when` worded against my own today in
+// front of its words ("Tomorrow · SJC → ONT"), and one whose day has passed left out, so a report never reads stale.
+const factsNow = (list) => (phaseRule() && phaseRule().factsToday ? phaseRule().factsToday(list, phaseToday()) : (list || []).filter((f) => !f.when));
 // Every fact here, in the order shown: each module's by `order`, then as sent; the modules in the order they answered.
 function factsInOrder() {
   const all = [];
-  spaceFacts.modules.forEach((m, mi) => (m.facts || []).forEach((f, fi) => all.push({ ...f, module: m.module, name: m.name || m.module, rank: [Number.isInteger(f.order) ? f.order : 50, mi, fi] })));
+  spaceFacts.modules.forEach((m, mi) => factsNow(m.facts).forEach((f, fi) => all.push({ ...f, module: m.module, name: m.name || m.module, rank: [Number.isInteger(f.order) ? f.order : 50, mi, fi] })));
   return all.sort((a, b) => a.rank[0] - b.rank[0] || a.rank[1] - b.rank[1] || a.rank[2] - b.rank[2]);
 }
 // Whether some module here reads the space's budget target (a fact marked `budget`): Set up offers the target then.
 const budgetReported = () => spaceFacts.modules.some((m) => (m.facts || []).some((f) => f.budget));
+const budgetSource = () => ({ name: spaceFacts.modules.find((m) => (m.facts || []).some((f) => f.budget))?.name || '' });
+// Whether the phase sheet lists the facts: whenever the strip's chips are hidden (FACT_CHIPS_HIDDEN_AT, the width
+// style.css hides them at, in the header's own window: a phone's slim line included), and wider when the line cannot
+// fit some of them (a chip dropped, or more facts than chips), so every fact is one tap away.
+function factsHiddenInStrip() {
+  const view = subnav.ownerDocument.defaultView || window;
+  if (view.matchMedia(`(max-width: ${FACT_CHIPS_HIDDEN_AT}px)`).matches) return true;
+  return factsInOrder().length > statusFacts.querySelectorAll('.status-fact:not(.dropped)').length;
+}
 function factChip(f) {
   const b = document.createElement('button');
   b.type = 'button';
@@ -1953,7 +1967,7 @@ function factMenuItems(moduleId) {
   if (!m) return [];
   const list = document.createElement('ul');
   list.className = 'status-fact-list';
-  for (const f of m.facts || []) {
+  for (const f of factsNow(m.facts)) {
     const li = document.createElement('li');
     const icon = document.createElement('i');
     icon.className = `fa-solid fa-${/^[a-z0-9-]+$/.test(f.icon) ? f.icon : 'circle-info'} fa-fw`;
@@ -1973,11 +1987,19 @@ let phasesSaid = '';
 function announcePhases() {
   const space = phaseSpaceRecord();
   if (!space || !space.id || currentSpace?.isAside) return;
-  // The budget target rides along (#216): the module host tells the modules 'space' ({ budget }) when it changed.
-  const detail = { space: space.id, phases: space.phases || {}, created: space.createdAt || null, budget: space.budget || null };
+  // The budget target (#216) is not on this record (the presence list leaves it out): the modules read it from their
+  // own context, and an owner's save here says it (announceBudget).
+  const detail = { space: space.id, phases: space.phases || {}, created: space.createdAt || null };
   const sig = JSON.stringify(detail);
   if (sig === phasesSaid) return;
   phasesSaid = sig;
+  try { window.dispatchEvent(new CustomEvent('app:phases', { detail })); } catch { /* no window to tell */ }
+  try { if (phasesChannel) phasesChannel.postMessage(detail); } catch { /* nobody to hear */ }
+}
+// An owner's Set up saved the budget target: the modules mounted here and the pop-outs hear it at once ('space' with
+// { budget }, through the module host); everyone else's modules read it from their context.
+function announceBudget(spaceId, budget) {
+  const detail = { space: spaceId, budget: budget && typeof budget === 'object' ? budget : null };
   try { window.dispatchEvent(new CustomEvent('app:phases', { detail })); } catch { /* no window to tell */ }
   try { if (phasesChannel) phasesChannel.postMessage(detail); } catch { /* nobody to hear */ }
 }
@@ -2035,8 +2057,9 @@ function openPhaseSheetFrom(opener) {
     rule: phaseRule(),
     opener,
     words: { owner: word('owner'), moderator: word('moderator') },
-    // On a phone the slim line has no chips: the facts head the sheet instead (plan-space-story-strip.md, "The phone line").
-    facts: phoneWidth() ? factsInOrder().map((f) => ({ icon: f.icon, text: f.text, value: f.value, progress: f.progress, name: f.name, open: () => openAttentionTarget(f.module) })) : [],
+    // Where the strip shows no chips (760px and below, the phone's slim line too) or cannot fit them all, the facts
+    // head the sheet instead (plan-space-story-strip.md, "The phone line").
+    facts: factsHiddenInStrip() ? factsInOrder().map((f) => ({ icon: f.icon, text: f.text, value: f.value, progress: f.progress, name: f.name, open: () => openAttentionTarget(f.module) })) : [],
   });
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
@@ -2168,8 +2191,9 @@ function enterSetup({ tab = location.hash } = {}) {
     today: phaseToday(),
     tab,
     nameInput: setupNameInput,
-    // The budget field (#216) shows while a module here reads the target (a fact marked `budget`), named after it.
-    budget: budgetReported() ? { name: spaceFacts.modules.find((m) => (m.facts || []).some((f) => f.budget))?.name || '' } : null,
+    // The budget field (#216) shows while a module here reads the target: one whose manifest says so (Set up reads the
+    // module list itself), one that reported a fact marked `budget` (named after it; later facts: offerBudget), or one set.
+    budget: budgetReported() ? budgetSource() : null,
     onDone: setupSaved,
     onSaved: (saved, fields) => setupSaved(saved, '', fields), // a part went through before a refusal: the page follows it
     onDeleted: setupDeleted,
@@ -2220,8 +2244,10 @@ function setupSaved(space, said, saved = []) {
     const record = presenceSpaces.find((r) => r.id === space.id);
     if (record) Object.assign(record, space);
     if (currentSpace !== record) Object.assign(currentSpace, space);
-    // A cleared budget is absent from the answer: take it off this page's records too, so the modules hear it go.
-    if (!('budget' in space)) { if (record) delete record.budget; delete currentSpace.budget; }
+    // The budget target is not kept on this page's records (the presence list leaves it out): the modules hear it.
+    if (record) delete record.budget;
+    delete currentSpace.budget;
+    if (saved.includes('budget')) announceBudget(space.id, space.budget || null);
     spaceName = spaceDisplayName(currentSpace);
     renderSpaces();
     renderSpaceLink();

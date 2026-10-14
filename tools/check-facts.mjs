@@ -65,6 +65,24 @@ const next = { id: 'next', icon: 'plane', text: 'Next: Thu · SJC → ONT' };
   refused({ facts: [{ ...next, order: 1.5 }] }, 'an order not whole');
   refused({ facts: [{ ...next, order: 100 }] }, 'an order over 99');
   refused({ facts: [{ ...next, budget: 'yes' }] }, 'a budget mark not true or false');
+  // Invisible characters (zero-width, bidi controls) would let a fact look empty or reorder its words: refused.
+  for (const cp of [0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060, 0xFEFF, 0x202A, 0x202B, 0x202C, 0x202D, 0x202E, 0x2066, 0x2067, 0x2068, 0x2069]) {
+    const ch = String.fromCodePoint(cp);
+    refused({ facts: [{ ...next, text: `${ch}` }] }, `words of U+${cp.toString(16).toUpperCase()} alone`);
+    refused({ facts: [{ ...next, text: `SJC ${ch}→ ONT` }] }, `words holding U+${cp.toString(16).toUpperCase()}`);
+    refused({ facts: [{ ...next, value: `UA${ch} 1` }] }, `a value holding U+${cp.toString(16).toUpperCase()}`);
+  }
+  assert.equal(cleanFacts({ facts: [{ ...next, text: 'a\u200Bb' }] }).error, 'A fact\'s words cannot hold invisible characters.');
+  // Lengths are characters as a person counts them: forty emoji are forty, forty-one too many.
+  assert.equal(cleanFacts({ facts: [{ ...next, text: '😀'.repeat(40) }] }).facts[0].text, '😀'.repeat(40), 'forty emoji are forty characters');
+  refused({ facts: [{ ...next, text: '😀'.repeat(41) }] }, 'forty-one emoji');
+  assert.equal(cleanFacts({ facts: [{ ...next, value: '✈️'.repeat(12) }] }).facts[0].value, '✈️'.repeat(12), 'a value counted the same way');
+  // A fact's day (`when`): a real date written YYYY-MM-DD, kept as sent; anything else refused.
+  assert.equal(cleanFacts({ facts: [{ ...next, when: '2026-10-16' }] }).facts[0].when, '2026-10-16');
+  assert.ok(!('when' in cleanFacts({ facts: [{ ...next, when: null }] }).facts[0]), 'no day: none kept');
+  for (const when of ['2026-02-30', '2026-13-01', '16/10/2026', '2026-10-16T08:15', 'tomorrow', 20261016, '']) refused({ facts: [{ ...next, when }] }, `a day of ${JSON.stringify(when)}`);
+  assert.equal(cleanFacts({ facts: [{ ...next, when: 'tomorrow' }] }).error, 'A fact\'s day must be a real date written YYYY-MM-DD.');
+  n += 6;
   assert.equal(LIMITS.facts, 6);
   assert.equal(LIMITS.text, 40);
   assert.equal(MAX_AGE, 7 * DAY);
@@ -118,6 +136,20 @@ const next = { id: 'next', icon: 'plane', text: 'Next: Thu · SJC → ONT' };
   fs.writeFileSync(path.join(dir, 'facts.json'), JSON.stringify({ spaces: { s1: { travel: { facts: [{ id: 'X', icon: 'coins', text: 'a' }], at: now }, polls: 7 } } }));
   assert.deepEqual(new Facts(dir, () => now).list('s1'), []);
   n += 2;
+  // A file with a `__proto__` key (as a space or a module) leaves Object.prototype clean after load and after a save.
+  const good = { facts: [{ id: 'polluted', icon: 'coins', text: 'yes' }], at: now };
+  fs.writeFileSync(path.join(dir, 'facts.json'), `{"spaces":{"__proto__":{"travel":${JSON.stringify(good)}},"s1":{"__proto__":${JSON.stringify(good)},"constructor":${JSON.stringify(good)},"travel":${JSON.stringify(good)}}}}`);
+  const p = new Facts(dir, () => now);
+  ok(!('travel' in Object.prototype) && !('facts' in Object.prototype) && ({}).travel === undefined, 'nothing reached Object.prototype from a __proto__ space');
+  ok(Object.getPrototypeOf({}) === Object.prototype && !Object.prototype.polluted, 'Object.prototype is untouched');
+  assert.deepEqual(p.list('s1').map((r) => r.module), ['travel'], 'the good report kept, the __proto__ and constructor modules skipped');
+  assert.deepEqual(p.list('__proto__'), [], 'no __proto__ space');
+  assert.deepEqual(p.list('constructor'), [], 'and nothing read through the prototype');
+  p.set('s1', 'polls', [next]);
+  ok(!('__proto__' in JSON.parse(fs.readFileSync(path.join(dir, 'facts.json'), 'utf8'), (k, v) => v).spaces) || !Object.keys(JSON.parse(fs.readFileSync(path.join(dir, 'facts.json'), 'utf8')).spaces).includes('__proto__'), 'not written back');
+  assert.equal(p.set('__proto__', 'travel', [next]), false, 'a __proto__ space is never kept');
+  ok(({}).travel === undefined, 'still clean after a set');
+  n += 3;
   fs.rmSync(dir, { recursive: true, force: true });
 }
 
@@ -183,8 +215,9 @@ try {
   const samUser = await mk('sam');
   const moUser = await mk('mo');
   await mk('out');
-  // Bundled To-do (write is "edit") and Polls (write is "vote"), turned on for the environment.
-  for (const id of ['todo', 'polls']) {
+  // Bundled To-do (write is "edit"), Polls (write is "vote") and the Planner (travel: read is "view", write "edit"),
+  // turned on for the environment.
+  for (const id of ['todo', 'polls', 'travel']) {
     const r = await call('POST', `/api/modules/bundled/${id}/install`, { cookie: admin });
     assert.ok(r.status === 201 || r.status === 200, `${id} installs: ${r.status} ${r.text}`);
     if (!r.json.module?.enabled) await expect(`${id} on`, 200, 'PATCH', `/api/modules/${id}`, { cookie: admin, body: { enabled: true } });
@@ -313,6 +346,63 @@ try {
   assert.equal((await ctx(pat)).budget, null);
   n += 1;
   await expect('set again', 200, 'PATCH', P, { cookie: admin, body: { budget: { amount: 500, currency: 'USD' } } });
+
+  // --- who reads the budget (#216): it is not a general part of the space ---------------------------------------
+  // Only owners and the admin (GET /api/spaces/:id, Set up's read, and their own PATCH's answer) and a module's context
+  // for a signed-in person who may read that module there. The presence list, GET /api/spaces and a guest's presence
+  // never carry it: not to someone outside the space, a guest, a member without the Planner's view, a member with it,
+  // nor the admin.
+  await expect('a guest link again', 200, 'POST', `/api/spaces/${S}/guest-link`, { cookie: admin, body: {} });
+  const guestNow = (await call('GET', `/api/spaces/${S}`, { cookie: admin })).json.space.guestToken;
+  // Members lose the Planner's view (sam stands for them); mo, a member ticked moderator here, keeps it through the
+  // moderator's role and stands for a member who may read the Planner.
+  await expect('take the Planner\'s view from members', 200, 'PATCH', '/api/roles/member', { cookie: admin, body: { 'module.travel.view': false } });
+  const planCtx = async (cookie, q = '') => call('GET', `/api/modules/travel/context?scope=space&space=${S}${q}`, { cookie });
+  assert.equal((await planCtx(sam)).status, 403, 'sam may not read the Planner here now');
+  assert.equal((await planCtx(mo)).status, 200, 'mo still may');
+  n += 1;
+  const spaceIn = (json) => (json?.spaces || []).find((r) => r.id === S);
+  for (const [label, cookie, q] of [['someone not in the space', out, ''], ['a guest', null, `?guest=${encodeURIComponent(guestNow)}`], ['a member without the Planner\'s view', sam, ''], ['a member with it (the moderator)', mo, ''], ['the admin', admin, '']]) {
+    const pres = await call('GET', `/api/presence${q}`, { cookie });
+    assert.equal(pres.status, 200, `${label} reads presence: ${pres.text}`);
+    const rec = spaceIn(pres.json);
+    assert.ok(rec, `${label}: the space is listed`);
+    ok(!('budget' in rec) && !pres.text.includes('"budget"'), `${label}: no budget in /api/presence`);
+    if (cookie) {
+      const list = await call('GET', '/api/spaces', { cookie });
+      assert.equal(list.status, 200);
+      ok(!('budget' in spaceIn(list.json)) && !list.text.includes('"budget"'), `${label}: no budget in GET /api/spaces`);
+    }
+  }
+  const guestList = await call('GET', `/api/spaces?guest=${encodeURIComponent(guestNow)}`);
+  ok(guestList.status === 401 && !guestList.text.includes('budget'), 'a guest has no space list at all');
+  // Set up's read: the owner's (the admin's) carries it; anyone else is refused that read.
+  assert.deepEqual((await call('GET', P, { cookie: admin })).json.space.budget, { amount: 500, currency: 'USD' }, 'Set up\'s read carries it for the admin');
+  for (const [label, cookie] of [['a member', pat], ['the moderator', mo], ['someone outside', out]]) {
+    const r = await call('GET', P, { cookie });
+    ok(r.status === 403 && !r.text.includes('budget'), `${label} cannot read Set up's record (${r.status})`);
+  }
+  // A moderator's own PATCH answer leaves it out; the admin's carries it.
+  const moSave = await expect('the moderator saves the first visit', 200, 'PATCH', P, { cookie: mo, body: { opensWith: null } });
+  ok(!('budget' in moSave.json.space), 'no budget in a moderator\'s answer');
+  ok('budget' in (await call('PATCH', P, { cookie: admin, body: { opensWith: null } })).json.space, 'the admin\'s answer carries it');
+  // The module context: a member who may read the Planner, and the admin, get it; a guest gets null; a member without
+  // the Planner's view and someone outside get no context at all.
+  assert.deepEqual((await planCtx(mo)).json.space.budget, { amount: 500, currency: 'USD' }, 'a member with the Planner\'s view');
+  assert.deepEqual((await planCtx(admin)).json.space.budget, { amount: 500, currency: 'USD' }, 'the admin');
+  const guestCtx = await planCtx(null, `&guest=${encodeURIComponent(guestNow)}`);
+  assert.equal(guestCtx.status, 200, `a guest reads the Planner here: ${guestCtx.text}`);
+  assert.equal(guestCtx.json.space.budget, null, 'but never the budget');
+  ok(!guestCtx.text.includes('500'), 'not even its amount');
+  for (const [label, cookie] of [['a member without the view', sam], ['someone outside', out]]) {
+    const r = await planCtx(cookie);
+    assert.equal(r.status, 403, `${label}: ${r.text}`);
+    ok(!r.text.includes('budget'), `${label}: no budget`);
+  }
+  await expect('give members the view back', 200, 'PATCH', '/api/roles/member', { cookie: admin, body: { 'module.travel.view': true } });
+  assert.deepEqual((await planCtx(pat)).json.space.budget, { amount: 500, currency: 'USD' }, 'with the view back, a plain member reads it in the Planner\'s context');
+  ok(!('budget' in spaceIn((await call('GET', '/api/presence', { cookie: pat })).json)), 'and still not in the presence list');
+  n += 5;
 
   // Stale: facts older than 7 days are dropped; the budget is kept across a start. Stop, age one report, start again.
   await expect('pat reports', 200, 'PUT', `${F}/todo`, { cookie: pat, body: { facts: [spent] } });

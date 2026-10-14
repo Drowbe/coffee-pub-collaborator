@@ -51,7 +51,7 @@
   const nameOf = (key) => (state.people.find((p) => p.key === key) || {}).name || '';
   const nameOrLeft = (key) => nameOf(key) || 'Someone who left';
   const ownCosts = () => [...state.costs.values()].map((x) => x.cost);
-  const costs = () => allCosts(ownCosts(), state.pulled); // Budget's own and the pulled-in ones, each counted once
+  const costs = () => allCosts(ownCosts(), state.pulled, state.cats); // Budget's own and the pulled-in ones, each counted once
   const serverCurrency = () => (host.locale() && host.locale().currency) || 'USD';
   const currencyCode = () => (state.target && state.target.currency) || serverCurrency();
   const money = (n, code) => host.util.money(n, code || currencyCode());
@@ -327,7 +327,7 @@
       svg.append(dot);
     }
     box.replaceChildren(svg);
-    const keys = [['Paid', ''], ...(b.endExpected !== b.endActual || b.expected.length !== b.actual.length ? [['Paid and planned', 'expected']] : [])];
+    const keys = [['Paid', ''], ...(b.endExpected !== b.endActual || b.expected.length !== b.actual.length ? [['If all planned is spent', 'expected']] : [])];
     legend.replaceChildren(...keys.map(([label, cls]) => { const li = clone('tpl-legend'); if (cls) li.classList.add(cls); fill(li, { label }); return li; }));
     words.textContent = burndownWords(b, dayShort, money);
   }
@@ -347,10 +347,12 @@
       title: c.title,
       sub,
       amount: paid || (c.planned ? money(c.planned) : 'No amount'),
-      planned: c.actual ? (c.planned ? `of ${money(c.planned)} planned` : '') : c.planned ? 'planned' : '',
+      planned: c.pulled
+        ? (c.actual ? (c.estimate ? `estimated ${money(c.estimate)}` : '') : c.planned ? 'estimated' : '')
+        : c.actual ? (c.planned ? `of ${money(c.planned)} planned` : '') : c.planned ? 'planned' : '',
       source: c.pulled ? `From ${c.source.name}` : '',
     });
-    el.querySelector('.cost-main').setAttribute('aria-label', `${c.title}, ${sub}, ${paid ? `${paid} paid` : c.planned ? `${money(c.planned)} planned` : 'no amount'}.${c.pulled ? ` From ${c.source.name}. Open in ${c.source.name}` : ` ${canEdit ? 'Change it' : 'Open it'}`}`);
+    el.querySelector('.cost-main').setAttribute('aria-label', `${c.title}, ${sub}, ${paid ? `${paid} paid` : c.planned ? `${money(c.planned)} ${c.pulled ? 'estimated' : 'planned'}` : 'no amount'}.${c.pulled ? ` From ${c.source.name}. Open in ${c.source.name}` : ` ${canEdit ? 'Change it' : 'Open it'}`}`);
     return el;
   }
   function renderCosts() {

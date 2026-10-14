@@ -121,7 +121,7 @@
 
   // --- costs pulled in from other modules ----------------------------------------------------------------------------------
   // A summary another module offers with an `amount` (a Planner booking's cost) as a cost Budget shows but does not own:
-  // read-only, never stored, in no category (so under Other), and counted as paid (a booking has one figure, no planned one).
+  // read-only, never stored, in the category its source names in plain words (`categoryWord`; see categoryByName, else Other), and counted as paid when it has an actual amount (its estimate, if any, is shown but not added), as planned when it has only an estimate.
   // `paidBy` and `sharedBy` are the booking's (no sharedBy: everyone). `ref` points at the object, to open it. `self` is this
   // module's id: its own summaries are never pulled. The same object twice is counted once.
   const sourceKey = (r) => (r ? `${r.module}:${r.kind}:${r.id}${r.space ? `@${r.space}` : ''}` : '');
@@ -131,7 +131,8 @@
     for (const s of Array.isArray(summaries) ? summaries : []) {
       const ref = cleanRef(s && s.ref);
       const amount = s ? cleanAmount(s.amount) : null;
-      if (!ref || amount === null || ref.module === self) continue;
+      const estimate = s ? cleanAmount(s.planned) : null;
+      if (!ref || (amount === null && estimate === null) || ref.module === self) continue;
       const key = sourceKey(ref);
       if (seen.has(key)) continue;
       seen.add(key);
@@ -142,8 +143,11 @@
         pulled: true,
         title: oneLine(s.title, 120) || 'Untitled',
         category: 'other',
-        planned: null,
+        categoryWord: oneLine(s.category, 30),
+        // Paid when the booking has an actual amount (its estimate is then only shown, never added); only planned with an estimate.
+        planned: amount === null ? estimate : null,
         actual: amount,
+        estimate: amount !== null ? estimate : null,
         paidBy: typeof s.paidBy === 'string' && s.paidBy && s.paidBy.length <= 64 ? s.paidBy : '',
         sharedBy: Array.isArray(s.sharedBy) ? [...new Set(s.sharedBy.filter((k) => typeof k === 'string' && k && k.length <= 64))].slice(0, 50) : [],
         date: isDay(day) ? day : '',
@@ -156,7 +160,8 @@
     return out;
   }
   // Budget's own costs and the pulled-in ones, each counted once: the totals, the burndown, Settle up and the strip all take this list.
-  const allCosts = (own, pulled) => [...own, ...pulled];
+  // With the list of categories, each pulled-in cost takes the category its source's words match (by name, ignoring case), or Other when the list has no such category now; looked at each time, so renaming a category moves them with it.
+  const allCosts = (own, pulled, cats) => [...own, ...(cats ? pulled.map((c) => ({ ...c, category: categoryByName(cats, c.categoryWord) })) : pulled)];
   // The plain note for a person who may not read every module that holds a cost; empty when nothing was left out.
   const withheldNote = (n) => (Number(n) > 0 ? `Some costs are from ${word('module', { a: true })} you can't see.` : '');
 
@@ -167,6 +172,7 @@
     { id: 'travel', label: 'Travel', icon: 'plane', color: AUTO_COLOR }, { id: 'lodging', label: 'Lodging', icon: 'bed', color: AUTO_COLOR },
     { id: 'food', label: 'Food', icon: 'utensils', color: AUTO_COLOR }, { id: 'supplies', label: 'Supplies', icon: 'box', color: AUTO_COLOR },
     { id: 'services', label: 'Services', icon: 'screwdriver-wrench', color: AUTO_COLOR }, { id: 'fees', label: 'Fees', icon: 'receipt', color: AUTO_COLOR },
+    { id: 'activities', label: 'Activities', icon: 'ticket', color: AUTO_COLOR },
     { id: 'other', label: 'Other', icon: 'tag', color: AUTO_COLOR },
   ];
   function cleanCategories(v) {
@@ -175,6 +181,12 @@
     const out = list.filter((c) => !seen.has(c.id) && seen.add(c.id)).map((c) => ({ id: c.id, label: oneLine(c.label, 30), icon: typeof c.icon === 'string' && c.icon ? c.icon : 'tag', color: typeof c.color === 'string' && c.color ? c.color : AUTO_COLOR }));
     if (!out.length) return DEFAULT_CATS;
     return out.some((c) => c.id === 'other') ? out : [...out, DEFAULT_CATS[DEFAULT_CATS.length - 1]];
+  }
+  // The id of the category whose name is these words, ignoring case; 'other' when none is.
+  function categoryByName(cats, words) {
+    const w = String(words || '').trim().toLowerCase();
+    const row = w && Array.isArray(cats) ? cats.find((c) => String(c.label).toLowerCase() === w) : null;
+    return row ? row.id : 'other';
   }
   const catRow = (cats, id) => cats.find((c) => c.id === id) || cats.find((c) => c.id === 'other') || DEFAULT_CATS[DEFAULT_CATS.length - 1];
   // The colour of a category: the one chosen in the list, else one of the eight tints by its place in the list. A CSS value
@@ -333,7 +345,7 @@
     if (!b) return '';
     const parts = [`Target left, from ${say(b.from)} to ${say(b.to)}. The target is ${money(b.target)}.`];
     parts.push(b.endActual < 0 ? `Paid so far is ${money(-b.endActual)} over the target.` : `After what is paid, ${money(b.endActual)} is left.`);
-    if (b.endExpected !== b.endActual) parts.push(b.endExpected < 0 ? `With the planned costs it is ${money(-b.endExpected)} over.` : `With the planned costs, ${money(b.endExpected)} is left.`);
+    if (b.endExpected !== b.endActual) parts.push(b.endExpected < 0 ? `Left if all planned costs are spent: ${money(-b.endExpected)} over.` : `Left if all planned costs are spent: ${money(b.endExpected)}.`);
     const steps = b.actual.slice(1);
     if (steps.length) parts.push(`Payments on ${steps.length} ${steps.length === 1 ? 'day' : 'days'}: ${steps.slice(0, 5).map((p) => `${say(p.day)}, ${money(p.remaining)} left`).join('; ')}${steps.length > 5 ? '; and more' : ''}.`);
     if (b.undated) parts.push(`${b.undated} ${b.undated === 1 ? 'cost has' : 'costs have'} no date and ${b.undated === 1 ? 'is' : 'are'} counted from the first day.`);

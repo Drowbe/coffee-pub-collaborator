@@ -66,7 +66,7 @@ const ALLOWED_EXT = new Set([
 const HOOKS = ['schedule', 'notify', 'ai', 'external'];
 // What an object's summary (what another module may show of it) can carry, and which of the producing module's own
 // stored fields fill it (`refs.produces[].summary`). See documentation/api/api-module-sdk.md ("Objects").
-const SUMMARY_FIELDS = ['title', 'subtitle', 'when', 'end', 'allDay', 'done', 'place', 'category', 'text', 'amount', 'paidBy', 'sharedBy'];
+const SUMMARY_FIELDS = ['title', 'subtitle', 'when', 'end', 'allDay', 'done', 'place', 'category', 'text', 'amount', 'planned', 'paidBy', 'sharedBy'];
 const REF_KIND_RE = /^[a-z][a-z0-9-]{0,23}$/;
 const REF_CONSUME_RE = /^[a-z][a-z0-9-]{1,31}:[a-z][a-z0-9-]{0,23}$/;
 const SCOPES = ['environment', 'space', 'person'];
@@ -231,6 +231,17 @@ function cleanRefs(rawRefs, id) {
     // handles host.objects.onOpen); whether it shows what links to its objects (host.objects.linksTo).
     const name = String(p.name ?? '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 40) || kind.charAt(0).toUpperCase() + kind.slice(1);
     const produced = { kind, name, key, summary, open: Boolean(p.open), backlinks: Boolean(p.backlinks) };
+    // Plain words for the stored `category` (or, when it is empty, the stored `kind`): { "stay": "Lodging" }. The summary
+    // then offers the words, so a module that reads categories by name (Budget) needs no table of this module's kinds.
+    if (p.categoryNames && typeof p.categoryNames === 'object' && !Array.isArray(p.categoryNames)) {
+      if (!summary.category) throw new ModuleError(`module.json: refs "${kind}" categoryNames needs a summary.category`);
+      const names = {};
+      for (const [from, to] of Object.entries(p.categoryNames).slice(0, 40)) {
+        const words = typeof to === 'string' ? to.replace(/\p{Cc}/gu, ' ').trim().slice(0, 30) : '';
+        if (/^[A-Za-z0-9_-]{1,32}$/.test(from) && words) names[from] = words;
+      }
+      if (Object.keys(names).length) produced.categoryNames = names;
+    }
     const holds = cleanHolds(kind, p.holds);
     if (holds) produced.holds = holds;
     const dated = cleanDated(kind, p.dated);

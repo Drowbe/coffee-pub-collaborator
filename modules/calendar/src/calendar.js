@@ -182,6 +182,40 @@
     render();
   });
 
+  // --- phases --------------------------------------------------------------
+  // A space with phases wears them: each day inside a dated phase has a soft wash of the phase's tint, and the
+  // phase's first day (and the first day a view shows) names it. The host's phase list and the space's dates come from
+  // the hello, which a later edit to the dates does not change, so the dates are asked again (host.spaces() lists each
+  // space with its dates) on focus, when the page comes back into view and every half minute; the view redraws only
+  // when the bands changed. Nothing is drawn on the environment page, in a space without phases or on a day in none.
+  let phaseBands = [];
+  const bandsKey = (list) => JSON.stringify(list.map((b) => [b.id, b.label, b.tint, b.start, b.end]));
+  async function readPhases() {
+    const here = host.space();
+    if (!here || !host.phases().length || typeof host.util.phaseTimeline !== 'function') return [];
+    let dates = here.phases || {};
+    let created = here.createdAt;
+    try {
+      const mine = (await host.spaces()).find((r) => r.id === here.id);
+      if (mine && mine.phases) { dates = mine.phases; created = mine.createdAt || created; }
+    } catch (err) { /* the hello's dates stand */ }
+    try { return host.util.phaseTimeline({ dates, created }).filter((b) => b.dated); } catch (err) { return []; }
+  }
+  async function lookAtPhases() {
+    const next = await readPhases();
+    if (bandsKey(next) === bandsKey(phaseBands)) return;
+    phaseBands = next;
+    render();
+  }
+  // The day's phase for drawing: the class and style a cell takes, and its name when it is shown (its first day, or the
+  // first day the view shows). '' parts when the day is in no phase.
+  function phaseFor(key, showName) {
+    const ph = phaseOnDay(phaseBands, key);
+    if (!ph || !ph.tint) return { cls: '', name: '', label: '' };
+    return { cls: ` ph ph-${ph.tint}`, name: showName || ph.first ? ph.label : '', label: ph.label };
+  }
+  const phaseNameHtml = (ph) => (ph.name ? `<small class="ph-name" title="${esc(ph.name)}">${esc(ph.name)}</small>` : '');
+
   // --- drawing -------------------------------------------------------------
 
   const isCompact = () => $('app').classList.contains('compact');
@@ -217,8 +251,9 @@
       const day = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
       const list = byDay.get(ymd(day)) || [];
       const shown = isCompact() ? list : list.slice(0, 3);
-      html += `<div class="day ${day.getMonth() !== cursor.getMonth() ? 'other' : ''} ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}>
-        <span class="n">${day.getDate()}</span><div class="chips">${shown.map(chipHtml).join('')}</div>
+      const ph = phaseFor(ymd(day), i === 0);
+      html += `<div class="day${ph.cls} ${day.getMonth() !== cursor.getMonth() ? 'other' : ''} ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}>
+        <span class="n">${day.getDate()}</span>${phaseNameHtml(ph)}<div class="chips">${shown.map(chipHtml).join('')}</div>
         ${shown.length < list.length ? `<span class="more">+${list.length - shown.length} more</span>` : ''}</div>`;
     }
     return `<div class="month">${html}</div>`;
@@ -279,7 +314,8 @@
     for (let i = 0; i < 7; i += 1) {
       const day = addDays(start, i);
       const list = byDay.get(ymd(day)) || [];
-      html += `<div class="day ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}><span class="n">${esc(day.toLocaleDateString([], { weekday: 'short' }))} <b>${day.getDate()}</b></span><div class="chips">${list.map(chipHtml).join('')}</div></div>`;
+      const ph = phaseFor(ymd(day), i === 0);
+      html += `<div class="day${ph.cls} ${ymd(day) === today ? 'today' : ''} ${ymd(day) === sel ? 'sel' : ''}" data-day="${ymd(day)}"${ymd(day) === sel ? ' aria-current="date"' : ''}${dayKeys(day)}><span class="n">${esc(day.toLocaleDateString([], { weekday: 'short' }))} <b>${day.getDate()}</b>${phaseNameHtml(ph)}</span><div class="chips">${list.map(chipHtml).join('')}</div></div>`;
     }
     return `<div class="week">${html}</div>`;
   }
@@ -306,7 +342,8 @@
       }
     }
     const k = ymd(start);
-    let html = `<div class="allday"><span class="hr">All day</span><div class="chips">${allDay.map(chipHtml).join('')}</div></div><div class="hours">`;
+    const ph = phaseFor(k, true);
+    let html = `${ph.label ? `<div class="phasehead ph ph-${esc(phaseOnDay(phaseBands, k).tint)}"><small class="ph-name">${esc(ph.label)}</small></div>` : ''}<div class="allday"><span class="hr">All day</span><div class="chips">${allDay.map(chipHtml).join('')}</div></div><div class="hours">`;
     const now = new Date();
     for (let h = 0; h < 24; h += 1) {
       const at = new Date(start.getFullYear(), start.getMonth(), start.getDate(), h);
@@ -1332,8 +1369,13 @@
   $('msg').hidden = true;
   $('app').hidden = false;
   fit();
+  phaseBands = await readPhases();
   render();
   loaded = true;
+  // The phases' dates can change on the page without telling this frame: look again on focus, on return to view, and now and then.
+  const phaseTimer = setInterval(() => { if (!$('app')) clearInterval(phaseTimer); else lookAtPhases(); }, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && $('app')) lookAtPhases(); });
+  window.addEventListener('focus', () => { if ($('app')) lookAtPhases(); });
   askExternal(false);
   askMarkers(false);
   // A poll's closing time passing, or midnight making a task overdue, dims its marker without anyone asking.

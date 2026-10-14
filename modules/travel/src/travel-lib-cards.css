@@ -411,3 +411,17 @@
 .days.dragging-line .jointadd { top: 3px; opacity: 1; transform: none; pointer-events: none; }
 .days.dragging-line .joint.drop-target::before { border-top-color: var(--accent); border-top-style: solid; border-top-width: 3px; }
 .days.dragging-line .joint.drop-target .jointadd { border-color: var(--accent); color: var(--on-accent); background: var(--accent); transform: scale(1.15); }
+
+/* phases: a day in a dated phase takes a soft wash of the phase's tint (header and strip chip), with its name beside the
+   date in a tag filled in the tint; borders stay the neutral ones. The tint names are the theme's (Phases.tintOf). */
+.ph-blue { --ph: var(--tint-blue); }
+.ph-green { --ph: var(--tint-green); }
+.ph-teal { --ph: var(--tint-teal); }
+.ph-purple { --ph: var(--tint-purple); }
+.ph-orange { --ph: var(--tint-orange); }
+.ph-pink { --ph: var(--tint-pink); }
+.ph-gold { --ph: var(--tint-gold); }
+.ph-red { --ph: var(--tint-red); }
+.day2.in-phase .day-head2 { background: linear-gradient(180deg, color-mix(in srgb, var(--ph) 34%, var(--bg-section)), color-mix(in srgb, var(--ph) 18%, var(--bg-section))); }
+.daychip.in-phase:not(.current) { background: color-mix(in srgb, var(--ph) 20%, var(--bg-card)); }
+.phase-tag { display: inline-block; max-width: 100%; margin-bottom: 3px; padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, var(--ph) 45%, var(--bg-card)); color: var(--text); font-size: 11px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }

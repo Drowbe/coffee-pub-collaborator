@@ -13,7 +13,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' +
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply', 'shiftDays', 'clearDay', 'phaseOnDay'];
+const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply', 'shiftDays', 'clearDay', 'phaseOnDay', 'stripFacts'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 // The phase timeline rule (public/phases.js), which the SDK gives a module as host.util.phaseTimeline (plan-one-bar.md step 2).
 const Phases = new Function('module', fs.readFileSync(new URL('../public/phases.js', import.meta.url), 'utf8') + '\nreturn module.exports;')({ exports: {} });
@@ -195,6 +195,55 @@ test('balances share a cost among its owners (or everyone) and settle in the few
   const odd = lib.balances([it('o', { cost: 10, paidBy: 'a' })], people);
   assert.equal(Math.round((odd.share.a + odd.share.b + odd.share.c) * 100), 1000);
   assert.equal(lib.balances([it('x', { cost: 5 })], people).total, 0); // no payer: not counted
+});
+
+test('stripFacts (#216): spent from costs with a payer, against the space\'s budget target, and the next booking', () => {
+  const people = ['a', 'b'];
+  const money = (n, code) => `${code || '?'} ${n}`;
+  const dayWord = (d) => `<${d}>`;
+  const today = '2026-10-14';
+  const costs = [it('d', { cost: 90, paidBy: 'a' }), it('t', { cost: 20.5, paidBy: 'b' }), it('x', { cost: 500 })]; // x: no payer, not spent
+  const facts = (o) => lib.stripFacts({ items: costs, travellers: people, today, currency: 'USD', money, dayWord, ...o });
+  // No target: spent only, marked as reading the budget so Set up can offer one.
+  assert.deepEqual(facts({}), [{ id: 'spent', icon: 'coins', text: 'Spent USD 110.5', order: 10, budget: true }]);
+  assert.deepEqual(lib.stripFacts({ items: [], travellers: people, today, currency: 'EUR', money, dayWord }), [{ id: 'spent', icon: 'coins', text: 'Spent EUR 0', order: 10, budget: true }], 'a new trip: spent 0');
+  // A target in the trip's currency (or with none of its own): "of", what is left, and the progress.
+  const under = facts({ target: { amount: 400 } })[0];
+  assert.deepEqual(under, { id: 'spent', icon: 'coins', text: 'USD 110.5 of USD 400', value: 'USD 289.5 left', progress: 0.276, order: 10, budget: true });
+  assert.deepEqual(facts({ target: { amount: 400, currency: 'usd' } })[0], under, 'the same currency named in small letters');
+  // Over the target: said in the words, the bar full, the value what it is over by.
+  const over = facts({ target: { amount: 100 } })[0];
+  assert.equal(over.text, 'USD 110.5 of USD 100 · over');
+  assert.equal(over.value, 'USD 10.5 over');
+  assert.equal(over.progress, 1);
+  // A target in another currency is shown, never compared (no progress).
+  const other = facts({ target: { amount: 300, currency: 'EUR' } })[0];
+  assert.deepEqual([other.text, other.value, 'progress' in other], ['USD 110.5 of EUR 300', 'Another currency', false]);
+  // A target of nothing is no target.
+  assert.equal(facts({ target: { amount: 0 } })[0].text, 'Spent USD 110.5');
+  // The words never pass 40 characters.
+  const long = lib.stripFacts({ items: costs, travellers: people, today, currency: 'USD', money: () => 'x'.repeat(30), dayWord, target: { amount: 5 } })[0];
+  assert.ok(long.text.length <= 40 && long.value.length <= 24, long.text);
+  // The next journey or stay from today on: the earliest by day and time, its route when it has one, else its title.
+  const trip = [
+    it('past', { kind: 'journey', mode: 'flight', date: '2026-10-01', fromCode: 'LHR', toCode: 'JFK', title: 'Old' }),
+    it('later', { kind: 'journey', mode: 'flight', date: '2026-10-16', time: '18:00', fromCode: 'SFO', toCode: 'LAX', title: 'UA 2' }),
+    it('soon', { kind: 'journey', mode: 'flight', date: '2026-10-16', time: '08:15', fromCode: 'SJC', toCode: 'ONT', title: 'UA 1' }),
+    it('hotel', { kind: 'stay', date: '2026-10-20', title: 'Hotel Alfama' }),
+    it('stop', { kind: 'stop', date: '2026-10-15', title: 'Museum' }),
+  ];
+  const withNext = lib.stripFacts({ items: trip, travellers: people, today, currency: 'USD', money, dayWord });
+  assert.deepEqual(withNext[1], { id: 'next', icon: 'plane', text: 'Next: <2026-10-16> · SJC → ONT', value: 'UA 1', order: 20 });
+  const stayNext = lib.stripFacts({ items: trip, travellers: people, today: '2026-10-17', currency: 'USD', money, dayWord })[1];
+  assert.deepEqual(stayNext, { id: 'next', icon: 'bed', text: 'Next: <2026-10-20> · Hotel Alfama', order: 20 });
+  assert.equal(lib.stripFacts({ items: trip, travellers: people, today: '2026-10-21', currency: 'USD', money, dayWord }).length, 1, 'nothing ahead: no next fact');
+  // The Planner reports them: in a space, for someone who may edit, after each draw, and when the budget changes.
+  const js = read('travel.js');
+  assert.match(js, /if \(!host\.facts \|\| !canEdit \|\| !state\.loaded \|\| !spaceOf\(\)\) return;/);
+  assert.match(js, /target: spaceOf\(\)\.budget \|\| null,/, 'the target is the space\'s, from host.space()');
+  assert.match(js, /queued = false; render\(\); reportFacts\(\);/, 'after each draw');
+  assert.match(js, /host\.on\('space', \(\) => reportFacts\(\)\);/, 'and when the budget changes');
+  assert.match(js, /if \(sig === factsSaid\) return;/, 'the same facts are not sent again');
 });
 
 test('a trip has an optional three-letter currency, an item an optional cost', () => {

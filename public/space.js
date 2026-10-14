@@ -1621,8 +1621,8 @@ placeColumnTools(); // now that the two exist
 // chip, "● Booking starts tomorrow · Trip in 35 days" (the story sentence, Phases.storyParts; no caret, it opens the
 // sheet, not a menu) and, beside it, the journey bar: the phases end to end, each band named (and its icon, when the
 // template gives one) where it fits, the past pale, today's filled with the accent, the ones to come outlined, the
-// main phase drawn heavier, a pin at today with the day of the month, and the days to go at its end. Then an empty
-// slot at the right, kept for the facts and the count (steps 3 and 5, not built). The template's phases
+// main phase drawn heavier, a pin at today with the day of the month, and the days to go at its end. Then the facts
+// modules report (host.facts, up to three chips) and the count (host.attention) at the right. The template's phases
 // (branding.phases) and this space's dates (its presence record's `phases` and `createdAt`, refreshed by the presence
 // poll, and by my own save) go through the one rule, public/phases.js (window.Phases). Nothing but the sheet opens
 // from it (phases only inform): the chip, a button, and the bar and its days to go, press targets for the mouse (the
@@ -1659,9 +1659,13 @@ const statusToGo = document.createElement('span');
 statusToGo.className = 'status-togo';
 statusToGo.setAttribute('aria-hidden', 'true'); // the sentence says it too
 statusToGo.hidden = true;
+// The facts modules report (host.facts, plan-space-story-strip.md step 5): up to three chips after the days to go, each a
+// button opening a small menu. Not a live region: a fact that changes is not read out (the plan's accessibility rule);
+// the chips are drawn again only when the facts change.
 const statusFacts = document.createElement('span');
-statusFacts.className = 'status-facts'; // kept for the facts and the count (plan-space-story-strip.md, steps 3 and 5)
-statusFacts.setAttribute('aria-hidden', 'true');
+statusFacts.className = 'status-facts';
+statusFacts.setAttribute('role', 'group');
+statusFacts.setAttribute('aria-label', 'Facts');
 statusSaid.appendChild(phaseChip);
 // The count of what needs this person's action (host.attention, plan-space-status-strip.md step 3): at the strip's right
 // end, after the days to go, only above zero. Its own polite status, written only when the count changes; the button
@@ -1851,6 +1855,114 @@ function attentionMenuItems() {
   return items;
 }
 attentionButton.addEventListener('click', () => openHostMenu(attentionButton, attentionMenuItems));
+// --- how the space stands (host.facts): read when the space loads, when a module reports, on focus and slowly ---------
+// Facts are the space's (every module's last report, from GET /api/spaces/:id/facts, only the modules I may read here).
+// The strip draws up to three, in each fact's `order`, then the order the modules answered in; the rest are in the
+// phone's phase sheet and a chip's menu. On a narrow line they give way first, one by one from the end (fitFacts),
+// before the names in the bands go (style.css hides them all at 760px and below, and on a phone).
+const MAX_FACT_CHIPS = 3;
+const FACT_TRACK_LEAST = 180; // the journey bar keeps at least this much before a fact gives way
+let spaceFacts = { spaceId: null, modules: [] };
+let factsDrawn = '';
+function followFactsSpace() {
+  const id = currentSpace && !currentSpace.isAside && !inAside() && !guestToken && me && me.role !== 'guest' ? currentSpace.id : null;
+  if (id === spaceFacts.spaceId) return;
+  spaceFacts = { spaceId: id, modules: [] };
+  if (id) loadFacts();
+}
+let factsAsked = 0;
+async function loadFacts() {
+  const id = spaceFacts.spaceId;
+  if (!id) return;
+  const ticket = ++factsAsked;
+  try {
+    const answer = await api('GET', `/api/spaces/${encodeURIComponent(id)}/facts`);
+    if (ticket !== factsAsked || spaceFacts.spaceId !== id) return; // a newer read, or another space, took over
+    spaceFacts = { spaceId: id, modules: Array.isArray(answer.modules) ? answer.modules : [] };
+    drawFacts();
+  } catch (err) {
+    // keeps the last facts; the next read tries again
+  }
+}
+let factsSoon = 0;
+function loadFactsSoon() {
+  clearTimeout(factsSoon);
+  factsSoon = setTimeout(loadFacts, 250);
+}
+window.addEventListener('app:facts', (event) => { if (!event.detail?.space || event.detail.space === spaceFacts.spaceId) loadFactsSoon(); });
+window.addEventListener('focus', loadFactsSoon);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadFactsSoon(); });
+setInterval(() => { if (!document.hidden) loadFacts(); }, 60000);
+// Every fact here, in the order shown: each module's by `order`, then as sent; the modules in the order they answered.
+function factsInOrder() {
+  const all = [];
+  spaceFacts.modules.forEach((m, mi) => (m.facts || []).forEach((f, fi) => all.push({ ...f, module: m.module, name: m.name || m.module, rank: [Number.isInteger(f.order) ? f.order : 50, mi, fi] })));
+  return all.sort((a, b) => a.rank[0] - b.rank[0] || a.rank[1] - b.rank[1] || a.rank[2] - b.rank[2]);
+}
+// Whether some module here reads the space's budget target (a fact marked `budget`): Set up offers the target then.
+const budgetReported = () => spaceFacts.modules.some((m) => (m.facts || []).some((f) => f.budget));
+function factChip(f) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'status-fact nav-text'; // the nav text, as every word in the bars
+  b.dataset.module = f.module;
+  b.setAttribute('aria-haspopup', 'menu');
+  b.title = f.value ? `${f.text} · ${f.value}. ${f.name}` : `${f.text}. ${f.name}`;
+  b.setAttribute('aria-label', b.title);
+  if (typeof f.progress === 'number') {
+    const fill = document.createElement('span');
+    fill.className = 'status-fact-fill'; // the progress, a fill from the left (style.css)
+    fill.setAttribute('aria-hidden', 'true');
+    b.style.setProperty('--fact-progress', `${Math.round(Math.min(1, Math.max(0, f.progress)) * 100)}%`);
+    b.classList.add('has-progress');
+    b.appendChild(fill);
+  }
+  const icon = document.createElement('i');
+  icon.className = `fa-solid fa-${/^[a-z0-9-]+$/.test(f.icon) ? f.icon : 'circle-info'}`;
+  icon.setAttribute('aria-hidden', 'true');
+  const words = document.createElement('span');
+  words.className = 'status-fact-text';
+  words.textContent = f.text;
+  b.append(icon, words);
+  b.addEventListener('click', () => openHostMenu(b, () => factMenuItems(f.module)));
+  return b;
+}
+// The chips, drawn again only when the facts change; then fitted to the line.
+function drawFacts() {
+  const shown = phaseChipWanted() ? factsInOrder().slice(0, MAX_FACT_CHIPS) : [];
+  const key = JSON.stringify(shown.map((f) => [f.module, f.name, f.id, f.icon, f.text, f.value || '', f.progress ?? null]));
+  if (key !== factsDrawn) {
+    factsDrawn = key;
+    statusFacts.replaceChildren(...shown.map(factChip));
+  }
+  statusFacts.hidden = !shown.length;
+  fitFacts();
+}
+// A narrow line: the last chip gives way, one at a time, while the line has wrapped or the bar is left too narrow.
+function fitFacts() {
+  const chips = [...statusFacts.children];
+  for (const c of chips) c.classList.remove('dropped');
+  if (!chips.length || statusStrip.hidden || !statusFacts.getClientRects().length) return;
+  const crowded = () => statusFacts.offsetTop > statusSaid.offsetTop + 4 || (statusTrack.getClientRects().length && statusTrack.offsetWidth < FACT_TRACK_LEAST);
+  for (let i = chips.length - 1; i >= 0 && crowded(); i -= 1) chips[i].classList.add('dropped');
+}
+if (typeof ResizeObserver === 'function') new ResizeObserver(() => fitFacts()).observe(statusStrip);
+// A chip's menu: the module's name, each of its facts in full (with its value), and a way to open the module.
+function factMenuItems(moduleId) {
+  const m = spaceFacts.modules.find((x) => x.module === moduleId);
+  if (!m) return [];
+  const list = document.createElement('ul');
+  list.className = 'status-fact-list';
+  for (const f of m.facts || []) {
+    const li = document.createElement('li');
+    const icon = document.createElement('i');
+    icon.className = `fa-solid fa-${/^[a-z0-9-]+$/.test(f.icon) ? f.icon : 'circle-info'} fa-fw`;
+    icon.setAttribute('aria-hidden', 'true');
+    li.append(icon, document.createTextNode(f.value ? `${f.text} · ${f.value}` : f.text));
+    list.appendChild(li);
+  }
+  return [{ heading: m.name || m.module }, { element: list }, { label: `Open ${m.name || m.module}`, icon: 'arrow-up-right-from-square', onPick: () => openAttentionTarget(m.module) }];
+}
 // Modules hear the space's phases when they change (the 'phases' event, host.on('phases')): this page reads them from the
 // space's record (the presence poll, my own save from the sheet or Set up), so a window event tells the modules mounted
 // here and a BroadcastChannel tells the pop-outs and module pages of the same browser. Said only when they differ from
@@ -1861,7 +1973,8 @@ let phasesSaid = '';
 function announcePhases() {
   const space = phaseSpaceRecord();
   if (!space || !space.id || currentSpace?.isAside) return;
-  const detail = { space: space.id, phases: space.phases || {}, created: space.createdAt || null };
+  // The budget target rides along (#216): the module host tells the modules 'space' ({ budget }) when it changed.
+  const detail = { space: space.id, phases: space.phases || {}, created: space.createdAt || null, budget: space.budget || null };
   const sig = JSON.stringify(detail);
   if (sig === phasesSaid) return;
   phasesSaid = sig;
@@ -1873,11 +1986,13 @@ document.addEventListener('visibilitychange', () => { if (!document.hidden && cu
 function updatePhaseChip() {
   announcePhases();
   followAttentionSpace();
+  followFactsSpace();
   const R = phaseRule();
   const show = phaseChipWanted();
   if (statusStrip.hidden === show) statusStrip.hidden = !show; // the registry writes the same when the strip is its tool
   nav.draw('secondary');
   drawAttentionCount();
+  drawFacts();
   if (!show || !R || !phasesWanted()) return;
   const today = phaseToday();
   const bands = phaseTimeline();
@@ -1895,6 +2010,7 @@ function updatePhaseChip() {
   const dot = phaseChip.querySelector('.phase-dot');
   if (here) dot.dataset.tint = here.tint; else delete dot.dataset.tint;
   drawStatusTrack(bands, today);
+  fitFacts(); // the sentence or the bar may have changed the room
 }
 async function savePhases(dates) {
   const { space } = await api('PATCH', `/api/spaces/${encodeURIComponent(currentSpace.id)}`, { phases: dates });
@@ -1919,6 +2035,8 @@ function openPhaseSheetFrom(opener) {
     rule: phaseRule(),
     opener,
     words: { owner: word('owner'), moderator: word('moderator') },
+    // On a phone the slim line has no chips: the facts head the sheet instead (plan-space-story-strip.md, "The phone line").
+    facts: phoneWidth() ? factsInOrder().map((f) => ({ icon: f.icon, text: f.text, value: f.value, progress: f.progress, name: f.name, open: () => openAttentionTarget(f.module) })) : [],
   });
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
@@ -2050,6 +2168,8 @@ function enterSetup({ tab = location.hash } = {}) {
     today: phaseToday(),
     tab,
     nameInput: setupNameInput,
+    // The budget field (#216) shows while a module here reads the target (a fact marked `budget`), named after it.
+    budget: budgetReported() ? { name: spaceFacts.modules.find((m) => (m.facts || []).some((f) => f.budget))?.name || '' } : null,
     onDone: setupSaved,
     onSaved: (saved, fields) => setupSaved(saved, '', fields), // a part went through before a refusal: the page follows it
     onDeleted: setupDeleted,
@@ -2100,6 +2220,8 @@ function setupSaved(space, said, saved = []) {
     const record = presenceSpaces.find((r) => r.id === space.id);
     if (record) Object.assign(record, space);
     if (currentSpace !== record) Object.assign(currentSpace, space);
+    // A cleared budget is absent from the answer: take it off this page's records too, so the modules hear it go.
+    if (!('budget' in space)) { if (record) delete record.budget; delete currentSpace.budget; }
     spaceName = spaceDisplayName(currentSpace);
     renderSpaces();
     renderSpaceLink();

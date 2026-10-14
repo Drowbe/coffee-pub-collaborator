@@ -19,6 +19,7 @@ const { Backgrounds } = require('./backgrounds');
 const { ModuleBus, BUS_LIMITS } = require('./module-bus');
 const { ChatHistory } = require('./chat-history');
 const { cleanReport: cleanAttention } = require('./attention');
+const { cleanFacts } = require('./facts');
 const { LayoutError, cleanLayout, cleanSystemPatch, SYSTEM_IDS, SYSTEM_ICONS } = require('./layouts');
 const { ModuleLimits } = require('./module-limits');
 const { ModuleSettings, SettingError } = require('./module-settings');
@@ -224,6 +225,7 @@ const moduleData = proxyFor('moduleData');
 const moduleHooks = proxyFor('moduleHooks');
 const chatHistory = proxyFor('chatHistory');
 const attention = proxyFor('attention');
+const facts = proxyFor('facts');
 const chatPosts = proxyFor('chatPosts');
 const chatPreviewsAsked = proxyFor('chatPreviewsAsked');
 const moduleLinks = proxyFor('moduleLinks');
@@ -3558,6 +3560,7 @@ app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   moduleSettings.forgetSpace(req.params.id);
   chatHistory.forgetSpace(req.params.id);
   attention.forgetSpace(req.params.id);
+  facts.forgetSpace(req.params.id);
   res.json({ ok: true });
 });
 app.put('/api/spaces/:id/image', requireOwner, rawImage, checkStorageCap, (req, res) => {
@@ -3868,6 +3871,7 @@ app.delete('/api/modules/:id', requireOwner, (req, res) => {
     moduleBus.dropModule(req.params.id);
     moduleSettings.forgetModule(req.params.id);
     attention.forgetModule(req.params.id);
+    facts.forgetModule(req.params.id);
     store.applyModuleDisplay(req.params.id, { name: null, icon: null }); // its display name and icon go with its data
   }
   res.json({ ok: true });
@@ -4025,6 +4029,58 @@ app.delete('/api/spaces/:id/attention/:module', (req, res) => {
   if (!attentionModule(req.params.module, ctx)) return res.status(403).json({ error: `That ${word('module')} is not available here for you.` });
   if (!moduleCan(found.manifest, ctx.perms, 'write')) return res.status(403).json({ error: `Your role can't do that in this ${word('module')}.` });
   attention.clear(ctx.space.id, ctx.who.user.key, found.manifest.id);
+  res.json({ ok: true });
+});
+
+// --- facts (documentation/plans/plan-space-story-strip.md, "The contract", step 4) ------------------------------
+// How a space stands, as each module last reported it (server/facts.js): kept per space and module, never per person
+// or who sent it, in DATA_DIR/facts.json. A module reports its own facts (PUT, which needs `write` in that module here;
+// an empty list clears them) and the status strip reads them (GET), only from the modules this person may read here.
+// Guests get no status strip, so they are refused, as attention refuses them.
+function factsFor(req, res) {
+  const who = moduleViewer(req);
+  if (!who || who.keyed) return void res.status(401).json({ error: 'Sign in first.' });
+  if (!who.user) return void res.status(403).json({ error: `${word('guest', { many: true, cap: true })} do not see the status line.` });
+  const space = store.spaceById(req.params.id);
+  if (!space) return void res.status(404).json({ error: `There is no such ${word('space')}.` });
+  if (!(hasOwnerRights(who.user) || space.members.includes(who.user.key))) return void res.status(403).json({ error: `You are not in that ${word('space')}.` });
+  return { who, space, perms: modulePerms(who, space.id) };
+}
+app.get('/api/spaces/:id/facts', (req, res) => {
+  const ctx = factsFor(req, res);
+  if (!ctx) return;
+  const out = [];
+  for (const r of facts.list(ctx.space.id)) {
+    const found = attentionModule(r.module, ctx);
+    if (!found || !moduleCan(found.manifest, ctx.perms, 'read')) continue;
+    out.push({ module: r.module, name: shownModule(found.manifest).name || found.manifest.name, facts: r.facts, at: r.at });
+  }
+  res.json({ modules: out });
+});
+// The module named, on here, for someone who may write in it, or a refusal sent.
+function factsWriter(req, res, ctx) {
+  const found = modules.enabled(req.params.module);
+  if (!found) return void res.status(404).json({ error: `There is no such ${word('module')}.` });
+  if (!attentionModule(req.params.module, ctx)) return void res.status(403).json({ error: `That ${word('module')} is not available here for you.` });
+  if (!moduleCan(found.manifest, ctx.perms, 'write')) return void res.status(403).json({ error: `Your role can't do that in this ${word('module')}.` });
+  return found;
+}
+app.put('/api/spaces/:id/facts/:module', (req, res) => {
+  const ctx = factsFor(req, res);
+  if (!ctx) return;
+  const found = factsWriter(req, res, ctx);
+  if (!found) return;
+  const { facts: list, error } = cleanFacts(req.body);
+  if (error) return res.status(400).json({ error });
+  facts.set(ctx.space.id, found.manifest.id, list);
+  res.json({ ok: true });
+});
+app.delete('/api/spaces/:id/facts/:module', (req, res) => {
+  const ctx = factsFor(req, res);
+  if (!ctx) return;
+  const found = factsWriter(req, res, ctx);
+  if (!found) return;
+  facts.clear(ctx.space.id, found.manifest.id);
   res.json({ ok: true });
 });
 
@@ -7340,8 +7396,9 @@ app.get('/api/modules/:id/context', (req, res) => {
     // `words`: every level's and role's words in this environment, as branding()'s (server/words.js), for host.locale().words.
     locale: { language: store.settings.language || 'en', clock: store.settings.clock === '24' ? '24' : '12', currency: store.settings.currency || 'USD', currencies: currencyCodes(store.settings.currency), words: store.resolvedWords() },
     // The space this read is in, or null outside one; its `phases` are the dates set on it ({} while none; plan-one-bar.md
-    // step 1). The top-level `phases` is the template's, live, or [] when there is none.
-    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases } : null,
+    // step 1). The top-level `phases` is the template's, live, or [] when there is none. `budget` is the space's budget
+    // target, { amount, currency? } (#216; set by an owner in Set up), or null while none is set.
+    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases, budget: here.budget || null } : null,
     phases: phases.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}), ...(p.icon ? { icon: p.icon } : {}) })),
     // Facts about the environment every module may need. `pictureMap`: { file, minZoom, maxZoom, tileType } while the
     // environment's map is a picture of an invented world (a module that declares `pictureMap` names the file), else null.

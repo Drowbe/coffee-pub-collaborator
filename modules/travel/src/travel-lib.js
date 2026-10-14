@@ -682,6 +682,46 @@
     return out;
   }
 
+  // --- what the Planner tells the space's status strip (host.facts; plan-space-story-strip.md step 6; #216) -----------
+  // The facts, pure: the money spent so far (costs that have a payer, as the Money view's total), against the space's
+  // budget target when one is set, and the next journey or stay from today on. `target` is the space's budget, { amount,
+  // currency? } or null (no currency: the trip's); `currency` the trip's (else the server's); `money(amount, code)` words an
+  // amount; `dayWord(day)` words a day ("Thu", "Oct 23"). Spent is always reported, so Set up can offer the target
+  // (the fact is marked `budget`): "Spent $0" on a new trip. A target in another currency is shown, not compared.
+  const NEXT_ICONS = { flight: 'plane', train: 'train', bus: 'bus', ferry: 'ship', car: 'car', taxi: 'taxi', rideshare: 'car', shuttle: 'van-shuttle' };
+  const cutText = (s, n) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+  function stripFacts({ items = [], travellers = [], today, target = null, currency = '', money, dayWord }) {
+    const facts = [];
+    const spent = balances(costItems(items), travellers).total;
+    const goal = target && Number(target.amount) > 0 ? Number(target.amount) : 0;
+    const goalCode = goal ? String(target.currency || currency || '').toUpperCase() : '';
+    const sameCode = !goal || !target.currency || goalCode === String(currency || '').toUpperCase();
+    if (!goal) {
+      facts.push({ id: 'spent', icon: 'coins', text: cutText(`Spent ${money(spent, currency)}`, 40), order: 10, budget: true });
+    } else if (!sameCode) {
+      facts.push({ id: 'spent', icon: 'coins', text: cutText(`${money(spent, currency)} of ${money(goal, goalCode)}`, 40), value: 'Another currency', order: 10, budget: true });
+    } else {
+      const over = spent > goal;
+      const fact = { id: 'spent', icon: 'coins', text: cutText(`${money(spent, currency)} of ${money(goal, currency)}${over ? ' · over' : ''}`, 40), order: 10, budget: true };
+      fact.value = cutText(over ? `${money(Math.round((spent - goal) * 100) / 100, currency)} over` : `${money(Math.round((goal - spent) * 100) / 100, currency)} left`, 24);
+      fact.progress = Math.min(1, Math.round((spent / goal) * 1000) / 1000);
+      facts.push(fact);
+    }
+    // The next journey or stay on or after today (a stay by its check-in), in day and time order.
+    const next = items
+      .filter((i) => (i.kind === 'journey' || i.kind === 'stay') && isYmd(i.date) && i.date >= today)
+      .sort((a, b) => a.date.localeCompare(b.date) || String(a.time || '').localeCompare(String(b.time || '')) || String(a.id).localeCompare(String(b.id)))[0];
+    if (next) {
+      const from = next.kind === 'journey' ? (next.fromCode || next.from || '') : '';
+      const to = next.kind === 'journey' ? (next.toCode || next.to || '') : '';
+      const what = from && to ? `${from} → ${to}` : next.title;
+      const fact = { id: 'next', icon: next.kind === 'stay' ? 'bed' : NEXT_ICONS[next.mode] || 'route', text: cutText(`Next: ${dayWord(next.date)} · ${what}`, 40), order: 20 };
+      if (from && to && next.title) fact.value = cutText(next.title, 24);
+      facts.push(fact);
+    }
+    return facts;
+  }
+
   // --- what an item is, for its card and its editor ---------------------------------------------------------------
   // The editor's tiles, one per kind of thing, and the card's colour family and silhouette for each. A card's family is what
   // the stylesheet colours by (`data-type` on the row), so the kinds without a colour of their own borrow one.

@@ -22,6 +22,7 @@ const { ModuleData } = require('./module-data');
 const { ModuleHooks } = require('./module-hooks');
 const { ChatHistory } = require('./chat-history');
 const { Attention } = require('./attention');
+const { Facts } = require('./facts');
 const { ModuleLinks } = require('./module-links');
 const { ModuleBus } = require('./module-bus');
 const { ModuleSettings } = require('./module-settings');
@@ -150,6 +151,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
   const chatPreviewsAsked = new Map();
 
   const attention = new Attention(dataDir);
+  const facts = new Facts(dataDir);
   const moduleLinks = new ModuleLinks(modules.dir);
   const moduleBus = new ModuleBus(modules.dir);
   const moduleSettings = new ModuleSettings(modules.dir);
@@ -236,7 +238,7 @@ function buildEnvironment(dataDir, { slug = null, admin = null, log = console.lo
 
   return {
     slug, dataDir,
-    store, modules, moduleData, moduleHooks, chatHistory, attention, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
+    store, modules, moduleData, moduleHooks, chatHistory, attention, facts, moduleLinks, moduleBus, moduleSettings, ai, moduleUploads,
     geocodeCache, regionCutJobs, moduleLimits, limiter, presence, invites, inviteEvents, themeEvents, chatEvents, chatPosts, chatPreviewsAsked, iconSvgs,
     moduleActivity, noteActivity, saveActivity, externalCalendars,
   };

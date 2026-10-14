@@ -5,8 +5,9 @@
 // address (space.js; setupAddress below reads it).
 //
 // The tabs, each a code id that is also its address fragment (#space, #members, #phases, #opens-with, #modules):
-//   space       the picture, name, description, faces in the call, launch link, link icon, the published calendar
-//               switch, and a danger section with Delete (its own confirmation here; it does not wait for Save)
+//   space       the picture, name, description, faces in the call, launch link, link icon, the budget (while a module
+//               here reads it, or one is set: #216), the published calendar switch, and a danger section with Delete
+//               (its own confirmation here; it does not wait for Save)
 //   members     the members and Allow guests (drafts), then Generate invite link and the guest link (actions, at once)
 //   phases      each phase's start and end, inline, through the rule in public/phases.js (a draft; the phase chip's
 //               sheet is its own surface and still saves as it is set there)
@@ -61,7 +62,7 @@ export function setupAddress(search = '', hash = '') {
 
 // Which tab each saved field lives on (the dirty dots, and the tab a refusal opens).
 export const FIELD_TAB = Object.freeze({
-  name: 'space', description: 'space', profile: 'space', link: 'space', linkIcon: 'space', publishCalendar: 'space', image: 'space', imageRemoved: 'space',
+  name: 'space', description: 'space', profile: 'space', link: 'space', linkIcon: 'space', publishCalendar: 'space', image: 'space', imageRemoved: 'space', budget: 'space',
   members: 'members', allowGuests: 'members',
   phases: 'phases',
   opensWith: 'opens-with', defaultLayout: 'opens-with',
@@ -79,10 +80,24 @@ const listOrNull = (v) => (Array.isArray(v) && v.length ? v.filter((id) => typeo
 const text = (v) => (typeof v === 'string' ? v.trim() : '');
 // A space's phase dates as stored ({ <phase id>: { start?, end? } }), copied; anything else is none.
 const datesCopy = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? JSON.parse(JSON.stringify(v)) : {});
+// The budget target as the panel holds it (#216): { amount, currency } as the fields' text ('' for none, '' for the
+// reporting module's own currency). budgetSent() is what the PATCH sends: null for none, else { amount, currency? }; an
+// amount that is not a number goes as null, which the server refuses with its sentence.
+const budgetText = (v) => ({
+  amount: v && v.amount !== undefined && v.amount !== null && v.amount !== '' ? String(v.amount).trim() : '',
+  currency: v && typeof v.currency === 'string' ? v.currency.trim().toUpperCase() : '',
+});
+function budgetSent(v) {
+  const b = budgetText(v);
+  if (!b.amount) return null;
+  const amount = Number(b.amount);
+  return { amount: Number.isFinite(amount) ? amount : null, ...(b.currency ? { currency: b.currency } : {}) };
+}
+const sameBudget = (a, b) => JSON.stringify(budgetSent(a)) === JSON.stringify(budgetSent(b));
 
 // The PATCH body for what changed between `before` (the space as it was) and `after` (the panel's draft), each
 // { name, description, profile, link, linkIcon, publishCalendar, members, allowGuests, phases, opensWith, defaultLayout,
-// aiOff }; a field left out of `after` is unchanged. The phase dates go whole, when any phase's start or end changed
+// aiOff, budget }; a field left out of `after` is unchanged. The budget goes as null (none) or { amount, currency? }. The phase dates go whole, when any phase's start or end changed
 // (the order of the keys is no change). A name is trimmed, and an empty one is no change. The first visit's layout and
 // Opens with are independent (plan-layout-views.md, step 5): each goes only when it changed, never one for the other.
 // `defaultLayout` is 'calendar', 'map' or a shared layout's id; the Workspace (null, or 'workspace') goes as null. The
@@ -101,6 +116,7 @@ export function setupPatch(before = {}, after = {}) {
   if (typeof after.allowGuests === 'boolean' && after.allowGuests !== (before.allowGuests !== false)) patch.allowGuests = after.allowGuests;
   if (after.phases && typeof after.phases === 'object' && !sameDates(after.phases, datesCopy(before.phases))) patch.phases = datesCopy(after.phases);
   if (typeof after.aiOff === 'boolean' && after.aiOff !== (before.aiOff === true)) patch.aiOff = after.aiOff;
+  if (after.budget !== undefined && !sameBudget(after.budget, before.budget)) patch.budget = budgetSent(after.budget);
   const wasLayout = layoutOrNull(before.defaultLayout);
   const nowLayout = after.defaultLayout === undefined ? wasLayout : layoutOrNull(after.defaultLayout);
   if (nowLayout !== wasLayout) patch.defaultLayout = nowLayout;
@@ -121,7 +137,7 @@ export function dirtyTabs(patch = {}, { image = false, modules = false } = {}) {
 
 // Which field of a refused PATCH the server's sentence is about (store.updateSpace's sentences), else its first.
 const PROBLEM_FIELDS = [
-  [/\bAI\b/, 'aiOff'], [/icon/i, 'linkIcon'], [/publish/i, 'publishCalendar'], [/link/i, 'link'], [/member/i, 'members'], [/guest/i, 'allowGuests'],
+  [/budget|currenc/i, 'budget'], [/\bAI\b/, 'aiOff'], [/icon/i, 'linkIcon'], [/publish/i, 'publishCalendar'], [/link/i, 'link'], [/member/i, 'members'], [/guest/i, 'allowGuests'],
   [/opens with/i, 'opensWith'], [/layout|first visit/i, 'defaultLayout'], [/profile/i, 'profile'], [/phase|date|\b(starts?|ends?)\b/i, 'phases'],
 ];
 export function problemField(patch = {}, problem = '') {
@@ -137,7 +153,7 @@ export function problemField(patch = {}, problem = '') {
 const FIELD_WORDS = {
   name: 'the name', description: 'the description', profile: 'the faces in the call', link: 'the launch link', linkIcon: 'the link icon',
   publishCalendar: 'the published calendar', opensWith: 'Opens with', phases: 'the phase dates', aiOff: 'Turn AI off',
-  defaultLayout: 'the first visit', image: 'the picture', imageRemoved: 'the picture',
+  defaultLayout: 'the first visit', image: 'the picture', imageRemoved: 'the picture', budget: 'the budget',
 };
 export function setupSaidWords({ saved = [], failed = null, problem = '' } = {}, { setUp = 'Set up', words = {} } = {}) {
   const wordOf = (f) => words[f] || FIELD_WORDS[f] || f;
@@ -170,9 +186,10 @@ function beforeOf(space = {}) {
     defaultLayout: space.defaultLayout || null,
     phases: datesCopy(space.phases),
     aiOff: space.aiOff === true,
+    budget: budgetText(space.budget),
   };
 }
-const copyOf = (b) => ({ ...b, members: [...b.members], opensWith: b.opensWith ? [...b.opensWith] : null, phases: datesCopy(b.phases) });
+const copyOf = (b) => ({ ...b, members: [...b.members], opensWith: b.opensWith ? [...b.opensWith] : null, phases: datesCopy(b.phases), budget: { ...b.budget } });
 // After a step of the save went through: each field it sent is now what the server answered, in both `before` and the
 // draft, so a value the server normalized (a link stored as https://example.com/ for https://example.com) is no
 // change and leaves no dot. The fields it did not send stay as they were. Answers { before, draft }, new objects.
@@ -184,7 +201,7 @@ export function takeSaved(before = {}, draft = {}, fields = [], answer = {}) {
     if (!(k in fresh)) continue;
     const v = fresh[k];
     nextBefore[k] = v;
-    nextDraft[k] = Array.isArray(v) ? [...v] : k === 'phases' ? datesCopy(v) : v;
+    nextDraft[k] = Array.isArray(v) ? [...v] : k === 'phases' ? datesCopy(v) : k === 'budget' ? { ...v } : v;
   }
   return { before: nextBefore, draft: nextDraft };
 }
@@ -243,6 +260,17 @@ export function createSpaceSetup(deps) {
     parts.push(sectionHtml('link', 'Launch link', `<label class="setup-field"><span class="visually-hidden">Launch link</span><input type="url" id="setup-link" maxlength="500" placeholder="https://your-game-or-site.example" autocomplete="off" inputmode="url"></label><p class="hint">A button next to ${esc(enter)} and in the call's toolbar opens it.</p>`));
     if ((typeof deps.icons === 'function' ? deps.icons() : []).length) {
       parts.push(sectionHtml('link-icon', '<span id="setup-link-icon-heading">Link icon</span>', '<div class="icon-grid setup-icon-grid" id="setup-link-icon" role="radiogroup" aria-labelledby="setup-link-icon-heading"></div><p class="hint">The icon on the launch link\'s button.</p>'));
+    }
+    // The budget (#216): an amount and its currency, a draft saved with Save; shown while a module here reads it (it
+    // reports a fact marked `budget`: `opts.budget` names that module) or one is set already.
+    if (!space.isLobby && (state.opts.budget || budgetText(space.budget).amount)) {
+      const from = state.opts.budget && state.opts.budget.name ? state.opts.budget.name : '';
+      parts.push(sectionHtml('budget', '<span id="setup-budget-heading">Budget</span>', `
+        <div class="setup-budget" role="group" aria-labelledby="setup-budget-heading">
+          <label class="setup-field setup-budget-amount"><span class="visually-hidden">Amount</span><input type="number" id="setup-budget-amount" min="0" step="any" inputmode="decimal" placeholder="No budget" autocomplete="off"></label>
+          <label class="setup-field setup-budget-currency"><span class="visually-hidden">Currency</span><select id="setup-budget-currency"></select></label>
+        </div>
+        <p class="hint">What you plan to spend.${from ? ` ${esc(from)} shows what is spent against it.` : ''} Leave it empty for no budget.</p>`));
     }
     if (!space.isLobby) {
       parts.push(sectionHtml('calendar', '<span id="setup-calendar-heading">Calendar</span>', `<label class="switch-row"><input type="checkbox" class="switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span></label><p class="hint">${esc(word('owner', { many: true, cap: true }))} can publish one calendar with every ${esc(spaceWord())}'s events. Turn this off to leave this ${esc(spaceWord())} out.</p>`, { hidden: true }));
@@ -455,6 +483,7 @@ export function createSpaceSetup(deps) {
     if (q('#setup-opens-with')) paintOpensWith();
     const ai = q('#setup-ai-off');
     if (ai) ai.checked = draft.aiOff;
+    paintBudget();
     paintPhases();
     if (opts.nameInput && state.owner) opts.nameInput.value = draft.name;
   }
@@ -470,6 +499,22 @@ export function createSpaceSetup(deps) {
     if (src) img.src = src;
     q('#setup-picture-none').hidden = Boolean(src);
     q('#setup-picture-remove').hidden = !src;
+  }
+
+  // The budget's amount and currency (the page's currency list, window.hostCurrency from /sdk/host.js: the common ones
+  // first, then every other the server takes; the first choice "" is the reporting module's own currency).
+  function paintBudget() {
+    const amount = q('#setup-budget-amount');
+    const currency = q('#setup-budget-currency');
+    if (!amount || !currency) return;
+    const b = state.draft.budget || budgetText(null);
+    if (amount.value !== b.amount) amount.value = b.amount;
+    const from = state.opts.budget && state.opts.budget.name ? state.opts.budget.name : '';
+    const empty = from ? `${from}'s currency` : 'The usual currency';
+    const fill = doc.defaultView && doc.defaultView.hostCurrency ? doc.defaultView.hostCurrency.fill : null;
+    if (fill) fill(currency, { value: b.currency, empty, currencies: state.currencies || undefined });
+    else if (!currency.options.length) currency.innerHTML = `<option value="">${esc(empty)}</option>${b.currency ? `<option value="${esc(b.currency)}">${esc(b.currency)}</option>` : ''}`;
+    currency.value = b.currency;
   }
 
   // The link icon: a radio group of icon buttons (the page's .icon-grid), one tab stop, the arrows move the choice.
@@ -813,6 +858,11 @@ export function createSpaceSetup(deps) {
     field('#setup-link', 'link');
     const profile = q('#setup-profile');
     if (profile) profile.addEventListener('change', () => { state.draft.profile = profile.value; });
+    // A new object on each edit, so the draft never shares one with `before`.
+    const budgetAmount = q('#setup-budget-amount');
+    if (budgetAmount) budgetAmount.addEventListener('input', () => { state.draft.budget = { ...state.draft.budget, amount: budgetAmount.value.trim() }; });
+    const budgetCurrency = q('#setup-budget-currency');
+    if (budgetCurrency) budgetCurrency.addEventListener('change', () => { state.draft.budget = { ...state.draft.budget, currency: budgetCurrency.value }; });
     const cal = q('#setup-publish-calendar');
     if (cal) cal.addEventListener('change', () => { state.draft.publishCalendar = cal.checked; });
     const guests = q('#setup-allow-guests');
@@ -948,7 +998,7 @@ export function createSpaceSetup(deps) {
     for (const k of Object.keys(fresh)) {
       if (k === 'opensWith' || k === 'defaultLayout') continue; // loadOptions has these from the first visit's own answer
       if (sameValue(state.draft[k], state.before[k])) {
-        state.draft[k] = Array.isArray(fresh[k]) ? [...fresh[k]] : k === 'phases' ? datesCopy(fresh[k]) : fresh[k];
+        state.draft[k] = Array.isArray(fresh[k]) ? [...fresh[k]] : k === 'phases' ? datesCopy(fresh[k]) : k === 'budget' ? { ...fresh[k] } : fresh[k];
         state.before[k] = fresh[k];
       }
     }
@@ -965,6 +1015,8 @@ export function createSpaceSetup(deps) {
     ]);
     if (!state || state.space.id !== space.id) return;
     if (record) takeServerSpace(record);
+    if (q('#setup-budget-currency')) state.currencies = await api('GET', '/api/currencies').then((r) => r.currencies || null).catch(() => null);
+    if (!state || state.space.id !== space.id) return;
     state.users = users;
     state.installed = installed;
     fillFields();
@@ -1118,7 +1170,7 @@ export function createSpaceSetup(deps) {
   // before it stays saved and is said.
   const FIELD_INPUT = {
     name: '#setup-name', description: '#setup-description', profile: '#setup-profile', link: '#setup-link', linkIcon: '#setup-link-icon [aria-checked="true"]',
-    publishCalendar: '#setup-publish-calendar', members: '#setup-members input', allowGuests: '#setup-allow-guests',
+    publishCalendar: '#setup-publish-calendar', members: '#setup-members input', allowGuests: '#setup-allow-guests', budget: '#setup-budget-amount',
     opensWith: '#setup-opens-with input', defaultLayout: '#setup-first-visit input:checked', image: '.setup-picture-pick input', imageRemoved: '.setup-picture-pick input',
     phases: '#setup-phase-list input:not(:disabled)', aiOff: '#setup-ai-off',
   };

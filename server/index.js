@@ -19,7 +19,7 @@ const { Backgrounds } = require('./backgrounds');
 const { ModuleBus, BUS_LIMITS } = require('./module-bus');
 const { ChatHistory } = require('./chat-history');
 const { cleanReport: cleanAttention } = require('./attention');
-const { cleanFacts } = require('./facts');
+const { cleanFacts, iconKnown } = require('./facts');
 const { LayoutError, cleanLayout, cleanSystemPatch, SYSTEM_IDS, SYSTEM_ICONS } = require('./layouts');
 const { ModuleLimits } = require('./module-limits');
 const { ModuleSettings, SettingError } = require('./module-settings');
@@ -5785,6 +5785,7 @@ function refScope(who, { provider, kind, scope, space, from, skipConsumer = fals
 
 // The summary of one stored object: only the fields the producer named, trimmed and typed.
 // Priced: it has an actual amount or a planned one.
+const VISIT_STATES = ['want', 'booked', 'visited', 'favorite'];
 const isPriced = (summary) => summary.amount !== undefined || summary.planned !== undefined;
 function objectSummary({ manifest, produce, ref }, id, value, withText = false) {
   const text = (v) => (typeof v === 'string' ? v.slice(0, 200) : typeof v === 'number' && Number.isFinite(v) ? v : undefined);
@@ -5809,7 +5810,7 @@ function objectSummary({ manifest, produce, ref }, id, value, withText = false) 
   // A producer may give plain words for its categories (`categoryNames`, by the stored category, else by the stored kind).
   const named = produce.categoryNames && (produce.categoryNames[category] || produce.categoryNames[value?.kind]);
   if (named) summary.category = named;
-  else if (typeof category === 'string' && /^[A-Za-z0-9-]{1,20}$/.test(category)) summary.category = category.toLowerCase();
+  else if (typeof category === 'string' && /^[A-Za-z0-9-]{1,30}$/.test(category)) summary.category = category.toLowerCase();
   // A cost (plan-budget-module.md, step 3): `amount` a positive number below 1e12, rounded to cents (the Budget module's
   // rule); `paidBy` a person's key; `sharedBy` the keys of who shares it. Anything else is left out.
   const amount = field('amount');
@@ -5830,6 +5831,17 @@ function objectSummary({ manifest, produce, ref }, id, value, withText = false) 
   if (Array.isArray(sharedBy)) {
     const keys = [...new Set(sharedBy.filter((k) => typeof k === 'string' && k && k.length <= 64))].slice(0, 50);
     if (keys.length) summary.sharedBy = keys;
+  }
+  // A place's look and state (plan-places-library.md, step 1): `icon` a Font Awesome Free solid icon that exists; `visit` one of
+  // want, booked, visited, favorite; `spaces` the ids of up to 20 spaces (of this environment) the object is marked into.
+  const icon = field('icon');
+  if (typeof icon === 'string' && /^[a-z0-9][a-z0-9-]{0,39}$/.test(icon) && iconKnown(icon)) summary.icon = icon;
+  const visit = field('visit');
+  if (typeof visit === 'string' && VISIT_STATES.includes(visit)) summary.visit = visit;
+  const marked = field('spaces');
+  if (Array.isArray(marked)) {
+    const ids = [...new Set(marked.filter((k) => typeof k === 'string' && k && k.length <= 64 && store.spaceById(k)))].slice(0, 20);
+    if (ids.length) summary.spaces = ids;
   }
   // The object's own words (a note's body), plain and up to 8 KB. Left out of the summaries people browse; the server reads it only
   // for the AI hook, as the person asking.
@@ -6005,6 +6017,16 @@ app.get('/api/objects/search', (req, res) => {
   const has = req.query.has === undefined || req.query.has === '' ? null : String(req.query.has);
   if (has !== null && has !== 'place' && has !== 'amount') return res.status(400).json({ error: 'has must be place or amount' });
   const cap = has ? SEARCH_CAP_PLACES : SEARCH_CAP;
+  // `in=<space id>` (with scope=environment): only the environment's objects marked for that space, and only for those who
+  // belong to it (or own the environment).
+  let inSpace = null;
+  if (req.query.in !== undefined && req.query.in !== '') {
+    if (scope !== 'environment') return res.status(400).json({ error: `in works only with the ${word('environment')} scope` });
+    if (!who.user) return res.status(403).json({ error: `${word('guest', { many: true })} can only search one ${word('space')}` });
+    inSpace = store.spaceById(String(req.query.in));
+    if (!inSpace) return res.status(404).json({ error: `no such ${word('space')}` });
+    if (!(hasOwnerRights(who.user) || inSpace.members.includes(who.user.key))) return res.status(403).json({ error: `you are not in that ${word('space')}` });
+  }
   const q = String(req.query.q || '').trim().toLowerCase();
   // Each place to read: one scope as asked, or each space the viewer belongs to.
   const places = scope === 'spaces'
@@ -6045,6 +6067,7 @@ app.get('/api/objects/search', (req, res) => {
       for (const item of moduleData.list(k.module, at.scopeKey, prefix)) {
         if (!item.value || !REF_ID_RE.test(item.key.slice(prefix.length))) continue;
         const summary = objectSummary(at, item.key.slice(prefix.length), item.value);
+        if (inSpace && !(summary.spaces || []).includes(inSpace.id)) continue;
         if (has === 'place' && !summary.place) continue;
         if (has === 'amount' && !isPriced(summary)) continue;
         if (q && !`${summary.title} ${summary.subtitle || ''}`.toLowerCase().includes(q)) continue;

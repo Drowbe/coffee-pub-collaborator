@@ -170,4 +170,4 @@ class Facts {
   }
 }
 
-module.exports = { Facts, cleanFacts, LIMITS, MAX_AGE };
+module.exports = { iconKnown, Facts, cleanFacts, LIMITS, MAX_AGE };

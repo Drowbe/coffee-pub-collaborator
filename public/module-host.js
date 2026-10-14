@@ -894,6 +894,93 @@ function watchLifts(doc) {
   }
 }
 
+// The lift (editor.lift; plan-editor-window.md, "A module in a sandboxed frame"). The host owns it: a frame is lifted
+// only while the person is in it (it is the document's active element) and it is on screen, never within a second of
+// the host having dismissed its last lift, and the host always has a way out (its own Close on the backdrop, Escape)
+// that tells the module to close its editor (`tell`: `editordismiss`; it asks first when something is half-edited) and puts
+// the page back. A click on the backdrop does nothing (Thomas, 2026-10-13: a click outside an edit window never closes it).
+// Lifted: the frame gets the class module-editor-lifted (position: fixed, centered, the editor's width, --lift-h tall;
+// module-editor-lifted-large for a large editor; a full-screen sheet on a phone), div.module-editor-backdrop goes
+// before it and button.module-editor-close after it, and everything else on the page is made inert the way a modal
+// <dialog> does it: each ancestor's siblings, up to the body. A count per element lets two lifts hold the same element
+// and an element inert before any lift stays so. A watch on the page keeps anything added while lifted inert too, and
+// puts the lift back when the frame leaves the screen (a phone showing another view). Put back on close, when the
+// frame loads another document (a module moved between docked and floating starts over), and when the mount is
+// destroyed. Focus stays in the frame; on release it goes back to the host control that opened the editor (the bar's
+// button) when one did, else it is left where it is.
+// Used for a sandboxed module's frame (mountModule) and for a composite's frame (canvas.js: the Map's panel and the
+// Calendar's parts run in the app's own page in a frame, where a dialog's top layer is the frame's too).
+// Returns { lift(open, size, height), release(), dismiss(byPerson), isLifted() }.
+export function createFrameLift(frame, { mount, tell, onLift = null, takeOpener = null }) {
+  let lifted = null; // the lift record from liftRecords while lifted
+  let dismissedAt = 0; // when the host last dismissed this frame's lift
+  const liftPhone = () => (frame.ownerDocument.defaultView || window).innerWidth <= 640;
+  const liftVisible = () => frame.isConnected && frame.getClientRects().length > 0 && (typeof frame.checkVisibility !== 'function' || frame.checkVisibility({ visibilityProperty: true }));
+  function release() {
+    if (!lifted) return;
+    const was = lifted;
+    lifted = null;
+    liftRecords.delete(was);
+    frame.classList.remove('module-editor-lifted', 'module-editor-lifted-large');
+    frame.style.removeProperty('--lift-h');
+    was.backdrop.remove();
+    was.close.remove();
+    for (const el of was.held) dropInert(el);
+    was.held.clear();
+    watchLifts(frame.ownerDocument);
+    const doc = frame.ownerDocument;
+    const a = doc.activeElement;
+    if ((!a || a === doc.body || a === frame) && was.before && was.before.isConnected && !was.before.inert) {
+      try { was.before.focus(); } catch { /* not focusable */ }
+    }
+    if (onLift) onLift(false);
+  }
+  // The host's way out: the page back, the module told to close its editor, focus in the frame so Escape keeps working there.
+  // `byPerson`: the host's Close or Escape; a lift refused for the next second. Not when the
+  // frame left the screen (a phone showing another view), which a real open may follow at once.
+  function dismiss(byPerson = true) {
+    if (!lifted) return;
+    if (byPerson) dismissedAt = Date.now();
+    release();
+    try { frame.focus(); } catch { /* not focusable */ }
+    tell();
+  }
+  function lift(open, size, height) {
+    if (!open) { release(); return false; }
+    const doc = frame.ownerDocument;
+    if (!frame.parentNode || !liftVisible()) { release(); return false; }
+    if (!lifted) {
+      if (doc.activeElement !== frame || frame.closest('[inert]')) return false; // the person is not in the frame, or it is under another lift or a dialog
+      if (Date.now() - dismissedAt < 1000) return false; // the host just put it back
+      const backdrop = doc.createElement('div');
+      backdrop.className = 'module-editor-backdrop';
+      // No click handler: a click outside the editor window leaves it open (only its Cancel, its X, the host's Close
+      // and Escape close it, and they ask when something is half-edited).
+      const close = doc.createElement('button');
+      close.type = 'button';
+      close.className = 'module-editor-close';
+      close.setAttribute('aria-label', 'Close');
+      close.title = 'Close';
+      close.innerHTML = '<i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i>';
+      close.addEventListener('click', () => dismiss());
+      frame.parentNode.insertBefore(backdrop, frame);
+      frame.parentNode.insertBefore(close, frame.nextSibling);
+      const o = takeOpener ? takeOpener() : null;
+      const before = o && Date.now() - o.at < 3000 && o.el && o.el.isConnected && o.el !== frame ? o.el : null;
+      lifted = { frame, doc, backdrop, close, held: new Set(), before, mount, visible: liftVisible, dismiss };
+      liftRecords.add(lifted);
+    }
+    frame.classList.add('module-editor-lifted');
+    frame.classList.toggle('module-editor-lifted-large', size === 'large');
+    if (Number.isFinite(height) && height > 0) frame.style.setProperty('--lift-h', `${Math.ceil(height)}px`); else frame.style.removeProperty('--lift-h');
+    inertAround(lifted);
+    watchLifts(doc);
+    if (onLift) onLift(true, size);
+    return { lifted: true, phone: liftPhone() };
+  }
+  return { lift, release, dismiss, isLifted: () => Boolean(lifted) };
+}
+
 // The "+" in a titlebar (host.add.set): one button in `add` (the titlebar's slot, moved with the window between docked
 // and floating, never rebuilt), which runs the module's one add action at once or opens the shared menu of them,
 // categories as flyouts. A pick goes to `send('add', { id })`. See public/module-chrome.js for the rules. mountModule draws
@@ -1043,7 +1130,7 @@ export function createStatusSlot(status) {
 // and `onStatus(items)`, for a destination's part only: its "+" entries and status items, cleaned, for the page to hand
 // on (a composite's frame); host.add.set and host.status.set answer true then. Returns
 // { destroy, send, deliver }. The module hears the same names the server uses (plan-names step 5c).
-export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, lift = true, onLift = null }) {
+export function mountModule({ module, frame = null, container = null, scope = 'environment', spaceId = null, guestToken = null, entry, onTitle, onResize, header = null, toolbar = null, add = null, status = null, onToolbar, onOpenRef = null, onOpenPage = null, onOpenModule = null, onChatAsk = null, keyed = null, destination = null, onAdd = null, onStatus = null, lift = true, onLift = null, liftUp = null }) {
   const base = `/api/modules/${encodeURIComponent(module.id)}`;
   let contextInfo = null;
   // A keyed page (public/keyed.js): the module's page about one person, opened with the access key and no
@@ -1927,7 +2014,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // or that is off screen (see liftFrame). `height` (the dialog's content) sizes the frame. See
     // documentation/plans/plan-editor-window.md, "A module in a sandboxed frame".
     async 'editor.lift'({ open, size, height }) {
-      if (pageMode || !lift) return false;
+      // A part in a composite's page (destination.js, `liftUp`): the page is in a frame on the Workspace, so the canvas lifts that frame.
+      if (pageMode) return liftUp ? liftUp(Boolean(open), size === 'large' ? 'large' : 'medium', Number(height)) : false;
+      if (!lift) return false;
       return liftFrame(Boolean(open), size === 'large' ? 'large' : 'medium', Number(height));
     },
     async setTitle({ title }) {
@@ -2076,87 +2165,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     return () => clearInterval(timer);
   }
 
-  // The lift (editor.lift; plan-editor-window.md, "A module in a sandboxed frame"). The host owns it: a frame is lifted
-  // only while the person is in it (it is the document's active element) and it is on screen, never within a second of
-  // the host having dismissed its last lift, and the host always has a way out (its own Close on the backdrop, Escape)
-  // that tells the module to close its editor (`editordismiss`; it asks first when something is half-edited) and puts
-  // the page back. A click on the backdrop does nothing (Thomas, 2026-10-13: a click outside an edit window never closes it).
-  // Lifted: the frame gets the class module-editor-lifted (position: fixed, centered, the editor's width, --lift-h tall;
-  // module-editor-lifted-large for a large editor; a full-screen sheet on a phone), div.module-editor-backdrop goes
-  // before it and button.module-editor-close after it, and everything else on the page is made inert the way a modal
-  // <dialog> does it: each ancestor's siblings, up to the body. A count per element lets two lifts hold the same element
-  // and an element inert before any lift stays so. A watch on the page keeps anything added while lifted inert too, and
-  // puts the lift back when the frame leaves the screen (a phone showing another view). Put back on close, when the
-  // frame loads another document (a module moved between docked and floating starts over), and when the mount is
-  // destroyed. Focus stays in the frame; on release it goes back to the host control that opened the editor (the bar's
-  // button) when one did, else it is left where it is.
-  let lifted = null; // the lift record from liftRecords while lifted
-  let dismissedAt = 0; // when the host last dismissed this frame's lift
-  let opener = null; // { el, at }: the host control whose event the module heard last (the bar, toolbar, header, nav, add)
-  const liftPhone = () => (frame.ownerDocument.defaultView || window).innerWidth <= 640;
-  const liftVisible = () => frame.isConnected && frame.getClientRects().length > 0 && (typeof frame.checkVisibility !== 'function' || frame.checkVisibility({ visibilityProperty: true }));
-  function releaseLift() {
-    if (!lifted) return;
-    const was = lifted;
-    lifted = null;
-    liftRecords.delete(was);
-    frame.classList.remove('module-editor-lifted', 'module-editor-lifted-large');
-    frame.style.removeProperty('--lift-h');
-    was.backdrop.remove();
-    was.close.remove();
-    for (const el of was.held) dropInert(el);
-    was.held.clear();
-    watchLifts(frame.ownerDocument);
-    const doc = frame.ownerDocument;
-    const a = doc.activeElement;
-    if ((!a || a === doc.body || a === frame) && was.before && was.before.isConnected && !was.before.inert) {
-      try { was.before.focus(); } catch { /* not focusable */ }
-    }
-    if (onLift) onLift(false);
-  }
-  // The host's way out: the page back, the module told to close its editor, focus in the frame so Escape keeps working there.
-  // `byPerson`: the host's Close or Escape; a lift refused for the next second. Not when the
-  // frame left the screen (a phone showing another view), which a real open may follow at once.
-  function dismissLift(byPerson = true) {
-    if (!lifted) return;
-    if (byPerson) dismissedAt = Date.now();
-    releaseLift();
-    try { frame.focus(); } catch { /* not focusable */ }
-    send('editordismiss', {});
-  }
-  function liftFrame(open, size, height) {
-    if (!open) { releaseLift(); return false; }
-    const doc = frame.ownerDocument;
-    if (!frame.parentNode || !liftVisible()) { releaseLift(); return false; }
-    if (!lifted) {
-      if (doc.activeElement !== frame || frame.closest('[inert]')) return false; // the person is not in the frame, or it is under another lift or a dialog
-      if (Date.now() - dismissedAt < 1000) return false; // the host just put it back
-      const backdrop = doc.createElement('div');
-      backdrop.className = 'module-editor-backdrop';
-      // No click handler: a click outside the editor window leaves it open (only its Cancel, its X, the host's Close
-      // and Escape close it, and they ask when something is half-edited).
-      const close = doc.createElement('button');
-      close.type = 'button';
-      close.className = 'module-editor-close';
-      close.setAttribute('aria-label', 'Close');
-      close.title = 'Close';
-      close.innerHTML = '<i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i>';
-      close.addEventListener('click', () => dismissLift());
-      frame.parentNode.insertBefore(backdrop, frame);
-      frame.parentNode.insertBefore(close, frame.nextSibling);
-      const before = opener && Date.now() - opener.at < 3000 && opener.el && opener.el.isConnected && opener.el !== frame ? opener.el : null;
-      opener = null; // used once: an editor opened from inside the frame later leaves focus in the frame
-      lifted = { frame, doc, backdrop, close, held: new Set(), before, mount: mine, visible: liftVisible, dismiss: dismissLift };
-      liftRecords.add(lifted);
-    }
-    frame.classList.add('module-editor-lifted');
-    frame.classList.toggle('module-editor-lifted-large', size === 'large');
-    if (Number.isFinite(height) && height > 0) frame.style.setProperty('--lift-h', `${Math.ceil(height)}px`); else frame.style.removeProperty('--lift-h');
-    inertAround(lifted);
-    watchLifts(doc);
-    if (onLift) onLift(true, size);
-    return { lifted: true, phone: liftPhone() };
-  }
+  // The lift (editor.lift; plan-editor-window.md, "A module in a sandboxed frame"): createFrameLift (above mountModule) does it.
+  // `opener`: the host control whose event the module heard last (the bar, toolbar, header, nav, add).
+  let opener = null; // { el, at }
+  const frameLift = frame ? createFrameLift(frame, { mount: mine, tell: () => send('editordismiss', {}), onLift, takeOpener: () => { const o = opener; opener = null; return o; } }) : null;
+  const releaseLift = () => { if (frameLift) frameLift.release(); };
+  const liftFrame = (open, size, height) => (frameLift ? frameLift.lift(open, size, height) : false);
 
   // No same-origin: an opaque origin, no cookies, no host DOM. allow-forms lets a
   // module's own <form> fire its submit event (a sandboxed frame without it
@@ -2203,6 +2217,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       call,
       root,
       rootElement: container,
+      // In a composite's page the frame is lifted over the Workspace while an editor window is open (handlers 'editor.lift').
+      ...(liftUp ? { lift: (open, size, height) => call('editor.lift', { open: Boolean(open), size, height }) } : {}),
       // The pointer in the page's coordinates, in the module's own.
       localPoint: (x, y) => {
         const r = container.getBoundingClientRect();

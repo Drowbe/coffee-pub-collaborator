@@ -492,17 +492,15 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
   const at = src.indexOf("async 'editor.lift'(");
   assert.ok(at > 0, "module-host.js answers 'editor.lift'");
   const handler = src.slice(at, src.indexOf('\n    },', at));
-  assert.ok(handler.includes('if (pageMode || !lift) return false;'), 'a module in the page, or a mount with lift: false, is answered false');
+  assert.ok(handler.includes('if (!lift) return false;') && handler.includes('if (pageMode) return liftUp ?'), 'a module in the page answers false unless it is a composite\'s part (liftUp), and a mount with lift: false is answered false');
   assert.ok(src.includes("frame.addEventListener('load', () => releaseLift());"), 'the frame loading another document puts it back');
   assert.ok(/destroy\(\) \{\n\s+if \(!pageMode\) releaseLift\(\);/.test(src), 'destroy() puts it back');
-  assert.ok(src.includes('lift = true, onLift = null }) {'), 'mountModule takes lift and onLift');
+  assert.ok(src.includes('lift = true, onLift = null, liftUp = null }) {'), 'mountModule takes lift, onLift and liftUp');
   // The lift itself, run on a stand-in page: body > [header, main > [section > [bar, frame], other]].
   const pageStart = src.indexOf('const inertCount = new WeakMap();'); // the page-wide lift state, above mountModule
   const pageEnd = src.indexOf('// The "+" in a titlebar', pageStart);
   assert.ok(pageStart > 0 && pageEnd > pageStart, 'module-host.js has the page-wide lift state');
-  const start = src.indexOf('  let lifted = null;');
-  const end = src.indexOf('\n  }\n', src.indexOf('function liftFrame(', start)) + 4;
-  assert.ok(start > 0 && end > start, 'module-host.js has liftFrame and releaseLift');
+  assert.ok(src.includes('export function createFrameLift(frame, {'), 'module-host.js has createFrameLift');
   const el = (tag, cls = '') => {
     const e = { tag, classes: new Set(cls.split(' ').filter(Boolean)), children: [], parentNode: null, inert: false, focused: 0 };
     e.classList = { add: (...c) => c.forEach((x) => e.classes.add(x)), remove: (...c) => c.forEach((x) => e.classes.delete(x)), toggle: (c, on) => (on ? e.classes.add(c) : e.classes.delete(c)), contains: (c) => e.classes.has(c) };
@@ -528,7 +526,7 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
   section.append(bar, frame);
   doc.activeElement = frame;
   const lifts = [];
-  const { liftFrame, releaseLift } = new Function('frame', 'onLift', 'mine', 'send', 'MutationObserver', `${src.slice(pageStart, pageEnd)}\n${src.slice(start, end)}\nreturn { liftFrame, releaseLift };`)(frame, (open, size) => lifts.push([open, size]), { frame }, () => {}, class { observe() {} disconnect() {} });
+  const { liftFrame, releaseLift } = new Function('frame', 'onLift', 'mine', 'send', 'MutationObserver', `${src.slice(pageStart, pageEnd).replace('export function createFrameLift', 'function createFrameLift')}\nconst fl = createFrameLift(frame, { mount: mine, tell: () => send('editordismiss', {}), onLift });\nreturn { liftFrame: fl.lift, releaseLift: fl.release };`)(frame, (open, size) => lifts.push([open, size]), { frame }, () => {}, class { observe() {} disconnect() {} });
   releaseLift();
   assert.deepEqual(lifts, [], 'putting back what was never lifted does nothing');
   liftFrame(true, 'large');

@@ -172,12 +172,12 @@ test('the sweep: every script in public/ that opens a modal dialog or closes one
 
 test('the lifted editor window (a module in a frame): a click on the host\'s backdrop does nothing; Escape and Close ask', () => {
   const host = read('public/module-host.js');
-  const lift = between(host, '  function liftFrame(open, size, height) {', '  // No same-origin');
+  const lift = between(host, '  function lift(open, size, height) {', '  return { lift, release');
   assert.match(lift, /backdrop\.className = 'module-editor-backdrop';/);
   assert.ok(!/backdrop\.addEventListener\(/.test(lift), 'no handler on the backdrop: a click outside leaves the window open');
-  assert.match(lift, /close\.addEventListener\('click', \(\) => dismissLift\(\)\);/, 'the host\'s Close still closes it');
+  assert.match(lift, /close\.addEventListener\('click', \(\) => dismiss\(\)\);/, 'the host\'s Close still closes it');
   assert.match(host, /if \(e\.key !== 'Escape'\) return;[\s\S]{0,300}top\.dismiss\(\);/, 'Escape still closes it');
-  assert.match(host, /send\('editordismiss', \{\}\);/, 'through the module\'s editor, which asks when something is half-edited');
+  assert.match(host, /tell: \(\) => send\('editordismiss', \{\}\)/, 'through the module\'s editor, which asks when something is half-edited');
   assert.match(read('public/sdk/host.js'), /host\.on\('editordismiss', \(\) => \{ const top = \[\.\.\.openEditors\.entries\(\)\]\.filter\(\(\[d\]\) => d\.open\)\.pop\(\); if \(top\) top\[1\]\.dismiss\(\); \}\);/);
 });
 

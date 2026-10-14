@@ -93,6 +93,40 @@ test('a kind of object names the stored fields of its summary, and only those', 
   assert.throws(() => produces({ summary: { title: 'no spaces allowed' } }), (err) => err instanceof ModuleError && err.message === 'module.json: refs "note" summary.title must name a stored field');
 });
 
+test('a summary may name icon, visit and spaces (plan-places-library, step 1)', () => {
+  const kind = cleanManifest({ ...base(), refs: { produces: [{ kind: 'place', key: 'place:{id}', summary: { title: 'title', icon: 'icon', visit: 'status', spaces: 'spaces' } }] } }, files).refs.produces[0];
+  assert.deepEqual(kind.summary, { title: 'title', icon: 'icon', visit: 'status', spaces: 'spaces' });
+});
+
+test('the module build inlines a library JSON file as LIB_<NAME> before the library code, and refuses bad JSON', () => {
+  const { buildModule } = createRequire(import.meta.url)('../server/module-build.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'build-lib-'));
+  try {
+    fs.mkdirSync(path.join(dir, 'src'));
+    fs.writeFileSync(path.join(dir, 'module.json'), JSON.stringify({ id: 'demo', name: 'Demo', version: '1.0.0', scope: ['environment'], surfaces: { page: { entry: 'demo.html' } } }));
+    fs.writeFileSync(path.join(dir, 'src', 'demo.html'), '<script>/*__JS__*/</script>');
+    fs.writeFileSync(path.join(dir, 'src', 'demo.css'), '');
+    fs.writeFileSync(path.join(dir, 'src', 'demo.js'), '/*__LIB__*/\nuse(LIB_PLACE_TYPES);');
+    fs.writeFileSync(path.join(dir, 'src', 'demo-lib.js'), 'function use(x) {}');
+    fs.writeFileSync(path.join(dir, 'src', 'demo-lib-place-types.json'), '{ "types": [ { "id": "cafe", "x": "</script>" } ] }');
+    const built = buildModule(dir);
+    assert.equal(built.manifest.id, 'demo');
+    // Entries are deflated, so read them back through the module installer's reader.
+    const zlib = createRequire(import.meta.url)('node:zlib');
+    const local = built.zip.indexOf(Buffer.from([0x50, 0x4b, 0x03, 0x04]), built.zip.indexOf(Buffer.from('demo.html')) - 30);
+    const nameLen = built.zip.readUInt16LE(local + 26);
+    const extraLen = built.zip.readUInt16LE(local + 28);
+    const size = built.zip.readUInt32LE(local + 18);
+    const text = zlib.inflateRawSync(built.zip.subarray(local + 30 + nameLen + extraLen, local + 30 + nameLen + extraLen + size)).toString();
+    assert.ok(text.includes('const LIB_PLACE_TYPES = {"types":[{"id":"cafe","x":"<\\/script>"}]};'), text);
+    assert.ok(text.indexOf('const LIB_PLACE_TYPES') < text.indexOf('function use'), 'the data comes before the library code');
+    fs.writeFileSync(path.join(dir, 'src', 'demo-lib-place-types.json'), '{ nope');
+    assert.throws(() => buildModule(dir), /demo-lib-place-types\.json is not valid JSON/);
+  } finally {
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test('storage.renamed: key prefixes a module renamed, checked, each refusal one sentence', () => {
   assert.deepEqual(cleanManifest({ ...base(), storage: { renamed: [{ from: 'item:', to: 'plan:', extra: 1 }] } }, files).storage, { renamed: [{ from: 'item:', to: 'plan:' }] });
   assert.deepEqual(cleanManifest(base(), files).storage, { renamed: [] }, 'none: an empty list');

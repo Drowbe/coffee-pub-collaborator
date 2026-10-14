@@ -16,13 +16,16 @@ const str = (v, n) => String(v ?? '').replace(/\s+/g, ' ').trim().slice(0, n);
 // { label, icon?, items: [leaf...] } (one level; a category inside one is dropped), or { divider: true }. At most 8
 // top-level entries, 12 per category and 40 leaves in all; the rest is dropped. A category with one leaf is that leaf;
 // an empty one is dropped. No divider first, last or twice in a row.
+// The same add twice in one list (the same label and icon, at the top or inside one category) is one: the first stays.
+export const addKey = (e) => `${String((e && e.label) || '').trim().toLowerCase()}|${(e && e.icon) || ''}`;
 export function cleanAddEntries(entries) {
   let leaves = 0;
-  const leaf = (e) => {
+  const leaf = (e, seen) => {
     if (!e || typeof e !== 'object' || e.items || e.divider) return null;
     const id = str(e.id, 40);
     const label = str(e.label, ADD_LIMITS.label);
-    if (!id || !label || leaves >= ADD_LIMITS.leaves) return null;
+    if (!id || !label || leaves >= ADD_LIMITS.leaves || seen.has(addKey(e))) return null;
+    seen.add(addKey(e));
     leaves += 1;
     const out = { id, label, disabled: Boolean(e.disabled) };
     if (ICON.test(e.icon || '')) out.icon = e.icon;
@@ -32,6 +35,7 @@ export function cleanAddEntries(entries) {
     return out;
   };
   const out = [];
+  const seenTop = new Set();
   const counted = () => out.filter((x) => !x.divider).length;
   for (const e of Array.isArray(entries) ? entries : []) {
     if (counted() >= ADD_LIMITS.top) break;
@@ -44,9 +48,10 @@ export function cleanAddEntries(entries) {
       const label = str(e.label, ADD_LIMITS.label);
       if (!label) continue;
       const items = [];
+      const seenIn = new Set();
       for (const s of e.items) {
         if (items.length >= ADD_LIMITS.perCategory) break;
-        const l = leaf(s);
+        const l = leaf(s, seenIn);
         if (l) items.push(l);
       }
       if (!items.length) continue;
@@ -56,7 +61,7 @@ export function cleanAddEntries(entries) {
       out.push(cat);
       continue;
     }
-    const l = leaf(e);
+    const l = leaf(e, seenTop);
     if (l) out.push(l);
   }
   while (out.length && out[out.length - 1].divider) out.pop();
@@ -67,6 +72,15 @@ export function cleanAddEntries(entries) {
 // their order (10 at most, as the bar took). A quick-add item is a leaf too (its label, else its placeholder, else "Add";
 // icon `plus` unless it gave one); `quick` lists their ids, whose pick sends { id, value: '' }. `overflow` and `iconOnly`
 // mean nothing in a menu and are dropped. Returns { entries, quick }; entries go through cleanAddEntries as any others.
+// The adds of several parts of one page (a composite's Map and its Places panel), each a list as host.add.set sent it: an
+// add another part already offers (the same label and icon) is left out of the later one. Returns the lists, same order.
+export function dropRepeatedAdds(lists) {
+  const seen = new Set();
+  const fresh = (e) => { const k = addKey(e); if (seen.has(k)) return false; seen.add(k); return true; };
+  return lists.map((list) => (Array.isArray(list) ? list : [])
+    .map((e) => (e && e.items ? { ...e, items: e.items.filter(fresh) } : e))
+    .filter((e) => !e || e.divider || (e.items ? e.items.length : fresh(e))));
+}
 export function foldBarItems(items) {
   const clean = (Array.isArray(items) ? items : []).slice(0, 10).map((i) => {
     const quick = i?.type === 'quickadd';

@@ -7,7 +7,7 @@
 import { api, accessKeyHeaders, word, words, withinSpacePage, showNote } from '/brand.js';
 import { nav as navBar } from '/nav-bar.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen } from '/host-menu.js';
-import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer } from '/module-chrome.js';
+import { cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus } from '/module-chrome.js';
 
 // The design tokens a module's frame receives (see design-theme.md).
 const THEME_TOKENS = [
@@ -584,14 +584,34 @@ function ptrEnd() {
   ptrDrag = null;
 }
 
-// The module frame in the same window as the source that is under a point of the page, and where in it.
+// The module frame in the same window as the source that is on top at a point of the page, and where in it. Chosen by
+// what the page paints there (document.elementsFromPoint, topmost first), not by mount order: a frame behind another
+// window, hidden, or inert is never the answer, and a window's own titlebar or toolbar on top covers the frame under it.
 function ptrTarget(px, py) {
-  for (const target of mounted) {
-    if (target === ptrDrag.source || target.frame.ownerDocument !== ptrDrag.doc) continue;
-    const r = target.frame.getBoundingClientRect();
-    if (px >= r.left && px < r.right && py >= r.top && py < r.bottom) return { target, x: Math.round(px - r.left), y: Math.round(py - r.top) };
+  const doc = ptrDrag.doc;
+  const byFrame = new Map();
+  for (const target of mounted) if (target.frame.ownerDocument === doc) byFrame.set(target.frame, target);
+  const stack = doc.elementsFromPoint ? doc.elementsFromPoint(px, py) : null;
+  const candidates = [];
+  if (stack) {
+    stack.forEach((el, i) => {
+      if (el.closest?.('[inert]')) return;
+      const z = stack.length - i;
+      let target = null, box = null; // an iframe is the frame itself; a module's own page holds its parts in a container
+      for (const [f, t] of byFrame) if (f === el || f.contains(el)) { target = t; box = f; break; }
+      if (target) candidates.push({ id: target, rect: box.getBoundingClientRect(), z, visible: true });
+      else if (el.closest?.('.module-floating, .module-docked')) candidates.push({ id: null, blocks: true, rect: el.closest('.module-floating, .module-docked').getBoundingClientRect(), z, visible: true });
+      else if (el.tagName === 'IFRAME') candidates.push({ id: null, blocks: true, rect: el.getBoundingClientRect(), z, visible: true });
+    });
+  } else {
+    let order = 0;
+    for (const [frame, target] of byFrame) candidates.push({ id: target, rect: frame.getBoundingClientRect(), z: 0, order: order++, visible: true });
   }
-  return null;
+  const top = topmostAt(candidates, px, py);
+  const target = top?.id;
+  if (!target || target === ptrDrag.source) return null;
+  const r = target.frame.getBoundingClientRect();
+  return { target, x: Math.round(px - r.left), y: Math.round(py - r.top) };
 }
 
 function ptrPoint(x, y) {
@@ -1573,7 +1593,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
           id: String(i?.id ?? '').slice(0, 40),
           label: String(i?.label ?? '').slice(0, 30),
           icon: /^[a-z0-9-]{1,40}$/.test(i?.icon || '') ? i.icon : '',
-          on: Boolean(i?.on),
+          on: typeof i?.on === 'boolean' ? i.on : null, // null: not a toggle, so no pressed state
           primary: Boolean(i?.primary),
           disabled: Boolean(i?.disabled),
           overflow: Boolean(i?.overflow),
@@ -1583,6 +1603,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         || (i.type === 'tabs' && i.id && i.options.length)
         || (i.type === 'button' && i.id && (i.label || i.icon)));
       const doc = toolbar.ownerDocument;
+      const focusKey = focusedToolbarKey(toolbar); // the control the keyboard is on, found again once the row is drawn
       toolbar.textContent = '';
       const buttons = clean.filter((i) => i.type === 'button');
       const { shown, hidden: overflow } = splitOverflow(buttons, 5);
@@ -1592,6 +1613,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         if (moreDrawn || !overflow.length) return;
         moreDrawn = true;
         const more = drawMoreButton(doc, '', () => openHostMenu(more, overflow.map((item) => ({ ...item, onPick: () => send('toolbar', { id: item.id }) }))));
+        more.dataset.tbKey = toolbarKey('more', '');
         toolbar.appendChild(more);
       };
       for (const item of clean) {
@@ -1627,6 +1649,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
           input.value = String(item.value);
           input.disabled = item.disabled;
           input.setAttribute('aria-label', item.label || item.id);
+          input.dataset.tbKey = toolbarKey('range', item.id);
           input.addEventListener('input', () => send('toolbar', { id: item.id, value: Number(input.value) }));
           wrap.appendChild(input);
           toolbar.appendChild(wrap);
@@ -1640,7 +1663,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
             const b = doc.createElement('button');
             b.type = 'button';
             window.hostSwitch.fill(b, opt);
-            if (opt.id === item.value) b.classList.add('on');
+            b.classList.toggle('on', opt.id === item.value);
+            b.setAttribute('aria-pressed', String(opt.id === item.value));
+            b.dataset.tbKey = toolbarKey('tab', item.id, opt.id);
             b.addEventListener('click', () => send('toolbar', { id: item.id, value: opt.id }));
             seg.appendChild(b);
           }
@@ -1651,6 +1676,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         b.type = 'button';
         b.className = `tb-btn${item.primary ? ' primary' : ''}${item.on ? ' on' : ''}`;
         b.disabled = item.disabled;
+        b.dataset.tbKey = toolbarKey('btn', item.id);
+        if (item.on !== null) b.setAttribute('aria-pressed', String(item.on));
         if (item.icon) {
           const i = doc.createElement('i');
           i.className = `fa-solid fa-${item.icon} fa-fw`;
@@ -1672,6 +1699,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       drawToolbarMore();
       toolbar.hidden = clean.length === 0;
       window.hostSwitch.watch(toolbar);
+      restoreToolbarFocus(toolbar, focusKey);
       if (onToolbar) onToolbar(clean.length > 0);
       return true;
     },

@@ -171,3 +171,36 @@ export function createAnnouncer({ write, delay = STATUS_QUIET_MS, setTimer = set
     },
   };
 }
+
+// Which module is on top at a point (issue #60). Each candidate is { id, rect, z, order, visible, blocks }: a module
+// frame, or a `blocks` cover (a module window's own titlebar, toolbar or status bar, a composite page's frame) that
+// takes a drop without passing it on. `z` is how high it paints at that point (the host reads it from the page's own
+// stacking, document.elementsFromPoint); `order` breaks a tie, the later one on top. A hidden one, or one the point
+// is not inside, never wins. Answers the topmost candidate, or null when nothing is there.
+export function topmostAt(candidates, x, y) {
+  let best = null;
+  for (const c of candidates || []) {
+    if (!c || c.visible === false || !c.rect) continue;
+    const r = c.rect;
+    if (!(x >= r.left && x < r.right && y >= r.top && y < r.bottom)) continue;
+    if (!best || c.z > best.z || (c.z === best.z && (c.order || 0) > (best.order || 0))) best = c;
+  }
+  return best;
+}
+
+// A toolbar row drawn again keeps the keyboard where it was (issue #155): each drawn control carries a key (its
+// item id, and the choice's id inside a switch), read before the row is cleared and found again after it is built.
+export const toolbarKey = (kind, id, choice = '') => `${kind}:${id}${choice === '' ? '' : `:${choice}`}`;
+export function focusedToolbarKey(row) {
+  const active = row?.ownerDocument?.activeElement;
+  return active && active !== row && row.contains(active) ? active.dataset?.tbKey || null : null;
+}
+export function restoreToolbarFocus(row, key) {
+  if (!key) return false;
+  for (const el of row.querySelectorAll('[data-tb-key]')) {
+    if (el.dataset.tbKey !== key || el.disabled) continue;
+    el.focus({ preventScroll: true });
+    return true;
+  }
+  return false;
+}

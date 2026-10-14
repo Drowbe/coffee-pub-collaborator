@@ -150,7 +150,7 @@ A guest link's page (`isGuestPage()`, which covers its pop-outs) gets the logo a
 |---|---|
 | the Layout menu (`module-chooser`, `#modules-toggle`), Full screen, Pop out, Pull participants back, a module's own tools and the **...** that folds them | the top bar's right end, as Workspace tools (`workspace`, `wideZones()` in `public/nav-bar.js`) |
 | the favorite layouts | layout tabs in the top bar's left zone |
-| Join the call | the always-on column's `.side-column-bar` (`placeColumnTools()`), taken out of the registry there |
+| Start call (Join call) | the right end of the always-on column's `#chat-views` row (`placeColumnTools()`), taken out of the registry there; on a phone, a tab in the `secondary` bar |
 | Online, who is here | the top bar's left zone (`whoHereTop`, `yieldFirst`) |
 | Leave | the last entry of the space switcher's menu |
 | Rejoin call, in an aside | the top bar's right zone (`aside-rejoin`) |

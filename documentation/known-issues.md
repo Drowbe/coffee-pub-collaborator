@@ -118,19 +118,35 @@ refuses the window, the call area can be left empty with no message and no retry
 
 Workaround: allow pop-ups for the site and choose **Its own window** again, or choose another **Call position**.
 
-## Narrow bands in the status strip hide their icon and label
+## Narrow bands in the status strip hide their label
 
-A phase that lasts only a few days is a narrow band in the status strip. When the band is too narrow, its icon and
-label are not drawn; the band's colour still shows.
+A phase that lasts only a few days is a narrow band in the status strip. When the band is too narrow, its name is not
+drawn; the band's colour and its icon (when the template gives one) still show.
 
 Workaround: open the phase sheet (choose the chip) to read every phase and its dates.
 
-## Home's chat is for signed-in people only
+## A space with Budget and the Planner can show two money facts
 
-A guest who enters by a guest link to the Home page does not see Home's chat. Whether guests should, and how, is
-undecided. GitHub #289.
+Until the Planner hands its costs to Budget ([plan-budget-module](plans/plan-budget-module.md), step 3), the Planner
+still keeps its own costs and reports its own "spent" to the status strip, and Budget reports its own. A space that has
+both modules on can show two money chips that do not agree. The Planner's cost on a booking is not a cost in Budget.
 
-Workaround: none; guests chat inside the spaces they are let into.
+Workaround: use one of the two in a space. Budget has the target, the categories, the burndown and settling up.
+
+## Budget's burndown axis labels overlap at very large amounts
+
+On Budget's **Overview**, when a target is very large (many digits), the labels along the burndown's amount axis can run
+into each other. Reported by QA on 2026-10-14; not seen on a screen by the person writing this.
+
+Workaround: the figures beside the chart ("Left", "Paid") are not affected; read them there.
+
+## In the Calendar, today and the selected day both look like an accent fill
+
+Since selected states became fills, not borders, the Calendar's day for today and the day you selected are both drawn
+with an accent fill (today with the accent's 28%, a selected day with about 22% over the card). They are easy to tell
+apart only side by side.
+
+Workaround: none.
 
 ## Places saved before a picture map keep their old positions
 

@@ -2,9 +2,19 @@
 
 **Audience:** Thomas, who decides what Budget holds, who may see and change it, and how the Planner hands money to it; experience-design, which builds the module, the Planner's change and the Set up field; server-development, which changes the target's rules, the template and the checks; content-manager, which documents it once built.
 
-**Status:** decided 2026-10-14, nothing built. Drafted the same day by product-planner; Thomas has answered every decision (Decisions below). One question is still open: the kind of build for step 1 (What is not decided). Unless Thomas names another kind, each step is meant as a try build (one builder, one pass, its own checks, a patch version bump for each module it changes). The request, as relayed: today the budget is split, the target on the space and the spending inside the Planner's Money view; Thomas wants Budget as its own module "so it also serves project planning, real estate, small business".
+**Status:** decided 2026-10-14; steps 1, 2 and 4 built 2026-10-14 (the target's rules; Budget 0.1.0; Set up's field). Steps 3 (the Planner hands costs to Budget) and 5 (the travel template) are not built; step 6, the burndown, was built with step 2 in Budget 0.1.0; step 7 (documentation) is written, bar the exception below. Until step 3 the Planner still keeps its own costs and reports its own `spent`, so a space with both modules on can show two money facts on the strip. Drafted the same day by product-planner; Thomas has answered every decision (Decisions below). One question is still open: the kind of build for step 1 (What is not decided). Unless Thomas names another kind, each step is meant as a try build (one builder, one pass, its own checks, a patch version bump for each module it changes). The request, as relayed: today the budget is split, the target on the space and the spending inside the Planner's Money view; Thomas wants Budget as its own module "so it also serves project planning, real estate, small business".
+
+**Built, and where it differs from the plan** (read from the code and the QA findings, 2026-10-14):
+
+- **Step 1.** `MODERATOR_SPACE_FIELDS` has `budget`; a moderator of the space reads `GET /api/spaces/:id` (their fields only) and their `PATCH`'s answer carries the target; a currency alone is accepted; a currency sent alone replaces the whole target; an `amount` that is sent but is not a good number is refused, so a bad entry cannot clear a stored target. `host.budget.can()` and `.set()` are new, only for a module with `"budget": true`; `set()` needs an explicit target or `null`. `GET /api/modules/for-space` carries `budget` on each module. `check-facts` (245 checks) and `check-nav` hold it.
+- **Step 2.** `modules/budget/` at 0.1.0: Overview with the burndown, Costs, Settle up, the `addCost` action, the `categories` list setting with a fixed Other, the `cost` kind, the `spent` fact, `"budget": true`. `tools/check-budget.mjs` (16 tests). Deviations: **Set a target** (and **Edit target**) opens an editor inside the module, not Set up at the field; the category filter is a button that opens a menu of the categories, with a second for who paid; the summary's `amount` field is declared in `module.json` but the server's `SUMMARY_FIELDS` (`server/modules.js`) does not carry it yet, so it waits for step 3.
+- **Step 4.** Set up's Budget field shows for moderators, on the Phases tab, else the tab named for the space, else First visit; a currency without an amount is saved. A changed currency is sent with the stored amount.
+- **Step 7, written:** `userguide-budget.md`, `api-modules.md` ("The budget target", the manifest's `budget`, `for-space`), `api-module-sdk.md` ("The budget target"), `architecture-modules.md`, `architecture-canvas.md` ("Set up"), `userguide-spaces.md`, `userguide-planner.md`, the CHANGELOG, TODO and known-issues. Not written: `host.facts`, which `api-module-sdk.md` still does not describe.
+- **Open:** #216 (the burndown) can be closed by Thomas now that the burndown is in Budget's Overview; the issue is his to close.
 
 ## What it is today
+
+*This section is as drafted, before steps 1, 2 and 4 were built; where it says only an owner or the admin may send the target, or that Set up's read is for owners, steps 1 and 4 changed it (see the Status).*
 
 The budget was built by [plan-space-story-strip](plan-space-story-strip.md) step 6 and 7 (#216, `a6f3a00`, hardened after QA in `cf02588`).
 
@@ -129,13 +139,13 @@ Decision 8: Budget is the one store.
 
 ## Left to build, in order
 
-1. **The target's rules** (server-development; medium, it changes who may write a space field). The moderator field and answer, the moderator's Set up read, the comments, the currency-alone rule, the `amount` summary field if needed, `check-facts` updated. Not blocked by a decision; the kind of build is the open question below.
-2. **The Budget module** (experience-design; medium). Manifest at 0.1.0, `budget-lib.js`, the views including Settle up, add, editor, filter, status line, fact, settings and `addCost`; `tools/module-versions.json`; a new `tools/check-budget.mjs` for the pure arithmetic (totals, categories, settle-up, the fact's words at the 40-character limit) in `npm run check`.
-3. **The Planner hands money to Budget** (experience-design; medium). As the contract says; `tools/check-travel.mjs` loses the money cases (they move to `check-budget`); a version bump. Needs step 2.
-4. **Set up** (experience-design; low). The field for moderators, the currency without an amount, the hint, opening at the field from Budget.
-5. **The travel template** (server-development; low). `modules` gains `budget`, version 7; `tools/check-templates.mjs`.
-6. **The burndown in Budget's Overview** (experience-design; low). A patch bump of Budget; closes #216.
-7. **Documentation** (content-manager). `api-module-sdk.md` (Budget's action, and `host.facts`, which that document does not yet describe), `api-modules.md`, `architecture-modules.md`, a user guide page for Budget, [plan-space-story-strip](plan-space-story-strip.md)'s status (its "owner and admin only" rule superseded here), `TODO.md`, `known-issues.md`, the CHANGELOG.
+1. **The target's rules** (built; server-development; medium, it changes who may write a space field). The moderator field and answer, the moderator's Set up read, the comments, the currency-alone rule, the `amount` summary field if needed, `check-facts` updated. Not blocked by a decision; the kind of build is the open question below.
+2. **The Budget module** (built; experience-design; medium). Manifest at 0.1.0, `budget-lib.js`, the views including Settle up, add, editor, filter, status line, fact, settings and `addCost`; `tools/module-versions.json`; a new `tools/check-budget.mjs` for the pure arithmetic (totals, categories, settle-up, the fact's words at the 40-character limit) in `npm run check`.
+3. **The Planner hands money to Budget** (not built; experience-design; medium). As the contract says; `tools/check-travel.mjs` loses the money cases (they move to `check-budget`); a version bump. Needs step 2.
+4. **Set up** (built; experience-design; low). The field for moderators, the currency without an amount, the hint, opening at the field from Budget.
+5. **The travel template** (not built; server-development; low). `modules` gains `budget`, version 7; `tools/check-templates.mjs`.
+6. **The burndown in Budget's Overview** (built with step 2; experience-design; low). A patch bump of Budget; closes #216.
+7. **Documentation** (content-manager; written, see the Status). `api-module-sdk.md` (Budget's action, and `host.facts`, which that document does not yet describe), `api-modules.md`, `architecture-modules.md`, a user guide page for Budget, [plan-space-story-strip](plan-space-story-strip.md)'s status (its "owner and admin only" rule superseded here), `TODO.md`, `known-issues.md`, the CHANGELOG.
 
 ## Verify
 

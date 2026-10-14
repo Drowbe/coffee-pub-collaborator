@@ -9,7 +9,7 @@ Browser Source, so a recorded session shows their camera or a picture you chose.
 - Video and voice for the whole group in a browser, with grid, strip and spotlight layouts, chat with
   pictures, reactions, and a pop-out window.
 - Spaces: a Lobby for everyone plus a space per game, with a launch link to each game's tabletop or wiki.
-- Modules on the canvas beside the call, such as a calendar, a to-do list and polls, docked or floating.
+- Modules on the canvas beside the call, such as a calendar, a to-do list, polls and a budget, docked or floating.
 - Step aside privately with one or more players, on or off the recording.
 - Every player as their own transparent OBS source, with pictures for offline, online, talking and
   muted, on top of a Participant box and a Character box.

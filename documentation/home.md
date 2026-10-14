@@ -33,6 +33,7 @@ Known defects and their workarounds are in [Known issues](known-issues.md).
 - [To-do](userguides/userguide-todo.md) -- a shared task list, for the environment and for each space.
 - [Polls](userguides/userguide-polls.md) -- asking a group to choose.
 - [Planner](userguides/userguide-planner.md) -- planning a trip day by day, with phases (the Itinerary in the Travel template).
+- [Budget](userguides/userguide-budget.md) -- costs planned and paid, the space's target, the burndown and settling up.
 - [Research](userguides/userguide-research.md) -- notes, links and photos a group finds while it plans.
 - [Places](userguides/userguide-places.md) and [Maps](userguides/userguide-maps.md) -- saved places, the map, and a
   picture map for an invented world.

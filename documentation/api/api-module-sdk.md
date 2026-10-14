@@ -68,7 +68,7 @@ const t = await host.ready();
 // t.permissions  { view: true, edit: false }   the module's own permissions, by short key
 // t.theme     the current theme tokens; host.on('theme', (theme) => { ... }) fires whenever the theme or the light or dark mode changes
 host.can('edit');   // true or false, from the permissions above; always true for an owner
-host.space();       // { id, name, createdAt, phases } for the space this page is open in; null on an environment page or a keyed page
+host.space();       // { id, name, createdAt, phases, budget? } for the space this page is open in; null on an environment page or a keyed page
 host.phases();      // the environment's template's phases, [{ id, label, main?, icon? }] in order; [] when it has none
 host.environment;   // { pictureMap } facts about the environment (below); { pictureMap: null } until ready() resolves
 ```
@@ -78,6 +78,17 @@ host.environment;   // { pictureMap } facts about the environment (below); { pic
 **Phase bands.** `host.util.phaseTimeline()` turns the template's phases and the space's dates into one band per phase, in order, by the one rule the server and the pages share (`public/phases.js`): `[{ id, label, main, tint, start, end, dated, current }]`. `start` and `end` are inclusive days (`end` is `null` for an open-ended band); a phase with no dates has `dated: false` and no width; `current` marks the band that today falls in. `tint` is the band's colour name, one of the eight tints (`blue`, `green`, `teal`, `purple`, `orange`, `pink`, `gold`, `red`), picked by the phase's place in the template's list and repeating after the eighth, so a phase has the same colour in every place it is drawn. Draw it with `var(--tint-<name>)` ([design-theme](../designsystem/design-theme.md), "Tints"), never with a colour of your own. It takes `{ dates, created, today }` for another space's dates (what `host.spaces()` lists, on an environment page) or another day, and returns `[]` when the template has no phases. It throws if the shared rule could not be loaded. `host.util.phaseWords(bands, today?)` gives the one-line words for a timeline ("Booking · day 2 of 3", "Planning · 12 days to go"), and `''` with no bands. Dates are plain days. `today` is the viewer's own local day, but a moment such as the day the space was made is read as its UTC day, so the server and every viewer agree on the first phase's start whatever their time zone. `host.phasesCover(day)` asks the server to move the main phase's end later to cover `day`, with every later boundary shifted by the same number of days; it needs `write` in a module on in this space, and resolves with the space's new `phases`, or `null` when nothing moved (the day is covered already, is before the main phase, or the main phase has no start). The Planner uses these for its name and its phase line.
 
 **The environment.** `host.environment.pictureMap` is `{ file, minZoom, maxZoom, tileType }` while the owner has set a picture map (an invented world drawn from a picture; see "Picture maps" in [api-modules](api-modules.md)), else `null`. Every module is told, so one that shows real-world things, such as a place search or a link to a maps app, can leave them out on an invented world. The file is read with `host.files.url(file, { folder: 'image-map' })`. It is live: when the owner sets, replaces or clears the picture map, `host.environment` answers the new value and the page hears `host.on('environment', ({ pictureMap }) => { ... })`, so a module redraws what depends on it without a reload.
+
+**The budget target.** A space may carry a budget target, `{ amount?, currency? }` ([api-modules](api-modules.md), "The budget target"). It is not in the general space lists; a module reads it through its context, so `host.space().budget` is set for a module the person may read in a signed-in session and is left out while none is set (a guest never gets it). `host.on('space', ({ budget }) => ...)` fires with `budget` (the target, or `null`) when it changed, whoever changed it and from whichever page or pop-out. A module that reports a fact marked `budget: true` (`host.facts.set`) has it read again after the report.
+
+```js
+// Only a module with "budget": true in its module.json. Any other: can() is false and set() rejects ("this module does not use the budget target").
+await host.budget.can();                              // true for the space's owner, the admin and a moderator of this space; false for a guest, anyone else, and outside a space
+const kept = await host.budget.set({ amount: 4000, currency: 'EUR' }); // saves it; resolves with the target the server kept
+await host.budget.set(null);                          // clears it
+```
+
+`set()` needs the target or `null`: calling it with nothing rejects ("say the target, or null to clear it") rather than clearing. The server replaces the **whole** target with what is sent, so `{ currency: 'EUR' }` alone drops a stored amount; send the amount with it to keep it. A refusal rejects with the server's sentence (for example "The budget must be an amount above zero."). `host.space().budget` is current when `set()` resolves, and `'space'` is heard. The server decides again on every save, so `can()` only shapes the screen.
 
 Every call returns a promise. Do not call anything before `ready()` resolves.
 

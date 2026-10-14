@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides what the strip says, what it shows and where each fact comes from; experience-design, which draws the strip, the facts and the Planner's reports; server-development, which builds the facts store, the weather lookup and their checks.
 
-**Status:** approved in part, partly built, 2026-10-14. Steps 1 and 2 built (no caret and the story sentence; the taller 44 px journey bar), and status-strip steps 3 and 4 (`host.attention`, Polls reporting). Steps 4 to 10 (facts, the Planner's money, the budget target, choosing what shows, weather) are not built. Changed since drafting: the strip's coloured borders were replaced by fills in the phase colours, and the travel template's phases have icons (template version 6). Open: #216 (the budget in the titlebar).
+**Status:** approved in part, partly built, 2026-10-14. Steps 1 and 2 built (no caret and the story sentence; the taller 44 px journey bar), and status-strip steps 3 and 4 (`host.attention`, Polls reporting). Steps 4 to 7 are also built (the facts store and `host.facts`, facts in the strip, the Planner's money and next booking, and the budget target, in `a6f3a00` and `cf02588`); steps 8 to 10 (choosing what shows, weather, usual temperatures) are not built. Changed since drafting: the strip's coloured borders were replaced by fills in the phase colours, and the travel template's phases have icons (template version 6). On 2026-10-14 the countdown became one chip ("35 days to Trip", "1 day to Trip", "Trip starts today", hidden once the main phase is under way; "8 days left" is gone), the sentence lost its "· Trip in 35 days" tail, and phase icons stay in narrow bands, the phase sheet and Set up's Phases tab. The budget target is no longer "owner or admin only": [plan-budget-module](plan-budget-module.md) (decisions 3, 5, 6 and 7, built 2026-10-14) lets the space's owners, the admin and its moderators set it, members read it through the Budget module, and a currency may stand alone; the Budget module holds the spending, and until its step 3 the Planner still reports its own `spent`. #216 (the budget in the titlebar) has its burndown in Budget's Overview. The examples below that still show the sentence's "· Trip in N days" tail are as drafted.
 
 **Status when drafted:** approved in part, 2026-10-14. Thomas decided the look, the facts slot, the budget and the weather's destination (Decisions below); the weather provider, who chooses what shows, units and the rest are still open (Not decided). Nothing is built. Thomas, on the plan: "I like the plan. We can try B but I am not convinced it is visual enough. This should be the at-a-glance widget." Drafted 2026-10-14 by product-planner. It builds on [plan-space-status-strip](plan-space-status-strip.md) (step 1 built, `0fe4945`; the attention store, step 2, built, `ac26938`). Each step below is meant as a try build (one builder, one pass, its own checks, a patch version bump for each module it changes). Thomas, looking at the built strip ("● Planning · day 20 of 20 ▾" and the progress track): "The beginnings of planner is good. We don't need the 'down' caret since it isn't opening a menu. We can do far more with this visually and have it tell a better story. We will want to add some more info to that bar like maybe running budget? Could be more too... like weather at the destination?"
 
@@ -41,8 +41,8 @@ The story is four things, read left to right: **where we are**, **what is next**
 
 | When | Words |
 |---|---|
-| Inside a phase, the next one more than a day away | "Planning · Booking in 6 days · Trip in 41 days" |
-| The day before a boundary | "Booking starts tomorrow · Trip in 35 days" |
+| Inside a phase, the next one more than a day away | "Planning · Booking in 6 days" (the countdown chip says "41 days to Trip") |
+| The day before a boundary | "Booking starts tomorrow" (the chip says "35 days to Trip") |
 | Inside the main phase | "Trip · day 3 of 10" |
 | The main phase's last day | "Trip · last day" |
 | After the main phase | "Post-trip · back 2 days" |
@@ -65,7 +65,7 @@ Costs: the most visual; names inside 28 px must be 11 px and vanish under about 
 **B. The sentence first.** The chip's words become the story sentence; the track stays as today, beside it, shrinking first; facts follow as small icon-and-words pieces, each a button.
 
 ```text
-| ● Booking starts tomorrow · Trip in 35 days  ▬▬▬|▬▬▬▬▬▬▬▬  (coins) $2,340 of $4,000  (sun) 18° Lisbon  (!) 2 need action |
+| ● Booking starts tomorrow  ▬▬▬|▬▬▬▬▬▬▬▬  35 days to Trip  (coins) $2,340 of $4,000  (sun) 18° Lisbon  (!) 2 need action |
 ```
 
 Costs: least new drawing; reads the same to a screen reader as to the eye; works for any template. Rules out: nothing; less striking than A.
@@ -73,7 +73,7 @@ Costs: least new drawing; reads the same to a screen reader as to the eye; works
 **C. The stepper.** The track becomes one small dot per phase (past filled, today ringed, main larger), only today's phase named; the sentence and facts after it.
 
 ```text
-| Booking ●●◉○◎○  Trip in 35 days  |  $2,340 spent  |  18° Lisbon  |  (!) 2 |
+| Booking ●●◉○◎○  35 days to Trip  |  $2,340 spent  |  18° Lisbon  |  (!) 2 |
 ```
 
 Costs: compact, and the dot count shows the shape of the plan; loses the bands' lengths, which is what the track shows best. Rules out: seeing how long each phase is.
@@ -124,7 +124,7 @@ Everything still comes from phases and facts; nothing new is written by the stri
 
 **Who reports it** is still the suggestion: the Planner, from its own Money (option 1 above), and a Budget module only if a second module ever holds costs. Thomas did not choose between these; see Not decided.
 
-**The target.** A new trip field, `budget`, a positive amount in the trip's currency. It is set by the owner or a moderator in Set up (not by anyone who can edit the Planner). Where it is stored is open: the trip is the Planner's data, written from the Planner's own form, while Set up is the host's. Suggestion: store it on the space record and let the host read it, so Set up can write it without the Planner open; the host then words "of $4,000" itself from the Planner's `spent` amount. This would mean the `spent` fact carries an amount as well as words. See Not decided.
+**The target.** A new trip field, `budget`, a positive amount in the trip's currency (built as a field on the space; see the Status). It is set by the owner or a moderator in Set up (not by anyone who can edit the Planner). Where it is stored is open: the trip is the Planner's data, written from the Planner's own form, while Set up is the host's. Suggestion: store it on the space record and let the host read it, so Set up can write it without the Planner open; the host then words "of $4,000" itself from the Planner's `spent` amount. This would mean the `spent` fact carries an amount as well as words. See Not decided.
 
 **Permissions:** the fact is shown only to people who may read the Planner in that space (the `view` permission), as the facts store's read rule below holds. Guests never see the strip.
 

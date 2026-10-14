@@ -1133,7 +1133,7 @@ call
 const joinCallButton = document.createElement('button');
 joinCallButton.type = 'button';
 joinCallButton.id = 'join-call';
-joinCallButton.className = 'btn btn-small btn-accent join-call';
+joinCallButton.className = 'btn btn-small btn-accent join-call nav-text'; // the nav text's type, the accent button's colours
 joinCallButton.setAttribute('aria-label', 'Join the call');
 joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label">Join<span class="join-call-more"> the call</span></span>';
 joinCallButton.addEventListener('click', () => joinTheCall());
@@ -1649,7 +1649,7 @@ statusSaid.setAttribute('role', 'status');
 const phaseChip = document.createElement('button');
 phaseChip.type = 'button';
 phaseChip.id = 'phase-chip'; // keeps its own id (the registry only names the elements it draws)
-phaseChip.className = 'phase-chip';
+phaseChip.className = 'phase-chip nav-text'; // the nav text, as every word in the bars
 phaseChip.setAttribute('aria-haspopup', 'dialog');
 phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span>';
 const statusTrack = document.createElement('span');
@@ -1726,7 +1726,7 @@ function drawStatusTrack(bands, today) {
     box.className = 'status-band-box';
     if (at !== null && at < 50) box.classList.add('end');
     const name = doc.createElement('span');
-    name.className = 'status-band-name';
+    name.className = 'status-band-name nav-text'; // the nav text; its colour is the band's (style.css)
     if (phaseIcons[b.id]) {
       const icon = doc.createElement('i');
       icon.className = `fa-solid fa-${phaseIcons[b.id]}`;
@@ -1740,7 +1740,7 @@ function drawStatusTrack(bands, today) {
       mark.className = 'status-today'; // inside the band: takes its colour
       mark.style.left = `${at}%`;
       const dayOfMonth = doc.createElement('span');
-      dayOfMonth.className = 'status-today-day';
+      dayOfMonth.className = 'status-today-day nav-text';
       dayOfMonth.textContent = String(Number(today.slice(8, 10)));
       mark.appendChild(dayOfMonth);
       seg.appendChild(mark);
@@ -1757,7 +1757,7 @@ function drawStatusTrack(bands, today) {
     mark.className = 'status-today';
     mark.dataset.tint = (outside === 'lead' ? dated[0] : dated[dated.length - 1]).tint; // the band it stands beside
     const dayOfMonth = doc.createElement('span');
-    dayOfMonth.className = 'status-today-day';
+    dayOfMonth.className = 'status-today-day nav-text';
     dayOfMonth.textContent = String(Number(today.slice(8, 10)));
     mark.appendChild(dayOfMonth);
     segs.push(mark);
@@ -1767,7 +1767,7 @@ function drawStatusTrack(bands, today) {
   statusToGo.hidden = !togo;
   if (togo) {
     const n = doc.createElement('span');
-    n.className = 'status-togo-n';
+    n.className = 'status-togo-n nav-text';
     n.textContent = String(togo.days);
     const rest = doc.createElement('span');
     rest.className = 'status-togo-words';

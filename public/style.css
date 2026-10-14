@@ -70,6 +70,16 @@
   /* The one small gap between the top bar's right-end controls (the favorites, Layout, the bell, your picture, Set up,
      Full screen, Pop out) and around a divider there; a layout token, no theme sets it. */
   --topbar-gap: 4px;
+  /* The nav text (Thomas, 2026-10-14: "the correct one is the Workspace, Calendar, etc."): the one type every word in
+     the top bar and its second row wears -- the layout tabs and destinations (.core-link), the space switcher, Who is
+     here, your name, Join the call, the phase chip, the names in the status strip's bands, a page bar's name and tabs.
+     Set once here; .nav-text (top-bar block) reads them, with the page's own family and the header's text colour (both
+     set there: a custom property cannot carry `inherit`, and each colour area of the bar sets its own --header-text).
+     Layout tokens: no theme sets them. */
+  --nav-font-size: 13px;
+  --nav-font-weight: 600;
+  --nav-letter-spacing: normal;
+  --nav-line-height: normal;
   /* Stacking: a menu or list opened from the page's own chrome draws above every module (the floating layer is 25)
      and under a page opened over the call (the overlay is 30). The header holds the space bar and is its own layer
      (20), so it rises to this while one of its lists is open. */
@@ -391,12 +401,6 @@ a:hover {
   outline-offset: 1px;
 }
 
-/* .brand span sizes the environment's name; the breadcrumb and the destinations' names (in the same zone) keep their own size. */
-.topbar .crumb span,
-.topbar .core-link .core-label {
-  font-size: inherit;
-}
-
 /* The bell: an icon with its count. */
 .topbar .nav-bell .badge[hidden] {
   display: none;
@@ -668,6 +672,31 @@ a:hover {
   gap: 4px;
 }
 
+/* The nav text: ONE type for every word in the top bar and its second row (the --nav-* tokens in :root). The layout
+   tabs and destinations (.core-link) are the reference and wear it by their own class; every other element tool with
+   words carries .nav-text (the space switcher, Who is here, your name, Join the call, the phase chip, a band's name, a
+   page bar's name and tabs, a labelled button the registry draws: Pull participants back, Manage). No element restates
+   a size or weight of its own. `.btn.nav-text` outweighs the button's own type (.btn, .btn-small come later) and keeps
+   the button's colours. Anything else wears the bar's link colour at rest; what is current (the tab shown, the chip's
+   phase, today's band, the page's name) says --header-text in its own rule. The exceptions, each for a reason: the
+   environment's name (the wordmark, larger: Thomas, 2026-10-14, "for now"), the "days to <phase>" caption under the
+   countdown (small, a caption), and the phone's menu rows and tab bar (a menu list and an icon over a word, not the bar). */
+.nav-text,
+.btn.nav-text,
+.core-link {
+  font-family: inherit;
+  font-size: var(--nav-font-size);
+  font-weight: var(--nav-font-weight);
+  letter-spacing: var(--nav-letter-spacing);
+  line-height: var(--nav-line-height);
+}
+
+/* A button keeps its own colours. */
+.nav-text:where(:not(.btn)),
+.core-link {
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
+}
+
 .core-link {
   display: inline-flex;
   align-items: center;
@@ -676,9 +705,6 @@ a:hover {
   height: 30px;
   padding: 0 10px;
   border-radius: 6px;
-  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
-  font-size: 13px;
-  font-weight: 600;
   white-space: nowrap;
 }
 
@@ -894,7 +920,11 @@ body.host-console .grow {
   color: var(--icon-hover);
 }
 
-.brand span {
+/* The environment's name, the wordmark: larger than the nav text on purpose (Thomas, 2026-10-14: it stays larger, for
+   now), and the one exception to it in the top bar. Only the name: the other words in the brand's zone (the space
+   switcher, Who is here) are the nav text (.nav-text), not this. */
+.brand > span[data-brand="environmentName"],
+.topbar .brand-name {
   font-size: 17px;
 }
 
@@ -1923,10 +1953,8 @@ body.in-space .subnav {
   align-items: center;
   gap: 6px;
   max-width: 24em;
-  font-size: 14px;
-  font-weight: 600;
   white-space: nowrap;
-  color: var(--header-text);
+  color: var(--header-text); /* the nav text (.nav-text, brand.js), in the current place's colour */
 }
 
 .page-bar-name[hidden] {
@@ -1962,7 +1990,12 @@ body.in-space .subnav {
   border-radius: 6px;
   background: none;
   color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
-  font-size: 13px;
+  /* The nav text, by its tokens (the tabs are in each page's own markup, not the registry's). */
+  font-family: inherit;
+  font-size: var(--nav-font-size);
+  font-weight: var(--nav-font-weight);
+  letter-spacing: var(--nav-letter-spacing);
+  line-height: var(--nav-line-height);
 }
 
 .page-bar .subtab[hidden] {
@@ -2303,8 +2336,7 @@ input.switch:disabled {
   align-items: center;
   gap: 4px;
   height: 22px;
-  padding: 0 8px;
-  font-size: 12px;
+  padding: 0 8px; /* its words are the nav text (.btn.nav-text, space.js) */
 }
 
 .join-call[hidden] {
@@ -2686,24 +2718,21 @@ body.in-space .topbar {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: var(--header-text);
-  font-weight: 600;
 }
 
+/* Its type and colour are the nav text's (.nav-text, brand.js). */
 button.whoami {
   height: 34px;
   padding: 0 8px;
   border: 0;
   border-radius: 6px;
   background: none;
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
   cursor: pointer;
 }
 
 button.whoami:hover,
 button.whoami[aria-expanded="true"] {
+  color: var(--icon-hover);
   background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
 }
 
@@ -3323,8 +3352,8 @@ body.in-space .topbar {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  font-size: 15px;
-  font-weight: 400;
+  font-size: var(--nav-font-size); /* its segments and separators: the nav text, as the rest of the bar */
+  font-weight: var(--nav-font-weight);
 }
 
 .crumb:empty {
@@ -3341,6 +3370,12 @@ body.in-space .topbar {
   flex: none;
 }
 
+/* The current place reads as the nav text at its weight (as .crumb's box already is; said here for a segment's own). */
+.topbar .crumb [aria-current="location"],
+.topbar .crumb [aria-current="page"] {
+  font-weight: var(--nav-font-weight);
+}
+
 .topbar .crumb .crumb-label {
   min-width: 0;
   max-width: 22em;
@@ -3348,10 +3383,7 @@ body.in-space .topbar {
   text-overflow: ellipsis;
 }
 
-.topbar .crumb [aria-current="location"],
-.topbar .crumb [aria-current="page"] {
-  font-weight: 600;
-}
+
 
 /* Each segment wears the top bar's link look (.core-link: its size, weight, colour, icon and height), set in space.js;
    nothing here restyles it. The current space is a place, not a link: it doesn't light up on hover. */
@@ -3403,8 +3435,8 @@ a.crumb-here:hover {
 }
 
 .topbar .topbar-status {
-  font-size: 13px;
-  font-weight: 400;
+  font-size: var(--nav-font-size); /* the nav text's type, in the status colour (.status) */
+  font-weight: var(--nav-font-weight);
   margin-left: 6px;
 }
 
@@ -3412,9 +3444,6 @@ a.crumb-here:hover {
   .topbar .brand {
     flex-wrap: wrap;
     row-gap: 2px;
-  }
-  .crumb {
-    font-size: 16px;
   }
   .brand-home span[data-brand="environmentName"] {
     display: none;
@@ -7740,8 +7769,7 @@ body.module-page .module-status {
   .topbar .crumb .core-link {
     height: auto;
     padding: 0;
-    color: inherit;
-    font-size: inherit;
+    color: inherit; /* the nav text's type (.core-link), the current place's colour */
     background: none;
   }
 
@@ -7760,8 +7788,7 @@ body.module-page .module-status {
     height: auto;
     min-height: 44px;
     padding: 0 4px;
-    color: inherit;
-    font-size: inherit;
+    color: inherit; /* the nav text's type (.core-link), the current place's colour */
   }
 
   .topbar .space-switcher-button i:first-child {
@@ -8554,10 +8581,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   border: 1px solid transparent;
   border-radius: 7px;
   background: transparent;
-  color: var(--header-text);
-  font: inherit;
-  font-size: 12px;
-  white-space: nowrap;
+  white-space: nowrap; /* its type and colour are the nav text's (.nav-text, space-people.js) */
   cursor: pointer;
 }
 
@@ -8657,10 +8681,6 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
 }
 
-.who-here-count {
-  font-weight: 600;
-}
-
 /* Its place in the window is set when it opens (space-people.js place()): under the button, or above it in a tab bar
    at the window's bottom, inside the window's edges. These are where it starts before that. */
 .who-here-list {
@@ -8697,11 +8717,7 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   flex: none;
 }
 
-/* The header's own `.brand span` size is not the tool's: its words at the toggle's size, the letters and "+N" at theirs. */
-.topbar .who-here span {
-  font-size: inherit;
-}
-
+/* The toggle's words are the nav text (.nav-text); a portrait's letters and "+N" keep their own small size. */
 .topbar .who-here .who-here-initial,
 .topbar .who-here .who-here-more {
   font-size: 10px;
@@ -9017,10 +9033,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   border: 0;
   border-radius: 6px;
   background: none;
-  color: var(--header-text);
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 600;
+  color: var(--header-text); /* the nav text (.nav-text, space.js), in the colour of what is current */
   white-space: nowrap;
   cursor: pointer;
 }
@@ -9068,8 +9081,8 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   text-overflow: ellipsis;
 }
 
+/* The later clauses: the same nav text, a little paler than the lead. */
 .status-strip .phase-chip .story-part:not(.story-lead) {
-  font-weight: 500;
   color: color-mix(in srgb, currentColor 80%, transparent);
 }
 
@@ -9106,33 +9119,32 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   left: calc(100% - 14px);
 }
 
-/* Each band wears its phase's colour (data-tint, the sheet's own: Phases.tintOf) as ONE border along its top, 3px, as
-   the sheet's bands do. Ahead of today: the border and a faint wash; behind it: paler; today's: the border and a fill
-   of its own colour under the header's text. */
+/* Each band wears its phase's colour (data-tint, the sheet's own: Phases.tintOf) as a FILL, never a coloured border
+   (Thomas, 2026-10-14: "no colored borders"): ahead of today a soft wash of it, behind today a paler one, today's band a
+   stronger fill under the header's text. The edge is the theme's neutral border, as every other control's. Its words
+   are the nav text (.status-band-name). */
 .status-band {
   position: relative;
   box-sizing: border-box;
   flex-basis: 0;
   min-width: 4px;
-  border-top: 3px solid var(--tint, var(--accent));
+  border: 1px solid var(--border);
   border-radius: 6px;
-  background: color-mix(in srgb, var(--tint, var(--accent)) 8%, transparent);
+  background: color-mix(in srgb, var(--tint, var(--accent)) 22%, transparent);
   color: color-mix(in srgb, var(--header-text) 75%, transparent);
 }
 
 .status-band.main {
   color: var(--header-text);
-  font-weight: 700;
 }
 
 .status-band.past {
-  background: color-mix(in srgb, var(--tint, var(--accent)) 20%, transparent);
+  background: color-mix(in srgb, var(--tint, var(--accent)) 12%, transparent);
 }
 
 .status-band.current {
-  background: color-mix(in srgb, var(--tint, var(--accent)) 42%, var(--header-bg));
+  background: color-mix(in srgb, var(--tint, var(--accent)) 50%, var(--header-bg));
   color: var(--header-text);
-  font-weight: 700;
 }
 
 /* A band's name (and icon): beside a full-height spacer, so a name too long for its band wraps to a second line that
@@ -9159,14 +9171,14 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   justify-content: flex-end;
 }
 
+/* The nav text (.nav-text, space.js), in its band's colour. */
 .status-band-name {
   display: inline-flex;
   flex: none;
   align-self: center;
   align-items: center;
   gap: 5px;
-  font-size: 11px;
-  line-height: 1;
+  color: inherit;
   white-space: nowrap;
 }
 
@@ -9174,7 +9186,9 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   font-size: 10px;
 }
 
-/* The pin at today: a disc larger than the bar, ringed in its phase's colour, with the day of the month. */
+/* The pin at today: a disc larger than the bar, filled with its phase's colour (a fill, no coloured ring), a ring of
+   the header's own colour to part it from the band, and the day of the month in the nav text (.nav-text, space.js) in
+   the header's colour, which reads on the tint in either mode. */
 .status-today {
   position: absolute;
   z-index: 1;
@@ -9186,17 +9200,20 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   width: 28px;
   height: 28px;
   margin: -14px 0 0 -14px;
-  border: 2px solid var(--tint, var(--accent));
+  border: 0;
   border-radius: 50%;
-  background: var(--header-bg);
+  background: var(--tint, var(--accent));
   box-shadow: 0 0 0 2px var(--header-bg);
-  color: var(--header-text);
-  font-size: 11px;
-  font-weight: 700;
+  color: var(--header-bg);
   line-height: 1;
 }
 
-/* The days to go: the number large, the words under it small. */
+.status-today-day {
+  color: inherit;
+}
+
+/* The days to go: the number in the nav text (.nav-text, space.js), the words under it small (a caption: the one
+   small type in the strip, on purpose). */
 .status-togo {
   display: flex;
   flex: none;
@@ -9214,8 +9231,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 }
 
 .status-togo-n {
-  font-size: 16px;
-  font-weight: 700;
+  color: inherit;
 }
 
 .status-togo-words {
@@ -9333,8 +9349,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 
   .topbar > .status-strip .phase-chip {
     height: 100%;
-    padding: 0 4px;
-    font-size: 12px;
+    padding: 0 4px; /* the nav text, as wider (.nav-text) */
   }
 
   .topbar > .status-strip .phase-dot {
@@ -9369,7 +9384,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 
   /* A 2px line has no room for a border: the band is the colour itself, paler behind today and ahead of it. */
   .topbar > .status-strip .status-band {
-    border-top: 0;
+    border: 0;
     border-radius: 0;
     background: color-mix(in srgb, var(--tint, var(--accent)) 60%, transparent);
   }

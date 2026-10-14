@@ -345,9 +345,10 @@ function flattenRuns(runs, doc, { divide = false } = {}) {
 
 // The look is the host's, by where the tool is: the primary nav's left zone is the core navigation (an icon and its
 // name: the destinations; plan-two-zone-nav.md), everywhere else a tool is an icon button with its name as the tooltip and for a screen reader, unless the
-// page marked it `labelled`. Every class here already exists in the stylesheet; nothing new is styled.
+// page marked it `labelled`. Every class here already exists in the stylesheet; nothing new is styled. A labelled tool's
+// words are the nav text (.nav-text, style.css: the one type of every word in the bars), as the core links' are.
 const lookOf = (t) => (t.bar === 'primary' && t.zone === 'left' ? 'core' : t.labelled ? 'labelled' : 'icon');
-const LOOK_CLASSES = { core: ['core-link'], labelled: ['btn', 'btn-small'], icon: ['icon-link'] };
+const LOOK_CLASSES = { core: ['core-link'], labelled: ['btn', 'btn-small', 'nav-text'], icon: ['icon-link'] };
 const PLAIN_ID = /^[a-z][a-z0-9-]*$/;
 
 function ensureEl(t, doc) {

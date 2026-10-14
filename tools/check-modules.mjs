@@ -564,6 +564,16 @@ test('calendar: a day wears its phase (the same rule as the Planner): inside, fi
   assert.doesNotMatch(css.slice(css.indexOf('/* phases:'), css.indexOf('/* list */')), /#[0-9a-f]{3,8}\b|rgba?\(/i, 'no colour literals in the phase rules');
 });
 
+test('calendar: the Day view\'s phase bar sticks to the top of the scroll, and the auto-scroll stops beneath it (not under it)', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.css'), 'utf8');
+  assert.match(css, /\.dayview \.phasehead \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: \d+;/, 'sticky at the top of the day\'s scroller');
+  assert.doesNotMatch(css, /(^|\n)\.phasehead[^{]*\{[^}]*position: sticky/, 'only in the Day view: Week and Month have no bar to stick');
+  const js = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.js'), 'utf8');
+  const fn = js.slice(js.indexOf('function scrollDay()'), js.indexOf('// Month / Week / Day / Agenda is'));
+  assert.match(fn, /querySelector\('\.phasehead'\)/, 'scrollDay finds the bar');
+  assert.match(fn, /body\.scrollTop = Math\.max\(0, [^;]*- \(bar \? bar\.offsetHeight \+ \d+ : 0\)\)/, 'and offsets the target by its height');
+});
+
 test('calendar: the views are Month, Week, Day and Agenda; an old stored "Open on" still opens', () => {
   const src = (name) => fs.readFileSync(path.join(ROOT, 'modules/calendar/src', name), 'utf8');
   const lib = new Function('ymd', 'parseYmd', `${src('calendar-lib.js')}\nreturn { VIEW_IDS, openView, listUnder };`)(() => '', () => new Date());

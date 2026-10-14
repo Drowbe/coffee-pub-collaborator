@@ -48,6 +48,11 @@
   const isNarrow = () => $('app').classList.contains('narrow');
   const apple = /iPhone|iPad|iPod|Macintosh/.test(navigator.userAgent) && 'ontouchend' in document;
 
+  // The page's document hears this map (Escape while picking, the page coming back) only while its markup is there: once it
+  // goes (the page or the space left, the module opened again), what was added there is taken off (letGo).
+  const alive = new AbortController();
+  function letGo() { if (!alive.signal.aborted) alive.abort(); }
+
   const state = {
     all: [], // every summary read that carries a place: this space's (or every space's), the viewer's own and the environment's
     found: [], // the ones drawn: as the destination's part, those in the page's filter; elsewhere all of them
@@ -173,6 +178,22 @@
   const dimmed = (c) => Boolean(state.q) && !`${c.title} ${c.subtitle || ''}`.toLowerCase().includes(state.q);
   // What the module that keeps places offers: a dialog for a new place at a position (`newPlace`) and a search by name
   // (`searchPlaces`, which answers with a few results). Found by what they offer, never by name.
+  // Places' category colours ({ <category id>: '#rrggbb' }, only those the owner chose), kept in this browser for a map with no
+  // Places beside it; asked again whenever a Places is open in this page (findAdder), and the pins redrawn when they changed.
+  const COLORS_KEY = 'maps-category-colors';
+  const cleanColors = (v) => Object.fromEntries(Object.entries(v && typeof v === 'object' ? v : {}).filter(([k, c]) => /^[a-z0-9-]{1,20}$/.test(k) && /^#[0-9a-f]{6}$/.test(String(c))).slice(0, 40));
+  state.catColors = (() => { try { return cleanColors(JSON.parse(localStorage.getItem(COLORS_KEY) || '{}')); } catch (err) { return {}; } })();
+  async function askColors(action) {
+    try {
+      const out = await host.actions.request(action.action, {}, { wait: true, here: true });
+      if (out.status !== 'done' || !out.result || !out.result.ok || !out.result.data) return;
+      const next = cleanColors(out.result.data.colors);
+      if (JSON.stringify(next) === JSON.stringify(state.catColors)) return;
+      state.catColors = next;
+      try { localStorage.setItem(COLORS_KEY, JSON.stringify(next)); } catch (err) { /* not kept */ }
+      if (state.started) render();
+    } catch (err) { /* the colours stay as they were */ }
+  }
   async function findAdder() {
     state.adder = null;
     state.searcher = null;
@@ -187,6 +208,9 @@
       state.adder = list.find((a) => a.name === 'newPlace' && a.input && a.input.lat && a.input.lng && a.may !== false && !state.refused) || null;
       state.searcher = list.find((a) => a.name === 'searchPlaces' && a.input && a.input.q) || null;
       state.picked = list.find((a) => a.name === 'positionPicked') || null; // where a picked spot (or none) is told
+      // The colours an owner chose for Places' categories: asked of the Places open in this page, if one is.
+      const colors = list.find((a) => a.name === 'categoryColors' && a.open === true);
+      if (colors) askColors(colors);
     } catch (err) {
       state.adder = null;
       state.picked = null;
@@ -226,6 +250,7 @@
   // answer may still arrive, so stop the map and draw nothing more.
   function torn() {
     if (host.rootElement.isConnected && $('tpl-pin')) return false;
+    letGo();
     if (state.map) { try { state.map.remove(); } catch (err) { /* already gone */ } state.map = null; state.mapReady = false; }
     return true;
   }
@@ -242,6 +267,7 @@
   // Follow the pane's width (the stylesheet keys its narrow layout on `.app.narrow`). A frame can report none while it is still
   // being laid out, so wait for a real one.
   const fit = () => {
+    if (!host.rootElement.isConnected) { letGo(); return; } // the markup went: the observer hears that first
     const w = host.rootElement.clientWidth;
     if (!w) return;
     const now = w < NARROW;
@@ -274,10 +300,18 @@
   let draftMarker = null;
   function clearPins() { while (markers.length) markers.pop().remove(); }
 
-  // A category the stylesheet has no colour for (one the owner added to Places' list) turns the accent by an amount taken from its
-  // id, the same amount Places uses. Maps cannot read Places' settings, so a colour chosen there is not shown here.
+  // A category's colour: the one the owner chose in Places' list, as Places tells it (catColors), used as it is, as Places
+  // does. Else the stylesheet's for the five built-in ones, and any other turns the accent by an amount taken from its id, the
+  // same amount Places uses.
   const BUILT_IN_CATS = ['do', 'eat', 'stay', 'travel', 'other'];
   function turnCat(el, cat) {
+    const hex = cat ? state.catColors[cat] : '';
+    if (hex) {
+      const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+      el.style.setProperty('--tone', hex);
+      el.style.setProperty('--tone-ink', r * 0.299 + g * 0.587 + b * 0.114 > 150 ? '#000000' : '#ffffff');
+      return;
+    }
     if (!cat || BUILT_IN_CATS.includes(cat)) return;
     let h = 0;
     for (const ch of String(cat)) h = (h * 31 + ch.charCodeAt(0)) % 360;
@@ -379,7 +413,8 @@
   function tellPicked(at) {
     if (part && state.phone && host.destination) host.destination.set({ reveal: 'panel' }).catch(() => {});
     if (!state.picked) return;
-    host.actions.request(state.picked.action, at ? { lat: at.lat, lng: at.lng } : {}).catch(() => {});
+    // Told to the Places in this page only (the one whose dialog asked), never to one open in another tab.
+    host.actions.request(state.picked.action, at ? { lat: at.lat, lng: at.lng } : {}, { here: true }).catch(() => {});
   }
   // Ask the module that keeps places for its dialog. If it says the person may not add places, the add tools go quietly (no
   // message); any other failure is said.
@@ -771,7 +806,8 @@
   });
   // While a spot is being picked for the editor, focus may be anywhere on the page (the editor's list was the last): Escape leaves
   // the mode wherever it is pressed.
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && state.pick && host.rootElement.isConnected) setAdding(false); });
+  // Added to the page's document, so it is taken off again when the map's markup goes (letGo).
+  document.addEventListener('keydown', (e) => { if (!host.rootElement.isConnected) { letGo(); return; } if (e.key === 'Escape' && state.pick) setAdding(false); }, { signal: alive.signal });
   root.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
     if (e.target === $('map-find') && !hits.length && !state.searchMessage && $('map-find').value) { $('map-find').value = ''; return; }
@@ -876,8 +912,11 @@
       // Places' editor asks for a spot on the map for the place it holds: the map goes into its click-the-map mode (the same as
       // the + on the map) and the next click is told back through `positionPicked`; leaving the mode tells it none. Answers
       // at once; the spot comes back as that request.
-      pickPoint: async () => {
+      // `pageUntil` (the host's, with `page`): a request the asking page has given up on is refused, so a late start never
+      // puts the map into the mode.
+      pickPoint: async (input) => {
         await startedPromise;
+        if (input && Number(input.pageUntil) < Date.now()) throw new Error('the dialog stopped waiting');
         if (!state.map || !state.mapReady) throw new Error('the map is not ready');
         state.pick = true;
         if (part && state.phone && host.destination) host.destination.set({ reveal: 'main' }).catch(() => {});
@@ -928,8 +967,8 @@
 
   // Other modules' objects change without telling this page: look again now and then, and when the page comes back.
   const refresh = async () => { await Promise.all([loadFound(), findAdder()]); setBar(); if (state.started) render(); };
-  const timer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(timer); else refresh(); }, 90000);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+  const timer = setInterval(() => { if (!host.rootElement.isConnected) { clearInterval(timer); letGo(); } else refresh(); }, 90000);
+  document.addEventListener('visibilitychange', () => { if (!host.rootElement.isConnected) letGo(); else if (!document.hidden) refresh(); }, { signal: alive.signal });
 
   // --- as the Map destination's main part ------------------------------------------------------------------------------
   // The page owns the filter (Mine, the environment's own, which spaces) and the search field, and hands them over

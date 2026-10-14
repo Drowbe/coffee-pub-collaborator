@@ -4,24 +4,24 @@
     "hash": "c473ff64b4a00b79"
   },
   "calendar": {
-    "version": "1.24.8",
-    "hash": "bbfeaf14c2d296f8"
+    "version": "1.24.9",
+    "hash": "fa43289f116c25aa"
   },
   "maps": {
-    "version": "0.8.10",
-    "hash": "96aa8de947e62559"
+    "version": "0.8.11",
+    "hash": "db0f6913d7b76610"
   },
   "places": {
-    "version": "0.10.8",
-    "hash": "afca9e9bb0ec5a3c"
+    "version": "0.10.9",
+    "hash": "82b37b9518a345bb"
   },
   "polls": {
     "version": "1.15.4",
     "hash": "4d027c1b51eebedb"
   },
   "research": {
-    "version": "0.4.5",
-    "hash": "040ea818e78f0830"
+    "version": "0.4.6",
+    "hash": "101269ae4b1d1b24"
   },
   "stream": {
     "version": "0.1.7",

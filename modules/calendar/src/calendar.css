@@ -126,6 +126,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .hr { flex: none; width: 66px; padding-top: 1px; color: var(--text-dim); font-size: 11px; }
 .allday .chips, .hour .chips { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dayview .chip { white-space: normal; overflow-wrap: anywhere; }
+/* The day's phase bar stays at the top of the scroll; scrollDay() stops the first row just beneath it. */
+.dayview .phasehead { position: sticky; top: 0; z-index: 2; }
 
 /* As a part of the Calendar destination: the selected day, and the Agenda's end line. */
 .day.sel { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); }

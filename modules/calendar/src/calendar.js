@@ -363,7 +363,9 @@
     const row = (first && first.closest('.hour')) || now || root.querySelector('.hours .hour[data-hour="7"]');
     const body = $('body');
     if (!row || !body) return;
-    const go = () => { body.scrollTop = Math.max(0, row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 4); };
+    // The phase bar sticks to the top of the scroll, so the row stops just beneath it, not under it.
+    const bar = body.querySelector('.phasehead');
+    const go = () => { body.scrollTop = Math.max(0, row.getBoundingClientRect().top - body.getBoundingClientRect().top + body.scrollTop - 4 - (bar ? bar.offsetHeight + 6 : 0)); };
     go();
     requestAnimationFrame(() => { if (row.isConnected) go(); }); // once laid out, in case the first pass had no height yet
   }

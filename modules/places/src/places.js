@@ -55,6 +55,8 @@
     { id: 'other', label: 'Other', icon: 'note-sticky', color: '#888888' },
   ];
   let cats = DEFAULT_CATS;
+  let catsReadDone;
+  const catsRead = new Promise((r) => { catsReadDone = r; }); // the owner's list has been read (or could not be)
   const catRow = (id) => cats.find((c) => c.id === id) || cats.find((c) => c.id === 'other') || DEFAULT_CATS[4];
   const catOf = (p) => catRow(p.category);
   // Colour: the five built-in ones turn the accent by a fixed amount (the stylesheet). Any other category turns it by an amount
@@ -105,13 +107,14 @@
       showAction = null;
     }
   }
-  // A module that can pick a spot on its map for the place being added, found by what it offers (`pickPoint`); the target button
-  // beside Position shows only while there is one. Asked again each time the dialog opens: a map may have come or gone.
+  // A module that can pick a spot on its map for the place being added, found by what it offers (`pickPoint`) and open in this
+  // page (the host's `open`): the target button beside Position shows only while there is one, since only the map in this
+  // page may answer it. Asked again each time the dialog opens: a map may have come or gone.
   let pickAction = null;
   async function findPickAction() {
     try {
       const list = await host.actions.list();
-      pickAction = list.find((a) => a.name === 'pickPoint') || null;
+      pickAction = list.find((a) => a.name === 'pickPoint' && a.open === true) || null;
     } catch (err) {
       pickAction = null;
     }
@@ -642,9 +645,7 @@
     // The target beside Position: only for a place being added or changed in the form, and only while a map can answer.
     $('f-pick').hidden = true;
     findPickAction().then(() => { if (state.editing && editable) $('f-pick').hidden = !pickAction; });
-    hide($('f-links-out'), !id || onPicture());
-    $('f-point').placeholder = onPicture() ? 'A position on the map (optional)' : 'Paste coordinates or a map link (optional)';
-    if (id) $('f-open-in-maps').href = openLinkFor(shown);
+    pictureParts();
     const used = (id && state.links.get(rowKey(w, id))) || [];
     hide($('f-used-by'), !used.length);
     $('f-used-by-links').replaceChildren(...used.map(linkPill));
@@ -665,6 +666,16 @@
       focus: editable ? $(!id && !$('f-where-wrap').hidden ? 'f-where' : 'f-title') : null,
       returnTo: id ? () => root.querySelector(`.place-row[data-where="${CSS.escape(w)}"][data-id="${CSS.escape(id)}"]`) : null,
     });
+  }
+  // What the dialog shows that depends on the picture map (no maps app, Position's wording): when it opens, and again when the
+  // picture map is set, replaced or cleared while it is open.
+  function pictureParts() {
+    const e = state.editing;
+    if (!e) return;
+    hide($('f-links-out'), !e.id || onPicture());
+    $('f-point').placeholder = onPicture() ? 'A position on the map (optional)' : 'Paste coordinates or a map link (optional)';
+    const p = e.id ? placeAt(e.where, e.id) : null;
+    if (p) $('f-open-in-maps').href = openLinkFor(p);
   }
   // After a save or a delete, or when the view changes: closes at once, nothing asked.
   function closeEditor() {
@@ -774,14 +785,18 @@
     if (point) { $('f-point').value = geo.coordsText(point.lat, point.lng); readPoint(); }
     editor.open({ focus: point ? $('f-point') : $('f-pick') });
   }
+  // Asked of the map in this page only (`here`): the host gives it a few seconds, after which no map anywhere may take it. When
+  // none answered in that time the dialog comes back at once and the target is hidden until the next time the dialog opens
+  // and the host says a map is open here.
   $('f-pick').addEventListener('click', async () => {
     if (!pickAction || !state.editing || state.picking) return;
     state.picking = true;
     editor.close();
     pickTimer = setTimeout(() => resumeEditor(null), 120000);
     try {
-      const out = await host.actions.request(pickAction.action, {}, { wait: true });
-      if (out.status !== 'done' || !out.result || !out.result.ok) throw new Error(out.status === 'done' ? 'the map could not start' : 'no map is open');
+      const out = await host.actions.request(pickAction.action, {}, { wait: true, here: true });
+      if (out.status !== 'done') { pickAction = null; $('f-pick').hidden = true; throw new Error('no map is open'); }
+      if (!out.result || !out.result.ok) throw new Error('the map could not start');
     } catch (err) {
       resumeEditor(null);
       say(`The map could not be used: ${(err && err.message) || err}.`);
@@ -1010,6 +1025,14 @@
         if (q === state.q) { findToken += 1; showFound(q, promise); }
         return { data: { results: await promise } };
       },
+      // The colours the owner chose for the categories (not the grey that means automatic), for the map in this page to colour
+      // its pins as the list does: { colors: { <id>: '#rrggbb' } }. Waits for the list to have been read.
+      categoryColors: async () => {
+        await catsRead;
+        const colors = {};
+        for (const c of cats) { const hex = String(c.color || '').toLowerCase(); if (/^#[0-9a-f]{6}$/.test(hex) && hex !== AUTO_COLOR) colors[c.id] = hex; }
+        return { data: { colors } };
+      },
       // The map's answer to the target button: the spot clicked, or none. Asks nothing of anyone who is not picking.
       positionPicked: async (input) => {
         const i = input || {};
@@ -1143,9 +1166,13 @@
     state.people = await host.people().catch(() => []);
     const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
     // The settings arrive before the first list is drawn, and again when the owner saves them (the list is redrawn).
-    const useSettings = (v) => { useSearch(v); useCats(v); if (state.loaded) { render(); hydrate(root); } };
+    let lastSettings = null;
+    const useSettings = (v) => { lastSettings = v; useSearch(v); useCats(v); catsReadDone(); if (state.loaded) { render(); hydrate(root); } };
     try { useSettings(await host.settings.get()); } catch (err) { useSettings(null); }
     host.settings.onChange((v) => useSettings(v));
+    // The picture map set, replaced or cleared while the page is open (host.environment follows it): the outside search, the
+    // dialog's Position wording and links, and the menu (built when it opens, so an open one is closed) follow at once.
+    host.on('environment', () => { host.menu.close(); useSettings(lastSettings); pictureParts(); });
     await Promise.all([...new Set([...root.querySelectorAll('[data-icon]'), ...[...root.querySelectorAll('template')].flatMap((t) => [...t.content.querySelectorAll('[data-icon]')])].map((n) => n.dataset.icon).concat(cats.map((c) => c.icon), ['layer-group', 'link']))].filter(Boolean).map(wantIcon));
     findShowAction();
     state.loaded = true;
@@ -1153,6 +1180,7 @@
     loadLinks().catch(() => {});
     if (state.openWanted) { const f = state.openWanted; state.openWanted = null; f(); }
   } catch (err) {
+    catsReadDone();
     $('app').hidden = true;
     $('msg').hidden = false;
     $('msg').textContent = 'The places could not load: ' + err.message;

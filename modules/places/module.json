@@ -1,7 +1,7 @@
 {
   "id": "places",
   "name": "Places",
-  "version": "0.10.8",
+  "version": "0.10.9",
   "icon": "location-dot",
   "color": "orange",
   "description": "The places your {space} cares about: where to stay, where to eat, what to see. Other {modules} link to them, and a place with a position shows on the map.",
@@ -96,7 +96,18 @@
         "local": true,
         "input": {
           "lat": "number?",
-          "lng": "number?"
+          "lng": "number?",
+          "page": "string?",
+          "pageUntil": "number?"
+        }
+      },
+      {
+        "name": "categoryColors",
+        "label": "Tell the colours chosen for categories",
+        "local": true,
+        "input": {
+          "page": "string?",
+          "pageUntil": "number?"
         }
       },
       {

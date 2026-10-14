@@ -42,6 +42,7 @@
 
   let tagsButton = null; // the toolbar's Tags chooser, made at start (render sets its label)
   const state = {
+    open: new Set(), // the cards opened to read in place (by id)
     people: [],
     filter: '',
     kind: '',
@@ -183,6 +184,10 @@
     const el = clone('tpl-card');
     el.dataset.id = it.id;
     el.dataset.kind = it.kind;
+    el.classList.toggle('open', state.open.has(it.id));
+    el.setAttribute('aria-expanded', state.open.has(it.id) ? 'true' : 'false');
+    const pen = el.querySelector('[data-action="edit"]');
+    if (pen) { pen.setAttribute('aria-label', canEdit ? 'Edit' : 'View'); pen.title = canEdit ? 'Edit' : 'View'; }
     setIcon(el.querySelector('.kind [data-icon]'), it.kind === 'note' ? noteIcon(it.icon) : KIND_ICON[it.kind]);
     fill(el, { kind: it.kind === 'note' ? noteIconLabel(it.icon) : KIND_LABEL[it.kind], title: it.title, site: it.site, when: it.date ? dayText(it.date) : '', place: placeText(it.point), by: initial(it.by) });
     const words = it.kind === 'photo' ? '' : textOf(it);
@@ -856,8 +861,21 @@
     if (t && t.dataset.action === 'new-link') return openEditor(null, { kind: 'link' });
     if (t && t.dataset.action === 'add-photo') return choosePhotos();
     if (t && t.dataset.action === 'clear-filter') { state.filter = ''; state.kind = ''; state.tags = []; $('filter').value = ''; return render(); }
-    if (cardEl && !ev.target.closest('.menu, a')) openEditor(cardEl.dataset.id);
+    if (t && t.dataset.action === 'edit' && cardEl) { ev.stopPropagation(); return openEditor(cardEl.dataset.id); }
+    // A plain click only opens or closes the card to read it in place (the editor is the pen button, a double click, or
+    // Shift+Enter); a link, a button or the menu inside it does its own thing.
+    if (cardEl && !ev.target.closest('.menu, a, button, [data-action]')) toggleCard(cardEl);
   });
+  root.addEventListener('dblclick', (ev) => {
+    const cardEl = ev.target.closest('.rcard');
+    if (cardEl && !ev.target.closest('.menu, a, button, [data-action]')) openEditor(cardEl.dataset.id);
+  });
+  function toggleCard(el, on) {
+    const open = on === undefined ? !state.open.has(el.dataset.id) : on;
+    if (open) state.open.add(el.dataset.id); else state.open.delete(el.dataset.id);
+    el.classList.toggle('open', open);
+    el.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
   // An object can be dragged out to another module (onto a day of a plan, or a task that links to it): press its card and move.
   if (host.objects && host.objects.draggable) {
     host.objects.draggable(root, (target) => {
@@ -869,7 +887,9 @@
   }
   // Escape in the editor window is the SDK's (host.ui.editor asks about unsaved changes).
   root.addEventListener('keydown', (ev) => {
-    if (ev.key === 'Enter' && ev.target.classList && ev.target.classList.contains('rcard')) ev.target.click();
+    if (!ev.target.classList || !ev.target.classList.contains('rcard')) return;
+    if (ev.key === 'Enter' && ev.shiftKey) { ev.preventDefault(); openEditor(ev.target.dataset.id); }
+    else if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); toggleCard(ev.target); }
   });
 
   // --- adding: the titlebar's "+", and what other modules and pointers ask ------------------------------------------

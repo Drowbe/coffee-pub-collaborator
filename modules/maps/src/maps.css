@@ -73,7 +73,7 @@ body { margin: 0; overflow: hidden; }
 .pin[data-cat="stay"] { --turn: 255; }
 .pin[data-cat="travel"] { --turn: 195; }
 .pin[data-cat="other"] { --turn: 25; }
-.pin[data-cat]:not(.selected) { --pin: var(--tone); --pin-text: var(--bg); }
+.pin[data-cat]:not(.selected) { --pin: var(--tone); --pin-text: var(--tone-ink, var(--bg)); } /* --tone-ink: set with an owner-chosen colour */
 .pin[data-cat]:not(.selected) .pin-body { border-color: var(--bg-section); }
 .pin.selected[data-cat] .pin-body { border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin.selected { z-index: 2; }

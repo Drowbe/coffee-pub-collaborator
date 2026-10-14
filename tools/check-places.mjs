@@ -197,12 +197,27 @@ await test('one way to add a place in every context: Where, the same finish, the
   assert.match(page, /const onPicture = \(\) => Boolean\(host\.environment && host\.environment\.pictureMap\);/);
   assert.match(page, /if \(!onPicture\(\)\) items\.push\(\{ id: 'open-in-maps'/);
   assert.match(page, /if \(p\.point && !onPicture\(\)\) \{/);
-  assert.match(page, /hide\(\$\('f-links-out'\), !id \|\| onPicture\(\)\)/);
+  assert.match(page, /hide\(\$\('f-links-out'\), !e\.id \|\| onPicture\(\)\)/);
   assert.match(page, /state\.search = searchOn\(v\) && !onPicture\(\)/);
   // The target beside Position: tucks the editor (state kept), asks a map to pick, and comes back with the spot or none.
   const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
   assert.match(html, /id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"/);
-  assert.match(page, /pickAction = list\.find\(\(a\) => a\.name === 'pickPoint'\)/);
+  // Only a map open in this page answers (the host's `open`), asked for this page only (`here`): a map in another tab never takes it.
+  assert.match(page, /pickAction = list\.find\(\(a\) => a\.name === 'pickPoint' && a\.open === true\)/);
+  assert.match(page, /host\.actions\.request\(pickAction\.action, \{\}, \{ wait: true, here: true \}\)/);
+  // No map answered in time: the dialog comes back at once with "no map is open", and the target is hidden until the next open.
+  assert.match(page, /if \(out\.status !== 'done'\) \{ pickAction = null; \$\('f-pick'\)\.hidden = true; throw new Error\('no map is open'\); \}/);
+  const placesManifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
+  const picked = placesManifest.actions.provides.find((a) => a.name === 'positionPicked');
+  assert.ok(picked && picked.input.page === 'string?' && picked.input.pageUntil === 'number?', 'positionPicked takes the host\'s page fields, so only this page\'s Places hears it');
+  // The picture map is live: host.on('environment') redraws what depends on it, without a reload.
+  assert.match(page, /host\.on\('environment', \(\) => \{ host\.menu\.close\(\); useSettings\(lastSettings\); pictureParts\(\); \}\);/);
+  assert.match(page, /function pictureParts\(\) \{[\s\S]*?hide\(\$\('f-links-out'\), !e\.id \|\| onPicture\(\)\);[\s\S]*?\$\('f-point'\)\.placeholder = onPicture\(\) \?/);
+  assert.match(page, /const useSettings = \(v\) => \{ lastSettings = v; useSearch\(v\);/, 'the outside search is decided again');
+  // The owner's category colours, for the map in this page.
+  const colorsAction = placesManifest.actions.provides.find((a) => a.name === 'categoryColors');
+  assert.ok(colorsAction && colorsAction.local === true && colorsAction.input.page === 'string?' && colorsAction.input.pageUntil === 'number?', 'categoryColors is a local action for this page');
+  assert.match(page, /categoryColors: async \(\) => \{\n\s+await catsRead;[\s\S]*?hex !== AUTO_COLOR\) colors\[c\.id\] = hex;[\s\S]*?return \{ data: \{ colors \} \};/);
   assert.match(page, /onClose: \(\) => \{ if \(!state\.picking\) state\.editing = null; \}/);
   assert.match(page, /\$\('f-pick'\)\.hidden = !pickAction/);
   assert.match(page, /positionPicked: async \(input\) => \{/);

@@ -7636,7 +7636,7 @@ app.get('/api/modules/for-space', (req, res) => {
   res.json({
     modules: modules.enabledAll()
       .filter(({ manifest, entry }) => manifest.scope.includes('space') && manifest.surfaces.canvas && moduleSpaceAccess(entry, who, space) && moduleCan(manifest, perms, 'read'))
-      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), color: manifest.color || null, ...(manifest.description ? { description: manifest.description } : {}), version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
+      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), color: manifest.color || null, ...(manifest.description ? { description: manifest.description } : {}), version: manifest.version, budget: manifest.budget === true, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
     // The built-in modules' names and icons as this environment shows them (the canvas's Conference and Chat switches).
     builtin: BUILTIN_MODULES.map((b) => ({ id: b.id, ...shownModule(b), ...(b.description ? { description: fillWords(b.description) } : {}) })),
     // What this space opens with, or null when it has no list of its own. The environment's list is what a new space

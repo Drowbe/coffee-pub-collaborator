@@ -929,6 +929,15 @@ try {
   assert.equal(listed.json.modules.find((m) => m.id === 'tinted').color, 'teal');
   assert.ok('color' in listed.json.modules.find((m) => m.id === 'polls'));
   for (const m of listed.json.modules) assert.ok(m.color === null || TINTS.includes(m.color), `${m.id}: ${m.color}`);
+  // Each entry carries the manifest's budget mark as a boolean, always present (Set up shows the Budget field to a moderator by it).
+  for (const m of listed.json.modules) assert.equal(typeof m.budget, 'boolean', `${m.id}: budget is a boolean`);
+  assert.equal(listed.json.modules.find((m) => m.id === 'tinted').budget, false, 'no mark, false');
+  const budgeted = await call('POST', '/api/modules', { cookie: owner, raw: zipOf({ ...tinted('teal'), id: 'budgeted', name: 'Budgeted', budget: true }), type: 'application/zip' });
+  assert.equal(budgeted.status, 201, budgeted.text);
+  assert.equal((await call('PATCH', '/api/modules/budgeted', { cookie: owner, body: { enabled: true, allSpaces: true } })).status, 200);
+  const withBudget = (await call('GET', `/api/modules/for-space?space=${S}`, { cookie: pat })).json.modules;
+  assert.equal(withBudget.find((m) => m.id === 'budgeted').budget, true, 'budget: true in the manifest');
+  assert.equal(withBudget.find((m) => m.id === 'tinted').budget, false);
   // A module that only takes commands is a canvas module with menu: false (a space module needs a canvas), so it is in
   // `modules` with its colour: Chat finds every command's colour there.
   const commandOnly = {

@@ -357,6 +357,39 @@
       changes[id] = { ...(changes[id] || {}), date: null, after };
       await applyChanges(changes);
     }
+    // The objects as the day menu sees them: each with the day it is on (a pointer follows its object's day), the line's with none.
+    const onDays = () => list().map((i) => ({ ...i, date: dayOf(i) }));
+    // What "Move all to..." would do, with nothing changed: { changes, moved, days, delta } (see shiftDays). `rest` moves every
+    // day from `from` on by the same days.
+    const previewMove = (from, to, rest) => shiftDays(onDays(), from, to, rest);
+    // Everything on `from` (and with `rest`, every day after it) moved by the days between `from` and `to`, merged with what is
+    // there. When the first day of a plan with its own dates is slid, the plan's dates slide with it, so no empty days are left at
+    // the start; with phases the dates are the space's and stay. A pointer moved off its object's day stays there (pinned), as
+    // when it is dragged. Nothing else in the space is changed: a Calendar event keeps its own day.
+    async function moveDays(from, to, rest) {
+      const r = shiftDays(onDays(), from, to, rest);
+      const slide = Boolean(rest && r.delta && !phased() && trip && isYmd(trip.start) && from === days()[0]);
+      if (!r.moved && !slide) return r;
+      const moving = new Set(Object.keys(r.changes));
+      const dates = [...onDays().filter((i) => !moving.has(i.id)).map((i) => i.date), ...Object.values(r.changes).flatMap((c) => [c.date, c.checkOut]), ...(slide ? [daysLater(trip.start, r.delta), daysLater(trip.end || trip.start, r.delta)] : days())].filter(isYmd).sort();
+      if (dates.length && Math.round((parseYmd(dates[dates.length - 1]) - parseYmd(dates[0])) / DAY_MS) + 1 > MAX_DAYS) throw new Error(`A plan can be at most ${MAX_DAYS} days long, so that move is too far.`);
+      if (slide) await saveTrip({ start: daysLater(trip.start, r.delta), end: daysLater(trip.end || trip.start, r.delta) });
+      const changes = {};
+      for (const [id, patch] of Object.entries(r.changes)) {
+        const cur = items.get(id);
+        changes[id] = cur ? { ...patch, ...pinPatch(cur.item, patch.date) } : patch;
+      }
+      await applyChanges(changes);
+      return r;
+    }
+    // What "Clear this day" would do: { changes, moved, kept } (see clearDay).
+    const previewClear = (day) => clearDay(onDays(), day);
+    // The day's objects taken off it and kept, with no day: under "Not on a day yet". Nothing is deleted.
+    async function clearDayOf(day) {
+      const r = clearDay(onDays(), day);
+      await applyChanges(r.changes);
+      return r;
+    }
     // Earlier or later: on a day, the day's own rule (nudge); on the line, a swap with the neighbour at the joint, and at
     // either end of a joint a hop to the next one.
     async function nudgeItem(id, direction) {
@@ -453,7 +486,7 @@
     }
 
     return {
-      refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, onSaid, saveTrip, coverDay, bands, phased, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, nudgeItem, addLink, fromSuggestion, fromObject,
+      refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, onSaid, saveTrip, coverDay, bands, phased, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, previewMove, moveDays, previewClear, clearDay: clearDayOf, nudgeItem, addLink, fromSuggestion, fromObject,
       get trip() { return withDates(trip); },
       get suggestions() { return suggested; },
       versionOf: (id) => (items.get(id) || {}).version,

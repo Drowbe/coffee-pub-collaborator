@@ -357,6 +357,15 @@ function mountPart(part, container, key) {
     // In a composite's frame: the part's "+" entries and status, for the composite's titlebar and status bar.
     ...(inComposite ? { onAdd: (entries) => { m.adds = entries; sendChrome(); }, onStatus: (items) => { m.status = items; sendChrome(); } } : {}),
     onOpenRef: openRef,
+    // A part saying how tall its content is: where the page stacks its parts in one scroll (destination.css, `sized`) the
+    // part is that tall, so it has no scroll of its own; beside each other the page ignores it.
+    onResize: ({ height } = {}) => {
+      if (!Number.isFinite(height) || height < 0) return;
+      holder.style.setProperty('--part-h', `${Math.min(Math.ceil(height), 20000)}px`);
+      container.classList.add('sized');
+      const side = container.closest('.dest-side');
+      if (side) side.classList.add('sized');
+    },
     // A part asking to be shown at a place in itself (host.page.open): it already is its own page.
     onOpenPage: (hash) => {
       m.mounted.deliver('pagehash', { hash });

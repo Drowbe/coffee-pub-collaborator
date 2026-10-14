@@ -13,7 +13,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' +
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply'];
+const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply', 'shiftDays', 'clearDay'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 // The phase timeline rule (public/phases.js), which the SDK gives a module as host.util.phaseTimeline (plan-one-bar.md step 2).
 const Phases = new Function('module', fs.readFileSync(new URL('../public/phases.js', import.meta.url), 'utf8') + '\nreturn module.exports;')({ exports: {} });
@@ -1668,7 +1668,7 @@ test('the editor window: the form is the SDK\'s dialog, sized to what it edits, 
   const js = read('travel.js');
   const css = read('travel.css');
   assert.ok(html.includes('<dialog id="editor" class="sdk-editor"></dialog>'), 'the editor is the SDK\'s dialog, filled on each open');
-  assert.equal((html.match(/<div class="editor-buttons sdk-editor-actions">/g) || []).length, 2, 'both forms\' button rows stick to the bottom');
+  assert.equal((html.match(/<div class="editor-buttons sdk-editor-actions">/g) || []).length, 3, 'the item, plan and day forms\' button rows stick to the bottom');
   assert.ok(js.includes("const editor = host.ui.editor($('editor'), {") && js.includes("size: 'large',"), 'opened through host.ui.editor, large');
   assert.ok(js.includes("$('editor').classList.toggle('sdk-editor-large', mode !== 'trip');"), 'the plan\'s own form is medium');
   assert.ok(js.includes('isDirty: editorDirty,') && /editor\.open\(\{ focus: [^\n]*kindField\.input : \$\('f-title'\), returnTo: editorReturn \}\);/.test(js), 'the question after typing; focus starts in the kind field for a new object, else the title, and goes back on close');
@@ -1782,6 +1782,82 @@ test('Attraction is a kind of stop beside Sight, Museum, Tour and Show (#246), a
   assert.ok(!/data-types="[^"]*\bsight\b(?![^"]*\battraction\b)[^"]*"/.test(html), 'every field a sight has, an attraction has');
   assert.equal((html.match(/sight museum attraction tour show/g) || []).length, 8);
   assert.ok(fs.existsSync(new URL('../node_modules/@fortawesome/fontawesome-free/svgs/solid/wand-magic-sparkles.svg', import.meta.url)), 'its icon is in the set');
+});
+
+// The day menu's "Move all to..." and "Clear this day" (shiftDays and clearDay in travel-lib.js, applied by plan.moveDays and plan.clearDay).
+const dayItems = () => [
+  { id: 'a', kind: 'stop', date: '2026-10-12', time: '', order: 1000 },
+  { id: 'b', kind: 'stop', date: '2026-10-12', time: '09:00', order: 0 },
+  { id: 'c', kind: 'stay', date: '2026-10-12', checkOut: '2026-10-14', time: '', order: 2000 },
+  { id: 'd', kind: 'stop', date: '2026-10-13', time: '', order: 1000 },
+  { id: 'e', kind: 'stop', date: '2026-10-15', time: '', order: 1000 },
+  { id: 'f', kind: 'stop', date: null, after: null, time: '', order: 5000 },
+  { id: 'g', kind: 'lane', date: null, after: '2026-10-12', order: 1000 },
+  { id: 'h', kind: 'stop', date: '2026-10-11', time: '', order: 1000 },
+];
+test('moving one day: its objects go to the picked day, the rest are left, undated and the line stay', () => {
+  const r = lib.shiftDays(dayItems(), '2026-10-12', '2026-10-20', false);
+  assert.deepEqual(Object.keys(r.changes).sort(), ['a', 'b', 'c']);
+  assert.equal(r.moved, 3);
+  assert.equal(r.days, 1);
+  assert.equal(r.delta, 8);
+  assert.deepEqual(r.changes.a, { date: '2026-10-20' }, 'no one on the new day: the order is kept');
+  assert.deepEqual(r.changes.c, { date: '2026-10-20', checkOut: '2026-10-22' }, 'a stay takes its check-out along');
+  assert.equal(r.changes.b.date, '2026-10-20');
+  assert.ok(!('order' in r.changes.b), 'a timed object keeps its place by time');
+});
+test('moving into a day that has objects merges: the moved ones go after, none is lost', () => {
+  const r = lib.shiftDays(dayItems(), '2026-10-12', '2026-10-13', false);
+  assert.equal(r.moved, 3);
+  assert.equal(r.changes.a.date, '2026-10-13');
+  assert.equal(r.changes.a.order, 2000, 'after d (1000)');
+  assert.equal(r.changes.c.order, 3000, 'then c, keeping a before c');
+  assert.ok(!('d' in r.changes), 'what was there stays put');
+  const same = lib.shiftDays(dayItems(), '2026-10-12', '2026-10-12', true);
+  assert.deepEqual(same.changes, {}, 'the same day is no move');
+});
+test('sliding later: every day from this one on moves by the same days; earlier days are left', () => {
+  const r = lib.shiftDays(dayItems(), '2026-10-12', '2026-10-15', true);
+  assert.deepEqual(Object.keys(r.changes).sort(), ['a', 'b', 'c', 'd', 'e']);
+  assert.equal(r.delta, 3);
+  assert.equal(r.days, 3);
+  assert.equal(r.moved, 5);
+  assert.equal(r.changes.d.date, '2026-10-16');
+  assert.equal(r.changes.e.date, '2026-10-18');
+  assert.equal(r.changes.a.date, '2026-10-15');
+  assert.ok(!('h' in r.changes) && !('f' in r.changes) && !('g' in r.changes));
+  assert.ok(!('order' in r.changes.a), 'e moves away from the 15th, so nobody is left there to merge with');
+});
+test('sliding earlier merges into the days before without losing anything', () => {
+  const r = lib.shiftDays(dayItems(), '2026-10-12', '2026-10-11', true);
+  assert.equal(r.delta, -1);
+  assert.equal(r.changes.a.date, '2026-10-11');
+  assert.equal(r.changes.a.order, 2000, 'after h on the 11th');
+  assert.equal(r.changes.d.date, '2026-10-12');
+  assert.equal(r.changes.e.date, '2026-10-14');
+  assert.equal(r.changes.c.checkOut, '2026-10-13');
+  assert.equal(lib.shiftDays(dayItems(), '2026-10-12', '2026-09-30', true).changes.a.date, '2026-09-30', 'across a month');
+});
+test('clearing a day takes its objects off it, keeps them, and leaves pointers and the line', () => {
+  const items = [...dayItems(), { id: 'p', kind: 'link', date: '2026-10-12', ref: { module: 'calendar', kind: 'event', id: 'x' }, order: 4000 }];
+  const r = lib.clearDay(items, '2026-10-12');
+  assert.deepEqual(Object.keys(r.changes).sort(), ['a', 'b', 'c']);
+  assert.equal(r.moved, 3);
+  assert.equal(r.kept, 1, 'a pointer follows another module\'s object, so it stays');
+  for (const c of Object.values(r.changes)) { assert.equal(c.date, null); assert.equal(c.after, null); }
+  assert.ok(r.changes.b.order > 5000 && r.changes.a.order > 5000 && r.changes.c.order > r.changes.a.order, 'after the ones not on a day yet, in their order');
+  assert.deepEqual(lib.clearDay(items, '2026-10-30').changes, {});
+});
+test('the day header: Add sits beside the "...", which opens Move all to... and Clear this day', () => {
+  const html = read('travel.html');
+  const js = read('travel.js');
+  const head = html.slice(html.indexOf('<template id="tpl-day-head">'), html.indexOf('</template>', html.indexOf('<template id="tpl-day-head">')));
+  assert.ok(/class="day-actions"><button[^>]*day-add[^>]*data-action="day-menu"[^>]*>[^]*Add<\/button><button[^>]*data-action="day-more"/.test(head), 'Add (the old per-day add action) then the "..."');
+  assert.ok(js.includes("action === 'day-more'") && js.includes("label: 'Move all to…'") && js.includes("label: 'Clear this day'"));
+  assert.ok(js.includes('host.menu.show({\n      id: `day-more-${day}`'), 'the shared menu');
+  assert.ok(js.includes('Also move every day after this one by the same amount.') || html.includes('Also move every day after this one by the same amount.'));
+  assert.ok(html.includes('id="day-dialog"') && js.includes("'Unschedule'") && js.includes("'Keep'"));
+  assert.ok(js.includes('if (!canEdit) hide(head.querySelector(\'.day-actions\'), true);'), 'only people who can edit see them');
 });
 
 console.log(`check-travel: OK (${n} checks)`);

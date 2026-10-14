@@ -1292,6 +1292,31 @@
   // A calendar that was just closed (in the page, its elements go before its root stops resizing) has nothing to draw.
   new ResizeObserver(() => { if (!$('app')) return; fit(); render(); }).observe(host.rootElement);
 
+  // As a part of the destination's page, say how tall the content is: a page too narrow for the panel beside the
+  // calendar stacks the parts in its one scroll, each as tall as this, so nothing here scrolls on its own. Beside each
+  // other the page ignores it. Not while an editor is open (it lifts the frame).
+  if (part) {
+    let told = -1;
+    let queued = false;
+    const tell = () => {
+      queued = false;
+      const app = $('app');
+      const body = $('body');
+      if (!app || !body || app.hidden || document.querySelector('dialog[open]')) return;
+      // The lowest edge of what is last, margins included (down the last element of the last, as far as it goes).
+      let edge = 0;
+      for (let el = body.lastElementChild; el; el = el.lastElementChild) edge = Math.max(edge, el.getBoundingClientRect().bottom + (parseFloat(getComputedStyle(el).marginBottom) || 0));
+      const tail = edge ? edge - body.getBoundingClientRect().top + body.scrollTop : 0;
+      const h = Math.ceil(app.offsetHeight - body.offsetHeight + Math.max(tail, 0)) + 2;
+      if (h === told) return;
+      told = h;
+      host.resize({ height: h });
+    };
+    const later = () => { if (!queued) { queued = true; requestAnimationFrame(tell); } };
+    new MutationObserver(later).observe($('body'), { childList: true, subtree: true });
+    new ResizeObserver(later).observe($('app'));
+  }
+
   $('add').hidden = true;
   // The Agenda draws no header of its own: the page's panel switch is its heading.
   if (part === 'panel') root.querySelector('.bar').hidden = true;

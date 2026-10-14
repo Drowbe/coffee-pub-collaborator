@@ -828,6 +828,15 @@ await test('layout: a frame is never a phone; a narrow page stacks the panel bel
   assert.match(stacked[1], /body\.destination-page:not\(\.dest-has-tabs\)[^{]*\.dest \{\s*flex-direction: column;\s*overflow-y: auto;/, 'the page scrolls, main then panel');
   assert.match(stacked[1], /\.dest-side \{\s*flex: none;\s*height: 460px;/, 'the stacked panel has its own height');
   assert.ok(css.includes('@media (max-width: 640px)') && /\.dest-tabs \{\s*display: flex;/.test(css), 'the phone keeps its tabs');
+  // One scroll when stacked: a part that reports its height is as tall as its content, so the grid and the Agenda (or the
+  // To-do) follow each other in the page's scroll, with no scroll of their own and no fixed split.
+  assert.match(css, /\.dest-main\.sized \{\s*height: auto;/, 'a sized main part takes its content height');
+  assert.match(css, /\.dest-side\.sized \{\s*flex: none;\s*height: auto;/, 'a sized panel takes its content height');
+  assert.match(css, /\.sized > \.dest-part-frame,[\s\S]*?height: var\(--part-h\);/, 'a sized part is as tall as it said');
+  assert.match(js, /onResize: \(\{ height \} = \{\}\) => \{[\s\S]*?--part-h[\s\S]*?classList\.add\('sized'\)/, 'a part saying its height sizes it');
+  for (const f of ['modules/calendar/src/calendar.js', 'modules/todo/src/todo.js']) {
+    assert.match(fs.readFileSync(path.join(ROOT, f), 'utf8'), /if \(part\) \{\s*let told = -1;[\s\S]*?host\.resize\(\{ height: h \}\)/, `${f}: as a destination part it says how tall its content is`);
+  }
 });
 
 if (failed) {

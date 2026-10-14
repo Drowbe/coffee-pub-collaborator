@@ -1946,11 +1946,52 @@ const sheetCopy = path.join(tmp, 'phase-sheet.mjs');
 fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), sheetCopy);
 fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the sheet imports it
-const { bandShares, todayPercent, rowsOf, plainDays, tintOf, TINTS } = await import(pathToFileURL(sheetCopy).href);
+const { bandShares, todayPercent, rowsOf, plainDays, tintOf, TINTS, factsInSheet, FACT_CHIPS_HIDDEN_AT } = await import(pathToFileURL(sheetCopy).href);
 const Phases = createRequire(import.meta.url)('../public/phases.js');
 fs.rmSync(tmp, { recursive: true, force: true });
 const TRAVEL = [{ id: 'planning', label: 'Planning' }, { id: 'booking', label: 'Booking' }, { id: 'buffer', label: 'Buffer' }, { id: 'pre-trip', label: 'Pre-trip' }, { id: 'trip', label: 'Trip', main: true }, { id: 'post-trip', label: 'Post-trip' }];
 const CREATED = '2026-09-01T12:00:00.000Z';
+
+test('the facts are reachable at every width: where the strip hides its chips (760px and below), the phase sheet lists them', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  // One number for the stylesheet's rule and the page's: the chips are hidden at FACT_CHIPS_HIDDEN_AT and below.
+  assert.equal(FACT_CHIPS_HIDDEN_AT, 760);
+  assert.match(css, new RegExp(`@media \\(max-width: ${FACT_CHIPS_HIDDEN_AT}px\\) \\{\\n\\s*\\.status-strip \\.status-facts \\{\\n\\s*display: none;`), 'the stylesheet hides the chips at the same width');
+  for (const [width, inSheet] of [[390, true], [640, true], [641, true], [700, true], [760, true], [761, false], [1280, false]]) {
+    assert.equal(factsInSheet(width), inSheet, `at ${width}px the sheet ${inSheet ? 'lists' : 'leaves out'} the facts`);
+    // At every width a fact is somewhere: a chip, or the sheet.
+    const chipsShown = width > FACT_CHIPS_HIDDEN_AT; // the stylesheet's rule, pinned above
+    assert.ok(chipsShown || factsInSheet(width), `at ${width}px a fact is reachable`);
+  }
+  assert.match(space, /if \(view\.matchMedia\(`\(max-width: \$\{FACT_CHIPS_HIDDEN_AT\}px\)`\)\.matches\) return true;/, 'the page asks the same width, in the header\'s own window');
+  assert.match(space, /return factsInOrder\(\)\.length > statusFacts\.querySelectorAll\('\.status-fact:not\(\.dropped\)'\)\.length;/, 'wider, a fact the line could not fit is in the sheet too');
+  assert.ok(!/facts: phoneWidth\(\)/.test(space), 'not only on a phone (641 to 760px had no way to them)');
+});
+
+test('a fact\'s day: worded by the host against the viewer\'s own today, dropped once it has passed (#216)', () => {
+  const next = { id: 'next', icon: 'plane', text: 'SJC → ONT', when: '2026-10-16', order: 20 };
+  const spent = { id: 'spent', icon: 'coins', text: '$2,340 of $4,000', budget: true };
+  const at = (today) => Phases.factsToday([spent, next], today, 'en-US');
+  assert.deepEqual(at('2026-10-16').map((f) => f.text), ['$2,340 of $4,000', 'Today · SJC → ONT']);
+  assert.deepEqual(at('2026-10-15').map((f) => f.text), ['$2,340 of $4,000', 'Tomorrow · SJC → ONT']);
+  assert.deepEqual(at('2026-10-14').map((f) => f.text)[1], 'Fri · SJC → ONT', 'within the week: the weekday');
+  assert.deepEqual(at('2026-10-01').map((f) => f.text)[1], 'Oct 16 · SJC → ONT', 'further out: the month and day');
+  assert.deepEqual(at('2026-10-17'), [spent], 'the day after: the booking is gone, the budget (no day) stays');
+  assert.deepEqual(at('2027-01-01'), [spent], 'long after: still gone, never a stale "tomorrow"');
+  assert.equal(Phases.whenWords('2026-10-21', '2026-10-14', 'en-US'), 'Oct 21', 'a week ahead');
+  assert.equal(Phases.whenWords('2026-10-20', '2026-10-14', 'en-US'), 'Tue', 'six days ahead');
+  assert.equal(Phases.whenWords('2026-10-13', '2026-10-14'), null, 'yesterday: passed');
+  assert.equal(Phases.whenWords('2026-02-30', '2026-02-01'), null, 'not a day');
+  assert.equal(Phases.whenWords('2027-01-01', '2026-12-31', 'en-US'), 'Tomorrow', 'across a year');
+  assert.deepEqual(Phases.factsToday([{ ...next, when: 'soon' }], '2026-10-14'), [], 'a day the host cannot read is left out');
+  assert.equal(at('2026-10-15')[1].when, '2026-10-16', 'the day itself is kept');
+  // The page reads every fact through it: the chips, a chip's menu and the phase sheet, against my own today.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(space, /const factsNow = \(list\) => \(phaseRule\(\) && phaseRule\(\)\.factsToday \? phaseRule\(\)\.factsToday\(list, phaseToday\(\)\)/);
+  assert.match(space, /spaceFacts\.modules\.forEach\(\(m, mi\) => factsNow\(m\.facts\)\.forEach/, 'the chips and the sheet');
+  assert.match(space, /for \(const f of factsNow\(m\.facts\)\) \{/, 'a chip\'s menu');
+});
 
 test('the status strip: the chip and its track, a tool of the space bar\'s left zone with no fit, a line under the top row on a phone', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
@@ -1986,7 +2027,7 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(space, /b\.className = 'status-fact nav-text';/, 'a chip\'s words are the nav text');
   assert.match(space, /b\.addEventListener\('click', \(\) => openHostMenu\(b, \(\) => factMenuItems\(f\.module\)\)\);/, 'a chip opens the shared menu');
   assert.match(space, /for \(let i = chips\.length - 1; i >= 0 && crowded\(\); i -= 1\) chips\[i\]\.classList\.add\('dropped'\);/, 'the last chip gives way first, one by one');
-  assert.match(space, /facts: phoneWidth\(\) \? factsInOrder\(\)/, 'on a phone the facts head the phase sheet');
+  assert.match(space, /facts: factsHiddenInStrip\(\) \? factsInOrder\(\)/, 'where the chips are hidden (a phone too) the facts head the phase sheet');
   // The words are the story sentence (Phases.storyParts), written only when it changes, each clause after the first its
   // own span so the end gives way whole and the label's text stays the whole sentence.
   const chipUpdate = space.slice(space.indexOf('function updatePhaseChip('), space.indexOf('async function savePhases('));
@@ -2140,7 +2181,7 @@ fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/space-setup.js'), setupCopy);
 fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the panel imports it
 fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), path.join(tmp, 'phase-sheet.js')); // and the sheet's row helpers
-const { setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, takeSaved, problemField, setupSaidWords, MODERATOR_FIELDS, tabOfField } = await import(pathToFileURL(setupCopy).href);
+const { setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, takeSaved, problemField, setupSaidWords, MODERATOR_FIELDS, tabOfField, budgetEntryProblem, budgetWanted, BUDGET_NOT_A_NUMBER } = await import(pathToFileURL(setupCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 test('Set up: a right-zone tool after your picture, before the window controls, for owners, the admin and moderators; Save and Cancel are the panel\'s action bar, not the top bar\'s', () => {
@@ -2310,11 +2351,47 @@ test('Set up: the budget (#216) goes in the one PATCH only when it changed, as n
   assert.ok(!MODERATOR_FIELDS.includes('budget'), 'not a moderator\'s field');
   assert.equal(setupSaidWords({ saved: ['budget'] }), 'Saved the budget. Everyone sees it now; press Set up to change more.');
   const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
-  assert.match(setup, /if \(!space\.isLobby && \(state\.opts\.budget \|\| budgetText\(space\.budget\)\.amount\)\) \{/, 'shown while a module reads it, or one is set');
+  assert.match(setup, /parts\.push\(sectionHtml\('budget', [^\n]*\n(?:[^\n]*\n){4}\s*<p class="hint" id="setup-budget-hint"><\/p>`, \{ hidden: true \}\)\);/, 'drawn hidden, shown once it is known a module reads it or one is set');
+  assert.match(setup, /if \(show && state\.ownerPartsIn\) section\.hidden = false;/, 'shown only after the space\'s own record (the stored budget) has come');
   assert.match(setup, /<input type="number" id="setup-budget-amount"/, 'a number field');
   assert.match(setup, /<select id="setup-budget-currency"><\/select>/, 'and the currency');
   const page = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  assert.match(page, /budget: budgetReported\(\) \? \{ name: /, 'the page offers it while a module here reports a fact marked budget');
+  assert.match(page, /budget: budgetReported\(\) \? budgetSource\(\) : null,/, 'the page offers it while a module here reports a fact marked budget');
+  assert.match(page, /if \(settingUp && budgetReported\(\)\) spaceSetup\.offerBudget\(budgetSource\(\)\);/, 'and when the facts come after Set up opened (by address)');
+});
+
+test('Set up: a budget the field cannot read is refused before anything is sent; only an empty field clears it (#216)', () => {
+  // A number field holding `12-3` or `1e` reports '' with validity.badInput: the draft keeps `bad`, never "empty".
+  const set = { name: 'Lisbon', budget: { amount: '4000', currency: '' } };
+  assert.equal(budgetEntryProblem({ amount: '', currency: '', bad: true }), BUDGET_NOT_A_NUMBER, 'a bad entry (12-3, 1e) is refused');
+  assert.equal(budgetEntryProblem({ amount: '1e999', currency: '' }), BUDGET_NOT_A_NUMBER, 'a number too big to be finite');
+  assert.equal(budgetEntryProblem({ amount: 'Infinity', currency: '' }), BUDGET_NOT_A_NUMBER);
+  assert.equal(budgetEntryProblem({ amount: '', currency: '' }), null, 'empty is fine: no budget');
+  assert.equal(budgetEntryProblem({ amount: '4000.50', currency: 'EUR' }), null, 'a number is fine');
+  assert.match(BUDGET_NOT_A_NUMBER, /^The budget must be a number[^\n]*\.$/, 'one plain sentence');
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: '', bad: true } }), { budget: { amount: null } }, 'were it ever sent, a bad entry goes as no amount (refused by the server), never as null (which clears)');
+  assert.notDeepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: '', bad: true } }), { budget: null });
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: '' } }), { budget: null }, 'only a truly empty field clears');
+  assert.deepEqual([...dirtyTabs(setupPatch({ name: 'L', budget: { amount: '', currency: '' } }, { name: 'L', budget: { amount: '', currency: '', bad: true } }))], ['space'], 'a bad entry is a change, so Save is offered and refuses it');
+  const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
+  assert.match(setup, /const bad = Boolean\(budgetAmount\.validity && budgetAmount\.validity\.badInput\);/, 'the field\'s badInput is read on each edit');
+  const done = setup.slice(setup.indexOf('async function done()'), setup.indexOf('const patch = patchNow();', setup.indexOf('async function done()')));
+  assert.match(done, /if \(entry\) return refused\(\[\], 'budget', entry\);/, 'refused before the PATCH: the panel stays on the field, the cursor in it');
+  assert.equal(problemField({ budget: { amount: null } }, BUDGET_NOT_A_NUMBER), 'budget');
+  assert.equal(setupSaidWords({ saved: [], failed: 'budget', problem: BUDGET_NOT_A_NUMBER }), `The budget was not saved. ${BUDGET_NOT_A_NUMBER} Change it and press Save again, or Cancel.`);
+});
+
+test('Set up: the Budget section shows while a module that reads the target is on, a fact asked for it, or one is set; never in the Lobby (#216)', () => {
+  const planner = { id: 'travel', name: 'Planner', displayName: 'Trip plan', enabled: true, scope: ['environment', 'space'], budget: true };
+  assert.deepEqual(budgetWanted({ installed: [planner] }), { show: true, name: 'Trip plan' }, 'the Planner is on: shown before anyone opened it, named after it');
+  assert.deepEqual(budgetWanted({ installed: [{ ...planner, enabled: false }] }), { show: false, name: '' }, 'turned off: not offered');
+  assert.deepEqual(budgetWanted({ installed: [{ ...planner, budget: false }] }), { show: false, name: '' }, 'a module without the marker');
+  assert.deepEqual(budgetWanted({ reported: { name: 'Planner' } }), { show: true, name: 'Planner' }, 'a fact marked budget');
+  assert.deepEqual(budgetWanted({ stored: { amount: 4000 } }), { show: true, name: '' }, 'one is set');
+  assert.deepEqual(budgetWanted({ lobby: true, installed: [planner], stored: { amount: 1 } }), { show: false, name: '' }, 'never the Lobby');
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules/travel/module.json'), 'utf8'));
+  assert.equal(manifest.budget, true, 'the Planner\'s manifest says it reads the budget');
+  assert.match(fs.readFileSync(path.join(ROOT, 'server/modules.js'), 'utf8'), /const budget = raw\.budget === true;/, 'and the manifest keeps the mark');
 });
 
 test('Set up: the new fields go in the one PATCH only when changed; the dots name the tabs; a refusal names its field', () => {

@@ -393,5 +393,36 @@
     return null;
   }
 
-  return { TINTS, tintOf, isDay, addDays, daysBetween, dayOf, cleanPhases, cleanDates, problemOf, timelineOf, moveBoundary, setPhaseDate, addDatesFor, skipPhase, coverMain, chipWords, storyParts, storyWords, countdown };
+  // A fact's day (`when`, YYYY-MM-DD; host.facts, plan-space-story-strip.md "The contract") in words against the
+  // viewer's own today: "Today", "Tomorrow", the weekday within the week ahead ("Fri"), else the month and day
+  // ("Oct 21"). Null when the day has passed or either is not a day. `locale` is the page's (undefined: the browser's).
+  function whenWords(when, today, locale) {
+    if (!isDay(when) || !isDay(today)) return null;
+    const ahead = daysBetween(today, when);
+    if (ahead < 0) return null;
+    if (ahead === 0) return 'Today';
+    if (ahead === 1) return 'Tomorrow';
+    const at = new Date(parseDay(when));
+    const shape = ahead < 7 ? { weekday: 'short' } : { month: 'short', day: 'numeric' };
+    try {
+      return at.toLocaleDateString(locale, { ...shape, timeZone: 'UTC' });
+    } catch {
+      return at.toLocaleDateString('en', { ...shape, timeZone: 'UTC' });
+    }
+  }
+  // The facts as a viewer reads them today: a fact with a `when` gets its day in words in front of its own ("Tomorrow ·
+  // SJC → ONT") and is left out once that day has passed (or when it is not a day); a fact without one is as sent.
+  // Pure: the strip's chips, a chip's menu and the phase sheet all read through it.
+  function factsToday(facts, today, locale) {
+    const out = [];
+    for (const f of Array.isArray(facts) ? facts : []) {
+      if (!f || typeof f !== 'object') continue;
+      if (f.when === undefined || f.when === null) { out.push(f); continue; }
+      const day = whenWords(f.when, today, locale);
+      if (day) out.push({ ...f, text: `${day} · ${f.text}` });
+    }
+    return out;
+  }
+
+  return { TINTS, tintOf, isDay, addDays, daysBetween, dayOf, cleanPhases, cleanDates, problemOf, timelineOf, moveBoundary, setPhaseDate, addDatesFor, skipPhase, coverMain, chipWords, storyParts, storyWords, countdown, whenWords, factsToday };
 }));

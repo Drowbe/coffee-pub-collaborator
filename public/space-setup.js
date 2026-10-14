@@ -29,7 +29,8 @@
 // Escape cancels at once when nothing changed and asks "Discard your changes?" when something did; a click outside does
 // nothing.
 //
-// The pure parts (setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, takeSaved, problemField, setupSaidWords) touch no
+// The pure parts (setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, takeSaved, problemField, setupSaidWords,
+// budgetEntryProblem, budgetWanted) touch no
 // document, so tools/check-nav.mjs runs them in node; the page hands the panel what it needs (createSpaceSetup's `deps`).
 import { actionBar } from './action-bar.js';
 import { rowsOf, dayWords, plainDays, sameDates, tintOf } from './phase-sheet.js';
@@ -81,14 +82,37 @@ const text = (v) => (typeof v === 'string' ? v.trim() : '');
 // A space's phase dates as stored ({ <phase id>: { start?, end? } }), copied; anything else is none.
 const datesCopy = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? JSON.parse(JSON.stringify(v)) : {});
 // The budget target as the panel holds it (#216): { amount, currency } as the fields' text ('' for none, '' for the
-// reporting module's own currency). budgetSent() is what the PATCH sends: null for none, else { amount, currency? }; an
-// amount that is not a number goes as null, which the server refuses with its sentence.
+// reporting module's own currency), and in the draft `bad: true` while the number field holds something it cannot read
+// (`12-3`, `1e`: the browser then reports the value as '' and validity.badInput). budgetSent() is what the PATCH sends:
+// null for none (only a truly empty field), else { amount, currency? }; an amount that is not a number (or a bad entry)
+// goes as null, which the server refuses with its sentence, so a bad entry never clears a stored budget.
 const budgetText = (v) => ({
   amount: v && v.amount !== undefined && v.amount !== null && v.amount !== '' ? String(v.amount).trim() : '',
   currency: v && typeof v.currency === 'string' ? v.currency.trim().toUpperCase() : '',
 });
+// The sentence refusing what the budget field holds before anything is sent, or null when it may go: a bad entry, or an
+// amount that is not a finite number. Empty is fine (no budget); the server's own rules (above zero, 12 digits) stay its.
+export const BUDGET_NOT_A_NUMBER = 'The budget must be a number, such as 4000 or 4000.50.';
+export function budgetEntryProblem(v) {
+  if (!v || typeof v !== 'object') return null;
+  if (v.bad === true) return BUDGET_NOT_A_NUMBER;
+  const { amount } = budgetText(v);
+  if (amount && !Number.isFinite(Number(amount))) return BUDGET_NOT_A_NUMBER;
+  return null;
+}
+// Whether Set up shows the Budget section, and the module it names: a module that reads the target is on here (its
+// manifest says `"budget": true`; `installed` is GET /api/modules, every enabled module being on in every space but the
+// Lobby keeping its own), a module reported a fact marked `budget` (`reported`, { name }), or a target is set already.
+// { show, name }.
+export function budgetWanted({ lobby = false, installed = [], reported = null, stored = null } = {}) {
+  if (lobby) return { show: false, name: '' };
+  const reads = (Array.isArray(installed) ? installed : []).find((m) => m && m.enabled && m.budget === true && Array.isArray(m.scope) && m.scope.includes('space'));
+  const name = (reported && reported.name) || (reads ? reads.displayName || reads.name || '' : '');
+  return { show: Boolean(reads || reported || budgetText(stored).amount), name };
+}
 function budgetSent(v) {
   const b = budgetText(v);
+  if (v && v.bad === true) return { amount: null, ...(b.currency ? { currency: b.currency } : {}) };
   if (!b.amount) return null;
   const amount = Number(b.amount);
   return { amount: Number.isFinite(amount) ? amount : null, ...(b.currency ? { currency: b.currency } : {}) };
@@ -261,16 +285,16 @@ export function createSpaceSetup(deps) {
     if ((typeof deps.icons === 'function' ? deps.icons() : []).length) {
       parts.push(sectionHtml('link-icon', '<span id="setup-link-icon-heading">Link icon</span>', '<div class="icon-grid setup-icon-grid" id="setup-link-icon" role="radiogroup" aria-labelledby="setup-link-icon-heading"></div><p class="hint">The icon on the launch link\'s button.</p>'));
     }
-    // The budget (#216): an amount and its currency, a draft saved with Save; shown while a module here reads it (it
-    // reports a fact marked `budget`: `opts.budget` names that module) or one is set already.
-    if (!space.isLobby && (state.opts.budget || budgetText(space.budget).amount)) {
-      const from = state.opts.budget && state.opts.budget.name ? state.opts.budget.name : '';
+    // The budget (#216): an amount and its currency, a draft saved with Save. Drawn for every space but the Lobby and
+    // shown while a module here reads it or one is set (budgetWanted; paintBudgetSection), which is known only once the
+    // module list, the space's own record and the facts have come: hidden until then, so nothing typed is lost.
+    if (!space.isLobby) {
       parts.push(sectionHtml('budget', '<span id="setup-budget-heading">Budget</span>', `
         <div class="setup-budget" role="group" aria-labelledby="setup-budget-heading">
           <label class="setup-field setup-budget-amount"><span class="visually-hidden">Amount</span><input type="number" id="setup-budget-amount" min="0" step="any" inputmode="decimal" placeholder="No budget" autocomplete="off"></label>
           <label class="setup-field setup-budget-currency"><span class="visually-hidden">Currency</span><select id="setup-budget-currency"></select></label>
         </div>
-        <p class="hint">What you plan to spend.${from ? ` ${esc(from)} shows what is spent against it.` : ''} Leave it empty for no budget.</p>`));
+        <p class="hint" id="setup-budget-hint"></p>`, { hidden: true }));
     }
     if (!space.isLobby) {
       parts.push(sectionHtml('calendar', '<span id="setup-calendar-heading">Calendar</span>', `<label class="switch-row"><input type="checkbox" class="switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span></label><p class="hint">${esc(word('owner', { many: true, cap: true }))} can publish one calendar with every ${esc(spaceWord())}'s events. Turn this off to leave this ${esc(spaceWord())} out.</p>`, { hidden: true }));
@@ -483,6 +507,7 @@ export function createSpaceSetup(deps) {
     if (q('#setup-opens-with')) paintOpensWith();
     const ai = q('#setup-ai-off');
     if (ai) ai.checked = draft.aiOff;
+    paintBudgetSection();
     paintBudget();
     paintPhases();
     if (opts.nameInput && state.owner) opts.nameInput.value = draft.name;
@@ -501,15 +526,29 @@ export function createSpaceSetup(deps) {
     q('#setup-picture-remove').hidden = !src;
   }
 
+  // Whether the Budget section shows, and its hint naming the module that reads it (budgetWanted). Once shown it stays
+  // for this opening, so a field someone is typing in never goes away under them.
+  function budgetNow() {
+    return budgetWanted({ lobby: state.space.isLobby, installed: state.installed || [], reported: state.opts.budget || null, stored: state.before.budget });
+  }
+  function paintBudgetSection() {
+    const section = q('[data-section="budget"]');
+    if (!section) return;
+    const { show, name } = budgetNow();
+    if (show && state.ownerPartsIn) section.hidden = false;
+    const hint = q('#setup-budget-hint');
+    if (hint) hint.textContent = `What you plan to spend.${name ? ` ${name} shows what is spent against it.` : ''} Leave it empty for no budget.`;
+  }
   // The budget's amount and currency (the page's currency list, window.hostCurrency from /sdk/host.js: the common ones
-  // first, then every other the server takes; the first choice "" is the reporting module's own currency).
+  // first, then every other the server takes; the first choice "" is the reporting module's own currency). A bad entry
+  // in the field is left as it is (the browser holds it; the draft says `bad`).
   function paintBudget() {
     const amount = q('#setup-budget-amount');
     const currency = q('#setup-budget-currency');
     if (!amount || !currency) return;
     const b = state.draft.budget || budgetText(null);
-    if (amount.value !== b.amount) amount.value = b.amount;
-    const from = state.opts.budget && state.opts.budget.name ? state.opts.budget.name : '';
+    if (!state.draft.budget?.bad && amount.value !== b.amount) amount.value = b.amount;
+    const from = budgetNow().name;
     const empty = from ? `${from}'s currency` : 'The usual currency';
     const fill = doc.defaultView && doc.defaultView.hostCurrency ? doc.defaultView.hostCurrency.fill : null;
     if (fill) fill(currency, { value: b.currency, empty, currencies: state.currencies || undefined });
@@ -860,7 +899,12 @@ export function createSpaceSetup(deps) {
     if (profile) profile.addEventListener('change', () => { state.draft.profile = profile.value; });
     // A new object on each edit, so the draft never shares one with `before`.
     const budgetAmount = q('#setup-budget-amount');
-    if (budgetAmount) budgetAmount.addEventListener('input', () => { state.draft.budget = { ...state.draft.budget, amount: budgetAmount.value.trim() }; });
+    // A bad entry (`12-3`, `1e`) reads as '' with validity.badInput: kept as `bad`, never as an empty field (which clears).
+    if (budgetAmount) budgetAmount.addEventListener('input', () => {
+      const bad = Boolean(budgetAmount.validity && budgetAmount.validity.badInput);
+      const { bad: _was, ...rest } = state.draft.budget || {};
+      state.draft.budget = { ...rest, amount: budgetAmount.value.trim(), ...(bad ? { bad: true } : {}) };
+    });
     const budgetCurrency = q('#setup-budget-currency');
     if (budgetCurrency) budgetCurrency.addEventListener('change', () => { state.draft.budget = { ...state.draft.budget, currency: budgetCurrency.value }; });
     const cal = q('#setup-publish-calendar');
@@ -1019,6 +1063,7 @@ export function createSpaceSetup(deps) {
     if (!state || state.space.id !== space.id) return;
     state.users = users;
     state.installed = installed;
+    state.ownerPartsIn = true; // the stored budget is known now: the Budget section may show (paintBudgetSection)
     fillFields();
     paintModuleList();
     // Turn AI off is for a server that has an AI service set up (as the old page's).
@@ -1199,6 +1244,10 @@ export function createSpaceSetup(deps) {
     if (!state || state.saving) return false;
     const { space, image, opts } = state;
     if (opts.nameInput && state.owner) state.draft.name = opts.nameInput.value;
+    // A budget the field cannot read is refused here, before anything is sent: sent, it would read as no budget.
+    const budgetField = q('#setup-budget-amount');
+    const entry = state.owner && budgetField && !q('[data-section="budget"]').hidden ? budgetEntryProblem({ ...state.draft.budget, bad: Boolean(state.draft.budget?.bad || (budgetField.validity && budgetField.validity.badInput)) }) : null;
+    if (entry) return refused([], 'budget', entry);
     const patch = patchNow();
     const moduleChanged = moduleChanges();
     const saved = [];
@@ -1263,5 +1312,14 @@ export function createSpaceSetup(deps) {
     return true;
   }
 
-  return { el, open, close, done, cancel, select: (id) => select(id, { focus: true }), isOpen: () => Boolean(state) };
+  // The page's facts arrived after the panel opened (opened by address, say): a module reads the budget, so the section
+  // shows, named after it. Nothing typed is touched.
+  function offerBudget(info) {
+    if (!state || !info) return;
+    state.opts = { ...state.opts, budget: { name: String(info.name || '') } };
+    paintBudgetSection();
+    paintBudget();
+  }
+
+  return { el, open, close, done, cancel, offerBudget, select: (id) => select(id, { focus: true }), isOpen: () => Boolean(state) };
 }

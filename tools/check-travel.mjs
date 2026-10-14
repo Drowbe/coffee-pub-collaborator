@@ -200,30 +200,38 @@ test('balances share a cost among its owners (or everyone) and settle in the few
 test('stripFacts (#216): spent from costs with a payer, against the space\'s budget target, and the next booking', () => {
   const people = ['a', 'b'];
   const money = (n, code) => `${code || '?'} ${n}`;
-  const dayWord = (d) => `<${d}>`;
   const today = '2026-10-14';
   const costs = [it('d', { cost: 90, paidBy: 'a' }), it('t', { cost: 20.5, paidBy: 'b' }), it('x', { cost: 500 })]; // x: no payer, not spent
-  const facts = (o) => lib.stripFacts({ items: costs, travellers: people, today, currency: 'USD', money, dayWord, ...o });
+  const facts = (o) => lib.stripFacts({ items: costs, travellers: people, today, currency: 'USD', money, ...o });
   // No target: spent only, marked as reading the budget so Set up can offer one.
   assert.deepEqual(facts({}), [{ id: 'spent', icon: 'coins', text: 'Spent USD 110.5', order: 10, budget: true }]);
-  assert.deepEqual(lib.stripFacts({ items: [], travellers: people, today, currency: 'EUR', money, dayWord }), [{ id: 'spent', icon: 'coins', text: 'Spent EUR 0', order: 10, budget: true }], 'a new trip: spent 0');
+  assert.deepEqual(lib.stripFacts({ items: [], travellers: people, today, currency: 'EUR', money }), [{ id: 'spent', icon: 'coins', text: 'Spent EUR 0', order: 10, budget: true }], 'a new trip: spent 0');
   // A target in the trip's currency (or with none of its own): "of", what is left, and the progress.
   const under = facts({ target: { amount: 400 } })[0];
   assert.deepEqual(under, { id: 'spent', icon: 'coins', text: 'USD 110.5 of USD 400', value: 'USD 289.5 left', progress: 0.276, order: 10, budget: true });
   assert.deepEqual(facts({ target: { amount: 400, currency: 'usd' } })[0], under, 'the same currency named in small letters');
-  // Over the target: said in the words, the bar full, the value what it is over by.
+  // Over the target: said in the words, the bar full, the value what it is over by, and a warning icon, so it never
+  // looks the same as exactly on the target (also a full bar, with the coins).
   const over = facts({ target: { amount: 100 } })[0];
   assert.equal(over.text, 'USD 110.5 of USD 100 · over');
   assert.equal(over.value, 'USD 10.5 over');
   assert.equal(over.progress, 1);
+  assert.equal(over.icon, 'circle-exclamation');
+  const onIt = facts({ target: { amount: 110.5 } })[0];
+  assert.deepEqual([onIt.icon, onIt.text, onIt.value, onIt.progress], ['coins', 'USD 110.5 of USD 110.5', 'USD 0 left', 1], 'exactly on the budget: full, the coins, nothing over');
+  assert.notDeepEqual([over.icon, over.text], [onIt.icon, onIt.text], 'over and exactly on look different');
   // A target in another currency is shown, never compared (no progress).
   const other = facts({ target: { amount: 300, currency: 'EUR' } })[0];
   assert.deepEqual([other.text, other.value, 'progress' in other], ['USD 110.5 of EUR 300', 'Another currency', false]);
   // A target of nothing is no target.
   assert.equal(facts({ target: { amount: 0 } })[0].text, 'Spent USD 110.5');
   // The words never pass 40 characters.
-  const long = lib.stripFacts({ items: costs, travellers: people, today, currency: 'USD', money: () => 'x'.repeat(30), dayWord, target: { amount: 5 } })[0];
+  const long = lib.stripFacts({ items: costs, travellers: people, today, currency: 'USD', money: () => 'x'.repeat(30), target: { amount: 5 } })[0];
   assert.ok(long.text.length <= 40 && long.value.length <= 24, long.text);
+  // Cut by characters as a person counts them: an emoji is never split into half a pair.
+  const emoji = lib.stripFacts({ items: costs, travellers: people, today, currency: 'USD', money: () => '😀'.repeat(30), target: { amount: 5 } })[0];
+  assert.equal([...emoji.text].length, 40, 'forty characters, emoji counted as one');
+  assert.ok(!/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?:[^\uD800-\uDBFF]|^)[\uDC00-\uDFFF]/.test(emoji.text + emoji.value), 'no lone half of an emoji');
   // The next journey or stay from today on: the earliest by day and time, its route when it has one, else its title.
   const trip = [
     it('past', { kind: 'journey', mode: 'flight', date: '2026-10-01', fromCode: 'LHR', toCode: 'JFK', title: 'Old' }),
@@ -232,11 +240,12 @@ test('stripFacts (#216): spent from costs with a payer, against the space\'s bud
     it('hotel', { kind: 'stay', date: '2026-10-20', title: 'Hotel Alfama' }),
     it('stop', { kind: 'stop', date: '2026-10-15', title: 'Museum' }),
   ];
-  const withNext = lib.stripFacts({ items: trip, travellers: people, today, currency: 'USD', money, dayWord });
-  assert.deepEqual(withNext[1], { id: 'next', icon: 'plane', text: 'Next: <2026-10-16> · SJC → ONT', value: 'UA 1', order: 20 });
-  const stayNext = lib.stripFacts({ items: trip, travellers: people, today: '2026-10-17', currency: 'USD', money, dayWord })[1];
-  assert.deepEqual(stayNext, { id: 'next', icon: 'bed', text: 'Next: <2026-10-20> · Hotel Alfama', order: 20 });
-  assert.equal(lib.stripFacts({ items: trip, travellers: people, today: '2026-10-21', currency: 'USD', money, dayWord }).length, 1, 'nothing ahead: no next fact');
+  // Its day goes as `when`, never in the words ("tomorrow" baked in would go stale): the host words it for each viewer.
+  const withNext = lib.stripFacts({ items: trip, travellers: people, today, currency: 'USD', money });
+  assert.deepEqual(withNext[1], { id: 'next', icon: 'plane', text: 'SJC → ONT', when: '2026-10-16', value: 'UA 1', order: 20 });
+  const stayNext = lib.stripFacts({ items: trip, travellers: people, today: '2026-10-17', currency: 'USD', money })[1];
+  assert.deepEqual(stayNext, { id: 'next', icon: 'bed', text: 'Hotel Alfama', when: '2026-10-20', order: 20 });
+  assert.equal(lib.stripFacts({ items: trip, travellers: people, today: '2026-10-21', currency: 'USD', money }).length, 1, 'nothing ahead: no next fact');
   // The Planner reports them: in a space, for someone who may edit, after each draw, and when the budget changes.
   const js = read('travel.js');
   assert.match(js, /if \(!host\.facts \|\| !canEdit \|\| !state\.loaded \|\| !spaceOf\(\)\) return;/);
@@ -244,6 +253,7 @@ test('stripFacts (#216): spent from costs with a payer, against the space\'s bud
   assert.match(js, /queued = false; render\(\); reportFacts\(\);/, 'after each draw');
   assert.match(js, /host\.on\('space', \(\) => reportFacts\(\)\);/, 'and when the budget changes');
   assert.match(js, /if \(sig === factsSaid\) return;/, 'the same facts are not sent again');
+  assert.ok(!/nearDay|dayWord|'tomorrow'|'today'/.test(js.slice(js.indexOf('function reportFacts('), js.indexOf("host.on('space'"))), 'the Planner words no day relative to its own today');
 });
 
 test('a trip has an optional three-letter currency, an item an optional cost', () => {

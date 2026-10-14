@@ -1431,10 +1431,23 @@ function maySeeGuestLink(user, space) {
   if (hasOwnerRights(user)) return true;
   return space.members.includes(user.key) && Boolean(store.spacePermissions(user.key, space.id).canInvite);
 }
-function shownSpace(req, space) {
-  if (!space || !space.guestToken || maySeeGuestLink(currentUser(req), space)) return space;
-  return { ...space, guestToken: null };
+// The space's budget target (#216) is not a general part of the space: it reaches owners and the admin through GET
+// /api/spaces/:id (Set up's read) and their own PATCH's answer, and a module through its context (GET
+// /api/modules/:id/context, only for a signed-in person who may read that module there). Every other view of a space
+// (the presence list, GET /api/spaces, the stream's status, a guest's) leaves it out.
+function withoutBudget(space) {
+  if (!space || !('budget' in space)) return space;
+  const { budget: _budget, ...rest } = space;
+  return rest;
 }
+function shownSpace(req, space) {
+  const general = withoutBudget(space);
+  if (!general || !general.guestToken || maySeeGuestLink(currentUser(req), general)) return general;
+  return { ...general, guestToken: null };
+}
+// A space answered to the person who changed it: whole for owners and the admin, without the budget for anyone else
+// (a moderator's PATCH, a member's guest link).
+const answeredSpace = (req, space) => (hasOwnerRights(currentUser(req)) ? space : withoutBudget(space));
 
 // The environment's default mode (Manage > Theme), and the fingerprint of its /theme.css (server/theme-css.js).
 const environmentThemeMode = () => (store.settings.themeMode === 'light' ? 'light' : 'dark');
@@ -3533,7 +3546,7 @@ app.patch('/api/spaces/:id', requireUser, (req, res) => {
     const onlyTheirs = Object.keys(body).every((k) => MODERATOR_SPACE_FIELDS.includes(k));
     if (!moderates || !onlyTheirs) return res.status(403).json({ error: `${word('owner', { many: true })} only` });
   }
-  res.json({ space: store.updateSpace(req.params.id, body) });
+  res.json({ space: answeredSpace(req, store.updateSpace(req.params.id, body)) });
 });
 // The main phase's end moved later to cover `day` (YYYY-MM-DD), every later boundary shifted by the same number of
 // days (public/phases.js coverMain; plan-one-bar.md step 1), for anyone who can write in a module that is on in this
@@ -3590,11 +3603,11 @@ function requireCanInvite(req, res, next) {
 }
 app.post('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   const guestToken = req.body?.regenerate ? store.regenerateGuestLink(req.params.id) : store.enableGuestLink(req.params.id);
-  res.json({ space: store.spaceById(req.params.id), guestUrl: `${baseUrl(req)}/guest/${guestToken}` });
+  res.json({ space: answeredSpace(req, store.spaceById(req.params.id)), guestUrl: `${baseUrl(req)}/guest/${guestToken}` });
 });
 app.delete('/api/spaces/:id/guest-link', requireUser, requireSpaceMember, requireCanInvite, (req, res) => {
   store.disableGuestLink(req.params.id);
-  res.json({ space: store.spaceById(req.params.id) });
+  res.json({ space: answeredSpace(req, store.spaceById(req.params.id)) });
 });
 
 // Admin API -------------------------------------------------------------------
@@ -7397,8 +7410,9 @@ app.get('/api/modules/:id/context', (req, res) => {
     locale: { language: store.settings.language || 'en', clock: store.settings.clock === '24' ? '24' : '12', currency: store.settings.currency || 'USD', currencies: currencyCodes(store.settings.currency), words: store.resolvedWords() },
     // The space this read is in, or null outside one; its `phases` are the dates set on it ({} while none; plan-one-bar.md
     // step 1). The top-level `phases` is the template's, live, or [] when there is none. `budget` is the space's budget
-    // target, { amount, currency? } (#216; set by an owner in Set up), or null while none is set.
-    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases, budget: here.budget || null } : null,
+    // target, { amount, currency? } (#216; set by an owner in Set up), or null while none is set; always null for a
+    // guest (moduleAccess has already refused anyone not in the space or without the module's read permission).
+    space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases, budget: (who.user && here.budget) || null } : null,
     phases: phases.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}), ...(p.icon ? { icon: p.icon } : {}) })),
     // Facts about the environment every module may need. `pictureMap`: { file, minZoom, maxZoom, tileType } while the
     // environment's map is a picture of an invented world (a module that declares `pictureMap` names the file), else null.

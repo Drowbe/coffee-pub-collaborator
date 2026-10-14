@@ -1580,19 +1580,29 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // space's status strip (space.js, which hears 'app:facts' and reads them again). Only a module running in a space for
     // a signed-in person reports; anywhere else, or when the role may not write here, false. The shape is cut to the
     // server's limits; what is left the server checks (a bad id or icon rejects with its sentence).
+    // The words are cut by characters as a person counts them (code points), so an emoji is never split in half. `when`
+    // (a day, YYYY-MM-DD) goes as sent: the page words it for each viewer. A module that reports a fact marked `budget`
+    // reads the space's budget target from its context again after the report (the space's record no longer carries
+    // it to the page), and hears 'space' when an owner changed it, so its next report is against the current target.
     async 'facts.set'({ facts } = {}) {
       const place = factsPlace();
       if (!place) return false;
+      const cut = (v, n) => [...String(v ?? '')].slice(0, n).join('');
       const list = (Array.isArray(facts) ? facts : []).slice(0, 6).map((f) => {
-        const fact = { id: String(f?.id ?? '').slice(0, 32), icon: String(f?.icon ?? '').slice(0, 40), text: String(f?.text ?? '').slice(0, 40) };
-        if (f?.value !== undefined && f?.value !== null && f.value !== '') fact.value = String(f.value).slice(0, 24);
+        const fact = { id: cut(f?.id, 32), icon: cut(f?.icon, 40), text: cut(f?.text, 40) };
+        if (f?.value !== undefined && f?.value !== null && f.value !== '') fact.value = cut(f.value, 24);
         const progress = Number(f?.progress);
         if (f?.progress !== undefined && f?.progress !== null && Number.isFinite(progress)) fact.progress = Math.min(1, Math.max(0, progress));
         if (Number.isInteger(f?.order)) fact.order = Math.min(99, Math.max(0, f.order));
         if (f?.budget === true) fact.budget = true;
+        if (typeof f?.when === 'string' && f.when) fact.when = f.when.slice(0, 10);
         return fact;
       });
-      return list.length ? sendFacts('PUT', place, { facts: list }) : sendFacts('DELETE', place);
+      const kept = await (list.length ? sendFacts('PUT', place, { facts: list }) : sendFacts('DELETE', place));
+      if (list.some((f) => f.budget)) {
+        api('GET', url('/context', scope)).then((a) => { if (a && a.space) tellSpace(a.space.budget); }).catch(() => { /* the next report asks again */ });
+      }
+      return kept;
     },
     async 'facts.clear'() {
       const place = factsPlace();

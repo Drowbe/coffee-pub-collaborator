@@ -642,9 +642,12 @@ test('host.facts (plan-space-story-strip.md step 5): set and clear in the SDK, a
   assert.match(src, /async 'facts\.set'\(\{ facts \} = \{\}\) \{\n\s*const place = factsPlace\(\);\n\s*if \(!place\) return false;/, 'set resolves false where there is no space');
   assert.match(src, /async 'facts\.clear'\(\) \{\n\s*const place = factsPlace\(\);\n\s*return place \? sendFacts\('DELETE', place\) : false;/, 'clear resolves false where there is no space');
   assert.match(src, /\.slice\(0, 6\)\.map\(\(f\) => \{/, 'at most six facts are sent');
-  assert.match(src, /text: String\(f\?\.text \?\? ''\)\.slice\(0, 40\)/, 'the words cut to 40');
+  assert.match(src, /const cut = \(v, n\) => \[\.\.\.String\(v \?\? ''\)\]\.slice\(0, n\)\.join\(''\);/, 'cut by code points, so an emoji is never split');
+  assert.match(src, /text: cut\(f\?\.text, 40\)/, 'the words cut to 40');
+  assert.match(src, /fact\.value = cut\(f\.value, 24\)/, 'the value to 24');
+  assert.match(src, /if \(typeof f\?\.when === 'string' && f\.when\) fact\.when = f\.when\.slice\(0, 10\);/, 'a fact\'s day goes as sent, for the page to word');
   assert.match(src, /fact\.progress = Math\.min\(1, Math\.max\(0, progress\)\)/, 'progress kept to 0..1');
-  assert.match(src, /return list\.length \? sendFacts\('PUT', place, \{ facts: list \}\) : sendFacts\('DELETE', place\);/, 'an empty list clears');
+  assert.match(src, /const kept = await \(list\.length \? sendFacts\('PUT', place, \{ facts: list \}\) : sendFacts\('DELETE', place\)\);/, 'an empty list clears');
   assert.match(src, /if \(err\.status === 401 \|\| err\.status === 403 \|\| err\.status === 404\) return false; \/\/ not in this space, or the role cannot write here\n\s*throw err;\n\s*\}\n\s*factsSent = /, 'a role that may not write is answered false, other errors reject');
   assert.match(src, /if \(sig === factsSent\.sig && Date\.now\(\) - factsSent\.at < 3600000\) return true;/, 'the same list within the hour is not sent again');
   assert.match(src, /new CustomEvent\('app:facts', \{ detail: \{ space: spaceId \} \}\)/, 'the page is told so the strip reads again');
@@ -653,13 +656,18 @@ test('host.facts (plan-space-story-strip.md step 5): set and clear in the SDK, a
 
 test('the budget target (#216): the hello carries host.space().budget, the page says a change, the SDK keeps it current', () => {
   const server = fs.readFileSync(new URL('../server/index.js', import.meta.url), 'utf8');
-  assert.match(server, /space: here \? \{ id: here\.id, name: here\.name, createdAt: here\.createdAt, phases: here\.phases, budget: here\.budget \|\| null \} : null,/, 'the context gives the budget, null while none');
+  assert.match(server, /space: here \? \{ id: here\.id, name: here\.name, createdAt: here\.createdAt, phases: here\.phases, budget: \(who\.user && here\.budget\) \|\| null \} : null,/, 'the context gives the budget to a signed-in person, null while none and always for a guest');
   const page = fs.readFileSync(new URL('../public/space.js', import.meta.url), 'utf8');
-  assert.match(page, /const detail = \{ space: space\.id, phases: space\.phases \|\| \{\}, created: space\.createdAt \|\| null, budget: space\.budget \|\| null \};/, 'the page says the budget with the phases');
+  // The space's record on the page no longer carries the budget (the presence list leaves it out): the phases' detail
+  // has none, so a member's modules never hear it cleared; an owner's save says it at once.
+  assert.match(page, /const detail = \{ space: space\.id, phases: space\.phases \|\| \{\}, created: space\.createdAt \|\| null \};/, 'the phases go without the budget');
+  assert.match(page, /if \(saved\.includes\('budget'\)\) announceBudget\(space\.id, space\.budget \|\| null\);/, 'an owner\'s save says the budget');
+  assert.match(page, /function announceBudget\(spaceId, budget\) \{\n\s*const detail = \{ space: spaceId, budget: budget && typeof budget === 'object' \? budget : null \};/);
   const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
   assert.match(src, /if \(JSON\.stringify\(b\) === JSON\.stringify\(contextInfo\.space\.budget \|\| null\)\) return;\n\s*contextInfo\.space = \{ \.\.\.contextInfo\.space, budget: b \};\n\s*send\('space', \{ budget: b \}\);/, 'a mount says \'space\' only when the budget changed');
   assert.match(src, /if \('budget' in d\) tellSpace\(d\.budget\);/, 'heard from the page and the channel');
-  assert.match(src, /tellSpace\(a\.space\.budget\);/, 'and a module page alone reads it again');
+  assert.match(src, /tellSpace\(a\.space\.budget\); \} \}\)\.catch/, 'and a module page alone reads it again');
+  assert.match(src, /if \(list\.some\(\(f\) => f\.budget\)\) \{\n\s*api\('GET', url\('\/context', scope\)\)\.then\(\(a\) => \{ if \(a && a\.space\) tellSpace\(a\.space\.budget\); \}\)/, 'a module reporting a budget fact reads the target again, so its next report is against the current one');
   const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
   const at = sdk.indexOf("host.on('space', (e) => {");
   assert.ok(at > 0 && at < sdk.indexOf("host.on('moved'"), 'the SDK keeps its own listener on space, before any module\'s');

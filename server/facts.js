@@ -4,15 +4,19 @@
 // never who sent it. One file per environment, DATA_DIR/facts.json (so the environment's export and the host console's
 // backup, which zip the whole data folder, carry it):
 //
-//   { "spaces": { "<space id>": { "<module id>": { facts: [{ id, icon, text, value?, progress?, order?, budget? }], at } } } }
+//   { "spaces": { "<space id>": { "<module id>": { facts: [{ id, icon, text, value?, progress?, order?, budget?, when? }], at } } } }
 //
 // A report older than 7 days is dropped when read and when the file is loaded. An empty list clears a report.
-// cleanFacts() is the one shape check, pure.
+// cleanFacts() is the one shape check, pure. `when` is a day (YYYY-MM-DD): the page words it against the viewer's own
+// today ("Tomorrow · SJC → ONT") and leaves the fact out once that day has passed, so the words never go stale. Lengths
+// are counted in characters as a person sees them (code points), so an emoji is one. The maps are made without a
+// prototype, and a stored `__proto__` key is skipped, so a damaged file cannot reach Object.prototype.
 
 'use strict';
 
 const fs = require('fs');
 const path = require('path');
+const { isDay } = require('../public/phases.js');
 
 const LIMITS = { facts: 6, id: 32, text: 40, value: 24, order: 99 };
 const MAX_AGE = 7 * 24 * 60 * 60 * 1000;
@@ -35,6 +39,12 @@ function iconKnown(name) {
 
 const isObject = (v) => Boolean(v) && typeof v === 'object' && !Array.isArray(v);
 const oneLine = (s) => s.replace(/\p{Cc}/gu, ' ').replace(/\s+/g, ' ').trim();
+// Characters that show nothing yet change what is shown: zero-width ones (U+200B to U+200F, U+2060, U+FEFF) and the
+// controls that reorder text (U+202A to U+202E, U+2066 to U+2069). A fact holding one could look empty or read backwards.
+const INVISIBLE = /[\u200B-\u200F\u2060\uFEFF\u202A-\u202E\u2066-\u2069]/;
+const chars = (s) => [...s].length; // code points: an emoji counts as one
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const map = () => Object.create(null);
 
 // { facts } or { error } (one plain sentence). The body is { facts: [...] }.
 function cleanFacts(body) {
@@ -49,13 +59,15 @@ function cleanFacts(body) {
     seen.add(f.id);
     if (typeof f.icon !== 'string' || !ICON_RE.test(f.icon) || !iconKnown(f.icon)) return { error: 'Each fact needs an icon from Font Awesome Free\'s solid set.' };
     if (typeof f.text !== 'string') return { error: 'Each fact needs its words.' };
+    if (INVISIBLE.test(f.text)) return { error: 'A fact\'s words cannot hold invisible characters.' };
     const text = oneLine(f.text);
-    if (!text || text.length > LIMITS.text) return { error: `A fact's words must be 1 to ${LIMITS.text} characters.` };
+    if (!text || chars(text) > LIMITS.text) return { error: `A fact's words must be 1 to ${LIMITS.text} characters.` };
     const fact = { id: f.id, icon: f.icon, text };
     if (f.value !== undefined && f.value !== null) {
       if (typeof f.value !== 'string') return { error: 'A fact\'s value must be text.' };
+      if (INVISIBLE.test(f.value)) return { error: 'A fact\'s value cannot hold invisible characters.' };
       const value = oneLine(f.value);
-      if (value.length > LIMITS.value) return { error: `A fact's value can be at most ${LIMITS.value} characters.` };
+      if (chars(value) > LIMITS.value) return { error: `A fact's value can be at most ${LIMITS.value} characters.` };
       if (value) fact.value = value;
     }
     if (f.progress !== undefined && f.progress !== null) {
@@ -71,6 +83,11 @@ function cleanFacts(body) {
       if (typeof f.budget !== 'boolean') return { error: 'A fact\'s budget mark must be true or false.' };
       if (f.budget) fact.budget = true;
     }
+    // The day the fact is about (a booking's), worded by the page against the viewer's today.
+    if (f.when !== undefined && f.when !== null) {
+      if (!isDay(f.when)) return { error: 'A fact\'s day must be a real date written YYYY-MM-DD.' };
+      fact.when = f.when;
+    }
     kept.push(fact);
   }
   return { facts: kept };
@@ -81,7 +98,7 @@ class Facts {
     this.dir = dir;
     this.file = path.join(dir, 'facts.json');
     this.now = now;
-    this.spaces = {};
+    this.spaces = map();
     let raw = null;
     try {
       raw = JSON.parse(fs.readFileSync(this.file, 'utf8'));
@@ -89,11 +106,12 @@ class Facts {
       // nothing yet
     }
     for (const [spaceId, reports] of Object.entries(isObject(raw?.spaces) ? raw.spaces : {})) {
+      if (UNSAFE_KEYS.has(spaceId)) continue;
       for (const [moduleId, r] of Object.entries(isObject(reports) ? reports : {})) {
-        if (!this.fresh(r)) continue;
+        if (UNSAFE_KEYS.has(moduleId) || !this.fresh(r)) continue;
         const { facts, error } = cleanFacts({ facts: r.facts });
         if (error || !facts.length) continue;
-        (this.spaces[spaceId] ||= {})[moduleId] = { facts, at: r.at };
+        (this.spaces[spaceId] ||= map())[moduleId] = { facts, at: r.at };
       }
     }
   }
@@ -112,7 +130,8 @@ class Facts {
   // Keep a module's last report for this space; an empty list clears it.
   set(spaceId, moduleId, facts) {
     if (!facts.length) return this.clear(spaceId, moduleId);
-    (this.spaces[spaceId] ||= {})[moduleId] = { facts, at: this.now() };
+    if (UNSAFE_KEYS.has(spaceId) || UNSAFE_KEYS.has(moduleId)) return false;
+    (this.spaces[spaceId] ||= map())[moduleId] = { facts, at: this.now() };
     this.save();
     return true;
   }

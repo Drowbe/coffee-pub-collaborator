@@ -369,10 +369,10 @@ function objectSearchParams(moduleId, { q, scope: s, space, has } = {}, mount) {
     if (space !== undefined && space !== null && space !== '') fail('a space goes with scope "space", not "spaces"');
     sc = { scope: 'spaces', space: null };
   } else sc = placeOf(s, space, mount);
-  if (has !== undefined && has !== null && has !== '' && has !== 'place') fail('has is "place" or nothing');
+  if (has !== undefined && has !== null && has !== '' && has !== 'place' && has !== 'amount') fail('has is "place", "amount" or nothing');
   const p = new URLSearchParams({ from: moduleId, q: String(q || '').slice(0, 100), scope: sc.scope });
   if (sc.scope === 'space') p.set('space', sc.space);
-  if (has === 'place') p.set('has', 'place');
+  if (has === 'place' || has === 'amount') p.set('has', has);
   return p;
 }
 // --- end of the search
@@ -1380,6 +1380,27 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       const p = objectSearchParams(module.id, { q, scope: s, space, has }, { scope, spaceId, moduleScopes: module.scope, keyed: Boolean(keyed) });
       if (guestToken) p.set('guest', guestToken);
       return (await api('GET', `/api/objects/search?${p}`)).summaries;
+    },
+    // The priced objects of the other modules in this space (host.objects.priced; plan-budget-module.md, step 3): the
+    // summaries that carry an `amount`, and `withheld`, how many the viewer may not read (a number, no titles).
+    async 'objects.priced'() {
+      if (scope !== 'space' || !spaceId) return { summaries: [], withheld: 0 };
+      const p = objectSearchParams(module.id, { scope: 'space', space: spaceId, has: 'amount' }, { scope, spaceId, moduleScopes: module.scope, keyed: Boolean(keyed) });
+      if (guestToken) p.set('guest', guestToken);
+      const answer = await api('GET', `/api/objects/search?${p}`);
+      return { summaries: answer.summaries || [], withheld: Number(answer.withheld) > 0 ? Math.floor(Number(answer.withheld)) : 0 };
+    },
+    // Whether another module that reads the budget target (the `budget` flag) is on in this space and open to this
+    // person: the Planner stands its own money aside for it. False outside a space.
+    async 'budget.elsewhere'() {
+      if (scope !== 'space' || !spaceId || keyed) return false;
+      const q = new URLSearchParams({ space: spaceId });
+      if (guestToken) q.set('guest', guestToken);
+      try {
+        return ((await api('GET', `/api/modules/for-space?${q}`)).modules || []).some((m) => m.budget === true && m.id !== module.id);
+      } catch (err) {
+        return false;
+      }
     },
     // Each space with its `createdAt` and `phases` (the dates on its timeline) from the spaces list when the viewer may
     // read it, so a module's environment page can run host.util.phaseTimeline for each (plan-one-bar.md step 2).

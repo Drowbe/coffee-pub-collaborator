@@ -40,6 +40,7 @@
 
   const state = {
     view: 'days',
+    budgetOn: false, // another module that reads the budget is on in this space: its money replaces the Money view and the spent fact
     loaded: false,
     focusAfterRedraw: null, // { id, until }: a new object just saved; each redraw until then focuses its row's menu
     people: [], // [{ key, name }] of this space
@@ -1051,9 +1052,12 @@
     { id: 'bookings', label: 'Bookings', icon: 'ticket' },
     { id: 'money', label: 'Money', icon: 'coins' },
   ];
+  // With Budget on in this space its Overview and Costs carry the money, so the Money view steps aside (the bookings keep their
+  // cost fields). Found by the `budget` flag of another module that is on here, never by name; asked on load, on focus and every 30 s.
+  const viewsNow = () => VIEWS.filter((v) => v.id !== 'money' || !state.budgetOn);
   const viewSwitch = host.ui.viewSwitch({
     id: 'view',
-    options: VIEWS,
+    options: viewsNow(),
     value: state.view,
     onChange: (id) => {
       state.view = id;
@@ -1167,7 +1171,8 @@
     const datesNode = slot(head, 'dates');
     if (sep) sep.hidden = !summary.children.length || !datesNode || datesNode.hidden;
     const openCount = openDecisions().length;
-    viewSwitch.set(state.view, VIEWS.map((v) => (v.id === 'decisions' && openCount ? { ...v, label: `Decisions (${openCount} open)` } : v)));
+    if (state.budgetOn && state.view === 'money') state.view = 'days';
+    viewSwitch.set(state.view, viewsNow().map((v) => (v.id === 'decisions' && openCount ? { ...v, label: `Decisions (${openCount} open)` } : v)));
     hide(head.querySelector('[data-action="edit-trip"]'), !canEdit || plan.phased());
     const toggle = head.querySelector('[data-action="toggle-empty"]');
     if (toggle) {
@@ -1294,6 +1299,7 @@
       items: plan.list(),
       travellers: state.people.map((p) => p.key),
       today: ymd(new Date()),
+      budgetOn: state.budgetOn,
       target: spaceOf().budget || null,
       currency: planCurrency() || host.locale().currency || 'USD',
       money: wholeMoney,
@@ -1303,6 +1309,19 @@
     factsSaid = sig;
     host.facts.set(list).catch(() => { factsSaid = ''; }); // tried again on the next change
   }
+  // Is Budget on in this space? It counts the bookings' costs itself, so with it on this module reports no `spent` fact (the one
+  // it sent before is replaced by the shorter list) and hides its Money view; with it off both return. Nothing stored changes.
+  async function lookBudget() {
+    if (!host.budget || !host.budget.elsewhere || !spaceOf()) return;
+    let on;
+    try { on = await host.budget.elsewhere(); } catch (err) { return; }
+    if (on === state.budgetOn) return;
+    state.budgetOn = on;
+    if (state.loaded) { redraw(); reportFacts(); }
+  }
+  const budgetTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(budgetTimer); else if (!document.hidden) lookBudget(); }, 30000);
+  window.addEventListener('focus', lookBudget);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) lookBudget(); });
   // The space's budget target changed (an owner's Set up): the strip's money follows.
   host.on('space', () => { reportFacts(); redraw(); });
 
@@ -2720,6 +2739,7 @@
   try {
     await plan.load();
     state.people = await host.people().catch(() => []);
+    await lookBudget();
     try { useMarkerTypes(await host.settings.get()); } catch (err) { useMarkerTypes(null); }
     host.settings.onChange((v) => { useMarkerTypes(v); if (kindField) kindField.setGroups(kindGroups()); if (state.loaded) redraw(); checkFlightLookup(); });
     checkFlightLookup();

@@ -119,6 +119,47 @@
     return c;
   }
 
+  // --- costs pulled in from other modules ----------------------------------------------------------------------------------
+  // A summary another module offers with an `amount` (a Planner booking's cost) as a cost Budget shows but does not own:
+  // read-only, never stored, in no category (so under Other), and counted as paid (a booking has one figure, no planned one).
+  // `paidBy` and `sharedBy` are the booking's (no sharedBy: everyone). `ref` points at the object, to open it. `self` is this
+  // module's id: its own summaries are never pulled. The same object twice is counted once.
+  const refKey = (r) => (r ? `${r.module}:${r.kind}:${r.id}${r.space ? `@${r.space}` : ''}` : '');
+  function pulledCosts(summaries, self) {
+    const seen = new Set();
+    const out = [];
+    for (const s of Array.isArray(summaries) ? summaries : []) {
+      const ref = cleanRef(s && s.ref);
+      const amount = s ? cleanAmount(s.amount) : null;
+      if (!ref || amount === null || ref.module === self) continue;
+      const key = refKey(ref);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const day = typeof s.when === 'string' ? s.when.slice(0, 10) : '';
+      const m = s.module && typeof s.module === 'object' ? s.module : {};
+      out.push({
+        id: `pulled:${key}`,
+        pulled: true,
+        title: oneLine(s.title, 120) || 'Untitled',
+        category: 'other',
+        planned: null,
+        actual: amount,
+        paidBy: typeof s.paidBy === 'string' && s.paidBy && s.paidBy.length <= 64 ? s.paidBy : '',
+        sharedBy: Array.isArray(s.sharedBy) ? [...new Set(s.sharedBy.filter((k) => typeof k === 'string' && k && k.length <= 64))].slice(0, 50) : [],
+        date: isDay(day) ? day : '',
+        notes: '',
+        by: '',
+        ref,
+        source: { id: oneLine(m.id || ref.module, 64), name: oneLine(m.name, 60) || `another ${word('module')}` },
+      });
+    }
+    return out;
+  }
+  // Budget's own costs and the pulled-in ones, each counted once: the totals, the burndown, Settle up and the strip all take this list.
+  const allCosts = (own, pulled) => [...own, ...pulled];
+  // The plain note for a person who may not read every module that holds a cost; empty when nothing was left out.
+  const withheldNote = (n) => (Number(n) > 0 ? `Some costs are from ${word('module', { a: true })} you can't see.` : '');
+
   // --- categories ------------------------------------------------------------------------------------------------------
   // The environment's list ([{ id, label, icon, color }]); `other` is always on it. A cost whose category is not on the
   // list is counted and shown under Other and is not rewritten.

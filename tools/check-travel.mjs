@@ -256,6 +256,33 @@ test('stripFacts (#216): spent from costs with a payer, against the space\'s bud
   assert.ok(!/nearDay|dayWord|'tomorrow'|'today'/.test(js.slice(js.indexOf('function reportFacts('), js.indexOf("host.on('space'"))), 'the Planner words no day relative to its own today');
 });
 
+test('with Budget on the Planner steps its money aside; with it off nothing changes (plan-budget-module.md, step 3)', () => {
+  const people = ['a', 'b'];
+  const money = (n, code) => `${code || '?'} ${n}`;
+  const today = '2026-10-14';
+  const items = [it('d', { cost: 90, paidBy: 'a' }), it('s', { kind: 'journey', mode: 'flight', date: '2026-10-16', fromCode: 'SJC', toCode: 'ONT', title: 'UA 1' })];
+  const off = lib.stripFacts({ items, travellers: people, today, currency: 'USD', money });
+  assert.deepEqual(off.map((f) => f.id), ['spent', 'next'], 'Budget off: both facts, as ever');
+  assert.deepEqual(lib.stripFacts({ items, travellers: people, today, currency: 'USD', money, budgetOn: false }), off, 'budgetOn false is the same');
+  const on = lib.stripFacts({ items, travellers: people, today, currency: 'USD', money, budgetOn: true, target: { amount: 400 } });
+  assert.deepEqual(on.map((f) => f.id), ['next'], 'Budget on: no spent fact, so the strip carries one money fact (Budget\'s)');
+  assert.deepEqual(lib.stripFacts({ items: [], travellers: people, today, currency: 'USD', money, budgetOn: true }), [], 'nothing to say: an empty list replaces the old one');
+  // the costs stay on the bookings either way
+  assert.equal(lib.costItems(items).length, 1);
+  assert.equal(lib.balances(lib.costItems(items), people).total, 90);
+  const js = read('travel.js');
+  assert.match(js, /const viewsNow = \(\) => VIEWS\.filter\(\(v\) => v\.id !== 'money' \|\| !state\.budgetOn\);/, 'the Money tab is left out while Budget is on');
+  assert.match(js, /if \(state\.budgetOn && state\.view === 'money'\) state\.view = 'days';/, 'a person on Money is moved to Days when Budget comes on');
+  assert.match(js, /budgetOn: state\.budgetOn,/, 'the fact reporter knows');
+  assert.match(js, /host\.budget\.elsewhere\(\)/, 'found by the flag of another module, never by name');
+  assert.ok(!/['"`]budget['"`]\s*[,)]/.test(js.slice(js.indexOf('async function lookBudget'), js.indexOf("host.on('space', () => { reportFacts"))), 'no module is named');
+  assert.match(js, /addEventListener\('focus', lookBudget\)/, 'asked again on focus, and every 30 seconds');
+  assert.match(js, /if \(on === state\.budgetOn\) return;\s*state\.budgetOn = on;\s*if \(state\.loaded\) \{ redraw\(\); reportFacts\(\); \}/, 'toggling redraws and re-reports');
+  assert.ok(js.includes("{ id: 'money', label: 'Money', icon: 'coins' }") && js.includes('renderMoney'), 'the Money view itself is kept for Budget off');
+  const form = js.slice(js.indexOf('f-cost'), js.indexOf('f-cost') + 200);
+  assert.ok(form.length > 0, 'the booking form keeps its cost field');
+});
+
 test('a trip has an optional three-letter currency, an item an optional cost', () => {
   assert.equal(lib.cleanTrip({ start: '2026-10-01', currency: 'eur' }).currency, 'EUR');
   assert.equal(lib.cleanTrip({ start: '2026-10-01', currency: 'euros' }).currency, '');

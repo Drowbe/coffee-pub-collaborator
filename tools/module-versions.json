@@ -4,8 +4,8 @@
     "hash": "c473ff64b4a00b79"
   },
   "budget": {
-    "version": "0.1.1",
-    "hash": "058f16d83ab378d9"
+    "version": "0.1.2",
+    "hash": "8b6578507574404e"
   },
   "calendar": {
     "version": "1.24.12",
@@ -36,7 +36,7 @@
     "hash": "3068bedc22ba7279"
   },
   "travel": {
-    "version": "0.15.19",
-    "hash": "1f4a8745b635a139"
+    "version": "0.15.20",
+    "hash": "44b540a61d37d4cc"
   }
 }

@@ -20,6 +20,7 @@
   <main id="body" class="body">
     <!-- Overview: the target, what is spent, each category, the burndown -->
     <section id="view-overview" class="view" aria-label="Overview" hidden>
+      <p class="hint note" data-slot="withheld-note" hidden></p>
       <div class="tile target" id="target-tile">
         <div class="target-head">
           <h2 class="tile-title" data-slot="target-title">Target</h2>
@@ -53,6 +54,7 @@
           <button class="chip-btn" type="button" id="tool-payer"><span class="ic" data-icon="user"></span><span data-slot="label">Anyone paid</span></button>
         </div>
       </div>
+      <p class="hint note" data-slot="withheld-note" hidden></p>
       <div id="groups"></div>
     </section>
 
@@ -133,6 +135,7 @@
       <span class="main">
         <span class="title" data-slot="title"></span>
         <span class="sub" data-slot="sub"></span>
+        <span class="src" data-slot="source" hidden></span>
       </span>
       <span class="amounts">
         <span class="amount" data-slot="amount"></span>

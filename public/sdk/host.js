@@ -2178,6 +2178,9 @@
     // rejects with the server's sentence.
     budget: {
       can: async () => (await call('budget.can')) === true,
+      // Whether another module that reads the budget target (it says `"budget": true`) is on in this space and open to this
+      // person. The Planner uses it to step its own money aside for the module that pulls its costs in. Never names a module.
+      elsewhere: async () => (await call('budget.elsewhere')) === true,
       set: async (target) => {
         if (target === undefined) throw new Error('say the target, or null to clear it');
         const kept = await call('budget.set', { budget: target });
@@ -2433,6 +2436,11 @@
       // environment page { scope: 'spaces' } asks every space the viewer belongs to at once (each pointer carries its
       // space), and { has: 'place' } keeps only summaries with a place (up to 1,000 then, rather than 50).
       search: (text, o) => call('objects.search', { q: text || '', ...opts(o), ...(o && o.has ? { has: String(o.has) } : {}) }),
+      // The costs other modules hold in this space (the summaries that carry an `amount`: title, when, amount, paidBy?,
+      // sharedBy? (none: everyone), module, ref), as the person may read them: { summaries, withheld }. `withheld` is how many
+      // priced objects were left out because the person may not read their module (a number, never a title or figure). Read
+      // only; never copy them into storage. Open one with open(summary.ref). Empty outside a space.
+      priced: () => call('objects.priced', {}),
       // The published objects format (instructions in this environment's words, and the schema).
       format: () => call('objects.format', {}),
       // Whether this person may bring objects into this place with this module.

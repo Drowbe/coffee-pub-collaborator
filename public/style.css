@@ -17,6 +17,7 @@
   --text-dim: #a8998a;
   --accent: #c8873a;
   --on-accent: #1a1206; /* text/icons drawn on an --accent background */
+  --on-danger: #fff; /* the glyph on a solid --danger or --ok button (End call, dial back in) */
   --ok: #6fae6b;
   --danger: #b8503f;
   /* The tints (plan-chat-model.md, decisions 17 to 20): a module's colour, on its icon and on its messages. Fixed, not
@@ -679,8 +680,7 @@ a:hover {
    a size or weight of its own. `.btn.nav-text` outweighs the button's own type (.btn, .btn-small come later) and keeps
    the button's colours. Anything else wears the bar's link colour at rest; what is current (the tab shown, the chip's
    phase, today's band, the page's name) says --header-text in its own rule. The exceptions, each for a reason: the
-   environment's name (the wordmark, larger: Thomas, 2026-10-14, "for now"), the "days to <phase>" caption under the
-   countdown (small, a caption), and the phone's menu rows and tab bar (a menu list and an icon over a word, not the bar). */
+   environment's name (the wordmark, larger: Thomas, 2026-10-14, "for now"), the countdown's number (a quarter larger, bold), and the phone's menu rows and tab bar (a menu list and an icon over a word, not the bar). */
 .nav-text,
 .btn.nav-text,
 .core-link {
@@ -1250,13 +1250,12 @@ body.in-space .page-scroll {
   display: none;
 }
 
-/* The space cards' heading row: the home word as Who's around's title reads, and Add <space> at the right for owners
-   and the admin (GitHub #233). The row takes no room of its own: the list's gap is the space under it. */
+/* The space cards' heading row: the home word as Who's around's title reads. The row takes no room of its own: the
+   list's gap is the space under it. */
 .space-list-head {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 8px 12px;
   margin-bottom: -6px;
 }
@@ -1277,18 +1276,53 @@ body.in-space .page-scroll {
   color: var(--accent);
 }
 
-.space-list-head .btn {
-  height: 40px;
-  box-sizing: border-box;
-  display: inline-flex;
+/* Add <space> (GitHub #233): the ghost card, last in the grid, a space card's size, in a dashed outline (the one place
+   a card is dashed). A plain button, so Enter and Space work; it fills softly on hover and keyboard focus. */
+.space-choice-add {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  justify-content: center;
+  gap: 10px;
+  min-height: 140px;
+  padding: 20px;
+  box-sizing: border-box;
+  background: transparent;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  color: var(--text-dim);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.space-choice-add[hidden] {
+  display: none;
+}
+.space-choice-add i {
+  font-size: 22px;
+}
+.space-choice-add:hover,
+.space-choice-add:focus-visible {
+  background: var(--surface);
+  color: var(--text);
+}
+.space-choice-add:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.space-choice-add:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 
 @media (max-width: 480px) {
-  .space-list-head .btn {
-    flex: 1 1 100%; /* a phone: the button on a row of its own, full width, an easy target */
-    justify-content: center;
+  .space-choice-add {
+    flex-direction: row; /* a phone: a compact row, the plus and the label */
+    min-height: 56px;
+    padding: 12px 16px;
+  }
+  .space-choice-add i {
+    font-size: 16px;
   }
 }
 
@@ -1501,7 +1535,7 @@ body.in-space .page-scroll {
   padding: 0 16px;
 }
 
-/* The smaller buttons (link, pop-out, choose, settings) stay together: when the main button's word needs the room they
+/* The smaller buttons (link, pop-out, choose) stay together: when the main button's word needs the room they
    move to a line of their own as one group. */
 .space-choice-tools {
   display: flex;
@@ -1509,6 +1543,8 @@ body.in-space .page-scroll {
   align-items: center;
   gap: 8px;
 }
+
+.space-choice-tools:not(:has(> :not([hidden]))) { display: none; } /* no link on the card: no empty group to take a gap */
 
 .space-choice-actions .join-label {
   min-width: 0;
@@ -2346,6 +2382,12 @@ input.switch:disabled {
 .join-call:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* In the chat: the right end of the Discussion | Assistant row, "turn this discussion into a call". */
+#chat-views .join-call {
+  flex: none;
+  margin-left: auto;
 }
 
 .module-chooser-list {
@@ -3588,6 +3630,9 @@ a.crumb-here:hover {
 
 /* The conference alone in a window of its own: no close on its titlebar, which would read as "close this window"
    (which brings the call back to the page) when it means "leave the call"; Hang up on the toolbar leaves. */
+.conference-window .conference-head #conf-popout,
+.popout .conference-head #conf-popout,
+.side-column-strip .conference-head #conf-popout,
 .conference-window .conference-head [data-module-close],
 .conference-window .conference-head [data-popout] {
   display: none;
@@ -3653,6 +3698,27 @@ a.crumb-here:hover {
 .fbtn {
   position: relative;
   overflow: hidden;
+  border-radius: 50%;
+  border-color: transparent;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.1s;
+}
+
+/* The call's buttons, one look (Thomas, 2026-10-14: round, equal, quiet): a neutral round button; the strong accent
+   fill is the active or on one; a solid red End call. Hover, keyboard focus and a press each show. The size is the
+   action button's (--action-btn-h), never set here. */
+.fbtn:hover {
+  background: var(--secondary-hover);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
+
+.fbtn:active {
+  transform: scale(0.94);
+}
+
+.fbtn:focus-visible,
+.fbtn-caret:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* mic, audio, camera, layout and Pop out each carry a small caret in their corner
@@ -3669,18 +3735,19 @@ a.crumb-here:hover {
 
 .fbtn-caret {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: -1px;
+  right: -1px;
   z-index: 2;
   width: 12px;
   height: 12px;
   padding: 0;
-  border: none;
-  border-radius: 3px;
-  background: none;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-section);
+  box-sizing: border-box;
   overflow: hidden;
   color: var(--text-dim);
-  font-size: 12px;
+  font-size: 6px;
   line-height: 1;
   display: flex;
   align-items: center;
@@ -3690,43 +3757,37 @@ a.crumb-here:hover {
 
 .fbtn-caret:hover,
 .fbtn-caret.on {
+  border-color: var(--accent);
   color: var(--accent);
 }
 
-.fbtn.on {
-  border-color: var(--accent);
-}
-
-/* Microphone, deafen and camera are Primary buttons while they are on; off
-   keeps the red look below. */
-#mic.on,
-#deafen.on,
-#cam.on {
+/* On: the strong filled state (the microphone, what you hear and the camera while they are live; Share while sharing;
+   Reactions while open; Away while away). */
+.fbtn.on,
+#away-toggle.off {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
 }
 
-#mic.on:hover,
-#deafen.on:hover,
-#cam.on:hover {
+.fbtn.on:hover,
+#away-toggle.off:hover {
   background: var(--primary-hover);
   border-color: var(--primary-hover);
+}
+
+.fbtn.on:active,
+#away-toggle.off:active {
+  background: color-mix(in srgb, var(--accent) 80%, black);
 }
 
 #mic.on .meter {
   background: color-mix(in srgb, var(--on-accent) 35%, transparent);
 }
 
-#mic.on + .fbtn-caret,
-#deafen.on + .fbtn-caret,
-#cam.on + .fbtn-caret {
-  color: var(--on-accent);
-}
-
-.fbtn.off {
-  border-color: var(--danger);
-  background: rgba(184, 80, 63, 0.35);
+/* Off is calm: the neutral fill and the slashed glyph, nothing red. */
+.fbtn.off:not(#away-toggle) {
+  color: var(--text-dim);
 }
 
 /* the off state swaps to the slashed icon */
@@ -3763,16 +3824,37 @@ a.crumb-here:hover {
   cursor: default;
 }
 
+/* End call: solid red, a plain handset turned down. */
 .fbtn.danger {
   background: var(--danger);
   border-color: var(--danger);
+  color: var(--on-danger);
+}
+
+.fbtn.danger:hover {
+  background: color-mix(in srgb, var(--danger) 82%, white);
+  border-color: color-mix(in srgb, var(--danger) 82%, white);
+}
+
+.fbtn.danger:active {
+  background: color-mix(in srgb, var(--danger) 82%, black);
+}
+
+#hangup:not(.dial) .glyph i,
+#call-out-hangup:not(.dial) .glyph i {
+  transform: rotate(135deg);
 }
 
 /* After Hang up: the phone turns green to dial back in, the module says so, and the rest of the toolbar waits. */
 .fbtn.dial {
   background: var(--ok);
   border-color: var(--ok);
-  color: #fff;
+  color: var(--on-danger);
+}
+
+.fbtn.dial:hover {
+  background: color-mix(in srgb, var(--ok) 82%, white);
+  border-color: color-mix(in srgb, var(--ok) 82%, white);
 }
 
 .no-call {
@@ -3942,9 +4024,9 @@ a.crumb-here:hover {
 
 /* The meter still tracks your real input level while muted (so you can see
    you're talking before you unmute), but a green fill there read as "still
-   live" -- red matches the muted icon/border instead. */
+   live" -- a grey one reads as off. */
 .fbtn.off .meter {
-  background: rgba(184, 80, 63, 0.55);
+  background: color-mix(in srgb, var(--text) 18%, transparent);
 }
 
 .fbtn .badge {
@@ -4937,6 +5019,7 @@ span.message-vis {
 }
 
 #floatbar-overflow .fbtn {
+  border-radius: 6px;
   width: 100%;
   height: auto;
   min-height: 34px;
@@ -5433,10 +5516,6 @@ span.message-vis {
 
 .canvas.compact .fbtn {
   --action-btn-h: 34px;
-}
-
-.canvas.compact .fbtn-caret {
-  font-size: 11px; /* the box keeps its one size and corner (.fbtn-caret) */
 }
 
 .canvas.compact .status-float {
@@ -9214,8 +9293,15 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   white-space: nowrap;
 }
 
-.status-band-name > i {
-  font-size: 10px;
+.status-band-icon {
+  flex: none;
+  align-self: center;
+  font-size: 11px;
+  color: inherit;
+}
+
+.status-band-icon + .status-band-name {
+  margin-left: 5px;
 }
 
 /* The pin at today: a disc larger than the bar, filled with its phase's colour (a fill, no coloured ring), a ring of
@@ -9244,16 +9330,23 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   color: inherit;
 }
 
-/* The days to go: the number in the nav text (.nav-text, space.js), the words under it small (a caption: the one
-   small type in the strip, on purpose). */
+/* The countdown (space.js; Thomas, 2026-10-14): one chip, the number large and bold with its words ("days to Trip",
+   or "Trip starts today") beside it on one baseline. The words are the nav text (.nav-text, space.js); the number the
+   nav size a quarter larger, bold. Filled with the accent in the theme's tokens, inside the neutral border, the height
+   and rhythm of the facts' chips (28px). Gone on a phone's slim line. */
 .status-togo {
-  display: flex;
+  display: inline-flex;
   flex: none;
-  flex-direction: column;
-  justify-content: center;
-  min-width: 0;
+  align-items: baseline;
+  gap: 5px;
+  box-sizing: border-box;
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
   color: var(--header-text);
-  line-height: 1.1;
+  line-height: 26px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -9262,13 +9355,15 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   display: none;
 }
 
-.status-togo-n {
-  color: inherit;
+.status-togo-days {
+  font-size: calc(var(--nav-font-size) * 1.25);
+  font-weight: 800;
+  line-height: 26px;
 }
 
 .status-togo-words {
-  font-size: 10px;
-  color: color-mix(in srgb, var(--header-text) 70%, transparent);
+  color: inherit;
+  line-height: 26px;
 }
 
 /* The facts (space.js, host.facts; plan-space-story-strip.md, step 5): up to three chips after the days to go, each a
@@ -9429,7 +9524,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 
 /* Narrow: the names in the bands go first (the bar keeps its colours, the pin and the days to go). */
 @media (max-width: 760px) {
-  .status-strip .status-band-box {
+  .status-strip .status-band-name {
     display: none;
   }
 }
@@ -9503,6 +9598,10 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   }
 
   /* A 2px line has no room for a border: the band is the colour itself, paler behind today and ahead of it. */
+  .topbar > .status-strip .status-band-box {
+    display: none;
+  }
+
   .topbar > .status-strip .status-band {
     border: 0;
     border-radius: 0;
@@ -10046,6 +10145,11 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   height: 10px;
   border-radius: 3px;
   background: var(--tint, var(--accent));
+}
+
+.phase-row-icon {
+  flex: none;
+  color: var(--text-dim);
 }
 
 .phase-row-label {
@@ -11357,22 +11461,11 @@ h4.setup-subheading {
   gap: 6px;
 }
 
-/* Join the call, a row under the strip out of the call (space.js hides it on the call, with nothing in it). Who is here
-   is the top bar's. */
-.side-column-bar {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 36px;
-  padding: 4px 8px;
-  border-bottom: 1px solid var(--border);
-  background: var(--shade);
-}
-
-.side-column-call {
-  flex: none;
-  display: flex;
+/* Out of the call, Start call (or Join call) is the right end of the chat's Discussion | Assistant row (space.js). On the
+   call the chat keeps a line between it and the call area above it (Call position Top; at the bottom the call's own
+   titlebar has the line, and Left puts the two side by side). */
+.side-column.call-area:not(.call-bottom):not(.call-left) .side-column-chat {
+  border-top: 1px solid var(--border);
 }
 
 /* The chat, a column of its own (as it floats), its resize handle and its close gone: the column never closes. */
@@ -11559,14 +11652,10 @@ body.in-aside .side-column-strip > .canvas {
   border-top: 1px solid var(--border);
 }
 
-.side-column.call-bottom .side-column-bar {
-  order: 4;
-  border-top: 1px solid var(--border);
-  border-bottom: 0;
-}
-
-/* The column's handle sits at the top right: clear of the chat's "..." when the chat is on top. */
-.side-column.call-bottom #chat-content > header {
+/* The column's handle sits at the top right: clear of the chat's "..." when the chat is on top (at the bottom, and out of
+   the call, when the chat has no call area above it). */
+.side-column.call-bottom #chat-content > header,
+.side-column:not(.call-area) #chat-content > header {
   padding-right: 38px;
 }
 
@@ -11650,11 +11739,6 @@ body.in-aside .side-column-strip > .canvas {
 .side-column.call-left > .side-column-call-out {
   grid-area: out;
   padding-right: 8px;
-}
-
-.side-column.call-left > .side-column-bar {
-  grid-area: bar;
-  min-width: 0;
 }
 
 body:not(.in-aside) .side-column.call-left > .side-column-chat {

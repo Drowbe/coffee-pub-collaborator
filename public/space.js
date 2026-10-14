@@ -501,7 +501,7 @@ function renderSpaces() {
       applyWords(card); // the template's data-fill titles, in this environment's words
       card.dataset.space = r.id;
       card.querySelector('[data-join]').dataset.join = r.id;
-      list.appendChild(card);
+      list.insertBefore(card, $('home-add-space')); // the ghost card stays last
     }
     card.classList.toggle('aside', Boolean(r.isAside));
     // Entering is the primary action; joining the call is a separate choice inside (plan-entering.md). A space's
@@ -518,11 +518,6 @@ function renderSpaces() {
     if (r.isAside) { card.removeAttribute('role'); card.removeAttribute('tabindex'); card.removeAttribute('aria-label'); }
     else { card.setAttribute('role', 'button'); card.tabIndex = 0; card.setAttribute('aria-label', spaceDisplayName(r)); }
     if (enter.title !== enterLabel) enter.title = enterLabel; // the whole label, wherever a narrow card cuts it short
-    // Set up (plan-setup-panel.md, step 6): one link for whoever may set this space up (owners, the admin, its
-    // moderators), to /?setup=<id>; on this page a press enters the space and opens the panel without a reload.
-    const edit = card.querySelector('[data-edit]');
-    edit.hidden = r.isAside || !(hasOwnerRights(me) || me?.spaces?.[r.id]?.permissions?.moderator);
-    edit.href = `/?setup=${encodeURIComponent(r.id)}`;
     const link = card.querySelector('[data-link]');
     link.hidden = !r.link;
     if (r.link) {
@@ -543,7 +538,7 @@ function renderSpaces() {
     card.querySelector('.space-choice-count').textContent = r.isAside ? '' : hereCount(members, r.id);
     renderMembers(card.querySelector('.members'), members, r.id, Boolean(r.isAside));
   }
-  for (const card of [...list.children]) if (!keep.has(card.dataset.space)) card.remove();
+  for (const card of [...list.children]) if (card.id !== 'home-add-space' && !keep.has(card.dataset.space)) card.remove();
   renderSpaceListHead();
   syncHomeChat(); // Home's chat column, with no space entered (plan-home-lobby.md, step 3)
 }
@@ -560,6 +555,7 @@ function renderSpaceListHead() {
   const label = `Add ${word('space', { cap: true })}`;
   $('home-add-space-label').textContent = label;
   button.title = label;
+  button.setAttribute('aria-label', label);
   button.hidden = Boolean(guestToken) || !hasOwnerRights(me);
   // The Modules column's heading (plan-home-lobby.md, decision 11): the module word, the template's when it sets one.
   const modules = $('home-modules-title');
@@ -1061,7 +1057,7 @@ nav.register({ ...SPACE_TOOL, id: 'rejoin-call', order: 52, phone: 'bar', short:
 // only while in the call, shows the conference and opens them. It sits in the session group, ahead of the clock.
 nav.register({
   id: 'call-settings', bar: 'primary', zone: 'right', group: 'session', order: 50, icon: 'sliders', label: 'Call settings',
-  visible: () => inCall,
+  visible: () => inCall && !guestToken && canDo('canInvite'),
   onClick: () => {
     document.querySelector('.modules-menu-item[data-builtin="conference"]')?.click(); // shows the conference view
     setTimeout(() => { if ($('settings').hidden || $('settings').dataset.group !== 'more') openSettings('more'); }, 50);
@@ -1077,6 +1073,7 @@ function syncCallControl() {
   syncWhoIsInCall();
   whoHere.refresh(); // who is here, in the top bar or the phone's tab bar (space-people.js)
   nav.draw('secondary'); // Join the call shows only out of the call
+  paintJoinCall();
   syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
 // The conference's "Not in a call" note lists who is in the call now: the call's own participants whose `call` attribute
@@ -1129,12 +1126,22 @@ const joinCallButton = document.createElement('button');
 joinCallButton.type = 'button';
 joinCallButton.id = 'join-call';
 joinCallButton.className = 'btn btn-small btn-accent join-call nav-text'; // the nav text's type, the accent button's colours
-joinCallButton.setAttribute('aria-label', 'Join the call');
-joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label">Join<span class="join-call-more"> the call</span></span>';
+joinCallButton.setAttribute('aria-label', 'Start call');
+joinCallButton.title = 'Start a call from this chat';
+joinCallButton.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"></i> <span class="join-call-label"><span class="join-call-verb">Start</span><span class="join-call-more"> call</span></span>';
+// "Start call" while no one is in the call, "Join call" while one is running (the call's own people whose `call`
+// attribute is not off, as the conference's note lists them).
+function paintJoinCall() {
+  const running = [...call.remoteParticipants.values()].some((p) => p.attributes?.call !== 'off');
+  const verb = running ? 'Join' : 'Start';
+  joinCallButton.querySelector('.join-call-verb').textContent = verb;
+  joinCallButton.setAttribute('aria-label', `${verb} call`);
+  joinCallButton.title = running ? 'Join the call that is running' : 'Start a call from this chat';
+}
 joinCallButton.addEventListener('click', () => joinTheCall());
 const joinCallWanted = () => Boolean(currentSpace) && call.state === 'connected' && !inCall
   && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
-nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted });
+nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted });
 // Entering joins by itself where the environment says so (GitHub #199, branding.autoJoinCall): the rule is
 // shouldAutoJoin (opens-with.js, held by check-canvas), asked once by connectAndSetup() on each entry, and it joins only
 // where Join the call would show (joinCallWanted), never in an aside, and not for a person who left the call since they
@@ -1189,7 +1196,7 @@ placeColumnTools = () => {
     columnToolsIn = where;
     if (toColumn) {
       nav.unregister(joinCallTool.id);
-      columnEl.querySelector('.side-column-call').appendChild(joinCallButton);
+      $('chat-views')?.appendChild(joinCallButton); // the right end of the Discussion | Assistant row
     } else if (!nav.get(joinCallTool.id)) nav.register(joinCallTool);
   }
   // Who is here: the top bar's wider than a phone, the tab bar's on a phone (the same element, moved by the registry).
@@ -1200,9 +1207,9 @@ placeColumnTools = () => {
 // What the column shows now: Join the call out of the call (its row hidden on the call, with nothing in it), and the
 // rail.
 function syncColumn() {
+  paintJoinCall();
   if (!columnEl || columnToolsIn !== 'column') return;
   joinCallButton.hidden = !joinCallWanted();
-  columnEl.querySelector('.side-column-bar').hidden = joinCallButton.hidden;
   columnEl.classList.toggle('in-call', inCall);
   applyColumnSizes();
   syncRail();
@@ -1266,7 +1273,7 @@ const columnWidthNow = () => clampColumnWidth(prefs.chatWidth, columnWin().inner
 function callChrome() {
   const bar = $('video-bar');
   const toolbar = bar && bar.closest('.side-column-strip') && !confEl.classList.contains('call-off') ? bar.offsetHeight : 0;
-  return toolbar + (columnEl.querySelector('.side-column-bar')?.offsetHeight || 0) + (columnEl.querySelector('#call-head')?.offsetHeight || 0);
+  return toolbar + (columnEl.querySelector('#call-head')?.offsetHeight || 0);
 }
 // The call's width beside the chat (Left), held to the column it is in now.
 const callSideWidthNow = () => clampCallSide(prefs.callSideWidth, columnWidthNow());
@@ -1426,7 +1433,7 @@ function syncShareLift() {
 }
 
 // --- the call's place (Thomas, 2026-10-14: the call pops out again, and never squeezes the chat) ---------------------
-// Call position, on the caret beside the toolbar's Pop out (#call-place), in the call's own titlebar's "..." (#call-more)
+// Call position, in the call's own titlebar's "..." (#call-more)
 // and in Chat's "...": the top of the column (the default), its bottom (the chat above the call), the left of the chat
 // (beside it, the column's full height, in a column at least CALL_LEFT_MIN wide; narrower it shows at the top, the choice
 // kept, and comes back when the column is wide again), a floating window over the Workspace (canvas.liftBuiltin, the
@@ -1455,21 +1462,17 @@ const CALL_OUT_NOTES = { window: 'The call is in its own window', float: 'The ca
 function syncCallPlace() {
   const where = callWhere();
   const outside = where === 'window' || where === 'float' || where === 'share';
-  const pop = $('call-popout');
-  if (pop) {
-    const back = outside;
-    const label = back ? 'Bring the call back' : 'Pop out the call';
-    if (pop.title !== label) {
-      pop.title = label;
-      pop.setAttribute('aria-label', label);
-      pop.querySelector('i').className = `fa-solid fa-${back ? 'arrow-left' : 'up-right-from-square'} fa-fw`;
-    }
-    pop.classList.toggle('on', back);
-    // A phone has no window to pop into (a pop-up is a new tab there): only the way back shows.
-    const wrap = $('call-place-wrap');
-    const hide = phoneWidth() && where !== 'window';
-    if (wrap && wrap.hidden !== hide) { wrap.hidden = hide; setTimeout(fitFloatbar, 0); }
+  // The titlebar's Pop out, and the conference's own when it floats: Bring back once the call is out of the column.
+  const label = outside ? 'Bring the call back' : 'Pop out the call';
+  for (const pop of [columnEl?.querySelector('#call-head-popout'), $('conf-popout')]) {
+    if (!pop || pop.title === label) continue;
+    pop.title = label;
+    pop.setAttribute('aria-label', label);
+    pop.querySelector('i').className = `fa-solid fa-${outside ? 'arrow-left' : 'up-right-from-square'} fa-fw`;
   }
+  // A phone has no window to pop into (a pop-up is a new tab there): only the way back shows.
+  const noPop = phoneWidth() && where !== 'window';
+  for (const pop of [columnEl?.querySelector('#call-head-popout'), $('conf-popout')]) if (pop) pop.hidden = noPop;
   if (!columnEl) return;
   // No call area out of the call (Thomas, 2026-10-14: "when not in a call we should not show the call area"): no
   // titlebar, no Left column beside the chat, whatever Call position is saved (kept for the next call); the chat fills
@@ -1552,12 +1555,11 @@ function callMenuItems() {
   else if (where !== 'closed' && !phoneWidth()) items.push({ icon: 'up-right-from-square', label: 'Pop out the call', onPick: popOutCall });
   if (where !== 'closed') items.push({ divider: true }, ...callPlaceItems());
   if (inCall) {
-    items.push(
-      { divider: true },
-      // After the menu has closed, so the click that picked it does not close the settings again.
-      { icon: 'gear', label: 'Settings', onPick: () => setTimeout(() => openSettings('more'), 0) },
-      { icon: 'phone-slash', label: 'Leave the call', danger: true, onPick: () => $('hangup').click() },
-    );
+    items.push({ divider: true });
+    // The guest link's switch, for whoever can manage the space. After the menu has closed, so the click that picked
+    // it does not close the settings again.
+    if (!guestToken && canDo('canInvite')) items.push({ icon: 'gear', label: 'Settings', onPick: () => setTimeout(() => openSettings('more'), 0) });
+    items.push({ icon: 'phone-slash', label: 'Leave the call', danger: true, onPick: () => $('hangup').click() });
   }
   return items;
 }
@@ -1620,14 +1622,10 @@ function setCallHead(def) {
   const icon = columnEl?.querySelector('#call-head-icon');
   if (icon && def.icon) icon.className = `fa-solid fa-${def.icon} fa-fw`;
 }
-$('call-popout')?.addEventListener('click', () => (['window', 'float', 'share'].includes(callWhere()) ? bringCallBack() : popOutCall()));
-$('call-place')?.addEventListener('click', (event) => {
-  event.stopPropagation();
-  const caret = event.currentTarget;
-  // Folded into the toolbar's "...", the menu opens from there.
-  const anchor = caret.getClientRects().length ? caret : $('floatbar-more');
-  openHostMenu(anchor, callPlaceItems);
-});
+// Pop out on the titlebar (and on the conference's own when it floats): the same as the "..." entry.
+for (const pop of [columnEl?.querySelector('#call-head-popout'), $('conf-popout')]) {
+  pop?.addEventListener('click', () => (['window', 'float', 'share'].includes(callWhere()) ? bringCallBack() : popOutCall()));
+}
 if (callOutEl) {
   // Each control here clicks the call's own and looks as it does (its state, its tooltip), wherever the call is.
   for (const b of callOutEl.querySelectorAll('[data-for]')) {
@@ -1667,7 +1665,7 @@ placeColumnTools(); // now that the two exist
 
 // --- the status strip: the phase chip and its track (phase-sheet.js) ----------------------------------------------
 // The space's status, one line (plan-space-status-strip.md, step 1; plan-space-story-strip.md, steps 1 and 2): the
-// chip, "● Booking starts tomorrow · Trip in 35 days" (the story sentence, Phases.storyParts; no caret, it opens the
+// chip, "● Booking starts tomorrow" (the story sentence, Phases.storyParts; no caret, it opens the
 // sheet, not a menu) and, beside it, the journey bar: the phases end to end, each band named (and its icon, when the
 // template gives one) where it fits, the past pale, today's filled with the accent, the ones to come outlined, the
 // main phase drawn heavier, a pin at today with the day of the month, and the days to go at its end. Then the facts
@@ -1705,8 +1703,8 @@ const statusTrack = document.createElement('span');
 statusTrack.className = 'status-track';
 statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it
 const statusToGo = document.createElement('span');
-statusToGo.className = 'status-togo';
-statusToGo.setAttribute('aria-hidden', 'true'); // the sentence says it too
+statusToGo.className = 'status-togo nav-text'; // the nav text, as every word in the bars
+statusToGo.setAttribute('aria-hidden', 'true'); // the chip's story carries the phase; this is the countdown to it
 statusToGo.hidden = true;
 // The facts modules report (host.facts, plan-space-story-strip.md step 5): up to three chips after the days to go, each a
 // button opening a small menu. Not a live region: a fact that changes is not read out (the plan's accessibility rule);
@@ -1773,21 +1771,25 @@ function drawStatusTrack(bands, today) {
     else if (b.end && today > b.end) seg.classList.add('past');
     if (b.main) seg.classList.add('main');
     const at = todayPercent(b, shares[i].days, today, { rule: R });
-    // The name sits in a box that drops it to a hidden second line when the band is too narrow (style.css); in
+    // The icon and the name sit in a box that drops the name, then the icon, to a hidden line when the band is too narrow (style.css); in
     // today's band it keeps to the side the pin is not on.
     const box = doc.createElement('span');
     box.className = 'status-band-box';
     if (at !== null && at < 50) box.classList.add('end');
     const name = doc.createElement('span');
     name.className = 'status-band-name nav-text'; // the nav text; its colour is the band's (style.css)
+    name.append(b.label);
+    // The icon is its own item beside the name: a band too narrow for the name drops the name to the hidden second
+    // line and keeps the icon; one too narrow for both loses the icon too. The full name stays in the tooltip.
     if (phaseIcons[b.id]) {
       const icon = doc.createElement('i');
-      icon.className = `fa-solid fa-${phaseIcons[b.id]}`;
-      name.appendChild(icon);
+      icon.className = `fa-solid fa-${phaseIcons[b.id]} status-band-icon`;
+      icon.setAttribute('aria-hidden', 'true');
+      box.appendChild(icon);
     }
-    name.append(b.label);
     box.appendChild(name);
     seg.appendChild(box);
+    seg.title = b.label;
     if (at !== null) {
       const mark = doc.createElement('span');
       mark.className = 'status-today'; // inside the band: takes its colour
@@ -1819,13 +1821,19 @@ function drawStatusTrack(bands, today) {
   const togo = R.countdown(bands, today);
   statusToGo.hidden = !togo;
   if (togo) {
-    const n = doc.createElement('span');
-    n.className = 'status-togo-n nav-text';
-    n.textContent = String(togo.days);
+    // "2 days to Trip": the number large and bold, the rest beside it; "Trip starts today" has no number.
     const rest = doc.createElement('span');
     rest.className = 'status-togo-words';
-    rest.textContent = togo.words.slice(String(togo.days).length + 1); // "days to Trip", "days left"
-    statusToGo.replaceChildren(n, rest);
+    if (togo.days > 0) {
+      const n = doc.createElement('b');
+      n.className = 'status-togo-days';
+      n.textContent = String(togo.days);
+      rest.textContent = togo.words.slice(String(togo.days).length + 1); // "days to Trip"
+      statusToGo.replaceChildren(n, rest);
+    } else {
+      rest.textContent = togo.words;
+      statusToGo.replaceChildren(rest);
+    }
   } else statusToGo.replaceChildren();
 }
 // The chip's words: the sentence's clauses, each after the first its own span with its " · ", so a narrow strip drops
@@ -2319,16 +2327,6 @@ function setupDeleted(space) {
   else loadPresence();
   saySetup(`Deleted ${space.name || word('space')}.`);
 }
-// The space card's Set up link on Home (`[data-edit]`, to /?setup=<id>): here it enters the space and opens the panel
-// without reloading the page (a reload would end a call). A press meant for a new tab or window keeps the link's own.
-document.addEventListener('click', (event) => {
-  const link = event.target.closest?.('[data-edit]');
-  if (!link || event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-  const id = link.closest('[data-space]')?.dataset.space;
-  if (!id) return;
-  event.preventDefault();
-  openSetupFor(id);
-});
 // The one line after Save, read out, under the canvas's edge for a moment.
 const setupSaid = document.createElement('p');
 setupSaid.id = 'space-setup-said';
@@ -5490,7 +5488,8 @@ function setNoCall(off) {
   h.classList.toggle('danger', !off);
   h.classList.toggle('dial', off);
   h.title = off ? 'Join the call' : `Leave the call (you stay in the ${word('space')})`;
-  h.querySelector('i').className = off ? 'fa-solid fa-phone fa-fw' : 'fa-solid fa-phone-slash fa-fw';
+  h.setAttribute('aria-label', off ? 'Join the call' : 'Leave the call');
+  h.querySelector('i').className = 'fa-solid fa-phone fa-fw'; // the handset, turned down to hang up (style.css)
 }
 // Join the call from outside the conference: the space bar's Join the call, and a pull that finds me on the call
 // (connectAndSetup). Shows the Conference the way its Show switch does (canvas.showBuiltin: opened if hidden, brought
@@ -6402,7 +6401,6 @@ function offerInstall() {
   const hint = describeInstall();
   $('install-hint').textContent = hint;
   $('install-hint').hidden = !hint;
-  $('install-note').textContent = hint;
   if (!isGuestViewer() && 'serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 }
 
@@ -7410,7 +7408,6 @@ async function init() {
     // everything the space itself already handles the same for everyone.
     $('join').hidden = true;
     $('guest-section').hidden = true;
-    $('settings-links').hidden = true;
     try {
       const info = await api('GET', `/api/guest-link/${encodeURIComponent(guestToken)}`);
       $('guest-space-name').textContent = `${verb('enter')} ${info.spaceName}`;
@@ -7437,7 +7434,6 @@ async function init() {
     $('whoami').textContent = me.displayName;
     $('whoami-img').src = `/img/${encodeURIComponent(me.key)}/profile?v=${Date.now()}`;
     $('whoami-img').hidden = false;
-    $('admin-link-2').hidden = !hasOwnerRights(me);
     // The account's own mic/camera processing settings take over from
     // whatever this browser had locally, so joining from anywhere lands
     // already set up the way the account is configured.

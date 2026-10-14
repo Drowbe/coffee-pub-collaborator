@@ -1130,13 +1130,17 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       line = document.createElement('p');
       line.className = 'chat-view-empty';
     }
-    line.textContent = text;
+    // Only when the words differ: setting them again replaces the text node, which the observer below sees as a change
+    // and runs syncEmpty again, for ever (the page hangs).
+    if (line.textContent !== text) line.textContent = text;
     if (line.parentNode !== list || line !== list.lastElementChild) list.appendChild(line);
   }
   const messagesEl = $('messages');
   if (messagesEl && typeof MutationObserver === 'function') {
     new MutationObserver((records) => {
-      if (records.every((r) => [...r.addedNodes, ...r.removedNodes].every((n) => n.classList?.contains('chat-view-empty')) && r.type === 'childList')) return;
+      // The empty line's own changes (its place, its words) never call for another look.
+      const own = (n) => Boolean(n.classList?.contains('chat-view-empty'));
+      if (records.every((r) => r.type === 'childList' && (own(r.target) || [...r.addedNodes, ...r.removedNodes].every(own)))) return;
       syncEmpty();
     }).observe(messagesEl, { childList: true, attributes: true, subtree: true, attributeFilter: ['data-in'] });
   }

@@ -1437,10 +1437,10 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const H = 'public/space.html';
   const home = html.slice(html.indexOf('<div class="home" id="home">'), html.indexOf('<!-- A guest link'));
   if (!home) fail(H, 'Home needs its columns in <div class="home" id="home">');
-  const order = ['id="home-chat"', 'id="home-chat-slot"', 'id="home-chat-splitter"', 'class="home-main"', 'id="whos-around"', 'id="space-list-title"', 'id="home-add-space"', 'id="spaces"', 'id="join-error"', 'id="home-modules"', 'id="home-modules-title"', 'id="dashboard"'];
+  const order = ['id="home-chat"', 'id="home-chat-slot"', 'id="home-chat-splitter"', 'class="home-main"', 'id="whos-around"', 'id="space-list-title"', 'id="spaces"', 'id="home-add-space"', 'id="join-error"', 'id="home-modules"', 'id="home-modules-title"', 'id="dashboard"'];
   const at = order.map((a) => home.indexOf(a));
   if (at.some((i) => i < 0)) fail(H, `Home keeps every id, in its column: missing ${order.filter((_, i) => at[i] < 0).join(', ')}`);
-  else if (at.some((i, n) => n && i < at[n - 1])) fail(H, 'Home reads Chat (its slot and splitter), then the spaces (Who\'s around, the heading row, the cards), then the Modules (their heading, #dashboard)');
+  else if (at.some((i, n) => n && i < at[n - 1])) fail(H, 'Home reads Chat (its slot and splitter), then the spaces (Who\'s around, the heading row, the cards and the ghost card), then the Modules (their heading, #dashboard)');
   if (!/<aside class="home-chat" id="home-chat" aria-label="Chat" hidden>/.test(home)) fail(H, 'the chat column is an aside named Chat, hidden until space.js shows it');
   const split = home.slice(home.lastIndexOf('<', home.indexOf('id="home-chat-splitter"')), home.indexOf('>', home.indexOf('id="home-chat-splitter"')) + 1);
   if (!split.includes('role="separator"') || !split.includes('aria-orientation="vertical"') || !split.includes('tabindex="0"') || !split.includes('aria-label="Resize the chat column"') || !split.includes('side-column-splitter-v')) fail(H, '#home-chat-splitter is a focusable vertical separator named "Resize the chat column", drawn as the space column\'s');
@@ -1535,9 +1535,9 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
   const bar = html.slice(html.indexOf('id="floatbar"'), html.indexOf('id="floatbar-overflow"'));
-  if (!/id="call-popout"[^>]*title="Pop out the call"/.test(bar)) fail('public/space.html', 'the call\'s toolbar has a visible Pop out (#call-popout, "Pop out the call")');
-  if (!/id="call-place"[^>]*title="Call position"[^>]*aria-haspopup="menu"/.test(bar)) fail('public/space.html', 'Pop out\'s caret is Call position (#call-place), a menu');
-  if (!/id="call-place-wrap" data-collapse="\d+"/.test(bar)) fail('public/space.html', 'Pop out folds with the rest of the toolbar (data-collapse)');
+  // Pop out is on the call's titlebar (#call-head-popout) and the conference's own (#conf-popout), not the toolbar (Thomas, 2026-10-14).
+  if (!/id="call-head-popout"[^>]*title="Pop out the call"[^>]*aria-label="Pop out the call"/.test(html)) fail('public/space.html', 'the call\'s titlebar has a Pop out button (#call-head-popout, "Pop out the call")');
+  for (const id of ['call-popout', 'call-place', 'call-place-wrap', 'settings-toggle']) if (bar.includes(`id="${id}"`)) fail('public/space.html', `the call's toolbar no longer has #${id}; it lives in the titlebar's menus`);
   for (const id of ['call-out', 'call-out-note', 'call-back']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the column needs #${id}`);
   // No "Hide the video" (Thomas, 2026-10-14: "I am not sure we need to 'hide the video'... remove it"): no button at
   // the end of the row, no menu entry, no slim call in the column, no toggle; a `callTiles` stored before is ignored.
@@ -1576,7 +1576,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/onShown: \(def\) => \{ showBuiltinName\(def\); setCallHead\(def\); \}/.test(spaceJs) || !/name\.textContent = callTitle\(def\.name\);/.test(spaceJs)) fail(F, 'the call\'s titlebar follows the environment\'s name for the conference (setCallHead, callTitle)');
   if (!/\.side-column-call-head \{[^}]*height: var\(--module-header-h\);[^}]*border-bottom: 1px solid var\(--border\);/.test(css)) fail('public/style.css', 'the call\'s titlebar is drawn as the chat\'s (the module header\'s height, the border token)');
   if (!/heading: 'Call position'/.test(spaceJs)) fail(F, 'Call position is the menu\'s heading');
-  if (!/\$\('call-place'\)\?\.addEventListener\('click'[\s\S]{0,400}openHostMenu\(anchor, callPlaceItems\)/.test(spaceJs)) fail(F, 'Call position opens on the shared menu (openHostMenu)');
+  if (!/\.\.\.callPlaceItems\(\)/.test(spaceJs)) fail(F, 'Call position is in the titlebar\'s "..." (callPlaceItems)');
   if (!/label: 'Call position', items: \(\) => callPlaceItems\(\)/.test(spaceJs)) fail(F, 'Chat\'s "..." has Call position too');
   if (!/label: 'Pop out the call', onPick: popOutCall/.test(spaceJs) || !/label: 'Bring the call back', onPick: bringCallBack/.test(spaceJs)) fail(F, 'Chat\'s "..." pops the call out and brings it back');
   if (!/function popOutCall\(\) \{\n  if \(canvas\.columnMode\(\)\) \{\n    if \(!canvas\.popBuiltin\('conference'\)\)/.test(spaceJs)) fail(F, 'Pop out moves the conference into its own window (canvas.popBuiltin), never a second join');
@@ -1643,13 +1643,13 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const end = html.indexOf('id="floatbar-overflow"');
   const bar = start >= 0 && end > start ? html.slice(start, end) : '';
   if (!bar) fail('public/space.html', 'the call\'s toolbar (#floatbar) is missing');
-  const OLD_CONTROLS = ['mic', 'meter', 'deafen', 'cam', 'screen-share', 'layout', 'layout-glyph', 'away-toggle', 'react-toggle', 'settings-toggle', 'space-link', 'floatbar-more', 'hangup'];
+  const OLD_CONTROLS = ['mic', 'meter', 'deafen', 'cam', 'screen-share', 'layout', 'layout-glyph', 'away-toggle', 'react-toggle', 'space-link', 'floatbar-more', 'hangup'];
   for (const id of OLD_CONTROLS) if (!bar.includes(`id="${id}"`)) fail('public/space.html', `the call's toolbar lost #${id}`);
-  for (const g of ['mic', 'audio', 'camera', 'layout', 'more']) if (!bar.includes(`data-settings="${g}"`)) fail('public/space.html', `the call's toolbar lost its data-settings="${g}"`);
+  for (const g of ['mic', 'audio', 'camera', 'layout']) if (!bar.includes(`data-settings="${g}"`)) fail('public/space.html', `the call's toolbar lost its data-settings="${g}"`);
   for (const id of ['floatbar-overflow', 'react-tray', 'settings', 'mic-select', 'gain', 'gate', 'noise', 'echo', 'agc', 'talk-mode', 'speaker-select', 'master-volume', 'test-speaker', 'cam-select', 'quality', 'mirror', 'background-mode', 'layout-pick']) {
     if (!html.includes(`id="${id}"`)) fail('public/space.html', `the call's settings lost #${id}`);
   }
-  const want = { mic: 10, cam: 9, deafen: 7, layout: 6, 'away-toggle': 5, 'screen-share': 4, 'react-toggle': 3, 'settings-toggle': 2, 'space-link': 1 };
+  const want = { mic: 10, cam: 9, deafen: 7, layout: 6, 'away-toggle': 5, 'screen-share': 4, 'react-toggle': 3, 'space-link': 1 };
   const priorityOf = {};
   let wrapPriority = NaN;
   for (const line of bar.split('\n')) {

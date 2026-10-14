@@ -988,13 +988,16 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   };
   const left = [reg('who-here'), reg('join-call'), reg('module-chooser')].map((t, i) => ({ ...t, seq: i + 1 }));
   assert.deepEqual(ids(arrange(left)), [['module-chooser'], ['join-call'], ['who-here']], 'Layout, Join the call, Online: three groups, a divider between each');
-  // Its own button: a phone icon, the words "Join the call" (its accessible name; on a phone the tab reads "Join"),
-  // the accent look and the Layout button's size, nothing new in colour.
+  // Its own button: a phone icon, the words "Start call" or "Join call" (its accessible name, by whether a call is
+  // running; on a phone the tab reads "Start" or "Join"), the accent look and the Layout button's size, nothing new in
+  // colour. Wider than a phone it sits at the right end of the chat's Discussion | Assistant row (#chat-views).
   assert.match(space, /joinCallButton\.id = 'join-call';/);
   assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/);
-  assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Join the call'\);/);
-  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label">Join<span class="join-call-more"> the call<\/span><\/span>';/);
-  assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted \}\);/);
+  assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Start call'\);/);
+  assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label"><span class="join-call-verb">Start<\/span><span class="join-call-more"> call<\/span><\/span>';/);
+  assert.match(space, /const verb = running \? 'Join' : 'Start';/, 'Join call while a call runs, Start call while none does');
+  assert.match(space, /\$\('chat-views'\)\?\.appendChild\(joinCallButton\)/, 'wider than a phone it is in the chat\'s view row');
+  assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted \}\);/);
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\n\.join-call \{/, 'its own size rule');
   assert.match(css, /\n\.join-call\[hidden\] \{\s*display: none;/, 'hidden means hidden, whatever its display');
@@ -2081,10 +2084,12 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(css, /\.status-strip \.status-fact \{[^}]*border: 1px solid var\(--border\);[^}]*background: color-mix\(in srgb, var\(--header-text\) 8%, transparent\);/, 'a chip is filled, in the neutral border (no coloured border)');
   assert.match(css, /\.status-fact-fill \{[^}]*width: var\(--fact-progress, 0%\);[^}]*background: color-mix\(in srgb, var\(--accent\) 32%, transparent\);/, 'progress is a fill of the accent');
   assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-facts \{\n\s*display: none;/, 'the facts are gone at 760px, with the names in the bands');
-  assert.ok(css.indexOf('.status-strip .status-facts {\n    display: none;') < css.indexOf('@media (max-width: 760px) {\n  .status-strip .status-band-box'), 'the facts give way before the names');
+  assert.ok(css.indexOf('.status-strip .status-facts {\n    display: none;') < css.indexOf('@media (max-width: 760px) {\n  .status-strip .status-band-name'), 'the facts give way before the names');
   assert.ok(css.indexOf('.status-facts {') > css.indexOf('.status-togo {'), 'the slot after the days to go');
   assert.match(track, /statusTrack\.classList\.toggle\('lead', outside === 'lead'\);\n\s*statusTrack\.classList\.toggle\('trail', outside === 'trail'\);/, 'today before the first phase or after the last: the pin at that end');
-  assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-band-box \{\n\s*display: none;/, 'the names in the bands go before the bar');
+  assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-band-name \{\n\s*display: none;/, 'the names in the bands go before the bar, the icons stay');
+  assert.match(css, /\.topbar > \.status-strip \.status-band-box \{\n\s*display: none;/, 'on a phone\'s 2px line neither name nor icon');
+  assert.match(space, /icon\.className = `fa-solid fa-\$\{phaseIcons\[b\.id\]\} status-band-icon`;[\s\S]*box\.appendChild\(icon\);[\s\S]*box\.appendChild\(name\);[\s\S]*seg\.title = b\.label;/, 'a band\'s icon is its own item before the name, with the full name as the tooltip');
   assert.match(css, /\.status-band-box \{\n\s*position: absolute;\n\s*inset: 0;\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'a name too long for its band drops out whole');
   assert.match(css, /\.status-strip \.phase-chip \.phase-chip-label \{\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'the sentence\'s later clauses drop whole');
   assert.match(css, /\.status-strip \.phase-chip \.story-lead \{\n\s*flex: 0 1 auto;\n\s*min-width: 0;\n\s*overflow: hidden;\n\s*text-overflow: ellipsis;/, 'the first clause is cut last, with an ellipsis');
@@ -2207,11 +2212,9 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.match(space, /placeSetupName\(\); \/\/ while setting up, the current segment is the name's input/, 'the breadcrumb carries the input after every draw');
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
   // Step 6: the card's two links are one Set up link to /?setup=<id>, for whoever may set up (owners, the admin, moderators).
-  assert.match(html, /<a class="btn btn-small" data-edit href="#" title="Set up" aria-label="Set up" hidden><i class="fa-solid fa-sliders fa-fw" aria-hidden="true"><\/i><\/a>/, 'the card\'s one link, Set up');
+  assert.ok(!/data-edit/.test(html) && !/data-edit/.test(space), 'the card has no Set up button (Thomas, 2026-10-14); Set up is the top bar tool inside the space, or /?setup=<id>');
   assert.ok(!/data-module-settings|title="Full settings"/.test(html), 'the moderators\' sliders link and Full settings are gone');
-  assert.match(space, /edit\.hidden = r\.isAside \|\| !\(hasOwnerRights\(me\) \|\| me\?\.spaces\?\.\[r\.id\]\?\.permissions\?\.moderator\);\n\s*edit\.href = `\/\?setup=\$\{encodeURIComponent\(r\.id\)\}`;/);
   assert.ok(!/module-settings\?space=|`\/spaces\/\$\{/.test(space), 'space.js links to neither old page');
-  assert.match(space, /const id = link\.closest\('\[data-space\]'\)\?\.dataset\.space;\n\s*if \(!id\) return;\n\s*event\.preventDefault\(\);\n\s*openSetupFor\(id\);/, 'a press on the card enters the space and opens Set up without a reload');
   assert.deepEqual(setupTabs({ owner: true }), ['space', 'members', 'phases', 'opens-with', 'modules']);
   assert.deepEqual(setupTabs({ owner: true, moderator: true }), ['space', 'members', 'phases', 'opens-with', 'modules'], 'an owner who is also ticked moderator sees everything');
   assert.deepEqual(setupTabs({ moderator: true }), ['phases', 'opens-with', 'modules'], 'what the server lets a moderator PATCH (phases, opensWith, defaultLayout), and the module settings');
@@ -2523,8 +2526,8 @@ test('the one bar: the switcher in the Spaces slot\'s place, the layout tabs aft
 // Manage's Add button makes (POST /api/spaces, no new route), then enters it and opens Set up.
 test('Add <space> on Home: owners and the admin, the existing request, then into the space with Set up open', () => {
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
-  assert.match(html, /<div class="space-list-head" id="space-list-head">\n\s*<h2 class="space-list-title" id="space-list-title"><\/h2>\n\s*<button class="btn btn-primary" id="home-add-space" type="button" hidden>/, 'the row above the cards: the home word, then the button (hidden until the page knows who is looking)');
-  assert.match(html, /id="home-add-space"[^\n]*\n\s*<\/div>\n\s*<div class="space-list" id="spaces">/, 'the row sits right above the space cards');
+  assert.match(html, /<h2 class="space-list-title" id="space-list-title"><\/h2>\n\s*<\/div>/, 'the row above the cards holds the home word only');
+  assert.match(html, /<div class="space-list" id="spaces">[^<]*(<!--[\s\S]*?-->)?\s*<button class="space-choice-add" id="home-add-space" type="button" hidden>[^\n]*<\/button>\n\s*<\/div>/, 'Add <space> is the ghost card inside the grid (hidden until the page knows who is looking)');
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.match(space, /const label = `Add \$\{word\('space', \{ cap: true \}\)\}`;/, 'the button reads Add <Space> in the template\'s word');
   assert.match(space, /button\.hidden = Boolean\(guestToken\) \|\| !hasOwnerRights\(me\);/, 'owners and the admin only, never a guest');
@@ -2534,7 +2537,9 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
   const admin = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
   assert.match(admin, /await api\('POST', '\/api\/spaces', \{ name: `\$\{word\('space', \{ cap: true \}\)\} \$\{spaces\.length\}`, description: '', members: \[\] \}\)/, 'Manage\'s own request is unchanged');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /@media \(max-width: 480px\) \{\n\s*\.space-list-head \.btn \{\n\s*flex: 1 1 100%;/, 'on a phone the button takes a row of its own, full width');
+  assert.match(css, /\.space-choice-add \{[^}]*border: 2px dashed var\(--border\);/, 'the ghost card is a dashed outline');
+  assert.match(css, /\.space-choice-add:focus-visible/, 'and fills on keyboard focus');
+  assert.match(space, /list\.insertBefore\(card, \$\('home-add-space'\)\)/, 'cards go before the ghost card, which stays last');
 });
 
 // One nav text (Thomas, 2026-10-14: "we need to be using the same classes for things ... The correct one is the
@@ -2557,7 +2562,7 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/, 'Join the call');
   assert.match(space, /phaseChip\.className = 'phase-chip nav-text';/, 'the phase chip');
   assert.match(space, /name\.className = 'status-band-name nav-text';/, 'a band\'s name');
-  assert.match(space, /n\.className = 'status-togo-n nav-text';/, 'the days to go');
+  assert.match(space, /statusToGo\.className = 'status-togo nav-text';/, 'the countdown chip\'s words');
   assert.equal(space.split("dayOfMonth.className = 'status-today-day nav-text';").length - 1, 2, 'the pin\'s day, in and outside the bar');
   assert.match(people, /<button class="who-here-toggle nav-text" id="who-here-toggle"/, 'Who is here');
   assert.match(brand, /whoami\.className = 'whoami nav-text';/, 'your name');
@@ -2567,7 +2572,7 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   // No rule on those elements sets a size or weight of its own (the phone's tab bar, inside body.in-space .subnav, and
   // the phone menu's rows are not the bar; the portraits' letters, the caption and icons are not words of the nav).
   const own = /^(font-size|font-weight|font)\s*:/;
-  const subject = /(\.core-link|\.nav-text|\.space-switcher-button|\.who-here-toggle|\.who-here-count|button\.whoami|\.whoami\b(?![-\w])|\.join-call|\.phase-chip|\.story-part|\.story-lead|\.status-band|\.status-togo-n|\.status-today|\.page-bar-name|\.page-bar \.subtab|\.crumb-here|\.crumb-label|\.topbar-status)\s*$/;
+  const subject = /(\.core-link|\.nav-text|\.space-switcher-button|\.who-here-toggle|\.who-here-count|button\.whoami|\.whoami\b(?![-\w])|\.join-call|\.phase-chip|\.story-part|\.story-lead|\.status-band|\.status-togo|\.status-today|\.page-bar-name|\.page-bar \.subtab|\.crumb-here|\.crumb-label|\.topbar-status)\s*$/;
   const skip = /menu-open|body\.in-space (\.subnav|\.who-here)|\.status-band-name > i|\.status-band-box/;
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     for (const sel of m[1].split(',').map((s) => s.trim().replace(/^\/\*[\s\S]*?\*\/\s*/, ''))) {

@@ -63,7 +63,7 @@ has(space, /canvas\.open\(moduleId\);\n\s*if \(object && object\.module\) canvas
 ok(!/attentionButton\.(style|innerHTML)/.test(space), 'no inline colours or markup on the count');
 
 // --- phase icons in the journey bar ------------------------------------------------------------------------------
-has(space, /icon\.className = `fa-solid fa-\$\{phaseIcons\[b\.id\]\}`;/, 'a phase\'s icon in its band');
+has(space, /icon\.className = `fa-solid fa-\$\{phaseIcons\[b\.id\]\} status-band-icon`;/, 'a phase\'s icon in its band');
 has(space, /typeof p\.icon === 'string' && \/\^\[a-z0-9-\]\+\$\/\.test\(p\.icon\)/, 'only a plain icon name is used');
 
 // --- the look: theme tokens only ---------------------------------------------------------------------------------

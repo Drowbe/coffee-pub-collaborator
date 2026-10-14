@@ -1067,4 +1067,11 @@ test('Send to...: the private warning is on each entry\'s hint, and Chat\'s note
   assert.match(set, /setTimeout\(\(\) => \{ if \(seq === noteSeq\) el\.textContent = text; \}, 60\);/, 'words set after the region shows, the latest only');
 });
 
+test('the Assistant\'s empty line cannot start a loop: its words are set only when they differ, and its own changes are ignored (page hang on /t)', () => {
+  const sync = fnBody(chat.replace(/^  /gm, ''), 'function syncEmpty(');
+  assert.match(sync, /if \(line\.textContent !== text\) line\.textContent = text;/, 'setting the same words again replaces the text node, which the observer sees, for ever');
+  assert.ok(!/^\s*line\.textContent = text;/m.test(sync), 'no unconditional write of the line\'s words');
+  assert.match(chat, /r\.type === 'childList' && \(own\(r\.target\) \|\| \[\.\.\.r\.addedNodes, \.\.\.r\.removedNodes\]\.every\(own\)\)/, 'the observer skips the empty line\'s own changes, a text node in it included');
+});
+
 console.log(`check-chat-page: OK (${n} tests)`);

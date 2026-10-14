@@ -222,7 +222,7 @@ async function startServer(root, extraEnv = {}) {
     const text = await res.text();
     let json = null;
     try { json = JSON.parse(text); } catch { /* not JSON */ }
-    return { status: res.status, json, text, location: res.headers.get('location') };
+    return { status: res.status, json, text, location: res.headers.get('location'), headers: res.headers };
   };
   const signIn = async (login, password) => {
     const r = await call('POST', '/api/login', { body: { login, password } });
@@ -300,6 +300,9 @@ try {
   const [alice, bob] = [await mk('alice'), await mk('bob'), await mk('carol')];
   const keep = (await call('POST', '/api/spaces', { token: admin, body: { name: 'Keep', members: [alice, bob] } })).json.space.id;
   const tower = (await call('POST', '/api/spaces', { token: admin, body: { name: 'Tower', members: [alice] } })).json.space.id;
+  // A creator is a member of the space they make (GitHub #239); these cases want the admin outside both.
+  await call('PATCH', `/api/spaces/${keep}`, { token: admin, body: { members: [alice, bob] } });
+  await call('PATCH', `/api/spaces/${tower}`, { token: admin, body: { members: [alice] } });
   const guest = (await call('POST', `/api/spaces/${keep}/guest-link`, { token: admin, body: {} })).json.space.guestToken;
   assert.ok(guest, 'the Keep has a guest link');
   for (const zip of [datesZip, tasksZip, globeZip, pinsZip]) {
@@ -430,6 +433,25 @@ try {
     assert.deepEqual((await call('GET', '/api/destinations/calendar', { token: carolT })).json.spaces, [], 'Carol is in none');
     assert.equal((await call('GET', '/api/destinations/map', { token: aliceT })).status, 404);
     assert.equal((await call('GET', '/api/destinations/agenda', { token: aliceT })).json.error, 'That page is not in this top bar.');
+  });
+
+  await test('live: the app shell refuses frames; the pages we frame ourselves stay frameable', async () => {
+    const refuses = (r, what) => {
+      assert.equal(r.status, 200, `${what} is served`);
+      assert.equal(r.headers.get('content-security-policy'), "frame-ancestors 'none'", `${what} refuses frames`);
+      assert.equal(r.headers.get('x-frame-options'), 'DENY', `${what} refuses frames (old browsers)`);
+    };
+    refuses(await call('GET', '/', { token: aliceT }), '/');
+    refuses(await call('GET', `/guest/${encodeURIComponent(guest)}`), 'the guest page');
+    for (const framed of ['/calendar', `/calendar?space=${keep}`, '/profile', '/modules/dest-dates', '/modules/dest-dates?space=' + keep]) {
+      const r = await call('GET', framed, { token: aliceT });
+      assert.ok(r.status === 200 || r.status === 302, `${framed} answers (${r.status})`);
+      assert.equal(r.headers.get('x-frame-options'), null, `${framed} stays frameable`);
+      assert.ok(!/frame-ancestors/.test(r.headers.get('content-security-policy') || ''), `${framed} sets no frame-ancestors`);
+    }
+    // /map has no module here yet (404 to a member); the page itself must still carry no guard.
+    const map = await call('GET', '/map', { token: admin });
+    assert.equal(map.headers.get('x-frame-options'), null, '/map stays frameable');
   });
 
   await test('live: /calendar, the module pages leading to it, pop-outs left alone, and the tiles\' href', async () => {

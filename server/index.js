@@ -2665,17 +2665,20 @@ mountOldLinks(app);
 
 // Pages ----------------------------------------------------------------------
 
-// A frame guard on the app shell (frame-ancestors) was considered and left out: it could break a legitimate embedding. Decide with Thomas.
+// The app shell must never load inside a frame (clickjacking). Only these two routes carry it: nothing of ours frames
+// the shell (the overlay, composites and module frames hold /profile, /admin, /modules/..., /calendar, /map, /m/...).
+const NOT_FRAMED = { 'Content-Security-Policy': "frame-ancestors 'none'", 'X-Frame-Options': 'DENY' };
+
 app.get('/', (req, res) => {
   if (!currentUser(req)) return res.redirect('/login');
-  res.sendFile(page('space.html'));
+  res.set(NOT_FRAMED).sendFile(page('space.html'));
 });
 
 // A guest link: the same page, in guest mode (space.js reads the token from
 // the URL itself -- see guestToken there). No account, so no redirect to
 // sign in; a dead or turned-off link is handled client-side instead.
 app.get('/guest/:token', (_req, res) => {
-  res.sendFile(page('space.html'));
+  res.set(NOT_FRAMED).sendFile(page('space.html'));
 });
 
 app.get('/login', (req, res) => {
@@ -3520,7 +3523,7 @@ app.get('/api/spaces', (req, res) => {
 });
 app.post('/api/spaces', requireOwner, (req, res) => {
   const { name, description, members, profile, link, linkIcon } = req.body || {};
-  res.json({ space: store.addSpace({ name, description, members, profile, link, linkIcon }) });
+  res.json({ space: store.addSpace({ name, description, members, profile, link, linkIcon, creator: currentUser(req).key }) });
 });
 app.post('/api/spaces/order', requireOwner, (req, res) => {
   res.json({ spaces: store.reorderSpaces((req.body || {}).order) });
@@ -3920,7 +3923,7 @@ const refusedInLobby = (manifest, spaceId) => spaceId === LOBBY && manifest && !
 function moduleSpaceAccess(entry, who, space) {
   if (!modules.isOnIn(entry.id, space.id)) return false;
   if (who.user) return hasOwnerRights(who.user) || space.members.includes(who.user.key);
-  return who.guestSpace.id === space.id;
+  return Boolean(who.guestSpace) && who.guestSpace.id === space.id; // a keyed viewer (the access key) is in no space
 }
 
 // A module's scope as a request names it (?scope=): 'environment' (also when none is named), 'space', 'spaces' (a
@@ -5711,7 +5714,7 @@ const refAnswer = (fn) => {
 // Summaries for a list of pointers, one answer each (a summary, or why not).
 app.post('/api/objects/resolve', (req, res) => {
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   const from = String(req.body?.from || '');
   const refs = Array.isArray(req.body?.refs) ? req.body.refs.slice(0, 50) : [];
   res.json({ summaries: refs.map((ref) => refAnswer(() => resolveRef(who, ref, from))).map((c, i) => (c.error ? { ref: refs[i], ...c } : c)) });
@@ -5732,7 +5735,7 @@ const SEARCH_CAP = 50;
 const SEARCH_CAP_PLACES = 1000;
 app.get('/api/objects/search', (req, res) => {
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   const from = String(req.query.from || '');
   if (!modules.enabled(from)) return res.status(404).json({ error: `no such ${word('module')}` });
   const scope = askedScope(req.query.scope, res, ['environment', 'space', 'spaces', 'person']);
@@ -5793,7 +5796,7 @@ app.get('/api/objects/format/schema', (req, res) => {
 // One object, by address (the same answer the batch gives).
 app.get('/api/modules/:id/objects/:kind/:objectId', (req, res) => {
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   const out = refAnswer(() => ({ summary: resolveRef(who, { module: req.params.id, kind: req.params.kind, id: req.params.objectId, scope: req.query.scope, space: req.query.space }, String(req.query.from || '')) }));
   res.status(out.status || 200).json(out);
 });
@@ -5900,7 +5903,7 @@ app.get('/api/modules/:id/markers', (req, res) => {
 // can see and the module is approved to link to, and the viewer must be able to write to the module.
 app.post('/api/objects/links', (req, res) => {
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   const asker = String(req.body?.module || '');
   const from = req.body?.from;
   const found = modules.enabled(asker);
@@ -5937,7 +5940,7 @@ app.post('/api/objects/links', (req, res) => {
 // points at (`dir=from`): summaries, each only for what the viewer may see.
 app.get('/api/objects/links', (req, res) => {
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   let ref;
   try {
     ref = JSON.parse(String(req.query.ref || ''));
@@ -6051,7 +6054,7 @@ function busMayDo(who, providerId, scope, space, request) {
 }
 const busRoute = (fn) => (req, res) => {
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   try {
     res.json(fn(who, req));
   } catch (err) {
@@ -7423,16 +7426,16 @@ app.get('/api/modules/:id/context', (req, res) => {
 // Modules on one space's canvas, for the call's Modules menu.
 app.get('/api/modules/for-space', (req, res) => {
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   const space = store.spaceById(String(req.query.space || ''));
   if (!space) return res.status(404).json({ error: `no such ${word('space')}` });
   const perms = modulePerms(who, space.id);
   res.json({
     modules: modules.enabledAll()
       .filter(({ manifest, entry }) => manifest.scope.includes('space') && manifest.surfaces.canvas && moduleSpaceAccess(entry, who, space) && moduleCan(manifest, perms, 'read'))
-      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), color: manifest.color || null, version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
+      .map(({ manifest, entry }) => ({ id: manifest.id, ...shownModule(manifest), color: manifest.color || null, ...(manifest.description ? { description: manifest.description } : {}), version: manifest.version, scope: manifest.scope, runMode: modules.runModeOf(entry), canvas: manifest.surfaces.canvas, commands: manifest.commands || [], permissions: manifest.permissions.map((p) => `module.${manifest.id}.${p.key}`).filter((k) => perms[k]) })),
     // The built-in modules' names and icons as this environment shows them (the canvas's Conference and Chat switches).
-    builtin: BUILTIN_MODULES.map((b) => ({ id: b.id, ...shownModule(b) })),
+    builtin: BUILTIN_MODULES.map((b) => ({ id: b.id, ...shownModule(b), ...(b.description ? { description: fillWords(b.description) } : {}) })),
     // What this space opens with, or null when it has no list of its own. The environment's list is what a new space
     // opens with when the space itself has none.
     opensWith: Array.isArray(space.opensWith) && space.opensWith.length ? [...space.opensWith] : null,
@@ -7698,7 +7701,7 @@ app.get('/api/notifications/stream', requireUser, (req, res) => {
 app.get('/api/modules/stream', (req, res) => {
   const env = currentEnvironment(); // captured once: the close handler below fires later, outside this request
   const who = moduleViewer(req);
-  if (!who) return res.status(401).json({ error: 'sign in first' });
+  if (!who || who.keyed) return res.status(401).json({ error: 'sign in first' }); // the access key opens only a module's keyed page
   const space = req.query.space ? store.spaceById(String(req.query.space)) : null;
   if (req.query.space && !space) return res.status(404).json({ error: `no such ${word('space')}` });
   res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });

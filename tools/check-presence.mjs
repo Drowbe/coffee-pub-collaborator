@@ -213,6 +213,9 @@ try {
   const [alice, bob, carol, dana] = [await mk('alice'), await mk('bob'), await mk('carol'), await mk('dana')];
   const spaceA = (await call('POST', '/api/spaces', { token: admin, body: { name: 'Keep', members: [alice, carol, dana] } })).json.space.id;
   const spaceB = (await call('POST', '/api/spaces', { token: admin, body: { name: 'Tower', members: [bob] } })).json.space.id;
+  // A creator is a member of the space they make (GitHub #239); these cases want the admin outside both.
+  await call('PATCH', `/api/spaces/${spaceA}`, { token: admin, body: { members: [alice, carol, dana] } });
+  await call('PATCH', `/api/spaces/${spaceB}`, { token: admin, body: { members: [bob] } });
   const guestA = (await call('POST', `/api/spaces/${spaceA}/guest-link`, { token: admin, body: {} })).json.space.guestToken;
   assert.ok(guestA, 'the Keep has a guest link');
   const [aliceT, bobT, carolT, danaT] = [await signIn('alice', 'memberpass1234'), await signIn('bob', 'memberpass1234'), await signIn('carol', 'memberpass1234'), await signIn('dana', 'memberpass1234')];

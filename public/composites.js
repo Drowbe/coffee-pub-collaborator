@@ -76,7 +76,7 @@ export function composeList(modules, shown = []) {
     const c = on.find((x) => x.main === m.id);
     if (c) {
       out.push({
-        id: c.id, name: m.name, displayName: m.displayName, icon: m.icon, color: m.color || null, version: m.version, scope: m.scope,
+        id: c.id, name: m.name, displayName: m.displayName, icon: m.icon, description: m.description, color: m.color || null, version: m.version, scope: m.scope,
         runMode: 'frame', composite: c, commands: [], permissions: [],
         canvas: { entry: null, width: c.width, height: c.height, mode: ['dock', 'float'] },
       });

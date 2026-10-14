@@ -1691,13 +1691,16 @@ class Store {
     return this.spaces;
   }
 
-  addSpace({ name, description, members, profile, link, linkIcon }) {
+  // `creator` is the key of whoever makes it: they become one of its members (GitHub #239) so they can be picked in its
+  // people lists; never twice, and the Lobby (made by the store itself) is not made here.
+  addSpace({ name, description, members, profile, link, linkIcon, creator }) {
     let id;
     do id = randomKey();
     while (this.idTaken(id));
     const startsWith = profile ?? this.data.settings.spaceDefaults?.profile; // the environment's default (a template's)
     const space = this.sanitizeSpace({ id, name: name || `New ${this.word('space')}`, description, members, profile: startsWith, link, linkIcon, createdAt: new Date().toISOString() });
     space.members = space.members.filter((k) => this.userByKey(k));
+    if (creator && this.userByKey(creator) && !space.members.includes(creator)) space.members.push(creator);
     this.data.spaces.push(space);
     this.save();
     return this.spaceById(id);

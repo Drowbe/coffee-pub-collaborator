@@ -480,7 +480,7 @@ test('the Layout menu (plan-layout-menu.md; Thomas, 2026-10-13): the page\'s sha
   const items = canvasJs.slice(canvasJs.indexOf('  function layoutMenuItems() {'), canvasJs.indexOf('  let menuTrigger = null;'));
   assert.ok(items.indexOf("{ heading: 'Show' }") < items.indexOf("{ heading: 'Arrange' }") && items.indexOf("{ heading: 'Arrange' }") < items.indexOf('const extra = typeof menuItems') && items.indexOf('const extra') < items.indexOf('if (noteEl) items.push({ element: noteEl });'), 'Show, Arrange, the page\'s entries, the note');
   // Show: a switch per module (toggle items, the shared switch look), on while the module is shown, flipping it.
-  assert.match(items, /items\.push\(\{ toggle: true, checked: shown\(m\.id\), icon: m\.icon, tint: colorOf\(m\.id\), label: m\.name, badge: unreadOf\(m\.id\), onPick: \(\) => flipShown\(m\.id\) \}\);/);
+  assert.match(items, /items\.push\(\{ toggle: true, checked: shown\(m\.id\), icon: m\.icon, tint: colorOf\(m\.id\), label: m\.name, \.\.\.\(m\.description \? \{ hint: m\.description, clamp: true \} : \{\}\), badge: unreadOf\(m\.id\), onPick: \(\) => flipShown\(m\.id\) \}\);/);
   // Arrange (not on a narrow canvas): Panel Mode and Window Mode as a set (radio items, the chosen one checked, the
   // menu kept open), then in Window Mode only Snap to grid (a switch), the grid's size while it is on, and Clean up.
   assert.match(items, /if \(!isNarrow\(\)\) \{\n\s*const windowMode = arrangeMode\(\) === 'window';/);
@@ -617,6 +617,14 @@ test('the default layout (plan-saved-layouts.md, step 4): Make default in a shar
   assert.doesNotMatch(settings, /allSpaces|\.spaces\b|on for every|data-module|switchRowHtml/, 'the Set up panel has no availability switches ("off in this" left out: Turn AI off in this space is the panel\'s own AI switch)');
   assert.match(settings, /<ul class="setup-module-list" id="setup-module-list">/, 'the Modules tab lists what is on');
   assert.doesNotMatch(settingsHtml, /Switch one on|marked on for every/, 'the Modules hint no longer offers a switch');
+  // #237: a module is chosen or reviewed with its one-line description beside its name: the Set up list (title and a
+  // two-line clamp), the Layout menu's Show rows (hint, clamped, read after the name) and the composite keeps it.
+  assert.match(settings, /setup-module-about hint/, 'the Modules tab shows each module\'s description');
+  assert.match(settings, /const about = String\(m\.description \|\| ''\)\.trim\(\);/, 'a module without one shows nothing');
+  assert.match(canvasJs, /\.\.\.\(m\.description \? \{ hint: m\.description, clamp: true \} : \{\}\)/, 'the Layout menu\'s Show rows carry the description');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/host-menu.js'), 'utf8'), /aria-describedby/, 'the menu reads the description after the name');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/composites.js'), 'utf8'), /icon: m\.icon, description: m\.description,/, 'a composite keeps its main\'s description');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8'), /\.setup-module-about \{[^}]*-webkit-line-clamp: 2;/, 'two lines at most');
   // Space settings: the line and Stop using it; a list set by hand refreshes it from the answered space.
   assert.match(settingsHtml, /<button type="button" class="btn btn-small" id="setup-opens-with-layout-stop">Stop using it<\/button>/);
   assert.ok(settingsHtml.indexOf('id="setup-opens-with-layout"') < settingsHtml.indexOf('id="setup-opens-with"'), 'above the switches');

@@ -1758,8 +1758,8 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const shown = (id) => opened.has(id) && !hiddenByView(id);
     const builtinList = columnMode() ? [] : [...builtins.values()].sort((a, b) => a.order - b.order).filter((def) => !def.allowed || def.allowed());
     const items = [{ heading: 'Show' }];
-    for (const def of builtinList) items.push({ toggle: true, checked: shown(def.id), icon: def.icon, label: def.name, badge: builtinUnread[def.id] || 0, onPick: () => flipShown(def.id) });
-    for (const m of available) items.push({ toggle: true, checked: shown(m.id), icon: m.icon, tint: colorOf(m.id), label: m.name, badge: unreadOf(m.id), onPick: () => flipShown(m.id) });
+    for (const def of builtinList) items.push({ toggle: true, checked: shown(def.id), icon: def.icon, label: def.name, ...(def.description ? { hint: def.description, clamp: true } : {}), badge: builtinUnread[def.id] || 0, onPick: () => flipShown(def.id) });
+    for (const m of available) items.push({ toggle: true, checked: shown(m.id), icon: m.icon, tint: colorOf(m.id), label: m.name, ...(m.description ? { hint: m.description, clamp: true } : {}), badge: unreadOf(m.id), onPick: () => flipShown(m.id) });
     if (!isNarrow()) {
       const windowMode = arrangeMode() === 'window';
       items.push({ divider: true }, { heading: 'Arrange' });
@@ -1943,6 +1943,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       if (!def || typeof b.name !== 'string' || !b.name) continue;
       const was = def.name;
       def.name = b.name;
+      def.description = typeof b.description === 'string' ? b.description : '';
       if (typeof b.icon === 'string' && /^[a-z0-9-]{1,40}$/.test(b.icon)) def.icon = b.icon;
       def.onShown?.(def);
       // A window of its own titled by the module's name follows it (one titled otherwise, the conference's, keeps its own).

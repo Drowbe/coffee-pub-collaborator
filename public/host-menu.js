@@ -10,7 +10,7 @@
 // moves from a row to its "..." (`more`), Left back; Right or Enter on the "..." opens that row's own entries in a
 // flyout beside it, as a category's, and Left or Escape closes just that flyout.
 //
-// An item is { label, icon?, regular?, tint?, hint?, tip?, ariaLabel?, danger?, disabled?, checked?, toggle?, radio?,
+// An item is { label, icon?, regular?, tint?, hint?, clamp?, tip?, ariaLabel?, danger?, disabled?, checked?, toggle?, radio?,
 // keepOpen?, badge?, tag?, mark?, more?, onPick }. `checked` (true or false) makes it a checkbox item that says whether it is on (a tool
 // that toggles, folded into the space bar's "..."); with `toggle: true` it is drawn as a switch instead (the same switch
 // as the Show list's) and the menu stays open as it flips, so several can be flipped in a row; with `radio: true` it is
@@ -91,6 +91,8 @@ export function menuItemName(item) {
   const tip = String(item.tip || '').trim();
   return tip && label && tip !== label && tip.toLowerCase().includes(label.toLowerCase()) ? tip : null;
 }
+
+let hintCount = 0;
 
 // Opens the menu under `trigger`, or closes it when it is already open from that same trigger.
 export function openHostMenu(trigger, items) {
@@ -275,6 +277,8 @@ export function openHostMenu(trigger, items) {
       const hint = doc.createElement('span');
       hint.className = 'host-menu-hint';
       hint.textContent = item.hint;
+      // A module's one-line description: two lines at most, the whole in the title and read after the name.
+      if (item.clamp) { hint.classList.add('clamp'); hint.id = `host-menu-hint-${++hintCount}`; b.setAttribute('aria-describedby', hint.id); if (!item.tip) b.title = item.hint; }
       b.appendChild(hint);
     }
     if (item.danger) b.classList.add('danger');

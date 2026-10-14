@@ -514,9 +514,9 @@ function renderSpaces() {
     const enter = card.querySelector('[data-join]');
     card.querySelector('[data-join-icon]').className = `fa-solid fa-${back ? 'circle-left' : r.isAside ? 'phone' : 'door-open'} fa-fw`;
     card.querySelector('[data-join-label]').textContent = enterLabel;
-    const popout = card.querySelector('[data-join-popout]');
-    const popoutLabel = `${action} in a pop-out window`;
-    if (popout.title !== popoutLabel) { popout.title = popoutLabel; popout.setAttribute('aria-label', popoutLabel); }
+    // The whole card enters the space (GitHub #225): a button by role, named for the space; an aside's card stays as it was.
+    if (r.isAside) { card.removeAttribute('role'); card.removeAttribute('tabindex'); card.removeAttribute('aria-label'); }
+    else { card.setAttribute('role', 'button'); card.tabIndex = 0; card.setAttribute('aria-label', spaceDisplayName(r)); }
     if (enter.title !== enterLabel) enter.title = enterLabel; // the whole label, wherever a narrow card cuts it short
     // Set up (plan-setup-panel.md, step 6): one link for whoever may set this space up (owners, the admin, its
     // moderators), to /?setup=<id>; on this page a press enters the space and opens the panel without a reload.
@@ -671,30 +671,25 @@ function renderMembers(list, members, spaceId, isAside = false) {
 setInterval(() => {
   if (!$('join').hidden || document.body.classList.contains('in-space')) loadPresence();
 }, 5000);
-// Join a space straight into its own window, skipping the step of joining in
-// the page first and then popping out. The window opens first, synchronously
-// with the click (a popup opened after a network wait is what browsers
-// block); the canvas moves into it, and is revealed there once connected.
-async function joinInPopout(spaceId) {
-  if (!pipWindow) openPopout();
-  if (call.state === 'connected' && currentSpace?.id === spaceId) returnToCanvas();
-  else if (call.state === 'connected') await reconnectTo(spaceId);
-  else await join(spaceId);
-  if (call.state !== 'connected') closePopout(); // it failed; don't leave an empty window
-}
 $('spaces').addEventListener('click', (event) => {
-  const popout = event.target.closest('[data-join-popout]');
-  if (popout) {
-    joinInPopout(popout.closest('.space-choice').dataset.space);
-    return;
-  }
-  const button = event.target.closest('[data-join]');
-  if (!button) return;
-  const spaceId = button.dataset.join;
+  if (event.target.closest('a, button:not([data-join])')) return; // the link and Set up do their own thing
+  const card = event.target.closest('.space-choice[data-space]');
+  if (!card || (card.classList.contains('aside') && !event.target.closest('[data-join]'))) return;
+  enterFromCard(card.dataset.space);
+});
+// Enter or Space on the focused card itself (not on a control inside it) does what pressing it does.
+$('spaces').addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter' && event.key !== ' ') return;
+  const card = event.target;
+  if (!card.matches?.('.space-choice[role="button"]')) return;
+  event.preventDefault();
+  enterFromCard(card.dataset.space);
+});
+function enterFromCard(spaceId) {
   if (call.state === 'connected' && currentSpace?.id === spaceId) returnToCanvas();
   else if (call.state === 'connected') reconnectTo(spaceId);
   else join(spaceId);
-});
+}
 $('guest-join').addEventListener('submit', async (event) => {
   event.preventDefault();
   $('guest-join-error').hidden = true;

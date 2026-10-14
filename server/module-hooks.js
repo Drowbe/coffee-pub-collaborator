@@ -93,6 +93,9 @@ function toMillis(at) {
   return Number.isFinite(ms) ? Math.round(ms) : null;
 }
 
+// The source id of the host's own notices. Not a valid module id (ids start with a letter), so no module can be it.
+const HOST_SOURCE = '$modules';
+
 class ModuleHooks extends EventEmitter {
   constructor(modulesDir, { resolveRecipients }) {
     super();
@@ -104,6 +107,9 @@ class ModuleHooks extends EventEmitter {
     this.schedules = this.read(this.schedulesFile, []);
     if (!Array.isArray(this.schedules)) this.schedules = [];
     this.notifications = this.read(this.notificationsFile, {});
+    // What the host has already announced about the bundled modules (server/module-notices.js): null until the first run.
+    this.announcedFile = path.join(modulesDir, 'announced.json');
+    this.announced = fs.existsSync(this.announcedFile) ? this.read(this.announcedFile, null) : null;
     this.timer = null;
     // Runs the timer's work inside this environment (server/index.js sets it to envContext.run for the environment),
     // so what a fired schedule tells its listeners reads this environment's services, not none.
@@ -244,7 +250,15 @@ class ModuleHooks extends EventEmitter {
   deliver(ctx, note, { by = '' } = {}) {
     const title = clean(note.title, LIMITS.title);
     if (!title) throw new StoreError('a notification needs a title');
-    const recipients = this.resolveRecipients(ctx, note.to);
+    return this.put(ctx, this.resolveRecipients(ctx, note.to), { title, body: note.body }, by);
+  }
+
+  // The host's own notice (not a module's) to these people: stored on each, then told. `href` is the host page it opens.
+  announce(userKeys, { title, body, href }) {
+    return this.put({ module: HOST_SOURCE, scopeKey: 'environment', spaceId: null }, userKeys, { title: clean(title, LIMITS.title), body, href }, 'host');
+  }
+
+  put(ctx, recipients, note, by) {
     const at = Date.now();
     const made = [];
     for (const userKey of recipients) {
@@ -254,12 +268,13 @@ class ModuleHooks extends EventEmitter {
         module: ctx.module,
         scope: ctx.scopeKey === 'environment' ? 'environment' : 'space',
         spaceId: ctx.spaceId || null,
-        title,
+        title: note.title,
         body: clean(note.body, LIMITS.body),
         at,
         read: false,
         by,
       };
+      if (note.href) n.href = note.href;
       list.unshift(n);
       if (list.length > LIMITS.notificationsPerUser) list.length = LIMITS.notificationsPerUser;
       made.push({ userKey, notification: n });
@@ -268,6 +283,11 @@ class ModuleHooks extends EventEmitter {
     if (made.length) this.write(this.notificationsFile, this.notifications);
     for (const m of made) this.tell('notification', m);
     return made.length;
+  }
+
+  saveAnnounced(value) {
+    this.announced = value;
+    this.write(this.announcedFile, value);
   }
 
   list(userKey) {
@@ -295,4 +315,4 @@ class ModuleHooks extends EventEmitter {
   }
 }
 
-module.exports = { ModuleHooks, LIMITS, nextOccurrence };
+module.exports = { ModuleHooks, LIMITS, nextOccurrence, HOST_SOURCE };

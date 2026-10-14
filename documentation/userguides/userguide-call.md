@@ -17,9 +17,10 @@ microphone until you join.
 Who can: anyone whose role allows **See and join the conference**, while the owner has not switched the conference
 off.
 
-To join the call, press **Join the call**, the green phone, in the column above the chat. Your browser asks for your
-microphone. You join with your camera off; turn it on whenever you're ready. If you are not in the call, the column
-shows nothing else of it: no video area, only the chat.
+To join the call, press **Start call** at the right end of the **Discussion | Assistant** row, above the chat. It
+reads **Join call** while someone is already on a call. Your browser asks for your microphone. You join with your camera
+off; turn it on whenever you're ready. If you are not in the call, the column shows nothing else of it: no video area,
+only the chat.
 
 If the environment's plan allows only so many calls at once and they are all running elsewhere, the column says so
 under the button, for example "This environment's plan allows 1 call at once; one is running in The Keep". It names the
@@ -38,8 +39,8 @@ reactions, **L** change the tiles, **F** full screen, **1** to **6** send a reac
 Wider than a phone (more than 640 pixels), the call and the chat are not modules you switch on. They are in a column
 beside the Workspace in every layout tab, whichever one is shown. From top to bottom:
 
-- **The call**, once you have joined: its titlebar, the tiles, and the toolbar. Out of the call this is just the
-  **Join the call** row.
+- **The call**, once you have joined: its titlebar, the tiles, and the toolbar. Out of the call there is no call area;
+  **Start call** (or **Join call**) is at the right end of the chat's **Discussion | Assistant** row.
 - **The chat**, with its **Discussion | Assistant** tabs (see [Chat](userguide-chat.md)).
 
 Who is here is not in the column; it is in the top bar (see "Who is here" below).
@@ -63,22 +64,28 @@ In an aside the column is the whole screen. At 640 pixels wide and below there i
 
 Once you are in the call, the area at the top of the column has:
 
-- **A titlebar.** It reads the environment's name for the conference, else **Call**, and has a **⋮** menu. The menu
-  has **Pop out the call** (or **Bring the call back**), **Call position** (below), and, while you are in the call,
-  **Settings** and **Leave the call**.
+- **A titlebar.** It reads the environment's name for the conference, else **Call**, and while you are in the call it
+  shows how long you have been in it (`12:34`, then `1:00:00` from the first hour; it counts from when you joined). It
+  has a **Pop out** icon, which moves the call into a window of its own, and a **⋮** menu. The menu has **Pop out the
+  call** (or **Bring the call back**), **Call position** (below), and, while you are in the call, **Leave the call**.
+  For people who can manage the space it also has **Settings** (under **Call position**), which holds the switch that
+  turns the space's guest link on and off (**Members** under "Set up" in [Spaces](userguide-spaces.md)). The call's own titlebar, when the call floats or has a window,
+  shows the same time and the same **Pop out** icon.
 - **The tiles.** Everyone on the call as a tile (see "Tiles" below).
-- **The toolbar.** Left to right: the microphone (with a live level meter inside the button), deafen, camera, share
-  screen, **Tiles**, **Pop out the call** (with a small arrow beside it for **Call position**), away, reactions,
-  settings, the space's launch link if it has one, and hang up. As the column narrows, buttons tuck under a **More**
-  button (the three-dot button): the launch link first, then settings, reactions, share screen, away, Tiles, deafen and
-  pop out, then the camera and the microphone last. Hang up never folds. A tooltip names each button and its key.
+- **The toolbar.** Round, quiet buttons of one size. Left to right: the microphone (with a live level meter inside the
+  button), the speaker (deafen), the camera, share screen, **Tiles**, away, reactions, the space's launch link if it
+  has one, and leave, a solid red button. The microphone, speaker, camera and **Tiles** each have a small chevron in the
+  corner for their settings; a click anywhere else on the button does the button's own action. Pop out, **Call
+  position** and settings are not on the toolbar: they are in the call's titlebar and its **⋮** menu. As the column
+  narrows, buttons tuck under a **More** button (the three-dot button): the launch link first, then reactions, share
+  screen, away, Tiles and deafen, then the camera and the microphone last. Leave never folds. A tooltip names each
+  button and its key.
 
 Out of the call there is no call area at all, whatever **Call position** is saved; it comes back when you join.
 
 ### Call position
 
-**Call position** chooses where the call sits. It is on the arrow beside **Pop out the call** on the toolbar, in the
-call's **⋮** menu, and in Chat's **⋮** menu. The choices:
+**Call position** chooses where the call sits. It is in the call's **⋮** menu and in Chat's **⋮** menu. The choices:
 
 - **Top of the column**, the default: the call over the chat.
 - **Bottom of the column**: the chat over the call.
@@ -92,8 +99,8 @@ call's **⋮** menu, and in Chat's **⋮** menu. The choices:
   call back. Your browser may ask you to allow pop-ups the first time.
 
 Top, bottom, left and floating are remembered; its own window is not (a window opens only when you press the button).
-**Pop out the call** on the toolbar does the same as **Its own window**, and becomes **Bring the call back** while the
-call is out of the column. Hang up brings the call back too. A screen share lifts the call into the Workspace as a
+The **Pop out** icon in the call's titlebar does the same as **Its own window**, and becomes **Bring the call back**
+while the call is out of the column. Hang up brings the call back too. A screen share lifts the call into the Workspace as a
 floating window while anyone shares a screen, and puts it back when the last share ends.
 
 ### Tiles
@@ -123,10 +130,10 @@ and how big, and opens them again when you enter. The first time, the space's **
 
 ## Leaving the call, staying in the space
 
-The red hang-up button on the toolbar, or **Leave the call** in the call's menu, leaves the call, not the space. Your
+The red leave button on the toolbar, or **Leave the call** in the call's menu, leaves the call, not the space. Your
 microphone and camera stop, you stop receiving anyone's audio and video, and your tile disappears for everyone else, but
 you stay in the space and stay online, with the chat and the modules still open. The call area goes away and
-**Join the call** is back. The space's own **Leave space**, the last entry of the space's menu in the top bar, is
+**Start call** is back. The space's own **Leave space**, the last entry of the space's menu in the top bar, is
 what leaves the space. The status line reads "in <space>" whether or not you are on the call. If nothing at all is open
 in the Workspace, it says so. In a pop-out window, hang up brings the app back to the page first.
 
@@ -391,8 +398,7 @@ To run Collaborator without browser bars, install it as an app:
 - **Safari on macOS.** **File, Add to Dock**.
 - **iPhones and iPads.** **Share, Add to Home Screen**.
 
-A line in the call's settings (the gear), and a hint under **Join the call** on a phone, say which applies to your
-browser.
+A hint under **Join the call** on a phone says which applies to your browser.
 
 Guests can't install Collaborator. On a guest link (and the windows popped out from it) there is no install hint and
 no install line in the settings, and the browser itself does not offer to install.

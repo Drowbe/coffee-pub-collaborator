@@ -136,22 +136,25 @@ In a space whose environment has phases (the Travel template has them; see [Temp
 thin strip under the top bar shows how the space is going. It is the same on every layout tab. From left to right:
 
 - **The phase chip**: a dot in the phase's colour and one sentence about where the space stands. Examples:
-  "Planning · Booking in 6 days · Trip in 41 days", "Booking starts tomorrow · Trip in 35 days", "Trip · day 3 of 10",
-  "Trip · last day", "Post-trip · back 2 days", "Trip finished". The words are your environment's phase names.
-- **The journey bar**: the phases end to end, each a band in its own colour, with its name (and its icon, when the
-  template gives one) where there is room. Phases already past are paler, today's band is the strongest, and the
+  "Planning · Booking in 6 days", "Booking starts tomorrow", "Trip · day 3 of 10", "Trip · last day", "Post-trip ·
+  back 2 days", "Trip finished". The words are your environment's phase names. The sentence does not say how far off
+  the main phase is; the countdown does.
+- **The journey bar**: the phases end to end, each a band in its own colour, with its icon (when the template gives
+  one) and its name where there is room; where there is only room for one, the icon stays. Phases already past are paler, today's band is the strongest, and the
   main phase's name is set heavier. A pin marks today, with the day of the month.
-- **Days to go**: "35 days to Trip" before the main phase starts, "8 days left" during it.
+- **The countdown**, one chip: "35 days to Trip", "1 day to Trip", or "Trip starts today" on the main phase's first
+  day. It is gone once the main phase is under way, and then the sentence says "Trip · day 3 of 10".
 - **Needs action**, at the right end, only when something does: "2 need action", or "1 needs action". Press it for
   the list: a heading for each module, a line saying how many ("2 to vote in"), and under it each entry. Pick one to
   open it. For now Polls reports the open polls in the space that you have not voted in; its count is what Polls last
   reported, kept for up to seven days. Voting clears it.
 
-Press the chip, the bar or the days to go to open the phase sheet (see "Phases" below). The strip only informs: it opens
+Press the chip, the bar or the countdown to open the phase sheet (see "Phases" below). The strip only informs: it opens
 nothing but the sheet and the list.
 
-As the strip runs short of room, things go in this order: the line of facts, the names in the bands, the words after
-the number of days, the bar (down to a small least width, then out of sight), and last the end of the sentence. On a
+As the strip runs short of room, things go in this order: the line of facts, the names in the bands (their icons stay),
+the words after the number of days, the bar (down to a small least width, then out of sight), and last the end of the
+sentence. On a
 phone the strip is a thin line under the top row: the sentence, with the bar as a thin line along its foot.
 
 The strip is not shown to a guest, in an aside, or while Home shows over the space. A space without phases has no
@@ -179,8 +182,8 @@ object with no date waits.
 
 To change the dates from the strip:
 
-1. Press the phase chip, the bar or the days to go. The **Phases** sheet opens, with the bar of phases over one row for
-   each.
+1. Press the phase chip, the bar or the countdown. The **Phases** sheet opens, with the bar of phases over one row for
+   each, headed by the phase's icon when the template gives one.
 2. Set a phase's **Start** or **End**. The row after it moves with it. A row that says "Not scheduled" has **Add
    dates**; **Skip** on a row clears its dates so its neighbours join. The first phase cannot be skipped.
 3. With nothing dated yet, the sheet asks **Start the first phase on** and a day, then **Start**.
@@ -198,8 +201,9 @@ Wider than 1200 pixels it has three columns, using the page's width:
   has (see [Chat](userguide-chat.md)). It is the chat the Lobby had; nothing said there was lost. Drag its right edge
   to make it wider or narrower, or focus the edge and use the arrow keys (Shift for more, Home and End for the
   least and the most, Shift and Enter for the default). It is not shown to guests, or to a role that cannot read chat.
-- **Spaces**, in the middle: **Who's around**, then the heading with the home word and, for owners and the admin,
-  **Add space**, which makes a space and opens it with Set up so it can be named at once. Then the space cards.
+- **Spaces**, in the middle: **Who's around**, then the heading with the home word, then the space cards. For owners
+  and the admin the last item in the grid is **Add space**, a dashed empty card: it makes a space, makes you one of
+  its members, and opens it with Set up so it can be named at once.
 - **Modules**, on the right: the cards modules provide (see "The Modules column" below), headed with the module word.
   It is hidden while no module has a card.
 
@@ -216,14 +220,14 @@ chat back, with whatever was said in it meanwhile.
 
 ### The space list
 
-Every space card has an **Enter** button (a door) first. After it come the smaller buttons, together: the space's
-launch link, if it has one; one that enters in a pop-out window instead of the page ("Enter in a pop-out window");
-and, for owners, the admin and the space's moderators, **Set up** (a sliders button; see "Set up" below). On a narrow
-card the smaller buttons move to a line of their own under **Enter**. A space you are still connected to offers
+Pressing a space card, anywhere on it, enters the space; its **Enter** button (a door) comes first. After it comes
+the space's launch link, if it has one. There is no pop-out button and no **Set up** on the card: open **Set up** from the
+top bar once you are in the space (see "Set up" below). On a narrow
+card the launch link moves to a line of its own under **Enter**. A space you are still connected to offers
 **Back to <space>** instead of Enter; a long name is cut short with "…", and hovering over the button shows it in full.
 
 **Enter** is the default word. The template or the owner can change it, for example to "Board" (see "The word on
-the button for entering a space" in [Manage](userguide-environment-settings.md)); the pop-out button follows it.
+the button for entering a space" in [Manage](userguide-environment-settings.md)).
 
 An aside you are part of also shows on the list while it lasts, as a card with **Join** (a phone) and a pop-out
 button, "Join in a pop-out window". An aside is a call, so its button always reads Join, whatever the word for
@@ -281,7 +285,7 @@ The first time someone enters a space, what they see is decided by the space's *
 below): the Workspace with the modules switched on under **Opens with**, or the Calendar, the Map or a shared saved
 layout. When the owner has chosen nothing, it is what the environment sets for a new space, else the chat and every
 module on in the space. A guest with nothing set gets the chat and the call's tiles. The call is always out of the
-call, showing **Join the call**: entering never joins it, for anyone (see [The call](userguide-call.md)).
+call, showing **Start call** (or **Join call**): entering never joins it, for anyone (see [The call](userguide-call.md)).
 
 After that, each person's own arrangement is remembered for each space: the modules open, how, and how big. On a
 phone, the first tab shown is the first thing opened.
@@ -300,8 +304,8 @@ modules, only each module's settings. A member has no **Set up**.
 
 To open it:
 
-1. In the space, press **Set up** in the top bar (it shows pressed while the panel is open). Or press **Set up** on the
-   space's card on Home, which enters the space and opens the panel. Manage's **Edit** button on a space (with your environment's word for it, such as **Edit trip**) does the same.
+1. In the space, press **Set up** in the top bar (it shows pressed while the panel is open). Home's **Add space**
+   opens it for the space it makes. Manage's **Edit** button on a space (with your environment's word for it, such as **Edit trip**) does the same.
 2. The space's name in the top bar becomes a box you can type in. The panel opens at the side (the whole screen on a
    phone) with the tabs along its head.
 3. Change what you need, on any tabs. A small dot on a tab means it has changes not yet saved.
@@ -323,8 +327,13 @@ The tabs, with your environment's words for them:
 - **Members** (named for the environment's word for members, such as **Planners**): who belongs to the space,
   **Allow guests**, then **Generate invite link** and the guest link (**Turn on**, **Copy**, **New link**, **Turn
   off**). Members and **Allow guests** are saved with **Save**. The links work at once and are not part of it.
-- **Phases**: each phase's **Start** and **End** in rows, as in the phase sheet. Saved with **Save**. Left out when the
-  environment has no phases.
+- **Phases**: each phase's **Start** and **End** in rows, as in the phase sheet, then the **Budget** field. Saved with
+  **Save**. Left out when the environment has no phases; then the **Budget** field is on the tab named for the space
+  (an owner's), or on **First visit** (a moderator's).
+- **Budget** (a field, not a tab): the space's budget, an amount and a currency, shown while a module that uses it (such
+  as Budget) is on in the space, or when one is already set. Leave the amount empty and choose a currency to give the
+  space a currency with no target; empty both to clear it. Owners, the admin and the space's moderators can set it
+  (see [Budget](userguide-budget.md)).
 - **First visit**: what someone sees the first time they enter. Choose the **Workspace**, with its **Opens with**
   switches (the chat, and each module on in the space), or **Calendar**, **Map** or a shared saved layout. Owners and the
   admin choose which; a moderator can change the **Opens with** switches. A switch that cannot open now stays in the

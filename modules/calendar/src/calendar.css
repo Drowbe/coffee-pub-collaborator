@@ -12,19 +12,19 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* month */
 .month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .dow { padding: 2px 4px; color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
-.day { min-height: 74px; padding: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
+.day { min-height: 74px; padding: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-medium); display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
 .day:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .day.other { opacity: 0.55; }
 .day.today { background: var(--selected-bg); }
 .day.today.ph { background: color-mix(in srgb, var(--accent) 28%, color-mix(in srgb, var(--ph) 16%, var(--bg-card))); }
 .day .n { font-size: 12px; color: var(--text-dim); }
 .day.today .n { color: var(--accent); font-weight: 700; }
-.chip { display: block; width: 100%; padding: 1px 5px; border: 0; border-radius: 4px; background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); font: inherit; font-size: 11px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
+.chip { display: block; width: 100%; padding: 1px 5px; border: 0; border-radius: var(--radius-min); background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--text); font: inherit; font-size: 11px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
 .chip:hover { background: color-mix(in srgb, var(--accent) 38%, transparent); }
 .chip.environment { background: color-mix(in srgb, var(--text-dim) 25%, transparent); }
 .more { font-size: 11px; color: var(--text-dim); }
 .compact .month .day { min-height: 54px; }
-.compact .month .chip { font-size: 0; height: 6px; padding: 0; width: 6px; border-radius: 50%; display: inline-block; margin-right: 2px; background: var(--accent); }
+.compact .month .chip { font-size: 0; height: 6px; padding: 0; width: 6px; border-radius: var(--radius-round); display: inline-block; margin-right: 2px; background: var(--accent); }
 .compact .month .chip.environment { background: var(--text-dim); }
 .compact .month .day .chips { display: flex; flex-wrap: wrap; }
 
@@ -54,19 +54,19 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ph-name { display: block; min-width: 0; font-size: 10px; font-weight: 600; line-height: 1.2; color: color-mix(in srgb, var(--ph) 55%, var(--text)); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .month .day .ph-name { position: absolute; top: 3px; left: 26px; right: 4px; text-align: right; pointer-events: none; }
 .week .day .ph-name { white-space: normal; overflow-wrap: anywhere; text-transform: none; letter-spacing: 0; margin-top: 1px; }
-.phasehead { padding: 3px 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; }
+.phasehead { padding: 3px 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-medium); }
 .phasehead .ph-name { font-size: 12px; }
 
 /* list */
 .list { display: flex; flex-direction: column; gap: 6px; }
 .group h4 { margin: 10px 0 4px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
-.item { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.item { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 8px 10px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-medium); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .item:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .item .when { flex: none; width: 92px; color: var(--accent); font-weight: 600; font-size: 12px; }
 .item .what { min-width: 0; }
 .item .what strong { display: block; overflow-wrap: anywhere; }
 .item .what span { color: var(--text-dim); font-size: 12px; overflow-wrap: anywhere; }
-.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: 999px; font-size: 10px; color: var(--text-dim); }
+.tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--radius-round); font-size: 10px; color: var(--text-dim); }
 .empty { padding: 24px 8px; color: var(--text-dim); text-align: center; }
 
 /* The editor: the form inside the SDK's editor window (host.ui.editor, a modal <dialog class="sdk-editor">), which draws
@@ -95,7 +95,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .tag.space { display: inline-flex; align-items: center; }
 .compact .chip .ri { display: none; }
 .filters { display: flex; flex-wrap: wrap; gap: 6px; }
-.filter { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 12px; background: none; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; opacity: 0.6; }
+.filter { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border: 1px solid var(--border); border-radius: var(--radius-round); background: none; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; opacity: 0.6; }
 .filter.on { color: var(--text); background: var(--selected-bg); opacity: 1; }
 
 /* Date fields: the typed field, a button for the picker, and the weekday it lands on. */
@@ -105,7 +105,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .links-wrap { display: flex; flex-direction: column; gap: 4px; }
 .links-wrap .lbl { color: var(--text-dim); font-size: 12px; }
 .links { display: flex; flex-wrap: wrap; gap: 4px; }
-.links .link { padding: 1px 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text-dim); font: inherit; font-size: 11px; }
+.links .link { padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg); color: var(--text-dim); font: inherit; font-size: 11px; }
 .links .link b { color: var(--accent); font-weight: 600; }
 .links button.link { cursor: pointer; }
 .links button.link:hover { color: var(--text); border-color: var(--accent); }
@@ -113,14 +113,14 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .chip, .item { user-select: none; }
 
 .day.drop, .item.drop, .chip.drop { outline: 2px solid var(--accent); outline-offset: -2px; }
-.note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--border); }
+.note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: var(--radius-medium); background: var(--bg-card); border: 1px solid var(--border); }
 .note.bad { border-color: var(--danger, #c0574a); }
 .day.pick { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
 
 /* The day view: an all-day row, then a column of hours (as one day of the week). */
 .dayview { display: flex; flex-direction: column; gap: 6px; }
 .hours { display: flex; flex-direction: column; gap: 2px; }
-.allday, .hour { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; }
+.allday, .hour { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-medium); }
 .hour { min-height: 34px; cursor: pointer; }
 .hour:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
 .hour.now { border-color: var(--accent); }
@@ -152,7 +152,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .item.ext .when { color: var(--text-dim); }
 .item.ext .what strong { font-weight: 500; font-style: italic; }
 .tag.ext { font-style: normal; border-color: color-mix(in srgb, var(--ext, var(--text-dim)) 55%, var(--border)); }
-.filter.ext .dot { width: 8px; height: 8px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-dim)); }
+.filter.ext .dot { width: 8px; height: 8px; border-radius: var(--radius-round); box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-dim)); }
 .filter.ext.on { background: color-mix(in srgb, var(--ext, var(--accent)) 28%, transparent); }
 .filter.ext.on .dot { background: var(--ext, var(--text-dim)); }
 .filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
@@ -174,7 +174,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .mi { display: inline-flex; align-items: center; margin-right: 4px; vertical-align: -0.1em; }
 .mi svg { width: 1em; height: 1em; fill: var(--mk, var(--text-dim)); }
 .chip.marker:focus-visible, .item.marker:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-.compact .month .chip.marker { padding: 0; border-radius: 1px; background: var(--mk, var(--text-dim)); box-shadow: none; }
+.compact .month .chip.marker { padding: 0; border-radius: var(--radius-min); background: var(--mk, var(--text-dim)); box-shadow: none; }
 .compact .month .chip.marker.past { opacity: 0.45; }
 .compact .chip .mi { display: none; }
 .item.marker { box-shadow: inset 3px 0 0 var(--mk, var(--text-dim)); }

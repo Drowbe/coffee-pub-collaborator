@@ -16,6 +16,15 @@
   --accent: #c8873a;
   --on-accent: #1a1206;
   --accent-hover: color-mix(in srgb, var(--accent) 85%, white);
+  /* The five corner radii; nothing else is ever written as a radius (tools/check-radius.mjs). Min: tiny tags, scrollbar
+     thumbs, kbd, checkboxes, bar ends. Small: buttons, inputs, tabs, chips, menu items, view-switch segments. Medium:
+     cards, menus, popovers, list rows that are boxes. Large: panels, windows, dialogs, sheets, kind lists. Round:
+     avatars, dots, badges, pills, the call toolbar's buttons (on a square box it is a circle). */
+  --radius-min: 3px;
+  --radius-small: 5px;
+  --radius-medium: 7px;
+  --radius-large: 11px;
+  --radius-round: 999px;
   --selected-bg: color-mix(in srgb, var(--accent) 28%, transparent); /* a selected, on or current control: a fill, never a border */
   --primary-hover: var(--accent-hover);
   --secondary: color-mix(in srgb, var(--bg-section) 90%, var(--accent) 10%);
@@ -80,7 +89,7 @@ a {
   background: var(--secondary);
   color: var(--secondary-text);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   padding: 6px 12px;
   font: inherit;
   font-weight: 500;
@@ -130,7 +139,7 @@ a {
   height: var(--action-btn-h);
   padding: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--secondary);
   color: var(--secondary-text);
   font: inherit;
@@ -212,11 +221,11 @@ a {
 }
 
 .tb-tab:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--radius-small) 0 0 var(--radius-small);
 }
 
 .tb-tab:last-child {
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-small) var(--radius-small) 0;
 }
 
 .tb-tab:not(:first-child) {
@@ -236,7 +245,7 @@ select {
   background: var(--bg-input);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   padding: 6px 8px;
   font: inherit;
 }
@@ -252,14 +261,14 @@ select:focus {
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-medium);
   padding: 10px 12px;
 }
 
 .section {
   background: var(--bg-section);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-large);
   padding: 14px;
 }
 
@@ -282,7 +291,7 @@ select:focus {
   overflow: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-large);
   background: var(--bg-section);
   color: var(--text);
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
@@ -323,7 +332,7 @@ select:focus {
   height: 32px;
   padding: 0;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--bg-section);
   color: var(--text-dim);
   font: inherit;
@@ -505,7 +514,7 @@ select:focus {
   height: var(--bar-control-h, 38px);
   padding: 0 8px 0 5px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   background: var(--bg-input);
   color: var(--text);
   cursor: text;
@@ -536,7 +545,7 @@ select:focus {
   justify-content: center;
   width: 26px;
   height: 26px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: color-mix(in srgb, var(--kind-color) 22%, var(--bg-card));
   color: var(--kind-color);
   font-size: 13px;
@@ -594,7 +603,7 @@ select:focus {
   overscroll-behavior: contain;
   list-style: none;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-large);
   background: var(--bg-card);
   color: var(--text);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
@@ -623,7 +632,7 @@ select:focus {
   align-items: center;
   gap: 8px;
   padding: 5px 8px;
-  border-radius: 6px;
+  border-radius: var(--radius-small);
   cursor: pointer;
 }
 
@@ -663,7 +672,7 @@ select:focus {
     height: max(50dvh, min(100dvh, 440px));
     padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) calc(8px + env(safe-area-inset-left, 0px));
     border-top: 1px solid var(--border);
-    border-radius: 12px 12px 0 0;
+    border-radius: var(--radius-large) var(--radius-large) 0 0;
     background: var(--bg-section);
     box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
   }

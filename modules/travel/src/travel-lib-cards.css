@@ -33,9 +33,9 @@
 
 /* ---- the day ---- */
 /* overflow: clip, not hidden: it rounds the corners without making this the scroller, so the sticky day header sticks to the page */
-.day2 { background: var(--bg-section); border: 1px solid var(--border); border-radius: 16px; overflow: clip; }
+.day2 { background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-large); overflow: clip; }
 .day-head2 { position: relative; display: flex; align-items: center; gap: 14px; padding: 14px 10px 14px 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 10%, var(--bg-section)), var(--bg-section)); border-bottom: 1px solid var(--border); }
-.dnum { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 6px 8px; border-radius: 12px; background: var(--accent); color: var(--bg); line-height: 1.05; }
+.dnum { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; min-width: 54px; padding: 6px 8px; border-radius: var(--radius-large); background: var(--accent); color: var(--bg); line-height: 1.05; }
 .dnum b { font-size: 26px; font-weight: 700; }
 .dnum span { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; opacity: 0.9; }
 .dmeta { flex: 1 1 auto; min-width: 0; }
@@ -49,7 +49,7 @@
 .dmeta p { margin: 2px 0 0; color: var(--text-dim); font-size: 12px; }
 /* the whole-day markers ("Travel day"): tags under the summary, each in its marker's colour */
 .day-tags { display: flex; flex-wrap: wrap; gap: 4px 6px; margin-top: 6px; }
-.daytag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border: 1px solid var(--marker); border-radius: 999px; background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); color: var(--text); font: inherit; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; }
+.daytag { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px 2px 7px; border: 1px solid var(--marker); border-radius: var(--radius-round); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); color: var(--text); font: inherit; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; cursor: pointer; }
 .daytag .ic { color: var(--marker); font-size: 11px; }
 .daytag:hover { background: color-mix(in srgb, var(--marker) 30%, var(--bg-card)); }
 .daytag:disabled { cursor: default; }
@@ -65,13 +65,13 @@
 .row.marker[data-marker="trip-end"] .markerpill { --turn: 0; }
 .card.block[data-type="free-time"] { --turn: 140; } .card.block[data-type="rest"] { --turn: 225; } .card.block[data-type="buffer"] { --turn: 45; }
 .card.block[data-type="meet-up"] { --turn: 330; } .card.block[data-type="leave-by"] { --turn: 15; }
-.markerpill { display: flex; align-items: stretch; position: relative; margin: 6px 0; min-height: 38px; border: 1.5px solid var(--marker); border-radius: 10px; background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); overflow: hidden; box-shadow: none; padding: 0; }
+.markerpill { display: flex; align-items: stretch; position: relative; margin: 6px 0; min-height: 38px; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); overflow: hidden; box-shadow: none; padding: 0; }
 .markerpill::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--marker) 14%, transparent) 0 6px, transparent 6px 12px); pointer-events: none; }
 .mk-icon { position: relative; flex: none; display: flex; align-items: center; justify-content: center; width: 46px; background: var(--marker); border-right: 1.5px solid color-mix(in srgb, var(--marker) 55%, var(--bg)); color: rgba(255, 255, 255, 0.88); font-size: 16px; }
 .mk-label { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; padding: 6px 14px; }
 .mk-label b { font-size: 13px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--text); }
 .mk-label .sub, .mk-label .mk-note { margin-left: auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); opacity: 0.78; font-size: 12px; font-variant-numeric: tabular-nums; }
-.mk-label .mk-len { padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, var(--marker) 30%, transparent); font-size: 11px; line-height: 18px; font-variant-numeric: tabular-nums; }
+.mk-label .mk-len { padding: 0 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--marker) 30%, transparent); font-size: 11px; line-height: 18px; font-variant-numeric: tabular-nums; }
 .mk-label .mk-len:empty, .mk-label .mk-note:empty, .mk-label .sub:empty { display: none; }
 .card.block.markerpill { padding-right: 34px; }
 .card.block .menu-btn { z-index: 1; }
@@ -81,7 +81,7 @@
 .row.marker { align-items: center; }
 .row.marker .when { padding-top: 0; }
 .row.marker .when b { font-size: 12px; font-weight: 500; color: var(--text-dim); }
-.row.marker .rail .dot { top: 50%; margin-top: -6px; width: 12px; height: 12px; margin-left: -6px; border-radius: 3px; transform: rotate(45deg); background: var(--marker-dot, var(--text-dim)); border: 2px solid var(--bg-section); box-shadow: none; }
+.row.marker .rail .dot { top: 50%; margin-top: -6px; width: 12px; height: 12px; margin-left: -6px; border-radius: var(--radius-min); transform: rotate(45deg); background: var(--marker-dot, var(--text-dim)); border: 2px solid var(--bg-section); box-shadow: none; }
 /* the line that joins every box, badge and marker of the plan: behind them all, seen in the gaps */
 .days { position: relative; --spine-x: 94px; }
 .days::before { content: ""; position: absolute; left: var(--spine-x); top: 0; bottom: 0; width: 2px; margin-left: -1px; background: color-mix(in srgb, var(--text) 18%, transparent); }
@@ -97,16 +97,16 @@
 .daychip.in-trip:not(.current) b { color: var(--tone); }
 /* the days-between badge: a circle with the count on the line, and a + beside it that opens what can be added there */
 .gap { display: flex; align-items: center; margin: 0 0 14px; padding-left: calc(var(--spine-x) - 17px); }
-.gapcount { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: 50%; border: 2px solid var(--text-dim); background: var(--bg-section); color: var(--text); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.gapadd { display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 44px; margin-left: -8px; padding: 0 12px 0 16px; border: 1.5px solid var(--text-dim); border-radius: 0 999px 999px 0; background: var(--bg-card); color: var(--text); font: inherit; cursor: pointer; z-index: -1; position: relative; }
+.gapcount { display: flex; align-items: center; justify-content: center; width: 34px; height: 34px; border-radius: var(--radius-round); border: 2px solid var(--text-dim); background: var(--bg-section); color: var(--text); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.gapadd { display: inline-flex; align-items: center; justify-content: center; height: 26px; min-width: 44px; margin-left: -8px; padding: 0 12px 0 16px; border: 1.5px solid var(--text-dim); border-radius: 0 var(--radius-round) var(--radius-round) 0; background: var(--bg-card); color: var(--text); font: inherit; cursor: pointer; z-index: -1; position: relative; }
 .gapadd:hover, .gapadd:focus-visible { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); }
 .dayedge { display: flex; justify-content: center; margin: 0 0 14px; }
 .dayedge .btn { display: inline-flex; align-items: center; gap: 6px; border-style: dashed; color: var(--text-dim); background: transparent; }
 .dayedge .btn:hover { color: var(--accent); border-color: var(--accent); }
-.edge-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed var(--accent); border-radius: 12px; background: var(--bg-card); }
+.edge-form { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 12px; border: 1px dashed var(--accent); border-radius: var(--radius-large); background: var(--bg-card); }
 .edge-form label { display: inline-flex; align-items: center; gap: 6px; color: var(--text); }
 .edge-form input { width: 64px; text-align: center; }
-.emptynote { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 8px 12px; border: 1px dashed var(--border); border-radius: 12px; color: var(--text-dim); font-size: 12px; }
+.emptynote { display: flex; align-items: center; gap: 8px; margin: 0 0 14px; padding: 8px 12px; border: 1px dashed var(--border); border-radius: var(--radius-large); color: var(--text-dim); font-size: 12px; }
 .emptynote .btn { margin-left: auto; padding: 2px 10px; font-size: 12px; }
 .app.hide-empty .day2.is-empty, .app.hide-empty .daychip.is-empty { display: none; }
 .timeline { list-style: none; margin: 0; padding: 12px 14px 8px 8px; }
@@ -124,26 +124,26 @@
 .rail::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: color-mix(in srgb, var(--text) 14%, transparent); }
 .row:first-child .rail::before { top: 20px; }
 .row:last-child .rail::before { bottom: calc(100% - 20px); }
-.rail .dot { position: absolute; left: 50%; top: 15px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; background: var(--tone, var(--accent)); box-shadow: 0 0 0 3px var(--bg-section); }
+.rail .dot { position: absolute; left: 50%; top: 15px; width: 12px; height: 12px; margin-left: -6px; border-radius: var(--radius-round); background: var(--tone, var(--accent)); box-shadow: 0 0 0 3px var(--bg-section); }
 .slot { padding: 4px 0 10px; min-width: 0; }
 
 /* the way between two stops: walking, driving, transit, and how long */
 .row.leg-row .slot { padding: 0 0 6px; }
-.leg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border: 1px dashed var(--border); border-radius: 999px; background: var(--bg-section); color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
+.leg { display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px 0 6px; border: 1px dashed var(--border); border-radius: var(--radius-round); background: var(--bg-section); color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
 .leg:hover { border-color: var(--accent); color: var(--text); }
 .leg .ic { color: var(--accent); }
 .leg .dist { opacity: 0.8; }
 
 /* ---- the card, shared ---- */
-.card { position: relative; display: block; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--border)); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 13%, var(--bg-card)), color-mix(in srgb, var(--tone) 6%, var(--bg-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 14%, transparent); transition: transform 0.15s ease, box-shadow 0.15s ease; overflow: hidden; }
+.card { position: relative; display: block; border-radius: var(--radius-large); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--border)); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 13%, var(--bg-card)), color-mix(in srgb, var(--tone) 6%, var(--bg-card))); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 2px 8px color-mix(in srgb, black 14%, transparent); transition: transform 0.15s ease, box-shadow 0.15s ease; overflow: hidden; }
 .card:hover, .card:focus-within { transform: translateY(-1px); box-shadow: 0 1px 0 color-mix(in srgb, white 6%, transparent) inset, 0 8px 18px color-mix(in srgb, black 22%, transparent); }
 @media (prefers-reduced-motion: reduce) { .card { transition: none; } .card:hover { transform: none; } }
-.badge { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; border-radius: 50%; background: var(--tone); color: var(--tone-ink); font-size: 16px; box-shadow: 0 2px 6px color-mix(in srgb, var(--tone) 40%, transparent); }
+.badge { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 34px; height: 34px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: 16px; box-shadow: 0 2px 6px color-mix(in srgb, var(--tone) 40%, transparent); }
 .kicker { display: block; color: var(--tone); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
 .card h3 { margin: 0; font-size: 15px; line-height: 1.25; overflow-wrap: break-word; }
 .card p { margin: 0; color: var(--text-dim); font-size: 12px; overflow-wrap: anywhere; }
 .chips2 { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 8px; }
-.pill { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; height: 20px; border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--tone) 10%, transparent); color: var(--text); font-size: 11px; white-space: nowrap; }
+.pill { display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; height: 20px; border: 1px solid color-mix(in srgb, var(--tone) 35%, var(--border)); border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 10%, transparent); color: var(--text); font-size: 11px; white-space: nowrap; }
 .pill.mono { font-family: ui-monospace, Menlo, monospace; letter-spacing: 0.05em; }
 /* what the face has no place for, folded under the card: a "More" line, then label/value pairs. Spans the card whatever its own layout. */
 .card > .card-more { grid-column: 1 / -1; flex-basis: 100%; width: 100%; margin: 0; padding: 0 12px 8px; border-top: 1px dashed color-mix(in srgb, var(--tone) 35%, var(--border)); font-size: 12px; }
@@ -174,7 +174,7 @@
 .card-more dd.note-text code, .note .note-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.92em; }
 .menu-btn { position: absolute; top: 6px; right: 6px; }
 .owners { display: inline-flex; margin-left: auto; }
-.owner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: -4px; border: 2px solid var(--bg-card); border-radius: 50%; background: color-mix(in srgb, var(--tone) 40%, var(--bg-card)); color: var(--text); font-size: 10px; font-weight: 600; }
+.owner { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; margin-left: -4px; border: 2px solid var(--bg-card); border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 40%, var(--bg-card)); color: var(--text); font-size: 10px; font-weight: 600; }
 .owner:first-child { margin-left: 0; }
 
 /* ---- a boarding pass: a flight ---- */
@@ -195,7 +195,7 @@
 .pass .path .ic { position: absolute; top: -7px; left: 50%; margin-left: -8px; padding: 0 2px; background: color-mix(in srgb, var(--tone) 8%, var(--bg-card)); font-size: 16px; }
 .pass .path .dur { margin-top: 6px; color: var(--text-dim); font-size: 11px; }
 .pass .stub { position: relative; display: flex; flex-direction: column; justify-content: center; gap: 6px; min-width: 96px; padding: 12px 14px; border-left: 2px dashed color-mix(in srgb, var(--tone) 45%, var(--border)); background: color-mix(in srgb, var(--tone) 9%, var(--bg-card)); }
-.pass .stub::before, .pass .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-section); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--border)); }
+.pass .stub::before, .pass .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--bg-section); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--border)); }
 .pass .stub::before { top: -9px; }
 .pass .stub::after { bottom: -9px; }
 .pass .stub div small { display: block; color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
@@ -223,9 +223,9 @@
 
 /* ---- a stay: a hotel key band ---- */
 .stay .band { position: relative; display: flex; align-items: center; gap: 12px; padding: 12px 40px 12px 14px; background: linear-gradient(120deg, color-mix(in srgb, var(--tone) 34%, var(--bg-card)), color-mix(in srgb, var(--tone) 8%, var(--bg-card))); overflow: hidden; }
-.stay .band::after { content: ""; position: absolute; right: -14px; bottom: -22px; width: 92px; height: 92px; border-radius: 50%; background: color-mix(in srgb, var(--tone) 18%, transparent); }
+.stay .band::after { content: ""; position: absolute; right: -14px; bottom: -22px; width: 92px; height: 92px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tone) 18%, transparent); }
 .stay .band .main { min-width: 0; flex: 1; position: relative; z-index: 1; }
-.stay .nights { position: relative; z-index: 1; margin-right: -26px; padding: 2px 10px; border-radius: 999px; background: var(--tone); color: var(--tone-ink); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.stay .nights { position: relative; z-index: 1; margin-right: -26px; padding: 2px 10px; border-radius: var(--radius-round); background: var(--tone); color: var(--tone-ink); font-size: 11px; font-weight: 700; white-space: nowrap; }
 .stay .ins { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 10px 14px 4px; }
 .stay .ins small { display: block; color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; }
 .stay .ins b { font-size: 14px; font-variant-numeric: tabular-nums; }
@@ -251,15 +251,15 @@
 
 /* ---- a thing to do: a pass with a stamp ---- */
 .act { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 12px 40px 12px 12px; }
-.act::after { content: ""; position: absolute; right: -18px; bottom: -18px; width: 84px; height: 84px; border-radius: 50%; border: 3px double color-mix(in srgb, var(--tone) 28%, transparent); pointer-events: none; }
-.act .badge { border-radius: 12px; width: 40px; height: 40px; }
+.act::after { content: ""; position: absolute; right: -18px; bottom: -18px; width: 84px; height: 84px; border-radius: var(--radius-round); border: 3px double color-mix(in srgb, var(--tone) 28%, transparent); pointer-events: none; }
+.act .badge { border-radius: var(--radius-round); width: 40px; height: 40px; }
 
 /* ---- a ticket for a show or an event ---- */
 .admit { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
 .admit .admit-body { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; padding: 12px 14px; padding-right: 28px; }
-.admit .badge { border-radius: 12px; width: 40px; height: 40px; }
+.admit .badge { border-radius: var(--radius-round); width: 40px; height: 40px; }
 .admit .stub { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 10px; border-left: 2px dashed color-mix(in srgb, var(--tone) 45%, var(--border)); background: color-mix(in srgb, var(--tone) 14%, var(--bg-card)); text-align: center; }
-.admit .stub::before, .admit .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: 50%; background: var(--bg-section); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--border)); }
+.admit .stub::before, .admit .stub::after { content: ""; position: absolute; left: -9px; width: 16px; height: 16px; border-radius: var(--radius-round); background: var(--bg-section); border: 1px solid color-mix(in srgb, var(--tone) 38%, var(--border)); }
 .admit .stub::before { top: -9px; }
 .admit .stub::after { bottom: -9px; }
 .admit .stub small { font-size: 9px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--text-dim); }
@@ -267,7 +267,7 @@
 
 /* ---- a note: a sticky note with a folded corner ---- */
 .note { padding: 12px 40px 12px 14px; background: color-mix(in srgb, var(--tone) 20%, var(--bg-card)); border-color: color-mix(in srgb, var(--tone) 45%, var(--border)); clip-path: polygon(0 0, 100% 0, 100% calc(100% - 16px), calc(100% - 16px) 100%, 0 100%); }
-.note::after { content: ""; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; background: color-mix(in srgb, var(--tone) 40%, var(--bg-card)); border-top-left-radius: 6px; }
+.note::after { content: ""; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; background: color-mix(in srgb, var(--tone) 40%, var(--bg-card)); border-top-left-radius: var(--radius-small); }
 .note .note-body { color: var(--text); font-size: 13px; overflow-wrap: anywhere; }
 
 /* ---- a saved place ---- */
@@ -280,7 +280,7 @@
 .linkcard .src { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
 .linkcard h3 { font-size: 14px; }
 /* opening a linked item in the module that owns it: the "open in a new window" icon, quiet until pointed at */
-.open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: auto; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-dim); font-size: 12px; text-transform: none; letter-spacing: 0; cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
+.open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font-size: 12px; text-transform: none; letter-spacing: 0; cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
 .open-link .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .open-link:hover, .open-link:focus-visible { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); outline: none; }
 .open-link:active { background: color-mix(in srgb, var(--accent) 30%, transparent); }
@@ -320,7 +320,7 @@
 .entry.done h3 { color: var(--text-dim); text-decoration: line-through; }
 .entry.dragging .card { opacity: 0.5; border-color: var(--accent); }
 .slot { position: relative; }
-.entry[data-drop="before"] .slot::before, .entry[data-drop="after"] .slot::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: 2px; background: var(--accent); z-index: 3; }
+.entry[data-drop="before"] .slot::before, .entry[data-drop="after"] .slot::after { content: ""; position: absolute; left: 0; right: 0; height: 3px; border-radius: var(--radius-min); background: var(--accent); z-index: 3; }
 .entry[data-drop="before"] .slot::before { top: -2px; }
 .entry[data-drop="after"] .slot::after { bottom: 4px; }
 .entry[data-drop="into"] .card { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent); }
@@ -355,7 +355,7 @@
   .row.entry .rail:hover .dot { transform: scale(1.5); box-shadow: 0 0 0 3px var(--bg-section), 0 0 0 5px color-mix(in srgb, var(--tone) 40%, transparent); }
 }
 /* a time block is a .card too, so its pill rules must win over the card's */
-.card.block.markerpill { display: flex; align-items: stretch; gap: 0; min-height: 38px; padding: 0 34px 0 0; border: 1.5px solid var(--marker); border-radius: 10px; background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); box-shadow: none; overflow: hidden; }
+.card.block.markerpill { display: flex; align-items: stretch; gap: 0; min-height: 38px; padding: 0 34px 0 0; border: 1.5px solid var(--marker); border-radius: var(--radius-large); background: color-mix(in srgb, var(--marker) 18%, var(--bg-card)); box-shadow: none; overflow: hidden; }
 .card.block.markerpill .mk-icon { align-self: stretch; }
 .mk-label b, .mk-label .mk-len { flex: none; white-space: nowrap; }
 
@@ -382,7 +382,7 @@
 
 /* items at a joint on the line between the day blocks: a marker as its pill, anything else as the card it would be in a day, with
    no time. The head of the line (data-after="") is before the first day. A list being dropped on is .drop-target. */
-.timeline.between { margin: 0 0 12px; padding: 0 14px 0 9px; border-radius: 12px; }
+.timeline.between { margin: 0 0 12px; padding: 0 14px 0 9px; border-radius: var(--radius-large); }
 .timeline.between .rail::before { display: none; }
 .timeline.between .when { visibility: hidden; }
 .timeline.between.drop-target { outline: 2px dashed var(--accent); outline-offset: 2px; }
@@ -391,7 +391,7 @@
 .row.marker.lane .when b { font-size: 12px; font-weight: 500; color: var(--text-dim); }
 /* the joint: a small + on the line where two days meet, so a marker can be added anywhere between them */
 .joint { position: relative; height: 0; z-index: 2; }
-.jointadd { position: absolute; left: var(--spine-x); top: -22px; width: 24px; height: 24px; margin-left: -12px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--text-dim); border-radius: 50%; background: var(--bg-section); color: var(--text-dim); font-size: 11px; cursor: pointer; opacity: 0; transform: scale(0.85); transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease; }
+.jointadd { position: absolute; left: var(--spine-x); top: -22px; width: 24px; height: 24px; margin-left: -12px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 1.5px solid var(--text-dim); border-radius: var(--radius-round); background: var(--bg-section); color: var(--text-dim); font-size: 11px; cursor: pointer; opacity: 0; transform: scale(0.85); transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease; }
 .jointadd .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .days:hover .jointadd, .jointadd:focus-visible { opacity: 0.7; transform: none; }
 .jointadd:hover, .jointadd:focus-visible { opacity: 1; transform: scale(1.1); border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, var(--bg-section)); outline: none; }
@@ -433,4 +433,4 @@
 .ph-red { --ph: var(--tint-red); }
 .day2.in-phase .day-head2 { background: linear-gradient(180deg, color-mix(in srgb, var(--ph) 34%, var(--bg-section)), color-mix(in srgb, var(--ph) 18%, var(--bg-section))); }
 .daychip.in-phase:not(.current) { background: color-mix(in srgb, var(--ph) 20%, var(--bg-card)); }
-.phase-tag { display: inline-block; max-width: 100%; margin-bottom: 3px; padding: 0 8px; border-radius: 999px; background: color-mix(in srgb, var(--ph) 45%, var(--bg-card)); color: var(--text); font-size: 11px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }
+.phase-tag { display: inline-block; max-width: 100%; margin-bottom: 3px; padding: 0 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--ph) 45%, var(--bg-card)); color: var(--text); font-size: 11px; font-weight: 600; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: top; }

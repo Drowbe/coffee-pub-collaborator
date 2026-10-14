@@ -54,6 +54,8 @@ working. The rest are derived with `color-mix`.
 | `--surface`, `--surface-hover` | raised surfaces and their hover state |
 | `--shade` | recessed areas |
 | `--ok`, `--danger` | status colors |
+| `--on-danger` | the glyph or text on a solid `--danger` or `--ok` button (the call's leave button, dial back in); `#fff`, and the theme editor does not set it |
+| `--selected-bg` | the fill of a selected, on, active or current control: 28% of `--accent` over what is behind it, `color-mix(in srgb, var(--accent) 28%, transparent)`. Derived, so it follows a theme's accent. Also defined in the SDK's `host.css`, so a module has it |
 | `--danger-text`, `--accent-hover` | lightened forms of danger and accent |
 
 ## Rules
@@ -70,10 +72,38 @@ working. The rest are derived with `color-mix`.
 7. Anything drawn on its own, such as a canvas or SVG, reads the tokens with `getComputedStyle` and
    redraws when the theme changes.
 
+8. **A selected, on, active or current state is a fill, never a border.** Show it with `--selected-bg` (and the text colour the control already has), not with an added border, outline or ring. No tab underline, no coloured edge, no inset shadow. See "Selected states" below.
+
 A fixed dark background under theme-colored text is the classic failure: it looks correct on the
 default theme and unreadable on a light one.
 
 **The top bar's three areas.** The branding area, the left zone and the right zone each have a background and a text colour; each area sets `--header-text` to its own text token for what is inside it, so names, carets and icons that fall back on the header text follow. Until a theme sets them, the branding area and the right zone are `--nav-primary-edge-bg` with the header text, which is how the bar always looked. On a phone only the branding area keeps its colour. How the bar is built is in [architecture-navigation](../architecture/architecture-navigation.md).
+
+## Selected states
+
+A control that is selected, on, active or current (a layout tab, a view switch, a pressed tool, a chosen day, a checked
+option) shows it with a fill: `background: var(--selected-bg)`. It never adds a border, an outline or a ring to say so
+(Thomas, 2026-10-14: "I found ANOTHER button border. Stop adding them."). A fill follows the theme's accent on a dark
+and a light theme alike.
+
+`tools/check-nav.mjs` enforces it. It reads `public/style.css`, the SDK's styles and every bundled module's styles, and
+fails on any rule whose selector names a state (`.on`, `.active`, `.selected`, `.current`, `.today`, `[aria-pressed]`,
+`[aria-selected]`, `[aria-current]`, `:checked` and the like) and that declares a border, an outline colour, or an inset
+or ring shadow. A border colour that is the same as the rule's own fill does not count, since the fill covers it. These
+stay allowed:
+
+- **Focus rings.** `:focus` and `:focus-visible` keep their outline; it is how the keyboard shows where it is.
+- **Hover borders.** A border that appears on hover is not a state.
+- **Drag targets.** A drop target shows where a thing will land.
+- **The phase band for today** (`.phase-band.current`) on the phase timeline. A band is a chart mark, not a control; its
+  fill already carries the phase colour, so the ring is the only thing left to say "now".
+- **The Maps selected pin** (`.pin.selected .pin-body`). A pin is drawn on a map, not a control; its ring picks it out on
+  a busy map.
+
+Anything else that needs an exception is added to the check's list with its reason, and Thomas decides.
+
+Two states can now share a look: in the Calendar, today and the selected day are both accent fills. See
+[known-issues](../known-issues.md).
 
 ## Tints
 

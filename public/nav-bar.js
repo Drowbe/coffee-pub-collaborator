@@ -256,10 +256,14 @@ export function setActive(id, on) {
 }
 
 // A count on the tool (unread items, updates waiting); 0 takes it off.
-export function setBadge(id, n) {
+// `opts.tone: 'ok'` draws it green and `opts.label` is what it says aloud ("2 updates available"): the count then
+// is not hidden from a screen reader.
+export function setBadge(id, n, opts = {}) {
   const t = tools.get(id);
   if (!t) return false;
   t.badge = Math.max(0, Math.round(Number(n) || 0));
+  t.badgeTone = opts.tone === 'ok' ? 'ok' : '';
+  t.badgeLabel = typeof opts.label === 'string' ? opts.label : '';
   const el = els.get(id);
   if (el && !t.element) paintBadge(el, t);
   const f = folds[t.bar];
@@ -450,8 +454,17 @@ function paintBadge(el, t) {
   if (!badge) {
     badge = el.ownerDocument.createElement('span');
     badge.className = cls;
-    badge.setAttribute('aria-hidden', 'true');
     el.appendChild(badge);
+  }
+  badge.classList.toggle('badge-ok', t.badgeTone === 'ok');
+  if (t.badgeLabel) {
+    badge.removeAttribute('aria-hidden');
+    badge.setAttribute('role', 'img');
+    badge.setAttribute('aria-label', t.badgeLabel);
+  } else {
+    badge.removeAttribute('role');
+    badge.removeAttribute('aria-label');
+    badge.setAttribute('aria-hidden', 'true');
   }
   badge.textContent = n > 9 ? '9+' : String(n);
 }

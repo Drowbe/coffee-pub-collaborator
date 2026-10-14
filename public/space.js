@@ -245,7 +245,6 @@ function adoptPendingSpace() {
   if (!found) return;
   currentSpace = found;
   spaceName = spaceDisplayName(found);
-  renderSpaceLink();
   applyPermissions();
   updateRecallButton();
   updateCrumb();
@@ -274,30 +273,12 @@ async function loadPresence() {
     if (!guestToken) initDashboard({ users, spaces: presenceSpaces, me: me?.key }, { openInSpace, joinSpace: joinInvitedSpace });
     reconcileGhostTiles();
     renderGuestLink();
-    renderSpaceLink();
     updateRecallButton();
     adoptPendingSpace();
   } catch (err) {
     // default colour stands; the next poll tries again
   }
 }
-
-// The space's own launch link, mirrored in the floatbar so it's reachable
-// without leaving the call. Reads live off presenceSpaces (like renderGuestLink)
-// rather than the frozen currentSpace, so an admin editing the link mid-call
-// is reflected here on the next poll.
-function renderSpaceLink() {
-  const btn = $('space-link');
-  if (!btn || !currentSpace) return;
-  const space = presenceSpaces.find((r) => r.id === currentSpace.id);
-  const link = space?.link;
-  btn.hidden = !link;
-  if (link) btn.querySelector('.glyph').innerHTML = `<i class="${iconClasses(space.linkIcon || 'link')} fa-fw" aria-hidden="true"></i>`;
-}
-$('space-link').addEventListener('click', () => {
-  const space = currentSpace && presenceSpaces.find((r) => r.id === currentSpace.id);
-  if (space?.link) window.open(space.link, '_blank', 'noopener');
-});
 
 // Admin only: shows "Pull participants back" whenever a Private
 // Conversation was pulled out of the space I'm currently in -- the admin
@@ -2307,7 +2288,6 @@ function setupSaved(space, said, saved = []) {
     if (saved.includes('budget')) announceBudget(space.id, space.budget || null);
     spaceName = spaceDisplayName(currentSpace);
     renderSpaces();
-    renderSpaceLink();
     announcePhases();
     if (saved.includes('image') || saved.includes('imageRemoved')) {
       const img = $('spaces')?.querySelector(`[data-space="${CSS.escape(space.id)}"] .space-choice-image`);
@@ -4985,7 +4965,6 @@ call
     refreshLayouts(); // no space, no layouts
     document.body.classList.remove('in-space');
     $('canvas').hidden = true;
-    $('space-link').hidden = true;
     resetRecallButton();
     updateRecallButton(); // no room, so the tool's own `visible` hides it
     clearInterval(recallTimer);
@@ -5238,7 +5217,6 @@ async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) 
     loadPresence();
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id); // asides have no modules
     spaceName = spaceDisplayName(currentSpace);
-    renderSpaceLink();
     applyPermissions();
     updateRecallButton();
     await connectAndSetup(token, livekitUrl, { joinCall });
@@ -5268,7 +5246,6 @@ async function joinAsGuest(token, livekitUrl, joinedId, joinedName) {
     currentSpace = known || { id: joinedId, name: joinedName, members: [], pending: true };
     loadPresence();
     await canvas.refresh(currentSpace.isAside ? null : currentSpace.id);
-    renderSpaceLink();
     applyPermissions();
     updateRecallButton();
     await connectAndSetup(token, livekitUrl);

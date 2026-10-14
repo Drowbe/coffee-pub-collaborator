@@ -40,11 +40,13 @@ The one-bar work, in main. Each plan has its own status line.
 
 - **The one bar and the always-on column** ([plan-one-bar](plans/plan-one-bar.md)): steps 1 to 8 built, with Discussion | Assistant, the call in its own titlebar and **Call position**. Left from its Verify: a real call (screen share into the Workspace, Pop out with the column), a real phone, a screen reader, Firefox and Safari (#29, #30).
 - **The Set up panel** ([plan-setup-panel](plans/plan-setup-panel.md)): all eight steps built.
-- **The status strip** ([plan-space-status-strip](plans/plan-space-status-strip.md)): steps 1 to 4 built (the journey bar, the attention store, the count and its list, Polls reporting). Step 5, space items, is not built.
-- **The story strip** ([plan-space-story-strip](plans/plan-space-story-strip.md)): steps 1 and 2 built (no caret, the sentence, the 44 px bar). Facts, the budget, choosing what shows and weather are not built.
+- **The status strip** ([plan-space-status-strip](plans/plan-space-status-strip.md)): steps 1 to 4 built (the journey bar, the attention store, the count and its list, Polls reporting), and since 2026-10-14 one countdown chip ("35 days to Trip"). Step 5, space items, is not built.
+- **The story strip** ([plan-space-story-strip](plans/plan-space-story-strip.md)): steps 1 to 7 built (no caret, the sentence, the 44 px bar, the facts, the Planner's money, the budget target). Choosing what shows, weather and usual temperatures (steps 8 to 10) are not built.
+- **Budget** ([plan-budget-module](plans/plan-budget-module.md)): steps 1, 2 and 4 built 2026-10-14 (the target's rules, the Budget module 0.1.0 with its burndown, Set up's field for moderators). Step 3 (the Planner hands costs to Budget) and step 5 (the travel template turns Budget on) are not built; until step 3 a space with both modules can show two money facts on the strip, and Budget's summary `amount` waits on the server's `SUMMARY_FIELDS`.
+- **The call column, 2026-10-14:** **Start call** in the chat's view row, Pop out in the call's titlebar, a round call toolbar, the call's time (#37), phone docking (#268) and guests in Home's chat (#289) are built. See the CHANGELOG.
 - **Layout views** ([plan-layout-views](plans/plan-layout-views.md)): steps 1 to 6 built. Its Phase 2 (owner-set tabs, reordering) is for later issues.
 - **Calendar and To-do, Map and Places as one** ([plan-calendar-todo](plans/plan-calendar-todo.md), [plan-map-places](plans/plan-map-places.md)): steps 1 to 3 built; the entries arrive as the Calendar and Map layout tabs and Global Calendar and Global Map.
-- **Home as three columns** ([plan-home-lobby](plans/plan-home-lobby.md)): steps 1 to 4 built. Left: the Lobby's wording and Manage's Home row (step 5), phones (step 6) and guests (#289, #290).
+- **Home as three columns** ([plan-home-lobby](plans/plan-home-lobby.md)): steps 1 to 4 built, and guests in Home's chat (#289). Left: the Lobby's wording and Manage's Home row (step 5) and phones (step 6) (#290).
 - **The titlebar + and status line** ([plan-module-titlebar-add](plans/plan-module-titlebar-add.md)): steps 1 to 6 built.
 - **The picture map** ([plan-map-image](plans/plan-map-image.md)): steps 1 to 4 built. Left: its documentation (step 5) and trying it with WebGL and a large file.
 
@@ -53,10 +55,9 @@ The one-bar work, in main. Each plan has its own status line.
 The open issues labelled `priority: now` or `priority: next`:
 
 - #283 A phase-change event for modules (`host.on('phases')`), so the Calendar stops polling every 30 seconds and a non-member admin sees phase edits.
-- #289 Home's chat for guests: decide, then build.
 - #290 Home: finish the Lobby wording and the phone tabs.
 - #286 `/api/bus/actions` should tell each action's `may`.
-- #216 Trip Budget in the titlebar with a burndown overlay (needs the story strip's facts and budget steps).
+- #216 Trip Budget in the titlebar with a burndown overlay: the facts, the target and the burndown (in Budget's Overview) are built; Thomas to close it, or say what is still missing.
 - #288 The call pop-out when the browser blocks the pop-up: a message and a retry, never an empty call area.
 - #29 and #30 Walk the canvas, layouts and modules in a real call, with two people (see "Verify in a real call").
 
@@ -170,7 +171,6 @@ The open issues labelled `priority: now` or `priority: next`:
 
 ## The call and the pages
 
-- #37 Call time in the conference's titlebar.
 - #38 A shorter header.
 - #39 The nav colours in the theme editor: the top bar's branding area and right side are in Manage > Theme ([plan-two-zone-nav](plans/plan-two-zone-nav.md), built 2026-10-02); the space bar's colour is not, by decision.
 - #31 Customising the dashboard's layout, and snapping on the spaces page.
@@ -187,6 +187,8 @@ The open issues labelled `priority: now` or `priority: next`:
 
 ## Modules
 
+- **Budget step 3: the Planner hands costs to Budget** ([plan-budget-module](plans/plan-budget-module.md)). The Planner drops `cost`, `paidBy` and its Money view and asks Budget's `addCost`; the server's `SUMMARY_FIELDS` gains `amount` so a booking can show its cost. Until then the Planner keeps its own costs and reports its own `spent`. Step 5, the travel template turning Budget on, comes with it.
+- **Planner modes** (#307): travel, design and project modes for the Planner. Not planned yet; Budget is built to stay independent of them.
 - #34 Updating a module from an address, not only a zip.
 - #35 A module's own activity on its card.
 - #36 Storing and sending sensitive data such as passwords.

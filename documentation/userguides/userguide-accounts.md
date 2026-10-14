@@ -53,13 +53,13 @@ sign-up is on, expires after 7 days, and works once.
 
 ## Guests
 
-A guest has no account, for someone dropping in once. While in a call, open the settings popover
-(the gear next to chat and reactions) and, under **Guests**, turn on that space's link. Anyone with it
+A guest has no account, for someone dropping in once. While in a call, open the call's **⋮**
+menu, choose **Settings** (shown to people who can manage the space) and, under **Guests**, turn on that space's link. Anyone with it
 lands on a page headed "Enter <space>" that asks only for a name; **Enter** (a door) takes them into that space.
 Where the template or the owner has changed the word for entering a space, the heading and the button use that
 word instead (see "The words on two buttons" in [Manage](userguide-environment-settings.md)). A guest's first visit shows the chat and the call's column,
 unless the space's **First visit** setting in **Set up** says otherwise. Entering does
-not put a guest in the call: the guest joins with **Join the call**, the green phone, and the browser asks for the
+not put a guest in the call: the guest joins with **Start call** (or **Join call**), and the browser asks for the
 microphone then (see [The call](userguide-call.md)).
 
 Anyone in the call with the right permission can turn the link on, copy it, or turn it off. It is a
@@ -68,6 +68,12 @@ off or generates a new one. Nothing about a guest is kept once they leave. A gue
 off shows the shared **Guest images** picture set (see
 [Manage](userguide-environment-settings.md)). A space can turn guests off entirely with **Allow
 Guests** on the **Members** tab of its **Set up** panel (the tab carries your environment's word for members), which also turns off any link already in use there.
+
+A guest who comes in on the environment's Home link (the Lobby's) reads Home's chat live and can post in it, but has
+no Assistant. To keep one link from flooding the chat, a guest link may post 20 messages a minute (one address, half of
+that) and hold 25 live chat streams open; past that the chat says to try again in a number of seconds. The chat stops
+for a guest the moment the link is turned off or replaced. An operator can change these numbers (see
+[Getting started](userguide-getting-started.md), "Behind a proxy, and the limits").
 
 Guests can't install Collaborator as an app. On a guest link there is no install hint, and the browser does not
 offer to install; see "Install it as an app, and pop it out" in

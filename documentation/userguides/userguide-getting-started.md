@@ -74,7 +74,7 @@ the owners run the server and there is no admin.
 
 After you sign in you are on Home. Wider than 1200 pixels it has three columns: the environment's **Chat** on the left,
 the **Spaces** in the middle (with **Who's around** above them), and the **Modules** on the right. Owners and the admin
-also have **Add space** there, which makes a space and opens it with **Set up** so it can be named at once. See
+also have **Add space** there, the dashed card at the end of the spaces, which makes a space and opens it with **Set up** so it can be named at once. See
 [Spaces](userguide-spaces.md), "Home".
 
 Press **Enter** on a space. You are in the space, not yet on the call:
@@ -83,7 +83,8 @@ Press **Enter** on a space. You are in the space, not yet on the call:
   **Calendar**, **Map**, and any layouts you favorite), who is here, then **Layout**, the bell, your picture, **Set up**,
   **Full screen** and **Pop out**.
 - Under the bar, a thin **status strip** shows the phase the space is in, if the environment has phases.
-- Down the left, the **column** holds the chat and, once you join, the call. Press **Join the call** when you are ready;
+- Down the left, the **column** holds the chat and, once you join, the call. Press **Start call**, at the right end
+  of the **Discussion | Assistant** row, when you are ready (it reads **Join call** when a call is already running);
   your browser asks for the microphone then.
 - Everything else is the **Workspace**, where modules open.
 
@@ -139,6 +140,16 @@ To switch environments on, with the server already running as above:
    and the log names the one to use instead. A server that still sets only `HOST_ADMIN_*` keeps its existing
    host admins, but no host admin is created or has its password reset until you set `ADMIN_LOGIN` and
    `ADMIN_PASSWORD`. `MIGRATE_TENANT_SLUG` moves nothing: use `MIGRATE_ENVIRONMENT_SLUG`.
+
+**Behind a proxy, and the limits.** `TRUST_PROXY_HOPS` says how many reverse proxies stand in front of the container.
+It defaults to `1`, the Nginx Proxy Manager in the compose file. Sign-in and guest limits count by the address the
+nearest proxy saw, so nobody can choose their own with a made-up header. Two in a row (say Cloudflare, then Nginx Proxy
+Manager) is `2`; reached directly with no proxy, `0`. A value that is not a whole number logs a line and uses `1`. If
+the count is wrong, every visitor can look like the proxy's own address and share one limit. Three more switches are in
+the compose file, commented, and the defaults are usually right: `CHAT_STREAMS_PER_PERSON` (50, the live chat streams
+one signed-in person may hold open, about one a browser tab), `CHAT_STREAMS_PER_GUEST_LINK` (25, for one guest link in
+all; one address gets 40% of it) and `GUEST_CHAT_POSTS_PER_MINUTE` (20, the messages one guest link may post a minute;
+one address gets half).
 
 **Two-step sign-in, and getting back in.** Three switches, one inside the other. `ENABLE_MFA` (in the
 compose file, `"true"` by default) says whether the server offers a second step at all; with it off nobody is

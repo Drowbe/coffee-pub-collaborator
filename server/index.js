@@ -43,7 +43,8 @@ const { productName } = require('./product-name');
 const templateFile = require('./template-file');
 const { EventEmitter } = require('events');
 const { ModuleData } = require('./module-data');
-const { ModuleHooks } = require('./module-hooks');
+const { ModuleHooks, HOST_SOURCE } = require('./module-hooks');
+const moduleNotices = require('./module-notices');
 const themeCssLib = require('./theme-css');
 const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText, UNNAMED_ENVIRONMENT, MAX_EXTERNAL_CALENDARS } = require('./store');
 // The phase timeline rule (plan-one-bar.md, step 1), the one copy the pages use too.
@@ -586,7 +587,9 @@ function environmentFor(slug) {
   // A template's once-only part is applied first, then the automatic installs, in that order (never at the same time).
   env.templateReady = (pendingTemplate ? applyRecordedTemplate(env, slug, pendingTemplate) : Promise.resolve())
     .then(() => autoInstallBundled(env))
-    .catch((err) => console.error(`Auto-install failed for "${slug || DEFAULT_SLUG}": ${err.message}`));
+    .catch((err) => console.error(`Auto-install failed for "${slug || DEFAULT_SLUG}": ${err.message}`))
+    .then(() => envContext.run(env, () => announceModules(env, fresh)))
+    .catch((err) => console.error(`Module notices failed for "${slug || DEFAULT_SLUG}": ${err.message}`));
   return env;
 }
 
@@ -858,6 +861,37 @@ async function autoInstallBundled(env) {
     }
     console.log(`Auto-installed and enabled "${bundled.id}".`);
   }
+}
+
+// The bell's notice about the bundled modules, to everyone who can turn modules on (owners and the admin, the same
+// people PATCH /api/modules/:id lets): a module that ships here and is not installed, or has a newer bundled version
+// waiting. The rule and its record are in module-notices.js. Runs in the environment's context, once its installs and
+// updates are done, so what is announced is what is left for a person to do. Members and guests are never told.
+function announceModules(env, fresh) {
+  const hooks = env.moduleHooks;
+  const words = env.store.resolvedWords();
+  const bundled = bundledModules(BUNDLED_DIR).map((m) => ({ id: m.id, name: m.name, version: m.version, description: fillManifest(m, words).description }));
+  const installed = Object.fromEntries(env.modules.list().map((m) => [m.id, m.version]));
+  const { notices, record } = moduleNotices.plan({
+    bundled,
+    installed,
+    record: hooks.announced,
+    fresh,
+    waiting: (id) => {
+      const m = bundled.find((b) => b.id === id);
+      return Boolean(installed[id]) && compareVersions(m.version, installed[id]) > 0 && !env.modules.view(id)?.versions.includes(m.version);
+    },
+    allowed: (id) => moduleAllowedByPlan(id),
+    compare: compareVersions,
+  });
+  hooks.saveAnnounced(record); // before the notices: a failure loses one rather than repeating it
+  if (!notices.length) return;
+  const people = env.store.users.filter((u) => hasOwnerRights(u)).map((u) => u.key);
+  for (const n of notices) {
+    const text = moduleNotices.noticeText(n, env.store.moduleDisplay(n.id).name || n.name);
+    hooks.announce(people, { ...text, href: '/admin#modules' });
+  }
+  console.log(`Told ${people.length} ${people.length === 1 ? 'person' : 'people'} about ${notices.length} bundled ${notices.length === 1 ? 'module' : 'modules'}: ${notices.map((n) => `${n.id} ${n.kind === 'update' ? `${n.from} to ${n.version}` : n.version}`).join(', ')}.`);
 }
 
 // A module installed from this deployment's bundled copy (source "bundled") stays in step with the server: on each
@@ -7858,10 +7892,17 @@ app.post('/api/modules/:id/notify', (req, res) => {
 
 // A signed-in person's own notifications: the list, marking them read, and a
 // live stream so a toast can appear the moment one arrives.
+// Who a notice is from, as the bell shows it: the module's name and icon in this environment's words, or for the host's
+// own notices (about the bundled modules) the word for a module, with the puzzle piece.
+function sourceOf(id) {
+  if (id === HOST_SOURCE) return { moduleName: word('module', { many: true, cap: true }), icon: 'puzzle-piece' };
+  const { manifest } = modules.enabled(id);
+  return { moduleName: shownModule(manifest).name, icon: shownModule(manifest).icon };
+}
 app.get('/api/notifications', requireUser, (req, res) => {
   // Each with its module's name and icon as this environment shows them, as the live stream sends them.
-  const list = moduleHooks.list(currentUser(req).key).filter((n) => modules.enabled(n.module))
-    .map((n) => ({ ...n, moduleName: shownModule(modules.enabled(n.module).manifest).name, icon: shownModule(modules.enabled(n.module).manifest).icon }));
+  const list = moduleHooks.list(currentUser(req).key).filter((n) => n.module === HOST_SOURCE || modules.enabled(n.module))
+    .map((n) => ({ ...n, ...sourceOf(n.module) }));
   const byModule = {};
   for (const n of list) if (!n.read) byModule[n.module] = (byModule[n.module] || 0) + 1;
   res.json({ notifications: list, byModule, unread: Object.values(byModule).reduce((a, b) => a + b, 0) });
@@ -7877,9 +7918,8 @@ app.get('/api/notifications/stream', requireUser, (req, res) => {
   res.flushHeaders();
   res.write('retry: 5000\n\n');
   const onNote = listenIn(env, ({ userKey, notification }) => {
-    if (userKey !== key || !modules.enabled(notification.module)) return;
-    const { manifest } = modules.enabled(notification.module);
-    res.write(`event: notification\ndata: ${JSON.stringify({ ...notification, moduleName: shownModule(manifest).name, icon: shownModule(manifest).icon })}\n\n`);
+    if (userKey !== key || (notification.module !== HOST_SOURCE && !modules.enabled(notification.module))) return;
+    res.write(`event: notification\ndata: ${JSON.stringify({ ...notification, ...sourceOf(notification.module) })}\n\n`);
   });
   moduleHooks.on('notification', onNote);
   const onInvite = listenIn(env, (invite) => {

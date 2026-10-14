@@ -1269,7 +1269,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const stubs = {
       RoomEvent: new Proxy({}, { get: (_t, name) => name }),
       decoder: new TextDecoder(), presenceUsers: new Map(), word: () => 'Aside', reconcileGhostTiles: noop, removeParticipant: noop,
-      setTimeout: noop, spaceDisplayName: (r) => r.name, renderSpaceLink: noop, applyPermissions: noop, updateRecallButton: noop, updateCrumb: noop,
+      setTimeout: noop, spaceDisplayName: (r) => r.name, applyPermissions: noop, updateRecallButton: noop, updateCrumb: noop,
       phoneWidth: () => true, // the bar's Rejoin call shows where the bar is the phone's tab bar; wider, the top bar's aside-rejoin is the one
     };
     const names = Object.keys(stubs);
@@ -1643,13 +1643,13 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const end = html.indexOf('id="floatbar-overflow"');
   const bar = start >= 0 && end > start ? html.slice(start, end) : '';
   if (!bar) fail('public/space.html', 'the call\'s toolbar (#floatbar) is missing');
-  const OLD_CONTROLS = ['mic', 'meter', 'deafen', 'cam', 'screen-share', 'layout', 'layout-glyph', 'away-toggle', 'react-toggle', 'space-link', 'floatbar-more', 'hangup'];
+  const OLD_CONTROLS = ['mic', 'meter', 'deafen', 'cam', 'screen-share', 'layout', 'layout-glyph', 'away-toggle', 'react-toggle', 'floatbar-more', 'hangup'];
   for (const id of OLD_CONTROLS) if (!bar.includes(`id="${id}"`)) fail('public/space.html', `the call's toolbar lost #${id}`);
   for (const g of ['mic', 'audio', 'camera', 'layout']) if (!bar.includes(`data-settings="${g}"`)) fail('public/space.html', `the call's toolbar lost its data-settings="${g}"`);
   for (const id of ['floatbar-overflow', 'react-tray', 'settings', 'mic-select', 'gain', 'gate', 'noise', 'echo', 'agc', 'talk-mode', 'speaker-select', 'master-volume', 'test-speaker', 'cam-select', 'quality', 'mirror', 'background-mode', 'layout-pick']) {
     if (!html.includes(`id="${id}"`)) fail('public/space.html', `the call's settings lost #${id}`);
   }
-  const want = { mic: 10, cam: 9, deafen: 7, layout: 6, 'away-toggle': 5, 'screen-share': 4, 'react-toggle': 3, 'space-link': 1 };
+  const want = { mic: 10, cam: 9, deafen: 7, layout: 6, 'away-toggle': 5, 'screen-share': 4, 'react-toggle': 3 };
   const priorityOf = {};
   let wrapPriority = NaN;
   for (const line of bar.split('\n')) {
@@ -1699,11 +1699,11 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
   fs.rmSync(tmp, { recursive: true, force: true });
   const W = 30;
-  const toolbar = ({ share = true, link = false, w = W } = {}) => [
+  const toolbar = ({ share = true, w = W } = {}) => [
     { id: 'mic', width: w, priority: 10 }, { id: 'deafen', width: w, priority: 7 }, { id: 'cam', width: w, priority: 9 },
     { id: 'screen-share', width: w, priority: 4, hidden: !share }, { id: 'layout', width: w, priority: 6 },
     { id: 'away-toggle', width: w, priority: 5 }, { id: 'react-toggle', width: w, priority: 3 },
-    { id: 'settings-toggle', width: w, priority: 2 }, { id: 'space-link', width: w, priority: 1, hidden: !link },
+    { id: 'settings-toggle', width: w, priority: 2 },
     { id: 'floatbar-more', width: w, priority: null, hidden: true }, { id: 'hangup', width: w, priority: null },
   ];
   const foldCases = [
@@ -1712,7 +1712,6 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     ['a 160px row: the two least important fold, Settings first', { items: toolbar(), width: 160, gap: 6 }, ['settings-toggle', 'react-toggle']],
     ['a 120px row: then Share your screen and Away', { items: toolbar(), width: 120, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle']],
     ['a 90px row: the microphone, the camera, "..." and Leave stay', { items: toolbar(), width: 90, gap: 6 }, ['settings-toggle', 'react-toggle', 'screen-share', 'away-toggle', 'layout', 'deafen']],
-    ['a space link shown folds first', { items: toolbar({ link: true }), width: 160, gap: 6 }, ['space-link', 'settings-toggle', 'react-toggle']],
     ['no screen share in this browser: it takes no space in the row and never folds', { items: toolbar({ share: false }), width: 130, gap: 6 }, ['settings-toggle', 'react-toggle', 'away-toggle']],
     ['44px buttons at the narrowest column: folds into "..."', { items: toolbar({ w: 44 }), width: 208, gap: 6 }, ['settings-toggle', 'react-toggle']],
     ['one row asked for: more folds', { items: toolbar(), width: 308, gap: 6, rows: 1 }, ['settings-toggle', 'react-toggle']],

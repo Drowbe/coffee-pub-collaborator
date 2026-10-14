@@ -117,11 +117,12 @@ async function startServer(dataDir, extraEnv) {
   servers.push(server);
   return server;
 }
-function send(server, method, urlPath, { json, raw, cookie, type = 'application/octet-stream' } = {}) {
+function send(server, method, urlPath, { json, raw, cookie, type = 'application/octet-stream', headers: extra } = {}) {
   const payload = raw !== undefined ? raw : json === undefined ? null : Buffer.from(JSON.stringify(json));
   const headers = { host: `localhost:${server.port}`, accept: 'application/json' };
   if (payload) { headers['content-type'] = raw !== undefined ? type : 'application/json'; headers['content-length'] = payload.length; }
   if (cookie) headers.cookie = cookie;
+  Object.assign(headers, extra);
   return new Promise((resolve, reject) => {
     const req = http.request({ host: '127.0.0.1', port: server.port, method, path: urlPath, headers }, (res) => {
       const chunks = [];
@@ -324,6 +325,56 @@ try {
     const list = (await send(server, 'GET', '/api/module-settings/environment', { cookie: owner })).json.modules.find((m) => m.id === 'maps').settings.find((d) => d.key === 'imageMap');
     assert.ok(!list.available.some((f) => f.startsWith('.upload')) && !list.skipped.some((s) => s.name.startsWith('.upload')));
     fs.rmSync(path.join(folder, '.upload-deadbeef.part'));
+  });
+
+  await test('bugs found in review: ranges, wrong type, repeated folder, rollback, zoom wording', async () => {
+    expect(await put('ranged.pmtiles', PICTURE), 200, 'a file to read');
+    const get = (range) => send(server, 'GET', '/api/modules/maps/files/ranged.pmtiles?folder=image-map', { cookie: owner, headers: range ? { range } : {} });
+    for (const range of ['bytes=5-4', 'bytes=99999999-', 'bytes=-0']) {
+      const r = await get(range);
+      expect(r, 416, `range ${range}`);
+      assert.equal(r.headers['content-range'], `bytes */${PICTURE.length}`);
+      assert.ok(r.json && typeof r.json.error === 'string' && !/server error/.test(r.json.error), 'a plain sentence');
+    }
+    const ok = await get('bytes=0-9');
+    expect(ok, 206, 'a valid range');
+    assert.equal(ok.headers['content-range'], `bytes 0-9/${PICTURE.length}`);
+    expect(await get(), 200, 'no range');
+    fs.writeFileSync(path.join(folder, 'zero.pmtiles'), '');
+    expect((await send(server, 'GET', '/api/modules/maps/files/zero.pmtiles?folder=image-map', { cookie: owner })), 200, 'a zero-length file');
+    fs.rmSync(path.join(folder, 'zero.pmtiles'));
+
+    const wrong = await send(server, 'PUT', '/api/modules/maps/files/image-map?name=j.pmtiles', { cookie: owner, raw: Buffer.alloc(1048576, 32), type: 'application/json' });
+    expect(wrong, 415, 'a 1 MB JSON body');
+    assert.equal(wrong.json.error, 'Send the file itself, as application/octet-stream.');
+
+    expect(await send(server, 'DELETE', '/api/modules/maps/files/ranged.pmtiles?folder=image-map&folder=map-tiles', { cookie: owner }), 400, 'repeated folder');
+    assert.ok(fs.existsSync(path.join(folder, 'ranged.pmtiles')), 'nothing was removed');
+
+    const zoom = await put('high.pmtiles', pmtiles({ maxZoom: 23 }));
+    expect(zoom, 422, 'maxZoom 23');
+    assert.equal(zoom.json.error, 'The zoom range is out of range.');
+    expect(await put('high.pmtiles', pmtiles({ maxZoom: 22 })), 200, 'maxZoom 22 is fine');
+    const rev = await put('rev.pmtiles', pmtiles({ minZoom: 5, maxZoom: 2 }));
+    expect(rev, 422, 'a reversed zoom range');
+    assert.match(rev.json.error, /zoom range is not valid/);
+    const odd = await put('odd.pmtiles', pmtiles({ tileType: 9 }));
+    expect(odd, 422, 'an unknown tile type');
+    assert.match(odd.json.error, /tile type is not one the map can draw/);
+    expect(await put('none.pmtiles', pmtiles({ tileType: 0 })), 422, 'tile type 0');
+
+    // The setting cannot be saved (its temporary file's name is taken by a folder): the rename is rolled back.
+    const before = await values();
+    const tmpBlock = path.join(dataDir, 'modules', 'settings.json.tmp');
+    fs.mkdirSync(tmpBlock, { recursive: true });
+    const names = left();
+    const bytesBefore = fs.readFileSync(path.join(folder, 'high.pmtiles'));
+    expect(await put('stray.pmtiles', PICTURE), 500, 'settings cannot be saved');
+    expect(await put('high.pmtiles', PICTURE_2), 500, 'a replacement, settings cannot be saved');
+    fs.rmdirSync(tmpBlock);
+    assert.deepEqual(left(), names, 'no stray file, no part, no leftover');
+    assert.deepEqual(fs.readFileSync(path.join(folder, 'high.pmtiles')), bytesBefore, 'the file it would have replaced is back');
+    assert.equal((await values()).imageMap, before.imageMap);
   });
 
   await server.stop();

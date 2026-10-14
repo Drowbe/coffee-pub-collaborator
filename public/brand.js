@@ -340,7 +340,7 @@ function registerSystemTools(header) {
   // menu's own (no menu inside the menu).
   const whoami = doc.createElement('button');
   whoami.type = 'button';
-  whoami.className = 'whoami';
+  whoami.className = 'whoami nav-text'; // the nav text, as every word in the bar
   whoami.id = 'whoami-link';
   whoami.innerHTML = '<img id="whoami-img" alt="" hidden><span id="whoami"></span><span id="whoami-account" hidden>Account</span><i class="fa-solid fa-caret-down fa-fw whoami-caret" aria-hidden="true"></i>';
   whoami.addEventListener('click', (event) => {
@@ -1139,7 +1139,7 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
   let nameEl = null;
   if (showName) {
     nameEl = doc.createElement('span');
-    nameEl.className = 'page-bar-name';
+    nameEl.className = 'page-bar-name nav-text'; // the nav text; the current page's name, so in --header-text
     nameEl.id = 'page-bar-name';
     nav.register({ id: 'page-bar-name', bar: 'secondary', zone: 'left', group: 'page', groupOrder: 2, order: 1, fold: false, element: nameEl, visible: () => !onPhone() && Boolean(state.name) });
   }
@@ -1181,7 +1181,7 @@ function paintPageAnchor({ name, icon }) {
   crumb.replaceChildren();
   if (!a) return;
   const label = document.createElement('span');
-  label.className = 'crumb-here';
+  label.className = 'crumb-here'; // the nav text by the anchor's box (.crumb, style.css)
   label.setAttribute('aria-current', a.current);
   label.title = a.title;
   if (a.icon) {

@@ -225,6 +225,63 @@ async function watchMedia({ key, audio = false, video = true, space: startSpace 
 // drop, which pointer was dropped, in the frame's own coordinates. The frame decides what that means
 // (and the host still checks the pointer when it is resolved). Nothing else crosses.
 const mounted = new Set(); // every module frame the host has on this page: { frame, module, send }
+
+// --- one page, for a request only the asking page may carry out -------------------------------------------------------------
+// A `local` action asked with { here: true } (host.actions.request; Places' target button asking Maps for a spot) is for a
+// module open in the page that asked, never in another tab the same person has open, and only for a few seconds: the host
+// puts the page's id (`page`) and a time limit (`pageUntil`, ms) in the input, and a mount in any other page, or one that
+// comes after the limit, never hears of it. The host owns both fields: a module's own `page` or `pageUntil` is dropped.
+// The provider declares them in its action's input ("page": "string?", "pageUntil": "number?"), or the server drops them
+// and the request goes to any page as before. The page is this window together with the frames in it (a composite's page
+// in a frame on the Workspace) and a window it opened (a pop-out): they share one record, `window.__modulePage`
+// ({ id, open }), found through the parent or the opener. `open` holds the mounts in the page, so host.actions.list can
+// say which actions a module open here answers (`open: true`).
+export const PAGE_WAIT_MS = 5000;
+export function pageInput(input, here, pageId, now) {
+  const out = input && typeof input === 'object' && !Array.isArray(input) ? { ...input } : {};
+  delete out.page;
+  delete out.pageUntil;
+  if (here) { out.page = pageId; out.pageUntil = now + PAGE_WAIT_MS; }
+  return out;
+}
+// Whether a request (its input, as the server passed it on) is for a mount in this page now.
+export function forThisPage(input, pageId, now) {
+  if (!input || typeof input !== 'object' || input.page === undefined) return true;
+  return input.page === pageId && !(Number(input.pageUntil) < now);
+}
+// --- end of pageInput
+
+// The environment's facts a module is told (host.environment), from its context: the picture map, { file, minZoom, maxZoom,
+// tileType }, or null.
+export function environmentFacts(answer) {
+  const pm = answer && answer.environment && answer.environment.pictureMap;
+  return { pictureMap: pm && typeof pm === 'object' && !Array.isArray(pm) ? pm : null };
+}
+const thisPage = (() => {
+  const near = [];
+  try { if (window.parent && window.parent !== window) near.push(window.parent); } catch { /* none */ }
+  try { if (window.opener) near.push(window.opener); } catch { /* none */ }
+  for (const w of near) {
+    try {
+      const p = w.__modulePage;
+      if (p && typeof p.id === 'string' && p.open && typeof p.open.add === 'function') { window.__modulePage = p; return p; }
+    } catch { /* another origin */ }
+  }
+  const bytes = new Uint8Array(12);
+  crypto.getRandomValues(bytes);
+  const p = { id: [...bytes].map((b) => b.toString(16).padStart(2, '0')).join(''), open: new Set() };
+  try { window.__modulePage = p; } catch { /* not shared */ }
+  return p;
+})();
+// Whether a module is mounted in this page (any of its windows and frames) and still on screen there.
+function openInPage(moduleId) {
+  for (const e of [...thisPage.open]) {
+    const win = e.el && e.el.ownerDocument && e.el.ownerDocument.defaultView;
+    if (!win || win.closed || !e.el.isConnected) { if (!win || win.closed) thisPage.open.delete(e); continue; }
+    if (e.module === moduleId) return true;
+  }
+  return false;
+}
 // Light or dark flipped, or the owner changed the theme (theme-mode.js fires 'app:theme' once the new colors are in):
 // every module hears its colors again, through the SDK's 'theme' event, which a framed module's SDK also sets on its
 // own :root.
@@ -645,6 +702,46 @@ if (window.parent !== window) {
   });
 }
 
+// Asking the space's canvas to show an object (host.objects.open) from a page it holds or opened: a composite's page in
+// its frame (the parent) or a module's or composite's own window (the opener). 'app:openref' goes to that window, same
+// origin only; the canvas opens the module that owns the object and hands it the pointer, as it does for a module on it,
+// and answers 'app:openref-done' (canvas.js, answerOpenRef). Resolves true or false with its answer, or null when nothing
+// answered (not a canvas, or gone). Never a navigation: a frame on the canvas must not be led on to an app page.
+export function askCanvasToOpen(win, ref, wait = 1500) {
+  return new Promise((resolve) => {
+    if (!win || win === window || !REF_SHAPE(ref)) return resolve(null);
+    const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
+    let timer = 0;
+    const onReply = (event) => {
+      if (event.source !== win || event.origin !== location.origin) return;
+      const d = event.data;
+      if (d && d.type === 'app:openref-done' && d.id === id) done(d.ok === true);
+    };
+    const done = (ok) => {
+      window.removeEventListener('message', onReply);
+      clearTimeout(timer);
+      resolve(ok);
+    };
+    window.addEventListener('message', onReply);
+    timer = setTimeout(() => done(null), wait);
+    try {
+      win.postMessage({ type: 'app:openref', id, ref: cleanPointer(ref) }, location.origin);
+    } catch {
+      done(null);
+    }
+  });
+}
+// The window that opened this one, when it is this site's (a module's or composite's own window, popped out of a space's
+// canvas): null otherwise.
+export function sameSiteOpener() {
+  try {
+    const o = window.opener;
+    return o && !o.closed && o.location.origin === location.origin ? o : null;
+  } catch {
+    return null;
+  }
+}
+
 // The host-drawn "..." dropdown for whatever a header or toolbar row didn't have room for is the page's
 // shared menu (public/host-menu.js), the same one the canvas's title bars and the account menu use.
 export { openHostMenu, closeHostMenu };
@@ -1003,6 +1100,23 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
 
   // Events for the module before its page has said hello wait until it has.
   let ready = false;
+  // The environment's facts as the module was last told them (the hello, then the 'environment' event). They follow a
+  // setting (the picture map is Maps' `imageMap`), so any environment setting change reads this mount's context again, a
+  // moment later (one read for a burst), and the module hears 'environment' with the new facts when they differ.
+  let toldFacts = null;
+  let factsTimer = 0;
+  const recheckFacts = () => {
+    if (!ready || keyed) return;
+    clearTimeout(factsTimer);
+    factsTimer = setTimeout(() => {
+      api('GET', url('/context', scope)).then((answer) => {
+        const facts = environmentFacts(answer);
+        if (JSON.stringify(facts) === JSON.stringify(toldFacts)) return;
+        toldFacts = facts;
+        send('environment', facts);
+      }).catch(() => { /* the next change asks again */ });
+    }, 300);
+  };
   const queued = [];
   const deliver = (event, data) => {
     if (ready) send(event, data);
@@ -1026,7 +1140,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         space: contextInfo.space || null,
         phases: Array.isArray(contextInfo.phases) ? contextInfo.phases : [],
         // Facts about the environment (host.environment): the picture map, { file, minZoom, maxZoom, tileType }, or null.
-        environment: { pictureMap: contextInfo.environment && contextInfo.environment.pictureMap && typeof contextInfo.environment.pictureMap === 'object' ? contextInfo.environment.pictureMap : null },
+        environment: (toldFacts = environmentFacts(contextInfo)),
         theme: readTheme(),
         debug: debugOn(),
       };
@@ -1130,9 +1244,11 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (typeof accepts === 'string' && accepts) extra.accepts = accepts.slice(0, 80);
       if (self) extra.self = '1';
       if (REF_SHAPE(ref)) extra.ref = JSON.stringify(cleanPointer(ref));
-      return (await api('GET', `/api/bus/actions?${busQuery({ from: module.id, ...extra })}`)).actions;
+      // `open`: a mount of the providing module is in this page, so a request asked with { here: true } can be answered.
+      return (await api('GET', `/api/bus/actions?${busQuery({ from: module.id, ...extra })}`)).actions.map((a) => ({ ...a, open: openInPage(a.module) }));
     },
-    async 'actions.request'({ action, input }) {
+    // `here`: only a mount of the provider in this page may carry it out, within PAGE_WAIT_MS (see pageInput).
+    async 'actions.request'({ action, input, here }) {
       const name = String(action || '');
       if (name === 'assistant:askAssistant' || name === 'askAssistant') {
         if (typeof onChatAsk !== 'function') throw Object.assign(new Error(`Ask this from Chat in ${word('space', { a: true })}.`), { status: 400 });
@@ -1142,14 +1258,14 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         await onChatAsk({ question: q, refs });
         return { id: 0, status: 'done', result: { ok: true } };
       }
-      const queued = await api('POST', `/api/bus/actions/request${busGuest()}`, { from: module.id, action, input, ...busPlaceBody() });
+      const queued = await api('POST', `/api/bus/actions/request${busGuest()}`, { from: module.id, action, input: pageInput(input, here === true, thisPage.id, Date.now()), ...busPlaceBody() });
       // The module that carries an action does it from its own page, so a request waits until that page is open: ask the host to
       // open it here (on the space's canvas) when it is not.
       if (onOpenModule) { try { onOpenModule(String(action).split(':')[0]); } catch (err) { /* it cannot be opened here */ } }
       return queued;
     },
     async 'actions.pending'() {
-      return (await api('GET', `/api/bus/actions/pending?${busQuery({ module: module.id })}`)).actions;
+      return (await api('GET', `/api/bus/actions/pending?${busQuery({ module: module.id })}`)).actions.filter((a) => forThisPage(a.input, thisPage.id, Date.now()));
     },
     async 'actions.claim'({ id }) {
       return api('POST', `/api/bus/actions/claim${busGuest()}`, { module: module.id, id, ...busPlaceBody() });
@@ -1708,6 +1824,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
   const hostWin = (pageMode ? container : frame).ownerDocument.defaultView || window;
   if (!pageMode) hostWin.addEventListener('message', onMessage);
   mounted.add(mine);
+  const inPage = { module: module.id, el: mine.frame };
+  thisPage.open.add(inPage);
   // A destination's part hears the page's state on each change (the hello carried it as it was then).
   const leaveDestination = destination ? destination.hub.join(destination.part, (state) => deliver('destination', state)) : () => {};
 
@@ -1740,6 +1858,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (Array.isArray(d.modules) && d.modules.includes(module.id)) send('markers', {});
       return;
     }
+    // Any module's environment setting may change the environment's facts (host.environment): every mount looks again.
+    if (type === 'settings' && d.scope === 'environment') recheckFacts();
     if (type !== 'bus' && type !== 'action' && type !== 'refchange' && d.module !== module.id) return;
     const here = scope === 'space' ? 'space' : 'environment';
     if (type === 'change') send('change', { key: d.key, value: d.value, version: d.version, deleted: d.deleted, by: d.by, scope: d.scope, spaceId: d.spaceId });
@@ -1753,7 +1873,8 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (Array.isArray(d.subscribers) && d.subscribers.includes(module.id) && d.scope === here) send('bus', { id: d.id, at: d.at, module: d.module, name: d.name, ref: d.ref, data: d.data });
     } else if (type === 'action') {
       // A request for this module to do something.
-      if (d.provider === module.id && d.scope === here) send('action', { id: d.id, name: d.name, from: d.from, by: d.by });
+      // One asked for the asking page only (pageInput) is heard there only, and not after its time.
+      if (d.provider === module.id && d.scope === here && forThisPage(d.input, thisPage.id, Date.now())) send('action', { id: d.id, name: d.name, from: d.from, by: d.by });
     }
     else send('schedule', { key: d.key, payload: d.payload, scope: d.scope });
   });
@@ -1941,12 +2062,14 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (!pageMode) hostWin.removeEventListener('message', onMessage);
       sdkEmit = null;
       mounted.delete(mine);
+      thisPage.open.delete(inPage);
       if (activeDrag && (activeDrag.source === mine || activeDrag.layers.some((l) => l.target === mine))) endDrag();
       if (ptrDrag && ptrDrag.source === mine) ptrEnd();
       for (const id of navIds) navBar.unregister(id); // its nav tools go with it
       navIds.clear();
       if (statusSlot) statusSlot.destroy();
       if (addSlot) addSlot.destroy();
+      clearTimeout(factsTimer);
       leaveStream();
       leaveDestination();
       if (pageMode) container.shadowRoot?.replaceChildren();

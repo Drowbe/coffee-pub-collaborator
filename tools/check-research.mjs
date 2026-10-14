@@ -280,4 +280,24 @@ await test('the window title is the name alone, never "Research 2" (#191)', () =
   assert.doesNotMatch(html, /rs-head[^]*?data-slot="count"/, 'no count beside the name in the harness header either');
 });
 
+await test('a plain click on a card opens or closes it to read; the editor is the pen, a double click or Shift+Enter (#217)', () => {
+  const dir = new URL('../modules/research/src/', import.meta.url);
+  const js = fs.readFileSync(new URL('research.js', dir), 'utf8');
+  const html = fs.readFileSync(new URL('research.html', dir), 'utf8');
+  const css = fs.readFileSync(new URL('research.css', dir), 'utf8');
+  const both = js.slice(js.indexOf("root.addEventListener('click'"), js.indexOf('// An object can be dragged out'));
+  const click = both.slice(0, both.indexOf("root.addEventListener('dblclick'"));
+  assert.match(click, /toggleCard\(cardEl\)/, 'a click toggles the card');
+  assert.deepEqual(click.split('\n').filter((l) => /openEditor\(cardEl/.test(l) && !/action === 'edit'/.test(l)), [], 'and a click on the card itself never opens the editor');
+  assert.match(click, /closest\('\.menu, a, button, \[data-action\]'\)/, 'links and buttons inside the card keep their own click');
+  assert.match(both, /dblclick[^]*openEditor\(cardEl\.dataset\.id\)/, 'a double click edits');
+  const keys = js.slice(js.indexOf("root.addEventListener('keydown'"), js.indexOf('// --- adding'));
+  assert.match(keys, /ev\.key === 'Enter' && ev\.shiftKey\) \{[^}]*openEditor/, 'Shift+Enter edits');
+  assert.match(keys, /ev\.key === 'Enter' \|\| ev\.key === ' '\) \{[^}]*toggleCard/, 'Enter and Space toggle');
+  assert.doesNotMatch(keys, /\.click\(\)/, 'a key no longer fakes a click');
+  assert.match(html, /<button class="edit sdk-more"[^>]*data-action="edit"/, 'the card has an edit button');
+  assert.match(css, /\.rcard:focus-visible \{ outline: 2px solid var\(--accent\)/, 'a visible focus state');
+  assert.match(css, /\.rcard\.open \{/, 'an open card looks open');
+});
+
 console.log(`check-research: OK (${n} checks)`);

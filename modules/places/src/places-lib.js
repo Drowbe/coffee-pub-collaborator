@@ -3,7 +3,10 @@
   // module's summary can name it (a summary's `place`); a place with only an address has none. The page defines `geo`
   // (host.util.geo) ahead of this code, as the check does.
   const PLACE_PREFIX = 'place:';
+  // The ids the environment's category list starts with (the module's `categories` setting). A place keeps whatever id it was
+  // saved with, even after the owner takes that category off the list (the page then shows it under Other).
   const CATEGORIES = ['do', 'eat', 'stay', 'travel', 'other'];
+  const CATEGORY_ID = /^[a-z][a-z0-9-]{0,29}$/;
 
   // A stored value as a place, or null when it is not one.
   function cleanPlace(id, v) {
@@ -23,7 +26,7 @@
     return {
       id: String(id),
       title,
-      category: CATEGORIES.includes(v.category) ? v.category : 'other',
+      category: typeof v.category === 'string' && CATEGORY_ID.test(v.category) ? v.category : 'other',
       address: geo.oneLine(v.address, 200),
       point,
       notes: String(v.notes == null ? '' : v.notes).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g, '').slice(0, 1000),

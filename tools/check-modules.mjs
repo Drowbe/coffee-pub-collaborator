@@ -544,6 +544,36 @@ test('polls ships /v as a local addPoll command', () => {
   assert.equal(raw.actions.provides.find((a) => a.name === 'addPoll')?.local, true);
 });
 
+test('calendar: a day wears its phase (the same rule as the Planner): inside, first day, gap, open end, before', () => {
+  const src = (name) => fs.readFileSync(path.join(ROOT, 'modules/calendar/src', name), 'utf8');
+  const lib = new Function('ymd', 'parseYmd', `${src('calendar-lib.js')}\nreturn { phaseOnDay };`)(() => '', () => new Date());
+  const Phases = new Function('module', fs.readFileSync(path.join(ROOT, 'public/phases.js'), 'utf8') + '\nreturn module.exports;')({ exports: {} });
+  const phases = [{ id: 'planning', label: 'Planning' }, { id: 'trip', label: 'Trip', main: true }, { id: 'after', label: 'After' }];
+  const bands = Phases.timelineOf(phases, { planning: { start: '2026-10-01' }, trip: { start: '2026-10-10', end: '2026-10-12' }, after: { start: '2026-10-20' } }, { created: '2026-09-01' });
+  assert.equal(lib.phaseOnDay(bands, '2026-09-30'), null, 'before the first phase');
+  assert.deepEqual(lib.phaseOnDay(bands, '2026-10-01'), { id: 'planning', label: 'Planning', tint: 'blue', first: true });
+  assert.deepEqual(lib.phaseOnDay(bands, '2026-10-05'), { id: 'planning', label: 'Planning', tint: 'blue', first: false });
+  assert.deepEqual(lib.phaseOnDay(bands, '2026-10-12'), { id: 'trip', label: 'Trip', tint: 'green', first: false });
+  assert.equal(lib.phaseOnDay(bands, '2026-10-15'), null, 'in the gap after the main phase');
+  assert.deepEqual(lib.phaseOnDay(bands, '2028-01-01'), { id: 'after', label: 'After', tint: 'teal', first: false }, 'the last phase is open-ended');
+  assert.equal(lib.phaseOnDay([], '2026-10-05'), null, 'no phases, nothing');
+  const css = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.css'), 'utf8');
+  for (const t of ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']) assert.match(css, new RegExp(`\\.ph-${t} \\{ --ph: var\\(--tint-${t}\\); \\}`), `${t} is the theme's tint`);
+  assert.match(css, /\.day\.ph, \.phasehead\.ph \{ background: [^;]*var\(--ph\)/, 'a wash of the tint');
+  assert.doesNotMatch(css.slice(css.indexOf('/* phases:'), css.indexOf('/* list */')), /(border|outline|box-shadow)[^;]*var\(--ph\)/, 'a phase never draws a coloured border or outline');
+  assert.doesNotMatch(css.slice(css.indexOf('/* phases:'), css.indexOf('/* list */')), /#[0-9a-f]{3,8}\b|rgba?\(/i, 'no colour literals in the phase rules');
+});
+
+test('calendar: the Day view\'s phase bar sticks to the top of the scroll, and the auto-scroll stops beneath it (not under it)', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.css'), 'utf8');
+  assert.match(css, /\.dayview \.phasehead \{[^}]*position: sticky;[^}]*top: 0;[^}]*z-index: \d+;/, 'sticky at the top of the day\'s scroller');
+  assert.doesNotMatch(css, /(^|\n)\.phasehead[^{]*\{[^}]*position: sticky/, 'only in the Day view: Week and Month have no bar to stick');
+  const js = fs.readFileSync(path.join(ROOT, 'modules/calendar/src/calendar.js'), 'utf8');
+  const fn = js.slice(js.indexOf('function scrollDay()'), js.indexOf('// Month / Week / Day / Agenda is'));
+  assert.match(fn, /querySelector\('\.phasehead'\)/, 'scrollDay finds the bar');
+  assert.match(fn, /body\.scrollTop = Math\.max\(0, [^;]*- \(bar \? bar\.offsetHeight \+ \d+ : 0\)\)/, 'and offsets the target by its height');
+});
+
 test('calendar: the views are Month, Week, Day and Agenda; an old stored "Open on" still opens', () => {
   const src = (name) => fs.readFileSync(path.join(ROOT, 'modules/calendar/src', name), 'utf8');
   const lib = new Function('ymd', 'parseYmd', `${src('calendar-lib.js')}\nreturn { VIEW_IDS, openView, listUnder };`)(() => '', () => new Date());

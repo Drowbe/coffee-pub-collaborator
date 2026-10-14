@@ -452,6 +452,16 @@
       tag.title = item.notes || '';
       tagBox.append(tag);
     }
+    // A day in a dated phase has a wash of the phase's tint on its header and the phase's name beside the date (nothing otherwise).
+    const ph = phaseOnDay(plan.bands(), day);
+    if (ph && ph.tint) {
+      el.classList.add('in-phase', `ph-${ph.tint}`);
+      const tag = document.createElement('span');
+      tag.className = 'phase-tag';
+      tag.textContent = ph.label;
+      tag.title = `${ph.label}${ph.first ? ' starts' : ''}`;
+      head.querySelector('.dmeta').prepend(tag);
+    }
     el.prepend(head);
     const list = el.querySelector('.timeline');
     if (!entries.length) {
@@ -819,12 +829,15 @@
     const today = ymd(new Date());
     const empties = emptyDays();
     const bounds = tripBounds(plan.list());
+    const bandList = plan.bands();
     for (const day of plan.days()) {
       const chip = clone('tpl-daychip');
       chip.dataset.day = day;
       chip.classList.toggle('is-empty', empties.has(day));
       chip.classList.toggle('in-trip', Boolean(bounds) && day >= bounds.start.day && day <= bounds.end.day);
       chip.classList.toggle('today', day === today);
+      const ph = phaseOnDay(bandList, day);
+      if (ph && ph.tint) { chip.classList.add('in-phase', `ph-${ph.tint}`); chip.title = ph.label; }
       fill(chip, { weekday: parseYmd(day).toLocaleDateString([], { weekday: 'short' }), day: parseYmd(day).getDate() });
       strip.append(chip);
     }
@@ -1040,10 +1053,9 @@
     // The phase line is the chip's words (host.util.phaseWords, the one rule), empty without phases.
     const bands = plan.bands();
     fill(head, { title: tripName, phase: bands.length && host.util.phaseWords ? host.util.phaseWords(bands, ymd(new Date())) : '' });
-    if (host.setTitle) {
-      host.setTitle(tripName);
-      hide(slot(head, 'title'), true);
-    }
+    // The titlebar names the module (its display name); the trip's name is the heading in the page.
+    if (host.setTitle) host.setTitle(info.module.name);
+    hide(slot(head, 'title'), false);
     let dates = '';
     if (trip && trip.start) {
       const a = parseYmd(trip.start);
@@ -2522,9 +2534,10 @@
   plan.subscribe(() => { if (state.loaded) redraw(); });
   // What the plan points at can change or go where it lives without telling this page, so look again now and then and when the
   // page comes back into view (until the server announces it).
-  const look = () => { if (state.loaded) plan.refreshSummaries().catch(() => {}); };
+  const look = () => { if (state.loaded) { plan.refreshSummaries().catch(() => {}); plan.refreshPhases(); } };
   const lookTimer = setInterval(() => { if (!host.rootElement.isConnected) clearInterval(lookTimer); else look(); }, 20000);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) look(); });
+  window.addEventListener('focus', look);
   render();
   try {
     await plan.load();

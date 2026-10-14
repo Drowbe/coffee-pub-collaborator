@@ -64,6 +64,21 @@ work: layout and canvas changes that touch `space.js`, `canvas.js` or `nav-bar.j
 security-sensitive work, and planning. Pass `fable` only when Thomas asks. Say in your report which
 model each agent ran on, in a few words.
 
+## When Thomas is away (overnight)
+
+Thomas's decision of 2026-10-14. While he sleeps, work only from the issues he put in the "now"
+column (GitHub label `priority: now`), in priority order, bugs first. One builder at a time on any
+shared files. Anything that needs a design decision is skipped, not guessed, and noted for him.
+Every build runs `npm run check` and its own checks before it is merged.
+- **Merge** small fixes and bugs that pass every check to main: open a PR, merge it with
+  `expectedHeadSha`, wait for `image.yml`, and report what is now in `latest`.
+- **Hold** on the branch, with a short note for Thomas, anything touching the call, the column,
+  Home's layout, migrations, security or the server's stored data, and anything verified only
+  against a stub where a real LiveKit call or phone is what matters.
+- No Fable and no extra Opus unless Thomas says so for a stated window.
+- Never close an issue unless its work is merged and verified.
+- Keep a running list of what was merged and what is held, for his morning summary.
+
 ## The flow (production builds)
 
 planner (when needed) -> Thomas approves -> builders -> quality-assurance -> content-manager -> report.

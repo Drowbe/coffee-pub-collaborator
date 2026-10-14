@@ -490,6 +490,20 @@
     return found || list[0];
   }
 
+  // Which phase a day is in, for the colour a day wears (the bands of host.util.phaseTimeline): the dated band whose first
+  // day is on or before `day` and whose last day (null: open-ended) is on or after it, as { id, label, tint, first } with
+  // `first` true on the band's first day; null for a day before the first band, in a gap between bands, after a band that
+  // ended, or when the day or the bands are not usable. `tint` is one of the eight theme tint names (else null, no colour).
+  function phaseOnDay(bands, day) {
+    const PHASE_TINTS = ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red'];
+    if (!Array.isArray(bands) || typeof day !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+    for (const b of bands) {
+      if (!b || !b.dated || typeof b.start !== 'string' || b.start > day || (b.end && b.end < day)) continue;
+      return { id: b.id, label: String(b.label || ''), tint: PHASE_TINTS.includes(b.tint) ? b.tint : null, first: b.start === day };
+    }
+    return null;
+  }
+
   // Which phase an object is in: its own, when that phase is still listed, else the current phase. Null without bands.
   function phaseOf(item, bands, today) {
     const list = Array.isArray(bands) ? bands.filter(Boolean) : [];

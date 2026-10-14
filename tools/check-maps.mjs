@@ -200,19 +200,43 @@ test('adding follows Places: its permission decides, the phone is shown the list
   assert.match(page, /if \(e\.id === 'place' && state\.adder\) askNewPlace\(\{\}\);/);
   assert.match(page, /else if \(a === 'add'\) \{ if \(state\.adder\) \{ if \(state\.map\) setAdding\(!state\.adding\); else askNewPlace\(\{\}\); \} \}/);
   // pickPoint: the map's click-the-map mode for the editor's target button; the spot (or none) is told back through positionPicked.
-  assert.match(page, /pickPoint: async \(\) => \{[\s\S]*?state\.pick = true;[\s\S]*?setAdding\(true\);[\s\S]*?say\(CLICK_TO_ADD\);/);
+  assert.match(page, /pickPoint: async \(input\) => \{[\s\S]*?state\.pick = true;[\s\S]*?setAdding\(true\);[\s\S]*?say\(CLICK_TO_ADD\);/);
   assert.match(page, /if \(state\.adding && state\.pick\) \{[\s\S]*?tellPicked\(at\);/);
   assert.match(page, /if \(state\.adding && state\.pick\) \{[\s\S]*?tellPicked\(at\);/);
   assert.match(page, /a\.name === 'positionPicked'/);
   assert.match(page, /e\.key === 'Escape' && state\.pick/);
   const manifest = JSON.parse(read('../module.json'));
   assert.ok(manifest.actions.provides.some((a) => a.name === 'pickPoint' && a.local === true), 'the manifest declares pickPoint');
+  // Only the asking page's map takes a pick, and not after the asking page gave up (the host's `page` and `pageUntil`).
+  const pick = manifest.actions.provides.find((a) => a.name === 'pickPoint');
+  assert.ok(pick.input.page === 'string?' && pick.input.pageUntil === 'number?', 'pickPoint takes the host\'s page fields');
+  assert.match(page, /pickPoint: async \(input\) => \{\n\s+await startedPromise;\n\s+if \(input && Number\(input\.pageUntil\) < Date\.now\(\)\) throw new Error/, 'a late pick never starts the mode');
+  assert.match(page, /host\.actions\.request\(state\.picked\.action, at \? \{ lat: at\.lat, lng: at\.lng \} : \{\}, \{ here: true \}\)/, 'the spot goes back to this page\'s Places');
+  // The page's document listeners go with the markup.
+  assert.match(page, /const alive = new AbortController\(\);/);
+  assert.match(page, /function letGo\(\) \{ if \(!alive\.signal\.aborted\) alive\.abort\(\); \}/);
+  for (const m of page.matchAll(/document\.addEventListener\('([a-z]+)'[^\n]*/g)) assert.match(m[0], /\{ signal: alive\.signal \}\);$/, `the document's ${m[1]} listener is taken off with the map`);
+  assert.match(page, /function torn\(\) \{\n    if \(host\.rootElement\.isConnected && \$\('tpl-pin'\)\) return false;\n    letGo\(\);/);
   assert.match(html, /title="Add a place" aria-label="Add a place"/);
   assert.match(html, />Click the map to place it</);
   // A short note is a toast, never text drawn in the module.
   assert.match(page, /host\.ui\.toast\(String\(text\)\)/);
   const contract = read('CONTRACT.md');
   assert.ok(!contract.includes('`addPlace`'), 'the contract names newPlace');
+});
+
+test('a category the owner gave a colour in Places is drawn in that colour; without one, the hue as before', () => {
+  const page = read('maps.js');
+  const css = read('maps.css');
+  assert.match(page, /const hex = cat \? state\.catColors\[cat\] : '';\n\s+if \(hex\) \{[\s\S]*?el\.style\.setProperty\('--tone', hex\);[\s\S]*?return;\n\s+\}\n\s+if \(!cat \|\| BUILT_IN_CATS\.includes\(cat\)\) return;/, 'the chosen colour first, then the stylesheet and the hash hue');
+  assert.match(page, /h = \(h \* 31 \+ ch\.charCodeAt\(0\)\) % 360;/, 'the hash hue, the same as Places');
+  assert.match(page, /a\.name === 'categoryColors' && a\.open === true/, 'asked of the Places in this page');
+  assert.match(page, /host\.actions\.request\(action\.action, \{\}, \{ wait: true, here: true \}\)/);
+  assert.match(page, /\/\^#\[0-9a-f\]\{6\}\$\/\.test\(String\(c\)\)/, 'only plain colours are used');
+  assert.match(css, /\.pin\[data-cat\]:not\(\.selected\) \{ --pin: var\(--tone\); --pin-text: var\(--tone-ink, var\(--bg\)\); \}/);
+  // The same rule as Places' tone(): a chosen colour is anything but the automatic grey.
+  const places = fs.readFileSync(new URL('../modules/places/src/places.js', import.meta.url), 'utf8');
+  assert.match(places, /const AUTO_COLOR = '#888888';/);
 });
 
 console.log(`check-maps: OK (${n} checks)`);

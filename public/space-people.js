@@ -90,7 +90,7 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   const el = doc.createElement('span');
   el.className = 'who-here';
   el.innerHTML = `
-    <button class="who-here-toggle" id="who-here-toggle" type="button" aria-label="Who is here" aria-describedby="who-here-said" aria-expanded="false" aria-controls="who-here-list">
+    <button class="who-here-toggle nav-text" id="who-here-toggle" type="button" aria-label="Who is here" aria-describedby="who-here-said" aria-expanded="false" aria-controls="who-here-list">
       <span class="who-here-faces" aria-hidden="true"></span><span class="who-here-more" aria-hidden="true" hidden></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
     </button>
     <section class="who-here-list" id="who-here-list" tabindex="-1" aria-labelledby="who-here-title" hidden>

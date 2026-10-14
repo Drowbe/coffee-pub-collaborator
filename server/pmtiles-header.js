@@ -64,4 +64,23 @@ function pmtilesInfo(filePath) {
   }
 }
 
-module.exports = { pmtilesZoomRange, pmtilesInfo, HEADER_BYTES, TILE_TYPES };
+// Why pmtilesInfo() answers null, for the sentence an upload is refused with: 'format' (not a PMTiles file: too short,
+// wrong magic, a newer spec version, or unreadable) or 'zoom' (it is one, but its zoom range is reversed). Null when
+// pmtilesInfo() would answer.
+function pmtilesWhyNot(filePath) {
+  if (pmtilesInfo(filePath)) return null;
+  let fd;
+  try {
+    fd = fs.openSync(filePath, 'r');
+    const buf = Buffer.alloc(HEADER_BYTES);
+    if (fs.readSync(fd, buf, 0, HEADER_BYTES, 0) < HEADER_BYTES) return 'format';
+    if (buf.readUInt16LE(0) !== 19792 || buf.readUInt8(7) > 3) return 'format';
+    return 'zoom';
+  } catch {
+    return 'format';
+  } finally {
+    if (fd !== undefined) { try { fs.closeSync(fd); } catch { /* already gone */ } }
+  }
+}
+
+module.exports = { pmtilesZoomRange, pmtilesInfo, pmtilesWhyNot, HEADER_BYTES, TILE_TYPES };

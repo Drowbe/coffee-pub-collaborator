@@ -29,7 +29,7 @@ Other states replace the header and body: see "States".
 
 | Element | Meaning |
 |---|---|
-| `[data-slot=title]` | the plan's name (the space's name until the Name field is set); hidden when `host.setTitle` put it in the titlebar |
+| `[data-slot=title]` | the plan's name (the space's name until the Name field is set); the titlebar shows the module's own name (`host.setTitle(info.module.name)`), never this |
 | `[data-slot=phase]` | the phase line (`p.phase-line`): the bar's chip words from `host.util.phaseWords` (public/phases.js `chipWords`), "`<label>` · day 2 of 3" in a band with an end, "`<label>` · 12 days to go" before the next dated band, the label alone otherwise. Hidden when the template has no phases |
 | `[data-slot=dates]` | "Sat 3 – Fri 9 Oct 2026", already formatted; hidden when the plan has no first day |
 | `.trip-sep` | `|` between the dates and the facts; hidden when there are no facts |

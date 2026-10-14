@@ -61,10 +61,27 @@
 
     const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []) || [];
     // The space's phase timeline (plan-one-bar.md step 2), [] without phases or on a host without the rule.
+    // The space's dates come from the hello, which a later edit of them does not change, so refreshPhases asks again
+    // (host.spaces() lists each space with its dates) and, when they differ, the plan uses them from then on.
+    let phaseNow = null; // { dates, created } once asked and different from the hello's
     const bands = () => {
       if (!templatePhases().length || !host.util || typeof host.util.phaseTimeline !== 'function') return [];
-      try { return host.util.phaseTimeline({ today: ymd(new Date()) }) || []; } catch (err) { return []; }
+      try { return host.util.phaseTimeline({ today: ymd(new Date()), ...(phaseNow || {}) }) || []; } catch (err) { return []; }
     };
+    async function refreshPhases() {
+      const here = typeof host.space === 'function' ? host.space() : null;
+      if (!here || !templatePhases().length || typeof host.spaces !== 'function') return false;
+      try {
+        const mine = ((await host.spaces()) || []).find((r) => r.id === here.id);
+        if (!mine || !mine.phases) return false;
+        const next = { dates: mine.phases, created: mine.createdAt || here.createdAt };
+        const was = phaseNow || { dates: here.phases || {}, created: here.createdAt };
+        if (JSON.stringify(next) === JSON.stringify(was)) return false;
+        phaseNow = next;
+        changed();
+        return true;
+      } catch (err) { return false; }
+    }
     const phased = () => templatePhases().length > 0;
     // The trip as the plan shows it: with phases, its first and last day are the main band's (null while the main
     // phase has no start) and never the stored ones; a space with dated phases has a trip even before anything is
@@ -486,7 +503,7 @@
     }
 
     return {
-      refreshSummaries: () => resolveSummaries(true), load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, onSaid, saveTrip, coverDay, bands, phased, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, previewMove, moveDays, previewClear, clearDay: clearDayOf, nudgeItem, addLink, fromSuggestion, fromObject,
+      refreshSummaries: () => resolveSummaries(true), refreshPhases, load, list, onLine, atJoint, sortable, days, byDay, dayOf, jointOf, summaries, suggest, provide, onFromText, onSaid, saveTrip, coverDay, bands, phased, addItem, updateItem, removeItem, addRoundTrip, returnFor, outboundFor, extraReturns, removeLeg, applyChanges, moveTo, moveToJoint, previewMove, moveDays, previewClear, clearDay: clearDayOf, nudgeItem, addLink, fromSuggestion, fromObject,
       get trip() { return withDates(trip); },
       get suggestions() { return suggested; },
       versionOf: (id) => (items.get(id) || {}).version,

@@ -50,7 +50,9 @@ test('the file list says Picture or Map data from kinds, and nothing when absent
   assert.match(host, /KIND_WORDS\[f\.kind\] \|\| ''/);
 });
 test('a module hears environment.pictureMap in the hello and reads host.environment', () => {
-  assert.match(mh, /environment: \{ pictureMap: contextInfo\.environment && contextInfo\.environment\.pictureMap/);
+  // The hello's facts come from the context through environmentFacts (the same as the live 'environment' event).
+  assert.match(mh, /environment: \(toldFacts = environmentFacts\(contextInfo\)\),/);
+  assert.match(mh, /export function environmentFacts\(answer\) \{\n  const pm = answer && answer\.environment && answer\.environment\.pictureMap;\n  return \{ pictureMap: pm && typeof pm === 'object' && !Array\.isArray\(pm\) \? pm : null \};/);
   assert.match(sdk, /get environment\(\) \{ return \{ pictureMap: \(info && info\.environment && info\.environment\.pictureMap\) \|\| null \}; \}/);
   assert.match(mh, /async 'files\.url'\(\{ name, folder \}\)/);
   assert.match(sdk, /url: \(name, o\) => call\('files\.url', \{ name, \.\.\.\(o && o\.folder \? \{ folder: o\.folder \} : \{\}\) \}\)/);

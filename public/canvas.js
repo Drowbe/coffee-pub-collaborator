@@ -817,6 +817,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const onChrome = (event) => {
       if (event.source !== frame.contentWindow || event.origin !== hostWin.location.origin) return;
       const d = event.data;
+      if (d && d.type === 'app:openref') return answerOpenRef(event, d); // a part's link to another module's object
       if (!d || d.type !== 'app:compositechrome') return;
       if (addSlot && Array.isArray(d.add)) addSlot.set(d.add);
       if (statusSlot && Array.isArray(d.status)) statusSlot.set(d.status);
@@ -1249,6 +1250,19 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     mod.mount.deliver('objectopen', { ref });
     return true;
   }
+  // A page this canvas holds or opened asking it to show an object (askCanvasToOpen in module-host.js): a composite's
+  // page in its frame (compositeMount), or a module's or composite's own window (popOut). Shown here as openRef shows a
+  // module's own host.objects.open, and answered with whether it could; the asker never navigates while it is asked.
+  function answerOpenRef(event, d) {
+    const r = d.ref;
+    const ok = Boolean(r && typeof r.module === 'string' && typeof r.kind === 'string' && typeof r.id === 'string') && openRef(r);
+    try { event.source.postMessage({ type: 'app:openref-done', id: d.id, ok }, event.origin); } catch { /* the asker is gone */ }
+  }
+  window.addEventListener('message', (event) => {
+    if (event.origin !== location.origin || !event.data || event.data.type !== 'app:openref') return;
+    if (![...windows.values()].includes(event.source)) return; // only a window this canvas popped out
+    answerOpenRef(event, event.data);
+  });
 
   function closeModule(id) {
     const mod = opened.get(id);

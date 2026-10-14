@@ -26,7 +26,7 @@ const { GeocodeCache, askService, keyOf: keyOfPlace, ENOUGH } = require('./geoco
 const { FlightSchedule, FlightLookupError, findFlights, parseNumber: parseFlightNumber } = require('./flight-lookup');
 const airportList = require('./airports');
 const { RegionCutJobs, RegionCutError } = require('./region-cut');
-const { pmtilesInfo } = require('./pmtiles-header');
+const { pmtilesInfo, pmtilesWhyNot } = require('./pmtiles-header');
 const { ModuleUploads } = require('./module-uploads');
 const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
@@ -1516,7 +1516,10 @@ app.use((req, res, next) => (WRITE_METHODS.has(req.method) && !CROSS_ORIGIN_EXEM
 // verify stashes the exact bytes received, alongside the parsed req.body -- the billing webhook's signature
 // (plan-environments.md, "Phase 5") is an HMAC over those bytes, not a re-serialization of the parsed object, which
 // would not reliably reproduce what the sender actually signed (key order, whitespace).
-app.use(express.json({ limit: '64kb', verify: (req, _res, buf) => { req.rawBody = buf; } }));
+// The module file upload (PUT /api/modules/:id/files/:folder) reads its own body and checks its own content type, so a
+// wrong type answers that route's own 415, not this parser's 413: the parser leaves that route's body alone.
+const MODULE_FILE_UPLOAD = /^\/api\/modules\/[^/]+\/files\/[^/]+$/;
+app.use(express.json({ limit: '64kb', type: (req) => !(req.method === 'PUT' && MODULE_FILE_UPLOAD.test(req.path)) && Boolean(req.is('application/json')), verify: (req, _res, buf) => { req.rawBody = buf; } }));
 
 const publicDir = path.join(__dirname, '..', 'public');
 const clientDist = path.join(__dirname, '..', 'node_modules', 'livekit-client', 'dist');
@@ -2647,6 +2650,7 @@ mountOldLinks(app);
 
 // Pages ----------------------------------------------------------------------
 
+// A frame guard on the app shell (frame-ancestors) was considered and left out: it could break a legitimate embedding. Decide with Thomas.
 app.get('/', (req, res) => {
   if (!currentUser(req)) return res.redirect('/login');
   res.sendFile(page('space.html'));
@@ -4006,7 +4010,7 @@ app.put('/api/spaces/:id/attention/:module', (req, res) => {
   if (!ctx) return;
   const found = modules.enabled(req.params.module);
   if (!found) return res.status(404).json({ error: `There is no such ${word('module')}.` });
-  if (!attentionModule(req.params.module, ctx)) return res.status(403).json({ error: `That ${word('module')} is not available in this ${word('space')} for you.` });
+  if (!attentionModule(req.params.module, ctx)) return res.status(403).json({ error: `That ${word('module')} is not available here for you.` });
   if (!moduleCan(found.manifest, ctx.perms, 'write')) return res.status(403).json({ error: `Your role can't do that in this ${word('module')}.` });
   const { report, error } = cleanAttention(req.body);
   if (error) return res.status(400).json({ error });
@@ -4018,7 +4022,7 @@ app.delete('/api/spaces/:id/attention/:module', (req, res) => {
   if (!ctx) return;
   const found = modules.enabled(req.params.module);
   if (!found) return res.status(404).json({ error: `There is no such ${word('module')}.` });
-  if (!attentionModule(req.params.module, ctx)) return res.status(403).json({ error: `That ${word('module')} is not available in this ${word('space')} for you.` });
+  if (!attentionModule(req.params.module, ctx)) return res.status(403).json({ error: `That ${word('module')} is not available here for you.` });
   if (!moduleCan(found.manifest, ctx.perms, 'write')) return res.status(403).json({ error: `Your role can't do that in this ${word('module')}.` });
   attention.clear(ctx.space.id, ctx.who.user.key, found.manifest.id);
   res.json({ ok: true });
@@ -7048,7 +7052,18 @@ app.get('/api/modules/:id/files/:name', (req, res) => {
   const name = req.params.name;
   const file = moduleFilePath(ctx.manifest, name, typeof req.query.folder === 'string' ? req.query.folder : '');
   if (!file) return res.status(404).json({ error: 'no such file' });
-  res.sendFile(file, { acceptRanges: true, headers: { 'Cache-Control': 'private, max-age=3600', 'Content-Type': 'application/octet-stream' } });
+  res.sendFile(file, { acceptRanges: true, headers: { 'Cache-Control': 'private, max-age=3600', 'Content-Type': 'application/octet-stream' } }, (err) => {
+    if (!err || res.headersSent) return; // sent, or the connection broke part way
+    // A range that cannot be met (the send library's 416): say so, with the file's size.
+    if (err.status === 416) {
+      let size = 0;
+      try { size = fs.statSync(file).size; } catch { /* gone */ }
+      res.removeHeader('Content-Range');
+      return res.status(416).set('Content-Range', `bytes */${size}`).json({ error: 'That part of the file is out of range.' });
+    }
+    if (err.status === 404 || err.code === 'ENOENT') return res.status(404).json({ error: 'no such file' });
+    return res.status(err.status >= 400 && err.status < 600 ? err.status : 500).json({ error: 'server error' });
+  });
 });
 // Remove a file an admin placed for the module (a `file`/`files` setting) -- gone for good, so admin only. Also
 // un-ticks it from any `files` setting that had it, and clears a `file` setting that pointed to it, so nothing on
@@ -7057,8 +7072,9 @@ app.delete('/api/modules/:id/files/:name', requireOwner, (req, res) => {
   const found = modules.enabled(req.params.id);
   if (!found) return res.status(404).json({ error: `no such ${word('module')}` });
   const name = req.params.name;
+  if (req.query.folder !== undefined && typeof req.query.folder !== 'string') return res.status(400).json({ error: 'Name one folder in ?folder=.' });
   const folder = typeof req.query.folder === 'string' ? req.query.folder : ''; // optional: which folder, for a name two folders share
-  const def = (found.manifest.settings || []).find((d) => (d.type === 'file' || d.type === 'files') && (!folder || d.folder === folder) && listModuleFiles(found.manifest, d.folder).includes(name));
+  const def =(found.manifest.settings || []).find((d) => (d.type === 'file' || d.type === 'files') && (!folder || d.folder === folder) && listModuleFiles(found.manifest, d.folder).includes(name));
   if (!def) return res.status(404).json({ error: 'no such file' });
   if (settingIsShared(found.manifest, def)) return res.status(403).json({ error: 'managed by the host' });
   const file = moduleFilePath(found.manifest, name, def.folder);
@@ -7175,18 +7191,34 @@ app.put('/api/modules/:id/files/:folder', requireOwner, async (req, res) => {
     if (got.aborted) { dropPart(); return; }
     if (got.failed) { dropPart(); return res.status(500).json({ error: `The file could not be saved: ${got.failed}` }); }
     const info = got.size ? pmtilesInfo(part) : null;
-    if (!info) { dropPart(); return res.status(415).json({ error: 'That is not a PMTiles file.' }); }
+    if (!info) {
+      const why = got.size ? pmtilesWhyNot(part) : 'format';
+      dropPart();
+      if (why === 'zoom') return res.status(422).json({ error: 'That PMTiles file\'s zoom range is not valid.' });
+      return res.status(415).json({ error: 'That is not a PMTiles file.' });
+    }
+    if (info.kind === 'unknown') { dropPart(); return res.status(422).json({ error: 'That PMTiles file\'s tile type is not one the map can draw.' }); }
     if (info.kind !== 'picture') { dropPart(); return res.status(422).json({ error: 'That PMTiles file holds map data, not a picture.' }); }
+    if (info.maxZoom > 22) { dropPart(); return res.status(422).json({ error: 'The zoom range is out of range.' }); }
     if (info.rootDirEnd > got.size) { dropPart(); return res.status(422).json({ error: 'That PMTiles file looks cut short.' }); }
     const before = moduleSettings.values(manifest, 'environment', {})[def.key];
     const final = path.join(dir, name);
+    // A file already there under this name is set aside first, so a failure after the rename puts it back.
+    const aside = `${part}.old`;
+    let hadOld = false;
+    let placed = false;
     try {
+      if (fs.existsSync(final)) { fs.renameSync(final, aside); hadOld = true; }
       fs.renameSync(part, final);
+      placed = true;
       moduleSettings.set(manifest, 'environment', {}, { [def.key]: name }, currentUser(req)?.key || null);
     } catch (err) {
       dropPart();
+      if (placed) { try { fs.rmSync(final, { force: true }); } catch { /* already gone */ } }
+      if (hadOld) { try { fs.renameSync(aside, final); } catch { /* nothing more to do */ } }
       return res.status(500).json({ error: `The file could not be saved: ${err.message}` });
     }
+    if (hadOld) { try { fs.rmSync(aside, { force: true }); } catch { /* left for the hourly clean-up */ } }
     if (typeof before === 'string' && before && before !== name && FILE_NAME_RE.test(before)) fs.rmSync(path.join(dir, before), { force: true });
     res.json({ name, size: got.size, minZoom: info.minZoom, maxZoom: info.maxZoom });
   } finally {
@@ -7998,6 +8030,8 @@ app.use((err, _req, res, _next) => {
     if (/^\/api\/(modules\/[^/]+|spaces\/[^/]+)\/objects\/check$/.test(_req.path)) return res.status(413).json({ error: 'that is over 256 KB; bring it in in parts' });
     if (/^\/api\/modules\/[^/]+\/uploads/.test(_req.path)) return res.status(413).json({ error: 'that file is over the size limit' });
     if (/^\/api\/(spaces\/[^/]+\/(action|command)|bus\/.+)$/.test(_req.path)) return res.status(413).json({ error: 'that request is over 64 KB' });
+    // Any other JSON body (a space's PATCH, a module's settings) is a request over the JSON limit, not an image or a zip.
+    if (_req.is('json')) return res.status(413).json({ error: `that request is over ${Math.round((Number(err.limit) || 65536) / 1024)} KB` });
     const limit = _req.path.startsWith('/api/modules') ? MODULE_LIMITS.zipBytes : MAX_IMAGE_BYTES;
     return res.status(413).json({ error: `${_req.path.startsWith('/api/modules') ? 'the zip' : 'image'} is larger than ${limit / (1024 * 1024)} MB` });
   }

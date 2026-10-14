@@ -83,10 +83,14 @@ await test('geo: the link to the person\'s own maps app', () => {
 await test('a place needs a name; the point is optional and checked', () => {
   assert.equal(lib.cleanPlace('a', { title: '' }), null);
   assert.equal(lib.cleanPlace('a', null), null);
-  const bare = lib.cleanPlace('a', { title: ' Museum ', address: 'Rua 1,\n Lisboa', category: 'nope' });
+  const bare = lib.cleanPlace('a', { title: ' Museum ', address: 'Rua 1,\n Lisboa', category: 'No pe!' });
   assert.equal(bare.title, 'Museum');
   assert.equal(bare.address, 'Rua 1, Lisboa');
   assert.equal(bare.category, 'other');
+  // An id that is well formed is kept even when no category has it any more (the page shows it under Other); stored places are never rewritten.
+  assert.equal(lib.cleanPlace('a', { title: 'x', category: 'inn' }).category, 'inn');
+  assert.equal(lib.cleanPlace('a', { title: 'x', category: 5 }).category, 'other');
+  assert.deepEqual(lib.CATEGORIES, ['do', 'eat', 'stay', 'travel', 'other']);
   assert.equal(bare.point, null);
   assert.equal(lib.cleanPlace('a', { title: 'x', point: { lat: 91, lng: 2 } }).point, null);
   assert.equal(lib.cleanPlace('a', { title: 'x', point: { lat: 'no', lng: 2 } }).point, null);
@@ -193,17 +197,44 @@ await test('one way to add a place in every context: Where, the same finish, the
   assert.match(page, /const onPicture = \(\) => Boolean\(host\.environment && host\.environment\.pictureMap\);/);
   assert.match(page, /if \(!onPicture\(\)\) items\.push\(\{ id: 'open-in-maps'/);
   assert.match(page, /if \(p\.point && !onPicture\(\)\) \{/);
-  assert.match(page, /hide\(\$\('f-links-out'\), !id \|\| onPicture\(\)\)/);
+  assert.match(page, /hide\(\$\('f-links-out'\), !e\.id \|\| onPicture\(\)\)/);
   assert.match(page, /state\.search = searchOn\(v\) && !onPicture\(\)/);
   // The target beside Position: tucks the editor (state kept), asks a map to pick, and comes back with the spot or none.
   const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
   assert.match(html, /id="f-pick" hidden aria-label="Pick the position on the map" title="Click the map to set the position"/);
-  assert.match(page, /pickAction = list\.find\(\(a\) => a\.name === 'pickPoint'\)/);
+  // Only a map open in this page answers (the host's `open`), asked for this page only (`here`): a map in another tab never takes it.
+  assert.match(page, /pickAction = list\.find\(\(a\) => a\.name === 'pickPoint' && a\.open === true\)/);
+  assert.match(page, /host\.actions\.request\(pickAction\.action, \{\}, \{ wait: true, here: true \}\)/);
+  // No map answered in time: the dialog comes back at once with "no map is open", and the target is hidden until the next open.
+  assert.match(page, /if \(out\.status !== 'done'\) \{ pickAction = null; \$\('f-pick'\)\.hidden = true; throw new Error\('no map is open'\); \}/);
+  const placesManifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
+  const picked = placesManifest.actions.provides.find((a) => a.name === 'positionPicked');
+  assert.ok(picked && picked.input.page === 'string?' && picked.input.pageUntil === 'number?', 'positionPicked takes the host\'s page fields, so only this page\'s Places hears it');
+  // The picture map is live: host.on('environment') redraws what depends on it, without a reload.
+  assert.match(page, /host\.on\('environment', \(\) => \{ host\.menu\.close\(\); useSettings\(lastSettings\); pictureParts\(\); \}\);/);
+  assert.match(page, /function pictureParts\(\) \{[\s\S]*?hide\(\$\('f-links-out'\), !e\.id \|\| onPicture\(\)\);[\s\S]*?\$\('f-point'\)\.placeholder = onPicture\(\) \?/);
+  assert.match(page, /const useSettings = \(v\) => \{ lastSettings = v; useSearch\(v\);/, 'the outside search is decided again');
+  // The owner's category colours, for the map in this page.
+  const colorsAction = placesManifest.actions.provides.find((a) => a.name === 'categoryColors');
+  assert.ok(colorsAction && colorsAction.local === true && colorsAction.input.page === 'string?' && colorsAction.input.pageUntil === 'number?', 'categoryColors is a local action for this page');
+  assert.match(page, /categoryColors: async \(\) => \{\n\s+await catsRead;[\s\S]*?hex !== AUTO_COLOR\) colors\[c\.id\] = hex;[\s\S]*?return \{ data: \{ colors \} \};/);
   assert.match(page, /onClose: \(\) => \{ if \(!state\.picking\) state\.editing = null; \}/);
   assert.match(page, /\$\('f-pick'\)\.hidden = !pickAction/);
   assert.match(page, /positionPicked: async \(input\) => \{/);
   assert.match(page, /if \(point\) \{ \$\('f-point'\)\.value = geo\.coordsText\(point\.lat, point\.lng\); readPoint\(\); \}/);
   assert.ok(JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8')).actions.provides.some((a) => a.name === 'positionPicked' && a.local === true));
+  // The category list is the owner's (the `categories` setting): it starts as the five travel ones, Other can never be removed, and every
+  // place of the page goes through catOf, so an id that is off the list shows under Other and is not rewritten.
+  const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
+  const catDef = manifest.settings.find((d) => d.key === 'categories');
+  assert.ok(catDef && catDef.type === 'list' && catDef.scope === 'environment' && catDef.fixed.includes('other'));
+  assert.deepEqual(catDef.default.map((c) => c.id), lib.CATEGORIES);
+  assert.deepEqual(catDef.default.map((c) => c.label), ['Things to do', 'Food', 'Stay', 'Travel', 'Other']);
+  assert.ok(!/CAT_ORDER|CAT_LABEL|CAT_ICON/.test(page), 'no hard-coded category lists are left in the page');
+  assert.match(page, /const catRow = \(id\) => cats\.find\(\(c\) => c\.id === id\) \|\| cats\.find\(\(c\) => c\.id === 'other'\)/);
+  assert.match(page, /catOf\(x\.p\)\.id === c\.id/);
+  assert.match(page, /host\.settings\.onChange\(\(v\) => useSettings\(v\)\)/);
+  assert.doesNotMatch(html, /<option value="do">/, 'the editor select is filled from the list');
   // The Map reads this sentence to take its add tools away, so it must stay as it is.
   assert.match(page, /const REFUSED = 'you may not add places here';/);
   assert.match(page, /if \(!canAdd\(\)\) throw new Error\(REFUSED\);/);

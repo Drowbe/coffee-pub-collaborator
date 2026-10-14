@@ -13,7 +13,7 @@ const src = read('travel-lib.js') + '\n' + read('travel-lib-object.js') + '\n' +
 const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parseYmd = (s) => { const [y, m, d] = String(s).split('-').map(Number); return new Date(y, m - 1, d); };
-const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply', 'shiftDays', 'clearDay'];
+const names = ['followDay', 'arrivalDays', 'arrivalParts', 'arrivalJoin', 'checkoutDays', 'STOP_TILES', 'KICKERS', 'BADGES', 'bookings', 'balances', 'summaryWhen', 'TRIP_KEY', 'PLAN_PREFIX', 'OLD_PLAN_PREFIX', 'MOVED_KEY', 'planIdOf', 'createPlan', 'cleanTrip', 'tripSpan', 'mainBand', 'currentBand', 'cleanItem', 'coverTrip', 'coverDaysOf', 'tripDays', 'planDays', 'dayLabel', 'daysUntil', 'sortDay', 'itemsByDay', 'orderBetween', 'renumber', 'placeUntimed', 'nudge', 'gapMinutes', 'gapText', 'stayNights', 'MODES', 'STOP_TYPES', 'STAY_TYPES', 'TRAVEL_MODES', 'jointOrder', 'lineOf', 'joints', 'sortLine', 'placeFields', 'tripBounds', 'tileOf', 'fromTile', 'cardOf', 'TILES', 'TURNS', 'kindOf', 'tileAt', 'LEG_ICONS', 'JOURNEY_TILES', 'KICKERS', 'BADGES', 'splitMinutes', 'joinMinutes', 'legsOf', 'returnOf', 'outboundOf', 'returnBefore', 'costItems', 'MAX_MINUTES', 'arrivalOf', 'laterText', 'phaseOf', 'planName', 'createdDay', 'fitsPlan', 'objectFields', 'minutesBetween', 'arrivalFits', 'shiftArrives', 'relativeArrives', 'datedArrives', 'flightNumberOf', 'flightObject', 'lookupFill', 'numberToSave', 'lookupApply', 'shiftDays', 'clearDay', 'phaseOnDay'];
 const lib = new Function('ymd', 'parseYmd', `${src}\nreturn { ${names.join(', ')} };`)(ymd, parseYmd);
 // The phase timeline rule (public/phases.js), which the SDK gives a module as host.util.phaseTimeline (plan-one-bar.md step 2).
 const Phases = new Function('module', fs.readFileSync(new URL('../public/phases.js', import.meta.url), 'utf8') + '\nreturn module.exports;')({ exports: {} });
@@ -990,6 +990,45 @@ test('the current phase is the last band that has started, else the first; an ob
   assert.equal(lib.phaseOf({}, [], '2026-10-03'), null);
 });
 
+test('a day wears its phase: the band it is in, its tint and name; nothing before, between or after', () => {
+  const phases = [{ id: 'planning', label: 'Planning' }, { id: 'booking', label: 'Booking' }, { id: 'trip', label: 'Trip', main: true }, { id: 'after', label: 'After' }];
+  // Planning from the 1st, Booking from the 10th, the trip 16th to 19th, After from the 25th (open-ended): the 20th to the 24th is a gap.
+  const dates = { planning: { start: '2026-10-01' }, booking: { start: '2026-10-10' }, trip: { start: '2026-10-16', end: '2026-10-19' }, after: { start: '2026-10-25' } };
+  const bands = Phases.timelineOf(phases, dates, { today: '2026-10-14', created: '2026-09-01' });
+  const on = (day) => lib.phaseOnDay(bands, day);
+  assert.equal(on('2026-09-30'), null, 'a day before the first phase starts has none');
+  assert.deepEqual(on('2026-10-01'), { id: 'planning', label: 'Planning', tint: 'blue', first: true });
+  assert.deepEqual(on('2026-10-09'), { id: 'planning', label: 'Planning', tint: 'blue', first: false }, 'inside the band, the last day of it');
+  assert.deepEqual(on('2026-10-10'), { id: 'booking', label: 'Booking', tint: 'green', first: true }, 'the next band starts the day after the one before ends');
+  assert.deepEqual(on('2026-10-19'), { id: 'trip', label: 'Trip', tint: 'teal', first: false }, 'the main band\'s last day');
+  assert.equal(on('2026-10-20'), null, 'the gap after the main phase has none');
+  assert.equal(on('2026-10-24'), null);
+  assert.deepEqual(on('2026-10-25'), { id: 'after', label: 'After', tint: 'purple', first: true });
+  assert.equal(on('2027-03-01').id, 'after', 'the open-ended last phase has no last day');
+  // The tint is the band\'s own (Phases.tintOf): a phase after a dateless one keeps its place in the template.
+  const skip = Phases.timelineOf(phases, { booking: { start: '2026-10-10' } }, { created: '2026-09-01' });
+  assert.equal(lib.phaseOnDay(skip, '2026-10-12').tint, 'green', 'booking is second, so green, whatever else is dated');
+  assert.equal(lib.phaseOnDay(skip, '2026-10-05').id, 'planning', 'the first phase starts on the created day');
+  // Nothing drawn without phases, with an undated band, a bad day, or a tint the theme does not have.
+  assert.equal(lib.phaseOnDay([], '2026-10-12'), null);
+  assert.equal(lib.phaseOnDay(undefined, '2026-10-12'), null);
+  assert.equal(lib.phaseOnDay(Phases.timelineOf(phases, {}, {}), '2026-10-12'), null, 'no dates, no created day: nothing is dated');
+  assert.equal(on('nope'), null);
+  assert.equal(lib.phaseOnDay([{ id: 'x', label: 'X', tint: 'chartreuse', start: '2026-10-01', end: null, dated: true }], '2026-10-02').tint, null, 'an unknown tint draws no colour');
+});
+
+test('the Planner and the Calendar draw a phase only as a wash and a name, in theme tints', () => {
+  const css = read('travel-lib-cards.css');
+  for (const t of ['blue', 'green', 'teal', 'purple', 'orange', 'pink', 'gold', 'red']) assert.match(css, new RegExp(`\\.ph-${t} \\{ --ph: var\\(--tint-${t}\\); \\}`), `${t} is the theme's tint`);
+  const rules = css.slice(css.indexOf('/* phases:'));
+  assert.match(rules, /\.day2\.in-phase \.day-head2 \{ background: [^;]*var\(--ph\)/, 'the day header takes a wash of the tint');
+  assert.match(rules, /\.daychip\.in-phase:not\(\.current\) \{ background: [^;]*var\(--ph\)/, 'and so does the strip chip');
+  assert.doesNotMatch(rules, /(border|outline|box-shadow)[^;]*var\(--ph\)/, 'a phase never draws a coloured border or outline');
+  assert.doesNotMatch(css.slice(css.indexOf('/* phases:')), /#[0-9a-f]{3,8}\b|rgba?\(/i, 'no colour literals in the phase rules');
+  assert.match(read('travel.js'), /phaseOnDay\(plan\.bands\(\), day\)/, 'the day header asks for its phase');
+  assert.match(read('travel.js'), /phaseOnDay\(bandList, day\)/, 'and so does the strip chip');
+});
+
 test('days run from the earliest date to the latest, and there are none without one', () => {
   assert.deepEqual(lib.planDays(null, []), []);
   assert.deepEqual(lib.planDays({}, []), []);
@@ -1858,6 +1897,13 @@ test('the day header: Add sits beside the "...", which opens Move all to... and 
   assert.ok(js.includes('Also move every day after this one by the same amount.') || html.includes('Also move every day after this one by the same amount.'));
   assert.ok(html.includes('id="day-dialog"') && js.includes("'Unschedule'") && js.includes("'Keep'"));
   assert.ok(js.includes('if (!canEdit) hide(head.querySelector(\'.day-actions\'), true);'), 'only people who can edit see them');
+});
+
+test('the titlebar names the module as this environment shows it (Itinerary), never the trip\'s name', () => {
+  const js = read('travel.js');
+  const titles = js.match(/host\.setTitle\([^)]*\)/g) || [];
+  assert.ok(titles.length > 0 && titles.every((t) => t === 'host.setTitle(info.module.name)'), `every setTitle is the module's shown name: ${titles.join(', ')}`);
+  assert.ok(!/hide\(slot\(head, 'title'\), true\)/.test(js), 'the trip name stays the heading in the page');
 });
 
 console.log(`check-travel: OK (${n} checks)`);

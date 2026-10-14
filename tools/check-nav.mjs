@@ -45,6 +45,8 @@ const test = (name, fn) => {
   }
 };
 const ids = (groups) => groups.map((g) => g.map((t) => t.id));
+// The status strip's block of style.css (status-strip:start to :end).
+const stripCssOf = (css) => css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
 
 test('the bands: 1-10 core, 11-50 secondary, 51-100 utility, 101-998 a module, 999 last', () => {
   assert.equal(bandOf(1), 'core');
@@ -981,7 +983,7 @@ test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then J
   // Its own button: a phone icon, the words "Join the call" (its accessible name; on a phone the tab reads "Join"),
   // the accent look and the Layout button's size, nothing new in colour.
   assert.match(space, /joinCallButton\.id = 'join-call';/);
-  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call';/);
+  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/);
   assert.match(space, /joinCallButton\.setAttribute\('aria-label', 'Join the call'\);/);
   assert.match(space, /joinCallButton\.innerHTML = '<i class="fa-solid fa-phone fa-fw" aria-hidden="true"><\/i> <span class="join-call-label">Join<span class="join-call-more"> the call<\/span><\/span>';/);
   assert.match(space, /id: 'join-call', order: 1, icon: 'phone', label: 'Join the call', element: joinCallButton, visible: joinCallWanted \}\);/);
@@ -1825,7 +1827,10 @@ test('the top bar is two zones: no middle centred from 1001px, the phone\'s plac
   assert.match(css, /@media \(min-width: 641px\) and \(max-width: 820px\) \{\s*\.topbar > \.nav-left > \.core-link\[data-destination\] \.core-label \{\s*display: none;/, 'from 641 to 820px the entries in the left zone are their icons only');
   assert.ok(!/\.nav-middle \.core-link/.test(css), 'no rule for entries in a middle zone');
   assert.match(css, /\.topbar > \.nav-left > \.core-link\[data-destination\] \{\s*flex: none;/, 'the destinations never shrink');
-  assert.match(css, /\.topbar \.crumb span,\s*\.topbar \.core-link \.core-label \{\s*font-size: inherit;/, 'their names keep their own size in the branding\'s zone');
+  // Their names keep the nav text in the branding's zone: the wordmark's larger size is the environment's name's alone
+  // (no `.brand span` rule reaching every word in the zone, which the old `font-size: inherit` resets undid one by one).
+  assert.ok(!/(^|\n)\.brand span \{/.test(css), 'no rule sizes every span in the branding\'s zone');
+  assert.match(css, /\n\.brand > span\[data-brand="environmentName"\],\n\.topbar \.brand-name \{\n\s*font-size: 17px;/, 'only the environment\'s name, the wordmark, is larger');
   assert.match(fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8'), /el\.title = tool\.label;/, 'and keep their name as the tooltip');
   const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   assert.match(navSrc, /const lookOf = \(t\) => \(t\.bar === 'primary' && t\.zone === 'left' \? 'core'/, 'the core links\' look in the top bar\'s left zone');
@@ -2020,7 +2025,29 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(css, /\.status-band-box \{\n\s*position: absolute;\n\s*inset: 0;\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'a name too long for its band drops out whole');
   assert.match(css, /\.status-strip \.phase-chip \.phase-chip-label \{\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*overflow: hidden;/, 'the sentence\'s later clauses drop whole');
   assert.match(css, /\.status-strip \.phase-chip \.story-lead \{\n\s*flex: 0 1 auto;\n\s*min-width: 0;\n\s*overflow: hidden;\n\s*text-overflow: ellipsis;/, 'the first clause is cut last, with an ellipsis');
-  assert.match(css, /\.status-band\.current \{\n\s*background: var\(--accent\);[^}]*color: var\(--on-accent\);/, 'today\'s band filled with the accent, its name on-accent');
+  // The phases' colours (Thomas: "we have all these colors in the phase tool but none of them show in the bar"; then,
+  // 2026-10-14: "no colored borders"): every band is FILLED with its own phase's tint (a soft wash ahead of today, a
+  // paler one behind, a stronger fill today) inside the theme's neutral border; the pin and the chip's dot are fills of
+  // the same tint; nothing generic (the accent) is left on the bands.
+  assert.match(track, /seg\.dataset\.tint = b\.tint;/, 'each band carries its phase\'s tint, from the timeline (Phases.tintOf), the sheet\'s own');
+  assert.match(track, /mark\.dataset\.tint = \(outside === 'lead' \? dated\[0\] : dated\[dated\.length - 1\]\)\.tint;/, 'the pin outside the bar takes the tint of the band it stands beside');
+  assert.match(space, /const here = bands\.find\(\(b\) => b\.current\) \|\| [^\n]*\n\s*const dot = phaseChip\.querySelector\('\.phase-dot'\);\n\s*if \(here\) dot\.dataset\.tint = here\.tint;/, 'the chip\'s dot takes the tint of the phase today is in');
+  assert.match(css, /\.status-band \{\n\s*position: relative;\n\s*box-sizing: border-box;\n\s*flex-basis: 0;\n\s*min-width: 4px;\n\s*border: 1px solid var\(--border\);\n\s*border-radius: 6px;\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 22%, transparent\);/, 'a band ahead of today: a soft wash of its tint, in the neutral border of every control');
+  assert.match(css, /\.status-band\.current \{\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 50%, var\(--header-bg\)\);\n\s*color: var\(--header-text\);/, 'today\'s band a stronger fill of its own tint, its name in the header\'s text');
+  assert.match(css, /\.status-band\.past \{\n\s*background: color-mix\(in srgb, var\(--tint, var\(--accent\)\) 12%, transparent\);/, 'past bands paler, from their own tint');
+  const bandCss = [...css.matchAll(/\n\.status-band[^{]*\{[^}]*\}/g)].map((m) => m[0]).join('');
+  assert.ok(!/box-shadow|var\(--on-accent\)/.test(bandCss), 'no generic outline or accent fill left on the bands');
+  // No coloured borders on the strip (Thomas, 2026-10-14): no border declaration in the strip names a tint or the
+  // accent, at any width; the bands' and the pin's colour is a fill.
+  for (const m of stripCssOf(css).matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const borders = m[2].split(';').map((d) => d.trim()).filter((d) => /^border(-top|-right|-bottom|-left)?(-color)?\s*:/.test(d));
+    for (const d of borders) assert.ok(!/--tint|--accent|currentColor/.test(d), `${m[1].trim()}: a coloured border (${d})`);
+  }
+  assert.match(css, /\.status-today \{[^}]*border: 0;[^}]*background: var\(--tint, var\(--accent\)\);/, 'the pin a fill of its phase\'s tint, no ring of it');
+  assert.match(css, /\.phase-dot \{[^}]*background: var\(--tint, var\(--accent\)\);/, 'the chip\'s dot in the tint');
+  assert.match(css, /\.topbar > \.status-strip \.status-band \{\n\s*border: 0;/, 'on a phone the 2px line is the colour, without a border');
+  assert.deepEqual(Phases.TINTS, TINTS, 'the sheet and the rule share one list of tints');
+  assert.deepEqual(Phases.timelineOf(TRAVEL, {}, { created: CREATED }).map((b, i) => b.tint === tintOf(i)), [true, true, true, true, true, true], 'every band\'s tint is the sheet\'s tintOf');
   const stripCss = css.slice(css.indexOf('/* status-strip:start'), css.indexOf('/* status-strip:end */'));
   assert.ok(!/#[0-9a-fA-F]{3,8}\b|rgba?\(/.test(stripCss), 'theme tokens only in the strip');
   assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no strip row in an aside');
@@ -2051,7 +2078,7 @@ test('the sheet\'s rows: one per phase in order, dates, length, what may be edit
     ['trip', true, '2026-10-01', '2026-10-07', 7, false, false, true],
     ['post-trip', true, '2026-10-08', null, null, true, false, false],
   ]);
-  assert.deepEqual(full.map((r) => [r.endEditable, r.canSkip]), [[true, false], [true, true], [false, false], [false, false], [true, true], [false, true]], 'the last phase has no end of its own; the first is never skipped; an undated row has neither');
+  assert.deepEqual(full.map((r) => [r.endEditable, r.canSkip]), [[true, false], [true, true], [false, false], [false, false], [true, true], [true, true]], 'every dated phase takes an end, the last one too; the first is never skipped; an undated row has neither');
   assert.deepEqual([full[1].minStart, full[1].maxStart, full[1].minEnd], ['2026-09-02', '2026-09-30', '2026-09-10'], 'Booking: after Planning\'s first day, not after its own end; its end not before its start');
   assert.deepEqual([full[0].minStart, full[4].minStart, full[5].maxStart], [null, '2026-09-11', null], 'the first start is free; Trip starts after Booking\'s first day (the skipped phases between do not count); an open end has no bound');
   // Nothing dated: the first phase from the created day, open-ended, its end editable; the rest undated.
@@ -2078,6 +2105,10 @@ test('the sheet: one row per phase with native date inputs, Skip and Add dates, 
   assert.match(sheet, /role="status" aria-live="polite"/, 'a refusal is read out');
   assert.match(sheet, /if \(j >= 0 && !before\[j\]\.dated\) focusNext = after\[j\]\.id;/, 'an end that dates the next phase puts the keyboard on its end');
   assert.match(sheet, /start\.disabled = !canEdit \|\| !r\.dated;/, 'read-only: the same rows, disabled');
+  assert.match(sheet, /if \(!typing && v === '' && input\.dataset\.edge === 'end' && current\(\) !== ''\) commit\(input\.dataset\.id, 'end', ''\);/, 'an emptied end is given up, on leaving or Enter');
+  assert.match(sheet, /end\.disabled = !canEdit \|\| !r\.endEditable;/);
+  assert.match(sheet, /\? `\$\{me\.label\} runs \$\{fmt\(me\.start\)\} to \$\{fmt\(me\.end\)\}\.`/, 'the last phase ended: "Post-trip runs Oct 20 to Oct 25."');
+  assert.match(fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8'), /phaseSet\(input\.dataset\.id, 'end', ''\)/, 'Set up\'s rows give an end up the same way');
   assert.match(sheet, /if \(opener && typeof opener\.focus === 'function' && opener\.isConnected\) opener\.focus\(\);/, 'focus goes back to the chip');
   assert.ok(!/Set when \$\{/.test(sheet), 'no "Set when X starts" buttons');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
@@ -2095,7 +2126,7 @@ fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/space-setup.js'), setupCopy);
 fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the panel imports it
 fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), path.join(tmp, 'phase-sheet.js')); // and the sheet's row helpers
-const { setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, problemField, setupSaidWords, MODERATOR_FIELDS, tabOfField } = await import(pathToFileURL(setupCopy).href);
+const { setupTabs, pickTab, setupAddress, setupPatch, dirtyTabs, takeSaved, problemField, setupSaidWords, MODERATOR_FIELDS, tabOfField } = await import(pathToFileURL(setupCopy).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 test('Set up: a right-zone tool after your picture, before the window controls, for owners, the admin and moderators; Save and Cancel are the panel\'s action bar, not the top bar\'s', () => {
@@ -2221,6 +2252,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.match(css, /\.setup-choice:has\(input:focus-visible\) \{[^}]*outline: 2px solid var\(--accent\);/, 'the keyboard ring on the row');
   assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.space-setup \.phase-row-tools \.btn,\n\s*\.space-setup \.phase-row-off \.btn,\n\s*\.space-setup \.phase-first \.btn,\n\s*#setup-opens-with-layout-stop,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
   assert.match(css, /\.space-setup \.phase-row \{\n\s*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);\n\s*grid-template-areas: "name name" "start end" "days tools" "problem problem";/, 'the rows as cards in the narrow panel');
+  assert.match(css, /\.setup-status \{\n\s*margin: 8px 0 0;/, 'the refusal line stands clear of the last hint');
 });
 
 test('Set up: one PATCH of what changed; the first visit\'s layout and Opens with are independent, each sent only when it changed', () => {
@@ -2277,6 +2309,22 @@ test('Set up: the new fields go in the one PATCH only when changed; the dots nam
   assert.deepEqual(setupPatch({ ...before, aiOff: true }, { ...before, aiOff: true }), {});
   assert.deepEqual([...dirtyTabs({ phases: {} })], ['phases']);
   assert.deepEqual([...dirtyTabs({ aiOff: true })], ['modules']);
+  // A partial save: the PATCH went through with a link the server normalized, then the picture was refused. The draft
+  // takes the server's answer for what the PATCH sent, so only the refused step stays dirty and the next Save does
+  // not send the link again; a full save leaves nothing dirty.
+  const typed = { ...before, link: 'https://example.com', description: 'Sun and sea', members: ['a'] };
+  const sent = setupPatch(before, typed);
+  assert.deepEqual(sent, { link: 'https://example.com', description: 'Sun and sea', members: ['a'] });
+  const answer = { ...before, link: 'https://example.com/', description: 'Sun and sea', members: ['a'] };
+  const after = takeSaved(before, typed, Object.keys(sent), answer);
+  assert.deepEqual(setupPatch(after.before, after.draft), {}, 'the normalized link is no change');
+  assert.deepEqual([...dirtyTabs(setupPatch(after.before, after.draft))], [], 'no dot after the save');
+  assert.deepEqual([...dirtyTabs(setupPatch(after.before, after.draft), { image: true })], ['space'], 'the refused picture keeps its dot');
+  assert.equal(after.draft.link, 'https://example.com/');
+  assert.notEqual(after.draft.members, answer.members, 'a copy, not the answer\'s list');
+  // A field the PATCH did not send keeps the draft's value (a moderator's draft holds no owner field to send).
+  const kept = takeSaved(before, { ...typed }, ['description'], answer);
+  assert.deepEqual(setupPatch(kept.before, kept.draft), { link: 'https://example.com', members: ['a'] }, 'only what was sent is taken');
   assert.deepEqual([...dirtyTabs({}, { modules: true })], ['modules'], 'a module\'s settings changed: the modules tab\'s dot');
   assert.equal(problemField({ name: 'P', aiOff: true }, 'AI is turned off'), 'aiOff');
   assert.equal(problemField({ name: 'P', phases: {} }, 'Stay must start after Arrive starts, 2026-10-01.'), 'phases');
@@ -2365,6 +2413,50 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
   assert.match(admin, /await api\('POST', '\/api\/spaces', \{ name: `\$\{word\('space', \{ cap: true \}\)\} \$\{spaces\.length\}`, description: '', members: \[\] \}\)/, 'Manage\'s own request is unchanged');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /@media \(max-width: 480px\) \{\n\s*\.space-list-head \.btn \{\n\s*flex: 1 1 100%;/, 'on a phone the button takes a row of its own, full width');
+});
+
+// One nav text (Thomas, 2026-10-14: "we need to be using the same classes for things ... The correct one is the
+// Workspace, Calendar, etc."): the --nav-* tokens set once, the .nav-text class (with .core-link, the reference) the one
+// rule that reads them, every element tool with words carrying the class, and no rule of those elements restating a
+// size or weight of its own. The environment's name (the wordmark) is the one larger word, by Thomas's decision.
+test('one nav text: the tokens set once, one rule, every element tool with words wears it, no one-off sizes', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  for (const token of ['--nav-font-size: 13px;', '--nav-font-weight: 600;', '--nav-letter-spacing: normal;', '--nav-line-height: normal;']) {
+    assert.equal(css.split(token).length - 1, 1, `${token} set once`);
+  }
+  assert.match(css, /\n\.nav-text,\n\.btn\.nav-text,\n\.core-link \{\n\s*font-family: inherit;\n\s*font-size: var\(--nav-font-size\);\n\s*font-weight: var\(--nav-font-weight\);\n\s*letter-spacing: var\(--nav-letter-spacing\);\n\s*line-height: var\(--nav-line-height\);\n\}/, 'the one rule: the layout tabs\' type (.core-link) and .nav-text, a labelled button\'s too');
+  assert.match(css, /\n\.nav-text:where\(:not\(\.btn\)\),\n\.core-link \{\n\s*color: var\(--icon, color-mix\(in srgb, var\(--header-text\) 75%, transparent\)\);/, 'and the bar\'s link colour at rest');
+  // Each element tool with words carries the class where it is made.
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
+  const people = fs.readFileSync(path.join(ROOT, 'public/space-people.js'), 'utf8');
+  const navSrc = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
+  assert.match(space, /spaceSwitcherButton\.className = 'core-link space-switcher-button';/, 'the space switcher');
+  assert.match(space, /joinCallButton\.className = 'btn btn-small btn-accent join-call nav-text';/, 'Join the call');
+  assert.match(space, /phaseChip\.className = 'phase-chip nav-text';/, 'the phase chip');
+  assert.match(space, /name\.className = 'status-band-name nav-text';/, 'a band\'s name');
+  assert.match(space, /n\.className = 'status-togo-n nav-text';/, 'the days to go');
+  assert.equal(space.split("dayOfMonth.className = 'status-today-day nav-text';").length - 1, 2, 'the pin\'s day, in and outside the bar');
+  assert.match(people, /<button class="who-here-toggle nav-text" id="who-here-toggle"/, 'Who is here');
+  assert.match(brand, /whoami\.className = 'whoami nav-text';/, 'your name');
+  assert.match(brand, /nameEl\.className = 'page-bar-name nav-text';/, 'a page bar\'s name');
+  assert.match(css, /\n\.crumb \{[^}]*font-size: var\(--nav-font-size\);[^}]*font-weight: var\(--nav-font-weight\);/, 'a page\'s anchor on a phone and the separators, by the crumb\'s box');
+  assert.match(navSrc, /const LOOK_CLASSES = \{ core: \['core-link'\], labelled: \['btn', 'btn-small', 'nav-text'\], icon: \['icon-link'\] \};/, 'a labelled tool the registry draws, as the core links');
+  // No rule on those elements sets a size or weight of its own (the phone's tab bar, inside body.in-space .subnav, and
+  // the phone menu's rows are not the bar; the portraits' letters, the caption and icons are not words of the nav).
+  const own = /^(font-size|font-weight|font)\s*:/;
+  const subject = /(\.core-link|\.nav-text|\.space-switcher-button|\.who-here-toggle|\.who-here-count|button\.whoami|\.whoami\b(?![-\w])|\.join-call|\.phase-chip|\.story-part|\.story-lead|\.status-band|\.status-togo-n|\.status-today|\.page-bar-name|\.page-bar \.subtab|\.crumb-here|\.crumb-label|\.topbar-status)\s*$/;
+  const skip = /menu-open|body\.in-space (\.subnav|\.who-here)|\.status-band-name > i|\.status-band-box/;
+  for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    for (const sel of m[1].split(',').map((s) => s.trim().replace(/^\/\*[\s\S]*?\*\/\s*/, ''))) {
+      if (!subject.test(sel.replace(/(:[\w-]+(\([^)]*\))?|\[[^\]]*\])+$/, '')) || skip.test(sel)) continue;
+      const decls = m[2].split(';').map((d) => d.trim()).filter((d) => own.test(d) && !/var\(--nav-|:\s*inherit$/.test(d));
+      if (/^(\.nav-text|\.btn\.nav-text|\.core-link)$/.test(sel)) continue;
+      assert.deepEqual(decls, [], `${sel} sets its own type`);
+    }
+  }
+  // The one exception, by Thomas's decision: the environment's name, the wordmark.
+  assert.match(css, /the one exception to it in the top bar/, 'the wordmark\'s exception said where it is set');
 });
 
 console.log(`check-nav: OK (${n} tests)`);

@@ -163,7 +163,7 @@ test('actions.list passes a valid ref on, cleaned, and drops a bad one; the drop
   const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
   const at = src.indexOf("async 'actions.list'(");
   const body = src.slice(at, src.indexOf('\n    },', at));
-  const run = new Function('REF_SHAPE', 'cleanPointer', `return (${body.replace("async 'actions.list'", 'function')}\n    });`.replace(/\(await api\('GET', `\/api\/bus\/actions\?\$\{busQuery\(\{ from: module\.id, \.\.\.extra \}\)\}`\)\)\.actions/, 'extra'));
+  const run = new Function('REF_SHAPE', 'cleanPointer', `return (${body.replace("async 'actions.list'", 'function')}\n    });`.replace(/\(await api\('GET', `\/api\/bus\/actions\?\$\{busQuery\(\{ from: module\.id, \.\.\.extra \}\)\}`\)\)\.actions\.map\(\(a\) => \(\{ \.\.\.a, open: openInPage\(a\.module\) \}\)\)/, 'extra'));
   const list = run(REF_SHAPE, cleanPointer);
   const ref = { module: 'todo', kind: 'task', id: 'list', scope: 'space', space: 'gq2zb7pq', title: 'x' };
   assert.deepEqual(list({ accepts: 'todo:task', ref }), { accepts: 'todo:task', ref: JSON.stringify({ module: 'todo', kind: 'task', id: 'list', scope: 'space', space: 'gq2zb7pq' }) });
@@ -556,6 +556,59 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
   assert.ok(canvas.includes('onLift: (open) => {'), 'canvas.js hears the lift (to bring a floating box to the front)');
   const page = fs.readFileSync(new URL('../public/module.js', import.meta.url), 'utf8');
   assert.ok(page.includes('lift: !popout,'), 'module.js asks for no lift in a window of its own');
+});
+
+// A request for the asking page only ({ here: true }; Places' target button asking Maps for a spot): the host fills `page` and
+// `pageUntil` itself, and a mount in another page, or one that comes after the limit, never hears it. Before this, two tabs of
+// /map raced for the pick and the other tab's map often took it.
+test('a request asked { here: true } is heard only in the asking page, and only in time', () => {
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  const { pageInput, forThisPage, PAGE_WAIT_MS } = new Function(`${slice('public/module-host.js', 'export const PAGE_WAIT_MS', '// --- end of pageInput').replace(/export /g, '')}\nreturn { pageInput, forThisPage, PAGE_WAIT_MS };`)();
+  assert.ok(PAGE_WAIT_MS >= 3000 && PAGE_WAIT_MS <= 6000, 'a few seconds');
+  assert.deepEqual(pageInput({ lat: 1 }, true, 'p1', 1000), { lat: 1, page: 'p1', pageUntil: 1000 + PAGE_WAIT_MS });
+  assert.deepEqual(pageInput({ lat: 1, page: 'forged', pageUntil: 9e15 }, false, 'p1', 1000), { lat: 1 }, 'a module\'s own page fields are dropped');
+  assert.deepEqual(pageInput({ page: 'forged' }, true, 'p1', 1000), { page: 'p1', pageUntil: 1000 + PAGE_WAIT_MS }, 'the host\'s own, never the module\'s');
+  assert.deepEqual(pageInput(undefined, true, 'p1', 0), { page: 'p1', pageUntil: PAGE_WAIT_MS });
+  assert.equal(forThisPage({ lat: 1 }, 'p1', 5), true, 'a request with no page goes to any page, as before');
+  assert.equal(forThisPage(undefined, 'p1', 5), true);
+  assert.equal(forThisPage({ page: 'p2', pageUntil: 100 }, 'p1', 5), false, 'another page never hears it');
+  assert.equal(forThisPage({ page: 'p1', pageUntil: 100 }, 'p1', 5), true, 'the asking page does');
+  assert.equal(forThisPage({ page: 'p1', pageUntil: 100 }, 'p1', 101), false, 'and not after the limit');
+  // Wired in: the request fills them, the stream's `action` event and the pending list filter by them, the list says `open`.
+  assert.match(src, /async 'actions\.request'\(\{ action, input, here \}\)/);
+  assert.match(src, /input: pageInput\(input, here === true, thisPage\.id, Date\.now\(\)\)/);
+  assert.match(src, /\.actions\.filter\(\(a\) => forThisPage\(a\.input, thisPage\.id, Date\.now\(\)\)\)/, 'actions.pending');
+  assert.match(src, /if \(d\.provider === module\.id && d\.scope === here && forThisPage\(d\.input, thisPage\.id, Date\.now\(\)\)\) send\('action'/, 'the stream\'s action event');
+  assert.match(src, /\.actions\.map\(\(a\) => \(\{ \.\.\.a, open: openInPage\(a\.module\) \}\)\)/, 'actions.list says which are open in this page');
+  assert.match(src, /thisPage\.open\.add\(inPage\);/);
+  assert.match(src, /thisPage\.open\.delete\(inPage\);/, 'a destroyed mount is no longer open');
+  // One page across the frames in it and the windows it opened.
+  assert.match(src, /window\.parent && window\.parent !== window\) near\.push\(window\.parent\)/);
+  assert.match(src, /if \(window\.opener\) near\.push\(window\.opener\)/);
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  assert.ok(sdk.includes("await call('actions.request', { action, input, ...(o && o.here ? { here: true } : {}) });"), 'the SDK passes `here`, and nothing more when it is not asked');
+});
+
+// host.environment is live: an environment setting change reads the context again, and a mount whose facts changed hears
+// 'environment'; the SDK answers the new facts before its listeners run. Before this a picture map set or cleared while a
+// page was open reached Maps (its own setting) but not Places until a reload.
+test('host.environment follows the picture map while the page is open', () => {
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  const environmentFacts = new Function(`${slice('public/module-host.js', 'export function environmentFacts', '\n}\n').replace('export ', '')}\nreturn environmentFacts;`)();
+  const pm = { file: 'a.pmtiles', minZoom: 0, maxZoom: 3, tileType: 'webp' };
+  assert.deepEqual(environmentFacts({ environment: { pictureMap: pm } }), { pictureMap: pm });
+  assert.deepEqual(environmentFacts({ environment: { pictureMap: null } }), { pictureMap: null });
+  assert.deepEqual(environmentFacts({}), { pictureMap: null });
+  assert.deepEqual(environmentFacts({ environment: { pictureMap: 'x' } }), { pictureMap: null });
+  assert.match(src, /environment: \(toldFacts = environmentFacts\(contextInfo\)\),/, 'the hello tells the facts and keeps them');
+  assert.match(src, /if \(type === 'settings' && d\.scope === 'environment'\) recheckFacts\(\);\n\s+if \(type !== 'bus'/, 'any module\'s environment setting change looks again, before the per-module filter');
+  assert.match(src, /if \(JSON\.stringify\(facts\) === JSON\.stringify\(toldFacts\)\) return;\n\s+toldFacts = facts;\n\s+send\('environment', facts\);/, 'told only when they differ');
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  const emitAt = sdk.indexOf('  function emit(event, data) {');
+  const emitBody = sdk.slice(emitAt, sdk.indexOf('\n  }\n', emitAt));
+  assert.match(emitBody, /if \(event === 'environment' && info && data && typeof data === 'object'\) info\.environment = /, 'the SDK updates host.environment');
+  assert.ok(emitBody.indexOf("event === 'environment'") < emitBody.indexOf('for (const fn of listeners'), 'before the listeners hear it');
+  assert.match(sdk, /get environment\(\) \{ return \{ pictureMap: \(info && info\.environment && info\.environment\.pictureMap\) \|\| null \}; \}/, 'read live, not copied once');
 });
 
 if (failed) process.exit(1);

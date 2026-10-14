@@ -18,7 +18,7 @@
 // no top bar of its own: the space page's bar is the one bar, and holds the way back; only the page bar shows.
 import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, word, withinSpacePage } from '/brand.js';
 import { nav } from '/nav-bar.js';
-import { mountModule, createDestination } from '/module-host.js';
+import { mountModule, createDestination, askCanvasToOpen, sameSiteOpener } from '/module-host.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { hashPanel } from '/primary-nav.js';
 
@@ -665,15 +665,21 @@ function show(key) {
   layout();
 }
 
-// An object to show. One of a part's own: that part shows it. Another module's: its page, keeping the way back to a
-// call this page is open over.
-function openRef(ref) {
+// An object to show. One of a part's own: that part shows it. Another module's, in a composite's frame on a space's
+// canvas: the canvas opens that module there with the object (askCanvasToOpen), as for a module beside it; the frame
+// is never led on to the module's page (a whole app page, its header and all, inside the Calendar's window). In a
+// window popped out of the canvas: the canvas that opened it, if it answers. Otherwise: its page, keeping the way back
+// to a call this page is open over.
+async function openRef(ref) {
   const target = parts.find((p) => p.part.module.id === ref.module && p.key === 'main') || parts.find((p) => p.part.module.id === ref.module);
   if (target) {
     show(target.key);
     target.mounted.deliver('objectopen', { ref });
     return true;
   }
+  if (inComposite) return (await askCanvasToOpen(window.parent, ref)) === true;
+  const opener = embedded ? null : sameSiteOpener();
+  if (opener && (await askCanvasToOpen(opener, ref)) === true) return true;
   const q = new URLSearchParams(location.search);
   q.delete('space');
   if (ref.scope === 'space') q.set('space', ref.space);

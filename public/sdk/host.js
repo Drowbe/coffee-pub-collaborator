@@ -1225,6 +1225,9 @@
   let pendingOpen = null;
 
   function emit(event, data) {
+    // The environment's facts changed (a picture map set, replaced or cleared): host.environment answers the new ones
+    // before anyone listening hears it.
+    if (event === 'environment' && info && data && typeof data === 'object') info.environment = { ...(info.environment || {}), pictureMap: data.pictureMap && typeof data.pictureMap === 'object' ? data.pictureMap : null };
     if (event === 'objectopen' && !(listeners.get(event) && listeners.get(event).size)) pendingOpen = data;
     for (const fn of listeners.get(event) || []) {
       try {
@@ -2146,7 +2149,9 @@
     // "Picture map" setting), { file, minZoom, maxZoom, tileType } -- `file` is the PMTiles file's name in the module's
     // `image-map` folder, read with host.files.url(file, { folder: 'image-map' }); else null. Every module is told, so
     // one that shows real-world things (a place search, a link to a maps app) can leave them out on an invented world.
-    // An object, not a function: `host.environment.pictureMap`. { pictureMap: null } until the hello has answered.
+    // An object, not a function: `host.environment.pictureMap`. { pictureMap: null } until the hello has answered. Live:
+    // when the owner sets, replaces or clears the picture map, this answers the new value and host.on('environment', fn)
+    // hears it ({ pictureMap }), so a module redraws what depends on it without a reload.
     get environment() { return { pictureMap: (info && info.environment && info.environment.pictureMap) || null }; },
     // The environment's template's phases, [{ id, label, main? }], or [] when it has none. Live: a template edit
     // is in the next hello. Answered from the hello, so it is there once host.ready() has resolved.
@@ -2759,6 +2764,10 @@
       // Ask for one. the host checks the input against what the action takes and queues it for the module
       // that owns it, which carries it out the next time a person has it open (or at once if one does).
       // With { wait: true } this waits a few seconds for the answer: { status, result: { ok, ref?, error? } }.
+      // With { here: true } (a `local` action) only the provider open in this same page may carry it out, and only within
+      // those few seconds: never a page in another tab, never later (the provider declares "page": "string?" and
+      // "pageUntil": "number?" in its input; the host fills them). host.actions.list says `open: true` for an action whose
+      // module is open in this page.
       request: async (action, input, o) => {
         const name = String(action || '');
         if (name === 'assistant:askAssistant' || name === 'askAssistant') {
@@ -2767,7 +2776,7 @@
           await call('chat.ask', { question: q, refs: input?.ref ? [input.ref] : [] });
           return { status: 'done', id: 0, result: { ok: true } };
         }
-        const queued = await call('actions.request', { action, input });
+        const queued = await call('actions.request', { action, input, ...(o && o.here ? { here: true } : {}) });
         if (queued && queued.status === 'done') return queued;
         if (!(o && o.wait)) return queued;
         for (let i = 0; i < 10; i += 1) {
@@ -2984,7 +2993,8 @@
     // 'toolbar' ({ id, value?, x? }) for a toolbar item (x: a button's left edge across the module, for a menu under it), 'nav' ({ id }) for one of the module's nav-bar tools,
     // 'change' ({ key, value, version, deleted, scope, spaceId, by })
     // whenever stored data changes, 'markers' when another module's marker objects changed (host.objects.markers), 'schedule' ({ key, payload }) when a schedule fires, 'theme' (the new theme),
-    // 'moved' ({ mode }) after the host moved the module between docked and floating (the SDK reopens an open editor window itself).
+    // 'moved' ({ mode }) after the host moved the module between docked and floating (the SDK reopens an open editor window itself),
+    // 'environment' ({ pictureMap }) when the environment's facts changed (host.environment already answers the new ones).
     on(event, fn) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event).add(fn);

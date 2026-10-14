@@ -266,8 +266,8 @@
       groups.get(k).push(occ);
     }
     return `<div class="list">${[...groups.values()].map((g) => `<div class="group"><h4>${esc(dayHeading(g[0].start < floor ? floor : g[0].start))}</h4>${g.map(({ x, start, end }) => (isMarker(x) ? markerItemHtml(x, start, agenda) : `
-      <button class="item${isExternal(x) ? ` ext ${externalClass(x)}` : ''}" data-open="${esc(x.key)}"><span class="when">${esc(whenText(x.ev, start, end))}</span>
-        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="tag ext">${esc(externalName(x.calendar))}</span>` : ''}</strong>${x.ev.desc && !agenda ? `<span>${esc(x.ev.desc.slice(0, 120))}</span>` : ''}</span></button>`)).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
+      <button class="item${isExternal(x) ? ` ext ${externalClass(x)}` : ''}" data-open="${esc(x.key)}" title="${esc(`${whenFull(x.ev, start, end)}  ${x.ev.title}${x.ev.desc ? ' - ' + x.ev.desc.slice(0, 120) : ''}`)}"><span class="when">${esc(whenText(x.ev, start, end, isCompact()))}</span>
+        <span class="what"><strong>${agenda ? spaceIcon(x) : ''}${esc(x.ev.title)}${x.ev.repeat ? `<span class="tag">${esc(REPEAT_NAMES[x.ev.repeat.every] || 'repeats')}</span>` : ''}${x.scope === 'environment' && inSpace ? `<span class="tag">${esc(envName())}</span>` : ''}${!agenda && x.scope === 'spaces' && spaceInfo.get(x.spaceId) ? `<span class="tag space">${spaceIcon(x)} ${esc(spaceInfo.get(x.spaceId).name)}</span>` : ''}${isExternal(x) ? `<span class="tag ext">${esc(externalName(x.calendar))}</span>` : ''}</strong></span></button>`)).join('')}</div>`).join('')}${end ? `<p class="empty end">${esc(end)}</p>` : ''}</div>`;
   }
 
   function monthList() {
@@ -605,7 +605,7 @@
     const when = x.ev.allDay ? said : `${said} ${timeText(start)}`;
     const r = x.marker.ref.scope === 'space' && !inSpace ? spaceInfo.get(x.marker.ref.space) : null;
     const name = x.marker.module && x.marker.module.name ? String(x.marker.module.name) : '';
-    return `<button type="button" class="item marker${past ? ' past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}"><span class="when">${esc(when)}</span>
+    return `<button type="button" class="item marker${past ? ' past' : ''}${tintClass(x)}" data-marker="${esc(x.key)}" title="${esc(markerTip(x, past))}"><span class="when">${esc(isCompact() ? when.replace(/:00(?=\s?[AP]M)/i, '') : when)}</span>
       <span class="what"><strong>${markerIconHtml(x)}${agenda ? markerSpaceIcon(x) : ''}${esc(x.ev.title)}${name ? `<span class="tag">${esc(name)}</span>` : ''}${!agenda && r ? `<span class="tag space">${spaceIcon({ scope: 'spaces', spaceId: r.id })} ${esc(r.name)}</span>` : ''}</strong></span></button>`;
   }
   // A marker opens its object in its own module, as a link does; Ctrl or Cmd asks for a new tab where the page can.

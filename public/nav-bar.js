@@ -21,10 +21,10 @@
 // shows while the page's setWorkspace({ shown }) says so (the space page: not in an aside), 'every' always). A left-zone tool of either bar may also give `fit(avail)`:
 // the fit (fitBar, below) calls it with the width it may take before anything folds (fitWidth), and the tool shrinks to fit
 // (Online, who is here: its names become the count, then portraits drop, then it shows only the short count; the top
-// bar's phase chip: its label, then its dot, then nothing); one that says `fitFirst` is fitted first, with the others at
+// bar's layout tabs: into their "..."); one that says `fitFirst` is fitted first, with the others at
 // their least, so they give way before it does; one that says `yieldFirst` (the layout tabs, plan-layout-views.md
-// decision 17) is fitted first with the others at their fullest, so it gives way before they do (the tabs go into
-// their "..." before the phase chip's words). `register()` returns the element drawn, which lives
+// decision 17) is fitted first with the others at their fullest, so it gives way before they do. (The phase chip had a
+// fit in the top bar; it is the space bar's status strip now, plan-space-status-strip.md, and has none.) `register()` returns the element drawn, which lives
 // until `unregister()`, so the page may mark it (a data attribute the overlay opener looks for).
 //
 // The pure parts (the bands, the sort, the visibility rule, the cleaning of a module's registration, the phone's fold
@@ -523,7 +523,7 @@ function place(container, list) {
 // end: the secondary tools (Pop out, then Full screen), then a module's own, then the core ones (the snap switch with
 // its grid slider, then Dock all), then the utility ones (Rejoin call, then Pull participants back). Leave (the last
 // band) never folds, a tool that says `fold: false` never does, and nothing in the left zone does: a tool there that can
-// shrink (`fit`: Online, the layout tabs, the phase chip) gives way first, before anything here folds. An `element` tool with no
+// shrink (`fit`: Online, the layout tabs) gives way first, before anything here folds. An `element` tool with no
 // click of its own (the grid slider) folds with the tool before it, the one it belongs to. On a phone the space bar is the
 // tab bar and folds its own way (phoneFold() and phoneTabs() below, plan-phone-space-bar.md); the top bar's row folds nothing there.
 //
@@ -638,7 +638,7 @@ function attachFold(bar, el) {
 }
 
 // Each bar is fitted on the next frame, once whatever changed has been laid out; any number of calls in one frame
-// fit once (fitBar: the space bar's fold and its Online, the top bar's phase chip). `fits` keeps each bar's pending
+// fit once (fitBar: the space bar's fold and its Online, the top bar's layout tabs). `fits` keeps each bar's pending
 // frame and the window it watches.
 const fits = { primary: { frame: 0, frameView: null, view: null, observer: null }, secondary: { frame: 0, frameView: null, view: null, observer: null } };
 function scheduleFit(bar) {
@@ -660,7 +660,7 @@ function scheduleFit(bar) {
   });
 }
 // Watch what can change the width a bar has to work with, in whichever window it is in now (the header moves to a popped-out
-// window): the bar's width, and the left zone's content (the words loading, Online's people coming and going, the chip's words).
+// window): the bar's width, and the left zone's content (the words loading, Online's people coming and going, a layout tab added).
 function watchFit(bar, view) {
   const b = bars[bar];
   const f = fits[bar];
@@ -748,13 +748,13 @@ function fitPhone(b, el, width) {
 
 // A bar's left-zone tools that can give way (`fit`): each is told what it may take, and gives it before anything
 // folds: what the rest of the left zone and the right zone at its full width leave (fitWidth). A tool that says
-// `yieldFirst` (the layout tabs) is fitted first, with the others (the phase chip) at their fullest (fit(Infinity)),
-// so it gives way before they do: its tabs go into its "..." first, and the chip takes what is left after that. A tool
+// `yieldFirst` (the layout tabs) is fitted first, with the others (none in the top bar now) at their fullest
+// (fit(Infinity)), so it gives way before they do: its tabs go into its "..." first, and they take what is left. A tool
 // that says `fitFirst` is fitted first, with the others at their least (fit(0)), so they give way before it does; they
 // then take what it leaves, and it is fitted once more to what they took (a least is not always the width a tool
 // settles at), so the left zone never runs past its column because of it. `right` is the right zone's
 // natural width (nothing folded), `gap` the gap between the two zones. A tool is fitted unless its `visible` hid it
-// (`hidden`): what its own fit did to its display (the chip gone) never keeps it from being fitted again as the bar widens.
+// (`hidden`): what its own fit did to its display never keeps it from being fitted again as the bar widens.
 function fitLeft(bar, { width, gap, right }) {
   const b = bars[bar];
   if (!b || !b.zones.left) return;
@@ -774,11 +774,10 @@ function fitLeft(bar, { width, gap, right }) {
 }
 
 // Fit a bar to its width (plan-one-bar.md, step 7: one fit for both bars). Its left-zone tools that can give way
-// (the top bar's layout tabs and phase chip: the tabs into their "...", then the chip's label, then its dot, then
-// nothing; the space bar's Online) shrink
+// (the top bar's layout tabs: the favorites into their "..." first, before anything folds; the space bar's Online) shrink
 // to what the rest of the bar leaves (fitLeft), then its right zone folds into its "..." (foldCount: in the top bar only
 // the Workspace's tools, see foldSteps). On a phone the space bar is the tab bar (fitPhone), and the top bar's one row
-// is its own (step 8: each fitting tool is whole again, the stylesheet gives the chip its short words there; nothing folds).
+// is its own (step 8: each fitting tool is whole again; nothing folds).
 function fitBar(bar) {
   const b = bars[bar];
   const fold = folds[bar];
@@ -823,7 +822,7 @@ function fitBar(bar) {
       const r = naturalWidth(right, fold.more);
       const stepWidths = steps.map((s) => s.reduce((sum, id) => sum + els.get(id).getBoundingClientRect().width + r.gap, 0));
       const moreWidth = px(view.getComputedStyle(fold.more).width) + r.gap;
-      // A left tool that can give way (`fit`: the chip, Online) is told what it may take, and gives it
+      // A left tool that can give way (`fit`: the layout tabs, Online) is told what it may take, and gives it
       // before anything here folds (fitLeft).
       fitLeft(bar, { width, gap, right: r.w });
       // The left zone as it is now (its box, not its negative margin), rounded up: a cut is counted in whole pixels.

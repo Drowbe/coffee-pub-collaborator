@@ -22,10 +22,18 @@
   <!-- The spaces page scrolls in here, under the header, so the scrollbar starts below it. -->
   <div class="page-scroll" id="page-scroll">
   <div class="join" id="join">
-    <!-- The spaces page: a sidebar of widget cards that modules provide (the dashboard, filled by
-         public/dashboard.js; empty and hidden until it has any) beside who is around and the space cards. -->
-    <div class="home">
-      <aside class="dashboard" id="dashboard" hidden></aside>
+    <!-- Home (plan-home-lobby.md, step 3): three columns using the page's width. Chat on the left, the full height under
+         the top bar (space.js moves the one #chat here while Home shows with no space entered, pointed at Home's chat,
+         the hidden `lobby` record's; resizable, its width remembered in this browser); the spaces in the middle (who is
+         around above the cards); the Modules on the right (the tiles modules provide, filled by public/dashboard.js,
+         hidden with #dashboard while it has none). Below 1200px the Modules go under the space cards. -->
+    <div class="home" id="home">
+      <aside class="home-chat" id="home-chat" aria-label="Chat" hidden>
+        <div class="home-chat-slot" id="home-chat-slot"></div>
+        <!-- The column's inner edge, as the space column's: dragged, Left and Right (Shift for more), Home and End,
+             double-click or Shift+Enter for the default. -->
+        <div class="side-column-splitter side-column-splitter-v home-chat-splitter" id="home-chat-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the chat column" tabindex="0" title="Drag to resize"></div>
+      </aside>
       <div class="home-main">
         <section class="whos-around" id="whos-around" hidden></section>
         <!-- The space cards' heading (the home word), and for owners and the admin the way to add one (GitHub #233):
@@ -35,9 +43,14 @@
           <button class="btn btn-primary" id="home-add-space" type="button" hidden><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> <span id="home-add-space-label"></span></button>
         </div>
         <div class="space-list" id="spaces"></div>
+        <p class="status error" id="join-error" hidden></p>
       </div>
+      <!-- The Modules (decisions 10 and 11): headed with the module word, the tiles stacked in the order the server lists them. -->
+      <aside class="home-modules" id="home-modules" aria-labelledby="home-modules-title">
+        <h2 class="space-list-title home-modules-title" id="home-modules-title"></h2>
+        <div class="dashboard" id="dashboard" hidden></div>
+      </aside>
     </div>
-    <p class="status error" id="join-error" hidden></p>
   </div>
 
   <!-- A guest link (/guest/<token>) shows this instead: a name, nothing else. -->

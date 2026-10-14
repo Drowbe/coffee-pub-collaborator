@@ -103,7 +103,7 @@ test('the badge: the author of a stored message flips it with PATCH, both ways; 
   assert.equal(can({ key: 'guest', role: 'guest' }, '', ok)({ ...mine, by: 'guest' }), false, 'a guest never');
   assert.equal(can(pat, 'tok', ok)(mine), false, 'nor a guest link');
   const set = fnBody(space, 'async function setMessageVisibility(entry, visibility) {');
-  assert.match(set, /api\('PATCH', `\/api\/spaces\/\$\{encodeURIComponent\(currentSpace\.id\)\}\/chat\/\$\{entry\.id\}`, \{ visibility \}\)/);
+  assert.match(set, /api\('PATCH', `\/api\/spaces\/\$\{encodeURIComponent\(chatSpace\(\)\.id\)\}\/chat\/\$\{entry\.id\}`, \{ visibility \}\)/);
   assert.match(set, /setStatus\(err\.message \|\| 'Could not change who sees that\.', true\);\n\s*return false;/, 'a refusal leaves the badge and says why');
   const frame = fnBody(space, 'function frameMessage(');
   assert.match(frame, /const done = await setMessageVisibility\(entry, next\);\n\s*if \(!done\) return;/, 'the badge repaints only once the server took it');
@@ -117,7 +117,7 @@ test('chat-visibility beside chat-delete: made public, drawn by its time and cou
   // Delete the chat: only the server's chat-clear (no sender) empties the page; the clearer's own page empties itself
   // once the server has taken it, not through its own notice.
   assert.match(space, /else if \(topic === 'chat' && data\.type === 'chat-clear' && !participant\) dropSharedChat\(\);/, "a page's chat-clear is ignored");
-  assert.match(space, /await api\('DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(currentSpace\.id\)\}\/chat`\);\n[\s\S]{0,200}?\n\s*dropSharedChat\(\);/, 'the clearer empties its own page after the server answers');
+  assert.match(space, /const space = chatSpace\(\);\n\s*if \(!space\) return;\n\s*try \{\n\s*await api\('DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(space\.id\)\}\/chat`\);\n[\s\S]{0,200}?\n\s*dropSharedChat\(\);/, 'the clearer empties its own page after the server answers (the chat showing: Home\'s or the space\'s)');
   assert.match(read('server/index.js'), /chatHistory\.clear\(found\.space\.id\);\n\s*tellChat\(found\.space\.id, \{ type: 'chat-clear' \}\);/, 'the server always tells the call');
   const notice = fnBody(space, 'function applyVisibilityNotice(data, participant) {');
   assert.match(notice, /if \(from && data\.message\.by !== from\) return;/, 'only the author\'s page may say so');
@@ -235,9 +235,9 @@ test('Clear… in the ⋮ menu: after Save the chat, before Delete the chat; nev
   assert.ok(at("label: 'Save the chat'") > -1 && at("label: 'Save the chat'") < at("label: 'Clear…'") && at("label: 'Clear…'") < at("label: 'Delete the chat'"), 'Save, Clear…, Delete');
   assert.match(more, /if \(canClearChat\(\) && clearChoices\(chatLog, \{ by: me\.key, moderator: canModerateChat\(\) \}\)\.length\)/, 'offered only with something to clear');
   assert.match(more, /hint: 'Every message goes, for everyone, private ones too\.'/, 'Delete the chat names private messages (decision 6)');
-  assert.match(fnBody(space, 'function canClearChat() {'), /me\?\.key && me\.role !== 'guest' && !guestToken && currentSpace && !currentSpace\.isAside/, 'never a guest, never in an aside');
+  assert.match(fnBody(space, 'function canClearChat() {'), /me\?\.key && me\.role !== 'guest' && !guestToken && chatSpace\(\) && !chatSpace\(\)\.isAside/, 'never a guest, never in an aside');
   const clear = fnBody(space, 'async function clearChatMessages(');
-  assert.match(clear, /api\('DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(currentSpace\.id\)\}\/chat\/messages\?\$\{q\}`\)/, 'the route of decision 11');
+  assert.match(clear, /api\('DELETE', `\/api\/spaces\/\$\{encodeURIComponent\(chatSpace\(\)\.id\)\}\/chat\/messages\?\$\{q\}`\)/, 'the route of decision 11');
   assert.ok(clear.indexOf('await api(') < clear.indexOf('dropChatEntries(gone)'), 'dropped here only once the server took it');
   assert.ok(!/catch/.test(clear), 'a refusal is thrown, for the confirm to show');
   assert.match(clear, /e\.stored && e\.visibility !== 'private'/, 'only public ids are told to the call');
@@ -485,7 +485,7 @@ test('links: storedEntry keeps preview and kept; the page asks for the preview, 
   assert.match(ask, /publishChat\(\{ type: 'chat-preview', id: entry\.id, preview: message\.preview \}\)/);
   assert.match(ask, /entry\.visibility !== 'private'/, 'a private message is never told');
   const box = space.slice(space.indexOf('function linkBox('), space.indexOf('function paintLinkBox('));
-  assert.match(box, /img\.src = `\/api\/spaces\/\$\{encodeURIComponent\(currentSpace\.id\)\}\/chat\/\$\{entry\.id\}\/image\$\{q\}`/);
+  assert.match(box, /img\.src = `\/api\/spaces\/\$\{encodeURIComponent\(chatSpace\(\)\.id\)\}\/chat\/\$\{entry\.id\}\/image\$\{q\}`/);
   assert.ok(!/innerHTML/.test(box), 'a preview\'s words are drawn as text');
   assert.match(box, /if \(!chatLinkKeeper\?\.may \|\| !entry\.stored/, 'Keep only with may');
   assert.match(box, /`Kept by \$\{entry\.kept\.who\}`/);

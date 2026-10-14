@@ -1038,9 +1038,11 @@ body.in-space .page-scroll {
   padding-bottom: env(safe-area-inset-bottom);
 }
 
+/* Home uses the page's whole width (plan-home-lobby.md): its columns bring their own padding. */
 .page-scroll > #join {
-  margin: 0 auto;
-  padding: 24px 20px;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .join {
@@ -1068,25 +1070,126 @@ body.in-space .page-scroll {
   align-items: stretch; /* every card as tall as the tallest, Join at the bottom */
 }
 
-/* The spaces page: a sidebar (the dashboard: the widgets that modules provide, stacked) beside the main column
-   (who is around, then the space cards in two columns). One column on a phone, the spaces first. The widgets style
-   themselves (.dashboard-widget). */
+/* Home (plan-home-lobby.md, step 3): [Chat] [Spaces] [Modules] across the page's width. Chat on the left, the full
+   height under the top bar and staying put while the page scrolls (space.js puts the one #chat in .home-chat-slot,
+   and sets --home-chat-w from the splitter); the spaces in the middle, who is around above the cards; the Modules
+   (#dashboard, the tiles that modules provide, which style themselves: .dashboard-widget) on the right, staying put
+   too. A column with nothing in it is not drawn: the chat while Home shows over a space, the Modules with no tiles.
+   Below 1200px the Modules go under the space cards; at 760px and below everything is one column. */
 .home {
+  --home-chat-w: 360px;
+  --home-modules-w: 320px;
+  --home-h: calc(100dvh - 44px - env(safe-area-inset-top)); /* the page under the top bar (.topbar's min-height) */
   display: grid;
-  grid-template-columns: 300px minmax(0, 1fr);
-  gap: 18px;
+  grid-template-columns: var(--home-chat-w) minmax(0, 1fr) var(--home-modules-w);
+  grid-template-areas: "chat main modules";
   align-items: start;
+  min-height: var(--home-h);
+}
+
+.home:has(> .home-chat[hidden]) {
+  grid-template-columns: minmax(0, 1fr) var(--home-modules-w);
+  grid-template-areas: "main modules";
+}
+
+.home:has(> .home-modules > .dashboard[hidden]) {
+  grid-template-columns: var(--home-chat-w) minmax(0, 1fr);
+  grid-template-areas: "chat main";
+}
+
+.home:has(> .home-chat[hidden]):has(> .home-modules > .dashboard[hidden]) {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "main";
+}
+
+/* While its splitter is dragged, the tiles' frames under the pointer must not swallow it. */
+.home.resizing-column iframe {
+  pointer-events: none;
+}
+
+.home-chat {
+  grid-area: chat;
+  position: sticky;
+  top: 0;
+  height: var(--home-h);
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+}
+
+.home-chat[hidden] {
+  display: none;
+}
+
+/* The chat, as in the space's column: its own column, its resize handle and its close gone (Home's chat never closes). */
+.home-chat-slot {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.home-chat-slot .chat-resize,
+.home-chat-slot #chat-close {
+  display: none;
+}
+
+.home-chat-slot .module-chat {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.home-chat-slot .module-chat .mod-content {
+  flex: 1;
+  min-height: 0;
+  border-left: 0;
+}
+
+.home-chat-slot .chat-bar {
+  flex: none;
+  align-self: stretch;
+  width: auto;
+  height: auto;
+  min-height: 0;
+  border-left: 0;
 }
 
 .home-main {
+  grid-area: main;
   display: flex;
   flex-direction: column;
   gap: 18px;
   min-width: 0;
+  box-sizing: border-box;
+  padding: 24px 20px;
 }
 
+/* The space cards: two wide where the column has room for two, else one. */
 .home-main .space-list {
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, max(260px, calc((100% - 18px) / 2))), 1fr));
+}
+
+.home-modules {
+  grid-area: modules;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 24px 20px 24px 0;
+  position: sticky;
+  top: 0;
+  max-height: var(--home-h);
+  overflow-y: auto;
+}
+
+.home-modules:has(> .dashboard[hidden]) {
+  display: none;
 }
 
 /* The space cards' heading row: the home word as Who's around's title reads, and Add <space> at the right for owners
@@ -1135,27 +1238,76 @@ body.in-space .page-scroll {
   display: flex;
   flex-direction: column;
   gap: 18px;
-  /* Stays put while the spaces scroll: it starts where the page's top padding ends, so it does not move first. */
-  position: sticky;
-  top: 24px;
-  max-height: calc(100dvh - 44px - env(safe-area-inset-top) - 48px);
-  overflow-y: auto;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 1200px) {
   .home {
+    grid-template-columns: var(--home-chat-w) minmax(0, 1fr);
+    grid-template-areas: "chat main" "chat modules";
+    grid-template-rows: auto 1fr;
+  }
+
+  .home:has(> .home-chat[hidden]) {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "main" "modules";
+  }
+
+  .home:has(> .home-modules > .dashboard[hidden]) {
+    grid-template-columns: var(--home-chat-w) minmax(0, 1fr);
+    grid-template-areas: "chat main";
+    grid-template-rows: auto;
   }
 
   .home-main {
-    order: 1;
+    padding-bottom: 0;
   }
 
-  .dashboard {
-    order: 2;
+  /* Under the space cards, the tiles side by side as the width allows. */
+  .home-modules {
     position: static;
     max-height: none;
     overflow: visible;
+    padding: 18px 20px 24px;
+  }
+
+  .home-modules .dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    align-items: start;
+  }
+}
+
+/* 760px and below: one column, the spaces first, then the chat at a height of its own, then the Modules. The chat's strip
+   and the phone's tabs are plan-home-lobby.md's step 6. */
+@media (max-width: 760px) {
+  .home,
+  .home:has(> .home-chat[hidden]),
+  .home:has(> .home-modules > .dashboard[hidden]),
+  .home:has(> .home-chat[hidden]):has(> .home-modules > .dashboard[hidden]) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "main" "chat" "modules";
+    grid-template-rows: none;
+  }
+
+  .home-main {
+    padding: 16px 16px 0;
+  }
+
+  .home-chat {
+    position: static;
+    height: min(560px, calc(var(--home-h) - 32px));
+    margin: 18px 0 0;
+    border-right: 0;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .home-chat-splitter {
+    display: none;
+  }
+
+  .home-modules {
+    padding: 18px 16px 24px;
   }
 }
 

@@ -227,7 +227,13 @@ try {
     assert.deepEqual(problems(with_({ phases: [phase('planning', { main: true }), phase('booking', { main: true })] })), ['phases: only one phase can be the main one.']);
     assert.deepEqual(problems(with_({ phases: Array.from({ length: 13 }, (_, i) => phase(`p${i}`)) })), ['"phases" must be a list of at most 12 phases.']);
     assert.deepEqual(problems(with_({ phases: [{ id: 'planning', label: 'x'.repeat(41) }] })), ['phases[0]: a label is text of 1 to 40 characters.']);
-    assert.deepEqual(problems(with_({ phases: [{ id: 'planning', label: 'Planning', note: 'x' }] })), ['phases[0]: "note" is not a phase field; a phase takes id, label and main.']);
+    assert.deepEqual(problems(with_({ phases: [{ id: 'planning', label: 'Planning', note: 'x' }] })), ['phases[0]: "note" is not a phase field; a phase takes id, label, main and icon.']);
+    // An optional icon: a good one is kept, a bad one refuses the template, none leaves the phase as it was.
+    assert.deepEqual(problems(with_({ phases: [phase('planning', { icon: 'plane' })] })), []);
+    assert.deepEqual(templates.cleanTemplate(with_({ phases: [phase('planning', { icon: 'plane' })] })).phases, [{ id: 'planning', label: 'Planning', icon: 'plane' }]);
+    assert.deepEqual(problems(with_({ phases: [phase('planning', { icon: 'no-such-icon-xyz' })] })), ['phases[0]: icon "no-such-icon-xyz" is not a Font Awesome Free solid icon.']);
+    assert.deepEqual(problems(with_({ phases: [phase('planning', { icon: 5 })] })), ['phases[0]: icon "5" is not a Font Awesome Free solid icon.']);
+    assert.deepEqual(templates.cleanTemplate(with_({ phases: [phase('planning')] })).phases, [{ id: 'planning', label: 'Planning' }]);
     assert.deepEqual(problems(with_({ spaceDefaults: { opensWith: ['chat', 1] } })), ['spaceDefaults.opensWith: 1 is not a module id.']);
     const withoutOpen = templates.cleanTemplate(with_({ spaceDefaults: { profile: 'participants' } }));
     const withOpen = templates.cleanTemplate(with_({ spaceDefaults: { profile: 'participants', opensWith: ['travel', 'chat'] } }));

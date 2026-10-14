@@ -12,7 +12,7 @@
 - Colours come only from the theme tokens (`--bg`, `--bg-section`, `--bg-card`, `--border`, `--text`, `--text-dim`, `--accent`, `--on-accent`, `--danger`), in the page and in the map style. A light theme must give a light map.
 - Nothing has a fixed pixel height; the module fills its pane. No `100vh`.
 - Text from people goes in with `textContent`, never as HTML. An icon is `<span class="ic" data-icon="name">`.
-- **The credit is always on the map:** `.attribution` ("© OpenStreetMap contributors", linking to the licence page) is in the bottom-right of every map. No setting hides it, and the script never removes it. If the tile file's metadata names another credit (a tile builder's), the script appends it inside the same element.
+- **The credit is always on the world map:** `.attribution` (`[data-slot=osm]`: "© OpenStreetMap contributors", linking to the licence page) is in the bottom-right of every map drawn from map data. No setting hides it, and the script never removes it. If the tile file's metadata names another credit (a tile builder's), the script appends it inside the same element. A picture map (below) is not OpenStreetMap's: there `[data-slot=osm]` is hidden and only the picture file's own credit shows, else `.attribution` is hidden.
 - No default remote tiles and no call to any service unless the admin set one: the map reads the admin's file (`host.files.url`) and, if set, the search address.
 
 ## The page
@@ -114,6 +114,15 @@ Maps has the `environment` scope and declares `surfaces.destination` `{ id: 'map
 - There is no host bar: `#ctrl-add` (top left, `.maplibregl-ctrl-top-left`) holds the **+** "Add a place: click the map", shown when something offers `newPlace`. The map's last view is kept in this browser (`maps-destination-view`).
 
 **The environment page on its own** (`/modules/maps`, when the Map destination is not shown) draws the same pins with no filter, no panel and no adding (the actions it would ask are carried out by a Places page that is not open there); its search field takes pasted coordinates or a map link to go there.
+
+## A picture map (0.8.8, plan-map-image)
+
+While the environment has a picture map (`host.environment.pictureMap`, `{ file, minZoom, maxZoom, tileType }`, from Maps' `imageMap` setting), the map draws only that picture, in every space and on the Map destination; the `map` files are not read. A change to `imageMap` while the page is open switches the map at once.
+- **The style** is `buildPictureStyle()`: a `background` layer (`--bg-section`) and one `raster` layer from a `raster` source `pmtiles://<address>` (`tileSize` 256, the file's own zooms and bounds). The file is read by range from `host.files.url(file)` with `?folder=image-map`.
+- **Zoom and panning** (`pictureLimits()`): the map's `maxZoom` is the file's maximum plus two, `minZoom` the file's minimum, and `maxBounds` the file's bounds (the whole web map square when the header has none). It opens on the whole picture, or where it was last left (the world map's key with `.picture` added, so the world map's own view is kept). Every fixed zoom (a pin, a new place, a pasted position, a cluster, a remembered view) goes through `capZoom()`. A pin's label shows from three levels under the file's maximum.
+- **Left out:** "Show where I am", `a[data-action=open-in-maps]` (removed from the callout), the callout's `[data-slot=coords]` ("Copy coordinates" stays), the OpenStreetMap credit, and the no-WebGL state's `[data-slot=maps-app]` words.
+- **Search** looks only at the places drawn: the field (placeholder "Search saved places") selects the first match by title or where it is and lists several in `#results` (picking one selects it), or says "No saved places match."; as the destination's part, Enter selects the first match. The outside search is never asked. A pasted position still goes there.
+- Positions stay `{ lat, lng }`; pins, clusters, the callout, the draft pin, the drop and the selection are unchanged.
 
 ## Not decided yet
 

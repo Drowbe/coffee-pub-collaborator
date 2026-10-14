@@ -97,3 +97,56 @@
     }
     return { version: 8, glyphs: o.glyphs, sources, layers: all };
   }
+
+  // --- a picture map: a picture of an invented world, as one raster PMTiles file (plan-map-image) -----------------------
+
+  // The edges of the web map's square, just inside: the library draws nothing past 85.0511 degrees of latitude, and its
+  // pan limit (maxBounds) fails on a box whose longitude is exactly 180 (MapLibre 5.24, tried in a browser).
+  const MERCATOR_LAT = 85.051128;
+  const EDGE_LNG = 179.99999;
+  // The world map's deepest zoom.
+  const WORLD_MAX_ZOOM = 19;
+
+  // A zoom the page asks for (on a pin, a new place, a pasted position, a cluster), never past the map's maximum.
+  function capZoom(z, max) {
+    const m = typeof max === 'number' && Number.isFinite(max) ? max : WORLD_MAX_ZOOM;
+    const n = Number(z);
+    return Math.min(Number.isFinite(n) ? n : m, m);
+  }
+
+  // What a picture map allows, from its file's header ({ minZoom, maxZoom, minLon, minLat, maxLon, maxLat }), else from the
+  // environment's own fact ({ minZoom, maxZoom }). The map zooms two levels past the file's own (the library stretches the
+  // deepest tiles), and pans only over the picture: its bounds, else the whole square (the placement rule fills it).
+  function pictureLimits(header, pm) {
+    const num = (...xs) => xs.find((x) => typeof x === 'number' && Number.isFinite(x));
+    const h = header || {};
+    const p = pm || {};
+    const fileMinZoom = Math.max(0, Math.min(22, Math.round(num(h.minZoom, p.minZoom, 0))));
+    const fileMaxZoom = Math.max(fileMinZoom, Math.min(22, Math.round(num(h.maxZoom, p.maxZoom, fileMinZoom))));
+    const lng = (x) => Math.max(-EDGE_LNG, Math.min(EDGE_LNG, x));
+    const lat = (x) => Math.max(-MERCATOR_LAT, Math.min(MERCATOR_LAT, x));
+    const box = [h.minLon, h.minLat, h.maxLon, h.maxLat];
+    let bounds = [[-EDGE_LNG, -MERCATOR_LAT], [EDGE_LNG, MERCATOR_LAT]];
+    if (box.every((x) => typeof x === 'number' && Number.isFinite(x))) {
+      const b = [[lng(box[0]), lat(box[1])], [lng(box[2]), lat(box[3])]];
+      if (b[0][0] < b[1][0] && b[0][1] < b[1][1]) bounds = b;
+    }
+    return { fileMinZoom, fileMaxZoom, minZoom: fileMinZoom, maxZoom: fileMaxZoom + 2, bounds };
+  }
+
+  // The style of a picture map: the theme's ground (--bg-section) around the picture, and the picture's tiles over it. `o` is
+  // { tiles, minZoom, maxZoom, bounds? }: `tiles` the source address (pmtiles://<address of the file>), the zooms the file's
+  // own, `bounds` [[west, south], [east, north]]. Nothing else is drawn: an invented world has no roads or names to add.
+  function buildPictureStyle(t, o) {
+    const tok = { ...DARK_TOKENS, ...t };
+    const source = { type: 'raster', url: o.tiles, tileSize: 256, minzoom: o.minZoom, maxzoom: o.maxZoom };
+    if (o.bounds) source.bounds = [o.bounds[0][0], o.bounds[0][1], o.bounds[1][0], o.bounds[1][1]];
+    return {
+      version: 8,
+      sources: { picture: source },
+      layers: [
+        { id: 'background', type: 'background', paint: { 'background-color': rgbText(tok.section) } },
+        { id: 'picture', type: 'raster', source: 'picture' },
+      ],
+    };
+  }

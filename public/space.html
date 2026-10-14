@@ -307,15 +307,18 @@
           <button class="msg-btn" id="chat-close" type="button" title="Close" aria-label="Close chat"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
         </span>
       </header>
-      <!-- What Chat shows (plan-chat-model.md, "The filter"): never what is posted. chat-input.js keeps it. -->
-      <div class="mod-toolbar" id="chat-filter" hidden>
-        <span class="tb-tabs" role="group" aria-label="Show messages">
-          <button class="tb-tab on" id="chat-filter-all" type="button" aria-pressed="true" aria-label="All"><i class="tb-tab-glyph fa-solid fa-comments fa-fw" aria-hidden="true"></i><span class="tb-tab-word">All</span></button>
-          <button class="tb-tab" id="chat-filter-private" type="button" aria-pressed="false" aria-label="Private"><i class="tb-tab-glyph fa-solid fa-lock fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Private</span></button>
-          <button class="tb-tab" id="chat-filter-public" type="button" aria-pressed="false" aria-label="Public"><i class="tb-tab-glyph fa-solid fa-users fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Public</span></button>
+      <!-- Chat's two views (GitHub #203), one store: Discussion, what everyone sees, and Assistant, your own commands, AI
+           answers and what you bring in. chat-input.js keeps it; the Discussion word follows the template. -->
+      <div class="mod-toolbar" id="chat-views" hidden>
+        <span class="tb-tabs" role="tablist" aria-label="Chat views">
+          <button class="tb-tab on" id="chat-view-discussion" type="button" role="tab" aria-selected="true" aria-controls="messages" aria-describedby="chat-view-discussion-new" tabindex="0" aria-label="Discussion"><i class="tb-tab-glyph fa-solid fa-comments fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Discussion</span><span class="chat-view-count" id="chat-view-discussion-count" aria-hidden="true" hidden></span></button>
+          <button class="tb-tab" id="chat-view-assistant" type="button" role="tab" aria-selected="false" aria-controls="messages" aria-describedby="chat-view-assistant-new" tabindex="-1" aria-label="Assistant"><i class="tb-tab-glyph fa-solid fa-wand-magic-sparkles fa-fw" aria-hidden="true"></i><span class="tb-tab-word">Assistant</span><span class="chat-view-dot" id="chat-view-assistant-dot" aria-hidden="true" hidden></span></button>
         </span>
+        <span id="chat-view-discussion-new" hidden></span>
+        <span id="chat-view-assistant-new" hidden></span>
       </div>
-      <div class="messages" id="messages"></div>
+      <p class="visually-hidden" id="chat-view-news" role="status" aria-live="polite"></p>
+      <div class="messages" id="messages" data-view="discussion"></div>
       <div class="chat-import-panel" id="chat-import-panel" hidden>
         <textarea id="chat-import-show" hidden readonly></textarea>
         <textarea id="chat-import-text" rows="5" placeholder="Paste the whole answer here"></textarea>

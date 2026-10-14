@@ -3841,13 +3841,44 @@ a.crumb-here:hover {
   text-overflow: ellipsis;
 }
 
-/* The filter (#chat-filter, chat-input.js): what Chat shows, never what is posted. */
-#messages[data-filter="private"] > .message:not([data-vis="private"]),
-#messages[data-filter="public"] > .message:not([data-vis="public"]) {
+/* Chat's two views (#chat-views, chat-input.js, GitHub #203): #messages carries data-view and each line data-in
+   (discussion, assistant or both; a line without one is the Discussion's). Changing the view fetches nothing. */
+#messages[data-view="discussion"] > [data-in="assistant"],
+#messages[data-view="assistant"] > :not([data-in="assistant"]):not([data-in="both"]):not(.chat-view-empty) {
   display: none;
 }
 
-.chat-filter-empty {
+/* The Discussion's count and the Assistant's dot, on the view's own tab. */
+.chat-view-count {
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 14px;
+  text-align: center;
+}
+
+.chat-view-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.tb-tab.on .chat-view-count {
+  background: var(--on-accent);
+  color: var(--accent);
+}
+
+.tb-tab.on .chat-view-dot {
+  background: var(--on-accent);
+}
+
+.chat-view-empty {
   margin: auto 0;
   color: var(--text-dim);
   font-size: 12px;

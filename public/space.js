@@ -12,7 +12,7 @@ import { createWhoHere } from '/space-people.js';
 import { hotkeyMatches, formatHotkey } from '/hotkeys.js';
 import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
-import { attachChatInput, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
+import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
 import { foldCallToolbar } from '/call-toolbar.js';
 
@@ -700,6 +700,8 @@ $('guest-join').addEventListener('submit', async (event) => {
   }
 });
 let unread = 0;
+let assistantNew = 0; // the Assistant's new results (chat-input.js), for the rail
+let chatViews = null; // chat-input.js's views, once attached (the column and the canvas may ask before)
 let pipWindow = null;
 
 function setStatus(text, error = false) {
@@ -1279,7 +1281,8 @@ function setColumnCollapsed(on, { remember = true } = {}) {
   b.title = on ? 'Expand' : 'Collapse';
   b.setAttribute('aria-label', on ? 'Show the call and chat' : 'Collapse the call and chat');
   b.querySelector('i').className = `fa-solid fa-angles-${on ? 'right' : 'left'} fa-fw`;
-  if (!on && unread) { unread = 0; canvas.setBuiltinUnread('chat', 0); } // opened: the chat is read
+  if (!on && unread) { unread = 0; canvas.setBuiltinUnread('chat', assistantNew); } // opened: the chat is read
+  if (!on) chatViews?.seen(); // and the view showing
   const id = layoutSpaceId();
   if (remember && id) {
     try { localStorage.setItem(columnKey(id), JSON.stringify({ collapsed: on })); } catch { /* private mode: not remembered */ }
@@ -1299,11 +1302,13 @@ function applyColumnPref() {
 // The rail: the chat's unread count (its button opens the column into the chat) and a face per person on the call.
 function syncRail() {
   if (!columnEl || !document.body.classList.contains('in-space')) return;
+  // Both of Chat's views count: the Discussion's unread messages and the Assistant's new results (GitHub #203).
+  const total = unread + assistantNew;
   const badge = columnEl.querySelector('#side-column-rail-unread');
-  badge.hidden = unread === 0;
-  badge.textContent = unread > 9 ? '9+' : String(unread);
+  badge.hidden = total === 0;
+  badge.textContent = total > 9 ? '9+' : String(total);
   const btn = columnEl.querySelector('#side-column-rail-chat');
-  const said = unread ? `Chat, ${unread} unread` : 'Chat';
+  const said = total ? `Chat, ${total} unread` : 'Chat';
   btn.setAttribute('aria-label', said);
   btn.title = said;
   const faces = columnEl.querySelector('#side-column-rail-faces');
@@ -3118,7 +3123,9 @@ function messagePortrait(name, kind, icon, by) {
 // A chat message is a header and a container. The header has a left zone (portrait, name, time) and a
 // right zone (private or public, then the menu). The container is the message itself.
 // `tint` is the colour of a command's module, or gold for the AI (plan-chat-model.md, decision 18): the portrait's icon
-// and a thin left edge. `command` ("/r") follows the name. data-vis says private or public, for the filter.
+// and a thin left edge. `command` ("/r") follows the name. data-vis says private or public; data-in which of Chat's
+// views shows it (viewOf: private in the Assistant, the person's own shared command or answer in both, else the
+// Discussion). The person's own shared one reads "shared".
 function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, entry, tint, command }) {
   const el = document.createElement('div');
   el.className = 'message';
@@ -3154,13 +3161,16 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
   right.className = 'message-head-side';
   let state = visibility === 'private' ? 'private' : 'public';
   el.dataset.vis = state;
+  const mine = Boolean(me?.key && entry?.by === me.key);
   const canChange = canChangeVisibility(entry);
   const vis = document.createElement(canChange ? 'button' : 'span');
   if (canChange) vis.type = 'button';
   vis.className = 'message-vis';
   const paintVis = () => {
-    vis.textContent = state;
-    vis.setAttribute('aria-label', state === 'private' ? 'Private' : 'Public');
+    el.dataset.in = viewOf({ visibility: state, kind, mine });
+    const said = el.dataset.in === 'both' ? 'shared' : state;
+    vis.textContent = said;
+    vis.setAttribute('aria-label', said === 'private' ? 'Private' : said === 'shared' ? 'Shared' : 'Public');
   };
   paintVis();
   // The badge flips who sees it, and nothing else (decision 3): PATCH, then repaint here and tell the call. On a
@@ -3194,6 +3204,19 @@ function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, e
       { icon: 'copy', label: 'Copy', onPick: () => copyEntry(entry) },
       { icon: 'reply', label: 'Reply', onPick: () => replyToEntry(entry) },
     ];
+    // Share (GitHub #203): the author's private message, made public, shows in everyone's Discussion; an Assistant
+    // one stays in their Assistant too, marked shared. The badge's Make public, from the menu.
+    if (canChange && state === 'private') {
+      items.push({
+        icon: 'users',
+        label: 'Share',
+        hint: `Everyone in this ${word('space')} sees it in ${$('chat-view-discussion')?.querySelector('.tb-tab-word')?.textContent || 'Discussion'}`,
+        onPick: async () => {
+          if (!await setMessageVisibility(entry, 'public')) return;
+          el.repaintVis('public');
+        },
+      });
+    }
     // Send to... (plan-object-handoff.md): only where something here can take what the message is.
     if (entry?.chat && chatInput.canSendTo(entry)) items.push({ icon: 'share', label: 'Send to...', onPick: () => chatInput.sendTo(entry, more) });
     if (!entry?.chat || canDeleteChatEntry(entry)) {
@@ -3525,8 +3548,10 @@ function addEntry(entry, own = false) {
   else if (!(entry.at instanceof Date)) entry.at = new Date(entry.at);
   entry.chat = true;
   chatLog.push(entry);
-  const last = placeMessage(messageEl(entry, own));
+  const el = messageEl(entry, own);
+  const last = placeMessage(el);
   if (last) $('messages').scrollTop = $('messages').scrollHeight;
+  chatInput.arrived(el, { own }); // the other view's mark, the Assistant's news read out (GitHub #203)
   // The unread number counts new public messages from others, whatever the filter shows.
   if (!canvas.builtinOpen('chat') && !own && entry.visibility !== 'private') {
     unread += 1;
@@ -3585,6 +3610,7 @@ async function sendImage(file) {
     const out = await shrinkImage(file);
     const id = newChatId();
     const named = new File([out], `cid-${id}-${out.name || 'picture'}`, { type: out.type });
+    chatInput.setView('discussion'); // a picture is for everyone: it shows in the Discussion
     addEntry({ id, who: call.localParticipant.name || call.localParticipant.identity, by: me?.key || call.localParticipant.identity, blob: named, name: out.name || 'picture' }, true);
     await call.localParticipant.sendFile(named, { topic: 'chat-image', mimeType: named.type });
   } catch (err) {
@@ -3804,7 +3830,8 @@ canvas.registerBuiltin({
   name: 'Chat',
   icon: 'message',
   el: $('chat'),
-  onShown: showBuiltinName,
+  // The Discussion's word follows the environment's name for Chat, else "Discussion" (GitHub #203).
+  onShown: (def) => { showBuiltinName(def); setDiscussionWordFrom(def.name); },
   allowed: () => canDo('chatRead'),
   slot: '#side-column-chat', // its place in the always-on column, under the call (plan-one-bar.md, step 6)
   onShow: () => { if (columnCollapsed()) setColumnCollapsed(false); }, // brought into view: the rail opens
@@ -3815,7 +3842,8 @@ canvas.registerBuiltin({
     applyLayout();
     if (open) {
       unread = 0;
-      canvas.setBuiltinUnread('chat', 0);
+      canvas.setBuiltinUnread('chat', assistantNew);
+      chatViews?.seen();
       // Into the message box when it opens, but not when it only moves (docked, floating, snapped), and not while the
       // module chooser's list is open: the switch that turned it on keeps the keyboard.
       if ((!moving || mode === 'window') && $('modules-toggle')?.getAttribute('aria-expanded') !== 'true') $('chat-input').focus();
@@ -3823,6 +3851,16 @@ canvas.registerBuiltin({
     }
   },
 });
+
+// The Discussion's word on Chat's first tab: the environment's name for Chat, else "Discussion" (GitHub #203).
+function setDiscussionWordFrom(name) {
+  const b = $('chat-view-discussion');
+  const w = b?.querySelector('.tb-tab-word');
+  if (!w) return;
+  w.textContent = discussionWord(name);
+  b.setAttribute('aria-label', w.textContent);
+  if (window.hostSwitch && !$('chat-views').hidden) window.hostSwitch.fit($('chat-views'));
+}
 
 function toggleChat(open = !canvas.builtinOpen('chat')) {
   if (open) { canvas.openBuiltin('chat'); if (canvas.columnMode()) setColumnCollapsed(false); }
@@ -4177,7 +4215,7 @@ call
     canvasDoc().querySelectorAll('audio').forEach((el) => el.remove());
     $('messages').textContent = '';
     closeHostMenu();
-    if ($('chat-filter')) $('chat-filter').hidden = true;
+    if ($('chat-views')) $('chat-views').hidden = true;
     toggleChat(false);
     toggleTray(false);
     loadPresence();
@@ -4973,18 +5011,32 @@ const chatInput = attachChatInput({
   frameMessage,
   addStored: (m, opts) => addStoredMessage(m, opts),
   openMenu: openHostMenu,
+  // Chat in sight: open, and not behind the column's collapsed rail.
+  isShown: () => canvas.builtinOpen('chat') && !(canvas.columnMode() && columnCollapsed()),
+  // The Assistant's new results count on the rail and Chat's switch too (GitHub #203).
+  onAssistantNew: (n) => {
+    assistantNew = n;
+    canvas.setBuiltinUnread('chat', unread + assistantNew);
+    syncRail();
+  },
 });
+chatViews = chatInput;
 askInChat = (input) => chatInput.askAbout(input);
 $('chat-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = $('chat-input').value.trim();
   if (!text || !canDo('chat')) return;
-  if (chatInput && await chatInput.handleSubmit(text)) {
-    $('chat-input').value = '';
-    resizeChatInput();
+  // Where the line goes (GitHub #203): a command runs in the Assistant, switching there from the Discussion; plain
+  // words in the Assistant ask the AI; plain words in the Discussion are a message for everyone.
+  const route = chatInput.routeLine(text);
+  if (route.run === 'command' || route.run === 'ai') {
+    if (await chatInput.handleSubmit(route.line)) {
+      $('chat-input').value = '';
+      resizeChatInput();
+    }
     return;
   }
-  if (/^\//.test(text)) return;
+  if (route.run !== 'message') return;
   $('chat-input').value = '';
   resizeChatInput();
   await sendChatText(text);

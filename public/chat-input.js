@@ -677,16 +677,55 @@ export function stripSummaryMarkers(text) {
   return String(text || '').replace(/[ \t]*\{\{summary:\d+\}\}/g, '');
 }
 
-// The filter at the top of Chat (plan-chat-model.md, decision 2): what you see, never what is posted. Pure, for the checks.
-export const CHAT_FILTERS = ['all', 'private', 'public'];
-export const filterKey = (spaceId) => `chat-filter:${spaceId}`;
-export function readFilter(value) {
-  return CHAT_FILTERS.includes(value) ? value : 'all';
+// Chat's two views (GitHub #203), in place of the All | Private | Public filter: Discussion, the conversation everyone
+// sees, and Assistant, this person's own commands, AI answers and what they bring in. One store: where a message shows
+// follows who sees it, so changing the view fetches nothing. Pure, for the checks.
+export const CHAT_VIEWS = ['discussion', 'assistant'];
+export const viewKey = (spaceId) => `chat-view:${spaceId}`;
+export function readView(value) {
+  return CHAT_VIEWS.includes(value) ? value : 'discussion';
 }
-// The line Chat shows when the filter leaves nothing to show, or ''.
-export function emptyLine(filter, visibilities) {
-  if (filter === 'all') return '';
-  return visibilities.some((v) => v === filter) ? '' : `No ${filter} messages here yet.`;
+// Where a message shows: 'assistant' when private (only ever its author's page holds one); 'both' for the person's own
+// command or AI answer they shared (everyone's Discussion, and still their Assistant, marked shared); else 'discussion'.
+export function viewOf({ visibility, kind, mine } = {}) {
+  if (visibility === 'private') return 'assistant';
+  if (mine && (kind === 'ai' || kind === 'command')) return 'both';
+  return 'discussion';
+}
+export function inView(where, view) {
+  return where === 'both' || where === readView(view) || (!where && readView(view) === 'discussion');
+}
+// The line the Assistant shows while it holds nothing, or ''. The Discussion shows nothing when empty, as before.
+export function emptyLine(view, places) {
+  if (readView(view) !== 'assistant') return '';
+  return (places || []).some((p) => inView(p, 'assistant')) ? '' : 'Your commands, AI answers and what you bring in show here. Only you see them.';
+}
+// The Discussion's word: the environment's name for Chat (its template's or its own), else "Discussion".
+export function discussionWord(name) {
+  const n = String(name || '').replace(/\s+/g, ' ').trim();
+  return !n || n === 'Chat' ? 'Discussion' : n;
+}
+// What the box does with a line, by the view it is typed in: a command runs in the Assistant (typed in the Discussion,
+// it switches there first and the Discussion shows nothing of it); plain words typed in the Assistant ask the AI, as
+// /ai would; in the Discussion they are a message. A lone or malformed slash stays in the box ('none').
+export function routeLine(text, view) {
+  const t = String(text || '').trim();
+  const v = readView(view);
+  if (!t) return { run: 'none', view: v, line: '' };
+  if (/^\/[a-z0-9]{1,12}(?:\s[\s\S]*)?$/.test(t)) return { run: 'command', view: 'assistant', line: t };
+  if (t.startsWith('/')) return { run: 'none', view: v, line: t };
+  if (v === 'assistant') return { run: 'ai', view: 'assistant', line: `/ai ${t}` };
+  return { run: 'message', view: 'discussion', line: t };
+}
+// Whether an arriving message marks a view as new to read: the Assistant's when it lands there while the person is not
+// looking at it (another view, or Chat out of sight); the Discussion's for a message from someone else while they are
+// in the Assistant. What the person did themselves never counts.
+export function marksNew(where, { view, shown, own } = {}) {
+  const v = readView(view);
+  if (own) return '';
+  if (inView(where, 'assistant') && where !== 'both' && (!shown || v !== 'assistant')) return 'assistant';
+  if (inView(where, 'discussion') && shown && v === 'assistant') return 'discussion';
+  return '';
 }
 
 // Clear… (plan-chat-clear.md, #166): the types, the scopes and the counts, from the messages the page holds. Pure, for
@@ -864,25 +903,29 @@ export function keptNoticeTakes(entry, data, from) {
   return Boolean(cleanKept(data.kept));
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // (the wider Send button leaves a narrow chat a narrow field). A command's own hint is left alone.
+  // In the Assistant, plain words go to the AI (routeLine), and its hint says so.
   const HINTS = ['Chat or type / for commands...', 'Chat, or / for commands', 'Chat'];
+  const ASK_HINTS = ['Ask the AI or type / for commands...', 'Ask, or / for commands', 'Ask the AI'];
+  let view = 'discussion';
   let hintCtx = null;
   function defaultHint() {
+    const list = view === 'assistant' ? ASK_HINTS : HINTS;
     const el = input();
     const cs = el && getComputedStyle(el);
     const free = el ? el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) : 0;
-    if (!(free > 0)) return HINTS[0];
+    if (!(free > 0)) return list[0];
     hintCtx ||= document.createElement('canvas').getContext('2d');
-    if (!hintCtx) return HINTS[0];
+    if (!hintCtx) return list[0];
     hintCtx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
-    return HINTS.find((h) => hintCtx.measureText(h).width <= free) || HINTS[HINTS.length - 1];
+    return list.find((h) => hintCtx.measureText(h).width <= free) || list[list.length - 1];
   }
   function fitHint() {
     const el = input();
-    if (el && (!el.placeholder || HINTS.includes(el.placeholder))) el.placeholder = defaultHint();
+    if (el && (!el.placeholder || HINTS.includes(el.placeholder) || ASK_HINTS.includes(el.placeholder))) el.placeholder = defaultHint();
   }
   if (input() && typeof ResizeObserver === 'function') new ResizeObserver(fitHint).observe(input());
   const note = () => $('chat-note');
@@ -890,7 +933,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   let pendingImport = null;
   let aiContext = [];
   let lastActions = [];
-  let filter = 'all';
 
   function spaceId() {
     const s = getSpace();
@@ -987,56 +1029,106 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     document.addEventListener('pointerdown', close, true);
   }
 
-  // --- the filter: All | Private | Public (plan-chat-model.md, "The filter") ---
-  // #messages carries data-filter and each message data-vis; style.css hides the rest, so changing it fetches nothing
-  // and a message that arrives or changes visibility follows it at once. Remembered per space for the browser session.
-  function setFilter(next) {
-    filter = readFilter(next);
+  // --- the views: Discussion | Assistant (GitHub #203) ---
+  // #messages carries data-view and each line data-in (frameMessage: viewOf); style.css hides the rest, so changing the
+  // view fetches nothing and a message that arrives or changes who sees it follows at once. A tablist: the chosen tab
+  // is the one Tab reaches, the arrow keys, Home and End move between them. Remembered per space for the session.
+  const newIn = { discussion: 0, assistant: 0 };
+  function paintNew() {
+    const count = $('chat-view-discussion-count');
+    if (count) {
+      count.hidden = newIn.discussion === 0;
+      count.textContent = newIn.discussion > 9 ? '9+' : String(newIn.discussion);
+    }
+    const said = $('chat-view-discussion-new');
+    if (said) said.textContent = newIn.discussion ? `${newIn.discussion} unread` : '';
+    const dot = $('chat-view-assistant-dot');
+    if (dot) dot.hidden = newIn.assistant === 0;
+    const told = $('chat-view-assistant-new');
+    if (told) told.textContent = newIn.assistant ? 'New results' : '';
+    if (onAssistantNew) onAssistantNew(newIn.assistant);
+  }
+  function setView(next, { focusTab = false } = {}) {
+    view = spaceId() ? readView(next) : 'discussion';
     const id = spaceId();
     if (id) {
-      try { sessionStorage.setItem(filterKey(id), filter); } catch { /* not remembered */ }
+      try { sessionStorage.setItem(viewKey(id), view); } catch { /* not remembered */ }
     }
-    for (const f of CHAT_FILTERS) {
-      const el = $(`chat-filter-${f}`);
+    for (const v of CHAT_VIEWS) {
+      const el = $(`chat-view-${v}`);
       if (!el) continue;
-      el.classList.toggle('on', f === filter);
-      el.setAttribute('aria-pressed', f === filter ? 'true' : 'false');
+      el.classList.toggle('on', v === view);
+      el.setAttribute('aria-selected', v === view ? 'true' : 'false');
+      el.tabIndex = v === view ? 0 : -1;
+      if (v === view && focusTab) el.focus();
     }
     const list = $('messages');
-    if (list) list.dataset.filter = filter;
+    if (list) list.dataset.view = view;
+    if (isShown()) newIn[view] = 0;
+    paintNew();
+    fitHint();
     syncEmpty();
+    if (list) list.scrollTop = list.scrollHeight;
+  }
+  // Chat came into sight (opened, the column expanded): the view showing is read.
+  function seen() {
+    if (!isShown() || !newIn[view]) return;
+    newIn[view] = 0;
+    paintNew();
   }
 
-  function loadFilter() {
+  function loadView() {
     const id = spaceId();
-    let next = 'all';
+    let next = 'discussion';
     if (id) {
-      try { next = readFilter(sessionStorage.getItem(filterKey(id))); } catch { /* the default */ }
+      try { next = readView(sessionStorage.getItem(viewKey(id))); } catch { /* the default */ }
     }
-    setFilter(next);
+    newIn.discussion = 0;
+    newIn.assistant = 0;
+    setView(next);
   }
 
-  // Shown to everyone who can read Chat in a space, guests too; not in an aside, which keeps nothing.
-  function setFilterVisible(on) {
-    const g = $('chat-filter');
+  // Shown to everyone who can read Chat in a space, guests too; not in an aside, which keeps nothing and runs no
+  // command: there it is the Discussion alone.
+  function setViewsVisible(on) {
+    const g = $('chat-views');
     if (!g) return;
     g.hidden = !on;
-    if (!on) { const list = $('messages'); if (list) list.dataset.filter = 'all'; syncEmpty(); return; }
-    loadFilter();
+    if (!on) { view = 'discussion'; const list = $('messages'); if (list) list.dataset.view = view; newIn.assistant = 0; paintNew(); syncEmpty(); return; }
+    loadView();
     // The shared view switch's fit (public/sdk/host.js): icons only while the chat is too narrow for the words.
     if (window.hostSwitch) window.hostSwitch.watch(g);
   }
 
-  // "No private messages here yet." while the filter leaves nothing to show.
+  // A message just placed (space.js, addEntry): the other view's mark, and the Assistant's news read out.
+  function arrived(el, { own = false } = {}) {
+    const where = el?.dataset?.in || 'discussion';
+    const mark = marksNew(where, { view, shown: isShown(), own });
+    if (mark) { newIn[mark] += 1; paintNew(); }
+    if (!own && inView(where, 'assistant') && where !== 'both') {
+      const who = el.querySelector('.message-name')?.textContent || '';
+      announce(view === 'assistant' && isShown() ? `${who || 'New'}: ${oneLine(el.querySelector('.message-body')?.textContent || '', 120)}` : 'New in Assistant.');
+    }
+  }
+  let announceSeq = 0;
+  function announce(text) {
+    const el = $('chat-view-news');
+    if (!el) return;
+    const seq = ++announceSeq;
+    el.textContent = '';
+    setTimeout(() => { if (seq === announceSeq) el.textContent = text; }, 60);
+  }
+
+  // The Assistant's line while it holds nothing.
   function syncEmpty() {
     const list = $('messages');
     if (!list) return;
-    let line = list.querySelector(':scope > .chat-filter-empty');
-    const text = emptyLine(list.dataset.filter || 'all', [...list.querySelectorAll(':scope > .message')].map((m) => m.dataset.vis));
+    let line = list.querySelector(':scope > .chat-view-empty');
+    const text = emptyLine(list.dataset.view || 'discussion', [...list.querySelectorAll(':scope > .message, :scope > .chat-closed-ask')].map((m) => m.dataset.in || 'discussion'));
     if (!text) { line?.remove(); return; }
     if (!line) {
       line = document.createElement('p');
-      line.className = 'chat-filter-empty';
+      line.className = 'chat-view-empty';
     }
     line.textContent = text;
     if (line.parentNode !== list || line !== list.lastElementChild) list.appendChild(line);
@@ -1044,15 +1136,15 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   const messagesEl = $('messages');
   if (messagesEl && typeof MutationObserver === 'function') {
     new MutationObserver((records) => {
-      if (records.every((r) => [...r.addedNodes, ...r.removedNodes].every((n) => n.classList?.contains('chat-filter-empty')) && r.type === 'childList')) return;
+      if (records.every((r) => [...r.addedNodes, ...r.removedNodes].every((n) => n.classList?.contains('chat-view-empty')) && r.type === 'childList')) return;
       syncEmpty();
-    }).observe(messagesEl, { childList: true, attributes: true, subtree: true, attributeFilter: ['data-vis'] });
+    }).observe(messagesEl, { childList: true, attributes: true, subtree: true, attributeFilter: ['data-in'] });
   }
 
-  // On entering a space: the filter, and whether this space can keep a pasted import. Private and public messages
+  // On entering a space: the views, and whether this space can keep a pasted import. Private and public messages
   // alike come from GET .../chat (space.js, renderChatHistory); there is no separate AI thread to load any more.
   async function loadThread() {
-    setFilterVisible(Boolean(spaceId()));
+    setViewsVisible(Boolean(spaceId()));
     if (!spaceId() || !getMe()) return;
     await refreshImport();
   }
@@ -1576,6 +1668,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     if (!q) { setNote('Type a question after /ai.'); return { ok: false }; }
     const prev = aiContext;
     aiContext = (refs || []).filter((r) => r && r.module && r.id).map((ref) => ({ ref }));
+    setView('assistant'); // a module's question is answered where answers go
     try {
       input().focus();
       const ok = await runAi(q);
@@ -1619,6 +1712,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     const name = chosen.moduleName;
     const box = document.createElement('div');
     box.className = 'chat-closed-ask';
+    box.dataset.in = 'assistant'; // the person's own question, in the Assistant
     const q = document.createElement('p');
     q.textContent = `The ${name} is not open. What would you like to do?`;
     const actions = document.createElement('div');
@@ -1657,6 +1751,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       setNote(`No command /${parsed.name}`);
       return false;
     }
+    // A known command runs in the Assistant: typed in the Discussion, it switches there first (GitHub #203).
+    setView('assistant');
     const openHits = hits.filter((h) => !h.module || canvas.isOpen(h.module));
     if (hits[0].name === 'ai') {
       if (!parsed.rest) { setNote('Type a question after /ai.'); return false; }
@@ -1832,6 +1928,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       entry,
     });
     el.classList.add('chat-import-msg');
+    setView('assistant'); // what is brought in is the person's own until kept
     $('messages').appendChild(el);
     $('messages').scrollTop = $('messages').scrollHeight;
   }
@@ -1900,12 +1997,20 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     }
   }
 
-  for (const f of CHAT_FILTERS) {
-    $(`chat-filter-${f}`)?.addEventListener('click', (e) => {
+  for (const v of CHAT_VIEWS) {
+    $(`chat-view-${v}`)?.addEventListener('click', (e) => {
       e.preventDefault();
-      setFilter(f);
+      setView(v);
     });
   }
+  // The tablist's keys: Left and Right (wrapping), Home and End move to a view and show it.
+  $('chat-views')?.querySelector('[role="tablist"]')?.addEventListener('keydown', (e) => {
+    const at = CHAT_VIEWS.indexOf(view);
+    const to = { ArrowRight: at + 1, ArrowLeft: at - 1, Home: 0, End: CHAT_VIEWS.length - 1 }[e.key];
+    if (to === undefined) return;
+    e.preventDefault();
+    setView(CHAT_VIEWS[(to + CHAT_VIEWS.length) % CHAT_VIEWS.length], { focusTab: true });
+  });
   $('chat-command').addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -1919,6 +2024,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     e.stopPropagation();
     const panel = $('chat-import-panel');
     const opening = panel.hidden;
+    if (opening) setView('assistant'); // Bring in is the Assistant's
     setImportOpen(opening);
   });
   $('chat-import-close')?.addEventListener('click', (e) => {
@@ -1988,7 +2094,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
 
   $('chat').addEventListener('drop', (event) => {
     const raw = event.dataTransfer?.getData(OBJECT_MIME);
-    if (!raw || parseCommand(input().value || '')?.name !== 'ai') return;
+    // An object dropped while asking the AI: /ai typed, or plain words in the Assistant (routeLine).
+    const asking = parseCommand(input().value || '')?.name === 'ai' || (view === 'assistant' && !parseCommand(input().value || ''));
+    if (!raw || !asking) return;
     try {
       const ref = JSON.parse(raw);
       if (ref && ref.module && ref.id) {
@@ -2021,6 +2129,12 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     answerBody,
     commandLook,
     syncEmpty,
+    // The views (GitHub #203): which is showing, where a typed line goes, a message placed, Chat come into sight.
+    view: () => view,
+    setView,
+    routeLine: (text) => routeLine(text, view),
+    arrived,
+    seen,
     refreshActions,
     hidePicker,
     hideImport: () => setImportOpen(false),

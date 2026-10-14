@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides what Home becomes and what happens to the Lobby; the try builders who build each step on its own (server-development for the server half, experience-design for the pages); quality-assurance later, when Thomas names a production build.
 
-**Status:** drafted 2026-10-14 by product-planner at Thomas's request, for him to decide. Nothing here is approved or built. Thomas's words: "I want to queue up the changes to the homepage/dashboard. The idea is that the 'lobby' goes away as a dedicated space and the homepage gets redesigned to have the persistent chat laid out like: [ chat ] [ Spaces ] [ Tools ] and we take advantage of the page width. We keep 'who's online' above the spaces still. Effectively this BECOMES the lobby." He attached a hand sketch, and confirmed the reading of it below (relayed by the project manager): "Sorry about the rotation. You got it right." Related plans: [plan-dashboard](plan-dashboard.md) (the tiles on Home, Who's around), [plan-one-bar](plan-one-bar.md) (the always-on column, step 6), [plan-chat-model](plan-chat-model.md) (one chat store, Discussion and Assistant), [plan-modules](plan-modules.md) ("the Lobby is for being together"), [plan-environment-templates](plan-environment-templates.md) (a template's `lobby` field), [plan-names](plan-names.md) (renames ship with a migration).
+**Status:** approved in part, 2026-10-14. Drafted the same day by product-planner at Thomas's request. Thomas has decided the Lobby's record, going Home from a space, the chat's scope, Home on a phone and what the Tools are (decisions 6 to 10). The other questions were not asked yet and are recorded as working assumptions (below). Nothing is built. Thomas's words: "I want to queue up the changes to the homepage/dashboard. The idea is that the 'lobby' goes away as a dedicated space and the homepage gets redesigned to have the persistent chat laid out like: [ chat ] [ Spaces ] [ Tools ] and we take advantage of the page width. We keep 'who's online' above the spaces still. Effectively this BECOMES the lobby." He attached a hand sketch, and confirmed the reading of it below (relayed by the project manager): "Sorry about the rotation. You got it right." Related plans: [plan-dashboard](plan-dashboard.md) (the tiles on Home, Who's around), [plan-one-bar](plan-one-bar.md) (the always-on column, step 6), [plan-chat-model](plan-chat-model.md) (one chat store, Discussion and Assistant), [plan-modules](plan-modules.md) ("the Lobby is for being together"), [plan-environment-templates](plan-environment-templates.md) (a template's `lobby` field), [plan-names](plan-names.md) (renames ship with a migration).
 
 ## What it is today
 
@@ -55,20 +55,24 @@ Thomas, 2026-10-14.
    - in the middle, the space cards in a grid two cards wide, labelled SPACES, with a wide, short panel above them labelled "whose online" that holds a small picture and a name at its left end and a list;
    - on the right, a narrower column of three stacked cards (the Tools), the lowest one small and marked with a "T".
 
-## Proposed, for Thomas to decide
+6. **The Lobby's record stays as Home's hidden backing** (option A, no data migration). Thomas, 2026-10-14. Home's chat is the Lobby's chat: the same id, the same stored history and the same Assistant threads. Nothing stored is renamed. Every fallback above, Studio's `isLobby`, the OBS stream and the Calendar's Lobby events keep working. What goes away is the Lobby as a place a person enters, its card, and its Set up.
+7. **Going Home from a space is a view over the space.** Thomas, 2026-10-14 (option A). The person stays in the space's call, with Away set, as today. Home's chat can't depend on the call service, so it gets new messages from the server's event stream. A side benefit is that Home's chat can be checked locally, where there is no LiveKit.
+8. **Each place keeps its own chat.** Thomas, 2026-10-14 (option A). Home shows Home's chat (the Lobby's history). A space's column shows that space's chat, as today. The chat does not follow you between them. Home's unread count shows on the Home link.
+9. **On a phone, Home has three tabs, Chat | Spaces | Tools, opening on the spaces.** Thomas, 2026-10-14 (option A). The middle tab carries the `home` word, as the Spaces slot does.
+10. **The Tools are what the Home has today.** Thomas, 2026-10-14, in his words: "The tools are what we have on the home today." The Tools column is today's Home tiles (the dashboard widgets: Calendar, To-do, Polls and the others, as they are now), moved into the right-hand column. It is not a launcher for every module, and this plan adds no new links to it.
 
-Each of these is a suggestion, with the options in the questions at the end.
+## Working assumptions: not asked yet
 
-- **Keep the `lobby` record as Home's backing and stop showing it as a space** (question 1). Home's chat is the Lobby's chat: the same id, the same stored history and the same Assistant threads. Nothing stored is renamed, so no data migration is needed. Every fallback above, Studio's `isLobby`, the OBS stream and the Calendar's Lobby events keep working. What goes away is the Lobby as a place a person enters, its card, and its Set up.
-- **Home stays a view, not a place** (question 2). Going Home from a space still keeps you in that space's call, with Away set, as it does today. Home's chat therefore can't depend on the call service, so it gets live delivery from the server: an event stream, the way notifications and module data already arrive. A side benefit is that Home's chat can be checked locally, where there is no LiveKit.
-- **No call on Home in the first build** (question 3). The Lobby's call is kept, unreached from Home, until Thomas decides whether Home gets a call strip.
-- **Tools are the tiles that exist today** (question 4): Calendar "coming up", To-do "due soon" and Polls "need your vote", moved from the left sidebar to the right column. Nothing new is invented for "Tools" in this plan.
-- **Each place keeps its own chat** (question 5). Home shows Home's chat (the Lobby's history). A space's column shows that space's chat, as today. The chat does not follow you between them.
+Thomas did not answer these questions on 2026-10-14. Each is the product-planner's recommendation, used so the build can go on. They are not decisions, and Thomas can change any of them. The options are in the questions at the end.
+
+- **No call on Home for now** (question 1). The Lobby's call is kept, unreached from Home, until Thomas decides whether Home gets a call strip.
+- **The Lobby's name and the template's `lobby` field are kept as stored and no longer shown** (question 2). Templates still accept the field, so imported templates don't fail.
+- **Existing guest links made for the Lobby keep working** (question 3), with the chat relayed both ways between the guest and Home. Manage stops offering a new one.
 - **The chat column on Home is the same chat as a space's column.** It is the one `#chat` element, moved into Home's column and pointed at `lobby` while Home shows, and moved back into `#side-column`, pointed at the space, when a space shows. The two are never drawn as separate copies of the chat code.
 
 ## The contract
 
-Written for the proposals above. Where Thomas chooses another option, the affected step changes and the questions say how.
+Written for decisions 6 to 10 and the working assumptions above. Where Thomas changes an assumption, the affected step changes and the questions say how.
 
 ### Server
 
@@ -86,22 +90,22 @@ Written for the proposals above. Where Thomas chooses another option, the affect
 ### Pages
 
 - **Home's layout,** wider than a phone:
-  - three columns in `#join`. **Chat** on the left: `#chat` with the Discussion | Assistant tabs, the full height under the top bar, about 360 px wide, resizable and remembered in the browser as the space column's width is. **Spaces** in the middle, filling what is left: Who's around, then the heading row (the `home` word and **Add <space>**), then the space cards. **Tools** on the right: the tiles, about 320 px wide, in the order the server lists them;
+  - three columns in `#join`. **Chat** on the left: `#chat` with the Discussion | Assistant tabs, the full height under the top bar, about 360 px wide, resizable and remembered in the browser as the space column's width is. **Spaces** in the middle, filling what is left: Who's around, then the heading row (the `home` word and **Add <space>**), then the space cards. **Tools** on the right: the tiles as they are today (decision 10), about 320 px wide, in the order the server lists them, with no new links or launchers added;
   - no `max-width: 1180px`; the page uses the window's width. The ids `#join`, `#whos-around`, `#spaces`, `#space-list-title`, `#home-add-space` and `#dashboard` are kept. `#dashboard` moves to the right and keeps its id.
 - **The Lobby's card is not drawn** (`renderSpaces()` leaves out `isLobby`). The Lobby is not offered in the space switcher, in the Lobby's Set up, or as "Back to <Lobby>".
 - **Home's chat.** While Home shows (signed in, not a guest), `#chat` sits in Home's chat column, pointed at `lobby`: history from `GET /api/spaces/lobby/chat`, live from the stream above, sends through the existing routes. Discussion, Assistant, commands, Clear… and visibility all work as they do in a space. Commands are the ones on in the Lobby: the core ones and the Calendar's. When a space shows, `#chat` goes back to `#side-column`, pointed at the space. Home over a space shows Home's chat; going **Back to <space>** shows the space's chat again.
-- **Unread.** Messages that arrive on Home's chat while a space shows are counted. Proposed: a count on the top bar's Home link (the Spaces slot), and nothing in the space's column, until Thomas says otherwise (question 5).
+- **Unread.** Messages that arrive on Home's chat while a space shows are counted, from the server stream (decision 7). The count shows on the top bar's Home link (the Spaces slot), and nothing shows in the space's column (decision 8).
 - **Who's around** stays above the spaces, unchanged in what it says. A person on Home is "online" with no place, as today. Someone in the Lobby's call (by a guest link or an old page) reads as "in <Lobby's name>", as today.
-- **Narrow widths.** Below about 1200 px the Tools column moves under the space cards, in the middle column. At 760 px and below the chat column becomes a strip at the top of Home: the last message and the unread count, which opens the chat over the page. At 640 px and below Home has three tabs at the foot, **Chat | <home word> | Tools**, using the phone's tab bar ([plan-phone-space-bar](plan-phone-space-bar.md)), and opens on the home word's tab (question 6).
-- **Manage.** The Lobby's row on the Spaces tab becomes a **Home** row, first, not reorderable, with only what still means something: a description of who sees the chat ("Everyone in the <environment>"), and Clear… for owners. Name, description, picture, profile, Opens with and the guest link leave it (question 7). The texts that name the Lobby in Manage, Set up, the template offer and the host console are reworded or removed in the same step (listed in step 5).
-- **Guests** have no Home, as today. A guest link already made for the Lobby keeps working as it does today (question 8).
+- **Narrow widths.** Below about 1200 px the Tools column moves under the space cards, in the middle column. At 760 px and below the chat column becomes a strip at the top of Home: the last message and the unread count, which opens the chat over the page. At 640 px and below Home has three tabs at the foot, **Chat | <home word> | Tools**, using the phone's tab bar ([plan-phone-space-bar](plan-phone-space-bar.md)), and opens on the home word's tab (decision 9).
+- **Manage.** The Lobby's row on the Spaces tab becomes a **Home** row, first, not reorderable, with only what still means something: a description of who sees the chat ("Everyone in the <environment>"), and Clear… for owners. Name, description, picture, profile, Opens with and the guest link leave it (working assumption, question 2). The texts that name the Lobby in Manage, Set up, the template offer and the host console are reworded or removed in the same step (listed in step 5).
+- **Guests** have no Home, as today. A guest link already made for the Lobby keeps working as it does today, its chat relayed both ways (working assumption, question 3).
 
 ## Left to build, in order
 
-Each step is a try build: one builder, one pass, its own checks. Each one leaves the app working. Steps 1 and 2 can be built in either order. Steps 3 to 6 each build on the one before.
+Each step is a try build: one builder, one pass, its own checks. Each one leaves the app working. Steps 1, 2, 4 and 6 are unblocked by Thomas's answers of 2026-10-14. Step 3 was never blocked. Step 5 rests on working assumptions (question 2). Steps 1 and 2 can be built in either order. Steps 3 to 6 each build on the one before.
 
-1. **Home's chat stream** (server-development; medium risk; the smaller model will do). `GET /api/spaces/lobby/chat/stream`. `chat-history.js`'s `add()`, removals, visibility, preview and Keep put the public events for `lobby` on it. `tellChat()` for `lobby` also sends on the stream. A post for `lobby` is also sent on the `lobby` call's data channel. Check cases in a new `tools/check-home-chat.mjs`, in `npm run check`, run on a throwaway server: a post seen on the stream, a private message never on it, a delete, a clear, a guest and an access key refused, another space's id refused. Nothing in the pages reads the stream yet.
-2. **The Lobby leaves the pages' lists** (experience-design; small risk; the smaller model will do).
+1. **Home's chat stream** (server-development; medium risk; the smaller model will do; unblocked by decisions 6 and 7). `GET /api/spaces/lobby/chat/stream`. `chat-history.js`'s `add()`, removals, visibility, preview and Keep put the public events for `lobby` on it. `tellChat()` for `lobby` also sends on the stream. A post for `lobby` is also sent on the `lobby` call's data channel. Check cases in a new `tools/check-home-chat.mjs`, in `npm run check`, run on a throwaway server: a post seen on the stream, a private message never on it, a delete, a clear, a guest and an access key refused, another space's id refused. Nothing in the pages reads the stream yet.
+2. **The Lobby leaves the pages' lists** (experience-design; small risk; the smaller model will do; unblocked by decision 6).
    - The Lobby's card, its switcher entry and its Set up are not drawn.
    - `/#join=lobby` and a remembered `lobby` open Home.
    - `/?setup=lobby` opens Manage > Spaces at the Home row.
@@ -109,19 +113,19 @@ Each step is a try build: one builder, one pass, its own checks. Each one leaves
 
    Until step 4 Home has no chat, so the Lobby's chat can't be reached from the pages between steps 2 and 4. Proposed: build 2 and 4 back to back, or hold step 2 until step 4 is built.
 3. **The three columns** (experience-design; layout, so the larger model). `#join`'s new layout at full width: Who's around and the cards in the middle, the tiles on the right, an empty chat column on the left with its width and resize, and the fold below 1200 px. `check-nav` is unchanged. Live in headless Chromium at 1920, 1440, 1280 and 1000 px.
-4. **Home's chat** (experience-design; the riskiest step, so the larger model). `#chat` moves between Home's column and `#side-column`. `attachChatInput`'s `getSpace` answers `lobby` while Home shows. Home's chat reads the history and the step-1 stream, and sends through the routes. Unread on the Home link. Home over a space and **Back to <space>** swap the chat both ways without dropping the space's call.
-5. **The Lobby's words and Manage's Home row** (experience-design; small risk; the smaller model will do). Manage > Spaces: the Home row. The texts that name the Lobby are reworded or removed:
+4. **Home's chat** (experience-design; the riskiest step, so the larger model; unblocked by decisions 7 and 8). `#chat` moves between Home's column and `#side-column`. `attachChatInput`'s `getSpace` answers `lobby` while Home shows. Home's chat reads the history and the step-1 stream, and sends through the routes. Unread on the Home link. Home over a space and **Back to <space>** swap the chat both ways without dropping the space's call.
+5. **The Lobby's words and Manage's Home row** (experience-design; small risk; the smaller model will do; built on the working assumption of question 2). Manage > Spaces: the Home row. The texts that name the Lobby are reworded or removed:
    - `public/admin.html`: "Everyone belongs to the Lobby" and "they land in the Lobby";
    - `public/admin.js`: `WORD_ABOUT.space`, `notInLobby()` and the hint "(not in <Lobby>)";
    - `public/space-setup.js`: "Its members stay in the Lobby";
    - `public/template-offer.js`: the Lobby row and "keeps only chat, the call and modules made for it";
-   - `public/host.html`: the template editor's Lobby fields (question 7).
+   - `public/host.html`: the template editor's Lobby fields (kept as stored, no longer shown; question 2).
 
    Every changed sentence is listed in the builder's report for content-manager.
-6. **Phones and narrow widths** (experience-design; layout, so the larger model). The chat strip at 760 px and below, and the three tabs at 640 px and below. Live at 390 px.
-7. **A call on Home** (only if Thomas chooses it, question 3). Not designed here.
+6. **Phones and narrow widths** (experience-design; layout, so the larger model; unblocked by decision 9). The chat strip at 760 px and below, and the three tabs, Chat | Spaces | Tools, at 640 px and below, opening on the spaces. Live at 390 px.
+7. **A call on Home** (only if Thomas chooses it, question 1). Not designed here.
 
-There is no data-migration step, because nothing stored is renamed or moved. If Thomas chooses to retire the record instead (question 1, option B), a migration step comes first, built with the larger model, and the rest of this plan is rewritten around it.
+There is no data-migration step, because nothing stored is renamed or moved (decision 6).
 
 ## Verify
 
@@ -144,53 +148,28 @@ There is no data-migration step, because nothing stored is renamed or moved. If 
 
 ## Assumed, for Thomas to confirm
 
-- **The strip across the top of the sketch is the app's top bar,** not a call strip: a small square and a name at its left end (the logo and the environment's name), small round controls and what looks like a sign-out at its right end. Read the other way, it would be a call strip with mic and camera controls, which is question 3.
+- **The strip across the top of the sketch is the app's top bar,** not a call strip: a small square and a name at its left end (the logo and the environment's name), small round controls and what looks like a sign-out at its right end. Read the other way, it would be a call strip with mic and camera controls, which is question 1.
 - **The small card marked "T"** at the foot of the right column is a tool among the others, not a heading.
 - **"Who's online" is the existing Who's around,** unchanged.
 - **"Persistent chat" means the chat that is always there,** Discussion | Assistant as in a space's column, not a new kind of chat.
-- **Home's chat is the Lobby's chat,** carrying over its history (proposal above). A fresh chat for Home, with the Lobby's left behind, would lose what people said.
+- **Home's chat is the Lobby's chat,** carrying over its history (decision 6). A fresh chat for Home, with the Lobby's left behind, would lose what people said.
 
 ## Questions for Thomas
 
-1. **What happens to the Lobby's record?**
-   - (A) It stays as Home's hidden backing: same id, chat, call and data, never shown as a space. No migration, and nothing linked breaks.
-   - (B) It is retired: chat moved to an environment-level key, the Calendar's Lobby events moved to the environment, the fallbacks rewritten, a data migration as in plan-names. It touches Studio, OBS, the SDK default and the call names.
+Answered on 2026-10-14 and moved to Decisions: the Lobby's record (decision 6), going Home from a space (decision 7), the chat's scope (decision 8), Home on a phone (decision 9) and the Tools (decision 10). The rest were not asked yet. Each shows its working assumption, which is the recommendation.
 
-   Recommended: A. **Blocks** steps 1 and 2.
-2. **Going Home from a space: a view, or a place?**
-   - (A) A view over the space, as today: you stay in the space's call with Away set, and Home's chat is live through the server.
-   - (B) A place: going Home leaves the space and its call, and Home connects to the `lobby` call, which also carries its chat.
-
-   Recommended: A. It keeps today's call behaviour, and Home's chat can be checked locally. **Blocks** steps 1 and 4.
-3. **A call on Home?**
+1. **A call on Home?** Not asked yet. Working assumption: A.
    - (A) None in the first build; the Lobby's call is kept, unreached.
    - (B) A call strip on Home (Join the call, faces), which needs Home connected to the call service.
    - (C) Later, once Home is in use.
 
    Recommended: A, then C. Does not block steps 1 to 6.
-4. **What are the Tools?**
-   - (A) The tiles that exist today (Calendar, To-do, Polls).
-   - (B) Those, plus links to the environment's Calendar and Map destinations, which are now in the profile menu.
-   - (C) A launcher for every module's own page.
-
-   Recommended: A, with B as a small follow-up if you want the destinations back in reach. Does not block.
-5. **Does the chat follow you into a space?**
-   - (A) No: each place has its own, and Home's unread count shows on the Home link.
-   - (B) The space's column gains a Home tab beside Discussion and Assistant.
-   - (C) One chat for the environment everywhere. That would end the spaces' own chats.
-
-   Recommended: A. Does not block steps 1 to 3; **blocks** step 4's unread part.
-6. **Home on a phone?**
-   - (A) Three tabs, Chat | <home word> | Tools, opening on the home word's tab.
-   - (B) One column: Who's around, the spaces, the tools, with the chat behind a button.
-
-   Recommended: A. **Blocks** step 6.
-7. **The Lobby's name and the template's `lobby` field?**
+2. **The Lobby's name and the template's `lobby` field?** Not asked yet. Working assumption: A.
    - (A) Retired from view: kept as stored, still accepted in templates (so imported templates don't fail), no longer shown or offered; Home's chat is headed Discussion | Assistant as in a space.
    - (B) The name becomes the heading of Home's chat ("Home base").
 
-   Recommended: A. **Blocks** step 5.
-8. **A guest link made for the Lobby?**
+   Recommended: A. Step 5 is built on A; B would change its wording work.
+3. **A guest link made for the Lobby?** Not asked yet. Working assumption: A.
    - (A) Keeps working: the guest enters the Lobby as today and its chat is Home's chat, relayed both ways.
    - (B) Turned off, with a sentence that says so.
 
@@ -201,4 +180,4 @@ There is no data-migration step, because nothing stored is renamed or moved. If 
 - Who moderates Home's chat. Proposed: owners and the admin, as with the Lobby today, since the Lobby has no moderators of its own.
 - Whether the Calendar's events placed on the Lobby are still offered as a choice for new events from the Calendar destination, or only kept and shown.
 - Whether the tiles' renaming plan ([TODO](../TODO.md)) and this plan land together, so the right column is named once.
-- The Lobby's call: whether it is ever reached again, if question 3 stays at A.
+- The Lobby's call: whether it is ever reached again, if question 1 stays at A.

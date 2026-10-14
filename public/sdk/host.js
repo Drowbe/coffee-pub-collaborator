@@ -2138,6 +2138,13 @@
     // themselves are host.phases(), the rule public/phases.js). Answered from the hello, so it is there once host.ready()
     // has resolved.
     space: () => (info && info.space) || null,
+    // Facts about the environment this module is in, answered from the hello, so they are there once host.ready() has
+    // resolved. `pictureMap`: while the owner has set a picture map (an invented world drawn from a picture, Maps'
+    // "Picture map" setting), { file, minZoom, maxZoom, tileType } -- `file` is the PMTiles file's name in the module's
+    // `image-map` folder, read with host.files.url(file, { folder: 'image-map' }); else null. Every module is told, so
+    // one that shows real-world things (a place search, a link to a maps app) can leave them out on an invented world.
+    // An object, not a function: `host.environment.pictureMap`. { pictureMap: null } until the hello has answered.
+    get environment() { return { pictureMap: (info && info.environment && info.environment.pictureMap) || null }; },
     // The environment's template's phases, [{ id, label, main? }], or [] when it has none. Live: a template edit
     // is in the next hello. Answered from the hello, so it is there once host.ready() has resolved.
     phases: () => (info && Array.isArray(info.phases) ? info.phases : []),
@@ -2154,8 +2161,10 @@
 
     // Files an admin placed for this module (a `file` setting names one). `url(name)` is the address to read it from,
     // range requests included, for a module running in the page (a frame cannot fetch).
+    // `url(name, { folder })`: pass the setting's folder too when two of the module's folders could hold the same name
+    // (Maps' picture map is in `image-map`, its map data in `map-tiles`).
     files: {
-      url: (name) => call('files.url', { name }),
+      url: (name, o) => call('files.url', { name, ...(o && o.folder ? { folder: o.folder } : {}) }),
     },
 
     // AI, asked of the server (declare the `ai` hook; the admin approves it like the others). The admin chooses the service and

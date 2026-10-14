@@ -189,8 +189,10 @@ async function loadShared() {
   $('shared-address').value = shared.address || '';
   const files = shared.files || [];
   const hasZooms = files.some((f) => f.zoom);
+  const KIND_WORDS = { picture: 'Picture', vector: 'Map data' }; // from the file's own header, blank when it says nothing
+  const hasKinds = files.some((f) => f.kind);
   $('shared-files').innerHTML = files.length
-    ? `<table class="files-table"><thead><tr><th>File</th>${hasZooms ? '<th>Zoom</th>' : ''}<th>Size</th><th></th></tr></thead><tbody>${files.map((f) => `<tr><td>${escapeHtml(f.name)}</td>${hasZooms ? `<td class="hint">${f.zoom ? (f.zoom.minZoom === f.zoom.maxZoom ? f.zoom.maxZoom : `${f.zoom.minZoom}–${f.zoom.maxZoom}`) : ''}</td>` : ''}<td class="hint">${size(f.size)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(f.name)}" title="Delete ${escapeHtml(f.name)}" aria-label="Delete ${escapeHtml(f.name)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('')}</tbody></table>`
+    ? `<table class="files-table"><thead><tr><th>File</th>${hasKinds ? '<th>Type</th>' : ''}${hasZooms ? '<th>Zoom</th>' : ''}<th>Size</th><th></th></tr></thead><tbody>${files.map((f) => `<tr><td>${escapeHtml(f.name)}</td>${hasKinds ? `<td class="hint">${KIND_WORDS[f.kind] || ''}</td>` : ''}${hasZooms ? `<td class="hint">${f.zoom ? (f.zoom.minZoom === f.zoom.maxZoom ? f.zoom.maxZoom : `${f.zoom.minZoom}–${f.zoom.maxZoom}`) : ''}</td>` : ''}<td class="hint">${size(f.size)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(f.name)}" title="Delete ${escapeHtml(f.name)}" aria-label="Delete ${escapeHtml(f.name)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('')}</tbody></table>`
     : '<p class="hint">No map files yet. Every environment shows an empty map until one is here.</p>';
   if (!regionWired) {
     regionWired = true;

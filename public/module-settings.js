@@ -3,7 +3,7 @@
 // space's), the page a space's moderators use (module-settings.html) and the profile page (a person's own); and,
 // without the cards' Saves (`draft: true`), in the Set up panel's modules tab, whose own Save sends them. The
 // server decides who may change what; this only draws what it is given.
-import { api, escapeHtml, word } from '/brand.js';
+import { api, escapeHtml, word, accessKeyHeaders } from '/brand.js';
 
 // A list of things with a label, an icon and a colour each (Planner's marker types): rows to change, reorder, remove and add. The rows the
 // module says are fixed (def.fixed: ids) are always there; their label, icon and colour can change but they cannot be removed.
@@ -51,7 +51,7 @@ function wireList(el, def) {
   });
 }
 
-function control(def) {
+function control(def, draft = false) {
   if (def.type === 'list') return listControl(def);
   const id = `ms-${def.key}`;
   if (def.type === 'boolean') return `<label class="check"><input type="checkbox" data-key="${escapeHtml(def.key)}" ${def.value ? 'checked' : ''}> ${escapeHtml(def.label)}</label>`;
@@ -60,7 +60,7 @@ function control(def) {
   const head = `<label>${escapeHtml(def.label)}`;
   if (def.type === 'choice') return `${head}<select data-key="${escapeHtml(def.key)}">${def.options.map((o) => `<option value="${escapeHtml(o.value)}" ${o.value === def.value ? 'selected' : ''}>${escapeHtml(o.label)}</option>`).join('')}</select></label>${def.options.some((o) => o.help) ? '<div class="option-help" data-option-help></div>' : ''}`;
   // A setting the host keeps for every environment (a shared folder, or the address regions are cut from): shown, never set here.
-  if (def.shared) {
+  if (def.shared === true) { // true only when the host really keeps it: the listing also carries the manifest's own "host" flag on a single install
     const files = def.type === 'files' ? (def.available || []) : [];
     const list = files.length ? `<ul class="shared-files">${files.map((n) => `<li>${escapeHtml(n)}</li>`).join('')}</ul>` : def.type === 'files' ? '<p class="hint">The host has no files here yet.</p>' : '';
     return `<div data-shared><div class="hint">${escapeHtml(def.label)} <span class="pill">Provided by the host</span></div>${list}${def.type !== 'files' && def.value ? `<p class="hint">${escapeHtml(String(def.value))}</p>` : ''}</div>`;
@@ -71,14 +71,53 @@ function control(def) {
     // How detailed a map file is (street-level or not), read from its own PMTiles header -- blank for anything else.
     const zoom = (n) => { const z = (def.zooms || {})[n]; return z ? (z.minZoom === z.maxZoom ? `${z.maxZoom}` : `${z.minZoom}–${z.maxZoom}`) : ''; };
     const hasZooms = Object.keys(def.zooms || {}).length > 0;
-    const rows = (def.available || []).map((n) => `<tr><td><input type="checkbox" value="${escapeHtml(n)}" ${chosen.has(n) ? 'checked' : ''} aria-label="Use ${escapeHtml(n)}"></td><td>${escapeHtml(n)}</td>${hasZooms ? `<td class="hint">${zoom(n)}</td>` : ''}<td class="hint">${size(n)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(n)}" title="Delete ${escapeHtml(n)}" aria-label="Delete ${escapeHtml(n)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('');
-    return `<div data-key="${escapeHtml(def.key)}" data-files><div class="hint">${escapeHtml(def.label)}</div>${rows ? `<table class="files-table"><thead><tr><th>Use</th><th>File</th>${hasZooms ? '<th>Zoom</th>' : ''}<th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : ''}${(def.available || []).length && !(def.skipped || []).length ? '' : `<p class="hint">${escapeHtml(fileHint(def))}</p>`}</div>`;
+    // What a PMTiles file holds, read from its own header: "Picture" (picture tiles) or "Map data"; blank when it says nothing.
+    const kind = (n) => KIND_WORDS[(def.kinds || {})[n]] || '';
+    const hasKinds = Object.keys(def.kinds || {}).length > 0;
+    const rows = (def.available || []).map((n) => `<tr><td><input type="checkbox" value="${escapeHtml(n)}" ${chosen.has(n) ? 'checked' : ''} aria-label="Use ${escapeHtml(n)}"></td><td>${escapeHtml(n)}</td>${hasKinds ? `<td class="hint">${kind(n)}</td>` : ''}${hasZooms ? `<td class="hint">${zoom(n)}</td>` : ''}<td class="hint">${size(n)}</td><td><button type="button" class="btn btn-small btn-danger" data-delete-file="${escapeHtml(n)}" title="Delete ${escapeHtml(n)}" aria-label="Delete ${escapeHtml(n)}"><i class="fa-solid fa-trash" aria-hidden="true"></i></button></td></tr>`).join('');
+    return `<div data-key="${escapeHtml(def.key)}" data-files data-folder="${escapeHtml(folderName(def))}"><div class="hint">${escapeHtml(def.label)}</div>${rows ? `<table class="files-table"><thead><tr><th>Use</th><th>File</th>${hasKinds ? '<th>Type</th>' : ''}${hasZooms ? '<th>Zoom</th>' : ''}<th>Size</th><th></th></tr></thead><tbody>${rows}</tbody></table>` : ''}${(def.available || []).length && !(def.skipped || []).length ? '' : `<p class="hint">${escapeHtml(fileHint(def))}</p>`}</div>`;
   }
-  if (def.type === 'file') return `${head}<select data-key="${escapeHtml(def.key)}"><option value="">None</option>${(def.available || []).map((n) => `<option value="${escapeHtml(n)}" ${n === def.value ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}</select></label>${(def.available || []).length && !(def.skipped || []).length ? '' : `<p class="hint">${escapeHtml(fileHint(def))}</p>`}`;
+  if (def.type === 'file') return `${head}<select data-key="${escapeHtml(def.key)}"><option value="">None</option>${(def.available || []).map((n) => `<option value="${escapeHtml(n)}" ${n === def.value ? 'selected' : ''}>${escapeHtml(n)}</option>`).join('')}</select></label>${(def.available || []).length && !(def.skipped || []).length ? '' : `<p class="hint">${escapeHtml(fileHint(def))}</p>`}${def.upload && !draft ? uploadRow(def) : ''}`;
   if (def.type === 'url') return `${head}<input id="${id}" type="url" data-key="${escapeHtml(def.key)}" value="${escapeHtml(def.value)}" maxlength="500" placeholder="https://"></label>`;
   if (def.type === 'number') return `${head}<input id="${id}" type="number" data-key="${escapeHtml(def.key)}" value="${escapeHtml(def.value)}" ${def.min !== undefined ? `min="${def.min}"` : ''} ${def.max !== undefined ? `max="${def.max}"` : ''} step="any"></label>`;
   if (def.type === 'color') return `${head}<input id="${id}" type="color" data-key="${escapeHtml(def.key)}" value="${escapeHtml(/^#[0-9a-f]{6}$/i.test(def.value) ? def.value : '#000000')}"></label>`;
   return `${head}<input id="${id}" type="text" data-key="${escapeHtml(def.key)}" value="${escapeHtml(def.value)}" maxlength="${def.maxLength || 100}"></label>`;
+}
+
+// A `file` setting that takes an upload (module.json `upload`): choose a file to put it here, or Clear to take it away. Both
+// act at once and do not wait for Save; the line under the buttons says how it went.
+const KIND_WORDS = { picture: 'Picture', vector: 'Map data' };
+// The settings listing's `folder` is the folder's path on the server (the scan's answer replaces the manifest's name); the
+// routes want the folder's own name, its last part.
+const folderName = (def) => String(def.folder || '').split(/[\\/]/).filter(Boolean).pop() || '';
+function uploadRow(def) {
+  const key = escapeHtml(def.key);
+  return `<div class="upload-row" data-upload="${key}" data-folder="${escapeHtml(folderName(def))}">
+    <label class="upload-pick">Upload a .pmtiles file <input type="file" accept=".pmtiles" data-upload-input aria-describedby="up-${key}-hint"></label>
+    <button type="button" class="btn btn-small btn-danger" data-clear-file="${key}" ${def.value ? '' : 'disabled'}>Clear</button> <span class="status" data-upload-status role="status" aria-live="polite"></span>
+    <p class="hint" id="up-${key}-hint">Choosing a file uploads it now, and Clear removes it now. Neither waits for Save.</p>
+  </div>`;
+}
+// Send a file to PUT /api/modules/<id>/files/<folder>?name=<name>. XHR, because fetch cannot report progress. `onLine(text,
+// error)` gets the progress line and the end. Resolves with the server's answer; rejects with an Error holding its sentence.
+function sendFile(moduleId, folder, file, onLine) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('PUT', `/api/modules/${encodeURIComponent(moduleId)}/files/${encodeURIComponent(folder)}?name=${encodeURIComponent(file.name)}`);
+    for (const [k, v] of Object.entries(accessKeyHeaders())) xhr.setRequestHeader(k, v);
+    xhr.setRequestHeader('Content-Type', 'application/octet-stream');
+    xhr.upload.onprogress = (e) => { if (e.lengthComputable && e.total) onLine(`Uploading... ${Math.min(100, Math.floor((e.loaded / e.total) * 100))}%`); };
+    xhr.upload.onload = () => onLine('Checking the file...');
+    xhr.onerror = () => reject(new Error('The upload was cut off. Check the connection and try again.'));
+    xhr.onabort = xhr.onerror;
+    xhr.onload = () => {
+      let data = {};
+      try { data = JSON.parse(xhr.responseText); } catch { data = {}; }
+      if (xhr.status >= 200 && xhr.status < 300) return resolve(data);
+      reject(new Error(typeof data.error === 'string' && data.error ? data.error : `The server answered ${xhr.status}.`));
+    };
+    xhr.send(file);
+  });
 }
 
 // Why the list of files is empty, from what the server found in the folder.
@@ -130,7 +169,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
   container.innerHTML = modules.map((m) => `
     <div class="module-settings-card${draft ? ' module-settings-draft' : ''}" data-module="${escapeHtml(m.id)}"${draft ? ` role="group" aria-labelledby="module-settings-name-${escapeHtml(m.id)}"` : ''}>
       ${heading ? headingHtml(m) : ''}
-      <div class="module-settings-fields">${m.settings.map((d) => `<div class="module-setting"${d.showWhen ? ` data-when-key="${escapeHtml(d.showWhen.key)}" ${d.showWhen.not !== undefined ? `data-when-not="${escapeHtml(d.showWhen.not)}"` : `data-when-value="${escapeHtml(d.showWhen.value)}"`}` : ''}>${control(d)}${d.help ? `<p class="hint">${escapeHtml(d.help)}</p>` : ''}</div>`).join('')}</div>
+      <div class="module-settings-fields">${m.settings.map((d) => `<div class="module-setting"${d.showWhen ? ` data-when-key="${escapeHtml(d.showWhen.key)}" ${d.showWhen.not !== undefined ? `data-when-not="${escapeHtml(d.showWhen.not)}"` : `data-when-value="${escapeHtml(d.showWhen.value)}"`}` : ''}>${control(d, draft)}${d.help ? `<p class="hint">${escapeHtml(d.help)}</p>` : ''}</div>`).join('')}</div>
       ${draft ? '' : '<div class="row"><button class="btn btn-primary btn-small" data-save type="button">Save</button><span class="status" data-status></span></div>'}
     </div>`).join('');
   // What the chosen option says (its own help, more than a line can hold), and the settings that only apply to a choice.
@@ -141,7 +180,7 @@ export async function renderModuleSettings(container, { scope, space = null, onl
     for (const sel of card.querySelectorAll('select[data-key]')) {
       const def = module.settings.find((d) => d.key === sel.dataset.key);
       const box = sel.closest('.module-setting').querySelector('[data-option-help]');
-      const option = def && def.options.find((o) => o.value === sel.value);
+      const option = def && def.options && def.options.find((o) => o.value === sel.value);
       if (box) box.innerHTML = option && option.help ? option.help.split(/\n+/).map((p) => `<p class="hint">${linkify(p)}</p>`).join('') : '';
     }
     for (const row of card.querySelectorAll('[data-when-key]')) row.hidden = row.dataset.whenNot !== undefined ? value(row.dataset.whenKey) === row.dataset.whenNot : value(row.dataset.whenKey) !== row.dataset.whenValue;
@@ -163,10 +202,11 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       const card = delBtn.closest('.module-settings-card');
       const module = modules.find((m) => m.id === card.dataset.module);
       const name = delBtn.dataset.deleteFile;
+      const folder = delBtn.closest('[data-files]')?.dataset.folder || '';
       if (!window.confirm(`Delete ${name}? This can't be undone.`)) return;
       delBtn.disabled = true;
       try {
-        await api('DELETE', `/api/modules/${encodeURIComponent(module.id)}/files/${encodeURIComponent(name)}`);
+        await api('DELETE', `/api/modules/${encodeURIComponent(module.id)}/files/${encodeURIComponent(name)}${folder ? `?folder=${encodeURIComponent(folder)}` : ''}`);
         if (!draft) {
           await renderModuleSettings(container, { scope, space, only, heading });
           return;
@@ -187,6 +227,26 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       }
       return;
     }
+    const clearBtn = event.target.closest('[data-clear-file]');
+    if (clearBtn) {
+      const row = clearBtn.closest('[data-upload]');
+      const module = modules.find((m) => m.id === clearBtn.closest('.module-settings-card').dataset.module);
+      const def = module.settings.find((d) => d.key === row.dataset.upload);
+      const name = def && def.value;
+      if (!name || !window.confirm(`Clear ${name}? The file is deleted now. This can't be undone.`)) return;
+      clearBtn.disabled = true;
+      const line = row.querySelector('[data-upload-status]');
+      try {
+        await api('DELETE', `/api/modules/${encodeURIComponent(module.id)}/files/${encodeURIComponent(name)}?folder=${encodeURIComponent(row.dataset.folder)}`);
+        await renderModuleSettings(container, { scope, space, only, heading });
+        sayUpload(container, row.dataset.upload, `${name} cleared.`);
+      } catch (err) {
+        clearBtn.disabled = false;
+        line.textContent = err.message;
+        line.classList.add('error');
+      }
+      return;
+    }
     if (draft) { if (event.target.closest('[data-list], [data-icon-choice]')) told(); return; }
     const button = event.target.closest('[data-save]');
     if (!button) return;
@@ -204,6 +264,34 @@ export async function renderModuleSettings(container, { scope, space = null, onl
       status.classList.add('error');
     }
   };
+  // A file chosen in an upload row goes up at once (see uploadRow).
+  if (container._uploadChange) container.removeEventListener('change', container._uploadChange); // drawn again: one listener only
+  container._uploadChange = async (event) => {
+    const input = event.target.closest('[data-upload-input]');
+    if (!input || !input.files || !input.files[0]) return;
+    const file = input.files[0];
+    const row = input.closest('[data-upload]');
+    const module = modules.find((m) => m.id === row.closest('.module-settings-card').dataset.module);
+    const line = row.querySelector('[data-upload-status]');
+    const clear = row.querySelector('[data-clear-file]');
+    const was = clear.disabled;
+    line.classList.remove('error');
+    line.textContent = 'Uploading... 0%';
+    input.disabled = true;
+    clear.disabled = true;
+    try {
+      await sendFile(module.id, row.dataset.folder, file, (text) => { line.textContent = text; });
+      await renderModuleSettings(container, { scope, space, only, heading });
+      sayUpload(container, row.dataset.upload, `${file.name} uploaded.`);
+    } catch (err) {
+      input.disabled = false;
+      input.value = '';
+      clear.disabled = was;
+      line.textContent = err.message;
+      line.classList.add('error');
+    }
+  };
+  container.addEventListener('change', container._uploadChange);
   if (draft) {
     container.oninput = () => told();
     container.onchange = () => told();
@@ -214,4 +302,10 @@ export async function renderModuleSettings(container, { scope, space = null, onl
     changes: () => modules.filter((m) => cardOf(m.id) && JSON.stringify(readCard(cardOf(m.id), m)) !== baseline.get(m.id)).map((m) => ({ id: m.id, name: m.name, values: readCard(cardOf(m.id), m) })),
     saved: (id) => remember(id),
   };
+}
+
+// The line under an upload row after the card was drawn again (the new file is in the list and chosen).
+function sayUpload(container, key, text) {
+  const line = container.querySelector(`[data-upload="${key}"] [data-upload-status]`);
+  if (line) line.textContent = text;
 }

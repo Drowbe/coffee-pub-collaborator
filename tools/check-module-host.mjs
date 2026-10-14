@@ -633,5 +633,38 @@ test('the phases event: the page tells every mounted module and pop-out, the SDK
   assert.ok(at < sdk.indexOf("host.on('moved'"), 'registered with the SDK\'s own, before any module can listen');
 });
 
+test('host.facts (plan-space-story-strip.md step 5): set and clear in the SDK, a route for this space and module only, the shape cut, the strip told', () => {
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  assert.match(sdk, /facts: \{\n\s*set: \(list\) => call\('facts\.set', \{ facts: Array\.isArray\(list\) \? list : \[\] \}\),\n\s*clear: \(\) => call\('facts\.clear'\),\n\s*\},/, 'host.facts.set and clear call the host');
+  assert.match(sdk, /Detect it with `if \(host\.facts\)`/, 'the SDK says how to detect it');
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  assert.match(src, /const factsPlace = \(\) => \(scope === 'space' && spaceId && !guestToken && !keyed \? `\/api\/spaces\/\$\{encodeURIComponent\(spaceId\)\}\/facts\/\$\{encodeURIComponent\(module\.id\)\}` : null\);/, 'the route is this space\'s and this module\'s; none outside a space, for a guest or a keyed page');
+  assert.match(src, /async 'facts\.set'\(\{ facts \} = \{\}\) \{\n\s*const place = factsPlace\(\);\n\s*if \(!place\) return false;/, 'set resolves false where there is no space');
+  assert.match(src, /async 'facts\.clear'\(\) \{\n\s*const place = factsPlace\(\);\n\s*return place \? sendFacts\('DELETE', place\) : false;/, 'clear resolves false where there is no space');
+  assert.match(src, /\.slice\(0, 6\)\.map\(\(f\) => \{/, 'at most six facts are sent');
+  assert.match(src, /text: String\(f\?\.text \?\? ''\)\.slice\(0, 40\)/, 'the words cut to 40');
+  assert.match(src, /fact\.progress = Math\.min\(1, Math\.max\(0, progress\)\)/, 'progress kept to 0..1');
+  assert.match(src, /return list\.length \? sendFacts\('PUT', place, \{ facts: list \}\) : sendFacts\('DELETE', place\);/, 'an empty list clears');
+  assert.match(src, /if \(err\.status === 401 \|\| err\.status === 403 \|\| err\.status === 404\) return false; \/\/ not in this space, or the role cannot write here\n\s*throw err;\n\s*\}\n\s*factsSent = /, 'a role that may not write is answered false, other errors reject');
+  assert.match(src, /if \(sig === factsSent\.sig && Date\.now\(\) - factsSent\.at < 3600000\) return true;/, 'the same list within the hour is not sent again');
+  assert.match(src, /new CustomEvent\('app:facts', \{ detail: \{ space: spaceId \} \}\)/, 'the page is told so the strip reads again');
+  assert.ok(!/facts[^\n]*guest=/.test(src), 'no guest token on the facts route');
+});
+
+test('the budget target (#216): the hello carries host.space().budget, the page says a change, the SDK keeps it current', () => {
+  const server = fs.readFileSync(new URL('../server/index.js', import.meta.url), 'utf8');
+  assert.match(server, /space: here \? \{ id: here\.id, name: here\.name, createdAt: here\.createdAt, phases: here\.phases, budget: here\.budget \|\| null \} : null,/, 'the context gives the budget, null while none');
+  const page = fs.readFileSync(new URL('../public/space.js', import.meta.url), 'utf8');
+  assert.match(page, /const detail = \{ space: space\.id, phases: space\.phases \|\| \{\}, created: space\.createdAt \|\| null, budget: space\.budget \|\| null \};/, 'the page says the budget with the phases');
+  const src = fs.readFileSync(new URL('../public/module-host.js', import.meta.url), 'utf8');
+  assert.match(src, /if \(JSON\.stringify\(b\) === JSON\.stringify\(contextInfo\.space\.budget \|\| null\)\) return;\n\s*contextInfo\.space = \{ \.\.\.contextInfo\.space, budget: b \};\n\s*send\('space', \{ budget: b \}\);/, 'a mount says \'space\' only when the budget changed');
+  assert.match(src, /if \('budget' in d\) tellSpace\(d\.budget\);/, 'heard from the page and the channel');
+  assert.match(src, /tellSpace\(a\.space\.budget\);/, 'and a module page alone reads it again');
+  const sdk = fs.readFileSync(new URL('../public/sdk/host.js', import.meta.url), 'utf8');
+  const at = sdk.indexOf("host.on('space', (e) => {");
+  assert.ok(at > 0 && at < sdk.indexOf("host.on('moved'"), 'the SDK keeps its own listener on space, before any module\'s');
+  assert.match(sdk.slice(at, sdk.indexOf('\n  });', at)), /info\.space\.budget = e\.budget \|\| null/, 'host.space().budget follows');
+});
+
 if (failed) process.exit(1);
 console.log(`check-module-host: OK (${n} groups)`);

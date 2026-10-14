@@ -1975,8 +1975,18 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(space, /statusStrip\.append\(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention\);/, 'the sentence, the bar, the days to go, the slot kept for the facts, then the count last');
   assert.match(space, /statusTrack\.setAttribute\('aria-hidden', 'true'\);/);
   assert.match(space, /statusToGo\.setAttribute\('aria-hidden', 'true'\);/);
-  assert.match(space, /statusFacts\.setAttribute\('aria-hidden', 'true'\);/);
-  assert.ok(!/statusFacts\.(append|replaceChildren|textContent|innerHTML)/.test(space), 'the facts\' slot is kept empty: no facts yet (plan-space-story-strip.md, step 5)');
+  // The facts (host.facts, plan-space-story-strip.md step 5): a group of chips, not a live region (a fact that changes
+  // is not read out), drawn again only when the facts change, at most three, each a button in the nav text opening the
+  // shared menu; they give way one by one from the end while the line is crowded.
+  assert.match(space, /statusFacts\.setAttribute\('role', 'group'\);/, 'the facts are a group of buttons');
+  assert.ok(!/statusFacts\.setAttribute\('(aria-live|role)', '(polite|status|assertive)'\)/.test(space), 'not a live region');
+  assert.match(space, /const MAX_FACT_CHIPS = 3;/, 'up to three chips');
+  assert.match(space, /const shown = phaseChipWanted\(\) \? factsInOrder\(\)\.slice\(0, MAX_FACT_CHIPS\) : \[\];/, 'only where the strip shows, three at most');
+  assert.match(space, /if \(key !== factsDrawn\) \{\n\s*factsDrawn = key;\n\s*statusFacts\.replaceChildren\(\.\.\.shown\.map\(factChip\)\);/, 'drawn again only when the facts change');
+  assert.match(space, /b\.className = 'status-fact nav-text';/, 'a chip\'s words are the nav text');
+  assert.match(space, /b\.addEventListener\('click', \(\) => openHostMenu\(b, \(\) => factMenuItems\(f\.module\)\)\);/, 'a chip opens the shared menu');
+  assert.match(space, /for \(let i = chips\.length - 1; i >= 0 && crowded\(\); i -= 1\) chips\[i\]\.classList\.add\('dropped'\);/, 'the last chip gives way first, one by one');
+  assert.match(space, /facts: phoneWidth\(\) \? factsInOrder\(\)/, 'on a phone the facts head the phase sheet');
   // The words are the story sentence (Phases.storyParts), written only when it changes, each clause after the first its
   // own span so the end gives way whole and the label's text stays the whole sentence.
   const chipUpdate = space.slice(space.indexOf('function updatePhaseChip('), space.indexOf('async function savePhases('));
@@ -2018,7 +2028,11 @@ test('the status strip: the chip and its track, a tool of the space bar\'s left 
   assert.match(css, /\.topbar > \.status-strip \{[^}]*height: var\(--status-strip-slim-h\);/, 'on a phone the slim line');
   // The order things give way: the facts' slot last in the line (wraps first), the names below 760px, the bar at 48px,
   // the sentence's later clauses whole, the first cut with an ellipsis.
-  assert.match(css, /\.status-facts \{\n\s*flex: 0 0 0;[^}]*\}\n\n@media \(min-width: 1100px\) \{\n\s*\.status-facts \{\n\s*flex-basis: 200px;/, 'the slot kept for the facts and the count: it takes space only where the bar still shows its names');
+  assert.match(css, /\.status-facts \{\n\s*display: flex;\n\s*flex: none;/, 'the facts wrap out of sight whole rather than squeeze');
+  assert.match(css, /\.status-strip \.status-fact \{[^}]*border: 1px solid var\(--border\);[^}]*background: color-mix\(in srgb, var\(--header-text\) 8%, transparent\);/, 'a chip is filled, in the neutral border (no coloured border)');
+  assert.match(css, /\.status-fact-fill \{[^}]*width: var\(--fact-progress, 0%\);[^}]*background: color-mix\(in srgb, var\(--accent\) 32%, transparent\);/, 'progress is a fill of the accent');
+  assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-facts \{\n\s*display: none;/, 'the facts are gone at 760px, with the names in the bands');
+  assert.ok(css.indexOf('.status-strip .status-facts {\n    display: none;') < css.indexOf('@media (max-width: 760px) {\n  .status-strip .status-band-box'), 'the facts give way before the names');
   assert.ok(css.indexOf('.status-facts {') > css.indexOf('.status-togo {'), 'the slot after the days to go');
   assert.match(track, /statusTrack\.classList\.toggle\('lead', outside === 'lead'\);\n\s*statusTrack\.classList\.toggle\('trail', outside === 'trail'\);/, 'today before the first phase or after the last: the pin at that end');
   assert.match(css, /@media \(max-width: 760px\) \{\n\s*\.status-strip \.status-band-box \{\n\s*display: none;/, 'the names in the bands go before the bar');
@@ -2278,6 +2292,29 @@ test('Set up: one PATCH of what changed; the first visit\'s layout and Opens wit
   assert.deepEqual(setupPatch(withLayout, { ...withLayout }), {}, 'the same layout again is no change');
   assert.deepEqual(setupPatch(before, { name: 'Porto' }), { name: 'Porto' }, 'fields left out of the draft are unchanged');
   assert.deepEqual(setupPatch({ name: 'A' }, { name: 'A', profile: 'participants', opensWith: null, defaultLayout: null }), {}, 'a space with nothing set, a draft saying so');
+});
+
+test('Set up: the budget (#216) goes in the one PATCH only when it changed, as null or { amount, currency? }; on the space tab; a refusal names it', () => {
+  const none = { name: 'Lisbon', budget: { amount: '', currency: '' } };
+  assert.deepEqual(setupPatch(none, { ...none }), {}, 'none before, none now');
+  assert.deepEqual(setupPatch(none, { ...none, budget: { amount: '4000', currency: '' } }), { budget: { amount: 4000 } }, 'an amount: no currency is the module\'s own');
+  assert.deepEqual(setupPatch(none, { ...none, budget: { amount: '4000', currency: 'EUR' } }), { budget: { amount: 4000, currency: 'EUR' } });
+  const set = { name: 'Lisbon', budget: { amount: '4000', currency: '' } };
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '4000.00', currency: '' } }), {}, 'the same amount written another way is no change');
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: '', currency: 'EUR' } }), { budget: null }, 'emptied: cleared');
+  assert.deepEqual(setupPatch(set, { ...set, budget: { amount: 'lots', currency: '' } }), { budget: { amount: null } }, 'not a number: sent so the server says why');
+  assert.deepEqual(setupPatch({ name: 'Lisbon' }, { name: 'Lisbon' }), {}, 'a draft without the field is no change');
+  assert.deepEqual([...dirtyTabs({ budget: null })], ['space'], 'the space tab\'s');
+  assert.equal(problemField({ name: 'P', budget: { amount: 0 } }, 'The budget must be an amount above zero.'), 'budget');
+  assert.equal(problemField({ link: 'x', budget: { amount: 5, currency: 'QQQ' } }, 'QQQ is not a currency this server knows. Choose one from the list, such as USD.'), 'budget');
+  assert.ok(!MODERATOR_FIELDS.includes('budget'), 'not a moderator\'s field');
+  assert.equal(setupSaidWords({ saved: ['budget'] }), 'Saved the budget. Everyone sees it now; press Set up to change more.');
+  const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
+  assert.match(setup, /if \(!space\.isLobby && \(state\.opts\.budget \|\| budgetText\(space\.budget\)\.amount\)\) \{/, 'shown while a module reads it, or one is set');
+  assert.match(setup, /<input type="number" id="setup-budget-amount"/, 'a number field');
+  assert.match(setup, /<select id="setup-budget-currency"><\/select>/, 'and the currency');
+  const page = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  assert.match(page, /budget: budgetReported\(\) \? \{ name: /, 'the page offers it while a module here reports a fact marked budget');
 });
 
 test('Set up: the new fields go in the one PATCH only when changed; the dots name the tabs; a refusal names its field', () => {

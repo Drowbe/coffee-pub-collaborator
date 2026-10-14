@@ -61,6 +61,29 @@ function cleanOpensWith(list) {
   const out = [...new Set(list.filter((id) => typeof id === 'string' && OPENS_WITH_ID.test(id)))].slice(0, MAX_OPENS_WITH);
   return out.length ? out : null;
 }
+// A space's budget target (plan-space-story-strip.md, decision 5; #216): { amount, currency? }, a positive amount of
+// at most 12 digits before the point, rounded to cents, and an optional three-letter currency code (absent: the
+// currency the module reporting the money uses, e.g. the Planner's trip currency). budgetOf() keeps a stored one
+// or answers null; budgetProblem() is the sentence refusing a sent one, or null when it is good.
+const BUDGET_MAX = 1e12;
+function budgetOf(v) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const amount = Math.round(Number(v.amount) * 100) / 100;
+  if (typeof v.amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || amount >= BUDGET_MAX) return null;
+  const code = typeof v.currency === 'string' ? v.currency.trim().toUpperCase() : '';
+  return /^[A-Z]{3}$/.test(code) ? { amount, currency: code } : { amount };
+}
+function budgetProblem(v, settingsCurrency) {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return 'The budget needs an amount, or nothing to clear it.';
+  if (typeof v.amount !== 'number' || !Number.isFinite(v.amount) || Math.round(v.amount * 100) <= 0) return 'The budget must be an amount above zero.';
+  if (Math.round(v.amount * 100) / 100 >= BUDGET_MAX) return 'The budget can be at most 12 digits.';
+  if (v.currency !== undefined && v.currency !== null && v.currency !== '') {
+    const code = typeof v.currency === 'string' ? v.currency.trim().toUpperCase() : '';
+    if (!/^[A-Z]{3}$/.test(code)) return 'The budget\'s currency is a three-letter code, such as USD.';
+    if (!CURRENCIES.has(code) && code !== String(settingsCurrency || '').toUpperCase()) return `${code} is not a currency this server knows. Choose one from the list, such as USD.`;
+  }
+  return null;
+}
 // A saved layout's id as a space's defaultLayout keeps it (server/layouts.js makes `l` and six letters or digits; a
 // looser rule here so an id from a later version is not dropped). null when it is not one.
 const LAYOUT_ID = /^[a-z][a-z0-9]{1,31}$/;
@@ -743,6 +766,8 @@ class Store {
       // The template's phases' dates on this space, { <id>: { start?, end? } } (plan-one-bar.md, step 1; the rule is
       // public/phases.js); absent while none is set. Kept as stored: the rule's refusals are updateSpace's.
       ...(Object.keys(phaseRule.cleanDates(r.phases)).length ? { phases: phaseRule.cleanDates(r.phases) } : {}),
+      // The budget target (#216; budgetOf): { amount, currency? }, absent while none is set.
+      ...(budgetOf(r.budget) ? { budget: budgetOf(r.budget) } : {}),
     };
   }
 
@@ -1817,7 +1842,19 @@ class Store {
         else delete draft.phases;
       }
     }
+    // The budget target (#216): { amount, currency? }, or null to clear it. Who may send it is the route's to decide
+    // (owners and the admin; not a moderator).
+    if (patch.budget !== undefined) {
+      if (patch.budget === null) {
+        delete draft.budget;
+      } else {
+        const problem = budgetProblem(patch.budget, this.data.settings.currency);
+        if (problem) throw new StoreError(problem);
+        draft.budget = budgetOf(patch.budget);
+      }
+    }
     Object.assign(space, draft);
+    if (!('budget' in draft)) delete space.budget;
     if (!('opensWith' in draft)) delete space.opensWith;
     if (!('defaultLayout' in draft)) delete space.defaultLayout;
     if (!('publishCalendar' in draft)) delete space.publishCalendar;

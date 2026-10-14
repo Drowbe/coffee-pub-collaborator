@@ -2142,7 +2142,9 @@
     // The space this module is open in: { id, name, createdAt, phases }, or null on an environment page or a keyed page.
     // `phases` is the dates set on the space's timeline, { <id>: { start?, end? } } ({} while none; the template's phases
     // themselves are host.phases(), the rule public/phases.js). Answered from the hello, so it is there once host.ready()
-    // has resolved.
+    // has resolved. `budget` is the space's budget target, { amount, currency? } (set by an owner in Set up; `currency`
+    // absent means the module's own currency), or null while none is set; kept current, and host.on('space', fn) hears
+    // ({ budget }) when it changes.
     space: () => (info && info.space) || null,
     // Facts about the environment this module is in, answered from the hello, so they are there once host.ready() has
     // resolved. `pictureMap`: while the owner has set a picture map (an invented world drawn from a picture, Maps'
@@ -2897,6 +2899,22 @@
       clear: () => call('attention.clear'),
     },
 
+    // How this space stands, shown by the host as chips in the space's status strip ("$2,340 of $4,000", "Next: Thu ·
+    // SJC → ONT"; plan-space-story-strip.md, step 5). Facts are the space's, not a person's: the host keeps your module's
+    // last list for the space for a week, whoever sent it, and shows it to everyone who may read your module there.
+    // set([...]): at most 6 of { id, icon, text, value?, progress?, order?, budget? }: `id` a short code name unique in
+    // your module (`spent`), `icon` a Font Awesome Free solid icon's name, `text` up to 40 characters (the chip's
+    // words), `value` up to 24 (a short extra, shown when the chip is pressed), `progress` 0 to 1 (drawn as a fill in
+    // the chip), `order` 0 to 99 (lower first), `budget: true` when the fact reads the space's budget target
+    // (host.space().budget), which lets Set up offer that target. The strip shows up to three. Call it when you run and
+    // after each change; the same list again changes nothing. set([]) or clear() drops them. Both resolve true when
+    // kept, false where there is no space (a module's page outside a space, a dashboard widget, a guest) or this role
+    // may not write in the module; a bad shape rejects with a sentence. Detect it with `if (host.facts)`.
+    facts: {
+      set: (list) => call('facts.set', { facts: Array.isArray(list) ? list : [] }),
+      clear: () => call('facts.clear'),
+    },
+
     // Icon buttons in the module's titlebar, ahead of the host's own buttons and set off by a pipe:
     // set([{ id, icon, title, on, regular, disabled, overflow }]), where `icon` is a Font Awesome name (solid, or
     // regular with `regular: true`) and `on` marks the current choice. A click arrives as the 'header'
@@ -2998,6 +3016,8 @@
     // 'phases' ({ phases, timeline }) when the dates on the space's timeline changed (a save in the sheet or Set up, or
     // someone else's): `phases` is { <id>: { start?, end? } }, `timeline` the bands host.util.phaseTimeline() returns, and
     // host.space().phases and host.util.phaseTimeline() already answer the new ones. Only in a space.
+    // 'space' ({ budget }) when the space's budget target changed (an owner's Set up): host.space().budget already answers
+    // the new one. Only in a space.
     on(event, fn) {
       if (!listeners.has(event)) listeners.set(event, new Set());
       listeners.get(event).add(fn);
@@ -3027,6 +3047,10 @@
       if (e.created) info.space.createdAt = e.created;
     }
     try { e.timeline = host.util.phaseTimeline(); } catch (err) { e.timeline = []; }
+  });
+  // The space's budget target changed: keep host.space().budget current. Registered first, so it runs before the module's.
+  host.on('space', (e) => {
+    if (info && info.space && e && 'budget' in e) info.space.budget = e.budget || null;
   });
   host.on('moved', () => { for (const e of openEditors.values()) e.reopen(); });
   // The host put a lifted frame back itself: the topmost open editor closes as Escape does.

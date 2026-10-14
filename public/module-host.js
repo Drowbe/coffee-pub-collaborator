@@ -1117,6 +1117,24 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     try { window.dispatchEvent(new CustomEvent('app:attention', { detail: { space: spaceId } })); } catch { /* no window to tell */ }
     return true;
   }
+  // The facts route for this mount (host.facts): the same places as attention's (a guest has no status strip, a keyed page
+  // no space). The same list sent again within the hour is not sent (a module may call it on every draw); the page's
+  // status strip is told so it reads the facts again.
+  const factsPlace = () => (scope === 'space' && spaceId && !guestToken && !keyed ? `/api/spaces/${encodeURIComponent(spaceId)}/facts/${encodeURIComponent(module.id)}` : null);
+  let factsSent = { sig: null, at: 0 };
+  async function sendFacts(method, place, body) {
+    const sig = JSON.stringify([method, body || null]);
+    if (sig === factsSent.sig && Date.now() - factsSent.at < 3600000) return true;
+    try {
+      await api(method, place, body);
+    } catch (err) {
+      if (err.status === 401 || err.status === 403 || err.status === 404) return false; // not in this space, or the role cannot write here
+      throw err;
+    }
+    factsSent = { sig, at: Date.now() };
+    try { window.dispatchEvent(new CustomEvent('app:facts', { detail: { space: spaceId } })); } catch { /* no window to tell */ }
+    return true;
+  }
 
   // Events for the module before its page has said hello wait until it has.
   let ready = false;
@@ -1152,7 +1170,20 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     contextInfo.space = { ...contextInfo.space, phases: dates || {}, ...(created ? { createdAt: created } : {}) };
     send('phases', { phases: dates || {}, created: contextInfo.space.createdAt || null });
   };
-  const hearPhases = (d) => { if (d && d.space === spaceId && d.phases && typeof d.phases === 'object') tellPhases(d.phases, d.created); };
+  // The space's budget target (#216) rides with the phases: the module hears 'space' ({ budget }) only when it changed,
+  // and the SDK keeps host.space().budget current.
+  const tellSpace = (budget) => {
+    if (!ready || keyed || scope !== 'space' || !contextInfo || !contextInfo.space) return;
+    const b = budget && typeof budget === 'object' ? budget : null;
+    if (JSON.stringify(b) === JSON.stringify(contextInfo.space.budget || null)) return;
+    contextInfo.space = { ...contextInfo.space, budget: b };
+    send('space', { budget: b });
+  };
+  const hearPhases = (d) => {
+    if (!d || d.space !== spaceId) return;
+    if (d.phases && typeof d.phases === 'object') tellPhases(d.phases, d.created);
+    if ('budget' in d) tellSpace(d.budget);
+  };
   const onPhasesEvent = (event) => hearPhases(event.detail);
   let phasesChannel = null;
   let phasesTimer = 0;
@@ -1166,7 +1197,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     if (!window.__phasesHost) {
       phasesLook = () => {
         if (!ready || document.hidden || !contextInfo || !(contextInfo.phases || []).length) return;
-        api('GET', url('/context', scope)).then((a) => { if (a && a.space) tellPhases(a.space.phases, a.space.createdAt); }).catch(() => { /* the next look asks again */ });
+        api('GET', url('/context', scope)).then((a) => { if (a && a.space) { tellPhases(a.space.phases, a.space.createdAt); tellSpace(a.space.budget); } }).catch(() => { /* the next look asks again */ });
       };
       phasesTimer = setInterval(phasesLook, 60000);
       window.addEventListener('focus', phasesLook);
@@ -1544,6 +1575,28 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     async 'attention.clear'() {
       const place = attentionPlace();
       return place ? sendAttention('DELETE', place) : false;
+    },
+    // How this space stands (host.facts.set / clear): kept by the server per space and module, and drawn as chips in the
+    // space's status strip (space.js, which hears 'app:facts' and reads them again). Only a module running in a space for
+    // a signed-in person reports; anywhere else, or when the role may not write here, false. The shape is cut to the
+    // server's limits; what is left the server checks (a bad id or icon rejects with its sentence).
+    async 'facts.set'({ facts } = {}) {
+      const place = factsPlace();
+      if (!place) return false;
+      const list = (Array.isArray(facts) ? facts : []).slice(0, 6).map((f) => {
+        const fact = { id: String(f?.id ?? '').slice(0, 32), icon: String(f?.icon ?? '').slice(0, 40), text: String(f?.text ?? '').slice(0, 40) };
+        if (f?.value !== undefined && f?.value !== null && f.value !== '') fact.value = String(f.value).slice(0, 24);
+        const progress = Number(f?.progress);
+        if (f?.progress !== undefined && f?.progress !== null && Number.isFinite(progress)) fact.progress = Math.min(1, Math.max(0, progress));
+        if (Number.isInteger(f?.order)) fact.order = Math.min(99, Math.max(0, f.order));
+        if (f?.budget === true) fact.budget = true;
+        return fact;
+      });
+      return list.length ? sendFacts('PUT', place, { facts: list }) : sendFacts('DELETE', place);
+    },
+    async 'facts.clear'() {
+      const place = factsPlace();
+      return place ? sendFacts('DELETE', place) : false;
     },
     // Icon buttons in the module's titlebar, before the host's own buttons and set off by a pipe. Only a
     // host with a titlebar (a module on the canvas, or in its own window) has room for them: the answer says which,

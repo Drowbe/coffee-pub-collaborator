@@ -112,8 +112,10 @@ export function sameDates(a, b) {
 // Opens the sheet over the page. `phases` is the template's list, `dates` the space's dates, `created` the space's
 // createdAt, `today` a day, `canEdit` whether this person may PATCH, `save(dates)` the save (resolving to the dates the
 // server kept), `onChange(dates)` told after each kept save, `rule` the Phases object, `doc` the document to draw in.
+// `facts` (a phone's sheet: the slim line has no chips) is the space's facts, [{ icon, text, value?, progress?, name,
+// open() }], listed at its head; pressing one closes the sheet and opens its module (with dates edited, it asks first).
 // Returns { el, close, cancel, bar }: `close` closes it at once, `cancel` as Escape does (asking when dirty).
-export function openPhaseSheet({ phases, dates, created, today, canEdit = false, save, onChange, rule, doc = document, opener = null, words = {} } = {}) {
+export function openPhaseSheet({ phases, dates, created, today, canEdit = false, save, onChange, rule, doc = document, opener = null, words = {}, facts = [] } = {}) {
   const R = rule || globalThis.Phases;
   const ownerWord = words.owner || 'owner';
   const moderatorWord = words.moderator || 'moderator';
@@ -132,6 +134,7 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
       <p class="phase-sheet-now"></p>
       <button type="button" class="phase-sheet-close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
     </div>
+    <ul class="phase-sheet-facts" aria-label="Facts" hidden></ul>
     <div class="phase-strip">
       <ol class="phase-bands" aria-label="The phases in order"></ol>
     </div>
@@ -448,6 +451,38 @@ export function openPhaseSheet({ phases, dates, created, today, canEdit = false,
     dlg.remove();
     if (opener && typeof opener.focus === 'function' && opener.isConnected) opener.focus();
   });
+  // The facts at the head (a phone's): each a button with its icon, words and value, a progress fill as in the strip.
+  const factsEl = dlg.querySelector('.phase-sheet-facts');
+  for (const f of Array.isArray(facts) ? facts : []) {
+    if (!f || !f.text) continue;
+    const li = doc.createElement('li');
+    const b = doc.createElement('button');
+    b.type = 'button';
+    b.className = 'phase-sheet-fact';
+    b.title = `Open ${f.name || ''}`.trim();
+    if (typeof f.progress === 'number') {
+      b.classList.add('has-progress');
+      b.style.setProperty('--fact-progress', `${Math.round(Math.min(1, Math.max(0, f.progress)) * 100)}%`);
+    }
+    const icon = doc.createElement('i');
+    icon.className = `fa-solid fa-${/^[a-z0-9-]+$/.test(f.icon || '') ? f.icon : 'circle-info'} fa-fw`;
+    icon.setAttribute('aria-hidden', 'true');
+    const words = doc.createElement('span');
+    words.className = 'phase-sheet-fact-text';
+    words.textContent = f.value ? `${f.text} · ${f.value}` : f.text;
+    const from = doc.createElement('span');
+    from.className = 'phase-sheet-fact-from';
+    from.textContent = f.name || '';
+    b.append(icon, words, from);
+    b.addEventListener('click', () => {
+      if (canEdit && !sameDates(draft, kept)) { bar.requestCancel(); return; } // edited dates: the question first
+      close();
+      if (typeof f.open === 'function') f.open();
+    });
+    li.appendChild(b);
+    factsEl.appendChild(li);
+  }
+  factsEl.hidden = !factsEl.children.length;
   doc.body.appendChild(dlg);
   update();
   dlg.showModal();

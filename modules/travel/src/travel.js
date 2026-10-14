@@ -278,7 +278,7 @@
     add('Guests', words(item.guests, 'guest', 'guests'), 'guests');
     add('Reservation', item.reservationName, 'reservationName');
     add('Address', item.address, 'address');
-    if (item.cost) rows.push(['Cost', `${host.util.money(item.cost, (plan.trip || {}).currency || undefined)}${item.paidBy ? ` · paid by ${nameOf(item.paidBy)}` : ''}`]);
+    if (item.cost) rows.push(['Cost', `${host.util.money(item.cost, planCurrency())}${item.paidBy ? ` · paid by ${nameOf(item.paidBy)}` : ''}`]);
     if (!rows.length) return;
     const more = clone('tpl-card-more');
     more.open = state.expanded.has(item.id);
@@ -401,7 +401,60 @@
   }
   // The markers of the whole plan, on the main timeline between the day blocks (not inside a day): the plan's ends above the first day
   // and below the last, and the trip's start above the day it begins and its end below the day it ends.
-  function timelineMarkers(day, position, days, by) {
+  // The phase boundaries of a space with phases, grouped by the joint they sit at (drawn, never stored). A phase starting on S is a
+  // boundary after the day before S; a dated phase ending on E, after E. Boundaries before the first shown day gather at the head
+  // (key ''), those from the last shown day on at the tail (key = the last day). A phase's end and the next one's start on the same
+  // joint are one marker. Days are read as plain dates (UTC in the phase rule), so a day is a day whatever the viewer's timezone.
+  function phaseJoints(days, bands) {
+    const out = new Map();
+    if (!days.length || !bands.some((b) => b.dated)) return out;
+    const first = days[0];
+    const last = days[days.length - 1];
+    const back = (d) => { const t = parseYmd(d); return ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1)); };
+    const at = new Map(); // boundary day (the day it follows) -> { day, ends, starts }
+    const add = (boundary, kind, band) => {
+      if (!at.has(boundary)) at.set(boundary, { day: boundary, ends: [], starts: [] });
+      at.get(boundary)[kind].push(band);
+    };
+    for (const b of bands) {
+      if (!b.dated) continue;
+      add(back(b.start), 'starts', b);
+      if (b.end) add(b.end, 'ends', b);
+    }
+    for (const g of [...at.values()].sort((x, y) => x.day.localeCompare(y.day))) {
+      const key = g.day < first ? '' : g.day >= last ? last : g.day;
+      if (!out.has(key)) out.set(key, []);
+      out.get(key).push(g);
+    }
+    return out;
+  }
+  function buildPhaseMarker(g) {
+    const row = clone('tpl-row-marker');
+    const names = [...g.ends.map((b) => `${b.label} ends`), ...g.starts.map((b) => `${b.label} starts`)];
+    row.dataset.marker = 'phase';
+    row.classList.add('phase');
+    const lead = g.ends[0] || g.starts[0];
+    row.classList.add(`ph-${lead.tint}`);
+    // A boundary that is both an end and a start fades from the ending phase's tint to the starting one's.
+    if (g.ends.length && g.starts.length) row.querySelector('.markerpill').style.setProperty('--ph2', `var(--tint-${g.starts[0].tint})`);
+    const when = g.starts.length ? g.starts[0].start : g.day; // the day the new phase begins, else the day the last one ends
+    const text = parseYmd(when).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
+    setIcon(row.querySelector('.markercard [data-icon]'), g.starts.length ? 'flag' : 'flag-checkered');
+    fill(row, { time: text, mdate: text, title: names.join(' · '), sub: '' });
+    return row;
+  }
+
+  function timelineMarkers(day, position, days, by, joints) {
+    // With phases the markers are the bar's: every phase's start and end, and the trip's own are the main phase's.
+    if (joints && joints.size) {
+      const groups = joints.get(position === 'before' ? (day === days[0] ? '' : null) : day);
+      if (!groups) return null;
+      const list = document.createElement('ol');
+      list.className = 'timeline ends';
+      list.dataset.ends = position;
+      list.append(...groups.map(buildPhaseMarker));
+      return list;
+    }
     const bounds = state.bounds;
     const rows = [];
     const dateText = (d) => parseYmd(d).toLocaleDateString([], { weekday: 'short', day: 'numeric' });
@@ -430,6 +483,14 @@
     list.dataset.ends = position;
     list.append(...rows);
     return list;
+  }
+
+  // Whether a day is the trip itself: with phases the main phase's days, else from the first booked item to the last.
+  function inTrip(day) {
+    const main = plan.bands().find((b) => b.main);
+    if (main) return Boolean(main.dated) && day >= main.start && (!main.end || day <= main.end);
+    const b = tripBounds(plan.list());
+    return Boolean(b) && day >= b.start.day && day <= b.end.day;
   }
 
   // A short name for an item, for a marker's line.
@@ -500,8 +561,7 @@
     });
     if (!entries.length) el.classList.add('is-empty');
     // The days the trip itself covers (from the first booked item to the last) are marked, for their badge.
-    const b = state.bounds;
-    if (b && day >= b.start.day && day <= b.end.day) el.classList.add('in-trip');
+    if (inTrip(day)) el.classList.add('in-trip');
     const add = el.querySelector('.add-row');
     add.dataset.day = day;
     add.setAttribute('aria-label', `Add to ${dayShort(day)}`);
@@ -795,12 +855,8 @@
     // Empty days can be hidden, unless every day is empty (then there would be nothing to show).
     const hiding = state.hideEmpty && empties.size > 0 && empties.size < days.length;
     $('app').classList.toggle('hide-empty', hiding);
-    const heads = new Map();
-    plan.bands().forEach((b) => {
-      if (!b.dated || !days.includes(b.start)) return;
-      if (!heads.has(b.start)) heads.set(b.start, []);
-      heads.get(b.start).push(b);
-    });
+    // With phases the line carries a marker at each phase's start and end (phaseJoints), in place of the old phase headings.
+    const joints = phaseJoints(days, plan.bands());
     // With phases the first day is the timeline's (the main phase's start), so days are only added after.
     if (canEdit && !plan.phased()) wrap.append(buildEdge('before'));
     // One badge for each run of hidden days, standing in for them on the line.
@@ -812,13 +868,7 @@
       }
     }
     days.forEach((day, i) => {
-      for (const p of heads.get(day) || []) {
-        const band = clone('tpl-phase-head');
-        band.dataset.phase = p.id;
-        fill(band, { label: p.label });
-        wrap.append(band);
-      }
-      const above = timelineMarkers(day, 'before', days, by);
+      const above = timelineMarkers(day, 'before', days, by, joints);
       if (above) wrap.append(above);
       if (runs.has(day)) wrap.append(buildGap(runs.get(day)));
       if (i === 0) wrap.append(...buildBetween(''));
@@ -827,7 +877,7 @@
       // the gap badge standing in for it; the badge's own + already opens the same menu for the run. What is at
       // that joint is still drawn, after the badge, so nothing on the line disappears with the day.
       wrap.append(...buildBetween(day, !(hiding && empties.has(day))));
-      const below = timelineMarkers(day, 'after', days, by);
+      const below = timelineMarkers(day, 'after', days, by, joints);
       if (below) wrap.append(below);
     });
     if (canEdit) wrap.append(buildEdge('after'));
@@ -839,13 +889,12 @@
     strip.replaceChildren();
     const today = ymd(new Date());
     const empties = emptyDays();
-    const bounds = tripBounds(plan.list());
     const bandList = plan.bands();
     for (const day of plan.days()) {
       const chip = clone('tpl-daychip');
       chip.dataset.day = day;
       chip.classList.toggle('is-empty', empties.has(day));
-      chip.classList.toggle('in-trip', Boolean(bounds) && day >= bounds.start.day && day <= bounds.end.day);
+      chip.classList.toggle('in-trip', inTrip(day));
       chip.classList.toggle('today', day === today);
       const ph = phaseOnDay(bandList, day);
       if (ph && ph.tint) { chip.classList.add('in-phase', `ph-${ph.tint}`); chip.title = ph.label; }
@@ -942,7 +991,7 @@
 
   // Money: what was spent, who is owed what, and the fewest payments that settle it.
   const money = (n) => {
-    return host.util.money(n, (plan.trip || {}).currency || undefined); // the trip's currency, else the server's
+    return host.util.money(n, planCurrency()); // the budget's currency, else the plan's, else the server's
   };
   function renderMoney() {
     const body = $('body');
@@ -997,7 +1046,8 @@
     if (!host.header) return;
     const items = [];
     if (state.view === 'days') items.push({ id: 'toggle-empty', icon: 'eye-slash', title: state.hideEmpty ? 'Show empty days' : 'Hide empty days', on: state.hideEmpty });
-    if (canEdit) items.push({ id: 'edit-trip', icon: 'pen', title: 'Edit trip' });
+    // With phases the dates are the bar's and the currency is the budget's (Set up): nothing left to edit here.
+    if (canEdit && !plan.phased()) items.push({ id: 'edit-trip', icon: 'pen', title: 'Edit dates' });
     const sig = JSON.stringify(items);
     if (sig === headerSig) return;
     headerSig = sig;
@@ -1022,6 +1072,12 @@
 
   const templatePhases = () => (typeof host.phases === 'function' ? host.phases() : []);
   const spaceOf = () => (typeof host.space === 'function' ? host.space() : null);
+  // The currency costs are worded in: the budget's (Set up), else the one stored on the plan, else none (the server's).
+  function planCurrency() {
+    const sp = typeof host.space === 'function' ? host.space() : null;
+    const b = sp && sp.budget && typeof sp.budget.currency === 'string' ? sp.budget.currency.trim().toUpperCase() : '';
+    return b || (plan.trip || {}).currency || undefined;
+  }
   // No date, and not placed at a joint: it belongs under "Not on a day yet". So does one dated on a day the plan cannot show
   // (past its 60 days, saved before such an object went there itself), rather than showing nowhere.
   const undatedItems = () => {
@@ -1092,7 +1148,7 @@
     if (sep) sep.hidden = !summary.children.length || !datesNode || datesNode.hidden;
     const openCount = openDecisions().length;
     viewSwitch.set(state.view, VIEWS.map((v) => (v.id === 'decisions' && openCount ? { ...v, label: `Decisions (${openCount} open)` } : v)));
-    hide(head.querySelector('[data-action="edit-trip"]'), !canEdit);
+    hide(head.querySelector('[data-action="edit-trip"]'), !canEdit || plan.phased());
     const toggle = head.querySelector('[data-action="toggle-empty"]');
     if (toggle) {
       toggle.setAttribute('aria-pressed', String(state.hideEmpty));
@@ -1219,7 +1275,7 @@
       travellers: state.people.map((p) => p.key),
       today: ymd(new Date()),
       target: spaceOf().budget || null,
-      currency: (plan.trip || {}).currency || host.locale().currency || 'USD',
+      currency: planCurrency() || host.locale().currency || 'USD',
       money: wholeMoney,
     });
     const sig = JSON.stringify(list);
@@ -1228,7 +1284,7 @@
     host.facts.set(list).catch(() => { factsSaid = ''; }); // tried again on the next change
   }
   // The space's budget target changed (an owner's Set up): the strip's money follows.
-  host.on('space', () => reportFacts());
+  host.on('space', () => { reportFacts(); redraw(); });
 
   function markCurrent(day) {
     if (day) { state.currentDay = day; syncStatus(); }
@@ -1909,19 +1965,10 @@
     $('f-error').hidden = true;
     if (mode === 'trip') {
       const t = plan.trip || {};
-      $('editor-title').textContent = 'The plan';
-      $('f-title').value = t.title || '';
-      $('f-title').placeholder = (spaceOf() && spaceOf().name) || '';
-      $('f-destination').value = t.destination || '';
+      $('editor-title').textContent = 'The dates';
       $('f-start').value = t.start || '';
       $('f-end').value = t.end || '';
-      // With phases the dates are the space's timeline (plan-one-bar.md step 2): no date fields, one line says where.
-      const phasedPlan = plan.phased();
-      hide($('f-start').closest('label'), phasedPlan);
-      hide($('f-end').closest('label'), phasedPlan);
-      hide($('f-phase-note'), !phasedPlan);
       host.ui.currencySelect($('f-currency'), { value: t.currency || '', empty: true }); // "" is the server's currency
-      $('f-notes').value = t.notes || '';
       $('f-by').textContent = '';
     } else {
       $('editor-title').textContent = item ? 'Edit' : 'Add to the plan';
@@ -2297,7 +2344,8 @@
     $('f-save').disabled = true;
     try {
       if (ed.mode === 'trip') {
-        const patch = { title: $('f-title').value.trim(), destination: $('f-destination').value.trim(), currency: $('f-currency').value.trim(), notes: $('f-notes').value.trim() };
+        // The name, Where and Notes are kept as stored (saveTrip merges); the form edits the dates and the currency.
+        const patch = { currency: $('f-currency').value.trim() };
         // With phases the dates are the space's timeline, not the form's (the plan leaves them out of the write).
         if (!plan.phased()) {
           const start = $('f-start').value;

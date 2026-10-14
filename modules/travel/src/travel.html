@@ -31,7 +31,7 @@
     <div class="tools" role="toolbar" aria-label="Trip">
       <div class="actions" role="group" aria-label="Plan">
         <button class="btn tool tool-empty" type="button" data-action="toggle-empty" title="Hide empty days" aria-label="Hide empty days" aria-pressed="false"><span class="ic" data-icon="eye-slash"></span></button>
-        <button class="btn tool tool-edit" type="button" data-action="edit-trip" title="Edit trip" aria-label="Edit trip" hidden><span class="ic" data-icon="pen"></span></button>
+        <button class="btn tool tool-edit" type="button" data-action="edit-trip" title="Edit dates" aria-label="Edit dates" hidden><span class="ic" data-icon="pen"></span></button>
       </div>
     </div>
   </header>
@@ -157,17 +157,15 @@
 <!-- the item editor for the card family (CONTRACT.md, "The editor"): the script replaces #form's contents with a clone of this
      when it opens the dialog and shows the fields whose data-types include the chosen type (adds .on-type). -->
 <template id="tpl-editor-trip"><form class="editor-card" id="form">
-    <h3 id="editor-title">The plan</h3>
-    <label>Name<input id="f-title" name="title" type="text" maxlength="120"></label>
-    <!-- with phases the dates are the space's timeline (plan-one-bar.md step 2): First day and Last day hide, this line shows -->
-    <p class="hint" id="f-phase-note" hidden>The dates, the trip's first and last day among them, are set from the phase chip in the top bar.</p>
+    <h3 id="editor-title">The dates</h3>
+    <!-- only for a space without phases: with phases the dates are the space's timeline, set from the phase chip in the top bar.
+         The plan's name, Where and Notes are no longer asked (stored ones are kept); the budget's currency in Set up wins over Currency. -->
     <div class="editor-row">
-      <label>Where<input id="f-destination" name="destination" type="text" maxlength="80"></label>
       <label>First day<input id="f-start" name="start" type="date"></label>
       <label>Last day<input id="f-end" name="end" type="date"></label>
       <label>Currency<select id="f-currency" name="currency"></select></label>
     </div>
-    <label>Notes<textarea id="f-notes" name="notes" rows="3" maxlength="8000"></textarea></label>
+    <p class="hint">A currency set on the budget in Set up is used instead.</p>
     <p class="hint" id="f-by"></p>
     <p class="error" id="f-error" hidden></p>
     <div class="editor-buttons sdk-editor-actions"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button></div>

@@ -251,7 +251,7 @@ test('stripFacts (#216): spent from costs with a payer, against the space\'s bud
   assert.match(js, /if \(!host\.facts \|\| !canEdit \|\| !state\.loaded \|\| !spaceOf\(\)\) return;/);
   assert.match(js, /target: spaceOf\(\)\.budget \|\| null,/, 'the target is the space\'s, from host.space()');
   assert.match(js, /queued = false; render\(\); reportFacts\(\);/, 'after each draw');
-  assert.match(js, /host\.on\('space', \(\) => reportFacts\(\)\);/, 'and when the budget changes');
+  assert.match(js, /host\.on\('space', \(\) => \{ reportFacts\(\); redraw\(\); \}\);/, 'and when the budget changes');
   assert.match(js, /if \(sig === factsSaid\) return;/, 'the same facts are not sent again');
   assert.ok(!/nearDay|dayWord|'tomorrow'|'today'/.test(js.slice(js.indexOf('function reportFacts('), js.indexOf("host.on('space'"))), 'the Planner words no day relative to its own today');
 });
@@ -1226,15 +1226,16 @@ await (async () => {
   n += 1;
 })();
 
-test('the page: with phases the plan form has no date fields, and no per-phase rows at all', () => {
+test('the page: with phases there is no plan form (the dates are the bar\'s, the currency the budget\'s); without, a dates form', () => {
   const html = read('travel.html');
   const js = read('travel.js');
   assert.ok(!html.includes('tpl-phase-row'), 'the per-phase date rows are gone');
   assert.ok(!html.includes('id="f-phases"'));
   assert.ok(html.includes('id="f-start"') && html.includes('id="f-end"'), 'First day and Last day stay for a space without phases');
-  assert.match(html, /<p class="hint" id="f-phase-note" hidden>The dates, the trip's first and last day among them, are set from the phase chip in the top bar\.<\/p>/);
-  assert.match(js, /hide\(\$\('f-start'\)\.closest\('label'\), phasedPlan\);/, 'hidden with phases');
-  assert.match(js, /hide\(\$\('f-phase-note'\), !phasedPlan\);/);
+  assert.ok(!html.includes('id="f-destination"') && !html.includes('id="f-phase-note"'), 'Where is no longer asked');
+  assert.ok(!/id="tpl-editor-trip"[\s\S]*?id="f-notes"[\s\S]*?<template id="tpl-editor2"/.test(html), 'nor Notes, in the plan form');
+  assert.match(js, /if \(canEdit && !plan\.phased\(\)\) items\.push\(\{ id: 'edit-trip'/, 'no pencil with phases');
+  assert.match(js, /function planCurrency\(\)/, 'the budget\'s currency wins');
   assert.match(js, /if \(!plan\.phased\(\)\) \{\s*const start = \$\('f-start'\)\.value;/, 'the form\'s dates are only read without phases');
   assert.ok(!js.includes('fillTripPhases'));
   assert.match(js, /host\.util\.phaseWords\(bands, ymd\(new Date\(\)\)\)/, 'the phase line is the chip\'s words');

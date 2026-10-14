@@ -412,6 +412,15 @@
 .days.dragging-line .joint.drop-target::before { border-top-color: var(--accent); border-top-style: solid; border-top-width: 3px; }
 .days.dragging-line .joint.drop-target .jointadd { border-color: var(--accent); color: var(--on-accent); background: var(--accent); transform: scale(1.15); }
 
+/* a phase's start or end on the line (drawn from the bar's dates): filled in the phase's tint, no coloured border; an end and the next
+   start together fade from one tint to the other (--ph2) */
+.row.marker.phase .markerpill { --marker: var(--ph); border: 0; background: color-mix(in srgb, var(--ph) 32%, var(--bg-card)); }
+.row.marker.phase .markerpill[style*="--ph2"] { background: linear-gradient(90deg, color-mix(in srgb, var(--ph) 32%, var(--bg-card)), color-mix(in srgb, var(--ph2) 32%, var(--bg-card))); }
+.row.marker.phase .markerpill::before { display: none; }
+.row.marker.phase .mk-icon { border-right: 0; }
+.row.marker.phase .rail .dot { background: var(--ph); }
+.row.marker.phase .mk-label b { text-transform: none; letter-spacing: 0; font-size: 13px; }
+
 /* phases: a day in a dated phase takes a soft wash of the phase's tint (header and strip chip), with its name beside the
    date in a tag filled in the tint; borders stay the neutral ones. The tint names are the theme's (Phases.tintOf). */
 .ph-blue { --ph: var(--tint-blue); }

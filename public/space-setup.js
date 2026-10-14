@@ -537,7 +537,7 @@ export function createSpaceSetup(deps) {
     const { show, name } = budgetNow();
     if (show && state.ownerPartsIn) section.hidden = false;
     const hint = q('#setup-budget-hint');
-    if (hint) hint.textContent = `What you plan to spend.${name ? ` ${name} shows what is spent against it.` : ''} Leave it empty for no budget.`;
+    if (hint) hint.textContent = `What you plan to spend.${name ? ` ${name} shows what is spent against it.` : ''} Leave it empty for no budget.${name ? ` The currency is also used for costs in ${name}.` : ''}`;
   }
   // The budget's amount and currency (the page's currency list, window.hostCurrency from /sdk/host.js: the common ones
   // first, then every other the server takes; the first choice "" is the reporting module's own currency). A bad entry

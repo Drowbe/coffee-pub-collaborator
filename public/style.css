@@ -8687,6 +8687,39 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   display: none;
 }
 
+/* In the top bar (wider than a phone) the left zone clips what hangs out of it: the list is placed against the window
+   instead, under the button (space-people.js place() measures where it starts). */
+.topbar > .nav-left > .who-here .who-here-list {
+  position: fixed;
+}
+
+.topbar > .nav-left > .who-here {
+  flex: none;
+}
+
+/* The header's own `.brand span` size is not the tool's: its words at the toggle's size, the letters and "+N" at theirs. */
+.topbar .who-here span {
+  font-size: inherit;
+}
+
+.topbar .who-here .who-here-initial,
+.topbar .who-here .who-here-more {
+  font-size: 10px;
+}
+
+.topbar .who-here .who-here-person .who-here-initial {
+  font-size: 12px;
+}
+
+.topbar .who-here-list {
+  font-size: 14px;
+  font-weight: 400;
+}
+
+.topbar .who-here-list .who-here-oncall {
+  font-size: 12px;
+}
+
 .who-here-list:focus {
   outline: none;
 }
@@ -11049,7 +11082,8 @@ h4.setup-subheading {
   gap: 6px;
 }
 
-/* Join the call and Online, a row under the strip. */
+/* Join the call, a row under the strip out of the call (space.js hides it on the call, with nothing in it). Who is here
+   is the top bar's. */
 .side-column-bar {
   flex: none;
   display: flex;
@@ -11064,21 +11098,6 @@ h4.setup-subheading {
 .side-column-call {
   flex: none;
   display: flex;
-}
-
-.side-column-online {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-}
-
-.side-column-online .who-here-toggle {
-  color: var(--text);
-}
-
-.side-column-online .who-here-list {
-  left: 0;
-  right: auto;
 }
 
 /* The chat, a column of its own (as it floats), its resize handle and its close gone: the column never closes. */
@@ -11276,48 +11295,10 @@ body.in-aside .side-column-strip > .canvas {
   padding-right: 38px;
 }
 
-/* Slim: on the call, the controls and the faces without the tiles (a short window, or the person's choice). */
-.side-column.in-call.call-slim .side-column-strip .mod-content,
-.side-column.call-slim .side-column-splitter-h,
+/* The call out of the column: the strip and its line give way to #call-out. The tiles always show otherwise (Thomas,
+   2026-10-14: no "Hide the video"); in a short window they scale down to the height they get. */
 .side-column.call-away .side-column-splitter-h,
 .side-column.call-away .side-column-strip {
-  display: none;
-}
-
-.side-column.in-call.call-slim .side-column-strip > .canvas {
-  grid-template-rows: 0 auto;
-}
-
-
-/* Show or hide the video, at the end of the Join/Online row. */
-.side-column-tiles {
-  flex: none;
-  width: 28px;
-  height: 28px;
-  border: 1px solid transparent;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--text-dim);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.side-column-tiles:hover:not(:disabled) {
-  border-color: var(--border);
-  color: var(--text);
-}
-
-.side-column-tiles:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.side-column-tiles:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.side-column-tiles[hidden] {
   display: none;
 }
 
@@ -11365,7 +11346,8 @@ body.in-aside .side-column-strip > .canvas {
 }
 
 /* Call position Left (space.js, callPlaceFor): in a column at least 560px wide the call sits beside the chat, the
-   column's full height: its titlebar, the tiles filling the height over the toolbar, then the Join/Online row; the chat
+   column's full height: its titlebar at the top, the tiles from the top as big as the height lets them be (fitTiles
+   measures the strip, less the toolbar), the toolbar right under them, then the Join row out of the call; the chat
    on the right with all of its parts. The line between them (#side-column-call-splitter) sets the call's width
    (--side-column-call-w). The handle sits over the chat's titlebar, so that keeps clear of it. */
 .side-column.call-left {
@@ -11375,8 +11357,8 @@ body.in-aside .side-column-strip > .canvas {
   grid-template-areas: "head chat" "strip chat" "out chat" "bar chat" "rest chat";
 }
 
-/* On the call with its tiles: the tiles take the height. */
-.side-column.call-left.in-call:not(.call-slim):not(.call-away) {
+/* On the call: the strip takes the height. */
+.side-column.call-left.in-call:not(.call-away) {
   grid-template-rows: auto minmax(0, 1fr) auto auto 0;
 }
 
@@ -11412,13 +11394,15 @@ body:not(.in-aside) .side-column.call-left > .side-column-chat {
 }
 
 .side-column.call-left .side-column-strip > .canvas {
-  flex: 1 1 auto;
-  height: 100%;
-  grid-template-rows: minmax(0, 1fr) auto;
+  flex: none;
+  height: auto;
+  grid-template-rows: auto auto;
 }
 
-.side-column.call-left.in-call.call-slim .side-column-strip > .canvas {
-  grid-template-rows: 0 auto;
+/* The tiles' own height: what fitTiles() used for them (--grid-used-h), so no band above or below them. */
+.side-column.call-left .side-column-strip .grid {
+  flex: none;
+  height: var(--grid-used-h, auto);
 }
 
 .side-column.call-left #chat-content > header {

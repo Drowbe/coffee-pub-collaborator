@@ -979,9 +979,10 @@ const DEFAULT_PREFS = {
   homeChatWidth: 360, // Home's chat column (plan-home-lobby.md, step 3), its own width
   // Where the call sits in the column (Call position): its 'top', 'bottom' or 'left' (beside the chat, in a column wide
   // enough); callFloat, floating over the Workspace instead (from the column's side it goes back to). Its own window is
-  // never remembered (a window opens only from a click). callTiles: 'auto' (slim in a short window), 'shown' or 'slim'.
-  // callSideWidth: the call's width beside the chat (Left).
-  callPosition: 'top', callFloat: false, callTiles: 'auto',
+  // never remembered (a window opens only from a click). callSideWidth: the call's width beside the chat (Left). The
+  // tiles always show in the column (Thomas, 2026-10-14: no hiding the video); a `callTiles` stored before then is
+  // ignored.
+  callPosition: 'top', callFloat: false,
   callSideWidth: 320,
   pttKey: 'Space', muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE',
 };
@@ -1079,7 +1080,7 @@ topbarEl.querySelector('#nav-toggle')?.addEventListener('click', () => nav.draw(
 // bar's Join the call (GitHub #165), which shows the conference and joins in one press.
 function syncCallControl() {
   syncWhoIsInCall();
-  whoHere.refresh(); // who is here, in the space bar (space-people.js)
+  whoHere.refresh(); // who is here, in the top bar or the phone's tab bar (space-people.js)
   nav.draw('secondary'); // Join the call shows only out of the call
   syncColumn(); // and in the always-on column, where the two are wider than a phone
 }
@@ -1147,10 +1148,15 @@ const autoJoinOnEntry = () => shouldAutoJoin({ setting: features.autoJoinCall, i
 // --- end Join the call ---
 
 // --- who is here (space-people.js) ------------------------------------------------------------------
-// Online, in the space bar's left zone after the Layout button (plan-two-zone-nav.md, decisions 4 and 9): everyone in
-// this space (or aside) now, you among them, with a mark on those on the call, and the list under it. Live from the call
-// itself (LiveKit's Room); it gives way (the count for the names, fewer portraits, then the short count) before anything
-// on the bar's right folds (its `fit`, called by nav-bar.js). On a phone it is a count in the tab bar, before Leave.
+// Everyone in this space (or aside) now, you among them, with a mark on those on the call, and the list of them, their
+// names and who is on the call, on a press. Live from the call itself (LiveKit's Room). It belongs to the space, not to
+// the call (Thomas, 2026-10-14: "the 'in the room' widget has the context of the space, not the conf window"), so wider
+// than a phone it is the top bar's (`whoHereTop`): an element tool at the end of its left zone, after the space switcher
+// and the layout tabs, before the Workspace's tools, Layout, the bell and your picture, in a space call or no call, never
+// in an aside (the aside's tools leave the top bar too) nor while Home is shown (Home's own Who's around says it there).
+// Short of room it gives way first (`yieldFirst`, nav-bar.js's fitLeft), before the favorite tabs: the names become the
+// count, portraits drop, then it shows only the icon and the short count. On a phone it is the count in the tab bar,
+// before Leave (plan-phone-space-bar.md), in an aside too; its list opens above it there.
 const whoHere = createWhoHere({
   call,
   meOnCall: () => inCall,
@@ -1159,47 +1165,49 @@ const whoHere = createWhoHere({
   profileUrl: (key) => imgUrl(key, 'profile'),
   wanted: () => Boolean(currentSpace) && call.state === 'connected',
   events: {
-    redraw: () => nav.draw('secondary'),
+    redraw: () => nav.draw(nav.get('who-here')?.bar || 'secondary'),
     call: { [RoomEvent.ParticipantNameChanged]: () => whoHere.refresh(), [RoomEvent.Disconnected]: () => whoHere.refresh() },
   },
 });
 nav.register({ bar: 'secondary', zone: 'left', group: 'people', groupOrder: 2, id: 'who-here', order: 1, fold: false, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, visible: () => Boolean(currentSpace) && call.state === 'connected' });
+const whoHereBar = nav.get('who-here'); // the phone's, in the tab bar
+const whoHereTopWanted = () => Boolean(currentSpace) && !viewingHome && !inAside() && call.state === 'connected' && !phoneWidth();
+const whoHereTop = { id: 'who-here', bar: 'primary', zone: 'left', group: 'people', groupOrder: 13, order: 1, icon: 'user-group', label: 'Who is here', element: whoHere.el, fit: whoHere.fit, yieldFirst: true, visible: whoHereTopWanted };
 // --- end who is here ---
 
 // --- the always-on column (plan-one-bar.md, decision 2 and step 6) ---------------------------------------------
 // Wider than a phone, #side-column (space.html) beside the canvas holds the call and the chat in every view: the
 // conference as a strip of tiles while on the call (canvas.js puts it in .side-column-strip, in its `column` mode),
-// else nothing there; under it Join the call (out of the call) and Online, the space bar's own elements, taken out of
-// the registry and placed here; then the chat (in .side-column-chat). A handle collapses the column to a 44px rail
-// (the faces on the call and the chat's unread count), remembered per space (localStorage `app.column.<space>`); it
-// never closes. At 640px and below the column is not drawn and the two tools go back to the tab bar (decision 3). In
-// an aside the column is the whole screen (decision 10, style.css). A screen share lifts the conference into the
-// Workspace as a floating module and back (syncShareLift).
-const columnTools = ['join-call', 'who-here'].map((id) => nav.get(id)); // the registrations above, to put back
-let columnToolsIn = null; // 'column' or 'bar', where the two are now
+// else nothing there; under it Join the call (out of the call), the space bar's own element, taken out of the registry
+// and placed here; then the chat (in .side-column-chat). Who is here is the top bar's there (whoHereTop, above). A
+// handle collapses the column to a 44px rail (the faces on the call and the chat's unread count), remembered per space
+// (localStorage `app.column.<space>`); it never closes. At 640px and below the column is not drawn and both go back to
+// the tab bar (decision 3). In an aside the column is the whole screen (decision 10, style.css). A screen share lifts
+// the conference into the Workspace as a floating module and back (syncShareLift).
+const joinCallTool = nav.get('join-call'); // the registration above, to put back
+let columnToolsIn = null; // 'column' or 'bar', where Join the call and Who is here are now
 placeColumnTools = () => {
-  const toColumn = Boolean(columnEl) && !phoneWidth();
+  const wide = !phoneWidth();
+  const toColumn = Boolean(columnEl) && wide;
   const where = toColumn ? 'column' : 'bar';
   if (where !== columnToolsIn) {
     columnToolsIn = where;
     if (toColumn) {
-      for (const t of columnTools) nav.unregister(t.id);
+      nav.unregister(joinCallTool.id);
       columnEl.querySelector('.side-column-call').appendChild(joinCallButton);
-      columnEl.querySelector('.side-column-online').appendChild(whoHere.el);
-    } else {
-      for (const t of columnTools) if (!nav.has(t.id)) nav.register(t);
-    }
+    } else if (!nav.get(joinCallTool.id)) nav.register(joinCallTool);
   }
+  // Who is here: the top bar's wider than a phone, the tab bar's on a phone (the same element, moved by the registry).
+  const people = wide ? whoHereTop : whoHereBar;
+  if (nav.get('who-here')?.bar !== people.bar) nav.register(people);
   syncColumn();
 };
-// What the column shows now: Join the call out of the call, Online while connected (fitted to the row's width, as the
-// bar fits it), and the rail.
+// What the column shows now: Join the call out of the call (its row hidden on the call, with nothing in it), and the
+// rail.
 function syncColumn() {
   if (!columnEl || columnToolsIn !== 'column') return;
   joinCallButton.hidden = !joinCallWanted();
-  const online = Boolean(currentSpace) && call.state === 'connected';
-  whoHere.el.hidden = !online;
-  if (online) whoHere.fit(Math.max(0, columnEl.querySelector('.side-column-online').clientWidth));
+  columnEl.querySelector('.side-column-bar').hidden = joinCallButton.hidden;
   columnEl.classList.toggle('in-call', inCall);
   applyColumnSizes();
   syncRail();
@@ -1212,9 +1220,8 @@ function syncColumn() {
 // up to what leaves the chat its share: the whole call area (the tiles, the toolbar under them and the Join/Online row,
 // `chrome` being the last two) is at most CALL_MAX_SHARE of the column, so the chat always keeps at least 45% of it
 // (Thomas, 2026-10-14: the video must never squeeze the chat). Untouched (the default height), the call area is at most
-// CALL_DEFAULT_SHARE. In a short window (under SHORT_WINDOW high) the call starts slim, the controls and the faces
-// without the tiles, one click away (callTiles 'auto'); a column too short for even STRIP_MIN of tiles is slim too.
-// Dragged by pointer or touch; with the keyboard the arrows move by a step, Shift by a bigger one, Home and End to the
+// CALL_DEFAULT_SHARE. The tiles always show (Thomas, 2026-10-14: no hiding the video): in a short window they scale down
+// to the height they get, and the chat's share holds (style.css, .side-column-chat's min-height). Dragged by pointer or touch; with the keyboard the arrows move by a step, Shift by a bigger one, Home and End to the
 // least and the most, double-click or Shift+Enter back to the default. Both are remembered per person. Collapsed, the
 // rail is 44px whatever the width, and opening returns to it.
 const COLUMN_MIN = 220;
@@ -1223,7 +1230,6 @@ const STRIP_MIN = 100;
 const STRIP_DEFAULT = 168; // DEFAULT_PREFS.stripHeight
 const CALL_MAX_SHARE = 0.55; // of the column: the chat keeps the other 45% or more
 const CALL_DEFAULT_SHARE = 0.4;
-const SHORT_WINDOW = 800;
 const SPLIT_STEP = 16;
 const SPLIT_BIG_STEP = 64;
 const clampSplit = (v, min, max) => Math.min(Math.max(Math.round(Number(v) || 0), min), Math.max(min, max));
@@ -1234,13 +1240,6 @@ function clampStripHeight(h, columnHeight, chrome = 0) { return clampSplit(h, ST
 function stripHeightFor(h, columnHeight, chrome = 0) {
   const want = Number(h) === STRIP_DEFAULT ? Math.min(STRIP_DEFAULT, Math.round(columnHeight * CALL_DEFAULT_SHARE) - Math.round(chrome)) : h;
   return clampStripHeight(want, columnHeight, chrome);
-}
-// Whether the tiles show in the column: the person's choice ('shown', 'slim'), else ('auto') not in a short window; and
-// never when the column cannot give them STRIP_MIN with the chat keeping its share.
-function callTilesShown(choice, windowHeight, columnHeight, chrome = 0) {
-  if (stripMaxHeight(columnHeight, chrome) < STRIP_MIN) return false;
-  if (choice === 'shown' || choice === 'slim') return choice === 'shown';
-  return windowHeight >= SHORT_WINDOW;
 }
 // Call position Left (Thomas, 2026-10-14): the call beside the chat, the column's full height, in a column at least
 // CALL_LEFT_MIN wide; narrower, the call sits at the top until the column is wide again, the choice kept. The call's
@@ -1308,7 +1307,7 @@ function applyColumnSizes() {
   s.setAttribute('aria-valuemax', String(columnMaxStrip()));
   s.setAttribute('aria-valuenow', String(h));
   s.setAttribute('aria-valuetext', `${h} pixels tall`);
-  syncCallPlace(colH, chrome);
+  syncCallPlace();
 }
 let columnSizeFrame = 0;
 function setColumnSize(which, value, { remember = true } = {}) {
@@ -1456,7 +1455,7 @@ function callWhere() {
   return mode;
 }
 const CALL_OUT_NOTES = { window: 'The call is in its own window', float: 'The call is in a floating window', share: 'The call floats while a screen is shared' };
-function syncCallPlace(colH, chrome) {
+function syncCallPlace() {
   const where = callWhere();
   const outside = where === 'window' || where === 'float' || where === 'share';
   const pop = $('call-popout');
@@ -1475,38 +1474,27 @@ function syncCallPlace(colH, chrome) {
     if (wrap && wrap.hidden !== hide) { wrap.hidden = hide; setTimeout(fitFloatbar, 0); }
   }
   if (!columnEl) return;
-  const place = callPlaceNow();
+  // No call area out of the call (Thomas, 2026-10-14: "when not in a call we should not show the call area"): no
+  // titlebar, no Left column beside the chat, whatever Call position is saved (kept for the next call); the chat fills
+  // the column with the slim Join the call row above it, or below it with the call at the bottom, as before the
+  // titlebar. The call area comes with the call, and stays while the call is floating or in its own window.
+  const callArea = inCall || outside;
+  const chosen = callPlaceNow();
+  const place = !callArea && chosen === 'left' ? 'top' : chosen;
   const left = place === 'left';
+  columnEl.classList.toggle('call-area', callArea);
   columnEl.classList.toggle('call-bottom', place === 'bottom');
   columnEl.classList.toggle('call-left', left);
   const sideLine = columnEl.querySelector('#side-column-call-splitter');
   if (sideLine) sideLine.hidden = !left;
   // The call's titlebar: wherever the conference is open from this column (in it, floating or in its own window).
   const head = columnEl.querySelector('#call-head');
-  if (head) head.hidden = where === 'closed' || where === 'dock';
+  if (head) head.hidden = !callArea || where === 'closed' || where === 'dock';
   const away = canvas.columnMode() && outside;
   columnEl.classList.toggle('call-away', away);
   if (callOutEl) {
     callOutEl.hidden = !away;
     if (away) columnEl.querySelector('#call-out-note').textContent = CALL_OUT_NOTES[where];
-  }
-  const h = colH ?? columnHeight();
-  const c = chrome ?? callChrome();
-  // Beside the chat the call has the column's whole height: the tiles show unless the person chose slim.
-  const fits = left ? h - c >= STRIP_MIN : stripMaxHeight(h, c) >= STRIP_MIN;
-  const tilesOn = left ? fits && prefs.callTiles !== 'slim' : callTilesShown(prefs.callTiles, columnWin().innerHeight, h, c);
-  columnEl.classList.toggle('call-slim', !tilesOn);
-  const t = columnEl.querySelector('#side-column-tiles');
-  if (t) {
-    t.hidden = !(inCall && where === 'column');
-    t.disabled = !fits;
-    const label = !fits ? 'The window is too short for the video' : tilesOn ? 'Hide the video' : 'Show the video';
-    if (t.title !== label) {
-      t.title = label;
-      t.setAttribute('aria-label', label);
-      t.setAttribute('aria-pressed', String(tilesOn));
-      t.querySelector('i').className = `fa-solid fa-chevron-${tilesOn ? 'up' : 'down'} fa-fw`;
-    }
   }
 }
 function popOutCall() {
@@ -1534,11 +1522,6 @@ function setCallPosition(pos) {
   syncCallPlace();
   applyLayout();
 }
-function toggleCallTiles() {
-  prefs.callTiles = columnEl?.classList.contains('call-slim') ? 'shown' : 'slim';
-  savePrefs();
-  applyLayout();
-}
 // The Call position entries, for the caret's menu, the call's titlebar and Chat's "...". The position marked is the one
 // chosen: Left stays marked in a column too narrow for it (the call shows at the top meanwhile), and is offered only in
 // a column wide enough, saying why otherwise.
@@ -1560,14 +1543,10 @@ function callPlaceItems() {
     );
   }
   items.push({ radio: true, checked: where === 'window', icon: 'up-right-from-square', label: 'Its own window', onPick: () => setCallPosition('window') });
-  if (column && inCall && where === 'column' && !columnEl.querySelector('#side-column-tiles').disabled) {
-    const shown = !columnEl.classList.contains('call-slim');
-    items.push({ divider: true }, { icon: `chevron-${shown ? 'up' : 'down'}`, label: shown ? 'Hide the video' : 'Show the video', onPick: toggleCallTiles });
-  }
   return items;
 }
 // The call's titlebar's "..." (#call-more): Pop out or Bring the call back (the toolbar's Pop out does the same), Call
-// position, Show or Hide the video, then on the call its Settings (the toolbar's gear) and Leave the call (Hang up; the
+// position, then on the call its Settings (the toolbar's gear) and Leave the call (Hang up; the
 // titlebar's x before the column, which closed the call).
 function callMenuItems() {
   const where = callWhere();
@@ -1617,7 +1596,6 @@ if (callOutEl) {
   }
   callOutEl.querySelector('#call-back').addEventListener('click', bringCallBack);
 }
-columnEl?.querySelector('#side-column-tiles')?.addEventListener('click', toggleCallTiles);
 columnEl?.querySelector('#call-more')?.addEventListener('click', (event) => {
   event.stopPropagation();
   openHostMenu(event.currentTarget, callMenuItems);
@@ -2692,7 +2670,7 @@ function startChangeIcon(layoutId) {
 // Layout menu, Full screen and Pop out stay on every tab (workspaceShown). When the bar is tight
 // the tabs leave from the right into a "..." after the last one shown (tabOverflow()), which opens the shared menu
 // listing them, each with its icon; the Workspace and the tab shown never leave. That happens first, before anything
-// folds (`yieldFirst`, nav-bar.js's fitLeft; the phase chip is no longer in this bar: plan-space-status-strip.md). No tabs for a guest, in an aside, while home is shown,
+// folds (nav-bar.js's fitLeft; only Who is here, after them, gives way before they do, Thomas 2026-10-14). No tabs for a guest, in an aside, while home is shown,
 // or on a phone (640px and below: the tab bar holds the composites as module tabs). A load that leaves something out
 // says so under the tab for 6 seconds (#layout-favorites-note, seen) and to #layout-announce (heard, layoutNote).
 const layoutTabsEl = document.createElement('span');
@@ -2858,8 +2836,9 @@ layoutTabsMore.addEventListener('click', () => {
   }));
   openHostMenu(layoutTabsMore, items);
 });
-// Right after the space switcher, in the views' place (group `views`, after their phone-only entries).
-nav.register({ id: 'layout-tabs', bar: 'primary', zone: 'left', group: 'views', groupOrder: 12, order: 10, icon: 'columns', label: 'Layouts', element: layoutTabsEl, visible: layoutTabsWanted, fit: fitLayoutTabs, yieldFirst: true });
+// Right after the space switcher, in the views' place (group `views`, after their phone-only entries). Who is here, after
+// them, gives way first (its `yieldFirst`); then the tabs go into their "...", before anything on the right folds.
+nav.register({ id: 'layout-tabs', bar: 'primary', zone: 'left', group: 'views', groupOrder: 12, order: 10, icon: 'columns', label: 'Layouts', element: layoutTabsEl, visible: layoutTabsWanted, fit: fitLayoutTabs });
 // --- end the layout tabs ---
 // A toast about a space module opens it on the canvas; an environment module opens over the call.
 document.addEventListener('app:notification', (event) => {
@@ -3035,15 +3014,27 @@ function applyLayout() {
 // window shape. Sizes go into CSS variables the layouts read.
 const RATIO = 16 / 9;
 const GAP = 10;
+// Beside the chat (Call position Left) the tiles take only the height they use, from the top, with the toolbar right
+// under them (Thomas, 2026-10-14: no tile floating in a tall empty column): they are sized to the strip's whole height
+// less the toolbar, and the grid is then as tall as what they used (--grid-used-h, style.css).
 function fitTiles(grid, portrait) {
   // Ghost tiles (members stepped into an aside) are real .tile elements in
   // the grid too -- size for all of them, or the ones left out get the
   // sizing meant for a smaller crowd and spill past the grid's own edges.
   const n = tiles.size + ghostTiles.size;
   const style = getComputedStyle(grid);
+  const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
   const W = grid.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
-  const H = grid.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+  const beside = grid.closest('.side-column.call-left .side-column-strip');
+  const toolbar = beside ? beside.querySelector('.video-bar') : null;
+  const H = beside ? beside.clientHeight - (toolbar ? toolbar.offsetHeight : 0) - padY : grid.clientHeight - padY;
+  if (!beside) grid.style.removeProperty('--grid-used-h');
+  else {
+    portrait = H > W; // the room's shape, not the grid's (as tall as its tiles there)
+    grid.classList.toggle('portrait', portrait);
+  }
   if (n === 0 || W <= 0 || H <= 0) return;
+  let rowsUsed = 1;
   let w = 0;
   let h = 0;
   let sw = 0;
@@ -3076,8 +3067,15 @@ function fitTiles(grid, portrait) {
       if (tw > w) {
         w = tw;
         h = th;
+        rowsUsed = rows;
       }
     }
+  }
+  if (beside) {
+    let used = rowsUsed * Math.floor(h) + GAP * (rowsUsed - 1);
+    if (prefs.layout === 'strip') used = portrait ? n * Math.floor(h) + GAP * (n - 1) : Math.floor(h);
+    else if (prefs.layout === 'spotlight' && n > 1) used = Math.floor(h) + GAP + Math.floor(sh);
+    grid.style.setProperty('--grid-used-h', `${Math.ceil(Math.min(H, used) + padY)}px`);
   }
   grid.style.setProperty('--tw', `${Math.floor(w)}px`);
   grid.style.setProperty('--th', `${Math.floor(h)}px`);
@@ -3088,6 +3086,7 @@ function fitTiles(grid, portrait) {
 // Refit whenever the grid area changes (window resize, chat drawer, pop out).
 const refit = new ResizeObserver(() => applyLayout());
 refit.observe($('grid'));
+if ($('side-column-strip')) refit.observe($('side-column-strip')); // beside the chat the grid is as tall as its tiles: the strip says the room
 
 // Click a tile: pin it as the spotlight (click again to unpin).
 function spotlight(identity) {

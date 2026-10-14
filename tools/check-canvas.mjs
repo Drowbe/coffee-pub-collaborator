@@ -1320,8 +1320,11 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const src = start < 0 ? '' : spaceJs.slice(start, spaceJs.indexOf('const columnWin = ', start));
   if (!/function clampColumnWidth\(/.test(src) || !/function clampStripHeight\(/.test(src) || !/function splitterKey\(/.test(src)) fail(F, 'the column\'s splitters need clampColumnWidth(), clampStripHeight() and splitterKey() after COLUMN_MIN');
   else {
-    const { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor, callTilesShown, callPlaceFor, clampCallSide } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor: typeof stripHeightFor === 'function' ? stripHeightFor : null, callTilesShown: typeof callTilesShown === 'function' ? callTilesShown : null, callPlaceFor: typeof callPlaceFor === 'function' ? callPlaceFor : null, clampCallSide: typeof clampCallSide === 'function' ? clampCallSide : null };`)();
-    if (!stripHeightFor || !callTilesShown) fail(F, 'the call area needs stripHeightFor() and callTilesShown() after COLUMN_MIN (the chat keeps its share; slim in a short window)');
+    const { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor, callPlaceFor, clampCallSide } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor: typeof stripHeightFor === 'function' ? stripHeightFor : null, callPlaceFor: typeof callPlaceFor === 'function' ? callPlaceFor : null, clampCallSide: typeof clampCallSide === 'function' ? clampCallSide : null };`)();
+    if (!stripHeightFor) fail(F, 'the call area needs stripHeightFor() after COLUMN_MIN (the chat keeps its share)');
+    // No "Hide the video" (Thomas, 2026-10-14): the tiles always show, scaled to the height they get; nothing decides
+    // a slim call by the window's height any more.
+    if (/callTilesShown|SHORT_WINDOW/.test(spaceJs)) fail(F, 'no callTilesShown() or SHORT_WINDOW: the tiles always show in the column, a short window included');
     if (!callPlaceFor || !clampCallSide) fail(F, 'Call position Left needs callPlaceFor() and clampCallSide() after COLUMN_MIN');
     const cases = [
       ['a width inside the range holds', clampColumnWidth(320, 1280), 320],
@@ -1339,16 +1342,12 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       ['the call\'s toolbar and row count against the 55%', clampStripHeight(700, 800, 120), 320],
       ['a column too short still gives the least', clampStripHeight(300, 200, 120), 100],
     ];
-    if (stripHeightFor && callTilesShown) cases.push(
+    if (stripHeightFor) cases.push(
       ['the default height holds in a tall column', stripHeightFor(168, 1000, 110), 168],
       ['the default height is held to 40% of the column with its toolbar and row', stripHeightFor(168, 556, 112), 110],
       ['a height the person chose holds up to 55%', stripHeightFor(250, 676, 112), 250],
       ['a height the person chose stops at 55%', stripHeightFor(600, 676, 112), 260],
-      ['auto: the tiles show in a tall window', callTilesShown('auto', 900, 856, 112), true],
-      ['auto: slim in a short window (under 800px)', callTilesShown('auto', 720, 676, 112), false],
-      ['shown: the person\'s choice in a short window', callTilesShown('shown', 600, 556, 112), true],
-      ['slim: the person\'s choice in a tall window', callTilesShown('slim', 1080, 1036, 112), false],
-      ['too short for the least tiles: slim whatever was chosen', callTilesShown('shown', 300, 256, 112), false],
+      ['a short window (600px): the default tiles held to the least, never hidden', stripHeightFor(168, 520, 162), 100],
     );
     // Call position Left (Thomas, 2026-10-14): the call beside the chat in a column at least 560px wide; narrower, it
     // shows at the top, the choice kept (the caller keeps prefs.callPosition). The call's width there is at least 240px
@@ -1512,16 +1511,31 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/id="call-popout"[^>]*title="Pop out the call"/.test(bar)) fail('public/space.html', 'the call\'s toolbar has a visible Pop out (#call-popout, "Pop out the call")');
   if (!/id="call-place"[^>]*title="Call position"[^>]*aria-haspopup="menu"/.test(bar)) fail('public/space.html', 'Pop out\'s caret is Call position (#call-place), a menu');
   if (!/id="call-place-wrap" data-collapse="\d+"/.test(bar)) fail('public/space.html', 'Pop out folds with the rest of the toolbar (data-collapse)');
-  for (const id of ['call-out', 'call-out-note', 'call-back', 'side-column-tiles']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the column needs #${id}`);
+  for (const id of ['call-out', 'call-out-note', 'call-back']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the column needs #${id}`);
+  // No "Hide the video" (Thomas, 2026-10-14: "I am not sure we need to 'hide the video'... remove it"): no button at
+  // the end of the row, no menu entry, no slim call in the column, no toggle; a `callTiles` stored before is ignored.
+  if (/side-column-tiles|side-column-online/.test(html) || /side-column-tiles|side-column-online/.test(spaceJs)) fail('public/space.html', 'no #side-column-tiles (Hide the video) and no Online row in the column: Who is here is the top bar\'s');
+  if (/Hide the video|Show the video|toggleCallTiles|call-slim|prefs\.callTiles|callTiles: /.test(spaceJs)) fail(F, 'no Hide the video / Show the video, no toggle, no slim call, no callTiles preference read');
+  if (/call-slim|side-column-tiles/.test(css)) fail('public/style.css', 'no rules for the slim call or the Hide the video button');
+  // Beside the chat (Left) the tiles fill from the top, sized to the strip less the toolbar, the toolbar right under
+  // them: the grid is as tall as what the tiles used (--grid-used-h), never centred in a tall empty column.
+  if (!/const beside = grid\.closest\('\.side-column\.call-left \.side-column-strip'\);/.test(spaceJs) || !/const H = beside \? beside\.clientHeight - \(toolbar \? toolbar\.offsetHeight : 0\) - padY : grid\.clientHeight - padY;/.test(spaceJs) || !/grid\.style\.setProperty\('--grid-used-h'/.test(spaceJs)) fail(F, 'beside the chat fitTiles() sizes the tiles to the strip less the toolbar and sets --grid-used-h');
+  if (!/refit\.observe\(\$\('side-column-strip'\)\)/.test(spaceJs)) fail(F, 'the tiles are fitted again as the strip changes (beside the chat the grid follows its tiles)');
+  if (!/\.side-column\.call-left \.side-column-strip > \.canvas \{\s*flex: none;\s*height: auto;\s*grid-template-rows: auto auto;/.test(css) || !/\.side-column\.call-left \.side-column-strip \.grid \{\s*flex: none;\s*height: var\(--grid-used-h, auto\);/.test(css)) fail('public/style.css', 'beside the chat the tiles take their own height from the top and the toolbar sits right under them');
   if (!/id="call-back"[^>]*>[\s\S]{0,120}Bring the call back</.test(html)) fail('public/space.html', '#call-back reads "Bring the call back"');
   for (const label of ['Top of the column', 'Bottom of the column', 'Left of the chat', 'Floating window', 'Its own window']) if (!spaceJs.includes(`label: '${label}'`)) fail(F, `Call position offers "${label}"`);
   // Left is offered only in a column wide enough, and says why otherwise; the position marked is the one chosen.
   if (!/label: 'Left of the chat', hint: wide \? undefined : 'Needs a wider column', disabled: !wide, onPick: \(\) => setCallPosition\('left'\)/.test(spaceJs) || !/const wide = columnWidthNow\(\) >= CALL_LEFT_MIN;/.test(spaceJs)) fail(F, 'Left of the chat is offered in a column at least CALL_LEFT_MIN wide, else disabled with "Needs a wider column"');
   if (!/const callPlaceNow = \(\) => \(columnCollapsed\(\) \|\| inAside\(\) \? \(callAtBottom\(\) \? 'bottom' : 'top'\) : callPlaceFor\(prefs\.callPosition, columnWidthNow\(\)\)\);/.test(spaceJs)) fail(F, 'where the call shows follows the chosen position and the column\'s width now (callPlaceNow, callPlaceFor), never rewriting the choice');
   if (!/columnEl\.classList\.toggle\('call-left', left\);/.test(spaceJs)) fail(F, 'Left draws as .call-left on the column');
+  // No call area out of the call (Thomas, 2026-10-14): no titlebar and no Left column whatever position is saved (the
+  // choice kept); the chat fills the column with the Join the call row. The area comes with the call (or a call out of
+  // the column, floating or in its own window).
+  if (!/const callArea = inCall \|\| outside;\n  const chosen = callPlaceNow\(\);\n  const place = !callArea && chosen === 'left' \? 'top' : chosen;/.test(spaceJs)) fail(F, 'out of the call the column shows no Left call area (callArea), the saved position kept');
+  if (!/if \(head\) head\.hidden = !callArea \|\| where === 'closed' \|\| where === 'dock';/.test(spaceJs)) fail(F, 'out of the call the column shows no call titlebar');
   // The call's titlebar (Thomas, 2026-10-14: "why does the conf not have a titlebar like Discussion?"): a header above
   // the call in the column, named by callTitle(), with a "..." on the shared menu holding Pop out or Bring the call back,
-  // Call position, Show or Hide the video, Settings and Leave the call.
+  // Call position, Settings and Leave the call.
   const head = html.slice(html.indexOf('<header class="side-column-call-head" id="call-head">'), html.indexOf('</header>', html.indexOf('id="call-head"')));
   if (!head) fail('public/space.html', 'the column needs the call\'s titlebar (<header class="side-column-call-head" id="call-head">)');
   else {
@@ -1532,7 +1546,6 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/openHostMenu\(event\.currentTarget, callMenuItems\)/.test(spaceJs)) fail(F, 'the call\'s "..." opens on the shared menu (openHostMenu, callMenuItems)');
   const callMenu = spaceJs.slice(spaceJs.indexOf('function callMenuItems() {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function callMenuItems() {')));
   for (const [re, what] of [[/label: 'Bring the call back', onPick: bringCallBack/, 'Bring the call back'], [/label: 'Pop out the call', onPick: popOutCall/, 'Pop out the call'], [/\.\.\.callPlaceItems\(\)/, 'Call position'], [/label: 'Settings', onPick: \(\) => setTimeout\(\(\) => openSettings\('more'\), 0\)/, 'Settings (the toolbar\'s gear)'], [/label: 'Leave the call', danger: true, onPick: \(\) => \$\('hangup'\)\.click\(\)/, 'Leave the call (Hang up)']]) if (!re.test(callMenu)) fail(F, `the call's "..." offers ${what}`);
-  if (!/label: shown \? 'Hide the video' : 'Show the video', onPick: toggleCallTiles/.test(spaceJs)) fail(F, 'Call position\'s menu shows or hides the video, saying which');
   if (!/onShown: \(def\) => \{ showBuiltinName\(def\); setCallHead\(def\); \}/.test(spaceJs) || !/name\.textContent = callTitle\(def\.name\);/.test(spaceJs)) fail(F, 'the call\'s titlebar follows the environment\'s name for the conference (setCallHead, callTitle)');
   if (!/\.side-column-call-head \{[^}]*height: var\(--module-header-h\);[^}]*border-bottom: 1px solid var\(--border\);/.test(css)) fail('public/style.css', 'the call\'s titlebar is drawn as the chat\'s (the module header\'s height, the border token)');
   if (!/heading: 'Call position'/.test(spaceJs)) fail(F, 'Call position is the menu\'s heading');
@@ -1543,7 +1556,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/callOutEl\.querySelector\('#call-back'\)\.addEventListener\('click', bringCallBack\)/.test(spaceJs)) fail(F, '#call-back brings the call back (bringCallBack)');
   if (!/function hangUp\(\) \{[\s\S]{0,400}canvas\.returnBuiltin\('conference'\)/.test(spaceJs)) fail(F, 'Hang up brings a call out of the column back to it');
   if (!/if \(prefs\.callFloat && callWhere\(\) === 'column'\) canvas\.liftBuiltin\('conference', true, 'person'\)/.test(spaceJs)) fail(F, 'Floating window, remembered (prefs.callFloat), floats the call as they join');
-  if (!/callPosition: 'top', callFloat: false, callTiles: 'auto'/.test(spaceJs)) fail(F, 'the call\'s place is remembered per person (prefs.callPosition, callFloat, callTiles)');
+  if (!/callPosition: 'top', callFloat: false,\n/.test(spaceJs)) fail(F, 'the call\'s place is remembered per person (prefs.callPosition, callFloat), and no callTiles any more');
   if (!/if \(open && mode === 'window'\) keepPoppedVideosLive\(\);/.test(spaceJs)) fail(F, 'the call in its own window keeps its videos live (keepPoppedVideosLive)');
   // canvas.js: the window is the conference's own element (openBuiltinWindow); closing it puts it back in the column.
   if (!/function popBuiltin\(id\) \{[\s\S]*?openBuiltinWindow\(def, \{ moving: true \}\)[\s\S]*?\.popped = true;/.test(canvasJs)) fail('public/canvas.js', 'popBuiltin() moves the element into its window (openBuiltinWindow, moving) and marks it the column\'s');

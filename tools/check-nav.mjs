@@ -664,9 +664,11 @@ test('the layout tabs (plan-layout-views.md, steps 2 and 3): after the switcher 
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
-  // One element tool in the views' group, right after the switcher (group `where`); fitted first (`yieldFirst`), so the
-  // favorites give way before anything folds. The phase chip is not in the top bar (plan-space-status-strip.md, step 1).
-  assert.match(space, /nav\.register\(\{ id: 'layout-tabs', bar: 'primary', zone: 'left', group: 'views', groupOrder: 12, order: 10, icon: 'columns', label: 'Layouts', element: layoutTabsEl, visible: layoutTabsWanted, fit: fitLayoutTabs, yieldFirst: true \}\);/);
+  // One element tool in the views' group, right after the switcher (group `where`); the favorites give way before
+  // anything folds, after Who is here (the one `yieldFirst` there, Thomas 2026-10-14). The phase chip is not in the top
+  // bar (plan-space-status-strip.md, step 1).
+  assert.match(space, /nav\.register\(\{ id: 'layout-tabs', bar: 'primary', zone: 'left', group: 'views', groupOrder: 12, order: 10, icon: 'columns', label: 'Layouts', element: layoutTabsEl, visible: layoutTabsWanted, fit: fitLayoutTabs \}\);/);
+  assert.ok(!/id: 'layout-tabs'[^\n]*yieldFirst/.test(space), 'the tabs give way after Who is here, not before it');
   assert.ok(!/id: 'phase-chip', bar: 'primary'/.test(space), 'the chip is not in the top bar');
   assert.ok(!/nav\.register\(\{ [^\n]*bar: 'primary'[^\n]*element: (phaseChip|statusStrip)/.test(space), 'nor is the strip');
   assert.equal((space.match(/fit: fitLayoutTabs/g) || []).length, 1, 'the layout tabs are the top bar\'s one left-zone tool that gives way');
@@ -940,6 +942,30 @@ test('the space bar in two zones: Layout (the module chooser), then Online, on t
   // The phone's tab bar: Online's count follows the tabs in the left zone, no divider there.
   assert.match(css, /body\.in-space \.subnav \.nav-left > \.who-here \{\s*align-self: stretch;/);
   assert.match(css, /body\.in-space \.subnav \.nav-left > \.nav-divider \{\s*display: none;/);
+});
+
+test('Who is here in the top bar (Thomas, 2026-10-14): the space\'s, after the layout tabs, giving way first; the tab bar\'s count on a phone; out of the column', () => {
+  const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
+  const people = fs.readFileSync(path.join(ROOT, 'public/space-people.js'), 'utf8');
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  // Wider than a phone: an element tool at the end of the top bar's left zone, with its fit, giving way first.
+  assert.match(space, /const whoHereTop = \{ id: 'who-here', bar: 'primary', zone: 'left', group: 'people', groupOrder: 13, order: 1, icon: 'user-group', label: 'Who is here', element: whoHere\.el, fit: whoHere\.fit, yieldFirst: true, visible: whoHereTopWanted \};/);
+  // In a space, call or no call; not while Home shows, not in an aside, not on a phone (the tab bar has it there).
+  assert.match(space, /const whoHereTopWanted = \(\) => Boolean\(currentSpace\) && !viewingHome && !inAside\(\) && call\.state === 'connected' && !phoneWidth\(\);/);
+  assert.ok(!/inCall/.test(space.match(/const whoHereTopWanted = [^\n]*/)[0]), 'it does not wait for the call');
+  // The top bar wider than a phone, the tab bar on a phone: the same element, registered where it goes.
+  assert.match(space, /const people = wide \? whoHereTop : whoHereBar;\n  if \(nav\.get\('who-here'\)\?\.bar !== people\.bar\) nav\.register\(people\);/);
+  // The groups in drawing order: the switcher, the layout tabs, then Who is here.
+  const left = arrange([{ id: 'who-here', group: 'people', groupOrder: 13, order: 1, seq: 9 }, { id: 'layout-tabs', group: 'views', groupOrder: 12, order: 10, seq: 5 }, { id: 'space-switcher', group: 'where', order: 9.5, seq: 2 }]);
+  assert.deepEqual(left.flat().map((t) => t.id), ['space-switcher', 'layout-tabs', 'who-here']);
+  // Not in the call's column any more.
+  assert.ok(!/side-column-online/.test(html + space + css), 'no Online row in the column');
+  assert.ok(!/\.side-column-online'\)\.appendChild\(whoHere\.el\)/.test(space));
+  // Its name is "Who is here"; how many is its description; its list escapes the top bar's clipped left zone.
+  assert.match(people, /aria-label="Who is here" aria-describedby="who-here-said"/);
+  assert.match(css, /\.topbar > \.nav-left > \.who-here \.who-here-list \{\s*position: fixed;/);
+  assert.match(people, /listEl\.style\.left = `\$\{Math\.round\(x - box\.left\)\}px`;/, 'placed from where the list starts, absolute or fixed');
 });
 
 test('Join the call (GitHub #165): in the space bar\'s left zone, Layout, then Join the call, then Online', () => {

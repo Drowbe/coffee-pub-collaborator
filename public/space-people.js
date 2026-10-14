@@ -1,7 +1,8 @@
-// Who is here (Online, plan-two-zone-nav.md): the space bar's left zone, after the Layout button, shows everyone in this space right now (you among them), as a short row of
+// Who is here (plan-two-zone-nav.md; the top bar's since Thomas, 2026-10-14): everyone in this space right now (you among them), as a short row of
 // square portraits and who they are in a few words ("You and Alex", "You and 3 others", "5 in this space"), with a
 // camera mark on those on the call. Clicking it (or Enter or Space) opens the
 // list under it: each person's portrait and name, "(you)", and "on the call". In an aside it shows the aside's people.
+// Its accessible name is "Who is here"; how many are here and on the call is its description (and its tooltip).
 //
 // The source is the call itself (the page's LiveKit connection, open while it is in a space: everyone in a space is
 // connected, `call: 'off'` until they join): the local participant and the remote ones, never a hidden one (an OBS
@@ -89,8 +90,8 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   const el = doc.createElement('span');
   el.className = 'who-here';
   el.innerHTML = `
-    <button class="who-here-toggle" id="who-here-toggle" type="button" aria-expanded="false" aria-controls="who-here-list">
-      <span class="who-here-faces" aria-hidden="true"></span><span class="who-here-more" aria-hidden="true" hidden></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span>
+    <button class="who-here-toggle" id="who-here-toggle" type="button" aria-label="Who is here" aria-describedby="who-here-said" aria-expanded="false" aria-controls="who-here-list">
+      <span class="who-here-faces" aria-hidden="true"></span><span class="who-here-more" aria-hidden="true" hidden></span><i class="fa-solid fa-user-group fa-fw who-here-icon" aria-hidden="true"></i><span class="who-here-count" aria-hidden="true"></span><span class="visually-hidden" id="who-here-said"></span>
     </button>
     <section class="who-here-list" id="who-here-list" tabindex="-1" aria-labelledby="who-here-title" hidden>
       <h3 class="who-here-title" id="who-here-title"></h3>
@@ -177,7 +178,9 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     el.classList.toggle('count-only', k === 0);
     const { shown, said } = hereWords(people, where());
     countEl.textContent = compact ? shown : hereLabel(people, where())[wording];
-    toggle.setAttribute('aria-label', `${said}. Show who is here`);
+    // Its name is "Who is here" wherever it is; how many, and how many on the call, is its description.
+    const saidEl = el.querySelector('#who-here-said');
+    if (saidEl.textContent !== said) saidEl.textContent = said;
     toggle.title = said;
   }
 
@@ -224,7 +227,8 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
   // button when the bar is in the top half (the space bar, the tab bar at the top of a narrow pop-out), above it when
   // in the bottom half (a phone's tab bar), centred on the button and kept inside the window's left and right edges,
   // no taller than the height it has there (the list scrolls). The numbers are the window's, turned into offsets from
-  // the tool itself (the list is positioned in it).
+  // where the list starts (measured at left and top 0): the tool itself where it is positioned in it, or the window
+  // where it is fixed (the top bar, whose left zone clips what hangs out of it; style.css).
   const EDGE = 8;
   const GAP = 6;
   const MAX_LIST = 320; // the stylesheet's own cap (max-width: min(320px, ...)), kept when the window is wide
@@ -241,9 +245,8 @@ export function createWhoHere({ doc = document, call, events = {}, meOnCall = ()
     const box = listEl.getBoundingClientRect();
     const x = Math.max(EDGE, Math.min(t.left + t.width / 2 - box.width / 2, W - box.width - EDGE));
     const y = up ? Math.max(EDGE, t.top - GAP - box.height) : t.bottom + GAP;
-    const at = el.getBoundingClientRect();
-    listEl.style.left = `${Math.round(x - at.left)}px`;
-    listEl.style.top = `${Math.round(y - at.top)}px`;
+    listEl.style.left = `${Math.round(x - box.left)}px`;
+    listEl.style.top = `${Math.round(y - box.top)}px`;
   }
 
   let outside = null;

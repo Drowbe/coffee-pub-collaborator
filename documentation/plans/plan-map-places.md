@@ -2,7 +2,9 @@
 
 **Audience:** Thomas, who decided that the space-level Maps and Places become one thing and confirms the assumptions below; the try builders (server-development for step 1, experience-design for steps 2 to 4); content-manager when a production build lands it.
 
-**Status:** drafted 2026-10-13 by product-planner from Thomas's decisions, with Thomas away; nothing approved as built. Thomas's direction: the same shape as [plan-calendar-todo](plan-calendar-todo.md): the global Map (`public/destination.js`, MapLibre and PMTiles, the place search with Photon) merged with Places into one module; the environment aggregate with a toggle per space and a space's own; markers and filters; stored keys and links kept; the module bus actions and the Planner's links to places kept; the environment Map parked in the profile menu for now; existing layouts keep working. This plan fills the Map view of [plan-one-bar](plan-one-bar.md).
+**Status:** partly built, 2026-10-13. Steps 1 to 3 built (the destination at space scope, the parts in a space, one Map on the Workspace). Step 4, the entries, came as the Map layout tab ([plan-layout-views](plan-layout-views.md)) and **Global Map** in the profile menu, not as a view in the one bar. Since then: one add-a-place flow and editable Place categories.
+
+**Status when drafted:** drafted 2026-10-13 by product-planner from Thomas's decisions, with Thomas away; nothing approved as built. Thomas's direction: the same shape as [plan-calendar-todo](plan-calendar-todo.md): the global Map (`public/destination.js`, MapLibre and PMTiles, the place search with Photon) merged with Places into one module; the environment aggregate with a toggle per space and a space's own; markers and filters; stored keys and links kept; the module bus actions and the Planner's links to places kept; the environment Map parked in the profile menu for now; existing layouts keep working. This plan fills the Map view of [plan-one-bar](plan-one-bar.md).
 
 ## What exists today
 

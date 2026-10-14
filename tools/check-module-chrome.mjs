@@ -235,7 +235,7 @@ test('the host: no old bar; bar.set folds into the "+", add.set\'s list wins, a 
 });
 
 test('the "+" and the status bar as drawn: names, the shared menu, the live node, focus back to the "+"', () => {
-  assert.match(host, /import \{ cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer \} from '\/module-chrome\.js';/);
+  assert.match(host, /import \{ cleanAddEntries, addPlan, addMenuItems, foldBarItems, cleanStatusItems, statusKey, statusTitle, statusSpoken, statusFit, createAnnouncer, topmostAt, toolbarKey, focusedToolbarKey, restoreToolbarFocus \} from '\/module-chrome\.js';/);
   assert.match(host, /openHostMenu\(addButton, \(\) => addMenuItems\(addEntries, \(id\) => send\('add', \{ id \}\)\)\)/, 'several: the shared menu');
   assert.match(host, /if \(now\.kind === 'direct'\) \{ if \(!now\.leaf\.disabled\) send\('add', \{ id: now\.leaf\.id \}\); return; \}/, 'one: at once');
   assert.match(host, /addButton\.setAttribute\('aria-label', label\);/);
@@ -339,6 +339,56 @@ test('the titlebar\'s height: 34px wider than a phone, 42px on one, no padding a
   const canvas = read('public/canvas.js');
   assert.ok(!/HEAD_H = 42/.test(canvas), 'no fixed titlebar height');
   assert.ok(canvas.includes("getPropertyValue('--module-header-h')"), 'the token, read where it is used');
+});
+
+// Issue #60: the drop lands on what is on top, not on the first module mounted.
+test('the drop target is the topmost visible module at the point', () => {
+  const box = (l, t, r, b) => ({ left: l, top: t, right: r, bottom: b });
+  const polls = { id: 'polls', rect: box(0, 0, 400, 300), z: 1, order: 0, visible: true };
+  const calendar = { id: 'calendar', rect: box(100, 50, 500, 350), z: 2, order: 1, visible: true };
+  assert.equal(R.topmostAt([polls, calendar], 200, 100).id, 'calendar', 'both under the point: the higher one, whatever the mount order');
+  assert.equal(R.topmostAt([calendar, polls], 200, 100).id, 'calendar', 'the order of the list does not matter');
+  assert.equal(R.topmostAt([polls, calendar], 50, 20).id, 'polls', 'the point only inside the lower one');
+  assert.equal(R.topmostAt([polls], 200, 100).id, 'polls', 'one module under the pointer is unchanged');
+  assert.equal(R.topmostAt([polls, { ...calendar, visible: false }], 200, 100).id, 'polls', 'a hidden one never wins');
+  assert.equal(R.topmostAt([polls, { ...calendar, rect: box(100, 50, 500, 350) }], 450, 340).id, 'calendar');
+  assert.equal(R.topmostAt([polls, calendar], 900, 900), null, 'nothing there');
+  assert.equal(R.topmostAt([{ ...polls, z: 3 }, { ...calendar, z: 3, order: 5 }], 200, 100).id, 'calendar', 'a tie goes to the later one');
+  const cover = { id: null, blocks: true, rect: box(100, 50, 500, 90), z: 9, visible: true };
+  assert.equal(R.topmostAt([polls, cover], 200, 60).id, null, 'a window titlebar on top covers the module under it');
+  const host = read('public/module-host.js');
+  assert.ok(/function ptrTarget[\s\S]*?elementsFromPoint[\s\S]*?topmostAt\(/.test(host), 'ptrTarget reads the page\'s stacking');
+});
+
+// Issue #155: a toolbar drawn again keeps the keyboard on the same control.
+test('a toolbar redraw puts focus back on the same control', () => {
+  const makeRow = () => {
+    const doc = { activeElement: null };
+    const row = { ownerDocument: doc, kids: [], contains(el) { return this.kids.includes(el); }, querySelectorAll() { return this.kids; } };
+    const add = (key) => { const el = { dataset: { tbKey: key }, disabled: false, focus() { doc.activeElement = el; } }; row.kids.push(el); return el; };
+    return { row, doc, add };
+  };
+  const { row, doc, add } = makeRow();
+  const open = add(R.toolbarKey('tab', 'status', 'open'));
+  add(R.toolbarKey('tab', 'status', 'closed'));
+  open.focus();
+  const key = R.focusedToolbarKey(row);
+  assert.equal(key, 'tab:status:open');
+  row.kids = []; // the row is cleared and drawn again: new elements
+  const again = add(R.toolbarKey('tab', 'status', 'open'));
+  add(R.toolbarKey('tab', 'status', 'closed'));
+  doc.activeElement = null;
+  assert.ok(R.restoreToolbarFocus(row, key));
+  assert.equal(doc.activeElement, again, 'the same choice has the focus');
+  doc.activeElement = { dataset: {} };
+  assert.equal(R.focusedToolbarKey(row), null, 'focus outside the row is left alone');
+  assert.equal(R.restoreToolbarFocus(row, null), false);
+  const host = read('public/module-host.js');
+  const set = host.slice(host.indexOf("async 'toolbar.set'"), host.indexOf('// The module\'s tools in the nav bars'));
+  assert.ok(set.indexOf('focusedToolbarKey(toolbar)') > -1 && set.indexOf('focusedToolbarKey(toolbar)') < set.indexOf("toolbar.textContent = ''"), 'focus is read before the row is cleared');
+  assert.ok(set.indexOf('restoreToolbarFocus(toolbar, focusKey)') > set.indexOf("toolbar.hidden = clean.length"), 'and put back after it is drawn');
+  assert.ok(/b\.setAttribute\('aria-pressed', String\(opt\.id === item\.value\)\)/.test(set), 'a switch choice says whether it is pressed');
+  assert.ok(/tbKey = toolbarKey\('tab'/.test(set) && /tbKey = toolbarKey\('btn'/.test(set) && /tbKey = toolbarKey\('range'/.test(set), 'every control carries its key');
 });
 
 if (failures.length) {

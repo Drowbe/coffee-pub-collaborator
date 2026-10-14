@@ -50,13 +50,6 @@ The words on those pages say Collaborator. GitHub #110.
 
 Workaround: none.
 
-## Opens with can show an older list after a failed save
-
-In a space's settings, **Opens with** saves each switch as you click. If one save fails while later clicks are
-still waiting to be saved, the switches can show an older list than the one the server kept. Seen on 2026-09-30.
-
-Workaround: reload the page to see what is saved.
-
 ## Opens with notes a module with no canvas as off in this space
 
 A module that has no canvas at all, such as Stream, can be on a space's saved **Opens with** list when it was
@@ -71,25 +64,6 @@ A module on a space's saved **Opens with** list that has since been uninstalled 
 installed)", under its id rather than its name. Seen on 2026-09-30.
 
 Workaround: none; switch it off to take it off the list.
-
-## Snapped modules come back small after a reload
-
-With **Snap every floating module to a grid** on, modules the switch tiled come back at their smallest size after
-the page is reloaded: two modules of about 684 by 394 pixels come back at about 280 by 180. A module that is closed
-and opened again does the same. After either, moving **Grid size** back no longer returns the sizes the modules had
-before. Seen on 2026-09-30; it is older than the grid size keeping modules apart.
-
-Workaround: resize the modules, or turn **Snap every floating module to a grid** off and on again, which tiles
-them across the canvas.
-
-## Resizing the window can leave snapped modules overlapping
-
-Resizing the window re-fits snapped modules to the grid the new size makes, and forgets where they were put. At a
-narrow width they can overlap, and they stay small and overlapping when the window grows again, until the grid size
-changes or they are dragged. Moving **Grid size** back then returns the sizes from the narrow window, not the ones
-from before. Seen on 2026-09-30; it is older than the grid size keeping modules apart.
-
-Workaround: move **Grid size** once, which settles them apart, or drag them apart.
 
 ## The bell's notices don't open what they are about, and there are no mentions
 
@@ -120,3 +94,54 @@ markers exist before it writes them, and they are expected; nothing is wrong and
 kind picker (Planner 0.15.1) and are noise to ignore when reading the console.
 
 Workaround: none needed.
+
+## Phases can look stale for up to 30 seconds, and for an admin who is not a member
+
+The Calendar asks for a space's phases every 30 seconds to notice an edit, because modules are not told when a phase
+changes. A phase edited in Set up can take up to 30 seconds to show on the Calendar. An admin who is not a member of
+the space does not get the update at all and sees the old phases until the page is reloaded. GitHub #283 (a
+phase-change event for modules).
+
+Workaround: reload the page.
+
+## The Calendar's Day view can scroll by itself at phone width
+
+At 390 pixels wide, the Calendar's Day view can scroll by itself, away from where you were. The phase bar now stays
+in sight as you scroll (Calendar 1.24.9). Related: GitHub #287.
+
+Workaround: scroll back to the place you want.
+
+## A blocked pop-up leaves the call area empty
+
+**Call position** set to **Its own window** needs a browser that allows pop-ups for Collaborator. When the browser
+refuses the window, the call area can be left empty with no message and no retry. GitHub #288.
+
+Workaround: allow pop-ups for the site and choose **Its own window** again, or choose another **Call position**.
+
+## Narrow bands in the status strip hide their icon and label
+
+A phase that lasts only a few days is a narrow band in the status strip. When the band is too narrow, its icon and
+label are not drawn; the band's colour still shows.
+
+Workaround: open the phase sheet (choose the chip) to read every phase and its dates.
+
+## Home's chat is for signed-in people only
+
+A guest who enters by a guest link to the Home page does not see Home's chat. Whether guests should, and how, is
+undecided. GitHub #289.
+
+Workaround: none; guests chat inside the spaces they are let into.
+
+## Places saved before a picture map keep their old positions
+
+When an owner sets a picture map, places already saved keep the real-world positions they had. They are not moved, so
+they may sit in the wrong place on the picture. Places added after the picture map is set are placed on the picture.
+
+Workaround: edit each place and set its **Position** on the picture with the target button, or clear the picture map.
+
+## The pop-out call needs a browser that allows pop-ups
+
+**Its own window** opens the call with `window.open`. A browser that blocks pop-ups, or an installed app that
+restricts them, cannot show it (see the entry above for what is left on the page).
+
+Workaround: allow pop-ups for Collaborator.

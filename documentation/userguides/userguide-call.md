@@ -8,115 +8,132 @@ a module or an aside something else; the buttons and menus follow its words (see
 
 ## Enter a space and join the call
 
-The space list shows the spaces you belong to. **Enter** (or the word your environment uses in its place) is one
-click, and puts you in the space: the top bar stays,
-now naming the space you are in after **Spaces** ("› Disneyland"; see "The top bar" in [Spaces](userguide-spaces.md)), with the space bar under it (see below), and what the space opens with fills the
-middle. Entering never puts you in the call, and nothing asks for your microphone until you join.
+Home lists the spaces you belong to. **Enter** (or the word your environment uses in its place) is one click, and
+puts you in the space: the top bar stays, now naming the space you are in (see "The top bar" in
+[Spaces](userguide-spaces.md)), with the status strip under it when the space has phases, the call and the chat in a
+column at the left, and the Workspace beside them. Entering never puts you in the call, and nothing asks for your
+microphone until you join.
 
 Who can: anyone whose role allows **See and join the conference**, while the owner has not switched the conference
 off.
 
-To join the call, press **Join the call** in the space bar: it shows the Conference and joins in one press. Or:
+To join the call, press **Join the call**, the green phone, in the column above the chat. Your browser asks for your
+microphone. You join with your camera off; turn it on whenever you're ready. If you are not in the call, the column
+shows nothing else of it: no video area, only the chat.
 
-1. If the Conference is not showing, click **Layout** in the space bar and switch **Conference** on. It shows
-   **Not in a call**, with who is on the call now under **Currently on the call** ("No one is on the call yet. Be
-   the first to join." when nobody is).
-2. Click **Join the call**, or the green phone on the toolbar (its tooltip reads "Join the call").
-3. Your browser asks for your microphone. You join with your camera off; turn it on whenever you're ready. (This
-   note is under the button.)
+If the environment's plan allows only so many calls at once and they are all running elsewhere, the column says so
+under the button, for example "This environment's plan allows 1 call at once; one is running in The Keep". It names the
+space only if you belong to it; otherwise it says "one is running in another space" or "one is running in an aside".
+Joining a call that is already running is never refused. If the server does not answer, it says "Could not reach the
+server to join the call. Try again in a moment."
 
-If the environment's plan allows only so many calls at once and they are all running elsewhere, **Not in a call**
-says so, for example "This environment's plan allows 1 call at once; one is running in The Keep". It names the space only
-if you belong to it; otherwise it says "one is running in another space" or "one is running in an aside". Joining a
-call that is already running is never refused. If the server does not answer, it says "Could not reach the server to
-join the call. Try again in a moment."
+Once you are in the call, its tiles appear at the top of the column, with the call's own titlebar over them and the
+toolbar under them.
 
-In the call the tiles fill the middle, and a bar of controls sits at the bottom edge.
+Keys: **M** microphone, **D** deafen, **V** camera, **S** share screen, **C** collapse or open the column, **R**
+reactions, **L** change the tiles, **F** full screen, **1** to **6** send a reaction.
 
-Left to right, the bar holds: microphone (with a live level meter inside the button), deafen, camera,
-share screen, layout, away, reactions, settings, the space's launch link if it has one, and hang up.
-Keys: **M** microphone, **D** deafen, **V** camera, **C** chat, **R** reactions, **L**
-layout, **1** to **6** send a reaction. As the window narrows, buttons tuck under a **More** button (the three-dot button): the extras first, then chat, then camera, then the microphone. At its smallest the bar is just **More** and leave. On a narrow window, such as a phone, opening chat puts the conference in a strip above the chat, with the toolbar under both.
+## The column: the call and the chat, always on
 
-## The space bar
+Wider than a phone (more than 640 pixels), the call and the chat are not modules you switch on. They are in a column
+beside the Workspace in every layout tab, whichever one is shown. From top to bottom:
 
-The bar under the top bar belongs to the space you are in. The space's name is in the top bar, not here. From left
-to right:
+- **The call**, once you have joined: its titlebar, the tiles, and the toolbar. Out of the call this is just the
+  **Join the call** row.
+- **The chat**, with its **Discussion | Assistant** tabs (see [Chat](userguide-chat.md)).
 
-- **Layout** (or the word your environment uses for it). Click it to open a panel with two parts. Under **Show**
-  are switches for the Conference, the Chat and each module on in the space: switch one on to show it on the
-  canvas, off to hide it. A count shows what is unread, on the switch and on the button. Under **Arrange**:
-  - **Dock all** puts every floating module back beside the call, as many as the window has columns for.
-  - **Clean up** tidies the floating modules: each is moved fully onto the canvas so none overlap, keeping its
-    size where it fits. With **Snap to a grid** on, each keeps its size in cells wherever a place exists, and only
-    one with no place is made smaller. Clean up again changes nothing. Docked modules and modules in their own window stay as they are, and the new
-    places are remembered.
-  - **Snap to a grid** puts every module that can float on a grid (see below), and **Grid size**, shown while it
-    is on, sets how fine the grid is.
+Who is here is not in the column; it is in the top bar (see "Who is here" below).
 
-  Under **Layouts**, save and load named layouts (see "Saved layouts" below).
+**Make the column wider or narrower.** Drag its right edge, or focus the edge and use the Left and Right arrows (Shift
+for bigger steps, Home and End for the least and the most, double-click or Shift and Enter for the default). The
+column can take up to the whole window; the Workspace then has no room, and the handle folds the column away again. The
+width is remembered.
 
-  The panel stays open while you use it; click **Layout** again, press Escape or click elsewhere to close it. With
-  the keyboard, Tab moves through it, the arrow keys move between switches (and move the slider), and Space or
-  Enter flips a switch or presses a button. On a phone there is no **Layout** button: the modules are tabs along
-  the bottom.
-- **Your favorite layouts**, right after **Layout**: a button for each layout you have made a favorite, with a heart
-  and its name. Press one to load that layout (see "Favorite layouts" below).
-- **Join the call**, with a green phone, while you are not on the call: one press shows the Conference if it is hidden and joins. It is gone while you are on the call. In an aside it joins the aside's call. On a phone it is a **Join** tab in the tab bar.
-- **Online**, after them: who is here, as small square pictures of the people in the space, you first, up to four, then
-  "+2" for the rest, and who they are in a few words: "Just you", "You and Alex", "You, Alex and Sam" or "You and 4
-  others". A camera mark is on those on the call. Click it for the list, headed "In this space (5)": everyone here,
-  you first with "(you)", and the camera with "on the call" beside those on it. It changes as people come, go, join
-  and hang up.
-- The space's tools, at the right: **Full screen**, **Pop out**,
-  **Pull participants back** or **Rejoin call** during an aside, a module's own tools, and **Leave space** last.
+**Fold the column.** The small arrow at the column's top right (or **C**) folds it to a narrow rail that shows the
+faces of the people on the call and the chat's unread count. Press the chat button on the rail to open it again. The
+column never closes, and it is remembered for each space.
 
-When the window is too narrow for everything, your favorite layouts give way first: their names get shorter, then
-the last one leaves the bar (they are still in **Layout ▾**, marked with a heart). Then Online says how many instead of who ("5 in this space"),
-then shows fewer pictures, then only an icon and the count ("5 here"). Then the tools
-fold into a **…** button (**More**) just before **Leave space**: **Pop out** first, then **Full screen**, a
-module's own tools, **Rejoin call** and **Pull participants back**. Click **…** to use them. **Leave space**,
-**…** and **Layout** never fold, and neither do your favorite layouts.
+**Size the call.** Drag the line between the tiles and the chat, or use the Up and Down arrows on it, to make the tiles
+taller or shorter. The video can take at most a little over half the column, so the chat always keeps at least 45 percent of it; in a
+short window the tiles scale down. The height is remembered.
 
-On a phone, in a window 640 pixels wide or narrower, and in a popped-out window that narrow, the space bar is a
-row of tabs at the bottom of the page. Left to right:
+In an aside the column is the whole screen. At 640 pixels wide and below there is no column: see "On a phone".
 
-- the module tabs that fit, each at least 56 pixels wide; the tab you are looking at always stays;
-- **Join**, while you are not on the call;
-- how many are here ("5 here"); tap it for the list, which opens upward;
-- **Rejoin**, in an aside;
-- **…** (**More**), only when something is in it: the tabs that didn't fit, a line, then **Pull participants back**
-  and the modules' own tools. In a narrow pop-out it also holds **Full screen** ("Exit full screen" while on) and
-  **Pop it back in**. Its badge adds up the unread counts of what it holds. If the Conference's tab is in it while
-  you are on the call, **…** shows the green dot, red while your microphone is live;
-- **Leave space**, always inside the window.
+## The call
 
-In a narrow pop-out the bar sits on the header's second row and slides away with the header when you are idle.
+Once you are in the call, the area at the top of the column has:
+
+- **A titlebar.** It reads the environment's name for the conference, else **Call**, and has a **⋮** menu. The menu
+  has **Pop out the call** (or **Bring the call back**), **Call position** (below), and, while you are in the call,
+  **Settings** and **Leave the call**.
+- **The tiles.** Everyone on the call as a tile (see "Tiles" below).
+- **The toolbar.** Left to right: the microphone (with a live level meter inside the button), deafen, camera, share
+  screen, **Tiles**, **Pop out the call** (with a small arrow beside it for **Call position**), away, reactions,
+  settings, the space's launch link if it has one, and hang up. As the column narrows, buttons tuck under a **More**
+  button (the three-dot button): the launch link first, then settings, reactions, share screen, away, Tiles, deafen and
+  pop out, then the camera and the microphone last. Hang up never folds. A tooltip names each button and its key.
+
+Out of the call there is no call area at all, whatever **Call position** is saved; it comes back when you join.
+
+### Call position
+
+**Call position** chooses where the call sits. It is on the arrow beside **Pop out the call** on the toolbar, in the
+call's **⋮** menu, and in Chat's **⋮** menu. The choices:
+
+- **Top of the column**, the default: the call over the chat.
+- **Bottom of the column**: the chat over the call.
+- **Left of the chat**: the call beside the chat, each as tall as the column. It needs a column at least 560 pixels
+  wide (the choice is marked, but says "Needs a wider column" until the column is wide enough, and the call sits at the
+  top meanwhile). Drag the line between them to change the call's width.
+- **Floating window**: the call floats over the Workspace as a window you can drag and resize. The column then shows a
+  slim strip with the microphone, deafen, camera and hang up, and **Bring the call back**.
+- **Its own window**: the call moves into a window of its own, with the chat and the modules staying on the page. The
+  call keeps its connection; nobody joins twice. The column shows the same slim strip. Closing that window brings the
+  call back. Your browser may ask you to allow pop-ups the first time.
+
+Top, bottom, left and floating are remembered; its own window is not (a window opens only when you press the button).
+**Pop out the call** on the toolbar does the same as **Its own window**, and becomes **Bring the call back** while the
+call is out of the column. Hang up brings the call back too. A screen share lifts the call into the Workspace as a
+floating window while anyone shares a screen, and puts it back when the last share ends.
+
+### Tiles
+
+Choose how the tiles are laid out with the **Tiles** button (or **L**): grid, strip or spotlight. Grid shows everyone
+equally. Strip is one row, or one column when the area is taller than wide. Spotlight is one big tile with the rest
+small; it follows whoever is speaking unless you click a tile to pin it. Drag tiles into any order. The choice, the
+order and the pin are remembered in your browser.
+
+## Who is here
+
+At the end of the top bar's left side, after the layout tabs, is who is in the space now: small square pictures of the
+people here, you first, up to four, then "+2" for the rest, and who they are in a few words: "Just you", "You and Alex",
+"You, Alex and Sam" or "You and 4 others". A camera mark is on those on the call. Click it for the list, headed "In this
+space (5)": everyone here, you first with "(you)", and the camera with "on the call" beside those on it. It changes as
+people come, go, join and hang up.
+
+It belongs to the space, not to the call: it shows whether or not you are on the call, and not in an aside. When the bar
+is short of room it gives way first: it says how many instead of who ("5 in this space"), then shows fewer pictures, then
+only an icon and the count ("5 here").
 
 ## What opens when you enter
 
-Each space remembers the modules you had open when you last used it, in which mode (docked, floating or in
-a window), and how big, and opens them again when you enter. The first time, a space opens what its owner chose
-under **Opens with**, else what the environment sets for a new space, else the chat and every module on in the
-space, without the conference. A guest with nothing set gets the conference and the chat. Whatever opens, the Conference
-opens out of the call, showing **Not in a call**. Switching the Conference off is remembered too, so switch it off
-and leave, and the space opens without it next time; the **Open with** button on the space list changes what opens
-before you enter (see [Spaces](userguide-spaces.md)).
+Each space remembers the modules you had open when you last used it, in which mode (docked, floating or in a window),
+and how big, and opens them again when you enter. The first time, the space's **First visit** setting decides (see
+"Set up" in [Spaces](userguide-spaces.md)). The call is never joined by entering.
 
 ## Leaving the call, staying in the space
 
-The red hang-up button on the toolbar leaves the call, not the space. Your microphone and camera stop, you stop
-receiving anyone's audio and video, and your tile disappears for everyone else, but you stay in the space and stay
-online, with the chat and the modules still open. The Conference stays, showing **Not in a call**, and the phone
-turns green to join again. Switching the Conference off in **Layout**, or closing it with its x, also leaves the
-call, so nobody is left on the call with the Conference hidden. The space's own **Leave space** button, at the right
-of the space bar, is what leaves the space. The status line reads "in <space>" whether or not you are on the call.
-If nothing at all is open, the canvas says so. In a pop-out window, hang up brings the app back to the page first.
+The red hang-up button on the toolbar, or **Leave the call** in the call's menu, leaves the call, not the space. Your
+microphone and camera stop, you stop receiving anyone's audio and video, and your tile disappears for everyone else, but
+you stay in the space and stay online, with the chat and the modules still open. The call area goes away and
+**Join the call** is back. The space's own **Leave space**, the last entry of the space's menu in the top bar, is
+what leaves the space. The status line reads "in <space>" whether or not you are on the call. If nothing at all is open
+in the Workspace, it says so. In a pop-out window, hang up brings the app back to the page first.
 
 Videos in the pop-out keep playing when the main window is minimised or covered by another window.
 
 If an owner pulls you into an aside or a private conversation, or back again, you stay on the call if you were on
-it. If you were not on the call, you arrive out of it, in **Not in a call**.
+it. If you were not on the call, you arrive out of it.
 
 Push to talk does nothing while you are not on the call.
 
@@ -127,21 +144,17 @@ switched the conference off.
 A player with no camera or microphone still joins the call; whatever is missing is named in the status line
 and your Online picture stands in for the camera.
 
-## Layouts
-
-Choose grid, strip or spotlight with the layout button. Grid shows everyone equally. Strip is one row,
-or one column when the window is taller than wide. Spotlight is one big tile with the rest small; it
-follows whoever is speaking unless you click a tile to pin it. Drag tiles into any order. Layout,
-order and pin are remembered in your browser.
-
 ## Chat
 
-Open chat from **Layout** in the space bar, under the header, or with **C**. **Layout**'s **Show** section is the one place to show and hide modules on the canvas: it lists a switch for the Conference, the Chat and each module the space has on, on while the module is shown. A module with something unread shows a count.
+The chat is in the column. **C** folds the column and opens it again. See [Chat](userguide-chat.md) for everything you can
+do in it; in short:
 
+- **Discussion | Assistant.** The **Discussion** tab is the conversation everyone sees. The **Assistant** tab is yours
+  alone: your commands, the AI's answers and what you bring in from another AI. Each tab marks what is new in it.
 - **Formatting.** The icons button to the left of the box opens a small layer above it with the
   picture button, **bold**, *italic*, code, bullet lists and emoji, and a question mark that shows the
   shortcuts. It closes when you click elsewhere or press Escape, so the chat bar stays one row.
-- **Commands and the AI.** The box reads **Chat or type / for commands...** (shorter in a narrow chat): `/ai` asks the AI privately, and a module's command (`/t`, `/c`, `/r`, `/p`, `/v`) opens its add form. The formatting layer also has **Commands** and **Bring in research**. See [Chat](userguide-chat.md).
+- **Commands and the AI.** The box reads **Chat or type / for commands...** (shorter in a narrow chat): `/ai` asks the AI privately, and a module's command (`/t`, `/c`, `/r`, `/p`, `/v`) opens its add form. The formatting layer also has **Commands** and **Bring in research**.
 - **Pictures.** Paste, drop or pick a picture (the picture button is in that layer) to send it. Pictures larger than 1600 px or 1.5 MB are
   shrunk first.
 - **Reply, copy and save.** Hover a message for **Reply** (it quotes the message and puts your cursor
@@ -157,89 +170,130 @@ Open chat from **Layout** in the space bar, under the header, or with **C**. **L
 Who may send messages or pictures is set per role on the Roles tab; if a permission is off the
 chat box is hidden.
 
-## Chat, docked, floating or in its own window
+## The Layout menu
 
-The conference has the same titlebar as the chat and every module: the same buttons to float it over the page (and dock it again), to open it in a window of its own, and to close it, which leaves the call. In its own window the titlebar has no close: closing that window brings the call back into the page where it was. **Hang up** on the toolbar leaves the call and keeps the conference open, which says "Not in a call"; the phone turns green, and pressing it, or **Join the call**, joins again. Chat opens as a column beside the video. Its header has the same buttons as a module's: one to float it over the canvas, where you can drag and resize it (and a matching button to dock it again), one to open it in a window of its own, and the x to close it. A floating module also has a **Snap to a grid** button: on, the module sits in the cells of a grid over the call (you see the grid while you drag), moving and resizing a cell at a time and keeping its place when the window changes size; off, it floats freely, as before. Each module remembers its own choice. The **Layout** panel's **Arrange** section has the same switch for the whole canvas, **Snap to a grid**: on, every module that can float is put on the grid -- docked ones float first -- and any you open later comes up floating and snapped; a slider under it, **Grid size**, sets how fine the grid is (you see the grid while you slide). As you slide, the modules move to the cells nearest where you put them and keep about the same size on screen, without landing on each other while there is space for them all; slide back and they return to where they were. Off, the modules that were docked when you switched it on dock again, and the rest float freely. The space remembers both. The Calendar and other modules open as more columns after the chat, and the video always keeps some of the width. If you pop the whole call out, chat and modules come with it. Close a module's own window and the module comes back into the page, docked or floating as it was before, with whatever it held untouched.
+**Layout**, an icon button in the top bar beside the bell, opens a menu for the Workspace. It has three parts:
+
+- **Show**: a switch for each module on in the space, on while the module is shown on the Workspace. A count shows
+  what is unread. The Calendar and the To-do show as one switch, **Calendar**, and Maps and Places as one, **Maps**
+  (when the main one is off, the module beside it is listed on its own). The call and the chat are not in the list;
+  they are in the column.
+- **Arrange**: **Panel Mode** docks modules as columns beside each other; **Window Mode** makes them windows floating
+  over the Workspace. Choosing one moves every module that can move, and modules opened later follow the mode. In
+  Window Mode there are also:
+  - **Snap to grid**, which puts every floating module on a grid and keeps new ones on it, and **Grid size** (shown
+    while it is on), which sets how fine the grid is. As you slide, the modules move to the cells nearest where they
+    were and keep about the same size, without landing on each other while there is room; slide back and they return.
+    Switching it off lets them float freely.
+  - **Clean up**, which tiles the floating modules to fill the Workspace, none on another, each keeping its side of the
+    window. With the grid on they are whole cells. Clean up again changes nothing. Docked modules and modules in
+    their own window are left alone.
+- **Layouts**: the Workspace, Calendar and Map first, then the space's shared layouts, then your own, with **Save this
+  layout** at the end (see "Saved layouts" below).
+
+The menu stays open while you flip switches; press Escape, click the button again or click elsewhere to close it. With
+the keyboard, Tab and the arrow keys move through it, and Space or Enter flips a switch or presses a button. On a
+phone there is no **Layout** button: the modules are tabs along the bottom.
+
+## Modules on the Workspace
+
+A module you switch on opens as a docked column or a floating window, depending on the mode, or in a window of its own.
+Each has a titlebar: its icon and name, its own tools, a **+** where it has something to add, a **⋮** menu and an x.
+The **⋮** menu has **Clear** (it asks first, and deletes everything the module holds in the space), then **Open as a
+window** or **Dock as a panel**, and **Open in its own window**. A floating module can be dragged and resized. A docked
+column's left edge is dragged to change its width. A module in its own window comes back when you close the window,
+docked or floating as it was, with whatever it held untouched. Several can be open at once, and each remembers how you
+had it. The Calendar and other modules open as columns beside the Workspace's first; if you pop the whole app out, the
+column and the modules come with it.
+
+Each module's **+** in the titlebar is its add button: **Add event**, **Add task**, **New poll**, **Add a place** and
+so on, or a menu where there is more than one thing to add. A module can also have a slim status line at its foot that says, for
+example, "12 of 40" or "3 open". There is no row of buttons at the bottom.
 
 ## Saved layouts
 
-Save the way the canvas is arranged, give it a name, and put it back in one press. **Layout ▾** has a **Layouts**
-section after **Arrange**: the space's shared layouts first, under **Shared**, then your own.
+Save the way the Workspace is arranged, give it a name, and put it back in one press.
 
 To save one:
 
-1. Arrange the canvas the way you want it.
-2. Open **Layout ▾** and choose **Save this layout**.
-3. Type a **Name**. Owners, the admin and the space's moderators can also switch on **For everyone in this space**
-   to save a shared layout.
-4. Choose **Save**. The panel says "Saved <name>." If you already have a layout with that name, it offers
-   **Replace it**.
+1. Arrange the Workspace the way you want it.
+2. Open **Layout** and choose **Save this layout** under **Layouts**.
+3. Type a **Name**. Owners, the admin and the space's moderators can also switch on **For everyone in this space** to
+   save a shared layout.
+4. Choose **Save**. The menu says "Saved <name>." If you already have a layout with that name, it offers **Replace
+   it**.
 
-To load one, press its name. The panel stays open. Modules the layout doesn't name close, except the Conference
-while you are on the call; a module in its own window comes back to the canvas. Floating modules are placed to fit
-this window, snapped ones settle on the grid, and docked modules the window has no column for wait (see below). If a
-module in the layout isn't on in this space, it is left out and the panel says so. The loaded layout becomes the
-one this space remembers for you.
+To load one, press its name. The menu stays open. Modules the layout doesn't name close; a module in its own window
+comes back to the Workspace. Floating modules are placed to fit this window, snapped ones settle on the grid, and
+docked modules the window has no column for wait (see below). If a module in the layout isn't on in this space, it is
+left out and the menu says so. The loaded layout becomes the one this space remembers for you.
 
 Every layout has a **⋮** for anyone signed in. It starts with **Favorite** or **Unfavorite** (see "Favorite layouts"
-below). On a layout you may change it also offers **Replace with this layout** (it then holds the canvas as it is now),
-**Rename** and **Delete**, which asks first. Anyone may save their own layouts, up to 10 in a space; owners, the
-admin and the space's moderators may save, change and delete the shared ones, up to 10; guests may only load shared
-ones. Names are up to 40 characters. With none saved, the section reads "No saved layouts yet." There are no
-layouts on a phone or in an aside.
+below). On a layout you may change it also offers **Replace with this layout** (it then holds the Workspace as it is
+now), **Rename**, **Change icon** and **Delete**, which asks first. Anyone may save their own layouts, up to 10 in a
+space; owners, the admin and the space's moderators may save, change and delete the shared ones, up to 10; guests may
+only load shared ones. Names are up to 40 characters. With none saved, the section reads "No saved layouts yet." There
+are no layouts on a phone or in an aside.
 
-**The space's default layout.** Owners and the admin can choose **Make default** in a shared layout's **⋮**, and
-**Stop using as default** to stop. The default is marked "Default". Someone entering the space for the first time
-gets it, with its places; a guest gets it on every visit. After that, each person's own remembered layout wins.
-See "Opens with" in [Spaces](userguide-spaces.md).
+**The space's first visit.** Owners and the admin can choose **Make default** in a shared layout's **⋮**, and **Stop
+using as default** to stop. The default is marked "Default". Someone entering the space for the first time gets it,
+with its places; a guest gets it on every visit. After that, each person's own remembered layout wins. See "First
+visit" under "Set up" in [Spaces](userguide-spaces.md).
 
 ### Favorite layouts
 
-Make the layouts you use most a favorite, and they appear as buttons in the space bar, right of **Layout**, so one
-press loads them without opening the panel. Anyone signed in can keep favorites, of their own layouts and of the
-space's shared ones. Your favorites are yours alone, kept for each space, and follow you to another computer.
-Guests can't keep favorites.
+Make the layouts you use most a favorite, and each becomes a tab in the top bar, right after **Workspace**, **Calendar**
+and **Map**, so one press shows it. Anyone signed in can keep favorites, of their own layouts and of the space's shared
+ones, with no limit. Your favorites are yours alone, kept for each space, and follow you to another computer. Guests
+can't keep favorites.
 
 To make a layout a favorite:
 
-1. Open **Layout ▾**.
+1. Open **Layout**.
 2. Under **Layouts**, press the **⋮** beside the layout.
-3. Choose **Favorite**. The panel says "<name> is a favorite.", and a small heart shows after the layout's name.
+3. Choose **Favorite**. The menu says "<name> is a favorite.", and a small heart shows after the layout's name.
 
-It now has a button in the space bar, with a heart and its name, and the tooltip "Load <name>". Press it to load
-the layout, the same as pressing its name in the panel. If a module in the layout isn't on in this space, a short
-note under the favorites says so for a few seconds.
+Its tab now shows in the top bar, with its icon and name. To stop, choose **Unfavorite** in the same **⋮**. The menu
+says "<name> is no longer a favorite." Deleting a layout takes it out of everyone's favorites.
 
-To stop, choose **Unfavorite** in the same **⋮**. The panel says "<name> is no longer a favorite."
+The tabs are in the order you made them favorites. When the bar has no room for all of them, the ones that don't fit go
+into a **…** after the last tab, from the right; the tab you are on and the Workspace stay. The layouts in the **…** are
+still in the **Layout** menu, marked by their hearts. Tabs are not shown on a phone, in an aside, or to a guest.
 
-You can have up to 3 favorites in each space. With 3, **Favorite** on any other layout is greyed out and says "You
-can have 3 favorite layouts. Unfavorite one first." Choose **Unfavorite** on one of your favorites, then favorite the
-new one. **Unfavorite** always works.
+## When the Workspace is too narrow for another column
 
-The buttons are in the order you made them favorites. Names show in full whenever there is room; only a name longer
-than about 16 characters is cut short. In a window 1280 pixels wide or wider, all 3 show in full. When the space bar
-has no room for them all, the names get shorter evenly (at about 900 pixels, for example), and only when they can't
-get any shorter does the last one leave the bar; your first favorites stay. The ones that left are still in **Layout ▾**, marked by their hearts. Deleting a layout takes it out of
-everyone's favorites. There are no favorite buttons on a phone, in a window 640 pixels wide or narrower, in an
-aside, or when the canvas is narrow.
-
-## When the window is too narrow for another column
-
-Each docked module needs a column at least 240 pixels wide, so a window holds only so many: 2 columns from 641
-pixels wide, 3 from 760, 4 from 1000, 5 from 1280, 6 from 1600 and 7 from 1920. The Conference and the Chat always
-keep theirs; installed modules give way from the right.
+Each docked module needs a column at least 240 pixels wide, so the Workspace holds only so many; a wider Workspace holds
+more. Installed modules give way from the right.
 
 - A module you dock or open that has no column floats instead, and waits. It docks again by itself, in its old
-  place and at its width, when the window is wide enough. Its **Dock** button is dimmed, with the tooltip "Docks
+  place and at its width, when there is room. Its **Dock as a panel** is dimmed, with the tooltip "Docks
   when the window is wide enough".
-- On another floating module, **Dock** says "The window is too narrow for another column" while the columns are
-  full. The Conference's and the Chat's **Dock** always works: the rightmost module waits instead.
-- **Layout ▾** says why, at the end of **Arrange**: for example "The window is too narrow for another column, so
-  Calendar is floating. It docks when the window is wide enough.", or after **Dock all**, "2 docked. 1 stays
-  floating until the window is wide enough." The note goes after a few seconds, or when you close the panel.
+- On another floating module, **Dock as a panel** says "The window is too narrow for another column" while the columns
+  are full.
+- **Layout** says why, at the end of **Arrange**: for example "The window is too narrow for another column, so
+  Calendar is floating. It docks when the window is wide enough.", or after choosing **Panel Mode**, "2 docked. 1 stays
+  floating until the window is wide enough." The note goes after a few seconds, or when you close the menu.
 - Drag or resize a waiting module and it stays floating for good.
 
-At 640 pixels wide and below the phone layout shows one view at a time, so nothing waits.
+## On a phone
+
+At 640 pixels wide and below, on a phone or in a narrow pop-out, there is no column and no layout tabs. One module
+fills the screen at a time, and the bar at the bottom of the page is a row of tabs. Left to right:
+
+- the module tabs that fit, each at least 56 pixels wide; the tab you are looking at always stays; the Conference and
+  the Chat are tabs here, and the Calendar and Map are tabs of their own;
+- **Join**, while you are not on the call;
+- how many are here ("5 here"); tap it for the list, which opens upward;
+- **Rejoin**, in an aside;
+- **…** (**More**), only when something is in it: the tabs that didn't fit, a line, then **Pull participants back**
+  and the modules' own tools. In a narrow pop-out it also holds **Full screen** ("Exit full screen" while on) and
+  **Pop it back in**. Its badge adds up the unread counts of what it holds. If the Conference's tab is in it while
+  you are on the call, **…** shows the green dot, red while your microphone is live;
+- **Leave space**, always inside the window.
+
+On a phone, opening the Conference tab shows **Not in a call**, with who is on the call now under **Currently on the
+call** ("No one is on the call yet. Be the first to join." when nobody is) and **Join the call**. In a narrow pop-out
+the bar is part of the header and slides away with it when you are idle.
 
 ## Reactions
 
@@ -275,10 +329,11 @@ microphone and camera that were on before come back on. If you joined the call w
 when you come back, unless you use push to talk. Leaving the call while away ends it: nobody sees you as away any
 more.
 
-Opening your profile or the Manage page from inside a call, or going to the space list, also marks you
+Opening your profile, the Manage page, Global Calendar or Global Map from inside a call, or going Home, also marks you
 as "Away" without asking for a message. This is intended, and it has the same effect as the moon button: your
 microphone and camera pause, you hear nobody, and everyone sees you as away. When you close the page or go back to
-the space, you come back as if you had clicked **Back**.
+the space, you come back as if you had clicked **Back**. Showing the Calendar or Map tab of the space itself does not
+set you away.
 
 ## Settings in the call
 
@@ -323,7 +378,7 @@ another modifier while holding it. Switching to another window or tab, or leavin
 Your profile, the Manage page and a module's own page open in an overlay from inside a space rather than navigating
 away, because leaving the page would drop the call. To open your profile, click your picture at the right end of the
 top bar and choose **View profile**; **Manage** is in the same menu, for owners and the admin. A module's page opens from
-its card's heading on the space list. A **Back to** button in that page's header returns you, and it stays there if
+its card's heading on Home. A **Back to** button in that page's header returns you, and it stays there if
 you go on from your profile to Manage, or from Manage to your profile.
 
 ## Install it as an app, and pop it out
@@ -336,20 +391,20 @@ To run Collaborator without browser bars, install it as an app:
 - **Safari on macOS.** **File, Add to Dock**.
 - **iPhones and iPads.** **Share, Add to Home Screen**.
 
-The hint under **Join the call** in **Not in a call**, and a line in the call's settings (the gear), say which applies
-to your browser.
+A line in the call's settings (the gear), and a hint under **Join the call** on a phone, say which applies to your
+browser.
 
 Guests can't install Collaborator. On a guest link (and the windows popped out from it) there is no install hint and
 no install line in the settings, and the browser itself does not offer to install.
 
-In Chrome and Edge the **Pop out** button in the space bar (next to **Full screen**) moves the whole app, header
-and every module included, into a small window and back; **Full screen** applies to the whole app too. The
-page behind shows **Bring the app back**, and the button in the space bar becomes **Pop it back in**. Popped
-out, the header, the conference's titlebar and the toolbar all slide away when the pointer rests and come
-back on any movement, leaving only the tiles. Going home from the top bar, or choosing **View profile** or
-**Manage**, brings the app back to the page first.
+In Chrome and Edge the **Pop out** button at the right end of the top bar (next to **Full screen**) moves the whole
+app, header, column and every module included, into a small window and back; **Full screen** applies to the whole app
+too. The page behind shows **Bring the app back**, and the button becomes **Pop it back in**. Popped out, the header
+and the call's toolbar slide away when the pointer rests and come back on any movement, leaving only the content.
+Going Home from the top bar, or choosing **View profile** or **Manage**, brings the app back to the page first.
 
-A module in a window of its own, the chat and the conference included, can come back as a docked column or float over the canvas, from the buttons on its titlebar. Those buttons work while the space's page that opened the window is still open.
+A module in a window of its own can come back as a docked column or float over the Workspace, from the buttons on its
+titlebar's menu. Those buttons work while the space's page that opened the window is still open.
 
-The conference can also go alone into a window of its own with the button on its titlebar, leaving the
-chat and the modules on the page. Closing that window leaves the call.
+The call can also go alone into a window of its own (see "Call position" above), leaving the chat and the modules on
+the page.

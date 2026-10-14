@@ -16,15 +16,17 @@ The Travel template sets an environment up for planning trips together:
 - The Planner is shown as **Itinerary**.
 - The Itinerary (Planner), Places, Maps, Research and the Calendar are turned on, with the chat and the call, in
   every trip. Home base keeps only the chat, the call and the Calendar, as the Lobby always does.
-- **Calendar** and **Maps** are in the top bar (**Show in the top bar** on each module's configuration page; see "Top bar" in [Manage](userguide-environment-settings.md)), from version 4 of the template.
+- **Global Calendar** and **Global Map** are on (**Show in the top bar** on each module's configuration page, which puts them in the profile menu; see "Top bar" in [Manage](userguide-environment-settings.md)), from version 4 of the template.
 - **Private addresses** and **Other calendars and busy times** are on (Calendar sharing, on the Calendar's configuration page; see [Calendar](userguide-calendar.md)), from version 5 of the template.
 - Like its other settings, these are set once, when the environment is made; an environment made from an earlier version, or switched to Travel later, turns them on on those configuration pages.
 - The home icon is a rolling suitcase.
 - A new trip starts with the **Participants** picture profile. The Lobby keeps its own profile.
 - A trip goes through six phases: **Planning**, **Booking**, **Buffer**, **Pre-trip**, **Trip** (the main one) and
-  **Post-trip**. The Itinerary shows which one a trip is in; see [Planner](userguide-planner.md).
-- A new trip is set to open the Itinerary and the chat, not the call. This is recorded in the environment's
-  settings; opening them when someone enters a trip is not built yet.
+  **Post-trip**, each with an icon from version 6 of the template and a colour of its own. The status strip under the top
+  bar shows which one a trip is in and how far along it is, and the Itinerary and the Calendar tint the days; see
+  "The status strip" and "Phases" in [Spaces](userguide-spaces.md), and [Planner](userguide-planner.md).
+- A new trip is set to open the Itinerary and the chat, not the call, the first time someone enters it. The call is
+  never joined by entering. The owner can change this on the trip's **First visit** tab in **Set up**.
 
 More bundled templates may come later, and the host admin can make their own (below).
 

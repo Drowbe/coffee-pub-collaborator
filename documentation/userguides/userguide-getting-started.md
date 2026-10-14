@@ -70,6 +70,26 @@ the owners run the server and there is no admin.
 `TEMPLATE: "travel"` to the compose file before the first start. It is read only when the data folder is new; see
 [Templates](userguide-templates.md).
 
+## Your first look
+
+After you sign in you are on Home. Wider than 1200 pixels it has three columns: the environment's **Chat** on the left,
+the **Spaces** in the middle (with **Who's around** above them), and the **Modules** on the right. Owners and the admin
+also have **Add space** there, which makes a space and opens it with **Set up** so it can be named at once. See
+[Spaces](userguide-spaces.md), "Home".
+
+Press **Enter** on a space. You are in the space, not yet on the call:
+
+- The **top bar** names the space, with an arrow to switch to another. Next to it are the layout tabs (**Workspace**,
+  **Calendar**, **Map**, and any layouts you favorite), who is here, then **Layout**, the bell, your picture, **Set up**,
+  **Full screen** and **Pop out**.
+- Under the bar, a thin **status strip** shows the phase the space is in, if the environment has phases.
+- Down the left, the **column** holds the chat and, once you join, the call. Press **Join the call** when you are ready;
+  your browser asks for the microphone then.
+- Everything else is the **Workspace**, where modules open.
+
+To set the space up, press **Set up** in the top bar. See [Spaces](userguide-spaces.md), "The top bar", "The status
+strip" and "Set up", and [The call](userguide-call.md), "The column: the call and the chat, always on".
+
 ## Update it later
 
 An install made before the product's rename keeps its old names: the containers `tavern-app` /

@@ -4,6 +4,10 @@
  * module's own keyed page and nothing else: it is not a person and not a guest, so it is in no space. Every route that
  * reads a viewer's space (modules for a space, the objects routes, links, the bus, the live stream) must answer it
  * 401, never a 500 from a missing guest space. A signed-in owner still gets the same routes.
+ * Pinned (QA): the same routes at environment scope (scope=environment, and no scope, which is the environment) answer
+ * the key 401 too: it is in no space and reads no environment data either. The objects format and its schema, and the
+ * kinds a module may link to, answer it 200: they describe the environment's module types, never anything stored, and
+ * a keyed page's SDK may ask them (host.objects); the kinds hold no object.
  */
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
@@ -71,6 +75,22 @@ try {
     ['POST', '/api/bus/actions/complete', { module: 'todo', scope: 'space', space }],
     ['GET', `/api/bus/actions/status?module=todo&scope=space&space=${space}`],
     ['GET', `/api/modules/stream?space=${space}`],
+    // At environment scope, named and not.
+    ['POST', '/api/objects/resolve', { from: 'calendar', refs: [{ ...ref, scope: 'environment', space: undefined }] }],
+    ['GET', '/api/objects/search?from=calendar&scope=environment'],
+    ['GET', '/api/objects/search?from=calendar'],
+    ['GET', '/api/modules/todo/objects/task/abc?from=calendar&scope=environment'],
+    ['GET', '/api/modules/todo/objects/task/abc?from=calendar'],
+    ['POST', '/api/objects/links', { module: 'todo', from: { ...ref, scope: 'environment', space: undefined }, to: [] }],
+    ['POST', '/api/bus/publish', { module: 'todo', name: 'x', scope: 'environment' }],
+    ['GET', '/api/bus/events?scope=environment'],
+    ['GET', '/api/bus/events'],
+    ['GET', '/api/bus/actions?module=todo&scope=environment'],
+    ['POST', '/api/bus/actions/request', { module: 'todo', action: 'x', scope: 'environment' }],
+    ['GET', '/api/bus/actions/pending?module=todo&scope=environment'],
+    ['POST', '/api/bus/actions/claim', { module: 'todo', scope: 'environment' }],
+    ['POST', '/api/bus/actions/complete', { module: 'todo', scope: 'environment' }],
+    ['GET', '/api/bus/actions/status?module=todo&scope=environment'],
   ];
   for (const [method, url, body] of routes) {
     const r = await call(method, q(url), { body });
@@ -82,6 +102,22 @@ try {
   for (const [method, url] of [['GET', '/api/modules/todo/data'], ['GET', `/api/modules/todo/data?scope=space&space=${space}`], ['GET', `/api/modules/todo/markers?space=${space}`]]) {
     const r = await call(method, q(url));
     assert.equal(r.status, 403, `the access key, ${method} ${url}: ${r.status} ${r.text.slice(0, 120)}`);
+    n += 1;
+  }
+  // The format, its schema and the kinds: open to the key (a description, nothing stored), and shaped as for anyone.
+  const kinds = await call('GET', q('/api/objects/kinds?from=calendar'));
+  assert.equal(kinds.status, 200, `the access key reads the kinds: ${kinds.text.slice(0, 120)}`);
+  assert.ok(Array.isArray(kinds.json.kinds) && kinds.json.kinds.every((k) => !('value' in k) && !('id' in k)), 'the kinds hold no object');
+  assert.deepEqual(kinds.json, (await call('GET', '/api/objects/kinds?from=calendar', { cookie })).json, 'the same as the owner reads');
+  n += 1;
+  const format = await call('GET', q('/api/objects/format'));
+  assert.equal(format.status, 200, format.text.slice(0, 120));
+  assert.ok(format.json.version && format.json.schema && typeof format.json.instructions === 'string', 'the format');
+  n += 1;
+  assert.equal((await call('GET', q('/api/objects/format/schema'))).status, 200, 'the schema');
+  n += 1;
+  for (const url of ['/api/objects/kinds?from=calendar', '/api/objects/format', '/api/objects/format/schema']) {
+    assert.equal((await call('GET', url)).status, 401, `${url} with no key and nobody signed in`);
     n += 1;
   }
   // A signed-in owner is not affected.

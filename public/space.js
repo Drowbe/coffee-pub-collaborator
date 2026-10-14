@@ -1,6 +1,6 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
+import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons, showNote } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, bandShares, todayPercent, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
@@ -1564,7 +1564,8 @@ function callMenuItems() {
 // The time in the call, in the titlebar (the column's, and the conference's own when it floats or has a window): from
 // when this person joined the call (the server gives no start for the call itself; the room is made when the first
 // person enters the space, not when the call starts), every second, only while in the call. Counted from the clock, so
-// a hidden page that comes back shows the true time, and cleared on leaving, on a lost connection and on pagehide.
+// a hidden page that comes back shows the true time, and cleared on leaving and on a lost connection (pagehide only
+// stops the tick; pageshow starts it again while the call is connected).
 let callTimeStart = 0;
 let callTimeTimer = null;
 function callTimeEls() {
@@ -1594,7 +1595,18 @@ function startCallTime() {
   showCallTime();
   callTimeTimer = setInterval(showCallTime, 1000);
 }
-addEventListener('pagehide', stopCallTime);
+// pagehide only stops the tick (the start is kept); a page the browser brings back (pageshow, from its back-forward
+// cache) ticks again while the call is still connected, and clears the time if it is not.
+addEventListener('pagehide', () => { clearInterval(callTimeTimer); callTimeTimer = null; });
+addEventListener('pageshow', () => {
+  if (call.state !== 'connected') {
+    if (callTimeStart) stopCallTime();
+    return;
+  }
+  if (!callTimeStart) callTimeStart = Date.now();
+  showCallTime();
+  if (!callTimeTimer) callTimeTimer = setInterval(showCallTime, 1000);
+});
 // A hidden page does not tick (unless the call is in a window of its own, which is seen); back, it shows the true time.
 document.addEventListener('visibilitychange', () => {
   if (!callTimeStart) return;
@@ -6841,9 +6853,92 @@ function hideHomeChat() {
   chatInput.loadThread();
   applyPermissions(); // the picture button as the permissions say
 }
+// A chat stream kept live (Home's, a guest's in the Lobby). EventSource gives up for good on an answer that isn't 200
+// (a cap's 429, a 401) and nobody would know, so on any `error` the stream is closed here and opened again after 2, 4,
+// 8 ... seconds (60 at most), up to CHAT_STREAM_TRIES times in a row; a stream that reached `ready` starts the count
+// again. Each connection starts with `ready`, and every `ready` after the first catches up from the history
+// (`catchUp`). A connection that never got going is asked once more with a plain fetch to learn why: a refusal (401,
+// 403, 429), like the server's own last `closed` event, is not tried again, and the page says once that live chat is
+// paused. Answers { close() }; `onData(data)` gets every other event.
+const CHAT_STREAM_TRIES = 8;
+let chatPausedSaid = false;
+function sayChatPaused() {
+  if (chatPausedSaid) return;
+  chatPausedSaid = true;
+  showNote('Live chat is paused. Reload the page to try again.');
+}
+async function chatStreamStatus(url) {
+  const ctl = new AbortController();
+  try {
+    const res = await fetch(url, { signal: ctl.signal, headers: { accept: 'text/event-stream' }, cache: 'no-store' });
+    ctl.abort(); // a 200 is a stream: let it go at once
+    return res.status;
+  } catch {
+    return 0; // the network, or the server is not there: try again later
+  }
+}
+function liveChatStream(url, { onData, catchUp }) {
+  let source = null;
+  let timer = null;
+  let tries = 0;
+  let readies = 0;
+  let stopped = false;
+  const stop = () => {
+    stopped = true;
+    clearTimeout(timer);
+    timer = null;
+    source?.close();
+    source = null;
+  };
+  const pause = () => {
+    stop();
+    sayChatPaused();
+  };
+  const again = async (wasLive) => {
+    if (!wasLive) {
+      const status = await chatStreamStatus(url);
+      if (stopped) return;
+      if (status === 401 || status === 403 || status === 429) return pause();
+    }
+    tries += 1;
+    if (tries > CHAT_STREAM_TRIES) return pause();
+    timer = setTimeout(open, Math.min(60000, 2000 * 2 ** (tries - 1)));
+  };
+  function open() {
+    timer = null;
+    if (stopped) return;
+    const es = new EventSource(url);
+    let live = false;
+    es.addEventListener('message', (event) => {
+      if (source !== es) return;
+      let data = null;
+      try { data = JSON.parse(event.data); } catch { return; }
+      if (data?.type === 'ready') {
+        live = true;
+        tries = 0;
+        readies += 1;
+        if (readies > 1) catchUp(); // back after a drop: what was said meanwhile
+        return;
+      }
+      if (data?.type === 'closed') {
+        pause(); // the server ended it and will not take it back (a guest link turned off, a session that no longer reads)
+        return;
+      }
+      onData(data);
+    });
+    es.addEventListener('error', () => {
+      if (source !== es) return;
+      es.close();
+      source = null;
+      again(live);
+    });
+    source = es;
+  }
+  open();
+  return { close: stop };
+}
 // Home's chat stream (GET /api/spaces/lobby/chat/stream, step 1) is open whenever this page is signed in and may read
-// chat: drawn into Home's chat while it shows, else counted for the Home link (decision 8). The browser reconnects it by
-// itself; each connection starts with `ready`, and every `ready` after the first catches up on what was missed.
+// chat: drawn into Home's chat while it shows, else counted for the Home link (decision 8). Kept live by liveChatStream.
 function homeStreamWanted() {
   return !guestToken && Boolean(me?.key) && me.role !== 'guest' && (hasOwnerRights(me) || Boolean(me.permissions?.chatRead));
 }
@@ -6858,20 +6953,7 @@ function syncHomeChatStream() {
 function openHomeChatStream() {
   closeHomeChatStream();
   if (typeof EventSource !== 'function') return;
-  const source = new EventSource(`/api/spaces/${HOME_CHAT}/chat/stream`);
-  let ready = 0;
-  source.addEventListener('message', (event) => {
-    if (homeChatStream !== source) return;
-    let data = null;
-    try { data = JSON.parse(event.data); } catch { return; }
-    if (data?.type === 'ready') {
-      ready += 1;
-      if (ready > 1) catchUpHomeChat(); // back after a drop: what was said meanwhile
-      return;
-    }
-    homeChatNotice(data);
-  });
-  homeChatStream = source;
+  homeChatStream = liveChatStream(`/api/spaces/${HOME_CHAT}/chat/stream`, { onData: homeChatNotice, catchUp: catchUpHomeChat });
 }
 function closeHomeChatStream() {
   homeChatStream?.close();
@@ -6982,24 +7064,8 @@ function syncGuestChatStream() {
     return;
   }
   if (guestChatStream || typeof EventSource !== 'function') return;
-  const source = new EventSource(`/api/spaces/${LOBBY}/chat/stream?guest=${encodeURIComponent(guestToken)}`);
-  let ready = 0;
-  source.addEventListener('message', (event) => {
-    if (guestChatStream !== source) return;
-    let data = null;
-    try { data = JSON.parse(event.data); } catch { return; }
-    if (data?.type === 'ready') {
-      ready += 1;
-      if (ready > 1) catchUpGuestChat(); // back after a drop: what was said meanwhile
-      return;
-    }
-    if (data?.type === 'closed') {
-      closeGuestChatStream(); // the guest link is off: the server will not take it back
-      return;
-    }
-    guestChatNotice(data);
-  });
-  guestChatStream = source;
+  // Kept live by liveChatStream; the server's last `closed` (the guest link turned off) ends it for good.
+  guestChatStream = liveChatStream(`/api/spaces/${LOBBY}/chat/stream?guest=${encodeURIComponent(guestToken)}`, { onData: guestChatNotice, catchUp: catchUpGuestChat });
 }
 function closeGuestChatStream() {
   guestChatStream?.close();

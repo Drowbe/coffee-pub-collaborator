@@ -1468,7 +1468,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const wanted = spaceJs.slice(spaceJs.indexOf('function homeChatWanted() {'), spaceJs.indexOf('function syncHomeChat() {'));
   for (const [re, why] of [[/!guestToken/, 'never on a guest link'], [/me\.role !== 'guest'/, 'never for a guest'], [/!currentSpace/, 'only with no space entered (Home over a space is step 4)'], [/canDo\('chatRead'\)/, 'only for whoever may read chat'], [/!homeChatEntering/, 'not while a space is being entered']]) if (!re.test(wanted)) fail(F, `Home's chat shows ${why}`);
   if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(spaceJs)) fail(F, 'Home\'s chat is the one #chat, moved, never a copy');
-  if (!/new EventSource\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`\)/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
+  if (!/liveChatStream\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`, \{ onData: homeChatNotice, catchUp: catchUpHomeChat \}\)/.test(spaceJs) || !/const es = new EventSource\(url\);/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
   if (!/homeChatEntering = true;[^\n]*\n\s*hideHomeChat\(\);/.test(spaceJs.slice(spaceJs.indexOf('async function join('), spaceJs.indexOf('async function joinAsGuest(')))) fail(F, 'entering a space takes the chat out of Home\'s column first');
   if (!/word\('module', \{ many: true, cap: true \}\)/.test(spaceJs.slice(spaceJs.indexOf('function renderSpaceListHead('), spaceJs.indexOf('async function addSpace(')))) fail(F, 'the Modules column is headed with the module word (the template\'s, else Modules)');
 
@@ -1511,8 +1511,16 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/nav\.setBadge\('menu-home', n\);/.test(body('function paintHomeUnread() {')) || !/#brand-home-link \.brand-logo/.test(body('function paintHomeUnread() {'))) fail(F, 'the count shows on the Home link: the logo, and the phone menu\'s Home');
   if (!/\.topbar \.brand-logo \.home-unread \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/.test(css)) fail('public/style.css', 'the Home link\'s count is drawn in theme tokens');
   // Catch-up: every `ready` after the first (a reconnect) reads the history again; other event types are left alone.
-  const open = body('function openHomeChatStream() {');
-  if (!/if \(data\?\.type === 'ready'\) \{\s*ready \+= 1;\s*if \(ready > 1\) catchUpHomeChat\(\);/.test(open)) fail(F, 'a reconnected stream catches up on what was missed');
+  const live = body('function liveChatStream(url, { onData, catchUp }) {');
+  if (!/if \(data\?\.type === 'ready'\) \{[^}]*readies \+= 1;\s*if \(readies > 1\) catchUp\(\);/.test(live)) fail(F, 'a reconnected stream catches up on what was missed');
+  // A stream is never left silently not live (QA, #289): on `error` it is closed and opened again with a backoff (2 s,
+  // doubling, 60 s at most, a limited number of tries); a refusal (401, 403, 429) or the server's `closed` stops it, and
+  // the page says so once.
+  if (!/es\.addEventListener\('error', \(\) => \{[^}]*es\.close\(\);[^}]*again\(live\);/.test(live)) fail(F, 'a stream that errs is closed and tried again');
+  if (!/Math\.min\(60000, 2000 \* 2 \*\* \(tries - 1\)\)/.test(live) || !/if \(tries > CHAT_STREAM_TRIES\) return pause\(\);/.test(live)) fail(F, 'the tries back off from 2 s to 60 s, a limited number of times');
+  if (!/status === 401 \|\| status === 403 \|\| status === 429\) return pause\(\);/.test(live) || !/data\?\.type === 'closed'\) \{\s*pause\(\);/.test(live)) fail(F, 'a refusal or the server\'s `closed` stops the tries');
+  if (!/showNote\('Live chat is paused\. Reload the page to try again\.'\)/.test(body('function sayChatPaused() {')) || !/if \(chatPausedSaid\) return;/.test(body('function sayChatPaused() {'))) fail(F, 'the page says once that live chat is paused');
+  if (!/guestChatStream = liveChatStream\(`\/api\/spaces\/\$\{LOBBY\}\/chat\/stream\?guest=/.test(spaceJs)) fail(F, 'a guest\'s Lobby stream is kept live the same way');
   if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {'))) fail(F, 'the catch-up reads Home\'s history');
 }
 
@@ -1684,7 +1692,8 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const stamp = /<span class="call-time nav-text" data-call-time hidden>[^]*?<time aria-live="off" datetime="PT0S">00:00<\/time><\/span>/g;
     if ((page.match(stamp) || []).length !== 2) fail('public/space.html', 'the call time (<time>, aria-live="off", nav-text, hidden) sits in the column\'s titlebar and in the conference\'s own');
     if (!/function startCallTime\(\) \{[^}]*setInterval\(showCallTime, 1000\)/.test(code) || !/inCall = true;\n    startCallTime\(\);/.test(code)) fail('public/space.js', 'the call time starts when this person joins the call (startCallTime), ticking every second');
-    if (!/inCall = false;\n  stopCallTime\(\);/.test(code) || !/inCall = false; \/\/ the whole call is gone[^\n]*\n    stopCallTime\(\);/.test(code) || !/addEventListener\('pagehide', stopCallTime\)/.test(code)) fail('public/space.js', 'the call time stops on leaving, on a lost connection and on pagehide (stopCallTime clears the timer)');
+    if (!/inCall = false;\n  stopCallTime\(\);/.test(code) || !/inCall = false; \/\/ the whole call is gone[^\n]*\n    stopCallTime\(\);/.test(code) || !/addEventListener\('pagehide', \(\) => \{ clearInterval\(callTimeTimer\); callTimeTimer = null; \}\);/.test(code)) fail('public/space.js', 'the call time stops on leaving and on a lost connection (stopCallTime clears the timer), and its tick on pagehide');
+    if (!/addEventListener\('pageshow', \(\) => \{\s*if \(call\.state !== 'connected'\) \{\s*if \(callTimeStart\) stopCallTime\(\);[^]*?if \(!callTimeTimer\) callTimeTimer = setInterval\(showCallTime, 1000\);/.test(code)) fail('public/space.js', 'a page brought back (pageshow) ticks again while the call is connected, and clears the time if not');
     if (!/In the call for \$\{text\}/.test(code)) fail('public/space.js', 'the call time is the titlebar\'s tooltip ("In the call for 12:34")');
     if (!/\.call-time \{[^}]*font-variant-numeric: tabular-nums;/.test(sheet)) fail('public/style.css', 'the call time uses tabular figures');
   }

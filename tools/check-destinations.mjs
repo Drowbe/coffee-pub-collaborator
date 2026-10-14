@@ -435,7 +435,7 @@ try {
     assert.equal((await call('GET', '/api/destinations/agenda', { token: aliceT })).json.error, 'That page is not in this top bar.');
   });
 
-  await test('live: the app shell refuses frames; the pages we frame ourselves stay frameable', async () => {
+  await test('live: the app shell refuses frames; the pages we frame ourselves are framed by this site only', async () => {
     const refuses = (r, what) => {
       assert.equal(r.status, 200, `${what} is served`);
       assert.equal(r.headers.get('content-security-policy'), "frame-ancestors 'none'", `${what} refuses frames`);
@@ -443,15 +443,39 @@ try {
     };
     refuses(await call('GET', '/', { token: aliceT }), '/');
     refuses(await call('GET', `/guest/${encodeURIComponent(guest)}`), 'the guest page');
-    for (const framed of ['/calendar', `/calendar?space=${keep}`, '/profile', '/modules/dest-dates', '/modules/dest-dates?space=' + keep]) {
-      const r = await call('GET', framed, { token: aliceT });
-      assert.ok(r.status === 200 || r.status === 302, `${framed} answers (${r.status})`);
-      assert.equal(r.headers.get('x-frame-options'), null, `${framed} stays frameable`);
-      assert.ok(!/frame-ancestors/.test(r.headers.get('content-security-policy') || ''), `${framed} sets no frame-ancestors`);
+    refuses(await call('GET', '/space.html'), "the shell's own file");
+    // Our overlay (space.js openOverlay: /profile, /admin and Manage's pages), the composites (canvas.js compositeSrc:
+    // /calendar?space=, /map?space=), the module pages and the sign-in pages: frame-ancestors 'self'.
+    const sameSite = async (url, token, statuses = [200, 302]) => {
+      const r = await call('GET', url, { token });
+      assert.ok(statuses.includes(r.status), `${url} answers (${r.status})`);
+      assert.equal(r.headers.get('content-security-policy'), "frame-ancestors 'self'", `${url} is framed by this site only`);
+      assert.equal(r.headers.get('x-frame-options'), 'SAMEORIGIN', `${url} is framed by this site only (old browsers)`);
+    };
+    for (const url of ['/calendar', `/calendar?space=${keep}`, '/profile', '/modules/dest-dates', `/modules/dest-dates?space=${keep}`, `/modules/dest-dates?space=${keep}&guest=${encodeURIComponent(guest)}`]) await sameSite(url, aliceT);
+    for (const url of ['/admin', '/profile/x', '/admin.html', '/ai-config.html', '/module-config.html?id=dest-dates', '/profile.html', '/module.html', '/destination.html', '/map']) await sameSite(url, admin, [200, 302, 404]);
+    for (const url of ['/login', '/login/verify', '/login/enrol', '/register', '/login.html', '/invite/abc']) await sameSite(url, null);
+    // Left alone: a module's own files (they say frame-ancestors 'self' in their own sandbox policy), the access key's
+    // pages, and anything else.
+    const key = (await call('GET', '/api/settings', { token: admin })).json.streamKey;
+    const keyed = await call('GET', `/modules/dest-dates?s=${encodeURIComponent(key)}`);
+    assert.equal(keyed.headers.get('x-frame-options'), null, 'a module page with the access key is left as it was');
+    for (const url of ['/healthz', '/theme.css', '/style.css']) {
+      const r = await call('GET', url);
+      assert.ok(!/frame-ancestors/.test(r.headers.get('content-security-policy') || '') && r.headers.get('x-frame-options') === null, `${url} sets no frame rule`);
     }
-    // /map has no module here yet (404 to a member); the page itself must still carry no guard.
-    const map = await call('GET', '/map', { token: admin });
-    assert.equal(map.headers.get('x-frame-options'), null, '/map stays frameable');
+  });
+
+  await test('live: a framed destination never redirects into a page that refuses frames', async () => {
+    const framed = { 'sec-fetch-dest': 'iframe' };
+    for (const url of [`/calendar?guest=${encodeURIComponent(guest)}`, '/calendar?guest=not-a-link', `/map?guest=${encodeURIComponent(guest)}`]) {
+      const r = await call('GET', url, { headers: framed });
+      assert.equal(r.status, 401, `${url}, framed: ${r.status}`);
+      assert.match(r.text, /Sign in again\./, `${url}, framed: says so`);
+      assert.equal(r.headers.get('content-security-policy'), "frame-ancestors 'self'");
+    }
+    // Not framed: as before (a guest goes home; the next test pins the redirects).
+    assert.equal(await goes('/calendar?guest=not-a-link'), '/');
   });
 
   await test('live: /calendar, the module pages leading to it, pop-outs left alone, and the tiles\' href', async () => {
@@ -495,6 +519,8 @@ try {
     assert.deepEqual(await shown(aliceT), []);
     assert.equal((await call('GET', '/api/destinations/calendar', { token: aliceT })).status, 404);
     assert.equal(await goes('/calendar', aliceT), '/');
+    const inFrame = await call('GET', '/calendar', { token: aliceT, headers: { 'sec-fetch-dest': 'iframe' } });
+    assert.deepEqual([inFrame.status, /not shown here any more/.test(inFrame.text)], [403, true], 'framed, not redirected to / (which refuses frames)');
     assert.equal(await goes('/modules/dest-tasks', aliceT), 200, 'To-do on but Calendar unreadable: no destination (decision 17)');
     assert.deepEqual(await shown(admin), ['calendar']);
     await role({ 'module.dest-dates.view': true });

@@ -2,13 +2,20 @@
 /*
  * check-guest-chat.mjs -- guests in Home's chat (GitHub #289): a guest on the Lobby's guest link reads the Lobby's chat
  * (history and the live stream, GET /api/spaces/lobby/chat/stream?guest=<token>) and posts in it, and the abuse limits
- * hold. A throwaway server on PORT=0, a DATA_DIR under the temp folder, and small limits so the check runs quickly
- * (GUEST_CHAT_POSTS_PER_MINUTE=3, CHAT_STREAMS_PER_PERSON=2, CHAT_STREAMS_PER_GUEST_LINK=3). Addresses are told with
- * X-Forwarded-For (the server trusts the proxy). Checks:
+ * hold. A throwaway server on PORT=0, a DATA_DIR under the temp folder, and small guest limits so the check runs
+ * quickly (GUEST_CHAT_POSTS_PER_MINUTE=10, so 5 an address; CHAT_STREAMS_PER_GUEST_LINK=5, so 2 an address;
+ * CHAT_STREAMS_PER_PERSON left at its default, 50). TRUST_PROXY_HOPS=1: this check is the one proxy in front, so an
+ * address is told as the proxy would, the rightmost X-Forwarded-For entry, and a client's own spoofed entries go to its
+ * left. Checks:
  *   - the Lobby's guest reads and posts in the Lobby only: another space's chat, stream and posts are refused;
  *   - a guest's long message is cut as everyone's is (1000 characters, the name 40), a body over 64 KB is refused;
- *   - guest posts are limited per guest link and per address (429 with Retry-After and a sentence); members are not;
- *   - open streams are capped per person and per guest link (429), and a closed one frees its place;
+ *   - guest posts are limited per address (half the link's) and per guest link (429 with Retry-After and a sentence),
+ *     one address can't spend the whole link's minute, and spoofed X-Forwarded-For entries change nothing; members are
+ *     not under the guest limit;
+ *   - a signed-in member opens six streams (one a tab) and more, up to 50; the 51st is refused (429); a closed one frees
+ *     its place;
+ *   - a guest address's streams are capped at 40% of the link's and the link's in all (429), and spoofed
+ *     X-Forwarded-For entries change nothing;
  *   - a guest link turned off, regenerated, or its space's guests turned off ends the guest's stream at once (a last
  *     `closed` event) and refuses the old token's posts;
  *   - an owner's delete and clear reach the guest's stream; a guest can't delete, clear, change who sees a message or
@@ -37,7 +44,7 @@ async function startServer() {
     env: {
       PATH: process.env.PATH, HOME: process.env.HOME, PORT: '0', DATA_DIR: dataDir,
       LIVEKIT_API_KEY: 'devkey', LIVEKIT_API_SECRET: 'devsecretdevsecret', ADMIN_PASSWORD: 'testpass1234',
-      GUEST_CHAT_POSTS_PER_MINUTE: '3', CHAT_STREAMS_PER_PERSON: '2', CHAT_STREAMS_PER_GUEST_LINK: '3',
+      GUEST_CHAT_POSTS_PER_MINUTE: '10', CHAT_STREAMS_PER_GUEST_LINK: '5', TRUST_PROXY_HOPS: '1',
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -160,35 +167,55 @@ try {
   const huge = await call('POST', `${T}${g(tripToken)}`, { ip: '10.0.0.5', body: { name: 'V', text: 'a'.repeat(70 * 1024) } });
   same(huge.status, 413, 'a body over 64 KB is refused');
 
-  // --- guest posts: per guest link and per address ---------------------------------------------------------------
-  // 10.0.0.1 has posted once with the Lobby's link (above): two more, then the fourth in the minute is refused.
-  for (let i = 0; i < 2; i += 1) same((await call('POST', `${L}${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: `post ${i}` } })).status, 200);
+  // --- guest posts: per address (half the link's) and per guest link -----------------------------------------------
+  // 10.0.0.1 has posted once with the Lobby's link (above): four more, then the sixth in the minute is refused as the
+  // address's, though the link has five left.
+  for (let i = 0; i < 4; i += 1) same((await call('POST', `${L}${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: `post ${i}` } })).status, 200);
   const limited = await call('POST', `${L}${g(lobbyToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'one too many' } });
-  same(limited.status, 429, 'the fourth guest post in a minute is refused');
-  same(limited.json.error.replace(/\d+ seconds?$/, 'N seconds'), 'Guests can post 3 messages a minute; try again in N seconds', 'with one plain sentence');
+  same(limited.status, 429, 'the sixth guest post in a minute from one address is refused');
+  same(limited.json.error.replace(/\d+ seconds?$/, 'N seconds'), 'Guests can post 5 messages a minute from one address; try again in N seconds', 'with one plain sentence');
   ok(Number(limited.retryAfter) >= 1 && Number(limited.retryAfter) <= 60, `with Retry-After (${limited.retryAfter})`);
-  same((await call('POST', `${L}${g(lobbyToken)}`, { ip: '10.0.0.2', body: { name: 'Ann', text: 'from elsewhere' } })).status, 429, 'the guest link is limited from another address too');
+  // A client's own X-Forwarded-For entries (to the left of what the proxy saw) are not its address.
+  for (let i = 0; i < 5; i += 1) {
+    const spoofed = await call('POST', `${L}${g(lobbyToken)}`, { ip: `203.0.113.${i + 1}, 10.0.0.1`, body: { name: 'Vic', text: `spoof ${i}` } });
+    same(spoofed.status, 429, `a spoofed X-Forwarded-For (${i + 1}) does not raise the address's limit`);
+  }
   same((await call('POST', `${T}${g(tripToken)}`, { ip: '10.0.0.1', body: { name: 'Vic', text: 'other link' } })).status, 429, 'the address is limited with another guest link too');
+  // One address could not spend the link: another address has the rest of it, then the link is full for everyone.
+  for (let i = 0; i < 5; i += 1) same((await call('POST', `${L}${g(lobbyToken)}`, { ip: '10.0.0.2', body: { name: 'Ann', text: `from elsewhere ${i}` } })).status, 200, 'another address on the link still posts');
+  const linkLimited = await call('POST', `${L}${g(lobbyToken)}`, { ip: '10.0.0.3', body: { name: 'Bo', text: 'link is full' } });
+  same(linkLimited.status, 429, "the guest link's minute is spent");
+  same(linkLimited.json.error.replace(/\d+ seconds?$/, 'N seconds'), 'Guests can post 10 messages a minute; try again in N seconds', 'with one plain sentence');
   same((await call('POST', `${T}${g(tripToken)}`, { ip: '10.0.0.3', body: { name: 'Tia', text: 'fresh' } })).status, 200, 'another link from another address is not');
   for (let i = 0; i < 6; i += 1) same((await call('POST', L, { cookie: patCookie, body: { text: `member ${i}` } })).status, 200, 'members are not under the guest limit');
 
-  // --- open streams: per person and per guest link -----------------------------------------------------------------
-  const p1 = await watch(`${L}/stream`, { cookie: patCookie });
-  const p2 = await watch(`${L}/stream`, { cookie: patCookie });
-  const p3 = await watch(`${L}/stream`, { cookie: patCookie });
-  same([p1.status, p2.status], [200, 200], 'a person opens up to the cap');
-  same([p3.status, p3.error], [429, 'you have too many chat streams open (2 at most); close one and try again'], 'one more is refused');
-  p1.close();
+  // --- open streams: a signed-in person (one a tab, 50 at most) ---------------------------------------------------------
+  const tabs = [];
+  for (let i = 0; i < 6; i += 1) tabs.push(await watch(`${L}/stream`, { cookie: patCookie }));
+  same(tabs.map((t) => t.status), [200, 200, 200, 200, 200, 200], "a member's sixth tab is not refused");
+  for (let i = 6; i < 50; i += 1) tabs.push(await watch(`${L}/stream`, { cookie: patCookie }));
+  ok(tabs.every((t) => t.status === 200), 'a member opens up to 50');
+  const tooMany = await watch(`${L}/stream`, { cookie: patCookie });
+  same([tooMany.status, tooMany.error], [429, 'you have too many chat streams open (50 at most); close one and try again'], 'the 51st is refused');
+  for (const t of tabs.slice(1)) t.close();
   await quiet();
   const p4 = await watch(`${L}/stream`, { cookie: patCookie });
   same(p4.status, 200, 'a closed stream frees its place');
-  // The Lobby's guest at 10.0.0.1 holds one already (guestStream): one more there, the third refused as the person's.
+
+  // --- open streams: a guest address (40% of the link's, here 2) and the guest link (5) --------------------------------
+  // The Lobby's guest at 10.0.0.1 holds one already (guestStream): one more there, the third refused as the address's.
   same((await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.1' })).status, 200);
   const gFull = await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.1' });
-  same([gFull.status, gFull.error], [429, 'you have too many chat streams open (2 at most); close one and try again'], "a guest's own cap");
-  same((await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.2' })).status, 200, 'another address on the link: the third of the link');
-  const linkFull = await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.4' });
-  same([linkFull.status, linkFull.error], [429, 'this guest link has too many chat streams open (3 at most); close one and try again'], "the guest link's cap");
+  same([gFull.status, gFull.error], [429, 'you have too many chat streams open (2 at most); close one and try again'], "a guest address's own cap");
+  for (let i = 0; i < 3; i += 1) {
+    const spoofed = await watch(`${L}/stream${g(lobbyToken)}`, { ip: `198.51.100.${i + 1}, 10.0.0.1` });
+    same(spoofed.status, 429, `a spoofed X-Forwarded-For (${i + 1}) does not open another stream`);
+  }
+  same((await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.2' })).status, 200, 'another address on the link');
+  same((await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.2' })).status, 200, 'its second');
+  same((await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.4' })).status, 200, 'a third address: the fifth of the link');
+  const linkFull = await watch(`${L}/stream${g(lobbyToken)}`, { ip: '10.0.0.6' });
+  same([linkFull.status, linkFull.error], [429, 'this guest link has too many chat streams open (5 at most); close one and try again'], "the guest link's cap");
 
   // --- an owner's delete and clear reach the guest; a guest moderates nothing ---------------------------------------
   same((await call('DELETE', `${L}/${fromHome.json.message.id}`, { cookie: owner })).status, 200);

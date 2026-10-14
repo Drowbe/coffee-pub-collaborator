@@ -110,13 +110,18 @@ const {
   // The most a picture map file (an owner's upload of picture tiles, see "A picture map" below) may weigh, in MB. A backup
   // and a restore carry the environment's folder, so it is kept well under the restore's own limit. Not a number above 0: 100.
   MAP_IMAGE_MAX_MB = '',
-  // Guests in chat (GitHub #289): how many chat messages one guest link, and one address posting as a guest, may post
-  // in a minute (default 20); how many chat streams (GET /api/spaces/:id/chat/stream) one person may hold open, a guest
-  // counted by their guest link and address (default 5); and how many one guest link may hold open in all (default 25).
+  // Guests in chat (GitHub #289): how many chat messages one guest link may post in a minute (default 20; one address
+  // posting as a guest gets half of it, at least 5); how many chat streams (GET /api/spaces/:id/chat/stream) one
+  // signed-in person may hold open (default 50: one a browser tab); and how many one guest link may hold open in all
+  // (default 25; one address on it gets 40% of that, at least 2, and never more than CHAT_STREAMS_PER_PERSON).
   // Not a whole number above 0: the default.
   GUEST_CHAT_POSTS_PER_MINUTE = '',
   CHAT_STREAMS_PER_PERSON = '',
   CHAT_STREAMS_PER_GUEST_LINK = '',
+  // How many reverse proxies stand in front of the server (default 1, the usual one). The address a request came from
+  // is the one the nearest of them saw, so a client can't choose its own with X-Forwarded-For; 0 = no proxy, the
+  // connection's own address. Not a whole number of 0 or more: 1, with a line on start.
+  TRUST_PROXY_HOPS = '',
 } = process.env;
 // The product's own name -- configuration, never code: PRODUCT_NAME, or the default when it is unset, empty or only
 // spaces. One rule, productName() in server/product-name.js, for everything the server answers and says.
@@ -1514,7 +1519,19 @@ function guestSvg() {
 
 const app = express();
 app.disable('x-powered-by');
-app.set('trust proxy', true);
+// Trust only the proxies in front of us (TRUST_PROXY_HOPS), never `true`: with `true` req.ip is the leftmost
+// X-Forwarded-For address, which the client writes, so every per-address limit (sign-in, sign-up, guest chat) could be
+// dodged. With a hop count req.ip is the address the nearest trusted proxy saw, and X-Forwarded-Proto/Host (req.protocol,
+// req.hostname, so BASE_DOMAIN's host matching) are read only when the connection comes from a trusted proxy.
+const trustProxyHops = (() => {
+  const raw = String(TRUST_PROXY_HOPS).trim();
+  if (raw === '') return 1;
+  const n = Number(raw);
+  if (Number.isInteger(n) && n >= 0) return n;
+  console.warn(`TRUST_PROXY_HOPS=${raw} is not a whole number of 0 or more: using 1.`);
+  return 1;
+})();
+app.set('trust proxy', trustProxyHops);
 // Writes only from this origin. A SameSite=Lax cookie still goes along with a request from another origin on the same
 // site (on a hosted server every environment is *.BASE_DOMAIN, the console admin.BASE_DOMAIN), and a plain form or a
 // no-cors fetch needs no preflight. So a POST, PUT, PATCH or DELETE that carries a cookie is refused when the browser
@@ -2675,6 +2692,31 @@ mountOldLinks(app);
 // The app shell must never load inside a frame (clickjacking). Only these two routes carry it: nothing of ours frames
 // the shell (the overlay, composites and module frames hold /profile, /admin, /modules/..., /calendar, /map, /m/...).
 const NOT_FRAMED = { 'Content-Security-Policy': "frame-ancestors 'none'", 'X-Frame-Options': 'DENY' };
+// The pages our own frames hold (the page overlay: /profile, /admin and Manage's own pages; a composite: /calendar,
+// /map; a module's page) and the sign-in pages: framed by this site only. Not the OBS and keyed pages (/<path>/<key>,
+// ?s=), nor a module's own files (/m/..., which set their own frame-ancestors 'self'), nor anything else a person might
+// embed. The same pages by their file names too (express.static serves /admin.html as it is), and the shell's file,
+// /space.html, never framed, as / is.
+const FRAMED_HERE = { 'Content-Security-Policy': "frame-ancestors 'self'", 'X-Frame-Options': 'SAMEORIGIN' };
+const FRAMED_HERE_PATHS = new Set([
+  '/profile', '/admin', '/login', '/login/verify', '/login/enrol', '/register',
+  '/profile.html', '/admin.html', '/ai-config.html', '/module-config.html', '/login.html', '/login-step.html', '/register.html', '/module.html', '/destination.html',
+  ...destinations.DESTINATIONS.map((d) => d.path),
+]);
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+  if (req.path === '/space.html') res.set(NOT_FRAMED);
+  else if (FRAMED_HERE_PATHS.has(req.path) || /^\/profile\/[^/]+$/.test(req.path) || /^\/invite\/[^/]+$/.test(req.path)) res.set(FRAMED_HERE);
+  next();
+});
+// A page a frame asked for that would otherwise redirect a framed request into a page that refuses frames (/, a guest
+// link): a tiny page that says so instead, with its status.
+function framedRefusal(req, res, status, text) {
+  if (req.get('sec-fetch-dest') !== 'iframe') return false;
+  res.status(status).set(FRAMED_HERE).type('html')
+    .send(`<!doctype html><meta charset="utf-8"><title>${text}</title><p style="font:16px system-ui,sans-serif;margin:2em;text-align:center">${text}</p>`); // text: our own sentence, never input
+  return true;
+}
 
 app.get('/', (req, res) => {
   if (!currentUser(req)) return res.redirect('/login');
@@ -4308,8 +4350,10 @@ app.delete('/api/spaces/:id/layouts/:layoutId/favorite', layoutFavorite(false));
 // a space (plan-names step 8), so its id answers 404 here, reading or posting. Reading needs the "open and read the chat" permission, posting "send chat messages", and the person
 // must be in the space (or an owner, or a guest of that space).
 // The rule itself, apart from answering: { who, space }, or { status, error }. The chat stream asks it again while it is
-// open (chatStreamRecheck), so a guest link turned off or regenerated, a session that ended or a person taken out of
-// the space ends the stream.
+// open (chatStreamRecheck), so a guest link turned off or regenerated, a session that no longer reads (expired, the
+// account gone or its password or second step changed) or a person taken out of the space ends the stream. Signing
+// out does not: it only clears the cookie in the browser, and an open stream already sent its session, so the page that
+// signs out closes its own stream by leaving, and the browser's other open tabs keep theirs until they are closed.
 function chatAccess(req, spaceId, permission) {
   const who = moduleViewer(req);
   // The access key is for a module's keyed page, never the chat: it answers as signed out (layoutSpaceFor does the same).
@@ -4334,26 +4378,36 @@ function chatSpaceFor(req, res, permission) {
 
 // --- guests in chat: the abuse limits (GitHub #289) -------------------------------------------------------------------
 // A guest has no account, and one guest link is shared by everyone it was given to, so a guest's posts are counted by
-// their guest link and by their address, each GUEST_CHAT_POSTS_PER_MINUTE a minute. Open chat streams are counted by
-// person (a guest: their guest link and address), CHAT_STREAMS_PER_PERSON at once, and by guest link,
-// CHAT_STREAMS_PER_GUEST_LINK at once. Kept per environment (the slug is in each key).
+// their guest link, GUEST_CHAT_POSTS_PER_MINUTE a minute, and by their address, half of that (at least 5, never more
+// than the link's), so one address can't spend the whole link's minute. Open chat streams: a signed-in person
+// CHAT_STREAMS_PER_PERSON at once (default 50: one a browser tab; they are accountable, and Home opens one in every
+// tab); a guest link CHAT_STREAMS_PER_GUEST_LINK at once, and one address on it 40% of that (at least 2, never more than
+// CHAT_STREAMS_PER_PERSON), so one address can't fill the link. The address is req.ip (TRUST_PROXY_HOPS). Kept per
+// environment (the slug is in each key).
 const wholeAbove0 = (value, fallback) => {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : fallback;
 };
 const guestChatPostsPerMinute = wholeAbove0(GUEST_CHAT_POSTS_PER_MINUTE, 20);
-const chatStreamsPerPerson = wholeAbove0(CHAT_STREAMS_PER_PERSON, 5);
+const guestChatPostsPerAddress = Math.min(guestChatPostsPerMinute, Math.max(5, Math.floor(guestChatPostsPerMinute * 0.5)));
+const chatStreamsPerPerson = wholeAbove0(CHAT_STREAMS_PER_PERSON, 50);
 const chatStreamsPerGuestLink = wholeAbove0(CHAT_STREAMS_PER_GUEST_LINK, 25);
+const chatStreamsPerGuestAddress = Math.min(chatStreamsPerPerson, chatStreamsPerGuestLink, Math.max(2, Math.floor(chatStreamsPerGuestLink * 0.4)));
 const guestChatPosts = new Map(); // key -> post times in the last minute
 const chatStreamsOpen = new Map(); // key -> streams open now
 const chatSlug = () => currentEnvironment().slug || '';
-// The seconds until one more post is allowed under every key, or 0 when it is allowed now (and then it is counted).
+// [[key, most], ...] -> { wait, most }: the seconds until one more post is allowed under every key, or 0 when it is
+// allowed now (and then it is counted under each), and which key refused (its index; the one with the longest wait).
 function guestPostWait(keys) {
   const now = Date.now();
   let wait = 0;
-  const kept = keys.map((key) => {
+  let which = -1;
+  const kept = keys.map(([key, cap], i) => {
     const recent = (guestChatPosts.get(key) || []).filter((t) => now - t < 60000);
-    if (recent.length >= guestChatPostsPerMinute) wait = Math.max(wait, Math.ceil((recent[0] + 60000 - now) / 1000));
+    if (recent.length >= cap) {
+      const here = Math.max(1, Math.ceil((recent[recent.length - cap] + 60000 - now) / 1000));
+      if (here > wait) { wait = here; which = i; }
+    }
     return [key, recent];
   });
   for (const [key, recent] of kept) {
@@ -4361,7 +4415,7 @@ function guestPostWait(keys) {
     if (recent.length) guestChatPosts.set(key, recent);
     else guestChatPosts.delete(key);
   }
-  return wait;
+  return { wait, which };
 }
 // Old entries go once a minute, so the map holds only who posted lately.
 setInterval(() => {
@@ -4373,7 +4427,7 @@ function chatStreamKeys(req, who) {
   const slug = chatSlug();
   if (who.user) return [[`${slug}|person|${who.user.key}`, chatStreamsPerPerson]];
   const token = req.query.guest;
-  return [[`${slug}|guest|${token}|${req.ip || 'unknown'}`, chatStreamsPerPerson], [`${slug}|link|${token}`, chatStreamsPerGuestLink]];
+  return [[`${slug}|guest|${token}|${req.ip || 'unknown'}`, chatStreamsPerGuestAddress], [`${slug}|link|${token}`, chatStreamsPerGuestLink]];
 }
 
 app.get('/api/spaces/:id/chat', (req, res) => {
@@ -4390,8 +4444,9 @@ app.get('/api/spaces/:id/chat', (req, res) => {
 // first, once the stream is listening, so a page reads the history after it (nothing is replayed on a reconnect).
 // A space's guest reads it with ?guest=<token> (GitHub #289). The access is asked again before each event, every
 // CHAT_STREAM_RECHECK_MS, and at once when a guest link changes (chatAccessChanged): once it no longer holds (the guest
-// link turned off or regenerated, the session ended, the person taken out of the space), a last { type: 'closed',
-// error } is sent and the stream ends. Too many open at once (chatStreamKeys) answers 429.
+// link turned off or regenerated, the session no longer reads -- see chatAccess: signing out is not that -- the person
+// taken out of the space), a last { type: 'closed', error } is sent and the stream ends. Too many open at once
+// (chatStreamKeys) answers 429.
 const CHAT_STREAM_RECHECK_MS = 2000;
 app.get('/api/spaces/:id/chat/stream', (req, res) => {
   const found = chatSpaceFor(req, res, 'chatRead');
@@ -4431,7 +4486,7 @@ app.get('/api/spaces/:id/chat/stream', (req, res) => {
       else chatStreamsOpen.delete(key);
     }
   };
-  // Asked in this request's environment; the cached person is dropped first, so a session that ended is seen.
+  // Asked in this request's environment; the cached person is dropped first, so a session that no longer reads is seen.
   function stillAllowed() {
     if (ended) return false;
     req._user = undefined;
@@ -4591,10 +4646,12 @@ app.post('/api/spaces/:id/chat', (req, res) => {
   const key = who.user ? who.user.key : `guest:${space.id}`;
   if (!who.user) {
     const slug = chatSlug();
-    const wait = guestPostWait([`${slug}|link|${req.query.guest}`, `${slug}|ip|${req.ip || 'unknown'}`]);
+    const { wait, which } = guestPostWait([[`${slug}|link|${req.query.guest}`, guestChatPostsPerMinute], [`${slug}|ip|${req.ip || 'unknown'}`, guestChatPostsPerAddress]]);
     if (wait) {
+      const after = `try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}`;
+      const guests = word('guest', { many: true, cap: true });
       return res.status(429).set('Retry-After', String(wait))
-        .json({ error: `${word('guest', { many: true, cap: true })} can post ${guestChatPostsPerMinute} messages a minute; try again in ${wait} ${wait === 1 ? 'second' : 'seconds'}` });
+        .json({ error: which === 0 ? `${guests} can post ${guestChatPostsPerMinute} messages a minute; ${after}` : `${guests} can post ${guestChatPostsPerAddress} messages a minute from one address; ${after}` });
     }
   }
   if (chatPostLimited(key)) return res.status(429).json({ error: 'too many messages, slow down' });
@@ -7585,6 +7642,10 @@ app.get('/api/modules/for-space', (req, res) => {
 // A module on a space's canvas popped out into its own window opens the same page with the
 // space in the query, ?space=<id> (and a guest's link token, if that is who is looking).
 app.get('/modules/:id', (req, res) => {
+  // Framed by this site only (the overlay and the canvas hold it), unless the address carries the access key (?s=) or
+  // the module serves a keyed page (an OBS or stream module): those are left as they were, for whatever embeds them.
+  const keyedModule = modules.enabled(req.params.id)?.manifest?.surfaces?.keyed;
+  if (req.query.s === undefined && !keyedModule) res.set(FRAMED_HERE);
   if (!currentUser(req) && !hasGuestAccess(req)) return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
   // A module's environment page (no space, not a pop-out) leads to the destination it is a part of while that is shown
   // (plan-calendar-destination.md, decision 16). The browser keeps the address's #day= or #ref= across the redirect,
@@ -7614,14 +7675,19 @@ for (const dest of destinations.DESTINATIONS) {
     }
     if (!currentUser(req)) {
       // A guest (a space's guest link, no session) goes home: back to their space by its link, or / for a dead link.
+      // Framed (a composite's frame), never redirected into a page that refuses frames: a plain page that says so.
       if (req.query.guest !== undefined) {
+        if (framedRefusal(req, res, 401, 'Sign in again.')) return;
         const guestSpace = typeof req.query.guest === 'string' ? store.spaceByGuestToken(req.query.guest) : null;
         return res.redirect(guestSpace ? `/guest/${encodeURIComponent(req.query.guest)}` : '/');
       }
       return res.redirect(`/login?next=${encodeURIComponent(req.originalUrl)}`);
     }
     const ctx = destinationContext(moduleViewer(req));
-    if (!destinationPageReady() || !destinations.resolveDestination(dest.id, ctx)) return res.redirect('/');
+    if (!destinationPageReady() || !destinations.resolveDestination(dest.id, ctx)) {
+      if (framedRefusal(req, res, 403, 'This page is not shown here any more. Reload the page.')) return;
+      return res.redirect('/');
+    }
     res.sendFile(page('destination.html'));
   });
 }

@@ -1,8 +1,8 @@
 # Places Library Plan: one place in several spaces, and a real set of categories and types
 
-**Audience:** Thomas, who decides how a place belongs to more than one space, what the default is, and what the category and type library holds; the try builders: server-development for step 1, experience-design for steps 2 to 5; content-manager when a production build lands it.
+**Audience:** Thomas, who decides how a place belongs to more than one space, what the default is, and what the category and type library holds; the try builders: server-development for steps 1 and 6, experience-design for steps 2 to 5 and the pages half of step 6; content-manager when a production build lands it.
 
-**Status:** drafted 2026-10-14 by product-planner from Thomas's feedback of the same day; nothing approved, nothing built. Thomas's words:
+**Status:** decided 2026-10-14; nothing built. Drafted by product-planner from Thomas's feedback of the same day, then Thomas decided questions 1, 2, 3 and 6 (see Decisions). Two points he was not asked are kept under "Assumed" for him to confirm: guests on a guest link, and category colours. Thomas's words:
 
 - "A place should be able to belong to more than one thing (e.g. the trip, the environment, the person), right? So it should not be a dropdown."
 - "We should default places to being in the environment."
@@ -26,7 +26,14 @@ Two bugs from the same feedback (the place form must be the SDK's editor window,
 
 ## Decisions
 
-Only Thomas's feedback above, 2026-10-14. Everything else in this plan is proposed, and the questions at the end are his to answer.
+Thomas's feedback above (2026-10-14), and his answers of the same day, each taking the recommendation:
+
+1. **One place, one home, marked into spaces.** A place is one record kept in one store (its home), with `spaces` marks for where else it shows, and a private bookmark for Mine. Not copies tied by an origin id, and not a per-read check of a list of readers. Reason: privacy stays where the store enforces it today, so no server read path changes; an edit is seen everywhere and the map draws a place once; and the default case needs no move and no copy.
+2. **The default when adding from a trip is Everyone plus this trip.** Adding from the Mine view defaults to Mine (with Everyone ticked first when the viewer may add there). Reason: the person working on a trip expects the place in the trip's list and on its map, and Everyone is still Thomas's "default places to being in the environment".
+3. **Anyone who can add places may add to Everyone, as today.** That is everyone with Places' `edit` right. Reason: the default puts members' places there; making Everyone owner-only would stop members using the default.
+6. **Maps and Places: a paired switch in Set up.** One "Maps and places" switch turns both on together, with a single workspace tile; the two modules stay underneath with their ids, data and pointers. Reason: it removes the confusion Thomas met without moving any stored key or breaking the Planner's `places:place` pointers. Built as step 6.
+
+Questions 4 (guests) and 5 (colours) were not asked; the plan's answer to each is under "Assumed".
 
 ## The two parts
 
@@ -34,7 +41,7 @@ Only Thomas's feedback above, 2026-10-14. Everything else in this plan is propos
 
 ## Part A: one place, several spaces
 
-### The model (proposed; question 1)
+### The model (decided)
 
 **A place is one record with one home, and marks for everywhere else it shows.**
 
@@ -43,10 +50,10 @@ Only Thomas's feedback above, 2026-10-14. Everything else in this plan is propos
 - **Mine.** A private bookmark in the person's own store, `saved:<id>` holding the home pointer. It is never written on the shared record, so nobody, an owner included, can see who keeps a place on their list.
 - **The home follows from the ticks,** widest first:
   - **Everyone** ticked: the environment's store, with any ticked spaces as marks.
-  - **Spaces only:** one space ticked keeps the place in that space's store. Two or more spaces without Everyone is refused in the first build ("To show it in more than one <space>, it must be in <environment> too."), because one space's store cannot be read by another space's members (question 1 names the alternative).
+  - **Spaces only:** one space ticked keeps the place in that space's store. Two or more spaces without Everyone is refused in the first build ("To show it in more than one <space>, it must be in <environment> too."), because one space's store cannot be read by another space's members. (Letting a place be in two spaces but not everyone would need a per-read list of readers, which Thomas decided against.)
   - **Only Mine:** the person's store, private, as today.
 
-Why this over the alternatives (all three are in question 1): it keeps privacy where it is enforced today, in the store, so no server read path changes; each place is one record, so an edit is seen everywhere and the map draws it once; and the default (Everyone) is the case with no move and no copy.
+Why this over the alternatives (copies tied by an origin id, which drift; or one record with a list of readers checked on every server read, which changes the read path everywhere and is the riskiest): it keeps privacy where it is enforced today, in the store, so no server read path changes; each place is one record, so an edit is seen everywhere and the map draws it once; and the default (Everyone) is the case with no move and no copy.
 
 ### When the ticks change the home: a move
 
@@ -80,9 +87,9 @@ The dropdown becomes a group of ticks at the top of the editor window, `fieldset
 - **An existing place** shows its ticks, changeable by anyone who may edit it (no longer a disabled field). Changing them may move it (above).
 - Native checkboxes, not chips: each row 44 px tall on a phone, its label the whole row, so it is a plain list to a screen reader.
 
-### The default (Thomas: "default places to being in the environment"; question 2)
+### The default (decided: Thomas, "default places to being in the environment", and his answer to question 2)
 
-**Proposed: Everyone, plus where you are.** Everyone is always ticked first when the viewer may add there; then:
+**Everyone, plus where you are.** Everyone is always ticked first when the viewer may add there; then:
 
 - on a space's canvas or its Map: that space too (a mark, so the place shows in the trip's list and on its map);
 - in the Mine view: Mine too (a bookmark);
@@ -90,9 +97,9 @@ The dropdown becomes a group of ticks at the top of the editor window, `fieldset
 
 When the viewer may not add to Everyone, the default is where they are. `addPlace` from another module (the Planner's "Save it as a place", **Send to...**) takes the same default for the space it is asked from, and answers the home's pointer. Its input gains an optional `in: ["environment", "space", "person"]` for a module that needs another choice.
 
-### Who may do what (question 3)
+### Who may do what (decided)
 
-- **Read and change:** the home's rights, as today. In the environment's store that is everyone with Places' `edit` right ("everyone means everyone who can edit", [plan-places-views](plan-places-views.md)). This plan keeps that, because the default puts members' places there; making Everyone owner-only would mean members could not use the default.
+- **Read and change:** the home's rights, as today. In the environment's store that is everyone with Places' `edit` right ("everyone means everyone who can edit", [plan-places-views](plan-places-views.md)). Thomas decided to keep that: anyone who can add places may add to Everyone, as today.
 - **Add or remove a space mark:** someone who may change the place and may add places in that space.
 - **Share a private place** (move it out of Mine): only its person, the only one who can see it.
 - **Narrow or delete:** anyone who may change the place, after the question above.
@@ -116,7 +123,7 @@ One record, so the existing version check and conflict bar answer as they do tod
 
 Nothing is live, so there is no migration. The code still reads every old shape: a record without `spaces` means no marks (an environment place in no space; a space's place in that space alone; a person's place private), and the old categories are read as in Part B. A Set up or template that lists Places changes nothing here.
 
-### Guests on a guest link (question 4)
+### Guests on a guest link (assumed; see "Assumed")
 
 A guest on a guest link has no account and cannot read the environment's store. With the default above, a trip's guest does not see the trip's places kept in the environment, and a Planner object pointing at one shows as unavailable to them. Places kept in the space itself are unchanged.
 
@@ -140,7 +147,7 @@ The `categories` list setting stays the mechanism, edited by the owner in Places
 | `health` | Health & Wellness | `heart-pulse` |
 | `other` | Personal & Other | `location-dot` (fixed: renamed, never removed) |
 
-- **Colour (question 5).** Each row keeps a colour; the default ships every row grey, meaning "automatic", which takes one of the eight theme tints. With eleven rows, three tints are shared.
+- **Colour (assumed; see "Assumed").** Each row keeps a colour; the default ships every row grey, meaning "automatic", which takes one of the eight theme tints. With eleven rows, three tints are shared. Three new theme tints, so each category has its own, are a later theme change.
 - **The default replaces the old five for new environments.** An environment that already has a stored list keeps it; nothing is rewritten. The setting's help is reworded: "How places are grouped and coloured. Taking a category off the list removes no place and no type: its places show under Other, and its types stay in the picker."
 - **The old ids are read as new ones** wherever a place or a request carries them: `eat` as `food`, `do` as `activities`, `travel` as `transport` (`stay` and `other` are unchanged). This is only for `addPlace` input and old records; nothing is rewritten.
 
@@ -186,27 +193,33 @@ Categories: 20 rows, labels 30 characters, ids 30 characters (and the summary's 
 - **Words per environment.** The module's own name follows the environment ("Locations" in Thomas's environment) as today; the form's words do not use the module name. Category labels are the owner's. Type labels and aliases are English library words; another language is a later library, not a setting.
 - **Picture maps.** Everything here works on a picture map: types and status are not geographic. `osm` is unused there because the outside search is off. Some types (EV Charging, ATM) simply go unused in an invented world.
 
-## Maps and Places: one module or two (question 6)
+## Maps and Places: a paired switch (decided)
 
-Asked before and still open. The options:
+Thomas decided on option 2 of three (the others were one merged module, and leaving it as it is). Maps and Places stay two modules with their ids, data and pointers; Set up and the Workspace show them as one.
 
-1. **One module with Map and Places views.** One thing to switch on. Moving `place:` keys or retiring the `maps` id breaks the Planner's `places:place` pointers and the Map files setting's home unless the merged module keeps the `places` id and takes Maps' settings with a migration. The largest change.
-2. **A paired switch in Set up.** Turning Maps on turns Places on; turning Places off asks and turns Maps off; Set up shows them as one row ("Places and map", with the environment's names). Small, Set up only, nothing stored moves.
-3. **Leave as is.** Maps `requires: ["places"]` and the Modules tab says why.
-
-**Lean: 2.** It removes the confusion Thomas met without moving data, and the composite ([plan-map-places](plan-map-places.md)) already shows them as one thing on the Workspace. This plan works under all three: Places owns the data, the library and the form; Maps only draws what the summaries say.
+- **Set up.** The modules tab (and a template's offer) shows one row, **Maps and places**, in the environment's words for them, in place of two. Switching it on turns on Places and then Maps, in every space the row covers, using the order Set up already uses (Maps after Places, from `requires`). Switching it off asks ("This turns off the map and the places. Nothing is deleted.") and turns both off. Each module's own settings stay under the row, as two cards, so the owner still edits Places' categories and Maps' map files where they are today.
+- **A template** that lists `maps`, `places` or both is offered as the one row; a template that lists only `places` offers Places alone (see below). `applyOffer` and the offer's `modules` list in `server/templates.js` treat the pair as one choice; the template's own list does not change.
+- **The Workspace** shows one tile, the Map and Places composite that [plan-map-places](plan-map-places.md) already built, named by the environment's words. Nothing about the tile's parts or their ids changes.
+- **If only one is on.**
+  - **Places on, Maps off** is allowed and is how a pre-existing install may be: the row shows as partly on, "Places is on. Turn on the map." with one button; the workspace tile is Places alone (a list, no map). Places works fully; Maps is the only thing missing.
+  - **Maps on, Places off** cannot happen: Maps `requires: ["places"]`, and the registry already turns Maps off when Places goes off. Turning Places off alone, from the Modules tab, still asks and turns Maps off with it.
+  - **Switching the row off** when only Places is on turns off Places.
+  - Neither a half state nor a switch changes a stored place, a pointer or a setting; everything comes back as it was when the row is switched on again.
+- **Not changed:** the `places` and `maps` ids, `place:` keys, the Planner's `places:place` pointers, the Map files setting's home, and a single-environment install without templates (it keeps the two cards on the Modules tab and gains the same row there).
 
 ## Left to build, in order
 
-Each step is a try build: one builder, its own checks, pushed at once, a patch or minor version bump for each module it changes.
+Each step is a try build: one builder, its own checks, pushed at once, a patch or minor version bump for each module it changes. Steps 3 to 5 follow one another; step 6 stands alone.
 
 1. **The server pieces** (server-development; first). Summary fields: `icon` (a Font Awesome Free solid name, kept only when the icon exists in `svgs/solid`), `visit` (kept only when `want`, `booked`, `visited` or `favorite`), `spaces` (up to 20 ids of spaces that exist); the `category` limit raised from 20 to 30. `host.objects.search(q, { scope: 'environment', in: <space id> })` and its route's `in` query. `server/module-build.js` inlines `src/<id>-lib-<name>.json` as `const LIB_<NAME>`. The manifest check lists the new summary fields. Cases in `tools/check-links.mjs` (summaries), `tools/check-modules.mjs` (the build and the manifest) and `tools/check-places.mjs` for a summary with each field. No module bump.
 2. **The library in Places** (experience-design). `places-lib-types.json` from the appendix; the eleven default categories; `cleanPlace` reads `type`, `icon`, `iconOwn`, `color`, `status` and the old category ids; the Type and Look pickers and the Status buttons in the form; list rows with the drawn icon and colour and the status; the summary maps `icon`, `visit` and `category`; saving a search result picks a type by `osm`; `categoryColors` also answers type colours. `check-places` checks the library as above. Places 0.11.0.
-3. **Belonging in Places** (experience-design; after question 1, 2 and 3). The **Shows in** ticks and their line; the home rule and the refusal of two spaces without Everyone; marks, bookmarks (`saved:`), moves with forwards, the narrowing question; the place menu's new entries; the lists' union and the space chips; `addPlace`'s default and its `in`; the marks-only retry on 409; `sharePlace` (provided, not local: `{ place: ref, in: [...] }`, answering the new pointer). `check-places` gains the home rule, a move with its forward, a bookmark to a gone place, and two spaces refused. Places 0.12.0.
+3. **Belonging in Places** (experience-design; after the separate form fix has landed). The **Shows in** ticks and their line; the home rule and the refusal of two spaces without Everyone; marks, bookmarks (`saved:`), moves with forwards, the narrowing question; the place menu's new entries; the lists' union and the space chips; `addPlace`'s default and its `in`; the marks-only retry on 409; `sharePlace` (provided, not local: `{ place: ref, in: [...] }`, answering the new pointer). `check-places` gains the home rule, a move with its forward, a bookmark to a gone place, and two spaces refused. Places 0.12.0.
 4. **Maps** (experience-design). Each pin once by its home pointer; the summary's `icon` on the pin, the colour by the override order, the status badge; in a space, "This <space>" also asks `in: <space id>`; a forward never drawn. `check-maps`. Maps 0.9.0.
 5. **The Planner** (experience-design). "Save it as a place" passes the type and uses `sharePlace` for a private place in place of the copy; a place on the plan shows its `icon`. `check-travel`. The Planner's minor bump. Budget: no change.
 
-Optional later: three more theme tints (question 5); Set up's paired switch (question 6, a Set up change, its own step).
+6. **The paired switch** (server-development for the Set up and template half, then experience-design for the row and the tile; independent of steps 1 to 5, so it can go first or last). Server: `server/templates.js` offers `maps` and `places` as one choice and `applyOffer` turns them on together in `requires` order; the modules route that backs the Modules tab and Set up answers the pair's state (`on`, `partial` with which one is off, `off`) and turns Maps off with Places as it does now. Pages: the **Maps and places** row on the modules tab of Set up and on the Modules tab, the confirmation on switch-off, the partly-on line with its button, and the single workspace tile named by the environment's words. `check-templates` and `check-modules` gain: the pair offered as one choice, both on after one switch, both off after the switch off, Places on alone reported as partial, and Maps never on without Places. No module bump unless a module file changes.
+
+Optional later: three more theme tints so each category has its own colour (a theme change).
 
 ## Verify
 
@@ -215,15 +228,18 @@ Optional later: three more theme tints (question 5); Set up's paired switch (que
 - **Step 3** live with two accounts and a guest link: a place made on a trip lands in Everyone and the trip; the second account outside the trip sees it in Everyone's list without the trip's chip; a second trip ticked; two trips without Everyone refused; a private place shared, its forward followed from a Planner object; narrowing with the question; a bookmark, then the place deleted; two people ticking at once. `check-places`, `check-links`, `check-drop`.
 - **Step 4** in headless Chromium without WebGL (list state) and by `check-maps`; the pins themselves need WebGL.
 - **Step 5** by `check-travel` and live: "Save it as a place" on a hotel booking gives a Hotel.
-- **Only Thomas can check:** the pins' icons and badges drawn with WebGL from real map tiles; the Type picker as a sheet on a real phone (the keyboard, 44 px rows, scrolling a 150-type list); the ticks with VoiceOver or TalkBack; Safari and Firefox; real Photon results getting their type. None of this needs a LiveKit call.
+- **Step 6** by the checks named there, and live with a throwaway environment: switch the row on and see both modules on in a new space; off and see both off with the places still there on switching back on; Places on alone shows the partly-on line; the Workspace shows one tile at 1280 px and on a phone.
+- **Only Thomas can check:** the pins' icons and badges drawn with WebGL from real map tiles; the Type picker as a sheet on a real phone (the keyboard, 44 px rows, scrolling a 150-type list); the ticks with VoiceOver or TalkBack; Safari and Firefox; real Photon results getting their type. None of this needs a LiveKit call. A real call is not involved in any step.
 
 ## Risks
 
 - **Moves are the new failure mode.** A move is two writes in two stores; a failure between them must leave the place readable in one of them. Places writes the new home first, then the forward, and the check covers a failed second write.
-- **Guests and the environment default** (question 4): the default makes trip places invisible to guest-link guests.
+- **Guests and the environment default** (assumed): the default makes trip places kept in the environment invisible to guest-link guests. Guests who join a trip to plan it will notice; the Planner's pointer shows "unavailable" for them.
+- **The paired switch hides a real difference.** An install where Places was on and Maps off by choice sees the partly-on line; it must be quiet (one line, no badge) so it does not nag. Step 6 also touches Set up and templates, which every environment uses: the check covers a template that lists neither module and one that lists only `places`.
 - **The summary's `spaces` field** names space ids to everyone who reads the environment's places. Space names are already listed to every member, so nothing new is revealed, but a check must make sure no other field of a space (its members) comes with it.
 - **`kindPicker` with about 150 options** has not been tried at that size; step 2 measures opening and typing on a slow phone.
 - **Step 3 and the separate try build** both change the place form; step 3 waits for that build.
+- **Everyone is open to every member with `edit`.** A member can narrow or delete an Everyone place (decided with question 3); the narrowing question and the delete question are the only guard.
 
 ## Assumed (Thomas can change these)
 
@@ -232,17 +248,16 @@ Optional later: three more theme tints (question 5); Set up's paired switch (que
 - **`owners` stays** as the people a place is for, separate from where it shows.
 - **The Planner shares a private place** rather than copying it (step 5), telling the person.
 - **The drawn icon is stored on the record**, so a library change reaches a place only when it is next saved.
+- **Guests on a guest link do not see the trip's places kept in the environment in the first build.** The alternative is a narrow server rule letting a space's readers (guests included) read the environment's places marked for that space; it can be added later without changing the model.
+- **Category colours are automatic now** (eight theme tints, three repeated across eleven categories). Three new theme tints, so every category has its own, come later as a theme change; fixed colours in the defaults are not used because they are not theme-aware.
 
 ## What is not decided
 
-Questions for Thomas, in the order they block the build. Each lean is a suggestion.
+Nothing blocks the build. Open for Thomas to confirm, none blocking:
 
-1. **The model** (blocks steps 3 to 5). A, one place with one home and marks (lean, above). B, copies in each store tied by an origin id: no moves, but copies drift, one edit is not seen everywhere, and it is today's behaviour Thomas asked to replace. C, one record in the environment's store with a list of who may read it, enforced by the server on every read (list, change events, resolve, search, links, exports): the only way to put a place in two spaces but not everyone, and it lets guests see it, but it changes the server's read path everywhere and is the riskiest.
-2. **The default on a trip** (blocks step 3). Everyone and this trip (lean: the person working on the trip expects it in the trip's list and on its map) or Everyone only (closest to Thomas's words; the trip's map then shows it only with Everyone's switched on).
-3. **Who may add to Everyone** (blocks step 3). Everyone with Places' `edit` right (lean, today's rule, needed for members to use the default) or owners and moderators only, in which case a member's default is the trip.
-4. **Guests on a guest link** (does not block). Accept that they do not see the trip's places kept in the environment (lean, for the first build), or add a server rule letting a space's readers read the environment's places marked for that space (a narrow form of C).
-5. **Category colours** (does not block; step 2 ships automatic). Automatic tints with three shared (lean for now), fixed colours in the defaults (not theme-aware, against the theme rule), or three new theme tints so each category has its own (a theme change, later step).
-6. **Maps and Places** (does not block). One module, a paired switch in Set up (lean), or as is.
+1. **Guests on a guest link** (assumed above): keep the first build as is, or add the narrow server rule.
+2. **Category colours** (assumed above): three shared tints for now, or the theme change first.
+3. **The wording of the paired row**: "Maps and places" is Thomas's; the partly-on line's words are the plan's proposal and the environment's words for each module apply.
 
 Not in this plan: custom types and type editing by the owner; a per-template library; per-person status; deriving Booked from the Planner; importing a list of places.
 

@@ -13,7 +13,7 @@
 // See documentation/architecture/architecture-canvas.md.
 
 import { api, markModuleRead, followTheme, word } from '/brand.js';
-import { mountModule, openClearMenu, registerDragRelay, createAddSlot, createStatusSlot } from '/module-host.js';
+import { mountModule, createFrameLift, openClearMenu, registerDragRelay, createAddSlot, createStatusSlot } from '/module-host.js';
 import { openHostMenu, closeHostMenu, hostMenuOpen, refreshHostMenu } from '/host-menu.js';
 import { nav } from '/nav-bar.js';
 import { whatOpens, readAliased, firstVisitLayout, SYSTEM_TABS } from '/opens-with.js';
@@ -816,12 +816,23 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     const post = (data) => { try { frame.contentWindow?.postMessage(data, hostWin.location.origin); } catch { /* the page is not there */ } };
     const addEl = mod.el.querySelector('[data-header-add]');
     const statusEl = mod.el.querySelector('[data-status]');
-    const addSlot = addEl ? createAddSlot(addEl, (event, data) => { if (event === 'add' && data?.id) post({ type: 'app:compositeadd', id: data.id }); }) : null;
+    const addSlot = addEl ? createAddSlot(addEl, (event, data) => { if (event === 'add' && data?.id) { opener = { el: frame.ownerDocument.activeElement, at: Date.now() }; post({ type: 'app:compositeadd', id: data.id }); } }) : null;
     const statusSlot = statusEl ? createStatusSlot(statusEl) : null;
+    let opener = null; // the "+" the person used: focus goes back to it when the editor window closes
+    const lift = createFrameLift(frame, {
+      mount: { send: (event, data) => post({ type: 'app:compositeevent', event, data }) },
+      tell: () => post({ type: 'app:compositeevent', event: 'editordismiss', data: {} }),
+      takeOpener: () => { const o = opener; opener = null; return o; },
+    });
+    frame.addEventListener('load', () => lift.release()); // the page started over: no editor is open in it
     const onChrome = (event) => {
       if (event.source !== frame.contentWindow || event.origin !== hostWin.location.origin) return;
       const d = event.data;
       if (d && d.type === 'app:openref') return answerOpenRef(event, d); // a part's link to another module's object
+      if (d && d.type === 'app:compositelift') { // a part's editor window: this frame is lifted over the Workspace (module-host.js, createFrameLift)
+        const result = d.open ? lift.lift(true, d.size === 'large' ? 'large' : 'medium', Number(d.height)) : lift.lift(false);
+        return post({ type: 'app:compositelifted', seq: d.seq, result });
+      }
       if (!d || d.type !== 'app:compositechrome') return;
       if (addSlot && Array.isArray(d.add)) addSlot.set(d.add);
       if (statusSlot && Array.isArray(d.status)) statusSlot.set(d.status);
@@ -847,13 +858,13 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     };
     frame.addEventListener('load', () => { if (waiting && loaded()) { show(waiting); waiting = null; } });
     const mount = {
-      destroy() { unrelay(); waiting = null; frame.src = 'about:blank'; },
+      destroy() { unrelay(); lift.release(); waiting = null; frame.src = 'about:blank'; },
       deliver(event, data) {
         if (event !== 'objectopen' || !data?.ref) return;
         if (loaded()) show(data.ref); else waiting = data.ref;
       },
       send() {},
-      lift() {},
+      lift: (open) => (open ? false : lift.release()),
       beginDragForTest() {},
       ptrForTest() {},
     };

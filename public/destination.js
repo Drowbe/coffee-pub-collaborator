@@ -21,6 +21,7 @@ import { nav } from '/nav-bar.js';
 import { mountModule, createDestination, askCanvasToOpen, sameSiteOpener } from '/module-host.js';
 import { switchListHtml, wireSwitchList } from '/switch-list.js';
 import { hashPanel } from '/primary-nav.js';
+import { dropRepeatedAdds } from '/module-chrome.js';
 
 const $ = (id) => document.getElementById(id);
 const destId = decodeURIComponent(location.pathname.split('/')[1] || '').toLowerCase(); // /CALENDAR is /calendar
@@ -355,7 +356,7 @@ function mountPart(part, container, key) {
     entry: part.entry,
     destination: { hub, part: part.part },
     // In a composite's frame: the part's "+" entries and status, for the composite's titlebar and status bar.
-    ...(inComposite ? { onAdd: (entries) => { m.adds = entries; sendChrome(); }, onStatus: (items) => { m.status = items; sendChrome(); } } : {}),
+    ...(inComposite ? { liftUp: liftComposite, onAdd: (entries) => { m.adds = entries; sendChrome(); }, onStatus: (items) => { m.status = items; sendChrome(); } } : {}),
     onOpenRef: openRef,
     // A part saying how tall its content is: where the page stacks its parts in one scroll (destination.css, `sized`) the
     // part is that tall, so it has no scroll of its own; beside each other the page ignores it.
@@ -609,12 +610,15 @@ function layout() {
 // pick finds its part; a part with more than one entry, beside another with some, is a category named by the part (its
 // flyout). One leaf in all: the composite's "+" runs it at once. The status: the main part's items, then the panel's
 // shown (the window's status bar keeps the first four).
+// The same add offered by two parts (the Map's "Add a place" and its Places panel's) is one entry, the first part's.
 function chromeAdds() {
-  const giving = parts.map((p, at) => ({ p, at })).filter(({ p }) => p.adds.some((e) => !e.divider));
+  const lists = dropRepeatedAdds(parts.map((p) => p.adds));
+  const shown = new Map(parts.map((p, i) => [p, lists[i]]));
+  const giving = parts.map((p, at) => ({ p, at, adds: shown.get(p) })).filter(({ adds }) => adds.some((e) => !e.divider));
   const out = [];
-  for (const { p, at } of giving) {
+  for (const { p, at, adds } of giving) {
     const leaf = (e) => ({ ...e, id: `${at}.${e.id}` });
-    const own = p.adds.map((e) => (e.divider ? e : e.items ? { ...e, items: e.items.map(leaf) } : leaf(e)));
+    const own = adds.map((e) => (e.divider ? e : e.items ? { ...e, items: e.items.map(leaf) } : leaf(e)));
     const real = own.filter((e) => !e.divider);
     if (giving.length > 1 && (real.length > 1 || real[0].items)) {
       const items = real.flatMap((e) => e.items || [e]);
@@ -641,6 +645,23 @@ function sendChrome() {
     }
   });
 }
+// A part's editor window (host.ui.editor) needs the whole Workspace, not this frame: the Workspace lifts the frame over
+// itself while one is open (canvas.js, compositeMount) and says so; the answer is { lifted: true, phone } or false.
+const liftWaits = new Map();
+let liftSeq = 0;
+function liftComposite(open, size, height) {
+  return new Promise((resolve) => {
+    const seq = ++liftSeq;
+    liftWaits.set(seq, resolve);
+    setTimeout(() => { if (liftWaits.delete(seq)) resolve(false); }, 1500);
+    try {
+      window.parent.postMessage({ type: 'app:compositelift', seq, open, size, height }, location.origin);
+    } catch {
+      liftWaits.delete(seq);
+      resolve(false);
+    }
+  });
+}
 // From the Workspace: a pick in the composite's "+" (that part's own add, as its button in the page would; the part is
 // shown first, so its editor opens in view), or a new frame asking for what to draw.
 if (inComposite) {
@@ -649,6 +670,11 @@ if (inComposite) {
     const d = event.data;
     if (!d || typeof d !== 'object') return;
     if (d.type === 'app:compositehello') return sendChrome();
+    if (d.type === 'app:compositelifted') { const done = liftWaits.get(d.seq); liftWaits.delete(d.seq); if (done) done(d.result); return; }
+    if (d.type === 'app:compositeevent') { // the Workspace put the lifted frame back, or the window crossed the phone line
+      if (d.event === 'editordismiss' || d.event === 'editorlift') for (const p of parts) if (p.mounted) p.mounted.deliver(d.event, d.data || {});
+      return;
+    }
     if (d.type !== 'app:compositeadd' || typeof d.id !== 'string') return;
     const dot = d.id.indexOf('.');
     const p = parts[Number(d.id.slice(0, dot))];

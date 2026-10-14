@@ -756,7 +756,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const hostJs = fs.readFileSync(path.join(ROOT, 'public/module-host.js'), 'utf8');
   if (!/export function registerDragRelay\(frame\)/.test(hostJs) || !/postMessage\(\{ type: 'app:objectdrag', drag \}, location\.origin\)/.test(hostJs)) fail('public/module-host.js', 'a drag over a composite frame is relayed into it as app:objectdrag, same origin');
   if (!/if \(event\.source !== window\.parent \|\| event\.origin !== location\.origin\) return;/.test(hostJs)) fail('public/module-host.js', 'a relayed drag is taken only from the parent window, same origin');
-  if (!/const unrelay = registerDragRelay\(frame\);/.test(canvasJs) || !/destroy\(\) \{ unrelay\(\); waiting = null; frame\.src = 'about:blank'; \}/.test(canvasJs)) fail('public/canvas.js', 'compositeMount registers the frame for relayed drags and lets it go on close');
+  if (!/const unrelay = registerDragRelay\(frame\);/.test(canvasJs) || !/destroy\(\) \{ unrelay\(\); lift\.release\(\); waiting = null; frame\.src = 'about:blank'; \}/.test(canvasJs)) fail('public/canvas.js', 'compositeMount registers the frame for relayed drags and lets it go on close');
   // A pointer delivered before the destination's page is in the frame (the composite opened for a place card, a task)
   // waits for the frame's load, then goes in as #ref=; one delivered after goes in at once.
   if (!/frame\.addEventListener\('load', \(\) => \{ if \(waiting && loaded\(\)\) \{ show\(waiting\); waiting = null; \} \}\);/.test(canvasJs) || !/if \(loaded\(\)\) show\(data\.ref\); else waiting = data\.ref;/.test(canvasJs)) fail('public/canvas.js', 'compositeMount holds a pointer until the composite\'s page has loaded');

@@ -212,7 +212,7 @@ await test('one way to add a place in every context: Where, the same finish, the
   // The owner's category colours, for the map in this page.
   const colorsAction = placesManifest.actions.provides.find((a) => a.name === 'categoryColors');
   assert.ok(colorsAction && colorsAction.local === true && colorsAction.input.page === 'string?' && colorsAction.input.pageUntil === 'number?', 'categoryColors is a local action for this page');
-  assert.match(page, /categoryColors: async \(\) => \{\n\s+await catsRead;[\s\S]*?col\.hex\) colors\[c\.id\] = col\.hex;[\s\S]*?return \{ data: \{ colors \} \};/);
+  assert.match(page, /categoryColors: async \(\) => \{\n\s+await catsRead;[\s\S]*?col\.hex \|\| col\.tint;[\s\S]*?return \{ data: \{ colors \} \};/);
   assert.match(page, /onClose: \(\) => \{ if \(!state\.picking\) state\.editing = null; \}/);
   assert.match(page, /\$\('f-pick'\)\.hidden = !pickAction/);
   assert.match(page, /positionPicked: async \(input\) => \{/);
@@ -281,6 +281,8 @@ await test('picker data: one group per category in the list, Other last; types o
   assert.equal(groups.length, 11);
   assert.equal(groups[0].label, 'Food & Drink');
   assert.equal(groups[10].label, 'Personal & Other');
+  assert.ok(groups[10].options.some((o) => o.id === 'custom' && o.label === 'Custom Location'), 'the default type, Custom Location, is in Personal & Other');
+  assert.ok(groups.every((g) => g.options.every((o) => o.id !== '_none')), 'no "No type" entry');
   assert.equal(groups.reduce((n, g) => n + g.options.length, 0), 153);
   assert.deepEqual(Object.keys(groups[0].options[0]).sort(), ['color', 'icon', 'id', 'label', 'words']);
   assert.equal(groups[0].options[0].color, 'var(--tint-blue)');
@@ -352,6 +354,10 @@ await test('what a place is drawn with: place, then type, then category', () => 
   const summary = manifest.refs.produces.find((r) => r.kind === 'place').summary;
   assert.equal(summary.icon, 'icon');
   assert.equal(summary.visit, 'status');
+  assert.equal(summary.color, 'color', 'the summary carries the place\'s own colour (a tint name) for Maps');
+  assert.ok(lib.TINTS.includes(lib.cleanPlace('a', { title: 'x', color: 'pink' }).color) && lib.placeValue(lib.cleanPlace('a', { title: 'x', color: 'pink' })).color === 'pink', 'a colour is stored as a tint name');
+  const pageSrc = fs.readFileSync(new URL('../modules/places/src/places.js', import.meta.url), 'utf8');
+  assert.match(pageSrc, /colors\[c\.id\] = col\.hex \|\| col\.tint;/, 'categoryColors answers a tint name for the automatic categories');
   assert.equal(summary.category, 'category');
 });
 
@@ -367,19 +373,42 @@ await test('type, icon, colour and visit status are stored and read back checked
   assert.deepEqual(lib.STATUSES.map((s) => [s.id, s.label]), [['want', 'Want to go'], ['booked', 'Booked'], ['visited', 'Visited'], ['favorite', 'Favorite']]);
 });
 
-await test('the form: the type picker, the look, the status, and the words', () => {
+await test('the form: one row of type, icon and colour, the status, and the words', () => {
   const page = fs.readFileSync(new URL('../modules/places/src/places.js', import.meta.url), 'utf8');
   const html = fs.readFileSync(new URL('../modules/places/src/places.html', import.meta.url), 'utf8');
-  assert.match(page, /host\.ui\.kindPicker\(\$\('f-type'\)/);
-  assert.match(page, /host\.ui\.kindPicker\(\$\('f-icon'\)/);
-  for (const id of ['f-type', 'f-icon', 'f-color', 'f-status', 'f-look', 'f-category']) assert.match(html, new RegExp(`id="${id}"`));
-  assert.match(html, /<summary>Look<\/summary>/);
+  assert.match(page, /host\.ui\.kindPicker\(\$\('f-type'\)/, 'the type is the SDK kind picker');
+  assert.doesNotMatch(page, /kindPicker\(\$\('f-icon'\)/, 'the icon is a button with a flyout, not a second picker');
+  for (const id of ['f-look', 'f-type', 'f-icon', 'f-color', 'f-status']) assert.match(html, new RegExp(`id="${id}"`));
+  // the row: type, then the icon and colour buttons, in that order, inside one group
+  const row = html.slice(html.indexOf('id="f-look"'), html.indexOf('</div>', html.indexOf('id="f-color"')));
+  assert.ok(row.indexOf('id="f-type"') < row.indexOf('id="f-icon"') && row.indexOf('id="f-icon"') < row.indexOf('id="f-color"'), 'type, icon, colour');
+  assert.match(row, /<button[^>]*id="f-icon"/);
+  assert.match(row, /<button[^>]*id="f-color"/);
+  // no category field, no "No type", no Look disclosure, no separate old swatches
+  assert.doesNotMatch(html, /f-category|<select|<summary>Look|<details class="look"|tpl-swatch/);
+  assert.doesNotMatch(page, /f-category|NO_TYPE|No type|Not set/);
+  // the order: Name, the row, Shows in, Address, Position, Visit, Notes, Whose
+  const at = (k) => html.indexOf(k);
+  const order = ['id="f-title"', 'id="f-look"', 'id="f-where"', 'id="f-address"', 'id="f-point"', 'id="f-status"', 'id="f-notes"', 'id="f-owners"'].map(at);
+  assert.ok(order.every((n, i) => n > 0 && (i === 0 || n > order[i - 1])), 'the form is in the agreed order');
+  // a type is always set; the reset entries and the aria labels
+  assert.match(page, /const DEFAULT_TYPE = 'custom'/);
+  assert.match(page, /\(id \? '' : DEFAULT_TYPE\)/, 'a new place starts as Custom Location');
+  assert.match(page, /'Same as the type'/);
+  assert.match(page, /'Same as the category'/);
+  assert.match(page, /aria-selected/);
+  assert.match(page, /setAttribute\('aria-label', `Icon,/);
+  assert.match(page, /setAttribute\('aria-label', `Colour,/);
+  assert.match(page, /setAttribute\('role', 'listbox'\)/);
   assert.match(page, /place\.icon = lookOf\(place, cats\)\.icon;/, 'the drawn icon is stored');
   assert.match(page, /typeFromOsm\(h\.osm \|\| h\.category\)/);
   assert.match(page, /id: 'status',\n\s+label: 'Status'/, 'a Status submenu in the place menu');
   const css = fs.readFileSync(new URL('../modules/places/src/places.css', import.meta.url), 'utf8');
   assert.doesNotMatch(css, /#[0-9a-fA-F]{3,6}\b(?![^{]*\{)/);
   const mine = css.slice(css.indexOf('/* ---- type, look and visit status ---- */'));
+  assert.match(css, /\.look-btn \{[^}]*width: 38px/);
+  assert.match(css, /max-width: 640px\) \{[^@]*\.look-type \{ flex-basis: 100%; \}[^@]*--bar-control-h: 44px[^@]*\.look-btn \{ width: 44px; height: 44px; \}/, 'the phone: type on its own line, 44 px buttons');
+  assert.doesNotMatch(mine, /border-radius:\s*(?!var\(--radius-(min|small|medium|large|round)\))\d/, 'radii from tokens');
   assert.doesNotMatch(mine, /#[0-9a-fA-F]{3,8}\b/, 'theme tokens only');
   assert.doesNotMatch(mine, /border(?!-radius)[^;]*:\s*[^;]*solid/, 'selected states are fills');
   const manifest = JSON.parse(fs.readFileSync(new URL('../modules/places/module.json', import.meta.url), 'utf8'));
@@ -676,7 +705,7 @@ await test('the page: Shows in, its line, the narrowing question, the menu, shar
   assert.match(page, /if \(!ownRequest\(ctx\) \|\| !personal\) throw new Error\('only that person can share it'\);/);
   assert.match(page, /if \(asked && asked\.mine && !own\) throw new Error\('only that person can add to their own list'\);/);
   assert.equal(manifest.refs.produces[0].summary.spaces, 'spaces', 'the summary carries the marks');
-  assert.equal(manifest.version, '0.12.1');
+  assert.equal(manifest.version, '0.12.2');
 });
 
 console.log(`check-places: OK (${n} checks)`);

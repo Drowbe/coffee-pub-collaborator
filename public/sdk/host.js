@@ -2435,7 +2435,8 @@
       // or (from a space) { scope: 'environment' }. Each is a summary with its pointer in summary.ref. On a module's
       // environment page { scope: 'spaces' } asks every space the viewer belongs to at once (each pointer carries its
       // space), and { has: 'place' } keeps only summaries with a place (up to 1,000 then, rather than 50).
-      search: (text, o) => call('objects.search', { q: text || '', ...opts(o), ...(o && o.has ? { has: String(o.has) } : {}) }),
+      // { scope: 'environment', in: <space id> } finds the environment's objects marked for that space (plan-places-library.md).
+      search: (text, o) => call('objects.search', { q: text || '', ...opts(o), ...(o && o.has ? { has: String(o.has) } : {}), ...(o && o.in ? { in: String(o.in) } : {}) }),
       // The costs other modules hold in this space (the summaries that carry an `amount` or a `planned` amount: title, when, amount, planned?, paidBy?,
       // sharedBy? (none: everyone), module, ref), as the person may read them: { summaries, withheld }. `withheld` is how many
       // priced objects were left out because the person may not read their module (a number, never a title or figure). Read

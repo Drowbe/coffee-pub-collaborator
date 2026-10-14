@@ -39,12 +39,22 @@
   // When one occurrence (starting at `start`) ends: a moment, exclusive.
   const endOf = (ev, start) => new Date(start.getTime() + durationOf(ev));
 
-  function whenText(ev, start, end) {
+  // In a narrow list a time on the hour drops its minutes ("11 PM"); 24-hour times keep theirs.
+  const shortTime = (d) => timeText(d).replace(/:00(?=\s?[AP]M)/i, '');
+  function whenText(ev, start, end, short) {
+    const t = short ? shortTime : timeText;
     const last = new Date(end.getTime() - (ev.allDay ? 1 : 0));
     const multi = startOfDay(last) > startOfDay(start);
-    if (ev.allDay) return multi ? `${shortDay(start)} - ${shortDay(last)}` : 'All day';
-    if (!ev.end) return timeText(start);
-    return multi ? `${shortDay(start)} ${timeText(start)} - ${shortDay(end)} ${timeText(end)}` : `${timeText(start)} - ${timeText(end)}`;
+    if (ev.allDay) return multi ? `${shortDay(start)} \u2013 ${shortDay(last)}` : 'All day';
+    if (!ev.end || end.getTime() === start.getTime()) return t(start);
+    return multi ? `${t(start)} \u2013 ${shortDay(end)}` : `${t(start)} \u2013 ${t(end)}`;
+  }
+  // The whole range, for the row's tooltip.
+  function whenFull(ev, start, end) {
+    const last = new Date(end.getTime() - (ev.allDay ? 1 : 0));
+    const multi = startOfDay(last) > startOfDay(start);
+    if (ev.allDay || !ev.end || end.getTime() === start.getTime()) return whenText(ev, start, end);
+    return multi ? `${shortDay(start)} ${timeText(start)} \u2013 ${shortDay(end)} ${timeText(end)}` : whenText(ev, start, end);
   }
   const dayHeading = (d) => d.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' });
   const REPEAT_NAMES = { day: 'daily', week: 'weekly', '2weeks': 'every 2 weeks', month: 'monthly', year: 'yearly' };

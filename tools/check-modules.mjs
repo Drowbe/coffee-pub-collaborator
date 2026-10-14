@@ -619,6 +619,22 @@ test('calendar: the Day view\'s phase bar sticks to the top of the scroll, and t
   assert.match(fn, /body\.scrollTop = Math\.max\(0, [^;]*- \(bar \? bar\.offsetHeight \+ \d+ : 0\)\)/, 'and offsets the target by its height');
 });
 
+test('calendar: an event in a list is a full-width row with a time that never wraps', () => {
+  const src = (name) => fs.readFileSync(path.join(ROOT, 'modules/calendar/src', name), 'utf8');
+  const lib = new Function(`${src('calendar-lib.js')}\nreturn { whenText };`)();
+  const at = (h, m) => new Date(2026, 9, 15, h, m);
+  const ev = { allDay: false, start: '2026-10-15T23:00', end: '2026-10-15T23:00' };
+  assert.equal(lib.whenText({ allDay: true, start: '2026-10-15' }, new Date(2026, 9, 15), new Date(2026, 9, 16)), 'All day');
+  assert.equal(lib.whenText(ev, at(23, 0), at(23, 0)), '11:00 PM', 'a start that equals its end shows one time');
+  assert.equal(lib.whenText({ ...ev, end: 'x' }, at(11, 0), at(11, 30)), '11:00 AM \u2013 11:30 AM');
+  assert.equal(lib.whenText({ ...ev, end: 'x' }, at(11, 0), at(11, 30), true), '11 AM \u2013 11:30 AM', 'narrow: minutes drop only when they are 00');
+  assert.equal(lib.whenText({ ...ev, end: 'x' }, at(20, 25), at(21, 50), true), '8:25 PM \u2013 9:50 PM');
+  const css = src('calendar.css');
+  assert.match(css, /\.item \{[^}]*border: 0; border-bottom: 1px solid var\(--border\); border-radius: 0;/, 'the row has a hairline, not a box');
+  assert.match(css, /\.item \.when \{[^}]*white-space: nowrap;/, 'the time never wraps');
+  assert.match(css, /\.item \.what strong \{[^}]*text-overflow: ellipsis; white-space: nowrap;/, 'the title is one line with an ellipsis');
+});
+
 test('calendar: the views are Month, Week, Day and Agenda; an old stored "Open on" still opens', () => {
   const src = (name) => fs.readFileSync(path.join(ROOT, 'modules/calendar/src', name), 'utf8');
   const lib = new Function('ymd', 'parseYmd', `${src('calendar-lib.js')}\nreturn { VIEW_IDS, openView, listUnder };`)(() => '', () => new Date());

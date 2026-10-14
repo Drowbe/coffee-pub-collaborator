@@ -277,7 +277,7 @@ const globeZip = writeModule('dest-globe', [{ id: 'map', part: 'main', entry: 'd
 });
 const pinsZip = writeModule('dest-pins', [{ id: 'map', part: 'panel', entry: 'dest-pins.html', label: 'Places' }], {
   scope: ['environment', 'space', 'person'],
-  refs: { produces: [{ kind: 'pin', name: 'Pin', key: 'pin:{id}', summary: { title: 'title', place: 'point', category: 'cat', icon: 'icon', visit: 'visit', spaces: 'marks', amount: 'cost', planned: 'estimate', paidBy: 'payer', sharedBy: 'sharers' } }] },
+  refs: { produces: [{ kind: 'pin', name: 'Pin', key: 'pin:{id}', summary: { title: 'title', place: 'point', category: 'cat', icon: 'icon', visit: 'visit', color: 'tint', spaces: 'marks', amount: 'cost', planned: 'estimate', paidBy: 'payer', sharedBy: 'sharers' } }] },
   // A place search, as Places has, for marking a result used.
   settings: [
     { key: 'searchProvider', label: 'Place search', type: 'choice', scope: 'environment', default: 'none', options: [{ value: 'none', label: 'None' }, { value: 'custom', label: 'Mine' }] },
@@ -760,7 +760,7 @@ try {
   // needs only read there (it reveals nothing a search does not, and only keeps the place from an "unused" purge).
   await test('map: marking a place search result used needs only read at environment level', async () => {
     const file = path.join(server.root, 'data', 'modules', 'dest-pins', 'geocode.json');
-    fs.writeFileSync(file, JSON.stringify({ places: [{ key: 'N1', name: 'Harbour', address: '', lat: 1, lng: 2, seen: 1, used: false }] }));
+    fs.writeFileSync(file, JSON.stringify({ places: [{ key: 'N1', name: 'Harbour', address: '', lat: 1, lng: 2, category: 'amenity:cafe', seen: 1, used: false }] }));
     const use = (token, key = 'N1', query = 'scope=environment') => call('POST', `/api/modules/dest-pins/geocode/use?${query}`, { token, body: { key } });
     try {
       await role({ 'module.dest-pins.edit': false });
@@ -773,6 +773,30 @@ try {
       await role({ 'module.dest-pins.edit': true, 'module.dest-pins.view': true });
     }
     assert.equal((await use(null, 'N1', `scope=environment&guest=${encodeURIComponent(guest)}`)).status, 403, 'a guest, at environment level');
+  });
+
+  // plan-places-library.md, step 4: a search result carries its OpenStreetMap tag as `osm`, so a saved result gets a type.
+  await test('map: a place search result carries its OpenStreetMap tag as osm', async () => {
+    const photon = (await import('node:http')).createServer((req, res) => {
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ features: [
+        { geometry: { type: 'Point', coordinates: [2, 1] }, properties: { name: 'Blue Cup', osm_type: 'N', osm_id: 7, osm_key: 'amenity', osm_value: 'cafe' } },
+        { geometry: { type: 'Point', coordinates: [4, 3] }, properties: { name: 'Blank Spot', osm_type: 'N', osm_id: 8 } },
+      ] }));
+    });
+    await new Promise((ok) => photon.listen(0, '127.0.0.1', ok));
+    try {
+      const set = await call('PUT', '/api/modules/dest-pins/settings/environment', { token: admin, body: { values: { searchProvider: 'custom', search: `http://127.0.0.1:${photon.address().port}/api` } } });
+      assert.equal(set.status, 200, set.text);
+      const r = await call('GET', '/api/modules/dest-pins/geocode?q=blue&scope=environment', { token: aliceT });
+      assert.equal(r.status, 200, r.text);
+      const by = Object.fromEntries(r.json.results.map((x) => [x.title, x]));
+      assert.equal(by['Blue Cup'].osm, 'amenity:cafe', 'the tag is passed');
+      assert.equal('osm' in by['Blank Spot'], false, 'no tag, no field');
+    } finally {
+      photon.close();
+      await call('PUT', '/api/modules/dest-pins/settings/environment', { token: admin, body: { values: { searchProvider: 'none' } } });
+    }
   });
 
   await test('map: summaries across the viewer\'s spaces, only with a place, more than 50', async () => {
@@ -879,6 +903,9 @@ try {
     await putEnv('m-bad', { icon: 'no-such-icon-at-all', visit: 'maybe', cat: 'a'.repeat(31), marks: 'all' });
     await putEnv('m-shape', { icon: 'Mug Hot', visit: 5, cat: long30, marks: [] });
     await putEnv('m-many', { marks: [keep] });
+    await putEnv('m-tint', { tint: 'teal' });
+    await putEnv('m-tint-bad', { tint: '#00ff00' });
+    await putEnv('m-tint-name', { tint: 'magenta' });
     for (const v of ['want', 'booked', 'visited', 'favorite']) await putEnv(`m-${v}`, { visit: v, marks: [tower] });
     const manyIds = [];
     for (let i = 0; i < 22; i += 1) {
@@ -896,6 +923,7 @@ try {
     assert.deepEqual([all['m-bad'].icon, all['m-bad'].visit, all['m-bad'].category, all['m-bad'].spaces], [undefined, undefined, undefined, undefined], 'an unknown icon, an unknown state, a 31-character category and a non-list are dropped');
     assert.deepEqual([all['m-shape'].icon, all['m-shape'].visit, all['m-shape'].category, all['m-shape'].spaces], [undefined, undefined, long30, undefined], 'a bad icon name and a number are dropped; 30 characters of category is kept; an empty list is left out');
     for (const v of ['want', 'booked', 'visited', 'favorite']) assert.equal(all[`m-${v}`].visit, v, `${v} is kept`);
+    assert.deepEqual([all['m-tint'].color, all['m-tint-bad'].color, all['m-tint-name'].color, all['m-ok'].color], ['teal', undefined, undefined, undefined], 'a place\'s own colour is kept only as one of the eight tint names');
     assert.equal(all['m-twenty'].spaces.length, 20, 'at most 20 spaces');
     // Searching by space.
     const inKeep = await search(aliceT, `in=${keep}`);

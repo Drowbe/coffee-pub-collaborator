@@ -497,6 +497,9 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
   assert.ok(/destroy\(\) \{\n\s+if \(!pageMode\) releaseLift\(\);/.test(src), 'destroy() puts it back');
   assert.ok(src.includes('lift = true, onLift = null }) {'), 'mountModule takes lift and onLift');
   // The lift itself, run on a stand-in page: body > [header, main > [section > [bar, frame], other]].
+  const pageStart = src.indexOf('const inertCount = new WeakMap();'); // the page-wide lift state, above mountModule
+  const pageEnd = src.indexOf('// The "+" in a titlebar', pageStart);
+  assert.ok(pageStart > 0 && pageEnd > pageStart, 'module-host.js has the page-wide lift state');
   const start = src.indexOf('  let lifted = null;');
   const end = src.indexOf('\n  }\n', src.indexOf('function liftFrame(', start)) + 4;
   assert.ok(start > 0 && end > start, 'module-host.js has liftFrame and releaseLift');
@@ -504,22 +507,28 @@ test('editor.lift: lifts a frame over the page, makes the rest inert and puts it
     const e = { tag, classes: new Set(cls.split(' ').filter(Boolean)), children: [], parentNode: null, inert: false, focused: 0 };
     e.classList = { add: (...c) => c.forEach((x) => e.classes.add(x)), remove: (...c) => c.forEach((x) => e.classes.delete(x)), toggle: (c, on) => (on ? e.classes.add(c) : e.classes.delete(c)), contains: (c) => e.classes.has(c) };
     e.append = (...cs) => cs.forEach((c) => { c.parentNode = e; e.children.push(c); });
-    e.insertBefore = (c, ref) => { c.parentNode = e; e.children.splice(e.children.indexOf(ref), 0, c); };
+    e.insertBefore = (c, ref) => { c.parentNode = e; e.children.splice(ref ? e.children.indexOf(ref) : e.children.length, 0, c); };
+    Object.defineProperty(e, 'nextSibling', { get: () => (e.parentNode ? e.parentNode.children[e.parentNode.children.indexOf(e) + 1] || null : null) });
     e.remove = () => { if (e.parentNode) e.parentNode.children = e.parentNode.children.filter((x) => x !== e); e.parentNode = null; };
     e.focus = () => { e.focused += 1; doc.activeElement = e; };
+    e.setAttribute = () => {};
+    e.addEventListener = () => {};
+    e.style = { removeProperty() {}, setProperty() {} };
     Object.defineProperty(e, 'isConnected', { get: () => { let x = e; while (x.parentNode) x = x.parentNode; return x === doc.body; } });
     Object.defineProperty(e, 'className', { get: () => [...e.classes].join(' '), set: (v) => { e.classes = new Set(String(v).split(/\s+/).filter(Boolean)); } });
     return e;
   };
-  const doc = { body: el('body'), activeElement: null, createElement: (tag) => el(tag) };
+  const doc = { body: el('body'), activeElement: null, createElement: (tag) => el(tag), addEventListener() {}, removeEventListener() {}, defaultView: { innerWidth: 1200, addEventListener() {}, removeEventListener() {} } };
   const [header, main, section, bar, frame, other, floater] = ['header', 'main', 'section', 'div', 'iframe', 'section', 'div'].map((t) => el(t));
   frame.ownerDocument = doc;
+  frame.getClientRects = () => [{}]; // on screen: liftFrame refuses a frame that takes no space
+  frame.closest = () => null; // not under another lift or a dialog
   doc.body.append(header, main, floater);
   main.append(section, other);
   section.append(bar, frame);
   doc.activeElement = frame;
   const lifts = [];
-  const { liftFrame, releaseLift } = new Function('frame', 'onLift', `${src.slice(start, end)}\nreturn { liftFrame, releaseLift };`)(frame, (open, size) => lifts.push([open, size]));
+  const { liftFrame, releaseLift } = new Function('frame', 'onLift', 'mine', 'send', 'MutationObserver', `${src.slice(pageStart, pageEnd)}\n${src.slice(start, end)}\nreturn { liftFrame, releaseLift };`)(frame, (open, size) => lifts.push([open, size]), { frame }, () => {}, class { observe() {} disconnect() {} });
   releaseLift();
   assert.deepEqual(lifts, [], 'putting back what was never lifted does nothing');
   liftFrame(true, 'large');

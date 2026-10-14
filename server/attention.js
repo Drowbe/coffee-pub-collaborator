@@ -26,14 +26,14 @@ function cleanReport(body) {
   if (label !== undefined && typeof label !== 'string') return { error: 'The label must be text.' };
   const text = (label || '').replace(/\p{Cc}/gu, ' ').trim();
   if (text.length > LIMITS.label) return { error: `The label can be at most ${LIMITS.label} characters.` };
-  if (items !== undefined && !Array.isArray(items)) return { error: 'The items must be a list.' };
-  if ((items || []).length > LIMITS.items) return { error: `Send at most ${LIMITS.items} items.` };
+  if (items !== undefined && !Array.isArray(items)) return { error: 'The list must be a list of entries.' };
+  if ((items || []).length > LIMITS.items) return { error: `Send at most ${LIMITS.items} entries.` };
   const kept = [];
   for (const item of items || []) {
-    if (!isObject(item) || typeof item.title !== 'string') return { error: 'Each item needs a title.' };
+    if (!isObject(item) || typeof item.title !== 'string') return { error: 'Each entry needs a title.' };
     const title = item.title.replace(/\p{Cc}/gu, ' ').trim();
     if (!title || title.length > LIMITS.title) return { error: `Each title must be 1 to ${LIMITS.title} characters.` };
-    if (item.object !== undefined && (!isObject(item.object) || JSON.stringify(item.object).length > 1000)) return { error: 'An item\'s object must be an object reference.' };
+    if (item.object !== undefined && (!isObject(item.object) || JSON.stringify(item.object).length > 1000)) return { error: 'An entry\'s reference is not valid.' };
     kept.push(item.object === undefined ? { title } : { title, object: item.object });
   }
   return { report: { count, label: text, items: kept } };

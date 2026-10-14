@@ -22,25 +22,25 @@ body { margin: 0; overflow: hidden; }
 .map .maplibregl-canvas { outline: none; }
 
 /* what a search found: over the foot of the map, above the bar (the search itself is the host bar's field) */
-.results { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(380px, calc(100% - 20px)); max-height: 55%; overflow: auto; margin: 0; padding: 6px; list-style: none; background: var(--bg-section); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); }
-.result { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 6px; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.results { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(380px, calc(100% - 20px)); max-height: 55%; overflow: auto; margin: 0; padding: 6px; list-style: none; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-large); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); }
+.result { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: var(--radius-medium); background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .result:hover, .result.on { background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .result small { display: block; color: var(--text-dim); font-size: 12px; }
 .results .note { padding: 8px 10px; color: var(--text-dim); font-size: 12px; }
 
 /* the search field over the top of the map (the host bar's field when the titlebar + is not drawn); the zoom is across from it */
-.map-search { position: absolute; z-index: 5; top: 10px; left: 10px; width: min(340px, calc(100% - 66px)); height: 32px; margin: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-section); color: var(--text-dim); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); }
+.map-search { position: absolute; z-index: 5; top: 10px; left: 10px; width: min(340px, calc(100% - 66px)); height: 32px; margin: 0; display: flex; align-items: center; gap: 8px; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-section); color: var(--text-dim); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); }
 .map-search:focus-within { border-color: var(--accent); color: var(--text); }
 .map-search input, .map-search input:focus { flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; color: var(--text); font: inherit; font-size: 14px; outline: none; }
 .map-search input::placeholder { color: var(--text-dim); }
 .results.under-search { top: 48px; bottom: auto; max-height: calc(100% - 60px); }
 
 /* the notice under the tools: adding a place, a warning */
-.banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: 999px; background: var(--bg-section); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: 13px; }
+.banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: var(--radius-round); background: var(--bg-section); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: 13px; }
 .banner .btn { padding: 2px 10px; font-size: 12px; }
 
 /* ---- the map library's own controls, restyled with the tokens ---- */
-.maplibregl-ctrl-group { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-section); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); overflow: hidden; }
+.maplibregl-ctrl-group { border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); box-shadow: 0 2px 10px color-mix(in srgb, black 25%, transparent); overflow: hidden; }
 .maplibregl-ctrl-group button { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border: 0; background: none; color: var(--text); font: inherit; cursor: pointer; }
 .maplibregl-ctrl-group button + button { border-top: 1px solid var(--border); }
 .maplibregl-ctrl-group button:hover { background: color-mix(in srgb, var(--text) 10%, transparent); }
@@ -51,7 +51,7 @@ body { margin: 0; overflow: hidden; }
 .maplibregl-ctrl-bottom-right { bottom: 10px; align-items: flex-end; }
 
 /* the credit the licence requires on every map: always shown, never hidden by a setting */
-.attribution { max-width: 100%; padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, var(--bg-section) 82%, transparent); color: var(--text-dim); font-size: 11px; line-height: 1.5; }
+.attribution { max-width: 100%; padding: 2px 8px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--bg-section) 82%, transparent); color: var(--text-dim); font-size: 11px; line-height: 1.5; }
 .attribution a { color: inherit; }
 
 /* ---- a pin: an HTML marker the map library positions ----
@@ -82,20 +82,20 @@ body { margin: 0; overflow: hidden; }
 .pin.dim:hover, .pin.dim:focus-visible { opacity: 1; }
 .pin.selected .pin-body { --pin: var(--text); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin.selected { --pin-text: var(--bg); }
-.pin-label { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); max-width: 160px; padding: 0 6px; border-radius: 4px; background: color-mix(in srgb, var(--bg-section) 88%, transparent); color: var(--text); font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+.pin-label { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); max-width: 160px; padding: 0 6px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--bg-section) 88%, transparent); color: var(--text); font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .pin.dragging { opacity: 0.7; }
 .pin.cluster { width: 38px; height: 38px; }
-.pin.cluster .pin-body { width: 38px; height: 38px; border-radius: 50%; transform: none; font-weight: 700; font-size: 13px; }
+.pin.cluster .pin-body { width: 38px; height: 38px; border-radius: var(--radius-round); transform: none; font-weight: 700; font-size: 13px; }
 .pin.cluster .pin-label { display: none; }
 .pin.draft { --pin: var(--bg-section); --pin-text: var(--accent); }
 .pin.draft .pin-body { border-style: dashed; border-color: var(--accent); }
 
-.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-dim); font: inherit; cursor: pointer; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font: inherit; cursor: pointer; }
 .icon-btn:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
 
 /* ---- the editor for a place: a dialog over the module ---- */
 .editor { position: absolute; inset: 0; z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding: 12px; overflow: auto; background: color-mix(in srgb, var(--bg) 70%, transparent); }
-.editor-card { width: 100%; max-width: 460px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-section); border: 1px solid var(--border); border-radius: 12px; }
+.editor-card { width: 100%; max-width: 460px; padding: 14px; display: flex; flex-direction: column; gap: 10px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-large); }
 .editor-card h3 { margin: 0; }
 .editor-card label { display: flex; flex-direction: column; gap: 3px; color: var(--text-dim); font-size: 12px; }
 .editor-card input, .editor-card textarea { width: 100%; }
@@ -139,7 +139,7 @@ body { margin: 0; overflow: hidden; }
 .state:has(> .skel) { padding: 0; }
 
 /* a place from "mine" (the person scope): a small person mark on the pin, so it is not mistaken for a shared one */
-.pin[data-scope="person"]::after { content: ""; position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border: 2px solid var(--bg-section); border-radius: 50%; background: var(--accent) center / 7px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%23fff' d='M224 256a128 128 0 1 0 0-256 128 128 0 1 0 0 256zM178 304C80 304 0 384 0 482c0 17 14 30 30 30l388 0c16 0 30-13 30-30 0-98-80-178-178-178l-92 0z'/%3E%3C/svg%3E"); z-index: 3; }
+.pin[data-scope="person"]::after { content: ""; position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border: 2px solid var(--bg-section); border-radius: var(--radius-round); background: var(--accent) center / 7px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%23fff' d='M224 256a128 128 0 1 0 0-256 128 128 0 1 0 0 256zM178 304C80 304 0 384 0 482c0 17 14 30 30 30l388 0c16 0 30-13 30-30 0-98-80-178-178-178l-92 0z'/%3E%3C/svg%3E"); z-index: 3; }
 
 /* a search result on the map: not saved yet, so a dashed outline and a surface fill, with a soft pulse to invite a click */
 .pin.candidate { --pin: var(--bg-section); --pin-text: var(--accent); z-index: 1; }
@@ -152,7 +152,7 @@ body { margin: 0; overflow: hidden; }
 /* ---- the callout: the selected place, over the map (the list is the Places module) ---- */
 .callout-box { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(360px, calc(100% - 20px)); pointer-events: none; }
 .callout-box > * { pointer-events: auto; }
-.callout { --turn: 0; --tone: var(--accent); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--border)); border-radius: 16px; background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-section)), var(--bg-section) 70%); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); animation: callout-in 0.16s ease-out; }
+.callout { --turn: 0; --tone: var(--accent); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--border)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-section)), var(--bg-section) 70%); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); animation: callout-in 0.16s ease-out; }
 .callout[data-kind="object"] { --tone: var(--text-dim); }
 .callout[data-cat] { --tone: color-mix(in srgb, var(--accent) 65%, var(--text)); }
 @supports (color: oklch(from red l c h)) { .callout[data-cat] { --tone: oklch(from var(--accent) l calc(c * 0.95) calc(h + var(--turn))); } }
@@ -161,12 +161,12 @@ body { margin: 0; overflow: hidden; }
 .callout[data-cat="stay"] { --turn: 255; }
 .callout[data-cat="travel"] { --turn: 195; }
 .callout[data-cat="other"] { --turn: 25; }
-.callout::before { content: ""; position: absolute; left: 14px; top: -1px; width: 36px; height: 4px; border-radius: 0 0 4px 4px; background: var(--tone); }
+.callout::before { content: ""; position: absolute; left: 14px; top: -1px; width: 36px; height: 4px; border-radius: 0 0 var(--radius-min) var(--radius-min); background: var(--tone); }
 .callout h3 { margin: 4px 30px 0 0; font-size: 17px; line-height: 1.25; overflow-wrap: anywhere; }
 .callout-where { margin: 0; color: var(--text-dim); font-size: 13px; overflow-wrap: anywhere; }
 .callout-where .coords { display: block; font-family: ui-monospace, Menlo, monospace; font-size: 11px; opacity: 0.85; }
-.callout-source { display: flex; align-items: center; gap: 6px; margin: 0; padding: 6px 8px; border: 1px dashed var(--border); border-radius: 8px; color: var(--text-dim); font-size: 12px; }
-.callout-source .open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-left: auto; padding: 0; border: 0; border-radius: 6px; background: none; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
+.callout-source { display: flex; align-items: center; gap: 6px; margin: 0; padding: 6px 8px; border: 1px dashed var(--border); border-radius: var(--radius-medium); color: var(--text-dim); font-size: 12px; }
+.callout-source .open-link { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font-size: 13px; cursor: pointer; transition: background 0.12s ease, color 0.12s ease; }
 .callout-source .open-link:hover, .callout-source .open-link:focus-visible { background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent); outline: none; }
 .callout-close { position: absolute; top: 8px; right: 8px; }
 .callout-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }

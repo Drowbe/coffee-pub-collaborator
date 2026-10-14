@@ -544,7 +544,7 @@ function trace(text) {
   if (!box) {
     box = document.createElement('pre');
     box.id = 'app-debug';
-    box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:2147483002;margin:0;padding:8px 10px;max-width:60vw;max-height:40vh;overflow:auto;background:rgba(0,0,0,.85);color:#9f9;font:11px/1.35 monospace;border-radius:6px;pointer-events:none';
+    box.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:2147483002;margin:0;padding:8px 10px;max-width:60vw;max-height:40vh;overflow:auto;background:rgba(0,0,0,.85);color:#9f9;font:11px/1.35 monospace;border-radius:var(--radius-small);pointer-events:none';
     document.body.appendChild(box);
   }
   box.textContent = traceLines.join('\n');
@@ -626,7 +626,7 @@ function ptrBegin(source, { ref = null, summary = null }, label, x, y) {
   const doc = source.frame.ownerDocument;
   const ghost = doc.createElement('div');
   ghost.textContent = String(label || '').slice(0, 40);
-  ghost.style.cssText = 'position:fixed;z-index:2147483001;pointer-events:none;padding:3px 9px;border-radius:6px;background:#c8873a;color:#1a1206;font:600 12px sans-serif;max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.4)';
+  ghost.style.cssText = 'position:fixed;z-index:2147483001;pointer-events:none;padding:3px 9px;border-radius:var(--radius-small);background:#c8873a;color:#1a1206;font:600 12px sans-serif;max-width:220px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;box-shadow:0 4px 14px rgba(0,0,0,.4)';
   doc.body.appendChild(ghost);
   ptrDrag = { source, ref, summary, label, ghost, over: null, doc, timer: setTimeout(ptrEnd, 60000) };
   ptrMove(x, y);

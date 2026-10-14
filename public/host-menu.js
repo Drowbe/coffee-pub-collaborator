@@ -260,6 +260,9 @@ export function openHostMenu(trigger, items) {
       const badge = doc.createElement('span');
       badge.className = 'host-menu-badge';
       badge.textContent = count > 9 ? '9+' : String(count);
+      // `badgeTone: 'ok'` draws it green; `badgeLabel` ("2 updates available") is said after the row's name.
+      if (item.badgeTone === 'ok') badge.classList.add('badge-ok');
+      if (item.badgeLabel && !item.ariaLabel) b.setAttribute('aria-label', `${spoken || item.label || item.title || ''}, ${item.badgeLabel}`);
       b.appendChild(badge);
     }
     if (checkable && !item.toggle) {

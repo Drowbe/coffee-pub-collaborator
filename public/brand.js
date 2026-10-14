@@ -150,6 +150,7 @@ const byId = (id) => document.getElementById(id) || headerEl?.querySelector(`#${
 // What the bar knows about who is looking: undefined until /api/me answers, null with no account (a guest, a keyed
 // page), else { role, hostAdmin, hosted, slug }. The slots that need an account wait for it only to hide.
 let account;
+let freshModules = 0; // modules this server ships that are not installed yet: Manage > Modules lists them as Available
 let updatesWaiting = 0; // module updates available, for owners and the admin (GET /api/modules)
 let presentSpace = null; // the space this page is present in (an aside's parent in an aside); the space page says so
 let inSpace = false; // the space page showing a space (plan-one-bar.md, step 7): its one bar has the switcher in the Spaces slot's place
@@ -584,7 +585,7 @@ function accountMenuItems() {
     { icon: 'user', label: 'View profile', onPick: viewProfile },
     ...(has.has('theme') ? [{ icon: 'moon', label: 'Dark mode', checked: modeNow() === 'dark', onPick: toggleThemeMode }] : []),
     ...destinationList.filter((d) => has.has(`dest-${d.id}`)).map((d) => ({ icon: d.icon, label: profileDestinationLabel(d.id, d.name), onPick: () => openDestination(d.href) })),
-    ...(has.has('manage') ? [{ icon: 'gear', label: 'Manage', onPick: () => openManage() }] : []),
+    ...(has.has('manage') ? [{ icon: 'gear', label: 'Manage', ...manageBadgeItem(), onPick: () => openManage() }] : []),
     ...(has.has('host-console') ? [{ icon: 'server', label: 'Host console', onPick: openHostConsole }] : []),
     ...(installPromptEvent && !installBarred ? [{ icon: 'download', label: 'Install as an app', onPick: installFromPrompt }] : []),
     { icon: 'right-from-bracket', label: 'Sign out', onPick: signOut },
@@ -1100,12 +1101,32 @@ export function setUpdateBadge(count) {
   updatesWaiting = Math.max(0, Number(count) || 0);
   paintBell();
 }
+// What needs a look in Manage > Modules: updates plus new modules, as a green count on Manage (the profile menu, the
+// phone menu, a page bar's link) and on that tab. Nothing at zero. The words repeat the number for a screen reader.
+export function manageBadgeLabel(updates, fresh) {
+  return [updates ? `${updates} ${updates === 1 ? 'update' : 'updates'} available` : '', fresh ? `${fresh} available` : ''].filter(Boolean).join(', ');
+}
+function manageBadgeItem() {
+  const n = updatesWaiting + freshModules;
+  return n ? { badge: n, badgeTone: 'ok', badgeLabel: manageBadgeLabel(updatesWaiting, freshModules) } : {};
+}
+function paintManageBadge() {
+  const n = updatesWaiting + freshModules;
+  const opts = n ? { tone: 'ok', label: manageBadgeLabel(updatesWaiting, freshModules) } : {};
+  for (const id of ['admin-link', 'page-bar-manage']) nav.setBadge(id, n, opts);
+}
+export function setManageBadge(updates, fresh) {
+  updatesWaiting = Math.max(0, Number(updates) || 0);
+  freshModules = Math.max(0, Number(fresh) || 0);
+  paintBell();
+  paintManageBadge();
+}
 async function loadUpdateBadge() {
   try {
     const res = await fetch('/api/modules');
     if (!res.ok) return;
     const { bundled } = await res.json();
-    setUpdateBadge((bundled || []).filter((b) => b.update).length);
+    setManageBadge((bundled || []).filter((b) => b.update).length, (bundled || []).filter((b) => !b.installed).length);
   } catch {
     // no count is fine
   }
@@ -1162,6 +1183,7 @@ export function renderPageBar({ name = '', icon = '', showName = true, manage = 
   }
   if (manage) {
     nav.register({ id: 'page-bar-manage', bar: 'secondary', zone: 'left', group: 'page-manage', groupOrder: 1, order: 1, fold: false, labelled: true, icon: 'gear', label: 'Manage', href: keepingQuery(manage), visible: () => seesUpdates(account?.role) });
+    paintManageBadge();
   }
   controls.filter(Boolean).forEach((c, i) => {
     c.classList.add('page-bar-control');

@@ -1,4 +1,4 @@
-import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, setUpdateBadge, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName, overCall } from '/brand.js';
+import { loadBranding, api, wireOverlayBack, renderTopbar, renderPageBar, escapeHtml, getIcons, setUpdateBadge, setManageBadge, manageBadgeLabel, hasOwnerRights, roleLabel, word, setWords, applyWords, themeMode, productName, overCall } from '/brand.js';
 import { pickBackground } from '/background-picker.js';
 import { CHANGEABLE, DEFAULTS, homeDefault, words, fill as fillWords, VERBS, DEFAULT_VERBS, verbs } from '/words.js';
 import { wireFlightSchedule } from '/flight-schedule.js';
@@ -1102,19 +1102,22 @@ async function loadModules() {
   loadAi();
   // Say on the tab itself when an update is waiting, so it is seen without opening it.
   const updates = bundledModules.filter((b) => b.update).length;
+  const fresh = bundledModules.filter((b) => !b.installed).length;
   setUpdateBadge(updates);
+  setManageBadge(updates, fresh);
   // The same count badge as on the header's gear (see setUpdateBadge in brand.js).
   const tab = document.querySelector('[data-tab="modules"]');
   if (tab) {
     tab.textContent = word('module', { many: true, cap: true });
     tab.title = '';
-    if (updates) {
+    if (updates + fresh) {
       const badge = document.createElement('span');
-      badge.className = 'badge update-badge';
-      badge.setAttribute('aria-hidden', 'true');
-      badge.textContent = updates > 9 ? '9+' : String(updates);
+      badge.className = 'badge update-badge badge-ok';
+      badge.setAttribute('role', 'img');
+      badge.setAttribute('aria-label', manageBadgeLabel(updates, fresh));
+      badge.textContent = updates + fresh > 9 ? '9+' : String(updates + fresh);
       tab.append(badge);
-      tab.title = `${updates} ${word('module')} update${updates === 1 ? '' : 's'} available`;
+      tab.title = manageBadgeLabel(updates, fresh);
     }
   }
 }
@@ -1445,10 +1448,18 @@ function syncModuleFilters() {
   all.textContent = String(builtinModules.length + installedModules.length);
   up.textContent = String(updates);
   up.hidden = !updates;
+  greenCount(up, updates, `${updates} ${updates === 1 ? 'update' : 'updates'} available`);
   const conf = $('module-filters').querySelector('[data-count="configurable"]');
   conf.textContent = String(installedModules.filter(isConfigurable).length);
   const avail = $('module-filters').querySelector('[data-count="available"]');
-  avail.textContent = String(bundledModules.filter((b) => !b.installed).length);
+  const availableNow = bundledModules.filter((b) => !b.installed).length;
+  avail.textContent = String(availableNow);
+  greenCount(avail, availableNow, `${availableNow} available`);
+}
+// A count above zero is a green pill with a spoken name; at zero it is the neutral grey one.
+function greenCount(el, n, label) {
+  el.classList.toggle('badge-ok', n > 0);
+  if (n > 0) { el.setAttribute('role', 'img'); el.setAttribute('aria-label', label); } else { el.removeAttribute('role'); el.removeAttribute('aria-label'); }
 }
 $('module-filters').addEventListener('click', (event) => {
   const b = event.target.closest('[data-module-filter]');

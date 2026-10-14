@@ -1137,6 +1137,42 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       }).catch(() => { /* the next change asks again */ });
     }, 300);
   };
+  // The space's phases, as the module was last told them (the hello, then the 'phases' event): { phases, created } as one
+  // text. The space page says when they change (space.js: a window event for the modules in its page, a BroadcastChannel
+  // for pop-outs and module pages of the same browser); a page without it (a module opened alone) reads this mount's
+  // context again now and then and on focus. The module hears 'phases' ({ phases }; the SDK adds the timeline) only when
+  // they differ, and the SDK keeps host.space().phases current.
+  const phasesKey = (dates, created) => JSON.stringify([dates || {}, created || null]);
+  let toldPhases = null;
+  const tellPhases = (dates, created) => {
+    if (!ready || keyed || scope !== 'space' || !contextInfo || !contextInfo.space) return;
+    const key = phasesKey(dates, created || contextInfo.space.createdAt);
+    if (key === toldPhases) return;
+    toldPhases = key;
+    contextInfo.space = { ...contextInfo.space, phases: dates || {}, ...(created ? { createdAt: created } : {}) };
+    send('phases', { phases: dates || {}, created: contextInfo.space.createdAt || null });
+  };
+  const hearPhases = (d) => { if (d && d.space === spaceId && d.phases && typeof d.phases === 'object') tellPhases(d.phases, d.created); };
+  const onPhasesEvent = (event) => hearPhases(event.detail);
+  let phasesChannel = null;
+  let phasesTimer = 0;
+  let phasesLook = null;
+  if (scope === 'space' && spaceId && !keyed) {
+    window.addEventListener('app:phases', onPhasesEvent);
+    if (typeof BroadcastChannel === 'function') {
+      phasesChannel = new BroadcastChannel('app-phases');
+      phasesChannel.onmessage = (event) => hearPhases(event.data);
+    }
+    if (!window.__phasesHost) {
+      phasesLook = () => {
+        if (!ready || document.hidden || !contextInfo || !(contextInfo.phases || []).length) return;
+        api('GET', url('/context', scope)).then((a) => { if (a && a.space) tellPhases(a.space.phases, a.space.createdAt); }).catch(() => { /* the next look asks again */ });
+      };
+      phasesTimer = setInterval(phasesLook, 60000);
+      window.addEventListener('focus', phasesLook);
+      document.addEventListener('visibilitychange', phasesLook);
+    }
+  }
   const queued = [];
   const deliver = (event, data) => {
     if (ready) send(event, data);
@@ -1148,6 +1184,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       const [answer, envName] = await Promise.all([api('GET', url('/context', scope)), environmentName()]);
       contextInfo = answer;
       ready = true;
+      toldPhases = answer.space ? phasesKey(answer.space.phases, answer.space.createdAt) : null;
       setTimeout(() => { for (const [event, data] of queued.splice(0)) send(event, data); }, 50);
       return {
         user: contextInfo.user,
@@ -2098,6 +2135,9 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
       if (statusSlot) statusSlot.destroy();
       if (addSlot) addSlot.destroy();
       clearTimeout(factsTimer);
+      window.removeEventListener('app:phases', onPhasesEvent);
+      if (phasesChannel) phasesChannel.close();
+      if (phasesTimer) { clearInterval(phasesTimer); window.removeEventListener('focus', phasesLook); document.removeEventListener('visibilitychange', phasesLook); }
       leaveStream();
       leaveDestination();
       if (pageMode) container.shadowRoot?.replaceChildren();

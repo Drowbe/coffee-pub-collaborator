@@ -1851,7 +1851,27 @@ function attentionMenuItems() {
   return items;
 }
 attentionButton.addEventListener('click', () => openHostMenu(attentionButton, attentionMenuItems));
+// Modules hear the space's phases when they change (the 'phases' event, host.on('phases')): this page reads them from the
+// space's record (the presence poll, my own save from the sheet or Set up), so a window event tells the modules mounted
+// here and a BroadcastChannel tells the pop-outs and module pages of the same browser. Said only when they differ from
+// what was last said for that space. The record is the presence list's, which an admin who is not a member reads too.
+window.__phasesHost = true; // module-host.js: this page tells the modules, so they need not look themselves
+const phasesChannel = typeof BroadcastChannel === 'function' ? new BroadcastChannel('app-phases') : null;
+let phasesSaid = '';
+function announcePhases() {
+  const space = phaseSpaceRecord();
+  if (!space || !space.id || currentSpace?.isAside) return;
+  const detail = { space: space.id, phases: space.phases || {}, created: space.createdAt || null };
+  const sig = JSON.stringify(detail);
+  if (sig === phasesSaid) return;
+  phasesSaid = sig;
+  try { window.dispatchEvent(new CustomEvent('app:phases', { detail })); } catch { /* no window to tell */ }
+  try { if (phasesChannel) phasesChannel.postMessage(detail); } catch { /* nobody to hear */ }
+}
+window.addEventListener('focus', () => { if (currentSpace && !document.hidden) loadPresence(); });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && currentSpace) loadPresence(); });
 function updatePhaseChip() {
+  announcePhases();
   followAttentionSpace();
   const R = phaseRule();
   const show = phaseChipWanted();
@@ -1881,7 +1901,7 @@ async function savePhases(dates) {
   const record = presenceSpaces.find((r) => r.id === currentSpace.id);
   if (record) record.phases = space.phases || {};
   if (currentSpace) currentSpace.phases = space.phases || {};
-  updatePhaseChip();
+  updatePhaseChip(); // which tells the modules
   return space.phases || {};
 }
 // The sheet, from the chip or the status track (`opener` takes the keyboard back when it closes). Set up draws the same
@@ -2083,6 +2103,7 @@ function setupSaved(space, said, saved = []) {
     spaceName = spaceDisplayName(currentSpace);
     renderSpaces();
     renderSpaceLink();
+    announcePhases();
     if (saved.includes('image') || saved.includes('imageRemoved')) {
       const img = $('spaces')?.querySelector(`[data-space="${CSS.escape(space.id)}"] .space-choice-image`);
       if (img && !img.hidden) img.src = `/img/space/${encodeURIComponent(space.id)}?v=${Date.now()}`;

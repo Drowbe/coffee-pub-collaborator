@@ -557,8 +557,7 @@ export function createSpaceSetup(deps) {
     if (!amount || !currency) return;
     const b = state.draft.budget || budgetText(null);
     if (!state.draft.budget?.bad && amount.value !== b.amount) amount.value = b.amount;
-    const from = budgetNow().name;
-    const empty = from ? `${from}'s currency` : 'The usual currency';
+    const empty = 'Default currency';
     const fill = doc.defaultView && doc.defaultView.hostCurrency ? doc.defaultView.hostCurrency.fill : null;
     if (fill) fill(currency, { value: b.currency, empty, currencies: state.currencies || undefined });
     else if (!currency.options.length) currency.innerHTML = `<option value="">${esc(empty)}</option>${b.currency ? `<option value="${esc(b.currency)}">${esc(b.currency)}</option>` : ''}`;

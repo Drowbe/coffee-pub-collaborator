@@ -654,6 +654,17 @@ test('host.facts (plan-space-story-strip.md step 5): set and clear in the SDK, a
   assert.ok(!/facts[^\n]*guest=/.test(src), 'no guest token on the facts route');
 });
 
+test('the budget target: a module is let in by its manifest flag, which the mounts hand the host; set() never clears by omission', () => {
+  const read = (p) => fs.readFileSync(new URL(`../${p}`, import.meta.url), 'utf8');
+  assert.match(read('public/canvas.js'), /module: \{ id: m\.id, version: m\.version, scope: m\.scope, budget: m\.budget === true \},/, 'the canvas passes the flag');
+  assert.match(read('public/module.js'), /module: \{ id: mod\.id, version: mod\.version, scope: mod\.scope, budget: mod\.budget === true \},/, 'a pop-out passes the flag');
+  const host = read('public/module-host.js');
+  assert.match(host, /if \(module\.budget !== true \|\| scope !== 'space'/, 'can() needs the flag');
+  assert.match(host, /if \(module\.budget !== true\) throw[^\n]*\n\s*if \(budget === undefined\) throw/, 'set() needs the flag and a target');
+  assert.equal(/budget === undefined \? null/.test(host), false, 'the host never turns nothing into a clear');
+  assert.equal(/target === undefined \? null/.test(read('public/sdk/host.js')), false, 'the SDK never turns nothing into a clear');
+});
+
 test('the budget target (#216): the hello carries host.space().budget, the page says a change, the SDK keeps it current', () => {
   const server = fs.readFileSync(new URL('../server/index.js', import.meta.url), 'utf8');
   assert.match(server, /space: here \? \{ id: here\.id, name: here\.name, createdAt: here\.createdAt, phases: here\.phases, budget: \(who\.user && here\.budget\) \|\| null \} : null,/, 'the context gives the budget to a signed-in person, null while none and always for a guest');

@@ -31,7 +31,13 @@
     let t = String(text == null ? '' : text).trim();
     if (!t) return null;
     t = t.replace(/[\s $€£¥]/g, '');
-    if (/^\d+,\d{1,2}$/.test(t)) t = t.replace(',', '.');
+    // Both marks: the last one is the decimal point and the other must group thousands ('1.234,56' and '1,234.56' are
+    // 1234.56); anything else is refused rather than read as some other number.
+    if (t.includes(',') && t.includes('.')) {
+      if (/^\d{1,3}(\.\d{3})+,\d+$/.test(t)) t = t.replace(/\./g, '').replace(',', '.');
+      else if (/^\d{1,3}(,\d{3})+\.\d+$/.test(t)) t = t.replace(/,/g, '');
+      else return undefined;
+    } else if (/^\d+,\d{1,2}$/.test(t)) t = t.replace(',', '.');
     else t = t.replace(/,/g, '');
     if (!/^\d*\.?\d+$|^\d+\.$/.test(t)) return undefined;
     const n = cleanAmount(t);

@@ -1403,7 +1403,7 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // user.spaces[<id>].permissions.moderator). The server decides again on every save. False for a guest and anywhere
     // but a space.
     async 'budget.can'() {
-      if (scope !== 'space' || !spaceId || keyed || guestToken) return false;
+      if (module.budget !== true || scope !== 'space' || !spaceId || keyed || guestToken) return false;
       try {
         const me = (await api('GET', '/api/me')).user;
         return Boolean(me) && me.role !== 'guest' && (['owner', 'admin'].includes(me.role) || Boolean(me.spaces?.[spaceId]?.permissions?.moderator));
@@ -1415,8 +1415,12 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
     // whole target, so a caller keeping an amount sends it too). Answers the target the server kept, or null when it is
     // cleared. The module hears 'space' at once; the other modules here and the pop-outs hear it through the page's event.
     async 'budget.set'({ budget }) {
+      // Only a module whose manifest says `"budget": true` (the host's own word for it, never the module's), and only an
+      // explicit target or null: nothing sent is a mistake, never a clear.
+      if (module.budget !== true) throw Object.assign(new Error(`this ${word('module')} does not use the budget target`), { status: 403 });
+      if (budget === undefined) throw Object.assign(new Error('say the target, or null to clear it'), { status: 400 });
       if (scope !== 'space' || !spaceId || keyed) throw Object.assign(new Error(`only in ${word('space', { a: true })}`), { status: 400 });
-      const answer = await api('PATCH', `/api/spaces/${encodeURIComponent(spaceId)}`, { budget: budget === undefined ? null : budget });
+      const answer = await api('PATCH', `/api/spaces/${encodeURIComponent(spaceId)}`, { budget });
       const kept = answer && answer.space && answer.space.budget && typeof answer.space.budget === 'object' ? answer.space.budget : null;
       const detail = { space: spaceId, budget: kept };
       try { window.dispatchEvent(new CustomEvent('app:phases', { detail })); } catch (err) { /* no window to tell */ }

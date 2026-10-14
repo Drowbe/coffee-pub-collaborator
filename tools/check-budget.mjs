@@ -93,6 +93,11 @@ test('amounts: positive, below 12 digits, to cents; what a person types', () => 
   assert.equal(readAmount('12.50'), 12.5);
   assert.equal(readAmount('1,234.50'), 1234.5);
   assert.equal(readAmount('12,5'), 12.5);
+  assert.equal(readAmount('1.234,56'), 1234.56);
+  assert.equal(readAmount('1234,56'), 1234.56);
+  assert.equal(readAmount('1,234.56'), 1234.56);
+  assert.equal(readAmount('1.234.567,5'), 1234567.5);
+  for (const bad of ['1,23.456,7', '1.2,345', '12.345,6.7', '1,2.3']) assert.equal(readAmount(bad), undefined, bad);
   assert.equal(readAmount('$ 40'), 40);
   assert.equal(readAmount('€1 200'), 1200);
   for (const bad of ['abc', '0', '-5', '1.2.3', '12,34,5x', '1e3']) assert.equal(readAmount(bad), undefined, bad);
@@ -335,14 +340,14 @@ const slice = (name, until) => {
   assert.ok(start > 0 && end > start, `${name} is in public/module-host.js`);
   return hostText.slice(start, end);
 };
-const handlers = (ctx) => new Function('ctx', 'api', 'word', 'window', 'CustomEvent', `const { scope, spaceId, keyed, guestToken, phasesChannel, tellSpace } = ctx;\nreturn { ${slice('budget.can', '    // Save the target')}${slice('budget.set', "    // The address of a file")} };`);
+const handlers = (ctx) => new Function('ctx', 'api', 'word', 'window', 'CustomEvent', `const { module, scope, spaceId, keyed, guestToken, phasesChannel, tellSpace } = ctx;\nreturn { ${slice('budget.can', '    // Save the target')}${slice('budget.set', "    // The address of a file")} };`);
 
 await atest('who may change the target: the owner, the admin, a moderator of this space; the host asks the server again on every save', async () => {
   const run = (user, over = {}) => {
     const calls = [];
     const api = async (method, url, body) => { calls.push([method, url, body]); if (url === '/api/me') { if (user === 401) throw Object.assign(new Error('sign in'), { status: 401 }); return { user }; } return { space: { id: 'S1', budget: body && body.budget } }; };
     const told = [];
-    const ctx = { scope: 'space', spaceId: 'S1', keyed: false, guestToken: '', phasesChannel: null, tellSpace: (b) => told.push(b), ...over };
+    const ctx = { module: { id: 'budget', budget: true }, scope: 'space', spaceId: 'S1', keyed: false, guestToken: '', phasesChannel: null, tellSpace: (b) => told.push(b), ...over };
     const h = handlers(ctx)(ctx, api, (k) => k, { dispatchEvent: () => {} }, class { constructor(t, d) { this.detail = d; } });
     return { h, calls, told };
   };
@@ -358,6 +363,14 @@ await atest('who may change the target: the owner, the admin, a moderator of thi
   assert.equal(await can({ role: 'owner' }, { scope: 'environment' }), false, 'outside a space');
   assert.equal(await can({ role: 'owner' }, { keyed: true }), false, 'a keyed page');
   assert.equal(await can({ role: 'owner' }, { guestToken: 'tok' }), false, 'a guest link');
+  // A module whose manifest does not say "budget": true (an uploaded one) may neither ask nor change the target.
+  for (const module of [{ id: 'x' }, { id: 'x', budget: false }, { id: 'x', budget: 'true' }]) {
+    const none = run({ role: 'owner' }, { module });
+    assert.equal(await none.h['budget.can'](), false, 'can() is false without the flag');
+    await assert.rejects(() => none.h['budget.set']({ budget: { amount: 1 } }), /does not use the budget/);
+    await assert.rejects(() => none.h['budget.set']({ budget: null }), /does not use the budget/);
+    assert.deepEqual(none.calls, [], 'nothing reached the server');
+  }
   // set: only `budget` goes in the PATCH, whole (the amount with its currency), and the module is told
   const { h, calls, told } = run({ role: 'owner' });
   const kept = await h['budget.set']({ budget: { amount: 4000, currency: 'EUR' } });
@@ -366,6 +379,10 @@ await atest('who may change the target: the owner, the admin, a moderator of thi
   assert.deepEqual(told, [{ amount: 4000, currency: 'EUR' }]);
   assert.deepEqual((await h['budget.set']({ budget: null })), null, 'null clears it');
   assert.deepEqual(calls[1], ['PATCH', '/api/spaces/S1', { budget: null }]);
+  const nothing = run({ role: 'owner' });
+  await assert.rejects(() => nothing.h['budget.set']({ budget: undefined }), /say the target/);
+  await assert.rejects(() => nothing.h['budget.set']({}), /say the target/);
+  assert.deepEqual(nothing.calls, [], 'no target sent is refused, never a clear');
   await assert.rejects(() => run({ role: 'owner' }, { scope: 'environment' }).h['budget.set']({ budget: { amount: 1 } }), /only in/);
 });
 

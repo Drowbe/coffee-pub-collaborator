@@ -2179,7 +2179,8 @@
     budget: {
       can: async () => (await call('budget.can')) === true,
       set: async (target) => {
-        const kept = await call('budget.set', { budget: target === undefined ? null : target });
+        if (target === undefined) throw new Error('say the target, or null to clear it');
+        const kept = await call('budget.set', { budget: target });
         if (info && info.space) info.space.budget = kept && typeof kept === 'object' ? kept : null;
         return kept && typeof kept === 'object' ? kept : null;
       },

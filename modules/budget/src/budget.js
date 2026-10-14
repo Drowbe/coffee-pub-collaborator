@@ -548,9 +548,10 @@
   // Changed here only by someone the server lets (the owner, the admin, a moderator of this space); everyone else sees it and
   // is never offered the button. The form starts with the stored amount, and sends the amount with the currency every time:
   // the server replaces the whole target with what it is sent.
-  const targetEditor = host.ui.editor($('target-editor'), { size: 'medium', isDirty: () => Boolean(targetOpened) && targetOpened !== targetSnapshot(), onClose: () => { targetOpened = ''; } });
+  const targetEditor = host.ui.editor($('target-editor'), { size: 'medium', isDirty: () => Boolean(targetOpened) && targetOpened !== targetSnapshot(), onClose: () => { targetOpened = ''; dropCurrencyPick(); } });
   let targetOpened = '';
   let currencyPick = null;
+  const dropCurrencyPick = () => { if (currencyPick) { currencyPick.destroy(); currencyPick = null; } };
   const targetSnapshot = () => JSON.stringify([$('t-amount').value, currencyPick ? currencyPick.value : '']);
   function openTargetEditor() {
     if (!state.canTarget) return;
@@ -558,6 +559,7 @@
     $('target-editor-title').textContent = tv.amount ? 'Edit target' : 'Set a target';
     $('t-amount').value = amountText(tv.amount);
     $('t-error').hidden = true;
+    dropCurrencyPick();
     currencyPick = host.ui.currencySelect($('t-currency'), { value: currencyCode() });
     targetOpened = targetSnapshot();
     targetEditor.open({ focus: $('t-amount') });
@@ -575,7 +577,7 @@
       const saved = await host.budget.set(send);
       state.target = saved;
       targetEditor.close();
-      say(saved && saved.amount ? 'Target saved.' : 'Target cleared.');
+      say(saved && saved.amount ? 'Target saved.' : saved ? 'Amount cleared. The currency is kept.' : 'Target cleared.');
       render();
     } catch (err) {
       $('t-error').textContent = err && err.message ? err.message : 'The target could not be saved.';

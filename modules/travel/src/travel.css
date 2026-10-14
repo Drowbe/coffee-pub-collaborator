@@ -38,7 +38,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .tool .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .actions { display: flex; gap: 6px; }
 .tool-edit, .tool-empty { border-radius: 8px; }
-.tool[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--bg-card)); border-color: var(--accent); color: var(--accent); }
+.tool[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 22%, var(--bg-card)); color: var(--accent); }
 
 /* ---- the day strip (phones): jump to a day ---- */
 .stripbar { display: flex; align-items: center; gap: 4px; }

@@ -2586,4 +2586,47 @@ test('one nav text: the tokens set once, one rule, every element tool with words
   assert.match(css, /the one exception to it in the top bar/, 'the wordmark\'s exception said where it is set');
 });
 
+// Thomas's rule: a selected, active, on or current state is shown with a FILL (a theme token), never with an added border,
+// outline or ring ("I found ANOTHER button border. Stop adding them."). This reads every stylesheet the pages and the
+// bundled modules use and fails on a state rule that declares a border, an outline colour, or an inset or ring shadow,
+// other than: the keyboard focus ring (:focus-visible, :focus), a border colour that is the same as the rule's own
+// background (the fill covers the border, nothing shows), and the deliberate exceptions listed here, each with its reason.
+test('a selected, active, on or current state is a fill: no state rule adds a border, outline or ring', () => {
+  const files = ['public/style.css'];
+  for (const dir of ['public/sdk', ...fs.readdirSync(path.join(ROOT, 'modules')).map((m) => `modules/${m}/src`)]) {
+    const abs = path.join(ROOT, dir);
+    if (!fs.existsSync(abs)) continue;
+    for (const f of fs.readdirSync(abs)) if (f.endsWith('.css') && !/-lib-/.test(f)) files.push(`${dir}/${f}`);
+  }
+  // [selector (whole, as written), why it stays]
+  const KEEP = [
+    ['.phase-band.current', 'a band on the phase timeline is a chart mark, not a control; its fill already carries the phase colour and the hover, so the ring is the only thing left to say "now"'],
+    ['.pin.selected[data-cat] .pin-body', 'a map marker (the Maps module): a pin is drawn on the map, not a control; its ring is how a marker is picked out on a busy map'],
+    ['.pin.selected .pin-body', 'a map marker, as above'],
+    ['.pin[data-cat]:not(.selected) .pin-body', 'a map marker\'s own edge at rest, not the selected state'],
+  ];
+  const STATE = /\.(on|active|selected|current|is-active|is-on|checked|sel|today)(?![\w-])|\.[\w]+-(?:on|active|current|selected)(?![\w-])|\[aria-(?:pressed|selected|checked|current)(?:=["']?(?:true|page|step)["']?)?\]|:checked/;
+  const PROP = /^(border|border-(top|right|bottom|left)|border-(top|right|bottom|left)?-?color|outline|outline-color|box-shadow)$/;
+  const bad = [];
+  for (const rel of files) {
+    const css = fs.readFileSync(path.join(ROOT, rel), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+      const decls = m[2].split(';').map((d) => d.trim()).filter(Boolean).map((d) => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).trim()]);
+      const fill = decls.filter(([k]) => /^background(-color)?$/.test(k)).map(([, v]) => v);
+      for (const sel of m[1].split(',').map((x) => x.trim().replace(/\s+/g, ' '))) {
+        if (!STATE.test(sel) || /:focus(-visible|-within)?\b/.test(sel) || KEEP.some(([k]) => k === sel)) continue;
+        for (const [k, v] of decls) {
+          if (!PROP.test(k)) continue;
+          if (/^(0|none|transparent|inherit|initial|unset|currentcolor)(\s|$)/i.test(v)) continue;
+          if (k === 'box-shadow' && !/\binset\b|^0 0 0 \d/.test(v)) continue; // a drop shadow or a glow is not a ring
+          if (/color$/.test(k) && fill.includes(v)) continue; // the same colour as the fill: nothing shows
+          if (k === 'border' && fill.some((f) => v.endsWith(f))) continue;
+          bad.push(`${rel}: ${sel} { ${k}: ${v} }`);
+        }
+      }
+    }
+  }
+  assert.deepEqual(bad, [], `show the state with a fill token, not a border, outline or ring (--selected-bg):\n  ${bad.join('\n  ')}`);
+});
+
 console.log(`check-nav: OK (${n} tests)`);

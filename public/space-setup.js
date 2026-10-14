@@ -5,19 +5,19 @@
 // address (space.js; setupAddress below reads it).
 //
 // The tabs, each a code id that is also its address fragment (#space, #members, #phases, #opens-with, #modules):
-//   space       the picture, name, description, faces in the call, launch link, link icon, the budget (while a module
-//               here reads it, or one is set: #216), the published calendar switch, and a danger section with Delete
-//               (its own confirmation here; it does not wait for Save)
+//   space       the picture, name, description, faces in the call, launch link, link icon, the published calendar
+//               switch, and a danger section with Delete (its own confirmation here; it does not wait for Save)
 //   members     the members and Allow guests (drafts), then Generate invite link and the guest link (actions, at once)
 //   phases      each phase's start and end, inline, through the rule in public/phases.js (a draft; the phase chip's
-//               sheet is its own surface and still saves as it is set there)
+//               sheet is its own surface and still saves as it is set there), then the budget (while a module here
+//               reads it, or one is set: #216; budgetTabOf says where it goes when the template has no phases)
 //   opens-with  the first visit (labelled so): the Workspace with its Opens with switches, Calendar, Map or a shared
 //               layout; a saved id that cannot open now is kept and said why; a default layout can be stopped
 //   modules     the modules on here (no switches: an enabled module is on in every space), Turn AI off, then a section
 //               per module with its settings for this space (module-settings.js, its draft mode)
 // An owner and the admin see every tab; a moderator sees phases, opens-with and the modules tab's module settings (the
 // server lets a moderator PATCH exactly `phases`, `opensWith`, `defaultLayout` and `budget`, and set a space's module
-// settings; the Budget field itself is drawn on the space tab, an owner's, so a moderator does not see it yet);
+// settings; the Budget field is on the phases tab, which the three of them see);
 // a member has no Set up. A tab with nothing to show (no phases in the template, no module settings for a moderator) is
 // left out. The Lobby shows no Delete, no member switches and no calendar switch.
 //
@@ -64,14 +64,17 @@ export function setupAddress(search = '', hash = '') {
 
 // Which tab each saved field lives on (the dirty dots, and the tab a refusal opens).
 export const FIELD_TAB = Object.freeze({
-  name: 'space', description: 'space', profile: 'space', link: 'space', linkIcon: 'space', publishCalendar: 'space', image: 'space', imageRemoved: 'space', budget: 'space',
+  name: 'space', description: 'space', profile: 'space', link: 'space', linkIcon: 'space', publishCalendar: 'space', image: 'space', imageRemoved: 'space', budget: 'phases',
   members: 'members', allowGuests: 'members',
   phases: 'phases',
   opensWith: 'opens-with', defaultLayout: 'opens-with',
   aiOff: 'modules',
 });
 // A module's settings, in the save's lists and its words, are `module:<id>`; they live on the modules tab.
-export const tabOfField = (f) => FIELD_TAB[f] || (String(f).startsWith('module:') ? 'modules' : null);
+// The tab the budget is on: the phases tab (every role with a Set up has it), else, when the template has no phases, the
+// space tab (an owner's), else the first visit's (a moderator's). `tabs` is the tabs the person has.
+export const budgetTabOf = (tabs) => (tabs.includes('phases') ? 'phases' : tabs.includes('space') ? 'space' : 'opens-with');
+export const tabOfField = (f, tabs = null) => (f === 'budget' && tabs ? budgetTabOf(tabs) : FIELD_TAB[f] || (String(f).startsWith('module:') ? 'modules' : null));
 
 const sameList = (a, b) => {
   if (a === null || b === null) return a === b;
@@ -85,8 +88,10 @@ const datesCopy = (v) => (v && typeof v === 'object' && !Array.isArray(v) ? JSON
 // The budget target as the panel holds it (#216): { amount, currency } as the fields' text ('' for none, '' for the
 // reporting module's own currency), and in the draft `bad: true` while the number field holds something it cannot read
 // (`12-3`, `1e`: the browser then reports the value as '' and validity.badInput). budgetSent() is what the PATCH sends:
-// null for none (only a truly empty field), else { amount, currency? }; an amount that is not a number (or a bad entry)
-// goes as null, which the server refuses with its sentence, so a bad entry never clears a stored budget.
+// null for none (only when both the amount and the currency are empty), { currency } for a currency with no amount, else
+// { amount, currency? }. The draft always holds the stored amount, so a changed currency goes with it (the server
+// replaces the whole target, so a currency sent alone would lose an amount). An amount that is not a number (or a bad
+// entry) goes as { amount: null }, which the server refuses with its sentence, so a bad entry never clears a stored budget.
 const budgetText = (v) => ({
   amount: v && v.amount !== undefined && v.amount !== null && v.amount !== '' ? String(v.amount).trim() : '',
   currency: v && typeof v.currency === 'string' ? v.currency.trim().toUpperCase() : '',
@@ -102,19 +107,20 @@ export function budgetEntryProblem(v) {
   return null;
 }
 // Whether Set up shows the Budget section, and the module it names: a module that reads the target is on here (its
-// manifest says `"budget": true`; `installed` is GET /api/modules, every enabled module being on in every space but the
-// Lobby keeping its own), a module reported a fact marked `budget` (`reported`, { name }), or a target is set already.
-// { show, name }.
+// manifest says `"budget": true`; `installed` is the module list the person may read: GET /api/modules for an owner,
+// GET /api/modules/for-space for a moderator, every enabled module being on in every space but the Lobby keeping its
+// own), a module reported a fact marked `budget` (`reported`, { name }), or a target is set already, an amount or a
+// currency alone. { show, name }.
 export function budgetWanted({ lobby = false, installed = [], reported = null, stored = null } = {}) {
   if (lobby) return { show: false, name: '' };
-  const reads = (Array.isArray(installed) ? installed : []).find((m) => m && m.enabled && m.budget === true && Array.isArray(m.scope) && m.scope.includes('space'));
+  const reads = (Array.isArray(installed) ? installed : []).find((m) => m && m.enabled !== false && m.budget === true && Array.isArray(m.scope) && m.scope.includes('space'));
   const name = (reported && reported.name) || (reads ? reads.displayName || reads.name || '' : '');
-  return { show: Boolean(reads || reported || budgetText(stored).amount), name };
+  return { show: Boolean(reads || reported || budgetText(stored).amount || budgetText(stored).currency), name };
 }
 function budgetSent(v) {
   const b = budgetText(v);
   if (v && v.bad === true) return { amount: null, ...(b.currency ? { currency: b.currency } : {}) };
-  if (!b.amount) return null;
+  if (!b.amount) return b.currency ? { currency: b.currency } : null;
   const amount = Number(b.amount);
   return { amount: Number.isFinite(amount) ? amount : null, ...(b.currency ? { currency: b.currency } : {}) };
 }
@@ -153,8 +159,8 @@ export function setupPatch(before = {}, after = {}) {
 
 // The tabs with unsaved changes: the PATCH's fields, the picture when one was chosen or removed, and a module's
 // settings when any changed.
-export function dirtyTabs(patch = {}, { image = false, modules = false } = {}) {
-  const tabs = new Set(Object.keys(patch).map((f) => FIELD_TAB[f]).filter(Boolean));
+export function dirtyTabs(patch = {}, { image = false, modules = false, tabs: have = null } = {}) {
+  const tabs = new Set(Object.keys(patch).map((f) => (FIELD_TAB[f] ? tabOfField(f, have) : null)).filter(Boolean));
   if (image) tabs.add('space');
   if (modules) tabs.add('modules');
   return tabs;
@@ -286,17 +292,6 @@ export function createSpaceSetup(deps) {
     if ((typeof deps.icons === 'function' ? deps.icons() : []).length) {
       parts.push(sectionHtml('link-icon', '<span id="setup-link-icon-heading">Link icon</span>', '<div class="icon-grid setup-icon-grid" id="setup-link-icon" role="radiogroup" aria-labelledby="setup-link-icon-heading"></div><p class="hint">The icon on the launch link\'s button.</p>'));
     }
-    // The budget (#216): an amount and its currency, a draft saved with Save. Drawn for every space but the Lobby and
-    // shown while a module here reads it or one is set (budgetWanted; paintBudgetSection), which is known only once the
-    // module list, the space's own record and the facts have come: hidden until then, so nothing typed is lost.
-    if (!space.isLobby) {
-      parts.push(sectionHtml('budget', '<span id="setup-budget-heading">Budget</span>', `
-        <div class="setup-budget" role="group" aria-labelledby="setup-budget-heading">
-          <label class="setup-field setup-budget-amount"><span class="visually-hidden">Amount</span><input type="number" id="setup-budget-amount" min="0" step="any" inputmode="decimal" placeholder="No budget" autocomplete="off"></label>
-          <label class="setup-field setup-budget-currency"><span class="visually-hidden">Currency</span><select id="setup-budget-currency"></select></label>
-        </div>
-        <p class="hint" id="setup-budget-hint"></p>`, { hidden: true }));
-    }
     if (!space.isLobby) {
       parts.push(sectionHtml('calendar', '<span id="setup-calendar-heading">Calendar</span>', `<label class="switch-row"><input type="checkbox" class="switch" role="switch" id="setup-publish-calendar"><span class="switch-name">In the published calendar</span></label><p class="hint">${esc(word('owner', { many: true, cap: true }))} can publish one calendar with every ${esc(spaceWord())}'s events. Turn this off to leave this ${esc(spaceWord())} out.</p>`, { hidden: true }));
       parts.push(sectionHtml('danger', `Delete this ${esc(spaceWord())}`, `
@@ -312,6 +307,19 @@ export function createSpaceSetup(deps) {
         </div>`, { cls: 'setup-danger' }));
     }
     return parts.join('');
+  }
+
+  // The budget (#216): an amount and its currency, a draft saved with Save. Drawn for every space but the Lobby, on the
+  // tab budgetTabOf names, and shown while a module here reads it or one is set (budgetWanted; paintBudgetSection), which
+  // is known only once the person's own record, the module list and the facts have come: hidden until then, so nothing
+  // typed is lost. An owner, the admin and a moderator of the space have it; a member has no Set up.
+  function budgetSectionHtml() {
+    return sectionHtml('budget', '<span id="setup-budget-heading">Budget</span>', `
+        <div class="setup-budget" role="group" aria-labelledby="setup-budget-heading">
+          <label class="setup-field setup-budget-amount"><span class="visually-hidden">Amount</span><input type="number" id="setup-budget-amount" min="0" step="any" inputmode="decimal" placeholder="No budget" autocomplete="off"></label>
+          <label class="setup-field setup-budget-currency"><span class="visually-hidden">Currency</span><select id="setup-budget-currency"></select></label>
+        </div>
+        <p class="hint" id="setup-budget-hint"></p>`, { hidden: true });
   }
 
   function membersTabHtml() {
@@ -424,7 +432,7 @@ export function createSpaceSetup(deps) {
   function draw() {
     const { tabs, space } = state;
     const tabButtons = tabs.map((id) => `<button type="button" role="tab" class="setup-tab" id="setup-tab-${id}" data-tab="${id}" aria-controls="setup-content-${id}" aria-selected="false" tabindex="-1"><span class="setup-tab-label">${esc(tabLabel(id))}</span><span class="setup-tab-dot" aria-hidden="true" hidden></span><span class="visually-hidden setup-tab-unsaved"></span></button>`).join('');
-    const contents = tabs.map((id) => `<div role="tabpanel" class="setup-tab-content" id="setup-content-${id}" data-tab="${id}" aria-labelledby="setup-tab-${id}" tabindex="-1" hidden>${TAB_HTML[id]()}</div>`).join('');
+    const contents = tabs.map((id) => `<div role="tabpanel" class="setup-tab-content" id="setup-content-${id}" data-tab="${id}" aria-labelledby="setup-tab-${id}" tabindex="-1" hidden>${TAB_HTML[id]()}${id === budgetTabOf(tabs) && !space.isLobby ? budgetSectionHtml() : ''}</div>`).join('');
     el.innerHTML = `
       <div class="setup-head">
         <h2 id="space-setup-title">Set up</h2>
@@ -530,7 +538,7 @@ export function createSpaceSetup(deps) {
   // Whether the Budget section shows, and its hint naming the module that reads it (budgetWanted). Once shown it stays
   // for this opening, so a field someone is typing in never goes away under them.
   function budgetNow() {
-    return budgetWanted({ lobby: state.space.isLobby, installed: state.installed || [], reported: state.opts.budget || null, stored: state.before.budget });
+    return budgetWanted({ lobby: state.space.isLobby, installed: state.installed || (state.options && state.options.budgetModules) || [], reported: state.opts.budget || null, stored: state.before.budget });
   }
   function paintBudgetSection() {
     const section = q('[data-section="budget"]');
@@ -1026,7 +1034,7 @@ export function createSpaceSetup(deps) {
   // The modules whose settings were changed here: [{ id, name, values }] (module-settings.js, its draft mode).
   const moduleChanges = () => (state.moduleSettings ? state.moduleSettings.changes() : []);
   function dirtyNow() {
-    return dirtyTabs(patchNow(), { image: imageChanged(), modules: moduleChanges().length > 0 });
+    return dirtyTabs(patchNow(), { image: imageChanged(), modules: moduleChanges().length > 0, tabs: state.tabs });
   }
   // Whether something would be lost on Cancel: the PATCH has something in it, a picture was chosen or removed, or a
   // module's settings changed.
@@ -1049,6 +1057,20 @@ export function createSpaceSetup(deps) {
     }
     state.space = { ...state.space, ...record };
     state.links = { guestToken: record.guestToken || null, allowGuests: record.allowGuests !== false };
+  }
+  // A moderator's own answer for the space ({ id, phases, opensWith, defaultLayout, budget }) holds the stored budget and
+  // nothing else of the record, so only the budget is taken from it; the module list they may use is loadOptions'.
+  async function loadModeratorParts(space) {
+    const record = await api('GET', `/api/spaces/${encodeURIComponent(space.id)}`).then((r) => r.space).catch(() => null);
+    if (!state || state.space.id !== space.id) return;
+    if (!record) return; // the stored target is not known: the Budget section stays hidden rather than risk replacing it
+    const fresh = budgetText(record.budget);
+    if (sameValue(state.draft.budget, state.before.budget)) { state.draft.budget = { ...fresh }; state.before.budget = fresh; }
+    if (q('#setup-budget-currency')) state.currencies = await api('GET', '/api/currencies').then((r) => r.currencies || null).catch(() => null);
+    if (!state || state.space.id !== space.id) return;
+    state.ownerPartsIn = true;
+    fillFields();
+    refresh();
   }
   async function loadOwnerParts(space) {
     const id = encodeURIComponent(space.id);
@@ -1139,6 +1161,7 @@ export function createSpaceSetup(deps) {
       modules: (answer.modules || []).filter((m) => !m.canvas || m.canvas.menu !== false),
       builtin: answer.builtin || [],
       environment: Array.isArray(answer.spaceDefaultsOpensWith) ? answer.spaceDefaultsOpensWith : null,
+      budgetModules: answer.modules || [], // a moderator's list for the Budget section (an owner has GET /api/modules)
     };
     // The server's own view is the freshest: the presence record may lag a save by someone else. What was not touched
     // while it was asked is set from it; the first visit as the server resolved it (a layout no longer there reads as
@@ -1183,8 +1206,9 @@ export function createSpaceSetup(deps) {
     select(pickTab(tabs, opts.tab));
     focusFirst();
     refresh();
-    loadOptions().then(() => { if (state && state.space.id === space.id) { if (q('#setup-opens-with')) paintOpensWith(); if (q('#setup-first-visit')) paintLayouts(); refresh(); } });
+    loadOptions().then(() => { if (state && state.space.id === space.id) { if (q('#setup-opens-with')) paintOpensWith(); if (q('#setup-first-visit')) paintLayouts(); paintBudgetSection(); refresh(); } });
     if (state.owner) loadOwnerParts(space);
+    else if (!space.isLobby) loadModeratorParts(space);
     if (state.tabs.includes('modules')) loadModuleSettings(space);
     return true;
   }
@@ -1232,7 +1256,7 @@ export function createSpaceSetup(deps) {
   }
   function refused(saved, failed, problem) {
     say(setupSaidWords({ saved, failed, problem }, { words: fieldWords() }));
-    const tab = tabOfField(failed);
+    const tab = tabOfField(failed, state.tabs);
     if (tab && state.tabs.includes(tab)) select(tab);
     const moduleId = String(failed).startsWith('module:') ? failed.slice(7) : null;
     const card = moduleId && state.moduleSettings ? state.moduleSettings.sectionOf(moduleId) : null;
@@ -1251,7 +1275,7 @@ export function createSpaceSetup(deps) {
     if (opts.nameInput && state.owner) state.draft.name = opts.nameInput.value;
     // A budget the field cannot read is refused here, before anything is sent: sent, it would read as no budget.
     const budgetField = q('#setup-budget-amount');
-    const entry = state.owner && budgetField && !q('[data-section="budget"]').hidden ? budgetEntryProblem({ ...state.draft.budget, bad: Boolean(state.draft.budget?.bad || (budgetField.validity && budgetField.validity.badInput)) }) : null;
+    const entry = budgetField && !q('[data-section="budget"]').hidden ? budgetEntryProblem({ ...state.draft.budget, bad: Boolean(state.draft.budget?.bad || (budgetField.validity && budgetField.validity.badInput)) }) : null;
     if (entry) return refused([], 'budget', entry);
     const patch = patchNow();
     const moduleChanged = moduleChanges();

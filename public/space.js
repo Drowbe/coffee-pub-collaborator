@@ -2045,7 +2045,7 @@ function announcePhases() {
   const space = phaseSpaceRecord();
   if (!space || !space.id || currentSpace?.isAside) return;
   // The budget target (#216) is not on this record (the presence list leaves it out): the modules read it from their
-  // own context, and an owner's save here says it (announceBudget).
+  // own context, and a save here by an owner, the admin or a moderator says it (announceBudget).
   const detail = { space: space.id, phases: space.phases || {}, created: space.createdAt || null };
   const sig = JSON.stringify(detail);
   if (sig === phasesSaid) return;
@@ -2053,7 +2053,7 @@ function announcePhases() {
   try { window.dispatchEvent(new CustomEvent('app:phases', { detail })); } catch { /* no window to tell */ }
   try { if (phasesChannel) phasesChannel.postMessage(detail); } catch { /* nobody to hear */ }
 }
-// An owner's Set up saved the budget target: the modules mounted here and the pop-outs hear it at once ('space' with
+// A Set up save of the budget target (an owner's, the admin's or a moderator's): the modules mounted here and the pop-outs hear it at once ('space' with
 // { budget }, through the module host); everyone else's modules read it from their context.
 function announceBudget(spaceId, budget) {
   const detail = { space: spaceId, budget: budget && typeof budget === 'object' ? budget : null };

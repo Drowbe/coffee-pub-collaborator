@@ -317,6 +317,34 @@ a:hover {
   display: none;
 }
 
+/* Home's unread count on the Home link (plan-home-lobby.md, decision 8, step 4): new messages in Home's chat while a
+   space shows, on the logo's corner (the Home link at every width). space.js adds it; theme tokens only. */
+.topbar .brand-logo {
+  position: relative;
+}
+
+.topbar .brand-logo .home-unread {
+  position: absolute;
+  top: 3px;
+  right: 1px;
+  z-index: 1;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: 0 0 0 2px var(--nav-brand-bg);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
+.topbar .brand-logo .home-unread-count {
+  font-size: inherit;
+}
+
 /* Spaces in the left zone: two controls side by side as one slot, the word (home) and the caret (the switcher). Their
    type, colour and icon size are the top bar's link look (.core-link), as Calendar, Map and the space's segment. */
 .topbar .nav-slot,
@@ -9126,6 +9154,60 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   }
 }
 
+/* The count of what needs action (space.js, host.attention): a pill at the strip's right end, drawn over a right margin
+   the strip keeps for it, so the line's items give way before it does. Its own polite status; the button opens the list. */
+.status-attention {
+  position: absolute;
+  top: 0;
+  right: 8px;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+.status-attention[hidden] {
+  display: none;
+}
+
+.status-strip.has-attention {
+  position: relative;
+  padding-right: 132px;
+}
+
+.attention-count {
+  box-sizing: border-box;
+  height: 24px;
+  max-width: 124px;
+  padding: 0 11px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 12px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 24px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.attention-count:hover,
+.attention-count[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--accent) 85%, var(--header-text));
+}
+
+.attention-count:focus-visible {
+  outline: 2px solid var(--header-text);
+  outline-offset: 1px;
+}
+
+/* A space without phases: the strip is the count alone. */
+.status-strip.attention-only > :not(.status-attention) {
+  display: none;
+}
+
 /* Narrow: the names in the bands go first (the bar keeps its colours, the pin and the days to go). */
 @media (max-width: 760px) {
   .status-strip .status-band-box {
@@ -9152,6 +9234,18 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
     height: var(--status-strip-slim-h);
     border-top: 1px solid var(--border);
     background: var(--nav-secondary-bg);
+  }
+
+  .topbar > .status-strip.has-attention {
+    padding-right: 110px;
+  }
+
+  .topbar > .status-strip .attention-count {
+    height: 20px;
+    max-width: 100px;
+    padding: 0 9px;
+    font-size: 11px;
+    line-height: 20px;
   }
 
   .topbar > .status-strip .phase-chip {

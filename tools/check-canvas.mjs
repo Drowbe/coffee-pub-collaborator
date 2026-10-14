@@ -1418,6 +1418,49 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/new EventSource\(`\/api\/spaces\/\$\{HOME_CHAT\}\/chat\/stream`\)/.test(spaceJs)) fail(F, 'Home\'s chat hears others live from the server\'s stream (step 1), since Home holds no call');
   if (!/homeChatEntering = true;[^\n]*\n\s*hideHomeChat\(\);/.test(spaceJs.slice(spaceJs.indexOf('async function join('), spaceJs.indexOf('async function joinAsGuest(')))) fail(F, 'entering a space takes the chat out of Home\'s column first');
   if (!/word\('module', \{ many: true, cap: true \}\)/.test(spaceJs.slice(spaceJs.indexOf('function renderSpaceListHead('), spaceJs.indexOf('async function addSpace(')))) fail(F, 'the Modules column is headed with the module word (the template\'s, else Modules)');
+
+  // Step 2: the Lobby leaves the pages' lists. Its record stays (decision 6); its card is not drawn, and every way into
+  // it for a signed-in person (join, an invitation, /#join=lobby, a remembered `lobby`, an aside's fallback, Set up by
+  // address) lands on Home. A guest link still enters it (joinAsGuest never asks isHomeRecord).
+  const body = (head) => { const at = spaceJs.indexOf(head); return at < 0 ? '' : spaceJs.slice(at, spaceJs.indexOf('\n}\n', at)); };
+  if (!/presenceSpaces\.filter\(\(x\) => x\.mine && !x\.isLobby\)/.test(body('function renderSpaces() {'))) fail(F, 'Home draws no card for the Lobby (renderSpaces leaves out isLobby)');
+  if (!/return !guestToken && id === LOBBY;/.test(body('function isHomeRecord(id) {'))) fail(F, 'isHomeRecord: the Lobby, for anyone but a guest link');
+  if (!/^\s*if \(isHomeRecord\(spaceId\)\) return landOnHome\(\);/m.test(body("async function join(spaceId = 'lobby'"))) fail(F, 'join() never enters the Lobby: it lands on Home');
+  if (!/^\s*if \(isHomeRecord\(spaceId\)\) return landOnHome\(\);/m.test(body('async function joinInvitedSpace(spaceId) {'))) fail(F, 'an invitation or /#join=lobby lands on Home');
+  if (!/if \(isHomeRecord\(id\)\) \{\s*landOnHome\(\);\s*if \(hasOwnerRights\(me\)\) openOverlay\('\/admin#spaces'\);/.test(body('async function openSetupFor('))) fail(F, '/?setup=lobby opens Manage at Spaces for owners and the admin, never the Lobby\'s Set up');
+  const land = body('function landOnHome() {');
+  if (!/if \(rememberedSpace\(\) === LOBBY\) forgetSpace\(\);/.test(land) || !/showSpaceList\(\);/.test(land)) fail(F, 'landing on Home forgets a remembered Lobby, and over a space shows Home over it (the call kept)');
+  if (/isHomeRecord/.test(body('async function joinAsGuest('))) fail(F, 'a guest link made for the Lobby keeps working (working assumption, question 3)');
+
+  // Step 4: Home over a space. The one #chat moves into Home's column pointed at Home's chat; the space's messages wait
+  // aside (homeChatStash) and come back where #chat was, with what the space's call said meanwhile (parkSpaceChat);
+  // nothing of Home's goes on the space's call. The person stays in the space's call, Away (showSpaceList).
+  const wanted2 = body('function homeChatWanted() {');
+  if (!/return 'home';/.test(wanted2) || !/currentSpace && viewingHome && call\.state === 'connected' && !inAside\(\)[^\n]*\n[^\n]*!canvas\.builtinWindow\('chat'\)\) return 'over';/.test(wanted2)) fail(F, 'Home\'s chat shows over a space this page is present in (never an aside, never with the chat in its own window)');
+  if (!/syncHomeChat\(\);/.test(body('function showSpaceList() {')) || !/setAway\(true\);/.test(body('function showSpaceList() {'))) fail(F, 'going Home from a space sets Away and swaps in Home\'s chat');
+  if (!/syncHomeChat\(\);/.test(body('function returnToCanvas() {'))) fail(F, 'Back to <space> gives the space\'s chat back');
+  const show = body("function showHomeChat(mode = 'home') {");
+  if (!/homeChatStash = \{\s*parent: chat\.parentNode, next: chat\.nextSibling,/.test(show) || !/nodes: \[\.\.\.\$\('messages'\)\.childNodes\], log: chatLog\.splice\(0\)/.test(show)) fail(F, 'over a space, the space\'s chat (its messages as drawn, its log, where #chat was) is kept aside, never dropped');
+  if (!/\$\('home-chat-slot'\)\.appendChild\(chat\);/.test(show)) fail(F, 'Home\'s chat over a space is the same one #chat, moved');
+  const hide = body('function hideHomeChat() {');
+  if (!/\$\('messages'\)\.replaceChildren\(\.\.\.stash\.nodes\);/.test(hide) || !/stash\.parent\.insertBefore\(chat,/.test(hide) || !/for \(const run of stash\.parked\) run\(\);/.test(hide)) fail(F, 'back in the space: its messages, #chat in its place, then what its call said meanwhile');
+  if (!/^\s*if \(homeChatSpace\) return;/m.test(body('function publishChat(data) {'))) fail(F, 'Home\'s chat never goes on the space\'s call');
+  if (!/if \(topic === 'chat' && parkSpaceChat\(\(\) => onCallData\(payload, participant, _kind, topic\)\)\) return;/.test(spaceJs)) fail(F, 'the space\'s call chat heard while Home\'s chat shows is kept for the space, never drawn in Home\'s');
+  if (!/if \(!parkSpaceChat\(add\)\) add\(\);/.test(spaceJs) || !/\|\| homeChatSpace\) return;/.test(body('async function sendImage(file) {'))) fail(F, 'pictures stay the space\'s: a received one waits, none is sent into Home\'s chat');
+  const disc = spaceJs.slice(spaceJs.indexOf('.on(RoomEvent.Disconnected, () => {'), spaceJs.indexOf('async function fillDevices('));
+  if (!/viewingHome = false;[^\n]*\n\s*hideHomeChat\(\);/.test(disc)) fail(F, 'a dropped connection gives the space\'s chat back before it clears');
+  // Unread on the Home link (decision 8), fed by Home's chat stream while Home is out of sight; cleared when it shows.
+  const notice = body('function homeChatNotice(data) {');
+  if (!/if \(!homeChatSpace\) \{\s*countHomeNotice\(data\);/.test(notice)) fail(F, 'Home\'s chat out of sight: its stream counts for the Home link');
+  const count = body('function countHomeNotice(data) {');
+  if (!/data\.by !== me\?\.key && data\.visibility !== 'private'/.test(count) || !/chat-clear'\) homeUnreadIds\.clear\(\)/.test(count)) fail(F, 'the Home link counts others\' public messages, and a clear takes them off');
+  if (!/setHomeUnread\(0\);/.test(show)) fail(F, 'Home in sight clears the count');
+  if (!/nav\.setBadge\('menu-home', n\);/.test(body('function paintHomeUnread() {')) || !/#brand-home-link \.brand-logo/.test(body('function paintHomeUnread() {'))) fail(F, 'the count shows on the Home link: the logo, and the phone menu\'s Home');
+  if (!/\.topbar \.brand-logo \.home-unread \{[^}]*background: var\(--accent\);[^}]*color: var\(--on-accent\);/.test(css)) fail('public/style.css', 'the Home link\'s count is drawn in theme tokens');
+  // Catch-up: every `ready` after the first (a reconnect) reads the history again; other event types are left alone.
+  const open = body('function openHomeChatStream() {');
+  if (!/if \(data\?\.type === 'ready'\) \{\s*ready \+= 1;\s*if \(ready > 1\) catchUpHomeChat\(\);/.test(open)) fail(F, 'a reconnected stream catches up on what was missed');
+  if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {'))) fail(F, 'the catch-up reads Home\'s history');
 }
 
 // The call pops out again, and has a place (Thomas, 2026-10-14): a visible Pop out on the call's toolbar (the same button

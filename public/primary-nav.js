@@ -48,13 +48,14 @@ export function hostConsoleUrl({ protocol = 'https:', hostname = '', port = '' }
   return `${protocol}//admin.${base}${port ? `:${port}` : ''}/`;
 }
 
-// The space switcher (decision 15): the spaces the viewer belongs to, in the space list's order, never an aside. Each
+// The space switcher (decision 15): the spaces the viewer belongs to, in the space list's order, never an aside and
+// never the Lobby (Home's hidden backing, plan-home-lobby.md, decision 6: Home is reached by the Home link). Each
 // says whether you are present there and how many are. `present` is the space you are present in (an aside's parent
 // when you are in an aside), or null. Present somewhere in the list, the last entry is Leave for that space
 // (plan-one-bar.md, step 5: `{ id, leave: true }`; the top bar's menu draws it last, and the space page leaves on a pick).
 export function switcherEntries({ spaces = [], users = [], present = null } = {}) {
   const out = spaces
-    .filter((s) => s && s.mine && !s.isAside)
+    .filter((s) => s && s.mine && !s.isAside && !s.isLobby) // the Lobby is Home itself (plan-home-lobby.md, step 2)
     .map((s) => ({
       id: s.id,
       name: s.name,

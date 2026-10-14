@@ -492,7 +492,8 @@ function renderSpaces() {
   const list = $('spaces');
   if (!list) return;
   const keep = new Set();
-  for (const r of presenceSpaces.filter((x) => x.mine)) {
+  // The Lobby is Home itself (plan-home-lobby.md, step 2): its record stays, its card is not drawn.
+  for (const r of presenceSpaces.filter((x) => x.mine && !x.isLobby)) {
     keep.add(r.id);
     let card = list.querySelector(`[data-space="${CSS.escape(r.id)}"]`);
     if (!card) {
@@ -1595,12 +1596,29 @@ const statusFacts = document.createElement('span');
 statusFacts.className = 'status-facts'; // kept for the facts and the count (plan-space-story-strip.md, steps 3 and 5)
 statusFacts.setAttribute('aria-hidden', 'true');
 statusSaid.appendChild(phaseChip);
-statusStrip.append(statusSaid, statusTrack, statusToGo, statusFacts);
+// The count of what needs this person's action (host.attention, plan-space-status-strip.md step 3): at the strip's right
+// end, after the days to go, only above zero. Its own polite status, written only when the count changes; the button
+// opens the shared menu of what needs action.
+const statusAttention = document.createElement('span');
+statusAttention.className = 'status-attention';
+statusAttention.setAttribute('role', 'status');
+statusAttention.hidden = true;
+const attentionButton = document.createElement('button');
+attentionButton.type = 'button';
+attentionButton.id = 'attention-count';
+attentionButton.className = 'attention-count';
+attentionButton.setAttribute('aria-haspopup', 'menu');
+statusAttention.appendChild(attentionButton);
+statusStrip.append(statusSaid, statusTrack, statusToGo, statusFacts, statusAttention);
+let attention = { spaceId: null, modules: [], total: 0 }; // what needs my action here, from GET /api/spaces/:id/attention
+let attentionSeen = false; // a count above zero has arrived in this space: the strip stays for the visit
 let templatePhases = []; // the template's phases, from /api/branding, cleaned by the rule
 let phaseIcons = {}; // phase id -> its icon, when the template gives one
 const phaseRule = () => window.Phases || null;
 const phaseSpaceRecord = () => (currentSpace && !currentSpace.isAside ? presenceSpaces.find((r) => r.id === currentSpace.id) || currentSpace : null);
-const phaseChipWanted = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && me?.role !== 'guest' && templatePhases.length > 0 && Boolean(phaseRule());
+const phasesWanted = () => templatePhases.length > 0 && Boolean(phaseRule());
+// The strip shows in a space with phases; in one without, once a count above zero has arrived, for the rest of the visit.
+const phaseChipWanted = () => Boolean(currentSpace) && !inAside() && !viewingHome && !guestToken && me?.role !== 'guest' && (phasesWanted() || attentionSeen);
 // Owners, the admin and the space's moderators edit the dates (PATCH /api/spaces/:id); a member reads them.
 function canEditPhases() {
   if (!currentSpace || inAside() || !me || guestToken || me.role === 'guest') return false;
@@ -1700,12 +1718,78 @@ function writeStory(parts) {
     return span;
   }));
 }
+// --- what needs my action (host.attention): read when the space loads, when a module reports, on focus and slowly ---
+// The strip is for this space and this person; entering another space starts a new visit (the count, and whether the
+// strip stays for a space without phases).
+function followAttentionSpace() {
+  const id = currentSpace && !currentSpace.isAside && !inAside() && !guestToken && me && me.role !== 'guest' ? currentSpace.id : null;
+  if (id === attention.spaceId) return;
+  attention = { spaceId: id, modules: [], total: 0 };
+  attentionSeen = false;
+  if (id) loadAttention();
+}
+let attentionAsked = 0;
+async function loadAttention() {
+  const id = attention.spaceId;
+  if (!id) return;
+  const ticket = ++attentionAsked;
+  try {
+    const answer = await api('GET', `/api/spaces/${encodeURIComponent(id)}/attention`);
+    if (ticket !== attentionAsked || attention.spaceId !== id) return; // a newer read, or another space, took over
+    attention = { spaceId: id, modules: Array.isArray(answer.modules) ? answer.modules : [], total: Number(answer.total) || 0 };
+    if (attention.total > 0) attentionSeen = true;
+    updatePhaseChip();
+  } catch (err) {
+    // keeps the last count; the next read tries again
+  }
+}
+let attentionSoon = 0;
+function loadAttentionSoon() {
+  clearTimeout(attentionSoon);
+  attentionSoon = setTimeout(loadAttention, 250);
+}
+window.addEventListener('app:attention', (event) => { if (!event.detail?.space || event.detail.space === attention.spaceId) loadAttentionSoon(); });
+window.addEventListener('focus', loadAttentionSoon);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) loadAttentionSoon(); });
+setInterval(() => { if (!document.hidden) loadAttention(); }, 60000);
+// "2 need action" / "1 needs action", only above zero; written only when the count changes (the status is polite).
+function drawAttentionCount() {
+  const n = phaseChipWanted() ? attention.total : 0;
+  const words = n === 1 ? '1 needs action' : `${n} need action`;
+  statusAttention.hidden = n < 1;
+  statusStrip.classList.toggle('has-attention', n > 0);
+  statusStrip.classList.toggle('attention-only', !phasesWanted());
+  if (n > 0 && attentionButton.textContent !== words) {
+    attentionButton.textContent = words;
+    attentionButton.title = `${words}. Show the list`;
+  }
+}
+// The list: a section per module (its name), its label with the count, then its items. A pick opens the object, or the
+// module when the item has none.
+function openAttentionTarget(moduleId, object) {
+  returnToCanvas();
+  canvas.open(moduleId);
+  if (object && object.module) canvas.openRef(object);
+}
+function attentionMenuItems() {
+  const items = [];
+  for (const m of attention.modules) {
+    if (items.length) items.push({ divider: true });
+    items.push({ heading: m.name || m.module });
+    items.push({ label: `${m.count} ${m.label || (m.count === 1 ? 'needs action' : 'need action')}`, onPick: () => openAttentionTarget(m.module) });
+    for (const item of m.items || []) items.push({ label: item.title, icon: 'angle-right', onPick: () => openAttentionTarget(m.module, item.object) });
+  }
+  return items;
+}
+attentionButton.addEventListener('click', () => openHostMenu(attentionButton, attentionMenuItems));
 function updatePhaseChip() {
+  followAttentionSpace();
   const R = phaseRule();
   const show = phaseChipWanted();
   if (statusStrip.hidden === show) statusStrip.hidden = !show; // the registry writes the same when the strip is its tool
   nav.draw('secondary');
-  if (!show || !R) return;
+  drawAttentionCount();
+  if (!show || !R || !phasesWanted()) return;
   const today = phaseToday();
   const bands = phaseTimeline();
   const parts = R.storyParts(bands, today);
@@ -1902,6 +1986,13 @@ function leaveSetup() {
 // joinInvitedSpace, as an invitation does), then opens the panel on the tab asked for (pickTab: an unknown one is the
 // first tab). Someone who may not set up gets the space without the panel. Already setting this space up: the tab.
 async function openSetupFor(id, tab = '') {
+  // The Lobby has no Set up any more (plan-home-lobby.md, step 2): /?setup=lobby opens Manage at its Spaces tab, where
+  // Home's row is, for owners and the admin; anyone else stays on Home.
+  if (isHomeRecord(id)) {
+    landOnHome();
+    if (hasOwnerRights(me)) openOverlay('/admin#spaces');
+    return;
+  }
   const hash = tab ? `#${String(tab).replace(/^#/, '')}` : '';
   if (settingUp && currentSpace?.id === id) { if (hash) spaceSetup.select(hash.slice(1)); return; }
   await joinInvitedSpace(id);
@@ -3155,6 +3246,8 @@ async function postChatMessage(text) {
   }
 }
 function publishChat(data) {
+  // Home's chat over a space (plan-home-lobby.md, step 4) never goes on the space's call: the server tells Home's stream.
+  if (homeChatSpace) return;
   if (!call || call.state !== 'connected' || !call.localParticipant) return;
   call.localParticipant.publishData(encoder.encode(JSON.stringify(data)), { reliable: true, topic: 'chat' }).catch(() => {});
 }
@@ -3984,7 +4077,8 @@ async function shrinkImage(file) {
 }
 
 async function sendImage(file) {
-  if (!file || !file.type.startsWith('image/') || call.state !== 'connected' || !canDo('sendPictures')) return;
+  // Not into Home's chat (plan-home-lobby.md, step 4): a picture travels over the space's call, never Home's.
+  if (!file || !file.type.startsWith('image/') || call.state !== 'connected' || !canDo('sendPictures') || homeChatSpace) return;
   try {
     const out = await shrinkImage(file);
     const id = newChatId();
@@ -4004,7 +4098,8 @@ call.registerByteStreamHandler('chat-image', async (reader, { identity }) => {
     const blob = new Blob(chunks, { type: reader.info.mimeType || 'image/png' });
     const from = call.remoteParticipants.get(identity);
     const named = /^cid-([a-f0-9]{12})-(.*)$/.exec(reader.info.name || '');
-    addEntry({ id: named ? named[1] : '', who: from?.name || identity, by: identity, blob, name: named ? (named[2] || 'picture') : (reader.info.name || 'picture') }, false);
+    const add = () => addEntry({ id: named ? named[1] : '', who: from?.name || identity, by: identity, blob, name: named ? (named[2] || 'picture') : (reader.info.name || 'picture') }, false);
+    if (!parkSpaceChat(add)) add(); // Home's chat showing over the space: drawn when the space's chat is back
   } catch (err) {
     setStatus(`picture: ${err.message}`, true);
   }
@@ -4482,9 +4577,13 @@ call
   })
   .on(RoomEvent.ChatMessage, (message, participant) => {
     if (!canDo('chatRead')) return;
+    if (parkSpaceChat(() => addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal, participant?.identity))) return;
     addMessage(message.message, participant?.name || participant?.identity || 'someone', participant?.isLocal, participant?.identity);
   })
-  .on(RoomEvent.DataReceived, (payload, participant, _kind, topic) => {
+  .on(RoomEvent.DataReceived, function onCallData(payload, participant, _kind, topic) {
+    // The space's chat, heard while Home's chat shows over the space (plan-home-lobby.md, step 4): kept, and read in
+    // order once the space's chat is back (hideHomeChat), so nothing said in the space lands in Home's chat.
+    if (topic === 'chat' && parkSpaceChat(() => onCallData(payload, participant, _kind, topic))) return;
     try {
       const data = JSON.parse(decoder.decode(payload));
       if (topic === 'reaction' && participant && data.type === 'reaction') showReaction(participant.identity, data.id);
@@ -4556,6 +4655,7 @@ call
   })
   .on(RoomEvent.Disconnected, () => {
     viewingHome = false; // no space left to show home over
+    hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
     syncCallControl();
@@ -4638,6 +4738,7 @@ async function fillDevices() {
 // space already, that is just showing the canvas and opening the module.
 // Into a space I was invited to (or started): the one I am in is left for it.
 async function joinInvitedSpace(spaceId) {
+  if (isHomeRecord(spaceId)) return landOnHome(); // an old link or invitation to the Lobby: Home, over a space kept
   if (call.state === 'connected' && currentSpace?.id === spaceId) return returnToCanvas();
   if (call.state === 'connected') return reconnectTo(spaceId);
   return join(spaceId);
@@ -4649,6 +4750,14 @@ document.addEventListener('app:invite-accept', (event) => {
 });
 
 async function openInSpace(spaceId, moduleId, ref) {
+  // An object kept in the Lobby (the Calendar's Lobby events): its module's own page there, which keeps working
+  // (/modules/<id>?space=lobby), since the Lobby is never entered (plan-home-lobby.md, step 2).
+  if (isHomeRecord(spaceId)) {
+    const href = `/modules/${encodeURIComponent(moduleId)}?${new URLSearchParams({ space: spaceId })}${ref ? `#ref=${encodeURIComponent(JSON.stringify(ref))}` : ''}`;
+    if (currentSpace) openOverlay(href);
+    else location.href = href;
+    return;
+  }
   if (call.state === 'connected' && currentSpace?.id === spaceId) {
     returnToCanvas();
     canvas.open(moduleId);
@@ -4792,6 +4901,7 @@ function updateCrumb() {
 // environment's "join the call on entering" is on (autoJoinOnEntry, in connectAndSetup). `pull`: this is a pull, not
 // the person entering again, so having left the call still counts (leftCall stays).
 async function join(spaceId = 'lobby', { joinCall = false, pull = false } = {}) {
+  if (isHomeRecord(spaceId)) return landOnHome(); // the Lobby is Home now (plan-home-lobby.md, step 2): never entered
   if (!pull) leftCall = false; // entering again: a person who left the call may be joined again
   viewingHome = false; // entering any space shows it, and its breadcrumb, whatever was on screen before
   homeChatEntering = true; // the chat leaves Home's column at once: the space's history fills it (connectAndSetup)
@@ -6269,6 +6379,7 @@ function showSpaceList() {
     $('guest-join').hidden = false;
   } else {
     $('join').hidden = false;
+    syncHomeChat(); // Home's chat in its column, the space's kept aside until Back (plan-home-lobby.md, step 4)
     loadPresence();
   }
 }
@@ -6283,6 +6394,7 @@ function returnToCanvas() {
   canvas.showFloating(true); // a floating module lives beside the canvas, shown again with it
   document.body.classList.add('in-space');
   viewingHome = false;
+  syncHomeChat(); // the space's chat back in its column, Home's put away (plan-home-lobby.md, step 4)
   updateCrumb();
   setAway(false);
 }
@@ -6301,45 +6413,118 @@ function goHome(event) {
 // Home's left column (#home-chat-slot), pointed at Home's chat: the hidden Lobby record's (`lobby`, decision 6) history,
 // sends through the same routes, Discussion and Assistant, and what others say live from the server's stream
 // (GET /api/spaces/lobby/chat/stream, step 1), since Home holds no call. Entering a space takes it back to the canvas,
-// which places it in the space's column as before. Home over a space (present in one, decision 7) leaves the space's
-// chat where it is and draws no chat column: swapping the two there, and Home's unread on the Home link, are step 4.
+// which places it in the space's column as before. Home over a space (present in one, decision 7, step 4) moves the
+// same #chat into Home's column too, the space's messages kept aside (homeChatStash) and given back, with what its call
+// said meanwhile, on Back to <space>; Home's unread count shows on the Home link while Home is out of sight.
 const HOME_CHAT = 'lobby';
+// The Lobby is Home now (plan-home-lobby.md, step 2; decision 6 keeps its record as Home's hidden backing): no card,
+// no switcher entry, no Set up, never entered by a signed-in person. Old ways in (/#join=lobby, a reload that remembers
+// it, an aside that falls back to it, an invitation to it) land on Home instead. A guest link made for it still enters
+// it as before (joinAsGuest), and everything that reads the record (OBS, tokens, Stream, Manage) is unchanged.
+function isHomeRecord(id) {
+  return !guestToken && id === LOBBY;
+}
+function landOnHome() {
+  if (rememberedSpace() === LOBBY) forgetSpace();
+  if (currentSpace && document.body.classList.contains('in-space')) {
+    showSpaceList(); // present in a space: Home over it, the call kept
+    return;
+  }
+  setStatus('', false);
+  $('join').hidden = false;
+  syncHomeChat();
+}
 let homeChatEntering = false; // join() under way: the chat is the space's from its first moment
 let homeChatStream = null;
+// Which Home's chat is wanted now: 'home' while Home shows with no space entered (as step 3 built it), 'over' while
+// Home shows over a space this page is still present in (Home over a space, decision 7: the space's call goes on
+// underneath, Away set by showSpaceList), '' otherwise. Never for a guest. Not over an aside (it has no chat), and not
+// while the space's chat is in its own window (another document: it can't be moved into Home's column).
 function homeChatWanted() {
-  return Boolean($('home-chat')) && !guestToken && Boolean(me?.key) && me.role !== 'guest' && !homeChatEntering
-    && !currentSpace && call.state !== 'connected' && !$('join').hidden && !document.body.classList.contains('in-space')
-    && canDo('chatRead') && !canvas.builtinOpen('chat');
+  const allowed = Boolean($('home-chat')) && !guestToken && Boolean(me?.key) && me.role !== 'guest' && !homeChatEntering && !$('join').hidden;
+  if (!allowed) return '';
+  if (!currentSpace && call.state !== 'connected' && !document.body.classList.contains('in-space')
+    && canDo('chatRead') && !canvas.builtinOpen('chat')) return 'home';
+  if (currentSpace && viewingHome && call.state === 'connected' && !inAside() && !pipWindow
+    && !document.body.classList.contains('in-space') && canDo('chatRead') && !canvas.builtinWindow('chat')) return 'over';
+  return '';
 }
 function syncHomeChat() {
-  if (homeChatWanted()) showHomeChat();
-  else hideHomeChat();
+  syncHomeChatStream();
+  const want = homeChatWanted();
+  const now = homeChatSpace ? (homeChatStash ? 'over' : 'home') : '';
+  if (want === now) {
+    if (want) showHomeChat(want);
+    return;
+  }
+  hideHomeChat();
+  if (want) showHomeChat(want);
 }
-function showHomeChat() {
+// Home over a space: what the space's chat had (its messages as drawn, pictures included, its log, its unread number,
+// where #chat sat), kept while Home's chat shows, given back by hideHomeChat. `parked`: what the space's call said of its
+// chat meanwhile (parkSpaceChat), read in order once the space's chat is back. Null with no space under Home's chat.
+let homeChatStash = null;
+const PARKED_MAX = 500;
+function parkSpaceChat(run) {
+  if (!homeChatStash) return false;
+  if (homeChatStash.parked.length < PARKED_MAX) homeChatStash.parked.push(run);
+  return true;
+}
+function showHomeChat(mode = 'home') {
   $('home-chat').hidden = false;
   applyHomeChatWidth();
   if (homeChatSpace) return;
-  homeChatSpace = presenceSpaces.find((r) => r.isLobby) || { id: HOME_CHAT, name: '', isLobby: true, members: [] };
-  dropSharedChat();
-  $('messages').textContent = '';
   const chat = $('chat');
+  if (mode === 'over') {
+    homeChatStash = {
+      parent: chat.parentNode, next: chat.nextSibling, hidden: chat.hidden, pic: $('chat-pic').hidden,
+      nodes: [...$('messages').childNodes], log: chatLog.splice(0), unread, keeper: chatLinkKeeper, parked: [],
+    };
+    $('messages').replaceChildren(); // the space's messages wait in the stash, as they were drawn
+    unread = 0; // the space's number waits in the stash too; Chat's mark in the space keeps it meanwhile
+  }
+  homeChatSpace = presenceSpaces.find((r) => r.isLobby) || { id: HOME_CHAT, name: '', isLobby: true, members: [] };
+  if (!homeChatStash) dropSharedChat();
+  $('messages').textContent = '';
   $('home-chat-slot').appendChild(chat);
   chat.hidden = false;
   $('chat-pic').hidden = true; // a picture travels over the call, and Home holds none
   renderChatHistory(HOME_CHAT);
   chatInput.loadThread();
   loadLinkKeeper(HOME_CHAT);
-  openHomeChatStream();
+  setHomeUnread(0); // Home is in sight: its chat is read
 }
 function hideHomeChat() {
   const column = $('home-chat');
   if (column) column.hidden = true;
   if (!homeChatSpace) return;
-  closeHomeChatStream();
+  // Read up to its newest message (the server's clock, as a catch-up's times are), else up to now.
+  const times = chatLog.map((e) => (e.at instanceof Date ? e.at.getTime() : 0)).filter((t) => t > 0);
+  homeSeenAt = times.length ? Math.max(...times) : Date.now();
   homeChatSpace = null;
+  const stash = homeChatStash;
+  homeChatStash = null;
+  const chat = $('chat');
+  if (stash) {
+    // Back to the space (Back to <space>, the switcher, leaving): its chat as it was, where it was, then what its call
+    // said meanwhile. The call never dropped (decision 7).
+    chatLog.length = 0;
+    $('messages').replaceChildren(...stash.nodes);
+    chatLog.push(...stash.log);
+    unread = stash.unread;
+    canvas.setBuiltinUnread('chat', unread);
+    if (stash.parent?.isConnected) stash.parent.insertBefore(chat, stash.next?.parentNode === stash.parent ? stash.next : null);
+    else $('canvas').appendChild(chat);
+    chat.hidden = stash.parent?.isConnected ? stash.hidden : true;
+    chatLinkKeeper = stash.keeper;
+    chatInput.loadThread();
+    applyPermissions(); // the picture button as the permissions say
+    for (const run of stash.parked) run();
+    $('messages').scrollTop = $('messages').scrollHeight;
+    return;
+  }
   dropSharedChat();
   $('messages').textContent = '';
-  const chat = $('chat');
   if (!canvas.builtinOpen('chat')) {
     $('canvas').appendChild(chat); // where a closed chat waits (canvas.js closeBuiltin)
     chat.hidden = true;
@@ -6348,14 +6533,34 @@ function hideHomeChat() {
   chatInput.loadThread();
   applyPermissions(); // the picture button as the permissions say
 }
+// Home's chat stream (GET /api/spaces/lobby/chat/stream, step 1) is open whenever this page is signed in and may read
+// chat: drawn into Home's chat while it shows, else counted for the Home link (decision 8). The browser reconnects it by
+// itself; each connection starts with `ready`, and every `ready` after the first catches up on what was missed.
+function homeStreamWanted() {
+  return !guestToken && Boolean(me?.key) && me.role !== 'guest' && (hasOwnerRights(me) || Boolean(me.permissions?.chatRead));
+}
+function syncHomeChatStream() {
+  if (homeStreamWanted()) {
+    if (!homeChatStream) openHomeChatStream();
+  } else {
+    closeHomeChatStream();
+    if (homeUnreadIds.size) setHomeUnread(0);
+  }
+}
 function openHomeChatStream() {
   closeHomeChatStream();
   if (typeof EventSource !== 'function') return;
   const source = new EventSource(`/api/spaces/${HOME_CHAT}/chat/stream`);
+  let ready = 0;
   source.addEventListener('message', (event) => {
     if (homeChatStream !== source) return;
     let data = null;
     try { data = JSON.parse(event.data); } catch { return; }
+    if (data?.type === 'ready') {
+      ready += 1;
+      if (ready > 1) catchUpHomeChat(); // back after a drop: what was said meanwhile
+      return;
+    }
     homeChatNotice(data);
   });
   homeChatStream = source;
@@ -6365,9 +6570,14 @@ function closeHomeChatStream() {
   homeChatStream = null;
 }
 // What the stream says, read as the call's chat notices are (RoomEvent.DataReceived) with no sender: the server's word.
-// A message of my own is drawn from the answer to my own request, as in a space.
+// A message of my own is drawn from the answer to my own request, as in a space. Any other type is left alone. With
+// Home's chat out of sight, a new public message from someone else counts on the Home link instead.
 function homeChatNotice(data) {
-  if (!homeChatSpace || !data || typeof data.type !== 'string') return;
+  if (!data || typeof data.type !== 'string') return;
+  if (!homeChatSpace) {
+    countHomeNotice(data);
+    return;
+  }
   if (data.type === 'chat' && chatIdOk(data.id)) {
     if (!canDo('chatRead') || chatMessageNode(data.id) || data.by === me?.key) return;
     addEntry(storedEntry(data), false);
@@ -6376,6 +6586,72 @@ function homeChatNotice(data) {
   else if (data.type === 'chat-clear-some') applyClearNotice(data, null);
   else if ((data.type === 'chat-preview' || data.type === 'chat-kept') && chatIdOk(data.id)) applyLinkNotice(data, null);
   else if (data.type === 'chat-clear') dropSharedChat();
+}
+// --- Home's unread count on the Home link (plan-home-lobby.md, decision 8, step 4) ---
+// The ids counted, so a delete, a clear or a message made private takes them off again, and a catch-up never counts one
+// twice. `homeSeenAt`: the time Home's chat was last in sight; a catch-up counts only what came after it.
+const homeUnreadIds = new Set();
+let homeSeenAt = Date.now();
+function countHomeNotice(data) {
+  const before = homeUnreadIds.size;
+  if (data.type === 'chat' && chatIdOk(data.id)) {
+    if (data.by !== me?.key && data.visibility !== 'private') homeUnreadIds.add(data.id);
+  } else if (data.type === 'chat-visibility' && chatIdOk(data.id)) {
+    if (data.visibility === 'private') homeUnreadIds.delete(data.id);
+    else if (data.message && data.message.by !== me?.key) homeUnreadIds.add(data.id);
+  } else if (data.type === 'chat-delete') homeUnreadIds.delete(data.id);
+  else if (data.type === 'chat-clear-some' && Array.isArray(data.ids)) for (const id of data.ids) homeUnreadIds.delete(id);
+  else if (data.type === 'chat-clear') homeUnreadIds.clear();
+  if (homeUnreadIds.size !== before) paintHomeUnread();
+}
+function setHomeUnread(n) {
+  if (!n) homeUnreadIds.clear();
+  paintHomeUnread();
+}
+// The count on the Home link: the logo (the Home link at every width, in a space too) and the phone menu's Home entry.
+// Theme tokens only (style.css, .home-unread); the number is read out with the link.
+function paintHomeUnread() {
+  const n = homeUnreadIds.size;
+  nav.setBadge('menu-home', n);
+  const logo = topbarEl?.querySelector('#brand-home-link .brand-logo');
+  if (!logo) return;
+  let badge = logo.querySelector('.home-unread');
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'home-unread';
+    badge.id = 'home-unread';
+    badge.innerHTML = '<span class="home-unread-count" aria-hidden="true"></span><span class="visually-hidden"></span>';
+    logo.appendChild(badge);
+  }
+  badge.hidden = !n;
+  badge.querySelector('.home-unread-count').textContent = n > 9 ? '9+' : String(n);
+  badge.querySelector('.visually-hidden').textContent = n ? `, ${n} new ${n === 1 ? 'message' : 'messages'}` : '';
+}
+// Back after the stream dropped (the server restarted, the network went): the history again. Home's chat in sight gets
+// what it missed drawn and what was deleted meanwhile taken off; out of sight, what came after it was last seen counts.
+async function catchUpHomeChat() {
+  let got = null;
+  try {
+    got = await fetchChatHistory(HOME_CHAT);
+  } catch {
+    return; // the next reconnect tries again
+  }
+  const history = got.messages.filter((e) => new Date(e.at).getTime() > got.clearedAt);
+  if (homeChatSpace) {
+    const have = new Set(history.map((e) => e.id));
+    const oldest = history.length ? Math.min(...history.map((e) => e.at.getTime())) : Infinity;
+    const gone = chatLog.filter((e) => e.stored && chatIdOk(e.id) && !have.has(e.id) && e.at.getTime() >= oldest);
+    if (gone.length) dropChatEntries(gone);
+    for (const entry of history) {
+      if (!chatIdOk(entry.id) || chatMessageNode(entry.id)) continue;
+      addEntry(entry, ownEntry(entry));
+    }
+    return;
+  }
+  for (const e of history) {
+    if (chatIdOk(e.id) && e.visibility !== 'private' && e.by !== me?.key && e.at.getTime() > homeSeenAt) homeUnreadIds.add(e.id);
+  }
+  paintHomeUnread();
 }
 // The column's width: dragged on its inner edge (#home-chat-splitter), or with the keyboard as the space column's edge
 // (splitterKey); between COLUMN_MIN and half the window, remembered in this browser (prefs.homeChatWidth).

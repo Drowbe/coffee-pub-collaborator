@@ -124,7 +124,7 @@
   // read-only, never stored, in no category (so under Other), and counted as paid (a booking has one figure, no planned one).
   // `paidBy` and `sharedBy` are the booking's (no sharedBy: everyone). `ref` points at the object, to open it. `self` is this
   // module's id: its own summaries are never pulled. The same object twice is counted once.
-  const refKey = (r) => (r ? `${r.module}:${r.kind}:${r.id}${r.space ? `@${r.space}` : ''}` : '');
+  const sourceKey = (r) => (r ? `${r.module}:${r.kind}:${r.id}${r.space ? `@${r.space}` : ''}` : '');
   function pulledCosts(summaries, self) {
     const seen = new Set();
     const out = [];
@@ -132,7 +132,7 @@
       const ref = cleanRef(s && s.ref);
       const amount = s ? cleanAmount(s.amount) : null;
       if (!ref || amount === null || ref.module === self) continue;
-      const key = refKey(ref);
+      const key = sourceKey(ref);
       if (seen.has(key)) continue;
       seen.add(key);
       const day = typeof s.when === 'string' ? s.when.slice(0, 10) : '';

@@ -6021,7 +6021,7 @@ app.get('/api/objects/search', (req, res) => {
   // belong to it (or own the environment).
   let inSpace = null;
   if (req.query.in !== undefined && req.query.in !== '') {
-    if (scope !== 'environment') return res.status(400).json({ error: `in works only with the environment scope` });
+    if (scope !== 'environment') return res.status(400).json({ error: `in works only with the ${word('environment')} scope` });
     if (!who.user) return res.status(403).json({ error: `${word('guest', { many: true })} can only search one ${word('space')}` });
     inSpace = store.spaceById(String(req.query.in));
     if (!inSpace) return res.status(404).json({ error: `no such ${word('space')}` });

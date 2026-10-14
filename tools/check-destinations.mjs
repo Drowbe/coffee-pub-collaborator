@@ -277,7 +277,7 @@ const globeZip = writeModule('dest-globe', [{ id: 'map', part: 'main', entry: 'd
 });
 const pinsZip = writeModule('dest-pins', [{ id: 'map', part: 'panel', entry: 'dest-pins.html', label: 'Places' }], {
   scope: ['environment', 'space', 'person'],
-  refs: { produces: [{ kind: 'pin', name: 'Pin', key: 'pin:{id}', summary: { title: 'title', place: 'point' } }] },
+  refs: { produces: [{ kind: 'pin', name: 'Pin', key: 'pin:{id}', summary: { title: 'title', place: 'point', amount: 'cost', paidBy: 'payer', sharedBy: 'sharers' } }] },
   // A place search, as Places has, for marking a result used.
   settings: [
     { key: 'searchProvider', label: 'Place search', type: 'choice', scope: 'environment', default: 'none', options: [{ value: 'none', label: 'None' }, { value: 'custom', label: 'Mine' }] },
@@ -816,7 +816,52 @@ try {
     const g = await call('GET', `/api/objects/search?from=dest-globe&scope=spaces&has=place&guest=${encodeURIComponent(guest)}`);
     assert.deepEqual([g.status, g.json.error], [403, 'guests can only search one space']);
     const bad = await call('GET', '/api/objects/search?from=dest-globe&scope=spaces&has=date', { token: aliceT });
-    assert.deepEqual([bad.status, bad.json.error], [400, 'has must be place']);
+    assert.deepEqual([bad.status, bad.json.error], [400, 'has must be place or amount']);
+  });
+
+  // plan-budget-module.md, step 3: a summary may carry amount, paidBy and sharedBy, and has=amount lists only priced objects.
+  await test('search: amount, paidBy and sharedBy kept when valid, left out when not; has=amount lists only priced objects', async () => {
+    const put = async (id, value) => {
+      const r = await call('PUT', `/api/modules/dest-pins/data/pin:${id}?scope=space&space=${keep}`, { token: aliceT, body: { value: { title: `Cost ${id}`, ...value } } });
+      assert.equal(r.status, 200, r.text);
+    };
+    await put('c-ok', { cost: 12.345, payer: 'alice-key', sharers: ['a', 'b', 'a', '', 7] });
+    await put('c-big', { cost: 1e12 });
+    await put('c-zero', { cost: 0 });
+    await put('c-neg', { cost: -5 });
+    await put('c-text', { cost: '40', payer: 12, sharers: 'everyone' });
+    await put('c-long', { cost: 3, payer: 'x'.repeat(65), sharers: [`${'y'.repeat(65)}`] });
+    await put('c-none', {});
+    const search = async (token, query) => {
+      const res = await call('GET', `/api/objects/search?from=dest-globe&scope=space&space=${keep}&${query}`, { token });
+      assert.equal(res.status, 200, res.text);
+      return res.json.summaries;
+    };
+    const all = Object.fromEntries((await search(aliceT, 'q=cost%20c-')).map((s) => [s.ref.id, s]));
+    assert.deepEqual([all['c-ok'].amount, all['c-ok'].paidBy, all['c-ok'].sharedBy], [12.35, 'alice-key', ['a', 'b']], 'valid ones kept, rounded to cents, keys cleaned');
+    for (const id of ['c-big', 'c-zero', 'c-neg', 'c-text', 'c-none']) assert.equal(all[id].amount, undefined, `${id}: no amount`);
+    assert.deepEqual([all['c-text'].paidBy, all['c-text'].sharedBy, all['c-long'].paidBy, all['c-long'].sharedBy, all['c-long'].amount], [undefined, undefined, undefined, undefined, 3], 'bad keys left out');
+    assert.deepEqual((await search(aliceT, 'has=amount')).map((s) => s.ref.id).sort(), ['c-long', 'c-ok'], 'only priced objects');
+    assert.deepEqual((await search(aliceT, 'has=amount&q=cost%20c-ok')).map((s) => s.ref.id), ['c-ok'], 'q still filters');
+    const counted = async (token, query = 'has=amount') => (await call('GET', `/api/objects/search?from=dest-globe&scope=space&space=${keep}&${query}`, { token })).json;
+    assert.equal((await counted(aliceT)).withheld, 0, 'a person who may view it: nothing withheld');
+    assert.equal('withheld' in (await counted(aliceT, 'q=cost')), false, 'the count comes only with has=amount');
+    assert.deepEqual(await search(carolT, 'has=amount'), [], 'a person outside the space gets none');
+    assert.equal((await counted(carolT)).withheld, 0, 'and is told of none: it is not their space');
+    const guestSearch = (query) => call('GET', `/api/objects/search?from=dest-globe&${query}&guest=${encodeURIComponent(guest)}`);
+    const guestRole = async (view) => assert.equal((await call('PATCH', '/api/roles/guest', { token: admin, body: { 'module.dest-pins.view': view } })).status, 200);
+    await role({ 'module.dest-pins.view': false });
+    await guestRole(false);
+    assert.deepEqual(await search(aliceT, 'has=amount'), [], 'a person who may not view the module gets none');
+    assert.deepEqual(await counted(aliceT), { summaries: [], withheld: 2 }, 'only a count of the priced objects held back, no titles or figures');
+    assert.deepEqual((await guestSearch(`scope=space&space=${keep}&has=amount`)).json.withheld, 0, 'a guest is told of none');
+    assert.deepEqual((await guestSearch(`scope=space&space=${keep}&has=amount`)).json.summaries, [], 'a guest who may not view it gets none');
+    await guestRole(true);
+    await role({ 'module.dest-pins.view': true });
+    assert.deepEqual([(await guestSearch('scope=spaces&has=amount')).status], [403], 'a guest cannot search across spaces');
+    const anon = await call('GET', `/api/objects/search?from=dest-globe&scope=space&space=${keep}&has=amount`);
+    assert.equal(anon.status, 401, 'nobody signed in');
+    for (const id of ['c-ok', 'c-big', 'c-zero', 'c-neg', 'c-text', 'c-long', 'c-none']) await call('DELETE', `/api/modules/dest-pins/data/pin:${id}?scope=space&space=${keep}`, { token: aliceT });
   });
 
   await test('map: Show Map off again: everything as before', async () => {

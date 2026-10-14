@@ -5760,7 +5760,7 @@ function refScope(who, { provider, kind, scope, space, from, skipConsumer = fals
     const r = store.spaceById(String(space || ''));
     if (!r) throw refError(404, `no such ${word('space')}`);
     if (!manifest.scope.includes('space')) throw refError(400, `that ${word('module')} has no space scope`);
-    if (!moduleSpaceAccess(entry, who, r)) throw refError(403, `that ${word('module')} is not available in that ${word('space')} for you`);
+    if (!moduleSpaceAccess(entry, who, r)) throw Object.assign(refError(403, `that ${word('module')} is not available in that ${word('space')} for you`), { unseen: true });
     // The asking module must itself be on in that space, and readable by the viewer.
     if (consumer && (!moduleSpaceAccess(consumer.entry, who, r) || !moduleCan(consumer.manifest, modulePerms(who, r.id), 'read'))) throw refError(403, `the linking ${word('module')} is not available in that ${word('space')} for you`);
     perms = modulePerms(who, r.id);
@@ -5779,7 +5779,7 @@ function refScope(who, { provider, kind, scope, space, from, skipConsumer = fals
     perms = modulePerms(who, null);
     scopeKey = 'environment';
   }
-  if (!moduleCan(manifest, perms, 'read')) throw refError(403, `your role can't see that ${word('module')}`);
+  if (!moduleCan(manifest, perms, 'read')) throw Object.assign(refError(403, `your role can't see that ${word('module')}`), { unseen: true });
   return { manifest, produce, scopeKey, ref: { module: provider, kind, scope: scope === 'space' ? 'space' : scope === 'person' ? 'person' : 'environment', ...(scope === 'space' ? { space: String(space) } : {}) } };
 }
 
@@ -5805,6 +5805,20 @@ function objectSummary({ manifest, produce, ref }, id, value, withText = false) 
   // A short label a module may give its items to group or colour them ("eat", "stay"): lower case letters, digits and dashes.
   const category = text(field('category'));
   if (typeof category === 'string' && /^[A-Za-z0-9-]{1,20}$/.test(category)) summary.category = category.toLowerCase();
+  // A cost (plan-budget-module.md, step 3): `amount` a positive number below 1e12, rounded to cents (the Budget module's
+  // rule); `paidBy` a person's key; `sharedBy` the keys of who shares it. Anything else is left out.
+  const amount = field('amount');
+  if (typeof amount === 'number' && Number.isFinite(amount)) {
+    const cents = Math.round(amount * 100) / 100;
+    if (cents > 0 && cents < 1e12) summary.amount = cents;
+  }
+  const paidBy = field('paidBy');
+  if (typeof paidBy === 'string' && paidBy && paidBy.length <= 64) summary.paidBy = paidBy;
+  const sharedBy = field('sharedBy');
+  if (Array.isArray(sharedBy)) {
+    const keys = [...new Set(sharedBy.filter((k) => typeof k === 'string' && k && k.length <= 64))].slice(0, 50);
+    if (keys.length) summary.sharedBy = keys;
+  }
   // The object's own words (a note's body), plain and up to 8 KB. Left out of the summaries people browse; the server reads it only
   // for the AI hook, as the person asking.
   if (withText) { const t = field('text'); if (typeof t === 'string' && t.trim()) summary.text = t.replace(/\p{Cc}(?<!\n)/gu, ' ').slice(0, 8000); }
@@ -5977,20 +5991,42 @@ app.get('/api/objects/search', (req, res) => {
   if (!scope) return;
   if (scope === 'spaces' && !who.user) return res.status(403).json({ error: `${word('guest', { many: true })} can only search one ${word('space')}` });
   const has = req.query.has === undefined || req.query.has === '' ? null : String(req.query.has);
-  if (has !== null && has !== 'place') return res.status(400).json({ error: 'has must be place' });
-  const cap = has === 'place' ? SEARCH_CAP_PLACES : SEARCH_CAP;
+  if (has !== null && has !== 'place' && has !== 'amount') return res.status(400).json({ error: 'has must be place or amount' });
+  const cap = has ? SEARCH_CAP_PLACES : SEARCH_CAP;
   const q = String(req.query.q || '').trim().toLowerCase();
   // Each place to read: one scope as asked, or each space the viewer belongs to.
   const places = scope === 'spaces'
     ? store.spaces.filter((r) => r.members.includes(who.user.key)).map((r) => ({ scope: 'space', space: r.id }))
     : [{ scope, space: req.query.space }];
   const summaries = [];
+  // has=amount only: how many priced objects the viewer was kept from because they may not view the module that holds
+  // them (a number alone, never for a guest, and in a space only for its members), so Budget can say some are left out.
+  let withheld = 0;
+  const countWithheld = (k, where) => {
+    if (!who.user) return;
+    let scopeKey;
+    if (where.scope === 'environment') scopeKey = 'environment';
+    else if (where.scope === 'space') {
+      const r = store.spaceById(String(where.space || ''));
+      if (!r || !r.members.includes(who.user.key)) return;
+      scopeKey = scopeKeyOf('space', { spaceId: r.id });
+    } else return;
+    const found = modules.enabled(k.module);
+    const produce = found?.manifest.refs.produces.find((p) => p.kind === k.kind);
+    if (!produce) return;
+    const prefix = produce.key.replace('{id}', '');
+    for (const item of moduleData.list(k.module, scopeKey, prefix)) {
+      if (!item.value || !REF_ID_RE.test(item.key.slice(prefix.length))) continue;
+      if (objectSummary({ manifest: found.manifest, produce, ref: {} }, item.key.slice(prefix.length), item.value).amount !== undefined) withheld += 1;
+    }
+  };
   for (const where of places) {
     for (const k of consumableKinds(from)) {
       let at;
       try {
         at = refScope(who, { provider: k.module, kind: k.kind, scope: where.scope, space: where.space, from });
-      } catch {
+      } catch (err) {
+        if (has === 'amount' && err.unseen) countWithheld(k, where);
         continue; // not on for this scope, or not for this viewer
       }
       const prefix = at.produce.key.replace('{id}', '');
@@ -5998,6 +6034,7 @@ app.get('/api/objects/search', (req, res) => {
         if (!item.value || !REF_ID_RE.test(item.key.slice(prefix.length))) continue;
         const summary = objectSummary(at, item.key.slice(prefix.length), item.value);
         if (has === 'place' && !summary.place) continue;
+        if (has === 'amount' && summary.amount === undefined) continue;
         if (q && !`${summary.title} ${summary.subtitle || ''}`.toLowerCase().includes(q)) continue;
         summaries.push(summary);
       }
@@ -6005,7 +6042,7 @@ app.get('/api/objects/search', (req, res) => {
   }
   // Newest dates first, undated last.
   summaries.sort((a, b) => String(b.when ?? '').localeCompare(String(a.when ?? '')) || a.title.localeCompare(b.title));
-  res.json({ summaries: summaries.slice(0, cap) });
+  res.json({ summaries: summaries.slice(0, cap), ...(has === 'amount' ? { withheld } : {}) });
 });
 
 // The kinds the objects prompt lists here: those the environment's enabled modules take (plan-object-handoff.md, "The prompt").

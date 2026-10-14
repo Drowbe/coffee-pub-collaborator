@@ -66,7 +66,7 @@ const ALLOWED_EXT = new Set([
 const HOOKS = ['schedule', 'notify', 'ai', 'external'];
 // What an object's summary (what another module may show of it) can carry, and which of the producing module's own
 // stored fields fill it (`refs.produces[].summary`). See documentation/api/api-module-sdk.md ("Objects").
-const SUMMARY_FIELDS = ['title', 'subtitle', 'when', 'end', 'allDay', 'done', 'place', 'category', 'text'];
+const SUMMARY_FIELDS = ['title', 'subtitle', 'when', 'end', 'allDay', 'done', 'place', 'category', 'text', 'amount', 'paidBy', 'sharedBy'];
 const REF_KIND_RE = /^[a-z][a-z0-9-]{0,23}$/;
 const REF_CONSUME_RE = /^[a-z][a-z0-9-]{1,31}:[a-z][a-z0-9-]{0,23}$/;
 const SCOPES = ['environment', 'space', 'person'];

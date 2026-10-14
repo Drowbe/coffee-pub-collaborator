@@ -26,7 +26,7 @@ const { GeocodeCache, askService, keyOf: keyOfPlace, ENOUGH } = require('./geoco
 const { FlightSchedule, FlightLookupError, findFlights, parseNumber: parseFlightNumber } = require('./flight-lookup');
 const airportList = require('./airports');
 const { RegionCutJobs, RegionCutError } = require('./region-cut');
-const { pmtilesZoomRange } = require('./pmtiles-header');
+const { pmtilesInfo } = require('./pmtiles-header');
 const { ModuleUploads } = require('./module-uploads');
 const { inspectHead } = require('./image-clean');
 const { Ai, AiError, listModelsFor, managedOffer, MANAGED_PROVIDERS } = require('./ai');
@@ -106,6 +106,9 @@ const {
   // only to a fresh data directory; ignored, with a line, on existing data and on a server with BASE_DOMAIN (where the
   // host console and the sign-up pick one).
   TEMPLATE = '',
+  // The most a picture map file (an owner's upload of picture tiles, see "A picture map" below) may weigh, in MB. A backup
+  // and a restore carry the environment's folder, so it is kept well under the restore's own limit. Not a number above 0: 100.
+  MAP_IMAGE_MAX_MB = '',
 } = process.env;
 // The product's own name -- configuration, never code: PRODUCT_NAME, or the default when it is unset, empty or only
 // spaces. One rule, productName() in server/product-name.js, for everything the server answers and says.
@@ -2379,7 +2382,7 @@ hostRouter.get('/api/host/shared', requireHostAdmin, (_req, res) => {
       module,
       name,
       folder,
-      files: inspected.files.map((f) => ({ name: f, size: inspected.sizes[f], ...(inspected.zooms[f] ? { zoom: inspected.zooms[f] } : {}) })),
+      files: inspected.files.map((f) => ({ name: f, size: inspected.sizes[f], ...(inspected.zooms[f] ? { zoom: inspected.zooms[f] } : {}), ...(inspected.kinds[f] ? { kind: inspected.kinds[f] } : {}) })),
       address: hostRegistry.sharedFolderAddress(module, folder),
       exists: inspected.exists,
       cutting: Boolean(sharedRegionCutJobs.runningFor(module, 'environment')),
@@ -6702,6 +6705,9 @@ app.post('/api/modules/:id/link-preview', async (req, res) => {
 app.get('/api/modules/:id/geocode', async (req, res) => {
   const ctx = geocodeAccess(req, res, 'read');
   if (!ctx) return;
+  // A picture map is an invented world: the outside service knows only the real one, so it is not asked and the saved
+  // places of the real world are neither read nor added to.
+  if (pictureMapOf()) return res.json({ results: [], configured: false, pictureMap: true, message: PICTURE_MAP_SEARCH_OFF });
   const q = String(req.query.q || '').trim().slice(0, 200);
   if (q.length < 2) return res.json({ results: [], configured: true });
   const setup = geocodeSetup(ctx.manifest);
@@ -6978,12 +6984,13 @@ function filesDirFor(manifest, folder) {
   return path.resolve(currentEnvironment().dataDir, 'modules', manifest.id, folder);
 }
 const FILE_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/;
+const UPLOAD_PART_PREFIX = '.upload-';
 // What is in a folder: the usable files, and each thing skipped with the reason, so an admin whose file does not
 // show up is told why. A link to a file (a NAS shortcut) counts as the file. The lower-level scan, so the
 // host's own listing of a shared folder (GET /api/host/shared, no manifest or environment in view) can use it
 // the same way inspectModuleFiles does.
 function inspectDir(folder) {
-  const out = { folder, exists: false, files: [], sizes: {}, zooms: {}, skipped: [] };
+  const out = { folder, exists: false, files: [], sizes: {}, zooms: {}, kinds: {}, skipped: [] };
   let names;
   try {
     names = fs.readdirSync(folder);
@@ -6992,6 +6999,7 @@ function inspectDir(folder) {
     return out;
   }
   for (const name of names.sort()) {
+    if (name.startsWith(UPLOAD_PART_PREFIX)) continue; // an upload still arriving (or left by one that was cut off): not a file yet
     if (!FILE_NAME_RE.test(name)) {
       out.skipped.push({ name: name.slice(0, 100), reason: 'a name may use letters, digits, dot, dash and underscore, and must start with a letter or digit, up to 100 characters' });
       continue;
@@ -7004,8 +7012,12 @@ function inspectDir(folder) {
       // How detailed a map file is (street-level or not), read from its own header -- the file's own truth, so this
       // works whether it was cut with "Add a region" or dropped in by hand.
       if (/\.pmtiles$/i.test(name)) {
-        const z = pmtilesZoomRange(path.join(folder, name));
-        if (z) out.zooms[name] = z;
+        const info = pmtilesInfo(path.join(folder, name));
+        if (info) {
+          out.zooms[name] = { minZoom: info.minZoom, maxZoom: info.maxZoom };
+          // 'vector' (map data) or 'picture' (raster tiles); a file whose header names no type has none here.
+          if (info.kind !== 'unknown') out.kinds[name] = info.kind;
+        }
       }
     } else out.skipped.push({ name, reason: st ? 'not a regular file (a folder or something else)' : 'a link that leads nowhere' });
   }
@@ -7014,9 +7026,11 @@ function inspectDir(folder) {
 const inspectModuleFiles = (manifest, sub) => inspectDir(filesDirFor(manifest, sub));
 const listModuleFiles = (manifest, sub) => inspectModuleFiles(manifest, sub).files;
 // The path of a file a module's file settings can name, or null.
-const moduleFilePath = (manifest, name) => {
+// `folder` (optional) says which of the module's file folders to look in, for a name that two folders share; without it
+// the first folder that has the name answers, as it always has.
+const moduleFilePath = (manifest, name, folder) => {
   if (!FILE_NAME_RE.test(name)) return null;
-  for (const d of manifest.settings || []) if ((d.type === 'file' || d.type === 'files') && listModuleFiles(manifest, d.folder).includes(name)) return path.join(filesDirFor(manifest, d.folder), name);
+  for (const d of manifest.settings || []) if ((d.type === 'file' || d.type === 'files') && (!folder || d.folder === folder) && listModuleFiles(manifest, d.folder).includes(name)) return path.join(filesDirFor(manifest, d.folder), name);
   return null;
 };
 // The same, in words, for the log and for the picker.
@@ -7032,7 +7046,7 @@ app.get('/api/modules/:id/files/:name', (req, res) => {
   const ctx = moduleAccess(req, res, 'read');
   if (!ctx) return;
   const name = req.params.name;
-  const file = moduleFilePath(ctx.manifest, name);
+  const file = moduleFilePath(ctx.manifest, name, typeof req.query.folder === 'string' ? req.query.folder : '');
   if (!file) return res.status(404).json({ error: 'no such file' });
   res.sendFile(file, { acceptRanges: true, headers: { 'Cache-Control': 'private, max-age=3600', 'Content-Type': 'application/octet-stream' } });
 });
@@ -7043,10 +7057,11 @@ app.delete('/api/modules/:id/files/:name', requireOwner, (req, res) => {
   const found = modules.enabled(req.params.id);
   if (!found) return res.status(404).json({ error: `no such ${word('module')}` });
   const name = req.params.name;
-  const def = (found.manifest.settings || []).find((d) => (d.type === 'file' || d.type === 'files') && listModuleFiles(found.manifest, d.folder).includes(name));
+  const folder = typeof req.query.folder === 'string' ? req.query.folder : ''; // optional: which folder, for a name two folders share
+  const def = (found.manifest.settings || []).find((d) => (d.type === 'file' || d.type === 'files') && (!folder || d.folder === folder) && listModuleFiles(found.manifest, d.folder).includes(name));
   if (!def) return res.status(404).json({ error: 'no such file' });
   if (settingIsShared(found.manifest, def)) return res.status(403).json({ error: 'managed by the host' });
-  const file = moduleFilePath(found.manifest, name);
+  const file = moduleFilePath(found.manifest, name, def.folder);
   if (!file) return res.status(404).json({ error: 'no such file' });
   try {
     fs.unlinkSync(file);
@@ -7056,6 +7071,7 @@ app.delete('/api/modules/:id/files/:name', requireOwner, (req, res) => {
   const by = currentUser(req)?.key || null;
   const values = moduleSettings.values(found.manifest, 'environment', {});
   for (const d of found.manifest.settings || []) {
+    if (d.folder !== def.folder) continue;
     if (d.type === 'files' && Array.isArray(values[d.key]) && values[d.key].includes(name)) {
       moduleSettings.set(found.manifest, 'environment', {}, { [d.key]: values[d.key].filter((n) => n !== name) }, by);
     } else if (d.type === 'file' && values[d.key] === name) {
@@ -7063,6 +7079,109 @@ app.delete('/api/modules/:id/files/:name', requireOwner, (req, res) => {
     }
   }
   res.json({ ok: true });
+});
+
+// --- a picture map (documentation/plans/plan-map-image.md) -----------------------------------------------------------------
+// A module that declares `pictureMap` (Maps: its `imageMap` setting) lets the owner put one raster PMTiles file in for the
+// whole environment: a picture of an invented world, made into tiles beforehand. While it is set the module draws only the
+// picture, every module is told (the context's `environment.pictureMap`) and the outside place search is off.
+const PICTURE_IN_MAP_FILES = 'That file is a picture map. Choose it under Picture map instead.';
+const MAP_DATA_IN_PICTURE = 'That file is map data, not a picture. Choose it under Map files instead.';
+const PICTURE_MAP_SEARCH_OFF = 'Place search is off while the map is a picture of an invented world.';
+const pictureMapLimitBytes = () => {
+  const mb = Number(MAP_IMAGE_MAX_MB);
+  return Math.floor((Number.isFinite(mb) && mb > 0 ? mb : 100) * 1024 * 1024);
+};
+const uploadsRunning = new Set();
+// The picture map this environment has, { file, minZoom, maxZoom, tileType }, or null: the setting names a file that is
+// there and its header says picture tiles.
+function pictureMapOf() {
+  for (const { manifest } of modules.enabledAll()) {
+    const pm = manifest.pictureMap;
+    if (!pm) continue;
+    const def = (manifest.settings || []).find((d) => d.key === pm.setting);
+    const file = moduleSettings.values(manifest, 'environment', {})[pm.setting];
+    if (!def || typeof file !== 'string' || !FILE_NAME_RE.test(file)) continue;
+    const info = pmtilesInfo(path.join(filesDirFor(manifest, def.folder), file));
+    if (info && info.kind === 'picture') return { file, minZoom: info.minZoom, maxZoom: info.maxZoom, tileType: info.tileType };
+  }
+  return null;
+}
+// Put a file in a `file` setting that declares `upload`: the body is the file itself (application/octet-stream), streamed to
+// a part file in the folder with a running count (never held in memory), checked from its header, then renamed into place;
+// the setting names it and the one it replaces goes. Any failure leaves the previous file and setting as they were.
+app.put('/api/modules/:id/files/:folder', requireOwner, async (req, res) => {
+  const found = modules.enabled(req.params.id);
+  if (!found) return res.status(404).json({ error: `no such ${word('module')}` });
+  const manifest = found.manifest;
+  const def = (manifest.settings || []).find((d) => d.type === 'file' && d.folder === req.params.folder && d.upload);
+  if (!def) return res.status(404).json({ error: `this ${word('module')} takes no upload there` });
+  if (settingIsShared(manifest, def)) return res.status(403).json({ error: 'managed by the host' });
+  const name = String(req.query.name || '');
+  if (!FILE_NAME_RE.test(name) || !/\.pmtiles$/i.test(name)) return res.status(400).json({ error: 'Name the file in ?name=, ending in .pmtiles, with letters, digits, dot, dash and underscore.' });
+  if (!req.is('application/octet-stream')) return res.status(415).json({ error: 'Send the file itself, as application/octet-stream.' });
+  const limit = pictureMapLimitBytes();
+  const tooBig = () => {
+    res.set('Connection', 'close');
+    res.status(413).json({ error: `That file is over the limit of ${Math.round((limit / 1048576) * 100) / 100} MB.` });
+    req.resume(); // what is still arriving is thrown away, not kept
+    setTimeout(() => req.destroy(), 20000).unref();
+  };
+  if (Number(req.headers['content-length']) > limit) return tooBig();
+  for (const d of manifest.settings || []) {
+    if ((d.type === 'file' || d.type === 'files') && d.folder !== def.folder && listModuleFiles(manifest, d.folder).includes(name)) return res.status(409).json({ error: `A file called ${name} is already in ${d.label}. Choose another name.` });
+  }
+  const lock = `${currentEnvironment().dataDir}|${manifest.id}|${def.folder}`;
+  if (uploadsRunning.has(lock)) return res.status(409).json({ error: 'Another upload is still running. Wait for it to finish.' });
+  uploadsRunning.add(lock);
+  const dir = filesDirFor(manifest, def.folder);
+  const part = path.join(dir, `${UPLOAD_PART_PREFIX}${crypto.randomBytes(8).toString('hex')}.part`);
+  const dropPart = () => { try { fs.rmSync(part, { force: true }); } catch { /* already gone */ } };
+  try {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      // A part left by an upload that was cut off by a restart goes after an hour.
+      for (const n of fs.readdirSync(dir)) if (n.startsWith(UPLOAD_PART_PREFIX) && Date.now() - fs.statSync(path.join(dir, n)).mtimeMs > 3600000) fs.rmSync(path.join(dir, n), { force: true });
+    } catch (err) {
+      return res.status(500).json({ error: `The file could not be saved: ${err.message}` });
+    }
+    const got = await new Promise((resolve) => {
+      const out = fs.createWriteStream(part);
+      let size = 0;
+      let settled = false;
+      const settle = (r) => { if (!settled) { settled = true; resolve(r); } };
+      req.on('data', (chunk) => {
+        if (settled) return;
+        size += chunk.length;
+        if (size > limit) { req.removeAllListeners('data'); out.destroy(); return settle({ over: true }); }
+        if (!out.write(chunk)) { req.pause(); out.once('drain', () => req.resume()); }
+      });
+      req.on('end', () => out.end(() => settle({ size })));
+      req.on('error', () => { out.destroy(); settle({ aborted: true }); });
+      req.on('close', () => { if (!req.complete) { out.destroy(); settle({ aborted: true }); } });
+      out.on('error', (err) => settle({ failed: err.message }));
+    });
+    if (got.over) { dropPart(); return tooBig(); }
+    if (got.aborted) { dropPart(); return; }
+    if (got.failed) { dropPart(); return res.status(500).json({ error: `The file could not be saved: ${got.failed}` }); }
+    const info = got.size ? pmtilesInfo(part) : null;
+    if (!info) { dropPart(); return res.status(415).json({ error: 'That is not a PMTiles file.' }); }
+    if (info.kind !== 'picture') { dropPart(); return res.status(422).json({ error: 'That PMTiles file holds map data, not a picture.' }); }
+    if (info.rootDirEnd > got.size) { dropPart(); return res.status(422).json({ error: 'That PMTiles file looks cut short.' }); }
+    const before = moduleSettings.values(manifest, 'environment', {})[def.key];
+    const final = path.join(dir, name);
+    try {
+      fs.renameSync(part, final);
+      moduleSettings.set(manifest, 'environment', {}, { [def.key]: name }, currentUser(req)?.key || null);
+    } catch (err) {
+      dropPart();
+      return res.status(500).json({ error: `The file could not be saved: ${err.message}` });
+    }
+    if (typeof before === 'string' && before && before !== name && FILE_NAME_RE.test(before)) fs.rmSync(path.join(dir, before), { force: true });
+    res.json({ name, size: got.size, minZoom: info.minZoom, maxZoom: info.maxZoom });
+  } finally {
+    uploadsRunning.delete(lock);
+  }
 });
 
 // The values that apply to the viewer, for the module itself.
@@ -7137,8 +7256,19 @@ app.put('/api/modules/:id/settings/:scope', (req, res) => {
     for (const d of found.manifest.settings) if (settingIsShared(found.manifest, d)) delete values[d.key];
     for (const [key, v] of Object.entries(values)) {
       const def = found.manifest.settings.find((d) => d.key === key);
-      if (def && def.type === 'files' && Array.isArray(v)) { const have = listModuleFiles(found.manifest, def.folder); const gone = v.find((n) => !have.includes(n)); if (gone) throw new SettingError(`${def.label}: there is no file called ${gone} for this ${word('module')}`); }
-      if (def && def.type === 'file' && v && !listModuleFiles(found.manifest, def.folder).includes(v)) throw new SettingError(`${def.label}: there is no file called ${v} for this ${word('module')}`);
+      if (def && def.type === 'files' && Array.isArray(v)) {
+        const seen = inspectModuleFiles(found.manifest, def.folder);
+        const gone = v.find((n) => !seen.files.includes(n));
+        if (gone) throw new SettingError(`${def.label}: there is no file called ${gone} for this ${word('module')}`);
+        // A module with a picture map keeps picture files out of its map data list: they would be drawn as nothing.
+        const had = moduleSettings.values(found.manifest, 'environment', {})[def.key]; // only a file newly ticked is refused, so saving other settings is never blocked by an old tick
+        if (found.manifest.pictureMap && v.some((n) => seen.kinds[n] === 'picture' && !(Array.isArray(had) && had.includes(n)))) throw new SettingError(PICTURE_IN_MAP_FILES);
+      }
+      if (def && def.type === 'file' && v) {
+        const seen = inspectModuleFiles(found.manifest, def.folder);
+        if (!seen.files.includes(v)) throw new SettingError(`${def.label}: there is no file called ${v} for this ${word('module')}`);
+        if (found.manifest.pictureMap && found.manifest.pictureMap.setting === def.key && seen.kinds[v] !== 'picture') throw new SettingError(MAP_DATA_IN_PICTURE);
+      }
     }
     moduleSettings.set(found.manifest, req.params.scope, place.ctx, values, place.user.key);
     res.json({ settings: withValues(found.manifest, req.params.scope, place.ctx) });
@@ -7169,6 +7299,9 @@ app.get('/api/modules/:id/context', (req, res) => {
     // step 1). The top-level `phases` is the template's, live, or [] when there is none.
     space: here ? { id: here.id, name: here.name, createdAt: here.createdAt, phases: here.phases } : null,
     phases: phases.map((p) => ({ id: p.id, label: p.label, ...(p.main ? { main: true } : {}), ...(p.icon ? { icon: p.icon } : {}) })),
+    // Facts about the environment every module may need. `pictureMap`: { file, minZoom, maxZoom, tileType } while the
+    // environment's map is a picture of an invented world (a module that declares `pictureMap` names the file), else null.
+    environment: { pictureMap: pictureMapOf() },
   });
 });
 

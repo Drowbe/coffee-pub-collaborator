@@ -583,6 +583,15 @@ function cleanRegionSource(raw, settings) {
   return { folder: raw.folder, address: raw.address };
 }
 
+// A module's own `pictureMap`: the `file` setting that names a picture map (a raster PMTiles file of an invented world)
+// for the whole environment. It must be a `file` setting that takes an upload of picture tiles, so the server can check
+// what is put there. The server then tells every module (the context's `environment.pictureMap`) while it is set.
+function cleanPictureMap(raw, settings) {
+  if (!raw || typeof raw !== 'object') return null;
+  if (typeof raw.setting !== 'string' || !settings.some((d) => d.key === raw.setting && d.type === 'file' && d.upload && d.upload.accept === 'pmtiles-picture')) throw new ModuleError('module.json: pictureMap needs a `setting` naming a "file" setting with "upload": { "accept": "pmtiles-picture" }');
+  return { setting: raw.setting };
+}
+
 // The lookups a module asks the server for (documentation/plans/plan-flight-lookup.md): `"lookups": ["flight"]`, or none.
 // The one kind today is `flight`: GET /api/modules/:id/flight-lookup and POST .../flight-lookup/remember (index.js).
 const LOOKUP_KINDS = ['flight'];
@@ -666,6 +675,13 @@ function cleanSettings(raw) {
       if (!/^[a-z0-9][a-z0-9-]{0,31}$/.test(folder) || folder === 'versions') throw new ModuleError(`module.json: setting "${key}" folder must be lowercase letters, digits and dashes (not "versions")`);
       def.folder = folder;
       if (r.shared === 'host') def.shared = 'host';
+      // `upload`: the owner may put a file here through the page (PUT /api/modules/:id/files/:folder), checked as `accept` says.
+      // The one kind is `pmtiles-picture`: a PMTiles file of picture (raster) tiles, one file, no host sharing.
+      if (r.upload !== undefined) {
+        if (type !== 'file' || !r.upload || r.upload.accept !== 'pmtiles-picture') throw new ModuleError(`module.json: setting "${key}" upload must be { "accept": "pmtiles-picture" } on a "file" setting`);
+        if (def.shared) throw new ModuleError(`module.json: setting "${key}" takes uploads, so it cannot be shared with the host`);
+        def.upload = { accept: 'pmtiles-picture' };
+      }
       def.default = type === 'files' ? [] : '';
     } else if (type === 'color') {
       def.default = typeof r.default === 'string' && COLOR_RE.test(r.default.trim()) ? r.default.trim().toLowerCase() : '#000000';
@@ -834,6 +850,7 @@ function cleanManifest(raw, files) {
   const settings = cleanSettings(raw.settings);
   const geocoder = cleanGeocoder(raw.geocoder, settings);
   const regionSource = cleanRegionSource(raw.regionSource, settings);
+  const pictureMap = cleanPictureMap(raw.pictureMap, settings);
   const uploads = cleanUploads(raw.uploads);
   const lookups = cleanLookups(raw.lookups);
 
@@ -853,7 +870,7 @@ function cleanManifest(raw, files) {
     ? { auto: raw.install.auto === true, settingsFrom: raw.install.settingsFrom === 'environment' ? 'environment' : null }
     : null;
 
-  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, lookups, install };
+  return { id, name, version, description: text(raw.description, 200), author: text(raw.author, 60), icon, color, scope, surfaces, permissions, hooks, refs, storage, events, actions, commands, access, settings, requires, geocoder, uploads, regionSource, pictureMap, lookups, install };
 }
 
 // --- the registry ---------------------------------------------------------
@@ -1019,6 +1036,7 @@ class ModuleManager {
       }
       try { manifest.geocoder = cleanGeocoder(manifest.geocoder, manifest.settings); } catch { manifest.geocoder = null; }
       try { manifest.regionSource = cleanRegionSource(manifest.regionSource, manifest.settings); } catch { manifest.regionSource = null; }
+      try { manifest.pictureMap = cleanPictureMap(manifest.pictureMap, manifest.settings); } catch { manifest.pictureMap = null; }
       try { manifest.uploads = cleanUploads(manifest.uploads); } catch { manifest.uploads = null; }
       try { manifest.lookups = cleanLookups(manifest.lookups); } catch { manifest.lookups = []; }
       if (hasPlaceholders(manifest)) this.withPlaceholders.add(manifest);

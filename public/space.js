@@ -15,7 +15,7 @@ import { initDashboard } from '/dashboard.js';
 import { nav } from '/nav-bar.js';
 import { attachChatInput, viewOf, discussionWord, placeAbove, stripSummaryMarkers, clearChoices, ofClearType, inClearScope, clearTakesPicture, clearNoticeTakes, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, noticePreview } from '/chat-input.js';
 import { openHostMenu, openConfirmMenu, closeHostMenu } from '/module-host.js';
-import { foldCallToolbar } from '/call-toolbar.js';
+import { foldCallToolbar, callTitle } from '/call-toolbar.js';
 
 // Elements by id, wherever the canvas currently lives (the page or the pop-out
 // window, which takes the whole canvas with it).
@@ -977,10 +977,12 @@ const DEFAULT_PREFS = {
   quality: 720, mirror: true, background: 'none', volumes: {}, popout: null, deafened: false,
   chatWidth: 320, stripHeight: 168, speakerId: '', masterVolume: 100, // chatWidth is the column's width too (the splitter)
   homeChatWidth: 360, // Home's chat column (plan-home-lobby.md, step 3), its own width
-  // Where the call sits in the column (Call position): its 'top' or 'bottom'; callFloat, floating over the Workspace
-  // instead (from the column's side it goes back to). Its own window is never remembered (a window opens only from a
-  // click). callTiles: 'auto' (slim in a short window), 'shown' or 'slim'.
+  // Where the call sits in the column (Call position): its 'top', 'bottom' or 'left' (beside the chat, in a column wide
+  // enough); callFloat, floating over the Workspace instead (from the column's side it goes back to). Its own window is
+  // never remembered (a window opens only from a click). callTiles: 'auto' (slim in a short window), 'shown' or 'slim'.
+  // callSideWidth: the call's width beside the chat (Left).
   callPosition: 'top', callFloat: false, callTiles: 'auto',
+  callSideWidth: 320,
   pttKey: 'Space', muteKey: 'Mod+KeyD', camKey: 'Mod+KeyE',
 };
 // Call preferences (layout, devices, volumes, keys). brand.js moves the key they had before the Names plan on load.
@@ -1205,7 +1207,8 @@ function syncColumn() {
 
 // The column's sizes (the splitters, #side-column-splitter and #side-column-strip-splitter in space.html): its width,
 // the chat's own preference from before the column (prefs.chatWidth, so a width a person had set holds), between
-// COLUMN_MIN and half the window; and on the call the height of the strip's tiles (prefs.stripHeight), from STRIP_MIN
+// COLUMN_MIN and the whole window (Thomas, 2026-10-14: the chat may take all of it; the Workspace then has no room, and
+// the handle folds the column away again); and on the call the height of the strip's tiles (prefs.stripHeight), from STRIP_MIN
 // up to what leaves the chat its share: the whole call area (the tiles, the toolbar under them and the Join/Online row,
 // `chrome` being the last two) is at most CALL_MAX_SHARE of the column, so the chat always keeps at least 45% of it
 // (Thomas, 2026-10-14: the video must never squeeze the chat). Untouched (the default height), the call area is at most
@@ -1215,7 +1218,7 @@ function syncColumn() {
 // least and the most, double-click or Shift+Enter back to the default. Both are remembered per person. Collapsed, the
 // rail is 44px whatever the width, and opening returns to it.
 const COLUMN_MIN = 220;
-const COLUMN_MAX_SHARE = 0.5; // of the window
+const COLUMN_MAX_SHARE = 1; // of the window: all of it
 const STRIP_MIN = 100;
 const STRIP_DEFAULT = 168; // DEFAULT_PREFS.stripHeight
 const CALL_MAX_SHARE = 0.55; // of the column: the chat keeps the other 45% or more
@@ -1239,6 +1242,18 @@ function callTilesShown(choice, windowHeight, columnHeight, chrome = 0) {
   if (choice === 'shown' || choice === 'slim') return choice === 'shown';
   return windowHeight >= SHORT_WINDOW;
 }
+// Call position Left (Thomas, 2026-10-14): the call beside the chat, the column's full height, in a column at least
+// CALL_LEFT_MIN wide; narrower, the call sits at the top until the column is wide again, the choice kept. The call's
+// width there (prefs.callSideWidth, the line between the two) is at least CALL_SIDE_MIN and leaves the chat COLUMN_MIN.
+const CALL_LEFT_MIN = 560;
+const CALL_SIDE_MIN = 240;
+// Where the call shows for the chosen position in a column this wide: 'top', 'bottom' or 'left'.
+function callPlaceFor(pos, columnWidth) {
+  if (pos === 'bottom') return 'bottom';
+  if (pos === 'left' && Number(columnWidth) >= CALL_LEFT_MIN) return 'left';
+  return 'top';
+}
+function clampCallSide(w, columnWidth) { return clampSplit(w, CALL_SIDE_MIN, Math.round(columnWidth) - COLUMN_MIN); }
 // A key on a splitter: the new value, or null when the key is not the splitter's (so it goes on, never trapped).
 // `grow` and `shrink` are the arrow names for the axis (Right and Left for the column's edge, Down and Up for the strip's).
 function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
@@ -1251,23 +1266,39 @@ function splitterKey({ key, shift }, now, { min, max, def, grow, shrink }) {
 const columnWin = () => columnEl.ownerDocument.defaultView || window;
 const columnMaxWidth = () => Math.round(columnWin().innerWidth * COLUMN_MAX_SHARE);
 const columnHeight = () => columnEl.clientHeight || columnWin().innerHeight;
-// The call area's height besides its tiles: the toolbar under them (while it is in the column) and the Join/Online row.
+const columnWidthNow = () => clampColumnWidth(prefs.chatWidth, columnWin().innerWidth);
+// The call area's height besides its tiles: its titlebar, the toolbar under the tiles (while it is in the column) and
+// the Join/Online row.
 function callChrome() {
   const bar = $('video-bar');
   const toolbar = bar && bar.closest('.side-column-strip') && !confEl.classList.contains('call-off') ? bar.offsetHeight : 0;
-  return toolbar + (columnEl.querySelector('.side-column-bar')?.offsetHeight || 0);
+  return toolbar + (columnEl.querySelector('.side-column-bar')?.offsetHeight || 0) + (columnEl.querySelector('#call-head')?.offsetHeight || 0);
 }
+// The call's width beside the chat (Left), held to the column it is in now.
+const callSideWidthNow = () => clampCallSide(prefs.callSideWidth, columnWidthNow());
+const callSideMax = () => Math.max(CALL_SIDE_MIN, columnWidthNow() - COLUMN_MIN);
 const columnMaxStrip = () => Math.max(STRIP_MIN, stripMaxHeight(columnHeight(), callChrome()));
 // The sizes onto the column, clamped to the window it is in now (resized, popped out); and where the call is in it.
 function applyColumnSizes() {
   if (!columnEl) return;
-  const w = clampColumnWidth(prefs.chatWidth, columnWin().innerWidth);
+  const w = columnWidthNow();
   columnEl.style.setProperty('--side-column-w', `${w}px`);
+  columnEl.classList.toggle('full', w >= columnWin().innerWidth - 8); // its edge kept inside the window
   const v = columnEl.querySelector('#side-column-splitter');
   v.setAttribute('aria-valuemin', String(COLUMN_MIN));
   v.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, columnMaxWidth())));
   v.setAttribute('aria-valuenow', String(w));
   v.setAttribute('aria-valuetext', `${w} pixels wide`);
+  // Left: the call's width beside the chat, and its line's values.
+  const side = callSideWidthNow();
+  columnEl.style.setProperty('--side-column-call-w', `${side}px`);
+  const sv = columnEl.querySelector('#side-column-call-splitter');
+  if (sv) {
+    sv.setAttribute('aria-valuemin', String(CALL_SIDE_MIN));
+    sv.setAttribute('aria-valuemax', String(callSideMax()));
+    sv.setAttribute('aria-valuenow', String(side));
+    sv.setAttribute('aria-valuetext', `The call ${side} pixels wide`);
+  }
   const colH = columnHeight();
   const chrome = callChrome();
   const h = stripHeightFor(prefs.stripHeight, colH, chrome);
@@ -1282,6 +1313,7 @@ function applyColumnSizes() {
 let columnSizeFrame = 0;
 function setColumnSize(which, value, { remember = true } = {}) {
   if (which === 'width') prefs.chatWidth = clampColumnWidth(value, columnWin().innerWidth);
+  else if (which === 'side') prefs.callSideWidth = clampCallSide(value, columnWidthNow());
   else prefs.stripHeight = clampStripHeight(value, columnHeight(), callChrome());
   if (remember) savePrefs();
   applyColumnSizes();
@@ -1292,7 +1324,12 @@ function wireSplitter(el, { which, axis, def, min, max, grow, shrink }) {
   let drag = null;
   // The strip's: from the height shown (the default one may be held lower), and with the call at the bottom of the
   // column the line is above it, so up grows it (the drag's travel and the arrows turn round).
-  const start = () => (which === 'width' ? prefs.chatWidth : parseFloat(columnEl.style.getPropertyValue('--side-column-strip-h')) || prefs.stripHeight);
+  // The column's edge and the call's line beside the chat (Left) from the widths shown, held to this window.
+  const start = () => {
+    if (which === 'width') return columnWidthNow();
+    if (which === 'side') return callSideWidthNow();
+    return parseFloat(columnEl.style.getPropertyValue('--side-column-strip-h')) || prefs.stripHeight;
+  };
   const flipped = () => which === 'strip' && columnEl.classList.contains('call-bottom');
   el.addEventListener('pointerdown', (event) => {
     if (event.button !== 0 && event.pointerType === 'mouse') return;
@@ -1393,16 +1430,21 @@ function syncShareLift() {
 }
 
 // --- the call's place (Thomas, 2026-10-14: the call pops out again, and never squeezes the chat) ---------------------
-// Call position, on the caret beside the toolbar's Pop out (#call-place) and in Chat's "...": the top of the column (the
-// default) or its bottom (the chat above the call), a floating window over the Workspace (canvas.liftBuiltin, the
+// Call position, on the caret beside the toolbar's Pop out (#call-place), in the call's own titlebar's "..." (#call-more)
+// and in Chat's "...": the top of the column (the default), its bottom (the chat above the call), the left of the chat
+// (beside it, the column's full height, in a column at least CALL_LEFT_MIN wide; narrower it shows at the top, the choice
+// kept, and comes back when the column is wide again), a floating window over the Workspace (canvas.liftBuiltin, the
 // person's own lift), or a window of its own (canvas.popBuiltin: the conference's element moved into the window, as it
-// popped out before the column, so the call keeps its connection and nobody joins twice). Top, bottom and floating are
+// popped out before the column, so the call keeps its connection and nobody joins twice). Top, bottom, left and floating are
 // remembered per person (prefs.callPosition, prefs.callFloat); its own window is not (a window opens only from a click). Out of the
 // column (its own window, floating, or lifted for a screen share) the column shows a slim strip, #call-out: the call's
 // controls and Bring the call back, and the chat has the rest; closing the call's window brings it back too (canvas.js).
 // Hang up brings it back. On a phone there is no column: Pop out moves the docked call into its window as before.
 const callOutEl = columnEl?.querySelector('#call-out') || null;
 const callAtBottom = () => prefs.callPosition === 'bottom';
+// Where the call shows in the column now: 'top', 'bottom' or 'left' (only open, never in an aside: the column is the
+// call there).
+const callPlaceNow = () => (columnCollapsed() || inAside() ? (callAtBottom() ? 'bottom' : 'top') : callPlaceFor(prefs.callPosition, columnWidthNow()));
 // Where the call is now: 'column', 'window', 'float' (the person's), 'share' (lifted for a screen share), 'dock' or
 // 'closed' (a phone's).
 function callWhere() {
@@ -1433,7 +1475,15 @@ function syncCallPlace(colH, chrome) {
     if (wrap && wrap.hidden !== hide) { wrap.hidden = hide; setTimeout(fitFloatbar, 0); }
   }
   if (!columnEl) return;
-  columnEl.classList.toggle('call-bottom', callAtBottom());
+  const place = callPlaceNow();
+  const left = place === 'left';
+  columnEl.classList.toggle('call-bottom', place === 'bottom');
+  columnEl.classList.toggle('call-left', left);
+  const sideLine = columnEl.querySelector('#side-column-call-splitter');
+  if (sideLine) sideLine.hidden = !left;
+  // The call's titlebar: wherever the conference is open from this column (in it, floating or in its own window).
+  const head = columnEl.querySelector('#call-head');
+  if (head) head.hidden = where === 'closed' || where === 'dock';
   const away = canvas.columnMode() && outside;
   columnEl.classList.toggle('call-away', away);
   if (callOutEl) {
@@ -1442,8 +1492,9 @@ function syncCallPlace(colH, chrome) {
   }
   const h = colH ?? columnHeight();
   const c = chrome ?? callChrome();
-  const fits = stripMaxHeight(h, c) >= STRIP_MIN;
-  const tilesOn = callTilesShown(prefs.callTiles, columnWin().innerHeight, h, c);
+  // Beside the chat the call has the column's whole height: the tiles show unless the person chose slim.
+  const fits = left ? h - c >= STRIP_MIN : stripMaxHeight(h, c) >= STRIP_MIN;
+  const tilesOn = left ? fits && prefs.callTiles !== 'slim' : callTilesShown(prefs.callTiles, columnWin().innerHeight, h, c);
   columnEl.classList.toggle('call-slim', !tilesOn);
   const t = columnEl.querySelector('#side-column-tiles');
   if (t) {
@@ -1488,7 +1539,9 @@ function toggleCallTiles() {
   savePrefs();
   applyLayout();
 }
-// The Call position entries, for the caret's menu and Chat's "...".
+// The Call position entries, for the caret's menu, the call's titlebar and Chat's "...". The position marked is the one
+// chosen: Left stays marked in a column too narrow for it (the call shows at the top meanwhile), and is offered only in
+// a column wide enough, saying why otherwise.
 function callPlaceItems() {
   const where = callWhere();
   const column = canvas.columnMode();
@@ -1496,17 +1549,48 @@ function callPlaceItems() {
   if (column) {
     const inside = where === 'column';
     const floating = where === 'float' || where === 'share' || (inside && prefs.callFloat);
+    const chosen = ['bottom', 'left'].includes(prefs.callPosition) ? prefs.callPosition : 'top';
+    const at = (pos) => inside && !floating && chosen === pos;
+    const wide = columnWidthNow() >= CALL_LEFT_MIN;
     items.push(
-      { radio: true, checked: inside && !floating && !callAtBottom(), icon: 'arrow-up', label: 'Top of the column', onPick: () => setCallPosition('top') },
-      { radio: true, checked: inside && !floating && callAtBottom(), icon: 'arrow-down', label: 'Bottom of the column', onPick: () => setCallPosition('bottom') },
+      { radio: true, checked: at('top'), icon: 'arrow-up', label: 'Top of the column', onPick: () => setCallPosition('top') },
+      { radio: true, checked: at('bottom'), icon: 'arrow-down', label: 'Bottom of the column', onPick: () => setCallPosition('bottom') },
+      { radio: true, checked: at('left'), icon: 'arrow-left', label: 'Left of the chat', hint: wide ? undefined : 'Needs a wider column', disabled: !wide, onPick: () => setCallPosition('left') },
       { radio: true, checked: floating, icon: 'window-restore', regular: true, label: 'Floating window', onPick: () => setCallPosition('float') },
     );
   }
   items.push({ radio: true, checked: where === 'window', icon: 'up-right-from-square', label: 'Its own window', onPick: () => setCallPosition('window') });
   if (column && inCall && where === 'column' && !columnEl.querySelector('#side-column-tiles').disabled) {
-    items.push({ divider: true }, { checked: !columnEl.classList.contains('call-slim'), label: 'Show the video', onPick: toggleCallTiles });
+    const shown = !columnEl.classList.contains('call-slim');
+    items.push({ divider: true }, { icon: `chevron-${shown ? 'up' : 'down'}`, label: shown ? 'Hide the video' : 'Show the video', onPick: toggleCallTiles });
   }
   return items;
+}
+// The call's titlebar's "..." (#call-more): Pop out or Bring the call back (the toolbar's Pop out does the same), Call
+// position, Show or Hide the video, then on the call its Settings (the toolbar's gear) and Leave the call (Hang up; the
+// titlebar's x before the column, which closed the call).
+function callMenuItems() {
+  const where = callWhere();
+  const items = [];
+  if (['window', 'float', 'share'].includes(where)) items.push({ icon: 'arrow-left', label: 'Bring the call back', onPick: bringCallBack });
+  else if (where !== 'closed' && !phoneWidth()) items.push({ icon: 'up-right-from-square', label: 'Pop out the call', onPick: popOutCall });
+  if (where !== 'closed') items.push({ divider: true }, ...callPlaceItems());
+  if (inCall) {
+    items.push(
+      { divider: true },
+      // After the menu has closed, so the click that picked it does not close the settings again.
+      { icon: 'gear', label: 'Settings', onPick: () => setTimeout(() => openSettings('more'), 0) },
+      { icon: 'phone-slash', label: 'Leave the call', danger: true, onPick: () => $('hangup').click() },
+    );
+  }
+  return items;
+}
+// The titlebar's name and icon: the environment's name for the conference, else Call (callTitle, call-toolbar.js).
+function setCallHead(def) {
+  const name = columnEl?.querySelector('#call-head-name');
+  if (name) name.textContent = callTitle(def.name);
+  const icon = columnEl?.querySelector('#call-head-icon');
+  if (icon && def.icon) icon.className = `fa-solid fa-${def.icon} fa-fw`;
 }
 $('call-popout')?.addEventListener('click', () => (['window', 'float', 'share'].includes(callWhere()) ? bringCallBack() : popOutCall()));
 $('call-place')?.addEventListener('click', (event) => {
@@ -1534,6 +1618,10 @@ if (callOutEl) {
   callOutEl.querySelector('#call-back').addEventListener('click', bringCallBack);
 }
 columnEl?.querySelector('#side-column-tiles')?.addEventListener('click', toggleCallTiles);
+columnEl?.querySelector('#call-more')?.addEventListener('click', (event) => {
+  event.stopPropagation();
+  openHostMenu(event.currentTarget, callMenuItems);
+});
 // --- end the call's place ---
 
 if (columnEl) {
@@ -1544,6 +1632,7 @@ if (columnEl) {
   });
   wireSplitter(columnEl.querySelector('#side-column-splitter'), { which: 'width', axis: 'x', def: DEFAULT_PREFS.chatWidth, min: COLUMN_MIN, max: columnMaxWidth, grow: 'ArrowRight', shrink: 'ArrowLeft' });
   wireSplitter(columnEl.querySelector('#side-column-strip-splitter'), { which: 'strip', axis: 'y', def: DEFAULT_PREFS.stripHeight, min: STRIP_MIN, max: columnMaxStrip, grow: 'ArrowDown', shrink: 'ArrowUp' });
+  wireSplitter(columnEl.querySelector('#side-column-call-splitter'), { which: 'side', axis: 'x', def: DEFAULT_PREFS.callSideWidth, min: CALL_SIDE_MIN, max: callSideMax, grow: 'ArrowRight', shrink: 'ArrowLeft' });
   applyColumnSizes();
 }
 placeColumnTools(); // now that the two exist
@@ -4252,7 +4341,7 @@ canvas.registerBuiltin({
   inCall: () => inCall, // the phone's tab bar marks the switch while in the call, not merely while shown
   icon: 'video',
   el: $('conference'),
-  onShown: showBuiltinName,
+  onShown: (def) => { showBuiltinName(def); setCallHead(def); }, // and the column's titlebar for the call
   order: -1,
   flex: true,
   modes: ['dock', 'float', 'window'],
@@ -6654,13 +6743,20 @@ async function catchUpHomeChat() {
   paintHomeUnread();
 }
 // The column's width: dragged on its inner edge (#home-chat-splitter), or with the keyboard as the space column's edge
-// (splitterKey); between COLUMN_MIN and half the window, remembered in this browser (prefs.homeChatWidth).
+// (splitterKey); between COLUMN_MIN and the whole window, remembered in this browser (prefs.homeChatWidth). What is left
+// beside it decides the rest (style.css): under HOME_SPARE_BESIDE the Modules go under the space cards (as below
+// 1200px), under HOME_SPARE_LEAST the chat is all there is, its edge inside the window to drag back.
+const HOME_SPARE_BESIDE = 840; // the spaces (520) and the Modules (320) side by side
+const HOME_SPARE_LEAST = 200;
 function applyHomeChatWidth() {
   const home = $('home');
   const handle = $('home-chat-splitter');
   if (!home || !handle) return;
   const w = clampColumnWidth(prefs.homeChatWidth, window.innerWidth);
   home.style.setProperty('--home-chat-w', `${w}px`);
+  const spare = window.innerWidth - w;
+  home.classList.toggle('chat-wide', spare < HOME_SPARE_BESIDE);
+  home.classList.toggle('chat-full', spare < HOME_SPARE_LEAST);
   handle.setAttribute('aria-valuemin', String(COLUMN_MIN));
   handle.setAttribute('aria-valuemax', String(Math.max(COLUMN_MIN, Math.round(window.innerWidth * COLUMN_MAX_SHARE))));
   handle.setAttribute('aria-valuenow', String(w));

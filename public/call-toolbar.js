@@ -9,6 +9,13 @@
 // (it takes room only once something folds). width: the room in the row; gap: the space between two controls.
 // Returns the ids folded, in the order they folded.
 
+// The call's titlebar in the column reads the environment's name for the conference (its template's or its own), else
+// "Call" (the built-in name, Conference, is the module's; the titlebar names the call, as Chat's names the Discussion).
+export function callTitle(name) {
+  const n = String(name || '').replace(/\s+/g, ' ').trim();
+  return !n || n === 'Conference' ? 'Call' : n;
+}
+
 // How many rows the given widths wrap into (a flex row with `flex-wrap: wrap`).
 export function wrapRows(widths, width, gap = 0) {
   let rows = 0;

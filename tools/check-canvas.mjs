@@ -1302,14 +1302,15 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
 }
 
 // The column's splitters (plan-one-bar.md step 6, Thomas's feedback): the column's inner edge resizes it between
-// 220px and half the window, reusing the chat's width preference; on the call a second splitter sets the strip's
+// 220px and the whole window (Thomas, 2026-10-14: the chat may take all of it), reusing the chat's width preference; on
+// the call a second splitter sets the strip's
 // height. Both are separators with a vertical or horizontal orientation and a value; the keyboard moves by 16px, Shift
 // by 64px, Home and End to the ends, Shift+Enter back to the default, and any other key is left alone (never trapped).
 {
   const F = 'public/space.js';
   const spaceJs = fs.readFileSync(path.join(ROOT, F), 'utf8');
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
-  for (const [id, orient, name] of [['side-column-splitter', 'vertical', 'Resize the chat column'], ['side-column-strip-splitter', 'horizontal', 'Resize the call']]) {
+  for (const [id, orient, name] of [['side-column-splitter', 'vertical', 'Resize the chat column'], ['side-column-strip-splitter', 'horizontal', 'Resize the call'], ['side-column-call-splitter', 'vertical', 'Resize the call beside the chat']]) {
     const at = html.indexOf(`id="${id}"`);
     const tag = at < 0 ? '' : html.slice(html.lastIndexOf('<', at), html.indexOf('>', at) + 1);
     if (!tag) fail('public/space.html', `the column needs its splitter #${id}`);
@@ -1319,13 +1320,16 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const src = start < 0 ? '' : spaceJs.slice(start, spaceJs.indexOf('const columnWin = ', start));
   if (!/function clampColumnWidth\(/.test(src) || !/function clampStripHeight\(/.test(src) || !/function splitterKey\(/.test(src)) fail(F, 'the column\'s splitters need clampColumnWidth(), clampStripHeight() and splitterKey() after COLUMN_MIN');
   else {
-    const { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor, callTilesShown } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor: typeof stripHeightFor === 'function' ? stripHeightFor : null, callTilesShown: typeof callTilesShown === 'function' ? callTilesShown : null };`)();
+    const { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor, callTilesShown, callPlaceFor, clampCallSide } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor: typeof stripHeightFor === 'function' ? stripHeightFor : null, callTilesShown: typeof callTilesShown === 'function' ? callTilesShown : null, callPlaceFor: typeof callPlaceFor === 'function' ? callPlaceFor : null, clampCallSide: typeof clampCallSide === 'function' ? clampCallSide : null };`)();
     if (!stripHeightFor || !callTilesShown) fail(F, 'the call area needs stripHeightFor() and callTilesShown() after COLUMN_MIN (the chat keeps its share; slim in a short window)');
+    if (!callPlaceFor || !clampCallSide) fail(F, 'Call position Left needs callPlaceFor() and clampCallSide() after COLUMN_MIN');
     const cases = [
       ['a width inside the range holds', clampColumnWidth(320, 1280), 320],
       ['the least width is 220px', clampColumnWidth(10, 1280), 220],
-      ['the most is half the window', clampColumnWidth(900, 1280), 640],
-      ['a window too narrow for half still gives the least', clampColumnWidth(300, 300), 220],
+      ['a width past half the window holds (the chat may take all of it)', clampColumnWidth(900, 1280), 900],
+      ['the most is the whole window', clampColumnWidth(1500, 1280), 1280],
+      ['the whole window, exactly', clampColumnWidth(1280, 1280), 1280],
+      ['a window narrower than the least still gives the least', clampColumnWidth(300, 200), 220],
       ['a width that is not a number gives the least', clampColumnWidth(undefined, 1280), 220],
       ['the strip\'s least height is 100px', clampStripHeight(10, 800), 100],
       // The video never squeezes the chat (Thomas, 2026-10-14): the call area (tiles + its toolbar and row, `chrome`)
@@ -1345,6 +1349,22 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       ['shown: the person\'s choice in a short window', callTilesShown('shown', 600, 556, 112), true],
       ['slim: the person\'s choice in a tall window', callTilesShown('slim', 1080, 1036, 112), false],
       ['too short for the least tiles: slim whatever was chosen', callTilesShown('shown', 300, 256, 112), false],
+    );
+    // Call position Left (Thomas, 2026-10-14): the call beside the chat in a column at least 560px wide; narrower, it
+    // shows at the top, the choice kept (the caller keeps prefs.callPosition). The call's width there is at least 240px
+    // and leaves the chat its least (220px).
+    if (callPlaceFor && clampCallSide) cases.push(
+      ['Top stays top', callPlaceFor('top', 900), 'top'],
+      ['Bottom stays bottom at any width', callPlaceFor('bottom', 300), 'bottom'],
+      ['Left in a 560px column', callPlaceFor('left', 560), 'left'],
+      ['Left in a 559px column falls back to the top', callPlaceFor('left', 559), 'top'],
+      ['Left at the default 320px column falls back to the top', callPlaceFor('left', 320), 'top'],
+      ['an unknown position is the top', callPlaceFor('middle', 900), 'top'],
+      ['no position is the top', callPlaceFor(undefined, 900), 'top'],
+      ['the call beside the chat: a width inside the range holds', clampCallSide(320, 720), 320],
+      ['the call beside the chat: at least 240px', clampCallSide(100, 720), 240],
+      ['the call beside the chat leaves the chat 220px', clampCallSide(700, 720), 500],
+      ['the call beside the chat in the narrowest Left column', clampCallSide(400, 560), 340],
     );
     const lim = { min: 220, max: 640, def: 320, grow: 'ArrowRight', shrink: 'ArrowLeft' };
     cases.push(
@@ -1366,6 +1386,18 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
   if (!/wireSplitter\(columnEl\.querySelector\('#side-column-splitter'\), \{ which: 'width'/.test(spaceJs)) fail(F, 'the column\'s edge is wired as a splitter setting the width');
   if (!/if \(which === 'width'\) prefs\.chatWidth = clampColumnWidth\(/.test(spaceJs)) fail(F, 'the column\'s width is the chat\'s width preference (prefs.chatWidth), so a width set before the column holds');
+  // The cap is the whole window (COLUMN_MAX_SHARE 1), the splitter's aria-valuemax says so, and the canvas gives way to
+  // nothing rather than pushing the page wider; the column's edge stays inside the window at its widest.
+  if (!/const COLUMN_MAX_SHARE = 1;/.test(spaceJs)) fail(F, 'the column may take the whole window (COLUMN_MAX_SHARE = 1)');
+  if (!/v\.setAttribute\('aria-valuemax', String\(Math\.max\(COLUMN_MIN, columnMaxWidth\(\)\)\)\);/.test(spaceJs)) fail(F, 'the column\'s edge says its most (aria-valuemax, the window\'s width)');
+  if (!/\.work > \.canvas \{\s*min-width: 0;/.test(css)) fail('public/style.css', 'the canvas gives way to nothing beside a column as wide as the window (.work > .canvas { min-width: 0 })');
+  if (!/columnEl\.classList\.toggle\('full', w >= columnWin\(\)\.innerWidth - 8\)/.test(spaceJs) || !/\.side-column\.full \.side-column-splitter-v \{\s*right: 0;/.test(css)) fail(F, 'at the whole window the column\'s edge stays inside it, to drag back (.side-column.full)');
+  // Left: the line between the call and the chat is a splitter of its own, remembered per person (prefs.callSideWidth).
+  if (!/wireSplitter\(columnEl\.querySelector\('#side-column-call-splitter'\), \{ which: 'side', axis: 'x', def: DEFAULT_PREFS\.callSideWidth, min: CALL_SIDE_MIN, max: callSideMax,/.test(spaceJs)) fail(F, 'the call\'s line beside the chat is wired as a splitter (which: \'side\')');
+  if (!/else if \(which === 'side'\) prefs\.callSideWidth = clampCallSide\(value, columnWidthNow\(\)\);/.test(spaceJs)) fail(F, 'the call\'s width beside the chat is remembered (prefs.callSideWidth), held to the column');
+  if (!/\n  callSideWidth: 320,/.test(spaceJs)) fail(F, 'the call beside the chat is 320px wide by default (DEFAULT_PREFS.callSideWidth)');
+  if (!/\.side-column\.call-left \{\s*display: grid;\s*grid-template-columns: var\(--side-column-call-w, 320px\) minmax\(0, 1fr\);/.test(css)) fail('public/style.css', 'Left: the call and the chat side by side (.side-column.call-left, a grid of two columns)');
+  if (!/body:not\(\.in-aside\) \.side-column\.call-left > \.side-column-chat \{\s*grid-area: chat;/.test(css)) fail('public/style.css', 'Left: the chat on the right, the column\'s full height');
   if (!/--side-column-w: 320px;/.test(css) || !/grid-template-rows: minmax\(0, var\(--side-column-strip-h, 168px\)\) auto;/.test(css)) fail('public/style.css', 'the column\'s width and the height of the strip\'s tiles (the toolbar under them, the tiles giving way first) come from --side-column-w and --side-column-strip-h');
   // The chat's guaranteed share: the strip gives way (it shrinks), the chat never under 45% of the column.
   if (!/body:not\(\.in-aside\) \.side-column-chat \{\s*min-height: 45%;/.test(css)) fail('public/style.css', 'the chat keeps at least 45% of the column (body:not(.in-aside) .side-column-chat { min-height: 45% })');
@@ -1405,7 +1437,10 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/\.home-main \.space-list \{\s*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, max\(260px, calc\(\(100% - 18px\) \/ 2\)\)\), 1fr\)\);/.test(css)) fail('public/style.css', 'the space cards are two wide where they fit, never more');
   // The width: its own preference, the space column's limits and keys.
   if (!/homeChatWidth: 360,/.test(spaceJs)) fail(F, 'Home\'s chat column is 360px by default (DEFAULT_PREFS.homeChatWidth)');
-  if (!/prefs\.homeChatWidth = clampColumnWidth\(value, window\.innerWidth\);/.test(spaceJs)) fail(F, 'Home\'s chat width is held between COLUMN_MIN and half the window (clampColumnWidth)');
+  if (!/prefs\.homeChatWidth = clampColumnWidth\(value, window\.innerWidth\);/.test(spaceJs)) fail(F, 'Home\'s chat width is held between COLUMN_MIN and the whole window (clampColumnWidth)');
+  // Dragged wide, the Modules go under the cards, then only the chat is drawn, its edge inside the window to drag back.
+  if (!/home\.classList\.toggle\('chat-wide', spare < HOME_SPARE_BESIDE\);\s*home\.classList\.toggle\('chat-full', spare < HOME_SPARE_LEAST\);/.test(spaceJs)) fail(F, 'Home\'s chat dragged wide: chat-wide (the Modules under the cards), chat-full (the chat alone)');
+  if (!/\.home\.chat-full:not\(:has\(> \.home-chat\[hidden\]\)\) > \.home-main,\s*\.home\.chat-full:not\(:has\(> \.home-chat\[hidden\]\)\) > \.home-modules \{\s*display: none;/.test(css) || !/\.home\.chat-full \.home-chat-splitter \{\s*right: 0;/.test(css)) fail('public/style.css', 'Home\'s chat at the whole window: the chat alone, its edge inside the window');
   const wire = spaceJs.slice(spaceJs.indexOf('function wireHomeChatSplitter('), spaceJs.indexOf('// --- end Home\'s chat column ---'));
   if (!/splitterKey\(\{ key: event\.key, shift: event\.shiftKey \}, now\(\), \{ min: COLUMN_MIN, max, def: DEFAULT_PREFS\.homeChatWidth, grow: 'ArrowRight', shrink: 'ArrowLeft' \}\)/.test(wire) || !/if \(next === null\) return;/.test(wire)) fail(F, 'Home\'s splitter takes the space column\'s keys (splitterKey), and leaves every other key alone');
   if (!/wireHomeChatSplitter\(\$\('home-chat-splitter'\)\);/.test(spaceJs)) fail(F, 'the splitter is wired');
@@ -1479,7 +1514,27 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/id="call-place-wrap" data-collapse="\d+"/.test(bar)) fail('public/space.html', 'Pop out folds with the rest of the toolbar (data-collapse)');
   for (const id of ['call-out', 'call-out-note', 'call-back', 'side-column-tiles']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the column needs #${id}`);
   if (!/id="call-back"[^>]*>[\s\S]{0,120}Bring the call back</.test(html)) fail('public/space.html', '#call-back reads "Bring the call back"');
-  for (const label of ['Top of the column', 'Bottom of the column', 'Floating window', 'Its own window']) if (!spaceJs.includes(`label: '${label}'`)) fail(F, `Call position offers "${label}"`);
+  for (const label of ['Top of the column', 'Bottom of the column', 'Left of the chat', 'Floating window', 'Its own window']) if (!spaceJs.includes(`label: '${label}'`)) fail(F, `Call position offers "${label}"`);
+  // Left is offered only in a column wide enough, and says why otherwise; the position marked is the one chosen.
+  if (!/label: 'Left of the chat', hint: wide \? undefined : 'Needs a wider column', disabled: !wide, onPick: \(\) => setCallPosition\('left'\)/.test(spaceJs) || !/const wide = columnWidthNow\(\) >= CALL_LEFT_MIN;/.test(spaceJs)) fail(F, 'Left of the chat is offered in a column at least CALL_LEFT_MIN wide, else disabled with "Needs a wider column"');
+  if (!/const callPlaceNow = \(\) => \(columnCollapsed\(\) \|\| inAside\(\) \? \(callAtBottom\(\) \? 'bottom' : 'top'\) : callPlaceFor\(prefs\.callPosition, columnWidthNow\(\)\)\);/.test(spaceJs)) fail(F, 'where the call shows follows the chosen position and the column\'s width now (callPlaceNow, callPlaceFor), never rewriting the choice');
+  if (!/columnEl\.classList\.toggle\('call-left', left\);/.test(spaceJs)) fail(F, 'Left draws as .call-left on the column');
+  // The call's titlebar (Thomas, 2026-10-14: "why does the conf not have a titlebar like Discussion?"): a header above
+  // the call in the column, named by callTitle(), with a "..." on the shared menu holding Pop out or Bring the call back,
+  // Call position, Show or Hide the video, Settings and Leave the call.
+  const head = html.slice(html.indexOf('<header class="side-column-call-head" id="call-head">'), html.indexOf('</header>', html.indexOf('id="call-head"')));
+  if (!head) fail('public/space.html', 'the column needs the call\'s titlebar (<header class="side-column-call-head" id="call-head">)');
+  else {
+    if (!/id="call-head-name">Call</.test(head)) fail('public/space.html', 'the call\'s titlebar reads Call (#call-head-name) until the environment names it');
+    if (!/<button class="sdk-more" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu">/.test(head)) fail('public/space.html', 'the call\'s titlebar has a "..." (#call-more), a menu named for the call');
+  }
+  if (html.indexOf('id="call-head"') > html.indexOf('id="side-column-strip"')) fail('public/space.html', 'the call\'s titlebar sits above the call (before #side-column-strip)');
+  if (!/openHostMenu\(event\.currentTarget, callMenuItems\)/.test(spaceJs)) fail(F, 'the call\'s "..." opens on the shared menu (openHostMenu, callMenuItems)');
+  const callMenu = spaceJs.slice(spaceJs.indexOf('function callMenuItems() {'), spaceJs.indexOf('\n}\n', spaceJs.indexOf('function callMenuItems() {')));
+  for (const [re, what] of [[/label: 'Bring the call back', onPick: bringCallBack/, 'Bring the call back'], [/label: 'Pop out the call', onPick: popOutCall/, 'Pop out the call'], [/\.\.\.callPlaceItems\(\)/, 'Call position'], [/label: 'Settings', onPick: \(\) => setTimeout\(\(\) => openSettings\('more'\), 0\)/, 'Settings (the toolbar\'s gear)'], [/label: 'Leave the call', danger: true, onPick: \(\) => \$\('hangup'\)\.click\(\)/, 'Leave the call (Hang up)']]) if (!re.test(callMenu)) fail(F, `the call's "..." offers ${what}`);
+  if (!/label: shown \? 'Hide the video' : 'Show the video', onPick: toggleCallTiles/.test(spaceJs)) fail(F, 'Call position\'s menu shows or hides the video, saying which');
+  if (!/onShown: \(def\) => \{ showBuiltinName\(def\); setCallHead\(def\); \}/.test(spaceJs) || !/name\.textContent = callTitle\(def\.name\);/.test(spaceJs)) fail(F, 'the call\'s titlebar follows the environment\'s name for the conference (setCallHead, callTitle)');
+  if (!/\.side-column-call-head \{[^}]*height: var\(--module-header-h\);[^}]*border-bottom: 1px solid var\(--border\);/.test(css)) fail('public/style.css', 'the call\'s titlebar is drawn as the chat\'s (the module header\'s height, the border token)');
   if (!/heading: 'Call position'/.test(spaceJs)) fail(F, 'Call position is the menu\'s heading');
   if (!/\$\('call-place'\)\?\.addEventListener\('click'[\s\S]{0,400}openHostMenu\(anchor, callPlaceItems\)/.test(spaceJs)) fail(F, 'Call position opens on the shared menu (openHostMenu)');
   if (!/label: 'Call position', items: \(\) => callPlaceItems\(\)/.test(spaceJs)) fail(F, 'Chat\'s "..." has Call position too');
@@ -1581,7 +1636,10 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'canvas-check-'));
   const copy = path.join(tmp, 'call-toolbar.mjs');
   fs.copyFileSync(path.join(ROOT, 'public/call-toolbar.js'), copy);
-  const { foldCallToolbar, wrapRows } = await import(pathToFileURL(copy).href);
+  const { foldCallToolbar, wrapRows, callTitle } = await import(pathToFileURL(copy).href);
+  for (const [name, want] of [[undefined, 'Call'], ['', 'Call'], ['Conference', 'Call'], ['  Video  call ', 'Video call'], ['Video chat', 'Video chat']]) {
+    if (typeof callTitle !== 'function' || callTitle(name) !== want) fail('public/call-toolbar.js', `callTitle(${JSON.stringify(name)}) should be ${JSON.stringify(want)}`);
+  }
   fs.rmSync(tmp, { recursive: true, force: true });
   const W = 30;
   const toolbar = ({ share = true, link = false, w = W } = {}) => [

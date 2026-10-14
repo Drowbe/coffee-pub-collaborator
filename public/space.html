@@ -102,6 +102,14 @@
   <aside class="side-column" id="side-column" aria-label="Call and chat">
     <!-- The handle: collapses the column to a rail and back. space.js remembers it per space. -->
     <button class="side-column-toggle" id="side-column-toggle" type="button" aria-expanded="true" title="Collapse" aria-label="Collapse the call and chat"><i class="fa-solid fa-angles-left fa-fw" aria-hidden="true"></i></button>
+    <!-- The call's titlebar, as the chat's: its name (the environment's name for the conference, else Call) and a "..."
+         with Pop out, Call position, Show or Hide the video, Settings and Leave the call (space.js, the call's place). -->
+    <header class="side-column-call-head" id="call-head">
+      <span class="side-column-call-title"><i class="fa-solid fa-video fa-fw" aria-hidden="true" id="call-head-icon"></i> <span id="call-head-name">Call</span></span>
+      <span class="chat-tools">
+        <button class="sdk-more" id="call-more" type="button" title="More" aria-label="More for the call" aria-haspopup="menu"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
+      </span>
+    </header>
     <!-- The conference, as a strip of tiles while on the call (canvas.js puts it here). -->
     <div class="side-column-strip" id="side-column-strip"></div>
     <!-- The split between the call's strip and the chat: dragged, or Up and Down with the keyboard. Shown on the call. -->
@@ -136,6 +144,9 @@
          (Shift for more, Home and End for the least and the most, double-click or Shift+Enter for the default).
          space.js remembers the width per person (the chat's width preference). -->
     <div class="side-column-splitter side-column-splitter-v" id="side-column-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the chat column" tabindex="0" title="Drag to resize"></div>
+    <!-- Call position Left: the line between the call (on the left) and the chat, the same keys as the edge. Shown only
+         then; space.js remembers the call's width per person (prefs.callSideWidth). -->
+    <div class="side-column-splitter side-column-splitter-side" id="side-column-call-splitter" role="separator" aria-orientation="vertical" aria-label="Resize the call beside the chat" tabindex="0" title="Drag to resize" hidden></div>
   </aside>
   <!-- Everything in the call lives inside the canvas so it can pop out as one. -->
   <main class="canvas" id="canvas" hidden>

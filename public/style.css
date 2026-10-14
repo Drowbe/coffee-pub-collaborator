@@ -1305,6 +1305,54 @@ body.in-space .page-scroll {
   }
 }
 
+/* Home's chat dragged wide (space.js, applyHomeChatWidth): with too little room left beside it for the spaces and the
+   Modules side by side, the Modules go under the cards (as below 1200px); with almost none, the chat is all there is
+   and its edge stays inside the window to drag back. Not at 760px and below, where Home is one column. */
+@media (min-width: 761px) {
+  .home.chat-wide:not(:has(> .home-chat[hidden])) {
+    grid-template-columns: var(--home-chat-w) minmax(0, 1fr);
+    grid-template-areas: "chat main" "chat modules";
+    grid-template-rows: auto 1fr;
+  }
+
+  .home.chat-wide:not(:has(> .home-chat[hidden])):has(> .home-modules > .dashboard[hidden]) {
+    grid-template-areas: "chat main";
+    grid-template-rows: auto;
+  }
+
+  .home.chat-wide .home-main {
+    padding-bottom: 0;
+  }
+
+  .home.chat-wide .home-modules {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding: 18px 20px 24px;
+  }
+
+  .home.chat-wide .home-modules .dashboard {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+    align-items: start;
+  }
+
+  .home.chat-full:not(:has(> .home-chat[hidden])) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "chat";
+    grid-template-rows: auto;
+  }
+
+  .home.chat-full:not(:has(> .home-chat[hidden])) > .home-main,
+  .home.chat-full:not(:has(> .home-chat[hidden])) > .home-modules {
+    display: none;
+  }
+
+  .home.chat-full .home-chat-splitter {
+    right: 0;
+  }
+}
+
 /* 760px and below: one column, the spaces first, then the chat at a height of its own, then the Modules. The chat's strip
    and the phone's tabs are plan-home-lobby.md's step 6. */
 @media (max-width: 760px) {
@@ -10761,6 +10809,16 @@ h4.setup-subheading {
   display: none;
 }
 
+/* The column may take the whole window (Thomas, 2026-10-14): the canvas then gives way to nothing, never pushing the
+   page wider than the window (its docked columns would hold it at their width otherwise). */
+.work > .canvas {
+  min-width: 0;
+}
+
+.side-column {
+  max-width: 100%;
+}
+
 .side-column {
   --side-column-w: 320px;
   position: relative;
@@ -10795,6 +10853,38 @@ h4.setup-subheading {
 .side-column-toggle:hover {
   border-color: var(--border);
   color: var(--text);
+}
+
+/* The call's titlebar, as the chat's (.chat header): its name and a "...". Above the call wherever it sits in the
+   column; at the top it keeps clear of the handle (.side-column-toggle). */
+.side-column-call-head {
+  flex: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  height: var(--module-header-h);
+  padding: 0 38px 0 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 96%, transparent);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.side-column-call-head[hidden] {
+  display: none;
+}
+
+.side-column-call-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-column-call-title i {
+  color: var(--text-dim);
 }
 
 .side-column-toggle:focus-visible {
@@ -11130,6 +11220,7 @@ body.in-aside .side-column {
 }
 
 body.in-aside .side-column-toggle,
+body.in-aside .side-column-call-head,
 body.in-aside .side-column-splitter,
 body.in-aside .work > .canvas {
   display: none;
@@ -11163,9 +11254,15 @@ body.in-aside .side-column-strip > .canvas {
   order: 2;
 }
 
+.side-column.call-bottom .side-column-call-head,
 .side-column.call-bottom .side-column-strip,
 .side-column.call-bottom .side-column-call-out {
   order: 3;
+}
+
+.side-column.call-bottom .side-column-call-head {
+  padding-right: 8px;
+  border-top: 1px solid var(--border);
 }
 
 .side-column.call-bottom .side-column-bar {
@@ -11191,9 +11288,6 @@ body.in-aside .side-column-strip > .canvas {
   grid-template-rows: 0 auto;
 }
 
-.side-column.in-call.call-slim:not(.call-bottom) .side-column-strip .floatbar {
-  padding-right: 38px; /* clear of the handle */
-}
 
 /* Show or hide the video, at the end of the Join/Online row. */
 .side-column-tiles {
@@ -11268,6 +11362,88 @@ body.in-aside .side-column-strip > .canvas {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--on-accent);
+}
+
+/* Call position Left (space.js, callPlaceFor): in a column at least 560px wide the call sits beside the chat, the
+   column's full height: its titlebar, the tiles filling the height over the toolbar, then the Join/Online row; the chat
+   on the right with all of its parts. The line between them (#side-column-call-splitter) sets the call's width
+   (--side-column-call-w). The handle sits over the chat's titlebar, so that keeps clear of it. */
+.side-column.call-left {
+  display: grid;
+  grid-template-columns: var(--side-column-call-w, 320px) minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
+  grid-template-areas: "head chat" "strip chat" "out chat" "bar chat" "rest chat";
+}
+
+/* On the call with its tiles: the tiles take the height. */
+.side-column.call-left.in-call:not(.call-slim):not(.call-away) {
+  grid-template-rows: auto minmax(0, 1fr) auto auto 0;
+}
+
+.side-column.call-left > .side-column-call-head {
+  grid-area: head;
+  padding-right: 8px;
+}
+
+.side-column.call-left > .side-column-strip {
+  grid-area: strip;
+  min-width: 0;
+}
+
+.side-column.call-left > .side-column-call-out {
+  grid-area: out;
+  padding-right: 8px;
+}
+
+.side-column.call-left > .side-column-bar {
+  grid-area: bar;
+  min-width: 0;
+}
+
+body:not(.in-aside) .side-column.call-left > .side-column-chat {
+  grid-area: chat;
+  min-width: 0;
+  min-height: 0;
+  border-left: 1px solid var(--border);
+}
+
+.side-column.call-left .side-column-splitter-h {
+  display: none;
+}
+
+.side-column.call-left .side-column-strip > .canvas {
+  flex: 1 1 auto;
+  height: 100%;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.side-column.call-left.in-call.call-slim .side-column-strip > .canvas {
+  grid-template-rows: 0 auto;
+}
+
+.side-column.call-left #chat-content > header {
+  padding-right: 38px;
+}
+
+.side-column-splitter-side {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--side-column-call-w, 320px) - 4px);
+  width: 8px;
+  cursor: col-resize;
+}
+
+@media (pointer: coarse) {
+  .side-column-splitter-side {
+    left: calc(var(--side-column-call-w, 320px) - 7px);
+    width: 14px;
+  }
+}
+
+/* The column as wide as the window: its edge inside it, still there to drag back. */
+.side-column.full .side-column-splitter-v {
+  right: 0;
 }
 
 /* side-column:end */

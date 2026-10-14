@@ -2,7 +2,7 @@
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
 import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
-import { openPhaseSheet, chipFit } from '/phase-sheet.js';
+import { openPhaseSheet, bandShares, todayPercent } from '/phase-sheet.js';
 import { createSpaceSetup } from '/space-setup.js';
 import { actionBar } from '/action-bar.js';
 import { createCanvas } from '/canvas.js';
@@ -36,9 +36,9 @@ const $ = (id) => (id === 'canvas' ? canvasEl : document.getElementById(id) || c
 renderTopbar();
 if (new URLSearchParams(location.search).has('layout')) import('/layout-debug.js'); // a live geometry readout, see there
 // The space's own bar, a second row of the header (so it moves with the header when the app is popped out). Wider
-// than a phone it is empty and not drawn (Thomas, 2026-10-13: the Workspace's controls are in the top bar; the row
-// stays in the code, hides itself with nothing in it, style.css, and comes back should a tool be registered on it);
-// on a phone it is the tab bar at the foot of the page: the modules to open (canvas.js fills #modules-menu), Join,
+// than a phone it is the status strip (plan-space-status-strip.md, step 1: the phase chip and its track, in every view
+// while the space has phases; the Workspace's controls are in the top bar) and hides itself with nothing in it
+// (style.css); on a phone it is the tab bar at the foot of the page (the strip is then a line under the top row): the modules to open (canvas.js fills #modules-menu), Join,
 // Online, Rejoin call, the "..." and Leave.
 const subnav = document.createElement('div');
 subnav.className = 'subnav';
@@ -111,6 +111,7 @@ function placeSubnav() {
     window.hostModules?.updateMenu(); // tabs or switches (not yet made on the first call)
   }
   placeColumnTools(); // Join the call and Online: in the side column wider than a phone, in the bar (the tab bar) below
+  placeStatusStrip(tabs); // the status strip: this row wider than a phone, a line under the top row on a phone
   // The Workspace's tools (Layout, Full screen, Pop out, Pull participants back, a module's): in the top
   // bar wider than a phone, in the tab bar's "..." on a phone (nav-bar.js, `workspace`).
   nav.setWorkspace({ bar: tabs ? 'secondary' : 'primary' });
@@ -121,6 +122,8 @@ function placeSubnav() {
 }
 // Set further down, once Join the call and Online exist (the column section); nothing to place before that.
 let placeColumnTools = () => {};
+// Set further down with the status strip (the phase chip's section); nothing to place before that.
+let placeStatusStrip = () => {};
 placeSubnav();
 // The phone's tab bar: the Workspace's, first in the tab bar's left zone, only where the window is a phone's width.
 nav.register({ bar: 'secondary', zone: 'left', group: 'modules', id: 'module-chooser', order: 1, fold: false, icon: 'object-group', label: word('module', { many: true, cap: true }), element: moduleChooser, visible: () => phoneWidth(), workspace: 'only' });
@@ -1350,21 +1353,41 @@ if (columnEl) {
 placeColumnTools(); // now that the two exist
 // --- end the always-on column ---
 
-// --- the phase chip (phase-sheet.js) --------------------------------------------------------------------
-// "● Booking · day 2 of 3 ▾" in the top bar's left zone after the breadcrumb (plan-one-bar.md, decisions 7 to 10, step
-// 3): the template's phases (branding.phases) and this space's dates (its presence record's `phases` and `createdAt`,
-// refreshed by the presence poll, and by my own save) through the one rule, public/phases.js (window.Phases). Nothing
-// but the sheet opens from it (phases only inform). No chip with no phases, for a guest, in an aside or while home is
-// shown over the space. It gives way in steps (decision 9: the label, then the dot alone, then nothing): `fit(avail)`,
-// called by the registry's fit of the top bar (fitBar in nav-bar.js) with the width the rest of the bar leaves it. On a
-// phone (step 8) it is the dot and the phase's name alone (`.phase-chip-short`, the stylesheet picks it at 640px and
-// below); the whole words stay its name for a screen reader.
+// --- the status strip: the phase chip and its track (phase-sheet.js) ----------------------------------------------
+// The space's status, one line (plan-space-status-strip.md, step 1): "● Booking · day 2 of 3 ▾" and, beside it, the
+// track, the phases end to end. The template's phases (branding.phases) and this space's dates (its presence record's
+// `phases` and `createdAt`, refreshed by the presence poll, and by my own save) go through the one rule,
+// public/phases.js (window.Phases). Nothing but the sheet opens from it (phases only inform): the chip, a button, and
+// the track, a press target for the mouse (the chip is the keyboard's way). Shown on every layout tab whenever the
+// space has phases; never with no phases, for a guest, in an aside or while home is shown over the space.
+// Wider than a phone it is an element tool of the space bar's left zone (`phase-chip`, the `secondary` bar: that row is
+// the strip, style.css, --status-strip-h), with no `fit`: the track shrinks to its least width (48px) and then drops
+// to the next line, out of sight (style.css), and the chip keeps its label. On a phone the space bar is the tab bar at
+// the foot of the page, so placeSubnav() takes the same element out of the registry and puts it in the header as a line
+// under the top row: the dot and the phase's name alone (`.phase-chip-short`; the whole words stay its name for a
+// screen reader) and the track as a 2px line along its foot. The header moves to a popped-out window with the strip in it.
+// For a screen reader the strip is a region, "Status"; the chip's words sit in one polite status, written only when
+// the phase or the day changes, so the presence poll never makes it speak again.
+const statusStrip = document.createElement('div');
+statusStrip.id = 'status-strip';
+statusStrip.className = 'status-strip';
+statusStrip.setAttribute('role', 'region');
+statusStrip.setAttribute('aria-label', 'Status');
+statusStrip.hidden = true; // until a space with phases is entered
+const statusSaid = document.createElement('span');
+statusSaid.className = 'status-said';
+statusSaid.setAttribute('role', 'status');
 const phaseChip = document.createElement('button');
 phaseChip.type = 'button';
-phaseChip.id = 'phase-chip'; // an element tool keeps its own id (the registry only names the elements it draws)
-phaseChip.className = 'phase-chip core-link';
+phaseChip.id = 'phase-chip'; // keeps its own id (the registry only names the elements it draws)
+phaseChip.className = 'phase-chip';
 phaseChip.setAttribute('aria-haspopup', 'dialog');
 phaseChip.innerHTML = '<span class="phase-dot" aria-hidden="true"></span><span class="phase-chip-label"></span><span class="phase-chip-short" aria-hidden="true"></span><i class="fa-solid fa-caret-down fa-fw phase-chip-caret" aria-hidden="true"></i>';
+const statusTrack = document.createElement('span');
+statusTrack.className = 'status-track';
+statusTrack.setAttribute('aria-hidden', 'true'); // the chip's words carry it
+statusSaid.appendChild(phaseChip);
+statusStrip.append(statusSaid, statusTrack);
 let templatePhases = []; // the template's phases, from /api/branding, cleaned by the rule
 const phaseRule = () => window.Phases || null;
 const phaseSpaceRecord = () => (currentSpace && !currentSpace.isAside ? presenceSpaces.find((r) => r.id === currentSpace.id) || currentSpace : null);
@@ -1381,29 +1404,52 @@ function phaseTimeline() {
   if (!R || !space) return [];
   return R.timelineOf(templatePhases, space.phases || {}, { today: phaseToday(), created: space.createdAt });
 }
-function applyPhaseChipFit(state) {
-  phaseChip.classList.toggle('dot-only', state === 'dot');
-  phaseChip.classList.toggle('chip-gone', state === 'none');
-}
-function fitPhaseChip(avail = Infinity) {
-  if (!phaseChip.isConnected || phaseChip.hidden) return;
-  phaseChip.classList.remove('dot-only', 'chip-gone');
-  const full = phaseChip.getBoundingClientRect().width;
-  phaseChip.classList.add('dot-only');
-  const dot = phaseChip.getBoundingClientRect().width;
-  applyPhaseChipFit(chipFit({ avail, full, dot }));
+// The track: one segment per dated phase, as wide as its share of the timeline (bandShares, the sheet's own bar), the
+// phases before today's a pale fill, today's filled with a mark at today (todayPercent), the ones after an outline.
+// Drawn again only when a date or the day changes.
+function drawStatusTrack(bands, today) {
+  const R = phaseRule();
+  const key = JSON.stringify([today, bands.map((b) => [b.id, b.start, b.end])]);
+  if (statusTrack.dataset.drawn === key) return;
+  statusTrack.dataset.drawn = key;
+  const doc = statusTrack.ownerDocument;
+  const shares = bandShares(bands, { today, rule: R });
+  const segs = [];
+  bands.forEach((b, i) => {
+    if (!b.dated) return;
+    const seg = doc.createElement('span');
+    seg.className = 'status-band';
+    seg.style.flexGrow = String(shares[i].grow);
+    if (b.current) seg.classList.add('current');
+    else if (b.end && today > b.end) seg.classList.add('past');
+    const at = todayPercent(b, shares[i].days, today, { rule: R });
+    if (at !== null) {
+      const mark = doc.createElement('span');
+      mark.className = 'status-today';
+      mark.style.left = `${at}%`;
+      seg.appendChild(mark);
+    }
+    segs.push(seg);
+  });
+  statusTrack.replaceChildren(...segs);
 }
 function updatePhaseChip() {
   const R = phaseRule();
   const show = phaseChipWanted();
-  nav.draw('primary');
+  if (statusStrip.hidden === show) statusStrip.hidden = !show; // the registry writes the same when the strip is its tool
+  nav.draw('secondary');
   if (!show || !R) return;
-  const words = R.chipWords(phaseTimeline(), phaseToday());
-  phaseChip.querySelector('.phase-chip-label').textContent = words;
-  phaseChip.querySelector('.phase-chip-short').textContent = words.split(' · ')[0]; // the phase's name alone, for a phone
-  phaseChip.title = `${words}. Phases`;
-  phaseChip.setAttribute('aria-label', `${words}. Phases`);
-  nav.draw('primary'); // the words changed: the bar fits the chip again (fitBar)
+  const today = phaseToday();
+  const bands = phaseTimeline();
+  const words = R.chipWords(bands, today);
+  // Written only when they change: the status is polite, and the presence poll runs this every few seconds.
+  if (phaseChip.querySelector('.phase-chip-label').textContent !== words) {
+    phaseChip.querySelector('.phase-chip-label').textContent = words;
+    phaseChip.querySelector('.phase-chip-short').textContent = words.split(' · ')[0]; // the phase's name alone, for a phone
+    phaseChip.title = `${words}. Phases`;
+    phaseChip.setAttribute('aria-label', `${words}. Phases`);
+  }
+  drawStatusTrack(bands, today);
 }
 async function savePhases(dates) {
   const { space } = await api('PATCH', `/api/spaces/${encodeURIComponent(currentSpace.id)}`, { phases: dates });
@@ -1430,20 +1476,33 @@ function openPhaseSheetFrom(opener) {
   });
 }
 phaseChip.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
-// Its words give way right after the layout tabs (plan-layout-views.md, decision 17): the tabs are fitted first
-// (`yieldFirst`, their "..." takes the tabs that do not fit), the chip takes what they leave (nav-bar.js, fitLeft), and
-// only then does anything fold.
-nav.register({ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', groupOrder: 20, order: 1, icon: 'circle', label: 'Phases', element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip });
-// --- end the phase chip ---
+statusTrack.addEventListener('click', () => openPhaseSheetFrom(phaseChip));
+// The strip as a tool of the space bar's left zone, wider than a phone; no fit (the track gives way, style.css).
+const STATUS_STRIP_TOOL = { id: 'phase-chip', bar: 'secondary', zone: 'left', group: 'status', order: 1, icon: 'circle', label: 'Status', element: statusStrip, visible: phaseChipWanted };
+// Phone or wide (placeSubnav, `tabs`): wider, the registry's tool in the space bar; on a phone, out of the registry
+// (which would put it back in the tab bar) and into the header after the top row, before the tab bar when that is the
+// header's row too (a narrow popped-out window).
+placeStatusStrip = (tabs) => {
+  if (tabs) {
+    if (nav.get('phase-chip')) nav.unregister('phase-chip');
+    const before = subnav.parentNode === topbarEl ? subnav : null;
+    if (statusStrip.parentNode !== topbarEl || statusStrip.nextSibling !== before) topbarEl.insertBefore(statusStrip, before);
+    statusStrip.hidden = !phaseChipWanted();
+  } else if (!nav.get('phase-chip') || statusStrip.parentNode === topbarEl) {
+    nav.register(STATUS_STRIP_TOOL);
+  }
+};
+placeStatusStrip(phoneWidth());
+// --- end the status strip ---
 
 // --- the one bar: the switcher (plan-one-bar.md, decisions 1, 6, 9 and 10, step 7) -----------------------------------
 // In a space the top bar's left zone is the space's name with the switcher's caret as one control (`space-switcher`,
 // in the breadcrumb's place: the breadcrumb is not drawn beside it wider than a phone, and the Spaces slot leaves the
 // bar, setInSpace), then the layout tabs (Workspace, Calendar, Map and the favorites: plan-layout-views.md, further
-// down), then the phase chip. Calendar and Map are layouts: their composite on the canvas, beside the always-on
+// down); the phase chip is the status strip's, under the bar (plan-space-status-strip.md). Calendar and Map are layouts: their composite on the canvas, beside the always-on
 // column, with no Away. A guest's bar is the name alone (the breadcrumb); an aside's is the switcher, Rejoin call (the
 // right zone) and your picture. On a phone (step 8) the one row is the switcher (the breadcrumb is not drawn beside it
-// at any width), the chip as a dot and the phase's name, the bell and the menu; there are no layout tabs there: the tab
+// at any width), the bell and the menu (the chip is the status strip's line under it); there are no layout tabs there: the tab
 // bar holds a tab per module open, Calendar and Map as their composites' tabs (canvas.js), and the column is not drawn.
 const oneBar = () => Boolean(currentSpace) && !viewingHome && !guestToken && me?.role !== 'guest';
 // The Workspace's tools (the Layout menu, Full screen, Pop out, a module's: nav-bar.js, `workspace: 'only'`) show on
@@ -2160,8 +2219,8 @@ function startChangeIcon(layoutId) {
 // another tab is shown the canvas writes nothing (canvas.holdMemory), so the Workspace comes back as it was; the
 // Layout menu, Full screen and Pop out stay on every tab (workspaceShown). When the bar is tight
 // the tabs leave from the right into a "..." after the last one shown (tabOverflow()), which opens the shared menu
-// listing them, each with its icon; the Workspace and the tab shown never leave. That happens first, before the phase
-// chip's words give way (`yieldFirst`, nav-bar.js's fitLeft). No tabs for a guest, in an aside, while home is shown,
+// listing them, each with its icon; the Workspace and the tab shown never leave. That happens first, before anything
+// folds (`yieldFirst`, nav-bar.js's fitLeft; the phase chip is no longer in this bar: plan-space-status-strip.md). No tabs for a guest, in an aside, while home is shown,
 // or on a phone (640px and below: the tab bar holds the composites as module tabs). A load that leaves something out
 // says so under the tab for 6 seconds (#layout-favorites-note, seen) and to #layout-announce (heard, layoutNote).
 const layoutTabsEl = document.createElement('span');
@@ -4425,7 +4484,7 @@ function updateCrumb() {
   if (settingUp && !canSetUp()) spaceSetup.cancel(); // home over the space, an aside, a space left: Set up ends
   placeSetupName(); // while setting up, the current segment is the name's input
   nav.draw('secondary');
-  updatePhaseChip(); // the chip follows the breadcrumb: shown in a space, gone on home, in an aside and for a guest
+  updatePhaseChip(); // the strip follows the breadcrumb: shown in a space, gone on home, in an aside and for a guest
 }
 
 // `joinCall`: a pull moving my call with me (reconnectTo); entering a space never joins by itself, unless the
@@ -6157,7 +6216,7 @@ async function init() {
     autoJoinCall: branding.autoJoinCall === true, // entering a space joins the call (GitHub #199); off unless the owner turned it on
   };
   applyFeatureFlags();
-  // The template's phases (plan-one-bar.md, step 3) come with the branding; none, no chip.
+  // The template's phases (plan-one-bar.md, step 3) come with the branding; none, no status strip.
   templatePhases = phaseRule() ? phaseRule().cleanPhases(branding.phases) : [];
   // The topbar dropped its own version readout -- too cramped alongside
   // everything else there. It's in the title bar instead, which reads as

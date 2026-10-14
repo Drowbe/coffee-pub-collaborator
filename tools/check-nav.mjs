@@ -200,14 +200,15 @@ test('on a phone the primary bar folds: the left stays, the bell stays (phone: \
   assert.deepEqual(z.right.map((run) => run.map((x) => x.id)), [[], ['menu-home', 'whoami-link', 'account-profile']], 'everything else from the right, without the bell, in the menu (the first run, a left tool that says phone: \'menu\', is empty here)');
   assert.ok(!('middle' in z), 'no middle zone (plan-two-zone-nav.md)');
   // The registry's rule (plan-one-bar.md, step 8): left-zone tools that say phone: 'menu' are the menu's first entries,
-  // their own run ahead of the right zone's; the switcher and the chip stay in the row. No space tool says it any more
+  // their own run ahead of the right zone's; the switcher stays in the row (the phase chip is not in the top bar: it is
+  // the status strip's, plan-space-status-strip.md). No space tool says it any more
   // (the views became layout tabs, plan-layout-views.md step 3), but the rule stays the registry's.
   const inSpace = {
-    left: [t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('topbar-crumb', 'left', { group: 'where', order: 10 }), t('menu-first-a', 'left', { group: 'views', groupOrder: 12, order: 1, phone: 'menu' }), t('menu-first-b', 'left', { group: 'views', groupOrder: 12, order: 2, phone: 'menu' }), t('phase-chip', 'left', { group: 'phase', groupOrder: 20, order: 1 })],
+    left: [t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('topbar-crumb', 'left', { group: 'where', order: 10 }), t('menu-first-a', 'left', { group: 'views', groupOrder: 12, order: 1, phone: 'menu' }), t('menu-first-b', 'left', { group: 'views', groupOrder: 12, order: 2, phone: 'menu' })],
     right: [t('menu-environment', 'right', { group: 'menu-where', groupOrder: 1, order: 1 }), t('notifications-bell', 'right', { order: 90, phone: 'bar' }), t('whoami-link', 'right', { group: 'you', order: 999 })],
   };
   const s = phoneZones(inSpace);
-  assert.deepEqual(s.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'topbar-crumb', 'phase-chip']], 'the row: the switcher (the stylesheet hides the breadcrumb beside it) and the chip');
+  assert.deepEqual(s.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'topbar-crumb']], 'the row: the switcher (the stylesheet hides the breadcrumb beside it)');
   assert.deepEqual(s.bar.map((run) => run.map((x) => x.id)), [['notifications-bell']], 'the bell');
   assert.deepEqual(s.right.map((run) => run.map((x) => x.id)), [['menu-first-a', 'menu-first-b'], ['menu-environment', 'whoami-link']], 'the phone: \'menu\' tools first, then the menu\'s own entries');
   assert.deepEqual(phoneZones(inSpace), s, 'the same answer for the same input');
@@ -220,7 +221,7 @@ test('on a phone the primary bar folds: the left stays, the bell stays (phone: \
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.ok(!/phone: 'menu'/.test(space), 'the space page registers no views for the phone\'s menu (plan-layout-views.md, step 3): the tab bar reaches Calendar and Map');
   assert.match(navSrc, /right: \[byZone\.left\.filter\(toMenu\), byZone\.right\.filter\(\(t\) => !stays\(t\)\)\]/, 'the menu\'s first run is the left zone\'s phone: \'menu\' tools');
-  assert.match(navSrc, /if \(phoneNow && bar === 'primary'\) \{\n\s*for \(const t of tools\.values\(\)\) \{\n[^\n]*\n\s*try \{ t\.fit\(Infinity\); \}/, 'on a phone every fitting tool of the top bar is whole again (the chip is never left gone)');
+  assert.match(navSrc, /if \(phoneNow && bar === 'primary'\) \{\n\s*for \(const t of tools\.values\(\)\) \{\n[^\n]*\n\s*try \{ t\.fit\(Infinity\); \}/, 'on a phone every fitting tool of the top bar is whole again (the layout tabs are never left folded)');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8') + fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');
   assert.ok(!/keepOnPhone/.test(src), 'keepOnPhone is gone: nothing stays in the bar on a phone');
 });
@@ -445,7 +446,7 @@ test('Online gets the width the rest of the left zone and the right zone leave, 
   assert.match(left, /const rest = naturalWidth\(b\.zones\.left, els\.get\(t\.id\), \{ margins: false \}\);/);
   assert.match(left, /fitWidth\(\{ width, gap, left: rest\.w \+ \(rest\.n \? rest\.gap : 0\), right \}\)/);
   const fit = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
-  assert.match(fit, /fitLeft\(bar, \{ width, gap, right: r\.w \}\);/, 'Online (and the top bar\'s chip and favorites) is given the width the right zone at its full width leaves');
+  assert.match(fit, /fitLeft\(bar, \{ width, gap, right: r\.w \}\);/, 'Online (and the top bar\'s layout tabs and favorites) is given the width the right zone at its full width leaves');
   assert.ok(fit.indexOf('fitLeft(bar') < fit.indexOf('const leftWidth'), 'the left zone is measured after it has shrunk');
   assert.match(fit, /foldCount\(\{ width, gap, left: leftWidth, right: r\.w, more: moreWidth, steps: stepWidths \}\)/);
   const bar = src.slice(src.indexOf('function fitBar('), src.indexOf('function paintMoreBadge('));
@@ -661,16 +662,17 @@ test('the layout tabs (plan-layout-views.md, steps 2 and 3): after the switcher 
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   const src = fs.readFileSync(path.join(ROOT, 'public/nav-bar.js'), 'utf8');
   const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
-  // One element tool in the views' group, right after the switcher (group `where`), before the chip (groupOrder 20);
-  // fitted first with the chip at its fullest (`yieldFirst`), so the tabs give way before the chip's words.
+  // One element tool in the views' group, right after the switcher (group `where`); fitted first (`yieldFirst`), so the
+  // favorites give way before anything folds. The phase chip is not in the top bar (plan-space-status-strip.md, step 1).
   assert.match(space, /nav\.register\(\{ id: 'layout-tabs', bar: 'primary', zone: 'left', group: 'views', groupOrder: 12, order: 10, icon: 'columns', label: 'Layouts', element: layoutTabsEl, visible: layoutTabsWanted, fit: fitLayoutTabs, yieldFirst: true \}\);/);
-  assert.ok(!/id: 'phase-chip',[^\n]*(fitFirst|yieldFirst)/.test(space), 'the chip is fitted after the tabs');
+  assert.ok(!/id: 'phase-chip', bar: 'primary'/.test(space), 'the chip is not in the top bar');
+  assert.ok(!/nav\.register\(\{ [^\n]*bar: 'primary'[^\n]*element: (phaseChip|statusStrip)/.test(space), 'nor is the strip');
+  assert.equal((space.match(/fit: fitLayoutTabs/g) || []).length, 1, 'the layout tabs are the top bar\'s one left-zone tool that gives way');
   const left = [
-    { id: 'phase-chip', group: 'phase', groupOrder: 20, order: 1, seq: 1 },
     { id: 'layout-tabs', group: 'views', groupOrder: 12, order: 10, seq: 5 },
     { id: 'space-switcher', group: 'where', order: 9.5, seq: 2 },
   ];
-  assert.deepEqual(arrange(left).flat().map((t) => t.id), ['space-switcher', 'layout-tabs', 'phase-chip'], 'the switcher, the tabs, the chip');
+  assert.deepEqual(arrange(left).flat().map((t) => t.id), ['space-switcher', 'layout-tabs'], 'the switcher, the tabs');
   assert.ok(!/id: 'view-workspace'|`dest-\$\{|spaceViews/.test(space), 'no view tools beside the tabs (plan-layout-views.md, step 3)');
   assert.match(space, /const layoutTabsWanted = \(\) => oneBar\(\) && !inAside\(\) && !phoneWidth\(\) && layoutTabList\(\)\.length > 0;/, 'never for a guest, in an aside, home over the space, or on a phone');
   assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.topbar > \.nav-left > \.layout-tabs \{\n\s*display: none;/);
@@ -1220,11 +1222,11 @@ test('the Workspace\'s controls in the top bar (Thomas, 2026-10-13): Workspace t
   // of the bar's own (Set up, first in that run: "Settings should go right before the window controls").
   const t = (id, zone, extra = {}) => ({ id, bar: 'primary', zone, ...extra });
   const byZone = {
-    left: [t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('layout-tabs', 'left', { group: 'views', groupOrder: 12, order: 10 }), t('phase-chip', 'left', { group: 'phase', groupOrder: 20, order: 1 })],
+    left: [t('space-switcher', 'left', { group: 'where', order: 9.5 }), t('layout-tabs', 'left', { group: 'views', groupOrder: 12, order: 10 })],
     right: [t('setup', 'right', { group: 'space', groupOrder: 85, order: 1, place: 'end' }), t('notifications-bell', 'right', { group: 'notices', groupOrder: 90, order: 90 }), t('fullscreen-toggle', 'right', { group: 'space', groupOrder: 1, order: 11, workspace: 'only', place: 'end' }), t('todo:mine', 'right', { group: 'todo:own', groupOrder: 500, order: 500, workspace: 'only' }), t('topbar-more', 'right', { group: 'more', groupOrder: 999, order: 998, workspace: 'every', more: 'primary' }), t('whoami-link', 'right', { group: 'you', groupOrder: 999, order: 999 }), t('recall-button', 'right', { group: 'space', groupOrder: 1, order: 51, workspace: 'every' }), t('modules-toggle', 'right', { group: 'notices', groupOrder: 90, order: 89, workspace: 'only', place: 'own' }), t('popout', 'right', { group: 'space', groupOrder: 1, order: 12, workspace: 'only', place: 'end' })],
   };
   const w = wideZones(byZone);
-  assert.deepEqual(w.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'layout-tabs', 'phase-chip'], []], 'the left zone: the bar\'s own (the layout tabs after the switcher), then the Workspace\'s (none now)');
+  assert.deepEqual(w.left.map((run) => run.map((x) => x.id)), [['space-switcher', 'layout-tabs'], []], 'the left zone: the bar\'s own (the layout tabs after the switcher; the chip is the status strip\'s), then the Workspace\'s (none now)');
   assert.deepEqual(w.right.map((run) => run.map((x) => x.id)), [['todo:mine', 'topbar-more', 'recall-button'], ['notifications-bell', 'whoami-link', 'modules-toggle'], ['setup', 'fullscreen-toggle', 'popout']], 'the right zone: the Workspace\'s tools and the "..." first, then the bar\'s own with Layout (no favorites: they are tabs now), then Set up, Full screen and Pop out');
   assert.deepEqual(w.bar, [], 'nothing in the phone\'s place');
   assert.deepEqual(ids(arrange(w.right[0])), [['recall-button'], ['todo:mine'], ['topbar-more']], 'within the run: the space\'s group, a module\'s groups, then the "..."');
@@ -1900,30 +1902,65 @@ test('destinations: brand.js registers them from GET /api/destinations, wider on
   assert.match(sys, /if \(guest \|\| hostConsole\) return;/);
 });
 
-// The phase chip and its sheet (plan-one-bar.md, decisions 7 to 10, step 3): the chip's three steps of giving way, the
+// The phase chip and its sheet (plan-one-bar.md, decisions 7 to 10, step 3; plan-space-status-strip.md, step 1): the
+// status strip that holds the chip and its track, the
 // bands' widths, the today line, the boundaries the sheet offers and the sentences a person reads.
 const sheetCopy = path.join(tmp, 'phase-sheet.mjs');
 fs.mkdirSync(tmp, { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'public/phase-sheet.js'), sheetCopy);
 fs.copyFileSync(path.join(ROOT, 'public/action-bar.js'), path.join(tmp, 'action-bar.js')); // the sheet imports it
-const { chipFit, bandShares, todayPercent, rowsOf, plainDays, tintOf, TINTS } = await import(pathToFileURL(sheetCopy).href);
+const { bandShares, todayPercent, rowsOf, plainDays, tintOf, TINTS } = await import(pathToFileURL(sheetCopy).href);
 const Phases = createRequire(import.meta.url)('../public/phases.js');
 fs.rmSync(tmp, { recursive: true, force: true });
 const TRAVEL = [{ id: 'planning', label: 'Planning' }, { id: 'booking', label: 'Booking' }, { id: 'buffer', label: 'Buffer' }, { id: 'pre-trip', label: 'Pre-trip' }, { id: 'trip', label: 'Trip', main: true }, { id: 'post-trip', label: 'Post-trip' }];
 const CREATED = '2026-09-01T12:00:00.000Z';
 
-test('the phase chip: a left-zone element tool after the anchor, dialog on press, gives way label, dot, gone', () => {
+test('the status strip: the chip and its track, a tool of the space bar\'s left zone with no fit, a line under the top row on a phone', () => {
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
-  assert.match(space, /nav\.register\(\{ id: 'phase-chip', bar: 'primary', zone: 'left', group: 'phase', groupOrder: 20, order: 1, [^\n]*element: phaseChip, visible: phaseChipWanted, fit: fitPhaseChip \}\)/, 'its own group after the views (12), with fit (the registry\'s fitBar gives it its width)');
-  assert.ok(!/phaseChipWidth|phaseChipZoneWatch/.test(space), 'the chip no longer measures its own width: fitBar does');
-  assert.match(space, /function fitPhaseChip\(avail = Infinity\)/);
+  const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
+  // Registered on the space bar's left zone (the row wider than a phone), with no fit: the track gives way instead.
+  assert.match(space, /const STATUS_STRIP_TOOL = \{ id: 'phase-chip', bar: 'secondary', zone: 'left', group: 'status', order: 1, [^\n]*element: statusStrip, visible: phaseChipWanted \};/, 'the strip is the space bar\'s left-zone tool');
+  assert.ok(!/id: 'phase-chip'[^\n]*(fit:|fitFirst|yieldFirst)/.test(space), 'no fit on the chip in the strip');
+  assert.ok(!/function fitPhaseChip|applyPhaseChipFit|chipFit/.test(space), 'the chip\'s old fit is gone');
+  assert.ok(!/export function chipFit/.test(fs.readFileSync(path.join(ROOT, 'public/phase-sheet.js'), 'utf8')), 'and so is chipFit');
+  // The chip keeps its id, its button, dot and words, and opens the sheet; the track opens it too.
+  assert.match(space, /phaseChip\.id = 'phase-chip';/);
   assert.match(space, /phaseChip\.setAttribute\('aria-haspopup', 'dialog'\)/);
-  assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && templatePhases\.length > 0/, 'no chip with no phases, for a guest, in an aside, or with home over the space');
+  assert.match(space, /phaseChip\.innerHTML = '<span class="phase-dot" aria-hidden="true"><\/span><span class="phase-chip-label"><\/span><span class="phase-chip-short" aria-hidden="true"><\/span>/);
+  assert.match(space, /phaseChip\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);\nstatusTrack\.addEventListener\('click', \(\) => openPhaseSheetFrom\(phaseChip\)\);/);
+  // A region named Status; the chip's words in one polite status, written only when they change; the track hidden from
+  // a screen reader (the words carry it).
+  assert.match(space, /statusStrip\.setAttribute\('role', 'region'\);\nstatusStrip\.setAttribute\('aria-label', 'Status'\);/);
+  assert.match(space, /statusSaid\.setAttribute\('role', 'status'\);/);
+  assert.match(space, /statusSaid\.appendChild\(phaseChip\);\nstatusStrip\.append\(statusSaid, statusTrack\);/);
+  assert.match(space, /statusTrack\.setAttribute\('aria-hidden', 'true'\);/);
+  assert.match(space, /if \(phaseChip\.querySelector\('\.phase-chip-label'\)\.textContent !== words\) \{/, 'the status changes only with the phase or the day');
+  // Shown only with phases, never for a guest, in an aside, or with home over the space; redrawn from the presence poll.
+  assert.match(space, /const phaseChipWanted = \(\) => Boolean\(currentSpace\) && !inAside\(\) && !viewingHome && !guestToken && me\?\.role !== 'guest' && templatePhases\.length > 0/, 'no strip with no phases, for a guest, in an aside, or with home over the space');
+  assert.ok(!/phaseChipWanted = [^\n]*(currentLayoutTab|workspaceShown)/.test(space), 'on every layout tab');
   assert.match(space, /updatePhaseChip\(\); \/\/ the space's dates ride on its presence record/, 'redrawn from the presence poll');
-  assert.equal(chipFit({ avail: 200, full: 150, dot: 40 }), 'full');
-  assert.equal(chipFit({ avail: 100, full: 150, dot: 40 }), 'dot');
-  assert.equal(chipFit({ avail: 30, full: 150, dot: 40 }), 'none');
-  assert.equal(chipFit({ avail: Infinity, full: 150, dot: 40 }), 'full');
+  // The track: one segment per dated phase, its share from bandShares, today's filled, a mark at todayPercent.
+  const track = space.slice(space.indexOf('function drawStatusTrack('), space.indexOf('function updatePhaseChip('));
+  assert.match(track, /const shares = bandShares\(bands, \{ today, rule: R \}\);/);
+  assert.match(track, /if \(!b\.dated\) return;/, 'no segment for an undated phase');
+  assert.match(track, /seg\.style\.flexGrow = String\(shares\[i\]\.grow\);/);
+  assert.match(track, /if \(b\.current\) seg\.classList\.add\('current'\);/);
+  assert.match(track, /const at = todayPercent\(b, shares\[i\]\.days, today, \{ rule: R \}\);/);
+  // placeSubnav() places it: the registry's tool wider than a phone, out of the registry and into the header on a phone.
+  const placeSub = space.slice(space.indexOf('function placeSubnav()'), space.indexOf('\nplaceSubnav();'));
+  assert.match(placeSub, /placeStatusStrip\(tabs\);/);
+  assert.ok(placeSub.indexOf('placeStatusStrip(tabs)') < placeSub.indexOf('if (popped)'), 'popped out too: the strip follows the header');
+  const place = space.slice(space.indexOf('placeStatusStrip = (tabs) => {'), space.indexOf('placeStatusStrip(phoneWidth());'));
+  assert.match(place, /if \(nav\.get\('phase-chip'\)\) nav\.unregister\('phase-chip'\);/);
+  assert.match(place, /topbarEl\.insertBefore\(statusStrip, before\)/);
+  assert.match(place, /nav\.register\(STATUS_STRIP_TOOL\);/);
+  // The stylesheet: one fixed height (a token), the row on every layout tab, the track's least and its way out.
+  assert.match(css, /\n\s*--status-strip-h: 28px;/, 'the token');
+  assert.match(css, /\.status-strip \{\n\s*display: flex;\n\s*flex-wrap: wrap;[^}]*height: calc\(var\(--status-strip-h\) - 1px\);[^}]*overflow: hidden;/, 'one line: what does not fit wraps out of sight');
+  assert.match(css, /body\.in-space \.subnav:has\(> \.nav-left > \.status-strip:not\(\[hidden\]\)\) \{\n\s*box-sizing: border-box;\n\s*height: var\(--status-strip-h\);/, 'the row is the strip\'s height');
+  assert.match(css, /\.status-track \{\n\s*display: flex;\n\s*flex: 1 1 48px;\n\s*gap: 2px;\n\s*min-width: 48px;/, 'the track shrinks to 48px');
+  assert.match(css, /\.topbar > \.status-strip \.status-track \{\n\s*position: absolute;[^}]*height: 2px;/, 'on a phone a 2px track along the foot');
+  assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no strip row in an aside');
 });
 
 test('the sheet\'s bar: each band\'s share is its days, an open-ended one runs past today, an undated one has none, the today line in its band', () => {
@@ -2168,7 +2205,9 @@ test('the one bar: the switcher in the Spaces slot\'s place, the layout tabs aft
   assert.ok(!/\.view-frame/.test(css), 'the canvas never gives its place to a view');
   assert.match(css, /\n\.topbar > \.nav-left > \.space-switcher:not\(\[hidden\]\) ~ \.crumb \{\n\s*display: none;/, 'the breadcrumb is not drawn beside the switcher, at any width (step 8)');
   assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.topbar \.space-switcher-button \{\n\s*height: auto;\n\s*min-height: 44px;/, 'on a phone the switcher is the row\'s name, a 44px target');
-  assert.match(css, /\.topbar \.phase-chip \.phase-chip-short \{\n\s*display: inline-block;\n\s*max-width: 6em;/, 'on a phone the chip reads the phase\'s name alone, cut at 6em');
+  assert.match(css, /@media \(max-width: 640px\) \{\n\s*\.topbar:has\(> \.status-strip:not\(\[hidden\]\)\) \{\n\s*flex-wrap: wrap;/, 'on a phone the strip is a line of the header under the top row');
+  assert.match(css, /\.status-strip \.phase-chip \.phase-chip-short \{\n\s*display: inline-block;\n\s*max-width: 12em;/, 'on a phone the chip reads the phase\'s name alone, cut at 12em');
+  assert.ok(!/\.topbar \.phase-chip/.test(css), 'no rule for a chip in the top row');
   assert.match(space, /phaseChip\.querySelector\('\.phase-chip-short'\)\.textContent = words\.split\(' · '\)\[0\];/, 'the short words are the phase\'s name');
   assert.ok(!/\.crumb-here:has\(> \.setup-bar-name\)/.test(css) && !/crumb-here\[aria-current="location"\] \.crumb-label/.test(space), 'Set up\'s input has one place, the switcher, at every width (nothing left in the breadcrumb)');
   assert.match(css, /body\.in-space\.in-aside \.subnav \{\n\s*display: none;/, 'no Workspace toolbar in an aside');

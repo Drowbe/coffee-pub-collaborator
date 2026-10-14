@@ -48,6 +48,10 @@
   /* The status bar at the bottom of a module's own window or column (host.status.set): one slim, fixed line.
      public/sdk/host.css has the same token. */
   --status-bar-h: 24px;
+  /* The space's status strip (plan-space-status-strip.md: the phase chip and its track): one fixed line, the header's
+     second row wider than a phone and a line under the top row on a phone, so it never changes the header's height as
+     its words arrive. Not the module status bar above. */
+  --status-strip-h: 28px;
   /* The height of every control in the shared bottom row (the call toolbar's buttons, the chat's input and
      Send), so they line up whatever cell they are in. */
   --bar-control-h: 38px;
@@ -1760,7 +1764,7 @@ body.in-space .subnav {
 }
 
 /* A bar never lets its zones run into each other (nav-bar.js, "the bars' ..."): what can give way does (Online, the
-   favorites, the phase chip: their fit), then what does not fit folds into the bar's "..." (.nav-folded: the space
+   layout tabs and the favorites: their fit), then what does not fit folds into the bar's "..." (.nav-folded: the space
    bar's before Leave, the top bar's after the Workspace's tools). The zones' own items keep their size. */
 .subnav .nav-folded,
 .topbar > .nav-right > .nav-folded {
@@ -1848,7 +1852,7 @@ body.in-space .subnav {
   width: max-content;
 }
 
-/* The top bar the same way while nav-bar.js fits its chip (fitBar): nothing in its left zone shrinks for a moment. */
+/* The top bar the same way while nav-bar.js fits its layout tabs (fitBar): nothing in its left zone shrinks for a moment. */
 .topbar.nav-measuring > .nav-left {
   max-width: none;
   width: max-content;
@@ -7534,7 +7538,7 @@ body.module-page .module-status {
     color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
   }
 
-  /* The chip's phone rules (the dot and the phase's name) are with its own, at phase-chip:start. */
+  /* The phase chip is not in this row: it is the status strip's line under it (status-strip:start). */
 
   .topbar.menu-open .links .whoami-caret {
     display: none;
@@ -8685,27 +8689,83 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 @media (max-width: 640px) { .published-calendar { margin-left: 0; } }
 /* calendars-tab:end */
 
-/* phase-chip:start -- the phase chip in the top bar's left zone after the breadcrumb (plan-one-bar.md, decisions 7 to
-   10, step 3; space.js): a dot and the words ("● Booking · day 2 of 3 ▾") in the bar's link look, a button that opens
-   the timeline sheet. It gives way in steps (space.js fitPhaseChip): the label goes (.dot-only), then the whole chip
-   (.chip-gone). The dot never stands alone for meaning: the words stay its name. */
-.topbar .phase-chip {
-  flex: none;
+/* status-strip:start -- the space's status strip (plan-space-status-strip.md, step 1; space.js, "the status strip"):
+   the phase chip ("● Booking · day 2 of 3 ▾", a button that opens the timeline sheet) and the track beside it (the
+   phases end to end, today's filled, a mark at today; a press opens the sheet too). Wider than a phone it is the space
+   bar's left zone (.subnav, the header's second row) and that row is --status-strip-h tall; on a phone it is a line of
+   the header under the top row (space.js placeSubnav moves it). One line only: the track shrinks to 48px, then drops
+   to a second line the strip does not show; the chip keeps its label. The dot never stands alone for meaning: the
+   words stay the chip's name. Colours from the theme's tokens only. */
+.status-strip {
+  display: flex;
+  flex-wrap: wrap; /* the track's way out: below 48px it wraps onto a line that is cut off */
+  align-items: center;
+  column-gap: 10px;
+  box-sizing: border-box;
+  height: calc(var(--status-strip-h) - 1px); /* the row's 1px top rule makes it --status-strip-h */
+  min-width: 0;
+  overflow: hidden;
+}
+
+.status-strip[hidden] {
+  display: none;
+}
+
+.subnav .nav-left > .status-strip {
+  flex: 1 1 auto;
+}
+
+/* The left zone holding the strip spans the row, so the track has its room to grow. */
+body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
+  justify-self: stretch;
+}
+
+/* The space bar holding the strip is the strip's height, every layout tab alike (the empty row still hides itself). */
+@media (min-width: 641px) {
+  body.in-space .subnav:has(> .nav-left > .status-strip:not([hidden])) {
+    box-sizing: border-box;
+    height: var(--status-strip-h);
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+}
+
+.status-said {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
+
+.status-strip .phase-chip {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  min-width: 0;
+  padding: 0 8px;
   border: 0;
+  border-radius: 6px;
   background: none;
+  color: var(--icon, color-mix(in srgb, var(--header-text) 75%, transparent));
   font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-.topbar .phase-chip[aria-expanded="true"],
-.topbar .phase-chip:hover {
+.status-strip .phase-chip[aria-expanded="true"],
+.status-strip .phase-chip:hover {
   color: var(--icon-hover);
   background: color-mix(in srgb, var(--icon-hover) 14%, transparent);
 }
 
-.topbar .phase-chip:focus-visible {
+.status-strip .phase-chip:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 1px;
+  outline-offset: -2px; /* inside the strip, which cuts what passes its edge */
 }
 
 .phase-dot {
@@ -8720,40 +8780,114 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   font-size: 11px;
 }
 
-.topbar .phase-chip.dot-only .phase-chip-label {
-  display: none;
+.status-strip .phase-chip .phase-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* The phase's name alone, for a phone (below). */
-.topbar .phase-chip .phase-chip-short {
+.status-strip .phase-chip .phase-chip-short {
   display: none;
 }
 
-.topbar .phase-chip.chip-gone {
-  display: none;
+/* The track: a least of 48px (else it wraps out of sight), up to 320px. */
+.status-track {
+  display: flex;
+  flex: 1 1 48px;
+  gap: 2px;
+  min-width: 48px;
+  max-width: 320px;
+  height: 6px;
+  cursor: pointer;
 }
 
-/* On a phone (plan-one-bar.md, step 8) the chip is the dot and the phase's name alone (space.js fills
-   .phase-chip-short; the whole words stay its name), never past 6em so the space's name keeps its room, a 44px target.
-   Nothing fits it there (nav-bar.js fitBar makes it whole), so it is never left as a dot or gone from a wider window. */
+.status-band {
+  position: relative;
+  flex-basis: 0;
+  min-width: 3px;
+  border-radius: 3px;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.status-band.past {
+  background: color-mix(in srgb, var(--accent) 35%, transparent);
+  box-shadow: none;
+}
+
+.status-band.current {
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.status-today {
+  position: absolute;
+  top: -3px;
+  bottom: -3px;
+  width: 2px;
+  margin-left: -1px;
+  border-radius: 1px;
+  background: var(--header-text);
+}
+
+/* On a phone the strip is a line of the header under the top row (space.js placeSubnav; the space bar is the tab bar at
+   the foot): the dot and the phase's name (space.js fills .phase-chip-short; the whole words stay its name), and the
+   track a 2px line along its foot, the full width. The top row no longer has the chip. */
 @media (max-width: 640px) {
-  .topbar .phase-chip {
-    min-height: 44px;
+  .topbar:has(> .status-strip:not([hidden])) {
+    flex-wrap: wrap;
+    row-gap: 0;
   }
 
-  .topbar .phase-chip .phase-chip-label {
+  .topbar > .status-strip {
+    position: relative;
+    flex: 0 0 calc(100% + 20px); /* full bleed: cancels the header's 10px side padding */
+    flex-wrap: nowrap;
+    margin: 0 -10px;
+    padding: 0 10px 2px;
+    height: var(--status-strip-h);
+    border-top: 1px solid var(--border);
+    background: var(--nav-secondary-bg);
+  }
+
+  .topbar > .status-strip .phase-chip {
+    height: 100%;
+    padding: 0 4px;
+  }
+
+  .status-strip .phase-chip .phase-chip-label {
     display: none;
   }
 
-  .topbar .phase-chip .phase-chip-short {
+  .status-strip .phase-chip .phase-chip-short {
     display: inline-block;
-    max-width: 6em;
+    max-width: 12em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
+
+  .topbar > .status-strip .status-track {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    gap: 1px;
+    min-width: 0;
+    max-width: none;
+    height: 2px;
+  }
+
+  .topbar > .status-strip .status-band {
+    border-radius: 0;
+  }
+
+  .topbar > .status-strip .status-today {
+    top: -2px;
+    bottom: 0;
+  }
 }
-/* phase-chip:end */
+/* status-strip:end */
 
 /* action-bar:start -- the action bar (public/action-bar.js): the one rule for every settings or edit surface (Thomas,
    2026-10-13). Save and Cancel in a bar locked to the bottom of the surface. The surface is a flex column

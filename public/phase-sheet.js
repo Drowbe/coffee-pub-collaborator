@@ -17,19 +17,11 @@
 // sheet does nothing, and Escape or Cancel close it, asking "Discard changes?" first when dates were edited. A reader
 // without the right to PATCH sees Close alone.
 //
-// The pure parts (chipFit, bandShares, todayPercent, rowsOf, plainDays, dayWords) touch no document, so
-// tools/check-nav.mjs runs them in node. `rule` is the Phases object (window.Phases on a page).
+// The pure parts (bandShares, todayPercent, rowsOf, plainDays, dayWords) touch no document, so tools/check-nav.mjs
+// runs them in node. bandShares and todayPercent also draw the status strip's track (space.js, drawStatusTrack).
+// `rule` is the Phases object (window.Phases on a page).
 
 import { actionBar } from './action-bar.js';
-
-// The chip in the top bar gives way in three steps (decision 9): its label, then the dot alone, then nothing.
-// `avail` is the width it may take, `full` and `dot` its widths with the label and with the dot only.
-export function chipFit({ avail, full, dot }) {
-  const limit = Number.isFinite(avail) ? avail : Infinity;
-  if (full <= limit + 0.5) return 'full';
-  if (dot <= limit + 0.5) return 'dot';
-  return 'none';
-}
 
 export const BAND_MIN = 56; // the least width of a dated band, in px (a one-day phase keeps it; 12 phases scroll sideways)
 const OPEN_DAYS_PAST_TODAY = 14; // how far an open-ended band is drawn past today

@@ -9458,10 +9458,11 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 /* phase-sheet:end */
 
-/* space-setup:start -- Set up (plan-one-bar.md, decision 5, step 4; public/space-setup.js, space.js): the space's name
-   as an input in the switcher's place, the side panel under the header on the right (a full-screen sheet at 640 px and
-   below) with its Save and Cancel in the action bar locked to its bottom (action-bar:start above; the sections scroll
-   above it), and the one line said after Save. Colours from the tokens only. */
+/* space-setup:start -- Set up (plan-one-bar.md, decision 5, step 4; plan-setup-panel.md; public/space-setup.js,
+   space.js): the space's name as an input in the switcher's place, the side panel under the header on the right (a
+   full-screen sheet at 640 px and below) with a row of tabs in its head (one row that scrolls sideways on a phone, a
+   dot on a tab with unsaved changes), its Save and Cancel in the action bar locked to its bottom (action-bar:start
+   above; the tab's sections scroll above it), and the one line said after Save. Colours from the tokens only. */
 /* The input shrinks with the switcher (which gives way before the chip), never past 5em. */
 .topbar .setup-bar-name {
   box-sizing: border-box;
@@ -9535,6 +9536,75 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   white-space: nowrap;
 }
 
+/* The tabs: one row under the title, sitting on the head's bottom edge; it scrolls sideways when it does not fit. */
+.setup-tabs {
+  flex: 1 1 100%;
+  display: flex;
+  gap: 2px;
+  min-width: 0;
+  margin: 4px -16px -10px;
+  padding: 0 10px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.setup-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.setup-tab {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 8px 7px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.setup-tab:hover {
+  color: var(--text);
+}
+
+.setup-tab[aria-selected="true"] {
+  border-bottom-color: var(--accent);
+  color: var(--text);
+}
+
+.setup-tab:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Unsaved changes on this tab (said to a screen reader by the hidden words beside it). */
+.setup-tab-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.setup-tab-dot[hidden] {
+  display: none;
+}
+
+.setup-tab-content[hidden] {
+  display: none;
+}
+
+.setup-tab-content:focus {
+  outline: none;
+}
+
 .setup-body {
   flex: 1 1 auto;
   min-height: 0;
@@ -9570,6 +9640,8 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .setup-field input[type="text"],
+.setup-field input[type="url"],
+.setup-field textarea,
 .setup-field select {
   box-sizing: border-box;
   width: 100%;
@@ -9583,6 +9655,8 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 }
 
 .setup-field input[type="text"]:focus-visible,
+.setup-field input[type="url"]:focus-visible,
+.setup-field textarea:focus-visible,
 .setup-field select:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 0;
@@ -9632,12 +9706,120 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
 /* A file input dressed as a button: the keyboard reaches the input inside, the ring is drawn on the label. */
 .setup-picture-pick {
   position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   cursor: pointer;
 }
 
 .setup-picture-pick:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
+}
+
+.setup-field textarea {
+  resize: vertical;
+  min-height: 4.5em;
+  line-height: 1.4;
+}
+
+.setup-icon-grid button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* The members: a switch row each, with the person's picture. */
+.setup-members {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setup-member-face {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--bg-card);
+}
+
+/* The invite and the guest link: actions, at once. The address takes its own line. */
+.setup-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.setup-link-row[hidden] {
+  display: none;
+}
+
+.setup-link-row .key {
+  flex: 1 1 100%;
+  box-sizing: border-box;
+}
+
+h4.setup-subheading {
+  margin-top: 12px;
+}
+
+.setup-links-hint {
+  margin-top: 0;
+}
+
+.setup-links-status {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 13px;
+}
+
+.setup-links-status:empty {
+  display: none;
+}
+
+/* Delete: its own question in the panel, with Delete and Keep. */
+.setup-danger .setup-heading {
+  color: var(--danger-text);
+}
+
+.setup-confirm {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 6px;
+  background: var(--bg-card);
+}
+
+.setup-confirm[hidden] {
+  display: none;
+}
+
+.setup-confirm-words {
+  margin: 0 0 8px;
+  font-weight: 600;
+}
+
+.setup-confirm-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.setup-confirm-problem {
+  margin: 6px 0 0;
+  color: var(--danger-text);
+  font-size: 13px;
+}
+
+.setup-confirm-problem:empty {
+  display: none;
+}
+
+.setup-section[hidden] {
+  display: none;
 }
 
 .setup-link {
@@ -9789,9 +9971,30 @@ body.host-console .opens-row .check { flex: 1; min-width: 8rem; }
   }
 
   .setup-field input[type="text"],
+  .setup-field input[type="url"],
+  .setup-field textarea,
   .setup-field select {
     min-height: 44px;
     font-size: 16px; /* a phone does not zoom */
+  }
+
+  .setup-tab {
+    min-height: 44px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .setup-icon-grid button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .setup-link-row .btn,
+  .setup-confirm-buttons .btn,
+  #setup-delete,
+  .setup-members .switch-row,
+  .space-setup .switch-row {
+    min-height: 44px;
   }
 
   .setup-picture-pick,

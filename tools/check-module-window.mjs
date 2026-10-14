@@ -143,14 +143,14 @@ for (const id of EDITOR_MIGRATED) {
     }
     // In a sandboxed frame (step 11 of the plan): the frame boot hands the SDK `lift`, the editor asks for the lift before
     // showModal() and for it to be put back when the last open editor closes, and shows it again after a move.
-    if (!sdk.includes("lift: (open, size) => call('editor.lift', { open: Boolean(open), size }),")) problems.push("public/sdk/host.js: the frame boot must pass lift: (open, size) => call('editor.lift', { open: Boolean(open), size })");
+    if (!sdk.includes("lift: (open, size, height) => call('editor.lift', { open: Boolean(open), size, height }),")) problems.push("public/sdk/host.js: the frame boot must pass lift: (open, size, height) => call('editor.lift', { open: Boolean(open), size, height })");
     if (!sdk.includes('lift: env.lift')) problems.push('public/sdk/host.js: editorDeps must carry lift: env.lift');
-    if (!/lift\(true\);\n\s+dialog\.showModal\(\);/.test(words)) problems.push('public/sdk/host.js: open() must ask for the lift (lift(true)) before showModal()');
+    if (!/dialog\.showModal\(\);[^\n]*\n\s+deps\.opened\.set\(dialog, \{ reopen, dismiss \}\);\n\s+watch\(\);\n\s+lift\(true\);/.test(words)) problems.push('public/sdk/host.js: open() must ask for the lift (lift(true)) once the dialog is shown (showModal() first, so a dialog not in the page lifts nothing)');
     if (!/deps\.opened\.delete\(dialog\);\n\s+lift\(false\);/.test(words)) problems.push("public/sdk/host.js: the dialog's close must put the frame back (lift(false)) once the editor is out of `opened`");
     if (!/\[\.\.\.deps\.opened\.keys\(\)\]\.some\(\(d\) => d !== dialog && d\.open\)/.test(words)) problems.push('public/sdk/host.js: lift(false) must wait for the last open editor in the module');
-    if (!/try \{ dialog\.showModal\(\); \} catch \(err\) \{ console\.error\(err\); return; \}\n\s+lift\(true\);/.test(words)) problems.push('public/sdk/host.js: reopen() after a move must ask for the lift again');
+    if (!/try \{ dialog\.showModal\(\); \} catch \(err\) \{ console\.error\(err\); return; \}\n\s+deps\.opened\.set\(dialog, \{ reopen, dismiss \}\);\n\s+lift\(true\);/.test(words)) problems.push('public/sdk/host.js: reopen() after a move must ask for the lift again');
     // The lifted frame is the window: the dialog fills it (.sdk-editor-lifted), set once the host says it lifted.
-    if (!/dialog\.classList\.toggle\('sdk-editor-lifted', did === true && dialog\.open\)/.test(words)) problems.push("public/sdk/host.js: the editor must mark the dialog sdk-editor-lifted when the host answers that it lifted the frame");
+    if (!/const did = Boolean\(r && r\.lifted === true\) && dialog\.open;[\s\S]*?dialog\.classList\.toggle\('sdk-editor-lifted', did\)/.test(words)) problems.push("public/sdk/host.js: the editor must mark the dialog sdk-editor-lifted when the host answers that it lifted the frame");
     if (!/\.sdk-editor\.sdk-editor-lifted\s*\{[^}]*width: 100vw;[^}]*height: 100dvh;/.test(block ? block[0] : '')) problems.push('public/sdk/host.css: .sdk-editor.sdk-editor-lifted must fill the frame (width: 100vw; height: 100dvh)');
     // The host's side of the lift, in public/style.css between "lift:start" and "lift:end": the frame exactly the
     // editor's width (the SDK's sizes), the phone sheet, the tokens.

@@ -18,6 +18,7 @@ const { ModuleLinks } = require('./module-links');
 const { Backgrounds } = require('./backgrounds');
 const { ModuleBus, BUS_LIMITS } = require('./module-bus');
 const { ChatHistory } = require('./chat-history');
+const { cleanReport: cleanAttention } = require('./attention');
 const { LayoutError, cleanLayout, cleanSystemPatch, SYSTEM_IDS, SYSTEM_ICONS } = require('./layouts');
 const { ModuleLimits } = require('./module-limits');
 const { ModuleSettings, SettingError } = require('./module-settings');
@@ -219,6 +220,7 @@ const modules = proxyFor('modules');
 const moduleData = proxyFor('moduleData');
 const moduleHooks = proxyFor('moduleHooks');
 const chatHistory = proxyFor('chatHistory');
+const attention = proxyFor('attention');
 const chatPosts = proxyFor('chatPosts');
 const chatPreviewsAsked = proxyFor('chatPreviewsAsked');
 const moduleLinks = proxyFor('moduleLinks');
@@ -3560,6 +3562,7 @@ app.delete('/api/spaces/:id', requireOwner, (req, res) => {
   store.removeSpace(req.params.id);
   moduleSettings.forgetSpace(req.params.id);
   chatHistory.forgetSpace(req.params.id);
+  attention.forgetSpace(req.params.id);
   res.json({ ok: true });
 });
 app.put('/api/spaces/:id/image', requireOwner, rawImage, checkStorageCap, (req, res) => {
@@ -3638,6 +3641,7 @@ app.patch('/api/users/:key', requireOwner, (req, res) => {
 app.delete('/api/users/:key', requireOwner, (req, res) => {
   if (currentUser(req).key === req.params.key) return res.status(400).json({ error: 'you cannot delete yourself' });
   store.removeUser(req.params.key);
+  attention.forgetPerson(req.params.key);
   res.json({ ok: true });
 });
 
@@ -3868,6 +3872,7 @@ app.delete('/api/modules/:id', requireOwner, (req, res) => {
     moduleLinks.dropModule(req.params.id);
     moduleBus.dropModule(req.params.id);
     moduleSettings.forgetModule(req.params.id);
+    attention.forgetModule(req.params.id);
     store.applyModuleDisplay(req.params.id, { name: null, icon: null }); // its display name and icon go with its data
   }
   res.json({ ok: true });
@@ -3974,6 +3979,59 @@ function moduleAccess(req, res, need) {
   if (!moduleCan(manifest, perms, need)) return void res.status(403).json({ error: `your role can't do that in this ${word('module')}` });
   return { manifest, entry, scope, spaceId, scopeKey: scopeKeyOf(scope, { spaceId, userKey: who.user?.key }), who, perms, by: who.user?.key || 'guest' };
 }
+
+// --- attention (documentation/plans/plan-space-status-strip.md, "Attention, the contract") ---------------------
+// What needs this person's action in a space, as each module last reported it (server/attention.js): kept per space,
+// person and module in DATA_DIR/attention.json. A module reports its own count (PUT, which needs `write` in that module
+// here; count 0 clears it) and the strip reads the sum (GET). It is per person, so a guest, who has no key, has none.
+function attentionFor(req, res) {
+  const who = moduleViewer(req);
+  if (!who || who.keyed) return void res.status(401).json({ error: 'Sign in first.' });
+  if (!who.user) return void res.status(403).json({ error: `${word('guest', { many: true, cap: true })} have no personal list of what needs action.` });
+  const space = store.spaceById(req.params.id);
+  if (!space) return void res.status(404).json({ error: `There is no such ${word('space')}.` });
+  if (!(hasOwnerRights(who.user) || space.members.includes(who.user.key))) return void res.status(403).json({ error: `You are not in that ${word('space')}.` });
+  return { who, space, perms: modulePerms(who, space.id) };
+}
+// The module in this space for this person, or null: on here, in a space-scope module, and not kept out of the Lobby.
+function attentionModule(id, ctx) {
+  const found = modules.enabled(id);
+  if (!found || !found.manifest.scope.includes('space') || refusedInLobby(found.manifest, ctx.space.id)) return null;
+  return moduleSpaceAccess(found.entry, ctx.who, ctx.space) ? found : null;
+}
+app.get('/api/spaces/:id/attention', (req, res) => {
+  const ctx = attentionFor(req, res);
+  if (!ctx) return;
+  const out = [];
+  for (const r of attention.list(ctx.space.id, ctx.who.user.key)) {
+    const found = attentionModule(r.module, ctx);
+    if (!found || !moduleCan(found.manifest, ctx.perms, 'read')) continue;
+    out.push({ module: r.module, name: shownModule(found.manifest).name || found.manifest.name, count: r.count, label: r.label, items: r.items, at: r.at });
+  }
+  res.json({ modules: out, total: out.reduce((sum, m) => sum + m.count, 0) });
+});
+app.put('/api/spaces/:id/attention/:module', (req, res) => {
+  const ctx = attentionFor(req, res);
+  if (!ctx) return;
+  const found = modules.enabled(req.params.module);
+  if (!found) return res.status(404).json({ error: `There is no such ${word('module')}.` });
+  if (!attentionModule(req.params.module, ctx)) return res.status(403).json({ error: `That ${word('module')} is not available in this ${word('space')} for you.` });
+  if (!moduleCan(found.manifest, ctx.perms, 'write')) return res.status(403).json({ error: `Your role can't do that in this ${word('module')}.` });
+  const { report, error } = cleanAttention(req.body);
+  if (error) return res.status(400).json({ error });
+  attention.set(ctx.space.id, ctx.who.user.key, found.manifest.id, report);
+  res.json({ ok: true });
+});
+app.delete('/api/spaces/:id/attention/:module', (req, res) => {
+  const ctx = attentionFor(req, res);
+  if (!ctx) return;
+  const found = modules.enabled(req.params.module);
+  if (!found) return res.status(404).json({ error: `There is no such ${word('module')}.` });
+  if (!attentionModule(req.params.module, ctx)) return res.status(403).json({ error: `That ${word('module')} is not available in this ${word('space')} for you.` });
+  if (!moduleCan(found.manifest, ctx.perms, 'write')) return res.status(403).json({ error: `Your role can't do that in this ${word('module')}.` });
+  attention.clear(ctx.space.id, ctx.who.user.key, found.manifest.id);
+  res.json({ ok: true });
+});
 
 // --- saved layouts ------------------------------------------------------------------------------
 // Named arrangements of a space's canvas (documentation/plans/plan-saved-layouts.md, step 1; server/layouts.js):

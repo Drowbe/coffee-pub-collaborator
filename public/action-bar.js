@@ -26,6 +26,7 @@ export function actionBar({
   cancelLabel = 'Cancel',
   closeLabel = 'Close',
   savedWord = 'Saved',
+  discardWords = DISCARD_WORDS, // the question on Cancel and Escape while dirty (the Set up panel asks host.ui.editor's "Discard your changes?")
   readOnly = false,
   submit = false, // Save is a form's submit button (the surface is a <form>)
   ids = {}, // { save, cancel }: element ids the surface keeps
@@ -57,7 +58,7 @@ export function actionBar({
   const discardButton = el.querySelector('.action-bar-discard');
   askText.id = `action-bar-ask-${Math.random().toString(36).slice(2, 8)}`;
   askEl.setAttribute('aria-labelledby', askText.id);
-  askText.textContent = DISCARD_WORDS;
+  askText.textContent = discardWords;
   saveButton.textContent = saveLabel;
   cancelButton.textContent = readOnly ? closeLabel : cancelLabel;
   if (ids.save) saveButton.id = ids.save;

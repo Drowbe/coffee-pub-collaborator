@@ -3,7 +3,7 @@
  * check-phases.mjs -- the phase timeline (documentation/plans/plan-one-bar.md, step 1): the pure rule in
  * public/phases.js run in node (contiguity refusals, a skipped undated phase, coverMain shifting later boundaries by
  * the same days and never moving an earlier one, chipWords before, during and after the main phase, no phases at
- * all), then the routes on a throwaway server (PORT=0, DATA_DIR under the system tmpdir, stopped by its pid): a space
+ * all, the status strip's storyWords for each row of plan-space-story-strip.md's words table, and countdown), then the routes on a throwaway server (PORT=0, DATA_DIR under the system tmpdir, stopped by its pid): a space
  * carries `phases`, PATCH /api/spaces/:id { phases } for the admin and a moderator (and, for Set up, step 4, a
  * moderator's `opensWith` and `defaultLayout` and nothing else), refused for a member, each refusal
  * with its sentence, POST /api/spaces/:id/phases/cover for a member who can write in a module on in the space, and
@@ -334,6 +334,63 @@ await test('chipWords: day N of M in a band with an end, days to go before the n
   assert.equal(words('2026-10-01', {}), 'Planning', 'nothing dated: the first phase, open-ended from the created day');
   assert.equal(words('2026-10-01', {}, []), '', 'no phases');
   assert.equal(P.chipWords(P.timelineOf(TRAVEL, dates, { created: CREATED }), null), 'Trip', 'no today: the last dated band');
+});
+
+await test('storyWords: where we are, what is next and how far to the main phase, in the template\'s labels only', () => {
+  // Planning from the created day (09-01), Booking 09-10, Buffer 09-25, Pre-trip 09-28, Trip 10-05 to 10-14, Post-trip 10-15.
+  const dates = { booking: { start: '2026-09-10' }, buffer: { start: '2026-09-25' }, 'pre-trip': { start: '2026-09-28' }, trip: { start: '2026-10-05', end: '2026-10-14' }, 'post-trip': { start: '2026-10-15' } };
+  const story = (today, d = dates, phases = TRAVEL, created = CREATED) => P.storyWords(P.timelineOf(phases, d, { today, created }), today);
+  const parts = (today, d = dates) => P.storyParts(P.timelineOf(TRAVEL, d, { today, created: CREATED }), today);
+  // Inside a phase, the next more than a day away: the phase, the next, the main phase.
+  assert.equal(story('2026-09-04'), 'Planning · Booking in 6 days · Trip in 31 days');
+  assert.deepEqual(parts('2026-09-04'), ['Planning', 'Booking in 6 days', 'Trip in 31 days'], 'the clauses, in reading order');
+  // The day before a boundary.
+  assert.equal(story('2026-09-09'), 'Booking starts tomorrow · Trip in 26 days', 'Thomas\'s "day 20 of 20"');
+  assert.equal(story('2026-10-04'), 'Trip starts tomorrow', 'the next is the main phase: said once');
+  assert.equal(story('2026-09-30'), 'Pre-trip · Trip in 5 days', 'the next is the main phase: not named twice');
+  // Inside the main phase, and its last day.
+  assert.equal(story('2026-10-07'), 'Trip · day 3 of 10');
+  assert.equal(story('2026-10-14'), 'Trip · last day', 'the last day wins over the boundary tomorrow');
+  assert.equal(story('2026-10-07', { trip: { start: '2026-10-05' } }), 'Trip · day 3', 'a main phase with no end');
+  // After the main phase.
+  assert.equal(story('2026-10-16'), 'Post-trip · back 2 days');
+  assert.equal(story('2026-10-15'), 'Post-trip · back 1 day');
+  assert.equal(story('2026-10-20', { trip: { start: '2026-10-05', end: '2026-10-14' } }), 'Trip · back 6 days', 'after the last dated phase: nothing current');
+  // Before the first phase, and in a gap.
+  assert.equal(story('2026-08-20', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts in 12 days · Trip in 46 days', 'before the first phase');
+  assert.equal(story('2026-08-31', { planning: { start: '2026-09-01' }, ...dates }), 'Planning starts tomorrow · Trip in 35 days');
+  assert.equal(story('2026-10-17', { trip: { start: '2026-10-05', end: '2026-10-14' }, 'post-trip': { start: '2026-10-20' } }), 'Post-trip starts in 3 days', 'in a gap after the main phase');
+  const mainFirst = [{ id: 'go', label: 'Go', main: true }, { id: 'after', label: 'After' }];
+  assert.equal(story('2026-08-25', { go: { start: '2026-09-01', end: '2026-09-03' } }, mainFirst), 'Go starts in 7 days', 'before a main phase that is first: said once');
+  // No main phase: the phase, its day, the next only.
+  const BUILD = [{ id: 'build', label: 'Build' }, { id: 'launch', label: 'Launch' }];
+  assert.equal(story('2026-09-04', { launch: { start: '2026-09-13' } }, BUILD), 'Build · day 4 of 12 · Launch in 9 days');
+  assert.equal(story('2026-09-12', { launch: { start: '2026-09-13' } }, BUILD), 'Launch starts tomorrow');
+  assert.equal(story('2026-09-20', { launch: { start: '2026-09-13' } }, BUILD), 'Launch', 'the last, open-ended phase');
+  // A one-day phase.
+  assert.equal(story('2026-09-27', { ...dates, buffer: { start: '2026-09-27' } }), 'Pre-trip starts tomorrow · Trip in 8 days', 'a one-day phase on its day: the next starts tomorrow');
+  // No dates, no day, no phases.
+  assert.equal(story('2026-09-04', {}), 'Planning', 'nothing dated but the first phase, open-ended');
+  assert.equal(story('2026-09-04', {}, TRAVEL, null), 'Planning', 'nothing dated at all: the first phase');
+  assert.equal(P.storyWords(P.timelineOf(TRAVEL, dates, { created: CREATED }), null), 'Post-trip', 'no day: the last dated band, as the chip\'s words');
+  assert.equal(story('2026-09-04', {}, []), '', 'no phases');
+  assert.deepEqual(P.storyParts([], '2026-09-04'), []);
+  // Only the template's labels: a template whose main phase is "Session" reads the same way.
+  const GAME = [{ id: 'prep', label: 'Prep' }, { id: 'session', label: 'Session', main: true }];
+  assert.equal(story('2026-09-04', { session: { start: '2026-09-11', end: '2026-09-11' } }, GAME), 'Prep · Session in 7 days');
+});
+
+await test('countdown: days to the main phase, days left in it, nothing after it', () => {
+  const dates = { trip: { start: '2026-10-05', end: '2026-10-14' }, 'post-trip': { start: '2026-10-15' } };
+  const togo = (today, d = dates) => P.countdown(P.timelineOf(TRAVEL, d, { today, created: CREATED }), today);
+  assert.deepEqual(togo('2026-09-30'), { days: 5, words: '5 days to Trip' });
+  assert.deepEqual(togo('2026-10-04'), { days: 1, words: '1 day to Trip' });
+  assert.deepEqual(togo('2026-10-05'), { days: 10, words: '10 days left' }, 'counting today');
+  assert.deepEqual(togo('2026-10-14'), { days: 1, words: '1 day left' });
+  assert.equal(togo('2026-10-15'), null, 'after the main phase');
+  assert.equal(togo('2026-10-07', { trip: { start: '2026-10-05' } }), null, 'in a main phase with no end');
+  assert.equal(togo('2026-09-30', {}), null, 'no dated main phase');
+  assert.equal(P.countdown(P.timelineOf(TRAVEL, dates, { created: CREATED }), null), null, 'no day');
 });
 
 // --- the routes -----------------------------------------------------------------------------------------------------

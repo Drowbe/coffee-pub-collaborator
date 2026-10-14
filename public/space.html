@@ -93,10 +93,24 @@
     <div class="side-column-strip" id="side-column-strip"></div>
     <!-- The split between the call's strip and the chat: dragged, or Up and Down with the keyboard. Shown on the call. -->
     <div class="side-column-splitter side-column-splitter-h" id="side-column-strip-splitter" role="separator" aria-orientation="horizontal" aria-label="Resize the call" tabindex="0" title="Drag to resize"></div>
+    <!-- The call out of the column (its own window, or floating): a slim strip with its controls and Bring the call back.
+         Each control clicks the call's own, so it does just what it does there. -->
+    <div class="side-column-call-out" id="call-out" hidden>
+      <span class="call-out-note" id="call-out-note">The call is in its own window</span>
+      <span class="call-out-tools">
+        <button class="fbtn action-btn" id="call-out-mic" type="button" data-for="mic" title="Microphone (M)" aria-label="Microphone"><span class="glyph"><i class="fa-solid fa-microphone fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-microphone-slash fa-fw icon-off" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn" id="call-out-deafen" type="button" data-for="deafen" title="Mute what you hear (D)" aria-label="Mute what you hear"><span class="glyph"><i class="fa-solid fa-volume-high fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-volume-xmark fa-fw icon-off" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn" id="call-out-cam" type="button" data-for="cam" title="Camera (V)" aria-label="Camera"><span class="glyph"><i class="fa-solid fa-video fa-fw icon-on" aria-hidden="true"></i><i class="fa-solid fa-video-slash fa-fw icon-off" aria-hidden="true"></i><i class="fa-solid fa-spinner fa-spin fa-fw icon-loading" aria-hidden="true"></i></span></button>
+        <button class="fbtn action-btn" id="call-out-hangup" type="button" data-for="hangup" title="Leave the call" aria-label="Leave the call"><span class="glyph"><i class="fa-solid fa-phone-slash fa-fw" aria-hidden="true"></i></span></button>
+        <button class="btn btn-small call-out-back" id="call-back" type="button"><i class="fa-solid fa-arrow-left fa-fw" aria-hidden="true"></i> Bring the call back</button>
+      </span>
+    </div>
     <!-- Join the call (out of the call) and Online: the space bar's own elements, placed here wider than a phone. -->
     <div class="side-column-bar">
       <div class="side-column-call" id="side-column-call"></div>
       <div class="side-column-online" id="side-column-online"></div>
+      <!-- On the call in the column: the video tiles shown or hidden (slim: the controls and the faces only). -->
+      <button class="side-column-tiles" id="side-column-tiles" type="button" aria-pressed="true" title="Hide the video" aria-label="Hide the video" hidden><i class="fa-solid fa-chevron-up fa-fw" aria-hidden="true"></i></button>
     </div>
     <!-- The chat (canvas.js puts #chat here). -->
     <div class="side-column-chat" id="side-column-chat"></div>
@@ -209,6 +223,12 @@
         <div class="fbtn-wrap" data-collapse="6">
           <button class="fbtn action-btn" id="layout" type="button" title="Tiles (L)" aria-label="Tiles"><span class="glyph"><i class="fa-solid fa-table-cells-large fa-fw" id="layout-glyph" aria-hidden="true"></i></span></button>
           <button class="fbtn-caret" type="button" data-settings="layout" title="Tiles settings" aria-label="Tiles settings"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
+        </div>
+        <!-- Where the call is: Pop out (its own window; the same button brings it back) and, on the caret, Call position
+             (top or bottom of the column, a floating window, its own window). space.js, the call's place. -->
+        <div class="fbtn-wrap" id="call-place-wrap" data-collapse="8">
+          <button class="fbtn action-btn" id="call-popout" type="button" title="Pop out the call" aria-label="Pop out the call"><span class="glyph"><i class="fa-solid fa-up-right-from-square fa-fw" aria-hidden="true"></i></span></button>
+          <button class="fbtn-caret" id="call-place" type="button" title="Call position" aria-label="Call position" aria-haspopup="menu"><i class="fa-solid fa-caret-up" aria-hidden="true"></i></button>
         </div>
         <button class="fbtn action-btn" id="away-toggle" type="button" title="Away: pauses your mic and camera, mutes what you hear, and lets everyone know" data-collapse="5"><span class="glyph"><i class="fa-solid fa-moon fa-fw" aria-hidden="true"></i></span></button>
       <button class="fbtn action-btn" id="react-toggle" type="button" title="Reactions (R, or keys 1 to 6)" data-collapse="3"><span class="glyph"><i class="fa-solid fa-face-smile fa-fw" aria-hidden="true"></i></span></button>

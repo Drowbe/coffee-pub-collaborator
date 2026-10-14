@@ -1194,7 +1194,8 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/pipWindow = null;\n\s*dropPoppedWatches\(\);/.test(setUp)) fail('public/space.js', 'popping back in must drop the pop-out watches (dropPoppedWatches())');
   try {
     const src = `${fn('function keepPoppedVideoLive(')}${fn('function dropPoppedWatches(')}`;
-    const make = (pipWindow) => new Function('pipWindow', 'document', `const poppedWatches = new Set();\n${src}\nreturn { keepPoppedVideoLive, dropPoppedWatches, poppedWatches };`)(pipWindow, mainDoc);
+    // `callWindow`: the conference alone in a window of its own (canvas.builtinWindow), popped out from the column.
+    const make = (pipWindow, callWindow = null) => new Function('pipWindow', 'document', 'canvas', `const poppedWatches = new Set();\n${src}\nreturn { keepPoppedVideoLive, dropPoppedWatches, poppedWatches };`)(pipWindow, mainDoc, { builtinWindow: (id) => (id === 'conference' ? callWindow : null) });
     const mainDoc = { name: 'main' };
     const popDoc = { name: 'pop-out', defaultView: { ResizeObserver: class { observe() {} disconnect() {} } } };
     const track = () => ({ isAdaptiveStream: true, infos: [], observeElementInfo(i) { this.infos.push(i); i.observe(); }, stopObservingElementInfo(i) { this.infos = this.infos.filter((x) => x !== i); } });
@@ -1212,6 +1213,9 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
     const notPopped = track();
     make(null).keepPoppedVideoLive(notPopped, video);
     assert.equal(notPopped.infos.length, 0, 'no watch when nothing is popped out');
+    const callOnly = track();
+    make(null, {}).keepPoppedVideoLive(callOnly, video);
+    assert.equal(callOnly.infos.length, 1, 'a video in the call\'s own window (popped out from the column) is kept live too');
     const local = { attach() {} };
     popped.keepPoppedVideoLive(local, video); // my own camera: a local track, nothing to keep
     popped.dropPoppedWatches();
@@ -1315,7 +1319,8 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const src = start < 0 ? '' : spaceJs.slice(start, spaceJs.indexOf('const columnWin = ', start));
   if (!/function clampColumnWidth\(/.test(src) || !/function clampStripHeight\(/.test(src) || !/function splitterKey\(/.test(src)) fail(F, 'the column\'s splitters need clampColumnWidth(), clampStripHeight() and splitterKey() after COLUMN_MIN');
   else {
-    const { clampColumnWidth, clampStripHeight, splitterKey } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey };`)();
+    const { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor, callTilesShown } = new Function(`${src}\nreturn { clampColumnWidth, clampStripHeight, splitterKey, stripHeightFor: typeof stripHeightFor === 'function' ? stripHeightFor : null, callTilesShown: typeof callTilesShown === 'function' ? callTilesShown : null };`)();
+    if (!stripHeightFor || !callTilesShown) fail(F, 'the call area needs stripHeightFor() and callTilesShown() after COLUMN_MIN (the chat keeps its share; slim in a short window)');
     const cases = [
       ['a width inside the range holds', clampColumnWidth(320, 1280), 320],
       ['the least width is 220px', clampColumnWidth(10, 1280), 220],
@@ -1323,9 +1328,24 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
       ['a window too narrow for half still gives the least', clampColumnWidth(300, 300), 220],
       ['a width that is not a number gives the least', clampColumnWidth(undefined, 1280), 220],
       ['the strip\'s least height is 100px', clampStripHeight(10, 800), 100],
-      ['the strip takes at most 60% of the column', clampStripHeight(700, 800), 480],
+      // The video never squeezes the chat (Thomas, 2026-10-14): the call area (tiles + its toolbar and row, `chrome`)
+      // is at most 55% of the column, so the chat keeps 45% or more; untouched, the call area is at most 40%.
+      ['the strip takes at most 55% of the column', clampStripHeight(700, 800), 440],
       ['the strip\'s height inside the range holds', clampStripHeight(168, 800), 168],
+      ['the call\'s toolbar and row count against the 55%', clampStripHeight(700, 800, 120), 320],
+      ['a column too short still gives the least', clampStripHeight(300, 200, 120), 100],
     ];
+    if (stripHeightFor && callTilesShown) cases.push(
+      ['the default height holds in a tall column', stripHeightFor(168, 1000, 110), 168],
+      ['the default height is held to 40% of the column with its toolbar and row', stripHeightFor(168, 556, 112), 110],
+      ['a height the person chose holds up to 55%', stripHeightFor(250, 676, 112), 250],
+      ['a height the person chose stops at 55%', stripHeightFor(600, 676, 112), 260],
+      ['auto: the tiles show in a tall window', callTilesShown('auto', 900, 856, 112), true],
+      ['auto: slim in a short window (under 800px)', callTilesShown('auto', 720, 676, 112), false],
+      ['shown: the person\'s choice in a short window', callTilesShown('shown', 600, 556, 112), true],
+      ['slim: the person\'s choice in a tall window', callTilesShown('slim', 1080, 1036, 112), false],
+      ['too short for the least tiles: slim whatever was chosen', callTilesShown('shown', 300, 256, 112), false],
+    );
     const lim = { min: 220, max: 640, def: 320, grow: 'ArrowRight', shrink: 'ArrowLeft' };
     cases.push(
       ['Right widens by 16', splitterKey({ key: 'ArrowRight', shift: false }, 320, lim), 336],
@@ -1346,9 +1366,50 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   }
   if (!/wireSplitter\(columnEl\.querySelector\('#side-column-splitter'\), \{ which: 'width'/.test(spaceJs)) fail(F, 'the column\'s edge is wired as a splitter setting the width');
   if (!/if \(which === 'width'\) prefs\.chatWidth = clampColumnWidth\(/.test(spaceJs)) fail(F, 'the column\'s width is the chat\'s width preference (prefs.chatWidth), so a width set before the column holds');
-  if (!/--side-column-w: 320px;/.test(css) || !/grid-template-rows: var\(--side-column-strip-h, 168px\) auto;/.test(css)) fail('public/style.css', 'the column\'s width and the height of the strip\'s tiles (the toolbar under them) come from --side-column-w and --side-column-strip-h');
+  if (!/--side-column-w: 320px;/.test(css) || !/grid-template-rows: minmax\(0, var\(--side-column-strip-h, 168px\)\) auto;/.test(css)) fail('public/style.css', 'the column\'s width and the height of the strip\'s tiles (the toolbar under them, the tiles giving way first) come from --side-column-w and --side-column-strip-h');
+  // The chat's guaranteed share: the strip gives way (it shrinks), the chat never under 45% of the column.
+  if (!/body:not\(\.in-aside\) \.side-column-chat \{\s*min-height: 45%;/.test(css)) fail('public/style.css', 'the chat keeps at least 45% of the column (body:not(.in-aside) .side-column-chat { min-height: 45% })');
+  if (!/\.side-column-strip \{\s*flex: 0 1 auto;[^}]*min-height: 0;/.test(css)) fail('public/style.css', 'the call\'s strip gives way before the chat (flex: 0 1 auto; min-height: 0)');
+  if (!/else prefs\.stripHeight = clampStripHeight\(value, columnHeight\(\), callChrome\(\)\)/.test(spaceJs)) fail(F, 'a dragged call height is held to the call area\'s share, its toolbar and row counted (clampStripHeight with callChrome())');
   if (!/\.side-column-splitter:hover,\s*\.side-column-splitter:focus-visible,\s*\.side-column-splitter\.dragging \{\s*background: color-mix\(in srgb, var\(--accent\)/.test(css)) fail('public/style.css', 'a splitter shows the accent on hover, focus and while dragged');
   if (!/\.side-column-splitter-v \{[^}]*width: 8px;/.test(css) || !/@media \(pointer: coarse\) \{\s*\.side-column-splitter-v \{[^}]*width: 14px;/.test(css)) fail('public/style.css', 'the splitter\'s hit area is 8px, 14px for a finger');
+}
+
+// The call pops out again, and has a place (Thomas, 2026-10-14): a visible Pop out on the call's toolbar (the same button
+// brings it back) with Call position on its caret (top or bottom of the column, a floating window, its own window), the
+// same in Chat's "..."; its own window is the conference's element moved into a window (canvas.popBuiltin), so the call
+// keeps its connection; out of the column the column shows #call-out with Bring the call back, and closing the window,
+// Bring the call back or Hang up puts it back in the column.
+{
+  const F = 'public/space.js';
+  const spaceJs = fs.readFileSync(path.join(ROOT, F), 'utf8');
+  const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const bar = html.slice(html.indexOf('id="floatbar"'), html.indexOf('id="floatbar-overflow"'));
+  if (!/id="call-popout"[^>]*title="Pop out the call"/.test(bar)) fail('public/space.html', 'the call\'s toolbar has a visible Pop out (#call-popout, "Pop out the call")');
+  if (!/id="call-place"[^>]*title="Call position"[^>]*aria-haspopup="menu"/.test(bar)) fail('public/space.html', 'Pop out\'s caret is Call position (#call-place), a menu');
+  if (!/id="call-place-wrap" data-collapse="\d+"/.test(bar)) fail('public/space.html', 'Pop out folds with the rest of the toolbar (data-collapse)');
+  for (const id of ['call-out', 'call-out-note', 'call-back', 'side-column-tiles']) if (!html.includes(`id="${id}"`)) fail('public/space.html', `the column needs #${id}`);
+  if (!/id="call-back"[^>]*>[\s\S]{0,120}Bring the call back</.test(html)) fail('public/space.html', '#call-back reads "Bring the call back"');
+  for (const label of ['Top of the column', 'Bottom of the column', 'Floating window', 'Its own window']) if (!spaceJs.includes(`label: '${label}'`)) fail(F, `Call position offers "${label}"`);
+  if (!/heading: 'Call position'/.test(spaceJs)) fail(F, 'Call position is the menu\'s heading');
+  if (!/\$\('call-place'\)\?\.addEventListener\('click'[\s\S]{0,400}openHostMenu\(anchor, callPlaceItems\)/.test(spaceJs)) fail(F, 'Call position opens on the shared menu (openHostMenu)');
+  if (!/label: 'Call position', items: \(\) => callPlaceItems\(\)/.test(spaceJs)) fail(F, 'Chat\'s "..." has Call position too');
+  if (!/label: 'Pop out the call', onPick: popOutCall/.test(spaceJs) || !/label: 'Bring the call back', onPick: bringCallBack/.test(spaceJs)) fail(F, 'Chat\'s "..." pops the call out and brings it back');
+  if (!/function popOutCall\(\) \{\n  if \(canvas\.columnMode\(\)\) \{\n    if \(!canvas\.popBuiltin\('conference'\)\)/.test(spaceJs)) fail(F, 'Pop out moves the conference into its own window (canvas.popBuiltin), never a second join');
+  if (!/callOutEl\.querySelector\('#call-back'\)\.addEventListener\('click', bringCallBack\)/.test(spaceJs)) fail(F, '#call-back brings the call back (bringCallBack)');
+  if (!/function hangUp\(\) \{[\s\S]{0,400}canvas\.returnBuiltin\('conference'\)/.test(spaceJs)) fail(F, 'Hang up brings a call out of the column back to it');
+  if (!/if \(prefs\.callFloat && callWhere\(\) === 'column'\) canvas\.liftBuiltin\('conference', true, 'person'\)/.test(spaceJs)) fail(F, 'Floating window, remembered (prefs.callFloat), floats the call as they join');
+  if (!/callPosition: 'top', callFloat: false, callTiles: 'auto'/.test(spaceJs)) fail(F, 'the call\'s place is remembered per person (prefs.callPosition, callFloat, callTiles)');
+  if (!/if \(open && mode === 'window'\) keepPoppedVideosLive\(\);/.test(spaceJs)) fail(F, 'the call in its own window keeps its videos live (keepPoppedVideosLive)');
+  // canvas.js: the window is the conference's own element (openBuiltinWindow); closing it puts it back in the column.
+  if (!/function popBuiltin\(id\) \{[\s\S]*?openBuiltinWindow\(def, \{ moving: true \}\)[\s\S]*?\.popped = true;/.test(canvasJs)) fail('public/canvas.js', 'popBuiltin() moves the element into its window (openBuiltinWindow, moving) and marks it the column\'s');
+  if (!/function returnBuiltin\(id\) \{[\s\S]*?openBuiltinIn\(mod\.def, 'column', \{ moving: true \}\)/.test(canvasJs)) fail('public/canvas.js', 'returnBuiltin() puts it back in the column, moving (the call keeps going)');
+  if (!/const back = columnMode\(\) \? 'column'/.test(canvasJs)) fail('public/canvas.js', 'closing the call\'s window brings it back to the column');
+  if (!/if \(!on && mod\.lifted && \(why === 'person' \|\| mod\.lifted !== 'person'\)\)/.test(canvasJs)) fail('public/canvas.js', 'a screen share ending never puts back a call the person floated');
+  // The call at the bottom: the chat first; the strip's line turns round (up grows it).
+  if (!/\.side-column\.call-bottom \.side-column-chat \{\s*order: 1;/.test(css)) fail('public/style.css', 'at the bottom of the column the chat comes first');
+  if (!/const flipped = \(\) => which === 'strip' && columnEl\.classList\.contains\('call-bottom'\);/.test(spaceJs)) fail(F, 'with the call at the bottom the strip\'s splitter turns round');
 }
 
 // Each module's titlebar told apart (GitHub #229, public/module-tint.js): the manifest's colour when it names a tint,

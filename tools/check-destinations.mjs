@@ -918,6 +918,47 @@ try {
     for (const id of ['m-ok', 'm-bad', 'm-shape', 'm-many', 'm-want', 'm-booked', 'm-visited', 'm-favorite', 'm-twenty']) await call('DELETE', `/api/modules/dest-pins/data/pin:${id}?scope=environment`, { token: aliceT });
   });
 
+  // plan-places-library.md, step 3: one home, marks, a private list. The store alone decides who reads a place: a person's
+  // private one is nobody else's until it moves out (new home first, then a forward with the title only); marks only filter.
+  await test('places step 3: a private place stays private until shared; a forward names the title only; marks never widen who reads', async () => {
+    const put = (token, query, id, value, version) => call('PUT', `/api/modules/dest-pins/data/pin:${id}?${query}`, { token, body: { value, ...(version !== undefined ? { version } : {}) } });
+    const get = (token, query, id) => call('GET', `/api/modules/dest-pins/data/pin:${id}?${query}`, { token });
+    const resolveAs = async (token, ref) => (await call('POST', '/api/objects/resolve', { token, body: { from: 'dest-globe', refs: [ref] } })).json.summaries[0];
+    const mine = { module: 'dest-pins', kind: 'pin', id: 'h1', scope: 'person' };
+    const record = { title: 'Hideaway', notes: 'the code is 1234', point: { lat: 38.7, lng: -9.1 } };
+    assert.equal((await put(aliceT, 'scope=person', 'h1', record)).status, 200);
+    // Bob: his own store has none, the environment has none, and a pointer to Alice's is nothing to him
+    assert.equal((await get(bobT, 'scope=person', 'h1')).status, 404);
+    assert.equal((await get(bobT, 'scope=environment', 'h1')).status, 404);
+    assert.equal((await resolveAs(bobT, mine)).state, 'gone');
+    assert.equal((await resolveAs(aliceT, mine)).place.lat, 38.7, 'Alice reads her own');
+    // Shared to Everyone and Keep: written only over nothing (version 0), then the forward in her store
+    assert.equal((await put(aliceT, 'scope=environment', 'h1', { ...record, marks: [keep] }, 0)).status, 200);
+    assert.equal((await put(aliceT, 'scope=environment', 'h1', { title: 'Another' }, 0)).status, 409, 'a move never writes over a place that is there');
+    assert.equal((await put(aliceT, 'scope=person', 'h1', { title: 'Hideaway', movedTo: { scope: 'environment' } })).status, 200);
+    const shared = await get(bobT, 'scope=environment', 'h1');
+    assert.deepEqual([shared.status, shared.json.item.value.notes], [200, 'the code is 1234'], 'shared, Bob reads it, notes too');
+    const fwd = await resolveAs(aliceT, mine);
+    assert.deepEqual([fwd.title, fwd.place, fwd.subtitle, fwd.spaces, fwd.icon], ['Hideaway', undefined, undefined, undefined, undefined], 'the old pointer resolves to the forward: its title only');
+    // Marks filter, they do not widen: Bob (in Keep) finds it by in=Keep; Carol (in no space) reads it as everyone's, but
+    // may not ask by Keep; the summary names space ids and nothing else of a space.
+    const inKeep = await call('GET', `/api/objects/search?from=dest-globe&scope=environment&in=${keep}&q=hideaway`, { token: bobT });
+    assert.deepEqual(inKeep.json.summaries.map((x) => [x.ref.id, x.spaces]), [['h1', [keep]]], 'once, with its marks');
+    assert.equal((await call('GET', `/api/objects/search?from=dest-globe&scope=environment&in=${keep}`, { token: carolT })).status, 403);
+    const carol = await call('GET', '/api/objects/search?from=dest-globe&scope=environment&q=hideaway', { token: carolT });
+    assert.deepEqual(carol.json.summaries[0].spaces, [keep]);
+    assert.ok(carol.json.summaries[0].spaces.every((x) => typeof x === 'string'), 'ids only: no members, no names');
+    // Alice is in Keep and Tower: marked into both, each search finds it once
+    assert.equal((await put(aliceT, 'scope=environment', 'h1', { ...record, marks: [keep, tower] })).status, 200);
+    for (const sp of [keep, tower]) assert.deepEqual((await call('GET', `/api/objects/search?from=dest-globe&scope=environment&in=${sp}&q=hideaway`, { token: aliceT })).json.summaries.map((x) => x.ref.id), ['h1']);
+    // A guest on Keep's link reads none of the environment's places, marked or not, and has no list of their own
+    assert.equal((await call('GET', `/api/modules/dest-pins/data?scope=environment&guest=${encodeURIComponent(guest)}`)).status, 403);
+    assert.equal((await call('GET', `/api/modules/dest-pins/data?scope=person&guest=${encodeURIComponent(guest)}`)).status, 403);
+    // A member never writes into a space he is not in: Bob is not in Tower
+    assert.equal((await put(bobT, `scope=space&space=${tower}`, 'x1', { title: 'Sneaky' })).status, 403);
+    for (const [q, id] of [['scope=environment', 'h1'], ['scope=person', 'h1']]) await call('DELETE', `/api/modules/dest-pins/data/pin:${id}?${q}`, { token: aliceT });
+  });
+
   await test('map: Show Map off again: everything as before', async () => {
     await setMap(false);
     assert.deepEqual(await shown(aliceT), []);

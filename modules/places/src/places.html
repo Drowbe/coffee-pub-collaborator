@@ -37,8 +37,16 @@
   <dialog id="editor" class="sdk-editor">
     <form id="form" class="editor-card">
       <h3 id="editor-title">Add a place</h3>
-      <!-- as the Map destination's panel: where a new place goes, picked every time (an existing one shows where it is) -->
-      <label id="f-where-wrap" hidden>Where<select id="f-where" name="where"></select></label>
+      <!-- where it shows, and so where it is kept (plan-places-library.md, Part A): a tick per store open to the viewer
+           (tpl-tick), other spaces under "More" on a space's canvas, and one line saying who will see it -->
+      <fieldset id="f-where" class="where" aria-describedby="f-where-line" hidden>
+        <legend>Shows in</legend>
+        <div class="ticks" id="f-where-ticks"></div>
+        <details class="where-more" id="f-where-more" hidden><summary data-slot="more">More</summary><div class="ticks" id="f-where-more-ticks"></div></details>
+        <div class="ticks" id="f-where-mine"></div>
+        <p class="where-line" id="f-where-line" aria-live="polite"></p>
+        <p class="where-notes" id="f-where-notes" hidden></p>
+      </fieldset>
       <p class="hint" id="f-readonly" hidden></p>
       <label>Name<input id="f-title" name="title" type="text" maxlength="120" required></label>
       <!-- what kind of place it is (host.ui.kindPicker, searched by name and by other words); it sets the category -->
@@ -96,6 +104,8 @@
       <p class="sub" data-slot="address"></p>
       <div class="meta">
         <span class="scope-mark" hidden><span class="ic" data-icon=""></span><span data-slot="scope"></span></span>
+        <span class="saved-state" data-slot="saved-state" hidden></span>
+        <span class="marks" data-slot="marks" hidden></span>
         <span class="pinned" data-slot="pinned"><span class="ic" data-icon="location-dot"></span> On the map</span>
         <span class="nopos" data-slot="nopos">No position yet</span>
         <span class="visit" data-slot="visit" hidden><span class="ic" data-icon=""></span><span data-slot="word"></span></span>
@@ -114,6 +124,12 @@
 <!-- visit status in the form: a toggle button per status (aria-pressed); a swatch per colour, filled with the tint (data-tint), with a check when chosen -->
 <template id="tpl-status-btn"><button class="status-btn" type="button" aria-pressed="false"><span class="ic" data-icon=""></span><span data-slot="label"></span></button></template>
 <template id="tpl-swatch"><button class="swatch" type="button" aria-pressed="false"><span class="ic" data-icon="check"></span><span class="swatch-label" data-slot="label"></span></button></template>
+<!-- a tick of Shows in: the checkbox, its name, and a hint (why it cannot be changed, or what Mine means) -->
+<template id="tpl-tick"><label class="check tick"><input type="checkbox"><span class="tick-text"><span data-slot="label"></span><span class="tick-hint" data-slot="hint"></span></span></label></template>
+<!-- a space a place is marked into, on its row (only the viewer's own spaces are named) -->
+<template id="tpl-mark"><span class="space-mark"><span class="ic" data-icon="users"></span><span data-slot="name"></span></span></template>
+<!-- asked before a change of ticks takes the place away from people -->
+<template id="tpl-narrow"><div class="conflict-bar narrow-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="keep-shared">Keep it shared</button><button class="btn btn-danger" type="button" data-action="take-away">Take it away</button></div></template>
 <template id="tpl-owner"><span class="owner"></span></template>
 <template id="tpl-link"><span class="link"><span class="ic" data-icon=""></span> <b data-slot="kind"></b> <span data-slot="title"></span></span></template>
 <template id="tpl-conflict"><div class="conflict-bar" role="alert"><span data-slot="text"></span><button class="btn" type="button" data-action="use-theirs">Use theirs</button><button class="btn" type="button" data-action="keep-mine">Keep mine</button></div></template>

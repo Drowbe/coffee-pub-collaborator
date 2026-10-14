@@ -1,7 +1,7 @@
   // The Places module's model: no page in it, so the page and the checks can both use it. A place is one stored value
   // (`place:<id>`): { title, category, address, point?, notes, owners, by, ref?, type?, icon?, iconOwn?, color?, status? }. `point` is a
   // field of its own so the module's summary can name it (a summary's `place`); a place with only an address has none. The page
-  // defines `geo` (host.util.geo) ahead of this code, as the check does, and the build puts the bundled types library
+  // defines `geo` (host.util.geo) and `word` (host.util.word) ahead of this code, as the check does, and the build puts the bundled types library
   // (places-lib-types.json) ahead of it as `LIB_TYPES` (plan-places-library.md, Part B).
   const PLACE_PREFIX = 'place:';
   const CATEGORY_ID = /^[a-z][a-z0-9-]{0,29}$/;
@@ -108,9 +108,110 @@
     return [...words].map(([id, w]) => ({ id, label: id.charAt(0).toUpperCase() + id.slice(1).replace(/-/g, ' '), words: [...w] })).sort((a, b) => a.label.localeCompare(b.label));
   }
 
-  // A stored value as a place, or null when it is not one.
+  // --- belonging: one home, marks into spaces, a private list (plan-places-library.md, Part A) -------------------------
+  // A place is kept in one store, its home (the environment's, a space's or a person's), and the home alone decides who
+  // can read and change it. `spaces` on the record are marks: the spaces it also shows in. They only filter lists and maps;
+  // they let nobody read it who could not already. Mine is a bookmark in the person's own store (`saved:`), never written
+  // on the shared record. A place that moves leaves a forward in its old home: `place:<id>` holding only its title and
+  // `movedTo`, so a pointer to the old home still resolves.
+  const SAVED_PREFIX = 'saved:';
+  const MAX_MARKS = 20;
+  const MAX_SAVED = 1000;
+  const SPACE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+  const PLACE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+  const cleanMarks = (list) => (Array.isArray(list) ? [...new Set(list.filter((s) => typeof s === 'string' && SPACE_ID.test(s)))].slice(0, MAX_MARKS) : []);
+  // A home as stored in a forward or a pointer: { scope: 'environment' | 'person' } or { scope: 'space', space }.
+  const cleanHome = (h) => (h && (h.scope === 'environment' || h.scope === 'person') ? { scope: h.scope }
+    : h && h.scope === 'space' && typeof h.space === 'string' && SPACE_ID.test(h.space) ? { scope: 'space', space: h.space } : null);
+  const sameHome = (a, b) => Boolean(a && b && a.scope === b.scope && (a.scope !== 'space' || a.space === b.space));
+  // A forward, or null when the value is not one. It holds the title only: no address, position or notes.
+  function cleanForward(v) {
+    if (!v || typeof v !== 'object' || !v.movedTo) return null;
+    const movedTo = cleanHome(v.movedTo);
+    return movedTo ? { title: geo.oneLine(v.title, 120) || 'A place', movedTo } : null;
+  }
+  const forwardValue = (title, to) => ({ title: geo.oneLine(title, 120), movedTo: cleanHome(to) });
+
+  // The ticks of the form's Shows in: { everyone, spaces: [space id], mine }. The home follows from them, widest first:
+  // Everyone keeps it in the environment (the ticked spaces become marks); one space alone keeps it in that space; Mine alone
+  // keeps it private in the person's store. Two spaces or more without Everyone is refused for now (`error: 'spaces'`), and
+  // nothing ticked is `error: 'none'`. `mine` beside a shared home is a bookmark.
+  function homeFor(t) {
+    const spaces = cleanMarks(t && t.spaces);
+    const mine = Boolean(t && t.mine);
+    if (t && t.everyone) return { scope: 'environment', marks: spaces, mine };
+    if (spaces.length > 1) return { error: 'spaces' };
+    if (spaces.length === 1) return { scope: 'space', space: spaces[0], marks: [], mine };
+    if (mine) return { scope: 'person', marks: [], mine: false };
+    return { error: 'none' };
+  }
+  // The ticks a place has now: from its home, its marks, and whether the person keeps it on their list.
+  function ticksOf(home, place, saved) {
+    if (home.scope === 'environment') return { everyone: true, spaces: cleanMarks(place && place.spaces), mine: Boolean(saved) };
+    if (home.scope === 'space') return { everyone: false, spaces: [home.space], mine: Boolean(saved) };
+    return { everyone: false, spaces: [], mine: true };
+  }
+  // The ticks a new place starts with: Everyone first when the viewer may add there, then where they are (`at`: 'space'
+  // on a space's canvas or its Map, adding `space`; 'my' in the Mine view, adding Mine; anything else, nothing more).
+  // Without Everyone, where they are; failing that, the first store open to them. `can` says what they may add to.
+  function defaultTicks(at, space, can) {
+    const c = can || {};
+    const t = { everyone: Boolean(c.everyone), spaces: [], mine: false };
+    if (at === 'space' && space && c.here) t.spaces = [space];
+    if (at === 'my' && c.mine) t.mine = true;
+    if (!t.everyone && !t.spaces.length && !t.mine) {
+      if (space && c.here) t.spaces = [space];
+      else if (c.mine) t.mine = true;
+    }
+    return t;
+  }
+  // `in` on a request from another module (addPlace, sharePlace): the words environment, space and person, as a list or
+  // in one string ("environment space"). Null when none is given, so the default applies; an Error for a word it does not know.
+  function ticksFromIn(value, space) {
+    if (value === undefined || value === null || value === '') return null;
+    const words = (Array.isArray(value) ? value : String(value).split(/[\s,]+/)).map((w) => String(w).trim().toLowerCase()).filter(Boolean);
+    if (!words.length) return null;
+    const bad = words.find((w) => !['environment', 'space', 'person'].includes(w));
+    if (bad) throw new Error(`in takes ${word('environment')}, ${word('space')} or person, not "${bad.slice(0, 20)}"`);
+    if (words.includes('space') && !space) throw new Error(`there is no ${word('space')} here to add it to`);
+    return { everyone: words.includes('environment'), spaces: words.includes('space') ? [space] : [], mine: words.includes('person') };
+  }
+  // Whether going from one home to another takes the place away from people: Everyone to a space or to Mine (the
+  // environment's people lose it), or a space to Mine (the space's people lose it). '' when it widens or stays.
+  function narrows(from, to) {
+    if (!from || !to || sameHome(from, to)) return '';
+    if (from.scope === 'environment') return 'environment';
+    if (from.scope === 'space' && to.scope === 'person') return 'space';
+    return '';
+  }
+  // Whether two places differ in their marks and nothing else (a change of ticks only, retried once on a conflict).
+  const withoutMarks = (p) => JSON.stringify({ ...placeValue({ ...p, spaces: [] }), by: '' });
+  const marksOnly = (a, b) => withoutMarks(a) === withoutMarks(b);
+
+  // A bookmark: `saved:e:<id>` for an environment place, `saved:s:<space id>:<id>` for a space's, holding { ref, title }.
+  // The title is kept so the list can name a place it cannot read (another space's, or one no longer shared).
+  const bookmarkKey = (ref) => (ref.scope === 'space' ? `${SAVED_PREFIX}s:${ref.space}:${ref.id}` : `${SAVED_PREFIX}e:${ref.id}`);
+  function cleanBookmark(key, v) {
+    if (!v || typeof v !== 'object' || !v.ref || typeof v.ref !== 'object') return null;
+    const home = cleanHome(v.ref);
+    if (!home || home.scope === 'person' || typeof v.ref.id !== 'string' || !PLACE_ID.test(v.ref.id)) return null;
+    const ref = { module: typeof v.ref.module === 'string' ? v.ref.module : 'places', kind: 'place', id: v.ref.id, ...home };
+    if (key !== bookmarkKey(ref)) return null;
+    return { key, ref, title: geo.oneLine(v.title, 120) };
+  }
+  // The places in a space's list: those kept there, then the environment's marked for it.
+  const markedFor = (places, space) => (places || []).filter((p) => Array.isArray(p.spaces) && p.spaces.includes(space));
+  // Many lists of { p, w } (w: the place's home store) as one, each place once: a place reached through a mark and through
+  // the environment's own list is one row and one pin. Sorted by name.
+  function shownOnce(groups) {
+    const seen = new Map();
+    for (const list of groups) for (const x of list || []) { const k = `${x.w}/${x.p.id}`; if (!seen.has(k)) seen.set(k, x); }
+    return [...seen.values()].sort((a, b) => a.p.title.localeCompare(b.p.title));
+  }
+
+  // A stored value as a place, or null when it is not one (a forward is not).
   function cleanPlace(id, v) {
-    if (!v || typeof v !== 'object') return null;
+    if (!v || typeof v !== 'object' || v.movedTo) return null;
     const title = geo.oneLine(v.title, 120);
     if (!title) return null;
     let point = null;
@@ -138,6 +239,7 @@
       owners: Array.isArray(v.owners) ? [...new Set(v.owners.filter((k) => typeof k === 'string' && k.length <= 64))].slice(0, 20) : [],
       by: typeof v.by === 'string' ? v.by.slice(0, 64) : '',
       ref,
+      spaces: cleanMarks(v.spaces),
     };
   }
   // What is stored for a place (no `point` at all when it has none, so its summary carries no place).
@@ -155,6 +257,7 @@
     owners: p.owners,
     by: p.by,
     ...(p.ref ? { ref: p.ref } : {}),
+    ...(p.spaces && p.spaces.length ? { spaces: cleanMarks(p.spaces) } : {}),
   });
 
   // What another module asks for through `addPlace`: a checked place, or an Error saying what is wrong.
@@ -182,30 +285,40 @@
   // `opts.scope` says whose they are: 'space' (this space's, the default), 'environment' (everyone's) or 'person' (the signed-in person's own, private).
   // `opts.space` names one of the viewer's spaces from the environment page (the Map destination's panel): scope 'space'
   // there reaches that space with { space }, and its changes arrive as the 'spaces' scope with its id.
+  // `opts.here` is the id of the space the page is in (a store of scope 'space' without `space` is that one's).
   function createPlaces(host, opts) {
     const scope = (opts && opts.scope) || 'space';
     const space = scope === 'space' && opts && opts.space ? String(opts.space) : null;
     const at = space ? { scope, space } : { scope };
+    // Where this store is, as a forward's `movedTo` names it.
+    const home = () => (scope === 'space' ? { scope: 'space', space: space || String((opts && opts.here) || '') } : { scope });
     // A pointer to one of these places, and the options that say where it is for setLinks.
-    const pointer = (id) => host.objects.make('place', id, scope === 'environment' ? { scope: 'environment' } : space ? { space } : undefined);
+    const pointer = (id) => host.objects.make('place', id, scope === 'environment' || scope === 'person' ? { scope } : space ? { space } : undefined);
     const linkOpts = space ? { space } : undefined;
     const byId = new Map(); // id -> { place, version }
+    const forwards = new Map(); // id -> { forward, version }: places that moved out of this store
     const listeners = new Set();
     const changed = () => { for (const fn of listeners) fn(); };
 
     const remember = (id, value, version) => {
+      byId.delete(id);
+      forwards.delete(id);
+      const f = value ? cleanForward(value) : null;
+      if (f) { forwards.set(id, { forward: f, version }); return; }
       const p = value ? cleanPlace(id, value) : null;
       if (p) byId.set(id, { place: p, version });
-      else byId.delete(id);
     };
     async function load() {
+      const items = await host.storage.list(PLACE_PREFIX, at);
       byId.clear();
-      for (const it of await host.storage.list(PLACE_PREFIX, at)) remember(it.key.slice(PLACE_PREFIX.length), it.value, it.version);
+      forwards.clear();
+      for (const it of items) remember(it.key.slice(PLACE_PREFIX.length), it.value, it.version);
       changed();
     }
     // Fill from items already read (a list across every space, each item with its spaceId), instead of asking again.
     function seed(items) {
       byId.clear();
+      forwards.clear();
       for (const it of items || []) if (String(it.key).startsWith(PLACE_PREFIX)) remember(it.key.slice(PLACE_PREFIX.length), it.value, it.version);
       changed();
     }
@@ -219,24 +332,56 @@
     const list = () => [...byId.values()].map((x) => x.place).sort((a, b) => a.title.localeCompare(b.title));
     const get = (id) => (byId.get(id) || {}).place || null;
     const versionOf = (id) => (byId.get(id) || {}).version;
+    const forwardOf = (id) => (forwards.get(id) || {}).forward || null;
 
     // Save a place (a new one when it has no id). A stale edit is refused with the store's 409.
     async function save(p, version) {
       const id = p.id && p.id !== 'new' ? p.id : host.util.id();
-      const value = placeValue({ ...p, id });
+      // Marks are kept only on the environment's places: a space's place is in that space alone, a person's is private.
+      const value = placeValue({ ...p, id, spaces: scope === 'environment' ? p.spaces : [] });
       const saved = await host.storage.set(PLACE_PREFIX + id, value, version === undefined ? at : { ...at, version });
       const place = cleanPlace(id, value);
+      forwards.delete(id);
       byId.set(id, { place, version: saved && saved.version });
       // Personal places are private, so nothing is linked to or from them.
       if (place.ref && scope !== 'person') host.objects.setLinks(pointer(id), [place.ref], linkOpts).catch(() => {});
       changed();
       return place;
     }
+    // A place moving in from another store, keeping its id: written only over nothing or over this store's own forward of
+    // it (version 0 means "only if there is nothing there"), never over another place.
+    const adopt = (p) => save(p, forwards.has(p.id) ? forwards.get(p.id).version : 0);
+    // The place left this store for `to`: its record is replaced by a forward (title only), and its links go with it.
+    async function forward(id, title, to, version) {
+      const value = forwardValue(title, to);
+      const saved = await host.storage.set(PLACE_PREFIX + id, value, version === undefined ? at : { ...at, version });
+      byId.delete(id);
+      forwards.set(id, { forward: cleanForward(value), version: saved && saved.version });
+      if (scope !== 'person') host.objects.setLinks(pointer(id), [], linkOpts).catch(() => {});
+      changed();
+    }
     async function remove(id) {
       await host.storage.delete(PLACE_PREFIX + id, byId.has(id) ? { ...at, version: byId.get(id).version } : at);
       byId.delete(id);
+      forwards.delete(id);
       if (scope !== 'person') host.objects.setLinks(pointer(id), [], linkOpts).catch(() => {});
       changed();
+    }
+    // Add and take away space marks, and nothing else. Two people ticking two spaces at once both win: on a conflict the
+    // place is read again and the same change applied to what is there now, once.
+    async function mark(id, add, take, by) {
+      const apply = (p) => ({ ...p, spaces: cleanMarks([...p.spaces.filter((s) => !(take || []).includes(s)), ...(add || [])]), ...(by ? { by } : {}) });
+      const cur = byId.get(id);
+      if (!cur) throw new Error('there is no such place');
+      try {
+        return await save(apply(cur.place), cur.version);
+      } catch (err) {
+        if (!err || err.status !== 409) throw err;
+        const fresh = await host.storage.get(PLACE_PREFIX + id, at);
+        const p = fresh ? cleanPlace(id, fresh.value) : null;
+        if (!p) throw Object.assign(new Error('that place was removed by someone else'), { status: 404 });
+        return save(apply(p), fresh.version);
+      }
     }
     // Give a place a point (or take it away with null).
     async function setPoint(id, pt) {
@@ -246,24 +391,57 @@
       return save({ ...cur.place, point: pt ? { lat: geo.round6(Number(pt.lat)), lng: geo.round6(Number(pt.lng)) } : null }, cur.version);
     }
 
-    // What other modules may ask of this one, and what it is when they do.
-    function provide(me) {
-      if (!host.actions || !host.actions.provide) return;
-      host.actions.provide({
-        addPlace: async (input, ctx) => {
-          const place = await save(placeFromRequest(input, me || (ctx && ctx.by) || ''));
-          return { ref: host.objects.make('place', place.id) };
-        },
-        setPlacePoint: async (input) => {
-          const r = input && input.place;
-          if (!r || r.kind !== 'place') throw new Error('that is not a place');
-          const place = await setPoint(String(r.id), { lat: input.lat, lng: input.lng });
-          return { ref: host.objects.make('place', place.id) };
-        },
-      });
-    }
+    return { load, seed, list, get, versionOf, forwardOf, save, adopt, forward, remove, mark, setPoint, home, pointer, scope, space, subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
+  }
 
-    return { load, seed, list, get, versionOf, save, remove, setPoint, provide, scope, space, subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
+  // Move a place to another store (sharing a private place, widening or narrowing), keeping its id. The new home is
+  // written first, then the forward in the old one, so a failure between the two leaves the place readable in one of them:
+  // { place, forwarded: true }, or { place, forwarded: false, error } when only the old record could not be replaced.
+  async function movePlace(from, to, place, version) {
+    const moved = await to.adopt(place);
+    try {
+      await from.forward(place.id, place.title, to.home(), version);
+      return { place: moved, forwarded: true };
+    } catch (err) {
+      return { place: moved, forwarded: false, error: err };
+    }
+  }
+
+  // The person's own list of shared places they saved (bookmarks), in their own store: nobody else, an owner included,
+  // can see who keeps a place on their list.
+  function createBookmarks(host) {
+    const at = { scope: 'person' };
+    const byKey = new Map(); // key -> { key, ref, title }
+    const listeners = new Set();
+    const changed = () => { for (const fn of listeners) fn(); };
+    const remember = (key, value) => { const b = value ? cleanBookmark(key, value) : null; if (b) byKey.set(key, b); else byKey.delete(key); };
+    async function load() {
+      const items = await host.storage.list(SAVED_PREFIX, at);
+      byKey.clear();
+      for (const it of items) remember(it.key, it.value);
+      changed();
+    }
+    host.on('change', (e) => {
+      if (!String(e.key).startsWith(SAVED_PREFIX) || e.scope !== 'person') return;
+      remember(String(e.key), e.deleted ? null : e.value);
+      changed();
+    });
+    const has = (ref) => byKey.has(bookmarkKey(ref));
+    async function add(ref, title) {
+      if (byKey.size >= MAX_SAVED && !has(ref)) throw new Error(`your list holds at most ${MAX_SAVED} places`);
+      const key = bookmarkKey(ref);
+      const value = { ref: { module: ref.module, kind: 'place', id: String(ref.id), scope: ref.scope, ...(ref.scope === 'space' ? { space: ref.space } : {}) }, title: geo.oneLine(title, 120) };
+      await host.storage.set(key, value, at);
+      remember(key, value);
+      changed();
+    }
+    async function remove(refOrKey) {
+      const key = typeof refOrKey === 'string' ? refOrKey : bookmarkKey(refOrKey);
+      await host.storage.delete(key, at);
+      byKey.delete(key);
+      changed();
+    }
+    return { load, list: () => [...byKey.values()], has, add, remove, subscribe: (fn) => { listeners.add(fn); return () => listeners.delete(fn); } };
   }
 
   // --- finding a place ----------------------------------------------------------------------------------------------

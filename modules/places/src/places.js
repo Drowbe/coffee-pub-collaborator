@@ -84,9 +84,13 @@
   // `places` is whichever the person is looking at.
   // Beside the map, each of the viewer's spaces has a store too, keyed 'in:<space id>' (see addSpaceStore below). A place is
   // known by where it is (`w`, a store's key) and its id: two stores may hold the same id.
-  const stores = { space: createPlaces(host, { scope: 'space' }), my: createPlaces(host, { scope: 'person' }), global: createPlaces(host, { scope: 'environment' }) };
+  // A place is kept in one store (its home) and may be marked into spaces and saved to a person's list (plan-places-library,
+  // Part A): `saved` is that list, the person's bookmarks, in their own store.
+  const here = inSpace ? String(info.context.spaceId) : null;
+  const stores = { space: createPlaces(host, { scope: 'space', here }), my: createPlaces(host, { scope: 'person' }), global: createPlaces(host, { scope: 'environment' }) };
+  const saved = personal ? createBookmarks(host) : null;
   const loadedStores = new Set();
-  const ensureLoaded = (v) => { if (loadedStores.has(v)) return Promise.resolve(); loadedStores.add(v); return stores[v].load().catch((err) => { loadedStores.delete(v); throw err; }); };
+  const ensureLoaded = (v) => { if (loadedStores.has(v) || !stores[v]) return Promise.resolve(); loadedStores.add(v); return stores[v].load().catch((err) => { loadedStores.delete(v); throw err; }); };
   let view = inSpace ? 'space' : 'my';
   const spaceInfo = new Map(); // beside the map: space id -> { id, name, icon, svg, write }, from host.spaces()
   // A module that can show a place on a map, if one is installed: found by what it offers, never by name.
@@ -167,38 +171,40 @@
   // Where a place is, for the host: a pointer's options, and the store a pointer names.
   const whereOpts = (w) => (w === 'my' ? { scope: 'person' } : w === 'global' ? { scope: 'environment' } : w.startsWith('in:') ? { space: w.slice(3) } : {});
   const placeRef = (w, id) => host.objects.make('place', id, whereOpts(w));
-  const whereOfRef = (ref) => (ref.scope === 'person' ? 'my' : ref.scope === 'environment' ? 'global' : ref.scope === 'space' ? (inSpace ? 'space' : `in:${ref.space}`) : null);
+  // A store's key for a home ({ scope, space? }) and back: 'global', 'my', 'space' (the space this page is in) or 'in:<id>'.
+  const wOfHome = (h) => (h.scope === 'person' ? 'my' : h.scope === 'environment' ? 'global' : inSpace && h.space === here ? 'space' : `in:${h.space}`);
+  const homeOfW = (w) => (w === 'global' ? { scope: 'environment' } : w === 'my' ? { scope: 'person' } : w === 'space' ? { scope: 'space', space: here } : { scope: 'space', space: w.slice(3) });
+  const whereOfRef = (ref) => (ref.scope === 'person' || ref.scope === 'environment' || (ref.scope === 'space' && ref.space) ? wOfHome(ref) : ref.scope === 'space' && inSpace ? 'space' : null);
   const rowKey = (w, id) => `${w}/${id}`;
-  // Who may change the places in a store. On the module's own pages, as before: this module's edit permission here. Beside
-  // the map: Mine and everyone's by the edit permission at the environment (Mine needs a signed-in person), a space's where
-  // host.spaces() says `write` there; in a space, this space's and everyone's by the edit permission here, as its canvas has it.
+  // Who may change the places in a store. On the module's own pages, as before: this module's edit permission here (Mine
+  // and everyone's need a signed-in person). Beside the map: Mine and everyone's by the edit permission at the environment,
+  // a space's where host.spaces() says `write` there; in a space, this space's and everyone's by the edit permission here, as
+  // its canvas has it. Another space's store is never written from a space's canvas (the host refuses it), so only marks
+  // reach other spaces from there. The server decides again on every write.
   function writable(w) {
-    if (!asPart) return canEdit;
-    if (w === 'my') return personal && canEdit;
-    if (w === 'global') return canEdit;
+    if (w === 'saved') return false;
+    if (w.startsWith('in:')) { if (inSpace) return false; const r = spaceInfo.get(w.slice(3)); return Boolean(r && r.write === true); }
+    if (w === 'my' || w === 'global') return personal && canEdit;
     if (w === 'space') return inSpace && canEdit;
-    if (w.startsWith('in:')) { const r = spaceInfo.get(w.slice(3)); return Boolean(r && r.write === true); }
     return false;
   }
   // The environment's own places are named by the environment's name (info.context.environment.name), as the Map
   // destination's filter names them (decision 19); "Everyone" only where the name is not known.
   const everyoneName = () => (info.context.environment && info.context.environment.name) || 'Everyone';
+  const everyoneIn = () => (info.context.environment && info.context.environment.name ? `Everyone in ${info.context.environment.name}` : 'Everyone');
+  // A space's own name: this one's from host.space(), another's from host.spaces().
+  const spaceName = (id) => (id === here && host.space && host.space() && host.space().name) || (spaceInfo.get(id) || {}).name || word('space', { cap: true });
   const whereName = (w) => (w === 'my' ? 'Mine' : w === 'global' ? everyoneName() : w === 'space' ? `This ${word('space')}` : (spaceInfo.get(w.slice(3)) || {}).name || word('space', { cap: true }));
-  // Where a new place may go, beside the map: Mine, everyone's, then each space where the viewer may add places; in a
-  // space, this space first, then Mine and everyone's.
-  function whereOptions() {
-    const out = [];
-    const open = (w) => writable(w) && (asPart || Boolean(allowed[w]));
-    if (inSpace && open('space')) out.push({ w: 'space', label: whereName('space') });
-    if (open('my')) out.push({ w: 'my', label: 'Mine' });
-    if (open('global')) out.push({ w: 'global', label: everyoneName() });
-    for (const r of spaceInfo.values()) if (r.write === true) out.push({ w: `in:${r.id}`, label: r.name });
-    return out;
-  }
-  // Adding is one system everywhere (the module's pages, a pop-out, the Map's list): the same stores are offered, and a new
-  // place is added if any is writable. On the module's own pages a store is open when the viewer may edit here and the
-  // store exists for them (Mine and everyone's need a signed-in person; this space's, a space).
-  const canAdd = () => whereOptions().length > 0;
+  // What the viewer may tick in Shows in. Everyone, Mine and this space by the stores' rights; another space as the place's
+  // home only from an environment page, and as a mark wherever host.spaces() says they may add places there.
+  const canEveryone = () => writable('global');
+  const canHere = () => inSpace && writable('space');
+  const canMine = () => writable('my');
+  const canMark = (id) => (inSpace && id === here ? canHere() : Boolean(spaceInfo.get(id) && spaceInfo.get(id).write === true));
+  const otherSpaces = () => [...spaceInfo.values()].filter((r) => r.id !== here);
+  // Adding is one system everywhere (the module's pages, a pop-out, the Map's list): a new place may be added when any tick
+  // of Shows in is open to the viewer.
+  const canAdd = () => canEveryone() || canHere() || canMine() || (!inSpace && otherSpaces().some((r) => r.write === true));
   // The stores shown: the view's on the module's own pages; beside the map, those the page's filter has on (in a space,
   // this space's among them).
   function shownWheres() {
@@ -211,8 +217,47 @@
     for (const id of spaceInfo.keys()) if (!f || !f.spaces || f.spaces.has(id)) out.push(`in:${id}`);
     return out;
   }
-  const entries = () => shownWheres().flatMap((w) => (stores[w] ? stores[w].list().map((p) => ({ p, w })) : [])).sort((a, b) => a.p.title.localeCompare(b.p.title));
+  // What is listed: the union of what the viewer may read, each place once, keyed by its home (shownOnce). A space's list is
+  // the places kept there and the environment's marked for it; Mine is the person's own places and the ones they saved.
+  let spacesKnown = false; // host.spaces() has answered (so a space missing from it is one the viewer is not in)
+  function entries() {
+    const env = stores.global.list();
+    const groups = [];
+    for (const v of shownWheres()) {
+      if (v === 'my') { groups.push(stores.my.list().map((p) => ({ p, w: 'my' })), savedEntries()); continue; }
+      if (v === 'global') { groups.push(env.map((p) => ({ p, w: 'global' }))); continue; }
+      groups.push((stores[v] ? stores[v].list() : []).map((p) => ({ p, w: v })));
+      groups.push(markedFor(env, v === 'space' ? here : v.slice(3)).map((p) => ({ p, w: 'global' })));
+    }
+    return shownOnce(groups);
+  }
+  // A saved place, followed to where it is now (through a forward when it moved): { p, w }, or the bookmark itself when it
+  // is not readable here: `remote` (in another space, which a space's canvas does not read) or `gone` (deleted, or no
+  // longer shared with this person).
+  function followPlace(w, id) {
+    for (let hop = 0; hop < 4; hop += 1) {
+      if (w.startsWith('in:') && spacesKnown && !spaceInfo.has(w.slice(3))) return { gone: true };
+      const s = stores[w];
+      if (!s || !loadedStores.has(w)) return { remote: true };
+      const p = s.get(id);
+      if (p) return { p, w };
+      const f = s.forwardOf(id);
+      if (!f) return { gone: true };
+      w = wOfHome(f.movedTo);
+    }
+    return { gone: true };
+  }
+  function savedEntries() {
+    if (!saved) return [];
+    return saved.list().map((b) => {
+      const found = followPlace(wOfHome(b.ref), b.ref.id);
+      if (found.p) return found;
+      const p = cleanPlace(b.key, { title: b.title || 'A place' });
+      return { p, w: 'saved', bookmark: b, state: found.remote ? 'remote' : 'gone' };
+    });
+  }
   const placeAt = (w, id) => (w && stores[w] ? stores[w].get(id) : null);
+  const savedAt = (key) => (saved ? saved.list().find((b) => b.key === key) || null : null);
 
   // The pane's width, not the window's: a bundled module runs in the page, so a media query would follow the window.
   const fit = () => {
@@ -240,7 +285,7 @@
   async function loadLinks() {
     if (!host.objects || !host.objects.linksTo) return;
     let changed = false;
-    for (const { p, w } of entries().filter((x) => x.w !== 'my').slice(0, 100)) { // personal places are not linked
+    for (const { p, w } of entries().filter((x) => x.w !== 'my' && x.w !== 'saved').slice(0, 100)) { // personal places are not linked
       const key = rowKey(w, p.id);
       if (asked.has(key)) continue;
       asked.add(key);
@@ -272,7 +317,13 @@
     mark.hidden = false;
   }
 
-  function row(p, w) {
+  // The spaces a place is marked into that the viewer is in, named on its row; the space being looked at is left out (the
+  // row is in its list already). Other spaces are not named or counted.
+  function markNames(p) {
+    const viewing = (inSpace && (asPart || view === 'space')) ? here : null;
+    return p.spaces.filter((id) => id !== viewing && (id === here || spaceInfo.has(id))).map(spaceName);
+  }
+  function row(p, w, x) {
     const el = clone('tpl-place');
     el.dataset.id = p.id;
     el.dataset.where = w;
@@ -280,7 +331,10 @@
     el.dataset.cat = look.cat.id;
     tone(el, look.color);
     if (asPart && state.selected === rowKey(w, p.id)) el.classList.add('selected');
-    scopeMark(el, w);
+    const marks = slot(el, 'marks');
+    marks.replaceChildren(...(w === 'global' ? markNames(p) : []).map((name) => { const m = clone('tpl-mark'); fill(m, { name }); return m; }));
+    marks.hidden = !marks.children.length;
+    if (w !== 'saved') scopeMark(el, w);
     setIcon(el.querySelector('.mark [data-icon]'), look.icon);
     const visit = slot(el, 'visit');
     const st = statusOf(p.status);
@@ -295,6 +349,16 @@
     const links = slot(el, 'links');
     links.replaceChildren(...(state.links.get(rowKey(w, p.id)) || []).slice(0, 4).map(linkPill));
     links.hidden = !links.children.length;
+    // A saved place this page cannot show: in another space (opened there), or gone or no longer shared.
+    if (w === 'saved') {
+      el.classList.add('saved-only');
+      const b = x && x.bookmark;
+      fill(el, { 'saved-state': x && x.state === 'remote' ? `In ${b && b.ref.space ? spaceName(b.ref.space) : word('space', { a: true })}` : 'No longer shared with you' });
+      hide(slot(el, 'pinned'), true);
+      hide(slot(el, 'nopos'), true);
+      const mark = el.querySelector('.scope-mark');
+      if (mark) mark.remove();
+    }
     return el;
   }
 
@@ -407,7 +471,7 @@
       const g = clone('tpl-group');
       setIcon(g.querySelector('[data-icon]'), c.icon);
       fill(g, { title: c.label });
-      g.querySelector('.rows').replaceChildren(...inCat.map((x) => row(x.p, x.w)));
+      g.querySelector('.rows').replaceChildren(...inCat.map((x) => row(x.p, x.w, x)));
       groups.push(g);
     }
     const more = findMore();
@@ -415,14 +479,16 @@
     hydrate(root);
   }
   // A store's change redraws the list when it is shown, and checks the place open in the dialog.
+  // Every store can change what is listed (the environment's marks fill a space's list, a saved place fills Mine), so any
+  // change redraws.
   function watch(key) {
     stores[key].subscribe(() => {
-      if (!shownWheres().includes(key)) return; // a change to a store not being looked at needs no redraw
       if (state.loaded) render();
       checkConflict();
     });
   }
   for (const key of Object.keys(stores)) watch(key);
+  if (saved) saved.subscribe(() => { if (state.loaded) render(); });
   // Beside the map: a store for one of the viewer's spaces, reached with { space }.
   function addSpaceStore(id) {
     const key = `in:${id}`;
@@ -464,41 +530,56 @@
   }
   // Delete armed by id, cleared a few seconds after arming so a stray later click cannot delete unarmed.
   const armedDelete = new Set();
-  // A copy of a place into another store: the original stays where it is.
-  async function copyTo(target, p, done) {
-    try {
-      await stores[target].save({ ...p, id: '', ref: null, by: info.user.key, owners: [info.user.key] });
-      say(done);
-      setTimeout(() => say(''), 2500);
-    } catch (err) { say('It could not be copied: ' + ((err && err.message) || err)); }
-  }
   // Set or clear the visit status from the menu: the place is saved as it is with the one field changed.
   async function setStatus(w, p, status) {
     try { await stores[w].save({ ...p, status, by: info.user.key }, stores[w].versionOf(p.id)); } catch (err) { say('It could not be changed: ' + ((err && err.message) || err)); }
   }
+  // Mine for a shared place: a bookmark in the person's own store, holding the home's pointer (and the title, to name it
+  // when it can no longer be read). Nobody else sees it.
+  async function setSaved(w, p, on) {
+    const ref = placeRef(w, p.id);
+    try {
+      if (on) { await saved.add(ref, p.title); say('Added to your list.'); } else { await saved.remove(ref); say('Taken off your list.'); }
+    } catch (err) { say('Your list could not be changed: ' + ((err && err.message) || err)); }
+  }
+  // Where a place shows, in words, for the delete question: its spaces (those the viewer is in), then everyone.
+  function showsIn(w, p) {
+    if (w === 'global') return [...p.spaces.filter((id) => id === here || spaceInfo.has(id)).map(spaceName), everyoneIn()];
+    if (w === 'space' || w.startsWith('in:')) return [spaceName(homeOfW(w).space)];
+    return [];
+  }
+  const andList = (list) => (list.length < 2 ? list.join('') : `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`);
+  // Delete: the place goes for everyone, and from the person's own list.
+  async function deletePlace(w, id) {
+    const p = placeAt(w, id);
+    await stores[w].remove(id);
+    if (p && saved && w !== 'my' && saved.has(placeRef(w, id))) saved.remove(placeRef(w, id)).catch(() => {});
+  }
+  // A saved place this page cannot show: take it off the list, or (in another space) open it there.
+  function openSavedMenu(key, button) {
+    const b = savedAt(key);
+    if (!b) return;
+    const x = savedEntries().find((e) => e.w === 'saved' && e.bookmark.key === key);
+    const items = [];
+    if (x && x.state === 'remote') items.push({ id: 'open-there', label: `Open in ${spaceName(b.ref.space)}`, icon: 'arrow-up-right-from-square', onClick: () => host.objects.open(b.ref).catch(() => say('It could not be opened.')) });
+    items.push({ id: 'unsave', label: 'Take off my list', icon: 'bookmark', onClick: () => saved.remove(key).catch((err) => say('Your list could not be changed: ' + ((err && err.message) || err))) });
+    host.menu.show({ id: `saved-${key}`, anchor: button, items });
+  }
   function openMenu(w, id, button) {
+    if (w === 'saved') return openSavedMenu(id, button);
     const p = placeAt(w, id);
     if (!p) return;
-    const canShare = !asPart && canEdit && personal && inSpace && (view === 'my' || view === 'space'); // copy between mine and this space: the original stays where it is
     const items = [
       { id: 'edit', label: writable(w) ? 'Edit' : 'View', icon: 'pen', onClick: () => openEditor(w, id) },
     ];
-    // Beside the map the copies name where they go: a shared place to Mine, one of Mine to a space the viewer may add to
-    // (in a space, to this space).
-    if (asPart && w !== 'my' && writable('my')) items.push({ id: 'share', label: 'Save to mine', icon: 'share-nodes', onClick: () => copyTo('my', p, 'Saved to your places.') });
-    if (asPart && w === 'my' && inSpace && writable('space')) items.push({ id: 'share-space', label: `Share to this ${word('space')}`, icon: 'share-nodes', onClick: () => copyTo('space', p, `Shared to this ${word('space')}.`) });
-    if (asPart && w === 'my' && personal) {
-      for (const r of [...spaceInfo.values()].filter((s) => s.write === true).slice(0, 8)) {
-        items.push({ id: `share-${r.id}`, label: `Share to ${r.name}`, icon: 'share-nodes', onClick: () => copyTo(`in:${r.id}`, p, `Shared to ${r.name}.`) });
-      }
+    // In a space: take an environment's place off this space's list (the mark goes; it stays for everyone).
+    if (inSpace && w === 'global' && p.spaces.includes(here) && writable('global') && canMark(here)) {
+      items.push({ id: 'take-off-here', label: `Take off ${spaceName(here)}`, icon: 'eye-slash', onClick: () => stores.global.mark(id, [], [here], info.user.key).catch((err) => say('It could not be changed: ' + ((err && err.message) || err))) });
     }
-    if (canShare) {
-      items.push({
-        id: 'share',
-        label: view === 'my' ? `Share to this ${word('space')}` : 'Save to mine',
-        icon: 'share-nodes',
-        onClick: () => copyTo(view === 'my' ? 'space' : 'my', p, view === 'my' ? `Shared to this ${word('space')}.` : 'Saved to your places.'),
-      });
+    // Mine, for a shared place: on or off the person's own list.
+    if (saved && w !== 'my' && canMine()) {
+      const on = saved.has(placeRef(w, id));
+      items.push({ id: on ? 'unsave' : 'save', label: on ? 'Take off my list' : 'Add to my list', icon: 'bookmark', onClick: () => setSaved(w, p, !on) });
     }
     if (!onPicture()) items.push({ id: 'open-in-maps', label: 'Open in my maps app', icon: 'arrow-up-right-from-square', href: openLinkFor(p) });
     if (p.point && !onPicture()) {
@@ -521,6 +602,8 @@
           ...(p.status ? [{ id: 'status-none', label: 'No status', icon: 'xmark', onClick: () => setStatus(w, p, '') }] : []),
         ],
       });
+      // Delete removes it for everyone; when it shows in more than one place, the question says where.
+      const where = showsIn(w, p);
       items.push({
         id: 'delete',
         label: 'Delete',
@@ -530,12 +613,12 @@
           if (!armedDelete.has(id)) {
             armedDelete.add(id);
             const label = b.querySelector('.sdk-menu-label');
-            if (label) label.textContent = 'Delete it?';
+            if (label) label.textContent = where.length > 1 ? `Delete it for everyone? It is in ${andList(where)}.` : 'Delete it?';
             setTimeout(() => armedDelete.delete(id), 4000);
             return false;
           }
           armedDelete.delete(id);
-          stores[w].remove(id).catch((err) => say('It could not be deleted: ' + ((err && err.message) || err)));
+          deletePlace(w, id).catch((err) => say('It could not be deleted: ' + ((err && err.message) || err)));
         },
       });
     }
@@ -544,48 +627,86 @@
 
   // --- the dialog for one place -------------------------------------------------------------------------------------
 
-  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where-wrap', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('editor-buttons') && !n.classList.contains('readonly') && !n.classList.contains('conflict-bar'));
+  const FIELD_WRAPPERS = () => [...$('form').children].filter((n) => !['editor-title', 'f-where', 'f-readonly', 'f-links-out', 'f-used-by', 'f-by', 'f-error'].includes(n.id) && !n.classList.contains('editor-buttons') && !n.classList.contains('readonly') && !n.classList.contains('conflict-bar'));
 
-  // --- where a new place goes (beside the map) ------------------------------------------------------------------------
-  // It always asks: Mine, everyone's, then the spaces where the viewer may add places, starting empty whatever the filter
-  // shows or was picked last; Save says to pick first. A place that exists stays where it is: Where shows it, unchangeable.
-  // The prompt names what is offered: "Pick a <space>, or Mine", "Pick a <space>", or "Pick where it goes" for Mine alone.
-  const pickWhere = () => {
-    if (inSpace) return 'Pick where it goes';
-    const offered = whereOptions();
-    const mine = offered.some((o) => o.w === 'my');
-    const others = offered.some((o) => o.w !== 'my');
-    if (mine && others) return `Pick ${word('space', { a: true })}, or Mine`;
-    return others ? `Pick ${word('space', { a: true })}` : 'Pick where it goes';
+  // --- Shows in: where a place shows, and so where it is kept --------------------------------------------------------
+  // A tick per place it can show: Everyone in <environment>, this space (in a space), the other spaces where the viewer may
+  // add places (under More on a space's canvas, where they can only be marks), and Mine. The home follows from the ticks
+  // (homeFor): Everyone keeps it in the environment with the spaces as marks; one space alone keeps it there; Mine alone keeps
+  // it private. One line under the ticks says who will see it. Marks into spaces the viewer is not in are kept as they are
+  // while the place stays in the environment (`e.hiddenMarks`), and never shown.
+  const ticksNow = () => {
+    const e = state.editing;
+    const on = (v) => Boolean($('f-where').querySelector(`input[value="${CSS.escape(v)}"]:checked`));
+    const spaces = [...$('f-where').querySelectorAll('input[value^="space:"]:checked')].map((i) => i.value.slice(6));
+    return { everyone: on('environment'), spaces, mine: on('person'), hidden: e ? e.hiddenMarks : [] };
   };
-  // Beside the map: a new place asks (for those who may add one); a place that exists shows where it is, unchangeable,
-  // whether the viewer may change it or not.
-  function fillWhere(w, editable) {
-    const wrap = $('f-where-wrap');
-    const select = $('f-where');
-    // A place that exists shows where it is, beside the map only; a new one asks wherever more than one store is open to the
-    // viewer. With one, there is nothing to ask: it goes there (see the submit).
-    const shown = w ? asPart : editable && whereOptions().length > 1;
-    hide(wrap, !shown);
-    wrap.hidden = !shown;
-    if (!shown) return;
-    const option = (value, label, o) => {
-      const el = document.createElement('option');
-      el.value = value;
-      el.textContent = label;
-      if (o && o.disabled) el.disabled = true;
-      return el;
-    };
-    if (w) {
-      select.replaceChildren(option('', whereName(w)));
-      select.disabled = true;
-      return;
-    }
-    select.replaceChildren(option('', pickWhere(), { disabled: true }), ...whereOptions().map((o) => option(o.w, o.label)));
-    select.value = '';
-    select.disabled = false;
+  // Where the ticks would keep the place, with the marks the viewer cannot see added back when it stays in the environment.
+  function targetOf(t) {
+    const target = homeFor(t);
+    if (target.error) return target;
+    if (target.scope === 'environment') target.marks = [...new Set([...target.marks, ...(t.hidden || [])])].slice(0, 20);
+    // Another space is kept as a home only from an environment page; a space's canvas reaches only its own store.
+    if (target.scope === 'space' && inSpace && target.space !== here) return { error: 'elsewhere', space: target.space };
+    return target;
   }
-  $('f-where').addEventListener('change', () => editorError(''));
+  function whereLine(target) {
+    if (target.error === 'none') return 'Pick at least one.';
+    if (target.error === 'spaces') return `To show it in more than one ${word('space')}, it must be in ${everyoneName()} too.`;
+    if (target.error === 'elsewhere') return `To keep it in ${spaceName(target.space)} alone, add it from ${spaceName(target.space)}.`;
+    if (target.scope === 'environment') return `${everyoneIn()} sees it.`;
+    if (target.scope === 'space') return `Only people in ${spaceName(target.space)} see it.`;
+    return 'Only you see it.';
+  }
+  // The line, and the note that a private place's notes will be seen once it is shared.
+  function sayWhere() {
+    const e = state.editing;
+    if (!e) return;
+    const target = targetOf(ticksNow());
+    $('f-where-line').textContent = whereLine(target);
+    const sharing = e.where === 'my' && !target.error && target.scope !== 'person' && $('f-notes').value.trim();
+    const who = !sharing ? '' : target.scope === 'environment' ? everyoneIn().replace(/^Everyone/, 'everyone') : `everyone in ${spaceName(target.space)}`;
+    $('f-where-notes').textContent = sharing ? `Its notes will be seen by ${who}.` : '';
+    hide($('f-where-notes'), !sharing);
+  }
+  function tick(value, label, { checked, enabled, hint }) {
+    const el = clone('tpl-tick');
+    const input = el.querySelector('input');
+    input.value = value;
+    input.checked = Boolean(checked);
+    input.disabled = !enabled;
+    el.classList.toggle('disabled', !enabled);
+    fill(el, { label, hint: hint || '' });
+    return el;
+  }
+  // Draw the ticks for a place (`w` its home, null for a new one) with `ticks` on.
+  function fillWhere(w, editable, ticks) {
+    const box = $('f-where');
+    hide(box, !editable);
+    if (!editable) return;
+    const t = ticks || { everyone: false, spaces: [], mine: false };
+    const rows = [];
+    const more = [];
+    const nope = 'You cannot add places there.';
+    rows.push(tick('environment', everyoneIn(), { checked: t.everyone, enabled: canEveryone(), hint: canEveryone() ? '' : `Only people who can add places for everyone in this ${word('environment')} can tick this.` }));
+    if (inSpace) rows.push(tick(`space:${here}`, spaceName(here), { checked: t.spaces.includes(here), enabled: canHere(), hint: canHere() ? '' : nope }));
+    // The other spaces: where the viewer may add places, and any the place is in that they are in (shown as it is).
+    for (const r of otherSpaces()) {
+      const on = t.spaces.includes(r.id);
+      if (!(r.write === true) && !on) continue;
+      const el = tick(`space:${r.id}`, r.name, { checked: on, enabled: r.write === true, hint: r.write === true ? '' : nope });
+      (inSpace ? more : rows).push(el);
+    }
+    $('f-where-mine').replaceChildren(...(personal ? [tick('person', 'Mine', { checked: t.mine, enabled: canMine(), hint: 'On your own list. Only you see that you saved it.' })] : []));
+    $('f-where-ticks').replaceChildren(...rows);
+    $('f-where-more-ticks').replaceChildren(...more);
+    fill($('f-where-more'), { more: `More ${word('space', { many: true })}` });
+    hide($('f-where-more'), !more.length);
+    $('f-where-more').open = more.some((el) => el.querySelector('input').checked);
+    sayWhere();
+  }
+  $('f-where').addEventListener('change', () => { editorError(''); sayWhere(); });
+  $('f-notes').addEventListener('input', () => { if (state.editing && state.editing.where === 'my') sayWhere(); });
 
   function fillOwners(selected) {
     const box = $('f-owners');
@@ -619,7 +740,7 @@
   // The dialog is the editor window (host.ui.editor): over everything (beside the map, over the whole destination page),
   // sized to the form, a sheet on a phone. What the form held when it opened is kept as text (state.editing.opened), so
   // Escape and Close ask "Discard your changes?" only after something changed; a read-only place never asks.
-  const formSnapshot = () => JSON.stringify([$('f-where').value, $('f-title').value, $('f-category').value, $('f-address').value, $('f-point').value, $('f-notes').value, ownersChosen(), state.editing ? [state.editing.type, state.editing.icon, state.editing.color, state.editing.status] : null]);
+  const formSnapshot = () => JSON.stringify([[...$('f-where').querySelectorAll('input:checked')].map((i) => i.value), $('f-title').value, $('f-category').value, $('f-address').value, $('f-point').value, $('f-notes').value, ownersChosen(), state.editing ? [state.editing.type, state.editing.icon, state.editing.color, state.editing.status] : null]);
   const formDirty = () => Boolean(state.editing && state.editing.opened !== undefined && state.editing.opened !== formSnapshot());
   const editor = host.ui.editor($('editor'), { size: 'medium', isDirty: formDirty, onClose: () => { if (!state.picking) state.editing = null; } });
 
@@ -722,7 +843,19 @@
     const shown = p || { title: (seed && seed.title) || '', category: (seed && seed.category) || 'other', type: (seed && seed.type) || '', icon: '', iconOwn: false, color: '', status: '', address: (seed && seed.address) || '', point: (seed && seed.point) || null, notes: (seed && seed.notes) || '', owners: [], by: '', ref: null };
     const editable = id ? writable(w) : true;
     $('editor-title').textContent = id ? (editable ? 'Change this place' : shown.title) : 'Add a place';
-    fillWhere(w, editable);
+    // Shows in: an existing place's home, the marks the viewer can see (the others are kept, unseen) and whether it is on
+    // their list; a new place starts with Everyone and where the person is (defaultTicks).
+    let ticks;
+    if (p) {
+      const seen = p.spaces.filter((s) => s === here || spaceInfo.has(s));
+      state.editing.hiddenMarks = p.spaces.filter((s) => !seen.includes(s));
+      ticks = ticksOf(homeOfW(w), { spaces: seen }, Boolean(saved && w !== 'my' && saved.has(placeRef(w, id))));
+    } else {
+      state.editing.hiddenMarks = [];
+      const at = asPart ? (inSpace ? 'space' : '') : view;
+      ticks = (seed && seed.ticks) || defaultTicks(at, here, { everyone: canEveryone(), here: canHere(), mine: canMine() });
+    }
+    state.editing.ticks = ticks;
     // Read only where the viewer may not change places: beside the map, say why (it differs from one place to the next).
     const why = asPart && id && !editable ? `Only people who can add places ${w === 'global' ? `for everyone in this ${word('environment')}` : w === 'space' ? `in this ${word('space')}` : `in ${whereName(w)}`} can change this.` : '';
     $('f-readonly').textContent = why;
@@ -741,7 +874,9 @@
       $('f-point-note').textContent = '';
       $('f-notes').value = shown.notes;
       fillOwners(id ? shown.owners : [info.user.key]);
+      fillWhere(w, true, ticks);
     } else {
+      fillWhere(w, false);
       const ro = clone('tpl-readonly');
       fill(ro, { type: (typeOf(shown.type) || {}).label || 'None', status: (statusOf(shown.status) || {}).label || 'None', category: catOf(shown).label, address: shown.address || 'None', point: shown.point ? geo.coordsText(shown.point.lat, shown.point.lng) : 'None yet', owners: shown.owners.map(nameOf).filter(Boolean).join(', ') || 'Nobody in particular', notes: shown.notes });
       $('editor-title').after(ro);
@@ -768,7 +903,7 @@
     // Focus goes back to the place's row after a save (found again by its id, since render() redraws the list), else to
     // whatever had it before.
     editor.open({
-      focus: editable ? $(!id && !$('f-where-wrap').hidden ? 'f-where' : 'f-title') : null,
+      focus: editable ? $('f-title') : null,
       returnTo: id ? () => root.querySelector(`.place-row[data-where="${CSS.escape(w)}"][data-id="${CSS.escape(id)}"]`) : null,
     });
   }
@@ -823,24 +958,65 @@
     }
   });
 
+  // Asked before a change of ticks takes the place away from people (narrowing): Keep it shared puts the ticks back,
+  // Take it away saves.
+  function askNarrow(text) {
+    for (const n of $('form').querySelectorAll('.narrow-bar')) n.remove();
+    const bar = clone('tpl-narrow');
+    fill(bar, { text });
+    $('form').querySelector('.editor-buttons').before(bar);
+    bar.querySelector('[data-action="take-away"]').focus();
+  }
+  $('form').addEventListener('click', (ev) => {
+    const b = ev.target.closest('[data-action="keep-shared"], [data-action="take-away"]');
+    const e = state.editing;
+    if (!b || !e) return;
+    for (const n of $('form').querySelectorAll('.narrow-bar')) n.remove();
+    if (b.dataset.action === 'take-away') { e.narrowOk = true; $('form').requestSubmit(); return; }
+    fillWhere(e.where, true, e.ticks);
+    $('f-where').querySelector('input:not(:disabled)')?.focus();
+  });
+  // Mine beside a shared home is a bookmark in the person's own store; a private home needs none. After a save or a move the
+  // bookmark follows the place's home pointer.
+  async function keepSaved(from, to, id, mine, title) {
+    if (!saved) return;
+    const oldRef = from && from !== 'my' ? placeRef(from, id) : null;
+    const newRef = to !== 'my' ? placeRef(to, id) : null;
+    if (oldRef && from !== to && saved.has(oldRef)) await saved.remove(oldRef);
+    if (newRef && mine && !saved.has(newRef)) await saved.add(newRef, title);
+    if (newRef && !mine && saved.has(newRef)) await saved.remove(newRef);
+  }
+
   $('form').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const e = state.editing;
     if (!e || !(e.id ? writable(e.where) : canAdd())) return;
-    // A new place goes where it was told to, and nowhere until then; with only one store open to the viewer it goes there.
-    let w = e.where;
-    const onlyOne = !e.id && whereOptions().length === 1;
-    if (!e.id) {
-      w = onlyOne ? whereOptions()[0].w : $('f-where').value;
-      if (!whereOptions().some((o) => o.w === w)) return editorError('Pick where it goes first.');
-    }
-    const store = stores[w];
     const title = geo.oneLine($('f-title').value, 120);
     if (!title) return editorError('Give the place a name.');
     readPoint();
     if (!e.pointOk) return editorError(onPicture() ? 'That is not a position. Leave it empty, or paste one.' : 'The position is not coordinates or a map link. Leave it empty, or paste one.');
     if (e.conflict) return editorError('Choose Use theirs or Keep mine first.');
-    const base = e.id ? store.get(e.id) : null;
+    // Where the ticks keep it (its home) and the spaces it is marked into.
+    const target = targetOf(ticksNow());
+    if (target.error) return editorError(whereLine(target));
+    const from = e.id ? e.where : null;
+    const to = wOfHome(target);
+    if (to.startsWith('in:')) addSpaceStore(to.slice(3));
+    if (to !== from && !writable(to)) return editorError('You cannot add places there.');
+    const base = e.id ? stores[from].get(e.id) : null;
+    if (e.id && !base) return editorError('That place was removed by someone else.');
+    // A mark the person adds or takes away must be in a space where they may add places (the ones they cannot see are kept).
+    const before = from === 'global' ? base.spaces : [];
+    const added = to === 'global' ? target.marks.filter((s) => !before.includes(s)) : [];
+    const taken = to === 'global' ? before.filter((s) => !target.marks.includes(s)) : [];
+    const refused = [...added, ...taken].find((s) => !canMark(s));
+    if (refused) return editorError(`You cannot add places in ${spaceName(refused)}.`);
+    // Narrowing takes it away from people: asked first.
+    const narrowing = from ? narrows(homeOfW(from), target) : '';
+    if (narrowing && !e.narrowOk) {
+      const envName = info.context.environment && info.context.environment.name;
+      return askNarrow(narrowing === 'environment' ? (envName ? `People in ${envName} will no longer see it.` : 'Everyone else will no longer see it.') : `People in ${spaceName(homeOfW(from).space)} will no longer see it.`);
+    }
     const place = {
       id: e.id || '',
       title,
@@ -856,30 +1032,37 @@
       icon: e.icon,
       color: e.color,
       status: e.status,
+      spaces: to === 'global' ? target.marks : [],
     };
     // The icon drawn is stored on the place (the summary carries it), whoever chose it: its own, else its type's, else its category's.
     place.icon = lookOf(place, cats).icon;
     $('f-save').disabled = true;
     try {
-      const saved = await store.save(place, e.id ? e.version : undefined);
+      let done;
+      let moved = null;
+      if (!e.id) done = await stores[to].save(place);
+      else if (from === to && to === 'global' && (added.length || taken.length) && marksOnly(place, base)) done = await stores.global.mark(e.id, added, taken, info.user.key); // a change of ticks only: retried once on a conflict
+      else if (from === to) done = await stores[to].save(place, e.version);
+      else { moved = await movePlace(stores[from], stores[to], place, e.version); done = moved.place; }
+      await keepSaved(from, to, done.id, target.mine, done.title).catch((err) => say('Your list could not be changed: ' + ((err && err.message) || err)));
       if (e.origin) markUsed(e.origin);
       closeEditor();
-      // The same finish wherever it was added. A toast says where it went only when that store is not
-      // the one on the list in front of the person. A new place with a position is then shown on the map: selected beside the map, or, on a
-      // space's canvas or a pop-out, shown by whatever map offers that (nothing happens when none is open).
-      if (!e.id && saved) {
+      if (moved && !moved.forwarded) say(`It moved, but its old copy could not be cleared: ${(moved.error && moved.error.message) || moved.error}`);
+      // The same finish wherever it was added. A toast says where it went only when it is not on the list in front of the
+      // person. A new place with a position is then shown on the map: selected beside the map, or, on a space's canvas or a
+      // pop-out, shown by whatever map offers that (nothing happens when none is open).
+      if (!e.id && done) {
         if (e.origin) closeFound();
-        // Only when the place is not on the list in front of the person (its store is switched off or is not the one shown).
-        if (!shownWheres().includes(w)) say(`Saved in ${whereName(w)}, which is not shown now.`);
-        if (saved.point) {
-          if (asPart) selectPlace(w, saved.id);
-          else if (showAction && inSpace) host.actions.request(showAction.action, { ref: placeRef(w, saved.id) }).catch(() => {});
+        if (!entries().some((x) => x.w === to && x.p.id === done.id)) say(`Saved in ${whereName(to)}, which is not shown now.`);
+        if (done.point) {
+          if (asPart) selectPlace(to, done.id);
+          else if (showAction && inSpace) host.actions.request(showAction.action, { ref: placeRef(to, done.id) }).catch(() => {});
         }
       }
     } catch (err) {
-      if (err && err.status === 409) {
-        const cur = e.id ? store.get(e.id) : null;
-        if (cur) showConflict(cur, store.versionOf(e.id));
+      if (err && err.status === 409 && e.id && from === to) {
+        const cur = stores[from].get(e.id);
+        if (cur) showConflict(cur, stores[from].versionOf(e.id));
         else editorError('That place was removed by someone else.');
       } else editorError('It could not be saved: ' + ((err && err.message) || err));
     } finally {
@@ -921,7 +1104,7 @@
     if (!e || !e.id) return;
     if (state.armed !== 'editor') { state.armed = 'editor'; $('f-delete').textContent = 'Delete it?'; return; }
     state.armed = null;
-    try { await stores[e.where].remove(e.id); closeEditor(); } catch (err) { editorError('It could not be deleted: ' + ((err && err.message) || err)); }
+    try { await deletePlace(e.where, e.id); closeEditor(); } catch (err) { editorError('It could not be deleted: ' + ((err && err.message) || err)); }
   });
   // --- clicks on the page -------------------------------------------------------------------------------------------
 
@@ -939,6 +1122,7 @@
     if (chip) { state.cat = chip.dataset.cat === state.cat ? '' : chip.dataset.cat; return render(); }
     if (rowEl && !ev.target.closest('.item-menu')) {
       const w = rowEl.dataset.where;
+      if (w === 'saved') return openSavedMenu(rowEl.dataset.id, rowEl.querySelector('.item-menu'));
       const p = placeAt(w, rowEl.dataset.id);
       // Beside the map a place with a position is selected, and the map beside flies to it; one with none opens.
       if (asPart) {
@@ -956,7 +1140,7 @@
   if (host.objects && host.objects.draggable) {
     host.objects.draggable(root, (target) => {
       const row = target.closest && target.closest('.place-row');
-      if (!row || !row.dataset.id || target.closest('.item-menu, button, a')) return null;
+      if (!row || !row.dataset.id || row.dataset.where === 'saved' || target.closest('.item-menu, button, a')) return null;
       const p = placeAt(row.dataset.where, row.dataset.id);
       return p ? { kind: 'place', id: p.id, label: p.title, ...whereOpts(row.dataset.where) } : null;
     });
@@ -1167,17 +1351,98 @@
     });
   }
 
-  if (inSpace) stores.space.provide(info.user.key); // other modules' requests to add a place go to the space's list
+  // --- what other modules ask: add a place, give one a position, share one --------------------------------------------
+  // A place another module adds takes the same default as the form here (Everyone and this space, else this space), or
+  // what its `in` asks ("environment space person"); the answer is the home's pointer. A request that is not this person's
+  // own never touches a private list: the page carrying it out is someone else's, and their list is theirs.
+  const ownRequest = (ctx) => !ctx || !ctx.by || (personal && ctx.by === info.user.key);
+  // Where a pointer's place is now (through a forward when it moved): { w, p }, read first when its store is not yet.
+  async function placeOfRef(ref) {
+    if (!ref || ref.kind !== 'place') throw new Error('that is not a place');
+    const id = String(ref.id);
+    let w = whereOfRef(ref);
+    for (let hop = 0; w && hop < 4; hop += 1) {
+      if (w.startsWith('in:') && !inSpace) addSpaceStore(w.slice(3));
+      await ensureLoaded(w).catch(() => {});
+      const s = stores[w];
+      if (!s) break;
+      const p = s.get(id);
+      if (p) return { w, p };
+      const f = s.forwardOf(id);
+      if (!f) break;
+      w = wOfHome(f.movedTo);
+    }
+    throw new Error('there is no such place, or it is no longer shared here');
+  }
+  async function placeWhere(ticks, input, me) {
+    const target = homeFor(ticks);
+    if (target.error) throw new Error(target.error === 'spaces' ? `to show it in more than one ${word('space')}, it must be in the ${word('environment')} too` : 'say where it goes');
+    const to = wOfHome(target);
+    if (!writable(to)) throw new Error(REFUSED);
+    if (to === 'global' && target.marks.some((sp) => !canMark(sp))) throw new Error(REFUSED);
+    await ensureLoaded(to);
+    const place = placeFromRequest(input, me);
+    place.spaces = target.marks;
+    place.icon = lookOf(place, cats).icon;
+    const done = await stores[to].save(place);
+    if (target.mine) await keepSaved(null, to, done.id, true, done.title);
+    return { ref: placeRef(to, done.id) };
+  }
+  if (host.actions && host.actions.provide) {
+    const handlers = {
+      // Share a place (the person's own private one, or a shared one into more places): the ticks it has now and the ones
+      // `in` asks (Everyone and this space when none), the same move and marks as the form. Local: only the person's own
+      // page carries it out, so a private place is never read or moved by anyone else's.
+      sharePlace: async (input, ctx) => {
+        if (!ownRequest(ctx) || !personal) throw new Error('only that person can share it');
+        const { w, p } = await placeOfRef(input && input.place);
+        const asked = ticksFromIn(input && input.in, here) || { everyone: canEveryone(), spaces: canHere() ? [here] : [], mine: false };
+        const now = ticksOf(homeOfW(w), p, w !== 'my' && saved && saved.has(placeRef(w, p.id)));
+        const target = homeFor({ everyone: now.everyone || asked.everyone, spaces: [...now.spaces, ...asked.spaces], mine: now.mine || asked.mine });
+        if (target.error) throw new Error(`to show it in more than one ${word('space')}, it must be in the ${word('environment')} too`);
+        const to = wOfHome(target);
+        if (to !== w && !writable(to)) throw new Error(REFUSED);
+        const added = to === 'global' ? target.marks.filter((sp) => !p.spaces.includes(sp)) : [];
+        if (added.some((sp) => !canMark(sp))) throw new Error(REFUSED);
+        let done;
+        if (to === w) done = added.length ? await stores.global.mark(p.id, added, [], info.user.key) : p;
+        else done = (await movePlace(stores[w], stores[to], { ...p, spaces: to === 'global' ? target.marks : [], by: info.user.key }, stores[w].versionOf(p.id))).place;
+        await keepSaved(w, to, done.id, target.mine, done.title);
+        return { ref: placeRef(to, done.id) };
+      },
+    };
+    if (inSpace) {
+      // Other modules' requests to add a place, as before only in a space (to that space and, by default, everyone).
+      handlers.addPlace = async (input, ctx) => {
+        const own = ownRequest(ctx);
+        const asked = ticksFromIn(input && input.in, here);
+        if (asked && asked.mine && !own) throw new Error('only that person can add to their own list');
+        const ticks = asked || defaultTicks('space', here, { everyone: canEveryone(), here: canHere(), mine: own && canMine() });
+        return placeWhere(ticks, input, info.user.key || (ctx && ctx.by) || '');
+      };
+      handlers.setPlacePoint = async (input) => {
+        const { w, p } = await placeOfRef(input && input.place);
+        if (!writable(w)) throw new Error(REFUSED);
+        const place = await stores[w].setPoint(p.id, { lat: input.lat, lng: input.lng });
+        return { ref: placeRef(w, place.id) };
+      };
+    }
+    host.actions.provide(handlers);
+  }
   if (host.objects && host.objects.onOpen) {
     host.objects.onOpen((ref) => {
       if (ref.module !== info.module.id || ref.kind !== 'place') return;
-      const w = whereOfRef(ref);
-      if (!w) return;
-      // On the environment page, a place in the other view (Mine or everyone's) switches to it first.
-      const show = () => {
-        if (!asPart && w !== view && allowed[w]) { showView(w); ensureLoaded(w).then(() => openEditor(w, ref.id)).catch(() => {}); return; }
-        if (asPart && placeAt(w, ref.id)) selectPlace(w, ref.id);
-        openEditor(w, ref.id);
+      if (!whereOfRef(ref)) return;
+      // Followed to where the place is now (a pointer to its old home finds its forward); one the viewer cannot read says so.
+      // On a module's own page, a place not in the view shown switches to its view first.
+      const show = async () => {
+        let found;
+        try { found = await placeOfRef(ref); } catch (err) { say('This place is no longer shared here.'); return; }
+        const { w } = found;
+        const id = found.p.id;
+        if (!asPart && !entries().some((x) => x.w === w && x.p.id === id) && allowed[w] && w !== view) showView(w);
+        if (asPart) selectPlace(w, id);
+        openEditor(w, id);
       };
       if (state.loaded) show(); else state.openWanted = show;
     });
@@ -1186,7 +1451,7 @@
   // --- start --------------------------------------------------------------------------------------------------------
 
   // Whose places: the person's own need a signed-in person (a guest has no profile), and so does everyone's (an environment-wide store).
-  const VIEW_NOTES = { my: `Only you see these. They follow you into every ${word('space')}.`, global: `Everyone in this ${word('environment')} sees these, and anyone who can edit can change them.` };
+  const VIEW_NOTES = { my: `Your own places and the ones you saved. Only you see this list, in every ${word('space')}.`, global: `Everyone in this ${word('environment')} sees these, and anyone who can edit can change them.` };
   const allowed = { my: personal, space: inSpace, global: personal };
   const VIEW_OPTIONS = [
     { id: 'my', label: 'Mine', icon: 'user' },
@@ -1251,9 +1516,14 @@
     if (picked) markSelected(true);
     loadLinks().catch(() => {});
   }
-  // Every space the viewer reads places in, and their places, in one request (each item with its space).
+  // The viewer's spaces (names, icons, where they may add places), for the ticks, the marks on a row and the Map's list. On an
+  // environment page their places are read too, in one request (each item with its space); a space's canvas reads only its
+  // own store, so another space's places reach it only as the environment's, marked.
   async function loadSpaces() {
-    for (const r of await host.spaces()) { spaceInfo.set(r.id, r); addSpaceStore(r.id); }
+    const list = await host.spaces();
+    for (const r of list) { spaceInfo.set(r.id, r); if (!inSpace) addSpaceStore(r.id); }
+    spacesKnown = true;
+    if (inSpace) return;
     const bySpace = new Map();
     for (const it of await host.storage.list('place:', { scope: 'spaces' })) {
       if (!bySpace.has(it.spaceId)) bySpace.set(it.spaceId, []);
@@ -1272,12 +1542,17 @@
   $('app').hidden = false;
   render();
   try {
-    if (asPart && inSpace) {
-      // This space's and Mine now; everyone's once the page's filter has it on (takeState), or now if it already does.
-      await Promise.all([ensureLoaded('space'), personal ? ensureLoaded('my').catch(() => {}) : null, shownWheres().includes('global') ? ensureLoaded('global').catch(() => {}) : null]);
-    } else if (asPart) {
-      await Promise.all([personal ? ensureLoaded('my') : null, ensureLoaded('global').catch(() => {}), loadSpaces().catch(() => {})]);
-    } else await ensureLoaded(view);
+    // Everything the viewer may read, at once: this space's (or the view shown), the environment's (its marks fill a space's
+    // list), Mine and the saved list, and the spaces. A guest on a guest link reads only the space: none of the
+    // environment's places and no list of their own.
+    const first = inSpace ? 'space' : asPart ? null : view;
+    await Promise.all([
+      first ? ensureLoaded(first) : null,
+      personal ? ensureLoaded('my').catch(() => {}) : null,
+      personal ? ensureLoaded('global').catch(() => {}) : null,
+      saved ? saved.load().catch(() => {}) : null,
+      personal ? loadSpaces().catch(() => {}) : null,
+    ]);
     state.people = await host.people().catch(() => []);
     const useSearch = (v) => { state.search = searchOn(v) && !onPicture(); state.searchCredit = ''; if (!state.search) closeFound(); };
     // The settings arrive before the first list is drawn, and again when the owner saves them (the list is redrawn).

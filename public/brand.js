@@ -748,11 +748,14 @@ function noticeTime(at) {
   const today = new Date().toDateString() === d.toDateString();
   return d.toLocaleString([], today ? { hour: 'numeric', minute: '2-digit', hour12: clockHour12 } : { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit', hour12: clockHour12 });
 }
+// A notice from the host itself (about the bundled modules) carries href "/admin#<tab>": it opens that tab of Manage.
+const manageTabOf = (n) => (typeof n.href === 'string' && n.href.startsWith('/admin#') ? n.href.slice(7) : '');
 function noticeHtml(n) {
   const icon = String(n.icon || 'bell');
   const iconClass = icon.includes(' ') ? icon : `fa-solid fa-${icon}`;
   const when = noticeTime(n.at);
-  return `<li class="bell-notice"><i class="${escapeHtml(iconClass)} fa-fw bell-notice-icon" aria-hidden="true"></i><span class="bell-notice-text"><strong>${escapeHtml(n.title || '')}</strong>${n.body ? `<span class="bell-notice-body">${escapeHtml(n.body)}</span>` : ''}<span class="bell-notice-from">${escapeHtml(n.moduleName || n.module || '')}${when ? ` · ${escapeHtml(when)}` : ''}</span></span></li>`;
+  const tab = manageTabOf(n);
+  return `<li class="bell-notice"${tab ? ` data-manage="${escapeHtml(tab)}" role="link" tabindex="0"` : ''}><i class="${escapeHtml(iconClass)} fa-fw bell-notice-icon" aria-hidden="true"></i><span class="bell-notice-text"><strong>${escapeHtml(n.title || '')}</strong>${n.body ? `<span class="bell-notice-body">${escapeHtml(n.body)}</span>` : ''}<span class="bell-notice-from">${escapeHtml(n.moduleName || n.module || '')}${when ? ` · ${escapeHtml(when)}` : ''}</span></span></li>`;
 }
 // A notice that arrives while the list is open goes to its top, read at once (the list is what reads them). True when
 // it was shown there.
@@ -868,6 +871,15 @@ async function toggleNotices(bell) {
   }
   list.innerHTML = parts.join('');
   noticesOpen.loaded = true;
+  const openNotice = (event) => {
+    const li = event.target.closest?.('.bell-notice[data-manage]');
+    if (!li || (event.type === 'keydown' && event.key !== 'Enter')) return;
+    event.preventDefault();
+    closeNotices();
+    openManage(li.dataset.manage);
+  };
+  list.addEventListener('click', openNotice);
+  list.addEventListener('keydown', openNotice);
   const link = list.querySelector('.bell-updates');
   if (link) {
     link.addEventListener('click', (event) => {
@@ -908,6 +920,11 @@ function showToast(n) {
   toast.innerHTML = `<i class="fa-solid fa-${escapeHtml(n.icon || 'bell')} fa-fw toast-icon" aria-hidden="true"></i><span class="toast-text"><strong>${escapeHtml(n.title)}</strong>${n.body ? `<span class="toast-body">${escapeHtml(n.body)}</span>` : ''}<span class="toast-from">${escapeHtml(n.moduleName || '')}</span></span>`;
   const dismiss = () => toast.remove();
   toast.addEventListener('click', () => {
+    if (manageTabOf(n)) {
+      openManage(manageTabOf(n));
+      dismiss();
+      return;
+    }
     // The call page handles opening a space module's panel; anything else goes to the module's page.
     const handled = !document.dispatchEvent(new CustomEvent('app:notification', { detail: n, cancelable: true }));
     if (!handled && n.scope === 'environment') window.location.href = `/modules/${encodeURIComponent(n.module)}`;

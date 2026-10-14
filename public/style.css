@@ -6321,6 +6321,20 @@ body.conference-window {
   pointer-events: none;
 }
 
+/* On a phone the top bar (20, with its menu) and the tab bar are always above the canvas (GitHub #268): the layer goes
+   under them. canvas.js docks every module that can dock as the window crosses 640px (placeForWidth), so only one that
+   can only float is left here. While one of its frames is lifted for an editor, the layer rises to the menus' level, so
+   the editor's sheet covers the page as it does from a docked module. */
+@media (max-width: 640px) {
+  .module-layer {
+    z-index: 19;
+  }
+
+  .module-layer:has(.module-editor-lifted) {
+    z-index: var(--z-menu);
+  }
+}
+
 .module-floating {
   position: absolute;
   display: flex;
@@ -7533,6 +7547,9 @@ body.module-page .module-status {
     gap: 0;
     background: var(--header-bg);
     border-top: 1px solid var(--border);
+    /* Above the floating layer (19 on a phone), level with the top bar, under an editor's lift and the menus (GitHub #268). */
+    position: relative;
+    z-index: 20;
   }
 
   body.in-space .subnav-modules {

@@ -1754,6 +1754,57 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/const sharing = screenShared\(\);/.test(spaceJs.slice(spaceJs.indexOf('function syncShareLift()')))) fail('public/space.js', 'syncShareLift() and the canvas ask the same screenShared()');
 }
 
+// GitHub #268: on a phone the phone layout wins over Window Mode. Floating windows stayed over the phone's menu and its
+// tab bar when the window was narrowed: the resize only moved the conference and the chat (placeBuiltins), and the
+// floating layer (25) was above the top bar (20, its menu inside) and the tab bar (not positioned).
+{
+  const canvasJs = fs.readFileSync(path.join(ROOT, 'public/canvas.js'), 'utf8');
+  const C = 'public/canvas.js';
+  const S = 'public/style.css';
+  // The z-order: every rule inside an @media (max-width: 640px) block, comments out, by brace matching.
+  const plain = css.replace(/\/\*[\s\S]*?\*\//g, '');
+  const phoneRules = [];
+  for (let at = plain.indexOf('@media (max-width: 640px)'); at !== -1; at = plain.indexOf('@media (max-width: 640px)', at + 1)) {
+    let i = plain.indexOf('{', at) + 1;
+    const from = i;
+    for (let depth = 1; depth && i < plain.length; i += 1) depth += plain[i] === '{' ? 1 : plain[i] === '}' ? -1 : 0;
+    for (const m of plain.slice(from, i - 1).matchAll(/([^{}]+)\{([^{}]*)\}/g)) phoneRules.push({ selector: m[1].trim(), body: m[2] });
+  }
+  const wideRules = [...plain.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ selector: m[1].trim(), body: m[2] }));
+  const zOf = (list, selector) => { const r = list.filter((x) => x.selector === selector && /z-index:/.test(x.body)).pop(); return r ? r.body.match(/z-index:\s*([^;]+)/)[1].trim() : null; };
+  const zMenu = Number((plain.match(/--z-menu:\s*(\d+)/) || [])[1]);
+  const num = (v) => (v === 'var(--z-menu)' ? zMenu : Number(v));
+  const layerPhone = num(zOf(phoneRules, '.module-layer') ?? zOf(wideRules, '.module-layer'));
+  const topbar = num(zOf(phoneRules, '.topbar') ?? zOf(wideRules, '.topbar'));
+  const tabbarRule = phoneRules.filter((r) => r.selector === 'body.in-space .subnav' && /z-index:/.test(r.body)).pop();
+  const tabbar = tabbarRule ? num(tabbarRule.body.match(/z-index:\s*([^;]+)/)[1].trim()) : NaN;
+  if (!(layerPhone < topbar)) fail(S, `on a phone the floating layer (z-index ${layerPhone}) must be under the top bar and its menu (${topbar})`);
+  if (!tabbarRule || !/position:\s*(relative|sticky|fixed|absolute)/.test(tabbarRule.body)) fail(S, 'on a phone the tab bar (body.in-space .subnav) must be positioned, with a z-index, to stack over the floating layer');
+  if (!(tabbar > layerPhone)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must be above the floating layer (${layerPhone})`);
+  if (!(tabbar < zMenu)) fail(S, `on a phone the tab bar (z-index ${tabbar}) must stay under an editor's lift and the menus (--z-menu, ${zMenu})`);
+  if (num(zOf(phoneRules, '.module-layer:has(.module-editor-lifted)')) !== zMenu) fail(S, 'on a phone the floating layer rises to the menus\' level (var(--z-menu)) while it holds a lifted editor');
+  // Dock at a phone's width: the resize moves the floating modules (placeForWidth) before a box is fitted to the new width.
+  const bind = canvasJs.slice(canvasJs.indexOf('  function bindDoc(doc) {'), canvasJs.indexOf('  bindDoc(document);'));
+  const crossing = bind.indexOf('placeForWidth(narrow)');
+  if (crossing === -1 || crossing > bind.indexOf('for (const p of opened.values())')) fail(C, 'the resize must call placeForWidth(narrow) as it crosses the phone line, before the floating boxes are fitted to the new width');
+  if (!/if \(narrow !== lastNarrow\) \{ lastNarrow = narrow; placeBuiltins\(\); update\(\); \}/.test(bind)) fail(C, 'the resize still moves the conference and the chat (placeBuiltins) as it crosses the phone line');
+  const start = canvasJs.indexOf('  function placeForWidth(narrow) {');
+  const pfw = canvasJs.slice(start, canvasJs.indexOf('\n  }\n', start));
+  if (start === -1) fail(C, 'placeForWidth(narrow) is missing');
+  const toPhone = pfw.slice(0, pfw.indexOf('const back ='));
+  if (!/p\.mode === 'float' && supports\(p, 'dock'\)/.test(toPhone) || !/moveModule\(p\.id, 'dock'\)/.test(toPhone) || !/phoneDocked:/.test(toPhone)) fail(C, 'placeForWidth() docks every floating module that can dock at a phone\'s width, marking it phoneDocked');
+  if (!/stopWaiting\(p\)/.test(toPhone)) fail(C, 'placeForWidth() docks a module waiting for a column at a phone\'s width');
+  if (/remember\(|persist\(/.test(pfw.replace(/setArrangeMode\(arrangeMode\(\)\)/, ''))) fail(C, 'placeForWidth() remembers nothing: the phone\'s docking keeps each module\'s mode and box for a wider window');
+  // Restore when wide: in Window Mode the phone-docked ones float again (at their remembered box or cells), and an arrangement chosen on the phone is put on.
+  const toWide = pfw.slice(pfw.indexOf('const back ='));
+  if (!/arrangeMode\(\) === 'window' \? mods\.filter\(\(p\) => p\.phoneDocked && p\.mode === 'dock' && supports\(p, 'float'\)\)/.test(toWide) || !/moveModule\(p\.id, 'float'\)/.test(toWide)) fail(C, 'placeForWidth() floats the phone-docked modules again when wide, in Window Mode');
+  if (!/if \(arrangeOnWide\) \{ arrangeOnWide = false; setArrangeMode\(arrangeMode\(\)\); \}/.test(toWide)) fail(C, 'placeForWidth() puts an arrangement chosen on a phone on the canvas when wide');
+  const arrange = canvasJs.slice(canvasJs.indexOf('  function setArrangeMode(mode) {'), canvasJs.indexOf('  function dockAll() {'));
+  if (!/arrangeOnWide = isNarrow\(\);/.test(arrange)) fail(C, 'setArrangeMode() on a phone keeps the choice for when the window is wide (arrangeOnWide)');
+  const box = canvasJs.slice(canvasJs.indexOf('  function openModuleFloating(m, reuse) {'), canvasJs.indexOf('  function openModuleDocked('));
+  if (!/place\(floater, saved\[m\.id\]\?\.box \|\|/.test(box) || !/if \(snapping\(m\.id\)\) snapOntoGrid\(m\.id, floater\);/.test(box)) fail(C, 'a module floating again opens at its remembered box, or its cells while the grid is on');
+}
+
 if (problems.length) {
   console.error(`check-canvas: ${problems.length} problem(s)\n  ${problems.join('\n  ')}`);
   process.exit(1);

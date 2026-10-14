@@ -167,6 +167,9 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   // nothing is written to the browser, and `held` keeps the Workspace's arrangement as it was, for resumeMemory to put
   // back. { space, saved }: the space it belongs to and a copy of what was remembered.
   let held = null;
+  // An arrangement (Panel Mode or Window Mode) chosen while the window is a phone's, for placeForWidth to put on the
+  // canvas once it is wide again (GitHub #268).
+  let arrangeOnWide = false;
   function persist() {
     if (!spaceId || holdStore || held) return; // an aside remembers nothing; another tab than the Workspace neither
     try {
@@ -344,6 +347,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   const arrangeMode = () => (saved.__mode === 'window' ? 'window' : 'panel');
   function setArrangeMode(mode) {
     const want = mode === 'window' ? 'window' : 'panel';
+    arrangeOnWide = isNarrow(); // no columns or windows on a phone: put on the canvas when it is wide (placeForWidth)
     saved.__mode = want;
     persist();
     if (want === 'panel') { dockAll(); return; }
@@ -1445,6 +1449,40 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     snapshot();
   }
 
+  // The installed modules as this window's width wants them (GitHub #268). A phone has one view at a time, through the
+  // tab bar, and no windows over it: crossing to 640px and below docks every floating module that can dock into the
+  // phone's tabs (`phoneDocked`, its stacking order), its waiting ones too, and nothing is remembered, so its mode and
+  // box stay what they were. Crossing back, in Window Mode, those float again at their remembered places (their cells
+  // while the grid is on), in the order they were stacked; and an arrangement chosen on the phone (`arrangeOnWide`:
+  // setArrangeMode, a layout loaded there) is put on the canvas as the Layout menu would. A module that can only float
+  // stays floating on a phone, under the top bar and the tab bar (style.css, .module-layer).
+  function placeForWidth(narrow) {
+    const doc = canvasDoc();
+    const mods = [...opened.values()].filter((p) => p.kind === 'module');
+    if (narrow) {
+      const floating = mods.filter((p) => p.mode === 'float' && supports(p, 'dock') && p.el.ownerDocument === doc)
+        .sort((a, b) => (Number(a.el.style.zIndex) || 0) - (Number(b.el.style.zIndex) || 0));
+      floating.forEach((p, i) => {
+        const { order: keepOrder, waiting } = p;
+        if (waiting) { stopWaiting(p); return; } // it wants its column: the fit decides again when the window is wide
+        moveModule(p.id, 'dock');
+        Object.assign(opened.get(p.id), { order: keepOrder, phoneDocked: i + 1 });
+      });
+      // The window that was in front is the view shown.
+      const top = floating.filter((p) => !p.waiting).pop();
+      if (top && opened.get(top.id)?.mode === 'dock') view = top.id;
+      return;
+    }
+    const back = arrangeMode() === 'window' ? mods.filter((p) => p.phoneDocked && p.mode === 'dock' && supports(p, 'float')).sort((a, b) => a.phoneDocked - b.phoneDocked) : [];
+    for (const p of mods) delete p.phoneDocked;
+    for (const p of back) {
+      const keepOrder = p.order;
+      moveModule(p.id, 'float'); // at its remembered box, or its cells while the grid is on (openModuleFloating)
+      opened.get(p.id).order = keepOrder;
+    }
+    if (arrangeOnWide) { arrangeOnWide = false; setArrangeMode(arrangeMode()); }
+  }
+
   // A screen share lifts the conference out of the column into the Workspace as a floating module, and back when it
   // stops (plan-one-bar.md, step 6). Floating as the conference floats today, in the floating layer, its call untouched
   // (moving); the mode is not remembered, so it is the column's again on the next visit. Answers whether it is lifted.
@@ -1676,6 +1714,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       for (const want of plan.modules) { const mod = opened.get(want.id); if (mod) mod.order = ++order; }
       // The arrange mode follows the layout: every module a window, Window Mode; any column, Panel Mode.
       if (plan.modules.length) saved.__mode = plan.modules.every((want) => want.mode === 'float') ? 'window' : 'panel';
+      if (narrow && plan.modules.length) arrangeOnWide = true; // put on the canvas when the window is wide (placeForWidth)
       if (narrow) {
         const first = plan.modules.find((want) => opened.has(want.id));
         if (first) view = first.id;
@@ -1846,6 +1885,10 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
     if (bound.has(doc)) return;
     bound.add(doc);
     (doc.defaultView || window).addEventListener('resize', () => {
+      // Crossing the phone line moves the floating modules first (placeForWidth), before a box is fitted to the new
+      // width: a box squeezed to a phone's width is never what is put back, nor what a snapped module remembers.
+      const narrow = isNarrow();
+      if (narrow !== lastNarrow) { hush += 1; try { placeForWidth(narrow); } finally { hush -= 1; } }
       for (const p of opened.values()) {
         const floater = floaterOf(p);
         if (!floater || floater.ownerDocument !== doc) continue;
@@ -1856,7 +1899,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
       try { syncDock(); } finally { hush -= 1; }
       // Crossing the narrow line changes which module shows, so the tabs and switches say so; and the conference and
       // the chat move between the side column and the canvas.
-      if (isNarrow() !== lastNarrow) { lastNarrow = isNarrow(); placeBuiltins(); update(); }
+      if (narrow !== lastNarrow) { lastNarrow = narrow; placeBuiltins(); update(); }
     });
   }
   bindDoc(document);
@@ -1892,6 +1935,7 @@ export function createCanvas({ guestToken = null, onChatAsk = null, onNote = nul
   async function refresh(id) {
     suspended = true;
     held = null; // a hold is the space left's; its stored arrangement was never overwritten
+    arrangeOnWide = false; // an arrangement chosen on a phone is the space left's
     closeAllModules();
     note('');
     spaceId = id;

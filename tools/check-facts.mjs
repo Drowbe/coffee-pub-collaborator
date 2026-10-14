@@ -5,9 +5,11 @@
  * module and never per person, the 7-day drop, the clean-up for a space and a module), the routes PUT/DELETE
  * /api/spaces/:id/facts/:module and GET /api/spaces/:id/facts with their codes for a member, another member, someone
  * not in the space, a guest, nobody signed in, a role without `write` and one without `read` in the module; then the
- * space's `budget` field: PATCH /api/spaces/:id for the admin (an owner's right), refused for a moderator and a member,
- * its rules (an amount above zero of at most 12 digits, an optional currency the server knows, null clears) and the
- * module context carrying it. The first two run in-process; the rest against a throwaway server.
+ * space's `budget` field (plan-budget-module.md, decisions 3, 5, 6 and 7): PATCH /api/spaces/:id for the admin and a
+ * moderator of the space, refused for a member and someone outside; its rules (an amount above zero of at most 12
+ * digits, a currency the server knows, either alone, null clears, a bad entry never deletes it); who reads it (Set up's
+ * read for the admin and the moderator, the module context for a member, never a guest, never the general lists). The
+ * first two run in-process; the rest against a throwaway server.
  */
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -312,16 +314,26 @@ try {
   const withCode = await expect('with a currency', 200, 'PATCH', P, { cookie: admin, body: { budget: { amount: 1234.567, currency: 'eur' } } });
   assert.deepEqual(withCode.json.space.budget, { amount: 1234.57, currency: 'EUR' }, 'rounded to cents, the code in capitals');
   n += 3;
-  // A moderator may not set it (MODERATOR_SPACE_FIELDS is unchanged), nor a member, nor someone outside.
+  // A moderator of the space may set it (MODERATOR_SPACE_FIELDS holds `budget`), and their answer and Set up's read
+  // carry it; a member and someone outside may not, and a guest is not signed in at all.
+  const moSet = await expect('the moderator sets a target', 200, 'PATCH', P, { cookie: mo, body: { budget: { amount: 10 } } });
+  assert.deepEqual(moSet.json.space.budget, { amount: 10 }, 'the moderator\'s answer carries it');
+  assert.deepEqual((await expect('the moderator reads it back', 200, 'GET', P, { cookie: mo })).json.space.budget, { amount: 10 });
+  const moAlso = await expect('beside a moderator\'s other field', 200, 'PATCH', P, { cookie: mo, body: { budget: { amount: 1234.567, currency: 'eur' }, opensWith: null } });
+  assert.deepEqual(moAlso.json.space.budget, { amount: 1234.57, currency: 'EUR' });
+  n += 3;
   const ownersOnly = { error: 'owners only' };
-  for (const [label, cookie] of [['a moderator', mo], ['a member', pat], ['someone outside', out]]) {
+  for (const [label, cookie] of [['a member', pat], ['someone outside', out]]) {
     const r = await call('PATCH', P, { cookie, body: { budget: { amount: 10 } } });
     assert.deepEqual([r.status, r.json], [403, ownersOnly], `${label} may not set the budget: ${r.text}`);
     n += 1;
   }
-  const moBoth = await call('PATCH', P, { cookie: mo, body: { budget: null, phases: null } });
-  assert.equal(moBoth.status, 403, 'not even beside a moderator\'s own field');
-  n += 1;
+  const guestSet = await call('PATCH', `${P}${asGuest}`, { body: { budget: { amount: 10 } } });
+  assert.equal(guestSet.status, 401, `a guest may not set the budget: ${guestSet.text}`);
+  const moBoth = await call('PATCH', P, { cookie: mo, body: { budget: null, name: 'Mine' } });
+  assert.deepEqual([moBoth.status, moBoth.json], [403, ownersOnly], 'not beside a field that is not a moderator\'s');
+  assert.deepEqual((await call('GET', P, { cookie: admin })).json.space.budget, { amount: 1234.57, currency: 'EUR' }, 'the refusals changed nothing');
+  n += 3;
   // The rules: a positive amount of at most 12 digits, a currency the server knows; one plain sentence each; a refusal
   // changes nothing.
   for (const [label, budget, words] of [
@@ -329,18 +341,41 @@ try {
     ['negative', { amount: -5 }, 'The budget must be an amount above zero.'],
     ['under a cent', { amount: 0.001 }, 'The budget must be an amount above zero.'],
     ['text', { amount: '4000' }, 'The budget must be an amount above zero.'],
-    ['no amount', { currency: 'USD' }, 'The budget must be an amount above zero.'],
+    ['nothing in it', {}, 'The budget needs an amount or a currency, or nothing to clear it.'],
+    ['an empty currency alone', { currency: '' }, 'The budget needs an amount or a currency, or nothing to clear it.'],
+    // Set up sends an entry it cannot read as `amount: null`: refused, never read as "a currency alone", so a bad
+    // entry never deletes the stored amount.
+    ['a bad entry beside a currency', { amount: null, currency: 'EUR' }, 'The budget must be an amount above zero.'],
+    ['a bad entry alone', { amount: null }, 'The budget must be an amount above zero.'],
+    ['a bad code alone', { currency: 'euros' }, 'The budget\'s currency is a three-letter code, such as USD.'],
     ['13 digits', { amount: 1e12 }, 'The budget can be at most 12 digits.'],
     ['a bad code', { amount: 5, currency: 'dollars' }, 'The budget\'s currency is a three-letter code, such as USD.'],
     ['an unknown code', { amount: 5, currency: 'QQQ' }, 'QQQ is not a currency this server knows. Choose one from the list, such as USD.'],
-    ['not an object', 4000, 'The budget needs an amount, or nothing to clear it.'],
+    ['not an object', 4000, 'The budget needs an amount or a currency, or nothing to clear it.'],
   ]) {
     const r = await call('PATCH', P, { cookie: admin, body: { budget } });
     assert.deepEqual([r.status, r.json], [400, { error: words }], `${label}: ${r.text}`);
     n += 1;
   }
+  // The moderator's bad entry is refused the same way.
+  const moBad = await call('PATCH', P, { cookie: mo, body: { budget: { amount: null, currency: 'USD' } } });
+  assert.deepEqual([moBad.status, moBad.json], [400, { error: 'The budget must be an amount above zero.' }], `a moderator's bad entry: ${moBad.text}`);
+  n += 1;
   assert.deepEqual((await call('GET', P, { cookie: admin })).json.space.budget, { amount: 1234.57, currency: 'EUR' }, 'the refusals changed nothing');
   await expect('12 digits is fine', 200, 'PATCH', P, { cookie: admin, body: { budget: { amount: 999999999999 } } });
+  // A currency alone (decision 7): a space that chose its currency with no target. The moderator may set it too; the
+  // module context carries it; a bad entry beside it changes nothing.
+  const alone = await expect('a currency alone', 200, 'PATCH', P, { cookie: mo, body: { budget: { currency: 'gbp' } } });
+  assert.deepEqual(alone.json.space.budget, { currency: 'GBP' }, 'kept with no amount');
+  assert.deepEqual((await call('GET', P, { cookie: admin })).json.space.budget, { currency: 'GBP' }, 'stored so');
+  assert.deepEqual((await ctx(pat)).budget, { currency: 'GBP' }, 'a member reads it through the module');
+  await expect('a bad entry beside it', 400, 'PATCH', P, { cookie: mo, body: { budget: { amount: null, currency: 'GBP' } } });
+  assert.deepEqual((await call('GET', P, { cookie: mo })).json.space.budget, { currency: 'GBP' }, 'still there');
+  const both = await expect('an amount added to it', 200, 'PATCH', P, { cookie: mo, body: { budget: { amount: 75, currency: 'GBP' } } });
+  assert.deepEqual(both.json.space.budget, { amount: 75, currency: 'GBP' });
+  const noCode = await expect('an amount without a currency', 200, 'PATCH', P, { cookie: mo, body: { budget: { amount: 75 } } });
+  assert.deepEqual(noCode.json.space.budget, { amount: 75 }, 'the currency goes with it: the body is the whole target');
+  n += 5;
   const cleared = await expect('null clears', 200, 'PATCH', P, { cookie: admin, body: { budget: null } });
   ok(!('budget' in cleared.json.space), 'no budget once cleared');
   assert.equal((await ctx(pat)).budget, null);
@@ -348,10 +383,10 @@ try {
   await expect('set again', 200, 'PATCH', P, { cookie: admin, body: { budget: { amount: 500, currency: 'USD' } } });
 
   // --- who reads the budget (#216): it is not a general part of the space ---------------------------------------
-  // Only owners and the admin (GET /api/spaces/:id, Set up's read, and their own PATCH's answer) and a module's context
-  // for a signed-in person who may read that module there. The presence list, GET /api/spaces and a guest's presence
-  // never carry it: not to someone outside the space, a guest, a member without the Planner's view, a member with it,
-  // nor the admin.
+  // Those who edit it (owners, the admin, the space's moderators) through Set up's read and their own PATCH's answer;
+  // a member through a module's context, while they may read that module there. The presence list, GET /api/spaces,
+  // the stream's status and a guest's presence never carry it: not to someone outside the space, a guest, a member
+  // without the Planner's view, a member with it, nor the admin.
   await expect('a guest link again', 200, 'POST', `/api/spaces/${S}/guest-link`, { cookie: admin, body: {} });
   const guestNow = (await call('GET', `/api/spaces/${S}`, { cookie: admin })).json.space.guestToken;
   // Members lose the Planner's view (sam stands for them); mo, a member ticked moderator here, keeps it through the
@@ -376,16 +411,36 @@ try {
   }
   const guestList = await call('GET', `/api/spaces?guest=${encodeURIComponent(guestNow)}`);
   ok(guestList.status === 401 && !guestList.text.includes('budget'), 'a guest has no space list at all');
-  // Set up's read: the owner's (the admin's) carries it; anyone else is refused that read.
+  // The stream's status (OBS and the Studio app, with the stream key or an owner's session) leaves it out too.
+  const status = await call('GET', '/api/status', { cookie: admin });
+  assert.equal(status.status, 200, status.text);
+  ok(!('budget' in spaceIn(status.json)) && !status.text.includes('"budget"'), 'no budget in the stream\'s status');
+  // Set up's read: the admin's carries the whole record; the moderator's carries the id and a moderator's fields, the
+  // budget among them, and nothing else of the record; a member, someone outside and a guest are refused that read.
   assert.deepEqual((await call('GET', P, { cookie: admin })).json.space.budget, { amount: 500, currency: 'USD' }, 'Set up\'s read carries it for the admin');
-  for (const [label, cookie] of [['a member', pat], ['the moderator', mo], ['someone outside', out]]) {
+  const moRead = (await expect('the moderator\'s Set up read', 200, 'GET', P, { cookie: mo })).json.space;
+  assert.deepEqual(moRead.budget, { amount: 500, currency: 'USD' }, 'it carries the budget for the moderator');
+  ok(Object.keys(moRead).every((k) => ['id', 'phases', 'opensWith', 'defaultLayout', 'budget'].includes(k)) && !('name' in moRead) && !('guestToken' in moRead), `only the moderator's fields (${Object.keys(moRead)})`);
+  for (const [label, cookie] of [['a member', pat], ['someone outside', out]]) {
     const r = await call('GET', P, { cookie });
-    ok(r.status === 403 && !r.text.includes('budget'), `${label} cannot read Set up's record (${r.status})`);
+    ok(r.status === 403 && !r.text.includes('budget') && r.json?.error === 'owners only', `${label} cannot read Set up's record (${r.status})`);
   }
-  // A moderator's own PATCH answer leaves it out; the admin's carries it.
+  const guestRead = await call('GET', `${P}?guest=${encodeURIComponent(guestNow)}`);
+  ok(guestRead.status === 401 && !guestRead.text.includes('budget'), `a guest cannot read Set up's record (${guestRead.status})`);
+  // A moderator of another space is not a moderator here.
+  const S2 = (await call('POST', '/api/spaces', { cookie: admin, body: { name: 'Other', members: [samUser.key] } })).json.space.id;
+  await expect('sam moderates the other space', 200, 'PATCH', `/api/users/${samUser.key}/spaces/${S2}`, { cookie: admin, body: { permissions: { moderator: true } } });
+  const samHere = await call('PATCH', P, { cookie: sam, body: { budget: { amount: 1 } } });
+  assert.deepEqual([samHere.status, samHere.json], [403, ownersOnly], 'a moderator elsewhere may not set it here');
+  ok((await call('GET', P, { cookie: sam })).status === 403, 'nor read Set up\'s record here');
+  // The moderator's and the admin's own PATCH answers carry it; a member's guest-link answer does not.
   const moSave = await expect('the moderator saves the first visit', 200, 'PATCH', P, { cookie: mo, body: { opensWith: null } });
-  ok(!('budget' in moSave.json.space), 'no budget in a moderator\'s answer');
+  assert.deepEqual(moSave.json.space.budget, { amount: 500, currency: 'USD' }, 'the moderator\'s answer carries it');
   ok('budget' in (await call('PATCH', P, { cookie: admin, body: { opensWith: null } })).json.space, 'the admin\'s answer carries it');
+  const patLink = await call('POST', `/api/spaces/${S}/guest-link`, { cookie: pat, body: {} });
+  if (patLink.status === 200) ok(!('budget' in patLink.json.space), 'no budget in a member\'s guest-link answer');
+  else ok(!patLink.text.includes('budget'), `a member's guest-link refusal carries no budget (${patLink.status})`);
+  n += 3;
   // The module context: a member who may read the Planner, and the admin, get it; a guest gets null; a member without
   // the Planner's view and someone outside get no context at all.
   assert.deepEqual((await planCtx(mo)).json.space.budget, { amount: 500, currency: 'USD' }, 'a member with the Planner\'s view');

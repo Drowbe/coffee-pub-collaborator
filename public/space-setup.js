@@ -16,7 +16,8 @@
 //   modules     the modules on here (no switches: an enabled module is on in every space), Turn AI off, then a section
 //               per module with its settings for this space (module-settings.js, its draft mode)
 // An owner and the admin see every tab; a moderator sees phases, opens-with and the modules tab's module settings (the
-// server lets a moderator PATCH exactly `phases`, `opensWith` and `defaultLayout`, and set a space's module settings);
+// server lets a moderator PATCH exactly `phases`, `opensWith`, `defaultLayout` and `budget`, and set a space's module
+// settings; the Budget field itself is drawn on the space tab, an owner's, so a moderator does not see it yet);
 // a member has no Set up. A tab with nothing to show (no phases in the template, no module settings for a moderator) is
 // left out. The Lobby shows no Delete, no member switches and no calendar switch.
 //
@@ -40,7 +41,7 @@ export const SETUP_TABS = Object.freeze(['space', 'members', 'phases', 'opens-wi
 export const OWNER_TABS = SETUP_TABS;
 export const MODERATOR_TABS = Object.freeze(['phases', 'opens-with', 'modules']);
 // The fields a moderator's PATCH may hold (server/index.js, MODERATOR_SPACE_FIELDS).
-export const MODERATOR_FIELDS = Object.freeze(['phases', 'opensWith', 'defaultLayout']);
+export const MODERATOR_FIELDS = Object.freeze(['phases', 'opensWith', 'defaultLayout', 'budget']);
 // `phases`: the template has phases; `modules`: there is something for the modules tab (left out once the panel knows
 // there is not, e.g. a moderator with no module settings to change).
 export function setupTabs({ owner = false, moderator = false, phases = true, modules = true } = {}) {

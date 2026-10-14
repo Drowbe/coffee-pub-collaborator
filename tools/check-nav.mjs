@@ -2225,7 +2225,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   assert.equal(tabOfField('aiOff'), 'modules');
   assert.equal(tabOfField('module:todo'), 'modules', 'a module\'s settings live on the modules tab');
   assert.equal(tabOfField('phases'), 'phases');
-  assert.deepEqual([...MODERATOR_FIELDS], ['phases', 'opensWith', 'defaultLayout'], 'the server\'s MODERATOR_SPACE_FIELDS');
+  assert.deepEqual([...MODERATOR_FIELDS], ['phases', 'opensWith', 'defaultLayout', 'budget'], 'the server\'s MODERATOR_SPACE_FIELDS');
   const owner = setupTabs({ owner: true });
   assert.equal(pickTab(owner, '#members'), 'members', 'the fragment picks the tab');
   assert.equal(pickTab(owner, 'opens-with'), 'opens-with');
@@ -2359,7 +2359,7 @@ test('Set up: the budget (#216) goes in the one PATCH only when it changed, as n
   assert.deepEqual([...dirtyTabs({ budget: null })], ['space'], 'the space tab\'s');
   assert.equal(problemField({ name: 'P', budget: { amount: 0 } }, 'The budget must be an amount above zero.'), 'budget');
   assert.equal(problemField({ link: 'x', budget: { amount: 5, currency: 'QQQ' } }, 'QQQ is not a currency this server knows. Choose one from the list, such as USD.'), 'budget');
-  assert.ok(!MODERATOR_FIELDS.includes('budget'), 'not a moderator\'s field');
+  assert.ok(MODERATOR_FIELDS.includes('budget'), 'a moderator\'s field (plan-budget-module.md, decision 5)');
   assert.equal(setupSaidWords({ saved: ['budget'] }), 'Saved the budget. Everyone sees it now; press Set up to change more.');
   const setup = fs.readFileSync(path.join(ROOT, 'public/space-setup.js'), 'utf8');
   assert.match(setup, /parts\.push\(sectionHtml\('budget', [^\n]*\n(?:[^\n]*\n){4}\s*<p class="hint" id="setup-budget-hint"><\/p>`, \{ hidden: true \}\)\);/, 'drawn hidden, shown once it is known a module reads it or one is set');

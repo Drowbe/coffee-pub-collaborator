@@ -86,6 +86,7 @@ host.environment;   // { pictureMap } facts about the environment (below); { pic
 await host.budget.can();                              // true for the space's owner, the admin and a moderator of this space; false for a guest, anyone else, and outside a space
 const kept = await host.budget.set({ amount: 4000, currency: 'EUR' }); // saves it; resolves with the target the server kept
 await host.budget.set(null);                          // clears it
+await host.budget.elsewhere();                        // true when another module with "budget": true is on in this space and open to this person; false otherwise, outside a space, and in a keyed page
 ```
 
 `set()` needs the target or `null`: calling it with nothing rejects ("say the target, or null to clear it") rather than clearing. The server replaces the **whole** target with what is sent, so `{ currency: 'EUR' }` alone drops a stored amount; send the amount with it to keep it. A refusal rejects with the server's sentence (for example "The budget must be an amount above zero."). `host.space().budget` is current when `set()` resolves, and `'space'` is heard. The server decides again on every save, so `can()` only shapes the screen.
@@ -175,7 +176,7 @@ A module that lets others point at its objects lists them in `module.json`. Each
 
 `consumes` lists the kinds this module wants to point at: named, as `"module:kind"`, or `"*"` for whatever other modules share. `"*"` is what lets a module link to objects of modules that did not exist when it was written. An owner approves the list when enabling.
 
-The summary fields are `title` (required), `subtitle`, `when`, `end`, `allDay`, `done`, `category` (a short label) and `place` (`{ lat, lng, name? }`, a spot on a map). An upgrade that adds to `consumes` waits for the owner's approval, like a new permission or hook.
+The summary fields are `title` (required), `subtitle`, `when`, `end`, `allDay`, `done`, `category` (a short label), `place` (`{ lat, lng, name? }`, a spot on a map) and three for a cost: `amount` (a positive number below 1,000,000,000,000, rounded to cents), `paidBy` (a person's key, up to 64 characters) and `sharedBy` (up to 50 keys; none means everyone). A value that is not of that shape is left out of the summary. An upgrade that adds to `consumes` waits for the owner's approval, like a new permission or hook.
 
 A pointer is `{ module, kind, id, scope: 'environment' | 'space' | 'person', space? }` (`space` only for a space's object).
 
@@ -187,7 +188,7 @@ const ref = host.objects.make('event', 'e1');           // { module: 'calendar',
 
 // Later, ask Collaborator what to show. One pointer gives a summary, a list gives summaries in the same order:
 const summary = await host.objects.resolve(ref);
-// { ref, kind, kindName, open, module: { id, name, icon }, title, subtitle?, when?, end?, allDay?, done?, place? }
+// { ref, kind, kindName, open, module: { id, name, icon }, title, subtitle?, when?, end?, allDay?, done?, place?, amount?, paidBy?, sharedBy? }
 // or { ref, error, status, state } when the object is gone or the viewer may not see it (404, 403): `state` is 'gone' or 'hidden'.
 // Draw what it says now, never a title you stored: a gone object is a muted "No longer available" with a way to remove your link,
 // a hidden one "Not available to you" (show nothing else about it), and neither opens an editor. Ask again now and then, since an
@@ -197,8 +198,13 @@ const summaries = await host.objects.resolve([refA, refB]);
 // Find objects to link to, in this place (or from a space, { scope: 'environment' }): every kind this module consumes.
 const found = await host.objects.search('retreat');     // summaries, each with its pointer in summary.ref
 // On an environment page, { scope: 'spaces' } asks every space the viewer is a member of at once (each pointer carries its space);
-// { has: 'place' } keeps only summaries with a place, up to 1,000 rather than 50 (a map's pins). A page in a space cannot ask 'spaces'.
+// { has: 'place' } keeps only summaries with a place, up to 1,000 rather than 50 (a map's pins); { has: 'amount' } keeps only those with an amount (see host.objects.priced below). A page in a space cannot ask 'spaces'.
 const pins = await host.objects.search('', { scope: 'spaces', has: 'place' });
+
+// The costs other modules hold in this space: the summaries that carry an `amount`, as this person may read them.
+const { summaries, withheld } = await host.objects.priced();
+// summaries: [{ ref, title, when?, amount, paidBy?, sharedBy?, module: { id, name, icon }, ... }]
+// withheld: how many priced objects were left out because the person may not read their module (a number, never a title or a figure).
 
 // What can I link to? Whatever other modules share and Collaborator says this module may, so never name modules in your code.
 const kinds = await host.objects.kinds();               // [{ module, moduleName, icon, kind, name, open }]

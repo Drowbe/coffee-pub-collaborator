@@ -73,11 +73,10 @@ Once you are in the call, the area at the top of the column has:
   shows the same time and the same **Pop out** icon.
 - **The tiles.** Everyone on the call as a tile (see "Tiles" below).
 - **The toolbar.** Round, quiet buttons of one size. Left to right: the microphone (with a live level meter inside the
-  button), the speaker (deafen), the camera, share screen, **Tiles**, away, reactions, the space's launch link if it
-  has one, and leave, a solid red button. The microphone, speaker, camera and **Tiles** each have a small chevron in the
+  button), the speaker (deafen), the camera, share screen, **Tiles**, away, reactions and leave, a solid red button. The space's link is not on the toolbar; it is on the card you see before you join, beside the button that enters the space. The microphone, speaker, camera and **Tiles** each have a small chevron in the
   corner for their settings; a click anywhere else on the button does the button's own action. Pop out, **Call
   position** and settings are not on the toolbar: they are in the call's titlebar and its **⋮** menu. As the column
-  narrows, buttons tuck under a **More** button (the three-dot button): the launch link first, then reactions, share
+  narrows, buttons tuck under a **More** button (the three-dot button): reactions first, then share
   screen, away, Tiles and deafen, then the camera and the microphone last. Leave never folds. A tooltip names each
   button and its key.
 
@@ -108,7 +107,7 @@ floating window while anyone shares a screen, and puts it back when the last sha
 Choose how the tiles are laid out with the **Tiles** button (or **L**): grid, strip or spotlight. Grid shows everyone
 equally. Strip is one row, or one column when the area is taller than wide. Spotlight is one big tile with the rest
 small; it follows whoever is speaking unless you click a tile to pin it. Drag tiles into any order. The choice, the
-order and the pin are remembered in your browser.
+order and the pin are remembered in your browser. A person whose camera is off shows as a picture in a circle.
 
 ## Who is here
 
@@ -304,7 +303,7 @@ the bar is part of the header and slides away with it when you are idle.
 
 ## Reactions
 
-The smiley button in the bar opens a tray, set up by an owner on the Template tab of the Manage page
+The heart button in the bar opens a tray, set up by an owner on the Template tab of the Manage page
 (105 to start with; the first six are Heart, Black Heart, 100%, Hi, Thumbs up and Thumbs down).
 The first six are also keys **1** to **6**. A reaction floats up from your tile for a couple of
 seconds on everyone's screen, and up your Participant and Character boxes in OBS. Nothing is stored.

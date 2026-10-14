@@ -125,13 +125,22 @@ drawn; the band's colour and its icon (when the template gives one) still show.
 
 Workaround: open the phase sheet (choose the chip) to read every phase and its dates.
 
-## A space with Budget and the Planner can show two money facts
+## The Planner's old "Spent" chip can stay on the strip after Budget is turned on
 
-Until the Planner hands its costs to Budget ([plan-budget-module](plans/plan-budget-module.md), step 3), the Planner
-still keeps its own costs and reports its own "spent" to the status strip, and Budget reports its own. A space that has
-both modules on can show two money chips that do not agree. The Planner's cost on a booking is not a cost in Budget.
+When Budget is on in a space, the Planner stops showing its **Money** view and its **Spent** chip. The strip keeps what
+a module last reported for up to 7 days, and the Planner only clears its report when someone who can change the Planner
+opens it. Until then the strip can show the Planner's old figure beside Budget's, and the two can disagree. It goes away
+when a Planner editor opens the Planner in that space, or after 7 days.
 
-Workaround: use one of the two in a space. Budget has the target, the categories, the burndown and settling up.
+Workaround: open the Planner once in the space as an owner, an admin or anyone who can change it.
+
+## Budget is up to 30 seconds behind the Planner
+
+Budget reads the Planner's priced bookings by asking again every 30 seconds, and when its window is shown or focused
+again, because the SDK has no event that tells a module another module's objects changed. A cost saved in the Planner
+can take up to 30 seconds to appear in Budget, and the strip's figure moves with it.
+
+Workaround: switch away from Budget and back, or focus its window, to read again at once.
 
 ## Budget's burndown axis labels overlap at very large amounts
 

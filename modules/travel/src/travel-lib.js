@@ -34,7 +34,7 @@
   const isTime = (s) => typeof s === 'string' && /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
   // A ticket's arrival as stored (decision 11): a local day and time ("2026-11-14T15:25") while the journey has a day. While it
   // has none, its time with how many days after the day it leaves ("15:25", "06:30+1", "13:00-1"; -1 to +7), so the offset
-  // survives a stay under "Not on a day yet" or on the line. Null for anything else.
+  // survives a stay under "Unscheduled" or on the line. Null for anything else.
   const RELATIVE_ARRIVAL = /^(\d{2}:\d{2})(?:([+-])(\d))?$/;
   const ticketWhen = (s) => {
     if (typeof s !== 'string') return null;
@@ -136,7 +136,8 @@
       pinned: Boolean(raw.pinned),
       phase: typeof raw.phase === 'string' && PHASE_ID.test(raw.phase) ? raw.phase : null,
       by: clip(raw.by, 40),
-      cost: Number.isFinite(raw.cost) && raw.cost > 0 ? Math.min(Math.round(raw.cost * 100) / 100, 1e9) : null,
+      cost: Number.isFinite(raw.cost) && raw.cost > 0 ? Math.min(Math.round(raw.cost * 100) / 100, 1e9) : null, // the actual amount
+      estimate: Number.isFinite(raw.estimate) && raw.estimate > 0 ? Math.min(Math.round(raw.estimate * 100) / 100, 1e9) : null, // what is expected, before it is paid
       paidBy: typeof raw.paidBy === 'string' ? raw.paidBy.slice(0, 40) : '',
       follow: Boolean(raw.follow),
       result: clip(raw.result, 200),
@@ -347,7 +348,7 @@
     return out;
   }
 
-  // A day's objects taken off it (the day menu's "Clear this day"): they lose their day and go under "Not on a day yet", after the
+  // A day's objects taken off it (the day menu's "Clear this day"): they lose their day and go under "Unscheduled", after the
   // ones already there. A pointer to another module's object cannot lose a day it takes from that object, so it stays (`kept`).
   // Returns { changes: { id: { date: null, after: null, order } }, moved, kept }.
   function clearDay(items, day) {
@@ -531,7 +532,7 @@
 
 
   // The days an object occupies on the plan: its own day, a stay's check-out, and the day a journey arrives. One with no day of
-  // its own occupies none (under "Not on a day yet", its check-out or ticket arrival does not stretch the plan).
+  // its own occupies none (under "Unscheduled", its check-out or ticket arrival does not stretch the plan).
   function coverDaysOf(item) {
     if (!item || !item.date) return [];
     const days = [item.date];

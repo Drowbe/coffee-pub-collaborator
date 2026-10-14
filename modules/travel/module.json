@@ -1,7 +1,7 @@
 {
   "id": "travel",
   "name": "Planner",
-  "version": "0.15.21",
+  "version": "0.15.23",
   "icon": "suitcase-rolling",
   "color": "teal",
   "description": "Plan together: a day-by-day itinerary that draws in the events, tasks and polls your {space} already has.",
@@ -140,12 +140,15 @@
         "holds": { "field": "ref", "onDelete": "remove", "follow": { "title": "title", "day": "date", "pin": "pinned" } },
         "dated": { "title": "title", "day": "date", "time": "time", "endDay": "checkOut" },
         "mirror": "out",
+        "categoryNames": { "travel": "Travel", "journey": "Travel", "stay": "Lodging", "eat": "Food", "do": "Activities", "other": "Other" },
         "summary": {
           "title": "title",
           "subtitle": "place",
           "when": "date",
           "done": "done",
+          "category": "category",
           "amount": "cost",
+          "planned": "estimate",
           "paidBy": "paidBy",
           "sharedBy": "owners"
         }

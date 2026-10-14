@@ -90,7 +90,11 @@ Upload a newer version of the same module and it replaces the active one. Collab
 
 ## Filters
 
-At the top of the Modules tab, **All**, **Updates available** and **Configurable** choose which modules are listed. Updates available shows only the modules with a newer version waiting; Configurable shows only the modules with an enabled **Module Configuration** button: settings you can choose for the environment, Calendar sharing, or Show in the top bar. Each chip shows how many modules it holds.
+At the top of the Modules tab, **All**, **Updates available**, **Available** and **Configurable** choose which modules are listed. Updates available shows only the modules with a newer version waiting; Available shows only the modules that ship with the server and are not installed; Configurable shows only the modules with an enabled **Module Configuration** button: settings you can choose for the environment, Calendar sharing, or Show in the top bar. Each chip shows how many modules it holds. The counts on **Updates available** and **Available** are green while they are above zero, and the same green count sits on **Manage** (in the profile menu, the phone menu and a page's bar) and on the Modules tab, adding the updates waiting to the modules not yet installed.
+
+## Notices about new modules and updates
+
+When a module that ships with the server is new to your environment, or a newer version of one you have installed is waiting, owners and the admin get a notice on the bell, such as "Budget is available" or "Budget has an update (0.1.2)", from **Modules**. Choose it to open **Manage** on the Modules tab. You are told once for each module and each version, so a notice does not come back after you have read it, and members and guests are never told. The first time a new environment starts, its bundled modules are listed on the Modules tab but not announced.
 
 ## Recent activity
 

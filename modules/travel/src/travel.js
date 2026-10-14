@@ -246,7 +246,7 @@
     if (!other) return;
     const mark = clone('tpl-card-roundtrip');
     fill(mark, {
-      'roundtrip-text': `Round trip · ${out ? 'Outbound' : 'Return'} ${other.date ? dayShort(other.date) : 'not on a day yet'}`,
+      'roundtrip-text': `Round trip · ${out ? 'Outbound' : 'Return'} ${other.date ? dayShort(other.date) : 'unscheduled'}`,
       'roundtrip-warn': out && returnBefore(item, out) ? 'Return is before the outbound' : '',
     });
     el.insertBefore(mark, el.querySelector(':scope > .card-more'));
@@ -254,7 +254,7 @@
   // The item as its card shows it: a return shows its outbound's booking reference, cost and payer (the outbound holds them).
   const withBooking = (item) => {
     const out = item.kind === 'journey' ? plan.outboundFor(item) : null;
-    return out ? { ...item, confirm: out.confirm, cost: out.cost, paidBy: out.paidBy } : item;
+    return out ? { ...item, confirm: out.confirm, cost: out.cost, estimate: out.estimate, paidBy: out.paidBy } : item;
   };
 
   // What the card's own face has no place for, folded under it: the note, who is on it, the booking reference, the
@@ -279,7 +279,8 @@
     add('Guests', words(item.guests, 'guest', 'guests'), 'guests');
     add('Reservation', item.reservationName, 'reservationName');
     add('Address', item.address, 'address');
-    if (item.cost) rows.push(['Cost', `${host.util.money(item.cost, planCurrency())}${item.paidBy ? ` · paid by ${nameOf(item.paidBy)}` : ''}`]);
+    if (item.cost) rows.push(['Cost', `${host.util.money(item.cost, planCurrency())}${item.estimate ? ` · estimated ${host.util.money(item.estimate, planCurrency())}` : ''}${item.paidBy ? ` · paid by ${nameOf(item.paidBy)}` : ''}`]);
+    else if (item.estimate) rows.push(['Cost', `~${host.util.money(item.estimate, planCurrency())} estimated`]);
     if (!rows.length) return;
     const more = clone('tpl-card-more');
     more.open = state.expanded.has(item.id);
@@ -605,7 +606,7 @@
   // The items at a joint on the line (`after` is the day before it; '' is the head, before the first day): a marker as its
   // pill, anything else as the card it would be in a day. Then the + where a new one goes (`withJoint`; a hidden day's joint
   // has no + of its own, the badge standing in for the day has it).
-  // An object with no date and no place on the line belongs under "Not on a day yet", not at the head of the line.
+  // An object with no date and no place on the line belongs under "Unscheduled", not at the head of the line.
   const placedOnLine = (item) => {
     const stored = plan.list().find((i) => i.id === item.id);
     return Boolean(stored && (stored.kind === 'lane' || stored.after === '' || (stored.after && stored.after !== null)));
@@ -641,7 +642,7 @@
   const parsePlace = (value) => (String(value).startsWith('j:') ? { after: value.slice(2) } : { date: value.slice(2) || null });
   // The places an item can be, in line order (the head, day 1, the joint after it, day 2...), as a select's options. A
   // between-days marker's menu sees only the joints (jointsOnly); the editor with a marker chosen sees the days and the
-  // joints but not "Not on a day yet" (placedOnly), since Where decides whether it is in a day or between days.
+  // joints but not "Unscheduled" (placedOnly), since Where decides whether it is in a day or between days.
   function placeOptions(select, { jointsOnly, placedOnly } = {}) {
     const was = select.value;
     select.replaceChildren();
@@ -665,7 +666,7 @@
       after = span.filter((d) => !here.has(d) && days.length && d > hi);
       if (!days.length) before = span;
     }
-    if (!jointsOnly && !placedOnly) add('d:', 'Not on a day yet');
+    if (!jointsOnly && !placedOnly) add('d:', 'Unscheduled');
     before.forEach((d) => add(`d:${d}`, `${dayShort(d)}${inPhase(d)}`));
     add('j:', jointLabel(''));
     days.forEach((d) => {
@@ -933,7 +934,7 @@
     if (mode === 'clear') {
       const r = plan.previewClear(day);
       const kept = r.kept ? ` ${words(r.kept, 'object', 'objects')} from other ${host.util.word('module', { many: true })} stay, because they follow their own date.` : '';
-      return { text: r.moved ? `Take ${stopsText(Object.keys(r.changes))} off ${dayLong(day)}? They stay in the Planner, with no date.${kept}` : `Nothing on ${dayLong(day)} to take off.${kept}`, ok: r.moved > 0 };
+      return { text: r.moved ? `Take ${stopsText(Object.keys(r.changes))} off ${dayLong(day)}? They stay in the Planner, unscheduled.${kept}` : `Nothing on ${dayLong(day)} to take off.${kept}`, ok: r.moved > 0 };
     }
     const to = $('day-to').value;
     const rest = $('day-rest').checked;
@@ -1134,7 +1135,7 @@
     return ul;
   }
   const nothing = (body, text) => { const ul = document.createElement('ul'); ul.className = 'decisions'; const e = clone('tpl-day-empty'); e.textContent = text; ul.append(e); body.append(ul); };
-  const dayTime = (i) => [i.date ? parseYmd(i.date).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : 'no day yet', tt(i.time)].filter(Boolean).join(' ');
+  const dayTime = (i) => [i.date ? parseYmd(i.date).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' }) : 'unscheduled', tt(i.time)].filter(Boolean).join(' ');
 
   // Bookings: the stays and journeys with their reference codes, in date order.
   function renderBookings() {
@@ -1253,7 +1254,7 @@
     const b = sp && sp.budget && typeof sp.budget.currency === 'string' ? sp.budget.currency.trim().toUpperCase() : '';
     return b || (plan.trip || {}).currency || undefined;
   }
-  // No date, and not placed at a joint: it belongs under "Not on a day yet". So does one dated on a day the plan cannot show
+  // No date, and not placed at a joint: it belongs under "Unscheduled". So does one dated on a day the plan cannot show
   // (past its 60 days, saved before such an object went there itself), rather than showing nowhere.
   const undatedItems = () => {
     const shownDays = new Set(plan.days());
@@ -1562,7 +1563,7 @@
     fill(later, { 'later-label': timedNow ? '30 minutes later' : 'Move down' });
     earlier.title = timedNow ? 'Changes the time, half an hour earlier. It stays on the same day.' : 'Swaps places with the one above it. It stays on the same day.';
     later.title = timedNow ? 'Changes the time, half an hour later. It stays on the same day.' : 'Swaps places with the one below it. It stays on the same day.';
-    $('menu-day').title = 'Choose another day, or no day yet';
+    $('menu-day').title = 'Choose another day, or unscheduled';
     const follow = menu.querySelector('[data-action="follow"]');
     hide(follow, item.kind !== 'link');
     // A link that cannot be read has nothing to edit.
@@ -1603,7 +1604,7 @@
     host.menu.show({
       id: `move-to-${id}`,
       anchor,
-      items: dayMenuItems({ current: placeOf(item), choose: go, days: choosableDays(), none: 'Not on a day yet', joints: true, jointsOnly: lane, pickDate: lane ? null : () => setTimeout(() => openDatePop(id, anchor), 0) }), // after the list has closed and given focus back
+      items: dayMenuItems({ current: placeOf(item), choose: go, days: choosableDays(), none: 'Unscheduled', joints: true, jointsOnly: lane, pickDate: lane ? null : () => setTimeout(() => openDatePop(id, anchor), 0) }), // after the list has closed and given focus back
     });
   }
   // The date field for "Pick a date...": under the item's button; Move or Enter moves it, Escape or Cancel leaves it.
@@ -2099,11 +2100,11 @@
     for (const el of $('form').querySelectorAll('[data-types]')) el.classList.toggle('on-type', el.dataset.types.split(/\s+/).includes(key));
     $('f-title').required = key !== 'block' && key !== 'lane'; // a marker's label is optional: the type names it
     // A marker is one kind in the picker; Where decides whether it is in a day (block) or between days (lane), so the
-    // list has no "Not on a day yet". A marker that was unplaced goes to the first day; one whose Where says otherwise
+    // list has no "Unscheduled". A marker that was unplaced goes to the first day; one whose Where says otherwise
     // takes the tile Where says.
     const marker = key === 'block' || key === 'lane';
     const unplaced = $('f-date').value === 'd:';
-    // An existing marker stored with no day keeps "Not on a day yet", so its Where is not left blank.
+    // An existing marker stored with no day keeps "Unscheduled", so its Where is not left blank.
     const keepUnplaced = Boolean(ed.id && ed.unplaced);
     placeOptions($('f-date'), { placedOnly: marker && !keepUnplaced });
     if (marker && !keepUnplaced && unplaced && [...$('f-date').options].some((o) => o.value.startsWith('d:'))) $('f-date').value = [...$('f-date').options].find((o) => o.value.startsWith('d:')).value;
@@ -2245,6 +2246,7 @@
       setVal('f-confirm', v.confirm);
       $('f-notes').value = v.notes || '';
       $('f-cost').value = v.cost || '';
+      $('f-estimate').value = v.estimate || '';
       paidByOptions(item ? item.paidBy : info.user.key);
       ownerBoxes(v.owners || []);
       for (const b of $('f-travelMode').querySelectorAll('.mode')) b.classList.toggle('on', b.dataset.mode === v.travelMode);
@@ -2375,6 +2377,7 @@
       kind: 'journey',
       confirm: '', // the outbound holds the booking details
       cost: null,
+      estimate: null,
       paidBy: '',
       category: 'travel',
       mode: out.mode,
@@ -2612,6 +2615,7 @@
         travelMode: shown('f-travelMode') ? chosenMode() : null,
         travelMinutes: lengthOf('f-travelHours', 'f-travelMinutes'),
         cost: num('f-cost'),
+        estimate: num('f-estimate'),
       };
       common.paidBy = common.cost ? $('f-paidBy').value : '';
       let fields;
@@ -2621,7 +2625,7 @@
         const t = fromTile(ed.tile, item);
         // A round trip stays a journey other than a car: its return is removed first, with the switch.
         if (ed.backId && !ed.removeReturn && !roundTripOn()) return fail('Only a journey other than a car can be a round trip. Choose one, or turn off Round trip first.');
-        if (t.kind === 'lane') { common.date = null; common.travelMode = null; common.travelMinutes = null; common.owners = []; common.cost = null; common.paidBy = ''; }
+        if (t.kind === 'lane') { common.date = null; common.travelMode = null; common.travelMinutes = null; common.owners = []; common.cost = null; common.estimate = null; common.paidBy = ''; }
         // A time block or a marker between days can be left untitled in the form (the type's own label is its
         // placeholder, shown greyed until someone types over it): store that label as the real title rather than
         // leaving the field empty, so the item has a real name anywhere it is shown generically (Assistant's

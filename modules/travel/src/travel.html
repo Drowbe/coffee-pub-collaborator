@@ -91,7 +91,7 @@
 <template id="tpl-state-loading"><div class="skeleton" aria-busy="true"><div class="skel"></div><div class="skel"></div><div class="skel"></div><div class="skel"></div></div></template>
 <template id="tpl-state-empty-trip"><div class="state" id="state-empty-trip"><p>Nothing on the plan yet. Add something below.</p><form class="add-row"><button class="btn btn-primary" type="submit">Add plan</button></form></div></template>
 <template id="tpl-phase-head"><div class="phase-head" data-phase=""><h2 data-slot="label"></h2></div></template>
-<template id="tpl-undated"><section class="undated" id="undated"><h2>Not on a day yet</h2></section></template>
+<template id="tpl-undated"><section class="undated" id="undated"><h2>Unscheduled</h2></section></template>
 <template id="tpl-undated-group"><div class="undated-group"><h3 data-slot="label"></h3><ul class="decisions"></ul></div></template>
 
 <!-- ============================ the card family (see CONTRACT.md, "The card family") ============================
@@ -230,7 +230,7 @@
     <div class="fieldgroup" data-types="restaurant cafe bar sight museum attraction tour show"><div class="fieldgroup-title">Where and who</div><label data-types="restaurant cafe bar sight museum attraction tour show">Address<input id="f-address-stop" name="address" maxlength="200"></label>
       <div class="editor-row"><label data-types="restaurant cafe bar">Party size<input id="f-partySize" name="partySize" type="number" min="1"></label><label data-types="restaurant cafe bar">Reservation name<input id="f-reservationName" name="reservationName" maxlength="80"></label><label data-types="sight museum attraction tour show">Tickets<input id="f-admissionCount" name="admissionCount" type="number" min="1"></label><label data-types="show">Entry<input id="f-gate-show" name="gate" maxlength="40"></label></div></div>
 
-    <div class="fieldgroup" data-types="flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show"><div class="fieldgroup-title">Booking</div><p class="hint" id="f-booking-both" hidden>The reference, cost and payer cover both legs.</p><div class="editor-row"><label>Reference<input id="f-confirm" name="confirm" class="mono" maxlength="40"></label><label>Cost<input id="f-cost" name="cost" type="number" min="0" step="0.01"></label><label>Paid by<select id="f-paidBy" name="paidBy"></select></label></div></div>
+    <div class="fieldgroup" data-types="flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show"><div class="fieldgroup-title">Booking</div><p class="hint" id="f-booking-both" hidden>The reference, amounts and payer cover both legs.</p><div class="editor-row"><label>Reference<input id="f-confirm" name="confirm" class="mono" maxlength="40"></label><label>Estimated<input id="f-estimate" name="estimate" type="number" min="0" step="0.01"></label><label>Actual<input id="f-cost" name="cost" type="number" min="0" step="0.01"></label><label>Paid by<select id="f-paidBy" name="paidBy"></select></label></div></div>
 
     <label data-types="lane block note flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show">Notes<textarea id="f-notes" name="notes" rows="3" maxlength="8000"></textarea></label>
 

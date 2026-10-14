@@ -501,7 +501,7 @@ function renderSpaces() {
       applyWords(card); // the template's data-fill titles, in this environment's words
       card.dataset.space = r.id;
       card.querySelector('[data-join]').dataset.join = r.id;
-      list.appendChild(card);
+      list.insertBefore(card, $('home-add-space')); // the ghost card stays last
     }
     card.classList.toggle('aside', Boolean(r.isAside));
     // Entering is the primary action; joining the call is a separate choice inside (plan-entering.md). A space's
@@ -538,7 +538,7 @@ function renderSpaces() {
     card.querySelector('.space-choice-count').textContent = r.isAside ? '' : hereCount(members, r.id);
     renderMembers(card.querySelector('.members'), members, r.id, Boolean(r.isAside));
   }
-  for (const card of [...list.children]) if (!keep.has(card.dataset.space)) card.remove();
+  for (const card of [...list.children]) if (card.id !== 'home-add-space' && !keep.has(card.dataset.space)) card.remove();
   renderSpaceListHead();
   syncHomeChat(); // Home's chat column, with no space entered (plan-home-lobby.md, step 3)
 }
@@ -555,6 +555,7 @@ function renderSpaceListHead() {
   const label = `Add ${word('space', { cap: true })}`;
   $('home-add-space-label').textContent = label;
   button.title = label;
+  button.setAttribute('aria-label', label);
   button.hidden = Boolean(guestToken) || !hasOwnerRights(me);
   // The Modules column's heading (plan-home-lobby.md, decision 11): the module word, the template's when it sets one.
   const modules = $('home-modules-title');

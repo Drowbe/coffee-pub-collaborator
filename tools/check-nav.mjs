@@ -2526,8 +2526,8 @@ test('the one bar: the switcher in the Spaces slot\'s place, the layout tabs aft
 // Manage's Add button makes (POST /api/spaces, no new route), then enters it and opens Set up.
 test('Add <space> on Home: owners and the admin, the existing request, then into the space with Set up open', () => {
   const html = fs.readFileSync(path.join(ROOT, 'public/space.html'), 'utf8');
-  assert.match(html, /<div class="space-list-head" id="space-list-head">\n\s*<h2 class="space-list-title" id="space-list-title"><\/h2>\n\s*<button class="btn btn-primary" id="home-add-space" type="button" hidden>/, 'the row above the cards: the home word, then the button (hidden until the page knows who is looking)');
-  assert.match(html, /id="home-add-space"[^\n]*\n\s*<\/div>\n\s*<div class="space-list" id="spaces">/, 'the row sits right above the space cards');
+  assert.match(html, /<h2 class="space-list-title" id="space-list-title"><\/h2>\n\s*<\/div>/, 'the row above the cards holds the home word only');
+  assert.match(html, /<div class="space-list" id="spaces">[^<]*(<!--[\s\S]*?-->)?\s*<button class="space-choice-add" id="home-add-space" type="button" hidden>[^\n]*<\/button>\n\s*<\/div>/, 'Add <space> is the ghost card inside the grid (hidden until the page knows who is looking)');
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   assert.match(space, /const label = `Add \$\{word\('space', \{ cap: true \}\)\}`;/, 'the button reads Add <Space> in the template\'s word');
   assert.match(space, /button\.hidden = Boolean\(guestToken\) \|\| !hasOwnerRights\(me\);/, 'owners and the admin only, never a guest');
@@ -2537,7 +2537,9 @@ test('Add <space> on Home: owners and the admin, the existing request, then into
   const admin = fs.readFileSync(path.join(ROOT, 'public/admin.js'), 'utf8');
   assert.match(admin, /await api\('POST', '\/api\/spaces', \{ name: `\$\{word\('space', \{ cap: true \}\)\} \$\{spaces\.length\}`, description: '', members: \[\] \}\)/, 'Manage\'s own request is unchanged');
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
-  assert.match(css, /@media \(max-width: 480px\) \{\n\s*\.space-list-head \.btn \{\n\s*flex: 1 1 100%;/, 'on a phone the button takes a row of its own, full width');
+  assert.match(css, /\.space-choice-add \{[^}]*border: 2px dashed var\(--border\);/, 'the ghost card is a dashed outline');
+  assert.match(css, /\.space-choice-add:focus-visible/, 'and fills on keyboard focus');
+  assert.match(space, /list\.insertBefore\(card, \$\('home-add-space'\)\)/, 'cards go before the ghost card, which stays last');
 });
 
 // One nav text (Thomas, 2026-10-14: "we need to be using the same classes for things ... The correct one is the

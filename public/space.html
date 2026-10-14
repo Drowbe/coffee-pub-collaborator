@@ -36,13 +36,15 @@
       </aside>
       <div class="home-main">
         <section class="whos-around" id="whos-around" hidden></section>
-        <!-- The space cards' heading (the home word), and for owners and the admin the way to add one (GitHub #233):
-             it makes the space and takes them into it with Set up open. -->
+        <!-- The space cards' heading (the home word). Adding one (GitHub #233) is the dashed card last in the grid. -->
         <div class="space-list-head" id="space-list-head">
           <h2 class="space-list-title" id="space-list-title"></h2>
-          <button class="btn btn-primary" id="home-add-space" type="button" hidden><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> <span id="home-add-space-label"></span></button>
         </div>
-        <div class="space-list" id="spaces"></div>
+        <!-- The cards, then the ghost card last (space.js keeps it last): for owners and the admin, it makes the space and
+             takes them into it with Set up open. -->
+        <div class="space-list" id="spaces">
+          <button class="space-choice-add" id="home-add-space" type="button" hidden><i class="fa-solid fa-plus fa-fw" aria-hidden="true"></i> <span id="home-add-space-label"></span></button>
+        </div>
         <p class="status error" id="join-error" hidden></p>
       </div>
       <!-- The Modules (decisions 10 and 11): headed with the module word, the tiles stacked in the order the server lists them. -->

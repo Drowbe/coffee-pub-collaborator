@@ -1437,10 +1437,10 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   const H = 'public/space.html';
   const home = html.slice(html.indexOf('<div class="home" id="home">'), html.indexOf('<!-- A guest link'));
   if (!home) fail(H, 'Home needs its columns in <div class="home" id="home">');
-  const order = ['id="home-chat"', 'id="home-chat-slot"', 'id="home-chat-splitter"', 'class="home-main"', 'id="whos-around"', 'id="space-list-title"', 'id="home-add-space"', 'id="spaces"', 'id="join-error"', 'id="home-modules"', 'id="home-modules-title"', 'id="dashboard"'];
+  const order = ['id="home-chat"', 'id="home-chat-slot"', 'id="home-chat-splitter"', 'class="home-main"', 'id="whos-around"', 'id="space-list-title"', 'id="spaces"', 'id="home-add-space"', 'id="join-error"', 'id="home-modules"', 'id="home-modules-title"', 'id="dashboard"'];
   const at = order.map((a) => home.indexOf(a));
   if (at.some((i) => i < 0)) fail(H, `Home keeps every id, in its column: missing ${order.filter((_, i) => at[i] < 0).join(', ')}`);
-  else if (at.some((i, n) => n && i < at[n - 1])) fail(H, 'Home reads Chat (its slot and splitter), then the spaces (Who\'s around, the heading row, the cards), then the Modules (their heading, #dashboard)');
+  else if (at.some((i, n) => n && i < at[n - 1])) fail(H, 'Home reads Chat (its slot and splitter), then the spaces (Who\'s around, the heading row, the cards and the ghost card), then the Modules (their heading, #dashboard)');
   if (!/<aside class="home-chat" id="home-chat" aria-label="Chat" hidden>/.test(home)) fail(H, 'the chat column is an aside named Chat, hidden until space.js shows it');
   const split = home.slice(home.lastIndexOf('<', home.indexOf('id="home-chat-splitter"')), home.indexOf('>', home.indexOf('id="home-chat-splitter"')) + 1);
   if (!split.includes('role="separator"') || !split.includes('aria-orientation="vertical"') || !split.includes('tabindex="0"') || !split.includes('aria-label="Resize the chat column"') || !split.includes('side-column-splitter-v')) fail(H, '#home-chat-splitter is a focusable vertical separator named "Resize the chat column", drawn as the space column\'s');

@@ -54,15 +54,21 @@
   <!-- the item menu: a popover the script positions under the button that opened it -->
   <div id="item-menu" class="menu" role="menu" hidden>
     <button type="button" role="menuitem" data-action="edit"><span class="ic" data-icon="pen"></span> Edit</button>
-    <button type="button" role="menuitem" data-action="earlier"><span class="ic" data-icon="arrow-up"></span> Earlier</button>
-    <button type="button" role="menuitem" data-action="later"><span class="ic" data-icon="arrow-down"></span> Later</button>
-    <label role="menuitem"><span class="ic" data-icon="calendar-days"></span> Move to <select id="menu-day" aria-label="Move to day"></select></label>
+    <button type="button" role="menuitem" data-action="earlier"><span class="ic" data-icon="arrow-up"></span> <span data-slot="earlier-label">Move up</span></button>
+    <button type="button" role="menuitem" data-action="later"><span class="ic" data-icon="arrow-down"></span> <span data-slot="later-label">Move down</span></button>
+    <!-- opens the grouped list of days (host.menu.show) under this entry, the last entry of which opens a date field -->
+    <button type="button" role="menuitem" data-action="move-to" id="menu-day" aria-haspopup="menu"><span class="ic" data-icon="calendar-days"></span> Move to another day…</button>
     <!-- for a time block only: the marker types of the settings (the script fills the list and hides this for anything else) -->
     <label role="menuitem" data-block-only hidden><span class="ic" data-icon="tag"></span> Change type <select id="menu-type" aria-label="Change type"></select></label>
-    <button type="button" role="menuitem" data-action="to-line"><span class="ic" data-icon="lightbulb"></span> Back to the line</button>
+    <button type="button" role="menuitem" data-action="to-line"><span class="ic" data-icon="lightbulb"></span> Move to unscheduled</button>
     <button type="button" role="menuitem" data-action="follow" hidden><span class="ic" data-icon="bell"></span> <span data-slot="follow-label">Follow its result</span></button>
     <button type="button" role="menuitem" class="danger" data-action="delete"><span class="ic" data-icon="trash"></span> <span data-slot="delete-label">Delete</span></button>
   </div>
+  <!-- "Pick a date..." at the end of Move to another day: a date field under the item's button, Move or Enter picks -->
+  <form id="date-pop" class="menu date-pop" role="dialog" aria-label="Move to a date" hidden>
+    <label>Move to<input id="date-pop-input" type="date" required></label>
+    <div class="date-pop-buttons"><button class="btn primary" id="date-pop-go" type="submit">Move</button><button class="btn" id="date-pop-cancel" type="button">Cancel</button></div>
+  </form>
 </div>
 <p id="msg" class="hint msg">Loading...</p>
 
@@ -177,7 +183,9 @@
     <!-- the flight lookup (plan-flight-lookup.md): shown for a flight while the server offers it; the script fills the list -->
     <div class="lookup" id="f-lookup" data-types="flight" role="group" aria-labelledby="f-lookup-title" hidden><div class="fieldgroup-title" id="f-lookup-title">Look up a flight</div><div class="lookup-row"><label>Flight number<input id="f-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search"></label><label>Day it leaves<input id="f-lookup-date" type="date"></label><button class="btn" type="button" id="f-lookup-find">Find</button></div><p class="hint lookup-msg" id="f-lookup-msg" role="status" aria-live="polite"></p><div class="lookup-list" id="f-lookup-list" role="group" aria-labelledby="f-lookup-which" hidden><div class="hint" id="f-lookup-which">Which one?</div><ul class="lookup-choices"></ul></div></div>
     <label>Title<input id="f-title" name="title" type="text" maxlength="120" required></label>
-    <div class="editor-row timing"><label class="when-field"><span id="f-date-label">When</span><select id="f-date" name="date"></select></label>
+    <div class="editor-row timing"><div class="when-field" role="group" aria-labelledby="f-date-label"><span id="f-date-label">When</span><select id="f-date" name="date" hidden></select>
+        <div class="when-pick"><input id="f-date-input" type="date" aria-labelledby="f-date-label" aria-describedby="f-date-phase"><button class="btn when-list" id="f-date-list" type="button" aria-haspopup="menu">Pick from the list</button><button class="btn when-clear" id="f-date-clear" type="button">Unscheduled</button></div>
+        <span class="when-phase" id="f-date-phase" role="status"></span></div>
       <label id="f-phase-row" hidden>Phase<select id="f-phase" name="phase"></select></label>
       <label data-types="block flight train ferry bus car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show hotel"><span id="f-time-label">Time</span><input id="f-time" name="time" type="time"></label>
       <!-- the length, or the end time it comes to (#247): the two stay in step, only the length is stored -->
@@ -187,7 +195,9 @@
     <!-- the arrival as the ticket says it, a day and a time laid out as the departure is (#241); the day follows the departure day until one is chosen (#242). f-arrival holds what is stored (the script joins the two) -->
     <div class="editor-row" data-types="flight train ferry bus"><label>Arrival day<select id="f-arrival-day" name="arrivesDay"></select></label><label>Arrival time<input id="f-arrival-time" name="arrivesTime" type="time"></label><input id="f-arrival" name="arrives" type="hidden"></div>
     <!-- check out as check in is laid out, a list of days and a time (#245); the day after check-in until one is chosen -->
-    <div class="editor-row" data-types="hotel"><label>Check out<select id="f-checkout" name="checkOut"></select></label>
+    <div class="editor-row" data-types="hotel"><div class="when-field" role="group" aria-labelledby="f-checkout-label"><span id="f-checkout-label">Check out</span><select id="f-checkout" name="checkOut" hidden></select>
+        <div class="when-pick"><input id="f-checkout-input" type="date" aria-labelledby="f-checkout-label" aria-describedby="f-checkout-phase"><button class="btn when-list" id="f-checkout-list" type="button" aria-haspopup="menu">Pick from the list</button><button class="btn when-clear" id="f-checkout-clear" type="button">Not set</button></div>
+        <span class="when-phase" id="f-checkout-phase" role="status"></span></div>
       <label>Check-out time<input id="f-checkOutTime" name="checkOutTime" type="time"></label></div>
 
     <div class="fieldgroup" data-types="flight train ferry bus car taxi rideshare shuttle"><div class="fieldgroup-title">Journey</div>
@@ -202,7 +212,9 @@
       <div class="return-leg" id="f-return" hidden><div class="fieldgroup-title">Return</div>
         <div class="lookup" id="f-back-lookup" data-types="flight" role="group" aria-labelledby="f-back-lookup-title" hidden><div class="fieldgroup-title" id="f-back-lookup-title">Look up the return flight</div><div class="lookup-row"><label>Flight number<input id="f-back-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search"></label><label>Day it leaves<input id="f-back-lookup-date" type="date"></label><button class="btn" type="button" id="f-back-lookup-find">Find</button></div><p class="hint lookup-msg" id="f-back-lookup-msg" role="status" aria-live="polite"></p><div class="lookup-list" id="f-back-lookup-list" role="group" aria-labelledby="f-back-lookup-which" hidden><div class="hint" id="f-back-lookup-which">Which one?</div><ul class="lookup-choices"></ul></div></div>
         <label>Return title<input id="f-back-title" name="backTitle" type="text" maxlength="120"></label>
-        <div class="editor-row timing"><label class="when-field">Return day<select id="f-back-date" name="backDate"></select></label>
+        <div class="editor-row timing"><div class="when-field" role="group" aria-labelledby="f-back-date-label"><span id="f-back-date-label">Return day</span><select id="f-back-date" name="backDate" hidden></select>
+        <div class="when-pick"><input id="f-back-date-input" type="date" aria-labelledby="f-back-date-label" aria-describedby="f-back-date-phase"><button class="btn when-list" id="f-back-date-list" type="button" aria-haspopup="menu">Pick from the list</button><button class="btn when-clear" id="f-back-date-clear" type="button">Unscheduled</button></div>
+        <span class="when-phase" id="f-back-date-phase" role="status"></span></div>
           <label><span id="f-back-time-label">Departure time</span><input id="f-back-time" name="backTime" type="time"></label>
           <div class="duration" role="group" aria-labelledby="f-back-minutes-label"><span class="dur-head"><span id="f-back-minutes-label">How long</span><span class="lenmode" role="group" aria-label="Give the return as"><button type="button" class="lm on" data-lenmode="length" aria-pressed="true">Length</button><button type="button" class="lm" data-lenmode="end" aria-pressed="false">End time</button></span></span><span class="hm"><input id="f-back-hours" name="backHours" type="number" min="0" step="1" inputmode="numeric" aria-label="Return hours"><span>h</span><input id="f-back-minutes" name="backMinutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Return minutes"><span>min</span></span><span class="endbox" hidden><input id="f-back-endTime" type="time" aria-label="Return end time" aria-describedby="f-back-endNote"><span class="hint" id="f-back-endNote" role="status"></span></span></div></div>
         <p class="arrives hint" id="f-back-arrives" hidden></p>

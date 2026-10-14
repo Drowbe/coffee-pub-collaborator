@@ -404,25 +404,22 @@
   // and below the last, and the trip's start above the day it begins and its end below the day it ends.
   // The phase boundaries of a space with phases, grouped by the joint they sit at (drawn, never stored). A phase starting on S is a
   // boundary after the day before S; a dated phase ending on E, after E. Boundaries before the first shown day gather at the head
-  // (key ''), those from the last shown day on at the tail (key = the last day). A phase's end and the next one's start on the same
-  // joint are one marker. Days are read as plain dates (UTC in the phase rule), so a day is a day whatever the viewer's timezone.
+  // (key ''), those from the last shown day on at the tail (key = the last day). Every start and every end is a marker of its own,
+  // even on the same joint (the ending one first, then the starting one), each in its own phase's tint. Days are read as plain dates (UTC in the phase rule), so a day is a day whatever the viewer's timezone.
   function phaseJoints(days, bands) {
     const out = new Map();
     if (!days.length || !bands.some((b) => b.dated)) return out;
     const first = days[0];
     const last = days[days.length - 1];
     const back = (d) => { const t = parseYmd(d); return ymd(new Date(t.getFullYear(), t.getMonth(), t.getDate() - 1)); };
-    const at = new Map(); // boundary day (the day it follows) -> { day, ends, starts }
-    const add = (boundary, kind, band) => {
-      if (!at.has(boundary)) at.set(boundary, { day: boundary, ends: [], starts: [] });
-      at.get(boundary)[kind].push(band);
-    };
+    const events = []; // { day: the day the marker follows, ends: [band] | [], starts: [band] | [] }: one band each
     for (const b of bands) {
       if (!b.dated) continue;
-      add(back(b.start), 'starts', b);
-      if (b.end) add(b.end, 'ends', b);
+      events.push({ day: back(b.start), ends: [], starts: [b] });
+      if (b.end) events.push({ day: b.end, ends: [b], starts: [] });
     }
-    for (const g of [...at.values()].sort((x, y) => x.day.localeCompare(y.day))) {
+    events.sort((x, y) => x.day.localeCompare(y.day) || y.ends.length - x.ends.length); // stable: the ending marker first on a joint
+    for (const g of events) {
       const key = g.day < first ? '' : g.day >= last ? last : g.day;
       if (!out.has(key)) out.set(key, []);
       out.get(key).push(g);
@@ -436,9 +433,7 @@
     row.classList.add('phase');
     const lead = g.ends[0] || g.starts[0];
     row.classList.add(`ph-${lead.tint}`);
-    // A boundary that is both an end and a start fades from the ending phase's tint to the starting one's.
-    if (g.ends.length && g.starts.length) row.querySelector('.markerpill').style.setProperty('--ph2', `var(--tint-${g.starts[0].tint})`);
-    const when = g.starts.length ? g.starts[0].start : g.day; // the day the new phase begins, else the day the last one ends
+    const when = g.starts.length ? g.starts[0].start : g.day; // the day the phase begins, else the day it ends
     const text = parseYmd(when).toLocaleDateString([], { weekday: 'short', day: 'numeric', month: 'short' });
     setIcon(row.querySelector('.markercard [data-icon]'), g.starts.length ? 'flag' : 'flag-checkered');
     fill(row, { time: text, mdate: text, title: names.join(' · '), sub: '' });
@@ -494,6 +489,14 @@
     return Boolean(b) && day >= b.start.day && day <= b.end.day;
   }
 
+  // The days that are numbered ("Day 2 of 4"): with phases, the main phase's own days only (a pre-trip or post-trip day has no
+  // number); else every day of the plan. `n` is a day's place among them, 0 when it is not one of them.
+  function numberedDays(days) {
+    const main = plan.bands().find((b) => b.main);
+    return main && main.dated ? days.filter(inTrip) : days;
+  }
+  const dayNumber = (day, days) => numberedDays(days).indexOf(day) + 1;
+
   // A short name for an item, for a marker's line.
   const describe = (item) => (item.kind === 'journey' && [item.operator, item.number].filter(Boolean).join(' ')) || item.title;
 
@@ -510,7 +513,7 @@
     const head = clone('tpl-day-head');
     if (!canEdit) hide(head.querySelector('.day-actions'), true);
     const d = parseYmd(day);
-    fill(head, { daynum: String(d.getDate()), daymonth: `${d.toLocaleDateString([], { weekday: 'short' })} · ${d.toLocaleDateString([], { month: 'short' })}`, position: dayLabel(day, days).position, summary: daySummary(entries) });
+    fill(head, { daynum: String(d.getDate()), daymonth: `${d.toLocaleDateString([], { weekday: 'short' })} · ${d.toLocaleDateString([], { month: 'short' })}`, position: dayNumber(day, days) ? `Day ${dayNumber(day, days)} of ${numberedDays(days).length}` : '', summary: daySummary(entries) });
     const tagBox = head.querySelector('.day-tags');
     hide(tagBox, !tags.length);
     for (const { item } of tags) {
@@ -670,7 +673,153 @@
       add(`j:${d}`, jointLabel(d));
     });
     after.forEach((d) => add(`d:${d}`, `${dayShort(d)}${inPhase(d)}`));
+    // A day chosen on the date field that the list does not hold (no phases: any date) is kept as a choice of its own.
+    if (/^d:\d{4}-\d{2}-\d{2}$/.test(was) && ![...select.options].some((o) => o.value === was)) add(was, `${dayShort(was.slice(2))}, outside the plan`);
     select.value = [...select.options].some((o) => o.value === was) ? was : 'j:';
+  }
+
+  // ---- Choosing a day: a date field, a grouped list, and Unscheduled -------------------------------------------------------
+  // The form's When, Return day and Check out are a date field (the primary control), the phase the day is in, "Pick from the
+  // list" (the SDK's host.menu.show, days under a heading or a flyout per phase, or per month without phases) and a button for no
+  // day. The hidden select stays the one place the value lives (the saving code reads and sets it, as before); its `value`
+  // is wrapped so setting it from code draws the field again. Move to another day... in the item menu opens the same list.
+  const DAY_NEST = 8; // more days than this: one flyout per phase (or month); fewer: a heading per phase, the days flat
+  const dayMonth = (d) => parseYmd(d).toLocaleDateString([], { month: 'short', day: 'numeric' });
+  // The days that can be picked: the plan's own, and with phases every day of the space's timeline too.
+  function choosableDays() {
+    const days = plan.days();
+    const bands = plan.bands().filter((b) => b.dated);
+    if (!bands.length) return days.slice();
+    const first = bands.reduce((m, b) => (b.start < m ? b.start : m), bands[0].start);
+    const last = bands.reduce((m, b) => ((b.end || b.start) > m ? (b.end || b.start) : m), bands[0].end || bands[0].start);
+    return tripDays({ start: days.length && days[0] < first ? days[0] : first, end: days.length && days[days.length - 1] > last ? days[days.length - 1] : last });
+  }
+  // Days in order, grouped: by phase when the space has them, else by month. [{ label, range, days }]
+  function groupDays(days) {
+    const bands = plan.bands().filter((b) => b.dated);
+    const out = [];
+    for (const d of days) {
+      const p = bands.length ? phaseOnDay(bands, d) : null;
+      const key = bands.length ? (p && p.id) || '' : d.slice(0, 7);
+      let g = out[out.length - 1];
+      if (!g || g.key !== key) {
+        g = { key, label: bands.length ? (p && p.label) || 'Other days' : parseYmd(d).toLocaleDateString([], { month: 'long', year: 'numeric' }), days: [] };
+        out.push(g);
+      }
+      g.days.push(d);
+    }
+    for (const g of out) g.range = g.days.length > 1 ? `${dayMonth(g.days[0])} – ${dayMonth(g.days[g.days.length - 1])}` : dayMonth(g.days[0]);
+    return out;
+  }
+  // The grouped list as menu items. `current` is a place ({ date } / { after }); `choose(place)` gets the pick; `days` the
+  // days offered; `none` the label of the no-day entry (null: not offered); `joints` whether the spots between days are; `pickDate`
+  // (optional) adds "Pick a date..." last; `jointsOnly` lists only the spots between days (a marker between days).
+  function dayMenuItems({ current, choose, days, none, joints, pickDate, jointsOnly, label = dayLong }) {
+    const same = (p) => (p.after !== undefined ? current.after === p.after : current.after === undefined && (current.date || null) === (p.date || null));
+    const row = (p, text) => ({ id: placeValue(p), label: text, icon: same(p) ? 'check' : 'calendar-day', ariaLabel: same(p) ? `${text}, chosen` : undefined, onClick: () => choose(p) });
+    const nest = days.length > DAY_NEST;
+    const items = [];
+    // Unscheduled: no day, and the spots between days (before the first day, between two, after the last).
+    const unscheduled = [];
+    if (none && !jointsOnly) unscheduled.push(row({ date: null }, none));
+    if (joints) for (const after of ['', ...plan.days()]) unscheduled.push(row({ after }, jointLabel(after)));
+    if (unscheduled.length) {
+      const name = jointsOnly ? 'Between days' : 'Unscheduled';
+      if (nest || unscheduled.length > DAY_NEST) items.push({ id: 'unscheduled', label: name, icon: unscheduled.some((r) => r.icon === 'check') ? 'check' : 'inbox', items: unscheduled });
+      else items.push({ heading: name }, ...unscheduled);
+    }
+    if (!jointsOnly) {
+      for (const g of groupDays(days)) {
+        const rows = g.days.map((d) => row({ date: d }, label(d)));
+        if (nest) items.push({ id: `group-${g.key}`, label: g.label, hint: g.range, icon: rows.some((r) => r.icon === 'check') ? 'check' : 'calendar-days', items: rows });
+        else items.push({ heading: `${g.label} · ${g.range}` }, ...rows);
+      }
+    }
+    if (pickDate) items.push({ separator: true }, { id: 'pick-date', label: 'Pick a date…', icon: 'calendar', onClick: pickDate });
+    return items;
+  }
+  // The days a date field is held to: the timeline's first to last day when the space has phases (widened to the day it
+  // already holds, which is never refused), none otherwise.
+  function dayBounds(held) {
+    if (!plan.bands().some((b) => b.dated)) return { min: '', max: '' };
+    const days = choosableDays();
+    if (!days.length) return { min: '', max: '' };
+    return { min: held && held < days[0] ? held : days[0], max: held && held > days[days.length - 1] ? held : days[days.length - 1] };
+  }
+  // Make one of the form's day selects (#f-date, #f-back-date, #f-checkout) a date field with its list. `checkout`: the select's
+  // values are plain days ('' for none) and the list is its own options; else they are places (`d:<day>`, `j:<after>`).
+  function dayField(select, { checkout = false } = {}) {
+    const id = select.id;
+    const input = $(`${id}-input`);
+    const listBtn = $(`${id}-list`);
+    const clear = $(`${id}-clear`);
+    const caption = $(`${id}-phase`);
+    if (!input || !listBtn || !clear || !caption) return;
+    const place = () => (checkout ? { date: select.value || null } : parsePlace(select.value));
+    const valueOf = (p) => (checkout ? p.date || '' : placeValue(p));
+    const dayOptions = () => [...select.options].map((o) => o.value).filter(isYmd);
+    const canNone = () => [...select.options].some((o) => o.value === (checkout ? '' : 'd:')) && (checkout ? Boolean(dayOptions().length) : true);
+    const draw = () => {
+      const p = place();
+      const held = p.date || '';
+      input.value = held;
+      if (checkout) {
+        const days = dayOptions();
+        input.disabled = !days.length;
+        input.min = days[0] || '';
+        input.max = days[days.length - 1] || '';
+        listBtn.disabled = !days.length;
+        const o = [...select.options].find((x) => x.value === select.value && select.value);
+        caption.textContent = o && / · /.test(o.textContent) ? o.textContent.split(' · ').pop() : '';
+        caption.removeAttribute('data-tint');
+      } else {
+        const b = dayBounds(held);
+        input.min = b.min;
+        input.max = b.max;
+        const bands = plan.bands().filter((x) => x.dated);
+        const ph = held && bands.length ? phaseOnDay(bands, held) : null;
+        caption.textContent = ph && ph.label ? ph.label : p.after !== undefined ? jointLabel(p.after) : '';
+        if (ph && ph.tint) caption.dataset.tint = ph.tint; else caption.removeAttribute('data-tint');
+      }
+      const showClear = canNone();
+      clear.hidden = !showClear;
+      const none = checkout ? !select.value : p.after === undefined && !held;
+      clear.setAttribute('aria-pressed', String(none));
+      clear.classList.toggle('on', none);
+    };
+    const set = (value) => {
+      if (value && !checkout && !/^[dj]:/.test(value)) return;
+      if (value && ![...select.options].some((o) => o.value === value)) {
+        const o = document.createElement('option');
+        o.value = value;
+        o.textContent = checkout ? value : `${dayShort(value.slice(2))}, outside the plan`;
+        select.append(o);
+      }
+      select.value = value;
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    // Setting the select's value from code (opening the form, a lookup, the kind) draws the field again.
+    const own = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    Object.defineProperty(select, 'value', { configurable: true, get() { return own.get.call(this); }, set(v) { own.set.call(this, v); draw(); } });
+    input.addEventListener('change', () => {
+      if (!input.value) { if (canNone()) set(checkout ? '' : 'd:'); else draw(); return; }
+      if (input.validity.rangeUnderflow || input.validity.rangeOverflow) { draw(); return; }
+      set(checkout ? input.value : `d:${input.value}`);
+    });
+    clear.addEventListener('click', () => { if (canNone() && select.value !== (checkout ? '' : 'd:')) set(checkout ? '' : 'd:'); });
+    listBtn.addEventListener('click', () => {
+      const p = place();
+      if (checkout) {
+        const days = dayOptions();
+        const label = (d) => ((([...select.options].find((o) => o.value === d) || {}).textContent) || dayLong(d));
+        const items = dayMenuItems({ current: p, choose: (x) => set(x.date || ''), days, none: 'Not set', joints: false, label });
+        host.menu.show({ id: `${id}-list`, anchor: listBtn, items: items.map((i) => (i.id === 'unscheduled' ? { ...i, label: 'Not set' } : i)) });
+        return;
+      }
+      host.menu.show({ id: `${id}-list`, anchor: listBtn, items: dayMenuItems({ current: p, choose: (x) => set(valueOf(x)), days: choosableDays(), none: canNone() ? 'Unscheduled' : null, joints: true }) });
+    });
+    draw();
   }
 
   // The badge for a run of hidden days: how many, and a + for what can be added there.
@@ -718,6 +867,7 @@
     const onLine = place.after !== undefined;
     const items = [];
     const withTile = (tile) => openEditor('item', null, { ...place, tile }, button);
+    const category = (id, label, icon, rows) => { if (rows.length) items.push({ id, label, icon, items: rows }); }; // a flyout of the day menu (addKinds has its own)
     for (const k of addKinds()) {
       items.push(k.items ? { ...k, items: k.items.map((r) => ({ ...r, onClick: () => withTile(r.id) })) } : { ...k, onClick: () => withTile(k.id) });
     }
@@ -1039,7 +1189,8 @@
 
   const facts = (trip) => {
     const days = plan.days();
-    const parts2 = [[days.length, days.length === 1 ? 'day' : 'days'], [state.people.length, state.people.length === 1 ? 'traveller' : 'travellers'], [openDecisions().length, 'open']];
+    const tripCount = numberedDays(days).length;
+    const parts2 = [[tripCount, tripCount === 1 ? 'day' : 'days'], [state.people.length, state.people.length === 1 ? 'traveller' : 'travellers'], [openDecisions().length, 'open']];
     return parts2.filter(([n]) => n).map(([n, label]) => [n, label]);
   };
 
@@ -1199,7 +1350,7 @@
         if (day) {
           const own = entriesFor(day, days, plan.byDay()).filter((e) => (!e.span || e.span === 'start') && e.item.kind !== 'block');
           const spent = own.reduce((sum, e) => sum + (Number(e.item.cost) > 0 ? Number(e.item.cost) : 0), 0);
-          items.push({ text: `Day ${days.indexOf(day) + 1} of ${days.length} · ${dayShort(day)}` });
+          items.push({ text: dayNumber(day, days) ? `Day ${dayNumber(day, days)} of ${numberedDays(days).length} · ${dayShort(day)}` : dayShort(day) });
           items.push({ text: own.length ? words(own.length, 'stop', 'stops') : 'Nothing planned' });
           if (spent) items.push({ text: money(spent) });
         }
@@ -1402,9 +1553,16 @@
     state.menuFor = id;
     const item = plan.list().find((i) => i.id === id);
     if (!item) return;
-    const select = $('menu-day');
-    placeOptions(select, { jointsOnly: item.kind === 'lane' });
-    select.value = placeValue(placeOf(item));
+    state.menuButton = button;
+    // Move up / Move down swap with the neighbour on the same day; an object with a time moves by half an hour instead.
+    const timedNow = Boolean(item.time) || (item.kind === 'link' && Boolean(item.ref) && Boolean(timeOf(plan.summaries.get(host.util.objectKey(item.ref)))));
+    const earlier = menu.querySelector('[data-action="earlier"]');
+    const later = menu.querySelector('[data-action="later"]');
+    fill(earlier, { 'earlier-label': timedNow ? '30 minutes earlier' : 'Move up' });
+    fill(later, { 'later-label': timedNow ? '30 minutes later' : 'Move down' });
+    earlier.title = timedNow ? 'Changes the time, half an hour earlier. It stays on the same day.' : 'Swaps places with the one above it. It stays on the same day.';
+    later.title = timedNow ? 'Changes the time, half an hour later. It stays on the same day.' : 'Swaps places with the one below it. It stays on the same day.';
+    $('menu-day').title = 'Choose another day, or no day yet';
     const follow = menu.querySelector('[data-action="follow"]');
     hide(follow, item.kind !== 'link');
     // A link that cannot be read has nothing to edit.
@@ -1412,7 +1570,7 @@
     fill(follow, { 'follow-label': item.follow ? 'Stop following its result' : 'Follow its result' });
     // A time block can change its type; it is removed rather than deleted.
     const isBlock = item.kind === 'block' || item.kind === 'lane';
-    // Back to the line: for an item on a day (not a marker between days, which is never on one).
+    // Move to unscheduled: for an item on a day (not a marker between days, which is never on one).
     hide(menu.querySelector('[data-action="to-line"]'), plan.jointOf(item) !== null);
     const typeLabel = menu.querySelector('[data-block-only]');
     hide(typeLabel, !isBlock);
@@ -1434,7 +1592,51 @@
     menu.style.top = `${top}px`;
     menu.style.left = `${Math.max(8, Math.min(Math.round(b.right - app.left - menu.offsetWidth), Math.round(app.width - menu.offsetWidth - 8)))}px`;
   }
-  const closeMenu = () => { $('item-menu').hidden = true; state.menuFor = null; };
+  const closeMenu = () => { $('item-menu').hidden = true; $('date-pop').hidden = true; state.menuFor = null; };
+  // Move to another day...: the grouped list under the item's button, ending in "Pick a date...". Unscheduled holds "Not on a day
+  // yet" and the spots between days (a marker between days sees only those).
+  function openMoveTo(id, anchor) {
+    const item = plan.list().find((i) => i.id === id);
+    if (!item) return;
+    const go = (p) => attempt(() => (p.after !== undefined ? plan.moveToJoint(id, p.after, 1e6) : plan.moveTo(id, p.date, 1e6)));
+    const lane = item.kind === 'lane';
+    host.menu.show({
+      id: `move-to-${id}`,
+      anchor,
+      items: dayMenuItems({ current: placeOf(item), choose: go, days: choosableDays(), none: 'Not on a day yet', joints: true, jointsOnly: lane, pickDate: lane ? null : () => setTimeout(() => openDatePop(id, anchor), 0) }), // after the list has closed and given focus back
+    });
+  }
+  // The date field for "Pick a date...": under the item's button; Move or Enter moves it, Escape or Cancel leaves it.
+  function openDatePop(id, anchor) {
+    const item = plan.list().find((i) => i.id === id);
+    if (!item) return;
+    const pop = $('date-pop');
+    const input = $('date-pop-input');
+    const held = placeOf(item).date || '';
+    const b = dayBounds(held);
+    input.min = b.min;
+    input.max = b.max;
+    input.value = held;
+    state.menuFor = id;
+    pop.hidden = false;
+    const app = $('app').getBoundingClientRect();
+    const r = anchor.getBoundingClientRect();
+    let top = Math.round(r.bottom - app.top + 4);
+    if (top + pop.offsetHeight > app.height - 8) top = Math.max(8, Math.round(r.top - app.top - pop.offsetHeight - 4));
+    pop.style.top = `${top}px`;
+    pop.style.left = `${Math.max(8, Math.min(Math.round(r.right - app.left - pop.offsetWidth), Math.round(app.width - pop.offsetWidth - 8)))}px`;
+    input.focus();
+  }
+  $('date-pop').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const id = state.menuFor;
+    const date = $('date-pop-input').value;
+    if (!id || !date || !$('date-pop-input').checkValidity()) return;
+    closeMenu();
+    attempt(() => plan.moveTo(id, date, 1e6));
+  });
+  $('date-pop-cancel').addEventListener('click', () => { const from = state.menuButton; closeMenu(); if (from && from.isConnected) from.focus(); });
+  $('date-pop').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); $('date-pop-cancel').click(); } });
 
   // Deleting a leg of a round trip asks which: both legs, only this one (only the outbound: the return keeps the booking details),
   // or neither. Anchored to the button that asked. False when the item is not a leg of a round trip.
@@ -1471,6 +1673,7 @@
     if (!b || !id) return;
     const action = b.dataset.action;
     if (action === 'edit') { closeMenu(); return openItemEditor(id); }
+    if (action === 'move-to') { const anchor = state.menuButton; closeMenu(); return void (anchor && openMoveTo(id, anchor)); }
     if (action === 'earlier' || action === 'later') {
       closeMenu();
       return void attempt(() => plan.nudgeItem(id, action === 'earlier' ? -1 : 1));
@@ -1502,14 +1705,7 @@
     closeMenu();
     if (id && type) attempt(() => plan.updateItem(id, { type }));
   });
-  $('menu-day').addEventListener('change', (e) => {
-    const id = state.menuFor;
-    const place = parsePlace(e.target.value);
-    closeMenu();
-    if (!id) return;
-    attempt(() => (place.after !== undefined ? plan.moveToJoint(id, place.after, 1e6) : plan.moveTo(id, place.date, 1e6)));
-  });
-  root.addEventListener('click', (e) => { if (!$('item-menu').hidden && !e.target.closest('#item-menu, [data-action="move-menu"]')) closeMenu(); });
+  root.addEventListener('click', (e) => { if ((!$('item-menu').hidden || !$('date-pop').hidden) && !e.target.closest('#item-menu, #date-pop, [data-action="move-menu"]')) closeMenu(); });
 
   // --- dragging (desktop) --------------------------------------------------------------------------------------
 
@@ -2016,6 +2212,9 @@
       // The kind: an existing object's own, the one the day's "..." or a joint's + chose, else the last kind chosen in this
       // browser (the picker remembers), else Sight. Where is set first, since it decides a marker's block or lane.
       const preset = item ? tileOf(item) || 'sight' : place && place.tile;
+      dayField($('f-date'));
+      dayField($('f-back-date'));
+      dayField($('f-checkout'), { checkout: true });
       placeOptions($('f-date'));
       setPlaceMenu($('f-date'), item ? placeOf(item) : place);
       const picker = addKindPicker(preset ? kindOf(preset) : undefined);

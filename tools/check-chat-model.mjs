@@ -621,13 +621,13 @@ try {
   // A command's echo is stored as the caller's private message.
   assert.equal((await call('POST', '/api/modules/bundled/polls/install', { cookie: owner, body: {} })).status, 201);
   assert.equal((await call('PATCH', '/api/modules/polls', { cookie: owner, body: { enabled: true, allSpaces: true } })).status, 200);
-  const vote = await call('POST', `/api/spaces/${S}/command`, { cookie: pat, body: { name: 'v', text: 'where to stay' } });
+  const vote = await call('POST', `/api/spaces/${S}/command`, { cookie: pat, body: { name: 'p', text: 'where to stay' } });
   assert.equal(vote.status, 200, vote.text);
-  assert.deepEqual([vote.json.message.visibility, vote.json.message.kind, vote.json.message.command, vote.json.message.module, vote.json.message.text, vote.json.message.who], ['private', 'command', 'v', 'polls', 'where to stay', 'Pat']);
+  assert.deepEqual([vote.json.message.visibility, vote.json.message.kind, vote.json.message.command, vote.json.message.module, vote.json.message.text, vote.json.message.who], ['private', 'command', 'p', 'polls', 'where to stay', 'Pat']);
   const refused = await call('POST', `/api/spaces/${S}/command`, { cookie: pat, body: { name: 'zzzz', text: 'stored?' } });
   assert.equal(refused.status, 404);
   assert.ok(!(await chatOf(pat)).some((m) => m.text === 'stored?'), 'a refused command stores nothing');
-  const guestVote = await call('POST', `/api/spaces/${S}/command${asGuest}`, { body: { name: 'v', text: 'guest vote' } });
+  const guestVote = await call('POST', `/api/spaces/${S}/command${asGuest}`, { body: { name: 'p', text: 'guest vote' } });
   assert.equal(guestVote.status, 200, guestVote.text);
   assert.equal(guestVote.json.message, null, "a guest's echo is not stored");
   assert.ok(!(await chatOf(pat)).some((m) => m.text === 'guest vote'));
@@ -755,8 +755,8 @@ try {
       assert.equal(ai1.status, 200, ai1.text);
       const ai2 = await call('POST', `/api/spaces/${C}/ai`, { cookie, body: { question: `${name} asks aloud` } });
       assert.equal((await call('PATCH', `/api/spaces/${C}/chat/${ai2.json.id}`, { cookie, body: { visibility: 'public' } })).status, 200);
-      assert.equal((await call('POST', `/api/spaces/${C}/command`, { cookie, body: { name: 'v', text: `${name} vote` } })).status, 200);
-      const v2 = await call('POST', `/api/spaces/${C}/command`, { cookie, body: { name: 'v', text: `${name} vote aloud` } });
+      assert.equal((await call('POST', `/api/spaces/${C}/command`, { cookie, body: { name: 'p', text: `${name} vote` } })).status, 200);
+      const v2 = await call('POST', `/api/spaces/${C}/command`, { cookie, body: { name: 'p', text: `${name} vote aloud` } });
       assert.equal((await call('PATCH', `/api/spaces/${C}/chat/${v2.json.message.id}`, { cookie, body: { visibility: 'public' } })).status, 200);
     }
   };
@@ -861,7 +861,7 @@ try {
   step = await everyoneClear('oli', '?type=chat&scope=everyone', 'owner, chat');
   assert.ok(!step.after.some((m) => !m.kind && (m.visibility !== 'private' || m.by === oli.key)));
   assert.ok(step.after.some((m) => m.kind === 'ai'), 'chat leaves the AI messages');
-  assert.ok(step.after.some((m) => m.kind === 'command' && m.command === 'v'), 'and the commands');
+  assert.ok(step.after.some((m) => m.kind === 'command' && m.command === 'p'), 'and the commands');
   // The admin: everything.
   step = await everyoneClear('admin', '?type=all&scope=everyone', 'admin, all');
   assert.ok(step.after.every((m) => m.visibility === 'private' && m.by !== keys.admin), 'only other people\'s private messages are left');
@@ -970,7 +970,7 @@ try {
   const pat2 = await login('pat', 'memberpass1234');
   const last = await call('POST', `/api/spaces/${S}/ai`, { cookie: pat2, body: { question: 'Last one?' } });
   assert.equal(last.status, 200, last.text);
-  await call('POST', `/api/spaces/${S}/command`, { cookie: pat2, body: { name: 'v', text: 'a last vote' } });
+  await call('POST', `/api/spaces/${S}/command`, { cookie: pat2, body: { name: 'p', text: 'a last vote' } });
   const lastPublic = await call('PATCH', `/api/spaces/${S}/chat/${last.json.id}`, { cookie: pat2, body: { visibility: 'public' } });
   assert.equal(lastPublic.status, 200, lastPublic.text);
   onDisk(dataDir, 'the server, after a flip');

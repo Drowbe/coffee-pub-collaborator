@@ -256,8 +256,8 @@ try {
   assert.equal(listed.status, 200, listed.text);
   const pollsMod = (listed.json.modules || []).find((m) => m.id === 'polls');
   assert.ok(pollsMod, 'polls is on the space');
-  assert.ok((pollsMod.commands || []).some((c) => c.name === 'v' && c.action === 'addPoll'));
-  const vote = await call('POST', `/api/spaces/${space.id}/command`, { cookie: pat, body: { name: 'v', text: 'where to stay by sep 29' } });
+  assert.ok((pollsMod.commands || []).some((c) => c.name === 'p' && c.action === 'addPoll'));
+  const vote = await call('POST', `/api/spaces/${space.id}/command`, { cookie: pat, body: { name: 'p', text: 'where to stay by sep 29' } });
   assert.equal(vote.status, 200, vote.text);
   assert.equal(vote.json.module, 'polls');
   n += 1;

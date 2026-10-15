@@ -961,7 +961,11 @@
         await host.uploads.thumb(fileId, thumb, { scope: 'space' });
       },
     });
-    stores.space.onCompose((text) => openEditor(null, readEntry(text) || { kind: 'note' }));
+    stores.space.onCompose((text, kind) => {
+      const entry = readEntry(text);
+      // /l: always a link, the typed words as its address to fix in the editor; /n and the rest: as typed.
+      openEditor(null, kind === 'link' ? (entry && entry.kind === 'link' ? entry : { kind: 'link', url: String(text || '').trim(), title: '', excerpt: '' }) : entry || { kind: 'note' });
+    });
   }
   if (host.objects && host.objects.onOpen) {
     host.objects.onOpen((ref) => {

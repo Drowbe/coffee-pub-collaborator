@@ -1,7 +1,7 @@
 {
   "id": "todo",
   "name": "To-do",
-  "version": "1.15.10",
+  "version": "1.15.11",
   "icon": "list-check",
   "color": "green",
   "description": "A shared to-do list for the whole {environment} and for each {space}, with due dates and reminders.",
@@ -112,7 +112,7 @@
     ]
   },
   "commands": [
-    { "name": "t", "label": "Add a task", "action": "addTask", "hint": "the task" }
+    { "name": "t", "word": "todo", "label": "Add a to-do", "action": "addTask", "hint": "the to-do" }
   ],
   "refs": {
     "produces": [

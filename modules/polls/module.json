@@ -1,7 +1,7 @@
 {
   "id": "polls",
   "name": "Polls",
-  "version": "1.15.8",
+  "version": "1.15.9",
   "icon": "square-poll-vertical",
   "color": "purple",
   "description": "Quick polls and votes for the whole {environment} and for each {space}, with live results.",
@@ -137,7 +137,7 @@
     ]
   },
   "commands": [
-    { "name": "v", "label": "Start a poll", "action": "addPoll", "hint": "the question" }
+    { "name": "p", "word": "poll", "label": "Start a poll", "action": "addPoll", "hint": "the question" }
   ],
   "refs": {
     "produces": [

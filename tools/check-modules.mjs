@@ -572,10 +572,17 @@ test('takes: kinds from the catalogue, "*" with except, "text", "as", a permissi
   assert.throws(() => cleanManifest({ ...base(), events: { publishes: [{ name: 'moved', data: { what: 'object' } }] } }, files), /event "moved" data "what" must be one of string, text, date, datetime, boolean, number, ref /);
 });
 
-test('polls ships /v as a local addPoll command', () => {
+test('polls ships /p (and /poll) as a local addPoll command', () => {
   const raw = JSON.parse(fs.readFileSync(path.join(ROOT, 'modules/polls/module.json'), 'utf8'));
-  assert.deepEqual(raw.commands, [{ name: 'v', label: 'Start a poll', action: 'addPoll', hint: 'the question' }]);
+  assert.deepEqual(raw.commands, [{ name: 'p', word: 'poll', label: 'Start a poll', action: 'addPoll', hint: 'the question' }]);
   assert.equal(raw.actions.provides.find((a) => a.name === 'addPoll')?.local, true);
+});
+
+test('a command\'s full word: lowercase letters, 2 to 12, starting with its short name', () => {
+  const mk = (word) => ({ ...base(), actions: { provides: [{ name: 'add', local: true, input: { text: 'string' } }] }, commands: [{ name: 't', ...(word === undefined ? {} : { word }), label: 'Add a to-do', action: 'add' }] });
+  assert.equal(cleanManifest(mk('todo'), files).commands[0].word, 'todo');
+  assert.equal(cleanManifest(mk(), files).commands[0].word, undefined, 'the word is optional');
+  for (const bad of ['event', 't', 'To-do', 'tooooooooooooo', 't0do', 7]) assert.throws(() => cleanManifest(mk(bad), files), /command "t" word must be 2 to 12 lowercase letters and start with "t"/, String(bad));
 });
 
 test('calendar: phases come from host.on(\'phases\'), with a slow fallback, and no host.spaces() read', () => {

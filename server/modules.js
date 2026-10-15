@@ -532,6 +532,7 @@ function cleanColor(raw) {
 
 // Commands Chat lists and routes: each names a local action that takes `{ text }`. `ai` is reserved by the host.
 const COMMAND_NAME_RE = /^[a-z0-9]{1,12}$/;
+const COMMAND_WORD_RE = /^[a-z]{2,12}$/;
 function cleanCommands(raw, actions) {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw)) throw new ModuleError('module.json: "commands" must be a list');
@@ -553,7 +554,13 @@ function cleanCommands(raw, actions) {
     if (textBase !== 'string' && textBase !== 'text') throw new ModuleError(`module.json: command "${name}" action "${action}" must accept { "text": "string" }`);
     const label = String(c.label ?? '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 60) || name;
     const hint = String(c.hint ?? '').replace(/\p{Cc}/gu, ' ').trim().slice(0, 80);
-    out.push({ name, label, action, ...(hint ? { hint } : {}) });
+    // The full word the short name stands for (/t or /todo): its first letter is the name, so the two can't drift apart.
+    let word = '';
+    if (c.word !== undefined && c.word !== null && c.word !== '') {
+      word = typeof c.word === 'string' ? c.word.trim() : '';
+      if (!COMMAND_WORD_RE.test(word) || word[0] !== name) throw new ModuleError(`module.json: command "${name}" word must be 2 to 12 lowercase letters and start with "${name}"`);
+    }
+    out.push({ name, ...(word ? { word } : {}), label, action, ...(hint ? { hint } : {}) });
   }
   return out;
 }

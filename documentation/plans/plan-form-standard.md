@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides the standard and the order; experience-design, which builds the SDK's form pieces and moves every form onto them; server-development, which builds the two checks; quality-assurance, which measures the result; content-manager, which writes the design and SDK pages once the standard is built.
 
-**Status:** proposed 2026-10-15, not approved. From Thomas's feedback of 2026-10-14: "A lot of our edit forms are sloppy and have a lot of drift in fields." With two screenshots: the Phases sheet (mostly fine) and the Planner's Flight form, whose departure row (**Departure day** with a date field, **Pick from the list** and **Unscheduled**, then **Departure time**, then **Flight time** in hours and minutes) and arrival row (**Arrival day** as a list, then **Arrival time**) are visibly out of line: fields of different heights, labels at different heights, a list cut off at its edge, the phase chip ("Trip") hanging under the date field, mixed widths, and different controls for the same job in one form. Earlier complaints this plan also answers: two controls for one job, lists of 20 rows, fields that look different from module to module, borders on selected states, and radii written as numbers.
+**Status:** decided 2026-10-15, step 3 stopgap shipped (Planner 0.15.24: the timing rows line up), nothing else built. Thomas decided questions 1, 2, 5 and 6 on 2026-10-15, taking the recommendation each time; questions 3, 4 and 7 were not asked and stand as assumptions for him to confirm (see Assumed), none blocking. From Thomas's feedback of 2026-10-14: "A lot of our edit forms are sloppy and have a lot of drift in fields." With two screenshots: the Phases sheet (mostly fine) and the Planner's Flight form, whose departure row (**Departure day** with a date field, **Pick from the list** and **Unscheduled**, then **Departure time**, then **Flight time** in hours and minutes) and arrival row (**Arrival day** as a list, then **Arrival time**) are visibly out of line: fields of different heights, labels at different heights, a list cut off at its edge, the phase chip ("Trip") hanging under the date field, mixed widths, and different controls for the same job in one form. Earlier complaints this plan also answers: two controls for one job, lists of 20 rows, fields that look different from module to module, borders on selected states, and radii written as numbers.
 
 ## What it is today
 
@@ -28,12 +28,16 @@ Read from the code (`travel.html:186-196`, `travel-lib-editor.css:56-81`, `trave
 
 ## Decisions
 
-Only what Thomas has said. Everything else in this plan is a proposal until he decides it.
+Only what Thomas has said. Everything else in this plan is an assumption (see Assumed) until he confirms it.
 
 - **The feedback** (Thomas, 2026-10-14): "A lot of our edit forms are sloppy and have a lot of drift in fields."
 - **Selected states are fills, never borders** (Thomas, 2026-10-14: "I found ANOTHER button border. Stop adding them."), already a rule in [design-theme](../designsystem/design-theme.md), "Selected states".
 - **Corners are tokens**, already a rule ([design-theme](../designsystem/design-theme.md), "Corner radii", `tools/check-radius.mjs`).
 - **A form in the editor window sets only the layout of its fields** ([plan-editor-window](plan-editor-window.md), approved 2026-10-04).
+- **One date field everywhere, and a list button only where a module has named days** (Thomas, 2026-10-15, taking the recommendation). The list button is the Planner's **Pick from the list**. **Unscheduled** moves into that list and the picker's **Clear**, and is no longer a third button in the row. Reason: a list of days helps only where the days have names (phases, the spots between days); elsewhere it is a second control for the same job.
+- **For something in one place, start and end times with the length shown underneath** (Thomas, 2026-10-15, taking the recommendation). There is no **Length | End time** switch. Nothing stored changes: the Planner still stores the length (`minutes`), which the form works out. Flights keep a separate flight time, because the arrival is in another time zone. Reason: it is how the Calendar asks already, and issue #247 made an end time something a person can type.
+- **Set up, the Phases sheet and Manage join the standard after the modules** (Thomas, 2026-10-15, taking the recommendation). Manage here means the profile, the host console, module settings and the AI settings. They are the last steps (10 to 12), with the same form block in `style.css`. Manage keeps its own save model (a Save per panel) and only its fields change; making Manage's saving sticky is a separate question. Reason: one standard is only one if the app's own pages are on it.
+- **The live form check is its own command, `npm run check:forms`** (Thomas, 2026-10-15, taking the recommendation). Builders and quality-assurance run it whenever a form changes. It is not part of `npm run check`. The fast code check `tools/check-forms.mjs` stays in `npm run check`. Reason: the cloud containers may have no Chromium, and the static check already keeps the markup and CSS honest; the measured check is for every change that touches a form.
 
 ## (a) The audit
 
@@ -126,7 +130,7 @@ Layout tokens, not colours; no theme sets them. Defined on `:root` in both files
 - **`.sdk-pair`**: From, an arrow, To, the arrow in its own narrow column centred on the control line.
 - **`.sdk-section`**: `<fieldset class="sdk-section"><legend class="sdk-section-title">Booking</legend>...</fieldset>`; the title 11 px, bold, in capitals with 0.06 em spacing, `--text-dim`, after a `--border` line and `--section-gap`. One heading style for every form; the old five go.
 - **`.sdk-checks`**: tick boxes in a wrapping list, each `label.sdk-check` (the box, then its words) at least 32 px tall, 44 px on a phone.
-- **`.sdk-choice`**: one of a few, a segmented row at `--field-h`, words or icons, the chosen one a fill (see the open question on which fill). It is the view switch's shape at field height, not a new look.
+- **`.sdk-choice`**: one of a few, a segmented row at `--field-h`, words or icons, the chosen one a `--selected-bg` fill (an assumption, see Assumed). It is the view switch's shape at field height, not a new look.
 - **`.sdk-people`**: the people of the space as chips (initial and name), a tick box each for "whose is it" and "shared by", a radio each for "paid by", with "Nobody yet" as the radio's first chip.
 - **`.sdk-form-error`**: one line above the action row for a refusal that is not one field's (the server's 409, a network failure), `role="alert"`, `--danger-text`.
 - **The action row** stays `.sdk-editor-actions` (the window's sticky row) and `actionBar()` on the app's pages: Save first (Primary, `type="submit"`), Cancel (Secondary, through `editor.cancel()`), a spacer, Delete last (danger). One class name for the row, `.sdk-editor-actions`; `.editor-buttons` and `.row.buttons` go.
@@ -148,7 +152,7 @@ Layout tokens, not colours; no theme sets them. Defined on `:root` in both files
 | A day and a time | Two fields: the day (`m`) and the time (`s`), each with its own label. Never `datetime-local`. | Polls **Closes** |
 | A time | `<input type="time">`, `s` | |
 | When, start and end | **`.sdk-when`**, one pattern every module reuses: a Starts pair (day, time) and an Ends pair (day, time) as two groups in one row (6 columns: both on one line; 4 columns: one line each). A module hides the end day when its objects stay within one day. The length it comes to is shown in the Ends hint ("2 h 30 min"). | Calendar's Starts/at and Ends/at; Planner's When, Time, How long, Arrival day and time, Check out |
-| How long | **`.sdk-duration`**, `m`: hours and minutes, two boxes with "h" and "min" as units, in one line. Used where a length is its own fact, not a start and an end: a journey's travel time (its arrival is in another time zone), getting to the stop, a marker's length. | the Length/End time switch, which goes (see open question 2) |
+| How long | **`.sdk-duration`**, `m`: hours and minutes, two boxes with "h" and "min" as units, in one line. Used where a length is its own fact, not a start and an end: a journey's travel time (its arrival is in another time zone), getting to the stop, a marker's length. | the Length/End time switch, which goes (decided) |
 | A person | `.sdk-people`, chips with radios | **Paid by** lists |
 | People | `.sdk-people`, chips with tick boxes | **Whose is it**, **Shared by** lists |
 | Money | **`.sdk-money`**, `m`: the amount as text with `inputmode="decimal"`, the currency code as its unit in the line; where the form chooses the currency, `host.ui.currencySelect` beside it in the same group. | number fields, currency in the label, amount and currency on separate rows |
@@ -164,7 +168,7 @@ A `select` never lists more than eight fixed choices; a longer or growing list i
 ### Errors, required fields and hints
 
 - A field's error is in its hint slot (`.sdk-error`, `--danger-text`), the control gets `aria-invalid="true"` and `aria-describedby` pointing at it, and focus goes to the first wrong field. A refusal that is not one field's goes in `.sdk-form-error`.
-- Required fields: see open question 4. The proposal: no mark, since nearly every field is optional; the one required field (a title, a question) says what it needs in its own error ("Give it a title"); "(optional)" goes from every label.
+- Required fields (an assumption, see Assumed): no mark, since nearly every field is optional; the one required field (a title, a question) says what it needs in its own error ("Give it a title"); "(optional)" goes from every label.
 - A hint is words in the hint slot, never only a placeholder. A placeholder may show an example ("WN 2483").
 
 ### Sizes at the three widths
@@ -198,7 +202,7 @@ No other new SDK call.
 The Planner's forms move first because they have every pattern and the worst drift:
 
 - **The object form** (`tpl-editor2`), every kind: the journeys (flight, train, ferry, bus, car, taxi, rideshare, shuttle), the stay, the stops (restaurant, cafe, bar, sight, museum, attraction, tour, show), the note, and the markers in a day and between days.
-  - **When:** `.sdk-when`. A journey: Departure day and time, and Arrival day and time, the arrival day a date field (with the list, defaulting to the departure day as it does now), plus **Flight time** or **Travel time** as `.sdk-duration`. A stay: Check in and Check out. A stop or a marker: Starts and Ends, with the end day hidden. The phase chip goes into the day's hint slot. **Unscheduled** and **Not set** go into the list and the picker's Clear.
+  - **When:** `.sdk-when`. A journey: Departure day and time, and Arrival day and time, the arrival day a date field (with the list, defaulting to the departure day as it does now), plus **Flight time** or **Travel time** as `.sdk-duration`. A stay: Check in and Check out. A stop or a marker: Starts and Ends, with the end day hidden, and the length it comes to shown under the end (decided). The phase chip goes into the day's hint slot. **Unscheduled** and **Not set** go into the list and the picker's Clear.
   - **Journey:** `.sdk-row` and `.sdk-pair` for company and number, the airports, From and To, Pick up and Drop off; terminal, gate, platform, coach and seat as `s`; **Class** stays a `select`.
   - **Look up a flight:** a plain `.sdk-section` with a row (number `m`, day `m`, **Find** a Secondary button aligned to the control line), its tinted box gone.
   - **Round trip:** a tick box; the return leg a `.sdk-section` built the same way as the outbound.
@@ -210,13 +214,13 @@ The Planner's forms move first because they have every pattern and the worst dri
 
 ## (d) The order
 
-Each step is a try build: one builder, one pass, its own checks, pushed at once, and a patch bump of any module it changes. The documentation is written once Thomas calls the work done (step 12).
+Each step is a try build: one builder, one pass, its own checks (and `npm run check:forms` for any step that changes a form), pushed at once, and a patch bump of any module it changes. The documentation is written once Thomas calls the work done (step 12).
 
 | Step | What | Who | Version |
 |---|---|---|---|
 | 1 | The form block in `host.css` and `style.css`; the three SDK changes; `tools/check-forms.mjs` (static) with every module still on its "not yet" list, so it passes on today's code | experience-design, then server-development for the check | none (the SDK has no version) |
-| 2 | `tools/check-forms-live.mjs` (measured) and its fixtures | server-development | none |
-| 3 | **The Planner pilot**: every form above; the Planner comes off the "not yet" list | experience-design | Planner, next patch |
+| 2 | `tools/check-forms-live.mjs` (measured) and its fixtures, run as `npm run check:forms` (a new `package.json` script; not in `npm run check`) | server-development | none |
+| 3 | **The Planner pilot**: every form above; the Planner comes off the "not yet" list. A stopgap has shipped (Planner 0.15.24: the timing rows line up); the pilot itself is not built | experience-design | Planner, next patch |
 | | **Thomas looks at the pilot** in light and dark, at the three widths, before the rest move | Thomas | |
 | 4 | Places | experience-design | Places, next patch |
 | 5 | Calendar | experience-design | Calendar, next patch |
@@ -226,13 +230,13 @@ Each step is a try build: one builder, one pass, its own checks, pushed at once,
 | 9 | Budget (the cost and the target) | experience-design | Budget, next patch |
 | 10 | Set up panel | experience-design | none |
 | 11 | Phases sheet | experience-design | none |
-| 12 | Manage, the profile, the host console, module settings and the AI settings, if they join (open question 5); then the "not yet" list is empty and the old classes are gone; content-manager writes "Forms" in the design and SDK pages, the modules' `CONTRACT.md` and the CHANGELOG | experience-design, content-manager | none |
+| 12 | Manage, the profile, the host console, module settings and the AI settings (decided: they join); then the "not yet" list is empty and the old classes are gone; content-manager writes "Forms" in the design and SDK pages, the modules' `CONTRACT.md` and the CHANGELOG | experience-design, content-manager | none |
 
 Steps 4 to 9 do not depend on each other and can be built in any order after the pilot. Step 10 and 11 share the phase rows (Set up uses the sheet's date fields), so they go in that order.
 
 ## (e) The checks
 
-### `tools/check-forms.mjs`, in `npm run check`
+### `tools/check-forms.mjs`, the fast code check, in `npm run check`
 
 A rule scanner like `check-radius` and `check-nav`. It reads every bundled module's `src/*.html` and `src/*.css`, `public/style.css`, `public/sdk/host.css` and the form markup in `public/space-setup.js` and `public/phase-sheet.js`. It fails when:
 
@@ -248,7 +252,9 @@ A rule scanner like `check-radius` and `check-nav`. It reads every bundled modul
 
 The "not yet" list in the check names the modules and pages still to move; each step removes its own, so the check bites on a form the moment it has moved and drift cannot return to it. Step 12 deletes the list.
 
-### `tools/check-forms-live.mjs`, measured in a browser
+### `tools/check-forms-live.mjs`, measured in a browser, run as `npm run check:forms`
+
+It is its own command and is not part of `npm run check` (decided). Builders and quality-assurance run it whenever a form changes, and say so in their report; where there is no browser they say that it was not run, not that it passed.
 
 Static rules cannot see a label two pixels low. This check opens every form in headless Chromium at the three widths (an 880 px and a 560 px window on a 1280 by 900 screen, and a 390 by 844 phone) and measures:
 
@@ -260,13 +266,13 @@ Static rules cannot see a label two pixels low. This check opens every form in h
 
 **The module forms** come from fixtures, with no server: the check builds a page from the module's own HTML (the dialog or template), `host.css` and the module's stylesheet, opens the dialog, and for the Planner and Research shows each kind in turn (`.on-type`, `data-kind`). Lists the script would fill are filled with the longest choice the module can produce (named in the fixture). **The app's forms** (Set up, the Phases sheet, Manage) are measured on a throwaway local server (`PORT=`, `DATA_DIR=/tmp/...`, signed in as `admin`), which serves a space's page up to the call without LiveKit.
 
-It drives Chromium through its DevTools protocol over Node 22's built-in `WebSocket`, with no new dependency, finding the browser from `CHROME_PATH` or the usual install paths. Where it runs is open question 6.
+It drives Chromium through its DevTools protocol over Node 22's built-in `WebSocket`, with no new dependency, finding the browser from `CHROME_PATH` or the usual install paths. With no browser it exits with a clear message and a non-zero status.
 
 ## Verify
 
 - **Step 1:** `check-forms` passes on today's code and fails on a planted drift in a scratch copy (a height in a moved form, a field outside a row, a nine-choice `select`, a mismatch between the two copies of the block). Forms not yet moved look exactly as before: compared by screenshot in the live check's fixtures before and after (checked by a tool). `npm run check` passes.
-- **Step 2:** the live check fails on today's Planner Flight form (the misalignment Thomas saw) and names the row and the fields; it passes on a fixture written to the standard.
-- **Step 3 and each module step:** `check-forms` and `check-forms-live` pass for that module at the three widths and for every kind; `check-modules`, `check-module-window`, `check-module-versions`, `check-nav` and `check-radius` pass. Saving, editing, cancelling with the "Discard your changes?" question, a 409 from a second browser, and a read-only form are walked on the module's own page on a local server (no call needed). The Planner's round trip, flight look-up and arrival day are walked with a flight that lands the next day.
+- **Step 2:** `npm run check:forms` fails on today's Planner Flight form (the misalignment Thomas saw) and names the row and the fields; it passes on a fixture written to the standard.
+- **Step 3 and each module step:** `check-forms` (in `npm run check`) and `npm run check:forms` pass for that module at the three widths and for every kind; `check-modules`, `check-module-window`, `check-module-versions`, `check-nav` and `check-radius` pass. Saving, editing, cancelling with the "Discard your changes?" question, a 409 from a second browser, and a read-only form are walked on the module's own page on a local server (no call needed). The Planner's round trip, flight look-up and arrival day are walked with a flight that lands the next day.
 - **Steps 10 to 12:** the same on a throwaway local server.
 - **What only Thomas can check:** whether the pilot reads right (the gate after step 3); light and dark themes by eye; Safari and iOS, whose date and time fields draw their own way (the live check is Chromium only); Firefox; a real phone; a screen reader on the new error wiring.
 - **Needs a real LiveKit call:** nothing in the layout. Only that a form opened over a space during a call still behaves (the editor window's own Verify already covers it).
@@ -278,23 +284,21 @@ It drives Chromium through its DevTools protocol over Node 22's built-in `WebSoc
 - **A time field in one column at 560 px** (about 123 px) may be too narrow for "10:30 PM" with the browser's clock icon. The live check will say; if so, a time takes `m` at four columns.
 - **Rows whose fields are all hidden for a kind** must hide too, or they leave an empty gap; the row carries the same `data-types` as its fields, or hides with `:has()`.
 - **Subgrid and container queries** need Chrome 117, Safari 16 and Firefox 110 or later. On an older browser the fields still stack with labels above; rows may not line up.
+- **The live check is not in `npm run check`, so it can be forgotten.** The builder's and quality-assurance's reports must say whether `npm run check:forms` ran; the static check still guards the markup and CSS in every run.
 - **Try builds have no QA pass.** The live check is the safety net for layout; save paths rest on the builder's walk-through until a feedback or production build.
 - **Uploaded modules** do not change: the classes are there for them to use, and the checks read only bundled modules.
 
 ## Assumed
 
+Not decided. Questions 3, 4 and 7 were not put to Thomas; each stands as an assumption for him to confirm. None blocks a step.
+
+- **Labels are above the field at every width** (was question 3). One rule, one baseline, the same at 880 px and on a phone; Manage gains nothing from a second layout.
+- **Required fields carry no mark** (was question 4). An empty required field shows an error under it ("Give it a title"), and "(optional)" is removed from labels. Almost every field is optional, and only a title or a question is required.
+- **A chosen choice is filled with `--selected-bg`** (was question 7), as the design rule says. The view switch's chosen segment is an accent fill with `--on-accent` (`.tb-tab.on`, `host.css:235-239`); bringing it into line is a separate small fix, not part of this plan's steps.
 - Forms are the add and edit forms of modules and the settings forms of the app. The sign-in pages, the keyed pages, Chat's input, the Maps search box and Places' and Research's filter boxes are not forms in this sense and are left out.
 - A space has fewer than about fifteen people, so people chips wrap in two or three lines. A bigger space would want a searchable person field later.
 - The editor window's sizes (560 px, 880 px, the sheet at 640 px) stay as they are.
 
 ## What is not decided
 
-Each with a recommendation; Thomas decides. Questions 1, 2 and 3 block step 1 and the pilot; 5 blocks step 12; 6 blocks step 2.
-
-1. **One date control, or a date field with a list button everywhere?** Options: (a) one date field everywhere (typed, with the calendar button), and a list button only where a module has named days or spots to offer (the Planner); (b) a list button on every date field; (c) the Planner keeps its text buttons. Recommended: (a). A list of days helps only where the days have names (phases, the spots between days); elsewhere it is a second control for the same job. "No day" lives in the list and the picker's Clear, so **Unscheduled** stops being a third button.
-2. **For something in one place (a dinner, a sight, an event), is the end an end time or a length?** Options: (a) Starts and Ends times, the length shown under them, the **Length | End time** switch gone; (b) a length only, the end time shown under it; (c) keep the switch. Recommended: (a). It is how the Calendar asks already, and the Planner stores the length (`minutes`), which the form works out, so nothing stored changes. A journey keeps a travel time beside its arrival, because the arrival is in another time zone. Issue #247 (the length, or the end time it comes to) made an end time something a person can type, which (a) keeps.
-3. **Labels above at every width, or beside the field in wide windows and on Manage?** Recommended: above everywhere. One rule, one baseline, the same at 880 px and on a phone, and Manage gains nothing from a second layout.
-4. **Marking required fields.** Options: (a) no mark, an error under the field when it is empty, "(optional)" removed from labels; (b) an asterisk on required fields; (c) "(optional)" on optional fields. Recommended: (a). Almost every field is optional, and only a title or a question is required.
-5. **Do Set up, the Phases sheet and Manage (with the profile, the host console, module settings and the AI settings) join the standard?** Recommended: yes, after the modules, with the same block in `style.css`. Manage keeps its own save model (a Save per panel) and only its fields change; making Manage's saving sticky is a separate question.
-6. **Where the live check runs.** Options: (a) inside `npm run check`, failing where there is no browser; (b) its own `npm run check:forms`, run by the builder and QA on any change to a form; (c) add `playwright-core` as a development dependency and run it in `npm run check`. Recommended: (b). The cloud containers may have no Chromium, and the static check in `npm run check` already keeps the markup and CSS honest; the measured check is for every change that touches a form.
-7. **The fill of a chosen choice.** The view switch's chosen segment is an accent fill with `--on-accent` (`.tb-tab.on`, `host.css:235-239`), while the design rule says `--selected-bg`; the Planner, Places and Research choices use a third and fourth look. Recommended: `.sdk-choice` uses `--selected-bg`, as the rule says, and bringing `.tb-tab.on` into line is a separate small fix. Not blocking.
+Nothing blocks the build. Only the three assumptions above wait for Thomas to confirm; if he changes one, the contract (alignment rule 1, the errors section, `.sdk-choice`) changes with it.

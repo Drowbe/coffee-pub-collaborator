@@ -1702,7 +1702,9 @@ class Store {
   }
 
   // `creator` is the key of whoever makes it: they become one of its members (GitHub #239) so they can be picked in its
-  // people lists; never twice, and the Lobby (made by the store itself) is not made here.
+  // people lists; never twice, and the Lobby (made by the store itself) is not made here. The host admin's stand-in
+  // (hostAdmin: true) does not join what it makes (GitHub #334): it manages everything without being a member, and it can
+  // still be added on purpose.
   addSpace({ name, description, members, profile, link, linkIcon, creator }) {
     let id;
     do id = randomKey();
@@ -1710,7 +1712,7 @@ class Store {
     const startsWith = profile ?? this.data.settings.spaceDefaults?.profile; // the environment's default (a template's)
     const space = this.sanitizeSpace({ id, name: name || `New ${this.word('space')}`, description, members, profile: startsWith, link, linkIcon, createdAt: new Date().toISOString() });
     space.members = space.members.filter((k) => this.userByKey(k));
-    if (creator && this.userByKey(creator) && !space.members.includes(creator)) space.members.push(creator);
+    if (creator && this.userByKey(creator) && !this.userByKey(creator).hostAdmin && !space.members.includes(creator)) space.members.push(creator);
     this.data.spaces.push(space);
     this.save();
     return this.spaceById(id);
@@ -1902,7 +1904,12 @@ class Store {
     if (!space) throw new StoreError(`no such ${this.word('space')}`, 404);
     this.data.spaces = this.data.spaces.filter((r) => r.id !== id);
     // Every address for this space goes with it (plan-space-calendars.md, section 1).
-    for (const u of this.data.users) this.dropSpaceCalendarFeed(u, id);
+    // What each person kept for this space (its pictures, permissions, address) and the invites naming it.
+    for (const u of this.data.users) {
+      delete u.spaces?.[id];
+      fs.rmSync(path.join(this.imageDir(u.key, id)), { recursive: true, force: true });
+    }
+    for (const i of this.data.invites) i.spaces = i.spaces.filter((s) => s !== id);
     this.save();
     this.layouts.forgetSpace(id);
     this.removeSpaceImage(id);

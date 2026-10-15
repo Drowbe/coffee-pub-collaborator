@@ -2,7 +2,8 @@
 /*
  * check-space-create.mjs -- who is in a new space, and the Home cards (GitHub #239, #225, #226).
  * The creator becomes a member of the space they make (every path: the store and POST /api/spaces), once, with the
- * members asked for kept; the Lobby is untouched. The Home card is one button by role, named for the space, with no
+ * members asked for kept; the Lobby is untouched. The host admin's stand-in (hostAdmin: true) is the one creator that does
+ * not join (#334), and can still be added on purpose. The Home card is one button by role, named for the space, with no
  * pop-out button. The routes run against a throwaway server.
  */
 import assert from 'node:assert/strict';
@@ -41,6 +42,14 @@ assert.ok(/\.space-choice\[role='button'\]:hover/.test(css) && /\.space-choice\[
   assert.deepEqual(store.addSpace({ name: 'Three', members: [a.key, b.key], creator: a.key }).members, [a.key, b.key], 'no duplicate');
   assert.deepEqual(store.addSpace({ name: 'Four', members: [b.key] }).members, [b.key], 'no creator, no change');
   assert.deepEqual(store.addSpace({ name: 'Five', creator: 'nobody' }).members, [], 'an unknown creator is not added');
+  // The host admin's stand-in is the one exception (#334): it creates without joining, and can be added on purpose.
+  const h = store.addUser({ login: 'boss', displayName: 'boss', role: 'admin', passwordHash: null, hostAdmin: true });
+  assert.deepEqual(store.addSpace({ name: 'Six', creator: h.key }).members, [], 'the host admin stand-in does not join a space it creates');
+  assert.deepEqual(store.addSpace({ name: 'Seven', members: [b.key], creator: h.key }).members, [b.key], 'the members asked for stay, the stand-in is not added');
+  const eight = store.addSpace({ name: 'Eight', members: [h.key], creator: h.key });
+  assert.deepEqual(eight.members, [h.key], 'asked for on purpose, the stand-in is a member');
+  const nine = store.addSpace({ name: 'Nine', creator: a.key });
+  assert.deepEqual(store.updateSpace(nine.id, { members: [a.key, h.key] }).members, [a.key, h.key], 'the stand-in can join explicitly later');
   fs.rmSync(dir, { recursive: true, force: true });
 }
 

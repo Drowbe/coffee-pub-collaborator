@@ -46,6 +46,7 @@ const { ModuleData } = require('./module-data');
 const { ModuleHooks, HOST_SOURCE } = require('./module-hooks');
 const moduleNotices = require('./module-notices');
 const themeCssLib = require('./theme-css');
+const { eraseSpace } = require('./space-erase');
 const { Store, StoreError, SLOTS, PARTICIPANT_SLOTS, CHARACTER_SLOTS, SPACE_PROFILES, SPACE_PROFILE_SLOTS, LEGACY_SLOTS, ROLE_PERMISSIONS, hasOwnerRights, IMAGE_TYPES, MAX_IMAGE_BYTES, LOBBY, randomToken, cleanText, UNNAMED_ENVIRONMENT, MAX_EXTERNAL_CALENDARS } = require('./store');
 // The phase timeline rule (plan-one-bar.md, step 1), the one copy the pages use too.
 const phaseRule = require('../public/phases.js');
@@ -3669,11 +3670,7 @@ app.post('/api/spaces/:id/phases/cover', (req, res) => {
   res.json({ phases: store.updateSpace(space.id, { phases: result.dates }).phases });
 });
 app.delete('/api/spaces/:id', requireOwner, (req, res) => {
-  store.removeSpace(req.params.id);
-  moduleSettings.forgetSpace(req.params.id);
-  chatHistory.forgetSpace(req.params.id);
-  attention.forgetSpace(req.params.id);
-  facts.forgetSpace(req.params.id);
+  eraseSpace(currentEnvironment(), req.params.id); // everything kept for it, then the space; throws 500 if a step fails (server/space-erase.js)
   chatAccessChanged();
   res.json({ ok: true });
 });

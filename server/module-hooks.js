@@ -306,6 +306,24 @@ class ModuleHooks extends EventEmitter {
     if (changed) this.write(this.notificationsFile, this.notifications);
   }
 
+  // A deleted space: what was scheduled in it and the notifications about it (in every person's list) go.
+  forgetSpace(spaceId) {
+    const scope = `space:${spaceId}`;
+    let gone = 0;
+    const kept = this.schedules.filter((s) => s.scopeKey !== scope && s.spaceId !== spaceId);
+    if (kept.length !== this.schedules.length) {
+      gone += this.schedules.length - kept.length;
+      this.schedules = kept;
+      this.write(this.schedulesFile, this.schedules);
+    }
+    let touched = false;
+    for (const list of Object.values(this.notifications)) {
+      for (let i = list.length - 1; i >= 0; i -= 1) if (list[i].spaceId === spaceId) { list.splice(i, 1); gone += 1; touched = true; }
+    }
+    if (touched) this.write(this.notificationsFile, this.notifications);
+    return gone;
+  }
+
   // Drop a module's notifications (on uninstall).
   dropModule(module) {
     for (const list of Object.values(this.notifications)) {

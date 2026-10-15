@@ -129,6 +129,17 @@ class ModuleLinks extends EventEmitter {
     this.emit('change', { refs });
   }
 
+  // A deleted space: every pointer in it, and every link that has one end in it, goes.
+  forgetSpace(spaceId) {
+    const inSpace = (r) => r && r.scope === 'space' && r.space === spaceId;
+    const left = this.items.filter((l) => !inSpace(l.from) && !inSpace(l.to));
+    if (left.length === this.items.length) return 0;
+    const gone = this.items.length - left.length;
+    this.items = left;
+    this.save();
+    return gone;
+  }
+
   // A module was uninstalled with its data: its links, both ways, go too.
   dropModule(id) {
     const left = this.items.filter((l) => l.from.module !== id && l.to.module !== id);

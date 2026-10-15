@@ -118,6 +118,27 @@ stay allowed:
 
 Anything else that needs an exception is added to the check's list with its reason, and Thomas decides.
 
+## No coloured borders
+
+Nothing in Collaborator has a coloured border (Thomas, 2026-10-15: "I keep finding more of these border colors. Remove
+them all and add a rule to prevent them from showing back up unless I direct you to add them."). This covers a `border`,
+`border-left`, `border-right`, `border-top` or `border-bottom`, an `outline`, a `box-shadow` ring or inset bar, and a
+left-edge stripe, in any colour (accent, status, kind or tint), on any box, card, message, button, tab, chip or banner,
+in any state. State, kind and status are shown with a fill (the theme's tint tokens) and with text or icon colour.
+
+Allowed:
+
+- A neutral structural hairline: `var(--border)` and the other neutral border tokens, as a divider or the edge of a field.
+- `transparent` and `none`.
+- The approved dashed neutral outline on a ghost or **Add** slot.
+- Keyboard focus rings (`:focus-visible`).
+- SVG, chart and map strokes. They are graphics, not box borders.
+- An exception listed in `tools/check-borders-allow.json`. An entry is added only when Thomas directs it, and names the
+  file, the selector and his instruction.
+
+`tools/check-borders.mjs` (part of `npm run check`) enforces it. It extends the selected-state rule above, which
+`tools/check-nav.mjs` checks, from controls in a state to every box in every state.
+
 Two states can now share a look: in the Calendar, today and the selected day are both accent fills. See
 [known-issues](../known-issues.md).
 

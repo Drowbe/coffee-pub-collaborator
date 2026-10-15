@@ -162,101 +162,158 @@
 
 <!-- the item editor for the card family (CONTRACT.md, "The editor"): the script replaces #form's contents with a clone of this
      when it opens the dialog and shows the fields whose data-types include the chosen type (adds .on-type). -->
-<template id="tpl-editor-trip"><form class="editor-card" id="form">
+<template id="tpl-editor-trip"><form class="sdk-form" id="form">
     <h3 id="editor-title">The dates</h3>
     <!-- only for a space without phases: with phases the dates are the space's timeline, set from the phase chip in the top bar.
          The plan's name, Where and Notes are no longer asked (stored ones are kept); the budget's currency in Set up wins over Currency. -->
-    <div class="editor-row">
-      <label>First day<input id="f-start" name="start" type="date"></label>
-      <label>Last day<input id="f-end" name="end" type="date"></label>
-      <label>Currency<select id="f-currency" name="currency"></select></label>
+    <div class="sdk-row">
+      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-start-label"><span class="sdk-label" id="f-start-label">First day</span><input id="f-start" name="start" type="date" aria-labelledby="f-start-label"><span class="sdk-hint"></span></div>
+      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-end-label"><span class="sdk-label" id="f-end-label">Last day</span><input id="f-end" name="end" type="date" aria-labelledby="f-end-label"><span class="sdk-hint"></span></div>
+      <label class="sdk-field sdk-m"><span class="sdk-label">Currency</span><select id="f-currency" name="currency"></select><span class="sdk-hint">A currency set on the budget in Set up is used instead.</span></label>
     </div>
-    <p class="hint">A currency set on the budget in Set up is used instead.</p>
-    <p class="hint" id="f-by"></p>
-    <p class="error" id="f-error" hidden></p>
-    <div class="editor-buttons sdk-editor-actions"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button></div>
+    <p class="sdk-hint" id="f-by"></p>
+    <p class="sdk-form-error" id="f-error" role="alert" hidden></p>
+    <div class="sdk-editor-actions"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button></div>
   </form></template>
-<template id="tpl-editor2"><form class="editor-card" id="form">
+<template id="tpl-editor2"><form class="sdk-form" id="form">
     <h3 id="editor-title">Add to the plan</h3>
     <!-- the kind picker (host.ui.kindPicker, CONTRACT.md "The kind picker"): the script draws it here when the form opens -->
     <div id="f-types"></div>
     <!-- the flight lookup (plan-flight-lookup.md): shown for a flight while the server offers it; the script fills the list -->
-    <div class="lookup" id="f-lookup" data-types="flight" role="group" aria-labelledby="f-lookup-title" hidden><div class="fieldgroup-title" id="f-lookup-title">Look up a flight</div><div class="lookup-row"><label><span class="fl">Flight number</span><input id="f-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search"></label><label><span class="fl">Day it leaves</span><input id="f-lookup-date" type="date"></label><button class="btn" type="button" id="f-lookup-find">Find</button></div><p class="hint lookup-msg" id="f-lookup-msg" role="status" aria-live="polite"></p><div class="lookup-list" id="f-lookup-list" role="group" aria-labelledby="f-lookup-which" hidden><div class="hint" id="f-lookup-which">Which one?</div><ul class="lookup-choices"></ul></div></div>
-    <label>Title<input id="f-title" name="title" type="text" maxlength="120" required></label>
-    <div class="editor-row timing"><div class="when-field" role="group" aria-labelledby="f-date-label"><span class="fl" id="f-date-label">When</span><select id="f-date" name="date" hidden></select>
-        <div class="when-pick"><input id="f-date-input" type="date" aria-labelledby="f-date-label" aria-describedby="f-date-phase"><span class="when-btns"><button class="btn when-list" id="f-date-list" type="button" aria-haspopup="menu">Pick from the list</button><button class="btn when-clear" id="f-date-clear" type="button">Unscheduled</button></span></div>
-        <span class="when-phase" id="f-date-phase" role="status"></span></div>
-      <label id="f-phase-row" hidden><span class="fl">Phase</span><select id="f-phase" name="phase"></select></label>
-      <div class="times"><label data-types="block flight train ferry bus car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show hotel"><span class="fl" id="f-time-label">Time</span><input id="f-time" name="time" type="time"></label>
-      <!-- the length, or the end time it comes to (#247): the two stay in step, only the length is stored -->
-      <div class="duration" role="group" aria-labelledby="f-minutes-label" data-types="block flight train ferry bus car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show"><span class="dur-head fl"><span id="f-minutes-label">How long</span><span class="lenmode" role="group" aria-label="Give it as"><button type="button" class="lm on" data-lenmode="length" aria-pressed="true">Length</button><button type="button" class="lm" data-lenmode="end" aria-pressed="false">End time</button></span></span><span class="hm"><input id="f-hours" name="hours" type="number" min="0" step="1" inputmode="numeric" aria-label="Hours"><span>h</span><input id="f-minutes" name="minutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Minutes"><span>min</span></span><span class="endbox" hidden><input id="f-endTime" type="time" aria-label="End time" aria-describedby="f-endNote"><span class="hint" id="f-endNote" role="status"></span></span></div></div></div>
-    <label class="check" id="f-pinned-row" hidden><input id="f-pinned" name="pinned" type="checkbox"> Keep on this day</label>
-    <p class="arrives hint" id="f-arrives" data-types="flight train ferry bus taxi rideshare shuttle" hidden></p>
+    <fieldset class="sdk-section lookup" id="f-lookup" data-types="flight" aria-labelledby="f-lookup-title" hidden><legend class="sdk-section-title" id="f-lookup-title">Look up a flight</legend>
+      <div class="sdk-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-lookup-number-label"><span class="sdk-label" id="f-lookup-number-label">Flight number</span><span class="sdk-group"><input id="f-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-labelledby="f-lookup-number-label"><button class="sdk-field-btn" type="button" id="f-lookup-find" data-icon="magnifying-glass" title="Find the flight" aria-label="Find the flight"></button></span><span class="sdk-hint"></span></div>
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-lookup-date-label"><span class="sdk-label" id="f-lookup-date-label">Day it leaves</span><input id="f-lookup-date" type="date" aria-labelledby="f-lookup-date-label"><span class="sdk-hint"></span></div>
+      </div>
+      <p class="sdk-hint lookup-msg" id="f-lookup-msg" role="status" aria-live="polite"></p>
+      <div class="lookup-list" id="f-lookup-list" role="group" aria-labelledby="f-lookup-which" hidden><div class="sdk-hint" id="f-lookup-which">Which one?</div><ul class="lookup-choices"></ul></div>
+    </fieldset>
+    <label class="sdk-field sdk-full"><span class="sdk-label">Title</span><input id="f-title" name="title" type="text" maxlength="120" required aria-describedby="f-title-error"><span class="sdk-error" id="f-title-error"></span></label>
+    <!-- the day, the time and what the kind needs after it: a flight's departure and its flight time; a stop's start and the end it comes to (the length is
+         what is stored: the end is worked out from it and shows the length under it); a stay's check in and check out -->
+    <div class="sdk-row" id="f-timing">
+      <div class="sdk-field sdk-m" id="f-date-field" role="group" aria-labelledby="f-date-label"><span class="sdk-label" id="f-date-label">When</span><select id="f-date" name="date" hidden></select><input id="f-date-input" type="date" aria-labelledby="f-date-label" aria-describedby="f-date-phase"><span class="sdk-hint" id="f-date-phase" role="status"></span></div>
+      <label class="sdk-field sdk-m" id="f-phase-row" hidden><span class="sdk-label">Phase</span><select id="f-phase" name="phase"></select><span class="sdk-hint"></span></label>
+      <label class="sdk-field sdk-s" id="f-time-field" data-types="block flight train ferry bus car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show hotel"><span class="sdk-label" id="f-time-label">Start time</span><input id="f-time" name="time" type="time"><span class="sdk-hint"></span></label>
+      <label class="sdk-field sdk-s" id="f-end-field" data-types="block car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show"><span class="sdk-label" id="f-end-label">End time</span><input id="f-endTime" type="time" aria-describedby="f-endNote"><span class="sdk-hint" id="f-endNote" role="status"></span></label>
+      <div class="sdk-field sdk-m" id="f-length-field" role="group" aria-labelledby="f-minutes-label" data-types="block flight train ferry bus car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show"><span class="sdk-label" id="f-minutes-label">How long</span><span class="sdk-group sdk-duration"><input id="f-hours" name="hours" type="number" min="0" step="1" inputmode="numeric" aria-label="Hours"><span class="sdk-unit">h</span><input id="f-minutes" name="minutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Minutes"><span class="sdk-unit">min</span></span><span class="sdk-hint"></span></div>
+      <div class="sdk-field sdk-m" id="f-checkout-field" role="group" aria-labelledby="f-checkout-label" data-types="hotel"><span class="sdk-label" id="f-checkout-label">Check out</span><select id="f-checkout" name="checkOut" hidden></select><input id="f-checkout-input" type="date" aria-labelledby="f-checkout-label" aria-describedby="f-checkout-phase"><span class="sdk-hint" id="f-checkout-phase" role="status"></span></div>
+      <label class="sdk-field sdk-s" id="f-checkouttime-field" data-types="hotel"><span class="sdk-label">Check-out time</span><input id="f-checkOutTime" name="checkOutTime" type="time"><span class="sdk-hint"></span></label>
+    </div>
+    <div class="sdk-checks" id="f-pinned-row" hidden><label class="sdk-check"><input id="f-pinned" name="pinned" type="checkbox"> Keep on this day</label></div>
+    <p class="sdk-hint arrives" id="f-arrives" data-types="flight train ferry bus taxi rideshare shuttle" hidden></p>
     <!-- the arrival as the ticket says it, a day and a time laid out as the departure is (#241); the day follows the departure day until one is chosen (#242). f-arrival holds what is stored (the script joins the two) -->
-    <div class="editor-row timing" data-types="flight train ferry bus"><div class="when-field" role="group" aria-labelledby="f-arrival-day-label"><span class="fl" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select>
-        <div class="when-pick"><input id="f-arrival-day-input" type="date" aria-labelledby="f-arrival-day-label" aria-describedby="f-arrival-day-phase"><span class="when-btns"><button class="btn when-list" id="f-arrival-day-list" type="button" aria-haspopup="menu">Pick from the list</button></span></div>
-        <span class="when-phase" id="f-arrival-day-phase" role="status"></span></div>
-      <label><span class="fl">Arrival time</span><input id="f-arrival-time" name="arrivesTime" type="time"></label><input id="f-arrival" name="arrives" type="hidden"></div>
-    <!-- check out as check in is laid out, a list of days and a time (#245); the day after check-in until one is chosen -->
-    <div class="editor-row timing" data-types="hotel"><div class="when-field" role="group" aria-labelledby="f-checkout-label"><span class="fl" id="f-checkout-label">Check out</span><select id="f-checkout" name="checkOut" hidden></select>
-        <div class="when-pick"><input id="f-checkout-input" type="date" aria-labelledby="f-checkout-label" aria-describedby="f-checkout-phase"><span class="when-btns"><button class="btn when-list" id="f-checkout-list" type="button" aria-haspopup="menu">Pick from the list</button><button class="btn when-clear" id="f-checkout-clear" type="button">Not set</button></span></div>
-        <span class="when-phase" id="f-checkout-phase" role="status"></span></div>
-      <label><span class="fl">Check-out time</span><input id="f-checkOutTime" name="checkOutTime" type="time"></label></div>
+    <div class="sdk-row" data-types="flight train ferry bus">
+      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-arrival-day-label"><span class="sdk-label" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select><input id="f-arrival-day-input" type="date" aria-labelledby="f-arrival-day-label" aria-describedby="f-arrival-day-phase"><span class="sdk-hint" id="f-arrival-day-phase" role="status"></span></div>
+      <label class="sdk-field sdk-s" id="f-arrival-time-field"><span class="sdk-label">Arrival time</span><input id="f-arrival-time" name="arrivesTime" type="time"><span class="sdk-hint"></span></label>
+      <input id="f-arrival" name="arrives" type="hidden">
+    </div>
 
-    <div class="fieldgroup" data-types="flight train ferry bus car taxi rideshare shuttle"><div class="fieldgroup-title">Journey</div>
-      <div class="editor-row"><label data-types="flight train ferry bus car taxi rideshare shuttle"><span id="f-operator-label">Company</span><input id="f-operator" name="operator" type="text" maxlength="80"></label><label data-types="flight train ferry bus shuttle"><span id="f-number-label">Number</span><input id="f-number" name="number" type="text" maxlength="20"></label></div>
-      <div class="pairing" data-types="flight"><label class="codebox">Departure airport<input id="f-fromCode" name="fromCode" maxlength="5"></label><span class="arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="codebox">Arrival airport<input id="f-toCode" name="toCode" maxlength="5"></label></div>
-      <div class="pairing" data-types="flight train ferry bus taxi rideshare shuttle"><label><span id="f-from-label">From</span><input id="f-from" name="from" maxlength="120"></label><span class="arrow"><span class="ic" data-icon="arrow-right"></span></span><label><span id="f-to-label">To</span><input id="f-to" name="to" maxlength="120"></label></div>
-      <div class="pairing" data-types="car"><label>Pick up<input id="f-pickup" name="pickup" maxlength="120"></label><span class="arrow"><span class="ic" data-icon="arrow-right"></span></span><label>Drop off<input id="f-dropoff" name="dropoff" maxlength="120"></label></div>
-      <div class="editor-row"><label data-types="flight">Departure terminal<input id="f-terminal" name="terminal" maxlength="10"></label><label data-types="flight">Departure gate<input id="f-gate" name="gate" maxlength="10"></label><label data-types="train">Platform<input id="f-platform" name="platform" maxlength="10"></label><label data-types="train">Coach<input id="f-carriage" name="carriage" maxlength="10"></label><label data-types="flight train ferry bus">Seat<input id="f-seat" name="seat" maxlength="30"></label><label data-types="flight train">Class<select id="f-travelClass" name="travelClass"><option value="">-</option><option>Economy</option><option>Premium</option><option>Business</option><option>First</option></select></label></div></div>
+    <fieldset class="sdk-section" data-types="flight train ferry bus car taxi rideshare shuttle"><legend class="sdk-section-title">Journey</legend>
+      <div class="sdk-row">
+        <label class="sdk-field sdk-m" data-types="flight train ferry bus car taxi rideshare shuttle"><span class="sdk-label" id="f-operator-label">Company</span><input id="f-operator" name="operator" type="text" maxlength="80"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-m" data-types="flight train ferry bus shuttle"><span class="sdk-label" id="f-number-label">Number</span><input id="f-number" name="number" type="text" maxlength="20"><span class="sdk-hint"></span></label>
+      </div>
+      <div class="sdk-pair" data-types="flight"><label class="sdk-field"><span class="sdk-label">Departure airport</span><input id="f-fromCode" name="fromCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label">Arrival airport</span><input id="f-toCode" name="toCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label></div>
+      <div class="sdk-pair" data-types="flight train ferry bus taxi rideshare shuttle"><label class="sdk-field"><span class="sdk-label" id="f-from-label">From</span><input id="f-from" name="from" maxlength="120"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label" id="f-to-label">To</span><input id="f-to" name="to" maxlength="120"><span class="sdk-hint"></span></label></div>
+      <div class="sdk-pair" data-types="car"><label class="sdk-field"><span class="sdk-label">Pick up</span><input id="f-pickup" name="pickup" maxlength="120"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label">Drop off</span><input id="f-dropoff" name="dropoff" maxlength="120"><span class="sdk-hint"></span></label></div>
+      <div class="sdk-row" data-types="flight train ferry bus">
+        <label class="sdk-field sdk-s" data-types="flight"><span class="sdk-label">Departure terminal</span><input id="f-terminal" name="terminal" maxlength="10"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-s" data-types="flight"><span class="sdk-label">Departure gate</span><input id="f-gate" name="gate" maxlength="10"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-s" data-types="train"><span class="sdk-label">Platform</span><input id="f-platform" name="platform" maxlength="10"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-s" data-types="train"><span class="sdk-label">Coach</span><input id="f-carriage" name="carriage" maxlength="10"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-s" data-types="flight train ferry bus"><span class="sdk-label">Seat</span><input id="f-seat" name="seat" maxlength="30"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-s" data-types="flight train"><span class="sdk-label">Class</span><select id="f-travelClass" name="travelClass"><option value="">-</option><option>Economy</option><option>Premium</option><option>Business</option><option>First</option></select><span class="sdk-hint"></span></label>
+      </div>
+    </fieldset>
 
-    <div class="fieldgroup roundtrip" data-types="flight train ferry bus taxi rideshare shuttle"><label class="check"><input id="f-roundtrip" name="roundtrip" type="checkbox" role="switch"> Round trip</label>
-      <p class="hint" id="f-roundtrip-note" hidden></p>
-      <div class="return-leg" id="f-return" hidden><div class="fieldgroup-title">Return</div>
-        <div class="lookup" id="f-back-lookup" data-types="flight" role="group" aria-labelledby="f-back-lookup-title" hidden><div class="fieldgroup-title" id="f-back-lookup-title">Look up the return flight</div><div class="lookup-row"><label><span class="fl">Flight number</span><input id="f-back-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search"></label><label><span class="fl">Day it leaves</span><input id="f-back-lookup-date" type="date"></label><button class="btn" type="button" id="f-back-lookup-find">Find</button></div><p class="hint lookup-msg" id="f-back-lookup-msg" role="status" aria-live="polite"></p><div class="lookup-list" id="f-back-lookup-list" role="group" aria-labelledby="f-back-lookup-which" hidden><div class="hint" id="f-back-lookup-which">Which one?</div><ul class="lookup-choices"></ul></div></div>
-        <label>Return title<input id="f-back-title" name="backTitle" type="text" maxlength="120"></label>
-        <div class="editor-row timing"><div class="when-field" role="group" aria-labelledby="f-back-date-label"><span class="fl" id="f-back-date-label">Return day</span><select id="f-back-date" name="backDate" hidden></select>
-        <div class="when-pick"><input id="f-back-date-input" type="date" aria-labelledby="f-back-date-label" aria-describedby="f-back-date-phase"><span class="when-btns"><button class="btn when-list" id="f-back-date-list" type="button" aria-haspopup="menu">Pick from the list</button><button class="btn when-clear" id="f-back-date-clear" type="button">Unscheduled</button></span></div>
-        <span class="when-phase" id="f-back-date-phase" role="status"></span></div>
-          <div class="times"><label><span class="fl" id="f-back-time-label">Departure time</span><input id="f-back-time" name="backTime" type="time"></label>
-          <div class="duration" role="group" aria-labelledby="f-back-minutes-label"><span class="dur-head fl"><span id="f-back-minutes-label">How long</span><span class="lenmode" role="group" aria-label="Give the return as"><button type="button" class="lm on" data-lenmode="length" aria-pressed="true">Length</button><button type="button" class="lm" data-lenmode="end" aria-pressed="false">End time</button></span></span><span class="hm"><input id="f-back-hours" name="backHours" type="number" min="0" step="1" inputmode="numeric" aria-label="Return hours"><span>h</span><input id="f-back-minutes" name="backMinutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Return minutes"><span>min</span></span><span class="endbox" hidden><input id="f-back-endTime" type="time" aria-label="Return end time" aria-describedby="f-back-endNote"><span class="hint" id="f-back-endNote" role="status"></span></span></div></div></div>
-        <p class="arrives hint" id="f-back-arrives" hidden></p>
-        <div class="editor-row timing" data-types="flight train ferry bus"><div class="when-field" role="group" aria-labelledby="f-back-arrival-day-label"><span class="fl" id="f-back-arrival-day-label">Arrival day</span><select id="f-back-arrival-day" name="backArrivesDay" hidden></select>
-        <div class="when-pick"><input id="f-back-arrival-day-input" type="date" aria-labelledby="f-back-arrival-day-label" aria-describedby="f-back-arrival-day-phase"><span class="when-btns"><button class="btn when-list" id="f-back-arrival-day-list" type="button" aria-haspopup="menu">Pick from the list</button></span></div>
-        <span class="when-phase" id="f-back-arrival-day-phase" role="status"></span></div>
-      <label><span class="fl">Arrival time</span><input id="f-back-arrival-time" name="backArrivesTime" type="time"></label><input id="f-back-arrival" name="backArrives" type="hidden"></div>
-        <div class="pairing" data-types="flight"><label class="codebox">Departure airport<input id="f-back-fromCode" name="backFromCode" maxlength="5"></label><span class="arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="codebox">Arrival airport<input id="f-back-toCode" name="backToCode" maxlength="5"></label></div>
-        <div class="pairing"><label><span id="f-back-from-label">From</span><input id="f-back-from" name="backFrom" maxlength="120"></label><span class="arrow"><span class="ic" data-icon="arrow-right"></span></span><label><span id="f-back-to-label">To</span><input id="f-back-to" name="backTo" maxlength="120"></label></div>
-        <div class="editor-row"><label data-types="flight train ferry bus shuttle"><span id="f-back-number-label">Number</span><input id="f-back-number" name="backNumber" type="text" maxlength="20"></label><label data-types="flight train">Seat<input id="f-back-seat" name="backSeat" maxlength="10"></label></div>
-        <p class="hint" id="f-extra" hidden>Two returns were saved for this trip at the same time. <button class="btn" type="button" id="f-extra-delete">Delete the second one</button></p>
-      </div></div>
+    <div class="roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">
+      <div class="sdk-checks"><label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox"> Round trip</label></div>
+      <p class="sdk-hint" id="f-roundtrip-note" hidden></p>
+      <fieldset class="sdk-section return-leg" id="f-return" hidden><legend class="sdk-section-title">Return</legend>
+        <fieldset class="sdk-section lookup" id="f-back-lookup" data-types="flight" aria-labelledby="f-back-lookup-title" hidden><legend class="sdk-section-title" id="f-back-lookup-title">Look up the return flight</legend>
+          <div class="sdk-row">
+            <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-lookup-number-label"><span class="sdk-label" id="f-back-lookup-number-label">Flight number</span><span class="sdk-group"><input id="f-back-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-labelledby="f-back-lookup-number-label"><button class="sdk-field-btn" type="button" id="f-back-lookup-find" data-icon="magnifying-glass" title="Find the flight" aria-label="Find the flight"></button></span><span class="sdk-hint"></span></div>
+            <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-lookup-date-label"><span class="sdk-label" id="f-back-lookup-date-label">Day it leaves</span><input id="f-back-lookup-date" type="date" aria-labelledby="f-back-lookup-date-label"><span class="sdk-hint"></span></div>
+          </div>
+          <p class="sdk-hint lookup-msg" id="f-back-lookup-msg" role="status" aria-live="polite"></p>
+          <div class="lookup-list" id="f-back-lookup-list" role="group" aria-labelledby="f-back-lookup-which" hidden><div class="sdk-hint" id="f-back-lookup-which">Which one?</div><ul class="lookup-choices"></ul></div>
+        </fieldset>
+        <label class="sdk-field sdk-full"><span class="sdk-label">Return title</span><input id="f-back-title" name="backTitle" type="text" maxlength="120"><span class="sdk-hint"></span></label>
+        <div class="sdk-row" id="f-back-timing">
+          <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-date-label"><span class="sdk-label" id="f-back-date-label">Return day</span><select id="f-back-date" name="backDate" hidden></select><input id="f-back-date-input" type="date" aria-labelledby="f-back-date-label" aria-describedby="f-back-date-phase"><span class="sdk-hint" id="f-back-date-phase" role="status"></span></div>
+          <label class="sdk-field sdk-s"><span class="sdk-label" id="f-back-time-label">Departure time</span><input id="f-back-time" name="backTime" type="time"><span class="sdk-hint"></span></label>
+          <label class="sdk-field sdk-s" id="f-back-end-field" data-types="taxi rideshare shuttle"><span class="sdk-label">End time</span><input id="f-back-endTime" type="time" aria-describedby="f-back-endNote"><span class="sdk-hint" id="f-back-endNote" role="status"></span></label>
+          <div class="sdk-field sdk-m" id="f-back-length-field" role="group" aria-labelledby="f-back-minutes-label" data-types="flight train ferry bus taxi rideshare shuttle"><span class="sdk-label" id="f-back-minutes-label">How long</span><span class="sdk-group sdk-duration"><input id="f-back-hours" name="backHours" type="number" min="0" step="1" inputmode="numeric" aria-label="Return hours"><span class="sdk-unit">h</span><input id="f-back-minutes" name="backMinutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Return minutes"><span class="sdk-unit">min</span></span><span class="sdk-hint"></span></div>
+        </div>
+        <p class="sdk-hint arrives" id="f-back-arrives" hidden></p>
+        <div class="sdk-row" data-types="flight train ferry bus">
+          <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-arrival-day-label"><span class="sdk-label" id="f-back-arrival-day-label">Arrival day</span><select id="f-back-arrival-day" name="backArrivesDay" hidden></select><input id="f-back-arrival-day-input" type="date" aria-labelledby="f-back-arrival-day-label" aria-describedby="f-back-arrival-day-phase"><span class="sdk-hint" id="f-back-arrival-day-phase" role="status"></span></div>
+          <label class="sdk-field sdk-s" id="f-back-arrival-time-field"><span class="sdk-label">Arrival time</span><input id="f-back-arrival-time" name="backArrivesTime" type="time"><span class="sdk-hint"></span></label>
+          <input id="f-back-arrival" name="backArrives" type="hidden">
+        </div>
+        <div class="sdk-pair" data-types="flight"><label class="sdk-field"><span class="sdk-label">Departure airport</span><input id="f-back-fromCode" name="backFromCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label">Arrival airport</span><input id="f-back-toCode" name="backToCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label></div>
+        <div class="sdk-pair"><label class="sdk-field"><span class="sdk-label" id="f-back-from-label">From</span><input id="f-back-from" name="backFrom" maxlength="120"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label" id="f-back-to-label">To</span><input id="f-back-to" name="backTo" maxlength="120"><span class="sdk-hint"></span></label></div>
+        <div class="sdk-row">
+          <label class="sdk-field sdk-m" data-types="flight train ferry bus shuttle"><span class="sdk-label" id="f-back-number-label">Number</span><input id="f-back-number" name="backNumber" type="text" maxlength="20"><span class="sdk-hint"></span></label>
+          <label class="sdk-field sdk-m" data-types="flight train"><span class="sdk-label">Seat</span><input id="f-back-seat" name="backSeat" maxlength="10"><span class="sdk-hint"></span></label>
+        </div>
+        <p class="sdk-hint" id="f-extra" hidden>Two returns were saved for this trip at the same time. <button class="btn" type="button" id="f-extra-delete">Delete the second one</button></p>
+      </fieldset>
+    </div>
 
-    <div class="fieldgroup" data-types="hotel"><div class="fieldgroup-title">Stay</div><label data-types="hotel">Address<input id="f-address" name="address" maxlength="200"></label><div class="editor-row"><label data-types="hotel">Room<input id="f-roomType" name="roomType" maxlength="80"></label><label data-types="hotel">Guests<input id="f-guests" name="guests" type="number" min="1"></label></div></div>
+    <fieldset class="sdk-section" data-types="hotel"><legend class="sdk-section-title">Stay</legend>
+      <label class="sdk-field sdk-full"><span class="sdk-label">Address</span><input id="f-address" name="address" maxlength="200"><span class="sdk-hint"></span></label>
+      <div class="sdk-row">
+        <label class="sdk-field sdk-m"><span class="sdk-label">Room</span><input id="f-roomType" name="roomType" maxlength="80"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-m"><span class="sdk-label">Guests</span><input id="f-guests" name="guests" type="number" min="1"><span class="sdk-hint"></span></label>
+      </div>
+    </fieldset>
 
-    <div class="fieldgroup" data-types="restaurant cafe bar sight museum attraction tour show"><div class="fieldgroup-title">Where and who</div><label data-types="restaurant cafe bar sight museum attraction tour show">Address<input id="f-address-stop" name="address" maxlength="200"></label>
-      <div class="editor-row"><label data-types="restaurant cafe bar">Party size<input id="f-partySize" name="partySize" type="number" min="1"></label><label data-types="restaurant cafe bar">Reservation name<input id="f-reservationName" name="reservationName" maxlength="80"></label><label data-types="sight museum attraction tour show">Tickets<input id="f-admissionCount" name="admissionCount" type="number" min="1"></label><label data-types="show">Entry<input id="f-gate-show" name="gate" maxlength="40"></label></div></div>
+    <fieldset class="sdk-section" data-types="restaurant cafe bar sight museum attraction tour show"><legend class="sdk-section-title">Where and who</legend>
+      <label class="sdk-field sdk-full"><span class="sdk-label">Address</span><input id="f-address-stop" name="address" maxlength="200"><span class="sdk-hint"></span></label>
+      <div class="sdk-row">
+        <label class="sdk-field sdk-m" data-types="restaurant cafe bar"><span class="sdk-label">Party size</span><input id="f-partySize" name="partySize" type="number" min="1"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-m" data-types="restaurant cafe bar"><span class="sdk-label">Reservation name</span><input id="f-reservationName" name="reservationName" maxlength="80"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-s" data-types="sight museum attraction tour show"><span class="sdk-label">Tickets</span><input id="f-admissionCount" name="admissionCount" type="number" min="1"><span class="sdk-hint"></span></label>
+        <label class="sdk-field sdk-s" data-types="show"><span class="sdk-label">Entry</span><input id="f-gate-show" name="gate" maxlength="40"><span class="sdk-hint"></span></label>
+      </div>
+    </fieldset>
 
-    <div class="fieldgroup" data-types="flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show"><div class="fieldgroup-title">Booking</div><p class="hint" id="f-booking-both" hidden>The reference, amounts and payer cover both legs.</p><div class="editor-row"><label>Reference<input id="f-confirm" name="confirm" class="mono" maxlength="40"></label><label>Estimated<input id="f-estimate" name="estimate" type="number" min="0" step="0.01"></label><label>Actual<input id="f-cost" name="cost" type="number" min="0" step="0.01"></label><label>Paid by<select id="f-paidBy" name="paidBy"></select></label></div></div>
+    <fieldset class="sdk-section" data-types="flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show"><legend class="sdk-section-title">Booking</legend>
+      <p class="sdk-hint" id="f-booking-both" hidden>The reference, amounts and payer cover both legs.</p>
+      <div class="sdk-row">
+        <label class="sdk-field sdk-m" id="f-confirm-field"><span class="sdk-label">Reference</span><input id="f-confirm" name="confirm" class="mono" maxlength="40"><span class="sdk-hint"></span></label>
+        <div class="sdk-field sdk-m" id="f-estimate-field" role="group" aria-labelledby="f-estimate-label"><span class="sdk-label" id="f-estimate-label">Estimated</span><span class="sdk-group sdk-money"><input id="f-estimate" name="estimate" type="text" inputmode="decimal" autocomplete="off" aria-labelledby="f-estimate-label" aria-describedby="f-estimate-error"><span class="sdk-unit" data-slot="currency"></span></span><span class="sdk-error" id="f-estimate-error"></span></div>
+        <div class="sdk-field sdk-m" id="f-cost-field" role="group" aria-labelledby="f-cost-label"><span class="sdk-label" id="f-cost-label">Actual</span><span class="sdk-group sdk-money"><input id="f-cost" name="cost" type="text" inputmode="decimal" autocomplete="off" aria-labelledby="f-cost-label" aria-describedby="f-cost-error"><span class="sdk-unit" data-slot="currency"></span></span><span class="sdk-error" id="f-cost-error"></span></div>
+      </div>
+      <div class="sdk-field sdk-full" role="radiogroup" aria-labelledby="f-paidBy-label"><span class="sdk-label" id="f-paidBy-label">Paid by</span><div class="sdk-people" id="f-paidBy"></div></div>
+    </fieldset>
 
-    <label data-types="lane block note flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show">Notes<textarea id="f-notes" name="notes" rows="3" maxlength="8000"></textarea></label>
+    <label class="sdk-field sdk-full" data-types="lane block note flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show"><span class="sdk-label">Notes</span><textarea id="f-notes" name="notes" rows="3" maxlength="8000"></textarea><span class="sdk-hint"></span></label>
 
-    <div class="fieldgroup" data-types="flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show"><div class="fieldgroup-title">Getting to this stop</div><div class="gettingthere"><div class="modes" id="f-travelMode" role="group" aria-label="How you get there"><button class="mode" type="button" data-mode="walk" aria-label="Walk"><span class="ic" data-icon="person-walking"></span></button><button class="mode" type="button" data-mode="drive" aria-label="Drive"><span class="ic" data-icon="car"></span></button><button class="mode" type="button" data-mode="transit" aria-label="Transit"><span class="ic" data-icon="bus"></span></button><button class="mode" type="button" data-mode="bike" aria-label="Bike"><span class="ic" data-icon="bicycle"></span></button><button class="mode" type="button" data-mode="taxi" aria-label="Taxi"><span class="ic" data-icon="taxi"></span></button><button class="mode" type="button" data-mode="rideshare" aria-label="Ride share"><span class="ic" data-icon="car-side"></span></button></div><label class="minutes"><span class="fl">How long from the stop before</span><span class="hm"><input id="f-travelHours" name="travelHours" type="number" min="0" step="1" inputmode="numeric" aria-label="Hours"><span>h</span><input id="f-travelMinutes" name="travelMinutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Minutes"><span>min</span></span></label></div></div>
+    <fieldset class="sdk-section" data-types="flight train ferry bus car taxi rideshare shuttle hotel restaurant cafe bar sight museum attraction tour show"><legend class="sdk-section-title">Getting to this stop</legend>
+      <div class="sdk-row">
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-travelMode-label"><span class="sdk-label" id="f-travelMode-label">How you get there</span><span class="sdk-group"><span class="sdk-choice" id="f-travelMode" role="group" aria-labelledby="f-travelMode-label"><button class="mode" type="button" data-mode="walk" aria-label="Walk" title="Walk" aria-pressed="false"><span class="ic" data-icon="person-walking"></span></button><button class="mode" type="button" data-mode="drive" aria-label="Drive" title="Drive" aria-pressed="false"><span class="ic" data-icon="car"></span></button><button class="mode" type="button" data-mode="transit" aria-label="Transit" title="Transit" aria-pressed="false"><span class="ic" data-icon="bus"></span></button><button class="mode" type="button" data-mode="bike" aria-label="Bike" title="Bike" aria-pressed="false"><span class="ic" data-icon="bicycle"></span></button><button class="mode" type="button" data-mode="taxi" aria-label="Taxi" title="Taxi" aria-pressed="false"><span class="ic" data-icon="taxi"></span></button><button class="mode" type="button" data-mode="rideshare" aria-label="Ride share" title="Ride share" aria-pressed="false"><span class="ic" data-icon="car-side"></span></button></span></span></div>
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-travelMinutes-label"><span class="sdk-label" id="f-travelMinutes-label">How long from the stop before</span><span class="sdk-group sdk-duration"><input id="f-travelHours" name="travelHours" type="number" min="0" step="1" inputmode="numeric" aria-label="Hours"><span class="sdk-unit">h</span><input id="f-travelMinutes" name="travelMinutes" type="number" min="0" step="1" inputmode="numeric" aria-label="Minutes"><span class="sdk-unit">min</span></span><span class="sdk-hint"></span></div>
+      </div>
+    </fieldset>
 
-    <div><div class="hint">Whose is it</div><div class="editor-people" id="f-owners"></div></div>
-    <p class="hint" id="f-by"></p>
-    <p class="error" id="f-error" hidden></p>
-    <div class="editor-buttons sdk-editor-actions"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button><span class="grow"></span><button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button></div>
+    <div class="sdk-field sdk-full" role="group" aria-labelledby="f-owners-label"><span class="sdk-label" id="f-owners-label">Whose is it</span><div class="sdk-people" id="f-owners"></div></div>
+    <p class="sdk-hint" id="f-by"></p>
+    <p class="sdk-form-error" id="f-error" role="alert" hidden></p>
+    <div class="sdk-editor-actions"><button class="btn btn-primary" type="submit" id="f-save">Save</button><button class="btn" type="button" id="f-cancel">Cancel</button><button class="btn btn-danger" type="button" id="f-delete" hidden>Delete</button></div>
   </form></template>
 <!-- a flight the lookup found, one of several: its line, then when it flies -->
-<template id="tpl-day-dialog"><form class="editor-card" id="day-form">
+<template id="tpl-day-dialog"><form class="sdk-form" id="day-form">
     <h3 id="day-title"></h3>
     <div id="day-fields">
-      <label>Move to<input id="day-to" name="to" type="date"></label>
-      <label class="check"><input id="day-rest" name="rest" type="checkbox" role="switch"> Also move every day after this one by the same amount.</label>
+      <div class="sdk-field sdk-full" role="group" aria-labelledby="day-to-label"><span class="sdk-label" id="day-to-label">Move to</span><input id="day-to" name="to" type="date" aria-labelledby="day-to-label"><span class="sdk-hint"></span></div>
+      <div class="sdk-checks"><label class="sdk-check"><input id="day-rest" name="rest" type="checkbox"> Also move every day after this one by the same amount.</label></div>
     </div>
     <p class="day-summary" id="day-summary" role="status" aria-live="polite"></p>
-    <p class="error" id="day-error" hidden></p>
-    <div class="editor-buttons sdk-editor-actions"><button class="btn btn-primary" type="submit" id="day-go"></button><button class="btn" type="button" id="day-cancel"></button></div>
+    <p class="sdk-form-error" id="day-error" role="alert" hidden></p>
+    <div class="sdk-editor-actions"><button class="btn btn-primary" type="submit" id="day-go"></button><button class="btn" type="button" id="day-cancel"></button></div>
   </form></template>
 <template id="tpl-lookup-choice"><li><button class="lookup-choice" type="button"><b data-slot="line"></b><span data-slot="when"></span></button></li></template>
 

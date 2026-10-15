@@ -725,7 +725,7 @@
     if (none && !jointsOnly) unscheduled.push(row({ date: null }, none));
     if (joints) for (const after of ['', ...plan.days()]) unscheduled.push(row({ after }, jointLabel(after)));
     if (unscheduled.length) {
-      const name = jointsOnly ? 'Between days' : 'Unscheduled';
+      const name = jointsOnly || !none ? 'Between days' : 'Unscheduled';
       if (nest || unscheduled.length > DAY_NEST) items.push({ id: 'unscheduled', label: name, icon: unscheduled.some((r) => r.icon === 'check') ? 'check' : 'inbox', items: unscheduled });
       else items.push({ heading: name }, ...unscheduled);
     }
@@ -747,47 +747,21 @@
     if (!days.length) return { min: '', max: '' };
     return { min: held && held < days[0] ? held : days[0], max: held && held > days[days.length - 1] ? held : days[days.length - 1] };
   }
-  // Make one of the form's day selects (#f-date, #f-back-date, #f-checkout) a date field with its list. `checkout`: the select's
-  // values are plain days ('' for none) and the list is its own options; else they are places (`d:<day>`, `j:<after>`).
+  // The weekday a day falls on, as the date picker words it ("Thursday, Oct 15, 2026"); the day field's hint slot starts with it.
+  const weekdayOf = (d) => parseYmd(d).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' });
+  // Make one of the form's day selects (#f-date, #f-back-date, #f-checkout) a date field with its list: host.ui.datePicker on the date
+  // input (#<id>-input) with `list` (the days by phase and the spots between days, with Unscheduled first where there is no day), and
+  // the select, hidden, that keeps the value. The field's hint slot (#<id>-phase) says the weekday and the phase the day is in.
+  // `checkout`: the select's values are plain days ('' for none) and the list is its own options; else they are places (`d:<day>`, `j:<after>`).
   function dayField(select, { checkout = false } = {}) {
     const id = select.id;
     const input = $(`${id}-input`);
-    const listBtn = $(`${id}-list`);
-    const clear = $(`${id}-clear`);
     const caption = $(`${id}-phase`);
-    if (!input || !listBtn || !clear || !caption) return;
+    if (!input || !caption) return;
     const place = () => (checkout ? { date: select.value || null } : parsePlace(select.value));
     const valueOf = (p) => (checkout ? p.date || '' : placeValue(p));
     const dayOptions = () => [...select.options].map((o) => o.value).filter(isYmd);
     const canNone = () => [...select.options].some((o) => o.value === (checkout ? '' : 'd:')) && (checkout ? Boolean(dayOptions().length) : true);
-    const draw = () => {
-      const p = place();
-      const held = p.date || '';
-      input.value = held;
-      if (checkout) {
-        const days = dayOptions();
-        input.disabled = !days.length;
-        input.min = days[0] || '';
-        input.max = days[days.length - 1] || '';
-        listBtn.disabled = !days.length;
-        const o = [...select.options].find((x) => x.value === select.value && select.value);
-        caption.textContent = o && / · /.test(o.textContent) ? o.textContent.split(' · ').pop() : '';
-        caption.removeAttribute('data-tint');
-      } else {
-        const b = dayBounds(held);
-        input.min = b.min;
-        input.max = b.max;
-        const bands = plan.bands().filter((x) => x.dated);
-        const ph = held && bands.length ? phaseOnDay(bands, held) : null;
-        caption.textContent = ph && ph.label ? ph.label : p.after !== undefined ? jointLabel(p.after) : '';
-        if (ph && ph.tint) caption.dataset.tint = ph.tint; else caption.removeAttribute('data-tint');
-      }
-      const showClear = canNone();
-      clear.hidden = !showClear;
-      const none = checkout ? !select.value : p.after === undefined && !held;
-      clear.setAttribute('aria-pressed', String(none));
-      clear.classList.toggle('on', none);
-    };
     const set = (value) => {
       if (value && !checkout && !/^[dj]:/.test(value)) return;
       if (value && ![...select.options].some((o) => o.value === value)) {
@@ -800,6 +774,44 @@
       select.dispatchEvent(new Event('input', { bubbles: true }));
       select.dispatchEvent(new Event('change', { bubbles: true }));
     };
+    const picker = host.ui.datePicker(input, {
+      get clearable() { return canNone(); },
+      list: {
+        label: 'Pick from the list',
+        get none() { return canNone() ? (checkout ? 'Not set' : 'Unscheduled') : ''; },
+        items: () => {
+          const p = place();
+          if (checkout) {
+            const label = (d) => ((([...select.options].find((o) => o.value === d) || {}).textContent) || dayLong(d));
+            return dayMenuItems({ current: p, choose: (x) => set(x.date || ''), days: dayOptions(), none: null, joints: false, label });
+          }
+          return dayMenuItems({ current: p, choose: (x) => set(valueOf(x)), days: choosableDays(), none: null, joints: true });
+        },
+      },
+    });
+    const draw = () => {
+      const p = place();
+      const held = p.date || '';
+      input.value = held;
+      let note = '';
+      if (checkout) {
+        const days = dayOptions();
+        input.disabled = !days.length;
+        input.min = days[0] || '';
+        input.max = days[days.length - 1] || '';
+        const o = [...select.options].find((x) => x.value === select.value && select.value);
+        note = o && / · /.test(o.textContent) ? o.textContent.split(' · ').pop() : days.length ? 'Not set' : 'Choose the check-in day first';
+      } else {
+        const b = dayBounds(held);
+        input.min = b.min;
+        input.max = b.max;
+        const bands = plan.bands().filter((x) => x.dated);
+        const ph = held && bands.length ? phaseOnDay(bands, held) : null;
+        note = ph && ph.label ? ph.label : p.after !== undefined ? jointLabel(p.after) : held ? '' : 'Unscheduled';
+      }
+      picker.refresh();
+      caption.textContent = [held ? weekdayOf(held) : '', note].filter(Boolean).join(' · ');
+    };
     // Setting the select's value from code (opening the form, a lookup, the kind) draws the field again.
     const own = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
     Object.defineProperty(select, 'value', { configurable: true, get() { return own.get.call(this); }, set(v) { own.set.call(this, v); draw(); } });
@@ -808,56 +820,45 @@
       if (input.validity.rangeUnderflow || input.validity.rangeOverflow) { draw(); return; }
       set(checkout ? input.value : `d:${input.value}`);
     });
-    clear.addEventListener('click', () => { if (canNone() && select.value !== (checkout ? '' : 'd:')) set(checkout ? '' : 'd:'); });
-    listBtn.addEventListener('click', () => {
-      const p = place();
-      if (checkout) {
-        const days = dayOptions();
-        const label = (d) => ((([...select.options].find((o) => o.value === d) || {}).textContent) || dayLong(d));
-        const items = dayMenuItems({ current: p, choose: (x) => set(x.date || ''), days, none: 'Not set', joints: false, label });
-        host.menu.show({ id: `${id}-list`, anchor: listBtn, items: items.map((i) => (i.id === 'unscheduled' ? { ...i, label: 'Not set' } : i)) });
-        return;
-      }
-      host.menu.show({ id: `${id}-list`, anchor: listBtn, items: dayMenuItems({ current: p, choose: (x) => set(valueOf(x)), days: choosableDays(), none: canNone() ? 'Unscheduled' : null, joints: true }) });
-    });
     draw();
   }
 
   // A journey's arrival day is the same date field as the departure day: a date field held to the days a ticket can arrive on
-  // (arrivalDays), a "Pick from the list" flyout of those days, and the select (#f-arrival-day, hidden) that keeps the value:
-  // a day, or while the leg has no day, how many days later ('0', '1', '-1'). No Unscheduled: an arrival always has a day.
+  // (arrivalDays) with the list of those days, and the select (#f-arrival-day, hidden) that keeps the value: a day, or while the leg
+  // has no day, how many days later ('0', '1', '-1'). No Unscheduled: an arrival always has a day.
   function arrivalField(select) {
     const id = select.id;
     const input = $(`${id}-input`);
-    const listBtn = $(`${id}-list`);
     const caption = $(`${id}-phase`);
-    if (!input || !listBtn || !caption) return;
+    if (!input || !caption) return;
     const opts = () => [...select.options];
     const days = () => opts().map((o) => o.value).filter(isYmd).sort();
     const note = (o) => { if (!o) return ''; const m = /\(([^)]*)\)\s*$/.exec(o.textContent); const t = m ? m[1] : isYmd(o.value) ? 'same day' : o.textContent; return t.charAt(0).toUpperCase() + t.slice(1); };
+    const set = (value) => {
+      select.value = value;
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const picker = host.ui.datePicker(input, {
+      list: {
+        label: 'Pick from the list',
+        items: () => opts().sort((a, b) => (isYmd(a.value) && isYmd(b.value) ? a.value.localeCompare(b.value) : 0)).map((o) => ({ id: o.value, label: o.textContent, icon: o.value === select.value ? 'check' : 'calendar-day', ariaLabel: o.value === select.value ? `${o.textContent}, chosen` : undefined, onClick: () => set(o.value) })),
+      },
+    });
     const draw = () => {
       const d = days();
       input.disabled = !d.length;
       input.min = d[0] || '';
       input.max = d[d.length - 1] || '';
       input.value = isYmd(select.value) ? select.value : '';
-      caption.textContent = note(opts().find((o) => o.value === select.value));
-      caption.removeAttribute('data-tint');
-    };
-    const set = (value) => {
-      select.value = value;
-      select.dispatchEvent(new Event('input', { bubbles: true }));
-      select.dispatchEvent(new Event('change', { bubbles: true }));
+      picker.refresh();
+      caption.textContent = [input.value ? weekdayOf(input.value) : '', note(opts().find((o) => o.value === select.value))].filter(Boolean).join(' · ');
     };
     const own = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
     Object.defineProperty(select, 'value', { configurable: true, get() { return own.get.call(this); }, set(v) { own.set.call(this, v); draw(); } });
     input.addEventListener('change', () => {
       if (!input.value || input.validity.rangeUnderflow || input.validity.rangeOverflow || !opts().some((o) => o.value === input.value)) { draw(); return; }
       set(input.value);
-    });
-    listBtn.addEventListener('click', () => {
-      const rows = opts().sort((a, b) => (isYmd(a.value) && isYmd(b.value) ? a.value.localeCompare(b.value) : 0));
-      host.menu.show({ id: `${id}-list`, anchor: listBtn, items: rows.map((o) => ({ id: o.value, label: o.textContent, icon: o.value === select.value ? 'check' : 'calendar-day', ariaLabel: o.value === select.value ? `${o.textContent}, chosen` : undefined, onClick: () => set(o.value) })) });
     });
     draw();
   }
@@ -2019,24 +2020,30 @@
   const lengthOf = (hoursId, minutesId) => (shown(minutesId) ? joinMinutes(num(hoursId), num(minutesId)) : null);
   // A length typed past the longest an item can have (7 days), which would otherwise be cut when stored.
   const tooLong = (hoursId, minutesId) => shown(minutesId) && (num(hoursId) || 0) * 60 + (num(minutesId) || 0) > MAX_MINUTES;
-  // ---- The length, or the end time it comes to (#247) ----
-  // Both are in the form; only the length is stored (`minutes`), the end is worked out from the start and the length.
+  // ---- The start, the end it comes to and the length (#247) ----
+  // Each leg has a start time and, for a stop, a car, a taxi, a ride or a marker, an end time with the length shown under it; a
+  // journey with a ticket (a flight, train, ferry or bus) keeps a flight time of its own, since its arrival is in another time zone.
+  // The length is what is stored (`minutes`), in the hours and minutes fields; the end is worked out from the start and the length,
+  // and a typed end gives the length.
   const LENS = {
-    out: { time: 'f-time', hours: 'f-hours', minutes: 'f-minutes', end: 'f-endTime', note: 'f-endNote' },
-    back: { time: 'f-back-time', hours: 'f-back-hours', minutes: 'f-back-minutes', end: 'f-back-endTime', note: 'f-back-endNote' },
+    out: { time: 'f-time', hours: 'f-hours', minutes: 'f-minutes', end: 'f-endTime', note: 'f-endNote', lenField: 'f-length-field', endField: 'f-end-field' },
+    back: { time: 'f-back-time', hours: 'f-back-hours', minutes: 'f-back-minutes', end: 'f-back-endTime', note: 'f-back-endNote', lenField: 'f-back-length-field', endField: 'f-back-end-field' },
   };
-  // A journey with a ticket has its own arrival day and time, so it keeps the length alone.
+  // A journey with a ticket has its own arrival day and time, so it keeps the flight time alone.
   const ticketed = () => { const ed = state.editing; return Boolean(ed && ['flight', 'train', 'ferry', 'bus'].includes(ed.tile)); };
-  const endMode = () => lenMode === 'end' && !ticketed();
+  const endMode = () => !ticketed();
   const SAME_END = 'Same as the start, so there is no length.';
   const laterNote = (days) => (days === 1 ? '+1 (the next day)' : days > 1 ? `+${days} days` : '');
-  // The end time from the start and the length in the form.
+  // A moment, not a stretch of time: no length and no end.
+  const noLengthTile = () => { const ed = state.editing; return Boolean(ed && ['block:meet-up', 'block:leave-by'].includes(ed.tile)); };
+  // The end time from the start and the length in the form; the length is said under it.
   function syncEnd(l) {
     const end = $(l.end);
     if (end.value && end.value === $(l.time).value) { $(l.note).textContent = SAME_END; return; } // zero stays as typed until it is fixed
-    const e = endOf($(l.time).value, lengthOf(l.hours, l.minutes));
+    const len = lengthOf(l.hours, l.minutes);
+    const e = endOf($(l.time).value, len);
     end.value = e ? e.time : '';
-    $(l.note).textContent = e ? laterNote(e.days) : '';
+    $(l.note).textContent = len ? [lengthText(len), laterNote(e ? e.days : 0)].filter(Boolean).join(' · ') : '';
   }
   // The length from the start and the end time typed; an end before the start is the next day.
   function endToLength(l) {
@@ -2047,29 +2054,29 @@
     const len = lengthBetween(time, end);
     if (len === null) { note.textContent = time ? '' : 'Add a start time first.'; return; }
     setLength(l.hours, l.minutes, len || null);
-    note.textContent = len === 0 ? SAME_END : laterNote(endOf(time, len).days);
+    note.textContent = len === 0 ? SAME_END : [lengthText(len), laterNote(endOf(time, len).days)].filter(Boolean).join(' · ');
   }
-  // Show the one the person chose (the switch, the hours and minutes or the end time) and keep the end in step.
+  // Show the flight time for a ticketed journey, else the end time (and keep it in step with the start and the length).
   function applyLenMode() {
-    const on = endMode();
+    const tick = ticketed();
+    const none = noLengthTile();
     for (const l of Object.values(LENS)) {
-      const group = $(l.hours) && $(l.hours).closest('.duration');
-      if (!group) continue;
-      group.querySelector('.lenmode').hidden = ticketed();
-      group.querySelector('.hm').hidden = on;
-      group.querySelector('.endbox').hidden = !on;
-      for (const b of group.querySelectorAll('.lm')) { const sel = b.dataset.lenmode === (on ? 'end' : 'length'); b.classList.toggle('on', sel); b.setAttribute('aria-pressed', String(sel)); }
-      if (on) syncEnd(l);
+      const len = $(l.lenField);
+      const end = $(l.endField);
+      if (!len || !end) continue;
+      len.hidden = !tick || none;
+      end.hidden = tick || none;
+      if (!end.hidden) syncEnd(l);
     }
   }
   // The sentence for an End time the form cannot take, or ''. Leg 'back' counts only for a round trip.
   function endProblem() {
     if (!endMode()) return '';
     for (const l of [LENS.out, roundTripOn() ? LENS.back : null]) {
-      const group = l && $(l.hours) && $(l.hours).closest('.duration');
-      if (!group || group.hidden || !shown(l.hours)) continue;
+      const field = l && $(l.endField);
+      if (!field || field.hidden || !shown(l.end)) continue;
       const end = $(l.end).value;
-      if (end && !$(l.time).value) return 'Add a start time first, or switch to Length.';
+      if (end && !$(l.time).value) return 'Add a start time first.';
       if (end && end === $(l.time).value) return 'The end time is the same as the start time. Pick a different end time.';
     }
     return '';
@@ -2104,26 +2111,29 @@
     taxi: { time: 'Pick-up time', length: 'Travel time', from: 'Pick up at', to: 'Drop off at' },
     rideshare: { time: 'Pick-up time', length: 'Travel time', from: 'Pick up at', to: 'Drop off at' },
   };
-  const FIELD_DEFAULTS = { date: 'When', time: 'Time', length: 'How long', operator: 'Company', number: 'Number', from: 'From', to: 'To' };
+  const FIELD_DEFAULTS = { date: 'When', time: 'Start time', length: 'How long', operator: 'Company', number: 'Number', from: 'From', to: 'To' };
+  // The people of the space as chips (a tick box each) for "Whose is it", and as chips with a radio each for "Paid by".
+  function personChip(type, name, value, checked, text) {
+    const label = document.createElement('label');
+    const input = document.createElement('input');
+    input.type = type;
+    if (name) input.name = name;
+    input.value = value;
+    input.checked = checked;
+    label.append(input, document.createTextNode(text));
+    return label;
+  }
   function ownerBoxes(selected) {
     const box = $('f-owners');
-    box.replaceChildren();
-    for (const p of state.people) {
-      const label = document.createElement('label');
-      label.className = 'check';
-      const input = document.createElement('input');
-      input.type = 'checkbox';
-      input.value = p.key;
-      input.checked = selected.includes(p.key);
-      label.append(input, document.createTextNode(` ${p.name}`));
-      box.append(label);
-    }
+    box.replaceChildren(...state.people.map((p) => personChip('checkbox', '', p.key, selected.includes(p.key), p.name)));
   }
   function paidByOptions(selected) {
-    const select = $('f-paidBy');
-    select.replaceChildren(...[{ key: '', name: 'Nobody yet' }, ...state.people].map((p) => { const o = document.createElement('option'); o.value = p.key; o.textContent = p.name; return o; }));
-    select.value = selected || '';
+    const box = $('f-paidBy');
+    const want = selected || '';
+    box.replaceChildren(...[{ key: '', name: 'Nobody yet' }, ...state.people].map((p) => personChip('radio', 'paidBy', p.key, p.key === want, p.name)));
+    if (!box.querySelector('input:checked')) box.querySelector('input').checked = true;
   }
+  const paidByValue = () => { const on = $('f-paidBy').querySelector('input:checked'); return on ? on.value : ''; };
   // The value of a field, or '' when the chosen type does not show it (so a field that is hidden is never saved).
   const shown = (id) => { const w = $(id) && $(id).closest('[data-types]'); return !w || w.classList.contains('on-type'); };
   const get = (id) => (shown(id) ? $(id).value.trim() : '');
@@ -2148,9 +2158,6 @@
     placeOptions($('f-date'), { placedOnly: marker && !keepUnplaced });
     if (marker && !keepUnplaced && unplaced && [...$('f-date').options].some((o) => o.value.startsWith('d:'))) $('f-date').value = [...$('f-date').options].find((o) => o.value.startsWith('d:')).value;
     if (marker && tileAt(kindOf(tile), $('f-date').value) !== tile) return applyType(tileAt(kindOf(tile), $('f-date').value));
-    const noLength = ['block:meet-up', 'block:leave-by'].includes(tile); // a moment, not a stretch of time
-    const lengthLabel = $('f-minutes').closest('.duration');
-    if (lengthLabel) lengthLabel.hidden = noLength;
     // The same fields in each kind's own words (a stay's day is its check-in, a flight's time its departure).
     const labels = { ...FIELD_DEFAULTS, ...(FIELD_WORDS[key] || {}) };
     for (const [name, id] of [['date', 'f-date-label'], ['time', 'f-time-label'], ['length', 'f-minutes-label'], ['operator', 'f-operator-label'], ['number', 'f-number-label'], ['from', 'f-from-label'], ['to', 'f-to-label'], ['time', 'f-back-time-label'], ['length', 'f-back-minutes-label'], ['number', 'f-back-number-label'], ['from', 'f-back-from-label'], ['to', 'f-back-to-label']]) if ($(id)) $(id).textContent = labels[name];
@@ -2195,6 +2202,7 @@
     }) : null;
     return kindField;
   }
+  const setModeOn = (b, on) => { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); };
   const chosenMode = () => { const on = $('f-travelMode') && $('f-travelMode').querySelector('.mode.on'); return on ? on.dataset.mode : null; };
 
   // The form opens as the SDK's editor window (host.ui.editor): over everything, sized to the form (large for an item, medium
@@ -2204,7 +2212,7 @@
     const form = $('form');
     const ed = state.editing;
     if (!form || !ed) return '';
-    const fields = [...form.querySelectorAll('input, select, textarea')].map((el, i) => `${el.id || el.name || i}=${el.type === 'checkbox' ? el.checked : el.value}`);
+    const fields = [...form.querySelectorAll('input, select, textarea')].map((el, i) => `${el.id || el.name || i}${el.type === 'radio' ? `:${el.value}` : ''}=${el.type === 'checkbox' || el.type === 'radio' ? el.checked : el.value}`);
     return `${ed.tile}|${chosenMode()}|${fields.join('\n')}`;
   };
   const editorOpened = () => { if (state.editing) state.editing.opened = formSnapshot(); };
@@ -2243,6 +2251,8 @@
       $('editor-title').textContent = 'The dates';
       $('f-start').value = t.start || '';
       $('f-end').value = t.end || '';
+      host.ui.datePicker($('f-start'), { clearable: true });
+      host.ui.datePicker($('f-end'), { clearable: true });
       host.ui.currencySelect($('f-currency'), { value: t.currency || '', empty: true }); // "" is the server's currency
       $('f-by').textContent = '';
     } else {
@@ -2257,6 +2267,8 @@
       dayField($('f-checkout'), { checkout: true });
       arrivalField($('f-arrival-day'));
       arrivalField($('f-back-arrival-day'));
+      lookupDayFields();
+      for (const unit of $('form').querySelectorAll('[data-slot="currency"]')) unit.textContent = planCurrency() || host.locale().currency || '';
       placeOptions($('f-date'));
       setPlaceMenu($('f-date'), item ? placeOf(item) : place);
       const picker = addKindPicker(preset ? kindOf(preset) : undefined);
@@ -2290,7 +2302,7 @@
       $('f-estimate').value = v.estimate || '';
       paidByOptions(item ? item.paidBy : info.user.key);
       ownerBoxes(v.owners || []);
-      for (const b of $('f-travelMode').querySelectorAll('.mode')) b.classList.toggle('on', b.dataset.mode === v.travelMode);
+      for (const b of $('f-travelMode').querySelectorAll('.mode')) setModeOn(b, b.dataset.mode === v.travelMode);
       setLength('f-travelHours', 'f-travelMinutes', v.travelMinutes);
       openReturn(item);
       showLookups();
@@ -2455,6 +2467,18 @@
     out: { pre: 'f-', date: 'f-date', time: 'f-time', hours: 'f-hours', minutes: 'f-minutes', number: 'f-number', fromCode: 'f-fromCode', from: 'f-from', toCode: 'f-toCode', to: 'f-to', operator: 'f-operator', terminal: 'f-terminal', arrival: 'f-arrival', arrivalDay: 'f-arrival-day', arrivalTime: 'f-arrival-time', title: 'f-title', was: 'dayWas' },
     back: { pre: 'f-back-', date: 'f-back-date', time: 'f-back-time', hours: 'f-back-hours', minutes: 'f-back-minutes', number: 'f-back-number', fromCode: 'f-back-fromCode', from: 'f-back-from', toCode: 'f-back-toCode', to: 'f-back-to', arrival: 'f-back-arrival', arrivalDay: 'f-back-arrival-day', arrivalTime: 'f-back-arrival-time', was: 'backDayWas' },
   };
+  // The look-up's day is a date field like the others, with the list of the plan's days (none: a flight can be from before the plan).
+  const lookupPickers = {};
+  function lookupDayFields() {
+    for (const leg of Object.keys(LEGS)) {
+      const input = lookupEl(leg, 'date');
+      lookupPickers[leg] = null;
+      if (!input) continue;
+      lookupPickers[leg] = host.ui.datePicker(input, choosableDays().length
+        ? { list: { label: 'Pick from the list', items: (set) => dayMenuItems({ current: { date: input.value || null }, choose: (x) => set(x.date), days: choosableDays(), none: null, joints: false }) } }
+        : {});
+    }
+  }
   const lookupEl = (leg, part) => $(`${LEGS[leg].pre}lookup${part ? `-${part}` : ''}`);
   const legOfLookup = (el) => { const row = el && el.closest('.lookup'); return row ? (row.id === 'f-back-lookup' ? 'back' : 'out') : null; };
   // Show or hide both rows as the server offers the lookup or not.
@@ -2468,13 +2492,13 @@
     const date = lookupEl(leg, 'date');
     if (!number || !date || !$(l.number) || !$(l.date)) return;
     if (!number.value) number.value = $(l.number).value.trim();
-    if (!date.value) date.value = parsePlace($(l.date).value).date || '';
+    if (!date.value) { date.value = parsePlace($(l.date).value).date || ''; if (lookupPickers[leg]) lookupPickers[leg].refresh(); }
   }
   function lookupSay(leg, text, bad) {
     const msg = lookupEl(leg, 'msg');
     if (!msg) return;
     msg.textContent = text || '';
-    msg.classList.toggle('bad', Boolean(bad));
+    msg.className = `${bad ? 'sdk-error' : 'sdk-hint'} lookup-msg`;
   }
   function closeLookupList(leg) {
     const list = lookupEl(leg, 'list');
@@ -2618,6 +2642,29 @@
     findFlight(leg);
   });
 
+  // An amount typed as text ("1,234.50"): null when empty or not shown, NaN when it is not an amount.
+  const amountOf = (id) => {
+    if (!shown(id)) return null;
+    const raw = $(id).value.trim();
+    if (!raw) return null;
+    const n = Number(raw.replace(/[\s,]/g, ''));
+    return Number.isFinite(n) && n >= 0 ? n : NaN;
+  };
+  // A refusal that is one field's goes under it (its #<id>-error), the field is marked and has the focus; it goes when the field is typed in.
+  function fieldError(id, text) {
+    const el = $(id);
+    const slot = $(`${id}-error`);
+    if (!el || !slot) { $('f-error').textContent = text; $('f-error').hidden = false; return; }
+    slot.textContent = text;
+    el.setAttribute('aria-invalid', 'true');
+    el.focus();
+  }
+  function clearFieldError(el) {
+    const slot = el && el.id ? $(`${el.id}-error`) : null;
+    if (!slot || !slot.textContent) return;
+    slot.textContent = '';
+    el.removeAttribute('aria-invalid');
+  }
   async function saveEditor() {
     const ed = state.editing;
     if (!ed) return;
@@ -2643,9 +2690,13 @@
         return closeEditor();
       }
       const item = ed.id ? plan.list().find((i) => i.id === ed.id) : null;
-      if (!ed.isLink && !ed.tile.startsWith('block:') && !ed.tile.startsWith('lane:') && !$('f-title').value.trim()) return fail('Give it a title.');
+      if (!ed.isLink && !ed.tile.startsWith('block:') && !ed.tile.startsWith('lane:') && !$('f-title').value.trim()) return fieldError('f-title', 'Give it a title.');
+      const cost = amountOf('f-cost');
+      const estimate = amountOf('f-estimate');
+      if (Number.isNaN(cost)) return fieldError('f-cost', 'Enter an amount, like 12.50.');
+      if (Number.isNaN(estimate)) return fieldError('f-estimate', 'Enter an amount, like 12.50.');
       const endSaid = endProblem();
-      if (endSaid) return fail(endSaid);
+      if (endSaid) { fail(endSaid); $(LENS.out.end).focus(); return; }
       if (tooLong('f-hours', 'f-minutes') || tooLong('f-travelHours', 'f-travelMinutes') || (roundTripOn() && tooLong('f-back-hours', 'f-back-minutes'))) return fail('A length can be at most 7 days (168 hours).');
       const common = {
         title: $('f-title').value.trim(),
@@ -2655,10 +2706,10 @@
         owners: [...$('f-owners').querySelectorAll('input:checked')].map((i) => i.value),
         travelMode: shown('f-travelMode') ? chosenMode() : null,
         travelMinutes: lengthOf('f-travelHours', 'f-travelMinutes'),
-        cost: num('f-cost'),
-        estimate: num('f-estimate'),
+        cost,
+        estimate,
       };
-      common.paidBy = common.cost ? $('f-paidBy').value : '';
+      common.paidBy = common.cost ? paidByValue() : '';
       let fields;
       if (ed.isLink) {
         fields = { ...common, kind: 'link', time: $('f-time').value || null, minutes: lengthOf('f-hours', 'f-minutes'), pinned: Boolean($('f-pinned') && $('f-pinned').checked) };
@@ -2752,17 +2803,17 @@
     if (['f-arrival-day', 'f-arrival-time'].includes(e.target.id)) arrivalFieldsInto('out');
     if (['f-back-arrival-day', 'f-back-arrival-time'].includes(e.target.id)) arrivalFieldsInto('back');
     if (Object.values(LENS).some((l) => [l.end, l.time, l.hours, l.minutes].includes(e.target.id)) && $('f-error')) $('f-error').hidden = true; // what was refused is being fixed
-    for (const l of Object.values(LENS)) if (endMode() && (e.target.id === l.end || (e.target.id === l.time && $(l.end).value))) endToLength(l);
+    clearFieldError(e.target);
+    if (CODE_NAMES[e.target.id] && e.target.value !== e.target.value.toUpperCase()) { const at = e.target.selectionStart; e.target.value = e.target.value.toUpperCase(); try { e.target.setSelectionRange(at, at); } catch (err) { /* a field with no caret */ } }
+    for (const l of Object.values(LENS)) {
+      if (!endMode()) break;
+      if (e.target.id === l.end || (e.target.id === l.time && $(l.end).value && !lengthOf(l.hours, l.minutes))) endToLength(l);
+    }
     if (['f-time', 'f-hours', 'f-minutes', 'f-arrival-day', 'f-arrival-time', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-arrival-day', 'f-back-arrival-time'].includes(e.target.id)) showArrival();
     if (['f-title', 'f-back-to', 'f-back-toCode'].includes(e.target.id) && $('f-back-title')) $('f-back-title').placeholder = backTitle();
   });
-  $('editor').addEventListener('click', (e) => {
-    const b = e.target.closest && e.target.closest('.lm');
-    if (!b) return;
-    lenMode = b.dataset.lenmode === 'end' ? 'end' : 'length';
-    try { localStorage.setItem(LENMODE_KEY, lenMode); } catch (err) { /* not remembered */ }
-    showArrival();
-  });
+  // Without the browser's own bubble, a missing title is said under the field.
+  $('editor').addEventListener('invalid', (e) => { if (e.target.id === 'f-title') { e.preventDefault(); fieldError('f-title', 'Give it a title.'); } }, true);
   $('editor').addEventListener('change', (e) => {
     // The check-out a person picks is theirs (an empty one too); until then it follows the check-in day.
     if (e.target.id === 'f-checkout' && state.editing) state.editing.checkOut = e.target.value;
@@ -2824,8 +2875,8 @@
     if (b.id === 'f-cancel') return cancelEditor();
     if (b.classList.contains('mode')) {
       const was = b.classList.contains('on');
-      for (const m of $('f-travelMode').querySelectorAll('.mode')) m.classList.remove('on');
-      if (!was) b.classList.add('on');
+      for (const m of $('f-travelMode').querySelectorAll('.mode')) setModeOn(m, false);
+      if (!was) setModeOn(b, true);
       return;
     }
     if (b.id === 'f-extra-delete') {

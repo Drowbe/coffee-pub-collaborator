@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { encryptSecret, decryptSecret } = require('./auth');
 const { ICONS, KINDS, FENCE, cleanObject, objectRule } = require('./object-format');
+const { word } = require('./words');
 
 // A key kept at rest is encrypted (AES-256-GCM, server/auth.js's encryptSecret: 'aesgcm$...'). The sentence shown
 // when a saved one can't be read with this server's key -- data restored onto a different host, say, which has a
@@ -563,9 +564,9 @@ function buildPrompt(task, items, question, kinds) {
 const KEEP_WORDS = 'something worth keeping (a place, an event, a fact, a thing to do or book)';
 const summaryRule = (kinds, task = 'ask') => {
   const when = task === 'summarise'
-    ? `Include the part of your summary worth keeping as objects, but none if the material has nothing worth keeping.`
-    : `Include objects only when your answer contains ${KEEP_WORDS}. Small talk, greetings and questions about you get none, and an answer with nothing to keep needs no block at all.`;
-  return `${when} Objects go only in the fenced block, never inline in your answer text. Put every object worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun: 'object', max: MAX_SUMMARIES, withProvenance: true, kinds })}`;
+    ? `Include the part of your summary worth keeping as ${word('object', { many: true })}, but none if the material has nothing worth keeping.`
+    : `Include ${word('object', { many: true })} only when your answer contains ${KEEP_WORDS}. Small talk, greetings and questions about you get none, and an answer with nothing to keep needs no block at all.`;
+  return `${when} ${word('object', { many: true, cap: true })} go only in the fenced block, never inline in your answer text. Put every ${word('object')} worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun: word('object'), max: MAX_SUMMARIES, withProvenance: true, kinds })}`;
 };
 
 function cleanSummary(raw, count) {

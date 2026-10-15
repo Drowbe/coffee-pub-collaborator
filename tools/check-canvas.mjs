@@ -1453,6 +1453,11 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/@media \(max-width: 760px\) \{\s*\.home,[^{]*\{\s*grid-template-columns: minmax\(0, 1fr\);\s*grid-template-areas: "main" "chat" "modules";/.test(css)) fail('public/style.css', 'at 760px and below Home is one column, the spaces first');
   if (!/\.home-modules:has\(> \.dashboard\[hidden\]\) \{\s*display: none;/.test(css)) fail('public/style.css', 'no tiles, no Modules column');
   if (!/\.home-main \.space-list \{\s*grid-template-columns: repeat\(auto-fill, minmax\(min\(100%, max\(260px, calc\(\(100% - 18px\) \/ 2\)\)\), 1fr\)\);/.test(css)) fail('public/style.css', 'the space cards are two wide where they fit, never more');
+  // Chat only on Home (GitHub #326, Thomas 2026-10-15): no Assistant tab, no Start call, no commands there; a space has all
+  // three, and in a call on Home the call bar is the call's own (the join button is hidden in a call anyway).
+  if (!/isHome: \(\) => Boolean\(homeChatSpace\),/.test(spaceJs) || !/setViewsVisible\(Boolean\(spaceId\(\)\) && !isHome\(\)\)/.test(fs.readFileSync(path.join(ROOT, 'public/chat-input.js'), 'utf8'))) fail(F, 'Home\'s chat hides the Discussion | Assistant switch (the Assistant belongs to a space)');
+  if (!/const joinCallWanted = \(\) => Boolean\(currentSpace\) && !homeChatSpace && call\.state === 'connected' && !inCall/.test(spaceJs)) fail(F, 'Start call and Join call are not offered on Home, and still are in a space');
+  if (!/homeChatSpace = null;\n  homeChatChanged\(\);/.test(spaceJs)) fail(F, 'leaving Home\'s chat puts the switch, Start call and the commands back');
   // The width: its own preference, the space column's limits and keys.
   if (!/homeChatWidth: 360,/.test(spaceJs)) fail(F, 'Home\'s chat column is 360px by default (DEFAULT_PREFS.homeChatWidth)');
   if (!/prefs\.homeChatWidth = clampColumnWidth\(value, window\.innerWidth\);/.test(spaceJs)) fail(F, 'Home\'s chat width is held between COLUMN_MIN and the whole window (clampColumnWidth)');

@@ -9,7 +9,8 @@
  *                                                    the product uses and their SVGs), which the page itself reads when it is
  *                                                    served by the app; the snapshot always rebuilds it
  *
- * The folder holds: index.html (paths made relative), ds.css, ds.js, components*.js, sources.js (every stylesheet and the SDK as
+ * The folder holds: index.html (paths made relative), ds.css, ds.js, components*.js, proposed.js and proposed.css (the Proposed system view: the
+ * proposed rules, all under .ds-proposed, which the page puts into the frames of that view only), sources.js (every stylesheet and the SDK as
  * text, so the page works from disk and from any static host), style.css, theme.css (Strong Coffee's light set; the dark set is
  * style.css's own), fa/ (Font Awesome's stylesheet and fonts), no external script. Stylesheets are the only thing the page loads
  * by link. Fails above 12 MB.
@@ -106,6 +107,7 @@ export function buildSources({ withFiles } = {}) {
     data.files = {
       'style.css': rd('public/style.css'), 'host.css': rd('public/sdk/host.css'), 'host.js': rd('public/sdk/host.js'),
       'destination.css': rd('public/destination.css'), 'landing.css': rd('public/landing.css'), 'diag.css': rd('public/diag.css'),
+      'proposed.css': rd('public/design-system/proposed.css'),
       'theme.css': themeCss({ light: DEFAULT_THEME.light, dark: null }, 'dark'),
     };
   }
@@ -127,7 +129,7 @@ export function buildSnapshot(out) {
   let html = fs.readFileSync(path.join(DS, 'index.html'), 'utf8');
   html = html.replace('href="/fa/css/all.min.css"', 'href="fa/css/all.min.css"').replace('href="/style.css"', 'href="style.css"').replace('href="/theme.css"', 'href="theme.css"');
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  for (const f of fs.readdirSync(DS)) if (/^(ds\.css|ds\.js|components[-0-9]*\.js)$/.test(f)) copy(path.join(DS, f), path.join(out, f));
+  for (const f of fs.readdirSync(DS)) if (/^(ds\.css|ds\.js|components[-0-9]*\.js|proposed\.(js|css))$/.test(f)) copy(path.join(DS, f), path.join(out, f));
   const { data, js, unknown } = buildSources({ withFiles: true });
   fs.writeFileSync(path.join(out, 'sources.js'), js);
   fs.writeFileSync(path.join(out, 'style.css'), data.files['style.css']);

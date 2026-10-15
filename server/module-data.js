@@ -21,6 +21,11 @@ const LIMITS = {
   moduleBytes: 5 * 1024 * 1024, // everything one module has stored
 };
 
+// The module folders under DATA_DIR/modules (a module's id each); the files beside them (registry.json, links.json...) are not.
+function moduleFolders(dir) {
+  try { return fs.readdirSync(dir, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name); } catch { return []; }
+}
+
 class ModuleData extends EventEmitter {
   constructor(modulesDir) {
     super();
@@ -122,6 +127,20 @@ class ModuleData extends EventEmitter {
     return { moved, kept, scopes };
   }
 
+  // A deleted space takes its data in every module: modules/<id>/data/space-<space id>.json for each module folder, and
+  // the cached copy. A file that cannot be removed throws (a missing one is fine). Answers how many files went.
+  forgetSpace(spaceId) {
+    if (!SPACE_RE.test(spaceId)) return 0;
+    let gone = 0;
+    for (const id of moduleFolders(this.dir)) {
+      const file = path.join(this.dir, id, 'data', `space-${spaceId}.json`);
+      if (fs.existsSync(file)) { fs.rmSync(file); gone += 1; }
+      fs.rmSync(`${file}.tmp`, { force: true });
+      this.cache.delete(`${id}|space:${spaceId}`);
+    }
+    return gone;
+  }
+
   // Drop cached scopes for a module (after its data was deleted).
   forget(id) {
     for (const key of [...this.cache.keys()]) if (key.startsWith(`${id}|`)) this.cache.delete(key);
@@ -196,4 +215,4 @@ class ModuleData extends EventEmitter {
   }
 }
 
-module.exports = { ModuleData, LIMITS: { ...LIMITS } };
+module.exports = { ModuleData, moduleFolders, LIMITS: { ...LIMITS } };

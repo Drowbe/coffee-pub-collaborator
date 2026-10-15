@@ -71,6 +71,18 @@ class ModuleBus extends EventEmitter {
     return before.filter((a) => !kept.has(a) && a.status !== 'done');
   }
 
+  // A deleted space: its events and its waiting or finished requests go with it (not announced as dropped: the space is gone).
+  forgetSpace(spaceId) {
+    const scope = `space:${spaceId}`;
+    const inSpace = (x) => x.scopeKey === scope || x.space === spaceId;
+    const before = this.state.events.length + this.state.actions.length;
+    this.state.events = this.state.events.filter((e) => !inSpace(e));
+    this.state.actions = this.state.actions.filter((a) => !inSpace(a));
+    const gone = before - this.state.events.length - this.state.actions.length;
+    if (gone) this.save();
+    return gone;
+  }
+
   // prune(), save, then say which requests went without being carried out.
   pruneAndSave() {
     const dropped = this.prune();

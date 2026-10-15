@@ -12,6 +12,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { cleanImage } = require('./image-clean');
 const { StoreError } = require('./store');
+const { moduleFolders } = require('./module-data');
 
 const ID_RE = /^[a-f0-9]{24}$/;
 const SPACE_RE = /^[a-z0-9]{4,16}$/;
@@ -110,6 +111,20 @@ class ModuleUploads {
     const dir = this.scopeDir(id, scopeKey);
     for (const ext of ['bin', 'thumb', 'json']) fs.rmSync(path.join(dir, `${fid}.${ext}`), { force: true });
     return true;
+  }
+
+  // A deleted space takes its uploads in every module: modules/<id>/uploads/space-<space id>/ with every file in it. A folder
+  // that cannot be removed throws. Answers how many files (not counting thumbnails) went.
+  forgetSpace(spaceId) {
+    if (!SPACE_RE.test(spaceId)) return 0;
+    let gone = 0;
+    for (const id of moduleFolders(this.dir)) {
+      const dir = path.join(this.dir, id, 'uploads', `space-${spaceId}`);
+      if (!fs.existsSync(dir)) continue;
+      gone += fs.readdirSync(dir).filter((n) => n.endsWith('.bin')).length;
+      fs.rmSync(dir, { recursive: true });
+    }
+    return gone;
   }
 
   // What a module's uploads take, for the admin: { files, bytes }.

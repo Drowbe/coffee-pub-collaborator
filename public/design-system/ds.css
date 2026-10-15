@@ -14,6 +14,7 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 .ds-search input { width: 100%; height: 34px; padding: 0 10px 0 32px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-input); color: var(--text); font: inherit; }
 .ds-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-left: auto; }
 .ds-tools .tb-tab { height: 30px; }
+.ds-tools .tb-tab-word { white-space: nowrap; }
 .ds-menu-btn { display: none; }
 
 .ds-shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); align-items: start; }
@@ -83,6 +84,26 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
 .ds-use { color: var(--text-dim); font-size: 12px; margin: 0 0 8px; }
 
 .ds-pre { margin: 0; padding: 10px; overflow: auto; border-radius: var(--radius-small); background: var(--shade); font-size: 12px; }
+
+/* The Proposed system view: status chips (a fill and text, no edge), the family spec and the not-yet-decided rows */
+.ds-status-chip { display: inline-flex; align-items: center; padding: 1px 9px; border-radius: var(--radius-round); font-size: 11px; font-weight: 700; white-space: nowrap; }
+.ds-st-proposed { background: color-mix(in srgb, var(--tint-blue) 20%, transparent); color: var(--tint-blue); }
+.ds-st-approved { background: color-mix(in srgb, var(--tint-green) 20%, transparent); color: var(--tint-green); }
+.ds-st-undecided { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text-dim); }
+.ds-nav a .ds-status-chip { flex: none; align-self: center; font-size: 10px; padding: 0 7px; }
+.ds-undecided { padding-top: 12px; padding-bottom: 6px; background: none; }
+.ds-undecided h3 { font-size: 15px; }
+.ds-undecided .ds-desc { margin-bottom: 6px; }
+.ds-spec h4.ds-h4 { margin-top: 30px; padding-top: 4px; }
+.ds-spec ul.ds-desc { padding-left: 20px; }
+.ds-spec .ds-desc code, .ds-spec td code { font-size: 12px; }
+.ds-spec td { color: var(--text); }
+.ds-toc { display: flex; flex-wrap: wrap; gap: 4px 6px; margin: 0 0 8px; }
+.ds-toc a { padding: 3px 10px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text) 8%, transparent); color: var(--text); font-size: 12px; }
+.ds-toc a:hover { background: color-mix(in srgb, var(--text) 14%, transparent); }
+.ds-propnote { margin-top: -4px; }
+.ds-propnote .ds-status-chip { margin-right: 6px; }
+.ds-table td { word-break: normal; }
 
 @media (max-width: 900px) {
   .ds-shell { grid-template-columns: minmax(0, 1fr); }

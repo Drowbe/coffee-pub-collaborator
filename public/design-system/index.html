@@ -24,6 +24,10 @@
       <input type="search" id="ds-search" placeholder="Search components, tokens, icons" autocomplete="off">
     </label>
     <div class="ds-tools" role="group" aria-label="Page tools">
+      <div class="tb-tabs" role="group" aria-label="Which view" id="ds-view">
+        <button type="button" class="tb-tab on" data-view="today" aria-pressed="true"><span class="tb-tab-word">Today</span></button>
+        <button type="button" class="tb-tab" data-view="proposed" aria-pressed="false"><span class="tb-tab-word">Proposed system</span></button>
+      </div>
       <div class="tb-tabs" role="group" aria-label="Light or dark" id="ds-mode">
         <button type="button" class="tb-tab on" data-mode="dark" aria-pressed="true"><span class="tb-tab-glyph"><i class="fa-solid fa-moon" aria-hidden="true"></i></span><span class="tb-tab-word">Dark</span></button>
         <button type="button" class="tb-tab" data-mode="light" aria-pressed="false"><span class="tb-tab-glyph"><i class="fa-solid fa-sun" aria-hidden="true"></i></span><span class="tb-tab-word">Light</span></button>
@@ -37,17 +41,20 @@
     </div>
   </header>
   <div class="ds-shell">
-    <nav class="ds-nav" id="ds-nav" aria-label="Sections"></nav>
+    <nav class="ds-nav" id="ds-nav" aria-label="Sections, today"></nav>
+    <nav class="ds-nav" id="ds-nav-p" aria-label="Sections, proposed system" hidden></nav>
     <main class="ds-main" id="ds-main" tabindex="-1">
       <noscript>This page needs JavaScript: its examples are drawn from the product's stylesheets.</noscript>
       <div id="ds-status" class="ds-status" role="status">Loading the product's stylesheets</div>
-      <div id="ds-content"></div>
+      <div id="ds-today"><div id="ds-content"></div></div>
+      <div id="ds-content-p" hidden></div>
     </main>
   </div>
   <script src="sources.js"></script>
   <script src="components.js"></script>
   <script src="components-2.js"></script>
   <script src="components-3.js"></script>
+  <script src="proposed.js"></script>
   <script src="ds.js"></script>
 </body>
 </html>

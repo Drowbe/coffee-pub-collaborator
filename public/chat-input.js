@@ -933,7 +933,7 @@ export function keptNoticeTakes(entry, data, from) {
   return Boolean(cleanKept(data.kept));
 }
 
-export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null }) {
+export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null, isHome = () => false }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // A command's own hint is left alone. In the Assistant, plain words go to the AI (routeLine), and its hint says so.
@@ -982,8 +982,11 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     el.classList.toggle('error', Boolean(text) && error);
   }
 
+  // On Home the chat is the Discussion alone (GitHub #326, Thomas 2026-10-15): no Assistant, and no commands, which
+  // run in a space's modules. A typed /word says there is no such command.
   function commandList() {
     const list = [];
+    if (isHome()) return list;
     for (const m of canvas.list()) {
       for (const c of m.commands || []) {
         list.push({
@@ -1080,9 +1083,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     if (onAssistantNew) onAssistantNew(newIn.assistant);
   }
   function setView(next, { focusTab = false } = {}) {
-    view = spaceId() ? readView(next) : 'discussion';
+    view = spaceId() && !isHome() ? readView(next) : 'discussion';
     const id = spaceId();
-    if (id) {
+    if (id && !isHome()) {
       try { sessionStorage.setItem(viewKey(id), view); } catch { /* not remembered */ }
     }
     for (const v of CHAT_VIEWS) {
@@ -1127,7 +1130,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     const g = $('chat-views');
     if (!g) return;
     g.hidden = !on;
-    if (!on) { view = 'discussion'; const list = $('messages'); if (list) list.dataset.view = view; newIn.assistant = 0; paintNew(); syncEmpty(); return; }
+    if (!on) { view = 'discussion'; const list = $('messages'); if (list) list.dataset.view = view; if ($('chat')) $('chat').dataset.view = view; newIn.assistant = 0; paintNew(); syncEmpty(); return; }
     loadView();
     // The shared view switch's fit (public/sdk/host.js): icons only while the chat is too narrow for the words.
     if (window.hostSwitch) window.hostSwitch.watch(g);
@@ -1181,8 +1184,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   // On entering a space: the views, and whether this space can keep a pasted import. Private and public messages
   // alike come from GET .../chat (space.js, renderChatHistory); there is no separate AI thread to load any more.
   async function loadThread() {
-    setViewsVisible(Boolean(spaceId()));
-    if (!spaceId() || !getMe()) return;
+    setViewsVisible(Boolean(spaceId()) && !isHome());
+    if (!spaceId() || isHome() || !getMe()) return;
     await refreshImport();
   }
 

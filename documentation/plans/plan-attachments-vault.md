@@ -5,7 +5,7 @@ the store, the routes, the permission rules and the checks; experience-design bu
 each module's use of them and the Vault; quality-assurance reviews the permission step as a security change;
 content-manager documents.
 
-**Status:** draft for Thomas, 2026-10-15; nothing decided, nothing built. From three GitHub issues:
+**Status:** partly decided 2026-10-15 (questions 1 to 4); nothing built. Questions 5 to 10 are open. From three GitHub issues:
 
 - #252, Thomas, 2026-10-13: "We need to support attachments for our research, planner, notes, etc."
 - #253, Thomas, 2026-10-13, from user feedback: "'research' implies 'planning' and the user struggles to see its value
@@ -13,7 +13,7 @@ content-manager documents.
 - #232, the Chrome extension that sends a page, a selection or a ticket into a trip. It may later feed attachments;
   this plan names only the hooks it would need.
 
-Related: #64 (integration tokens, which the extension needs), #211 (a published view of a trip, which must never show
+Related: Server issue #337 (deleting a space leaves its module uploads and data on disk; a dependency of the delete steps, see Left to build), #64 (integration tokens, which the extension needs), #211 (a published view of a trip, which must never show
 an attachment), #221 (Chat's name, the same naming pass as Research's), #132 (the document editor; no overlap: files
 are not prose), [plan-object-handoff](plan-object-handoff.md) (the objects format, Send to..., the upload sweep),
 [plan-object-status](plan-object-status.md) (a status of `confirmed`, approved, not built) and
@@ -43,9 +43,9 @@ All of this is read as code only.
   sweeps an upload whose object is gone, except Send to...'s seven-day sweep of pictures that never arrived
   (`server/environment.js`). That sweep's activity line names the file ("removed a picture sent to it that was never
   added (<name>)").
-- **Deleting a space does not delete its module uploads or module data.** `DELETE /api/spaces/:id` forgets settings,
+- **Deleting a space does not delete its module uploads or module data** (Server issue #337). `DELETE /api/spaces/:id` forgets settings,
   chat, attention and facts, but `space-<id>` folders under each module stay on disk. For photos that is untidy; for
-  passports it would be a privacy defect. This is a defect today, separate from this plan, for bug-fixes.
+  passports it would be a privacy defect. This is a defect today, tracked as #337 and separate from this plan, for bug-fixes.
 - Limits: the `upload` rate limit per module and person (`overLimit`), and on a hosted install the plan's storage cap
   (`checkStorageCap`, `planCap('storageBytes')`). There is no per-space quota.
 
@@ -83,14 +83,26 @@ yet as a component: a file chip, an attachment list, an upload drop zone, a prev
 
 ## Decisions
 
-None yet. This section will hold Thomas's decisions, in his words, as he makes them.
+Thomas decided these on 2026-10-15, taking the recommendation each time.
+
+1. **One shared attachments service for every object**, not each module widening its own uploads. Reason: one permission
+   rule for every module (module uploads let guests read what the module's `view` allows), one place for the Vault to
+   read, one place to audit.
+2. **Order of objects.** Planner objects and Research notes take files first; then To-do, Calendar and Budget
+   (receipts), one at a time. Reason: the Planner holds the bookings the Vault is for, and Research notes are the other
+   place people already want files.
+3. **Visibility has two choices:** "Everyone on this trip" (`space`) and "Only me" (`me`); chosen people (`people`)
+   later. Guests, the OBS access key, published views, search, summaries and the AI never see a file or its name.
+   Reason: two choices are simple to explain and to check; a name alone can give away a passport or a booking.
+4. **An owner or admin may not open someone's "Only me" file.** They can remove it and see totals only, never the name
+   or the bytes. Reason: privacy of personal documents; removal still lets an owner deal with abuse.
 
 ## Proposal
 
-What follows is the draft contract, built on the lean in each open question below. Where a choice is still open, the
-text says "if decided as recommended".
+What follows is the contract. Sections 1 to 6 follow Thomas's decisions 1 to 4 above. Where a choice is still open
+(questions 5 to 10), the text says "if decided as recommended" and the lean is a suggestion only.
 
-### 1. One mechanism for every object (open question 1)
+### 1. One mechanism for every object (decision 1)
 
 Attachments are a host service, like summaries and links, not a wider kind of module upload. A module opts in per kind
 of object; the server stores, checks and guards the files; one SDK component draws them. Reasons: one permission rule
@@ -149,14 +161,14 @@ within its visibility. Everyone else gets nothing, not a count, not a name.
 - **Never:** a guest (in any role set, whatever the module's `view` says); the OBS access key or any keyed page; the
   published calendar, the calendar feeds, the published view of #211 when it exists; the AI; the objects format's
   export; Send to... and Chat. A guest asking gets 404, as if there were no such file.
-- **Visibility**, per attachment (open question 3), set by the person who adds it and changed only by them:
+- **Visibility**, per attachment (decision 3), set by the person who adds it and changed only by them:
 
 | Stored value | Words | Who sees it |
 |---|---|---|
 | `space` | Everyone on this trip (the space's word) | members of the space (and owners) who can read the object |
-| `me` | Only me | the person who added it; not an owner, not an admin (open question 4) |
+| `me` | Only me | the person who added it; not an owner, not an admin (decision 4) |
 
-  A third value, `people` (chosen members of the space), is left for later; the stored field takes new values without
+  A third value, `people` (chosen members of the space), is left for later (decision 3); the stored field takes new values without
   a migration.
 - **Default:** `space` on a Planner, Research, To-do or Calendar object; `me` for a personal document in the Vault.
 - **Reading the object** means: a member of the space or someone with owner rights, the module on in that space and
@@ -280,7 +292,7 @@ not install the new files.
 | # | Step | Agent | Kind |
 |---|---|---|---|
 | 1 | `server/attachments.js`: the store, the type sniffing and PDF scan, the name cleaning, the limits from the environment, the totals; no routes. `tools/check-attachments.mjs` in `npm run check` | server-development | try build |
-| 2 | The routes, the permission rule, the headers, the manifest's `attachments`, delete with the space and the person, the daily sweep, the activity lines; the check extended with the permission matrix | server-development | **feedback build with a QA security review** |
+| 2 | The routes, the permission rule (decisions 3 and 4: an owner or admin can remove an Only me file and sees totals only), the headers, the manifest's `attachments`, delete with the object and the space and the person, the daily sweep, the activity lines; the check extended with the permission matrix. The delete-with-object/space part depends on Server issue #337 (below) | server-development | **feedback build with a QA security review** |
 | 3 | The design-system pieces (file chip, attachment list, upload drop zone, preview, visibility choice) and icons on the design system page, after Thomas agrees to each; needs that plan's page (its steps 3 to 6) | experience-design | try build |
 | 4 | `host.attachments` and `host.ui.attachments` in the SDK, through the bridge | experience-design | try build |
 | 5 | Planner: `attachments` on its plan kind, the list in the editor and on each object, on the **Bookings** view; version bump | experience-design | try build |
@@ -290,6 +302,15 @@ not install the new files.
 | 9 | The Vault's Mine (personal documents in person scope); Vault bump | server-development, experience-design | feedback build with QA |
 | 10 | Documentation: api-modules (`attachments`, the routes), api-module-sdk, architecture-modules (storage), the Planner, Research and new Vault user guides, the environment variables, the CHANGELOG | content-manager | after each step |
 
+Dependency: **Server issue #337** (deleting a space leaves its module uploads and data on disk) is a dependency of the
+delete-with-object/space part of step 2. Step 2 removes `attachments/space-<id>/` itself, so it does not wait on #337 to
+build, but the "nothing of a deleted space stays on disk" claim, its check and the Vault's personal documents (step 9)
+wait until bug-fixes has closed #337. Step 2's check includes a deleted space leaving no attachment file, and a
+throwaway-server case for module uploads once #337 is fixed.
+
+Decisions 1 to 4 are made, so step 2 is no longer blocked by questions. Steps 1 to 6 can be built now. What the open
+questions block is in What is not decided.
+
 ## Verify
 
 - **Checked by a tool** (`tools/check-attachments.mjs`, a throwaway server with stand-in modules):
@@ -297,7 +318,8 @@ not install the new files.
     an SVG, HTML and a zip refused; a renamed `.exe` kept with the sniffed extension; each limit from its variable and
     its default when unset or not a number; totals per space and environment;
   - step 2: the permission matrix, every cell: a guest, the access key, a signed-in non-member, a member without the
-    module's `read`, a member with it, the adder, an owner, for `space` and `me`, on list, download, preview, rename,
+    module's `read`, a member with it, the adder, an owner, an admin, for `space` and `me` (an owner or admin gets 404 on
+    list, download and preview of another person's `me` file and can remove it; totals show no name), on list, download, preview, rename,
     replace and remove; a refused read is 404 and lists nothing; every download header present; summaries, search, the
     published calendar, a calendar feed, facts and the activity list hold no file name after an add (a planted name is
     searched for in every answer); delete with the space and the person; the sweep after the object is removed;
@@ -321,11 +343,12 @@ not install the new files.
 - **PDF active content.** The byte scan misses hidden names; the headers stop the browser running anything, but a
   person's own PDF reader opens the download. The proposal adds no warning on the drop zone; the refusal sentence is
   the only word about it.
-- **Owners cannot open Only me files.** Good for privacy, and it means an owner cannot see what is in a file that may
+- **Owners cannot open Only me files** (decision 4). Good for privacy, and it means an owner cannot see what is in a file that may
   be abusive; they can remove it.
 - **Unencrypted until step 8**, including in backups. Personal documents wait for that decision.
-- **Space deletion today leaves module uploads and data behind** (above): fixing it is a separate defect for bug-fixes,
-  and it matters more once people trust the product with documents.
+- **Space deletion today leaves module uploads and data behind** (Server issue #337): fixing it is a separate defect for
+  bug-fixes, and it matters more once people trust the product with documents. Step 2's delete with the space only
+  covers `attachments/space-<id>/`; the Vault must not ship real documents before #337 is fixed.
 
 ## Assumed
 
@@ -337,28 +360,21 @@ not install the new files.
 
 ## What is not decided
 
-The questions, in the order they need answering. Questions 1 to 4 block step 2; 5 to 7 block their own steps; 8 to 10
-block step 7.
+Questions 1 to 4 are decided (see Decisions). The rest, in the order they need answering, and the step each blocks:
 
-1. **One mechanism for every object, or each module's own uploads widened?** Lean: one host service (section 1).
-   Widening module uploads is cheaper but keeps its rule that guests read what the module's `view` allows, and gives the
-   Vault nowhere to read.
-2. **Which objects take files first?** Lean: Planner objects and Research notes, then To-do, Calendar and Budget
-   (receipts) one at a time.
-3. **Visibility: Everyone on this trip and Only me, or also chosen people?** Lean: the two first, default Everyone on a
-   trip's objects and Only me for personal documents; chosen people later.
-4. **May an owner or admin open someone's Only me file?** Lean: no; they may remove it and see totals, never the name
-   or the bytes.
 5. **File types beyond PDF, JPEG, PNG and WebP:** HEIC, Apple Wallet passes? Lean: not in the first build; a refusal
-   that says "Save it as a JPEG or PDF".
+   that says "Save it as a JPEG or PDF". Blocks: any step that adds a type after step 1; steps 1 and 2 build the four
+   types and are not blocked.
 6. **PDF preview:** a file chip with an icon and page count, or a first-page picture drawn by a PDF library kept under
-   `public/sdk/` (as #132 would keep ProseMirror)? Lean: the icon first; the library later if people ask.
+   `public/sdk/` (as #132 would keep ProseMirror)? Lean: the icon first; the library later if people ask. Blocks: the
+   PDF part of the preview piece in step 3; the icon-only build is not blocked.
 7. **Encryption at rest:** none, an optional server key in an environment variable (protects disks and backups, not a
    person with the server), or per-person keys (lost password, lost files)? Lean: the optional server key, built before
-   personal documents (step 8).
-8. **The Vault: its own module, or a view in the Planner's Bookings?** Lean: its own module (section 7).
+   personal documents (step 8). Blocks: step 8, and step 9 (Mine).
+8. **The Vault: its own module, or a view in the Planner's Bookings?** Lean: its own module (section 7). Blocks: step 7.
 9. **Its shown name, and Research's:** Vault or Wallet for the new module (the issue says VAULT, the user said wallet),
    and does Research keep its name? Lean: id `vault`, shown name chosen per template (Wallet for travel reads as what a
-   traveller carries); Research keeps its name and is reviewed with #221.
+   traveller carries); Research keeps its name and is reviewed with #221. Blocks: step 7 (the module's id and shown
+   name).
 10. **What counts as booked before object status is built:** a booking reference, or wait for status? Lean: a status of
-    `confirmed`, or a booking reference while there is no status.
+    `confirmed`, or a booking reference while there is no status. Blocks: the Booked part of step 7.

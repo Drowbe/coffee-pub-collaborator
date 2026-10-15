@@ -272,6 +272,431 @@ select:focus {
   padding: 14px;
 }
 
+/* form:start -- the form standard (documentation/plans/plan-form-standard.md): one look for every field of a form, so a
+   module and an app page draw the same field. These rules are word for word the same in public/style.css and
+   public/sdk/host.css; a form puts .sdk-form on its <form> and writes no field CSS of its own.
+   Tokens (layout, no theme sets them): --field-h (38px, 44px on a phone) is the height of every one-line control (text,
+   number, date, time, select, the kind picker, a button in a field); --field-pad-x the side padding; --field-font the text
+   in a field (16px on a phone, so iOS does not zoom); --field-gap between fields and rows; --label-size and --label-gap a
+   label and its distance to the field; --section-gap above a section. On a phone they change inside a form only (the page
+   at 640px or less, or a lifted editor window that says data-lift="phone"), so a control outside a form keeps its size.
+   Classes:
+     .sdk-form     the <form>: a column of rows; its width, not the page's, sets the columns of its rows (container query).
+     .sdk-field    one field: <label class="sdk-field"><span class="sdk-label">Title</span><input><span class="sdk-hint"></span></label>.
+                   More than one control (a day with its buttons, hours and minutes): <div class="sdk-field" role="group"
+                   aria-labelledby="..."> with the id on the span.sdk-label. The hint slot (.sdk-hint) holds a hint, a chip, the
+                   weekday, or the field's error (.sdk-error).
+     .sdk-row      fields side by side: --cols equal columns (6 from 760px of form width, 4 from 440px, else 2); each field spans
+                   three grid lines (label, control, hint), so labels, controls and hints line up across the row. A field that
+                   does not fit moves whole to the next line. .sdk-when is a row too.
+     .sdk-s .sdk-m .sdk-l .sdk-full   a field's size: 1, 2, 3 columns, or the whole row (4 columns: 1, 2, 3, 4; 2 columns: 1, 2, 2, 2).
+     .sdk-group    the line inside a composite field: controls and buttons at --field-h, never wrapping. .sdk-unit a dim word after
+                   a control ("h", "min", "USD"). .sdk-field-btn a square --field-h icon button in that line. .sdk-duration and
+                   .sdk-money are groups.
+     .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
+     .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
+     .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. .sdk-choice one of a few, a segmented row, the chosen one a
+                   fill. .sdk-people people as chips (a tick box or a radio each). .sdk-form-error a refusal that is not one field's. */
+:root {
+  --field-h: 38px;
+  --field-pad-x: 10px;
+  --field-font: 14px;
+  --field-gap: 12px;
+  --label-size: 12px;
+  --label-gap: 4px;
+  --section-gap: 20px;
+}
+
+@media (max-width: 640px) {
+  .sdk-form {
+    --field-h: 44px;
+    --field-font: 16px;
+  }
+}
+
+.sdk-editor[data-lift="phone"] .sdk-form {
+  --field-h: 44px;
+  --field-font: 16px;
+}
+
+.sdk-form {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: 0;
+}
+
+.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--field-pad-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--field-font);
+}
+
+.sdk-form :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select) {
+  height: var(--field-h);
+}
+
+.sdk-form textarea {
+  padding: 8px var(--field-pad-x);
+  line-height: 1.4;
+  min-height: calc(var(--field-font) * 1.4 * 3 + 18px);
+  resize: vertical;
+}
+
+.sdk-form :is(input, select, textarea):focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.sdk-form :is(input, select, textarea):disabled {
+  opacity: 0.6;
+}
+
+.sdk-form input[aria-invalid="true"],
+.sdk-form select[aria-invalid="true"],
+.sdk-form textarea[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.sdk-form input[type="checkbox"],
+.sdk-form input[type="radio"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.sdk-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sdk-label {
+  display: block;
+  padding-bottom: var(--label-gap);
+  color: var(--text-dim);
+  font-size: var(--label-size);
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.sdk-hint,
+.sdk-error {
+  display: block;
+  padding-top: var(--label-gap);
+  color: var(--text-dim);
+  font-size: var(--label-size);
+  line-height: 16px;
+}
+
+.sdk-hint:empty,
+.sdk-error:empty {
+  display: none;
+}
+
+.sdk-error {
+  color: var(--danger-text, var(--danger));
+}
+
+.sdk-row {
+  --cols: 2;
+  display: grid;
+  grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+  column-gap: var(--field-gap);
+  row-gap: 0;
+  margin-bottom: calc(-1 * var(--field-gap));
+}
+
+@container (min-width: 440px) {
+  .sdk-row {
+    --cols: 4;
+  }
+}
+
+@container (min-width: 760px) {
+  .sdk-row {
+    --cols: 6;
+  }
+}
+
+.sdk-row > .sdk-field,
+.sdk-row > .sdk-pair {
+  grid-row: span 3;
+  grid-template-rows: subgrid;
+  padding-bottom: var(--field-gap);
+}
+
+.sdk-row > .sdk-field {
+  display: grid;
+  grid-column: span 2;
+}
+
+.sdk-row > .sdk-field > .sdk-label {
+  grid-row: 1;
+}
+
+.sdk-row > .sdk-field > .sdk-hint,
+.sdk-row > .sdk-field > .sdk-error {
+  grid-row: 3;
+}
+
+.sdk-row > .sdk-s { grid-column: span 1; }
+.sdk-row > .sdk-m { grid-column: span 2; }
+.sdk-row > .sdk-l { grid-column: span 3; }
+.sdk-row > .sdk-full { grid-column: 1 / -1; }
+
+@container (max-width: 439px) {
+  .sdk-row > .sdk-l { grid-column: span 2; }
+}
+
+.sdk-group {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  height: var(--field-h);
+  min-width: 0;
+}
+
+.sdk-row > .sdk-field > .sdk-group {
+  grid-row: 2;
+}
+
+.sdk-group > :is(input, select) {
+  flex: 1 1 0;
+  width: auto;
+  min-width: 0;
+}
+
+.sdk-unit {
+  flex: none;
+  color: var(--text-dim);
+  font-size: var(--label-size);
+}
+
+.sdk-field-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--field-h);
+  height: var(--field-h);
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sdk-field-btn:hover {
+  background: var(--secondary-hover);
+}
+
+.sdk-field-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.sdk-field-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sdk-field-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: currentColor;
+}
+
+.sdk-pair {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  column-gap: var(--field-gap);
+}
+
+.sdk-pair > .sdk-field {
+  display: grid;
+  grid-row: 1 / span 3;
+  grid-template-rows: subgrid;
+}
+
+.sdk-pair > .sdk-field > .sdk-label { grid-row: 1; }
+.sdk-pair > .sdk-field > .sdk-group,
+.sdk-pair > .sdk-field > :is(input, select) { grid-row: 2; }
+.sdk-pair > .sdk-field > .sdk-hint { grid-row: 3; }
+
+.sdk-pair-arrow {
+  display: flex;
+  grid-row: 2;
+  align-items: center;
+  justify-content: center;
+  height: var(--field-h);
+  color: var(--text-dim);
+}
+
+.sdk-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--field-gap);
+  min-width: 0;
+  margin: calc(var(--section-gap) - var(--field-gap)) 0 0;
+  padding: 0;
+  border: 0;
+}
+
+.sdk-section-title {
+  box-sizing: border-box;
+  width: 100%;
+  margin: 0 0 var(--field-gap);
+  padding: 12px 0 0;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.sdk-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--field-gap);
+}
+
+.sdk-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  cursor: pointer;
+}
+
+@media (max-width: 640px) {
+  .sdk-form .sdk-check { min-height: 44px; }
+}
+
+.sdk-editor[data-lift="phone"] .sdk-form .sdk-check {
+  min-height: 44px;
+}
+
+.sdk-choice {
+  display: inline-flex;
+  box-sizing: border-box;
+  height: var(--field-h);
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+}
+
+.sdk-choice > :is(label, button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 12px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--field-font);
+  cursor: pointer;
+}
+
+.sdk-choice > :is(label, button):hover {
+  background: var(--secondary-hover);
+}
+
+.sdk-choice > :is(label:has(input:checked), [aria-pressed="true"], .on) {
+  background: var(--selected-bg);
+}
+
+.sdk-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sdk-people {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sdk-people > label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: var(--radius-round);
+  background: var(--secondary);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.sdk-people > label:has(input:checked) {
+  background: var(--selected-bg);
+}
+
+.sdk-people input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.sdk-form-error {
+  color: var(--danger-text, var(--danger));
+  font-size: var(--label-size);
+}
+
+.sdk-form-error:empty {
+  display: none;
+}
+/* form:end */
+
+/* datepicker:start -- the date picker (host.ui.datePicker): the month grid (.sdk-dp) and the field's button and weekday. In a
+   .sdk-form the field is a .sdk-group of the input, a .sdk-field-btn (the calendar) and, with the `list` option, a second
+   .sdk-field-btn (the list), and the weekday is the field's .sdk-hint; outside a .sdk-form the old look stays (a 30px button,
+   the weekday line in .tv-dow-hint). Today in the month is a fill, never a border. These rules were in host.js. */
+.sdk-datefield { display: flex; gap: 4px; align-items: center; }
+.sdk-datefield input { flex: 1; min-width: 0; }
+.sdk-datefield input::-webkit-calendar-picker-indicator { display: none; }
+.sdk-form .sdk-datefield { gap: 8px; height: var(--field-h); }
+.sdk-dp-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--secondary); color: var(--secondary-text); cursor: pointer; }
+.sdk-dp-btn:hover { background: var(--secondary-hover); }
+.tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: 11px; font-weight: 600; }
+.sdk-dp { position: fixed; z-index: 9999; width: 252px; padding: 8px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; color: var(--text); }
+.sdk-dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
+.sdk-dp-head button, .sdk-dp-foot button { border: 0; border-radius: var(--radius-small); padding: 3px 9px; background: var(--secondary); color: var(--secondary-text); font: inherit; cursor: pointer; }
+.sdk-dp-head button:hover, .sdk-dp-foot button:hover { background: var(--secondary-hover); }
+.sdk-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.sdk-dp-dow { padding: 2px 0; text-align: center; color: var(--text-dim); font-size: 10px; text-transform: uppercase; }
+.sdk-dp-day { height: 30px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); font: inherit; cursor: pointer; }
+.sdk-dp-day:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.sdk-dp-day.other { color: var(--text-dim); opacity: .55; }
+.sdk-dp-day.inrange { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+.sdk-dp-day.today { background: var(--selected-bg); font-weight: 700; }
+.sdk-dp-day.sel { background: var(--accent); color: var(--on-accent); font-weight: 700; }
+.sdk-dp-foot { display: flex; justify-content: space-between; margin-top: 6px; }
+/* datepicker:end */
+
 /* editor:start -- the editor window: a module's Add or Edit form as a modal <dialog> (host.ui.editor), drawn in the
    browser's top layer above every module and the header, sized to the form (560 px, or 880 px with .sdk-editor-large;
    tools/check-module-window.mjs holds these to the SDK's EDITOR_SIZES), a full-screen sheet at 640 px and below. The
@@ -496,7 +921,7 @@ select:focus {
 .sdk-kind {
   position: relative;
   box-sizing: border-box;
-  height: var(--bar-control-h, 38px);
+  height: var(--field-h, var(--bar-control-h, 38px));
 }
 
 .sdk-kind-sheet {
@@ -511,7 +936,7 @@ select:focus {
   align-items: center;
   gap: 6px;
   box-sizing: border-box;
-  height: var(--bar-control-h, 38px);
+  height: var(--field-h, var(--bar-control-h, 38px));
   padding: 0 8px 0 5px;
   border: 1px solid var(--border);
   border-radius: var(--radius-small);

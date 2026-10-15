@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en" data-theme-mode="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Design system: what exists today</title>
+  <!-- The first look at the design system (documentation/plans/plan-design-system.md, step 3 to 6b): today's components,
+       exactly as the product draws them, from the product's own stylesheets. Nothing here restyles a component; the
+       page's own chrome is in ds.css and uses the product's tokens. Not a route: the app serves this folder as a static
+       folder (open /design-system/index.html); tools/design-system-snapshot.mjs turns it into a self-contained copy. -->
+  <link rel="stylesheet" href="/fa/css/all.min.css" data-ds="fa">
+  <link rel="stylesheet" href="/style.css" data-ds="app">
+  <link rel="stylesheet" href="/theme.css" data-ds="theme">
+  <link rel="stylesheet" href="ds.css">
+</head>
+<body>
+  <a class="ds-skip" href="#ds-main">Skip to the content</a>
+  <header class="ds-top" role="banner">
+    <button type="button" class="btn ds-menu-btn" id="ds-menu-btn" aria-controls="ds-nav" aria-expanded="false"><i class="fa-solid fa-bars" aria-hidden="true"></i><span class="ds-menu-word"> Sections</span></button>
+    <h1 class="ds-title">Design system <span class="ds-sub">what exists today</span></h1>
+    <label class="ds-search"><span class="visually-hidden">Search component names</span>
+      <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+      <input type="search" id="ds-search" placeholder="Search components, tokens, icons" autocomplete="off">
+    </label>
+    <div class="ds-tools" role="group" aria-label="Page tools">
+      <div class="tb-tabs" role="group" aria-label="Light or dark" id="ds-mode">
+        <button type="button" class="tb-tab on" data-mode="dark" aria-pressed="true"><span class="tb-tab-glyph"><i class="fa-solid fa-moon" aria-hidden="true"></i></span><span class="tb-tab-word">Dark</span></button>
+        <button type="button" class="tb-tab" data-mode="light" aria-pressed="false"><span class="tb-tab-glyph"><i class="fa-solid fa-sun" aria-hidden="true"></i></span><span class="tb-tab-word">Light</span></button>
+      </div>
+      <div class="tb-tabs" role="group" aria-label="Width of the examples" id="ds-width">
+        <button type="button" class="tb-tab on" data-w="fit" aria-pressed="true"><span class="tb-tab-word">Fit</span></button>
+        <button type="button" class="tb-tab" data-w="390" aria-pressed="false"><span class="tb-tab-word">390</span></button>
+        <button type="button" class="tb-tab" data-w="700" aria-pressed="false"><span class="tb-tab-word">700</span></button>
+        <button type="button" class="tb-tab" data-w="1280" aria-pressed="false"><span class="tb-tab-word">1280</span></button>
+      </div>
+    </div>
+  </header>
+  <div class="ds-shell">
+    <nav class="ds-nav" id="ds-nav" aria-label="Sections"></nav>
+    <main class="ds-main" id="ds-main" tabindex="-1">
+      <noscript>This page needs JavaScript: its examples are drawn from the product's stylesheets.</noscript>
+      <div id="ds-status" class="ds-status" role="status">Loading the product's stylesheets</div>
+      <div id="ds-content"></div>
+    </main>
+  </div>
+  <script src="sources.js"></script>
+  <script src="components.js"></script>
+  <script src="components-2.js"></script>
+  <script src="components-3.js"></script>
+  <script src="ds.js"></script>
+</body>
+</html>

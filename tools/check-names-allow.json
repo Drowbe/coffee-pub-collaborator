@@ -138,5 +138,7 @@
   {"file": "**", "level": "space", "pattern": "^fa-broom$", "reason": "Font Awesome's broom icon (the Layout menu's Clean up): a word that contains room, not the old name."},
   {"file": "**", "level": "module", "pattern": "^tabpanel$", "line": "role=\\W{0,2}tabpanel", "reason": "WAI-ARIA's own tabpanel role (role=\"tabpanel\", the content under a tab, as in the Set up panel's tabs): the web's name, not a module."},
   {"file": "modules/places/src/places-lib-types.json", "level": "space", "pattern": "^(taproom|tearoom|escape-room|room|Restrooms|restroom|bathroom)$", "reason": "Words a person looks a place up by (a taproom, a restroom, an escape room): they contain room, not the old name."},
-  {"file": "modules/places/src/places-lib-types.json", "level": "product-name", "pattern": "^tavern$", "reason": "A word a person looks a pub up by (an alias of Pub in the types library), not the old product name."}
+  {"file": "modules/places/src/places-lib-types.json", "level": "product-name", "pattern": "^tavern$", "reason": "A word a person looks a pub up by (an alias of Pub in the types library), not the old product name."},
+  { "file": "tools/shots-seed.mjs", "level": "space", "pattern": "^roomType$", "reason": "The Planner's stored key for a stay's kind of hotel room, written into the screenshot tool's seed data." },
+  { "file": "tools/shots.mjs", "level": "*", "pattern": "^(run-all-compositor-stages-before-draw|requestStage)$", "reason": "Chromium's own flag and the DevTools protocol's own field (requestStage), not our names." }
 ]

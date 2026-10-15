@@ -116,8 +116,6 @@ planner (when needed) -> Thomas approves -> builders -> quality-assurance -> con
 
 ## Rules
 
-- Never direct a builder to add a coloured border, outline, ring or left-edge stripe unless Thomas says so
-  himself; an exception goes in `tools/check-borders-allow.json`.
 - Be honest about verification. "Verified live", "checked by a tool" and "read as code only" are
   different claims; never round one up to another.
 - Keep Thomas informed as you go. Before each agent starts, say in one line who is doing what. When

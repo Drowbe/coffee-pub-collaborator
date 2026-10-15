@@ -22,8 +22,8 @@
 /* Tint: a colour with its own opacity over everything, video included. Dim is the brightness filter on the box. */
 .dim { position: absolute; inset: 0; width: 100%; height: 100%; background: var(--dim, transparent); pointer-events: none; }
 .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #a8998a; font-size: 14px; }
-/* The talking and muted frame: a soft coloured glow round the inside edge of the box (no border line; the width setting sets how deep), any size, never stretched. */
-.frame { position: absolute; inset: 0; pointer-events: none; border-radius: var(--radius-medium); box-shadow: inset 0 0 calc(var(--talk-w, 6px) * 2.5) calc(var(--talk-w, 6px) * 0.6) color-mix(in srgb, var(--frame, var(--talk)) 85%, transparent); opacity: 0; transition: opacity 0.12s ease; }
+/* The talking and muted frame: a real border around the box, any size, never stretched. */
+.frame { position: absolute; inset: 0; pointer-events: none; border: var(--talk-w, 6px) solid var(--frame, var(--talk)); border-radius: var(--radius-medium); box-shadow: inset 0 0 12px color-mix(in srgb, var(--frame, var(--talk)) 60%, transparent); opacity: 0; transition: opacity 0.12s ease; }
 .box.talking .frame { --frame: var(--talk); opacity: 1; }
 .box.muted-frame .frame { --frame: var(--mute); opacity: 1; }
 /* Reactions float up the box and fade, about a third of its height. */

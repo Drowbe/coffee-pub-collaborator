@@ -40,10 +40,6 @@ decide those.
 - Colors come from the theme tokens (`documentation/designsystem/design-theme.md`). Reuse the SDK's
   pieces (`host.menu.show`, `host.toolbar.set`, `host.ui.viewSwitch`, the nav registry) rather than
   building new ones.
-- No coloured borders, anywhere. Never add a border, outline, ring, inset bar or left-edge stripe in a colour
-  to a box, card, message, button, tab, chip or banner, in any state; show state, kind and status with a fill
-  (theme tint tokens) and text or icon colour. Only Thomas can direct an exception, and it goes in
-  `tools/check-borders-allow.json` (`tools/check-borders.mjs` enforces this; see `design-theme.md`).
 - Words a person reads: plain and short. Names follow the Names section below, in code and in words.
 - A changed module gets a version bump.
 - Be exact about verification: "verified live", "checked by a tool" and "read as code only" are

@@ -35,8 +35,7 @@ the reports as claims to check, not facts.
    sandboxing, the billing webhook or access keys: can someone reach what they shouldn't, skip a
    check, or read another environment's data? Is every refusal the right status with a plain sentence?
 6. **Consistency.** Theme tokens instead of hard-coded colors, the SDK's shared pieces instead of new
-   ones, "spaces" in anything a person reads, a version bump on every changed module. A change that adds a
-   coloured border, outline, ring or left-edge stripe fails, unless Thomas directed it.
+   ones, "spaces" in anything a person reads, a version bump on every changed module.
 
 ## Rules
 

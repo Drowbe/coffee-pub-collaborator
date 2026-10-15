@@ -74,7 +74,7 @@ body.destination-page .subnav > .nav-right { grid-column: 2; }
 }
 
 .dest-filter-toggle[aria-expanded="true"] {
-  background: var(--selected-bg);
+  border-color: var(--accent);
 }
 
 .topbar:has(.dest-filter-list:not([hidden])) {

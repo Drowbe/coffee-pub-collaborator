@@ -388,14 +388,14 @@ test('the eight tints: fixed dark values on :root and light ones for the light m
   assert.deepEqual(createRequire(import.meta.url)('../server/modules.js').TINTS, TINTS);
 });
 
-test('a tint colours a message\'s portrait icon and fills the message (no coloured edge), and a module\'s icon; no fixed colour in those rules', () => {
+test('a tint colours a message\'s portrait icon and left edge, and a module\'s icon; no fixed colour in those rules', () => {
   for (const t of TINTS) assert.match(css, new RegExp(`\\[data-tint="${t}"\\] \\{ --tint: var\\(--tint-${t}\\); \\}`));
   const rule = (sel) => {
     const at = css.indexOf(`\n${sel} {`);
     assert.ok(at > -1, `style.css has ${sel}`);
     return css.slice(at, css.indexOf('}', at));
   };
-  assert.match(rule('.message[data-tint]'), /--message-tint: var\(--tint\);\s*border-left: 3px solid transparent;\s*background: color-mix\(in srgb, var\(--message-tint\) 10%, transparent\);/);
+  assert.match(rule('.message[data-tint]'), /--message-tint: var\(--tint\);\s*border-left: 3px solid var\(--message-tint\);/);
   assert.match(rule('.message[data-tint] .message-portrait-icon'), /color: var\(--message-tint\);/);
   assert.match(rule('i[data-tint]'), /color: var\(--tint\);/);
   for (const sel of ['.message[data-tint]', '.message[data-tint] .message-portrait-icon', 'i[data-tint]', '.message-command', '.message-quote', '.chat-view-empty', '.chat-view-count', '.chat-view-dot', '.tb-tab.on .chat-view-count', '.tb-tab.on .chat-view-dot']) {
@@ -502,14 +502,14 @@ test('links: storedEntry keeps preview and kept; the page asks for the preview, 
   assert.match(space, /loadLinkKeeper\(currentSpace\.id\);/);
 });
 
-test('links: the box wears the keeper\'s tint as a fill and on its icon only (no coloured edge), theme tokens throughout', () => {
+test('links: the box wears the keeper\'s tint on its left edge and icon only, theme tokens throughout', () => {
   const css = read('public/style.css');
   const rules = [...css.matchAll(/([^{}]*\.chat-link[^{}]*)\{([^{}]*)\}/g)];
   assert.ok(rules.length >= 8, 'the link box\'s rules');
   for (const [, sel, body] of rules) {
     assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(/i.test(body), `${sel.trim()}: theme tokens only`);
     const tinted = body.split(';').filter((d) => /var\(--tint/.test(d)).map((d) => d.split(':')[0].trim());
-    for (const prop of tinted) assert.ok(['background', 'color'].includes(prop), `${sel.trim()}: the tint only as the fill or on the icon (${prop})`);
+    for (const prop of tinted) assert.ok(['border-left', 'color'].includes(prop), `${sel.trim()}: the tint only on the edge or the icon (${prop})`);
     if (tinted.includes('color')) assert.match(sel, /chat-link-icon/, 'the coloured text is the icon');
   }
 });

@@ -507,7 +507,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if ((canvasJs.match(/\{ x: g\.x \+ TIDY_GAP \/ 2, y: g\.y \+ TIDY_GAP \/ 2, w: g\.w - TIDY_GAP, h: g\.h - TIDY_GAP \}/g) || []).length !== 2) fail('public/canvas.js', 'floatAll() and placeWaiting() tidy within half a gutter of the grid (a gutter from the edge)');
   const floating = /\.module-floating \{([^}]*)\}/.exec(css);
   if (!floating || !/box-shadow: 0 1px 3px color-mix\(in srgb, black 18%, transparent\);/.test(floating[1])) fail('public/style.css', 'a floating window\'s shadow is a hairline (0 1px 3px, black at 18%)');
-  if (!/\.module-lifted \{[^}]*box-shadow: 0 4px 12px color-mix\(in srgb, black 25%, transparent\);/.test(css) || /\.module-lifted \{[^}]*0 0 0 2px/.test(css)) fail('public/style.css', 'a lifted column keeps a modest shadow (0 4px 12px, black at 25%) and no accent ring (no coloured borders, 2026-10-15)');
+  if (!/\.module-lifted \{[^}]*box-shadow: 0 0 0 2px var\(--accent\), 0 4px 12px color-mix\(in srgb, black 25%, transparent\);/.test(css)) fail('public/style.css', 'a lifted column keeps the accent ring and a modest shadow (0 4px 12px, black at 25%)');
   if (/inset 0 3px 0 var\(--tint\)/.test(css)) fail('public/style.css', 'no 3px tint edge anywhere');
 }
 

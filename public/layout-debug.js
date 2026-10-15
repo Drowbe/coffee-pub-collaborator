@@ -2,7 +2,7 @@
 // call page with ?layout=1 (Manage > About > Troubleshooting has a link). Numbers are in CSS pixels,
 // measured from the top of the page.
 const box = document.createElement('pre');
-box.style.cssText = 'position:fixed;top:96px;left:4px;right:4px;z-index:99999;margin:0;padding:6px;font:11px/1.3 ui-monospace,Menlo,monospace;background:rgba(255,255,255,.93);color:#000;border:1px solid var(--border);pointer-events:none;white-space:pre-wrap';
+box.style.cssText = 'position:fixed;top:96px;left:4px;right:4px;z-index:99999;margin:0;padding:6px;font:11px/1.3 ui-monospace,Menlo,monospace;background:rgba(255,255,255,.93);color:#000;border:2px solid magenta;pointer-events:none;white-space:pre-wrap';
 document.body.appendChild(box);
 const probe = document.createElement('div');
 probe.style.cssText = 'position:absolute;visibility:hidden;width:1px;height:100dvh';

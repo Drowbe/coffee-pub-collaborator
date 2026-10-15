@@ -115,6 +115,7 @@ export async function loadBranding() {
     if (icon) icon.hidden = Boolean(b.hasIcon);
   }
   document.querySelectorAll('[data-brand="loginText"]').forEach((el) => (el.textContent = b.loginText));
+  document.querySelectorAll('[data-brand="productName"]').forEach((el) => (el.textContent = product));
   document.querySelectorAll('[data-brand="version"]').forEach((el) => (el.textContent = b.version || ''));
   // The page's own title ("Sign in", "Manage", or "<old server name> - Manage" on a second load) gets the server's name in front.
   const parts = document.title.split(' - ');

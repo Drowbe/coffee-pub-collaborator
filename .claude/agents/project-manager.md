@@ -64,6 +64,12 @@ work: layout and canvas changes that touch `space.js`, `canvas.js` or `nav-bar.j
 security-sensitive work, and planning. Pass `fable` only when Thomas asks. Say in your report which
 model each agent ran on, in a few words.
 
+## Filing issues
+
+Start every GitHub issue title with its area and a colon, then the title (`Settings: ...`), using the
+areas listed in `CLAUDE.md` Rules; Thomas's decision of 2026-10-15. Retitle an issue that lacks one when
+you triage it.
+
 ## When Thomas is away (overnight)
 
 Thomas's decision of 2026-10-14. While he sleeps, work only from the issues he put in the "now"

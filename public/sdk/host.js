@@ -385,25 +385,6 @@
   }
 
   const UI_CSS = `
-.sdk-datefield { display: flex; gap: 4px; align-items: center; }
-.sdk-datefield input { flex: 1; min-width: 0; }
-.sdk-datefield input::-webkit-calendar-picker-indicator { display: none; }
-.sdk-dp-btn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--secondary); color: var(--secondary-text); cursor: pointer; }
-.sdk-dp-btn:hover { background: var(--secondary-hover); }
-.tv-dow-hint { display: block; min-height: 14px; color: var(--accent); font-size: 11px; font-weight: 600; }
-.sdk-dp { position: fixed; z-index: 9999; width: 252px; padding: 8px; background: var(--bg-section); border: 1px solid var(--border); border-radius: var(--radius-medium); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; color: var(--text); }
-.sdk-dp-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-bottom: 6px; }
-.sdk-dp-head button, .sdk-dp-foot button { border: 0; border-radius: var(--radius-small); padding: 3px 9px; background: var(--secondary); color: var(--secondary-text); font: inherit; cursor: pointer; }
-.sdk-dp-head button:hover, .sdk-dp-foot button:hover { background: var(--secondary-hover); }
-.sdk-dp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.sdk-dp-dow { padding: 2px 0; text-align: center; color: var(--text-dim); font-size: 10px; text-transform: uppercase; }
-.sdk-dp-day { height: 30px; border: 1px solid transparent; border-radius: var(--radius-small); background: none; color: var(--text); font: inherit; cursor: pointer; }
-.sdk-dp-day:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
-.sdk-dp-day.other { color: var(--text-dim); opacity: .55; }
-.sdk-dp-day.inrange { background: color-mix(in srgb, var(--accent) 18%, transparent); }
-.sdk-dp-day.today { border-color: var(--accent); }
-.sdk-dp-day.sel { background: var(--accent); color: var(--on-accent); font-weight: 700; }
-.sdk-dp-foot { display: flex; justify-content: space-between; margin-top: 6px; }
 .sdk-menu { position: fixed; z-index: 9999; min-width: 180px; max-width: 320px; max-height: 70vh; overflow: auto; padding: 4px; border-radius: var(--radius-medium); border: 1px solid var(--border); background: var(--bg-card); color: var(--text); box-shadow: 0 8px 24px rgba(0,0,0,.45); font: 13px system-ui, sans-serif; }
 .sdk-menu-item { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: var(--radius-small); background: none; color: inherit; font: inherit; text-align: left; text-decoration: none; cursor: pointer; box-sizing: border-box; }
 .sdk-menu-item:hover, .sdk-menu-item:focus-visible { background: color-mix(in srgb, var(--accent) 14%, transparent); outline: none; }
@@ -1885,26 +1866,47 @@
       // falls on is visible while choosing. The typed field keeps working; a button opens the grid and the
       // weekday of what is in the field shows under it. Works on <input type="date"> and
       // <input type="datetime-local"> (which keeps its time, or takes 12:00 when it has none).
-      // datePicker(input, { range: () => [from, to], clearable }): highlight a span of days, and offer Clear.
+      // datePicker(input, { range: () => [from, to], clearable, list: { label, items, none } }): highlight a span of days, and offer Clear.
+      // In a .sdk-form (the form standard) the field is a .sdk-group with .sdk-field-btn buttons and the weekday in its .sdk-hint.
+      // `list` adds a second button (in a .sdk-form only) that opens the module's own list of days: items(set) returns host.menu.show
+      // entries, an entry `{ label, day: 'YYYY-MM-DD' }` sets that day, `none: 'Unscheduled'` adds a first entry that clears the field.
       // Returns { close, destroy }.
       datePicker: (input, o) => {
         const options = o || {};
         const u = host.util;
         ensureUiStyles();
+        const inForm = Boolean(input.closest('.sdk-form'));
         const wrap = document.createElement('span');
-        wrap.className = 'sdk-datefield';
+        wrap.className = inForm ? 'sdk-datefield sdk-group' : 'sdk-datefield';
         input.parentNode.insertBefore(wrap, input);
         wrap.appendChild(input);
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'sdk-dp-btn';
-        btn.title = 'Pick a date';
-        btn.setAttribute('aria-label', 'Pick a date');
-        btn.innerHTML = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z"/></svg>';
-        wrap.appendChild(btn);
-        const hint = document.createElement('span');
-        hint.className = 'tv-dow-hint';
-        wrap.parentNode.insertBefore(hint, wrap.nextSibling);
+        const icon = (d) => `<svg viewBox="0 0 16 16" width="${inForm ? 16 : 14}" height="${inForm ? 16 : 14}" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
+        const mkBtn = (title, d) => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = inForm ? 'sdk-field-btn' : 'sdk-dp-btn';
+          b.title = title;
+          b.setAttribute('aria-label', title);
+          b.innerHTML = icon(d);
+          wrap.appendChild(b);
+          return b;
+        };
+        const btn = mkBtn('Pick a date', 'M4 0v2H2.5A1.5 1.5 0 0 0 1 3.5v10A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 13.5 2H12V0h-1.5v2h-5V0zM2.5 5h11v8.5h-11z');
+        // The weekday: in a form, the field's hint slot (a .sdk-hint after the field's group, reused when the form has one); else the old line.
+        const field = inForm ? wrap.closest('.sdk-field') : null;
+        let hint = field ? field.querySelector(':scope > .sdk-hint') : null;
+        const ownHint = !hint;
+        if (!hint) {
+          hint = document.createElement('span');
+          hint.className = inForm ? 'sdk-hint' : 'tv-dow-hint';
+          (field || wrap.parentNode).insertBefore(hint, wrap.nextSibling);
+        }
+        // `list: { label, items, none }`: a second button that opens the module's own list of days under the field (the Planner's
+        // days by phase, the spots between days). items(set) gives host.menu.show entries; an entry with a `day` ('YYYY-MM-DD') sets
+        // that day when chosen, one with `onClick` does its own. `none` (a word, "Unscheduled") adds a first entry that clears the field.
+        // A list needs a .sdk-form field; elsewhere it is ignored.
+        const listBtn = inForm && options.list && typeof options.list.items === 'function'
+          ? mkBtn(options.list.label || 'Pick from the list', 'M2 3h12v1.6H2zm0 4.2h12v1.6H2zm0 4.2h12V13H2z') : null;
         const dayOf = () => String(input.value || '').slice(0, 10);
         const showDow = () => { hint.textContent = dayOf() ? u.parseYmd(dayOf()).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
         input.addEventListener('input', showDow);
@@ -1916,7 +1918,7 @@
         const key = (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); close(); } };
         const away = (e) => { if (pop && !pop.contains(e.target) && !wrap.contains(e.target)) close(); };
         // A disabled field (a read-only form) has no picker: the button is disabled with it and open() does nothing.
-        const syncDisabled = () => { btn.disabled = Boolean(input.disabled); };
+        const syncDisabled = () => { btn.disabled = Boolean(input.disabled); if (listBtn) listBtn.disabled = Boolean(input.disabled); };
         syncDisabled();
         const open = () => {
           if (pop) return close();
@@ -1973,7 +1975,22 @@
           env.root.addEventListener('pointerdown', away, true);
         };
         btn.addEventListener('click', open);
-        return { close, refresh: () => { close(); showDow(); syncDisabled(); }, destroy: () => { close(); hint.remove(); wrap.parentNode.insertBefore(input, wrap); wrap.remove(); } };
+        const setDay = (day) => {
+          input.value = !day ? '' : input.type === 'datetime-local' ? day + 'T' + ((input.value.split('T')[1]) || '12:00') : day;
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          input.dispatchEvent(new Event('change', { bubbles: true }));
+        };
+        if (listBtn) {
+          listBtn.addEventListener('click', () => {
+            if (input.disabled) return;
+            close();
+            const raw = options.list.items(setDay) || [];
+            const entries = raw.map((e) => (e && e.day !== undefined && !e.onClick ? { ...e, onClick: () => setDay(e.day) } : e));
+            if (options.list.none) entries.unshift({ id: 'none', label: String(options.list.none), icon: 'xmark', onClick: () => setDay('') });
+            host.menu.show({ id: 'sdk-datelist', anchor: listBtn, items: entries });
+          });
+        }
+        return { close, refresh: () => { close(); showDow(); syncDisabled(); }, destroy: () => { close(); if (ownHint) hint.remove(); wrap.parentNode.insertBefore(input, wrap); wrap.remove(); } };
       },
       // An editor window: the module's Add or Edit form, a <dialog> in its root, shown modal over everything (the top
       // layer: above every module and the header, never clipped by the module's box), 560 px wide ('medium', the default)

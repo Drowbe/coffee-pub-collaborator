@@ -41,7 +41,8 @@ const test = (name, fn) => { fn(); n += 1; };
 
 test('the /ai rule asks for one array in one objects fence, each one an object', () => {
   const rule = buildPrompt('ask', [], 'Why?').prompt;
-  assert.match(rule, /Always include at least one object: /);
+  assert.match(rule, /Include objects only when your answer contains something worth keeping/);
+  assert.ok(!/Always include/.test(rule));
   assert.match(rule, /```objects\n\[/);
   assert.match(rule, /exactly one, never one per object/);
   assert.match(rule, /at most 20/);

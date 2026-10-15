@@ -239,7 +239,12 @@ await test('summaries are checked field by field', () => {
   assert.equal(parseSummaries('```json\n{"title":"T","content":"c"}\n```', 1).summaries.length, 1);
   assert.match(buildPrompt('ask', [], 'Why?').prompt, /```objects\n\[/);
   assert.match(buildPrompt('ask', [], 'Why?').prompt, /exactly one, never one per object/);
-  assert.match(buildPrompt('summarise', items, '').prompt, /Always include at least one object: /);
+  const sum = buildPrompt('summarise', items, '').prompt;
+  assert.match(sum, /the part of your summary worth keeping as objects, but none if the material has nothing worth keeping/);
+  assert.ok(!/Always include/.test(sum));
+  const ask = buildPrompt('ask', [], 'Why?').prompt;
+  assert.match(ask, /Include objects only when your answer contains something worth keeping \(a place, an event, a fact, a thing to do or book\)\. Small talk, greetings and questions about you get none, and an answer with nothing to keep needs no block at all\. Objects go only in the fenced block, never inline in your answer text\./);
+  assert.ok(!/Always include/.test(ask));
   // The rule is the copied instructions' lines (plan-object-handoff.md, "The prompt"), with the /ai answer's own date line:
   // it cannot stop to ask, so it says which dates it needs.
   const rule = buildPrompt('ask', [], 'Why?').prompt;
@@ -255,6 +260,43 @@ await test('summaries are checked field by field', () => {
   assert.equal(packed.text, '{{summary:0}}\n{{summary:1}}');
   const many = Array(MAX_SUMMARIES + 5).fill('```objects\n{"title":"T","content":"c"}\n```').join('\n');
   assert.equal(parseSummaries(many, 1).summaries.length, MAX_SUMMARIES);
+});
+
+await test('raw JSON never reaches a message (issue 341)', async () => {
+  const ai = new Ai(fs.mkdtempSync(path.join(os.tmpdir(), 'ai-')), {});
+  ai.set({ enabled: true, provider: 'compatible', address, model: 'local' });
+  reply = 'I am doing well, thanks!';
+  let r = await ai.run('ask', [], 'How are you?');
+  assert.deepEqual([r.text, r.summaries], ['I am doing well, thanks!', []]);
+  reply = 'I am doing well! [{"icon":"lightbulb","kind":"note","content":"Just a note that I am doing well!","basis":"general","sources":[]}]';
+  r = await ai.run('ask', [], 'How are you?');
+  assert.deepEqual([r.text, r.summaries], ['I am doing well!', []]);
+  // Small talk, no block: nothing to show but the text.
+  assert.deepEqual(parseSummaries("I'm doing well, thanks! How can I help?", 0), { text: "I'm doing well, thanks! How can I help?", summaries: [] });
+  // The reply from the bug: the array written inline, with no title, so it is no object: gone from the text, no card.
+  const bug = `I'm doing well... Here's an object worth keeping:\n[{"icon":"lightbulb","kind":"note","content":"Just a note that I am doing well!","basis":"general","sources":[]}]`;
+  const b = parseSummaries(bug, 0);
+  assert.equal(b.summaries.length, 0);
+  assert.ok(!/[[{]"?icon|"content"|\]$/.test(b.text) && !b.text.includes('{"'), b.text);
+  // The same inline array, valid: it becomes a card at its place.
+  const inline = parseSummaries('Try this.\n[{"icon":"landmark","kind":"sight","title":"Old Town","content":"Worth a walk.","basis":"general","sources":[]}]\nEnjoy.', 0);
+  assert.equal(inline.summaries.length, 1);
+  assert.equal(inline.summaries[0].title, 'Old Town');
+  assert.equal(inline.text, 'Try this.\n\n{{summary:0}}\n\nEnjoy.');
+  // A fenced block still works, and a fenced objects block that does not read is dropped.
+  assert.equal(parseSummaries('A\n```objects\n[{"title":"T","content":"c"}]\n```', 0).text, 'A\n\n{{summary:0}}');
+  assert.equal(parseSummaries('A\n```objects\n[{"title":"T","content":"c",]\n```\nB', 0).text, 'A\n\nB');
+  // An unlabelled fence that looks like ours but has no valid object is dropped too.
+  assert.equal(parseSummaries('A\n```json\n[{"kind":"note","content":"x","basis":"general"}]\n```', 0).text, 'A');
+  // What a person asked for stays: a json example, code, other arrays.
+  for (const keep of [
+    'Here is the shape:\n```json\n{"name":"Ada","tags":["a"],"content":"hello"}\n```',
+    'Example:\n```js\nconst o = [{"kind":"note","title":"x","content":"y","icon":"note"}];\n```',
+    'It returns [{"id":1,"name":"a"},{"id":2,"name":"b"}] for a list.',
+    'Use {"title":"Hi","content":"there"} as the body.',
+    'Pick [1] or [2, 3].',
+  ]) assert.deepEqual(parseSummaries(keep, 0), { text: keep, summaries: [] }, keep);
+  //  comes from this too: a stubbed model that answers small talk with the bug's reply.
 });
 
 test('a summary\'s kind', () => {

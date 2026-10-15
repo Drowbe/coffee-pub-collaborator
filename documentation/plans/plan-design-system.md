@@ -2,7 +2,7 @@
 
 **Audience:** Thomas, who decides the design of every component and how strict the rules are; experience-design, which builds the shared stylesheet, the page and each component's move onto it; server-development, which builds the page's route, the usage scan and the check; quality-assurance, which measures each move against its screenshots; content-manager, which writes the design pages and the rule text once Thomas approves it.
 
-**Status:** decided 2026-10-15 (questions 1 to 4); step 1 starting. Questions 5, 6 and 7 are still open and do not block the build. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust".
+**Status:** decided 2026-10-15 (questions 1 to 4); step 1 starting. Questions 5, 6 and 7 are still open and do not block the build. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust". Added later the same day: he wants to see the system as it is built, without a new image build each time, "so we don't invest cycles in things I might want to change"; this adds a review copy (step 6b) and a review gate before any component changes.
 
 ## What it is today
 
@@ -84,6 +84,13 @@ Decided 2026-10-15, taking the recommendation in each case:
 - **The page is `/design-system`, for any signed-in member and up** (members, moderators, owners, admins), in the environment's own theme, and linked from the host console (Thomas, 2026-10-15). Reason: the people who build and use modules, including uploaded ones, can see it, and it does not show the environment's theme and words to strangers.
 - **One shared `public/sdk/system.css`, loaded everywhere** (Thomas, 2026-10-15). App pages link it; module pages get it inlined by the server, as they get `host.css` today. Changing a component there updates every consumer with no module version bump. Reason: a change is made once, and it is what "consumers get changes for free" needs.
 - **Keep today's class names; new components use the `sdk-` prefix** (Thomas, 2026-10-15). `.btn`, `.action-btn`, `.tb-tab`, `.card` and the `sdk-*` classes are registered as they are; membership in the system is the registry, not the prefix. Reason: nothing a module or a saved page uses is renamed. A product prefix is ruled out by the identifier rule in `CLAUDE.md`.
+
+Decided 2026-10-15, later the same day:
+
+- **Thomas sees the design system as it is built, without an image build each time** (Thomas, 2026-10-15: he wants to SEE it as it is built, without a new image build each time, "so we don't invest cycles in things I might want to change"). Reason: building into an image before he has looked spends effort on looks he may change. Three parts follow.
+  - **A review copy.** From the first step that has a page (steps 3 to 6) onward, the project manager publishes the page as a private static web page, so he can look at each stage with no build or deploy. See (f).
+  - **A review gate.** Before any component is consolidated or redesigned (steps 9 onward), Thomas looks at that component in the review copy. Nothing is migrated onto a changed look until he has said so on the page. Before and after screenshots from the step 1 tool are published beside each stage, so he sees whether anything changed.
+  - **The real `/design-system` route still ships.** It is built into an image only when Thomas is happy with a stage.
 
 Standing decisions this plan keeps, already in [design-theme](../designsystem/design-theme.md): a selected, on, active or current state is a fill, never a border (Thomas, 2026-10-14: "I found ANOTHER button border. Stop adding them."); corners are the five radius tokens; and the form standard's decisions ([plan-form-standard](plan-form-standard.md), 2026-10-15).
 
@@ -231,12 +238,33 @@ Compositions of components, shown with real content and the markup to copy. Each
 
 **The registry is also the checks' data.** The check reads `registry.json`, the component heads and `exceptions.json`; the scanner reads the class lists; nothing is said twice.
 
+## (f) The review copy
+
+Decided 2026-10-15 (see Decisions). The review copy is the page, published so Thomas can look at it without an image build. It is a copy for looking, not a second source: it is made from the same files.
+
+**What it is.** A private static web page, a claude.ai Artifact, private by default, updated in place at one fixed link so Thomas keeps one bookmark. It is built from the same `system.css`, the same component files and the same registry as the real page. No build or deploy of the app is involved. The project manager publishes it from the first step that has a page (steps 3 to 6) and again at each later stage.
+
+**It is built as static files.** `tools/design-system-snapshot.mjs` (written by experience-design) produces one self-contained folder of HTML, CSS, JavaScript and icons from `public/sdk/system.css`, `public/sdk/host.css` where the page needs it, `public/design-system/` and the icon files. The folder must:
+
+- load no external scripts, and use only hosts the Artifact allows;
+- carry the product's fonts and the Font Awesome icons inside it, inlined or as files uploaded with it;
+- stay under the Artifact's size limit, 16 MB in all (the script reports the total and fails above it);
+- hold no data and no secrets: only styles and example content. No environment name, member, token, key or stored object goes in. The script reads only the files listed above, never `DATA_DIR`.
+
+**What works in the snapshot.** The components, the tokens (values read from the stylesheet, contrast worked out in the page), the states with forced hover and focus, light and dark, the three widths, the icon browser (our list and the Free set, from files written at snapshot time instead of the icons route), the examples and the snippets, search and deep links.
+
+**What does not.** The usage scan (consumers) and any part fed by the server. These show "not available in the review copy". The real page at `/design-system` has them.
+
+**Before and after.** At each stage the project manager publishes the step 1 tool's screenshots beside the page: the baseline and the current set, with the images that differ named. If nothing differs, the page says so.
+
+**Who.** experience-design writes the snapshot script, with the page, in step 6b. The project manager runs it and publishes, and says in the report what changed since the last publish.
+
 ## (d) Governance
 
 1. **Only system components are used.** A page or module draws UI with registered components and patterns, and writes only its own layout.
 2. **A missing component is added first**, in this order: Thomas agrees it is needed; the spec (anatomy, variants, states, sizes, a11y, usage) is written into its registry file as `new`; its CSS goes into `system.css` and its helper, if any, into `host.js`; its examples render on the page; then the page or module uses it. Each is a try build like any other.
 3. **An exception is discussed with Thomas first.** If he agrees, it is recorded in `exceptions.json` (what, the file, the reason, an owner, the date, his words), shown on the page, and allowed by the check for that file only. An exception with no reason or owner fails the check. Today's known ones go in at once: MapLibre's controls, the map pin's teardrop, Stream's keyed page for OBS, the phase band's top edge.
-4. **Who changes a component.** Thomas decides every design change, on the page: he looks at the component, says what changes, and signs off the before and after. experience-design builds it in `system.css`; server-development builds checks and routes; nobody restyles a component anywhere else.
+4. **Who changes a component.** Thomas decides every design change, on the page (the review copy first, see (f)): he looks at the component, says what changes, and signs off the before and after. Nothing is migrated onto a changed look until he has said so there. experience-design builds it in `system.css`; server-development builds checks and routes; nobody restyles a component anywhere else.
 5. **How builders and QA are told.** Proposed wording; Thomas or the project manager edits these files, not this plan.
 
 **Proposed rule for `CLAUDE.md`, under Rules:**
@@ -281,7 +309,7 @@ Reports, never fails:
 
 ## (e) Migration
 
-The first deliverable is the page with today's components exactly as they are (decided 2026-10-15). Then each component is consolidated, one at a time, and only after Thomas has looked at it on the page.
+The first deliverable is the page with today's components exactly as they are (decided 2026-10-15). Then each component is consolidated, one at a time, and only after Thomas has looked at it on the page, in the review copy (f), and said so. The real route is built into an image only when he is happy with a stage.
 
 **How the form standard and the radius tokens fold in.** The form standard is the first finished component family: its block moves into `system.css` unchanged, its classes are registered, and its remaining steps (Places to Manage) continue as planned, each also removing the module from this check's "not yet" list. The radius tokens become the radii group of the tokens and `check-radius` keeps enforcing them.
 
@@ -296,6 +324,7 @@ The first deliverable is the page with today's components exactly as they are (d
 - `GET /api/design-system/usage`: `{ components: { <id>: [{ file, line, kind: 'module' | 'page', module?: id }] }, scannedAt }`, computed by `server/system-scan.js` on first request and kept until restart. Same audience.
 - `GET /api/design-system/icons`: `{ icons: [{ name, label, categories, aliases }], categories: [{ id, label }] }`, built once at start from Font Awesome Free's metadata, solid style only.
 - `tools/check-system.mjs` as in (d), with self-tests that plant each failure in a fixture and require it to fail, and a clean fixture to pass.
+- Help the snapshot script (step 6b) where it needs server-side data: the icon files and the Free set's compact list are written as files at snapshot time, from the same code the icons route uses. The snapshot never reads `DATA_DIR`.
 - A screenshot tool, `tools/shots.mjs` (run as `npm run shots`, not in `npm run check`), reusing the DevTools-protocol driver of `check-forms-live.mjs`: it opens a list of pages and module fixtures and the design system page's examples at 390, 700 and 1280px, in light and dark, saves the images to a folder given on the command line, and compares two folders pixel by pixel, naming every image that differs.
 
 **Pages half (experience-design).**
@@ -303,6 +332,7 @@ The first deliverable is the page with today's components exactly as they are (d
 - `system.css` with the tokens, state tints and every component moved in, word for word from where it is today; the app's pages link it; `module-host.js` fetches it for in-page modules.
 - The page and the registry as in (c), drawn with the system's own components.
 - What a person sees at `/design-system`: a left list of groups (Tokens, Icons, Components, Patterns, Exceptions, Changelog) with search on top; each entry a section with its status marker, its examples on a neutral ground with **Light | Dark | Both** and **390 | 700 | 1280** switches (a view switch), a **States** row (rest, hover, focus, pressed, disabled, selected, loading, error), the snippet with **Copy**, then usage, content, a11y, tokens, consumers and changelog. On a phone the list becomes a menu at the top.
+- `tools/design-system-snapshot.mjs` (step 6b): builds the page as the static folder described in (f). The page's code must therefore work with no server: where it asks the usage route or the icons route, it falls back to "not available in the review copy" or to the files written at snapshot time.
 
 ## Left to build, in order
 
@@ -317,9 +347,10 @@ Each step a try build, small, checked on its own. Modules get a patch bump only 
 | 4 | Register today's shared components as they are, with examples, states, snippets and rules: button, action button, view switch, the form classes, date picker, kind picker, editor window, action bar, menu, more button, card, section, toast, message, status strip | experience-design | no |
 | 5 | The page's tools: forced states, light and dark frames, the three widths, consumers (the usage route), search, deep links, changelog, exceptions | experience-design, server-development | no |
 | 6 | The icon browser: `icons.json` for the 81 icons in use, with meanings and categories, and the whole Free set from the icons route | experience-design, server-development | no |
+| 6b | The review copy: `tools/design-system-snapshot.mjs` produces a self-contained static folder of the page (no external scripts, fonts and Font Awesome icons inside it, under 16 MB, no data and no secrets). The project manager publishes it as a private Artifact at one fixed link, with the step 1 before and after screenshots beside it, and republishes at every later stage. Server-fed parts show "not available in the review copy" | experience-design writes the script; project-manager publishes | no |
 | 7 | `tools/check-system.mjs` with every file on the "not yet" list (so it passes on today's code), `exceptions.json` with today's known exceptions; in `npm run check` | server-development | no |
 | 8 | Register the duplicates as candidates: each of the audit's duplicate families (chips, empty states, skeletons, banners and conflict notices, error lines, icon buttons, tabs, menus, cards and rows, small buttons) on the page with every current look side by side and where each is used | experience-design | no |
-| | **Thomas reviews the page**: for each candidate family he picks the look (or asks for a new one), and decides each coloured edge | Thomas | |
+| | **Thomas reviews the page in the review copy**: for each candidate family he picks the look (or asks for a new one), and decides each coloured edge. This is the review gate: from step 9 on, before a component is consolidated or redesigned he looks at it in the review copy, and nothing is migrated onto a changed look until he has said so there | Thomas | |
 | 9 | Buttons: one `.btn` for app and modules, `.btn-small` in the system, a Quiet variant if chosen; module `.btn` restyles removed (Budget, Maps, Places, Research, the Planner, To-do) | experience-design | only as Thomas chose; modules bumped |
 | 10 | Fields and forms: the form standard's remaining steps, unchanged, now also removing each form from this check's list | experience-design | as that plan says |
 | 11 | Tabs and view switches: Polls' `.seg` becomes `host.ui.viewSwitch`; `.layout-tabs`, `.setup-tabs`, `.subtabs`, `.dest-tabs` registered as one tabs component or kept as exceptions, as Thomas decides | experience-design | as chosen; Polls bumped |
@@ -333,15 +364,16 @@ Each step a try build, small, checked on its own. Modules get a patch bump only 
 | 28 | The app's pages off the list: space, Home and the dashboard, Set up, the Phases sheet, Manage, profile, host console, landing, destination; then the list is empty | experience-design | only what earlier steps decided |
 | 29 | Documentation: content-manager rewrites [design-theme](../designsystem/design-theme.md) as the system's reference pointing at the page, the SDK page and `CONTRACT.md`; Thomas or the project manager puts the rule text from (d) into `CLAUDE.md` and the agent files | content-manager, project-manager | no |
 
-Steps 9 to 17 do not depend on one another once Thomas has reviewed the page; 18 to 27 follow the component steps they need.
+Steps 9 to 17 do not depend on one another once Thomas has reviewed the page; 18 to 27 follow the component steps they need. Each of steps 8 to 17 ends with a republished review copy and its before and after screenshots, and the real route is built into an image only when Thomas is happy with a stage.
 
 ## Verify
 
 - **Step 1:** two runs on unchanged code produce identical shots (the tool's own noise is zero), checked by a tool.
 - **Step 2:** the shots after match step 1's for every page and fixture, both modes, three widths (checked by a tool); `npm run check` and `npm run check:forms` pass; a module page's source shows `system.css` inlined before `host.css`; an in-page module (a composite) renders the same (shots).
 - **Steps 3 to 6:** the page renders every registered component in light and dark and at three widths on a throwaway local server; a forced hover matches a real hover's screenshot; contrast numbers match a hand calculation for two pairs; the usage route lists a class planted in a scratch module; the icon search finds `plus` by "add". Checked by a tool and walked on a local server.
+- **Step 6b:** the snapshot script produces output on a clean checkout (a folder with an `index.html`), checked by a tool: it reports the total size and fails above 16 MB; a scan of the folder finds no external script or font URL, and no string from a planted secret in a scratch `DATA_DIR`; the folder opened from disk renders the components, forced states, light and dark, the three widths and the icon browser, and the usage section reads "not available in the review copy". The publish itself (the Artifact and its fixed link) and what Thomas sees there are checked by the project manager by opening the link, not by a tool in this repository. Fonts and icons showing in the Artifact, and its allowed hosts, cannot be confirmed until the first publish.
 - **Step 7:** each fail rule fails on a planted fixture and passes a clean one; `npm run check` passes on today's code.
-- **Step 8 onward:** each step's shots match the baseline except the components Thomas decided to change, and those differences are exactly the ones he signed off, shown to him before and after; the step's module checks and `check-module-versions` pass; the moved file is off the "not yet" list and the check fails if a restyle is planted in it.
+- **Step 8 onward:** before the step, Thomas has looked at the component in the review copy and said so; each step's shots match the baseline except the components Thomas decided to change, and those differences are exactly the ones he signed off, shown to him before and after; the step's module checks and `check-module-versions` pass; the moved file is off the "not yet" list and the check fails if a restyle is planted in it.
 - **What only Thomas can check:** whether a component looks right, every design change before and after, light and dark by eye, Safari and iOS, Firefox, a real phone, a screen reader.
 - **Needs a real LiveKit call:** the call controls (step 9 and the space page in step 28) and the call's popped-out window, which clones the stylesheets and must now clone `system.css` too. Nothing else.
 
@@ -355,7 +387,10 @@ Steps 9 to 17 do not depend on one another once Thomas has reviewed the page; 18
 - **A bigger inline stylesheet** in every module frame (system plus base). `host.css` is about 1,200 lines today; watch the size, and if it grows past what is comfortable, serve it by link where the frame allows.
 - **The page as a second source.** It must render from the same stylesheet and registry, never hold copies; the forced-state and frame designs in (c) are there for that.
 - **False positives in the check.** Only rules that need no judgement fail; the heuristic only reports.
-- **Scope creep.** The audit is large. Steps 1 to 8 change nothing a person sees and give Thomas the page to decide on; nothing after step 8 starts without his review.
+- **The review copy drifting from the real page.** It is built by a script from the same files, never edited by hand, and republished at every stage. Parts that cannot work in a snapshot say so on the page instead of showing stale data.
+- **Leaking data into the review copy.** It carries styles and example content only; the script reads a fixed list of files and never `DATA_DIR`, and step 6b's check looks for a planted secret.
+- **Artifact limits.** 16 MB, no external scripts, a list of allowed hosts. The script fails above the size; the fonts and icons are inside the folder. If the Artifact refuses something at the first publish, the project manager reports it and the script changes, not the page's design.
+- **Scope creep.** The audit is large. Steps 1 to 8 change nothing a person sees and give Thomas the page to decide on, in the review copy; nothing after step 8 starts without his review there.
 
 ## Assumed
 
@@ -365,6 +400,7 @@ Not decided; each is for Thomas to confirm or change.
 - Font Awesome Free, solid style, is the icon set; Pro, when installed, changes nothing in names.
 - The token values in Layer 1 are today's most-used values; tokens that would change a look are listed for Thomas, not applied.
 - The page's frame for examples is same-origin and needs no LiveKit.
+- The Artifact's allowed hosts and any limit beyond the 16 MB are not known to this plan; the project manager confirms them at the first publish.
 - `system.css` is the file's name, named by kind as `CLAUDE.md` requires.
 
 ## What is not decided

@@ -823,6 +823,45 @@
     draw();
   }
 
+  // A journey's arrival day is the same date field as the departure day: a date field held to the days a ticket can arrive on
+  // (arrivalDays), a "Pick from the list" flyout of those days, and the select (#f-arrival-day, hidden) that keeps the value:
+  // a day, or while the leg has no day, how many days later ('0', '1', '-1'). No Unscheduled: an arrival always has a day.
+  function arrivalField(select) {
+    const id = select.id;
+    const input = $(`${id}-input`);
+    const listBtn = $(`${id}-list`);
+    const caption = $(`${id}-phase`);
+    if (!input || !listBtn || !caption) return;
+    const opts = () => [...select.options];
+    const days = () => opts().map((o) => o.value).filter(isYmd).sort();
+    const note = (o) => { if (!o) return ''; const m = /\(([^)]*)\)\s*$/.exec(o.textContent); const t = m ? m[1] : isYmd(o.value) ? 'same day' : o.textContent; return t.charAt(0).toUpperCase() + t.slice(1); };
+    const draw = () => {
+      const d = days();
+      input.disabled = !d.length;
+      input.min = d[0] || '';
+      input.max = d[d.length - 1] || '';
+      input.value = isYmd(select.value) ? select.value : '';
+      caption.textContent = note(opts().find((o) => o.value === select.value));
+      caption.removeAttribute('data-tint');
+    };
+    const set = (value) => {
+      select.value = value;
+      select.dispatchEvent(new Event('input', { bubbles: true }));
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+    const own = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    Object.defineProperty(select, 'value', { configurable: true, get() { return own.get.call(this); }, set(v) { own.set.call(this, v); draw(); } });
+    input.addEventListener('change', () => {
+      if (!input.value || input.validity.rangeUnderflow || input.validity.rangeOverflow || !opts().some((o) => o.value === input.value)) { draw(); return; }
+      set(input.value);
+    });
+    listBtn.addEventListener('click', () => {
+      const rows = opts().sort((a, b) => (isYmd(a.value) && isYmd(b.value) ? a.value.localeCompare(b.value) : 0));
+      host.menu.show({ id: `${id}-list`, anchor: listBtn, items: rows.map((o) => ({ id: o.value, label: o.textContent, icon: o.value === select.value ? 'check' : 'calendar-day', ariaLabel: o.value === select.value ? `${o.textContent}, chosen` : undefined, onClick: () => set(o.value) })) });
+    });
+    draw();
+  }
+
   // The badge for a run of hidden days: how many, and a + for what can be added there.
   function buildGap(run) {
     const el = clone('tpl-gap');
@@ -2216,6 +2255,8 @@
       dayField($('f-date'));
       dayField($('f-back-date'));
       dayField($('f-checkout'), { checkout: true });
+      arrivalField($('f-arrival-day'));
+      arrivalField($('f-back-arrival-day'));
       placeOptions($('f-date'));
       setPlaceMenu($('f-date'), item ? placeOf(item) : place);
       const picker = addKindPicker(preset ? kindOf(preset) : undefined);

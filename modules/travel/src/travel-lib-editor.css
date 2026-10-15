@@ -9,12 +9,12 @@
 .fieldgroup-title { color: var(--text-dim); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; }
 [data-types]:not(.on-type) { display: none; }
 .pairing { display: grid; grid-template-columns: 1fr auto 1fr; align-items: end; gap: 8px; }
-.pairing .arrow { padding-bottom: 8px; color: var(--text-dim); }
+.pairing .arrow { display: flex; align-items: center; height: var(--field-h); color: var(--text-dim); }
 .codebox input { text-transform: uppercase; letter-spacing: 0.1em; font-family: ui-monospace, Menlo, monospace; text-align: center; }
 
 /* how you get there: the way to this stop from the one before */
 .modes { display: flex; gap: 4px; }
-.mode { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 34px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-dim); font: inherit; cursor: pointer; }
+.mode { display: inline-flex; align-items: center; justify-content: center; width: var(--field-h); height: var(--field-h); border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-dim); font: inherit; cursor: pointer; }
 .mode.on { background: var(--accent); border-color: var(--accent); color: var(--bg); }
 .gettingthere { display: flex; flex-wrap: wrap; align-items: end; gap: 10px 14px; }
 .gettingthere .minutes { flex: 1; min-width: 140px; }
@@ -36,6 +36,7 @@
    and Find on one line; under it the message, then the list to choose from when more than one flight was found. */
 .editor-card .lookup { flex-direction: column; gap: 6px; padding: 10px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border)); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 6%, var(--bg-card)); }
 .editor-card .lookup-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; align-items: end; gap: 8px; }
+.editor-card .lookup-row .btn { box-sizing: border-box; height: var(--field-h); padding: 0 14px; }
 .editor-card .lookup-msg { margin: 0; font-size: 12px; }
 .editor-card .lookup-msg.bad { color: var(--danger); }
 .editor-card .lookup-list { display: flex; flex-direction: column; gap: 4px; }
@@ -54,28 +55,30 @@
   .editor-card .lookup-row input { font-size: 16px; }
 }
 /* the length, or the end time it comes to: a small switch beside the label, then the hours and minutes or the end time */
-/* the day, the time and the length on one row where there is width, wrapping whole groups (never squeezing one) where there is not;
-   the controls sit on one line at the bottom, each label above its own field */
-.editor-card .timing { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; }
-.editor-card .timing select, .editor-card .timing input:not([type="checkbox"]) { box-sizing: border-box; min-height: 30px; }
-.editor-card .timing > label { flex: 1 1 110px; min-width: 0; }
-.editor-card .timing > .when-field { flex: 2 1 220px; min-width: 0; }
+/* the day, the time and the length: one row where there is width, wrapping whole groups (the day group on a line, the times on
+   the next) where there is not, never squeezing one; every group is a label box over a field, all tops on one line */
+.editor-card .timing { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 10px 12px; }
+.editor-card .timing[data-types]:not(.on-type) { display: none; } /* the kind decides: the display above must not undo it */
+.editor-card .timing > .when-field { flex: 1 1 420px; min-width: 0; }
+.editor-card .timing .times { display: flex; flex: 0 1 auto; align-items: flex-start; gap: 10px 12px; min-width: 0; }
+.editor-card .timing > label, .editor-card .timing .times > label { flex: 1 1 110px; max-width: 170px; min-width: 0; }
+.editor-card .timing > #f-phase-row { flex-basis: 150px; max-width: 220px; }
 .editor-card .timing > label[hidden] { display: none; }
-.editor-card .duration { display: flex; flex: 0 1 auto; flex-direction: column; gap: 3px; max-width: 100%; color: var(--text-dim); font-size: 12px; }
-.editor-card .dur-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: flex-start; gap: 4px 10px; }
-.editor-card .duration[data-types]:not(.on-type) { display: none; } /* the kind decides: the display above must not undo it */
-.editor-card .dur-head > span:first-child { padding-bottom: 5px; }
+.editor-card .duration { display: flex; flex: 0 0 auto; flex-direction: column; gap: 3px; max-width: 100%; color: var(--text-dim); }
+.editor-card .dur-head { flex-wrap: nowrap; justify-content: flex-start; gap: 0 10px; font-size: 12px; white-space: nowrap; }
+.editor-card .duration[data-types]:not(.on-type) { display: none; }
 .editor-card .duration .hm input:not([type="checkbox"]) { flex: 0 0 4.5em; width: 4.5em; }
 .editor-card .duration .hm { gap: 4px; }
+.editor-card .hm > span { font-size: 12px; }
 .editor-card .duration .hm > span:not(:last-child) { margin-right: 6px; }
 .editor-card .endbox input:not([type="checkbox"]) { width: 9em; max-width: 100%; }
 .editor-card .endbox { max-width: 16em; }
 .editor-card .endbox .hint:empty { min-height: 0; height: 0; margin-top: -3px; }
 .editor-card .lenmode { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); }
 .editor-card .lenmode[hidden], .editor-card .endbox[hidden], .editor-card .hm[hidden] { display: none; }
-.editor-card .lm { min-height: 24px; padding: 0 8px; border: 0; border-radius: var(--radius-medium); background: none; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
+.editor-card .lm { min-height: 20px; padding: 0 8px; border: 0; border-radius: var(--radius-medium); background: none; color: var(--text-dim); font: inherit; font-size: 12px; cursor: pointer; }
 .editor-card .lm:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .editor-card .lm.on { background: var(--accent); color: var(--bg); }
 .editor-card .endbox { display: flex; flex-direction: column; gap: 3px; }
 .editor-card .endbox .hint { margin: 0; min-height: 1em; font-size: 12px; }
-@media (max-width: 640px) { .editor-card .lm { min-height: 32px; padding: 0 12px; } }
+@media (max-width: 640px) { .editor-card .lm { padding: 0 12px; } }

@@ -1,0 +1,104 @@
+/* The design system page's own chrome only: the top bar, the section list, headings and frames. Everything is the
+   product's tokens (public/style.css), so the page reads as part of the product. It restyles no component. */
+html { scroll-padding-top: 76px; }
+body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
+.visually-hidden { position: absolute !important; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ds-skip { position: absolute; left: 8px; top: -60px; z-index: 100; padding: 8px 12px; border-radius: var(--radius-small); background: var(--accent); color: var(--on-accent); }
+.ds-skip:focus { top: 8px; }
+
+.ds-top { position: sticky; top: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; background: var(--bg-section); border-bottom: 1px solid var(--border); }
+.ds-title { margin: 0; font-size: 18px; font-weight: 700; white-space: nowrap; }
+.ds-sub { color: var(--text-dim); font-size: 13px; font-weight: 400; margin-left: 6px; }
+.ds-search { position: relative; flex: 1 1 220px; max-width: 420px; display: block; }
+.ds-search i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-dim); pointer-events: none; }
+.ds-search input { width: 100%; height: 34px; padding: 0 10px 0 32px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-input); color: var(--text); font: inherit; }
+.ds-tools { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-left: auto; }
+.ds-tools .tb-tab { height: 30px; }
+.ds-menu-btn { display: none; }
+
+.ds-shell { display: grid; grid-template-columns: 250px minmax(0, 1fr); align-items: start; }
+.ds-nav { position: sticky; top: 57px; max-height: calc(100vh - 57px); overflow: auto; padding: 14px 10px 40px 14px; border-right: 1px solid var(--border); font-size: 13px; }
+.ds-nav h2 { margin: 14px 6px 4px; color: var(--text-dim); font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.ds-nav h2:first-child { margin-top: 0; }
+.ds-nav ul { margin: 0; padding: 0; list-style: none; }
+.ds-nav a { display: flex; justify-content: space-between; gap: 8px; padding: 5px 8px; border-radius: var(--radius-small); color: var(--text); }
+.ds-nav a:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+.ds-nav a[aria-current="true"] { background: var(--selected-bg); }
+.ds-nav a .n { color: var(--text-dim); font-size: 11px; }
+.ds-nav li[hidden] { display: none; }
+
+.ds-main { min-width: 0; padding: 20px 24px 80px; }
+.ds-main:focus { outline: none; }
+.ds-status { margin-bottom: 14px; color: var(--text-dim); font-size: 13px; }
+.ds-sec { margin: 0 0 56px; }
+.ds-sec > h2 { margin: 0 0 4px; font-size: 24px; }
+.ds-sec > .ds-lead { max-width: 80ch; margin: 0 0 18px; color: var(--text-dim); }
+.ds-group { margin: 32px 0 6px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
+
+.ds-block { margin: 0 0 28px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-section); }
+.ds-block[hidden] { display: none; }
+.ds-block > header { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-bottom: 6px; }
+.ds-block h3 { margin: 0; font-size: 18px; }
+.ds-block h3 a { color: inherit; }
+.ds-block h3 a:hover { color: var(--accent); }
+.ds-count { color: var(--text-dim); font-size: 12px; }
+.ds-dup { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--tint-orange) 18%, transparent); color: var(--tint-orange); font-size: 12px; font-weight: 600; }
+.ds-desc { max-width: 90ch; margin: 0 0 10px; color: var(--text-dim); }
+.ds-dupnote { max-width: 90ch; margin: 0 0 10px; font-size: 13px; }
+.ds-ctx { margin: 14px 0 6px; color: var(--text-dim); font-size: 12px; }
+.ds-ctx code { color: var(--text); }
+.ds-frame-wrap { overflow-x: auto; border-radius: var(--radius-medium); background: var(--bg); }
+.ds-frame { display: block; width: 100%; border: 0; background: var(--bg); color-scheme: normal; }
+
+/* Tokens */
+.ds-table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 13px; }
+.ds-table th, .ds-table td { padding: 5px 10px 5px 0; text-align: left; vertical-align: top; border-bottom: 1px solid color-mix(in srgb, var(--border) 60%, transparent); }
+.ds-table th { color: var(--text-dim); font-size: 11px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; }
+.ds-table td.num { font-variant-numeric: tabular-nums; text-align: right; padding-right: 16px; }
+.ds-table code, .ds-code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.ds-swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.ds-sw { display: flex; flex-direction: column; border: 1px solid var(--border); border-radius: var(--radius-medium); overflow: hidden; background: var(--bg-card); font-size: 12px; }
+.ds-sw-chip { display: flex; gap: 0; height: 54px; }
+.ds-sw-chip > span { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; }
+.ds-sw-body { padding: 8px 10px; display: grid; gap: 2px; }
+.ds-sw-body b { font-size: 13px; }
+.ds-sw-body code { color: var(--text-dim); font-family: ui-monospace, Menlo, monospace; font-size: 11px; overflow-wrap: anywhere; }
+.ds-sw-body .r { display: flex; justify-content: space-between; gap: 8px; }
+.ds-low { color: var(--danger-text); font-weight: 700; }
+.ds-bar { display: inline-block; height: 8px; border-radius: var(--radius-round); background: var(--accent); vertical-align: middle; }
+.ds-radii { display: flex; flex-wrap: wrap; gap: 14px; }
+.ds-radii div { display: grid; place-items: center; width: 92px; height: 64px; border: 1px solid var(--border); background: var(--bg-card); font-size: 11px; text-align: center; }
+.ds-shadows { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+.ds-shadows div { display: grid; gap: 4px; padding: 14px; min-height: 76px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 11px; overflow-wrap: anywhere; }
+.ds-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px; }
+.ds-h4 { margin: 22px 0 6px; font-size: 14px; }
+
+/* Icons */
+.ds-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.ds-icon { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-card); color: var(--text); font: inherit; cursor: pointer; }
+.ds-icon:hover { background: var(--secondary-hover); }
+.ds-icon i { font-size: 22px; color: var(--text); }
+.ds-icon span { font-size: 11px; color: var(--text-dim); overflow-wrap: anywhere; text-align: center; }
+.ds-icon[hidden] { display: none; }
+.ds-use { color: var(--text-dim); font-size: 12px; margin: 0 0 8px; }
+
+.ds-pre { margin: 0; padding: 10px; overflow: auto; border-radius: var(--radius-small); background: var(--shade); font-size: 12px; }
+
+@media (max-width: 900px) {
+  .ds-shell { grid-template-columns: minmax(0, 1fr); }
+  .ds-menu-btn { display: inline-flex; align-items: center; gap: 6px; }
+  .ds-nav { position: fixed; z-index: 45; top: 0; left: 0; bottom: 0; width: min(300px, 86vw); max-height: none; padding-top: 16px; background: var(--bg-section); border-right: 1px solid var(--border); transform: translateX(-102%); transition: transform 0.15s; }
+  .ds-nav.open { transform: none; }
+  .ds-main { padding: 16px 12px 60px; }
+  .ds-top { padding: 8px 12px; }
+  .ds-tools { margin-left: 0; }
+}
+@media (max-width: 640px) {
+  .ds-title { font-size: 16px; }
+  .ds-sub { display: none; }
+  .ds-search { flex-basis: 100%; max-width: none; order: 5; }
+  .ds-search input { height: 44px; font-size: 16px; }
+  .ds-menu-btn, .ds-tools .tb-tab { min-height: 44px; }
+  .ds-block { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .ds-nav { transition: none; } }

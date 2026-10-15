@@ -33,7 +33,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readView, emptyLine, viewKey, CHAT_VIEWS, viewOf, inView, discussionWord, routeLine, COMMAND_WORDS, commandName, commandForms, looksLikeImport, marksNew, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readView, emptyLine, viewKey, CHAT_VIEWS, viewOf, inView, discussionWord, routeLine, commandName, commandForms, looksLikeImport, marksNew, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -314,7 +314,7 @@ test('the views: which messages each shows (one store, no copies)', () => {
 test('the views: where a typed line goes; a command switches to the Assistant and leaves the Discussion alone', () => {
   assert.deepEqual(routeLine('/t buy milk', 'discussion'), { run: 'command', view: 'assistant', line: '/t buy milk' }, 'switches');
   assert.deepEqual(routeLine('/t buy milk', 'assistant'), { run: 'command', view: 'assistant', line: '/t buy milk' });
-  assert.deepEqual(routeLine('  /task buy milk  ', 'discussion'), { run: 'command', view: 'assistant', line: '/task buy milk' }, 'the full word is a command as well');
+  assert.deepEqual(routeLine('  /todo buy milk  ', 'discussion'), { run: 'command', view: 'assistant', line: '/todo buy milk' }, 'the full word is a command as well');
   assert.deepEqual(routeLine('/t', 'discussion'), { run: 'command', view: 'assistant', line: '/t' }, 'a bare command still runs (and says what it needs)');
   assert.deepEqual(routeLine('hello all', 'discussion'), { run: 'message', view: 'discussion', line: 'hello all' });
   assert.deepEqual(routeLine('where to eat?', 'assistant'), { run: 'ai', view: 'assistant', line: 'where to eat?' }, 'plain words in the Assistant ask the AI');
@@ -1090,22 +1090,34 @@ test('the composer: no Send button, Enter sends, Shift+Enter makes a new line, a
   assert.match(keys, /beforeinput[\s\S]*insertLineBreak[\s\S]*chatShift[\s\S]*requestSubmit/, 'a line break asked for without Shift (a phone keyboard) sends');
 });
 
-test('commands: a short or a full word runs the same command, and the menu shows both', () => {
-  assert.deepEqual(COMMAND_WORDS, { c: 'event', v: 'poll', r: 'research', t: 'task', p: 'trip' });
-  assert.equal(commandName('task'), 't');
-  assert.equal(commandName('t'), 't');
-  assert.equal(commandName('poll'), 'v');
-  assert.equal(commandName('task', ['task']), 'task', 'a module that declares the full word itself keeps it');
+test('commands: the short name is the first letter of the full word; either runs the same command; the menu shows both', () => {
+  const list = [{ name: 'e', word: 'event' }, { name: 'p', word: 'poll' }, { name: 'n', word: 'note' }, { name: 'l', word: 'link' }, { name: 't', word: 'todo' }, { name: 'x' }];
+  assert.equal(commandName('todo', list), 't', '/todo runs the to-do command');
+  assert.equal(commandName('t', list), 't', 'and so does /t');
+  assert.equal(commandName('poll', list), 'p');
+  assert.equal(commandName('p', list), 'p');
+  assert.equal(commandName('event', list), 'e');
+  assert.equal(commandName('task', list), 'task', 'the old word is no command');
+  assert.equal(commandName('x', list), 'x', 'a module with no word still works by its short name');
   assert.equal(commandName('nonsense'), 'nonsense');
-  assert.equal(commandForms('t'), '/t or /task');
+  assert.equal(commandForms('t', 'todo'), '/t or /todo');
   assert.equal(commandForms('xyz'), '/xyz');
-  assert.match(chat, /name: commandName\(m\[1\], commandList\(\)\.map\(\(c\) => c\.name\)\)/, 'typing either runs it');
-  assert.match(chat, /const forms = commandForms\(name\);/, 'the menu row shows both');
+  assert.ok(!/COMMAND_WORDS/.test(chat), 'no client table of words: the manifest has them');
+  assert.match(chat, /name: commandName\(m\[1\], commandList\(\)\)/, 'typing either runs it');
+  assert.match(chat, /const forms = commandForms\(name, group\[0\]\.word\);/, 'the menu row shows both');
   assert.ok(!/name: 'ai'/.test(fnBody(chat.replace(/^ {2}/gm, ''), 'function commandList() {')), '/ai is not a command any more');
-  for (const dir of ['calendar', 'polls', 'research', 'todo', 'travel']) {
-    const cmds = JSON.parse(read(`modules/${dir}/module.json`)).commands || [];
-    for (const c of cmds) assert.ok(COMMAND_WORDS[c.name], `${dir}: /${c.name} has a full word`);
+  const found = {};
+  for (const dir of fs.readdirSync(path.join(ROOT, 'modules'))) {
+    const mf = path.join(ROOT, 'modules', dir, 'module.json');
+    if (!fs.existsSync(mf)) continue;
+    for (const c of JSON.parse(fs.readFileSync(mf, 'utf8')).commands || []) {
+      assert.ok(c.word, `${dir}: /${c.name} has a full word`);
+      assert.equal(c.word[0], c.name, `${dir}: /${c.name} is the first letter of /${c.word}`);
+      found[c.name] = [c.word, dir, c.label];
+    }
   }
+  assert.deepEqual(found, { e: ['event', 'calendar', 'Add an event'], p: ['poll', 'polls', 'Start a poll'], n: ['note', 'research', 'Add a research note'], l: ['link', 'research', 'Add a research link'], t: ['todo', 'todo', 'Add a to-do'] }, 'the five commands, and no /trip');
+  assert.ok(!JSON.stringify(JSON.parse(read('modules/travel/module.json')).commands || []).includes('"p"'), 'the Planner has no command');
 });
 
 test('the Assistant\'s one box: a command runs, an import answer is imported, other words ask the AI', () => {
@@ -1114,7 +1126,7 @@ test('the Assistant\'s one box: a command runs, an import answer is imported, ot
   assert.equal(routeLine('[{"title":"Book","kind":"task"}]', 'assistant').run, 'import', 'a list too');
   assert.equal(routeLine('```objects\n[{"title":"x"}]\n```', 'assistant').run, 'import', 'a fenced block too');
   assert.equal(routeLine('/t buy milk', 'assistant').run, 'command', 'a command is not sent to the AI');
-  assert.equal(routeLine('/task buy milk', 'assistant').run, 'command');
+  assert.equal(routeLine('/todo buy milk', 'assistant').run, 'command');
   assert.equal(routeLine('Where should we eat in Rome?', 'assistant').run, 'ai', 'other words go to the AI');
   assert.equal(routeLine('{not json at all', 'assistant').run, 'ai');
   assert.equal(routeLine('hello {"a": 1}', 'assistant').run, 'ai', 'JSON that is not our template is words');
@@ -1167,4 +1179,22 @@ test('the status area: the modules\' status line under the composer, always ther
   assert.match(fnBody(space, 'async function sendChatText(text) {'), /chatNotice\(`chat: \$\{err\.message\}`, true\);/, 'a failed send shows in the status area');
   assert.ok(!/chat-clear-note/.test(space), 'a clear is told in the status area, not as a line in the list');
   assert.match(css, /\.chat-status \.error \{\n\s*color: var\(--danger-text\);/);
+});
+
+test('the composer hint: plain defaults for Chat and the Assistant, back to them after a send, a cancel or a switch of view (#346)', () => {
+  assert.ok(chat.includes("const HINTS = ['Send a message or type / for commands', 'Send a message, or / for commands', 'Send a message'];"), 'Chat\'s hint, then its shorter ones');
+  assert.ok(chat.includes("const ASK_HINTS = ['Instruct the Assistant or type / for commands', 'Instruct the Assistant, or / for commands', 'Instruct the Assistant'];"), 'the Assistant\'s hint, then its shorter ones');
+  assert.match(read('public/space.html'), /<textarea id="chat-input"[^>]*placeholder="Send a message or type \/ for commands"/, 'the page starts with Chat\'s');
+  assert.ok(!/something on the trip|Chat or type|Ask the AI, paste/.test(chat + read('public/space.html') + read('modules/travel/module.json')), 'the odd and old hints are gone');
+  assert.match(fnBody(chat.replace(/^ {2}/gm, ''), 'function resetHint() {'), /!parseCommand\(el\.value \|\| ''\)\) el\.placeholder = defaultHint\(\)/, 'a command being typed keeps its example, anything else gets the view\'s hint');
+  assert.match(fnBody(chat.replace(/^ {2}/gm, ''), 'function setView('), /resetHint\(\);/, 'switching view resets the hint, even over a command\'s example');
+  const submit = read('public/space.js').slice(read('public/space.js').indexOf("$('chat-form').addEventListener('submit'"));
+  const body = submit.slice(0, submit.indexOf("// Enter sends"));
+  assert.equal(body.split('chatInput.resetHint();').length - 1, 3, 'an import, a command or ask and a message each reset the hint once the box is emptied');
+  assert.ok(chat.includes("input().value = ''; resizeChatInput(); resetHint(); }"), 'a command sent from the "not open" box does too');
+  for (const m of fs.readdirSync(path.join(ROOT, 'modules'))) {
+    const mf = path.join(ROOT, 'modules', m, 'module.json');
+    if (!fs.existsSync(mf)) continue;
+    for (const c of JSON.parse(fs.readFileSync(mf, 'utf8')).commands || []) assert.ok(!c.hint || /^(the|what) /.test(c.hint), `${m} /${c.name}: a command's example names what to type`);
+  }
 });

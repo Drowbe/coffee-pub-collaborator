@@ -705,19 +705,19 @@ export function discussionWord(name) {
   const n = String(name || '').replace(/\s+/g, ' ').trim();
   return !n || n === 'Chat' ? 'Discussion' : n;
 }
-// The full word of each module command, beside the short one it is declared with: /t or /task, both run the same
-// command. A command a module declares under that very word keeps it (commandList is read first).
-export const COMMAND_WORDS = Object.freeze({ c: 'event', v: 'poll', r: 'research', t: 'task', p: 'trip' });
+// A module command is declared with a short name and, beside it, its full word (module.json `word`): /t or /todo, both
+// run the same command, and the short name is always the word's first letter. A command with no word has its short name only.
 // The short name a typed command word stands for (the short one itself, or a full word), else the word as typed.
-export function commandName(word, known = []) {
+// `list` is the commands: { name, word? }.
+export function commandName(word, list = []) {
   const w = String(word || '').toLowerCase();
-  if (known.includes(w)) return w;
-  const short = Object.keys(COMMAND_WORDS).find((k) => COMMAND_WORDS[k] === w);
-  return short || w;
+  if (list.some((c) => (c.name ?? c) === w)) return w;
+  const hit = list.find((c) => c.word === w);
+  return hit ? hit.name : w;
 }
-// "/t or /task": how a command shows in the menu and its hint.
-export function commandForms(name) {
-  return COMMAND_WORDS[name] ? `/${name} or /${COMMAND_WORDS[name]}` : `/${name}`;
+// "/t or /todo": how a command shows in the menu and its hint.
+export function commandForms(name, word = '') {
+  return word ? `/${name} or /${word}` : `/${name}`;
 }
 // Whether pasted text is one of our import answers (the objects template): JSON that is an object or a list, or a
 // fenced objects block, or text with a JSON object that has a title. Anything else is words for the AI. The server's
@@ -937,8 +937,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
   // A command's own hint is left alone. In the Assistant, plain words go to the AI (routeLine), and its hint says so.
-  const HINTS = ['Chat or type / for commands...', 'Chat, or / for commands', 'Chat'];
-  const ASK_HINTS = ['Ask the AI, paste an answer or type / for commands...', 'Ask, paste, or / for commands', 'Ask the AI'];
+  const HINTS = ['Send a message or type / for commands', 'Send a message, or / for commands', 'Send a message'];
+  const ASK_HINTS = ['Instruct the Assistant or type / for commands', 'Instruct the Assistant, or / for commands', 'Instruct the Assistant'];
   let view = 'discussion';
   let importOk = false;
   let hintCtx = null;
@@ -956,6 +956,12 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   function fitHint() {
     const el = input();
     if (el && (!el.placeholder || HINTS.includes(el.placeholder) || ASK_HINTS.includes(el.placeholder))) el.placeholder = defaultHint();
+  }
+  // Back to the view's own hint unless a command is being typed (its example shows only then): after a send, a cancel
+  // or a switch of view.
+  function resetHint() {
+    const el = input();
+    if (el && !parseCommand(el.value || '')) el.placeholder = defaultHint();
   }
   if (input() && typeof ResizeObserver === 'function') new ResizeObserver(fitHint).observe(input());
   const note = () => $('chat-note');
@@ -986,6 +992,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
           module: m.id,
           moduleName: m.displayName || m.name,
           icon: /^[a-z0-9-]{1,40}$/.test(m.icon || '') ? m.icon : '',
+          word: /^[a-z]{2,12}$/.test(c.word || '') && c.word[0] === c.name ? c.word : '',
           hint: c.hint || '',
           action: c.action,
         });
@@ -999,7 +1006,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     const m = /^\/([a-z0-9]{1,12})(?:\s+([\s\S]*))?$/.exec(text.trim());
     if (!m) return null;
     // A full word stands for its short name (/task is /t); the short name is what is stored and sent.
-    return { name: commandName(m[1], commandList().map((c) => c.name)), rest: (m[2] || '').trim(), raw: text };
+    return { name: commandName(m[1], commandList()), rest: (m[2] || '').trim(), raw: text };
   }
 
   function matchesFor(name) {
@@ -1026,7 +1033,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'chat-command-item';
-        const forms = commandForms(name);
+        const forms = commandForms(name, group[0].word);
         const label = group.length > 1 && c.moduleName ? `${forms} (${c.moduleName})` : forms;
         b.textContent = `${label} — ${c.label}`;
         b.addEventListener('click', () => {
@@ -1091,7 +1098,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     if ($('chat')) $('chat').dataset.view = view;
     if (isShown()) newIn[view] = 0;
     paintNew();
-    fitHint();
+    resetHint();
     paintModeTools();
     syncEmpty();
     if (list) list.scrollTop = list.scrollHeight;
@@ -1752,7 +1759,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       finish();
       try {
         echo(parsed, chosen, await postCommand(parsed, chosen));
-        if (input().value.trim() === parsed.raw.trim()) { input().value = ''; resizeChatInput(); }
+        if (input().value.trim() === parsed.raw.trim()) { input().value = ''; resizeChatInput(); resetHint(); }
         if (open) canvas.open(chosen.module);
       } catch (err) {
         setNote(err.message || `The ${name} could not take that.`, true);
@@ -2032,7 +2039,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     setView('assistant');
     const text = input().value.trim();
     if (!text) { setNote('Paste the answer in the box, then press Enter.'); input().focus(); return; }
-    if (await checkObjects(text)) { input().value = ''; resizeChatInput(); }
+    if (await checkObjects(text)) { input().value = ''; resizeChatInput(); resetHint(); }
   });
   $('chat-import-copy')?.addEventListener('click', async (e) => {
     e.preventDefault();
@@ -2086,6 +2093,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   }
 
   return {
+    resetHint,
     // true when the command was taken (the box empties); false leaves the text in the box to fix or send again.
     async handleSubmit(text) {
       setNote('');

@@ -1079,7 +1079,7 @@
     openEditor(null, part === 'main' ? ymd(anchor) : undefined);
   }
   $('add').addEventListener('click', startNew);
-  // Typed text goes through Chat `/c` (addEvent): parseWhen, then this same editor, nothing saved until Save.
+  // Typed text goes through Chat `/e` (addEvent): parseWhen, then this same editor, nothing saved until Save.
   // Add event is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
   // page bar on the module's own page; or the composite's "+" as the destination's calendar in a Workspace's Calendar.
   // Where the host draws none (its answer is false: a destination's part on the /calendar page) the header button stays.

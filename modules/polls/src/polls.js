@@ -791,7 +791,7 @@
   }
   $('add').addEventListener('click', () => openEditor());
   // New poll is the "+" in the titlebar (host.add.set, one action: it runs at once): a window's, popped out too, or the
-  // page bar on the module's own page. The header button stays only where the host draws none. Typing is `/v` in Chat,
+  // page bar on the module's own page. The header button stays only where the host draws none. Typing is `/p` in Chat,
   // which opens the same form.
   const unhost = () => $('add').classList.remove('hosted');
   $('add').classList.add('hosted'); // until the host says where New poll is

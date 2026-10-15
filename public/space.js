@@ -3929,7 +3929,7 @@ function messagePortrait(name, kind, icon, by) {
 // A chat message is a header and a container. The header has a left zone (portrait, name, time) and a
 // right zone (private or public, then the menu). The container is the message itself.
 // `tint` is the colour of a command's module, or gold for the AI (plan-chat-model.md, decision 18): the portrait's icon
-// and a thin left edge. `command` ("/r") follows the name. data-vis says private or public; data-in which of Chat's
+// and a thin left edge. `command` ("/n") follows the name. data-vis says private or public; data-in which of Chat's
 // views shows it (viewOf: private in the Assistant, the person's own shared command or answer in both, else the
 // Discussion). The person's own shared one reads "shared".
 function frameMessage({ name, at, visibility = 'public', kind, icon, by, body, entry, tint, command }) {
@@ -5890,6 +5890,7 @@ $('chat-form').addEventListener('submit', async (event) => {
     if (await chatInput.importText(route.line)) {
       $('chat-input').value = '';
       resizeChatInput();
+      chatInput.resetHint();
     }
     return;
   }
@@ -5897,12 +5898,14 @@ $('chat-form').addEventListener('submit', async (event) => {
     if (await (route.run === 'ai' ? chatInput.ask(route.line) : chatInput.handleSubmit(route.line))) {
       $('chat-input').value = '';
       resizeChatInput();
+      chatInput.resetHint();
     }
     return;
   }
   if (route.run !== 'message') return;
   $('chat-input').value = '';
   resizeChatInput();
+  chatInput.resetHint();
   await sendChatText(text);
 });
 // Enter sends, as in any chat; Shift+Enter makes a new line. There is no Send button. A phone keyboard's Enter or Send

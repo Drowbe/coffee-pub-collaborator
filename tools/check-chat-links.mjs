@@ -363,7 +363,7 @@ try {
   assert.equal(hitsOf('/page/private'), 0);
   assert.equal((await call('POST', '/api/modules/bundled/polls/install', { cookie: owner, body: {} })).status, 201);
   assert.equal((await call('PATCH', '/api/modules/polls', { cookie: owner, body: { enabled: true, allSpaces: true } })).status, 200);
-  const vote = await call('POST', `/api/spaces/${S}/command`, { cookie: pat, body: { name: 'v', text: 'http://page.example.com/page/command' } });
+  const vote = await call('POST', `/api/spaces/${S}/command`, { cookie: pat, body: { name: 'p', text: 'http://page.example.com/page/command' } });
   assert.equal(vote.status, 200, vote.text);
   assert.equal('preview' in vote.json.message, false, 'a command echo has no preview');
   assert.equal((await call('PATCH', `/api/spaces/${S}/chat/${vote.json.message.id}`, { cookie: pat, body: { visibility: 'public' } })).status, 200);

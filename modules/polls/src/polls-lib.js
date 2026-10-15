@@ -15,7 +15,7 @@
   // What the poll form starts with: { title (the question), options: [text], closes: 'YYYY-MM-DDTHH:MM' or '', multi }.
   // The question is the title, plain. The options are details.options; with none, the content's own short lines (a message
   // "Where to eat?" then "- Pizza" and "- Sushi" on lines of their own), when there are at least two. It closes at
-  // details.closes (a time alone on the object's own day), else on the object's own day at 12:00, as /v reads a typed day;
+  // details.closes (a time alone on the object's own day), else on the object's own day at 12:00, as /p reads a typed day;
   // a closing day with no time is 12:00 too. More than one answer when details.multiple is true. Nothing is saved: the
   // person sees the form and saves it, or not.
   function pollFromObject(object, util) {

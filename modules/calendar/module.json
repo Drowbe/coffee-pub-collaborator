@@ -1,7 +1,7 @@
 {
   "id": "calendar",
   "name": "Calendar",
-  "version": "1.24.15",
+  "version": "1.24.16",
   "icon": "calendar-days",
   "color": "red",
   "description": "Sessions and events for the whole {environment} and for each {space}, with reminders.",
@@ -134,7 +134,7 @@
     ]
   },
   "commands": [
-    { "name": "c", "label": "Add an event", "action": "addEvent", "hint": "the event" }
+    { "name": "e", "word": "event", "label": "Add an event", "action": "addEvent", "hint": "the event" }
   ],
   "refs": {
     "produces": [

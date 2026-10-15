@@ -1,0 +1,1774 @@
+{
+ "about": "The screens tools/shots.mjs captures (documentation/plans/plan-design-system.md, step 1). Add a screen by adding a row here and running `npm run shots` again; see tools/shots.mjs for the steps a row may hold.",
+ "tiers": {
+  "core": {
+   "sizes": [
+    1280,
+    700,
+    390
+   ],
+   "themes": [
+    "light",
+    "dark"
+   ]
+  },
+  "state": {
+   "sizes": [
+    1280,
+    390
+   ],
+   "themes": [
+    "light",
+    "dark"
+   ]
+  }
+ },
+ "screens": [
+  {
+   "id": "home-member",
+   "family": "Home cards and ghost slot",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "tier": "core"
+  },
+  {
+   "id": "home-admin",
+   "family": "Home cards and ghost slot",
+   "as": "admin",
+   "url": "/",
+   "wait": ".space-choice",
+   "tier": "core"
+  },
+  {
+   "id": "home-empty",
+   "family": "Empty and loading states",
+   "as": "lee",
+   "url": "/",
+   "wait": "#chat-input",
+   "tier": "core"
+  },
+  {
+   "id": "home-chat-assistant",
+   "family": "Messages and AI cards",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "click": "#chat-view-assistant"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "home-chat-slash",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "type": [
+      "#chat-input",
+      "/"
+     ]
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "home-chat-more-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "click": "#chat-more"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "home-chat-emoji",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "click": "#chat-emoji"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "home-chat-message-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "click": "button.sdk-more",
+     "text": "More"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "home-user-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "click": "#whoami-link"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "home-notifications",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "click": "#notifications-bell"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "home-trips-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/",
+   "wait": ".space-choice",
+   "steps": [
+    {
+     "click": "#spaces-switch"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "manage-environment",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-template",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=template]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-theme",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=theme]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-spaces",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=spaces]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-roles",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=roles]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-users",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=users]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-modules",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=modules]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-about",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/admin",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=about]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-ai-config",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/ai-config.html",
+   "wait": "body",
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "manage-module-config",
+   "family": "Manage pages",
+   "as": "admin",
+   "url": "/module-config.html?id=travel",
+   "wait": "body",
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "profile-profile",
+   "family": "Profile tabs",
+   "as": "mia",
+   "url": "/profile",
+   "wait": ".subtab",
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "profile-spaces",
+   "family": "Profile tabs",
+   "as": "mia",
+   "url": "/profile",
+   "wait": ".subtab",
+   "steps": [
+    {
+     "click": "button.subtab[data-tab=spaces]",
+     "until": "button.subtab.active",
+     "untilText": ""
+    }
+   ],
+   "full": true,
+   "tier": "core"
+  },
+  {
+   "id": "login",
+   "family": "Forms and editor windows",
+   "as": "none",
+   "url": "/login",
+   "wait": "#login-name",
+   "tier": "core"
+  },
+  {
+   "id": "login-error",
+   "family": "Forms and editor windows",
+   "as": "none",
+   "url": "/login?error=1&login=mia",
+   "wait": "#login-name",
+   "tier": "state"
+  },
+  {
+   "id": "calendar-month",
+   "family": "Calendar",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "calendar-week",
+   "family": "Calendar",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "button.tb-tab[data-view=week]",
+     "until": "button.tb-tab.on[data-view=week]",
+     "untilText": ""
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "calendar-day",
+   "family": "Calendar",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "button.tb-tab[data-view=day]",
+     "until": "button.tb-tab.on[data-view=day]",
+     "untilText": ""
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "calendar-agenda",
+   "family": "Calendar",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Agenda",
+     "until": "button.tb-tab.on"
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "calendar-todo",
+   "family": "Calendar",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "To-do",
+     "until": "button.tb-tab.on"
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "calendar-markers-filter",
+   "family": "Chips and badges",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "#dest-filter-toggle"
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "calendar-add-event",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "div.module-root.dest-part-root >>> #add"
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "calendar-event-open",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Agenda",
+     "until": "button.tb-tab.on"
+    },
+    {
+     "click": "div.module-root.dest-part-root >>> button.item",
+     "text": "Pack the suitcases"
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "calendar-todo-add-form",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/calendar",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "To-do",
+     "until": "button.tb-tab.on"
+    },
+    {
+     "click": "div.module-root.dest-part-root >>> #add",
+     "text": "Add task"
+    },
+    {
+     "eval": "__all('div.module-root.dest-part-root >>> #body').forEach((b) => { b.scrollTop = 0; })"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "calendar-empty-trip",
+   "family": "Empty and loading states",
+   "as": "mia",
+   "url": "/calendar?space={second}",
+   "wait": "div.module-root.dest-part-root >>> #add",
+   "tier": "state"
+  },
+  {
+   "id": "planner-days",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "tier": "core"
+  },
+  {
+   "id": "planner-decisions",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Decisions",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "planner-bookings",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Bookings",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "planner-empty",
+   "family": "Empty and loading states",
+   "as": "mia",
+   "url": "/modules/travel?space={second}",
+   "wait": "#module-frame >>> button",
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-flight",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.pass"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-stay",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.stay"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-train",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.ticket"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-meal",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.meal",
+     "text": "Taberna"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-cafe-done",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.meal",
+     "text": "Pastries"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-activity",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.act",
+     "text": "Tile Museum"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-show",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.admit"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-transit",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.transit"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-note",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.note"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-link",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.placecard"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-card-block",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> article.card.block"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-marker-lane",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> li.row.lane"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-marker-phase",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> li.row.marker"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-suggestion",
+   "family": "Planner",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "scroll": "#module-frame >>> button[data-action=add-suggestion]"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-plus-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-plus-travel-flyout",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-category",
+     "text": "Travel"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-day-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "#module-frame >>> button.day-add"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-item-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "#module-frame >>> button[data-action=move-menu]"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-flight",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-category",
+     "text": "Travel"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Flight"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-train",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-category",
+     "text": "Travel"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Train"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-stay",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Add a stay"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-restaurant",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-category",
+     "text": "Eat and drink"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Restaurant"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-sight",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-category",
+     "text": "See and do"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Sight"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-note",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Add a note"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-edit-flight",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "#module-frame >>> article.card.pass .pass-main"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-edit-stay",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "#module-frame >>> article.card.stay .main"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-form-error",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Add a note"
+    },
+    {
+     "click": "#module-frame >>> button",
+     "text": "Save"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "planner-menu-mark-flyout",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/travel?space={trip}",
+   "wait": "#module-frame >>> .day-add",
+   "steps": [
+    {
+     "click": "#module-frame >>> button.day-add"
+    },
+    {
+     "click": "#module-frame >>> button.sdk-menu-category",
+     "text": "Mark the day"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "places-trip",
+   "family": "Places",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "tier": "core"
+  },
+  {
+   "id": "places-mine",
+   "family": "Places",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Mine",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "places-all",
+   "family": "Places",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "button.tb-tab:nth-of-type(3)",
+     "until": "button.tb-tab.on:nth-of-type(3)",
+     "untilText": ""
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "places-empty",
+   "family": "Empty and loading states",
+   "as": "mia",
+   "url": "/modules/places?space={second}",
+   "wait": "#module-frame >>> button",
+   "tier": "state"
+  },
+  {
+   "id": "places-filter-chip",
+   "family": "Chips and badges",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "#module-frame >>> button.chip",
+     "text": "Sights"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "places-item-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "#module-frame >>> button[data-action=menu]"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "places-toast",
+   "family": "Banners, toasts and notices",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "#module-frame >>> button[data-action=menu]"
+    },
+    {
+     "click": "#module-frame >>> button.sdk-menu-item",
+     "text": "Copy coordinates"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "places-form-add",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "places-form-error",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "#module-frame >>> button",
+     "text": "Save"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "places-form-edit",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/places?space={trip}",
+   "wait": "#module-frame >>> .chip",
+   "steps": [
+    {
+     "click": "#module-frame >>> article.place-row .title"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "budget-overview",
+   "family": "Budget",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "tier": "core"
+  },
+  {
+   "id": "budget-costs",
+   "family": "Budget",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Costs",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "budget-settle",
+   "family": "Budget",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Settle up",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "budget-empty",
+   "family": "Empty and loading states",
+   "as": "mia",
+   "url": "/modules/budget?space={second}",
+   "wait": "#module-frame >>> button",
+   "tier": "state"
+  },
+  {
+   "id": "budget-form-add",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "budget-form-error",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "#module-frame >>> #f-save"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "budget-form-target",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/budget?space={trip}",
+   "wait": "#module-frame >>> #target-edit",
+   "steps": [
+    {
+     "click": "#module-frame >>> #target-edit"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "polls-open",
+   "family": "Polls",
+   "as": "mia",
+   "url": "/modules/polls?space={trip}",
+   "wait": "#module-frame >>> button",
+   "tier": "core"
+  },
+  {
+   "id": "polls-closed",
+   "family": "Polls",
+   "as": "mia",
+   "url": "/modules/polls?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Closed",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "polls-all",
+   "family": "Polls",
+   "as": "mia",
+   "url": "/modules/polls?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "All",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "polls-empty",
+   "family": "Empty and loading states",
+   "as": "mia",
+   "url": "/modules/polls?space={second}",
+   "wait": "#module-frame >>> #app, #module-frame >>> button",
+   "tier": "state"
+  },
+  {
+   "id": "polls-form-new",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/polls?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "polls-form-error",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/polls?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "#module-frame >>> #f-save"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "research-trip",
+   "family": "Research",
+   "as": "mia",
+   "url": "/modules/research?space={trip}",
+   "wait": "#module-frame >>> button",
+   "tier": "core"
+  },
+  {
+   "id": "research-list",
+   "family": "Research",
+   "as": "mia",
+   "url": "/modules/research?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "List",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "research-mine",
+   "family": "Research",
+   "as": "mia",
+   "url": "/modules/research?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.tb-tab",
+     "text": "Mine",
+     "until": "button.tb-tab.on"
+    }
+   ],
+   "tier": "core"
+  },
+  {
+   "id": "research-empty",
+   "family": "Empty and loading states",
+   "as": "mia",
+   "url": "/modules/research?space={second}",
+   "wait": "#module-frame >>> button",
+   "tier": "state"
+  },
+  {
+   "id": "research-tags",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/research?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.tb-btn",
+     "text": "Tags"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "research-add-menu",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/modules/research?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "research-form-note",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/research?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Note"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "research-form-link",
+   "family": "Forms and editor windows",
+   "as": "mia",
+   "url": "/modules/research?space={trip}",
+   "wait": "#module-frame >>> button",
+   "steps": [
+    {
+     "click": "button.sdk-more.mod-add"
+    },
+    {
+     "click": "button.host-menu-item",
+     "text": "Link"
+    }
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-workspace",
+   "family": "Space page (call stand-in)",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "call": true,
+   "tier": "core"
+  },
+  {
+   "id": "space-calendar-tab",
+   "family": "Space page (call stand-in)",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#layout-tab-calendar"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-phase-sheet",
+   "family": "Status strip and phases",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#phase-chip"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-menu-spaces",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "button.space-switcher-button"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-menu-layout",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#modules-toggle"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-menu-user",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#whoami-link"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-menu-who-here",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#who-here-toggle"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-menu-module",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "button.sdk-more[data-module-menu]"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-menu-chat-message",
+   "family": "Menus",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "button.sdk-more",
+     "text": "More"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-chat-keep-menu",
+   "family": "Messages and AI cards",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "button.msg-btn.chat-object-place-btn"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-call-start",
+   "family": "Call controls (not joined)",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#join-call"
+    }
+   ],
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-space",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#setup"
+    },
+    {
+     "sleep": 2000
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-space-phone",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/?setup={trip}#space",
+   "wait": "#space-setup",
+   "call": true,
+   "sizes": [
+    390
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-members",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#setup"
+    },
+    {
+     "sleep": 2000
+    },
+    {
+     "click": "#setup-tab-members"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-members-phone",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/?setup={trip}#members",
+   "wait": "#space-setup",
+   "call": true,
+   "sizes": [
+    390
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-phases",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#setup"
+    },
+    {
+     "sleep": 2000
+    },
+    {
+     "click": "#setup-tab-phases"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-phases-phone",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/?setup={trip}#phases",
+   "wait": "#space-setup",
+   "call": true,
+   "sizes": [
+    390
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-opens-with",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#setup"
+    },
+    {
+     "sleep": 2000
+    },
+    {
+     "click": "#setup-tab-opens-with"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-opens-with-phone",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/?setup={trip}#opens-with",
+   "wait": "#space-setup",
+   "call": true,
+   "sizes": [
+    390
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-modules",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#setup"
+    },
+    {
+     "sleep": 2000
+    },
+    {
+     "click": "#setup-tab-modules"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-modules-phone",
+   "family": "Profile and Set up tabs",
+   "as": "admin",
+   "url": "/?setup={trip}#modules",
+   "wait": "#space-setup",
+   "call": true,
+   "sizes": [
+    390
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-moderator",
+   "family": "Profile and Set up tabs",
+   "as": "mia",
+   "url": "/#join={trip}",
+   "wait": "button.status-fact[data-module=budget]",
+   "steps": [
+    {
+     "click": "#setup"
+    },
+    {
+     "sleep": 2000
+    },
+    {
+     "click": "#setup-tab-phases"
+    }
+   ],
+   "call": true,
+   "sizes": [
+    1280
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-setup-moderator-phone",
+   "family": "Profile and Set up tabs",
+   "as": "mia",
+   "url": "/?setup={trip}#phases",
+   "wait": "#space-setup",
+   "call": true,
+   "sizes": [
+    390
+   ],
+   "tier": "state"
+  },
+  {
+   "id": "space-empty",
+   "family": "Empty and loading states",
+   "as": "mia",
+   "url": "/#join={second}",
+   "wait": "#phase-chip",
+   "call": true,
+   "tier": "state"
+  },
+  {
+   "id": "maps-page",
+   "family": "Maps",
+   "as": "mia",
+   "url": "/modules/maps?space={trip}",
+   "wait": "#module-frame >>> *",
+   "tier": "core"
+  },
+  {
+   "id": "assistant-page",
+   "family": "Assistant",
+   "as": "mia",
+   "url": "/modules/assistant?space={trip}",
+   "wait": "#module-frame >>> *",
+   "tier": "core"
+  },
+  {
+   "id": "stream-page",
+   "family": "Stream",
+   "as": "admin",
+   "url": "/modules/stream",
+   "wait": "#module-frame >>> *",
+   "tier": "core"
+  }
+ ]
+}

@@ -1,0 +1,203 @@
+/* The PROPOSED button system (Thomas's decisions, 2026-10-15; documentation/plans/plan-design-system.md). Nothing in the product loads this
+   file. Every rule is scoped under .ds-proposed, so the design system page can draw today's buttons and the proposed ones in the same
+   frame; the page injects this file into the frames of the "Proposed system" view only. When the proposal is approved, the rules move to
+   the system stylesheet with the scope removed (`.ds-proposed ` deleted), and the product's older button rules go.
+   Colours are theme tokens only. Radii are --radius-* tokens. No state changes a border colour: Secondary keeps its neutral hairline
+   (it has one today), every other role has a transparent edge so all buttons keep one box size. Selected, hover and pressed are fills.
+
+   Roles   Primary  .btn-primary   the one main action, filled accent
+           Secondary .btn          everything else, neutral fill and hairline (the default)
+           Danger   .btn-danger    soft red fill with red text; .btn-danger.solid is the solid red kept for a final confirm
+           Quiet    .btn-quiet     text only, for Cancel, Keep, dismiss
+           Selected .on or aria-pressed="true"   the selected fill (--selected-bg)
+   Sizes   default --btn-h = --field-h (38px; 44px on a phone), small .btn-small = 30px
+   Icon only  .sdk-icon-btn: a square, the same roles and sizes. The names below are aliases, so today's markup updates with no edit:
+           .action-btn .sdk-field-btn (Secondary)   .sdk-more .icon-btn .sdk-editor-close .msg-btn (Quiet)
+           .fbtn (the call's controls) is NOT touched: it stays a circle with its own rules. */
+
+.ds-proposed {
+  --btn-h: var(--field-h, 38px);
+  --btn-h-small: 30px;
+  --btn-pad-x: 14px;
+  --btn-font: 14px;
+  --btn-icon: 16px;
+  --btn-gap: 6px;
+  /* Secondary, the default */
+  --b-bg: var(--secondary);
+  --b-bg-h: var(--secondary-hover);
+  --b-bg-a: color-mix(in srgb, var(--text) 14%, var(--secondary));
+  --b-fg: var(--secondary-text);
+  --b-fg-h: var(--secondary-text);
+  --b-bd: var(--border);
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --btn-h: 44px; }
+}
+
+/* The shape, for every text button and every icon-only button. */
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-gap);
+  box-sizing: border-box;
+  height: var(--btn-h);
+  min-height: 0;
+  margin: 0;
+  padding: 0 var(--btn-pad-x);
+  border: 1px solid var(--b-bd);
+  border-radius: var(--radius-small);
+  background: var(--b-bg);
+  color: var(--b-fg);
+  font: inherit;
+  font-size: var(--btn-font);
+  font-weight: 500;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  opacity: 1;
+  transition: background 0.15s, color 0.15s;
+}
+
+/* Icon only: a square at the same height. The icon is a fixed size, so a small button keeps the look. */
+.ds-proposed :is(.sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn) {
+  flex: none;
+  width: var(--btn-h);
+  padding: 0;
+  font-size: var(--btn-icon);
+}
+
+.ds-proposed :is(.sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn) :is(i, svg, .ic) {
+  display: block;
+  margin: 0;
+  line-height: 1;
+}
+
+/* Small: dense rows and toolbars. */
+/* Small is also the default size of the icon buttons that are small today (more, close, message, the module's icon button). */
+.ds-proposed .btn-small,
+.ds-proposed :is(.sdk-more, .sdk-editor-close, .msg-btn, .icon-btn) {
+  --btn-h: var(--btn-h-small);
+  --btn-pad-x: 10px;
+  --btn-font: 13px;
+  --btn-icon: 14px;
+}
+
+/* The top bar's text button keeps the nav type (--nav-font-*), as it does today. */
+.ds-proposed .btn.nav-text {
+  font-size: var(--nav-font-size, 13px);
+  font-weight: var(--nav-font-weight, 600);
+  letter-spacing: var(--nav-letter-spacing, normal);
+}
+
+/* States. Each is a fill; the edge never changes colour. */
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn):hover {
+  background: var(--b-bg-h);
+  color: var(--b-fg-h);
+  box-shadow: none;
+}
+
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn):active {
+  background: var(--b-bg-a);
+  color: var(--b-fg-h);
+  transform: none;
+}
+
+/* The focus ring the product already uses (the top bar, the call's buttons, the editor's close): 2px accent, 2px off the box. */
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn):disabled,
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn)[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* Loading (optional): the label stays, a spinning icon goes in front (<i class="fa-solid fa-spinner fa-spin">), and it cannot be pressed. */
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn)[aria-busy="true"] {
+  cursor: progress;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* Quiet by default: the icon buttons that have no fill today. */
+.ds-proposed :is(.sdk-more, .sdk-editor-close, .msg-btn, .icon-btn),
+.ds-proposed :is(.sdk-icon-btn, .action-btn, .sdk-field-btn).btn-quiet {
+  --b-bg: transparent;
+  --b-bg-h: color-mix(in srgb, var(--text) 10%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--text) 16%, transparent);
+  --b-fg: var(--text-dim);
+  --b-fg-h: var(--text);
+  --b-bd: transparent;
+}
+
+/* Roles. */
+.ds-proposed .btn-primary,
+.ds-proposed :is(.sdk-btn, .action-btn).primary {
+  --b-bg: var(--accent);
+  --b-bg-h: var(--primary-hover);
+  --b-bg-a: color-mix(in srgb, black 14%, var(--primary-hover));
+  --b-fg: var(--on-accent);
+  --b-fg-h: var(--on-accent);
+  --b-bd: transparent;
+}
+
+.ds-proposed .btn-danger,
+.ds-proposed .btn.off {
+  --b-bg: color-mix(in srgb, var(--danger) 16%, transparent);
+  --b-bg-h: color-mix(in srgb, var(--danger) 26%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--danger) 34%, transparent);
+  /* --danger-text is the dark mode's light red and has no light value (pale on a light page), so the text is --danger pulled toward
+     --text: dark enough in light, light enough in dark. */
+  --b-fg: color-mix(in srgb, var(--danger) 70%, var(--text));
+  --b-fg-h: color-mix(in srgb, var(--danger) 70%, var(--text));
+  --b-bd: transparent;
+}
+
+/* The solid red: only a final confirm (Delete for good, Leave). */
+.ds-proposed .btn-danger.solid {
+  --b-bg: var(--danger);
+  --b-bg-h: color-mix(in srgb, var(--danger) 82%, white);
+  --b-bg-a: color-mix(in srgb, var(--danger) 82%, black);
+  --b-fg: var(--on-danger);
+  --b-fg-h: var(--on-danger);
+}
+
+.ds-proposed .btn-quiet {
+  --b-bg: transparent;
+  --b-bg-h: color-mix(in srgb, var(--text) 10%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--text) 16%, transparent);
+  --b-fg: var(--text);
+  --b-fg-h: var(--text);
+  --b-bd: transparent;
+}
+
+/* Selected, on, pressed: the selected fill, never an edge. */
+.ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn:not(.fbtn), .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn):is(.on, [aria-pressed="true"]) {
+  --b-bg: var(--selected-bg);
+  --b-bg-h: color-mix(in srgb, var(--accent) 38%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--accent) 46%, transparent);
+  --b-fg: color-mix(in srgb, var(--accent) 55%, var(--text));
+  --b-fg-h: color-mix(in srgb, var(--accent) 55%, var(--text));
+  --b-bd: transparent;
+}
+
+/* On a phone a small button keeps its look and gets a 44px target: the hit area grows past the box. */
+@media (max-width: 640px) {
+  .ds-proposed :is(.btn-small, .sdk-more, .msg-btn, .icon-btn):not(.sdk-editor-close) { position: relative; }
+  .ds-proposed :is(.btn-small, .sdk-more, .sdk-editor-close, .msg-btn, .icon-btn)::after { content: ""; position: absolute; inset: -7px 0; }
+  .ds-proposed :is(.sdk-icon-btn, .action-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn, .icon-btn).btn-small::after,
+  .ds-proposed :is(.sdk-more, .sdk-editor-close, .msg-btn, .icon-btn)::after { inset: -7px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.btn, .sdk-btn, .sdk-icon-btn, .action-btn, .icon-btn, .sdk-field-btn, .sdk-more, .sdk-editor-close, .msg-btn) { transition: none; }
+}

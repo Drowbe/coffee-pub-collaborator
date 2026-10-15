@@ -113,16 +113,13 @@
   const tt = (t) => (t ? host.util.time(t) : '');
   const hm = (min) => `${String(Math.floor(min / 60) % 24).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
   const lengthText = gapText; // "8 h 15 min", "45 min"
-  // What a person last chose to give a length as, "length" or "end" (#247), kept per browser; nothing is stored on the object.
-  const LENMODE_KEY = 'planner-length-mode';
-  let lenMode = (() => { try { return localStorage.getItem(LENMODE_KEY) === 'end' ? 'end' : 'length'; } catch (err) { return 'length'; } })();
-  // "– 3:00 PM" (with " +1" past midnight) for a timed stop with a length, only while End time is the choice; else ''.
+  // "– 3:00 PM" (with " +1" past midnight) for a timed stop with a length; else ''.
   const endText = (item) => {
-    if (lenMode !== 'end' || !item || !item.time || !item.minutes) return '';
+    if (!item || !item.time || !item.minutes) return '';
     const e = endOf(item.time, item.minutes);
     return e ? `– ${tt(e.time)}${e.days ? ` +${e.days}` : ''}` : '';
   };
-  // "8:00 AM – 3:00 PM": the start and, while End time is the choice, the end.
+  // "8:00 AM – 3:00 PM": the start and the end.
   const spanText = (item) => [tt(item.time), endText(item)].filter(Boolean).join(' ');
   // When a timed item arrives, on the environment's clock, with the day when it is not the day it leaves ("2:00 AM the next day").
   // `sep` goes between the time and the day: the narrow time column puts the day on a line of its own ("\n").
@@ -2147,6 +2144,11 @@
     ed.tile = tile;
     const key = tile.startsWith('block:') ? 'block' : tile.startsWith('lane:') ? 'lane' : tile; // every marker shows the same fields
     for (const el of $('form').querySelectorAll('[data-types]')) el.classList.toggle('on-type', el.dataset.types.split(/\s+/).includes(key));
+    // A row that shows one field for this kind gives it the whole row, so no gap is left beside it.
+    for (const row of $('form').querySelectorAll('.sdk-row[data-grow]')) {
+      const fields = [...row.children].filter((c) => c.classList.contains('sdk-field') && !c.matches('[data-types]:not(.on-type)'));
+      for (const f of row.querySelectorAll(':scope > .sdk-field')) f.classList.toggle('sdk-full', fields.length === 1 && f === fields[0]);
+    }
     $('f-title').required = key !== 'block' && key !== 'lane'; // a marker's label is optional: the type names it
     // A marker is one kind in the picker; Where decides whether it is in a day (block) or between days (lane), so the
     // list has no "Unscheduled". A marker that was unplaced goes to the first day; one whose Where says otherwise

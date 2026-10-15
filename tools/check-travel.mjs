@@ -1729,9 +1729,9 @@ test('the page: the lookup rows, their words, and remembering on Save', () => {
   const js = read('travel.js');
   for (const pre of ['f-', 'f-back-']) {
     for (const part of ['lookup', 'lookup-number', 'lookup-date', 'lookup-find', 'lookup-msg', 'lookup-list']) assert.ok(html.includes(`id="${pre}${part}"`), `${pre}${part}`);
-    assert.ok(html.includes(`<fieldset class="sdk-section lookup" id="${pre}lookup" data-types="flight" aria-labelledby="${pre}lookup-title" hidden>`), `${pre}lookup is a flight's only, a section of the form, hidden until offered`);
+    assert.ok(html.includes(pre === 'f-' ? '<fieldset class="sdk-section lookup" id="f-lookup" data-types="flight" aria-labelledby="f-lookup-title" hidden>' : '<div class="sdk-section lookup" id="f-back-lookup" data-types="flight" role="group" aria-label="Look up the return flight" hidden>'), `${pre}lookup is a flight's only, a section of the form (the return one under the Return heading), hidden until offered`);
     assert.ok(html.includes(`<p class="sdk-hint lookup-msg" id="${pre}lookup-msg" role="status" aria-live="polite"></p>`), 'its message is read out');
-    assert.ok(html.includes(`id="${pre}lookup-find" data-icon="magnifying-glass" title="Find the flight" aria-label="Find the flight"`) && html.includes(`<input id="${pre}lookup-date" type="date"`), 'Find is a button in the number\'s field, the day a date field');
+    assert.ok(html.includes(`id="${pre}lookup-find" title="Find the flight" aria-label="Find the flight">Find</button>`) && html.includes('class="sdk-btn" type="button" id="f-lookup-find"') && html.includes(`<input id="${pre}lookup-date" type="date"`), 'Find is a button in the number\'s field, the day a date field');
   }
   assert.ok(html.indexOf('id="f-lookup"') > html.indexOf('id="tpl-editor2"') && html.indexOf('id="f-lookup"') < html.indexOf('id="f-title"', html.indexOf('id="tpl-editor2"')), 'the row is at the top of the flight form');
   assert.ok(html.indexOf('id="f-back-lookup"') > html.indexOf('id="f-return"'), 'the return leg has its own row');
@@ -2099,7 +2099,7 @@ test('the editor offers a start and an end time (no Length | End time switch), k
   }
   assert.ok(!html.includes('data-lenmode') && !html.includes('class="lenmode"'), 'no switch between Length and End time');
   assert.ok(!/name="endTime"|name="backEndTime"/.test(html), 'the end has no name: it is not a field of the object');
-  assert.ok(js.includes("const LENMODE_KEY = 'planner-length-mode'") && !js.includes('localStorage.setItem(LENMODE_KEY'), 'the choice an earlier version kept per browser is still read by the cards, and nothing sets it now');
+  assert.ok(!js.includes('planner-length-mode') && !js.includes('lenMode'), 'the old per-browser End time choice is no longer read: cards always show start to end');
   assert.ok(js.includes("const SAME_END = 'Same as the start, so there is no length.'"));
   assert.ok(js.includes("return 'The end time is the same as the start time. Pick a different end time.'"), 'an end equal to the start is refused in words');
   assert.ok(js.includes('const endSaid = endProblem();'), 'checked before saving');

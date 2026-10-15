@@ -182,7 +182,7 @@
     <!-- the flight lookup (plan-flight-lookup.md): shown for a flight while the server offers it; the script fills the list -->
     <fieldset class="sdk-section lookup" id="f-lookup" data-types="flight" aria-labelledby="f-lookup-title" hidden><legend class="sdk-section-title" id="f-lookup-title">Look up a flight</legend>
       <div class="sdk-row">
-        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-lookup-number-label"><span class="sdk-label" id="f-lookup-number-label">Flight number</span><span class="sdk-group"><input id="f-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-labelledby="f-lookup-number-label"><button class="sdk-field-btn" type="button" id="f-lookup-find" data-icon="magnifying-glass" title="Find the flight" aria-label="Find the flight"></button></span><span class="sdk-hint"></span></div>
+        <div class="sdk-field sdk-m" role="group" aria-labelledby="f-lookup-number-label"><span class="sdk-label" id="f-lookup-number-label">Flight number</span><span class="sdk-group"><input id="f-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-labelledby="f-lookup-number-label"><button class="sdk-btn" type="button" id="f-lookup-find" title="Find the flight" aria-label="Find the flight">Find</button></span><span class="sdk-hint"></span></div>
         <div class="sdk-field sdk-m" role="group" aria-labelledby="f-lookup-date-label"><span class="sdk-label" id="f-lookup-date-label">Day it leaves</span><input id="f-lookup-date" type="date" aria-labelledby="f-lookup-date-label"><span class="sdk-hint"></span></div>
       </div>
       <p class="sdk-hint lookup-msg" id="f-lookup-msg" role="status" aria-live="polite"></p>
@@ -210,14 +210,14 @@
     </div>
 
     <fieldset class="sdk-section" data-types="flight train ferry bus car taxi rideshare shuttle"><legend class="sdk-section-title">Journey</legend>
-      <div class="sdk-row">
+      <div class="sdk-row" data-grow>
         <label class="sdk-field sdk-m" data-types="flight train ferry bus car taxi rideshare shuttle"><span class="sdk-label" id="f-operator-label">Company</span><input id="f-operator" name="operator" type="text" maxlength="80"><span class="sdk-hint"></span></label>
         <label class="sdk-field sdk-m" data-types="flight train ferry bus shuttle"><span class="sdk-label" id="f-number-label">Number</span><input id="f-number" name="number" type="text" maxlength="20"><span class="sdk-hint"></span></label>
       </div>
       <div class="sdk-pair" data-types="flight"><label class="sdk-field"><span class="sdk-label">Departure airport</span><input id="f-fromCode" name="fromCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label">Arrival airport</span><input id="f-toCode" name="toCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label></div>
       <div class="sdk-pair" data-types="flight train ferry bus taxi rideshare shuttle"><label class="sdk-field"><span class="sdk-label" id="f-from-label">From</span><input id="f-from" name="from" maxlength="120"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label" id="f-to-label">To</span><input id="f-to" name="to" maxlength="120"><span class="sdk-hint"></span></label></div>
       <div class="sdk-pair" data-types="car"><label class="sdk-field"><span class="sdk-label">Pick up</span><input id="f-pickup" name="pickup" maxlength="120"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label">Drop off</span><input id="f-dropoff" name="dropoff" maxlength="120"><span class="sdk-hint"></span></label></div>
-      <div class="sdk-row" data-types="flight train ferry bus">
+      <div class="sdk-row" data-types="flight train ferry bus" data-grow>
         <label class="sdk-field sdk-s" data-types="flight"><span class="sdk-label">Departure terminal</span><input id="f-terminal" name="terminal" maxlength="10"><span class="sdk-hint"></span></label>
         <label class="sdk-field sdk-s" data-types="flight"><span class="sdk-label">Departure gate</span><input id="f-gate" name="gate" maxlength="10"><span class="sdk-hint"></span></label>
         <label class="sdk-field sdk-s" data-types="train"><span class="sdk-label">Platform</span><input id="f-platform" name="platform" maxlength="10"><span class="sdk-hint"></span></label>
@@ -231,14 +231,14 @@
       <div class="sdk-checks"><label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox"> Round trip</label></div>
       <p class="sdk-hint" id="f-roundtrip-note" hidden></p>
       <fieldset class="sdk-section return-leg" id="f-return" hidden><legend class="sdk-section-title">Return</legend>
-        <fieldset class="sdk-section lookup" id="f-back-lookup" data-types="flight" aria-labelledby="f-back-lookup-title" hidden><legend class="sdk-section-title" id="f-back-lookup-title">Look up the return flight</legend>
+        <div class="sdk-section lookup" id="f-back-lookup" data-types="flight" role="group" aria-label="Look up the return flight" hidden>
           <div class="sdk-row">
-            <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-lookup-number-label"><span class="sdk-label" id="f-back-lookup-number-label">Flight number</span><span class="sdk-group"><input id="f-back-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-labelledby="f-back-lookup-number-label"><button class="sdk-field-btn" type="button" id="f-back-lookup-find" data-icon="magnifying-glass" title="Find the flight" aria-label="Find the flight"></button></span><span class="sdk-hint"></span></div>
+            <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-lookup-number-label"><span class="sdk-label" id="f-back-lookup-number-label">Flight number</span><span class="sdk-group"><input id="f-back-lookup-number" type="text" maxlength="20" placeholder="WN 2483" autocomplete="off" spellcheck="false" enterkeyhint="search" aria-labelledby="f-back-lookup-number-label"><button class="sdk-btn" type="button" id="f-back-lookup-find" title="Find the flight" aria-label="Find the flight">Find</button></span><span class="sdk-hint"></span></div>
             <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-lookup-date-label"><span class="sdk-label" id="f-back-lookup-date-label">Day it leaves</span><input id="f-back-lookup-date" type="date" aria-labelledby="f-back-lookup-date-label"><span class="sdk-hint"></span></div>
           </div>
           <p class="sdk-hint lookup-msg" id="f-back-lookup-msg" role="status" aria-live="polite"></p>
           <div class="lookup-list" id="f-back-lookup-list" role="group" aria-labelledby="f-back-lookup-which" hidden><div class="sdk-hint" id="f-back-lookup-which">Which one?</div><ul class="lookup-choices"></ul></div>
-        </fieldset>
+        </div>
         <label class="sdk-field sdk-full"><span class="sdk-label">Return title</span><input id="f-back-title" name="backTitle" type="text" maxlength="120"><span class="sdk-hint"></span></label>
         <div class="sdk-row" id="f-back-timing">
           <div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-date-label"><span class="sdk-label" id="f-back-date-label">Return day</span><select id="f-back-date" name="backDate" hidden></select><input id="f-back-date-input" type="date" aria-labelledby="f-back-date-label" aria-describedby="f-back-date-phase"><span class="sdk-hint" id="f-back-date-phase" role="status"></span></div>
@@ -254,7 +254,7 @@
         </div>
         <div class="sdk-pair" data-types="flight"><label class="sdk-field"><span class="sdk-label">Departure airport</span><input id="f-back-fromCode" name="backFromCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label">Arrival airport</span><input id="f-back-toCode" name="backToCode" maxlength="5" autocapitalize="characters" autocomplete="off" spellcheck="false"><span class="sdk-hint"></span></label></div>
         <div class="sdk-pair"><label class="sdk-field"><span class="sdk-label" id="f-back-from-label">From</span><input id="f-back-from" name="backFrom" maxlength="120"><span class="sdk-hint"></span></label><span class="sdk-pair-arrow"><span class="ic" data-icon="arrow-right"></span></span><label class="sdk-field"><span class="sdk-label" id="f-back-to-label">To</span><input id="f-back-to" name="backTo" maxlength="120"><span class="sdk-hint"></span></label></div>
-        <div class="sdk-row">
+        <div class="sdk-row" data-grow>
           <label class="sdk-field sdk-m" data-types="flight train ferry bus shuttle"><span class="sdk-label" id="f-back-number-label">Number</span><input id="f-back-number" name="backNumber" type="text" maxlength="20"><span class="sdk-hint"></span></label>
           <label class="sdk-field sdk-m" data-types="flight train"><span class="sdk-label">Seat</span><input id="f-back-seat" name="backSeat" maxlength="10"><span class="sdk-hint"></span></label>
         </div>

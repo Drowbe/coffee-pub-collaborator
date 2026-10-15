@@ -13,7 +13,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .month { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
 .dow { padding: 2px 4px; color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
 .day { min-height: 74px; padding: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-medium); display: flex; flex-direction: column; gap: 2px; cursor: pointer; overflow: hidden; }
-.day:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.day:hover { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 .day.other { opacity: 0.55; }
 .day.today { background: var(--selected-bg); }
 .day.today.ph { background: color-mix(in srgb, var(--accent) 28%, color-mix(in srgb, var(--ph) 16%, var(--bg-card))); }
@@ -63,8 +63,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .group h4 { margin: 10px 0 4px; font-size: 12px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.05em; }
 /* An event in a list is a full-width row: the time in a column that never wraps, the title on one line (ellipsis, the whole
    text in the tooltip), the event's tint as a fill block on the left, a hairline between rows. */
-.item { display: flex; gap: 12px; align-items: center; width: 100%; padding: 7px 10px 7px 13px; background: transparent; border: 0; border-bottom: 1px solid var(--border); border-radius: 0; box-shadow: inset 3px 0 0 var(--accent); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
-.item:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.item { display: flex; gap: 12px; align-items: center; width: 100%; padding: 7px 10px 7px 13px; background: color-mix(in srgb, var(--accent) 7%, transparent); border: 0; border-bottom: 1px solid var(--border); border-radius: 0; color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.item:hover { background: color-mix(in srgb, var(--accent) 18%, transparent); }
 .item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; background: color-mix(in srgb, var(--accent) 12%, transparent); }
 .item .when { flex: none; width: 21ch; color: var(--accent); font-weight: 600; font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .compact .item .when { width: 18ch; }
@@ -112,22 +112,22 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .links .link { padding: 1px 7px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg); color: var(--text-dim); font: inherit; font-size: 11px; }
 .links .link b { color: var(--accent); font-weight: 600; }
 .links button.link { cursor: pointer; }
-.links button.link:hover { color: var(--text); border-color: var(--accent); }
+.links button.link:hover { color: var(--text); background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 
 .chip, .item { user-select: none; }
 
-.day.drop, .item.drop, .chip.drop { outline: 2px solid var(--accent); outline-offset: -2px; }
+.day.drop, .item.drop, .chip.drop { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 .note { position: fixed; left: 12px; right: 12px; bottom: 12px; z-index: 30; margin: 0; padding: 8px 12px; border-radius: var(--radius-medium); background: var(--bg-card); border: 1px solid var(--border); }
-.note.bad { border-color: var(--danger, #c0574a); }
-.day.pick { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.note.bad { background-image: linear-gradient(color-mix(in srgb, var(--danger) 16%, transparent), color-mix(in srgb, var(--danger) 16%, transparent)); }
+.day.pick { background: var(--selected-bg); }
 
 /* The day view: an all-day row, then a column of hours (as one day of the week). */
 .dayview { display: flex; flex-direction: column; gap: 6px; }
 .hours { display: flex; flex-direction: column; gap: 2px; }
 .allday, .hour { display: flex; align-items: flex-start; gap: 8px; padding: 4px 6px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-medium); }
 .hour { min-height: 34px; cursor: pointer; }
-.hour:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
-.hour.now { border-color: var(--accent); }
+.hour:hover { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
+.hour.now { background: var(--selected-bg); }
 .hr { flex: none; width: 66px; padding-top: 1px; color: var(--text-dim); font-size: 11px; }
 .allday .chips, .hour .chips { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .dayview .chip { white-space: normal; overflow-wrap: anywhere; }
@@ -149,20 +149,20 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .ext-2 { --ext: var(--tint-purple); }
 .ext-3 { --ext: var(--tint-green); }
 .ext-4 { --ext: var(--tint-orange); }
-.chip.ext { padding-left: 7px; background: color-mix(in srgb, var(--text-dim) 12%, transparent); color: var(--text-dim); font-style: italic; box-shadow: inset 3px 0 0 var(--ext, var(--text-dim)); }
-.chip.ext:hover { background: color-mix(in srgb, var(--text-dim) 22%, transparent); color: var(--text); }
-.compact .month .chip.ext { padding: 0; background: transparent; box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-dim)); }
-.item.ext { box-shadow: inset 3px 0 0 var(--ext, var(--text-dim)); }
+.chip.ext { padding-left: 7px; background: color-mix(in srgb, var(--ext, var(--text-dim)) 24%, transparent); color: var(--text-dim); font-style: italic; }
+.chip.ext:hover { background: color-mix(in srgb, var(--ext, var(--text-dim)) 36%, transparent); color: var(--text); }
+.compact .month .chip.ext { padding: 0; background: color-mix(in srgb, var(--ext, var(--text-dim)) 55%, transparent); }
+.item.ext { background: color-mix(in srgb, var(--ext, var(--text-dim)) 14%, transparent); }
 .item.ext .when { color: var(--text-dim); }
 .item.ext .what strong { font-weight: 500; font-style: italic; }
-.tag.ext { font-style: normal; border-color: color-mix(in srgb, var(--ext, var(--text-dim)) 55%, var(--border)); }
-.filter.ext .dot { width: 8px; height: 8px; border-radius: var(--radius-round); box-shadow: inset 0 0 0 1.5px var(--ext, var(--text-dim)); }
+.tag.ext { font-style: normal; background: color-mix(in srgb, var(--ext, var(--text-dim)) 24%, transparent); }
+.filter.ext .dot { width: 8px; height: 8px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--ext, var(--text-dim)) 40%, transparent); }
 .filter.ext.on { background: color-mix(in srgb, var(--ext, var(--accent)) 28%, transparent); }
 .filter.ext.on .dot { background: var(--ext, var(--text-dim)); }
 .filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 /* Markers (plan-calendar-markers.md): other modules' objects with a date, a task due or a poll's closing time. Not
-   events: the module's icon and a thin edge in its tint (design-theme.md, "Tints"), a quiet background, dimmed once past. */
+   events: the module's icon and a fill in its tint (design-theme.md, "Tints"), a quiet background, dimmed once past. */
 .tint-gold { --mk: var(--tint-gold); }
 .tint-blue { --mk: var(--tint-blue); }
 .tint-green { --mk: var(--tint-green); }
@@ -171,8 +171,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .tint-red { --mk: var(--tint-red); }
 .tint-orange { --mk: var(--tint-orange); }
 .tint-pink { --mk: var(--tint-pink); }
-.chip.marker { padding-left: 7px; background: color-mix(in srgb, var(--text-dim) 10%, transparent); box-shadow: inset 3px 0 0 var(--mk, var(--text-dim)); }
-.chip.marker:hover { background: color-mix(in srgb, var(--text-dim) 22%, transparent); }
+.chip.marker { padding-left: 7px; background: color-mix(in srgb, var(--mk, var(--text-dim)) 20%, transparent); }
+.chip.marker:hover { background: color-mix(in srgb, var(--mk, var(--text-dim)) 32%, transparent); }
 .chip.marker.past, .item.marker.past { opacity: 0.55; }
 .chip.marker.past:hover, .item.marker.past:hover { opacity: 0.85; }
 .mi { display: inline-flex; align-items: center; margin-right: 4px; vertical-align: -0.1em; }
@@ -181,7 +181,8 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .compact .month .chip.marker { padding: 0; border-radius: var(--radius-min); background: var(--mk, var(--text-dim)); box-shadow: none; }
 .compact .month .chip.marker.past { opacity: 0.45; }
 .compact .chip .mi { display: none; }
-.item.marker { box-shadow: inset 3px 0 0 var(--mk, var(--text-dim)); }
+.item.ext:hover, .item.marker:hover { background: color-mix(in srgb, var(--mk, var(--ext, var(--text-dim))) 26%, transparent); }
+.item.marker { background: color-mix(in srgb, var(--mk, var(--text-dim)) 14%, transparent); }
 .item.marker .when { color: var(--text-dim); }
 .item.marker .what strong { font-weight: 500; }
 .filter.marker { gap: 0; }

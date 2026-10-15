@@ -43,7 +43,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* ---- the day strip (phones): jump to a day ---- */
 .stripbar { display: flex; align-items: center; gap: 4px; }
 .strip-arrow { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 44px; padding: 0; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text); font-size: 13px; cursor: pointer; }
-.strip-arrow:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.strip-arrow:hover:not(:disabled) { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); color: var(--accent); }
 .strip-arrow:disabled { opacity: 0.3; cursor: default; }
 .strip-arrow .ic svg { width: 1em; height: 1em; fill: currentColor; }
 .daystrip { flex: 1; min-width: 0; display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px 6px; scroll-behavior: smooth; scrollbar-width: none; }
@@ -51,7 +51,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .daychip { flex: none; display: flex; flex-direction: column; align-items: center; min-width: 46px; padding: 4px 8px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-card); color: var(--text-dim); font: inherit; font-size: 11px; line-height: 1.25; cursor: pointer; }
 .daychip b { color: var(--text); font-size: 15px; font-weight: 600; }
 .daychip { transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; }
-.daychip:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.daychip:hover { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 /* the chosen day: filled, lifted and glowing, so it cannot be missed */
 .daychip.current { background: var(--accent); border-color: var(--accent); color: var(--on-accent); transform: translateY(-2px); box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 45%, transparent); }
 .daychip.current b { color: var(--on-accent); }
@@ -92,7 +92,7 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 /* the time between two timed items */
 
 /* the item was changed by someone else while it was open */
-.conflict-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 4px 0; padding: 6px 8px; border: 1px solid var(--danger); border-radius: var(--radius-medium); color: var(--text); font-size: 12px; }
+.conflict-bar { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin: 6px 4px 0; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: color-mix(in srgb, var(--danger) 14%, var(--bg-card)); color: var(--text); font-size: 12px; }
 .conflict-bar span { flex: 1 1 100%; }
 .conflict-bar .btn { padding: 2px 8px; font-size: 12px; }
 

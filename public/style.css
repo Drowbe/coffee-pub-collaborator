@@ -99,6 +99,8 @@
   --radius-round: 999px;
   /* A selected, on or current tab, chip, button or row: a fill, never a border, an underline or a ring. */
   --selected-bg: color-mix(in srgb, var(--accent) 28%, transparent);
+  /* A hovered, dragged-over or picked-out control or row: a light fill (laid over the control's own background), never a border. */
+  --hover-bg: color-mix(in srgb, var(--accent) 14%, transparent);
   --header-text: var(--text);
   /* The two rows of the header, each its own colour (see architecture-navigation.md): the top bar's left zone is
      --header-bg itself, and the secondary nav (the space, a page's bar) its own, between the header and the page.
@@ -453,7 +455,7 @@ a:hover {
   margin: 2px 0;
   padding: 8px;
   border-radius: var(--radius-small);
-  border: 1px solid color-mix(in srgb, var(--accent) 50%, var(--border));
+  border: 1px solid var(--border);
   color: var(--text);
   font-weight: 600;
 }
@@ -779,26 +781,26 @@ body.host-console .environments {
 }
 
 body.host-console .environment {
-  border-left: 4px solid var(--ok);
+  border-left: 4px solid transparent;
 }
 
 body.host-console .environment[data-status="pastDue"] {
-  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card));
 }
 
 body.host-console .environment[data-status="suspended"] {
-  border-left-color: var(--text-dim);
+  background: color-mix(in srgb, var(--text-dim) 12%, var(--bg-card));
 }
 
 body.host-console .environment[data-status="refused"] {
-  border-left-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, var(--bg-card));
 }
 
 /* A refused environment: why it won't open, the file and since when, and what to do. */
 body.host-console .environment .refused {
   margin-top: 14px;
   padding: 10px 12px;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--border);
   border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--danger) 10%, var(--bg-card));
 }
@@ -855,7 +857,6 @@ body.host-console .fact .env-cap-bar {
 }
 
 body.host-console .fact-warn {
-  border-color: var(--danger);
   background: color-mix(in srgb, var(--danger) 10%, var(--bg-card));
 }
 
@@ -894,12 +895,12 @@ body.host-console .tag {
 }
 
 body.host-console .tag[data-status="pastDue"] {
-  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
   color: var(--danger-text);
 }
 
 body.host-console .tag[data-status="refused"] {
-  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
   color: var(--danger-text);
 }
 
@@ -969,7 +970,6 @@ body.host-console .grow {
 
 .btn:hover {
   background: var(--secondary-hover);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
 .btn:active {
@@ -988,7 +988,7 @@ body.host-console .grow {
 }
 
 .btn.off {
-  border-color: var(--danger);
+  background-image: linear-gradient(color-mix(in srgb, var(--danger) 16%, transparent), color-mix(in srgb, var(--danger) 16%, transparent));
   color: var(--danger-text);
 }
 
@@ -1014,9 +1014,12 @@ body.host-console .grow {
 }
 
 .btn-danger {
-  background: transparent;
-  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
   color: var(--danger-text);
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
 /* action-btn:start -- the action button: the one square icon button of the bottom row (the call's controls, the
@@ -1046,7 +1049,6 @@ body.host-console .grow {
 
 .action-btn:hover {
   background: var(--secondary-hover);
-  border-color: var(--accent);
 }
 
 .action-btn.primary {
@@ -1160,7 +1162,7 @@ body.host-console .grow {
 .sdk-form input[aria-invalid="true"],
 .sdk-form select[aria-invalid="true"],
 .sdk-form textarea[aria-invalid="true"] {
-  border-color: var(--danger);
+  background-image: linear-gradient(color-mix(in srgb, var(--danger) 16%, transparent), color-mix(in srgb, var(--danger) 16%, transparent));
 }
 
 .sdk-form input[type="checkbox"],
@@ -2048,7 +2050,7 @@ body.in-space .page-scroll {
 }
 
 .member.online {
-  border-color: color-mix(in srgb, var(--ok) 50%, var(--border));
+  background: var(--selected-bg);
 }
 
 .member img {
@@ -2160,7 +2162,7 @@ body.in-space .page-scroll {
 }
 
 .react:hover {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
   transform: translateY(-2px);
 }
 
@@ -2210,8 +2212,7 @@ body.in-space .page-scroll {
 }
 
 .tile.speaking {
-  border-color: var(--talk);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--talk) 50%, transparent);
+  box-shadow: inset 0 0 18px 2px color-mix(in srgb, var(--talk) 65%, transparent); /* a glow, not a line */
 }
 
 .tile video {
@@ -3569,7 +3570,7 @@ button.whoami:focus-visible {
 }
 
 .icon-grid button:hover {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
   color: var(--text);
 }
 
@@ -3603,7 +3604,7 @@ button.whoami:focus-visible {
 }
 
 .layout-pick button:hover {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
   color: var(--text);
 }
 
@@ -3628,11 +3629,11 @@ button.whoami:focus-visible {
 }
 
 .hotkey-input:hover {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
 }
 
 .hotkey-input.recording {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
   color: var(--text-dim);
   font-style: italic;
 }
@@ -4176,7 +4177,6 @@ a.crumb-here:hover {
    action button's (--action-btn-h), never set here. */
 .fbtn:hover {
   background: var(--secondary-hover);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .fbtn:active {
@@ -4224,7 +4224,7 @@ a.crumb-here:hover {
 }
 
 .fbtn-caret:hover {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
   color: var(--accent);
 }
 
@@ -4634,11 +4634,12 @@ a.crumb-here:hover {
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 
-/* A command's or the AI's message: the colour of its module (data-tint, below) on a thin left edge and on the
-   portrait's icon; text and backgrounds keep their tokens (plan-chat-model.md, decision 18). */
+/* A command's or the AI's message: the colour of its module (data-tint, below) as a light fill of the message and on the
+   portrait's icon (never a coloured edge); text keeps its token (plan-chat-model.md, decision 18). */
 .message[data-tint] {
   --message-tint: var(--tint);
-  border-left: 3px solid var(--message-tint);
+  border-left: 3px solid transparent;
+  background: color-mix(in srgb, var(--message-tint) 10%, transparent);
 }
 
 .message[data-tint] .message-portrait-icon {
@@ -5206,8 +5207,8 @@ span.message-vis {
 
 /* A link in a chat message (plan-chat-links.md): under the text, a box with the picture, the title as the link, the
    description in up to three lines and the site, with Keep or who kept it. Read with the keeper's setting off, one
-   line: the site and Keep (.chat-link-plain). The keeper's colour (data-tint) is on the box's left edge and its icon
-   only, never its text or background; the message stays its author's. */
+   line: the site and Keep (.chat-link-plain). The keeper's colour (data-tint) is a light fill of the box and its icon
+   only, never its text and never a coloured edge; the message stays its author's. */
 .message .chat-link {
   display: flex;
   gap: 10px;
@@ -5215,9 +5216,9 @@ span.message-vis {
   margin-top: 8px;
   padding: 8px 10px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--tint, var(--border));
+  border-left: 3px solid transparent;
   border-radius: var(--radius-medium);
-  background: var(--bg-card);
+  background: color-mix(in srgb, var(--tint, var(--bg-card)) 12%, var(--bg-card));
   white-space: normal;
 }
 
@@ -5698,7 +5699,6 @@ span.message-vis {
 .tile-aside:hover {
   background: var(--secondary-hover);
   color: var(--icon-hover);
-  border-color: var(--accent);
 }
 
 /* Admin only, centered over the tile on hover: mute and kick. The
@@ -5744,12 +5744,11 @@ span.message-vis {
 .tile-admin-btn:hover {
   background: var(--secondary-hover);
   color: var(--icon-hover);
-  border-color: var(--accent);
 }
 
 .tile-admin-btn.danger:hover {
   color: var(--danger);
-  border-color: var(--danger);
+  background-image: linear-gradient(color-mix(in srgb, var(--danger) 16%, transparent), color-mix(in srgb, var(--danger) 16%, transparent));
 }
 
 /* Float a shared screen into its own always-on-top window (native video
@@ -5782,7 +5781,6 @@ span.message-vis {
 .tile-pip:hover {
   background: var(--secondary-hover);
   color: var(--icon-hover);
-  border-color: var(--accent);
 }
 
 /* A space member who is online but currently in a private aside elsewhere:
@@ -5964,7 +5962,7 @@ span.message-vis {
    purpose -- an accidental mix-up here means something meant to be off the
    record ends up in the recording, or vice versa. */
 #aside-confirm-private {
-  border-color: #b8503f;
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
   color: #b8503f;
 }
 
@@ -6353,7 +6351,7 @@ span.message-vis {
 }
 
 .user-card.lobby {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  background: var(--selected-bg);
 }
 
 .space-thumb {
@@ -6418,7 +6416,7 @@ span.message-vis {
 }
 
 .icon-row .icon-html.invalid {
-  border-color: #b8503f;
+  background-image: linear-gradient(color-mix(in srgb, var(--danger) 16%, transparent), color-mix(in srgb, var(--danger) 16%, transparent));
 }
 
 /* Member tiles on a space: click to toggle, lit while in the space */
@@ -6438,8 +6436,7 @@ span.message-vis {
 }
 
 .member-toggle.online {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 50%, transparent);
+  background-image: linear-gradient(var(--selected-bg), var(--selected-bg));
 }
 
 .member-toggle:not(.online) {
@@ -6530,7 +6527,10 @@ html.has-background .panel.login {
 }
 
 .slot-pick:hover {
-  outline: 2px solid var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
+}
+.slot-pick:hover img {
+  opacity: 0.8;
 }
 
 .slot-pick img {
@@ -6664,7 +6664,7 @@ input[type="color"] {
 
 .pill.warn {
   color: #e0b25a;
-  border-color: #e0b25a;
+  background: color-mix(in srgb, #e0b25a 18%, transparent);
 }
 
 /* Narrow windows (a phone): the chat replaces the video while it is open, with
@@ -6724,8 +6724,7 @@ input[type="color"] {
 /* Something dragged over the chat, to send as a picture */
 .chat.drop .mod-content,
 .chat.drop .chat-bar {
-  outline: 2px dashed var(--accent);
-  outline-offset: -6px;
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
 }
 
 /* --- modules ------------------------------------------------------------ */
@@ -6950,7 +6949,7 @@ body.conference-window {
   display: none;
   pointer-events: none;
   box-sizing: border-box;
-  border: 1px dashed color-mix(in srgb, var(--accent) 55%, transparent);
+  border: 1px dashed var(--border);
   background-image: linear-gradient(to right, color-mix(in srgb, var(--accent) 45%, transparent) 1px, transparent 1px), linear-gradient(to bottom, color-mix(in srgb, var(--accent) 45%, transparent) 1px, transparent 1px);
   background-size: var(--snap-cw) var(--snap-ch);
 }
@@ -6992,9 +6991,9 @@ body.conference-window {
   gap: 10px;
   padding: 10px 12px;
   border: 1px solid var(--border);
-  border-left: 3px solid var(--accent);
+  border-left: 3px solid transparent;
   border-radius: var(--radius-medium);
-  background: var(--bg-section);
+  background: color-mix(in srgb, var(--accent) 10%, var(--bg-section));
   color: var(--text);
   font: inherit;
   text-align: left;
@@ -7230,7 +7229,7 @@ body.conference-window {
 
 .tb-btn:hover,
 .tb-btn:focus-visible {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
   outline: none;
 }
 
@@ -7765,7 +7764,7 @@ body.chat-window {
   cursor: pointer;
 }
 .space-choice[role='button']:hover {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
 }
 .space-choice[role='button']:focus-visible {
   outline: 2px solid var(--accent);
@@ -7779,7 +7778,7 @@ body.chat-window {
   gap: 8px;
   margin: 6px 0;
   padding: 8px 10px;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--border);
   border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
   overflow-wrap: anywhere;
@@ -7798,7 +7797,7 @@ body.chat-window {
   gap: 8px;
   margin: 6px 0;
   padding: 8px 10px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--border);
   border-radius: var(--radius-small);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
@@ -8022,7 +8021,7 @@ body.module-page .module-status {
 /* the filters at the top of the Modules tab */
 .module-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .filter-chip { display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border: 1px solid var(--border); border-radius: var(--radius-round); background: var(--bg-card); color: var(--text-dim); font: inherit; font-size: 13px; cursor: pointer; }
-.filter-chip:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); color: var(--text); }
+.filter-chip:hover { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); color: var(--text); }
 .filter-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 600; }
 .filter-chip .count { min-width: 18px; padding: 0 5px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--text) 16%, transparent); font-size: 11px; line-height: 18px; text-align: center; }
 .filter-chip.on .count { background: color-mix(in srgb, var(--on-accent) 25%, transparent); }
@@ -8577,7 +8576,7 @@ body.module-page .module-status {
 }
 
 .whos-around .dashboard-person.is-placed {
-  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: var(--selected-bg);
 }
 
 .whos-around .dashboard-person img {
@@ -8746,7 +8745,7 @@ body.module-page .module-status {
 }
 
 .whos-around .dashboard-invite:hover {
-  border-color: var(--accent);
+  background-image: linear-gradient(var(--hover-bg), var(--hover-bg));
   color: var(--accent);
 }
 
@@ -8800,9 +8799,9 @@ body.module-page .module-status {
 .env-cap-bar { flex: 1; max-width: 260px; height: 8px; border-radius: var(--radius-min); background: var(--bg-section); overflow: hidden; }
 .env-cap-bar span { display: block; height: 100%; background: var(--accent); }
 .env-cap-bar.warn span { background: var(--danger); }
-.env-banner { padding: 8px 12px; border: 1px solid var(--danger); border-radius: var(--radius-medium); background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)); color: var(--text); }
+.env-banner { padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: color-mix(in srgb, var(--danger) 12%, var(--bg-card)); color: var(--text); }
 /* The same banner across the top of every page, for an owner, while the environment is past due or suspended. */
-.env-page-banner { padding: 6px 16px; background: color-mix(in srgb, var(--danger) 18%, var(--bg)); border-bottom: 1px solid var(--danger); color: var(--text); font-size: 13px; text-align: center; }
+.env-page-banner { padding: 6px 16px; background: color-mix(in srgb, var(--danger) 18%, var(--bg)); border-bottom: 1px solid var(--border); color: var(--text); font-size: 13px; text-align: center; }
 .env-page-banner a { color: var(--text); font-weight: 600; margin-left: 6px; }
 /* The host console's plans catalog: one card per plan, the design system's fields grid inside it. */
 .plans-editor { display: grid; gap: 12px; margin: 8px 0; }
@@ -8821,7 +8820,7 @@ body.module-page .module-status {
 
 /* a choice setting: what the chosen option means, under its list (e.g. a service's terms) */
 .option-help:empty { display: none; }
-.option-help { padding: 8px 10px; border-left: 3px solid var(--accent); border-radius: 0 var(--radius-small) var(--radius-small) 0; background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); }
+.option-help { padding: 8px 10px; border-left: 3px solid transparent; border-radius: 0 var(--radius-small) var(--radius-small) 0; background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); }
 .option-help p { margin: 4px 0; }
 .option-help a { color: var(--accent); }
 
@@ -8830,7 +8829,7 @@ body.module-page .module-status {
 .reorderable button, .reorderable a, .reorderable input { cursor: pointer; }
 .canvas.reordering, .canvas.reordering * { cursor: grabbing !important; user-select: none; }
 .canvas.reordering iframe { pointer-events: none; }
-.module-lifted { position: relative; z-index: 3; box-shadow: 0 0 0 2px var(--accent), 0 4px 12px color-mix(in srgb, black 25%, transparent); }
+.module-lifted { position: relative; z-index: 3; box-shadow: 0 4px 12px color-mix(in srgb, black 25%, transparent); }
 
 /* a list setting (Planner's marker types): a row each with a colour, an icon, a label and tools */
 .list-rows { list-style: none; margin: 6px 0 8px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
@@ -8902,7 +8901,7 @@ body.module-page .module-status {
 .bgpick-tile { display: flex; flex-direction: column; gap: 6px; padding: 6px; border: 2px solid transparent; border-radius: var(--radius-large); background: var(--bg-card); color: var(--text); font: inherit; font-size: 12px; text-align: left; cursor: pointer; transition: border-color 0.12s ease, transform 0.12s ease; }
 .bgpick-tile img { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; border-radius: var(--radius-medium); background: color-mix(in srgb, var(--accent) 12%, var(--bg-card)); }
 .bgpick-tile span { padding: 0 2px; color: var(--text-dim); }
-.bgpick-tile:hover { border-color: color-mix(in srgb, var(--accent) 55%, transparent); transform: translateY(-1px); }
+.bgpick-tile:hover { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); transform: translateY(-1px); }
 .bgpick-tile[aria-pressed="true"] { background: var(--selected-bg); }
 .bgpick-tile[aria-pressed="true"] span { color: var(--text); font-weight: 600; }
 .bgpick-foot { display: flex; align-items: center; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--border); }
@@ -8923,7 +8922,7 @@ body.module-page .module-status {
 .linklike { align-self: flex-start; margin-top: 2px; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; font-size: 12px; text-decoration: underline; cursor: pointer; }
 
 /* the AI enable step, at the top of its configuration page */
-.ai-enable { display: flex; align-items: center; gap: 12px; margin: 12px 0; padding: 12px 14px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border)); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); }
+.ai-enable { display: flex; align-items: center; gap: 12px; margin: 12px 0; padding: 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 7%, var(--bg-card)); }
 .ai-enable .grow { flex: 1; min-width: 0; }
 .ai-enable p { margin: 2px 0 0; }
 
@@ -9057,7 +9056,7 @@ body.module-page .module-status {
 .template-switch-pick { flex: 1 1 14rem; min-width: 0; max-width: 24rem; }
 .template-switch-pick select { width: 100%; min-width: 0; }
 .template-offer-note { margin-top: 10px; }
-.template-offer { margin-top: 12px; padding: 12px; border: 1px solid var(--accent); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 6%, var(--bg-card)); display: grid; gap: 8px; min-width: 0; }
+.template-offer { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-large); background: color-mix(in srgb, var(--accent) 6%, var(--bg-card)); display: grid; gap: 8px; min-width: 0; }
 .template-offer h3 { margin: 0; color: var(--text); font-size: 15px; text-transform: none; letter-spacing: normal; }
 .template-offer p { margin: 0; }
 .offer-group { display: grid; gap: 4px; min-width: 0; }
@@ -10409,7 +10408,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   min-width: 56px; /* BAND_MIN */
   padding: 4px 8px 2px;
   overflow: hidden;
-  border-top: 4px solid var(--tint, var(--accent));
+  border-top: 4px solid transparent;
   border-radius: var(--radius-medium);
   background: color-mix(in srgb, var(--tint, var(--accent)) 16%, var(--bg-input));
   cursor: pointer;
@@ -10431,7 +10430,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   min-width: 14px;
   width: 14px;
   padding: 0;
-  border: 1px dashed var(--text-dim);
+  border: 1px dashed var(--border);
   border-radius: var(--radius-min);
   background: none;
   cursor: pointer;
@@ -10443,7 +10442,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 }
 
 .phase-band.current {
-  box-shadow: inset 0 0 0 2px var(--accent);
+  background: color-mix(in srgb, var(--tint, var(--accent)) 48%, var(--bg-input));
 }
 
 .phase-band.lit:not(.off) {
@@ -10452,7 +10451,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 
 .phase-band.lit.off {
   border-style: solid;
-  border-color: var(--text);
+  background: var(--hover-bg);
 }
 
 .phase-band-label,
@@ -10485,7 +10484,9 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
   top: 0;
   bottom: 0;
   left: var(--at);
-  border-left: 2px dashed var(--text);
+  width: 2px;
+  margin-left: -1px;
+  background: var(--text);
   pointer-events: none;
 }
 
@@ -10752,7 +10753,7 @@ body.in-space .subnav > .nav-left:has(> .status-strip:not([hidden])) {
 }
 
 .phase-row.has-problem .phase-date {
-  border-color: var(--danger);
+  background-image: linear-gradient(color-mix(in srgb, var(--danger) 16%, transparent), color-mix(in srgb, var(--danger) 16%, transparent));
 }
 
 .phase-sheet-hint {
@@ -11236,7 +11237,7 @@ h4.setup-subheading {
 .setup-confirm {
   margin-top: 10px;
   padding: 10px 12px;
-  border: 1px solid var(--danger);
+  border: 1px solid var(--border);
   border-radius: var(--radius-medium);
   background: var(--bg-card);
 }

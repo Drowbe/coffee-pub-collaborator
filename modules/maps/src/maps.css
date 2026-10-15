@@ -36,7 +36,7 @@ body { margin: 0; overflow: hidden; }
 .results.under-search { top: 48px; bottom: auto; max-height: calc(100% - 60px); }
 
 /* the notice under the tools: adding a place, a warning */
-.banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--accent); border-radius: var(--radius-round); background: var(--bg-section); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: 13px; }
+.banner { position: absolute; z-index: 3; left: 50%; bottom: 14px; transform: translateX(-50%); max-width: calc(100% - 24px); display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent) 12%, var(--bg-section)); box-shadow: 0 4px 16px color-mix(in srgb, black 30%, transparent); font-size: 13px; }
 .banner .btn { padding: 2px 10px; font-size: 12px; }
 
 /* ---- the map library's own controls, restyled with the tokens ---- */
@@ -61,15 +61,14 @@ body { margin: 0; overflow: hidden; }
 .pin { --pin: var(--accent); --pin-text: var(--on-accent); display: block; width: 30px; height: 30px; padding: 0; border: 0; background: none; color: var(--pin-text); font: inherit; cursor: pointer; transform-origin: 50% 100%; }
 .pin-body { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; border: 2px solid var(--bg-section); border-radius: 50% 50% 50% 4px; transform: rotate(-45deg); background: var(--pin); box-shadow: 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin-body .ic { transform: rotate(45deg); font-size: 14px; }
-.pin[data-kind="object"] { --pin: var(--bg-card); --pin-text: var(--text); }
-.pin[data-kind="object"] .pin-body { border-color: var(--accent); }
+.pin[data-kind="object"] { --pin: color-mix(in srgb, var(--accent) 24%, var(--bg-card)); --pin-text: var(--text); }
 
 /* a place's colour (its own, its category's, or the category's automatic theme tint) fills its pin; a summary with no category and no
    colour keeps the module-based look above. */
 .pin[data-cat] { --tone: var(--accent); } /* script sets --tone: the place's colour, its category's or the category's automatic theme tint */
 .pin[data-cat]:not(.selected) { --pin: var(--tone); --pin-text: var(--tone-ink, var(--bg)); } /* --tone-ink: set with an owner-chosen colour */
 .pin[data-cat]:not(.selected) .pin-body { border-color: var(--bg-section); }
-.pin.selected[data-cat] .pin-body { border-color: var(--tone); box-shadow: 0 0 0 4px color-mix(in srgb, var(--tone) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
+.pin.selected[data-cat] .pin-body { box-shadow: 0 0 14px 3px color-mix(in srgb, var(--tone) 60%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin.selected { z-index: 2; }
 /* a pin (or a cluster of them) the destination's search text does not match: still there, set back */
 .pin.dim { opacity: 0.35; }
@@ -84,15 +83,15 @@ body { margin: 0; overflow: hidden; }
 .pin-badge[data-visit="visited"] { color: var(--tint-green); }
 .pin-badge[data-visit="favorite"] { color: var(--tint-gold); }
 .pin.dim:hover, .pin.dim:focus-visible { opacity: 1; }
-.pin.selected .pin-body { --pin: var(--text); border-color: var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 40%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
+.pin.selected .pin-body { --pin: var(--text); box-shadow: 0 0 14px 3px color-mix(in srgb, var(--accent) 60%, transparent), 0 2px 6px color-mix(in srgb, black 40%, transparent); }
 .pin.selected { --pin-text: var(--bg); }
 .pin-label { position: absolute; left: 50%; top: calc(100% + 2px); transform: translateX(-50%); max-width: 160px; padding: 0 6px; border-radius: var(--radius-min); background: color-mix(in srgb, var(--bg-section) 88%, transparent); color: var(--text); font-size: 11px; line-height: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
 .pin.dragging { opacity: 0.7; }
 .pin.cluster { width: 38px; height: 38px; }
 .pin.cluster .pin-body { width: 38px; height: 38px; border-radius: var(--radius-round); transform: none; font-weight: 700; font-size: 13px; }
 .pin.cluster .pin-label { display: none; }
-.pin.draft { --pin: var(--bg-section); --pin-text: var(--accent); }
-.pin.draft .pin-body { border-style: dashed; border-color: var(--accent); }
+.pin.draft { --pin: color-mix(in srgb, var(--accent) 24%, var(--bg-section)); --pin-text: var(--accent); }
+.pin.draft .pin-body { border-style: dashed; border-color: var(--border); }
 
 .icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 30px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); font: inherit; cursor: pointer; }
 .icon-btn:hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
@@ -145,18 +144,18 @@ body { margin: 0; overflow: hidden; }
 /* a place from "mine" (the person scope): a small person mark on the pin, so it is not mistaken for a shared one */
 .pin[data-scope="person"]::after { content: ""; position: absolute; right: -3px; top: -3px; width: 12px; height: 12px; border: 2px solid var(--bg-section); border-radius: var(--radius-round); background: var(--accent) center / 7px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%23fff' d='M224 256a128 128 0 1 0 0-256 128 128 0 1 0 0 256zM178 304C80 304 0 384 0 482c0 17 14 30 30 30l388 0c16 0 30-13 30-30 0-98-80-178-178-178l-92 0z'/%3E%3C/svg%3E"); z-index: 3; }
 
-/* a search result on the map: not saved yet, so a dashed outline and a surface fill, with a soft pulse to invite a click */
+/* a search result on the map: not saved yet, so a dashed neutral outline and a soft glow, with a soft pulse to invite a click */
 .pin.candidate { --pin: var(--bg-section); --pin-text: var(--accent); z-index: 1; }
-.pin.candidate .pin-body { border: 2px dashed var(--accent); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 22%, transparent), 0 2px 6px color-mix(in srgb, black 35%, transparent); animation: candidate-pulse 2.2s ease-in-out infinite; }
+.pin.candidate .pin-body { border: 2px dashed var(--border); box-shadow: 0 0 12px 2px color-mix(in srgb, var(--accent) 35%, transparent), 0 2px 6px color-mix(in srgb, black 35%, transparent); animation: candidate-pulse 2.2s ease-in-out infinite; }
 .pin.candidate:hover .pin-body, .pin.candidate:focus-visible .pin-body { background: var(--accent); color: var(--on-accent); }
-.pin.candidate .pin-label { border: 1px dashed var(--accent); }
-@keyframes candidate-pulse { 50% { box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 6%, transparent), 0 2px 6px color-mix(in srgb, black 35%, transparent); } }
+.pin.candidate .pin-label { border: 1px dashed var(--border); }
+@keyframes candidate-pulse { 50% { box-shadow: 0 0 20px 4px color-mix(in srgb, var(--accent) 12%, transparent), 0 2px 6px color-mix(in srgb, black 35%, transparent); } }
 @media (prefers-reduced-motion: reduce) { .pin.candidate .pin-body { animation: none; } }
 
 /* ---- the callout: the selected place, over the map (the list is the Places module) ---- */
 .callout-box { position: absolute; z-index: 5; left: 10px; bottom: 30px; width: min(360px, calc(100% - 20px)); pointer-events: none; }
 .callout-box > * { pointer-events: auto; }
-.callout { --tone: var(--accent); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid color-mix(in srgb, var(--tone) 40%, var(--border)); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-section)), var(--bg-section) 70%); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); animation: callout-in 0.16s ease-out; }
+.callout { --tone: var(--accent); position: relative; display: flex; flex-direction: column; gap: 6px; padding: 14px 14px 12px; border: 1px solid var(--border); border-radius: var(--radius-large); background: linear-gradient(180deg, color-mix(in srgb, var(--tone) 12%, var(--bg-section)), var(--bg-section) 70%); box-shadow: 0 12px 32px color-mix(in srgb, black 35%, transparent); animation: callout-in 0.16s ease-out; }
 .callout[data-kind="object"] { --tone: var(--text-dim); }
 .callout[data-cat] { --tone: var(--accent); }
 .callout::before { content: ""; position: absolute; left: 14px; top: -1px; width: 36px; height: 4px; border-radius: 0 0 var(--radius-min) var(--radius-min); background: var(--tone); }

@@ -49,16 +49,11 @@
    "tier": "core"
   },
   {
-   "id": "home-chat-assistant",
+   "id": "home-chat-discussion-only",
    "family": "Messages and AI cards",
    "as": "mia",
    "url": "/",
    "wait": ".space-choice",
-   "steps": [
-    {
-     "click": "#chat-view-assistant"
-    }
-   ],
    "tier": "state"
   },
   {

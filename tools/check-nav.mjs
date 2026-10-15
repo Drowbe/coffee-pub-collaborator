@@ -1010,8 +1010,9 @@ test('Join the call shows only out of the call, connected, where the conference 
   const m = space.match(/const joinCallWanted = \(\) => ([^;]+);/);
   assert.ok(m, 'space.js says when Join the call shows (joinCallWanted)');
   // Run the rule itself against each state.
-  const wanted = (s) => new Function('currentSpace', 'call', 'inCall', 'conferenceAllowed', 'features', 'canDo', `return (${m[1]});`)(
+  const wanted = (s) => new Function('currentSpace', 'homeChatSpace', 'call', 'inCall', 'conferenceAllowed', 'features', 'canDo', `return (${m[1]});`)(
     s.space === undefined ? { id: 'lobby' } : s.space,
+    s.home ? { id: 'lobby', isLobby: true } : null,
     { state: s.state || 'connected' },
     Boolean(s.inCall),
     ({ conferenceEnabled = true, permitted = false } = {}) => conferenceEnabled !== false && Boolean(permitted),
@@ -1023,6 +1024,8 @@ test('Join the call shows only out of the call, connected, where the conference 
   assert.equal(wanted({ space: { id: 'a1', isAside: true } }), true, 'in an aside out of its call: shown (the aside\'s call)');
   assert.equal(wanted({ space: null }), false, 'not in a space: hidden');
   assert.equal(wanted({ state: 'disconnected' }), false, 'not connected: hidden');
+  assert.equal(wanted({ home: true }), false, 'Home\'s chat shows (Home over a space): no Start call or Join call; a call belongs to a space (GitHub #326)');
+  assert.equal(wanted({ home: true, inCall: true }), false, 'in the call on Home: the button stays hidden, and the call bar keeps Leave and mute');
   assert.equal(wanted({ enabled: false }), false, 'the environment turned the conference off: hidden');
   assert.equal(wanted({ permitted: false }), false, 'may not see the conference: hidden');
   // A press shows the conference as its switch does and joins through the one join path; the bar draws again when the

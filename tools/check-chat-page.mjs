@@ -277,9 +277,14 @@ test('the views: the Discussion by default, the two choices, the session key, th
   assert.equal(discussionWord(''), 'Discussion');
   assert.equal(discussionWord(' Trip  talk '), 'Trip talk', 'the environment\'s own name for Chat');
   // Shown in a space to anyone who reads Chat, guests too; hidden in an aside, which is the Discussion alone.
-  assert.match(chat, /setViewsVisible\(Boolean\(spaceId\(\)\)\);/);
+  assert.match(chat, /setViewsVisible\(Boolean\(spaceId\(\)\) && !isHome\(\)\);/, 'not on Home (GitHub #326)');
   assert.match(space, /if \(\$\('chat-views'\)\) \$\('chat-views'\)\.hidden = true;/);
-  assert.match(chat, /view = spaceId\(\) \? readView\(next\) : 'discussion';/, 'no Assistant outside a space');
+  assert.match(chat, /view = spaceId\(\) && !isHome\(\) \? readView\(next\) : 'discussion';/, 'no Assistant outside a space, nor on Home');
+  // Home (GitHub #326, Thomas 2026-10-15): the Discussion alone, and no commands, which run in a space's modules.
+  assert.match(chat, /function commandList\(\) \{\n    const list = \[\];\n    if \(isHome\(\)\) return list;/, 'Home has no commands');
+  assert.match(chat, /if \(!spaceId\(\) \|\| isHome\(\) \|\| !getMe\(\)\) return;/, 'Home asks for no import actions');
+  assert.match(space, /isHome: \(\) => Boolean\(homeChatSpace\),/, 'space.js tells the chat when it is Home\'s');
+  assert.match(space, /\$\('chat-command-wrap'\)\.hidden = Boolean\(homeChatSpace\)/, 'the command button is hidden on Home');
 });
 
 test('the views: which messages each shows (one store, no copies)', () => {

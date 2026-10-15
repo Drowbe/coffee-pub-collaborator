@@ -123,6 +123,7 @@ function placeSubnav() {
 }
 // Set further down, once Join the call and Online exist (the column section); nothing to place before that.
 let placeColumnTools = () => {};
+let homeChatChanged = () => {}; // Home's chat came or went: Start call and the commands follow (assigned with the column below)
 // Set further down with the status strip (the phase chip's section); nothing to place before that.
 let placeStatusStrip = () => {};
 placeSubnav();
@@ -1170,7 +1171,8 @@ function paintJoinCall() {
   joinCallButton.title = running ? 'Join the call that is running' : 'Start a call from this chat';
 }
 joinCallButton.addEventListener('click', () => joinTheCall());
-const joinCallWanted = () => Boolean(currentSpace) && call.state === 'connected' && !inCall
+// Not while Home's chat shows (GitHub #326): a call belongs to a space, and Home is only a view over it.
+const joinCallWanted = () => Boolean(currentSpace) && !homeChatSpace && call.state === 'connected' && !inCall
   && conferenceAllowed({ conferenceEnabled: features.conferenceEnabled, permitted: canDo('conference') });
 nav.register({ bar: 'secondary', zone: 'left', group: 'call', groupOrder: 1.5, id: 'join-call', order: 1, icon: 'phone', label: 'Start call', element: joinCallButton, visible: joinCallWanted });
 // Entering joins by itself where the environment says so (GitHub #199, branding.autoJoinCall): the rule is
@@ -1235,6 +1237,7 @@ placeColumnTools = () => {
   if (nav.get('who-here')?.bar !== people.bar) nav.register(people);
   syncColumn();
 };
+homeChatChanged = () => { if ($('chat-command-wrap')) $('chat-command-wrap').hidden = Boolean(homeChatSpace); syncColumn(); document.dispatchEvent(new CustomEvent('chat-tools-changed')); }; // no commands on Home
 // What the column shows now: Join the call out of the call (its row hidden on the call, with nothing in it), and the
 // rail.
 function syncColumn() {
@@ -5855,6 +5858,7 @@ const chatInput = attachChatInput({
   api,
   word,
   getSpace: () => chatSpace(), // Home's chat while it shows on Home (plan-home-lobby.md), else the space's
+  isHome: () => Boolean(homeChatSpace), // Home's chat is the Discussion alone (GitHub #326)
   getMe: () => me,
   isGuest: () => !me?.key || me.role === 'guest' || Boolean(guestToken),
   keepStoredLink,
@@ -6849,6 +6853,7 @@ function showHomeChat(mode = 'home') {
     unread = 0; // the space's number waits in the stash too; Chat's mark in the space keeps it meanwhile
   }
   homeChatSpace = presenceSpaces.find((r) => r.isLobby) || { id: HOME_CHAT, name: '', isLobby: true, members: [] };
+  homeChatChanged();
   if (!homeChatStash) dropSharedChat();
   $('messages').textContent = '';
   $('home-chat-slot').appendChild(chat);
@@ -6867,6 +6872,7 @@ function hideHomeChat() {
   const times = chatLog.map((e) => (e.at instanceof Date ? e.at.getTime() : 0)).filter((t) => t > 0);
   homeSeenAt = times.length ? Math.max(...times) : Date.now();
   homeChatSpace = null;
+  homeChatChanged();
   const stash = homeChatStash;
   homeChatStash = null;
   const chat = $('chat');

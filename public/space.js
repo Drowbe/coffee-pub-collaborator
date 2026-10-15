@@ -691,32 +691,46 @@ let chatViews = null; // chat-input.js's views, once attached (the column and th
 let pipWindow = null;
 
 // --- Chat's status area (the line under the composer, GitHub #330) ---
-// The connection on the left (Live, Reconnecting, Paused, or Not live), the latest notice on the right (an error, the
+// The call on the left (In a call and its time, or empty; a problem replaces it), the latest notice on the right (an error, the
 // AI's state, what a command did). Notices that used to sit in the message list or in the call's status come here.
 let chatReconnecting = false; // the call is finding its way back
 let chatStream = ''; // a kept chat stream's state ('live', 'reconnecting', 'paused', or '')
 let chatNoteFn = null; // chat-input.js's note, once attached
 let chatNoteTimer = null;
+// The left side says only what the person needs: "In a call" with the call's time while in one, nothing otherwise, and a
+// problem in plain words with the fix. 'failed' is a chat stream that gave up because the server was not reachable.
 function chatConnState() {
+  if (chatStream === 'failed') return 'failed';
   if (chatStream === 'paused') return 'paused';
   if (chatReconnecting || chatStream === 'reconnecting') return 'reconnecting';
-  if (chatStream === 'live' || (call && call.state === 'connected')) return 'live';
+  if (call && call.state === 'connected') return 'call';
   return 'idle';
+}
+function paintChatTime() {
+  const el = $('chat-conn-time');
+  if (!el) return;
+  const inCall = chatConnState() === 'call';
+  const seconds = callTimeStart ? Math.max(0, Math.floor((Date.now() - callTimeStart) / 1000)) : 0;
+  const text = inCall && callTimeStart ? ` · ${callTime(seconds)}` : '';
+  if (el.textContent !== text) el.textContent = text;
 }
 function paintChatConn() {
   const text = $('chat-conn-text');
   if (!text) return;
   const state = chatConnState();
   const look = {
-    live: ['Live', 'circle-dot', 'New messages arrive as they are sent'],
-    reconnecting: ['Reconnecting...', 'rotate', 'Trying to get back; messages may be late'],
-    paused: ['Paused', 'circle-pause', 'Live chat is paused. Reload the page to try again.'],
-    idle: ['Not live', 'circle', 'New messages show when you load the chat or join the call'],
+    call: ['In a call', 'phone', ''],
+    reconnecting: ['Reconnecting… messages may be late', 'rotate', 'Finding its way back. Nothing to do; wait a moment.'],
+    paused: ['Paused. Reload to see new messages', 'circle-pause', 'Live updates are paused. Reload the page to see new messages.'],
+    failed: ['Can’t reach the server', 'triangle-exclamation', 'Check your connection, then reload the page.'],
+    idle: ['', '', ''],
   }[state];
   if (text.textContent !== look[0]) text.textContent = look[0];
-  $('chat-conn').title = look[2];
-  $('chat-conn').classList.toggle('error', state === 'paused');
-  $('chat-conn-icon').className = `fa-solid fa-${look[1]} fa-fw`;
+  const item = $('chat-conn');
+  item.title = look[2];
+  item.classList.toggle('error', state === 'paused' || state === 'failed');
+  $('chat-conn-icon').className = look[1] ? `fa-solid fa-${look[1]} fa-fw` : 'fa-solid fa-fw';
+  paintChatTime();
 }
 // A notice for the status area: it clears itself after a while. Before Chat is attached it goes to the call's status.
 function chatNotice(text, error = false) {
@@ -1594,6 +1608,7 @@ function callTimeEls() {
 function showCallTime() {
   const seconds = callTimeStart ? Math.max(0, Math.floor((Date.now() - callTimeStart) / 1000)) : 0;
   const text = callTime(seconds);
+  paintChatConn(); // the status line's "In a call" and the same time
   for (const el of callTimeEls()) {
     el.hidden = !callTimeStart;
     const t = el.querySelector('time');
@@ -6894,7 +6909,12 @@ function sayChatPaused() {
   chatPausedSaid = true;
   chatStream = 'paused';
   paintChatConn();
-  chatNotice('Live chat is paused. Reload the page to try again.', true);
+}
+function sayChatFailed() {
+  if (chatPausedSaid) return;
+  chatPausedSaid = true;
+  chatStream = 'failed';
+  paintChatConn();
 }
 async function chatStreamStatus(url) {
   const ctl = new AbortController();
@@ -6912,6 +6932,7 @@ function liveChatStream(url, { onData, catchUp }) {
   let tries = 0;
   let readies = 0;
   let stopped = false;
+  let unreachable = false; // the last try did not reach the server at all
   const stop = () => {
     stopped = true;
     clearTimeout(timer);
@@ -6921,6 +6942,7 @@ function liveChatStream(url, { onData, catchUp }) {
   };
   const pause = () => {
     stop();
+    if (unreachable) return sayChatFailed(); // the server never answered: say so, not "paused"
     sayChatPaused();
   };
   const again = async (wasLive) => {
@@ -6929,6 +6951,7 @@ function liveChatStream(url, { onData, catchUp }) {
     if (!wasLive) {
       const status = await chatStreamStatus(url);
       if (stopped) return;
+      unreachable = status === 0;
       if (status === 401 || status === 403 || status === 429) return pause();
     }
     tries += 1;
@@ -6947,6 +6970,7 @@ function liveChatStream(url, { onData, catchUp }) {
       if (data?.type === 'ready') {
         live = true;
         chatStream = 'live';
+        unreachable = false;
         paintChatConn();
         tries = 0;
         readies += 1;

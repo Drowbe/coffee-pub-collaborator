@@ -92,16 +92,42 @@ function collectModuleFixtures() {
       const isScript = f.endsWith('.js');
       const raws = formsOf(text, isScript);
       const nodes = movedForms(text, isScript);
-      raws.forEach((raw, i) => fixtures.set(`modules/${m}/${f}#${i + 1}`, { title: `modules/${m}/src/${f} form ${i + 1}${nodes[i]?.attrs.id ? ' #' + nodes[i].attrs.id : ''}`, formHtml: raw, css }));
+      raws.forEach((raw, i) => fixtures.set(`modules/${m}/${f}#${i + 1}`, { title: `modules/${m}/src/${f} form ${i + 1}${nodes[i]?.attrs.id ? ' #' + nodes[i].attrs.id : ''}`, formHtml: raw, css, mount: true }));
     }
   }
 }
 // The app's own forms (Set up, the Phases sheet, Manage) join here when they move (plan steps 10 to 12).
 const APP_FORMS = [];
 
+// The page script that mounts the SDK's pickers the way a module's own script does at runtime. A module's markup holds plain
+// inputs; its script then calls host.ui.datePicker / currencySelect / kindPicker on them. The fixture loads the real
+// /sdk/host.js (in its host-page mode, which exposes createHost) with a stand-in transport and mounts the same pickers on the
+// same kinds of field: every date and date-time input, a select whose id or name says "currency", and a kind box
+// (#f-types, a .sdk-kind-box or [data-kind-box]). The mounted controls are then the real ones, measured as a person sees them.
+const MOUNT_SCRIPT = `
+window.__mounted = (async () => {
+  if (!window.createHost) return 'no SDK';
+  const locale = { language: 'en', clock: '12', currency: 'USD', currencies: ['EUR', 'GBP', 'JPY', 'USD'] };
+  const { host } = window.createHost({ call: async (m) => (m === 'hello' ? { locale } : {}), root: document, rootElement: document.body });
+  try { await host.ready(); } catch (e) { /* the stand-in answers enough for the pickers */ }
+  const form = document.querySelector('#fx-dialog form');
+  if (!form) return 'no form';
+  const errs = [];
+  const tryMount = (what, fn) => { try { fn(); } catch (e) { errs.push(what + ': ' + e.message); } };
+  for (const i of form.querySelectorAll('input[type=date], input[type=datetime-local]')) tryMount('datePicker #' + i.id, () => host.ui.datePicker(i, { clearable: !i.required }));
+  for (const s of form.querySelectorAll('select')) if (/currency/i.test(s.id + ' ' + (s.getAttribute('name') || ''))) tryMount('currencySelect #' + s.id, () => host.ui.currencySelect(s, { value: '', empty: true }));
+  for (const b of form.querySelectorAll('#f-types, .sdk-kind-box, [data-kind-box]')) {
+    tryMount('kindPicker #' + b.id, () => host.ui.kindPicker(b, { label: 'What is it', value: 'sight', groups: [
+      { label: 'Places', options: [{ id: 'sight', label: 'Sight', icon: 'landmark', color: '#c47a2c', words: 'sight' }, { id: 'food', label: 'Food and drink', icon: 'utensils', color: '#2c7ac4', words: 'food' }] },
+      { label: 'Getting about', options: [{ id: 'flight', label: 'Flight', icon: 'plane', color: '#7a2cc4', words: 'flight' }] }] }));
+  }
+  return errs.join('; ');
+})();`;
+
 function pageHtml(fx, hostCssUrl) {
+  const sdkUrl = hostCssUrl.replace(/host\.css$/, 'host.js');
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="${hostCssUrl}"><style>${fx.css}</style><style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}</style></head>
+<link rel="stylesheet" href="${hostCssUrl}">${fx.mount ? `<script data-host-sdk src="${sdkUrl}"></script>` : ''}<style>${fx.css}</style><style>html,body{margin:0;background:var(--bg);color:var(--text);font:14px system-ui,sans-serif}</style></head>
 <body><dialog class="sdk-editor" id="fx-dialog"><div class="sdk-editor-body">${fx.formHtml}</div>
 <div class="sdk-editor-actions"><button type="button" class="btn">Cancel</button></div></dialog>
 <script>
@@ -112,6 +138,7 @@ if (q.get('editor') === '880') d.classList.add('sdk-editor-large');
 d.showModal();
 const kind = q.get('kind');
 if (kind) { const f = d.querySelector('form'); f.dataset.kind = kind; for (const e of f.querySelectorAll('[data-types]')) e.hidden = !e.dataset.types.split(/[\\s,]+/).includes(kind); }
+${fx.mount ? MOUNT_SCRIPT : 'window.__mounted = Promise.resolve("");'}
 </script></body></html>`;
 }
 
@@ -133,7 +160,7 @@ function measure() {
   const controls = [...form.querySelectorAll('input:not([type=hidden]), select, textarea')].filter(vis);
   for (const c of controls) {
     const field = c.closest('.sdk-field');
-    const check = c.closest('.sdk-check, .sdk-choice, .sdk-people');
+    const check = c.closest('.sdk-check, .sdk-choice, .sdk-people, .sdk-kind'); // the kind picker is a self-contained control, labelled by aria-label
     if (!field && !check) { add('field', nm(c), 'is not inside a .sdk-field or .sdk-check'); continue; }
     const named = (c.labels && [...c.labels].some((l) => l.textContent.trim())) || c.getAttribute('aria-label') || c.getAttribute('aria-labelledby') || (field && field.querySelector('.sdk-label')?.textContent.trim() && field.tagName === 'LABEL');
     if (!named) add('label', nm(c), 'has no label');
@@ -146,7 +173,7 @@ function measure() {
   for (const c of controls) {
     if (c.matches('input[type=checkbox], input[type=radio]') || c.disabled) continue;
     c.focus();
-    const cs = getComputedStyle(c);
+    const cs = getComputedStyle(c.closest('.sdk-kind-field') || c); // the kind picker rings its whole field, not the bare input
     const ring = (cs.boxShadow && cs.boxShadow !== 'none') || (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) > 0);
     if (document.activeElement === c && !ring) add('focus', nm(c), 'shows no focus ring');
     kinds.add(c.type);
@@ -162,6 +189,12 @@ function measure() {
     }
     if (c.matches('input[type=date]') && !c.closest('.sdk-datefield')) add('date-picker', nm(c), 'is a date field that is not the date picker\'s (.sdk-datefield)');
     if (c.scrollWidth > c.clientWidth + 1 && c.tagName === 'SELECT') add('clipped', nm(c), `a choice is cut off (${c.scrollWidth} > ${c.clientWidth})`);
+  }
+  for (const k of [...form.querySelectorAll('.sdk-kind-field')].filter(vis)) {
+    const h = k.getBoundingClientRect().height;
+    if (Math.abs(h - fieldH) > 0.5) add('height', 'kind picker', `is ${r1(h)} px tall, the field height is ${fieldH} px`);
+    const inp = k.querySelector('input');
+    if (inp && phone && parseFloat(getComputedStyle(inp).fontSize) < 16) add('phone-text', 'kind picker', 'text is under 16 px, a phone needs 16 px');
   }
   for (const s of [...form.querySelectorAll('select')].filter(vis)) {
     const cv = document.createElement('canvas').getContext('2d');
@@ -294,6 +327,8 @@ async function main() {
           if (r.result.value === 'complete') break;
           await new Promise((r2) => setTimeout(r2, 100));
         }
+        const mounted = await cdp.send('Runtime.evaluate', { expression: 'window.__mounted', awaitPromise: true, returnByValue: true }, sessionId);
+        if (mounted.result.value) throw new Error(`the SDK pickers did not mount in ${id}: ${mounted.result.value}`);
         await cdp.send('Runtime.evaluate', { expression: 'document.fonts.ready.then(() => 1)', awaitPromise: true }, sessionId);
         const r = await cdp.send('Runtime.evaluate', { expression: `(${measure.toString()})()`, returnByValue: true }, sessionId);
         if (r.exceptionDetails) throw new Error('measure failed: ' + (r.exceptionDetails.exception?.description || r.exceptionDetails.text));

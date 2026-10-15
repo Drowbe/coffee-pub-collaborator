@@ -1519,7 +1519,7 @@ for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
   if (!/es\.addEventListener\('error', \(\) => \{[^}]*es\.close\(\);[^}]*again\(live\);/.test(live)) fail(F, 'a stream that errs is closed and tried again');
   if (!/Math\.min\(60000, 2000 \* 2 \*\* \(tries - 1\)\)/.test(live) || !/if \(tries > CHAT_STREAM_TRIES\) return pause\(\);/.test(live)) fail(F, 'the tries back off from 2 s to 60 s, a limited number of times');
   if (!/status === 401 \|\| status === 403 \|\| status === 429\) return pause\(\);/.test(live) || !/data\?\.type === 'closed'\) \{\s*pause\(\);/.test(live)) fail(F, 'a refusal or the server\'s `closed` stops the tries');
-  if (!/showNote\('Live chat is paused\. Reload the page to try again\.'\)/.test(body('function sayChatPaused() {')) || !/if \(chatPausedSaid\) return;/.test(body('function sayChatPaused() {'))) fail(F, 'the page says once that live chat is paused');
+  if (!/chatNotice\('Live chat is paused\. Reload the page to try again\.', true\)/.test(body('function sayChatPaused() {')) || !/if \(chatPausedSaid\) return;/.test(body('function sayChatPaused() {'))) fail(F, 'the page says once that live chat is paused');
   if (!/guestChatStream = liveChatStream\(`\/api\/spaces\/\$\{LOBBY\}\/chat\/stream\?guest=/.test(spaceJs)) fail(F, 'a guest\'s Lobby stream is kept live the same way');
   if (!/fetchChatHistory\(HOME_CHAT\)/.test(body('async function catchUpHomeChat() {'))) fail(F, 'the catch-up reads Home\'s history');
 }

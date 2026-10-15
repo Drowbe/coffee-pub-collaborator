@@ -340,39 +340,26 @@
       </div>
       <p class="visually-hidden" id="chat-view-news" role="status" aria-live="polite"></p>
       <div class="messages" id="messages" data-view="discussion"></div>
-      <div class="chat-import-panel" id="chat-import-panel" hidden>
-        <textarea id="chat-import-show" hidden readonly></textarea>
-        <textarea id="chat-import-text" rows="5" placeholder="Paste the whole answer here"></textarea>
-        <p class="chat-import-why" id="chat-import-why" hidden></p>
-        <div class="chat-import-panel-foot" id="chat-import-foot">
-          <button class="sdk-more" type="button" id="chat-import-more" data-more hidden title="More" aria-label="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" type="button" id="chat-import-copy" data-collapse="1" title="Copy instructions" aria-label="Copy instructions"><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" type="button" id="chat-import-choose" data-collapse="2" title="Choose a file" aria-label="Choose a file"><i class="fa-solid fa-file-arrow-up fa-fw" aria-hidden="true"></i></button>
-          <span class="chat-import-gap"></span>
-          <button class="msg-btn" type="button" id="chat-import-close" data-collapse="3" title="Close" aria-label="Close"><i class="fa-solid fa-xmark fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" type="button" id="chat-import-check" data-collapse="4" title="Import" aria-label="Import"><i class="fa-solid fa-file-import fa-fw" aria-hidden="true"></i></button>
-        </div>
-        <input id="chat-import-file" type="file" accept=".json,.md,.txt,application/json,text/plain,text/markdown" hidden>
-      </div>
       <div class="chat-format-bar" id="chat-format-bar">
         <span class="chat-format-side">
           <button class="sdk-more" id="chat-format-more" type="button" data-more hidden title="More" aria-label="More"><i class="fa-solid fa-ellipsis-vertical fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-pic" type="button" data-collapse="1" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-bold" type="button" data-collapse="2" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-italic" type="button" data-collapse="3" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-code" type="button" data-collapse="4" title="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
-          <button class="msg-btn" id="chat-list" type="button" data-collapse="5" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
-          <span class="chat-format-item" data-collapse="6">
+          <button class="msg-btn" id="chat-pic" type="button" data-collapse="1" data-for="discussion" title="Send a picture" aria-label="Send a picture"><i class="fa-solid fa-image fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-bold" type="button" data-collapse="2" data-for="discussion" title="Bold" aria-label="Bold"><i class="fa-solid fa-bold fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-italic" type="button" data-collapse="3" data-for="discussion" title="Italic" aria-label="Italic"><i class="fa-solid fa-italic fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-code" type="button" data-collapse="4" data-for="discussion" title="Code" aria-label="Code"><i class="fa-solid fa-code fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-list" type="button" data-collapse="5" data-for="discussion" title="Bulleted list" aria-label="Bulleted list"><i class="fa-solid fa-list-ul fa-fw" aria-hidden="true"></i></button>
+          <span class="chat-format-item" data-collapse="6" data-for="discussion">
             <button class="msg-btn" id="chat-emoji" type="button" title="Emoji" aria-label="Emoji"><i class="fa-regular fa-face-smile fa-fw" aria-hidden="true"></i></button>
             <div class="chat-emoji-popup" id="chat-emoji-popup" hidden></div>
           </span>
+          <button class="msg-btn" id="chat-import-copy" type="button" data-collapse="7" data-for="assistant" title="Copy prompt" aria-label="Copy prompt" hidden><i class="fa-solid fa-copy fa-fw" aria-hidden="true"></i></button>
+          <button class="msg-btn" id="chat-bring" type="button" data-collapse="8" data-for="assistant" title="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
         </span>
         <span class="chat-format-side">
-          <button class="msg-btn" id="chat-bring" type="button" data-collapse="7" title="Bring in research" aria-label="Bring in research" hidden><i class="fa-solid fa-square-share-nodes fa-fw" aria-hidden="true"></i></button>
-          <span class="chat-format-item chat-command-wrap" id="chat-command-wrap" data-collapse="8">
+          <span class="chat-format-item chat-command-wrap" id="chat-command-wrap" data-collapse="9">
             <button class="msg-btn" id="chat-command" type="button" title="Commands" aria-label="Commands" aria-haspopup="true"><i class="fa-solid fa-square-poll-horizontal fa-fw" aria-hidden="true"></i></button>
           </span>
-          <span class="chat-format-item" data-collapse="9">
+          <span class="chat-format-item" data-collapse="10" data-for="discussion">
             <button class="msg-btn" id="chat-help" type="button" title="Formatting help" aria-label="Formatting help"><i class="fa-solid fa-square-pen fa-fw" aria-hidden="true"></i></button>
             <div class="chat-help-popup" id="chat-help-popup" hidden>
               <p><code>**bold**</code>, <code>*italic*</code>, <code>`code`</code>, and lines starting with <code>- </code> for a bulleted list all work. Links become clickable automatically. Paste or drop a picture to send it. Shift+Enter starts a new line without sending.</p>
@@ -383,12 +370,17 @@
       </div>
       <div class="mod-bar chat-bar" id="chat-bar">
       <form id="chat-form">
-        <textarea id="chat-input" maxlength="1000" placeholder="Chat or type / for commands..." rows="1"></textarea>
-        <button class="btn btn-small" id="chat-import" type="button" hidden data-fill>Bring in {objects}</button>
-        <button class="action-btn primary" type="submit" title="Send" aria-label="Send"><i class="fa-solid fa-right-from-bracket fa-fw" aria-hidden="true"></i></button>
+        <textarea id="chat-input" maxlength="1000" placeholder="Chat or type / for commands..." rows="1" enterkeyhint="send"></textarea>
         <input type="file" id="chat-file" accept="image/*" hidden>
       </form>
-      <p class="chat-note" id="chat-note" role="status" aria-live="polite" hidden></p>
+      <!-- The Chat column's status line, the modules' own (.mod-status): the connection on the left, the latest notice on
+           the right. Always there, one line; each part is a polite live region so a change is read out once. -->
+      <div class="mod-status chat-status" id="chat-status" role="region" aria-label="Chat status">
+        <span class="mod-status-items">
+          <span class="mod-status-item" id="chat-conn" aria-live="polite" title="Whether new messages arrive live"><i class="fa-solid fa-circle-dot fa-fw" id="chat-conn-icon" aria-hidden="true"></i><span class="mod-status-text" id="chat-conn-text">Live</span></span>
+          <span class="mod-status-item end" id="chat-note-item"><span class="mod-status-text" id="chat-note" role="status" aria-live="polite"></span></span>
+        </span>
+      </div>
       </div>
     </aside>
 

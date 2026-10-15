@@ -1,4 +1,4 @@
-// Chat's one input: ordinary messages, /ai, module commands, and paste import.
+// Chat's one input: ordinary messages, module commands (a short or a full word), the Assistant's questions, and paste import.
 // Chat never names a module; commands and Keep actions come from the space APIs.
 
 const OBJECT_MIME = 'application/x-host-object';
@@ -705,16 +705,46 @@ export function discussionWord(name) {
   const n = String(name || '').replace(/\s+/g, ' ').trim();
   return !n || n === 'Chat' ? 'Discussion' : n;
 }
+// The full word of each module command, beside the short one it is declared with: /t or /task, both run the same
+// command. A command a module declares under that very word keeps it (commandList is read first).
+export const COMMAND_WORDS = Object.freeze({ c: 'event', v: 'poll', r: 'research', t: 'task', p: 'trip' });
+// The short name a typed command word stands for (the short one itself, or a full word), else the word as typed.
+export function commandName(word, known = []) {
+  const w = String(word || '').toLowerCase();
+  if (known.includes(w)) return w;
+  const short = Object.keys(COMMAND_WORDS).find((k) => COMMAND_WORDS[k] === w);
+  return short || w;
+}
+// "/t or /task": how a command shows in the menu and its hint.
+export function commandForms(name) {
+  return COMMAND_WORDS[name] ? `/${name} or /${COMMAND_WORDS[name]}` : `/${name}`;
+}
+// Whether pasted text is one of our import answers (the objects template): JSON that is an object or a list, or a
+// fenced objects block, or text with a JSON object that has a title. Anything else is words for the AI. The server's
+// checker has the last word on what it holds.
+export function looksLikeImport(text) {
+  const t = String(text || '').replace(/^\uFEFF/, '').trim();
+  if (t.length < 2) return false;
+  if (t[0] === '{' || t[0] === '[') {
+    try {
+      const v = JSON.parse(t);
+      return v !== null && typeof v === 'object';
+    } catch { /* maybe a block with words around it */ }
+  }
+  if (/^[ \t>*+-]*`{3,}[ \t]*objects(?![\w-])/im.test(t)) return true;
+  return /\{[^{}]*"title"\s*:/.test(t) && /"(?:kind|content|format|formatVersion)"\s*:/.test(t);
+}
 // What the box does with a line, by the view it is typed in: a command runs in the Assistant (typed in the Discussion,
-// it switches there first and the Discussion shows nothing of it); plain words typed in the Assistant ask the AI, as
-// /ai would; in the Discussion they are a message. A lone or malformed slash stays in the box ('none').
+// it switches there first and the Discussion shows nothing of it), in either view; in the Assistant a pasted import
+// answer is brought in ('import') and any other words ask the AI; in the Discussion words are a message. A lone or
+// malformed slash stays in the box ('none').
 export function routeLine(text, view) {
   const t = String(text || '').trim();
   const v = readView(view);
   if (!t) return { run: 'none', view: v, line: '' };
   if (/^\/[a-z0-9]{1,12}(?:\s[\s\S]*)?$/.test(t)) return { run: 'command', view: 'assistant', line: t };
   if (t.startsWith('/')) return { run: 'none', view: v, line: t };
-  if (v === 'assistant') return { run: 'ai', view: 'assistant', line: `/ai ${t}` };
+  if (v === 'assistant') return looksLikeImport(t) ? { run: 'import', view: 'assistant', line: t } : { run: 'ai', view: 'assistant', line: t };
   return { run: 'message', view: 'discussion', line: t };
 }
 // Whether an arriving message marks a view as new to read: the Assistant's when it lands there while the person is not
@@ -906,11 +936,11 @@ export function keptNoticeTakes(entry, data, from) {
 export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepStoredLink, canvas, resizeChatInput, renderMarkup, frameMessage, addStored, openMenu, isShown = () => true, onAssistantNew = null }) {
   const input = () => $('chat-input');
   // The field's hint when nothing is typed, on one line: the full one when it fits the field, else a shorter one
-  // (the wider Send button leaves a narrow chat a narrow field). A command's own hint is left alone.
-  // In the Assistant, plain words go to the AI (routeLine), and its hint says so.
+  // A command's own hint is left alone. In the Assistant, plain words go to the AI (routeLine), and its hint says so.
   const HINTS = ['Chat or type / for commands...', 'Chat, or / for commands', 'Chat'];
-  const ASK_HINTS = ['Ask the AI or type / for commands...', 'Ask, or / for commands', 'Ask the AI'];
+  const ASK_HINTS = ['Ask the AI, paste an answer or type / for commands...', 'Ask, paste, or / for commands', 'Ask the AI'];
   let view = 'discussion';
+  let importOk = false;
   let hintCtx = null;
   function defaultHint() {
     const list = view === 'assistant' ? ASK_HINTS : HINTS;
@@ -929,8 +959,6 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   }
   if (input() && typeof ResizeObserver === 'function') new ResizeObserver(fitHint).observe(input());
   const note = () => $('chat-note');
-  const importBtn = () => $('chat-import');
-  let pendingImport = null;
   let aiContext = [];
   let lastActions = [];
 
@@ -939,23 +967,17 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     return s && !s.isAside ? s.id : null;
   }
 
-  // Chat's one line of news (#chat-note, a polite live region: a screen reader reads it out). Shown with its words a
-  // moment after it appears, so a reader hears words that arrive in a region it already knows.
-  let noteSeq = 0;
-  function setNote(text) {
+  // Chat's one line of news, in its status area (#chat-note inside #chat-status, the modules' own status line): always
+  // there, a polite live region, so a change is read out once. A failure shows in the error text colour.
+  function setNote(text, error = false) {
     const el = note();
     if (!el) return;
-    const seq = ++noteSeq;
-    if (!text) { el.textContent = ''; el.hidden = true; return; }
-    if (!el.hidden) { el.textContent = text; return; }
-    el.textContent = '';
-    el.hidden = false;
-    setTimeout(() => { if (seq === noteSeq) el.textContent = text; }, 60);
+    el.textContent = text || '';
+    el.classList.toggle('error', Boolean(text) && error);
   }
 
   function commandList() {
     const list = [];
-    list.push({ name: 'ai', label: 'Ask the AI', module: null, moduleName: 'AI', icon: 'robot', hint: 'a question for the AI', action: null });
     for (const m of canvas.list()) {
       for (const c of m.commands || []) {
         list.push({
@@ -976,7 +998,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     const text = String(raw || '');
     const m = /^\/([a-z0-9]{1,12})(?:\s+([\s\S]*))?$/.exec(text.trim());
     if (!m) return null;
-    return { name: m[1], rest: (m[2] || '').trim(), raw: text };
+    // A full word stands for its short name (/task is /t); the short name is what is stored and sent.
+    return { name: commandName(m[1], commandList().map((c) => c.name)), rest: (m[2] || '').trim(), raw: text };
   }
 
   function matchesFor(name) {
@@ -1003,7 +1026,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'chat-command-item';
-        const label = group.length > 1 && c.moduleName ? `/${name} (${c.moduleName})` : `/${name}`;
+        const forms = commandForms(name);
+        const label = group.length > 1 && c.moduleName ? `${forms} (${c.moduleName})` : forms;
         b.textContent = `${label} — ${c.label}`;
         b.addEventListener('click', () => {
           input().value = `/${name} `;
@@ -1064,9 +1088,11 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     }
     const list = $('messages');
     if (list) list.dataset.view = view;
+    if ($('chat')) $('chat').dataset.view = view;
     if (isShown()) newIn[view] = 0;
     paintNew();
     fitHint();
+    paintModeTools();
     syncEmpty();
     if (list) list.scrollTop = list.scrollHeight;
   }
@@ -1347,7 +1373,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       if (sent.error) {
         state = '';
         drawPlace();
-        setNote(sent.error);
+        setNote(sent.error, true);
         return null;
       }
       // A form still opening keeps the row busy; how it ended is said when it has.
@@ -1669,7 +1695,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
 
   async function askAbout({ question, refs } = {}) {
     const q = String(question || '').trim();
-    if (!q) { setNote('Type a question after /ai.'); return { ok: false }; }
+    if (!q) { setNote('Type a question first.'); return { ok: false }; }
     const prev = aiContext;
     aiContext = (refs || []).filter((r) => r && r.module && r.id).map((ref) => ({ ref }));
     setView('assistant'); // a module's question is answered where answers go
@@ -1699,7 +1725,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       if (reply.message) addStored(reply.message);
       return true;
     } catch (err) {
-      setNote(err.message || 'The AI could not answer.');
+      setNote(err.message || 'The AI could not answer.', true);
       return false;
     }
   }
@@ -1729,7 +1755,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
         if (input().value.trim() === parsed.raw.trim()) { input().value = ''; resizeChatInput(); }
         if (open) canvas.open(chosen.module);
       } catch (err) {
-        setNote(err.message || `The ${name} could not take that.`);
+        setNote(err.message || `The ${name} could not take that.`, true);
       }
     };
     for (const [label, primary, onClick] of [
@@ -1752,19 +1778,15 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
   async function runCommand(parsed) {
     const hits = matchesFor(parsed.name);
     if (!hits.length) {
-      setNote(`No command /${parsed.name}`);
+      setNote(`No command /${parsed.name}`, true);
       return false;
     }
     // A known command runs in the Assistant: typed in the Discussion, it switches there first (GitHub #203).
     setView('assistant');
     const openHits = hits.filter((h) => !h.module || canvas.isOpen(h.module));
-    if (hits[0].name === 'ai') {
-      if (!parsed.rest) { setNote('Type a question after /ai.'); return false; }
-      return runAi(parsed.rest);
-    }
     if (hits.length > 1 && openHits.length !== 1) {
       const names = hits.map((h) => h.moduleName).join(' or ');
-      setNote(`Which one: ${names}? Use the picker.`);
+      setNote(`Which one: ${names}? Use the picker.`, true);
       return false;
     }
     const chosen = openHits[0] || hits[0];
@@ -1776,7 +1798,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
       echo(parsed, chosen, await postCommand(parsed, chosen));
       return true;
     } catch (err) {
-      setNote(err.message || `The ${chosen.moduleName} could not take that.`);
+      setNote(err.message || `The ${chosen.moduleName} could not take that.`, true);
       return false;
     }
   }
@@ -1801,23 +1823,9 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     return parts.join(' ');
   }
 
+  // Why an import could not be read: in the status area, the text staying in the box to fix.
   function setImportWhy(text) {
-    const el = $('chat-import-why');
-    if (!el) return;
-    el.textContent = text || '';
-    el.hidden = !text;
-  }
-
-  function setImportOpen(yes) {
-    const panel = $('chat-import-panel');
-    if (!panel) return;
-    panel.hidden = !yes;
-    if (yes) {
-      hidePicker();
-      $('chat-help-popup').hidden = true;
-      $('chat-emoji-popup').hidden = true;
-      setImportWhy('');
-    }
+    if (text) setNote(text, true);
   }
 
   async function showImport(result) {
@@ -1825,12 +1833,11 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     const dropped = droppedLine(result && result.dropped, result && result.over);
     if (!objects.length) {
       setImportWhy(dropped || 'Nothing in that could be read.');
-      return;
+      return false;
     }
     // The places come from the modules on now, not those on when the page was loaded.
     await refreshActions();
-    setImportOpen(false);
-    setImportWhy('');
+    setNote('');
     const body = document.createElement('div');
     body.className = 'message-body text';
     const rows = [];
@@ -1935,6 +1942,7 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     setView('assistant'); // what is brought in is the person's own until kept
     $('messages').appendChild(el);
     $('messages').scrollTop = $('messages').scrollHeight;
+    return true;
   }
 
   async function postCheck(body, type) {
@@ -1950,19 +1958,33 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     return json;
   }
 
+  // Pasted answer text, run through the same checker the old paste box used; true when its objects are shown (the box
+  // then empties), false with the reason in the status area (the text stays).
   async function checkObjects(input) {
-    setImportWhy('');
+    setNote('');
     try {
-      const result = typeof input === 'string'
-        ? await postCheck(input, 'text/plain')
-        : await postCheck(input, 'application/octet-stream');
-      pendingImport = null;
-      importBtn().hidden = true;
-      await showImport(result);
+      return await showImport(await postCheck(input, 'text/plain'));
     } catch (err) {
       setImportWhy(err.message || 'That could not be read.');
-      setImportOpen(true);
+      return false;
     }
+  }
+
+  // The Assistant's two tools (copy prompt, bring in research) show only where this person can keep objects (importOk).
+  function paintModeTools() {
+    const bar = $('chat-format-bar');
+    if (!bar) return;
+    const assistant = view === 'assistant';
+    for (const el of bar.querySelectorAll('[data-for]')) {
+      const mine = el.dataset.for === 'assistant';
+      const off = mine ? !(assistant && importOk) : assistant;
+      el.hidden = off;
+      if (off) el.dataset.off = '1'; else delete el.dataset.off;
+      delete el.dataset.collapsed;
+    }
+    $('chat-help-popup').hidden = true;
+    $('chat-emoji-popup').hidden = true;
+    document.dispatchEvent(new CustomEvent('chat-tools-changed'));
   }
 
   async function refreshImport() {
@@ -1977,28 +1999,8 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     } catch {
       ok = false;
     }
-    const btn = $('chat-bring');
-    if (btn) btn.hidden = !ok;
-    if (!ok) setImportOpen(false);
-  }
-
-  async function offerImport(text) {
-    const id = spaceId();
-    if (!id || !getMe()) return;
-    try {
-      const avail = await api('GET', `/api/spaces/${encodeURIComponent(id)}/objects/check`);
-      if (!avail.available) return;
-      const json = await postCheck(text, 'text/plain');
-      if (!json.objects || !json.objects.length) return;
-      pendingImport = json;
-      const btn = importBtn();
-      btn.hidden = false;
-      btn.textContent = `Bring in ${json.objects.length} ${word('object', { many: json.objects.length !== 1 })}`;
-      const panelText = $('chat-import-text');
-      if (panelText && !panelText.value.trim()) panelText.value = text;
-    } catch {
-      // not an import
-    }
+    importOk = ok;
+    paintModeTools();
   }
 
   for (const v of CHAT_VIEWS) {
@@ -2023,23 +2025,18 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     if ($('chat-command-menu')) hidePicker();
     else showPicker();
   });
-  $('chat-bring')?.addEventListener('click', (e) => {
+  // Bring in research: what is in the box, if it holds an answer; else it says where to paste one.
+  $('chat-bring')?.addEventListener('click', async (e) => {
     e.preventDefault();
     e.stopPropagation();
-    const panel = $('chat-import-panel');
-    const opening = panel.hidden;
-    if (opening) setView('assistant'); // Bring in is the Assistant's
-    setImportOpen(opening);
-  });
-  $('chat-import-close')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    setImportOpen(false);
+    setView('assistant');
+    const text = input().value.trim();
+    if (!text) { setNote('Paste the answer in the box, then press Enter.'); input().focus(); return; }
+    if (await checkObjects(text)) { input().value = ''; resizeChatInput(); }
   });
   $('chat-import-copy')?.addEventListener('click', async (e) => {
     e.preventDefault();
-    setImportWhy('');
-    const show = $('chat-import-show');
-    if (show) show.hidden = true;
+    setNote('');
     try {
       const fmt = await api('GET', '/api/objects/format');
       const text = (fmt && fmt.instructions) || '';
@@ -2047,59 +2044,26 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
         await navigator.clipboard.writeText(text);
         setNote('Copied. Paste it into the other AI first.');
       } catch {
-        if (show) {
-          show.value = text;
-          show.hidden = false;
-          show.focus();
-          show.select();
-        }
-        setNote('Select all and copy it.');
+        setNote('This browser would not copy it. Allow clipboard access and try again.', true);
       }
     } catch (err) {
-      setImportWhy(err.message || 'The instructions could not be copied.');
+      setNote(err.message || 'The prompt could not be copied.', true);
     }
-  });
-  $('chat-import-check')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    checkObjects($('chat-import-text').value);
-  });
-  $('chat-import-choose')?.addEventListener('click', (e) => {
-    e.preventDefault();
-    $('chat-import-file').click();
-  });
-  $('chat-import-file')?.addEventListener('change', () => {
-    const file = $('chat-import-file').files && $('chat-import-file').files[0];
-    if (file) checkObjects(file);
-  });
-  $('chat-import-panel')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      e.stopPropagation();
-      setImportOpen(false);
-      input().focus();
-    }
-  });
-  importBtn().addEventListener('click', (e) => {
-    e.preventDefault();
-    if (pendingImport) showImport(pendingImport);
-    pendingImport = null;
-    importBtn().hidden = true;
   });
   input().addEventListener('input', () => {
     const parsed = parseCommand(input().value);
     if (input().value.trim() === '/') showPicker();
     if (!parsed) input().placeholder = defaultHint();
-    else if (parsed.name === 'ai') input().placeholder = 'a question for the AI';
-    if (!input().value.trim()) { pendingImport = null; importBtn().hidden = true; setNote(''); }
-  });
-  input().addEventListener('paste', (e) => {
-    const text = e.clipboardData?.getData('text') || '';
-    if (text.length > 40) offerImport(text);
+    else {
+      const hit = matchesFor(parsed.name)[0];
+      if (hit && hit.hint) input().placeholder = hit.hint;
+    }
   });
 
   $('chat').addEventListener('drop', (event) => {
     const raw = event.dataTransfer?.getData(OBJECT_MIME);
-    // An object dropped while asking the AI: /ai typed, or plain words in the Assistant (routeLine).
-    const asking = parseCommand(input().value || '')?.name === 'ai' || (view === 'assistant' && !parseCommand(input().value || ''));
+    // An object dropped while asking the AI: plain words in the Assistant (routeLine).
+    const asking = view === 'assistant' && !parseCommand(input().value || '');
     if (!raw || !asking) return;
     try {
       const ref = JSON.parse(raw);
@@ -2141,7 +2105,11 @@ export function attachChatInput({ $, api, word, getSpace, getMe, isGuest, keepSt
     seen,
     refreshActions,
     hidePicker,
-    hideImport: () => setImportOpen(false),
+    // A pasted answer sent from the box (routeLine 'import'): true when its objects are shown.
+    importText: (text) => checkObjects(text),
+    // Words typed in the Assistant: asked of the AI. True when the answer came.
+    ask: (text) => { setNote(''); return runAi(text); },
+    note: setNote,
     askAbout,
     // Send to... (plan-object-handoff.md): whether a message's menu offers it, from the actions held now; and the menu.
     canSendTo: (entry) => Boolean(sendPlan(entry)),

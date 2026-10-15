@@ -1102,7 +1102,7 @@ test('commands: the short name is the first letter of the full word; either runs
   assert.equal(commandName('nonsense'), 'nonsense');
   assert.equal(commandForms('t', 'todo'), '/t or /todo');
   assert.equal(commandForms('xyz'), '/xyz');
-  assert.ok(!/COMMAND_WORDS/.test(chat), 'no client table of words: the manifest has them');
+  assert.ok(!/COMMAND_WORDS/.test(chat), 'no client list of words: the manifest has them');
   assert.match(chat, /name: commandName\(m\[1\], commandList\(\)\)/, 'typing either runs it');
   assert.match(chat, /const forms = commandForms\(name, group\[0\]\.word\);/, 'the menu row shows both');
   assert.ok(!/name: 'ai'/.test(fnBody(chat.replace(/^ {2}/gm, ''), 'function commandList() {')), '/ai is not a command any more');

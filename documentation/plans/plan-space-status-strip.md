@@ -20,7 +20,7 @@ Thomas, 2026-10-13.
 1. **The secondary bar becomes a status strip** for progress and notices. Reason: the row is empty and kept in the code; progress belongs to the space, not to the crowded top bar.
 2. **The phase chip moves out of the top bar into the strip.** Reason: it ends the squeeze in #256.
 3. **When the top bar runs out of room, the favorites drop first.**
-4. **Phases are one contiguous timeline from the template, with dates set in the phase sheet; in phase 1 they only inform.** The strip opens nothing but the sheet for phases.
+4. **Phases are one contiguous timeline from the template (changed 2026-10-15: phases may have gaps, see [plan-itinerary-phases-markers](plan-itinerary-phases-markers.md) decision 7), with dates set in the phase sheet; in phase 1 they only inform.** The strip opens nothing but the sheet for phases.
 5. **One line only; the layout does not jump:** the strip shows whenever the space has phases.
 6. **Save and Cancel in a bar locked to the bottom** for any edit surface (the shared action bar); the strip edits nothing itself.
 

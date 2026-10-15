@@ -48,6 +48,11 @@ decide those.
   pass, its own checks, pushed at once, no QA, docs or CHANGELOG; if it changes a module it still bumps that module's patch version, nothing else), a **feedback build**
   (one short QA pass for regressions, must-fixes only, a CHANGELOG line) and a **production build**
   (the full flow: plan, QA, docs, version bumps). Never treat a try build as production.
+- Start every GitHub issue title with its area and a colon, then the title (`Settings: Profile photo won't save`).
+  The areas: Settings, Chat, Call, Home, Phases, Planner, Calendar, Places, Maps, Budget, Research, To-do,
+  Polls, Forms, Design, Layout, Server, Docs, Verify, Ideas. Settings covers anything about configuring
+  things: Set up, Manage, Profile, module and template settings, overridable words, permissions settings
+  and the Modules page. Every agent files issues this way (Thomas, 2026-10-15).
 - The project manager picks the smaller model for small jobs and a larger one only for risky work (layout and
   canvas, migrations, security, planning); see `.claude/agents/project-manager.md`.
 - For a production build, commit each finished piece of work once it has passed QA and has its documentation, by explicit

@@ -12,6 +12,7 @@ const fs = require('fs');
 const path = require('path');
 const { encryptSecret, decryptSecret } = require('./auth');
 const { ICONS, KINDS, FENCE, cleanObject, objectRule } = require('./object-format');
+const { word } = require('./words');
 
 // A key kept at rest is encrypted (AES-256-GCM, server/auth.js's encryptSecret: 'aesgcm$...'). The sentence shown
 // when a saved one can't be read with this server's key -- data restored onto a different host, say, which has a
@@ -550,7 +551,7 @@ function buildPrompt(task, items, question, kinds) {
   });
   const material = blocks.join('\n');
   let job;
-  if (task === 'summarise') job = `Summarise the material in a few short points. Cite the item numbers you used like [1].\n${summaryRule(kinds)}`;
+  if (task === 'summarise') job = `Summarise the material in a few short points. Cite the item numbers you used like [1].\n${summaryRule(kinds, 'summarise')}`;
   else if (task === 'tags') job = 'Suggest up to 6 short lower-case tags (one or two words each) for the material. Answer with only a JSON array of strings.';
   else job = `${items.length ? 'Answer this question. Use the material as context where it helps, and cite the item numbers you used like [1].' : 'Answer this question.'} ${question}\n${summaryRule(kinds)}`;
   return { system: task === 'ask' ? ASK_FRAME : FRAME, prompt: `${material}${material ? '\n\n' : ''}${job}` };
@@ -560,32 +561,93 @@ function buildPrompt(task, items, question, kinds) {
 // the same block as the published objects format (server/object-format.js; plan-kind-names.md, "The /ai rule"). Everything
 // else in the conversation is chatter and is not kept. The model is told to call each one an "object". The same lines as the
 // copied instructions (objectRule), listing the kinds the environment's modules take (plan-object-handoff.md, "The prompt").
-const summaryRule = (kinds) => `Always include at least one object: the part of your answer worth keeping. Put every object worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun: 'object', max: MAX_SUMMARIES, withProvenance: true, kinds })}`;
+const KEEP_WORDS = 'something worth keeping (a place, an event, a fact, a thing to do or book)';
+const summaryRule = (kinds, task = 'ask') => {
+  const when = task === 'summarise'
+    ? `Include the part of your summary worth keeping as ${word('object', { many: true })}, but none if the material has nothing worth keeping.`
+    : `Include ${word('object', { many: true })} only when your answer contains ${KEEP_WORDS}. Small talk, greetings and questions about you get none, and an answer with nothing to keep needs no block at all.`;
+  return `${when} ${word('object', { many: true, cap: true })} go only in the fenced block, never inline in your answer text. Put every ${word('object')} worth keeping in one JSON array inside one ${objectRule({ fence: FENCE, noun: word('object'), max: MAX_SUMMARIES, withProvenance: true, kinds })}`;
+};
 
 function cleanSummary(raw, count) {
   return cleanObject(raw, { count });
 }
 
+// Does a parsed value look like objects of ours, even if they would not all validate? A non-empty list of plain objects,
+// each with a title or content and at least one of our own markers (an icon, kind or basis we know, or a sources list).
+// Anything else (a user's JSON example, code) is not ours and is never touched.
+const BASES_SEEN = ['general', 'items', 'both'];
+function looksLikeObjects(parsed) {
+  const list = Array.isArray(parsed) ? parsed : [parsed];
+  if (!list.length || list.length > 100) return false;
+  return list.every((o) => o && typeof o === 'object' && !Array.isArray(o)
+    && (typeof o.title === 'string' || typeof o.content === 'string')
+    && (ICONS.includes(o.icon) || KINDS.includes(o.kind) || BASES_SEEN.includes(o.basis) || Array.isArray(o.sources)));
+}
+
+// The end index (exclusive) of the JSON value that starts at `at` in `text` (a [ or {), or -1.
+function jsonEnd(text, at) {
+  let depth = 0;
+  let inStr = false;
+  for (let i = at; i < text.length && i - at < 20000; i++) {
+    const ch = text[i];
+    if (inStr) { if (ch === '\\') i++; else if (ch === '"') inStr = false; continue; }
+    if (ch === '"') inStr = true;
+    else if (ch === '[' || ch === '{') depth++;
+    else if (ch === ']' || ch === '}') { depth--; if (depth === 0) return i + 1; }
+  }
+  return -1;
+}
+
 // The answer with its valid summaries taken out and each replaced by a marker line {{summary:0}}, {{summary:1}} for the page to
 // draw in place, and the summaries. Blocks labelled objects are read, and, for a model that labels its block loosely, summary,
 // json or no label. (A block still being written is never one: it has no closing fence yet, so it stays text.)
+// Raw JSON never stays in the text (issue #341): a block labelled objects or summary that does not read is dropped; a json or
+// unlabelled block, and JSON written inline outside any fence, is dropped when it looks like our objects (looksLikeObjects),
+// and read as summaries when it validly parses. Other fenced code and other JSON are left alone.
 function parseSummaries(text, count) {
   const summaries = [];
-  const out = String(text).replace(/```(?:objects|summary|json)?[ \t]*\n([\s\S]*?)\n?```/g, (whole, body) => {
-    if (summaries.length >= MAX_SUMMARIES) return whole;
-    let parsed;
-    try { parsed = JSON.parse(body); } catch { return whole; }
-    const list = Array.isArray(parsed) ? parsed : [parsed];
+  const take = (parsed) => {
     const start = summaries.length;
-    for (const raw of list) {
+    for (const raw of Array.isArray(parsed) ? parsed : [parsed]) {
       if (summaries.length >= MAX_SUMMARIES) break;
       const summary = cleanSummary(raw, count);
       if (summary) summaries.push(summary);
     }
-    if (summaries.length === start) return whole;
-    return '\n' + summaries.slice(start).map((_, i) => `{{summary:${start + i}}}`).join('\n') + '\n';
+    return summaries.slice(start).length ? '\n' + summaries.slice(start).map((_, i) => `{{summary:${start + i}}}`).join('\n') + '\n' : '';
+  };
+  const inline = (segment) => {
+    let out = '';
+    let i = 0;
+    while (i < segment.length) {
+      const ch = segment[i];
+      if ((ch === '[' || ch === '{') && /^[[{]\s*(\{|")/.test(segment.slice(i, i + 20))) {
+        const end = jsonEnd(segment, i);
+        let parsed;
+        if (end > 0) { try { parsed = JSON.parse(segment.slice(i, end)); } catch { parsed = undefined; } }
+        if (parsed !== undefined && looksLikeObjects(parsed)) {
+          out += summaries.length >= MAX_SUMMARIES ? '' : take(parsed);
+          i = end;
+          continue;
+        }
+      }
+      out += ch;
+      i++;
+    }
+    return out;
+  };
+  const fenced = String(text).replace(/```(objects|summary|json)?[ \t]*\n([\s\S]*?)\n?```/g, (whole, label, body) => {
+    const ours = label === 'objects' || label === 'summary';
+    if (summaries.length >= MAX_SUMMARIES) return whole;
+    let parsed;
+    try { parsed = JSON.parse(body); } catch { return ours ? '\n' : whole; }
+    const marks = take(parsed);
+    if (marks) return marks;
+    return ours || looksLikeObjects(parsed) ? '\n' : whole;
   });
-  return { text: out.trim(), summaries };
+  // What is left outside any fence (a leftover fence stays as it is: code the person asked for, or one still being written).
+  const out = fenced.split(/(```[\s\S]*?(?:```|$))/).map((part, i) => (i % 2 ? part : inline(part))).join('');
+  return { text: out.replace(/\n{3,}/g, '\n\n').trim(), summaries };
 }
 
 function parseTags(text) {

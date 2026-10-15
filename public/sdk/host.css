@@ -25,6 +25,7 @@
   --radius-medium: 7px;
   --radius-large: 11px;
   --radius-round: 999px;
+  --hover-bg: color-mix(in srgb, var(--accent) 14%, transparent); /* a hovered or dragged-over control: a light fill, never a border */
   --selected-bg: color-mix(in srgb, var(--accent) 28%, transparent); /* a selected, on or current control: a fill, never a border */
   --primary-hover: var(--accent-hover);
   --secondary: color-mix(in srgb, var(--bg-section) 90%, var(--accent) 10%);
@@ -99,7 +100,6 @@ a {
 
 .btn:hover {
   background: var(--secondary-hover);
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
 }
 
 .btn-primary {
@@ -114,9 +114,12 @@ a {
 }
 
 .btn-danger {
-  background: transparent;
-  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
   color: var(--danger);
+}
+
+.btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 30%, transparent);
 }
 
 .btn:disabled {
@@ -151,7 +154,6 @@ a {
 
 .action-btn:hover {
   background: var(--secondary-hover);
-  border-color: var(--accent);
 }
 
 .action-btn.primary {
@@ -366,7 +368,7 @@ select:focus {
 .sdk-form input[aria-invalid="true"],
 .sdk-form select[aria-invalid="true"],
 .sdk-form textarea[aria-invalid="true"] {
-  border-color: var(--danger);
+  background-image: linear-gradient(color-mix(in srgb, var(--danger) 16%, transparent), color-mix(in srgb, var(--danger) 16%, transparent));
 }
 
 .sdk-form input[type="checkbox"],

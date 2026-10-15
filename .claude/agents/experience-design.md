@@ -21,6 +21,8 @@ build step), `public/sdk/`, and the front end of modules in `modules/<id>/`.
 ## While you work
 
 - The words a person reads are plain and short. Use the names in `CLAUDE.md` (Names), in code and in words.
+- Never add a coloured border, outline, ring or left-edge stripe to anything; show state with a fill and text
+  colour. Only Thomas can allow one (`tools/check-borders.mjs`).
 - Check narrow widths (a phone and a narrow module) and keyboard use for anything you add.
 - If you change a module, bump its version as the repository does (see `tools/module-versions.json`
   and `tools/check-module-versions.mjs`).

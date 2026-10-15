@@ -31,17 +31,17 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .tag { display: inline-block; margin-left: 6px; padding: 0 6px; border: 1px solid var(--border); border-radius: var(--radius-round); font-size: 10px; color: var(--text-dim); }
 .opt { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg); color: var(--text); font: inherit; text-align: left; overflow: hidden; cursor: pointer; }
 .opt:disabled { cursor: default; }
-.opt:not(:disabled):hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.opt:not(:disabled):hover { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 .opt .fill { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent) 24%, transparent); pointer-events: none; }
 .opt .name, .opt .num { position: relative; }
 .opt .name { overflow-wrap: anywhere; }
 .opt .name small { display: block; margin-top: 1px; color: var(--text-dim); font-size: 12px; }
-.opt.win { border-color: var(--accent); }
+.opt.win { background: var(--selected-bg); }
 .opt.win .num { color: var(--accent); font-weight: 700; }
 .addopt { display: flex; gap: 6px; }
 .addopt input { flex: 1; min-width: 0; color: var(--text); padding: 6px 8px; }
 .opt .num { flex: none; color: var(--text-dim); font-size: 12px; }
-.opt.mine { border-color: var(--accent); }
+.opt.mine { background: var(--selected-bg); }
 .opt.mine .name::before { content: '\2713 '; color: var(--accent); font-weight: 700; }
 .who { margin: -4px 0 0 2px; color: var(--text-dim); font-size: 11px; overflow-wrap: anywhere; }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -68,11 +68,11 @@ body { display: flex; flex-direction: column; overflow: hidden; }
 .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 
 .tag.ref { cursor: pointer; }
-.tag.ref:hover { color: var(--text); border-color: var(--accent); }
+.tag.ref:hover { color: var(--text); background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 .tag b { color: var(--accent); font-weight: 600; }
-.poll.flash { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 35%, transparent); }
+.poll.flash { background: var(--selected-bg); }
 
-.opt.drop { outline: 2px solid var(--accent); outline-offset: -2px; }
+.opt.drop { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 .optlink { display: flex; align-items: center; gap: 4px; margin: 2px 0 6px 4px; }
 .optlink .tag { margin-left: 0; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .optlink .tag.ref { cursor: pointer; }

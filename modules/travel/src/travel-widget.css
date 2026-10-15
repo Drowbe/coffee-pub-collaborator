@@ -6,7 +6,7 @@ html, body { background: transparent; } /* the dashboard card is the background 
 .list { display: flex; flex-direction: column; gap: 8px; }
 .trip { display: flex; flex-direction: column; gap: 4px; }
 .item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 5px 8px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-card); color: var(--text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
-.item:hover { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+.item:hover { background-image: linear-gradient(var(--hover-bg), var(--hover-bg)); }
 .item.today { padding: 4px 8px 4px 24px; font-size: 12px; background: transparent; }
 .what { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .when { flex: none; color: var(--accent); font-size: 12px; }

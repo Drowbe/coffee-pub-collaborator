@@ -397,10 +397,10 @@
 .sdk-menu-hint { flex-basis: 100%; margin-top: 1px; color: var(--text-dim); font-size: 12px; }
 .sdk-menu-sep { height: 1px; margin: 4px 6px; background: var(--border); }
 .sdk-menu-heading { padding: 6px 10px 2px; color: var(--text-dim); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
-.sdk-menu-caret { flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; border-top: 1.5px solid var(--text-dim); border-right: 1.5px solid var(--text-dim); transform: rotate(45deg); }
+.sdk-menu-caret { flex: none; width: 6px; height: 6px; margin: 0 2px 0 auto; color: var(--text-dim); border-top: 1.5px solid currentColor; border-right: 1.5px solid currentColor; transform: rotate(45deg); }
 .sdk-menu-category .sdk-menu-label { flex: 1; }
 .sdk-menu-category.open { background: color-mix(in srgb, var(--accent) 14%, transparent); }
-.sdk-menu-category.open .sdk-menu-caret, .sdk-menu-category:hover .sdk-menu-caret, .sdk-menu-category:focus-visible .sdk-menu-caret { border-color: var(--text); }
+.sdk-menu-category.open .sdk-menu-caret, .sdk-menu-category:hover .sdk-menu-caret, .sdk-menu-category:focus-visible .sdk-menu-caret { color: var(--text); }
 .sdk-more { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 0; border: 0; border-radius: var(--radius-small); background: none; color: var(--text-dim); cursor: pointer; flex: none; box-sizing: border-box; font: inherit; line-height: 1; }
 .sdk-more:hover, .sdk-more:focus-visible { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); outline: none; }
 .sdk-more .ic, .sdk-more i, .sdk-more svg { display: block; margin: 0; }

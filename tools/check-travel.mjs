@@ -845,7 +845,7 @@ test('the page: every journey kind has its colours and is in the kind picker, le
   for (const m of Object.keys(lib.LEG_ICONS)) assert.ok(html.includes(`data-mode="${m}"`), `a way-to-a-stop button for ${m}`);
   assert.ok(!/\(minutes\)|Minutes from/.test(html), 'no length is asked for in minutes alone');
   for (const id of ['f-hours', 'f-minutes', 'f-travelHours', 'f-travelMinutes']) assert.ok(html.includes(`id="${id}"`), id);
-  assert.match(html, /<span class="fl" id="f-checkout-label">Check out<\/span><select id="f-checkout" name="checkOut" hidden><\/select>\s*<div class="when-pick"><input id="f-checkout-input" type="date"[^>]*>.*?id="f-checkout-list".*?id="f-checkout-clear"[\s\S]*?<label><span class="fl">Check-out time<\/span><input id="f-checkOutTime" name="checkOutTime" type="time"><\/label>/, 'check-out is a date field with the list of days behind it (the select holds the value), and a time, laid out as check-in is (#245)');
+  assert.match(html, /<span class="sdk-label" id="f-checkout-label">Check out<\/span><select id="f-checkout" name="checkOut" hidden><\/select><input id="f-checkout-input" type="date"[^>]*>[\s\S]*?<label class="sdk-field sdk-s" id="f-checkouttime-field" data-types="hotel"><span class="sdk-label">Check-out time<\/span><input id="f-checkOutTime" name="checkOutTime" type="time">/, 'check-out is a date field (the SDK date picker draws it, with the list of days behind it; the select holds the value) and a time, laid out as check-in is (#245)');
   assert.ok(html.includes('<span class="side">Departs</span>') && html.includes('<span class="side">Arrives</span>'), 'a flight card says which end departs and which arrives');
 });
 
@@ -1302,8 +1302,8 @@ test('the page: with phases there is no plan form (the dates are the bar\'s, the
 test('the page: the round trip switch, its mark on a card, and the delete question', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.match(html, /<div class="fieldgroup roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">/, 'every journey but a car offers a round trip');
-  assert.ok(html.includes('id="f-roundtrip" name="roundtrip" type="checkbox" role="switch"'));
+  assert.match(html, /<div class="roundtrip" data-types="flight train ferry bus taxi rideshare shuttle">/, 'every journey but a car offers a round trip');
+  assert.ok(html.includes('<label class="sdk-check"><input id="f-roundtrip" name="roundtrip" type="checkbox"> Round trip</label>') && !html.includes('role="switch"'), 'a tick box in the form, not a switch (the form standard)');
   for (const id of ['f-return', 'f-back-date', 'f-back-time', 'f-back-hours', 'f-back-minutes', 'f-back-number', 'f-back-from', 'f-back-to', 'f-back-fromCode', 'f-back-toCode']) assert.ok(html.includes(`id="${id}"`), id);
   assert.ok(html.includes('<template id="tpl-card-roundtrip">'));
   for (const words of ['Delete both legs', 'Delete only this leg', 'Remove the return leg', 'Return is before the outbound']) assert.ok(js.includes(words), words);
@@ -1674,9 +1674,9 @@ await handedIn();
 test('the page: the ticket\'s arrival field, and objects dated outside the plan under Unscheduled', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.ok(html.includes('<div class="editor-row timing" data-types="flight train ferry bus"><div class="when-field" role="group" aria-labelledby="f-arrival-day-label"><span class="fl" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select>'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
-  assert.ok(html.includes('<label data-types="flight train ferry bus">Seat<input id="f-seat"'), 'a bus or ferry seat survives an edit');
-  assert.ok(html.includes('<label data-types="flight train">Class<select id="f-travelClass"'), 'a train class survives an edit');
+  assert.ok(html.includes('<div class="sdk-row" data-types="flight train ferry bus">\n      <div class="sdk-field sdk-m" role="group" aria-labelledby="f-arrival-day-label"><span class="sdk-label" id="f-arrival-day-label">Arrival day</span><select id="f-arrival-day" name="arrivesDay" hidden></select><input id="f-arrival-day-input" type="date"'), 'the arrival is a day and a time like the departure (#241); f-arrival holds what is stored');
+  assert.ok(html.includes('<span class="sdk-label">Seat</span><input id="f-seat"') && html.includes('data-types="flight train ferry bus"><span class="sdk-label">Seat'), 'a bus or ferry seat survives an edit');
+  assert.ok(html.includes('data-types="flight train"><span class="sdk-label">Class</span><select id="f-travelClass"'), 'a train class survives an edit');
   assert.ok(js.includes("fields.arrives = get('f-arrival')"));
   assert.ok(js.includes('plan.onSaid((text) => note(text));'));
   assert.ok(js.includes('(!i.date || !shownDays.has(i.date))'), 'one saved before, dated past the plan, shows under Unscheduled');
@@ -1729,19 +1729,20 @@ test('the page: the lookup rows, their words, and remembering on Save', () => {
   const js = read('travel.js');
   for (const pre of ['f-', 'f-back-']) {
     for (const part of ['lookup', 'lookup-number', 'lookup-date', 'lookup-find', 'lookup-msg', 'lookup-list']) assert.ok(html.includes(`id="${pre}${part}"`), `${pre}${part}`);
-    assert.ok(html.includes(`<div class="lookup" id="${pre}lookup" data-types="flight" role="group" aria-labelledby="${pre}lookup-title" hidden>`), `${pre}lookup is a flight's only, hidden until offered`);
-    assert.ok(html.includes(`<p class="hint lookup-msg" id="${pre}lookup-msg" role="status" aria-live="polite"></p>`), 'its message is read out');
+    assert.ok(html.includes(`<fieldset class="sdk-section lookup" id="${pre}lookup" data-types="flight" aria-labelledby="${pre}lookup-title" hidden>`), `${pre}lookup is a flight's only, a section of the form, hidden until offered`);
+    assert.ok(html.includes(`<p class="sdk-hint lookup-msg" id="${pre}lookup-msg" role="status" aria-live="polite"></p>`), 'its message is read out');
+    assert.ok(html.includes(`id="${pre}lookup-find" data-icon="magnifying-glass" title="Find the flight" aria-label="Find the flight"`) && html.includes(`<input id="${pre}lookup-date" type="date"`), 'Find is a button in the number\'s field, the day a date field');
   }
   assert.ok(html.indexOf('id="f-lookup"') > html.indexOf('id="tpl-editor2"') && html.indexOf('id="f-lookup"') < html.indexOf('id="f-title"', html.indexOf('id="tpl-editor2"')), 'the row is at the top of the flight form');
   assert.ok(html.indexOf('id="f-back-lookup"') > html.indexOf('id="f-return"'), 'the return leg has its own row');
-  assert.ok(html.includes('placeholder="WN 2483"') && html.includes('>Flight number<') && html.includes('>Day it leaves<') && html.includes('>Find</button>'));
+  assert.ok(html.includes('placeholder="WN 2483"') && html.includes('>Flight number<') && html.includes('>Day it leaves<') && html.includes('aria-label="Find the flight"'));
   assert.ok(html.includes('id="tpl-lookup-choice"'));
   for (const words of ['Enter the airline code and number, like WN 2483.', 'Choose the day it leaves.', 'saved here yet. Fill it in, and it will be suggested next time.', "Flight lookup isn't working right now. Fill it in by hand.", 'Filled in from a flight saved here before. Check it against your booking.', 'Which one?', 'flies on this day of the week', 'last seen ']) assert.ok(html.includes(words) || js.includes(words), words);
   assert.ok(js.includes('rememberFlights(fields, back);'), 'Save remembers both legs');
   assert.ok(js.includes("host.lookup.available('flight')"), 'the row follows the setting');
   assert.ok(js.includes('host.lookup.airport(code)'), 'a typed code fills its name');
   const css = read('travel-lib-editor.css');
-  assert.ok(css.includes('.editor-card .lookup.on-type { display: flex; }'), 'the row shows only for a flight');
+  assert.ok(!css.includes('.lookup.on-type') && !/\.lookup-row|\.editor-card/.test(css), 'the row is a form section (the SDK draws it); the module sets no box for it');
   assert.equal(/#[0-9a-f]{3,8}\b|rgb\(/i.test(css.slice(css.indexOf('/* the flight lookup'))), false, 'its colours are the theme\'s');
 });
 
@@ -1792,37 +1793,47 @@ test('the flight lookup (QA M5): a second lookup replaces what the first filled,
   assert.ok(js.includes('const { set, filled } = lookupApply(got, ed.lookupFilled[leg], now);'));
 });
 
-test('the form standard stopgap: one field height, one label box, the arrival day a date field with a list like the departure day', () => {
+test('the form standard (the Planner pilot): the forms are .sdk-form, every day is the SDK date picker with a list, the module sets only layout', () => {
   const html = read('travel.html');
   const js = read('travel.js');
   const css = read('travel.css') + read('travel-lib-editor.css');
+  for (const id of ['form', 'day-form']) assert.ok(html.includes(`<form class="sdk-form" id="${id}">`), `${id} is a form of the standard`);
+  for (const old of ['editor-card', 'editor-row', 'editor-buttons', 'editor-people', 'when-pick', 'when-btns', 'when-list', 'when-clear', 'when-phase', 'class="timing', 'class="pairing', 'fieldgroup', 'lenmode', 'dur-head', 'class="hm"', 'endbox', 'class="fl"', 'role="switch"', 'class="check"']) assert.ok(!html.includes(old), `the old ${old} is gone from the markup`);
+  assert.equal((html.match(/<div class="sdk-editor-actions">/g) || []).length, 3, 'the item, plan and day forms\' button rows stick to the bottom');
+  // Every day is a date field with host.ui.datePicker: the list (days by phase, the spots between days) and, where there is no day, its first entry.
   for (const pre of ['f-', 'f-back-']) {
-    assert.match(html, new RegExp(`<select id="${pre}arrival-day" name="[a-zA-Z]+" hidden></select>\\s*<div class="when-pick"><input id="${pre}arrival-day-input" type="date"[^>]*><span class="when-btns"><button class="btn when-list" id="${pre}arrival-day-list" type="button" aria-haspopup="menu">Pick from the list</button></span></div>\\s*<span class="when-phase" id="${pre}arrival-day-phase" role="status"></span>`), 'the arrival day: the hidden select keeps the value, a date field, the list, a caption line');
+    assert.match(html, new RegExp(`<select id="${pre}arrival-day" name="[a-zA-Z]+" hidden></select><input id="${pre}arrival-day-input" type="date"[^>]*><span class="sdk-hint" id="${pre}arrival-day-phase" role="status"></span>`), 'the arrival day: the hidden select keeps the value, a date field, its hint slot says the weekday and "Same day" or "The next day"');
   }
+  for (const id of ['f-date', 'f-back-date', 'f-checkout']) assert.ok(html.includes(`<select id="${id}"`) && html.includes(`<input id="${id}-input" type="date"`) && html.includes(`id="${id}-phase" role="status"`), `${id} keeps its select for the value, with a date field and a hint slot`);
+  assert.ok(!/id="f-(back-)?(date|arrival-day|checkout)-(list|clear)"/.test(html), 'no Pick from the list or Unscheduled button of the module\'s own: the picker draws the list button, and Unscheduled is its first entry and its Clear');
   assert.ok(js.includes("arrivalField($('f-arrival-day'));") && js.includes("arrivalField($('f-back-arrival-day'));"), 'both legs\' arrival days are wired when the form opens');
   assert.ok(js.includes('input.min = d[0]') && js.includes('input.max = d[d.length - 1]'), 'the date field is held to the days a ticket can arrive on (arrivalDays)');
-  assert.match(html, /<span class="when-btns"><button class="btn when-list" id="f-date-list"[^>]*>Pick from the list<\/button><button class="btn when-clear" id="f-date-clear"[^>]*>Unscheduled<\/button><\/span>/, 'the list and no-day buttons are one compact group');
-  assert.match(css, /\.editor-card \{ --field-h: 38px; --label-h: 26px; \}/, 'one field height and one label box');
-  assert.match(css, /@media \(max-width: 640px\) \{ \.editor-card \{ --field-h: 44px; \}/, 'taller on a phone');
-  assert.match(css, /\.editor-card input:not\(\[type="checkbox"\]\):not\(\[type="hidden"\]\), \.editor-card select \{ box-sizing: border-box; height: var\(--field-h\); \}/, 'every input and select is the field height');
-  assert.match(css, /\.editor-card \.when-btns \.btn \{[^}]*height: var\(--field-h\)/, 'the day field\'s buttons are the field height');
-  assert.match(css, /\.editor-card \.lookup-row \.btn \{[^}]*height: var\(--field-h\)/, 'Find is the field height');
-  assert.match(css, /\.mode \{[^}]*height: var\(--field-h\)/, 'the getting-there buttons are the field height');
-  assert.match(css, /\.editor-card \.fl \{ display: flex; align-items: flex-end; min-height: var\(--label-h\); \}/, 'a label box');
-  assert.match(css, /\.editor-card \.when-phase \{[^}]*height: 18px/, 'the caption under a day field keeps its height, so the row never jumps');
-  assert.match(css, /\.editor-card \.timing \{ display: flex; flex-wrap: wrap; align-items: flex-start;/, 'groups wrap whole and share their tops');
-  assert.match(css, /\.editor-card \.timing\[data-types\]:not\(\.on-type\) \{ display: none; \}/, 'a timing row the kind does not use stays hidden');
+  assert.equal((js.match(/host\.ui\.datePicker\(input,/g) || []).length, 3, 'the departure, check-out and arrival days and the look-up\'s day all use the SDK date picker');
+  assert.ok(js.includes("get none() { return canNone() ? (checkout ? 'Not set' : 'Unscheduled') : ''; }") && js.includes('get clearable() { return canNone(); }'), 'Unscheduled (Not set for a check-out) is the list\'s first entry and the picker\'s Clear, only where there is a no-day value');
+  assert.ok(js.includes("host.ui.datePicker($('f-start'), { clearable: true })") && js.includes('dayPicker = host.ui.datePicker($(\'day-to\'))'), 'the plan\'s dates and the day dialog use it too');
+  // The module draws no field: no height, border, background, font or radius on anything in a form.
+  assert.ok(!/--field-h|--label-h|\.editor-card|\.timing|\.when-|\.lenmode|\.lm\b|\.mode \{/.test(css), 'no field rules of the module\'s own');
   assert.ok(!/min-height: 30px/.test(css), 'no row of fields has its own height any more');
-  for (const id of ['f-date-label', 'f-checkout-label', 'f-back-date-label', 'f-time-label', 'f-back-time-label']) assert.ok(html.includes(`class="fl" id="${id}"`), `${id} is a label box`);
-  assert.ok(html.includes('<span class="dur-head fl">'), 'the length\'s label row is a label box, the toggle fits in it');
-  assert.ok(html.includes('<label><span class="fl">Day it leaves</span><input id="f-lookup-date" type="date"></label>'), 'the lookup\'s day is laid out as the rest');
+  assert.match(css, /@container \(max-width: 439px\) \{\s*#f-length-field, #f-back-length-field \{ grid-column: span 1; \}/, 'on the phone sheet the flight time shares a line with the time');
+  for (const id of ['f-date-label', 'f-checkout-label', 'f-back-date-label', 'f-time-label', 'f-back-time-label']) assert.ok(html.includes(`class="sdk-label" id="${id}"`), `${id} is a label of the standard`);
+  assert.ok(html.includes('<input id="f-lookup-date" type="date" aria-labelledby="f-lookup-date-label">'), 'the lookup\'s day is a field like the rest');
+  // No Length | End time switch: a start and an end time, the length under the end; a flight keeps its flight time.
+  assert.ok(!html.includes('data-lenmode') && !js.includes("querySelector('.lm')") && !js.includes("closest('.lm')"), 'the Length | End time switch is gone');
+  assert.ok(html.includes('id="f-end-field" data-types="block car taxi rideshare shuttle restaurant cafe bar sight museum attraction tour show"') && html.includes('id="f-length-field" role="group" aria-labelledby="f-minutes-label" data-types="block flight'), 'an end time for a stop, a car, a ride or a marker; the flight time field stays for the length');
+  assert.ok(js.includes('len.hidden = !tick || none;') && js.includes('end.hidden = tick || none;'), 'a flight, train, ferry or bus keeps its flight time and its ticket\'s arrival; the others show the end');
+  assert.ok(js.includes("[lengthText(len), laterNote(e ? e.days : 0)].filter(Boolean).join(' · ')"), 'the length is said under the end time');
+  // Money is the amount with the currency as its unit; Paid by and Whose is it are chips.
+  assert.ok(html.includes('<span class="sdk-group sdk-money"><input id="f-estimate" name="estimate" type="text" inputmode="decimal"') && html.includes('<span class="sdk-unit" data-slot="currency">'), 'the amounts are text with the currency as their unit');
+  assert.ok(html.includes('<div class="sdk-people" id="f-paidBy">') && html.includes('<div class="sdk-people" id="f-owners">'), 'Paid by and Whose is it are people chips');
+  assert.ok(html.includes('<span class="sdk-choice" id="f-travelMode"'), 'the ways to get there are a choice');
+  assert.ok(js.includes("fieldError('f-title', 'Give it a title.')") && html.includes('<span class="sdk-error" id="f-title-error"></span>'), 'a missing title is said under the field');
 });
 
 test('the flight lookup (QA S2): the return leg has its own arrival on the ticket, stored as the outbound\'s', () => {
   const html = read('travel.html');
   const js = read('travel.js');
-  assert.ok(html.includes('<div class="editor-row timing" data-types="flight train ferry bus"><div class="when-field" role="group" aria-labelledby="f-back-arrival-day-label"><span class="fl" id="f-back-arrival-day-label">Arrival day</span><select id="f-back-arrival-day" name="backArrivesDay" hidden></select>'));
-  assert.match(html, /<input id="f-back-arrival-time" name="backArrivesTime" type="time"><\/label><input id="f-back-arrival" name="backArrives" type="hidden"><\/div>/);
+  assert.ok(html.includes('<div class="sdk-field sdk-m" role="group" aria-labelledby="f-back-arrival-day-label"><span class="sdk-label" id="f-back-arrival-day-label">Arrival day</span><select id="f-back-arrival-day" name="backArrivesDay" hidden></select>'));
+  assert.match(html, /<input id="f-back-arrival-time" name="backArrivesTime" type="time"><span class="sdk-hint"><\/span><\/label>\s*<input id="f-back-arrival" name="backArrives" type="hidden">\s*<\/div>/);
   assert.ok(html.indexOf('id="f-back-arrival"') > html.indexOf('id="f-return"'), 'inside the return leg');
   assert.ok(js.includes("arrives: get('f-back-arrival') || null,"), 'stored as arrives, as the outbound\'s');
   assert.ok(js.includes("if (back && back.arrives && !arrivalFits(back.date, back.time, back.arrives)) return fail(\"The return's arrival on the ticket can be at most 7 days after it leaves, and at most a day before.\");"), 'the same 7-day and 1-day limit');
@@ -1858,7 +1869,7 @@ test('the editor window: the form is the SDK\'s dialog, sized to what it edits, 
   const js = read('travel.js');
   const css = read('travel.css');
   assert.ok(html.includes('<dialog id="editor" class="sdk-editor"></dialog>'), 'the editor is the SDK\'s dialog, filled on each open');
-  assert.equal((html.match(/<div class="editor-buttons sdk-editor-actions">/g) || []).length, 3, 'the item, plan and day forms\' button rows stick to the bottom');
+  assert.equal((html.match(/<div class="sdk-editor-actions">/g) || []).length, 3, 'the item, plan and day forms\' button rows stick to the bottom');
   assert.ok(js.includes("const editor = host.ui.editor($('editor'), {") && js.includes("size: 'large',"), 'opened through host.ui.editor, large');
   assert.ok(js.includes("$('editor').classList.toggle('sdk-editor-large', mode !== 'trip');"), 'the plan\'s own form is medium');
   assert.ok(js.includes('isDirty: editorDirty,') && /editor\.open\(\{ focus: [^\n]*kindField\.input : \$\('f-title'\), returnTo: editorReturn \}\);/.test(js), 'the question after typing; focus starts in the kind field for a new object, else the title, and goes back on close');
@@ -2079,24 +2090,22 @@ test('lengthBetween and endOf turn a start and an end into a length and back, ac
   assert.equal(lib.cleanItem({ id: 'x', kind: 'stop', type: 'sight', title: 'A', time: '22:00', minutes: 210 }).minutes, 210);
 });
 
-test('the editor offers Length or End time, keeps one stored length and says plainly what it refuses', () => {
+test('the editor offers a start and an end time (no Length | End time switch), keeps one stored length and says plainly what it refuses', () => {
   const html = read('travel.html');
   const js = read('travel.js');
   for (const p of ['', 'back-']) {
-    assert.ok(html.includes(`id="f-${p}endTime" type="time" aria-label="${p ? 'Return end time' : 'End time'}"`), `${p}End time input`);
+    assert.ok(html.includes(`<span class="sdk-label"${p ? '' : ' id="f-end-label"'}>End time</span><input id="f-${p}endTime" type="time" aria-describedby="f-${p}endNote">`), `${p}End time input, labelled End time`);
     assert.ok(html.includes(`id="f-${p}endNote" role="status"`), `${p}end note is announced`);
   }
-  assert.equal((html.match(/data-lenmode="length" aria-pressed="true">Length</g) || []).length, 2, 'a Length button on each');
-  assert.equal((html.match(/data-lenmode="end" aria-pressed="false">End time</g) || []).length, 2, 'an End time button on each');
+  assert.ok(!html.includes('data-lenmode') && !html.includes('class="lenmode"'), 'no switch between Length and End time');
   assert.ok(!/name="endTime"|name="backEndTime"/.test(html), 'the end has no name: it is not a field of the object');
-  assert.ok(js.includes("const LENMODE_KEY = 'planner-length-mode'"), 'the choice is kept per browser');
+  assert.ok(js.includes("const LENMODE_KEY = 'planner-length-mode'") && !js.includes('localStorage.setItem(LENMODE_KEY'), 'the choice an earlier version kept per browser is still read by the cards, and nothing sets it now');
   assert.ok(js.includes("const SAME_END = 'Same as the start, so there is no length.'"));
   assert.ok(js.includes("return 'The end time is the same as the start time. Pick a different end time.'"), 'an end equal to the start is refused in words');
   assert.ok(js.includes('const endSaid = endProblem();'), 'checked before saving');
   assert.ok(js.includes('minutes: lengthOf(\'f-hours\', \'f-minutes\')'), 'the length is what is stored');
   assert.ok(!/minutes:\s*lengthBetween|endTime:/.test(js), 'no end is stored');
-  assert.ok(js.includes('time: spanText(item), minutes: duration') && js.includes('endText(item)].filter(Boolean).join'), 'the card and the day show start to end while End time is chosen');
-  assert.match(read('travel-lib-editor.css'), /\.editor-card \.lenmode \{[^}]*border: 1px solid var\(--border\)/, 'the switch uses theme tokens');
+  assert.ok(js.includes('time: spanText(item), minutes: duration') && js.includes('endText(item)].filter(Boolean).join'), 'the card and the day show start to end where the browser had chosen End time (unchanged)');
 });
 
 test('choosing a day: a date field, a grouped list through host.menu.show, Move to another day, Unscheduled (Thomas, 2026-10-14)', () => {
@@ -2104,24 +2113,22 @@ test('choosing a day: a date field, a grouped list through host.menu.show, Move 
   const js = read('travel.js');
   for (const id of ['f-date', 'f-back-date', 'f-checkout']) {
     assert.ok(html.includes(`<select id="${id}"`) && /hidden><\/select>/.test(html), `${id}: the select stays as the value, hidden`);
-    for (const part of ['input', 'list', 'clear', 'phase']) assert.ok(html.includes(`id="${id}-${part}"`), `${id}-${part}`);
+    for (const part of ['input', 'phase']) assert.ok(html.includes(`id="${id}-${part}"`), `${id}-${part}`);
     assert.ok(html.includes(`<input id="${id}-input" type="date"`), `${id} has a date field`);
   }
-  assert.ok(html.includes('>Pick from the list</button>'), 'the list button');
+  assert.ok(js.includes("label: 'Pick from the list'") && !html.includes('>Pick from the list</button>'), 'the list button is the date picker\'s (list option)');
   assert.ok(!html.includes('<select id="menu-day"') && html.includes('data-action="move-to"') && html.includes('Move to another day…'), 'Move to another day opens the list; no select in the menu');
   assert.ok(html.includes('Move to unscheduled</button>') && !/Back to the line/.test(html + js), 'Back to the line is Move to unscheduled');
   assert.ok(html.includes('data-slot="earlier-label">Move up') && html.includes('data-slot="later-label">Move down'), 'Move up / Move down by default');
   assert.ok(js.includes("'30 minutes earlier'") && js.includes("'30 minutes later'") && js.includes('It stays on the same day.'), 'a timed object moves by half an hour, and the tooltip says it stays on its day');
   assert.ok(js.includes('function dayMenuItems(') && js.includes("{ id: 'pick-date', label: 'Pick a date…'"), 'the list ends with Pick a date');
-  assert.ok(js.includes("const name = jointsOnly ? 'Between days' : 'Unscheduled';") && js.includes("none: 'Unscheduled'"), 'Unscheduled holds no day and the spots between days; stored values are unchanged');
+  assert.ok(js.includes("const name = jointsOnly || !none ? 'Between days' : 'Unscheduled';") && js.includes("(checkout ? 'Not set' : 'Unscheduled')"), 'Unscheduled is the picker\'s own first entry and Clear (the list then holds the spots between days); Move to another day keeps its Unscheduled group; stored values are unchanged');
   assert.ok(js.includes('const DAY_NEST = 8;') && js.includes('items.push({ id: `group-${g.key}`, label: g.label, hint: g.range'), 'more than 8 days: a flyout per phase (the SDK menu\'s category), else a heading per phase');
-  assert.ok(js.includes("host.menu.show({ id: `${id}-list`, anchor: listBtn"), 'Pick from the list uses the SDK menu');
+  assert.ok(js.includes("items: () => {\n          const p = place();") && js.includes('host.ui.datePicker(input, {'), 'Pick from the list uses the SDK menu, through the date picker\'s list option');
   assert.ok(js.includes('input.min = b.min;') && js.includes('return { min: held && held < days[0] ? held : days[0]'), 'bounded by the timeline, never refusing the day it holds');
   assert.ok(js.includes('const month = ') === false && js.includes("parseYmd(d).toLocaleDateString([], { month: 'long', year: 'numeric' })"), 'without phases: by month');
   assert.ok(js.includes("dayField($('f-date'));") && js.includes("dayField($('f-checkout'), { checkout: true });"), 'the form sets the fields up');
-  const css = read('travel.css');
-  assert.match(css, /\.editor-card \.when-btns \.btn\.on \{ background: var\(--accent\)/, 'the chosen no-day state is a fill');
-  assert.ok(!/\.when-(pick|phase|clear|list)[^{]*\{[^}]*(#[0-9a-f]{3,8}\b|rgba?\()/i.test(css), 'tokens only');
+  assert.ok(!/\.when-|aria-pressed.*clear/.test(read('travel.css') + read('travel-lib-editor.css')), 'no no-day button of the module\'s own to state');
 });
 
 test('every phase start and end is a marker of its own, and only the main phase\'s days are numbered', () => {

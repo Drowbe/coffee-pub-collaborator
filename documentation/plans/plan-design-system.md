@@ -1,8 +1,8 @@
 # Design System Plan
 
-**Audience:** Thomas, who decides the design of every component, the page's route and audience, and how strict the rules are; experience-design, which builds the shared stylesheet, the page and each component's move onto it; server-development, which builds the page's route, the usage scan and the check; quality-assurance, which measures each move against its screenshots; content-manager, which writes the design pages and the rule text once Thomas approves it.
+**Audience:** Thomas, who decides the design of every component and how strict the rules are; experience-design, which builds the shared stylesheet, the page and each component's move onto it; server-development, which builds the page's route, the usage scan and the check; quality-assurance, which measures each move against its screenshots; content-manager, which writes the design pages and the rule text once Thomas approves it.
 
-**Status:** proposed 2026-10-15, nothing built, nothing decided beyond Thomas's points below. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust".
+**Status:** decided 2026-10-15 (questions 1 to 4); step 1 starting. Questions 5, 6 and 7 are still open and do not block the build. From Thomas, 2026-10-15, after a day of visual rules added one complaint at a time (selected states are fills, the radius tokens, the form standard, and a "no coloured borders" rule that was written too broadly and is being rolled back): "We are missing a visual language. Do we not have a design system in place?" His decision, in his words: roll back the border sweep; "Create webpage that will become our design system"; "we will only use components in that system. If a component does not exist, we will add it to the system"; "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)"; "If we are creating something that may not need to be part of our system, we will discuss it first as an exception". His example of a simple system is his blog's page, https://stayingblonde.com/design-system/, and "ours will be far more exhaustive and robust".
 
 ## What it is today
 
@@ -77,6 +77,13 @@ Only what Thomas has said.
 - **A change to a component reaches its consumers with no change to their code** (Thomas, 2026-10-15: "We will ensure that if we change the design of a component in the design system, the consumers of said component get those changes for free (we should not have to change code for something using a component)").
 - **Anything outside the system is discussed first as an exception** (Thomas, 2026-10-15: "If we are creating something that may not need to be part of our system, we will discuss it first as an exception").
 - **More than his blog's example** (Thomas, 2026-10-15: "ours will be far more exhaustive and robust"). The blog's page shows live examples of every widget, a prefixed class family where a widget takes up to three classes in a fixed order (a required style class, an optional icon, an optional button style), one place that sets every heading so a change spreads by itself, and a rule to ask for a custom build instead of restyling. It has no tokens, no states, no snippets and no phone notes; this system has all four.
+
+Decided 2026-10-15, taking the recommendation in each case:
+
+- **The first deliverable is the page showing today's components unchanged** (Thomas, 2026-10-15). Then each component is redesigned one at a time, after his review on the page. Reason: building the page and redesigning at once mixes two kinds of change and makes before and after impossible to compare.
+- **The page is `/design-system`, for any signed-in member and up** (members, moderators, owners, admins), in the environment's own theme, and linked from the host console (Thomas, 2026-10-15). Reason: the people who build and use modules, including uploaded ones, can see it, and it does not show the environment's theme and words to strangers.
+- **One shared `public/sdk/system.css`, loaded everywhere** (Thomas, 2026-10-15). App pages link it; module pages get it inlined by the server, as they get `host.css` today. Changing a component there updates every consumer with no module version bump. Reason: a change is made once, and it is what "consumers get changes for free" needs.
+- **Keep today's class names; new components use the `sdk-` prefix** (Thomas, 2026-10-15). `.btn`, `.action-btn`, `.tb-tab`, `.card` and the `sdk-*` classes are registered as they are; membership in the system is the registry, not the prefix. Reason: nothing a module or a saved page uses is renamed. A product prefix is ruled out by the identifier rule in `CLAUDE.md`.
 
 Standing decisions this plan keeps, already in [design-theme](../designsystem/design-theme.md): a selected, on, active or current state is a fill, never a border (Thomas, 2026-10-14: "I found ANOTHER button border. Stop adding them."); corners are the five radius tokens; and the form standard's decisions ([plan-form-standard](plan-form-standard.md), 2026-10-15).
 
@@ -192,7 +199,7 @@ Compositions of components, shown with real content and the markup to copy. Each
 
 ## (c) The webpage
 
-**Route:** `/design-system` (open question 2 for the audience). It is an app page, served by the app, in the environment's theme, built from the system's own components.
+**Route:** `/design-system`, for any signed-in member and up (decided 2026-10-15). It is an app page, served by the app, in the environment's theme, built from the system's own components.
 
 **Files** (plain HTML, CSS and JavaScript, no build step):
 
@@ -274,7 +281,7 @@ Reports, never fails:
 
 ## (e) Migration
 
-The first deliverable is the page with today's components exactly as they are (open question 1). Then each component is consolidated, one at a time, and only after Thomas has looked at it on the page.
+The first deliverable is the page with today's components exactly as they are (decided 2026-10-15). Then each component is consolidated, one at a time, and only after Thomas has looked at it on the page.
 
 **How the form standard and the radius tokens fold in.** The form standard is the first finished component family: its block moves into `system.css` unchanged, its classes are registered, and its remaining steps (Places to Manage) continue as planned, each also removing the module from this check's "not yet" list. The radius tokens become the radii group of the tokens and `check-radius` keeps enforcing them.
 
@@ -285,7 +292,7 @@ The first deliverable is the page with today's components exactly as they are (o
 **Server half (server-development).**
 
 - Serve `public/sdk/system.css` as a static file. In the module page route, inline `system.css` before `host.css` in the `<style id="sdk-base">` it already writes, unless the page opts out with `sdk-base: none`.
-- `GET /design-system` and `GET /design-system/frame`: the page and its example frame, for the audience Thomas picks (question 2); `403` with the usual words otherwise. `public/design-system/` holds no data, so its static files may stay readable like `style.css`.
+- `GET /design-system` and `GET /design-system/frame`: the page and its example frame, for a signed-in member and up (a guest or a signed-out visitor is refused as on the other app pages, with the usual words); the host console links to the page. `public/design-system/` holds no data, so its static files may stay readable like `style.css`.
 - `GET /api/design-system/usage`: `{ components: { <id>: [{ file, line, kind: 'module' | 'page', module?: id }] }, scannedAt }`, computed by `server/system-scan.js` on first request and kept until restart. Same audience.
 - `GET /api/design-system/icons`: `{ icons: [{ name, label, categories, aliases }], categories: [{ id, label }] }`, built once at start from Font Awesome Free's metadata, solid style only.
 - `tools/check-system.mjs` as in (d), with self-tests that plant each failure in a fixture and require it to fail, and a clean fixture to pass.
@@ -303,7 +310,7 @@ Each step a try build, small, checked on its own. Modules get a patch bump only 
 
 | Step | What | Who | Changes the look |
 |---|---|---|---|
-| 0 | Thomas answers questions 1 to 4 | Thomas | |
+| 0 | Thomas answers questions 1 to 4 (done 2026-10-15) | Thomas | |
 | 1 | `tools/shots.mjs`, and a baseline set of screenshots of every page and module fixture in light and dark at three widths, kept outside the repository | server-development | no |
 | 2 | `public/sdk/system.css`: the shared blocks (`action-btn`, `view-switch`, `form`, `datepicker`, `editor`, `kind`, the menu and more button from `UI_CSS`, `.btn`, `.card`, `.section`, the radius, selected and tint tokens) moved word for word; app pages link it; the module route inlines it; the copies go; `check-buttons`, `check-switches`, `check-forms` read the one file. Where `style.css`'s `.btn` and `host.css`'s differ, both stay, scoped as they are, and the difference is listed for step 7 | experience-design, server-development for the route | no; the shots must match step 1 |
 | 3 | The page shell, `registry.json`, the token section (values read live, contrast worked out), the route and its audience | experience-design, server-development | no |
@@ -362,12 +369,8 @@ Not decided; each is for Thomas to confirm or change.
 
 ## What is not decided
 
-In the order Thomas should answer them. Questions 1 to 4 block step 2; the rest can wait for the review after step 8.
+Questions 1 to 4 were decided on 2026-10-15 and are under Decisions. The three below are open and none blocks the build; they can wait for the review after step 8. Question 5 matters when step 7 is built; until Thomas answers, step 7 follows the recommendation.
 
-1. **The first deliverable.** Recommended: the page with today's components exactly as they are, changing nothing (steps 1 to 8), then a redesign one component at a time on the page. The alternative, redesigning while building the page, mixes two kinds of change and makes the before and after impossible to compare.
-2. **The page's route and audience.** Recommended: `/design-system`, for any signed-in member and up (members, moderators, owners, admins), in the environment's own theme, and linked from the host console. Alternatives: owners and admins only (fewer eyes, but builders of uploaded modules would not see it); or open to anyone without signing in (simplest, but it shows the environment's theme and words to strangers).
-3. **One stylesheet or two copies.** Recommended: one `public/sdk/system.css` loaded by the app and inlined into modules, so a change is made once. The alternative is today's pattern, two copies held equal by checks: no cascade risk, but every change is made twice and every component needs its own copy rule.
-4. **The class prefix.** Recommended: keep today's names (`.btn`, `.action-btn`, `.tb-tab`, `.card`, `sdk-*`) registered as they are, and give new components the `sdk-` prefix; membership is the registry, not the prefix, and nothing a module or a saved page uses is renamed. Alternative: a new prefix by kind, `ds-`, for every component, with today's names as deprecated aliases, which reads like Thomas's `sb-` family but is a rename touching every page and module. A product prefix such as `cx-` is ruled out by `CLAUDE.md`'s identifier rule.
 5. **How strictly the check blocks.** Recommended: rules 1 to 7 fail, with the "not yet" list; the component-looking heuristic only reports. Alternative: everything fails at once from step 7, which would fail today's code everywhere until it moves.
 6. **The coloured edges.** Which of the six in the audit Thomas meant by the edge bar he disliked, and what each becomes. Recommended: decide each on the page in the review after step 8, with today's and a fill version side by side; nothing changes before then.
 7. **Its own folder or package later.** Recommended: no; it stays in `public/design-system/` and `public/sdk/system.css` until there is a consumer outside this repository.

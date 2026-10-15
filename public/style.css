@@ -1085,8 +1085,9 @@ body.host-console .grow {
                    does not fit moves whole to the next line. .sdk-when is a row too.
      .sdk-s .sdk-m .sdk-l .sdk-full   a field's size: 1, 2, 3 columns, or the whole row (4 columns: 1, 2, 3, 4; 2 columns: 1, 2, 2, 2).
      .sdk-group    the line inside a composite field: controls and buttons at --field-h, never wrapping. .sdk-unit a dim word after
-                   a control ("h", "min", "USD"). .sdk-field-btn a square --field-h icon button in that line. .sdk-duration and
-                   .sdk-money are groups.
+                   a control ("h", "min", "USD"). .sdk-field-btn a square --field-h icon button in that line. .sdk-btn a text button
+                   --field-h tall (a word like "Find", in a field's line or on its own); .sdk-btn.primary the main one, a fill.
+                   .sdk-duration and .sdk-money are groups.
      .sdk-pair     From, an arrow (.sdk-pair-arrow), To.
      .sdk-section  <fieldset> with a <legend class="sdk-section-title">: one heading style for every form.
      .sdk-checks   tick boxes in a wrapping list, each label.sdk-check. .sdk-choice one of a few, a segmented row, the chosen one a
@@ -1317,6 +1318,55 @@ body.host-console .grow {
   fill: currentColor;
 }
 
+.sdk-btn {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: var(--field-h);
+  margin: 0;
+  padding: 0 var(--field-pad-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-size: var(--field-font);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.sdk-btn:hover {
+  background: var(--secondary-hover);
+}
+
+.sdk-btn:active {
+  background: var(--secondary-hover);
+}
+
+.sdk-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.sdk-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.sdk-btn.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.sdk-btn.primary:hover,
+.sdk-btn.primary:active {
+  border-color: var(--primary-hover);
+  background: var(--primary-hover);
+}
+
 .sdk-pair {
   display: grid;
   grid-column: 1 / -1;
@@ -1453,6 +1503,17 @@ body.host-console .grow {
   position: absolute;
   opacity: 0;
   pointer-events: none;
+}
+
+.sdk-people > label:has(input:focus-visible),
+.sdk-choice > label:has(input:focus-visible),
+.sdk-check:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.sdk-choice > label:has(input:focus-visible) {
+  outline-offset: -2px;
 }
 
 .sdk-form-error {

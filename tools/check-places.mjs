@@ -705,7 +705,7 @@ await test('the page: Shows in, its line, the narrowing question, the menu, shar
   assert.match(page, /if \(!ownRequest\(ctx\) \|\| !personal\) throw new Error\('only that person can share it'\);/);
   assert.match(page, /if \(asked && asked\.mine && !own\) throw new Error\('only that person can add to their own list'\);/);
   assert.equal(manifest.refs.produces[0].summary.spaces, 'spaces', 'the summary carries the marks');
-  assert.equal(manifest.version, '0.12.2');
+  assert.equal(manifest.version, '0.12.4');
 });
 
 console.log(`check-places: OK (${n} checks)`);

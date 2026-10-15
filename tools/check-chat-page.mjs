@@ -33,7 +33,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const read = (rel) => fs.readFileSync(path.join(ROOT, rel), 'utf8');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'chat-page-check-'));
 fs.copyFileSync(path.join(ROOT, 'public/chat-input.js'), path.join(tmp, 'chat-input.mjs'));
-const { stripSummaryMarkers, readView, emptyLine, viewKey, CHAT_VIEWS, viewOf, inView, discussionWord, routeLine, marksNew, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
+const { stripSummaryMarkers, readView, emptyLine, viewKey, CHAT_VIEWS, viewOf, inView, discussionWord, routeLine, COMMAND_WORDS, commandName, commandForms, looksLikeImport, marksNew, clearTypeOf, ofClearType, inClearScope, clearChoices, clearTakesPicture, clearNoticeTakes, linkUrl, cleanPreview, cleanKept, siteName, linkKeeper, previewNoticeTakes, keptNoticeTakes, findLink, noticePreview, TRAVEL_KINDS, keeperFor, detailLines, keepInput, suggestionInput, takesKind, objectInputOf, objectKeepInput, namedKindCount, eventLooksLikeTravel, placeOrder, placeRank, settlePlace, splitTicked, leftOutWords, DAY_KINDS, hasDay, needsDay, keepTargets, keepTargetInput, canKeepAny, keepCountWords, detailsLine, plainTitle, messageObjects, sendChoices, requestOutcome, outcomesWords, chatDay, wordsExtra, pictureRefused } = await import(pathToFileURL(path.join(tmp, 'chat-input.mjs')).href);
 fs.rmSync(tmp, { recursive: true, force: true });
 
 let n = 0;
@@ -104,7 +104,7 @@ test('the badge: the author of a stored message flips it with PATCH, both ways; 
   assert.equal(can(pat, 'tok', ok)(mine), false, 'nor a guest link');
   const set = fnBody(space, 'async function setMessageVisibility(entry, visibility) {');
   assert.match(set, /api\('PATCH', `\/api\/spaces\/\$\{encodeURIComponent\(chatSpace\(\)\.id\)\}\/chat\/\$\{entry\.id\}`, \{ visibility \}\)/);
-  assert.match(set, /setStatus\(err\.message \|\| 'Could not change who sees that\.', true\);\n\s*return false;/, 'a refusal leaves the badge and says why');
+  assert.match(set, /chatNotice\(err\.message \|\| 'Could not change who sees that\.', true\);\n\s*return false;/, 'a refusal leaves the badge and says why');
   const frame = fnBody(space, 'function frameMessage(');
   assert.match(frame, /const done = await setMessageVisibility\(entry, next\);\n\s*if \(!done\) return;/, 'the badge repaints only once the server took it');
   assert.match(frame, /label: next === 'public' \? 'Make public' : 'Make private'/);
@@ -314,21 +314,23 @@ test('the views: which messages each shows (one store, no copies)', () => {
 test('the views: where a typed line goes; a command switches to the Assistant and leaves the Discussion alone', () => {
   assert.deepEqual(routeLine('/t buy milk', 'discussion'), { run: 'command', view: 'assistant', line: '/t buy milk' }, 'switches');
   assert.deepEqual(routeLine('/t buy milk', 'assistant'), { run: 'command', view: 'assistant', line: '/t buy milk' });
-  assert.deepEqual(routeLine('  /ai where to eat  ', 'discussion'), { run: 'command', view: 'assistant', line: '/ai where to eat' });
+  assert.deepEqual(routeLine('  /task buy milk  ', 'discussion'), { run: 'command', view: 'assistant', line: '/task buy milk' }, 'the full word is a command as well');
   assert.deepEqual(routeLine('/t', 'discussion'), { run: 'command', view: 'assistant', line: '/t' }, 'a bare command still runs (and says what it needs)');
   assert.deepEqual(routeLine('hello all', 'discussion'), { run: 'message', view: 'discussion', line: 'hello all' });
-  assert.deepEqual(routeLine('where to eat?', 'assistant'), { run: 'ai', view: 'assistant', line: '/ai where to eat?' }, 'plain words in the Assistant ask the AI');
+  assert.deepEqual(routeLine('where to eat?', 'assistant'), { run: 'ai', view: 'assistant', line: 'where to eat?' }, 'plain words in the Assistant ask the AI');
   assert.deepEqual(routeLine('/', 'discussion'), { run: 'none', view: 'discussion', line: '/' }, 'a lone slash stays in the box');
   assert.deepEqual(routeLine('/Hello there', 'assistant'), { run: 'none', view: 'assistant', line: '/Hello there' });
   assert.deepEqual(routeLine('   ', 'assistant'), { run: 'none', view: 'assistant', line: '' });
   assert.equal(routeLine('hi', 'nonsense').run, 'message', 'an unknown view is the Discussion');
   // The page: the box sends by the route; a known command switches before it runs, so its echo lands in the Assistant.
-  const submit = space.slice(space.indexOf("$('chat-form').addEventListener('submit'"), space.indexOf('// Enter sends, like a normal chat'));
-  assert.match(submit, /const route = chatInput\.routeLine\(text\);\n\s*if \(route\.run === 'command' \|\| route\.run === 'ai'\) \{\n\s*if \(await chatInput\.handleSubmit\(route\.line\)\) \{/);
+  const submit = space.slice(space.indexOf("$('chat-form').addEventListener('submit'"), space.indexOf('// Enter sends, as in any chat'));
+  assert.match(submit, /const route = chatInput\.routeLine\(text\);\n\s*if \(route\.run === 'import'\) \{\n\s*if \(await chatInput\.importText\(route\.line\)\) \{/);
+  assert.match(submit, /if \(route\.run === 'command' \|\| route\.run === 'ai'\) \{\n\s*if \(await \(route\.run === 'ai' \? chatInput\.ask\(route\.line\) : chatInput\.handleSubmit\(route\.line\)\)\) \{/);
   assert.match(submit, /if \(route\.run !== 'message'\) return;\n\s*\$\('chat-input'\)\.value = '';/, 'only a message is posted for everyone');
   const run = fnBody(chat.replace(/^ {2}/gm, ''), 'async function runCommand(parsed) {');
-  assert.ok(run.indexOf("setNote(`No command /${parsed.name}`)") < run.indexOf("setView('assistant')"), 'an unknown command stays where it was typed');
-  assert.ok(run.indexOf("setView('assistant')") < run.indexOf('runAi(parsed.rest)') && run.indexOf("setView('assistant')") < run.indexOf('echo(parsed, chosen'), 'switched before it runs');
+  assert.ok(run.indexOf("setNote(`No command /${parsed.name}`, true)") < run.indexOf("setView('assistant')"), 'an unknown command stays where it was typed');
+  assert.ok(run.indexOf("setView('assistant')") < run.indexOf('echo(parsed, chosen'), 'switched before it runs');
+  assert.ok(!/runAi|'ai'/.test(run), 'no /ai in the command runner: anything typed in the Assistant is asked of the AI');
   assert.match(fnBody(chat.replace(/^ {2}/gm, ''), 'async function askAbout({ question, refs } = {}) {'), /setView\('assistant'\);/, 'a module\'s question too');
   // A picture is for everyone: sent from the Assistant, it shows the Discussion.
   assert.match(fnBody(space, 'async function sendImage(file) {'), /chatInput\.setView\('discussion'\);/);
@@ -876,7 +878,7 @@ test('Keep: once at a time, a kept button stays off, a form is "Opened in", and 
 test('the preview places objects from the modules on now: an import refreshes first, an AI answer fixes its place from a refresh', () => {
   const show = fnBody(chat.replace(/^  /gm, ''), 'async function showImport(');
   assert.ok(show.indexOf('await refreshActions();') > -1 && show.indexOf('await refreshActions();') < show.indexOf('drawObject('), 'refreshed before the first row is drawn');
-  assert.match(chat, /await showImport\(result\);/);
+  assert.match(chat, /return await showImport\(await postCheck\(input, .text\/plain.\)\);/);
   assert.match(chat, /const view = drawObject\(summary, question, \{ fresh: false \}\);\n\s*soonRefresh\(\);/, 'an AI answer asks for a fresh list');
   assert.match(chat, /if \(v\.el\.isConnected\) \{ v\.seen = true; v\.fresh = true; v\.redraw\(\); \}/);
   assert.match(fnBody(chat.replace(/^  /gm, ''), 'function drawObject('), /if \(view\.fresh\) chosen = settled\.chosen;/, 'a place is fixed only from a fresh list');
@@ -1062,9 +1064,9 @@ test('Send to...: the private warning is on each entry\'s hint, and Chat\'s note
   assert.ok(!/disabled: true/.test(to), 'no row the keyboard skips');
   assert.match(to, /const seen = entry\.visibility === 'private' \? `Everyone in this \$\{word\('space'\)\} will see it` : '';/);
   assert.match(to, /hint: \[closed \? `Open \$\{c\.moduleName\} first` : c\.hint, seen\]\.filter\(Boolean\)\.join\('; '\),/);
-  assert.match(read('public/space.html'), /<p class="chat-note" id="chat-note" role="status" aria-live="polite" hidden><\/p>/);
+  assert.match(read('public/space.html'), /<span class="mod-status-text" id="chat-note" role="status" aria-live="polite"><\/span>/);
   const set = fnBody(chat.replace(/^  /gm, ''), 'function setNote(');
-  assert.match(set, /setTimeout\(\(\) => \{ if \(seq === noteSeq\) el\.textContent = text; \}, 60\);/, 'words set after the region shows, the latest only');
+  assert.match(set, /el\.textContent = text \|\| '';/, 'the status area is always there: only its words change');
 });
 
 test('the Assistant\'s empty line cannot start a loop: its words are set only when they differ, and its own changes are ignored (page hang on /t)', () => {
@@ -1075,3 +1077,85 @@ test('the Assistant\'s empty line cannot start a loop: its words are set only wh
 });
 
 console.log(`check-chat-page: OK (${n} tests)`);
+
+
+// --- GitHub #340 and #330: the composer and the status area -------------------------------------------------------------
+test('the composer: no Send button, Enter sends, Shift+Enter makes a new line, a phone keyboard\'s Enter sends', () => {
+  const html = read('public/space.html');
+  const form = /<form id="chat-form">[\s\S]*?<\/form>/.exec(html)[0];
+  assert.ok(!/<button|type="submit"/.test(form), 'no Send button in the form');
+  assert.match(form, /<textarea id="chat-input"[^>]*enterkeyhint="send"/, 'the phone keyboard says Send');
+  const keys = space.slice(space.indexOf('// Enter sends, as in any chat'), space.indexOf('// Grows with the text'));
+  assert.match(keys, /if \(event\.key !== 'Enter' \|\| event\.shiftKey \|\| event\.isComposing\) return;\n\s*event\.preventDefault\(\);\n\s*\$\('chat-form'\)\.requestSubmit\(\);/, 'Enter sends, Shift+Enter is left to make a line');
+  assert.match(keys, /beforeinput[\s\S]*insertLineBreak[\s\S]*chatShift[\s\S]*requestSubmit/, 'a line break asked for without Shift (a phone keyboard) sends');
+});
+
+test('commands: a short or a full word runs the same command, and the menu shows both', () => {
+  assert.deepEqual(COMMAND_WORDS, { c: 'event', v: 'poll', r: 'research', t: 'task', p: 'trip' });
+  assert.equal(commandName('task'), 't');
+  assert.equal(commandName('t'), 't');
+  assert.equal(commandName('poll'), 'v');
+  assert.equal(commandName('task', ['task']), 'task', 'a module that declares the full word itself keeps it');
+  assert.equal(commandName('nonsense'), 'nonsense');
+  assert.equal(commandForms('t'), '/t or /task');
+  assert.equal(commandForms('xyz'), '/xyz');
+  assert.match(chat, /name: commandName\(m\[1\], commandList\(\)\.map\(\(c\) => c\.name\)\)/, 'typing either runs it');
+  assert.match(chat, /const forms = commandForms\(name\);/, 'the menu row shows both');
+  assert.ok(!/name: 'ai'/.test(fnBody(chat.replace(/^ {2}/gm, ''), 'function commandList() {')), '/ai is not a command any more');
+  for (const dir of ['calendar', 'polls', 'research', 'todo', 'travel']) {
+    const cmds = JSON.parse(read(`modules/${dir}/module.json`)).commands || [];
+    for (const c of cmds) assert.ok(COMMAND_WORDS[c.name], `${dir}: /${c.name} has a full word`);
+  }
+});
+
+test('the Assistant\'s one box: a command runs, an import answer is imported, other words ask the AI', () => {
+  const json = '{"format":"objects","formatVersion":1,"objects":[{"kind":"task","title":"Book the hotel"}]}';
+  assert.equal(routeLine(json, 'assistant').run, 'import', 'pasted import JSON is an import');
+  assert.equal(routeLine('[{"title":"Book","kind":"task"}]', 'assistant').run, 'import', 'a list too');
+  assert.equal(routeLine('```objects\n[{"title":"x"}]\n```', 'assistant').run, 'import', 'a fenced block too');
+  assert.equal(routeLine('/t buy milk', 'assistant').run, 'command', 'a command is not sent to the AI');
+  assert.equal(routeLine('/task buy milk', 'assistant').run, 'command');
+  assert.equal(routeLine('Where should we eat in Rome?', 'assistant').run, 'ai', 'other words go to the AI');
+  assert.equal(routeLine('{not json at all', 'assistant').run, 'ai');
+  assert.equal(routeLine('hello {"a": 1}', 'assistant').run, 'ai', 'JSON that is not our template is words');
+  assert.equal(routeLine(json, 'discussion').run, 'message', 'in the Discussion it is a message');
+  assert.equal(looksLikeImport(''), false);
+});
+
+test('the composer: the Discussion has no paste box; the Assistant has no formatting tools but copy prompt and bring in research', () => {
+  const html = read('public/space.html');
+  for (const gone of ['chat-import-text', 'chat-import-show', 'Paste the whole answer here', 'id="chat-import"']) assert.ok(!html.includes(gone), `${gone} is gone`);
+  const tag = (id) => new RegExp(`<[a-z]+ [^>]*id="${id}"[^>]*>`).exec(html)?.[0] || '';
+  for (const id of ['chat-pic', 'chat-bold', 'chat-italic', 'chat-code', 'chat-list']) assert.match(tag(id), /data-for="discussion"/, `${id} is the Discussion's`);
+  assert.match(html, /data-for="discussion">\s*<button class="msg-btn" id="chat-emoji"/);
+  assert.match(html, /data-for="discussion">\s*<button class="msg-btn" id="chat-help"/, 'formatting help is the Discussion\'s');
+  assert.match(tag('chat-import-copy'), /data-for="assistant"[^>]*title="Copy prompt"/);
+  assert.match(tag('chat-bring'), /data-for="assistant"[^>]*title="Bring in research"/);
+  assert.ok(!/data-for/.test(tag('chat-command')), 'the commands button is in both');
+  const paint = fnBody(chat.replace(/^ {2}/gm, ''), 'function paintModeTools() {');
+  assert.match(paint, /const off = mine \? !\(assistant && importOk\) : assistant;/, 'in the Assistant the formatting tools go; its two tools show where objects can be kept');
+  assert.match(css, /\.chat\[data-view="assistant"\] #chat-input \{\n\s*min-height: calc\(5 \* 18px/, 'five lines tall');
+  assert.match(chat, /if \(\$\('chat'\)\) \$\('chat'\)\.dataset\.view = view;/);
+  assert.ok(!/offerImport|pendingImport/.test(chat), 'a long paste no longer offers a button');
+});
+
+test('the status area: the modules\' status line under the composer, always there, announced politely', () => {
+  const html = read('public/space.html');
+  const bar = /<div class="mod-bar chat-bar" id="chat-bar">[\s\S]*?<\/aside>/.exec(html)[0];
+  assert.match(bar, /<div class="mod-status chat-status" id="chat-status" role="region" aria-label="Chat status">/, 'the shared .mod-status look; not hidden, so nothing jumps');
+  assert.ok(bar.indexOf('id="chat-form"') < bar.indexOf('id="chat-status"'), 'under the composer');
+  assert.match(bar, /id="chat-conn" aria-live="polite"/, 'the connection is announced');
+  assert.match(bar, /id="chat-note" role="status" aria-live="polite"/, 'a notice is announced');
+  assert.ok(!/id="chat-status"[^>]*hidden/.test(bar));
+  const conn = fnBody(space, 'function chatConnState() {');
+  for (const state of ["'paused'", "'reconnecting'", "'live'", "'idle'"]) assert.ok(conn.includes(state), `${state} is a state`);
+  const look = fnBody(space, 'function paintChatConn() {');
+  for (const word of ['Live', 'Reconnecting...', 'Paused', 'Not live']) assert.ok(look.includes(`'${word}'`), `${word} shows`);
+  assert.match(space, /RoomEvent\.Reconnecting, \(\) => \{ setStatus\('reconnecting\.\.\.'\); chatReconnecting = true; paintChatConn\(\); \}/);
+  const note = fnBody(chat.replace(/^ {2}/gm, ''), 'function setNote(');
+  assert.match(note, /el\.classList\.toggle\('error', Boolean\(text\) && error\);/, 'an error shows in the error colour');
+  assert.match(fnBody(space, 'function chatNotice(text, error = false) {'), /chatNoteFn\(text, error\);/);
+  assert.match(fnBody(space, 'async function sendChatText(text) {'), /chatNotice\(`chat: \$\{err\.message\}`, true\);/, 'a failed send shows in the status area');
+  assert.ok(!/chat-clear-note/.test(space), 'a clear is told in the status area, not as a line in the list');
+  assert.match(css, /\.chat-status \.error \{\n\s*color: var\(--danger-text\);/);
+});

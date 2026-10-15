@@ -4970,75 +4970,8 @@ span.message-vis {
   background: color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
-/* Yields to the formatting row. On a short column, or an empty message list, this panel shrinks and the text scrolls, so the row under it keeps its height. */
-.chat-import-panel {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 8px 10px;
-  border-top: 1px solid var(--border);
-  background: var(--shade);
-}
-
-.chat-import-panel[hidden] {
-  display: none;
-}
-
-.chat-import-panel textarea {
-  flex: 1 1 auto;
-  width: 100%;
-  min-height: 0;
-  resize: vertical;
-  box-sizing: border-box;
-  font: inherit;
-  color: var(--text);
-  background: var(--bg-input);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-small);
-  padding: 8px 10px;
-}
-
-.chat-import-panel-foot {
-  flex: none;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.chat-import-panel-foot > .msg-btn,
-.chat-import-panel-foot > .sdk-more,
 .chat-format-bar .sdk-more {
   flex: none;
-}
-
-.chat-import-panel-foot > .chat-import-gap {
-  flex: 1;
-  min-width: 0;
-}
-
-#chat-import-check {
-  color: var(--on-accent);
-  background: var(--accent);
-}
-
-#chat-import-check:hover {
-  color: var(--on-accent);
-  background: var(--accent-hover);
-}
-
-.chat-import-gap {
-  flex: 1;
-}
-
-.chat-import-why {
-  margin: 0;
-  color: var(--danger);
-  font-size: 0.85em;
 }
 
 .chat-import-row {
@@ -5073,11 +5006,17 @@ span.message-vis {
   font-size: 0.85em;
 }
 
-.chat-note {
-  margin: 0;
-  padding: 4px 12px 8px;
-  color: var(--text-dim);
-  font-size: 0.85em;
+/* Chat's status area: the modules' own .mod-status line under the composer. Its notice shows an error in the error text
+   colour (a fill-free state, as a module's status does). */
+.chat-status .error {
+  color: var(--danger-text);
+}
+
+/* The Assistant's one box: five lines to start with (a line is 18px; padding and border make up the rest), then it
+   grows and scrolls. */
+.chat[data-view="assistant"] #chat-input {
+  min-height: calc(5 * 18px + 2 * 9px + 2px);
+  max-height: 220px;
 }
 
 .message.private-ai .actions {
@@ -6673,8 +6612,10 @@ input[type="color"] {
   grid-template-columns: minmax(0, 1fr);
 }
 
+/* The shared row is at least --bar-h and grows with the chat's own bar (a taller input, the Assistant's five lines, the
+   status line under it), so the bar never sits over the formatting row or the messages. */
 .canvas.narrow.chat-open {
-  grid-template-rows: minmax(0, 1fr) calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)) auto;
+  grid-template-rows: minmax(0, 1fr) minmax(calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)), auto) auto;
 }
 
 /* One view at a time: the module being shown (the conference, the chat or a module) takes the whole canvas above
@@ -6693,7 +6634,7 @@ input[type="color"] {
 
 /* A docked module on a narrow window is laid out as the chat is: it fills the canvas. */
 .canvas.narrow.module-open {
-  grid-template-rows: minmax(0, 1fr) calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)) auto;
+  grid-template-rows: minmax(0, 1fr) minmax(calc(var(--bar-h) + env(safe-area-inset-bottom, 0px)), auto) auto;
 }
 
 .canvas.narrow.module-open .module-docked > * {

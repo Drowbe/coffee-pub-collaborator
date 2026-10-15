@@ -124,8 +124,10 @@ for (const m of space.matchAll(/<button\b[^>]*class="([^"]*(?<![\w-])fbtn(?![\w-
   const id = (/\bid="([^"]+)"/.exec(m[0]) || [])[1] || '?';
   if (!/\baction-btn\b/.test(m[1])) fail(`public/space.html: the call control #${id} must be an .action-btn`);
 }
-const send = /<form id="chat-form">[\s\S]*?<button\b[^>]*type="submit"[^>]*>/.exec(space);
-if (!send || !/class="[^"]*\baction-btn\b[^"]*\bprimary\b/.test(send[0])) fail('public/space.html: the chat\'s Send must be an .action-btn.primary');
+// The chat has no Send button (GitHub #340): Enter sends.
+const chatForm = /<form id="chat-form">[\s\S]*?<\/form>/.exec(space);
+if (!chatForm) fail('public/space.html: the chat form is missing');
+else if (/type="submit"|<button\b/.test(chatForm[0])) fail('public/space.html: the chat form must have no Send button (Enter sends)');
 const host = read('public/module-host.js');
 if (/drawModuleBar|quick-add-go|className = 'quick-add'/.test(host)) fail('public/module-host.js: the host draws a module action bar again; host.bar.set folds into the titlebar\'s "+" (plan-module-titlebar-add.md)');
 if (!/async 'bar\.set'\(\{ items \}\) \{[\s\S]{0,1400}drawAddSlot\(\);/.test(host)) fail('public/module-host.js: host.bar.set must fold its buttons into the "+" (drawAddSlot)');

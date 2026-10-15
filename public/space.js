@@ -1,6 +1,6 @@
 // The call page: players see and hear each other.
 import { Room, RoomEvent, Track, createLocalTracks } from '/lib/livekit-client.esm.mjs';
-import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons, showNote } from '/brand.js';
+import { loadBranding, api, renderTopbar, setTopbarLocation, setPresentSpace, setInSpace, openSwitcher as openSpaceSwitcher, refreshNotices, iconClasses, spaceCrumbIcon, hasOwnerRights, word, verb, applyWords, followTheme, getIcons } from '/brand.js';
 import { anchorSegments, layoutTabs, tabOverflow, layoutIconChoices, iconMatches, gridStep, pageOpens, isHere, hereCount, asidePlaceholder, whereWords, offStream } from '/primary-nav.js';
 import { openPhaseSheet, bandShares, todayPercent, FACT_CHIPS_HIDDEN_AT } from '/phase-sheet.js';
 import { createSpaceSetup, setupAddress } from '/space-setup.js';
@@ -689,6 +689,42 @@ let unread = 0;
 let assistantNew = 0; // the Assistant's new results (chat-input.js), for the rail
 let chatViews = null; // chat-input.js's views, once attached (the column and the canvas may ask before)
 let pipWindow = null;
+
+// --- Chat's status area (the line under the composer, GitHub #330) ---
+// The connection on the left (Live, Reconnecting, Paused, or Not live), the latest notice on the right (an error, the
+// AI's state, what a command did). Notices that used to sit in the message list or in the call's status come here.
+let chatReconnecting = false; // the call is finding its way back
+let chatStream = ''; // a kept chat stream's state ('live', 'reconnecting', 'paused', or '')
+let chatNoteFn = null; // chat-input.js's note, once attached
+let chatNoteTimer = null;
+function chatConnState() {
+  if (chatStream === 'paused') return 'paused';
+  if (chatReconnecting || chatStream === 'reconnecting') return 'reconnecting';
+  if (chatStream === 'live' || (call && call.state === 'connected')) return 'live';
+  return 'idle';
+}
+function paintChatConn() {
+  const text = $('chat-conn-text');
+  if (!text) return;
+  const state = chatConnState();
+  const look = {
+    live: ['Live', 'circle-dot', 'New messages arrive as they are sent'],
+    reconnecting: ['Reconnecting...', 'rotate', 'Trying to get back; messages may be late'],
+    paused: ['Paused', 'circle-pause', 'Live chat is paused. Reload the page to try again.'],
+    idle: ['Not live', 'circle', 'New messages show when you load the chat or join the call'],
+  }[state];
+  if (text.textContent !== look[0]) text.textContent = look[0];
+  $('chat-conn').title = look[2];
+  $('chat-conn').classList.toggle('error', state === 'paused');
+  $('chat-conn-icon').className = `fa-solid fa-${look[1]} fa-fw`;
+}
+// A notice for the status area: it clears itself after a while. Before Chat is attached it goes to the call's status.
+function chatNotice(text, error = false) {
+  if (!chatNoteFn) { setStatus(text, error); return; }
+  chatNoteFn(text, error);
+  clearTimeout(chatNoteTimer);
+  if (text) chatNoteTimer = setTimeout(() => chatNoteFn(''), 15000);
+}
 
 function setStatus(text, error = false) {
   $('status').textContent = text;
@@ -3560,7 +3596,7 @@ async function sendChatText(text) {
   try {
     if (call && call.localParticipant) await call.localParticipant.sendChatMessage(text);
   } catch (err) {
-    setStatus(`chat: ${err.message}`, true);
+    chatNotice(`chat: ${err.message}`, true);
   }
 }
 function dropChatMessage(id) {
@@ -3712,15 +3748,8 @@ function applyClearNotice(data, participant) {
   heardClears.set(key, now);
   const who = String(data.who || '').trim() || 'Someone';
   const { noun } = clearLook({ type, module, command });
-  const line = document.createElement('div');
-  line.className = 'chat-session-divider chat-clear-note';
-  const span = document.createElement('span');
-  span.textContent = type === 'all' ? `${who} cleared all the messages.` : noun ? `${who} cleared the ${noun} messages.` : `${who} cleared some messages.`;
-  line.append(span);
-  const list = $('messages');
-  if (!list) return;
-  list.appendChild(line);
-  list.scrollTop = list.scrollHeight;
+  // Told in the status area, not as a line in the list: the messages are gone from it already.
+  chatNotice(type === 'all' ? `${who} cleared all the messages.` : noun ? `${who} cleared the ${noun} messages.` : `${who} cleared some messages.`);
 }
 // --- end Clear… ---
 
@@ -3821,7 +3850,7 @@ async function copyEntry(entry, btn) {
     }
     if (btn) flashIcon(btn, 'check');
   } catch (err) {
-    setStatus(`copy: ${err.message}`, true);
+    chatNotice(`copy: ${err.message}`, true);
   }
 }
 
@@ -4002,7 +4031,7 @@ async function deleteMessage(el, entry) {
         const q = guestToken ? `?guest=${encodeURIComponent(guestToken)}` : '';
         await api('DELETE', `${space}/chat/${entry.id}${q}`);
       } catch (err) {
-        setStatus(err.message || 'Could not delete that.', true);
+        chatNotice(err.message || 'Could not delete that.', true);
         return;
       }
     }
@@ -4035,7 +4064,7 @@ async function setMessageVisibility(entry, visibility) {
       : { type: 'chat-visibility', id: entry.id, visibility: 'private' });
     return entry.visibility === visibility;
   } catch (err) {
-    setStatus(err.message || 'Could not change who sees that.', true);
+    chatNotice(err.message || 'Could not change who sees that.', true);
     return false;
   }
 }
@@ -4191,7 +4220,7 @@ async function keepLink(entry, btn) {
     if (!entry.kept) btn.disabled = false;
   } catch (err) {
     btn.disabled = false;
-    setStatus(err.message || 'Could not keep that.', true);
+    chatNotice(err.message || 'Could not keep that.', true);
   }
 }
 // The author's page asks for its new message's preview (decision 7) and passes the answer on to the call as well as
@@ -4379,7 +4408,7 @@ async function sendImage(file) {
     addEntry({ id, who: call.localParticipant.name || call.localParticipant.identity, by: me?.key || call.localParticipant.identity, blob: named, name: out.name || 'picture' }, true);
     await call.localParticipant.sendFile(named, { topic: 'chat-image', mimeType: named.type });
   } catch (err) {
-    setStatus(`picture: ${err.message}`, true);
+    chatNotice(`picture: ${err.message}`, true);
   }
 }
 
@@ -4393,7 +4422,7 @@ call.registerByteStreamHandler('chat-image', async (reader, { identity }) => {
     const add = () => addEntry({ id: named ? named[1] : '', who: from?.name || identity, by: identity, blob, name: named ? (named[2] || 'picture') : (reader.info.name || 'picture') }, false);
     if (!parkSpaceChat(add)) add(); // Home's chat showing over the space: drawn when the space's chat is back
   } catch (err) {
-    setStatus(`picture: ${err.message}`, true);
+    chatNotice(`picture: ${err.message}`, true);
   }
 });
 
@@ -4450,7 +4479,7 @@ async function sendReaction(id) {
   try {
     await call.localParticipant.publishData(encoder.encode(JSON.stringify({ type: 'reaction', id })), { reliable: true, topic: 'reaction' });
   } catch (err) {
-    setStatus(`reaction: ${err.message}`, true);
+    chatNotice(`reaction: ${err.message}`, true);
   }
 }
 
@@ -4940,15 +4969,18 @@ call
       // not ours
     }
   })
-  .on(RoomEvent.Reconnecting, () => setStatus('reconnecting...'))
+  .on(RoomEvent.Reconnecting, () => { setStatus('reconnecting...'); chatReconnecting = true; paintChatConn(); })
+  .on(RoomEvent.ConnectionStateChanged, () => paintChatConn())
   // A full reconnect joins the call service afresh, with the token's attributes ("call" off, no away): say both again.
   .on(RoomEvent.Reconnected, () => {
-    setStatus(`in ${spaceName}`);
+    chatReconnecting = false; paintChatConn(); setStatus(`in ${spaceName}`);
     syncCallAttributes();
   })
   .on(RoomEvent.Disconnected, () => {
     viewingHome = false; // no space left to show home over
     hideHomeChat(); // Home's chat over the space gives the space's chat back first; Home shows its own again below
+    chatReconnecting = false;
+    paintChatConn();
     closeGuestChatStream();
     canvas.suspend(); // tearing the call down must not become its remembered layout
     inCall = false; // the whole call is gone, so there is nothing to stop; the rest of this clears it
@@ -5760,7 +5792,7 @@ $('chat-more').addEventListener('click', (event) => {
         try {
           await api('DELETE', `/api/spaces/${encodeURIComponent(space.id)}/chat`);
         } catch (err) {
-          setStatus(err.message || 'Could not delete the chat.', true);
+          chatNotice(err.message || 'Could not delete the chat.', true);
           return;
         }
         dropSharedChat();
@@ -5827,16 +5859,27 @@ const chatInput = attachChatInput({
   },
 });
 chatViews = chatInput;
+chatNoteFn = (text, error) => chatInput.note(text, error);
+paintChatConn();
+document.addEventListener('chat-tools-changed', () => fitChatChrome());
 askInChat = (input) => chatInput.askAbout(input);
 $('chat-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = $('chat-input').value.trim();
   if (!text || !canDo('chat')) return;
-  // Where the line goes (GitHub #203): a command runs in the Assistant, switching there from the Discussion; plain
-  // words in the Assistant ask the AI; plain words in the Discussion are a message for everyone.
+  // Where the line goes: a command runs in the Assistant, switching there from the Discussion, in either view; in the
+  // Assistant a pasted import answer is brought in and any other words ask the AI; in the Discussion words are a
+  // message for everyone.
   const route = chatInput.routeLine(text);
+  if (route.run === 'import') {
+    if (await chatInput.importText(route.line)) {
+      $('chat-input').value = '';
+      resizeChatInput();
+    }
+    return;
+  }
   if (route.run === 'command' || route.run === 'ai') {
-    if (await chatInput.handleSubmit(route.line)) {
+    if (await (route.run === 'ai' ? chatInput.ask(route.line) : chatInput.handleSubmit(route.line))) {
       $('chat-input').value = '';
       resizeChatInput();
     }
@@ -5847,10 +5890,20 @@ $('chat-form').addEventListener('submit', async (event) => {
   resizeChatInput();
   await sendChatText(text);
 });
-// Enter sends, like a normal chat; Shift+Enter is the way to actually get a
-// newline into a <textarea> without that also submitting the form.
+// Enter sends, as in any chat; Shift+Enter makes a new line. There is no Send button. A phone keyboard's Enter or Send
+// key may not report a key (Android keyboards send "Unidentified"), so the line break it asks for is taken too: a
+// break asked for without Shift is a send (beforeinput).
+let chatShift = false;
 $('chat-input').addEventListener('keydown', (event) => {
-  if (event.key !== 'Enter' || event.shiftKey) return;
+  chatShift = event.shiftKey;
+  if (event.key !== 'Enter' || event.shiftKey || event.isComposing) return;
+  event.preventDefault();
+  $('chat-form').requestSubmit();
+});
+$('chat-input').addEventListener('keyup', () => { chatShift = false; });
+$('chat-input').addEventListener('blur', () => { chatShift = false; });
+$('chat-input').addEventListener('beforeinput', (event) => {
+  if ((event.inputType !== 'insertLineBreak' && event.inputType !== 'insertParagraph') || chatShift || event.isComposing) return;
   event.preventDefault();
   $('chat-form').requestSubmit();
 });
@@ -5899,7 +5952,7 @@ $('chat-format-bar').addEventListener('keydown', (e) => {
   if (e.key !== 'Escape') return;
   $('chat-help-popup').hidden = true;
   $('chat-emoji-popup').hidden = true;
-  if (chatInput) { chatInput.hidePicker(); chatInput.hideImport(); }
+  if (chatInput) { chatInput.hidePicker(); }
   $('chat-input').focus();
 });
 $('chat-help').addEventListener('click', (e) => {
@@ -6049,12 +6102,12 @@ function rowLabel(el) {
 function fitRow(bar) {
   if (!bar) return;
   const more = bar.querySelector('[data-more]');
-  const items = [...bar.querySelectorAll('[data-collapse]')].sort(
+  const items = [...bar.querySelectorAll('[data-collapse]')].filter((el) => !el.dataset.off).sort(
     (a, b) => Number(a.dataset.collapse) - Number(b.dataset.collapse)
   );
   for (const item of items) {
     if (!item.dataset.collapsed) continue;
-    item.hidden = false;
+    item.hidden = Boolean(item.dataset.off); // a tool the view does not use stays away (chat-input.js paintModeTools)
     delete item.dataset.collapsed;
   }
   if (more) more.hidden = true;
@@ -6079,7 +6132,6 @@ function fitRow(bar) {
 }
 function fitChatChrome() {
   fitRow($('chat-format-bar'));
-  fitRow($('chat-import-foot'));
 }
 function openCollapsed(more, bar) {
   const hidden = [...bar.querySelectorAll('[data-collapsed]')];
@@ -6098,7 +6150,7 @@ function visibleAnchor(el) {
   if ((el.hidden || collapsed) && more && !more.hidden) return more;
   return el;
 }
-for (const barId of ['chat-format-bar', 'chat-import-foot']) {
+for (const barId of ['chat-format-bar']) {
   const bar = $(barId);
   if (!bar) continue;
   const more = bar.querySelector('[data-more]');
@@ -6840,7 +6892,9 @@ let chatPausedSaid = false;
 function sayChatPaused() {
   if (chatPausedSaid) return;
   chatPausedSaid = true;
-  showNote('Live chat is paused. Reload the page to try again.');
+  chatStream = 'paused';
+  paintChatConn();
+  chatNotice('Live chat is paused. Reload the page to try again.', true);
 }
 async function chatStreamStatus(url) {
   const ctl = new AbortController();
@@ -6870,6 +6924,8 @@ function liveChatStream(url, { onData, catchUp }) {
     sayChatPaused();
   };
   const again = async (wasLive) => {
+    chatStream = 'reconnecting';
+    paintChatConn();
     if (!wasLive) {
       const status = await chatStreamStatus(url);
       if (stopped) return;
@@ -6890,6 +6946,8 @@ function liveChatStream(url, { onData, catchUp }) {
       try { data = JSON.parse(event.data); } catch { return; }
       if (data?.type === 'ready') {
         live = true;
+        chatStream = 'live';
+        paintChatConn();
         tries = 0;
         readies += 1;
         if (readies > 1) catchUp(); // back after a drop: what was said meanwhile

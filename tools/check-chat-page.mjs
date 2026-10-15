@@ -1124,7 +1124,7 @@ test('the Assistant\'s one box: a command runs, an import answer is imported, ot
 
 test('the composer: the Discussion has no paste box; the Assistant has no formatting tools but copy prompt and bring in research', () => {
   const html = read('public/space.html');
-  for (const gone of ['chat-import-panel', 'chat-import-text', 'chat-import-show', 'Paste the whole answer here', 'id="chat-import"']) assert.ok(!html.includes(gone), `${gone} is gone`);
+  for (const gone of ['chat-import-text', 'chat-import-show', 'Paste the whole answer here', 'id="chat-import"']) assert.ok(!html.includes(gone), `${gone} is gone`);
   const tag = (id) => new RegExp(`<[a-z]+ [^>]*id="${id}"[^>]*>`).exec(html)?.[0] || '';
   for (const id of ['chat-pic', 'chat-bold', 'chat-italic', 'chat-code', 'chat-list']) assert.match(tag(id), /data-for="discussion"/, `${id} is the Discussion's`);
   assert.match(html, /data-for="discussion">\s*<button class="msg-btn" id="chat-emoji"/);

@@ -113,7 +113,9 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   const NOT_MINE = /^(fa-|pm-|dsf|ds-(?!proposed$)|nav-text)/;
   const missing = [...used].filter((c) => !NOT_MINE.test(c) && !defined.has(c));
   // Classes of today's mapping markup that the proposal does not style (a layout wrapper, a call button): listed in the file by name.
-  const TODAY_ONLY = new Set(['fbtn', 'fbtn-wrap', 'fbtn-caret', 'glyph', 'off', 'loading', 'dial', 'danger', 'icon-on', 'icon-off', 'icon-loading', 'sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group']);
+  const TODAY_ONLY = new Set(['fbtn', 'fbtn-wrap', 'fbtn-caret', 'glyph', 'off', 'loading', 'dial', 'danger', 'icon-on', 'icon-off', 'icon-loading', 'sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group',
+    // The Headline mock-ups draw the product's own markup from style.css (a Home card, the module page's title, a docked title bar); the proposal styles none of it but the font.
+    'space-list-head', 'space-list-title', 'space-list', 'space-choice', 'space-choice-head', 'space-choice-name', 'space-choice-count', 'space-choice-desc', 'space-choice-actions', 'members', 'hint', 'panel', 'module-config', 'module-head', 'module-icon', 'grow', 'pill', 'mod-header', 'mod-title', 'topbar', 'nav-left', 'brand-home', 'brand-logo', 'brand-name', 'space-switcher', 'space-switcher-button', 'crumb-label']);
   for (const c of missing) if (!TODAY_ONLY.has(c) && !own.has(c)) fail(`proposed.js uses .${c} and proposed.css does not define it`);
 }
 
@@ -239,8 +241,8 @@ async function browse(cdp, label, url, scenarios, shots) {
       // The ink: the visible letters or icon (not the boxes) must sit within 1px of the middle of the button, the first button of each role and size.
       // Each candidate font too (the Font group): its files load from fonts/ (no 404, nothing from outside), and the labels stay centred within 1px.
       for (const fk of ['', 'figtree', 'nunito-sans', 'source-sans-3']) {
+      await ev(`window.__ds.setFont(${JSON.stringify(fk)})`);
       if (fk) {
-        await ev(`window.__ds.setFont(${JSON.stringify(fk)})`);
         await new Promise((r) => setTimeout(r, 900));
         const loaded = await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Buttons, all states'); const d = m.iframe.contentDocument; const fam = getComputedStyle(d.querySelector('.pm-row button')).fontFamily; const first = fam.split(',')[0].trim(); await d.fonts.ready; return JSON.stringify({ fam: first, ok: d.fonts.check('500 14px ' + first, 'Save') && [...d.fonts].some((f) => f.status === 'loaded' && ('"' + f.family + '"' === first || f.family === first.replace(/"/g, ''))) }); })()`);
         const lj = JSON.parse(loaded);
@@ -255,7 +257,22 @@ async function browse(cdp, label, url, scenarios, shots) {
         else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of ${t.n} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its button${fk ? ` set in ${fk}` : ''}`);
       }
       }
-      await ev('window.__ds.setFont("")');
+      // The headline fonts (the Headline group): each file loads from fonts/ (local woff2), and a big title in a 1px-bordered bar sits within 1px of the middle of the bar.
+      for (const hk of ['archivo', 'fraunces', 'bricolage-grotesque']) {
+        await ev(`window.__ds.setHeadline(${JSON.stringify(hk)})`);
+        await new Promise((r) => setTimeout(r, 900));
+        const hl = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Headline, title bars'); const d = m.iframe.contentDocument; const first = getComputedStyle(d.querySelector('.pm-tb')).fontFamily.split(',')[0].trim(); await d.fonts.ready; const fam = first.replace(/"/g, ''); return JSON.stringify({ fam: first, ok: d.fonts.check('700 28px "' + fam + '"', 'Welcome') && [...d.fonts].some((f) => f.status === 'loaded' && f.family.replace(/"/g, '') === fam) }); })()`));
+        if (!hl.ok) problems.push(`${where}: the headline font ${hk} (${hl.fam}) did not load in the title bars frame`);
+        for (let k = 0; k < 3; k += 1) {
+          const at = JSON.parse(await ev(`(() => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Headline, title bars'); const b = m.iframe.contentDocument.querySelectorAll('.pm-tb')[${k}]; b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + r.left + window.scrollX, y: fr.top + r.top + window.scrollY, w: r.width, h: r.height }); })()`));
+          const shotH = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
+          const c = inkCentre(Buffer.from(shotH.data, 'base64'), 4);
+          if (c === null) problems.push(`${where}: no ink found in the ${hk} title bar ${k + 1}`);
+          else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of the ${hk} title bar ${k + 1} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its bar`);
+        }
+      }
+      await ev('window.__ds.setHeadline("archivo")');
+      await ev('window.__ds.setFont("figtree")');
       await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       for (const x of probe.align || []) problems.push(`${where}: ${x}`);
       if (probe.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);

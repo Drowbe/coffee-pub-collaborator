@@ -98,6 +98,10 @@ Decided 2026-10-15, after the first-look page:
 
 Standing decisions this plan keeps, already in [design-theme](../designsystem/design-theme.md): a selected, on, active or current state is a fill, never a border (Thomas, 2026-10-14: "I found ANOTHER button border. Stop adding them."); corners are the five radius tokens; and the form standard's decisions ([plan-form-standard](plan-form-standard.md), 2026-10-15).
 
+Decided 2026-10-16:
+
+- **A third page, a Prototype page** (Thomas, 2026-10-16). Whole screens drawn from the proposed components as they would appear in the product: panels, forms, chat, the call bar, the Planner. Reason: buttons and other components cannot be judged alone, only in context. Not needed yet; it is built after a few families are approved, and is placed in the step list under "Left to build, in order".
+
 ## Component decisions
 
 One table per family, dated. Each row is Thomas's decision; for the buttons he took the recommendation in every case. The CSS is written only after the proposal has been shown on the review page and he has signed off there.
@@ -384,6 +388,7 @@ Each step a try build, small, checked on its own. Modules get a patch bump only 
 | 18 to 27 | Module by module, each off the "not yet" list: the Planner, Places, Calendar (with its inset edges decided), To-do, Polls, Research, Budget, Maps, Stream, Assistant | experience-design | only what earlier steps decided; each bumped |
 | 28 | The app's pages off the list: space, Home and the dashboard, Set up, the Phases sheet, Manage, profile, host console, landing, destination; then the list is empty | experience-design | only what earlier steps decided |
 | 29 | Documentation: content-manager rewrites [design-theme](../designsystem/design-theme.md) as the system's reference pointing at the page, the SDK page and `CONTRACT.md`; Thomas or the project manager puts the rule text from (d) into `CLAUDE.md` and the agent files | content-manager, project-manager | no |
+| To be placed | The Prototype page (decided 2026-10-16, see Decisions): whole screens drawn from the proposed components as they would appear in the product (panels, forms, chat, the call bar, the Planner), so components are judged in context. Built after a few families are approved | to be placed | no |
 
 Steps 9 to 13 (buttons, fields and forms, tabs, cards and rows, menus) and 15 (chips and badges) each start with Thomas deciding that family in chat and signing off its proposal on the review page, in the order he set. Steps 9 to 17 do not depend on one another once he has done so; 18 to 27 follow the component steps they need. Each of steps 8 to 17 ends with a republished review copy and its before and after screenshots, and the real route is built into an image only when Thomas is happy with a stage.
 

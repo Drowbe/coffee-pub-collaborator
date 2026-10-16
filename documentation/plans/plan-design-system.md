@@ -119,6 +119,16 @@ One table per family, dated. Each row is Thomas's decision; for the buttons he t
 
 What this settles for step 9: the spec above. What it leaves for the proposal: the exact fills and hover and pressed fills (tokens), the loading state, and the icon-button class name.
 
+### Fonts (decided 2026-10-16)
+
+Thomas's decisions on the Typography family of the Proposed page (commits f18d7ac, 75f8e26).
+
+- **Bundled fonts.** The product bundles its own fonts, self-hosted as woff2 from our own server, with no third-party font CDN, so it renders the same for everyone. Reason: system fonts have different metrics, so button text sat low on some systems. The fix is font-metric overrides in `@font-face`, so a fallback matches the bundled font.
+- **UI font: Figtree.** SIL OFL, variable, weights 300 to 900, Latin only; Cyrillic and Greek fall back.
+- **Headline font: Fraunces.** SIL OFL, variable, Latin only. For display text only: the landing title, page titles, the environment name in the top bar, and space names on Home cards. Everything else stays Figtree; small labels and the 14px docked title bar stay sans.
+- **Still to decide:** weights and the size scale. Today the product uses 17 pixel sizes and the weights 400, 500, 600, 650, 700 and 800.
+- **Open points:** italics are not bundled. A per-template headline font is a possible later decision, not decided. Fraunces at 17 to 18px is to be checked in context.
+
 ## (a) The system
 
 Four layers. Each lower layer is used only through the one above it: a module never writes a colour, a size or a shadow, only a component class and its own layout.

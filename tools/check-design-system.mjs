@@ -72,6 +72,22 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   if (fs.existsSync(path.join(out, 'proposed.js'))) fail('the today snapshot holds proposed.js');
 }
 
+// ---- the bundled fonts: in the proposed snapshot with their licence, self-hosted, and none in Today's ----
+{
+  const names = new Set(snapP.files.map((f) => f.file));
+  const pcss = fs.readFileSync(path.join(DS, 'proposed.css'), 'utf8');
+  const urls = [...pcss.matchAll(/url\(\s*["']?([^)"']+)/g)].map((m) => m[1]);
+  if (!urls.length) fail('proposed.css has no @font-face url()');
+  for (const u of urls) {
+    if (!/^fonts\/[a-z0-9-]+\/[a-z0-9-]+\.woff2$/.test(u)) fail(`proposed.css: a font url that is not a bundled woff2 under fonts/: ${u}`);
+    else if (!names.has(u)) fail(`the proposed snapshot has no ${u}`);
+  }
+  for (const d of new Set(urls.map((u) => u.split('/')[1]))) if (!names.has(`fonts/${d}/OFL.txt`)) fail(`fonts/${d} has no licence file (OFL.txt) in the proposed snapshot`);
+  if (/@import|https?:\/\//.test(pcss.replace(/\/\*[\s\S]*?\*\//g, ''))) fail('proposed.css fetches something from outside (@import or an http address)');
+  if (snap.files.some((f) => /^fonts\//.test(f.file))) fail("Today's snapshot holds a fonts/ folder");
+  for (const f of ['index.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js']) if (/fonts\/[a-z0-9-]+\/|@font-face/.test(fs.readFileSync(path.join(DS, f), 'utf8'))) fail(`${f} (Today's page) refers to the bundled fonts`);
+}
+
 // ---- the proposed rules: scoped, tokens only, every proposed class defined ----
 {
   const css = fs.readFileSync(path.join(DS, 'proposed.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
@@ -221,14 +237,25 @@ async function browse(cdp, label, url, scenarios, shots) {
             for (const b of [bs[0]]) { out.targets.push({ n: nm + ' ' + (b.textContent.trim() || b.getAttribute('aria-label')) + ' ' + Math.round(b.getBoundingClientRect().height) }); } } }
         return JSON.stringify(out); })()`));
       // The ink: the visible letters or icon (not the boxes) must sit within 1px of the middle of the button, the first button of each role and size.
+      // Each candidate font too (the Font group): its files load from fonts/ (no 404, nothing from outside), and the labels stay centred within 1px.
+      for (const fk of ['', 'figtree', 'nunito-sans', 'source-sans-3']) {
+      if (fk) {
+        await ev(`window.__ds.setFont(${JSON.stringify(fk)})`);
+        await new Promise((r) => setTimeout(r, 900));
+        const loaded = await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Buttons, all states'); const d = m.iframe.contentDocument; const fam = getComputedStyle(d.querySelector('.pm-row button')).fontFamily; const first = fam.split(',')[0].trim(); await d.fonts.ready; return JSON.stringify({ fam: first, ok: d.fonts.check('500 14px ' + first, 'Save') && [...d.fonts].some((f) => f.status === 'loaded' && ('"' + f.family + '"' === first || f.family === first.replace(/"/g, ''))) }); })()`);
+        const lj = JSON.parse(loaded);
+        if (!lj.ok) problems.push(`${where}: the font ${fk} (${lj.fam}) did not load in the Buttons frame`);
+      }
       for (let k = 0; k < (probe.targets || []).length; k += 1) {
         const t = probe.targets[k];
         const at = JSON.parse(await ev(`(() => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Buttons, all states'); const b = m.iframe.contentDocument.querySelectorAll('.pm-row')[${k}].querySelector('button'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + r.left + window.scrollX, y: fr.top + r.top + window.scrollY, w: r.width, h: r.height }); })()`));
         const shotB = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
         const c = inkCentre(Buffer.from(shotB.data, 'base64'), 4);
         if (c === null) problems.push(`${where}: no ink found in ${t.n}`);
-        else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of ${t.n} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its button`);
+        else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of ${t.n} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its button${fk ? ` set in ${fk}` : ''}`);
       }
+      }
+      await ev('window.__ds.setFont("")');
       await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       for (const x of probe.align || []) problems.push(`${where}: ${x}`);
       if (probe.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);

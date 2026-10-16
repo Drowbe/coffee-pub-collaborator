@@ -14,7 +14,8 @@
  *   PAGE=proposed OUT=/tmp/ds-proposed node tools/design-system-snapshot.mjs
  *                                                    builds the proposed system page instead (public/design-system/proposed.html, written
  *                                                    as the folder's index.html): index.html, style.css, theme.css, fa/, ds.css,
- *                                                    proposed.css and proposed.js only. No sources.js, no components, no inventory
+ *                                                    proposed.css, proposed.js and fonts/ (the bundled woff2 files and their OFL.txt) only. No
+ *                                                    sources.js, no components, no inventory
  *
  * The folder of the default page (PAGE=today) holds: index.html (paths made relative), ds.css, ds.js, components*.js, sources.js (every
  * stylesheet and the SDK as text, so the page works from disk and from any static host), style.css, theme.css (Strong Coffee's light
@@ -146,6 +147,11 @@ export function buildSnapshot(out, page = 'today') {
   fs.writeFileSync(path.join(out, 'index.html'), html);
   const keep = page === 'proposed' ? /^(ds\.css|proposed\.(js|css))$/ : /^(ds\.css|ds\.js|components[-0-9]*\.js)$/;
   for (const f of fs.readdirSync(DS)) if (keep.test(f)) copy(path.join(DS, f), path.join(out, f));
+  // The proposed page's bundled fonts (fonts/<family>/*.woff2 and each OFL.txt), self-hosted beside it. Today's page carries none.
+  if (page === 'proposed' && fs.existsSync(path.join(DS, 'fonts'))) {
+    const walkCopy = (from, to) => { for (const e of fs.readdirSync(from, { withFileTypes: true })) { const a = path.join(from, e.name); const b = path.join(to, e.name); if (e.isDirectory()) walkCopy(a, b); else if (/\.(woff2|txt)$/.test(e.name)) copy(a, b); } };
+    walkCopy(path.join(DS, 'fonts'), path.join(out, 'fonts'));
+  }
   let data; let unknown = [];
   if (page === 'proposed') {
     // Only the two stylesheets the frames read; no sources.js, no module stylesheets, no icon scan.

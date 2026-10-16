@@ -2,10 +2,14 @@
 /*
  * check-design-system.mjs -- the design system page (public/design-system/, documentation/plans/plan-design-system.md, first look).
  *
- * Fails on: a missing file; the snapshot script not producing an index.html in a temp folder, an external script in it, or a size over
- * 12 MB, or without proposed.css; a proposed.css with a rule that is not under .ds-proposed, a colour on a border, a radius that is not a
+ * Two pages are checked, each served by the app and as a snapshot folder opened from disk: Today (index.html, the inventory) and Proposed
+ * (proposed.html, only what is decided; it must not load sources.js, the components or ds.js, and Today must not load proposed.js).
+ *
+ * Fails on: a missing file; the snapshot script not producing an index.html in a temp folder for either page, an external script in it, or a size over
+ * 12 MB, or a proposed snapshot without proposed.css and proposed.js; a proposed.css with a rule that is not under .ds-proposed, a colour on a border, a radius that is not a
  * token, or a class used by proposed.js that proposed.css does not define; a page that logs a console error, does not finish drawing, or draws nothing at 1280 (light and dark) and 390 in headless
- * Chromium (opened from the app, and the snapshot opened from disk). Warns (never fails) on: a class in an example that is in none of
+ * Chromium (opened from the app, and the snapshot opened from disk); on the proposed page also a forced hover, focus or pressed that does not
+ * show, a disabled button not at half strength, or a button not 38px (44px at 390; small 30px; an icon-only button square). Warns (never fails) on: a class in an example that is in none of
  * the stylesheets of that example's context, and a sources.js older than the module stylesheets.
  * Browser: CHROME_PATH, else a Playwright or system Chromium; with none, the browser part says SKIPPED (not a pass).
  * Options: SHOTS=<folder> saves the screenshots.
@@ -26,34 +30,51 @@ const warnings = [];
 const fail = (m) => failures.push(m);
 
 // ---- files ----
-for (const f of ['index.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js', 'proposed.js', 'proposed.css', 'sources.js']) {
+for (const f of ['index.html', 'proposed.html', 'ds.css', 'ds.js', 'components.js', 'components-2.js', 'components-3.js', 'proposed.js', 'proposed.css', 'sources.js']) {
   if (!fs.existsSync(path.join(DS, f))) fail(`public/design-system/${f} is missing`);
 }
 if (!fs.existsSync(path.join(root, 'tools', 'design-system-snapshot.mjs'))) fail('tools/design-system-snapshot.mjs is missing');
 if (failures.length) { for (const f of failures) console.error('check-design-system: ' + f); process.exit(1); }
 
-// ---- the snapshot, into a temp folder ----
+// ---- the snapshots, into temp folders: Today, and Proposed ----
 const out = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-snapshot-check-'));
+const outP = fs.mkdtempSync(path.join(os.tmpdir(), 'ds-snapshot-check-p-'));
 const snap = buildSnapshot(out);
-if (!fs.existsSync(path.join(out, 'index.html'))) fail('the snapshot has no index.html');
-if (snap.total > 12 * 1024 * 1024) fail(`the snapshot is ${(snap.total / 1024 / 1024).toFixed(1)} MB, over 12 MB`);
-const html = fs.readFileSync(path.join(out, 'index.html'), 'utf8');
-for (const m of html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
-  if (/^(https?:)?\/\//i.test(m[1]) || m[1].startsWith('/')) fail(`the snapshot's index.html loads a script from ${m[1]}`);
+const snapP = buildSnapshot(outP, 'proposed');
+for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]) {
+  if (!fs.existsSync(path.join(dir, 'index.html'))) fail(`the ${label} snapshot has no index.html`);
+  if (sn.total > 12 * 1024 * 1024) fail(`the ${label} snapshot is ${(sn.total / 1024 / 1024).toFixed(1)} MB, over 12 MB`);
+  const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
+  for (const m of html.matchAll(/<script\b[^>]*\bsrc\s*=\s*["']([^"']+)["']/gi)) {
+    if (/^(https?:)?\/\//i.test(m[1]) || m[1].startsWith('/')) fail(`the ${label} snapshot's index.html loads a script from ${m[1]}`);
+  }
+  for (const m of html.matchAll(/<link\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
+    if (/^(https?:)?\/\//i.test(m[1]) || m[1].startsWith('/')) fail(`the ${label} snapshot's index.html links ${m[1]}, not a relative path`);
+  }
+  for (const f of sn.files) if (/\.(js|html)$/.test(f.file) && f.file !== 'sources.js') {
+    const t = fs.readFileSync(path.join(dir, f.file), 'utf8');
+    if (/<script\b[^>]*\bsrc\s*=\s*["'](https?:)?\/\//i.test(t)) fail(`${label}: ${f.file} loads an external script`);
+  }
 }
-for (const m of html.matchAll(/<link\b[^>]*\bhref\s*=\s*["']([^"']+)["']/gi)) {
-  if (/^(https?:)?\/\//i.test(m[1]) || m[1].startsWith('/')) fail(`the snapshot's index.html links ${m[1]}, not a relative path`);
-}
-for (const f of snap.files) if (/\.(js|html)$/.test(f.file) && f.file !== 'sources.js') {
-  const t = fs.readFileSync(path.join(out, f.file), 'utf8');
-  if (/<script\b[^>]*\bsrc\s*=\s*["'](https?:)?\/\//i.test(t)) fail(`${f.file} loads an external script`);
+// The pages stay apart: Proposed is small and loads none of Today; Today carries nothing of the proposal.
+{
+  const names = new Set(snapP.files.map((f) => f.file));
+  for (const bad of ['sources.js', 'ds.js', 'components.js', 'components-2.js', 'components-3.js']) if (names.has(bad)) fail(`the proposed snapshot holds ${bad}, which is Today's`);
+  for (const need of ['index.html', 'style.css', 'theme.css', 'ds.css', 'proposed.css', 'proposed.js', 'fa/css/all.min.css']) if (!names.has(need)) fail(`the proposed snapshot has no ${need}`);
+  const ph = fs.readFileSync(path.join(DS, 'proposed.html'), 'utf8');
+  if (/sources\.js|components|ds\.js/.test(ph.replace(/<!--[\s\S]*?-->/g, ''))) fail('proposed.html loads something of Today (sources.js, components, ds.js)');
+  if (!/href="index\.html"/.test(ph)) fail('proposed.html has no link to index.html');
+  const th = fs.readFileSync(path.join(DS, 'index.html'), 'utf8');
+  if (/proposed\.(js|css)/.test(th)) fail('index.html loads the proposal (proposed.js or proposed.css)');
+  if (!/href="proposed\.html"/.test(th)) fail('index.html has no link to proposed.html');
+  if (/data-view|ds-view/.test(th)) fail('index.html still has the Today and Proposed switch');
+  if (fs.existsSync(path.join(out, 'proposed.js'))) fail('the today snapshot holds proposed.js');
 }
 
 // ---- the proposed rules: scoped, tokens only, every proposed class defined ----
 {
   const css = fs.readFileSync(path.join(DS, 'proposed.css'), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-  if (!fs.existsSync(path.join(out, 'proposed.css')) || !fs.existsSync(path.join(out, 'proposed.js'))) fail('the snapshot has no proposed.css or proposed.js');
-  const split = (t) => { const parts = []; let d = 0; let cur = ''; for (const ch of t) { if (ch === '(' || ch === '[') d += 1; if (ch === ')' || ch === ']') d -= 1; if (ch === ',' && d === 0) { parts.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) parts.push(cur.trim()); return parts; };
+    const split = (t) => { const parts = []; let d = 0; let cur = ''; for (const ch of t) { if (ch === '(' || ch === '[') d += 1; if (ch === ')' || ch === ']') d -= 1; if (ch === ',' && d === 0) { parts.push(cur.trim()); cur = ''; } else cur += ch; } if (cur.trim()) parts.push(cur.trim()); return parts; };
   for (const m of css.matchAll(/([^{}]+)\{/g)) {
     const sel = m[1].trim();
     if (!sel || sel.startsWith('@')) continue;
@@ -72,10 +93,10 @@ for (const f of snap.files) if (/\.(js|html)$/.test(f.file) && f.file !== 'sourc
   for (const m of js.matchAll(/class="([^"]*)"/g)) for (const c of m[1].replace(/\$\{[^}]*\}/g, ' ').split(/\s+/).filter(Boolean)) used.add(c);
   for (const m of js.matchAll(/\bcls: '([^']*)'/g)) for (const c of m[1].split(/\s+/).filter(Boolean)) used.add(c);
   // Classes that belong to Today's markup (drawn as it is), to the page frame or to Font Awesome are not the proposal's.
-  const NOT_MINE = /^(fa-|pm-|dsf-|ds-(?!proposed$)|nav-text)/;
+  const NOT_MINE = /^(fa-|pm-|dsf|ds-(?!proposed$)|nav-text)/;
   const missing = [...used].filter((c) => !NOT_MINE.test(c) && !defined.has(c));
   // Classes of today's mapping markup that the proposal does not style (a layout wrapper, a call button): listed in the file by name.
-  const TODAY_ONLY = new Set(['fbtn', 'fbtn-wrap', 'glyph', 'sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group']);
+  const TODAY_ONLY = new Set(['fbtn', 'fbtn-wrap', 'fbtn-caret', 'glyph', 'off', 'loading', 'dial', 'danger', 'icon-on', 'icon-off', 'icon-loading', 'sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group']);
   for (const c of missing) if (!TODAY_ONLY.has(c) && !own.has(c)) fail(`proposed.js uses .${c} and proposed.css does not define it`);
 }
 
@@ -172,7 +193,7 @@ async function browse(cdp, label, url, scenarios, shots) {
   let last = null;
   for (const sc of scenarios) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: 1, mobile: sc.width < 500 }, sessionId);
-    await cdp.send('Page.navigate', { url: `${url}${url.includes('?') ? '&' : '?'}mode=${sc.mode}${sc.view ? '&view=' + sc.view : ''}` }, sessionId);
+    await cdp.send('Page.navigate', { url: `${url}${url.includes('?') ? '&' : '?'}mode=${sc.mode}` }, sessionId);
     let ok = false;
     for (let i = 0; i < 400; i += 1) { await new Promise((r) => setTimeout(r, 150)); if (await ev('!!(window.__dsStats && window.__dsStats.ready)')) { ok = true; break; } }
     const where = `${label} ${sc.width} ${sc.mode}`;
@@ -182,22 +203,30 @@ async function browse(cdp, label, url, scenarios, shots) {
     const s = JSON.parse(last);
     if (s.errors.length) problems.push(`${where}: page errors: ${s.errors.join('; ')}`);
     if (s.loaded !== s.frames) problems.push(`${where}: ${s.loaded} of ${s.frames} example frames loaded`);
-    if (s.families < 20 || s.tokens < 40 || s.icons < 20) problems.push(`${where}: too little drawn (${s.families} families, ${s.tokens} tokens, ${s.icons} icons)`);
-    if (sc.view === 'proposed') {
-      // The proposed view is on screen, its rules reach its own frames only, and a forced state really renders.
+    if (sc.proposed) {
+      // Only the proposal is on the page, its rules reach its frames, and a forced state really renders.
+      if (s.families < 1 || s.undecided < 15) problems.push(`${where}: too little drawn (${s.families} decided, ${s.undecided} still to decide)`);
       const probe = JSON.parse(await ev(`(() => { const F = window.__ds.frames; const get = (t) => F.find((f) => f.iframe.title === t); const out = {};
-        out.visible = !document.getElementById('ds-content-p').hidden && document.getElementById('ds-today').hidden;
-        const m = get('Buttons, all states, dark'); if (m) { const d = m.iframe.contentDocument; const b = [...d.querySelectorAll('.pm-row')[0].querySelectorAll('button')]; const cs = (x) => getComputedStyle(x);
-          out.rest = cs(b[0]).backgroundColor; out.hover = cs(b[1]).backgroundColor; out.disabled = cs(b[4]).opacity; out.h = b[0].getBoundingClientRect().height; out.edge = cs(b[0]).borderTopColor; }
-        const t = get("Buttons, An app page (public/style.css)"); if (t) { const x = t.iframe.contentDocument.querySelector('.btn-danger'); out.todayDanger = getComputedStyle(x).backgroundColor; out.todayH = x.getBoundingClientRect().height; }
+        out.today = typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined';
+        out.undecidedLinks = document.querySelectorAll('.ds-undecided a').length;
+        const m = get('Buttons, all states, dark'); if (m) { const d = m.iframe.contentDocument; const rows = [...d.querySelectorAll('.pm-row')]; const cs = (x) => getComputedStyle(x);
+          const b = [...rows[0].querySelectorAll('button')];
+          out.rest = cs(b[0]).backgroundColor; out.hover = cs(b[1]).backgroundColor; out.focus = cs(b[2]).outlineWidth + ' ' + cs(b[2]).outlineStyle; out.pressed = cs(b[3]).backgroundColor; out.disabled = cs(b[4]).opacity; out.h = b[0].getBoundingClientRect().height; out.edge = cs(b[0]).borderTopColor;
+          out.small = rows[6].querySelector('button').getBoundingClientRect().height;
+          const ic = rows[12].querySelector('button').getBoundingClientRect(); out.iconW = ic.width; out.iconH = ic.height;
+          const st = rows[0].querySelector('button[aria-busy]'); out.busy = !!st; }
         return JSON.stringify(out); })()`));
-      if (!probe.visible) problems.push(`${where}: the proposed view is not the one on screen`);
+      if (probe.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
+      if (probe.undecidedLinks) problems.push(`${where}: a not-yet-decided family has a link`);
       if (!probe.rest || probe.rest === probe.hover) problems.push(`${where}: the forced hover of the proposed Primary does not change its fill (${probe.rest} / ${probe.hover})`);
+      if (probe.pressed === probe.rest) problems.push(`${where}: the forced pressed state does not change the fill (${probe.pressed})`);
+      if (!/^2px solid/.test(probe.focus || '')) problems.push(`${where}: the forced focus state shows no 2px ring (${probe.focus})`);
       if (probe.disabled !== '0.5') problems.push(`${where}: the proposed disabled state is not half strength (${probe.disabled})`);
       const want = sc.width < 500 ? 44 : 38;
       if (Math.abs(probe.h - want) > 0.6) problems.push(`${where}: the proposed default button is ${probe.h}px, expected ${want}`);
-      if (probe.todayDanger && probe.todayDanger !== 'rgba(0, 0, 0, 0)' && probe.todayDanger !== 'transparent') problems.push(`${where}: the proposed rules leaked into Today (a danger button has a fill: ${probe.todayDanger})`);
-    }
+      if (Math.abs(probe.iconW - want) > 0.6 || Math.abs(probe.iconH - want) > 0.6) problems.push(`${where}: the proposed icon-only button is ${probe.iconW} by ${probe.iconH}px, expected ${want} square`);
+      if (Math.abs(probe.small - 30) > 0.6) problems.push(`${where}: the proposed small button is ${probe.small}px, expected 30`);
+    } else if (s.families < 20 || s.tokens < 40 || s.icons < 20) problems.push(`${where}: too little drawn (${s.families} families, ${s.tokens} tokens, ${s.icons} icons)`);
     const sideways = await ev('document.documentElement.scrollWidth - document.documentElement.clientWidth');
     if (sideways > 1) problems.push(`${where}: the page scrolls sideways by ${sideways}px`);
     const h = await ev('document.documentElement.scrollHeight');
@@ -210,7 +239,7 @@ async function browse(cdp, label, url, scenarios, shots) {
   return { problems, last: last && JSON.parse(last) };
 }
 
-let browserNote = '';
+let browserNote = ''; let browserNote2 = '';
 const bin = findBrowser();
 if (!bin) {
   browserNote = 'browser part SKIPPED (no Chromium found: set CHROME_PATH, or install one with npx playwright install chromium). This is not a pass; the page was not opened.';
@@ -221,11 +250,13 @@ if (!bin) {
     br = await launch(bin);
     const shots = process.env.SHOTS || null;
     const scenarios = [{ width: 1280, mode: 'light' }, { width: 1280, mode: 'dark' }, { width: 390, mode: 'dark' }];
+    const P = (w, m) => ({ width: w, mode: m, proposed: true });
     const a = await browse(br.cdp, 'served', `${server.base}/design-system/index.html`, scenarios, shots);
     const b = await browse(br.cdp, 'snapshot', pathToFileURL(path.join(out, 'index.html')).href, [{ width: 1280, mode: 'light' }, { width: 390, mode: 'dark' }], shots);
-    const c = await browse(br.cdp, 'served-proposed', `${server.base}/design-system/index.html`, [{ width: 1280, mode: 'light', view: 'proposed' }, { width: 1280, mode: 'dark', view: 'proposed' }, { width: 390, mode: 'dark', view: 'proposed' }], shots);
-    const d = await browse(br.cdp, 'snapshot-proposed', pathToFileURL(path.join(out, 'index.html')).href, [{ width: 1280, mode: 'dark', view: 'proposed' }], shots);
+    const c = await browse(br.cdp, 'served-proposed', `${server.base}/design-system/proposed.html`, [P(1280, 'light'), P(1280, 'dark'), P(390, 'light'), P(390, 'dark')], shots);
+    const d = await browse(br.cdp, 'snapshot-proposed', pathToFileURL(path.join(outP, 'index.html')).href, [P(1280, 'dark'), P(390, 'light')], shots);
     for (const p of [...a.problems, ...b.problems, ...c.problems, ...d.problems]) fail(p);
+    if (c.last) browserNote2 = `the proposed page opened from the app and from its snapshot on disk at 1280 and 390 (light, dark): ${c.last.families} decided, ${c.last.undecided} still to decide, ${c.last.frames} frames, no console error`;
     if (a.last) browserNote = `opened from the app and from the snapshot on disk at 1280 (light, dark) and 390: ${a.last.families} families, ${a.last.variants} looks, ${a.last.examples} examples in ${a.last.frames} frames, ${a.last.tokens} tokens, ${a.last.icons} icons, no console error`;
   } catch (e) {
     fail('the browser part could not run: ' + e.message);
@@ -235,8 +266,9 @@ if (!bin) {
   }
 }
 fs.rmSync(out, { recursive: true, force: true });
+fs.rmSync(outP, { recursive: true, force: true });
 
 for (const w of warnings.slice(0, 40)) console.log('check-design-system: warning: ' + w);
 if (warnings.length > 40) console.log(`check-design-system: ... and ${warnings.length - 40} more warnings`);
 if (failures.length) { for (const f of failures) console.error('check-design-system: FAIL ' + f); process.exit(1); }
-console.log(`check-design-system: ok. ${fams.length} families, ${nVariants} looks, ${nExamples} examples, ${nClasses} classes in markup (${orphanSet.size} warnings); snapshot ${snap.files.length} files, ${(snap.total / 1024 / 1024).toFixed(2)} MB. ${browserNote}`);
+console.log(`check-design-system: ok. ${fams.length} families, ${nVariants} looks, ${nExamples} examples, ${nClasses} classes in markup (${orphanSet.size} warnings); snapshots ${snap.files.length} files, ${(snap.total / 1024 / 1024).toFixed(2)} MB (today) and ${snapP.files.length} files, ${(snapP.total / 1024 / 1024).toFixed(2)} MB (proposed). ${browserNote} ${browserNote2}`);

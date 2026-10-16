@@ -13,7 +13,7 @@
    Sizes   default --btn-h = --field-h (38px; 44px on a phone), small .btn-small = 30px
    Icon only  .sdk-icon-btn: a square, the same roles and sizes. The names below are aliases, so today's markup updates with no edit:
            .action-btn .sdk-field-btn (Secondary)   .sdk-more .icon-btn .sdk-editor-close .msg-btn (Quiet)
-           .fbtn (the call's controls) is NOT touched: it stays a circle with its own rules. */
+           .fbtn (the call's controls) is kept: it stays a circle with the product's own rules, which this file does not touch. */
 
 .ds-proposed {
   --btn-h: var(--field-h, 38px);

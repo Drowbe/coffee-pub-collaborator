@@ -189,7 +189,7 @@ async function browse(cdp, label, url, scenarios, shots) {
     if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error') problems.push('log: ' + m.params.entry.text + ' ' + (m.params.entry.url || ''));
   });
   await cdp.send('Runtime.enable', {}, sessionId); await cdp.send('Log.enable', {}, sessionId); await cdp.send('Page.enable', {}, sessionId);
-  const ev = async (expression) => (await cdp.send('Runtime.evaluate', { expression, returnByValue: true }, sessionId)).result.value;
+  const ev = async (expression) => (await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId)).result.value;
   let last = null;
   for (const sc of scenarios) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: 1, mobile: sc.width < 500 }, sessionId);
@@ -206,15 +206,15 @@ async function browse(cdp, label, url, scenarios, shots) {
     if (sc.proposed) {
       // Only the proposal is on the page, its rules reach its frames, and a forced state really renders.
       if (s.families < 1 || s.undecided < 15) problems.push(`${where}: too little drawn (${s.families} decided, ${s.undecided} still to decide)`);
-      const probe = JSON.parse(await ev(`(() => { const F = window.__ds.frames; const get = (t) => F.find((f) => f.iframe.title === t); const out = {};
+      const probe = JSON.parse(await ev(`(async () => { const F = window.__ds.frames; const get = (t) => F.find((f) => f.iframe.title === t); const out = {};
         out.today = typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined';
         out.undecidedLinks = document.querySelectorAll('.ds-undecided a').length;
-        const m = get('Buttons, all states, dark'); if (m) { const d = m.iframe.contentDocument; const rows = [...d.querySelectorAll('.pm-row')]; const cs = (x) => getComputedStyle(x);
+        const m = get('Buttons, all states'); if (m) { const d = m.iframe.contentDocument; const rows = [...d.querySelectorAll('.pm-row')]; const cs = (x) => getComputedStyle(x);
           const b = [...rows[0].querySelectorAll('button')];
           out.rest = cs(b[0]).backgroundColor; out.hover = cs(b[1]).backgroundColor; out.focus = cs(b[2]).outlineWidth + ' ' + cs(b[2]).outlineStyle; out.pressed = cs(b[3]).backgroundColor; out.disabled = cs(b[4]).opacity; out.h = b[0].getBoundingClientRect().height; out.edge = cs(b[0]).borderTopColor;
           out.small = rows[6].querySelector('button').getBoundingClientRect().height;
           const ic = rows[12].querySelector('button').getBoundingClientRect(); out.iconW = ic.width; out.iconH = ic.height;
-          const st = rows[0].querySelector('button[aria-busy]'); out.busy = !!st; }
+          const st = rows[0].querySelector('button[aria-busy]'); out.busy = !!st; out.frameMode = d.documentElement.dataset.themeMode; out.frameBg = cs(d.body).backgroundColor; out.pageMode = document.documentElement.dataset.themeMode; out.count = F.filter((f) => /^Buttons, all states/.test(f.iframe.title)).length; window.__ds.setMode(out.pageMode === 'dark' ? 'light' : 'dark'); await new Promise((r) => setTimeout(r, 500)); out.flipBg = cs(d.body).backgroundColor; out.flipBtn = cs(b[0]).backgroundColor; window.__ds.setMode(out.pageMode); }
         return JSON.stringify(out); })()`));
       if (probe.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
       if (probe.undecidedLinks) problems.push(`${where}: a not-yet-decided family has a link`);
@@ -222,6 +222,8 @@ async function browse(cdp, label, url, scenarios, shots) {
       if (probe.pressed === probe.rest) problems.push(`${where}: the forced pressed state does not change the fill (${probe.pressed})`);
       if (!/^2px solid/.test(probe.focus || '')) problems.push(`${where}: the forced focus state shows no 2px ring (${probe.focus})`);
       if (probe.disabled !== '0.5') problems.push(`${where}: the proposed disabled state is not half strength (${probe.disabled})`);
+      if (probe.count !== 1 || probe.frameMode !== probe.pageMode) problems.push(`${where}: the example frame must be one, in the page's mode (${probe.count} frames, ${probe.frameMode} / ${probe.pageMode})`);
+      if (probe.flipBg === probe.frameBg || probe.flipBtn === probe.rest) problems.push(`${where}: the Dark and Light switch does not change the examples`);
       const want = sc.width < 500 ? 44 : 38;
       if (Math.abs(probe.h - want) > 0.6) problems.push(`${where}: the proposed default button is ${probe.h}px, expected ${want}`);
       if (Math.abs(probe.iconW - want) > 0.6 || Math.abs(probe.iconH - want) > 0.6) problems.push(`${where}: the proposed icon-only button is ${probe.iconW} by ${probe.iconH}px, expected ${want} square`);

@@ -147,7 +147,7 @@ ${tbl(['Size', 'Class', 'Height', 'Use it for'], [
 <p class="ds-desc">Replaces <code>.btn-small</code> (about 29px), the 28px more button, the 30px icon button, the 32px editor close and the 26px toolbar button. Icon-only buttons are square at both heights.</p>
 
 <h4 class="ds-h4" id="buttons-states">States</h4>
-<p class="ds-desc">Every role, in every state, forced from the proposed rules: Rest, Hover, Focus, Pressed, Disabled (half strength, no pointer), Loading (<code>aria-busy="true"</code> with a spinning icon). Selected is a role, so it has all of them too. Light and dark are drawn side by side; the width control above also applies.</p>
+<p class="ds-desc">Every role, in every state, forced from the proposed rules: Rest, Hover, Focus, Pressed, Disabled (half strength, no pointer), Loading (<code>aria-busy="true"</code> with a spinning icon). Selected is a role, so it has all of them too. The Dark and Light switch above changes every example, and so does the width control.</p>
 <div data-slot="matrix"></div>
 
 <h4 class="ds-h4" id="buttons-call">Round buttons</h4>
@@ -205,16 +205,8 @@ ${code(`<!-- text button: Secondary is the default; add one role class, and .btn
     const slot = (n) => block.querySelector(`[data-slot="${n}"]`);
     const zoom = api.makeFrame('app', ZOOM, { height: 150, proposed: true, title: 'Anatomy sample', css: PM_CSS });
     slot('zoom').appendChild(zoom);
-    for (const m of ['light', 'dark']) {
-      slot('call').appendChild(mk('p', 'ds-ctx', `${m === 'light' ? 'Light' : 'Dark'} (fixed)`));
-      slot('call').appendChild(api.makeFrame('app', rbBody(), { pin: m, proposed: true, title: `Round buttons, ${m}`, css: PM_CSS }));
-    }
-    const mats = mk('div', '');
-    for (const m of ['light', 'dark']) {
-      mats.appendChild(mk('p', 'ds-ctx', `${m === 'light' ? 'Light' : 'Dark'} (fixed)`));
-      mats.appendChild(api.makeFrame('app', matrixBody(), { pin: m, proposed: true, title: `Buttons, all states, ${m}`, css: PM_CSS }));
-    }
-    slot('matrix').appendChild(mats);
+    slot('call').appendChild(api.makeFrame('app', rbBody(), { proposed: true, title: 'Round buttons', css: PM_CSS }));
+    slot('matrix').appendChild(api.makeFrame('app', matrixBody(), { proposed: true, title: 'Buttons, all states', css: PM_CSS }));
     const ws = mk('div', '');
     for (const w of [390, 700, 1280]) {
       ws.appendChild(mk('p', 'ds-ctx', `${w} wide (fixed)`));

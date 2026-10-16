@@ -113,14 +113,19 @@ body { margin: 0; min-height: 100vh; font-size: 14px; line-height: 1.45; }
   .ds-nav.open { transform: none; }
   .ds-main { padding: 16px 12px 60px; }
   .ds-top { padding: 8px 12px; }
-  html { scroll-padding-top: 12px; }
+  html { scroll-padding-top: 110px; }
   .ds-tools { flex: 1 1 100%; margin-left: 0; }
   .ds-search { max-width: none; }
 }
 @media (max-width: 640px) {
-  .ds-top { position: static; }
+  html { scroll-padding-top: 180px; }
   .ds-title { font-size: 16px; }
-  .ds-search { flex-basis: 100%; }
+  /* Phone: the header stays on top and stays short. Row 1 is the menu, the title and the link to the other page; the search is row 2;
+     Dark/Light and the width group are row 3. */
+  .ds-tools { display: contents; }
+  .ds-tools #ds-other { order: 1; margin-left: auto; }
+  .ds-search { flex-basis: 100%; order: 5; max-width: none; }
+  .ds-tools .tb-tabs { order: 6; }
   .ds-search input { height: 44px; font-size: 16px; }
   .ds-menu-btn, .ds-tools .tb-tab, .ds-tools .btn { min-height: 44px; }
 }

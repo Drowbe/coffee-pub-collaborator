@@ -9,6 +9,8 @@
  *                                                    the product uses and their SVGs), which the page itself reads when it is
  *                                                    served by the app; the snapshot always rebuilds it
  *
+ *   TODAY_URL=https://... PROPOSED_URL=https://...   (optional) the hosted copies' addresses: the cross-link in each page then points there
+ *                                                    and opens in a new tab (the proposed page links to TODAY_URL, today's to PROPOSED_URL)
  *   PAGE=proposed OUT=/tmp/ds-proposed node tools/design-system-snapshot.mjs
  *                                                    builds the proposed system page instead (public/design-system/proposed.html, written
  *                                                    as the folder's index.html): index.html, style.css, theme.css, fa/, ds.css,
@@ -133,6 +135,14 @@ export function buildSnapshot(out, page = 'today') {
   // The page, paths made relative.
   let html = fs.readFileSync(path.join(DS, page === 'proposed' ? 'proposed.html' : 'index.html'), 'utf8');
   html = html.replace('href="/fa/css/all.min.css"', 'href="fa/css/all.min.css"').replace('href="/style.css"', 'href="style.css"').replace('href="/theme.css"', 'href="theme.css"');
+  // The review copies are hosted inside a frame, where a relative link goes nowhere: TODAY_URL and PROPOSED_URL, when set, make the
+  // cross-link (#ds-other) an absolute link that opens in a new tab. In the product it stays relative.
+  const other = page === 'proposed' ? process.env.TODAY_URL : process.env.PROPOSED_URL;
+  if (other) {
+    if (!/^https:\/\/[^\s"<>]+$/.test(other)) throw new Error('TODAY_URL and PROPOSED_URL must be https URLs');
+    html = html.replace(/(<a class="btn btn-small") href="[^"]*"( id="ds-other")/, `$1 href="${other}" target="_blank" rel="noopener"$2`);
+    if (!html.includes(`href="${other}"`)) throw new Error('the cross-link (#ds-other) was not found in the page');
+  }
   fs.writeFileSync(path.join(out, 'index.html'), html);
   const keep = page === 'proposed' ? /^(ds\.css|proposed\.(js|css))$/ : /^(ds\.css|ds\.js|components[-0-9]*\.js)$/;
   for (const f of fs.readdirSync(DS)) if (keep.test(f)) copy(path.join(DS, f), path.join(out, f));

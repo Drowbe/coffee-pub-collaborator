@@ -19,6 +19,7 @@ import os from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
 import vm from 'node:vm';
+import zlib from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildSnapshot, buildSources } from './design-system-snapshot.mjs';
@@ -209,17 +210,26 @@ async function browse(cdp, label, url, scenarios, shots) {
       const probe = JSON.parse(await ev(`(async () => { const F = window.__ds.frames; const get = (t) => F.find((f) => f.iframe.title === t); const out = {};
         out.today = typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined';
         out.undecidedLinks = document.querySelectorAll('.ds-undecided a').length;
-        const m = get('Buttons, all states'); if (m) { const d = m.iframe.contentDocument; const rows = [...d.querySelectorAll('.pm-row')]; const cs = (x) => getComputedStyle(x);
+        const m = get('Buttons, all states'); if (m) { const d = m.iframe.contentDocument; for (const t of d.querySelectorAll('.pm-row button')) for (const c of t.childNodes) if (c.nodeType === 3) c.textContent = c.textContent.replace(/g/g, 'o'); const rows = [...d.querySelectorAll('.pm-row')]; const cs = (x) => getComputedStyle(x);
           const b = [...rows[0].querySelectorAll('button')];
           out.rest = cs(b[0]).backgroundColor; out.hover = cs(b[1]).backgroundColor; out.focus = cs(b[2]).outlineWidth + ' ' + cs(b[2]).outlineStyle; out.pressed = cs(b[3]).backgroundColor; out.disabled = cs(b[4]).opacity; out.h = b[0].getBoundingClientRect().height; out.edge = cs(b[0]).borderTopColor;
           out.small = rows[6].querySelector('button').getBoundingClientRect().height;
           const ic = rows[12].querySelector('button').getBoundingClientRect(); out.iconW = ic.width; out.iconH = ic.height;
           const st = rows[0].querySelector('button[aria-busy]'); out.busy = !!st; out.frameMode = d.documentElement.dataset.themeMode; out.frameBg = cs(d.body).backgroundColor; out.pageMode = document.documentElement.dataset.themeMode; out.count = F.filter((f) => /^Buttons, all states/.test(f.iframe.title)).length; window.__ds.setMode(out.pageMode === 'dark' ? 'light' : 'dark'); await new Promise((r) => setTimeout(r, 500)); out.flipBg = cs(d.body).backgroundColor; out.flipBtn = cs(b[0]).backgroundColor; window.__ds.setMode(out.pageMode); }
-        out.align = []; if (m) { const d = m.iframe.contentDocument; for (const row of d.querySelectorAll('.pm-row')) { const role = row.querySelector('.pm-role').getBoundingClientRect(); const bs = [...row.querySelectorAll('button')]; const f = bs[0].getBoundingClientRect(); const nm = row.querySelector('.pm-role').textContent;
+        out.align = []; out.targets = []; if (m) { const d = m.iframe.contentDocument; for (const row of d.querySelectorAll('.pm-row')) { const role = row.querySelector('.pm-role').getBoundingClientRect(); const bs = [...row.querySelectorAll('button')]; const f = bs[0].getBoundingClientRect(); const nm = row.querySelector('.pm-role').textContent;
             if (role.right <= f.left) { const dl = Math.abs((role.top + role.height / 2) - (f.top + f.height / 2)); if (dl > 1) out.align.push('label ' + nm + ' is ' + dl.toFixed(1) + 'px off its buttons'); }
-            for (const b of bs) { const r = b.getBoundingClientRect(); const rg = d.createRange(); let t = null; const w = d.createTreeWalker(b, NodeFilter.SHOW_TEXT); let n; while ((n = w.nextNode())) if (n.textContent.trim()) t = n; const ink = [...b.querySelectorAll('i')].filter((i) => getComputedStyle(i).display !== 'none'); const parts = []; if (t) { rg.selectNodeContents(t); parts.push(rg.getBoundingClientRect()); } for (const i of ink) parts.push(i.getBoundingClientRect());
-              for (const q of parts) { const dc = Math.abs((q.top + q.height / 2) - (r.top + r.height / 2)); if (dc > 1) out.align.push(nm + ' ' + b.textContent.trim() + ': content ' + dc.toFixed(1) + 'px off centre'); } } } }
+            for (const b of [bs[0]]) { out.targets.push({ n: nm + ' ' + (b.textContent.trim() || b.getAttribute('aria-label')) + ' ' + Math.round(b.getBoundingClientRect().height) }); } } }
         return JSON.stringify(out); })()`));
+      // The ink: the visible letters or icon (not the boxes) must sit within 1px of the middle of the button, the first button of each role and size.
+      for (let k = 0; k < (probe.targets || []).length; k += 1) {
+        const t = probe.targets[k];
+        const at = JSON.parse(await ev(`(() => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Buttons, all states'); const b = m.iframe.contentDocument.querySelectorAll('.pm-row')[${k}].querySelector('button'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + r.left + window.scrollX, y: fr.top + r.top + window.scrollY, w: r.width, h: r.height }); })()`));
+        const shotB = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
+        const c = inkCentre(Buffer.from(shotB.data, 'base64'), 4);
+        if (c === null) problems.push(`${where}: no ink found in ${t.n}`);
+        else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of ${t.n} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its button`);
+      }
+      await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       for (const x of probe.align || []) problems.push(`${where}: ${x}`);
       if (probe.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
       if (probe.undecidedLinks) problems.push(`${where}: a not-yet-decided family has a link`);
@@ -244,6 +254,18 @@ async function browse(cdp, label, url, scenarios, shots) {
   }
   await cdp.send('Target.closeTarget', { targetId });
   return { problems, last: last && JSON.parse(last) };
+}
+
+// Ink position: the vertical middle of the pixels that differ from the button's own fill, against the middle of the button (px, positive is low).
+function inkCentre(buf, scale) {
+  let o = 8; let w; let h; let ct; const idat = [];
+  while (o < buf.length) { const l = buf.readUInt32BE(o); const t = buf.toString('ascii', o + 4, o + 8); const d = buf.subarray(o + 8, o + 8 + l); if (t === 'IHDR') { w = d.readUInt32BE(0); h = d.readUInt32BE(4); ct = d[9]; } if (t === 'IDAT') idat.push(d); o += 12 + l; }
+  const bpp = ct === 6 ? 4 : 3; const raw = zlib.inflateSync(Buffer.concat(idat)); const st = w * bpp; const px = Buffer.alloc(h * st);
+  for (let y = 0; y < h; y += 1) { const f = raw[y * (st + 1)]; for (let x = 0; x < st; x += 1) { const v = raw[y * (st + 1) + 1 + x]; const a = x >= bpp ? px[y * st + x - bpp] : 0; const b = y ? px[(y - 1) * st + x] : 0; const c = x >= bpp && y ? px[(y - 1) * st + x - bpp] : 0; let r = v; if (f === 1) r += a; else if (f === 2) r += b; else if (f === 3) r += (a + b) >> 1; else if (f === 4) { const p = a + b - c; const pa = Math.abs(p - a); const pb = Math.abs(p - b); const pc = Math.abs(p - c); r += (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c; } px[y * st + x] = r & 255; } }
+  const g = (x, y) => [0, 1, 2].map((i) => px[(y * w + x) * bpp + i]);
+  const bg = g(5 * scale > w ? 1 : 5, Math.floor(h / 2)); let top = -1; let bot = -1; const m = 3 * scale / 2;
+  for (let y = Math.ceil(m); y < h - m; y += 1) for (let x = Math.ceil(m * 1.5); x < w - m * 1.5; x += 1) { const p = g(x, y); if (Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) > 90) { if (top < 0) top = y; bot = y; } }
+  return top < 0 ? null : ((top + bot + 1) / 2 - h / 2) / scale;
 }
 
 let browserNote = ''; let browserNote2 = '';

@@ -72,26 +72,39 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     <div class="pm-card"><form class="sdk-form" style="flex:1 1 260px" onsubmit="return false"><div class="sdk-field sdk-full"><span class="sdk-label">Name</span><div class="sdk-group"><input type="text" value="Louvre" aria-label="Name"><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar">${fa('calendar')}</button><button type="button" class="sdk-btn primary">Find</button></div></div></form></div>
   </div>`);
 
-  // ---- the call controls: kept as circles, drawn with the product's own .fbtn rules ----
-  const CALL_STATES = [
+  // ---- the round buttons: a general component, kept as circles, drawn with the product's own .fbtn rules ----
+  const RB_STATES = [
     { n: 'Rest' }, { n: 'Hover', cls: 'ds-force-hover' }, { n: 'Focus', cls: 'ds-force-focus' }, { n: 'Pressed', cls: 'ds-force-active' },
     { n: 'On', cls: 'on' }, { n: 'Off', cls: 'off' }, { n: 'Loading', cls: 'loading' }, { n: 'Disabled', attrs: ' disabled' },
   ];
-  const callBtn = (s, label, icon, extra) => `<button type="button" class="fbtn action-btn${extra ? ' ' + extra : ''}${s.cls ? ' ' + s.cls : ''}" aria-label="${label}" title="${label}"${s.attrs || ''}><span class="glyph">${fa(icon, 'fa-fw icon-on')}${fa(icon + '-slash', 'fa-fw icon-off')}${fa('spinner', 'fa-fw fa-spin icon-loading')}</span></button>`;
-  const CALL_SIZES = [
+  // icon is shown when on or at rest; off is the icon shown in the Off state (a toggle has one, a plain action does not).
+  const rbBtn = (s, label, icon, off, extra) => `<button type="button" class="fbtn action-btn${extra ? ' ' + extra : ''}${s.cls ? ' ' + s.cls : ''}" aria-label="${label}" title="${label}"${s.attrs || ''}><span class="glyph">${fa(icon, 'fa-fw icon-on')}${fa(off || icon, 'fa-fw icon-off')}${fa('spinner', 'fa-fw fa-spin icon-loading')}</span></button>`;
+  const RB_SIZES = [
     { n: 'Default, 38px (40px on a phone)', v: '' },
     { n: 'Compact, 34px', v: '34px' },
     { n: 'Tiny, 30px', v: '30px' },
   ];
-  const callBody = () => P(
-    CALL_SIZES.map((z) => `<p class="pm-h">${z.n}</p><div class="dsf-states"${z.v ? ` style="--action-btn-h:${z.v}"` : ''}>${CALL_STATES.map((s) => `<div class="dsf-state"><small>${s.n}</small><div class="dsf-ex">${callBtn(s, 'Microphone', 'microphone')}</div></div>`).join('')}</div>`).join('')
-    + `<p class="pm-h">End call and dial back in</p><div class="dsf-states">${[
-      { n: 'End call', html: callBtn({}, 'Leave the call', 'phone', 'danger') },
-      { n: 'End call, hover', html: callBtn({ cls: 'ds-force-hover' }, 'Leave the call', 'phone', 'danger') },
-      { n: 'End call, pressed', html: callBtn({ cls: 'ds-force-active' }, 'Leave the call', 'phone', 'danger') },
-      { n: 'Dial back in', html: callBtn({}, 'Join the call', 'phone', 'dial') },
-      { n: 'With a settings caret', html: `<div class="fbtn-wrap">${callBtn({}, 'Microphone', 'microphone')}<button class="fbtn-caret" type="button" aria-label="Microphone settings">${fa('chevron-down')}</button></div>` },
-    ].map((c) => `<div class="dsf-state"><small>${c.n}</small><div class="dsf-ex">${c.html}</div></div>`).join('')}</div>`);
+  const row = (cells) => `<div class="dsf-states">${cells.map((c) => `<div class="dsf-state"><small>${c.n}</small><div class="dsf-ex">${c.html}</div></div>`).join('')}</div>`;
+  const rbBody = () => P(
+    RB_SIZES.map((z) => `<p class="pm-h">${z.n}</p><div class="dsf-states"${z.v ? ` style="--action-btn-h:${z.v}"` : ''}>${RB_STATES.map((s) => `<div class="dsf-state"><small>${s.n}</small><div class="dsf-ex">${rbBtn(s, 'Notifications', 'bell', 'bell-slash')}</div></div>`).join('')}</div>`).join('')
+    + `<p class="pm-h">Any icon: toggles and actions</p>` + row([
+      { n: 'Play, rest', html: rbBtn({}, 'Play', 'play', 'pause') },
+      { n: 'Play, on', html: rbBtn({ cls: 'on' }, 'Pause', 'play', 'pause') },
+      { n: 'Bookmark', html: rbBtn({}, 'Bookmark', 'bookmark') },
+      { n: 'Star, on', html: rbBtn({ cls: 'on' }, 'Star', 'star') },
+      { n: 'Add', html: rbBtn({}, 'Add', 'plus') },
+      { n: 'Delete, danger', html: rbBtn({}, 'Delete', 'trash', '', 'danger') },
+      { n: 'Confirm, ok', html: rbBtn({}, 'Done', 'check', '', 'dial') },
+      { n: 'With a caret', html: `<div class="fbtn-wrap">${rbBtn({}, 'Volume', 'volume-high', 'volume-xmark')}<button class="fbtn-caret" type="button" aria-label="Volume settings">${fa('chevron-down')}</button></div>` },
+    ])
+    + `<p class="pm-h">In a call: mic, camera, end call</p>` + row([
+      { n: 'Microphone, on', html: rbBtn({ cls: 'on' }, 'Microphone', 'microphone', 'microphone-slash') },
+      { n: 'Microphone, off', html: rbBtn({ cls: 'off' }, 'Microphone', 'microphone', 'microphone-slash') },
+      { n: 'Camera, on', html: rbBtn({ cls: 'on' }, 'Camera', 'video', 'video-slash') },
+      { n: 'Camera, off', html: rbBtn({ cls: 'off' }, 'Camera', 'video', 'video-slash') },
+      { n: 'End call', html: rbBtn({}, 'Leave the call', 'phone', '', 'danger') },
+      { n: 'Dial back in', html: rbBtn({}, 'Join the call', 'phone', '', 'dial') },
+    ]));
 
   const ZOOM = P(`<div class="pm-zoom"><button type="button" class="btn">${fa('pen')} Edit</button><button type="button" class="sdk-icon-btn" aria-label="Add">${fa('plus')}</button></div>`);
 
@@ -101,9 +114,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="buttons-h"><a href="#buttons">Buttons</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">text buttons, icon-only buttons and the call's round controls, one component</span></header>
+    block.innerHTML = `<header><h3 id="buttons-h"><a href="#buttons">Buttons</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">text buttons, icon-only buttons and round icon buttons, one component</span></header>
 <p class="ds-desc">Thomas's decisions of 2026-10-15, drawn from <code>proposed.css</code> (every rule under <code>.ds-proposed</code>). Four roles, two sizes, one icon-only button, every state. What exists today is on its own page, <a href="index.html#buttons">Today's inventory</a>.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#buttons-anatomy">Anatomy</a><a href="#buttons-roles">Roles</a><a href="#buttons-sizes">Sizes</a><a href="#buttons-states">States</a><a href="#buttons-call">Call controls</a><a href="#buttons-widths">Widths</a><a href="#buttons-rules">Usage rules</a><a href="#buttons-tokens">Tokens</a><a href="#buttons-markup">Markup</a></nav>
+<nav class="ds-toc" aria-label="In this family"><a href="#buttons-anatomy">Anatomy</a><a href="#buttons-roles">Roles</a><a href="#buttons-sizes">Sizes</a><a href="#buttons-states">States</a><a href="#buttons-call">Round buttons</a><a href="#buttons-widths">Widths</a><a href="#buttons-rules">Usage rules</a><a href="#buttons-tokens">Tokens</a><a href="#buttons-markup">Markup</a></nav>
 
 <h4 class="ds-h4" id="buttons-anatomy">Anatomy</h4>
 <div data-slot="zoom"></div>
@@ -137,8 +150,8 @@ ${tbl(['Size', 'Class', 'Height', 'Use it for'], [
 <p class="ds-desc">Every role, in every state, forced from the proposed rules: Rest, Hover, Focus, Pressed, Disabled (half strength, no pointer), Loading (<code>aria-busy="true"</code> with a spinning icon). Selected is a role, so it has all of them too. Light and dark are drawn side by side; the width control above also applies.</p>
 <div data-slot="matrix"></div>
 
-<h4 class="ds-h4" id="buttons-call">Call controls</h4>
-<p class="ds-desc">The round controls on the call toolbar (video, microphone, what you hear, share, away, end call) are part of Buttons and are kept. <b>Kept as circles, unchanged shape; restyled only through tokens.</b> They keep <code>--radius-round</code>, the toolbar's own sizes (38px, 34px compact, 30px tiny; 40px on a phone) and their states: On is the accent fill, Off is calm with the slashed icon, Loading shows a spinner, End call is the one solid red (<code>--danger</code>, <code>--on-danger</code>), Dial back in is <code>--ok</code>. They are drawn here with the product's own rules; their colours are theme tokens, and the proposed button rules do not reach them.</p>
+<h4 class="ds-h4" id="buttons-call">Round buttons</h4>
+<p class="ds-desc">The round icon button, for any toggle or action: play, bookmark, star, add, mute, camera. <b>A circle, <code>.fbtn</code>, restyled only through tokens.</b> It keeps <code>--radius-round</code> and its own sizes: 38px (40px on a phone), 34px compact and 30px tiny. Roles: On is the accent fill, Off is calm and shows the toggle's other icon, Danger is the one solid red (<code>--danger</code>, <code>--on-danger</code>) and Ok is <code>--ok</code>. Rest, hover, focus, pressed, loading (a spinner) and disabled are shown below. Wherever round buttons sit side by side, use the same gap as any other button row (8px). Icon-only: it needs an <code>aria-label</code> and a <code>title</code>. The call bar is one use of it, shown last. They are drawn here with the product's own rules; their colours are theme tokens, and the proposed button rules do not reach them.</p>
 <div data-slot="call"></div>
 
 <h4 class="ds-h4" id="buttons-widths">Widths</h4>
@@ -154,7 +167,7 @@ ${tbl(['Size', 'Class', 'Height', 'Use it for'], [
   <li>Minimum target 44px on a phone: the default size, or a small button with its grown hit area. Keep 8px between buttons.</li>
   <li>The label is a verb in sentence case (Save, Add a day), and the names in CLAUDE.md.</li>
   <li>State and kind are shown by fill and text colour. Never a coloured border, outline or stripe.</li>
-  <li>The call's controls (<code>.fbtn</code>) are part of this component and stay circles; only their colours come from tokens.</li>
+  <li>Round buttons (<code>.fbtn</code>) are part of this component and stay circles; only their colours come from tokens.</li>
 </ul>
 
 <h4 class="ds-h4" id="buttons-tokens">Tokens</h4>
@@ -194,7 +207,7 @@ ${code(`<!-- text button: Secondary is the default; add one role class, and .btn
     slot('zoom').appendChild(zoom);
     for (const m of ['light', 'dark']) {
       slot('call').appendChild(mk('p', 'ds-ctx', `${m === 'light' ? 'Light' : 'Dark'} (fixed)`));
-      slot('call').appendChild(api.makeFrame('app', callBody(), { pin: m, proposed: true, title: `Call controls, ${m}`, css: PM_CSS }));
+      slot('call').appendChild(api.makeFrame('app', rbBody(), { pin: m, proposed: true, title: `Round buttons, ${m}`, css: PM_CSS }));
     }
     const mats = mk('div', '');
     for (const m of ['light', 'dark']) {
@@ -218,13 +231,13 @@ ${code(`<!-- text button: Secondary is the default; add one role class, and .btn
     { group: 'Navigation', names: ['Tabs, view switches and segmented rows', 'Menus and flyouts', 'Popovers and sheets'] },
     { group: 'Containers', names: ['Cards, panels and rows', 'Home cards and the ghost slot', 'Tables and lists in Manage', 'Progress bars and meters', 'Module window: title, toolbar and status'] },
     { group: 'Feedback', names: ['Banners, notices and toasts', 'Empty, loading and error states'] },
-    { group: 'Content', names: ['Chips, badges, pills and counts', 'Messages, chat and AI cards', 'Avatars and portraits', 'Status strip, phases and countdown', 'Day cards, calendar cells and markers', 'Map pins and map UI', 'Call controls'] },
+    { group: 'Content', names: ['Chips, badges, pills and counts', 'Messages, chat and AI cards', 'Avatars and portraits', 'Status strip, phases and countdown', 'Day cards, calendar cells and markers', 'Map pins and map UI', 'Round buttons'] },
     { group: 'Other', names: ['Tokens', 'Icons', 'Live SDK pieces'] },
   ];
 
   window.DS_PROPOSED.families.push({
     id: 'buttons', covers: ['buttons', 'icon-buttons'], group: 'Controls', name: 'Buttons', status: 'approved',
-    words: 'button icon-only icon buttons primary secondary danger quiet small call controls round circle video microphone end call fbtn', render,
+    words: 'button icon-only icon buttons primary secondary danger quiet small round buttons circle icon toggle play bookmark star microphone video call fbtn', render,
   });
 })();
 

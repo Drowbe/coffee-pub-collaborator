@@ -4,9 +4,11 @@
 window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 (() => {
   const PM_CSS = `
-.pm-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 4px 14px; align-items: center; padding: 8px 0; }
+.pm-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 4px 14px; align-items: start; padding: 8px 0; }
+.pm-row.pm-small { --pm-h: var(--btn-h-small, 30px); }
 .pm-row + .pm-row { border-top: 1px solid var(--border); }
-.pm-role { color: var(--text-dim); font-size: 12px; font-weight: 700; }
+/* The label sits level with the buttons: it starts below the caption (12px line + 5px gap) and is as tall as the button, centred. */
+.pm-role { display: flex; align-items: center; min-height: var(--pm-h, var(--btn-h)); margin-top: 17px; color: var(--text-dim); font-size: 12px; font-weight: 700; line-height: 1.2; }
 .pm-h { margin: 16px 0 2px; font-size: 13px; font-weight: 700; }
 .pm-h:first-child { margin-top: 4px; }
 .pm-sub { margin: 0 0 4px; color: var(--text-dim); font-size: 12px; }
@@ -26,6 +28,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 @media (max-width: 640px) {
   .pm-row { grid-template-columns: minmax(0, 1fr); }
+  .pm-role { min-height: 0; margin-top: 0; }
   .pm-map { grid-template-columns: minmax(0, 1fr); }
 }`;
 
@@ -57,7 +60,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   function matrix(kind, size) {
     const roles = kind === 'text' ? TEXT_ROLES : ICON_ROLES;
     const make = kind === 'text' ? textBtn : iconBtn;
-    return roles.map((r) => `<div class="pm-row"><div class="pm-role">${r.n}</div><div class="dsf-states">${STATES.map((s) => `<div class="dsf-state"><small>${s.n}</small><div class="dsf-ex">${make(r, s, size)}</div></div>`).join('')}</div></div>`).join('');
+    return roles.map((r) => `<div class="pm-row${size ? ' pm-small' : ''}"><div class="pm-role">${r.n}</div><div class="dsf-states">${STATES.map((s) => `<div class="dsf-state"><small>${s.n}</small><div class="dsf-ex">${make(r, s, size)}</div></div>`).join('')}</div></div>`).join('');
   }
   const matrixBody = () => P(
     `<p class="pm-h">Text buttons, default size</p><p class="pm-sub">38px; 44px when the frame is 640px or narrower.</p>${matrix('text', false)}`
@@ -268,7 +271,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
 .dsf { padding: 4px 14px 14px; }
 .dsf-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
 .dsf-state { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
-.dsf-state > small { color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.dsf-state > small { line-height: 12px; height: 12px; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
 .dsf-ex { min-width: 0; max-width: 100%; }
 `;
   let mode = 'dark';

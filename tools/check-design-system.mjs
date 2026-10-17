@@ -12,6 +12,9 @@
  * show, a disabled button not at half strength, or a button not 38px (44px at 390; small 30px; an icon-only button square). Warns (never fails) on: a class in an example that is in none of
  * the stylesheets of that example's context, and a sources.js older than the module stylesheets.
  * Browser: CHROME_PATH, else a Playwright or system Chromium; with none, the browser part says SKIPPED (not a pass).
+ * The Fields and forms family (proposed.js, proposed.css): every field one-line 38px (44px at 390, and in the 44px grid), the focus a 2px ring and the accent edge, the
+ * placeholder the --text-dim colour, hover a fill, disabled half strength with a not-allowed cursor, error the danger edge, a tick box 16px and a switch 36 by 20,
+ * the text of a filled field within 1px of the middle of its box (4x ink, in Figtree and in its fallback face); the only coloured edges are a focus and an error.
  * Options: SHOTS=<folder> saves the screenshots.
  */
 import fs from 'node:fs';
@@ -100,7 +103,12 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   for (const m of css.matchAll(/(border(?:-[a-z]+)*)\s*:\s*([^;}]+)/g)) {
     const name = m[1]; const v = m[2].trim();
     if (/radius/.test(name)) { if (!/^var\(--radius-(min|small|medium|large|round)\)$/.test(v)) fail(`proposed.css: ${name}: ${v} is not a radius token`); continue; }
-    if (/(#[0-9a-f]{3,8}\b|rgb|hsl|color-mix|--accent|--danger|--ok|--tint)/i.test(v)) fail(`proposed.css: a coloured border: ${name}: ${v}`);
+    if (/(#[0-9a-f]{3,8}\b|rgb|hsl|color-mix|--accent|--danger|--ok|--tint)/i.test(v)) {
+      // A field's focus and error are states that colour the whole edge (Thomas, 2026-10-17); a side of an edge (a strip) is never allowed.
+      const before = css.slice(0, m.index); const sel = before.slice(Math.max(before.lastIndexOf('}'), 0), before.lastIndexOf('{'));
+      if (name === 'border-color' && /(:focus|aria-invalid)/.test(sel)) continue;
+      fail(`proposed.css: a coloured border: ${name}: ${v}`);
+    }
   }
   if (/\b(box-shadow|outline)\s*:[^;]*(var\(--(accent|danger)|color-mix)/i.test(css.replace(/outline:\s*2px solid var\(--accent\)/g, ''))) fail('proposed.css: a ring or shadow in a colour (only the focus ring is allowed)');
   const defined = new Set([...css.matchAll(/\.([A-Za-z][\w-]*)/g)].map((x) => x[1]));
@@ -113,7 +121,7 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   const NOT_MINE = /^(fa-|pm-|dsf|ds-(?!proposed$)|nav-text)/;
   const missing = [...used].filter((c) => !NOT_MINE.test(c) && !defined.has(c));
   // Classes of today's mapping markup that the proposal does not style (a layout wrapper, a call button): listed in the file by name.
-  const TODAY_ONLY = new Set(['fbtn', 'fbtn-wrap', 'fbtn-caret', 'glyph', 'off', 'loading', 'dial', 'danger', 'icon-on', 'icon-off', 'icon-loading', 'sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group',
+  const TODAY_ONLY = new Set(['fbtn', 'fbtn-wrap', 'fbtn-caret', 'glyph', 'off', 'loading', 'dial', 'danger', 'icon-on', 'icon-off', 'icon-loading', 'sdk-form', 'sdk-field', 'sdk-full', 'sdk-label', 'sdk-group', 'sdk-row', 'sdk-s', 'sdk-m', 'sdk-l', 'sdk-unit', 'sdk-checks', 'sdk-section', 'sdk-section-title',
     // The Headline mock-ups draw the product's own markup from style.css (a Home card, the module page's title, a docked title bar); the proposal styles none of it but the font.
     'space-list-head', 'space-list-title', 'space-list', 'space-choice', 'space-choice-head', 'space-choice-name', 'space-choice-count', 'space-choice-desc', 'space-choice-actions', 'members', 'hint', 'panel', 'module-config', 'module-head', 'module-icon', 'grow', 'pill', 'mod-header', 'mod-title', 'topbar', 'nav-left', 'brand-home', 'brand-logo', 'brand-name', 'space-switcher', 'space-switcher-button', 'crumb-label']);
   for (const c of missing) if (!TODAY_ONLY.has(c) && !own.has(c)) fail(`proposed.js uses .${c} and proposed.css does not define it`);
@@ -273,6 +281,25 @@ async function browse(cdp, label, url, scenarios, shots) {
       }
       await ev('window.__ds.setHeadline("archivo")');
       await ev('window.__ds.setFont("figtree")');
+      // The Fields and forms family.
+      { const fp = JSON.parse(await ev(`(${fieldProbe.toString()})()`)); for (const x of fp.problems) problems.push(`${where}: ${x}`);
+        if (!/^(3px|5px|7px|11px|999px)/.test(fp.radius0 || '')) problems.push(`${where}: the field radius is not a token value (${fp.radius0})`);
+        // The ink of a filled field, in Figtree and in its fallback face: within 1px of the middle of the box, one-line fields only.
+        for (const face of ['figtree', 'fallback']) {
+          await ev(`(() => { for (const t of ['Fields, all states', 'Fields, all states, 44px']) { const d = window.__ds.frames.find((f) => f.iframe.title === t).iframe.contentDocument; let st = d.getElementById('ds-face'); if (!st) { st = d.createElement('style'); st.id = 'ds-face'; d.head.appendChild(st); } st.textContent = ${JSON.stringify(face === 'fallback' ? '.ds-proposed input, .ds-proposed select { font-family: "Figtree Fallback", Arial, sans-serif !important; }' : '')}; } })()`);
+          await new Promise((r) => setTimeout(r, 400));
+          for (const [title, rowsToDo] of [['Fields, all states', [[0, 'text'], [2, 'list'], [3, 'number'], [5, 'time'], [6, 'search']]], ['Fields, all states, 44px', [[0, 'text'], [3, 'number']]]]) {
+            for (const [r, nm] of rowsToDo) {
+              const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelectorAll('.pm-row')[${r}].querySelectorAll('.dsf-state')[3].querySelector('input,select'); el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); const b = el.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
+              const shotF = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
+              const c = inkCentre(Buffer.from(shotF.data, 'base64'), 4, 10); // a field has a 1px edge and rounded corners: look 2.5px in
+              if (c === null) problems.push(`${where}: no ink found in the filled ${nm} field (${title}, ${face})`);
+              else if (Math.abs(c) > 1.01) problems.push(`${where}: the text of the filled ${nm} field is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its box (${title}, ${face})`);
+            }
+          }
+        }
+        await ev(`(() => { for (const f of window.__ds.frames) { const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
+      }
       await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       for (const x of probe.align || []) problems.push(`${where}: ${x}`);
       if (probe.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
@@ -301,16 +328,68 @@ async function browse(cdp, label, url, scenarios, shots) {
 }
 
 // Ink position: the vertical middle of the pixels that differ from the button's own fill, against the middle of the button (px, positive is low).
-function inkCentre(buf, scale) {
+function inkCentre(buf, scale, inset) {
   let o = 8; let w; let h; let ct; const idat = [];
   while (o < buf.length) { const l = buf.readUInt32BE(o); const t = buf.toString('ascii', o + 4, o + 8); const d = buf.subarray(o + 8, o + 8 + l); if (t === 'IHDR') { w = d.readUInt32BE(0); h = d.readUInt32BE(4); ct = d[9]; } if (t === 'IDAT') idat.push(d); o += 12 + l; }
   const bpp = ct === 6 ? 4 : 3; const raw = zlib.inflateSync(Buffer.concat(idat)); const st = w * bpp; const px = Buffer.alloc(h * st);
   for (let y = 0; y < h; y += 1) { const f = raw[y * (st + 1)]; for (let x = 0; x < st; x += 1) { const v = raw[y * (st + 1) + 1 + x]; const a = x >= bpp ? px[y * st + x - bpp] : 0; const b = y ? px[(y - 1) * st + x] : 0; const c = x >= bpp && y ? px[(y - 1) * st + x - bpp] : 0; let r = v; if (f === 1) r += a; else if (f === 2) r += b; else if (f === 3) r += (a + b) >> 1; else if (f === 4) { const p = a + b - c; const pa = Math.abs(p - a); const pb = Math.abs(p - b); const pc = Math.abs(p - c); r += (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c; } px[y * st + x] = r & 255; } }
   const g = (x, y) => [0, 1, 2].map((i) => px[(y * w + x) * bpp + i]);
-  const bg = g(5 * scale > w ? 1 : 5, Math.floor(h / 2)); let top = -1; let bot = -1; const m = 3 * scale / 2;
+  const bg = g(5 * scale > w ? 1 : 5, Math.floor(h / 2)); let top = -1; let bot = -1; const m = inset || 3 * scale / 2;
   for (let y = Math.ceil(m); y < h - m; y += 1) for (let x = Math.ceil(m * 1.5); x < w - m * 1.5; x += 1) { const p = g(x, y); if (Math.abs(p[0] - bg[0]) + Math.abs(p[1] - bg[1]) + Math.abs(p[2] - bg[2]) > 90) { if (top < 0) top = y; bot = y; } }
   return top < 0 ? null : ((top + bot + 1) / 2 - h / 2) / scale;
 }
+
+
+// The Fields and forms family, measured in the page (runs in the browser): sizes, the ring, the placeholder colour, the states, the marks.
+const fieldProbe = async () => {
+  const F = window.__ds.frames; const get = (t) => { const f = F.find((x) => x.iframe.title === t); return f && f.iframe.contentDocument; };
+  const out = { problems: [] }; const bad = (m) => out.problems.push(m);
+  for (const [title, forced] of [['Fields, all states', 0], ['Fields, all states, 44px', 44]]) {
+    const d = get(title); if (!d) { bad(`no frame ${title}`); continue; }
+    const cs = (x, p) => getComputedStyle(x, p); const host = d.querySelector('.ds-proposed');
+    const tok = (n) => { const p = d.createElement('span'); p.style.color = `var(${n})`; host.appendChild(p); const c = cs(p).color; p.remove(); return c; };
+    const rows = [...d.querySelectorAll('.pm-row')]; const cell = (r, s) => rows[r].querySelectorAll('.dsf-state')[s];
+    const want = forced || (d.defaultView.innerWidth <= 640 ? 44 : 38);
+    // heights: text, list, number, date (and its group), time, search, file, colour, slider
+    for (const [r, s, nm] of [[0, 3, 'text'], [2, 3, 'list'], [3, 3, 'number'], [4, 3, 'date'], [5, 3, 'time'], [6, 3, 'search'], [7, 0, 'file'], [8, 0, 'colour'], [9, 0, 'slider']]) {
+      const el = cell(r, s).querySelector('input,select'); const h = el.getBoundingClientRect().height;
+      if (Math.abs(h - want) > 0.6) bad(`${title}: the ${nm} field is ${h}px, expected ${want}`);
+    }
+    const ta = cell(1, 3).querySelector('textarea').getBoundingClientRect().height; if (ta < want * 1.9) bad(`${title}: the text area is only ${ta}px`);
+    const rest = cell(0, 0).querySelector('input'); const hov = cell(0, 1).querySelector('input'); const foc = cell(0, 2).querySelector('input');
+    const dis = cell(0, 5).querySelector('input'); const err = cell(0, 6).querySelector('input'); const ro = cell(0, 7).querySelector('input');
+    if (cs(rest).borderTopColor !== tok('--border') || cs(rest).borderTopWidth !== '1px') bad(`${title}: the rest edge is not the 1px --border hairline (${cs(rest).borderTopWidth} ${cs(rest).borderTopColor})`);
+    if (cs(rest).backgroundColor !== tok('--bg-input')) bad(`${title}: the rest fill is not --bg-input`);
+    if (cs(hov).backgroundColor === cs(rest).backgroundColor) bad(`${title}: the forced hover does not change the fill`);
+    if (cs(hov).borderTopColor !== cs(rest).borderTopColor) bad(`${title}: hover changes the edge colour`);
+    if (cs(foc).borderTopColor !== tok('--accent')) bad(`${title}: the focus edge is not --accent (${cs(foc).borderTopColor})`);
+    if (!/\b2px\b/.test(cs(foc).boxShadow) || cs(foc).boxShadow === 'none') bad(`${title}: the focus shows no 2px ring (${cs(foc).boxShadow})`);
+    if (cs(dis).opacity !== '0.5' || cs(dis).cursor !== 'not-allowed') bad(`${title}: disabled is not half strength with a not-allowed cursor (${cs(dis).opacity}, ${cs(dis).cursor})`);
+    if (cs(err).borderTopColor !== tok('--danger') || err.getAttribute('aria-invalid') !== 'true') bad(`${title}: the error edge is not --danger on an aria-invalid field`);
+    if (!cell(0, 6).querySelector('.sdk-error')) bad(`${title}: the error state has no error line`);
+    if (cs(ro).backgroundColor !== 'rgba(0, 0, 0, 0)') bad(`${title}: read-only is not without a fill`);
+    const dim = tok('--text-dim');
+    for (const [r, nm] of [[0, 'text'], [1, 'text area'], [3, 'number'], [6, 'search']]) { const el = cell(r, 4).querySelector('input,textarea'); if (cs(el, '::placeholder').color !== dim) bad(`${title}: the ${nm} placeholder is ${cs(el, '::placeholder').color}, not --text-dim (${dim})`); }
+    if (cs(rest).fontFamily.indexOf('Figtree') < 0 && window.__ds.stats.fontNow !== 'x') { /* only when a font is chosen */ }
+    out['radius' + forced] = cs(rest).borderTopLeftRadius;
+  }
+  const c = get('Tick box, radio and switch, all states');
+  if (!c) bad('no tick box frame');
+  else {
+    const cs = (x) => getComputedStyle(x); const host = c.querySelector('.ds-proposed');
+    const accent = (() => { const p = c.createElement('span'); p.style.color = 'var(--accent)'; host.appendChild(p); const v = cs(p).color; p.remove(); return v; })();
+    const rows = [...c.querySelectorAll('.pm-row')]; const inp = (r, s) => rows[r].querySelectorAll('.dsf-state')[s].querySelector('input');
+    for (const [r, nm, w, h] of [[0, 'tick box', 16, 16], [1, 'radio', 16, 16], [2, 'switch', 36, 20]]) {
+      const b = inp(r, 0).getBoundingClientRect(); if (Math.abs(b.width - w) > 0.6 || Math.abs(b.height - h) > 0.6) bad(`the ${nm} is ${b.width} by ${b.height}px, expected ${w} by ${h}`);
+      if (cs(inp(r, 3)).backgroundColor !== accent) bad(`the checked ${nm} is not the --accent fill`);
+      if (cs(inp(r, 0)).backgroundColor === cs(inp(r, 3)).backgroundColor) bad(`the ${nm} looks the same on and off`);
+      if (!(/solid/.test(cs(inp(r, 2)).outline) && /\b2px\b/.test(cs(inp(r, 2)).outline))) bad(`the focused ${nm} shows no 2px ring (${cs(inp(r, 2)).outline})`);
+      if (cs(inp(r, 5)).opacity !== '0.5' || cs(inp(r, 5)).cursor !== 'not-allowed') bad(`the disabled ${nm} is not half strength with a not-allowed cursor`);
+    }
+    if (inp(2, 0).getAttribute('role') !== 'switch') bad('the switch has no role="switch"');
+  }
+  return JSON.stringify(out);
+};
 
 let browserNote = ''; let browserNote2 = '';
 const bin = findBrowser();

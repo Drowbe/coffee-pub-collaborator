@@ -129,6 +129,25 @@ Thomas's decisions on the Typography family of the Proposed page (commits f18d7a
 - **Still to decide:** weights and the size scale. Today the product uses 17 pixel sizes and the weights 400, 500, 600, 650, 700 and 800.
 - **Open points:** italics are not bundled. A per-template headline font is a possible later decision, not decided. Fraunces at 17 to 18px is to be checked in context.
 
+### Fields and forms (decided 2026-10-18)
+
+Thomas's decisions on the Fields and forms family of the Proposed page (commit c13beaf and its follow-ups). Each one is his decision, in plain words.
+
+- **Field edge.** A neutral 1px hairline (`--border`) with a `--bg-input` fill. Height 38px, or 44px on a phone. Corners `--radius-small`.
+- **One focus rule.** An accent border with a soft 2px ring. It is drawn so all four sides render equally at any display scale.
+- **Placeholder.** Text in `--text-dim`.
+- **Error.** A danger edge on the field, and an error line below it, marked `aria-invalid`. The error text is the darker mix of `--danger` into `--text`, the same as the Danger button. Reason: today's `--danger-text` fails light-mode contrast at about 2.1 to 1.
+- **Required.** Write "(optional)" in the label of optional fields only. No asterisks.
+- **Choosing.** One 16px tick box and one radio, with the edge in `--text-dim`.
+- **On and off.** One switch component, 36 by 20. The Planner's round-trip tick, which has a switch role, becomes a real switch. The To-do 18px tick becomes 16px.
+- **Search.** One 38px search field with the magnifier inside it. The three search looks in use today fold into it. No compact variant until a real need appears.
+- **Calendar and picker buttons.** Inside the field at the trailing edge, as a small quiet icon button.
+
+Open items:
+
+- The date field's native text is not settled, and Firefox and Safari are untested.
+- Pickers, Choice rows and people chips, and the Editor window are still undecided.
+
 ## (a) The system
 
 Four layers. Each lower layer is used only through the one above it: a module never writes a colour, a size or a shadow, only a component class and its own layout.

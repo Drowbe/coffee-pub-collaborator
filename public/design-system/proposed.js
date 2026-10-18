@@ -526,7 +526,7 @@ ${tbl(['Font', '28px in 56', '22px in 48', '18px in 40', 'Own ascent / descent',
     return block;
   }
 
-  // ---- Fields and forms (PROPOSED): Thomas's decisions of 2026-10-17, drawn from proposed.css ----
+  // ---- Fields and forms (approved 2026-10-18): Thomas's decisions of 2026-10-17, drawn from proposed.css ----
   const FM_CSS = `
 .pm-fw { flex: 0 0 176px; width: 176px; }
 .pm-fwn { flex: 0 0 150px; width: 150px; }
@@ -652,8 +652,8 @@ ${tbl(['Font', '28px in 56', '22px in 48', '18px in 40', 'Own ascent / descent',
     ['Placeholder on a field', '--text-dim', '--bg-input', 4.5],
     ['Label and hint on the page', '--text-dim', '--bg', 4.5],
     ['Label and hint on a panel', '--text-dim', '--bg-section', 4.5],
-    ['Error line, proposed (--danger mixed into --text)', '--f-error', '--bg', 4.5],
-    ['Error line, proposed, on a panel', '--f-error', '--bg-section', 4.5],
+    ['Error line (--danger mixed into --text)', '--f-error', '--bg', 4.5],
+    ['Error line, on a panel', '--f-error', '--bg-section', 4.5],
     ["Error line, today (--danger-text)", '--danger-text', '--bg', 4.5],
     ["Error line, today, on a panel", '--danger-text', '--bg-section', 4.5],
     ['Field edge (--border) on the page', '--border', '--bg', 3],
@@ -694,8 +694,8 @@ ${tbl(['Font', '28px in 56', '22px in 48', '18px in 40', 'Own ascent / descent',
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="fields-h"><a href="#fields">Fields and forms</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">fields, tick boxes, radios, switches, labels and the form that holds them</span></header>
-<p class="ds-desc">Thomas's decisions of 2026-10-17, drawn from <code>proposed.css</code> (every rule under <code>.ds-proposed</code>). One field look, one tick box, radio and switch, one label, hint and error line. The class names are the ones the product already uses (<code>.sdk-form</code>, <code>.sdk-field</code>, <code>.sdk-label</code>, <code>.sdk-hint</code>, <code>.sdk-error</code>, <code>.sdk-group</code>, <code>.sdk-check</code>); the new ones start with <code>sdk-</code>. The Dark and Light switch, the Font and Headline groups and the width control change every example. The Approved chip is not on this family yet: it waits for Thomas.</p>
+    block.innerHTML = `<header><h3 id="fields-h"><a href="#fields">Fields and forms</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">fields, tick boxes, radios, switches, labels and the form that holds them</span></header>
+<p class="ds-desc">Thomas's decisions of 2026-10-17, approved 2026-10-18, drawn from <code>proposed.css</code> (every rule under <code>.ds-proposed</code>). One field look, one tick box, radio and switch, one label, hint and error line. The class names are the ones the product already uses (<code>.sdk-form</code>, <code>.sdk-field</code>, <code>.sdk-label</code>, <code>.sdk-hint</code>, <code>.sdk-error</code>, <code>.sdk-group</code>, <code>.sdk-check</code>); the new ones start with <code>sdk-</code>. The Dark and Light switch, the Font and Headline groups and the width control change every example. <b>Decided 2026-10-18:</b> the error line uses the darker mix (<code>--f-error</code>); <code>(optional)</code> marks only optional fields; the edge stays the neutral hairline; one 38px search; no stepper on a number; the browser's own date and time picker icon is hidden; the tick box is drawn.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#fields-anatomy">Anatomy</a><a href="#fields-kinds">Fields</a><a href="#fields-states">States</a><a href="#fields-choices">Tick box, radio, switch</a><a href="#fields-labels">Label, hint, error</a><a href="#fields-form">A form</a><a href="#fields-widths">Widths</a><a href="#fields-rules">Usage rules</a><a href="#fields-map">Today to proposed</a><a href="#fields-contrast">Contrast</a><a href="#fields-tokens">Tokens</a><a href="#fields-markup">Markup</a></nav>
 
 <h4 class="ds-h4" id="fields-anatomy">Anatomy</h4>
@@ -703,11 +703,11 @@ ${tbl(['Font', '28px in 56', '22px in 48', '18px in 40', 'Own ascent / descent',
 ${dim([
     ['1 Label', 'Above the field. 12px, <code>--text-dim</code>, weight 500, 4px gap (<code>--label-gap</code>). A noun, sentence case. No colon.'],
     ['2 Box', 'Height <code>--field-h</code>: 38px, 44px on a phone (640px and narrower, the same as a button). <code>--radius-small</code> corners. A text area is as tall as three lines.'],
-    ['3 Edge', '1px <code>--border</code>, the neutral hairline. It changes colour only in two states: focus (accent) and error (danger). Hover never changes it.'],
+    ['3 Edge', '1px <code>--border</code>, the neutral hairline. It is drawn in colour only in two states: focus (accent) and error (danger), as a 2px line over the hairline, the same on all four sides. Hover never changes it.'],
     ['4 Fill', '<code>--bg-input</code>. Hover is a slightly lighter fill. Read-only has no fill.'],
     ['5 Text', '14px (16px on a phone, so iOS does not zoom), <code>--text</code>, centred in the box, padding <code>--field-pad-x</code> (10px). In the UI font.'],
     ['6 Placeholder', '<code>--text-dim</code>, the same in light and dark. It is an example of what to type, never the label.'],
-    ['7 Focus', 'The accent border and a soft 2px ring (<code>--accent</code> at 30%), on every field, by mouse or keyboard. Not a bare outline.'],
+    ['7 Focus', 'A 2px accent edge drawn over the hairline (an inside outline, so the box keeps its size) and a soft 2px ring (<code>--accent</code> at 30%) outside it, on every field, by mouse or keyboard. A 2px edge keeps a whole pixel of colour on all four sides at any display scale (Windows 125% and 150%) and scroll position; a 1px border colour did not.'],
     ['8 Hint or error', 'Under the field: 12px, 4px gap. The hint is <code>--text-dim</code>. The error is the same size in a readable red, and replaces the hint.'],
   ])}
 
@@ -717,7 +717,7 @@ ${tbl(['Field', 'Markup', 'Notes'], [
     ['Text area', '<code>textarea</code>', 'The same edge, three lines at least, grows with <code>resize: vertical</code>.'],
     ['List', '<code>select</code>', 'The same box; the arrow is drawn from <code>--text-dim</code>. A first option with <code>value=""</code> reads as a placeholder.'],
     ['Number', '<code>input type="number"</code>', 'No stepper buttons. A unit goes after it in a group: <code>.sdk-unit</code>.'],
-    ['Date and time', '<code>input type="date"</code> in a <code>.sdk-group</code> with a <code>.sdk-field-btn</code>; <code>type="time"</code>', 'The calendar button is the approved icon-only Secondary button. The browser\'s own picker icon is hidden.'],
+    ['Date and time', '<code>input type="date"</code> and a <code>.sdk-field-btn</code> in one <code>.sdk-group</code> (<code>host.ui.datePicker</code> writes it as <code>.sdk-datefield.sdk-group</code>); <code>type="time"</code> has no button', 'One field: the calendar is a small Quiet icon button (30px) inside the trailing edge, with the same inset above, below and at the right. One border, one fill, one focus edge around all of it; the text never runs under the icon. On a phone the button keeps its look and has a 44px target. The browser\'s own picker icon is hidden.'],
     ['Search', '<code>.sdk-search</code> around an icon and <code>input type="search"</code>', 'One search field: the magnifier inside at the left, the same box and height as every field. Replaces three looks (see Today to proposed).'],
     ['File', '<code>input type="file"</code>', 'The field is the box; the chooser is a small Secondary button inside it. The words next to it are the browser\'s.'],
     ['Colour', '<code>input type="color"</code>', 'A swatch 1.5 times the field height, the same edge. Beside it, usually the hex in a text field.'],
@@ -725,7 +725,7 @@ ${tbl(['Field', 'Markup', 'Notes'], [
   ])}
 
 <h4 class="ds-h4" id="fields-states">States</h4>
-<p class="ds-desc">Every field in every state, forced from the proposed rules: <b>Rest</b> (empty), <b>Hover</b> (a lighter fill), <b>Focus</b> (the accent border and ring), <b>Filled</b>, <b>Placeholder</b> (<code>--text-dim</code>), <b>Disabled</b> (half strength, a not-allowed cursor), <b>Error</b> (<code>aria-invalid="true"</code>, the danger border and the error line) and <b>Read-only</b> (no fill, the same edge, full-strength text). A dash means the state does not apply (a file cannot show a value; a list has no read-only). The same grid is drawn twice, at the two heights.</p>
+<p class="ds-desc">Every field in every state, forced from the proposed rules: <b>Rest</b> (empty), <b>Hover</b> (a lighter fill), <b>Focus</b> (the 2px accent edge and ring), <b>Filled</b>, <b>Placeholder</b> (<code>--text-dim</code>), <b>Disabled</b> (half strength, a not-allowed cursor), <b>Error</b> (<code>aria-invalid="true"</code>, the 2px danger edge and the error line) and <b>Read-only</b> (no fill, the same edge, full-strength text). A dash means the state does not apply (a file cannot show a value; a list has no read-only). The same grid is drawn twice, at the two heights.</p>
 <p class="ds-desc"><b>38px</b> (the default; 44px when the frame is 640px or narrower)</p>
 <div data-slot="matrix38"></div>
 <p class="ds-desc"><b>44px</b> (the phone height, forced here so it can be compared at any width)</p>
@@ -740,8 +740,8 @@ ${tbl(['Field', 'Markup', 'Notes'], [
 <h4 class="ds-h4" id="fields-labels">Label, hint, error, and optional or required</h4>
 <p class="ds-desc">The label is above the field, never inside it. A hint says what to type or what it is for. An error says what to do ("Add a name", not "Invalid"). The error replaces the hint in the same slot, so nothing moves; the field carries <code>aria-invalid="true"</code> and <code>aria-describedby</code> pointing at the error line.</p>
 <div data-slot="labels"></div>
-<p class="ds-desc"><b>Proposal: how to show optional and required.</b> No asterisks. A field is required unless its label says <b>(optional)</b>. Write <code>(optional)</code> in the label, in regular weight, only where a field may be left empty. Most fields in a form are required, so the words are rare and the form stays quiet; the error line says what is missing after a try to save. <i>Thomas decides.</i> The other way round is a red or dim asterisk on every required field, with a line explaining it.</p>
-<p class="ds-desc"><b>Error colour.</b> The shared error line uses <code>--danger-text</code> today. That token is the pale red of dark mode and has no light value, so on a light page it is too faint (see Contrast). The proposal is <code>--danger</code> mixed 70% into <code>--text</code>, the same colour the Danger button already uses for its words: <code>--f-error</code> in this file. <i>Thomas decides.</i></p>
+<p class="ds-desc"><b>Optional and required (decided 2026-10-18).</b> No asterisks. A field is required unless its label says <b>(optional)</b>. Write <code>(optional)</code> in the label, in regular weight, only where a field may be left empty. Most fields in a form are required, so the words are rare and the form stays quiet; the error line says what is missing after a try to save.</p>
+<p class="ds-desc"><b>Error colour.</b> The shared error line uses <code>--danger-text</code> today. That token is the pale red of dark mode and has no light value, so on a light page it is too faint (see Contrast). The error line is <code>--danger</code> mixed 70% into <code>--text</code>, the same colour the Danger button already uses for its words: <code>--f-error</code> in this file (decided 2026-10-18).</p>
 
 <h4 class="ds-h4" id="fields-form">A form</h4>
 <p class="ds-desc">A module's editor, composed from the pieces: labels, a row of fields in columns, hints, an error, tick box and switch, and the approved buttons (Delete is Danger and sits apart; Cancel is Quiet; Save is Primary). The width of the form, not the page, sets the columns.</p>
@@ -756,7 +756,7 @@ ${tbl(['Field', 'Markup', 'Notes'], [
   <li>A form is a <code>.sdk-form</code>. Fields are <code>.sdk-field</code>; fields side by side are a <code>.sdk-row</code>. A form writes no field CSS of its own.</li>
   <li>The label is above the field and is a real label (<code>&lt;label&gt;</code>, or <code>aria-labelledby</code> for a group). A placeholder is never the only label.</li>
   <li>Every field is 38px high (44px on a phone), beside a button too. Nothing is shorter.</li>
-  <li>An error is the danger border and the error line, never colour alone.</li>
+  <li>An error is the danger edge and the error line, never colour alone.</li>
   <li>A tick box chooses things; a radio chooses one of a few; a switch is an on or off setting that takes effect as it is saved with the form. Not a tick box with a switch role.</li>
   <li>Optional is written in the label, <code>(optional)</code>, only where a field may be empty. No asterisks.</li>
   <li>The edge is the neutral hairline. Only focus and error colour it; hover and selected are fills.</li>
@@ -772,7 +772,7 @@ ${tbl(['Today', 'Where', 'Proposed'], [
     ['<code>.setup-field input</code> (8px 10px, a 2px outline on focus)', 'Set up', 'The field; the ring replaces the outline.'],
     ['<code>.layout-field input[type="search"]</code> (13px, 5px 8px)', 'the layout sheet', 'Search.'],
     ['<code>.map-search</code> (32px, icon inside, a shadow)', 'Maps', 'Search. The module keeps its place on the map; the shadow and the panel fill go.'],
-    ['<code>.sdk-datefield</code> with a 30px button', 'the date picker', 'The date field in a group with the Secondary icon button at field height.'],
+    ['<code>.sdk-datefield</code> with a 30px button beside the input', 'the date picker', 'The date field with the Quiet icon button (30px) inside its trailing edge; one border and one focus edge. <code>.sdk-datefield.sdk-group</code> wraps the input and the <code>.sdk-field-btn</code> (a second one, the list, sits beside it).'],
     ['<code>input.switch</code>, <code>label.switch-row</code> (22 by 12)', 'Set up, the layout sheet', 'The switch (<code>.sdk-switch</code>); <code>.switch</code> stays as an alias.'],
     ['Tick box with <code>role="switch"</code>', 'the Planner (round trip)', 'The switch.'],
     ['<code>.task .tick</code> (18px, <code>accent-color</code>)', 'To-do', 'The tick box, 16px.'],
@@ -794,7 +794,7 @@ ${tbl(['Token', 'Use here', ''], [
     ['<code>--text</code>, <code>--text-dim</code>', 'Typed text; the placeholder, label, hint, tick box edge and list arrow.', 'exists'],
     ['<code>--on-accent</code>', 'The mark in a checked box, and the switch thumb when on.', 'exists'],
     ['<code>--radius-small</code>, <code>--radius-min</code>, <code>--radius-round</code>', 'Fields, the tick box, the switch and the radio.', 'exists'],
-    ['<code>--f-error</code> (new)', 'The error line: <code>--danger</code> 70% into <code>--text</code>. Proposed in place of <code>--danger-text</code>.', 'new'],
+    ['<code>--f-error</code> (new)', 'The error line: <code>--danger</code> 70% into <code>--text</code>. Replaces <code>--danger-text</code> for the error line.', 'new'],
     ['<code>--f-ring</code>, <code>--f-bg-h</code>, <code>--f-mark</code> (new)', 'The focus ring (accent 30%), the hover fill (text 7%), the quiet track of a slider (text 24%).', 'new'],
     ['<code>--check-h</code> (new)', 'The height of a tick box row: 32px; 44px on a phone.', 'new'],
   ])}
@@ -823,6 +823,11 @@ ${code(`<form class="sdk-form">
 
   <!-- search -->
   <div class="sdk-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" aria-label="Search places"></div>
+
+  <!-- a date: the .sdk-group wraps the input and the calendar button; the button sits inside the field's trailing edge -->
+  <div class="sdk-field"><span class="sdk-label">Day</span>
+    <div class="sdk-group"><input type="date" aria-label="Day"><button type="button" class="sdk-field-btn" aria-label="Open the calendar" title="Open the calendar"><i class="fa-solid fa-calendar" aria-hidden="true"></i></button></div>
+    <span class="sdk-hint"></span></div>
 
   <!-- tick box, radio, switch: the row is the target -->
   <label class="sdk-check"><input type="checkbox"><span>Remind me</span></label>
@@ -865,7 +870,7 @@ ${code(`<form class="sdk-form">
     words: 'button icon-only icon buttons primary secondary danger quiet small round buttons circle icon toggle play bookmark star microphone video call fbtn', render,
   });
   window.DS_PROPOSED.families.push({
-    id: 'fields', covers: ['fields', 'forms', 'form-standard', 'switch'], group: 'Controls', name: 'Fields and forms', status: 'proposed',
+    id: 'fields', covers: ['fields', 'forms', 'form-standard', 'switch'], group: 'Controls', name: 'Fields and forms', status: 'approved',
     words: 'fields forms form input text area textarea select list number date time search file colour color slider range checkbox tick box radio switch toggle label hint error optional required placeholder focus disabled read-only aria-invalid sdk-form sdk-field', render: renderFields,
   });
   window.DS_PROPOSED.families.push({

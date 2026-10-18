@@ -12,7 +12,7 @@
  * show, a disabled button not at half strength, or a button not 38px (44px at 390; small 30px; an icon-only button square). Warns (never fails) on: a class in an example that is in none of
  * the stylesheets of that example's context, and a sources.js older than the module stylesheets.
  * Browser: CHROME_PATH, else a Playwright or system Chromium; with none, the browser part says SKIPPED (not a pass).
- * The Fields and forms family (proposed.js, proposed.css): every field one-line 38px (44px at 390, and in the 44px grid), the focus a 2px ring and the accent edge, the
+ * The Fields and forms family (proposed.js, proposed.css): every field one-line 38px (44px at 390, and in the 44px grid), the focus a 2px accent edge and a 2px ring (all four sides the same at 1.25x and 1.5x with a fractional scroll), the calendar button inside the date field (equal inset, 30px, a 44px target on a phone, ink centred with the text), the
  * placeholder the --text-dim colour, hover a fill, disabled half strength with a not-allowed cursor, error the danger edge, a tick box 16px and a switch 36 by 20,
  * the text of a filled field within 1px of the middle of its box (4x ink, in Figtree and in its fallback face); the only coloured edges are a focus and an error.
  * Options: SHOTS=<folder> saves the screenshots.
@@ -299,6 +299,14 @@ async function browse(cdp, label, url, scenarios, shots) {
           }
         }
         await ev(`(() => { for (const f of window.__ds.frames) { const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
+        // The date field: the text and the calendar icon each sit within 1px of the middle of the field's height, by ink (4x).
+        for (const [title, part] of [['Fields, all states', 'text'], ['Fields, all states', 'icon'], ['Fields, all states, 44px', 'text'], ['Fields, all states, 44px', 'icon']]) {
+          const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const cell = m.iframe.contentDocument.querySelectorAll('.pm-row')[4].querySelectorAll('.dsf-state')[3]; const el = cell.querySelector('input'); const bt = cell.querySelector('.sdk-field-btn'); el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); const b = el.getBoundingClientRect(); const q = bt.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); const x0 = ${part === 'icon' ? 'q.left' : 'b.left'}; const x1 = ${part === 'icon' ? 'q.right' : 'q.left - 4'}; return JSON.stringify({ x: fr.left + x0 + window.scrollX, y: fr.top + b.top + window.scrollY, w: x1 - x0, h: b.height }); })()`));
+          const shotD = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
+          const c = inkCentre(Buffer.from(shotD.data, 'base64'), 4, 10);
+          if (c === null) problems.push(`${where}: no ink found in the date ${part} (${title})`);
+          else if (Math.abs(c) > 1.01) problems.push(`${where}: the date ${part} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its field (${title})`);
+        }
       }
       // The focus and error edge of a field: all four sides the same at a fractional device pixel ratio and a fractional scroll offset
       // (Windows display scaling 125% / 150%). A hairline is drawn per side and snaps differently; the edge must stay whole on every side.
@@ -407,6 +415,18 @@ const fieldProbe = async () => {
     if (cs(err).borderTopColor !== tok('--danger') || err.getAttribute('aria-invalid') !== 'true') bad(`${title}: the error edge is not --danger on an aria-invalid field`);
     if (!cell(0, 6).querySelector('.sdk-error')) bad(`${title}: the error state has no error line`);
     if (cs(ro).backgroundColor !== 'rgba(0, 0, 0, 0)') bad(`${title}: read-only is not without a fill`);
+    // The date field: the calendar button sits INSIDE the field's box (one field), at the trailing edge, 30px or less, with the same inset above, below and right;
+    // the field keeps its height and the text never runs under the button.
+    { const dEl = cell(4, 3).querySelector('input'); const dBtn = cell(4, 3).querySelector('.sdk-field-btn');
+      if (!dBtn) bad(`${title}: the date field has no .sdk-field-btn`);
+      else { const f = dEl.getBoundingClientRect(); const q = dBtn.getBoundingClientRect(); const grp = dEl.parentElement.getBoundingClientRect();
+        if (q.left < f.left - 0.5 || q.right > f.right + 0.5 || q.top < f.top - 0.5 || q.bottom > f.bottom + 0.5) bad(`${title}: the calendar button is not inside the date field's box`);
+        if (q.width > 30.6 || q.height > 30.6) bad(`${title}: the calendar button is ${q.width} by ${q.height}px, over 30`);
+        const t = q.top - f.top; const b2 = f.bottom - q.bottom; const r2 = f.right - q.right;
+        if (Math.abs(t - b2) > 0.6 || Math.abs(t - r2) > 0.6) bad(`${title}: the calendar button's inset is not equal (top ${t}, bottom ${b2}, right ${r2})`);
+        if (Math.abs(grp.height - want) > 0.6 || Math.abs(f.height - want) > 0.6) bad(`${title}: the date field is ${f.height}px in a ${grp.height}px group, expected ${want}`);
+        const padR = parseFloat(cs(dEl).paddingRight); if (f.right - padR > q.left + 0.5) bad(`${title}: the date text can run under the calendar button (padding-right ${padR}px, the button starts ${(f.right - q.left).toFixed(1)}px from the right edge)`);
+        const hit = want === 44 && d.defaultView.innerWidth <= 640 ? 44 : 0; if (hit) { const a = cs(dBtn, '::after'); const hw = q.width + 14; const hh = q.height + 14; if (a.content === 'none' || Math.abs(parseFloat(a.width) - hw) > 1 || Math.abs(parseFloat(a.height) - hh) > 1) bad(`${title}: the calendar button has no 44px target on a phone (${a.width} by ${a.height})`); } } }
     const dim = tok('--text-dim');
     for (const [r, nm] of [[0, 'text'], [1, 'text area'], [3, 'number'], [6, 'search']]) { const el = cell(r, 4).querySelector('input,textarea'); if (cs(el, '::placeholder').color !== dim) bad(`${title}: the ${nm} placeholder is ${cs(el, '::placeholder').color}, not --text-dim (${dim})`); }
     if (cs(rest).fontFamily.indexOf('Figtree') < 0 && window.__ds.stats.fontNow !== 'x') { /* only when a font is chosen */ }

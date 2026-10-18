@@ -297,7 +297,7 @@
 .ds-proposed[data-headline] .topbar .brand-name { font-weight: 700; }
 
 
-/* ==== Fields and forms (PROPOSED, not decided; Thomas's decisions of 2026-10-17) ====
+/* ==== Fields and forms (approved 2026-10-18; Thomas's decisions of 2026-10-17) ====
    One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
    switch; the label, hint and error lines. The class names are the product's own (.sdk-form, .sdk-field, .sdk-label, .sdk-hint,
    .sdk-error, .sdk-group, .sdk-check, .sdk-switch); the layout of rows and columns stays in the form block of style.css and host.css, this
@@ -305,8 +305,8 @@
    no markup change: .editor-card inputs, .fields inputs, .setup-field inputs, the layout sheet's search, the bare input rule. The
    mapping from today's selectors is the table on the page.
    - Edge: the neutral hairline (--border) on the --bg-input fill, --radius-small, --field-h high (38px; 44px on a phone), one padding token.
-   - Focus: the accent border and a soft 2px ring, on every field. Placeholder: --text-dim, in light and dark.
-   - Error: aria-invalid="true" gives the danger border; the message is the .sdk-error line below it.
+   - Focus: a 2px accent edge and a soft 2px ring, on every field. Placeholder: --text-dim, in light and dark.
+   - Error: aria-invalid="true" gives the 2px danger edge; the message is the .sdk-error line below it.
    - Disabled: half strength and a not-allowed cursor. Read-only: no fill, the same edge, text at full strength.
    - Hover is a fill, never an edge. The only coloured edges are the focus and the error, and they are states, not stripes.
    Colours are theme tokens only. Radii are --radius-* tokens. */
@@ -445,7 +445,7 @@
   background-color: var(--bg-input);
 }
 
-/* A number: no stepper. A date or time: the picker's own icon is the .sdk-field-btn beside it. */
+/* A number: no stepper. A date or time: the browser's own picker icon is hidden; the .sdk-field-btn sits inside the field (below). */
 .ds-proposed input[type="number"] {
   -moz-appearance: textfield;
   appearance: textfield;
@@ -467,6 +467,73 @@
 
 .ds-proposed input:is([type="date"], [type="time"])::-webkit-datetime-edit {
   padding: 0;
+}
+
+/* A date (or time) with a picker button: ONE field. The wrapper is the .sdk-group (host.ui.datePicker writes it as .sdk-datefield.sdk-group); it holds
+   the input and the .sdk-field-btn (the calendar; a second one, the list, may follow). The input is the whole box: one border, one fill, one
+   focus edge. The button is a small Quiet icon button (30px) laid inside the trailing edge with the same inset above, below and at the
+   right, so it sits in the middle of the field's height. The text never runs under it (padding-right). On a phone the button keeps its
+   look and gets a 44px target. Hover is a fill; the button's own focus is a 2px ring inside it, and the field draws its one edge too. */
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) {
+  --dp-btn: 30px;
+  --dp-inset: calc((var(--field-h) - var(--dp-btn)) / 2);
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > input {
+  padding-right: calc(var(--dp-inset) + var(--dp-btn) + 6px);
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn ~ .sdk-field-btn) > input {
+  padding-right: calc(var(--dp-inset) + 2 * var(--dp-btn) + 8px);
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn {
+  --btn-h: var(--dp-btn);
+  --btn-icon: 14px;
+  --b-bg: transparent;
+  --b-bg-h: color-mix(in srgb, var(--text) 10%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--text) 16%, transparent);
+  --b-fg: var(--text-dim);
+  --b-fg-h: var(--text);
+  --b-bd: transparent;
+  position: absolute;
+  top: var(--dp-inset);
+  right: var(--dp-inset);
+  width: var(--dp-btn);
+  height: var(--dp-btn);
+  /* The calendar glyph's ink sits about half a pixel above its box; this brings it to the middle of the field. */
+  padding-top: 1px;
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn ~ .sdk-field-btn) > .sdk-field-btn:nth-of-type(1) {
+  right: calc(var(--dp-inset) + var(--dp-btn) + 2px);
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn:focus-visible {
+  outline-offset: -2px;
+  background: var(--b-bg-h);
+  color: var(--b-fg-h);
+}
+
+/* The 44px target on a phone: the hit area grows past the 30px box (the field is 44px high, so it stays inside it). */
+@media (max-width: 640px) {
+  .ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+}
+
+/* The field's one edge shows when the input or the button has the focus. */
+.ds-proposed .sdk-group:has(> .sdk-field-btn:focus-visible) > input:is([type="date"], [type="time"], [type="datetime-local"]) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--f-ring) !important;
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
 }
 
 /* Search: one field with the magnifier inside, at the same height as any field. */

@@ -351,7 +351,7 @@ async function browse(cdp, label, url, scenarios, shots) {
           await new Promise((r) => setTimeout(r, 400));
           for (const title of ['Tabs, all states', 'Tabs, all states, small']) {
             for (const [r, nm] of [[0, 'label'], [1, 'icon and label'], [2, 'icon alone']]) for (const col of [0, 3]) {
-              const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelectorAll('.pm-row')[${r}].querySelectorAll('.dsf-state')[${col}].querySelector('.sdk-tab'); el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); const b = el.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
+              const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelectorAll('.pm-row')[${r}].querySelectorAll('.dsf-state')[${col}].querySelector('.sdk-tab'); el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 120)); m.iframe.style.position = 'relative'; m.iframe.style.top = '0px'; let b = el.getBoundingClientRect(); let fr = m.iframe.getBoundingClientRect(); const fy = fr.top + window.scrollY; /* the frame's own origin: a frame that starts between two device pixels is painted snapped, so its ink moves up to a pixel against the box; it is moved to a whole pixel here (position only) */ const frac = fy - Math.floor(fy); if (frac > 0.01) { m.iframe.style.top = (1 - frac) + 'px'; await new Promise((r) => setTimeout(r, 120)); b = el.getBoundingClientRect(); fr = m.iframe.getBoundingClientRect(); } return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height }); })()`));
               const shotT = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
               const c = inkCentre(Buffer.from(shotT.data, 'base64'), 4, 10);
               if (c === null) problems.push(`${where}: no ink found in the ${nm} tab (${title}, ${col ? 'selected' : 'rest'}, ${face})`);
@@ -359,7 +359,7 @@ async function browse(cdp, label, url, scenarios, shots) {
             }
           }
         }
-        await ev(`(() => { for (const f of window.__ds.frames) { const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
+        await ev(`(() => { for (const f of window.__ds.frames) { f.iframe.style.top = ''; f.iframe.style.position = ''; const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
         // The focus outline of a tab, rest and selected: all four sides the same at a fractional device pixel ratio and page offset (the Fields' method).
         if (sc.width >= 500) {
           for (const dsf of [1.25, 1.5]) {
@@ -548,6 +548,17 @@ const tabsProbe = async () => {
       if (cs(sel).fontWeight !== cs(rest).fontWeight) bad(`${nm}: the weight changes when selected (${cs(rest).fontWeight} to ${cs(sel).fontWeight})`);
       // A selected tab is the same box as a rest tab.
       const a = rest.getBoundingClientRect(); const b = sel.getBoundingClientRect(); if (Math.abs(a.height - b.height) > 0.1) bad(`${nm}: a selected tab is not the height of a tab at rest`);
+      // Icon-only count and dot: clear of the tab's top and right edges (3px or more, equal), inside the box, icon still centred, tab size unchanged.
+      for (const [r, kind] of [[5, '.sdk-tab-badge'], [6, '.sdk-tab-dot']]) for (let s = 0; s < 7; s += 1) {
+        const tb = cell(r, s); const mk = tb.querySelector(kind); const g = tb.querySelector('.sdk-tab-glyph'); if (!mk || !g) { bad(`${nm}: icon-only ${kind} row, state ${s}: missing`); continue; }
+        const T = tb.getBoundingClientRect(); const M = mk.getBoundingClientRect(); const G = g.getBoundingClientRect();
+        const top = M.top - T.top; const right = T.right - M.right;
+        if (top < 2.95 || right < 2.95) bad(`${nm}: the icon-only ${kind} is ${top.toFixed(1)}px from the top and ${right.toFixed(1)}px from the right edge, under 3px (state ${s})`);
+        if (Math.abs(top - right) > 0.6 && kind === '.sdk-tab-badge') bad(`${nm}: the icon-only count insets differ (top ${top}, right ${right})`);
+        if (M.bottom > T.bottom - 2.95 || M.left < T.left) bad(`${nm}: the icon-only ${kind} is not inside the tab (state ${s})`);
+        if (Math.abs((G.left + G.right) / 2 - (T.left + T.right) / 2) > 0.6) bad(`${nm}: an icon-only tab's icon is off the middle (state ${s})`);
+        if (Math.abs(T.width - T.height) > 0.6) bad(`${nm}: an icon-only tab with a ${kind} is not square (${T.width} by ${T.height})`);
+      }
       // Count and dot.
       const badge = rows[3].querySelector('.sdk-tab-badge'); if (!badge || Math.abs(badge.getBoundingClientRect().height - 18) > 0.6) bad(`${nm}: the count is not an 18px pill`);
       const dot = rows[4].querySelector('.sdk-tab-dot'); if (!dot || Math.abs(dot.getBoundingClientRect().width - 7) > 0.6 || Math.abs(dot.getBoundingClientRect().height - 7) > 0.6) bad(`${nm}: the dot is not 7px`);
@@ -621,7 +632,7 @@ const tabsProbe = async () => {
       const m = last.querySelector('.sdk-more'); if (Math.abs(m.getBoundingClientRect().height - 30) > 0.6) bad('the "..." is not 30px'); } }
   // The page: the family is Proposed, dated, and the two not-yet-decided families are named.
   const doc = document; const blk = doc.getElementById('tabs');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Tabs family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Tabs family is not marked Approved');
   if (!blk || !/Decided 2026-10-18/.test(blk.textContent)) bad('the Tabs family has no Decided 2026-10-18 note');
   if (doc.getElementById('u-tabs-view-switches-and-segmented-rows')) bad('Tabs and view switches is still listed as Not yet decided');
   for (const id of ['u-chips-that-filter', 'u-phone-bottom-bar-icon-over-label']) if (!doc.getElementById(id)) bad(`${id} is not listed as Not yet decided`);

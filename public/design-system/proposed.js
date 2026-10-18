@@ -909,7 +909,7 @@ ${code(`<form class="sdk-form">
     { n: 'Selected', sel: true }, { n: 'Selected, hover', sel: true, c: 'ds-force-hover' }, { n: 'Selected, focus', sel: true, c: 'ds-force-focus' },
     { n: 'Disabled', dis: true },
   ];
-  const stateMatrix = (small) => `<div class="ds-proposed">${(small ? TK.slice(0, 3).concat(TK.slice(3, 5)) : TK).map((k) => `<div class="pm-row${small ? ' pm-small' : ''}"><div class="pm-role">${k.n}</div><div class="dsf-states">${TS.map((s) => `<div class="dsf-state"><small>${s.n}</small><div class="dsf-ex"><div class="sdk-tabs${small ? ' sdk-tabs-small' : ''}" role="tablist" aria-label="${k.n}">${tab(Object.assign({}, k.o, { sel: s.sel, dis: s.dis, cls: s.c }))}</div></div></div>`).join('')}</div></div>`).join('')}</div>`;
+  const stateMatrix = (small) => `<div class="ds-proposed">${TK.map((k) => `<div class="pm-row${small ? ' pm-small' : ''}"><div class="pm-role">${k.n}</div><div class="dsf-states">${TS.map((s) => `<div class="dsf-state"><small>${s.n}</small><div class="dsf-ex"><div class="sdk-tabs${small ? ' sdk-tabs-small' : ''}" role="tablist" aria-label="${k.n}">${tab(Object.assign({}, k.o, { sel: s.sel, dis: s.dis, cls: s.c }))}</div></div></div>`).join('')}</div></div>`).join('')}</div>`;
 
   const SW = {
     2: [['Month', 'calendar-days'], ['Week', 'calendar-week']],
@@ -924,7 +924,7 @@ ${code(`<form class="sdk-form">
   const stripItems = (at) => STRIP.map((w, i) => ({ word: w, badge: w === 'Modules' ? 2 : null, sel: i === at }));
   const stripBody = () => `<div class="ds-proposed">
     <div class="pm-stage"><p class="pm-cap">A strip that does not fit: it scrolls sideways, no scrollbar, and the selected tab (Security) is scrolled into view. Press a tab, or use the arrow keys, Home and End.</p>${tabs(stripItems(10), { role: 'tablist', label: 'Sections', demo: true })}</div>
-    <div class="pm-stage"><p class="pm-cap">The same with the optional edge fade (Thomas decides whether it ships): a 20px mask on the side that has more.</p>${tabs(stripItems(10), { role: 'tablist', label: 'Sections, with a fade', demo: true, fade: true })}</div>
+    <div class="pm-stage"><p class="pm-cap">The same with the optional edge fade (a 20px mask on the side that has more).</p>${tabs(stripItems(10), { role: 'tablist', label: 'Sections, with a fade', demo: true, fade: true })}</div>
     <div class="pm-stage"><p class="pm-cap">Small, the same two ways</p>${tabs(stripItems(7), { role: 'tablist', label: 'Sections, small', demo: true, cls: 'sdk-tabs-small' })}</div>
   </div>`;
 
@@ -1094,8 +1094,8 @@ ${code(`<form class="sdk-form">
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="tabs-h"><a href="#tabs">Tabs and view switches</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">a tab strip, a page's tabs, the top bar's tabs and the toolbar view switch: one component</span></header>
-<p class="ds-desc"><b>Decided 2026-10-18 (Thomas):</b> (1) Each tab is its own pill, <code>--radius-small</code>, the heights of the buttons: 30px small, 38px default, 44px on a phone. The toolbar view switch is the same component with its tabs joined by 2px gaps. (2) Selected is the quiet neutral fill (<code>--selected-bg</code>) everywhere, with the text in the darker accent mix (accent 55% into <code>--text</code>), the same mix as the selected Button. No accent block, no underline, no coloured border, no left bar. (3) A strip scrolls sideways with the selected tab kept in view; the toolbar switch drops to icons only when narrow; the top bar keeps its "..." fold. No tab disappears except where the top bar folds into the "...". (4) Chips that filter, and the phone's bottom bar, are not in this family (see the end). Drawn from <code>proposed.css</code> (every rule under <code>.ds-proposed</code>), using the colours of the Dark and Light switch and the Font and Headline groups at the top of the page. What exists today is on its own page, <a href="index.html#tabs">Today's inventory</a>.</p>
+    block.innerHTML = `<header><h3 id="tabs-h"><a href="#tabs">Tabs and view switches</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">a tab strip, a page's tabs, the top bar's tabs and the toolbar view switch: one component</span></header>
+<p class="ds-desc"><b>Decided 2026-10-18; counts provisional until the chips and badges family.</b> (1) Each tab is its own pill, <code>--radius-small</code>, the heights of the buttons: 30px small, 38px default, 44px on a phone. The toolbar view switch is the same component with its tabs joined by 2px gaps. (2) Selected is the quiet neutral fill (<code>--selected-bg</code>) everywhere, with the text in the darker accent mix (accent 55% into <code>--text</code>), the same mix as the selected Button. No accent block, no underline, no coloured border, no left bar. (3) A strip scrolls sideways with the selected tab kept in view; the toolbar switch drops to icons only when narrow; the top bar keeps its "..." fold. No tab disappears except where the top bar folds into the "...". (4) Chips that filter, and the phone's bottom bar, are not in this family (see the end). Drawn from <code>proposed.css</code> (every rule under <code>.ds-proposed</code>); the Dark and Light switch and the Font and Headline groups at the top of the page change the colours of the Dark and Light switch and the Font and Headline groups at the top of the page. What exists today is on its own page, <a href="index.html#tabs">Today's inventory</a>.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#tabs-anatomy">Anatomy</a><a href="#tabs-contract">Wrappers and tabs</a><a href="#tabs-sizes">Sizes</a><a href="#tabs-states">States</a><a href="#tabs-joined">Joined switch</a><a href="#tabs-overflow">Overflow</a><a href="#tabs-fold">Top bar fold</a><a href="#tabs-pages">Page bar and Set up</a><a href="#tabs-toolbar">In a toolbar</a><a href="#tabs-count">Count and dot</a><a href="#tabs-alias">Aliases</a><a href="#tabs-widths">Widths</a><a href="#tabs-rules">Usage rules</a><a href="#tabs-map">Today to proposed</a><a href="#tabs-contrast">Contrast</a><a href="#tabs-tokens">Tokens</a><a href="#tabs-markup">Markup</a><a href="#tabs-later">Not yet decided</a></nav>
 
 <h4 class="ds-h4" id="tabs-anatomy">Anatomy</h4>
@@ -1163,7 +1163,7 @@ ${tbl(['Size', 'Class', 'Height', 'Use it for'], [
 <div data-slot="toolbar"></div>
 
 <h4 class="ds-h4" id="tabs-count">Count and dot</h4>
-<p class="ds-desc"><b>Proposal for the count (provisional; chips and badges come later):</b> one small neutral pill after the label, <code>--text</code> at 14% with <code>--text</code> text, 18px high, 11px bold, 6px side padding, the same on a selected and an unselected tab. It is not accent: an accent count competes with the selected fill. On an icon-only tab the count sits on the icon\'s corner as a 16px accent pill with <code>--on-accent</code> text (a count needs to be seen without a word beside it); the dot sits at the corner too. Both are in the States grid above. <b>For Thomas:</b> the neutral pill, or the accent pill as the Modules tab has today.</p>
+<p class="ds-desc"><b>The count (provisional until the chips and badges family):</b> one small neutral pill after the label, <code>--text</code> at 14% with <code>--text</code> text, 18px high, 11px bold, 6px side padding, the same on a selected and an unselected tab. It is not accent: an accent count competes with the selected fill. On an icon-only tab the count sits on the icon\'s corner as a 14px accent pill with <code>--on-accent</code> text, 3px in from the top and right edges (a count needs to be seen without a word beside it); the dot sits 4px in from the same edges. Both are in the States grid above.</p>
 
 <h4 class="ds-h4" id="tabs-alias">Aliases: today\'s markup, unchanged</h4>
 <p class="ds-desc">These use only today\'s class names. They take the proposed look with no markup edit: the view switch, a page\'s tabs, Set up\'s tabs, the top bar\'s layout tabs.</p>
@@ -1293,7 +1293,7 @@ ${tbl(['Not in this family', 'Note'], [
     words: 'typography headline heading title archivo fraunces bricolage font fonts typeface type scale text bundled self-hosted woff2 figtree nunito source sans fallback metrics ascent descent centring baseline', render: renderTypography,
   });
   window.DS_PROPOSED.families.push({
-    id: 'tabs', covers: ['tabs', 'view-switch', 'switch'], group: 'Navigation', name: 'Tabs and view switches', status: 'proposed',
+    id: 'tabs', covers: ['tabs', 'view-switch', 'switch'], group: 'Navigation', name: 'Tabs and view switches', status: 'approved',
     words: 'tabs tab view switch viewswitch toolbar strip subtab setup tab core-link layout tabs page bar scroll overflow fold selected badge count dot unsaved icon only compact segmented seg', render: renderTabs,
   });
 })();

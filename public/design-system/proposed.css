@@ -1168,12 +1168,12 @@
 .ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge, .chat-view-count),
 .ds-proposed :is(.sdk-tabs-compact, .tb-tabs-compact) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
   position: absolute;
-  top: 1px;
-  right: 1px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  font-size: 10px;
+  top: 3px;
+  right: 3px;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  font-size: 9px;
   background: var(--accent);
   color: var(--on-accent);
 }
@@ -1181,8 +1181,8 @@
 .ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot),
 .ds-proposed :is(.sdk-tabs-compact, .tb-tabs-compact) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-dot, .setup-tab-dot, .chat-view-dot) {
   position: absolute;
-  top: 6px;
-  right: 6px;
+  top: 4px;
+  right: 4px;
 }
 
 @media (max-width: 640px) {

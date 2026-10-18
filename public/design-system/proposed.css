@@ -384,21 +384,29 @@
   background: transparent;
 }
 
-/* Focus: the accent border and a soft 2px ring, on every field. */
+/* Focus: the accent edge and a soft 2px ring, on every field. The edge is a 2px outline drawn over the 1px border (offset -2px), so the box
+   keeps its size, and not a 1px colour change of the border: a hairline snaps to whole device pixels differently on each side at a
+   fractional display scale (Windows 125%, 150%) and while the page scrolls, and then shows on two sides only. A 2px line always holds a
+   whole pixel of its colour, on all four sides. !important because style.css's own focus rule (more specific) sets the border, outline and shadow too. */
 .ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px var(--f-ring);
-  outline: none;
+  box-shadow: 0 0 0 2px var(--f-ring) !important;
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
 }
 
-/* Error: the danger border; the message is the .sdk-error line below. */
+/* Error: the danger edge, drawn the same way as the focus; the message is the .sdk-error line below. */
 .ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea)[aria-invalid="true"] {
   border-color: var(--danger);
+  outline: 2px solid var(--danger);
+  outline-offset: -2px;
 }
 
 .ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea)[aria-invalid="true"]:focus {
-  border-color: var(--danger);
-  box-shadow: 0 0 0 2px var(--f-ring-danger);
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 2px var(--f-ring-danger) !important;
+  outline: 2px solid var(--danger) !important;
+  outline-offset: -2px !important;
 }
 
 /* Disabled: reduced strength, and the cursor says so. */

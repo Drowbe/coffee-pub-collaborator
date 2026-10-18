@@ -110,7 +110,7 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
       fail(`proposed.css: a coloured border: ${name}: ${v}`);
     }
   }
-  if (/\b(box-shadow|outline)\s*:[^;]*(var\(--(accent|danger)|color-mix)/i.test(css.replace(/outline:\s*2px solid var\(--accent\)/g, ''))) fail('proposed.css: a ring or shadow in a colour (only the focus ring is allowed)');
+  if (/\b(box-shadow|outline)\s*:[^;]*(var\(--(accent|danger)|color-mix)/i.test(css.replace(/outline:\s*2px solid var\(--(accent|danger)\)( !important)?/g, ''))) fail('proposed.css: a ring or shadow in a colour (only the focus ring is allowed)');
   const defined = new Set([...css.matchAll(/\.([A-Za-z][\w-]*)/g)].map((x) => x[1]));
   const js = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
   const own = new Set([...js.matchAll(/\.(pm-[\w-]+)/g)].map((x) => x[1]));
@@ -300,6 +300,31 @@ async function browse(cdp, label, url, scenarios, shots) {
         }
         await ev(`(() => { for (const f of window.__ds.frames) { const s = f.iframe.contentDocument && f.iframe.contentDocument.getElementById('ds-face'); if (s) s.remove(); } })()`);
       }
+      // The focus and error edge of a field: all four sides the same at a fractional device pixel ratio and a fractional scroll offset
+      // (Windows display scaling 125% / 150%). A hairline is drawn per side and snaps differently; the edge must stay whole on every side.
+      if (sc.width >= 500) {
+        for (const dsf of [1.25, 1.5]) {
+          await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: dsf, mobile: false }, sessionId);
+          await new Promise((r) => setTimeout(r, 400));
+          for (const [nm, idx, tokName] of [['focused', 2, '--accent'], ['error', 6, '--danger']]) {
+            for (const nudge of [0.3, 0.7]) {
+              const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Fields, all states'); const d = m.iframe.contentDocument; const el = d.querySelectorAll('.pm-row')[0].querySelectorAll('.dsf-state')[${idx}].querySelector('input'); el.scrollIntoView({ block: 'center', behavior: 'instant' });
+                const c = document.getElementById('ds-content'); c.style.marginTop = '${nudge}px'; c.style.marginLeft = '${nudge * 1.7 % 1}px'; window.scrollTo(0, Math.round(window.scrollY) + ${nudge}); await new Promise((r) => setTimeout(r, 150));
+                const host = d.querySelector('.ds-proposed'); const p = d.createElement('span'); p.style.color = 'var(${tokName})'; host.appendChild(p); const col = getComputedStyle(p).color; p.remove();
+                const b = el.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + b.left + window.scrollX, y: fr.top + b.top + window.scrollY, w: b.width, h: b.height, col }); })()`));
+              const pad = 6;
+              const shot = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x - pad, y: at.y - pad, width: at.w + pad * 2, height: at.h + pad * 2, scale: 1 } }, sessionId);
+              const e = edgeColours(Buffer.from(shot.data, 'base64'), at.col.match(/[\d.]+/g).map(Number), dsf, pad, at.w, at.h);
+              const vals = Object.values(e);
+              if (Math.max(...vals) - Math.min(...vals) > 40) problems.push(`${where}: the ${nm} field edge is not the same on all four sides at ${dsf}x with the page ${nudge}px off the pixel grid (how far the nearest pixel is from the full colour: top ${e.top}, bottom ${e.bottom}, left ${e.left}, right ${e.right})`);
+              if (Math.max(...vals) > 60) problems.push(`${where}: a side of the ${nm} field edge never reaches its full colour at ${dsf}x (top ${e.top}, bottom ${e.bottom}, left ${e.left}, right ${e.right})`);
+            }
+          }
+          await ev(`(() => { const c = document.getElementById('ds-content'); c.style.marginTop = ''; c.style.marginLeft = ''; })()`);
+        }
+        await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
+        await new Promise((r) => setTimeout(r, 300));
+      }
       await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       for (const x of probe.align || []) problems.push(`${where}: ${x}`);
       if (probe.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
@@ -339,6 +364,20 @@ function inkCentre(buf, scale, inset) {
   return top < 0 ? null : ((top + bot + 1) / 2 - h / 2) / scale;
 }
 
+
+// The edge of a field in a screenshot taken at device pixel ratio dsf: for each side, how far the pixel nearest to the full edge colour is
+// from it (sum of the three channel differences), looking 3px either side of the box edge across the middle of that side.
+function edgeColours(buf, target, dsf, pad, boxW, boxH) {
+  let o = 8; let w; let h; let ct; const idat = [];
+  while (o < buf.length) { const l = buf.readUInt32BE(o); const t = buf.toString('ascii', o + 4, o + 8); const d = buf.subarray(o + 8, o + 8 + l); if (t === 'IHDR') { w = d.readUInt32BE(0); h = d.readUInt32BE(4); ct = d[9]; } if (t === 'IDAT') idat.push(d); o += 12 + l; }
+  const bpp = ct === 6 ? 4 : 3; const raw = zlib.inflateSync(Buffer.concat(idat)); const st = w * bpp; const px = Buffer.alloc(h * st);
+  for (let y = 0; y < h; y += 1) { const f = raw[y * (st + 1)]; for (let x = 0; x < st; x += 1) { const v = raw[y * (st + 1) + 1 + x]; const a = x >= bpp ? px[y * st + x - bpp] : 0; const b = y ? px[(y - 1) * st + x] : 0; const c = x >= bpp && y ? px[(y - 1) * st + x - bpp] : 0; let r = v; if (f === 1) r += a; else if (f === 2) r += b; else if (f === 3) r += (a + b) >> 1; else if (f === 4) { const p = a + b - c; const pa = Math.abs(p - a); const pb = Math.abs(p - b); const pc = Math.abs(p - c); r += (pa <= pb && pa <= pc) ? a : pb <= pc ? b : c; } px[y * st + x] = r & 255; } }
+  const scale = w / (boxW + pad * 2); // device pixels per CSS pixel actually in the image
+  const dist = (x, y) => { const i = (y * w + x) * bpp; return Math.abs(px[i] - target[0]) + Math.abs(px[i + 1] - target[1]) + Math.abs(px[i + 2] - target[2]); };
+  const cx = Math.round(w / 2); const cy = Math.round(h / 2); const span = Math.ceil(3 * scale);
+  const nearest = (nom, horizontal) => { let best = 1e9; for (let k = -span; k <= span; k += 1) { const v = horizontal ? dist(cx, Math.min(h - 1, Math.max(0, nom + k))) : dist(Math.min(w - 1, Math.max(0, nom + k)), cy); if (v < best) best = v; } return best; };
+  return { top: nearest(Math.round(pad * scale), true), bottom: nearest(Math.round((pad + boxH) * scale), true), left: nearest(Math.round(pad * scale), false), right: nearest(Math.round((pad + boxW) * scale), false) };
+}
 
 // The Fields and forms family, measured in the page (runs in the browser): sizes, the ring, the placeholder colour, the states, the marks.
 const fieldProbe = async () => {

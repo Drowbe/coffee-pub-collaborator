@@ -145,7 +145,7 @@ export function buildSnapshot(out, page = 'today') {
     if (!html.includes(`href="${other}"`)) throw new Error('the cross-link (#ds-other) was not found in the page');
   }
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  const keep = page === 'proposed' ? /^(ds\.css|proposed\.(js|css))$/ : /^(ds\.css|ds\.js|components[-0-9]*\.js)$/;
+  const keep = page === 'proposed' ? /^(ds\.css|proposed(-colour)?\.(js|css))$/ : /^(ds\.css|ds\.js|components[-0-9]*\.js)$/;
   for (const f of fs.readdirSync(DS)) if (keep.test(f)) copy(path.join(DS, f), path.join(out, f));
   // The proposed page's bundled fonts (fonts/<family>/*.woff2 and each OFL.txt), self-hosted beside it. Today's page carries none.
   if (page === 'proposed' && fs.existsSync(path.join(DS, 'fonts'))) {

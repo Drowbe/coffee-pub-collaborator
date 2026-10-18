@@ -1484,12 +1484,13 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     content.appendChild(sec);
     const api = { mk, h, makeFrame, mode: () => mode };
     sec.appendChild(mk('h3', 'ds-group', 'Decided'));
+    const ulF = decided.some((p) => p.navGroup) ? navGroup(decided.find((p) => p.navGroup).navGroup) : null;
     const ul = navGroup('Decided');
     for (const p of decided) {
       const b = p.render(api);
       b.id = p.id; b.classList.add('ds-block'); b.dataset.name = (p.name + ' ' + p.id + ' ' + (p.words || '')).toLowerCase();
       sec.appendChild(b);
-      navItem(ul, p.name, p.id, p.status, p.name + ' ' + p.id + ' ' + (p.words || ''));
+      navItem(p.navGroup ? ulF : ul, p.name, p.id, p.status, p.name + ' ' + p.id + ' ' + (p.words || ''));
     }
     sec.appendChild(mk('h3', 'ds-group', 'Still to decide'));
     for (const g of undecided) {

@@ -16,6 +16,7 @@
  * placeholder the --text-dim colour, hover a fill, disabled half strength with a not-allowed cursor, error the danger edge, a tick box 16px and a switch 36 by 20,
  * the text of a filled field within 1px of the middle of its box (4x ink, in Figtree and in its fallback face); the only coloured edges are a focus and an error.
  * The Tabs and view switches family (proposed.js, proposed.css): tabs 38px (44px at 390), small 30px, an icon-only tab square, every edge 1px transparent in every state (no coloured border, no underline, no bar), the selected fill equal to the --selected-bg token with the accent-mix text, the focus a 2px outline at offset -2px (all four sides the same at 1.25x and 1.5x), a strip that overflows scrolls with its scrollbar hidden and keeps the selected tab in view by a press and by the arrow keys, the joined switch 2px apart and icons only (word kept as the title and name) at 390, a small tab on a phone keeps 30px with a 44px hit area, the ink of a label, an icon and label and an icon within 1px of the middle (4x, Figtree and its fallback), the top bar fold, every kept name an alias, the family marked Proposed with its date.
+ * The Colour foundation (proposed-colour.js and .css) is checked by tools/check-design-system-colour.mjs, called from here.
  * Options: SHOTS=<folder> saves the screenshots.
  */
 import fs from 'node:fs';
@@ -27,6 +28,7 @@ import zlib from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { buildSnapshot, buildSources } from './design-system-snapshot.mjs';
+import { colourStatic, colourProbe } from './check-design-system-colour.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const DS = path.join(root, 'public', 'design-system');
@@ -75,6 +77,9 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
   if (/data-view|ds-view/.test(th)) fail('index.html still has the Today and Proposed switch');
   if (fs.existsSync(path.join(out, 'proposed.js'))) fail('the today snapshot holds proposed.js');
 }
+
+// The Colour foundation (proposed-colour.js and .css): its files and rules (tools/check-design-system-colour.mjs); the browser part is below.
+colourStatic({ DS, snapNames: new Set(snapP.files.map((f) => f.file)), todayHtml: fs.readFileSync(path.join(DS, 'index.html'), 'utf8'), proposedHtml: fs.readFileSync(path.join(DS, 'proposed.html'), 'utf8'), fail });
 
 // ---- the bundled fonts: in the proposed snapshot with their licence, self-hosted, and none in Today's ----
 {
@@ -395,6 +400,7 @@ async function browse(cdp, label, url, scenarios, shots) {
       if (probe.disabled !== '0.5') problems.push(`${where}: the proposed disabled state is not half strength (${probe.disabled})`);
       if (probe.count !== 1 || probe.frameMode !== probe.pageMode) problems.push(`${where}: the example frame must be one, in the page's mode (${probe.count} frames, ${probe.frameMode} / ${probe.pageMode})`);
       if (probe.flipBg === probe.frameBg || probe.flipBtn === probe.rest) problems.push(`${where}: the Dark and Light switch does not change the examples`);
+      { const cp = JSON.parse(await ev(`(${colourProbe.toString()})().then((r) => JSON.stringify(r))`)); for (const x of cp.problems) problems.push(`${where}: Colour: ${x}`); }
       const want = sc.width < 500 ? 44 : 38;
       if (Math.abs(probe.h - want) > 0.6) problems.push(`${where}: the proposed default button is ${probe.h}px, expected ${want}`);
       if (Math.abs(probe.iconW - want) > 0.6 || Math.abs(probe.iconH - want) > 0.6) problems.push(`${where}: the proposed icon-only button is ${probe.iconW} by ${probe.iconH}px, expected ${want} square`);

@@ -150,6 +150,75 @@ Open items:
 - The date field's native text is not settled, and Firefox and Safari are untested.
 - Pickers, Choice rows and people chips, and the Editor window are still undecided.
 
+### Tabs and view switches (decided 2026-10-18, except counts)
+
+Thomas's decisions on the Tabs and view switches family of the Proposed page. Each one is his decision, in plain words.
+
+- **Shape.** Separate tabs, each a rounded rectangle with `--radius-small` corners. Not fully round ends.
+- **Height.** 30px for small and 38px for the default. On a phone the tap area is 44px.
+- **The toolbar view switch.** The same component, with its tabs joined by 2px gaps.
+- **Selected.** The quiet neutral `--selected-bg` fill, with the text in the darker accent mix (about 5 to 1). No solid accent fill and no underline bar.
+- **Overflow.** A strip of tabs scrolls sideways and keeps the selected tab in view. The toolbar view switch drops to icons only when it is narrow. The top bar keeps its "..." fold.
+- **Separate families.** Chips and the phone bottom bar are not part of this family.
+- **Counts: not approved here.** This entry does not settle the counts on tabs. The count badge is recorded under Chips and badges below, and whether it stands for tabs is still open.
+
+### Chips and badges (decided 2026-10-18)
+
+Thomas's decisions on the Chips and badges family of the Proposed page. Each one is his decision, in plain words.
+
+- **One family, with roles.** The choice chip and the people chip are 30px high. The tag and the removable chip are 24px high.
+- **Corners.** `--radius-small`.
+- **Selected.** The quiet neutral `--selected-bg` fill.
+- **Text size.** No text under 11px. Tags are 12px. Choice chips are 13px.
+- **Category colour.** A tint fill with readable text. Never a coloured border or bar.
+- **Count badges.**
+  - An 18px neutral count after a tab label.
+  - A 16px accent count in the corner of an icon-only tab.
+  - Capped at 99+.
+  - Where a number is not useful, a 7px dot.
+- **The pill colour.** The hard-coded `#e0b25a` pill moves to a token. The token's name is for the proposal to choose.
+- **Retired.** The 9 to 10px caps tags.
+
+### Cards and rows (decided 2026-10-18)
+
+Thomas's decisions on the Cards and rows family of the Proposed page. Each one is his decision, in plain words.
+
+- **One surface.** A card has a 1px neutral hairline and no shadow.
+- **Hover and selected.** Both are quiet fills. Selected uses `--selected-bg`.
+- **A row inside a card.** It drops its own border and takes the next surface step along `--bg`, `--bg-section`, `--bg-card`, `--bg-input` from the card it sits in.
+- **Tinted cards.** The Planner, Places and Research tinted gradient cards lose the gradient, the coloured border and the lift. Category colour stays on the icon and the text.
+- **The menu slot.** A "..." menu sits in a fixed top-right slot on cards, and at the end of rows. A card or row has at most one primary inline action.
+- **Height on a phone.** Rows are 44px high.
+
+### Coloured left bars (decided 2026-10-18)
+
+Thomas's decisions on the coloured edges listed in the audit. Each one is his decision, in plain words. Each bar becomes a fill, an icon or words.
+
+- **Chat messages.** A tint fill.
+- **The chat link box.** The tint goes on the portrait icon only.
+- **Toast and the option-help callout.** A neutral hairline and an icon.
+- **Host console environments.** A status chip with a word, such as Active, Past due or Suspended.
+
+**Exception** (Thomas, 2026-10-18). Calendar's agenda rows and event markers keep their bar: `.item`, `.item.ext`, `.item.marker`, `.chip.ext` and `.chip.marker`. The owner is Thomas. The reason is his decision; no other reason is given here.
+
+Where the exception is recorded:
+
+- The route in this plan is `public/design-system/exceptions.json` (what, file, reason, owner, date, his words), once that file exists.
+- The `check-borders` tool was removed in the rollback, so no allow-list is kept. If a bar check returns, its allow-list would be `tools/check-borders-allow.json`, and this exception goes there.
+
+### Menus and popovers (decided 2026-10-18)
+
+Thomas's decisions on the Menus and popovers family of the Proposed page. Each one is his decision, in plain words.
+
+- **One standard menu surface.** A 1px neutral hairline, a medium corner (`--radius-medium`), one shadow token and 4px of padding.
+- **Items.** 32px high on desktop and 44px on a phone.
+- **Hover.** A quiet neutral fill.
+- **The current choice.** The neutral selected fill (`--selected-bg`).
+- **Check marks.** Only in rows that are tick boxes.
+- **Danger.** Red text only, in the darker readable mix. No red fill on hover.
+- **Long lists with search.** They become the bottom sheet the kind picker already uses.
+- **Still to decide.** Dialogs and sheets, toasts and banners, and tooltips. Each is a separate family.
+
 ## (a) The system
 
 Four layers. Each lower layer is used only through the one above it: a module never writes a colour, a size or a shadow, only a component class and its own layout.

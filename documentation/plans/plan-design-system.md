@@ -112,10 +112,12 @@ One table per family, dated. Each row is Thomas's decision; for the buttons he t
 |---|---|---|
 | Roles | Four: Primary, Secondary, Danger, Quiet. A toggle uses the selected fill (`--selected-bg`). The Accent button and the on/off look fold into these. | Four roles cover every button the audit found; a toggle is a state, not a role. |
 | Sizes | Two: default 38px (44px on a phone, 640px and below) and small 30px. | Matches `--control-h`, `--control-h-touch` and `--control-h-sm`; removes the 28px and other one-off heights. |
-| Danger | A soft red fill (`--danger-bg`) with red text (`--danger-text`). Solid red (`--danger` with `--on-danger`) only for a final confirm. | Danger is shown by a fill and text colour, not an outline (see the border rules). A destructive action that is not final should not shout. |
+| Danger | A soft red fill (`--danger-bg`) with text in the darker mix of `--danger` into `--text` (about 5 to 1 contrast in light mode). Solid red (`--danger` with `--on-danger`) only for a final confirm. | Danger is shown by a fill and text colour, not an outline (see the border rules). A destructive action that is not final should not shout. |
 | Icon-only buttons | One component: square, `--radius-small` corners, in the same two sizes. It replaces the action, more, icon, field, close and message buttons (`.action-btn`, `.sdk-more`, `.icon-btn`, `.sdk-field-btn`, close buttons, `.msg-btn`). | Six looks for one thing. |
 | Call controls | They stay circles (`--radius-round`). | The call's toolbar is its own pattern; only checkable in a real call. |
 | Class names | Today's are kept and redefined once: `.btn`, `.btn-primary`, `.btn-danger`, `.btn-small`, `.sdk-btn`. Added: `.btn-quiet` and one icon-button name (chosen when the proposal is built, named by kind). | Nothing a module or a saved page uses is renamed; consumers get the change with no code change. |
+
+Thomas decided this on 2026-10-18: today's `--danger-text` is the pale red of dark mode and fails contrast on a light page, so Danger buttons and error text (see Fields and forms) use the same readable colour, the darker mix of `--danger` into `--text`.
 
 What this settles for step 9: the spec above. What it leaves for the proposal: the exact fills and hover and pressed fills (tokens), the loading state, and the icon-button class name.
 

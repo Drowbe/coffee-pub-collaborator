@@ -148,7 +148,7 @@ Thomas's decisions on the Fields and forms family of the Proposed page (commit c
 Open items:
 
 - The date field's native text is not settled, and Firefox and Safari are untested.
-- Pickers, Choice rows and people chips, and the Editor window are still undecided.
+- Pickers, Choice rows and the Editor window are still undecided.
 
 ### Tabs and view switches (decided 2026-10-18, except counts)
 
@@ -218,6 +218,53 @@ Thomas's decisions on the Menus and popovers family of the Proposed page. Each o
 - **Danger.** Red text only, in the darker readable mix. No red fill on hover.
 - **Long lists with search.** They become the bottom sheet the kind picker already uses.
 - **Still to decide.** Dialogs and sheets, toasts and banners, and tooltips. Each is a separate family.
+
+### Typography (decided 2026-10-19)
+
+Thomas's decisions on the type sizes and weights. Each one is his decision, in plain words.
+
+- **Interface sizes.** Nine steps, in Figtree: 11px for captions, 12px for small text, 13px for dense UI, 14px for default UI and body text, and 16px for large body text and phone fields.
+- **Headline sizes.** Four steps, in Fraunces: 18px for section headings, 22px for titles, 28px for page titles and 40px for display text.
+- **One exception to the 11px floor.** The micro count: a 9px number inside a 14px corner badge on icon-only tabs and icon buttons. It shows 99+ at most.
+- **Interface weights.** 400, 500 and 600. The weights 650, 700 and 800 fold into 600.
+- **Headline weights.** Fraunces at 600 or 700, to be chosen on the page.
+- **Phone fields.** Their text stays 16px.
+
+### Colour (decided 2026-10-19)
+
+Thomas's decisions on colour. Each one is his decision, in plain words.
+
+- **The role list.** The role list as shown on the Proposed page is approved ("roles make sense"): seven base roles, plus optional status bases, and about 45 derived roles, each driving one job.
+- **Text on a fill.** The text on a status fill is chosen automatically, dark or white, whichever passes 4.5 to 1. This is the same rule as text on accent.
+- **Field edge.** The 1px hairline on a field stays. It is an accepted exception to the 3:1 contrast target for non-text parts. The fill separates the field, and focus and error are strong.
+
+### Chips, badges and counts (decided 2026-10-19)
+
+Thomas's decisions on the chips, badges and counts. Each one is his decision, in plain words.
+
+- **The proposal.** The proposal as drawn is approved: small corner chips, a neutral selected fill, and counts, dots and avatars stay fully round.
+- **Category choice chips.** A category choice chip shows its category on a dot or an icon, with no tint fill. Tags, removable chips and status labels keep the tint fill.
+- **Counts.** Plain accent counts are replaced by the readable mix of accent into text.
+- **The micro count.** A 14px badge with 9px numbers and a 3px inset. It is an allowed size (see Typography).
+
+### Cards, panels and rows (decided 2026-10-19)
+
+Thomas's starting values, in his words: "we can start with this". They may be tuned later.
+
+- **Corners.** Large for cards and panels, medium for a row on a panel, small for a row inside a card.
+- **Padding.** 12px for a card, 14px for a panel, 8px by 10px for a row, and 20px for a Home card.
+- **Group headers.** 12px, weight 600, uppercase.
+- **Ghost card.** A dashed neutral hairline, with no fill.
+
+### Menus and popovers: additions (decided 2026-10-19)
+
+Thomas's decisions that add to the menus and popovers family above. Each one is his decision, in plain words.
+
+- **The proposal.** The proposal as drawn is approved.
+- **One shadow.** One shadow token, `--shadow-2`, kept small: about `0 4px 12px`, not large.
+- **A scrim.** A new scrim token is added. Its name is for the proposal to choose.
+- **Hover.** Text at 10%, the same as tabs.
+- **Date picker.** The chosen day is a solid accent fill. This is an exception to the rule that selected is neutral.
 
 ## (a) The system
 

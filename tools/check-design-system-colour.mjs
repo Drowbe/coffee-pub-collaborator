@@ -1,6 +1,6 @@
 /*
  * check-design-system-colour.mjs -- the Colour foundation of the proposed design system page (public/design-system/proposed-colour.js and .css).
- * Not run on its own: tools/check-design-system.mjs imports colourStatic (files) and colourProbe (runs in the browser, at each width and mode).
+ * Not run on its own: tools/check-design-system.mjs calls staticChecks (files) and browserChecks (colourProbe, run in the browser, at each width and mode).
  *
  * Fails on: a rule in proposed-colour.css not under .ds-colour; a literal colour, a coloured border or an unknown variable in the rules of the
  * mock screen (.cm-*), which may use only the proposed roles and the radius tokens; a mock part (data-roles) naming a role that does not exist,
@@ -15,12 +15,23 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export function colourStatic({ DS, snapNames, todayHtml, proposedHtml, fail }) {
+export const id = 'colour';
+export const ownRules = true; // the Colour rules are under .ds-colour, not .ds-proposed: this file checks them, the runner does not
+export const todayOnly = [];
+
+export function staticChecks({ DS, snapNames, todayHtml, manifestText, fail }) { colourStatic({ DS, snapNames, todayHtml, manifestText, fail }); }
+
+export async function browserChecks({ ev, where, problems }) {
+  const cp = JSON.parse(await ev(`(${colourProbe.toString()})().then((r) => JSON.stringify(r))`));
+  for (const x of cp.problems) problems.push(`${where}: Colour: ${x}`);
+}
+
+export function colourStatic({ DS, snapNames, todayHtml, manifestText, fail }) {
   const cssPath = path.join(DS, 'proposed-colour.css'); const jsPath = path.join(DS, 'proposed-colour.js');
   if (!fs.existsSync(cssPath) || !fs.existsSync(jsPath)) { fail('proposed-colour.css or proposed-colour.js is missing'); return; }
   for (const f of ['proposed-colour.css', 'proposed-colour.js']) {
     if (!snapNames.has(f)) fail(`the proposed snapshot has no ${f}`);
-    if (!proposedHtml.includes(f)) fail(`proposed.html does not load ${f}`);
+    if (!manifestText.includes(f)) fail(`proposed-families.json does not name ${f}`);
     if (todayHtml.includes(f)) fail(`index.html (Today) loads ${f}`);
   }
   const css = fs.readFileSync(cssPath, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');

@@ -1,0 +1,616 @@
+/* ==== Fields and forms (approved 2026-10-18; Thomas's decisions of 2026-10-17) ====
+   One look for every text field, list, number, date, time, search, text area, file, colour and slider; one tick box, one radio and one
+   switch; the label, hint and error lines. The class names are the product's own (.sdk-form, .sdk-field, .sdk-label, .sdk-hint,
+   .sdk-error, .sdk-group, .sdk-check, .sdk-switch); the layout of rows and columns stays in the form block of style.css and host.css, this
+   block is the look. The rules are written on the bare elements (input, select, textarea), so every form that has them gets the look with
+   no markup change: .editor-card inputs, .fields inputs, .setup-field inputs, the layout sheet's search, the bare input rule. The
+   mapping from today's selectors is the table on the page.
+   - Edge: the neutral hairline (--border) on the --bg-input fill, --radius-small, --field-h high (38px; 44px on a phone), one padding token.
+   - Focus: a 2px accent edge and a soft 2px ring, on every field. Placeholder: --text-dim, in light and dark.
+   - Error: aria-invalid="true" gives the 2px danger edge; the message is the .sdk-error line below it.
+   - Disabled: half strength and a not-allowed cursor. Read-only: no fill, the same edge, text at full strength.
+   - Hover is a fill, never an edge. The only coloured edges are the focus and the error, and they are states, not stripes.
+   Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --field-h: 38px;
+  --field-pad-x: 10px;
+  --field-font: 14px;
+  --label-size: 12px;
+  --label-gap: 4px;
+  --check-h: 32px;
+  --f-bg-h: color-mix(in srgb, var(--bg-input) 93%, var(--text));
+  --f-ring: color-mix(in srgb, var(--accent) 30%, transparent);
+  --f-ring-danger: color-mix(in srgb, var(--danger) 30%, transparent);
+  /* The message under an invalid field. --danger-text has no light value (it is the pale red of dark mode), so the text is --danger
+     pulled toward --text, as the Danger button does. */
+  --f-error: color-mix(in srgb, var(--danger) 70%, var(--text));
+  --f-mark: color-mix(in srgb, var(--text) 24%, transparent);
+  }
+
+@media (max-width: 640px) {
+  .ds-proposed { --field-h: 44px; --field-font: 16px; --check-h: 44px; }
+}
+
+/* The other height, shown on a wide frame: the same fields at 44px. */
+.ds-proposed[data-field-h="44"] { --field-h: 44px; --field-font: 16px; --check-h: 44px; }
+
+/* The box. One rule for text, number, date, time, search, list and text area. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea) {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 8px var(--field-pad-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--field-font);
+  line-height: normal;
+  outline: none;
+  box-shadow: none;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+/* One line: --field-h high, the text centred in it. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select) {
+  height: var(--field-h);
+  padding: 0 var(--field-pad-x);
+}
+
+/* The text area: three lines at least, the label's width. :not([type]) only lifts it over the one-line rule above. */
+.ds-proposed textarea:not([type]) {
+  height: auto;
+  min-height: calc(var(--field-font) * 1.4 * 3 + 18px);
+  padding: 8px var(--field-pad-x);
+  line-height: 1.4;
+  resize: vertical;
+}
+
+/* The placeholder is the dim text colour, the same in light and dark. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea)::placeholder {
+  color: var(--text-dim);
+  opacity: 1;
+}
+
+/* Hover: a fill. The edge keeps its colour. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):hover:not(:disabled):not([readonly]) {
+  background: var(--f-bg-h);
+}
+
+/* Read-only: no fill, the same edge, text at full strength. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea)[readonly] {
+  background: transparent;
+}
+
+/* Focus: the accent edge and a soft 2px ring, on every field. The edge is a 2px outline drawn over the 1px border (offset -2px), so the box
+   keeps its size, and not a 1px colour change of the border: a hairline snaps to whole device pixels differently on each side at a
+   fractional display scale (Windows 125%, 150%) and while the page scrolls, and then shows on two sides only. A 2px line always holds a
+   whole pixel of its colour, on all four sides. !important because style.css's own focus rule (more specific) sets the border, outline and shadow too. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--f-ring) !important;
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
+}
+
+/* Error: the danger edge, drawn the same way as the focus; the message is the .sdk-error line below. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea)[aria-invalid="true"] {
+  border-color: var(--danger);
+  outline: 2px solid var(--danger);
+  outline-offset: -2px;
+}
+
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea)[aria-invalid="true"]:focus {
+  border-color: var(--danger) !important;
+  box-shadow: 0 0 0 2px var(--f-ring-danger) !important;
+  outline: 2px solid var(--danger) !important;
+  outline-offset: -2px !important;
+}
+
+/* Disabled: reduced strength, and the cursor says so. */
+.ds-proposed :is(input:not([type="checkbox"], [type="radio"], [type="hidden"], [type="range"], [type="file"], [type="color"]), select, textarea):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--bg-input);
+}
+
+/* A list: no native arrow; the arrow is drawn from the text colour. */
+.ds-proposed select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 34px;
+  background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%), linear-gradient(135deg, var(--text-dim) 50%, transparent 50%);
+  background-position: calc(100% - 19px) 50%, calc(100% - 14px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+  cursor: pointer;
+}
+
+/* A list that still says "Choose": its words are dim, as a placeholder is. */
+.ds-proposed select:has(option[value=""]:checked) {
+  color: var(--text-dim);
+}
+
+.ds-proposed select option {
+  color: var(--text);
+}
+
+.ds-proposed select:hover:not(:disabled) {
+  background-color: var(--f-bg-h);
+}
+
+.ds-proposed select:disabled {
+  background-color: var(--bg-input);
+}
+
+/* A number: no stepper. A date or time: the browser's own picker icon is hidden; the .sdk-field-btn sits inside the field (below). */
+.ds-proposed input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.ds-proposed input[type="number"]::-webkit-inner-spin-button,
+.ds-proposed input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.ds-proposed input:is([type="date"], [type="time"])::-webkit-calendar-picker-indicator {
+  display: none;
+}
+
+.ds-proposed input:is([type="date"], [type="time"])::-webkit-datetime-edit-fields-wrapper {
+  padding: 0;
+}
+
+.ds-proposed input:is([type="date"], [type="time"])::-webkit-datetime-edit {
+  padding: 0;
+}
+
+/* A date (or time) with a picker button: ONE field. The wrapper is the .sdk-group (host.ui.datePicker writes it as .sdk-datefield.sdk-group); it holds
+   the input and the .sdk-field-btn (the calendar; a second one, the list, may follow). The input is the whole box: one border, one fill, one
+   focus edge. The button is a small Quiet icon button (30px) laid inside the trailing edge with the same inset above, below and at the
+   right, so it sits in the middle of the field's height. The text never runs under it (padding-right). On a phone the button keeps its
+   look and gets a 44px target. Hover is a fill; the button's own focus is a 2px ring inside it, and the field draws its one edge too. */
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) {
+  --dp-btn: 30px;
+  --dp-inset: calc((var(--field-h) - var(--dp-btn)) / 2);
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > input {
+  padding-right: calc(var(--dp-inset) + var(--dp-btn) + 6px);
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn ~ .sdk-field-btn) > input {
+  padding-right: calc(var(--dp-inset) + 2 * var(--dp-btn) + 8px);
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn {
+  --btn-h: var(--dp-btn);
+  --btn-icon: 14px;
+  --b-bg: transparent;
+  --b-bg-h: color-mix(in srgb, var(--text) 10%, transparent);
+  --b-bg-a: color-mix(in srgb, var(--text) 16%, transparent);
+  --b-fg: var(--text-dim);
+  --b-fg-h: var(--text);
+  --b-bd: transparent;
+  position: absolute;
+  top: var(--dp-inset);
+  right: var(--dp-inset);
+  width: var(--dp-btn);
+  height: var(--dp-btn);
+  /* The calendar glyph's ink sits about half a pixel above its box; this brings it to the middle of the field. */
+  padding-top: 1px;
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn ~ .sdk-field-btn) > .sdk-field-btn:nth-of-type(1) {
+  right: calc(var(--dp-inset) + var(--dp-btn) + 2px);
+}
+
+.ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn:focus-visible {
+  outline-offset: -2px;
+  background: var(--b-bg-h);
+  color: var(--b-fg-h);
+}
+
+/* The 44px target on a phone: the hit area grows past the 30px box (the field is 44px high, so it stays inside it). */
+@media (max-width: 640px) {
+  .ds-proposed .sdk-group:has(> input:is([type="date"], [type="time"], [type="datetime-local"]) ~ .sdk-field-btn) > .sdk-field-btn::after {
+    content: "";
+    position: absolute;
+    inset: -8px;
+  }
+}
+
+/* The field's one edge shows when the input or the button has the focus. */
+.ds-proposed .sdk-group:has(> .sdk-field-btn:focus-visible) > input:is([type="date"], [type="time"], [type="datetime-local"]) {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--f-ring) !important;
+  outline: 2px solid var(--accent) !important;
+  outline-offset: -2px !important;
+}
+
+/* Search: one field with the magnifier inside, at the same height as any field. */
+.ds-proposed :is(.sdk-search, .map-search) {
+  position: relative;
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: auto;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  box-shadow: none;
+  color: var(--text-dim);
+}
+
+.ds-proposed :is(.sdk-search, .map-search) > :is(i, svg) {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  font-size: 14px;
+  line-height: 14px;
+  text-align: center;
+  transform: translateY(-50%);
+  color: var(--text-dim);
+  pointer-events: none;
+}
+
+.ds-proposed :is(.sdk-search, .map-search) > input {
+  padding-left: 36px;
+}
+
+.ds-proposed :is(.sdk-search, .map-search) > input::-webkit-search-cancel-button {
+  cursor: pointer;
+}
+
+/* A file: the field is the box, the chooser is a small Secondary button inside it. */
+.ds-proposed input[type="file"] {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-h);
+  margin: 0;
+  padding: 0 var(--field-pad-x) 0 5px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--field-font);
+  line-height: normal;
+  cursor: pointer;
+}
+
+.ds-proposed input[type="file"]::file-selector-button {
+  height: calc(var(--field-h) - 12px);
+  margin: 0 var(--field-pad-x) 0 0;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius-min);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-size: var(--field-font);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.ds-proposed input[type="file"]:hover:not(:disabled)::file-selector-button {
+  background: var(--secondary-hover);
+}
+
+.ds-proposed input[type="file"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--f-ring);
+  outline: none;
+}
+
+.ds-proposed input[type="file"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A colour: a swatch in the same box. */
+.ds-proposed input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  box-sizing: border-box;
+  width: calc(var(--field-h) * 1.5);
+  height: var(--field-h);
+  margin: 0;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-small);
+  background: var(--bg-input);
+  cursor: pointer;
+}
+
+.ds-proposed input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.ds-proposed input[type="color"]::-webkit-color-swatch {
+  border: 0;
+  border-radius: var(--radius-min);
+}
+
+.ds-proposed input[type="color"]::-moz-color-swatch {
+  border: 0;
+  border-radius: var(--radius-min);
+}
+
+.ds-proposed input[type="color"]:hover:not(:disabled) {
+  background: var(--f-bg-h);
+}
+
+.ds-proposed input[type="color"]:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--f-ring);
+  outline: none;
+}
+
+.ds-proposed input[type="color"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* A slider: a 4px track from the text colour, a 16px accent thumb. One look. */
+.ds-proposed input[type="range"] {
+  appearance: none;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--field-h);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  outline: none;
+}
+
+.ds-proposed input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--f-mark);
+}
+
+.ds-proposed input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: var(--radius-round);
+  background: var(--f-mark);
+}
+
+.ds-proposed input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.ds-proposed input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--accent);
+  box-shadow: none;
+}
+
+.ds-proposed input[type="range"]:hover:not(:disabled)::-webkit-slider-thumb {
+  background: var(--primary-hover);
+}
+
+.ds-proposed input[type="range"]:hover:not(:disabled)::-moz-range-thumb {
+  background: var(--primary-hover);
+}
+
+.ds-proposed input[type="range"]:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--f-ring);
+}
+
+.ds-proposed input[type="range"]:focus-visible::-moz-range-thumb {
+  box-shadow: 0 0 0 3px var(--f-ring);
+}
+
+.ds-proposed input[type="range"]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The label above, the hint and the error below. 12px, dim, 4px from the field. Optional is written in the label. */
+.ds-proposed .sdk-label {
+  display: block;
+  padding-bottom: var(--label-gap);
+  color: var(--text-dim);
+  font-size: var(--label-size);
+  font-weight: 500;
+  line-height: 16px;
+}
+
+.ds-proposed .sdk-optional {
+  font-weight: 400;
+}
+
+.ds-proposed :is(.sdk-hint, .sdk-error) {
+  display: block;
+  padding-top: var(--label-gap);
+  color: var(--text-dim);
+  font-size: var(--label-size);
+  line-height: 16px;
+}
+
+.ds-proposed .sdk-error {
+  color: var(--f-error);
+}
+
+.ds-proposed :is(.sdk-hint, .sdk-error):empty {
+  display: none;
+}
+
+.ds-proposed .sdk-field:has(:disabled) > .sdk-label {
+  opacity: 0.5;
+}
+
+/* Tick box and radio: 16px, drawn from tokens. Unchecked is the field's fill and a dim edge; checked is the accent fill with the mark. */
+.ds-proposed :is(input[type="checkbox"], input[type="radio"]) {
+  appearance: none;
+  -webkit-appearance: none;
+  flex: none;
+  display: inline-grid;
+  place-content: center;
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--text-dim);
+  border-radius: var(--radius-min);
+  background: var(--bg-input);
+  cursor: pointer;
+  outline: none;
+  box-shadow: none;
+  transition: background 0.15s;
+}
+
+.ds-proposed input[type="radio"] {
+  border-radius: var(--radius-round);
+}
+
+.ds-proposed :is(input[type="checkbox"], input[type="radio"])::before {
+  content: "";
+  width: 10px;
+  height: 10px;
+  background: var(--on-accent);
+  transform: scale(0);
+  transition: transform 0.12s;
+}
+
+.ds-proposed input[type="checkbox"]::before {
+  clip-path: polygon(14% 44%, 0 65%, 50% 100%, 100% 16%, 80% 0%, 43% 62%);
+}
+
+.ds-proposed input[type="radio"]::before {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-round);
+}
+
+.ds-proposed :is(input[type="checkbox"], input[type="radio"]):checked {
+  border-color: transparent;
+  background: var(--accent);
+}
+
+.ds-proposed :is(input[type="checkbox"], input[type="radio"]):checked::before {
+  transform: scale(1);
+}
+
+.ds-proposed :is(input[type="checkbox"], input[type="radio"]):hover:not(:disabled):not(:checked) {
+  background: var(--f-bg-h);
+}
+
+.ds-proposed :is(input[type="checkbox"], input[type="radio"]):checked:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+/* The keyboard ring is the one the buttons use: 2px accent, 2px off the box. */
+.ds-proposed :is(input[type="checkbox"], input[type="radio"]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.ds-proposed :is(input[type="checkbox"], input[type="radio"])[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.ds-proposed :is(input[type="checkbox"], input[type="radio"]):disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* The switch (on or off settings): 36 by 20, the thumb 14. A tick box with role="switch"; .switch is the old name, kept. */
+.ds-proposed input[type="checkbox"]:is(.sdk-switch, .switch) {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: var(--text-dim);
+}
+
+.ds-proposed input[type="checkbox"]:is(.sdk-switch, .switch)::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-round);
+  background: var(--bg-input);
+  clip-path: none;
+  transform: none;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.ds-proposed input[type="checkbox"]:is(.sdk-switch, .switch):hover:not(:disabled):not(:checked) {
+  background: color-mix(in srgb, var(--text-dim) 80%, var(--text));
+}
+
+.ds-proposed input[type="checkbox"]:is(.sdk-switch, .switch):checked {
+  border: 0;
+  background: var(--accent);
+}
+
+.ds-proposed input[type="checkbox"]:is(.sdk-switch, .switch):checked:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.ds-proposed input[type="checkbox"]:is(.sdk-switch, .switch):checked::before {
+  background: var(--on-accent);
+  transform: translateX(16px);
+}
+
+/* A tick box, radio or switch with its words: the whole row is the target. */
+.ds-proposed .sdk-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--check-h);
+  font-size: var(--field-font);
+  line-height: 1.3;
+  cursor: pointer;
+}
+
+.ds-proposed .sdk-check:has(:disabled) {
+  color: var(--text-dim);
+  cursor: not-allowed;
+}
+
+.ds-proposed .sdk-check:has(input:focus-visible) {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(input, select, textarea, .sdk-check)::before,
+  .ds-proposed :is(input, select, textarea) { transition: none; }
+}

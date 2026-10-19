@@ -14,8 +14,10 @@
  *   PAGE=proposed OUT=/tmp/ds-proposed node tools/design-system-snapshot.mjs
  *                                                    builds the proposed system page instead (public/design-system/proposed.html, written
  *                                                    as the folder's index.html): index.html, style.css, theme.css, fa/, ds.css,
- *                                                    proposed.css, proposed.js and fonts/ (the bundled woff2 files and their OFL.txt) only. No
- *                                                    sources.js, no components, no inventory
+ *                                                    proposed.css, proposed.js, proposed-families.json, every file that manifest names
+ *                                                    (each family's script and stylesheet) and fonts/ (the bundled woff2 files and their
+ *                                                    OFL.txt) only. No sources.js, no components, no inventory. The manifest is also written
+ *                                                    into index.html (window.DS_PROPOSED_MANIFEST), so the folder works from a file on disk
  *
  * The folder of the default page (PAGE=today) holds: index.html (paths made relative), ds.css, ds.js, components*.js, sources.js (every
  * stylesheet and the SDK as text, so the page works from disk and from any static host), style.css, theme.css (Strong Coffee's light
@@ -35,6 +37,17 @@ const FA = path.join(root, 'node_modules', '@fortawesome', 'fontawesome-free');
 const DS = path.join(root, 'public', 'design-system');
 const rd = (p) => fs.readFileSync(path.join(root, p), 'utf8');
 const rel = (p) => path.relative(root, p).split(path.sep).join('/');
+
+// The proposed page's families (public/design-system/proposed-families.json): the one list the page and this tool both read.
+export function proposedManifest() {
+  const m = JSON.parse(fs.readFileSync(path.join(DS, 'proposed-families.json'), 'utf8'));
+  if (!m || !Array.isArray(m.families)) throw new Error('proposed-families.json has no "families" list');
+  for (const f of m.families) {
+    if (!f.id || !/^[a-z0-9-]+$/.test(f.id)) throw new Error(`proposed-families.json: a family needs an id of lower-case letters, digits and hyphens (${JSON.stringify(f.id)})`);
+    for (const k of ['js', 'css']) if (f[k] && (!/^[A-Za-z0-9._-]+$/.test(f[k]) || !fs.existsSync(path.join(DS, f[k])))) throw new Error(`proposed-families.json: ${f.id}: ${k} file ${f[k]} is missing or not a plain file name`);
+  }
+  return m;
+}
 
 // ---- module stylesheets, in the order a module page carries them (server/module-build.js): lib css, then its own ----
 export function moduleStyles() {
@@ -144,9 +157,22 @@ export function buildSnapshot(out, page = 'today') {
     html = html.replace(/(<a class="btn btn-small") href="[^"]*"( id="ds-other")/, `$1 href="${other}" target="_blank" rel="noopener"$2`);
     if (!html.includes(`href="${other}"`)) throw new Error('the cross-link (#ds-other) was not found in the page');
   }
+  let keep;
+  if (page === 'proposed') {
+    // The families the manifest names, and the manifest itself (also written into the page: a file on disk cannot read it by XHR).
+    const m = proposedManifest();
+    const names = new Set(['ds.css', 'proposed.js', 'proposed.css', 'proposed-families.json']);
+    for (const f of m.families) for (const k of ['js', 'css']) if (f[k]) names.add(f[k]);
+    keep = (f) => names.has(f);
+    const tag = `<script>window.DS_PROPOSED_MANIFEST = ${JSON.stringify(m).replace(/</g, '\\u003c')};</script>\n  `;
+    if (!html.includes('<script src="proposed.js">')) throw new Error('proposed.html does not load proposed.js');
+    html = html.replace('<script src="proposed.js">', tag + '<script src="proposed.js">');
+  } else {
+    const rx = /^(ds\.css|ds\.js|components[-0-9]*\.js)$/;
+    keep = (f) => rx.test(f);
+  }
   fs.writeFileSync(path.join(out, 'index.html'), html);
-  const keep = page === 'proposed' ? /^(ds\.css|proposed(-colour)?\.(js|css))$/ : /^(ds\.css|ds\.js|components[-0-9]*\.js)$/;
-  for (const f of fs.readdirSync(DS)) if (keep.test(f)) copy(path.join(DS, f), path.join(out, f));
+  for (const f of fs.readdirSync(DS)) if (keep(f)) copy(path.join(DS, f), path.join(out, f));
   // The proposed page's bundled fonts (fonts/<family>/*.woff2 and each OFL.txt), self-hosted beside it. Today's page carries none.
   if (page === 'proposed' && fs.existsSync(path.join(DS, 'fonts'))) {
     const walkCopy = (from, to) => { for (const e of fs.readdirSync(from, { withFileTypes: true })) { const a = path.join(from, e.name); const b = path.join(to, e.name); if (e.isDirectory()) walkCopy(a, b); else if (/\.(woff2|txt)$/.test(e.name)) copy(a, b); } };

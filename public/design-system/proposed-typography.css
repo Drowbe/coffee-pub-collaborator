@@ -1,0 +1,92 @@
+/* ==== Typography (PROPOSED, not decided): three candidate fonts, bundled and self-hosted ====
+   Nothing loads these until a frame uses them: an @font-face downloads its file only when text in that family is drawn, and only the
+   file that holds the letters in use (unicode-range), so a page in English fetches one small latin file. Only this page links this
+   file; the Today page does not. The files are in fonts/<family>/ beside their licence (OFL.txt). No other host is used.
+
+   Each candidate has two faces and the same measured numbers on both:
+   1. The bundled font, with ascent-override, descent-override and line-gap-override set, so the box a line of text makes (and where the
+      letters sit in a button) is the same in every browser: the browser no longer reads the font's own hhea/OS/2 numbers, which round
+      differently from one engine to the next (Figtree's 25% descent at 14px is 3.5px, a tie).
+   2. "<Family> Fallback": a system font (Arial, or what stands in for it) with size-adjust so a line is as wide as in the bundled font,
+      and the same ascent and descent, so the page does not jump when the font arrives, and a failed download still centres the
+      labels. Regular (100 to 599) and bold (600 to 900) are separate faces so bold is not synthesised.
+   Derivation and numbers: the Typography family on the proposed page.
+   The families' stack is --font-ui: the font, its fallback, then Today's system stack (--font-system). */
+
+/* Figtree: metrics 95% up, 24% down, no line gap. Fallback: Arial scaled to 100.59% (regular) and 95.67% (bold) so a sample of UI text is as wide as in the bundled font, with the same ascent and descent. */
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap; ascent-override: 95%; descent-override: 24%; line-gap-override: 0%;
+  src: url(fonts/figtree/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap; ascent-override: 95%; descent-override: 24%; line-gap-override: 0%;
+  src: url(fonts/figtree/latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Figtree Fallback"; font-weight: 100 599; src: local("Arial"), local("Helvetica"), local("Liberation Sans"); size-adjust: 100.59%; ascent-override: 94.44%; descent-override: 23.86%; line-gap-override: 0%; }
+@font-face { font-family: "Figtree Fallback"; font-weight: 600 900; src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold"); size-adjust: 95.67%; ascent-override: 99.3%; descent-override: 25.09%; line-gap-override: 0%; }
+
+/* Nunito Sans: metrics 104% up, 32% down, no line gap. Fallback: Arial scaled to 100.93% (regular) and 96.5% (bold) so a sample of UI text is as wide as in the bundled font, with the same ascent and descent. */
+@font-face { font-family: "Nunito Sans"; font-style: normal; font-weight: 200 1000; font-display: swap; ascent-override: 104%; descent-override: 32%; line-gap-override: 0%;
+  src: url(fonts/nunito-sans/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Nunito Sans"; font-style: normal; font-weight: 200 1000; font-display: swap; ascent-override: 104%; descent-override: 32%; line-gap-override: 0%;
+  src: url(fonts/nunito-sans/latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Nunito Sans"; font-style: normal; font-weight: 200 1000; font-display: swap; ascent-override: 104%; descent-override: 32%; line-gap-override: 0%;
+  src: url(fonts/nunito-sans/cyrillic.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Nunito Sans Fallback"; font-weight: 100 599; src: local("Arial"), local("Helvetica"), local("Liberation Sans"); size-adjust: 100.93%; ascent-override: 103.04%; descent-override: 31.71%; line-gap-override: 0%; }
+@font-face { font-family: "Nunito Sans Fallback"; font-weight: 600 900; src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold"); size-adjust: 96.5%; ascent-override: 107.77%; descent-override: 33.16%; line-gap-override: 0%; }
+
+/* Source Sans 3: metrics 108% up, 34% down, no line gap. Fallback: Arial scaled to 93.32% (regular) and 90.2% (bold) so a sample of UI text is as wide as in the bundled font, with the same ascent and descent. */
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 200 900; font-display: swap; ascent-override: 108%; descent-override: 34%; line-gap-override: 0%;
+  src: url(fonts/source-sans-3/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 200 900; font-display: swap; ascent-override: 108%; descent-override: 34%; line-gap-override: 0%;
+  src: url(fonts/source-sans-3/latin-ext.woff2) format("woff2"); unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C4,U+2113,U+2C60-2C7F,U+A720-A7FF; }
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 200 900; font-display: swap; ascent-override: 108%; descent-override: 34%; line-gap-override: 0%;
+  src: url(fonts/source-sans-3/cyrillic.woff2) format("woff2"); unicode-range: U+0301,U+0400-045F,U+0490-0491,U+04B0-04B1,U+2116; }
+@font-face { font-family: "Source Sans 3"; font-style: normal; font-weight: 200 900; font-display: swap; ascent-override: 108%; descent-override: 34%; line-gap-override: 0%;
+  src: url(fonts/source-sans-3/greek.woff2) format("woff2"); unicode-range: U+0370-0377,U+037A-037F,U+0384-038A,U+038C,U+038E-03A1,U+03A3-03FF; }
+@font-face { font-family: "Source Sans 3 Fallback"; font-weight: 100 599; src: local("Arial"), local("Helvetica"), local("Liberation Sans"); size-adjust: 93.32%; ascent-override: 115.73%; descent-override: 36.43%; line-gap-override: 0%; }
+@font-face { font-family: "Source Sans 3 Fallback"; font-weight: 600 900; src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold"); size-adjust: 90.2%; ascent-override: 119.73%; descent-override: 37.69%; line-gap-override: 0%; }
+
+.ds-proposed {
+  --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+/* data-font on .ds-proposed turns a frame's examples to a candidate; without it the frame keeps the page's system stack (Today). */
+.ds-proposed[data-font] { font-family: var(--font-ui); }
+.ds-proposed[data-font="figtree"] { --font-ui: "Figtree", "Figtree Fallback", var(--font-system); }
+.ds-proposed[data-font="nunito-sans"] { --font-ui: "Nunito Sans", "Nunito Sans Fallback", var(--font-system); }
+.ds-proposed[data-font="source-sans-3"] { --font-ui: "Source Sans 3", "Source Sans 3 Fallback", var(--font-system); }
+
+/* ==== Headline font (PROPOSED, not decided): a second font for big text, beside the UI font ====
+   The UI font (Figtree, Thomas's pick) stays for everything small: labels, buttons, fields, tabs, menus, body text. A headline font would
+   set only the big, bold words: page titles, the space-card name, the wordmark, module titles on Manage and in the editor, the away
+   and countdown words. The three candidates are variable files (one weight axis, 100 to 900; Bricolage 200 to 800), latin only: a
+   headline with Polish or Czech letters takes those letters from Figtree (which has latin-extended) through the stack, so nothing is
+   missing, only mixed. Each has the same two faces as the UI candidates: the bundled font with ascent-override and descent-override
+   set (found by sweeping for a headline of 28px, 22px and 18px in a title bar, ink within 1px of the middle), and "<Family> Fallback",
+   a bold system font scaled to the same width, with the same ascent and descent. The fallback is one bold face (600 to 900).
+   size-adjust is measured on 700 across 16 headlines at 28px: Archivo against Arial Bold 98.55%, Fraunces against Times New Roman Bold
+   (Liberation Serif Bold here) 115.04%, Bricolage Grotesque against Arial Bold 102.15%. */
+
+/* Archivo: 87.8% up, 21% down in its own tables; set to 90% and 19%. Fallback ascent 90 / 0.9855, descent 19 / 0.9855. */
+@font-face { font-family: "Archivo"; font-style: normal; font-weight: 100 900; font-display: swap; ascent-override: 90%; descent-override: 19%; line-gap-override: 0%;
+  src: url(fonts/archivo/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Archivo Fallback"; font-weight: 100 900; src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold"); size-adjust: 98.55%; ascent-override: 91.33%; descent-override: 19.28%; line-gap-override: 0%; }
+
+/* Fraunces: 97.8% up, 25.5% down in its own tables; set to 98.3% and 25%. Fallback is a serif (Times New Roman Bold). */
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 100 900; font-display: swap; ascent-override: 98.3%; descent-override: 25%; line-gap-override: 0%;
+  src: url(fonts/fraunces/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 115.04%; ascent-override: 85.45%; descent-override: 21.73%; line-gap-override: 0%; }
+
+/* Bricolage Grotesque: 93% up, 27% down in its own tables; set to 96% and 24%. */
+@font-face { font-family: "Bricolage Grotesque"; font-style: normal; font-weight: 200 800; font-display: swap; ascent-override: 96%; descent-override: 24%; line-gap-override: 0%;
+  src: url(fonts/bricolage-grotesque/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+@font-face { font-family: "Bricolage Grotesque Fallback"; font-weight: 100 900; src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold"); size-adjust: 102.15%; ascent-override: 93.98%; descent-override: 23.49%; line-gap-override: 0%; }
+
+/* data-headline on .ds-proposed turns the big words of a frame to a candidate; without it they stay in the UI font. The stack ends in the UI font. */
+.ds-proposed[data-headline="archivo"] { --font-head: "Archivo", "Archivo Fallback", var(--font-ui, var(--font-system)); }
+.ds-proposed[data-headline="fraunces"] { --font-head: "Fraunces", "Fraunces Fallback", var(--font-ui, var(--font-system)); }
+.ds-proposed[data-headline="bricolage-grotesque"] { --font-head: "Bricolage Grotesque", "Bricolage Grotesque Fallback", var(--font-ui, var(--font-system)); }
+
+/* Where it would apply: big, bold words only. Not the small capital labels (.space-list-title, .panel h3, .popover h3), not buttons, fields, tabs,
+   menus, the nav text, nor the 14px module title bar (.mod-title). */
+.ds-proposed[data-headline] :is(.head, h1, .space-choice-name, .topbar .brand-name, .module-head :is(h1, h2), .away-head, .recall-countdown, .setup-head h2, .phase-sheet-head h2) {
+  font-family: var(--font-head);
+}
+.ds-proposed[data-headline] .topbar .brand-name { font-weight: 700; }

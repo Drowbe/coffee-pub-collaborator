@@ -7,14 +7,15 @@
   <title>Design system: proposed</title>
   <!-- The proposed design system (documentation/plans/plan-design-system.md): only what Thomas has decided, one family at a time,
        with the families still to decide named and nothing more. It does not load the inventory of what exists today (index.html);
-       it reads style.css and theme.css for the frames, and proposed.css for the proposed rules. Served as a static file
-       (/design-system/proposed.html); tools/design-system-snapshot.mjs (PAGE=proposed) turns it into a self-contained folder. -->
+       it reads style.css and theme.css for the frames, and proposed.css (the shared rules) for the proposed rules. Each family's
+       script and stylesheet are named in proposed-families.json and loaded by proposed.js; this page names none of them (README.md in
+       this folder). Served as a static file (/design-system/proposed.html); tools/design-system-snapshot.mjs (PAGE=proposed) turns it
+       into a self-contained folder. -->
   <link rel="stylesheet" href="/fa/css/all.min.css" data-ds="fa">
   <link rel="stylesheet" href="/style.css" data-ds="app">
   <link rel="stylesheet" href="/theme.css" data-ds="theme">
   <link rel="stylesheet" href="ds.css">
   <link rel="stylesheet" href="proposed.css" data-ds="proposed">
-  <link rel="stylesheet" href="proposed-colour.css">
 </head>
 <body>
   <a class="ds-skip" href="#ds-main">Skip to the content</a>
@@ -59,7 +60,6 @@
       <div id="ds-content"></div>
     </main>
   </div>
-  <script src="proposed-colour.js"></script>
   <script src="proposed.js"></script>
 </body>
 </html>

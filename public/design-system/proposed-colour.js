@@ -2,7 +2,7 @@
    author sets, optional status bases, and about 45 derived roles, each driving one job). A VISUAL proposal: a swatch board, a live mock
    screen, a "what does this role drive?" highlight and a try-it playground. Nothing here is a style of the product: the roles are CSS custom
    properties on the .ds-colour scope of this page only, computed from the bases with color-mix (named formulas, below), never written to
-   style.css, host.css or theme.css. Loaded by proposed.html before proposed.js; it registers one family. */
+   style.css, host.css or theme.css. Loaded by proposed.js through proposed-families.json; it registers one family. */
 window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 (() => {
   'use strict';

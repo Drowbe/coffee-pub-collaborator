@@ -232,9 +232,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="cards-h"><a href="#cards">Cards, panels and rows</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">the panel, the card, the row, the group header and the empty state; Home's space card and the ghost slot</span></header>
-<p class="ds-desc"><b>Proposed 2026-10-19, from Thomas's decisions of 2026-10-18.</b> (1) One card and one row look: a 1px neutral hairline (<code>--border</code>), no shadow. (2) Hover and selected are quiet fills; selected is <code>--selected-bg</code>. (3) Surfaces step down: page <code>--bg</code>, panel <code>--bg-section</code>, card <code>--bg-card</code>, a row inside a card and a field <code>--bg-input</code>; a row inside a card drops its own edge. (4) The Planner, Places and Research cards lose the gradient, the coloured edge and the lift; the category colour stays on the icon chip and its words. (5) A "..." menu sits in a fixed top-right slot on a card and at the end of a row; a card or row has at most one primary action. (6) A row is 44px high on a phone. (7) Coloured left bars become fills, icons and words, except Calendar's agenda rows and event markers. What I chose beyond that is listed under "For Thomas to decide".</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#cards-anatomy">Anatomy</a><a href="#cards-steps">Surface steps</a><a href="#cards-states">Card states</a><a href="#cards-parts">Card parts</a><a href="#cards-rowstates">Row states</a><a href="#cards-rowparts">Row parts</a><a href="#cards-nested">Rows in a card</a><a href="#cards-phone">On a phone</a><a href="#cards-home">Home card and ghost</a><a href="#cards-bars">Left bars</a><a href="#cards-empty">Empty state and group header</a><a href="#cards-context">In context</a><a href="#cards-contrast">Contrast</a><a href="#cards-map">Today to proposed</a><a href="#cards-alias">Aliases</a><a href="#cards-tokens">Tokens</a><a href="#cards-contract">Markup</a><a href="#cards-widths">Widths</a><a href="#cards-decide">For Thomas to decide</a></nav>
+    block.innerHTML = `<header><h3 id="cards-h"><a href="#cards">Cards, panels and rows</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the panel, the card, the row, the group header and the empty state; Home's space card and the ghost slot</span></header>
+<p class="ds-desc"><b>Approved 2026-10-19, from Thomas's decisions of 2026-10-18 and 2026-10-19.</b> (1) One card and one row look: a 1px neutral hairline (<code>--border</code>), no shadow. (2) Hover and selected are quiet fills; selected is <code>--selected-bg</code>. (3) Surfaces step down: page <code>--bg</code>, panel <code>--bg-section</code>, card <code>--bg-card</code>, a row inside a card and a field <code>--bg-input</code>; a row inside a card drops its own edge. (4) The Planner, Places and Research cards lose the gradient, the coloured edge and the lift; the category colour stays on the icon chip and its words. (5) A "..." menu sits in a fixed top-right slot on a card and at the end of a row; a card or row has at most one primary action. (6) A row is 44px high on a phone. (7) Coloured left bars become fills, icons and words, except Calendar's agenda rows and event markers. What was chosen beyond that is listed under "Decided 2026-10-19" (the radii, the paddings, the group header and the ghost slot, which Thomas accepted as a start and may tune later) and "Taken as drawn".</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#cards-anatomy">Anatomy</a><a href="#cards-steps">Surface steps</a><a href="#cards-states">Card states</a><a href="#cards-parts">Card parts</a><a href="#cards-rowstates">Row states</a><a href="#cards-rowparts">Row parts</a><a href="#cards-nested">Rows in a card</a><a href="#cards-phone">On a phone</a><a href="#cards-home">Home card and ghost</a><a href="#cards-bars">Left bars</a><a href="#cards-empty">Empty state and group header</a><a href="#cards-context">In context</a><a href="#cards-contrast">Contrast</a><a href="#cards-map">Today to proposed</a><a href="#cards-alias">Aliases</a><a href="#cards-tokens">Tokens</a><a href="#cards-contract">Markup</a><a href="#cards-widths">Widths</a><a href="#cards-decide">Decided 2026-10-19</a><a href="#cards-taken">Taken as drawn</a></nav>
 
 <h4 class="ds-h4" id="cards-anatomy">Anatomy</h4>
 <div data-slot="anatomy"></div>
@@ -342,7 +342,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--row-pad-y</code> <code>--row-pad-x</code>', '8px, 10px', 'A row\'s padding. Proposed tokens.'],
     ['<code>--gap-in</code> <code>--gap-group</code>', '8px, 16px', 'The one spacing rule. Proposed tokens.'],
     ['<code>--ls-label</code>', '0.04em', 'Group header letter spacing. Proposed token.'],
-    ['<code>--shadow-1</code>', '0 6px 16px, black at 28%', 'A card while it is dragged. Proposed token (the plan\'s elevation scale).'],
+    ['<code>--shadow-1</code>', '0 2px 8px, black at 28%', 'A card while it is dragged. Smaller than the menu\'s <code>--shadow-2</code> (<code>0 4px 12px</code>). Proposed token (the plan\'s elevation scale).'],
     ['<code>--tint-*</code>', 'the eight tints', 'The icon chip and the category words.'],
   ])}
 
@@ -381,14 +381,19 @@ ${dim([
 <h4 class="ds-h4" id="cards-widths">Widths</h4>
 <div data-slot="widths"></div>
 
-<h4 class="ds-h4" id="cards-decide">For Thomas to decide</h4>
-${tbl(['I chose', 'Why', 'Other way'], [
-    ['Radii: card and panel large, a row on a panel medium, a row in a card small', 'Each box inside another has a smaller corner, so the corners stay concentric.', 'A card in a panel looks as round as the panel; make the card medium and the row small everywhere.'],
+<h4 class="ds-h4" id="cards-decide">Decided 2026-10-19</h4>
+<p class="ds-desc">Thomas approved these on 2026-10-19 and said "we can start with this" about the radii and the paddings, so those two may be tuned later without reopening the family.</p>
+${tbl(['Decided 2026-10-19', 'Why', 'Other way, if tuned later'], [
+    ['Radii: card and panel large, a row on a panel medium, a row in a card small', 'Each box inside another has a smaller corner, so the corners stay concentric.', 'Make the card medium and the row small everywhere.'],
     ['Padding: card 12, panel 14 and 16, row 8 by 10, Home card 20', 'Matches what the modules mostly use today.', 'Card 16 for air.'],
-    ['One spacing rule: 8px between things, 16px between groups', 'One number a module can remember.', 'Cards 12px apart.'],
     ['Group header: 12px, weight 600, muted, upper case, 0.04em, with a hairline under it', 'The most common of the three today, and the divider is part of the decision.', 'Sentence case with no letter spacing; no hairline.'],
+    ['The ghost add slot is a dashed neutral hairline with no fill', 'The add variant keeps its dashed edge, quiet like the rest.', 'A solid hairline.'],
+  ])}
+
+<h4 class="ds-h4" id="cards-taken">Taken as drawn</h4>
+${tbl(['Drawn', 'Why', 'Other way'], [
+    ['One spacing rule: 8px between things, 16px between groups', 'One number a module can remember.', 'Cards 12px apart.'],
     ['Hover is the text colour at 8% over the surface; selected is <code>--selected-bg</code> as it is (translucent over what is behind)', 'The same quiet fills as the buttons and tabs.', 'Selected on a card mixed over the card\'s own fill.'],
-    ['The ghost add slot keeps a dashed hairline', 'You said to keep it as an add variant.', 'A solid hairline.'],
     ['The word for muted text in code is <code>--text-dim</code>', 'The product has no <code>--text-muted</code>; the Colour family\'s "Muted text" role is <code>--text-dim</code>.', 'Rename the token when Colour moves in.'],
     ['In today\'s theme the card and the field are the same colour', 'The product sets <code>--bg-card</code> to the input shade. The steps are tokens, so they separate when a theme or the Colour family does.', 'Decide the card shade in Colour.'],
     ['The chat message is neutral, with the tint on the portrait only', 'Your later note; the plan says "a tint fill" for the message.', 'A quiet tint fill on the whole message.'],
@@ -420,7 +425,7 @@ ${tbl(['I chose', 'Why', 'Other way'], [
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'cards', covers: ['card', 'panel', 'row', 'section', 'tile', 'empty', 'group-head', 'home-card', 'ghost'], group: 'Containers', name: 'Cards, panels and rows', status: 'proposed',
+    id: 'cards', covers: ['card', 'panel', 'row', 'section', 'tile', 'empty', 'group-head', 'home-card', 'ghost'], group: 'Containers', name: 'Cards, panels and rows', status: 'approved',
     words: 'cards card panel rows row list tile section group header heading divider empty state ghost add home space card callout option help toast message link box exception calendar left bar surface step hairline shadow selected hover menu slot tick due phone 44', render: renderCards,
   });
 })();

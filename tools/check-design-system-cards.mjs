@@ -8,7 +8,7 @@
  * one frame, a 3px block that is not a border, nowhere else), hover or selected that is not a fill (selected = --selected-bg), a focus that is not a 2px outline at offset
  * -2px (all four sides the same at 1.25x and 1.5x), a phone row under 44px or a tick or "..." hit area under 44px, a row wider than 38px at desktop, a card with more than
  * one primary button, a menu slot that is not 30px at the top right, a group header that is not 12px, weight 600, letter-spaced, upper case with the hairline, an empty
- * state with a box, an alias that does not look like the new name, a frame that scrolls sideways, the family not marked Proposed, the two names not taken out of the
+ * state with a box, an alias that does not look like the new name, a frame that scrolls sideways, the family not marked Approved and dated 2026-10-19 (with the radii, paddings, group header and ghost slot marked Decided 2026-10-19), a --shadow-1 that is not 0 2px 8px (it must be smaller than the menus --shadow-2), the two names not taken out of the
  * undecided list, a missing note that the toast and the status chip belong to other families; in the stylesheet: a gradient, a hex colour, a one-sided coloured border,
  * a shadow other than none and --shadow-1, a name not defined.
  */
@@ -22,6 +22,7 @@ export function staticChecks({ fail, css, js, defined, DS }) {
   if (/border-(left|right|top)\s*:/.test(css)) fail('proposed-cards.css: a border on one side other than the divider under a group header');
   for (const m of css.matchAll(/box-shadow\s*:\s*([^;]+);/g)) if (!/^(none|var\(--shadow-1\))$/.test(m[1].trim())) fail(`proposed-cards.css: box-shadow ${m[1].trim()} (only none, and --shadow-1 while dragging)`);
   if (!/\.is-dragging\s*\{[^}]*box-shadow:\s*var\(--shadow-1\)/.test(css)) fail('proposed-cards.css: the dragged card has no --shadow-1');
+  if (!/--shadow-1:\s*0 2px 8px rgba\(0, 0, 0, 0\.28\)/.test(css)) fail('proposed-cards.css: --shadow-1 is not 0 2px 8px, black at 28% (smaller than the menus --shadow-2, 0 4px 12px)');
   if ((css.match(/rgba?\(/g) || []).length !== 1) fail('proposed-cards.css: a colour written out other than the one --shadow-1 black');
   const bars = css.match(/\.sdk-bar-kept/g) || [];
   if (bars.length !== 2) fail(`proposed-cards.css: .sdk-bar-kept is in ${bars.length} rules, expected 2 (the padding and the bar)`);
@@ -186,11 +187,12 @@ const cardsProbe = async () => {
     if (!d.querySelector('.option-help') || cs(d.querySelector('.option-help')).borderTopWidth !== '1px') bad('aliases: .option-help is not a hairline'); }
   // The page: the family is Proposed, dated; the two names are out of the undecided list; the other families are named.
   const doc = document; const blk = doc.getElementById('cards');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Cards family is not marked Proposed');
-  if (!blk || !/Proposed 2026-10-19/.test(blk.textContent)) bad('the Cards family has no Proposed 2026-10-19 note');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Cards family is not marked Approved');
+  if (!blk || !/Approved 2026-10-19/.test(blk.textContent)) bad('the Cards family has no Approved 2026-10-19 note');
+  if (!blk || !/Decided 2026-10-19/.test(blk.textContent)) bad('the Cards family does not mark the radii, paddings, group header and ghost slot as Decided 2026-10-19');
   for (const id of ['u-cards-panels-and-rows', 'u-home-cards-and-the-ghost-slot']) if (doc.getElementById(id)) bad(`${id} is still listed as Not yet decided`);
   if (!/Toasts family/.test(blk ? blk.textContent : '') || !/Chips family/.test(blk ? blk.textContent : '')) bad('the Cards family does not say the toast and the status chip belong to other families');
-  if (!/For Thomas to decide/.test(blk ? blk.textContent : '')) bad('the Cards family has no list of what Thomas decides');
+  if (!/Taken as drawn/.test(blk ? blk.textContent : '')) bad('the Cards family does not list what was taken as drawn');
   // Overflow at each width of the context mock.
   for (const w of [390, 700, 1280]) { const d = get(`Cards at ${w}`); if (!d) { bad(`no frame Cards at ${w}`); continue; } await wait(100);
     if (d.documentElement.scrollWidth > d.documentElement.clientWidth + 1) bad(`Cards at ${w}: scrolls sideways`);

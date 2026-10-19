@@ -247,7 +247,8 @@
   background: color-mix(in srgb, var(--accent) 55%, var(--t-ink));
 }
 
-/* On an icon-only tab the count and the dot sit on the icon's corner, so the tab stays square. */
+/* On an icon-only tab the count and the dot sit on the icon's corner, so the tab stays square. The count is the micro count (.sdk-badge-micro), defined in the
+   Chips family with these same values: 14px, 9px numbers, 3px in, the accent-mix fill. */
 .ds-proposed :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs, .sdk-tabs-joined, .sdk-tabs-bar) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge, .chat-view-count),
 .ds-proposed :is(.sdk-tabs-compact, .tb-tabs-compact) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
   position: absolute;
@@ -257,7 +258,7 @@
   height: 14px;
   padding: 0 3px;
   font-size: 9px;
-  background: var(--accent);
+  background: color-mix(in srgb, var(--accent) 88%, var(--text));
   color: var(--on-accent);
 }
 

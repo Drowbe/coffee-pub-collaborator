@@ -14,7 +14,7 @@
 
 .ds-proposed {
   /* ONE shadow for what floats: menus, popovers, the list under a field. Windows get --shadow-3 with the Dialogs family. */
-  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.40);
   /* The scrim behind a bottom sheet (shared with the Dialogs family later). */
   --scrim: rgba(0, 0, 0, 0.55);
   --menu-pad: 4px;
@@ -35,7 +35,7 @@
 }
 
 .ds-proposed:is(:root[data-theme-mode="light"] *) {
-  --shadow-2: 0 8px 24px color-mix(in srgb, var(--text) 18%, transparent);
+  --shadow-2: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
   --scrim: rgba(0, 0, 0, 0.35);
 }
 

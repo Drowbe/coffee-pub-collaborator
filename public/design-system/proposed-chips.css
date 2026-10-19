@@ -8,11 +8,11 @@
      Removable      .sdk-chip-removable  24px, 12px   a tag with a trailing x button            .rs-chip.tag
      Status label   .sdk-status          24px, 12px   a condition, in words, with a tint fill   .badge-ok .phase-chip
      Count          .sdk-badge           18px, 11px   a neutral number after a label or in a chip   .count .whos-around-count .badge
-     Corner count   .sdk-badge-corner    16px, 11px   an accent number on an icon-only tab or icon button   .nav-badge
+     Micro count    .sdk-badge-micro     14px, 9px    an accent number in the corner of an icon-only tab or icon button   .sdk-badge-corner .nav-badge
      Dot            .sdk-dot             7px          where a number is not useful
    Selected is the quiet neutral fill (--selected-bg) with the accent mix for the text (about 5 to 1, as Buttons and Tabs do). Category colour
    is a tint fill (the tone 18% into the surface the chip sits on) with readable text (the tone mixed toward --text): never a coloured border,
-   edge or bar. No text under 11px. On a phone every pressable chip keeps its look and gets a 44px hit area.
+   edge or bar. No text under 11px, except the micro count (numbers only). On a phone every pressable chip keeps its look and gets a 44px hit area.
    Focus is the Fields and Tabs mechanism: a 2px outline drawn over the 1px edge, inside the box (offset -2px), equal on all four sides.
    Colours are theme tokens only. Radii are --radius-* tokens. */
 
@@ -36,6 +36,8 @@
   /* The tone of a status. --warn is new: it replaces the hard-coded #e0b25a of .pill.warn (the gold tint, which has a light-mode value). */
   --warn: var(--tint-gold);
   --t-ink: var(--text);
+  /* The fill of the micro count: the accent mixed into the text so the --on-accent number passes 4.5 to 1 in both modes. One value, used by Chips and Tabs. */
+  --micro-fill: color-mix(in srgb, var(--accent) 88%, var(--text));
 }
 
 /* ---- the shape, for every chip, tag, status label and person ---- */
@@ -320,24 +322,27 @@
 
 .ds-proposed :is(.sdk-badge, .count, .whos-around-count, .badge):empty { display: none; }
 
-/* The corner count: 16px, accent, on an icon-only tab or an icon button (the parent is positioned). 2px from the parent's 1px edge, so 3px from its outer edge, the inset the Tabs family has. */
-.ds-proposed :is(.sdk-badge-corner, .nav-badge) {
+/* The micro count: 14px badge, 9px numbers, on an icon-only tab or an icon button (the parent is positioned). 3px in from the parent's padding edge on
+   the top and the right, exactly as the approved Tabs family draws it; this is the one definition, and Tabs draws the same values. It is allowed below the 11px
+   text floor because it holds numbers only (99+ at most) and sits inside a corner of an icon. The fill is the accent mixed 88% with --text and the number is
+   --on-accent, so the pair passes 4.5 to 1 in the light and the dark mode (the plain accent does not in the light mode). .sdk-badge-corner and .nav-badge are aliases. */
+.ds-proposed :is(.sdk-badge-micro, .sdk-badge-corner, .nav-badge) {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: 3px;
+  right: 3px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  min-width: 16px;
-  height: 16px;
+  min-width: 14px;
+  height: 14px;
   margin: 0;
   padding: 0 3px;
   border: 0;
   border-radius: var(--radius-round);
-  background: color-mix(in srgb, var(--accent) 88%, var(--text));
+  background: var(--micro-fill);
   color: var(--on-accent);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -345,7 +350,7 @@
   pointer-events: none;
 }
 
-.ds-proposed :is(.sdk-badge-corner, .nav-badge):empty { display: none; }
+.ds-proposed :is(.sdk-badge-micro, .sdk-badge-corner, .nav-badge):empty { display: none; }
 
 /* The dot: 7px, where a number is not useful. Inline after a label, or on an icon's corner with .sdk-dot-corner. */
 .ds-proposed .sdk-dot {
@@ -360,7 +365,7 @@
 }
 
 /* The parent of a corner count or dot is the corner's frame (a tab and an icon button, which are positioned already). */
-.ds-proposed :has(> :is(.sdk-badge-corner, .nav-badge, .sdk-dot-corner)) { position: relative; }
+.ds-proposed :has(> :is(.sdk-badge-micro, .sdk-badge-corner, .nav-badge, .sdk-dot-corner)) { position: relative; }
 
 .ds-proposed .sdk-dot.sdk-dot-corner {
   position: absolute;

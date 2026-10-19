@@ -42,7 +42,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const a = m === 'pressed' ? ` aria-pressed="${on}"` : m === 'current' ? (on ? ' aria-current="page"' : '') : ` role="tab" aria-selected="${on}"`;
     const cls = ['sdk-tab'].concat(o.iconOnly ? 'sdk-tab-icon' : [], o.cls ? o.cls : []).join(' ');
     const name = o.iconOnly || o.fitTitle ? ` aria-label="${o.word}" title="${o.word}"` : '';
-    return `<button type="button" class="${cls}"${a}${name}${o.dis ? ' disabled' : ''}>${o.icon ? `<i class="sdk-tab-glyph fa-solid fa-${o.icon}" aria-hidden="true"></i>` : ''}${o.iconOnly ? '' : `<span class="sdk-tab-word">${o.word}</span>`}${o.badge != null ? `<span class="sdk-tab-badge">${o.badge}</span>` : ''}${o.dot ? '<span class="sdk-tab-dot" aria-hidden="true"></span><span class="visually-hidden">Unsaved changes</span>' : ''}</button>`;
+    return `<button type="button" class="${cls}"${a}${name}${o.dis ? ' disabled' : ''}>${o.icon ? `<i class="sdk-tab-glyph fa-solid fa-${o.icon}" aria-hidden="true"></i>` : ''}${o.iconOnly ? '' : `<span class="sdk-tab-word">${o.word}</span>`}${o.badge != null ? `<span class="sdk-tab-badge${o.iconOnly ? ' sdk-badge-micro' : ''}">${o.badge}</span>` : ''}${o.dot ? '<span class="sdk-tab-dot" aria-hidden="true"></span><span class="visually-hidden">Unsaved changes</span>' : ''}</button>`;
   }
   // A wrapper. o: cls (more classes), role ('tablist' or 'group'), label, sel (the attribute the demo script sets), demo, fade.
   const tabs = (items, o = {}) => `<div class="sdk-tabs${o.cls ? ' ' + o.cls : ''}" role="${o.role || 'group'}" aria-label="${o.label || 'Tabs'}"${o.demo ? ` data-demo data-sel="${o.sel || 'aria-selected'}"` : ''}${o.fade ? ' data-fade-on' : ''}>${items.map(tab).join('')}</div>`;
@@ -314,7 +314,7 @@ ${tbl(['Size', 'Class', 'Height', 'Use it for'], [
 <div data-slot="toolbar"></div>
 
 <h4 class="ds-h4" id="tabs-count">Count and dot</h4>
-<p class="ds-desc"><b>The count (provisional until the chips and badges family):</b> one small neutral pill after the label, <code>--text</code> at 14% with <code>--text</code> text, 18px high, 11px bold, 6px side padding, the same on a selected and an unselected tab. It is not accent: an accent count competes with the selected fill. On an icon-only tab the count sits on the icon\'s corner as a 14px accent pill with <code>--on-accent</code> text, 3px in from the top and right edges (a count needs to be seen without a word beside it); the dot sits 4px in from the same edges. Both are in the States grid above.</p>
+<p class="ds-desc"><b>The count (provisional until the chips and badges family):</b> one small neutral pill after the label, <code>--text</code> at 14% with <code>--text</code> text, 18px high, 11px bold, 6px side padding, the same on a selected and an unselected tab. It is not accent: an accent count competes with the selected fill. On an icon-only tab the count sits on the icon\'s corner as the micro count (<code>.sdk-badge-micro</code>, defined once in the Chips family): a 14px pill with 9px numbers and <code>--on-accent</code> text on the accent mixed 88% into <code>--text</code>, 3px in from the top and right edges (a count needs to be seen without a word beside it); the dot sits 4px in from the same edges. Both are in the States grid above.</p>
 
 <h4 class="ds-h4" id="tabs-alias">Aliases: today\'s markup, unchanged</h4>
 <p class="ds-desc">These use only today\'s class names. They take the proposed look with no markup edit: the view switch, a page\'s tabs, Set up\'s tabs, the top bar\'s layout tabs.</p>

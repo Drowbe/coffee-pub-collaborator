@@ -2,15 +2,15 @@
  * check-design-system-chips.mjs -- the Chips, badges and counts family of the proposed design system page (public/design-system/proposed-chips.js and .css).
  * Not run on its own: tools/check-design-system.mjs calls staticChecks (the rules) and browserChecks (in the browser, at each width and mode).
  *
- * Fails on: a choice chip or a person not 30px, a tag, a removable chip or a status label not 24px, a count not 18px, a corner count not 16px, a dot not 7px,
+ * Fails on: a choice chip or a person not 30px, a tag, a removable chip or a status label not 24px, a count not 18px, a micro count not a 14px badge with 9px numbers (the same box, text, fill and inset as the Tabs family draws on an icon-only tab), a dot not 7px,
  * the x of a removable chip not 20px; any chip with a corner that is not --radius-small (5px), any edge not 1px transparent in any state (no coloured border, no
- * bar, no underline), any text in a chip frame under 11px (tags and status labels under 12px, choice chips and people under 13px); a selected fill that is not the
+ * bar, no underline), any text in a chip frame under 11px (the micro count, .sdk-badge-micro, is left out: numbers only) (tags and status labels under 12px, choice chips and people under 13px); a selected fill that is not the
  * --selected-bg token with the accent-mix text; a rest chip without a fill; the focus not a 2px outline at offset -2px (all four sides the same at 1.25x and 1.5x);
  * a tint fill that is not the tone mixed into the surface (or that has a coloured edge); a contrast pair under its minimum (the rows marked "Not used here" are
  * shown to compare and are left out); the ink of a label more than 1px off the middle (4x); on a phone, a pressable chip without a 44px hit area (a press 5px above it
- * must reach it) or an x without a 44px hit area; a corner count or dot that is not 3px (5px for the dot) from the outer top and right edge, as the Tabs family has it, or that makes an icon-only tab
- * not square; a kept name that does not take the look; the family not marked Proposed; "Chips that filter" and "Chips, badges, pills and counts" still listed as
- * Not yet decided; in the stylesheet: a chips rule that draws an edge on one side, an underline, an inset shadow, a tint in a border, a font size under 11px, the
+ * must reach it) or an x without a 44px hit area; a micro count that is not 3px (the dot 4px) in from the parent's padding edge on the top and right, as the Tabs family has it, or that makes an icon-only tab
+ * not square; a kept name that does not take the look; the family not marked Approved, or its page without the micro count wording (14px badge, 9px numbers, below the 11px floor because it holds numbers only); "Chips that filter" and "Chips, badges, pills and counts" still listed as
+ * Not yet decided; in the stylesheet: a chips rule that draws an edge on one side, an underline, an inset shadow, a tint in a border, a font size under 11px (except the micro count's 9px), the
  * hard-coded #e0b25a, a new name that is not defined.
  */
 export const id = 'chips';
@@ -21,9 +21,11 @@ export function staticChecks({ fail, css, defined, js }) {
   if (/text-decoration\s*:\s*underline/.test(css)) fail('proposed-chips.css: a chips rule underlines something');
   if (/inset\s*\)|box-shadow\s*:\s*inset/.test(css)) fail('proposed-chips.css: a chips rule draws an inset shadow (a bar)');
   if (/#[0-9a-f]{3,8}\b/i.test(css)) fail('proposed-chips.css: a hard-coded colour (tokens only)');
-  for (const m of css.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)px/g)) if (Number(m[1]) < 11) fail(`proposed-chips.css: a font size of ${m[1]}px, under 11px`);
+  const cssNoMicro = css.replace(/\.ds-proposed :is\(\.sdk-badge-micro[^{]*\{[^}]*\}/, '');
+  if (!/\.sdk-badge-micro/.test(css)) fail('proposed-chips.css: no .sdk-badge-micro (the micro count)');
+  for (const m of cssNoMicro.matchAll(/font-size\s*:\s*(\d+(?:\.\d+)?)px/g)) if (Number(m[1]) < 11) fail(`proposed-chips.css: a font size of ${m[1]}px, under 11px`);
   if (/e0b25a/i.test(css)) fail('proposed-chips.css: still draws the hard-coded #e0b25a (it is --warn)');
-  for (const c of ['sdk-chip', 'sdk-chips', 'sdk-chip-tag', 'sdk-chip-people', 'sdk-chip-removable', 'sdk-chip-x', 'sdk-chip-label', 'sdk-chip-dot', 'sdk-chip-avatar', 'sdk-status', 'sdk-badge', 'sdk-badge-corner', 'sdk-dot', 'sdk-dot-corner',
+  for (const c of ['sdk-chip', 'sdk-chips', 'sdk-chip-tag', 'sdk-chip-people', 'sdk-chip-removable', 'sdk-chip-x', 'sdk-chip-label', 'sdk-chip-dot', 'sdk-chip-avatar', 'sdk-status', 'sdk-badge', 'sdk-badge-micro', 'sdk-badge-corner', 'sdk-dot', 'sdk-dot-corner',
     'filter-chip', 'bgpick-chip', 'chip', 'chip-btn', 'rs-chip', 'daychip', 'sdk-people', 'tag', 'host-menu-tag', 'pill', 'phase-tag', 'stream-badge', 'phase-tag-now', 'phase-tag-main', 'badge-ok', 'phase-chip', 'count', 'whos-around-count', 'badge', 'nav-badge']) {
     if (!defined.has(c)) fail(`the proposed stylesheets do not define the chips name .${c} (a new name or a kept alias)`);
   }
@@ -96,7 +98,7 @@ const chipsProbe = async () => {
       if (fs < 11) bad(`${nm}: text is ${fs}px, under 11px`); else if (!near(fs, want, 0.01)) bad(`${nm}: text is ${fs}px, expected ${want}px`);
     }
     // No text anywhere in a chips frame under 11px, inside the chips and badges.
-    for (const el of d.querySelectorAll('.sdk-badge, .sdk-badge-corner, .count, .badge, .nav-badge, .whos-around-count, .sdk-chip-avatar, .sdk-chip-label')) if (parseFloat(getComputedStyle(el).fontSize) < 11) bad(`${t}: ${el.className} text is ${getComputedStyle(el).fontSize}, under 11px`);
+    for (const el of d.querySelectorAll('.sdk-badge:not(.sdk-badge-micro), .count, .badge:not(.sdk-badge-micro), .nav-badge, .whos-around-count, .sdk-chip-avatar, .sdk-chip-label')) if (el.closest('.sdk-badge-micro')) continue; else if (!el.matches('.nav-badge') && parseFloat(getComputedStyle(el).fontSize) < 11) bad(`${t}: ${el.className} text is ${getComputedStyle(el).fontSize}, under 11px`);
     void phone;
   }
   // Sizes: the roles' exact heights.
@@ -104,7 +106,7 @@ const chipsProbe = async () => {
   for (const t of ['Chips, all states', 'Chips, roles', 'Chips, on a phone']) heights(get(t), '.sdk-chip', 30, t);
   for (const t of ['Chips, people states', 'Chips, roles', 'Chips, on a phone']) heights(get(t), '.sdk-chip-people', 30, t);
   { const d = get('Chips, states of the other roles'); heights(d, '.sdk-chip-tag', 24, 'tags'); heights(d, '.sdk-chip-removable', 24, 'removable'); heights(d, '.sdk-status', 24, 'status'); heights(d, '.sdk-chip-x', 20, 'the x'); for (const el of d.querySelectorAll('.sdk-chip-x')) if (!near(el.getBoundingClientRect().width, 20)) bad('an x is not 20px wide'); }
-  { const d = get('Chips, counts and dots'); heights(d, '.sdk-badge:not(.sdk-badge-corner)', 18, 'counts'); heights(d, '.sdk-badge-corner', 16, 'corner counts'); heights(d, '.sdk-dot', 7, 'dots'); for (const el of d.querySelectorAll('.sdk-dot')) if (!near(el.getBoundingClientRect().width, 7)) bad('a dot is not 7px wide'); }
+  { const d = get('Chips, counts and dots'); heights(d, '.sdk-badge:not(.sdk-badge-micro)', 18, 'counts'); heights(d, '.sdk-badge-micro', 14, 'micro counts'); for (const el of d.querySelectorAll('.sdk-badge-micro')) { const c = getComputedStyle(el); if (c.fontSize !== '9px') bad(`a micro count has ${c.fontSize} numbers, expected 9px`); } heights(d, '.sdk-dot', 7, 'dots'); for (const el of d.querySelectorAll('.sdk-dot')) if (!near(el.getBoundingClientRect().width, 7)) bad('a dot is not 7px wide'); }
   { const d = get('Chips, roles'); const e = d.querySelector('.sdk-chip-tag'); if (!near(e.getBoundingClientRect().height, 24)) bad('roles: a tag is not 24px'); }
   // A selected chip is the same box as a rest chip; the states.
   { const d = get('Chips, all states'); const cs = (x) => getComputedStyle(x);
@@ -156,23 +158,28 @@ const chipsProbe = async () => {
   }
   // Counts and dots: on a tab and an icon button.
   { const d = get('Chips, counts and dots'); const cs = (x) => getComputedStyle(x);
-    for (const kind of ['.sdk-badge-corner', '.sdk-dot-corner']) {
+    for (const kind of ['.sdk-badge-micro', '.sdk-dot-corner']) {
       const els = [...d.querySelectorAll(kind)]; if (!els.length) bad(`counts: no ${kind}`);
       for (const m of els) {
-        const P = m.parentElement.getBoundingClientRect(); const M = m.getBoundingClientRect(); const top = M.top - P.top; const right = P.right - M.right; const w = kind === '.sdk-badge-corner' ? 3 : 5;
-        if (!near(top, w, 0.6) || !near(right, w, 0.6)) bad(`counts: a ${kind} is ${top.toFixed(1)}px from the top and ${right.toFixed(1)}px from the right edge, expected ${w}px each`);
+        const P = m.parentElement.getBoundingClientRect(); const M = m.getBoundingClientRect(); const top = M.top - P.top; const right = P.right - M.right; const pb = parseFloat(getComputedStyle(m.parentElement).borderTopWidth) || 0; const w = (kind === '.sdk-badge-micro' ? 3 : 4) + pb;
+        if (!near(top, w, 0.6) || !near(right, w, 0.6)) bad(`counts: a ${kind} is ${top.toFixed(1)}px from the top and ${right.toFixed(1)}px from the right edge, expected ${w}px each (${w - pb}px in from the padding edge, as Tabs has it)`);
         if (M.left < P.left - 0.5 || M.bottom > P.bottom + 0.5) bad(`counts: a ${kind} is outside its tab or button`);
         const par = m.parentElement; if (par.matches('.sdk-tab-icon') && Math.abs(P.width - P.height) > 0.6) bad(`counts: an icon-only tab with a ${kind} is not square (${P.width} by ${P.height})`);
         if (cs(m).position !== 'absolute') bad(`counts: a ${kind} is not absolute`);
       }
     }
-    const widths = [...d.querySelectorAll('.sdk-badge-corner')].map((m) => ({ t: m.textContent.trim(), w: m.getBoundingClientRect().width }));
-    const one = widths.find((x) => x.t === '3'); const cap = widths.find((x) => x.t === '99+'); if (!one || !near(one.w, 16)) bad(`a one-digit corner count is ${one && one.w}px wide, expected 16`); if (!cap || cap.w <= 18) bad('a 99+ corner count does not widen');
-    for (const m of d.querySelectorAll('.sdk-badge:not(.sdk-badge-corner)')) { if (cs(m).borderTopWidth !== '0px') bad('a count has an edge'); }
-    const acc = tok(d, 'var(--accent)', 'backgroundColor'); const cc = cs(d.querySelector('.sdk-badge-corner')).backgroundColor; if (cc === 'rgba(0, 0, 0, 0)' || cc === tok(d, 'var(--text)', 'backgroundColor')) bad('the corner count has no accent fill'); void acc;
+    const widths = [...d.querySelectorAll('.sdk-badge-micro')].map((m) => ({ t: m.textContent.trim(), w: m.getBoundingClientRect().width }));
+    const one = widths.find((x) => x.t === '3'); const cap = widths.find((x) => x.t === '99+'); if (!one || !near(one.w, 14)) bad(`a one-digit micro count is ${one && one.w}px wide, expected 14`); if (!cap || cap.w <= 16) bad('a 99+ micro count does not widen');
+    for (const m of d.querySelectorAll('.sdk-badge:not(.sdk-badge-micro)')) { if (cs(m).borderTopWidth !== '0px') bad('a count has an edge'); }
+    const acc = tok(d, 'var(--accent)', 'backgroundColor'); const cc = cs(d.querySelector('.sdk-badge-micro')).backgroundColor; if (cc !== tok(d, 'color-mix(in srgb, var(--accent) 88%, var(--text))', 'backgroundColor')) bad(`the micro count fill is ${cc}, not the accent mixed 88% into text`); if (cc === 'rgba(0, 0, 0, 0)' || cc === tok(d, 'var(--text)', 'backgroundColor')) bad('the micro count has no accent fill'); void acc;
     // The count after a label is neutral (not the accent) and 18px.
-    const n = d.querySelector('.sdk-tab .sdk-badge:not(.sdk-badge-corner)'); if (!n || cs(n).backgroundColor === cc) bad('the count after a label is not neutral');
+    const n = d.querySelector('.sdk-tab .sdk-badge:not(.sdk-badge-micro)'); if (!n || cs(n).backgroundColor === cc) bad('the count after a label is not neutral');
   }
+  // One component: the micro count the Tabs family draws on an icon-only tab is the same box, text, fill and inset as the Chips family's.
+  { const mine = get('Chips, counts and dots').querySelector('.sdk-tab-icon > .sdk-badge-micro'); const tabsFrame = F.find((x) => x.iframe.contentDocument.querySelector('.sdk-tab-icon > .sdk-tab-badge.sdk-badge-micro') && /^Tabs/.test(x.iframe.title));
+    if (!mine) bad('no micro count on an icon-only tab in the Chips frame'); else if (!tabsFrame) bad('the Tabs family draws no .sdk-badge-micro on an icon-only tab');
+    else { const theirs = tabsFrame.iframe.contentDocument.querySelector('.sdk-tab-icon > .sdk-tab-badge.sdk-badge-micro'); const a = getComputedStyle(mine); const b2 = getComputedStyle(theirs);
+      for (const k of ['height', 'minWidth', 'fontSize', 'fontWeight', 'paddingLeft', 'top', 'right', 'backgroundColor', 'color', 'borderTopLeftRadius']) if (a[k] !== b2[k]) bad(`the micro count differs between Chips and Tabs: ${k} is ${a[k]} in Chips and ${b2[k]} in Tabs`); } }
   // Contrast: every pair passes its minimum; the rows marked "Not used here" are to compare.
   { const d = get('Chips, contrast'); await wait(300); const rows = [...d.querySelectorAll('.pm-ct tbody tr')]; if (rows.length < 40) bad(`the contrast list has only ${rows.length} rows`);
     const fails = []; for (const tr of rows) { const r = tr.querySelector('[data-out="r"]').textContent; if (!r) { bad('a contrast row is not worked out'); continue; } if (tr.querySelector('[data-out="p"]').textContent === 'Fails' && !/Not used here/.test(tr.cells[0].textContent)) fails.push(`${tr.cells[0].textContent} ${r}`); }
@@ -194,7 +201,7 @@ const chipsProbe = async () => {
   { const d = get('Chips, all states'); if (d.defaultView.innerWidth > 640) { const a = getComputedStyle(d.querySelector('.sdk-chip'), '::before'); if (a.content !== 'none' && a.content !== 'normal') bad('a chip has a hit-area pseudo-element on a wide page'); } }
   // Aliases: today's markup takes the look.
   { const d = get('Chips, aliases'); const cs = (x) => getComputedStyle(x); const sel = tok(d, 'var(--selected-bg)', 'backgroundColor');
-    const sets = [['.filter-chip', 30], ['.bgpick-chip', 30], ['.chip', 30], ['.chip-btn', 30], ['.rs-chip:not(.tag)', 30], ['.tag', 24], ['.host-menu-tag', 24], ['.pill', 24], ['.phase-tag', 24], ['.stream-badge', 24], ['.phase-tag-now', 24], ['.rs-chip.tag', 24], ['.badge-ok', 24], ['.phase-chip', 24], ['.sdk-people > label', 30], ['.count', 18], ['.whos-around-count', 18], ['.badge', 18], ['.nav-badge', 16]];
+    const sets = [['.filter-chip', 30], ['.bgpick-chip', 30], ['.chip', 30], ['.chip-btn', 30], ['.rs-chip:not(.tag)', 30], ['.tag', 24], ['.host-menu-tag', 24], ['.pill', 24], ['.phase-tag', 24], ['.stream-badge', 24], ['.phase-tag-now', 24], ['.rs-chip.tag', 24], ['.badge-ok', 24], ['.phase-chip', 24], ['.sdk-people > label', 30], ['.count', 18], ['.whos-around-count', 18], ['.badge', 18], ['.nav-badge', 14]];
     for (const [s, h] of sets) { const els = d.querySelectorAll(s); if (!els.length) bad(`aliases: nothing for ${s}`); for (const el of els) if (!near(el.getBoundingClientRect().height, h)) bad(`aliases: ${s} is ${el.getBoundingClientRect().height}px high, expected ${h}`); }
     for (const s of ['.filter-chip.on', '.bgpick-chip.on', '.chip-btn.on', '.rs-chip.on']) { const el = d.querySelector(s); if (!el) { bad(`aliases: no ${s}`); continue; } if (cs(el).backgroundColor !== sel) bad(`aliases: ${s} is not the --selected-bg fill`); }
     const lab = d.querySelector('.sdk-people > label'); if (!lab) bad('aliases: no .sdk-people > label'); else if (cs(lab).backgroundColor !== sel) bad('aliases: a checked .sdk-people label is not the selected fill'); const unchecked = d.querySelectorAll('.sdk-people > label')[1]; if (cs(unchecked).backgroundColor === sel) bad('aliases: an unchecked .sdk-people label has the selected fill');
@@ -209,7 +216,10 @@ const chipsProbe = async () => {
     const d2 = get('Chips, states of the other roles'); const rm = d2.querySelectorAll('.sdk-chip-removable')[5]; const x = rm && rm.querySelector('.sdk-chip-x'); if (!x) bad('no removable chip to test'); else { x.click(); if (!rm.hidden) bad('the x does not remove its chip'); rm.hidden = false; } }
   // The page: the family is Proposed, the two lists of names are gone from "Not yet decided".
   const doc = document; const blk = doc.getElementById('chips');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Chips family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Chips family is not marked Approved');
+  if (!blk || !blk.textContent.includes('Micro count: 14px badge, 9px numbers, allowed below the 11px text floor because it holds numbers only (99+ at most), always inside a corner of an icon')) bad('the Chips family does not state the micro count rule');
+  if (blk && /Corner count and Tabs|Thomas decides|Your call/.test(blk.textContent)) bad('the Chips family still has an open decision wording');
+  if (blk) for (const k of ['mod-status-item.chip', 'calendar.css:22', 'places.css:25', 'Left out']) if (!blk.textContent.includes(k)) bad(`the Chips alias table does not list ${k} (the three .chip looks)`);
   for (const id of ['u-chips-that-filter', 'u-chips-badges-pills-and-counts']) if (doc.getElementById(id)) bad(`${id} is still listed as Not yet decided`);
   if (!blk || !/Calendar/.test(blk.textContent) || !/exception/.test(blk.textContent)) bad('the Chips family does not note the Calendar left-bar exception');
   for (const k of ['--warn', '.sdk-chip-people', '.sdk-status', 'Today to proposed']) if (!blk || !blk.textContent.includes(k)) bad(`the Chips family page does not mention ${k}`);

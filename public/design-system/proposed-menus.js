@@ -13,7 +13,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const MN_CSS = `
 .pm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
 .pm-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
-.pm-cell > small, .pm-cap { color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
+.pm-cell > small, .pm-cap { color: var(--text-dim); font-size: var(--text-11); font-weight: 700; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
 .pm-cap { margin: 0 0 6px; }
 .pm-cell > .sdk-menu, .pm-cell > .host-menu, .pm-cell > .modules-menu, .pm-cell > .menu, .pm-cell > .chat-command-menu, .pm-cell > .sdk-kind-list, .pm-cell > .popover, .pm-cell > .sdk-popover, .pm-cell > .sdk-dp { max-width: 100%; }
 .ds-proposed :is(.host-menu, .modules-menu, .chat-command-menu, .popover, .menu, .sdk-menu, .sdk-kind-list, .sdk-dp) { position: static; inset: auto; transform: none; width: auto; }
@@ -45,7 +45,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .ds-proposed .sdk-menu-flyout.pm-fly3 { margin-top: calc(var(--menu-item-h) * 3); }
 .pm-chat { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
 .pm-ct { width: 100%; border-collapse: collapse; font-size: 12px; }
-.pm-ct th { padding: 4px 8px 4px 0; color: var(--text-dim); font-size: 10px; letter-spacing: 0.08em; text-align: left; text-transform: uppercase; }
+.pm-ct th { padding: 4px 8px 4px 0; color: var(--text-dim); font-size: var(--text-11); letter-spacing: 0.08em; text-align: left; text-transform: uppercase; }
 .pm-ct td { padding: 4px 8px 4px 0; border-top: 1px solid var(--border); vertical-align: top; }
 .pm-ct .pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pm-pass { color: var(--ok); font-weight: 700; } .pm-fail { color: var(--danger-text); font-weight: 700; }

@@ -31,7 +31,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const CENTRE_HEAD = ['Text', '14px in 38px (default button)', '13px in 30px (small button)', '16px in 44px (phone field)', '12px in 30px'];
   const FIX_ROWS = [
     ['Figtree', '0.700', '0.950 / 0.250 (0.700)', '0.95 / 0.24 (0.710)', '100.59% / 95.67%', '94.44% / 23.86%'],
-    ['Fraunces (headlines)', '0.700 (capitals)', '0.978 / 0.255', '0.983 / 0.250', '111.60% (bold only)', '88.08% / 22.40%'],
+    ['Fraunces (headlines)', '0.700 (capitals)', '0.978 / 0.255', '1.009 / 0.224', '111.60% (bold only)', '90.41% / 20.07%'],
   ];
   const FIX_CODE = `/* The bundled font: the box and the baseline no longer depend on the font's own tables */
 @font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap;
@@ -46,10 +46,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   size-adjust: 95.67%; ascent-override: 99.3%; descent-override: 25.09%; line-gap-override: 0%; }
 /* Fraunces: weight axis only (100 to 900). Fallback: Times New Roman Bold scaled to the same width. */
 @font-face { font-family: "Fraunces"; font-weight: 100 900; font-display: swap;
-  ascent-override: 98.3%; descent-override: 25%; line-gap-override: 0%; src: url(fonts/fraunces/latin.woff2) format("woff2"); unicode-range: U+0000-00FF, ...; }
+  ascent-override: 100.9%; descent-override: 22.4%; line-gap-override: 0%; src: url(fonts/fraunces/latin.woff2) format("woff2"); unicode-range: U+0000-00FF, ...; }
 @font-face { font-family: "Fraunces Fallback"; font-weight: 100 900;
   src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");
-  size-adjust: 111.60%; ascent-override: 88.08%; descent-override: 22.40%; line-gap-override: 0%; }`;
+  size-adjust: 111.60%; ascent-override: 90.41%; descent-override: 20.07%; line-gap-override: 0%; }`;
   const TOKEN_CODE = `:root {
   --font-ui: "Figtree", "Figtree Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --font-display: "Fraunces", "Fraunces Fallback", var(--font-ui);

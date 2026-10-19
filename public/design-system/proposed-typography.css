@@ -24,11 +24,11 @@
 @font-face { font-family: "Figtree Fallback"; font-weight: 100 599; src: local("Arial"), local("Helvetica"), local("Liberation Sans"); size-adjust: 100.59%; ascent-override: 94.44%; descent-override: 23.86%; line-gap-override: 0%; }
 @font-face { font-family: "Figtree Fallback"; font-weight: 600 900; src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold"); size-adjust: 95.67%; ascent-override: 99.3%; descent-override: 25.09%; line-gap-override: 0%; }
 
-/* Fraunces: 97.8% up, 25.5% down in its own tables; set to 98.3% and 25%. Weight axis only (100 to 900): the optical-size, soft and wonky axes are not in this file.
+/* Fraunces: 97.8% up, 25.5% down in its own tables; set to 100.9% and 22.4% (swept at weight 600 for 40, 28, 22 and 18px in a title bar: the ink is within 0.5px of the middle in each; the fallback is these divided by size-adjust). Weight axis only (100 to 900): the optical-size, soft and wonky axes are not in this file.
    Fallback is a serif (Times New Roman Bold), scaled to the same width (measured on weight 600 across 16 headlines at 28px, 2026-10-19: 111.60%). */
-@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 100 900; font-display: swap; ascent-override: 98.3%; descent-override: 25%; line-gap-override: 0%;
+@font-face { font-family: "Fraunces"; font-style: normal; font-weight: 100 900; font-display: swap; ascent-override: 100.9%; descent-override: 22.4%; line-gap-override: 0%;
   src: url(fonts/fraunces/latin.woff2) format("woff2"); unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
-@font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 111.60%; ascent-override: 88.08%; descent-override: 22.40%; line-gap-override: 0%; }
+@font-face { font-family: "Fraunces Fallback"; font-weight: 100 900; src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold"); size-adjust: 111.60%; ascent-override: 90.41%; descent-override: 20.07%; line-gap-override: 0%; }
 
 .ds-proposed {
   --font-system: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;

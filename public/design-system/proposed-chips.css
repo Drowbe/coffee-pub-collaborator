@@ -140,7 +140,7 @@
   background: color-mix(in srgb, var(--chip-tone, var(--text-dim)) var(--chip-tint), var(--chip-surface));
   color: color-mix(in srgb, var(--chip-tone, var(--text-dim)) 45%, var(--text));
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   text-transform: uppercase;
 }
@@ -311,7 +311,7 @@
   background: color-mix(in srgb, var(--t-ink) 14%, transparent);
   color: var(--t-ink);
   font-size: 11px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: normal;
@@ -343,7 +343,7 @@
   background: var(--micro-fill);
   color: var(--on-accent);
   font-size: 9px;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: normal;

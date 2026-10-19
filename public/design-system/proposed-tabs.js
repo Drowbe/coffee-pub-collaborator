@@ -20,7 +20,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-tbar-t { margin: 0 0 4px; color: var(--text-dim); font-size: 11px; }
 .pm-panel { box-sizing: border-box; padding: 12px 12px 14px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); }
 .pm-panel + .pm-panel { margin-top: 10px; }
-.pm-panel-t { margin: 0 0 10px; font-size: 16px; font-weight: 700; }
+.pm-panel-t { margin: 0 0 10px; font-size: 16px; font-weight: 600; }
 .pm-panel-b { margin: 12px 0 0; color: var(--text-dim); font-size: 13px; }
 .pm-menu { display: inline-flex; flex-direction: column; min-width: 180px; padding: 4px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--surface); box-shadow: 0 8px 24px color-mix(in srgb, black 30%, transparent); }
 .pm-mi { display: flex; align-items: center; gap: 8px; height: 34px; padding: 0 10px; border: 0; border-radius: var(--radius-small); background: none; color: var(--text); font: inherit; font-size: 14px; text-align: left; cursor: pointer; }

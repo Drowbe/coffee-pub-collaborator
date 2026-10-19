@@ -13,7 +13,7 @@ Each family has its own files, so two people can work on two families without to
 | File | What it holds |
 | --- | --- |
 | `proposed.html` | The page. It names no family. |
-| `proposed.js` | The page engine: the menu, the example frames, the Dark/Light, Font, Headline and width switches, the forced hover, focus and pressed states, and the list of families still to decide. |
+| `proposed.js` | The page engine: the menu, the example frames, the Dark/Light, fonts (Today's or Proposed) and width switches, the forced hover, focus and pressed states, and the list of families still to decide. |
 | `proposed.css` | Only the rules more than one family uses (the button height tokens). |
 | `proposed-families.json` | The list of families, in the order they are drawn. |
 | `proposed-<id>.js` | One family: it draws its examples and registers itself. |

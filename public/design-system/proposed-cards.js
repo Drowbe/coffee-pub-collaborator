@@ -11,7 +11,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // Layout of the example pages only (not a style of the product).
   const CD_CSS = `
 .pm-cd-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px 16px; align-items: start; }
-.pm-cd-grid > div > small, .pm-cd-cap { display: block; margin-bottom: 5px; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
+.pm-cd-grid > div > small, .pm-cd-cap { display: block; margin-bottom: 5px; color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
 .pm-cd-stack { display: flex; flex-direction: column; gap: 8px; }
 .pm-cd-two { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; align-items: start; }
 .pm-cd-tool { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
@@ -22,9 +22,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-cd-step > b small { margin-left: 6px; color: var(--text-dim); font-size: 11px; font-weight: 400; }
 .pm-cd-ct { border-collapse: collapse; width: 100%; font-size: 12px; }
 .pm-cd-ct th, .pm-cd-ct td { padding: 4px 8px 4px 0; text-align: left; border-bottom: 1px solid var(--border); }
-.pm-cd-ct th { color: var(--text-dim); font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase; }
-.pm-cd-pass { color: var(--ok); font-weight: 700; }
-.pm-cd-fail { color: var(--danger); font-weight: 700; }
+.pm-cd-ct th { color: var(--text-dim); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.pm-cd-pass { color: var(--ok); font-weight: 600; }
+.pm-cd-fail { color: var(--danger); font-weight: 600; }
 .pm-cd-out { outline: 1px dotted var(--text-dim); outline-offset: 2px; }
 .pm-cd-sw { display: inline-block; width: 14px; height: 14px; border: 1px solid var(--border); border-radius: var(--radius-small); vertical-align: -2px; margin-right: 6px; }
 `;

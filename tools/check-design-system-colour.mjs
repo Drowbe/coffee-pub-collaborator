@@ -64,7 +64,7 @@ export function colourStatic({ DS, snapNames, todayHtml, manifestText, fail }) {
   }
   const named = new Set([...js.matchAll(/data-roles="([^"]*)"/g)].flatMap((m) => m[1].match(/[a-z]+(?:-[a-z]+)+/g) || []));
   // the generated parts (status banners, tints) are named by a template in the script
-  for (const k of ['danger', 'ok', 'warn', 'info']) for (const r of [`status-${k}-tint`, `status-${k}-text`, `status-${k}-fill`]) named.add(r);
+  for (const k of ['danger', 'ok', 'warn', 'info']) for (const r of [`status-${k}-tint`, `status-${k}-text`, `status-${k}-fill`, `status-${k}-on-fill`]) named.add(r);
   for (const k of ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink']) named.add(`tint-${k}`);
   for (const r of used) if (!named.has(r)) fail(`proposed-colour.css: the mock uses --${r} but no part names it in data-roles, so the highlight would miss it`);
 }
@@ -135,7 +135,7 @@ export const colourProbe = async () => {
   chk('surface-card', mix(P, 0.92, T), 2); chk('surface-menu', mix(P, 0.96, T), 2); chk('surface-popover', mix(P, 0.96, T), 2); chk('surface-toast', mix(P, 0.92, T), 2);
   chk('fill-secondary', mix(P, 0.92, T), 2);
   if (hex(val('surface-menu')) === hex(val('surface-card'))) bad('the menu and the card are the same colour: they must be separate formulas');
-  for (const id of ['surface-field', 'surface-page', 'accent-fill', 'fill-selected', 'text-link', 'surface-bar-top', 'surface-titlebar', 'edge-field']) if (hex(val(id)) !== before[id]) bad(`--${id} moved when only the Panel changed`);
+  for (const id of ['surface-field', 'surface-page', 'accent-fill', 'fill-selected', 'surface-bar-top', 'surface-titlebar', 'edge-field']) if (hex(val(id)) !== before[id]) bad(`--${id} moved when only the Panel changed`);
   const flashed = [...board.querySelectorAll('.cb-sw.flash')].map((s) => s.dataset.role);
   const moved = R.filter((r) => hex(val(r.id)) !== before[r.id]).map((r) => r.id);
   for (const id of flashed) if (!moved.includes(id)) bad(`--${id} flashed but did not change`);
@@ -160,6 +160,56 @@ export const colourProbe = async () => {
   else { fix.click(); const r = ratioOf(rgb(hex(val('text-on-accent'))), rgb(hex(val('accent-fill')))); if (r < 4.5) bad(`the auto-fix left the text on accent at ${r.toFixed(2)}`); if (D.getElementById('cp-fix')) bad('the warning stayed after the auto-fix'); }
   D.getElementById('cp-reset').click();
   if (!/^\{[\s\S]*"light"[\s\S]*"dark"[\s\S]*\}$/.test((D.getElementById('cp-copy').click(), D.querySelector('#cp-json textarea').value))) bad('Copy as theme JSON gives no light and dark sets');
+
+  // the automatic picks, in the three shipped themes and both modes: text on a status fill (white or near-black, 4.5:1), accent as text (link) and
+  // status text (4.5:1 on the page, on a panel and, for status text, on its own tint), and the scrollbar thumb against its track (3:1)
+  const flatOf = (id, ov) => C.state.flatOf(id, ov);
+  const SK = ['danger', 'ok', 'warn', 'info'];
+  const tested = [];
+  for (const k of Object.keys(C.themes)) {
+    D.querySelector(`#cx-theme [data-theme="${k}"]`).click();
+    for (const m of ['dark', 'light']) {
+      if (st.mode !== m) { window.__ds.setMode(m); await wait(60); }
+      const tn = `${C.themes[k].name} ${m}`;
+      for (const s of SK) {
+        const fill = flatOf(`status-${s}-fill`); const on = flatOf(`status-${s}-on-fill`);
+        const r = ratioOf(on, fill);
+        if (r < 4.5) bad(`${tn}: --status-${s}-on-fill is ${r.toFixed(2)} : 1 on its fill, needs 4.5`);
+        const hx = hex(on); if (hx !== '#ffffff' && hx !== '#0a0a0a') bad(`${tn}: --status-${s}-on-fill is ${hx}, not white or near-black`);
+        const best = Math.max(ratioOf({ r: 255, g: 255, b: 255 }, fill), ratioOf({ r: 10, g: 10, b: 10 }, fill));
+        if (Math.abs(r - best) > 0.01) bad(`${tn}: --status-${s}-on-fill (${r.toFixed(2)}) is not the better of white and near-black (${best.toFixed(2)})`);
+        const tx = flatOf(`status-${s}-text`); const tint = flatOf(`status-${s}-tint`);
+        for (const [bg, n] of [[flatOf('surface-page'), 'the page'], [flatOf('surface-panel'), 'a panel'], [tint, 'its tint']]) { const q = ratioOf(tx, bg); if (q < 4.5) bad(`${tn}: --status-${s}-text is ${q.toFixed(2)} : 1 on ${n}, needs 4.5`); }
+      }
+      for (const [role, n] of [['text-accent', 'accent as text'], ['text-link', 'link']]) for (const [bg, bn] of [[flatOf('surface-page'), 'the page'], [flatOf('surface-panel'), 'a panel']]) { const q = ratioOf(flatOf(role), bg); if (q < 4.5) bad(`${tn}: ${n} (--${role}) is ${q.toFixed(2)} : 1 on ${bn}, needs 4.5`); }
+      if (hex(val('text-link')) !== hex(val('text-accent'))) bad(`${tn}: --text-link is not the accent-as-text role`);
+      const th = ratioOf(flatOf('scrollbar-thumb'), flatOf('surface-track')); if (th < 3) bad(`${tn}: the scrollbar thumb is ${th.toFixed(2)} : 1 on its track, needs 3`);
+      tested.push(tn);
+    }
+  }
+  if (tested.length !== 6) bad(`the auto-picks were checked in ${tested.length} theme and mode sets, expected 6`);
+  D.querySelector('#cx-theme [data-theme="coffee"]').click(); await wait(30);
+  // the playground: a status colour change re-picks its text on fill and flashes it; the board shows the new pick
+  D.getElementById('cp-reset').click();
+  const dangerOn0 = hex(val('status-danger-on-fill'));
+  C.setBase('status-danger-fill', '#f2e08a');
+  const dangerOn1 = hex(val('status-danger-on-fill'));
+  if (dangerOn0 === dangerOn1) bad(`a light Danger fill did not re-pick its text (still ${dangerOn1})`);
+  if (ratioOf(rgb(dangerOn1), rgb('#f2e08a')) < 4.5) bad('the text re-picked for a light Danger fill does not reach 4.5');
+  if (!board.querySelector('.cb-sw[data-role="status-danger-on-fill"].flash')) bad('the re-picked text on the Danger fill did not flash');
+  if (board.querySelector('.cb-sw[data-role="status-ok-on-fill"].flash')) bad('the text on the OK fill flashed when only the Danger fill changed');
+  C.setBase('status-danger-fill', '#8a2b1e');
+  if (hex(val('status-danger-on-fill')) !== '#ffffff') bad('a dark Danger fill did not give white text');
+  // a fill that neither white nor near-black reaches 4.5 on is flagged, on the board and in the warnings
+  C.setBase('status-info-fill', '#787878');
+  if (!/flagged/.test(board.querySelector('[data-pairs="status-info-fill"]').textContent) || !/flagged/.test(D.getElementById('cp-warn').textContent)) bad('a fill that neither white nor near-black reaches 4.5 on is not flagged');
+  C.setBase('status-info-fill', '#ffffff'); if (/flagged/.test(board.querySelector('[data-pairs="status-info-fill"]').textContent)) bad('a white Info fill is flagged: near-black reaches 4.5 on it');
+  // the accent re-picks link text: a pale accent on a white page gets the darker mix, never a failing link
+  C.setBase('accent-fill', '#0dc9ca');
+  if (ratioOf(rgb(hex(val('text-link'))), rgb(hex(flatOf('surface-page')))) < 4.5) bad('a pale accent gave link text under 4.5');
+  D.getElementById('cp-reset').click();
+  // the field edge is an accepted exception, shown as one
+  if (!/Accepted exception/.test(board.querySelector('[data-pairs="edge-field"]').textContent)) bad('the field edge does not show its accepted exception to the 3:1 target');
 
   // the highlight: a role picked on the board marks its parts and dims the rest, with no outline or stroke; Escape clears; a click on the mock selects
   const host = D.getElementById('cm-ov');

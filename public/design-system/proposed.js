@@ -8,7 +8,7 @@
    - A family's script registers itself with window.DS_PROPOSED.families.push({ id, covers, group, name, status, words, render }).
      render(api) returns the family's block; api.makeFrame draws examples in a frame that carries the shared and every family stylesheet.
    - This file keeps only: the shared example-page rules (window.DS_PROPOSED.pmCss, for a frame's css option), the list of families
-     still to decide (window.DS_PROPOSED.undecided), and the engine: nav, frames, the mode, font, headline and width switches, the
+     still to decide (window.DS_PROPOSED.undecided), and the engine: nav, frames, the mode, fonts and width switches, the
      forced hover, focus and pressed states, and the search.
    - Adding a family = two new files (proposed-<id>.js and .css), one entry in proposed-families.json, and a check file with one entry in
      tools/check-design-system-families.json. No shared file is edited. */
@@ -21,14 +21,14 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-row.pm-small { --pm-h: var(--btn-h-small, 30px); }
 .pm-row + .pm-row { border-top: 1px solid var(--border); }
 /* The label sits level with the buttons: it starts below the caption (12px line + 5px gap) and is as tall as the button, centred. */
-.pm-role { display: flex; align-items: center; min-height: var(--pm-h, var(--btn-h)); margin-top: 17px; color: var(--text-dim); font-size: 12px; font-weight: 700; line-height: 1.2; }
-.pm-h { margin: 16px 0 2px; font-size: 13px; font-weight: 700; }
+.pm-role { display: flex; align-items: center; min-height: var(--pm-h, var(--btn-h)); margin-top: 17px; color: var(--text-dim); font-size: 12px; font-weight: 600; line-height: 1.2; }
+.pm-h { margin: 16px 0 2px; font-size: 13px; font-weight: 600; }
 .pm-h:first-child { margin-top: 4px; }
 .pm-sub { margin: 0 0 4px; color: var(--text-dim); font-size: 12px; }
 .pm-map { display: grid; grid-template-columns: minmax(140px, 1fr) minmax(140px, 1fr) minmax(180px, 1.4fr); gap: 8px 18px; padding: 12px 0; align-items: start; }
 .pm-map + .pm-map { border-top: 1px solid var(--border); }
-.pm-map > div > small { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.pm-name { margin: 0 0 6px; font-size: 13px; font-weight: 700; }
+.pm-map > div > small { display: block; margin-bottom: 4px; color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
+.pm-name { margin: 0 0 6px; font-size: 13px; font-weight: 600; }
 .pm-to { margin: 0 0 4px; font-size: 13px; }
 .pm-why { margin: 0 0 4px; color: var(--text-dim); font-size: 12px; }
 .pm-where { margin: 0; color: var(--text-dim); font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
@@ -126,13 +126,12 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
 .dsf { padding: 4px 14px 14px; }
 .dsf-states { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
 .dsf-state { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
-.dsf-state > small { line-height: 12px; height: 12px; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.dsf-state > small { line-height: 12px; height: 12px; color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .dsf-ex { min-width: 0; max-width: 100%; }
 `;
   let mode = 'dark';
   let width = 'fit';
-  let font = 'figtree'; // '' is Today's system stack; else a candidate's key (data-font on .ds-proposed in the frames). Figtree is Thomas's pick.
-  let headline = 'archivo'; // '' is the UI font; else a headline candidate's key (data-headline on .ds-proposed in the frames)
+  let font = 'proposed'; // '' is Today's system stack; 'proposed' is Figtree and Fraunces (data-font on .ds-proposed in the frames)
   const frames = [];
   const frameReady = [];
 
@@ -181,7 +180,6 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
         if (!doc || !doc.body) { resolve(); return; }
         addForceRules(doc);
         applyFont(doc);
-        applyHeadline(doc);
         if (o.onload) o.onload(doc, f);
         doc.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('a[href]')) e.preventDefault(); });
         doc.addEventListener('submit', (e) => e.preventDefault());
@@ -201,22 +199,14 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     return wrap;
   }
 
-  // The font switch: every .ds-proposed in a frame gets data-font, except the ones that show one font on purpose (data-font-fixed).
+  // The fonts switch: every .ds-proposed in a frame gets data-font="proposed" (Figtree and Fraunces), or none (Today's system stack),
+  // except the ones that show one font on purpose (data-font-fixed).
   function applyFont(doc) {
     for (const e of doc.querySelectorAll('.ds-proposed:not([data-font-fixed])')) { if (font) e.dataset.font = font; else delete e.dataset.font; }
   }
-  // The headline switch: the same, for the big words (data-headline), except where a frame shows one candidate on purpose (data-headline-fixed).
-  function applyHeadline(doc) {
-    for (const e of doc.querySelectorAll('.ds-proposed:not([data-headline-fixed])')) { if (headline) e.dataset.headline = headline; else delete e.dataset.headline; }
-  }
-  function setHeadline(k) {
-    headline = k;
-    for (const b of $$('#ds-headline button')) { const on = b.dataset.headline === k; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
-    for (const f of frames) { const doc = f.iframe.contentDocument; if (doc && doc.body) applyHeadline(doc); }
-  }
   function setFont(k) {
-    font = k;
-    for (const b of $$('#ds-font button')) { const on = b.dataset.font === k; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
+    font = k ? 'proposed' : '';
+    for (const b of $$('#ds-font button')) { const on = b.dataset.font === font; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     for (const f of frames) { const doc = f.iframe.contentDocument; if (doc && doc.body) applyFont(doc); }
   }
 
@@ -306,19 +296,15 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
   $('#ds-search').addEventListener('input', applySearch);
   $('#ds-mode').addEventListener('click', (e) => { const b = e.target.closest('button[data-mode]'); if (b) setMode(b.dataset.mode); });
   $('#ds-font').addEventListener('click', (e) => { const b = e.target.closest('button[data-font]'); if (b) setFont(b.dataset.font); });
-  $('#ds-headline').addEventListener('click', (e) => { const b = e.target.closest('button[data-headline]'); if (b) setHeadline(b.dataset.headline); });
   $('#ds-width').addEventListener('click', (e) => { const b = e.target.closest('button[data-w]'); if (b) setWidthAll(b.dataset.w); });
   $('#ds-menu-btn').addEventListener('click', () => { const open = nav.classList.toggle('open'); $('#ds-menu-btn').setAttribute('aria-expanded', String(open)); });
   nav.addEventListener('click', (e) => { if (e.target.closest('a') && nav.classList.contains('open')) { nav.classList.remove('open'); $('#ds-menu-btn').setAttribute('aria-expanded', 'false'); } });
   window.addEventListener('hashchange', () => route(false));
-  window.__ds = { setMode, setWidth: setWidthAll, setFont, setHeadline, frames, stats };
+  window.__ds = { setMode, setWidth: setWidthAll, setFont, frames, stats };
   const start = new URLSearchParams(location.search).get('mode');
   setMode(start === 'light' || start === 'dark' ? start : mode);
   const startFont = new URLSearchParams(location.search).get('font');
-  if (startFont && $(`#ds-font button[data-font="${startFont.replace(/[^a-z0-9-]/g, '')}"]`)) font = startFont.replace(/[^a-z0-9-]/g, '');
+  if (startFont !== null) font = startFont === 'today' ? '' : 'proposed';
   setFont(font);
-  const startHead = new URLSearchParams(location.search).get('headline');
-  if (startHead !== null && $(`#ds-headline button[data-headline="${startHead.replace(/[^a-z0-9-]/g, '')}"]`)) headline = startHead.replace(/[^a-z0-9-]/g, '');
-  setHeadline(headline);
   init().catch((e) => { stats.errors.push('init: ' + (e && e.stack || e)); $('#ds-status').textContent = 'The page failed to draw: ' + (e && e.message); });
 })();

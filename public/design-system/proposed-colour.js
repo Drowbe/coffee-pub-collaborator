@@ -62,17 +62,20 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   add('text-on-accent', T, 'text', 'Text on a solid accent fill (auto-picked to pass)', { base: true, on: 'accent-fill', pairs: [['accent-fill', 4.5], ['accent-fill-hover', 4.5]] });
   add('text-disabled', T, 'text', 'Disabled text', { f: M('text-muted', 55, 'transparent'), on: 'surface-panel', pairs: [['surface-panel', 0]] });
   add('text-bar', T, 'text', 'Text and icons in the bars', { f: REF('text-primary'), on: 'surface-bar-top', pairs: [['surface-bar-top', 4.5], ['surface-bar-brand', 4.5], ['surface-bar-right', 4.5]] });
-  add('text-link', T, 'text', 'Link text', { f: REF('accent-fill'), on: 'surface-page', pairs: [['surface-page', 4.5], ['surface-panel', 4.5]] });
+  // Accent as text, picked automatically: the accent itself if it reaches 4.5:1 on the page and on a panel, else the least text colour mixed
+  // into it (darker in light, lighter in dark) that does. Link text is this role.
+  add('text-accent', T, 'text', 'The accent used as text (auto-picked to pass)', { auto: { kind: 'text', fill: 'accent-fill', floor: 0, on: ['surface-page', 'surface-panel'] }, from: ['accent-fill', 'text-primary', 'surface-page', 'surface-panel'], on: 'surface-page', how: 'the accent, mixed with the least text colour that reaches 4.5:1', pairs: [['surface-page', 4.5], ['surface-panel', 4.5]], unseen: 'Any word coloured with the accent; link text is this role' });
+  add('text-link', T, 'text', 'Link text', { f: REF('text-accent'), on: 'surface-page', pairs: [['surface-page', 4.5], ['surface-panel', 4.5]] });
   add('text-selected', T, 'text', 'Selected tab or row text', { f: M('accent-fill', 55, 'text-primary'), on: 'fill-selected', onOver: 'surface-panel', pairs: [['fill-selected', 4.5, 'surface-panel'], ['fill-selected', 4.5, 'surface-page']] });
   add('text-tooltip', T, 'text', 'Text in a tooltip', { f: REF('surface-page'), added: true, on: 'surface-tooltip', pairs: [['surface-tooltip', 4.5]] });
   add('icon-default', T, 'icon', 'An icon', { f: REF('text-muted'), on: 'surface-panel', pairs: [['surface-panel', 3]] });
   add('icon-bar', T, 'icon', 'An icon in a bar', { f: M('text-bar', 75, 'transparent'), on: 'surface-bar-top', pairs: [['surface-bar-top', 3], ['surface-bar-right', 3]] });
   // Edges
   add('edge-hairline', E, 'edge', 'A divider or a card outline', { base: true, pairs: [['surface-panel', 0]] });
-  add('edge-field', E, 'edge', 'A field outline', { f: M('edge-hairline', 80, 'text-primary'), pairs: [['surface-panel', 3]] });
+  add('edge-field', E, 'edge', 'A field outline', { f: M('edge-hairline', 80, 'text-primary'), pairs: [['surface-panel', 3]], accepted: 'Accepted exception to the 3:1 target for non-text: the field is a hairline by design (1.7 to 2.4:1 on a panel in the three themes). The fill separates the field from the panel, and focus and error are strong.' });
   add('edge-bar', E, 'edge', 'The line under a bar', { f: REF('edge-hairline'), pairs: [['surface-bar-top', 0]] });
   add('edge-menu', E, 'edge', 'A menu outline', { f: REF('edge-hairline'), pairs: [['surface-menu', 0]] });
-  add('scrollbar-thumb', E, 'edge', 'The scrollbar thumb', { f: REF('edge-hairline'), pairs: [['surface-track', 3]] });
+  add('scrollbar-thumb', E, 'edge', 'The scrollbar thumb', { f: REF('text-muted'), pairs: [['surface-track', 3]], changed: 'Was the hairline (about 1.0 to 1.1:1 against its track). Muted text at 55% over the track only reaches 1.9 to 2.4:1 and needs about 92% to reach 3:1 in every theme, so the thumb is the muted text colour itself (3.4:1 to 4.4:1).' });
   // Interaction
   add('accent-fill', I, 'fill', 'A solid accent button, bar or badge fill', { base: true, pairs: [['surface-page', 3], ['surface-track', 3]] });
   add('accent-fill-hover', I, 'fill', 'Hover on a solid accent fill', { f: M('accent-fill', 85, 'white') });
@@ -87,10 +90,13 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // Status: each has a fill (the optional base), readable text, and a soft background
   for (const [k, word] of [['danger', 'Danger'], ['ok', 'OK'], ['warn', 'Warning'], ['info', 'Info']]) {
     add(`status-${k}-fill`, ST, 'fill', `${word}: the solid fill`, { base: true, optional: true, pairs: [['surface-page', 3]] });
-    add(`status-${k}-text`, ST, 'text', `${word}: readable text`, { f: M(`status-${k}-fill`, 70, 'text-primary'), on: 'surface-page', pairs: [['surface-page', 4.5], ['surface-panel', 4.5], [`status-${k}-tint`, 4.5, 'surface-panel']] });
+    add(`status-${k}-text`, ST, 'text', `${word}: readable text (auto-picked to pass)`, { auto: { kind: 'text', fill: `status-${k}-fill`, floor: 30, on: ['surface-page', 'surface-panel', `status-${k}-tint`] }, from: [`status-${k}-fill`, 'text-primary', 'surface-page', 'surface-panel'], how: 'the fill with at least 30% text colour, the least that reaches 4.5:1', on: 'surface-page', pairs: [['surface-page', 4.5], ['surface-panel', 4.5], [`status-${k}-tint`, 4.5, 'surface-panel']] });
     add(`status-${k}-tint`, ST, 'fill', `${word}: a soft background`, { f: M(`status-${k}-fill`, 12, 'transparent') });
   }
-  add('status-on-fill', ST, 'text', 'Text or a glyph on a solid status fill', { css: '#ffffff', how: 'white', on: 'status-danger-fill', from: [], pairs: [['status-danger-fill', 4.5], ['status-ok-fill', 4.5], ['status-warn-fill', 4.5], ['status-info-fill', 4.5]] });
+  // Text or a glyph on a solid status fill: one per status, picked automatically from the fill (the same rule as text on accent).
+  for (const [k, word] of [['danger', 'Danger'], ['ok', 'OK'], ['warn', 'Warning'], ['info', 'Info']]) {
+    add(`status-${k}-on-fill`, ST, 'text', `${word}: text or a glyph on its fill (auto-picked to pass)`, { auto: { kind: 'on', fill: `status-${k}-fill` }, from: [`status-${k}-fill`], how: 'white or near-black, whichever reaches 4.5:1', on: `status-${k}-fill`, pairs: [[`status-${k}-fill`, 4.5]] });
+  }
   // Category: the module identity colours, unchanged
   for (const k of ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink']) add(`tint-${k}`, C, 'fill', `A module's identity colour (${k})`, { kept: true, css: null, pairs: [['surface-panel', 3]] });
 
@@ -142,8 +148,29 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const lum = (c) => { const f = (v) => { const s = v / 255; return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(c.r) + 0.7152 * f(c.g) + 0.0722 * f(c.b); };
   const ratio = (a, b) => { const x = lum(a); const y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 
+  // ---- the automatic picks (computed at render from the fill; nothing is stored) ----
+  // On a solid fill: white or near-black, whichever has more contrast with the fill, if it reaches 4.5:1; if neither does, the fill is flagged.
+  const WHITE = '#ffffff'; const NEAR_BLACK = '#0a0a0a'; const MIN_TEXT = 4.5;
+  function pickOn(fill) {
+    const w = ratio(fromHex(WHITE), fill); const d = ratio(fromHex(NEAR_BLACK), fill);
+    const hex = w >= d ? WHITE : NEAR_BLACK; const best = Math.max(w, d);
+    return { hex, ratio: best, ok: best >= MIN_TEXT };
+  }
+  // Colour as text: the fill itself if it reaches 4.5:1 on every background, else the fill mixed with the least text colour (from floor percent up, in
+  // whole percents) that does. In light the text colour is dark, in dark it is light, so the result is the darker or the lighter mix.
+  function pickText(fill, textC, bgs, floor) {
+    let last = null;
+    for (let p = floor; p <= 100; p += 1) {
+      const t = p / 100; const c = { r: Math.round(fill.r * (1 - t) + textC.r * t), g: Math.round(fill.g * (1 - t) + textC.g * t), b: Math.round(fill.b * (1 - t) + textC.b * t), a: 1 };
+      const worst = Math.min(...bgs.map((b) => ratio(c, b)));
+      last = { hex: toHex(c), p, ratio: worst, ok: worst >= MIN_TEXT };
+      if (last.ok) return last;
+    }
+    return last;
+  }
+
   // ---- state ----
-  const st = { theme: 'coffee', mode: 'dark', edits: {}, preview: null, sel: null, part: null, vals: {}, flat: {} };
+  const st = { auto: {}, theme: 'coffee', mode: 'dark', edits: {}, preview: null, sel: null, part: null, vals: {}, flat: {} };
   const editKey = () => st.theme + '|' + st.mode;
   const baseSet = () => {
     const t = THEMES[st.theme][st.mode];
@@ -158,7 +185,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   let scope = null; let wrap = null; let mock = null; let svgHost = null; let detail = null; let board = null; let probes = null;
 
   // ---- the mock: one screen, coloured only by the roles. data-roles lists the roles that colour that element itself. ----
-  const ban = (k, word, icon, text) => `<div class="cm-ban cm-ban-${k}" data-roles="status-${k}-tint status-${k}-text" data-part="${word} banner"><span class="cm-ban-i" data-roles="status-${k}-fill status-on-fill" data-part="${word} banner icon">${fa(icon)}</span><span>${text}</span></div>`;
+  const ban = (k, word, icon, text) => `<div class="cm-ban cm-ban-${k}" data-roles="status-${k}-tint status-${k}-text" data-part="${word} banner"><span class="cm-ban-i" data-roles="status-${k}-fill status-${k}-on-fill" data-part="${word} banner icon">${fa(icon)}</span><span>${text}</span></div>`;
   const TINTS = ['gold', 'blue', 'green', 'teal', 'purple', 'red', 'orange', 'pink'];
   const MOCK = `
 <div class="cm" data-roles="surface-page text-primary" data-part="Page">
@@ -302,6 +329,11 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   function fillBoard() {
     for (const r of R) {
       const hx = board.querySelector(`[data-hex="${r.id}"]`);
+      const au = st.auto[r.id];
+      if (au) {
+        const how = board.querySelector(`.cb-sw[data-role="${r.id}"] .cb-how`);
+        how.textContent = au.kind === 'on' ? `= ${au.hex === WHITE ? 'white' : 'near-black'}: ${au.ratio.toFixed(2)} : 1 on the fill${au.ok ? '' : ', flagged: neither reaches 4.5'}` : (au.p === 0 ? '= the colour itself, which reaches 4.5:1 on every background' : au.p === au.floor ? `= the colour with ${au.p}% text mixed in (the ${au.p}% floor already reaches 4.5:1 on every background)` : `= the colour with ${au.p}% text mixed in: the least that reaches 4.5:1 on ${au.ok ? 'every background' : 'every background, and none does (flagged)'}`);
+      }
       const c = st.vals[r.id];
       const flatHex = toHex(st.flatOf(r.id));
       hx.textContent = flatHex;
@@ -310,14 +342,15 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       hx.innerHTML = `${flatHex}${c.a < 0.999 ? `<small>${Math.round(c.a * 100)}% over panel</small>` : ''}`;
       const box = board.querySelector(`[data-pairs="${r.id}"]`);
       if (!r.pairs) { box.innerHTML = ''; continue; }
-      box.innerHTML = r.pairs.map((p) => {
+      const flagged = Object.values(st.auto).some((a) => a.kind === 'on' && a.fill === r.id && !a.ok);
+      box.innerHTML = (flagged ? '<span class="cb-pair cb-flag"><span class="cb-mark cb-fail">&#10007; flagged: neither white nor near-black reaches 4.5:1 on this fill</span></span>' : '') + r.pairs.map((p) => {
         const x = pairCalc(r.id, p);
         const nonText = r.kind !== 'text' && r.kind !== 'icon' ? true : p[1] === 3;
         const ok = x.min === 0 ? null : x.ratio >= x.min;
         const where = nick(x.onId) + (x.ov ? ` over ${nick(x.ov)}` : '');
         const mark = x.min === 0 ? '<span class="cb-mark cb-na">no minimum</span>' : `<span class="cb-mark ${ok ? 'cb-pass' : 'cb-fail'}">${ok ? '&#10003; pass' : '&#10007; fail'}</span>`;
         return `<span class="cb-pair" data-ratio="${x.ratio.toFixed(2)}" data-fg="${toHex(x.fg)}" data-bg="${toHex(x.bg)}" data-min="${x.min}" data-pass="${ok === null ? '' : ok}"><b>${x.ratio.toFixed(2)}</b> on ${h(where)} <span class="cb-need">needs ${x.min || '-'}${x.min ? (nonText ? ' (non-text)' : '') : ''}</span> ${mark}</span>`;
-      }).join('');
+      }).join('') + (r.accepted && r.pairs.some((p) => pairCalc(r.id, p).ratio < p[1]) ? `<span class="cb-note">${h(r.accepted)}</span>` : '');
     }
   }
 
@@ -417,7 +450,21 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       const x = pairCalc(a, [bg, min]);
       if (x.ratio < min) warns.push(`<li><span><b>${label}</b>: ${x.ratio.toFixed(2)} : 1, needs ${min}</span>${a === 'text-on-accent' ? ' <button type="button" class="btn btn-small" id="cp-fix">Auto-fix text on accent</button>' : ''}</li>`);
     }
+    for (const a of Object.values(st.auto)) if (a.kind === 'on' && !a.ok) warns.push(`<li><span><b>${LABEL[a.fill]} fill</b> is flagged: neither white nor near-black reaches 4.5 : 1 on it (best ${a.ratio.toFixed(2)})</span></li>`);
     scope.querySelector('#cp-warn').innerHTML = warns.length ? `<ul>${warns.join('')}</ul>` : '<span class="cp-ok">Every base pair passes.</span>';
+  }
+
+  // The roles that are picked, not mixed: computed from the fills now on the page, set on the scope, then read back with every other role.
+  function runAuto() {
+    const v = st.vals; const textC = st.flatOf('text-primary');
+    st.auto = {};
+    for (const r of R) {
+      if (!r.auto) continue;
+      const fill = st.flatOf(r.auto.fill);
+      const x = r.auto.kind === 'on' ? pickOn(fill) : pickText(fill, textC, r.auto.on.map((id) => st.flatOf(id)), r.auto.floor);
+      st.auto[r.id] = Object.assign({ kind: r.auto.kind, fill: r.auto.fill, floor: r.auto.floor }, x);
+      scope.style.setProperty('--' + r.id, x.hex);
+    }
   }
 
   // ---- applying a state to the page ----
@@ -427,6 +474,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const b = baseSet();
     const prev = st.vals;
     for (const id of Object.keys(b)) scope.style.setProperty('--' + id, b[id]);
+    readVals();
+    runAuto();
     readVals();
     fillBoard();
     fillPlay();
@@ -455,11 +504,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     st.edits[k] = Object.assign(st.edits[k] || {}, { [id]: hex });
     apply(true);
   }
-  function bestOnAccent() {
-    const acc = st.flatOf('accent-fill');
-    const a = ratio(fromHex('#ffffff'), acc); const d = ratio(fromHex('#1a1206'), acc);
-    return a >= d ? '#ffffff' : '#1a1206';
-  }
+  function bestOnAccent() { return pickOn(st.flatOf('accent-fill')).hex; }
   function themeJson() {
     const out = { name: THEMES[st.theme].name + ' (edited)' };
     for (const m of ['light', 'dark']) {
@@ -477,9 +522,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   function render(api) {
     const block = api.mk('section', 'ds-block ds-spec');
     const themeBtns = Object.entries(THEMES).map(([k, t], i) => `<button type="button" class="tb-tab${i === 0 ? ' on' : ''}" data-theme="${k}" aria-pressed="${i === 0}"><span class="tb-tab-word">${t.name}</span></button>`).join('');
-    block.innerHTML = `<header><h3 id="colour-h" style="line-height:26px"><a href="#colour">Colour</a></h3><span class="ds-status-chip ds-st-proposed" style="line-height:16px">Proposed</span><span class="ds-count" style="line-height:18px">7 base roles, 4 optional status bases, ${R.filter((r) => !r.base && !r.kept).length} derived roles, 8 category tints</span></header>
+    block.innerHTML = `<header><h3 id="colour-h" style="line-height:26px"><a href="#colour">Colour</a></h3><span class="ds-status-chip ds-st-approved" style="line-height:16px">Approved</span><span class="ds-count" style="line-height:18px">Decided 2026-10-19: 7 base roles, 4 optional status bases, ${R.filter((r) => !r.base && !r.kept).length} derived roles, 8 category tints</span></header>
 <p class="ds-desc" style="line-height:20px">Seven colours a theme sets; everything else is worked out from them by a named formula, so each role drives one job. Pick a theme, then hover a role to see what it colours. Light or dark follows the switch at the top.</p>
-<div class="ds-colour ds-proposed" id="colour-scope" data-mode="dark" data-font="figtree">
+<div class="ds-colour ds-proposed" id="colour-scope" data-mode="dark" data-font="proposed">
   <div class="cx-bar">
     <div class="tb-tabs" role="group" aria-label="Theme" id="cx-theme">${themeBtns}</div>
   </div>
@@ -523,9 +568,6 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const fontBar = D.getElementById('ds-font');
     const syncFont = (k) => { if (k) scope.dataset.font = k; else delete scope.dataset.font; };
     if (fontBar) fontBar.addEventListener('click', (e) => { const b = e.target.closest('button[data-font]'); if (b) syncFont(b.dataset.font); });
-    const hb = D.getElementById('ds-headline');
-    const syncHead = (k) => { if (k) scope.dataset.headline = k; else delete scope.dataset.headline; };
-    if (hb) hb.addEventListener('click', (e) => { const b = e.target.closest('button[data-headline]'); if (b) syncHead(b.dataset.headline); });
 
     // the board: hover and focus preview, click or tap selects, arrows move, Escape clears
     board.addEventListener('mouseover', (e) => { const s = e.target.closest('.cb-sw'); if (s) setPreview(s.dataset.role); });
@@ -579,16 +621,15 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const start = () => {
       st.mode = D.documentElement.dataset.themeMode === 'light' ? 'light' : 'dark';
       const fb = D.querySelector('#ds-font button.on'); if (fb) syncFont(fb.dataset.font);
-      const hh = D.querySelector('#ds-headline button.on'); if (hh) syncHead(hh.dataset.headline);
       apply(false);
     };
     if (block.isConnected) start(); else queueMicrotask(() => (block.isConnected ? start() : requestAnimationFrame(start)));
-    window.__dsColour = { roles: R, state: st, select, setBase, setPreview, apply, hits, follow, themes: THEMES, roleCss, cssOf, wordsOf, ratio, parseCss };
+    window.__dsColour = { pickOn, pickText, roles: R, state: st, select, setBase, setPreview, apply, hits, follow, themes: THEMES, roleCss, cssOf, wordsOf, ratio, parseCss };
     return block;
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'colour', covers: ['colour', 'color', 'colours', 'theme'], group: 'Foundations', navGroup: 'Foundations', name: 'Colour', status: 'proposed',
+    id: 'colour', covers: ['colour', 'color', 'colours', 'theme'], group: 'Foundations', navGroup: 'Foundations', name: 'Colour', status: 'approved',
     words: 'colour color colours roles base derived surface panel card field menu toast tooltip text muted edge hairline accent fill hover selected today focus ring scrim shadow status danger ok warn info tint theme themes strong coffee calming teal burnt orange contrast ratio playground swatch', render,
   });
 })();

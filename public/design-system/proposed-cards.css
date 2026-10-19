@@ -97,7 +97,7 @@
 
 /* Home's space card: the same card, 20px of padding. */
 .ds-proposed :is(.sdk-card-home, .space-choice) { padding: var(--home-pad); gap: 12px; }
-.ds-proposed :is(.sdk-card-home, .space-choice) .sdk-card-title { font-family: var(--font-head, inherit); font-size: 18px; font-weight: 700; }
+.ds-proposed :is(.sdk-card-home, .space-choice) .sdk-card-title { font-family: var(--font-head, inherit); font-size: 18px; font-weight: 600; }
 
 /* The add slot beside the space cards: the same size, a dashed neutral hairline, no fill. */
 .ds-proposed :is(.sdk-card-add, .space-choice-add) {

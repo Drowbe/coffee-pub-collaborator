@@ -1,6 +1,7 @@
-/* The Typography family (proposed): the three UI font candidates, the headline candidates, and how the labels sit in a button. Loaded by proposed.html through proposed-families.json, after proposed.js (the page engine); it registers one family
-   through window.DS_PROPOSED.families.push and draws it with the rules in proposed-typography.css. Nothing here is a style of the product:
-   markup, words and tables only. How to add a family: README.md in this folder. */
+/* The Typography family (approved 2026-10-19): Figtree for the interface, Fraunces for headlines, the nine-step size scale, the weights, the
+   headline in context, and how the labels sit in a button. Loaded by proposed.html through proposed-families.json, after proposed.js (the page
+   engine); it registers one family through window.DS_PROPOSED.families.push and draws it with the rules in proposed-typography.css. Nothing
+   here is a style of the product: markup, words and tables only. How to add a family: README.md in this folder. */
 window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 (() => {
   const PM_CSS = window.DS_PROPOSED.pmCss; // the shared example-page rules (.pm-row, .pm-role ...), from the page engine
@@ -16,7 +17,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const h = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const fa = (n, x) => `<i class="fa-solid fa-${n}${x ? ' ' + x : ''}" aria-hidden="true"></i>`;
 
-  // Where the letters sit in a button, measured by ink on 2026-10-16 in headless Chromium 141 on Linux (tools in the report, same method as
+  // Where the letters sit in a button, measured by ink on 2026-10-16 in headless Chromium 141 on Linux (same method as
   // tools/check-design-system.mjs: a 4x screenshot of a 1px-bordered button, 12 labels with no descenders, weight 500, line-height 1).
   // Each cell is the mean offset in px of the letters' middle from the button's middle (+ low, - high), then the worst label in brackets.
   const CENTRE = [
@@ -26,19 +27,11 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ["Figtree, the font's own metrics", ["-0.94 (1.00)","+0.44 (0.50)","-0.59 (0.75)","-0.19 (0.25)"], ["-1.00 (1.00)","+0.00 (0.00)","-0.50 (0.50)","-0.04 (0.50)"]],
     ["Figtree, with the fix", ["+0.06 (0.13)","+0.44 (0.50)","-0.59 (0.75)","-0.19 (0.25)"], ["+0.00 (0.00)","+0.00 (0.00)","-0.50 (0.50)","+0.00 (0.00)"]],
     ["Figtree, fallback face, with the fix", ["+0.18 (0.38)","+0.43 (0.63)","-0.70 (0.75)","-0.32 (0.38)"], ["-0.38 (0.50)","+0.50 (0.50)","-1.00 (1.00)","-0.50 (0.50)"]],
-    ["Nunito Sans, the font's own metrics", ["-0.89 (1.00)","-0.63 (0.63)","-0.53 (0.63)","-0.25 (0.25)"], ["-1.00 (1.00)","-1.00 (1.00)","-0.50 (0.50)","-0.50 (0.50)"]],
-    ["Nunito Sans, with the fix", ["+0.11 (0.13)","+0.38 (0.38)","+0.47 (0.50)","-0.25 (0.25)"], ["+0.00 (0.00)","+0.00 (0.00)","+0.50 (0.50)","-0.50 (0.50)"]],
-    ["Nunito Sans, fallback face, with the fix", ["-0.07 (0.13)","+0.43 (0.63)","+0.30 (0.50)","-0.32 (0.38)"], ["-0.38 (0.50)","+0.50 (0.50)","+0.00 (0.00)","-0.50 (0.50)"]],
-    ["Source Sans 3, the font's own metrics", ["-0.70 (0.75)","-0.42 (0.50)","-0.42 (0.50)","-1.04 (1.13)"], ["-0.88 (1.00)","-0.88 (1.00)","-0.38 (0.50)","-1.00 (1.00)"]],
-    ["Source Sans 3, with the fix", ["+0.30 (0.50)","+0.58 (0.88)","+0.58 (0.88)","-0.04 (0.25)"], ["+0.13 (0.50)","+0.13 (0.50)","+0.63 (1.00)","+0.00 (0.00)"]],
-    ["Source Sans 3, fallback face, with the fix", ["+0.43 (0.63)","+0.68 (0.88)","+0.80 (1.00)","+0.03 (0.13)"], ["+0.50 (0.50)","+0.50 (0.50)","+0.63 (1.00)","+0.00 (0.00)"]],
-
   ];
   const CENTRE_HEAD = ['Text', '14px in 38px (default button)', '13px in 30px (small button)', '16px in 44px (phone field)', '12px in 30px'];
   const FIX_ROWS = [
     ['Figtree', '0.700', '0.950 / 0.250 (0.700)', '0.95 / 0.24 (0.710)', '100.59% / 95.67%', '94.44% / 23.86%'],
-    ['Nunito Sans', '0.705', '1.011 / 0.353 (0.658)', '1.04 / 0.32 (0.720)', '100.93% / 96.50%', '103.04% / 31.71%'],
-    ['Source Sans 3', '0.660', '1.024 / 0.400 (0.624)', '1.08 / 0.34 (0.740)', '93.32% / 90.20%', '115.73% / 36.43%'],
+    ['Fraunces (headlines)', '0.700 (capitals)', '0.978 / 0.255', '0.983 / 0.250', '111.60% (bold only)', '88.08% / 22.40%'],
   ];
   const FIX_CODE = `/* The bundled font: the box and the baseline no longer depend on the font's own tables */
 @font-face { font-family: "Figtree"; font-style: normal; font-weight: 300 900; font-display: swap;
@@ -51,246 +44,276 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 @font-face { font-family: "Figtree Fallback"; font-weight: 600 900;
   src: local("Arial Bold"), local("Arial-BoldMT"), local("Helvetica Bold"), local("Liberation Sans Bold");
   size-adjust: 95.67%; ascent-override: 99.3%; descent-override: 25.09%; line-gap-override: 0%; }
-:root { --font-ui: "Figtree", "Figtree Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }`;
-  const CENTRE_HTML = (tbl, h) => `<p class="ds-desc"><b>Yes, within 1px, in all three, with a normal button: 1px border, 14px side padding, <code>line-height: 1</code>, as the approved Buttons are.</b> Measured by ink, the way <code>tools/check-design-system.mjs</code> does it: a 4x screenshot of the button, the middle of the letters against the middle of the box. 12 labels with no descenders (Save, Edit, Delete, Cancel, Muted, Add, Filter, Clear, Done, Back, Invite, Rename), weight 500. Each cell is the mean in px (<b>+ is low, - is high</b>) and, in brackets, the worst label. Headless Chromium 141 on Linux; this machine has no Segoe UI, San Francisco or Roboto, so Today's row is Liberation Sans, which stands in for Arial.</p>
-<p class="pm-meas-h">Ink on a 4x screenshot (the check's method)</p>
-${tbl(CENTRE_HEAD, CENTRE.map((r) => [r[0]].concat(r[1])))}
-<p class="pm-meas-h">The same on a screen at 1x, where the baseline snaps to a whole pixel</p>
-${tbl(CENTRE_HEAD, CENTRE.map((r) => [r[0]].concat(r[2])))}
-<p class="ds-desc"><b>What it shows.</b> With the fix, every candidate sits within 0.7px of centre at the default and the small button (worst label 0.9px), bundled or in its fallback face, at 4x and at 1x. With each font's own tables the label is 0.7 to 1.0px <i>high</i> at the default size, so the same button would be on the edge of the 1px limit; and it moves with the font and the size. Today's stack, as it resolves here, is fine at 14px but 1.6px high at 16px (the phone's field size), and the two other system fonts on this machine are 1.0 to 1.7px off: that spread, a different one on every device, is the buttons that look off. I could not measure Segoe UI, San Francisco or Roboto here.</p>
-<h4 class="ds-h4" id="typography-code">The fix: font-metric overrides</h4>
-<p class="ds-desc"><b>Why a label looks off.</b> With <code>line-height: 1</code> the browser puts the line in the middle of the button and the baseline at (ascent - descent) / 2 below that middle, using the ascent and descent in the font's own tables, rounded to whole pixels. Letters are centred when ascent - descent equals the cap height. Fonts differ in ascent, descent and in how they round at 14px, so the same CSS gives a different result in each font. <b>The fix:</b> set <code>ascent-override</code>, <code>descent-override</code> and <code>line-gap-override</code> in the <code>@font-face</code> so the numbers are ours, in every browser, and give the fallback face the same ones.</p>
-${tbl(['Font', 'Cap height (em)', 'Own ascent / descent (difference)', 'Override ascent / descent (difference)', 'Fallback size-adjust: regular / bold', 'Fallback ascent / descent (regular)'], FIX_ROWS)}
-<p class="ds-desc"><b>How the numbers were found.</b> (1) The difference, ascent minus descent, is set a little above the cap height (the tall letters l, d, t rise above it), and the sum is kept near the font's own so <code>line-height: normal</code> hardly changes. (2) Because the browser rounds, each pair was then swept: ascent in 1% steps within 10% of the font's own, descent within 12%, six labels at 14px in 38px and 13px in 30px, at 1x and 4x, and the pair nearest the font's own sum that keeps every label within 0.5px (0.75px for Source Sans 3, whose cap height is a fraction of a pixel off at both sizes) was taken. Figtree's own numbers already have ascent - descent = cap height, yet it sits 0.9px high at 14px: its descent, 25% of 14px, is 3.5px, a tie. The sweep moved it to 24%. (3) The fallback's size-adjust makes the same sample of UI text (three sentences and a row of labels, weights 400 to 500; 600 to 700 for the bold face) as wide as in the bundled font, measured in the browser; its ascent and descent are the bundled ones divided by size-adjust.</p>
-<p class="ds-desc"><b>Checked.</b> The ascent and descent the browser reports at 100px, bundled and fallback: Figtree 95 / 24 and 95 / 24, Nunito Sans 104 / 32 and 104 / 32, Source Sans 3 108 / 34 and 108 / 34 (unadjusted Arial: 91 / 21). So the line box is the same height in both. The widths are in the table above. Only measured in Chromium; Firefox and Safari honour the same descriptors but were not run here.</p>
-<pre class="ds-pre">${h(FIX_CODE)}</pre>`;
+/* Fraunces: weight axis only (100 to 900). Fallback: Times New Roman Bold scaled to the same width. */
+@font-face { font-family: "Fraunces"; font-weight: 100 900; font-display: swap;
+  ascent-override: 98.3%; descent-override: 25%; line-gap-override: 0%; src: url(fonts/fraunces/latin.woff2) format("woff2"); unicode-range: U+0000-00FF, ...; }
+@font-face { font-family: "Fraunces Fallback"; font-weight: 100 900;
+  src: local("Times New Roman Bold"), local("TimesNewRomanPS-BoldMT"), local("Liberation Serif Bold");
+  size-adjust: 111.60%; ascent-override: 88.08%; descent-override: 22.40%; line-gap-override: 0%; }`;
+  const TOKEN_CODE = `:root {
+  --font-ui: "Figtree", "Figtree Fallback", -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-display: "Fraunces", "Fraunces Fallback", var(--font-ui);
+  --text-9: 9px;   /* micro counts only */
+  --text-11: 11px;  --text-12: 12px;  --text-13: 13px;  --text-14: 14px;  --text-16: 16px;   /* interface, Figtree */
+  --text-18: 18px;  --text-22: 22px;  --text-28: 28px;  --text-40: 40px;                      /* headlines, Fraunces */
+  --weight-regular: 400;  --weight-medium: 500;  --weight-strong: 600;
+  --leading-body: 1.45;  --leading-ui: 1;
+  --leading-display: 1.15;  --leading-title: 1.2;  --leading-section: 1.25;
+  --tracking-tight: -0.01em;  --tracking-normal: 0;  --tracking-caps: 0.06em;
+}`;
 
-  // ---- Typography (PROPOSED): three candidate fonts, bundled and self-hosted. The faces are in proposed.css; the files in fonts/. ----
+  // The nine steps. [size, name, family, weight, leading token, tracking token, sample, where it is used]
+  const STEPS = [
+    [9, 'Micro count', 'ui', 600, 'ui', 'normal', '3', 'Numbers only, inside a 14px badge on the corner of an icon-only tab or icon button. The one size under 11px; the 7px dots carry no text.'],
+    [11, 'Caption', 'ui', 600, 'ui', 'caps', 'NOT STARTED', 'Captions and group labels in capitals, counts, tag text on the smallest chips. Nothing is smaller.'],
+    [12, 'Small', 'ui', 400, 'body', 'normal', 'Added by Mira, 14:30 yesterday', 'Tags and the small chip, hints and helper text, times, table notes.'],
+    [13, 'Dense UI', 'ui', 600, 'ui', 'normal', 'Workspace   Calendar   Places   Budget', 'Small buttons, small tabs, chips, the top-bar nav text, menu notes, table cells.'],
+    [14, 'Default UI and body', 'ui', 400, 'body', 'normal', 'Meet at the museum gate at nine thirty. Bring your tickets.', 'Body text, default buttons, fields, tabs, menu items, chat. Buttons are 500; strong text is 600.'],
+    [16, 'Large body', 'ui', 400, 'body', 'normal', 'Everyone is in. The call is open.', 'Large body text, and the text in a field on a phone (16px so iOS does not zoom the page).'],
+    [18, 'Section heading', 'display', 600, 'section', 'normal', 'Kraków in spring', 'The space name on a Home card, the environment name in the top bar, the headings of sheets and setup.'],
+    [22, 'Title', 'display', 600, 'title', 'normal', 'Day 3: Louvre and the river', 'A module title on Manage and on its settings page, a title in away and in a long sheet.'],
+    [28, 'Page title', 'display', 600, 'title', 'tight', 'Evening in Kraków', 'The title of a page, such as the Home page.'],
+    [40, 'Display', 'display', 600, 'display', 'tight', 'Plan the trip', 'The landing title, the countdown and away words.'],
+  ];
+  const WHERE_TODAY = [
+    ['8, 10, 11', '11', 'Caption. The 10px labels and the micro capitals go up to 11.'],
+    ['9 (a count in a corner badge)', '9', 'Micro count: stays 9, numbers only'],
+    ['12', '12', 'Small'],
+    ['13', '13', 'Dense UI'],
+    ['14, 15', '14', 'Default. The 15px text goes to 14.'],
+    ['16', '16', 'Large body, and a field on a phone'],
+    ['17, 18', '18', 'Section heading (Fraunces)'],
+    ['20, 22, 24', '22', 'Title (Fraunces). The 20px module title and the 24px go to 22.'],
+    ['28', '28', 'Page title (Fraunces)'],
+    ['40', '40', 'Display (Fraunces)'],
+  ];
+  const USED = [
+    ['Buttons, default', '14', '500', '1'],
+    ['Buttons, small', '13', '500', '1'],
+    ['Fields', '14 (16 on a phone)', '400', '1 (a text area 1.45)'],
+    ['Field labels', '12', '500', '1.45'],
+    ['Tabs and view switches', '14 (13 small)', '500', '1'],
+    ['The nav text in the bars', '13', '600', '1'],
+    ['Chips', '13 (12 for a tag)', '500', '1'],
+    ['Menu items', '14', '400', '1.45'],
+    ['Captions and group labels', '11, in capitals', '600', '1'],
+    ['Micro count (corner badge, 14px)', '9, numbers only', '600', '1'],
+    ['Body text, chat', '14 (16 large)', '400', '1.45'],
+    ['Headings', '18, 22, 28, 40, in Fraunces', '600', '1.15 to 1.25'],
+  ];
+  const TOKENS = [
+    ['--font-ui', 'Figtree, then its metric-matched fallback, then the system stack', 'Everything that is not a headline'],
+    ['--font-display', 'Fraunces, its fallback, then --font-ui', 'The headlines, display text only'],
+    ['--text-11, -12, -13, -14, -16', '11, 12, 13, 14, 16 px', 'The five interface sizes'],
+    ['--text-9', '9 px', 'Micro counts only: numbers in a 14px corner badge'],
+    ['--text-18, -22, -28, -40', '18, 22, 28, 40 px', 'The four headline sizes'],
+    ['--weight-regular, -medium, -strong', '400, 500, 600', 'Interface weights; headlines use strong'],
+    ['--leading-body, --leading-ui', '1.45, 1', 'Reading text, and a single line of interface'],
+    ['--leading-display, -title, -section', '1.15, 1.2, 1.25', 'Headlines: 40, then 28 and 22, then 18'],
+    ['--tracking-tight, -normal, -caps', '-0.01em, 0, 0.06em', 'The 40 and 28px headlines, everything else, capitals'],
+  ];
+
+  // The example-page rules of this family's frames.
   const TY_CSS = `
 .pm-ty { display: grid; gap: 18px; }
-.pm-ty-h { margin: 0 0 6px; color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.pm-ty-row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 2px 14px; align-items: baseline; padding: 5px 0; }
+.pm-ty-h { margin: 0 0 6px; color: var(--text-dim); font-size: var(--text-11); font-weight: var(--weight-strong); letter-spacing: var(--tracking-caps); text-transform: uppercase; }
+.pm-ty-row { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 2px 14px; align-items: baseline; padding: 8px 0; }
 .pm-ty-row + .pm-ty-row { border-top: 1px solid var(--border); }
 .pm-ty-meta { color: var(--text-dim); font-family: var(--font-system); font-size: 11px; line-height: 1.3; }
-.pm-ty-meta b { display: block; color: var(--text); font-size: 11px; font-weight: 600; }
-.pm-t28 { font-size: 28px; font-weight: 700; line-height: 1.2; }
-.pm-t22 { font-size: 22px; font-weight: 700; line-height: 1.2; }
-.pm-t18 { font-size: 18px; font-weight: 600; line-height: 1.2; }
-.pm-t16 { font-size: 16px; font-weight: 400; line-height: 1.5; }
-.pm-t14 { font-size: 14px; font-weight: 400; line-height: 1.4; }
-.pm-t14s { font-size: 14px; font-weight: 600; line-height: 1.4; }
-.pm-t13 { font-size: 13px; font-weight: 600; line-height: 1.4; }
-.pm-t12 { font-size: 12px; font-weight: 400; line-height: 1.4; color: var(--text-dim); }
-.pm-t11 { font-size: 11px; font-weight: 700; line-height: 1.3; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
-.pm-t10 { font-size: 10px; font-weight: 700; line-height: 1.3; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim); }
-.pm-body { max-width: 62ch; margin: 0 0 8px; font-size: 14px; line-height: 1.4; }
-.pm-cover { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.pm-ty-meta b { display: block; color: var(--text); font-size: 12px; font-weight: 600; }
+.pm-job { margin: 3px 0 0; color: var(--text-dim); font-size: var(--text-12); font-weight: var(--weight-regular); line-height: var(--leading-body); letter-spacing: var(--tracking-normal); text-transform: none; }
+.pm-hd { font-family: var(--font-display); font-weight: var(--weight-strong); margin: 0; }
+.pm-s40 { font-size: var(--text-40); line-height: var(--leading-display); letter-spacing: var(--tracking-tight); }
+.pm-s28 { font-size: var(--text-28); line-height: var(--leading-title); letter-spacing: var(--tracking-tight); }
+.pm-s22 { font-size: var(--text-22); line-height: var(--leading-title); }
+.pm-s18 { font-size: var(--text-18); line-height: var(--leading-section); }
+.pm-s16 { font-size: var(--text-16); font-weight: var(--weight-regular); line-height: var(--leading-body); }
+.pm-s14 { font-size: var(--text-14); font-weight: var(--weight-regular); line-height: var(--leading-body); }
+.pm-s13 { font-size: var(--text-13); font-weight: var(--weight-strong); line-height: var(--leading-ui); }
+.pm-s12 { font-size: var(--text-12); font-weight: var(--weight-regular); line-height: var(--leading-body); color: var(--text-dim); }
+.pm-s9 { font-size: var(--text-9); font-weight: var(--weight-strong); line-height: var(--leading-ui); }
+.pm-s11 { font-size: var(--text-11); font-weight: var(--weight-strong); line-height: var(--leading-ui); letter-spacing: var(--tracking-caps); text-transform: uppercase; color: var(--text-dim); }
+.pm-w400 { font-weight: var(--weight-regular); } .pm-w500 { font-weight: var(--weight-medium); } .pm-w600 { font-weight: var(--weight-strong); }
+.pm-body { max-width: 62ch; margin: 0 0 8px; font-size: var(--text-14); line-height: var(--leading-body); }
+.pm-cover { margin: 0; font-size: var(--text-14); line-height: var(--leading-body); overflow-wrap: anywhere; }
 .pm-bar + .pm-bar { margin-top: 10px; }
 .pm-bar + .pm-ty-h { margin-top: 14px; }
-.pm-ty-note { margin: 0 0 8px; color: var(--text-dim); font-size: 12px; }
-.pm-meas-t { width: 100%; border-collapse: collapse; font-family: var(--font-system); font-size: 12px; }
-.pm-meas-t th, .pm-meas-t td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: baseline; }
-.pm-meas-t th { color: var(--text-dim); font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
-.pm-meas-t .pm-s { display: inline-block; white-space: nowrap; font-size: 14px; font-weight: 400; background: color-mix(in srgb, var(--accent) 16%, transparent); }
-.pm-meas-t .pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
-.pm-meas-h { margin: 14px 0 4px; font-family: var(--font-system); font-size: 13px; font-weight: 700; }
-.pm-meas-h:first-child { margin-top: 0; }
-.pm-f-figtree { font-family: "Figtree", sans-serif; }
-.pm-f-nunito-sans { font-family: "Nunito Sans", sans-serif; }
-.pm-f-source-sans-3 { font-family: "Source Sans 3", sans-serif; }
-.pm-fb-figtree { font-family: "Figtree Fallback", sans-serif; }
-.pm-fb-nunito-sans { font-family: "Nunito Sans Fallback", sans-serif; }
-.pm-fb-source-sans-3 { font-family: "Source Sans 3 Fallback", sans-serif; }
-.pm-f-arial { font-family: Arial, sans-serif; }
-.pm-f-today { font-family: var(--font-system); }
-@media (max-width: 640px) {
-  .pm-ty-row { grid-template-columns: minmax(0, 1fr); }
-}
-.pm-h-row { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 2px 14px; align-items: baseline; padding: 5px 0; }
-.pm-h-row + .pm-h-row { border-top: 1px solid var(--border); }
-.pm-h40 { font-size: 40px; font-weight: 800; line-height: 1.1; }
-.pm-h28 { font-size: 28px; font-weight: 700; line-height: 1.2; }
-.pm-h22 { font-size: 22px; font-weight: 700; line-height: 1.2; }
-.pm-h18 { font-size: 18px; font-weight: 700; line-height: 1.2; }
-.pm-h17 { font-size: 17px; font-weight: 700; line-height: 1.2; }
-.pm-tb { box-sizing: border-box; display: flex; align-items: center; width: 320px; max-width: 100%; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-section); line-height: 1; font-weight: 700; white-space: nowrap; overflow: hidden; }
+.pm-cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.pm-cmp-c { min-width: 0; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg); }
+.pm-cmp-c .pm-hd + .pm-hd { margin-top: 8px; }
+.pm-cmp-card { margin-top: 10px; padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); }
+.pm-cmp-card p { margin: 4px 0 0; color: var(--text-dim); font-size: var(--text-13); }
+.pm-tb { box-sizing: border-box; display: flex; align-items: center; width: 320px; max-width: 100%; padding: 0 10px; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--bg-section); line-height: 1; white-space: nowrap; overflow: hidden; }
 .pm-tb + .pm-tb { margin-top: 8px; }
 .pm-mock { padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg); }
 .pm-mock + .pm-mock { margin-top: 14px; }
 .pm-mock .topbar { position: relative; top: auto; width: auto; margin: 6px 0 0; border-radius: var(--radius-small); }
 .pm-note { margin: 6px 0 0; color: var(--text-dim); font-family: var(--font-system); font-size: 12px; }
 .pm-stay { margin-top: 10px; }
-.pm-hf-figtree { font-family: "Figtree", sans-serif; }
-.pm-hf-archivo { font-family: "Archivo", sans-serif; }
+.ds-proposed[data-font="proposed"] .pm-mock .space-choice-name { font-size: var(--text-18); line-height: var(--leading-section); }
+.ds-proposed[data-font="proposed"] .pm-mock .topbar .brand-name { font-size: var(--text-18); }
+.ds-proposed[data-font="proposed"] .pm-mock .module-head h1 { font-size: var(--text-22); line-height: var(--leading-title); }
+.pm-meas-t { width: 100%; border-collapse: collapse; font-family: var(--font-system); font-size: 12px; }
+.pm-meas-t th, .pm-meas-t td { padding: 5px 8px 5px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: baseline; }
+.pm-meas-t th { color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
+.pm-meas-t .pm-s { display: inline-block; white-space: nowrap; font-size: 14px; font-weight: 400; background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.pm-meas-t .pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.pm-meas-h { margin: 14px 0 4px; font-family: var(--font-system); font-size: 13px; font-weight: 600; }
+.pm-meas-h:first-child { margin-top: 0; }
+.pm-f-figtree { font-family: "Figtree", sans-serif; }
+.pm-fb-figtree { font-family: "Figtree Fallback", sans-serif; }
 .pm-hf-fraunces { font-family: "Fraunces", serif; }
-.pm-hf-bricolage-grotesque { font-family: "Bricolage Grotesque", sans-serif; }
-.pm-hb-archivo { font-family: "Archivo Fallback", sans-serif; }
 .pm-hb-fraunces { font-family: "Fraunces Fallback", serif; }
-.pm-hb-bricolage-grotesque { font-family: "Bricolage Grotesque Fallback", sans-serif; }
-.pm-h-arial { font-family: Arial, sans-serif; }
 .pm-h-times { font-family: "Times New Roman", serif; }
+.pm-f-arial { font-family: Arial, sans-serif; }
+.pm-f-today { font-family: var(--font-system); }
 @media (max-width: 640px) {
-  .pm-h-row { grid-template-columns: minmax(0, 1fr); }
+  .pm-ty-row { grid-template-columns: minmax(0, 1fr); }
+  .pm-cmp { grid-template-columns: minmax(0, 1fr); }
 }`;
 
-
-  // Measured on 2026-10-16 (see the Typography family): sizes in bytes, metrics in em as the font's own tables give them.
-  const CANDS = [
-    { key: 'figtree', name: 'Figtree', css: 'Figtree',
-      files: [['latin', 20156], ['latin-ext', 10280]], weights: '300 to 900', alphabets: 'Latin, Latin extended',
-      lic: 'SIL Open Font License 1.1, The Figtree Project Authors (2022)',
-      nat: [95, 25], fix: [95, 24], cap: 70, xh: 50, regular: 100.59, bold: 95.67, upm: 1000 },
-    { key: 'nunito-sans', name: 'Nunito Sans', css: 'Nunito Sans',
-      files: [['latin', 31076], ['latin-ext', 27908], ['cyrillic', 16388]], weights: '200 to 1000', alphabets: 'Latin, Latin extended, Cyrillic',
-      lic: 'SIL Open Font License 1.1, The Nunito Sans Project Authors (2016)',
-      nat: [101.1, 35.3], fix: [104, 32], cap: 70.5, xh: 48.6, regular: 100.93, bold: 96.5, upm: 1000 },
-    { key: 'source-sans-3', name: 'Source Sans 3', css: 'Source Sans 3',
-      files: [['latin', 28872], ['latin-ext', 60088], ['cyrillic', 18496], ['greek', 14528]], weights: '200 to 900', alphabets: 'Latin, Latin extended, Cyrillic, Greek',
-      lic: 'SIL Open Font License 1.1, Adobe (2010-2020), Reserved Font Name "Source"',
-      nat: [102.4, 40], fix: [108, 34], cap: 66, xh: 48.6, regular: 93.32, bold: 90.2, upm: 1000 },
-  ];
-
-  // The headline candidates (sizes in bytes of the one latin file each; the bundled files are the fontsource variable woff2, unmodified).
-  const HEADS = [
-    { key: 'archivo', name: 'Archivo', file: 34928, ext: 32608, weights: '100 to 900 (one weight axis)', alphabets: 'Latin, Latin extended, Vietnamese; no Cyrillic or Greek',
-      lic: 'SIL Open Font License 1.1, The Archivo Project Authors (2020), no Reserved Font Name', sa: 98.55, own: '87.8 / 21', set: '90 / 19', fbName: 'Arial Bold', fbCls: 'pm-h-arial',
-      why: 'The one Thomas named. A grotesque with a sturdy, slightly condensed body: confident and plain, close to Figtree in spirit but heavier, so a title stands apart without feeling like another brand. The neutral choice.',
-      centre: ['+0.11 (0.50)', '+0.25 (0.63)', '-0.28 (0.38)'], own_c: ['-0.89 (1.00)', '-0.75 (0.88)', '-0.28 (0.38)'] },
-    { key: 'fraunces', name: 'Fraunces', file: 36620, ext: 33584, weights: '100 to 900 (one weight axis; the optical-size and the soft and wonky axes are not in this file)', alphabets: 'Latin, Latin extended, Vietnamese; no Cyrillic or Greek',
-      lic: 'SIL Open Font License 1.1, The Fraunces Project Authors (2020), no Reserved Font Name', sa: 115.04, own: '97.8 / 25.5', set: '98.3 / 25', fbName: 'Times New Roman Bold', fbCls: 'pm-h-times',
-      why: 'The warmest and the most different: a soft "old-style" serif with round, inky shapes, like a printed travel guide or a game box. It sits well against Figtree and the brown and amber of the default theme. A bigger change of character than Archivo; best for a few big words, not for long titles.',
-      centre: ['-0.09 (0.38)', '+0.06 (0.50)', '-0.40 (0.50)'], own_c: ['-0.09 (0.38)', '+0.06 (0.50)', '-0.40 (0.50)'] },
-    { key: 'bricolage-grotesque', name: 'Bricolage Grotesque', file: 41344, ext: 18668, weights: '200 to 800 (one weight axis; the width and optical-size axes are not in this file)', alphabets: 'Latin, Latin extended, Vietnamese; no Cyrillic or Greek',
-      lic: 'SIL Open Font License 1.1, The Bricolage Grotesque Project Authors (2022), no Reserved Font Name', sa: 102.15, own: '93 / 27', set: '96 / 24', fbName: 'Arial Bold', fbCls: 'pm-h-arial',
-      why: 'A friendly grotesque with a little quirk: ink-trap notches and uneven curves that read as hand-made, so it is playful without turning into a rounded display face. Warmer than Archivo, calmer than Fraunces, and still a sans, so it pairs with Figtree and the buttons without a clash.',
-      centre: ['+0.24 (0.88)', '+0.23 (0.75)', '-0.30 (0.63)'], own_c: ['-0.76 (1.25)', '-0.77 (1.13)', '-0.30 (0.63)'] },
-  ];
-  const headRows = (stack) => `
-        <div class="pm-h-row"><div class="pm-ty-meta"><b>40 / 800</b>Hero: landing page, countdown</div><div class="${stack} pm-h40">Plan the trip together</div></div>
-        <div class="pm-h-row"><div class="pm-ty-meta"><b>28 / 700</b>Display: page title</div><div class="${stack} pm-h28">Evening in Kraków</div></div>
-        <div class="pm-h-row"><div class="pm-ty-meta"><b>22 / 700</b>Title: away, section</div><div class="${stack} pm-h22">Day 3: Louvre and the river</div></div>
-        <div class="pm-h-row"><div class="pm-ty-meta"><b>18 / 700</b>Heading: sheets, setup, cards (17)</div><div class="${stack} pm-h18">Dinner is booked for seven</div></div>`;
-  const headSample = (c) => `<div class="ds-proposed" data-font-fixed="1"${c ? ` data-headline="${c.key}" data-headline-fixed="1"` : ' data-headline-fixed="1"'}>
-      <div class="pm-ty">
-        <div><p class="pm-ty-h">Headline sizes the product uses today (the body below is the UI font)</p>${headRows('head')}</div>
-        <div><p class="pm-ty-h">Headline with body text</p>
-          <h3 class="head pm-h22" style="margin:0 0 6px">Tomorrow at the Louvre</h3>
-          <p class="pm-body">Meet at the museum gate at 9:30. Bring your tickets and a charged phone. The call starts when the first person joins, and everyone in the trip can see the plan and add to it.</p>
-          <h3 class="head pm-h18" style="margin:10px 0 4px">Where we eat</h3>
-          <p class="pm-body">Dinner is booked for seven, near the river. Il y a 12 places, 3 days, 1 budget: €2,450.50.</p>
-          <p class="pm-cover">Letters outside the headline file: <span class="head pm-h22">Łódź, Dvořák, Zürich</span> take those letters from Figtree.</p>
-        </div>
-      </div></div>`;
-  const BAR_WORDS = [['Welcome back', 28, 56], ['Rome at the Louvre', 22, 48], ['Meet at nine', 18, 40]];
-  const barsBody = () => `<div class="ds-proposed"><p class="pm-ty-h">Title bars, line-height 1, bold: 28px in 56, 22px in 48, 18px in 40</p>${BAR_WORDS.map(([w, z, h]) => `<div class="pm-tb head" style="font-size:${z}px;height:${h}px">${w}</div>`).join('')}</div>`;
-  const mockBody = () => `<div class="ds-proposed">
-    <div class="pm-mock"><p class="pm-ty-h">Top bar: the name of the environment (the wordmark), 17px, bold</p>
+  const kb = (n) => (n / 1024).toFixed(1) + ' KB';
+  // One sample frame: data-font-fixed is not set, so the Today's fonts / Proposed fonts switch flips it.
+  const wrap = (inner) => `<div class="ds-proposed">${inner}</div>`;
+  const scaleBody = () => wrap(`<div class="pm-ty"><div><p class="pm-ty-h">The nine steps, smallest to largest, in the family each is set in</p>${STEPS.map((st) => {
+    const [size, name, fam, wt, lh, tr, sample, used] = st;
+    const cls = `pm-s${size}${fam === 'display' ? ' pm-hd' : ''}`;
+    const lhv = { ui: '1', body: '1.45', display: '1.15', title: '1.2', section: '1.25' }[lh];
+    const trv = { caps: '+0.06em, capitals', tight: '-0.01em', normal: 'none' }[tr];
+    return `<div class="pm-ty-row"><div class="pm-ty-meta"><b>${size} ${name}</b>${fam === 'display' ? 'Fraunces' : 'Figtree'} ${wt}<br>line ${lhv}, letters ${trv}<br>--text-${size}</div><div><div class="${cls}">${sample}</div><p class="pm-job">${used}</p></div></div>`;
+  }).reverse().join('')}</div></div>`);
+  const weightBody = () => wrap(`<div class="pm-ty">
+    <div><p class="pm-ty-h">Interface weights: Figtree 400, 500, 600</p>
+      <div class="pm-ty-row"><div class="pm-ty-meta"><b>400 Regular</b>--weight-regular</div><div><div class="pm-s14">Meet at the museum gate at nine thirty. Bring your tickets.</div><p class="pm-job">Body text, fields, hints, menu items.</p></div></div>
+      <div class="pm-ty-row"><div class="pm-ty-meta"><b>500 Medium</b>--weight-medium</div><div><div class="pm-s14 pm-w500">Save   Edit   Delete   Cancel</div><p class="pm-job">Buttons and chips.</p></div></div>
+      <div class="pm-ty-row"><div class="pm-ty-meta"><b>600 Strong</b>--weight-strong</div><div><div class="pm-s14 pm-w600">Dinner is booked for seven</div><p class="pm-job">Tabs, nav text, tags, captions, emphasis. Today's 650, 700 and 800 in the interface fold into this.</p></div></div>
+    </div>
+    <div><p class="pm-ty-h">Headline weight: Fraunces 600 (the proposed choice; see the comparison below)</p>
+      <div class="pm-ty-row"><div class="pm-ty-meta"><b>600 Strong</b>--weight-strong</div><div><div class="pm-hd pm-s28">Evening in Kraków</div><p class="pm-job">Every headline, 18 to 40px.</p></div></div>
+    </div>
+  </div>`);
+  const buttonsBody = () => {
+    const bar = (small) => `<div class="pm-bar">${TEXT_ROLES.map((r) => `<button type="button" class="btn${r.cls ? ' ' + r.cls : ''}${small ? ' btn-small' : ''}"${r.attrs || ''}>${r.label}</button>`).join('')}<button type="button" class="sdk-icon-btn${small ? ' btn-small' : ''}" aria-label="Add" title="Add">${fa('plus')}</button></div>`;
+    return wrap(`<div class="pm-ty">
+      <div><p class="pm-ty-h">Body text, 14 and 16 (large)</p>
+        <p class="pm-body">Tomorrow we meet at the Louvre at 9:30. Bring your tickets and a charged phone. The call starts when the first person joins, and everyone in the trip can see the plan and add to it. Il y a 12 places, 3 days, 1 budget: €2,450.50.</p>
+        <p class="pm-body pm-s16">Everyone is in. The call is open, and the plan is on the screen.</p>
+        <p class="pm-cover">Kraków, Dvořák, Zürich, Reykjavík, Łódź. Москва, Київ. Αθήνα, Θεσσαλονίκη. 0123456789 &nbsp; 14:30 &nbsp; €12.50 &nbsp; 50%</p>
+      </div>
+      <div><p class="pm-ty-h">Buttons, default size: 14, weight 500</p>${bar(false)}<p class="pm-ty-h">Buttons, small: 13, weight 500</p>${bar(true)}</div>
+    </div>`);
+  };
+  const cmpCol = (w) => `<div class="pm-cmp-c">
+      <p class="pm-ty-h">Fraunces ${w}${w === 600 ? ', proposed' : ''}</p>
+      <p class="pm-hd pm-s40" style="font-weight:${w}">Plan the trip</p>
+      <p class="pm-hd pm-s28" style="font-weight:${w}">Evening in Kraków</p>
+      <p class="pm-hd pm-s22" style="font-weight:${w}">Day 3: Louvre and the river</p>
+      <p class="pm-hd pm-s18" style="font-weight:${w}">Kraków in spring, Friday night game</p>
+      <div class="pm-cmp-card"><b class="pm-hd pm-s18" style="font-weight:${w}">Kraków in spring</b><p>Flights are booked. The hotel is still open.</p></div>
+      <div class="pm-cmp-card"><b class="pm-hd" style="font-size:17px;font-weight:${w}">Friday night game (17px, today's size)</b><p>Dragons, dice and snacks.</p></div>
+    </div>`;
+  const cmpBody = () => `<div class="ds-proposed" data-font="proposed" data-font-fixed="1"><div class="pm-cmp">${cmpCol(600)}${cmpCol(700)}</div>
+    <div class="pm-cmp-card" style="margin-top:14px"><p class="pm-ty-h">Figtree 600 at 18px, for comparison: the same card name if a place stays in the interface font</p><b class="pm-s18 pm-w600">Kraków in spring</b><p>Flights are booked. The hotel is still open.</p></div></div>`;
+  const ctxBody = () => wrap(`
+    <div class="pm-mock"><p class="pm-ty-h">Landing: the title, 40px</p>
+      <h1 class="head pm-s40" style="margin:0 0 6px">Plan the trip together</h1><p class="pm-body" style="margin:0">Voice, video and the plan, in one place for the group.</p></div>
+    <div class="pm-mock"><p class="pm-ty-h">Page title, 28px, above the Home list</p>
+      <h1 class="head pm-s28" style="margin:0 0 4px">Our trips</h1><p class="pm-body" style="margin:0">Pick a trip to enter.</p></div>
+    <div class="pm-mock"><p class="pm-ty-h">Top bar: the name of the environment (the wordmark), 18px</p>
       <header class="topbar"><div class="nav-left"><a class="brand-home" href="#"><span class="brand-logo"><i class="fa-solid fa-mug-hot" aria-hidden="true"></i></span><span class="brand-name">Coffee Pub</span></a><div class="space-switcher"><button type="button" class="space-switcher-button nav-text"><span class="crumb-label">Kraków in spring</span> <i class="fa-solid fa-caret-down" aria-hidden="true"></i></button></div></div></header>
-      <p class="pm-note">The space name beside it is nav text (13px, 600) and stays in the UI font, with the other top-bar words.</p></div>
-    <div class="pm-mock"><p class="pm-ty-h">Home: the heading is a small capital label (stays UI); the space cards name each space, 17px, bold</p>
+      <p class="pm-note">The space name beside it is nav text (13px, 600) and stays in Figtree, with the other top-bar words.</p></div>
+    <div class="pm-mock"><p class="pm-ty-h">Home: the heading is a small capital label (stays Figtree); each space card names its space, 18px</p>
       <div class="space-list-head"><h2 class="space-list-title"><i class="fa-solid fa-suitcase fa-fw" aria-hidden="true"></i> Trips</h2></div>
       <div class="space-list" style="margin-top:12px">
         <article class="space-choice"><div class="space-choice-head"><strong class="space-choice-name">Kraków in spring</strong><span class="hint space-choice-count">3 here now</span></div><p class="hint space-choice-desc">Flights are booked. The hotel is still open.</p><div class="members"></div><div class="space-choice-actions"><button class="btn btn-primary" type="button"><i class="fa-solid fa-door-open fa-fw" aria-hidden="true"></i> Enter</button></div></article>
         <article class="space-choice"><div class="space-choice-head"><strong class="space-choice-name">Friday night game</strong><span class="hint space-choice-count">Empty</span></div><p class="hint space-choice-desc">Dragons, dice and snacks.</p><div class="members"></div><div class="space-choice-actions"><button class="btn btn-primary" type="button"><i class="fa-solid fa-door-open fa-fw" aria-hidden="true"></i> Enter</button></div></article>
-      </div>
-      <p class="pm-note">A sketch, not in the product today: a page title above the label, in the headline font, 28px.</p>
-      <h1 class="head pm-h28" style="margin:8px 0 0">Our trips</h1></div>
-    <div class="pm-mock"><p class="pm-ty-h">Module title: on Manage and the module's settings page, 20px; docked in a call, 14px</p>
+      </div></div>
+    <div class="pm-mock"><p class="pm-ty-h">Module title: on Manage and the module's settings page, 22px; docked in a call, 14px Figtree</p>
       <section class="panel module-config" style="margin:0"><div class="module-head"><i class="module-icon fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i><div class="grow"><h1>Calendar</h1><div class="hint">Version 1.4.0</div></div><span class="pill">On</span></div></section>
-      <div class="mod-header pm-stay"><span class="mod-title"><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i> Calendar</span></div><p class="pm-note">The docked title bar stays in the UI font: 14px, 600, in a 34px bar.</p></div>
-    </div>`;
-  const kb = (n) => (n / 1024).toFixed(1) + ' KB';
-  const tySample = (c, fixed) => {
-    const wrap = (inner) => `<div class="ds-proposed"${c ? ` data-font="${c.key}"` : ''} data-font-fixed="1">${inner}</div>`;
-    const row = (cls, meta, sample) => `<div class="pm-ty-row"><div class="pm-ty-meta"><b>${meta[0]}</b>${meta[1]}</div><div class="${cls}">${sample}</div></div>`;
-    const bar = (small) => `<div class="pm-bar">${TEXT_ROLES.map((r) => `<button type="button" class="btn${r.cls ? ' ' + r.cls : ''}${small ? ' btn-small' : ''}"${r.attrs || ''}>${r.label}</button>`).join('')}<button type="button" class="sdk-icon-btn${small ? ' btn-small' : ''}" aria-label="Add" title="Add">${fa('plus')}</button></div>`;
-    return wrap(`<div class="pm-ty">
-      <div><p class="pm-ty-h">Type scale: the sizes and weights the product uses today</p>
-        ${row('pm-t28', ['28 / 700', 'Display'], 'Plan the trip together')}
-        ${row('pm-t22', ['22 / 700', 'Title'], 'Evening in Kraków')}
-        ${row('pm-t18', ['18 / 600', 'Heading'], 'Day 3: Louvre and the river')}
-        ${row('pm-t16', ['16 / 400', 'Large, phone fields'], 'Everyone is in. The call is open.')}
-        ${row('pm-t14', ['14 / 400', 'Body'], 'Meet at the museum gate at nine thirty. Bring your tickets.')}
-        ${row('pm-t14s', ['14 / 600', 'Body, strong'], 'Dinner is booked for seven')}
-        ${row('pm-t13', ['13 / 600', 'Nav and small buttons'], 'Workspace &nbsp; Calendar &nbsp; Places &nbsp; Budget')}
-        ${row('pm-t12', ['12 / 400', 'Caption'], 'Added by Mira, 14:30 yesterday')}
-        ${row('pm-t11', ['11 / 700', 'Label, capitals'], 'Not started')}
-        ${row('pm-t10', ['10 / 700', 'Micro, capitals'], 'New')}
-      </div>
-      <div><p class="pm-ty-h">Body text</p>
-        <p class="pm-body">Tomorrow we meet at the Louvre at 9:30. Bring your tickets and a charged phone. The call starts when the first person joins, and everyone in the trip can see the plan and add to it. Il y a 12 places, 3 days, 1 budget: €2,450.50.</p>
-        <p class="pm-cover">Kraków, Dvořák, Zürich, Reykjavík, Łódź. Москва, Київ. Αθήνα, Θεσσαλονίκη. 0123456789 &nbsp; 14:30 &nbsp; €12.50 &nbsp; 50%</p>
-      </div>
-      <div><p class="pm-ty-h">Buttons, default size</p>${bar(false)}<p class="pm-ty-h">Buttons, small</p>${bar(true)}</div>
-    </div>`);
-  };
+      <div class="mod-header pm-stay"><span class="mod-title"><i class="fa-solid fa-calendar-days fa-fw" aria-hidden="true"></i> Calendar</span></div><p class="pm-note">The docked title bar stays in Figtree: 14px, 600, in a 34px bar.</p></div>`);
+  const BAR_WORDS = [['Welcome home', 40, 72], ['Welcome back', 28, 56], ['Rome at the Louvre', 22, 48], ['Meet at nine', 18, 40]];
+  const barsBody = () => wrap(`<p class="pm-ty-h">Title bars, line-height 1, weight 600: 40px in 72, 28px in 56, 22px in 48, 18px in 40</p>${BAR_WORDS.map(([w, z, hh]) => `<div class="pm-tb head" style="font-size:${z}px;height:${hh}px;font-weight:600">${w}</div>`).join('')}`);
+
+  const CENTRE_HTML = (tbl) => `<p class="ds-desc"><b>Yes, within 1px, with a normal button: 1px border, 14px side padding, <code>line-height: 1</code>, as the approved Buttons are.</b> Measured by ink, the way <code>tools/check-design-system.mjs</code> does it: a 4x screenshot of the button, the middle of the letters against the middle of the box. 12 labels with no descenders (Save, Edit, Delete, Cancel, Muted, Add, Filter, Clear, Done, Back, Invite, Rename), weight 500. Each cell is the mean in px (<b>+ is low, - is high</b>) and, in brackets, the worst label. Headless Chromium 141 on Linux; this machine has no Segoe UI, San Francisco or Roboto, so Today's row is Liberation Sans, which stands in for Arial. The check repeats the Figtree measurement on every run.</p>
+<p class="pm-meas-h">Ink on a 4x screenshot (the check's method)</p>
+${tbl(CENTRE_HEAD, CENTRE.map((r) => [r[0]].concat(r[1])))}
+<p class="pm-meas-h">The same on a screen at 1x, where the baseline snaps to a whole pixel</p>
+${tbl(CENTRE_HEAD, CENTRE.map((r) => [r[0]].concat(r[2])))}
+<p class="ds-desc"><b>What it shows.</b> With the fix, Figtree sits within 0.7px of centre at the default and the small button (worst label 0.9px), bundled or in its fallback face, at 4x and at 1x. With the font's own tables the label is 0.7 to 1.0px <i>high</i> at the default size, so the same button would be on the edge of the 1px limit. Today's stack, as it resolves here, is fine at 14px but 1.6px high at 16px (the phone's field size), and the two other system fonts on this machine are 1.0 to 1.7px off: that spread, a different one on every device, is the buttons that look off. I could not measure Segoe UI, San Francisco or Roboto here.</p>
+<h4 class="ds-h4" id="typography-code">The fix: font-metric overrides</h4>
+<p class="ds-desc"><b>Why a label looks off.</b> With <code>line-height: 1</code> the browser puts the line in the middle of the button and the baseline at (ascent - descent) / 2 below that middle, using the ascent and descent in the font's own tables, rounded to whole pixels. Letters are centred when ascent - descent equals the cap height. Fonts differ in ascent, descent and in how they round at 14px, so the same CSS gives a different result in each font. <b>The fix:</b> set <code>ascent-override</code>, <code>descent-override</code> and <code>line-gap-override</code> in the <code>@font-face</code> so the numbers are ours, in every browser, and give the fallback face the same ones.</p>
+${tbl(['Font', 'Cap height (em)', 'Own ascent / descent', 'Override ascent / descent', 'Fallback size-adjust: regular / bold', 'Fallback ascent / descent (regular)'], FIX_ROWS)}
+<p class="ds-desc"><b>How the numbers were found.</b> (1) The difference, ascent minus descent, is set a little above the cap height (the tall letters l, d, t rise above it), and the sum is kept near the font's own so <code>line-height: normal</code> hardly changes. (2) Because the browser rounds, each pair was then swept: ascent in 1% steps within 10% of the font's own, descent within 12%, six labels at 14px in 38px and 13px in 30px, at 1x and 4x, and the pair nearest the font's own sum that keeps every label within 0.5px was taken. Figtree's own numbers already have ascent - descent = cap height, yet it sits 0.9px high at 14px: its descent, 25% of 14px, is 3.5px, a tie. The sweep moved it to 24%. (3) The fallback's size-adjust makes the same sample of UI text as wide as in the bundled font, measured in the browser; its ascent and descent are the bundled ones divided by size-adjust. Fraunces was swept the same way for a headline of 28, 22 and 18px in a title bar.</p>
+<p class="ds-desc"><b>Checked.</b> The ascent and descent the browser reports at 100px, bundled and fallback: Figtree 95 / 24 and 95 / 24 (unadjusted Arial: 91 / 21). So the line box is the same in both. Only measured in Chromium; Firefox and Safari honour the same descriptors but were not run here.</p>
+<pre class="ds-pre">${h(FIX_CODE)}</pre>`;
+
   function renderTypography(api) {
     const { mk } = api;
     const block = mk('section', 'ds-block ds-spec');
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
-    const total = (c) => c.files.reduce((a, f) => a + f[1], 0);
-    block.innerHTML = `<header><h3 id="typography-h"><a href="#typography">Typography</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">one bundled font, the same for everyone</span></header>
-<p class="ds-desc">Thomas's decision: the product ships its own font, self-hosted woff2 files served by our own server, with no font host and nothing fetched from outside, instead of the system stack. Three candidates, each set in the product's own sizes and weights, with the Buttons in it. <b>Use the Font group at the top of the page to flip every example frame between Today's system stack and each candidate.</b> The page's own bars keep the system stack. This page only proposes: nothing in the product loads these fonts yet.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#typography-pick">Candidates</a><a href="#typography-today">Used today</a><a href="#typography-scale">Type scale</a><a href="#typography-headline">Headline font</a><a href="#typography-fail">If the font fails</a><a href="#typography-centre">Centring</a><a href="#typography-code">The fix</a></nav>
+    block.innerHTML = `<header><h3 id="typography-h"><a href="#typography">Typography</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">Decided 2026-10-19: Figtree and Fraunces, nine sizes and a micro count</span></header>
+<p class="ds-desc"><b>Decided 2026-10-19.</b> The product ships its own fonts, self-hosted woff2 files served by our own server, with no font host and nothing fetched from outside, instead of the system stack. <b>The interface is Figtree. Headlines, and display text only, are Fraunces.</b> There are nine sizes, plus one micro size for counts, and nothing else is smaller than 11px. <b>The "Today's fonts / Proposed fonts" switch at the top of the page flips every example frame between the old system stack and the new fonts.</b> The page's own bars keep the system stack. Nothing in the product loads these fonts yet: this page is the specification.</p>
+<nav class="ds-toc" aria-label="In this family"><a href="#typography-fonts">The two fonts</a><a href="#typography-scale">Size scale</a><a href="#typography-weights">Weights</a><a href="#typography-use">Where each is used</a><a href="#typography-headline-weight">Headline weight and size</a><a href="#typography-headline-context">Headline in context</a><a href="#typography-headline-centre">Title bars</a><a href="#typography-fail">If a font fails</a><a href="#typography-centre">Centring</a><a href="#typography-tokens">Tokens</a></nav>
 
-<h4 class="ds-h4" id="typography-pick">The three candidates</h4>
-${tbl(['Font', 'Why', 'Licence', 'Weights', 'Alphabets', 'woff2 files', 'English page loads'], CANDS.map((c, i) => [
-    c.name,
-    ['The smallest of the three and the friendliest: open geometric shapes, a generous x-height, warm at 14px. Latin only, so Cyrillic and Greek fall to the fallback.',
-      'The warmest: soft curves and a calm rhythm, close to the brown and amber of the default theme. Adds Cyrillic; no Greek.',
-      'The plainest and the most complete: a humanist sans that looks closest to the system fonts people know today, narrow so dense modules fit more, with Latin, Cyrillic and Greek. The largest files.'][i],
-    c.lic, `${c.weights}, one variable file per alphabet (400, 500, 600 and 700 all inside)`, c.alphabets,
-    `${c.files.map((f) => `${f[0]} ${kb(f[1])}`).join(', ')}; total ${kb(total(c))}`, `latin only: ${kb(c.files[0][1])}`])) }
-<p class="ds-desc">Each file is split by alphabet and loads only when a letter from it is drawn (<code>unicode-range</code>), so a page in English fetches the Latin file alone. All three are free to bundle and self-host under the SIL Open Font License; each folder under <code>fonts/</code> carries its <code>OFL.txt</code>. Source Sans 3 keeps Adobe's Reserved Font Name "Source": the files are the unmodified Google Fonts release, converted and split by alphabet by Google; Thomas should confirm that is acceptable before it ships. No italic is bundled: the product has three italic rules, and the browser slants the upright. Considered and left out: Atkinson Hyperlegible Next (Latin only, 34 KB plus 19 KB), Inter (48 KB plus 85 KB for Latin extended), DM Sans (37 KB plus 18 KB), Plus Jakarta Sans.</p>
-
-<h4 class="ds-h4" id="typography-today">What the product uses today</h4>
-<p class="ds-desc">Counted in <code>public/style.css</code> (comments removed). One family: <code>-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif</code>, plus a monospace for code. Italic appears in 3 rules.</p>
-${tbl(['', 'What is written', 'Count'], [
-    ['Font sizes', '17 different pixel sizes. 12px 80 times, 13px 51, 11px 42, 14px 34, 10px 17, 15px 16, 18px 14, 16px 11, 20px 6, 9px 5, 22px 4; 17px, 40px and 6px twice; 8px, 24px and 28px once. Also size tokens (<code>--nav-font-size</code> 13px, <code>--label-size</code>, <code>--field-font</code> 14px, 16px on a phone).', '12, 13, 11 and 14px are 207 of 289 pixel declarations'],
-    ['Weights', '600 42 times, 700 35, 400 12, 500 7, 650 5, 800 2, and <code>--nav-font-weight</code> (600) 5. Buttons are 500.', '6 values'],
-    ['Line height', '16px 13 times, 1 12 (buttons), 1.4 9, 1.1 5, 14px 4, 26px 3, 1.5 2, 18px 2, 20px 2, 1.45 1.', ''],
+<h4 class="ds-h4" id="typography-fonts">The two fonts</h4>
+${tbl(['Font', 'Job', 'Licence', 'Weights', 'Alphabets', 'woff2 files', 'English page loads'], [
+    ['Figtree', 'The interface: body, buttons, fields, tabs, chips, menus, nav, tables, chat, and every label.', 'SIL Open Font License 1.1, The Figtree Project Authors (2022)', '300 to 900, one variable file per alphabet (400, 500 and 600 are used)', 'Latin, Latin extended; Cyrillic and Greek fall to the fallback', `latin ${kb(20156)}, latin-ext ${kb(10280)}; total ${kb(30436)}`, `latin only: ${kb(20156)}`],
+    ['Fraunces', 'Headlines, display text only: the landing title, page titles, the environment name in the top bar, the space name on a Home card, module titles on Manage and a module\'s settings page, sheet headings.', 'SIL Open Font License 1.1, The Fraunces Project Authors (2020), no Reserved Font Name', '100 to 900, a weight axis only: the optical-size, soft and wonky axes are not in this file (600 is used)', 'Latin, Latin extended, Vietnamese in the full release; only latin is bundled', `latin ${kb(36620)} (one file, every weight)`, `${kb(36620)}, and only when a headline is drawn`],
   ])}
-<p class="ds-desc">The proposal keeps these sizes. Each candidate is variable, so the in-between 650 is real weight, not a jump to 600 or 700.</p>
+<p class="ds-desc"><b>Optical sizing.</b> The bundled Fraunces file has a weight axis only, so there is no real optical sizing: the letterforms are the same drawing at 18px and at 40px. I judged it at 18 and 22px in context below (the Home card name, the module title, the top bar): at 600 it is sturdy and readable down to 18px, so no minimum above the scale's own 18px is needed, and no place has to fall back to Figtree 600 for being too small. Adding the optical-size axis would mean a larger file (the full variable Fraunces is several times this size); not proposed.</p>
+<p class="ds-desc">Each file is split by alphabet and loads only when a letter from it is drawn (<code>unicode-range</code>), so a page in English fetches Figtree's latin file, and Fraunces's when a headline is drawn. Each folder under <code>fonts/</code> carries its <code>OFL.txt</code>. Only the latin file of Fraunces is bundled: a headline with Polish, Czech or Vietnamese letters has those letters drawn by the next font in the stack, so a letter is never missing, only set in another font. No italic is bundled: the product has three italic rules, and the browser slants the upright. Considered and dropped: Nunito Sans, Source Sans 3, Archivo, Bricolage Grotesque (their files are removed).</p>
 
-<h4 class="ds-h4" id="typography-scale">Type scale, body text and Buttons, per candidate</h4>
-<p class="ds-desc">Today's system stack first, then the three candidates. The Buttons are the approved ones, unchanged, set in each font. The Cyrillic and Greek lines show coverage: where a candidate has no letters, the browser takes them from the fallback.</p>
-<div data-slot="samples"></div>
+<h4 class="ds-h4" id="typography-scale">Size scale: nine steps and a micro count</h4>
+<p class="ds-desc">Five interface sizes in Figtree (11, 12, 13, 14, 16) and four headline sizes in Fraunces (18, 22, 28, 40). The product uses 17 different pixel sizes today; the 10px size disappears, and nothing is below 11px, with one exception Thomas allowed as its own step: the 9px micro count (numbers only, in a 14px badge on the corner of an icon-only tab or icon button). <b>Line height:</b> body text 1.45; a single line of interface (button, tab, chip, field, tag) 1, so it centres in its box; headlines 1.15 (40), 1.2 (28 and 22), 1.25 (18). <b>Letter spacing:</b> -0.01em on the 40 and 28px headlines, none elsewhere, +0.06em on capitals (11px captions).</p>
+<div data-slot="scale"></div>
+<p class="ds-desc"><b>Where today's sizes go.</b> Counted in <code>public/style.css</code>: 12px 80 times, 13px 51, 11px 42, 14px 34, 10px 17, 15px 16, 18px 14, 16px 11, 20px 6, 9px 5, 22px 4; 17px, 40px and 6px twice; 8px, 24px and 28px once. The proposal moves each to the nearest step:</p>
+${tbl(['Today (px)', 'Step', 'Which'], WHERE_TODAY)}
 
-<h4 class="ds-h4" id="typography-headline">Headline font (a second font for big words)</h4>
-<p class="ds-desc">Thomas keeps Figtree as the UI font. This asks whether big words, and only those, should be set in a second font. <b>Use the Headline group at the top of the page</b> (Same as UI, Archivo, Fraunces, Bricolage) to flip the in-context examples; the scale below shows each candidate side by side, with Figtree for the body text. Nothing in the product loads these fonts yet.</p>
-<p class="ds-desc"><b>Where a headline font would apply:</b> the page title (28px), the hero and the away and countdown words (40px, 22px), the space name on its Home card (17px), the environment's name in the top bar (17px), module titles on Manage and a module's settings page (20px), and the headings of the setup and phase sheets (18px). <b>Where it would not:</b> the small capital labels (13px and below: the Home heading, panel and popover headings, status), buttons, fields, tabs, menus, the nav text including the space name in the bar, chat, tables, and the 14px title bar of a docked module. They stay in Figtree.</p>
-${tbl(['Font', 'Why', 'Licence', 'Weights', 'Alphabets', 'woff2 (latin, the only file bundled)', 'Latin extended, not bundled'], HEADS.map((c) => [
-    c.name, c.why, c.lic, c.weights, c.alphabets, `${kb(c.file)} (one file, every weight from 100 to 900, 600 to 800 inside)`, `${kb(c.ext)} more`])) }
-<p class="ds-desc">Each is a variable file with a weight axis: weights 600, 650, 700 and 800 are all real, and one file covers every headline weight. The static 600, 700 and 800 files of Archivo are 13.8 + 14.5 + 14.4 = 42.7 KB, so the variable file (34.9 KB) is smaller and has the in-between weights. Archivo also comes with a width axis (62 to 125%), which adds 55 KB (90.1 KB in all); it is not used here. Only the latin file is bundled: a headline with Polish, Czech or Vietnamese letters takes those letters from Figtree (the stack ends in the UI font), so a letter is never missing, only set in the other font. A page in English loads one headline file, 34.9 to 41.3 KB, and only when a headline is drawn. Added to the Figtree page: 110.2 KB for the three together, or about 35 to 41 KB for the one chosen.</p>
-<div data-slot="head-scale"></div>
-<h4 class="ds-h4" id="typography-headline-context">In context</h4>
-<p class="ds-desc">The product's own classes and structure (<code>.topbar</code>, <code>.space-choice</code>, <code>.module-head</code>, <code>.mod-header</code>), with the headline font applied to the big words only. Follows the Headline group, the Font group and Dark or Light.</p>
-<div data-slot="head-mock"></div>
+<h4 class="ds-h4" id="typography-weights">Weights</h4>
+<p class="ds-desc">Three interface weights, 400, 500 and 600. Today's 650, 700 and 800 in the interface fold into 600 (700 appears 35 times, 650 five, 800 twice). Headlines are one weight; the choice is below. Figtree is variable, so 500 and 600 are real weights, not a jump.</p>
+<div data-slot="weights"></div>
+
+<h4 class="ds-h4" id="typography-use">Where each step is used</h4>
+${tbl(['Component', 'Size', 'Weight', 'Line height'], USED)}
+<p class="ds-desc">Body text and the two button sizes, set in the proposed fonts (the Buttons are the approved ones, unchanged). The Cyrillic and Greek lines show coverage: where Figtree has no letters, the browser takes them from the fallback.</p>
+<div data-slot="body"></div>
+
+<h4 class="ds-h4" id="typography-headline-weight">Headline weight and size</h4>
+<p class="ds-desc"><b>Proposed choice: Fraunces 600, for every headline.</b> The two weights drawn side by side, at 40, 28, 22 and 18px and as the Home card name, on the page's dark and light (use the switch at the top). At 40 and 28px the two look alike; the weight matters at 22 and 18px. At 700 the strokes get heavy and the letters crowd at 18 and 22px, so the soft serif looks blunt at card size. At 600 the same letters stay open, the headline reads as one step above Figtree 600 rather than a different voice, and it matches the 600 the interface uses for its own strong text, so the product has one "strong". Fraunces 600 at 18px on a card reads well; 17px, today's size, is replaced by 18px.</p>
+<div data-slot="cmp"></div>
+
+<h4 class="ds-h4" id="typography-headline-context">The headline in context</h4>
+<p class="ds-desc">The product's own classes and structure (<code>.topbar</code>, <code>.space-choice</code>, <code>.module-head</code>, <code>.mod-header</code>), with Fraunces applied to the big words only: the landing title, the page title, the environment name in the top bar, the space name on a Home card and a module title. Small capital labels, buttons, fields, tabs, menus, the nav text including the space name in the bar, chat, tables, and the 14px title bar of a docked module stay in Figtree. The 17px and 20px of today become 18px and 22px here; flip to Today's fonts to see the old.</p>
+<div data-slot="ctx"></div>
+
 <h4 class="ds-h4" id="typography-headline-centre">Is a big title centred in its bar?</h4>
-<p class="ds-desc">The same method as the buttons: a title bar with a 1px border, bold, <code>line-height: 1</code>, twelve headlines with no descenders, photographed at 4x, the middle of the ink against the middle of the bar. Mean offset in px (+ low, - high) and the worst headline in brackets. The bundled fonts have ascent and descent set (below); with each font's own tables the 28px and 22px titles sit up to 1.25px high.</p>
-${tbl(['Font', '28px in 56', '22px in 48', '18px in 40', 'Own ascent / descent', 'Set to'], HEADS.map((c) => [c.name, `${c.centre[0]} (own tables: ${c.own_c[0]})`, `${c.centre[1]} (own: ${c.own_c[1]})`, `${c.centre[2]} (own: ${c.own_c[2]})`, c.own + '%', c.set + '%']))}
-<div data-slot="head-bars"></div>
-<p class="ds-desc"><b>The fallback</b> (the headline font failing to load): a bold system font scaled to the same width, with the same ascent and descent, so the page does not jump. Archivo and Bricolage use Arial Bold (or Helvetica Bold, or Liberation Sans Bold), Fraunces uses Times New Roman Bold (or Liberation Serif Bold). Measured live by this page, in this browser, for one headline at 28px, bold.</p>
+<p class="ds-desc">The same method as the buttons: a title bar with a 1px border, weight 600, <code>line-height: 1</code>, twelve headlines with no descenders, photographed at 4x, the middle of the ink against the middle of the bar. The check keeps the mean within 1px at 40, 28, 22 and 18px on every run. Fraunces has ascent 98.3% and descent 25% set (its own tables: 97.8% and 25.5%).</p>
+<div data-slot="bars"></div>
+<p class="ds-desc"><b>The fallback</b> (Fraunces failing to load): Times New Roman Bold (or Liberation Serif Bold) scaled to the same width, with the same ascent and descent, so the page does not jump. Measured live by this page, in this browser, for one headline at 28px, weight 600.</p>
 <div data-slot="head-fail"></div>
 
-<h4 class="ds-h4" id="typography-fail">If the font fails to load</h4>
-<p class="ds-desc">While the file downloads, or if it never arrives (blocked, offline, a bad file), each candidate has a fallback face: Arial (or Helvetica, or Liberation Sans, whichever the device has) scaled to the same width and given the same ascent and descent as the bundled font. Text looks plain but the page does not jump when the real font arrives, and a button label sits where it would. Where the device has none of those, the stack goes on to Today's system fonts, unadjusted. The table below is measured live by this page, in this browser, for one line of 14px text (the same sentence in every row).</p>
+<h4 class="ds-h4" id="typography-fail">If Figtree fails to load</h4>
+<p class="ds-desc">While the file downloads, or if it never arrives (blocked, offline, a bad file), Figtree has a fallback face: Arial (or Helvetica, or Liberation Sans, whichever the device has) scaled to the same width and given the same ascent and descent as the bundled font. Text looks plain but the page does not jump when the real font arrives, and a button label sits where it would. Where the device has none of those, the stack goes on to Today's system fonts, unadjusted. Measured live by this page, in this browser, for one line of 14px text (the same sentence in every row).</p>
 <div data-slot="fail"></div>
 
 <h4 class="ds-h4" id="typography-centre">Is the button label centred?</h4>
 <div data-slot="centre"></div>
+
+<h4 class="ds-h4" id="typography-tokens">Tokens</h4>
+<p class="ds-desc">Page-local for now, in <code>proposed-typography.css</code>; they go into <code>theme.css</code> or <code>style.css</code> when the system is built. In Today's fonts the two font tokens are the system stack.</p>
+${tbl(['Token', 'Value', 'Used for'], TOKENS)}
+<pre class="ds-pre">${h(TOKEN_CODE)}</pre>
 `;
-    block.querySelector('[data-slot="centre"]').innerHTML = CENTRE_HTML(tbl, api.h);
-    const slot = block.querySelector('[data-slot="samples"]');
-    for (const c of [null].concat(CANDS)) {
-      slot.appendChild(mk('p', 'ds-ctx', c ? `${c.name}: ${kb(total(c))} in all` : "Today's system stack"));
-      slot.appendChild(api.makeFrame('app', tySample(c), { proposed: true, title: c ? `Typography, ${c.name}` : 'Typography, Today', css: PM_CSS + TY_CSS }));
-    }
+    block.querySelector('[data-slot="centre"]').innerHTML = CENTRE_HTML(tbl);
+    const put = (slot, title, body, o) => block.querySelector(`[data-slot="${slot}"]`).appendChild(api.makeFrame('app', body, Object.assign({ proposed: true, title, css: PM_CSS + TY_CSS }, o || {})));
+    put('scale', 'Typography, the nine steps', scaleBody());
+    put('weights', 'Typography, weights', weightBody());
+    put('body', 'Typography, body text and buttons', buttonsBody());
+    put('cmp', 'Headline weight, 600 and 700', cmpBody());
+    put('ctx', 'Headline, in context', ctxBody());
+    put('bars', 'Headline, title bars', barsBody());
+
     const SENT = 'Tomorrow we meet at the Louvre at nine thirty and bring our tickets.';
-    const failRows = (c) => [
-      ['Bundled font', `pm-f-${c.key}`], ['If it fails: the fallback face', `pm-fb-${c.key}`], ['Arial, not adjusted', 'pm-f-arial'], ["Today's system stack", 'pm-f-today'],
-    ].map(([n, cls]) => `<tr><td>${n}</td><td><span class="pm-s ${cls}">${SENT}</span></td><td class="pm-n" data-out="w"></td><td class="pm-n" data-out="h"></td></tr>`).join('');
-    const failBody = `<div class="ds-proposed" data-font-fixed="1">${CANDS.map((c) => `<p class="pm-meas-h">${c.name}</p><table class="pm-meas-t"><thead><tr><th>Line</th><th>Sample</th><th>Width</th><th>Box height</th></tr></thead><tbody>${failRows(c)}</tbody></table>`).join('')}</div>`;
     const measure = (doc) => {
       const go = () => {
         for (const t of doc.querySelectorAll('.pm-meas-t tbody')) {
@@ -305,24 +328,18 @@ ${tbl(['Font', '28px in 56', '22px in 48', '18px in 40', 'Own ascent / descent',
       doc.fonts.ready.then(go);
       doc.fonts.addEventListener('loadingdone', go);
     };
-    const hs = block.querySelector('[data-slot="head-scale"]');
-    for (const c of [null].concat(HEADS)) {
-      hs.appendChild(mk('p', 'ds-ctx', c ? `${c.name}: ${kb(c.file)}` : 'Same as the UI font (Figtree)'));
-      hs.appendChild(api.makeFrame('app', headSample(c), { proposed: true, title: c ? `Headline, ${c.name}` : 'Headline, same as UI', css: PM_CSS + TY_CSS }));
-    }
-    block.querySelector('[data-slot="head-mock"]').appendChild(api.makeFrame('app', mockBody(), { proposed: true, title: 'Headline, in context', css: PM_CSS + TY_CSS }));
-    block.querySelector('[data-slot="head-bars"]').appendChild(api.makeFrame('app', barsBody(), { proposed: true, title: 'Headline, title bars', css: PM_CSS + TY_CSS }));
+    const tr = (n, cls, extra, text) => `<tr><td>${n}</td><td><span class="pm-s ${cls}"${extra || ''}>${text}</span></td><td class="pm-n" data-out="w"></td><td class="pm-n" data-out="h"></td></tr>`;
+    const head = '<thead><tr><th>Line</th><th>Sample</th><th>Width</th><th>Box height</th></tr></thead>';
+    const failBody = `<div class="ds-proposed" data-font-fixed="1"><p class="pm-meas-h">Figtree</p><table class="pm-meas-t">${head}<tbody>${[['Bundled font', 'pm-f-figtree'], ['If it fails: the fallback face', 'pm-fb-figtree'], ['Arial, not adjusted', 'pm-f-arial'], ["Today's system stack", 'pm-f-today']].map(([n, c]) => tr(n, c, '', SENT)).join('')}</tbody></table></div>`;
+    put('fail', 'Typography, if the font fails', failBody, { onload: measure });
     const HSENT = 'Plan the trip together in Kraków';
-    const headFail = HEADS.map((c) => `<p class="pm-meas-h">${c.name}</p><table class="pm-meas-t"><thead><tr><th>Line</th><th>Sample</th><th>Width</th><th>Box height</th></tr></thead><tbody>${[
-      ['Bundled font', `pm-hf-${c.key}`], ['If it fails: the fallback face', `pm-hb-${c.key}`], [`${c.fbName.replace(' Bold', '')}, not adjusted`, c.fbCls],
-    ].map(([n, cls]) => `<tr><td>${n}</td><td><span class="pm-s ${cls}" style="font-size:28px;font-weight:700">${HSENT}</span></td><td class="pm-n" data-out="w"></td><td class="pm-n" data-out="h"></td></tr>`).join('')}</tbody></table>`).join('');
-    block.querySelector('[data-slot="head-fail"]').appendChild(api.makeFrame('app', `<div class="ds-proposed" data-font-fixed="1" data-headline-fixed="1">${headFail}</div>`, { proposed: true, title: 'Headline, if the font fails', css: PM_CSS + TY_CSS, onload: measure }));
-    block.querySelector('[data-slot="fail"]').appendChild(api.makeFrame('app', failBody, { proposed: true, title: 'Typography, if the font fails', css: PM_CSS + TY_CSS, onload: measure }));
+    const headFail = `<div class="ds-proposed" data-font-fixed="1"><p class="pm-meas-h">Fraunces</p><table class="pm-meas-t">${head}<tbody>${[['Bundled font', 'pm-hf-fraunces'], ['If it fails: the fallback face', 'pm-hb-fraunces'], ['Times New Roman, not adjusted', 'pm-h-times']].map(([n, c]) => tr(n, c, ' style="font-size:28px;font-weight:600"', HSENT)).join('')}</tbody></table></div>`;
+    put('head-fail', 'Headline, if the font fails', headFail, { onload: measure });
     return block;
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'typography', covers: ['typography', 'fonts'], group: 'Foundations', name: 'Typography', status: 'proposed',
-    words: 'typography headline heading title archivo fraunces bricolage font fonts typeface type scale text bundled self-hosted woff2 figtree nunito source sans fallback metrics ascent descent centring baseline', render: renderTypography,
+    id: 'typography', covers: ['typography', 'fonts'], group: 'Foundations', name: 'Typography', status: 'approved',
+    words: 'typography headline heading title font fonts typeface type scale size sizes weight weights line height letter spacing text tokens fraunces figtree bundled self-hosted woff2 fallback metrics ascent descent centring baseline', render: renderTypography,
   });
 })();

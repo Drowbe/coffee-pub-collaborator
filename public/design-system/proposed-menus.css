@@ -224,28 +224,11 @@
 
 .ds-proposed :is(.sdk-menu-label, .host-menu-label) + :is(.sdk-menu-hint, .host-menu-hint) { margin-left: 12px; }
 
-/* The count or tag after the label (PROVISIONAL: the Chips family decides the badge; this is the neutral count the Tabs use). 18px. */
-.ds-proposed :is(.sdk-menu-count, .host-menu-tag, .modules-menu-item > .badge) {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  min-width: 18px;
-  height: 18px;
-  margin: 0 0 0 auto;
-  padding: 0 6px;
-  border: 0;
-  border-radius: var(--radius-round);
-  background: color-mix(in srgb, var(--text) 14%, transparent);
-  color: var(--text);
-  font-size: 11px;
-  font-weight: 700;
-  line-height: 1;
-  text-transform: none;
-}
+/* The count or tag after the label is the Chips family's: the neutral count (.sdk-badge, 18px) and the tag (.sdk-chip-tag, 24px). The menu only places it,
+   at the row's end and 12px after the label. */
+.ds-proposed :is(.sdk-menu-item, .host-menu-item, .modules-menu-item) > :is(.sdk-badge, .badge, .sdk-chip-tag, .host-menu-tag) { margin: 0 0 0 auto; }
 
-.ds-proposed :is(.sdk-menu-label, .host-menu-label) + :is(.sdk-menu-count, .host-menu-tag, .badge) { margin-left: 12px; }
+.ds-proposed :is(.sdk-menu-label, .host-menu-label) + :is(.sdk-badge, .badge, .sdk-chip-tag, .host-menu-tag) { margin-left: 12px; }
 
 /* The submenu arrow: an icon at the row's end. */
 .ds-proposed :is(.sdk-menu-caret, .host-menu-caret) {

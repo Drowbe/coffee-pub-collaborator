@@ -34,9 +34,9 @@ export function staticChecks({ fail, css, defined }) {
   }
   // The large radius is for the sheet only.
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*--radius-large[^{}]*)\}/g)) if (!/sdk-menu-sheet/.test(m[1])) fail(`proposed-menus.css: --radius-large outside the sheet: ${m[1].trim().slice(0, 80)}`);
-  for (const c of ['sdk-menu', 'sdk-menu-item', 'sdk-menu-icon', 'sdk-menu-label', 'sdk-menu-hint', 'sdk-menu-count', 'sdk-menu-caret', 'sdk-menu-check', 'sdk-menu-switch', 'sdk-menu-heading', 'sdk-menu-sep', 'sdk-menu-flyout',
+  for (const c of ['sdk-menu', 'sdk-menu-item', 'sdk-menu-icon', 'sdk-menu-label', 'sdk-menu-hint', 'sdk-menu-caret', 'sdk-menu-check', 'sdk-menu-switch', 'sdk-menu-heading', 'sdk-menu-sep', 'sdk-menu-flyout',
     'sdk-menu-sheet', 'sdk-menu-scrim', 'sdk-menu-grip', 'sdk-menu-list', 'sdk-popover', 'sdk-popover-heading', 'sdk-popover-block', 'sdk-popover-foot', 'sdk-popover-dense',
-    'host-menu', 'host-menu-item', 'host-menu-label', 'host-menu-hint', 'host-menu-heading', 'host-menu-category', 'host-menu-caret', 'host-menu-switch', 'host-menu-tag', 'host-menu-flyout',
+    'host-menu', 'host-menu-item', 'host-menu-label', 'host-menu-hint', 'host-menu-heading', 'host-menu-category', 'host-menu-caret', 'host-menu-switch', 'host-menu-flyout',
     'modules-menu', 'modules-menu-item', 'menu', 'popover', 'chat-command-menu', 'chat-command-item', 'sdk-kind-list', 'sdk-kind-option', 'sdk-kind-group', 'sdk-kind-group-title',
     'sdk-dp', 'sdk-dp-day', 'sdk-dp-grid', 'sdk-dp-dow', 'sdk-dp-head', 'sdk-dp-foot', 'bell-list', 'bell-head', 'narrow', 'danger']) {
     if (!defined.has(c)) fail(`the proposed stylesheets do not define the menus name .${c} (a new name or a kept alias)`);
@@ -159,7 +159,7 @@ const menusProbe = async () => {
     for (const el of d.querySelectorAll('.sdk-menu-item [class*="fa-check"]')) bad('a check mark icon in a row');
     const checked = d.querySelector('[role="menuitemcheckbox"][aria-checked="true"] .sdk-menu-check'); if (!checked || getComputedStyle(checked).backgroundColor !== tok(d, 'var(--accent)')) bad('a checked tick box is not the accent fill');
     const sw = d.querySelector('.sdk-menu-switch'); if (!sw || Math.abs(sw.getBoundingClientRect().width - 36) > 0.6 || Math.abs(sw.getBoundingClientRect().height - 20) > 0.6) bad('the switch is not 36 by 20');
-    const cnt = d.querySelector('.sdk-menu-count'); if (!cnt || Math.abs(cnt.getBoundingClientRect().height - 18) > 0.6) bad('the count is not 18px');
+    const cnt = d.querySelector('.sdk-menu-item > .sdk-badge'); if (!cnt || Math.abs(cnt.getBoundingClientRect().height - 18) > 0.6) bad('the count is not 18px');
     const hd = d.querySelector('.sdk-menu-heading'); const hs = getComputedStyle(hd); if (hs.fontSize !== '11px' || hs.textTransform !== 'uppercase' || hs.color !== tok(d, 'var(--text-dim)')) bad(`the heading is ${hs.fontSize} ${hs.textTransform} ${hs.color}, not 11px uppercase --text-dim`);
     const sp = d.querySelector('.sdk-menu-sep'); const ss = getComputedStyle(sp); if (Math.abs(sp.getBoundingClientRect().height - 1) > 0.1 || ss.marginTop !== '4px' || ss.marginBottom !== '4px' || ss.marginLeft !== '6px' || ss.marginRight !== '6px') bad(`the divider is ${sp.getBoundingClientRect().height}px with margins ${ss.marginTop} ${ss.marginLeft}`);
     const radio = d.querySelector('[role="menuitemradio"][aria-checked="true"]'); if (getComputedStyle(radio).backgroundColor !== bgTok(d, 'var(--selected-bg)')) bad('a current radio row is not --selected-bg');
@@ -221,7 +221,8 @@ const menusProbe = async () => {
     const badge = d.querySelector('.modules-menu-item .badge'); if (Math.abs(badge.getBoundingClientRect().height - 18) > 0.6) bad('aliases: the Modules count is not the 18px pill');
     const hd = d.querySelector('.popover h3'); if (cs(hd).color !== tok(d, 'var(--text-dim)')) bad('aliases: the .popover heading is still accent coloured');
     const dn = d.querySelector('.menu .danger'); if (cs(dn).color !== tok(d, MIXDNG)) bad('aliases: .menu .danger is not the danger text');
-    const tag = d.querySelector('.host-menu-tag'); if (Math.abs(tag.getBoundingClientRect().height - 18) > 0.6) bad('aliases: .host-menu-tag is not the 18px pill');
+    const tag = d.querySelector('.host-menu-tag'); if (Math.abs(tag.getBoundingClientRect().height - 24) > 0.6) bad('aliases: .host-menu-tag is not the Chips tag (24px)');
+    for (const x of [tag, badge]) { const r = x.getBoundingClientRect(); const row = x.parentElement.getBoundingClientRect(); if (r.top < row.top || r.bottom > row.bottom) bad('aliases: a count or tag sticks out of its row'); }
     const cat = d.querySelector('.host-menu-category[aria-expanded="true"]'); if (cs(cat).backgroundColor !== bgTok(d, HOVER)) bad('aliases: an open category does not keep the quiet fill');
     const swt = d.querySelector('.host-menu-switch'); if (Math.abs(swt.getBoundingClientRect().width - 36) > 0.6) bad('aliases: .host-menu-switch is not 36px wide');
   }

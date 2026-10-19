@@ -4,6 +4,7 @@
     { "id": "buttons", "js": "proposed-buttons.js", "css": "proposed-buttons.css" },
     { "id": "fields", "js": "proposed-fields.js", "css": "proposed-fields.css" },
     { "id": "typography", "js": "proposed-typography.js", "css": "proposed-typography.css" },
-    { "id": "tabs", "js": "proposed-tabs.js", "css": "proposed-tabs.css" }
+    { "id": "tabs", "js": "proposed-tabs.js", "css": "proposed-tabs.css" },
+    { "id": "chips", "js": "proposed-chips.js", "css": "proposed-chips.css" }
   ]
 }

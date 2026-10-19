@@ -204,7 +204,7 @@ const tabsProbe = async () => {
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Tabs family is not marked Approved');
   if (!blk || !/Decided 2026-10-18/.test(blk.textContent)) bad('the Tabs family has no Decided 2026-10-18 note');
   if (doc.getElementById('u-tabs-view-switches-and-segmented-rows')) bad('Tabs and view switches is still listed as Not yet decided');
-  for (const id of ['u-chips-that-filter', 'u-phone-bottom-bar-icon-over-label']) if (!doc.getElementById(id)) bad(`${id} is not listed as Not yet decided`);
+  for (const id of ['u-phone-bottom-bar-icon-over-label']) if (!doc.getElementById(id)) bad(`${id} is not listed as Not yet decided`);
   if (!/Chips that filter/.test(blk ? blk.textContent : '') || !/bottom bar/.test(blk ? blk.textContent : '')) bad('the Tabs family does not note the two families that are not part of it');
   return JSON.stringify(out);
 };

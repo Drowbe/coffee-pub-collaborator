@@ -1,0 +1,403 @@
+/* ==== Chips, badges and counts (PROPOSED 2026-10-19; Thomas's decisions of 2026-10-18, plan-design-system.md "Chips and badges") ====
+   One family with roles. Every chip has the small corner (--radius-small, never fully round), a 1px edge that is transparent in every state
+   (so a state is a fill, never an edge), a text label always, and an icon or dot only if it helps.
+   Roles (class; the older names below are aliases, so no markup has to change for the look to change):
+     Choice chip    .sdk-chip            30px, 13px   a filter or a choice you press            .filter-chip .bgpick-chip .chip .chip-btn .rs-chip .daychip
+     People chip    .sdk-chip-people     30px, 13px   a person you pick: avatar or initial      .sdk-people > label
+     Tag            .sdk-chip-tag        24px, 12px   what a thing is; not pressed              .tag .host-menu-tag .pill .phase-tag .stream-badge
+     Removable      .sdk-chip-removable  24px, 12px   a tag with a trailing x button            .rs-chip.tag
+     Status label   .sdk-status          24px, 12px   a condition, in words, with a tint fill   .badge-ok .phase-chip
+     Count          .sdk-badge           18px, 11px   a neutral number after a label or in a chip   .count .whos-around-count .badge
+     Corner count   .sdk-badge-corner    16px, 11px   an accent number on an icon-only tab or icon button   .nav-badge
+     Dot            .sdk-dot             7px          where a number is not useful
+   Selected is the quiet neutral fill (--selected-bg) with the accent mix for the text (about 5 to 1, as Buttons and Tabs do). Category colour
+   is a tint fill (the tone 18% into the surface the chip sits on) with readable text (the tone mixed toward --text): never a coloured border,
+   edge or bar. No text under 11px. On a phone every pressable chip keeps its look and gets a 44px hit area.
+   Focus is the Fields and Tabs mechanism: a 2px outline drawn over the 1px edge, inside the box (offset -2px), equal on all four sides.
+   Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --chip-h: 30px;
+  --chip-h-tag: 24px;
+  --chip-font: 13px;
+  --chip-font-tag: 12px;
+  --chip-pad-x: 10px;
+  --chip-pad-x-tag: 8px;
+  --chip-gap: 6px;
+  --chip-icon: 14px;
+  --chip-avatar: 22px;
+  --chip-x: 20px;
+  --chip-fill: color-mix(in srgb, var(--text) 8%, transparent);
+  --chip-fill-hover: color-mix(in srgb, var(--text) 14%, transparent);
+  --chip-fill-active: color-mix(in srgb, var(--text) 20%, transparent);
+  --chip-tint: 18%;
+  --chip-surface: var(--bg-section);
+  --chip-caps: none;
+  /* The tone of a status. --warn is new: it replaces the hard-coded #e0b25a of .pill.warn (the gold tint, which has a light-mode value). */
+  --warn: var(--tint-gold);
+  --t-ink: var(--text);
+}
+
+/* ---- the shape, for every chip, tag, status label and person ---- */
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label,
+  .sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge, .phase-tag-now, .phase-tag-main,
+  .sdk-chip-removable, .sdk-status, .badge-ok, .phase-chip) {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--chip-gap);
+  box-sizing: border-box;
+  height: var(--chip-h);
+  min-height: 0;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0 var(--chip-pad-x);
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: var(--chip-fill);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--chip-font);
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  text-decoration: none;
+  white-space: nowrap;
+  vertical-align: middle;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  opacity: 1;
+  overflow: hidden;
+  transition: background 0.15s, color 0.15s;
+}
+
+/* The 24px roles: tag, removable chip, status label. */
+.ds-proposed :is(.sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge, .phase-tag-now, .phase-tag-main, .sdk-chip-removable, .rs-chip.tag, .sdk-status, .badge-ok, .phase-chip) {
+  --chip-h: var(--chip-h-tag);
+  --chip-font: var(--chip-font-tag);
+  --chip-pad-x: var(--chip-pad-x-tag);
+  --chip-icon: 12px;
+  font-size: var(--chip-font-tag);
+  font-variant-caps: var(--chip-caps);
+}
+
+/* The people chip: room for the avatar on the left. */
+.ds-proposed :is(.sdk-chip-people, .sdk-people > label) {
+  padding-left: 4px;
+  cursor: pointer;
+}
+
+/* A day chip (Planner) is a choice chip that stacks a weekday over a number; it keeps that layout and takes the chip's fills and corner. */
+.ds-proposed .daychip {
+  height: auto;
+  min-width: 46px;
+  padding: 4px 8px;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Parts: icon, label, dot, count, avatar. */
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .sdk-chip-people, .sdk-people > label, .sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge, .sdk-chip-removable, .sdk-status, .badge-ok, .phase-chip) > :is(i, svg, .ic, .sdk-chip-glyph) {
+  flex: none;
+  width: var(--chip-icon);
+  font-size: var(--chip-icon);
+  line-height: 1;
+  text-align: center;
+  color: var(--chip-glyph, currentColor);
+}
+
+.ds-proposed :is(.sdk-chip-label) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ds-proposed .sdk-chip-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: var(--radius-round);
+  background: var(--chip-tone, var(--text-dim));
+}
+
+.ds-proposed .sdk-chip-avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--chip-avatar);
+  height: var(--chip-avatar);
+  overflow: hidden;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--chip-tone, var(--text-dim)) var(--chip-tint), var(--chip-surface));
+  color: color-mix(in srgb, var(--chip-tone, var(--text-dim)) 45%, var(--text));
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.ds-proposed .sdk-chip-avatar img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The people chip as a label around a tick box (.sdk-people > label): the box is hidden, the label is the chip. */
+.ds-proposed :is(.sdk-chip-people, .sdk-people > label) > input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+/* ---- the states of something you press (a choice chip, a person, a tag that is a link or a button) ---- */
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label),
+.ds-proposed :is(.sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge):is(button, a, [role="button"], .ref) {
+  cursor: pointer;
+}
+
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label):hover,
+.ds-proposed :is(.sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge):is(button, a, [role="button"], .ref):hover {
+  background: var(--chip-fill-hover);
+  color: var(--text);
+}
+
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label):active,
+.ds-proposed :is(.sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge):is(button, a, [role="button"], .ref):active {
+  background: var(--chip-fill-active);
+}
+
+/* Focus: 2px accent over the 1px edge, inside the box. A person drawn as a label around a tick box shows it when the box has focus. */
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people):focus-visible,
+.ds-proposed :is(.sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge):is(button, a, [role="button"], .ref):focus-visible,
+.ds-proposed .sdk-people > label:has(> input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* Selected: the neutral selected fill, the accent mix for the text. Never an edge, a bar or the solid accent. */
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="true"], .on, .active),
+.ds-proposed .sdk-people > label:has(> input:checked) {
+  background: var(--selected-bg);
+  color: color-mix(in srgb, var(--accent) 55%, var(--t-ink));
+  font-weight: 600;
+}
+
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="true"], .on, .active):hover,
+.ds-proposed .sdk-people > label:has(> input:checked):hover {
+  background: color-mix(in srgb, var(--accent) 36%, transparent);
+  color: color-mix(in srgb, var(--accent) 35%, var(--t-ink));
+}
+
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="true"], .on, .active):active {
+  background: color-mix(in srgb, var(--accent) 46%, transparent);
+}
+
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people):is([aria-pressed="true"], [aria-selected="true"], [aria-checked="true"], [aria-current="true"], .on, .active):focus-visible,
+.ds-proposed .sdk-people > label:has(> input:checked:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, var(--t-ink));
+  outline-offset: -2px;
+}
+
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label, .sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge):is(:disabled, [aria-disabled="true"]),
+.ds-proposed .sdk-people > label:has(> input:disabled) {
+  opacity: 0.5;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ---- tone: a category colour is a tint fill with readable text. Never a coloured edge or bar. ---- */
+.ds-proposed :is([data-tint], [data-tone]) { --chip-tone: var(--tint, var(--text-dim)); }
+.ds-proposed [data-tone="ok"] { --chip-tone: var(--ok); }
+.ds-proposed [data-tone="warn"] { --chip-tone: var(--warn); }
+.ds-proposed [data-tone="danger"] { --chip-tone: var(--danger); }
+.ds-proposed [data-tone="info"] { --chip-tone: var(--accent); }
+.ds-proposed [data-tone="neutral"] { --chip-tone: var(--text-dim); }
+.ds-proposed .pill.warn { --chip-tone: var(--warn); }
+.ds-proposed :is(.badge-ok) { --chip-tone: var(--ok); }
+.ds-proposed :is(.phase-tag-now) { --chip-tone: var(--accent); }
+.ds-proposed :is(.phase-tag-main) { --chip-tone: var(--tint-blue); }
+
+/* A tag, a removable chip or a status label with a tone. Status labels with no tone are neutral. */
+.ds-proposed :is(.sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge, .phase-tag-now, .phase-tag-main, .sdk-chip-removable, .rs-chip.tag, .sdk-status, .badge-ok, .phase-chip):is([data-tint], [data-tone], .warn, .badge-ok, .phase-tag-now, .phase-tag-main) {
+  background: color-mix(in srgb, var(--chip-tone) var(--chip-tint), var(--chip-surface));
+  color: color-mix(in srgb, var(--chip-tone) 45%, var(--text));
+  --chip-glyph: color-mix(in srgb, var(--chip-tone) 45%, var(--text));
+}
+
+/* A choice chip never takes the tint as its fill (the selected fill must stay the one clear signal): its tone shows on its dot or icon. */
+.ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip:not(.tag), .sdk-chip-people)[data-tint] { --chip-glyph: var(--chip-tone); }
+
+/* A status label is words first: a heavier weight, and its dot or icon is the tone itself. */
+.ds-proposed :is(.sdk-status, .badge-ok, .phase-chip) { font-weight: 600; }
+
+/* ---- the removable chip: a tag with a trailing x (Quiet, small). ---- */
+.ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) {
+  padding-right: 2px;
+  gap: 4px;
+  cursor: default;
+}
+
+.ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > .sdk-chip-x,
+.ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > .x {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--chip-x);
+  height: var(--chip-x);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-min);
+  background: transparent;
+  color: color-mix(in srgb, currentColor 75%, transparent);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s, color 0.15s;
+}
+
+.ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > :is(.sdk-chip-x, .x):hover {
+  background: color-mix(in srgb, currentColor 18%, transparent);
+  color: inherit;
+}
+
+.ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > :is(.sdk-chip-x, .x):active {
+  background: color-mix(in srgb, currentColor 26%, transparent);
+}
+
+.ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > :is(.sdk-chip-x, .x):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  color: inherit;
+}
+
+.ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > :is(.sdk-chip-x, .x) :is(i, svg) {
+  font-size: 12px;
+  line-height: 1;
+}
+
+/* ---- counts and dots ---- */
+/* The count after a label or inside a chip: neutral, 18px, 11px bold. */
+.ds-proposed :is(.sdk-badge, .count, .whos-around-count, .badge, .chat-view-count) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  box-sizing: border-box;
+  min-width: 18px;
+  height: 18px;
+  margin: 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--t-ink) 14%, transparent);
+  color: var(--t-ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+  text-transform: none;
+  opacity: 1;
+  vertical-align: middle;
+}
+
+.ds-proposed :is(.sdk-badge, .count, .whos-around-count, .badge):empty { display: none; }
+
+/* The corner count: 16px, accent, on an icon-only tab or an icon button (the parent is positioned). 2px from the parent's 1px edge, so 3px from its outer edge, the inset the Tabs family has. */
+.ds-proposed :is(.sdk-badge-corner, .nav-badge) {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0 3px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--accent) 88%, var(--text));
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: normal;
+  pointer-events: none;
+}
+
+.ds-proposed :is(.sdk-badge-corner, .nav-badge):empty { display: none; }
+
+/* The dot: 7px, where a number is not useful. Inline after a label, or on an icon's corner with .sdk-dot-corner. */
+.ds-proposed .sdk-dot {
+  flex: none;
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0;
+  padding: 0;
+  border-radius: var(--radius-round);
+  background: var(--accent);
+}
+
+/* The parent of a corner count or dot is the corner's frame (a tab and an icon button, which are positioned already). */
+.ds-proposed :has(> :is(.sdk-badge-corner, .nav-badge, .sdk-dot-corner)) { position: relative; }
+
+.ds-proposed .sdk-dot.sdk-dot-corner {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+
+/* ---- a row of chips ---- */
+.ds-proposed .sdk-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 6px;
+  min-width: 0;
+}
+
+/* ---- a phone: the look stays, the hit area is 44px ---- */
+@media (max-width: 640px) {
+  .ds-proposed { --chip-hit: 44px; }
+  .ds-proposed .sdk-chips { row-gap: 14px; }
+  .ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip:not(.tag), .sdk-chip-people, .sdk-people > label, .daychip)::before,
+  .ds-proposed :is(.sdk-chip-tag, .tag, .host-menu-tag, .pill, .phase-tag, .stream-badge):is(button, a, [role="button"], .ref)::before {
+    content: "";
+    position: absolute;
+    inset: calc((var(--chip-h) - 2px - var(--chip-hit)) / 2) 0;
+  }
+  .ds-proposed .daychip::before { inset: 0; }
+  /* The hit area reaches past the chip, so the chip must not cut it (a long label is cut by .sdk-chip-label instead). */
+  .ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label, .sdk-chip-removable) { overflow: visible; }
+  /* The x of a removable chip: 20px to look at, 44px to press. */
+  .ds-proposed :is(.sdk-chip-removable, .rs-chip.tag) > :is(.sdk-chip-x, .x)::before {
+    content: "";
+    position: absolute;
+    inset: -12px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-chip, .filter-chip, .bgpick-chip, .chip, .chip-btn, .rs-chip, .daychip, .sdk-chip-people, .sdk-people > label, .sdk-chip-tag, .tag, .sdk-chip-removable, .sdk-status) { transition: none; }
+}

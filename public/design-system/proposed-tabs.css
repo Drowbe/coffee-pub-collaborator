@@ -257,7 +257,7 @@
   min-width: 14px;
   height: 14px;
   padding: 0 3px;
-  font-size: 9px;
+  font-size: var(--text-9, 9px);
   background: color-mix(in srgb, var(--accent) 88%, var(--text));
   color: var(--on-accent);
 }

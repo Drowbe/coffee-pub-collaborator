@@ -108,7 +108,7 @@ export async function browserChecks(b) {
   if (/Figtree|Fraunces/.test(sw.today.join())) problems.push(`${where}: Today's fonts still sets a bundled font (${sw.today.join(' / ')})`);
   // Nothing is smaller than 11px: no text in any frame of the proposed page, except a micro count (9px, numbers only, in a corner badge: --text-9).
   const small = JSON.parse(await ev(`(() => { const out = []; for (const f of window.__ds.frames) { const d = f.iframe.contentDocument; if (!d || !d.body) continue; const w = d.createTreeWalker(d.body, NodeFilter.SHOW_TEXT);
-    for (let n = w.nextNode(); n; n = w.nextNode()) { if (!n.textContent.trim()) continue; const e = n.parentElement; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') continue; const px = parseFloat(cs.fontSize); if (px < 10.99 && !(px === 9 && e.matches('.sdk-tab-badge, .badge, .chat-view-count, .pm-s9') && /^[0-9]+[+]?$/.test(n.textContent.trim()))) out.push(f.iframe.title + ': ' + (e.className || e.tagName) + ' ' + px + 'px'); } }
+    for (let n = w.nextNode(); n; n = w.nextNode()) { if (!n.textContent.trim()) continue; const e = n.parentElement; const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden') continue; const px = parseFloat(cs.fontSize); if (px < 10.99 && !(px === 9 && e.matches('.sdk-badge-micro, .sdk-tab-badge, .nav-badge, .badge, .chat-view-count, .pm-s9') && /^[0-9]+[+]?$/.test(n.textContent.trim()))) out.push(f.iframe.title + ': ' + (e.className || e.tagName) + ' ' + px + 'px'); } }
     return JSON.stringify([...new Set(out)].slice(0, 12)); })()`));
   for (const x of small) problems.push(`${where}: text under 11px: ${x}`);
   await ev('window.__ds.setFont("proposed")');

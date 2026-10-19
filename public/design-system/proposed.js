@@ -49,7 +49,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   window.DS_PROPOSED.undecided = [
     { group: 'Controls', names: ['Links', 'Pickers: date, kind, currency', 'Choice rows and people chips', 'Editor window'] },
     { group: 'Navigation', names: ['Menus and flyouts', 'Popovers and sheets', 'Phone bottom bar (icon over label)'] },
-    { group: 'Containers', names: ['Cards, panels and rows', 'Home cards and the ghost slot', 'Tables and lists in Manage', 'Progress bars and meters', 'Module window: title, toolbar and status'] },
+    { group: 'Containers', names: ['Tables and lists in Manage', 'Progress bars and meters', 'Module window: title, toolbar and status'] },
     { group: 'Feedback', names: ['Banners, notices and toasts', 'Empty, loading and error states'] },
     { group: 'Content', names: ['Messages, chat and AI cards', 'Avatars and portraits', 'Status strip, phases and countdown', 'Day cards, calendar cells and markers', 'Map pins and map UI', 'Round buttons'] },
     { group: 'Other', names: ['Tokens', 'Icons', 'Live SDK pieces'] },

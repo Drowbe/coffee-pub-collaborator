@@ -1,0 +1,347 @@
+/* ==== Cards, panels and rows (PROPOSED 2026-10-19; Thomas's decisions of 2026-10-18 in plan-design-system.md, "Cards and rows" and "Coloured left bars") ====
+   One look for a card and one for a row, drawn in the Proposed page only (every rule is under .ds-proposed; the product is untouched).
+
+   Surface        a 1px neutral hairline (--border), no shadow. Hover and selected are quiet fills, never an edge.
+   Surface steps  page --bg, panel --bg-section, card --bg-card, a row inside a card and a field --bg-input. A thing takes the next step
+                  from what it sits on; a row inside a card drops its own edge (it keeps a transparent 1px, so the box is the same size).
+   Corners        panel and card --radius-large, a row on a panel --radius-medium, a row inside a card --radius-small. (Proposed; Thomas decides.)
+   Spacing        one rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups.
+                  Padding: row 8px 10px, card 12px, panel 14px (16px wider than a phone), the Home space card 20px (its own larger variant).
+   Phone          a row is 44px high (38px wider); a hit area is 44px (the tick, the "..." button).
+   Focus          a 2px --accent outline drawn over the 1px hairline, inside the box (offset -2px): the Fields and Tabs mechanism, equal on all
+                  four sides at any display scale.
+   Menu slot      a "..." button (the approved icon-only Quiet small button) at the top right of a card (a fixed 30px slot) and at the end of
+                  a row. At most one primary action inline.
+   Category       colour stays on the icon (a tint chip) and on its words, never on an edge, a fill of the whole card or a gradient.
+   Left bars      none, except the Calendar agenda rows and event markers (Thomas, 2026-10-18), drawn with .sdk-bar-kept and flagged on the page.
+
+   Names. New: .sdk-panel .sdk-card .sdk-row .sdk-group-head .sdk-empty (parts .sdk-card-head .sdk-card-icon .sdk-card-title .sdk-card-sub
+   .sdk-card-body .sdk-card-foot .sdk-card-menu .sdk-row-main .sdk-row-title .sdk-row-meta .sdk-row-tick .sdk-open). Today's names are aliases of
+   the same rules (listed on the page), so no markup is edited. Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --card-pad: 12px;
+  --panel-pad: 14px;
+  --home-pad: 20px;
+  --row-pad-y: 8px;
+  --row-pad-x: 10px;
+  --gap-in: 8px;
+  --gap-group: 16px;
+  --chip-icon: 32px;
+  --tick-hit: 28px;
+  --tick-edge: -6px;
+  --ls-label: 0.04em;
+  /* Proposed token: --shadow-1, a card lifted while it is dragged (the plan's elevation scale). Black, so it darkens whatever is behind. */
+  --shadow-1: 0 6px 16px rgba(0, 0, 0, 0.28);
+  --t-ink: var(--text);
+}
+
+@media (min-width: 641px) {
+  .ds-proposed { --panel-pad: 16px; }
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --tick-hit: 44px; --tick-edge: -10px; }
+}
+
+/* ---- the tints (a module's colour, on its icon and its words only) ---- */
+.ds-proposed [data-tint="gold"] { --tint: var(--tint-gold); }
+.ds-proposed [data-tint="blue"] { --tint: var(--tint-blue); }
+.ds-proposed [data-tint="green"] { --tint: var(--tint-green); }
+.ds-proposed [data-tint="teal"] { --tint: var(--tint-teal); }
+.ds-proposed [data-tint="purple"] { --tint: var(--tint-purple); }
+.ds-proposed [data-tint="red"] { --tint: var(--tint-red); }
+.ds-proposed [data-tint="orange"] { --tint: var(--tint-orange); }
+.ds-proposed [data-tint="pink"] { --tint: var(--tint-pink); }
+
+/* ---- the panel: the surface a module or a page part sits on ---- */
+.ds-proposed :is(.sdk-panel, .section, .panel) {
+  --s: var(--bg-section);
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: var(--panel-pad);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-large);
+  background: var(--s);
+  color: var(--text);
+  box-shadow: none;
+}
+
+/* ---- the card ---- */
+.ds-proposed :is(.sdk-card, .card, .tile, .rcard, .user-card, .module-settings-card, .editor-card, .bgpick-card, .aside-overlay-card, .space-choice) {
+  --s: var(--bg-card);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: var(--card-pad);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-large);
+  background: var(--s);
+  background-image: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  transition: background 0.15s;
+}
+
+/* Home's space card: the same card, 20px of padding. */
+.ds-proposed :is(.sdk-card-home, .space-choice) { padding: var(--home-pad); gap: 12px; }
+.ds-proposed :is(.sdk-card-home, .space-choice) .sdk-card-title { font-family: var(--font-head, inherit); font-size: 18px; font-weight: 700; }
+
+/* The add slot beside the space cards: the same size, a dashed neutral hairline, no fill. */
+.ds-proposed :is(.sdk-card-add, .space-choice-add) {
+  --s: transparent;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 120px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  font-weight: 500;
+  text-align: center;
+  cursor: pointer;
+}
+.ds-proposed :is(.sdk-card-add, .space-choice-add) > i { font-size: 18px; }
+
+/* ---- the row ---- */
+.ds-proposed :is(.sdk-row, .place-row, .cat-line, .result, .switch-row, .module-display-row, .opt) {
+  --s: var(--bg-card);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: var(--btn-h);
+  margin: 0;
+  padding: var(--row-pad-y) var(--row-pad-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: var(--s);
+  background-image: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  transition: background 0.15s;
+}
+
+/* A row inside a card or a panel's card takes the next step and drops its edge (kept as a transparent 1px, so the box does not change size). */
+.ds-proposed :is(.sdk-card, .card, .tile, .rcard, .editor-card, .space-choice) :is(.sdk-row, .place-row, .cat-line, .result, .switch-row, .module-display-row, .opt) {
+  --s: var(--bg-input);
+  border-color: transparent;
+  border-radius: var(--radius-small);
+}
+
+/* Parts of a row. */
+.ds-proposed .sdk-row-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.ds-proposed .sdk-row-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.ds-proposed .sdk-row-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-dim); font-size: 12px; line-height: 16px; }
+.ds-proposed .sdk-row-meta { flex: none; color: var(--text-dim); font-size: 12px; white-space: nowrap; }
+.ds-proposed .sdk-row .sdk-card-icon { --chip-icon: 28px; }
+/* The tick: a 16px box (the Fields family) in a hit area that is 28px, and 44px on a phone. */
+.ds-proposed .sdk-row-tick {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--tick-hit);
+  height: var(--tick-hit);
+  margin: calc((20px - var(--tick-hit)) / 2) 0 calc((20px - var(--tick-hit)) / 2) var(--tick-edge);
+  cursor: pointer;
+}
+/* A button at the end of a row (the "..." or the one action) is 30px and does not make the row taller. */
+.ds-proposed :is(.sdk-row, .place-row, .cat-line, .result, .module-display-row, .opt) > :is(.sdk-icon-btn, .btn-small) { flex: none; margin-block: -5px; }
+.ds-proposed :is(.sdk-row, .place-row, .cat-line, .result, .module-display-row, .opt) > .sdk-icon-btn.btn-small { margin-right: -4px; }
+
+@media (max-width: 640px) {
+  /* The 44px row. The hit area of a small button is 44px already (Buttons). */
+  .ds-proposed :is(.sdk-row, .place-row, .cat-line, .result, .switch-row, .module-display-row, .opt) { min-height: 44px; }
+  .ds-proposed .sdk-row-tick { margin-block: calc((20px - var(--tick-hit)) / 2); }
+}
+
+/* ---- the clickable card and row: the whole box opens something. The link or button is .sdk-open; its ::after covers the box. ---- */
+.ds-proposed .sdk-open { color: inherit; font: inherit; text-decoration: none; background: none; border: 0; padding: 0; margin: 0; text-align: left; cursor: pointer; outline: none; }
+.ds-proposed .sdk-open::after { content: ""; position: absolute; inset: 0; }
+.ds-proposed :is(.sdk-card, .sdk-row) :is(.sdk-icon-btn, .btn, .sdk-row-tick) { position: relative; z-index: 1; }
+
+/* ---- states: hover and selected are fills ---- */
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):is(:has(.sdk-open), a, button):hover {
+  background: color-mix(in srgb, var(--text) 8%, var(--s));
+}
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):is(:has(.sdk-open), a, button):active {
+  background: color-mix(in srgb, var(--text) 14%, var(--s));
+}
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):is([aria-current="true"], [aria-selected="true"], .on) {
+  background: var(--selected-bg);
+}
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):is([aria-current="true"], [aria-selected="true"], .on):is(:has(.sdk-open), a, button):hover {
+  background: color-mix(in srgb, var(--accent) 38%, transparent);
+}
+
+/* The ghost: a quiet fill on hover (written twice over, so it beats the clickable card's rule above). */
+.ds-proposed.ds-proposed :is(.sdk-card-add, .space-choice-add):hover {
+  background: color-mix(in srgb, var(--text) 8%, var(--bg-section));
+  color: var(--text);
+}
+
+/* Focus: the Fields and Tabs mechanism. A 2px outline drawn over the 1px hairline, inside the box. */
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):has(.sdk-open:focus-visible),
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):is(a, button):focus-visible,
+.ds-proposed :is(.sdk-card-add, .space-choice-add):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):is([aria-current="true"], [aria-selected="true"], .on):has(.sdk-open:focus-visible) {
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, var(--t-ink));
+  outline-offset: -2px;
+}
+
+/* Muted text on a selected fill is a little stronger (the plain muted colour is under 4.5 to 1 there in dark). */
+.ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice):is([aria-current="true"], [aria-selected="true"], .on) :is(.sdk-card-sub, .sdk-row-sub, .sdk-row-meta) {
+  color: color-mix(in srgb, var(--text) 78%, var(--text-dim));
+}
+
+/* Dragging: the one time a card has a shadow. */
+.ds-proposed :is(.sdk-card, .sdk-row).is-dragging { box-shadow: var(--shadow-1); cursor: grabbing; }
+
+/* Disabled. */
+.ds-proposed :is(.sdk-card, .sdk-row)[aria-disabled="true"] { opacity: 0.5; pointer-events: none; }
+
+/* ---- the parts of a card ---- */
+.ds-proposed .sdk-card-head { display: flex; align-items: flex-start; gap: 10px; min-width: 0; }
+.ds-proposed .sdk-card-main { flex: 1 1 auto; min-width: 0; }
+.ds-proposed .sdk-card-title { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; overflow-wrap: anywhere; }
+.ds-proposed .sdk-card-sub { margin: 0; color: var(--text-dim); font-size: 12px; line-height: 16px; }
+.ds-proposed .sdk-card-body { margin: 0; color: var(--text); font-size: 13px; line-height: 18px; }
+.ds-proposed .sdk-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap-in); margin-top: 4px; }
+.ds-proposed .sdk-card-list { display: flex; flex-direction: column; gap: var(--gap-in); }
+.ds-proposed .sdk-card-image {
+  display: flex; align-items: center; justify-content: center; height: 96px;
+  border-radius: var(--radius-medium); background: var(--bg-input); color: var(--text-dim); font-size: 24px;
+}
+/* The menu slot: fixed, top right, 8px in; the head and the title leave room for it. */
+.ds-proposed .sdk-card-menu { position: absolute; top: 8px; right: 8px; z-index: 1; width: 30px; height: 30px; display: flex; }
+.ds-proposed .sdk-card:has(> .sdk-card-menu) > :is(.sdk-card-head, .sdk-card-title, .sdk-card-sub) { padding-right: 30px; }
+.ds-proposed .sdk-card-home:has(> .sdk-card-menu) { padding-right: var(--home-pad); }
+
+/* The icon chip: category colour on the icon, a quiet tint behind it. No tint, no colour: neutral. */
+.ds-proposed .sdk-card-icon {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--chip-icon);
+  height: var(--chip-icon);
+  border-radius: var(--radius-small);
+  background: color-mix(in srgb, var(--tint, var(--text-dim)) 18%, var(--s, var(--bg-card)));
+  color: color-mix(in srgb, var(--tint, var(--text-dim)) 62%, var(--text));
+  font-size: 14px;
+  line-height: 1;
+}
+.ds-proposed .sdk-tint-text { color: color-mix(in srgb, var(--tint, var(--text-dim)) 62%, var(--text)); font-weight: 600; }
+
+/* ---- the group header: 12px, weight 600, muted text, letter-spaced, with the divider under it ---- */
+.ds-proposed .sdk-group-head {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-in);
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0 2px 6px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+  letter-spacing: var(--ls-label);
+  text-transform: uppercase;
+}
+.ds-proposed .sdk-group-head > .sdk-group-count { margin-left: auto; font-weight: 500; letter-spacing: normal; }
+.ds-proposed .sdk-list-group + .sdk-list-group { margin-top: var(--gap-group); }
+.ds-proposed .sdk-list-group > .sdk-group-head { margin-bottom: var(--gap-in); }
+.ds-proposed .sdk-list-group > .sdk-list, .ds-proposed .sdk-list { display: flex; flex-direction: column; gap: var(--gap-in); min-width: 0; }
+
+/* ---- the empty state: text only, no box ---- */
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 24px 16px;
+  border: 0;
+  background: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: center;
+}
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > i { font-size: 24px; line-height: 1; }
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > p { margin: 0; max-width: 36ch; }
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > .btn { margin-top: 6px; }
+
+/* ---- what replaces a coloured bar ---- */
+/* A callout and a toast (the toast's own look comes with the Toasts family): a neutral hairline and an icon. */
+.ds-proposed :is(.sdk-callout, .option-help) {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: var(--row-pad-y) var(--row-pad-x);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-medium);
+  background: none;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 18px;
+  box-shadow: none;
+}
+.ds-proposed :is(.sdk-callout, .option-help) > i { flex: none; width: 16px; margin-top: 1px; color: var(--text-dim); text-align: center; line-height: 18px; }
+.ds-proposed :is(.sdk-callout, .option-help) > span { min-width: 0; }
+/* A chat message: the tint is on the portrait only. */
+.ds-proposed .sdk-msg { display: flex; align-items: flex-start; gap: 10px; box-sizing: border-box; min-width: 0; padding: var(--row-pad-y) var(--row-pad-x); border-radius: var(--radius-medium); font-size: 14px; line-height: 20px; }
+.ds-proposed .sdk-msg > .sdk-msg-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.ds-proposed .sdk-msg-name { font-size: 13px; font-weight: 600; line-height: 16px; }
+.ds-proposed .sdk-msg-name small { margin-left: 6px; color: var(--text-dim); font-size: 12px; font-weight: 400; }
+.ds-proposed .sdk-portrait {
+  flex: none; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--tint, var(--text-dim)) 22%, var(--bg-section));
+  color: color-mix(in srgb, var(--tint, var(--text-dim)) 62%, var(--text));
+  font-size: 14px; line-height: 1;
+}
+/* A status word on a host console environment: a plain placeholder label until the Chips family draws the chip. */
+.ds-proposed .sdk-status-word {
+  flex: none; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius-small);
+  color: var(--text); font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap;
+}
+/* THE EXCEPTION, KEPT (Thomas, 2026-10-18): Calendar's agenda rows and event markers keep a bar on the left. Drawn as a 3px block, not a border,
+   so the rule "no coloured edge" can be checked everywhere else. Used nowhere but the Calendar frame. */
+.ds-proposed .sdk-bar-kept { overflow: hidden; padding-left: calc(var(--row-pad-x) + 3px); }
+.ds-proposed .sdk-bar-kept::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint, var(--accent)); }
+.ds-proposed .sdk-exception-flag { flex: none; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius-small); color: var(--text-dim); font-size: 11px; font-weight: 600; line-height: 16px; white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-card, .sdk-row, .card, .tile, .rcard, .place-row, .cat-line, .result, .module-display-row, .opt, .space-choice) { transition: none; }
+}

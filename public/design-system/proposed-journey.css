@@ -114,8 +114,8 @@
 .ds-proposed :is(.sdk-strip-count, .status-togo):is(.sdk-strip-count, .status-togo) { align-items: baseline; gap: 6px; background: color-mix(in srgb, var(--accent) var(--jr-count), transparent); cursor: pointer; }
 .ds-proposed :is(.sdk-strip-count, .status-togo):is(.sdk-strip-count, .status-togo):hover { background: color-mix(in srgb, var(--accent) 32%, transparent); }
 .ds-proposed :is(.sdk-strip-count, .status-togo):is(.sdk-strip-count, .status-togo)[hidden] { display: none; }
-.ds-proposed :is(.sdk-strip-count-n, .status-togo-days) { font-size: 16px; font-weight: 600; line-height: 26px; }
-.ds-proposed :is(.sdk-strip-count-words, .status-togo-words) { font-size: 13px; font-weight: 500; line-height: 26px; }
+.ds-proposed :is(.sdk-strip-count-n, .status-togo-days) { font-size: 16px; font-weight: 600; line-height: calc(var(--jr-chip-h) - 2px); }
+.ds-proposed :is(.sdk-strip-count-words, .status-togo-words) { font-size: 13px; font-weight: 500; line-height: calc(var(--jr-chip-h) - 2px); }
 
 /* A fact: an icon and words; one with progress (the budget) fills from the left in the accent, as wide as its share. */
 .ds-proposed :is(.sdk-strip-facts, .status-facts) { display: flex; flex: none; align-items: center; gap: 8px; min-width: 0; height: 100%; }

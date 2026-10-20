@@ -3,7 +3,7 @@
 Two pages live here.
 
 - `index.html` is Today: what the product looks like now. It loads nothing that starts with `proposed`.
-- `proposed.html` is Proposed: only what Thomas has decided, one family at a time. A family is one part of the
+- `proposed.html` is Proposed: only what Thomas has decided, one family at a time. All 26 families are decided (the last 18 on 2026-10-21). This page becomes the design system; Today's inventory stays a separate page until the migration ends. A family is one part of the
   system, such as Buttons, Fields and forms, Typography, Tabs and view switches, or Colour.
 
 ## How the Proposed page is put together
@@ -76,10 +76,10 @@ resolves when every frame has loaded; the checks call it before they measure. A 
 4. Write `tools/check-design-system-<id>.mjs` and add `"<id>"` to `tools/check-design-system-families.json`. It exports `id`,
    and may export `todayOnly` (classes of today's markup the family draws as they are), `staticChecks(ctx)` (the files)
    and `browserChecks(b)` (measurements in the page). Copy `check-design-system-tabs.mjs`.
-5. If the family was listed under "Still to decide" in `proposed.js`, take its name out of that list
-   (the check fails if a name is both a drawn family and on that list).
+5. If the family was listed under "Today only" in `proposed.js`, take its name out of that list
+   (the check fails if a name is both a drawn family and on that list, or if a name left there does not say "Today only").
 
-You edit no shared file except those two lists and, if needed, the list of undecided names. The snapshot tool and the page both
+You edit no shared file except those two lists and, if needed, the list of Today-only names. The snapshot tool and the page both
 read `proposed-families.json`, so the hosted copy gets the new files without another edit.
 
 ## Check it

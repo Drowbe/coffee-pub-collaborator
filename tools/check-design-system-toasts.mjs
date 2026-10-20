@@ -92,7 +92,7 @@ const toastsProbe = async (ctx) => {
     click('note'); const n = live()[0]; n.dispatchEvent(new win.MouseEvent('mouseenter')); await wait(400); if (!n.isConnected || n.dataset.paused !== 'true') bad('a toast does not wait while the pointer is on it');
     n.dispatchEvent(new win.MouseEvent('mouseleave')); for (let i = 0; i < 20 && n.isConnected; i += 1) await wait(150); /* its 180ms demo time, then it goes; a busy page (hundreds of frames) can run a timer late, so wait up to 3s */ if (n.isConnected) bad('a toast does not go after the pointer leaves');
     click('note'); const m = live()[0]; m.querySelector('.sdk-icon-btn').focus(); await wait(400); if (!m.isConnected || m.dataset.paused !== 'true') bad('a toast does not wait while the focus is inside it');
-    m.querySelector('.sdk-icon-btn').blur(); await wait(500); if (m.isConnected) bad('a toast does not go after the focus leaves');
+    m.querySelector('.sdk-icon-btn').blur(); for (let i = 0; i < 20 && m.isConnected; i += 1) await wait(150); /* its 180ms demo time, then it goes; a busy page can run a timer late, so wait up to 3s for the real condition */ if (m.isConnected) bad('a toast does not go after the focus leaves');
     win.__toastScale = 1; click('note'); const k = live()[0]; k.querySelector('.sdk-icon-btn').dispatchEvent(new win.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); await wait(300); if (k.isConnected) bad('Escape on the close does not close the toast');
     click('undo'); const u = live()[0]; if (!u.querySelector('.btn-quiet')) bad('the Undo toast has no Quiet Undo'); u.querySelector('.sdk-icon-btn').click(); await wait(300);
   } }

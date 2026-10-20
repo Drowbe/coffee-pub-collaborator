@@ -88,7 +88,7 @@ export const colourProbe = async () => {
 
   // Calming Teal, light (decided 2026-10-21: keep the teal): the auto-picked text on the teal fill and the teal as text reach 4.5 to 1, worked out from the theme's own
   // colours and checked again here; the accent as a mark is shown as the warning (under 3 to 1), not hidden.
-  { const T = C.themes.teal.light; const tb = D.getElementById('cx-teal-table'); if (!D.getElementById('colour-teal') || !tb) bad('the Colour family has no Calming Teal, light section');
+  { const T = C.themes.teal.light; const tb = D.getElementById('cx-teal-rows'); if (!D.getElementById('colour-teal') || !tb) bad('the Colour family has no Calming Teal, light section');
     else {
       const num = (k) => parseFloat((tb.querySelector('[data-teal="' + k + '"]') || { textContent: 'NaN' }).textContent);
       const acc = rgb(T.accent); const pg = rgb(T.bg); const pn = rgb(T.bgSection);

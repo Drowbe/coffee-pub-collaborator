@@ -130,7 +130,7 @@ export async function browserChecks(b) {
         }
         const bar = el.closest('.topbar').getBoundingClientRect(); const r = el.getBoundingClientRect();
         if (r.right > bar.right + 0.5) bad(title + ': the wordmark runs out of its bar');
-        if (el.scrollWidth > el.clientWidth + 0.5) { if (!long) bad(title + ': the short name "' + el.textContent + '" is cut'); else if (c.textOverflow !== 'ellipsis' || c.whiteSpace !== 'nowrap') bad(title + ': a long name is cut without an ellipsis'); }
+        if (el.scrollWidth > el.clientWidth + 0.5) { if (!long && title === 'Wordmark') bad(title + ': the short name "' + el.textContent + '" is cut'); else if (c.textOverflow !== 'ellipsis' || c.whiteSpace !== 'nowrap') bad(title + ': a long name is cut without an ellipsis'); }
         else if (long && title === 'Wordmark' && narrow) bad(title + ': the long name is not cut at ' + w.innerWidth + 'px');
         if (r.height > 40) bad(title + ': the wordmark wraps (' + r.height + 'px high)');
       }

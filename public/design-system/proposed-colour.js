@@ -527,10 +527,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const R2 = (n) => n.toFixed(2);
     return {
       on, asText, onPage, onPanel,
-      html: `<table class="ds-table" id="cx-teal-table"><tbody>
-<tr><td><b>Text on a teal fill</b></td><td>${sw(t.accent, on.hex, 'Add')} <code>${on.hex}</code>, picked automatically (white or near-black, whichever reads better): <b data-teal="on">${R2(on.ratio)} : 1</b> on <code>${t.accent}</code>, needs 4.5. The theme file's own text on accent, <code>${t.onAccent}</code>, is ${R2(ratio(fromHex(t.onAccent), acc))} : 1 on it and fails; the pick replaces it.</td></tr>
-<tr><td><b>Teal as text</b> (links)</td><td>${sw(t.bg, asText.hex, 'Open the plan')} <code>${asText.hex}</code>: the teal mixed <b data-teal="mix">${asText.p}%</b> into the text colour, the least that reaches <b data-teal="text">${R2(asText.ratio)} : 1</b> on the page and the panel, needs 4.5. The plain teal is ${R2(Math.min(onPage, onPanel))} : 1 as text.</td></tr>
-<tr><td><b>Teal as a mark</b> (a bar, a ring)</td><td>The accent itself, <code>${t.accent}</code>: <b data-teal="page">${R2(onPage)} : 1</b> on the page and ${R2(onPanel)} : 1 on a panel, under the 3 : 1 a mark aims at. The teal is kept; this is the warning the theme editor will show for it:</td></tr></tbody></table>
+      html: `<div class="cp-warn" id="cx-teal-rows"><ul>
+<li><span><b>Text on a teal fill.</b> ${sw(t.accent, on.hex, 'Add')} <code>${on.hex}</code>, picked automatically (white or near-black, whichever reads better): <b data-teal="on">${R2(on.ratio)} : 1</b> on <code>${t.accent}</code>, needs 4.5. The theme file's own text on accent, <code>${t.onAccent}</code>, is ${R2(ratio(fromHex(t.onAccent), acc))} : 1 on it and fails; the pick replaces it.</span></li>
+<li><span><b>Teal as text</b> (links). ${sw(t.bg, asText.hex, 'Open the plan')} <code>${asText.hex}</code>: the teal mixed <b data-teal="mix">${asText.p}%</b> into the text colour, the least that reaches <b data-teal="text">${R2(asText.ratio)} : 1</b> on the page and the panel, needs 4.5. The plain teal is ${R2(Math.min(onPage, onPanel))} : 1 as text.</span></li>
+<li><span><b>Teal as a mark</b> (a bar, a ring). The accent itself, <code>${t.accent}</code>: <b data-teal="page">${R2(onPage)} : 1</b> on the page and ${R2(onPanel)} : 1 on a panel, under the 3 : 1 a mark aims at. The teal is kept; this is the warning the theme editor will show for it:</span></li></ul></div>
 <div class="cp-warn"><ul><li><span><b>Accent on page (bars, rings)</b>: ${R2(onPage)} : 1, needs 3</span></li></ul></div>`,
     };
   }

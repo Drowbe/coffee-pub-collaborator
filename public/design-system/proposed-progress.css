@@ -40,7 +40,7 @@
   overflow: hidden;
 }
 
-.ds-proposed :is(.sdk-progress-sm, .tb-progress, .upload .bar) {
+.ds-proposed :is(.sdk-progress-sm, .tb-progress, .upload .bar, .sdk-toolbar .sdk-progress, .sdk-status-line .sdk-progress) {
   --pg-h: 6px;
 }
 

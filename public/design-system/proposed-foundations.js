@@ -262,6 +262,23 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ${[['Count', 'round'], ['Dot', 'round'], ['Avatar', 'round'], ['Micro count', 'round']].map(([n, k]) => `<div class="pm-fd-rbox pm-fd-dot" data-role="${k}"><span>${n}</span></div>`).join('')}
   </div></div>`;
 
+
+  // ---- nesting and corners: a live example on the real components (panel, card, row), and the wrong way drawn once, skipped by the nesting check ----
+  const nrow = (t, m) => `<div class="sdk-row"><span class="sdk-row-main"><span class="sdk-row-title">${t}</span></span><span class="sdk-row-meta">${m}</span></div>`;
+  const nestingBody = () => `<div class="ds-proposed"><div class="pm-fd-two">
+    <div data-nest="right"><span class="pm-fd-cap">Right: panel, then card, then rows. Two surfaces nested</span>
+      <div class="sdk-panel"><div class="sdk-card"><div class="sdk-card-head"><div class="sdk-card-main"><h4 class="sdk-card-title">Day 2 in Paris</h4><p class="sdk-card-sub">Card on a panel: large corner</p></div></div><div class="sdk-card-list" data-gap="card">${nrow('Louvre', '9:30')}${nrow('Lunch at Café Marly', '12:30')}</div><div class="sdk-card-foot"><button type="button" class="btn btn-small">Open</button><span class="sdk-chip-tag">3 places</span></div></div></div>
+      <p class="pm-fd-note">Panel (level 0) &gt; card &gt; row. The button and the chip are controls: not a level. Corners 11, 11, 5.</p></div>
+    <div data-nest="list"><span class="pm-fd-cap">Rows in a list: 8px apart, never touching</span>
+      <div class="sdk-panel"><div class="sdk-list" data-gap="list">${nrow('Book the flights', 'Fri')}${nrow('Renew the passports', 'Done')}${nrow('Reserve the Seine dinner', 'Due Fri')}</div></div>
+      <p class="pm-fd-note">Inside a card the rows are 4px apart (left): each is a quiet fill, so the step separates them.</p></div>
+    <div data-nest="wrong" data-nesting-skip><span class="pm-fd-cap">Wrong: four boxes, and a corner larger than its parent</span>
+      <div class="sdk-panel"><div class="sdk-card"><div class="sdk-card-list">
+        <div class="sdk-row" style="border-radius:var(--radius-small)"><span class="sdk-row-main"><span class="sdk-row-title">Louvre</span></span><span style="padding:2px 8px;border:1px solid var(--border);border-radius:var(--radius-large);background:var(--bg-section)">a third box with its own fill, edge and a large corner</span></div></div></div></div></div>
+    <div data-nest="fixed"><span class="pm-fd-cap">Fixed: the third level is plain content</span>
+      <div class="sdk-panel"><div class="sdk-card"><div class="sdk-card-list"><div class="sdk-row"><span class="sdk-row-main"><span class="sdk-row-title">Louvre</span></span><span class="sdk-row-meta">plain text, no fill, no edge</span></div></div></div></div></div>
+  </div></div>`;
+
   // ---- motion ----
   const motionBody = () => `<div class="ds-proposed" data-motion><div class="pm-fd-demos">
     <div class="pm-fd-demo" data-demo="fast"><h4>Fast, 120ms</h4><p>Hover, press and fill changes.</p>
@@ -408,12 +425,12 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
     block.innerHTML = `<header><h3 id="foundations-h"><a href="#foundations">Foundations: spacing, elevation, motion, icons and layout</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the scales every other family measures with; radius stays as it is</span></header>
 <p class="ds-desc"><b>Decided 2026-10-21: approved as drawn.</b> Six parts, each a handful of tokens. (1) <b>Spacing</b>: a strict 4px scale, <code>--space-0</code> (2px) and <code>--space-1</code> to <code>--space-9</code> (4 to 48); 6px and 10px are not on it. (2) <b>Elevation</b>: three shadows, one scrim (black at 55%), and named layers from content to debug. (3) <b>Radius</b>: the five tokens as they are, with a role for each. (4) <b>Motion</b>: 120ms and 200ms, one easing, two shared keyframes and one reduced-motion rule. (5) <b>Icons</b>: five sizes tied to the type steps, solid only. (6) <b>Layout</b>: breakpoints 640, 900 and 1200, and the heights and widths of the page. Every value is a token on this page only (all under <code>.ds-proposed</code>); the product is untouched. The names I chose are listed at the end for Thomas to confirm.</p>
-<nav class="ds-toc" aria-label="In this family"><a href="#foundations-spacing">Spacing</a><a href="#foundations-elevation">Elevation</a><a href="#foundations-layers">Layers</a><a href="#foundations-radius">Radius</a><a href="#foundations-motion">Motion</a><a href="#foundations-icons">Icons</a><a href="#foundations-layout">Layout</a><a href="#foundations-widths">Widths</a><a href="#foundations-map">Today to proposed</a><a href="#foundations-alias">Aliases and migration</a><a href="#foundations-tokens">Tokens</a><a href="#foundations-decided">Decided 2026-10-21</a></nav>
+<nav class="ds-toc" aria-label="In this family"><a href="#foundations-spacing">Spacing</a><a href="#foundations-elevation">Elevation</a><a href="#foundations-layers">Layers</a><a href="#foundations-radius">Radius</a><a href="#foundations-nesting">Nesting and corners</a><a href="#foundations-motion">Motion</a><a href="#foundations-icons">Icons</a><a href="#foundations-layout">Layout</a><a href="#foundations-widths">Widths</a><a href="#foundations-map">Today to proposed</a><a href="#foundations-alias">Aliases and migration</a><a href="#foundations-tokens">Tokens</a><a href="#foundations-decided">Decided 2026-10-21</a></nav>
 
 <h4 class="ds-h4" id="foundations-spacing">Spacing</h4>
 <p class="ds-desc">Ten steps, each drawn at its real width (the grey track is 48px). The names count steps, not pixels: <code>--space-3</code> is 12px. <code>--space-0</code> is a hairline step for a nudge; it is never a gap between boxes.</p>
 <div data-slot="space"></div>
-<p class="ds-desc" style="margin-top:12px"><b>The rule for choosing.</b> Between things in a group, 8 (<code>--space-2</code>); between groups, 16 (<code>--space-4</code>); between sections of a page, 24 (<code>--space-6</code>). Inside a thing, the step that fits its size: 4 in a chip or a tight icon and label, 8 in a row, 12 in a card, 16 in a panel and on a page, 20 on the Home card. If a design wants 6, take 4 (a tight cluster) or 8 (anything else). If it wants 10, take 8 or 12, whichever matches its neighbours; a row's 10 is written 8 + 2 (<code>--space-2</code> and <code>--space-0</code>) so it stays as approved. 14 settles per component (panel 16, a popover's controls 12 or 16). A negative margin is allowed to widen a hit area or to cancel a parent's padding, written as <code>calc(-1 * var(--space-n))</code>.</p>
+<p class="ds-desc" style="margin-top:12px"><b>The rule for choosing.</b> Between things in a group, 8 (<code>--space-2</code>); between groups, 16 (<code>--space-4</code>); between sections of a page, 24 (<code>--space-6</code>). Inside a thing, the step that fits its size: 4 in a chip or a tight icon and label, 8 in a row, 12 in a card, 16 in a panel and on a page, 20 on the Home card. If a design wants 6, take 4 (a tight cluster) or 8 (anything else). Rows in a list are 8 apart and never touch; rows inside a card are 4 apart (see Nesting and corners). If it wants 10, take 8 or 12, whichever matches its neighbours; a row's 10 is written 8 + 2 (<code>--space-2</code> and <code>--space-0</code>) so it stays as approved. 14 settles per component (panel 16, a popover's controls 12 or 16). A negative margin is allowed to widen a hit area or to cancel a parent's padding, written as <code>calc(-1 * var(--space-n))</code>.</p>
 <h5 style="margin:18px 0 4px;font-size:13px">Before and after</h5>
 <div data-slot="beforeafter"></div>
 <h5 style="margin:18px 0 4px;font-size:13px">Today's most-used values, and where each goes</h5>
@@ -480,6 +497,18 @@ ${tbl(['Where', 'Today', 'Becomes'], [
     ['<code>6px</code> and <code>12px</code>', '4 and 3 uses', '<code>--radius-small</code> or <code>--radius-medium</code>; <code>--radius-large</code>.'],
     ['<code>--radius-min</code> (3px)', '31 uses', 'Stays, only for the inside of a control: a tick box, a key cap, a swatch.'],
   ])}
+
+<h4 class="ds-h4" id="foundations-nesting">Nesting and corners</h4>
+<p class="ds-desc">Thomas, 2026-10-21, on Chat: "we are starting to get too many boxes in boxes in boxes. Also be mindful that an inner border radius isn't different or bigger than the container it is in." Four system rules, enforced by <code>tools/check-design-system-nesting.mjs</code>, which every family frame can be run through.</p>
+${tbl(['Rule', 'What it says', 'Why'], [
+    ['(a) Two surfaces at most', 'Inside a window or a panel, at most TWO filled or bordered surfaces nest: surface, then item, nothing more. The window or panel is level 0. A third level loses its own fill and edge and becomes plain content. A region that paints the same step as its parent, and a one-sided line, are not surfaces.', 'Each extra box adds an edge to read and a corner to match. Two levels already show "this belongs to that".'],
+    ['(b) Corners step down', 'A child\'s corner is never larger than its parent\'s: use the token one step smaller (large, medium, small, min). Equal is allowed only where Cards decided it (a card on a panel, both large). A square parent (a band of a window, or a window that is the edge of a page) leaves its children free; any other square surface has square children only. A full pill or circle is exempt.', 'Corners that are concentric look drawn; a larger inner corner pokes out of the outer one.'],
+    ['(c) Room to breathe', 'The space between a parent\'s edge and a child\'s edge is at least the child\'s own padding. So a card with 12px of padding sits at least 12px inside what holds it (your own chat message has 12px of padding for this reason).', 'Otherwise the child\'s content looks closer to the parent\'s edge than to its own.'],
+    ['(d) Controls are not boxes', 'Buttons, chips, inputs, avatars, icon chips and tick boxes are controls. They do not count as a level, but their corner obeys (b).', 'A button in a card is not a box in a box.'],
+    ['Rows in a list', 'Rows (and messages) in a list are separated by 8px (<code>--space-2</code>) and never touch. Rows inside a card are 4px apart (<code>--space-1</code>): each is a quiet fill, so the step separates them. A table keeps its hairlines instead of a gap.', 'Thomas, 2026-10-21: "why are the items smashed together?". This is one proposal for rows in a card; a hairline is the other.'],
+  ])}
+<div data-slot="nesting"></div>
+<p class="ds-desc" style="margin-top:8px">Today (for the migration): the Chat message was a box with a card box inside it, itself inside a window inside a frame, with the card\'s large corner inside a medium one. Cards, Module window and Chat are redrawn to obey; the other families\' frames are listed in the report of this change, not edited here.</p>
 
 <h4 class="ds-h4" id="foundations-motion">Motion</h4>
 <p class="ds-desc">Two durations and one curve. <b>Fast, 120ms</b> is for what answers a pointer: hover, press, a fill change. <b>Base, 200ms</b> is for what enters or leaves: a sheet, a callout, a popover, a toast. The curve is <code>--ease-out</code>, <code>cubic-bezier(0.2, 0, 0, 1)</code>: quick at the start, soft at the end. A loop (the shimmer, a spinner) keeps its own length. Nothing is slower than 200ms except a loop.</p>
@@ -617,6 +646,7 @@ ${tbl(["Decided as drawn","Why"], [
     slot('scene').appendChild(F(sceneBody(), 'Foundations, layers in use'));
     slot('radius').appendChild(F(radiusBody(), 'Foundations, radius tokens'));
     slot('roles').appendChild(F(rolesBody(), 'Foundations, radius by role'));
+    slot('nesting').appendChild(F(nestingBody(), 'Foundations, nesting and corners'));
     slot('motion').appendChild(F(motionBody(), MOTION_TITLES[0], { onload: motionLoad }));
     slot('isizes').appendChild(F(iconSizesBody(), 'Foundations, icon sizes'));
     slot('solid').appendChild(F(solidBody(), 'Foundations, icons solid only'));

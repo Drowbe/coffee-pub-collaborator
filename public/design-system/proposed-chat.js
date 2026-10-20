@@ -221,7 +221,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 <p class="ds-desc">Own and others, a tinted AI message with its object card, a quote, a link box, reactions. The Chat header is the Module window's title bar.</p>
 <div data-slot="conversation"></div>
 ${dim([
-    ['1 Message', 'Others: flat on the window, no box, no fill, no edge. Your own: the one boxed kind, a 10% <code>--accent</code> fill, <code>--radius-medium</code>, padding 4px 12px 12px (the 12 keeps a card inside it 12px from the edge). Messages are 8px apart (the list\'s gap, <code>--space-2</code>). The shaded head band is gone.'],
+    ['1 Message', 'Others: flat on the window, no box, no fill, no edge. Your own: the one boxed kind, a 10% <code>--accent</code> fill, <code>--radius-medium</code>, padding 4px 12px 12px (the 12 keeps a card inside it 12px from the edge). Messages are 8px apart (the list\'s gap, <code>--space-2</code>), and a flat message has a 1px <code>--border</code> hairline under it (with 8px above the line) when another flat message follows, so flat messages do not run together. The shaded head band is gone.'],
     ['2 Head', 'A 22px portrait (a page-local copy of the Avatars size), the name 12px weight 600, an optional command 11px 600, the time 11px muted, and at the end the "..." (the Quiet small icon button, 30px; today 24px). The head is 30px high.'],
     ['3 Body', '14px on 20px (the type scale); paragraphs 8px apart; code 13px; a link in the accent mix, underlined. Long words wrap.'],
     ['4 Tint', 'Only on the portrait: a 22% tint fill behind the icon and the icon in the readable mix. The message stays neutral.'],

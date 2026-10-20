@@ -12,6 +12,7 @@
  * undecided list, a missing note that the toast and the status chip belong to other families; in the stylesheet: a gradient, a hex colour, a one-sided coloured border,
  * a shadow other than none and --shadow-1, a name not defined.
  */
+import { checkNesting } from './check-design-system-nesting.mjs';
 export const id = 'cards';
 export const todayOnly = [];
 
@@ -42,6 +43,7 @@ export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, edgeColours } = b;
   const cp = JSON.parse(await ev(`(${cardsProbe.toString()})()`));
   for (const x of cp.problems) problems.push(`${where}: ${x}`);
+  await checkNesting(b, /^(Cards|Rows)/);
   // The focus outline of a card and of a row: all four sides the same at a fractional device pixel ratio and page offset (the Fields' and Tabs' method).
   if (sc.width >= 500) {
     for (const dsf of [1.25, 1.5]) {

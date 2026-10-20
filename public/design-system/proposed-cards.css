@@ -5,7 +5,8 @@
    Surface steps  page --bg, panel --bg-section, card --bg-card, a row inside a card and a field --bg-input. A thing takes the next step
                   from what it sits on; a row inside a card drops its own edge (it keeps a transparent 1px, so the box is the same size).
    Corners        panel and card --radius-large, a row on a panel --radius-medium, a row inside a card --radius-small. (Proposed; Thomas decides.)
-   Spacing        one rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups.
+   Spacing        one rule: 8px between things (inside a card or a row, and between cards or rows in a list: rows in a list NEVER touch), 16px between groups.
+                  The one refinement (2026-10-21): rows INSIDE a card are 4px apart, because each is a quiet fill (--bg-input) that the step already separates.
                   Padding (decided 2026-10-21, on the spacing scale): row 8px by 10px (10 is 8 + 2), card 12px, panel 16px at every width, the Home space card 20px (its own larger variant).
    Phone          a row is 44px high (38px wider); a hit area is 44px (the tick, the "..." button).
    Focus          a 2px --accent outline drawn over the 1px hairline, inside the box (offset -2px): the Fields and Tabs mechanism, equal on all
@@ -26,6 +27,7 @@
   --row-pad-y: 8px;
   --row-pad-x: 10px;
   --gap-in: 8px;
+  --gap-card-rows: 4px; /* rows inside a card: the fill step separates them, so 4px; rows in a list on a panel or a window: 8px */
   --gap-group: 16px;
   --chip-icon: 32px;
   --tick-hit: 28px;
@@ -227,7 +229,7 @@
 .ds-proposed .sdk-card-sub { margin: 0; color: var(--text-dim); font-size: 12px; line-height: 16px; }
 .ds-proposed .sdk-card-body { margin: 0; color: var(--text); font-size: 13px; line-height: 18px; }
 .ds-proposed .sdk-card-foot { display: flex; flex-wrap: wrap; align-items: center; gap: var(--gap-in); margin-top: 4px; }
-.ds-proposed .sdk-card-list { display: flex; flex-direction: column; gap: var(--gap-in); }
+.ds-proposed .sdk-card-list { display: flex; flex-direction: column; gap: var(--gap-card-rows); }
 .ds-proposed .sdk-card-image {
   display: flex; align-items: center; justify-content: center; height: 96px;
   border-radius: var(--radius-medium); background: var(--bg-input); color: var(--text-dim); font-size: 24px;

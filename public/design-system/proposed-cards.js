@@ -119,7 +119,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ${row({ title: 'Louvre', sub: 'Paris, 9:30', open: true, menu: true })}
   </div></div></div>`);
 
-  const homeBody = () => wrap(`<div class="sdk-panel"><div class="pm-cd-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
+  const homeBody = () => wrap(`<div class="sdk-panel" style="--panel-pad:20px"><div class="pm-cd-grid" style="grid-template-columns:repeat(auto-fill,minmax(240px,1fr))">
     <div>${CAPTION('Space card, 20px padding')}<div class="sdk-card sdk-card-home"><div class="sdk-card-image">${fa('image')}</div><div class="sdk-card-main"><h4 class="sdk-card-title">Paris in spring</h4><p class="sdk-card-sub">6 people, 4 modules</p></div><div class="sdk-card-foot"><button type="button" class="btn btn-primary">Open</button><button type="button" class="btn">Invite</button></div><span class="sdk-card-menu">${MENU}</span></div></div>
     <div>${CAPTION('Space card, hover')}<div class="sdk-card sdk-card-home ds-force-hover" aria-current="false"><div class="sdk-card-image">${fa('image')}</div><div class="sdk-card-main"><h4 class="sdk-card-title"><a class="sdk-open" href="#">Lisbon in June</a></h4><p class="sdk-card-sub">Whole card opens it</p></div><div class="sdk-card-foot"><button type="button" class="btn">Invite</button></div><span class="sdk-card-menu">${MENU}</span></div></div>
     <div>${CAPTION('Ghost: add')}<button type="button" class="sdk-card sdk-card-add">${fa('plus')}<span>Add a space</span></button></div>
@@ -241,7 +241,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 ${dim([
     ['1 Surface', 'A 1px <code>--border</code> hairline, no shadow, no gradient. Panel and card <code>--radius-large</code>; a row on a panel <code>--radius-medium</code>; a row inside a card <code>--radius-small</code>.'],
     ['2 Padding', 'Row 8px by 10px (the 10 is 8 + 2 on the spacing scale). Card 12px. Panel 16px at every width (decided 2026-10-21; it was 14px on a phone). Home\'s space card 20px, its own larger variant.'],
-    ['3 Spacing', 'One rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups.'],
+    ['3 Spacing', 'One rule: 8px between things (inside a card or a row, and between cards or rows), 16px between groups. Rows in a list are separated by 8px and never touch (a list is <code>.sdk-list</code>, or a window\'s content, which is a column with an 8px gap). Rows inside a card are 4px apart: each is a quiet fill, so the step does the separating and 8px would be loose (Thomas, 2026-10-21; this is the one proposal, he may take a hairline instead).'],
+    ['3b Nesting', 'A panel or a window holds a card or a row, and a card holds a row: two surfaces, no more. A row inside a row, or a box inside that, has no fill and no edge of its own. A child\'s corner is never larger than its parent\'s, and its padding is at most the space to the parent\'s edge (Foundations, "Nesting and corners").'],
     ['4 Icon chip', 'Optional. 32px in a card, 28px in a row; <code>--radius-small</code>. The category tint is a quiet fill behind the icon and the icon itself; nothing else is coloured.'],
     ['5 Title and lines', 'Title 14px, weight 600 in a card; weight 500 in a row. Sub line 12px <code>--text-dim</code>. Body 13px. A row\'s title is cut with an ellipsis; a card\'s wraps.'],
     ['6 Menu slot', 'A "..." button, the approved icon-only Quiet small button (30px). On a card a fixed slot 8px from the top and right, which the title leaves room for. On a row, the last thing. 44px hit area on a phone.'],
@@ -392,7 +393,7 @@ ${tbl(['Decided 2026-10-19', 'Why', 'Other way, if tuned later'], [
 
 <h4 class="ds-h4" id="cards-taken">Taken as drawn</h4>
 ${tbl(['Drawn', 'Why', 'Other way'], [
-    ['One spacing rule: 8px between things, 16px between groups', 'One number a module can remember.', 'Cards 12px apart.'],
+    ['One spacing rule: 8px between things, 16px between groups; rows inside a card 4px apart', 'One number a module can remember. Rows in a list never touch. Inside a card the row fill already separates them.', 'A hairline between the rows in a card; 8px.'],
     ['Hover is the text colour at 8% over the surface; selected is <code>--selected-bg</code> as it is (translucent over what is behind)', 'The same quiet fills as the buttons and tabs.', 'Selected on a card mixed over the card\'s own fill.'],
     ['The word for muted text in code is <code>--text-dim</code>', 'The product has no <code>--text-muted</code>; the Colour family\'s "Muted text" role is <code>--text-dim</code>.', 'Rename the token when Colour moves in.'],
     ['In today\'s theme the card and the field are the same colour', 'The product sets <code>--bg-card</code> to the input shade. The steps are tokens, so they separate when a theme or the Colour family does.', 'Decide the card shade in Colour.'],

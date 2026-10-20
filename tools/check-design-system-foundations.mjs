@@ -18,6 +18,7 @@
  * colour written out in the stylesheet, a frame missing, the family not marked Approved, the "Decided 2026-10-21" list missing, or the undecided list
  * still holding a bare Tokens or Icons.
  */
+import { checkNesting } from './check-design-system-nesting.mjs';
 export const id = 'foundations';
 export const todayOnly = [];
 
@@ -63,6 +64,7 @@ export async function browserChecks(b) {
   const { ev, cdp, sessionId, where, problems } = b;
   const r = JSON.parse(await ev(`(${probe.toString()})()`));
   for (const x of r.problems) problems.push(`${where}: ${x}`);
+  await checkNesting(b, /^Foundations/);
   // Reduced motion, asked of the browser (emulated): every transition and animation ends at once, in this family's frames and in another family's.
   const readMotion = () => ev(`(() => { const F = window.__ds.frames; const f = F.find((x) => x.iframe.title === 'Foundations, motion'); const d = f.iframe.contentDocument; const w = d.defaultView;
     if (w.__fdRead) w.__fdRead(); const fill = d.querySelector('.pm-fd-fill'); const skel = d.querySelector('.pm-fd-skel'); const sheet = d.querySelector('.pm-fd-sheet');
@@ -103,7 +105,7 @@ const probe = async () => {
   const out = { problems: [] }; const bad = (m) => out.problems.push(m);
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const TITLES = F.map((x) => x.iframe.title).filter((t) => /^Foundations/.test(t));
-  const EXPECT = ['spacing scale', 'before and after', 'shadows', 'today\'s shadows', 'scrim', 'layers', 'layers in use', 'radius tokens', 'radius by role', 'motion', 'icon sizes', 'icons solid only', 'icon colour', 'icon buttons', 'breakpoints', 'page skeleton'];
+  const EXPECT = ['spacing scale', 'before and after', 'shadows', 'today\'s shadows', 'scrim', 'layers', 'layers in use', 'radius tokens', 'radius by role', 'motion', 'icon sizes', 'icons solid only', 'icon colour', 'icon buttons', 'breakpoints', 'page skeleton', 'nesting and corners'];
   for (const e of EXPECT) if (!TITLES.includes(e === 'motion' ? 'Foundations, motion' : `Foundations, ${e}`)) bad(`no frame "Foundations, ${e}"`);
   for (const w of [390, 700, 1280]) if (!TITLES.includes(`Foundations at ${w}`)) bad(`no frame "Foundations at ${w}"`);
   const cs = (d, e, p) => d.defaultView.getComputedStyle(e, p);
@@ -180,6 +182,16 @@ const probe = async () => {
       if (!(pop.left > dlg.left && pop.top > dlg.top)) bad('the popover is not drawn inside the dialog');
       if (top(toast.left + 8, pop.bottom - 4) !== 'toast' && top(toast.left + 8, toast.top + 4) !== 'toast') bad('the toast is not above the popover');
       if (top(toast.left + 8, Math.max(toast.top, pop.top) + 2) === 'dialog') bad('the dialog is above the toast');
+    } }
+  // Nesting and corners: the live example's rows are 8px apart in a list and 4px in a card; the card and rows have the stepped corners.
+  { const d = get('Foundations, nesting and corners'); if (d) {
+      const gap = (sel) => { const rs = [...d.querySelectorAll(sel + ' .sdk-row')]; return rs.length < 2 ? null : rs[1].getBoundingClientRect().top - rs[0].getBoundingClientRect().bottom; };
+      const gl = gap('[data-gap="list"]'); const gc = gap('[data-gap="card"]');
+      if (gl === null || Math.abs(gl - 8) > 0.6) bad(`rows in a list are ${gl}px apart, not 8`);
+      if (gc === null || Math.abs(gc - 4) > 0.6) bad(`rows in a card are ${gc}px apart, not 4`);
+      const R = (sel) => cs(d, d.querySelector(sel)).borderTopLeftRadius; const right = '[data-nest="right"]';
+      if (R(right + ' .sdk-panel') !== tokOf(d, '--radius-large', 'borderTopLeftRadius') || R(right + ' .sdk-card') !== tokOf(d, '--radius-large', 'borderTopLeftRadius') || R(right + ' .sdk-row') !== tokOf(d, '--radius-small', 'borderTopLeftRadius')) bad('the nesting example does not step the corners panel large, card large, row small');
+      if (!d.querySelector('[data-nest="wrong"][data-nesting-skip]')) bad('the wrong example is not marked as skipped by the nesting check');
     } }
   // Radius.
   { const d = get('Foundations, radius tokens'); if (d) { const boxes = [...d.querySelectorAll('[data-radius]')]; if (boxes.length !== 5) bad(`radius tokens draws ${boxes.length}, not 5`);

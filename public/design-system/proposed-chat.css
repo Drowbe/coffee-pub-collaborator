@@ -68,6 +68,12 @@
   box-shadow: none;
 }
 
+/* Between two flat messages: the 8px gap and a hairline (a divider, one side), so flat messages do not run together. */
+.ds-proposed :is(.sdk-message, .message):not(.own):has(+ :is(.sdk-message, .message):not(.own)) {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
 .ds-proposed :is(.sdk-message, .message):is(.own, [data-own]) {
   --msg-inset: 12px;
   padding: 4px 12px 12px;

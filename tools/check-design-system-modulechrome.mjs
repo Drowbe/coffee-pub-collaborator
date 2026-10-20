@@ -13,6 +13,7 @@
  * the new name, a frame that scrolls sideways, the family not marked Approved, the undecided name still listed; in the stylesheet: a hex colour, a gradient, a colour
  * written out, a shadow other than none and --shadow-2, --shade, a side border other than the 1px --border divider, a name not defined.
  */
+import { checkNesting } from './check-design-system-nesting.mjs';
 export const id = 'modulechrome';
 export const todayOnly = [];
 
@@ -42,6 +43,23 @@ export async function browserChecks(b) {
   const { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours } = b;
   const cp = JSON.parse(await ev(`(${probe.toString()})()`));
   for (const x of cp.problems) problems.push(`${where}: ${x}`);
+  await checkNesting(b, /^Module chrome/);
+  // Alignment: rows keep title left and meta right on one centre line, rows in the content are 8px apart, and the items of each band share a centre line with equal side padding.
+  const al = await ev(`(() => { const out = []; const F = window.__ds.frames.filter((f) => /^Module chrome/.test(f.iframe.title));
+    for (const f of F) { const d = f.iframe.contentDocument; const t = f.iframe.title; const mid = (e) => { const r = e.getBoundingClientRect(); return (r.top + r.bottom) / 2; };
+      for (const w of d.querySelectorAll('.sdk-window')) {
+        const rows = [...w.querySelectorAll('.sdk-window-content > .sdk-row')];
+        rows.forEach((r, i) => { const ti = r.querySelector('.sdk-row-title'); const me = r.querySelector('.sdk-row-meta'); const rr = r.getBoundingClientRect(); const cs = getComputedStyle(r);
+          if (me && Math.abs(mid(ti) - mid(me)) > 1) out.push(t + ': a row title and its meta are not on one centre line (' + mid(ti).toFixed(1) + ' and ' + mid(me).toFixed(1) + ')');
+          if (Math.abs(ti.getBoundingClientRect().left - (rr.left + parseFloat(cs.borderLeftWidth) + parseFloat(cs.paddingLeft))) > 1) out.push(t + ': a row title is not at the left padding');
+          if (me && Math.abs(rr.right - parseFloat(cs.borderRightWidth) - parseFloat(cs.paddingRight) - me.getBoundingClientRect().right) > 1) out.push(t + ': a row meta is not at the right padding');
+          if (i && Math.abs(rr.top - rows[i - 1].getBoundingClientRect().bottom - 8) > 0.6) out.push(t + ': rows in the content are not 8px apart'); });
+        for (const [sel, kids] of [['.sdk-titlebar', ':scope > span > *'], ['.sdk-toolbar', ':scope > *'], ['.sdk-status-line', ':scope .sdk-status-item']]) { const band = w.querySelector(sel); if (!band) continue; const br = band.getBoundingClientRect(); const bm = (br.top + br.bottom - (parseFloat(getComputedStyle(band).paddingBottom) || 0)) / 2;
+          for (const k of band.querySelectorAll(kids)) { const r = k.getBoundingClientRect(); if (r.width < 1 || r.height < 1) continue; if (Math.abs(mid(k) - bm) > 1.01) out.push(t + ': an item of ' + sel + ' is ' + (mid(k) - bm).toFixed(1) + 'px off the centre line (' + (k.className || k.tagName) + ')'); } }
+        for (const sel of ['.sdk-toolbar', '.sdk-status-line']) { const band = w.querySelector(sel); if (!band || sel === '.sdk-toolbar' && band.scrollWidth > band.clientWidth + 1) continue; const cs = getComputedStyle(band); if (cs.paddingLeft !== cs.paddingRight) out.push(t + ': ' + sel + ' has ' + cs.paddingLeft + ' on the left and ' + cs.paddingRight + ' on the right'); }
+      } }
+    return JSON.stringify([...new Set(out)]); })()`);
+  for (const x of JSON.parse(al)) problems.push(`${where}: ${x}`);
   // The label of a text button in the toolbar, within 1px of the middle of its box (a 4x screenshot of the button).
   for (const [title, sel, nm] of [['Module chrome, toolbar', '.sdk-toolbar .btn:not(.sdk-icon-btn)', 'the toolbar text button'], ['Module chrome, aliases', '.tb-btn', 'the .tb-btn alias']]) {
     const at = JSON.parse(await ev(`(async () => { const m = window.__ds.frames.find((f) => f.iframe.title === ${JSON.stringify(title)}); const el = m.iframe.contentDocument.querySelector(${JSON.stringify(sel)}); { const ic = el.querySelector('i'); if (ic) ic.remove(); } el.scrollIntoView({ block: 'center', behavior: 'instant' }); await new Promise((r) => setTimeout(r, 150));

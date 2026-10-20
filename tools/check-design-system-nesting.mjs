@@ -106,6 +106,8 @@ export const nestingProbe = (only, dump) => {
       const inner = { top: pr.top + parseFloat(pc.borderTopWidth), left: pr.left + parseFloat(pc.borderLeftWidth), right: pr.right - parseFloat(pc.borderRightWidth), bottom: pr.bottom - parseFloat(pc.borderBottomWidth) };
       const own = Math.max(parseFloat(c.paddingTop), parseFloat(c.paddingRight), parseFloat(c.paddingBottom), parseFloat(c.paddingLeft)) || 0;
       if (own <= 0) continue;
+      { let sc = el.parentElement; while (sc && sc !== root) { const o = style(sc).overflowY; if (o === 'auto' || o === 'scroll') break; sc = sc.parentElement; } // cut by a scrolling list: not a layout gap
+        if (sc && sc !== root && sc.scrollHeight > sc.clientHeight + 1 && cr.bottom >= sc.getBoundingClientRect().bottom - 1) continue; }
       const gaps = { top: cr.top - inner.top, left: cr.left - inner.left, right: inner.right - cr.right, bottom: inner.bottom - cr.bottom };
       for (const [side, g] of Object.entries(gaps)) if (g < own - 0.6 && g >= -0.6) bad(`p|${label(el)}|${label(p)}|${side}`, `${label(el)} is ${Math.round(g * 10) / 10}px from the ${side} of ${label(p)} but has ${own}px of its own padding (the space to the parent's edge is at least the child's padding)`);
     }

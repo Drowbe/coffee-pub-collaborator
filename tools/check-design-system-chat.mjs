@@ -73,7 +73,10 @@ const probe = async () => {
       const c = cs(m); const isOwn = m.classList.contains('own');
       if (c.backgroundColor !== (isOwn ? own : others)) bad(`a message is ${c.backgroundColor}, expected ${isOwn ? 'accent 10%' : 'flat (no fill)'}`);
       if (isOwn ? (c.paddingLeft !== '12px' || c.paddingRight !== '12px' || c.paddingBottom !== '12px') : (c.paddingLeft !== '0px' || c.paddingTop !== '0px')) bad(`a message has padding ${c.paddingTop} ${c.paddingRight} ${c.paddingBottom} ${c.paddingLeft} (own 4 12 12, others none)`);
-      for (const s of NO_EDGE) if (c['border' + s + 'Width'] !== '0px') bad(`a message has a ${s.toLowerCase()} edge (the tint is on the portrait only)`);
+      // No edge on a message; the one divider is the hairline under a flat message that has another flat message after it.
+      const nx = m.nextElementSibling; const divider = !isOwn && nx && nx.matches('.sdk-message:not(.own)');
+      for (const s of NO_EDGE) { const w = c['border' + s + 'Width']; const ok = w === '0px' || (s === 'Bottom' && divider && w === '1px' && c.borderBottomColor === tok(d, 'var(--border)')); if (!ok) bad(`a message has a ${s.toLowerCase()} edge (the tint is on the portrait only; the one hairline is between two flat messages)`); }
+      if (divider && c.paddingBottom !== '8px') bad('a flat message with a hairline under it has not 8px above the line');
       if (c.boxShadow !== 'none') bad('a message has a shadow');
       if (c.borderTopLeftRadius !== tok(d, 'var(--radius-medium)', 'borderTopLeftRadius')) bad('a message is not --radius-medium');
       const head = m.querySelector('.sdk-message-head'); if (cs(head).backgroundColor !== 'rgba(0, 0, 0, 0)') bad('a message head has a band');

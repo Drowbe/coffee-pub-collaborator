@@ -27,7 +27,7 @@ export function staticChecks({ fail, css, defined }) {
   if (!/box-shadow:\s*var\(--shadow-3\)/.test(css)) fail('proposed-dialogs.css: the surface does not use box-shadow: var(--shadow-3)');
   if (!/--dlg-w-confirm:\s*360px/.test(css) || !/--dlg-w-form:\s*560px/.test(css) || !/--dlg-w-browse:\s*880px/.test(css)) fail('proposed-dialogs.css: the three sizes are not 360, 560 and 880');
   if (!/--dlg-ms:\s*200ms/.test(css) || !/ease-out/.test(css)) fail('proposed-dialogs.css: the enter and exit is not 200ms ease-out');
-  if (!/@media \(max-width: 640px\)[\s\S]*border-radius: 0;[\s\S]*box-shadow: none;/.test(css)) fail('proposed-dialogs.css: no full-screen rule at 640px (no radius, no shadow)');
+  if (!/@media \(max-width: 640px\)[\s\S]*--radius-large: 0px;[\s\S]*box-shadow: none;/.test(css)) fail('proposed-dialogs.css: no full-screen rule at 640px (no radius, no shadow)');
   if (!/font-weight: 600;[^}]*line-height: 24px/.test(css) || !/font-size: var\(--text-18, 18px\)/.test(css)) fail('proposed-dialogs.css: the title is not 18px at weight 600');
   for (const c of ['sdk-dialog', 'sdk-dialog-layer', 'sdk-dialog-confirm', 'sdk-dialog-wide', 'sdk-dialog-head', 'sdk-dialog-title', 'sdk-dialog-close', 'sdk-dialog-body', 'sdk-dialog-foot', 'sdk-dialog-discard', 'sdk-dialog-discard-text', 'sdk-dialog-note',
     'sdk-editor', 'sdk-editor-large', 'sdk-editor-actions', 'sdk-editor-discard', 'sdk-editor-close', 'layout-sheet', 'layout-sheet-title', 'layout-form-body', 'phase-sheet', 'phase-sheet-head', 'phase-sheet-body', 'phase-sheet-close', 'bgpick', 'bgpick-card', 'bgpick-head', 'bgpick-body', 'bgpick-foot', 'bgpick-close']) {

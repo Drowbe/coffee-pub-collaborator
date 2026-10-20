@@ -177,7 +177,7 @@
   align-items: center;
   justify-content: center;
   padding: 8px 48px;
-  border-radius: 0;
+  --radius-medium: 0px; /* square: the corner token is zeroed here, so the base rule stays a token */
   text-align: center;
 }
 .ds-proposed :is(.sdk-banner-wide, .env-page-banner) > .sdk-banner-text { flex: 0 1 auto; }

@@ -211,7 +211,7 @@
     max-height: none;
     margin: 0;
     border: 0;
-    border-radius: 0;
+    --radius-large: 0px; /* square: the corner token is zeroed here, so the surface rule stays a token */
     box-shadow: none;
   }
   .ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet)::backdrop { background: var(--bg); }

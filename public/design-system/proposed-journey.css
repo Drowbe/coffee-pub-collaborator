@@ -229,7 +229,7 @@
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
-.ds-proposed .status-today-day { color: inherit; }
+.ds-proposed .status-today-day { color: inherit; font-size: inherit; }
 
 /* ---- narrow: the names go first, then the facts (at 760px); a phone gets the slim line ---- */
 @media (max-width: 760px) {
@@ -254,7 +254,7 @@
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band)[data-state="past"], .ds-proposed .status-strip .status-band.past { background: color-mix(in srgb, var(--tint, var(--accent)) 28%, transparent); }
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band):is([data-state="current"], .current) { background: var(--jr-now); }
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-band, .status-band):is([data-state="off"], .off) { width: 6px; min-width: 6px; border: 0; background: color-mix(in srgb, var(--header-text) 22%, transparent); }
-  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-today, .status-today) { --jr-pin: 8px; width: 8px; height: 8px; margin: -4px 0 0 -4px; font-size: 0; box-shadow: none; }
+  .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-today, .status-today) { --jr-pin: 8px; width: 8px; height: 8px; margin: -4px 0 0 -4px; overflow: hidden; color: transparent; text-indent: 12px; white-space: nowrap; box-shadow: none; }
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track).lead > :is(.sdk-today, .status-today) { left: 1px; }
   .ds-proposed :is(.sdk-strip, .status-strip) :is(.sdk-journey, .status-track).trail > :is(.sdk-today, .status-today) { left: calc(100% - 1px); }
 }

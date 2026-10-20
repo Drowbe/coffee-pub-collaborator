@@ -275,9 +275,9 @@ const probe = async () => {
   // ---- the day grid: measured in the boxes, worked out again here from the dates (not from journeyLayout) ----
   const DAYMS = 86400000; const dn = (iso) => Math.round(Date.parse(iso + 'T00:00:00Z') / DAYMS); const hit = (a, c, m) => a.left < c.right - (m || 0) && a.right > c.left + (m || 0) && a.top < c.bottom - (m || 0) && a.bottom > c.top + (m || 0);
   let measured = 0;
-  for (const t of TITLES.filter((x) => /^Journey at |^Journey, scale at |^Journey, tooltip at |^Journey, band states|^Journey, aliases/.test(x))) { const d = get(t); const ph = phone(d);
+  for (const t of TITLES.filter((x) => /^Journey at |^Journey, scale at |^Journey, tooltip at |^Journey, band states|^Journey, aliases/.test(x))) { const d = get(t); const ph0 = phone(d);
     for (const el of d.querySelectorAll('.sdk-journey[data-grid], .status-track[data-grid]')) {
-      const spec = JSON.parse(el.dataset.grid); if (spec.plain) continue; const jr = el.getBoundingClientRect(); const where = `${t}`;
+      const ph = ph0 && Boolean(el.closest('.sdk-strip, .status-strip')); const spec = JSON.parse(el.dataset.grid); if (spec.plain) continue; const jr = el.getBoundingClientRect(); const where = `${t}`;
       const dated = spec.phases.filter((p) => p.s); const first = Math.min(...dated.map((p) => dn(p.s))); const last = Math.max(...dated.map((p) => dn(p.e))); const total = last - first + 1; const td = dn(spec.today);
       const zone = ph ? 14 : 28; const lead = td < first; const trail = td > last; const zl = lead ? zone : 0; const zt = trail ? zone : 0;
       const dayW = (jr.width - zl - zt - spec.offs * 16) / total; measured += 1;

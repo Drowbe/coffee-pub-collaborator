@@ -136,7 +136,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       const C = alias ? { band: 'status-band', box: 'status-band-box', name: 'status-band-name', icon: 'status-band-icon', today: 'status-today' } : { band: 'sdk-band', box: 'sdk-band-box', name: 'sdk-band-name', icon: 'sdk-band-icon', today: 'sdk-today' };
       const draw = () => {
         const width = el.getBoundingClientRect().width; if (!width) return;
-        const phone = win.innerWidth <= 640;
+        const phone = win.innerWidth <= 640 && Boolean(el.closest('.sdk-strip, .status-strip')); // the slim line is the strip's; a bar on its own keeps the grid
         const L = journeyLayout(spec.phases.filter((p) => p.s), spec.today, width, { zone: phone ? 14 : 28, offs: spec.offs });
         el.dataset.mode = L.tickMode; el.dataset.where = L.where; el.style.setProperty('--day-w', `${L.dayW}px`); el.style.setProperty('--zone', `${L.zl}px`);
         const px = (v) => `${Math.round(v * 100) / 100}px`; const out = [];

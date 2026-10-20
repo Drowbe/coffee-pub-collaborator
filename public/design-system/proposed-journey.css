@@ -280,7 +280,7 @@
 .ds-proposed :is(.sdk-strip, .status-strip):has(> :is(.sdk-journey, .status-track)[data-grid]) { height: var(--jr-strip-grid-h); }
 .ds-proposed :is(.sdk-journey, .status-track)[data-grid] > :is(.sdk-band, .status-band)[data-label="none"] { padding: 0; }
 /* The bar is the part of the strip that matters most: it asks for 360px and the phase chip's words (ellipsis) give way first. */
-.ds-proposed .sdk-strip:has(> :is(.sdk-journey, .status-track)[data-grid]) > :is(.sdk-strip-said, .status-said) { flex: 0 6 auto; }
+.ds-proposed .sdk-strip:has(> :is(.sdk-journey, .status-track)[data-grid]) > :is(.sdk-strip-said, .status-said) { flex: 0 3 auto; min-width: 120px; }
 .ds-proposed :is(.sdk-journey, .status-track)[data-grid] { display: block; flex: 1 1 360px; min-width: 48px; align-self: stretch; height: calc(var(--jr-strip-grid-h) - 1px); cursor: default; }
 .ds-proposed :is(.sdk-journey, .status-track)[data-grid][data-plain] { --jr-bar-top: 0px; height: var(--jr-band-h); }
 .ds-proposed :is(.sdk-journey, .status-track)[data-grid] > :is(.sdk-band, .status-band) {

@@ -14,21 +14,13 @@ const THEME_TOKENS = [
   '--bg', '--bg-section', '--bg-card', '--bg-input', '--border', '--text', '--text-dim', '--accent', '--on-accent',
   '--accent-hover', '--primary-hover', '--secondary', '--secondary-text', '--secondary-hover', '--header-bg',
   '--header-text', '--icon-hover', '--danger', '--ok', '--surface', '--surface-hover', '--shade',
-  // The colour roles the shared stylesheet's buttons read (a module in a frame gets that stylesheet as text, below, and these values).
+  // The colour roles the shared stylesheet's buttons read (a module in a frame gets that stylesheet from the server's page route, and these values).
   '--accent-fill', '--accent-fill-hover', '--text-on-accent', '--fill-secondary', '--fill-secondary-hover', '--text-on-secondary',
   '--edge-hairline', '--text-primary', '--text-muted', '--fill-hover', '--fill-selected', '--text-selected', '--focus-ring',
   '--status-danger-fill', '--status-danger-text', '--status-danger-on-fill',
   // The tints (plan-chat-model.md), in the mode showing, so a module's own colour matches the host's.
   '--tint-gold', '--tint-blue', '--tint-green', '--tint-teal', '--tint-purple', '--tint-red', '--tint-orange', '--tint-pink',
 ];
-
-let sharedCssText = null;
-async function sharedCss() {
-  if (sharedCssText === null) {
-    try { sharedCssText = (await (await fetch('/sdk/system.css')).text()).replace(/:root\s*\{[^}]*\}/g, ''); } catch { sharedCssText = ''; }
-  }
-  return sharedCssText;
-}
 
 export function readTheme() {
   const styles = getComputedStyle(document.documentElement);
@@ -1331,8 +1323,6 @@ export function mountModule({ module, frame = null, container = null, scope = 'e
         // Facts about the environment (host.environment): the picture map, { file, minZoom, maxZoom, tileType }, or null.
         environment: (toldFacts = environmentFacts(contextInfo)),
         theme: readTheme(),
-        // A module in a frame has no shared stylesheet of its own; the page sends it (a module in the page already has it).
-        ...(frame && !pageMode ? { systemCss: await sharedCss() } : {}),
         debug: debugOn(),
       };
     },

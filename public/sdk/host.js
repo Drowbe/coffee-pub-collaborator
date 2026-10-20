@@ -1238,6 +1238,14 @@
     info = result;
     if (result && result.destinationState && typeof result.destinationState === 'object') destinationState = result.destinationState;
     if (env.applyTheme) env.applyTheme(result.theme);
+    if (result.systemCss && env.rootElement && !env.rootElement.ownerDocument.getElementById('sdk-system')) {
+      const doc = env.rootElement.ownerDocument;
+      const st = doc.createElement('style');
+      st.id = 'sdk-system';
+      st.textContent = result.systemCss;
+      const base = doc.getElementById('sdk-base');
+      if (base && base.nextSibling) base.parentNode.insertBefore(st, base.nextSibling); else doc.head.appendChild(st);
+    }
     ensureUiStyles();
     return result;
   });

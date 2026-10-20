@@ -2256,8 +2256,8 @@ body.in-space .subnav {
 
 .topbar > .nav-right > .sdk-icon-btn[aria-expanded="true"],
 .subnav .sdk-icon-btn[aria-expanded="true"] {
-  background: var(--b-bg-h);
-  color: var(--b-fg-h);
+  --b-bg: var(--b-bg-h);
+  --b-fg: var(--b-fg-h);
 }
 
 .topbar > .nav-right > .sdk-icon-btn .badge {

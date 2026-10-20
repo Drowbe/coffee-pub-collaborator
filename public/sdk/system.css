@@ -437,14 +437,16 @@
    .sdk-tab-badge, .sdk-tab-dot; .sdk-tab-icon is an icon-only square.
    Selected: aria-selected (a tab list), aria-pressed (a switch), aria-current="page" (a place), or .on / .active.
    Rest: no fill, no edge. Selected: --fill-selected with --text-selected. No accent solid, no underline, no coloured edge.
-   Sizes: 38px (--btn-h when it is defined; 44px on a phone), small 30px (on a phone its look stays 30px and its hit area is 44px). */
+   Sizes: 38px (--tab-h-default; 44px on a phone, --tab-h-tap), small 30px (on a phone its look stays 30px and its hit area is 44px). */
 /* tabs:start */
 :root {
+  --tab-h-default: 38px;
+  --tab-h-tap: 44px; /* a phone: 640px and narrower */
   --tab-h-small: 30px; /* also a top bar place outside a strip (.core-link in public/style.css) */
 }
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) {
-  --tab-h: var(--btn-h, 38px);
+  --tab-h: var(--tab-h-default);
   --tab-pad-x: var(--space-3);
   --tab-font: var(--text-14);
   --tab-icon: var(--icon-16);
@@ -454,10 +456,12 @@
   --tab-ink: var(--text-primary);
   --tab-fg: var(--text-muted);
   --tab-sel: var(--text-selected);
+  --tab-micro-inset: 3px; /* the micro count's inset from the icon's corner, and its side padding */
+  --tab-phone-pad: 7px; /* a small tab's strip on a phone: 30px and 7px each side make the 44px target */
 }
 
 @media (max-width: 640px) {
-  :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) { --tab-h: var(--btn-h, 44px); --tab-icon-dy: 0px; }
+  :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) { --tab-h: var(--tab-h-tap); --tab-icon-dy: 0px; }
 }
 
 /* On the header bar (the top bar, a page bar) the tabs wear the bar's text colours. */
@@ -691,11 +695,11 @@
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab-icon, .tb-tab-icon) > :is(.sdk-tab-badge, .badge, .chat-view-count),
 .tb-tabs-compact > :is(.sdk-tab, .tb-tab):has(> :is(.sdk-tab-glyph, .tb-tab-glyph)) > :is(.sdk-tab-badge, .badge, .chat-view-count) {
   position: absolute;
-  top: 3px;
-  right: 3px;
+  top: var(--tab-micro-inset);
+  right: var(--tab-micro-inset);
   min-width: 14px;
   height: 14px;
-  padding: 0 3px;
+  padding: 0 var(--tab-micro-inset);
   font-size: var(--text-9);
   background: color-mix(in srgb, var(--accent-fill) 88%, var(--text-primary));
   color: var(--text-on-accent);
@@ -710,7 +714,7 @@
 
 /* On a phone a small tab keeps its 30px look and gets a 44px target: a strip of them is 44px high and the hit area fills it. */
 @media (max-width: 640px) {
-  :is(.sdk-tabs-small, .page-bar .subtabs):not(.sdk-tabs-joined, .sdk-tabs-bar, .tb-tabs, .layout-tabs) { padding-block: 7px; }
+  :is(.sdk-tabs-small, .page-bar .subtabs):not(.sdk-tabs-joined, .sdk-tabs-bar, .tb-tabs, .layout-tabs) { padding-block: var(--tab-phone-pad); }
   :is(.sdk-tabs-small, .tb-tabs, .layout-tabs, .page-bar .subtabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link)::after { content: ""; position: absolute; inset: -8px 0; }
 }
 

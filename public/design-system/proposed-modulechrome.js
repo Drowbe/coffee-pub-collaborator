@@ -228,7 +228,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--mc-wash</code>', '10%', 'The tint wash on the title bar. Proposed token.'],
     ['<code>--safe-b</code>', '<code>env(safe-area-inset-bottom)</code> on a popped-out window, else 0', 'The home-indicator inset added to the status line. Proposed token.'],
     ['<code>--bg-section</code> <code>--bg-input</code> <code>--border</code> <code>--selected-bg</code> <code>--tint-*</code>', 'the theme\'s', 'The window, the toolbar, the hairline, a selected button, the wash.'],
-    ['<code>--shadow-2</code>', '0 4px 12px', 'A floating module (the one shadow of what floats).'],
+    ['<code>--shadow-2</code>', '0 2px 8px', 'A floating module (the one shadow of what floats).'],
   ])}
 
 <h4 class="ds-h4" id="modulechrome-contract">Markup</h4>

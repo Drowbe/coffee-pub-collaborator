@@ -52,7 +52,7 @@ const tipsProbe = async (ctx) => {
       if (cs.borderTopLeftRadius !== rs) bad('a tooltip corner is not --radius-small');
       if (cs.paddingTop !== '4px' || cs.paddingLeft !== '8px' || cs.paddingRight !== '8px') bad(`a tooltip is padded ${cs.paddingTop} ${cs.paddingLeft}, not 4px 8px`);
       if (t.getBoundingClientRect().width > 240.5) bad(`a tooltip is ${t.getBoundingClientRect().width}px wide, over 240`);
-      if (!/0px 4px 12px/.test(cs.boxShadow)) bad(`a tooltip shadow is ${cs.boxShadow}, not --shadow-2`);
+      if (!/0px 2px 8px/.test(cs.boxShadow)) bad(`a tooltip shadow is ${cs.boxShadow}, not --shadow-2 (0 2px 8px)`);
       if (t.getAttribute('role') !== 'tooltip') bad('a tooltip has no role');
       if (cs.visibility !== 'visible') bad('a drawn tooltip is hidden'); }
     const kbd = d.querySelector('.sdk-tooltip kbd'); if (!kbd || getComputedStyle(kbd).fontSize !== '11px') bad('the shortcut chip is missing or not 11px');

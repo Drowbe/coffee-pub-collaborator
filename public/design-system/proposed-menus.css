@@ -13,8 +13,7 @@
    Colours are theme tokens only. Radii are --radius-* tokens. No state draws a coloured edge, a bar or an underline. */
 
 .ds-proposed {
-  /* ONE shadow for what floats: menus, popovers, the list under a field. Windows get --shadow-3 with the Dialogs family. */
-  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.40);
+  /* ONE shadow for what floats: menus, popovers, the list under a field: --shadow-2, the Foundations token (0 2px 8px). Windows get --shadow-3. */
   /* The scrim behind a bottom sheet is --scrim, the Foundations token (black at 55% in both modes); this family does not define it. */
   --menu-pad: 4px;
   --menu-w-min: 180px;
@@ -33,9 +32,6 @@
   --dp-day: 30px;
 }
 
-.ds-proposed:is(:root[data-theme-mode="light"] *) {
-  --shadow-2: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
-}
 
 @media (max-width: 640px) {
   .ds-proposed { --menu-item-h: 44px; --dp-day: 44px; }

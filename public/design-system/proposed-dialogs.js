@@ -333,7 +333,7 @@ ${tbl(['Today', 'Proposed', 'Note'], [
     ['Close buttons in different places: the editor\'s hangs from a sticky corner, the picker\'s sits in its header, the layout sheet has none', 'One close, top right, 16px in, the Quiet small icon button', 'The same place in every dialog.'],
     ['Titles 15px (layout sheet), 18px (picker, editor), none (the Set up sheets)', 'Figtree 600 at 18px, always', 'Not Fraunces: a dialog is not a headline.'],
     ['Scrim: <code>--bg</code> at 70% (the sheets), raw black at 60% (the picker)', '<code>--scrim</code>: black at 55%', 'Foundations token.'],
-    ['Shadows <code>0 16px 48px</code> at 45% and <code>0 20px 60px</code> at 50%', '<code>--shadow-3</code>, about <code>0 8px 30px</code>', 'The Foundations family\'s token.'],
+    ['Shadows <code>0 16px 48px</code> at 45% and <code>0 20px 60px</code> at 50%', '<code>--shadow-3</code>, <code>0 4px 16px</code>', 'The Foundations family\'s token.'],
     ['Two of the six are not full screen on a phone (the layout sheet, the picker)', 'All are, at 640px and below', 'Safe-area insets.'],
     ['The head scrolls away with the body in the Set up sheets and the phase sheet', 'The head and the foot stay; the body scrolls', 'A hairline under the head once scrolled.'],
     ['<code>window.confirm</code>: 42 calls. <code>admin.js</code> 15, <code>profile.js</code> 12, <code>space.js</code> 4, <code>host-templates.js</code> 3, <code>module-config.js</code> 2, <code>module-settings.js</code> 2, one each in <code>chat-input.js</code>, <code>flight-schedule.js</code>, <code>host.js</code> and the Stream module', 'The styled confirm, three kinds', 'Counted from the code on 2026-10-20 (a search for <code>confirm(</code>); an earlier list had admin 17 and profile 13, which makes 45.'],
@@ -346,7 +346,7 @@ ${tbl(['Today', 'Proposed', 'Note'], [
 
 <h4 class="ds-h4" id="dialogs-tokens">Tokens</h4>
 ${tbl(['Token', 'Use here', ''], [
-    ['<code>--shadow-3</code>', 'The shadow of a window: about <code>0 8px 30px</code> (the Foundations family\'s value: dark black at 50%, light <code>--text</code> at 18%).', 'exists (Foundations)'],
+    ['<code>--shadow-3</code>', 'The shadow of a window: <code>0 4px 16px</code> (the Foundations family\'s value: dark black at 35%, light <code>--text</code> at 10%).', 'exists (Foundations)'],
     ['<code>--scrim</code>', 'The backdrop: black at 55%. Opaque <code>--bg</code> on a phone.', 'exists (Foundations)'],
     ['<code>--dlg-w-confirm</code>, <code>--dlg-w-form</code>, <code>--dlg-w-browse</code>', '360px, 560px, 880px.', 'new'],
     ['<code>--dlg-pad-x</code>, <code>--dlg-ms</code>, <code>--dlg-max-h</code>', '24px (16px on a phone); 200ms; the screen less 48px.', 'new'],

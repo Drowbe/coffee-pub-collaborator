@@ -5,7 +5,7 @@
  *
  * Fails on: a spacing token that is not on the scale (--space-0 is 2px and --space-1 to --space-9 are 4, 8, 12, 16, 20, 24, 32, 40 and 48), a bar of the scale
  * that is not drawn from its token or not its width, a before/after mock whose "on the scale" side uses a value off the scale; a shadow whose offset and blur are
- * not 0 2px 8px, 0 4px 12px and 0 8px 30px (each larger than the one before) in both modes, a scrim that is not black at 55% in both modes; a layer token that is not
+ * not 0 1px 4px, 0 2px 8px and 0 4px 16px (each larger than the one before) in both modes, a scrim that is not black at 55% in both modes; a layer token that is not
  * 0, 20, 25, 26, 30, 40, 50, 60 or 100, layers that do not stack in that order (found by pointing at the overlaps, with the markup highest first), a dialog scene
  * where the popover is not above the dialog and the toast above the popover and the scrim above the bar; a radius box that is not its token, a role that is not
  * its token; a motion duration that is not 120ms and 200ms, a fast demo or a base demo that does not use them with the easing, a shimmer or a reaction that is not the
@@ -30,7 +30,7 @@ export function staticChecks({ fail, css, js }) {
   if (/@keyframes/.test(css)) fail('proposed-foundations.css: a keyframe (they live in the script, which the stylesheet check cannot take as selectors)');
   SCALE.forEach((px, n) => { if (!new RegExp(`--space-${n}:\\s*${px}px;`).test(css)) fail(`proposed-foundations.css: --space-${n} is not ${px}px`); });
   const want = {
-    '--shadow-1': '0 2px 8px', '--shadow-2': '0 4px 12px', '--shadow-3': '0 8px 30px',
+    '--shadow-1': '0 1px 4px', '--shadow-2': '0 2px 8px', '--shadow-3': '0 4px 16px',
     '--scrim': 'rgba\\(0, 0, 0, 0\\.55\\)', '--z-content': '0', '--z-bar': '20', '--z-window': '25', '--z-menu': '26', '--z-page': '30', '--z-dialog': '40', '--z-popover': '50', '--z-toast': '60', '--z-debug': '100',
     '--motion-fast': '120ms', '--motion-base': '200ms', '--ease-out': 'cubic-bezier\\(0\\.2, 0, 0, 1\\)',
     '--icon-12': 'var\\(--text-12\\)', '--icon-14': 'var\\(--text-14\\)', '--icon-16': 'var\\(--text-16\\)', '--icon-20': '20px', '--icon-24': '24px',
@@ -151,10 +151,10 @@ const probe = async () => {
       const sh = (n) => cs(d, d.querySelector(`[data-shadow="${n}"]`)).boxShadow;
       const geo = (s) => { const m = /(-?[\d.]+)px (-?[\d.]+)px ([\d.]+)px/.exec(s); return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null; };
       const g = [1, 2, 3].map((n) => geo(sh(n)));
-      const WANT = [[0, 2, 8], [0, 4, 12], [0, 8, 30]];
+      const WANT = [[0, 1, 4], [0, 2, 8], [0, 4, 16]];
       g.forEach((v, i) => { if (!v || v.join() !== WANT[i].join()) bad(`--shadow-${i + 1} is ${sh(i + 1)}, not 0 ${WANT[i][1]}px ${WANT[i][2]}px`); });
       if (g.every(Boolean) && !(g[0][2] < g[1][2] && g[1][2] < g[2][2])) bad('the three shadows do not grow');
-      if (dark) { const a = [1, 2, 3].map((n) => (/rgba?\(0, 0, 0, ([\d.]+)\)/.exec(sh(n)) || [])[1]); if (a.join() !== '0.28,0.4,0.5') bad(`the dark shadows are black at ${a.join(', ')}, not 28, 40 and 50%`); }
+      if (dark) { const a = [1, 2, 3].map((n) => (/rgba?\(0, 0, 0, ([\d.]+)\)/.exec(sh(n)) || [])[1]); if (a.join() !== '0.35,0.35,0.35') bad(`the dark shadows are black at ${a.join(', ')}, not 35, 35 and 35%`); }
       else for (const n of [1, 2, 3]) if (/rgba?\(0, 0, 0, /.test(sh(n)) && !/color\(|rgba?\((?!0, 0, 0)/.test(sh(n))) bad(`light --shadow-${n} is black, not the text colour at a low strength`);
       if (sh(1) === sh(2) || sh(2) === sh(3)) bad('two shadow levels look the same');
       for (const t of d.querySelectorAll('[data-shadow]')) if (cs(d, t).boxShadow === 'none') bad('a shadow level has no shadow');

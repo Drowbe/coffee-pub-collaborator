@@ -31,8 +31,7 @@
   --tick-hit: 28px;
   --tick-edge: -6px;
   --ls-label: 0.04em;
-  /* Proposed token: --shadow-1, a card lifted while it is dragged (the plan's elevation scale). Black, so it darkens whatever is behind. */
-  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.28);
+  /* --shadow-1, a card lifted while it is dragged, is the Foundations token (0 1px 4px). */
   --t-ink: var(--text);
 }
 

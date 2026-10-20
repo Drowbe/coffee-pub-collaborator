@@ -201,13 +201,13 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 
   // ---- elevation ----
   const liftsBody = () => `<div class="ds-proposed"><div class="pm-fd-lifts">
-    <div class="pm-fd-lift pm-fd-s1" data-shadow="1"><b>--shadow-1</b>0 2px 8px<span>A card or row while it is dragged.</span></div>
-    <div class="pm-fd-lift pm-fd-s2" data-shadow="2"><b>--shadow-2</b>0 4px 12px<span>Menus, popovers, the list under a field, toasts.</span></div>
-    <div class="pm-fd-lift pm-fd-s3" data-shadow="3"><b>--shadow-3</b>0 8px 30px<span>Dialogs, sheets and floating windows.</span></div>
+    <div class="pm-fd-lift pm-fd-s1" data-shadow="1"><b>--shadow-1</b>0 1px 4px<span>A card or row while it is dragged.</span></div>
+    <div class="pm-fd-lift pm-fd-s2" data-shadow="2"><b>--shadow-2</b>0 2px 8px<span>Menus, popovers, the list under a field, toasts.</span></div>
+    <div class="pm-fd-lift pm-fd-s3" data-shadow="3"><b>--shadow-3</b>0 4px 16px<span>Dialogs, sheets and floating windows.</span></div>
   </div></div>`;
   const TODAY_SHADOWS = [
-    ['0 8px 30px black 50%', '0 8px 30px rgba(0, 0, 0, 0.5)', '7 uses', '--shadow-3, as it is'],
-    ['0 16px 48px black 45%', '0 16px 48px rgba(0, 0, 0, 0.45)', '4 uses', '--shadow-3 (smaller)'],
+    ['0 8px 30px black 50%', '0 8px 30px rgba(0, 0, 0, 0.5)', '7 uses', '--shadow-3 (smaller: 0 4px 16px)'],
+    ['0 16px 48px black 45%', '0 16px 48px rgba(0, 0, 0, 0.45)', '4 uses', '--shadow-3 (much smaller)'],
     ['0 8px 24px black 45%', '0 8px 24px rgba(0, 0, 0, 0.45)', '3 uses', '--shadow-3'],
     ['0 12px 32px black 35%', '0 12px 32px color-mix(in srgb, black 35%, transparent)', '2 uses', '--shadow-3'],
     ['0 8px 18px black 22%', '0 8px 18px color-mix(in srgb, black 22%, transparent)', '2 uses', '--shadow-2'],
@@ -441,7 +441,7 @@ ${tbl(['Value', 'Uses today', 'Goes to', 'Note'], [
   ])}
 
 <h4 class="ds-h4" id="foundations-elevation">Elevation</h4>
-<p class="ds-desc">Three shadows. A flat thing has none; a shadow means "this is above what is behind it". In dark mode the shadow is black; in light mode it is the text colour at a low strength, so it never reads as a smudge. The dialog shadow is <code>0 8px 30px</code>, smaller than the old <code>0 16px 48px</code>.</p>
+<p class="ds-desc">Three shadows. A flat thing has none; a shadow means "this is above what is behind it". In dark mode the shadow is black; in light mode it is the text colour at a low strength, so it never reads as a smudge. The dialog shadow is <code>0 4px 16px</code> (measured here: the shadow can be seen, 3 levels of 255 or more, about 13px below the box and 9px to the sides in light, and 9px and 5px in dark; the edge it makes against the page behind is 1.14 to 1 in light and 1.04 to 1 in dark, so the hairline does the separating), much smaller than the old <code>0 16px 48px</code>. Thomas, 2026-10-21: "our drop shadows are far too large", so all three levels were made smaller; a hairline already separates a surface, so a shadow only suggests lift.</p>
 <div data-slot="lifts"></div>
 <h5 style="margin:18px 0 4px;font-size:13px">The 66 shadows today fold into these three</h5>
 <p class="ds-desc">The most-used shadows today, each beside where it goes. (Shown here as they are, in dark they are hard to see: that is part of why they fold.) Focus rings drawn as a shadow (9 uses) become the focus outline of the Fields. The 3px coloured inset bars go with the coloured edges.</p>
@@ -576,9 +576,9 @@ ${tbl(['Where it is today', 'Write instead'], [
 <h4 class="ds-h4" id="foundations-tokens">Tokens</h4>
 ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--space-0</code> to <code>--space-9</code>', '2, 4, 8, 12, 16, 20, 24, 32, 40, 48px', 'Every padding, gap and margin.'],
-    ['<code>--shadow-1</code>', '<code>0 2px 8px</code>, black 28% (dark), text 12% (light)', 'A dragged card or row.'],
-    ['<code>--shadow-2</code>', '<code>0 4px 12px</code>, black 40% (dark), text 14% (light)', 'Menus, popovers, toasts. Already in Menus.'],
-    ['<code>--shadow-3</code>', '<code>0 8px 30px</code>, black 50% (dark), text 18% (light)', 'Dialogs, sheets, windows.'],
+    ['<code>--shadow-1</code>', '<code>0 1px 4px</code>, black 35% (dark), text 8% (light)', 'A dragged card or row.'],
+    ['<code>--shadow-2</code>', '<code>0 2px 8px</code>, black 35% (dark), text 10% (light)', 'Menus, popovers, toasts. Already in Menus.'],
+    ['<code>--shadow-3</code>', '<code>0 4px 16px</code>, black 35% (dark), text 10% (light)', 'Dialogs, sheets, windows.'],
     ['<code>--scrim</code>', 'black at 55%', 'Behind a dialog or a sheet.'],
     ['<code>--z-content</code>, <code>-bar</code>, <code>-window</code>, <code>-menu</code>, <code>-page</code>, <code>-dialog</code>, <code>-popover</code>, <code>-toast</code>, <code>-debug</code>', '0, 20, 25, 26, 30, 40, 50, 60, 100', 'The named layers.'],
     ['<code>--radius-min</code> to <code>--radius-round</code>', '3, 5, 7, 11, 999px', 'Unchanged.'],
@@ -595,7 +595,7 @@ ${tbl(["Decided as drawn","Why"], [
     ["Names count steps: <code>--space-3</code> is 12px, <code>--space-0</code> is 2px","Short, and the same shape as <code>--radius-*</code>. They differ from the older plan table, where <code>--space-3</code> was 6."],
     ["A row's horizontal 10 is written <code>--space-2</code> + <code>--space-0</code>","Keeps the Cards decision (8 by 10) while 10 stays off the scale."],
     ["The panel is 16 (decided 2026-10-21); Menus' 14px popover padding is not touched","A popover is not a panel; its padding stays with the Menus family."],
-    ["<code>--shadow-3</code> is <code>0 8px 30px</code>, black 50% dark and the text colour at 18% light; <code>--shadow-1</code> in light is the text colour at 12%","Same size as the most common dialog shadow today (7 uses), smaller than the 16/48 one."],
+    ["The three shadows are <code>0 1px 4px</code>, <code>0 2px 8px</code> and <code>0 4px 16px</code>: black at 35% in dark, the text colour at 10% (8% for <code>--shadow-1</code>) in light (smaller, 2026-10-21)","Same size as the most common dialog shadow today (7 uses), smaller than the 16/48 one."],
     ["<code>--scrim</code> is 55% in light mode too","Your \"one scrim\". Menus drew 35% in light; it now follows this."],
     ["A menu (26) is below a dialog (40); a menu opened from inside a dialog uses the popover layer","So the list never hides behind the dialog it was opened from. It is the SDK's job to pick the layer."],
     ["The background picker (1000) goes to the dialog layer; 10000 (host.css:1154) goes to the popover layer","The first covers the page; the second is a floating list."],

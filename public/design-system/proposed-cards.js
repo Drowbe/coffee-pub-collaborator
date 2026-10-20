@@ -342,7 +342,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--row-pad-y</code> <code>--row-pad-x</code>', '8px, 10px', 'A row\'s padding. Proposed tokens.'],
     ['<code>--gap-in</code> <code>--gap-group</code>', '8px, 16px', 'The one spacing rule. Proposed tokens.'],
     ['<code>--ls-label</code>', '0.04em', 'Group header letter spacing. Proposed token.'],
-    ['<code>--shadow-1</code>', '0 2px 8px, black at 28%', 'A card while it is dragged. Smaller than the menu\'s <code>--shadow-2</code> (<code>0 4px 12px</code>). Proposed token (the plan\'s elevation scale).'],
+    ['<code>--shadow-1</code>', '0 1px 4px, black at 35% (dark), the text colour at 8% (light)', 'A card while it is dragged. Smaller than the menu\'s <code>--shadow-2</code> (<code>0 2px 8px</code>). The Foundations token.'],
     ['<code>--tint-*</code>', 'the eight tints', 'The icon chip and the category words.'],
   ])}
 

@@ -22,8 +22,8 @@ export function staticChecks({ fail, css, js, defined, DS }) {
   if (/border-(left|right|top)\s*:/.test(css)) fail('proposed-cards.css: a border on one side other than the divider under a group header');
   for (const m of css.matchAll(/box-shadow\s*:\s*([^;]+);/g)) if (!/^(none|var\(--shadow-1\))$/.test(m[1].trim())) fail(`proposed-cards.css: box-shadow ${m[1].trim()} (only none, and --shadow-1 while dragging)`);
   if (!/\.is-dragging\s*\{[^}]*box-shadow:\s*var\(--shadow-1\)/.test(css)) fail('proposed-cards.css: the dragged card has no --shadow-1');
-  if (!/--shadow-1:\s*0 2px 8px rgba\(0, 0, 0, 0\.28\)/.test(css)) fail('proposed-cards.css: --shadow-1 is not 0 2px 8px, black at 28% (smaller than the menus --shadow-2, 0 4px 12px)');
-  if ((css.match(/rgba?\(/g) || []).length !== 1) fail('proposed-cards.css: a colour written out other than the one --shadow-1 black');
+  if (/--shadow-1\s*:/.test(css)) fail('proposed-cards.css: --shadow-1 is defined here (it is the Foundations token, 0 1px 4px)');
+  if ((css.match(/rgba?\(/g) || []).length !== 0) fail('proposed-cards.css: a colour written out (the shadow comes from the Foundations token)');
   const bars = css.match(/\.sdk-bar-kept/g) || [];
   if (!/\.sdk-bar-kept\s*\{[^}]*border-top-left-radius:\s*0;[^}]*border-bottom-left-radius:\s*0/.test(css)) fail('proposed-cards.css: the kept bar box is not square on the bar side');
   if (/\.sdk-bar-kept\s*\{[^}]*overflow/.test(css)) fail('proposed-cards.css: the kept bar box hides its overflow (the corner would clip the bar)');

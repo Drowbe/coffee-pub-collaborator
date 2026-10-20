@@ -12,7 +12,7 @@
  * is not the quiet fill, a chosen day that is not the solid accent with --on-accent, a today that is not the half-strength selected fill, a range that is not
  * the quiet fill; a kind list that is not --radius-medium, a chosen kind not bold with its chip; an alias (today's class name) that does not take the same
  * surface and row; a popover heading that is accent coloured; the keyboard demo not answering Down, Up, Home, End, Right, Left, Escape and Enter; the family
- * not marked Approved and dated 2026-10-19; a --shadow-2 that is not 0 4px 12px (dark black at 40%, light --text at 14%) or a --shadow-1 not smaller than it; Dialogs and sheets, Toasts and banners or Tooltips still listed as not yet decided (they are drawn now); Menus and flyouts and Popovers and
+ * not marked Approved and dated 2026-10-19; a --shadow-2 that is not 0 2px 8px (the Foundations token: dark black at 35%, light --text at 10%) or a --shadow-1 not smaller than it; Dialogs and sheets, Toasts and banners or Tooltips still listed as not yet decided (they are drawn now); Menus and flyouts and Popovers and
  * sheets still listed as not yet decided. In the stylesheet: a rule that draws an edge on one side, an inset shadow, an underline, a red or accent fill on a
  * danger row or a hover, a name that is not defined, a --shadow-2 with no light value.
  */
@@ -23,9 +23,7 @@ export function staticChecks({ fail, css, defined }) {
   if (/border-(left|right|top|bottom)(-color|-width|-style)?\s*:/.test(css)) fail('proposed-menus.css: a rule draws an edge on one side (no coloured one-sided border, no bar)');
   if (/box-shadow\s*:\s*inset|inset\s+\d/.test(css)) fail('proposed-menus.css: a rule draws an inset shadow (a bar)');
   if (/text-decoration\s*:\s*underline/.test(css)) fail('proposed-menus.css: a rule underlines something');
-  if (!/--shadow-2:\s*0 4px 12px rgba\(0, 0, 0, 0\.40\)/.test(css)) fail('proposed-menus.css: the dark --shadow-2 is not 0 4px 12px rgba(0, 0, 0, 0.40)');
-  if (!/:root\[data-theme-mode="light"\][^{]*\{[^}]*--shadow-2:\s*0 4px 12px color-mix\(in srgb, var\(--text\) 14%, transparent\)/.test(css)) fail('proposed-menus.css: the light --shadow-2 is not 0 4px 12px of --text at 14%');
-  if (!/--shadow-2\s*:/.test(css) || !/:root\[data-theme-mode="light"\][^{]*\{[^}]*--shadow-2\s*:/.test(css)) fail('proposed-menus.css: --shadow-2 has no dark value and light value');
+  if (/--shadow-2\s*:/.test(css)) fail('proposed-menus.css: --shadow-2 is defined here (it is the Foundations token, 0 2px 8px)');
   if ((css.match(/box-shadow\s*:\s*var\(--shadow-2\)/g) || []).length < 1) fail('proposed-menus.css: the surface does not use box-shadow: var(--shadow-2)');
   // A hover or danger rule is neutral: no accent or danger fill (the current row's own hover is the one allowed, and the chosen day's).
   for (const m of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
@@ -121,7 +119,7 @@ const menusProbe = async () => {
       for (const s of SIDES) if (cs['border' + s + 'Width'] !== '1px' || cs['border' + s + 'Style'] !== 'solid' || cs['border' + s + 'Color'] !== tok(d, 'var(--border)')) bad(`${nm}: the ${s.toLowerCase()} edge is ${cs['border' + s + 'Width']} ${cs['border' + s + 'Color']}, not a 1px --border hairline`);
       for (const k of ['TopLeft', 'TopRight', 'BottomLeft', 'BottomRight']) if (cs['border' + k + 'Radius'] !== '7px') bad(`${nm}: a corner is ${cs['border' + k + 'Radius']}, not --radius-medium (7px)`);
       if (cs.boxShadow !== tok(d, 'var(--shadow-2)', 'boxShadow')) bad(`${nm}: the shadow is not --shadow-2 (${cs.boxShadow})`);
-      if (!/ 0px 4px 12px 0px$/.test(cs.boxShadow)) bad(`${nm}: the shadow is ${cs.boxShadow}, not 0 4px 12px`);
+      if (!/ 0px 2px 8px 0px$/.test(cs.boxShadow)) bad(`${nm}: the shadow is ${cs.boxShadow}, not 0 2px 8px`);
       { const s1 = tok(d, 'var(--shadow-1)', 'boxShadow'); const blur = (v) => Number((/ 0px (-?\d+)px (\d+)px/.exec(v) || [])[2]); if (s1 !== 'none' && !(blur(s1) < blur(cs.boxShadow))) bad(`${nm}: --shadow-1 (${s1}) is not smaller than --shadow-2 (${cs.boxShadow})`); }
       const isPop = el.matches('.sdk-popover, .popover'); const dense = el.matches('.sdk-popover-dense, .sdk-dp');
       const want = isPop && !dense ? 14 : dense ? 8 : 4;

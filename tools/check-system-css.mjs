@@ -41,7 +41,7 @@ const css = raw.replace(/\/\*[\s\S]*?\*\//g, '');
   if (/#[0-9a-fA-F]{3,8}\b/.test(css.replace(/url\([^)]*\)/g, ''))) fail(`system.css: a hex colour (${css.match(/#[0-9a-fA-F]{3,8}\b/)[0]}); colours come from the tokens`);
   if (/\b(hsla?|hwb|lab|lch|oklab|oklch)\(/i.test(css)) fail('system.css: a colour function other than color-mix and the approved rgba defaults');
   const rgbas = [...css.matchAll(/rgba?\([^)]*\)/g)].map((m) => m[0].replace(/\s+/g, ''));
-  const approved = new Set(['rgba(0,0,0,0.28)', 'rgba(0,0,0,0.40)', 'rgba(0,0,0,0.50)', 'rgba(0,0,0,0.55)']);
+  const approved = new Set(['rgba(0,0,0,0.35)', 'rgba(0,0,0,0.55)']); // the three shadows (dark, 2026-10-21) and the scrim
   for (const r of rgbas) if (!approved.has(r)) fail(`system.css: ${r} is not an approved palette default`);
   const named = css.replace(/@font-face[^}]*\}/g, '').match(/:\s*(red|green|blue|gray|grey|orange|yellow|purple|pink|brown|cyan|magenta|navy|teal|gold)\b/gi);
   if (named) fail(`system.css: a named colour (${named[0]})`);
@@ -67,7 +67,7 @@ const APPROVED = {
   '--weight-regular': '400', '--weight-medium': '500', '--weight-strong': '600',
   '--leading-body': '1.45', '--leading-ui': '1', '--leading-display': '1.15', '--leading-title': '1.2', '--leading-section': '1.25',
   '--tracking-tight': '-0.01em', '--tracking-normal': '0', '--tracking-caps': '0.06em',
-  '--shadow-1': '0 2px 8px rgba(0, 0, 0, 0.28)', '--shadow-2': '0 4px 12px rgba(0, 0, 0, 0.40)', '--shadow-3': '0 8px 30px rgba(0, 0, 0, 0.50)', '--scrim': 'rgba(0, 0, 0, 0.55)',
+  '--shadow-1': '0 1px 4px rgba(0, 0, 0, 0.35)', '--shadow-2': '0 2px 8px rgba(0, 0, 0, 0.35)', '--shadow-3': '0 4px 16px rgba(0, 0, 0, 0.35)', '--scrim': 'rgba(0, 0, 0, 0.55)',
   '--z-content': '0', '--z-bar': '20', '--z-window': '25', '--z-float': 'var(--z-window)', '--z-page': '30', '--z-dialog': '40', '--z-popover': '50', '--z-toast': '60', '--z-debug': '100',
   '--motion-fast': '120ms', '--motion-base': '200ms', '--ease-out': 'cubic-bezier(0.2, 0, 0, 1)',
   '--icon-12': 'var(--text-12)', '--icon-14': 'var(--text-14)', '--icon-16': 'var(--text-16)', '--icon-20': '20px', '--icon-24': '24px',
@@ -84,11 +84,11 @@ for (const n of ['--z-menu', '--toolbar-h', '--radius-min', '--radius-small', '-
 // Breakpoints: the three widths are written out in the header comment, and every max-width query in the file is one of them.
 if (!/BREAKPOINTS: 640 900 1200/.test(raw)) fail('system.css: the header comment must list "BREAKPOINTS: 640 900 1200"');
 for (const m of css.matchAll(/@media[^{]*\((?:max|min)-width:\s*(\d+)px\)/g)) if (![640, 900, 1200].includes(Number(m[1]))) fail(`system.css: a media query at ${m[1]}px is not one of 640, 900, 1200`);
-// The light-mode shadows are the text colour at 12, 14 and 18 percent.
+// The light-mode shadows are the text colour at 8, 10 and 10 percent.
 const lightShadow = (n) => (defs.get(n) || [])[1];
-if (lightShadow('--shadow-1') !== '0 2px 8px color-mix(in srgb, var(--text) 12%, transparent)') fail('--shadow-1 light value changed');
-if (lightShadow('--shadow-2') !== '0 4px 12px color-mix(in srgb, var(--text) 14%, transparent)') fail('--shadow-2 light value changed');
-if (lightShadow('--shadow-3') !== '0 8px 30px color-mix(in srgb, var(--text) 18%, transparent)') fail('--shadow-3 light value changed');
+if (lightShadow('--shadow-1') !== '0 1px 4px color-mix(in srgb, var(--text) 8%, transparent)') fail('--shadow-1 light value changed');
+if (lightShadow('--shadow-2') !== '0 2px 8px color-mix(in srgb, var(--text) 10%, transparent)') fail('--shadow-2 light value changed');
+if (lightShadow('--shadow-3') !== '0 4px 16px color-mix(in srgb, var(--text) 10%, transparent)') fail('--shadow-3 light value changed');
 
 // ---- 3. the colour roles ----
 const ROLES = [

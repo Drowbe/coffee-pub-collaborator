@@ -56,7 +56,7 @@ const toastsProbe = async (ctx) => {
     const tints = new Set();
     for (const t of ts) { const cs = getComputedStyle(t); if (d.defaultView.innerWidth > 800 && !near(t.getBoundingClientRect().width, 340, 1)) bad(`a toast is ${t.getBoundingClientRect().width}px wide, expected 340`);
       if (cs.backgroundColor !== card) bad(`a toast is ${cs.backgroundColor}, not --bg-card`); if (cs.borderTopWidth !== '1px' || cs.borderTopColor !== hair) bad('a toast has no 1px --border hairline');
-      if (cs.borderTopLeftRadius !== rm) bad('a toast corner is not --radius-medium'); if (!/0px 4px 12px/.test(cs.boxShadow)) bad(`a toast shadow is ${cs.boxShadow}, not --shadow-2`);
+      if (cs.borderTopLeftRadius !== rm) bad('a toast corner is not --radius-medium'); if (!/0px 2px 8px/.test(cs.boxShadow)) bad(`a toast shadow is ${cs.boxShadow}, not --shadow-2 (0 2px 8px)`);
       const role = t.getAttribute('role'); if (t.dataset.kind === 'danger' ? role !== 'alert' : role !== 'status') bad(`a ${t.dataset.kind} toast has role ${role}`);
       const chip = t.querySelector('.sdk-toast-icon'); tints.add(getComputedStyle(chip).backgroundColor); const cc = chip.getBoundingClientRect(); if (!near(cc.width, 28) || !near(cc.height, 28)) bad('the icon chip is not 28px');
       const cl = t.querySelector('.sdk-icon-btn'); if (!near(cl.getBoundingClientRect().width, 30) || !near(cl.getBoundingClientRect().height, 30)) bad('the toast close is not 30px'); if (getComputedStyle(cl).backgroundColor !== 'rgba(0, 0, 0, 0)') bad('the toast close has a fill at rest');

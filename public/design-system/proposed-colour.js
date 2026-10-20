@@ -86,7 +86,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   add('fill-secondary-hover', I, 'fill', 'A secondary button, hovered', { f: M('surface-card', 94, 'text-primary') });
   add('focus-ring', I, 'edge', 'The focus outline', { f: REF('accent-fill'), pairs: [['surface-page', 3], ['surface-panel', 3]] });
   add('overlay-scrim', I, 'fill', 'The dim layer behind a dialog', { f: M('surface-page', 70, 'transparent'), unseen: 'The dim layer behind a dialog (not drawn in this screen)' });
-  add('shadow-color', I, 'fill', 'The tint of a shadow', { css: 'color-mix(in srgb, #000 35%, transparent)', cssLight: 'color-mix(in srgb, #000 15%, transparent)', how: 'black at 35% (dark) or 15% (light)' });
+  add('shadow-color', I, 'fill', 'The tint of a shadow', { css: 'color-mix(in srgb, #000 35%, transparent)', cssLight: 'color-mix(in srgb, #000 10%, transparent)', how: 'black at 35% (dark) or 10% (light)' });
   // Status: each has a fill (the optional base), readable text, and a soft background
   for (const [k, word] of [['danger', 'Danger'], ['ok', 'OK'], ['warn', 'Warning'], ['info', 'Info']]) {
     add(`status-${k}-fill`, ST, 'fill', `${word}: the solid fill`, { base: true, optional: true, pairs: [['surface-page', 3]] });

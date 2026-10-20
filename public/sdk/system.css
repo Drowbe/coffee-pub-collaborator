@@ -63,9 +63,9 @@
   --font-display: "Fraunces", "Fraunces Fallback", "Figtree", "Figtree Fallback", var(--font-system);
 
   /* ---- Elevation: three shadows and one scrim (black in dark; the text colour at a low strength in light, below) ---- */
-  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.28);
-  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.40);
-  --shadow-3: 0 8px 30px rgba(0, 0, 0, 0.50);
+  --shadow-1: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 4px 16px rgba(0, 0, 0, 0.35);
   --scrim: rgba(0, 0, 0, 0.55);
 
   /* ---- Layers between blocks (content inside a block uses 0 to 9). --z-menu (26) is defined in style.css. ---- */
@@ -188,10 +188,10 @@
    the tints use in style.css (the stylesheet's light set, or the environment's light default with no pick). */
 :root[data-theme-mode="light"],
 :root[data-mode-shown="light"]:not([data-theme-mode="dark"]) {
-  --shadow-1: 0 2px 8px color-mix(in srgb, var(--text) 12%, transparent);
-  --shadow-2: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
-  --shadow-3: 0 8px 30px color-mix(in srgb, var(--text) 18%, transparent);
-  --shadow-color: color-mix(in srgb, black 15%, transparent);
+  --shadow-1: 0 1px 4px color-mix(in srgb, var(--text) 8%, transparent);
+  --shadow-2: 0 2px 8px color-mix(in srgb, var(--text) 10%, transparent);
+  --shadow-3: 0 4px 16px color-mix(in srgb, var(--text) 10%, transparent);
+  --shadow-color: color-mix(in srgb, black 10%, transparent);
 }
 
 @media (max-width: 640px) {

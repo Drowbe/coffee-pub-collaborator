@@ -24,10 +24,11 @@
   --space-8: 40px;
   --space-9: 48px;
 
-  /* ---- Elevation: three shadows and one scrim. Black in dark; the text colour at a low strength in light, so a shadow is never a black smudge on a pale page. ---- */
-  --shadow-1: 0 2px 8px rgba(0, 0, 0, 0.28);
-  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.40);
-  --shadow-3: 0 8px 30px rgba(0, 0, 0, 0.50);
+  /* ---- Elevation: three shadows and one scrim (shadows made smaller 2026-10-21: a hairline already separates a surface, so a shadow only suggests lift).
+     Black at 35% in dark; the text colour at a low strength in light, so a shadow is never a black smudge on a pale page. ---- */
+  --shadow-1: 0 1px 4px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 2px 8px rgba(0, 0, 0, 0.35);
+  --shadow-3: 0 4px 16px rgba(0, 0, 0, 0.35);
   --scrim: rgba(0, 0, 0, 0.55);
 
   /* ---- Layers. Inside a block, content uses 0 to 9 and stays inside it; these are the named layers between blocks. ---- */
@@ -70,9 +71,9 @@
 }
 
 .ds-proposed:is(:root[data-theme-mode="light"] *) {
-  --shadow-2: 0 4px 12px color-mix(in srgb, var(--text) 14%, transparent);
-  --shadow-3: 0 8px 30px color-mix(in srgb, var(--text) 18%, transparent);
-  --shadow-1: 0 2px 8px color-mix(in srgb, var(--text) 12%, transparent);
+  --shadow-2: 0 2px 8px color-mix(in srgb, var(--text) 10%, transparent);
+  --shadow-3: 0 4px 16px color-mix(in srgb, var(--text) 10%, transparent);
+  --shadow-1: 0 1px 4px color-mix(in srgb, var(--text) 8%, transparent);
   --scrim: rgba(0, 0, 0, 0.55);
 }
 

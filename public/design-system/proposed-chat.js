@@ -279,7 +279,7 @@ ${tbl(['Token', 'Value', 'Used for'], [
     ['<code>--msg-portrait</code>', '22px', 'The portrait in a message (until the Avatars family sets it). Proposed token.'],
     ['<code>--composer-lines</code> <code>--composer-lh</code> <code>--composer-pad-y</code>', '5, 20px (22px on a phone), 8px (10px on a phone)', 'The field\'s growth: one line is 38px (44px on a phone), five lines 118px (132px). Proposed tokens.'],
     ['<code>--bg-section</code> <code>--bg-card</code> <code>--bg-input</code> <code>--border</code> <code>--selected-bg</code> <code>--tint-*</code>', 'the theme\'s', 'The window, the cards, the field, the hairlines, the selected fill, the portrait tint.'],
-    ['<code>--shadow-2</code>', '0 4px 12px', 'The help and emoji popovers (the Menus shadow).'],
+    ['<code>--shadow-2</code>', '0 2px 8px', 'The help and emoji popovers (the Menus shadow).'],
   ])}
 
 <h4 class="ds-h4" id="chat-contract">Markup</h4>

@@ -4,7 +4,7 @@
  *
  * Fails on: a dialog not 360 (a confirm), 560 (a form) or 880 (a browse) wide; the same sizes through the aliases (.sdk-editor 560, .sdk-editor-large 880, .layout-sheet 560,
  * .phase-sheet 880, .bgpick-card 880); a title not Figtree (never Fraunces) 600 at 18px; a close that is not the quiet 30px icon button, or is not 17px from the top and the
- * right edge of the dialog's border box in every dialog and every alias; a surface that is not the panel with a 1px hairline, --radius-large and a 0 8px 30px shadow; a
+ * right edge of the dialog's border box in every dialog and every alias; a surface that is not the panel with a 1px hairline, --radius-large and a 0 4px 16px shadow; a
  * footer that is not right-aligned with a top hairline and the Primary (or the Danger) last; a head that does not get a hairline once the body has scrolled, or a body that
  * does not scroll while the head and the foot stay; a discard row that does not replace the foot; a confirm that is not 360, whose destructive button is not the soft Danger
  * (or the final one the solid), or whose Cancel is not first; the scrim not black at 55%; at 390 a dialog that is not full screen with no radius,
@@ -75,7 +75,7 @@ const dialogsProbe = async (ctx) => {
       if (cs.backgroundColor !== panel) bad(`a dialog surface is ${cs.backgroundColor}, not --bg-section`);
       if (cs.borderTopWidth !== '1px' || cs.borderTopColor !== tok(d, 'var(--border)')) bad('a dialog has no 1px --border hairline');
       if (cs.borderTopLeftRadius !== getComputedStyle(d.querySelector('.ds-proposed')).getPropertyValue('--radius-large').trim()) bad(`a dialog corner is ${cs.borderTopLeftRadius}, not --radius-large`);
-      if (!/0px 8px 30px 0px/.test(cs.boxShadow)) bad(`a dialog shadow is ${cs.boxShadow}, not 0 8px 30px`);
+      if (!/0px 4px 16px 0px/.test(cs.boxShadow)) bad(`a dialog shadow is ${cs.boxShadow}, not 0 4px 16px`);
       const title = el.querySelector('.sdk-dialog-title'); const tc = getComputedStyle(title);
       if (tc.fontSize !== '18px' || tc.fontWeight !== '600') bad(`a dialog title is ${tc.fontSize} at ${tc.fontWeight}, not 18px at 600`);
       if (/Fraunces/i.test(tc.fontFamily)) bad('a dialog title is in Fraunces');

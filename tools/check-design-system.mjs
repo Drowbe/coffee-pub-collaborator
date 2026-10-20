@@ -112,8 +112,10 @@ for (const [label, dir, sn] of [['today', out, snap], ['proposed', outP, snapP]]
     if (f.css) sheets.push({ file: f.css, text: fs.readFileSync(path.join(DS, f.css), 'utf8'), id: f.id });
     if (f.js) scripts.push({ file: f.js, text: fs.readFileSync(path.join(DS, f.js), 'utf8') });
   }
+  // Classes defined by any family's stylesheet, including the ones that check their own rules (States, Colour): every frame carries all of them, so a family may use another's (the Tables loading bars use the States skeleton).
   const defined = new Set();
-  for (const s of sheets) for (const x of strip(s.text).matchAll(/\.([A-Za-z][\w-]*)/g)) defined.add(x[1]);
+  const allSheets = sheets.concat(manifest.families.filter((f) => f.css && mods.get(f.id)?.ownRules).map((f) => ({ text: fs.readFileSync(path.join(DS, f.css), 'utf8') })));
+  for (const s of allSheets) for (const x of strip(s.text).matchAll(/\.([A-Za-z][\w-]*)/g)) defined.add(x[1]);
   for (const s of sheets) {
     const css = strip(s.text);
     // Fonts: a url is a bundled woff2 under fonts/, in the proposed snapshot, with its licence; nothing is fetched from outside.
@@ -267,7 +269,7 @@ async function browse(cdp, label, url, scenarios, shots) {
     // The Proposed page draws a family when it is opened or scrolled near; the checks measure every family, so draw them all first.
     if (sc.proposed) {
       if (await ev("typeof window.DS_PROPOSED.renderAll") !== 'function') problems.push(`${where}: the page has no window.DS_PROPOSED.renderAll`);
-      else await ev('window.DS_PROPOSED.renderAll().then(() => true)');
+      else { const t0 = Date.now(); await ev('window.DS_PROPOSED.renderAll().then(() => true)'); if (process.env.DS_TIMING) console.log(`check-design-system: ${where} renderAll ${Date.now() - t0}ms`); }
     }
     await new Promise((r) => setTimeout(r, 500));
     last = await ev('JSON.stringify({ ...window.__dsStats, errors: window.__dsStats.errors.slice(0, 5) })');
@@ -280,7 +282,12 @@ async function browse(cdp, label, url, scenarios, shots) {
       const page = JSON.parse(await ev(`JSON.stringify({ today: typeof window.DS_FAMILIES !== 'undefined' || typeof window.DS_SOURCES !== 'undefined', undecidedLinks: document.querySelectorAll('.ds-undecided a').length, drawnAlsoUndecided: (window.DS_PROPOSED.undecided || []).flatMap((g) => g.names).filter((n) => window.DS_PROPOSED.families.some((f) => f.name.toLowerCase() === n.toLowerCase() || f.id === n.toLowerCase())) })`));
       // Each family's own checks, in the order of tools/check-design-system-families.json. They share the page, so each leaves the switches as it found them.
       const b = { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours };
-      for (const m of checks) if (m.browserChecks) await m.browserChecks(b);
+      for (const m of checks) {
+        if (!m.browserChecks) continue;
+        const t0 = Date.now();
+        try { await m.browserChecks(b); } catch (e) { problems.push(`${where}: the ${m.id} browser check stopped: ${e.message}`); }
+        if (process.env.DS_TIMING) console.log(`check-design-system: ${where} ${m.id} ${Date.now() - t0}ms`);
+      }
       await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       if (page.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
       if (page.drawnAlsoUndecided.length) problems.push(`${where}: named both as a drawn family and as still to decide: ${page.drawnAlsoUndecided.join(', ')}`);

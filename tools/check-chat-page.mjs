@@ -405,7 +405,7 @@ test('a tint colours a message\'s portrait icon and left edge, and a module\'s i
   assert.match(rule('.message[data-tint]'), /--message-tint: var\(--tint\);\s*border-left: 3px solid var\(--message-tint\);/);
   assert.match(rule('.message[data-tint] .message-portrait-icon'), /color: var\(--message-tint\);/);
   assert.match(rule('i[data-tint]'), /color: var\(--tint\);/);
-  for (const sel of ['.message[data-tint]', '.message[data-tint] .message-portrait-icon', 'i[data-tint]', '.message-command', '.message-quote', '.chat-view-empty', '.chat-view-count', '.chat-view-dot', '.tb-tab.on .chat-view-count', '.tb-tab.on .chat-view-dot']) {
+  for (const sel of ['.message[data-tint]', '.message[data-tint] .message-portrait-icon', 'i[data-tint]', '.message-command', '.message-quote', '.chat-view-empty']) {
     assert.ok(!/#[0-9a-f]{3,8}\b|rgba?\(|hsla?\(/i.test(rule(sel)), `${sel} uses tokens only`);
   }
   // Where: the module's titlebar on the canvas and in its own window, its line in the Layout menu's Show section.

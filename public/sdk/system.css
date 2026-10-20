@@ -571,14 +571,15 @@
 
 /* Focus: 2px accent over the 1px edge, inside the box (a strip scrolls and so cuts anything outside it). */
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):focus-visible {
-  outline: 2px solid var(--focus-ring);
+  outline: 2px solid var(--tab-focus, var(--focus-ring));
   outline-offset: -2px;
 }
 
 /* Selected: the selected fill, the readable accent mix for the text. Never an edge, a bar or an underline. */
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active, .layout-tabs-more-current) {
   background: var(--fill-selected);
-  color: var(--tab-sel);
+  color: var(--tab-sel);  /* On the selected fill the plain accent is under 3 to 1 in light mode, so the focus outline takes the text's mix. */
+  --tab-focus: var(--tab-sel);
 }
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active, .layout-tabs-more-current):hover {
@@ -600,11 +601,6 @@
   opacity: 0.5;
   cursor: default;
   pointer-events: none;
-}
-
-/* On the selected fill the plain accent is under 3 to 1 in light mode, so a selected tab's focus outline and dot take the text's mix. */
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([aria-selected="true"], [aria-pressed="true"], [aria-current="page"], [aria-current="true"], .on, .active, .layout-tabs-more-current):focus-visible {
-  outline-color: var(--tab-sel);
 }
 
 /* The "..." of a bar: an icon, a little narrower. */

@@ -1910,7 +1910,7 @@ test('the page bar: one shared builder, its name first, a Manage link for owners
   for (const f of ['admin.html', 'profile.html']) assert.match(read(f), /<nav class="subtabs" id="subtabs">/, `${f} keeps #subtabs`);
   const css = read('style.css');
   assert.match(css, /\.subnav\.page-bar \.nav-left > \.subtabs \{\s*flex: 0 1 auto;\s*min-width: 0;/, 'the tabs give way inside the bar and scroll sideways');
-  assert.match(css, /\.page-bar \.subtab\[hidden\] \{\s*display: none;/, 'a hidden tab stays hidden (space settings\' Modules)');
+  assert.match(read('sdk/system.css'), /:is\(\[hidden\], \.layout-tab-out\) \{ display: none; \}/, 'a hidden tab stays hidden (space settings\' Modules), in the Tabs component');
   assert.match(css, /@media \(max-width: 640px\) \{\s*\.topbar > \.page-bar:not\(:has\(/, 'on a phone a bar with nothing to show is not drawn');
 });
 
@@ -2573,7 +2573,7 @@ test('one nav text: the tokens set once, one rule, every element tool with words
     assert.equal(css.split(token).length - 1, 1, `${token} set once`);
   }
   assert.match(css, /\n\.nav-text,\n\.btn\.nav-text,\n\.core-link \{\n\s*font-family: inherit;\n\s*font-size: var\(--nav-font-size\);\n\s*font-weight: var\(--nav-font-weight\);\n\s*letter-spacing: var\(--nav-letter-spacing\);\n\s*line-height: var\(--nav-line-height\);\n\}/, 'the one rule: the layout tabs\' type (.core-link) and .nav-text, a labelled button\'s too');
-  assert.match(css, /\n\.nav-text:where\(:not\(\.btn\)\),\n\.core-link \{\n\s*color: var\(--icon, color-mix\(in srgb, var\(--header-text\) 75%, transparent\)\);/, 'and the bar\'s link colour at rest');
+  assert.match(css, /\n\.nav-text:where\(:not\(\.btn\)\),\n\.core-link \{\n\s*color: var\(--icon-bar\);/, 'and the bar\'s link colour at rest');
   // Each element tool with words carries the class where it is made.
   const space = fs.readFileSync(path.join(ROOT, 'public/space.js'), 'utf8');
   const brand = fs.readFileSync(path.join(ROOT, 'public/brand.js'), 'utf8');

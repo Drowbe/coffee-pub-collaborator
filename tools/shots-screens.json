@@ -1266,7 +1266,7 @@
    "wait": "#module-frame >>> button",
    "steps": [
     {
-     "click": "button.tb-btn",
+     "click": "button.btn",
      "text": "Tags"
     }
    ],

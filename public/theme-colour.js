@@ -23,6 +23,8 @@
   const MIN_TEXT = 4.5;
   const MIN_MARK = 3;
   const STATUSES = ['danger', 'ok', 'warn', 'info'];
+  // The word a person reads for each (the Colour family's: Danger, OK, Warning, Info).
+  const STATUS_WORD = { danger: 'Danger', ok: 'OK', warn: 'Warning', info: 'Info' };
 
   // What each status fill is while a theme leaves it on Auto, per mode (the same values as --danger and --ok and the light and dark
   // category tints in public/style.css; tools/check-theme.mjs holds the two together).
@@ -157,18 +159,18 @@
       const tint = toHex(over(rgb(fill), 0.12, rgb(panel)));
       const on = pickOn(fill);
       picks[`status-${k}-on-fill`] = on.hex;
-      add(`${k}-on-fill`, `Text on the ${k} fill`, on.hex, fill, MIN_TEXT, 'text');
-      if (!on.ok) flags.push(`Neither white nor near-black reaches 4.5 : 1 on the ${k} fill.`);
+      add(`${k}-on-fill`, `Text on the ${STATUS_WORD[k]} fill`, on.hex, fill, MIN_TEXT, 'text');
+      if (!on.ok) flags.push(`Neither white nor near-black reaches 4.5 : 1 on the ${STATUS_WORD[k]} fill.`);
       const t = pickMix(fill, text, [page, panel, tint], 30, MIN_TEXT);
       picks[`status-${k}-text`] = t.hex;
-      add(`${k}-text-on-page`, `The ${k} colour as text, on the page`, t.hex, page, MIN_TEXT, 'text');
-      add(`${k}-text-on-panel`, `The ${k} colour as text, on a panel`, t.hex, panel, MIN_TEXT, 'text');
+      add(`${k}-text-on-page`, `${STATUS_WORD[k]} as text, on the page`, t.hex, page, MIN_TEXT, 'text');
+      add(`${k}-text-on-panel`, `${STATUS_WORD[k]} as text, on a panel`, t.hex, panel, MIN_TEXT, 'text');
       if (k === 'ok') {
         const mark = pickMix(fill, text, [page, panel], 0, MIN_MARK);
         picks['status-ok-mark'] = mark.hex;
-        add('ok-mark', 'The OK colour as a mark (bars, dots), on the page', mark.hex, page, MIN_MARK, 'mark', { picked: mark.percent > 0 });
+        add('ok-mark', 'OK as a mark (bars, dots), on the page', mark.hex, page, MIN_MARK, 'mark', { picked: mark.percent > 0 });
       } else {
-        add(`${k}-mark`, `The ${k} fill as a mark, on the page`, fill, page, MIN_MARK, 'mark');
+        add(`${k}-mark`, `${STATUS_WORD[k]} as a mark, on the page`, fill, page, MIN_MARK, 'mark');
       }
     }
 
@@ -176,5 +178,5 @@
     return { picks, fills, report, flags };
   }
 
-  return { WHITE, NEAR_BLACK, MIN_TEXT, MIN_MARK, STATUSES, STATUS_AUTO, AUTO_CSS, LEGACY, LEGACY_AUTO, hexOf, contrast, pickOn, pickMix, resolve };
+  return { WHITE, NEAR_BLACK, MIN_TEXT, MIN_MARK, STATUSES, STATUS_WORD, STATUS_AUTO, AUTO_CSS, LEGACY, LEGACY_AUTO, hexOf, contrast, pickOn, pickMix, resolve };
 }));

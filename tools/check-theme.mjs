@@ -269,8 +269,36 @@ test("the theme editor's fields: a row for every optional key in the same order,
   const list = admin.match(/const THEME_OPTIONAL_FIELDS = \[([\s\S]*?)\n\]\.map/);
   assert.ok(list, 'THEME_OPTIONAL_FIELDS');
   const rows = [...list[1].matchAll(/\['([\w-]+)', '([\w-]+)'\]/g)].map((m) => m.slice(1));
-  assert.deepEqual(rows.map((r) => r[1]), THEME_OPTIONAL.filter((k) => !k.startsWith('status-')), 'the editor has a field for every optional key, in the same order');
+  assert.deepEqual(rows.map((r) => r[1]), THEME_OPTIONAL, 'the editor has a field for every optional key, in the same order');
   for (const [id] of rows) assert.ok(new RegExp(`<label>[^<]+<input id="${id}" type="color"></label><label class="check"><input type="checkbox" data-auto-for="${id}"> Auto</label>`).test(html), `${id} row with its Auto box`);
+});
+
+test("the theme editor's contrast panel: the pairs it lists, a warning for each under 4.5 (text) or 3 (a mark), and the Auto-fix for the text on the accent", () => {
+  const html = fs.readFileSync(new URL('../public/admin.html', import.meta.url), 'utf8');
+  const admin = fs.readFileSync(new URL('../public/admin.js', import.meta.url), 'utf8');
+  assert.match(html, /<div class="theme-contrast" id="theme-contrast" role="status" aria-live="polite"><\/div>/);
+  assert.match(html, /<script src="\/theme-colour\.js"><\/script>/, 'the picks are loaded by the page');
+  assert.match(admin, /renderThemeContrast\(\);/, 'the panel is drawn on every change');
+  assert.match(admin, /data-fix-on-accent|fixOnAccent/, 'the Auto-fix button');
+  // Calming Teal, light: white text on the teal (1.9 : 1) is replaced by the pick (Auto-fix shows it); the accent as a mark is under 3 : 1.
+  const teal = TC.resolve({ ...set('#ffffff', '#f7f9fa', '#e1e8e8', '#333333', '#767676', '#0dc9ca', '#ffffff') }, 'light');
+  const byId = (id) => teal.report.find((r) => r.id === id);
+  assert.deepEqual([byId('on-accent').picked, byId('on-accent').pick, byId('on-accent').ok], [true, '#0a0a0a', true]);
+  assert.ok(byId('on-accent').own < 4.5, 'the colour the theme typed is the one that falls short');
+  assert.equal(byId('accent-mark-on-page').ok, false);
+  assert.ok(byId('accent-mark-on-page').ratio < 3);
+  assert.equal(byId('border-on-page').min, 0, 'the border has no minimum');
+  for (const id of ['text-on-page', 'text-on-panel', 'muted-on-page', 'muted-on-panel', 'accent-text-on-page', 'accent-text-on-panel', 'on-accent', 'danger-on-fill', 'ok-on-fill', 'warn-on-fill', 'info-on-fill', 'ok-mark']) assert.ok(byId(id), `the report has ${id}`);
+  // Text that already reads is not touched and nothing is flagged.
+  const fine = TC.resolve({ ...DEFAULT_THEME.dark }, 'dark');
+  assert.deepEqual([fine.report.find((r) => r.id === 'on-accent').picked, fine.flags], [false, []]);
+  // A text colour under 4.5 : 1 on the page is a warning row.
+  const dim = TC.resolve({ ...DEFAULT_THEME.dark, 'text-muted': '#3b2e24' }, 'dark');
+  assert.equal(dim.report.find((r) => r.id === 'muted-on-page').ok, false);
+  // A mid-grey accent that neither white nor near-black reaches 4.5 : 1 on is flagged.
+  const mid = TC.resolve({ ...DEFAULT_THEME.dark, 'accent-fill': '#777777', 'text-on-accent': '#ffffff' }, 'dark');
+  assert.equal(mid.report.find((r) => r.id === 'on-accent').ok, false);
+  assert.match(mid.flags[0], /Neither white nor near-black/);
 });
 
 console.log(`check-theme: ${n} checks passed`);

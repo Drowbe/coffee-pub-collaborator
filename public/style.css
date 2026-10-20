@@ -6224,6 +6224,78 @@ span.message-vis {
   gap: 4px;
 }
 
+/* Manage > Theme: the contrast panel (public/admin.js renderThemeContrast): the pairs that fall short in plain sentences, then every
+   pair with a sample of it (--sample-fg on --sample-bg, set on the element), its ratio and whether it reads. */
+.theme-contrast {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.theme-contrast-notes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.theme-contrast-notes li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--status-danger-text);
+}
+
+.theme-contrast-ok {
+  margin: 0;
+  color: var(--status-ok-text);
+}
+
+.theme-contrast-pairs {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-13);
+}
+
+.theme-contrast-pairs caption {
+  text-align: left;
+  padding-bottom: var(--space-1);
+}
+
+.theme-contrast-pairs th,
+.theme-contrast-pairs td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.theme-contrast-pairs th {
+  color: var(--text-dim);
+  font-weight: var(--weight-medium);
+}
+
+.theme-contrast-sample {
+  display: inline-block;
+  min-width: var(--space-8);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-small);
+  background: var(--sample-bg);
+  color: var(--sample-fg);
+  font-weight: var(--weight-strong);
+  text-align: center;
+}
+
+.theme-contrast-state.pass {
+  color: var(--status-ok-text);
+}
+
+.theme-contrast-state.fail {
+  color: var(--status-danger-text);
+}
+
 .theme-preview p {
   margin: 0 0 10px;
 }

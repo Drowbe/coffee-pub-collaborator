@@ -765,7 +765,15 @@ const THEME_OPTIONAL_FIELDS = [
   ['theme-secondary', 'fill-secondary'],
   ['theme-secondary-text', 'text-on-secondary'],
   ['theme-secondary-hover', 'fill-secondary-hover'],
-].map(([id, key]) => [id, `--${key}`, key, TC.AUTO_CSS[key]]);
+  // The status colours' bases (the text on each and each as text are picked from them, theme-colour.js): Auto is the mode's own
+  // fill (TC.STATUS_AUTO), not a formula, so these have none here.
+  ['theme-status-danger', 'status-danger-fill'],
+  ['theme-status-ok', 'status-ok-fill'],
+  ['theme-status-warn', 'status-warn-fill'],
+  ['theme-status-info', 'status-info-fill'],
+].map(([id, key]) => [id, `--${key}`, key, TC.AUTO_CSS[key] ?? null]);
+// What an Auto field is set to on the page while previewing: its formula, or for a status fill the Auto fill of the mode being edited.
+const autoCssFor = (key, formula) => formula ?? TC.STATUS_AUTO[selectedMode][key.split('-')[1]];
 const autoBox = (id) => document.querySelector(`[data-auto-for="${id}"]`);
 const isAuto = (id) => autoBox(id).checked;
 let colorProbeCtx = null;
@@ -849,13 +857,14 @@ function updateThemePreview() {
   for (const [id, cssVar] of THEME_FIELDS) setPreviewVar(cssVar, $(id).value);
   for (const [id, cssVar, key, formula] of THEME_OPTIONAL_FIELDS) {
     const auto = isAuto(id);
-    setPreviewVar(cssVar, auto ? formula : $(id).value);
+    setPreviewVar(cssVar, auto ? autoCssFor(key, formula) : $(id).value);
     const old = TC.LEGACY[key]; // the old token the server also writes for this role (theme-colour.js LEGACY)
     if (old) setPreviewVar(old, auto ? TC.LEGACY_AUTO[old] : $(id).value);
   }
   // What the server picks for this set (text on the accent and on the status fills, the accent and status colours as text).
   const got = TC.resolve(currentThemeSet(), selectedMode);
   if (got) for (const [role, hex] of Object.entries(got.picks)) setPreviewVar(`--${role}`, hex);
+  renderThemeContrast();
   // An Auto field shows what it currently works out to: what the product draws, which for the four roles that still have an old
   // token with a default of its own (theme-colour.js LEGACY) is that token's. --icon has no value when Auto; show what an icon on
   // the header's main colour draws (style.css, .topbar .icon-link). Not read from the sample header's icons: they sit in its right
@@ -882,6 +891,71 @@ function clearThemePreview() {
   for (const name of previewed) document.documentElement.style.removeProperty(name);
   previewed.clear();
 }
+// The contrast panel: how the colors being edited read together, with the same picks and the same ratios the server uses
+// (theme-colour.js): text on the page and a panel, muted text, the accent as text and as a mark, the text on the accent and on each
+// status fill, each status colour as text and as a mark, and the border. A pair under its minimum (4.5 : 1 for text, 3 : 1 for a
+// mark) is named in a plain sentence above the list of pairs. The text on the accent has an Auto-fix: the server picks it, so the button
+// only shows the colour that was picked, in the field.
+const ratioText = (x) => `${x.toFixed(2)} : 1`;
+const mk = (tag, className, text) => {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+};
+function renderThemeContrast() {
+  const box = $('theme-contrast');
+  const got = TC.resolve(currentThemeSet(), selectedMode);
+  if (!got) { box.replaceChildren(); return; }
+  const notes = mk('ul', 'theme-contrast-notes');
+  for (const r of got.report) {
+    if (r.id === 'on-accent' && r.picked) {
+      const own = r.own === null ? '' : `The text on the accent reads at ${ratioText(r.own)}, under the 4.5 : 1 text needs. `;
+      const item = mk('li');
+      if (r.ok) {
+        item.append(mk('span', '', `${own}${productName()} uses ${r.pick} instead, which reads at ${ratioText(r.ratio)}.`));
+        const fix = mk('button', 'btn btn-small', 'Auto-fix');
+        fix.type = 'button';
+        fix.dataset.fixOnAccent = r.pick;
+        fix.title = `Set the text on the accent to ${r.pick}, the color picked for it`;
+        item.append(fix);
+      } else {
+        item.append(mk('span', '', `Neither white nor near-black reaches 4.5 : 1 on this accent; the better one reads at ${ratioText(r.ratio)}. Pick a lighter or a darker accent.`));
+      }
+      notes.append(item);
+    } else if (!r.ok) {
+      notes.append(mk('li', '', `${r.label} reads at ${ratioText(r.ratio)}; ${r.kind === 'mark' ? 'a mark needs 3 : 1' : 'text needs 4.5 : 1'}.`));
+    }
+  }
+  const pairs = mk('table', 'theme-contrast-pairs');
+  const theme = selectedTheme() || defaultTheme;
+  pairs.append(mk('caption', 'hint', `${theme.name}, ${selectedMode}`));
+  const head = mk('tr');
+  for (const name of ['Pair', 'Looks like', 'Reads at', 'Needs', '']) head.append(mk('th', '', name));
+  const thead = mk('thead');
+  thead.append(head);
+  const body = mk('tbody');
+  for (const r of got.report) {
+    const row = mk('tr');
+    row.append(mk('td', '', r.label));
+    const sample = mk('td');
+    const chip = mk('span', 'theme-contrast-sample', r.kind === 'mark' ? '■' : 'Aa');
+    chip.style.setProperty('--sample-fg', r.fg);
+    chip.style.setProperty('--sample-bg', r.bg);
+    sample.append(chip);
+    row.append(sample, mk('td', '', ratioText(r.ratio)), mk('td', '', r.min ? ratioText(r.min) : '-'));
+    row.append(mk('td', `theme-contrast-state${r.min === 0 ? '' : r.ok ? ' pass' : ' fail'}`, r.min === 0 ? 'No minimum' : r.ok ? 'Reads well' : 'Too low'));
+    body.append(row);
+  }
+  pairs.append(thead, body);
+  box.replaceChildren(notes.children.length ? notes : mk('p', 'theme-contrast-ok', 'Every pair reads well.'), pairs);
+}
+$('theme-contrast').addEventListener('click', (event) => {
+  const fix = event.target.closest('[data-fix-on-accent]');
+  if (!fix) return;
+  $('theme-on-accent').value = fix.dataset.fixOnAccent;
+  previewThemeEdit();
+});
 for (const [id] of THEME_FIELDS) $(id).addEventListener('input', previewThemeEdit);
 for (const [id] of THEME_OPTIONAL_FIELDS) {
   $(id).addEventListener('input', previewThemeEdit);

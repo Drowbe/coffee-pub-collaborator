@@ -153,6 +153,17 @@
         <div class="theme-opt"><label>Text on secondary<input id="theme-secondary-text" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary-text"> Auto</label></div>
         <div class="theme-opt"><label>Secondary accent hover<input id="theme-secondary-hover" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-secondary-hover"> Auto</label></div>
       </div>
+      <h3>Status colors</h3>
+      <p class="hint">The colors of an error, a success, a warning and a notice. Leave <strong>Auto</strong> ticked for the standard ones. The text drawn on each, and each one used as text, are picked for you so they read.</p>
+      <div class="fields theme-optional">
+        <div class="theme-opt"><label>Danger<input id="theme-status-danger" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-danger"> Auto</label></div>
+        <div class="theme-opt"><label>OK<input id="theme-status-ok" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-ok"> Auto</label></div>
+        <div class="theme-opt"><label>Warning<input id="theme-status-warn" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-warn"> Auto</label></div>
+        <div class="theme-opt"><label>Info<input id="theme-status-info" type="color"></label><label class="check"><input type="checkbox" data-auto-for="theme-status-info"> Auto</label></div>
+      </div>
+      <h3>Contrast</h3>
+      <p class="hint">How the colors read together, for the theme and mode being edited, as they change. Text needs 4.5 : 1 to be easy to read; a mark (a bar, a ring, a dot) needs 3 : 1 to be seen.</p>
+      <div class="theme-contrast" id="theme-contrast" role="status" aria-live="polite"></div>
       <p class="hint">Adjusting the colors above previews live but doesn't save anything until you pick one of the buttons below.</p>
       <div class="row">
         <button class="btn btn-primary" id="theme-save-new" type="button">Save as new theme</button>

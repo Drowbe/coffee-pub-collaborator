@@ -325,7 +325,7 @@ if (!problems.length) {
       for (const t of themes) {
         for (const mode of ['light', 'dark']) {
           const got = t[mode] && TC.resolve(t[mode], mode);
-          for (const f of got?.flags || []) flagged[`${t.name} ${mode}|${/accent/.test(f) ? 'accent' : (/the (\w+) fill/.exec(f) || [])[1]}`] = true;
+          for (const f of got?.flags || []) flagged[`${t.name} ${mode}|${/accent/.test(f) ? 'accent' : Object.keys(TC.STATUS_WORD).find((k) => f.includes(`the ${TC.STATUS_WORD[k]} fill`))}`] = true;
         }
       }
       const legacySet = { ...DEFAULT_THEME.dark, 'surface-card': '#123456', 'fill-secondary': '#234567', 'fill-secondary-hover': '#345678', 'icon-default': '#456789' };

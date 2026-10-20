@@ -12,6 +12,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { alignRows } from './check-design-system-align.mjs';
+
 export const id = 'progress';
 export const todayOnly = [];
 
@@ -96,4 +98,15 @@ export async function browserChecks(b) {
     if (!document.getElementById('progress-okmark')) bad('the Progress family has no "Ok as a mark" section');
     return JSON.stringify(out); })()`));
   for (const x of [...new Set(okm.problems)]) problems.push(`${where}: ${x}`);
+  // Alignment (tools/check-design-system-align.mjs): shared centre lines, even padding, gaps on the 4px scale.
+  await alignRows(b, [
+    { frame: /^Progress, (tracks|meters|in use)$/, row: '.sdk-meter', flush: true, padding: false },
+    { frame: /^Progress, (tracks|meters|in use)$/, row: '.sdk-meter-head', padding: false },
+    { frame: 'Progress, in use', row: '.pm-up', padding: false },
+    { frame: 'Progress, in use', row: '.pm-strip', padding: 'x' },
+    { frame: 'Progress, in use', row: '.sdk-meter-inline', padding: false },
+    { frame: /^Progress, (meters|in use)$/, row: '.sdk-fillrow', padding: 'x' },
+    { frame: /^Progress, (meters|in use)$/, row: '.pm-tile', box: true },
+    { frame: 'Progress, in use', row: '.pm-box', centres: false },
+  ]);
 }

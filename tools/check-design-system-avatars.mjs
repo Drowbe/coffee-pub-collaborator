@@ -13,6 +13,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { alignRows } from './check-design-system-align.mjs';
+
 export const id = 'avatars';
 export const todayOnly = [];
 
@@ -80,4 +82,15 @@ export async function browserChecks(b) {
       const tints = [...d.querySelectorAll('#av-tints tbody tr')]; if (tints.length !== 8) bad('the list of tints has ' + tints.length + ' rows'); for (const tr of tints) if (parseFloat(tr.cells[1].dataset.avMin) < 4.5) bad('the letters of the ' + tr.cells[0].textContent + ' tint are ' + tr.cells[1].textContent + ', under 4.5'); }
     return JSON.stringify(out); })()`));
   for (const x of [...new Set(probe.problems)]) problems.push(`${where}: ${x}`);
+  // Alignment (tools/check-design-system-align.mjs): shared centre lines, even padding, gaps on the 4px scale.
+  await alignRows(b, [
+    { frame: 'Avatars, sizes and fills', row: '.pm-row', across: '.pm-role, .sdk-avatar', centres: false, padding: false, gaps: false },
+    { frame: 'Avatars, presence', row: '.pm-row:first-child', across: '.pm-role, .sdk-avatar', centres: false, padding: false, gaps: false },
+    { frame: 'Avatars, photo tiles', row: '.pm-tiles', across: '.sdk-photo, .sdk-avatar', centres: false, padding: false, gaps: false },
+    { frame: 'Avatars, in use', row: '.pm-msg', tops: true, padding: false },
+    { frame: 'Avatars, in use', row: '.pm-link', tops: true },
+    { frame: 'Avatars, in use', row: '.pm-members > div', centres: false, padding: 'x' },
+    { frame: 'Avatars, in use', row: '.pm-call > div', centres: false, padding: 'x' },
+    { frame: 'Avatars, in use', row: '.pm-card3', centres: false },
+  ]);
 }

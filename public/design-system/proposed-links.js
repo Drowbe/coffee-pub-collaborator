@@ -17,20 +17,23 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-chat { display: flex; gap: 8px; }
 .pm-chat b { flex: none; }
 .pm-navrow { display: flex; flex-wrap: wrap; gap: 4px; }
-.pm-navrow a { padding: 6px 10px; color: var(--text); text-decoration: none; border-radius: var(--radius-small); }
+.pm-navrow a { padding: 8px 12px; color: var(--text); text-decoration: none; border-radius: var(--radius-small); }
 .pm-navrow a:hover { background: var(--menu-hover); }
 .pm-navrow a[aria-current="page"] { background: var(--selected-bg); }
 .pm-row-flex { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
-.pm-card2 { max-width: 560px; padding: 14px; border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 10px; }
+.pm-card2 { max-width: 560px; padding: 16px; border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 12px; }
 .pm-card2 h5 { margin: 0; font-size: 14px; font-weight: 600; }
 .pm-card2 p { margin: 0; color: var(--text-dim); font-size: 12px; }
-.pm-opt { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.pm-opt { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .pm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pm-ct th, .pm-ct td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.pm-ct th, .pm-ct td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 .pm-ct th { color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .pm-ct td.pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pm-pass { color: var(--ok); font-weight: 600; }
 .pm-fail { color: var(--f-error, var(--danger)); font-weight: 600; }
+.dsf-states { gap: 16px 24px; }
+.dsf-state { gap: 4px; }
+.pm-row .pm-role { margin-top: 16px; min-height: 32px; }
 @media (max-width: 640px) { .pm-lw { flex-basis: 140px; width: 140px; } }`;
 
   // ---- the automatic pick: --text-link is the accent, mixed with the least text colour that reaches 4.5:1 on the page and on a panel (the Colour family's

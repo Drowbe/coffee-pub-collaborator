@@ -7,30 +7,32 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const fa = (n, x) => `<i class="fa-solid fa-${n}${x ? ' ' + x : ''}" aria-hidden="true"></i>`;
 
   const AV_CSS = `
-.pm-sizes { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 14px 22px; }
-.pm-sizes > div { display: grid; justify-items: center; gap: 6px; }
-.pm-grp { display: flex; align-items: flex-end; gap: 10px; }
-.pm-grp > div { display: grid; justify-items: center; gap: 6px; }
+.pm-sizes { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; }
+/* Each example sits in a slot of one height, centred in it, so a row of different sizes shares one centre line and the captions one line below. */
+.pm-sizes > div { display: grid; grid-template-rows: var(--slot, 96px) auto; align-items: center; justify-items: center; gap: 4px; }
+.pm-sizes > .pm-grp { display: grid; grid-template-rows: none; gap: 12px; }
+.pm-grp > div { display: grid; grid-template-rows: var(--slot, 64px) auto; align-items: center; justify-items: center; gap: 4px; }
+.pm-row .pm-role { margin-top: 0; min-height: var(--role-h, 96px); }
 .pm-sizes small, .pm-grp small { color: var(--text-dim); font-size: 11px; font-weight: 600; }
-.pm-card3 { box-sizing: border-box; max-width: 560px; padding: 14px; border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 12px; }
+.pm-card3 { box-sizing: border-box; max-width: 560px; padding: 16px; border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 12px; }
 .pm-card3 h5 { margin: 0; font-size: 14px; font-weight: 600; }
-.pm-list { display: grid; gap: 10px; }
-.pm-msg { display: flex; align-items: flex-start; gap: 10px; }
+.pm-list { display: grid; gap: 12px; }
+.pm-msg { display: flex; align-items: flex-start; gap: 12px; }
 .pm-msg b { font-size: 14px; }
 .pm-msg p { margin: 0; font-size: 14px; }
 .pm-msg small { color: var(--text-dim); font-size: 12px; }
-.pm-tiles { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 18px; }
-.pm-tile2 { display: grid; justify-items: center; gap: 6px; width: 96px; text-align: center; font-size: 13px; }
+.pm-tiles { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 16px; }
+.pm-tile2 { display: grid; grid-template-rows: 96px auto auto; align-items: center; justify-items: center; gap: 4px; width: 120px; text-align: center; font-size: 13px; }
 .pm-tile2 small { color: var(--text-dim); font-size: 11px; }
 .pm-members { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 12px; }
-.pm-members > div { display: grid; justify-items: center; gap: 6px; padding: 10px 6px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 13px; text-align: center; }
-.pm-link { display: flex; gap: 12px; padding: 10px; border-radius: var(--radius-medium); background: var(--bg-card); }
+.pm-members > div { display: grid; justify-items: center; gap: 4px; padding: 12px 8px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 13px; text-align: center; }
+.pm-link { display: flex; gap: 12px; padding: 12px; border-radius: var(--radius-medium); background: var(--bg-card); }
 .pm-link b { display: block; font-size: 14px; }
 .pm-link span { color: var(--text-dim); font-size: 12px; }
 .pm-call { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; }
-.pm-call > div { display: grid; place-items: center; gap: 8px; padding: 14px 6px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 13px; }
+.pm-call > div { display: grid; place-items: center; gap: 8px; padding: 16px 8px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 13px; }
 .pm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pm-ct th, .pm-ct td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.pm-ct th, .pm-ct td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 .pm-ct th { color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .pm-ct td.pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pm-pass { color: var(--ok); font-weight: 600; }
@@ -58,13 +60,13 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     <div class="pm-row"><div class="pm-role">No photo, no name: the icon</div><div class="pm-sizes">${sized((s) => av(0, { size: s, kind: 'icon', person: ['Guest'] }))}</div></div></div>`;
 
   const presenceBody = () => `<div class="ds-proposed">
-    <div class="pm-row"><div class="pm-role">Online, away, offline</div><div class="pm-sizes">${[24, 32, 40, 64].map((s) => `<div class="pm-grp">${['Online', 'Away', ''].map((st, i) => `<div>${av(0, { size: s, person: NAMES[i], state: st, kind: i === 1 ? 'photo' : '' })}<small>${st || 'Offline'}</small></div>`).join('')}</div>`).join('')}</div></div>
-    <div class="pm-row"><div class="pm-role">In a list: the word is written</div><div class="pm-card3"><div class="pm-list">
+    <div class="pm-row"><div class="pm-role" style="--role-h:64px">Online, away, offline</div><div class="pm-sizes">${[24, 32, 40, 64].map((s) => `<div class="pm-grp">${['Online', 'Away', ''].map((st, i) => `<div>${av(0, { size: s, person: NAMES[i], state: st, kind: i === 1 ? 'photo' : '' })}<small>${st || 'Offline'}</small></div>`).join('')}</div>`).join('')}</div></div>
+    <div class="pm-row"><div class="pm-role" style="--role-h:0px;margin-top:16px">In a list: the word is written</div><div class="pm-card3"><div class="pm-list">
       ${[['Ana Berg', 'Online', 0], ['Ben Cole', 'Away', 1], ['Cleo Diaz', '', 2]].map(([n, st, i]) => `<div class="sdk-person">${av(0, { person: NAMES[i], state: st, decor: true, tint: true })}<span class="sdk-person-text"><span class="sdk-person-name">${n}</span>${st ? `<span class="sdk-presence-word">${st}</span>` : '<span class="sdk-presence-word">Offline</span>'}</span></div>`).join('')}</div></div></div></div>`;
 
   const stackBody = () => `<div class="ds-proposed">
-    <div class="pm-row"><div class="pm-role">Three people</div><div class="pm-sizes"><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben and Cleo are here">${[0, 1, 2].map((i) => av(0, { person: NAMES[i], tint: true })).join('')}</span><small>32px</small></div><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben and Cleo are here">${[0, 1, 2].map((i) => av(0, { size: 24, person: NAMES[i], tint: true })).join('')}</span><small>24px</small></div></div></div>
-    <div class="pm-row"><div class="pm-role">More than fit: a micro count</div><div class="pm-sizes"><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben, Cleo and 3 more are here">${[0, 1, 2].map((i) => av(0, { person: NAMES[i], kind: i === 1 ? 'photo' : 'tint', pic: i })).join('')}<span class="sdk-badge-micro" aria-hidden="true">3</span><span class="visually-hidden">and 3 more</span></span><small>32px</small></div><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben, Cleo, Dev and 12 more are here">${[0, 1, 2, 3].map((i) => av(0, { size: 24, person: NAMES[i], tint: true })).join('')}<span class="sdk-badge-micro" aria-hidden="true">12</span><span class="visually-hidden">and 12 more</span></span><small>24px</small></div></div></div></div>`;
+    <div class="pm-row"><div class="pm-role" style="--role-h:40px">Three people</div><div class="pm-sizes" style="--slot:40px"><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben and Cleo are here">${[0, 1, 2].map((i) => av(0, { person: NAMES[i], tint: true })).join('')}</span><small>32px</small></div><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben and Cleo are here">${[0, 1, 2].map((i) => av(0, { size: 24, person: NAMES[i], tint: true })).join('')}</span><small>24px</small></div></div></div>
+    <div class="pm-row"><div class="pm-role" style="--role-h:40px">More than fit: a micro count</div><div class="pm-sizes" style="--slot:40px"><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben, Cleo and 3 more are here">${[0, 1, 2].map((i) => av(0, { person: NAMES[i], kind: i === 1 ? 'photo' : 'tint', pic: i })).join('')}<span class="sdk-badge-micro" aria-hidden="true">3</span><span class="visually-hidden">and 3 more</span></span><small>32px</small></div><div><span class="sdk-avatar-stack" role="group" aria-label="Ana, Ben, Cleo, Dev and 12 more are here">${[0, 1, 2, 3].map((i) => av(0, { size: 24, person: NAMES[i], tint: true })).join('')}<span class="sdk-badge-micro" aria-hidden="true">12</span><span class="visually-hidden">and 12 more</span></span><small>24px</small></div></div></div></div>`;
 
   const tileBody = () => `<div class="ds-proposed"><div class="pm-tiles">
     <div class="pm-tile2"><span class="sdk-photo sdk-photo-72"><img src="${PICS[0]}" alt="Ana Berg"><span class="sdk-presence" data-state="online" role="img" aria-label="Online" title="Online"></span></span>Home member tile<small>72px, online dot</small></div>

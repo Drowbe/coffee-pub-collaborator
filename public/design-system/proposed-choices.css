@@ -23,7 +23,7 @@
 
 .ds-proposed .sdk-choice-list {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
 }
 
@@ -87,7 +87,7 @@
 /* ---- the words ---- */
 .ds-proposed .sdk-choice-text {
   display: grid;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   overflow-wrap: anywhere;
 }
@@ -127,6 +127,15 @@
 .ds-proposed .sdk-choice-row:has(> input.sdk-switch) > input.sdk-switch {
   margin-left: auto;
   margin-top: 0;
+}
+
+/* A switch row with a description: the switch sits level with the first line, not the middle of two lines (the switch is 20px, the line 18px). */
+.ds-proposed .sdk-choice-row:has(> input.sdk-switch):has(.sdk-choice-desc) {
+  align-items: flex-start;
+}
+
+.ds-proposed .sdk-choice-row:has(> input.sdk-switch):has(.sdk-choice-desc) > input.sdk-switch {
+  margin-top: -1px;
 }
 
 /* ---- the boxed row: only where each option has a description ---- */

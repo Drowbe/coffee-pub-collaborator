@@ -19,7 +19,7 @@
  *     of 28px or more is layout pushing parts apart (space-between, an auto margin) and is not judged. `gaps: false` leaves gaps out; `zero: true`
  *     allows 0 (parts that touch on purpose, such as a segmented control);
  *   - the selector matches nothing in a frame set (so a renamed class cannot silently pass).
- * Row options: box (true: every child counts by the centre of its box, for a row whose stack of bars is centred as a whole, such as a skeleton row), across (a selector of parts in different cells of the row that must share one centre line), row (selector), frame, skip (selector of children to leave out), only (selector: judge just these children), padding, gaps, zero,
+ * Row options: tops (true: the parts count by their top edges, for a row of avatar-and-text where the avatar hangs from the first line), flush (true: every child runs the row's full inner width), box (true: every child counts by the centre of its box, for a row whose stack of bars is centred as a whole, such as a skeleton row), across (a selector of parts in different cells of the row that must share one centre line), row (selector), frame, skip (selector of children to leave out), only (selector: judge just these children), padding, gaps, zero,
  * centres (false: leave the centre test out, for a row whose parts are deliberately top-aligned columns), tol (px, default 1).
  */
 export async function alignRows(b, rows) {
@@ -65,9 +65,10 @@ const alignProbe = (specs) => {
           return r2.top + r2.height / 2;
         };
         const centre = (c) => {
+          if (sp.tops) return c.getBoundingClientRect().top;
           if (sp.box) { const r2 = c.getBoundingClientRect(); return r2.top + r2.height / 2; }
           const cs = win.getComputedStyle(c);
-          const stack = (cs.display === 'block' || cs.display === 'list-item' || (cs.display === 'flex' && cs.flexDirection === 'column')) && c.firstElementChild && ![...c.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
+          const stack = (cs.display === 'block' || cs.display === 'list-item' || (cs.display === 'flex' && cs.flexDirection === 'column') || (cs.display === 'grid' && cs.gridTemplateColumns.trim().split(/\s+/).length === 1)) && c.firstElementChild && ![...c.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
           if (stack) {
             const k = [...c.children].find((e) => { const k2 = win.getComputedStyle(e); return k2.display !== 'none' && k2.position !== 'absolute' && e.getBoundingClientRect().height > 0; });
             if (k && (win.getComputedStyle(k).display === 'block' || win.getComputedStyle(k).display === 'flex') && !/^(IMG|SVG|BUTTON)$/.test(k.tagName)) return centre(k);
@@ -83,6 +84,11 @@ const alignProbe = (specs) => {
             const cs = l.kids.map(centre); const lo = Math.min(...cs); const hi = Math.max(...cs);
             if (hi - lo > tol) out.problems.push(`${name}: the centre lines of its parts differ by ${fmt(hi - lo)}px (${l.kids.map((c, i) => `${c.className ? '.' + String(c.className).split(' ')[0] : c.tagName.toLowerCase()} ${fmt(cs[i] - rc.top)}`).join(', ')})`);
           }
+        }
+        if (sp.flush) {
+          // A column whose parts must all run the row's full width (a label line and its bar), so nothing floats short of the edge.
+          const cl = rc.left + parseFloat(rcs.paddingLeft) + parseFloat(rcs.borderLeftWidth); const cr = rc.right - parseFloat(rcs.paddingRight) - parseFloat(rcs.borderRightWidth);
+          for (const c of kids) { const r2 = c.getBoundingClientRect(); if (Math.abs(r2.left - cl) > tol || Math.abs(r2.right - cr) > tol) out.problems.push(`${name}: ${c.className ? '.' + String(c.className).split(' ')[0] : c.tagName.toLowerCase()} runs ${fmt(r2.left - cl)}px / ${fmt(r2.right - cr)}px from the row's edges (it should be flush)`); }
         }
         if (sp.across) {
           // Parts that sit in different cells of one row (the control of each example) share one centre line.

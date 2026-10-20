@@ -11,23 +11,28 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-pw { flex: 0 0 150px; width: 150px; min-width: 0; }
 .pm-pw .dsf-ex { display: block; }
 .pm-na { display: block; height: var(--field-h); color: var(--text-dim); line-height: var(--field-h); }
-.pm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
-.pm-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
+.pm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; }
+.pm-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
 .pm-cell > small { color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
 .pm-phone-screen { position: relative; overflow: hidden; height: 560px; border-radius: var(--radius-medium); background: var(--bg); }
-.pm-phone-screen .pm-behind { padding: 14px; }
-.pm-phone-screen .pm-behind p { margin: 0 0 10px; padding: 12px; border-radius: var(--radius-medium); background: var(--bg-section); color: var(--text-dim); }
+.pm-phone-screen .pm-behind { padding: 16px; }
+.pm-phone-screen .pm-behind p { margin: 0 0 12px; padding: 12px; border-radius: var(--radius-medium); background: var(--bg-section); color: var(--text-dim); }
 .pm-phone-screen .sdk-menu-scrim { position: absolute; inset: 0; }
 .pm-phone-screen .sdk-menu-sheet { position: absolute; left: 0; bottom: -1px; }
 .pm-dlg { max-width: 880px; border: 1px solid var(--border); border-radius: var(--radius-large); background: var(--bg-section); }
-.pm-dlg-head { display: flex; align-items: center; gap: 10px; padding: 14px 16px 8px; }
+.pm-dlg-head { display: flex; align-items: center; gap: 12px; padding: 16px 16px 8px; }
 .pm-dlg-head b { font-size: 18px; font-weight: 600; }
 .pm-dlg-head small { margin-left: auto; color: var(--text-dim); font-size: 12px; }
-.pm-dlg-body { display: grid; gap: 10px; padding: 4px 16px 12px; }
-.pm-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--border); }
+.pm-dlg-body { display: grid; gap: 12px; padding: 4px 16px 12px; }
+.pm-dlg-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 16px; border-top: 1px solid var(--border); }
 .pm-ed { box-sizing: border-box; max-width: 560px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); }
-.pm-ed-t { margin: 0 0 14px; font-size: 16px; font-weight: 600; }
-.pm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 10px; padding-top: 14px; border-top: 1px solid var(--border); }
+.pm-ed-t { margin: 0 0 16px; font-size: 16px; font-weight: 600; }
+.pm-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 12px; padding-top: 16px; border-top: 1px solid var(--border); }
+.dsf-states { gap: 16px 24px; }
+.dsf-state { gap: 4px; }
+.pm-row .pm-role { margin-top: 16px; min-height: var(--field-h); }
+/* The Cards family's .sdk-row is a list row with a box; the form's .sdk-row is a row of fields. In the form it is the row of fields. */
+.pm-ed .sdk-form > .sdk-row { padding: 0; min-height: 0; border: 0; border-radius: 0; background: none; box-shadow: none; }
 @media (max-width: 640px) { .pm-pw { flex-basis: 140px; width: 140px; } }
 @media (max-width: 480px) { .pm-ed .sdk-row { flex-direction: column; gap: 12px; } .pm-ed .sdk-row > .sdk-field { width: 100%; max-width: none; flex: none; } }`;
 

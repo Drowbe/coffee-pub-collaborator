@@ -11,16 +11,24 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-cw { flex: 0 0 200px; width: 200px; min-width: 0; }
 .pm-cw .dsf-ex { display: block; }
 .pm-panel { box-sizing: border-box; max-width: 460px; padding: 12px; border-radius: var(--radius-medium); background: var(--bg-section); }
-.pm-panel h5 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.pm-panel h5 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
 .pm-gap { margin-top: 12px; }
-.pm-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 6px 0; }
-.pm-cap { margin: 0 0 6px; color: var(--text-dim); font-size: 12px; }
+.pm-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 0; }
+/* A caption belongs to the row under it: 4px above that row, 16px below the row before. */
+.pm-cap { margin: 16px 0 4px; color: var(--text-dim); font-size: 12px; line-height: 16px; }
+.pm-cap:first-child { margin-top: 0; }
 .pm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pm-ct th, .pm-ct td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.pm-ct th, .pm-ct td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 .pm-ct th { color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .pm-ct td.pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pm-pass { color: var(--ok); font-weight: 600; }
 .pm-fail { color: var(--f-error, var(--danger)); font-weight: 600; }
+.dsf-states { gap: 16px 24px; }
+.dsf-state { gap: 4px; }
+.pm-row .pm-role { margin-top: 16px; min-height: var(--check-h, 32px); }
+/* The label of a row that has a description sits level with the label's first line, not the middle of the box. */
+.pm-row:has(.sdk-choice-desc) .pm-role { margin-top: 17px; }
+.pm-row:has(.sdk-choice-boxed) .pm-role { margin-top: 18px; }
 @media (max-width: 640px) { .pm-cw { flex-basis: 100%; width: 100%; } }`;
 
   const ST = [

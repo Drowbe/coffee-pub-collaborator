@@ -13,6 +13,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { alignRows } from './check-design-system-align.mjs';
+
 export const id = 'choices';
 export const todayOnly = [];
 
@@ -97,4 +99,12 @@ export async function browserChecks(b) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: 1, mobile: false }, sessionId);
     await new Promise((r) => setTimeout(r, 300));
   }
+  // Alignment (tools/check-design-system-align.mjs): shared centre lines, even padding, gaps on the 4px scale.
+  await alignRows(b, [
+    { frame: /^Choice rows, all states$/, row: '.pm-row', across: '.pm-role, .dsf-ex .sdk-choice-label', centres: false, padding: false, gaps: false },
+    { frame: 'Choice rows, in use', row: '.sdk-choice-row', padding: 'x' },
+    { frame: 'Choice rows, in use', row: '.sdk-choice-list', centres: false, padding: false },
+    { frame: 'Choice rows, in use', row: '.pm-panel', centres: false, padding: false },
+    { frame: 'Choice rows, segmented', row: '.pm-line', padding: false },
+  ]);
 }

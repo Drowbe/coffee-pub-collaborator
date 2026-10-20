@@ -31,6 +31,7 @@
   display: block;
   width: 100%;
   min-width: 0;
+  max-width: none;
   height: var(--pg-h);
   margin: 0;
   padding: 0;
@@ -44,6 +45,8 @@
   --pg-h: 6px;
 }
 
+/* A bar in a toolbar or a status line is a short one beside text (the Module window family's size); everywhere else it runs the full width. */
+.ds-proposed :is(.sdk-toolbar, .sdk-status-line, .tb-progress) .sdk-progress, .ds-proposed .tb-progress { flex: 1 1 80px; min-width: 40px; max-width: 160px; }
 .ds-proposed :is(.sdk-progress-fill, .tb-progress-fill, .ai-meter > span, .upload .bar > span) {
   position: absolute;
   inset: 0 auto 0 0;
@@ -101,6 +104,7 @@
 /* ---- the bar with its label: the name and the value are text; the value is in words ---- */
 .ds-proposed .sdk-meter {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   min-width: 0;
 }

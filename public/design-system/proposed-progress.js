@@ -11,17 +11,19 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   // (A keyframe step is not a selector, so it cannot sit in a proposed stylesheet that the runner checks rule by rule.)
   const PG_CSS = `
 @keyframes shimmer { to { background-position: -200% 0; } }
-.pm-pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px 28px; max-width: 760px; }
-.pm-box { box-sizing: border-box; max-width: 560px; padding: 14px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 14px; }
+.pm-pgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px 24px; max-width: 760px; }
+.pm-box { box-sizing: border-box; max-width: 560px; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); display: grid; gap: 16px; }
 .pm-box h5 { margin: 0; font-size: 14px; font-weight: 600; }
-.pm-strip { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 12px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 13px; }
+.pm-strip { display: flex; align-items: center; gap: 12px; min-height: 40px; padding: 0 12px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 13px; }
 .pm-strip .sdk-meter-inline { flex: 1 1 auto; }
-.pm-tile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 14px; }
+.pm-tile { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; border-radius: var(--radius-medium); background: var(--bg-card); font-size: 14px; }
 .pm-tile small { display: block; color: var(--text-dim); font-size: 12px; }
-.pm-up { display: flex; align-items: center; gap: 12px; }
+.pm-up { display: flex; align-items: flex-start; gap: 12px; }
+.pm-up > .btn { margin-top: -6px; }
+.pm-row .pm-role { margin-top: 16px; min-height: 18px; }
 .pm-up > .sdk-meter { flex: 1 1 auto; }
 .pm-ct { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pm-ct th, .pm-ct td { padding: 6px 12px 6px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
+.pm-ct th, .pm-ct td { padding: 8px 12px 8px 0; border-bottom: 1px solid var(--border); text-align: left; vertical-align: middle; }
 .pm-ct th { color: var(--text-dim); font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; }
 .pm-ct td.pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pm-pass { color: var(--ok); font-weight: 600; }

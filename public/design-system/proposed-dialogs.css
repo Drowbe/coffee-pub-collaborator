@@ -1,0 +1,234 @@
+/* ==== Dialogs and sheets (PROPOSED 2026-10-20; Thomas's decisions of 2026-10-20, plan-design-system.md "Feedback") ====
+   ONE shell for everything that opens over the page and asks for attention: the editor window (.sdk-editor), the Set up sheets, the layout sheet,
+   the phase sheet, the background picker and the confirm. Three sizes: 360 (a confirm), 560 (a form), 880 (a browse: a list or a grid to choose from;
+   the phase sheet's 760 folds into 880).
+   Parts, top to bottom:  head (title + close)  /  body (scrolls)  /  foot (buttons, right-aligned, Primary last, a hairline above).
+   - Title: Figtree, weight 600, 18px (not the Fraunces headline font). Close: the approved icon-only Quiet small button (30px, a 44px hit area on a phone), at the top
+     right, 16px in from the top and the right edge, the same place in every dialog.
+   - Surface: the panel (--bg-section), a 1px --border hairline, --radius-large, --shadow-3 and the scrim (--scrim, from the Menus family: black at 55% in dark mode).
+   - The head and the foot stay while the body scrolls (the body is the only thing that scrolls); a hairline shows under the head once it has scrolled.
+   - Enter and exit: 200ms ease-out (a fade and an 8px rise). Phone (640px and below): full screen (no radius, no shadow, an opaque backdrop, the safe-area insets),
+     not a bottom sheet.
+   - Behaviour the SDK carries (drawn working in the page): Escape closes, and asks "Discard your changes?" when the form is dirty; focus is trapped in the dialog and
+     goes back to what opened it; a click on the backdrop does not close a form with edits; the page behind does not scroll; role="dialog" (role="alertdialog" for a confirm)
+     with aria-labelledby.
+   Names. New: .sdk-dialog .sdk-dialog-layer .sdk-dialog-confirm .sdk-dialog-wide .sdk-dialog-head .sdk-dialog-title .sdk-dialog-close .sdk-dialog-body .sdk-dialog-foot
+   .sdk-dialog-discard .sdk-dialog-discard-text .sdk-dialog-note. Aliases (today's names take the look, no markup is edited): .sdk-editor .sdk-editor-large .sdk-editor-actions
+   .sdk-editor-discard .sdk-editor-discard-text .sdk-editor-close .layout-sheet .layout-sheet-title .layout-form-body .phase-sheet .phase-sheet-head .phase-sheet-body
+   .phase-sheet-close .bgpick .bgpick-card .bgpick-head .bgpick-body .bgpick-foot .bgpick-close.
+   --shadow-3 is a PAGE-LOCAL copy: the Foundations family defines it. Colours are theme tokens only. Radii are --radius-* tokens. No coloured edge, bar or underline. */
+
+.ds-proposed {
+  /* The shadow of a window (a menu's is --shadow-2). About 0 8px 30px: a copy until the Foundations family defines the token. */
+  --shadow-3: 0 8px 30px rgba(0, 0, 0, 0.50);
+  --dlg-w-confirm: 360px;
+  --dlg-w-form: 560px;
+  --dlg-w-browse: 880px;
+  --dlg-pad-x: 24px;
+  --dlg-ms: 200ms;
+  --dlg-max-h: calc(100dvh - 48px);
+  --z-dialog: 40;
+}
+
+.ds-proposed:is(:root[data-theme-mode="light"] *) {
+  --shadow-3: 0 8px 30px color-mix(in srgb, var(--text) 22%, transparent);
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --dlg-pad-x: 16px; }
+}
+
+/* ---- The shell ---- */
+.ds-proposed :is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card) {
+  --dlg-w: var(--dlg-w-form);
+  position: relative;
+  box-sizing: border-box;
+  flex-direction: column;
+  width: min(var(--dlg-w), calc(100vw - 32px));
+  max-width: 100%;
+  height: auto;
+  max-height: var(--dlg-max-h);
+  margin: auto;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-large);
+  background: var(--bg-section);
+  color: var(--text);
+  box-shadow: var(--shadow-3);
+  font-family: var(--font-ui, inherit);
+  font-size: 14px;
+  line-height: 20px;
+  text-align: left;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--dlg-ms) ease-out, transform var(--dlg-ms) ease-out, overlay var(--dlg-ms) allow-discrete, display var(--dlg-ms) allow-discrete;
+}
+.ds-proposed :is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card):is(:not(dialog), [open]) { display: flex; }
+.ds-proposed :is(.sdk-dialog-confirm) { --dlg-w: var(--dlg-w-confirm); }
+.ds-proposed :is(.sdk-dialog-wide, .sdk-editor-large, .phase-sheet, .bgpick-card) { --dlg-w: var(--dlg-w-browse); }
+.ds-proposed :is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet):focus { outline: none; }
+
+/* Enter and exit on a real <dialog>: opacity and a small rise, 200ms ease-out, the exit too (display and overlay are allowed to wait for it). */
+@starting-style {
+  .ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet)[open] { opacity: 0; transform: translateY(8px); }
+}
+.ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet):not([open]) { opacity: 0; transform: translateY(8px); }
+
+/* The scrim: the Menus family's token (black at 55% in dark mode). */
+.ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet)::backdrop {
+  background: var(--scrim, rgba(0, 0, 0, 0.55));
+  opacity: 1;
+  transition: opacity var(--dlg-ms) ease-out, overlay var(--dlg-ms) allow-discrete, display var(--dlg-ms) allow-discrete;
+}
+@starting-style {
+  .ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet)[open]::backdrop { opacity: 0; }
+}
+.ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet):not([open])::backdrop { opacity: 0; }
+
+/* The layer for a dialog that is not a <dialog> (the background picker's overlay): the scrim, centring the dialog. */
+.ds-proposed :is(.sdk-dialog-layer, .bgpick) {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-dialog);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: 16px;
+  background: var(--scrim, rgba(0, 0, 0, 0.55));
+}
+
+/* ---- Head: title and close ---- */
+.ds-proposed :is(.sdk-dialog-head, .phase-sheet-head, .bgpick-head) {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: calc(16px + var(--dlg-safe-t, 0px)) calc(16px + var(--dlg-safe-r, 0px)) 12px calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  transition: border-color 0.15s;
+}
+.ds-proposed :is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card)[data-scrolled] > :is(.sdk-dialog-head, .phase-sheet-head, .bgpick-head) { border-bottom-color: var(--border); }
+
+.ds-proposed :is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card) :is(.sdk-dialog-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2) {
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0;
+  padding: 3px 0;
+  color: var(--text);
+  font-family: var(--font-ui, inherit);
+  font-size: var(--text-18, 18px);
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: normal;
+  text-transform: none;
+  overflow-wrap: anywhere;
+}
+.ds-proposed :is(.sdk-dialog, .layout-sheet, .phase-sheet, .bgpick-card) :is(.sdk-dialog-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2):focus { outline: none; }
+
+/* The close: the Quiet small icon button, written out for the names Buttons does not know (the Buttons family covers .sdk-icon-btn and .sdk-editor-close). */
+.ds-proposed :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close) {
+  position: relative;
+  inset: auto;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--btn-h-small, 30px);
+  height: var(--btn-h-small, 30px);
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.ds-proposed :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close):hover { background: color-mix(in srgb, var(--text) 10%, transparent); color: var(--text); }
+.ds-proposed :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close):active { background: color-mix(in srgb, var(--text) 16%, transparent); color: var(--text); }
+.ds-proposed :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; color: var(--text); }
+.ds-proposed :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close) :is(i, svg) { display: block; width: auto; height: auto; margin: 0; font-size: 14px; line-height: 1; }
+
+/* ---- Body: the one part that scrolls ---- */
+.ds-proposed :is(.sdk-dialog-body, .layout-form-body, .phase-sheet-body, .bgpick-body) {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 4px calc(var(--dlg-pad-x) + var(--dlg-safe-r, 0px)) 20px calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.ds-proposed .sdk-dialog-body > p { margin: 0; color: var(--text-dim); }
+.ds-proposed .sdk-dialog-body > p b { color: var(--text); font-weight: 600; }
+/* Today's sheets put the head inside the scrolling body; here it is a sibling and stays put. */
+.ds-proposed :is(.sdk-editor, .layout-sheet) > form { display: flex; flex: 1 1 auto; flex-direction: column; min-height: 0; margin: 0; }
+
+/* ---- Foot: the buttons, right-aligned, Primary last, a hairline above ---- */
+.ds-proposed :is(.sdk-dialog-foot, .sdk-editor-actions, .bgpick-foot, .sdk-dialog-discard, .sdk-editor-discard) {
+  position: static;
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 12px calc(var(--dlg-pad-x) + var(--dlg-safe-r, 0px)) calc(16px + var(--dlg-safe-b, 0px)) calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
+  border: 0;
+  border-top: 1px solid var(--border);
+  background: none;
+}
+.ds-proposed :is(.sdk-dialog-foot, .sdk-editor-actions, .bgpick-foot, .sdk-dialog-discard, .sdk-editor-discard)[hidden] { display: none; }
+/* A message in the foot (an error, a hint) takes the left; the buttons stay at the right. */
+.ds-proposed :is(.sdk-dialog-foot, .sdk-editor-actions, .bgpick-foot) > :is(.sdk-form-error, .sdk-dialog-note, .hint, .grow) { flex: 1 1 160px; margin: 0 auto 0 0; text-align: left; }
+.ds-proposed :is(.sdk-dialog-foot, .sdk-editor-actions, .bgpick-foot) > .grow { flex: 1 1 0; }
+.ds-proposed .sdk-dialog-note { color: var(--text-dim); font-size: 13px; line-height: 18px; }
+/* The discard row replaces the foot's buttons: a question and two choices. */
+.ds-proposed :is(.sdk-dialog-discard-text, .sdk-editor-discard-text) { flex: 1 1 auto; margin: 0; color: var(--text); font-weight: 600; text-align: left; }
+
+/* ---- A phone: full screen, in a dialog that is the page's modal ---- */
+@media (max-width: 640px) {
+  .ds-proposed :is(dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet), .sdk-dialog-layer > :is(.sdk-dialog, .bgpick-card), .bgpick > .bgpick-card) {
+    --dlg-safe-t: env(safe-area-inset-top, 0px);
+    --dlg-safe-r: env(safe-area-inset-right, 0px);
+    --dlg-safe-b: env(safe-area-inset-bottom, 0px);
+    --dlg-safe-l: env(safe-area-inset-left, 0px);
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: none;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+  .ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet)::backdrop { background: var(--bg); }
+  .ds-proposed :is(.sdk-dialog-layer, .bgpick) { padding: 0; background: var(--bg); }
+  /* A 44px target around the close, as every small icon button on a phone has. */
+  .ds-proposed :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close)::after { content: ""; position: absolute; inset: -7px; }
+  .ds-proposed :is(.sdk-dialog-foot, .sdk-editor-actions, .bgpick-foot, .sdk-dialog-discard) > .btn { --btn-h: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet, .bgpick-card),
+  .ds-proposed dialog:is(.sdk-dialog, .sdk-editor, .layout-sheet, .phase-sheet)::backdrop { transition: none; }
+}

@@ -1,0 +1,136 @@
+/* ==== Empty, loading and error states (PROPOSED 2026-10-20; Thomas's decisions of 2026-10-20, plan-design-system.md "Feedback") ====
+   What a place shows when it has nothing, is waiting, or has failed.
+   EMPTY   .sdk-empty        one block: a 24px icon, a 16px heading, dim text, an optional Primary or Quiet button. The Cards family draws the block's box (text only,
+                             no frame); this family adds the heading, the compact line and the error kind. .sdk-empty-line is the compact variant for lists: one line.
+   LOADING .sdk-skel         one skeleton: a soft block with ONE shimmer (the keyframe sdk-shimmer, defined once), in three shapes: line, row and card.
+           .sdk-spinner      one spinner: 16px (12px and 20px sizes) for a button and an inline wait.
+           The rule: a skeleton for a first load that takes over 300ms; a spinner for everything else (a button, an inline wait, a reload). Under 300ms show nothing.
+   ERROR   the same empty block with data-kind="error" and a Retry button; and the field error line .sdk-form-error. The colour is the readable danger mix (danger 70% into
+           --text, the status text of the Toasts family and the Fields' error). The raw #e07a5f of the Stream module goes.
+   Aliases (today's names take the look, no markup is edited): .empty .rs-empty .state (the Cards family has them as the block; here they take the heading and the icon),
+   .skel .skeleton, .error, .hint when it stands as an empty line.
+   The shimmer is switched off (a still soft block) when the person asks for less motion; the spinner then turns slowly.
+   Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --skel-base: color-mix(in srgb, var(--text) 8%, transparent);
+  --skel-hi: color-mix(in srgb, var(--text) 14%, transparent);
+  --skel-ms: 1.4s;
+  --spin: 16px;
+  --spin-ms: 0.8s;
+  --state-error: color-mix(in srgb, var(--danger) 70%, var(--text));
+}
+
+@keyframes sdk-shimmer {
+  from { background-position: -100% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes sdk-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ---- Empty: the heading, the compact line, the error kind ---- */
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > :is(.sdk-empty-title, h2, h3) {
+  margin: 0;
+  color: var(--text);
+  font-size: var(--text-16, 16px);
+  font-weight: 600;
+  line-height: 22px;
+}
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > .ic { font-size: 24px; line-height: 1; color: var(--text-dim); }
+.ds-proposed .sdk-empty > .sdk-empty-text { margin: 0; max-width: 36ch; color: var(--text-dim); font-size: 14px; line-height: 20px; }
+.ds-proposed .sdk-empty > .sdk-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+.ds-proposed .sdk-empty[data-kind="error"] > i:first-child { color: var(--state-error); }
+.ds-proposed :is(.sdk-empty-line, .emptynote, .activity-empty, .bell-empty) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-small);
+  background: none;
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 18px;
+}
+.ds-proposed .sdk-empty-line > i { flex: none; width: 16px; text-align: center; font-size: 14px; }
+.ds-proposed .sdk-empty-line[data-kind="error"] { color: var(--state-error); }
+.ds-proposed :is(.sdk-empty-line, .emptynote) > .btn { margin-left: auto; }
+
+/* ---- Skeleton: one shimmer, three shapes ---- */
+.ds-proposed :is(.sdk-skel, .skel) {
+  display: block;
+  box-sizing: border-box;
+  margin: 0;
+  border-radius: var(--radius-small);
+  background-color: var(--skel-base);
+  background-image: linear-gradient(90deg, transparent, var(--skel-hi), transparent);
+  background-repeat: no-repeat;
+  background-size: 50% 100%;
+  background-position: -100% 0;
+  animation: sdk-shimmer var(--skel-ms) linear infinite;
+}
+.ds-proposed .sdk-skel-line { width: var(--w, 100%); height: 12px; }
+.ds-proposed .sdk-skel-title { width: var(--w, 40%); height: 16px; }
+.ds-proposed .sdk-skel-dot { flex: none; width: 32px; height: 32px; border-radius: var(--radius-round); }
+.ds-proposed .sdk-skel-block { width: 100%; height: var(--h, 96px); border-radius: var(--radius-medium); }
+/* The row: a portrait and two lines, as tall as a real row. The card: a picture and two lines. */
+.ds-proposed .sdk-skel-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  min-height: 56px;
+  padding: 12px;
+  border-radius: var(--radius-medium);
+  background: var(--bg-card);
+}
+.ds-proposed .sdk-skel-stack { display: flex; flex: 1 1 auto; flex-direction: column; gap: 4px; min-width: 0; }
+.ds-proposed .sdk-skel-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  padding: 12px;
+  border-radius: var(--radius-medium);
+  background: var(--bg-card);
+}
+.ds-proposed .sdk-skel-list { display: flex; flex-direction: column; gap: 8px; }
+.ds-proposed .sdk-skel-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; }
+.ds-proposed .skeleton { display: grid; gap: 8px; }
+
+/* ---- Spinner: a ring of the text colour with a gap, turning ---- */
+.ds-proposed .sdk-spinner {
+  display: inline-block;
+  flex: none;
+  box-sizing: border-box;
+  width: var(--spin);
+  height: var(--spin);
+  vertical-align: -3px;
+  border-radius: var(--radius-round);
+  background: conic-gradient(from 0deg, transparent 0 12%, currentColor);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 2px), black calc(100% - 2px));
+  color: var(--text-dim);
+  animation: sdk-spin var(--spin-ms) linear infinite;
+}
+.ds-proposed .sdk-spinner-sm { --spin: 12px; }
+.ds-proposed .sdk-spinner-lg { --spin: 20px; }
+.ds-proposed :is(.btn-primary, .btn-danger.solid) .sdk-spinner { color: inherit; }
+
+/* ---- Field error: the line under a field or in a form ---- */
+.ds-proposed :is(.sdk-form-error, .error) {
+  margin: 0;
+  color: var(--state-error);
+  font-size: 12px;
+  line-height: 16px;
+}
+.ds-proposed .sdk-form-error:empty { display: none; }
+.ds-proposed .error.ok { color: var(--text-dim); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-skel, .skel) { animation: none; background-image: none; }
+  .ds-proposed .sdk-spinner { animation-duration: 2.4s; }
+}

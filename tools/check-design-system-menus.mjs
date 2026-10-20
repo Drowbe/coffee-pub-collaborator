@@ -12,7 +12,7 @@
  * is not the quiet fill, a chosen day that is not the solid accent with --on-accent, a today that is not the half-strength selected fill, a range that is not
  * the quiet fill; a kind list that is not --radius-medium, a chosen kind not bold with its chip; an alias (today's class name) that does not take the same
  * surface and row; a popover heading that is accent coloured; the keyboard demo not answering Down, Up, Home, End, Right, Left, Escape and Enter; the family
- * not marked Approved and dated 2026-10-19; a --shadow-2 that is not 0 4px 12px (dark black at 40%, light --text at 14%) or a --shadow-1 not smaller than it; Dialogs and sheets, Toasts and banners and Tooltips not named as not yet decided; Menus and flyouts and Popovers and
+ * not marked Approved and dated 2026-10-19; a --shadow-2 that is not 0 4px 12px (dark black at 40%, light --text at 14%) or a --shadow-1 not smaller than it; Dialogs and sheets, Toasts and banners or Tooltips still listed as not yet decided (they are drawn now); Menus and flyouts and Popovers and
  * sheets still listed as not yet decided. In the stylesheet: a rule that draws an edge on one side, an inset shadow, an underline, a red or accent fill on a
  * danger row or a hover, a name that is not defined, a --shadow-2 with no light value.
  */
@@ -266,7 +266,7 @@ const menusProbe = async () => {
   if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Menus family is not marked Approved');
   if (!blk || !/Approved 2026-10-19/.test(blk.textContent)) bad('the Menus family has no Approved 2026-10-19 note');
   if (!blk || (blk.textContent.match(/Decided 2026-10-19/g) || []).length < 3) bad('the Menus family does not mark the shadow, the scrim and the hover as Decided 2026-10-19');
-  for (const id of ['u-dialogs-and-sheets', 'u-toasts-and-banners', 'u-tooltips']) if (!document.getElementById(id)) bad(`${id} is not listed as Not yet decided`);
+  for (const id of ['u-dialogs-and-sheets', 'u-toasts-and-banners', 'u-tooltips']) if (document.getElementById(id)) bad(`${id} is still listed as Not yet decided (the Feedback families are drawn now)`);
   for (const id of ['u-menus-and-flyouts', 'u-popovers-and-sheets', 'u-banners-notices-and-toasts']) if (document.getElementById(id)) bad(`${id} is still listed as Not yet decided`);
   if (!blk || !/Dialogs and sheets/.test(blk.textContent) || !/Tooltips/.test(blk.textContent) || !/Which to decide next/.test(blk.textContent)) bad('the Menus family does not name the three later families and which to decide next');
   return JSON.stringify(out);

@@ -12,6 +12,10 @@
     { "id": "calendar", "js": "proposed-calendar.js", "css": "proposed-calendar.css" },
     { "id": "markers", "js": "proposed-markers.js", "css": "proposed-markers.css" },
     { "id": "days", "js": "proposed-days.js", "css": "proposed-days.css" },
-    { "id": "tables", "js": "proposed-tables.js", "css": "proposed-tables.css" }
+    { "id": "tables", "js": "proposed-tables.js", "css": "proposed-tables.css" },
+    { "id": "dialogs", "js": "proposed-dialogs.js", "css": "proposed-dialogs.css" },
+    { "id": "tooltips", "js": "proposed-tooltips.js", "css": "proposed-tooltips.css" },
+    { "id": "states", "js": "proposed-states.js", "css": "proposed-states.css" },
+    { "id": "toasts", "js": "proposed-toasts.js", "css": "proposed-toasts.css" }
   ]
 }

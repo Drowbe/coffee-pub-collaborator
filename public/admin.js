@@ -1674,7 +1674,7 @@ $('tab-modules').addEventListener('change', async (event) => {
     if (!window.confirm(`${names} needs ${shownName(m)}. Turn ${m.dependents.length === 1 ? 'it' : 'them'} off too?`)) { input.checked = true; return; }
     force = true;
   }
-  if (enable && m.needsApproval && !window.confirm(`Turn on ${shownName(m)}?\n\nThis approves what it asks for, listed on its card.`)) { input.checked = false; return; }
+  if (enable && m.needsApproval && !window.confirm(`Turn on ${shownName(m)}?\n\nThis approves what it asks for, listed under its name.`)) { input.checked = false; return; }
   input.disabled = true;
   try {
     await api('PATCH', `/api/modules/${m.id}`, { enabled: enable, ...(force ? { force: true } : {}) });

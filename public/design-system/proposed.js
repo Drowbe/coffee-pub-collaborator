@@ -52,7 +52,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     { group: 'Containers', names: ['Tables and lists in Manage', 'Progress bars and meters', 'Module window: title, toolbar and status'] },
     { group: 'Feedback', names: ['Toasts and banners', 'Empty, loading and error states'] },
     { group: 'Content', names: ['Messages, chat and AI cards', 'Avatars and portraits', 'Status strip, phases and countdown', 'Day cards, calendar cells and markers', 'Map pins and map UI', 'Round buttons'] },
-    { group: 'Other', names: ['Tokens', 'Icons', 'Live SDK pieces'] },
+    { group: 'Other', names: ['Tokens (Today only: colour, type, spacing, elevation, motion, icons and layout are decided)', 'Icons (Today only: the sizes and rules are decided in Foundations)', 'Live SDK pieces'] },
   ];
 })();
 

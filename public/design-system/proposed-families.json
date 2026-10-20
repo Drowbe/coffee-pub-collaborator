@@ -7,6 +7,7 @@
     { "id": "tabs", "js": "proposed-tabs.js", "css": "proposed-tabs.css" },
     { "id": "chips", "js": "proposed-chips.js", "css": "proposed-chips.css" },
     { "id": "cards", "js": "proposed-cards.js", "css": "proposed-cards.css" },
-    { "id": "menus", "js": "proposed-menus.js", "css": "proposed-menus.css" }
+    { "id": "menus", "js": "proposed-menus.js", "css": "proposed-menus.css" },
+    { "id": "foundations", "js": "proposed-foundations.js", "css": "proposed-foundations.css" }
   ]
 }

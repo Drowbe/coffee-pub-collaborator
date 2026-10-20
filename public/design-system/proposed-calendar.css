@@ -199,9 +199,9 @@
 .ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-n b { color: var(--on-accent); }
 .ds-proposed .sdk-cal-compact .sdk-cal-grid:not(.sdk-cal-grid-pick) { --cal-cell-h: 54px; }
 .ds-proposed .sdk-cal-compact .sdk-cal-chips { flex-direction: row; flex-wrap: wrap; gap: 4px; }
-.ds-proposed .sdk-cal-compact .sdk-cal-event { width: 7px; min-width: 7px; height: 7px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-round); background: var(--ev-tone); font-size: 0; overflow: hidden; }
+.ds-proposed .sdk-cal-compact .sdk-cal-event { width: 7px; min-width: 7px; height: 7px; min-height: 0; padding: 0; border: 0; border-radius: var(--radius-round); background: var(--ev-tone); font-size: 11px; line-height: 7px; color: transparent; overflow: hidden; }
 .ds-proposed .sdk-cal-compact .sdk-cal-event.is-environment { background: var(--text-dim); }
-.ds-proposed .sdk-cal-compact .sdk-cal-event.sdk-bar-kept { width: 7px; padding: 0; background: var(--ev-tone); }
+.ds-proposed .sdk-cal-compact .sdk-cal-event.sdk-bar-kept { width: 7px; padding: 0; background: var(--ev-tone); color: transparent; }
 .ds-proposed .sdk-cal-compact .sdk-cal-event.sdk-bar-kept::before { display: none; }
 .ds-proposed .sdk-cal-compact .sdk-cal-event.sdk-bar-kept.is-ext { background: var(--text-dim); }
 .ds-proposed .sdk-cal-compact .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-event { background: var(--on-accent); }
@@ -210,7 +210,7 @@
 .ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-cell { --cal-cell-h: 0px; flex-direction: row; align-items: flex-start; gap: 10px; }
 .ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-n { flex: none; width: 52px; }
 .ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-chips { flex: 1 1 auto; flex-direction: column; }
-.ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-event { width: 100%; height: auto; min-height: 18px; padding: 0 6px; border-radius: var(--radius-small); background: color-mix(in srgb, var(--ev-tone) var(--cal-tint), var(--cal-surface, var(--bg-card))); font-size: 11px; overflow: visible; }
+.ds-proposed .sdk-cal-compact .sdk-cal-week .sdk-cal-event { width: 100%; height: auto; min-height: 18px; padding: 0 6px; border-radius: var(--radius-small); background: color-mix(in srgb, var(--ev-tone) var(--cal-tint), var(--cal-surface, var(--bg-card))); font-size: 11px; line-height: 16px; color: color-mix(in srgb, var(--ev-tone) 45%, var(--text)); overflow: visible; }
 
 /* ---- the agenda: rows are Cards rows; the bar is the declared exception ---- */
 .ds-proposed .sdk-cal-agenda { display: flex; flex-direction: column; gap: var(--gap-in, 8px); min-width: 0; }

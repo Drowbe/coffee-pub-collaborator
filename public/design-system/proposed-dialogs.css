@@ -100,7 +100,7 @@
   gap: 12px;
   box-sizing: border-box;
   margin: 0;
-  padding: calc(16px + var(--dlg-safe-t, 0px)) calc(16px + var(--dlg-safe-r, 0px)) 12px calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
+  padding: calc(16px + var(--dlg-safe-t, 0px)) calc(var(--dlg-pad-x) + var(--dlg-safe-r, 0px)) 16px calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
   border: 0;
   border-bottom: 1px solid transparent;
   background: none;
@@ -124,6 +124,8 @@
 }
 .ds-proposed :is(.sdk-dialog, .layout-sheet, .phase-sheet, .bgpick-card) :is(.sdk-dialog-title, .layout-sheet-title, .phase-sheet-head > h2, .bgpick-head > h2):focus { outline: none; }
 
+/* The close hangs 8px into the head's right padding, so its glyph sits the page padding from the edge, as the title does from the left. */
+.ds-proposed :is(.sdk-dialog-head, .phase-sheet-head, .bgpick-head) > :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close) { margin-right: -8px; }
 /* The close: the Quiet small icon button, written out for the names Buttons does not know (the Buttons family covers .sdk-icon-btn and .sdk-editor-close). */
 .ds-proposed :is(.sdk-dialog-close, .bgpick-close, .phase-sheet-close, .sdk-editor-close) {
   position: relative;
@@ -162,7 +164,7 @@
   gap: 16px;
   box-sizing: border-box;
   margin: 0;
-  padding: 4px calc(var(--dlg-pad-x) + var(--dlg-safe-r, 0px)) 20px calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
+  padding: 0 calc(var(--dlg-pad-x) + var(--dlg-safe-r, 0px)) 16px calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -183,7 +185,7 @@
   gap: 8px;
   box-sizing: border-box;
   margin: 0;
-  padding: 12px calc(var(--dlg-pad-x) + var(--dlg-safe-r, 0px)) calc(16px + var(--dlg-safe-b, 0px)) calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
+  padding: 16px calc(var(--dlg-pad-x) + var(--dlg-safe-r, 0px)) calc(16px + var(--dlg-safe-b, 0px)) calc(var(--dlg-pad-x) + var(--dlg-safe-l, 0px));
   border: 0;
   border-top: 1px solid var(--border);
   background: none;

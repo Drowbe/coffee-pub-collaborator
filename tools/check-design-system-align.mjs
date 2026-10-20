@@ -14,7 +14,7 @@
  *   - the vertical centres differ by more than 1px. A child that wraps to two lines or more counts by the centre of its FIRST line (top + top padding
  *     + half a line); every other child by the centre of its box. So a one-line row shares one centre line, and a multi-line row shares the first
  *     line's centre line (an icon, a button and a close are not centred against the whole paragraph);
- *   - the row's left padding differs from its right padding, or the top from the bottom, by more than 1px (`padding: false` leaves this out);
+ *   - the row's left padding differs from its right padding, or the top from the bottom, by more than 1px (`padding: false` leaves this out, `padding: 'x'` judges left and right only);
  *   - the gap between two neighbours (side by side, or one under the other) is not on the 4px scale (4, 8, 12, 16, 20, 24) when it is under 28px. A gap
  *     of 28px or more is layout pushing parts apart (space-between, an auto margin) and is not judged. `gaps: false` leaves gaps out; `zero: true`
  *     allows 0 (parts that touch on purpose, such as a segmented control);
@@ -86,7 +86,7 @@ const alignProbe = (specs) => {
         if (sp.padding !== false) {
           const pl = parseFloat(rcs.paddingLeft); const pr = parseFloat(rcs.paddingRight); const pt = parseFloat(rcs.paddingTop); const pb = parseFloat(rcs.paddingBottom);
           if (Math.abs(pl - pr) > tol) out.problems.push(`${name}: left padding ${pl}px, right padding ${pr}px`);
-          if (Math.abs(pt - pb) > tol) out.problems.push(`${name}: top padding ${pt}px, bottom padding ${pb}px`);
+          if (sp.padding !== 'x' && Math.abs(pt - pb) > tol) out.problems.push(`${name}: top padding ${pt}px, bottom padding ${pb}px`);
         }
         if (sp.gaps !== false) {
           for (let i = 1; i < kids.length; i += 1) {

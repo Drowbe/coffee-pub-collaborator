@@ -14,6 +14,8 @@
  * Proposed, or its page naming Dialogs and sheets as not yet decided. In the stylesheet: a one-sided border (the hairlines of the head and the foot are allowed), a hex colour,
  * a font under 11px, an inset shadow, a name that is not defined.
  */
+import { alignRows } from './check-design-system-align.mjs';
+
 export const id = 'dialogs';
 export const todayOnly = ['sdk-form', 'sdk-tabs', 'sdk-field', 'sdk-label', 'sdk-hint', 'sdk-optional', 'sdk-group', 'sdk-field-btn', 'sdk-dp', 'sdk-dp-head', 'sdk-dp-title', 'sdk-dp-grid', 'sdk-dp-dow', 'sdk-dp-day', 'sel', 'today', 'solid', 'sdk-toasts', 'sdk-toast', 'sdk-toast-icon', 'sdk-toast-body', 'sdk-toast-title', 'sdk-toast-end'];
 
@@ -39,6 +41,14 @@ export async function browserChecks(b) {
   const { ev, sc, where, problems } = b;
   const r = JSON.parse(await ev(`(${dialogsProbe.toString()})(${JSON.stringify({ width: sc.width, mode: sc.mode })})`));
   for (const x of r.problems) problems.push(`${where}: ${x}`);
+  // Alignment: the title and the close share a centre line, the head, body and foot are even left to right, and every gap is on the scale.
+  await alignRows(b, [
+    { frame: /^Dialogs/, row: '.sdk-dialog-head', padding: 'x' },
+    { frame: /^Dialogs/, row: '.sdk-dialog-foot', skip: '.sdk-dialog-note, .sdk-form-error, .hint' },
+    { frame: /^Dialogs, (states|two steps|try it)/, row: '.sdk-dialog-discard' },
+    { frame: /^Dialogs, (anatomy|three sizes|confirm)/, row: '.sdk-dialog-body', padding: 'x', centres: false },
+    { frame: /^Dialogs, aliases/, row: '.sdk-editor-actions, .layout-sheet .sdk-dialog-foot', padding: 'x' },
+  ]);
 }
 
 const dialogsProbe = async (ctx) => {
@@ -86,7 +96,8 @@ const dialogsProbe = async (ctx) => {
       if (!last || !/btn-primary|btn-danger/.test(last.className)) bad('the last button of a footer is not the Primary (or the Danger)');
       const rr = el.getBoundingClientRect(); const cb = el.querySelector('.sdk-dialog-close').getBoundingClientRect();
       if (!near(cb.width, 30) || !near(cb.height, 30)) bad(`a close is ${cb.width} by ${cb.height}px, not 30`);
-      if (!near(cb.top - rr.top, 17) || !near(rr.right - cb.right, 17)) bad(`a close is ${cb.top - rr.top}px from the top and ${rr.right - cb.right}px from the right, expected 17 and 17`);
+      const rightWant = el.ownerDocument.defaultView.innerWidth <= 640 ? 9 : 17; /* the glyph sits the dialog's side padding from the edge: the close box hangs 8px into it */
+      if (!near(cb.top - rr.top, 17) || !near(rr.right - cb.right, rightWant)) bad(`a close is ${cb.top - rr.top}px from the top and ${rr.right - cb.right}px from the right, expected 17 and ${rightWant}`);
       if (getComputedStyle(el.querySelector('.sdk-dialog-close')).backgroundColor !== 'rgba(0, 0, 0, 0)') bad('the close has a fill at rest (it is Quiet)');
     }
     if (!/btn-danger/.test(c.querySelector('.sdk-dialog-foot .btn:last-child').className) || /solid/.test(c.querySelector('.sdk-dialog-foot .btn:last-child').className)) bad('the destructive confirm does not end with the soft Danger');
@@ -139,7 +150,7 @@ const dialogsProbe = async (ctx) => {
       if (cs.borderTopLeftRadius !== rl && d.defaultView.innerWidth > 640) bad(`aliases: ${s} does not take --radius-large`);
       const t = el.querySelector('.sdk-dialog-title, .layout-sheet-title, h2'); const tc = getComputedStyle(t); if (tc.fontSize !== '18px' || tc.fontWeight !== '600' || /Fraunces/i.test(tc.fontFamily)) bad(`aliases: the title of ${s} is ${tc.fontSize} ${tc.fontWeight} ${tc.fontFamily}`);
       const cb = el.querySelector('.sdk-editor-close, .sdk-dialog-close, .phase-sheet-close, .bgpick-close').getBoundingClientRect(); const rr = el.getBoundingClientRect();
-      const edge = cs.borderTopWidth === '1px' ? 17 : 16; if (!near(cb.width, 30) || !near(cb.top - rr.top, edge) || !near(rr.right - cb.right, edge)) bad(`aliases: the close of ${s} is not 30px at 17px from the top and right (${cb.width}, ${cb.top - rr.top}, ${rr.right - cb.right})`); }
+      const edge = cs.borderTopWidth === '1px' ? 17 : 16; const edgeR = d.defaultView.innerWidth <= 640 ? edge - 8 : edge; if (!near(cb.width, 30) || !near(cb.top - rr.top, edge) || !near(rr.right - cb.right, edgeR)) bad(`aliases: the close of ${s} is not 30px at 17px from the top and right (${cb.width}, ${cb.top - rr.top}, ${rr.right - cb.right})`); }
     if (d.querySelector('.bgpick') && getComputedStyle(d.querySelector('.bgpick')).backgroundColor === 'rgba(0, 0, 0, 0)') bad('aliases: .bgpick has no scrim');
   }
 

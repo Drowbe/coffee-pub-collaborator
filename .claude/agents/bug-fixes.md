@@ -22,7 +22,12 @@ You fix defects in Collaborator, wherever they are: `public/`, `server/`, `modul
 
 ## Rules
 
-- Keep existing ids, routes, field names and stored keys unchanged unless changing them is the fix.
+- The product is not released. No compatibility layers, aliases, deprecation periods, redirects,
+  legacy code paths or data migrations: change things cleanly and replace what is there. Ids,
+  routes, hashes, API fields and stored keys may be renamed when that is cleaner; test data may be
+  reset. (The 0.4.0 names migration and its allow-listed old words remain only because that code
+  exists; do not extend them.) Once the product is released this rule is removed.
+- Don't change ids, routes, field names and stored keys unasked, unless changing them is the fix.
 - If you change a module, bump its version as the repository does (`tools/module-versions.json`).
 - Don't edit `documentation/`, `README.md` or `CHANGELOG.md`; the content-manager writes those from
   your report. Don't commit; the project manager commits once QA and the docs are done.

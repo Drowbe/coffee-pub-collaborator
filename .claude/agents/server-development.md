@@ -19,8 +19,13 @@ You build the server side of Collaborator: `server/` (Node 20+, Express 5, `live
 
 ## While you work
 
-- Don't break stored data or links: keep existing routes, field names and stored keys unless the
-  brief says otherwise. Configuration goes in environment variables, never in code.
+- The product is not released. No compatibility layers, aliases, deprecation periods, redirects,
+  legacy code paths or data migrations: change things cleanly and replace what is there. Ids,
+  routes, hashes, API fields and stored keys may be renamed when that is cleaner; test data may be
+  reset. (The 0.4.0 names migration and its allow-listed old words remain only because that code
+  exists; do not extend them.) Once the product is released this rule is removed.
+- Don't rename routes, field names and stored keys unasked, and a rename needs no data migration.
+  Configuration goes in environment variables, never in code.
 - Every refusal (a cap, a permission, a bad request) gets the right status code and one plain
   sentence saying why.
 - Add or extend a `tools/check-*.mjs` check for new rules, and add it to `npm run check` in

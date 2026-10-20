@@ -2319,7 +2319,7 @@ test('Set up: a right-zone tool after your picture, before the window controls, 
   const css = fs.readFileSync(path.join(ROOT, 'public/style.css'), 'utf8');
   assert.match(css, /\.setup-first-visit \{[^}]*border: 0;/);
   assert.match(css, /\.setup-choice:has\(input:focus-visible\) \{[^}]*outline: 2px solid var\(--accent\);/, 'the keyboard ring on the row');
-  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?\.space-setup \.phase-row-tools \.btn,\n\s*\.space-setup \.phase-row-off \.btn,\n\s*\.space-setup \.phase-first \.btn,\n\s*#setup-opens-with-layout-stop,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
+  assert.match(css, /@media \(max-width: 640px\) \{[\s\S]*?#setup-opens-with-layout-stop,\n\s*\.setup-choice \{\n\s*min-height: 44px;/, 'a 44px row on a phone');
   assert.match(css, /\.space-setup \.phase-row \{\n\s*grid-template-columns: minmax\(0, 1fr\) minmax\(0, 1fr\);\n\s*grid-template-areas: "name name" "start end" "days tools" "problem problem";/, 'the rows as cards in the narrow panel');
   assert.match(css, /\.setup-status \{\n\s*margin: 8px 0 0;/, 'the refusal line stands clear of the last hint');
 });

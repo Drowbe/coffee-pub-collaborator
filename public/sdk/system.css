@@ -556,7 +556,7 @@
   letter-spacing: var(--nav-letter-spacing, normal);
 }
 
-:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link)[hidden] { display: none; }
+:is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):is([hidden], .layout-tab-out) { display: none; }
 
 :is(.sdk-tabs, .tb-tabs, .subtabs, .setup-tabs, .layout-tabs) > :is(.sdk-tab, .tb-tab, .subtab, .setup-tab, .core-link):hover {
   background: color-mix(in srgb, var(--tab-ink) 10%, transparent);

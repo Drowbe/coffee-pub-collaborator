@@ -87,6 +87,11 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 /* radius */
 .pm-fd-rgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .pm-fd-rbox { box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; gap: 4px; min-height: 72px; padding: 10px; border: 1px solid var(--border); background: var(--bg-card); font-size: 12px; }
+.pm-fd-rbox:is([data-radius="min"], [data-role="min"]) { border-radius: var(--radius-min); }
+.pm-fd-rbox:is([data-radius="small"], [data-role="small"]) { border-radius: var(--radius-small); }
+.pm-fd-rbox:is([data-radius="medium"], [data-role="medium"]) { border-radius: var(--radius-medium); }
+.pm-fd-rbox:is([data-radius="large"], [data-role="large"]) { border-radius: var(--radius-large); }
+.pm-fd-rbox:is([data-radius="round"], [data-role="round"]) { border-radius: var(--radius-round); }
 .pm-fd-rbox b { font-size: 13px; }
 .pm-fd-rbox span { color: var(--text-dim); }
 .pm-fd-rbox.pm-fd-dot { align-items: center; width: 72px; justify-self: start; }
@@ -251,10 +256,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ['--radius-large', '11px', 'large', 'Cards, panels, dialogs and sheets (top corners).'],
     ['--radius-round', '999px', 'round', 'Counts, dots, avatars and the micro count.'],
   ];
-  const radiusBody = () => `<div class="ds-proposed"><div class="pm-fd-rgrid">${RADII.map(([t, px, k, use]) => `<div class="pm-fd-rbox" data-radius="${k}" style="border-radius:var(${t})"><b>${t}</b><span>${px}</span><span>${use}</span></div>`).join('')}</div></div>`;
+  const radiusBody = () => `<div class="ds-proposed"><div class="pm-fd-rgrid">${RADII.map(([t, px, k, use]) => `<div class="pm-fd-rbox" data-radius="${k}"><b>${t}</b><span>${px}</span><span>${use}</span></div>`).join('')}</div></div>`;
   const rolesBody = () => `<div class="ds-proposed"><div class="pm-fd-rgrid">
-    ${[['Menu or popover', 'medium'], ['Card or panel', 'large'], ['Row on a panel', 'medium'], ['Row inside a card', 'small'], ['Button, field, tab, chip', 'small']].map(([n, k]) => `<div class="pm-fd-rbox" data-role="${k}" style="border-radius:var(--radius-${k})"><b>${n}</b><span>--radius-${k}</span></div>`).join('')}
-    ${[['Count', 'round'], ['Dot', 'round'], ['Avatar', 'round'], ['Micro count', 'round']].map(([n, k]) => `<div class="pm-fd-rbox pm-fd-dot" data-role="${k}" style="border-radius:var(--radius-${k})"><span>${n}</span></div>`).join('')}
+    ${[['Menu or popover', 'medium'], ['Card or panel', 'large'], ['Row on a panel', 'medium'], ['Row inside a card', 'small'], ['Button, field, tab, chip', 'small']].map(([n, k]) => `<div class="pm-fd-rbox" data-role="${k}"><b>${n}</b><span>--radius-${k}</span></div>`).join('')}
+    ${[['Count', 'round'], ['Dot', 'round'], ['Avatar', 'round'], ['Micro count', 'round']].map(([n, k]) => `<div class="pm-fd-rbox pm-fd-dot" data-role="${k}"><span>${n}</span></div>`).join('')}
   </div></div>`;
 
   // ---- motion ----
@@ -470,8 +475,8 @@ ${tbl(['Layer', 'Token', 'Today\'s values that go here'], [
 <h5 style="margin:18px 0 4px;font-size:13px">Drift to fix</h5>
 ${tbl(['Where', 'Today', 'Becomes'], [
     ['Places <code>.pick-pop</code> and Planner <code>.menu</code>', 'Large and medium', 'Both menus are medium.'],
-    ['<code>border-radius: 999px</code>', '7 uses', '<code>--radius-round</code>.'],
-    ['<code>border-radius: 50%</code>', '10 uses', '<code>--radius-round</code> on a circle; on a shape that is not square, ask what it is.'],
+    ['<code>border-radius</code> of <code>999px</code>', '7 uses', '<code>--radius-round</code>.'],
+    ['<code>border-radius</code> of <code>50%</code>', '10 uses', '<code>--radius-round</code> on a circle; on a shape that is not square, ask what it is.'],
     ['<code>6px</code> and <code>12px</code>', '4 and 3 uses', '<code>--radius-small</code> or <code>--radius-medium</code>; <code>--radius-large</code>.'],
     ['<code>--radius-min</code> (3px)', '31 uses', 'Stays, only for the inside of a control: a tick box, a key cap, a swatch.'],
   ])}

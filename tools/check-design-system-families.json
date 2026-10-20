@@ -1,3 +1,3 @@
 {
-  "families": ["buttons", "typography", "fields", "tabs", "colour", "chips", "cards", "menus", "foundations"]
+  "families": ["buttons", "typography", "fields", "tabs", "colour", "chips", "cards", "menus", "foundations", "calendar", "markers", "days", "tables"]
 }

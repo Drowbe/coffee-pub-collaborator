@@ -49,9 +49,9 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   window.DS_PROPOSED.undecided = [
     { group: 'Controls', names: ['Links', 'Pickers: date, kind, currency', 'Choice rows and people chips', 'Editor window'] },
     { group: 'Navigation', names: ['Dialogs and sheets', 'Tooltips', 'Phone bottom bar (icon over label)'] },
-    { group: 'Containers', names: ['Tables and lists in Manage', 'Progress bars and meters', 'Module window: title, toolbar and status'] },
+    { group: 'Containers', names: ['Progress bars and meters', 'Module window: title, toolbar and status'] },
     { group: 'Feedback', names: ['Toasts and banners', 'Empty, loading and error states'] },
-    { group: 'Content', names: ['Messages, chat and AI cards', 'Avatars and portraits', 'Status strip, phases and countdown', 'Day cards, calendar cells and markers', 'Map pins and map UI', 'Round buttons'] },
+    { group: 'Content', names: ['Messages, chat and AI cards', 'Avatars and portraits', 'Status strip, phases and countdown', 'Map pins and map UI', 'Round buttons'] },
     { group: 'Other', names: ['Tokens (Today only: colour, type, spacing, elevation, motion, icons and layout are decided)', 'Icons (Today only: the sizes and rules are decided in Foundations)', 'Live SDK pieces'] },
   ];
 })();

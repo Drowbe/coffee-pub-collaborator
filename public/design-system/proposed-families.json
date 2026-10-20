@@ -8,6 +8,10 @@
     { "id": "chips", "js": "proposed-chips.js", "css": "proposed-chips.css" },
     { "id": "cards", "js": "proposed-cards.js", "css": "proposed-cards.css" },
     { "id": "menus", "js": "proposed-menus.js", "css": "proposed-menus.css" },
-    { "id": "foundations", "js": "proposed-foundations.js", "css": "proposed-foundations.css" }
+    { "id": "foundations", "js": "proposed-foundations.js", "css": "proposed-foundations.css" },
+    { "id": "calendar", "js": "proposed-calendar.js", "css": "proposed-calendar.css" },
+    { "id": "markers", "js": "proposed-markers.js", "css": "proposed-markers.css" },
+    { "id": "days", "js": "proposed-days.js", "css": "proposed-days.css" },
+    { "id": "tables", "js": "proposed-tables.js", "css": "proposed-tables.css" }
   ]
 }

@@ -1,0 +1,175 @@
+/* ==== Day cards and day chips (PROPOSED 2026-10-20; Thomas approved the research recommendations as a batch on 2026-10-20) ====
+   The Planner's day card (.day2) and day chip (.daychip). Drawn in the Proposed page only (every rule is under .ds-proposed).
+
+   Day card     a Card from the Cards family (put .sdk-card beside .sdk-day): a 1px hairline, no shadow, no gradient, the card step, --radius-large, padding 12px.
+                It sits on a panel (--bg-section) and its rows take --bg-input and a small corner, as in Cards.
+   Head         one row: the date block, the title and summary, the labels, the count, the actions. The phase wash on the head is gone: the phase is a
+                Chips status label in its tint. The date block is a neutral inner fill (the text colour at 8% over the card) with the day in Figtree 600 at
+                22px (--text-22) and the weekday at 11px in capitals. It is not a solid accent block.
+   Current      the day in view: the neutral selected fill (--selected-bg, from the Cards family), no accent border, no glow. A day that is today also wears a
+                "Today" status label.
+   Day chip     a small chip: neutral (the Chips fill) by default, the selected fill when current, a 7px dot when the day is in the trip (not a coloured border),
+                a 4px dot under the number when it is today, a quiet fill on hover. No lift, no shadow.
+   Gap count    the days between two days: a neutral round count with its word.
+   Colours are theme tokens only. Radii are --radius-* tokens. */
+
+.ds-proposed {
+  --day-date-w: 48px;
+  --day-block-fill: color-mix(in srgb, var(--text) 8%, var(--bg-card));
+  --chip-h-day: 40px;
+  /* Muted text on a fill (the date block, a day chip): a little stronger, because the plain muted colour is under 4.5 to 1 there in the light mode. */
+  --day-dim: color-mix(in srgb, var(--text-dim) 55%, var(--text));
+}
+
+@media (max-width: 640px) {
+  .ds-proposed { --chip-h-day: 44px; }
+}
+
+/* ---- the card's head ---- */
+.ds-proposed :is(.sdk-day-head, .day-head2) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  box-sizing: border-box;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+}
+.ds-proposed :is(.sdk-day-date, .dnum) {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: var(--day-date-w);
+  min-height: 48px;
+  margin: 0;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: var(--day-block-fill);
+  color: var(--text);
+  line-height: 1;
+}
+.ds-proposed :is(.sdk-day-date, .dnum) > b { font-size: 22px; font-weight: 600; line-height: 26px; font-variant-numeric: tabular-nums; }
+.ds-proposed :is(.sdk-day-date, .dnum) > span { color: var(--day-dim); font-size: 11px; font-weight: 600; line-height: 14px; letter-spacing: var(--ls-label, 0.04em); text-transform: uppercase; opacity: 1; }
+.ds-proposed :is(.sdk-day-main, .dmeta) { flex: 1 1 140px; min-width: 0; }
+.ds-proposed :is(.sdk-day-main, .dmeta) > :is(h2, h3, h4, .sdk-card-title) { margin: 0; font-size: 14px; font-weight: 600; line-height: 20px; }
+.ds-proposed :is(.sdk-day-main, .dmeta) > :is(p, .sdk-card-sub) { margin: 0; color: var(--text-dim); font-size: 12px; line-height: 16px; }
+.ds-proposed .sdk-day-labels { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin-top: 6px; min-width: 0; }
+.ds-proposed .sdk-day-labels:empty { display: none; }
+.ds-proposed :is(.sdk-day-actions, .day-actions) { flex: none; display: flex; align-items: center; gap: 4px; margin-left: auto; }
+.ds-proposed .sdk-day-head > .sdk-badge { flex: none; }
+
+/* ---- the card, when current: the Cards family's selected fill. Nothing else changes. ---- */
+.ds-proposed .sdk-day.is-current { background: var(--selected-bg); }
+.ds-proposed .sdk-day.is-drop { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ds-proposed .sdk-day .sdk-card-list { margin-top: 4px; }
+
+/* An empty day: one quiet button, a dashed neutral hairline like the Cards ghost. */
+.ds-proposed :is(.sdk-day-empty, .day-empty-add) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 44px;
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-small);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+  cursor: pointer;
+  outline: none;
+}
+.ds-proposed :is(.sdk-day-empty, .day-empty-add):hover { background: color-mix(in srgb, var(--text) 8%, var(--bg-card)); color: var(--text); }
+.ds-proposed :is(.sdk-day-empty, .day-empty-add):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* The Add button's word goes on a phone; the plus and the name stay. */
+@media (max-width: 640px) {
+  .ds-proposed .sdk-day-add .sdk-day-add-word { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ds-proposed .sdk-day-head { align-items: flex-start; }
+}
+
+/* ---- the day chip ---- */
+.ds-proposed .sdk-daystrip { display: flex; align-items: stretch; gap: 6px; min-width: 0; padding: 2px; overflow-x: auto; scrollbar-width: thin; }
+.ds-proposed :is(.sdk-daychip, .daychip) {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 46px;
+  min-height: var(--chip-h-day);
+  margin: 0;
+  padding: 3px 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-small);
+  background: var(--chip-fill, color-mix(in srgb, var(--text) 8%, transparent));
+  color: var(--day-dim);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 14px;
+  box-shadow: none;
+  transform: none;
+  outline: none;
+  cursor: pointer;
+  overflow: visible;
+  transition: background 0.15s, color 0.15s;
+}
+.ds-proposed :is(.sdk-daychip, .daychip) > b { color: var(--text); font-size: 14px; font-weight: 600; line-height: 18px; font-variant-numeric: tabular-nums; }
+/* The line under the number is always there, so a day with a today dot and one without are the same height. */
+.ds-proposed :is(.sdk-daychip, .daychip)::after { content: ""; position: absolute; left: 50%; bottom: 1px; width: 4px; height: 4px; margin-left: -2px; border-radius: var(--radius-round); background: transparent; }
+.ds-proposed :is(.sdk-daychip, .daychip):is(.is-today, .today)::after { background: color-mix(in srgb, var(--accent) 55%, var(--text)); }
+.ds-proposed :is(.sdk-daychip, .daychip):hover { background: var(--chip-fill-hover, color-mix(in srgb, var(--text) 14%, transparent)); }
+.ds-proposed :is(.sdk-daychip, .daychip):active { background: var(--chip-fill-active, color-mix(in srgb, var(--text) 20%, transparent)); }
+.ds-proposed :is(.sdk-daychip, .daychip):focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.ds-proposed :is(.sdk-daychip, .daychip):is(.is-current, .current, [aria-current="true"]) { background: var(--selected-bg); color: color-mix(in srgb, var(--accent) 55%, var(--text)); transform: none; box-shadow: none; }
+.ds-proposed :is(.sdk-daychip, .daychip):is(.is-current, .current, [aria-current="true"]) > b { color: color-mix(in srgb, var(--accent) 55%, var(--text)); }
+.ds-proposed :is(.sdk-daychip, .daychip):is(.is-current, .current, [aria-current="true"]):hover { background: color-mix(in srgb, var(--accent) 36%, transparent); }
+.ds-proposed :is(.sdk-daychip, .daychip):is(.is-current, .current, [aria-current="true"]):focus-visible { outline-color: color-mix(in srgb, var(--accent) 55%, var(--text)); }
+/* In the trip: a 7px dot in the corner. A word for it is in the chip's label. */
+.ds-proposed .sdk-daychip-dot { position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: var(--radius-round); background: color-mix(in srgb, var(--accent) 55%, var(--text)); }
+.ds-proposed :is(.sdk-daychip, .daychip).is-empty > b { color: var(--text-dim); font-weight: 500; }
+
+/* ---- the days between two days ---- */
+.ds-proposed .sdk-gap { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0; margin: 0; color: var(--text-dim); font-size: 12px; line-height: 16px; }
+.ds-proposed :is(.sdk-gapcount, .gapcount) {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-width: 24px;
+  height: 24px;
+  margin: 0;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-round);
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Chips on a card sit on the card step. */
+.ds-proposed :is(.sdk-day, .day2) { --chip-surface: var(--bg-card); }
+
+.ds-proposed .sdk-day-page { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ds-proposed :is(.sdk-daychip, .daychip, .sdk-day-empty) { transition: none; }
+}

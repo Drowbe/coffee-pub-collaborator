@@ -128,7 +128,11 @@
 /* Today's .toast has an icon as a bare <i>; it takes the chip. */
 .ds-proposed .toast > i.toast-icon { margin-top: 0; }
 
-/* ---- The banner ---- */
+/* ---- The banner ----
+   One design. The row's first line is 30px tall (the small button and the close are 30px) and every part is centred on it: the icon (20px,
+   5px down), the text (18px lines, 6px down), the action and the close (0). One line of text: all share one centre line. Two lines or more:
+   the icon, the first line of text, the action and the close still share the first line's centre, and the text runs on below. Padding 8px
+   12px all round, gap 12px. */
 .ds-proposed :is(.sdk-banner, .env-banner, .env-page-banner, .conflict-bar, :where(.template-notices > li), :where(.option-help[data-kind])) {
   position: relative;
   display: flex;
@@ -137,6 +141,7 @@
   gap: 12px;
   box-sizing: border-box;
   min-width: 0;
+  min-height: 46px;
   margin: 0;
   padding: 8px 12px;
   border: 0;
@@ -149,39 +154,37 @@
   text-align: left;
   box-shadow: none;
 }
-.ds-proposed :is(.env-banner, .env-page-banner, .conflict-bar) { flex-wrap: wrap; }
-.ds-proposed :is(.sdk-banner-icon) {
+/* A banner that is only text (an alias with no parts) centres its one block in the 30px first line. */
+.ds-proposed :is(.template-notices > li, .option-help[data-kind]) { align-items: center; }
+/* The page banner of today's markup is bare text and a link: one block, so the text and the link run on as a sentence. */
+.ds-proposed .env-page-banner { display: block; padding: 14px 12px; }
+.ds-proposed :is(.env-banner, .conflict-bar) { flex-wrap: wrap; }
+.ds-proposed .sdk-banner-icon {
   flex: none;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 20px;
   height: 20px;
-  margin: -1px 0;
+  margin: 5px 0 0;
   border-radius: var(--radius-round);
   background: var(--k-fill);
   color: var(--k-on);
   font-size: 11px;
   line-height: 1;
 }
-.ds-proposed .sdk-banner-text { flex: 1 1 0; min-width: 0; overflow-wrap: anywhere; }
+.ds-proposed .sdk-banner-text { flex: 1 1 0; min-width: 0; padding: 6px 0; overflow-wrap: anywhere; }
 .ds-proposed .sdk-banner-text b { font-weight: 600; }
-.ds-proposed .sdk-banner-action { flex: none; margin: -4px 0; }
+/* The action is a Secondary small button (the Buttons family): a visible edge and fill, so it reads as a button. */
+.ds-proposed .sdk-banner-action { flex: none; margin: 0; }
 .ds-proposed :is(.sdk-banner, .env-banner, .env-page-banner, .conflict-bar, .option-help[data-kind]) a { color: inherit; font-weight: 600; text-decoration: none; }
-.ds-proposed :is(.sdk-banner, .env-banner, .env-page-banner, .conflict-bar) > .sdk-banner-close { flex: none; margin: -6px -8px -6px 0; color: var(--k-text); --b-fg: var(--k-text); --b-fg-h: var(--k-text); }
-.ds-proposed :is(.env-banner, .conflict-bar) > span { flex: 1 1 0; min-width: 0; }
+.ds-proposed :is(.sdk-banner, .env-banner, .env-page-banner, .conflict-bar) > .sdk-banner-close { flex: none; margin: 0 -8px 0 -4px; color: var(--k-text); --b-fg: var(--k-text); --b-fg-h: var(--k-text); }
+.ds-proposed :is(.env-banner, .conflict-bar) > span { flex: 1 1 0; min-width: 0; padding: 6px 0; }
 .ds-proposed .conflict-bar .btn { --btn-h: var(--btn-h-small); }
 
-/* Full width: the top of a page. Corners square, the content in the middle, the close at the right edge. */
-.ds-proposed :is(.sdk-banner-wide, .env-page-banner) {
-  align-items: center;
-  justify-content: center;
-  padding: 8px 48px;
-  --radius-medium: 0px; /* square: the corner token is zeroed here, so the base rule stays a token */
-  text-align: center;
-}
-.ds-proposed :is(.sdk-banner-wide, .env-page-banner) > .sdk-banner-text { flex: 0 1 auto; }
-.ds-proposed :is(.sdk-banner-wide, .env-page-banner) > .sdk-banner-close { position: absolute; top: 50%; right: 8px; margin: 0; transform: translateY(-50%); }
+/* Full width: the same banner stretched to the width of its container: the same corner, the same padding, the text from the left and the
+   close at the right edge. At the top of a page it sits in from the screen edges by the page padding (16px, 12px on a phone). */
+.ds-proposed :is(.sdk-banner-wide, .env-page-banner) { margin: 16px 16px 0; }
 .ds-proposed .template-notices { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
 
 @media (max-width: 640px) {
@@ -198,7 +201,7 @@
     .ds-proposed :is(.sdk-toast, .toast) { transform: translateY(16px); }
   }
   .ds-proposed :is(.sdk-toast, .toast)[data-state="leaving"] { transform: translateY(16px); }
-  .ds-proposed :is(.sdk-banner-wide, .env-page-banner) { padding: 8px 44px 8px 16px; text-align: left; justify-content: flex-start; }
+  .ds-proposed :is(.sdk-banner-wide, .env-page-banner) { margin: 12px 12px 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

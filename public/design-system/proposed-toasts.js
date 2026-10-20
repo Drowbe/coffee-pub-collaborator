@@ -9,19 +9,19 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 
   // The example-page rules of this family's frames only (the layout of the examples; nothing of the component).
   const TB_CSS = `
-.pm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
-.pm-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
+.pm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 16px 24px; }
+.pm-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
 .pm-cell > small, .pm-cap { color: var(--text-dim); font-size: var(--text-11); font-weight: 700; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
-.pm-cap { margin: 0 0 6px; }
-.pm-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 6px 0; }
+.pm-cap { margin: 0 0 8px; }
+.pm-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; padding: 8px 0; }
 .pm-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-.pm-zoom { zoom: 2; display: block; padding: 6px 4px; }
-.pm-page { padding: 14px; border-radius: var(--radius-medium); background: var(--bg); }
-.pm-sect { padding: 14px; border-radius: var(--radius-medium); background: var(--bg-section); }
+.pm-zoom { zoom: 2; display: block; padding: 8px 4px; }
+.pm-page { padding: 16px; border-radius: var(--radius-medium); background: var(--bg); }
+.pm-sect { padding: 16px; border-radius: var(--radius-medium); background: var(--bg-section); }
 .pm-stage { position: relative; overflow: hidden; box-sizing: border-box; border-radius: var(--radius-medium); background: var(--bg); }
 .pm-stage .sdk-toasts, .pm-stage .toast-layer { position: absolute; }
-.pm-stage-pad { padding: 14px; }
-.pm-stage-pad p { margin: 0 0 10px; padding: 12px; border-radius: var(--radius-medium); background: var(--bg-section); color: var(--text-dim); }
+.pm-stage-pad { padding: 16px; }
+.pm-stage-pad p { margin: 0 0 12px; padding: 12px; border-radius: var(--radius-medium); background: var(--bg-section); color: var(--text-dim); }
 .pm-obj { padding: 12px; border: 1px solid var(--border); border-radius: var(--radius-medium); background: var(--bg-section); }
 .pm-obj + .pm-obj { margin-top: 8px; }
 .pm-obj b { display: block; font-size: 14px; }
@@ -32,7 +32,8 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-ct td { padding: 4px 8px 4px 0; border-top: 1px solid var(--border); vertical-align: top; }
 .pm-ct .pm-n { font-variant-numeric: tabular-nums; white-space: nowrap; }
 .pm-pass { color: var(--ok); font-weight: 700; } .pm-fail { color: var(--danger-text); font-weight: 700; }
-.pm-bar2 { display: flex; flex-wrap: wrap; gap: 6px; }`;
+.pm-wide-list .sdk-banner-wide { margin: 0; }
+.pm-bar2 { display: flex; flex-wrap: wrap; gap: 8px; }`;
 
   const ICON = { info: 'circle-info', ok: 'check', warn: 'triangle-exclamation', danger: 'circle-exclamation' };
   const WORD = { info: 'Information', ok: 'Done', warn: 'Warning', danger: 'Error' };
@@ -54,7 +55,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const B = (o = {}) => `<div class="sdk-banner${o.wide ? ' sdk-banner-wide' : ''}" data-kind="${o.kind || 'info'}" role="${o.kind === 'danger' ? 'alert' : 'status'}">
       <span class="sdk-banner-icon" aria-hidden="true">${fa(ICON[o.kind || 'info'])}</span>
       <span class="sdk-banner-text">${o.title ? `<b>${o.title}</b> ` : ''}${o.text}</span>
-      ${o.action ? `<button type="button" class="btn btn-quiet btn-small sdk-banner-action">${o.action}</button>` : ''}
+      ${o.action ? `<button type="button" class="btn btn-small sdk-banner-action">${o.action}</button>` : ''}
       ${o.close ? CLOSE('sdk-banner-close') : ''}</div>`;
   const CELL = (cap, body, w) => `<div class="pm-cell"${w ? ` style="width:${w}px"` : ''}><small>${cap}</small>${body}</div>`;
   const KINDS = ['info', 'ok', 'warn', 'danger'];
@@ -172,7 +173,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ${CELL('Blocking: no close (it stays until fixed)', `<div style="width:420px;max-width:100%">${B({ kind: 'danger', text: 'This environment is paused. Ask an owner to turn it back on.' })}</div>`)}
     ${CELL('Two lines of text', `<div style="width:300px;max-width:100%">${B({ kind: 'warn', text: 'Two places overlap on Friday at 14:00. Move one of them, or keep both.', action: 'Review', close: true })}</div>`)}
   </div></div>`;
-  const bannerWideBody = () => `<div class="ds-proposed"><div class="pm-grid" style="gap:10px;display:block">${KINDS.map((k) => `<div style="margin-bottom:6px">${B({ kind: k, wide: true, text: BANNER_TEXT[k], close: k !== 'danger' })}</div>`).join('')}</div></div>`;
+  const bannerWideBody = () => `<div class="ds-proposed"><div class="pm-col pm-wide-list">${KINDS.map((k) => B({ kind: k, wide: true, text: BANNER_TEXT[k], close: k !== 'danger' })).join('')}</div></div>`;
 
   // ---- positions: desktop (top right) and phone (bottom) ----
   const stageScene = () => `<div class="pm-stage-pad"><p>Dinner at Le Comptoir, tomorrow 19:30</p><p>Train to Lyon, Friday 08:12</p><p>Louvre museum, Saturday 10:00</p></div>`;
@@ -187,7 +188,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       <div class="pm-obj" style="margin-bottom:10px"><b>Dinner at Le Comptoir</b><span>Saturday 11:30 · 4 people</span></div>
       ${B({ kind: 'warn', text: 'These two places overlap at 11:30.', action: 'Review', close: true })}
     </div>
-    <div class="sdk-toasts" aria-label="Notifications"${w <= 640 ? '' : ' style="top:56px"'}>${T({ kind: 'ok', title: 'Plan saved', text: 'Everyone can see the new dates.', undo: true })}</div></div></div>`;
+    <div class="sdk-toasts" aria-label="Notifications"${w <= 640 ? '' : ' style="top:80px"'}>${T({ kind: 'ok', title: 'Plan saved', text: 'Everyone can see the new dates.', undo: true })}</div></div></div>`;
 
   // ---- aliases: today's markup takes the look ----
   const aliasBody = () => `<div class="ds-proposed"><div class="pm-grid">
@@ -282,7 +283,7 @@ ${dim([
 <div data-slot="try"></div>
 
 <h4 class="ds-h4" id="toasts-banner">Banners</h4>
-<p class="ds-desc">A banner is a line of the kind's tint (the fill at 14%) with a 20px round icon (the kind's fill, the glyph in its on-fill), the text in the readable text colour, an optional action (Quiet, small) and, when it does not block, a close. <b>Inline</b> sits inside a form, a card or a column and has the medium corner. <b>Full width</b> sits at the top of a page: square, centred text, the close at the right edge. A banner that blocks something (a paused environment) has no close.</p>
+<p class="ds-desc">A banner is a line of the kind's tint (the fill at 14%) with a 20px round icon (the kind's fill, the glyph in its on-fill), the text in the readable text colour, an optional action (Secondary, small: a visible button) and, when it does not block, a close. <b>Inline</b> sits inside a form, a card or a column and has the medium corner. <b>Full width</b> is the same banner stretched to the width of its container: the same corner and padding, the text from the left, the close at the right edge; at the top of a page it sits in from the screen edges by the page padding (16px, 12px on a phone). A banner that blocks something (a paused environment) has no close.</p>
 <p class="ds-desc"><b>Inline, four kinds</b></p>
 <div data-slot="banner-kinds"></div>
 <p class="ds-desc"><b>Parts</b></p>
@@ -310,7 +311,7 @@ ${tbl(['Today', 'Proposed', 'Note'], [
     ['Invite <code>.toast-invite</code> with <code>.toast-actions</code>', 'The same toast with Join (Primary) and Decline (Secondary)', 'Stays 60 s.'],
     ['<code>.env-banner</code>: outline in danger, 12% fill, no icon', '<code>.sdk-banner</code> inline, kind danger: tint fill and icon, no outline', 'Alias kept. Default kind danger.'],
     ['<code>.env-page-banner</code>: 18% fill, a bottom border, centred', '<code>.sdk-banner-wide</code>: tint fill and icon, no border', 'Alias kept. Default kind danger.'],
-    ['<code>.conflict-bar</code>: three copies (Places, Research, Planner), each with a danger outline', 'One <code>.sdk-banner</code>, kind warn, with the action as a Quiet small button', 'Alias kept. Default kind warn.'],
+    ['<code>.conflict-bar</code>: three copies (Places, Research, Planner), each with a danger outline', 'One <code>.sdk-banner</code>, kind warn, with the action as a Secondary small button', 'Alias kept. Default kind warn.'],
     ['Maps <code>.banner</code>: a round pill with an accent border, floating over the map', 'A toast (it floats, so it is one) with its action as Undo or a Quiet button', 'Maps changes in its own version.'],
     ['<code>.option-help</code>: a 3px accent bar, a 7% fill', 'An inline banner, kind info (or the Cards callout when it carries no kind)', 'No bar.'],
     ['Template notice (<code>.template-notices li</code>): a plain card', 'An inline banner, kind info', 'Alias kept.'],
@@ -354,7 +355,7 @@ ${code(`<!-- the stack: one per page, in the top layer; role per toast -->
 <div class="sdk-banner" data-kind="warn" role="status">
   <span class="sdk-banner-icon" aria-hidden="true"><i class="fa-solid fa-triangle-exclamation"></i></span>
   <span class="sdk-banner-text"><b>Conflict.</b> Dinner and the train overlap.</span>
-  <button type="button" class="btn btn-quiet btn-small sdk-banner-action">Move dinner</button>
+  <button type="button" class="btn btn-small sdk-banner-action">Move dinner</button>
   <button type="button" class="sdk-icon-btn btn-quiet btn-small sdk-banner-close" aria-label="Close">...</button>
 </div>`)}
 

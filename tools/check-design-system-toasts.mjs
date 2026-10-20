@@ -7,11 +7,13 @@
  * quiet 30px icon button; a stack of three that is not 8px apart; on a desktop a stack that is not 16px from the top and right, 340px wide; at 390 a stack that is not at the bottom, 8px
  * in from each side (the width minus 16px); in the live demo: the durations not 4500, 9000 and 60000 ms (note, notice, invite), a fourth toast not waiting (three at most),
  * a toast that is not dismissed when its time is up, one that goes while the pointer or the focus is on it (pause on hover and on focus), one that does not go after the pointer leaves, Escape on the close
- * not closing it; a banner with no tint fill, with an edge, with a different fill from another kind, a full-width banner with a corner or an inline one without --radius-medium, a
+ * not closing it; a banner with no tint fill, with an edge, with a different fill from another kind, a banner (full width or inline) without --radius-medium, a full-width banner with centred text, or an action that is not a visible Secondary small button (a border and a fill) sharing the banner's centre line, a page-level banner not in from the screen edges by 16px (12px on a phone), a
  * dismissible banner without a close or a blocking one with a close; an alias (today's class) that does not take the look; a contrast row under its minimum; the family not marked
  * Proposed, or its page naming Toasts and banners as not yet decided. In the stylesheet: a one-sided border, a hex colour, an inset shadow, a font under 11px, a coloured outline, a name
  * that is not defined.
  */
+import { alignRows } from './check-design-system-align.mjs';
+
 export const id = 'toasts';
 export const todayOnly = ['sdk-dialog', 'sdk-dialog-layer', 'sdk-dp', 'ds-force-hover', 'sdk-tabs'];
 
@@ -31,6 +33,15 @@ export async function browserChecks(b) {
   const { ev, sc, where, problems } = b;
   const r = JSON.parse(await ev(`(${toastsProbe.toString()})(${JSON.stringify({ width: sc.width, mode: sc.mode })})`));
   for (const x of r.problems) problems.push(`${where}: ${x}`);
+  // Alignment: the icon, the first line of text, the action and the close share one centre line; padding is even; gaps are on the scale.
+  await alignRows(b, [
+    { frame: /^Toasts, banner/, row: '.sdk-banner' },
+    { frame: 'Toasts, in context', row: '.sdk-banner' },
+    { frame: 'Toasts, aliases', row: '.conflict-bar' },
+    { frame: /^Toasts, (kinds|note notice invite)/, row: '.sdk-toast', skip: '.sdk-toast-actions' },
+    { frame: 'Toasts, note notice invite', row: '.sdk-toast-actions', padding: false },
+  ]);
+
 }
 
 const toastsProbe = async (ctx) => {
@@ -102,12 +113,16 @@ const toastsProbe = async (ctx) => {
     for (const x of bs) { const cs = getComputedStyle(x); fills.add(cs.backgroundColor); if (cs.backgroundColor === 'rgba(0, 0, 0, 0)') bad('a banner has no tint fill'); if (cs.borderTopWidth !== '0px') bad('a banner has an edge'); if (cs.borderTopLeftRadius !== rm) bad('an inline banner corner is not --radius-medium'); if (!x.querySelector('.sdk-banner-icon')) bad('a banner has no icon'); }
     if (fills.size !== 4) bad(`the four banner kinds give ${fills.size} fills`);
     const p = get('Toasts, banner parts'); const all = [...p.querySelectorAll('.sdk-banner')]; if (!all.some((x) => x.querySelector('.sdk-banner-close')) || !all.some((x) => x.dataset.kind === 'danger' && !x.querySelector('.sdk-banner-close'))) bad('banners: a dismissible one has no close, or the blocking one has');
-    const w = get('Toasts, banners full width'); for (const x of w.querySelectorAll('.sdk-banner-wide')) { if (getComputedStyle(x).borderTopLeftRadius !== '0px') bad('a full-width banner has a corner'); if (w.defaultView.innerWidth > 700 && x.getBoundingClientRect().width < w.documentElement.clientWidth - 40) bad('a full-width banner is not the width of the page'); }
+    const w = get('Toasts, banners full width'); for (const x of w.querySelectorAll('.sdk-banner-wide')) { const cs = getComputedStyle(x); if (cs.borderTopLeftRadius !== rm) bad('a full-width banner corner is not --radius-medium (one design with the inline banner)'); if (cs.textAlign !== 'left' && cs.textAlign !== 'start') bad('a full-width banner has centred text'); const ic = x.querySelector('.sdk-banner-icon').getBoundingClientRect(), xr = x.getBoundingClientRect(); if (ic.left - xr.left > 16) bad(`a full-width banner starts its icon ${ic.left - xr.left}px from the left: the content is not from the left`); const cl = x.querySelector('.sdk-banner-close'); if (cl && xr.right - cl.getBoundingClientRect().right > 16) bad('a full-width banner close is not at the right edge'); if (w.defaultView.innerWidth > 700 && xr.width < w.documentElement.clientWidth - 40) bad('a full-width banner is not the width of the page'); }
+    // The action: a visible Secondary small button.
+    for (const x of p.querySelectorAll('.sdk-banner-action')) { const cs = getComputedStyle(x); if (cs.borderTopWidth === '0px' || cs.backgroundColor === 'rgba(0, 0, 0, 0)') bad('a banner action has no edge or fill (it reads as stray text)'); if (!near(x.getBoundingClientRect().height, 30)) bad('a banner action is not the small button (30px)'); }
+    // In a page: the top banner is in from the screen edges by the page padding.
+    { const cx = get('Toasts, in context'); const wb = cx && cx.querySelector('.sdk-banner-wide'); if (!wb) bad('the in-context frame has no full-width banner'); else { const r2 = wb.getBoundingClientRect(); const sr = cx.querySelector('.pm-stage').getBoundingClientRect(); const want = cx.defaultView.innerWidth <= 640 ? 12 : 16; if (!near(r2.left - sr.left, want, 1) || !near(sr.right - r2.right, want, 1) || !near(r2.top - sr.top, want, 1)) bad(`the page banner is ${r2.left - sr.left}px from the left, ${sr.right - r2.right}px from the right and ${r2.top - sr.top}px from the top of the page; expected ${want}`); } }
     const a = get('Toasts, aliases'); const rd = (s) => { const el = a.querySelector(s); if (!el) { bad(`aliases: no ${s}`); return null; } return getComputedStyle(el); };
     const t1 = rd('.toast'); if (t1 && (t1.backgroundColor !== tok(a, 'var(--bg-card)', 'backgroundColor') || t1.borderLeftWidth !== '1px')) bad('aliases: .toast is not the toast');
     const ev1 = rd('.env-banner'), cb = rd('.conflict-bar'), oh = rd('.option-help[data-kind]'), tn = rd('.template-notices > li'), ep = rd('.env-page-banner');
     for (const [nm, c] of [['.env-banner', ev1], ['.conflict-bar', cb], ['.option-help', oh], ['.template-notices li', tn], ['.env-page-banner', ep]]) if (c && (c.backgroundColor === 'rgba(0, 0, 0, 0)' || c.borderTopWidth !== '0px')) bad(`aliases: ${nm} has no tint fill or has an edge`);
-    if (ev1 && cb && ev1.backgroundColor === cb.backgroundColor) bad('aliases: .env-banner (danger) and .conflict-bar (warn) have the same fill'); if (ep && ep.borderTopLeftRadius !== '0px') bad('aliases: .env-page-banner has a corner');
+    if (ev1 && cb && ev1.backgroundColor === cb.backgroundColor) bad('aliases: .env-banner (danger) and .conflict-bar (warn) have the same fill'); if (ep && ep.borderTopLeftRadius !== rm) bad('aliases: .env-page-banner corner is not --radius-medium');
   }
 
   // Contrast.

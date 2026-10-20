@@ -20,8 +20,8 @@
     "hash": "26563f3bfb0f3e92"
   },
   "polls": {
-    "version": "1.15.10",
-    "hash": "b5aca922002cb682"
+    "version": "1.15.11",
+    "hash": "ad3b955c254a3701"
   },
   "research": {
     "version": "0.4.13",
@@ -32,11 +32,11 @@
     "hash": "da87b999f8703763"
   },
   "todo": {
-    "version": "1.15.12",
-    "hash": "3c56ca5216040be8"
+    "version": "1.15.13",
+    "hash": "b2680a770cf39a89"
   },
   "travel": {
-    "version": "0.15.31",
-    "hash": "b9d2f34ac02dae6d"
+    "version": "0.15.32",
+    "hash": "c0169cc34c1949e1"
   }
 }

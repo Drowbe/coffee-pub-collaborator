@@ -51,12 +51,6 @@
     "public/diag.css": {
       "size 15px": 1
     },
-    "public/landing.css": {
-      "size 15px": 1,
-      "size 17px": 3,
-      "size 20px": 1,
-      "size 26px": 1
-    },
     "public/sdk/host.css": {
       "size 10px": 2
     },

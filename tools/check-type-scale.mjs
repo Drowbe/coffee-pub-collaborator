@@ -13,7 +13,7 @@
 //   node tools/check-type-scale.mjs                 the check
 //   node tools/check-type-scale.mjs --update        lower the allow-list to today's counts (never raises)
 //   node tools/check-type-scale.mjs --update --force-raise   also allow raising (how it was first made)
-import { collectFiles, declarations, stripCalls, Tally, runRatchet, summary } from './lib/drift.mjs';
+import { collectFiles, declarations, stripCalls, Tally, runRatchet, summary, ownPaletteSplit } from './lib/drift.mjs';
 
 const SIZES = new Set([9, 11, 12, 13, 14, 16, 18, 22, 28, 40]);
 const WEIGHTS = new Set([400, 500, 600, 700]);
@@ -23,7 +23,8 @@ const SIZE_RE = /(?<![\w.$#-])(\d*\.?\d+)px\b/g;
 const tally = new Tally();
 const size = (file, d, v) => { if (!SIZES.has(Number(v))) tally.add(file.rel, `size ${Number(v)}px`, d.line); };
 const weight = (file, d, w) => { if (!WEIGHTS.has(w)) tally.add(file.rel, `weight ${w}`, d.line); };
-for (const file of collectFiles()) {
+const [files, ownLines] = ownPaletteSplit(collectFiles());
+for (const file of files) {
   for (const d of declarations(file)) {
     const value = stripCalls(d.value).trim().toLowerCase();
     if (d.prop === 'font-size') {
@@ -50,5 +51,5 @@ runRatchet({
   about: 'check-type-scale: today\'s font sizes (not 9 11 12 13 14 16 18 22 28 40 px) and font weights (not 400 500 600 700), per file. Counts may only fall; lower them with: node tools/check-type-scale.mjs --update',
   tally,
   unit: 'off-scale type values',
-  extraReport: summary(tally, 'value'),
+  extraReport: [...ownLines, ...summary(tally, 'value')],
 });

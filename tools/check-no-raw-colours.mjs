@@ -20,7 +20,7 @@
 //   node tools/check-no-raw-colours.mjs --list          also print every hit, file:line
 //   node tools/check-no-raw-colours.mjs --update        lower the allow-list to today's counts (never raises)
 //   node tools/check-no-raw-colours.mjs --update --force-raise   also allow raising (how it was first made)
-import { collectFiles, declarations, Tally, runRatchet, summary } from './lib/drift.mjs';
+import { collectFiles, declarations, Tally, runRatchet, summary, ownPaletteSplit } from './lib/drift.mjs';
 
 const TOKEN_FILES = new Set(['public/style.css', 'public/sdk/host.css', 'public/sdk/system.css']);
 // :root, optionally with attribute and :not() parts, and nothing else (no descendant): a token definition.
@@ -88,7 +88,8 @@ function blackOrWhite(c) {
 
 const LIST = process.argv.includes("--list"); // print every hit, file:line
 const tally = new Tally();
-for (const file of collectFiles()) {
+const [files, ownLines] = ownPaletteSplit(collectFiles());
+for (const file of files) {
   for (const d of declarations(file)) {
     if (d.prop === 'value' || d.prop === 'css-text') continue; // an input's value; cssText is read as the declarations inside it
     if (file.kind === 'css' && TOKEN_FILES.has(file.rel) && d.selector.split(',').every((s) => TOKEN_SELECTOR.test(s.trim()))) continue;
@@ -115,5 +116,5 @@ runRatchet({
   about: 'check-no-raw-colours: today\'s hard-coded colours outside the token blocks, per file. "raw" is a real colour to move onto a token; "shadow-scrim" is pure black or white used as a shadow or scrim (allowed for now). Counts may only fall; lower them with: node tools/check-no-raw-colours.mjs --update',
   tally,
   unit: 'hard-coded colours',
-  extraReport: [`  raw: ${by.get('raw') || 0}, shadow-scrim: ${by.get('shadow-scrim') || 0}`, ...summary(tally, 'kind')],
+  extraReport: [...ownLines, `  raw: ${by.get('raw') || 0}, shadow-scrim: ${by.get('shadow-scrim') || 0}`, ...summary(tally, 'kind')],
 });

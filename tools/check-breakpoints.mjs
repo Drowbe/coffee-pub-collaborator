@@ -11,11 +11,12 @@
 //   node tools/check-breakpoints.mjs                 the check
 //   node tools/check-breakpoints.mjs --update        lower the allow-list to today's counts (never raises)
 //   node tools/check-breakpoints.mjs --update --force-raise   also allow raising (how it was first made)
-import { collectFiles, clean, lineOf, Tally, runRatchet, summary } from './lib/drift.mjs';
+import { collectFiles, clean, lineOf, Tally, runRatchet, summary, ownPaletteSplit } from './lib/drift.mjs';
 
 const OK = new Set([640, 641, 900, 901, 1200, 1201]);
 const tally = new Tally();
-for (const file of collectFiles()) {
+const [files, ownLines] = ownPaletteSplit(collectFiles());
+for (const file of files) {
   const text = clean(file.text, file.kind);
   // A media query's text: from @media (or matchMedia('...')) to its opening brace or closing quote.
   const queries = [
@@ -41,5 +42,5 @@ runRatchet({
   about: 'check-breakpoints: today\'s media-query widths other than 640 641 900 901 1200 1201 px, per file. Counts may only fall; lower them with: node tools/check-breakpoints.mjs --update',
   tally,
   unit: 'off-list media-query widths',
-  extraReport: summary(tally, 'width'),
+  extraReport: [...ownLines, ...summary(tally, 'width')],
 });

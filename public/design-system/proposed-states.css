@@ -39,7 +39,11 @@
 }
 .ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state) > .ic { font-size: 24px; line-height: 1; color: var(--text-dim); }
 .ds-proposed .sdk-empty > .sdk-empty-text { margin: 0; max-width: 36ch; color: var(--text-dim); font-size: 14px; line-height: 20px; }
-.ds-proposed .sdk-empty > .sdk-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 8px; }
+.ds-proposed .sdk-empty > .sdk-empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 12px; }
+/* The block's rhythm, all on the 4px scale: icon, 12px, heading, 4px, text, 16px, button (the Cards family draws the box; its 6px steps are replaced here). */
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state):is(.sdk-empty, .empty, .rs-empty, .state) { gap: 4px; }
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state):is(.sdk-empty, .empty, .rs-empty, .state) > :is(i, .ic) { margin-bottom: 8px; }
+.ds-proposed :is(.sdk-empty, .empty, .rs-empty, .state):is(.sdk-empty, .empty, .rs-empty, .state) > .btn { margin-top: 12px; }
 .ds-proposed .sdk-empty[data-kind="error"] > i:first-child { color: var(--state-error); }
 .ds-proposed :is(.sdk-empty-line, .emptynote, .activity-empty, .bell-empty) {
   display: flex;
@@ -55,6 +59,8 @@
   font-size: 13px;
   line-height: 18px;
 }
+/* The compact line has no side padding of its own: its icon and text start where the panel's heading does. */
+.ds-proposed .sdk-empty-line { padding: 8px 0; }
 .ds-proposed .sdk-empty-line > i { flex: none; width: 16px; text-align: center; font-size: 14px; }
 .ds-proposed .sdk-empty-line[data-kind="error"] { color: var(--state-error); }
 .ds-proposed :is(.sdk-empty-line, .emptynote) > .btn { margin-left: auto; }
@@ -91,7 +97,7 @@
 .ds-proposed .sdk-skel-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   box-sizing: border-box;
   padding: 12px;
   border-radius: var(--radius-medium);
@@ -116,8 +122,8 @@
   color: var(--text-dim);
   animation: sdk-spin var(--spin-ms) linear infinite;
 }
-.ds-proposed .sdk-spinner-sm { --spin: 12px; }
-.ds-proposed .sdk-spinner-lg { --spin: 20px; }
+.ds-proposed .sdk-spinner-sm { --spin: 12px; vertical-align: -2px; }
+.ds-proposed .sdk-spinner-lg { --spin: 20px; vertical-align: -5px; }
 .ds-proposed :is(.btn-primary, .btn-danger.solid) .sdk-spinner { color: inherit; }
 
 /* ---- Field error: the line under a field or in a form ---- */

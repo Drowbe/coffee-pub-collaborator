@@ -9,15 +9,15 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   const fa = (n, x) => `<i class="fa-solid fa-${n}${x ? ' ' + x : ''}" aria-hidden="true"></i>`;
 
   const ST_CSS = `
-.pm-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px 24px; }
-.pm-cell { display: flex; flex-direction: column; gap: 5px; min-width: 0; max-width: 100%; }
+.pm-grid { display: flex; flex-wrap: wrap; align-items: stretch; gap: 16px 24px; }
+.pm-cell { display: flex; flex-direction: column; gap: 4px; min-width: 0; max-width: 100%; }
 .pm-cell > small, .pm-cap { color: var(--text-dim); font-size: var(--text-11); font-weight: 700; letter-spacing: 0.08em; line-height: 12px; text-transform: uppercase; }
-.pm-cap { margin: 0 0 6px; }
+.pm-cap { margin: 0 0 8px; }
 .pm-panel { box-sizing: border-box; min-width: 0; border-radius: var(--radius-medium); background: var(--bg-section); }
-.pm-panel-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; font-size: 14px; font-weight: 600; }
+.pm-panel-head { display: flex; align-items: center; gap: 8px; padding: 12px 12px 8px; font-size: 14px; font-weight: 600; }
 .pm-panel-body { padding: 4px 12px 12px; }
-.pm-line { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 24px; padding: 6px 0; }
-.pm-bar2 { display: flex; flex-wrap: wrap; gap: 6px; }
+.pm-line { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; min-height: 48px; }
+.pm-bar2 { display: flex; flex-wrap: wrap; gap: 8px; }
 .pm-log { margin: 8px 0 0; color: var(--text-dim); font-size: 12px; min-height: 18px; }
 .pm-out { min-height: 150px; }
 .pm-ct { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -61,7 +61,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     ${CELL('16px, the default', `<div class="pm-line"><span class="sdk-spinner" role="status" aria-label="Loading"></span></div>`, 130)}
     ${CELL('20px', `<div class="pm-line"><span class="sdk-spinner sdk-spinner-lg" role="status" aria-label="Loading"></span></div>`, 90)}
     ${CELL('In a button: the label stays', `<div class="pm-line"><button type="button" class="btn btn-primary" aria-busy="true"><span class="sdk-spinner" aria-hidden="true"></span> Saving</button><button type="button" class="btn" aria-busy="true"><span class="sdk-spinner" aria-hidden="true"></span> Sending</button></div>`, 280)}
-    ${CELL('Inline wait', `<p style="margin:6px 0;color:var(--text-dim);font-size:13px"><span class="sdk-spinner sdk-spinner-sm" aria-hidden="true"></span> Looking for the address...</p>`, 240)}
+    ${CELL('Inline wait', `<div class="pm-line"><p style="margin:0;color:var(--text-dim);font-size:13px"><span class="sdk-spinner sdk-spinner-sm" aria-hidden="true"></span> Looking for the address...</p></div>`, 240)}
   </div></div>`;
   const errBody = () => `<div class="ds-proposed"><div class="pm-grid">
     ${CELL('Error: the empty block with a Retry', PANEL('Places', ERROR(), { w: 340 }))}

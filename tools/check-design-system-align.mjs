@@ -19,7 +19,7 @@
  *     of 28px or more is layout pushing parts apart (space-between, an auto margin) and is not judged. `gaps: false` leaves gaps out; `zero: true`
  *     allows 0 (parts that touch on purpose, such as a segmented control);
  *   - the selector matches nothing in a frame set (so a renamed class cannot silently pass).
- * Row options: across (a selector of parts in different cells of the row that must share one centre line), row (selector), frame, skip (selector of children to leave out), only (selector: judge just these children), padding, gaps, zero,
+ * Row options: box (true: every child counts by the centre of its box, for a row whose stack of bars is centred as a whole, such as a skeleton row), across (a selector of parts in different cells of the row that must share one centre line), row (selector), frame, skip (selector of children to leave out), only (selector: judge just these children), padding, gaps, zero,
  * centres (false: leave the centre test out, for a row whose parts are deliberately top-aligned columns), tol (px, default 1).
  */
 export async function alignRows(b, rows) {
@@ -65,6 +65,7 @@ const alignProbe = (specs) => {
           return r2.top + r2.height / 2;
         };
         const centre = (c) => {
+          if (sp.box) { const r2 = c.getBoundingClientRect(); return r2.top + r2.height / 2; }
           const cs = win.getComputedStyle(c);
           const stack = (cs.display === 'block' || cs.display === 'list-item' || (cs.display === 'flex' && cs.flexDirection === 'column')) && c.firstElementChild && ![...c.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim());
           if (stack) {

@@ -11,6 +11,8 @@
  * old #e07a5f anywhere in the family; the field error line not 12px in the readable red; an alias (today's class name) that does not take the look; at 390 a page that scrolls
  * sideways; the family not marked Approved, or its page naming Empty, loading and error states as not yet decided.
  */
+import { alignRows } from './check-design-system-align.mjs';
+
 export const id = 'states';
 export const ownRules = true;
 export const todayOnly = ['sdk-field', 'sdk-label', 'sdk-form-error', 'ic', 'state', 'empty', 'rs-empty', 'skeleton', 'skel', 'error', 'emptynote', 'activity-empty', 'bell-empty', 'ok'];
@@ -38,6 +40,16 @@ export async function browserChecks(b) {
   const { ev, sc, where, problems } = b;
   const r = JSON.parse(await ev(`(${statesProbe.toString()})(${JSON.stringify({ width: sc.width, mode: sc.mode })})`));
   for (const x of r.problems) problems.push(`${where}: ${x}`);
+  // Alignment: the empty block's steps are on the scale; a compact line's parts share a centre line; a skeleton row's portrait and lines too;
+  // the spinner examples sit on one centre line; a panel's heading parts too.
+  await alignRows(b, [
+    { frame: /^States, (empty|error|in a panel)/, row: '.sdk-empty' },
+    { frame: /^States, (compact line|aliases)/, row: '.sdk-empty-line', padding: 'x' },
+    { frame: 'States, skeleton', row: '.sdk-skel-row', box: true },
+    { frame: 'States, skeleton', row: '.sdk-skel-card' },
+    { frame: 'States, spinner', row: '.pm-grid', across: '.pm-line > *', centres: false, padding: false, gaps: false },
+    { frame: /^States, (empty|compact line|skeleton)/, row: '.pm-panel-head', padding: 'x' },
+  ]);
 }
 
 const statesProbe = async (ctx) => {

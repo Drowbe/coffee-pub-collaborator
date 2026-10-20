@@ -2576,6 +2576,11 @@ input.switch:disabled {
 
 /* The space bar's Join the call (space.js, GitHub #165): a small Primary button, as the conference's own Join the call; its
    words are the nav text (.btn.nav-text, space.js). The registry hides it while in the call. */
+.join-call {
+  --btn-pad-x: var(--space-2); /* the row beside Discussion | Assistant has little room to spare */
+  --btn-gap: var(--space-1);
+}
+
 .join-call[hidden] {
   display: none;
 }

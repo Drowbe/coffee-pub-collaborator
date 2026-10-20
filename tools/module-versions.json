@@ -8,8 +8,8 @@
     "hash": "cf870ffa2e96710b"
   },
   "calendar": {
-    "version": "1.24.18",
-    "hash": "05526ee02658c26e"
+    "version": "1.24.19",
+    "hash": "b2c849a2541be492"
   },
   "maps": {
     "version": "0.9.4",
@@ -24,8 +24,8 @@
     "hash": "ad3b955c254a3701"
   },
   "research": {
-    "version": "0.4.13",
-    "hash": "dfbe12a74a58b60e"
+    "version": "0.4.14",
+    "hash": "01377875960637e6"
   },
   "stream": {
     "version": "0.1.11",
@@ -36,7 +36,7 @@
     "hash": "b2680a770cf39a89"
   },
   "travel": {
-    "version": "0.15.32",
-    "hash": "c0169cc34c1949e1"
+    "version": "0.15.33",
+    "hash": "7b68d37722b5c29a"
   }
 }

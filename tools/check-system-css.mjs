@@ -158,7 +158,7 @@ const OLD_COLOUR = ['--bg', '--bg-section', '--bg-card', '--bg-input', '--text',
     walk(dir);
   }
   // The Buttons block's per-button properties (--b-*, --btn-h) are meant to be set on one button by a rule that lays it out.
-  const PER_BUTTON = /^--(b-(bg|bg-h|bg-a|fg|fg-h|bd)|btn-h)$/;
+  const PER_BUTTON = /^--(b-(bg|bg-h|bg-a|fg|fg-h|bd)|btn-h|btn-gap|btn-pad-x)$/;
   for (const f of files) for (const m of read(f).replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/(--[a-z0-9-]+)\s*:/g)) if (!PER_BUTTON.test(m[1])) note(m[1], f);
   for (const f of ['server/theme-css.js', 'public/theme-colour.js']) for (const m of read(f).matchAll(/'(--[a-z0-9-]+)'/g)) note(m[1], f);
   for (const n of defs.keys()) if (others.has(n)) fail(`${n} is defined in system.css and in ${others.get(n)}`);

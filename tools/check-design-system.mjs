@@ -246,6 +246,9 @@ async function startServer() {
   throw new Error('the throwaway server did not start: ' + log.slice(-300));
 }
 
+// Development: DS_ONLY=buttons,typography runs only those families' browser checks, on the served Proposed page only, at the scenarios in
+// DS_SCENARIO (for example 390:light,1280:dark; default all four). Not for the real check: a run with DS_ONLY says so and fails.
+const ONLY = process.env.DS_ONLY ? process.env.DS_ONLY.split(',') : null;
 async function browse(cdp, label, url, scenarios, shots) {
   const { targetId } = await cdp.send('Target.createTarget', { url: 'about:blank' });
   const { sessionId } = await cdp.send('Target.attachToTarget', { targetId, flatten: true });
@@ -283,7 +286,7 @@ async function browse(cdp, label, url, scenarios, shots) {
       // Each family's own checks, in the order of tools/check-design-system-families.json. They share the page, so each leaves the switches as it found them.
       const b = { ev, cdp, sessionId, sc, where, problems, inkCentre, edgeColours };
       for (const m of checks) {
-        if (!m.browserChecks) continue;
+        if (!m.browserChecks || (ONLY && !ONLY.includes(m.id))) continue;
         const t0 = Date.now();
         try { await m.browserChecks(b); } catch (e) { problems.push(`${where}: the ${m.id} browser check stopped: ${e.message}`); }
         if (process.env.DS_TIMING) console.log(`check-design-system: ${where} ${m.id} ${Date.now() - t0}ms`);
@@ -344,10 +347,13 @@ if (!bin) {
     const shots = process.env.SHOTS || null;
     const scenarios = [{ width: 1280, mode: 'light' }, { width: 1280, mode: 'dark' }, { width: 390, mode: 'dark' }];
     const P = (w, m) => ({ width: w, mode: m, proposed: true });
-    const a = await browse(br.cdp, 'served', `${server.base}/design-system/index.html`, scenarios, shots);
-    const b = await browse(br.cdp, 'snapshot', pathToFileURL(path.join(out, 'index.html')).href, [{ width: 1280, mode: 'light' }, { width: 390, mode: 'dark' }], shots);
-    const c = await browse(br.cdp, 'served-proposed', `${server.base}/design-system/proposed.html`, [P(1280, 'light'), P(1280, 'dark'), P(390, 'light'), P(390, 'dark')], shots);
-    const d = await browse(br.cdp, 'snapshot-proposed', pathToFileURL(path.join(outP, 'index.html')).href, [P(1280, 'dark'), P(390, 'light')], shots);
+    const sel = process.env.DS_SCENARIO ? process.env.DS_SCENARIO.split(',').map((s) => { const [w, m] = s.split(':'); return P(Number(w), m); }) : [P(1280, 'light'), P(1280, 'dark'), P(390, 'light'), P(390, 'dark')];
+    const none = { problems: [], last: null };
+    const a = ONLY ? none : await browse(br.cdp, 'served', `${server.base}/design-system/index.html`, scenarios, shots);
+    const b = ONLY ? none : await browse(br.cdp, 'snapshot', pathToFileURL(path.join(out, 'index.html')).href, [{ width: 1280, mode: 'light' }, { width: 390, mode: 'dark' }], shots);
+    const c = await browse(br.cdp, 'served-proposed', `${server.base}/design-system/proposed.html`, sel, shots);
+    const d = ONLY ? none : await browse(br.cdp, 'snapshot-proposed', pathToFileURL(path.join(outP, 'index.html')).href, [P(1280, 'dark'), P(390, 'light')], shots);
+    if (ONLY) fail('DS_ONLY is a development switch: this was a partial run, not the check');
     for (const p of [...a.problems, ...b.problems, ...c.problems, ...d.problems]) fail(p);
     if (c.last) browserNote2 = `the proposed page opened from the app and from its snapshot on disk at 1280 and 390 (light, dark): ${c.last.families} decided, ${c.last.undecided} still to decide, ${c.last.frames} frames, no console error`;
     if (a.last) browserNote = `opened from the app and from the snapshot on disk at 1280 (light, dark) and 390: ${a.last.families} families, ${a.last.variants} looks, ${a.last.examples} examples in ${a.last.frames} frames, ${a.last.tokens} tokens, ${a.last.icons} icons, no console error`;

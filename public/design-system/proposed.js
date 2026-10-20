@@ -21,7 +21,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
 .pm-row.pm-small { --pm-h: var(--btn-h-small, 30px); }
 .pm-row + .pm-row { border-top: 1px solid var(--border); }
 /* The label sits level with the buttons: it starts below the caption (12px line + 5px gap) and is as tall as the button, centred. */
-.pm-role { display: flex; align-items: center; min-height: var(--pm-h, var(--btn-h)); margin-top: 17px; color: var(--text-dim); font-size: 12px; font-weight: 600; line-height: 1.2; }
+.pm-role { display: flex; align-items: center; min-height: var(--pm-h, var(--btn-h)); margin-top: 17px; color: var(--text-dim); font-size: 12px; font-weight: 600; line-height: 14px; }
 .pm-h { margin: 16px 0 2px; font-size: 13px; font-weight: 600; }
 .pm-h:first-child { margin-top: 4px; }
 .pm-sub { margin: 0 0 4px; color: var(--text-dim); font-size: 12px; }

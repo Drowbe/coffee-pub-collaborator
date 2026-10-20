@@ -22,6 +22,49 @@ Each family has its own files, so two people can work on two families without to
 Each family is checked by `tools/check-design-system-<id>.mjs`, listed in `tools/check-design-system-families.json`.
 `tools/check-design-system.mjs` is the shared runner.
 
+## The families
+
+One entry each in `proposed-families.json`, in the order they are drawn. Each is also in
+`tools/check-design-system-families.json`; the check fails if the two lists differ.
+
+- `colour`: Colour
+- `buttons`: Buttons
+- `fields`: Fields and forms
+- `typography`: Typography
+- `tabs`: Tabs and view switches
+- `chips`: Chips, badges and counts
+- `cards`: Cards, panels and rows
+- `menus`: Menus and popovers
+- `foundations`: Foundations (spacing, elevation, the one scrim, radius, motion, icons, layout)
+- `calendar`: Calendar cells
+- `markers`: Markers
+- `days`: Day cards and day chips
+- `tables`: Tables and Manage lists
+- `dialogs`: Dialogs and sheets
+- `tooltips`: Tooltips
+- `states`: Empty, loading and error states (owns the one skeleton, `.sdk-skel`)
+- `toasts`: Toasts and banners
+- `modulechrome`: Module window
+- `chat`: Chat
+- `journey`: Journey bar
+- `tabbar`: Phone bottom bar
+- `links`: Links
+- `pickers`: Pickers
+- `progress`: Progress bars and meters
+- `avatars`: Avatars and portraits
+- `choices`: Choice rows
+
+A class has one owner. A family may use another family's class (Tables draws its loading bars with the States skeleton) but
+never defines it again.
+
+## Families draw on demand
+
+The page draws a family's example frames only when it is needed: when it is picked in the menu, named in the address
+(`proposed.html#buttons`), or scrolled to within about 1200px of the screen. Until then a family is its heading and a loading
+line. This keeps the page quick to open (about 280 frames in all). `window.DS_PROPOSED.renderAll()` draws every family and
+resolves when every frame has loaded; the checks call it before they measure. A family needs nothing to take part: its
+`render(api)` is simply called later.
+
 ## Add a family
 
 1. Write `proposed-<id>.js`. Copy the top of `proposed-tabs.js`: it registers with
@@ -33,14 +76,15 @@ Each family is checked by `tools/check-design-system-<id>.mjs`, listed in `tools
 4. Write `tools/check-design-system-<id>.mjs` and add `"<id>"` to `tools/check-design-system-families.json`. It exports `id`,
    and may export `todayOnly` (classes of today's markup the family draws as they are), `staticChecks(ctx)` (the files)
    and `browserChecks(b)` (measurements in the page). Copy `check-design-system-tabs.mjs`.
-5. If the family was listed under "Still to decide" in `proposed.js`, take its name out of that list.
+5. If the family was listed under "Still to decide" in `proposed.js`, take its name out of that list
+   (the check fails if a name is both a drawn family and on that list).
 
 You edit no shared file except those two lists and, if needed, the list of undecided names. The snapshot tool and the page both
 read `proposed-families.json`, so the hosted copy gets the new files without another edit.
 
 ## Check it
 
-- `node tools/check-design-system.mjs` runs every check (about five minutes; it opens a real browser).
+- `node tools/check-design-system.mjs` runs every check (it opens a real browser; set `DS_TIMING=1` to see how long each family's check takes).
 - `node tools/check-names.mjs` checks the words. A new `proposed-<id>.js` that names modules needs an entry in
   `tools/check-names-allow.json`, as the other family files have.
 

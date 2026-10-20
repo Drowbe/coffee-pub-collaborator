@@ -59,7 +59,7 @@ export async function browserChecks(b) {
       const t = probe.targets[k];
       const at = JSON.parse(await ev(`(() => { const m = window.__ds.frames.find((f) => f.iframe.title === 'Buttons, all states'); const b = m.iframe.contentDocument.querySelectorAll('.pm-row')[${k}].querySelector('button'); b.scrollIntoView({ block: 'center' }); const r = b.getBoundingClientRect(); const fr = m.iframe.getBoundingClientRect(); return JSON.stringify({ x: fr.left + r.left + window.scrollX, y: fr.top + r.top + window.scrollY, w: r.width, h: r.height }); })()`));
       const shotB = await cdp.send('Page.captureScreenshot', { format: 'png', clip: { x: at.x, y: at.y, width: at.w, height: at.h, scale: 4 } }, sessionId);
-      const c = inkCentre(Buffer.from(shotB.data, 'base64'), 4);
+      const c = inkCentre(Buffer.from(shotB.data, 'base64'), 4, 10);
       if (c === null) problems.push(`${where}: no ink found in ${t.n}`);
       else if (Math.abs(c) > 1.01) problems.push(`${where}: the ink of ${t.n} is ${Math.abs(c).toFixed(2)}px ${c > 0 ? 'low' : 'high'} in its button${fk ? ' set in Figtree' : ''}`);
     }

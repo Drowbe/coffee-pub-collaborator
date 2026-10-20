@@ -10,6 +10,9 @@
    - This file keeps only: the shared example-page rules (window.DS_PROPOSED.pmCss, for a frame's css option), the list of families
      still to decide (window.DS_PROPOSED.undecided), and the engine: nav, frames, the mode, fonts and width switches, the
      forced hover, focus and pressed states, and the search.
+   - A family draws ON DEMAND: its block is a heading and a loading line until it is picked in the menu, named in the address
+     (#buttons) or scrolled within 1200px of the screen. window.DS_PROPOSED.renderAll() draws every family and resolves when every
+     frame has loaded; the checks call it before they measure.
    - Adding a family = two new files (proposed-<id>.js and .css), one entry in proposed-families.json, and a check file with one entry in
      tools/check-design-system-families.json. No shared file is edited. */
 window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };

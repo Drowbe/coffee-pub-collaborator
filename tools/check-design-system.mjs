@@ -257,14 +257,18 @@ async function browse(cdp, label, url, scenarios, shots) {
     if (m.sessionId !== sessionId) return;
     if (m.method === 'Runtime.exceptionThrown') problems.push('exception: ' + (m.params.exceptionDetails.exception?.description || m.params.exceptionDetails.text));
     if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') problems.push('console.error: ' + m.params.args.map((a) => a.value || a.description).join(' '));
+    if (m.method === 'Page.frameNavigated' && !m.params.frame.parentId && m.params.frame.url !== lastNav) problems.push(`the page navigated itself to ${m.params.frame.url.slice(0, 120)}`);
+    if (m.method === 'Inspector.targetCrashed') problems.push(`${m.method} ${new Date().toISOString()}`);
     if (m.method === 'Log.entryAdded' && m.params.entry.level === 'error') problems.push('log: ' + m.params.entry.text + ' ' + (m.params.entry.url || ''));
   });
-  await cdp.send('Runtime.enable', {}, sessionId); await cdp.send('Log.enable', {}, sessionId); await cdp.send('Page.enable', {}, sessionId);
+  await cdp.send('Inspector.enable', {}, sessionId); await cdp.send('Runtime.enable', {}, sessionId); await cdp.send('Log.enable', {}, sessionId); await cdp.send('Page.enable', {}, sessionId);
   const ev = async (expression) => (await cdp.send('Runtime.evaluate', { expression, returnByValue: true, awaitPromise: true }, sessionId)).result.value;
   let last = null;
+  let lastNav = null;
   for (const sc of scenarios) {
     await cdp.send('Emulation.setDeviceMetricsOverride', { width: sc.width, height: 900, deviceScaleFactor: 1, mobile: sc.width < 500 }, sessionId);
-    await cdp.send('Page.navigate', { url: `${url}${url.includes('?') ? '&' : '?'}mode=${sc.mode}` }, sessionId);
+    lastNav = `${url}${url.includes('?') ? '&' : '?'}mode=${sc.mode}`;
+    await cdp.send('Page.navigate', { url: lastNav }, sessionId);
     let ok = false;
     for (let i = 0; i < 400; i += 1) { await new Promise((r) => setTimeout(r, 150)); if (await ev('!!(window.__dsStats && window.__dsStats.ready)')) { ok = true; break; } }
     const where = `${label} ${sc.width} ${sc.mode}`;

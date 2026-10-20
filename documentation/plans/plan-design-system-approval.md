@@ -2,7 +2,18 @@
 
 **Audience:** Thomas, who decides. About ten minutes to read.
 
-**Status:** prepared 2026-10-20 for the morning, because the process is taking too long. Eight families are approved. Eighteen are drawn on the Proposed page and wait for him. The builders made the choices below while drawing, and he has not seen them. Each is marked "Recommended: approve as drawn" unless it conflicts with something he decided. The plan to move the product onto the system is the "Migration plan (2026-10-20)" in [plan-design-system](plan-design-system.md); it needs his answers to its ten open questions too.
+**Status:** Approved 2026-10-21. Thomas approved all 18 drawn families as drawn (every choice B1a to B18b, and the fixes C1 and C6), which with the 8 earlier approvals makes 26 families approved. His decisions on the open items:
+
+- **C2.** The ok green used as a mark (bars, the presence dot) uses a darker ok mix so it reaches 3:1 in light mode; dark mode is unchanged.
+- **C3.** The environment name in the top bar is Figtree 600 at 16px below 640px and Fraunces 600 at 18px from 641px up; long names ellipsize.
+- **C4.** Calming Teal keeps its teal; text on teal fills and teal used as text are picked automatically; the theme editor warns about the low-contrast pairs that remain.
+- **C5.** Header chips are 30px, not 28, the choice-chip size.
+- **C8.** Panel padding is 16px, on the 4px scale; this replaces the earlier 14px. Card 12, row 8 by 10 (8 plus 2).
+- **Fraunces headline weight** is 600.
+- **The page.** The Proposed page becomes the design system page at `/design-system` in the product. The Today inventory is retired when the migration ends and stays available until the last step.
+- **Calendar end caps.** The approved left-bar exception for agenda rows (`.item`, `.item.ext`, `.item.marker`) and chips (`.chip.ext`, `.chip.marker`) is drawn as a straight, square-ended 3px block, not curved or clipped by the corner radius, and the side it sits on has square corners (the other corners keep their radius). Thomas: "I do not want them rounded like this as that looks sloppy." The Calendar draws the bar today as an inset box-shadow that follows the radius, so the Calendar step of the migration (step 32, and the markers and day cards steps) must draw it straight.
+
+Written before approval: the sheet below was prepared 2026-10-20 for the morning, because the process was taking too long. The builders made the choices below while drawing. The plan to move the product onto the system is the "Migration plan (2026-10-20)" in [plan-design-system](plan-design-system.md); its ten open questions are answered there, two settled and eight still open.
 
 Every item has a code (B3c, C4) so he can answer in one line at the end.
 

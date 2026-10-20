@@ -266,6 +266,19 @@ Thomas's decisions that add to the menus and popovers family above. Each one is 
 - **Hover.** Text at 10%, the same as tabs.
 - **Date picker.** The chosen day is a solid accent fill. This is an exception to the rule that selected is neutral.
 
+### Foundations and 17 more families (decided 2026-10-21)
+
+Thomas approved all 18 drawn families as drawn: Foundations, Dialogs and sheets, Toasts and banners, Tooltips, Empty/loading/error, Links, Pickers, Progress and meters, Avatars and portraits, Choice rows, Module window, Chat, Journey bar, Phone tab bar, Calendar cell, Markers, Day cards and Tables. Every choice B1a to B18b is approved, with the fixes C1 and C6, and with the 8 earlier families that makes 26. Values that changed from the sheet or from earlier entries:
+
+- **C2.** Ok green used as a mark (bars, presence dot) uses a darker ok mix that reaches 3:1 in light mode; dark mode is unchanged.
+- **C3.** The environment name in the top bar is Figtree 600 at 16px below 640px and Fraunces 600 at 18px from 641px up; long names ellipsize.
+- **C4.** Calming Teal keeps its teal; text on teal fills and teal-as-text are auto-picked; the theme editor warns about remaining low-contrast pairs.
+- **C5.** Header chips are 30px, not 28.
+- **C8.** Panel padding is 16px, on the 4px scale. This supersedes the 14px in "Cards, panels and rows" above. Card 12, row 8 by 10 (8 plus 2).
+- **Fraunces headline weight** is 600.
+- **Calendar end caps.** The approved left-bar exception for agenda rows (`.item`, `.item.ext`, `.item.marker`) and chips (`.chip.ext`, `.chip.marker`) is a straight, square-ended 3px block, not curved or clipped by the corner radius, and the side it sits on has square corners (the other corners keep their radius). Thomas: "I do not want them rounded like this as that looks sloppy." The Calendar draws it today as an inset box-shadow that follows the radius, so step 32 and the markers and day cards steps draw it straight.
+- **The page.** The Proposed page becomes the design system page at `/design-system` in the product; the Today inventory is retired when the migration ends and stays until the last step.
+
 ## (a) The system
 
 Four layers. Each lower layer is used only through the one above it: a module never writes a colour, a size or a shadow, only a component class and its own layout.
@@ -543,7 +556,7 @@ Steps 9 to 13 (buttons, fields and forms, tabs, cards and rows, menus) and 15 (c
 
 ## Migration plan (2026-10-20)
 
-**Status:** proposed, for Thomas to approve. Written after 26 families were drawn on the Proposed page (`public/design-system/proposed-*.js`). Thomas's reason, 2026-10-20: the process is taking far too long. Nothing here decides a design; every look is the one drawn, and the choices still waiting for him are in [plan-design-system-approval](plan-design-system-approval.md).
+**Status:** approved to start 2026-10-21. Steps 2, 7 and 10 are built (see the table). Written after 26 families were drawn on the Proposed page (`public/design-system/proposed-*.js`). Thomas's reason, 2026-10-20: the process is taking far too long. Nothing here decides a design; every look is the one drawn, and the choices still waiting for him are in [plan-design-system-approval](plan-design-system-approval.md).
 
 **What changed from the old step list.** Steps 1 to 6b stay as they are, done. The old step 2 asked for `system.css` and it is not in the repository (`public/sdk/system.css` does not exist), so it is redone as step 2 below, with the tokens now drawn. The old step 7 (the check) keeps its number and now also holds five token checks. The old steps 8 (candidates) and the review gate are done by the Proposed page. The old steps 9 to 17 are re-ordered into steps 12 to 22 and the families drawn since are added (steps 18 to 35). The old module-by-module steps 18 to 27 and the pages step 28 are gone: a family step moves every file it touches, modules and pages alike, and step 36 sweeps what is left. The old step 29 is step 38. The Prototype page is step 39, optional.
 
@@ -574,11 +587,11 @@ Passes: one pass is one builder run. Risk: low, medium, or **larger model** for 
 | Step | What | Touches | Passes | Risk |
 |---|---|---|---|---|
 | 1 to 6b | Done: shots tool, Today page, Proposed page, icon browser, review copy | | done | |
-| 2 | `system.css`: new tokens (spacing, elevation, layers, scrim, motion with the reduced-motion rule, icon sizes, type scale, breakpoints noted), every old token as an alias, an empty reserved slot per family. Linked first by every app page; inlined before `host.css` in the module route; fetched by `module-host.js`; the popped-out call window clones it | `public/sdk/system.css`, every `public/*.html`, `server/index.js` (about line 7849), `public/module-host.js`, the call window code | 2 | **larger model** (cascade order, in-page modules strip `:root`) |
-| 7 | The checks, each with an allow-list at today's counts (see (e)), plus `check-system.mjs` as in (d) | `tools/check-*.mjs`, `tools/check-*-allow.json`, `package.json` | 2 | low |
+| 2 (built: `public/sdk/system.css`, `public/fonts`, `check-system-css`; commits 102b5dd and 813e6cb) | `system.css`: new tokens (spacing, elevation, layers, scrim, motion with the reduced-motion rule, icon sizes, type scale, breakpoints noted), every old token as an alias, an empty reserved slot per family. Linked first by every app page; inlined before `host.css` in the module route; fetched by `module-host.js`; the popped-out call window clones it | `public/sdk/system.css`, every `public/*.html`, `server/index.js` (about line 7849), `public/module-host.js`, the call window code | 2 | **larger model** (cascade order, in-page modules strip `:root`) |
+| 7 (built: the six drift guards; commits a3251ad, 5d9e1ac) | The checks, each with an allow-list at today's counts (see (e)), plus `check-system.mjs` as in (d) | `tools/check-*.mjs`, `tools/check-*-allow.json`, `package.json` | 2 | low |
 | 8 | Colour, server: `theme-css.js` writes the new roles; `store.js` accepts optional status bases (ok, warn, danger, info); theme file `formatVersion` 2 (reads 1 and 2; a version 1 theme gets derived status colours); text on accent and on status fills picked automatically (dark or white, whichever is 4.5 to 1 or better) | `server/theme-css.js`, `server/store.js`, `server/theme-file.js`, `server/file-format.js`, `public/sdk/system.css` | 2 | **larger model** (migration; stored themes must load unchanged) |
 | 9 | Colour, editor: status pickers and contrast warnings in the admin theme editor | `public/admin.js`, `public/admin.html` | 1 | low |
-| 10 | Fonts, bundled: Figtree and Fraunces woff2 and their licence texts, served by our server, `@font-face` with the metric-matched fallbacks, the type scale tokens. No family applied yet | `public/assets/` fonts, `system.css`, `server/index.js` if a header is needed | 1 | low |
+| 10 (built with step 2: `public/fonts`; commits 102b5dd and 813e6cb) | Fonts, bundled: Figtree and Fraunces woff2 and their licence texts, served by our server, `@font-face` with the metric-matched fallbacks, the type scale tokens. No family applied yet | `public/assets/` fonts, `system.css`, `server/index.js` if a header is needed | 1 | low |
 | 11 | Fonts, switched on: `--font-ui` on the pages, inputs and modules; Fraunces on display text only (landing title, page titles, the environment name in the top bar, space names on Home cards) | `system.css`, `style.css`, `host.css`, `landing.css` | 2 | **larger model** (every screen's text metrics) |
 | 12 | Buttons: four roles, 38, 44 and 30px, soft red Danger, one square icon button (`.action-btn`, `.sdk-more`, `.icon-btn`, `.sdk-field-btn`, `.msg-btn`, close) | `style.css`, `host.css`, `host.js` `UI_CSS`, `landing.css`; modules budget, maps, places, research, travel, todo, polls, stream | 3 | medium; the call's circles stay and need a real call |
 | 13 | Fields and forms: field edge, focus ring, "(optional)", tick box, radio, switch 36 by 20, search; the remaining module moves of [plan-form-standard](plan-form-standard.md). Two builders: 13a app pages, 13b modules | `style.css`, `host.css`, module `editor-card` copies; modules budget, calendar, places, polls, research, todo, travel | 3 | medium |
@@ -706,17 +719,23 @@ Whole screens drawn from the approved components. It pays off if Thomas wants to
 
 ### Open questions for the migration
 
-1. **How often Thomas looks.** After every step, or after each batch (suggested)?
-2. **The page.** Does the Proposed page become `/design-system` and Today retire at step 37 (suggested)?
-3. **Old token aliases.** Keep them until a release has warned uploaded modules (suggested), or remove them at step 36?
-4. **Allow-lists.** A count per file that can only fall (suggested), or a fixed list of files not yet moved, as `check-forms` does?
-5. **Theme file version 2.** A server older than this build reads a version 2 theme as "newer" and refuses it. Acceptable (suggested)?
-6. **Form standard.** Does step 13 absorb the remaining steps of plan-form-standard (suggested)?
-7. **Breakpoints in modules.** Modules answer to their own width (`.app.narrow`), not the window. Do they keep that and use the three widths only as container queries, or follow the four ranges?
-8. **Italics.** Not bundled. Does italic text stay, fall back, or get bundled?
-9. **Fraunces weight**, 600 or 700. Blocks step 11.
-10. **Check strictness.** Question 5 under "What is not decided" applies to the checks in step 7.
+Answered by Thomas, 2026-10-21:
 
+2. **The page.** The Proposed page becomes `/design-system` and Today retires when the migration ends, at step 37 (it stays available until then).
+9. **Fraunces weight.** 600. Step 11 is no longer blocked by it.
+
+Also settled, though not one of the ten: panel padding is 16px (see "Foundations and 17 more families").
+
+### Still open for Thomas
+
+1. **How often Thomas looks.** After every step, or after each batch. Recommendation: after each batch, which is fewer interruptions and the shots show the same thing.
+3. **Old token aliases.** Keep them until a release has warned uploaded modules, or remove them at step 36. Recommendation: keep them until a release has warned, so no uploaded module breaks.
+4. **Allow-lists.** A count per file that can only fall, or a fixed list of files not yet moved, as `check-forms` does. Recommendation: a count per file that can only fall; it catches new drift inside a file that is half moved.
+5. **Theme file version 2.** A server older than this build reads a version 2 theme as "newer" and refuses it. Recommendation: accept this; an older server refusing a newer file is safer than misreading it.
+6. **Form standard.** Does step 13 absorb the remaining steps of plan-form-standard. Recommendation: yes, one move instead of two over the same files.
+7. **Breakpoints in modules.** Modules answer to their own width (`.app.narrow`), not the window. They keep that and use the three widths only as container queries, or follow the four ranges. Recommendation: keep their own width with container queries, because a module's width depends on the canvas layout, not the window.
+8. **Italics.** Not bundled. Does italic text stay, fall back, or get bundled. Recommendation: fall back to the browser's slanted face, and bundle only if a screen looks wrong.
+10. **Check strictness.** Question 5 under "What is not decided" applies to the checks in step 7. Recommendation: fail the build on a new raw value; warn on the rest until step 36.
 
 ## Verify
 

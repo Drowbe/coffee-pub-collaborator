@@ -14,7 +14,7 @@
    Event chip   the Chips family's tag: the event's tone at 22% over the cell, readable text (the tone mixed 45% into --text), 11px, --radius-small.
                 18px high in a cell (the Chips tag is 24px; a 74px cell cannot hold four).
    Exception    Calendar's agenda rows and the event chips of other calendars and markers keep their 3px bar on the left (Thomas, 2026-10-18). They
-                use .sdk-bar-kept from the Cards family (a 3px block, not a border) and are flagged "Exception, kept" on the page.
+                use .sdk-bar-kept from the Cards family (a straight, square 3px block the full height of the box, with square corners on the bar side; decided 2026-10-21) and are flagged "Exception, kept" on the page.
    Colours are theme tokens only. Radii are --radius-* tokens. */
 
 .ds-proposed {
@@ -187,7 +187,7 @@
 .ds-proposed .sdk-cal-cell:is(.is-selected, [aria-selected="true"]) .sdk-cal-event { background: color-mix(in srgb, var(--text) 22%, var(--accent)); color: var(--on-accent); }
 
 /* The exception, kept: a chip of another calendar or a marker, with the 3px bar (.sdk-bar-kept, from the Cards family). The fill is quiet and neutral. */
-.ds-proposed .sdk-cal-event.sdk-bar-kept { padding-left: 9px; background: color-mix(in srgb, var(--text-dim) 12%, var(--cal-surface, var(--bg-card))); color: var(--cal-dim); }
+.ds-proposed .sdk-cal-event.sdk-bar-kept { --bar-bleed: 0px; border-width: 0; padding-left: 9px; background: color-mix(in srgb, var(--text-dim) 12%, var(--cal-surface, var(--bg-card))); color: var(--cal-dim); }
 .ds-proposed .sdk-cal-event.sdk-bar-kept:hover { background: color-mix(in srgb, var(--text-dim) 22%, var(--cal-surface, var(--bg-card))); color: var(--text); }
 .ds-proposed .sdk-cal-event.sdk-bar-kept.is-marker { color: var(--text); }
 .ds-proposed .sdk-cal-event.sdk-bar-kept.is-past { opacity: 0.55; }

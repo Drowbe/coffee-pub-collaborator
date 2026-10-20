@@ -11,7 +11,7 @@
  * sends, Shift+Enter does not, five lines at most, "/" opens the commands, the arrows, Enter and Escape work), a status line without its polite live regions, a count or dot that
  * is not the Chips size (18px count, 14px micro count with 9px numbers and a 3px inset, 7px dot), a weight other than 400, 500 and 600 or text under 11px (the micro count
  * excepted) in the family, a coloured one-sided edge or thin coloured block, a contrast pair under its minimum, an alias that does not look like the new name, a frame
- * that scrolls sideways, the family not marked Proposed, the undecided name still listed; in the stylesheet: a hex colour, a gradient, a colour written out, a shadow other
+ * that scrolls sideways, the family not marked Approved, the undecided name still listed; in the stylesheet: a hex colour, a gradient, a colour written out, a shadow other
  * than none and --shadow-2, a side border other than the divider, a weight over 600, a font size under 11px, a name not defined.
  */
 export const id = 'chat';
@@ -36,7 +36,7 @@ export function staticChecks({ fail, css, js, defined }) {
     'message-quote', 'actions', 'text', 'chat-link', 'chat-link-img', 'chat-link-text', 'chat-link-title', 'chat-link-desc', 'chat-link-site', 'chat-bar', 'chat-format-bar', 'chat-format-side', 'chat-help-popup', 'chat-emoji-popup', 'chat-emoji-btn', 'chat-status']) {
     if (!defined.has(c)) fail(`the proposed stylesheets do not define the chat name .${c} (a new name or a kept alias)`);
   }
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-chat.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-chat.js: the family is not marked Approved');
   if (/class="[^"]*\bsend\b/i.test(js) || /aria-label="Send"/.test(js)) fail('proposed-chat.js: a Send button is drawn (Enter sends)');
 }
 
@@ -198,7 +198,7 @@ const probe = async () => {
     for (const tr of rows) { const p = tr.querySelector('[data-out="p"]').textContent; if (p === 'Fails') bad(`contrast: ${tr.children[0].textContent} is ${tr.querySelector('[data-out="r"]').textContent}`); if (!p) bad('the contrast table is not measured'); } }
   // ---- the page ----
   const blk = document.getElementById('chat');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Chat family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Chat family is not marked Approved');
   if (document.getElementById('u-messages-chat-and-ai-cards')) bad('Messages, chat and AI cards is still listed as Not yet decided');
   if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Chat family lacks its Today to proposed or Chosen while drawing section');
   return JSON.stringify(out);

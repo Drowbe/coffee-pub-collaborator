@@ -166,7 +166,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="states-h"><a href="#states">Empty, loading and error states</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">one empty block, one skeleton, one spinner; the error is the empty block with a Retry</span></header>
+    block.innerHTML = `<header><h3 id="states-h"><a href="#states">Empty, loading and error states</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">one empty block, one skeleton, one spinner; the error is the empty block with a Retry</span></header>
 <p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> One <code>.sdk-empty</code> block (a 24px icon, a 16px heading, dim text, an optional Primary or Quiet button) with a compact line for lists. One <code>.sdk-skel</code> skeleton in row, card and text-line shapes with <b>one</b> shimmer, off when the person asks for less motion. One 16px spinner (12px and 20px sizes) for buttons and inline waits. <b>The rule: a skeleton for a first load that takes over 300ms; a spinner otherwise.</b> An error is the same empty block with a Retry button, plus the field error line <code>.sdk-form-error</code>. The error colour is the readable danger mix (danger 70% into the text colour); the raw <code>#e07a5f</code> of the Stream module goes. The "Loading..." text in about 30 places becomes the spinner or a skeleton.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#states-empty">Empty</a><a href="#states-line">Compact line</a><a href="#states-skel">Skeleton</a><a href="#states-spin">Spinner</a><a href="#states-error">Error</a><a href="#states-rule">The rule, live</a><a href="#states-panel">In a panel</a><a href="#states-alias">Aliases</a><a href="#states-today">Today to proposed</a><a href="#states-contrast">Contrast</a><a href="#states-tokens">Tokens</a><a href="#states-markup">Markup contract</a><a href="#states-widths">Widths</a></nav>
 
@@ -276,7 +276,7 @@ ${code(`<!-- empty: the icon, the heading, the text, at most one button; the err
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'states', covers: ['empty', 'loading', 'error', 'skeleton', 'spinner', 'state'], group: 'Feedback', name: 'Empty, loading and error states', status: 'proposed',
+    id: 'states', covers: ['empty', 'loading', 'error', 'skeleton', 'spinner', 'state'], group: 'Feedback', name: 'Empty, loading and error states', status: 'approved',
     words: 'empty loading error state states skeleton shimmer spinner retry nothing yet no results failed could not load first load compact line field error form error reduced motion',
     render: renderStates,
   });

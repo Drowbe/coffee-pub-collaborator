@@ -207,7 +207,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="chat-h"><a href="#chat">Chat: message and composer</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">the message, its parts and cards, the composer, the format bar, the status line</span></header>
+    block.innerHTML = `<header><h3 id="chat-h"><a href="#chat">Chat: message and composer</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the message, its parts and cards, the composer, the format bar, the status line</span></header>
 <p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch.</b> Two new components. <b>Message</b>: others a 5% text fill, your own a 10% accent fill; a 22px portrait, the name 12px weight 600, the time 11px, body 14px; a command or AI message has its tint on the portrait icon only (no left bar); a quote is a nested neutral fill; reactions are Chips tags; an object card and a link box are the approved Cards. <b>Composer</b>: the approved text area on the field step, Enter sends, Shift+Enter is a new line, five lines at most; a format bar of icon-only Quiet small buttons; the commands are the Menus popover; the status line is the module's.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#chat-conversation">Conversation</a><a href="#chat-parts">Message parts</a><a href="#chat-composer">Composer</a><a href="#chat-live">Live composer</a><a href="#chat-statusline">Status line</a><a href="#chat-unread">Unread</a><a href="#chat-phone">On a phone</a><a href="#chat-contrast">Contrast</a><a href="#chat-map">Today to proposed</a><a href="#chat-alias">Aliases</a><a href="#chat-tokens">Tokens</a><a href="#chat-contract">Markup</a><a href="#chat-widths">Widths</a><a href="#chat-chosen">Chosen while drawing</a></nav>
 
@@ -353,7 +353,7 @@ ${tbl(['Chosen', 'Why', 'Other way'], [
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'chat', covers: ['message', 'composer', 'chat-bar', 'chat-link', 'message-quote', 'format-bar'], group: 'Containers', name: 'Chat: message and composer', status: 'proposed',
+    id: 'chat', covers: ['message', 'composer', 'chat-bar', 'chat-link', 'message-quote', 'format-bar'], group: 'Containers', name: 'Chat: message and composer', status: 'approved',
     words: 'chat message messages composer input text area format bar send enter shift reaction reactions quote link box object card tint portrait ai assistant command menu emoji help status unread hover actions phone left bar msg-btn chat-bar chat-link', render: renderChat,
   });
 })();

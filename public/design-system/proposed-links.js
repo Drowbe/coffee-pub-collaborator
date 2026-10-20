@@ -154,7 +154,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="links-h"><a href="#links">Links</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">link text, links in running text, standalone links, the link button, the external link icon</span></header>
+    block.innerHTML = `<header><h3 id="links-h"><a href="#links">Links</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">link text, links in running text, standalone links, the link button, the external link icon</span></header>
 <p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One colour for link text</b> (the Colour family's <code>--text-link</code>: the accent as text, picked automatically so it reaches 4.5 to 1 on the page and on a panel in every theme and mode). <b>Two looks</b>: a link in running text is always underlined, a standalone link is underlined on hover and focus only. <b>One link button</b>, replacing four look-alikes. Link chips are Chips tags, link buttons that look like buttons are Buttons. Nothing here styles a bare <code>a</code>. Stylesheet: <code>proposed-links.css</code>, every rule under <code>.ds-proposed</code>.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#links-anatomy">Anatomy</a><a href="#links-states">States</a><a href="#links-text">In running text</a><a href="#links-not">Not a link</a><a href="#links-context">In use</a><a href="#links-widths">Widths</a><a href="#links-rules">Usage rules</a><a href="#links-map">Today to proposed</a><a href="#links-contrast">Contrast</a><a href="#links-tokens">Tokens</a><a href="#links-markup">Markup contract</a></nav>
 
@@ -264,7 +264,7 @@ ${code(`<!-- in a sentence -->
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'links', covers: ['links', 'link-button', 'external-link'], group: 'Controls', name: 'Links', status: 'proposed',
+    id: 'links', covers: ['links', 'link-button', 'external-link'], group: 'Controls', name: 'Links', status: 'approved',
     words: 'links link anchor underline visited external new tab icon link button linklike text-link standalone running text sdk-link sdk-link-btn sdk-prose', render: renderLinks,
   });
 })();

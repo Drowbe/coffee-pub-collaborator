@@ -105,7 +105,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="choices-h"><a href="#choices">Choice rows</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">the tick box and radio row, the boxed row, the switch row, the poll option, the segmented choice</span></header>
+    block.innerHTML = `<header><h3 id="choices-h"><a href="#choices">Choice rows</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the tick box and radio row, the boxed row, the switch row, the poll option, the segmented choice</span></header>
 <p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One whole-row choice row</b>: the approved 16px tick box or radio on the left, the label, an optional description. 32px high (44px on a phone), hover a quiet fill, <b>checked is the neutral selected fill</b>, focus the 2px outline inside the row. A <b>boxed</b> row only where every option has a description. The <b>switch row</b> for on and off settings. The <b>segmented choice</b> for two to four short options is the Tabs family's joined switch. People chips are in the Chips family. Stylesheet: <code>proposed-choices.css</code>, every rule under <code>.ds-proposed</code>.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#choices-anatomy">Anatomy</a><a href="#choices-states">States</a><a href="#choices-segmented">Segmented</a><a href="#choices-use">In use</a><a href="#choices-widths">Widths</a><a href="#choices-rules">Usage rules</a><a href="#choices-map">Today to proposed</a><a href="#choices-contrast">Contrast</a><a href="#choices-tokens">Tokens</a><a href="#choices-markup">Markup contract</a></nav>
 
@@ -220,7 +220,7 @@ ${code(`<!-- a choice row: the label wraps the input and the words -->
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'choices', covers: ['choice-row', 'check', 'switch-row', 'segmented', 'poll-option', 'template-option'], group: 'Controls', name: 'Choice rows', status: 'proposed',
+    id: 'choices', covers: ['choice-row', 'check', 'switch-row', 'segmented', 'poll-option', 'template-option'], group: 'Controls', name: 'Choice rows', status: 'approved',
     words: 'choice rows choice row tick box checkbox radio switch toggle segmented boxed template option description poll option check label sdk-choice-row sdk-choice sdk-check template-option', render: renderChoices,
   });
 })();

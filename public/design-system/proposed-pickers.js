@@ -123,7 +123,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="pickers-h"><a href="#pickers">Pickers</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">kind, currency, icon, colour and background pickers: one trigger, one flyout</span></header>
+    block.innerHTML = `<header><h3 id="pickers-h"><a href="#pickers">Pickers</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">kind, currency, icon, colour and background pickers: one trigger, one flyout</span></header>
 <p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One trigger</b> for every picker: the approved field look, with the picker's trailing icon inside. <b>One flyout</b>: the approved Menus surface (a list or a popover), and on a phone the Menus bottom sheet for a long list. <b>One colour picker</b> where there are three looks today. The date picker's grid belongs to the Menus family (drawn there); only its trigger, the date field, is in the table below. The background picker is a Dialog (880 wide, from the Dialogs family, drawn by another builder); its content is drawn here. Stylesheet: <code>proposed-pickers.css</code>, every rule under <code>.ds-proposed</code>; the flyouts use <code>proposed-menus.css</code>.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#pickers-anatomy">Anatomy</a><a href="#pickers-triggers">Triggers</a><a href="#pickers-flyouts">Flyouts</a><a href="#pickers-sheet">On a phone</a><a href="#pickers-bg">Background</a><a href="#pickers-form">In a form</a><a href="#pickers-widths">Widths</a><a href="#pickers-rules">Usage rules</a><a href="#pickers-map">Today to proposed</a><a href="#pickers-tokens">Tokens</a><a href="#pickers-markup">Markup contract</a></nav>
 
@@ -254,7 +254,7 @@ ${code(`<!-- the trigger -->
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'pickers', covers: ['picker', 'kind-picker', 'currency-select', 'icon-picker', 'colour-picker', 'color-picker', 'background-picker'], group: 'Controls', name: 'Pickers: kind, currency, icon, colour, background', status: 'proposed',
+    id: 'pickers', covers: ['picker', 'kind-picker', 'currency-select', 'icon-picker', 'colour-picker', 'color-picker', 'background-picker'], group: 'Controls', name: 'Pickers: kind, currency, icon, colour, background', status: 'approved',
     words: 'pickers picker kind currency icon colour color swatch background tile select flyout sheet trigger combobox listbox sdk-picker sdk-kind-field icon-grid bgpick look-dot', render: renderPickers,
   });
 })();

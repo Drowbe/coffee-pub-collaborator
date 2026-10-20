@@ -9,7 +9,7 @@
  * size, corner or fill; an event chip under 11px, not --radius-small or not the 22% tone fill; a coloured one-sided border or a thin coloured block on a side
  * anywhere except the declared Calendar exception (.sdk-bar-kept: three agenda rows and the chips, flagged "Exception, kept"); the "now" row or the linked day
  * with an accent edge or without its word; the arrow keys, Home and End not moving focus in the grid; a hard-coded #c0574a; a gradient, a hex colour or a
- * shadow in the stylesheet; the family not marked Proposed; the undecided entry not removed; a name not defined.
+ * shadow in the stylesheet; the family not marked Approved; the undecided entry not removed; a name not defined.
  */
 export const id = 'calendar';
 export const todayOnly = [];
@@ -22,7 +22,7 @@ export function staticChecks({ fail, css, js, defined }) {
   if (/box-shadow\s*:\s*(?!\s|none)/.test(css)) fail('proposed-calendar.css: a box-shadow other than none (a ring or an inset bar)');
   if (/\.sdk-bar-kept/.test(css.replace(/\.sdk-cal-event\.sdk-bar-kept[^{]*\{[^}]*\}/g, '').replace(/\.sdk-cal-compact[^{]*sdk-bar-kept[^{]*\{[^}]*\}/g, ''))) fail('proposed-calendar.css: .sdk-bar-kept is styled outside the event chip (the bar itself is the Cards family\'s)');
   if (!/Exception, kept/.test(js)) fail('proposed-calendar.js: the Calendar exception is not flagged "Exception, kept"');
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-calendar.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-calendar.js: the family is not marked Approved');
   for (const c of ['sdk-cal-grid', 'sdk-cal-dow', 'sdk-cal-cell', 'sdk-cal-n', 'sdk-cal-chips', 'sdk-cal-event', 'sdk-cal-pick', 'sdk-cal-hour', 'sdk-cal-allday', 'sdk-cal-hr', 'sdk-cal-agenda', 'sdk-cal-compact', 'sdk-cal-week', 'dow', 'hour', 'allday', 'hr', 'now', 'is-today', 'is-selected', 'in-range', 'is-other', 'is-linked', 'is-now']) {
     if (!defined.has(c)) fail(`the proposed stylesheets do not define the calendar name .${c}`);
   }
@@ -148,7 +148,7 @@ const calendarProbe = async () => {
   { const d = get('Calendar, aliases'); const h = d.querySelector('.hour.now'); if (cs(h).backgroundColor !== bg(d, 'var(--selected-bg)') || cs(h).borderTopLeftRadius !== rad(d, '--radius-medium')) bad('aliases: .hour.now does not look like the day view row'); if (cs(d.querySelector('.dow')).fontSize !== '11px') bad('aliases: .dow is not 11px'); }
   // The page.
   const blk = document.getElementById('calendar');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Calendar family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Calendar family is not marked Approved');
   if (document.getElementById('u-day-cards-calendar-cells-and-markers')) bad('"Day cards, calendar cells and markers" is still listed as Not yet decided');
   if (!/Exception, kept/.test(blk ? blk.textContent : '')) bad('the Calendar family does not name the kept exception');
   return JSON.stringify(out);

@@ -7,7 +7,7 @@
  * --selected-bg, or a switch row with a fill; a focus that is not a 2px accent outline inside the row (offset -2px) with the box's own ring off; a disabled row not at
  * half strength with a not-allowed cursor; a description not 12px --text-dim; a row whose input is not inside the label (the whole row is the target); a boxed row without a
  * description, not --radius-medium, or whose hairline changes when checked; a poll fill that is not behind the row, or a poll row without the percent in text; a segmented choice that
- * is not the Tabs joined switch with two to four options, 2px apart; an accent border or fill on any row; a pair under its contrast minimum; the family not marked Proposed; the
+ * is not the Tabs joined switch with two to four options, 2px apart; an accent border or fill on any row; a pair under its contrast minimum; the family not marked Approved; the
  * stylesheet drawing an edge on one side, a coloured border, a hard-coded colour; the undecided list still naming Choice rows.
  */
 import fs from 'node:fs';
@@ -21,7 +21,7 @@ export function staticChecks({ fail, css, js, DS }) {
   if (/#[0-9a-f]{3,8}\b/i.test(css)) fail('proposed-choices.css: a hard-coded colour (tokens only)');
   if (/accent-color\s*:/.test(css)) fail('proposed-choices.css: a native accent-color box (the Fields box is drawn from tokens)');
   if (/background[^;]*var\(--accent\)\s*;/.test(css)) fail('proposed-choices.css: an accent fill on a row (checked is --selected-bg)');
-  if (!/status: 'proposed'/.test(js)) fail('proposed-choices.js: the family is not marked Proposed');
+  if (!/status: 'approved'/.test(js)) fail('proposed-choices.js: the family is not marked Approved');
   const pj = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
   if (/'Choice rows and people chips'/.test(pj)) fail("proposed.js: the undecided list still names 'Choice rows and people chips'");
 }

@@ -7,7 +7,7 @@
  * outline at rest; a fill that is not the marker at 22% over its surface; words that are not --text; a tag with capitals or text under 12px; a hover that is not a
  * fill; a focus that is not a 2px accent outline at offset -2px; a day row that is not the Cards row (--bg-input, --radius-small, no edge inside a card; 38px, 44px at
  * 390); a phone chip or tag without a 44px hit area; a marker taking a phase colour; a thin coloured block on a side outside the Calendar frame's declared exception;
- * the legend missing a type or a form; in the stylesheet a gradient, a hex colour, a coloured one-sided border or a shadow; the family not marked Proposed.
+ * the legend missing a type or a form; in the stylesheet a gradient, a hex colour, a coloured one-sided border or a shadow; the family not marked Approved.
  */
 export const id = 'markers';
 export const todayOnly = [];
@@ -20,7 +20,7 @@ export function staticChecks({ fail, css, js, defined }) {
   if (/border(?:-width)?\s*:\s*1\.5px/.test(css)) fail('proposed-markers.css: a 1.5px border (the old pill)');
   if (/text-transform\s*:\s*uppercase/.test(css)) fail('proposed-markers.css: capitals on a marker (the old day tag)');
   if (/--ph\b/.test(css)) fail('proposed-markers.css: a marker takes a phase colour (--ph)');
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-markers.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-markers.js: the family is not marked Approved');
   for (const c of ['sdk-mk-line', 'sdk-mk-ic', 'sdk-mk-label', 'sdk-mk-when', 'sdk-mk-row', 'sdk-mk-time', 'sdk-mk-tag', 'sdk-mk-spine', 'daytag']) if (!defined.has(c)) fail(`the proposed stylesheets do not define the markers name .${c}`);
 }
 
@@ -100,7 +100,7 @@ const markersProbe = async () => {
   // The Calendar frame: the bar is the declared exception, flagged.
   { const d = get('Markers, in the Calendar'); if (!/Exception, kept/.test(d.body.textContent)) bad('the Markers Calendar frame does not flag the exception'); if (!d.querySelector('.sdk-bar-kept')) bad('the Markers Calendar frame shows no kept bar'); }
   const blk = document.getElementById('markers');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Markers family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Markers family is not marked Approved');
   if (!/Today to proposed/.test(blk ? blk.textContent : '') || !/markerpill/.test(blk ? blk.textContent : '')) bad('the Markers family has no "Today to proposed" table naming .markerpill');
   return JSON.stringify(out);
 };

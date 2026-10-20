@@ -6,7 +6,7 @@
  * --shadow-2; a shortcut chip not 11px; a control with a tooltip (data-tip) and no aria-label of the same words; in the live demo: a label that shows before 500ms of hover or
  * not after it, one that does not show at once on keyboard focus, one that does not hide on Escape or on leaving, one that shows on touch hover, one that does not show on a long
  * press, a control without aria-describedby while it shows, no role="tooltip", a label that does not flip below when the top is clipped, a truncated-text label that shows
- * when the text is not cut (or does not when it is); a contrast row under 4.5 to 1 (inverse text on the inverse fill); the family not marked Proposed or its page naming
+ * when the text is not cut (or does not when it is); a contrast row under 4.5 to 1 (inverse text on the inverse fill); the family not marked Approved or its page naming
  * Tooltips as not yet decided. In the stylesheet: a hex colour, a one-sided border, a font under 11px, an inset shadow, a name that is not defined, a delay that is not 500ms.
  */
 export const id = 'tooltips';
@@ -89,7 +89,7 @@ const tipsProbe = async (ctx) => {
 
   // The page.
   const blk = document.getElementById('tooltips');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Tooltips family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Tooltips family is not marked Approved');
   if (!blk || !/321/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent) || !/Markup contract/.test(blk.textContent)) bad('the Tooltips page lacks the 321 native hints note, its Today to proposed table or its markup contract');
   if (document.getElementById('u-tooltips')) bad('Tooltips is still listed as Not yet decided');
   return JSON.stringify(out);

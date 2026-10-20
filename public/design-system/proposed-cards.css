@@ -336,10 +336,13 @@
   flex: none; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius-small);
   color: var(--text); font-size: 12px; font-weight: 600; line-height: 16px; white-space: nowrap;
 }
-/* THE EXCEPTION, KEPT (Thomas, 2026-10-18): Calendar's agenda rows and event markers keep a bar on the left. Drawn as a 3px block, not a border,
-   so the rule "no coloured edge" can be checked everywhere else. Used nowhere but the Calendar frame. */
-.ds-proposed .sdk-bar-kept { overflow: hidden; padding-left: calc(var(--row-pad-x) + 3px); }
-.ds-proposed .sdk-bar-kept::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--tint, var(--accent)); }
+/* THE EXCEPTION, KEPT (Thomas, 2026-10-18; end caps decided 2026-10-21): Calendar's agenda rows and event markers keep a bar on the left. It is a
+   straight, square-ended 3px block (a real ::before element, not a border or an inset shadow), the full height of the box, and the box has square
+   corners on the bar side (the other side keeps its radius). Nothing clips it: the box does not hide its overflow, so the radius cannot curve the bar.
+   --bar-bleed is the box's own edge width (1px on a row's hairline, 0 on a chip): the bar covers the hairline on its side and runs to the top and bottom edge.
+   Used nowhere but the Calendar and Markers frames. */
+.ds-proposed .sdk-bar-kept { --bar-bleed: 1px; padding-left: calc(var(--row-pad-x) + 3px); border-top-left-radius: 0; border-bottom-left-radius: 0; }
+.ds-proposed .sdk-bar-kept::before { content: ""; position: absolute; left: calc(-1 * var(--bar-bleed)); top: calc(-1 * var(--bar-bleed)); bottom: calc(-1 * var(--bar-bleed)); width: 3px; border-radius: 0; background: var(--tint, var(--accent)); }
 .ds-proposed .sdk-exception-flag { flex: none; padding: 1px 8px; border: 1px solid var(--border); border-radius: var(--radius-small); color: var(--text-dim); font-size: 11px; font-weight: 600; line-height: 16px; white-space: nowrap; }
 
 @media (prefers-reduced-motion: reduce) {

@@ -48,11 +48,10 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
   .pm-map { grid-template-columns: minmax(0, 1fr); }
 }`;
 
-  // Families still to decide: names only, in the groups Today uses. Nothing is drawn for them.
+  // Every family is decided (2026-10-21). What is left is Today only: names only, in the groups Today uses, nothing drawn.
+  // Every name here must say "Today only" (the runner checks it).
   window.DS_PROPOSED.undecided = [
-    { group: 'Controls', names: ['Editor window'] },
-    { group: 'Content', names: ['Map pins and map UI', 'Round buttons'] },
-    { group: 'Other', names: ['Tokens (Today only: colour, type, spacing, elevation, motion, icons and layout are decided)', 'Icons (Today only: the sizes and rules are decided in Foundations)', 'Live SDK pieces'] },
+    { group: 'Other', names: ['Tokens (Today only: colour, type, spacing, elevation, motion, icons and layout are decided)', 'Icons (Today only: the sizes and rules are decided in Foundations)', 'Live SDK pieces (Today only)'] },
   ];
 })();
 
@@ -226,7 +225,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
   }
 
   // ---- the page ----
-  const STATUS = { proposed: 'Proposed', approved: 'Approved', undecided: 'Not yet decided' };
+  const STATUS = { proposed: 'Proposed', approved: 'Approved', undecided: 'Today only' };
   const chip = (st) => `<span class="ds-status-chip ds-st-${st}">${STATUS[st]}</span>`;
   const nav = $('#ds-nav');
   const content = $('#ds-content');
@@ -298,7 +297,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     stats.families = decided.length;
     const sec = mk('section', 'ds-sec');
     sec.id = 'top';
-    sec.innerHTML = `<h2>Design system: proposed</h2><p class="ds-lead">The system as Thomas has decided it, one family at a time. Only decided components are drawn, as specs, from the proposed rules (<code>proposed.css</code>, all under <code>.ds-proposed</code>, so the product is untouched). A family not yet decided is listed by name only. ${chip('approved')} decided, ${chip('proposed')} drawn and waiting for a decision, ${chip('undecided')} not yet decided. What exists today is on its own page: <a href="index.html">Today's inventory</a>.</p>`;
+    sec.innerHTML = `<h2>Design system: proposed</h2><p class="ds-lead">The system as Thomas has decided it, one family at a time. Only decided components are drawn, as specs, from the proposed rules (<code>proposed.css</code>, all under <code>.ds-proposed</code>, so the product is untouched). What is only on Today's inventory is listed by name. ${chip('approved')} decided, ${chip('undecided')} Today only. What exists today is on its own page: <a href="index.html">Today's inventory</a>.</p><p class="ds-lead" id="ds-note"><b>This is the design system.</b> Today's inventory is a separate page until the migration ends.</p>`;
     content.appendChild(sec);
     api = { mk, h, makeFrame, mode: () => mode };
     sec.appendChild(mk('h3', 'ds-group', 'Decided'));
@@ -312,7 +311,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
       byId.set(p.id, { p, holder, block: null, ready: null, observer: null });
       navItem(p.navGroup ? ulF : ul, p.name, p.id, p.status, p.name + ' ' + p.id + ' ' + (p.words || ''));
     }
-    sec.appendChild(mk('h3', 'ds-group', 'Still to decide'));
+    sec.appendChild(mk('h3', 'ds-group', 'Today only'));
     for (const g of undecided) {
       const gul = navGroup(g.group);
       for (const name of g.names) {
@@ -320,7 +319,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
         const id = 'u-' + slug(name);
         const b = mk('section', 'ds-block ds-undecided');
         b.id = id; b.dataset.name = (name + ' ' + g.group).toLowerCase();
-        b.innerHTML = `<header><h3>${h(name)}</h3>${chip('undecided')}<span class="ds-count">${h(g.group)}</span></header><p class="ds-desc">Not yet decided.</p>`;
+        b.innerHTML = `<header><h3>${h(name)}</h3>${chip('undecided')}<span class="ds-count">${h(g.group)}</span></header><p class="ds-desc">Today only: it is in Today's inventory, not in this system.</p>`;
         sec.appendChild(b);
         navItem(gul, name, id, 'undecided', name + ' ' + g.group);
       }
@@ -344,7 +343,7 @@ body { margin: 0; padding: 0; background: var(--bg); color: var(--text); font-fa
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     let n = -1;
     while (n !== frameReady.length) { n = frameReady.length; await Promise.all(frameReady); }
-    $('#ds-status').textContent = `${stats.families} decided ${stats.families === 1 ? 'family' : 'families'}, ${stats.undecided} still to decide. A family draws its example frames when you open it or scroll near it.`;
+    $('#ds-status').textContent = `${stats.families} decided ${stats.families === 1 ? 'family' : 'families'}, ${stats.undecided} Today only. A family draws its example frames when you open it or scroll near it.`;
     stats.ready = true;
   }
 

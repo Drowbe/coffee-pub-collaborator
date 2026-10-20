@@ -113,7 +113,7 @@ const toastsProbe = async (ctx) => {
 
   // The page.
   const blk = document.getElementById('toasts');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Toasts family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Toasts family is not marked Approved');
   if (!blk || !/Today to proposed/.test(blk.textContent) || !/Markup contract/.test(blk.textContent) || !/Maps/.test(blk.textContent)) bad('the Toasts page lacks its Today to proposed table (with Maps) or its markup contract');
   if (document.getElementById('u-toasts-and-banners')) bad('Toasts and banners is still listed as Not yet decided');
   return JSON.stringify(out);

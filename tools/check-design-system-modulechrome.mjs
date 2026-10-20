@@ -10,7 +10,7 @@
  * docked one with a shadow, a popped-out one with an edge or a corner, a focus ring that is not 2px, inside the button (offset -2px) and the same on all four sides
  * at 1.25x and 1.5x, a toolbar that overflows without scrolling sideways or shows a scrollbar, a status line without the phone inset, a label more than 1px off the
  * middle of its button, a coloured one-sided edge or a thin coloured block anywhere in the family, a contrast pair under its minimum, an alias that does not look like
- * the new name, a frame that scrolls sideways, the family not marked Proposed, the undecided name still listed; in the stylesheet: a hex colour, a gradient, a colour
+ * the new name, a frame that scrolls sideways, the family not marked Approved, the undecided name still listed; in the stylesheet: a hex colour, a gradient, a colour
  * written out, a shadow other than none and --shadow-2, --shade, a side border other than the 1px --border divider, a name not defined.
  */
 export const id = 'modulechrome';
@@ -35,7 +35,7 @@ export function staticChecks({ fail, css, js, defined }) {
     'module-docked', 'module-floating', 'chat-head', 'mod-toolbar', 'tb-btn', 'tb-sep', 'tb-text', 'tb-progress', 'tb-progress-fill', 'mod-status', 'mod-status-items', 'mod-status-item', 'mod-status-text', 'mod-status-sep', 'mod-add']) {
     if (!defined.has(c)) fail(`the proposed stylesheets do not define the module window name .${c} (a new name or a kept alias)`);
   }
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-modulechrome.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-modulechrome.js: the family is not marked Approved');
 }
 
 export async function browserChecks(b) {
@@ -188,7 +188,7 @@ const probe = async () => {
     for (const tr of rows) { const p = tr.querySelector('[data-out="p"]').textContent; if (p === 'Fails') bad(`contrast: ${tr.children[0].textContent} is ${tr.querySelector('[data-out="r"]').textContent}`); if (!p) bad('the contrast table is not measured'); } }
   // The page: Proposed, the undecided name is out of the list.
   const blk = document.getElementById('modulechrome');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Module window family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Module window family is not marked Approved');
   if (document.getElementById('u-module-window-title-toolbar-and-status')) bad('Module window: title, toolbar and status is still listed as Not yet decided');
   if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Module window family lacks its Today to proposed or Chosen while drawing section');
   return JSON.stringify(out);

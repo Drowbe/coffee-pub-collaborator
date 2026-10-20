@@ -102,7 +102,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="progress-h"><a href="#progress">Progress bars and meters</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">one track, a small track, budget, AI and poll meters, a shimmer, the microphone level</span></header>
+    block.innerHTML = `<header><h3 id="progress-h"><a href="#progress">Progress bars and meters</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">one track, a small track, budget, AI and poll meters, a shimmer, the microphone level</span></header>
 <p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>One track</b>: 8px, fully round, <code>--border</code>, with an accent fill and a label with the value in text (never colour alone); a <b>6px small track</b> for toolbars and uploads. Every bar is <code>role="progressbar"</code> with <code>aria-valuenow</code>, <code>-min</code>, <code>-max</code> and a name. Budget, the AI meter and poll options are the same bar with their own fills. The call's microphone level is its own pattern. Stylesheet: <code>proposed-progress.css</code>, every rule under <code>.ds-proposed</code>.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#progress-anatomy">Anatomy</a><a href="#progress-tracks">Tracks</a><a href="#progress-meters">Meters</a><a href="#progress-use">In use</a><a href="#progress-widths">Widths</a><a href="#progress-rules">Usage rules</a><a href="#progress-map">Today to proposed</a><a href="#progress-contrast">Contrast</a><a href="#progress-tokens">Tokens</a><a href="#progress-markup">Markup contract</a></nav>
 
@@ -213,7 +213,7 @@ ${code(`<!-- a bar with its label and value -->
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'progress', covers: ['progress', 'meter', 'bar', 'budget-bar', 'ai-meter', 'mic-meter'], group: 'Controls', name: 'Progress bars and meters', status: 'proposed',
+    id: 'progress', covers: ['progress', 'meter', 'bar', 'budget-bar', 'ai-meter', 'mic-meter'], group: 'Controls', name: 'Progress bars and meters', status: 'approved',
     words: 'progress bar meter track fill budget over planned ai almost full poll option microphone mic level indeterminate shimmer progressbar aria-valuenow tb-progress ai-meter upload', render: renderProgress,
   });
 })();

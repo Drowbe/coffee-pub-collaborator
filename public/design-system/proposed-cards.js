@@ -150,7 +150,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       ${row({ cls: [], bar: true, tint: 'blue', title: 'Team call', sub: 'Agenda row', meta: '9:00' })}
       ${row({ bar: true, tint: 'orange', title: 'Dinner with Sam', sub: 'Outside event (.item.ext)', meta: '19:30' })}
       ${row({ bar: true, tint: 'purple', title: 'Visa deadline', sub: 'Marker (.item.marker)', meta: 'All day' })}
-      <div class="pm-cd-note">Seen nowhere else on this page. The bar is a 3px block in the event's colour, not a border; the row keeps the same hairline, fill and corner as every other row. Event chips in the month (.chip.ext, .chip.marker) are the same exception.</div>
+      <div class="pm-cd-note">Seen nowhere else on this page. The bar is a straight, square-ended 3px block in the event's colour, the full height of the row (not a border, not an inset shadow, not clipped by the corner); the row is square on the bar side and keeps its radius on the other; it keeps the same hairline and fill as every other row. Event chips in the month (.chip.ext, .chip.marker) are the same exception.</div>
     </div></div>`);
 
   const emptyBody = () => wrap(`<div class="pm-cd-two">
@@ -286,7 +286,7 @@ ${tbl(['Where', 'Today', 'Proposed'], [
     ['Option help callout (<code>.option-help</code>)', 'A bar', 'A neutral hairline and an icon. Drawn here.'],
     ['Toast', 'A bar', 'A neutral hairline and an icon. The toast\'s own look (shadow, place, timing) belongs to the later Toasts family; only the rule is drawn here.'],
     ['Host console environment', 'A 4px bar in the status colour', 'A status word: Active, Past due or Suspended. A plain placeholder label is drawn; the status chip belongs to the Chips family, built at the same time.'],
-    ['Calendar agenda rows and event markers', 'A bar in the event\'s colour', '<b>Exception, kept</b> (Thomas, 2026-10-18): <code>.item</code>, <code>.item.ext</code>, <code>.item.marker</code>, <code>.chip.ext</code>, <code>.chip.marker</code>. Drawn below, flagged, and used nowhere else.'],
+    ['Calendar agenda rows and event markers', 'A bar in the event\'s colour', '<b>Exception, kept</b> (Thomas, 2026-10-18): <code>.item</code>, <code>.item.ext</code>, <code>.item.marker</code>, <code>.chip.ext</code>, <code>.chip.marker</code>. Drawn below as a straight square 3px block, with square corners on the bar side; flagged, and used nowhere else.'],
   ])}
 <div data-slot="bars" style="margin-top:12px"></div>
 

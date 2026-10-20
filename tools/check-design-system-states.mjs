@@ -9,7 +9,7 @@
  * (12px and 20px with their classes) or does not turn; the rule in the live demo: an answer in 200ms shows no skeleton, an answer in 1.8s shows the skeleton after 300ms and the
  * list after the answer, a failure shows the error block with a Retry, and Retry loads again; an error whose colour is not the readable danger mix (4.5 to 1 in both modes), or the
  * old #e07a5f anywhere in the family; the field error line not 12px in the readable red; an alias (today's class name) that does not take the look; at 390 a page that scrolls
- * sideways; the family not marked Proposed, or its page naming Empty, loading and error states as not yet decided.
+ * sideways; the family not marked Approved, or its page naming Empty, loading and error states as not yet decided.
  */
 export const id = 'states';
 export const ownRules = true;
@@ -93,7 +93,7 @@ const statesProbe = async (ctx) => {
     for (const tr of rows) { const rr = tr.querySelector('[data-out="r"]').textContent; if (!rr) { bad('a contrast row is not worked out'); continue; } if (tr.querySelector('[data-out="p"]').textContent === 'Fails') bad(`contrast under its minimum: ${tr.children[0].textContent} (${rr})`); } }
   // The page.
   const blk = document.getElementById('states');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the States family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the States family is not marked Approved');
   if (!blk || !/Today to proposed/.test(blk.textContent) || !/300ms/.test(blk.textContent) || !/Markup contract/.test(blk.textContent) || !/#e07a5f/.test(blk.textContent)) bad('the States page lacks its Today to proposed table, the 300ms rule, the #e07a5f note or its markup contract');
   if (document.getElementById('u-empty-loading-and-error-states')) bad('Empty, loading and error states is still listed as Not yet decided');
   return JSON.stringify(out);

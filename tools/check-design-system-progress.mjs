@@ -7,7 +7,7 @@
  * indeterminate one has aria-busy and no valuenow); a value out of its range; a meter with no value in words; a planned fill that is not the accent at 35%; an over-budget bar
  * without the danger fill and the word "Over"; an AI bar at 90% or more without the danger fill and "Almost full"; a poll fill that is not the accent at 24%, not behind the row or
  * that takes the pointer; the shimmer not animated (1.4s) or with no reduced-motion rule; a microphone bar not 3px wide, a lit one not --ok, an unlit one not --border; a
- * raw rgba green; a hard-coded colour; the family not marked Proposed; the undecided list still naming Progress bars and meters.
+ * raw rgba green; a hard-coded colour; the family not marked Approved; the undecided list still naming Progress bars and meters.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -22,7 +22,7 @@ export function staticChecks({ fail, css, js, DS }) {
   if (!/prefers-reduced-motion:\s*reduce\)\s*\{[\s\S]*?animation:\s*none/.test(css)) fail('proposed-progress.css: no reduced-motion rule that stops the shimmer');
   if (!/animation:\s*shimmer\s+1\.4s/.test(css)) fail('proposed-progress.css: the shimmer is not 1.4s');
   if (!/--pg-h:\s*8px/.test(css) || !/--pg-h:\s*6px/.test(css)) fail('proposed-progress.css: the track heights are not 8px and 6px');
-  if (!/status: 'proposed'/.test(js)) fail('proposed-progress.js: the family is not marked Proposed');
+  if (!/status: 'approved'/.test(js)) fail('proposed-progress.js: the family is not marked Approved');
   const pj = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
   if (/'Progress bars and meters'/.test(pj)) fail("proposed.js: the undecided list still names 'Progress bars and meters'");
 }

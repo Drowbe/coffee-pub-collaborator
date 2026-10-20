@@ -7,7 +7,7 @@
  * a fallback icon that is not fa-user at half the diameter; a presence dot that is not 7px, without a 2px ring in the surface colour, not on the circle's lower right edge, not
  * --ok for online or --text-dim for away, or without a title and an aria-label; a list row with a dot and not the word; a stack that does not overlap by 8px with a ring on each
  * circle, or whose count is not the 14px micro count with 9px digits; a photo tile that is not 72, 52 or 96px, not --radius-medium, with a border or not object-fit cover;
- * an avatar with neither aria-hidden nor role="img" and a name; initials under 4.5 to 1 on the fill (default and each of the eight tints); the family not marked Proposed; the
+ * an avatar with neither aria-hidden nor role="img" and a name; initials under 4.5 to 1 on the fill (default and each of the eight tints); the family not marked Approved; the
  * stylesheet drawing an edge on one side, a border colour, a hard-coded colour; the undecided list still naming Avatars and portraits.
  */
 import fs from 'node:fs';
@@ -20,7 +20,7 @@ export function staticChecks({ fail, css, js, DS }) {
   if (/border-(left|right|top|bottom)\s*:/.test(css)) fail('proposed-avatars.css: a rule draws an edge on one side (no bar)');
   if (/#[0-9a-f]{3,8}\b/i.test(css)) fail('proposed-avatars.css: a hard-coded colour (tokens only)');
   for (const m of css.matchAll(/border-radius\s*:\s*([^;}]+)/g)) if (!/^(inherit|var\(--radius-(min|small|medium|large|round)\))$/.test(m[1].trim())) fail(`proposed-avatars.css: a radius that is not a token: ${m[1].trim()}`);
-  if (!/status: 'proposed'/.test(js)) fail('proposed-avatars.js: the family is not marked Proposed');
+  if (!/status: 'approved'/.test(js)) fail('proposed-avatars.js: the family is not marked Approved');
   if (/#1a1410/i.test(css)) fail('proposed-avatars: the raw #1a1410 fallback is back');
   const pj = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
   if (/'Avatars and portraits'/.test(pj)) fail("proposed.js: the undecided list still names 'Avatars and portraits'");

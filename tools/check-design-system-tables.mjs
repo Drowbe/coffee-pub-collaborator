@@ -27,7 +27,7 @@ export function staticChecks({ fail, css, js, defined }) {
   if (!group || /--accent/.test(group[0])) fail('proposed-tables.css: the group row uses the accent colour');
   if (/(^|[\s,}])\.ds-proposed\s+\.sdk-skel\s*[{,.]/.test(css)) fail('proposed-tables.css: it styles .sdk-skel itself; the skeleton belongs to the States family (scope table spacing under .sdk-table-skel)');
   if (!/position:\s*sticky/.test(css)) fail('proposed-tables.css: no sticky header');
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-tables.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-tables.js: the family is not marked Approved');
   for (const c of ['sdk-table', 'sdk-table-wrap', 'sdk-table-group', 'sdk-table-empty', 'sdk-table-check', 'sdk-sort', 'sdk-skel', 'sdk-member', 'sdk-member-pic', 'sdk-member-name', 'sdk-member-dot', 'sdk-member-toggle', 'sdk-members',
     'roles-table', 'files-table', 'roles-group', 'member', 'member-toggle', 'num', 'is-center']) if (!defined.has(c)) fail(`the proposed stylesheets do not define the tables name .${c}`);
 }
@@ -135,7 +135,7 @@ const tablesProbe = async () => {
     const g = d.querySelector('.roles-group th'); if (cs(g).color !== tok(d, 'var(--text)') || cs(g).backgroundColor !== bg(d, 'color-mix(in srgb, var(--text) 8%, var(--bg-section))')) bad('aliases: .roles-group is not the group row');
     const f = d.querySelector('.files-table td'); if (cs(f).paddingTop !== '8px' || cs(f).paddingLeft !== '10px') bad('aliases: .files-table cells are not 8px by 10px'); }
   const blk = document.getElementById('tables');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Tables family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Tables family is not marked Approved');
   if (document.getElementById('u-tables-and-lists-in-manage')) bad('"Tables and lists in Manage" is still listed as Not yet decided');
   if (!/roles-table/.test(blk ? blk.textContent : '') || !/Today to proposed/.test(blk ? blk.textContent : '') || !/Toasts family/.test(blk ? blk.textContent : '')) bad('the Tables family has no "Today to proposed" table, or does not reference the Banner of the Toasts family');
   return JSON.stringify(out);

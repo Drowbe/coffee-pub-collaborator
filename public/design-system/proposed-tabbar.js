@@ -164,7 +164,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="tabbar-h"><a href="#tabbar">Phone bottom bar (icon over label)</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">one tab bar for the space bar and the destination bar, 640px and below</span></header>
+    block.innerHTML = `<header><h3 id="tabbar-h"><a href="#tabbar">Phone bottom bar (icon over label)</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">one tab bar for the space bar and the destination bar, 640px and below</span></header>
 <p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch.</b> (1) One component for the space bar (<code>.subnav .modules-menu-item</code>) and the destination bar (<code>.dest-tab</code>). (2) The bar is 54px plus the safe-area inset, on the bar surface (<code>--header-bg</code>), with a 1px hairline on top. (3) A tab is flex 1 with a 56px least width, a 20px icon over an 11px label, 4px apart, and a target of 44px or more. (4) The current tab is the quiet neutral selected fill with the label in the accent mix, not accent words on a bare background. (5) A badge is the micro count at the icon's corner, 3px in. (6) Tabs that do not fit fold into a "..." tab (a menu) and the current tab keeps its place. (7) Focus is a 2px outline inside the tab. (8) The Join icon uses the ok status token.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#tabbar-anatomy">Anatomy</a><a href="#tabbar-widths">At 390 and 320</a><a href="#tabbar-states">States and badges</a><a href="#tabbar-space">Space bar: Join, Online, Leave</a><a href="#tabbar-dest">Destination bar</a><a href="#tabbar-context">In context</a><a href="#tabbar-contrast">Contrast</a><a href="#tabbar-map">Today to proposed</a><a href="#tabbar-alias">Aliases</a><a href="#tabbar-tokens">Tokens</a><a href="#tabbar-contract">Markup</a><a href="#tabbar-chosen">Chosen while drawing</a></nav>
 
@@ -269,7 +269,7 @@ ${tbl(['Chosen', 'Why', 'Other way'], [
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'tabbar', covers: ['subnav-modules', 'modules-menu-item', 'dest-tabs', 'dest-tab', 'tab-bar'], group: 'Containers', name: 'Phone bottom bar (icon over label)', status: 'proposed',
+    id: 'tabbar', covers: ['subnav-modules', 'modules-menu-item', 'dest-tabs', 'dest-tab', 'tab-bar'], group: 'Containers', name: 'Phone bottom bar (icon over label)', status: 'approved',
     words: 'phone bottom bar tab bar space bar destination bar icon over label current selected badge micro count fold more overflow join online leave safe area inset 54 56 20 11 modules-menu-item dest-tab', render: renderTabbar,
   });
 })();

@@ -126,7 +126,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="avatars-h"><a href="#avatars">Avatars and portraits</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">the circle in six sizes, initials, photo, icon, presence, the who's-around stack, the photo tile</span></header>
+    block.innerHTML = `<header><h3 id="avatars-h"><a href="#avatars">Avatars and portraits</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the circle in six sizes, initials, photo, icon, presence, the who's-around stack, the photo tile</span></header>
 <p class="ds-desc">Drawn from the research recommendations Thomas approved as a batch on 2026-10-20. <b>An avatar is always a circle</b>, in sizes <b>20, 24, 32, 40, 64</b> (and <b>96</b>, for editing a profile picture only). <b>Presence</b> is a 7px dot with a 2px ring, never colour alone. <b>A photo in a card is a tile, not an avatar</b>: an image with <code>--radius-medium</code> at 72, 52 or 96px. Stylesheet: <code>proposed-avatars.css</code>, every rule under <code>.ds-proposed</code>.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#avatars-anatomy">Anatomy</a><a href="#avatars-sizes">Sizes and fills</a><a href="#avatars-presence">Presence</a><a href="#avatars-stack">Stack</a><a href="#avatars-tiles">Photo tiles</a><a href="#avatars-use">In use</a><a href="#avatars-widths">Widths</a><a href="#avatars-rules">Usage rules</a><a href="#avatars-map">Today to proposed</a><a href="#avatars-contrast">Contrast</a><a href="#avatars-tokens">Tokens</a><a href="#avatars-markup">Markup contract</a></nav>
 
@@ -241,7 +241,7 @@ ${code(`<!-- an avatar by a name: decorative -->
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'avatars', covers: ['avatar', 'portrait', 'presence', 'photo-tile', 'whos-around'], group: 'Controls', name: 'Avatars and portraits', status: 'proposed',
+    id: 'avatars', covers: ['avatar', 'portrait', 'presence', 'photo-tile', 'whos-around'], group: 'Controls', name: 'Avatars and portraits', status: 'approved',
     words: 'avatars avatar portraits portrait initials photo presence online away dot ring who\'s around stack tile member tile profile picture circle fa-user sdk-avatar sdk-presence sdk-photo', render: renderAvatars,
   });
 })();

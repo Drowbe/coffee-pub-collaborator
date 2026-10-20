@@ -298,6 +298,11 @@ async function browse(cdp, label, url, scenarios, shots) {
       await ev('document.querySelectorAll("*").forEach((e) => { if (e.scrollTop) e.scrollTop = 0; })');
       if (page.today) problems.push(`${where}: the proposed page loaded Today's inventory (DS_FAMILIES or DS_SOURCES is set)`);
       if (page.drawnAlsoUndecided.length) problems.push(`${where}: named both as a drawn family and as still to decide: ${page.drawnAlsoUndecided.join(', ')}`);
+      // Every family is decided (2026-10-21): what is still listed must say it is Today only.
+      const notToday = JSON.parse(await ev(`JSON.stringify((window.DS_PROPOSED.undecided || []).flatMap((g) => g.names).filter((n) => !/Today only/.test(n)))`));
+      if (notToday.length) problems.push(`${where}: listed as not decided but not marked Today only: ${notToday.join(', ')}`);
+      const proposedChips = JSON.parse(await ev(`JSON.stringify(document.querySelectorAll('.ds-st-proposed').length)`));
+      if (proposedChips) problems.push(`${where}: ${proposedChips} family status chip(s) still say Proposed`);
       if (page.undecidedLinks) problems.push(`${where}: a not-yet-decided family has a link`);
     } else if (s.families < 20 || s.tokens < 40 || s.icons < 20) problems.push(`${where}: too little drawn (${s.families} families, ${s.tokens} tokens, ${s.icons} icons)`);
     const sideways = await ev('document.documentElement.scrollWidth - document.documentElement.clientWidth');

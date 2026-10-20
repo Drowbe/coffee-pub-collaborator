@@ -82,7 +82,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
       <div class="sdk-cal-cell is-today" style="min-height:0"><span class="sdk-cal-n">20</span><span class="sdk-cal-chips"><span class="sdk-cal-event sdk-bar-kept is-marker" data-tint="blue">Task due</span><span class="sdk-cal-event sdk-bar-kept is-marker is-past" data-tint="green">Poll closed</span></span></div>
       <div class="sdk-cal-cell" style="min-height:0"><span class="sdk-cal-n">22</span><span class="sdk-cal-chips"><span class="sdk-cal-event" data-tint="teal">Train to Lyon</span></span></div></div>
     <div class="sdk-list" style="margin-top:8px" data-exception="calendar-markers-row"><div class="sdk-row sdk-bar-kept" data-tint="purple"><span class="sdk-card-icon" style="--tint:var(--tint-purple)">${fa('flag')}</span><span class="sdk-row-main"><span class="sdk-row-title">Visa deadline</span><span class="sdk-row-sub">Agenda row (.item.marker): the icon in its tint chip, the bar kept</span></span><span class="sdk-row-meta">All day</span></div></div>
-    <p class="pm-mk-note"><span class="sdk-cal-flag">Exception, kept</span> The Calendar's markers (<code>.chip.marker</code>, <code>.item.marker</code>) keep their 3px bar (Thomas, 2026-10-18). The Planner's markers above do not.</p></div>`);
+    <p class="pm-mk-note"><span class="sdk-cal-flag">Exception, kept</span> The Calendar's markers (<code>.chip.marker</code>, <code>.item.marker</code>) keep their 3px bar (Thomas, 2026-10-18), a straight square block with square corners on the bar side (2026-10-21). The Planner's markers above do not.</p></div>`);
 
   const phoneBody = () => wrap(`<div class="sdk-panel pm-mk-page">
     <div class="sdk-mk-spine">${line(T('leave-by'), { when: 'Oct 19', note: 'Leave for the airport' })}</div>
@@ -131,7 +131,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="markers-h"><a href="#markers">Markers</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">the Planner's marker in three forms: line chip, day row, day tag</span></header>
+    block.innerHTML = `<header><h3 id="markers-h"><a href="#markers">Markers</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the Planner's marker in three forms: line chip, day row, day tag</span></header>
 <p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch the same day.</b> The three forms come from the itinerary plan's decision 2 (a moment on the line, a block in a day, a tag on a day), and the look from the approved Chips and Cards families. (1) <b>Line chip</b>: the Chips tag, 24px, with the marker's tint fill, its icon in a small icon chip, and its words; it replaces the pill with the 1.5px coloured border and the hatch. (2) <b>Day row</b>: the Cards row with the marker's icon in a tint chip, lighter than a booking. (3) <b>Day tag</b>: the Chips tag with the tint fill and 12px words; it loses its 1px coloured border and its capitals. The marker's colour carries meaning on the icon chip and the tint fill, and every form has its words. No form has a coloured border, a hatch, a stripe or a shadow, and none takes a phase colour. The colour is the person's own (the marker type's setting, set as <code>--marker</code>).</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#markers-forms">The three forms</a><a href="#markers-legend">Legend</a><a href="#markers-planner">In the Planner</a><a href="#markers-calendar">In the Calendar</a><a href="#markers-phone">On a phone</a><a href="#markers-contrast">Contrast</a><a href="#markers-map">Today to proposed</a><a href="#markers-alias">Aliases</a><a href="#markers-tokens">Tokens</a><a href="#markers-contract">Markup</a><a href="#markers-decide">What Thomas chooses</a></nav>
 
@@ -224,7 +224,7 @@ ${tbl(['Chosen here', 'Why', 'Other way'], [
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'markers', covers: ['marker', 'markerpill', 'daytag', 'line-chip', 'day-row', 'day-tag'], group: 'Content', name: 'Markers', status: 'proposed',
+    id: 'markers', covers: ['marker', 'markerpill', 'daytag', 'line-chip', 'day-row', 'day-tag'], group: 'Content', name: 'Markers', status: 'approved',
     words: 'markers marker planner line chip day row day tag legend markerpill daytag bookmark free time rest buffer meet leave travel day free day colour tint icon label calendar exception', render: renderMarkers,
   });
 })();

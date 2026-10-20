@@ -406,7 +406,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const block = mk('section', 'ds-block ds-spec');
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="foundations-h"><a href="#foundations">Foundations: spacing, elevation, motion, icons and layout</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">the scales every other family measures with; radius stays as it is</span></header>
+    block.innerHTML = `<header><h3 id="foundations-h"><a href="#foundations">Foundations: spacing, elevation, motion, icons and layout</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the scales every other family measures with; radius stays as it is</span></header>
 <p class="ds-desc"><b>Proposed 2026-10-20, from Thomas's decisions of 2026-10-20.</b> Six parts, each a handful of tokens. (1) <b>Spacing</b>: a strict 4px scale, <code>--space-0</code> (2px) and <code>--space-1</code> to <code>--space-9</code> (4 to 48); 6px and 10px are not on it. (2) <b>Elevation</b>: three shadows, one scrim (black at 55%), and named layers from content to debug. (3) <b>Radius</b>: the five tokens as they are, with a role for each. (4) <b>Motion</b>: 120ms and 200ms, one easing, two shared keyframes and one reduced-motion rule. (5) <b>Icons</b>: five sizes tied to the type steps, solid only. (6) <b>Layout</b>: breakpoints 640, 900 and 1200, and the heights and widths of the page. Every value is a token on this page only (all under <code>.ds-proposed</code>); the product is untouched. The names I chose are listed at the end for Thomas to confirm.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#foundations-spacing">Spacing</a><a href="#foundations-elevation">Elevation</a><a href="#foundations-layers">Layers</a><a href="#foundations-radius">Radius</a><a href="#foundations-motion">Motion</a><a href="#foundations-icons">Icons</a><a href="#foundations-layout">Layout</a><a href="#foundations-widths">Widths</a><a href="#foundations-map">Today to proposed</a><a href="#foundations-alias">Aliases and migration</a><a href="#foundations-tokens">Tokens</a><a href="#foundations-choices">Chosen for Thomas to confirm</a></nav>
 
@@ -648,7 +648,7 @@ ${tbl(['Chosen', 'Why', 'Other way'], [
 
   window.DS_PROPOSED.families.push({
     id: 'foundations', covers: ['spacing', 'space', 'elevation', 'shadow', 'scrim', 'layers', 'z-index', 'radius', 'motion', 'icons', 'layout', 'breakpoints'], group: 'Foundations', navGroup: 'Foundations',
-    name: 'Foundations: spacing, elevation, motion, icons and layout', status: 'proposed',
+    name: 'Foundations: spacing, elevation, motion, icons and layout', status: 'approved',
     words: 'foundations spacing space scale gap padding margin elevation shadow scrim layers layer z-index stack radius corner motion duration easing shimmer reaction reduced motion icons icon size solid regular layout breakpoint phone tablet wide safe area height top bar bottom bar module header toolbar status line page padding reading width',
     render,
   });

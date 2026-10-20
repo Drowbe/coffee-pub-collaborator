@@ -8,7 +8,7 @@
  * today card, or a phase without its status label; a day chip that is not a neutral chip (40px, 44px at 390, all the same height), a current chip that is not
  * --selected-bg, a lift or shadow, a coloured border, an in-trip chip without its 7px dot, a today chip without its 4px dot, a hover that is not a fill, a focus that
  * is not a 2px accent outline at -2px (the same on four sides at 1.25x and 1.5x); a gap count with a border; an alias that does not look like the new name; the
- * Add word showing on a phone; in the stylesheet a gradient, a hex colour, a transform, a shadow or an accent block; the family not marked Proposed.
+ * Add word showing on a phone; in the stylesheet a gradient, a hex colour, a transform, a shadow or an accent block; the family not marked Approved.
  */
 export const id = 'days';
 export const todayOnly = [];
@@ -20,7 +20,7 @@ export function staticChecks({ fail, css, js, defined }) {
   if (/box-shadow\s*:\s*(?!\s|none)/.test(css)) fail('proposed-days.css: a box-shadow other than none (the glow and the lift are gone)');
   if (/(?<![-\w])transform\s*:\s*(?!\s|none)/.test(css)) fail('proposed-days.css: a transform (the day chip no longer lifts)');
   if (/(dnum|sdk-day-date)[^{]*\{[^}]*background:\s*var\(--accent\)/.test(css)) fail('proposed-days.css: the date block is a solid accent block');
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-days.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-days.js: the family is not marked Approved');
   for (const c of ['sdk-day', 'sdk-day-head', 'sdk-day-date', 'sdk-day-main', 'sdk-day-labels', 'sdk-day-actions', 'sdk-day-empty', 'sdk-daychip', 'sdk-daychip-dot', 'sdk-daystrip', 'sdk-gap', 'sdk-gapcount',
     'day2', 'day-head2', 'dnum', 'dmeta', 'day-actions', 'daychip', 'gapcount', 'day-empty-add', 'is-current', 'is-today']) if (!defined.has(c)) fail(`the proposed stylesheets do not define the days name .${c}`);
 }
@@ -137,7 +137,7 @@ const daysProbe = async () => {
     if (cs(d.querySelector('.dnum')).backgroundColor !== bg(d, 'color-mix(in srgb, var(--text) 8%, var(--bg-card))')) bad('aliases: .dnum is not the neutral date block');
     const cur = d.querySelector('.daychip.current'); if (cs(cur).backgroundColor !== bg(d, 'var(--selected-bg)') || cs(cur).transform !== 'none' || cs(cur).boxShadow !== 'none') bad('aliases: .daychip.current is not the selected fill without a lift'); }
   const blk = document.getElementById('days');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Days family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Days family is not marked Approved');
   if (!/\.dnum/.test(blk ? blk.textContent : '') || !/Today to proposed/.test(blk ? blk.textContent : '')) bad('the Days family has no "Today to proposed" table naming .dnum');
   return JSON.stringify(out);
 };

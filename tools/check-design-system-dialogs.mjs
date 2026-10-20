@@ -187,7 +187,7 @@ const dialogsProbe = async (ctx) => {
 
   // The page.
   const blk = document.getElementById('dialogs');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Dialogs family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Dialogs family is not marked Approved');
   if (!blk || !/Today to proposed/.test(blk.textContent) || !/--shadow-3/.test(blk.textContent) || !/Markup contract/.test(blk.textContent)) bad('the Dialogs family page lacks its Today to proposed table, the --shadow-3 token or its markup contract');
   if (document.getElementById('u-dialogs-and-sheets')) bad('Dialogs and sheets is still listed as Not yet decided');
   return JSON.stringify(out);

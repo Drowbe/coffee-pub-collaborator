@@ -153,7 +153,7 @@ window.DS_PROPOSED = window.DS_PROPOSED || { families: [] };
     const tbl = (head, rows) => `<table class="ds-table"><thead><tr>${head.map((c) => `<th>${c}</th>`).join('')}</tr></thead><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const dim = (rows) => `<table class="ds-table"><tbody>${rows.map((r) => `<tr>${r.map((c, i) => (i === 0 ? `<td><b>${c}</b></td>` : `<td>${c}</td>`)).join('')}</tr>`).join('')}</tbody></table>`;
     const code = (s) => `<pre class="ds-pre">${h(s)}</pre>`;
-    block.innerHTML = `<header><h3 id="days-h"><a href="#days">Day cards and day chips</a></h3><span class="ds-status-chip ds-st-proposed">Proposed</span><span class="ds-count">the Planner's day card, its date block and labels, the day chip, the days-between count</span></header>
+    block.innerHTML = `<header><h3 id="days-h"><a href="#days">Day cards and day chips</a></h3><span class="ds-status-chip ds-st-approved">Approved</span><span class="ds-count">the Planner's day card, its date block and labels, the day chip, the days-between count</span></header>
 <p class="ds-desc"><b>Proposed 2026-10-20, from the research recommendations Thomas approved as a batch the same day.</b> (1) The day card is a Card from the approved Cards family: a hairline, no shadow, the card step on the panel step, the large corner, 12px of padding. (2) Its head is one row: a date block, the title and summary, the labels, a count and the "..." menu. (3) The date block is a neutral inner fill with the day number in Figtree 600 at 22px and the weekday at 11px in capitals; it is not a solid accent block. (4) The phase wash on the head is dropped: the phase shows as a Chips status label in its tint. (5) The current day is the neutral selected fill with a "Today" status label when it is today: no accent border, no glow. (6) The day chip is a small neutral chip: current is the selected fill, in the trip is a dot (not a coloured border), today is a small dot, hover is a quiet fill, and it no longer lifts. The date picker's today and chosen day are in the Calendar cells family.</p>
 <nav class="ds-toc" aria-label="In this family"><a href="#days-anatomy">Anatomy</a><a href="#days-states">Day card states</a><a href="#days-phases">Phase labels</a><a href="#days-chips">Day chip</a><a href="#days-strip">Strip and gap</a><a href="#days-context">In context</a><a href="#days-phone">On a phone</a><a href="#days-contrast">Contrast</a><a href="#days-map">Today to proposed</a><a href="#days-alias">Aliases</a><a href="#days-tokens">Tokens</a><a href="#days-contract">Markup</a><a href="#days-decide">What Thomas chooses</a></nav>
 
@@ -279,7 +279,7 @@ ${tbl(['Chosen here', 'Why', 'Other way'], [
   }
 
   window.DS_PROPOSED.families.push({
-    id: 'days', covers: ['day-card', 'day-chip', 'day2', 'daychip', 'gapcount'], group: 'Content', name: 'Day cards and day chips', status: 'proposed',
+    id: 'days', covers: ['day-card', 'day-chip', 'day2', 'daychip', 'gapcount'], group: 'Content', name: 'Day cards and day chips', status: 'approved',
     words: 'day days card chip planner date block head phase label current today in trip dot strip gap count between empty drop target itinerary dnum day2 daychip gapcount', render: renderDays,
   });
 })();

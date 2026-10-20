@@ -11,7 +11,7 @@
  * not the Chips tag, a rail that is not 6px, a cap that is not a heading with its own icon (stacked at a joint, the ending one first, wrapping, no end cap when a phase has no end),
  * a weight other than 400, 500 and 600 or text under 11px, a coloured one-sided edge or a coloured block under 5px outside the journey line, a focus that is not a 2px outline inside
  * the chip (the same on all four sides at 1.25x and 1.5x), a label more than 1px off the middle of its chip, a contrast pair under its minimum, an alias that does not look like the
- * new name, a frame that scrolls sideways, the family not marked Proposed, the undecided name still listed; in the stylesheet: a hex colour, a colour written out, a gradient other than
+ * new name, a frame that scrolls sideways, the family not marked Approved, the undecided name still listed; in the stylesheet: a hex colour, a colour written out, a gradient other than
  * the dashed today line, a shadow other than none and the pin's ring, a side border other than the divider, a weight over 600, a font size under 11px (the micro pin excepted), a name not defined.
  */
 export const id = 'journey';
@@ -38,7 +38,7 @@ export function staticChecks({ fail, css, js, defined }) {
     'status-track', 'status-band', 'status-band-box', 'status-band-name', 'status-band-icon', 'status-today', 'phase-strip', 'phase-bands', 'phase-band', 'phase-band-label', 'phase-band-span', 'phase-band-now', 'phase-today', 'phase-tag', 'phase-tag-now', 'lit']) {
     if (!defined.has(c)) fail(`the proposed stylesheets do not define the journey name .${c} (a new name or a kept alias)`);
   }
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-journey.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-journey.js: the family is not marked Approved');
 }
 
 export async function browserChecks(b) {
@@ -221,7 +221,7 @@ const probe = async () => {
     for (const tr of rows) { const p = tr.querySelector('[data-out="p"]').textContent; if (p === 'Fails') bad(`contrast: ${tr.children[0].textContent} is ${tr.querySelector('[data-out="r"]').textContent}`); if (!p) bad('the contrast table is not measured'); } }
   // ---- the page ----
   const blk = document.getElementById('journey');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Journey family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Journey family is not marked Approved');
   if (document.getElementById('u-status-strip-phases-and-countdown')) bad('Status strip, phases and countdown is still listed as Not yet decided');
   if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent) || !/caps and rail/i.test(blk.textContent)) bad('the Journey family lacks its Today to proposed, Chosen while drawing or caps and rail section');
   return JSON.stringify(out);

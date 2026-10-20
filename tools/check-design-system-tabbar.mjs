@@ -10,7 +10,7 @@
  * the readable red, a bar that overflows or squeezes a tab under 56px instead of folding, a fold that does not put the tabs that do not fit into a "..." tab with a menu above the bar
  * (the current tab kept in the bar, the pinned tabs kept, a pick that selects), a label more than 1px off the middle of its tab, a coloured one-sided edge or a thin coloured
  * block, a weight other than 400, 500 and 600 or text under 11px (the micro count excepted), a contrast pair under its minimum, an alias that does not look like the new name, a frame
- * that scrolls sideways, the family not marked Proposed, the undecided name still listed; in the stylesheet: a hex colour, a colour written out, a gradient, a shadow, a side border other
+ * that scrolls sideways, the family not marked Approved, the undecided name still listed; in the stylesheet: a hex colour, a colour written out, a gradient, a shadow, a side border other
  * than the hairline on top, a weight over 600, a font size under 11px, a name not defined.
  */
 export const id = 'tabbar';
@@ -31,7 +31,7 @@ export function staticChecks({ fail, css, js, defined }) {
   for (const c of ['sdk-tabbar', 'sdk-tabbar-tab', 'sdk-tabbar-glyph', 'sdk-tabbar-label', 'sdk-tabbar-more', 'sdk-tabbar-menu', 'subnav-modules', 'modules-menu-item', 'dest-tabs', 'dest-tab']) {
     if (!defined.has(c)) fail(`the proposed stylesheets do not define the tab bar name .${c} (a new name or a kept alias)`);
   }
-  if (!/ds-st-proposed/.test(js) || /ds-st-approved/.test(js)) fail('proposed-tabbar.js: the family is not marked Proposed');
+  if (!/ds-st-approved/.test(js) || /ds-st-proposed/.test(js)) fail('proposed-tabbar.js: the family is not marked Approved');
 }
 
 export async function browserChecks(b) {
@@ -172,7 +172,7 @@ const probe = async () => {
     for (const tr of rows) { const p = tr.querySelector('[data-out="p"]').textContent; if (p === 'Fails') bad(`contrast: ${tr.children[0].textContent} is ${tr.querySelector('[data-out="r"]').textContent}`); if (!p) bad('the contrast table is not measured'); } }
   // ---- the page ----
   const blk = document.getElementById('tabbar');
-  if (!blk || !blk.querySelector('.ds-st-proposed') || blk.querySelector('.ds-st-approved')) bad('the Tab bar family is not marked Proposed');
+  if (!blk || !blk.querySelector('.ds-st-approved') || blk.querySelector('.ds-st-proposed')) bad('the Tab bar family is not marked Approved');
   if (document.getElementById('u-phone-bottom-bar-icon-over-label')) bad('Phone bottom bar (icon over label) is still listed as Not yet decided');
   if (!blk || !/Chosen while drawing/.test(blk.textContent) || !/Today to proposed/.test(blk.textContent)) bad('the Tab bar family lacks its Today to proposed or Chosen while drawing section');
   return JSON.stringify(out);

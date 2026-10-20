@@ -7,7 +7,7 @@
  * standalone link or link button underlined at rest, or not underlined on hover and on focus; a link in a nav, a tab, a menu row, a button or a chip that is underlined;
  * a :visited rule that changes the colour; a focus that is not a 2px solid accent outline 2px off the text, or not equal on all four sides at 1.25x and 1.5x;
  * an external link without the 12px aria-hidden icon, the visually hidden words, target="_blank" and rel="noopener" (or an icon on a link that stays in the app);
- * a link button without its target (32px high, 44px on a phone); a link chip that is not a 24px Chips tag; the family not marked Proposed; the stylesheet
+ * a link button without its target (32px high, 44px on a phone); a link chip that is not a 24px Chips tag; the family not marked Approved; the stylesheet
  * styling a bare a, drawing an edge on one side, or using a hard-coded colour; the undecided list still naming Links.
  */
 import fs from 'node:fs';
@@ -27,7 +27,7 @@ export function staticChecks({ fail, css, js, DS }) {
   if (!/--text-link:/.test(css)) fail('proposed-links.css: no --text-link token');
   if (!/text-underline-offset:\s*var\(--link-offset\)/.test(css) || !/--link-offset:\s*2px/.test(css)) fail('proposed-links.css: the underline offset is not 2px');
   if (!/--link-icon:\s*12px/.test(css)) fail('proposed-links.css: the external icon is not 12px');
-  if (!/status: 'proposed'/.test(js)) fail('proposed-links.js: the family is not marked Proposed');
+  if (!/status: 'approved'/.test(js)) fail('proposed-links.js: the family is not marked Approved');
   const pj = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
   if (/'Links'/.test(pj)) fail("proposed.js: the undecided list still names 'Links'");
 }

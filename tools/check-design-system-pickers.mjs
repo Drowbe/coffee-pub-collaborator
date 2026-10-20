@@ -9,7 +9,7 @@
  * rows not 32px (44px on a phone); a chosen row that is not --selected-bg; an icon grid that is not 8 columns of 32px (6 of 44px on a phone); a selected icon,
  * swatch or tile without the check, or with an accent fill or an accent border anywhere in the family's frames; a swatch not 24px (a cell not 28px, 44px on
  * a phone); the native colour input missing as "Custom"; a tile selection that is not --selected-bg; the sheet without 44px rows and large top corners;
- * the family not marked Proposed; the stylesheet drawing an edge on one side other than a neutral divider, or using a hard-coded colour; the undecided list
+ * the family not marked Approved; the stylesheet drawing an edge on one side other than a neutral divider, or using a hard-coded colour; the undecided list
  * still naming the pickers.
  */
 import fs from 'node:fs';
@@ -24,7 +24,7 @@ export function staticChecks({ fail, css, js, DS }) {
   if (/box-shadow\s*:\s*inset|inset\s+\d/.test(css)) fail('proposed-pickers.css: an inset shadow (a bar)');
   if (/text-decoration\s*:\s*underline/.test(css)) fail('proposed-pickers.css: an underline');
   if (/background[^;]*var\(--accent\)\s*;/.test(css.replace(/outline[^;]*;/g, ''))) fail('proposed-pickers.css: an accent fill (selected is neutral)');
-  if (!/status: 'proposed'/.test(js)) fail('proposed-pickers.js: the family is not marked Proposed');
+  if (!/status: 'approved'/.test(js)) fail('proposed-pickers.js: the family is not marked Approved');
   const pj = fs.readFileSync(path.join(DS, 'proposed.js'), 'utf8');
   if (/'Pickers: date, kind, currency'/.test(pj)) fail("proposed.js: the undecided list still names 'Pickers: date, kind, currency'");
 }
